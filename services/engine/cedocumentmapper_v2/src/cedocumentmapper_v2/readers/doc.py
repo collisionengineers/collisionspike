@@ -26,7 +26,16 @@ class DocDocumentReader(DocumentReader):
 
         notes = []
         
-        # Method 1: Try Microsoft Word COM Automation
+        # Method 1: Try readable embedded streams first. This avoids launching
+        # Word for every legacy DOC when the corpus already contains usable text.
+        try:
+            text = self._read_via_binary_text_scrape(path)
+            notes.append("Read DOC using embedded text scrape fallback.")
+            return self._build_model_from_text(path, text, notes)
+        except Exception as scrape_exc:
+            notes.append(f"Embedded text scrape failed: {scrape_exc}")
+
+        # Method 2: Try Microsoft Word COM Automation
         try:
             text = self._read_via_word_com(path)
             notes.append("Read DOC using Microsoft Word automation.")
@@ -34,7 +43,7 @@ class DocDocumentReader(DocumentReader):
         except Exception as com_exc:
             notes.append(f"Word COM extraction failed: {com_exc}")
 
-        # Method 2: Try LibreOffice head-less docx conversion
+        # Method 3: Try LibreOffice head-less docx conversion
         try:
             text = self._read_via_libreoffice(path)
             notes.append("Read DOC using LibreOffice conversion.")
@@ -42,22 +51,13 @@ class DocDocumentReader(DocumentReader):
         except Exception as lo_exc:
             notes.append(f"LibreOffice conversion failed: {lo_exc}")
 
-        # Method 3: Try antiword text extraction for old binary DOC files.
+        # Method 4: Try antiword text extraction for old binary DOC files.
         try:
             text = self._read_via_antiword(path)
             notes.append("Read DOC using antiword fallback.")
             return self._build_model_from_text(path, text, notes)
         except Exception as antiword_exc:
             notes.append(f"antiword extraction failed: {antiword_exc}")
-
-        # Method 4: Some legacy DOC files in the corpus contain readable text
-        # streams even when conversion tools are unavailable.
-        try:
-            text = self._read_via_binary_text_scrape(path)
-            notes.append("Read DOC using embedded text scrape fallback.")
-            return self._build_model_from_text(path, text, notes)
-        except Exception as scrape_exc:
-            notes.append(f"Embedded text scrape failed: {scrape_exc}")
 
         raise ReaderError(
             "Could not read DOC. Microsoft Word, LibreOffice, or antiword is required to extract text from legacy .doc files."

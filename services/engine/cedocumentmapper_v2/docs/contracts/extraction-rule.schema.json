@@ -20,7 +20,8 @@
         "regex",
         "presence",
         "manual",
-        "email_date"
+        "email_date",
+        "acsp_claim_form"
       ]
     },
     "labels": { "type": "array", "items": { "type": "string" } },

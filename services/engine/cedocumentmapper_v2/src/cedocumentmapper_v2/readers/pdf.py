@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 import fitz
@@ -38,24 +39,41 @@ def configure_tesseract() -> bool:
     """Configure pytesseract using bundled binary if available."""
     try:
         tess_env = os.environ.get("CEDOCUMENTMAPPER_TESSERACT_DIR")
-        tess_dir = Path(tess_env) if tess_env else resource_path("tesseract")
+        tess_dirs = []
+        if tess_env:
+            tess_dirs.append(Path(tess_env))
+        tess_dirs.extend(
+            [
+                resource_path("tesseract"),
+                Path(os.environ.get("ProgramFiles", "")) / "Tesseract-OCR",
+                Path(os.environ.get("ProgramFiles(x86)", "")) / "Tesseract-OCR",
+            ]
+        )
 
-        if not tess_dir.exists():
-            return False
+        path_binary = shutil.which("tesseract")
+        if path_binary:
+            pytesseract.pytesseract.tesseract_cmd = path_binary
+            return True
 
-        candidates = [
-            tess_dir / "tesseract.exe",
-            tess_dir / "tesseract",
-        ]
-        binary = next((c for c in candidates if c.exists()), None)
-        if binary is None:
-            return False
+        for tess_dir in tess_dirs:
+            if not tess_dir.exists():
+                continue
 
-        pytesseract.pytesseract.tesseract_cmd = str(binary)
-        tessdata = tess_dir / "tessdata"
-        if tessdata.exists():
-            os.environ["TESSDATA_PREFIX"] = str(tessdata)
-        return True
+            candidates = [
+                tess_dir / "tesseract.exe",
+                tess_dir / "tesseract",
+            ]
+            binary = next((c for c in candidates if c.exists()), None)
+            if binary is None:
+                continue
+
+            pytesseract.pytesseract.tesseract_cmd = str(binary)
+            tessdata = tess_dir / "tessdata"
+            if tessdata.exists():
+                os.environ["TESSDATA_PREFIX"] = str(tessdata)
+            return True
+
+        return False
     except Exception:
         return False
 

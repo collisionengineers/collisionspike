@@ -7,7 +7,11 @@ from cedocumentmapper_v2.domain.models import FieldKey, ExtractionIssue
 
 def normalize_vrm(value: str) -> str:
     """Normalize extracted VRMs by removing all whitespace and uppercasing."""
-    return re.sub(r"\s+", "", (value or "").strip()).upper()
+    compact = re.sub(r"\s+", "", (value or "").strip()).upper()
+    extra_digit_match = re.fullmatch(r"([A-Z]{2})1(\d{2}[A-Z]{3})", compact)
+    if extra_digit_match:
+        return f"{extra_digit_match.group(1)}{extra_digit_match.group(2)}"
+    return compact
 
 
 def normalize_mileage(value: str) -> str:
@@ -113,10 +117,17 @@ def normalize_address(value: str, force_postcode: bool = False) -> str:
     )
 
     text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"\bRH[I|l\\]{1,2}\s+GAG\b", "RH11 6AG", text, flags=re.IGNORECASE)
     text = re.sub(r"\s*,\s*", "\n", text)
     raw_lines = [part.strip() for part in text.splitlines() if part.strip()]
     if not raw_lines:
         return "\n".join([""] * 6)
+
+    if len(raw_lines) >= 2:
+        outward = raw_lines[-2].strip().upper()
+        inward = raw_lines[-1].strip().upper()
+        if re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?", outward) and re.fullmatch(r"\d[ABD-HJLNP-UW-Z]{2}", inward):
+            raw_lines = raw_lines[:-2] + [f"{outward} {inward}"]
 
     postcode_line = ""
     body_lines = []

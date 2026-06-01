@@ -1639,6 +1639,91 @@
       "use_current_date_for_inspection_date": true,
       "force_postcode_for_inspection_address": false,
       "engineer_report": false
+    },
+    {
+      "name": "ACSP",
+      "priority": 10,
+      "detect_phrases": [
+        "Claim Form"
+      ],
+      "detect": {
+        "required_phrases": [
+          "Claim Form"
+        ],
+        "optional_phrases": [
+          "Owner Details",
+          "Driver Details",
+          "Vehicle Details",
+          "Accident Details",
+          "Private & Confidential"
+        ],
+        "negative_phrases": [],
+        "minimum_confidence": 0.9
+      },
+      "field_rules": {
+        "work_provider": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "vrm": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "vehicle_model": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "claimant_name": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "reference": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "incident_date": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "instruction_date": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "inspection_date": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "inspection_address": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "accident_circumstances": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "vat_status": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "mileage": {
+          "method": "acsp_claim_form",
+          "config": ""
+        },
+        "mileage_unit": {
+          "method": "acsp_claim_form",
+          "config": ""
+        }
+      },
+      "suppress_fallback_fields": [
+        "reference",
+        "instruction_date",
+        "inspection_date",
+        "vat_status",
+        "mileage",
+        "mileage_unit"
+      ],
+      "force_postcode_for_inspection_address": true,
+      "engineer_report": false
     }
   ]
 }

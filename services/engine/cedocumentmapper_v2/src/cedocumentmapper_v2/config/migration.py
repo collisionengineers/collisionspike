@@ -67,8 +67,10 @@ def migrate_provider(v1_prov: dict[str, Any]) -> dict[str, Any]:
         kind = "label_same_line"
         rule_data: dict[str, Any] = {"id": f"{safe_id}_{key_str}"}
 
+        if method == "acsp_claim_form":
+            kind = "acsp_claim_form"
         # Handle presence checks for vat_status & mileage_unit
-        if field_key in {FieldKey.VAT_STATUS, FieldKey.MILEAGE_UNIT}:
+        elif field_key in {FieldKey.VAT_STATUS, FieldKey.MILEAGE_UNIT}:
             kind = "presence"
             rule_data["tokens"] = split_tokens(config)
             if field_key == FieldKey.VAT_STATUS:
@@ -140,18 +142,30 @@ def migrate_provider(v1_prov: dict[str, Any]) -> dict[str, Any]:
         "name": name,
         "work_provider": work_provider,
         "enabled": True,
-        "priority": 0,
+        "priority": int(v1_prov.get("priority", 0) or 0),
         "detect": detect,
         "field_rules": field_rules,
     }
+    if isinstance(v1_prov.get("detect"), dict):
+        migrated["detect"] = v1_prov["detect"]
 
     # Preserve v1 provider fields as user data. Known booleans stay at root for
     # compatibility, and any unknown keys are kept under metadata.v1_unknown.
-    for opt in ["engineer_report", "use_current_date_for_inspection_date", "force_postcode_for_inspection_address"]:
+    for opt in ["engineer_report", "use_current_date_for_inspection_date", "force_postcode_for_inspection_address", "suppress_fallback_fields"]:
         if opt in v1_prov:
             migrated[opt] = v1_prov[opt]
 
-    known_keys = {"name", "field_rules", "detect_phrases", "engineer_report", "use_current_date_for_inspection_date", "force_postcode_for_inspection_address"}
+    known_keys = {
+        "name",
+        "priority",
+        "field_rules",
+        "detect",
+        "detect_phrases",
+        "engineer_report",
+        "use_current_date_for_inspection_date",
+        "force_postcode_for_inspection_address",
+        "suppress_fallback_fields",
+    }
     unknown = {k: v for k, v in v1_prov.items() if k not in known_keys}
     if unknown:
         migrated["metadata"] = {"v1_unknown": unknown}

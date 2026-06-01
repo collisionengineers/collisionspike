@@ -4,6 +4,7 @@ import io
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 import zipfile
 from datetime import datetime
@@ -32,6 +33,7 @@ class DocumentMapperService:
 
     def __init__(self, app_data_dir: Path | None = None, seed_path: Path | None = None) -> None:
         self.app_data_dir = app_data_dir or APP_DATA_DIR
+        self.merge_seed_on_load = app_data_dir is None
         self.seed_path = seed_path or Path("providers.json")
         self.config_path = self.app_data_dir / "providers.json"
         self.detector = ProviderDetector()
@@ -45,6 +47,10 @@ class DocumentMapperService:
         if data.get("schema_version", 1) < 2:
             data = migrate_providers_config(data)
             self.save_provider_catalog(data.get("providers", []))
+        if self.merge_seed_on_load:
+            data, changed = self._merge_missing_seed_providers(data)
+            if changed:
+                self.save_provider_catalog(cast(list[dict[str, Any]], data.get("providers", [])))
         return cast(dict[str, Any], data)
 
     def load_providers(self) -> list[dict[str, Any]]:
@@ -399,14 +405,11 @@ class DocumentMapperService:
 
     def _seed_providers_file(self) -> None:
         self.app_data_dir.mkdir(parents=True, exist_ok=True)
-        candidates = [
-            self.seed_path,
-            Path(__file__).resolve().parents[3] / "providers.json",
-        ]
-        for candidate in candidates:
-            if candidate.exists():
-                shutil.copy2(candidate, self.config_path)
-                return
+        seed_catalog = self._load_seed_catalog()
+        if seed_catalog is not None:
+            with open(self.config_path, "w", encoding="utf-8") as fh:
+                json.dump(seed_catalog, fh, indent=2)
+            return
         self.save_provider_catalog(
             [
                 {
@@ -420,3 +423,46 @@ class DocumentMapperService:
                 }
             ]
         )
+
+    def _seed_candidates(self) -> list[Path]:
+        candidates = [
+            self.seed_path,
+            Path(__file__).resolve().parents[3] / "providers.json",
+            Path(sys.argv[0]).parent / "providers.json",
+        ]
+        if hasattr(sys, "_MEIPASS"):
+            candidates.append(Path(getattr(sys, "_MEIPASS")) / "providers.json")
+        return candidates
+
+    def _load_seed_catalog(self) -> dict[str, Any] | None:
+        for candidate in self._seed_candidates():
+            if not candidate.exists():
+                continue
+            with open(candidate, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            if data.get("schema_version", 1) < 2:
+                data = migrate_providers_config(data)
+            return cast(dict[str, Any], data)
+        return None
+
+    def _merge_missing_seed_providers(self, data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+        seed_catalog = self._load_seed_catalog()
+        if not seed_catalog:
+            return data, False
+
+        providers = list(cast(list[dict[str, Any]], data.get("providers", [])))
+        existing_ids = {str(provider.get("id", "")).lower() for provider in providers}
+        appended = []
+        for seed_provider in cast(list[dict[str, Any]], seed_catalog.get("providers", [])):
+            seed_id = str(seed_provider.get("id", "")).lower()
+            if seed_id and seed_id not in existing_ids:
+                appended.append(seed_provider)
+                existing_ids.add(seed_id)
+
+        if not appended:
+            return data, False
+
+        merged = dict(data)
+        merged["schema_version"] = 2
+        merged["providers"] = providers + appended
+        return merged, True

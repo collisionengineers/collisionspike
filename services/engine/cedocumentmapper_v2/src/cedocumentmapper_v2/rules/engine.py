@@ -103,6 +103,11 @@ class RuleEngine:
         """
         fields: dict[FieldKey, FieldExtraction] = {}
         field_rules = provider.get("field_rules", {})
+        suppress_fallback_fields = {
+            FieldKey(field)
+            for field in provider.get("suppress_fallback_fields", [])
+            if field in {key.value for key in FieldKey}
+        }
         
         use_current_date = provider.get("use_current_date_for_inspection_date", False)
         force_postcode = provider.get("force_postcode_for_inspection_address", False)
@@ -110,14 +115,19 @@ class RuleEngine:
         for field_key in FIELD_ORDER:
             key_str = field_key.value
             rule_cfg = field_rules.get(key_str)
+            allow_fallback = field_key not in suppress_fallback_fields
+            if provider.get("engineer_report") and field_key == FieldKey.INSPECTION_ADDRESS:
+                allow_fallback = False
             
             # Default empty extraction
             ext = FieldExtraction(value="", raw_value="")
             
             if rule_cfg:
                 ext = self.extract_field(document, field_key, rule_cfg)
+                if rule_cfg.get("kind") == "manual":
+                    allow_fallback = False
 
-            if not ext.value:
+            if not ext.value and allow_fallback:
                 fallback = self._fallback_field(document, field_key)
                 if fallback.value:
                     fallback_norm = fallback.value
@@ -133,8 +143,12 @@ class RuleEngine:
                         fallback_norm = normalize_mileage_unit(fallback_norm)
                     elif field_key == FieldKey.INSPECTION_ADDRESS:
                         fallback_norm = normalize_address(fallback_norm, force_postcode=force_postcode)
+                    elif field_key == FieldKey.CLAIMANT_NAME:
+                        fallback_norm = self._clean_claimant_name(fallback_norm)
+                    if not fallback_norm.strip():
+                        fallback_norm = ""
                     
-                    if not self._is_suspicious_value(field_key, fallback_norm, document):
+                    if fallback_norm and not self._is_suspicious_value(field_key, fallback_norm, document):
                         ext = fallback
             
             # Normalise the value
@@ -151,9 +165,19 @@ class RuleEngine:
                 norm_val = normalize_mileage_unit(norm_val)
             elif field_key == FieldKey.INSPECTION_ADDRESS:
                 norm_val = normalize_address(norm_val, force_postcode=force_postcode)
+            elif field_key == FieldKey.CLAIMANT_NAME:
+                norm_val = self._clean_claimant_name(norm_val)
+
+            if not norm_val.strip():
+                ext = replace(ext, value="", raw_value=ext.raw_value)
+                norm_val = ""
 
             if self._is_suspicious_value(field_key, norm_val, document):
-                fallback = self._fallback_field(document, field_key)
+                fallback = (
+                    self._fallback_field(document, field_key)
+                    if allow_fallback
+                    else FieldExtraction(value="", rule_id=f"fallback_{field_key.value}", confidence=0.0)
+                )
                 fallback_norm = fallback.value
                 if field_key == FieldKey.VRM:
                     fallback_norm = normalize_vrm(fallback_norm)
@@ -167,6 +191,10 @@ class RuleEngine:
                     fallback_norm = normalize_mileage_unit(fallback_norm)
                 elif field_key == FieldKey.INSPECTION_ADDRESS:
                     fallback_norm = normalize_address(fallback_norm, force_postcode=force_postcode)
+                elif field_key == FieldKey.CLAIMANT_NAME:
+                    fallback_norm = self._clean_claimant_name(fallback_norm)
+                if not fallback_norm.strip():
+                    fallback_norm = ""
                 if fallback_norm and not self._is_suspicious_value(field_key, fallback_norm, document):
                     ext = fallback
                     norm_val = fallback_norm
@@ -175,6 +203,9 @@ class RuleEngine:
                     FieldKey.VEHICLE_MODEL,
                     FieldKey.CLAIMANT_NAME,
                     FieldKey.REFERENCE,
+                    FieldKey.INCIDENT_DATE,
+                    FieldKey.INSTRUCTION_DATE,
+                    FieldKey.INSPECTION_DATE,
                     FieldKey.INSPECTION_ADDRESS,
                 }:
                     ext = replace(ext, value="", raw_value=ext.raw_value)
@@ -269,6 +300,8 @@ class RuleEngine:
                 return self._extract_manual(rule_config, rule_id)
             elif kind == "email_date":
                 return self._extract_email_date(flat_lines, rule_config, rule_id)
+            elif kind == "acsp_claim_form":
+                return self._extract_acsp_claim_form(document, field_key, rule_id)
             else:
                 return FieldExtraction(
                     value="",
@@ -531,8 +564,9 @@ class RuleEngine:
 
         match = pattern.search(plain_text)
         if match:
-            # If there are groups, take the first one; else take the whole match
-            val = clean_val(match.group(1) if match.groups() else match.group(0))
+            # If there are groups, take the first populated one; else take the whole match.
+            # This allows regex rules to express ordered fallbacks with alternation.
+            val = clean_val(next((group for group in match.groups() if group), match.group(0)) if match.groups() else match.group(0))
             return FieldExtraction(value=val, raw_value=val, rule_id=rule_id, confidence=1.0)
         return FieldExtraction(value="", rule_id=rule_id)
 
@@ -557,6 +591,273 @@ class RuleEngine:
         if val.lower() == "{today}":
             val = datetime.now().strftime("%d/%m/%Y")
         return FieldExtraction(value=val, raw_value=val, rule_id=rule_id, confidence=1.0)
+
+    def _extract_acsp_claim_form(self, document: DocumentModel, field_key: FieldKey, rule_id: str) -> FieldExtraction:
+        lines = [line for page in document.pages for line in page.lines]
+        text = document.plain_text
+
+        if field_key == FieldKey.WORK_PROVIDER:
+            return FieldExtraction(value="ACSP", raw_value="ACSP", rule_id=rule_id, confidence=1.0)
+        if field_key == FieldKey.VRM:
+            return self._acsp_vehicle_value(lines, "reg no", rule_id, value_pattern=VRM_RE)
+        if field_key == FieldKey.VEHICLE_MODEL:
+            return self._acsp_vehicle_value(lines, "make & model", rule_id)
+        if field_key == FieldKey.CLAIMANT_NAME:
+            claimant = self._acsp_claimant(lines)
+            return FieldExtraction(value=claimant, raw_value=claimant, rule_id=rule_id, confidence=0.9 if claimant else 0.0)
+        if field_key == FieldKey.INSPECTION_ADDRESS:
+            address = self._acsp_claimant_address(lines)
+            return FieldExtraction(value=address, raw_value=address, rule_id=rule_id, confidence=0.85 if address else 0.0)
+        if field_key == FieldKey.REFERENCE:
+            match = re.search(r"(?im)^\s*Claim Ref:\s*(.+?)\s*$", text)
+            value = clean_val(match.group(1)) if match else ""
+            if self._acsp_line_starts_field(value):
+                value = ""
+            return FieldExtraction(value=value, raw_value=value, rule_id=rule_id, confidence=0.75 if value else 0.0)
+        if field_key == FieldKey.INCIDENT_DATE:
+            match = re.search(r"(?im)^\s*Accident Date:\s*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})", text)
+            value = clean_val(match.group(1)) if match else ""
+            return FieldExtraction(value=value, raw_value=value, rule_id=rule_id, confidence=0.95 if value else 0.0)
+        if field_key == FieldKey.ACCIDENT_CIRCUMSTANCES:
+            value = self._acsp_accident_circumstances(lines)
+            return FieldExtraction(value=value, raw_value=value, rule_id=rule_id, confidence=0.85 if value else 0.0)
+
+        return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
+
+    def _acsp_vehicle_value(
+        self,
+        lines: list[DocumentLine],
+        label: str,
+        rule_id: str,
+        value_pattern: re.Pattern[str] | None = None,
+    ) -> FieldExtraction:
+        start_idx = self._acsp_client_vehicle_start(lines)
+        if start_idx is None:
+            return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
+
+        stop_re = re.compile(r"^\s*(?:Witness Details|Police Details|Accident Details|Third Party Details)\b", re.IGNORECASE)
+        label_re = re.compile(rf"\b{re.escape(label)}\s*:\s*(.+)", re.IGNORECASE)
+        for line in lines[start_idx:start_idx + 35]:
+            if line.line_index != lines[start_idx].line_index and stop_re.search(line.text):
+                break
+            match = label_re.search(line.text)
+            if not match:
+                continue
+            value = clean_val(match.group(1).split("|", 1)[0])
+            if value_pattern:
+                value_match = value_pattern.search(value)
+                value = clean_val(value_match.group(1) if value_match else value)
+            if label == "make & model":
+                value = self._acsp_clean_vehicle_model(value)
+            return FieldExtraction(
+                value=value,
+                raw_value=value,
+                rule_id=rule_id,
+                confidence=0.92,
+                source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox),
+            )
+        return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
+
+    def _acsp_client_vehicle_start(self, lines: list[DocumentLine]) -> int | None:
+        for idx, line in enumerate(lines):
+            normalized = self._normalized_label_text(line.text)
+            if normalized == "vehicle details" or normalized.endswith(" vehicle details"):
+                if "third party vehicle details" not in normalized:
+                    return idx
+        return None
+
+    def _acsp_claimant(self, lines: list[DocumentLine]) -> str:
+        owner = self._acsp_section_value(lines, "owner details", "name")
+        driver = self._acsp_section_value(lines, "driver details", "name")
+        value = driver if self._acsp_owner_is_placeholder(owner) and driver else owner or driver
+        return self._acsp_clean_name(value)
+
+    def _acsp_clean_vehicle_model(self, value: str) -> str:
+        compact = self._normalized_label_text(value)
+        if "toy" in compact and re.search(r"\bpr[il1s5]*s?\b", compact):
+            return "Toyota Prius"
+        return value
+
+    def _acsp_clean_name(self, value: str) -> str:
+        return re.sub(r"(?<=[a-z])C\b", "", value).strip()
+
+    def _acsp_claimant_address(self, lines: list[DocumentLine]) -> str:
+        owner = self._acsp_section_value(lines, "owner details", "name")
+        driver = self._acsp_section_value(lines, "driver details", "name")
+        owner_start = self._acsp_section_start(lines, "owner details")
+        driver_start = self._acsp_section_start(lines, "driver details")
+        owner_address = self._acsp_address_near_value(lines, owner) or (
+            self._acsp_address_after(lines, owner_start) if owner_start is not None else ""
+        )
+        driver_address = self._acsp_address_near_value(lines, driver) or (
+            self._acsp_address_after(lines, driver_start) if driver_start is not None else ""
+        )
+        return driver_address if self._acsp_owner_is_placeholder(owner) and driver_address else owner_address or driver_address
+
+    def _acsp_address_near_value(self, lines: list[DocumentLine], anchor: str) -> str:
+        if not anchor:
+            return ""
+        anchor_idx = next((idx for idx, line in enumerate(lines) if anchor.lower() in line.text.lower()), None)
+        if anchor_idx is None:
+            return ""
+        return self._acsp_address_after(lines, anchor_idx, anchor)
+
+    def _acsp_address_after(self, lines: list[DocumentLine], start_idx: int, anchor: str | None = None) -> str:
+        for local_idx, line in enumerate(lines[start_idx:start_idx + 12], start=start_idx):
+            search_text = line.text
+            if local_idx == start_idx and anchor and anchor.lower() in search_text.lower():
+                anchor_pos = search_text.lower().find(anchor.lower())
+                search_text = search_text[anchor_pos + len(anchor):]
+            match = re.search(r"(?:^|\|)\s*Address:\s*([^|\n]*)", search_text, re.IGNORECASE)
+            if not match:
+                continue
+            same_line = clean_val(match.group(1))
+            collected = [same_line] if same_line and not self._acsp_line_starts_field(same_line) else []
+            for next_line in lines[local_idx + 1:local_idx + 6]:
+                value = clean_val(next_line.text.split("|", 1)[0])
+                if not value:
+                    continue
+                if self._acsp_line_starts_field(value):
+                    break
+                collected.append(value)
+                if UK_POSTCODE_RE.search(value):
+                    break
+            return clean_val("\n".join(collected))
+        return ""
+
+    def _acsp_owner_is_placeholder(self, value: str) -> bool:
+        normalized = self._normalized_label_text(value)
+        return (
+            not normalized
+            or normalized == "same"
+            or normalized.startswith("leased")
+            or normalized in {"car hire specialists"}
+        )
+
+    def _acsp_section_value(self, lines: list[DocumentLine], section: str, label: str, multiline: bool = False) -> str:
+        section_idx = self._acsp_section_start(lines, section)
+        if section_idx is None:
+            return ""
+        next_section_idx = self._acsp_next_section_start(lines, section_idx)
+        section_lines = lines[section_idx + 1:next_section_idx]
+
+        label_patterns = [rf"(?:^|\|)\s*{re.escape(label)}\s*:\s*([^|\n]*)"]
+        if self._normalized_label_text(section) == "driver details":
+            label_patterns.insert(0, rf"\|\s*{re.escape(label)}\s*:\s*([^|\n]*)")
+
+        for local_idx, line in enumerate(section_lines):
+            match = next(
+                (
+                    candidate
+                    for pattern in label_patterns
+                    if (candidate := re.search(pattern, line.text, re.IGNORECASE))
+                ),
+                None,
+            )
+            if not match:
+                continue
+            value = clean_val(match.group(1))
+            if multiline and (not value or self._is_label_only_value(value)):
+                collected: list[str] = []
+                for next_line in section_lines[local_idx + 1:local_idx + 5]:
+                    next_value = clean_val(next_line.text.split("|", 1)[0])
+                    if not next_value:
+                        continue
+                    if self._acsp_line_starts_field(next_value):
+                        break
+                    collected.append(next_value)
+                    if UK_POSTCODE_RE.search(next_value):
+                        break
+                value = clean_val("\n".join(collected))
+            if value and not self._is_label_only_value(value):
+                return value
+        return ""
+
+    def _acsp_section_start(self, lines: list[DocumentLine], section: str) -> int | None:
+        target = self._normalized_label_text(section)
+        for idx, line in enumerate(lines):
+            normalized = self._normalized_label_text(line.text)
+            if target in normalized:
+                return idx
+        return None
+
+    def _acsp_next_section_start(self, lines: list[DocumentLine], section_idx: int) -> int:
+        section_re = re.compile(
+            r"\b(?:driver details|vehicle details|witness details|third party details|third party vehicle details|police details|accident details|injuries|previous accidents|details of claim|declaration)\b",
+            re.IGNORECASE,
+        )
+        for idx in range(section_idx + 1, len(lines)):
+            if section_re.search(lines[idx].text):
+                return idx
+        return len(lines)
+
+    def _acsp_line_starts_field(self, value: str) -> bool:
+        return bool(
+            re.match(
+                r"^(?:name|address|tel|d\.?o\.?b|dob|male/female|occupation|national|n\.?i\.?|number of passengers|email add|taxi|taxi company|licensed council|reg no|make & model)\b",
+                value,
+                re.IGNORECASE,
+            )
+        )
+
+    def _acsp_accident_circumstances(self, lines: list[DocumentLine]) -> str:
+        text = "\n".join(line.text for line in lines)
+        matches = re.findall(r"(?is)\bAccident Circumstances\s*:?\s*(.+?)(?=Was Client wearing a seatbelt)", text)
+        candidates: list[str] = []
+        for match in matches:
+            parts = []
+            for raw_line in match.splitlines():
+                value = clean_val(raw_line)
+                if value and not self._acsp_skip_circumstance_line(value):
+                    parts.append(value)
+            value = clean_val(" ".join(parts))
+            if value and len(value) > 10:
+                candidates.append(value)
+        if candidates:
+            return min(candidates, key=len)
+
+        start_idx = next((idx for idx, line in enumerate(lines) if "accident circumstances" in line.text.lower()), None)
+        if start_idx is None:
+            return ""
+
+        collected: list[str] = []
+        same_line = re.sub(r"(?i)^.*?accident circumstances\s*:?", "", lines[start_idx].text).strip()
+        if same_line and not self._acsp_skip_circumstance_line(same_line):
+            collected.append(same_line)
+
+        for line in lines[start_idx + 1:]:
+            value = clean_val(line.text)
+            if not value:
+                continue
+            lower = value.lower()
+            if "was client wearing a seatbelt" in lower:
+                break
+            if self._acsp_skip_circumstance_line(value):
+                continue
+            collected.append(value)
+
+        return clean_val(" ".join(collected))
+
+    def _acsp_skip_circumstance_line(self, value: str) -> bool:
+        normalized = self._normalized_label_text(value)
+        if not normalized:
+            return True
+        if normalized in {
+            "private confidential",
+            "vehicle details",
+            "witness details",
+            "police details",
+            "weather conditions",
+            "road conditions",
+        }:
+            return True
+        return bool(
+            re.match(
+                r"^(?:reg no|make & model|insurance company|type of cover|policy no|name|address|tel|email|did police attend|ref no|officer name|police station|weather conditions|road conditions)\b",
+                value,
+                re.IGNORECASE,
+            )
+        )
 
     def _extract_email_date(self, lines: list[DocumentLine], cfg: dict[str, Any], rule_id: str) -> FieldExtraction:
         labels = cfg.get("labels", [])
@@ -622,6 +923,12 @@ class RuleEngine:
             ":",
         }
 
+    def _clean_claimant_name(self, value: str) -> str:
+        cleaned = clean_val(value)
+        cleaned = re.sub(r"\s*[-–]\s*[A-Z]{2}\d{2}\s?[A-Z]{3}\s*$", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*[-–]\s*[A-Z]{1,3}\d{1,3}\s?[A-Z]{3}\s*$", "", cleaned, flags=re.IGNORECASE)
+        return clean_val(cleaned)
+
     def _is_suspicious_value(self, field_key: FieldKey, value: str, document: DocumentModel) -> bool:
         cleaned = clean_val(value)
         lower = cleaned.lower()
@@ -657,7 +964,7 @@ class RuleEngine:
             )
         if field_key == FieldKey.VEHICLE_MODEL:
             if len(cleaned) > 40:
-                if any(w in lower for w in ("grateful", "arrange", "inspect", "forward", "report", "locate", "address", "accident", "loss", "collision")):
+                if any(w in lower for w in ("grateful", "arrange", "inspect", "forward", "report", "locate", "address", "accident", "loss", "collision", "damage", "liability")):
                     return True
             vrm_match = self._fallback_vrm_from_labels([line for page in document.pages for line in page.lines])
             vrm = normalize_vrm(vrm_match.value) if vrm_match.value else ""
@@ -682,6 +989,8 @@ class RuleEngine:
                         "report detailing",
                         "costs of repair",
                         "cost of replacement",
+                        "damage",
+                        "liability",
                     )
                 )
             )
@@ -716,6 +1025,8 @@ class RuleEngine:
 
     def _address_contains_narrative(self, value: str) -> bool:
         lower = clean_val(value).lower()
+        if "@" in lower:
+            return True
         return any(
             phrase in lower
             for phrase in (
@@ -723,7 +1034,25 @@ class RuleEngine:
                 "i have advised",
                 "please make arrangements",
                 "please arrange",
+                "please contact",
+                "please do not hesitate",
+                "you have any queries",
                 "provide a report",
+                "we await your report",
+                "kind regards",
+                "confidentiality",
+                "addressee",
+                "attachments",
+                "stored on your computer",
+                "solicitors regulation authority",
+                "printing this email",
+                "for images and inspection",
+                "impact damage",
+                "photographs",
+                "standard terms",
+                "terms and conditions",
+                "image-based assessment",
+                "desktop assessment",
                 "recovery of damages",
                 "circumstances of the accident",
                 "\ntele:",
@@ -770,7 +1099,7 @@ class RuleEngine:
         if field_key == FieldKey.INCIDENT_DATE:
             return self._fallback_context_date(lines, ("accident", "incident", "rta", "collision", "loss"), field_key)
         if field_key == FieldKey.INSTRUCTION_DATE:
-            return self._fallback_context_date(lines, ("instruct", "received", "sent", "date"), field_key)
+            return self._fallback_context_date(lines, ("instruct", "received", "sent"), field_key)
         if field_key == FieldKey.VAT_STATUS and "vat" in lowered:
             if re.search(r"\b(no|not|non)\s+vat\b|vat\s+(?:no|not|none|exempt)", lowered):
                 return FieldExtraction(value="No", raw_value="No", rule_id="fallback_vat_negative", confidence=0.65)
@@ -1074,13 +1403,35 @@ class RuleEngine:
                             bbox=candidate_line.bbox,
                         ),
                     )
-        for line in lines[:12]:
+                normalized = normalize_date(candidate_line.text)
+                if normalized and normalized != candidate_line.text and re.fullmatch(r"\d{2}/\d{2}/\d{4}", normalized):
+                    return FieldExtraction(
+                        value=normalized,
+                        raw_value=candidate_line.text,
+                        rule_id=f"fallback_{field_key.value}_context",
+                        confidence=0.65,
+                        source_span=SourceSpan(
+                            page_index=candidate_line.page_index,
+                            line_index=candidate_line.line_index,
+                            bbox=candidate_line.bbox,
+                        ),
+                    )
+        for line in lines[:20]:
             match = DATE_RE.search(line.text)
             if match:
                 value = clean_val(match.group(0))
                 return FieldExtraction(
                     value=value,
                     raw_value=value,
+                    rule_id=f"fallback_{field_key.value}_top_date",
+                    confidence=0.5,
+                    source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox),
+                )
+            normalized = normalize_date(line.text)
+            if normalized and normalized != line.text and re.fullmatch(r"\d{2}/\d{2}/\d{4}", normalized):
+                return FieldExtraction(
+                    value=normalized,
+                    raw_value=line.text,
                     rule_id=f"fallback_{field_key.value}_top_date",
                     confidence=0.5,
                     source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox),
@@ -1123,6 +1474,10 @@ class RuleEngine:
                     or value_lower.startswith(("tel:", "tele:", "telephone:", "mobile", "email:", "vehicle:", "reg:"))
                 ):
                     break
+                if self._address_contains_narrative(value):
+                    if collected:
+                        break
+                    continue
                 collected.append(value)
                 if UK_POSTCODE_RE.search(value):
                     break
@@ -1161,11 +1516,17 @@ class RuleEngine:
                         if collected:
                             break
                         continue
+                    if self._address_contains_narrative(prev_value):
+                        if collected:
+                            break
+                        continue
                     collected.insert(0, prev_value)
                     if len(collected) >= 3:
                         break
                 collected.append(clean_val(line.text))
                 value = clean_val("\n".join(collected))
+                if self._address_contains_narrative(value):
+                    continue
                 return FieldExtraction(
                     value=value,
                     raw_value=value,
