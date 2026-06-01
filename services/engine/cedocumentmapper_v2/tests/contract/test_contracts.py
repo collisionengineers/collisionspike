@@ -28,11 +28,7 @@ def test_eva_json_schema():
     with open(schema_path, "r", encoding="utf-8") as f:
         schema = json.load(f)
 
-    # Let's load the example JSON
-    example_path = Path(__file__).parent.parent.parent.parent / "cedocumentmapper" / "docs" / "Final Format Example 02.json"
-    if not example_path.exists():
-        # Fallback to look relative to workspace
-        example_path = Path("c:/Users/PC/Documents/GitHub/cedocumentmapper/docs/Final Format Example 02.json")
+    example_path = Path(__file__).resolve().parents[2] / "docs" / "testing" / "testjsons" / "ALISON_SJ12MRY.json"
     
     assert example_path.exists(), f"Example JSON path not found: {example_path}"
 

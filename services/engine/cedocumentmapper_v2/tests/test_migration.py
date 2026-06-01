@@ -4,8 +4,9 @@ from jsonschema.validators import Draft202012Validator  # type: ignore
 from referencing import Registry, Resource  # type: ignore
 from cedocumentmapper_v2.config import migrate_providers_config
 
-V1_PROVIDERS_PATH = Path("c:/Users/PC/Documents/GitHub/cedocumentmapper/providers.json")
-V2_SCHEMA_PATH = Path(__file__).parent.parent / "docs" / "contracts" / "provider-config.schema.json"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+V1_PROVIDERS_PATH = REPO_ROOT / "providers.json"
+V2_SCHEMA_PATH = REPO_ROOT / "docs" / "contracts" / "provider-config.schema.json"
 
 
 def test_migration_and_validation():
