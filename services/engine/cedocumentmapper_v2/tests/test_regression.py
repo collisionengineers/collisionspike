@@ -14,8 +14,9 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 INSTRUCTIONS_DIR = FIXTURES_DIR / "instructions"
 EXPECTED_DIR = FIXTURES_DIR / "expected"
 
-V1_PROVIDERS_PATH = Path("c:/Users/PC/Documents/GitHub/cedocumentmapper/providers.json")
-SCHEMA_PATH = Path(__file__).parent.parent / "docs" / "contracts" / "expected-fixture.schema.json"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+V1_PROVIDERS_PATH = REPO_ROOT / "providers.json"
+SCHEMA_PATH = REPO_ROOT / "docs" / "contracts" / "expected-fixture.schema.json"
 
 def _load_validator() -> Draft202012Validator:
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:

@@ -3,7 +3,8 @@ import pytest
 from cedocumentmapper_v2.readers import get_reader_for_path
 from cedocumentmapper_v2.domain.models import DocumentModel
 
-INSTRUCTIONS_DIR = Path("c:/Users/PC/Documents/GitHub/cedocumentmapper/docs/Instructions")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+INSTRUCTIONS_DIR = REPO_ROOT / "docs" / "Instructions"
 
 
 @pytest.mark.skipif(not INSTRUCTIONS_DIR.exists(), reason="v1 Instructions directory not found")
@@ -56,6 +57,9 @@ def _is_doc_supported():
     import shutil
     if shutil.which("soffice") or shutil.which("libreoffice") or shutil.which("antiword"):
         return True
+    import os
+    if os.environ.get("CEDOCUMENTMAPPER_RUN_WORD_COM_TESTS") != "1":
+        return False
     try:
         import win32com.client
         # Try to initialize COM and check if Word is dispatchable

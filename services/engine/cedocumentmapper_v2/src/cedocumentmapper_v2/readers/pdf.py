@@ -37,11 +37,9 @@ def resource_path(relative_path: str) -> Path:
 def configure_tesseract() -> bool:
     """Configure pytesseract using bundled binary if available."""
     try:
-        tess_dir = resource_path("tesseract")
-        if not tess_dir.exists():
-            # Try parent directory / v1 directory as fallback
-            tess_dir = Path("c:/Users/PC/Documents/GitHub/cedocumentmapper/tesseract")
-        
+        tess_env = os.environ.get("CEDOCUMENTMAPPER_TESSERACT_DIR")
+        tess_dir = Path(tess_env) if tess_env else resource_path("tesseract")
+
         if not tess_dir.exists():
             return False
 
