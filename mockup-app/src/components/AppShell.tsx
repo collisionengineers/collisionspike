@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Avatar,
@@ -13,9 +13,11 @@ import {
   Loader,
   CheckCircle2,
   CheckCheck,
+  Building2,
+  ScrollText,
   type LucideIcon,
 } from 'lucide-react';
-import { QUEUES, queueCounts, type QueueName } from '../mock';
+import { QUEUES, data, type QueueName } from '../data';
 
 /* Two-part app chrome:
    - charcoal (#2c2a27) left rail: white reverse logo (web_logo_white.png),
@@ -109,6 +111,23 @@ const useStyles = makeStyles({
       borderRadius: '0 2px 2px 0',
     },
   },
+  navItemDisabled: {
+    color: 'rgba(255,255,255,0.32)',
+    cursor: 'default',
+    ':hover': { backgroundColor: 'transparent', color: 'rgba(255,255,255,0.32)' },
+  },
+  navTag: {
+    flexShrink: 0,
+    fontFamily: "'Futura PT', sans-serif",
+    fontSize: '9px',
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.4)',
+    border: '1px solid rgba(255,255,255,0.18)',
+    borderRadius: '3px',
+    padding: '1px 5px',
+    lineHeight: 1.4,
+  },
   navIcon: { flexShrink: 0, display: 'inline-flex' },
   navLabel: {
     flex: 1,
@@ -190,11 +209,23 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
   const styles = useStyles();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
-  const counts = queueCounts();
+
+  // Rail badge counts come through the data seam (async). Re-fetched on route
+  // change so the pill reflects the latest queue depth.
+  const [counts, setCounts] = useState<Record<QueueName, number> | undefined>();
+  useEffect(() => {
+    let cancelled = false;
+    void data.queueCounts().then((c) => {
+      if (!cancelled) setCounts(c);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const renderQueue = (segment: QueueName, label: string, isBlocker: boolean) => {
     const Icon = QUEUE_ICONS[segment];
-    const count = counts[segment];
+    const count = counts?.[segment] ?? 0;
     const badge =
       count > 0 ? (
         <span
@@ -230,9 +261,55 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
     );
   };
 
+  /* A real admin nav entry (e.g. the corpus surface). */
+  const renderAdmin = (to: string, label: string, Icon: LucideIcon) => {
+    const inner = (
+      <NavLink
+        to={to}
+        className={({ isActive }) => mergeClasses(styles.navItem, isActive && styles.navItemActive)}
+      >
+        <span className={styles.navIcon}>
+          <Icon size={18} />
+        </span>
+        {!collapsed && <span className={styles.navLabel}>{label}</span>}
+      </NavLink>
+    );
+    return collapsed ? (
+      <Tooltip key={to} content={label} relationship="label" positioning="after">
+        {inner}
+      </Tooltip>
+    ) : (
+      <div key={to}>{inner}</div>
+    );
+  };
+
+  /* Audit — honest read-only stub (not built yet); disabled, never navigates. */
+  const renderAudit = () => {
+    const inner = (
+      <span
+        className={mergeClasses(styles.navItem, styles.navItemDisabled)}
+        aria-disabled="true"
+        title="Audit log — not built yet"
+      >
+        <span className={styles.navIcon}>
+          <ScrollText size={18} />
+        </span>
+        {!collapsed && <span className={styles.navLabel}>Audit</span>}
+        {!collapsed && <span className={styles.navTag}>Soon</span>}
+      </span>
+    );
+    return collapsed ? (
+      <Tooltip key="audit" content="Audit log (not built yet)" relationship="label" positioning="after">
+        {inner}
+      </Tooltip>
+    ) : (
+      <div key="audit">{inner}</div>
+    );
+  };
+
   return (
     <div className={styles.shell}>
-      <nav className={mergeClasses(styles.rail, collapsed && styles.railCollapsed)} aria-label="Queues">
+      <nav className={mergeClasses(styles.rail, collapsed && styles.railCollapsed)} aria-label="Primary">
         <Link to="/" className={mergeClasses('ce-focusable', styles.railLogo)} aria-label="Collision Engineers — home">
           <img
             src="/assets/web_logo_white.png"
@@ -244,6 +321,10 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
         <div className={styles.navList}>
           {!collapsed && <div className={styles.navSectionLabel}>Queues</div>}
           {QUEUES.map((q) => renderQueue(q.name, q.label, q.tone === 'blocker'))}
+
+          {!collapsed && <div className={styles.navSectionLabel}>Admin</div>}
+          {renderAdmin('/admin', 'Corpus', Building2)}
+          {renderAudit()}
         </div>
       </nav>
 

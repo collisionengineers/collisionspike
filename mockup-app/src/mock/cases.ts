@@ -701,6 +701,58 @@ export const cases: Case[] = [
     createdAt: '16/06/2026',
     dateDue: '30/06/2026',
   },
+
+  /* 3b — the OPEN TWIN of case-003 (kept LAST so earlier positional indices are
+     stable for the seam tests). Same VRM (LD19 MNO) + same provider (BRDN) as
+     the duplicate-risk case-003, but a DIFFERENT claim reference — the candidate
+     the attach-vs-new decision surface (ADR-0010) proposes linking to. Held open
+     (ingested) so openVrmTwins() returns it; never auto-merged. */
+  {
+    id: 'case-003b',
+    vrm: 'LD19 MNO',
+    provider: 'Bridgen Claims',
+    providerCode: 'BRDN',
+    vehicleModel: 'BMW 320d M Sport',
+    vehicleYear: 2019,
+    evaFields: baseEvaFields({
+      workProvider: f('Bridgen Claims', pCorpus('Principals corpus')),
+      vehicleModel: f('BMW 320d M Sport', pPdf('Instruction PDF p.1', 0.93)),
+      claimantName: f('Mr C. Okafor', pPdf('Instruction PDF p.1', 0.9)),
+      dateOfLoss: f('28/05/2026', pPdf('Instruction PDF p.1', 0.97)),
+      dateOfInstruction: f('04/06/2026', pPdf('Instruction PDF p.1', 0.97)),
+      accidentCircumstances: f(
+        'Rear-end shunt in stationary traffic on the M62.',
+        pPdf('Instruction PDF p.2', 0.79),
+      ),
+    }),
+    evidence: [
+      {
+        id: 'ev-003b-a',
+        fileName: 'instruction.pdf',
+        kind: 'instruction',
+        imageRole: 'unknown',
+        registrationVisible: false,
+        acceptedForEva: false,
+        sourceLabel: 'Email — claims@bridgenclaims.com',
+      },
+    ],
+    notes: [],
+    chasers: [],
+    overviewFacts: {
+      claimantName: 'Mr C. Okafor',
+      claimNumber: 'BR-2026-3180',
+      policyReference: 'POL-88240',
+      insurerName: 'Pennine Assurance',
+      incidentDate: '28/05/2026',
+    },
+    status: 'ingested',
+    missing: [],
+    channel: { kind: 'email', mode: 'auto', sourceMailbox: 'instructions@collisionengineers.co.uk' },
+    ageDays: 13,
+    inspectionDecision: 'unknown',
+    createdAt: '04/06/2026',
+    dateDue: '15/06/2026',
+  },
 ];
 
 export function caseById(id: string): Case | undefined {

@@ -37,6 +37,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Copy,
   FileJson,
   ImageOff,
   Send,
@@ -52,14 +53,16 @@ import {
   SectionHeading,
   StatusBadge,
   VrmPlate,
+  LoadingState,
+  ErrorState,
   computeReadiness,
   type ChecklistItem,
 } from '../components';
 import {
   EVA_FIELD_ORDER,
-  caseById,
   dueInfo,
-  imagesForCase,
+  useCaseQuery,
+  useImages,
   type ActionReason,
   type Case,
   type CaseStatus,
@@ -70,7 +73,7 @@ import {
   type Note,
   type PipelineStageKey,
   type VatStatus,
-} from '../mock';
+} from '../data';
 import { GLOBAL_TOASTER_ID } from '../components';
 
 /* ============================================================
@@ -504,19 +507,80 @@ function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
   );
 }
 
-/* ============================================================ */
+/* ============================================================
+   Outer screen — fetches the Case + its images through the data seam and
+   renders loading / error / not-found states, then mounts the editing view
+   (keyed by case id so its local working-copy state seeds cleanly per case).
+   ============================================================ */
 export function CaseDetail() {
   const styles = useStyles();
   const navigate = useNavigate();
   const { caseId } = useParams<{ caseId: string }>();
-  const seed = caseId ? caseById(caseId) : undefined;
+
+  const caseQuery = useCaseQuery(caseId);
+  const imagesQuery = useImages(caseId);
+
+  // First-load (no case yet) — spinner; hard failure — error panel with retry.
+  if (caseQuery.loading && caseQuery.data === undefined) {
+    return (
+      <div className={styles.page}>
+        <LoadingState label="Loading case…" />
+        {/* Keep the nested submit dialog mountable during load. */}
+        <Outlet />
+      </div>
+    );
+  }
+  if (caseQuery.error && caseQuery.data === undefined) {
+    return (
+      <div className={styles.page}>
+        <ErrorState
+          error={caseQuery.error}
+          onRetry={caseQuery.refetch}
+          title="Couldn’t load this case"
+        />
+        <Outlet />
+      </div>
+    );
+  }
+  if (!caseQuery.data) {
+    return (
+      <div className={styles.page}>
+        <SectionHeading eyebrow="Case" heading="Case not found" />
+        <Link as="button" onClick={() => navigate('/')}>
+          Back to dashboard
+        </Link>
+        <Outlet />
+      </div>
+    );
+  }
+
+  return (
+    <CaseDetailView
+      key={caseQuery.data.id}
+      caseData={caseQuery.data}
+      images={imagesQuery.data ?? []}
+    />
+  );
+}
+
+interface CaseDetailViewProps {
+  caseData: Case;
+  images: Evidence[];
+}
+
+/* The editing workspace. Receives the loaded Case + images; all edits live in
+   local React state (mock only — never persisted). Visually identical to the
+   pre-seam screen once data has loaded. */
+function CaseDetailView({ caseData, images }: CaseDetailViewProps) {
+  const styles = useStyles();
+  const navigate = useNavigate();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
   // Local working copy so mock edits feel live (never persisted).
-  const [c, setC] = useState<Case | undefined>(seed);
+  const [c, setC] = useState<Case>(caseData);
   const [tab, setTab] = useState<TabName>('fields');
   const [noteDraft, setNoteDraft] = useState('');
-  const [overrideAddr, setOverrideAddr] = useState(seed?.inspectionDecision === 'image_based');
+  const [overrideAddr, setOverrideAddr] = useState(caseData.inspectionDecision === 'image_based');
   const [overrideReason, setOverrideReason] = useState('');
 
   // Focus targets for field deep-links (keyed by EvaFieldKey).
@@ -525,20 +589,8 @@ export function CaseDetail() {
     fieldRefs.current[key] = el;
   };
 
-  const images = useMemo(() => (caseId ? imagesForCase(caseId) : []), [caseId]);
   // Mirror image edits into the working copy's evidence so readiness recomputes.
   const [imgState, setImgState] = useState<Evidence[]>(images);
-
-  if (!c) {
-    return (
-      <div className={styles.page}>
-        <SectionHeading eyebrow="Case" heading="Case not found" />
-        <Link as="button" onClick={() => navigate('/')}>
-          Back to dashboard
-        </Link>
-      </div>
-    );
-  }
 
   // Readiness is derived from the working copy (with current image edits folded in).
   const liveCase: Case = {
@@ -660,6 +712,15 @@ export function CaseDetail() {
           subtitle={subtitle || undefined}
           actions={
             <div className={styles.actions}>
+              {c.status === 'duplicate_risk' && (
+                <Button
+                  appearance="secondary"
+                  icon={<Copy size={16} />}
+                  onClick={() => navigate(`/case/${c.id}/dedup`)}
+                >
+                  Resolve duplicate
+                </Button>
+              )}
               <Button appearance="secondary" icon={<Upload size={16} />} onClick={() => toast('Upload evidence (mock — no file system)')}>
                 Upload evidence
               </Button>

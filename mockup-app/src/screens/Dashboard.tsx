@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Spinner } from '@fluentui/react-components';
 import {
   Text,
   Caption1,
@@ -24,15 +25,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { SectionHeading, PipelineStrip, VrmPlate } from '../components';
-import {
-  liveCounts,
-  throughput,
-  agingExceptions,
-  pipelineStages,
-  type ActionReason,
-  type AgingRow,
-} from '../mock';
+import { SectionHeading, PipelineStrip, VrmPlate, ErrorState } from '../components';
+import { useDashboard } from '../data';
+import type { ActionReason, AgingRow } from '../data';
 
 /* ============================================================
    Dashboard — the CHASE COCKPIT.
@@ -367,12 +362,19 @@ export function Dashboard() {
   const styles = useStyles();
   const navigate = useNavigate();
 
-  // A single tick state forces a re-read of the mock helpers + restamps time.
+  // The dashboard bundle (liveCounts/throughput/agingExceptions/pipelineStages)
+  // is fetched through the data seam. `refetch` re-runs it; `stamp` drives the
+  // "Updated HH:MM" affordance (display only — the figures come from the hook).
+  const { data: dash, error, refetch } = useDashboard();
+
   const [stamp, setStamp] = useState<Date>(() => new Date());
   const stampRef = useRef(stamp);
   stampRef.current = stamp;
 
-  const refresh = useCallback(() => setStamp(new Date()), []);
+  const refresh = useCallback(() => {
+    setStamp(new Date());
+    refetch();
+  }, [refetch]);
 
   // Refresh on window focus + a focus-gated ~75s poll.
   useEffect(() => {
@@ -387,12 +389,32 @@ export function Dashboard() {
     };
   }, [refresh]);
 
-  // Recompute every cockpit figure off the current stamp.
-  const now = stamp;
-  const stages = pipelineStages();
-  const live = liveCounts(now);
-  const thru = throughput(now);
-  const aging = agingExceptions(now);
+  // Restamp the "Updated HH:MM" time whenever fresh data resolves.
+  useEffect(() => {
+    if (dash) setStamp(new Date());
+  }, [dash]);
+
+  // First-load (no data yet) — spinner; hard failure — error panel with retry.
+  if (!dash) {
+    return (
+      <div className={styles.root}>
+        <SectionHeading
+          eyebrow="Overview"
+          heading="Case intake dashboard"
+          subtitle="Clear the backlog — chase what is aging, submit what is ready."
+        />
+        {error ? (
+          <ErrorState error={error} onRetry={refresh} title="Couldn’t load the dashboard" />
+        ) : (
+          <div className={styles.empty}>
+            <Spinner size="medium" label="Loading dashboard…" labelPosition="below" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const { pipelineStages: stages, liveCounts: live, throughput: thru, agingExceptions: aging } = dash;
 
   return (
     <div className={styles.root}>

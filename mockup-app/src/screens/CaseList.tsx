@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Badge,
@@ -35,21 +35,23 @@ import {
   Mail,
   MessageCircle,
 } from 'lucide-react';
-import { SectionHeading, StatusBadge, VrmPlate } from '../components';
+import { SectionHeading, StatusBadge, VrmPlate, LoadingState, ErrorState } from '../components';
 import {
   QUEUES,
   REASON_LABELS,
-  casesForQueue,
   dueInfo,
   outstandingText,
-  providers,
   queueByName,
-  reasonCounts,
+  data,
+  useQueueQuery,
+  useProviders,
   type ActionReason,
   type Case,
   type CaseStatus,
+  type Provider,
   type QueueName,
-} from '../mock';
+  type ReasonFacet,
+} from '../data';
 
 /* Case list at /queue/:name (new 4-queue IA).
    - TabList across Needs action / In progress / Ready for EVA / Done (today).
@@ -252,8 +254,43 @@ export function CaseList() {
   const [ageFilter, setAgeFilter] = useState<AgeBucket>('all');
   const [reasonFilter, setReasonFilter] = useState<ActionReason | null>(null);
 
-  const queueCases = useMemo(() => casesForQueue(activeName), [activeName]);
-  const facets = useMemo(() => (isNeedsAction ? reasonCounts() : []), [isNeedsAction]);
+  // The active queue's rows come through the seam hook (loading/empty/error).
+  const queueQuery = useQueueQuery(activeName);
+  const queueCases = useMemo(() => queueQuery.data ?? [], [queueQuery.data]);
+
+  // The provider corpus (for the Provider filter labels) — seam hook.
+  const providersQuery = useProviders();
+  const providers: Provider[] = useMemo(() => providersQuery.data ?? [], [providersQuery.data]);
+
+  // Per-tab counts for the TabList badges (one aggregate fetch via the seam).
+  const [queueTabCounts, setQueueTabCounts] = useState<Record<QueueName, number> | undefined>();
+  // Needs-action reason facet chips (seam fetch; only on the needs-action tab).
+  const [facets, setFacets] = useState<ReasonFacet[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void data.queueCounts().then((c) => {
+      if (!cancelled) setQueueTabCounts(c);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Re-fetch the badge counts when the active queue changes (cases may move).
+  }, [activeName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isNeedsAction) {
+      setFacets([]);
+      return;
+    }
+    void data.reasonCounts().then((f) => {
+      if (!cancelled) setFacets(f);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isNeedsAction, activeName]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -441,7 +478,8 @@ export function CaseList() {
       >
         {QUEUES.map((q) => (
           <Tab key={q.name} value={q.name}>
-            {q.label} ({casesForQueue(q.name).length})
+            {q.label}
+            {queueTabCounts ? ` (${queueTabCounts[q.name]})` : ''}
           </Tab>
         ))}
       </TabList>
@@ -591,7 +629,15 @@ export function CaseList() {
         </Text>
       </div>
 
-      {filtered.length === 0 ? (
+      {queueQuery.loading && queueQuery.data === undefined ? (
+        <LoadingState label={`Loading ${queue?.label ?? activeName}…`} />
+      ) : queueQuery.error && queueQuery.data === undefined ? (
+        <ErrorState
+          error={queueQuery.error}
+          onRetry={queueQuery.refetch}
+          title="Couldn’t load this queue"
+        />
+      ) : filtered.length === 0 ? (
         <div className={styles.empty}>
           {queueCases.length === 0 ? (
             <>

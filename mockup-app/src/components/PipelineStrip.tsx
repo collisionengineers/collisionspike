@@ -1,6 +1,21 @@
 import { makeStyles, mergeClasses, tokens } from '@fluentui/react-components';
 import { MapPin } from 'lucide-react';
-import { pipelineStages, type PipelineStage, type PipelineStageKey } from '../mock';
+import type { PipelineStage, PipelineStageKey } from '../data';
+
+/* The seven pipeline stages, in order, as a count-less skeleton. The Dashboard
+   passes live counts via the `stages` prop (from useDashboard()); the CaseDetail
+   spine variant only needs the labels + the "you are here" highlight, so it falls
+   back to this skeleton — no data fetcher is imported here (keeps the seam the
+   single I/O boundary). */
+const STAGE_SKELETON: readonly { key: PipelineStageKey; label: string }[] = [
+  { key: 'new', label: 'New' },
+  { key: 'parsing', label: 'Parsing' },
+  { key: 'review', label: 'Review' },
+  { key: 'chasing', label: 'Chasing' },
+  { key: 'ready', label: 'Ready' },
+  { key: 'submitted', label: 'Submitted' },
+  { key: 'box', label: 'Box' },
+];
 
 /* ============================================================
    PipelineStrip — a thin connected stage track of the real sequence
@@ -129,7 +144,12 @@ export function PipelineStrip({
   className,
 }: PipelineStripProps) {
   const styles = useStyles();
-  const data = stages ?? pipelineStages();
+  // Live counts come from the seam via the `stages` prop; without them (e.g. the
+  // per-case spine before the dashboard bundle resolves) fall back to a count-less
+  // skeleton so the track still renders its labels + "you are here" marker.
+  const data: PipelineStage[] =
+    stages ??
+    STAGE_SKELETON.map((s) => ({ key: s.key, label: s.label, count: 0, tone: 'normal' as const }));
   const isSpine = variant === 'spine';
 
   return (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
@@ -32,10 +32,10 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import {
-  caseById,
   suggestCasePo,
+  useCaseQuery,
   type Case,
-} from '../mock';
+} from '../data';
 import {
   GLOBAL_TOASTER_ID,
   ReadinessChecklist,
@@ -43,6 +43,7 @@ import {
   computeReadiness,
   statusLabel,
 } from '../components';
+import { Spinner } from '@fluentui/react-components';
 
 /* EVA submit Dialog — opened at /case/:caseId/submit as a route overlay over
    CaseDetail. Controlled Dialog; Cancel / dismiss navigates back. Readiness
@@ -217,16 +218,41 @@ export function EvaSubmitDialog() {
   const navigate = useNavigate();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
-  const c = caseId ? caseById(caseId) : undefined;
+  const { data: c, loading } = useCaseQuery(caseId);
   const close = () => navigate(caseId ? `/case/${caseId}` : '/');
 
   const suggestion = useMemo(() => (c ? suggestCasePo(c) : undefined), [c]);
 
   // Only the 3-digit sequence is user-editable; Principal + YY are locked
   // segments derived from the case. Seeded with the suggested next sequence.
-  const [seq, setSeq] = useState<string>(suggestion?.seq ?? '');
+  const [seq, setSeq] = useState<string>('');
+  // Seed the sequence once the case (and its suggestion) resolve.
+  useEffect(() => {
+    if (suggestion) setSeq((prev) => (prev === '' ? suggestion.seq : prev));
+  }, [suggestion]);
 
   const readiness = useMemo(() => (c ? computeReadiness(c) : undefined), [c]);
+
+  // While the case loads, show a spinner in the dialog shell.
+  if (loading && !c) {
+    return (
+      <Dialog open modalType="modal" onOpenChange={(_, d) => !d.open && close()}>
+        <DialogSurface className={styles.surface}>
+          <DialogBody>
+            <DialogTitle>Submit to EVA</DialogTitle>
+            <DialogContent>
+              <Spinner size="medium" label="Loading case…" labelPosition="below" />
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={close}>
+                Close
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+    );
+  }
 
   if (!c || !readiness || !suggestion) {
     return (
