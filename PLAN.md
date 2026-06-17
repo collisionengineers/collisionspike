@@ -85,9 +85,13 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 > Code App calls on the instruction to pre-fill the 13 fields (staff review). Proves Code App +
 > Dataverse + parser→EVA + the readiness gate end-to-end. **Images (M1):** stored + **manual role
 > tagging**, with deterministic **OCR** (Tesseract via the parser function, or Azure Vision Read)
-> auto-checking registration-visible. **Out of M1:** image-classification AI (overview/damage,
-> reflection detection), enrichment connectors, Sentry API, full corpus governance, assistant,
-> chasers. **Resolve PyMuPDF AGPL in M1.**
+> auto-checking registration-visible. **DVSA enrichment (M1 — ADR-0006):** mileage (when missing) +
+> vehicle make/model via a REST wrapper (Azure Function) over collisionplugin `dvsa-mot`, gated
+> `ENRICHMENT_ENABLED`, staff-reviewed. **EVA (full scope):** drag-drop JSON is the M1 path; the
+> Sentry API is developed against the **test env** (production cutover gated). **Out of M1:**
+> image-classification AI (overview/damage, reflection detection), valuation/Box connectors, full
+> corpus governance, assistant/copilot, structured chasers, **EVA production cutover**. **Resolve
+> PyMuPDF AGPL in M1.**
 
 ### Phase 0 — Foundations
 - Scaffold the Power Apps Code App: `code-apps-preview:create-code-app` (React/Vite).
@@ -138,9 +142,10 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 - Image-ordering UI in the Code App (drag to set the 2 preview images, validate before EVA).
 
 ### Phase 3 — Enrichment via connectors + EVA export
-- **Custom connectors** for the `collisionplugin` MCP services through `mcp-gateway`:
-  `dvsa-mot` (mileage from MOT, vehicle history), `valuationbot` (Companion-Report-style
-  valuation evidence). Use `code-apps-preview:add-connector` / `list-connections`.
+- **Enrichment connectors (ADR-0006 — REST wrapper / Azure Function over collisionplugin behind the
+  OAuth gateway):** **DVSA `dvsa-mot` is pulled into M1** (`current_mileage_estimate` +
+  `get_vehicle_summary`); **valuation** (`valuationbot`) lands here in **M3**. Use
+  `code-apps-preview:add-connector` / `list-connections`.
 - **EVA export — full scope (ADR-0005):** generate the EVA JSON payload (the `cedocumentmapper_v2.0`
   13-field contract) for drag-drop (M1 + permanent fallback); **build & validate the Sentry API
   against the EVA test environment** (`EVA_BASE_URL` test/prod, `EVA_API_ENABLED` API/JSON), POSTing

@@ -35,7 +35,7 @@ Scope for the spike (per [intake-workflow.md](../requirements/intake-workflow.md
 | Valuation evidence (later) | `valuationbot` → `search_comparables` + `capture_advert_pages` | PDF evidence |
 
 **Integration options (pick one):**
-- **A — REST wrapper (recommended):** a thin Azure Function / Container App that authenticates to
+- **A — REST wrapper (CHOSEN — ADR-0006; DVSA in M1):** a thin Azure Function / Container App that authenticates to
   the private Cloud Run backends (service identity) and exposes plain REST (`POST
   /dvsa-mot/get-vehicle-summary`) → import as a Power Platform **custom connector**. Simplest for
   Power Platform; isolates the MCP/OAuth detail.
