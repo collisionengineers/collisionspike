@@ -1,0 +1,437 @@
+import { useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
+  Field,
+  Input,
+  MessageBar,
+  MessageBarBody,
+  MessageBarTitle,
+  Radio,
+  RadioGroup,
+  Text,
+  Toast,
+  ToastBody,
+  ToastTitle,
+  makeStyles,
+  tokens,
+  useToastController,
+} from '@fluentui/react-components';
+import {
+  ArrowUpRight,
+  CheckCircle2,
+  FileJson,
+  FolderClosed,
+  Send,
+  ShieldAlert,
+} from 'lucide-react';
+import {
+  caseById,
+  suggestCasePo,
+  type Case,
+} from '../mock';
+import {
+  GLOBAL_TOASTER_ID,
+  ReadinessChecklist,
+  VrmPlate,
+  computeReadiness,
+  statusLabel,
+} from '../components';
+
+/* EVA submit Dialog — opened at /case/:caseId/submit as a route overlay over
+   CaseDetail. Controlled Dialog; Cancel / dismiss navigates back. Readiness
+   gates the Submit button.
+
+   The Case/PO is the HERO: when readiness is green the 13-tick wall collapses to
+   a single reassurance line and the dialog leads with the Case/PO composer —
+   locked Principal + YY segments, only the 3-digit sequence is editable — with
+   the EVA (lowercase) + Box folder (UPPERCASE) forms rendered live below.
+
+   MOCK ONLY — Submit and Export fire toasts, never a real network call. */
+
+const useStyles = makeStyles({
+  surface: { maxWidth: '680px', width: '680px' },
+  body: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalL,
+    maxHeight: '70vh',
+    overflowY: 'auto',
+  },
+  section: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalS,
+  },
+  sectionLabel: {
+    fontFamily: 'var(--ce-font-display)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    fontSize: tokens.fontSizeBase200,
+    color: 'var(--ce-muted)',
+  },
+
+  /* Collapsed green-readiness reassurance line. */
+  readyLine: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+    color: tokens.colorPaletteGreenForeground1,
+    fontSize: tokens.fontSizeBase300,
+  },
+  readyText: { color: tokens.colorNeutralForeground1 },
+  readyGroups: {
+    fontFamily: 'var(--ce-font-mono)',
+    color: tokens.colorNeutralForeground2,
+  },
+
+  /* Case/PO hero card. */
+  hero: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+    padding: tokens.spacingVerticalL,
+    border: `1px solid ${tokens.colorNeutralStroke1}`,
+    borderTop: `2px solid var(--ce-red)`,
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground2,
+  },
+  heroHeading: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: tokens.spacingHorizontalM,
+  },
+  heroHint: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  /* The locked Principal + YY + editable seq composer. */
+  composer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    fontFamily: 'var(--ce-font-mono)',
+  },
+  segLocked: {
+    fontFamily: 'var(--ce-font-mono)',
+    fontSize: '28px',
+    lineHeight: '1',
+    fontWeight: 600,
+    letterSpacing: '0.04em',
+    color: tokens.colorNeutralForeground2,
+    padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalS}`,
+    backgroundColor: tokens.colorNeutralBackground4,
+    borderRadius: tokens.borderRadiusSmall,
+  },
+  seqInput: {
+    width: '110px',
+    // ≥44px touch target for the one editable Case/PO segment.
+    minHeight: '44px',
+    '& input': {
+      fontFamily: 'var(--ce-font-mono)',
+      fontSize: '28px',
+      lineHeight: '1',
+      fontWeight: 600,
+      letterSpacing: '0.08em',
+      textAlign: 'center',
+      height: '40px',
+    },
+  },
+  segNote: {
+    marginLeft: tokens.spacingHorizontalS,
+    fontFamily: 'var(--ce-font-base)',
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+
+  /* Live-derived EVA / Box forms. */
+  derivedGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'auto 1fr',
+    columnGap: tokens.spacingHorizontalL,
+    rowGap: tokens.spacingVerticalS,
+    alignItems: 'center',
+    padding: tokens.spacingVerticalM,
+    backgroundColor: tokens.colorNeutralBackground1,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+  },
+  derivedLabel: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  derivedValue: {
+    fontFamily: 'var(--ce-font-mono)',
+    fontSize: tokens.fontSizeBase400,
+    fontWeight: 600,
+    color: tokens.colorNeutralForeground1,
+  },
+  derivedPlaceholder: {
+    fontFamily: 'var(--ce-font-mono)',
+    fontSize: tokens.fontSizeBase400,
+    color: tokens.colorNeutralForeground4,
+    fontStyle: 'italic',
+  },
+
+  pathNote: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  titleLockup: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    flexWrap: 'wrap',
+  },
+  /* Dialog action buttons — ≥44px touch height. */
+  dialogBtn: { minHeight: '44px' },
+});
+
+/** Distinct groups present in the readiness checklist, ordered for the line. */
+function readyGroupSummary(c: Case): string {
+  const readiness = computeReadiness(c);
+  const order: Array<{ key: 'fields' | 'images' | 'address'; label: string }> = [
+    { key: 'fields', label: 'fields' },
+    { key: 'images', label: 'images' },
+    { key: 'address', label: 'address' },
+  ];
+  const present = order.filter((g) =>
+    readiness.items.some((i) => i.group === g.key),
+  );
+  return present.map((g) => g.label).join(' · ');
+}
+
+export function EvaSubmitDialog() {
+  const styles = useStyles();
+  const { caseId } = useParams<{ caseId: string }>();
+  const navigate = useNavigate();
+  const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
+
+  const c = caseId ? caseById(caseId) : undefined;
+  const close = () => navigate(caseId ? `/case/${caseId}` : '/');
+
+  const suggestion = useMemo(() => (c ? suggestCasePo(c) : undefined), [c]);
+
+  // Only the 3-digit sequence is user-editable; Principal + YY are locked
+  // segments derived from the case. Seeded with the suggested next sequence.
+  const [seq, setSeq] = useState<string>(suggestion?.seq ?? '');
+
+  const readiness = useMemo(() => (c ? computeReadiness(c) : undefined), [c]);
+
+  if (!c || !readiness || !suggestion) {
+    return (
+      <Dialog open modalType="modal" onOpenChange={(_, d) => !d.open && close()}>
+        <DialogSurface className={styles.surface}>
+          <DialogBody>
+            <DialogTitle>Submit to EVA</DialogTitle>
+            <DialogContent>Case not found.</DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={close}>
+                Close
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+    );
+  }
+
+  const ready = readiness.ready;
+  const blockedCount = readiness.missing.length;
+
+  // Compose the live Case/PO from locked segments + the edited sequence.
+  const seqClean = seq.replace(/\D/g, '').slice(0, 3);
+  const core = `${suggestion.principal}${suggestion.yy}${seqClean}`;
+  const complete = seqClean.length === 3;
+  const evaCode = complete ? core.toLowerCase() : '';
+  const boxCode = complete ? core.toUpperCase() : '';
+
+  const onSeqChange = (value: string) => {
+    setSeq(value.replace(/\D/g, '').slice(0, 3));
+  };
+
+  const onExportJson = () => {
+    dispatchToast(
+      <Toast>
+        <ToastTitle>EVA JSON ready to drag-drop</ToastTitle>
+        <ToastBody>
+          13-field payload for {c.vrm} prepared (mock — no file written).
+        </ToastBody>
+      </Toast>,
+      { intent: 'success' },
+    );
+  };
+
+  const onSubmit = () => {
+    // MOCK: no real Sentry call is ever made in M1.
+    dispatchToast(
+      <Toast>
+        <ToastTitle>Submitted to EVA (mock)</ToastTitle>
+        <ToastBody>
+          {c.vrm} — {evaCode || 'no Case/PO'}. Box folder {boxCode || '—'}.
+        </ToastBody>
+      </Toast>,
+      { intent: 'success' },
+    );
+    close();
+  };
+
+  return (
+    <Dialog open modalType="modal" onOpenChange={(_, d) => !d.open && close()}>
+      <DialogSurface className={styles.surface}>
+        <DialogBody>
+          <DialogTitle>
+            <span className={styles.titleLockup}>
+              <span>Submit to EVA</span>
+              <VrmPlate vrm={c.vrm} size="medium" />
+            </span>
+          </DialogTitle>
+          <DialogContent className={styles.body}>
+            {/* Readiness — collapse to a single reassurance line when green. */}
+            <div className={styles.section}>
+              <span className={styles.sectionLabel}>Readiness</span>
+              {ready ? (
+                <span className={styles.readyLine}>
+                  <CheckCircle2 size={18} aria-hidden />
+                  <span className={styles.readyText}>
+                    Ready
+                  </span>
+                  <span className={styles.readyGroups}>
+                    — {readyGroupSummary(c)}
+                  </span>
+                </span>
+              ) : (
+                <>
+                  <MessageBar intent="error" icon={<ShieldAlert size={20} />}>
+                    <MessageBarBody>
+                      <MessageBarTitle>
+                        {blockedCount} item{blockedCount === 1 ? '' : 's'} blocking
+                        submission
+                      </MessageBarTitle>
+                      Resolve the items below before submitting to EVA.
+                    </MessageBarBody>
+                  </MessageBar>
+                  <ReadinessChecklist case={c} />
+                </>
+              )}
+            </div>
+
+            {/* Case / PO — the hero of the dialog. */}
+            <div className={styles.hero}>
+              <div className={styles.heroHeading}>
+                <span className={styles.sectionLabel}>Case / PO</span>
+                <span className={styles.heroHint}>
+                  Status: {statusLabel(c.status)}
+                </span>
+              </div>
+
+              <div className={styles.composer}>
+                <span className={styles.segLocked} title="Principal code (locked)">
+                  {suggestion.principal}
+                </span>
+                <span className={styles.segLocked} title="2-digit year (locked)">
+                  {suggestion.yy}
+                </span>
+                <Field>
+                  <Input
+                    className={styles.seqInput}
+                    value={seq}
+                    onChange={(_, d) => onSeqChange(d.value)}
+                    inputMode="numeric"
+                    maxLength={3}
+                    placeholder="000"
+                    aria-label="Provider case sequence (3 digits)"
+                  />
+                </Field>
+                <span className={styles.segNote}>
+                  3-digit provider sequence
+                </span>
+              </div>
+
+              <div className={styles.derivedGrid}>
+                <span className={styles.derivedLabel}>
+                  <ArrowUpRight size={14} /> EVA code
+                </span>
+                {evaCode ? (
+                  <span className={styles.derivedValue}>{evaCode}</span>
+                ) : (
+                  <span className={styles.derivedPlaceholder}>
+                    enter 3-digit sequence
+                  </span>
+                )}
+
+                <span className={styles.derivedLabel}>
+                  <FolderClosed size={14} /> Box folder
+                </span>
+                {boxCode ? (
+                  <span className={styles.derivedValue}>{boxCode}</span>
+                ) : (
+                  <span className={styles.derivedPlaceholder}>
+                    enter 3-digit sequence
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Export path */}
+            <div className={styles.section}>
+              <Field label="Submission path">
+                <RadioGroup defaultValue="json">
+                  <Radio value="json" label="Drag-drop JSON export" />
+                  <Radio value="api" label="Sentry API" disabled />
+                </RadioGroup>
+              </Field>
+              <Text className={styles.pathNote}>
+                EVA API off (gated by EVA_API_ENABLED) — JSON drag-drop is the M1
+                fallback path.
+              </Text>
+            </div>
+          </DialogContent>
+
+          <DialogActions>
+            <Button className={styles.dialogBtn} appearance="secondary" onClick={close}>
+              Cancel
+            </Button>
+            <Button
+              className={styles.dialogBtn}
+              appearance="secondary"
+              icon={<FileJson size={16} />}
+              onClick={onExportJson}
+              title="EVA API is off — export the 13-field JSON to drag into EVA"
+            >
+              Export JSON
+            </Button>
+            <Button
+              className={styles.dialogBtn}
+              appearance="primary"
+              icon={<Send size={16} />}
+              disabled={!ready || !complete}
+              title={
+                !ready
+                  ? `${blockedCount} readiness item(s) still blocking`
+                  : !complete
+                    ? 'Enter the 3-digit Case/PO sequence'
+                    : 'Submit to EVA'
+              }
+              onClick={onSubmit}
+            >
+              Submit to EVA
+            </Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
+  );
+}
+
+export default EvaSubmitDialog;

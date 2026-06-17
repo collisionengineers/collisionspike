@@ -1,0 +1,236 @@
+/* ============================================================
+   Collision Engineers — M1 prototype global styles.
+   Brand @font-face blocks copied verbatim from the design system
+   (colors_and_type.css), pointed at /fonts. Plus CE display/eyebrow
+   helpers and a couple of CSS custom properties the shell reuses.
+   ============================================================ */
+
+/* ----------  BRAND FONTS  ---------- */
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('/fonts/TwCenMTStdLight.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('/fonts/TwCenMTStd.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('/fonts/TwCenMTStdItalic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('/fonts/TwCenMTStdSemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('/fonts/TwCenMTStdBold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('/fonts/TwCenMTStdExtraBold.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaCyrillicBook.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaCyrillicMedium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaCyrillicDemi.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaCyrillicBold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ----------  CE custom properties (for non-Fluent surfaces) ---------- */
+:root {
+  --ce-red: #db0816;
+  --ce-red-dark: #8f1422;
+  --ce-red-tint: rgba(219, 8, 22, 0.07);
+  --ce-charcoal: #2c2a27;
+  --ce-ink: #16191d;
+  --ce-muted: #6b6b6b;
+  --ce-border: #e6e4e1;
+  --ce-bg-2: #f5f4f2;
+  --ce-success: #16833b;
+  --ce-whatsapp: #25d366;
+
+  --ce-font-display: 'Futura PT', 'Tw Cen MT Std', 'Helvetica Neue', Arial, sans-serif;
+  --ce-font-brand: 'Tw Cen MT Std', 'Futura PT', 'Century Gothic', sans-serif;
+  --ce-font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/* ----------  CE semantic type helpers ---------- */
+
+/* Big display moments — app title, KPI numbers. Futura PT only. */
+.ce-display {
+  font-family: var(--ce-font-display);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  color: var(--ce-ink);
+}
+
+/* Uppercase eyebrow — CE red, tracked. */
+.ce-eyebrow {
+  font-family: var(--ce-font-display);
+  color: var(--ce-red);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* Section heading lockup: eyebrow + a 2px red hairline rule. Pair with
+   <SectionHeading/>; this class styles the hairline element. */
+.ce-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ce-section-heading .ce-hairline {
+  height: 2px;
+  width: 40px;
+  background: var(--ce-red);
+  border: 0;
+  border-radius: 2px;
+}
+
+/* KPI number — Futura PT, large, ink. */
+.ce-kpi-number {
+  font-family: var(--ce-font-display);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--ce-ink);
+}
+
+/* ----------  CE real type scale  ----------
+   ≈ 28 / 20 / 15 / 13 / 11(eyebrow). Display sizes (h1/h2) carry Futura;
+   text sizes use the brand body face. Field labels are 11-12px uppercase
+   tracked muted; values 15px ink. */
+
+/* Page H1 (Futura) — the only place big Futura lives besides the case lockup. */
+.ce-h1 {
+  font-family: var(--ce-font-display);
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--ce-ink);
+}
+/* Sub-head (Futura) */
+.ce-h2 {
+  font-family: var(--ce-font-display);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.15;
+  color: var(--ce-ink);
+}
+/* Body — brand face */
+.ce-body {
+  font-family: var(--ce-font-brand);
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ce-ink);
+}
+/* Small / caption */
+.ce-small {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ce-muted);
+}
+
+/* Field label — 11px uppercase tracked muted (definition-list keys). */
+.ce-field-label {
+  font-family: var(--ce-font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ce-muted);
+}
+/* Field value — 15px ink. */
+.ce-field-value {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--ce-ink);
+}
+
+/* ----------  CE focus ring  ----------
+   3px CE-red halo. Apply `.ce-focusable` to any custom interactive surface
+   that doesn't already inherit a Fluent focus indicator. */
+.ce-focusable:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(219, 8, 22, 0.55);
+  border-radius: 2px;
+}
+
+/* The same 3px CE-red halo, hung on Fluent's own focus-indicator hook so it
+   reads consistently on DataGrid rows, TabList tabs, Dropdowns and dialog
+   buttons (which manage their own ::after focus pseudo-element). Applied via
+   the `.ce-focus-ring` class where a host element wraps Fluent controls. */
+.ce-focus-ring :focus-visible,
+.ce-focus-ring:focus-visible {
+  outline-color: var(--ce-red);
+}
+
+/* ----------  Reduced motion (release gate)  ----------
+   Honour prefers-reduced-motion across every transition / entrance / animation,
+   including the rail collapse, dashboard hover lifts, pipeline tints and the
+   @dnd-kit sortable transforms. Belt-and-braces: also neutralise inline
+   transition styles dnd-kit writes onto rows. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -48,6 +48,9 @@ Thumbs.db
 coverage/
 .nyc_output/
 
+# Playwright MCP scratch output (console logs + page snapshots from UI screenshots)
+.playwright-mcp/
+
 # Python (cedocumentmapper_v2.0 tooling, if colocated)
 __pycache__/
 *.py[cod]

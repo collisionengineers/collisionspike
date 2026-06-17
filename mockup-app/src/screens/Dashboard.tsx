@@ -1,0 +1,596 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Text,
+  Caption1,
+  makeStyles,
+  mergeClasses,
+  tokens,
+} from '@fluentui/react-components';
+import {
+  RefreshCw,
+  PhoneOutgoing,
+  CheckCircle2,
+  ChevronRight,
+  CircleCheck,
+  Inbox,
+  Send,
+  CalendarRange,
+  Copy,
+  GitFork,
+  ImageOff,
+  FileWarning,
+  AlertTriangle,
+  type LucideIcon,
+} from 'lucide-react';
+
+import { SectionHeading, PipelineStrip, VrmPlate } from '../components';
+import {
+  liveCounts,
+  throughput,
+  agingExceptions,
+  pipelineStages,
+  type ActionReason,
+  type AgingRow,
+} from '../mock';
+
+/* ============================================================
+   Dashboard — the CHASE COCKPIT.
+
+   Three kinds of number, never conflated:
+     A. LIVE DEPTH    — drainable backlogs (Needs action, Ready). Thin strip.
+     B. THROUGHPUT    — windowed (today / this week). Never lifetime.
+     C. NEEDS ACTION  — the hero: oldest-due-first exception list.
+
+   Refresh model (shape only, mock data): recompute on mount + on window
+   focus + a focus-gated ~75s poll. A quiet "Updated HH:MM · Refresh"
+   affordance restamps the time. Nothing here is a lifetime counter.
+   ============================================================ */
+
+const POLL_MS = 75_000;
+
+/* ----------  styles  ---------- */
+
+const useStyles = makeStyles({
+  root: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalXXL,
+  },
+
+  /* "Updated HH:MM · Refresh" affordance (quiet) */
+  updated: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    color: tokens.colorNeutralForeground3,
+    fontSize: '12px',
+    whiteSpace: 'nowrap',
+  },
+  refreshBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    background: 'none',
+    border: 'none',
+    margin: 0,
+    padding: '2px 4px',
+    borderRadius: '2px',
+    cursor: 'pointer',
+    color: tokens.colorNeutralForeground2,
+    fontSize: '12px',
+    fontWeight: tokens.fontWeightSemibold,
+    ':hover': { color: 'var(--ce-red)' },
+  },
+
+  /* ----- region scaffolding ----- */
+  region: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+  },
+  regionLabel: {
+    fontFamily: 'var(--ce-font-display)',
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.18em',
+    textTransform: 'uppercase',
+    color: tokens.colorNeutralForeground3,
+  },
+
+  /* ----- Region A: live depth — thin strip of two buttons ----- */
+  liveStrip: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: tokens.spacingHorizontalM,
+  },
+  liveBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    backgroundColor: tokens.colorNeutralBackground1,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: '2px',
+    padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalL}`,
+    cursor: 'pointer',
+    textAlign: 'left',
+    transitionProperty: 'background-color, border-color',
+    transitionDuration: tokens.durationFaster,
+    ':hover': {
+      backgroundColor: tokens.colorNeutralBackground1Hover,
+      border: `1px solid ${tokens.colorNeutralStroke1}`,
+    },
+  },
+  liveBtnBlocker: {
+    ':hover': { border: '1px solid var(--ce-red)' },
+  },
+  liveIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '34px',
+    height: '34px',
+    borderRadius: '2px',
+    backgroundColor: tokens.colorNeutralBackground3,
+    color: 'var(--ce-charcoal)',
+    flexShrink: 0,
+  },
+  liveIconBlocker: {
+    backgroundColor: 'var(--ce-red-tint)',
+    color: 'var(--ce-red)',
+  },
+  liveText: { display: 'flex', flexDirection: 'column', gap: 0, minWidth: 0 },
+  liveNumber: {
+    fontFamily: 'var(--ce-font-display)',
+    fontWeight: 700,
+    fontSize: '26px',
+    lineHeight: 1,
+    color: 'var(--ce-ink)',
+  },
+  liveNumberBlocker: { color: 'var(--ce-red)' },
+  liveLabel: {
+    fontSize: '13px',
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground2,
+  },
+
+  /* ----- Region B: throughput — inline windowed figures ----- */
+  thruStrip: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'stretch',
+    gap: 0,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: '2px',
+    overflow: 'hidden',
+  },
+  thruCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
+    flex: '1 1 0',
+    minWidth: '180px',
+    borderRight: `1px solid ${tokens.colorNeutralStroke2}`,
+    ':last-child': { borderRight: 0 },
+  },
+  thruIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '30px',
+    height: '30px',
+    borderRadius: '2px',
+    backgroundColor: tokens.colorNeutralBackground3,
+    color: 'var(--ce-charcoal)',
+    flexShrink: 0,
+  },
+  thruText: { display: 'flex', flexDirection: 'column', minWidth: 0 },
+  thruNumber: {
+    fontFamily: 'var(--ce-font-display)',
+    fontWeight: 700,
+    fontSize: '22px',
+    lineHeight: 1.05,
+    color: 'var(--ce-ink)',
+  },
+  thruLabel: {
+    fontSize: '12px',
+    color: tokens.colorNeutralForeground3,
+    whiteSpace: 'nowrap',
+  },
+
+  /* ----- Region C: needs-action hero list ----- */
+  facets: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: tokens.spacingHorizontalS,
+    alignItems: 'center',
+  },
+  facetChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '3px 10px',
+    borderRadius: '2px',
+    fontSize: '12px',
+    fontWeight: tokens.fontWeightSemibold,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    color: tokens.colorNeutralForeground2,
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  facetBlocker: {
+    color: '#ffffff',
+    backgroundColor: 'var(--ce-red-dark)',
+    border: '1px solid var(--ce-red-dark)',
+  },
+  facetAttention: {
+    color: '#3a2e08',
+    backgroundColor: '#f5c244',
+    border: '1px solid #e0a92a',
+  },
+
+  list: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
+  row: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
+    borderRadius: '2px',
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    backgroundColor: tokens.colorNeutralBackground1,
+    cursor: 'pointer',
+    textAlign: 'left',
+    width: '100%',
+    transitionProperty: 'background-color, border-color',
+    transitionDuration: tokens.durationFaster,
+    ':hover': {
+      backgroundColor: tokens.colorNeutralBackground1Hover,
+      border: `1px solid ${tokens.colorNeutralStroke1}`,
+    },
+  },
+  rowPastDue: {
+    borderLeft: '3px solid var(--ce-red)',
+    ':hover': { borderLeft: '3px solid var(--ce-red)' },
+  },
+  rowIcon: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '32px',
+    height: '32px',
+    borderRadius: '2px',
+    flexShrink: 0,
+    backgroundColor: tokens.colorNeutralBackground3,
+    color: 'var(--ce-charcoal)',
+  },
+  rowIconBlocker: { backgroundColor: 'var(--ce-red-tint)', color: 'var(--ce-red)' },
+  rowMain: { display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, flexGrow: 1 },
+  rowVerb: {
+    fontSize: '15px',
+    fontWeight: tokens.fontWeightSemibold,
+    color: 'var(--ce-ink)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  rowMeta: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS, flexWrap: 'wrap' },
+  rowSub: { color: tokens.colorNeutralForeground3 },
+
+  /* age/due pill — severity ramp grey → amber → red */
+  agePill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '5px',
+    padding: '2px 8px',
+    borderRadius: '2px',
+    fontSize: '12px',
+    fontWeight: tokens.fontWeightSemibold,
+    flexShrink: 0,
+    whiteSpace: 'nowrap',
+  },
+  ageInfo: {
+    color: tokens.colorNeutralForeground2,
+    backgroundColor: tokens.colorNeutralBackground3,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+  },
+  ageAttention: {
+    color: '#3a2e08',
+    backgroundColor: '#f7e2a6',
+    border: '1px solid #e0a92a',
+  },
+  ageBlocker: {
+    color: '#ffffff',
+    backgroundColor: 'var(--ce-red-dark)',
+    border: '1px solid var(--ce-red-dark)',
+  },
+
+  chev: { color: tokens.colorNeutralForeground4, flexShrink: 0 },
+
+  empty: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    padding: `${tokens.spacingVerticalXXL} ${tokens.spacingHorizontalL}`,
+    justifyContent: 'center',
+    textAlign: 'center',
+    color: tokens.colorNeutralForeground3,
+    borderRadius: '2px',
+    border: `1px dashed ${tokens.colorNeutralStroke2}`,
+  },
+});
+
+/* ----------  verb + icon per action reason  ---------- */
+
+const REASON_VERB: Record<ActionReason, string> = {
+  missing_images: 'Chase garage for images',
+  missing_instructions: 'Chase provider for instructions',
+  duplicate: 'Resolve duplicate',
+  conflict: 'Resolve claimant-name conflict before submit',
+  needs_review: 'Review parsed details',
+};
+
+const REASON_ICON: Record<ActionReason, LucideIcon> = {
+  missing_images: ImageOff,
+  missing_instructions: FileWarning,
+  duplicate: Copy,
+  conflict: GitFork,
+  needs_review: AlertTriangle,
+};
+
+/* ----------  time + due formatting  ---------- */
+
+function fmtTime(d: Date): string {
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+/** Severity for an aging row: greys (future/ample) → amber (≤2d) → red (past-due). */
+function ageSeverity(row: AgingRow): 'info' | 'attention' | 'blocker' {
+  if (row.pastDue) return 'blocker';
+  if (Number.isFinite(row.daysToDue) && row.daysToDue <= 2) return 'attention';
+  return 'info';
+}
+
+/** "3d past due · 12/06" / "Due today · 17/06" / "Due in 4d · 21/06". */
+function dueText(row: AgingRow): string {
+  const due = row.case.dateDue;
+  const tail = due ? ` · ${due.slice(0, 5)}` : '';
+  if (!Number.isFinite(row.daysToDue)) return 'No due date';
+  const n = row.daysToDue;
+  if (n < 0) return `${Math.abs(n)}d past due${tail}`;
+  if (n === 0) return `Due today${tail}`;
+  return `Due in ${n}d${tail}`;
+}
+
+/* ----------  screen  ---------- */
+
+export function Dashboard() {
+  const styles = useStyles();
+  const navigate = useNavigate();
+
+  // A single tick state forces a re-read of the mock helpers + restamps time.
+  const [stamp, setStamp] = useState<Date>(() => new Date());
+  const stampRef = useRef(stamp);
+  stampRef.current = stamp;
+
+  const refresh = useCallback(() => setStamp(new Date()), []);
+
+  // Refresh on window focus + a focus-gated ~75s poll.
+  useEffect(() => {
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+    const id = window.setInterval(() => {
+      if (document.hasFocus()) refresh();
+    }, POLL_MS);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(id);
+    };
+  }, [refresh]);
+
+  // Recompute every cockpit figure off the current stamp.
+  const now = stamp;
+  const stages = pipelineStages();
+  const live = liveCounts(now);
+  const thru = throughput(now);
+  const aging = agingExceptions(now);
+
+  return (
+    <div className={styles.root}>
+      <SectionHeading
+        eyebrow="Overview"
+        heading="Case intake dashboard"
+        subtitle="Clear the backlog — chase what is aging, submit what is ready."
+        actions={
+          <span className={styles.updated}>
+            <span>Updated {fmtTime(stamp)}</span>
+            <span aria-hidden>·</span>
+            <button type="button" className={mergeClasses('ce-focusable', styles.refreshBtn)} onClick={refresh}>
+              <RefreshCw size={13} strokeWidth={2} aria-hidden />
+              Refresh
+            </button>
+          </span>
+        }
+      />
+
+      {/* HERO: the real pipeline, chasing stage lit red */}
+      <PipelineStrip stages={stages} variant="hero" />
+
+      {/* REGION A — LIVE WORK (drainable depth) */}
+      <section className={styles.region} aria-label="Live work">
+        <span className={styles.regionLabel}>Live work · drainable now</span>
+        <div className={styles.liveStrip}>
+          <LiveButton
+            icon={PhoneOutgoing}
+            count={live.needsAction}
+            label="Needs action"
+            blocker
+            onClick={() => navigate('/queue/needs-action')}
+          />
+          <LiveButton
+            icon={CheckCircle2}
+            count={live.ready}
+            label="Ready for EVA"
+            onClick={() => navigate('/queue/ready')}
+          />
+        </div>
+      </section>
+
+      {/* REGION B — TODAY / THIS WEEK (windowed throughput, never lifetime) */}
+      <section className={styles.region} aria-label="Today and this week">
+        <span className={styles.regionLabel}>Today / this week · windowed</span>
+        <div className={styles.thruStrip}>
+          <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
+          <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
+          <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
+        </div>
+      </section>
+
+      {/* REGION C — NEEDS ACTION (the hero list) */}
+      <section className={styles.region} aria-label="Needs action">
+        <span className={styles.regionLabel}>Needs action · oldest due first</span>
+
+        {/* exception chips */}
+        {aging.rows.length > 0 && (
+          <div className={styles.facets}>
+            {aging.pastDueCount > 0 && (
+              <span className={mergeClasses(styles.facetChip, styles.facetBlocker)}>
+                <AlertTriangle size={12} strokeWidth={2.25} aria-hidden />
+                {aging.pastDueCount} past due
+              </span>
+            )}
+            {aging.duplicateCount > 0 && (
+              <span className={mergeClasses(styles.facetChip, styles.facetAttention)}>
+                <Copy size={12} strokeWidth={2.25} aria-hidden />
+                {aging.duplicateCount} duplicate
+              </span>
+            )}
+            {aging.conflictCount > 0 && (
+              <span className={mergeClasses(styles.facetChip, styles.facetAttention)}>
+                <GitFork size={12} strokeWidth={2.25} aria-hidden />
+                {aging.conflictCount} conflict
+              </span>
+            )}
+          </div>
+        )}
+
+        {aging.rows.length === 0 ? (
+          <div className={styles.empty}>
+            <CircleCheck size={20} strokeWidth={1.75} aria-hidden />
+            <Text>
+              Nothing waiting. New cases land here as email arrives — last checked{' '}
+              {fmtTime(stamp)}.
+            </Text>
+          </div>
+        ) : (
+          <div className={styles.list}>
+            {aging.rows.map((row) => (
+              <AgingRowItem
+                key={row.case.id}
+                row={row}
+                onOpen={() => navigate(`/case/${row.case.id}`)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ----------  Region A button  ---------- */
+
+function LiveButton({
+  icon: Icon,
+  count,
+  label,
+  blocker = false,
+  onClick,
+}: {
+  icon: LucideIcon;
+  count: number;
+  label: string;
+  blocker?: boolean;
+  onClick: () => void;
+}) {
+  const styles = useStyles();
+  const lit = blocker && count > 0;
+  return (
+    <button
+      type="button"
+      className={mergeClasses('ce-focusable', styles.liveBtn, blocker && styles.liveBtnBlocker)}
+      onClick={onClick}
+      aria-label={`${label}: ${count} ${count === 1 ? 'case' : 'cases'}. Open queue.`}
+    >
+      <span className={mergeClasses(styles.liveIcon, lit && styles.liveIconBlocker)} aria-hidden>
+        <Icon size={18} strokeWidth={1.75} />
+      </span>
+      <span className={styles.liveText}>
+        <span className={mergeClasses(styles.liveNumber, lit && styles.liveNumberBlocker)}>
+          {count}
+        </span>
+        <span className={styles.liveLabel}>{label}</span>
+      </span>
+    </button>
+  );
+}
+
+/* ----------  Region B cell  ---------- */
+
+function ThruCell({ icon: Icon, value, label }: { icon: LucideIcon; value: number; label: string }) {
+  const styles = useStyles();
+  return (
+    <div className={styles.thruCell}>
+      <span className={styles.thruIcon} aria-hidden>
+        <Icon size={16} strokeWidth={1.75} />
+      </span>
+      <span className={styles.thruText}>
+        <span className={styles.thruNumber}>{value}</span>
+        <span className={styles.thruLabel}>{label}</span>
+      </span>
+    </div>
+  );
+}
+
+/* ----------  Region C row  ---------- */
+
+function AgingRowItem({ row, onOpen }: { row: AgingRow; onOpen: () => void }) {
+  const styles = useStyles();
+  const c = row.case;
+  const reason = row.reason;
+  const Icon = reason ? REASON_ICON[reason] : AlertTriangle;
+  const verb = reason ? REASON_VERB[reason] : 'Review case';
+  const sev = ageSeverity(row);
+  const ageCls =
+    sev === 'blocker' ? styles.ageBlocker : sev === 'attention' ? styles.ageAttention : styles.ageInfo;
+
+  return (
+    <button
+      type="button"
+      className={mergeClasses('ce-focusable', styles.row, row.pastDue && styles.rowPastDue)}
+      onClick={onOpen}
+      aria-label={`${verb}. ${c.vrm}, ${c.vehicleModel || 'vehicle TBC'}. ${dueText(row)}. Open case.`}
+    >
+      <span
+        className={mergeClasses(styles.rowIcon, row.pastDue && styles.rowIconBlocker)}
+        aria-hidden
+      >
+        <Icon size={17} strokeWidth={1.85} />
+      </span>
+
+      <span className={styles.rowMain}>
+        <span className={styles.rowVerb}>{verb}</span>
+        <span className={styles.rowMeta}>
+          <VrmPlate vrm={c.vrm} size="small" />
+          <Caption1 className={styles.rowSub}>
+            {c.vehicleModel || 'Vehicle TBC'} · {c.provider}
+          </Caption1>
+        </span>
+      </span>
+
+      <span className={mergeClasses(styles.agePill, ageCls)}>{dueText(row)}</span>
+      <ChevronRight size={18} className={styles.chev} aria-hidden />
+    </button>
+  );
+}
+
+export default Dashboard;
