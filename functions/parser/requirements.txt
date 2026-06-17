@@ -1,0 +1,23 @@
+# Runtime dependencies for the Collision Engineers parser Function.
+#
+# The Azure Functions Python worker installs azure-functions itself, but pin it
+# here so local runs and CI resolve the same wrapper API.
+azure-functions>=1.21.0
+
+# EVA payload schema validation (Draft 2020-12). Mirrors the version the sibling
+# parser already pins (cedocumentmapper_v2 -> jsonschema>=4.22.0).
+jsonschema>=4.22.0
+
+# The sibling document parser — cedocumentmapper_v2. It is NOT vendored into this
+# Function; it is referenced from the sibling repo. For local/dev installs use an
+# editable path install (run from this directory):
+#
+#     pip install -e ../../../cedocumentmapper_v2.0
+#
+# It is intentionally left COMMENTED here because:
+#   * tests monkeypatch parser_adapter.run_parser and never import it, and
+#   * the deployment build pulls it in via the container/build step (it carries
+#     heavy native deps — PyMuPDF [licensed/approved], Tesseract, python-docx —
+#     that should not be resolved by a bare `pip install -r requirements.txt`).
+# Uncomment / wire into the container build during [DEPLOY-WITH-LOGIN]:
+# cedocumentmapper-v2 @ file:///${REPO_ROOT}/cedocumentmapper_v2.0

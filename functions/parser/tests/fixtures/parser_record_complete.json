@@ -1,0 +1,118 @@
+{
+  "_comment": "Fixture: a record_to_dict() result from cedocumentmapper_v2 that maps to a SCHEMA-VALID 13-field EVA payload. Synthetic data only — NO real PII, NO secrets. Uses the parser's NATIVE field keys (incident_date/instruction_date, vrm, reference, inspection_date) which the adapter renames/drops.",
+  "provider": {
+    "provider_id": "demo",
+    "provider_name": "Demo Provider",
+    "confidence": 0.93,
+    "matched_terms": ["Demo Provider"],
+    "missing_terms": [],
+    "rejected_terms": []
+  },
+  "fields": {
+    "work_provider": {
+      "value": "Demo Provider",
+      "raw_value": "Demo Provider",
+      "rule_id": "wp_header",
+      "confidence": 0.95,
+      "source_span": null,
+      "issues": []
+    },
+    "vrm": {
+      "value": "AB12CDE",
+      "raw_value": "AB12 CDE",
+      "rule_id": "vrm_regex",
+      "confidence": 0.9,
+      "source_span": null,
+      "issues": []
+    },
+    "vehicle_model": {
+      "value": "Generic Hatchback 1.0",
+      "raw_value": "Generic Hatchback 1.0",
+      "rule_id": "model_label",
+      "confidence": 0.8,
+      "source_span": null,
+      "issues": []
+    },
+    "claimant_name": {
+      "value": "Sample Claimant",
+      "raw_value": "Sample Claimant",
+      "rule_id": "claimant_label",
+      "confidence": 0.85,
+      "source_span": null,
+      "issues": []
+    },
+    "reference": {
+      "value": "DEMO-0001",
+      "raw_value": "DEMO-0001",
+      "rule_id": "ref_regex",
+      "confidence": 0.88,
+      "source_span": null,
+      "issues": []
+    },
+    "incident_date": {
+      "value": "01/02/2026",
+      "raw_value": "1 Feb 2026",
+      "rule_id": "date_loss",
+      "confidence": 0.82,
+      "source_span": null,
+      "issues": []
+    },
+    "instruction_date": {
+      "value": "05/02/2026",
+      "raw_value": "5 Feb 2026",
+      "rule_id": "date_instruction",
+      "confidence": 0.82,
+      "source_span": null,
+      "issues": []
+    },
+    "inspection_date": {
+      "value": "10/02/2026",
+      "raw_value": "10 Feb 2026",
+      "rule_id": "date_inspection",
+      "confidence": 0.8,
+      "source_span": null,
+      "issues": []
+    },
+    "inspection_address": {
+      "value": "Unit 1\nExample Industrial Estate\nSample Road\nExampletown\nExampleshire\nEX1 2MP",
+      "raw_value": "Unit 1, Example Industrial Estate, Sample Road, Exampletown, Exampleshire, EX1 2MP",
+      "rule_id": "address_block",
+      "confidence": 0.7,
+      "source_span": null,
+      "issues": []
+    },
+    "accident_circumstances": {
+      "value": "Vehicle was stationary when struck from the rear at low speed.",
+      "raw_value": "Vehicle was stationary when struck from the rear at low speed.",
+      "rule_id": "circumstances_para",
+      "confidence": 0.6,
+      "source_span": null,
+      "issues": []
+    },
+    "vat_status": {
+      "value": "Yes",
+      "raw_value": "VAT registered",
+      "rule_id": "vat_flag",
+      "confidence": 0.9,
+      "source_span": null,
+      "issues": []
+    },
+    "mileage": {
+      "value": "42000",
+      "raw_value": "42,000",
+      "rule_id": "mileage_regex",
+      "confidence": 0.75,
+      "source_span": null,
+      "issues": []
+    },
+    "mileage_unit": {
+      "value": "Miles",
+      "raw_value": "miles",
+      "rule_id": "mileage_unit_label",
+      "confidence": 0.9,
+      "source_span": null,
+      "issues": []
+    }
+  },
+  "issues": []
+}

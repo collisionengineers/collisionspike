@@ -1,0 +1,197 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Collision Engineers Parser",
+    "description": "Custom connector for the cedocumentmapper_v2 parser Function. POST a base64 instruction document and receive the settled 13-field EVA extraction (with per-field value/confidence/source), plus the Case-identity vrm/reference surfaced separately. PDF_MAPPER_ENABLED gating is enforced in the calling flow, not here.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Collision Engineers — collisionspike"
+    }
+  },
+  "host": "REPLACE-WITH-FUNCTION-HOST.azurewebsites.net",
+  "basePath": "/api",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/parse": {
+      "post": {
+        "summary": "Parse an instruction document",
+        "description": "Decode a base64 document, extract the 13-field EVA payload, and return it with field-level provenance plus Case-identity vrm/reference.",
+        "operationId": "ParseDocument",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ParseRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Parsed result (extraction may be incomplete; see issues).",
+            "schema": {
+              "$ref": "#/definitions/ParseResponse"
+            }
+          },
+          "400": {
+            "description": "Bad input (missing/invalid document, filename, or JSON).",
+            "schema": {
+              "$ref": "#/definitions/ParseResponse"
+            }
+          },
+          "502": {
+            "description": "Parser dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/ParseResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "ParseRequest": {
+      "type": "object",
+      "required": [
+        "document",
+        "filename"
+      ],
+      "properties": {
+        "document": {
+          "type": "string",
+          "format": "byte",
+          "description": "Base64-encoded document bytes (.pdf/.docx/.doc/.eml/.msg)."
+        },
+        "filename": {
+          "type": "string",
+          "description": "Original filename WITH extension (selects the parser reader)."
+        },
+        "provider_hint": {
+          "type": "string",
+          "description": "Optional provider id or name to bias provider detection."
+        }
+      }
+    },
+    "FieldCell": {
+      "type": "object",
+      "description": "One EVA field value with provenance.",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "format": "float",
+          "x-nullable": true
+        },
+        "source": {
+          "type": "string",
+          "description": "Extraction rule id / provenance label, or 'absent' when the parser did not supply this field."
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Extraction": {
+      "type": "object",
+      "description": "The settled 13-field EVA extraction. Keys are emitted in contract order.",
+      "properties": {
+        "work_provider": { "$ref": "#/definitions/FieldCell" },
+        "vehicle_model": { "$ref": "#/definitions/FieldCell" },
+        "claimant_name": { "$ref": "#/definitions/FieldCell" },
+        "claimant_telephone": { "$ref": "#/definitions/FieldCell" },
+        "claimant_email": { "$ref": "#/definitions/FieldCell" },
+        "date_of_loss": { "$ref": "#/definitions/FieldCell" },
+        "date_of_instruction": { "$ref": "#/definitions/FieldCell" },
+        "accident_circumstances": { "$ref": "#/definitions/FieldCell" },
+        "inspection_address": { "$ref": "#/definitions/FieldCell" },
+        "vat_status": { "$ref": "#/definitions/FieldCell" },
+        "mileage": { "$ref": "#/definitions/FieldCell" },
+        "mileage_unit": { "$ref": "#/definitions/FieldCell" },
+        "engineer_allocation": { "$ref": "#/definitions/FieldCell" }
+      }
+    },
+    "Issue": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "ParseResponse": {
+      "type": "object",
+      "properties": {
+        "extraction": {
+          "$ref": "#/definitions/Extraction"
+        },
+        "vrm": {
+          "$ref": "#/definitions/FieldCell",
+          "description": "Case-identity (correlation/dedup). NOT part of the EVA payload."
+        },
+        "reference": {
+          "$ref": "#/definitions/FieldCell",
+          "description": "Case-identity (correlation/dedup). NOT part of the EVA payload."
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Issue"
+          }
+        },
+        "contract_version": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "apiKeyHeader": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "x-functions-key",
+      "description": "Azure Functions host/function key, stored on the custom connection. Never embedded in this definition."
+    }
+  },
+  "security": [
+    { "apiKeyHeader": [] }
+  ],
+  "x-ms-connector-metadata": [
+    {
+      "propertyName": "Website",
+      "propertyValue": "https://collisionengineers.example"
+    },
+    {
+      "propertyName": "Authentication note",
+      "propertyValue": "FUNCTION-level auth: the connector sends the function key as x-functions-key. The API gateway additionally fronts the endpoint; do not expose the Function host directly."
+    }
+  ]
+}

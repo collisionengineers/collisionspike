@@ -1,0 +1,67 @@
+{
+  "_comment": "Fixture: a record_to_dict() result that is DELIBERATELY incomplete — work_provider and vehicle_model (both schema-required non-empty) are blank, and date_of_loss carries a malformed date. Maps to a SCHEMA-INVALID payload so the validation path surfaces clear issues. Synthetic — NO real PII.",
+  "provider": {
+    "provider_id": null,
+    "provider_name": "Unknown",
+    "confidence": 0.0,
+    "matched_terms": [],
+    "missing_terms": [],
+    "rejected_terms": []
+  },
+  "fields": {
+    "work_provider": {
+      "value": "",
+      "raw_value": "",
+      "rule_id": null,
+      "confidence": null,
+      "source_span": null,
+      "issues": [
+        {
+          "field": "work_provider",
+          "severity": "error",
+          "code": "missing",
+          "message": "Work provider could not be determined."
+        }
+      ]
+    },
+    "vehicle_model": {
+      "value": "",
+      "raw_value": "",
+      "rule_id": null,
+      "confidence": null,
+      "source_span": null,
+      "issues": []
+    },
+    "incident_date": {
+      "value": "2026-02-01",
+      "raw_value": "2026-02-01",
+      "rule_id": "date_loss",
+      "confidence": 0.4,
+      "source_span": null,
+      "issues": [
+        {
+          "field": "incident_date",
+          "severity": "warning",
+          "code": "format",
+          "message": "Date not normalised to DD/MM/YYYY."
+        }
+      ]
+    },
+    "claimant_name": {
+      "value": "Sample Claimant",
+      "raw_value": "Sample Claimant",
+      "rule_id": "claimant_label",
+      "confidence": 0.85,
+      "source_span": null,
+      "issues": []
+    }
+  },
+  "issues": [
+    {
+      "field": null,
+      "severity": "warning",
+      "code": "low_confidence",
+      "message": "Provider not detected; extraction may be unreliable."
+    }
+  ]
+}

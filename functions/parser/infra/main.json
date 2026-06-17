@@ -1,0 +1,193 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.44.1.10279",
+      "templateHash": "8672094097647500795"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources."
+      }
+    },
+    "namePrefix": {
+      "type": "string",
+      "defaultValue": "cespike",
+      "minLength": 3,
+      "maxLength": 11,
+      "metadata": {
+        "description": "Short name stem for resource naming (e.g. \"cespike\")."
+      }
+    },
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "dev",
+      "metadata": {
+        "description": "Deployment environment tag (e.g. dev, test, prod)."
+      }
+    },
+    "pythonVersion": {
+      "type": "string",
+      "defaultValue": "3.12",
+      "allowedValues": [
+        "3.11",
+        "3.12"
+      ],
+      "metadata": {
+        "description": "Python runtime version for the Function worker."
+      }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional existing Key Vault name to source secret references from. Empty = no secret references wired (the parser needs none today)."
+      }
+    },
+    "parserSecretName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional Key Vault secret name for a future outbound API key. Wired only when both keyVaultName and this are set. The VALUE is RESERVED-FOR-USER."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {
+        "app": "collisionspike",
+        "component": "parser-function",
+        "environment": "[parameters('environmentName')]"
+      },
+      "metadata": {
+        "description": "Tags applied to every resource."
+      }
+    }
+  },
+  "variables": {
+    "uniqueSuffix": "[uniqueString(resourceGroup().id, parameters('namePrefix'), parameters('environmentName'))]",
+    "storageAccountName": "[toLower(format('{0}st{1}', parameters('namePrefix'), substring(variables('uniqueSuffix'), 0, 6)))]",
+    "planName": "[format('{0}-parser-plan-{1}', parameters('namePrefix'), parameters('environmentName'))]",
+    "functionAppName": "[format('{0}-parser-{1}-{2}', parameters('namePrefix'), parameters('environmentName'), variables('uniqueSuffix'))]",
+    "appInsightsName": "[format('{0}-parser-ai-{1}', parameters('namePrefix'), parameters('environmentName'))]",
+    "logAnalyticsName": "[format('{0}-parser-law-{1}', parameters('namePrefix'), parameters('environmentName'))]",
+    "wireSecretReference": "[and(not(empty(parameters('keyVaultName'))), not(empty(parameters('parserSecretName'))))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "minimumTlsVersion": "TLS1_2",
+        "allowBlobPublicAccess": false,
+        "supportsHttpsTrafficOnly": true
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('logAnalyticsName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('appInsightsName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2023-12-01",
+      "name": "[variables('planName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "sku": {
+        "name": "EP1",
+        "tier": "ElasticPremium"
+      },
+      "kind": "elastic",
+      "properties": {
+        "reserved": true,
+        "maximumElasticWorkerCount": 3
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2023-12-01",
+      "name": "[variables('functionAppName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "kind": "functionapp,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "httpsOnly": true,
+        "reserved": true,
+        "siteConfig": {
+          "linuxFxVersion": "[format('Python|{0}', parameters('pythonVersion'))]",
+          "ftpsState": "Disabled",
+          "minTlsVersion": "1.2",
+          "appSettings": "[concat(createArray(createObject('name', 'AzureWebJobsStorage', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', variables('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-05-01').keys[0].value)), createObject('name', 'FUNCTIONS_EXTENSION_VERSION', 'value', '~4'), createObject('name', 'FUNCTIONS_WORKER_RUNTIME', 'value', 'python'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString), createObject('name', 'EVA_PAYLOAD_SCHEMA_PATH', 'value', '')), if(variables('wireSecretReference'), createArray(createObject('name', 'PARSER_OUTBOUND_API_KEY', 'value', format('@Microsoft.KeyVault(SecretUri=https://{0}{1}/secrets/{2}/)', parameters('keyVaultName'), environment().suffixes.keyvaultDns, parameters('parserSecretName')))), createArray()))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+        "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "functionAppName": {
+      "type": "string",
+      "metadata": {
+        "description": "The deployed Function App name."
+      },
+      "value": "[variables('functionAppName')]"
+    },
+    "functionAppDefaultHostName": {
+      "type": "string",
+      "metadata": {
+        "description": "The Function App default host (the /parse route lives under this)."
+      },
+      "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2023-12-01').defaultHostName]"
+    },
+    "functionAppPrincipalId": {
+      "type": "string",
+      "metadata": {
+        "description": "System-assigned managed identity principalId — grant it Key Vault \"get secret\" to resolve references."
+      },
+      "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2023-12-01', 'full').identity.principalId]"
+    }
+  }
+}

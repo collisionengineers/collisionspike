@@ -1,0 +1,10 @@
+# Dev/test dependencies. Run the offline suite with:
+#
+#     python -m pip install -r requirements.txt -r requirements-dev.txt
+#     python -m pytest
+#
+# Tests monkeypatch parser_adapter.run_parser, so cedocumentmapper_v2 / PyMuPDF /
+# Tesseract are NOT required to run them.
+-r requirements.txt
+
+pytest>=8.2.0
