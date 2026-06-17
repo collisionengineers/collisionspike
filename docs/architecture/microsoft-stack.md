@@ -82,6 +82,15 @@ for robust **people/reflection detection** and **Read OCR** of the plate (HTTP/c
 Docs: AI Builder <https://learn.microsoft.com/ai-builder/get-started-with-object-detection> ·
 Vision <https://learn.microsoft.com/azure/ai-services/computer-vision/overview>
 
+> **Learn check (important, June 2026):** **Azure Custom Vision** *and* **Image Analysis 4.0**
+> (incl. its custom-model and people-detection features) are on Microsoft's **retirement path —
+> supported only until 2028-09-25** (<https://learn.microsoft.com/azure/ai-services/computer-vision/overview>,
+> <https://learn.microsoft.com/azure/ai-services/custom-vision-service/overview>). Do **not** build
+> new work on Custom Vision. Durable choices: **AI Builder image classification** (native, current)
+> for overview-vs-damage; **Azure Document Intelligence Read** (or bundled **Tesseract**) for **plate
+> OCR**; an **Azure OpenAI / Foundry vision model (GPT-4o-class)** for **person/reflection detection**
+> (and as a flexible one-call classifier). Treat Vision 4.0 people/Read as usable-now-but-sunsetting.
+
 ### 6. Enrichment — custom connectors to `collisionplugin`
 DVSA mileage (`current_mileage_estimate`) + vehicle details (`get_vehicle_summary`), and later
 valuation. The connectors are **MCP-only behind an OAuth gateway** — a thin **REST wrapper**

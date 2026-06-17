@@ -50,6 +50,8 @@ later).
   cutover gated. **Box** finalises in unison with EVA submission (UPPERCASE Case/PO; EVA lowercase).
 - **EVA image rule:** **1 full-view image (registration visible) + 1 damage closeup** (the 2 previews).
 - **Audatex:** intake/integration **out of scope** for the spike (deferred entirely).
+- **Tool boundary:** the tool ends at **EVA submission + Box** (the EVA handoff); the engineer
+  assessment / report generation / return-to-client is **out of scope** (ADR-0008).
 - **Valuation** (`valuationbot`): **in scope (M2)** — **on-demand** (staff-triggered, e.g.
   total-loss/disputed value): comparable search + evidence PDF attached as Evidence, gated
   `VALUATION_ENABLED`; same REST-wrapper pattern as DVSA.
