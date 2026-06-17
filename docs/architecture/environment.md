@@ -9,12 +9,13 @@ Discovered state (probed via `pac` / `az` / `infisical`, June 2026) and what M1 
 - **TODO:** verify the **code apps feature** is enabled on this environment (Admin center →
   Environments → Settings → Product → Features) and Power Apps **Premium** licensing.
 
-## Azure — BLOCKER: no subscription
-- `az` is authenticated (same user) but there is **no Azure subscription** — only a tenant-level
-  account (`az account list` → `N/A(tenant level account)`).
-- The M1 Azure Functions (parser wrapper — ADR-0004; DVSA wrapper — ADR-0006) and later Azure
-  Document Intelligence / Foundry **require an Azure subscription**. Either provision one, or host
-  the wrappers elsewhere (see the open decision).
+## Azure — ready (subscription provisioned)
+- `az` authenticated; **subscription "Azure subscription 1"** (`e6076573-23a5-46a8-acef-7e22d264e5db`,
+  tenant `858cf5b3-aa0a-47a6-9b40-4851fd0afa94`) Enabled & default.
+- The M1 **Azure Functions** (parser wrapper — ADR-0004; DVSA wrapper — ADR-0006) and later Azure
+  Document Intelligence / Foundry can deploy here.
+- **TODO:** create a resource group + Function App(s) + **Key Vault** for secrets; Entra app
+  registration for the Function→`collisionplugin` gateway auth.
 
 ## Secrets — Infisical
 - Infisical CLI installed (winget) at
@@ -57,6 +58,5 @@ Options:
 DVSA/valuation already run remotely (collisionplugin Cloud Run behind the gateway) — they need only a
 custom connector, not new hosting.
 
-Recommendation: **(1) local-via-gateway/PAD if an always-on machine exists** (matches the "parsing is
-just automation" intuition, zero cloud spend); otherwise **(2) Cloud Run**. Provision Azure only when
-Document Intelligence / Foundry are needed (M2+). This revises ADR-0004's "Azure Function" host.
+**Decided:** option **3 — Azure Functions** (subscription "Azure subscription 1" provisioned).
+**ADR-0004/0006 stand as written.** (Local-via-gateway and Cloud Run remain documented fallbacks.)
