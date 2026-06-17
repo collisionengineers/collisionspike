@@ -66,7 +66,7 @@ Gate the whole enrichment path with `ENRICHMENT_API_BASE` + `ENRICHMENT_ENABLED`
 Behind the global **outbound** kill switch; **human-sent** in the spike. **Email** chasers are
 drafted (later sent via the Outlook connector). **WhatsApp is WhatsApp Business only and won't
 change** → chasers are drafted for staff to send manually; **no free automated WhatsApp send**.
-**Audatex** is await-only. Model: `Chaser` + `Note` in [data-model.md](./data-model.md).
+**Audatex** is **out of scope** (deferred entirely). Model: `Chaser` + `Note` in [data-model.md](./data-model.md).
 
 ## Box archival
 

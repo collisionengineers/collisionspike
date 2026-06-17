@@ -38,14 +38,19 @@ later).
 - **Case store:** Reference the existing **SharePoint** job sheet; **mirror it into Dataverse**
   as the spike's working store (start read-only import; SharePoint remains source of record).
 - **`collisioncc` = reference / information / context guide only** (CONFIRMED). The spike does
-  **not** call collisioncc at runtime; it is the source of truth for contracts, domain model, EVA
-  payload shape, case-status, image-rules, and provider knowledge that the spike re-implements.
+  **not** call collisioncc at runtime; it is a **reference** (not canonical) for the domain model,
+  EVA payload, case-status, image-rules, and provider knowledge — the spike's own `docs/` +
+  `CONTEXT.md` are the source of truth.
 - **`collisionplugin`** MCP connectors are consumed at runtime for enrichment (mileage, valuation).
 - **Image AI:** **AI Builder first** (overview-vs-damage classification, registration-visible
   check). **Azure AI Vision** (people/reflection detection, plate OCR) and **Azure Document
   Intelligence** + general LLM assist are **explicitly later phases**.
-- **EVA:** **gated** — JSON drag-drop export now; **Sentry API behind a feature flag** until EVA's
-  developers enable/stabilise it (currently in testing).
+- **EVA:** **full scope** (ADR-0005) — drag-drop JSON now (M1 + permanent fallback); Sentry API
+  built against the **EVA test environment** (test vs prod by **credentials**, same URL); production
+  cutover gated. **Box** finalises in unison with EVA submission (UPPERCASE Case/PO; EVA lowercase).
+- **EVA image rule:** **1 full-view image (registration visible) + 1 damage closeup** (the 2 previews).
+- **Audatex:** intake/integration **out of scope** for the spike (deferred entirely).
+- **Valuation** (`valuationbot`): **in scope (M2)**, via the same REST-wrapper pattern as DVSA.
 
 ## Recommended architecture (the spike)
 
@@ -146,8 +151,8 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 ### Phase 3 — Enrichment via connectors + EVA export
 - **Enrichment connectors (ADR-0006 — REST wrapper / Azure Function over collisionplugin behind the
   OAuth gateway):** **DVSA `dvsa-mot` is pulled into M1** (`current_mileage_estimate` — only when the
-  document lacks mileage — + `get_vehicle_summary`); **valuation** (`valuationbot`) lands here in
-  **M3**. Use
+  document lacks mileage — + `get_vehicle_summary`); **valuation** (`valuationbot`) is **in scope at
+  M2**. Use
   `code-apps-preview:add-connector` / `list-connections`.
 - **EVA export — full scope (ADR-0005):** generate the EVA JSON payload (the `cedocumentmapper_v2.0`
   13-field contract) for drag-drop (M1 + permanent fallback); **build & validate the Sentry API

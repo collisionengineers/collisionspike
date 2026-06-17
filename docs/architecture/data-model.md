@@ -24,7 +24,7 @@ The live work item (replaces the `Jobs` sheet — 31 cols × ~226 rows of formul
   `current_mileage_estimate` runs **only when the document has no mileage** (ADR-0006).
 - Links: `workProviderId` (→ WorkProvider), `imageSourceId` (→ ImageSource, nullable),
   `inspectionAddressId` (→ InspectionAddress, nullable).
-- Workflow: `status` (state machine below), `intakeChannel` (Email/WhatsApp/Audatex × Auto/Manual),
+- Workflow: `status` (state machine below), `intakeChannel` (Email/WhatsApp × Auto/Manual; **Audatex out of scope**),
   `sourceMailbox`, `dateDue`, `inspectionDate`.
 - EVA fields (the 13-field contract): vehicle model, claimant name, dates, accident circumstances,
   VAT status, mileage + unit, 6-line inspection address (or `Image Based Assessment`).
@@ -64,7 +64,7 @@ source/evidence note, provenance link, and decision mode
 ### ImageSource
 The party that supplies a case's images/instructions — a **role**, not always a distinct org.
 Fields: `name`, `kind` (`provider_direct | repairer | intermediary | individual`), `channel`
-(`email | whatsapp | audatex`), match keys (`emailDomain?`, `whatsappGroup?`/`whatsappNumber?`,
+(`email | whatsapp` — **Audatex out of scope**), match keys (`emailDomain?`, `whatsappGroup?`/`whatsappNumber?`,
 `contactName?`), optional `repairerId?` (when the source **is** a Repairer — don't duplicate it),
 `workProviderId`s (m:n), optional default Inspection Address hint. Drives recognition of
 non-email-domain intake (WhatsApp/individuals) and address defaulting. A Case carries `imageSourceId`.
@@ -85,10 +85,10 @@ image's OCR text contain the case VRM?); `imageRole` tagging is **manual until M
 
 ### Chaser & Note
 - `Chaser` (ADR-0003): tracked request for Missing items — `caseId`, `targetType`
-  (`image_source`/`repairer`/`work_provider`), `channel` (`email`/`whatsapp`/`audatex`),
+  (`image_source`/`repairer`/`work_provider`), `channel` (`email`/`whatsapp`),
   `templateUsed`, `status` (`drafted`/`sent`/`responded`/`overdue`), `sentBy?`, `sentAt?`.
   **Channel-aware:** email = draft + (later) Outlook send; WhatsApp = **draft + manual send**
-  (WhatsApp Business only); Audatex = await.
+  (WhatsApp Business only). **Audatex out of scope.**
 - `Note`: free-text — `caseId`, `author`, `timestamp`, `text`. First-class, always available.
 
 ### Field-level provenance (on each EVA-relevant Case field)
