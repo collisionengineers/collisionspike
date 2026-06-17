@@ -46,9 +46,10 @@ Gate the whole enrichment path with `ENRICHMENT_API_BASE` + `ENRICHMENT_ENABLED`
 
 ## Document parser (`cedocumentmapper_v2.0`)
 
-- **Now:** CLI invoked out-of-band; its EVA-JSON output is imported.
-- **Later (gated `PDF_MAPPER_ENABLED`):** wrap as an Azure Function → custom connector so flows can
-  call it inline on incoming attachments. Resolve the **PyMuPDF AGPL** risk first.
+- **M1 (ADR-0004):** wrapped as an **Azure Function** → custom connector (gated `PDF_MAPPER_ENABLED`)
+  that the Code App calls inline on the instruction to pre-fill the 13 fields (staff review). Resolve
+  the **PyMuPDF AGPL** risk as part of M1.
+- The CLI remains available for offline/batch use.
 
 ## Address normalisation
 

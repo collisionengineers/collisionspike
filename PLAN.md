@@ -78,6 +78,14 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 
 ## Workstreams (phased)
 
+> **First milestone — M1 vertical slice (decided).** ONE mailbox → VRM-correlated Case →
+> deterministic readiness checklist + Missing → manual Case/PO + drag-drop EVA JSON export. Minimal
+> seeded corpus; inspection address as a manual field. **Parser wired inline (ADR-0004):**
+> `cedocumentmapper_v2.0` runs as an Azure Function (custom connector, `PDF_MAPPER_ENABLED`) that the
+> Code App calls on the instruction to pre-fill the 13 fields (staff review). Proves Code App +
+> Dataverse + parser→EVA + the readiness gate end-to-end. **Out of M1:** image AI, enrichment
+> connectors, Sentry API, full corpus governance, assistant, chasers. **Resolve PyMuPDF AGPL in M1.**
+
 ### Phase 0 — Foundations
 - Scaffold the Power Apps Code App: `code-apps-preview:create-code-app` (React/Vite).
 - Create a **Dataverse solution** `CollisionSpike` to hold tables, connectors, env vars, flows.
@@ -151,8 +159,8 @@ layered, contract-first Python library + CLI (~5,100 LOC): domain models, reader
 - **Resolve the PyMuPDF (AGPL) licensing risk** before any closed-source distribution (swap to
   pdfplumber/Poppler or buy a commercial licence).
 - Keep the **13-field → EVA JSON** contract drag-drop-compatible.
-- **Integration path (later):** wrap as an Azure Function → custom connector, gated by
-  `PDF_MAPPER_ENABLED`. The CLI is the immediate deliverable.
+- **Integration path (M1 — ADR-0004):** wrap as an Azure Function → custom connector, gated by
+  `PDF_MAPPER_ENABLED`, called inline by the Code App. The CLI remains for offline/batch use.
 
 ### Closing — docs
 - Update this repo's `CLAUDE.md` with the chosen architecture, the repo-constellation map, and
