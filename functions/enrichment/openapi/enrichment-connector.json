@@ -1,0 +1,140 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "CollisionSpike DVSA Enrichment",
+    "description": "Custom connector over the DVSA enrichment Azure Function. Wraps the collisionplugin dvsa-mot connector (get_vehicle_summary + current_mileage_estimate) behind the ce-mcp-gateway OAuth2 gateway. Enrichment is advisory and staff-reviewed; the mileage estimate is requested ONLY when the parsed document has no mileage (document authoritative, ADR-0006).",
+    "version": "1.0.0"
+  },
+  "host": "REPLACE_WITH_FUNCTION_HOSTNAME.azurewebsites.net",
+  "basePath": "/api",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/dvsa-mot/enrich": {
+      "post": {
+        "summary": "Enrich a case from DVSA/DVLA by VRM",
+        "description": "Returns suggested vehicle make/model and (only when document_has_mileage is false) a current mileage estimate. Always returns 200 with a warnings array; enrichment never blocks intake.",
+        "operationId": "EnrichDvsaMot",
+        "x-ms-visibility": "important",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/EnrichRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Enrichment suggestions (advisory).",
+            "schema": {
+              "$ref": "#/definitions/EnrichResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid request (missing vrm or non-JSON body).",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "EnrichRequest": {
+      "type": "object",
+      "required": [
+        "vrm"
+      ],
+      "properties": {
+        "vrm": {
+          "type": "string",
+          "description": "Vehicle registration mark. Spaces tolerated.",
+          "x-ms-summary": "VRM"
+        },
+        "reference": {
+          "type": "string",
+          "description": "Optional case reference for correlation/audit (not used in lookup).",
+          "x-ms-summary": "Case reference"
+        },
+        "document_has_mileage": {
+          "type": "boolean",
+          "description": "True if the parsed instruction already has a mileage. When true, the DVSA mileage estimate is skipped (document is authoritative). Defaults to true.",
+          "x-ms-summary": "Document has mileage"
+        }
+      }
+    },
+    "EnrichResponse": {
+      "type": "object",
+      "properties": {
+        "vehicle_model": {
+          "type": "string",
+          "description": "Suggested vehicle model (maps to the EVA vehicle_model field)."
+        },
+        "make": {
+          "type": "string",
+          "description": "Suggested vehicle make."
+        },
+        "current_mileage": {
+          "type": "integer",
+          "description": "Estimated current mileage (digits). Present only when document_has_mileage was false and an estimate was available."
+        },
+        "mileage_unit": {
+          "type": "string",
+          "description": "Always 'Miles' (MOT odometer history is normalised to miles).",
+          "enum": [
+            "Miles"
+          ]
+        },
+        "mileage_confidence": {
+          "type": "string",
+          "description": "Confidence band for the mileage estimate.",
+          "enum": [
+            "HIGH",
+            "MEDIUM",
+            "LOW",
+            "VERY_LOW"
+          ]
+        },
+        "warnings": {
+          "type": "array",
+          "description": "Human-readable advisories (e.g. lookup failed, mileage skipped).",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "apiKeyHeader": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "x-functions-key",
+      "description": "Azure Functions host/function key. Stored as a connection secret in Power Platform, never in this spec."
+    }
+  },
+  "security": [
+    {
+      "apiKeyHeader": []
+    }
+  ]
+}

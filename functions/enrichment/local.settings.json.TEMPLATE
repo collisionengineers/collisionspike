@@ -1,0 +1,16 @@
+{
+  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) to run locally. NO SECRET VALUES live here — the two gateway credentials are Azure Key Vault references resolved by the platform at runtime. Locally, point them at a dev gateway or leave the wrapper disabled.",
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+
+    "ENRICHMENT_ENABLED": "false",
+    "ENRICHMENT_API_BASE": "https://ce-mcp-gateway.example.run.app",
+    "ENRICHMENT_CONNECTOR": "dvsa-mot",
+
+    "GATEWAY_CLIENT_ID": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/ce-gateway-client-id/)",
+    "GATEWAY_CLIENT_SECRET": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/ce-gateway-client-secret/)",
+    "GATEWAY_SCOPE": ""
+  }
+}

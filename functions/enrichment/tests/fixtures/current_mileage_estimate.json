@@ -1,0 +1,23 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"estimate_available\":true,\"estimated_mileage\":62400,\"estimate_low\":60800,\"estimate_high\":64000,\"annual_rate_used\":8200,\"confidence\":\"MEDIUM\",\"caveats\":[\"Estimate for assessment purposes only — not a substitute for a physical odometer inspection.\"]}"
+      }
+    ],
+    "structuredContent": {
+      "estimate_available": true,
+      "estimated_mileage": 62400,
+      "estimate_low": 60800,
+      "estimate_high": 64000,
+      "annual_rate_used": 8200,
+      "confidence": "MEDIUM",
+      "caveats": [
+        "Estimate for assessment purposes only — not a substitute for a physical odometer inspection."
+      ]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"registration\":\"TE57VRM\",\"make\":\"FORD\",\"model\":\"FOCUS\",\"year\":2018,\"colour\":\"BLUE\",\"fuel_type\":\"PETROL\",\"engine_size_cc\":\"1499\",\"has_outstanding_recall\":\"No\",\"mot_tests_count\":4}"
+      }
+    ],
+    "structuredContent": {
+      "registration": "TE57VRM",
+      "make": "FORD",
+      "model": "FOCUS",
+      "year": 2018,
+      "colour": "BLUE",
+      "fuel_type": "PETROL",
+      "engine_size_cc": "1499",
+      "has_outstanding_recall": "No",
+      "mot_tests_count": 4
+    }
+  }
+}

@@ -1,0 +1,4 @@
+# Dev/test dependencies. Offline only — no Azure, no live gateway.
+-r requirements.txt
+pytest>=8.0.0
+respx>=0.21.0   # httpx request mocking (token endpoint + MCP tool calls)
