@@ -1,0 +1,162 @@
+{
+  "$schema": "https://collisionspike/dataverse/_relationships.schema.json",
+  "kind": "relationship-manifest",
+  "solution": "CollisionSpike",
+  "publisherPrefix": "cr1bd",
+  "description": "All Dataverse relationships for CollisionSpike. The lookup COLUMN definitions also live on each child table file (schema/*.json) for review locality; this manifest is the authoritative cross-table map (cascade behaviors + the N:N intersect entities). Lookup schemaNames here MUST match the relationshipSchemaName on the corresponding column.",
+  "manyToMany": [
+    {
+      "schemaName": "cr1bd_repairer_workprovider",
+      "displayName": "Repairer <-> Work Provider",
+      "adr": "ADR-0001",
+      "entity1": "cr1bd_repairer",
+      "entity2": "cr1bd_workprovider",
+      "intersectEntityName": "cr1bd_repairer_workprovider",
+      "description": "Many-to-many: one repairer serves several providers; one provider uses several repairers. Backs the inspection-address policy gate (manual entry in M1)."
+    },
+    {
+      "schemaName": "cr1bd_imagesource_workprovider",
+      "displayName": "Image Source <-> Work Provider",
+      "entity1": "cr1bd_imagesource",
+      "entity2": "cr1bd_workprovider",
+      "intersectEntityName": "cr1bd_imagesource_workprovider",
+      "description": "Many-to-many: an image source can supply for several work providers (data-model.md §ImageSource, m:n)."
+    }
+  ],
+  "oneToMany": [
+    {
+      "schemaName": "cr1bd_workprovider_case",
+      "displayName": "Work Provider -> Cases",
+      "referencedEntity": "cr1bd_workprovider",
+      "referencingEntity": "cr1bd_case",
+      "referencingAttribute": "cr1bd_workproviderid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "Case.workProviderId. Provider matched by sender email domain."
+    },
+    {
+      "schemaName": "cr1bd_imagesource_case",
+      "displayName": "Image Source -> Cases",
+      "referencedEntity": "cr1bd_imagesource",
+      "referencingEntity": "cr1bd_case",
+      "referencingAttribute": "cr1bd_imagesourceid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "Case.imageSourceId (nullable)."
+    },
+    {
+      "schemaName": "cr1bd_inspectionaddress_case",
+      "displayName": "Inspection Address -> Cases",
+      "referencedEntity": "cr1bd_inspectionaddress",
+      "referencingEntity": "cr1bd_case",
+      "referencingAttribute": "cr1bd_inspectionaddressid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "Case.inspectionAddressId (nullable). The location on the case's EVA record."
+    },
+    {
+      "schemaName": "cr1bd_case_evidence",
+      "displayName": "Case -> Evidence",
+      "referencedEntity": "cr1bd_case",
+      "referencingEntity": "cr1bd_evidence",
+      "referencingAttribute": "cr1bd_caseid",
+      "required": true,
+      "cascade": { "delete": "Cascade", "reparent": "Cascade" },
+      "description": "Evidence.caseId (parent). Deleting a Case cascades its Evidence rows."
+    },
+    {
+      "schemaName": "cr1bd_case_fieldlevelprovenance",
+      "displayName": "Case -> Field-Level Provenance",
+      "referencedEntity": "cr1bd_case",
+      "referencingEntity": "cr1bd_fieldlevelprovenance",
+      "referencingAttribute": "cr1bd_caseid",
+      "required": true,
+      "cascade": { "delete": "Cascade" },
+      "description": "FieldLevelProvenance.caseId (parent). Joined to the Case by fieldName; the adapter maps rows <-> embedded prototype provenance."
+    },
+    {
+      "schemaName": "cr1bd_case_auditevent",
+      "displayName": "Case -> Audit Events",
+      "referencedEntity": "cr1bd_case",
+      "referencingEntity": "cr1bd_auditevent",
+      "referencingAttribute": "cr1bd_caseid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "AuditEvent.caseId (nullable -- corpus events are not case-scoped). Append-only; keep audit rows even if a case is removed (RemoveLink, not Cascade)."
+    },
+    {
+      "schemaName": "cr1bd_case_chaser",
+      "displayName": "Case -> Chasers",
+      "referencedEntity": "cr1bd_case",
+      "referencingEntity": "cr1bd_chaser",
+      "referencingAttribute": "cr1bd_caseid",
+      "required": true,
+      "cascade": { "delete": "Cascade" },
+      "description": "Chaser.caseId (parent)."
+    },
+    {
+      "schemaName": "cr1bd_case_note",
+      "displayName": "Case -> Notes",
+      "referencedEntity": "cr1bd_case",
+      "referencingEntity": "cr1bd_note",
+      "referencingAttribute": "cr1bd_caseid",
+      "required": true,
+      "cascade": { "delete": "Cascade" },
+      "description": "Note.caseId (parent)."
+    },
+    {
+      "schemaName": "cr1bd_case_improvementsignal",
+      "displayName": "Case -> Improvement Signals",
+      "referencedEntity": "cr1bd_case",
+      "referencingEntity": "cr1bd_improvementsignal",
+      "referencingAttribute": "cr1bd_caseid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "ImprovementSignal.caseId (nullable). Deferred (no M1 writers)."
+    },
+    {
+      "schemaName": "cr1bd_workprovider_improvementsignal",
+      "displayName": "Work Provider -> Improvement Signals",
+      "referencedEntity": "cr1bd_workprovider",
+      "referencingEntity": "cr1bd_improvementsignal",
+      "referencingAttribute": "cr1bd_workproviderid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "ImprovementSignal.workProviderId (nullable)."
+    },
+    {
+      "schemaName": "cr1bd_repairer_inspectionaddress",
+      "displayName": "Repairer -> Inspection Addresses",
+      "referencedEntity": "cr1bd_repairer",
+      "referencingEntity": "cr1bd_inspectionaddress",
+      "referencingAttribute": "cr1bd_repairerid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "InspectionAddress.repairerId (nullable -- when the location IS a known repairer)."
+    },
+    {
+      "schemaName": "cr1bd_repairer_imagesource",
+      "displayName": "Repairer -> Image Sources",
+      "referencedEntity": "cr1bd_repairer",
+      "referencingEntity": "cr1bd_imagesource",
+      "referencingAttribute": "cr1bd_repairerid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "ImageSource.repairerId (nullable -- when the source IS a Repairer)."
+    },
+    {
+      "schemaName": "cr1bd_inspectionaddress_imagesource",
+      "displayName": "Inspection Address -> Image Sources (default hint)",
+      "referencedEntity": "cr1bd_inspectionaddress",
+      "referencingEntity": "cr1bd_imagesource",
+      "referencingAttribute": "cr1bd_defaultinspectionaddressid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "ImageSource.defaultInspectionAddressId (nullable default-address hint)."
+    }
+  ],
+  "notes": [
+    "Append-only/history tables (AuditEvent) and corpus references use RemoveLink on delete so history survives; child rows truly owned by a case (Evidence, FieldLevelProvenance, Chaser, Note) Cascade.",
+    "Referenced corpus records (WorkProvider, Repairer, InspectionAddress) are deactivated/archived/merged, never hard-deleted (governance); cascade choices assume that policy."
+  ]
+}

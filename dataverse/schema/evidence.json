@@ -1,0 +1,39 @@
+{
+  "$schema": "./_table.schema.json",
+  "logicalName": "cr1bd_evidence",
+  "displayName": "Evidence",
+  "displayCollectionName": "Evidence",
+  "schemaName": "cr1bd_Evidence",
+  "description": "One row per attachment / artifact on a case (image, video, instruction, .eml, valuation, eva_payload, other). Mirrors collisioncc image-rules. Bytes are stored in a File column / Azure Blob and referenced by storagePath -- NEVER inlined in the row (graph-intake invariant: all file data uploaded to storage immediately).",
+  "ownership": "UserOwned",
+  "lifecycle": { "state": "m1-live", "note": "One of the four M1-live tables." },
+  "primaryColumn": {
+    "logicalName": "cr1bd_filename",
+    "displayName": "File Name",
+    "type": "String",
+    "maxLength": 400,
+    "required": "required",
+    "description": "Display name, e.g. IMG_0421.jpg or Instruction.pdf."
+  },
+  "columns": [
+    { "logicalName": "cr1bd_caseid", "displayName": "Case", "type": "Lookup", "target": "cr1bd_case", "relationshipSchemaName": "cr1bd_case_evidence", "required": "required", "description": "-> Case (parent). 1:N Case->Evidence; cascade." },
+    { "logicalName": "cr1bd_kind", "displayName": "Kind", "type": "Choice", "choiceSet": "cr1bd_evidencekind", "required": "required", "description": "image|video|instruction|email|valuation|eva_payload|other. Deterministic from extension/MIME (graph-intake parity)." },
+    { "logicalName": "cr1bd_imagerole", "displayName": "Image Role", "type": "Choice", "choiceSet": "cr1bd_imagerole", "required": "none", "description": "overview|damage_closeup|additional|unknown. Default unknown; MANUAL until M2 image AI." },
+    { "logicalName": "cr1bd_registrationvisible", "displayName": "Registration Visible", "type": "Boolean", "required": "none", "description": "OCR-assisted from M1: does the image's OCR text contain the case VRM? Read-only-from-data in the Code App (set by parser/OCR Function)." },
+    { "logicalName": "cr1bd_acceptedforeva", "displayName": "Accepted for EVA", "type": "Boolean", "required": "none", "description": "Has this artifact been accepted into the EVA upload set? Default true." },
+    { "logicalName": "cr1bd_excluded", "displayName": "Excluded", "type": "Boolean", "required": "none", "description": "Flagged unusable (e.g. a person's reflection is visible). Auto-detection is M2; manual in M1." },
+    { "logicalName": "cr1bd_exclusionreason", "displayName": "Exclusion Reason", "type": "String", "maxLength": 400, "required": "none", "description": "Why excluded (required when excluded=true)." },
+    { "logicalName": "cr1bd_sequenceindex", "displayName": "Sequence Index", "type": "Integer", "minValue": 0, "required": "none", "description": "Photo order within the EVA upload set. EVA order = 2 previews (overview + main-damage closeup) first, then ALL photos in sequence INCLUDING those two again." },
+    { "logicalName": "cr1bd_sha256", "displayName": "SHA256", "type": "String", "maxLength": 80, "required": "none", "description": "SHA256 of the bytes. Dedup key within a message (no duplicate IDs)." },
+    { "logicalName": "cr1bd_contenttype", "displayName": "Content Type", "type": "String", "maxLength": 200, "required": "none", "description": "MIME type of the artifact." },
+    { "logicalName": "cr1bd_sizebytes", "displayName": "Size (bytes)", "type": "BigInt", "required": "none", "description": "Byte size of the stored artifact." },
+    { "logicalName": "cr1bd_storagepath", "displayName": "Storage Path", "type": "String", "maxLength": 1000, "required": "none", "description": "Reference to the bytes in the File column / Azure Blob container. NEVER inline bytes in the row." },
+    { "logicalName": "cr1bd_filebytes", "displayName": "File", "type": "File", "required": "none", "description": "Optional Dataverse File column alternative to an external Blob (Phase-1 Risk #4: file-column vs Blob choice to be confirmed). Holds bytes off-row either way." },
+    { "logicalName": "cr1bd_sourcemessageid", "displayName": "Source Message ID", "type": "String", "maxLength": 400, "required": "none", "description": "Graph / Internet Message-ID the artifact arrived on (links Evidence back to its intake message)." },
+    { "logicalName": "cr1bd_sourcelabel", "displayName": "Source Label", "type": "String", "maxLength": 400, "required": "none", "description": "Where it came from (message / upload label) for the UI." }
+  ],
+  "notes": [
+    "Bytes live off-row (Blob/File column) referenced by storagePath; no inline-bytes write path may exist.",
+    "registrationVisible is OCR-set from M1; imageRole stays manual until M2."
+  ]
+}

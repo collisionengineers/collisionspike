@@ -1,0 +1,77 @@
+{
+  "$schema": "./_table.schema.json",
+  "logicalName": "cr1bd_case",
+  "displayName": "Case",
+  "displayCollectionName": "Cases",
+  "schemaName": "cr1bd_Case",
+  "description": "The live work item (replaces the job sheet's Jobs tab). One row per claim/instruction tracked through intake -> parse/classify -> human review -> enrich -> EVA export + Box archive. Carries the 13 EVA payload fields (pre-fill, staff-reviewed; never auto-final), the dedup keys, and overview-only facts. Matching = by VRM into the single OPEN case (ADR-0002); dedup tiebreaker = claim reference, not time (ADR-0010).",
+  "ownership": "UserOwned",
+  "lifecycle": { "state": "m1-live", "note": "One of the four M1-live tables (Case, Evidence, WorkProvider, AuditEvent). Write-heavy." },
+  "hasNotes": false,
+  "hasActivities": false,
+  "primaryColumn": {
+    "logicalName": "cr1bd_name",
+    "displayName": "Case Name",
+    "type": "String",
+    "maxLength": 100,
+    "required": "required",
+    "description": "Human-friendly label for the row (e.g. VRM + provider). Not the Case/PO; casePo is separate and entered at EVA submit."
+  },
+  "columns": [
+    { "logicalName": "cr1bd_vrm", "displayName": "VRM", "type": "String", "maxLength": 16, "required": "recommended", "description": "Vehicle registration mark. Primary correlation key (ADR-0002). Case-identity field, NOT an EVA payload field." },
+    { "logicalName": "cr1bd_caseref", "displayName": "Case Reference", "type": "String", "maxLength": 100, "required": "none", "description": "Source / claim / provider reference. The dedup tiebreaker (ADR-0010): same-vs-new is disambiguated by reference, not time. Case-identity field, NOT an EVA payload field." },
+    { "logicalName": "cr1bd_casepo", "displayName": "Case / PO", "type": "String", "maxLength": 32, "required": "none", "description": "principalCode + 2-digit year + 3-digit provider sequence. ENTERED AT EVA SUBMIT (absent until then). Stored canonical; rendered lowercase for EVA, UPPERCASE for Box. Case-identity field, NOT an EVA payload field." },
+
+    { "logicalName": "cr1bd_sourcemessageid", "displayName": "Source Message ID", "type": "String", "maxLength": 400, "required": "none", "alternateKey": true, "description": "DEDUP KEY. Graph / Internet Message-ID of the originating email. Exact repeat -> drop (ADR-0010). Backs the get-or-create idempotency guard (alternate key)." },
+    { "logicalName": "cr1bd_payloadhash", "displayName": "Payload Hash", "type": "String", "maxLength": 80, "required": "none", "description": "DEDUP KEY. SHA256 over normalized subject + from + sorted attachment SHA256s. Exact repeat -> drop (ADR-0010)." },
+    { "logicalName": "cr1bd_caselinkstate", "displayName": "Case Link State", "type": "Choice", "choiceSet": "cr1bd_caselinkstate", "required": "none", "description": "DEDUP STAGING. none|pending|linked. Drives duplicate_risk and the attach-vs-new review (ADR-0010)." },
+    { "logicalName": "cr1bd_duplicatekeys", "displayName": "Duplicate Keys", "type": "Memo", "maxLength": 4000, "required": "none", "description": "DEDUP STAGING. JSON list of candidate open-case IDs / collision context surfaced to the attach-vs-new decision UI. Never auto-merges." },
+
+    { "logicalName": "cr1bd_status", "displayName": "Status", "type": "Choice", "choiceSet": "cr1bd_casestatus", "required": "required", "description": "Workflow state machine. The 11-value global choice set (cr1bd_casestatus) is the parity keystone vs the prototype CaseStatus union + data-model.md." },
+    { "logicalName": "cr1bd_intakechannelkind", "displayName": "Intake Channel", "type": "Choice", "choiceSet": "cr1bd_intakechannelkind", "required": "none", "description": "email|whatsapp. Audatex out of scope." },
+    { "logicalName": "cr1bd_intakechannelmanual", "displayName": "Intake Channel Manual", "type": "Boolean", "required": "none", "description": "Channel mode: true = manual, false = auto. (Email x Auto/Manual, WhatsApp always manual per ADR-0007.)" },
+    { "logicalName": "cr1bd_sourcemailbox", "displayName": "Source Mailbox", "type": "String", "maxLength": 256, "required": "none", "description": "Shared inbox / WhatsApp group the item arrived on." },
+    { "logicalName": "cr1bd_actionreason", "displayName": "Action Reason", "type": "Choice", "choiceSet": "cr1bd_actionreason", "required": "none", "description": "Why a PERSON must act (needs-action cases only; null otherwise). STORED not derived (Phase-1 Risk #9) for dashboard facet chips + aging tallies." },
+    { "logicalName": "cr1bd_datedue", "displayName": "Date Due", "type": "DateTime", "dateTimeBehavior": "DateOnly", "required": "none", "description": "Aging / past-due chips." },
+    { "logicalName": "cr1bd_inspectiondate", "displayName": "Inspection Date", "type": "DateTime", "dateTimeBehavior": "DateOnly", "required": "none", "description": "Scheduled / actual inspection date." },
+    { "logicalName": "cr1bd_submittedat", "displayName": "Submitted At", "type": "DateTime", "dateTimeBehavior": "UserLocal", "required": "none", "description": "When the case was exported/submitted to EVA. Windows the 'Done today' / throughput tallies." },
+    { "logicalName": "cr1bd_inspectiondecision", "displayName": "Inspection Decision", "type": "Choice", "choiceSet": "cr1bd_inspectiondecisionmode", "required": "none", "description": "Mirror of the chosen InspectionAddress.decisionMode; drives the readiness check. image_based always requires an explicit reason." },
+
+    { "logicalName": "cr1bd_workproviderid", "displayName": "Work Provider", "type": "Lookup", "target": "cr1bd_workprovider", "relationshipSchemaName": "cr1bd_workprovider_case", "required": "none", "description": "-> WorkProvider, matched by sender email domain (no alias matching). Drives principalCode / Case-PO generation." },
+    { "logicalName": "cr1bd_imagesourceid", "displayName": "Image Source", "type": "Lookup", "target": "cr1bd_imagesource", "relationshipSchemaName": "cr1bd_imagesource_case", "required": "none", "description": "-> ImageSource (nullable). The party/role supplying images/instructions." },
+    { "logicalName": "cr1bd_inspectionaddressid", "displayName": "Inspection Address", "type": "Lookup", "target": "cr1bd_inspectionaddress", "relationshipSchemaName": "cr1bd_inspectionaddress_case", "required": "none", "description": "-> InspectionAddress (nullable). The location on the case's EVA record." },
+
+    { "logicalName": "cr1bd_evaworkprovider", "displayName": "EVA: Work Provider", "type": "String", "maxLength": 200, "required": "none", "evaField": true, "evaOrder": 1, "description": "EVA field 1 (non-empty required for readiness). Pre-filled value mirrors WorkProvider; joined FieldLevelProvenance rows carry source/review. Staff-reviewed, never auto-final." },
+    { "logicalName": "cr1bd_evavehiclemodel", "displayName": "EVA: Vehicle Model", "type": "String", "maxLength": 200, "required": "none", "evaField": true, "evaOrder": 2, "description": "EVA field 2." },
+    { "logicalName": "cr1bd_evaclaimantname", "displayName": "EVA: Claimant Name", "type": "String", "maxLength": 200, "required": "none", "evaField": true, "evaOrder": 3, "description": "EVA field 3." },
+    { "logicalName": "cr1bd_evaclaimanttelephone", "displayName": "EVA: Claimant Telephone", "type": "String", "maxLength": 60, "required": "none", "evaField": true, "evaOrder": 4, "description": "EVA field 4." },
+    { "logicalName": "cr1bd_evaclaimantemail", "displayName": "EVA: Claimant Email", "type": "String", "maxLength": 320, "format": "Email", "required": "none", "evaField": true, "evaOrder": 5, "description": "EVA field 5." },
+    { "logicalName": "cr1bd_evadateofloss", "displayName": "EVA: Date of Loss", "type": "String", "maxLength": 10, "format": "Dd/Mm/Yyyy-or-empty", "required": "none", "evaField": true, "evaOrder": 6, "description": "EVA field 6. String to preserve the exact DD/MM/YYYY EVA format ('' allowed). Pattern ^\\d{2}/\\d{2}/\\d{4}$|^$." },
+    { "logicalName": "cr1bd_evadateofinstruction", "displayName": "EVA: Date of Instruction", "type": "String", "maxLength": 10, "format": "Dd/Mm/Yyyy-or-empty", "required": "none", "evaField": true, "evaOrder": 7, "description": "EVA field 7. DD/MM/YYYY or ''." },
+    { "logicalName": "cr1bd_evaaccidentcircumstances", "displayName": "EVA: Accident Circumstances", "type": "Memo", "maxLength": 4000, "required": "none", "evaField": true, "evaOrder": 8, "description": "EVA field 8 (free text)." },
+    { "logicalName": "cr1bd_evainspectionaddress", "displayName": "EVA: Inspection Address", "type": "Memo", "maxLength": 2000, "required": "none", "evaField": true, "evaOrder": 9, "description": "EVA field 9. The serialized 6-line address (newline-separated, padded to 6 lines) OR the literal 'Image Based Assessment'. Backed by the InspectionAddress record." },
+    { "logicalName": "cr1bd_evavatstatus", "displayName": "EVA: VAT Status", "type": "String", "maxLength": 3, "format": "Enum-empty-Yes-No", "required": "none", "evaField": true, "evaOrder": 10, "description": "EVA field 10. Enum '' | 'Yes' | 'No' (kept as the exact EVA string token)." },
+    { "logicalName": "cr1bd_evamileage", "displayName": "EVA: Mileage", "type": "String", "maxLength": 20, "required": "none", "evaField": true, "evaOrder": 11, "description": "EVA field 11. Mileage value. Document/parser authoritative; DVSA fills only when the document has none (ADR-0006)." },
+    { "logicalName": "cr1bd_evamileageunit", "displayName": "EVA: Mileage Unit", "type": "String", "maxLength": 6, "format": "Enum-empty-Miles-Km", "required": "none", "evaField": true, "evaOrder": 12, "description": "EVA field 12. Enum '' | 'Miles' | 'Km' (exact EVA string token)." },
+    { "logicalName": "cr1bd_evaengineerallocation", "displayName": "EVA: Engineer Allocation", "type": "String", "maxLength": 200, "required": "none", "evaField": true, "evaOrder": 13, "description": "EVA field 13. PLACEHOLDER NAME 'Engineer Allocation' (the 13th field's exact name is the one open item, to be transcribed from the Sentry PDF). Keep logical name stable; only the display/contract name moves in lockstep when confirmed." },
+
+    { "logicalName": "cr1bd_ovinsuredname", "displayName": "Overview: Insured Name", "type": "String", "maxLength": 200, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY. Imported when present; MUST NOT drive workflow / readiness / matching." },
+    { "logicalName": "cr1bd_ovclaimantname", "displayName": "Overview: Claimant Name", "type": "String", "maxLength": 200, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY. MUST NOT drive workflow/readiness/matching. (Distinct from the EVA claimant name field.)" },
+    { "logicalName": "cr1bd_ovthirdpartyname", "displayName": "Overview: Third Party Name", "type": "String", "maxLength": 200, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY. MUST NOT drive workflow/readiness/matching." },
+    { "logicalName": "cr1bd_ovclaimnumber", "displayName": "Overview: Claim Number", "type": "String", "maxLength": 100, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY. MUST NOT drive workflow/readiness/matching." },
+    { "logicalName": "cr1bd_ovpolicyreference", "displayName": "Overview: Policy Reference", "type": "String", "maxLength": 100, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY. MUST NOT drive workflow/readiness/matching." },
+    { "logicalName": "cr1bd_ovincidentdate", "displayName": "Overview: Incident Date", "type": "String", "maxLength": 10, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY (DD/MM/YYYY string). MUST NOT drive workflow/readiness/matching." },
+    { "logicalName": "cr1bd_ovclaimtype", "displayName": "Overview: Claim Type", "type": "String", "maxLength": 100, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY. MUST NOT drive workflow/readiness/matching." },
+    { "logicalName": "cr1bd_ovinsurername", "displayName": "Overview: Insurer Name", "type": "String", "maxLength": 200, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY. MUST NOT drive workflow/readiness/matching." },
+    { "logicalName": "cr1bd_ovrepairername", "displayName": "Overview: Repairer Name", "type": "String", "maxLength": 200, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY free-text repairer name. MUST NOT drive workflow/readiness/matching (the governed Repairer link is separate, via InspectionAddress)." }
+  ],
+  "alternateKeys": [
+    { "schemaName": "cr1bd_case_sourcemessageid_key", "displayName": "Source Message ID Key", "columns": ["cr1bd_sourcemessageid"], "description": "Idempotency guard for the intake get-or-create (prevents double-create on Graph retries). Exact Message-ID repeat -> drop (ADR-0010)." }
+  ],
+  "notes": [
+    "EVA payload = the 13 cr1bd_eva* columns ONLY, in evaOrder 1..13. vrm / caseRef / casePo are Case-identity columns and NEVER part of the 13-field EVA JSON.",
+    "Per-field provenance + reviewState live in joined FieldLevelProvenance rows (separate table, chosen in Phase-1 §4), keyed by case + fieldName, NOT embedded on the Case row.",
+    "Overview-only (cr1bd_ov*) columns are imported for reference display only and are flagged mustNotDriveWorkflow=true.",
+    "Readiness (ready_for_eva) is deterministic: 13 EVA fields valid + image-rules + inspection-address decision + per-provider extras, OR explicit override."
+  ]
+}

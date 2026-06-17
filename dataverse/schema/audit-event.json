@@ -1,0 +1,31 @@
+{
+  "$schema": "./_table.schema.json",
+  "logicalName": "cr1bd_auditevent",
+  "displayName": "Audit Event",
+  "displayCollectionName": "Audit Events",
+  "schemaName": "cr1bd_AuditEvent",
+  "description": "Append-only audit log of every corpus/case change. Actor, action (controlled vocabulary), severity, before/after JSON, timestamp. Distinct from Dataverse platform auditing -- this is the domain-level workflow trail the predecessor tool lacked.",
+  "ownership": "UserOwned",
+  "lifecycle": { "state": "m1-live", "note": "One of the four M1-live tables. Append-only (no updates/deletes in normal operation)." },
+  "primaryColumn": {
+    "logicalName": "cr1bd_name",
+    "displayName": "Summary",
+    "type": "String",
+    "maxLength": 400,
+    "required": "required",
+    "description": "One-line human summary of the event (action + subject)."
+  },
+  "columns": [
+    { "logicalName": "cr1bd_caseid", "displayName": "Case", "type": "Lookup", "target": "cr1bd_case", "relationshipSchemaName": "cr1bd_case_auditevent", "required": "none", "description": "-> Case (nullable: some events are corpus-level, not case-level). 1:N Case->AuditEvent." },
+    { "logicalName": "cr1bd_actor", "displayName": "Actor", "type": "String", "maxLength": 200, "required": "recommended", "description": "Flow name (e.g. Flow_Intake_<mailbox>) or staff display name." },
+    { "logicalName": "cr1bd_action", "displayName": "Action", "type": "Choice", "choiceSet": "cr1bd_auditaction", "required": "required", "description": "Controlled action vocabulary (graph_message_ingested, case_created, status_changed, ...). Extend additively only." },
+    { "logicalName": "cr1bd_severity", "displayName": "Severity", "type": "Choice", "choiceSet": "cr1bd_auditseverity", "required": "none", "description": "info|warning|error." },
+    { "logicalName": "cr1bd_before", "displayName": "Before", "type": "Memo", "maxLength": 8000, "required": "none", "description": "JSON snapshot of relevant state before the change (null for create/ingest events)." },
+    { "logicalName": "cr1bd_after", "displayName": "After", "type": "Memo", "maxLength": 8000, "required": "none", "description": "JSON snapshot of relevant state after the change." },
+    { "logicalName": "cr1bd_occurredat", "displayName": "Occurred At", "type": "DateTime", "dateTimeBehavior": "UserLocal", "required": "required", "description": "When the event occurred (event time, not row-create time)." }
+  ],
+  "notes": [
+    "Append-only: writers never update/delete; security roles should deny update/delete to non-Management.",
+    "caseId nullable because corpus/import events (jobsheet_imported, corpus_record_changed) are not case-scoped."
+  ]
+}

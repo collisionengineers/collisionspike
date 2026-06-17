@@ -1,0 +1,36 @@
+{
+  "$schema": "./_table.schema.json",
+  "logicalName": "cr1bd_fieldlevelprovenance",
+  "displayName": "Field-Level Provenance",
+  "displayCollectionName": "Field-Level Provenance",
+  "schemaName": "cr1bd_FieldLevelProvenance",
+  "description": "One row per (Case, EVA-relevant field) capturing WHERE a value came from and its review state. Phase-1 §4 modeling decision: a SEPARATE table with rows joined to the Case (NOT the prototype's embedded FieldProvenance) -- chosen because it supports per-source history, conflict rows, and audit. The Code App field adapter maps these rows <-> the prototype's embedded EvaField shape.",
+  "ownership": "UserOwned",
+  "lifecycle": { "state": "staged", "note": "Write-through on every EVA-relevant Case field. Staged (not in the M1 four) but actively written by the M1 parser/enrichment/staff writers." },
+  "primaryColumn": {
+    "logicalName": "cr1bd_name",
+    "displayName": "Name",
+    "type": "String",
+    "maxLength": 200,
+    "required": "required",
+    "description": "Derived label (case + fieldName) for the row."
+  },
+  "columns": [
+    { "logicalName": "cr1bd_caseid", "displayName": "Case", "type": "Lookup", "target": "cr1bd_case", "relationshipSchemaName": "cr1bd_case_fieldlevelprovenance", "required": "required", "description": "-> Case (parent). 1:N Case->FieldLevelProvenance; cascade." },
+    { "logicalName": "cr1bd_fieldname", "displayName": "Field Name", "type": "String", "maxLength": 100, "required": "required", "description": "Logical name of the EVA field this provenance describes (e.g. 'workProvider', 'mileage') -- the EVA_FIELD_ORDER key, so the adapter can join to the Case's cr1bd_eva* column." },
+    { "logicalName": "cr1bd_value", "displayName": "Value", "type": "Memo", "maxLength": 4000, "required": "none", "description": "The value as sourced (so conflicting sources can each keep their own value before staff resolve)." },
+    { "logicalName": "cr1bd_sourcetype", "displayName": "Source Type", "type": "Choice", "choiceSet": "cr1bd_fieldprovenancesourcetype", "required": "required", "description": "staff | pdf_extraction | email_text | corpus | ai | dvla_dvsa | document_ai | azure_vision | web_lookup | whatsapp | manual_upload." },
+    { "logicalName": "cr1bd_sourcelabel", "displayName": "Source Label", "type": "String", "maxLength": 400, "required": "none", "description": "Human-readable origin, e.g. 'Instruction PDF p.2' or 'Principals corpus'." },
+    { "logicalName": "cr1bd_sourcereference", "displayName": "Source Reference", "type": "String", "maxLength": 400, "required": "none", "description": "Machine reference back to the source (e.g. evidence id, document offset, lookup id)." },
+    { "logicalName": "cr1bd_confidence", "displayName": "Confidence", "type": "Decimal", "precision": 4, "minValue": 0, "maxValue": 1, "required": "none", "description": "Optional 0..1 confidence (parser / AI fields). Omit for deterministic sources." },
+    { "logicalName": "cr1bd_reviewstate", "displayName": "Review State", "type": "Choice", "choiceSet": "cr1bd_reviewstate", "required": "required", "description": "not_required | needs_review | reviewed | conflict. Conflict rule: enrichment differing from a non-empty value -> conflict, never silent overwrite." },
+    { "logicalName": "cr1bd_reviewedby", "displayName": "Reviewed By", "type": "String", "maxLength": 200, "required": "none", "description": "Staff who reviewed (set with sourceType=staff edits)." },
+    { "logicalName": "cr1bd_reviewedat", "displayName": "Reviewed At", "type": "DateTime", "dateTimeBehavior": "UserLocal", "required": "none", "description": "When reviewed." },
+    { "logicalName": "cr1bd_notes", "displayName": "Notes", "type": "Memo", "maxLength": 2000, "required": "none", "description": "Optional reviewer notes." }
+  ],
+  "notes": [
+    "Separate table (not embedded) so a field can carry multiple source rows + conflict rows with independent history.",
+    "fieldName uses the prototype EVA_FIELD_ORDER keys (camelCase domain keys), which the adapter maps to the Case cr1bd_eva* logical columns.",
+    "Writers (Phase 1): parser -> pdf_extraction; email body -> email_text; DVSA -> dvla_dvsa; domain/corpus match -> corpus; staff edit -> staff (reviewState=reviewed)."
+  ]
+}

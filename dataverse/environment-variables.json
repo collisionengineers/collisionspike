@@ -1,0 +1,31 @@
+{
+  "$schema": "https://collisionspike/dataverse/_environment-variables.schema.json",
+  "kind": "environment-variable-manifest",
+  "solution": "CollisionSpike",
+  "publisherPrefix": "cr1bd",
+  "description": "The M1 feature-gate manifest. Every non-trivial integration is gated by a Dataverse environment variable. Secret variables hold a KEY VAULT REFERENCE only -- never a literal value (Infisical is the source-of-record; values injected at [RESERVED-FOR-USER]). The Code App READS gates, never writes them. M1 defaults are frozen here (Phase 0 prerequisite).",
+  "conventions": {
+    "schemaNamePattern": "cr1bd_<NAME>",
+    "boolean": "Dataverse env-var type 'Boolean'; stored as the strings 'true'/'false' when surfaced to flows; the Code App coerces.",
+    "secretType": "Dataverse env-var type 'Secret' -> binds to an Azure Key Vault secret REFERENCE (vault + secret name + version). No secret literal in any artifact.",
+    "defaultVsCurrent": "`defaultValue` ships in the unmanaged solution; `currentValue` is the per-environment override (left null here for non-secret, and ALWAYS null/reference-only for secrets)."
+  },
+  "variables": [
+    { "schemaName": "cr1bd_PDF_MAPPER_ENABLED", "displayName": "PDF Mapper Enabled", "type": "Boolean", "defaultValue": "true", "description": "Gates the parser Function branch (Func_Parse / Flow_Parse). M1 default ON.", "gates": ["5.5 parser Azure Function"] },
+    { "schemaName": "cr1bd_ENRICHMENT_ENABLED", "displayName": "Enrichment Enabled", "type": "Boolean", "defaultValue": "true", "description": "Gates the DVSA enrichment branch (Func_DvsaEnrich / Flow_Enrich). M1 default ON.", "gates": ["5.6 DVSA enrichment wrapper"] },
+    { "schemaName": "cr1bd_ENRICHMENT_API_BASE", "displayName": "Enrichment API Base", "type": "String", "defaultValue": "", "description": "Base URL of the deployed DVSA enrichment Function (set per environment at [DEPLOY-WITH-LOGIN]). Required alongside ENRICHMENT_ENABLED.", "gates": ["5.6 DVSA enrichment wrapper"] },
+    { "schemaName": "cr1bd_EVA_API_ENABLED", "displayName": "EVA API Enabled", "type": "Boolean", "defaultValue": "false", "description": "Gates the EVA Sentry REST path. M1 default OFF -- JSON drag-drop export is the M1 path + permanent fallback. The Code App disables the Sentry-API radio when false.", "gates": ["EVA Sentry REST (5.10 EVA submit)"] },
+    { "schemaName": "cr1bd_EVA_BASE_URL", "displayName": "EVA Base URL", "type": "String", "defaultValue": "", "description": "EVA Sentry base URL (same for test/prod; creds select the environment). Inert in M1.", "gates": ["EVA Sentry REST"] },
+    { "schemaName": "cr1bd_EVA_CLIENT_ID", "displayName": "EVA Client ID", "type": "Secret", "keyVault": { "secretName": "eva-client-id", "reference": true }, "description": "EVA Sentry OAuth client id. KEY VAULT REFERENCE ONLY -- value injected by the user ([RESERVED-FOR-USER]).", "gates": ["EVA Sentry REST"] },
+    { "schemaName": "cr1bd_EVA_CLIENT_SECRET", "displayName": "EVA Client Secret", "type": "Secret", "keyVault": { "secretName": "eva-client-secret", "reference": true }, "description": "EVA Sentry OAuth client secret. KEY VAULT REFERENCE ONLY -- never a literal; value injected by the user ([RESERVED-FOR-USER]).", "gates": ["EVA Sentry REST"] },
+    { "schemaName": "cr1bd_AZURE_MAPS_ENABLED", "displayName": "Azure Maps Enabled", "type": "Boolean", "defaultValue": "false", "description": "When false, postcode.io is the address-normalisation path (M1). When true (M3), Azure Maps is selected.", "gates": ["5.9 inspection-address normalisation"] },
+    { "schemaName": "cr1bd_VALUATION_ENABLED", "displayName": "Valuation Enabled", "type": "Boolean", "defaultValue": "false", "description": "Gates valuation evidence (Companion Report) enrichment. M1 default OFF (deferred).", "gates": ["valuation enrichment (deferred)"] },
+    { "schemaName": "cr1bd_COPILOT_ENABLED", "displayName": "Copilot Enabled", "type": "Boolean", "defaultValue": "false", "description": "Gates Copilot Studio integration. M1 default OFF.", "gates": ["Copilot (deferred)"] },
+    { "schemaName": "cr1bd_AZURE_VISION_ENABLED", "displayName": "Azure Vision Enabled", "type": "Boolean", "defaultValue": "false", "description": "Gates Document Intelligence / Read OCR if wrapped for registrationVisible / image AI. M1 default OFF (OCR-assist may run via the parser Function instead).", "gates": ["OCR / image AI (Evidence.registrationVisible)"] }
+  ],
+  "notes": [
+    "Frozen M1 defaults: PDF_MAPPER_ENABLED=true, ENRICHMENT_ENABLED=true, EVA_API_ENABLED=false, AZURE_MAPS_ENABLED=false, VALUATION_ENABLED=false, COPILOT_ENABLED=false, AZURE_VISION_ENABLED=false.",
+    "ENRICHMENT_API_BASE and EVA_BASE_URL are per-environment string values set at deploy; they are NOT secrets.",
+    "All four secret references (EVA_CLIENT_ID/SECRET) point at Key Vault; gateway secrets (ce-mcp-gateway CLIENT_ID/SECRET) are owned by the azure agent's Function app settings, also Key Vault references."
+  ]
+}

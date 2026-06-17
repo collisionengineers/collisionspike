@@ -1,0 +1,32 @@
+{
+  "$schema": "./_table.schema.json",
+  "logicalName": "cr1bd_imagesource",
+  "displayName": "Image Source",
+  "displayCollectionName": "Image Sources",
+  "schemaName": "cr1bd_ImageSource",
+  "description": "The party that supplies a case's images/instructions -- a ROLE, not always a distinct org. Drives recognition of non-email-domain intake (WhatsApp / individuals) and address defaulting. A Case carries imageSourceId. WhatsApp intake is manual (ADR-0007).",
+  "ownership": "UserOwned",
+  "lifecycle": { "state": "staged", "note": "Defined and staged; 1b import writes; Case reads. Not in the M1 four." },
+  "primaryColumn": {
+    "logicalName": "cr1bd_name",
+    "displayName": "Name",
+    "type": "String",
+    "maxLength": 200,
+    "required": "required",
+    "description": "Display name of the source party."
+  },
+  "columns": [
+    { "logicalName": "cr1bd_kind", "displayName": "Kind", "type": "Choice", "choiceSet": "cr1bd_imagesourcekind", "required": "none", "description": "provider_direct | repairer | intermediary | individual." },
+    { "logicalName": "cr1bd_channel", "displayName": "Channel", "type": "Choice", "choiceSet": "cr1bd_imagesourcechannel", "required": "none", "description": "email | whatsapp. Audatex out of scope." },
+    { "logicalName": "cr1bd_emaildomain", "displayName": "Email Domain", "type": "String", "maxLength": 256, "required": "none", "description": "Match key (when channel=email)." },
+    { "logicalName": "cr1bd_whatsappgroup", "displayName": "WhatsApp Group", "type": "String", "maxLength": 256, "required": "none", "description": "Match key (WhatsApp group name)." },
+    { "logicalName": "cr1bd_whatsappnumber", "displayName": "WhatsApp Number", "type": "String", "maxLength": 60, "required": "none", "description": "Match key (WhatsApp number)." },
+    { "logicalName": "cr1bd_contactname", "displayName": "Contact Name", "type": "String", "maxLength": 200, "required": "none", "description": "Match key (named individual)." },
+    { "logicalName": "cr1bd_repairerid", "displayName": "Repairer", "type": "Lookup", "target": "cr1bd_repairer", "relationshipSchemaName": "cr1bd_repairer_imagesource", "required": "none", "description": "-> Repairer when the source IS a Repairer (don't duplicate it). Nullable." },
+    { "logicalName": "cr1bd_defaultinspectionaddressid", "displayName": "Default Inspection Address", "type": "Lookup", "target": "cr1bd_inspectionaddress", "relationshipSchemaName": "cr1bd_inspectionaddress_imagesource", "required": "none", "description": "Optional default Inspection Address hint for address defaulting. Nullable." }
+  ],
+  "notes": [
+    "WorkProvider association is many-to-many (one source can serve several providers): cr1bd_imagesource_workprovider in relationships.json.",
+    "WhatsApp intake is manual; the planned timesaver bulk-imports exported WhatsApp media and OCR-matches images to Cases by VRM."
+  ]
+}

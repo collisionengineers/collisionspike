@@ -1,0 +1,33 @@
+{
+  "$schema": "./_table.schema.json",
+  "logicalName": "cr1bd_improvementsignal",
+  "displayName": "Improvement Signal",
+  "displayCollectionName": "Improvement Signals",
+  "schemaName": "cr1bd_ImprovementSignal",
+  "description": "Staff corrections captured during review (NEVER auto-changes rules) feeding a Management triage queue. Records what a reviewer changed, its original provenance, and a triage classification.",
+  "ownership": "UserOwned",
+  "lifecycle": { "state": "staged", "note": "MODELED but DEFERRED -- no writers in M1." },
+  "primaryColumn": {
+    "logicalName": "cr1bd_name",
+    "displayName": "Summary",
+    "type": "String",
+    "maxLength": 400,
+    "required": "required",
+    "description": "One-line summary of the correction."
+  },
+  "columns": [
+    { "logicalName": "cr1bd_caseid", "displayName": "Case", "type": "Lookup", "target": "cr1bd_case", "relationshipSchemaName": "cr1bd_case_improvementsignal", "required": "none", "description": "-> Case the correction came from (nullable for provider-level signals)." },
+    { "logicalName": "cr1bd_workproviderid", "displayName": "Work Provider", "type": "Lookup", "target": "cr1bd_workprovider", "relationshipSchemaName": "cr1bd_workprovider_improvementsignal", "required": "none", "description": "-> WorkProvider the signal pertains to (nullable)." },
+    { "logicalName": "cr1bd_fieldname", "displayName": "Field Name", "type": "String", "maxLength": 100, "required": "none", "description": "Which field was corrected." },
+    { "logicalName": "cr1bd_originalvalue", "displayName": "Original Value", "type": "Memo", "maxLength": 4000, "required": "none", "description": "Value before correction." },
+    { "logicalName": "cr1bd_correctedvalue", "displayName": "Corrected Value", "type": "Memo", "maxLength": 4000, "required": "none", "description": "Value after correction." },
+    { "logicalName": "cr1bd_originalprovenance", "displayName": "Original Provenance", "type": "String", "maxLength": 400, "required": "none", "description": "Provenance of the original (pre-correction) value." },
+    { "logicalName": "cr1bd_actor", "displayName": "Actor", "type": "String", "maxLength": 200, "required": "none", "description": "Staff who made the correction." },
+    { "logicalName": "cr1bd_occurredat", "displayName": "Occurred At", "type": "DateTime", "dateTimeBehavior": "UserLocal", "required": "none", "description": "When the correction happened." },
+    { "logicalName": "cr1bd_affectsevareadiness", "displayName": "Affects EVA Readiness", "type": "Boolean", "required": "none", "description": "Whether the corrected field affected EVA readiness." },
+    { "logicalName": "cr1bd_classification", "displayName": "Classification", "type": "Choice", "choiceSet": "cr1bd_improvementsignalclass", "required": "none", "description": "parser_rule_candidate | corpus_update_candidate | provider_policy_candidate | enrichment_issue | one_off_case_issue." }
+  ],
+  "notes": [
+    "Deferred: no M1 writers. Schema defined so the triage queue is ready when enabled."
+  ]
+}

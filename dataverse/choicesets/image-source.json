@@ -1,0 +1,27 @@
+{
+  "$schema": "../schema/_choiceset.schema.json",
+  "kind": "global-choice-set-bundle",
+  "description": "ImageSource enums. The party that supplies a case's images/instructions is a ROLE. Audatex out of scope.",
+  "choiceSets": [
+    {
+      "logicalName": "cr1bd_imagesourcekind",
+      "displayName": "Image Source Kind",
+      "isGlobal": true,
+      "options": [
+        { "value": 100000000, "name": "provider_direct", "label": "Provider Direct" },
+        { "value": 100000001, "name": "repairer",        "label": "Repairer" },
+        { "value": 100000002, "name": "intermediary",    "label": "Intermediary" },
+        { "value": 100000003, "name": "individual",      "label": "Individual" }
+      ]
+    },
+    {
+      "logicalName": "cr1bd_imagesourcechannel",
+      "displayName": "Image Source Channel",
+      "isGlobal": true,
+      "options": [
+        { "value": 100000000, "name": "email",    "label": "Email" },
+        { "value": 100000001, "name": "whatsapp", "label": "WhatsApp" }
+      ]
+    }
+  ]
+}

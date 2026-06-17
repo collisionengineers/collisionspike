@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://collisionspike/dataverse/_table.schema.json",
+  "title": "CollisionSpike Dataverse table (authoring spec)",
+  "description": "Reviewable, offline authoring shape for one Dataverse table. NOT a Dataverse import file — the dataverse-data-architect translates this into EntityMetadata + AttributeMetadata via pac/Web API at [DEPLOY-WITH-LOGIN]. `m1` marks the four M1-live tables; `staged` marks the six defined-but-not-yet-deployed tables.",
+  "type": "object",
+  "required": ["logicalName", "displayName", "schemaName", "ownership", "lifecycle", "primaryColumn", "columns"],
+  "properties": {
+    "logicalName": { "type": "string", "pattern": "^cr1bd_[a-z0-9]+$" },
+    "displayName": { "type": "string" },
+    "displayCollectionName": { "type": "string" },
+    "schemaName": { "type": "string" },
+    "description": { "type": "string" },
+    "ownership": { "enum": ["UserOwned", "OrganizationOwned"] },
+    "lifecycle": {
+      "type": "object",
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["m1-live", "staged"] },
+        "note": { "type": "string" }
+      }
+    },
+    "hasActivities": { "type": "boolean" },
+    "hasNotes": { "type": "boolean" },
+    "primaryColumn": {
+      "type": "object",
+      "required": ["logicalName", "displayName", "type"],
+      "properties": {
+        "logicalName": { "type": "string" },
+        "displayName": { "type": "string" },
+        "type": { "const": "String" },
+        "maxLength": { "type": "integer" },
+        "required": { "enum": ["none", "recommended", "required"] },
+        "description": { "type": "string" }
+      }
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["logicalName", "displayName", "type"],
+        "properties": {
+          "logicalName": { "type": "string", "pattern": "^cr1bd_[a-z0-9]+$" },
+          "displayName": { "type": "string" },
+          "type": {
+            "enum": [
+              "String", "Memo", "Boolean", "DateTime", "Integer", "BigInt",
+              "Decimal", "Double", "Money", "Lookup", "Choice", "Choices", "Uniqueidentifier", "File"
+            ]
+          },
+          "required": { "enum": ["none", "recommended", "required"] },
+          "maxLength": { "type": "integer" },
+          "format": { "type": "string" },
+          "precision": { "type": "integer" },
+          "minValue": { "type": "number" },
+          "maxValue": { "type": "number" },
+          "dateTimeBehavior": { "enum": ["UserLocal", "DateOnly", "TimeZoneIndependent"] },
+          "choiceSet": { "type": "string" },
+          "multiSelect": { "type": "boolean" },
+          "target": { "type": "string" },
+          "relationshipSchemaName": { "type": "string" },
+          "alternateKey": { "type": "boolean" },
+          "mustNotDriveWorkflow": { "type": "boolean" },
+          "evaField": { "type": "boolean" },
+          "evaOrder": { "type": "integer" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "alternateKeys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["schemaName", "columns"],
+        "properties": {
+          "schemaName": { "type": "string" },
+          "displayName": { "type": "string" },
+          "columns": { "type": "array", "items": { "type": "string" } },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

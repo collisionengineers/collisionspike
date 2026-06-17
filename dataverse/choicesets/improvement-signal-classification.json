@@ -1,0 +1,15 @@
+{
+  "$schema": "../schema/_choiceset.schema.json",
+  "kind": "global-choice-set",
+  "logicalName": "cr1bd_improvementsignalclass",
+  "displayName": "Improvement Signal Classification",
+  "description": "ImprovementSignal.classification — triage bucket for a staff correction captured during review (never auto-changes rules). Table is MODELED but DEFERRED (no writers in M1).",
+  "isGlobal": true,
+  "options": [
+    { "value": 100000000, "name": "parser_rule_candidate",    "label": "Parser Rule Candidate" },
+    { "value": 100000001, "name": "corpus_update_candidate",  "label": "Corpus Update Candidate" },
+    { "value": 100000002, "name": "provider_policy_candidate","label": "Provider Policy Candidate" },
+    { "value": 100000003, "name": "enrichment_issue",         "label": "Enrichment Issue" },
+    { "value": 100000004, "name": "one_off_case_issue",       "label": "One-off Case Issue" }
+  ]
+}

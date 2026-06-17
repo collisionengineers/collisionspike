@@ -1,0 +1,36 @@
+{
+  "$schema": "./_table.schema.json",
+  "logicalName": "cr1bd_inspectionaddress",
+  "displayName": "Inspection Address",
+  "displayCollectionName": "Inspection Addresses",
+  "schemaName": "cr1bd_InspectionAddress",
+  "description": "Per-case inspection location for the EVA record. References a Repairer (repairerId, most common) OR holds an ad-hoc location (storage yard, claimant home) OR the 'Image Based Assessment' marker. Carries the decision mode -- image_based ALWAYS requires an explicit reviewer decision + reason (never a silent pass).",
+  "ownership": "UserOwned",
+  "lifecycle": { "state": "staged", "note": "Defined and staged; M1 = policy gate + manual 6-line entry. Candidate ranking (M2) / EXIF+Azure Maps (M3) deferred." },
+  "primaryColumn": {
+    "logicalName": "cr1bd_name",
+    "displayName": "Label",
+    "type": "String",
+    "maxLength": 200,
+    "required": "required",
+    "description": "Short label for the location (e.g. 'Image Based Assessment', repairer name, or 'Claimant home')."
+  },
+  "columns": [
+    { "logicalName": "cr1bd_repairerid", "displayName": "Repairer", "type": "Lookup", "target": "cr1bd_repairer", "relationshipSchemaName": "cr1bd_repairer_inspectionaddress", "required": "none", "description": "-> Repairer (when the location IS a known repairer; don't duplicate the address). Nullable for ad-hoc / image-based." },
+    { "logicalName": "cr1bd_decisionmode", "displayName": "Decision Mode", "type": "Choice", "choiceSet": "cr1bd_inspectiondecisionmode", "required": "required", "description": "confirmed_physical | manual | image_based | unknown. image_based requires a non-empty decisionReason." },
+    { "logicalName": "cr1bd_decisionreason", "displayName": "Decision Reason", "type": "Memo", "maxLength": 2000, "required": "none", "description": "REQUIRED when decisionMode=image_based (override-with-reason). Recorded per the M1 policy gate; validated client + flow side." },
+    { "logicalName": "cr1bd_sourcelabel", "displayName": "Source Label", "type": "String", "maxLength": 100, "required": "none", "description": "repairer | storage | home (the kind of ad-hoc source)." },
+    { "logicalName": "cr1bd_sourcenote", "displayName": "Source / Evidence Note", "type": "Memo", "maxLength": 2000, "required": "none", "description": "Source / evidence note backing the address decision." },
+    { "logicalName": "cr1bd_addressline1", "displayName": "Address Line 1", "type": "String", "maxLength": 200, "required": "none", "description": "Ad-hoc 6-line address, line 1 (used when not referencing a Repairer)." },
+    { "logicalName": "cr1bd_addressline2", "displayName": "Address Line 2", "type": "String", "maxLength": 200, "required": "none", "description": "Ad-hoc 6-line address, line 2." },
+    { "logicalName": "cr1bd_addressline3", "displayName": "Address Line 3", "type": "String", "maxLength": 200, "required": "none", "description": "Ad-hoc 6-line address, line 3." },
+    { "logicalName": "cr1bd_addressline4", "displayName": "Address Line 4", "type": "String", "maxLength": 200, "required": "none", "description": "Ad-hoc 6-line address, line 4." },
+    { "logicalName": "cr1bd_addressline5", "displayName": "Address Line 5", "type": "String", "maxLength": 200, "required": "none", "description": "Ad-hoc 6-line address, line 5." },
+    { "logicalName": "cr1bd_addressline6", "displayName": "Address Line 6", "type": "String", "maxLength": 200, "required": "none", "description": "Ad-hoc 6-line address, line 6." },
+    { "logicalName": "cr1bd_postcode", "displayName": "Postcode", "type": "String", "maxLength": 16, "required": "none", "description": "UK postcode (normalised via postcode.io; AZURE_MAPS_ENABLED=false selects postcode.io in M1)." }
+  ],
+  "notes": [
+    "The serialized EVA inspection address (6 lines, padded, or 'Image Based Assessment') is written to Case.cr1bd_evainspectionaddress (EVA field 9).",
+    "No path may yield 'Image Based Assessment' without decisionMode=image_based + a non-empty decisionReason."
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "./_table.schema.json",
+  "logicalName": "cr1bd_chaser",
+  "displayName": "Chaser",
+  "displayCollectionName": "Chasers",
+  "schemaName": "cr1bd_Chaser",
+  "description": "A tracked request for Missing items (ADR-0003). Channel-aware: email = draft + (later) Outlook send; WhatsApp = draft + MANUAL send only (WhatsApp Business). The Code App ONLY drafts; sending is a flow/user action. Audatex out of scope.",
+  "ownership": "UserOwned",
+  "lifecycle": { "state": "staged", "note": "Scaffolds authored; structured chaser automation deferred. Minimal in M1 (draft-only)." },
+  "primaryColumn": {
+    "logicalName": "cr1bd_name",
+    "displayName": "Summary",
+    "type": "String",
+    "maxLength": 400,
+    "required": "required",
+    "description": "What's being chased (queue summary)."
+  },
+  "columns": [
+    { "logicalName": "cr1bd_caseid", "displayName": "Case", "type": "Lookup", "target": "cr1bd_case", "relationshipSchemaName": "cr1bd_case_chaser", "required": "required", "description": "-> Case (parent). 1:N Case->Chaser; cascade." },
+    { "logicalName": "cr1bd_targettype", "displayName": "Target Type", "type": "Choice", "choiceSet": "cr1bd_chasertargettype", "required": "required", "description": "image_source | repairer | work_provider." },
+    { "logicalName": "cr1bd_targetname", "displayName": "Target Name", "type": "String", "maxLength": 200, "required": "none", "description": "Denormalised target name for the queue." },
+    { "logicalName": "cr1bd_channel", "displayName": "Channel", "type": "Choice", "choiceSet": "cr1bd_chaserchannel", "required": "required", "description": "email | whatsapp. WhatsApp is draft-only (manual send)." },
+    { "logicalName": "cr1bd_templateused", "displayName": "Template Used", "type": "String", "maxLength": 200, "required": "none", "description": "Chaser template (per target-type/channel)." },
+    { "logicalName": "cr1bd_status", "displayName": "Status", "type": "Choice", "choiceSet": "cr1bd_chaserstatus", "required": "required", "description": "drafted | sent | responded | overdue." },
+    { "logicalName": "cr1bd_sentby", "displayName": "Sent By", "type": "String", "maxLength": 200, "required": "none", "description": "Staff who sent (nullable until sent)." },
+    { "logicalName": "cr1bd_sentat", "displayName": "Sent At", "type": "DateTime", "dateTimeBehavior": "UserLocal", "required": "none", "description": "When sent (nullable until sent)." },
+    { "logicalName": "cr1bd_createdon2", "displayName": "Drafted At", "type": "DateTime", "dateTimeBehavior": "UserLocal", "required": "none", "description": "When the chaser was drafted (domain timestamp; distinct from the platform createdon)." }
+  ],
+  "notes": [
+    "Code App drafts only; send is flow/user-owned and [RESERVED-FOR-USER] for live channels."
+  ]
+}

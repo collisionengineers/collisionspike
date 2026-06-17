@@ -1,0 +1,41 @@
+{
+  "$schema": "./_table.schema.json",
+  "logicalName": "cr1bd_workprovider",
+  "displayName": "Work Provider",
+  "displayCollectionName": "Work Providers",
+  "schemaName": "cr1bd_WorkProvider",
+  "description": "Governed corpus record (from the job sheet's Principals tab, ~58 rows). The solicitor / work provider that instructs CE. Matched to incoming mail BY EMAIL DOMAIN (no alias matching). Seeds Case/PO generation via principalCode. Referenced providers are never deleted -- deactivate/archive/merge with old IDs kept as history.",
+  "ownership": "UserOwned",
+  "lifecycle": { "state": "m1-live", "note": "One of the four M1-live tables (read for matching in M1; full corpus seeded in Phase 1b)." },
+  "primaryColumn": {
+    "logicalName": "cr1bd_displayname",
+    "displayName": "Display Name",
+    "type": "String",
+    "maxLength": 200,
+    "required": "required",
+    "description": "Solicitor / Work Provider name (job sheet 'Solicitor/Work Provider' column)."
+  },
+  "columns": [
+    { "logicalName": "cr1bd_principalcode", "displayName": "Principal Code", "type": "String", "maxLength": 8, "required": "recommended", "alternateKey": true, "description": "ONE code (job sheet 'EVA Code / Box Code'): lowercase = EVA Code, UPPERCASE = Box Code & Case/PO prefix. Must be unique enough to keep Case/PO generation safe." },
+    { "logicalName": "cr1bd_knownemaildomains", "displayName": "Known Email Domains", "type": "Memo", "maxLength": 2000, "required": "none", "description": "MATCHING KEY. Newline/JSON list of sender domains (after @) that map to this provider. Domain match only -- NO alias matching. Ambiguous (domain -> >1 active provider) blocks auto-match." },
+    { "logicalName": "cr1bd_defaultmailbox", "displayName": "Default Mailbox", "type": "String", "maxLength": 256, "required": "none", "description": "Inbox the provider's instructions normally arrive on (job sheet 'Inbox')." },
+    { "logicalName": "cr1bd_inspectionlocationpolicy", "displayName": "Inspection Location Policy", "type": "Choice", "choiceSet": "cr1bd_inspectionlocationpolicy", "required": "none", "description": "always_image_based | prefer_address | required_address. Drives the M1 address policy gate. prefer_address is the default for unknown providers." },
+    { "logicalName": "cr1bd_providerautomationmode", "displayName": "Provider Automation Mode", "type": "Choice", "choiceSet": "cr1bd_providerautomationmode", "required": "none", "description": "manual | review_auto | full_auto. Only review_auto honored in M1." },
+    { "logicalName": "cr1bd_instructionnotes", "displayName": "Instruction Notes", "type": "Memo", "maxLength": 4000, "required": "none", "description": "Solicitors Instructions free-text (job sheet). 1b import." },
+    { "logicalName": "cr1bd_imagessourcenotes", "displayName": "Images Source Notes", "type": "Memo", "maxLength": 4000, "required": "none", "description": "Images location free-text (job sheet 'Images location'). 1b import." },
+    { "logicalName": "cr1bd_reportreturnnotes", "displayName": "Report Return Notes", "type": "Memo", "maxLength": 4000, "required": "none", "description": "Sending Report free-text (job sheet). 1b import." },
+    { "logicalName": "cr1bd_dragintoeva", "displayName": "Drag In To EVA", "type": "Boolean", "required": "none", "description": "Job sheet 'Drag in to EVA?' flag (preferred EVA path hint for this provider)." },
+    { "logicalName": "cr1bd_aiallowed", "displayName": "AI Allowed", "type": "Boolean", "required": "none", "description": "Per-provider toggle (MODELED, DEFERRED in M1 -- global env-var kill switches govern M1)." },
+    { "logicalName": "cr1bd_evasubmitallowed", "displayName": "EVA Submit Allowed", "type": "Boolean", "required": "none", "description": "Per-provider toggle (modeled, deferred)." },
+    { "logicalName": "cr1bd_enrichmentallowed", "displayName": "Enrichment Allowed", "type": "Boolean", "required": "none", "description": "Per-provider toggle (modeled, deferred)." },
+    { "logicalName": "cr1bd_outboundallowed", "displayName": "Outbound Allowed", "type": "Boolean", "required": "none", "description": "Per-provider toggle (modeled, deferred)." },
+    { "logicalName": "cr1bd_active", "displayName": "Active", "type": "Boolean", "required": "none", "description": "active|archived. Archived providers kept as history redirects (Case/PO history depends on old principal codes); never hard-deleted." }
+  ],
+  "alternateKeys": [
+    { "schemaName": "cr1bd_workprovider_principalcode_key", "displayName": "Principal Code Key", "columns": ["cr1bd_principalcode"], "description": "Natural key for job-sheet upsert (re-import updates drafts, never overwrites an active record without change-reason + audit)." }
+  ],
+  "notes": [
+    "The N:N to Repairer (ADR-0001) is defined in relationships.json (cr1bd_repairer_workprovider).",
+    "M1 honors only providerAutomationMode=review_auto; per-provider boolean toggles are deferred to global env-var gates."
+  ]
+}
