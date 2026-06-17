@@ -37,6 +37,13 @@ EXIF/GPS and vision-only evidence must **never auto-populate alone**. Auto-popul
 Provider Automation Mode (`No auto`→manual; `Review auto`→staff acknowledge; `AI Auto`/`Full auto`→
 gated). Auto-filled fields always show provenance markers.
 
+> **Spike scope (decided):** **M1** — policy gate + manual address entry (no silent image-based).
+> **M2 (lean assistant)** — ranked candidates from **deterministic** signals only: instruction/email
+> text, provider/garage **corpus**, **OCR** (phone/email/postcode → Repairer match), and historical
+> accepted addresses; reviewer-gated. **M3** — add EXIF/GPS, **Azure Maps** geocoding/nearby-search,
+> and vision clues. (Rationale: corpus + OCR are the strongest signals per the research; EXIF is
+> usually stripped by WhatsApp; Azure Maps adds per-call cost.)
+
 ## Microsoft service mapping (replacing the Google services in the source report)
 | Need | Source doc (Google) | Spike (Microsoft) |
 |---|---|---|

@@ -129,9 +129,9 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   Spec: [docs/requirements/provider-corpus.md](./docs/requirements/provider-corpus.md),
   [docs/architecture/data-model.md](./docs/architecture/data-model.md).
 - **Inspection-address assistant**: per-provider `inspectionLocationPolicy`
-  (`always_image_based`/`prefer_address`/`required_address`); **ranked candidates** with evidence;
-  **no silent "Image Based Assessment"** fallback; signal fusion (instruction text → corpus → OCR
-  phone/email → EXIF/GPS → history → vision clues). Spec:
+  (`always_image_based`/`prefer_address`/`required_address`); **no silent "Image Based Assessment"**.
+  Phasing: **M1** policy gate + manual entry; **M2 (lean)** ranked candidates from instruction text +
+  corpus + OCR (phone/email/postcode→Repairer) + history; **M3** EXIF/GPS + Azure Maps + vision. Spec:
   [docs/requirements/inspection-address.md](./docs/requirements/inspection-address.md).
 
 ### Phase 2 — Image classification (AI Builder first)

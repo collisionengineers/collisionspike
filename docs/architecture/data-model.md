@@ -99,7 +99,12 @@ document_ai, cloud_vision→azure_vision, web_lookup, whatsapp, manual_upload}. 
 ## Case status state machine
 `new_email → ingested → needs_review → ready_for_eva → eva_submitted`, with branches
 `missing_required_fields`, `missing_images`, `duplicate_risk`, `linked_to_instruction`; terminals
-`eva_submitted`, `box_synced`, `error`. (Aligns with collisioncc `case-status.ts`.)
+`eva_submitted`, `box_synced`, `error`. (Adapts collisioncc `case-status.ts` — reference, not gospel.)
+
+**Two user-facing queues (decided), mirroring the job sheet's two sections:**
+1. **Not ready / chasing** — `missing_*` / `needs_review`, with an active Chaser.
+2. **Ready, not yet in EVA** — `ready_for_eva` (parked before manual EVA input).
+Plus **Submitted** (`eva_submitted`) and **Box-synced** (`box_synced`).
 
 ## Provider matching — by email domain, not aliases
 Match the sender domain after `@` to `WorkProvider.knownEmailDomains` (e.g. `john@carcompany.co.uk`
