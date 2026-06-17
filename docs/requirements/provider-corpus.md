@@ -23,6 +23,12 @@ Controls whether populated data requires human review before EVA:
 
 **Unknown providers default to `Review auto`** (and `prefer_address` policy).
 
+> **Spike scope (decided):** only **`Review auto`** is active initially — every populated field is
+> staff-reviewed before EVA. `AI Auto` / `Full auto` are modelled but **deferred** until accuracy/
+> trust data exists. Implement the **global** kill switches now (AI / EVA-submit / enrichment /
+> outbound); per-provider toggles and the **Improvement-Review queue** are modelled but deferred.
+> Keep field-level **provenance markers** from day one (cheap, and hard to backfill).
+
 ## Two-tier control (global kill switch → per-provider)
 Every automated capability is checked twice: the **global kill switch** first, then the
 **per-WorkProvider** setting. Per-provider toggles: Provider Automation Mode, **AI assistance

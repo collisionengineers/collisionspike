@@ -107,9 +107,11 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 ### Phase 1b — Provider corpus + inspection-address assistant (distilled from `raw/`)
 - **Governed provider/garage corpus** (Dataverse `WorkProvider` + `InspectionAddress`), seeded from
   the real job sheet (`Principals` 58, `Garages` 38). Provider matching by **email domain** (not
-  aliases); **Provider Automation Mode** (`No/Review/AI/Full auto`, default `Review auto`); two-tier
-  global→per-provider kill switches; field-level **provenance** + Management **Improvement Review**
-  queue. Spec: [docs/requirements/provider-corpus.md](./docs/requirements/provider-corpus.md),
+  aliases). **Spike scope:** `Review auto` only + **global** kill switches + field-level
+  **provenance** markers; per-provider AI/Full-auto and the Improvement-Review queue are **deferred**.
+  Entities: WorkProvider, **Repairer** (first-class, m:n — ADR-0001), **ImageSource** (role),
+  InspectionAddress; Cases correlate by **VRM** (ADR-0002).
+  Spec: [docs/requirements/provider-corpus.md](./docs/requirements/provider-corpus.md),
   [docs/architecture/data-model.md](./docs/architecture/data-model.md).
 - **Inspection-address assistant**: per-provider `inspectionLocationPolicy`
   (`always_image_based`/`prefer_address`/`required_address`); **ranked candidates** with evidence;

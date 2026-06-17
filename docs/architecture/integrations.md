@@ -56,6 +56,12 @@ Gate the whole enrichment path with `ENRICHMENT_API_BASE` + `ENRICHMENT_ENABLED`
 - **Later (gated `AZURE_MAPS_ENABLED`):** Azure Maps Search if reverse geocoding / autocomplete /
   non-UK is needed (~$5 per 1,000 geocodes).
 
+## Outbound chasers (channel-aware — ADR-0003)
+Behind the global **outbound** kill switch; **human-sent** in the spike. **Email** chasers are
+drafted (later sent via the Outlook connector). **WhatsApp is WhatsApp Business only and won't
+change** → chasers are drafted for staff to send manually; **no free automated WhatsApp send**.
+**Audatex** is await-only. Model: `Chaser` + `Note` in [data-model.md](./data-model.md).
+
 ## Box archival
 
 - Folder per **Case/PO**; copy evidence (images, `.eml`, PDFs, EVA JSON) on finalisation. Standard

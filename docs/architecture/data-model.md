@@ -13,7 +13,15 @@ PII) live in `raw/` (gitignored) and seed Dataverse later.**
 ### Case
 The live work item (replaces the `Jobs` sheet — 31 cols × ~226 rows of formula-driven tracking).
 - Identity: `vrm`, `caseRef`/source reference, `casePo` (entered at EVA submit — see Case/PO below).
-- Links: `workProviderId` (→ WorkProvider), `inspectionAddressId` (→ InspectionAddress, nullable).
+- Matching (ADR-0002): correlate incoming images/instructions by **VRM** into the single **open**
+  Case; if none open, create one. Multiple historical Cases per VRM are allowed; ambiguous/duplicate
+  matches are flagged `duplicate_risk` for human review (never auto-merged).
+- Readiness (deterministic): `ready_for_eva` only when the **required-items checklist** is satisfied
+  or explicitly overridden — 13 EVA fields valid + image-rules + inspection-address decision +
+  per-provider extras. Unsatisfied items = the **Missing** list; EVA submit is blocked until met.
+  An image-based inspection address is an explicit override-with-reason, not a silent pass.
+- Links: `workProviderId` (→ WorkProvider), `imageSourceId` (→ ImageSource, nullable),
+  `inspectionAddressId` (→ InspectionAddress, nullable).
 - Workflow: `status` (state machine below), `intakeChannel` (Email/WhatsApp/Audatex × Auto/Manual),
   `sourceMailbox`, `dateDue`, `inspectionDate`.
 - EVA fields (the 13-field contract): vehicle model, claimant name, dates, accident circumstances,
@@ -27,8 +35,7 @@ Governed corpus record. Job-sheet columns map directly:
 | Job sheet column | Field |
 |---|---|
 | Solicitor/Work Provider | `displayName` |
-| EVA Code | `principalCode` (used in Case/PO) |
-| Box Code | `boxCode` |
+| EVA Code / Box Code | `principalCode` — **one code**; lowercase = EVA Code, UPPERCASE = Box Code & Case/PO |
 | Inbox | `defaultMailbox` |
 | Solicitors Instructions | `instructionNotes` |
 | Drag in to EVA? | `dragInToEva` |
@@ -39,11 +46,26 @@ Plus governance fields: `knownEmailDomains[]` (matching key — see below), `pro
 per-provider toggles (AI/EVA/enrichment/outbound allowed), `inspectionLocationPolicy`,
 `active|archived`, deterministic EVA-readiness overrides, audit history.
 
-### InspectionAddress  (from `Garages` sheet, 38 rows + provider storage yards)
-Canonical term aligned to EVA; *garage/repairer/bodyshop/storage* are **source labels**, not
-separate entities. Fields: `label`, source-label, **6-line EVA address**, `postcode`, optional
-phone/email, optional `figuresExpected` (from Garages `Figures` col), source/evidence note,
-provenance link (web/AI), linked WorkProviders, `active|archived`.
+### Repairer  (from `Garages` sheet, 38 rows) — **first-class entity** (see ADR-0001)
+A garage/bodyshop CE interacts with: `name`, **6-line address** + `postcode`, `email`, `phone`,
+`figuresExpected` (Garages `Figures` col — whether the repairer supplies their own estimate figures),
+`active|archived`. **Many-to-many with WorkProvider** (one repairer serves several providers; one
+provider uses several repairers). A reusable directory you chase images/figures from.
+
+### InspectionAddress  (per case)
+The location on a case's EVA record. References a **Repairer** (`repairerId`, most common) OR holds an
+ad-hoc location (storage yard, claimant home) OR the `Image Based Assessment` marker. Fields:
+`repairerId?`, ad-hoc **6-line address** + `postcode`, source-label (repairer/storage/home),
+source/evidence note, provenance link, and decision mode
+(`confirmed_physical | manual | image_based | unknown`).
+
+### ImageSource
+The party that supplies a case's images/instructions — a **role**, not always a distinct org.
+Fields: `name`, `kind` (`provider_direct | repairer | intermediary | individual`), `channel`
+(`email | whatsapp | audatex`), match keys (`emailDomain?`, `whatsappGroup?`/`whatsappNumber?`,
+`contactName?`), optional `repairerId?` (when the source **is** a Repairer — don't duplicate it),
+`workProviderId`s (m:n), optional default Inspection Address hint. Drives recognition of
+non-email-domain intake (WhatsApp/individuals) and address defaulting. A Case carries `imageSourceId`.
 
 ### Evidence
 Mirrors collisioncc `image-rules`: `kind` (image/video/instruction/email/valuation/eva_payload),
@@ -57,6 +79,14 @@ storage state, source message link.
   provenance, actor/time, affected-EVA-readiness flag, classification
   (`parser_rule_candidate`/`corpus_update_candidate`/`provider_policy_candidate`/`enrichment_issue`/
   `one_off_case_issue`).
+
+### Chaser & Note
+- `Chaser` (ADR-0003): tracked request for Missing items — `caseId`, `targetType`
+  (`image_source`/`repairer`/`work_provider`), `channel` (`email`/`whatsapp`/`audatex`),
+  `templateUsed`, `status` (`drafted`/`sent`/`responded`/`overdue`), `sentBy?`, `sentAt?`.
+  **Channel-aware:** email = draft + (later) Outlook send; WhatsApp = **draft + manual send**
+  (WhatsApp Business only); Audatex = await.
+- `Note`: free-text — `caseId`, `author`, `timestamp`, `text`. First-class, always available.
 
 ### Field-level provenance (on each EVA-relevant Case field)
 `fieldName, value, sourceType, sourceLabel, sourceReference, confidence?, reviewState, reviewedBy?,
@@ -76,8 +106,9 @@ Match the sender domain after `@` to `WorkProvider.knownEmailDomains` (e.g. `joh
 ambiguous matching and unsafe Case/PO generation. **Do not match on aliases.**
 
 ## Case/PO
-`principalCode + 2-digit year + 3-digit provider sequence` (e.g. `CCPY26050`). For the spike, the
-user **enters the Case/PO at EVA submit**. Future Box-folder sequence discovery (highest existing
+`principalCode + 2-digit year + 3-digit provider sequence` (e.g. `CCPY26050`). Case/PO uses the
+**uppercase** rendering of the principal code (same characters the EVA Code holds in lowercase). For
+the spike, the user **enters the Case/PO at EVA submit**. Future Box-folder sequence discovery (highest existing
 number + 1) is deferred.
 
 ## Governance (small team, ~10 staff — single-Management approval)
