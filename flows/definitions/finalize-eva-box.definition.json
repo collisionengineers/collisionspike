@@ -1,0 +1,217 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_FinalizeEvaBox (§5.10). EVA + Box finalize in unison inside one Scope. Box folder = UPPERCASE Case/PO; EVA uses lowercase - same identity, two casings. Photo order = 2 previews first then ALL photos incl. those two again (Evidence sequenceIndex asc). EVA_API_ENABLED gates the TRANSPORT (Sentry REST when true; JSON drag-drop export staged to Box when false - M1 default) not the finalization. Idempotent by cr1bd_finalizedpayloadhash (stamped LAST). Secrets live inside the EVA connector (Key Vault refs); the flow never reads EVA_CLIENT_SECRET. BoxArchiveRootId is a flow parameter, never a hardcoded live Box id. [BUILD]; activation + live EVA/Box test is [RESERVED-FOR-USER].",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} },
+    "BoxArchiveRootId": { "type": "String", "defaultValue": "@parameters('BoxArchiveRootId')", "metadata": { "description": "Parent Box folder id for archives. Flow parameter; bound by the user at activation. NEVER a hardcoded live Box id." } }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "comment": "Invoked when staff request submit (the Code App writes a 'submit requested' signal; the Code App never calls EVA/Box directly).",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "caseId": { "type": "string" },
+            "payloadHash": { "type": "string" },
+            "evaPayload13": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Init_caseId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "caseId", "type": "string", "value": "@triggerBody()?['caseId']" } ] },
+      "runAfter": {}
+    },
+    "Init_payloadHash": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "payloadHash", "type": "string", "value": "@triggerBody()?['payloadHash']" } ] },
+      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+    },
+    "Init_evaPayload13": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "evaPayload13", "type": "string", "value": "@triggerBody()?['evaPayload13']" } ] },
+      "comment": "The schema-valid 13-field EVA JSON in contract order, built by the SAME serializer the Code App uses (eva-export.ts / eva-payload.schema.json) - byte-identical drag-drop body and API body. vrm/reference are NOT in the 13.",
+      "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
+    },
+    "Get_gate_definition": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "environmentvariabledefinitions",
+          "$filter": "schemaname eq 'cr1bd_EVA_API_ENABLED'",
+          "$select": "environmentvariabledefinitionid,defaultvalue",
+          "$expand": "environmentvariabledefinition_environmentvariablevalue($select=value)",
+          "$top": 1
+        }
+      },
+      "runAfter": { "Init_evaPayload13": [ "Succeeded" ] }
+    },
+    "Set_gate_EVA_API_ENABLED": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "gate_EVA_API_ENABLED", "type": "boolean",
+        "value": "@equals(toLower(coalesce(first(first(outputs('Get_gate_definition')?['body/value'])?['environmentvariabledefinition_environmentvariablevalue'])?['value'], first(outputs('Get_gate_definition')?['body/value'])?['defaultvalue'], 'false')), 'true')"
+      } ] },
+      "comment": "M1 default false -> JSON drag-drop export path (permanent fallback).",
+      "runAfter": { "Get_gate_definition": [ "Succeeded" ] }
+    },
+    "Get_case": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "GetItem",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": { "entityName": "cr1bd_cases", "recordId": "@variables('caseId')" }
+      },
+      "runAfter": { "Set_gate_EVA_API_ENABLED": [ "Succeeded" ] }
+    },
+    "Guard_already_finalized": {
+      "type": "If",
+      "expression": { "not": { "equals": [ "@outputs('Get_case')?['body/cr1bd_finalizedpayloadhash']", "@variables('payloadHash')" ] } },
+      "comment": "Idempotency latch: re-running finalize for an already-submitted payload hash must not double-submit or re-create the folder.",
+      "actions": {
+        "Scope_Finalize": {
+          "type": "Scope",
+          "actions": {
+            "Order_evidence": {
+              "type": "OpenApiConnection",
+              "comment": "Image Evidence accepted for EVA, ascending sequenceIndex (2 previews seeded at index 0,1 then full sequence incl. those two again).",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_evidences",
+                  "$filter": "_cr1bd_caseid_value eq @{variables('caseId')} and cr1bd_kind eq 100000000 and cr1bd_acceptedforeva eq true and cr1bd_excluded eq false",
+                  "$orderby": "cr1bd_sequenceindex asc"
+                }
+              },
+              "runAfter": {}
+            },
+            "Create_box_folder_UPPERCASE": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_box", "operationId": "CreateFolder",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_box" },
+                "parameters": { "parentId": "@parameters('BoxArchiveRootId')",
+                  "name": "@toUpper(outputs('Get_case')?['body/cr1bd_casepo'])" }
+              },
+              "comment": "Box folder = UPPERCASE Case/PO. CreateFolder 409s on a name collision; on resume reuse the folder by name.",
+              "runAfter": { "Order_evidence": [ "Succeeded" ] }
+            },
+            "Upload_photos_in_eva_order": {
+              "type": "Foreach",
+              "foreach": "@outputs('Order_evidence')?['body/value']",
+              "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
+              "comment": "repetitions=1 preserves EVA upload order: 2 previews first, then full sequence incl. those two.",
+              "actions": {
+                "Copy_evidence_to_box": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": { "connectionName": "shared_box", "operationId": "CreateFile",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_box" },
+                    "parameters": { "folderId": "@body('Create_box_folder_UPPERCASE')?['Id']",
+                      "name": "@items('Upload_photos_in_eva_order')?['cr1bd_filename']",
+                      "body": "@items('Upload_photos_in_eva_order')?['cr1bd_storagepath']" }
+                  },
+                  "runAfter": {}
+                }
+              },
+              "runAfter": { "Create_box_folder_UPPERCASE": [ "Succeeded" ] }
+            },
+            "Submit_to_EVA": {
+              "type": "If",
+              "expression": { "equals": [ "@variables('gate_EVA_API_ENABLED')", true ] },
+              "actions": {
+                "EVA_instruction_inspection": {
+                  "type": "OpenApiConnection",
+                  "comment": "Sentry REST path - token + bearer handled INSIDE the connector (Key Vault refs). lowercase casePo. Runs only when EVA_API_ENABLED=true.",
+                  "inputs": {
+                    "host": { "connectionName": "shared_evasentry", "operationId": "InstructionInspection",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_evasentry" },
+                    "parameters": { "body": "@variables('evaPayload13')" }
+                  },
+                  "runAfter": {}
+                }
+              },
+              "else": {
+                "actions": {
+                  "Stage_drag_drop_json": {
+                    "type": "OpenApiConnection",
+                    "comment": "M1 default: emit the schema-valid 13-field JSON for staff drag-drop into EVA. Same serializer as the Code App - byte-identical. lowercase Case/PO filename.",
+                    "inputs": {
+                      "host": { "connectionName": "shared_box", "operationId": "CreateFile",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_box" },
+                      "parameters": { "folderId": "@body('Create_box_folder_UPPERCASE')?['Id']",
+                        "name": "@concat(toLower(outputs('Get_case')?['body/cr1bd_casepo']), '.eva.json')",
+                        "body": "@variables('evaPayload13')" }
+                    },
+                    "runAfter": {}
+                  }
+                }
+              },
+              "runAfter": { "Upload_photos_in_eva_order": [ "Succeeded" ] }
+            },
+            "Audit_eva_submitted": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_auditevents",
+                  "item/cr1bd_name": "@concat('eva_submitted: ', outputs('Get_case')?['body/cr1bd_casepo'])",
+                  "item/cr1bd_action": 100000015,
+                  "item/cr1bd_severity": 100000000,
+                  "item/cr1bd_actor": "Flow_FinalizeEvaBox",
+                  "item/cr1bd_after": "@concat('transport=', if(variables('gate_EVA_API_ENABLED'), 'sentry_rest', 'drag_drop_json'))",
+                  "item/cr1bd_occurredat": "@utcNow()"
+                }
+              },
+              "runAfter": { "Submit_to_EVA": [ "Succeeded" ] }
+            },
+            "Audit_box_synced": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_auditevents",
+                  "item/cr1bd_name": "@concat('box_synced: ', toUpper(outputs('Get_case')?['body/cr1bd_casepo']))",
+                  "item/cr1bd_action": 100000016,
+                  "item/cr1bd_severity": 100000000,
+                  "item/cr1bd_actor": "Flow_FinalizeEvaBox",
+                  "item/cr1bd_after": "@concat('archived to Box folder ', toUpper(outputs('Get_case')?['body/cr1bd_casepo']))",
+                  "item/cr1bd_occurredat": "@utcNow()"
+                }
+              },
+              "runAfter": { "Audit_eva_submitted": [ "Succeeded" ] }
+            },
+            "Stamp_finalized_hash": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": { "entityName": "cr1bd_cases", "recordId": "@variables('caseId')",
+                  "item/cr1bd_finalizedpayloadhash": "@variables('payloadHash')",
+                  "item/cr1bd_status": 100000009,
+                  "item/cr1bd_submittedat": "@utcNow()" }
+              },
+              "comment": "Stamp LAST = idempotency latch. status box_synced=100000009 (terminal). A partial failure leaves the hash unstamped so a re-run resumes cleanly.",
+              "runAfter": { "Audit_box_synced": [ "Succeeded" ] }
+            }
+          },
+          "runAfter": {}
+        }
+      },
+      "runAfter": { "Get_case": [ "Succeeded" ] }
+    }
+  }
+}

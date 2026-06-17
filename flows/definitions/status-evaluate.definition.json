@@ -1,0 +1,110 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_StatusEvaluate (§5.4). Mirrors collisioncc case-status.ts statusForReviewCase (re-implement, never call). Guard order (first hit wins): terminal? -> keep | EVA-payload invalid -> missing_required_fields | image-rules fail -> missing_images | open review issues -> needs_review | else -> ready_for_eva. Idempotent: no write when status unchanged. Calls the shared validation surface so flow + Code App computeReadiness() agree. [BUILD].",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "comment": "Invoked after any case mutation (intake, parser return, enrichment return, staff edit, image tagging, finalize).",
+      "inputs": { "schema": { "type": "object", "properties": { "caseId": { "type": "string" } } } }
+    }
+  },
+  "actions": {
+    "Init_caseId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "caseId", "type": "string", "value": "@triggerBody()?['caseId']" } ] },
+      "runAfter": {}
+    },
+    "Get_case": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "GetItem",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": { "entityName": "cr1bd_cases", "recordId": "@variables('caseId')" }
+      },
+      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+    },
+    "Validate_readiness": {
+      "type": "OpenApiConnection",
+      "comment": "Shared validation surface (validation Function) -> one impl for flow + Code App. Returns { fieldsValid, imagesValid, openIssues[] } from the ported image-rules/case-status semantics.",
+      "inputs": {
+        "host": { "connectionName": "shared_evavalidation", "operationId": "ValidateCase",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_evavalidation" },
+        "parameters": { "body/caseId": "@variables('caseId')" }
+      },
+      "runAfter": { "Get_case": [ "Succeeded" ] }
+    },
+    "Guard_terminal": {
+      "type": "If",
+      "expression": {
+        "or": [
+          { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000008 ] },
+          { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000009 ] },
+          { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000010 ] }
+        ]
+      },
+      "comment": "Terminal lock FIRST: eva_submitted=100000008, box_synced=100000009, error=100000010 never transition backward.",
+      "actions": {
+        "Keep_terminal": { "type": "Compose", "inputs": "terminal - no transition", "runAfter": {} }
+      },
+      "else": {
+        "actions": {
+          "Compute_next_status": {
+            "type": "Compose",
+            "inputs": "@if(not(body('Validate_readiness')?['fieldsValid']), 'missing_required_fields', if(not(body('Validate_readiness')?['imagesValid']), 'missing_images', if(greater(length(coalesce(body('Validate_readiness')?['openIssues'], json('[]'))),0), 'needs_review', 'ready_for_eva')))",
+            "comment": "Guard order mirrors statusForReviewCase: missing_required_fields precedes missing_images precedes needs_review precedes ready_for_eva.",
+            "runAfter": {}
+          },
+          "Map_status_choice": {
+            "type": "Compose",
+            "inputs": "@if(equals(outputs('Compute_next_status'),'missing_required_fields'),100000003,if(equals(outputs('Compute_next_status'),'missing_images'),100000004,if(equals(outputs('Compute_next_status'),'needs_review'),100000002,100000007)))",
+            "comment": "Bind to cr1bd_casestatus integers: missing_required_fields=100000003, missing_images=100000004, needs_review=100000002, ready_for_eva=100000007.",
+            "runAfter": { "Compute_next_status": [ "Succeeded" ] }
+          },
+          "Patch_status_if_changed": {
+            "type": "If",
+            "expression": { "not": { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", "@outputs('Map_status_choice')" ] } },
+            "comment": "Idempotent: short-circuit the write when status is unchanged -> no spurious status_changed audit rows.",
+            "actions": {
+              "Update_status": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                  "parameters": { "entityName": "cr1bd_cases", "recordId": "@variables('caseId')",
+                    "item/cr1bd_status": "@outputs('Map_status_choice')" }
+                },
+                "runAfter": {}
+              },
+              "Audit_status_changed": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                  "parameters": {
+                    "entityName": "cr1bd_auditevents",
+                    "item/cr1bd_name": "@concat('status_changed: ', variables('caseId'))",
+                    "item/cr1bd_action": 100000013,
+                    "item/cr1bd_actor": "Flow_StatusEvaluate",
+                    "item/cr1bd_severity": 100000000,
+                    "item/cr1bd_before": "@string(outputs('Get_case')?['body/cr1bd_status'])",
+                    "item/cr1bd_after": "@outputs('Compute_next_status')",
+                    "item/cr1bd_occurredat": "@utcNow()"
+                  }
+                },
+                "runAfter": { "Update_status": [ "Succeeded" ] }
+              }
+            },
+            "runAfter": { "Map_status_choice": [ "Succeeded" ] }
+          }
+        }
+      },
+      "runAfter": { "Validate_readiness": [ "Succeeded" ] }
+    }
+  }
+}

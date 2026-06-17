@@ -1,0 +1,129 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_Intake_<Mailbox> (§5.1). Per-shared-mailbox trigger + Message-ID/payloadHash dedup guard (ADR-0010 exact-repeat = drop). Mirrors collisioncc graph-intake.ts ingestGraphMessage; never calls it. [BUILD] only; activating on a live Collision Engineers mailbox is [RESERVED-FOR-USER]. The IntakeMailbox is a flow parameter, never a hardcoded live address.",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} },
+    "IntakeMailbox": {
+      "type": "String",
+      "defaultValue": "@parameters('IntakeMailbox')",
+      "metadata": { "description": "Shared inbox address. Flow parameter (or Dataverse env-var read) so one definition ships to all 3 mailboxes. NEVER a hardcoded live mailbox in the authored definition." }
+    }
+  },
+  "triggers": {
+    "When_a_new_email_arrives_in_a_shared_mailbox_V2": {
+      "type": "OpenApiConnectionNotification",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_office365",
+          "operationId": "OnNewEmailV3SharedMailbox",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+        },
+        "parameters": {
+          "mailboxAddress": "@parameters('IntakeMailbox')",
+          "folderPath": "Inbox",
+          "includeAttachments": true,
+          "fetchOnlyWithAttachment": false,
+          "importance": "Any"
+        }
+      },
+      "runtimeConfiguration": {
+        "concurrency": { "runs": 1 }
+      },
+      "metadata": { "operationMetadataId": "intake-trigger" }
+    }
+  },
+  "actions": {
+    "Init_messageId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "messageId", "type": "string",
+        "value": "@triggerOutputs()?['body/internetMessageId']"
+      } ] },
+      "runAfter": {}
+    },
+    "Init_payloadHash": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "payloadHash", "type": "string",
+        "value": "@toLower(trim(concat(coalesce(triggerOutputs()?['body/subject'],''), '|', coalesce(triggerOutputs()?['body/from'],''))))"
+      } ] },
+      "comment": "payloadHash seed = normalised subject + from; the attachment-loop flow (§5.2) folds in sorted attachment SHA256s before the second dedup probe. Hash computed in the storage Function, not in Power Fx.",
+      "runAfter": { "Init_messageId": [ "Succeeded" ] }
+    },
+    "Init_attachmentHashes": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "attachmentHashes", "type": "array", "value": [] } ] },
+      "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
+    },
+    "Find_existing_by_messageId": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "cr1bd_cases",
+          "$filter": "cr1bd_sourcemessageid eq '@{variables('messageId')}'",
+          "$select": "cr1bd_caseid,cr1bd_sourcemessageid",
+          "$top": 1
+        }
+      },
+      "comment": "Exact Message-ID probe = the get-or-create idempotency guard (alternate key cr1bd_case_sourcemessageid_key). Combined with trigger concurrency=1, prevents double-create on Graph retries.",
+      "runAfter": { "Init_attachmentHashes": [ "Succeeded" ] }
+    },
+    "If_already_ingested": {
+      "type": "If",
+      "expression": {
+        "greater": [ "@length(coalesce(outputs('Find_existing_by_messageId')?['body/value'], json('[]')))", 0 ]
+      },
+      "actions": {
+        "Audit_duplicate_dropped": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_auditevents",
+              "item/cr1bd_name": "@concat('duplicate_dropped: ', variables('messageId'))",
+              "item/cr1bd_action": 100000005,
+              "item/cr1bd_actor": "Flow_Intake",
+              "item/cr1bd_severity": 100000000,
+              "item/cr1bd_after": "@concat('messageId=', variables('messageId'), ' already ingested -> dropped (ADR-0010 exact repeat)')",
+              "item/cr1bd_occurredat": "@utcNow()"
+            }
+          },
+          "runAfter": {}
+        },
+        "Terminate_drop": {
+          "type": "Terminate",
+          "inputs": { "runStatus": "Succeeded" },
+          "runAfter": { "Audit_duplicate_dropped": [ "Succeeded" ] }
+        }
+      },
+      "else": {
+        "actions": {
+          "Audit_message_ingested": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": {
+                "entityName": "cr1bd_auditevents",
+                "item/cr1bd_name": "@concat('graph_message_ingested: ', variables('messageId'))",
+                "item/cr1bd_action": 100000000,
+                "item/cr1bd_actor": "Flow_Intake",
+                "item/cr1bd_severity": 100000000,
+                "item/cr1bd_after": "@concat('mailbox=', parameters('IntakeMailbox'), '; messageId=', variables('messageId'))",
+                "item/cr1bd_occurredat": "@utcNow()"
+              }
+            },
+            "runAfter": {}
+          }
+        }
+      },
+      "comment": "Message-ID hit = exact-repeat half of ADR-0010 -> drop. The payloadHash probe (same shape, $filter on cr1bd_payloadhash) runs in the classify-persist flow once attachment hashes are folded in.",
+      "runAfter": { "Find_existing_by_messageId": [ "Succeeded" ] }
+    }
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_JobSheetImport (§5.7). Read-only Excel Online (Business) 'List rows present in a table' over the job sheet's Principals tab -> STAGED draft WorkProvider rows (inactive) for Management review/approve before activation. No macros; no write-back to SharePoint. Upsert by principalCode natural key; never overwrite an active record without change-reason + audit. [BUILD] against a synthetic/redacted fixture; running against the LIVE SharePoint job sheet is [RESERVED-FOR-USER]. The workbook/table location is a flow parameter, never a hardcoded live drive/file id.",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} },
+    "JobSheetDriveId": { "type": "String", "defaultValue": "@parameters('JobSheetDriveId')", "metadata": { "description": "OneDrive/SharePoint drive id of the job-sheet workbook. Flow parameter; bound by the user at activation. NEVER a hardcoded live id." } },
+    "JobSheetFileId": { "type": "String", "defaultValue": "@parameters('JobSheetFileId')", "metadata": { "description": "Workbook file id. Flow parameter; bound by the user at activation." } },
+    "PrincipalsTableName": { "type": "String", "defaultValue": "Principals", "metadata": { "description": "Excel table name on the Principals tab." } }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "comment": "Manual / scheduled recurrence; preserves human review. No live activation here.",
+      "inputs": { "schema": { "type": "object", "properties": {} } }
+    }
+  },
+  "actions": {
+    "List_principals_rows": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_excelonlinebusiness", "operationId": "GetItems",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness" },
+        "parameters": {
+          "source": "me",
+          "drive": "@parameters('JobSheetDriveId')",
+          "file": "@parameters('JobSheetFileId')",
+          "table": "@parameters('PrincipalsTableName')"
+        }
+      },
+      "comment": "READ-ONLY. 'List rows present in a table' (Excel Online Business GetItems). No write-back, no macro invocation anywhere in this flow.",
+      "runAfter": {}
+    },
+    "Apply_to_each_principal": {
+      "type": "Foreach",
+      "foreach": "@coalesce(outputs('List_principals_rows')?['body/value'], json('[]'))",
+      "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
+      "actions": {
+        "Find_existing_provider": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_workproviders",
+              "$filter": "cr1bd_principalcode eq '@{items('Apply_to_each_principal')?['Principal Code']}'",
+              "$select": "cr1bd_workproviderid,cr1bd_active",
+              "$top": 1
+            }
+          },
+          "comment": "Upsert key = principalCode (alternate key cr1bd_workprovider_principalcode_key).",
+          "runAfter": {}
+        },
+        "If_provider_exists": {
+          "type": "If",
+          "expression": { "greater": [ "@length(coalesce(outputs('Find_existing_provider')?['body/value'], json('[]')))", 0 ] },
+          "actions": {
+            "Audit_skip_active": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_auditevents",
+                  "item/cr1bd_name": "@concat('jobsheet_imported (existing): ', items('Apply_to_each_principal')?['Principal Code'])",
+                  "item/cr1bd_action": 100000014,
+                  "item/cr1bd_severity": 100000001,
+                  "item/cr1bd_actor": "Flow_JobSheetImport",
+                  "item/cr1bd_after": "existing provider - re-import updates drafts only; never overwrites an active record without change-reason + audit",
+                  "item/cr1bd_occurredat": "@utcNow()"
+                }
+              },
+              "comment": "Guard: never silently overwrite an approved/active corpus record. Active rows require an explicit change-reason path (staff-driven), so the import only audits here.",
+              "runAfter": {}
+            }
+          },
+          "else": {
+            "actions": {
+              "Create_staged_provider_draft": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                  "parameters": {
+                    "entityName": "cr1bd_workproviders",
+                    "item/cr1bd_displayname": "@items('Apply_to_each_principal')?['Solicitor/Work Provider']",
+                    "item/cr1bd_principalcode": "@items('Apply_to_each_principal')?['Principal Code']",
+                    "item/cr1bd_knownemaildomains": "@items('Apply_to_each_principal')?['Known Email Domains']",
+                    "item/cr1bd_defaultmailbox": "@items('Apply_to_each_principal')?['Inbox']",
+                    "item/cr1bd_instructionnotes": "@items('Apply_to_each_principal')?['Solicitors Instructions']",
+                    "item/cr1bd_imagessourcenotes": "@items('Apply_to_each_principal')?['Images location']",
+                    "item/cr1bd_active": false
+                  }
+                },
+                "comment": "New row staged as draft/inactive (cr1bd_active=false) for Management approve/correct before activation. Activation is human/[DEPLOY-WITH-LOGIN].",
+                "runAfter": {}
+              },
+              "Audit_draft_imported": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                  "parameters": {
+                    "entityName": "cr1bd_auditevents",
+                    "item/cr1bd_name": "@concat('jobsheet_imported (draft): ', items('Apply_to_each_principal')?['Principal Code'])",
+                    "item/cr1bd_action": 100000014,
+                    "item/cr1bd_severity": 100000000,
+                    "item/cr1bd_actor": "Flow_JobSheetImport",
+                    "item/cr1bd_after": "@concat('staged draft provider ', items('Apply_to_each_principal')?['Principal Code'], ' (inactive, awaiting approval)')",
+                    "item/cr1bd_occurredat": "@utcNow()"
+                  }
+                },
+                "runAfter": { "Create_staged_provider_draft": [ "Succeeded" ] }
+              }
+            }
+          },
+          "runAfter": { "Find_existing_provider": [ "Succeeded" ] }
+        }
+      },
+      "runAfter": {}
+    }
+  }
+}

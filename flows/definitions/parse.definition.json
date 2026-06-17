@@ -1,0 +1,161 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_Parse (§5.5). Reads the PDF_MAPPER_ENABLED Dataverse env-var (READ, never DEFINE), branches: enabled -> call the cedocumentmapper_v2 parser connector (ParseDocument) -> write the 13 EVA fields as staff-review pre-fill (never auto-final) + provenance; disabled -> audit skip, leave fields for manual entry. [BUILD] flow; parser Function deploy is [DEPLOY-WITH-LOGIN].",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "caseId": { "type": "string" },
+            "instructionBytesB64": { "type": "string" },
+            "instructionName": { "type": "string" },
+            "providerHint": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Init_caseId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "caseId", "type": "string", "value": "@triggerBody()?['caseId']" } ] },
+      "runAfter": {}
+    },
+    "Get_gate_definition": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "environmentvariabledefinitions",
+          "$filter": "schemaname eq 'cr1bd_PDF_MAPPER_ENABLED'",
+          "$select": "environmentvariabledefinitionid,defaultvalue",
+          "$expand": "environmentvariabledefinition_environmentvariablevalue($select=value)",
+          "$top": 1
+        }
+      },
+      "comment": "Read the CURRENT value (coalesce value-row override, else definition default). Flows READ gates; never write environmentvariablevalue/definition.",
+      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+    },
+    "Set_gate_PDF_MAPPER_ENABLED": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "gate_PDF_MAPPER_ENABLED", "type": "boolean",
+        "value": "@equals(toLower(coalesce(first(first(outputs('Get_gate_definition')?['body/value'])?['environmentvariabledefinition_environmentvariablevalue'])?['value'], first(outputs('Get_gate_definition')?['body/value'])?['defaultvalue'], 'false')), 'true')"
+      } ] },
+      "comment": "Env-var values are always strings in Dataverse, even Boolean type -> equals(toLower(...),'true'). M1 default true.",
+      "runAfter": { "Get_gate_definition": [ "Succeeded" ] }
+    },
+    "If_parser_enabled": {
+      "type": "If",
+      "expression": { "equals": [ "@variables('gate_PDF_MAPPER_ENABLED')", true ] },
+      "actions": {
+        "Call_parser": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_ceparser", "operationId": "ParseDocument",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_ceparser" },
+            "parameters": {
+              "body/document": "@triggerBody()?['instructionBytesB64']",
+              "body/filename": "@triggerBody()?['instructionName']",
+              "body/provider_hint": "@triggerBody()?['providerHint']"
+            }
+          },
+          "comment": "ParseDocument returns { extraction:{13 EVA fields}, vrm, reference, issues, contract_version }. vrm/reference are Case-identity fields, NOT EVA payload fields.",
+          "runAfter": {}
+        },
+        "Prefill_eva_fields": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_cases",
+              "recordId": "@variables('caseId')",
+              "item/cr1bd_evaworkprovider": "@body('Call_parser')?['extraction/work_provider/value']",
+              "item/cr1bd_evavehiclemodel": "@body('Call_parser')?['extraction/vehicle_model/value']",
+              "item/cr1bd_evaclaimantname": "@body('Call_parser')?['extraction/claimant_name/value']",
+              "item/cr1bd_evaclaimanttelephone": "@body('Call_parser')?['extraction/claimant_telephone/value']",
+              "item/cr1bd_evaclaimantemail": "@body('Call_parser')?['extraction/claimant_email/value']",
+              "item/cr1bd_evadateofloss": "@body('Call_parser')?['extraction/date_of_loss/value']",
+              "item/cr1bd_evadateofinstruction": "@body('Call_parser')?['extraction/date_of_instruction/value']",
+              "item/cr1bd_evaaccidentcircumstances": "@body('Call_parser')?['extraction/accident_circumstances/value']",
+              "item/cr1bd_evainspectionaddress": "@body('Call_parser')?['extraction/inspection_address/value']",
+              "item/cr1bd_evavatstatus": "@body('Call_parser')?['extraction/vat_status/value']",
+              "item/cr1bd_evamileage": "@body('Call_parser')?['extraction/mileage/value']",
+              "item/cr1bd_evamileageunit": "@body('Call_parser')?['extraction/mileage_unit/value']",
+              "item/cr1bd_evaengineerallocation": "@body('Call_parser')?['extraction/engineer_allocation/value']"
+            }
+          },
+          "comment": "13 EVA fields written as pre-fill for staff review (never auto-final). FieldLevelProvenance rows (sourceType=pdf_extraction, reviewState=needs_review) are written by the provenance writer; re-parse overwrites only pdf_extraction-sourced fields still in needs_review.",
+          "runAfter": { "Call_parser": [ "Succeeded" ] }
+        },
+        "Audit_parser_called": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_auditevents",
+              "item/cr1bd_name": "@concat('parser_called: ', variables('caseId'))",
+              "item/cr1bd_action": 100000009,
+              "item/cr1bd_severity": 100000000,
+              "item/cr1bd_actor": "Flow_Parse",
+              "item/cr1bd_after": "@concat('parsed; contract_version=', coalesce(body('Call_parser')?['contract_version'], 'unknown'))",
+              "item/cr1bd_occurredat": "@utcNow()"
+            }
+          },
+          "runAfter": { "Prefill_eva_fields": [ "Succeeded" ] }
+        }
+      },
+      "else": {
+        "actions": {
+          "Skip_parser_audit": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": {
+                "entityName": "cr1bd_auditevents",
+                "item/cr1bd_name": "@concat('parser_called (skipped): ', variables('caseId'))",
+                "item/cr1bd_action": 100000009,
+                "item/cr1bd_severity": 100000000,
+                "item/cr1bd_actor": "Flow_Parse",
+                "item/cr1bd_after": "skipped: PDF_MAPPER_ENABLED=false - 13 fields left for manual entry",
+                "item/cr1bd_occurredat": "@utcNow()"
+              }
+            },
+            "runAfter": {}
+          }
+        }
+      },
+      "runAfter": { "Set_gate_PDF_MAPPER_ENABLED": [ "Succeeded" ] }
+    },
+    "Audit_parser_failed": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "cr1bd_auditevents",
+          "item/cr1bd_name": "@concat('parser_failed: ', variables('caseId'))",
+          "item/cr1bd_action": 100000010,
+          "item/cr1bd_severity": 100000002,
+          "item/cr1bd_actor": "Flow_Parse",
+          "item/cr1bd_after": "parser 5xx/timeout - left at needs_review; see run history",
+          "item/cr1bd_occurredat": "@utcNow()"
+        }
+      },
+      "comment": "On Function 5xx/timeout the parser branch fails; audit parser_failed and continue (enrichment/status downstream handle needs_review).",
+      "runAfter": { "If_parser_enabled": [ "Failed", "TimedOut" ] }
+    }
+  }
+}

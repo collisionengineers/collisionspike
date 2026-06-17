@@ -1,0 +1,152 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_ProviderMatch (§5.8). Sender email-domain -> WorkProvider.knownEmailDomains. NO alias matching. Ambiguous (domain -> >1 active provider) -> never auto-pick (unsafe Case/PO) -> needs_review. No match -> provider field needs_review, never blocks intake. Honors providerAutomationMode=review_auto only. [BUILD].",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "comment": "Invoked inside case-resolve, before/at case create. Supplies the sender address.",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "caseId": { "type": "string" },
+            "senderAddress": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Init_caseId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "caseId", "type": "string", "value": "@triggerBody()?['caseId']" } ] },
+      "runAfter": {}
+    },
+    "Init_senderDomain": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "senderDomain", "type": "string",
+        "value": "@toLower(trim(last(split(coalesce(triggerBody()?['senderAddress'], ''), '@'))))"
+      } ] },
+      "comment": "Domain after @ only. No alias matching.",
+      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+    },
+    "List_active_providers": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "cr1bd_workproviders",
+          "$filter": "cr1bd_active eq true",
+          "$select": "cr1bd_workproviderid,cr1bd_displayname,cr1bd_principalcode,cr1bd_providerautomationmode,cr1bd_knownemaildomains,cr1bd_active"
+        }
+      },
+      "comment": "ALL active providers (~58). EXACT domain membership is applied in-flow next. OData contains() over a Memo is an UNANCHORED substring test and would false-match (e.g. sender 'co.uk' inside a provider's 'carcompany.co.uk'), minting an unsafe Case/PO. Mirrors domain provider-match.ts (exact, case-insensitive, no alias).",
+      "runAfter": { "Init_senderDomain": [ "Succeeded" ] }
+    },
+    "Filter_exact_domain": {
+      "type": "Query",
+      "inputs": {
+        "from": "@coalesce(outputs('List_active_providers')?['body/value'], json('[]'))",
+        "where": "@contains(split(replace(replace(toLower(coalesce(item()?['cr1bd_knownemaildomains'], '')), decodeUriComponent('%0D'), ''), ' ', ''), decodeUriComponent('%0A')), variables('senderDomain'))"
+      },
+      "comment": "Anchored exact membership: split the newline-separated knownEmailDomains memo (CRLF + spaces stripped, lowercased) into individual domains and test EXACT membership of the sender domain. No substring/alias matching -- 'co.uk' is a distinct array element from 'carcompany.co.uk'. Corpus import (§5.7) stores one lowercased domain per line.",
+      "runAfter": { "List_active_providers": [ "Succeeded" ] }
+    },
+    "Switch_match_count": {
+      "type": "Switch",
+      "expression": "@if(equals(length(body('Filter_exact_domain')), 1), 'ONE', if(greater(length(body('Filter_exact_domain')), 1), 'AMBIGUOUS', 'NONE'))",
+      "cases": {
+        "Case_ONE": {
+          "case": "ONE",
+          "actions": {
+            "Bind_provider": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_cases",
+                  "recordId": "@variables('caseId')",
+                  "item/cr1bd_workproviderid@odata.bind": "@concat('cr1bd_workproviders(', first(body('Filter_exact_domain'))?['cr1bd_workproviderid'], ')')"
+                }
+              },
+              "comment": "Exactly one active provider for the domain -> bind. principalCode + Case/PO generation become safe. FieldLevelProvenance (sourceType=corpus, sourceLabel=domain-match) written by the provenance writer.",
+              "runAfter": {}
+            },
+            "Audit_provider_matched": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_auditevents",
+                  "item/cr1bd_name": "@concat('provider_matched: ', variables('senderDomain'))",
+                  "item/cr1bd_action": 100000007,
+                  "item/cr1bd_severity": 100000000,
+                  "item/cr1bd_actor": "Flow_ProviderMatch",
+                  "item/cr1bd_after": "@concat('domain ', variables('senderDomain'), ' -> ', first(body('Filter_exact_domain'))?['cr1bd_displayname'])",
+                  "item/cr1bd_occurredat": "@utcNow()"
+                }
+              },
+              "runAfter": { "Bind_provider": [ "Succeeded" ] }
+            }
+          }
+        },
+        "Case_AMBIGUOUS": {
+          "case": "AMBIGUOUS",
+          "actions": {
+            "Audit_provider_ambiguous": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_auditevents",
+                  "item/cr1bd_name": "@concat('provider_unmatched (ambiguous): ', variables('senderDomain'))",
+                  "item/cr1bd_action": 100000008,
+                  "item/cr1bd_severity": 100000001,
+                  "item/cr1bd_actor": "Flow_ProviderMatch",
+                  "item/cr1bd_after": "@concat('domain ', variables('senderDomain'), ' -> ', string(length(body('Filter_exact_domain'))), ' active providers; never auto-pick -> needs_review (staff assigns)')",
+                  "item/cr1bd_occurredat": "@utcNow()"
+                }
+              },
+              "comment": "Ambiguous: do not bind any provider (unsafe Case/PO). Leave for staff -> needs_review.",
+              "runAfter": {}
+            }
+          }
+        }
+      },
+      "default": {
+        "actions": {
+          "Audit_provider_unmatched": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": {
+                "entityName": "cr1bd_auditevents",
+                "item/cr1bd_name": "@concat('provider_unmatched: ', variables('senderDomain'))",
+                "item/cr1bd_action": 100000008,
+                "item/cr1bd_severity": 100000001,
+                "item/cr1bd_actor": "Flow_ProviderMatch",
+                "item/cr1bd_after": "@concat('no active provider for domain ', variables('senderDomain'), ' - case proceeds, provider needs_review, never blocks intake')",
+                "item/cr1bd_occurredat": "@utcNow()"
+              }
+            },
+            "comment": "No match -> case proceeds without a provider; staff assigns. Never blocks intake.",
+            "runAfter": {}
+          }
+        }
+      },
+      "runAfter": { "Filter_exact_domain": [ "Succeeded" ] }
+    }
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_Classify_Persist (§5.2). Apply-to-each attachment: deterministic classify by extension/MIME (graph-intake parity), bytes -> Azure Blob (NEVER inline in a Dataverse row), one Evidence row per attachment carrying only the storagePath ref + SHA256. Folds attachment hashes into payloadHash then runs the second dedup probe (ADR-0010). [BUILD]; runs against live mail only when [RESERVED-FOR-USER].",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "comment": "Child flow invoked by intake.definition after the dedup guard passes. Receives messageId, caseId (may be empty pre-resolve), and the trigger message body context.",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "messageId": { "type": "string" },
+            "caseId": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Init_messageId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "messageId", "type": "string", "value": "@triggerBody()?['messageId']" } ] },
+      "runAfter": {}
+    },
+    "Init_caseId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "caseId", "type": "string", "value": "@coalesce(triggerBody()?['caseId'], '')" } ] },
+      "runAfter": { "Init_messageId": [ "Succeeded" ] }
+    },
+    "Init_attachmentHashes": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "attachmentHashes", "type": "array", "value": [] } ] },
+      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+    },
+    "Init_payloadHash": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "payloadHash", "type": "string", "value": "" } ] },
+      "runAfter": { "Init_attachmentHashes": [ "Succeeded" ] }
+    },
+    "Scope_Persist_Attachments": {
+      "type": "Scope",
+      "actions": {
+        "Apply_to_each_attachment": {
+          "type": "Foreach",
+          "foreach": "@coalesce(triggerOutputs()?['body/attachments'], json('[]'))",
+          "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
+          "comment": "repetitions=1 keeps the attachmentHashes dedup variable race-free (default parallel iterations corrupt a shared array append).",
+          "actions": {
+            "Compose_kind": {
+              "type": "Compose",
+              "inputs": "@if(or(endsWith(toLower(items('Apply_to_each_attachment')?['name']),'.jpg'),endsWith(toLower(items('Apply_to_each_attachment')?['name']),'.jpeg'),endsWith(toLower(items('Apply_to_each_attachment')?['name']),'.png')),100000000,if(or(endsWith(toLower(items('Apply_to_each_attachment')?['name']),'.pdf'),endsWith(toLower(items('Apply_to_each_attachment')?['name']),'.docx'),endsWith(toLower(items('Apply_to_each_attachment')?['name']),'.doc')),100000002,if(endsWith(toLower(items('Apply_to_each_attachment')?['name']),'.eml'),100000003,100000006)))",
+              "comment": "Deterministic classify -> cr1bd_evidencekind integer: image=100000000, instruction=100000002, email=100000003, other=100000006. Mirror graph-intake; do not invent.",
+              "runAfter": {}
+            },
+            "Upload_bytes_to_storage": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_azureblob", "operationId": "CreateFile",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_azureblob" },
+                "parameters": {
+                  "dataset": "evidence",
+                  "folderPath": "@concat('intake/', variables('messageId'))",
+                  "name": "@items('Apply_to_each_attachment')?['name']",
+                  "body": "@base64ToBinary(items('Apply_to_each_attachment')?['contentBytes'])"
+                }
+              },
+              "comment": "Bytes go to Blob; the storage Function returns { Path, sha256, size }. Row carries only the ref (graph-intake invariant: all file data uploaded to storage immediately).",
+              "runAfter": { "Compose_kind": [ "Succeeded" ] }
+            },
+            "Dedup_evidence_by_sha": {
+              "type": "If",
+              "expression": {
+                "not": { "contains": [ "@variables('attachmentHashes')", "@body('Upload_bytes_to_storage')?['sha256']" ] }
+              },
+              "actions": {
+                "Append_hash": {
+                  "type": "AppendToArrayVariable",
+                  "inputs": { "name": "attachmentHashes", "value": "@body('Upload_bytes_to_storage')?['sha256']" },
+                  "runAfter": {}
+                },
+                "Create_Evidence_row": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                    "parameters": {
+                      "entityName": "cr1bd_evidences",
+                      "item/cr1bd_filename": "@items('Apply_to_each_attachment')?['name']",
+                      "item/cr1bd_kind": "@outputs('Compose_kind')",
+                      "item/cr1bd_contenttype": "@items('Apply_to_each_attachment')?['contentType']",
+                      "item/cr1bd_sha256": "@body('Upload_bytes_to_storage')?['sha256']",
+                      "item/cr1bd_sizebytes": "@body('Upload_bytes_to_storage')?['size']",
+                      "item/cr1bd_storagepath": "@body('Upload_bytes_to_storage')?['Path']",
+                      "item/cr1bd_sourcemessageid": "@variables('messageId')",
+                      "item/cr1bd_acceptedforeva": true,
+                      "item/cr1bd_imagerole": 100000003,
+                      "item/cr1bd_registrationvisible": false
+                    }
+                  },
+                  "comment": "imageRole default unknown=100000003 (manual tagging until M2). storagePath only; never inline bytes.",
+                  "runAfter": { "Append_hash": [ "Succeeded" ] }
+                }
+              },
+              "runAfter": { "Upload_bytes_to_storage": [ "Succeeded" ] }
+            }
+          },
+          "runAfter": {}
+        },
+        "Sort_and_fold_payloadHash": {
+          "type": "Compose",
+          "inputs": "@toLower(trim(concat(coalesce(triggerOutputs()?['body/subject'],''), '|', coalesce(triggerOutputs()?['body/from'],''), '|', join(sort(variables('attachmentHashes')), '\n'))))",
+          "comment": "Deterministic order: lower+trim subject/from, sort per-attachment hashes ascending, join with newline. The storage Function hashes this canonical string for the payloadHash dedup probe.",
+          "runAfter": { "Apply_to_each_attachment": [ "Succeeded" ] }
+        }
+      },
+      "runAfter": {}
+    },
+    "Handle_attachment_failure": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "cr1bd_auditevents",
+          "item/cr1bd_name": "@concat('attachment_classified (partial): ', variables('messageId'))",
+          "item/cr1bd_action": 100000002,
+          "item/cr1bd_severity": 100000001,
+          "item/cr1bd_actor": "Flow_Classify_Persist",
+          "item/cr1bd_after": "partial attachment persistence - continued others, see run history (§5.2: continue others, audit per-attachment)",
+          "item/cr1bd_occurredat": "@utcNow()"
+        }
+      },
+      "comment": "Runs only on Scope Failed/Skipped/TimedOut: one bad attachment audits and continues; does not fail the whole message.",
+      "runAfter": { "Scope_Persist_Attachments": [ "Failed", "Skipped", "TimedOut" ] }
+    }
+  }
+}

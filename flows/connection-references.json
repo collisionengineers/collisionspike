@@ -1,0 +1,123 @@
+{
+  "$schema": "https://collisionspike/flows/_connection-references.schema.json",
+  "kind": "connection-reference-manifest",
+  "solution": "CollisionSpike",
+  "publisherPrefix": "cr1bd",
+  "description": "Every connection REFERENCE the M1 flow definitions bind to. A flow's host.connectionName resolves to one of these logical references; the reference binds to a real connection at deploy/activation by the user. NO live connection instances live here - binding a connection to a live Collision Engineers mailbox / Box account / SharePoint job sheet is [RESERVED-FOR-USER]. This is the closed set the linter checks every definition's connectionName against.",
+  "connectionReferences": [
+    {
+      "connectionName": "shared_office365",
+      "logicalName": "cr1bd_sharedmailbox_office365",
+      "displayName": "Office 365 Outlook (shared mailbox intake)",
+      "connector": "shared_office365",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "tier": "Standard",
+      "usedBy": ["intake"],
+      "boundAtActivation": true,
+      "note": "Intake trigger. The live mailbox is bound by the user at activation; the mailbox address is a flow parameter (IntakeMailbox), never hardcoded. [RESERVED-FOR-USER] to point at a live inbox."
+    },
+    {
+      "connectionName": "shared_commondataserviceforapps",
+      "logicalName": "cr1bd_dataverse",
+      "displayName": "Microsoft Dataverse",
+      "connector": "shared_commondataserviceforapps",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+      "tier": "Premium",
+      "usedBy": ["intake", "classify-persist", "case-resolve", "status-evaluate", "parse", "enrich", "provider-match", "jobsheet-import", "finalize-eva-box", "chaser-draft"],
+      "boundAtActivation": true,
+      "note": "Working store + env-var reads. Flows READ environment variables (environmentvariabledefinitions); they never write environmentvariablevalue/definition."
+    },
+    {
+      "connectionName": "shared_azureblob",
+      "logicalName": "cr1bd_evidenceblob",
+      "displayName": "Azure Blob Storage (evidence bytes)",
+      "connector": "shared_azureblob",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_azureblob",
+      "tier": "Premium",
+      "usedBy": ["classify-persist"],
+      "boundAtActivation": true,
+      "note": "Attachment/.eml bytes go here (never inline in a Dataverse row). The storage Function returns { Path, sha256, size }."
+    },
+    {
+      "connectionName": "shared_box",
+      "logicalName": "cr1bd_box",
+      "displayName": "Box (Case/PO archive)",
+      "connector": "shared_box",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_box",
+      "tier": "Premium",
+      "usedBy": ["finalize-eva-box"],
+      "boundAtActivation": true,
+      "note": "Finalization. UPPERCASE Case/PO folder. BoxArchiveRootId is a flow parameter, never a hardcoded live Box id. [RESERVED-FOR-USER] to activate."
+    },
+    {
+      "connectionName": "shared_excelonlinebusiness",
+      "logicalName": "cr1bd_jobsheet_excel",
+      "displayName": "Excel Online (Business) (job-sheet import)",
+      "connector": "shared_excelonlinebusiness",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+      "tier": "Standard",
+      "usedBy": ["jobsheet-import"],
+      "boundAtActivation": true,
+      "note": "Read-only 'List rows present in a table' over the job sheet. Drive/file ids are flow parameters. [RESERVED-FOR-USER] to run against the live SharePoint job sheet."
+    },
+    {
+      "connectionName": "shared_ceparser",
+      "logicalName": "cr1bd_ceparser",
+      "displayName": "CE Parser (custom: /parse)",
+      "connector": "shared_ceparser",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_ceparser",
+      "tier": "Premium",
+      "custom": true,
+      "operationIds": ["ParseDocument"],
+      "openapi": "functions/parser/openapi/parser-connector.json",
+      "usedBy": ["parse"],
+      "boundAtActivation": true,
+      "note": "cedocumentmapper_v2 parser. Function key (x-functions-key) stored on the connection, never in a definition. [DEPLOY-WITH-LOGIN] to import the connector."
+    },
+    {
+      "connectionName": "shared_dvsaenrich",
+      "logicalName": "cr1bd_dvsaenrich",
+      "displayName": "DVSA Enrichment (custom: /dvsa-mot/enrich)",
+      "connector": "shared_dvsaenrich",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_dvsaenrich",
+      "tier": "Premium",
+      "custom": true,
+      "operationIds": ["EnrichDvsaMot"],
+      "openapi": "functions/enrichment/openapi/enrichment-connector.json",
+      "usedBy": ["enrich"],
+      "boundAtActivation": true,
+      "note": "DVSA enrichment over ce-mcp-gateway OAuth2. Gateway secret is a Key Vault ref inside the Function, never in a definition. [DEPLOY-WITH-LOGIN] to import; secret value inject is [RESERVED-FOR-USER]."
+    },
+    {
+      "connectionName": "shared_evavalidation",
+      "logicalName": "cr1bd_evavalidation",
+      "displayName": "EVA Validation Surface (custom: ValidateCase)",
+      "connector": "shared_evavalidation",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_evavalidation",
+      "tier": "Premium",
+      "custom": true,
+      "operationIds": ["ValidateCase"],
+      "usedBy": ["status-evaluate"],
+      "boundAtActivation": true,
+      "note": "Shared readiness/validation endpoint so flow + Code App computeReadiness() consume ONE implementation (§5.4 drift mitigation). Returns { fieldsValid, imagesValid, openIssues[] }."
+    },
+    {
+      "connectionName": "shared_evasentry",
+      "logicalName": "cr1bd_evasentry",
+      "displayName": "EVA Sentry (custom: gated EVA_API_ENABLED)",
+      "connector": "shared_evasentry",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_evasentry",
+      "tier": "Premium",
+      "custom": true,
+      "operationIds": ["InstructionInspection"],
+      "usedBy": ["finalize-eva-box"],
+      "boundAtActivation": true,
+      "note": "Sentry REST v1.2. Token exchange + bearer live INSIDE the connector (Key Vault refs); the flow never reads EVA_CLIENT_SECRET. Only invoked when EVA_API_ENABLED=true. [RESERVED-FOR-USER] to enable/cutover."
+    }
+  ],
+  "notes": [
+    "One connection reference per logical connector; flows bind to the reference, the reference binds to a connection at deploy/activation. This is what lets the SAME definition move dev -> test -> prod unchanged.",
+    "Premium connectors in play: Dataverse, Azure Blob, Box, and the four custom connectors (parser/DVSA/validation/EVA) -> require Premium licensing (open Code Apps GA/licensing question). Standard: Office 365 Outlook, Excel Online (Business).",
+    "DLP: every connector here must sit in the SAME data group in the target environment's DLP policy or import/run fails. Confirm before activation."
+  ]
+}

@@ -1,0 +1,230 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_CaseResolve (§5.3). The exact ADR-0010 dedup ladder: drop / attach / new+duplicate_risk / propose-attach / create. INVIOLABLE: never auto-merge on VRM+time, never link across different Work Providers. Every ListRecords on cases is scoped to _cr1bd_workproviderid_value (cross-provider guard) AND excludes terminal statuses. Resolution uses a Filter-array (Query) action whose 'where' references item() -- NOT an arrow-lambda. [BUILD].",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "comment": "Invoked by intake after classify. Upstream supplies candidateVrm, candidateRef (envelope sniff or parser-confirmed), workProviderId, messageId, payloadHash.",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "candidateVrm": { "type": "string" },
+            "candidateRef": { "type": "string" },
+            "workProviderId": { "type": "string" },
+            "messageId": { "type": "string" },
+            "payloadHash": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Init_candidateVrm": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "candidateVrm", "type": "string", "value": "@coalesce(triggerBody()?['candidateVrm'], '')" } ] },
+      "runAfter": {}
+    },
+    "Init_candidateRef": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "candidateRef", "type": "string", "value": "@coalesce(triggerBody()?['candidateRef'], '')" } ] },
+      "runAfter": { "Init_candidateVrm": [ "Succeeded" ] }
+    },
+    "Init_workProviderId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "workProviderId", "type": "string", "value": "@coalesce(triggerBody()?['workProviderId'], '')" } ] },
+      "runAfter": { "Init_candidateRef": [ "Succeeded" ] }
+    },
+    "Init_messageId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "messageId", "type": "string", "value": "@triggerBody()?['messageId']" } ] },
+      "runAfter": { "Init_workProviderId": [ "Succeeded" ] }
+    },
+    "Init_payloadHash": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "payloadHash", "type": "string", "value": "@triggerBody()?['payloadHash']" } ] },
+      "runAfter": { "Init_messageId": [ "Succeeded" ] }
+    },
+    "List_open_provider_cases": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "cr1bd_cases",
+          "$filter": "cr1bd_vrm eq '@{variables('candidateVrm')}' and _cr1bd_workproviderid_value eq @{variables('workProviderId')} and cr1bd_status ne 100000008 and cr1bd_status ne 100000009 and cr1bd_status ne 100000010",
+          "$select": "cr1bd_caseid,cr1bd_caseref,cr1bd_status"
+        }
+      },
+      "comment": "Cross-provider guard: _cr1bd_workproviderid_value clause is ALWAYS present (VRM twins under a different provider are filtered out before rule 2). Terminal exclusions: eva_submitted=100000008, box_synced=100000009, error=100000010 (kept in lockstep with the terminal set).",
+      "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
+    },
+    "Filter_matching_ref": {
+      "type": "Query",
+      "comment": "WDL has no arrow-lambda; this Filter-array (Query) action's 'where' references item(). Finds the open same-provider case whose reference equals the arrival's (rule 2 = attach).",
+      "inputs": {
+        "from": "@outputs('List_open_provider_cases')?['body/value']",
+        "where": "@and(not(empty(variables('candidateRef'))), equals(toLower(trim(coalesce(item()?['cr1bd_caseref'], ''))), toLower(trim(variables('candidateRef')))))"
+      },
+      "runAfter": { "List_open_provider_cases": [ "Succeeded" ] }
+    },
+    "Switch_resolution": {
+      "type": "Switch",
+      "expression": "@coalesce(first(body('Filter_matching_ref'))?['cr1bd_caseid'], if(and(not(empty(variables('candidateVrm'))), greater(length(outputs('List_open_provider_cases')?['body/value']), 0)), if(empty(variables('candidateRef')), 'VRM_NO_REF', 'REF_DIFFERS'), 'CREATE'))",
+      "comment": "Resolves to: a matched case GUID (rule 2 ATTACH -> default branch) | 'REF_DIFFERS' (rule 3) | 'VRM_NO_REF' (rule 4) | 'CREATE' (rule 5). Rule 1 (drop) handled in intake. The VRM-driven branches (REF_DIFFERS/VRM_NO_REF) fire ONLY when candidateVrm is non-empty; an empty-VRM (instruction-first / image-less) arrival resolves provisionally to CREATE and dedup re-runs after the parser confirms the VRM (§5.3). A reference match still attaches regardless of VRM. These four tokens align 1:1 with the §5.3 dedup outputs.",
+      "cases": {
+        "Case_REF_DIFFERS": {
+          "case": "REF_DIFFERS",
+          "actions": {
+            "Create_case_with_risk": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_cases",
+                  "item/cr1bd_name": "@concat(variables('candidateVrm'), ' (', variables('candidateRef'), ')')",
+                  "item/cr1bd_vrm": "@variables('candidateVrm')",
+                  "item/cr1bd_caseref": "@variables('candidateRef')",
+                  "item/cr1bd_sourcemessageid": "@variables('messageId')",
+                  "item/cr1bd_payloadhash": "@variables('payloadHash')",
+                  "item/cr1bd_caselinkstate": 100000000,
+                  "item/cr1bd_status": 100000005,
+                  "item/cr1bd_workproviderid@odata.bind": "@concat('cr1bd_workproviders(', variables('workProviderId'), ')')"
+                }
+              },
+              "comment": "Rule 3: reference differs from open case(s) for that VRM -> NEW case + duplicate_risk(100000005). caseLinkState none(100000000). Flags VRM collision for staff; never silent merge.",
+              "runAfter": {}
+            },
+            "Audit_duplicate_flagged_refdiffers": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_auditevents",
+                  "item/cr1bd_name": "@concat('duplicate_flagged (ref differs): ', variables('candidateVrm'))",
+                  "item/cr1bd_action": 100000006,
+                  "item/cr1bd_severity": 100000001,
+                  "item/cr1bd_actor": "Flow_CaseResolve",
+                  "item/cr1bd_after": "@concat('VRM ', variables('candidateVrm'), ' has an open same-provider case with a different reference')",
+                  "item/cr1bd_occurredat": "@utcNow()"
+                }
+              },
+              "runAfter": { "Create_case_with_risk": [ "Succeeded" ] }
+            }
+          }
+        },
+        "Case_VRM_NO_REF": {
+          "case": "VRM_NO_REF",
+          "actions": {
+            "Propose_attach": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_cases",
+                  "recordId": "@first(outputs('List_open_provider_cases')?['body/value'])?['cr1bd_caseid']",
+                  "item/cr1bd_caselinkstate": 100000001,
+                  "item/cr1bd_status": 100000005,
+                  "item/cr1bd_duplicatekeys": "@concat('{\"proposedFrom\":\"', variables('messageId'), '\",\"vrm\":\"', variables('candidateVrm'), '\"}')"
+                }
+              },
+              "comment": "Rule 4: no reference + VRM matches an open case -> PROPOSE ATTACH (staff confirm). caseLinkState pending(100000001) + duplicate_risk(100000005). NEVER auto-merges.",
+              "runAfter": {}
+            },
+            "Audit_duplicate_flagged_noref": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_auditevents",
+                  "item/cr1bd_name": "@concat('duplicate_flagged (propose attach): ', variables('candidateVrm'))",
+                  "item/cr1bd_action": 100000006,
+                  "item/cr1bd_severity": 100000001,
+                  "item/cr1bd_actor": "Flow_CaseResolve",
+                  "item/cr1bd_after": "@concat('VRM ', variables('candidateVrm'), ' matches an open case; no reference to disambiguate -> pending staff confirm')",
+                  "item/cr1bd_occurredat": "@utcNow()"
+                }
+              },
+              "runAfter": { "Propose_attach": [ "Succeeded" ] }
+            }
+          }
+        },
+        "Case_CREATE": {
+          "case": "CREATE",
+          "actions": {
+            "Create_case_clean": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_cases",
+                  "item/cr1bd_name": "@concat(variables('candidateVrm'), ' (new)')",
+                  "item/cr1bd_vrm": "@variables('candidateVrm')",
+                  "item/cr1bd_caseref": "@variables('candidateRef')",
+                  "item/cr1bd_sourcemessageid": "@variables('messageId')",
+                  "item/cr1bd_payloadhash": "@variables('payloadHash')",
+                  "item/cr1bd_caselinkstate": 100000000,
+                  "item/cr1bd_status": 100000001,
+                  "item/cr1bd_workproviderid@odata.bind": "@concat('cr1bd_workproviders(', variables('workProviderId'), ')')"
+                }
+              },
+              "comment": "Rule 5: no match -> CREATE. new_email -> ingested(100000001). caseLinkState none(100000000).",
+              "runAfter": {}
+            },
+            "Audit_case_created": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_auditevents",
+                  "item/cr1bd_name": "@concat('case_created: ', variables('candidateVrm'))",
+                  "item/cr1bd_action": 100000003,
+                  "item/cr1bd_severity": 100000000,
+                  "item/cr1bd_actor": "Flow_CaseResolve",
+                  "item/cr1bd_after": "@concat('created clean case for VRM ', variables('candidateVrm'))",
+                  "item/cr1bd_occurredat": "@utcNow()"
+                }
+              },
+              "runAfter": { "Create_case_clean": [ "Succeeded" ] }
+            }
+          }
+        }
+      },
+      "default": {
+        "actions": {
+          "Audit_case_attached": {
+            "type": "OpenApiConnection",
+            "comment": "Switch expression returned a caseId GUID -> rule 2 ATTACH: reference matched an open same-provider case. Keep target status.",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": {
+                "entityName": "cr1bd_auditevents",
+                "item/cr1bd_name": "@concat('case_attached: ', variables('candidateVrm'))",
+                "item/cr1bd_action": 100000004,
+                "item/cr1bd_actor": "Flow_CaseResolve",
+                "item/cr1bd_severity": 100000000,
+                "item/cr1bd_after": "@concat('attached message ', variables('messageId'), ' to case ', body('Switch_resolution'))",
+                "item/cr1bd_occurredat": "@utcNow()"
+              }
+            },
+            "runAfter": {}
+          }
+        }
+      },
+      "runAfter": { "Filter_matching_ref": [ "Succeeded" ] }
+    }
+  }
+}

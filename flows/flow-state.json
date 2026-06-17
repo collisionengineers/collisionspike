@@ -1,0 +1,120 @@
+{
+  "$schema": "https://collisionspike/flows/_flow-state.schema.json",
+  "kind": "flow-state-manifest",
+  "solution": "CollisionSpike",
+  "description": "Declares that EVERY M1 flow ships state=off (draft / not-activated) inside the CollisionSpike solution. Activation is the user's reserved step. authoringBoundary tags the offline build of the definition ([BUILD]); activationBoundary tags who turns it on. The linter asserts every definition file is listed here with state=off.",
+  "defaultState": "off",
+  "globalRule": "No flow ships activated. Importing the solution lands every flow draft/off; the user activates after binding connections + confirming DLP. Claude never activates a flow, never points a trigger at a live mailbox, never runs against live SharePoint/Box/EVA.",
+  "flows": [
+    {
+      "definition": "intake.definition.json",
+      "displayName": "Flow_Intake_<Mailbox>",
+      "planRef": "5.1",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Trigger points at a live Collision Engineers shared inbox. Activation + all live-inbox tests are reserved.",
+      "trigger": "OnNewEmailV3SharedMailbox (concurrency=1)"
+    },
+    {
+      "definition": "classify-persist.definition.json",
+      "displayName": "Flow_Classify_Persist",
+      "planRef": "5.2",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Processes real inbound mail bytes/attachments; runs only against live mail when reserved.",
+      "trigger": "Request (child of intake)"
+    },
+    {
+      "definition": "case-resolve.definition.json",
+      "displayName": "Flow_CaseResolve",
+      "planRef": "5.3",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Part of the live intake chain; ADR-0010 dedup writes Cases from real arrivals.",
+      "trigger": "Request (called by intake)"
+    },
+    {
+      "definition": "status-evaluate.definition.json",
+      "displayName": "Flow_StatusEvaluate",
+      "planRef": "5.4",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Invoked across the live pipeline; ships off until the pipeline is activated.",
+      "trigger": "Request (invoked after any mutation)"
+    },
+    {
+      "definition": "parse.definition.json",
+      "displayName": "Flow_Parse",
+      "planRef": "5.5",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Calls the parser Function on real instruction bytes; parser Function deploy is [DEPLOY-WITH-LOGIN], flow activation reserved.",
+      "trigger": "Request",
+      "gates": ["cr1bd_PDF_MAPPER_ENABLED"]
+    },
+    {
+      "definition": "enrich.definition.json",
+      "displayName": "Flow_Enrich",
+      "planRef": "5.6",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Calls the DVSA enrichment Function via the gateway on real VRMs; gateway secret inject is [RESERVED-FOR-USER].",
+      "trigger": "Request",
+      "gates": ["cr1bd_ENRICHMENT_ENABLED", "cr1bd_ENRICHMENT_API_BASE"]
+    },
+    {
+      "definition": "provider-match.definition.json",
+      "displayName": "Flow_ProviderMatch",
+      "planRef": "5.8",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Part of the live intake chain; matches real sender domains and writes provider binding.",
+      "trigger": "Request (called inside case-resolve)"
+    },
+    {
+      "definition": "jobsheet-import.definition.json",
+      "displayName": "Flow_JobSheetImport",
+      "planRef": "5.7",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Running against the LIVE SharePoint job sheet is reserved; [BUILD] verification uses a synthetic/redacted fixture only.",
+      "trigger": "Request (manual / scheduled)"
+    },
+    {
+      "definition": "finalize-eva-box.definition.json",
+      "displayName": "Flow_FinalizeEvaBox",
+      "planRef": "5.10",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "EVA submit + Box sync against live EVA/Box; activation + live test + EVA prod cutover are reserved.",
+      "trigger": "Request (submit requested signal)",
+      "gates": ["cr1bd_EVA_API_ENABLED"]
+    },
+    {
+      "definition": "chaser-draft.definition.json",
+      "displayName": "Flow_ChaserDraft",
+      "planRef": "5.10 / ADR-0003",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Draft-only by design (no send action exists); activation of any outbound path is reserved and lives in a separate kill-switched flow.",
+      "trigger": "Request"
+    }
+  ],
+  "summary": {
+    "totalFlows": 10,
+    "stateOff": 10,
+    "stateOn": 0,
+    "authoringAllBuild": true,
+    "activationAllReservedForUser": true
+  }
+}
