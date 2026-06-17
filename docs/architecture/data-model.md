@@ -16,6 +16,10 @@ The live work item (replaces the `Jobs` sheet — 31 cols × ~226 rows of formul
 - Matching (ADR-0002): correlate incoming images/instructions by **VRM** into the single **open**
   Case; if none open, create one. Multiple historical Cases per VRM are allowed; ambiguous/duplicate
   matches are flagged `duplicate_risk` for human review (never auto-merged).
+- Dedup (ADR-0010): **same-vs-new is disambiguated by claim/reference, not time** — a VRM can have two
+  claims the same day. Reference matches an open case → attach; reference differs → new case; **no
+  reference → staff confirm**. Exact Message-ID/hash repeat → drop. Never auto-merge on VRM+time or
+  across providers.
 - Readiness (deterministic): `ready_for_eva` only when the **required-items checklist** is satisfied
   or explicitly overridden — 13 EVA fields valid + image-rules + inspection-address decision +
   per-provider extras. Unsatisfied items = the **Missing** list; EVA submit is blocked until met.
