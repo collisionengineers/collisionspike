@@ -35,7 +35,7 @@ Scope for the spike (per [intake-workflow.md](../requirements/intake-workflow.md
 |---|---|---|
 | Mileage estimate | `dvsa-mot` → `current_mileage_estimate(registration)` | from MOT history — **only when the instruction/parser has no mileage** (document authoritative, ADR-0006) |
 | Vehicle details (make/model/year/tax) | `dvsa-mot` → `get_vehicle_summary(registration)` | DVLA/DVSA |
-| Valuation evidence (later) | `valuationbot` → `search_comparables` + `capture_advert_pages` | PDF evidence |
+| Valuation evidence (M2, on-demand) | `valuationbot` → `search_comparables` + `capture_advert_pages` | staff-triggered (total-loss/disputed); PDF attached as Evidence, gated `VALUATION_ENABLED` |
 
 **Integration options (pick one):**
 - **A — REST wrapper (CHOSEN — ADR-0006; DVSA in M1):** a thin Azure Function / Container App that authenticates to
@@ -85,4 +85,5 @@ change** → chasers are drafted for staff to send manually; **no free automated
 | `PDF_MAPPER_ENABLED` | `false` | inline `cedocumentmapper_v2.0` call |
 | `ENRICHMENT_ENABLED` / `ENRICHMENT_API_BASE` | `false` / — | DVSA/valuation enrichment |
 | `AZURE_MAPS_ENABLED` | `false` | Azure Maps vs postcode.io |
+| `VALUATION_ENABLED` | `false` | on-demand valuationbot valuation (M2) |
 | `COPILOT_ENABLED` | `false` | expose the Copilot Studio agent |
