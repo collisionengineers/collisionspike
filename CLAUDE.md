@@ -4,53 +4,81 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A **spike / planning repository** for automating the Collision Engineers case-intake admin workflow. There is no application code yet — the repo currently holds only `adminoverview.md` (the domain/process description) and `.claude/settings.json`. The intent is to build tooling (likely a Power Platform app, given the enabled plugins) that streamlines how cases move from incoming instructions/images into the **EVA** system.
+`collisionspike` is a **fast, early spike** of the Collision Engineers case-intake workflow, built
+on the **Microsoft Power Platform** (Power Apps **Code App** (React/Vite) + Dataverse + Power
+Automate). It de-risks the mature cloud build, **`collisioncc`** (a Next.js + Google Cloud app),
+which is **reference/context only** — re-implement its contracts; do **not** call it at runtime.
 
-When implementing, treat `adminoverview.md` as the source of truth for the business process. Several areas in it are explicitly marked as **not fully understood** (inspection address derivation, Audatex's full role) — surface these as open questions rather than inventing behavior.
+There is no application code yet — the Power Apps Code App is scaffolded later via `pac code init`
+(the `pac` CLI is installed). The repo currently holds requirements, the Microsoft-stack research,
+and the plan.
 
-## Domain model (the part that needs reading multiple sources to grasp)
+Read first: [README.md](./README.md), [PLAN.md](./PLAN.md),
+[docs/architecture/microsoft-stack.md](./docs/architecture/microsoft-stack.md),
+[docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md).
 
-The core workflow is **intake → enrich → load into EVA → store evidence in Box → hand off to engineer**. A case can arrive partial, so intake branches:
+## Layout
 
-- **Ready for EVA** — all required artifacts present. Either loaded immediately or parked in the "ready" half of a tracking spreadsheet for later input.
-- **Missing info** — logged to the "not ready" half of the spreadsheet. The two recurring gaps are: (a) instructions received but **no images** (must chase the provider/garage, await Audatex, or extract from email/PDF), or (b) images received but **no instructions** (images stored by vehicle registration on a shared drive until instructions arrive).
+```
+README.md                 project overview
+PLAN.md                   phased implementation plan (kept at repo root)
+CLAUDE.md                 this file
+docs/
+  requirements/           admin-overview.md, intake-workflow.md, company-background.md
+  architecture/           microsoft-stack.md, repo-constellation.md, integrations.md
+  reference/              pointers to sibling repos / external specs
+```
 
-**Artifacts required to load a case into EVA:** saved email (`.eml`), vehicle images, valuation evidence (Companion Report PDF), and initial instructions.
+## Sibling repos (one folder up — reference only, do not modify)
 
-**Systems involved:** EVA (case store + report generation; JSON drag-and-drop import today, API planned), Box (evidence storage, one folder per Case/PO), Excel (pre-EVA tracking spreadsheet), Audatex (secondary API-based provider — **treat as deferred**, may be superseded/integrated later).
+- **ccc** — canonical planning & **contracts** for the whole programme. Align the data model and
+  EVA output to its contracts.
+- **collisioncc** — mature reference build on Google Cloud; source of the EVA Sentry API spec,
+  `case-status`, `image-rules`, provider knowledge, and a **pricing guide**. Reference only.
+- **collisionplugin** — MCP enrichment connectors on Cloud Run behind an **OAuth gateway** (not
+  directly callable from Power Platform — needs a REST wrapper). Scope: `dvsa-mot`
+  `current_mileage_estimate` + `get_vehicle_summary`; later `valuationbot`.
+- **cedocumentmapper_v2.0** — the document parser, **already ~75% built** (Python library + CLI;
+  engine/readers/rules/normalisers/EVA-JSON exporter/tests done; UI/regression/packaging/CI
+  outstanding; **PyMuPDF AGPL** risk). Complete & integrate it — don't re-derive parsing in Power Fx.
+- **cedocumentmapper** — legacy v1 Tkinter monolith; behaviour reference only.
 
-**Intake channels:** three separate Outlook inboxes (most common), WhatsApp (secondary), Audatex API (least common).
+Full map: [docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md).
 
-### Business rules that any implementation must honor
+## Domain model (business rules any implementation must honor)
 
-- **Case/PO format:** `Principal` + 2-digit year + 3-digit sequential case number for that provider. The Principal is a 4-char internal code Collision Engineers assigns per provider. Example: provider with Principal `CCPY`, 50th case of 2026 → `CCPY26050`. The Box folder is named with this Case/PO.
-- **Photo upload order (EVA):** first upload exactly **2 preview photos** (vehicle overview + closeup of main damage), then upload **all** photos in sequence — **including those same first two again** (they appear both as previews near the report top and later in the full sequence). The overview photo must show the full vehicle registration.
-- **Photo exclusion:** any photo showing a person's reflection in the vehicle is unusable.
-- **Video fallback:** if a video is sent without sufficient images, key frames are screenshotted to produce the needed images.
-- **Inspection address** is derived ad hoc (email content, admin domain knowledge) and falls back to "Image Based Assessment" when unclear — this process is not fully specified yet.
+Pipeline: **intake (3 Outlook shared inboxes) → parse + classify → human review → enrich → export
+to EVA + archive to Box → audit/dedup**. Cases can arrive partial (instructions without images, or
+images without instructions) and are held with a chaser workflow until complete.
 
-### Enrichment steps EVA supports / requires per case
+- **Case/PO format:** `Principal` (4-char internal provider code) + 2-digit year + 3-digit provider
+  case number, e.g. `CCPY26050`. Box folder is named with this.
+- **EVA photo order:** upload **2 preview photos** (vehicle overview + main-damage closeup) first,
+  then **all** photos in sequence **including those two again**. The overview must show the full
+  registration.
+- **Photo exclusion:** any photo showing a person's reflection is unusable.
+- **Image rules / case-status** mirror `collisioncc` (`src/lib/image-rules.ts`,
+  `src/lib/case-status.ts`): ≥2 EVA images incl. one `overview` (registration visible) + one
+  `damage_closeup`; status `new_email → ingested → needs_review → ready_for_eva → eva_submitted`.
+- **Inspection address** is derived ad hoc, falling back to "Image Based Assessment"; normalise via
+  postcode.io. Not fully specified — surface as an open question.
+- **Enrichment:** valuation evidence (Companion Report PDF), mileage (from MOT), Experian
+  adverse-history (EVA built-in).
 
-Valuation (EVA integrates with valuation tools; evidence = downloaded Companion Report PDF), Experian adverse-history check (built into EVA), and mileage (estimated from MOT data when not supplied).
+## Integration & gating
 
-## Existing tools referenced (not in this repo)
+All non-trivial integrations are **feature-gated with Dataverse environment variables**
+(`EVA_API_ENABLED`, `PDF_MAPPER_ENABLED`, `ENRICHMENT_ENABLED`, `AZURE_MAPS_ENABLED`,
+`COPILOT_ENABLED`). **EVA** has two paths: JSON drag-drop export now; **Sentry REST API later**
+(in testing). Detail: [docs/architecture/integrations.md](./docs/architecture/integrations.md).
 
-- **`cedocumentmapper`** — a Python tool that extracts key data from instruction PDFs and emits the JSON that EVA imports. Works for essentially all providers but is **acknowledged as poorly engineered** (built in one long Claude session, no version control). Expect a ground-up redesign rather than incremental patching if asked to work on it.
-- **DVSA/DVLA mileage MCP server** — an existing MCP server with tools that call the DVLA VES API and the DVSA MOT API to obtain mileage. Candidate for integration into the intake system.
+## Tooling & conventions
 
-## Available tooling (Power Platform + Azure plugins)
-
-Plugins enabled in `.claude/settings.json`: `mcp-apps`, `canvas-apps`, `azure`. The broader Power Platform skill set is also available. Pick the build approach via these skills (invoke with the Skill tool):
-
-- **Canvas Apps** (`canvas-apps:canvas-app`) — low-code multi-screen apps authored through the Canvas Authoring MCP. Use for a tracking/intake UI replacing the spreadsheet. Run `canvas-apps:configure-canvas-mcp` first if the MCP isn't connected.
-- **Code Apps** (`code-apps-preview:create-code-app`) — React/Vite apps with Power Platform connectors (`add-dataverse`, `add-sharepoint`, `add-excel`, `add-office365`, `add-onedrive`, `add-teams`, etc.). Best when a richer custom UI or specific connectors (e.g. Outlook for the three inboxes, OneDrive/SharePoint for image storage) are needed. `deploy` and `list-connections` support the workflow.
-- **Model-driven generative pages** (`model-apps:genpage`) — for pages over Dataverse entities in a model-driven app.
-- **MCP App widgets** (`mcp-apps:generate-mcp-app-ui`) — UI widgets for MCP tools (e.g. the mileage MCP server).
-- **Azure** (`azure:*`) — deployment, infra prep, AI (Document Intelligence/OCR is relevant to replacing `cedocumentmapper`'s PDF extraction), storage, etc.
-
-No clear app architecture has been chosen yet — confirm direction before scaffolding, since Canvas vs. Code app vs. model-driven is a foundational decision.
-
-## Conventions
-
-- This is a Windows environment; the primary shell is PowerShell (a Bash tool is also available for POSIX scripts).
-- Not yet a git repository — initialize version control before substantial work (the predecessor tool's lack of it is called out as a problem in the overview).
+- **Power Platform CLI** (`pac`, installed as a global .NET tool) drives the Code App:
+  `pac code init` / `pac code add-data-source` / `pac code run` / `pac code push`. Note `pac` still
+  surfaces `code` as **"(Preview)"** — confirm Code Apps GA/licensing before production.
+- Relevant skills: `code-apps-preview:*` (`create-code-app`, `add-dataverse`, `add-sharepoint`,
+  `add-office365`, `add-connector`, `deploy`), `azure:*` (Document Intelligence, Functions),
+  `microsoft-docs:*` (Learn lookups).
+- Windows environment; primary shell is PowerShell (Bash also available). Git initialised on `main`
+  — commit as work progresses (the predecessor tool's lack of version control was a known problem).
