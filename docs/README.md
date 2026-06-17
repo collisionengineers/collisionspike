@@ -26,6 +26,8 @@ implementation plan.
   none canonical) and reusable patterns.
 - [integrations.md](./architecture/integrations.md) — EVA, enrichment connectors, parser, address,
   Box, and the feature-flag (environment-variable) gating model.
+- [environment.md](./architecture/environment.md) — **discovered build environment** (Power Platform
+  ready; **no Azure subscription**; Infisical secrets; EVA test creds) and the wrapper-hosting decision.
 
 ## Distilling `raw/`
 `raw/` (gitignored — contains PII) is a drop-zone for source material. Examined and distilled into
