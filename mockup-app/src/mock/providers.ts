@@ -8,7 +8,8 @@ export const providers: Provider[] = [
     principalCode: 'CCPY',
     defaultMailbox: 'instructions@collisionengineers.co.uk',
     knownEmailDomains: ['carcompany.co.uk'],
-    inspectionLocationPolicy: 'mixed',
+    inspectionLocationPolicy: 'prefer_address',
+    providerAutomationMode: 'review_auto',
     active: true,
   },
   {
@@ -17,7 +18,8 @@ export const providers: Provider[] = [
     principalCode: 'TEST',
     defaultMailbox: 'instructions@collisionengineers.co.uk',
     knownEmailDomains: ['testlegal.co.uk'],
-    inspectionLocationPolicy: 'physical',
+    inspectionLocationPolicy: 'required_address',
+    providerAutomationMode: 'review_auto',
     active: true,
   },
   {
@@ -26,7 +28,8 @@ export const providers: Provider[] = [
     principalCode: 'AMLS',
     defaultMailbox: 'images@collisionengineers.co.uk',
     knownEmailDomains: ['amberlegal.co.uk'],
-    inspectionLocationPolicy: 'image_based',
+    inspectionLocationPolicy: 'always_image_based',
+    providerAutomationMode: 'manual',
     active: true,
   },
   {
@@ -35,7 +38,8 @@ export const providers: Provider[] = [
     principalCode: 'BRDN',
     defaultMailbox: 'claims@collisionengineers.co.uk',
     knownEmailDomains: ['bridgenclaims.com'],
-    inspectionLocationPolicy: 'mixed',
+    inspectionLocationPolicy: 'prefer_address',
+    providerAutomationMode: 'review_auto',
     active: true,
   },
 ];

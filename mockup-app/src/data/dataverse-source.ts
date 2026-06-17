@@ -1,0 +1,319 @@
+/* ============================================================
+   Collision Engineers — Code App DATA SEAM: Dataverse source.
+
+   Implements `DataAccess` against an injected `GeneratedServices` bundle (the
+   local model of what `pac code add-data-source` emits), using adapter.ts to map
+   cr1bd_* logical-name records <-> the camelCase domain types and the choice-set
+   integers <-> the string-enum unions.
+
+   AUTHORED FOR DEPLOY, NOT WIRED BY DEFAULT. It imports NO SDK and NO
+   `src/generated/` module — only the LOCAL `GeneratedServices` interface, which
+   the real pac-generated services satisfy structurally and which the caller
+   injects at runtime. The default build keeps using the mock source, so the
+   'no @microsoft/power-apps import in src' grep gate stays green.
+
+   The queue/dashboard windowing math mirrors mock/queues.ts EXACTLY (same QUEUES
+   map, same Monday-anchored week, same DD/MM/YYYY parsing) but runs over the
+   ADAPTED Case[] fetched from Dataverse rather than the mock array — so the
+   numbers are identical for identical data.
+   ============================================================ */
+
+import type { Case, Evidence, Provider, ActivityEvent } from '../mock/types';
+import {
+  QUEUES,
+  queueByName,
+  REASON_LABELS,
+  type QueueName,
+  type LiveCounts,
+  type Throughput,
+  type AgingRow,
+  type AgingExceptions,
+  type PipelineStage,
+  type PipelineStageKey,
+  type ReasonFacet,
+} from '../mock/queues';
+import type { ActionReason, CaseStatus } from '../mock/types';
+import {
+  caseFromRecord,
+  evidenceFromRecord,
+  providerFromRecord,
+  isAcceptedImageRecord,
+} from './adapter';
+import type { DataAccess, GeneratedServices } from './types';
+
+/* ----------  Date helpers (ported verbatim from mock/queues.ts)  ---------- */
+function parseDmy(s?: string): Date | undefined {
+  if (!s) return undefined;
+  const m = s.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return undefined;
+  return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+}
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function isSameDay(a?: Date, b?: Date): boolean {
+  if (!a || !b) return false;
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function daysBetween(from: Date, to: Date): number {
+  return Math.round((startOfDay(to).getTime() - startOfDay(from).getTime()) / 86_400_000);
+}
+function startOfWeek(d: Date): Date {
+  const s = startOfDay(d);
+  const dow = (s.getDay() + 6) % 7;
+  s.setDate(s.getDate() - dow);
+  return s;
+}
+
+/** Filter an already-fetched Case[] for a queue (windowing identical to mock). */
+function filterQueue(all: Case[], name: QueueName, now: Date): Case[] {
+  const q = queueByName(name);
+  if (!q) return [];
+  const today = startOfDay(now);
+  return all.filter((c) => {
+    if (!q.statuses.includes(c.status)) return false;
+    if (name === 'done') return isSameDay(parseDmy(c.submittedAt), today);
+    return true;
+  });
+}
+
+/** Pipeline-stage mapping (ported verbatim from mock/queues.ts statusToStage). */
+function statusToStage(status: CaseStatus, reason?: ActionReason): PipelineStageKey {
+  switch (status) {
+    case 'new_email':
+      return 'new';
+    case 'ingested':
+    case 'linked_to_instruction':
+      return 'parsing';
+    case 'needs_review':
+      return reason === 'conflict' || reason === 'needs_review' ? 'review' : 'chasing';
+    case 'missing_images':
+    case 'missing_required_fields':
+    case 'duplicate_risk':
+    case 'error':
+      return 'chasing';
+    case 'ready_for_eva':
+      return 'ready';
+    case 'eva_submitted':
+      return 'submitted';
+    case 'box_synced':
+      return 'box';
+    default:
+      return 'parsing';
+  }
+}
+
+const TERMINAL = new Set<CaseStatus>(['eva_submitted', 'box_synced']);
+
+/**
+ * Build a Dataverse-backed DataAccess over the injected generated services.
+ *
+ * @param services  the pac-generated `<Entity>Service` bundle (injected; the
+ *                  real services satisfy the local GeneratedServices interface).
+ */
+export function createDataverseDataAccess(services: GeneratedServices): DataAccess {
+  /* Assemble a full Case (row + expanded children) from the generated services. */
+  async function assembleCase(caseId: string, now: Date): Promise<Case | undefined> {
+    const res = await services.cases.get(caseId);
+    const rec = res.data;
+    if (!rec) return undefined;
+
+    const [prov, ev, notes, chasers] = await Promise.all([
+      services.fieldProvenance.getAll({ filter: `_cr1bd_caseid_value eq ${caseId}` }),
+      services.evidence.getAll({ filter: `_cr1bd_caseid_value eq ${caseId}` }),
+      services.notes.getAll({ filter: `_cr1bd_caseid_value eq ${caseId}` }),
+      services.chasers.getAll({ filter: `_cr1bd_caseid_value eq ${caseId}` }),
+    ]);
+
+    return caseFromRecord({
+      record: rec,
+      provenanceRows: prov.data ?? [],
+      evidence: (ev.data ?? []).map(evidenceFromRecord),
+      notes: (notes.data ?? []).map((n) => ({
+        id: n.cr1bd_noteid ?? '',
+        author: n.cr1bd_author ?? '',
+        timestamp: n.cr1bd_timestamp ?? '',
+        text: n.cr1bd_text ?? '',
+      })),
+      chasers: (chasers.data ?? []).map((ch) => ({
+        id: ch.cr1bd_chaserid ?? '',
+        targetType: 'work_provider',
+        targetName: ch.cr1bd_targetname ?? '',
+        channel: ch.cr1bd_channel === 100000001 ? 'whatsapp' : 'email',
+        templateUsed: ch.cr1bd_templateused ?? '',
+        status: 'drafted',
+        summary: ch.cr1bd_summary ?? '',
+        createdAt: ch.cr1bd_createdat ?? '',
+        ...(ch.cr1bd_sentby ? { sentBy: ch.cr1bd_sentby } : {}),
+        ...(ch.cr1bd_sentat ? { sentAt: ch.cr1bd_sentat } : {}),
+      })),
+      now,
+    });
+  }
+
+  /** Fetch + adapt ALL cases (the dashboard/queue aggregates window over these). */
+  async function allCases(now: Date): Promise<Case[]> {
+    const res = await services.cases.getAll();
+    return (res.data ?? []).map((rec) => caseFromRecord({ record: rec, now }));
+  }
+
+  return {
+    /* ----- Cases ----- */
+    caseById: (id) => assembleCase(id, new Date()),
+
+    casesForQueue: async (name, now = new Date()) =>
+      filterQueue(await allCases(now), name, now),
+
+    openVrmTwins: async (vrm, excludeCaseId) => {
+      const res = await services.cases.getAll({ filter: `cr1bd_vrm eq '${vrm}'` });
+      return (res.data ?? [])
+        .map((rec) => caseFromRecord({ record: rec }))
+        .filter((c) => !TERMINAL.has(c.status) && c.id !== excludeCaseId);
+    },
+
+    /* ----- Evidence ----- */
+    imagesForCase: async (caseId) => {
+      const res = await services.evidence.getAll({
+        filter: `_cr1bd_caseid_value eq ${caseId}`,
+      });
+      return (res.data ?? [])
+        .filter(isAcceptedImageRecord)
+        .map(evidenceFromRecord) as Evidence[];
+    },
+
+    /* ----- Providers ----- */
+    providers: async () => {
+      const res = await services.workProviders.getAll();
+      return (res.data ?? []).map(providerFromRecord) as Provider[];
+    },
+    providerByCode: async (code) => {
+      const res = await services.workProviders.getAll({
+        filter: `cr1bd_principalcode eq '${code}'`,
+      });
+      const rec = (res.data ?? [])[0];
+      return rec ? providerFromRecord(rec) : undefined;
+    },
+
+    /* ----- Dashboard / queue aggregates (window over the adapted set) ----- */
+    liveCounts: async (now = new Date()): Promise<LiveCounts> => {
+      const all = await allCases(now);
+      return {
+        needsAction: filterQueue(all, 'needs-action', now).length,
+        inProgress: filterQueue(all, 'in-progress', now).length,
+        ready: filterQueue(all, 'ready', now).length,
+      };
+    },
+
+    throughput: async (now = new Date()): Promise<Throughput> => {
+      const all = await allCases(now);
+      const today = startOfDay(now);
+      const weekStart = startOfWeek(now);
+      let inToday = 0;
+      let submittedToday = 0;
+      let clearedThisWeek = 0;
+      for (const c of all) {
+        if (isSameDay(parseDmy(c.createdAt), today)) inToday += 1;
+        const sub = parseDmy(c.submittedAt);
+        if (sub) {
+          if (isSameDay(sub, today)) submittedToday += 1;
+          if (startOfDay(sub).getTime() >= weekStart.getTime()) clearedThisWeek += 1;
+        }
+      }
+      return { inToday, submittedToday, clearedThisWeek };
+    },
+
+    agingExceptions: async (now = new Date()): Promise<AgingExceptions> => {
+      const all = await allCases(now);
+      const today = startOfDay(now);
+      const rows: AgingRow[] = filterQueue(all, 'needs-action', now)
+        .map((c) => {
+          const due = parseDmy(c.dateDue);
+          const daysToDue = due ? daysBetween(today, due) : Number.POSITIVE_INFINITY;
+          return { case: c, daysToDue, pastDue: due ? daysToDue < 0 : false, reason: c.actionReason };
+        })
+        .sort((a, b) => a.daysToDue - b.daysToDue);
+      return {
+        rows,
+        pastDueCount: rows.filter((r) => r.pastDue).length,
+        duplicateCount: rows.filter((r) => r.reason === 'duplicate').length,
+        conflictCount: rows.filter((r) => r.reason === 'conflict').length,
+      };
+    },
+
+    queueCounts: async (now = new Date()): Promise<Record<QueueName, number>> => {
+      const all = await allCases(now);
+      return {
+        'needs-action': filterQueue(all, 'needs-action', now).length,
+        'in-progress': filterQueue(all, 'in-progress', now).length,
+        ready: filterQueue(all, 'ready', now).length,
+        done: filterQueue(all, 'done', now).length,
+      };
+    },
+
+    reasonCounts: async (now = new Date()): Promise<ReasonFacet[]> => {
+      const all = await allCases(now);
+      const tally = new Map<ActionReason, number>();
+      for (const c of filterQueue(all, 'needs-action', now)) {
+        if (!c.actionReason) continue;
+        tally.set(c.actionReason, (tally.get(c.actionReason) ?? 0) + 1);
+      }
+      return (Object.keys(REASON_LABELS) as ActionReason[])
+        .map((reason) => ({ reason, label: REASON_LABELS[reason], count: tally.get(reason) ?? 0 }))
+        .filter((f) => f.count > 0);
+    },
+
+    pipelineStages: async (): Promise<PipelineStage[]> => {
+      const all = await allCases(new Date());
+      const defs: { key: PipelineStageKey; label: string }[] = [
+        { key: 'new', label: 'New' },
+        { key: 'parsing', label: 'Parsing' },
+        { key: 'review', label: 'Review' },
+        { key: 'chasing', label: 'Chasing' },
+        { key: 'ready', label: 'Ready' },
+        { key: 'submitted', label: 'Submitted' },
+        { key: 'box', label: 'Box' },
+      ];
+      const counts = new Map<PipelineStageKey, number>(defs.map((d) => [d.key, 0]));
+      for (const c of all) {
+        const k = statusToStage(c.status, c.actionReason);
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+      return defs.map((d) => ({
+        key: d.key,
+        label: d.label,
+        count: counts.get(d.key) ?? 0,
+        tone: d.key === 'chasing' ? 'stuck' : 'normal',
+      }));
+    },
+
+    /* ----- Activity feed ----- */
+    recentActivity: async (): Promise<ActivityEvent[]> => {
+      const res = await services.auditEvents.getAll({ orderBy: ['cr1bd_timestamp desc'] });
+      return (res.data ?? []).map(auditToActivity);
+    },
+    activityForCase: async (caseId): Promise<ActivityEvent[]> => {
+      const res = await services.auditEvents.getAll({
+        filter: `_cr1bd_caseid_value eq ${caseId}`,
+        orderBy: ['cr1bd_timestamp desc'],
+      });
+      return (res.data ?? []).map(auditToActivity);
+    },
+  };
+
+  /* QUEUES is referenced for its statuses via queueByName; keep the import alive
+     for readers and future filter-builders. */
+  void QUEUES;
+}
+
+/* ----------  AuditEvent row -> ActivityEvent  ---------- */
+function auditToActivity(rec: import('./types').AuditEventRecord): ActivityEvent {
+  return {
+    id: rec.cr1bd_auditeventid ?? '',
+    caseId: rec._cr1bd_caseid_value ?? '',
+    vrm: rec.cr1bd_vrm ?? '',
+    kind: 'status_change',
+    actor: rec.cr1bd_actor ?? 'System',
+    timestamp: rec.cr1bd_timestamp ?? '',
+    description: rec.cr1bd_description ?? String(rec.cr1bd_action ?? ''),
+  };
+}

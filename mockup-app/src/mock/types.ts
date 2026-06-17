@@ -169,7 +169,20 @@ export interface IntakeChannel {
   sourceMailbox: string;
 }
 
-/* ----------  Provider (corpus record)  ---------- */
+/* ----------  Provider (corpus record)  ----------
+   `inspectionLocationPolicy` + `providerAutomationMode` use the BINDING enums
+   (data-model.md / provider-corpus.md / inspection-address.md), re-exported from
+   the domain layer so there is one source of truth shared with the policy gate
+   and the Dataverse choice sets (cr1bd_inspectionlocationpolicy /
+   cr1bd_providerautomationmode). This SUPERSEDES the stale prototype literals
+   ('physical'|'image_based'|'mixed') — `prefer_address` is the unknown default. */
+export type { InspectionLocationPolicy } from '../domain/address-policy';
+import type { InspectionLocationPolicy } from '../domain/address-policy';
+
+/** How much automation a provider's intake is trusted with (only `review_auto`
+ *  honored in M1). Mirrors the cr1bd_providerautomationmode choice set 1:1. */
+export type ProviderAutomationMode = 'manual' | 'review_auto' | 'full_auto';
+
 export interface Provider {
   id: string;
   displayName: string;
@@ -177,7 +190,10 @@ export interface Provider {
   principalCode: string;
   defaultMailbox: string;
   knownEmailDomains: string[];
-  inspectionLocationPolicy: 'physical' | 'image_based' | 'mixed';
+  /** Binding policy enum (prefer_address = unknown-provider default). */
+  inspectionLocationPolicy: InspectionLocationPolicy;
+  /** Automation trust level; only `review_auto` is honored in M1. */
+  providerAutomationMode: ProviderAutomationMode;
   active: boolean;
 }
 
