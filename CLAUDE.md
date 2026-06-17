@@ -84,3 +84,24 @@ All non-trivial integrations are **feature-gated with Dataverse environment vari
   `microsoft-docs:*` (Learn lookups).
 - Windows environment; primary shell is PowerShell (Bash also available). Git initialised on `main`
   — commit as work progresses (the predecessor tool's lack of version control was a known problem).
+
+## Agent roster & boundaries
+
+Project agents live in `.claude/agents/`; project skills in `.claude/skills/`. Each domain agent
+owns one vertical slice and defers across boundaries (it says so in its own description):
+
+- **azure-integration-engineer** — Azure Functions (parser + enrichment REST wrappers over the
+  `collisionplugin` OAuth gateway), Key Vault, Entra app registration, custom connectors, Document
+  Intelligence, postcode.io/Azure Maps. Leans on `azure:*` + `microsoft-docs:*`.
+- **power-automate-flow-builder** — cloud flows: inbox intake, dedup, status machine, parser/
+  enrichment calls, EVA-submit + Box-sync, chasers. (No plugin covers Power Automate.)
+- **eva-sentry-integration** — EVA Sentry REST v1.2, the 13-field JSON contract, photo-order/image
+  rules, drag-drop export, Box coupling. Pairs with the `eva-sentry-api` skill.
+- **dataverse-data-architect** — the `CollisionSpike` solution: 10 tables, provenance, env-var gates,
+  auditing, ALM. Uses `code-apps-preview:add-dataverse`.
+- **document-parser-engineer** — completes `cedocumentmapper_v2.0` (Python; **PyMuPDF is licensed —
+  no AGPL remediation**); hands a clean HTTP entry point to the azure agent.
+
+Reused plugin agent: **`code-app-architect`** (code-apps-preview) owns the Code App shell, React/Vite,
+connector *selection*, and `pac code` deploy — our agents defer to it. **Do not** use the
+`canvas-app-*` or `genpage-*` agents: the spike is a **Code App**, not a canvas or model-driven app.
