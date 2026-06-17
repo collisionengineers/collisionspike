@@ -12,9 +12,11 @@ environment variables** so they can be toggled per environment with no redeploy.
   address is **6 newline-separated lines**; dates `DD/MM/YYYY`; `VAT Status` ∈ {"", Yes, No};
   `Mileage Unit` ∈ {"", Miles, Km}. `Work Provider` must be non-empty. `cedocumentmapper_v2.0`
   already produces this (schema-validated).
-- **Sentry API:** base `https://sentry.evasoftware.co.uk/api/`; JWT via `POST /Connect/token`
-  (~5-min expiry); submit via `POST /Instruction/Inspection`; idempotency by payload SHA-256.
-  Full spec: `collisioncc/docs/reference_information/imported_originals/eva/sentry_api_complete_guide.md`.
+- **Sentry API (v1.2):** base `https://sentry.evasoftware.co.uk/api/`; JWT via `POST /Connect/token`
+  (`expires_in` = 5 **minutes**); submit via `POST /Instruction/Inspection`; plus `/Claim/LocationUpdate`,
+  `/Claim/AuthorityStatusUpdate`, `/Note/SubmitNote`, `/Claim/Update`, `/Report/SubmitReport`,
+  `GET /Report/GetAvailableReports`, `GET /Report/GetReport`. Idempotency by payload hash. Authoritative
+  reference: [eva-sentry-api.md](./eva-sentry-api.md) (from `raw/Sentry API Documentation 1.2 Amended.pdf`).
 
 ## Enrichment connectors (`collisionplugin`)
 

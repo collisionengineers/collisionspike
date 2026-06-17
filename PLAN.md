@@ -104,6 +104,19 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   human review.
 - Code App UI: intake queue, case detail, missing-info chasing surface.
 
+### Phase 1b — Provider corpus + inspection-address assistant (distilled from `raw/`)
+- **Governed provider/garage corpus** (Dataverse `WorkProvider` + `InspectionAddress`), seeded from
+  the real job sheet (`Principals` 58, `Garages` 38). Provider matching by **email domain** (not
+  aliases); **Provider Automation Mode** (`No/Review/AI/Full auto`, default `Review auto`); two-tier
+  global→per-provider kill switches; field-level **provenance** + Management **Improvement Review**
+  queue. Spec: [docs/requirements/provider-corpus.md](./docs/requirements/provider-corpus.md),
+  [docs/architecture/data-model.md](./docs/architecture/data-model.md).
+- **Inspection-address assistant**: per-provider `inspectionLocationPolicy`
+  (`always_image_based`/`prefer_address`/`required_address`); **ranked candidates** with evidence;
+  **no silent "Image Based Assessment"** fallback; signal fusion (instruction text → corpus → OCR
+  phone/email → EXIF/GPS → history → vision clues). Spec:
+  [docs/requirements/inspection-address.md](./docs/requirements/inspection-address.md).
+
 ### Phase 2 — Image classification (AI Builder first)
 - AI Builder **image classification** (overview vs damage_closeup) + object/text detection for
   **registration-visible** check; surface results against `image-rules` (≥2 EVA images, overview
@@ -115,10 +128,10 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 - **Custom connectors** for the `collisionplugin` MCP services through `mcp-gateway`:
   `dvsa-mot` (mileage from MOT, vehicle history), `valuationbot` (Companion-Report-style
   valuation evidence). Use `code-apps-preview:add-connector` / `list-connections`.
-- **EVA export (gated):** generate the EVA JSON payload (reuse collisioncc export contract) for
-  drag-drop now; when `EVA_API_ENABLED` is true, POST to Sentry `/Instruction/Inspection`
-  (JWT via `/Connect/token`, 5-min token, idempotency by payload SHA256). Spec:
-  `collisioncc/docs/reference_information/imported_originals/eva/sentry_api_complete_guide.md`.
+- **EVA export (gated):** generate the EVA JSON payload (the `cedocumentmapper_v2.0` 13-field
+  contract) for drag-drop now; when `EVA_API_ENABLED` is true, POST to Sentry `/Instruction/Inspection`
+  (JWT via `/Connect/token`, 5-min token, idempotency by payload hash). Authoritative endpoints:
+  [docs/architecture/eva-sentry-api.md](./docs/architecture/eva-sentry-api.md).
 - Box archival (folder named by Case/PO) — stub/defer to align with collisioncc.
 
 ### Phase 4 (later) — Azure AI + Document AI + LLM assist
@@ -126,18 +139,18 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   `AZURE_VISION_ENABLED`). Azure Document Intelligence for PDF extraction. General LLM assist
   (classification/inspection-address ranking).
 
-### Parallel workstream — `cedocumentmapper_v2.0` (Python rebuild)
-New repo/folder `cedocumentmapper_v2.0` (contract-first, per `adjacent_repositories.md` note).
-- **Split the 4,244-line `app.py` monolith** into a library + CLI:
-  `cedocumentmapper/` (`engine`, `extractors` for PDF/DOCX/DOC/EML/MSG, `methods` for the 7
-  mapping methods, `normalisers` for date/VRM/mileage/6-line-address, `provider`, `models`,
-  `constants`) + `cedocumentmapper_cli/` (argparse `extract`/`batch`/`config`/`export`).
-- **Drop the Tkinter GUI and global-state/migration cruft; add pytest** with real-document
-  fixtures (the original had zero tests).
-- Keep provider-detection **AND-phrase** semantics and the **13-field → EVA JSON** contract so
-  output stays drag-drop-compatible and matches `collisioncc/src/parser/*`.
+### Parallel workstream — `cedocumentmapper_v2.0` (complete & harden — NOT a from-scratch rebuild)
+**Correction:** the sibling `cedocumentmapper_v2.0` repo is **already ~75% built** — a clean,
+layered, contract-first Python library + CLI (~5,100 LOC): domain models, readers
+(PDF/DOCX/DOC/EML/MSG), provider detection, a **12-kind rule engine**, normalisers, a
+**schema-validated 13-field EVA-JSON exporter**, v1→v2 config migration, and pytest are done
+(EPIC-01→07). The work is to **complete and harden**, not rewrite:
+- Outstanding: review UI (0%), **regression corpus harness** (~30%), packaging (~20%), CI/CD (0%).
+- **Resolve the PyMuPDF (AGPL) licensing risk** before any closed-source distribution (swap to
+  pdfplumber/Poppler or buy a commercial licence).
+- Keep the **13-field → EVA JSON** contract drag-drop-compatible.
 - **Integration path (later):** wrap as an Azure Function → custom connector, gated by
-  `PDF_MAPPER_ENABLED`. CLI is the immediate deliverable.
+  `PDF_MAPPER_ENABLED`. The CLI is the immediate deliverable.
 
 ### Closing — docs
 - Update this repo's `CLAUDE.md` with the chosen architecture, the repo-constellation map, and

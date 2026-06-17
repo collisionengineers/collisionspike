@@ -37,6 +37,7 @@
 
 ## Reference sources
 
-Background and contracts come from sibling repositories: **`ccc`** (canonical planning &
-contracts), **`collisioncc`** (mature reference implementation), and **`collisionplugin`**
-(MCP enrichment connectors). See [repo-constellation.md](../architecture/repo-constellation.md).
+Background and ideas come from sibling repositories — **none canonical**, all reference/prior-art:
+**`ccc`** (planning & draft contracts), **`collisioncc`** (a mature reference implementation), and
+**`collisionplugin`** (MCP enrichment connectors). The binding design is distilled into this repo's
+own docs. See [repo-constellation.md](../architecture/repo-constellation.md).

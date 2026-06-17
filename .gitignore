@@ -54,3 +54,8 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+
+# raw/ — drop-zone for source material to distill (contains real PII:
+# claimant data in the job sheet, garage/solicitor contacts). Examined and
+# distilled into docs/, but NOT committed. Keep PII out of git history.
+raw/

@@ -29,12 +29,14 @@ docs/
   reference/              pointers to sibling repos / external specs
 ```
 
-## Sibling repos (one folder up — reference only, do not modify)
+## Sibling repos (one folder up — ideas/prior-art only, NONE canonical, do not modify)
 
-- **ccc** — canonical planning & **contracts** for the whole programme. Align the data model and
-  EVA output to its contracts.
-- **collisioncc** — mature reference build on Google Cloud; source of the EVA Sentry API spec,
-  `case-status`, `image-rules`, provider knowledge, and a **pricing guide**. Reference only.
+These hold **ideas and references** to Collision Engineers' processes — mine and adapt them; they
+are not authoritative. The binding design is the spike's own distilled `docs/` + the `raw/` inbox.
+
+- **ccc** — programme planning, skills, and **draft** contracts. Prior art to adapt.
+- **collisioncc** — a mature reference build on Google Cloud; useful source of the EVA Sentry API
+  detail, `case-status`, `image-rules`, provider knowledge, and a **pricing guide**. Reference only.
 - **collisionplugin** — MCP enrichment connectors on Cloud Run behind an **OAuth gateway** (not
   directly callable from Power Platform — needs a REST wrapper). Scope: `dvsa-mot`
   `current_mileage_estimate` + `get_vehicle_summary`; later `valuationbot`.
