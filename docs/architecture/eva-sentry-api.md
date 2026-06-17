@@ -1,12 +1,18 @@
 # EVA "Sentry" API — Reference (v1.2)
 
 Authoritative endpoint surface, transcribed from `raw/Sentry API Documentation 1.2 Amended.pdf`
-(99 pp; the PDF is the field-level source of truth). The spike keeps EVA integration **gated**:
-JSON drag-drop export now; this REST API later behind `EVA_API_ENABLED` (it is in testing, awaiting
-EVA's developers). Supersedes the looser endpoint names in the older collisioncc guide.
+(99 pp; the PDF is the field-level source of truth). Supersedes the looser endpoint names in the
+older collisioncc guide.
+
+**Scope (ADR-0005):** EVA integration is **full scope**. The Sentry API is built and validated
+against an **EVA test environment** (available now) — `EVA_BASE_URL` selects EVA **test** vs
+**production**, and `EVA_API_ENABLED` toggles the REST API vs the drag-drop JSON path. Drag-drop JSON
+is the M1 path and the permanent fallback; the **production** cutover is gated until EVA's production
+API is confirmed and a parity test passes.
 
 ## Base & auth
-- **Base URL:** `https://sentry.evasoftware.co.uk/api/`
+- **Base URL:** production `https://sentry.evasoftware.co.uk/api/`; **test environment**
+  `<EVA test base URL — to confirm>`. Selected per Power Platform environment via `EVA_BASE_URL`.
 - **Auth:** `POST /Connect/token` — `Content-Type: application/x-www-form-urlencoded`, body
   `Client_Id` + `Client_Secret`. Response `{ "access_token": "<JWT>", "expires_in": 5 }`
   (**minutes** — short-lived, refresh with a ~30s buffer).

@@ -83,8 +83,11 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 > seeded corpus; inspection address as a manual field. **Parser wired inline (ADR-0004):**
 > `cedocumentmapper_v2.0` runs as an Azure Function (custom connector, `PDF_MAPPER_ENABLED`) that the
 > Code App calls on the instruction to pre-fill the 13 fields (staff review). Proves Code App +
-> Dataverse + parser→EVA + the readiness gate end-to-end. **Out of M1:** image AI, enrichment
-> connectors, Sentry API, full corpus governance, assistant, chasers. **Resolve PyMuPDF AGPL in M1.**
+> Dataverse + parser→EVA + the readiness gate end-to-end. **Images (M1):** stored + **manual role
+> tagging**, with deterministic **OCR** (Tesseract via the parser function, or Azure Vision Read)
+> auto-checking registration-visible. **Out of M1:** image-classification AI (overview/damage,
+> reflection detection), enrichment connectors, Sentry API, full corpus governance, assistant,
+> chasers. **Resolve PyMuPDF AGPL in M1.**
 
 ### Phase 0 — Foundations
 - Scaffold the Power Apps Code App: `code-apps-preview:create-code-app` (React/Vite).
@@ -138,9 +141,11 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 - **Custom connectors** for the `collisionplugin` MCP services through `mcp-gateway`:
   `dvsa-mot` (mileage from MOT, vehicle history), `valuationbot` (Companion-Report-style
   valuation evidence). Use `code-apps-preview:add-connector` / `list-connections`.
-- **EVA export (gated):** generate the EVA JSON payload (the `cedocumentmapper_v2.0` 13-field
-  contract) for drag-drop now; when `EVA_API_ENABLED` is true, POST to Sentry `/Instruction/Inspection`
-  (JWT via `/Connect/token`, 5-min token, idempotency by payload hash). Authoritative endpoints:
+- **EVA export — full scope (ADR-0005):** generate the EVA JSON payload (the `cedocumentmapper_v2.0`
+  13-field contract) for drag-drop (M1 + permanent fallback); **build & validate the Sentry API
+  against the EVA test environment** (`EVA_BASE_URL` test/prod, `EVA_API_ENABLED` API/JSON), POSTing
+  `/Instruction/Inspection` (JWT via `/Connect/token`, 5-min token, idempotency by payload hash).
+  **Production cutover gated** by a parity test. Authoritative endpoints:
   [docs/architecture/eva-sentry-api.md](./docs/architecture/eva-sentry-api.md).
 - Box archival (folder named by Case/PO) — stub/defer to align with collisioncc.
 

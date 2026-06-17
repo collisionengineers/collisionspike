@@ -6,8 +6,10 @@ environment variables** so they can be toggled per environment with no redeploy.
 
 ## EVA (legacy case system — "Sentry" API)
 
-- **Two paths, gated:** JSON drag-drop export **now**; Sentry **REST API later** (in testing,
-  awaiting EVA's developers) behind `EVA_API_ENABLED` (default `false`).
+- **Full scope (ADR-0005):** EVA integration is in scope, built/validated against the **EVA test
+  environment** now. `EVA_BASE_URL` selects EVA **test** vs **production**; `EVA_API_ENABLED` toggles
+  the Sentry REST API vs the JSON drag-drop path (drag-drop is the M1 path + permanent fallback). The
+  **production** cutover is gated until EVA prod is confirmed and a parity test passes.
 - **JSON contract:** 13 fields, exact order matching `Final Format Example 02.json`; inspection
   address is **6 newline-separated lines**; dates `DD/MM/YYYY`; `VAT Status` ∈ {"", Yes, No};
   `Mileage Unit` ∈ {"", Miles, Km}. `Work Provider` must be non-empty. `cedocumentmapper_v2.0`
@@ -73,7 +75,7 @@ change** → chasers are drafted for staff to send manually; **no free automated
 | Variable | Default | Purpose |
 |---|---|---|
 | `EVA_API_ENABLED` | `false` | JSON export vs Sentry REST submit |
-| `EVA_BASE_URL` | staging | EVA endpoint per environment |
+| `EVA_BASE_URL` | EVA **test** | EVA test vs production base URL (test env available now) |
 | `PDF_MAPPER_ENABLED` | `false` | inline `cedocumentmapper_v2.0` call |
 | `ENRICHMENT_ENABLED` / `ENRICHMENT_API_BASE` | `false` / — | DVSA/valuation enrichment |
 | `AZURE_MAPS_ENABLED` | `false` | Azure Maps vs postcode.io |

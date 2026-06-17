@@ -70,7 +70,8 @@ non-email-domain intake (WhatsApp/individuals) and address defaulting. A Case ca
 ### Evidence
 Mirrors collisioncc `image-rules`: `kind` (image/video/instruction/email/valuation/eva_payload),
 `imageRole` (overview/damage_closeup/additional/unknown), `registrationVisible`, `acceptedForEva`,
-storage state, source message link.
+storage state, source message link. `registrationVisible` is **OCR-assisted from M1** (does an
+image's OCR text contain the case VRM?); `imageRole` tagging is **manual until M2** image AI.
 
 ### AuditEvent & ImprovementSignal
 - `AuditEvent`: actor, action, severity, before/after, timestamp — every corpus/case change.

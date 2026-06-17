@@ -66,3 +66,10 @@ rows (e.g. multiple Knightsbridge/KMR/RJS rows by sub-source), free-text storage
 in the `Image based or address` column, EVA codes like `Create for each` / `Check Instructions`,
 and sub-source routing (e.g. Fraz/On Track, Hackney Solutions). These need normalisation + Management
 review, not blind import.
+
+**Decided — assisted import + Management review:** a one-time import tool parses the sheets into
+**draft** WorkProvider + ImageSource + Repairer records — collapsing duplicate rows by Principal Code
+into one WorkProvider + N **ImageSources**, and lifting embedded storage addresses out of the
+free-text "Image based or address" column into **Repairer/InspectionAddress** records — then presents
+a **preview diff** for Management to approve/correct before activation. Odd codes (`Create for each`,
+`Check Instructions`, `N/A`) are flagged for manual handling, never auto-used for Case/PO.
