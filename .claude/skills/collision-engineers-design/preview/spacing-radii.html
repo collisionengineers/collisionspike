@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="preview.css">
+<style>
+  .rad { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .rad .box { width:120px; height:64px; background:#fff; border:1px solid var(--web-border); }
+</style></head>
+<body>
+  <div class="col">
+    <div class="cap">Corner radii — sharp by default</div>
+    <div class="spread" style="gap:26px;">
+      <div class="rad"><div class="box" style="border-radius:0"></div><span class="mono">0px · square (dividers, bands)</span></div>
+      <div class="rad"><div class="box" style="border-radius:2px"></div><span class="mono">2px · rounded-sm (near-universal)</span></div>
+      <div class="rad"><div class="box" style="border-radius:999px;width:64px"></div><span class="mono">999px · WhatsApp pill</span></div>
+    </div>
+  </div>
+</body></html>
