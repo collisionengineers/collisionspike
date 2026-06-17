@@ -148,6 +148,9 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 - Azure AI Vision: people/reflection detection + plate OCR (HTTP/custom connector, gated by
   `AZURE_VISION_ENABLED`). Azure Document Intelligence for PDF extraction. General LLM assist
   (classification/inspection-address ranking).
+- **Copilot Studio** "Collision Engineers copilot" — **deferred to a later milestone (M3+)**,
+  optional, gated `COPILOT_ENABLED`: staff assistant over Dataverse once core data exists
+  (~$0–30/mo PAYG). Not in M1/M2.
 
 ### Parallel workstream — `cedocumentmapper_v2.0` (complete & harden — NOT a from-scratch rebuild)
 **Correction:** the sibling `cedocumentmapper_v2.0` repo is **already ~75% built** — a clean,
