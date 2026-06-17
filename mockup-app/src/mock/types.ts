@@ -6,20 +6,12 @@
    trimmed to what the UI prototype needs. MOCK ONLY — no live shapes.
    ============================================================ */
 
-/* ----------  Case status state machine  ---------- */
-// Mirrors the data-model state machine + collisioncc case-status.
-export type CaseStatus =
-  | 'new_email'
-  | 'ingested'
-  | 'needs_review'
-  | 'missing_required_fields'
-  | 'missing_images'
-  | 'duplicate_risk'
-  | 'linked_to_instruction'
-  | 'ready_for_eva'
-  | 'eva_submitted'
-  | 'box_synced'
-  | 'error';
+/* ----------  Case status state machine  ----------
+   CANONICAL source is the framework-free contract; re-exported here so the
+   screens keep importing `CaseStatus` from '../mock' unchanged. The Dataverse
+   `cr1bd_casestatus` choice set reconciles 1:1 against this same union. */
+export type { CaseStatus } from '../contracts/case-status';
+import type { CaseStatus } from '../contracts/case-status';
 
 /* ----------  Provenance & review state  ---------- */
 // sourceType ∈ data-model field-level provenance set (cloud_vision → azure_vision).
@@ -63,9 +55,14 @@ export interface EvaField {
    7 Date of Instruction (DD/MM/YYYY) · 8 Accident Circumstances ·
    9 Inspection Address (6 newline-separated lines OR "Image Based Assessment") ·
    10 VAT Status ∈ {"",Yes,No} · 11 Mileage · 12 Mileage Unit ∈ {"",Miles,Km} ·
-   13 (13th field name unconfirmed in the PDF — see Foundation notes). */
-export type VatStatus = '' | 'Yes' | 'No';
-export type MileageUnit = '' | 'Miles' | 'Km';
+   13 Engineer Allocation (settled placeholder name).
+
+   CANONICAL field order, descriptor shape, payload keys, and the VatStatus /
+   MileageUnit enums live in '../contracts/eva-export'; re-exported here so the
+   prototype keeps a single source of truth shared with the EVA serializer. */
+export type { VatStatus, MileageUnit, EvaFieldKey, EvaFieldDescriptor } from '../contracts/eva-export';
+export { EVA_FIELD_ORDER } from '../contracts/eva-export';
+import type { VatStatus, MileageUnit } from '../contracts/eva-export';
 
 export interface EvaFields {
   workProvider: EvaField; // 1
@@ -85,29 +82,10 @@ export interface EvaFields {
   engineerAllocation: EvaField; // 13
 }
 
-/** Stable ordering + display labels for the 13 fields (UI iterates this). */
-export type EvaFieldKey = keyof EvaFields;
-export interface EvaFieldDescriptor {
-  key: EvaFieldKey;
-  label: string;
-  /** Whether a non-empty value is required for EVA readiness. */
-  required: boolean;
-}
-export const EVA_FIELD_ORDER: readonly EvaFieldDescriptor[] = [
-  { key: 'workProvider', label: 'Work Provider', required: true },
-  { key: 'vehicleModel', label: 'Vehicle Model', required: true },
-  { key: 'claimantName', label: 'Claimant Name', required: true },
-  { key: 'claimantTelephone', label: 'Claimant Telephone', required: false },
-  { key: 'claimantEmail', label: 'Claimant Email Address', required: false },
-  { key: 'dateOfLoss', label: 'Date of Loss', required: true },
-  { key: 'dateOfInstruction', label: 'Date of Instruction', required: true },
-  { key: 'accidentCircumstances', label: 'Accident Circumstances', required: true },
-  { key: 'inspectionAddress', label: 'Inspection Address', required: true },
-  { key: 'vatStatus', label: 'VAT Status', required: false },
-  { key: 'mileage', label: 'Mileage', required: false },
-  { key: 'mileageUnit', label: 'Mileage Unit', required: false },
-  { key: 'engineerAllocation', label: 'Engineer Allocation', required: false },
-] as const;
+/* `EvaFieldKey`, `EvaFieldDescriptor`, and the ordered `EVA_FIELD_ORDER` are
+   re-exported from '../contracts/eva-export' above — the single canonical list
+   the UI iterates and the EVA serializer projects. `keyof EvaFields` here equals
+   the contract's `EvaFieldKey` 1:1 (same 13 camelCase keys). */
 
 /* ----------  Evidence (mirrors collisioncc image-rules)  ---------- */
 export type EvidenceKind =
@@ -118,7 +96,10 @@ export type EvidenceKind =
   | 'valuation'
   | 'eva_payload';
 
-export type ImageRole = 'overview' | 'damage_closeup' | 'additional' | 'unknown';
+// CANONICAL ImageRole lives in '../contracts/image-rules'; re-export for one
+// source, and import it locally so the Evidence interface can reference it.
+export type { ImageRole } from '../contracts/image-rules';
+import type { ImageRole } from '../contracts/image-rules';
 
 export interface Evidence {
   id: string;
