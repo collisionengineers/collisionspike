@@ -91,6 +91,10 @@ Vision <https://learn.microsoft.com/azure/ai-services/computer-vision/overview>
 > OCR**; an **Azure OpenAI / Foundry vision model (GPT-4o-class)** for **person/reflection detection**
 > (and as a flexible one-call classifier). Treat Vision 4.0 people/Read as usable-now-but-sunsetting.
 
+> **Decided (ADR-0009):** **M1** = **OCR for registration matching only** (Tesseract / Doc-Intelligence
+> Read); **M2** = **AI Builder classification** (overview/damage) + **Foundry vision** (person/
+> reflection). Custom Vision not used.
+
 ### 6. Enrichment — custom connectors to `collisionplugin`
 DVSA mileage (`current_mileage_estimate`) + vehicle details (`get_vehicle_summary`), and later
 valuation. The connectors are **MCP-only behind an OAuth gateway** — a thin **REST wrapper**

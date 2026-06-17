@@ -94,7 +94,8 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 > Code App calls on the instruction to pre-fill the 13 fields (staff review). Proves Code App +
 > Dataverse + parser→EVA + the readiness gate end-to-end. **Images (M1):** stored + **manual role
 > tagging**, with deterministic **OCR** (Tesseract via the parser function, or Azure Vision Read)
-> auto-checking registration-visible. **DVSA enrichment (M1 — ADR-0006):** mileage (**only when the
+> auto-checking registration-visible — **OCR is for registration matching only in M1**; classification
+> (overview/damage) + reflection detection are **deferred to M2** (ADR-0009). **DVSA enrichment (M1 — ADR-0006):** mileage (**only when the
 > document lacks it — authoritative**) + vehicle make/model via a REST wrapper (Azure Function) over
 > collisionplugin `dvsa-mot`, gated `ENRICHMENT_ENABLED`, staff-reviewed. **EVA (full scope):**
 > drag-drop JSON is the M1 path; the Sentry API is developed against the **test env** (same URL; test
@@ -145,11 +146,11 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   corpus + OCR (phone/email/postcode→Repairer) + history; **M3** EXIF/GPS + Azure Maps + vision. Spec:
   [docs/requirements/inspection-address.md](./docs/requirements/inspection-address.md).
 
-### Phase 2 — Image classification (AI Builder first)
-- AI Builder **image classification** (overview vs damage_closeup) + object/text detection for
-  **registration-visible** check; surface results against `image-rules` (≥2 EVA images, overview
-  with visible plate, damage closeup). Enforce the **two-preview-then-full-sequence upload order**
-  and the **no-person-reflection** rule (Phase 3 adds robust people detection).
+### Phase 2 — Image classification (ADR-0009)
+- **AI Builder image classification** (overview vs damage_closeup) — M2; **Azure OpenAI / Foundry
+  vision** for **person/reflection** detection. (Registration OCR-matching already shipped in M1;
+  **Azure Custom Vision is not used** — retiring 2028.) Surface results against `image-rules` (≥2 EVA
+  images, overview with visible plate, damage closeup); enforce **1 full-view + 1 damage-closeup**.
 - Image-ordering UI in the Code App (drag to set the 2 preview images, validate before EVA).
 - **WhatsApp media bulk import (timesaver — ADR-0007):** ingest a folder of exported WhatsApp media,
   OCR each image for the registration, auto-match/suggest to the open Case by **VRM**. (WhatsApp
