@@ -85,12 +85,14 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 > Code App calls on the instruction to pre-fill the 13 fields (staff review). Proves Code App +
 > Dataverse + parser→EVA + the readiness gate end-to-end. **Images (M1):** stored + **manual role
 > tagging**, with deterministic **OCR** (Tesseract via the parser function, or Azure Vision Read)
-> auto-checking registration-visible. **DVSA enrichment (M1 — ADR-0006):** mileage (when missing) +
-> vehicle make/model via a REST wrapper (Azure Function) over collisionplugin `dvsa-mot`, gated
-> `ENRICHMENT_ENABLED`, staff-reviewed. **EVA (full scope):** drag-drop JSON is the M1 path; the
-> Sentry API is developed against the **test env** (production cutover gated). **Out of M1:**
-> image-classification AI (overview/damage, reflection detection), valuation/Box connectors, full
-> corpus governance, assistant/copilot, structured chasers, **EVA production cutover**. **Resolve
+> auto-checking registration-visible. **DVSA enrichment (M1 — ADR-0006):** mileage (**only when the
+> document lacks it — authoritative**) + vehicle make/model via a REST wrapper (Azure Function) over
+> collisionplugin `dvsa-mot`, gated `ENRICHMENT_ENABLED`, staff-reviewed. **EVA (full scope):**
+> drag-drop JSON is the M1 path; the Sentry API is developed against the **test env** (same URL; test
+> credentials route to the test server; production cutover gated). **Box (M1):** folder = UPPERCASE
+> Case/PO (EVA lowercase — `test26001` → `TEST26001`), created **in unison** with EVA submission.
+> **Out of M1:** image-classification AI (overview/damage, reflection detection), valuation connector,
+> full corpus governance, assistant/copilot, structured chasers, **EVA production cutover**. **Resolve
 > PyMuPDF AGPL in M1.**
 
 ### Phase 0 — Foundations
@@ -143,8 +145,9 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 
 ### Phase 3 — Enrichment via connectors + EVA export
 - **Enrichment connectors (ADR-0006 — REST wrapper / Azure Function over collisionplugin behind the
-  OAuth gateway):** **DVSA `dvsa-mot` is pulled into M1** (`current_mileage_estimate` +
-  `get_vehicle_summary`); **valuation** (`valuationbot`) lands here in **M3**. Use
+  OAuth gateway):** **DVSA `dvsa-mot` is pulled into M1** (`current_mileage_estimate` — only when the
+  document lacks mileage — + `get_vehicle_summary`); **valuation** (`valuationbot`) lands here in
+  **M3**. Use
   `code-apps-preview:add-connector` / `list-connections`.
 - **EVA export — full scope (ADR-0005):** generate the EVA JSON payload (the `cedocumentmapper_v2.0`
   13-field contract) for drag-drop (M1 + permanent fallback); **build & validate the Sentry API
@@ -152,7 +155,8 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   `/Instruction/Inspection` (JWT via `/Connect/token`, 5-min token, idempotency by payload hash).
   **Production cutover gated** by a parity test. Authoritative endpoints:
   [docs/architecture/eva-sentry-api.md](./docs/architecture/eva-sentry-api.md).
-- Box archival (folder named by Case/PO) — stub/defer to align with collisioncc.
+- **Box archival — in unison with EVA submission (M1):** folder = **UPPERCASE** Case/PO (e.g.
+  `TEST26001`; EVA `test26001`); upload evidence + EVA JSON in the same finalisation step.
 
 ### Phase 4 (later) — Azure AI + Document AI + LLM assist
 - Azure AI Vision: people/reflection detection + plate OCR (HTTP/custom connector, gated by

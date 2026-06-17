@@ -20,6 +20,8 @@ The live work item (replaces the `Jobs` sheet — 31 cols × ~226 rows of formul
   or explicitly overridden — 13 EVA fields valid + image-rules + inspection-address decision +
   per-provider extras. Unsatisfied items = the **Missing** list; EVA submit is blocked until met.
   An image-based inspection address is an explicit override-with-reason, not a silent pass.
+- Enrichment precedence: the **instruction/parser is authoritative** for mileage — DVSA
+  `current_mileage_estimate` runs **only when the document has no mileage** (ADR-0006).
 - Links: `workProviderId` (→ WorkProvider), `imageSourceId` (→ ImageSource, nullable),
   `inspectionAddressId` (→ InspectionAddress, nullable).
 - Workflow: `status` (state machine below), `intakeChannel` (Email/WhatsApp/Audatex × Auto/Manual),
@@ -112,9 +114,10 @@ Match the sender domain after `@` to `WorkProvider.knownEmailDomains` (e.g. `joh
 ambiguous matching and unsafe Case/PO generation. **Do not match on aliases.**
 
 ## Case/PO
-`principalCode + 2-digit year + 3-digit provider sequence` (e.g. `CCPY26050`). Case/PO uses the
-**uppercase** rendering of the principal code (same characters the EVA Code holds in lowercase). For
-the spike, the user **enters the Case/PO at EVA submit**. Future Box-folder sequence discovery (highest existing
+`principalCode + 2-digit year + 3-digit provider sequence`, in **two case-renderings** of the same
+characters: **EVA (lowercase)** e.g. `test26001` and **Box (UPPERCASE)** e.g. `TEST26001`. For the
+spike, the user **enters the Case/PO at EVA submit**; **Box upload happens in unison** with EVA
+submission (drag-drop or API), using the uppercase form. Future Box-folder sequence discovery (highest existing
 number + 1) is deferred.
 
 ## Governance (small team, ~10 staff — single-Management approval)

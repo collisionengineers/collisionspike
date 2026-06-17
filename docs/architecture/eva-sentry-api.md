@@ -1,18 +1,19 @@
 # EVA "Sentry" API — Reference (v1.2)
 
-Authoritative endpoint surface, transcribed from `raw/Sentry API Documentation 1.2 Amended.pdf`
-(99 pp; the PDF is the field-level source of truth). Supersedes the looser endpoint names in the
-older collisioncc guide.
+Authoritative endpoint surface, transcribed from `docs/reference/Sentry API Documentation 1.2
+Amended.pdf` (99 pp; the field-level source of truth — v1.1 sits alongside it). Supersedes the looser
+endpoint names in the older collisioncc guide.
 
-**Scope (ADR-0005):** EVA integration is **full scope**. The Sentry API is built and validated
-against an **EVA test environment** (available now) — `EVA_BASE_URL` selects EVA **test** vs
-**production**, and `EVA_API_ENABLED` toggles the REST API vs the drag-drop JSON path. Drag-drop JSON
-is the M1 path and the permanent fallback; the **production** cutover is gated until EVA's production
-API is confirmed and a parity test passes.
+**Scope (ADR-0005):** EVA integration is **full scope**, built/validated against the **EVA test
+environment** now. The base URL is the **same** for test and production — the **credentials** decide:
+**test `Client_Id`/`Client_Secret` route to a different (test) server**. `EVA_API_ENABLED` toggles
+the REST API vs the drag-drop JSON path (drag-drop = M1 path + permanent fallback). The
+**production** cutover is gated until prod is confirmed and a parity test passes.
 
 ## Base & auth
-- **Base URL:** production `https://sentry.evasoftware.co.uk/api/`; **test environment**
-  `<EVA test base URL — to confirm>`. Selected per Power Platform environment via `EVA_BASE_URL`.
+- **Base URL:** `https://sentry.evasoftware.co.uk/api/` (**same for test and production**). Test vs
+  production is determined by the **credentials** — test `Client_Id`/`Client_Secret` route to a
+  different server. Store EVA credentials as per-environment secrets.
 - **Auth:** `POST /Connect/token` — `Content-Type: application/x-www-form-urlencoded`, body
   `Client_Id` + `Client_Secret`. Response `{ "access_token": "<JWT>", "expires_in": 5 }`
   (**minutes** — short-lived, refresh with a ~30s buffer).
@@ -48,4 +49,7 @@ onto the image entries.
   `EVA_BASE_URL`; idempotency by payload hash; handle the 5-minute token with a refresh buffer.
 - Image submission via the API means the **two-preview-then-full-sequence** ordering and
   **no-person-reflection** rules apply to the API path too, not just manual EVA upload.
-- For field-level accuracy when wiring the connector, read the PDF in `raw/` directly.
+- **Image submission is likely two requests** (to confirm against the test env): first send the **2
+  preview images** (overview + main-damage closeup), then a second request with the **remaining**
+  images.
+- For field-level accuracy when wiring the connector, read the PDF in `docs/reference/` directly.

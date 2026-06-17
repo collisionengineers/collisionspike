@@ -10,14 +10,13 @@ alternatives are listed under _Avoid_. This file is a **glossary only** — no i
 The organisation that sends Collision Engineers a case to assess (insurer, solicitor,
 accident-management company, or direct trade source). Shorthand: "Provider".
 _Avoid_: Solicitor, Insurer, Client, Customer, Account
-_(proposed canonical — confirm)_
 
 **Principal Code**:
-The short internal code identifying a Work Provider, used to build the Case/PO. **One code, three
-renderings of the same characters:** lowercase as the **EVA Code**, UPPERCASE as the **Box Code**
-and in the **Case/PO**. EVA Code and Box Code are not separate identifiers.
+The short internal code identifying a Work Provider, used to build the Case/PO. **One code, two
+case-renderings of the same characters:** **lowercase in EVA** (EVA Code, EVA case reference) and
+**UPPERCASE in Box** (Box Code, Box folder). EVA Code and Box Code are the same value, not separate
+identifiers.
 _Avoid_: treating EVA Code and Box Code as different values
-_(proposed canonical name — confirm)_
 
 **Case**:
 A single assessment work item for one damaged vehicle. Assembled from an instruction + evidence that
@@ -26,8 +25,10 @@ to **EVA** submission and **Box** archival.
 _Avoid_: Job, Claim, Instruction (the instruction is one input to a Case)
 
 **Case/PO**:
-The case reference: Principal Code (uppercase) + 2-digit year + 3-digit per-provider sequence —
-e.g. `CCPY26050`. Entered by staff at EVA submit (auto-sequencing deferred).
+The case reference: principal code + 2-digit year + 3-digit per-provider sequence, in two
+case-renderings of the same characters — **EVA (lowercase)** e.g. `test26001`, **Box (UPPERCASE)**
+e.g. `TEST26001`. Entered by staff at EVA submit (auto-sequencing deferred). Box upload uses the
+uppercase form, in unison with EVA submission.
 _Avoid_: Case number, PO number
 
 **Repairer**:

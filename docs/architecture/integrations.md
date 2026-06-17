@@ -7,9 +7,12 @@ environment variables** so they can be toggled per environment with no redeploy.
 ## EVA (legacy case system — "Sentry" API)
 
 - **Full scope (ADR-0005):** EVA integration is in scope, built/validated against the **EVA test
-  environment** now. `EVA_BASE_URL` selects EVA **test** vs **production**; `EVA_API_ENABLED` toggles
-  the Sentry REST API vs the JSON drag-drop path (drag-drop is the M1 path + permanent fallback). The
-  **production** cutover is gated until EVA prod is confirmed and a parity test passes.
+  environment** now. The base URL is the **same** for test/prod — **credentials** (test vs prod
+  `Client_Id`/`Client_Secret`) route to the test or production server. `EVA_API_ENABLED` toggles the
+  Sentry REST API vs the JSON drag-drop path (drag-drop = M1 path + permanent fallback). The
+  **production** cutover is gated until prod is confirmed and a parity test passes.
+- **Image submission:** likely **two requests** (confirm on test) — the 2 preview images, then the
+  remaining images — matching the two-preview-then-full-sequence rule.
 - **JSON contract:** 13 fields, exact order matching `Final Format Example 02.json`; inspection
   address is **6 newline-separated lines**; dates `DD/MM/YYYY`; `VAT Status` ∈ {"", Yes, No};
   `Mileage Unit` ∈ {"", Miles, Km}. `Work Provider` must be non-empty. `cedocumentmapper_v2.0`
@@ -30,7 +33,7 @@ Scope for the spike (per [intake-workflow.md](../requirements/intake-workflow.md
 
 | Need | Connector / tool | Notes |
 |---|---|---|
-| Mileage estimate | `dvsa-mot` → `current_mileage_estimate(registration)` | from MOT history |
+| Mileage estimate | `dvsa-mot` → `current_mileage_estimate(registration)` | from MOT history — **only when the instruction/parser has no mileage** (document authoritative, ADR-0006) |
 | Vehicle details (make/model/year/tax) | `dvsa-mot` → `get_vehicle_summary(registration)` | DVLA/DVSA |
 | Valuation evidence (later) | `valuationbot` → `search_comparables` + `capture_advert_pages` | PDF evidence |
 
@@ -67,15 +70,18 @@ change** → chasers are drafted for staff to send manually; **no free automated
 
 ## Box archival
 
-- Folder per **Case/PO**; copy evidence (images, `.eml`, PDFs, EVA JSON) on finalisation. Standard
-  Box connector via Power Automate. Stub/defer to align with `collisioncc`.
+- **Occurs in unison with EVA submission** (drag-drop JSON export *or* API submit) — one finalisation
+  step, **in M1**. Folder named with the **UPPERCASE** Case/PO (EVA uses lowercase): e.g. EVA
+  `test26001` → Box `TEST26001`. Copy evidence (images, `.eml`, PDFs, EVA JSON) into the folder.
+  Box connector via Power Automate.
 
 ## Environment variables (feature flags) — summary
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `EVA_API_ENABLED` | `false` | JSON export vs Sentry REST submit |
-| `EVA_BASE_URL` | EVA **test** | EVA test vs production base URL (test env available now) |
+| `EVA_BASE_URL` | prod base | Single EVA base URL (same for test/prod) |
+| `EVA_CLIENT_ID` / `EVA_CLIENT_SECRET` | test creds | EVA credentials (secret); **test creds route to the test server** |
 | `PDF_MAPPER_ENABLED` | `false` | inline `cedocumentmapper_v2.0` call |
 | `ENRICHMENT_ENABLED` / `ENRICHMENT_API_BASE` | `false` / — | DVSA/valuation enrichment |
 | `AZURE_MAPS_ENABLED` | `false` | Azure Maps vs postcode.io |
