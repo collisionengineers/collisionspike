@@ -34,6 +34,9 @@
   for later if reverse geocoding / autocomplete is needed.
 - **cedocumentmapper_v2.0** — the document parser that powers steps 3–4 (already ~75% built; see
   [repo-constellation.md](../architecture/repo-constellation.md#cedocumentmapper_v20)).
+- **WhatsApp intake** — manual (WhatsApp Business **app**, no API/webhook — ADR-0007). Planned
+  timesaver: bulk-import exported WhatsApp media → OCR/vision matches images to Cases by **VRM**.
+- **Audatex** — **out of scope** for the spike (deferred entirely).
 
 ## Reference sources
 

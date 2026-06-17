@@ -147,6 +147,9 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   with visible plate, damage closeup). Enforce the **two-preview-then-full-sequence upload order**
   and the **no-person-reflection** rule (Phase 3 adds robust people detection).
 - Image-ordering UI in the Code App (drag to set the 2 preview images, validate before EVA).
+- **WhatsApp media bulk import (timesaver — ADR-0007):** ingest a folder of exported WhatsApp media,
+  OCR each image for the registration, auto-match/suggest to the open Case by **VRM**. (WhatsApp
+  intake itself is manual — Business app.)
 
 ### Phase 3 — Enrichment via connectors + EVA export
 - **Enrichment connectors (ADR-0006 — REST wrapper / Azure Function over collisionplugin behind the

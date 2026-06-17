@@ -68,6 +68,8 @@ Fields: `name`, `kind` (`provider_direct | repairer | intermediary | individual`
 `contactName?`), optional `repairerId?` (when the source **is** a Repairer — don't duplicate it),
 `workProviderId`s (m:n), optional default Inspection Address hint. Drives recognition of
 non-email-domain intake (WhatsApp/individuals) and address defaulting. A Case carries `imageSourceId`.
+**WhatsApp intake is manual** (Business app — ADR-0007); a planned timesaver bulk-imports exported
+WhatsApp media and **OCR-matches images to Cases by VRM**.
 
 ### Evidence
 Mirrors collisioncc `image-rules`: `kind` (image/video/instruction/email/valuation/eva_payload),
