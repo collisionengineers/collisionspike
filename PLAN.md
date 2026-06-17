@@ -1,0 +1,174 @@
+# Plan: `collisionspike` — fast Power Platform spike of Collision Engineers admin workflow
+
+## Context
+
+Collision Engineers (a vehicle-damage assessment firm) run a manual, multi-system case-intake
+workflow: instructions/images arrive in **three Outlook shared inboxes** (plus WhatsApp and the
+Audatex API), are tracked on an **Excel job sheet stored in SharePoint**, enriched (valuation,
+mileage, Experian, images), then loaded into the legacy **EVA** system (Minotaur "Sentry" API)
+and archived in **Box**.
+
+There is already a **mature build in flight** — `../collisioncc`, a Next.js + Firebase/Google
+Cloud app ("Collision Command Centre") with ~19 workstreams that implements Graph email intake,
+a provider-rule parser + Google Document AI, EVA image-rules, a case-status state machine, and
+EVA Sentry-API submission. **This repo (`collisionspike`) is explicitly positioned as an early,
+fast spike of that same product** — a rapid prototype to validate the workflow and UX cheaply
+using Power Platform low-code building blocks, while the GCP build matures in parallel.
+
+The goal of this plan: stand up `collisionspike` as a **Power Apps Code App (React/Vite)** on
+Power Platform that prototypes the core intake→enrich→EVA workflow, **reusing collisioncc's
+proven contracts** (EVA payload, case-status, image-roles) so findings transfer to the mature
+build. Two adjacent deliverables are folded in: rebuilding `cedocumentmapper` as a clean
+`cedocumentmapper_v2.0` Python CLI, and gating the EVA integration (JSON-export now, Sentry API
+later).
+
+## Repository constellation (what exists, confirmed by exploration)
+
+| Repo (in `C:\Users\Alex\Documents\GitHub\`) | What it is | Role for the spike |
+|---|---|---|
+| `collisionspike` (**this repo**) | Near-empty: `adminoverview.md`, `CLAUDE.md`, `.claude/settings.json` | **Build target** — the Power Apps Code App spike |
+| `collisioncc` | Mature Next.js + Firebase/GCP app ("Command Centre"); Graph intake, parser+Document AI, image-rules, case-status, EVA Sentry submit | **Contract & architecture reference** (the future cloud version); source of the EVA payload shape, `case-status` states, `image-rules`, provider knowledge |
+| `collisionplugin` (singular) | Claude plugin + **MCP connectors on Cloud Run**: `dvsa-mot` (mileage/history, 32 tools), `valuationbot` (comparable-advert valuation + PDF), `report-renderer`, `eva` (Sentry browser, currently disabled), `mcp-gateway` (OAuth) | **Connector functions the spike consumes** for enrichment |
+| `cedocumentmapper` | 4,244-line Tkinter monolith: PDF/DOCX/DOC/EML/MSG → provider detection → 13-field map → EVA JSON; bundles Tesseract; no tests, no VCS history | **Rebuild → `cedocumentmapper_v2.0`** (library + CLI) |
+| `collisionpdf`, `collisionautomation` | Parser-first FastAPI service; React/Vite UI prototype | Secondary references (parser pipeline, UI/runtime-gating patterns) |
+
+## Locked decisions (from clarification)
+
+- **Front end:** Power Apps **Code App (React/Vite)** — built via `code-apps-preview` skills.
+- **Case store:** Reference the existing **SharePoint** job sheet; **mirror it into Dataverse**
+  as the spike's working store (start read-only import; SharePoint remains source of record).
+- **`collisioncc` = reference / information / context guide only** (CONFIRMED). The spike does
+  **not** call collisioncc at runtime; it is the source of truth for contracts, domain model, EVA
+  payload shape, case-status, image-rules, and provider knowledge that the spike re-implements.
+- **`collisionplugin`** MCP connectors are consumed at runtime for enrichment (mileage, valuation).
+- **Image AI:** **AI Builder first** (overview-vs-damage classification, registration-visible
+  check). **Azure AI Vision** (people/reflection detection, plate OCR) and **Azure Document
+  Intelligence** + general LLM assist are **explicitly later phases**.
+- **EVA:** **gated** — JSON drag-drop export now; **Sentry API behind a feature flag** until EVA's
+  developers enable/stabilise it (currently in testing).
+
+## Recommended architecture (the spike)
+
+```
+ Outlook (3 shared inboxes) ──┐
+ WhatsApp / Audatex (later) ──┤  Power Automate cloud flows (Office 365 Outlook trigger)
+                              ▼
+                    Dataverse (Case, Evidence, Provider, AuditEvent)  ◄── mirror ── SharePoint job sheet
+                              ▲
+        Power Apps CODE APP (React/Vite)  ── the spike UI: intake queue, case detail,
+        image ordering/preview, EVA-readiness, missing-info chasing
+                              │  calls (custom connectors)
+        ┌─────────────────────┼───────────────────────────────┐
+        ▼                     ▼                                ▼
+  AI Builder            collisionplugin MCP            cedocumentmapper_v2.0
+  (image classify)      connectors via mcp-gateway     (PDF → EVA-JSON, CLI now;
+                        (mileage, valuation, EVA)        Azure Function + connector later)
+                              │
+                              ▼
+                     EVA: JSON export now │ Sentry API when flag ON
+```
+
+**Why a Code App (not Canvas/model-driven):** chosen by the user, and it lets the spike **share
+React/TypeScript domain code and contracts with `collisioncc`** (case-status, EVA payload,
+image-roles) rather than reinventing them in Power Fx — maximising transfer to the mature build.
+
+**Where logic lives:** keep heavy/business logic in typed TS modules in the Code App and in
+Power Automate flows; use Dataverse for relational integrity/audit; gate integrations with
+**Dataverse environment variables** (solution-packaged, per-environment, no redeploy).
+
+## Workstreams (phased)
+
+### Phase 0 — Foundations
+- Scaffold the Power Apps Code App: `code-apps-preview:create-code-app` (React/Vite).
+- Create a **Dataverse solution** `CollisionSpike` to hold tables, connectors, env vars, flows.
+- Add Dataverse: `code-apps-preview:add-dataverse`. Tables mirroring collisioncc's model:
+  `Case` (VRM, provider/principal, Case/PO, status, dates, inspection address), `Evidence`
+  (kind, imageRole, registrationVisible, acceptedForEva, storage state), `Provider` (principal
+  code, detect phrases, automation mode), `AuditEvent` (actor, action, severity, details).
+  Reuse the **status enum** from `collisioncc/src/lib/case-status.ts`
+  (`new_email→ingested→needs_review→ready_for_eva→eva_submitted`, plus `missing_images`,
+  `missing_required_fields`, etc.).
+- Port shared **contracts** as TS modules: EVA payload (13 fields, 6-line address) and
+  image-rules from `collisioncc/src/lib/image-rules.ts` and the EVA export contract.
+- **Env vars / feature flags:** `EVA_API_ENABLED` (default false), `EVA_BASE_URL`,
+  `PDF_MAPPER_ENABLED`, `AZURE_VISION_ENABLED`, connector base URLs.
+
+### Phase 1 — Email intake + case tracking (primary object)
+- `code-apps-preview:add-office365` (Outlook). Build **Power Automate flows**, one per shared
+  mailbox, "When a new email arrives in a shared mailbox (V2)" with **Include Attachments = Yes**.
+- Flow: save `.eml` + attachments, classify attachments (image vs instruction PDF), create/append
+  a `Case` in Dataverse, set status, route by mailbox. Mirrors `collisioncc/src/lib/graph-intake.ts`.
+- `code-apps-preview:add-sharepoint`: reference the existing Excel job sheet; **read-only import
+  → Dataverse mirror** (dashboard of "ready for EVA" vs "missing info", missing-data summaries,
+  duplicate-VRM warnings). Per collisioncc job-sheet research: **don't run macros**, preserve
+  human review.
+- Code App UI: intake queue, case detail, missing-info chasing surface.
+
+### Phase 2 — Image classification (AI Builder first)
+- AI Builder **image classification** (overview vs damage_closeup) + object/text detection for
+  **registration-visible** check; surface results against `image-rules` (≥2 EVA images, overview
+  with visible plate, damage closeup). Enforce the **two-preview-then-full-sequence upload order**
+  and the **no-person-reflection** rule (Phase 3 adds robust people detection).
+- Image-ordering UI in the Code App (drag to set the 2 preview images, validate before EVA).
+
+### Phase 3 — Enrichment via connectors + EVA export
+- **Custom connectors** for the `collisionplugin` MCP services through `mcp-gateway`:
+  `dvsa-mot` (mileage from MOT, vehicle history), `valuationbot` (Companion-Report-style
+  valuation evidence). Use `code-apps-preview:add-connector` / `list-connections`.
+- **EVA export (gated):** generate the EVA JSON payload (reuse collisioncc export contract) for
+  drag-drop now; when `EVA_API_ENABLED` is true, POST to Sentry `/Instruction/Inspection`
+  (JWT via `/Connect/token`, 5-min token, idempotency by payload SHA256). Spec:
+  `collisioncc/docs/reference_information/imported_originals/eva/sentry_api_complete_guide.md`.
+- Box archival (folder named by Case/PO) — stub/defer to align with collisioncc.
+
+### Phase 4 (later) — Azure AI + Document AI + LLM assist
+- Azure AI Vision: people/reflection detection + plate OCR (HTTP/custom connector, gated by
+  `AZURE_VISION_ENABLED`). Azure Document Intelligence for PDF extraction. General LLM assist
+  (classification/inspection-address ranking).
+
+### Parallel workstream — `cedocumentmapper_v2.0` (Python rebuild)
+New repo/folder `cedocumentmapper_v2.0` (contract-first, per `adjacent_repositories.md` note).
+- **Split the 4,244-line `app.py` monolith** into a library + CLI:
+  `cedocumentmapper/` (`engine`, `extractors` for PDF/DOCX/DOC/EML/MSG, `methods` for the 7
+  mapping methods, `normalisers` for date/VRM/mileage/6-line-address, `provider`, `models`,
+  `constants`) + `cedocumentmapper_cli/` (argparse `extract`/`batch`/`config`/`export`).
+- **Drop the Tkinter GUI and global-state/migration cruft; add pytest** with real-document
+  fixtures (the original had zero tests).
+- Keep provider-detection **AND-phrase** semantics and the **13-field → EVA JSON** contract so
+  output stays drag-drop-compatible and matches `collisioncc/src/parser/*`.
+- **Integration path (later):** wrap as an Azure Function → custom connector, gated by
+  `PDF_MAPPER_ENABLED`. CLI is the immediate deliverable.
+
+### Closing — docs
+- Update this repo's `CLAUDE.md` with the chosen architecture, the repo-constellation map, and
+  the spike↔collisioncc contract-sharing rule.
+
+## Critical files & references
+- Reuse/port: `collisioncc/src/lib/case-status.ts`, `collisioncc/src/lib/image-rules.ts`,
+  `collisioncc/src/lib/graph-intake.ts`, `collisioncc/src/parser/*`, EVA export contract, and
+  `.../eva/sentry_api_complete_guide.md`.
+- Rebuild from: `cedocumentmapper/app.py`, `cedocumentmapper/providers.json`,
+  `cedocumentmapper/docs/Final Format Example 02.json` (target JSON shape).
+- Connectors: `collisionplugin/connectors/{dvladvsa,valuation-tool,eva,mcp-gateway}`.
+- Skills to drive the build: `code-apps-preview:create-code-app`, `add-dataverse`,
+  `add-sharepoint`, `add-office365`, `add-connector`, `list-connections`, `deploy`.
+
+## Open questions to confirm at review
+1. ~~**`collisioncc` integration depth.**~~ **RESOLVED:** collisioncc is reference/context only;
+   the spike re-implements its contracts and does not call it at runtime.
+2. **Environment/licensing:** is there a Power Platform environment with Dataverse + a premium/
+   AI Builder capacity available, and an Azure subscription for the later phases?
+3. **Scope of first milestone:** is Phase 0–1 (intake + Dataverse mirror) the first shippable
+   spike, with image AI / connectors / EVA as fast-follows?
+
+## Verification
+- **Code App:** `code-apps-preview:deploy` to the Power Platform environment; load the app, run a
+  sample email through the intake flow, confirm a `Case` appears in Dataverse with correct status
+  and the SharePoint mirror dashboard reflects "ready/missing".
+- **Image AI:** upload a known overview+damage set; assert AI Builder classification and
+  image-rules validation (≥2 images, plate visible) match expectations.
+- **EVA gating:** with `EVA_API_ENABLED=false`, confirm JSON export matches
+  `Final Format Example 02.json`; flip the flag in a test environment and confirm the Sentry
+  call path (mock endpoint) without redeploying.
+- **`cedocumentmapper_v2.0`:** `pytest` over fixture documents; CLI `extract` on a real provider
+  PDF produces JSON byte-compatible with the v1 EVA contract for the same input.

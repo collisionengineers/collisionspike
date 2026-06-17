@@ -1,0 +1,7 @@
+{
+  "enabledPlugins": {
+    "mcp-apps@power-platform-skills": true,
+    "canvas-apps@power-platform-skills": true,
+    "azure@claude-plugins-official": true
+  }
+}
