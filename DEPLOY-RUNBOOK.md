@@ -43,9 +43,10 @@ Much of §1–§6 is already executed in a dedicated **Sandbox** (NOT the Defaul
 | **Azure parser Function** | ✅ Deployed + **extracting real PDFs** (live-verified: provider/claimant/dates/address/VRM/reference) | **Flex Consumption (FC1)** — not EP1 — `rg-collisionspike-dev`, UK South, `cespike-parser-dev-x7xt3d5ovhi7y` |
 | **Dataverse schema** | ✅ Built — 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 11 env-vars (`ENRICHMENT_ENABLED=false`), EVA secrets Key-Vault-typed (no values) | Sandbox **`Collision Engineers - Dev`** (`b3090c42-…`), solution `CollisionSpike`, publisher prefix `cr1bd` |
 | **Parser custom connector** | ✅ Created, points at the live host | Sandbox, `CollisionSpike` solution (id `ccdec4fd-…`) |
-| **Code App** | ⚙️ Wired to Dataverse + built (192 tests green); **push blocked by B4** | `mockup-app/` (`power.config.json` bound to the Sandbox) |
+| **Code App** | ✅ **Deployed + live** (B4 cleared by enabling Code Apps on the env); wired to live Dataverse; **manual-intake** path added (upload → parse → Case) | `mockup-app/`, app id `da7ba7af-…`, Sandbox |
 | **Cloud flows (×10)** | ✅ Imported **`state=off`** (all verified Draft); connection refs unbound (operator binds at activation) | Sandbox, solution `CollisionSpikeFlows` |
-| **Enrichment Function / EVA / Box / live inbox** | ⛔ Not deployed/activated | Blocked on B1 (gateway), operator connections, EVA secret injection |
+| **Enrichment Function (DVSA)** | ⚙️ **Deployed gated-OFF** (live-verified: 401 no-key; 200 "enrichment skipped" with gate off). B1 gateway `client_credentials` change **implemented + staged in `collisionplugin`** (typecheck green, NOT deployed to Cloud Run) | `cespkenrich-fn-gi62sd`, KV `cespkenrichkvgi62sd`, `rg-collisionspike-dev` |
+| **EVA / Box / live inbox** | ⛔ Not activated | Operator-gated: connections + EVA secret injection + the enrichment gateway's Cloud Run deploy |
 
 Notes: the parser engine is **vendored** into the FC1 package (text PDF/DOCX/DOC/EML/MSG work; scanned-image
 **OCR is deferred** to an Azure Container Apps host — "B-full", FC1 can't run the Tesseract binary). The cost
