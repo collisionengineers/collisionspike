@@ -1,14 +1,19 @@
 // DVSA enrichment wrapper — infrastructure.
 //
 // [BUILD] — this Bicep is authored and `az bicep build`-able OFFLINE. Deploying
-// it (az deployment / azd up) is [DEPLOY-WITH-LOGIN]. Injecting the real gateway
-// secret VALUES into the Key Vault is [RESERVED-FOR-USER] — this template only
-// declares the secret *references*; it never contains a literal secret.
+// it (az deployment / azd up) is [DEPLOY-WITH-LOGIN]. Injecting the real DVSA /
+// DVLA secret VALUES into the Key Vault is [RESERVED-FOR-USER] — this template
+// only declares the secret *references*; it never contains a literal secret.
+//
+// Architecture (post B1 — NO gateway, all-Microsoft): the Function calls the
+// DVSA MOT History API directly (Microsoft Entra client_credentials + X-API-Key)
+// and the DVLA Vehicle Enquiry API directly (API-key REST). The former GCP
+// ce-mcp-gateway hop is removed entirely.
 //
 // Shape: Linux Flex Consumption (FC1) Function App + Storage + Key Vault, with a
 // system-assigned managed identity granted "Key Vault Secrets User" via RBAC.
-// The two gateway credentials are wired as app settings that are Key Vault
-// references (@Microsoft.KeyVault(SecretUri=...)) resolved by the platform.
+// The DVSA/DVLA secrets are wired as app settings that are Key Vault references
+// (@Microsoft.KeyVault(SecretUri=...)) resolved by the platform.
 
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
@@ -16,20 +21,35 @@ param location string = resourceGroup().location
 @description('Short name stem used to derive resource names.')
 param namePrefix string = 'cespkenrich'
 
-@description('Gateway base URL (the ce-mcp-gateway public URL). Non-secret.')
-param enrichmentApiBase string
-
-@description('Connector name routed by the gateway.')
-param enrichmentConnector string = 'dvsa-mot'
-
 @description('Feature gate. Keep false until the secret values are injected.')
 param enrichmentEnabled bool = false
 
-@description('Name of the secret holding the gateway client id (value injected out-of-band).')
-param clientIdSecretName string = 'ce-gateway-client-id'
+// ---- Non-secret DVSA settings (app settings, not secrets) ----
+@description('DVSA MOT History API base URL.')
+param dvsaApiBase string = 'https://history.mot.api.gov.uk'
 
-@description('Name of the secret holding the gateway client secret (value injected out-of-band).')
-param clientSecretSecretName string = 'ce-gateway-client-secret'
+@description('DVSA OAuth scope (Entra v2.0 .default scope for the DVSA API).')
+param dvsaScope string = 'https://tapi.dvsa.gov.uk/.default'
+
+@description('DVSA Entra tenant id (directory the DVSA app registration lives in). Non-secret GUID.')
+param dvsaTenantId string = ''
+
+// ---- Non-secret DVLA settings ----
+@description('DVLA Vehicle Enquiry Service base URL.')
+param dvlaApiBase string = 'https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry'
+
+// ---- Key Vault secret NAMES (values injected out-of-band, RESERVED-FOR-USER) ----
+@description('KV secret name holding the DVSA Entra client id.')
+param dvsaClientIdSecretName string = 'dvsa-client-id'
+
+@description('KV secret name holding the DVSA Entra client secret.')
+param dvsaClientSecretSecretName string = 'dvsa-client-secret'
+
+@description('KV secret name holding the DVSA MOT History X-API-Key.')
+param dvsaApiKeySecretName string = 'dvsa-api-key'
+
+@description('KV secret name holding the DVLA Vehicle Enquiry x-api-key.')
+param dvlaApiKeySecretName string = 'dvla-api-key'
 
 var suffix = uniqueString(resourceGroup().id, namePrefix)
 var storageName = toLower('${namePrefix}st${substring(suffix, 0, 6)}')
@@ -96,9 +116,11 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 
 // NOTE: the secret VALUES are injected out-of-band ([RESERVED-FOR-USER]); this
 // template intentionally does NOT declare Microsoft.KeyVault/vaults/secrets with
-// any value. The SecretUri below is constructed from the agreed secret names.
-var clientIdSecretUri = '${keyVault.properties.vaultUri}secrets/${clientIdSecretName}'
-var clientSecretSecretUri = '${keyVault.properties.vaultUri}secrets/${clientSecretSecretName}'
+// any value. The SecretUris below are constructed from the agreed secret names.
+var dvsaClientIdSecretUri = '${keyVault.properties.vaultUri}secrets/${dvsaClientIdSecretName}'
+var dvsaClientSecretSecretUri = '${keyVault.properties.vaultUri}secrets/${dvsaClientSecretSecretName}'
+var dvsaApiKeySecretUri = '${keyVault.properties.vaultUri}secrets/${dvsaApiKeySecretName}'
+var dvlaApiKeySecretUri = '${keyVault.properties.vaultUri}secrets/${dvlaApiKeySecretName}'
 
 // ---- Flex Consumption (FC1) plan ----
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
@@ -160,22 +182,40 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'ENRICHMENT_ENABLED'
           value: string(enrichmentEnabled)
         }
+        // ---- DVSA (direct) — non-secret settings ----
         {
-          name: 'ENRICHMENT_API_BASE'
-          value: enrichmentApiBase
+          name: 'DVSA_API_BASE'
+          value: dvsaApiBase
         }
         {
-          name: 'ENRICHMENT_CONNECTOR'
-          value: enrichmentConnector
-        }
-        // Key Vault references — NO literal secrets. Resolved at runtime by the MI.
-        {
-          name: 'GATEWAY_CLIENT_ID'
-          value: '@Microsoft.KeyVault(SecretUri=${clientIdSecretUri})'
+          name: 'DVSA_SCOPE'
+          value: dvsaScope
         }
         {
-          name: 'GATEWAY_CLIENT_SECRET'
-          value: '@Microsoft.KeyVault(SecretUri=${clientSecretSecretUri})'
+          name: 'DVSA_TENANT_ID'
+          value: dvsaTenantId
+        }
+        // ---- DVLA (direct fallback) — non-secret setting ----
+        {
+          name: 'DVLA_API_BASE'
+          value: dvlaApiBase
+        }
+        // ---- Key Vault references — NO literal secrets. Resolved by the MI. ----
+        {
+          name: 'DVSA_CLIENT_ID'
+          value: '@Microsoft.KeyVault(SecretUri=${dvsaClientIdSecretUri})'
+        }
+        {
+          name: 'DVSA_CLIENT_SECRET'
+          value: '@Microsoft.KeyVault(SecretUri=${dvsaClientSecretSecretUri})'
+        }
+        {
+          name: 'DVSA_API_KEY'
+          value: '@Microsoft.KeyVault(SecretUri=${dvsaApiKeySecretUri})'
+        }
+        {
+          name: 'DVLA_API_KEY'
+          value: '@Microsoft.KeyVault(SecretUri=${dvlaApiKeySecretUri})'
         }
       ]
     }

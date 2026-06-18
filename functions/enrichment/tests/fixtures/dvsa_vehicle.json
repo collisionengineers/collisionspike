@@ -1,0 +1,41 @@
+{
+  "_comment": "FAKE DVSA MOT History API response shape — GET /v1/trade/vehicles/registration/{reg}. A 2018 Ford Focus with three yearly MOT odometer reads (38000 / 46000 / 54100 miles). With an injected as-of of 2024-03-14 the ported current_mileage_estimate yields estimated_mileage 62400 / confidence MEDIUM. NOT a real vehicle.",
+  "registration": "TE57VRM",
+  "make": "FORD",
+  "model": "FOCUS",
+  "registrationDate": "2018-03-15",
+  "manufactureDate": "2018-02-01",
+  "fuelType": "PETROL",
+  "primaryColour": "BLUE",
+  "engineSize": "1499",
+  "hasOutstandingRecall": "No",
+  "motTests": [
+    {
+      "completedDate": "2021-03-10",
+      "testResult": "PASSED",
+      "expiryDate": "2022-03-09",
+      "odometerValue": "38000",
+      "odometerUnit": "mi",
+      "odometerResultType": "READ",
+      "motTestNumber": "111122223333"
+    },
+    {
+      "completedDate": "2022-03-08",
+      "testResult": "PASSED",
+      "expiryDate": "2023-03-07",
+      "odometerValue": "46000",
+      "odometerUnit": "mi",
+      "odometerResultType": "READ",
+      "motTestNumber": "222233334444"
+    },
+    {
+      "completedDate": "2023-03-06",
+      "testResult": "PASSED",
+      "expiryDate": "2024-03-05",
+      "odometerValue": "54100",
+      "odometerUnit": "mi",
+      "odometerResultType": "READ",
+      "motTestNumber": "333344445555"
+    }
+  ]
+}
