@@ -1,0 +1,17 @@
+# Keep the OCR-host image lean and reproducible. Exclude dev/test/infra/docs from
+# the build context so they never land in /home/site/wwwroot.
+tests/
+infra/
+openapi/
+README.md
+.gitignore
+.dockerignore
+.funcignore
+local.settings.json
+local.settings.json.TEMPLATE
+requirements-dev.txt
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.venv/
+venv/
