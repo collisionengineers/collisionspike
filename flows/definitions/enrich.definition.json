@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_Enrich (§5.6). Reads ENRICHMENT_ENABLED (+ ENRICHMENT_API_BASE) Dataverse env-vars (READ, never DEFINE), branches: enabled -> call the DVSA enrichment connector (EnrichDvsaMot) by VRM. document_has_mileage is passed so the mileage estimate fires ONLY when the parsed document has no mileage (document authoritative, ADR-0006). Enrichment is advisory, staff-reviewed, never blocks intake; writes into empty fields only (else reviewState=conflict). Gateway/EVA secrets are Key Vault refs inside the Function - the flow never reads them. [BUILD].",
+  "comment": "Flow_Enrich (§5.6 / phase-2 M2.A). Reads ENRICHMENT_ENABLED (+ ENRICHMENT_API_BASE) Dataverse env-vars (READ, never DEFINE), branches: enabled -> call the DVSA enrichment connector (EnrichDvsaMot, connection cr1bd_dvsaenrich) by VRM. document_has_mileage is passed so the mileage estimate fires ONLY when the parsed document has no mileage (document authoritative, ADR-0006). Enrichment is advisory, staff-reviewed, never blocks intake; writes into empty fields only (else reviewState=conflict). The Function calls DVSA + DVLA DIRECTLY (Microsoft Entra client_credentials + X-API-Key; the GCP ce-mcp-gateway is RETIRED, B1 obviated); DVSA/DVLA secrets are Key Vault refs INSIDE the Function - the flow never reads them. [BUILD]. ACTIVATION [RESERVED-FOR-USER]: deploy/confirm cespkenrich-fn-gi62sd, import the enrichment connector + bind cr1bd_dvsaenrich (function-key), inject DVSA_CLIENT_ID/SECRET + DVSA_API_KEY + DVLA_API_KEY into Key Vault, set DVSA_TENANT_ID + ENRICHMENT_API_BASE, flip ENRICHMENT_ENABLED=true in a test env, then turn CS Enrich ON. Claude never injects secrets or flips the gate.",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
     "$authentication": { "type": "SecureObject", "defaultValue": {} }
@@ -84,7 +84,7 @@
               "body/document_has_mileage": "@variables('documentHasMileage')"
             }
           },
-          "comment": "EnrichDvsaMot always returns 200 with a warnings array; current_mileage present ONLY when document_has_mileage was false. Function fronts ce-mcp-gateway OAuth2 with Key Vault secret refs server-side; the flow never sees the secret.",
+          "comment": "EnrichDvsaMot always returns 200 with a warnings array; current_mileage present ONLY when document_has_mileage was false. The Function calls DVSA/DVLA directly (Entra client_credentials + X-API-Key) with Key Vault secret refs server-side; the flow never sees the secret. [RESERVED-FOR-USER] to bind cr1bd_dvsaenrich to the live Function + inject the DVSA/DVLA creds.",
           "runAfter": {}
         },
         "Set_vehicle_model_if_empty": {

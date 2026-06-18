@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_StatusEvaluate (§5.4). Mirrors collisioncc case-status.ts statusForReviewCase (re-implement, never call). Guard order (first hit wins): terminal? -> keep | EVA-payload invalid -> missing_required_fields | image-rules fail -> missing_images | open review issues -> needs_review | else -> ready_for_eva. Idempotent: no write when status unchanged. Calls the shared validation surface so flow + Code App computeReadiness() agree. [BUILD].",
+  "comment": "Flow_StatusEvaluate (§5.4) — CHILD of intake (Run-a-Child-Flow). Mirrors collisioncc case-status.ts statusForReviewCase (re-implement, never call). Guard order (first hit wins): terminal? -> keep | required EVA fields missing -> missing_required_fields | image-rules fail -> missing_images | open review issues -> needs_review | else -> ready_for_eva. Idempotent: no write when status unchanged. READINESS FIX (task plan §3.6 Path 2): readiness is computed INLINE from Dataverse — the previous shared_evavalidation/ValidateCase connector had NO backing Function (no functions/validation/), so ready_for_eva was unreachable. fieldsValid = the 7 required EVA fields non-empty; imagesValid = the canonical image rule (>=2 accepted images incl >=1 overview with registrationVisible + >=1 damage_closeup) ported from mockup-app/src/contracts/image-rules.ts + readiness.ts. KNOWN SIMPLIFICATION vs the Code App computeReadiness(): per-field review-state (needs_review/conflict) is FieldLevelProvenance, not on the Case row, so openIssues is treated empty here (the needs_review branch is reachable only when a future provenance read is wired). [BUILD].",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
     "$authentication": { "type": "SecureObject", "defaultValue": {} }
@@ -10,7 +10,7 @@
     "manual": {
       "type": "Request",
       "kind": "Http",
-      "comment": "Invoked after any case mutation (intake, parser return, enrichment return, staff edit, image tagging, finalize).",
+      "comment": "Invoked after any case mutation (intake chain, parser return, enrichment return, staff edit, image tagging, finalize). Children MUST use 'Manually trigger a flow' (Request).",
       "inputs": { "schema": { "type": "object", "properties": { "caseId": { "type": "string" } } } }
     }
   },
@@ -27,17 +27,67 @@
           "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
         "parameters": { "entityName": "cr1bd_cases", "recordId": "@variables('caseId')" }
       },
+      "comment": "Read the Case (single row by id) — current status + the 12 EVA fields for the inline fieldsValid check.",
       "runAfter": { "Init_caseId": [ "Succeeded" ] }
     },
-    "Validate_readiness": {
+    "List_case_evidence": {
       "type": "OpenApiConnection",
-      "comment": "Shared validation surface (validation Function) -> one impl for flow + Code App. Returns { fieldsValid, imagesValid, openIssues[] } from the ported image-rules/case-status semantics.",
       "inputs": {
-        "host": { "connectionName": "shared_evavalidation", "operationId": "ValidateCase",
-          "apiId": "/providers/Microsoft.PowerApps/apis/shared_evavalidation" },
-        "parameters": { "body/caseId": "@variables('caseId')" }
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "cr1bd_evidences",
+          "$filter": "_cr1bd_caseid_value eq @{variables('caseId')} and cr1bd_kind eq 100000000 and cr1bd_acceptedforeva eq true and statecode eq 0",
+          "$select": "cr1bd_evidenceid,cr1bd_kind,cr1bd_imagerole,cr1bd_registrationvisible,cr1bd_acceptedforeva,cr1bd_excluded"
+        }
       },
+      "comment": "Accepted EVA image evidence for THIS case (kind Image=100000000, acceptedForEva=true, active). Excluded (person-reflection) rows are filtered out in-flow next (the connector cannot AND a possibly-null boolean cleanly). Evidence read (not cr1bd_cases) — the cross-provider guard is N/A here; scoping is by the case id.",
       "runAfter": { "Get_case": [ "Succeeded" ] }
+    },
+    "Filter_accepted_images": {
+      "type": "Query",
+      "inputs": {
+        "from": "@coalesce(outputs('List_case_evidence')?['body/value'], json('[]'))",
+        "where": "@not(equals(coalesce(item()?['cr1bd_excluded'], false), true))"
+      },
+      "comment": "isAcceptedEvaImage minus excluded: kind/accepted already enforced server-side; drop excluded here. Result = the accepted EVA image set.",
+      "runAfter": { "List_case_evidence": [ "Succeeded" ] }
+    },
+    "Filter_overview_with_reg": {
+      "type": "Query",
+      "inputs": {
+        "from": "@body('Filter_accepted_images')",
+        "where": "@and(equals(item()?['cr1bd_imagerole'], 100000000), equals(coalesce(item()?['cr1bd_registrationvisible'], false), true))"
+      },
+      "comment": "hasOverview: >=1 accepted image with imageRole Overview=100000000 AND registrationVisible=true (full reg legible). Mirrors image-rules.ts hasOverview.",
+      "runAfter": { "Filter_accepted_images": [ "Succeeded" ] }
+    },
+    "Filter_damage_closeup": {
+      "type": "Query",
+      "inputs": {
+        "from": "@body('Filter_accepted_images')",
+        "where": "@equals(item()?['cr1bd_imagerole'], 100000001)"
+      },
+      "comment": "hasDamageCloseup: >=1 accepted image with imageRole DamageCloseup=100000001. Mirrors image-rules.ts hasDamageCloseup.",
+      "runAfter": { "Filter_accepted_images": [ "Succeeded" ] }
+    },
+    "Set_imagesValid": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "imagesValid", "type": "boolean",
+        "value": "@and(greaterOrEquals(length(body('Filter_accepted_images')), 2), and(greater(length(body('Filter_overview_with_reg')), 0), greater(length(body('Filter_damage_closeup')), 0)))"
+      } ] },
+      "comment": "evaluateEvaImageRules.ok = (>=2 accepted images) AND (>=1 overview+reg) AND (>=1 damage_closeup). MIN_ACCEPTED_IMAGES=2.",
+      "runAfter": { "Filter_overview_with_reg": [ "Succeeded" ], "Filter_damage_closeup": [ "Succeeded" ] }
+    },
+    "Set_fieldsValid": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "fieldsValid", "type": "boolean",
+        "value": "@and(greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_evaworkprovider'], ''))), 0), and(greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_evavehiclemodel'], ''))), 0), and(greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_evaclaimantname'], ''))), 0), and(greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_evadateofloss'], ''))), 0), and(greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_evadateofinstruction'], ''))), 0), and(greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_evaaccidentcircumstances'], ''))), 0), greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_evainspectionaddress'], ''))), 0)))))))"
+      } ] },
+      "comment": "missingRequiredFieldKeys is empty <=> all 7 required EVA fields non-empty (trimmed): work_provider, vehicle_model, claimant_name, date_of_loss, date_of_instruction, accident_circumstances, inspection_address. The other 5 (telephone/email/vat/mileage/mileage_unit) are optional (required:false in eva-export.ts) and do NOT gate readiness.",
+      "runAfter": { "Set_imagesValid": [ "Succeeded" ] }
     },
     "Guard_terminal": {
       "type": "If",
@@ -56,14 +106,14 @@
         "actions": {
           "Compute_next_status": {
             "type": "Compose",
-            "inputs": "@if(not(body('Validate_readiness')?['fieldsValid']), 'missing_required_fields', if(not(body('Validate_readiness')?['imagesValid']), 'missing_images', if(greater(length(coalesce(body('Validate_readiness')?['openIssues'], json('[]'))),0), 'needs_review', 'ready_for_eva')))",
-            "comment": "Guard order mirrors statusForReviewCase: missing_required_fields precedes missing_images precedes needs_review precedes ready_for_eva.",
+            "inputs": "@if(not(variables('fieldsValid')), 'missing_required_fields', if(not(variables('imagesValid')), 'missing_images', 'ready_for_eva'))",
+            "comment": "Guard order mirrors statusForReviewCase: missing_required_fields precedes missing_images precedes ready_for_eva. (The needs_review branch — open field-level review issues — is not reachable from the Case row alone in this slice; see the file comment. When FieldLevelProvenance is wired, insert it before ready_for_eva.)",
             "runAfter": {}
           },
           "Map_status_choice": {
             "type": "Compose",
             "inputs": "@if(equals(outputs('Compute_next_status'),'missing_required_fields'),100000003,if(equals(outputs('Compute_next_status'),'missing_images'),100000004,if(equals(outputs('Compute_next_status'),'needs_review'),100000002,100000007)))",
-            "comment": "Bind to cr1bd_casestatus integers: missing_required_fields=100000003, missing_images=100000004, needs_review=100000002, ready_for_eva=100000007.",
+            "comment": "Bind to cr1bd_status integers: missing_required_fields=100000003, missing_images=100000004, needs_review=100000002, ready_for_eva=100000007.",
             "runAfter": { "Compute_next_status": [ "Succeeded" ] }
           },
           "Patch_status_if_changed": {
@@ -104,7 +154,7 @@
           }
         }
       },
-      "runAfter": { "Validate_readiness": [ "Succeeded" ] }
+      "runAfter": { "Set_fieldsValid": [ "Succeeded" ] }
     }
   }
 }
