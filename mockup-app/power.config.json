@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "appId": null,
+  "appDisplayName": "Collision Engineers - Intake",
+  "region": "prod",
+  "environmentId": "b3090c42-51fb-ee24-9868-474da322a3ad",
+  "description": " ",
+  "buildPath": "dist",
+  "buildEntryPoint": "index.html",
+  "localAppUrl": "http://localhost:5173",
+  "logoPath": "Default",
+  "connectionReferences": {},
+  "databaseReferences": {
+    "default.cds": {
+      "dataSources": {
+        "cases": {
+          "entitySetName": "cr1bd_cases",
+          "logicalName": "cr1bd_case"
+        },
+        "evidence": {
+          "entitySetName": "cr1bd_evidences",
+          "logicalName": "cr1bd_evidence"
+        },
+        "workproviders": {
+          "entitySetName": "cr1bd_workproviders",
+          "logicalName": "cr1bd_workprovider"
+        },
+        "auditevents": {
+          "entitySetName": "cr1bd_auditevents",
+          "logicalName": "cr1bd_auditevent"
+        },
+        "field_levelprovenance": {
+          "entitySetName": "cr1bd_fieldlevelprovenances",
+          "logicalName": "cr1bd_fieldlevelprovenance"
+        },
+        "notes": {
+          "entitySetName": "cr1bd_notes",
+          "logicalName": "cr1bd_note"
+        },
+        "chasers": {
+          "entitySetName": "cr1bd_chasers",
+          "logicalName": "cr1bd_chaser"
+        }
+      },
+      "environmentVariableName": ""
+    }
+  }
+}
