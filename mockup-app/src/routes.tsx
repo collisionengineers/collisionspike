@@ -6,6 +6,7 @@ import CaseDetail from './screens/CaseDetail';
 import EvaSubmitDialog from './screens/EvaSubmitDialog';
 import DedupDecisionDialog from './screens/DedupDecisionDialog';
 import Admin from './screens/Admin';
+import ManualIntake from './screens/ManualIntake';
 
 /* Route map:
    /                      → Dashboard
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <Dashboard /> },
+      { path: 'intake', element: <ManualIntake /> },
       { path: 'queue/:name', element: <CaseList /> },
       {
         path: 'case/:caseId',

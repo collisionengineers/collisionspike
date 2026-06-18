@@ -15,6 +15,7 @@ import {
   CheckCheck,
   Building2,
   ScrollText,
+  FilePlus2,
   type LucideIcon,
 } from 'lucide-react';
 import { QUEUES, data, type QueueName } from '../data';
@@ -319,6 +320,9 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
         </Link>
 
         <div className={styles.navList}>
+          {!collapsed && <div className={styles.navSectionLabel}>Intake</div>}
+          {renderAdmin('/intake', 'New case', FilePlus2)}
+
           {!collapsed && <div className={styles.navSectionLabel}>Queues</div>}
           {QUEUES.map((q) => renderQueue(q.name, q.label, q.tone === 'blocker'))}
 

@@ -24,6 +24,8 @@
 import type {
   ActionReason,
   Case,
+  CaseStatus,
+  EvaFields,
   Evidence,
   Provider,
   ActivityEvent,
@@ -54,10 +56,42 @@ import type {
  * interface — they stay SYNC and are re-exported unchanged from '../data'
  * (see index.ts). Only the members that fetch/aggregate rows live here.
  */
+/**
+ * Input to `createCase` — the manual-intake write path. Carries the reviewed 12
+ * EVA fields, the Case-identity values (vrm / Case-PO), the initial status, and
+ * the intake channel marker (always manual here). `writeProvenance` opts into
+ * persisting one FieldLevelProvenance row per EVA field (source/confidence).
+ */
+export interface CreateCaseInput {
+  /** The 12 reviewed EVA fields (camelCase keys). */
+  evaFields: EvaFields;
+  /** VRM (Case identity). */
+  vrm: string;
+  /** Provider reference / Case-PO (Case identity), if any. */
+  casePo?: string;
+  /** Provider display name + 4-char principal code, if known. */
+  provider?: string;
+  providerCode?: string;
+  /** Initial workflow status (e.g. 'ingested'). */
+  status: CaseStatus;
+  /** Free-text source mailbox/label for the manual channel. */
+  sourceLabel?: string;
+  /** Persist a FieldLevelProvenance row per EVA field when true. */
+  writeProvenance?: boolean;
+}
+
+/** The result of a Case write — the new row's id (GUID) the UI navigates to. */
+export interface CreateCaseResult {
+  /** The created Case's id (cr1bd_caseid GUID), used by `/case/:caseId`. */
+  id: string;
+}
+
 export interface DataAccess {
   /* ----- Cases ----- */
   /** A single case by id (mock `caseById`). */
   caseById(id: string): Promise<Case | undefined>;
+  /** Create a new Case from reviewed manual-intake fields; returns its id. */
+  createCase(input: CreateCaseInput): Promise<CreateCaseResult>;
   /** Cases in a queue; `done` is windowed on submittedAt===today (mock `casesForQueue`). */
   casesForQueue(name: QueueName, now?: Date): Promise<Case[]>;
   /** Other OPEN cases sharing a VRM — the duplicate_risk "VRM twins" affordance. */
