@@ -1,20 +1,19 @@
 /* ============================================================
-   Collision Engineers — Code App: live PARSER client + response adapter.
+   Collision Engineers — Code App: PARSER response adapter + transport contract.
 
-   Calls the cespike-parser-dev Azure Function (FUNCTION-direct fetch; see
-   parser-config.ts for the approach justification) and adapts its
-   `cedocumentparser_v2.0_eva_json` response into the prototype domain shapes the
-   review UI already renders:
+   Adapts the cespike-parser `cedocumentparser_v2.0_eva_json` response into the
+   prototype domain shapes the review UI renders:
 
      - the 12 EVA fields  -> `EvaFields` ({ value, provenance, reviewState }),
        reusing the SAME ProvenanceBadge the live review screen shows;
      - vrm + reference    -> Case-identity values (vrm / Case-PO);
      - issues[]           -> surfaced to the user as request/parse errors.
 
-   PURE OF SDK: this module imports NO '@microsoft/power-apps' — it is plain
-   `fetch` + mapping, so it sits inside the seam's offline boundary. The network
-   call is injectable (`transport`) so the unit test maps a canned response with
-   zero network.
+   PURE OF SDK: this module imports NO '@microsoft/power-apps' — only the response
+   mapping + the injectable `ParserTransport` contract, so it stays inside the seam's
+   offline boundary and the unit test maps a canned response with zero network. The
+   LIVE transport (CSP-safe, via the CE Parser custom connector) lives in
+   `parser-connector-transport.ts` and is passed to `parseDocument(req, transport)`.
 
    The parser response field `source` is a FREE-FORM provenance string
    (`pdf_extraction`, `fallback_*`, `absent`, …) — NOT the prototype
@@ -33,7 +32,6 @@ import type {
   ReviewState,
   VatStatus,
 } from '../mock/types';
-import { parserUrl, getParserConfig } from './parser-config';
 
 /* ============================================================
    1. The wire contract (cedocumentparser_v2.0_eva_json).
@@ -215,38 +213,20 @@ export function parserErrors(resp: ParserResponse): ParserIssue[] {
 }
 
 /* ============================================================
-   5. The default fetch transport + the public call.
+   5. The public call. The live transport (CSP-safe, via the CE Parser connector)
+      is injected by the caller (ManualIntake, from parser-connector-transport.ts);
+      the unit test injects a fake. There is no raw-fetch transport — the deployed
+      Code App CSP (`connect-src 'none'`) forbids it.
    ============================================================ */
 
-/** Default transport: a plain fetch to the Function with the function key. */
-export const fetchParserTransport: ParserTransport = async (req) => {
-  const cfg = getParserConfig();
-  const res = await fetch(parserUrl(), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-functions-key': cfg.functionKey,
-    },
-    body: JSON.stringify(req),
-  });
-  if (!res.ok) {
-    // Surface HTTP-level failures as a synthetic issue the UI can show.
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Parser HTTP ${res.status} ${res.statusText}${text ? ` — ${text.slice(0, 300)}` : ''}`,
-    );
-  }
-  return (await res.json()) as ParserResponse;
-};
-
 /**
- * Parse a document and adapt the result. `transport` defaults to the live fetch;
- * tests inject a fake. Throws on HTTP/transport failure; parser-level errors are
- * carried in the returned `issues`.
+ * Parse a document and adapt the result. `transport` is REQUIRED: the app passes
+ * the connector-backed transport; the unit test injects a fake. Throws on transport
+ * failure; parser-level errors are carried in the returned `issues`.
  */
 export async function parseDocument(
   req: ParseRequest,
-  transport: ParserTransport = fetchParserTransport,
+  transport: ParserTransport,
 ): Promise<ParsedIntake> {
   const resp = await transport(req);
   return adaptParserResponse(resp);
