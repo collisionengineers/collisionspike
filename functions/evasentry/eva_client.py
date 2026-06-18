@@ -26,9 +26,19 @@ connector that fronts it is **function-key only** (no OAuth security definition)
         Client_Id=..&Client_Secret=..
       -> { "access_token": "<JWT>", "expires_in": 5 }   # expires_in is MINUTES
 
-    POST {EVA_BASE_URL}Instruction/Inspection
+    POST {EVA_BASE_URL}Instruction/Inspection      # request 1: claim + 2 previews
         Authorization: Bearer {access_token}
-      -> the EVA instruction response
+      -> { "Id": "...", ... }   the EVA instruction acknowledgement
+
+    POST {EVA_BASE_URL}Note/SubmitNote             # request 2: ALL photos in seq
+        Authorization: Bearer {access_token}       # (same cached token)
+      -> { "StatusCode": 200, "Message": "...", "Id": null }
+
+Two-request photo submission (PDF v1.2 pp.13,21-23): EVA wants the 2 preview
+photos first (overview w/ full registration + damage closeup) then ALL photos in
+sequence incl. those two again. Photos ride as a ``Files`` array
+(``{Name,Extension,Data(base64)}``) on BOTH calls; the second call targets the
+claim created by the first (ClmNo/EvaRef + VehReg). One token mint covers both.
 
 Secret handling
 ---------------
@@ -140,6 +150,12 @@ class EvaConfig:
     def instruction_inspection_url(self) -> str:
         return f"{self.base_url}Instruction/Inspection"
 
+    @property
+    def note_submitnote_url(self) -> str:
+        # Second photo request: the remaining photos ride on /Note/SubmitNote,
+        # matched to the just-created claim by ClmNo/EvaRef + VehReg (PDF pp.21-23).
+        return f"{self.base_url}Note/SubmitNote"
+
     def __repr__(self) -> str:  # pragma: no cover - trivial redaction
         return (
             f"EvaConfig(client_id=<redacted>, client_secret=<redacted>, "
@@ -230,10 +246,24 @@ class EvaClient:
     def post_instruction_inspection(self, body: dict[str, Any]) -> dict[str, Any]:
         """POST ``/Instruction/Inspection`` with one 401 refresh-and-retry.
 
-        Returns the parsed JSON response (EVA's instruction acknowledgement).
-        Raises ``EvaError`` on a non-2xx that is not a recoverable 401.
+        This is the FIRST photo request: it creates the claim and carries the 2
+        preview Files. Returns the parsed JSON response (EVA's instruction
+        acknowledgement, including ``Id``). Raises ``EvaError`` on a non-2xx that
+        is not a recoverable 401.
         """
         return self._post_with_retry(self.config.instruction_inspection_url, body)
+
+    def post_note_submitnote(self, body: dict[str, Any]) -> dict[str, Any]:
+        """POST ``/Note/SubmitNote`` with one 401 refresh-and-retry — the SECOND
+        photo request, carrying the full ordered photo set against the just-created
+        claim (matched by ClmNo/EvaRef + VehReg). Reuses the SAME cached bearer
+        token as the instruction call (one mint covers both within the 5-min TTL).
+
+        A 404 (claim not found) or 409 (conflict) is surfaced as ``EvaError`` so
+        the handler can warn and leave the case for manual completion without
+        losing the already-submitted instruction.
+        """
+        return self._post_with_retry(self.config.note_submitnote_url, body)
 
     def _post_with_retry(
         self, url: str, body: dict[str, Any], *, refreshed: bool = False

@@ -29,10 +29,23 @@ connection note (*"Token exchange + bearer live INSIDE the connector"*).
 ```
 Function ──Client_Id/Client_Secret (form-encoded, KV refs)──▶ {EVA_BASE_URL}Connect/token
                                         │  Bearer JWT (~5 min, cached w/ 30s skew)
-   POST ────────────────────────────▶ {EVA_BASE_URL}Instruction/Inspection
-        Authorization: Bearer ...        Body: 12-field core (+ ordered Impact Images)
-                                        │  EVA instruction acknowledgement
+   POST ────────────────────────────▶ {EVA_BASE_URL}Instruction/Inspection   (req 1)
+        Authorization: Bearer ...        Body: PascalCase core + 2 preview Files
+                                        │  -> { "Id": ... }  (claim acknowledgement)
+   POST ────────────────────────────▶ {EVA_BASE_URL}Note/SubmitNote          (req 2)
+        Authorization: Bearer ...        Body: ALL photos (Files) + VehReg/ClmNo
+                                        │  one token mint covers both requests
 ```
+
+**Two-request photo submission** (confirmed against `docs/reference/Sentry API
+Documentation 1.2 Amended.pdf`, pp.13,21-23): EVA wants the 2 preview photos
+first (overview with the full registration visible + main-damage closeup), then
+**all** photos in sequence including those two again. Photos are EVA **`Files`**
+entries `{Name, Extension, Data(base64)}` — the previews ride on
+`/Instruction/Inspection` (which creates the claim and returns `Id`), the full
+ordered set then rides on `/Note/SubmitNote`, matched to the claim by
+`VehReg` (+ `ClmNo`/`EvaRef`). (EVA's `ImpactImage` is the directional
+impact-diagram on `/Report/SubmitReport`, **not** photo submission.)
 
 ## Boundary tags
 
@@ -53,8 +66,11 @@ POST /api/eva/instruction-inspection
 Body: {
   "evaPayload12": "<the 12-field core, as the canonical JSON string>",  // or an object
   "payloadHash"?: "deadbeef",          // idempotency correlation (flow latch is primary)
-  "casePo"?: "test26001",              // lowercase Case/PO
-  "images"?: [ { "sequenceIndex": 0, "content": "<base64>", "role": "overview" }, ... ]
+  "casePo"?: "test26001",              // lowercase Case/PO -> Instruction ExternalRef
+  "vrm"?: "AB12CDE",                   // -> VehReg (claim key for the Note photo request)
+  "clmNo"?: "CLM20251022001",          // -> ClmNo (claim key)
+  "images"?: [ { "sequenceIndex": 0, "content": "<base64>", "role": "overview",
+                 "registrationVisible": true }, ... ]
 }
 ```
 
@@ -84,19 +100,30 @@ the flow can fall back to the drag-drop path without the connector action errori
   lock-step with `contracts/eva-payload.schema.json` (a parity test asserts
   `EVA_PAYLOAD_KEYS` equals the schema's `propertyNames.enum`). The 12 fields are
   validated **before any token is minted**.
-- `order_impact_images` — **2 previews first, then the full sequence including
-  those two again** (the domain photo-order rule).
-- `build_instruction_inspection` — assembles the request body: the 12-field core
-  **verbatim** (byte-identical to the drag-drop body for those 12) + ordered
-  Impact Images.
+- `split_preview_and_rest` — splits sorted images into `(previews, all_in_seq)`
+  for the two requests: 2 previews first, then **all** photos in sequence
+  including those two again (the domain photo-order rule).
+- `build_files` — maps image entries to EVA `Files` `{Name, Extension, Data}`.
+- `core_to_instruction` — maps the 12 snake_case fields to the PascalCase
+  `Instruction/Inspection` request model (`InsName`, `VehDesc`, `Cause`,
+  `VatStat`, `ClmTelNo`, `ClmEmail`, `DtIncident`, …) and attaches the preview
+  `Files`. Fields with no first-class slot (`date_of_instruction`, `mileage`,
+  `mileage_unit`) are preserved in `NotesStr` so no datum is dropped.
+- `build_note_submitnote` — the second-request body (full photo set + `VehReg`/
+  `ClmNo` claim keys).
+- `overview_registration_warnings` — advisory check that the first preview is an
+  `overview` whose **registration is visible** (warns, never hard-blocks).
+- `order_impact_images` — DEPRECATED single-list concatenation, kept for the
+  connector's optional pre-ordered array / back-compat.
 
-> **Open item (plan §13 Q1):** the exact EVA Impact-Image field name(s) and
-> whether photos go on `/Instruction/Inspection` as base-64 entries or via a
-> separate `SubmitPreviews` call are **unconfirmed against the EVA test server**.
-> This builder attaches images under the clearly-marked, easily-renamed
-> `impact_images` key. Re-read `docs/reference/Sentry API Documentation 1.2
-> Amended.pdf` and capture the accepted shape from the EVA **test** env before the
-> connector is finalised.
+> **Resolved (was plan §13 Q1):** re-read `docs/reference/Sentry API Documentation
+> 1.2 Amended.pdf` (pp.5-13, 21-23). Photos are EVA **`Files`** entries
+> `{Name, Extension, Data}` carried inline on `/Instruction/Inspection` (the 2
+> previews) and on `/Note/SubmitNote` (the full set, matched by `VehReg`+`ClmNo`)
+> — the **two-request** photo submission. The earlier `impact_images` key was a
+> misnomer (`ImpactImage` is the report impact-diagram on `/Report/SubmitReport`).
+> The exact PascalCase mapping is implemented in `core_to_instruction`; verify the
+> field choices + the `Files` acceptance on the EVA **test** env at cutover.
 
 ## Secret handling — Key Vault only
 
@@ -114,8 +141,8 @@ test/prod — the credentials route the environment, ADR-0005).
 ## Offline test command
 
 No `func start` / Core Tools needed — handlers are exercised directly with a fake
-`HttpRequest`, and all HTTP (the EVA token + instruction endpoints) is mocked with
-`respx`:
+`HttpRequest`, and all HTTP (the EVA token, instruction, and note endpoints) is
+mocked with `respx`:
 
 ```bash
 python -m venv .venv
@@ -123,19 +150,22 @@ python -m venv .venv
 python -m pytest -q
 ```
 
-Tests assert: the 12-field core is validated before any token mint; `expires_in`
-minutes convert to a seconds TTL with the 30s skew; a 401 refreshes once then
-self-heals (or soft-fails); image ordering is previews-then-full-sequence;
-`EVA_PAYLOAD_KEYS` matches the repo schema; and no secret/token appears in logs or
-output.
+Tests assert (42 cases): the 12-field core is validated before any token mint;
+`expires_in` minutes convert to a seconds TTL with the 30s skew; **one** mint
+covers both photo requests; a 401 refreshes once then self-heals (or soft-fails);
+the **two-request** photo submission (2 previews on Instruction, full set on
+Note, matched by VehReg/ClmNo) with a failed Note degrading to a warning; the
+core->PascalCase Instruction mapping; the overview-registration advisory;
+idempotency-by-payload-hash short-circuits a repeat; `EVA_PAYLOAD_KEYS` matches
+the repo schema; and no secret/token appears in logs or output.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `function_app.py` | HTTP trigger + gate-at-edge + validate + submit orchestration |
-| `eva_client.py` | EVA `/Connect/token` mint+cache (server-side) + `Instruction/Inspection` POST |
-| `payload.py` | 12-field core validation + Impact-Image ordering + body builder (pure) |
+| `function_app.py` | HTTP trigger + gate-at-edge + validate + two-request submit orchestration + idempotency cache |
+| `eva_client.py` | EVA `/Connect/token` mint+cache (server-side) + `Instruction/Inspection` + `Note/SubmitNote` POSTs |
+| `payload.py` | 12-field core validation + preview/photo split + `Files` builder + core->Instruction PascalCase mapping (pure) |
 | `host.json` | Functions host config (extension bundle, App Insights) |
 | `requirements.txt` / `requirements-dev.txt` | runtime / test deps |
 | `local.settings.json.TEMPLATE` | setting **names** only; secrets as KV refs |

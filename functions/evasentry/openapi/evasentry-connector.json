@@ -20,7 +20,7 @@
     "/eva/instruction-inspection": {
       "post": {
         "summary": "Submit an EVA Instruction/Inspection",
-        "description": "Submits a case to EVA via the Sentry REST /Instruction/Inspection endpoint. The body carries the schema-valid 12-field core (object or JSON string — byte-identical to the drag-drop body for those 12) plus optional ordered base-64 Impact Images (2 previews first, then the full sequence incl. those two again). The Function validates the 12-field core before minting a token. Returns submitted=false with a warning (not an error) on a soft EVA/auth failure so the flow can fall back to drag-drop; returns 400 only on a malformed/invalid payload.",
+        "description": "Submits a case to EVA via the Sentry REST API. The Function maps the schema-valid 12-field core (object or JSON string — byte-identical to the drag-drop body for those 12) to the PascalCase Instruction/Inspection request model, then performs the two-request photo submission (PDF v1.2 pp.13,21-23): the 2 preview photos ride as base-64 EVA Files on POST /Instruction/Inspection (which creates the claim and returns Id); the FULL ordered photo set (previews + all) then rides on POST /Note/SubmitNote, matched to the claim by VehReg (+ ClmNo/EvaRef). Photos are EVA Files {Name,Extension,Data} — not the ImpactImage report diagram. The Function validates the 12-field core before minting a token. Returns submitted=false with a warning (not an error) on a soft EVA/auth failure so the flow can fall back to drag-drop; returns 400 only on a malformed/invalid payload.",
         "operationId": "InstructionInspection",
         "x-ms-visibility": "important",
         "parameters": [
@@ -69,32 +69,43 @@
         },
         "casePo": {
           "type": "string",
-          "description": "Lowercase Case/PO (EVA uses lowercase; Box uses UPPERCASE, handled by the flow). Optional.",
+          "description": "Lowercase Case/PO (EVA uses lowercase; Box uses UPPERCASE, handled by the flow). Mapped to the Instruction ExternalRef. Optional.",
           "x-ms-summary": "Case/PO (lowercase)"
+        },
+        "vrm": {
+          "type": "string",
+          "description": "Vehicle registration mark -> Instruction VehReg; also the key EVA uses to match the claim for the second (Note/SubmitNote) photo request. Without it, only the 2 preview photos can be attached. Optional but recommended.",
+          "x-ms-summary": "Vehicle registration (VRM)"
+        },
+        "clmNo": {
+          "type": "string",
+          "description": "Claim number -> Instruction ClmNo; paired with VehReg to target the claim for the Note photo request. Optional.",
+          "x-ms-summary": "Claim number"
         },
         "images": {
           "type": "array",
-          "description": "Ordered base-64 Impact Image entries. The Function re-orders to: 2 previews first, then the full sequence including those two again. NOTE: the exact EVA Impact-Image field shape is confirmed against the EVA test server before go-live (plan open Q1).",
+          "description": "Ordered base-64 photo entries. The Function splits these into the EVA two-request submission: 2 previews (overview + damage closeup) as Files on Instruction/Inspection, then the full sequence (incl. those two again) as Files on Note/SubmitNote. Each entry's content becomes an EVA File {Name,Extension,Data}.",
           "items": {
-            "$ref": "#/definitions/ImpactImage"
+            "$ref": "#/definitions/PhotoEntry"
           }
         }
       }
     },
-    "ImpactImage": {
+    "PhotoEntry": {
       "type": "object",
+      "description": "A photo to submit to EVA as a File {Name,Extension,Data}. NOT the ImpactImage report diagram (that is Start/End impact points on /Report/SubmitReport).",
       "properties": {
         "sequenceIndex": {
           "type": "integer",
-          "description": "EVA upload order (ascending). Previews are seeded at 0 and 1."
+          "description": "EVA upload order (ascending). The 2 previews are seeded at 0 and 1."
         },
         "content": {
           "type": "string",
-          "description": "Base-64 image content."
+          "description": "Base-64 image content -> EVA File Data. Entries without content are skipped."
         },
         "role": {
           "type": "string",
-          "description": "overview | damage_closeup | additional (advisory).",
+          "description": "overview | damage_closeup | additional (advisory). The first preview should be role=overview with the full registration visible.",
           "enum": [
             "overview",
             "damage_closeup",
@@ -104,7 +115,11 @@
         },
         "filename": {
           "type": "string",
-          "description": "Original filename (advisory)."
+          "description": "Original filename -> EVA File Name + Extension (advisory; a name is synthesised if absent)."
+        },
+        "registrationVisible": {
+          "type": "boolean",
+          "description": "Whether the full registration is visible (used only for the overview preview; false raises an advisory warning, not a hard block)."
         }
       }
     },

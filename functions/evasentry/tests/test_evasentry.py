@@ -1,8 +1,8 @@
 """Offline tests for the EVA Sentry REST submission wrapper.
 
-[BUILD] — ZERO network. The EVA ``/Connect/token`` and ``/Instruction/Inspection``
-endpoints are mocked with respx (httpx transport mocking). No live EVA, no Azure,
-no real secrets.
+[BUILD] — ZERO network. The EVA ``/Connect/token``, ``/Instruction/Inspection``
+and ``/Note/SubmitNote`` endpoints are mocked with respx (httpx transport
+mocking). No live EVA, no Azure, no real secrets.
 
 Run from the function folder:
 
@@ -12,12 +12,18 @@ Covered:
 * The 12-field core is validated BEFORE any token is minted (a malformed payload
   never reaches EVA).
 * Token mint: ``expires_in`` (MINUTES) is converted to a seconds TTL with the 30s
-  skew; a second call inside the window does NOT re-mint.
+  skew; a second call inside the window does NOT re-mint; ONE mint covers both the
+  instruction and the note (the second photo request).
 * A 401 on ``/Instruction/Inspection`` refreshes the token exactly once, then
   retries and succeeds.
 * A persistent 401 / EVA error soft-fails (submitted=false + warning) — no
   exception bubbles, so the flow can fall back to drag-drop.
-* Image ordering: 2 previews first, then the full sequence incl. those two again.
+* Two-request photo submission: 2 previews on Instruction (as ``Files``), then ALL
+  photos in sequence (incl. those two again) on ``Note/SubmitNote`` matched by
+  VehReg/ClmNo. A failed note degrades to a warning (instruction still accepted).
+* The overview must show the full registration (advisory warnings).
+* core -> PascalCase Instruction mapping (InsName/VehDesc/Cause/VatStat/…).
+* Idempotency by payload hash: a repeat short-circuits (no second EVA submit).
 * The client_secret / client_id / bearer token never appear in logs or response.
 * ``EVA_PAYLOAD_KEYS`` matches ``contracts/eva-payload.schema.json`` byte-for-byte
   (the cross-language contract parity gate).
@@ -51,11 +57,21 @@ import payload as payload_mod  # noqa: E402
 EVA_BASE = "https://eva.test.example/api/"
 TOKEN_URL = f"{EVA_BASE}Connect/token"
 INSTRUCTION_URL = f"{EVA_BASE}Instruction/Inspection"
+NOTE_URL = f"{EVA_BASE}Note/SubmitNote"
 
 # Recognisable fake secrets so we can assert they are never leaked.
 FAKE_CLIENT_ID = "FAKE-eva-client-id-1234567890"  # noqa: S105 - test-only
 FAKE_SECRET = "sBx+fake/eva-secret+VALUE=="  # noqa: S105 - test-only
 FAKE_TOKEN = "FAKE.test.eva-access-token.not-a-real-jwt"  # from token_response.json
+
+
+@pytest.fixture(autouse=True)
+def _reset_idempotency():
+    """Isolate the in-process idempotency cache between tests (it is a module
+    global; production ages it out on worker recycle)."""
+    function_app.clear_idempotency_cache()
+    yield
+    function_app.clear_idempotency_cache()
 
 
 def _load(name: str) -> dict:
@@ -76,6 +92,12 @@ def _mock_token() -> respx.Route:
 def _mock_instruction() -> respx.Route:
     return respx.post(INSTRUCTION_URL).mock(
         return_value=httpx.Response(200, json=_load("instruction_response.json"))
+    )
+
+
+def _mock_note() -> respx.Route:
+    return respx.post(NOTE_URL).mock(
+        return_value=httpx.Response(200, json=_load("note_response.json"))
     )
 
 
@@ -186,6 +208,26 @@ def test_token_expiry_minutes_to_seconds(monkeypatch):
 
 
 @respx.mock
+def test_one_token_mint_covers_instruction_and_note():
+    # Two-request submission must reuse the SAME bearer: exactly one /Connect/token.
+    token_route = _mock_token()
+    instr = _mock_instruction()
+    note = _mock_note()
+    images = [
+        {"sequenceIndex": 0, "content": "p0", "role": "overview", "registrationVisible": True},
+        {"sequenceIndex": 1, "content": "p1", "role": "damage_closeup"},
+        {"sequenceIndex": 2, "content": "c2"},
+    ]
+    result = function_app.submit(
+        _valid_core(), images=images, vrm="AB12CDE", clm_no="CLM1", client=_eva_client()
+    )
+    assert result["submitted"] is True
+    assert token_route.call_count == 1
+    assert instr.call_count == 1
+    assert note.call_count == 1
+
+
+@respx.mock
 def test_401_refreshes_token_once_then_succeeds(monkeypatch, caplog):
     token_route = _mock_token()
     calls = {"n": 0}
@@ -237,38 +279,277 @@ def test_token_auth_error_on_bad_creds():
 
 
 # --------------------------------------------------------------------------
-# Image ordering (2 previews first, then full sequence incl. those two)
+# Image ordering + preview split (2 previews first, then full sequence)
 # --------------------------------------------------------------------------
 
-def test_image_ordering_previews_then_full():
+def test_split_preview_and_rest():
     images = [
         {"sequenceIndex": 2, "content": "c2"},
         {"sequenceIndex": 0, "content": "p0"},
         {"sequenceIndex": 1, "content": "p1"},
         {"sequenceIndex": 3, "content": "c3"},
     ]
-    ordered = payload_mod.order_impact_images(images)
-    contents = [im["content"] for im in ordered]
+    previews, all_in_seq = payload_mod.split_preview_and_rest(images)
+    assert [im["content"] for im in previews] == ["p0", "p1"]
+    # the full sequence begins with the previews and continues in order.
+    assert [im["content"] for im in all_in_seq] == ["p0", "p1", "c2", "c3"]
+
+
+def test_order_impact_images_backcompat():
+    images = [
+        {"sequenceIndex": 2, "content": "c2"},
+        {"sequenceIndex": 0, "content": "p0"},
+        {"sequenceIndex": 1, "content": "p1"},
+        {"sequenceIndex": 3, "content": "c3"},
+    ]
+    contents = [im["content"] for im in payload_mod.order_impact_images(images)]
     # previews (0,1) first, then the full ascending sequence incl. those two.
     assert contents == ["p0", "p1", "p0", "p1", "c2", "c3"]
 
 
-def test_image_ordering_single_image_no_prefix():
+def test_split_single_image_no_full_prefix():
     images = [{"sequenceIndex": 0, "content": "only"}]
-    assert payload_mod.order_impact_images(images) == images
+    previews, all_in_seq = payload_mod.split_preview_and_rest(images)
+    assert previews == images
+    assert all_in_seq == images
 
 
-def test_build_body_keeps_core_order_and_attaches_images():
-    core = _valid_core()
+def test_build_files_shapes_name_extension_data():
     images = [
-        {"sequenceIndex": 1, "content": "p1"},
-        {"sequenceIndex": 0, "content": "p0"},
+        {"sequenceIndex": 0, "content": "AAA=", "filename": "overview.JPG"},
+        {"sequenceIndex": 1, "content": "BBB=", "role": "damage_closeup"},
+        {"sequenceIndex": 2, "content": "", "filename": "skipme.jpg"},  # no data -> skipped
     ]
-    body = payload_mod.build_instruction_inspection(core, images=images, case_po="test26001")
-    # 12-field core keys come first, in order.
-    assert list(body.keys())[:12] == list(payload_mod.EVA_PAYLOAD_KEYS)
-    assert body["case_po"] == "test26001"
-    assert body["impact_images"][0]["content"] == "p0"
+    files = payload_mod.build_files(images)
+    assert len(files) == 2
+    assert files[0] == {"Name": "overview.JPG", "Extension": ".jpg", "Data": "AAA="}
+    # role-derived name + default extension when no filename
+    assert files[1]["Name"] == "damage_closeup_2.jpg"
+    assert files[1]["Extension"] == ".jpg"
+    assert files[1]["Data"] == "BBB="
+
+
+# --------------------------------------------------------------------------
+# core -> Instruction PascalCase mapping
+# --------------------------------------------------------------------------
+
+def test_core_to_instruction_pascalcase_mapping():
+    core = _valid_core()
+    files = [{"Name": "a.jpg", "Extension": ".jpg", "Data": "AAA="}]
+    body = payload_mod.core_to_instruction(
+        core, files=files, external_ref="test26001", veh_reg="AB12CDE", clm_no="CLM1",
+        request_from="CECODE",
+    )
+    assert body["InsName"] == "Acme Insurance"        # work_provider
+    assert body["VehDesc"] == "FORD FOCUS"            # vehicle_model
+    assert body["TPName"] == "Jane Doe"               # claimant_name
+    assert body["ClmTelNo"] == "07700900123"          # claimant_telephone
+    assert body["ClmEmail"] == "jane.doe@example.com"  # claimant_email
+    assert body["Cause"] == "Rear-ended at a junction."  # accident_circumstances
+    assert body["VatStat"] == "No"                    # vat_status
+    assert body["DtIncident"] == "2026-05-01T00:00:00Z"  # date_of_loss DD/MM/YYYY -> ISO
+    assert body["VehReg"] == "AB12CDE"
+    assert body["ClmNo"] == "CLM1"
+    assert body["ExternalRef"] == "test26001"
+    assert body["RequestFrom"] == "CECODE"
+    assert body["Files"] == files
+    # date_of_instruction / mileage carried in NotesStr (no first-class field).
+    assert "03/05/2026" in body["NotesStr"]
+    assert "42000" in body["NotesStr"]
+
+
+def test_core_to_instruction_omits_empty_values():
+    core = _valid_core()
+    core["claimant_email"] = ""
+    core["vat_status"] = ""
+    body = payload_mod.core_to_instruction(core)
+    assert "ClmEmail" not in body
+    assert "VatStat" not in body  # empty VAT is omitted, not sent as ""
+
+
+def test_build_note_targets_claim_by_vehreg_clmno():
+    files = [{"Name": "a.jpg", "Extension": ".jpg", "Data": "AAA="}]
+    note = payload_mod.build_note_submitnote(files=files, clm_no="CLM1", veh_reg="AB12CDE")
+    assert note["ClmNo"] == "CLM1"
+    assert note["VehReg"] == "AB12CDE"
+    assert note["Files"] == files
+    assert isinstance(note["Note"], str) and note["Note"]
+
+
+# --------------------------------------------------------------------------
+# Two-request photo submission (the heart of the task)
+# --------------------------------------------------------------------------
+
+@respx.mock
+def test_two_request_previews_then_full_sequence():
+    _mock_token()
+    captured: dict[str, list] = {"instruction": [], "note": []}
+
+    def instr_handler(request: httpx.Request) -> httpx.Response:
+        captured["instruction"].append(json.loads(request.content))
+        return httpx.Response(200, json=_load("instruction_response.json"))
+
+    def note_handler(request: httpx.Request) -> httpx.Response:
+        captured["note"].append(json.loads(request.content))
+        return httpx.Response(200, json=_load("note_response.json"))
+
+    respx.post(INSTRUCTION_URL).mock(side_effect=instr_handler)
+    respx.post(NOTE_URL).mock(side_effect=note_handler)
+
+    images = [
+        {"sequenceIndex": 0, "content": "OVERVIEW", "role": "overview", "registrationVisible": True},
+        {"sequenceIndex": 1, "content": "CLOSEUP", "role": "damage_closeup"},
+        {"sequenceIndex": 2, "content": "EXTRA1"},
+        {"sequenceIndex": 3, "content": "EXTRA2"},
+    ]
+    result = function_app.submit(
+        _valid_core(), images=images, case_po="test26001", vrm="AB12CDE", clm_no="CLM1",
+        client=_eva_client(),
+    )
+    assert result["submitted"] is True
+    assert result["evaRef"] == "TEST26001-EVA"
+
+    # Request 1 (Instruction): exactly the 2 preview Files, in order.
+    instr_files = captured["instruction"][0]["Files"]
+    assert [f["Data"] for f in instr_files] == ["OVERVIEW", "CLOSEUP"]
+    # Request 2 (Note): ALL photos in sequence (previews repeated, then extras).
+    note_files = captured["note"][0]["Files"]
+    assert [f["Data"] for f in note_files] == ["OVERVIEW", "CLOSEUP", "EXTRA1", "EXTRA2"]
+    # Note targets the claim by VehReg + ClmNo.
+    assert captured["note"][0]["VehReg"] == "AB12CDE"
+    assert captured["note"][0]["ClmNo"] == "CLM1"
+
+
+@respx.mock
+def test_only_two_photos_skips_note():
+    # With exactly the 2 previews there is nothing extra -> no second request.
+    _mock_token()
+    instr = _mock_instruction()
+    note = _mock_note()
+    images = [
+        {"sequenceIndex": 0, "content": "OVERVIEW", "role": "overview", "registrationVisible": True},
+        {"sequenceIndex": 1, "content": "CLOSEUP", "role": "damage_closeup"},
+    ]
+    result = function_app.submit(
+        _valid_core(), images=images, vrm="AB12CDE", client=_eva_client()
+    )
+    assert result["submitted"] is True
+    assert instr.call_count == 1
+    assert note.call_count == 0  # no extra photos -> Note not called
+
+
+@respx.mock
+def test_note_failure_degrades_to_warning_not_failure():
+    # Instruction succeeds; the photo-set Note 404s (claim match). submitted stays
+    # True (claim exists), with a warning to complete photos manually.
+    _mock_token()
+    _mock_instruction()
+    respx.post(NOTE_URL).mock(return_value=httpx.Response(404))
+    images = [
+        {"sequenceIndex": 0, "content": "OVERVIEW", "role": "overview", "registrationVisible": True},
+        {"sequenceIndex": 1, "content": "CLOSEUP", "role": "damage_closeup"},
+        {"sequenceIndex": 2, "content": "EXTRA1"},
+    ]
+    result = function_app.submit(
+        _valid_core(), images=images, vrm="AB12CDE", clm_no="CLM1", client=_eva_client()
+    )
+    assert result["submitted"] is True
+    assert any("remaining photos failed to attach" in w for w in result["warnings"])
+
+
+@respx.mock
+def test_remaining_photos_need_claim_key_warns_when_absent():
+    # No VehReg/ClmNo/EvaRef -> cannot target the claim for the Note; we send the
+    # 2 previews on the instruction and WARN that the rest were not sent.
+    _mock_token()
+    respx.post(INSTRUCTION_URL).mock(
+        return_value=httpx.Response(200, json={"StatusCode": 200, "Message": "ok"})
+    )
+    note = _mock_note()
+    images = [
+        {"sequenceIndex": 0, "content": "OVERVIEW", "role": "overview", "registrationVisible": True},
+        {"sequenceIndex": 1, "content": "CLOSEUP", "role": "damage_closeup"},
+        {"sequenceIndex": 2, "content": "EXTRA1"},
+    ]
+    result = function_app.submit(_valid_core(), images=images, client=_eva_client())
+    assert result["submitted"] is True
+    assert note.call_count == 0
+    assert any("NOT sent" in w for w in result["warnings"])
+
+
+# --------------------------------------------------------------------------
+# Overview / registration-visible guard (advisory)
+# --------------------------------------------------------------------------
+
+def test_overview_registration_warnings_missing_overview_role():
+    images = [
+        {"sequenceIndex": 0, "content": "x", "role": "damage_closeup"},
+        {"sequenceIndex": 1, "content": "y", "role": "additional"},
+    ]
+    warns = payload_mod.overview_registration_warnings(images)
+    assert any("overview" in w for w in warns)
+
+
+def test_overview_registration_warnings_flag_not_visible():
+    images = [
+        {"sequenceIndex": 0, "content": "x", "role": "overview", "registrationVisible": False},
+        {"sequenceIndex": 1, "content": "y", "role": "damage_closeup"},
+    ]
+    warns = payload_mod.overview_registration_warnings(images)
+    assert any("registration" in w.lower() for w in warns)
+
+
+def test_overview_registration_clean_when_visible_overview_present():
+    images = [
+        {"sequenceIndex": 0, "content": "x", "role": "overview", "registrationVisible": True},
+        {"sequenceIndex": 1, "content": "y", "role": "damage_closeup"},
+    ]
+    assert payload_mod.overview_registration_warnings(images) == []
+
+
+@respx.mock
+def test_submit_surfaces_registration_warning():
+    _mock_token()
+    _mock_instruction()
+    _mock_note()
+    images = [
+        {"sequenceIndex": 0, "content": "x", "role": "overview", "registrationVisible": False},
+        {"sequenceIndex": 1, "content": "y", "role": "damage_closeup"},
+        {"sequenceIndex": 2, "content": "z"},
+    ]
+    result = function_app.submit(
+        _valid_core(), images=images, vrm="AB12CDE", client=_eva_client()
+    )
+    assert result["submitted"] is True  # advisory, not a hard block
+    assert any("registration" in w.lower() for w in result["warnings"])
+
+
+# --------------------------------------------------------------------------
+# Idempotency by payload hash
+# --------------------------------------------------------------------------
+
+@respx.mock
+def test_idempotent_repeat_does_not_resubmit():
+    _mock_token()
+    instr = _mock_instruction()
+    core = _valid_core()
+    r1 = function_app.submit(core, payload_hash="hash-XYZ", client=_eva_client())
+    r2 = function_app.submit(core, payload_hash="hash-XYZ", client=_eva_client())
+    assert r1["submitted"] is True
+    assert r2["submitted"] is True
+    assert r2.get("idempotent") is True
+    assert any("duplicate payload hash" in w for w in r2["warnings"])
+    assert instr.call_count == 1  # the second call did NOT hit EVA
+
+
+def test_compute_payload_hash_is_order_independent_and_stable():
+    core = _valid_core()
+    reordered = {k: core[k] for k in reversed(list(core.keys()))}
+    assert function_app.compute_payload_hash(core) == function_app.compute_payload_hash(reordered)
+    # different content -> different hash
+    other = dict(core)
+    other["mileage"] = "99999"
+    assert function_app.compute_payload_hash(core) != function_app.compute_payload_hash(other)
 
 
 # --------------------------------------------------------------------------
@@ -301,8 +582,18 @@ def test_secret_never_in_config_repr():
 def test_secret_never_in_response_or_logs(caplog):
     _mock_token()
     _mock_instruction()
+    _mock_note()
     with caplog.at_level(logging.DEBUG):
-        result = function_app.submit(_valid_core(), client=_eva_client())
+        result = function_app.submit(
+            _valid_core(),
+            images=[
+                {"sequenceIndex": 0, "content": "x", "role": "overview", "registrationVisible": True},
+                {"sequenceIndex": 1, "content": "y", "role": "damage_closeup"},
+                {"sequenceIndex": 2, "content": "z"},
+            ],
+            vrm="AB12CDE",
+            client=_eva_client(),
+        )
     serialized = json.dumps(result)
     for secret in (FAKE_SECRET, FAKE_CLIENT_ID, FAKE_TOKEN):
         assert secret not in serialized
@@ -358,6 +649,7 @@ def test_handler_end_to_end_happy_path(monkeypatch):
 
     _mock_token()
     _mock_instruction()
+    _mock_note()
 
     resp = function_app.eva_instruction_inspection(
         _fake_request(
@@ -365,6 +657,13 @@ def test_handler_end_to_end_happy_path(monkeypatch):
                 "evaPayload12": json.dumps(_valid_core()),
                 "payloadHash": "deadbeef",
                 "casePo": "test26001",
+                "vrm": "AB12CDE",
+                "clmNo": "CLM1",
+                "images": [
+                    {"sequenceIndex": 0, "content": "OV", "role": "overview", "registrationVisible": True},
+                    {"sequenceIndex": 1, "content": "CU", "role": "damage_closeup"},
+                    {"sequenceIndex": 2, "content": "EX"},
+                ],
             }
         )
     )
@@ -373,6 +672,7 @@ def test_handler_end_to_end_happy_path(monkeypatch):
     assert p["submitted"] is True
     assert p["transport"] == "sentry_rest"
     assert p["payloadHash"] == "deadbeef"
+    assert p["evaRef"] == "TEST26001-EVA"
     body_text = resp.get_body().decode("utf-8")
     assert FAKE_SECRET not in body_text
     assert FAKE_TOKEN not in body_text
