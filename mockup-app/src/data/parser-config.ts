@@ -1,22 +1,23 @@
 /* ============================================================
    Collision Engineers — Code App: PARSER endpoint config.
 
-   The live document parser is an Azure Function (cespike-parser-dev) called
-   FUNCTION-direct: a single POST to /api/parse with an `x-functions-key` header.
+   The live document parser is an Azure Function (cespike-parser-dev). The
+   PRODUCTION path is the CE Parser custom connector (connection ref
+   `cr1bd_ceparser`) called via the @microsoft/power-apps SDK — same-origin, with
+   AUTH SUPPLIED BY THE CONNECTION, not the app. The deployed Code App player
+   enforces CSP `connect-src 'none'`, so a raw cross-origin fetch is BLOCKED on
+   the deployed app anyway; the connector is the only viable path in production.
+   Routing through the connector is PENDING (task #27 — "Wire CE Parser connector
+   into Code App").
 
-   APPROACH = DIRECT FETCH (not the custom connector). NOTE: the deployed Code App
-   player enforces CSP `connect-src 'none'`, so the direct fetch is BLOCKED on the
-   deployed app and only works on localhost / offline tests. The production path is
-   the CE Parser custom connector via the @microsoft/power-apps SDK (same-origin;
-   key in the connection). Routing through the connector is PENDING (task #27).
+   NO SECRET IN SOURCE: `functionKey` defaults to '' (empty). The app must never
+   carry a working function key as a source constant — the connector will supply
+   auth in a later PR. For local-dev-only direct testing, inject a key at runtime
+   via `configureParser({ functionKey })` from a gitignored .env, never commit it.
 
-   The host + key live here as the app default. They are overridable at runtime
-   via `configureParser(...)` (tests inject a fake transport instead — see
-   parser-client.ts), so nothing here is load-bearing for the unit tests.
-
-   NOTE: this key is a DEV function key for a throwaway sandbox Function. It is not
-   a tenant secret. For a production build this would move behind the custom
-   connector + a Dataverse-stored connection (option a).
+   The {document, filename} request contract (see parser-client.ts `ParseRequest`)
+   is unchanged, so swapping `fetchParserTransport` for the generated connector
+   service is a clean drop-in.
    ============================================================ */
 
 export interface ParserConfig {
@@ -28,11 +29,13 @@ export interface ParserConfig {
   functionKey: string;
 }
 
-/** App default: the live cespike-parser-dev Function + its dev function key. */
+/** App default: the cespike-parser-dev Function host. NO KEY in source — the CE
+    Parser connector supplies auth in production (task #27). For local-dev direct
+    testing, inject via configureParser({ functionKey }) from a gitignored .env. */
 const DEFAULT_PARSER_CONFIG: ParserConfig = {
   baseUrl: 'https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net',
   path: '/api/parse',
-  functionKey: 'A31IJ9kySfjhR-9bizHWvjWoXk7uDvEuLfDcd1gkJnWxAzFuzYZHaA==',
+  functionKey: '', // placeholder — populated at runtime / replaced by the connector
 };
 
 let active: ParserConfig = { ...DEFAULT_PARSER_CONFIG };

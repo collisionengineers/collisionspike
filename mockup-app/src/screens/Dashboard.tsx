@@ -25,7 +25,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { SectionHeading, PipelineStrip, VrmPlate, ErrorState } from '../components';
+import { SectionHeading, PipelineStrip, VrmPlate, ErrorState, DashboardSkeleton } from '../components';
 import { useDashboard } from '../data';
 import type { ActionReason, AgingRow } from '../data';
 
@@ -365,7 +365,9 @@ export function Dashboard() {
   // The dashboard bundle (liveCounts/throughput/agingExceptions/pipelineStages)
   // is fetched through the data seam. `refetch` re-runs it; `stamp` drives the
   // "Updated HH:MM" affordance (display only — the figures come from the hook).
-  const { data: dash, error, refetch } = useDashboard();
+  // `loading` signals a background refresh (focus/poll) so the header can show a
+  // tiny spinner instead of silently swapping numbers.
+  const { data: dash, loading, error, refetch } = useDashboard();
 
   const [stamp, setStamp] = useState<Date>(() => new Date());
   const stampRef = useRef(stamp);
@@ -394,10 +396,10 @@ export function Dashboard() {
     if (dash) setStamp(new Date());
   }, [dash]);
 
-  // First-load (no data yet) — spinner; hard failure — error panel with retry.
+  // First-load (no data yet) — content-shaped skeleton; hard failure — error panel.
   if (!dash) {
     return (
-      <div className={styles.root}>
+      <div className={mergeClasses('ce-enter', styles.root)}>
         <SectionHeading
           eyebrow="Overview"
           heading="Case intake dashboard"
@@ -406,9 +408,7 @@ export function Dashboard() {
         {error ? (
           <ErrorState error={error} onRetry={refresh} title="Couldn’t load the dashboard" />
         ) : (
-          <div className={styles.empty}>
-            <Spinner size="medium" label="Loading dashboard…" labelPosition="below" />
-          </div>
+          <DashboardSkeleton />
         )}
       </div>
     );
@@ -417,13 +417,14 @@ export function Dashboard() {
   const { pipelineStages: stages, liveCounts: live, throughput: thru, agingExceptions: aging } = dash;
 
   return (
-    <div className={styles.root}>
+    <div className={mergeClasses('ce-enter', styles.root)}>
       <SectionHeading
         eyebrow="Overview"
         heading="Case intake dashboard"
         subtitle="Clear the backlog — chase what is aging, submit what is ready."
         actions={
           <span className={styles.updated}>
+            {loading && <Spinner size="tiny" aria-label="Refreshing" />}
             <span>Updated {fmtTime(stamp)}</span>
             <span aria-hidden>·</span>
             <button type="button" className={mergeClasses('ce-focusable', styles.refreshBtn)} onClick={refresh}>

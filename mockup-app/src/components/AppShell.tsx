@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Avatar,
   SearchBox,
@@ -26,6 +26,7 @@ import { QUEUES, data, type QueueName } from '../data';
 // permits data URIs. (Fonts can't use this — CSP is `font-src 'self'`.)
 // Regenerate: `node scripts/gen-logo-data-uris.mjs`. See plans/logo-fix-findings.md.
 import { logoWhite, logoMark } from '../assets/logos.generated';
+import { AppErrorBoundary } from './AppErrorBoundary';
 
 /* Two-part app chrome:
    - charcoal (#2c2a27) left rail: white reverse logo (web_logo_white.png),
@@ -216,6 +217,7 @@ export interface AppShellProps {
 export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
   const styles = useStyles();
   const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
   // Rail badge counts come through the data seam (async). Re-fetched on route
@@ -369,7 +371,9 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
         </header>
 
         <main className={styles.content}>
-          <Outlet />
+          <AppErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </AppErrorBoundary>
         </main>
       </div>
     </div>

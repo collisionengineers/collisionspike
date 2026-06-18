@@ -3,22 +3,23 @@
 
    THE ONE IMPORT POINT for the screens. It re-exports:
 
-     1. The PURE, SYNC helpers + types unchanged from '../mock' (dueInfo,
-        reasonVerb, outstandingText, suggestCasePo, statusToQueue, QUEUES,
-        REASON_LABELS, EVA_FIELD_ORDER, every domain type, …). These compute over
-        a Case/now with no I/O, so they stay synchronous and identical whether
-        the data came from the mock or from Dataverse.
+     1. The PURE, SYNC helpers + types from '../mock' (dueInfo, reasonVerb,
+        outstandingText, suggestCasePo, statusToQueue, QUEUES, REASON_LABELS,
+        EVA_FIELD_ORDER, every domain type, …). These compute over a Case/now
+        with no I/O, so they stay synchronous and identical regardless of source.
 
      2. The async repository (`DataAccess`) via a SELECTOR: `getDataAccess()`
-        returns the mock source by DEFAULT (offline, SDK-free, green) and the
-        Dataverse source ONLY when real generated services are injected through
-        `configureDataAccess(services)`. Screens never import a pac-generated
-        service directly — they go through `data` / the hooks.
+        returns an EMPTY default source (no fabricated rows, SDK-free) until the
+        live Dataverse source is injected via `configureDataAccess(services)` at
+        startup (src/main.tsx). The app is Dataverse-backed in every real run;
+        the empty default exists only so this seam barrel + tests stay SDK-free
+        and so an injection failure degrades to honest empty states, never to
+        fabricated data. Screens never import a pac-generated service directly.
 
      3. The React hooks (../data/hooks) over the async fetchers.
 
-   No '@microsoft/power-apps' import, no 'src/generated/' import — the seam keeps
-   the offline build mock-backed so the grep gate passes.
+   This barrel itself imports no '@microsoft/power-apps' / 'src/generated/'
+   module — those are confined to ./generated-services (+ main.tsx).
    ============================================================ */
 
 import type { DataAccess, GeneratedServices } from './types';
@@ -144,32 +145,35 @@ export {
 /* ============================================================
    2. The DataAccess selector.
 
-   Default = mock. Inject real generated services to switch to Dataverse without
-   touching any screen. The selection is a one-time configuration the app shell
-   performs at startup (after pac generates the services); screens just read
-   `getDataAccess()` / use the hooks.
+   Default = the EMPTY source (no fabricated rows). Inject real generated
+   services to switch to Dataverse without touching any screen. The selection is
+   a one-time configuration the app shell performs at startup (after pac
+   generates the services); screens just read `getDataAccess()` / use the hooks.
    ============================================================ */
 
 let active: DataAccess = mockDataAccess;
 
 /**
  * Switch the seam to the Dataverse source by injecting the pac-generated service
- * bundle. Called once at app startup AFTER `pac code add-data-source` has run.
- * Until then (and for the whole offline build) the mock source is used.
+ * bundle. Called once at app startup (src/main.tsx) AFTER the SDK bootstrap.
+ * Until then (and in SDK-free unit tests) the empty default source is used.
  */
 export function configureDataAccess(services: GeneratedServices): void {
   active = createDataverseDataAccess(services);
 }
 
-/** Reset the seam to the mock source (tests / storybook). */
+/** Reset the seam to the empty default source (tests / storybook). */
 export function useMockDataAccess(): void {
   active = mockDataAccess;
 }
 
-/** The currently-selected DataAccess (mock by default). */
+/** The currently-selected DataAccess (empty default until configured). */
 export function getDataAccess(): DataAccess {
   return active;
 }
+
+/* The seam selector is initialised to the empty default above; main.tsx calls
+   configureDataAccess(generatedServices) at startup to switch to Dataverse. */
 
 /**
  * Convenience handle the screens/hooks bind to. It always delegates to the

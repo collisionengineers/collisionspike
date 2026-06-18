@@ -1,4 +1,6 @@
-import type { Evidence } from './types';
+/* TEST FIXTURES — derived from the fabricated cases. NOT shipped (tree-shaken
+   out of dist). See __fixtures__/cases.ts. */
+import type { Evidence } from '../mock/types';
 import { cases } from './cases';
 
 /** Flat list of all evidence across cases (handy for galleries / counts). */
