@@ -1,5 +1,7 @@
 # Data Model (Dataverse)
 
+> **Target environment:** Sandbox `Collision Engineers - Dev` (`b3090c42-…`), not the default env (`858cf5b3-…`).
+
 Distilled from the real **CE Job Sheet** (`raw/…xlsm`), the provider/inspection-address corpus
 notes, and the case workflow. The job sheet's `Principals` and `Garages` sheets become governed
 corpus tables; the formula-driven `Jobs` sheet becomes the `Case` table. **Source records (with
@@ -21,7 +23,7 @@ The live work item (replaces the `Jobs` sheet — 31 cols × ~226 rows of formul
   reference → staff confirm**. Exact Message-ID/hash repeat → drop. Never auto-merge on VRM+time or
   across providers.
 - Readiness (deterministic): `ready_for_eva` only when the **required-items checklist** is satisfied
-  or explicitly overridden — 13 EVA fields valid + image-rules + inspection-address decision +
+  or explicitly overridden — 12 EVA fields valid + image-rules + inspection-address decision +
   per-provider extras. Unsatisfied items = the **Missing** list; EVA submit is blocked until met.
   An image-based inspection address is an explicit override-with-reason, not a silent pass.
 - Enrichment precedence: the **instruction/parser is authoritative** for mileage — DVSA
@@ -30,8 +32,10 @@ The live work item (replaces the `Jobs` sheet — 31 cols × ~226 rows of formul
   `inspectionAddressId` (→ InspectionAddress, nullable).
 - Workflow: `status` (state machine below), `intakeChannel` (Email/WhatsApp × Auto/Manual; **Audatex out of scope**),
   `sourceMailbox`, `dateDue`, `inspectionDate`.
-- EVA fields (the 13-field contract): vehicle model, claimant name, dates, accident circumstances,
-  VAT status, mileage + unit, 6-line inspection address (or `Image Based Assessment`).
+- EVA fields (the 12-field contract): vehicle model, claimant name, dates, accident circumstances,
+  VAT status, mileage + unit, 6-line inspection address (or `Image Based Assessment`). Engineer
+  allocation is NOT an EVA submission field — it is assigned inside EVA after submission (removed from
+  the contract, B3 RESOLVED).
 - Overview-only (imported when present, **must not drive workflow/readiness/matching**):
   insuredName, claimantName, thirdPartyName, claimNumber, policyReference, incidentDate, claimType,
   insurerName, repairerName.

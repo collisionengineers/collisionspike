@@ -1,23 +1,24 @@
 /* ============================================================
    Collision Engineers — EVA export contract (CANONICAL serializer).
 
-   Re-implements collisioncc `src/lib/eva-export.ts` for the SETTLED 13-field
+   Re-implements collisioncc `src/lib/eva-export.ts` for the SETTLED 12-field
    EVA set. THIS IS THE ONE SERIALIZER the Code App and the Power Automate flow
    both target, so their drag-drop JSON is byte-identical. The Python parser
    Function validates its output against the sibling JSON Schema
    (`contracts/eva-payload.schema.json`). NOTE: that schema is the MEMBERSHIP +
-   FORMAT gate (exactly these 13 keys, date/enum/address shapes) — JSON Schema
+   FORMAT gate (exactly these 12 keys, date/enum/address shapes) — JSON Schema
    `required` is order-insensitive, so it does NOT enforce key order. Order is
    guaranteed by every producer serializing in `EVA_FIELD_ORDER` (this file is
    the order authority; the schema is the membership/format authority).
 
-   The 13 binding fields (order is load-bearing; engineer_allocation is 13th,
-   a settled placeholder name — do NOT rename):
+   The 12 binding fields (order is load-bearing):
      1 work_provider          2 vehicle_model         3 claimant_name
      4 claimant_telephone     5 claimant_email        6 date_of_loss
      7 date_of_instruction    8 accident_circumstances 9 inspection_address
     10 vat_status            11 mileage              12 mileage_unit
-    13 engineer_allocation
+
+   (Engineer allocation is NOT an EVA submission field — it is left blank and
+   assigned inside EVA AFTER submission, so it is excluded from this payload.)
 
    `vrm` and `reference` are CASE-IDENTITY fields, NOT EVA payload fields — they
    live on the Case row for correlation/dedup and are EXCLUDED from the payload.
@@ -45,8 +46,7 @@ export type EvaFieldKey =
   | 'inspectionAddress'
   | 'vatStatus'
   | 'mileage'
-  | 'mileageUnit'
-  | 'engineerAllocation';
+  | 'mileageUnit';
 
 /** snake_case property names emitted in the EVA payload JSON. */
 export type EvaPayloadKey =
@@ -61,8 +61,7 @@ export type EvaPayloadKey =
   | 'inspection_address'
   | 'vat_status'
   | 'mileage'
-  | 'mileage_unit'
-  | 'engineer_allocation';
+  | 'mileage_unit';
 
 export interface EvaFieldDescriptor {
   /** camelCase prototype key. */
@@ -75,7 +74,7 @@ export interface EvaFieldDescriptor {
   required: boolean;
 }
 
-/** The 13 binding fields in contract order. engineer_allocation is 13th. */
+/** The 12 binding fields in contract order. */
 export const EVA_FIELD_ORDER: readonly EvaFieldDescriptor[] = [
   { key: 'workProvider', payloadKey: 'work_provider', label: 'Work Provider', required: true },
   { key: 'vehicleModel', payloadKey: 'vehicle_model', label: 'Vehicle Model', required: true },
@@ -89,7 +88,6 @@ export const EVA_FIELD_ORDER: readonly EvaFieldDescriptor[] = [
   { key: 'vatStatus', payloadKey: 'vat_status', label: 'VAT Status', required: false },
   { key: 'mileage', payloadKey: 'mileage', label: 'Mileage', required: false },
   { key: 'mileageUnit', payloadKey: 'mileage_unit', label: 'Mileage Unit', required: false },
-  { key: 'engineerAllocation', payloadKey: 'engineer_allocation', label: 'Engineer Allocation', required: false },
 ] as const;
 
 /** The ordered list of snake_case payload property names (the schema's key order). */
@@ -101,7 +99,7 @@ export const EVA_PAYLOAD_KEYS: readonly EvaPayloadKey[] = EVA_FIELD_ORDER.map(
 export type VatStatus = '' | 'Yes' | 'No';
 export type MileageUnit = '' | 'Miles' | 'Km';
 
-/** The serialized payload: exactly the 13 snake_case keys, each a string. */
+/** The serialized payload: exactly the 12 snake_case keys, each a string. */
 export type EvaPayload = Record<EvaPayloadKey, string>;
 
 /* ----------  Build input  ----------
@@ -118,7 +116,7 @@ export interface EvaPayloadInput {
 }
 
 /**
- * Build the 13-field EVA payload from a Case-like input, in contract order.
+ * Build the 12-field EVA payload from a Case-like input, in contract order.
  * Excludes vrm/reference (Case-identity, never payload). Values are emitted
  * verbatim (already-normalized by the parser/staff per the field formats);
  * this serializer does not transform values, it only orders and projects them.

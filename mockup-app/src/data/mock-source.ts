@@ -38,6 +38,9 @@ const TERMINAL = new Set(['eva_submitted', 'box_synced']);
 export const mockDataAccess: DataAccess = {
   /* ----- Cases ----- */
   caseById: (id) => Promise.resolve(mockCaseById(id)),
+  // Offline: no persistence — echo a synthetic id so the UI flow stays exercisable.
+  createCase: (_input) =>
+    Promise.resolve({ id: `mock-case-${Date.now().toString(36)}` }),
   casesForQueue: (name, now) => Promise.resolve(mockCasesForQueue(name, now)),
   openVrmTwins: (vrm, excludeCaseId) =>
     Promise.resolve(

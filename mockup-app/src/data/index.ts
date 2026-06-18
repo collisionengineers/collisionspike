@@ -99,6 +99,8 @@ export {
 // The seam's own interface types (so screens/tests can type a DataAccess).
 export type {
   DataAccess,
+  CreateCaseInput,
+  CreateCaseResult,
   GeneratedServices,
   GeneratedTableService,
   OperationResult,
@@ -111,6 +113,33 @@ export type {
   ChaserRecord,
   AuditEventRecord,
 } from './types';
+
+/* ----------  Live document-parser client (manual intake) ----------
+   Plain-fetch client to the cespike-parser Azure Function + its response adapter.
+   SDK-free (no '@microsoft/power-apps'), so it stays inside the offline boundary;
+   the network call is injectable for tests. */
+export {
+  parseDocument,
+  adaptParserResponse,
+  parserFieldToEvaField,
+  parserSourceToType,
+  parserErrors,
+  fileToBase64,
+  fetchParserTransport,
+  type ParserResponse,
+  type ParserField,
+  type ParserIssue,
+  type ParsedIntake,
+  type ParseRequest,
+  type ParserTransport,
+  type ParserExtractionKey,
+} from './parser-client';
+export {
+  configureParser,
+  parserUrl,
+  getParserConfig,
+  type ParserConfig,
+} from './parser-config';
 
 /* ============================================================
    2. The DataAccess selector.

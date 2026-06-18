@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_Intake_<Mailbox> (§5.1). Per-shared-mailbox trigger + Message-ID/payloadHash dedup guard (ADR-0010 exact-repeat = drop). Mirrors collisioncc graph-intake.ts ingestGraphMessage; never calls it. [BUILD] only; activating on a live Collision Engineers mailbox is [RESERVED-FOR-USER]. The IntakeMailbox is a flow parameter, never a hardcoded live address.",
+  "comment": "Flow_Intake_<Mailbox> (§5.1). Per-shared-mailbox trigger + Message-ID/payloadHash dedup guard (ADR-0010 exact-repeat = drop). Mirrors collisioncc graph-intake.ts ingestGraphMessage; never calls it. [BUILD] only; activating on a live Collision Engineers mailbox is [RESERVED-FOR-USER]. The IntakeMailbox is a flow parameter, never a hardcoded live address. GO-LIVE HARDENING: (1) MinIntakeDate guard (String param, default '2026-06-17', set per-environment at activation) — the FIRST action after the trigger drops any email whose receivedDateTime is before MinIntakeDate (Terminate Succeeded), so historical backlog mail is never ingested. (2) Trigger hasAttachments=true is a TEMPORARY measure to be REMOVED once a full email-management / routing system is implemented later; until then it suppresses no-attachment noise at the source. Trigger is SharedMailboxOnNewEmailV2 (operationId), params folderId='Inbox' + hasAttachments — the real Office 365 connector operation/param names (reconciled live 2026-06-18 against the connector swagger; the earlier OnNewEmailV3SharedMailbox/folderPath/fetchOnlyWithAttachment were placeholders that failed to save).",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
     "$authentication": { "type": "SecureObject", "defaultValue": {} },
@@ -9,6 +9,11 @@
       "type": "String",
       "defaultValue": "@parameters('IntakeMailbox')",
       "metadata": { "description": "Shared inbox address. Flow parameter (or Dataverse env-var read) so one definition ships to all 3 mailboxes. NEVER a hardcoded live mailbox in the authored definition." }
+    },
+    "MinIntakeDate": {
+      "type": "String",
+      "defaultValue": "2026-06-17",
+      "metadata": { "description": "Inclusive earliest email receivedDateTime to ingest (ISO date/datetime). Set per-environment at activation. The date guard (Drop_if_before_min_date) drops any email received BEFORE this instant so historical backlog mail is never ingested. Default 2026-06-17." }
     }
   },
   "triggers": {
@@ -17,14 +22,14 @@
       "inputs": {
         "host": {
           "connectionName": "shared_office365",
-          "operationId": "OnNewEmailV3SharedMailbox",
+          "operationId": "SharedMailboxOnNewEmailV2",
           "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
         },
         "parameters": {
           "mailboxAddress": "@parameters('IntakeMailbox')",
-          "folderPath": "Inbox",
+          "folderId": "Inbox",
           "includeAttachments": true,
-          "fetchOnlyWithAttachment": false,
+          "hasAttachments": true,
           "importance": "Any"
         }
       },
@@ -35,13 +40,46 @@
     }
   },
   "actions": {
+    "Drop_if_before_min_date": {
+      "type": "If",
+      "expression": {
+        "equals": [ "@less(ticks(triggerOutputs()?['body/receivedDateTime']), ticks(parameters('MinIntakeDate')))", true ]
+      },
+      "actions": {
+        "Audit_dropped_before_min_date": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_auditevents",
+              "item/cr1bd_name": "@concat('dropped_before_min_date: ', coalesce(triggerOutputs()?['body/internetMessageId'], ''))",
+              "item/cr1bd_action": 100000005,
+              "item/cr1bd_actor": "Flow_Intake",
+              "item/cr1bd_severity": 100000000,
+              "item/cr1bd_after": "@concat('receivedDateTime=', coalesce(triggerOutputs()?['body/receivedDateTime'], ''), ' < MinIntakeDate=', parameters('MinIntakeDate'), ' -> dropped (go-live min-date guard)')",
+              "item/cr1bd_occurredat": "@utcNow()"
+            }
+          },
+          "runAfter": {}
+        },
+        "Terminate_before_min_date": {
+          "type": "Terminate",
+          "inputs": { "runStatus": "Succeeded" },
+          "runAfter": { "Audit_dropped_before_min_date": [ "Succeeded" ] }
+        }
+      },
+      "else": { "actions": {} },
+      "comment": "Go-live min-date guard. FIRST action after the trigger: if the email's receivedDateTime is BEFORE MinIntakeDate (default 2026-06-17), audit a dropped_before_min_date event (reuses the duplicate_dropped action value 100000005 — no schema change — with dropped_before_min_date semantics in name/after, mirroring Audit_duplicate_dropped) then Terminate Succeeded. Otherwise the else-branch is empty and the dedup/ingest chain proceeds. Robust comparison via ticks() so format/timezone differences do not skew the test.",
+      "runAfter": {}
+    },
     "Init_messageId": {
       "type": "InitializeVariable",
       "inputs": { "variables": [ {
         "name": "messageId", "type": "string",
         "value": "@triggerOutputs()?['body/internetMessageId']"
       } ] },
-      "runAfter": {}
+      "runAfter": { "Drop_if_before_min_date": [ "Succeeded" ] }
     },
     "Init_payloadHash": {
       "type": "InitializeVariable",
@@ -57,6 +95,12 @@
       "inputs": { "variables": [ { "name": "attachmentHashes", "type": "array", "value": [] } ] },
       "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
     },
+    "Init_senderDomain": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "senderDomain", "type": "string", "value": "@if(empty(toLower(trim(last(split(coalesce(triggerOutputs()?['body/from'], ''), '@'))))), 'none.invalid', toLower(trim(last(split(coalesce(triggerOutputs()?['body/from'], ''), '@')))))" } ] },
+      "comment": "Sender email domain (after @), lowercased -- resolves the WorkProvider by knownEmailDomains (ADR-0011 domain-only match). 'none.invalid' sentinel when absent keeps the $filter valid.",
+      "runAfter": { "Init_attachmentHashes": [ "Succeeded" ] }
+    },
     "Find_existing_by_messageId": {
       "type": "OpenApiConnection",
       "inputs": {
@@ -70,7 +114,7 @@
         }
       },
       "comment": "Exact Message-ID probe = the get-or-create idempotency guard (alternate key cr1bd_case_sourcemessageid_key). Combined with trigger concurrency=1, prevents double-create on Graph retries.",
-      "runAfter": { "Init_attachmentHashes": [ "Succeeded" ] }
+      "runAfter": { "Init_senderDomain": [ "Succeeded" ] }
     },
     "If_already_ingested": {
       "type": "If",
@@ -119,6 +163,72 @@
               }
             },
             "runAfter": {}
+          },
+          "Resolve_provider": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": {
+                "entityName": "cr1bd_workproviders",
+                "$filter": "cr1bd_active eq true and contains(cr1bd_knownemaildomains, '@{variables('senderDomain')}')",
+                "$select": "cr1bd_workproviderid,cr1bd_principalcode",
+                "$top": 2
+              }
+            },
+            "comment": "Resolve the WorkProvider by sender email domain (ADR-0011 domain-only match). Best-effort: If_resolve handles Succeeded OR Failed so a filter quirk or zero match never sinks the Case create.",
+            "runAfter": { "Audit_message_ingested": [ "Succeeded" ] }
+          },
+          "If_one_provider": {
+            "type": "If",
+            "expression": { "equals": [ "@length(coalesce(outputs('Resolve_provider')?['body/value'], json('[]')))", 1 ] },
+            "actions": {
+              "Create_case_matched": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                  "parameters": {
+                    "entityName": "cr1bd_cases",
+                    "item/cr1bd_name": "@take(coalesce(triggerOutputs()?['body/subject'], concat('Email ', variables('messageId'))), 100)",
+                    "item/cr1bd_sourcemessageid": "@variables('messageId')",
+                    "item/cr1bd_payloadhash": "@variables('payloadHash')",
+                    "item/cr1bd_status": 100000000,
+                    "item/cr1bd_intakechannelkind": 100000000,
+                    "item/cr1bd_intakechannelmanual": false,
+                    "item/cr1bd_sourcemailbox": "@parameters('IntakeMailbox')",
+                    "item/cr1bd_Workproviderid@odata.bind": "@concat('/cr1bd_workproviders(', first(outputs('Resolve_provider')?['body/value'])?['cr1bd_workproviderid'], ')')"
+                  }
+                },
+                "comment": "Exactly one provider matched the sender domain -> create the Case (new_email) bound to it.",
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {
+                "Create_case_unassigned": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                    "parameters": {
+                      "entityName": "cr1bd_cases",
+                      "item/cr1bd_name": "@take(coalesce(triggerOutputs()?['body/subject'], concat('Email ', variables('messageId'))), 100)",
+                      "item/cr1bd_sourcemessageid": "@variables('messageId')",
+                      "item/cr1bd_payloadhash": "@variables('payloadHash')",
+                      "item/cr1bd_status": 100000000,
+                      "item/cr1bd_intakechannelkind": 100000000,
+                      "item/cr1bd_intakechannelmanual": false,
+                      "item/cr1bd_sourcemailbox": "@parameters('IntakeMailbox')"
+                    }
+                  },
+                  "comment": "No single provider match (0 or ambiguous, or resolve unavailable) -> create the Case (new_email) UNASSIGNED; staff assign the provider in review. Never fails on an empty lookup.",
+                  "runAfter": {}
+                }
+              }
+            },
+            "comment": "Graceful provider gating: bind only on an unambiguous single match; otherwise create unassigned. runAfter Succeeded+Failed so an unmatched/unavailable resolve still creates the Case.",
+            "runAfter": { "Resolve_provider": [ "Succeeded", "Failed" ] }
           }
         }
       },

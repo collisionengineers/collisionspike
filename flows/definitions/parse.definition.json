@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_Parse (§5.5). Reads the PDF_MAPPER_ENABLED Dataverse env-var (READ, never DEFINE), branches: enabled -> call the cedocumentmapper_v2 parser connector (ParseDocument) -> write the 13 EVA fields as staff-review pre-fill (never auto-final) + provenance; disabled -> audit skip, leave fields for manual entry. [BUILD] flow; parser Function deploy is [DEPLOY-WITH-LOGIN].",
+  "comment": "Flow_Parse (§5.5). Reads the PDF_MAPPER_ENABLED Dataverse env-var (READ, never DEFINE), branches: enabled -> call the cedocumentmapper_v2 parser connector (ParseDocument) -> write the 12 EVA fields as staff-review pre-fill (never auto-final) + provenance; disabled -> audit skip, leave fields for manual entry. [BUILD] flow; parser Function deploy is [DEPLOY-WITH-LOGIN].",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
     "$authentication": { "type": "SecureObject", "defaultValue": {} }
@@ -69,7 +69,7 @@
               "body/provider_hint": "@triggerBody()?['providerHint']"
             }
           },
-          "comment": "ParseDocument returns { extraction:{13 EVA fields}, vrm, reference, issues, contract_version }. vrm/reference are Case-identity fields, NOT EVA payload fields.",
+          "comment": "ParseDocument returns { extraction:{12 EVA fields}, vrm, reference, issues, contract_version }. vrm/reference are Case-identity fields, NOT EVA payload fields.",
           "runAfter": {}
         },
         "Prefill_eva_fields": {
@@ -91,11 +91,10 @@
               "item/cr1bd_evainspectionaddress": "@body('Call_parser')?['extraction/inspection_address/value']",
               "item/cr1bd_evavatstatus": "@body('Call_parser')?['extraction/vat_status/value']",
               "item/cr1bd_evamileage": "@body('Call_parser')?['extraction/mileage/value']",
-              "item/cr1bd_evamileageunit": "@body('Call_parser')?['extraction/mileage_unit/value']",
-              "item/cr1bd_evaengineerallocation": "@body('Call_parser')?['extraction/engineer_allocation/value']"
+              "item/cr1bd_evamileageunit": "@body('Call_parser')?['extraction/mileage_unit/value']"
             }
           },
-          "comment": "13 EVA fields written as pre-fill for staff review (never auto-final). FieldLevelProvenance rows (sourceType=pdf_extraction, reviewState=needs_review) are written by the provenance writer; re-parse overwrites only pdf_extraction-sourced fields still in needs_review.",
+          "comment": "12 EVA fields written as pre-fill for staff review (never auto-final). FieldLevelProvenance rows (sourceType=pdf_extraction, reviewState=needs_review) are written by the provenance writer; re-parse overwrites only pdf_extraction-sourced fields still in needs_review.",
           "runAfter": { "Call_parser": [ "Succeeded" ] }
         },
         "Audit_parser_called": {
@@ -129,7 +128,7 @@
                 "item/cr1bd_action": 100000009,
                 "item/cr1bd_severity": 100000000,
                 "item/cr1bd_actor": "Flow_Parse",
-                "item/cr1bd_after": "skipped: PDF_MAPPER_ENABLED=false - 13 fields left for manual entry",
+                "item/cr1bd_after": "skipped: PDF_MAPPER_ENABLED=false - 12 fields left for manual entry",
                 "item/cr1bd_occurredat": "@utcNow()"
               }
             },

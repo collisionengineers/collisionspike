@@ -13,7 +13,7 @@ environment variables** so they can be toggled per environment with no redeploy.
   **production** cutover is gated until prod is confirmed and a parity test passes.
 - **Image submission:** likely **two requests** (confirm on test) — the 2 preview images, then the
   remaining images — matching the two-preview-then-full-sequence rule.
-- **JSON contract:** 13 fields, exact order matching `Final Format Example 02.json`; inspection
+- **JSON contract:** 12 fields, exact order matching `Final Format Example 02.json`; inspection
   address is **6 newline-separated lines**; dates `DD/MM/YYYY`; `VAT Status` ∈ {"", Yes, No};
   `Mileage Unit` ∈ {"", Miles, Km}. `Work Provider` must be non-empty. `cedocumentmapper_v2.0`
   already produces this (schema-validated).
@@ -23,37 +23,47 @@ environment variables** so they can be toggled per environment with no redeploy.
   `GET /Report/GetAvailableReports`, `GET /Report/GetReport`. Idempotency by payload hash. Authoritative
   reference: [eva-sentry-api.md](./eva-sentry-api.md) (from `raw/Sentry API Documentation 1.2 Amended.pdf`).
 
-## Enrichment connectors (`collisionplugin`)
+## Enrichment connectors
 
-The connectors are **MCP servers on Cloud Run (`europe-west2`, project `collisioncc-b7be2`),
-private behind Cloud Run IAM and an OAuth gateway (`ce-mcp-gateway`)**. They are **not directly
-callable** from Power Platform (no REST surface; 403 unauthenticated).
+> **ADR-0006 chosen pattern:** thin Azure Function REST wrapper → Power Platform custom connector.
+> **Update 2026-06:** the wrapper authenticates **directly to DVSA + DVLA via Entra
+> `client_credentials` + X-API-Key**. The Cloud Run OAuth gateway (`ce-mcp-gateway`) is **retired
+> for M1** — there is no gateway hop in the current implementation.
 
 Scope for the spike (per [intake-workflow.md](../requirements/intake-workflow.md)):
 
 | Need | Connector / tool | Notes |
 |---|---|---|
-| Mileage estimate | `dvsa-mot` → `current_mileage_estimate(registration)` | from MOT history — **only when the instruction/parser has no mileage** (document authoritative, ADR-0006) |
-| Vehicle details (make/model/year/tax) | `dvsa-mot` → `get_vehicle_summary(registration)` | DVLA/DVSA |
+| Mileage estimate | DVSA MOT history API → `current_mileage_estimate` | **only when the instruction/parser has no mileage** (document authoritative, ADR-0006) |
+| Vehicle details (make/model/year/tax) | DVLA/DVSA APIs → `get_vehicle_summary` | |
 | Valuation evidence (M2, on-demand) | `valuationbot` → `search_comparables` + `capture_advert_pages` | staff-triggered (total-loss/disputed); PDF attached as Evidence, gated `VALUATION_ENABLED` |
 
-**Integration options (pick one):**
-- **A — REST wrapper (CHOSEN — ADR-0006; DVSA in M1):** a thin Azure Function / Container App that authenticates to
-  the private Cloud Run backends (service identity) and exposes plain REST (`POST
-  /dvsa-mot/get-vehicle-summary`) → import as a Power Platform **custom connector**. Simplest for
-  Power Platform; isolates the MCP/OAuth detail.
-- **B — OAuth gateway custom connector:** custom connector that performs the `ce-mcp-gateway`
-  OAuth2 + PKCE handshake and calls `${CE_PUBLIC_URL}/dvsa-mot/mcp`. No new infra, but Power
-  Platform must speak MCP/streamable-HTTP.
-- **C — register Power Platform as a gateway OAuth client** and extend `CE_CONNECTORS`.
+**Integration options:**
+- **A — REST wrapper (CHOSEN — ADR-0006; M1 implementation):** Azure Function `cespkenrich-fn-gi62sd`
+  authenticates **directly to DVSA + DVLA via Entra `client_credentials` + X-API-Key** and exposes
+  plain REST (`POST /dvsa-mot/get-vehicle-summary`) → imported as Power Platform custom connector
+  (connection reference `cr1bd_dvsaenrich`). Simplest for Power Platform; no gateway dependency.
+- **B — OAuth gateway custom connector** *(not in M1 — retired fallback):* a custom connector that
+  performs the `ce-mcp-gateway` OAuth2 + PKCE handshake and calls the Cloud Run MCP backends
+  directly. Obviated by option A's direct Entra auth.
+- **C — register Power Platform as a gateway OAuth client** and extend `CE_CONNECTORS`. *(not in M1)*
 
 Gate the whole enrichment path with `ENRICHMENT_API_BASE` + `ENRICHMENT_ENABLED`.
 
+## Code App integration pattern
+
+> **CSP callout:** the deployed Code App player runs with `Content-Security-Policy: connect-src
+> 'none'`. All external calls from the Code App **must go through Power Platform connectors** (SDK)
+> or Power Automate HTTP actions — **never a raw `fetch()`**. This is why a deployed manual-intake
+> parse that calls an external URL directly will fail; the fix is to call via the CE Parser connector
+> (`cr1bd_ceparser`).
+
 ## Document parser (`cedocumentmapper_v2.0`)
 
-- **M1 (ADR-0004):** wrapped as an **Azure Function** → custom connector (gated `PDF_MAPPER_ENABLED`)
-  that the Code App calls inline on the instruction to pre-fill the 13 fields (staff review). Resolve
-  the **PyMuPDF AGPL** risk as part of M1.
+- **M1 (ADR-0004):** wrapped as an **Azure Function** → custom connector `cr1bd_ceparser` (gated
+  `PDF_MAPPER_ENABLED`) that the Code App calls **via the connector SDK** (not raw fetch — CSP blocks
+  external calls) to pre-fill the 12 fields (staff review). **PyMuPDF AGPL concern resolved
+  (licensed); no blocker.**
 - The CLI remains available for offline/batch use.
 
 ## Address normalisation

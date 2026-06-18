@@ -9,7 +9,7 @@ import {
   type EvaPayloadInput,
 } from './eva-export';
 
-/** Build a full 13-field input where every field carries the given value pattern. */
+/** Build a full 12-field input where every field carries the given value pattern. */
 function inputFrom(
   overrides: Partial<Record<EvaFieldKey, string>> = {},
 ): EvaPayloadInput {
@@ -21,11 +21,11 @@ function inputFrom(
 }
 
 describe('EVA_FIELD_ORDER', () => {
-  it('has exactly 13 fields', () => {
-    expect(EVA_FIELD_ORDER).toHaveLength(13);
+  it('has exactly 12 fields', () => {
+    expect(EVA_FIELD_ORDER).toHaveLength(12);
   });
 
-  it('lists the 13 binding payload keys in contract order, engineer_allocation 13th', () => {
+  it('lists the 12 binding payload keys in contract order, mileage_unit last', () => {
     expect(EVA_PAYLOAD_KEYS).toEqual([
       'work_provider',
       'vehicle_model',
@@ -39,9 +39,8 @@ describe('EVA_FIELD_ORDER', () => {
       'vat_status',
       'mileage',
       'mileage_unit',
-      'engineer_allocation',
     ]);
-    expect(EVA_PAYLOAD_KEYS[12]).toBe('engineer_allocation');
+    expect(EVA_PAYLOAD_KEYS[11]).toBe('mileage_unit');
   });
 
   it('marks the binding required fields', () => {
@@ -59,7 +58,7 @@ describe('EVA_FIELD_ORDER', () => {
 });
 
 describe('buildEvaPayload', () => {
-  it('produces exactly the 13 snake_case keys in contract order', () => {
+  it('produces exactly the 12 snake_case keys in contract order', () => {
     const payload = buildEvaPayload(inputFrom());
     expect(Object.keys(payload)).toEqual([...EVA_PAYLOAD_KEYS]);
   });
@@ -74,17 +73,17 @@ describe('buildEvaPayload', () => {
 
   it('projects each camelCase field value onto its snake_case key', () => {
     const payload = buildEvaPayload(
-      inputFrom({ workProvider: 'CCPY', engineerAllocation: 'eng-1' }),
+      inputFrom({ workProvider: 'CCPY', mileageUnit: 'Miles' }),
     );
     expect(payload.work_provider).toBe('CCPY');
-    expect(payload.engineer_allocation).toBe('eng-1');
+    expect(payload.mileage_unit).toBe('Miles');
   });
 
   it('defaults a missing field object to an empty string', () => {
     const partial = { evaFields: {} } as unknown as EvaPayloadInput;
     const payload = buildEvaPayload(partial);
     expect(payload.work_provider).toBe('');
-    expect(Object.keys(payload)).toHaveLength(13);
+    expect(Object.keys(payload)).toHaveLength(12);
   });
 });
 
@@ -101,9 +100,9 @@ describe('serializeEvaPayload / buildEvaJson', () => {
     const json = buildEvaJson(inputFrom());
     const parsed = JSON.parse(json);
     expect(Object.keys(parsed)).toEqual([...EVA_PAYLOAD_KEYS]);
-    // work_provider must appear before engineer_allocation in the raw text.
+    // work_provider must appear before mileage_unit in the raw text.
     expect(json.indexOf('"work_provider"')).toBeLessThan(
-      json.indexOf('"engineer_allocation"'),
+      json.indexOf('"mileage_unit"'),
     );
   });
 });

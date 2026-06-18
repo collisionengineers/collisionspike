@@ -211,7 +211,7 @@ lifetime counter.**
 
 ### 3.3 CaseDetail (`/case/:caseId`)
 
-**Purpose:** the **core review workspace** — verify the 13 EVA fields, curate evidence, decide the
+**Purpose:** the **core review workspace** — verify the 12 EVA fields, curate evidence, decide the
 inspection address, chase, and gate submission.
 
 **Layout**
@@ -225,8 +225,8 @@ inspection address, chase, and gate submission.
 - **Readiness `MessageBar`** (intent `error`) appears when blocked, naming the count of outstanding items.
 - **2fr / 1fr grid** (collapses to one column ≤ 960px):
   - **Main panel — `TabList`:**
-    - **Fields** — the 13 EVA fields **grouped into five legible clusters** (*Provider & claimant · Vehicle ·
-      Incident · Dates · Allocation*), each cluster under a red-underlined Futura sub-head; field order
+    - **Fields** — the 12 EVA fields **grouped into four legible clusters** (*Provider & claimant · Vehicle ·
+      Incident · Dates*), each cluster under a red-underlined Futura sub-head; field order
       **within** a cluster preserves the contract order, and the union of all cluster keys equals
       `EVA_FIELD_ORDER`. Each field is a `Field` + control (Input / Textarea / Dropdown) with the unified
       `ProvenanceBadge`; required-but-empty fields show an inline error. Editing marks the field `reviewed`.
@@ -290,7 +290,7 @@ hero** of this dialog, not a buried field:
 the Missing panel, the CaseDetail Submit button, and the dialog all consume — so they can never disagree.
 It checks:
 
-1. **Required fields** — every `required` field in the 13-field contract is non-empty.
+1. **Required fields** — every `required` field in the 12-field contract is non-empty.
 2. **Image rules** — ≥ 2 accepted (non-excluded) images, including ≥ 1 `overview` **with registration
    visible** and ≥ 1 `damage_closeup`. (Mirrors `collisioncc` `image-rules`.)
 3. **Inspection address** — a decision has been made (`inspectionDecision !== 'unknown'`).

@@ -1,26 +1,29 @@
-"""Offline tests for the DVSA enrichment wrapper.
+"""Offline tests for the DVSA enrichment wrapper (direct DVSA/DVLA — no gateway).
 
-[BUILD] — ZERO network. The token endpoint and the MCP tool calls are mocked
-with respx (httpx transport mocking). No live gateway, no Azure, no real secrets.
+[BUILD] — ZERO network. The Entra token endpoint, the DVSA MOT History endpoint
+and the DVLA Vehicle Enquiry endpoint are mocked with respx (httpx transport
+mocking). No live DVSA/DVLA, no Azure, no real secrets.
 
 Run from the function folder:
 
     python -m pytest -q
 
 Covered:
-* Mileage path fires ONLY when document_has_mileage is False (ADR-0006 guard).
-* Vehicle summary maps make/model into the cleaned shape (vehicle_model).
-* A 401 on a tool call refreshes the token exactly once, then soft-fails with a
-  warning — no exception bubbles.
-* The client_secret never appears in logs or in the response.
+* Mileage path is computed ONLY when document_has_mileage is False (ADR-0006).
+* DVSA make/model map into the cleaned shape (vehicle_model / make).
+* DVLA make-only fallback fires only when DVSA returns no make (e.g. new vehicle).
+* A 401 on the DVSA history call refreshes the Entra token exactly once, then
+  soft-fails with a warning — no exception bubbles.
+* The client_secret / api_key / token never appear in logs or in the response.
+* Ported analysis: clocking suppression, single-reading, KM normalisation.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
+from datetime import date
 from pathlib import Path
 
 import httpx
@@ -32,60 +35,75 @@ FN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(FN_DIR))
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
-from gateway_client import GatewayClient, GatewayConfig  # noqa: E402
+from dvsa_client import DvsaClient, DvsaConfig  # noqa: E402
+from dvla_client import DvlaClient, DvlaConfig  # noqa: E402
+import analysis  # noqa: E402
 import function_app  # noqa: E402
 
-BASE = "https://gw.test.example"
-TOKEN_URL = f"{BASE}/token"
-MCP_URL = f"{BASE}/dvsa-mot/mcp"
+TENANT = "11111111-2222-3333-4444-555555555555"
+TOKEN_URL = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/token"
+DVSA_BASE = "https://history.test.example"
+DVLA_BASE = "https://dvla.test.example"
 
-# A recognisable fake secret so we can assert it is never leaked.
+# Recognisable fake secrets so we can assert they are never leaked.
 FAKE_SECRET = "sBx+fake/secret+VALUE=="  # noqa: S105 - test-only, not real
+FAKE_API_KEY = "FAKE-dvsa-api-key-1234567890"  # noqa: S105 - test-only
+FAKE_DVLA_KEY = "FAKE-dvla-api-key-0987654321"  # noqa: S105 - test-only
+FAKE_TOKEN = "FAKE.test.access-token.not-a-real-jwt"  # from token_response.json
+
+# Deterministic assessment date: 374 days after the fixture's last MOT reading
+# (2023-03-06) so current_mileage_estimate yields exactly 62400 / MEDIUM.
+AS_OF = date(2024, 3, 14)
 
 
 def _load(name: str) -> dict:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
-def _make_client() -> GatewayClient:
-    cfg = GatewayConfig(
-        base_url=BASE,
+def _dvsa_client() -> DvsaClient:
+    cfg = DvsaConfig(
+        tenant_id=TENANT,
         client_id="fake-client-id",
         client_secret=FAKE_SECRET,
-        connector="dvsa-mot",
+        scope="https://tapi.dvsa.gov.uk/.default",
+        api_base=DVSA_BASE,
+        api_key=FAKE_API_KEY,
     )
-    # No injected transport: respx patches the default httpx transport globally.
-    return GatewayClient(config=cfg)
+    return DvsaClient(config=cfg)
 
 
-def _tool_name(request: httpx.Request) -> str:
-    return json.loads(request.content)["params"]["name"]
+def _dvla_client() -> DvlaClient:
+    cfg = DvlaConfig(api_key=FAKE_DVLA_KEY, api_base=DVLA_BASE)
+    return DvlaClient(config=cfg)
+
+
+def _mock_token() -> respx.Route:
+    return respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json=_load("token_response.json"))
+    )
+
+
+def _mock_dvsa(vehicle_fixture: str = "dvsa_vehicle.json") -> respx.Route:
+    return respx.get(url__regex=rf"{DVSA_BASE}/v1/trade/vehicles/registration/.*").mock(
+        return_value=httpx.Response(200, json=_load(vehicle_fixture))
+    )
 
 
 # --------------------------------------------------------------------------
-# Mileage guard
+# Mileage guard (ADR-0006)
 # --------------------------------------------------------------------------
 
 @respx.mock
-def test_mileage_skipped_when_document_has_mileage():
-    token_route = respx.post(TOKEN_URL).mock(
-        return_value=httpx.Response(200, json=_load("token_response.json"))
+def test_mileage_skipped_when_document_has_mileage(monkeypatch):
+    # Pin the analysis as-of so the assertion is date-independent. (Even though
+    # the estimate is skipped here, pinning keeps the suite uniform.)
+    _pin_as_of(monkeypatch)
+    token_route = _mock_token()
+    dvsa_route = _mock_dvsa()
+
+    result = function_app.enrich(
+        "TE57VRM", document_has_mileage=True, dvsa=_dvsa_client(), dvla=None
     )
-    summary_resp = _load("get_vehicle_summary.json")
-    mileage_resp = _load("current_mileage_estimate.json")
-
-    def mcp_handler(request: httpx.Request) -> httpx.Response:
-        name = _tool_name(request)
-        if name == "get_vehicle_summary":
-            return httpx.Response(200, json=summary_resp)
-        if name == "current_mileage_estimate":
-            return httpx.Response(200, json=mileage_resp)
-        return httpx.Response(404)
-
-    mcp_route = respx.post(MCP_URL).mock(side_effect=mcp_handler)
-
-    client = _make_client()
-    result = function_app.enrich("TE57VRM", document_has_mileage=True, client=client)
 
     # Vehicle summary still fetched...
     assert result["vehicle_model"] == "FOCUS"
@@ -95,88 +113,134 @@ def test_mileage_skipped_when_document_has_mileage():
     assert "mileage_unit" not in result
     assert any("authoritative" in w for w in result["warnings"])
 
-    # Only get_vehicle_summary should have been called — not the estimator.
-    called_tools = [_tool_name(c.request) for c in mcp_route.calls]
-    assert called_tools == ["get_vehicle_summary"]
     assert token_route.called
+    assert dvsa_route.call_count == 1  # exactly one DVSA lookup serves both
 
 
 @respx.mock
-def test_mileage_fetched_when_document_lacks_mileage():
-    respx.post(TOKEN_URL).mock(
-        return_value=httpx.Response(200, json=_load("token_response.json"))
+def test_mileage_fetched_when_document_lacks_mileage(monkeypatch):
+    _pin_as_of(monkeypatch)
+    _mock_token()
+    dvsa_route = _mock_dvsa()
+
+    result = function_app.enrich(
+        "TE57VRM", document_has_mileage=False, dvsa=_dvsa_client(), dvla=None
     )
-    summary_resp = _load("get_vehicle_summary.json")
-    mileage_resp = _load("current_mileage_estimate.json")
-
-    def mcp_handler(request: httpx.Request) -> httpx.Response:
-        name = _tool_name(request)
-        if name == "get_vehicle_summary":
-            return httpx.Response(200, json=summary_resp)
-        return httpx.Response(200, json=mileage_resp)
-
-    mcp_route = respx.post(MCP_URL).mock(side_effect=mcp_handler)
-
-    client = _make_client()
-    result = function_app.enrich("TE57VRM", document_has_mileage=False, client=client)
 
     assert result["vehicle_model"] == "FOCUS"
+    assert result["make"] == "FORD"
     assert result["current_mileage"] == 62400
     assert result["mileage_unit"] == "Miles"
     assert result["mileage_confidence"] == "MEDIUM"
-
-    called_tools = sorted(_tool_name(c.request) for c in mcp_route.calls)
-    assert called_tools == ["current_mileage_estimate", "get_vehicle_summary"]
-
-
-# --------------------------------------------------------------------------
-# Vehicle-summary mapping
-# --------------------------------------------------------------------------
-
-@respx.mock
-def test_vehicle_summary_maps_make_and_model():
-    respx.post(TOKEN_URL).mock(
-        return_value=httpx.Response(200, json=_load("token_response.json"))
-    )
-    respx.post(MCP_URL).mock(
-        return_value=httpx.Response(200, json=_load("get_vehicle_summary.json"))
-    )
-
-    client = _make_client()
-    summary = client.call_tool("get_vehicle_summary", {"registration": "TE57VRM"})
-    assert summary["make"] == "FORD"
-    assert summary["model"] == "FOCUS"
+    # Still a single DVSA call — one fetch feeds both summary and estimate.
+    assert dvsa_route.call_count == 1
 
 
 # --------------------------------------------------------------------------
-# 401 -> refresh once -> soft fail
+# DVLA make-only fallback (DVSA has no record / no make)
 # --------------------------------------------------------------------------
 
 @respx.mock
-def test_401_refreshes_once_then_soft_fails(caplog):
-    token_route = respx.post(TOKEN_URL).mock(
-        return_value=httpx.Response(200, json=_load("token_response.json"))
+def test_dvla_fallback_when_dvsa_has_no_mot():
+    _mock_token()
+    # DVSA returns a new vehicle with no motTests and (here) no make either.
+    no_mot = _load("dvsa_vehicle_no_mot.json")
+    no_mot.pop("make", None)  # force the fallback
+    respx.get(url__regex=rf"{DVSA_BASE}/v1/trade/vehicles/registration/.*").mock(
+        return_value=httpx.Response(200, json=no_mot)
     )
-    # Every MCP call returns 401 — forces one refresh, then a terminal 401.
-    mcp_route = respx.post(MCP_URL).mock(return_value=httpx.Response(401))
+    dvla_route = respx.post(f"{DVLA_BASE}/v1/vehicles").mock(
+        return_value=httpx.Response(200, json=_load("dvla_vehicle.json"))
+    )
 
-    client = _make_client()
+    result = function_app.enrich(
+        "NE71VRM", document_has_mileage=True, dvsa=_dvsa_client(), dvla=_dvla_client()
+    )
+    assert result["make"] == "TESLA"  # filled from DVLA
+    assert dvla_route.called
+
+
+@respx.mock
+def test_dvla_fallback_skipped_when_dvsa_has_make():
+    _mock_token()
+    _mock_dvsa()  # FORD FOCUS — DVSA already supplies make
+    dvla_route = respx.post(f"{DVLA_BASE}/v1/vehicles").mock(
+        return_value=httpx.Response(200, json=_load("dvla_vehicle.json"))
+    )
+
+    result = function_app.enrich(
+        "TE57VRM", document_has_mileage=True, dvsa=_dvsa_client(), dvla=_dvla_client()
+    )
+    assert result["make"] == "FORD"
+    assert not dvla_route.called  # DVLA must NOT be called when DVSA gave a make
+
+
+# --------------------------------------------------------------------------
+# 404 -> no record, soft warning
+# --------------------------------------------------------------------------
+
+@respx.mock
+def test_dvsa_404_soft_fails():
+    _mock_token()
+    respx.get(url__regex=rf"{DVSA_BASE}/v1/trade/vehicles/registration/.*").mock(
+        return_value=httpx.Response(404, json={"errorCode": "MOTH-NP-01"})
+    )
+
+    result = function_app.enrich(
+        "GONE123", document_has_mileage=False, dvsa=_dvsa_client(), dvla=None
+    )
+    assert "make" not in result
+    assert any("no MOT record" in w for w in result["warnings"])
+
+
+# --------------------------------------------------------------------------
+# 401 -> refresh once -> retry (token self-heal)
+# --------------------------------------------------------------------------
+
+@respx.mock
+def test_401_refreshes_token_once_then_succeeds(monkeypatch, caplog):
+    _pin_as_of(monkeypatch)
+    token_route = _mock_token()
+
+    calls = {"n": 0}
+
+    def dvsa_handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(401)  # first call: stale token
+        return httpx.Response(200, json=_load("dvsa_vehicle.json"))
+
+    respx.get(url__regex=rf"{DVSA_BASE}/v1/trade/vehicles/registration/.*").mock(
+        side_effect=dvsa_handler
+    )
+
     with caplog.at_level(logging.WARNING):
-        # document_has_mileage=False so BOTH tools are attempted; neither raises.
         result = function_app.enrich(
-            "TE57VRM", document_has_mileage=False, client=client
+            "TE57VRM", document_has_mileage=False, dvsa=_dvsa_client(), dvla=None
         )
 
-    # No exception bubbled; both lookups soft-failed into warnings.
-    assert any("Vehicle summary lookup failed" in w for w in result["warnings"])
-    assert any("Mileage estimate lookup failed" in w for w in result["warnings"])
+    # Recovered after one refresh: make/model + mileage present, no exception.
+    assert result["make"] == "FORD"
+    assert result["current_mileage"] == 62400
+    assert token_route.call_count >= 2  # initial + forced refresh
+    assert calls["n"] == 2  # one 401, one success
+    assert FAKE_TOKEN not in caplog.text
+    assert FAKE_SECRET not in caplog.text
 
-    # Token fetched at least twice: initial + at least one forced refresh.
-    assert token_route.call_count >= 2
-    # Each tool call attempted twice (original + one retry after refresh).
-    assert mcp_route.call_count >= 2
 
-    # The secret must not appear anywhere in the captured logs.
+@respx.mock
+def test_persistent_401_soft_fails(caplog):
+    _mock_token()
+    respx.get(url__regex=rf"{DVSA_BASE}/v1/trade/vehicles/registration/.*").mock(
+        return_value=httpx.Response(401)
+    )
+
+    with caplog.at_level(logging.WARNING):
+        result = function_app.enrich(
+            "TE57VRM", document_has_mileage=True, dvsa=_dvsa_client(), dvla=None
+        )
+    # No exception bubbled; lookup soft-failed into a warning.
+    assert any("DVSA lookup failed" in w for w in result["warnings"])
     assert FAKE_SECRET not in caplog.text
 
 
@@ -184,37 +248,86 @@ def test_401_refreshes_once_then_soft_fails(caplog):
 # Secret hygiene
 # --------------------------------------------------------------------------
 
-def test_secret_never_in_config_repr():
-    cfg = GatewayConfig(
-        base_url=BASE, client_id="cid", client_secret=FAKE_SECRET
+def test_secret_never_in_dvsa_config_repr():
+    cfg = DvsaConfig(
+        tenant_id=TENANT, client_id="cid", client_secret=FAKE_SECRET, api_key=FAKE_API_KEY
     )
-    assert FAKE_SECRET not in repr(cfg)
+    r = repr(cfg)
+    assert FAKE_SECRET not in r
+    assert FAKE_API_KEY not in r
+    assert "redacted" in r
+
+
+def test_secret_never_in_dvla_config_repr():
+    cfg = DvlaConfig(api_key=FAKE_DVLA_KEY)
+    assert FAKE_DVLA_KEY not in repr(cfg)
     assert "redacted" in repr(cfg)
 
 
 @respx.mock
-def test_secret_never_in_response_or_logs(caplog):
-    respx.post(TOKEN_URL).mock(
-        return_value=httpx.Response(200, json=_load("token_response.json"))
-    )
+def test_secret_never_in_response_or_logs(monkeypatch, caplog):
+    _pin_as_of(monkeypatch)
+    _mock_token()
+    _mock_dvsa()
 
-    def mcp_handler(request: httpx.Request) -> httpx.Response:
-        name = _tool_name(request)
-        if name == "get_vehicle_summary":
-            return httpx.Response(200, json=_load("get_vehicle_summary.json"))
-        return httpx.Response(200, json=_load("current_mileage_estimate.json"))
-
-    respx.post(MCP_URL).mock(side_effect=mcp_handler)
-
-    client = _make_client()
     with caplog.at_level(logging.DEBUG):
         result = function_app.enrich(
-            "TE57VRM", document_has_mileage=False, client=client
+            "TE57VRM", document_has_mileage=False, dvsa=_dvsa_client(), dvla=None
         )
 
     serialized = json.dumps(result)
-    assert FAKE_SECRET not in serialized
-    assert FAKE_SECRET not in caplog.text
+    for secret in (FAKE_SECRET, FAKE_API_KEY, FAKE_TOKEN, FAKE_DVLA_KEY):
+        assert secret not in serialized
+        assert secret not in caplog.text
+
+
+# --------------------------------------------------------------------------
+# Ported analysis fidelity (pure, no HTTP)
+# --------------------------------------------------------------------------
+
+def test_estimate_matches_ts_fixture():
+    v = _load("dvsa_vehicle.json")
+    est = analysis.current_mileage_estimate(v, AS_OF)
+    assert est["estimate_available"] is True
+    assert est["estimated_mileage"] == 62400
+    assert est["estimate_low"] == 60300
+    assert est["estimate_high"] == 64500
+    assert est["annual_rate_used"] == 8100
+    assert est["confidence"] == "MEDIUM"
+
+
+def test_clocking_decrease_excluded_from_rate():
+    # A DECREASE interval is dirty; estimate falls back / flags an anomaly.
+    v = {
+        "motTests": [
+            {"completedDate": "2021-01-01", "odometerValue": "30000", "odometerUnit": "mi", "odometerResultType": "READ", "testResult": "PASSED"},
+            {"completedDate": "2022-01-01", "odometerValue": "40000", "odometerUnit": "mi", "odometerResultType": "READ", "testResult": "PASSED"},
+            {"completedDate": "2023-01-01", "odometerValue": "20000", "odometerUnit": "mi", "odometerResultType": "READ", "testResult": "PASSED"},
+        ]
+    }
+    anomalies = analysis.detect_mileage_anomalies(v)["anomalies"]
+    assert any(a["type"] == "DECREASE" for a in anomalies)
+    est = analysis.current_mileage_estimate(v, date(2023, 6, 1))
+    # Recent window is dirty (the decrease) so it is NOT a HIGH-confidence path.
+    assert est["confidence"] in {"LOW", "VERY_LOW", "MEDIUM"}
+
+
+def test_km_readings_normalised_to_miles():
+    # 80000 KM ~= 49710 miles; a single reading returns last-known in miles.
+    v = {
+        "motTests": [
+            {"completedDate": "2023-01-01", "odometerValue": "80000", "odometerUnit": "KM", "odometerResultType": "READ", "testResult": "PASSED"},
+        ]
+    }
+    est = analysis.current_mileage_estimate(v, date(2023, 6, 1))
+    assert est["estimate_available"] is True
+    assert est["estimated_mileage"] == round(80000 * 0.621371)
+
+
+def test_no_mot_history_estimate_unavailable():
+    est = analysis.current_mileage_estimate({"motTestDueDate": "2027-01-01"}, date(2025, 1, 1))
+    assert est["estimate_available"] is False
+    assert est["confidence"] == "VERY_LOW"
 
 
 # --------------------------------------------------------------------------
@@ -246,23 +359,19 @@ def test_handler_missing_vrm_returns_400(monkeypatch):
 
 @respx.mock
 def test_handler_end_to_end_mileage_path(monkeypatch):
+    _pin_as_of(monkeypatch)
     monkeypatch.setenv("ENRICHMENT_ENABLED", "true")
-    monkeypatch.setenv("ENRICHMENT_API_BASE", BASE)
-    monkeypatch.setenv("ENRICHMENT_CONNECTOR", "dvsa-mot")
-    monkeypatch.setenv("GATEWAY_CLIENT_ID", "fake-client-id")
-    monkeypatch.setenv("GATEWAY_CLIENT_SECRET", FAKE_SECRET)
+    monkeypatch.setenv("DVSA_TENANT_ID", TENANT)
+    monkeypatch.setenv("DVSA_CLIENT_ID", "fake-client-id")
+    monkeypatch.setenv("DVSA_CLIENT_SECRET", FAKE_SECRET)
+    monkeypatch.setenv("DVSA_API_KEY", FAKE_API_KEY)
+    monkeypatch.setenv("DVSA_SCOPE", "https://tapi.dvsa.gov.uk/.default")
+    monkeypatch.setenv("DVSA_API_BASE", DVSA_BASE)
+    monkeypatch.setenv("DVLA_API_KEY", FAKE_DVLA_KEY)
+    monkeypatch.setenv("DVLA_API_BASE", DVLA_BASE)
 
-    respx.post(TOKEN_URL).mock(
-        return_value=httpx.Response(200, json=_load("token_response.json"))
-    )
-
-    def mcp_handler(request: httpx.Request) -> httpx.Response:
-        name = _tool_name(request)
-        if name == "get_vehicle_summary":
-            return httpx.Response(200, json=_load("get_vehicle_summary.json"))
-        return httpx.Response(200, json=_load("current_mileage_estimate.json"))
-
-    respx.post(MCP_URL).mock(side_effect=mcp_handler)
+    _mock_token()
+    _mock_dvsa()
 
     resp = function_app.dvsa_mot_enrich(
         _fake_request({"vrm": "TE57VRM", "document_has_mileage": False})
@@ -272,35 +381,48 @@ def test_handler_end_to_end_mileage_path(monkeypatch):
     assert payload["current_mileage"] == 62400
     assert payload["mileage_unit"] == "Miles"
     assert payload["vehicle_model"] == "FOCUS"
-    assert FAKE_SECRET not in resp.get_body().decode("utf-8")
+    body_text = resp.get_body().decode("utf-8")
+    assert FAKE_SECRET not in body_text
+    assert FAKE_API_KEY not in body_text
 
 
 @respx.mock
 def test_handler_defaults_document_has_mileage_true(monkeypatch):
     # When the caller OMITS document_has_mileage, the handler defaults to True
-    # (document authoritative, ADR-0006) — the MOT estimator must NOT be called.
+    # (document authoritative, ADR-0006) — the estimate must NOT be computed.
+    _pin_as_of(monkeypatch)
     monkeypatch.setenv("ENRICHMENT_ENABLED", "true")
-    monkeypatch.setenv("ENRICHMENT_API_BASE", BASE)
-    monkeypatch.setenv("ENRICHMENT_CONNECTOR", "dvsa-mot")
-    monkeypatch.setenv("GATEWAY_CLIENT_ID", "fake-client-id")
-    monkeypatch.setenv("GATEWAY_CLIENT_SECRET", FAKE_SECRET)
+    monkeypatch.setenv("DVSA_TENANT_ID", TENANT)
+    monkeypatch.setenv("DVSA_CLIENT_ID", "fake-client-id")
+    monkeypatch.setenv("DVSA_CLIENT_SECRET", FAKE_SECRET)
+    monkeypatch.setenv("DVSA_API_KEY", FAKE_API_KEY)
+    monkeypatch.setenv("DVSA_API_BASE", DVSA_BASE)
+    monkeypatch.setenv("DVLA_API_KEY", FAKE_DVLA_KEY)
+    monkeypatch.setenv("DVLA_API_BASE", DVLA_BASE)
 
-    respx.post(TOKEN_URL).mock(
-        return_value=httpx.Response(200, json=_load("token_response.json"))
-    )
-
-    def mcp_handler(request: httpx.Request) -> httpx.Response:
-        name = _tool_name(request)
-        if name == "get_vehicle_summary":
-            return httpx.Response(200, json=_load("get_vehicle_summary.json"))
-        return httpx.Response(200, json=_load("current_mileage_estimate.json"))
-
-    mcp_route = respx.post(MCP_URL).mock(side_effect=mcp_handler)
+    _mock_token()
+    _mock_dvsa()
 
     resp = function_app.dvsa_mot_enrich(_fake_request({"vrm": "TE57VRM"}))
     assert resp.status_code == 200
     payload = json.loads(resp.get_body())
-    # Estimator skipped by default; only the summary tool was called.
+    # Estimate skipped by default; make/model still present.
     assert "current_mileage" not in payload
-    called_tools = [_tool_name(c.request) for c in mcp_route.calls]
-    assert called_tools == ["get_vehicle_summary"]
+    assert payload["vehicle_model"] == "FOCUS"
+
+
+# --------------------------------------------------------------------------
+# Helpers
+# --------------------------------------------------------------------------
+
+def _pin_as_of(monkeypatch):
+    """Freeze current_mileage_estimate's as-of to AS_OF for deterministic output."""
+    orig = analysis.current_mileage_estimate
+
+    def pinned(v, as_of=None):
+        return orig(v, AS_OF)
+
+    monkeypatch.setattr(analysis, "current_mileage_estimate", pinned)
+    # function_app imported get_mileage_estimate which calls
+    # current_mileage_estimate by reference within analysis; patch get_mileage_estimate too.
+    monkeypatch.setattr(function_app, "get_mileage_estimate", lambda v, as_of=None: orig(v, AS_OF))

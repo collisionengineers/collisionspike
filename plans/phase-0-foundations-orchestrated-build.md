@@ -7,15 +7,23 @@
 EVA "Sentry" REST/JSON export). The repo today is **docs-only** — 10 ADRs, the data model, the
 requirements, and 5 domain agents + 3 skills under `.claude/`. There is **no application code yet**.
 
+> **STATUS UPDATE 2026-06-18:** This plan has been fully executed. The Code App, Dataverse schema
+> (11 tables), and parser/enrichment Azure Functions are deployed in the Sandbox. Email intake flows
+> (`CS Intake`, Provider Match, Case Resolve) are ON and verified — a test email created a real
+> `cr1bd_cases` row. Remaining flows (Classify+Persist, Parse, Status Evaluate, Enrich, Finalize,
+> Chaser, Job Sheet) are authored and imported but currently OFF. Proceed to Phase 1 for the
+> remaining downstream-flow activation, corpus incorporation, parser connector fix, and
+> address-matching work.
+
 This plan builds **Phase 0 — Foundations**, the front of the decided **M1 vertical slice** (PLAN.md
 lines 108–121): scaffold the Code App, stand up the `CollisionSpike` Dataverse solution + schema,
-port the shared TypeScript contracts (EVA 13-field payload, image-rules, case-status), and define the
+port the shared TypeScript contracts (EVA 12-field payload, image-rules, case-status), and define the
 env-var feature gates. Per the user's instruction it is extended to the **deployable, non-inbox part
 of M1** so the app actually *does something* end-to-end: the parser Azure Function + DVSA enrichment
 wrapper + EVA drag-drop export, provable on fixtures with **no live inbox contact**.
 
 **Why now / intended outcome:** a runnable Code App with a real Dataverse schema, the contract layer
-the whole programme inherits, and a parser→13-field-JSON→EVA-export path proven offline — leaving the
+the whole programme inherits, and a parser→12-field-JSON→EVA-export path proven offline — leaving the
 user a clean, gated set of live steps (logins + inbox automation) to flip on themselves.
 
 **M1 feature gates (from PLAN.md / integrations.md):** `PDF_MAPPER_ENABLED`=on, `ENRICHMENT_ENABLED`

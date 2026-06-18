@@ -172,7 +172,7 @@ export function dmyToDvDate(s: string | null | undefined): string | undefined {
 /* ============================================================
    EVA field column mapping.
 
-   The 13 EVA values live on the Case row as cr1bd_eva* string columns; their
+   The 12 EVA values live on the Case row as cr1bd_eva* string columns; their
    per-field provenance + reviewState live in joined FieldLevelProvenance rows
    (separate table). The adapter assembles a prototype `EvaField`
    ({ value, provenance, reviewState }) per EVA_FIELD_ORDER key by pairing the
@@ -194,7 +194,6 @@ const EVA_KEY_TO_COLUMN: Record<EvaFieldKey, keyof CaseRecord> = {
   vatStatus: 'cr1bd_evavatstatus',
   mileage: 'cr1bd_evamileage',
   mileageUnit: 'cr1bd_evamileageunit',
-  engineerAllocation: 'cr1bd_evaengineerallocation',
 };
 
 /** A single provenance row -> the prototype `EvaField` for that value. */
@@ -229,7 +228,7 @@ export function evaFieldToProvenanceRow(
   };
 }
 
-/** Assemble the 13-field `EvaFields` object from a Case row + its provenance rows. */
+/** Assemble the 12-field `EvaFields` object from a Case row + its provenance rows. */
 export function evaFieldsFromRecord(
   rec: CaseRecord,
   provenanceRows: readonly FieldLevelProvenanceRecord[] = [],
@@ -251,7 +250,7 @@ export function evaFieldsFromRecord(
   return out;
 }
 
-/** Project the 13 EvaFields values onto the Case row's cr1bd_eva* columns. */
+/** Project the 12 EvaFields values onto the Case row's cr1bd_eva* columns. */
 export function evaFieldsToColumns(fields: EvaFields): Partial<CaseRecord> {
   const out: Record<string, string> = {};
   for (const desc of EVA_FIELD_ORDER) {

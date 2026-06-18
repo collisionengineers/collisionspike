@@ -63,6 +63,8 @@ All intakes are currently logged on an excel spreadsheet. This spreadsheet conta
 
 A python tool to extract data from PDFs was created. This is not 100% foolproof but for essentially all providers, this is functional. This implementation currently lives in cedocumentmapper. From a software engineering perspective, the design and implementation is very poor and requires refinement, refactoring, and improvement. Likely a ground up redesign. The original engineer created this entirely in a single, long running conversation with Claude. Git/Version control was not used.
 
+> **STATUS UPDATE 2026-06-18:** `cedocumentmapper_v2.0` — a ground-up redesign of the above — is now ~75% complete with structured design, version control, and tests in place. Engine, readers, rules, normalisers, and the 12-field EVA JSON exporter are done; regression harness, packaging, and CI remain. It is deployed as an Azure Function (`Func_Parse`) and powers M1 instruction extraction in the spike. The version-control and design-quality gaps of the original are fully addressed in v2.0.
+
 
 
 Files required in order to add to EVA:

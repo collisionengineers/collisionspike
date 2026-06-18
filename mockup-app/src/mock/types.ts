@@ -48,14 +48,16 @@ export interface EvaField {
   reviewState: ReviewState;
 }
 
-/* ----------  The 13-field EVA contract  ----------
+/* ----------  The 12-field EVA contract  ----------
    Order + formats per the eva-sentry-api skill / Final Format Example 02.json:
    1 Work Provider (non-empty) · 2 Vehicle Model · 3 Claimant Name ·
    4 Claimant Telephone · 5 Claimant Email · 6 Date of Loss (DD/MM/YYYY) ·
    7 Date of Instruction (DD/MM/YYYY) · 8 Accident Circumstances ·
    9 Inspection Address (6 newline-separated lines OR "Image Based Assessment") ·
-   10 VAT Status ∈ {"",Yes,No} · 11 Mileage · 12 Mileage Unit ∈ {"",Miles,Km} ·
-   13 Engineer Allocation (settled placeholder name).
+   10 VAT Status ∈ {"",Yes,No} · 11 Mileage · 12 Mileage Unit ∈ {"",Miles,Km}.
+
+   (Engineer allocation is NOT an EVA submission field — it is left blank and
+   assigned inside EVA AFTER submission, so it is excluded from the contract.)
 
    CANONICAL field order, descriptor shape, payload keys, and the VatStatus /
    MileageUnit enums live in '../contracts/eva-export'; re-exported here so the
@@ -78,14 +80,12 @@ export interface EvaFields {
   vatStatus: EvaField & { value: VatStatus }; // 10
   mileage: EvaField; // 11
   mileageUnit: EvaField & { value: MileageUnit }; // 12
-  /** 13th field — placeholder name "Engineer Allocation" until the PDF confirms it. */
-  engineerAllocation: EvaField; // 13
 }
 
 /* `EvaFieldKey`, `EvaFieldDescriptor`, and the ordered `EVA_FIELD_ORDER` are
    re-exported from '../contracts/eva-export' above — the single canonical list
    the UI iterates and the EVA serializer projects. `keyof EvaFields` here equals
-   the contract's `EvaFieldKey` 1:1 (same 13 camelCase keys). */
+   the contract's `EvaFieldKey` 1:1 (same 12 camelCase keys). */
 
 /* ----------  Evidence (mirrors collisioncc image-rules)  ---------- */
 export type EvidenceKind =
@@ -254,7 +254,7 @@ export interface Case {
   vehicleModel: string;
   vehicleYear?: number;
 
-  /** The 13 EVA fields, each value + provenance + reviewState. */
+  /** The 12 EVA fields, each value + provenance + reviewState. */
   evaFields: EvaFields;
 
   evidence: Evidence[];

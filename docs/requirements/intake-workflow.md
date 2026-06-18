@@ -23,9 +23,11 @@
 
 ## Additional requirements
 
-- **DVSA / MOT integration** — already exists in `collisionplugin`. Scope the spike to just two
-  tools: **mileage estimation** (`current_mileage_estimate`) and **vehicle details**
-  (`get_vehicle_summary` → make / model / year / tax / etc.).
+- **DVSA / MOT integration** — enrichment Azure Function calls **DVSA + DVLA directly via Entra**
+  (the `collisionplugin` OAuth gateway was retired; direct-to-API with a managed identity is the live
+  architecture). Custom Power Platform connectors expose `Func_DvsaEnrich` to Power Automate. Scope:
+  **mileage estimation** (`current_mileage_estimate`) and **vehicle details**
+  (`get_vehicle_summary` → make / model / year / tax / etc.). Valuation integration is later.
 - **Valuationbot integration** — potential; comparable-advert valuation + evidence PDF, also in
   `collisionplugin`.
 - **Copilot Studio** → a **Collision Engineers copilot**. Evaluate inclusion in the plan **plus

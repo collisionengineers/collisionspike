@@ -1,8 +1,18 @@
 """DVSA enrichment wrapper — Azure Functions Python v2 (decorator) app.
 
-[BUILD] — authored offline; verified by ``pytest`` with the token endpoint and
-the MCP tool calls mocked. No ``func start`` / Core Tools required: the handler
-is a plain function exercised directly in tests via a fake HttpRequest.
+[BUILD] — authored offline; verified by ``pytest`` with the DVSA token + history
+endpoints (and the DVLA fallback) mocked. No ``func start`` / Core Tools
+required: the handler is a plain function exercised directly in tests via a fake
+HttpRequest.
+
+Architecture (post B1 — NO gateway, all-Microsoft)
+--------------------------------------------------
+This wrapper calls the **DVSA MOT History API directly** (Microsoft Entra
+``client_credentials`` token + ``X-API-Key``) and, only as a make/model fallback
+for vehicles too new to have an MOT, the **DVLA Vehicle Enquiry API** (API-key
+REST). The former GCP ``ce-mcp-gateway`` hop is removed entirely (blocker B1
+obviated): there was never a reason for an Azure Function to route a
+Microsoft-authenticated API through Google Cloud.
 
 Route
 -----
@@ -21,12 +31,12 @@ Returns (HTTP 200, always — enrichment is advisory and must never block intake
 
 Design rules honoured here
 --------------------------
-* Mileage guard (ADR-0006): ``current_mileage_estimate`` fires ONLY when
+* Mileage guard (ADR-0006): the mileage estimate is computed ONLY when
   ``document_has_mileage`` is ``False`` — the parsed document is authoritative.
-* Fail-soft: any gateway/auth/parse failure is captured as a ``warning`` and the
-  Function still returns 200 with whatever (possibly empty) fields it has.
-* The secret is never read here and never logged; it lives only inside
-  ``GatewayClient`` and is sourced from a Key Vault reference app setting.
+* Fail-soft: any DVSA/DVLA/auth/parse failure is captured as a ``warning`` and
+  the Function still returns 200 with whatever (possibly empty) fields it has.
+* Secrets are never read here and never logged; they live only inside the
+  clients, sourced from Key Vault reference app settings.
 """
 
 from __future__ import annotations
@@ -37,15 +47,13 @@ import os
 
 import azure.functions as func
 
-from gateway_client import GatewayClient, GatewayError
+from analysis import get_mileage_estimate, get_vehicle_summary
+from dvsa_client import DvsaClient, DvsaError, DvsaNotFoundError
+from dvla_client import DvlaClient, DvlaError, DvlaNotConfigured
 
 logger = logging.getLogger("enrichment.function")
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
-
-# MCP tool names on the dvsa-mot connector (see collisionplugin register-tools.ts).
-TOOL_VEHICLE_SUMMARY = "get_vehicle_summary"
-TOOL_MILEAGE_ESTIMATE = "current_mileage_estimate"
 
 
 def _truthy(value: str | None) -> bool:
@@ -56,50 +64,78 @@ def enrich(
     vrm: str,
     *,
     document_has_mileage: bool,
-    client: GatewayClient,
+    dvsa: DvsaClient,
+    dvla: DvlaClient | None = None,
 ) -> dict:
-    """Pure orchestration: call the gateway tools and clean the output.
+    """Pure orchestration: fetch the DVSA record, derive suggestions, clean.
 
-    Separated from the HTTP handler so tests can drive it with a mocked client
+    Separated from the HTTP handler so tests can drive it with mocked clients
     and assert the mileage guard without constructing an HttpRequest.
+
+    One DVSA lookup serves both ``get_vehicle_summary`` and the mileage estimate
+    (the old design made two MCP calls; direct access lets us fetch once).
     """
     warnings: list[str] = []
     out: dict[str, object] = {}
 
-    # --- Vehicle identity (always) -------------------------------------
+    vehicle: dict | None = None
     try:
-        summary = client.call_tool(TOOL_VEHICLE_SUMMARY, {"registration": vrm})
+        vehicle = dvsa.get_vehicle_by_registration(vrm)
+    except DvsaNotFoundError:
+        warnings.append("DVSA has no MOT record for this registration.")
+    except DvsaError as exc:
+        # Advisory: log the class, not the (already-redacted) detail, and carry on.
+        logger.warning("DVSA lookup failed: %s", type(exc).__name__)
+        warnings.append("DVSA lookup failed; no vehicle details suggested.")
+
+    # --- Vehicle identity (always) -------------------------------------
+    make: str | None = None
+    model: str | None = None
+    if vehicle is not None:
+        summary = get_vehicle_summary(vehicle)
         model = _clean_str(summary.get("model"))
         make = _clean_str(summary.get("make"))
-        if model:
-            # Map to the EVA contract's vehicle_model field name for the caller.
-            out["vehicle_model"] = model
-        if make:
-            out["make"] = make
-        if not model and not make:
-            warnings.append("Vehicle summary returned no make/model.")
-    except GatewayError as exc:
-        # Advisory: log the class, not the (already-redacted) detail, and carry on.
-        logger.warning("vehicle summary enrichment failed: %s", type(exc).__name__)
-        warnings.append("Vehicle summary lookup failed; no make/model suggested.")
+
+    # DVLA make-only fallback: only when DVSA gave us nothing (e.g. a brand-new
+    # vehicle with no MOT history). DVLA has no model field, so it cannot fill
+    # vehicle_model — make only. Skipped silently when DVLA is not configured.
+    if make is None and dvla is not None:
+        try:
+            dvla_vehicle = dvla.get_vehicle(vrm)
+            make = _clean_str(dvla_vehicle.get("make"))
+        except DvlaNotConfigured:
+            pass  # fallback unavailable; not an error
+        except DvlaError as exc:
+            logger.warning("DVLA fallback failed: %s", type(exc).__name__)
+
+    if model:
+        # Map to the EVA contract's vehicle_model field name for the caller.
+        out["vehicle_model"] = model
+    if make:
+        out["make"] = make
+    if vehicle is not None and not model and not make:
+        warnings.append("Vehicle record returned no make/model.")
 
     # --- Mileage (ONLY when the document lacks it) ---------------------
     if document_has_mileage:
-        # Document is authoritative (ADR-0006) — do NOT call the MOT estimator.
+        # Document is authoritative (ADR-0006) — do NOT compute the MOT estimate.
         warnings.append(
             "Mileage present on the instruction; DVSA estimate skipped "
             "(document is authoritative)."
         )
+    elif vehicle is None:
+        # No DVSA record to estimate from; the lookup warning already explains.
+        warnings.append("DVSA could not produce a mileage estimate.")
     else:
         try:
-            est = client.call_tool(TOOL_MILEAGE_ESTIMATE, {"registration": vrm})
+            est = get_mileage_estimate(vehicle)
             mileage_fields = _clean_mileage(est)
             out.update(mileage_fields)
             if "current_mileage" not in mileage_fields:
                 warnings.append("DVSA could not produce a mileage estimate.")
-        except GatewayError as exc:
-            logger.warning("mileage enrichment failed: %s", type(exc).__name__)
-            warnings.append("Mileage estimate lookup failed; no mileage suggested.")
+        except Exception as exc:  # analysis is pure; guard anyway
+            logger.warning("mileage estimate failed: %s", type(exc).__name__)
+            warnings.append("Mileage estimate failed; no mileage suggested.")
 
     out["warnings"] = warnings
     return out
@@ -115,9 +151,9 @@ def _clean_str(value: object) -> str | None:
 def _clean_mileage(est: dict) -> dict:
     """Map ``current_mileage_estimate`` output to the cleaned REST shape.
 
-    MOT odometer history is normalised to miles by the connector, so the unit is
-    always ``Miles`` (matches the EVA ``mileage_unit`` enum). Mileage is emitted
-    as a non-negative integer; the caller serialises it as digits-only.
+    MOT odometer history is normalised to miles by the analysis layer, so the
+    unit is always ``Miles`` (matches the EVA ``mileage_unit`` enum). Mileage is
+    emitted as a non-negative integer; the caller serialises it as digits-only.
     """
     if not est.get("estimate_available"):
         return {}
@@ -164,20 +200,22 @@ def dvsa_mot_enrich(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
-    # Default: assume the document HAS mileage, i.e. do NOT call the estimator
+    # Default: assume the document HAS mileage, i.e. do NOT compute the estimate
     # unless the caller explicitly says the document lacks it. Safer default —
     # avoids spending quota and avoids overriding an authoritative document.
     document_has_mileage = bool(body.get("document_has_mileage", True))
 
-    client = GatewayClient()
+    dvsa = DvsaClient()
+    dvla = DvlaClient()
     try:
-        result = enrich(vrm, document_has_mileage=document_has_mileage, client=client)
+        result = enrich(vrm, document_has_mileage=document_has_mileage, dvsa=dvsa, dvla=dvla)
     except Exception as exc:  # pragma: no cover - top-level safety net
         # Never bubble: enrichment is advisory. Return 200 with a warning.
         logger.warning("enrichment hard-failed: %s", type(exc).__name__)
         result = {"warnings": ["Enrichment failed; case left for manual review."]}
     finally:
-        client.close()
+        dvsa.close()
+        dvla.close()
 
     return func.HttpResponse(
         json.dumps(result),

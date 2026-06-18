@@ -14,7 +14,11 @@
       "authoringBoundary": "[BUILD]",
       "activationBoundary": "[RESERVED-FOR-USER]",
       "reservedReason": "Trigger points at a live Collision Engineers shared inbox. Activation + all live-inbox tests are reserved.",
-      "trigger": "OnNewEmailV3SharedMailbox (concurrency=1)"
+      "trigger": "OnNewEmailV3SharedMailbox (concurrency=1, fetchOnlyWithAttachment=true)",
+      "goLiveHardening": {
+        "minIntakeDateGuard": "First action after the trigger (Drop_if_before_min_date) drops any email whose receivedDateTime is before the MinIntakeDate flow parameter (String, default '2026-06-17', set per-environment at activation) via Terminate runStatus=Succeeded, so historical backlog mail is never ingested. Audits dropped_before_min_date reusing the existing duplicate_dropped action value 100000005 (no Dataverse schema change).",
+        "fetchOnlyWithAttachment": "TEMPORARY measure (trigger param set to true) to suppress no-attachment noise at the source. TO BE REMOVED when a full email-management / routing system is implemented later."
+      }
     },
     {
       "definition": "classify-persist.definition.json",

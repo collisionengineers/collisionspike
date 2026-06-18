@@ -73,11 +73,12 @@ These hold across all eight patterns — apply them when adapting a fragment.
   `messageId`/`attachmentHashes`; patterns 2–6 also consume `payloadHash`, `candidateVrm`,
   `candidateRef`, `workProviderId` — declare those in one root `Init_*` block when stitching fragments,
   and use `SetVariable`/`AppendToArrayVariable` (never `InitializeVariable`) inside loops.
-- **The 13 EVA fields are settled and the export is byte-identical to the Code App's.** Build the payload
+- **The 12 EVA fields are settled and the export is byte-identical to the Code App's.** Build the payload
   with the shared serializer (`eva-export.ts` / `eva-payload.schema.json`), never field-by-field in
-  Power Fx. The 13 are work_provider, vehicle_model, claimant_name, claimant_telephone, claimant_email,
+  Power Fx. The 12 are work_provider, vehicle_model, claimant_name, claimant_telephone, claimant_email,
   date_of_loss, date_of_instruction, accident_circumstances, inspection_address, vat_status, mileage,
-  mileage_unit, engineer_allocation. **`vrm` and `reference` are Case-identity fields, NOT EVA payload
+  mileage_unit. (Engineer allocation is NOT an EVA submission field — assigned inside EVA after submission;
+  removed from the contract, B3 RESOLVED.) **`vrm` and `reference` are Case-identity fields, NOT EVA payload
   fields.** (Pattern 6; eva-sentry-api skill.)
 - **Audit every decision.** Write an `AuditEvent` row (`actor`=flow name, `action` from the §4 vocabulary,
   `before`/`after`) at each branch outcome — drop, attach, create, status change, parser/enrichment call,

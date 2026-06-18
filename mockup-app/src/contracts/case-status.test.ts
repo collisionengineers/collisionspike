@@ -20,7 +20,7 @@ function field(value: string, reviewState: ReviewableField['reviewState'] = 'rev
   return { value, reviewState };
 }
 
-/** All 13 fields populated + reviewed (so required + review checks pass). */
+/** All 12 fields populated + reviewed (so required + review checks pass). */
 function fullFields(
   over: Partial<Record<EvaFieldKey, ReviewableField>> = {},
 ): Record<EvaFieldKey, ReviewableField> {

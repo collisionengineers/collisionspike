@@ -37,7 +37,7 @@ const pDvsa = (label: string): FieldProvenance => ({ sourceType: 'dvla_dvsa', so
 
 const IMAGE_BASED = 'Image Based Assessment';
 
-/** Build a complete, valid 13-field set then let callers override specifics. */
+/** Build a complete, valid 12-field set then let callers override specifics. */
 function baseEvaFields(over: Partial<EvaFields> = {}): EvaFields {
   const vat: VatStatus = 'No';
   const unit: MileageUnit = 'Miles';
@@ -60,7 +60,6 @@ function baseEvaFields(over: Partial<EvaFields> = {}): EvaFields {
     vatStatus: { ...f(vat, pPdf('Instruction PDF p.2', 0.8)), value: vat },
     mileage: f('48,250', pPdf('Instruction PDF p.2', 0.7)),
     mileageUnit: { ...f(unit, pStaff()), value: unit },
-    engineerAllocation: f('Unassigned', pStaff('Awaiting allocation')),
     ...over,
   };
 }
@@ -390,7 +389,6 @@ export const cases: Case[] = [
       dateOfLoss: f('02/05/2026', pPdf('Instruction PDF p.1', 0.99)),
       dateOfInstruction: f('20/05/2026', pPdf('Instruction PDF p.1', 0.99)),
       mileage: f('33,410', pPdf('Instruction PDF p.2', 0.91)),
-      engineerAllocation: f('R. Singh', pStaff('Allocated at submit')),
     }),
     evidence: [
       {
@@ -469,7 +467,6 @@ export const cases: Case[] = [
         pCorpus('Garages corpus → Eastside Motors'),
       ),
       mileage: f('51,005', pPdf('Instruction PDF p.2', 0.93)),
-      engineerAllocation: f('A. Khan', pStaff('Allocated at submit')),
     }),
     evidence: [
       {
