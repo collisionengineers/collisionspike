@@ -1,14 +1,14 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_Intake_<Mailbox> (§5.1). Per-shared-mailbox trigger + Message-ID/payloadHash dedup guard (ADR-0010 exact-repeat = drop). Mirrors collisioncc graph-intake.ts ingestGraphMessage; never calls it. [BUILD] only; activating on a live Collision Engineers mailbox is [RESERVED-FOR-USER]. The IntakeMailbox is a flow parameter, never a hardcoded live address. GO-LIVE HARDENING: (1) MinIntakeDate guard (String param, default '2026-06-17', set per-environment at activation) — the FIRST action after the trigger drops any email whose receivedDateTime is before MinIntakeDate (Terminate Succeeded), so historical backlog mail is never ingested. (2) Trigger hasAttachments=true is a TEMPORARY measure to be REMOVED once a full email-management / routing system is implemented later; until then it suppresses no-attachment noise at the source. Trigger is SharedMailboxOnNewEmailV2 (operationId), params folderId='Inbox' + hasAttachments — the real Office 365 connector operation/param names (reconciled live 2026-06-18 against the connector swagger; the earlier OnNewEmailV3SharedMailbox/folderPath/fetchOnlyWithAttachment were placeholders that failed to save).",
+  "comment": "Flow_Intake_<Mailbox> (§5.1) — the ORCHESTRATOR. Per-shared-mailbox trigger + Message-ID dedup guard (ADR-0010 exact-repeat = drop). After the get-or-create Case is written it drives the downstream chain (classify-persist -> parse -> status-evaluate) via Run-a-Child-Flow (built-in Workflow action, the export-safe Microsoft pattern; HTTP-URL chaining breaks on solution import/export). Mirrors collisioncc graph-intake.ts ingestGraphMessage; never calls it. [BUILD] only; activating on a live Collision Engineers mailbox is [RESERVED-FOR-USER]. PROVIDER MATCH FIX (task #26): the provider lookup is now an ANCHORED EXACT domain membership test (List_active_providers + Filter_exact_domain), identical to provider-match.definition.json / matchProviderByDomain — the old OData contains() over the knownEmailDomains Memo was an UNANCHORED substring test that false-matched (sender 'co.uk' inside 'carcompany.co.uk') and minted unsafe Case/POs. GO-LIVE HARDENING: (1) MinIntakeDate guard (String param, default '2026-06-17') drops backlog mail before the date (Terminate Succeeded). (2) Trigger hasAttachments=true is a TEMPORARY source-side noise filter to be removed when a full email-management/routing system lands. TRIGGER RECONCILIATION (DRIFT A): the committed trigger is reconciled to the LIVE OnNewEmailV3 on the connected digital@ mailbox (V3 has no mailboxAddress parameter — the monitored mailbox IS the connection's account; to change it, change the connection). Attachments arrive under body/attachments[*].contentBytes either way. CHILD-FLOW REBIND (operator): each Run-a-Child-Flow host.workflowReferenceName below is a PLACEHOLDER logical name; after import the designer/Flow API rebinds it to the imported child's GUID (open intake in make.powerautomate.com, re-select each child flow on its Run-a-Child-Flow card, Save). Child flows must keep their 'Manually trigger a flow' (Request) trigger and embedded connections (Run-only users -> Use this connection).",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
     "$authentication": { "type": "SecureObject", "defaultValue": {} },
     "IntakeMailbox": {
       "type": "String",
       "defaultValue": "@parameters('IntakeMailbox')",
-      "metadata": { "description": "Shared inbox address. Flow parameter (or Dataverse env-var read) so one definition ships to all 3 mailboxes. NEVER a hardcoded live mailbox in the authored definition." }
+      "metadata": { "description": "Shared inbox address, kept ONLY for audit/provenance text (V3 has no mailboxAddress trigger parameter; the monitored mailbox is the connection's account). Flow parameter (or Dataverse env-var read) so one definition ships to all 3 mailboxes. NEVER a hardcoded live mailbox in the authored definition." }
     },
     "MinIntakeDate": {
       "type": "String",
@@ -17,19 +17,18 @@
     }
   },
   "triggers": {
-    "When_a_new_email_arrives_in_a_shared_mailbox_V2": {
+    "When_a_new_email_arrives_V3": {
       "type": "OpenApiConnectionNotification",
       "inputs": {
         "host": {
           "connectionName": "shared_office365",
-          "operationId": "SharedMailboxOnNewEmailV2",
+          "operationId": "OnNewEmailV3",
           "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
         },
         "parameters": {
-          "mailboxAddress": "@parameters('IntakeMailbox')",
-          "folderId": "Inbox",
+          "folderPath": "Inbox",
           "includeAttachments": true,
-          "hasAttachments": true,
+          "fetchOnlyWithAttachment": true,
           "importance": "Any"
         }
       },
@@ -70,7 +69,7 @@
         }
       },
       "else": { "actions": {} },
-      "comment": "Go-live min-date guard. FIRST action after the trigger: if the email's receivedDateTime is BEFORE MinIntakeDate (default 2026-06-17), audit a dropped_before_min_date event (reuses the duplicate_dropped action value 100000005 — no schema change — with dropped_before_min_date semantics in name/after, mirroring Audit_duplicate_dropped) then Terminate Succeeded. Otherwise the else-branch is empty and the dedup/ingest chain proceeds. Robust comparison via ticks() so format/timezone differences do not skew the test.",
+      "comment": "Go-live min-date guard. FIRST action after the trigger: if the email's receivedDateTime is BEFORE MinIntakeDate (default 2026-06-17), audit a dropped_before_min_date event (reuses the duplicate_dropped action value 100000005 — no schema change — with dropped_before_min_date semantics in name/after) then Terminate Succeeded. Otherwise the else-branch is empty and the dedup/ingest chain proceeds. Robust comparison via ticks() so format/timezone differences do not skew the test.",
       "runAfter": {}
     },
     "Init_messageId": {
@@ -87,19 +86,26 @@
         "name": "payloadHash", "type": "string",
         "value": "@toLower(trim(concat(coalesce(triggerOutputs()?['body/subject'],''), '|', coalesce(triggerOutputs()?['body/from'],''))))"
       } ] },
-      "comment": "payloadHash seed = normalised subject + from; the attachment-loop flow (§5.2) folds in sorted attachment SHA256s before the second dedup probe. Hash computed in the storage Function, not in Power Fx.",
+      "comment": "payloadHash seed = normalised subject + from. classify-persist folds in the sorted attachment hashes and returns the final payloadHash; this seed is the Case row's value at create time (the second SHA-aware dedup probe lives downstream).",
       "runAfter": { "Init_messageId": [ "Succeeded" ] }
-    },
-    "Init_attachmentHashes": {
-      "type": "InitializeVariable",
-      "inputs": { "variables": [ { "name": "attachmentHashes", "type": "array", "value": [] } ] },
-      "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
     },
     "Init_senderDomain": {
       "type": "InitializeVariable",
       "inputs": { "variables": [ { "name": "senderDomain", "type": "string", "value": "@if(empty(toLower(trim(last(split(coalesce(triggerOutputs()?['body/from'], ''), '@'))))), 'none.invalid', toLower(trim(last(split(coalesce(triggerOutputs()?['body/from'], ''), '@')))))" } ] },
-      "comment": "Sender email domain (after @), lowercased -- resolves the WorkProvider by knownEmailDomains (ADR-0011 domain-only match). 'none.invalid' sentinel when absent keeps the $filter valid.",
-      "runAfter": { "Init_attachmentHashes": [ "Succeeded" ] }
+      "comment": "Sender email domain (after @), lowercased -- resolves the WorkProvider by knownEmailDomains (ADR-0011 domain-only match). 'none.invalid' sentinel when absent keeps the lookup valid.",
+      "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
+    },
+    "Init_workProviderId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "workProviderId", "type": "string", "value": "" } ] },
+      "comment": "Set after the anchored exact-domain match resolves to exactly one active provider; stays '' for 0/ambiguous (unassigned Case, staff assigns). Threaded into classify/parse/status as needed.",
+      "runAfter": { "Init_senderDomain": [ "Succeeded" ] }
+    },
+    "Init_caseId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "caseId", "type": "string", "value": "" } ] },
+      "comment": "Holds the get-or-create Case id once the Create action runs; passed into the downstream child chain (classify-persist -> parse -> status-evaluate).",
+      "runAfter": { "Init_workProviderId": [ "Succeeded" ] }
     },
     "Find_existing_by_messageId": {
       "type": "OpenApiConnection",
@@ -113,8 +119,8 @@
           "$top": 1
         }
       },
-      "comment": "Exact Message-ID probe = the get-or-create idempotency guard (alternate key cr1bd_case_sourcemessageid_key). Combined with trigger concurrency=1, prevents double-create on Graph retries.",
-      "runAfter": { "Init_senderDomain": [ "Succeeded" ] }
+      "comment": "Exact Message-ID probe = the get-or-create idempotency guard (alternate key cr1bd_case_sourcemessageid_key). Combined with trigger concurrency=1, prevents double-create on Graph retries. Message-ID-scoped read (documented linter exception, not a dedup-by-VRM query).",
+      "runAfter": { "Init_caseId": [ "Succeeded" ] }
     },
     "If_already_ingested": {
       "type": "If",
@@ -164,25 +170,38 @@
             },
             "runAfter": {}
           },
-          "Resolve_provider": {
+          "List_active_providers": {
             "type": "OpenApiConnection",
             "inputs": {
               "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
                 "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
               "parameters": {
                 "entityName": "cr1bd_workproviders",
-                "$filter": "cr1bd_active eq true and contains(cr1bd_knownemaildomains, '@{variables('senderDomain')}')",
-                "$select": "cr1bd_workproviderid,cr1bd_principalcode",
-                "$top": 2
+                "$filter": "cr1bd_active eq true and cr1bd_knownemaildomains ne null",
+                "$select": "cr1bd_workproviderid,cr1bd_principalcode,cr1bd_knownemaildomains"
               }
             },
-            "comment": "Resolve the WorkProvider by sender email domain (ADR-0011 domain-only match). Best-effort: If_resolve handles Succeeded OR Failed so a filter quirk or zero match never sinks the Case create.",
+            "comment": "ALL active providers that have any domains. EXACT membership is applied in-flow next. OData contains() over the knownEmailDomains Memo is an UNANCHORED substring test and would false-match (sender 'co.uk' inside 'carcompany.co.uk') -> unsafe Case/PO. Mirrors provider-match.definition.json + matchProviderByDomain. No $top: the Filter_exact_domain Query does the narrowing.",
             "runAfter": { "Audit_message_ingested": [ "Succeeded" ] }
+          },
+          "Filter_exact_domain": {
+            "type": "Query",
+            "inputs": {
+              "from": "@coalesce(outputs('List_active_providers')?['body/value'], json('[]'))",
+              "where": "@contains(split(replace(replace(toLower(coalesce(item()?['cr1bd_knownemaildomains'], '')), decodeUriComponent('%0D'), ''), ' ', ''), decodeUriComponent('%0A')), variables('senderDomain'))"
+            },
+            "comment": "Anchored exact membership: split the newline-separated knownEmailDomains memo (CRLF + spaces stripped, lowercased) into individual domains and test EXACT membership of senderDomain. 'co.uk' is a DISTINCT array element from 'carcompany.co.uk'. No substring/alias matching. Identical expression to provider-match.definition.json Filter_exact_domain; senderDomain is already lowercased upstream; matches the 15-seed-emaildomains.ps1 (-join '\\n', lowercased) storage format.",
+            "runAfter": { "List_active_providers": [ "Succeeded" ] }
           },
           "If_one_provider": {
             "type": "If",
-            "expression": { "equals": [ "@length(coalesce(outputs('Resolve_provider')?['body/value'], json('[]')))", 1 ] },
+            "expression": { "equals": [ "@length(body('Filter_exact_domain'))", 1 ] },
             "actions": {
+              "Set_workProviderId_matched": {
+                "type": "SetVariable",
+                "inputs": { "name": "workProviderId", "value": "@first(body('Filter_exact_domain'))?['cr1bd_workproviderid']" },
+                "runAfter": {}
+              },
               "Create_case_matched": {
                 "type": "OpenApiConnection",
                 "inputs": {
@@ -197,11 +216,33 @@
                     "item/cr1bd_intakechannelkind": 100000000,
                     "item/cr1bd_intakechannelmanual": false,
                     "item/cr1bd_sourcemailbox": "@parameters('IntakeMailbox')",
-                    "item/cr1bd_Workproviderid@odata.bind": "@concat('/cr1bd_workproviders(', first(outputs('Resolve_provider')?['body/value'])?['cr1bd_workproviderid'], ')')"
+                    "item/cr1bd_Workproviderid@odata.bind": "@concat('cr1bd_workproviders(', variables('workProviderId'), ')')"
                   }
                 },
-                "comment": "Exactly one provider matched the sender domain -> create the Case (new_email) bound to it.",
-                "runAfter": {}
+                "comment": "Exactly one provider matched the sender domain (anchored exact membership) -> create the Case (new_email) bound to it. @odata.bind uses the navigation-property form cr1bd_Workproviderid (capitalised nav prop) = cr1bd_workproviders(<guid>) with NO leading slash, reconciled with case-resolve.",
+                "runAfter": { "Set_workProviderId_matched": [ "Succeeded" ] }
+              },
+              "Capture_caseId_matched": {
+                "type": "SetVariable",
+                "inputs": { "name": "caseId", "value": "@outputs('Create_case_matched')?['body/cr1bd_caseid']" },
+                "runAfter": { "Create_case_matched": [ "Succeeded" ] }
+              },
+              "Audit_provider_matched": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                  "parameters": {
+                    "entityName": "cr1bd_auditevents",
+                    "item/cr1bd_name": "@concat('provider_matched: ', variables('senderDomain'))",
+                    "item/cr1bd_action": 100000007,
+                    "item/cr1bd_actor": "Flow_Intake",
+                    "item/cr1bd_severity": 100000000,
+                    "item/cr1bd_after": "@concat('domain ', variables('senderDomain'), ' -> provider ', variables('workProviderId'), ' (', coalesce(first(body('Filter_exact_domain'))?['cr1bd_principalcode'], ''), ')')",
+                    "item/cr1bd_occurredat": "@utcNow()"
+                  }
+                },
+                "runAfter": { "Capture_caseId_matched": [ "Succeeded" ] }
               }
             },
             "else": {
@@ -222,17 +263,79 @@
                       "item/cr1bd_sourcemailbox": "@parameters('IntakeMailbox')"
                     }
                   },
-                  "comment": "No single provider match (0 or ambiguous, or resolve unavailable) -> create the Case (new_email) UNASSIGNED; staff assign the provider in review. Never fails on an empty lookup.",
+                  "comment": "No single provider match (0 or ambiguous, or resolve unavailable) -> create the Case (new_email) UNASSIGNED; staff assign the provider in review. ADR-0011: never auto-pick an ambiguous domain.",
                   "runAfter": {}
+                },
+                "Capture_caseId_unassigned": {
+                  "type": "SetVariable",
+                  "inputs": { "name": "caseId", "value": "@outputs('Create_case_unassigned')?['body/cr1bd_caseid']" },
+                  "runAfter": { "Create_case_unassigned": [ "Succeeded" ] }
+                },
+                "Audit_provider_unmatched": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                    "parameters": {
+                      "entityName": "cr1bd_auditevents",
+                      "item/cr1bd_name": "@concat('provider_unmatched: ', variables('senderDomain'))",
+                      "item/cr1bd_action": 100000008,
+                      "item/cr1bd_actor": "Flow_Intake",
+                      "item/cr1bd_severity": 100000001,
+                      "item/cr1bd_after": "@concat('domain ', variables('senderDomain'), ' -> ', string(length(body('Filter_exact_domain'))), ' active providers (0 or ambiguous); case unassigned, provider needs_review, never blocks intake')",
+                      "item/cr1bd_occurredat": "@utcNow()"
+                    }
+                  },
+                  "runAfter": { "Capture_caseId_unassigned": [ "Succeeded" ] }
                 }
               }
             },
-            "comment": "Graceful provider gating: bind only on an unambiguous single match; otherwise create unassigned. runAfter Succeeded+Failed so an unmatched/unavailable resolve still creates the Case.",
-            "runAfter": { "Resolve_provider": [ "Succeeded", "Failed" ] }
+            "comment": "Graceful provider gating: bind only on an unambiguous single anchored match; otherwise create unassigned. runAfter Succeeded+Failed so an unmatched/unavailable resolve still creates the Case. Both branches capture the new Case id into the caseId variable for the downstream chain.",
+            "runAfter": { "Filter_exact_domain": [ "Succeeded", "Failed" ] }
+          },
+          "Run_classify_persist": {
+            "type": "Workflow",
+            "inputs": {
+              "host": { "workflowReferenceName": "CS_Classify_Persist" },
+              "body": {
+                "messageId": "@variables('messageId')",
+                "caseId": "@variables('caseId')",
+                "subject": "@coalesce(triggerOutputs()?['body/subject'], '')",
+                "from": "@coalesce(triggerOutputs()?['body/from'], '')",
+                "attachments": "@coalesce(triggerOutputs()?['body/attachments'], json('[]'))"
+              }
+            },
+            "comment": "STEP 1 of the chain. Run-a-Child-Flow (built-in Workflow action) -> classify-persist. CRITICAL FIX (task plan §3.3): passes the email ATTACHMENTS (body/attachments[*].contentBytes, available because the trigger has includeAttachments=true) plus subject/from so the child actually creates Evidence rows + blobs (the old contract only passed {messageId,caseId}, so the child's Apply-to-each iterated an empty array -> 0 Evidence). Returns { payloadHash, instructionBytesB64, instructionName, imageCount }. host.workflowReferenceName is a PLACEHOLDER rebind in the designer to the imported child's GUID (see top comment).",
+            "runAfter": { "If_one_provider": [ "Succeeded" ] }
+          },
+          "Run_parse": {
+            "type": "Workflow",
+            "inputs": {
+              "host": { "workflowReferenceName": "CS_Parse" },
+              "body": {
+                "caseId": "@variables('caseId')",
+                "instructionBytesB64": "@coalesce(body('Run_classify_persist')?['instructionBytesB64'], '')",
+                "instructionName": "@coalesce(body('Run_classify_persist')?['instructionName'], '')",
+                "providerHint": "@coalesce(first(body('Filter_exact_domain'))?['cr1bd_principalcode'], '')"
+              }
+            },
+            "comment": "STEP 2 of the chain. Run-a-Child-Flow -> parse. Hands the instruction PDF bytes/name returned by classify-persist plus the matched principalCode as providerHint. parse reads PDF_MAPPER_ENABLED itself and pre-fills the 12 EVA fields on the Case (staff-review, never auto-final). Runs even with empty bytes (parse no-ops/skips gracefully). Skipped if classify-persist failed so a bad attachment batch does not block status.",
+            "runAfter": { "Run_classify_persist": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
+          },
+          "Run_status_evaluate": {
+            "type": "Workflow",
+            "inputs": {
+              "host": { "workflowReferenceName": "CS_Status_Evaluate" },
+              "body": {
+                "caseId": "@variables('caseId')"
+              }
+            },
+            "comment": "STEP 3 of the chain. Run-a-Child-Flow -> status-evaluate. Advances the Case through the guard order (new_email -> ingested -> missing_required_fields/missing_images/needs_review -> ready_for_eva) using the INLINE image-rules + 12-field readiness check (no external validation connector). Runs after parse regardless of parse outcome so the status always reflects the current Evidence + fields.",
+            "runAfter": { "Run_parse": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
           }
         }
       },
-      "comment": "Message-ID hit = exact-repeat half of ADR-0010 -> drop. The payloadHash probe (same shape, $filter on cr1bd_payloadhash) runs in the classify-persist flow once attachment hashes are folded in.",
+      "comment": "Message-ID hit = exact-repeat half of ADR-0010 -> drop. Else branch: anchored exact provider match -> get-or-create the Case -> drive the downstream child chain (classify-persist -> parse -> status-evaluate). case-resolve.definition.json + provider-match.definition.json remain standalone returnable children (Response-equipped for ALM/reuse and the image-first re-dedup path) but are NOT in this hot path: intake owns the single Create here (the §3.4/§3.5 'provider-match returns the id, case-resolve owns the create' split is the alternative wiring; this slice keeps intake's own anchored match + create to avoid a second domain lookup and a second Case write).",
       "runAfter": { "Find_existing_by_messageId": [ "Succeeded" ] }
     }
   }

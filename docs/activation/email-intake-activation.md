@@ -81,3 +81,18 @@ Leave OFF: `status-evaluate` (needs an EVA-validation connector not deployed yet
    if that sender domain is in `WorkProvider.knownemaildomains`. Fill `dataverse/.build/email-domains.csv`
    and run `15-seed-emaildomains.ps1` (dry-run first). Until then, Cases land **unmatched** in review.
 2. **Premium licence** — the flow owner needs Power Apps/Automate Premium (already required for the Code App).
+
+## Adding the OTHER intake inboxes (multi-inbox)
+
+The steps above wire the **single** connected `digital@` mailbox (V3 trigger). The domain model is **3
+shared inboxes**. To add the remaining two — onto the **parameterised** definition
+`flows/definitions/intake-shared-mailbox.definition.json` (V2 trigger, `mailboxAddress =
+@parameters('IntakeMailbox')`, one definition per inbox) — follow the dedicated runbook:
+**[`multi-inbox-activation.md`](./multi-inbox-activation.md)** (plan: `plans/multi-inbox-access.md`).
+
+Headline: **if the other inbox is a *shared mailbox* that `digital@` has Exchange *Full Access* to, you
+need NO new password and NO new connection** — reuse `cr1bd_sharedmailbox_office365`. If it's a *licensed
+user mailbox*, either grant `digital@` Full Access (preferred → treat as shared) or create a **new** Office
+365 connection signed in **as that user**. Confirm the type first with
+`Get-Mailbox <addr> | fl RecipientTypeDetails` and `Get-MailboxPermission <addr> -User digital@…`. Every
+new flow's webhook still has to be **published in the designer** (not via the Dataverse `clientdata` API).
