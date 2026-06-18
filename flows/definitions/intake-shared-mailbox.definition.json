@@ -1,0 +1,239 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_Intake_SharedMailbox_<Mailbox> — the PARAMETERISED, per-inbox multi-mailbox intake (plans/multi-inbox-access.md Option A). ONE definition ships to ANY inbox: the ONLY per-copy difference is the IntakeMailbox flow-parameter value bound to the V2 trigger's mailboxAddress. Logic is IDENTICAL to flows/definitions/intake.definition.json (Message-ID get-or-create dedup + MinIntakeDate go-live guard + concurrency=1 + best-effort provider-resolve + sourceMailbox provenance) — it mirrors collisioncc graph-intake.ts ingestGraphMessage, never calls it. Trigger is SharedMailboxOnNewEmailV2 (operationId; param mailboxAddress, reconciled live 2026-06-18 against the Office 365 connector swagger). SUPPORTS BOTH credential scenarios with the SAME definition because only the bound CONNECTION differs, never the JSON: (a) SHARED MAILBOX that the connected digital@ holds Exchange Full Access to -> REUSE the existing cr1bd_sharedmailbox_office365 connection (digital@, id bd752b83172a4e99b3db595942f1b30f); NO new password / NO new connection. (b) LICENSED USER MAILBOX with its own identity -> bind cr1bd_sharedmailbox_office365 to a NEW Office 365 Outlook connection created by an interactive sign-in AS that user (real OAuth/MFA), OR (preferred) grant digital@ Full Access and treat it exactly like (a). The connectionName stays shared_office365 in BOTH cases (the only Office 365 ref in connection-references.json; the connector swagger exposes SharedMailboxOnNewEmailV2 there). Per-inbox how-to + the Get-Mailbox/Get-MailboxPermission Full-Access checks live in docs/activation/multi-inbox-activation.md. [BUILD] only; pointing any trigger at a live Collision Engineers mailbox + all live-inbox tests are [RESERVED-FOR-USER]. IntakeMailbox is ALWAYS a flow parameter, NEVER a hardcoded live address. GO-LIVE HARDENING (identical to intake.definition.json): (1) MinIntakeDate guard (String param, default '2026-06-17', set per-inbox at activation = that inbox's go-live date) — FIRST action after the trigger drops any email whose receivedDateTime is before MinIntakeDate (Terminate Succeeded) so a freshly-connected inbox never ingests its historical backlog. (2) hasAttachments=true is a TEMPORARY no-attachment-noise filter at the trigger source, to be REMOVED once the later email-management / routing system lands. CROSS-INBOX SAFETY: the Internet Message-ID is unique per email regardless of which inbox saw it, so the Find_existing_by_messageId get-or-create guard de-dups even if the SAME email lands in two inboxes (To: inbox-2, Cc: inbox-3) — worst case a benign duplicate_dropped audit on the second arrival. Each flow keeps its OWN concurrency=1 (serialises within one mailbox); the N flows run independently in parallel, which is correct because the dedup keys are global.",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} },
+    "IntakeMailbox": {
+      "type": "String",
+      "defaultValue": "@parameters('IntakeMailbox')",
+      "metadata": { "description": "The ONE per-inbox knob. Shared/licensed inbox address bound to the V2 trigger's mailboxAddress AND stamped on every Case as cr1bd_sourcemailbox for per-inbox attribution. Flow parameter so ONE definition ships to ALL inboxes. NEVER a hardcoded live mailbox in the authored definition (linter check #4). Set to the watched address per copy at activation: e.g. one flow IntakeMailbox=digital@…, a second IntakeMailbox=<inbox-2>, a third IntakeMailbox=<inbox-3>." }
+    },
+    "MinIntakeDate": {
+      "type": "String",
+      "defaultValue": "2026-06-17",
+      "metadata": { "description": "Inclusive earliest email receivedDateTime to ingest (ISO date/datetime). Set PER-INBOX at activation = that inbox's go-live date. Drop_if_before_min_date drops any email received BEFORE this instant (Terminate Succeeded) so a newly-connected inbox — which can hold years of mail — never ingests its historical backlog. Default 2026-06-17." }
+    }
+  },
+  "triggers": {
+    "When_a_new_email_arrives_in_a_shared_mailbox_V2": {
+      "type": "OpenApiConnectionNotification",
+      "inputs": {
+        "host": {
+          "connectionName": "shared_office365",
+          "operationId": "SharedMailboxOnNewEmailV2",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+        },
+        "parameters": {
+          "mailboxAddress": "@parameters('IntakeMailbox')",
+          "folderId": "Inbox",
+          "includeAttachments": true,
+          "hasAttachments": true,
+          "importance": "Any"
+        }
+      },
+      "runtimeConfiguration": {
+        "concurrency": { "runs": 1 }
+      },
+      "metadata": { "operationMetadataId": "intake-shared-trigger" }
+    }
+  },
+  "actions": {
+    "Drop_if_before_min_date": {
+      "type": "If",
+      "expression": {
+        "equals": [ "@less(ticks(triggerOutputs()?['body/receivedDateTime']), ticks(parameters('MinIntakeDate')))", true ]
+      },
+      "actions": {
+        "Audit_dropped_before_min_date": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_auditevents",
+              "item/cr1bd_name": "@concat('dropped_before_min_date: ', coalesce(triggerOutputs()?['body/internetMessageId'], ''))",
+              "item/cr1bd_action": 100000005,
+              "item/cr1bd_actor": "Flow_Intake_SharedMailbox",
+              "item/cr1bd_severity": 100000000,
+              "item/cr1bd_after": "@concat('mailbox=', parameters('IntakeMailbox'), '; receivedDateTime=', coalesce(triggerOutputs()?['body/receivedDateTime'], ''), ' < MinIntakeDate=', parameters('MinIntakeDate'), ' -> dropped (go-live min-date guard)')",
+              "item/cr1bd_occurredat": "@utcNow()"
+            }
+          },
+          "runAfter": {}
+        },
+        "Terminate_before_min_date": {
+          "type": "Terminate",
+          "inputs": { "runStatus": "Succeeded" },
+          "runAfter": { "Audit_dropped_before_min_date": [ "Succeeded" ] }
+        }
+      },
+      "else": { "actions": {} },
+      "comment": "Go-live min-date guard (identical to intake.definition.json, with mailbox= added to the audit for per-inbox attribution). FIRST action after the trigger: if the email's receivedDateTime is BEFORE MinIntakeDate (default 2026-06-17), audit a dropped_before_min_date event (reuses the duplicate_dropped action value 100000005 — no schema change) then Terminate Succeeded. Otherwise the else-branch is empty and the dedup/ingest chain proceeds. Robust comparison via ticks() so format/timezone differences do not skew the test.",
+      "runAfter": {}
+    },
+    "Init_messageId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "messageId", "type": "string",
+        "value": "@triggerOutputs()?['body/internetMessageId']"
+      } ] },
+      "runAfter": { "Drop_if_before_min_date": [ "Succeeded" ] }
+    },
+    "Init_payloadHash": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "payloadHash", "type": "string",
+        "value": "@toLower(trim(concat(coalesce(triggerOutputs()?['body/subject'],''), '|', coalesce(triggerOutputs()?['body/from'],''))))"
+      } ] },
+      "comment": "payloadHash seed = normalised subject + from; the attachment-loop flow (classify-persist, §5.2) folds in sorted attachment SHA256s before the second dedup probe. SHA256 is computed in the storage Function, not in Power Fx.",
+      "runAfter": { "Init_messageId": [ "Succeeded" ] }
+    },
+    "Init_attachmentHashes": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "attachmentHashes", "type": "array", "value": [] } ] },
+      "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
+    },
+    "Init_senderDomain": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "senderDomain", "type": "string", "value": "@if(empty(toLower(trim(last(split(coalesce(triggerOutputs()?['body/from'], ''), '@'))))), 'none.invalid', toLower(trim(last(split(coalesce(triggerOutputs()?['body/from'], ''), '@')))))" } ] },
+      "comment": "Sender email domain (after @), lowercased — resolves the WorkProvider by knownEmailDomains (ADR-0011 domain-only match). 'none.invalid' sentinel when absent keeps the $filter valid.",
+      "runAfter": { "Init_attachmentHashes": [ "Succeeded" ] }
+    },
+    "Find_existing_by_messageId": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "cr1bd_cases",
+          "$filter": "cr1bd_sourcemessageid eq '@{variables('messageId')}'",
+          "$select": "cr1bd_caseid,cr1bd_sourcemessageid",
+          "$top": 1
+        }
+      },
+      "comment": "Exact Message-ID probe = the get-or-create idempotency guard (alternate key cr1bd_case_sourcemessageid_key). GLOBAL across inboxes: the Internet Message-ID is unique per email regardless of which mailbox saw it, so this also prevents a double-create when the SAME email lands in two intake inboxes. Combined with this flow's trigger concurrency=1, prevents double-create on Graph retries too.",
+      "runAfter": { "Init_senderDomain": [ "Succeeded" ] }
+    },
+    "If_already_ingested": {
+      "type": "If",
+      "expression": {
+        "greater": [ "@length(coalesce(outputs('Find_existing_by_messageId')?['body/value'], json('[]')))", 0 ]
+      },
+      "actions": {
+        "Audit_duplicate_dropped": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_auditevents",
+              "item/cr1bd_name": "@concat('duplicate_dropped: ', variables('messageId'))",
+              "item/cr1bd_action": 100000005,
+              "item/cr1bd_actor": "Flow_Intake_SharedMailbox",
+              "item/cr1bd_severity": 100000000,
+              "item/cr1bd_after": "@concat('mailbox=', parameters('IntakeMailbox'), '; messageId=', variables('messageId'), ' already ingested -> dropped (ADR-0010 exact repeat)')",
+              "item/cr1bd_occurredat": "@utcNow()"
+            }
+          },
+          "runAfter": {}
+        },
+        "Terminate_drop": {
+          "type": "Terminate",
+          "inputs": { "runStatus": "Succeeded" },
+          "runAfter": { "Audit_duplicate_dropped": [ "Succeeded" ] }
+        }
+      },
+      "else": {
+        "actions": {
+          "Audit_message_ingested": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": {
+                "entityName": "cr1bd_auditevents",
+                "item/cr1bd_name": "@concat('graph_message_ingested: ', variables('messageId'))",
+                "item/cr1bd_action": 100000000,
+                "item/cr1bd_actor": "Flow_Intake_SharedMailbox",
+                "item/cr1bd_severity": 100000000,
+                "item/cr1bd_after": "@concat('mailbox=', parameters('IntakeMailbox'), '; messageId=', variables('messageId'))",
+                "item/cr1bd_occurredat": "@utcNow()"
+              }
+            },
+            "runAfter": {}
+          },
+          "Resolve_provider": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": {
+                "entityName": "cr1bd_workproviders",
+                "$filter": "cr1bd_active eq true and contains(cr1bd_knownemaildomains, '@{variables('senderDomain')}')",
+                "$select": "cr1bd_workproviderid,cr1bd_principalcode",
+                "$top": 2
+              }
+            },
+            "comment": "Resolve the WorkProvider by sender email domain (ADR-0011 domain-only match). Best-effort: If_one_provider runs after Succeeded OR Failed so a filter quirk or zero match never sinks the Case create. NOTE: this mirrors intake.definition.json's CURRENT Resolve_provider exactly (provider-match exact-membership hardening is tracked separately in intake.definition.json + provider-match.definition.json; this multi-inbox copy deliberately stays in lockstep with the live intake logic and is NOT the place to diverge).",
+            "runAfter": { "Audit_message_ingested": [ "Succeeded" ] }
+          },
+          "If_one_provider": {
+            "type": "If",
+            "expression": { "equals": [ "@length(coalesce(outputs('Resolve_provider')?['body/value'], json('[]')))", 1 ] },
+            "actions": {
+              "Create_case_matched": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                  "parameters": {
+                    "entityName": "cr1bd_cases",
+                    "item/cr1bd_name": "@take(coalesce(triggerOutputs()?['body/subject'], concat('Email ', variables('messageId'))), 100)",
+                    "item/cr1bd_sourcemessageid": "@variables('messageId')",
+                    "item/cr1bd_payloadhash": "@variables('payloadHash')",
+                    "item/cr1bd_status": 100000000,
+                    "item/cr1bd_intakechannelkind": 100000000,
+                    "item/cr1bd_intakechannelmanual": false,
+                    "item/cr1bd_sourcemailbox": "@parameters('IntakeMailbox')",
+                    "item/cr1bd_Workproviderid@odata.bind": "@concat('/cr1bd_workproviders(', first(outputs('Resolve_provider')?['body/value'])?['cr1bd_workproviderid'], ')')"
+                  }
+                },
+                "comment": "Exactly one provider matched the sender domain -> create the Case (new_email) bound to it. cr1bd_sourcemailbox = the per-flow IntakeMailbox gives correct per-inbox attribution for free.",
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {
+                "Create_case_unassigned": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                    "parameters": {
+                      "entityName": "cr1bd_cases",
+                      "item/cr1bd_name": "@take(coalesce(triggerOutputs()?['body/subject'], concat('Email ', variables('messageId'))), 100)",
+                      "item/cr1bd_sourcemessageid": "@variables('messageId')",
+                      "item/cr1bd_payloadhash": "@variables('payloadHash')",
+                      "item/cr1bd_status": 100000000,
+                      "item/cr1bd_intakechannelkind": 100000000,
+                      "item/cr1bd_intakechannelmanual": false,
+                      "item/cr1bd_sourcemailbox": "@parameters('IntakeMailbox')"
+                    }
+                  },
+                  "comment": "No single provider match (0 or ambiguous, or resolve unavailable) -> create the Case (new_email) UNASSIGNED; staff assign the provider in review. Never fails on an empty lookup. cr1bd_sourcemailbox still records the watched inbox.",
+                  "runAfter": {}
+                }
+              }
+            },
+            "comment": "Graceful provider gating: bind only on an unambiguous single match; otherwise create unassigned. runAfter Succeeded+Failed so an unmatched/unavailable resolve still creates the Case.",
+            "runAfter": { "Resolve_provider": [ "Succeeded", "Failed" ] }
+          }
+        }
+      },
+      "comment": "Message-ID hit = exact-repeat half of ADR-0010 -> drop. The payloadHash probe (same shape, $filter on cr1bd_payloadhash) runs in the classify-persist flow once attachment hashes are folded in.",
+      "runAfter": { "Find_existing_by_messageId": [ "Succeeded" ] }
+    }
+  }
+}

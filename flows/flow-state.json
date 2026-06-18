@@ -21,6 +21,21 @@
       }
     },
     {
+      "definition": "intake-shared-mailbox.definition.json",
+      "displayName": "Flow_Intake_SharedMailbox_<Mailbox>",
+      "planRef": "5.1 / multi-inbox-access.md (Option A)",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Parameterised per-inbox multi-mailbox intake. Trigger points at a live Collision Engineers inbox (shared or licensed). Activation, the Exchange Full-Access grant / new-connection sign-in, the designer webhook publish, and all live-inbox tests are reserved. See docs/activation/multi-inbox-activation.md.",
+      "trigger": "SharedMailboxOnNewEmailV2 (mailboxAddress=@parameters('IntakeMailbox'), concurrency=1, hasAttachments=true)",
+      "goLiveHardening": {
+        "minIntakeDateGuard": "First action after the trigger (Drop_if_before_min_date) drops any email whose receivedDateTime is before the MinIntakeDate flow parameter (String, default '2026-06-17', set per-inbox at activation = that inbox's go-live date) via Terminate runStatus=Succeeded, so a freshly-connected inbox never ingests its historical backlog. Audits dropped_before_min_date reusing the existing duplicate_dropped action value 100000005 (no Dataverse schema change).",
+        "hasAttachments": "TEMPORARY measure (trigger param set to true) to suppress no-attachment noise at the source. TO BE REMOVED when a full email-management / routing system is implemented later.",
+        "perInboxParameterisation": "IntakeMailbox is the ONLY per-copy difference: one flow per inbox, identical JSON, different IntakeMailbox value bound to the V2 trigger's mailboxAddress and stamped on each Case as cr1bd_sourcemailbox. SHARED-mailbox inbox -> reuse the existing cr1bd_sharedmailbox_office365 (digital@) connection (no new password). LICENSED-user inbox -> bind that same reference to a NEW Office 365 connection signed in as the user, OR grant digital@ Full Access and treat as shared."
+      }
+    },
+    {
       "definition": "classify-persist.definition.json",
       "displayName": "Flow_Classify_Persist",
       "planRef": "5.2",
@@ -112,11 +127,22 @@
       "activationBoundary": "[RESERVED-FOR-USER]",
       "reservedReason": "Draft-only by design (no send action exists); activation of any outbound path is reserved and lives in a separate kill-switched flow.",
       "trigger": "Request"
+    },
+    {
+      "definition": "chaser-send.definition.json",
+      "displayName": "Flow_ChaserSend",
+      "planRef": "phase-2 M2.F / ADR-0003",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Sends REAL outbound email across the live-services boundary. Behind the CHASER_SEND_ENABLED kill switch (default false); whatsapp-channel chasers are hard-skipped (manual send only, ADR-0003). Flipping the gate + turning this flow ON is the operator's reserved step; Claude never enables it.",
+      "trigger": "Request",
+      "gates": ["cr1bd_CHASER_SEND_ENABLED"]
     }
   ],
   "summary": {
-    "totalFlows": 10,
-    "stateOff": 10,
+    "totalFlows": 12,
+    "stateOff": 12,
     "stateOn": 0,
     "authoringAllBuild": true,
     "activationAllReservedForUser": true
