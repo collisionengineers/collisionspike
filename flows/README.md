@@ -26,7 +26,7 @@ SharePoint / Box / EVA is **[RESERVED-FOR-USER]**.
 
 | File (`definitions/`) | Flow | Plan | What it does | Activation |
 |---|---|---|---|---|
-| `intake.definition.json` | `Flow_Intake_<Mailbox>` | §5.1 | Per-shared-mailbox **V2 trigger** (`OnNewEmailV3SharedMailbox`, concurrency=1, attachments+content, **`fetchOnlyWithAttachment=true`**). FIRST action is the **`MinIntakeDate` guard** (drop email received before the date → Terminate Succeeded), then captures Internet Message-ID, seeds `payloadHash`, runs the **exact-repeat dedup guard** (Message-ID hit → drop, ADR-0010), audits `graph_message_ingested`. Mailbox is a flow **parameter**, never hardcoded. | **[RESERVED-FOR-USER]** |
+| `intake.definition.json` | `Flow_Intake_<Mailbox>` | §5.1 | **V3 trigger** (`OnNewEmailV3`, concurrency=1, attachments+content, **`fetchOnlyWithAttachment=true`**) on the connected `digital@` mailbox. FIRST action is the **`MinIntakeDate` guard** (drop email received before the date → Terminate Succeeded), then captures Internet Message-ID, seeds `payloadHash`, runs the **exact-repeat dedup guard** (Message-ID hit → drop, ADR-0010), audits `graph_message_ingested`. The mailbox is the **connection's account** (V3 has no `mailboxAddress` parameter); to change the monitored mailbox, change the connection. | **[RESERVED-FOR-USER]** |
 | `classify-persist.definition.json` | `Flow_Classify_Persist` | §5.2 | Apply-to-each attachment: **deterministic classify** by extension/MIME → `cr1bd_evidencekind` integer (image/instruction/email/other), bytes → **Azure Blob** (never inline), one **Evidence** row per attachment carrying the `storagePath` ref + SHA256, dedup by SHA within the message. Folds sorted hashes into `payloadHash`. | **[RESERVED-FOR-USER]** |
 | `case-resolve.definition.json` | `Flow_CaseResolve` | §5.3 | The **ADR-0010 ladder**: drop / attach / new+`duplicate_risk` / propose-attach / create. Open-case lookup is **always provider-scoped** (`_cr1bd_workproviderid_value`) and excludes terminals. Resolution uses a **Filter-array (Query)** action (`item()` in `where`), **not** an arrow-lambda. | **[RESERVED-FOR-USER]** |
 | `status-evaluate.definition.json` | `Flow_StatusEvaluate` | §5.4 | **Guard order** mirroring `statusForReviewCase`: terminal → `missing_required_fields` → `missing_images` → `needs_review` → `ready_for_eva`. Calls the shared **ValidateCase** surface so flow + Code App agree. Idempotent (no write when unchanged). | **[RESERVED-FOR-USER]** |
@@ -36,6 +36,8 @@ SharePoint / Box / EVA is **[RESERVED-FOR-USER]**.
 | `jobsheet-import.definition.json` | `Flow_JobSheetImport` | §5.7 | **Read-only** Excel `List rows present in a table` over the job sheet → **staged draft** WorkProvider rows (`cr1bd_active=false`). Upsert by `principalCode`; **never overwrite an active record** without change-reason. No macros, no write-back. Drive/file ids are **parameters**. | **[RESERVED-FOR-USER]** |
 | `finalize-eva-box.definition.json` | `Flow_FinalizeEvaBox` | §5.10 | **EVA + Box in unison** inside one Scope. **UPPERCASE** Box folder / **lowercase** EVA. Photo order = 2 previews then all (Evidence `sequenceIndex` asc). **`EVA_API_ENABLED`** gates the transport (Sentry REST vs drag-drop JSON to Box). Idempotent by `cr1bd_finalizedpayloadhash` (stamped **last**). `BoxArchiveRootId` is a **parameter**. | **[RESERVED-FOR-USER]** |
 | `chaser-draft.definition.json` | `Flow_ChaserDraft` | ADR-0003 | **Draft-only**: composes a body, writes a **`drafted`** Chaser row. The boundary is enforced by the **absence** of any send action — the linter greps for send operations and finds zero. | **[RESERVED-FOR-USER]** |
+
+Live (2026-06-18): `CS Intake`, `CS Provider Match`, `CS Case Resolve` are ON; the rest OFF. `flow-state.json` keeps `state=off` as the fresh-import default.
 
 ## Intake go-live hardening (intake.definition.json)
 
@@ -85,7 +87,7 @@ fail. It asserts, over `definitions/*.definition.json`:
 
 ## Notes for the activation handoff
 
-- **Reconcile placeholder op names** before deploy: the V2 trigger op (`OnNewEmailV3SharedMailbox`),
+- **Reconcile placeholder op names** before deploy: the V3 trigger op (`OnNewEmailV3`),
   the Blob/Box/Excel operation ids, and the env-var `$expand` navigation property
   (`environmentvariabledefinition_environmentvariablevalue`) are the connector-swagger-dependent
   spots — confirm against the tenant's swagger.

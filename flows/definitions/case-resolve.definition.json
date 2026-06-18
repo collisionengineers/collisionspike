@@ -216,7 +216,7 @@
                 "item/cr1bd_action": 100000004,
                 "item/cr1bd_actor": "Flow_CaseResolve",
                 "item/cr1bd_severity": 100000000,
-                "item/cr1bd_after": "@concat('attached message ', variables('messageId'), ' to case ', body('Switch_resolution'))",
+                "item/cr1bd_after": "@concat('attached message ', variables('messageId'), ' to case ', coalesce(first(body('Filter_matching_ref'))?['cr1bd_caseid'], ''))",
                 "item/cr1bd_occurredat": "@utcNow()"
               }
             },
