@@ -31,6 +31,9 @@ param evaApiEnabled bool = false
 @description('EVA Sentry base URL. SAME for test and production — the credentials route the environment (ADR-0005). Must end with a trailing slash.')
 param evaBaseUrl string = 'https://sentry.evasoftware.co.uk/api/'
 
+@description('EVA-supplied RequestFrom contact code stamped on each Instruction. Non-secret; set at activation ([RESERVED-FOR-USER]). Empty is allowed (the Function omits the field).')
+param evaRequestFrom string = ''
+
 // ---- Key Vault secret NAMES (values injected out-of-band, RESERVED-FOR-USER) ----
 // These names match dataverse/environment-variables.json (EVA_CLIENT_ID/SECRET
 // secret references) so the Dataverse secret env-vars and this Function point at
@@ -170,10 +173,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'EVA_API_ENABLED'
           value: string(evaApiEnabled)
         }
-        // ---- EVA — non-secret setting ----
+        // ---- EVA — non-secret settings ----
         {
           name: 'EVA_BASE_URL'
           value: evaBaseUrl
+        }
+        {
+          name: 'EVA_REQUEST_FROM'
+          value: evaRequestFrom
         }
         // ---- Key Vault references — NO literal secrets. Resolved by the MI. ----
         {
