@@ -1,0 +1,3 @@
+# Runtime dependencies for the EVA Sentry REST submission Function.
+azure-functions>=1.21.0
+httpx>=0.27.0
