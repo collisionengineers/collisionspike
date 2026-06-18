@@ -42,6 +42,7 @@ import {
   type ParserIssue,
   type VatStatus,
 } from '../data';
+import { connectorParserTransport } from '../data/parser-connector-transport';
 
 /* ============================================================
    ManualIntake — the zero-inbox demo path.
@@ -283,7 +284,10 @@ export function ManualIntake() {
     setPhase('parsing');
     try {
       const base64 = await fileToBase64(file);
-      const result = await parseDocument({ document: base64, filename: file.name });
+      const result = await parseDocument(
+        { document: base64, filename: file.name },
+        connectorParserTransport,
+      );
       const errs = result.issues.filter((i) => i.severity === 'error');
       if (errs.length > 0 || !result.evaFields) {
         setIssues(result.issues);
