@@ -115,10 +115,10 @@ export type {
   AuditEventRecord,
 } from './types';
 
-/* ----------  Live document-parser client (manual intake) ----------
-   Plain-fetch client to the cespike-parser Azure Function + its response adapter.
-   SDK-free (no '@microsoft/power-apps'), so it stays inside the offline boundary;
-   the network call is injectable for tests. */
+/* ----------  Document-parser response adapter + transport contract (manual intake) ----------
+   SDK-free (no '@microsoft/power-apps'), so it stays inside the offline boundary. The live
+   transport (CSP-safe, via the CE Parser connector) is in parser-connector-transport.ts and
+   is injected into parseDocument; tests inject a fake. */
 export {
   parseDocument,
   adaptParserResponse,
@@ -126,7 +126,6 @@ export {
   parserSourceToType,
   parserErrors,
   fileToBase64,
-  fetchParserTransport,
   type ParserResponse,
   type ParserField,
   type ParserIssue,
@@ -135,12 +134,6 @@ export {
   type ParserTransport,
   type ParserExtractionKey,
 } from './parser-client';
-export {
-  configureParser,
-  parserUrl,
-  getParserConfig,
-  type ParserConfig,
-} from './parser-config';
 
 /* ============================================================
    2. The DataAccess selector.
