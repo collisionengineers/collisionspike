@@ -60,10 +60,16 @@ unsupported extension); `502` the parser dependency failed.
 
 ## Auth boundary
 
-The `/parse` route is **anonymous at the Function level by design**. The Power
-Platform custom connector / API gateway fronts authentication — the Function
-host is never exposed directly. Do not add Function keys expecting the connector
-to carry them; auth is the gateway's job.
+The `/parse` route uses **FUNCTION-level auth** (`auth_level=func.AuthLevel.FUNCTION`
+in `function_app.py`). The Power Platform custom connector carries the function key
+as the `x-functions-key` header (stored on the **connection**, never embedded in the
+connector definition); the Function host is not exposed directly to callers. A request
+without a valid key returns **401**.
+
+> Verified live 2026-06-18 on the deployed Function `cespike-parser-dev` (FC1, UK South):
+> no key → 401; bad input → 400; valid request → 200 with the 12-field extraction.
+> (An earlier draft of this note said "anonymous" — that was wrong; the route has always
+> shipped function-level auth.)
 
 ## Gating (`PDF_MAPPER_ENABLED`)
 

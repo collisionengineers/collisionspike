@@ -29,8 +29,28 @@ dependent live step can work. They are tracked in code/READMEs and surfaced here
 | B1 | **Gateway grant type.** The wrapper authenticates with OAuth2 `client_credentials`, but the live `ce-mcp-gateway` (`collisionplugin/.../mcp-gateway`) registers only `authorization_code + PKCE` / `refresh_token`. | `functions/enrichment/gateway_client.py` `_fetch_token` | Enrichment cannot authenticate in-tenant → DVSA calls 401. | Add a `client_credentials` grant + a confidential **service client** to the gateway (integrations.md Option C), or re-implement `_fetch_token` for the supported machine flow. Keep `ENRICHMENT_ENABLED=false` until done (Bicep default). |
 | B2 | **Parser legacy field set.** The sibling `cedocumentmapper_v2` still emits the *legacy* fields; the adapter renames `incident_date→date_of_loss`, `instruction_date→date_of_instruction`, drops `inspection_date`, and defaults `claimant_telephone` / `claimant_email` to **absent**. | `functions/parser/parser_adapter.py` | Those 2 EVA fields arrive empty (staff must fill them); not unsafe, but incomplete pre-fill. | Confirm with **document-parser-engineer** whether the sibling adopts the EVA key names / emits telephone+email. Optional for M1 (staff completes); required for full auto-fill. |
 | B3 | **~~13th EVA field name.~~ RESOLVED — field removed, contract is now 12 fields.** Per the product owner's ruling, engineer allocation is **NOT an EVA submission field** — it is left blank and assigned inside EVA *after* submission. `engineer_allocation` removed entirely from the contract in lockstep across the schema, the TS serializer, the Dataverse Case table (`cr1bd_evaengineerallocation` dropped), the parser adapter, the connector, and the parse flow. Offline gate green (`verify-all.mjs` 6/6). | (was: `contracts/eva-payload.schema.json`, `mockup-app/src/contracts/eva-export.ts`, `dataverse/schema/case.json`, parser adapter) | None — EVA submit now sends exactly the 12 settled fields. | **RESOLVED** (2026-06-18). |
-| B4 | **Code Apps GA + licensing.** `pac` still marks `code` as *(Preview)*; the app needs Power Apps **Premium** per-user. | — | `pac code push` may be gated. | Confirm Code Apps GA + Premium licensing in the target environment before §5. |
+| B4 | **Code Apps not enabled on the environment + licensing.** **CONFIRMED 2026-06-18:** `pac code push` → HTTP **403 `CodeAppOperationNotAllowedInEnvironment`**. The env-level Code Apps feature is off; the maker also needs Power Apps **Premium**. | env feature toggle + per-user license | Code App cannot deploy. (App is **built + wired**; `appId` still `null` → push resumes cleanly once cleared.) | Power Platform admin center → **Environments → Collision Engineers - Dev → Settings → Product → Features → enable "Power Apps code apps"**; assign **Power Apps Premium** to the maker; then re-run `pac code push`. |
 | B5 | **EVA test creds + Box case-sensitivity.** | env-vars / Box | API path can't be validated; Box folder casing. | Confirm EVA **test** credentials (Infisical) and that Box honours the UPPERCASE Case/PO folder name before activating finalization (§ live step 9). |
+
+---
+
+## 0a. Deploy status — what is LIVE (as of 2026-06-18)
+
+Much of §1–§6 is already executed in a dedicated **Sandbox** (NOT the Default environment):
+
+| Piece | Status | Where |
+|---|---|---|
+| **Azure parser Function** | ✅ Deployed + **extracting real PDFs** (live-verified: provider/claimant/dates/address/VRM/reference) | **Flex Consumption (FC1)** — not EP1 — `rg-collisionspike-dev`, UK South, `cespike-parser-dev-x7xt3d5ovhi7y` |
+| **Dataverse schema** | ✅ Built — 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 11 env-vars (`ENRICHMENT_ENABLED=false`), EVA secrets Key-Vault-typed (no values) | Sandbox **`Collision Engineers - Dev`** (`b3090c42-…`), solution `CollisionSpike`, publisher prefix `cr1bd` |
+| **Parser custom connector** | ✅ Created, points at the live host | Sandbox, `CollisionSpike` solution (id `ccdec4fd-…`) |
+| **Code App** | ⚙️ Wired to Dataverse + built (192 tests green); **push blocked by B4** | `mockup-app/` (`power.config.json` bound to the Sandbox) |
+| **Cloud flows (×10)** | ✅ Imported **`state=off`** (all verified Draft); connection refs unbound (operator binds at activation) | Sandbox, solution `CollisionSpikeFlows` |
+| **Enrichment Function / EVA / Box / live inbox** | ⛔ Not deployed/activated | Blocked on B1 (gateway), operator connections, EVA secret injection |
+
+Notes: the parser engine is **vendored** into the FC1 package (text PDF/DOCX/DOC/EML/MSG work; scanned-image
+**OCR is deferred** to an Azure Container Apps host — "B-full", FC1 can't run the Tesseract binary). The cost
+shape changed from the originally-authored EP1 to **FC1** (≈£0 idle). Everything operator-gated for *activation*
+(Code App push, flow connections + turn-on, EVA/Box, live inbox) remains reserved for you.
 
 ---
 
@@ -59,6 +79,11 @@ defaults**). `[DEPLOY-WITH-LOGIN]`
   `ENRICHMENT_ENABLED=true`, `EVA_API_ENABLED=false`, `AZURE_MAPS_ENABLED=false`,
   `VALUATION_ENABLED=false`, `COPILOT_ENABLED=false`, `AZURE_VISION_ENABLED=false`. Secrets
   (`EVA_CLIENT_ID/SECRET`) are **Key Vault references** — values injected in §3.
+  > **Override `ENRICHMENT_ENABLED=false` at import until B1 is resolved.** The manifest default
+  > is `true` (the intended M1-complete state), but the gateway can't authenticate yet (B1), so
+  > enrichment must ship OFF per environment. The live Sandbox was imported with it **`false`** for
+  > exactly this reason — the descriptor's `true` is the frozen manifest value, the per-env `false`
+  > is the intentional deviation.
 
 > Reconcile the `cr1bd_` publisher prefix + the `statuscode` integer values against your environment
 > before import; the parity test (`node dataverse/verify-parity.mjs`) is the contract the import must match.
