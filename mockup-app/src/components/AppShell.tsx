@@ -16,9 +16,14 @@ import {
   Building2,
   ScrollText,
   FilePlus2,
+  LayoutDashboard,
   type LucideIcon,
 } from 'lucide-react';
 import { QUEUES, data, type QueueName } from '../data';
+// Brand logos imported as modules so Vite fingerprints them and the URLs resolve
+// under the Code App's subpath base (an absolute "/assets/…" 404s once hosted).
+import logoWhite from '../assets/web_logo_white.png';
+import logoMark from '../assets/logo_no_margin.png';
 
 /* Two-part app chrome:
    - charcoal (#2c2a27) left rail: white reverse logo (web_logo_white.png),
@@ -262,11 +267,13 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
     );
   };
 
-  /* A real admin nav entry (e.g. the corpus surface). */
-  const renderAdmin = (to: string, label: string, Icon: LucideIcon) => {
+  /* A real nav entry (Dashboard, Intake, the corpus surface). `end` makes the
+     match exact — required for "/" so it isn't active on every route. */
+  const renderAdmin = (to: string, label: string, Icon: LucideIcon, end = false) => {
     const inner = (
       <NavLink
         to={to}
+        end={end}
         className={({ isActive }) => mergeClasses(styles.navItem, isActive && styles.navItemActive)}
       >
         <span className={styles.navIcon}>
@@ -313,13 +320,16 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
       <nav className={mergeClasses(styles.rail, collapsed && styles.railCollapsed)} aria-label="Primary">
         <Link to="/" className={mergeClasses('ce-focusable', styles.railLogo)} aria-label="Collision Engineers — home">
           <img
-            src="/assets/web_logo_white.png"
+            src={logoWhite}
             alt="Collision Engineers"
             className={mergeClasses(styles.railLogoImg, collapsed && styles.railLogoImgCollapsed)}
           />
         </Link>
 
         <div className={styles.navList}>
+          {!collapsed && <div className={styles.navSectionLabel}>Overview</div>}
+          {renderAdmin('/', 'Dashboard', LayoutDashboard, true)}
+
           {!collapsed && <div className={styles.navSectionLabel}>Intake</div>}
           {renderAdmin('/intake', 'New case', FilePlus2)}
 
@@ -340,7 +350,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
             aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
             aria-expanded={!collapsed}
           >
-            <img src="/assets/logo_no_margin.png" alt="" className={styles.topLogo} />
+            <img src={logoMark} alt="" className={styles.topLogo} />
           </button>
           <span className={styles.title}>Case Intake</span>
           <div className={styles.spacer} />

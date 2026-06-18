@@ -4,15 +4,11 @@
    The live document parser is an Azure Function (cespike-parser-dev) called
    FUNCTION-direct: a single POST to /api/parse with an `x-functions-key` header.
 
-   APPROACH = DIRECT FETCH (not the custom connector). Justification:
-     - It is ONE external call with a NON-SENSITIVE dev function key — the exact
-       "simplest for a demo" path the task blesses (option b).
-     - The custom connector (option a) would need a *connection* created + bound,
-       then a re-run of `pac code add-data-source` to regenerate an SDK service,
-       adding a new `@microsoft/power-apps` surface AND a connection dependency
-       the manual-intake demo does not need. More moving parts, more fragility.
-     - This client imports NO SDK (plain `fetch`), so the seam's offline boundary
-       ('no @microsoft/power-apps import in src') stays intact.
+   APPROACH = DIRECT FETCH (not the custom connector). NOTE: the deployed Code App
+   player enforces CSP `connect-src 'none'`, so the direct fetch is BLOCKED on the
+   deployed app and only works on localhost / offline tests. The production path is
+   the CE Parser custom connector via the @microsoft/power-apps SDK (same-origin;
+   key in the connection). Routing through the connector is PENDING (task #27).
 
    The host + key live here as the app default. They are overridable at runtime
    via `configureParser(...)` (tests inject a fake transport instead — see
