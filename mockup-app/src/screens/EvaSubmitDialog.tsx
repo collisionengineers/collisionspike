@@ -291,7 +291,7 @@ export function EvaSubmitDialog() {
       <Toast>
         <ToastTitle>EVA JSON ready to drag-drop</ToastTitle>
         <ToastBody>
-          13-field payload for {c.vrm} prepared (mock — no file written).
+          12-field payload for {c.vrm} prepared (mock — no file written).
         </ToastBody>
       </Toast>,
       { intent: 'success' },
@@ -433,7 +433,7 @@ export function EvaSubmitDialog() {
               appearance="secondary"
               icon={<FileJson size={16} />}
               onClick={onExportJson}
-              title="EVA API is off — export the 13-field JSON to drag into EVA"
+              title="EVA API is off — export the 12-field JSON to drag into EVA"
             >
               Export JSON
             </Button>

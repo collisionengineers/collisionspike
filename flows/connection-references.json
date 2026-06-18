@@ -86,7 +86,7 @@
       "openapi": "functions/enrichment/openapi/enrichment-connector.json",
       "usedBy": ["enrich"],
       "boundAtActivation": true,
-      "note": "DVSA enrichment over ce-mcp-gateway OAuth2. Gateway secret is a Key Vault ref inside the Function, never in a definition. [DEPLOY-WITH-LOGIN] to import; secret value inject is [RESERVED-FOR-USER]."
+      "note": "DVSA enrichment — direct Entra client_credentials to the DVSA MOT History API (+ DVLA). Secrets (DVSA/DVLA client id/secret/api-key) are Key Vault refs inside the Function, never in a definition. [DEPLOY-WITH-LOGIN] to import; secret value inject is [RESERVED-FOR-USER]. (ce-mcp-gateway retired — B1 obviated.)"
     },
     {
       "connectionName": "shared_evavalidation",

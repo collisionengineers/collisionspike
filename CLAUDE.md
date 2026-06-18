@@ -9,9 +9,11 @@ on the **Microsoft Power Platform** (Power Apps **Code App** (React/Vite) + Data
 Automate). It de-risks the mature cloud build, **`collisioncc`** (a Next.js + Google Cloud app),
 which is **reference/context only** — re-implement its contracts; do **not** call it at runtime.
 
-There is no application code yet — the Power Apps Code App is scaffolded later via `pac code init`
-(the `pac` CLI is installed). The repo currently holds requirements, the Microsoft-stack research,
-and the plan.
+The Power Apps Code App is built and deployed live (`mockup-app/`, app `da7ba7af-…`) in the
+**`Collision Engineers - Dev`** Sandbox (`b3090c42-…`), wired to live Dataverse; the parser +
+enrichment Azure Functions are deployed; the Dataverse schema, 10 cloud flows, and the provider
+corpus are loaded. Email intake is live. See **CURRENT_STATUS.md** and
+**docs/architecture/live-environment.md** for the live registry.
 
 Read first: [README.md](./README.md), [PLAN.md](./PLAN.md),
 [docs/architecture/microsoft-stack.md](./docs/architecture/microsoft-stack.md),
@@ -37,12 +39,13 @@ are not authoritative. The binding design is the spike's own distilled `docs/` +
 - **ccc** — programme planning, skills, and **draft** contracts. Prior art to adapt.
 - **collisioncc** — a mature reference build on Google Cloud; useful source of the EVA Sentry API
   detail, `case-status`, `image-rules`, provider knowledge, and a **pricing guide**. Reference only.
-- **collisionplugin** — MCP enrichment connectors on Cloud Run behind an **OAuth gateway** (not
-  directly callable from Power Platform — needs a REST wrapper). Scope: `dvsa-mot`
-  `current_mileage_estimate` + `get_vehicle_summary`; later `valuationbot`.
+- **collisionplugin** — MCP enrichment connectors on Cloud Run behind an OAuth gateway. **M1
+  enrichment bypasses this entirely: the enrichment Azure Function calls DVSA + DVLA directly via
+  Entra `client_credentials` + X-API-Key (no Google Cloud gateway in the path).** The
+  gateway/`valuationbot` remain prior-art for later phases (valuation, M2+).
 - **cedocumentmapper_v2.0** — the document parser, **already ~75% built** (Python library + CLI;
   engine/readers/rules/normalisers/EVA-JSON exporter/tests done; UI/regression/packaging/CI
-  outstanding; **PyMuPDF AGPL** risk). Complete & integrate it — don't re-derive parsing in Power Fx.
+  outstanding; PyMuPDF **licensed** (AGPL concern resolved)). Complete & integrate it — don't re-derive parsing in Power Fx.
 - **cedocumentmapper** — legacy v1 Tkinter monolith; behaviour reference only.
 
 Full map: [docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md).
@@ -90,12 +93,13 @@ All non-trivial integrations are **feature-gated with Dataverse environment vari
 Project agents live in `.claude/agents/`; project skills in `.claude/skills/`. Each domain agent
 owns one vertical slice and defers across boundaries (it says so in its own description):
 
-- **azure-integration-engineer** — Azure Functions (parser + enrichment REST wrappers over the
-  `collisionplugin` OAuth gateway), Key Vault, Entra app registration, custom connectors, Document
-  Intelligence, postcode.io/Azure Maps. Leans on `azure:*` + `microsoft-docs:*`.
+- **azure-integration-engineer** — Azure Functions (parser + enrichment REST wrappers calling
+  DVSA/DVLA **directly via Entra** (no gateway)), Key Vault, Entra app registration, custom
+  connectors, Document Intelligence, postcode.io/Azure Maps. Leans on `azure:*` +
+  `microsoft-docs:*`.
 - **power-automate-flow-builder** — cloud flows: inbox intake, dedup, status machine, parser/
   enrichment calls, EVA-submit + Box-sync, chasers. (No plugin covers Power Automate.)
-- **eva-sentry-integration** — EVA Sentry REST v1.2, the 13-field JSON contract, photo-order/image
+- **eva-sentry-integration** — EVA Sentry REST v1.2, the 12-field JSON contract, photo-order/image
   rules, drag-drop export, Box coupling. Pairs with the `eva-sentry-api` skill.
 - **dataverse-data-architect** — the `CollisionSpike` solution: 10 tables, provenance, env-var gates,
   auditing, ALM. Uses `code-apps-preview:add-dataverse`.

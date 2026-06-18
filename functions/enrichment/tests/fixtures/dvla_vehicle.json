@@ -1,0 +1,12 @@
+{
+  "_comment": "FAKE DVLA Vehicle Enquiry Service response shape — POST /v1/vehicles. Used only as a make-only fallback when DVSA has no record. NOT a real vehicle.",
+  "registrationNumber": "NE71VRM",
+  "make": "TESLA",
+  "colour": "WHITE",
+  "fuelType": "ELECTRICITY",
+  "yearOfManufacture": 2024,
+  "taxStatus": "Taxed",
+  "motStatus": "No details held by DVLA",
+  "monthOfFirstRegistration": "2024-09",
+  "markedForExport": false
+}

@@ -1,5 +1,10 @@
 # Enrichment connectors via a REST wrapper; DVSA mileage + vehicle details in M1
 
+> **Update 2026-06: gateway retired for M1.** The chosen pattern (thin REST wrapper Azure Function →
+> custom connector) stands; the implementation calls **DVSA + DVLA directly via Entra
+> `client_credentials` + X-API-Key** — there is no Cloud Run OAuth-gateway hop (option B1
+> obviated). See `functions/enrichment/README.md` + `docs/architecture/live-environment.md`.
+
 The `collisionplugin` enrichment services (DVSA `dvsa-mot`, `valuationbot`) are **MCP-only**, private
 behind the `ce-mcp-gateway` OAuth gateway on Cloud Run, so Power Platform cannot call them directly.
 We reach them via a thin **REST wrapper (Azure Function)** that authenticates to the private backends

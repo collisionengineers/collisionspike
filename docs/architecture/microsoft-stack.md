@@ -1,5 +1,13 @@
 # Microsoft Stack — Recommendation
 
+> **⚠️ Pricing update (2026-06-18) — see [docs/research/](../research/) for current figures.** Two
+> licensing facts changed since this was first costed: **(1) AI Builder credits retire 2026-11-01**
+> (seeded Premium credits removed, add-on purchase closed, usage shifts to Copilot Credits) — so
+> "AI Builder ≈ $0" no longer holds; and **(2) Copilot Studio is now Copilot-Credit metered**
+> ($200/mo ≈ 25k credits, or $0.01/credit). Both are M2/M3+ and gated off, so neither affects the
+> M1 ≈£0-idle posture — but the figures below predate the change. The address-matching and OCR paths
+> stay free (postcode.io; Document Intelligence Read at 500 free pages/mo).
+
 > The most suitable Microsoft stack for the Collision Engineers intake workflow, grounded in
 > Microsoft Learn (researched June 2026). The mature reference build (`collisioncc`) is on **Google
 > Cloud**; this spike deliberately targets **Microsoft / Power Platform** to validate the workflow
@@ -16,7 +24,7 @@
 | Email intake | **Power Automate** + **Office 365 Outlook** "new email in a shared mailbox (V2)" | 1 |
 | Document parsing | **`cedocumentmapper_v2.0`** (deterministic, local) → **Azure AI Document Intelligence** fallback | 1 / 3 |
 | Image AI | **AI Builder** (classify overview vs damage) → **Azure AI Vision** (people/reflection + plate OCR) | 2 / 4 |
-| Enrichment | **Custom connectors** → `collisionplugin` (DVSA mileage + vehicle details; valuation) | 3 |
+| Enrichment | **Azure Function** (`cespkenrich-fn-gi62sd`) → DVSA + DVLA directly via Entra `client_credentials` + X-API-Key → **custom connector** (no gateway; M1) | 1 |
 | General AI assist | **AI Builder prompts** / **Azure OpenAI** (Azure AI Foundry) | 3–4 |
 | Conversational copilot | **Copilot Studio** agent over Dataverse | 4 (optional) |
 | Address normalisation | **postcode.io** now → **Azure Maps** later | 1 / later |
@@ -49,6 +57,12 @@ rather than re-expressing logic in Power Fx, while still getting Dataverse + 1,5
 Entra auth. **Status caveat:** the `pac` CLI still surfaces `pac code` as **"(Preview)"** — confirm
 GA status and licensing before production. Requires the environment to have *Power Apps code apps*
 enabled, and each user a **Power Apps Premium** licence.
+
+> **CSP constraint:** the deployed Code App player enforces `Content-Security-Policy:
+> connect-src 'none'`. All calls to external services must go through **Power Platform connectors**
+> (SDK) — a raw `fetch()` to an external URL is blocked. Power Automate cloud flow HTTP actions are
+> exempt (server-side).
+
 Docs: <https://learn.microsoft.com/power-apps/developer/code-apps/overview>
 
 ### 2. Data — Dataverse mirroring SharePoint
@@ -68,7 +82,7 @@ Docs: <https://learn.microsoft.com/connectors/office365/> ·
 shared-mailbox trigger <https://learn.microsoft.com/troubleshoot/power-platform/power-automate/flow-run-issues/issues-triggering-emails-with-attachments-from-shared-mailbox>
 
 ### 4. Document AI — deterministic first, Azure Document Intelligence as fallback
-`cedocumentmapper_v2.0` already extracts the 13 EVA fields **deterministically and for free** —
+`cedocumentmapper_v2.0` already extracts the 12 EVA fields **deterministically and for free** —
 keep it as the primary path (mirrors `collisioncc`'s "deterministic first, gate the expensive
 extractor" principle). Use **Azure AI Document Intelligence** (prebuilt **Read/Layout**, or a custom
 neural model) only for documents the rules miss.
@@ -95,11 +109,12 @@ Vision <https://learn.microsoft.com/azure/ai-services/computer-vision/overview>
 > Read); **M2** = **AI Builder classification** (overview/damage) + **Foundry vision** (person/
 > reflection). Custom Vision not used.
 
-### 6. Enrichment — custom connectors to `collisionplugin`
+### 6. Enrichment — Azure Function → DVSA/DVLA directly (M1)
 DVSA mileage (`current_mileage_estimate`) + vehicle details (`get_vehicle_summary`), and later
-valuation. The connectors are **MCP-only behind an OAuth gateway** — a thin **REST wrapper**
-(Azure Function) is the cleanest way to expose them to a Power Platform custom connector. See
-[integrations.md](./integrations.md#enrichment-connectors-collisionplugin).
+valuation. **M1 implementation:** Azure Function `cespkenrich-fn-gi62sd` authenticates **directly
+to DVSA + DVLA via Entra `client_credentials` + X-API-Key** (no Cloud Run OAuth-gateway hop) and
+exposes plain REST → custom connector for Power Automate. The prior-art Cloud Run gateway path is a
+retired fallback, not in M1. See [integrations.md](./integrations.md#enrichment-connectors).
 Docs: <https://learn.microsoft.com/connectors/custom-connectors/define-openapi-definition>
 
 ### 7. General AI assist — AI Builder prompts / Azure OpenAI
@@ -157,9 +172,11 @@ org's existing **Microsoft 365** footprint may partly offset.
 
 1. **Code Apps maturity/licensing** — `pac` labels `code` "Preview"; confirm GA + Premium licensing
    and that the target environment has code apps enabled.
-2. **Enrichment integration shape** — REST wrapper (recommended) vs OAuth-gateway custom connector
-   (see [integrations.md](./integrations.md)).
-3. **PyMuPDF AGPL** in `cedocumentmapper_v2.0` — resolve before any closed-source distribution.
+2. **Enrichment integration shape** — ~~REST wrapper (recommended) vs OAuth-gateway custom connector~~
+   **Resolved (M1):** Azure Function calls DVSA + DVLA directly via Entra; no gateway. See
+   [integrations.md](./integrations.md#enrichment-connectors).
+3. **PyMuPDF AGPL** in `cedocumentmapper_v2.0` — ~~resolve before any closed-source distribution~~
+   **Resolved:** licensed (AGPL concern closed); no blocker.
 4. **Copilot Studio inclusion** — confirm it's wanted for the spike vs deferred; it is not a
    `collisioncc` requirement.
 5. **Environment & Azure subscription** — needs a Power Platform environment with Dataverse +

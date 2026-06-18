@@ -29,7 +29,7 @@ later).
 | `collisionspike` (**this repo**) | Near-empty: `adminoverview.md`, `CLAUDE.md`, `.claude/settings.json` | **Build target** — the Power Apps Code App spike |
 | `collisioncc` | Mature Next.js + Firebase/GCP app ("Command Centre"); Graph intake, parser+Document AI, image-rules, case-status, EVA Sentry submit | **Contract & architecture reference** (the future cloud version); source of the EVA payload shape, `case-status` states, `image-rules`, provider knowledge |
 | `collisionplugin` (singular) | Claude plugin + **MCP connectors on Cloud Run**: `dvsa-mot` (mileage/history, 32 tools), `valuationbot` (comparable-advert valuation + PDF), `report-renderer`, `eva` (Sentry browser, currently disabled), `mcp-gateway` (OAuth) | **Connector functions the spike consumes** for enrichment |
-| `cedocumentmapper` | 4,244-line Tkinter monolith: PDF/DOCX/DOC/EML/MSG → provider detection → 13-field map → EVA JSON; bundles Tesseract; no tests, no VCS history | **Rebuild → `cedocumentmapper_v2.0`** (library + CLI) |
+| `cedocumentmapper` | 4,244-line Tkinter monolith: PDF/DOCX/DOC/EML/MSG → provider detection → 12-field map → EVA JSON; bundles Tesseract; no tests, no VCS history | **Rebuild → `cedocumentmapper_v2.0`** (library + CLI) |
 | `collisionpdf`, `collisionautomation` | Parser-first FastAPI service; React/Vite UI prototype | Secondary references (parser pipeline, UI/runtime-gating patterns) |
 
 ## Locked decisions (from clarification)
@@ -69,9 +69,10 @@ later).
                               │  calls (custom connectors)
         ┌─────────────────────┼───────────────────────────────┐
         ▼                     ▼                                ▼
-  AI Builder            collisionplugin MCP            cedocumentmapper_v2.0
-  (image classify)      connectors via mcp-gateway     (PDF → EVA-JSON, CLI now;
-                        (mileage, valuation, EVA)        Azure Function + connector later)
+  AI Builder       Azure Function (enrichment)        cedocumentmapper_v2.0
+  (image classify) DVSA/DVLA direct via Entra         (PDF → EVA-JSON, CLI now;
+                   (no mcp-gateway / Cloud Run)         Azure Function + connector later)
+                   [valuation via collisionplugin: M2+]
                               │
                               ▼
                      EVA: JSON export now │ Sentry API when flag ON
@@ -91,19 +92,18 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 > deterministic readiness checklist + Missing → manual Case/PO + drag-drop EVA JSON export. Minimal
 > seeded corpus; inspection address as a manual field. **Parser wired inline (ADR-0004):**
 > `cedocumentmapper_v2.0` runs as an Azure Function (custom connector, `PDF_MAPPER_ENABLED`) that the
-> Code App calls on the instruction to pre-fill the 13 fields (staff review). Proves Code App +
+> Code App calls on the instruction to pre-fill the 12 fields (staff review). Proves Code App +
 > Dataverse + parser→EVA + the readiness gate end-to-end. **Images (M1):** stored + **manual role
 > tagging**, with deterministic **OCR** (Tesseract via the parser function, or Azure Vision Read)
 > auto-checking registration-visible — **OCR is for registration matching only in M1**; classification
 > (overview/damage) + reflection detection are **deferred to M2** (ADR-0009). **DVSA enrichment (M1 — ADR-0006):** mileage (**only when the
-> document lacks it — authoritative**) + vehicle make/model via a REST wrapper (Azure Function) over
-> collisionplugin `dvsa-mot`, gated `ENRICHMENT_ENABLED`, staff-reviewed. **EVA (full scope):**
+> document lacks it — authoritative**) + vehicle make/model via an Azure Function calling DVSA/DVLA
+> **directly via Entra** (no OAuth gateway / mcp-gateway), gated `ENRICHMENT_ENABLED`, staff-reviewed. **EVA (full scope):**
 > drag-drop JSON is the M1 path; the Sentry API is developed against the **test env** (same URL; test
 > credentials route to the test server; production cutover gated). **Box (M1):** folder = UPPERCASE
 > Case/PO (EVA lowercase — `test26001` → `TEST26001`), created **in unison** with EVA submission.
 > **Out of M1:** image-classification AI (overview/damage, reflection detection), valuation connector,
-> full corpus governance, assistant/copilot, structured chasers, **EVA production cutover**. **Resolve
-> PyMuPDF AGPL in M1.**
+> full corpus governance, assistant/copilot, structured chasers, **EVA production cutover**. **PyMuPDF licensed** (AGPL concern resolved — M1 complete).
 
 ### Phase 0 — Foundations
 - Scaffold the Power Apps Code App: `code-apps-preview:create-code-app` (React/Vite).
@@ -115,7 +115,7 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   Reuse the **status enum** from `collisioncc/src/lib/case-status.ts`
   (`new_email→ingested→needs_review→ready_for_eva→eva_submitted`, plus `missing_images`,
   `missing_required_fields`, etc.).
-- Port shared **contracts** as TS modules: EVA payload (13 fields, 6-line address) and
+- Port shared **contracts** as TS modules: EVA payload (12 fields, 6-line address) and
   image-rules from `collisioncc/src/lib/image-rules.ts` and the EVA export contract.
 - **Env vars / feature flags:** `EVA_API_ENABLED` (default false), `EVA_BASE_URL`,
   `PDF_MAPPER_ENABLED`, `AZURE_VISION_ENABLED`, connector base URLs.
@@ -157,13 +157,13 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   intake itself is manual — Business app.)
 
 ### Phase 3 — Enrichment via connectors + EVA export
-- **Enrichment connectors (ADR-0006 — REST wrapper / Azure Function over collisionplugin behind the
-  OAuth gateway):** **DVSA `dvsa-mot` is pulled into M1** (`current_mileage_estimate` — only when the
-  document lacks mileage — + `get_vehicle_summary`); **valuation** (`valuationbot`) is **in scope at
-  M2**. Use
+- **Enrichment connectors (ADR-0006):** M1 = Azure Function calling **DVSA + DVLA directly via
+  Entra `client_credentials` + X-API-Key** (no Google Cloud OAuth gateway / mcp-gateway):
+  `current_mileage_estimate` (only when the document lacks mileage) + `get_vehicle_summary`.
+  **Valuation** (`valuationbot` via collisionplugin) is **in scope at M2+** (later phase). Use
   `code-apps-preview:add-connector` / `list-connections`.
 - **EVA export — full scope (ADR-0005):** generate the EVA JSON payload (the `cedocumentmapper_v2.0`
-  13-field contract) for drag-drop (M1 + permanent fallback); **build & validate the Sentry API
+  12-field contract) for drag-drop (M1 + permanent fallback); **build & validate the Sentry API
   against the EVA test environment** (`EVA_BASE_URL` test/prod, `EVA_API_ENABLED` API/JSON), POSTing
   `/Instruction/Inspection` (JWT via `/Connect/token`, 5-min token, idempotency by payload hash).
   **Production cutover gated** by a parity test. Authoritative endpoints:
@@ -183,12 +183,11 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 **Correction:** the sibling `cedocumentmapper_v2.0` repo is **already ~75% built** — a clean,
 layered, contract-first Python library + CLI (~5,100 LOC): domain models, readers
 (PDF/DOCX/DOC/EML/MSG), provider detection, a **12-kind rule engine**, normalisers, a
-**schema-validated 13-field EVA-JSON exporter**, v1→v2 config migration, and pytest are done
+**schema-validated 12-field EVA-JSON exporter**, v1→v2 config migration, and pytest are done
 (EPIC-01→07). The work is to **complete and harden**, not rewrite:
 - Outstanding: review UI (0%), **regression corpus harness** (~30%), packaging (~20%), CI/CD (0%).
-- **Resolve the PyMuPDF (AGPL) licensing risk** before any closed-source distribution (swap to
-  pdfplumber/Poppler or buy a commercial licence).
-- Keep the **13-field → EVA JSON** contract drag-drop-compatible.
+- **PyMuPDF licensed** (AGPL concern resolved — no remediation needed).
+- Keep the **12-field → EVA JSON** contract drag-drop-compatible.
 - **Integration path (M1 — ADR-0004):** wrap as an Azure Function → custom connector, gated by
   `PDF_MAPPER_ENABLED`, called inline by the Code App. The CLI remains for offline/batch use.
 
@@ -202,7 +201,8 @@ layered, contract-first Python library + CLI (~5,100 LOC): domain models, reader
   `.../eva/sentry_api_complete_guide.md`.
 - Rebuild from: `cedocumentmapper/app.py`, `cedocumentmapper/providers.json`,
   `cedocumentmapper/docs/Final Format Example 02.json` (target JSON shape).
-- Connectors: `collisionplugin/connectors/{dvladvsa,valuation-tool,eva,mcp-gateway}`.
+- Connectors: `collisionplugin/connectors/{valuation-tool,eva}` (M2+ reference only); M1 enrichment
+  uses the spike's own Azure Function (direct DVSA/DVLA — no mcp-gateway).
 - Skills to drive the build: `code-apps-preview:create-code-app`, `add-dataverse`,
   `add-sharepoint`, `add-office365`, `add-connector`, `list-connections`, `deploy`.
 
@@ -211,8 +211,11 @@ layered, contract-first Python library + CLI (~5,100 LOC): domain models, reader
    the spike re-implements its contracts and does not call it at runtime.
 2. **Environment/licensing:** is there a Power Platform environment with Dataverse + a premium/
    AI Builder capacity available, and an Azure subscription for the later phases?
-3. **Scope of first milestone:** is Phase 0–1 (intake + Dataverse mirror) the first shippable
-   spike, with image AI / connectors / EVA as fast-follows?
+3. ~~**Scope of first milestone.**~~ **RESOLVED (2026-06-18):** Email intake is **LIVE** — the
+   `CS Intake` flow is ON (rebuilt `OnNewEmailV3` trigger on the connected `digital@` mailbox);
+   Provider Match + Case Resolve flows are ON; downstream flows (image AI, enrichment, EVA, Box)
+   remain OFF. Code App, parser Function, enrichment Function, Dataverse schema, and 10 flows
+   are deployed. OCR / image AI / valuation / EVA cutover are the remaining fast-follows.
 
 ## Verification
 - **Code App:** `code-apps-preview:deploy` to the Power Platform environment; load the app, run a

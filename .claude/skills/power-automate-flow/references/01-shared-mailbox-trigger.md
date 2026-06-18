@@ -29,11 +29,10 @@ Plan ref: §5.1 `Flow_Intake_<Mailbox>`. Mirrors `collisioncc` `graph-intake.ts 
       "inputs": {
         "host": {
           "connectionName": "shared_office365",
-          "operationId": "OnNewEmailV3SharedMailbox",
+          "operationId": "OnNewEmailV3",
           "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
         },
         "parameters": {
-          "mailboxAddress": "@parameters('IntakeMailbox')",
           "folderPath": "Inbox",
           "includeAttachments": true,
           "fetchOnlyWithAttachment": false,
@@ -49,13 +48,18 @@ Plan ref: §5.1 `Flow_Intake_<Mailbox>`. Mirrors `collisioncc` `graph-intake.ts 
 }
 ```
 
-> `IntakeMailbox` is a flow parameter (or a Dataverse env-var read) so the same definition ships to all
-> three mailboxes without per-copy edits. **Do not hard-code a live Collision Engineers mailbox address
-> in the authored definition** — pointing at a live inbox is `[RESERVED-FOR-USER]`.
+> V3 monitors the **connected account's mailbox**; to change which mailbox is watched, change the
+> **connection**, not a flow parameter (there is no `mailboxAddress`/`IntakeMailbox` parameter on
+> `OnNewEmailV3`).
 >
-> The `operationId` (`OnNewEmailV3SharedMailbox`) is the connector's internal op name behind the "(V2)"
-> UI trigger — the UI label and the internal op version can differ. Confirm it against the
-> `shared_office365` swagger for your tenant before deploy (same placeholder discipline as `cr123_*`).
+> The live trigger is **"When a new email arrives (V3)"**, operationId `OnNewEmailV3`. Confirm it
+> against the `shared_office365` swagger for your tenant before deploy (same placeholder discipline
+> as `cr123_*`).
+>
+> **Note on shared-mailbox alternative:** the true shared-mailbox trigger (`SharedMailboxOnNewEmailV2`,
+> which does take a `mailboxAddress` parameter) requires a real Exchange shared mailbox. The
+> collisionspike intake uses `OnNewEmailV3` on the connected `digital@` mailbox — not
+> `SharedMailboxOnNewEmailV2`.
 
 ## First actions — capture identity, compute payloadHash, dedup guard
 

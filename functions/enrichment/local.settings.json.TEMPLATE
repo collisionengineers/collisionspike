@@ -1,16 +1,21 @@
 {
-  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) to run locally. NO SECRET VALUES live here — the two gateway credentials are Azure Key Vault references resolved by the platform at runtime. Locally, point them at a dev gateway or leave the wrapper disabled.",
+  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) to run locally. NO SECRET VALUES here — the DVSA/DVLA secrets are Azure Key Vault references resolved by the platform at runtime via the Function's managed identity. Architecture: direct DVSA MOT History API (Entra client_credentials + X-API-Key) and direct DVLA Vehicle Enquiry API (API-key) — NO gateway, NO Google Cloud.",
   "IsEncrypted": false,
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "python",
 
     "ENRICHMENT_ENABLED": "false",
-    "ENRICHMENT_API_BASE": "https://ce-mcp-gateway.example.run.app",
-    "ENRICHMENT_CONNECTOR": "dvsa-mot",
 
-    "GATEWAY_CLIENT_ID": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/ce-gateway-client-id/)",
-    "GATEWAY_CLIENT_SECRET": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/ce-gateway-client-secret/)",
-    "GATEWAY_SCOPE": ""
+    "DVSA_API_BASE": "https://history.mot.api.gov.uk",
+    "DVSA_SCOPE": "https://tapi.dvsa.gov.uk/.default",
+    "DVSA_TENANT_ID": "<dvsa-entra-tenant-guid>",
+
+    "DVLA_API_BASE": "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry",
+
+    "DVSA_CLIENT_ID": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/dvsa-client-id/)",
+    "DVSA_CLIENT_SECRET": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/dvsa-client-secret/)",
+    "DVSA_API_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/dvsa-api-key/)",
+    "DVLA_API_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/dvla-api-key/)"
   }
 }

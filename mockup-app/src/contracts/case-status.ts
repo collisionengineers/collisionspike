@@ -93,7 +93,7 @@ export interface ReviewableField {
 /** The minimum a Case must expose for status evaluation. */
 export interface StatusEvaluationInput {
   status: CaseStatus;
-  /** The 13 EVA fields, keyed by `EvaFieldKey` (camelCase). */
+  /** The 12 EVA fields, keyed by `EvaFieldKey` (camelCase). */
   evaFields: Record<EvaFieldKey, ReviewableField>;
   /** Evidence usable by the image rules. */
   evidence: readonly ImageRuleEvidence[];

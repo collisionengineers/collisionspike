@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "CollisionSpike DVSA Enrichment",
-    "description": "Custom connector over the DVSA enrichment Azure Function. Wraps the collisionplugin dvsa-mot connector (get_vehicle_summary + current_mileage_estimate) behind the ce-mcp-gateway OAuth2 gateway. Enrichment is advisory and staff-reviewed; the mileage estimate is requested ONLY when the parsed document has no mileage (document authoritative, ADR-0006).",
+    "description": "Custom connector over the DVSA enrichment Azure Function. The Function calls the DVSA MOT History API directly (Microsoft Entra client_credentials + X-API-Key) and the DVLA Vehicle Enquiry API directly (API-key) — no gateway, all-Microsoft. It returns vehicle make/model (get_vehicle_summary) and a current mileage estimate (current_mileage_estimate). Enrichment is advisory and staff-reviewed; the mileage estimate is computed ONLY when the parsed document has no mileage (document authoritative, ADR-0006).",
     "version": "1.0.0"
   },
   "host": "REPLACE_WITH_FUNCTION_HOSTNAME.azurewebsites.net",

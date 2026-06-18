@@ -65,7 +65,7 @@ _Avoid_: Automation level, Auto mode
 
 **EVA Readiness**:
 A Case is *Ready for EVA* when every required item in its readiness checklist is satisfied or
-explicitly overridden. Required set = the 13 EVA fields (valid) + image-rules (≥2 images incl.
+explicitly overridden. Required set = the 12 EVA fields (valid) + image-rules (≥2 images incl.
 overview-with-registration + damage closeup) + an inspection-address decision + any per-provider
 extras (e.g. AX: inspection type/location/case number/request date). EVA submit is blocked until met.
 _Avoid_: Complete, Done

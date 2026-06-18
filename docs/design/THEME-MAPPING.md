@@ -30,7 +30,7 @@ queues use a **muted charcoal count pill** (`rgba(255,255,255,0.14)` ground, ~82
 
 ### Futura is *display-only*
 
-`var(--ce-font-display)` ("Futura PT", loaded from `public/fonts`) is applied to **page H1 + the case-title
+`var(--ce-font-display)` ("Futura PT", loaded from `src/fonts`) is applied to **page H1 + the case-title
 lockup** and other display moments (eyebrows, big cockpit numbers, `PipelineStrip` labels, section/filter
 labels) — **never** to body or table text, which stay system-sans. See §3.
 
@@ -106,8 +106,11 @@ non-Fluent surfaces (charcoal rail, eyebrows, KPI numbers):
 
 ## 3. Typography & `@font-face`
 
-Font files are copied into `mockup-app/public/fonts/` and the `@font-face` blocks in `theme.css` are reused
-**verbatim** from `colors_and_type.css`, repointed at `/fonts`.
+Font files live in `mockup-app/src/fonts/` and the `@font-face` blocks in `theme.css` are reused
+**verbatim** from `colors_and_type.css`, with `url('../fonts/…')` (relative) so Vite fingerprints them and
+they resolve under the Code App's subpath base. _(They were moved out of `public/fonts/` on 2026-06-18 —
+an absolute `/fonts/…` 404s once the app is hosted at a subpath; same fix applied to the logos under
+`src/assets/`.)_
 
 | Family | Files (weights) | Use in the prototype |
 |---|---|---|

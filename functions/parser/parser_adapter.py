@@ -2,7 +2,7 @@
 
 This module is the single place where the Collision Engineers parser Function
 touches ``cedocumentmapper_v2``. Everything else in this Function (the HTTP
-handler, schema validation) speaks the settled 13-field EVA contract and never
+handler, schema validation) speaks the settled 12-field EVA contract and never
 imports the sibling package directly. Keeping the coupling in one file means:
 
 * tests can monkeypatch ``run_parser`` to return a fixture extraction WITHOUT
@@ -46,7 +46,7 @@ bytes-in public entry point; if the document-parser-engineer adds one
 CONTRACT MISMATCH (deliberate; this adapter reconciles it).
 
 The sibling parser's native field set (``domain/models.FieldKey``) is the
-LEGACY 13 and is NOT the settled EVA 13. The differences this adapter bridges:
+LEGACY set and is NOT the settled EVA 12. The differences this adapter bridges:
 
   parser native key        -> EVA contract key            note
   -----------------------     ------------------            ----
@@ -66,14 +66,17 @@ LEGACY 13 and is NOT the settled EVA 13. The differences this adapter bridges:
 
   EVA fields the parser does NOT yet emit (defaulted to empty string here,
   to be filled by enrichment / staff downstream):
-    claimant_telephone, claimant_email, engineer_allocation
+    claimant_telephone, claimant_email
+
+  (Engineer allocation is NOT an EVA submission field — it is left blank and
+  assigned inside EVA AFTER submission, so it is excluded from the contract.)
 
 ``vrm`` and ``reference`` are surfaced SEPARATELY (Case-identity, for 5.3
-correlation/dedup) and are intentionally excluded from the 13-field payload.
+correlation/dedup) and are intentionally excluded from the 12-field payload.
 
 OPEN ITEM to confirm with document-parser-engineer:
   * Whether the sibling will rename its native keys to the EVA set (which would
-    let the rename map below collapse to identity), or add the three missing
+    let the rename map below collapse to identity), or add the two missing
     EVA fields, or expose a bytes-in entry point. Until then this adapter is the
     authoritative reconciliation and the rename map is the contract.
 """
@@ -82,11 +85,13 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 from typing import Any
 
-# The settled 13 EVA payload keys, in contract order. Mirrors
+# The settled 12 EVA payload keys, in contract order. Mirrors
 # contracts/eva-payload.schema.json and mockup-app/src/contracts/eva-export.ts
-# EVA_FIELD_ORDER. engineer_allocation is the 13th (settled placeholder name).
+# EVA_FIELD_ORDER. (Engineer allocation is NOT an EVA submission field — it is
+# left blank and assigned inside EVA after submission, so it is excluded.)
 EVA_FIELD_ORDER: tuple[str, ...] = (
     "work_provider",
     "vehicle_model",
@@ -100,12 +105,11 @@ EVA_FIELD_ORDER: tuple[str, ...] = (
     "vat_status",
     "mileage",
     "mileage_unit",
-    "engineer_allocation",
 )
 
 # Map an EVA contract key -> the sibling parser's native field key that supplies
 # it. Keys absent from this map are EVA fields the parser does not yet produce
-# (claimant_telephone, claimant_email, engineer_allocation) and default empty.
+# (claimant_telephone, claimant_email) and default empty.
 EVA_KEY_FROM_PARSER_KEY: dict[str, str] = {
     "work_provider": "work_provider",
     "vehicle_model": "vehicle_model",
@@ -127,6 +131,20 @@ CONTRACT_VERSION = "cedocumentparser_v2.0_eva_json"
 
 # Supported source suffixes (mirrors readers.get_reader_for_path dispatch).
 _SUPPORTED_SUFFIXES = (".pdf", ".docx", ".doc", ".eml", ".msg")
+
+# The engine is VENDORED next to this file as ``./cedocumentmapper_v2/`` (a
+# top-level package on the worker's sys.path). Its provider catalogue ships
+# inside that package as ``cedocumentmapper_v2/providers.json``. We pin the
+# service to that seed and to a WRITABLE app-data dir so the headless Linux
+# worker never tries to write into ``~/CE Document Mapper`` (the desktop default,
+# which is read-only / absent on Flex Consumption). This is a wrapper-side
+# concern only — the vendored engine source is byte-for-byte the sibling repo.
+_VENDORED_PROVIDERS_JSON = Path(__file__).resolve().parent / "cedocumentmapper_v2" / "providers.json"
+
+# Per-worker writable scratch dir for the service's migrated provider catalogue.
+# Lives under the OS temp root (always writable on FC1) and is reused across
+# invocations on the same warm worker.
+_SERVICE_APP_DATA_DIR = Path(tempfile.gettempdir()) / "cedocumentmapper_v2_appdata"
 
 
 class ParserError(RuntimeError):
@@ -164,7 +182,15 @@ def run_parser(document_bytes: bytes, filename: str, provider_hint: str | None =
         with os.fdopen(fd, "wb") as fh:
             fh.write(document_bytes)
 
-        service = DocumentMapperService()
+        # Pin the service to a writable app-data dir + the vendored provider
+        # seed. Passing app_data_dir explicitly also disables the desktop
+        # seed-merge-write-back, so the only write is the one-time schema
+        # migration into our temp dir — never into the read-only home dir.
+        _SERVICE_APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        service = DocumentMapperService(
+            app_data_dir=_SERVICE_APP_DATA_DIR,
+            seed_path=_VENDORED_PROVIDERS_JSON,
+        )
         # provider_hint maps onto the sibling's provider_selector (id or name).
         _document, record = service.process_document(tmp_path, provider_selector=provider_hint)
         return service.record_to_dict(record)
@@ -181,18 +207,18 @@ def run_parser(document_bytes: bytes, filename: str, provider_hint: str | None =
 
 
 def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
-    """Map a ``record_to_dict`` result -> the 13-field EVA extraction + identity.
+    """Map a ``record_to_dict`` result -> the 12-field EVA extraction + identity.
 
     Returns:
         {
-          "extraction": { <13 EVA keys in order>: {value, confidence, source,
+          "extraction": { <12 EVA keys in order>: {value, confidence, source,
                           warnings?}, ... },
           "vrm":       {value, confidence, source, warnings?} | None,
           "reference": {value, confidence, source, warnings?} | None,
           "issues":    [ {field, severity, code, message}, ... ],
         }
 
-    The ``extraction`` dict is built by iterating EVA_FIELD_ORDER so the 13 keys
+    The ``extraction`` dict is built by iterating EVA_FIELD_ORDER so the 12 keys
     are always present and in contract order. Fields the parser does not emit
     become empty values with source ``"absent"``.
     """

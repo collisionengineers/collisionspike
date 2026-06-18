@@ -6,7 +6,7 @@ import { buildEvaPayload, EVA_FIELD_ORDER, type EvaPayloadInput } from './eva-ex
 const ajv = new Ajv2020({ allErrors: true });
 const validate = ajv.compile(schema);
 
-/** A fully-valid 13-field payload. */
+/** A fully-valid 12-field payload. */
 function validPayload() {
   return {
     work_provider: 'CCP',
@@ -21,12 +21,11 @@ function validPayload() {
     vat_status: 'Yes',
     mileage: '42000',
     mileage_unit: 'Miles',
-    engineer_allocation: 'Unassigned',
   };
 }
 
 describe('eva-payload.schema.json — valid payloads', () => {
-  it('accepts a fully-populated 13-field payload', () => {
+  it('accepts a fully-populated 12-field payload', () => {
     expect(validate(validPayload())).toBe(true);
   });
 
@@ -110,9 +109,9 @@ describe('eva-payload.schema.json — invalid payloads', () => {
     expect(validate(p)).toBe(false);
   });
 
-  it('rejects a missing field (only 12 present)', () => {
+  it('rejects a missing field (only 11 present)', () => {
     const p: Record<string, string> = validPayload();
-    delete p.engineer_allocation;
+    delete p.mileage_unit;
     expect(validate(p)).toBe(false);
   });
 });

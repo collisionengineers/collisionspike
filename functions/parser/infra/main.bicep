@@ -1,10 +1,15 @@
 // ============================================================================
 // Collision Engineers — parser Function infrastructure ([BUILD] artifact).
 //
-// Linux Python Azure Function (Flex Consumption / Linux App Service plan) that
-// hosts the cedocumentmapper_v2 parser wrapper. Authored OFFLINE; deploying it
-// is [DEPLOY-WITH-LOGIN] (no az/func/login is run here). Injecting any real
-// secret VALUE into Key Vault is [RESERVED-FOR-USER].
+// Linux Python Azure Function on the **Flex Consumption (FC1)** plan that hosts
+// the cedocumentmapper_v2 parser wrapper. Authored OFFLINE; deploying it is
+// [DEPLOY-WITH-LOGIN] (no az/func/login is run here). Injecting any real secret
+// VALUE into Key Vault is [RESERVED-FOR-USER].
+//
+// Why Flex Consumption (not Elastic Premium): a fast spike does not need an
+// always-warm, hourly-billed EP1 instance (~£130/mo idle). FC1 is pay-per-use
+// (≈£0 idle) yet still offers 2–4 GB memory headroom for the parser's native
+// deps (PyMuPDF). Mirrors the enrichment Function's plan for consistency.
 //
 // PRINCIPLES enforced in this template:
 //   * NO secret literals. The Function holds no secrets today; the wiring for
@@ -12,6 +17,8 @@
 //     setting, resolved via the Function's system-assigned managed identity.
 //   * NO hardcoded subscription / tenant / resource ids — everything is a
 //     parameter or derived from the deployment scope.
+//   * Identity-based storage (no account keys in app settings): the host uses
+//     AzureWebJobsStorage__accountName + the MI's Storage Blob Data Owner role.
 //   * Gating note: PDF_MAPPER_ENABLED is a Dataverse env var checked in the
 //     Power Automate flow UPSTREAM, NOT an app setting consumed by this Function.
 // ============================================================================
@@ -34,6 +41,19 @@ param environmentName string = 'dev'
 ])
 param pythonVersion string = '3.12'
 
+@description('Per-instance memory (MB) for the Flex Consumption worker. 2048 gives PyMuPDF headroom.')
+@allowed([
+  512
+  2048
+  4096
+])
+param instanceMemoryMB int = 2048
+
+@description('Maximum Flex Consumption instance count (burst ceiling).')
+@minValue(40)
+@maxValue(1000)
+param maximumInstanceCount int = 40
+
 @description('Optional existing Key Vault name to source secret references from. Empty = no secret references wired (the parser needs none today).')
 param keyVaultName string = ''
 
@@ -55,10 +75,11 @@ var planName = '${namePrefix}-parser-plan-${environmentName}'
 var functionAppName = '${namePrefix}-parser-${environmentName}-${uniqueSuffix}'
 var appInsightsName = '${namePrefix}-parser-ai-${environmentName}'
 var logAnalyticsName = '${namePrefix}-parser-law-${environmentName}'
+var deploymentContainerName = 'app-package'
 
 var wireSecretReference = !empty(keyVaultName) && !empty(parserSecretName)
 
-// --- Storage (required backing for the Function host) -----------------------
+// --- Storage (host backing + FC1 deployment package container) --------------
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
   location: location
@@ -74,7 +95,20 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
-// --- Observability ----------------------------------------------------------
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: storage
+  name: 'default'
+}
+
+resource deployContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: deploymentContainerName
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+// --- Observability (workspace-based App Insights) ---------------------------
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: logAnalyticsName
   location: location
@@ -98,54 +132,62 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-// --- App Service plan (Linux, Elastic Premium for container/Python) ---------
+// --- Flex Consumption (FC1) plan --------------------------------------------
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: planName
   location: location
   tags: tags
   sku: {
-    name: 'EP1'
-    tier: 'ElasticPremium'
+    name: 'FC1'
+    tier: 'FlexConsumption'
   }
-  kind: 'elastic'
+  kind: 'functionapp'
   properties: {
     reserved: true // Linux
-    maximumElasticWorkerCount: 3
   }
 }
 
-// --- Function App (Linux, Python v2 programming model) ----------------------
+// --- Function App (Linux, Python, Flex Consumption, MI for storage + KV) -----
 resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
   name: functionAppName
   location: location
   tags: tags
   kind: 'functionapp,linux'
   identity: {
-    type: 'SystemAssigned' // for Key Vault reference resolution
+    type: 'SystemAssigned' // for deployment storage + Key Vault reference resolution
   }
   properties: {
     serverFarmId: plan.id
     httpsOnly: true
-    reserved: true
+    functionAppConfig: {
+      deployment: {
+        storage: {
+          type: 'blobContainer'
+          value: '${storage.properties.primaryEndpoints.blob}${deploymentContainerName}'
+          authentication: {
+            type: 'SystemAssignedIdentity'
+          }
+        }
+      }
+      scaleAndConcurrency: {
+        maximumInstanceCount: maximumInstanceCount
+        instanceMemoryMB: instanceMemoryMB
+      }
+      runtime: {
+        name: 'python'
+        version: pythonVersion
+      }
+    }
     siteConfig: {
-      linuxFxVersion: 'Python|${pythonVersion}'
-      ftpsState: 'Disabled'
       minTlsVersion: '1.2'
-      // App settings. Secret VALUES never appear here. The one optional secret
-      // is wired as a Key Vault reference resolved by the managed identity.
+      ftpsState: 'Disabled'
+      // App settings. Secret VALUES never appear here. Storage is identity-based
+      // (no account key); the one optional secret is a Key Vault reference.
       appSettings: concat(
         [
           {
-            name: 'AzureWebJobsStorage'
-            value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}'
-          }
-          {
-            name: 'FUNCTIONS_EXTENSION_VERSION'
-            value: '~4'
-          }
-          {
-            name: 'FUNCTIONS_WORKER_RUNTIME'
-            value: 'python'
+            name: 'AzureWebJobsStorage__accountName'
+            value: storage.name
           }
           {
             name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
@@ -169,6 +211,24 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           : []
       )
     }
+  }
+}
+
+// --- RBAC: Function MI -> "Storage Blob Data Owner" -------------------------
+// Required so the host can read its deployment package and use identity-based
+// AzureWebJobsStorage on Flex Consumption.
+var storageBlobDataOwnerRoleId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
+
+resource storageBlobOwner 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storage
+  name: guid(storage.id, functionApp.id, storageBlobDataOwnerRoleId)
+  properties: {
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      storageBlobDataOwnerRoleId
+    )
   }
 }
 

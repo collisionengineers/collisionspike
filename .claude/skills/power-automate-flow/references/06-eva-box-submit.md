@@ -83,7 +83,7 @@ definition turned OFF.
                   "inputs": {
                     "host": { "connectionName": "shared_evasentry", "operationId": "InstructionInspection",
                       "apiId": "/providers/Microsoft.PowerApps/apis/shared_evasentry" },
-                    "parameters": { "body": "@variables('evaPayload13')" }
+                    "parameters": { "body": "@variables('evaPayload12')" }
                   }
                 }
               },
@@ -91,13 +91,13 @@ definition turned OFF.
                 "actions": {
                   "Stage_drag_drop_json": {
                     "type": "OpenApiConnection",
-                    "comment": "M1 default: emit the schema-valid 13-field JSON for staff drag-drop into EVA. Same serializer as the Code App — byte-identical.",
+                    "comment": "M1 default: emit the schema-valid 12-field JSON for staff drag-drop into EVA. Same serializer as the Code App — byte-identical.",
                     "inputs": {
                       "host": { "connectionName": "shared_box", "operationId": "CreateFile",
                         "apiId": "/providers/Microsoft.PowerApps/apis/shared_box" },
                       "parameters": { "folderId": "@body('Create_box_folder_UPPERCASE')?['Id']",
                         "name": "@concat(toLower(outputs('Get_case')?['body/cr123_casepo']), '.eva.json')",
-                        "body": "@variables('evaPayload13')" }
+                        "body": "@variables('evaPayload12')" }
                     }
                   }
                 }
@@ -127,14 +127,15 @@ definition turned OFF.
 
 ## Notes
 
-- **`evaPayload13` is the schema-valid 13-field JSON in contract order** (`eva-payload.schema.json` /
+- **`evaPayload12` is the schema-valid 12-field JSON in contract order** (`eva-payload.schema.json` /
   `eva-export.ts`). Build it with the **same serializer the Code App uses** so the drag-drop body and the
   API body are byte-identical (§8.2 "one serializer, two transports"). Do **not** assemble the payload
   field-by-field in Power Fx — call the shared export surface.
-- **`vrm` and `reference` are NOT in `evaPayload13`** — they are Case-identity fields. The 13 are
+- **`vrm` and `reference` are NOT in `evaPayload12`** — they are Case-identity fields. The 12 are
   exactly: work_provider, vehicle_model, claimant_name, claimant_telephone, claimant_email, date_of_loss,
-  date_of_instruction, accident_circumstances, inspection_address, vat_status, mileage, mileage_unit,
-  engineer_allocation.
+  date_of_instruction, accident_circumstances, inspection_address, vat_status, mileage, mileage_unit.
+  (Engineer allocation is NOT an EVA submission field — assigned inside EVA after submission; not in the
+  contract, B3 RESOLVED.)
 - **Atomicity caveat:** Power Automate Scopes are not transactional. The `finalizedpayloadhash` stamp is
   the idempotency latch — a partial failure leaves it unstamped, so a re-run resumes cleanly. Note Box
   `CreateFolder` **errors (409) on a name collision** rather than upserting: on a resume, either find the

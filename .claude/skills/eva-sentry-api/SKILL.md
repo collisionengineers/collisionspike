@@ -1,6 +1,6 @@
 ---
 name: eva-sentry-api
-description: EVA "Sentry" API v1.2 reference for collisionspike — auth/token lifecycle, the eight endpoints, the 13-field EVA JSON contract, and the photo-order/image rules. Use when building or validating EVA submission (Sentry REST calls, Instruction/Inspection payloads, the JSON drag-drop export, the EVA custom connector) or when you need the exact field order, formats, or endpoint shapes. Pairs with the eva-sentry-integration agent.
+description: EVA "Sentry" API v1.2 reference for collisionspike — auth/token lifecycle, the eight endpoints, the 12-field EVA JSON contract, and the photo-order/image rules. Use when building or validating EVA submission (Sentry REST calls, Instruction/Inspection payloads, the JSON drag-drop export, the EVA custom connector) or when you need the exact field order, formats, or endpoint shapes. Pairs with the eva-sentry-integration agent.
 ---
 
 # EVA "Sentry" API v1.2
@@ -38,7 +38,7 @@ permanent fallback). Production cutover is gated until prod is confirmed and a *
 Claim-targeting endpoints match a claim by field combinations (e.g. claim ref + postcode) — see the
 PDF per endpoint.
 
-## The 13-field EVA JSON contract (drag-drop + deterministic core)
+## The 12-field EVA JSON contract (drag-drop + deterministic core)
 Exact order matching `Final Format Example 02.json`. `cedocumentmapper_v2.0` emits this
 schema-validated — validate, don't redrive.
 1. Work Provider  — **must be non-empty**
@@ -53,7 +53,10 @@ schema-validated — validate, don't redrive.
 10. VAT Status — ∈ {"", Yes, No}
 11. Mileage
 12. Mileage Unit — ∈ {"", Miles, Km}
-13. (13th field per `Final Format Example 02.json` / schema — confirm exact name in the PDF)
+
+> **Engineer allocation is NOT an EVA submission field.** Per the product owner's ruling (B3 RESOLVED),
+> it is left blank and assigned inside EVA *after* submission, so it was removed entirely from the
+> contract — the payload is exactly these 12 fields.
 
 The `Instruction/Inspection` API payload is **richer** than this: vehicle/claim identity, multiple
 postcodes (repairer/inspection/salvage), claim type, `DamageType`/`DamageType2`/`DamageType3`,

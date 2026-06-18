@@ -8,9 +8,12 @@ this doc covers behaviour. **Derived from reference material — treat as propos
 ## Why a corpus (not reference files)
 Today provider knowledge lives in the job sheet's `Principals` sheet (58 rows) + staff memory.
 The spike needs a **governed, Management-editable backend corpus** so matching, policy, and Case/PO
-are deterministic and auditable. Two record types only: **WorkProvider** and **InspectionAddress**
-(garage/repairer/bodyshop/storage are source labels, not separate entities). `Insurer` is dropped
-from the core model unless first-class source material makes it workflow-relevant.
+are deterministic and auditable. Three record types: **WorkProvider**, **Repairer** (a first-class
+entity, many-to-many with WorkProvider per ADR-0001 — garage/repairer/bodyshop/storage are
+**Repairer** rows, not flattened labels), and **InspectionAddress** (a specific address linked to a
+Repairer or entered ad hoc). The live Sandbox schema reflects this: the Repairer table has 61 seeded
+rows. `Insurer` is dropped from the core model unless first-class source material makes it
+workflow-relevant.
 
 ## Provider Automation Mode (per WorkProvider)
 Controls whether populated data requires human review before EVA:

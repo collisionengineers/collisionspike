@@ -38,8 +38,19 @@ import {
   evidenceFromRecord,
   providerFromRecord,
   isAcceptedImageRecord,
+  evaFieldsToColumns,
+  evaFieldToProvenanceRow,
+  statusToInt,
+  intakeChannelKindCodec,
 } from './adapter';
-import type { DataAccess, GeneratedServices } from './types';
+import { EVA_FIELD_ORDER } from '../contracts/eva-export';
+import type {
+  CaseRecord,
+  CreateCaseInput,
+  CreateCaseResult,
+  DataAccess,
+  GeneratedServices,
+} from './types';
 
 /* ----------  Date helpers (ported verbatim from mock/queues.ts)  ---------- */
 function parseDmy(s?: string): Date | undefined {
@@ -157,9 +168,49 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     return (res.data ?? []).map((rec) => caseFromRecord({ record: rec, now }));
   }
 
+  /* Create a Case row from reviewed manual-intake fields, then (optionally) write
+     one FieldLevelProvenance row per EVA field. Returns the new row's id. */
+  async function createCase(input: CreateCaseInput): Promise<CreateCaseResult> {
+    const record: Partial<CaseRecord> = {
+      cr1bd_vrm: input.vrm,
+      ...(input.casePo ? { cr1bd_casepo: input.casePo } : {}),
+      cr1bd_status: statusToInt(input.status),
+      cr1bd_intakechannelkind: intakeChannelKindCodec.toInt('email'),
+      cr1bd_intakechannelmanual: true,
+      cr1bd_sourcemailbox: input.sourceLabel ?? 'Manual intake (Code App)',
+      ...evaFieldsToColumns(input.evaFields),
+    };
+
+    const res = await services.cases.create(record);
+    const created = res.data;
+    const newId = created?.cr1bd_caseid;
+    if (!newId) {
+      throw new Error('Case create returned no id');
+    }
+
+    if (input.writeProvenance) {
+      // Best-effort: write a provenance row per EVA field. Failures here must not
+      // sink the whole intake (the Case already exists), so they are swallowed.
+      await Promise.all(
+        EVA_FIELD_ORDER.map(async (desc) => {
+          const field = input.evaFields[desc.key];
+          const row = evaFieldToProvenanceRow(newId, desc.key, field);
+          try {
+            await services.fieldProvenance.create(row);
+          } catch {
+            /* provenance is supplementary — ignore a single-row failure */
+          }
+        }),
+      );
+    }
+
+    return { id: newId };
+  }
+
   return {
     /* ----- Cases ----- */
     caseById: (id) => assembleCase(id, new Date()),
+    createCase,
 
     casesForQueue: async (name, now = new Date()) =>
       filterQueue(await allCases(now), name, now),

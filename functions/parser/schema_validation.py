@@ -1,11 +1,11 @@
-"""schema_validation — validate a 13-field EVA payload against the keystone schema.
+"""schema_validation — validate a 12-field EVA payload against the keystone schema.
 
 The single source of truth is ``contracts/eva-payload.schema.json`` at the repo
 root (authored in Slice 1). This module loads that schema once and validates the
 flat ``{snake_case_key: str}`` EVA payload (NOT the per-field
 ``{value, confidence, source}`` extraction — caller projects values out first).
 
-The schema is the MEMBERSHIP + FORMAT gate (exactly the 13 keys; date / enum /
+The schema is the MEMBERSHIP + FORMAT gate (exactly the 12 keys; date / enum /
 address shapes). It is order-insensitive (JSON Schema ``required`` does not pin
 key order); contract order is guaranteed by the producer iterating
 ``EVA_FIELD_ORDER`` — see parser_adapter.EVA_FIELD_ORDER.
@@ -72,7 +72,7 @@ except FileNotFoundError:
 
 
 def validate_eva_payload(payload: dict[str, Any]) -> None:
-    """Validate ``payload`` (flat 13-field EVA object). Raise SchemaValidationError on failure.
+    """Validate ``payload`` (flat 12-field EVA object). Raise SchemaValidationError on failure.
 
     Collects EVERY violation (not just the first) so the caller can show staff a
     complete list of offending fields in one pass.

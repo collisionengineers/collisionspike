@@ -29,7 +29,7 @@ const acceptedImages = (c: Case): Evidence[] =>
 
 /**
  * Deterministically compute EVA readiness for a Case:
- *  - all REQUIRED 13-field entries non-empty
+ *  - all REQUIRED 12-field entries non-empty
  *  - image rules: ≥2 accepted images incl. ≥1 overview (registration visible)
  *    + ≥1 damage_closeup
  *  - inspection-address decision made (not "unknown")

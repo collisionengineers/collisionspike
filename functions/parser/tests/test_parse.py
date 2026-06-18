@@ -9,7 +9,7 @@ are NOT required. No network, no tenant, no ``func start``: the HTTP handler is
 called directly with a hand-built ``azure.functions.HttpRequest``.
 
 Coverage:
-  * happy path -> 200, schema-VALID 13-field payload in CONTRACT ORDER
+  * happy path -> 200, schema-VALID 12-field payload in CONTRACT ORDER
   * vrm / reference are surfaced separately and are NOT in the payload
   * bad base64 -> 400
   * parser raises ParserError -> 502
@@ -61,7 +61,7 @@ def _valid_request_body() -> dict:
 # --------------------------------------------------------------------------- #
 # Happy path                                                                  #
 # --------------------------------------------------------------------------- #
-def test_happy_path_returns_valid_ordered_13_field_payload(monkeypatch):
+def test_happy_path_returns_valid_ordered_12_field_payload(monkeypatch):
     record = _load_fixture("parser_record_complete.json")
     monkeypatch.setattr(parser_adapter, "run_parser", lambda *a, **k: record)
 
@@ -71,9 +71,9 @@ def test_happy_path_returns_valid_ordered_13_field_payload(monkeypatch):
     data = json.loads(resp.get_body())
     extraction = data["extraction"]
 
-    # Exactly the 13 settled keys, in contract order.
+    # Exactly the 12 settled keys, in contract order.
     assert list(extraction.keys()) == list(EVA_FIELD_ORDER)
-    assert len(extraction) == 13
+    assert len(extraction) == 12
 
     # Renamed parser fields landed on the EVA keys.
     assert extraction["date_of_loss"]["value"] == "01/02/2026"          # incident_date
@@ -83,13 +83,12 @@ def test_happy_path_returns_valid_ordered_13_field_payload(monkeypatch):
     # EVA fields the parser does not emit are present-but-empty (not missing).
     assert extraction["claimant_telephone"]["value"] == ""
     assert extraction["claimant_email"]["value"] == ""
-    assert extraction["engineer_allocation"]["value"] == ""
 
     # Per-field provenance shape.
     assert extraction["mileage"]["confidence"] == 0.75
     assert extraction["mileage"]["source"] == "mileage_regex"
 
-    # The flat 13-field payload is schema-VALID -> no schema issues surfaced.
+    # The flat 12-field payload is schema-VALID -> no schema issues surfaced.
     assert data["issues"] == []
     assert data["contract_version"] == "cedocumentparser_v2.0_eva_json"
 
@@ -111,7 +110,7 @@ def test_vrm_and_reference_are_surfaced_but_not_in_payload(monkeypatch):
     assert data["vrm"]["value"] == "AB12CDE"
     assert data["reference"]["value"] == "DEMO-0001"
 
-    # ...and are NOT among the 13 EVA payload keys.
+    # ...and are NOT among the 12 EVA payload keys.
     assert "vrm" not in data["extraction"]
     assert "reference" not in data["extraction"]
     # inspection_date (native parser field) is also dropped from the EVA payload.
@@ -199,7 +198,7 @@ def test_incomplete_extraction_surfaces_schema_issues(monkeypatch):
     data = json.loads(resp.get_body())
     extraction = data["extraction"]
 
-    # Still exactly 13 keys in order even when the parse is thin.
+    # Still exactly 12 keys in order even when the parse is thin.
     assert list(extraction.keys()) == list(EVA_FIELD_ORDER)
 
     # work_provider / vehicle_model are blank (schema-required non-empty) and the

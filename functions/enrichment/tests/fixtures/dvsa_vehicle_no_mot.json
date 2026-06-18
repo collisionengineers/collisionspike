@@ -1,0 +1,11 @@
+{
+  "_comment": "FAKE DVSA response for a vehicle too new to have an MOT — no motTests key. Drives the DVLA make-only fallback path. NOT a real vehicle.",
+  "registration": "NE71VRM",
+  "make": "TESLA",
+  "model": "MODEL 3",
+  "registrationDate": "2024-09-01",
+  "fuelType": "ELECTRICITY",
+  "primaryColour": "WHITE",
+  "hasOutstandingRecall": "Unknown",
+  "motTestDueDate": "2027-08-31"
+}

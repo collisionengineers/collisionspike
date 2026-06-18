@@ -2,10 +2,10 @@
 
 HTTP trigger ``POST /parse``. Accepts a base64-encoded instruction document,
 runs it through the sibling ``cedocumentmapper_v2`` parser (via parser_adapter,
-the only seam), maps the result onto the settled 13-field snake_case EVA
+the only seam), maps the result onto the settled 12-field snake_case EVA
 contract with per-field ``{value, confidence, source, warnings?}``, surfaces
 ``vrm``/``reference`` SEPARATELY (Case-identity, NOT in the EVA payload),
-validates the flat 13-field payload against ``contracts/eva-payload.schema.json``,
+validates the flat 12-field payload against ``contracts/eva-payload.schema.json``,
 and returns a structured envelope.
 
 [BUILD] — authored offline; no Azure/tenant contact (tests mock the parser seam).
@@ -21,7 +21,7 @@ enabled). The Function just works when called; it does not read the gate.
 
 Response envelope:
     {
-      "extraction":       { <13 EVA keys in order>: {value, confidence, source, warnings?} },
+      "extraction":       { <12 EVA keys in order>: {value, confidence, source, warnings?} },
       "vrm":              {value, confidence, source, warnings?} | null,
       "reference":        {value, confidence, source, warnings?} | null,
       "issues":           [ {field, severity?, code, message} ],
@@ -96,12 +96,12 @@ def parse(req: func.HttpRequest) -> func.HttpResponse:
         _LOG.exception("parser failed")
         return _error(502, "parser_failed", str(exc))
 
-    # --- 3. Map to the 13-field EVA contract + Case-identity fields ----------
+    # --- 3. Map to the 12-field EVA contract + Case-identity fields ----------
     mapped = parser_adapter.to_eva_extraction(parser_result)
     extraction = mapped["extraction"]
     issues: list[dict[str, Any]] = list(mapped.get("issues", []))
 
-    # --- 4. Validate the FLAT 13-field payload against the keystone schema ---
+    # --- 4. Validate the FLAT 12-field payload against the keystone schema ---
     flat_payload = {key: cell.get("value", "") for key, cell in extraction.items()}
     try:
         validate_eva_payload(flat_payload)

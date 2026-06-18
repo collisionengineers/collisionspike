@@ -1,5 +1,5 @@
 {
-  "_comment": "Fixture: a record_to_dict() result from cedocumentmapper_v2 that maps to a SCHEMA-VALID 13-field EVA payload. Synthetic data only — NO real PII, NO secrets. Uses the parser's NATIVE field keys (incident_date/instruction_date, vrm, reference, inspection_date) which the adapter renames/drops.",
+  "_comment": "Fixture: a record_to_dict() result from cedocumentmapper_v2 that maps to a SCHEMA-VALID 12-field EVA payload. Synthetic data only — NO real PII, NO secrets. Uses the parser's NATIVE field keys (incident_date/instruction_date, vrm, reference, inspection_date) which the adapter renames/drops.",
   "provider": {
     "provider_id": "demo",
     "provider_name": "Demo Provider",
