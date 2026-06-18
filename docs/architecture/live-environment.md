@@ -1,6 +1,6 @@
 # Live environment reference — collisionspike (Sandbox)
 
-> Canonical registry of **what is actually deployed** and its IDs, verified live on **2026-06-18**.
+> Canonical registry of **what is actually deployed** and its IDs, verified live on **2026-06-19** (parser connector wired/bound; corpus incorporation verified).
 > Pairs with [AGENTS.md](../../AGENTS.md) (rules/gotchas) and [CURRENT_STATUS.md](../../CURRENT_STATUS.md)
 > (status). For the **intended** end-state see [PLAN.md](../../PLAN.md) and
 > [microsoft-stack.md](./microsoft-stack.md). Re-verify IDs with the toolkit at the bottom before relying on them.
@@ -18,7 +18,7 @@
 ## Azure (resource group `rg-collisionspike-dev`, UK South)
 | Resource | Name / detail |
 |---|---|
-| **Parser Function** (Flex Consumption FC1, Linux) | `cespike-parser-dev-x7xt3d5ovhi7y` → `https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net`, route `POST /api/parse`, body `{document(base64), filename}`, `authLevel=function`. Platform CORS allows `https://apps.powerapps.com`. Dev function key lives in `mockup-app/src/data/parser-config.ts` and `docs/activation/email-intake-activation.md` (non-sensitive dev key per owner). |
+| **Parser Function** (Flex Consumption FC1, Linux) | `cespike-parser-dev-x7xt3d5ovhi7y` → `https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net`, route `POST /api/parse`, body `{document(base64), filename}`, `authLevel=function`. Platform CORS allows `https://apps.powerapps.com`. The function key now lives **only on the parser connection** (`01b43be8…`, see below) — the old raw-fetch path (`mockup-app/src/data/parser-config.ts`) was **deleted 2026-06-19**, so the key is no longer in the client bundle. |
 | **Enrichment Function** (gated OFF) | `cespkenrich-fn-gi62sd` — calls DVSA + DVLA **directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway** (B1 obviated). KV `cespkenrichkv…`. |
 
 ## Code App
@@ -43,7 +43,7 @@ Bound = has a connection; **empty = NOT yet connected** (operator must create th
 |---|---|---|---|---|
 | `cr1bd_sharedmailbox_office365` | CollisionSpike Shared Mailbox (Outlook) | `shared_office365` | `bd752b83172a4e99b3db595942f1b30f` | **Bound** (digital@, Connected) |
 | `cr1bd_dataverse` | CollisionSpike Dataverse | `shared_commondataserviceforapps` | `c1c7d4e6c3ad40ab9ac7ac63dcfd02c0` | **Bound** |
-| `cr1bd_ceparser` | CollisionSpike CE Parser | **`new_collision-20engineers-20parser`** | _(none)_ | **Unbound** — create a connection (function-key API key) before `pac code add-data-source` |
+| `cr1bd_ceparser` | CollisionSpike CE Parser | **`new_collision-20engineers-20parser`** | `01b43be8542148efbcd1284b8ca64013` | **Bound** ("Collision Engineers Parser", Connected). Connector updated to expose the `api_key` parameter (the `x-functions-key` was previously undefined); `pac code add-data-source` generated `CollisionEngineersParserService`. |
 | `cr1bd_evidenceblob` | CollisionSpike Evidence Blob | `shared_azureblob` | _(none)_ | Unbound (later phase) |
 | `cr1bd_box` | CollisionSpike Box Archive | `shared_box` | _(none)_ | Unbound (later phase) |
 | `cr1bd_dvsaenrich` | CollisionSpike DVSA Enrichment | `shared_dvsaenrich` | _(none)_ | Unbound (gated) |
@@ -79,8 +79,9 @@ Intended chain: **intake → classify-persist → parse → provider-match → c
 enrich → finalize (EVA+Box) → chasers**. **Live today:** intake ✅, provider-match ✅, case-resolve ✅.
 **Not yet on:** classify-persist, parse, status-evaluate, enrich, finalize, chasers, job-sheet — so an
 email creates a Case, but attachments/evidence/parse/status/EVA do **not** advance until those are
-turned on/wired. Manual-intake parse in the Code App is **CSP-blocked** until routed via the CE Parser
-connector (`cr1bd_ceparser` / `new_collision-20engineers-20parser`).
+turned on/wired. Manual-intake parse in the Code App is **no longer CSP-blocked** — it is now routed
+via the CE Parser connector (`cr1bd_ceparser` / `new_collision-20engineers-20parser`, bridged by
+`src/data/parser-connector-transport.ts`); the old raw-fetch transport was removed (2026-06-19).
 
 ## Live-verification toolkit
 ```pwsh

@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-18**._
+_Single source of truth for "where are we now." Last updated **2026-06-19**._
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md)._
 
 This is the Phase-1 (M1) case-intake spike on the Microsoft stack (Power Apps **Code App** +
@@ -9,6 +9,42 @@ touches the shared inboxes / SharePoint / Box / EVA is the **operator's** step (
 DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows real Dataverse rows only.**
 
 ---
+
+## 🔔 Update — 2026-06-19: parser connector wired, corpus loaded, EVA/address/OCR built (gated-OFF)
+- **Manual-intake parse is no longer CSP-blocked.** The CE Parser custom connector
+  (`new_collision-20engineers-20parser`) was updated to expose the `api_key` parameter (the
+  `x-functions-key` was previously undefined, so connections couldn't carry it); a **Connected**
+  connection now exists (`01b43be8542148efbcd1284b8ca64013`, "Collision Engineers Parser"), so
+  connection reference `cr1bd_ceparser` is now **Bound**. The Code App calls the parser through it
+  (`pac code add-data-source` → `CollisionEngineersParserService`; bridged by
+  `src/data/parser-connector-transport.ts`). The **old raw-fetch path was removed** —
+  `mockup-app/src/data/parser-config.ts` deleted and `fetchParserTransport` gone — so the function
+  key is **no longer in the client bundle** (it lives on the connection). **204/204 app tests pass**;
+  app rebuilt + pushed.
+- **Provider corpus incorporation LOADED** — `dataverse/.build/10–14` ran idempotently and all
+  14-verify checks **PASSED**: `WorkProvider` **390 updated** (`Corpus 2026-06-18` provenance,
+  SEED→active / ARCHIVE→inactive; 11 excluded, 2 review-skipped, 12 placeholder names);
+  `Repairer` **20** named full-postcode yards + **14** garage matches; `InspectionAddress` **174**
+  rows (all Confirmed Physical, all with postcodes); `ImageSource(kind=repairer)` **20** with **98**
+  WorkProvider N:N links. **37 principal codes >8 chars deferred** (operator: widen
+  `cr1bd_principalcode` or supply ≤8-char codes); GGP→GG and ZEN==ZENITH merges deferred to the
+  clarifying-info phase.
+- **Built this session, gated-OFF, DEPLOY PENDING (not yet live):** EVA Sentry REST v1.2
+  (`functions/evasentry` — two-request `Files` submission `/Instruction/Inspection` → `/Note/SubmitNote`,
+  payload-hash idempotency, pytest **42/42**; `finalize-eva-box` refined); inspection-address matching
+  Function (`functions/addressmatch`, ROADMAP 4a — part-postcode `Loc` → corpus yard via district
+  `startswith`; postcode.io); **OCR host** (`ocr/`, ROADMAP 5a, **no longer deferred** — scanned/image-PDF
+  fallback, Dockerfile + Azure Container Apps Bicep + plate/pdf adapters); parser **B2** (claimant
+  telephone/email now extracted with provenance + tests); plans authored for every remaining phase
+  (3c/4a/5a/5b/5c) + `plans/README.md`; IaC hardened (workspace-based App Insights, storage
+  `allowSharedKeyAccess:false`, right-sized memory).
+- **Known follow-ups (still pending):** Azure deploys for `evasentry`, `addressmatch`, `ocr` (ACA:
+  build+push image then deploy Bicep), and the **parser Function REDEPLOY** (also fixes
+  `EVA_PAYLOAD_SCHEMA_PATH` so the EVA payload schema loads from the package, not cwd); the **Phase-1
+  flow-chain activation on `digital@`** (turn on classify-persist / parse / status-evaluate, bind
+  `cr1bd_evidenceblob`, re-publish the intake orchestrator); operator-gated items unchanged (live
+  Info/Engineers/Desk inboxes, DVSA/DVLA/EVA/Box secret injection, EVA test drag-drop).
+  (`evavalidation` could later fold into the parser Function app — both secret-free Python.)
 
 ## 🔔 Update — 2026-06-18 (PM): live debug session (verified against cloud + deployed app)
 - **Email intake is now LIVE & verified.** Root cause of "emails don't create cases": the `CS Intake`
@@ -26,7 +62,8 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
   default `connect-src 'none'`**, which forbids the app's raw cross-origin `fetch()` to the parser
   Function. The Function + CORS are healthy (curl: OPTIONS 204, POST 400, correct ACAO). **Fix (chosen):**
   route through the **CE Parser custom connector** (same-origin via the SDK; key in the connection).
-  Pending implementation. See memory `codeapp-csp-use-connectors`.
+  **Done 2026-06-19** — connector exposes `api_key`, connection `01b43be8…` Connected, app calls
+  `CollisionEngineersParserService`; raw-fetch path deleted. See memory `codeapp-csp-use-connectors`.
 
 ## ✅ Live now (Sandbox `Collision Engineers - Dev`, NOT Default)
 
@@ -34,9 +71,9 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
 |---|---|---|
 | **Parser Function** | Live, extracting real PDFs (provider/claimant/dates/address/VRM/ref), 12-field EVA contract, function-level auth | Azure **Flex Consumption (FC1)**, `cespike-parser-dev-…`, UK South |
 | **Dataverse schema** | Built — 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 11 env-vars | Solution `CollisionSpike`, prefix `cr1bd` |
-| **Provider corpus** | **Incorporated from the full analysis** — `WorkProvider` **392** (176 active / 216 archived-dormant), `Repairer` **61**, `ImageSource` **23** (shared storage yards), `InspectionAddress` **174** known-sites, **98** N:N links. Idempotent (`dataverse/.build/10–14`); §9 verify passed. | Sandbox |
+| **Provider corpus** | **Incorporated + 2026-06-19 verify passed** — `WorkProvider` **390 updated** (SEED→active / ARCHIVE→inactive, `Corpus 2026-06-18` provenance; 37 over-length codes deferred), `Repairer` **20** named yards + **14** garage matches, `ImageSource(kind=repairer)` **20** (shared storage yards), `InspectionAddress` **174** known-sites (all Confirmed Physical), **98** N:N links. Idempotent (`dataverse/.build/10–14`); all 14-verify checks passed. | Sandbox |
 | **Parser custom connector** | Created, points at the live host | Sandbox |
-| **Code App** | Live + wired to Dataverse; **manual-intake** (upload → parse → Case) works; **logo/fonts/nav fixed this session** | `mockup-app/`, app `da7ba7af-…` |
+| **Code App** | Live + wired to Dataverse; **manual-intake** (upload → parse → Case) works, **parse now routed via the CE Parser connector** (no longer CSP-blocked; key off the bundle); logo/fonts/nav fixed | `mockup-app/`, app `da7ba7af-…` |
 | **Enrichment Function** | Deployed **gated-OFF**; calls **DVSA + DVLA directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway** | `cespkenrich-fn-…`, KV `cespkenrichkv…` |
 | **Cloud flows (×10)** | Imported **`state=off`**; connection refs unbound | Solution `CollisionSpikeFlows` |
 
@@ -108,7 +145,7 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 | B1 gateway grant | **Obviated** — gateway removed, direct DVSA/DVLA |
 | B3 13th EVA field | **Resolved** — contract is 12 fields |
 | B4 Code Apps enablement | **Resolved** — enabled on the env; app pushed |
-| B2 parser telephone/email | **Partial** — those 2 EVA fields arrive empty (staff fill); needs sibling parser change |
+| B2 parser telephone/email | **Built** — claimant telephone/email now extracted with provenance + tests; parser REDEPLOY pending to go live |
 | B5 EVA creds + Box casing | **Open** — operator (EVA test creds in KV, Box UPPERCASE folder check) |
 
 ## Key docs
