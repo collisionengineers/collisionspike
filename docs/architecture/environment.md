@@ -1,5 +1,13 @@
 # Environment & Build Prerequisites
 
+> **Work environment (current): Sandbox `Collision Engineers - Dev`**
+> (`b3090c42-51fb-ee24-9868-474da322a3ad`, org `https://collisionengineers-dev.crm11.dynamics.com`).
+> **The default environment (`858cf5b3-…` / `orgc6eb68d0…`) is NOT used for active development.**
+> See [docs/architecture/live-environment.md](./live-environment.md) for the canonical registry.
+>
+> The content below describes the historical/default environment state and pre-Sandbox decisions;
+> it is preserved for context but does not reflect the current working setup.
+
 Discovered state (probed via `pac` / `az` / `infisical`, June 2026) and what M1 needs to start.
 
 ## Power Platform — ready

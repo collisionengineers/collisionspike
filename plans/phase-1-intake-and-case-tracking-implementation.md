@@ -4,6 +4,12 @@
 > live-test anything. `collisioncc` is reference-only — its contracts (`case-status`, `image-rules`,
 > `graph-intake`, EVA payload) are **re-implemented**, never called at runtime. PyMuPDF is licensed and
 > approved — no AGPL remediation anywhere in this plan.
+>
+> **STATUS UPDATE 2026-06-18 — Email intake activated and verified.** `CS Intake` (rebuilt
+> `OnNewEmailV3` trigger), Provider Match, and Case Resolve are ON on the `digital@` mailbox; a test
+> email created a real `cr1bd_cases` row. This plan now specifies the **remaining Phase-1 work**:
+> downstream-flow activation (Classify+Persist ON; Parse, Status Evaluate, Enrich pending the parser
+> CSP/connector fix), corpus incorporation, address-matching, and EVA/Box finalisation.
 
 ---
 
@@ -39,8 +45,7 @@ Phase 1 consumes Phase 0 outputs **as-is** and adds no new prerequisite — it c
 - [ ] **Parser HTTP entry point** in `cedocumentmapper_v2.0` + contract-lock test; **Azure Function +
       Key Vault Bicep** authored (parser Fn, DVSA enrichment Fn). *(document-parser-engineer,
       azure-integration-engineer)*
-- [ ] **Flow definitions authored but not deployed** (intake / classify / finalization / chaser) — Phase 1
-      completes, hardens, and verifies these offline.
+- [x] **Flow definitions authored and deployed** (intake / classify / finalization / chaser). *(2026-06-18 update: `CS Intake`, Provider Match, and Case Resolve are **deployed and ON** — email intake is live. Classify+Persist is deployed but currently **OFF**. Parse, Status Evaluate, Enrich, Finalize, Chaser, Job Sheet are deployed but **OFF** pending downstream activation.)*
 
 ---
 
@@ -56,8 +61,8 @@ under the user's interactive login. Every workstream below is tagged exactly one
 
 | Workstream | Tag |
 |---|---|
-| Author per-mailbox intake flow definitions (5.1) | **[BUILD]** |
-| Point/activate intake flows on **live** shared mailboxes + live-inbox tests | **[RESERVED-FOR-USER]** |
+| Author per-mailbox intake flow definitions (5.1) | **[BUILD]** — complete |
+| Point/activate intake flows on **live** shared mailboxes + live-inbox tests | **[RESERVED-FOR-USER]** — ✅ DONE 2026-06-18: `CS Intake` / Provider Match / Case Resolve ON on `digital@`; test email created real `cr1bd_cases` row |
 | Attachment classification + `.eml`/blob persistence logic (5.2) | **[BUILD]** |
 | Case create/append + VRM correlation + dedup logic (5.3) | **[BUILD]** |
 | Status state machine — TS contract + flow guard mirror (5.4) | **[BUILD]** |

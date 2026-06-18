@@ -1,5 +1,14 @@
 # Provider corpus status (`WorkProvider`)
 
+> **⚠️ Superseded (2026-06-18, later same day) by the full EVA data analysis.** This early snapshot
+> (45 seeded providers from the job sheet) is now subsumed by
+> [`raw/principalandrepairersheets/outputs/reports/`](../../raw/principalandrepairersheets/outputs/reports/),
+> which analysed the full EVA principal/case/location exports. Use
+> `reports/provider_corpus_recommendation.csv` (one actionable row per principal — SEED / CONSIDER /
+> ARCHIVE / EXCLUDE) as the authoritative corpus picture, and `plans/dataverse-corpus-incorporation.md`
+> for how it loads into Dataverse. Key new finding: **137 active principals are not on the job sheet**,
+> so the 45 below under-represent the live provider base.
+
 Snapshot of the seeded provider corpus in the **Sandbox** (`Collision Engineers - Dev`,
 `cr1bd_workprovider`), generated **2026-06-18** from the live table.
 

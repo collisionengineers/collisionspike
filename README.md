@@ -5,12 +5,14 @@ Power Platform** (Power Apps **Code App** + Dataverse + Power Automate). It prot
 intake → parse → review → enrich → **EVA** + **Box** pipeline cheaply, to validate the workflow
 and de-risk the mature cloud build (`collisioncc`, which is on Google Cloud).
 
-> **Status:** the **M1 vertical slice is built offline** (`[BUILD]`) — the Code App data layer +
-> screens, the shared EVA/status/image contracts, the Dataverse schema-as-code, two Azure Functions
-> (parser + DVSA enrichment), the 10 Power Automate flow definitions (shipping OFF), and the
-> `power-automate-flow` skill. Nothing live has been touched — deploying non-inbox resources and
-> activating anything inbox/SharePoint/Box/EVA are reserved for the operator (see
-> [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md)). Run `node verify-all.mjs` for the offline gate.
+> **Status (2026-06-18):** the M1 slice is built **and much is now deployed to a dedicated Sandbox** —
+> the **parser Function is live** (FC1, real extraction), the **Dataverse schema + provider corpus** are
+> built/seeded, the **Code App is live** (manual intake works; logo/fonts/nav fixed), and the **enrichment
+> Function is deployed gated-OFF** (direct DVSA/DVLA — the Google Cloud gateway was retired). The 10 flows
+> are imported **OFF**. Still operator-gated: **live email intake**, **EVA/Box**, **enrichment activation**
+> (the live-services boundary). **No mock data** — the app shows real Dataverse rows only.
+> **→ See [CURRENT_STATUS.md](./CURRENT_STATUS.md) (where we are) and [ROADMAP.md](./ROADMAP.md) (the checklist).**
+> Run `node verify-all.mjs` for the offline gate; deploy/activation sequence in [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md).
 
 ## What it does (target)
 

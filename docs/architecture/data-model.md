@@ -1,5 +1,7 @@
 # Data Model (Dataverse)
 
+> **Target environment:** Sandbox `Collision Engineers - Dev` (`b3090c42-…`), not the default env (`858cf5b3-…`).
+
 Distilled from the real **CE Job Sheet** (`raw/…xlsm`), the provider/inspection-address corpus
 notes, and the case workflow. The job sheet's `Principals` and `Garages` sheets become governed
 corpus tables; the formula-driven `Jobs` sheet becomes the `Case` table. **Source records (with

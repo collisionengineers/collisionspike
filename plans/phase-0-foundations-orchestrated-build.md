@@ -7,6 +7,14 @@
 EVA "Sentry" REST/JSON export). The repo today is **docs-only** — 10 ADRs, the data model, the
 requirements, and 5 domain agents + 3 skills under `.claude/`. There is **no application code yet**.
 
+> **STATUS UPDATE 2026-06-18:** This plan has been fully executed. The Code App, Dataverse schema
+> (11 tables), and parser/enrichment Azure Functions are deployed in the Sandbox. Email intake flows
+> (`CS Intake`, Provider Match, Case Resolve) are ON and verified — a test email created a real
+> `cr1bd_cases` row. Remaining flows (Classify+Persist, Parse, Status Evaluate, Enrich, Finalize,
+> Chaser, Job Sheet) are authored and imported but currently OFF. Proceed to Phase 1 for the
+> remaining downstream-flow activation, corpus incorporation, parser connector fix, and
+> address-matching work.
+
 This plan builds **Phase 0 — Foundations**, the front of the decided **M1 vertical slice** (PLAN.md
 lines 108–121): scaffold the Code App, stand up the `CollisionSpike` Dataverse solution + schema,
 port the shared TypeScript contracts (EVA 12-field payload, image-rules, case-status), and define the

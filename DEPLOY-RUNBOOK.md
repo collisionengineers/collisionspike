@@ -46,7 +46,7 @@ Much of §1–§6 is already executed in a dedicated **Sandbox** (NOT the Defaul
 | **Code App** | ✅ **Deployed + live** (B4 cleared by enabling Code Apps on the env); wired to live Dataverse; **manual-intake** path added (upload → parse → Case) | `mockup-app/`, app id `da7ba7af-…`, Sandbox |
 | **Cloud flows (×10)** | ✅ Imported **`state=off`** (all verified Draft); connection refs unbound (operator binds at activation) | Sandbox, solution `CollisionSpikeFlows` |
 | **Enrichment Function (DVSA)** | ⚙️ **Deployed gated-OFF** — calls **DVSA + DVLA directly** (Entra `client_credentials` + `X-API-Key`); **no gateway, no Google Cloud** (B1 obviated). Live-verified: 401 no-key; 200 "enrichment skipped" gate-off | `cespkenrich-fn-gi62sd`, KV `cespkenrichkvgi62sd`, `rg-collisionspike-dev` |
-| **EVA / Box / live inbox** | ⛔ Not activated | Operator-gated: connections + EVA secret injection + the enrichment gateway's Cloud Run deploy |
+| **EVA / Box / live inbox** | ⛔ Not activated | Operator-gated: connections + EVA secret injection + DVSA/DVLA creds into Key Vault (the enrichment Azure Function is already deployed, gated OFF; no Cloud Run deploy needed) |
 
 Notes: the parser engine is **vendored** into the FC1 package (text PDF/DOCX/DOC/EML/MSG work; scanned-image
 **OCR is deferred** to an Azure Container Apps host — "B-full", FC1 can't run the Tesseract binary). The cost
@@ -99,8 +99,11 @@ For **each** of `functions/parser/` and `functions/enrichment/`:
    subscription/tenant/secret literals). Creates the Function App (system-assigned identity), Storage,
    App Insights, and — for enrichment — a Key Vault with the MI granted *Key Vault Secrets User*. `[DEPLOY-WITH-LOGIN]`
 2. Publish the code: `func azure functionapp publish <name>`. `[DEPLOY-WITH-LOGIN]`
-3. **Inject the secret VALUES** (gateway `CLIENT_ID/SECRET`, EVA `CLIENT_ID/SECRET`) into Key Vault.
-   These never existed in the repo — only references do. **`[RESERVED-FOR-USER]`**
+3. **Inject the secret VALUES** into Key Vault — these never existed in the repo, only references do.
+   For the **enrichment** KV (`cespkenrichkvgi62sd`): **DVSA/DVLA credentials** (`DVSA_API_KEY`,
+   `DVLA_API_KEY`, `DVSA_TENANT_ID`, `DVSA_CLIENT_ID`, `DVSA_CLIENT_SECRET`). Gateway secrets: **not
+   needed — B1 obviated** (no Google Cloud OAuth gateway in M1). For **EVA**: `EVA_CLIENT_ID` /
+   `EVA_CLIENT_SECRET` (injected at EVA activation). **`[RESERVED-FOR-USER]`**
 4. Register the Entra app(s) for the service identity / EVA OAuth and grant consent. `[RESERVED-FOR-USER]` (consent)
 
 > **Do not enable enrichment until blocker B1 is resolved.** Parser deploy is independent and safe.
@@ -188,8 +191,11 @@ Mechanical proof that nothing live was touched before activation:
 
 ## What "done" looks like for M1
 
-A real email in one shared inbox becomes a tracked Case, is parsed + (optionally) enriched into the 13
+A real email in one shared inbox becomes a tracked Case, is parsed + (optionally) enriched into the 12
 EVA fields with provenance, passes a human readiness review, and is exported to EVA as drag-drop JSON
 with a Box archive folder — with dedup, provider matching, and the inspection-address gate all behaving
-per the offline decision-table tests. The Sentry REST path and full enrichment come online once B1/B3/B5
-are resolved and their gates are flipped in a test environment.
+per the offline decision-table tests. The Sentry REST path and full enrichment come online once B2/B5
+are resolved and their gates are flipped in a test environment. (B1/B3 are resolved/obviated.)
+
+> **State snapshot:** [CURRENT_STATUS.md](./CURRENT_STATUS.md) is the single source of truth for what is
+> live vs pending; [ROADMAP.md](./ROADMAP.md) is the phased checklist.

@@ -1,5 +1,8 @@
 # EVA "Sentry" API — Reference (v1.2)
 
+> **Target environment:** Sandbox `Collision Engineers - Dev` (`b3090c42-…`), not the default env (`858cf5b3-…`).
+> **CSP note:** any EVA REST integration called from the Code App must go via a **custom connector** (SDK) — the deployed player's `connect-src 'none'` CSP blocks raw `fetch()`. Power Automate cloud flow HTTP actions are exempt (server-side).
+
 Authoritative endpoint surface, transcribed from `docs/reference/Sentry API Documentation 1.2
 Amended.pdf` (99 pp; the field-level source of truth — v1.1 sits alongside it). Supersedes the looser
 endpoint names in the older collisioncc guide.
