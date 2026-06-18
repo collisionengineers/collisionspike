@@ -9,7 +9,16 @@
   "buildEntryPoint": "index.html",
   "localAppUrl": "http://localhost:5173",
   "logoPath": "Default",
-  "connectionReferences": {},
+  "connectionReferences": {
+    "916c2b1e-d58b-4a57-ace6-9ace731ed16d": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_new-5fcollision-20engineers-20parser-5ff48c20e0e0674f63",
+      "displayName": "Collision Engineers Parser",
+      "dataSources": [
+        "new_5fcollision_20engineers_20parser_5ff48c20e0e0674f63"
+      ],
+      "dataSets": {}
+    }
+  },
   "databaseReferences": {
     "default.cds": {
       "dataSources": {

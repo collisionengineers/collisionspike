@@ -1,0 +1,4 @@
+# Dev/test dependencies. Offline only — no Azure, no live postcode.io.
+-r requirements.txt
+pytest>=8.0.0
+respx>=0.21.0   # httpx transport mocking (postcode.io GET endpoints)

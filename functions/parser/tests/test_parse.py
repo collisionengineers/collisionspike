@@ -99,6 +99,41 @@ def test_happy_path_returns_valid_ordered_12_field_payload(monkeypatch):
     validate_eva_payload(flat)  # must not raise
 
 
+def test_claimant_telephone_and_email_populate_when_derivable(monkeypatch):
+    """ROADMAP B2: when the parser DERIVES claimant telephone/email from the
+    document text, they flow through to the EVA fields (populated + provenanced),
+    and the 12-field contract order/membership is unchanged."""
+    record = _load_fixture("parser_record_with_contact.json")
+    monkeypatch.setattr(parser_adapter, "run_parser", lambda *a, **k: record)
+
+    resp = function_app.parse(_make_request(_valid_request_body()))
+    assert resp.status_code == 200
+
+    data = json.loads(resp.get_body())
+    extraction = data["extraction"]
+
+    # Contract membership + order unchanged (still exactly the 12 settled keys).
+    assert list(extraction.keys()) == list(EVA_FIELD_ORDER)
+    assert len(extraction) == 12
+
+    # The two B2 fields are now POPULATED (normalised) with provenance.
+    assert extraction["claimant_telephone"]["value"] == "07700900123"
+    assert extraction["claimant_telephone"]["source"] == "fallback_telephone_claimant_label"
+    assert extraction["claimant_telephone"]["confidence"] == 0.85
+
+    assert extraction["claimant_email"]["value"] == "sample.claimant@example.co.uk"
+    assert extraction["claimant_email"]["source"] == "fallback_email_claimant_label"
+    assert extraction["claimant_email"]["confidence"] == 0.85
+
+    # Populated contact details do not break the keystone schema (both are free
+    # strings in the contract) and surface no schema issues.
+    assert data["issues"] == []
+    from schema_validation import validate_eva_payload
+
+    flat = {k: cell["value"] for k, cell in extraction.items()}
+    validate_eva_payload(flat)  # must not raise
+
+
 def test_vrm_and_reference_are_surfaced_but_not_in_payload(monkeypatch):
     record = _load_fixture("parser_record_complete.json")
     monkeypatch.setattr(parser_adapter, "run_parser", lambda *a, **k: record)

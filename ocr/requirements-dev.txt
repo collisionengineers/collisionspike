@@ -1,0 +1,5 @@
+# Dev/test deps for the OCR host. The offline pytest suite monkeypatches the two
+# adapter seams (ocr_pdf_adapter.run_ocr / plate_adapter.read_plate), so NONE of
+# the heavy runtime deps (PyMuPDF, Tesseract, fast-alpr, onnxruntime, requests)
+# are needed to run the tests.
+pytest>=8.0.0

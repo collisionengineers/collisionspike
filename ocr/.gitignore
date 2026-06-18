@@ -1,0 +1,11 @@
+# Local-only / generated artifacts for the OCR host.
+local.settings.json
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Baked ALPR models, if a developer drops them in to build a self-contained image.
+models/
+# Local test sample documents/photos (never commit real provider scans/photos).
+tests/fixtures/private/

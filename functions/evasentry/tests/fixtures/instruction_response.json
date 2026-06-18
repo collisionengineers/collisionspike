@@ -1,4 +1,5 @@
 {
-  "EvaRef": "TEST26001-EVA",
-  "Status": "Accepted"
+  "Id": "TEST26001-EVA",
+  "StatusCode": 200,
+  "Message": "Instruction created."
 }

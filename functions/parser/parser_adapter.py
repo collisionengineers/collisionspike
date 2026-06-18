@@ -64,9 +64,13 @@ LEGACY set and is NOT the settled EVA 12. The differences this adapter bridges:
   reference                -> (Case-identity)             NOT in EVA payload
   inspection_date          -> (dropped from EVA payload)  not an EVA field
 
-  EVA fields the parser does NOT yet emit (defaulted to empty string here,
-  to be filled by enrichment / staff downstream):
-    claimant_telephone, claimant_email
+  claimant_telephone       -> claimant_telephone         same (ROADMAP B2)
+  claimant_email           -> claimant_email             same (ROADMAP B2)
+
+  As of ROADMAP B2 the parser emits claimant_telephone / claimant_email
+  NATIVELY (UK phone + email regex scoped to claimant/insured context, with
+  provenance). They map identity. When the document text has no derivable
+  number/address they stay EMPTY for staff to fill — never invented.
 
   (Engineer allocation is NOT an EVA submission field — it is left blank and
   assigned inside EVA AFTER submission, so it is excluded from the contract.)
@@ -108,12 +112,16 @@ EVA_FIELD_ORDER: tuple[str, ...] = (
 )
 
 # Map an EVA contract key -> the sibling parser's native field key that supplies
-# it. Keys absent from this map are EVA fields the parser does not yet produce
-# (claimant_telephone, claimant_email) and default empty.
+# it. The parser now also emits claimant_telephone / claimant_email natively
+# (ROADMAP B2 — derived from document text near claimant/insured context, left
+# empty when absent). Both map identity. Any EVA key absent from this map (none
+# today) would default empty in to_eva_extraction.
 EVA_KEY_FROM_PARSER_KEY: dict[str, str] = {
     "work_provider": "work_provider",
     "vehicle_model": "vehicle_model",
     "claimant_name": "claimant_name",
+    "claimant_telephone": "claimant_telephone",
+    "claimant_email": "claimant_email",
     "date_of_loss": "incident_date",
     "date_of_instruction": "instruction_date",
     "accident_circumstances": "accident_circumstances",
@@ -230,8 +238,9 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
         if parser_key is not None and parser_key in fields:
             extraction[eva_key] = _to_field_cell(fields[parser_key])
         else:
-            # EVA field the parser does not supply (or supplied no row):
-            # present but empty so the payload always has exactly 13 keys.
+            # EVA field the parser did not supply a row for (e.g. an empty
+            # claimant_telephone/claimant_email the engine omitted): present but
+            # empty so the payload always has exactly the 12 EVA keys, in order.
             extraction[eva_key] = {"value": "", "confidence": None, "source": "absent"}
 
     vrm = _to_field_cell(fields["vrm"]) if "vrm" in fields else None

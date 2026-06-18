@@ -1,0 +1,194 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "CollisionSpike Inspection-Address Matching",
+    "description": "Custom connector over the inspection-address matching Azure Function (ROADMAP 4a). Resolves a Case's part-postcode Loc (a district such as CH5) to a known yard's full address by matching the corpus on district startswith(outwardCode), then serialises it to the EVA inspection-address field (6 newline-separated lines). Honours AZURE_MAPS_ENABLED: false (M1 default) normalises postcodes via the keyless postcode.io; true defers to a future Azure Maps path. Stateless — the Power Automate flow passes the candidate InspectionAddress + Repairer rows in the body so the flow stays the sole Dataverse caller. Advisory: always returns 200; never silently emits 'Image Based Assessment' (that requires an explicit reviewer decision + reason).",
+    "version": "1.0.0"
+  },
+  "host": "REPLACE_WITH_FUNCTION_HOSTNAME.azurewebsites.net",
+  "basePath": "/api",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/match-address": {
+      "post": {
+        "summary": "Match a Case Loc to an inspection address (EVA field 9)",
+        "description": "Given a Case Loc + principal code and the district-filtered corpus rows, returns the resolved 6-line inspection address when a unique principal-linked site matches, otherwise the ranked candidates plus needsReviewerDecision. Always returns 200 with a warnings array; matching never blocks intake.",
+        "operationId": "MatchAddress",
+        "x-ms-visibility": "important",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/MatchRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inspection-address decision (advisory).",
+            "schema": {
+              "$ref": "#/definitions/MatchResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid request (non-JSON or non-object body).",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "CorpusRow": {
+      "type": "object",
+      "description": "A candidate known site (Repairer or InspectionAddress reference row). Accepts Dataverse column names (cr1bd_addressline1..6, cr1bd_postcode, cr1bd_name) or bare contract keys (addressLine1..6 / line1..6, postcode, name/label). principalCode / principalCodes carry the linked WorkProvider code(s).",
+      "properties": {
+        "cr1bd_name": { "type": "string" },
+        "cr1bd_postcode": { "type": "string" },
+        "cr1bd_addressline1": { "type": "string" },
+        "cr1bd_addressline2": { "type": "string" },
+        "cr1bd_addressline3": { "type": "string" },
+        "cr1bd_addressline4": { "type": "string" },
+        "cr1bd_addressline5": { "type": "string" },
+        "cr1bd_addressline6": { "type": "string" },
+        "cr1bd_repairerid": { "type": "string" },
+        "cr1bd_inspectionaddressid": { "type": "string" },
+        "principalCode": { "type": "string" },
+        "principalCodes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "ReviewerDecision": {
+      "type": "object",
+      "description": "Optional explicit human decision. choice=image_based REQUIRES a non-empty reason (no silent image-based). choice=use_candidate picks candidateIndex from the ranked list. choice=manual_address supplies addressLines + postcode.",
+      "properties": {
+        "choice": {
+          "type": "string",
+          "enum": [
+            "image_based",
+            "use_candidate",
+            "manual_address"
+          ]
+        },
+        "reason": { "type": "string", "description": "Required (non-empty) when choice=image_based." },
+        "candidateIndex": { "type": "integer", "description": "Index into the ranked candidates (choice=use_candidate)." },
+        "addressLines": { "type": "array", "items": { "type": "string" } },
+        "postcode": { "type": "string" }
+      }
+    },
+    "MatchRequest": {
+      "type": "object",
+      "required": [
+        "caseLoc"
+      ],
+      "properties": {
+        "caseLoc": {
+          "type": "string",
+          "description": "The Case's Loc — a part postcode (district, e.g. CH5) or a full postcode.",
+          "x-ms-summary": "Case Loc"
+        },
+        "principalCode": {
+          "type": "string",
+          "description": "The Case's provider / principal code (e.g. DFD) used to disambiguate district-shared yards.",
+          "x-ms-summary": "Principal code"
+        },
+        "inspectionAddresses": {
+          "type": "array",
+          "description": "Corpus InspectionAddress reference rows, ideally pre-filtered to the district by the flow.",
+          "items": { "$ref": "#/definitions/CorpusRow" }
+        },
+        "repairers": {
+          "type": "array",
+          "description": "Corpus Repairer rows, ideally pre-filtered to the district by the flow.",
+          "items": { "$ref": "#/definitions/CorpusRow" }
+        },
+        "reviewerDecision": { "$ref": "#/definitions/ReviewerDecision" }
+      }
+    },
+    "Candidate": {
+      "type": "object",
+      "properties": {
+        "label": { "type": "string" },
+        "addressLines": { "type": "array", "items": { "type": "string" } },
+        "postcode": { "type": "string" },
+        "district": { "type": "string" },
+        "source": { "type": "string", "enum": [ "repairer", "inspection_address" ] },
+        "principalMatch": { "type": "boolean", "description": "Linked to this Case's principal." },
+        "exactDistrict": { "type": "boolean", "description": "Outward code equals the Case district." }
+      }
+    },
+    "MatchResponse": {
+      "type": "object",
+      "properties": {
+        "decisionMode": {
+          "type": "string",
+          "description": "Resolved InspectionAddress.decisionMode.",
+          "enum": [
+            "confirmed_physical",
+            "manual",
+            "image_based",
+            "unknown"
+          ]
+        },
+        "inspectionAddress": {
+          "type": "string",
+          "description": "EVA field 9 — six newline-separated lines, or the literal 'Image Based Assessment', or null when a reviewer decision is still needed."
+        },
+        "matched": {
+          "type": "boolean",
+          "description": "True when an address was auto-resolved without a human."
+        },
+        "needsReviewerDecision": {
+          "type": "boolean",
+          "description": "True when a human must choose a candidate or record an image-based decision (+reason)."
+        },
+        "candidates": {
+          "type": "array",
+          "description": "Ranked known sites in the Case district (principal-linked first).",
+          "items": { "$ref": "#/definitions/Candidate" }
+        },
+        "locKind": {
+          "type": "string",
+          "enum": [ "full", "part", "none" ]
+        },
+        "district": { "type": "string", "description": "The Case Loc outward code (district)." },
+        "reason": { "type": "string", "description": "Echoed reviewer reason when decisionMode=image_based." },
+        "warnings": {
+          "type": "array",
+          "description": "Human-readable advisories (e.g. no match, postcode.io unconfirmed).",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": { "type": "string" }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "apiKeyHeader": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "x-functions-key",
+      "description": "Azure Functions host/function key. Stored as a connection secret in Power Platform, never in this spec."
+    }
+  },
+  "security": [
+    {
+      "apiKeyHeader": []
+    }
+  ]
+}
