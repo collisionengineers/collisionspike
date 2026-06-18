@@ -68,7 +68,7 @@ Docs: <https://learn.microsoft.com/connectors/office365/> ·
 shared-mailbox trigger <https://learn.microsoft.com/troubleshoot/power-platform/power-automate/flow-run-issues/issues-triggering-emails-with-attachments-from-shared-mailbox>
 
 ### 4. Document AI — deterministic first, Azure Document Intelligence as fallback
-`cedocumentmapper_v2.0` already extracts the 13 EVA fields **deterministically and for free** —
+`cedocumentmapper_v2.0` already extracts the 12 EVA fields **deterministically and for free** —
 keep it as the primary path (mirrors `collisioncc`'s "deterministic first, gate the expensive
 extractor" principle). Use **Azure AI Document Intelligence** (prebuilt **Read/Layout**, or a custom
 neural model) only for documents the rules miss.

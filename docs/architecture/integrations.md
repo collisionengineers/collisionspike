@@ -13,7 +13,7 @@ environment variables** so they can be toggled per environment with no redeploy.
   **production** cutover is gated until prod is confirmed and a parity test passes.
 - **Image submission:** likely **two requests** (confirm on test) — the 2 preview images, then the
   remaining images — matching the two-preview-then-full-sequence rule.
-- **JSON contract:** 13 fields, exact order matching `Final Format Example 02.json`; inspection
+- **JSON contract:** 12 fields, exact order matching `Final Format Example 02.json`; inspection
   address is **6 newline-separated lines**; dates `DD/MM/YYYY`; `VAT Status` ∈ {"", Yes, No};
   `Mileage Unit` ∈ {"", Miles, Km}. `Work Provider` must be non-empty. `cedocumentmapper_v2.0`
   already produces this (schema-validated).
@@ -52,7 +52,7 @@ Gate the whole enrichment path with `ENRICHMENT_API_BASE` + `ENRICHMENT_ENABLED`
 ## Document parser (`cedocumentmapper_v2.0`)
 
 - **M1 (ADR-0004):** wrapped as an **Azure Function** → custom connector (gated `PDF_MAPPER_ENABLED`)
-  that the Code App calls inline on the instruction to pre-fill the 13 fields (staff review). Resolve
+  that the Code App calls inline on the instruction to pre-fill the 12 fields (staff review). Resolve
   the **PyMuPDF AGPL** risk as part of M1.
 - The CLI remains available for offline/batch use.
 

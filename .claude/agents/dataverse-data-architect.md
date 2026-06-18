@@ -13,7 +13,7 @@ and ALM — distilled from `docs/architecture/data-model.md` (the binding design
 
 - **Schema.** Define the **10 tables**: `Case`, `WorkProvider`, `Repairer`, `InspectionAddress`,
   `ImageSource`, `Evidence`, `AuditEvent`, `ImprovementSignal`, `Chaser`, `Note`. Use the exact
-  fields and semantics in `data-model.md` — e.g. `Case` carries the 13 EVA fields plus overview-only
+  fields and semantics in `data-model.md` — e.g. `Case` carries the 12 EVA fields plus overview-only
   imports that **must not drive workflow/readiness/matching**; `Evidence` mirrors collisioncc
   image-rules (`kind`, `imageRole`, `registrationVisible`, `acceptedForEva`).
 - **Relationships.** `Repairer` ↔ `WorkProvider` is **many-to-many** (ADR-0001, Repairer is

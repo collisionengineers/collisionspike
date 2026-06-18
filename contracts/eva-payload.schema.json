@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://collisionengineers.example/contracts/eva-payload.schema.json",
-  "title": "EVA payload (13-field, settled contract)",
-  "description": "Cross-language keystone for the Collision Engineers EVA drag-drop JSON payload. The TypeScript serializer (mockup-app/src/contracts/eva-export.ts) and the Python parser Function (cedocumentmapper_v2.0) both target this schema. Exactly the 13 settled snake_case fields in contract order; vrm and reference are Case-identity fields and are intentionally NOT part of this payload. engineer_allocation is the 13th field (settled placeholder name).",
+  "title": "EVA payload (12-field, settled contract)",
+  "description": "Cross-language keystone for the Collision Engineers EVA drag-drop JSON payload. The TypeScript serializer (mockup-app/src/contracts/eva-export.ts) and the Python parser Function (cedocumentmapper_v2.0) both target this schema. Exactly the 12 settled snake_case fields in contract order; vrm and reference are Case-identity fields and are intentionally NOT part of this payload. (Engineer allocation is NOT an EVA submission field — it is left blank and assigned inside EVA after submission; removed from the contract per the product owner's ruling, B3 RESOLVED.)",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,8 +17,7 @@
     "inspection_address",
     "vat_status",
     "mileage",
-    "mileage_unit",
-    "engineer_allocation"
+    "mileage_unit"
   ],
   "propertyNames": {
     "enum": [
@@ -33,8 +32,7 @@
       "inspection_address",
       "vat_status",
       "mileage",
-      "mileage_unit",
-      "engineer_allocation"
+      "mileage_unit"
     ]
   },
   "properties": {
@@ -100,10 +98,6 @@
       "type": "string",
       "enum": ["", "Miles", "Km"],
       "description": "Field 12. Blank, Miles, or Km."
-    },
-    "engineer_allocation": {
-      "type": "string",
-      "description": "Field 13. Settled placeholder name; do not rename."
     }
   }
 }

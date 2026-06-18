@@ -35,7 +35,7 @@ Claim-targeting endpoints match a claim by one of several field combinations (e.
 postcode) — see the PDF per endpoint.
 
 ## Instruction/Inspection payload (shape)
-Far richer than the 13-field drag-drop JSON. Includes vehicle/claim identity, multiple **postcodes**
+Far richer than the 12-field drag-drop JSON. Includes vehicle/claim identity, multiple **postcodes**
 (repairer, inspection location, salvage), **claim type** (e.g. Post-Inspection, Post-Repair Audit,
 Post-Repair, valuation dispute, salvage), **DamageType / DamageType2 / DamageType3**, estimate/cost
 fields (DeleteSavingsNet/Gross, etc.), and **base-64 "Impact Image" entries** that EVA renders into
@@ -43,7 +43,7 @@ the final report PDF. The photo-ordering and registration-visible rules from the
 onto the image entries.
 
 ## Spike implications
-- `cedocumentmapper_v2.0`'s schema-validated **13-field JSON** remains the drag-drop path and the
+- `cedocumentmapper_v2.0`'s schema-validated **12-field JSON** remains the drag-drop path and the
   deterministic core; the API payload adds image and claim-detail fields on top.
 - Build an **EVA custom connector** from this surface; gate with `EVA_API_ENABLED` /
   `EVA_BASE_URL`; idempotency by payload hash; handle the 5-minute token with a refresh buffer.

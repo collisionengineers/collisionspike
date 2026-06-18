@@ -15,7 +15,7 @@ dataverse/
   schema/                       one file per table (11 = 10 business tables + FieldLevelProvenance)
     _table.schema.json          authoring JSON-Schema for a table (local lint only)
     _choiceset.schema.json      authoring JSON-Schema for a choice set (local lint only)
-    case.json                   M1-live — the live work item (dedup keys, 13 EVA fields, overview-only)
+    case.json                   M1-live — the live work item (dedup keys, 12 EVA fields, overview-only)
     evidence.json               M1-live — attachments/artifacts (image-rules)
     work-provider.json          M1-live — provider corpus (email-domain matching)
     audit-event.json            M1-live — append-only audit trail
@@ -62,15 +62,15 @@ It is kept importable so a **Vitest parity test** can assert its option `name`s/
 contracts' `CaseStatus` union with no extras on either side. `verify-parity.mjs` performs the same
 assertion offline today. **Integer `value`s are stable identifiers — never renumber once deployed.**
 
-## The 13-field EVA contract on Case
+## The 12-field EVA contract on Case
 
-The Case table carries the settled 13 EVA payload fields as `cr1bd_eva*` columns, each tagged
-`evaField: true` + `evaOrder: 1..13` (verifier asserts 13 fields, contiguous order). The 13th,
-`cr1bd_evaengineerallocation`, keeps the **placeholder** display name "Engineer Allocation"; only the
-display/contract name moves (in lockstep across schema + TS contract + prototype) when the Sentry PDF
-confirms it — the **logical column name stays stable**.
+The Case table carries the settled 12 EVA payload fields as `cr1bd_eva*` columns, each tagged
+`evaField: true` + `evaOrder: 1..12` (verifier asserts 12 fields, contiguous order). Engineer
+allocation is **NOT an EVA submission field** — it is left blank and assigned inside EVA *after*
+submission, so it was removed entirely from the contract (B3 RESOLVED; the `cr1bd_evaengineerallocation`
+column was dropped).
 
-> `vrm`, `caseRef`, `casePo` are **Case-identity** columns, **never** part of the 13-field EVA JSON.
+> `vrm`, `caseRef`, `casePo` are **Case-identity** columns, **never** part of the 12-field EVA JSON.
 > Overview-only `cr1bd_ov*` columns are imported for display and are flagged
 > `mustNotDriveWorkflow: true` — they must not drive workflow / readiness / matching.
 
@@ -114,7 +114,7 @@ dataverse-data-architect's to finalize; the values here are the agreed authoring
 ## Boundary
 
 * **[BUILD]** (done here): author + locally verify the schema spec. `node dataverse/verify-parity.mjs`
-  is the offline gate (14 checks: status parity, 13-field EVA order, overview-only flags, lookup/reln
+  is the offline gate (14 checks: status parity, 12-field EVA order, overview-only flags, lookup/reln
   integrity, M1 split, frozen env defaults, secrets-as-references, choiceSet resolution, no print-red).
 * **[DEPLOY-WITH-LOGIN]**: import the solution / create tables, choice sets, relationships, env-vars,
   and generate typed models — **non-inbox Dataverse, under the user's login**.

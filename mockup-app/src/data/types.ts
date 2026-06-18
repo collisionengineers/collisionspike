@@ -175,7 +175,7 @@ export interface CaseRecord {
   cr1bd_provider_display?: string;
   cr1bd_provider_code?: string;
 
-  /* The 13 EVA payload columns (strings; '' allowed). */
+  /* The 12 EVA payload columns (strings; '' allowed). */
   cr1bd_evaworkprovider?: string;
   cr1bd_evavehiclemodel?: string;
   cr1bd_evaclaimantname?: string;
@@ -188,7 +188,6 @@ export interface CaseRecord {
   cr1bd_evavatstatus?: string;
   cr1bd_evamileage?: string;
   cr1bd_evamileageunit?: string;
-  cr1bd_evaengineerallocation?: string;
 
   /* Overview-only (must not drive workflow). */
   cr1bd_ovinsuredname?: string;

@@ -4,7 +4,7 @@
   "displayName": "Case",
   "displayCollectionName": "Cases",
   "schemaName": "cr1bd_Case",
-  "description": "The live work item (replaces the job sheet's Jobs tab). One row per claim/instruction tracked through intake -> parse/classify -> human review -> enrich -> EVA export + Box archive. Carries the 13 EVA payload fields (pre-fill, staff-reviewed; never auto-final), the dedup keys, and overview-only facts. Matching = by VRM into the single OPEN case (ADR-0002); dedup tiebreaker = claim reference, not time (ADR-0010).",
+  "description": "The live work item (replaces the job sheet's Jobs tab). One row per claim/instruction tracked through intake -> parse/classify -> human review -> enrich -> EVA export + Box archive. Carries the 12 EVA payload fields (pre-fill, staff-reviewed; never auto-final), the dedup keys, and overview-only facts. Matching = by VRM into the single OPEN case (ADR-0002); dedup tiebreaker = claim reference, not time (ADR-0010).",
   "ownership": "UserOwned",
   "lifecycle": { "state": "m1-live", "note": "One of the four M1-live tables (Case, Evidence, WorkProvider, AuditEvent). Write-heavy." },
   "hasNotes": false,
@@ -53,7 +53,6 @@
     { "logicalName": "cr1bd_evavatstatus", "displayName": "EVA: VAT Status", "type": "String", "maxLength": 3, "format": "Enum-empty-Yes-No", "required": "none", "evaField": true, "evaOrder": 10, "description": "EVA field 10. Enum '' | 'Yes' | 'No' (kept as the exact EVA string token)." },
     { "logicalName": "cr1bd_evamileage", "displayName": "EVA: Mileage", "type": "String", "maxLength": 20, "required": "none", "evaField": true, "evaOrder": 11, "description": "EVA field 11. Mileage value. Document/parser authoritative; DVSA fills only when the document has none (ADR-0006)." },
     { "logicalName": "cr1bd_evamileageunit", "displayName": "EVA: Mileage Unit", "type": "String", "maxLength": 6, "format": "Enum-empty-Miles-Km", "required": "none", "evaField": true, "evaOrder": 12, "description": "EVA field 12. Enum '' | 'Miles' | 'Km' (exact EVA string token)." },
-    { "logicalName": "cr1bd_evaengineerallocation", "displayName": "EVA: Engineer Allocation", "type": "String", "maxLength": 200, "required": "none", "evaField": true, "evaOrder": 13, "description": "EVA field 13. PLACEHOLDER NAME 'Engineer Allocation' (the 13th field's exact name is the one open item, to be transcribed from the Sentry PDF). Keep logical name stable; only the display/contract name moves in lockstep when confirmed." },
 
     { "logicalName": "cr1bd_ovinsuredname", "displayName": "Overview: Insured Name", "type": "String", "maxLength": 200, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY. Imported when present; MUST NOT drive workflow / readiness / matching." },
     { "logicalName": "cr1bd_ovclaimantname", "displayName": "Overview: Claimant Name", "type": "String", "maxLength": 200, "required": "none", "mustNotDriveWorkflow": true, "description": "OVERVIEW-ONLY. MUST NOT drive workflow/readiness/matching. (Distinct from the EVA claimant name field.)" },
@@ -69,9 +68,9 @@
     { "schemaName": "cr1bd_case_sourcemessageid_key", "displayName": "Source Message ID Key", "columns": ["cr1bd_sourcemessageid"], "description": "Idempotency guard for the intake get-or-create (prevents double-create on Graph retries). Exact Message-ID repeat -> drop (ADR-0010)." }
   ],
   "notes": [
-    "EVA payload = the 13 cr1bd_eva* columns ONLY, in evaOrder 1..13. vrm / caseRef / casePo are Case-identity columns and NEVER part of the 13-field EVA JSON.",
+    "EVA payload = the 12 cr1bd_eva* columns ONLY, in evaOrder 1..12. vrm / caseRef / casePo are Case-identity columns and NEVER part of the 12-field EVA JSON. (Engineer allocation is NOT an EVA submission field — assigned inside EVA after submission; removed from the contract, B3 RESOLVED.)",
     "Per-field provenance + reviewState live in joined FieldLevelProvenance rows (separate table, chosen in Phase-1 §4), keyed by case + fieldName, NOT embedded on the Case row.",
     "Overview-only (cr1bd_ov*) columns are imported for reference display only and are flagged mustNotDriveWorkflow=true.",
-    "Readiness (ready_for_eva) is deterministic: 13 EVA fields valid + image-rules + inspection-address decision + per-provider extras, OR explicit override."
+    "Readiness (ready_for_eva) is deterministic: 12 EVA fields valid + image-rules + inspection-address decision + per-provider extras, OR explicit override."
   ]
 }

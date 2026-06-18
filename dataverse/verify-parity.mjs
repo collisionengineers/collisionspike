@@ -38,12 +38,12 @@ ok(contractTerminals.length === 3 &&
    JSON.stringify(contractTerminals) === JSON.stringify(csTerminals),
    `contract TERMINAL_STATUSES == choiceset stateMachine.terminals (contract=${JSON.stringify(contractTerminals)}, choiceset=${JSON.stringify(csTerminals)})`);
 
-// --- 2) Case carries exactly the 13 EVA fields in order ---------------------
+// --- 2) Case carries exactly the 12 EVA fields in order ---------------------
 const caseTable = read("dataverse/schema/case.json");
 const eva = caseTable.columns.filter((c) => c.evaField);
 const orders = eva.map((c) => c.evaOrder).sort((a, b) => a - b);
-ok(eva.length === 13, `Case has 13 EVA fields (got ${eva.length})`);
-ok(orders.join(",") === "1,2,3,4,5,6,7,8,9,10,11,12,13", "EVA fields are evaOrder 1..13 with no gaps/dupes");
+ok(eva.length === 12, `Case has 12 EVA fields (got ${eva.length})`);
+ok(orders.join(",") === "1,2,3,4,5,6,7,8,9,10,11,12", "EVA fields are evaOrder 1..12 with no gaps/dupes");
 
 // --- 3) Overview-only columns are flagged must-not-drive-workflow -----------
 const ov = caseTable.columns.filter((c) => c.logicalName.startsWith("cr1bd_ov"));

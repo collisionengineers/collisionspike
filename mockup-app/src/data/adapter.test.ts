@@ -181,14 +181,14 @@ describe('Provider <-> cr1bd_workprovider row round-trip', () => {
    EVA fields <-> Case columns + provenance rows.
    ============================================================ */
 describe('EVA fields <-> Case columns + provenance', () => {
-  it('projects 13 values onto cr1bd_eva* columns and reads them back', () => {
+  it('projects 12 values onto cr1bd_eva* columns and reads them back', () => {
     const c = cases[0];
     const cols = evaFieldsToColumns(c.evaFields);
     const built = evaFieldsFromRecord(cols);
     // Values survive the column projection (provenance defaults to a staff stub).
     expect(built.workProvider.value).toBe(c.evaFields.workProvider.value);
     expect(built.mileage.value).toBe(c.evaFields.mileage.value);
-    expect(built.engineerAllocation.value).toBe(c.evaFields.engineerAllocation.value);
+    expect(built.mileageUnit.value).toBe(c.evaFields.mileageUnit.value);
   });
 
   it('pairs a provenance row onto its EVA field (sourceType + reviewState + confidence)', () => {

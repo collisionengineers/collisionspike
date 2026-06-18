@@ -291,14 +291,13 @@ const useStyles = makeStyles({
 
 type TabName = 'fields' | 'evidence' | 'address' | 'notes' | 'chasers';
 
-/* The 13 EVA fields, grouped into legible clusters (order within a cluster
+/* The 12 EVA fields, grouped into legible clusters (order within a cluster
    preserves the contract order). The union of keys equals EVA_FIELD_ORDER. */
 const FIELD_CLUSTERS: { heading: string; keys: EvaFieldKey[] }[] = [
   { heading: 'Provider & claimant', keys: ['workProvider', 'claimantName', 'claimantTelephone', 'claimantEmail'] },
   { heading: 'Vehicle', keys: ['vehicleModel', 'mileage', 'mileageUnit', 'vatStatus'] },
   { heading: 'Incident', keys: ['accidentCircumstances', 'inspectionAddress'] },
   { heading: 'Dates', keys: ['dateOfLoss', 'dateOfInstruction'] },
-  { heading: 'Allocation', keys: ['engineerAllocation'] },
 ];
 
 const LABEL_FOR: Record<EvaFieldKey, { label: string; required: boolean }> = Object.fromEntries(
@@ -819,7 +818,7 @@ function CaseDetailView({ caseData, images }: CaseDetailViewProps) {
                   <Divider />
                   <div style={{ marginTop: tokens.spacingVerticalM }}>
                     <Caption1 className={styles.hint}>
-                      EVA JSON preview (the 13-field contract, in order)
+                      EVA JSON preview (the 12-field contract, in order)
                     </Caption1>
                     <div style={{ marginTop: 8 }}>
                       <JsonView data={evaJson} label="EVA JSON" />

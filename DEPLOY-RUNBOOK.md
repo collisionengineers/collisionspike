@@ -27,8 +27,8 @@ dependent live step can work. They are tracked in code/READMEs and surfaced here
 | # | Blocker | Where | Impact if unresolved | Resolution |
 |---|---|---|---|---|
 | B1 | **Gateway grant type.** The wrapper authenticates with OAuth2 `client_credentials`, but the live `ce-mcp-gateway` (`collisionplugin/.../mcp-gateway`) registers only `authorization_code + PKCE` / `refresh_token`. | `functions/enrichment/gateway_client.py` `_fetch_token` | Enrichment cannot authenticate in-tenant → DVSA calls 401. | Add a `client_credentials` grant + a confidential **service client** to the gateway (integrations.md Option C), or re-implement `_fetch_token` for the supported machine flow. Keep `ENRICHMENT_ENABLED=false` until done (Bicep default). |
-| B2 | **Parser legacy field set.** The sibling `cedocumentmapper_v2` still emits the *legacy* fields; the adapter renames `incident_date→date_of_loss`, `instruction_date→date_of_instruction`, drops `inspection_date`, and defaults `claimant_telephone` / `claimant_email` / `engineer_allocation` to **absent**. | `functions/parser/parser_adapter.py` | Those 3 EVA fields arrive empty (staff must fill them); not unsafe, but incomplete pre-fill. | Confirm with **document-parser-engineer** whether the sibling adopts the EVA key names / emits telephone+email. Optional for M1 (staff completes); required for full auto-fill. |
-| B3 | **13th EVA field name.** `engineer_allocation` is a settled *placeholder*. | `contracts/eva-payload.schema.json`, `mockup-app/src/contracts/eva-export.ts`, `dataverse/schema/case.json`, parser adapter | EVA submit uses a placeholder key for field 13. | Transcribe the real name from `Sentry API Documentation 1.2 Amended.pdf` and rename in **lockstep** across those four files (then re-run `verify-all.mjs`). |
+| B2 | **Parser legacy field set.** The sibling `cedocumentmapper_v2` still emits the *legacy* fields; the adapter renames `incident_date→date_of_loss`, `instruction_date→date_of_instruction`, drops `inspection_date`, and defaults `claimant_telephone` / `claimant_email` to **absent**. | `functions/parser/parser_adapter.py` | Those 2 EVA fields arrive empty (staff must fill them); not unsafe, but incomplete pre-fill. | Confirm with **document-parser-engineer** whether the sibling adopts the EVA key names / emits telephone+email. Optional for M1 (staff completes); required for full auto-fill. |
+| B3 | **~~13th EVA field name.~~ RESOLVED — field removed, contract is now 12 fields.** Per the product owner's ruling, engineer allocation is **NOT an EVA submission field** — it is left blank and assigned inside EVA *after* submission. `engineer_allocation` removed entirely from the contract in lockstep across the schema, the TS serializer, the Dataverse Case table (`cr1bd_evaengineerallocation` dropped), the parser adapter, the connector, and the parse flow. Offline gate green (`verify-all.mjs` 6/6). | (was: `contracts/eva-payload.schema.json`, `mockup-app/src/contracts/eva-export.ts`, `dataverse/schema/case.json`, parser adapter) | None — EVA submit now sends exactly the 12 settled fields. | **RESOLVED** (2026-06-18). |
 | B4 | **Code Apps GA + licensing.** `pac` still marks `code` as *(Preview)*; the app needs Power Apps **Premium** per-user. | — | `pac code push` may be gated. | Confirm Code Apps GA + Premium licensing in the target environment before §5. |
 | B5 | **EVA test creds + Box case-sensitivity.** | env-vars / Box | API path can't be validated; Box folder casing. | Confirm EVA **test** credentials (Infisical) and that Box honours the UPPERCASE Case/PO folder name before activating finalization (§ live step 9). |
 
@@ -121,8 +121,8 @@ Performed **after** §1–6, against live inboxes/SharePoint/Box/EVA. Do **one m
 2. Send a **test email** (your address → that mailbox) with one instruction PDF + 2 images (one
    overview with a legible plate, one damage closeup).
 3. In the Code App, confirm: a **Case appears** within the expected interval; status `new_email →
-   ingested`; provider matched by sender domain; 13 fields pre-filled with provenance badges (note B2 —
-   telephone/email/engineer_allocation may be blank pending the parser).
+   ingested`; provider matched by sender domain; 12 fields pre-filled with provenance badges (note B2 —
+   telephone/email may be blank pending the parser).
 4. Confirm **Outlook categories** applied (provider + ingestion-success).
 5. Open the Case: confirm **image roles / registration-visible**; drive the **readiness checklist** to
    green; confirm the **Address** decision gate (override-with-reason if image-based — never silent).
@@ -131,7 +131,7 @@ Performed **after** §1–6, against live inboxes/SharePoint/Box/EVA. Do **one m
    UI surfaces the candidate; Accept-link is disabled when references differ).
 7. Confirm the **SharePoint job-sheet mirror** (if you have activated the import) shows staged drafts —
    none auto-activated.
-8. **EVA (M1 path):** with `EVA_API_ENABLED=false`, **export the 13-field JSON** and drag-drop it into
+8. **EVA (M1 path):** with `EVA_API_ENABLED=false`, **export the 12-field JSON** and drag-drop it into
    the EVA **test** environment; confirm acceptance. (Only flip `EVA_API_ENABLED=true` with test creds
    once B1/B5 are settled.)
 9. Confirm **Box** folder created with the **UPPERCASE** Case/PO in unison with EVA submit; confirm the

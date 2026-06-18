@@ -18,7 +18,7 @@
           "properties": {
             "caseId": { "type": "string" },
             "payloadHash": { "type": "string" },
-            "evaPayload13": { "type": "string" }
+            "evaPayload12": { "type": "string" }
           }
         }
       }
@@ -35,10 +35,10 @@
       "inputs": { "variables": [ { "name": "payloadHash", "type": "string", "value": "@triggerBody()?['payloadHash']" } ] },
       "runAfter": { "Init_caseId": [ "Succeeded" ] }
     },
-    "Init_evaPayload13": {
+    "Init_evaPayload12": {
       "type": "InitializeVariable",
-      "inputs": { "variables": [ { "name": "evaPayload13", "type": "string", "value": "@triggerBody()?['evaPayload13']" } ] },
-      "comment": "The schema-valid 13-field EVA JSON in contract order, built by the SAME serializer the Code App uses (eva-export.ts / eva-payload.schema.json) - byte-identical drag-drop body and API body. vrm/reference are NOT in the 13.",
+      "inputs": { "variables": [ { "name": "evaPayload12", "type": "string", "value": "@triggerBody()?['evaPayload12']" } ] },
+      "comment": "The schema-valid 12-field EVA JSON in contract order, built by the SAME serializer the Code App uses (eva-export.ts / eva-payload.schema.json) - byte-identical drag-drop body and API body. vrm/reference are NOT in the 12.",
       "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
     },
     "Get_gate_definition": {
@@ -54,7 +54,7 @@
           "$top": 1
         }
       },
-      "runAfter": { "Init_evaPayload13": [ "Succeeded" ] }
+      "runAfter": { "Init_evaPayload12": [ "Succeeded" ] }
     },
     "Set_gate_EVA_API_ENABLED": {
       "type": "InitializeVariable",
@@ -137,7 +137,7 @@
                   "inputs": {
                     "host": { "connectionName": "shared_evasentry", "operationId": "InstructionInspection",
                       "apiId": "/providers/Microsoft.PowerApps/apis/shared_evasentry" },
-                    "parameters": { "body": "@variables('evaPayload13')" }
+                    "parameters": { "body": "@variables('evaPayload12')" }
                   },
                   "runAfter": {}
                 }
@@ -146,13 +146,13 @@
                 "actions": {
                   "Stage_drag_drop_json": {
                     "type": "OpenApiConnection",
-                    "comment": "M1 default: emit the schema-valid 13-field JSON for staff drag-drop into EVA. Same serializer as the Code App - byte-identical. lowercase Case/PO filename.",
+                    "comment": "M1 default: emit the schema-valid 12-field JSON for staff drag-drop into EVA. Same serializer as the Code App - byte-identical. lowercase Case/PO filename.",
                     "inputs": {
                       "host": { "connectionName": "shared_box", "operationId": "CreateFile",
                         "apiId": "/providers/Microsoft.PowerApps/apis/shared_box" },
                       "parameters": { "folderId": "@body('Create_box_folder_UPPERCASE')?['Id']",
                         "name": "@concat(toLower(outputs('Get_case')?['body/cr1bd_casepo']), '.eva.json')",
-                        "body": "@variables('evaPayload13')" }
+                        "body": "@variables('evaPayload12')" }
                     },
                     "runAfter": {}
                   }

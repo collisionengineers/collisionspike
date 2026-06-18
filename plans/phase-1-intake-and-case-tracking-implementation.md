@@ -10,7 +10,7 @@
 ## 1. Overview
 
 Phase 1 is the **M1 vertical slice**: a real email arriving in a Collision Engineers shared inbox becomes a
-tracked `Case` in Dataverse, gets parsed + enriched into the 13 EVA fields with field-level provenance,
+tracked `Case` in Dataverse, gets parsed + enriched into the 12 EVA fields with field-level provenance,
 passes a human readiness review in the Code App, and is exported to EVA as drag-drop JSON (with Box
 archival in unison). It does this by re-implementing the `collisioncc` `graph-intake` → `case-status` →
 `image-rules` → `eva-export` pipeline on the Microsoft stack (Power Automate + Dataverse + Azure Functions
@@ -92,7 +92,7 @@ handoff checklist the user executes.
 | **Power Automate** | Hosts all cloud flows: intake, classify+persist, case-resolve/dedup, status, parser call, enrichment call, finalization (EVA+Box), chasers | Flows in `CollisionSpike` solution; Dataverse + HTTP + Outlook + Box + SharePoint connectors | per-flow gate reads | power-automate-flow-builder | **[BUILD]** defns; **[RESERVED-FOR-USER]** activate inbox/SharePoint/Box flows |
 | **Dataverse** | Working store (Case, Evidence, WorkProvider, AuditEvent + staged tables); env-var store; status choice set | Solution-packaged; file column / Azure Blob for `.eml` + attachment bytes | — | dataverse-data-architect | **[DEPLOY-WITH-LOGIN]** import solution + env-vars |
 | **SharePoint / Excel Online (Business) connector** | Read-only import of job sheet (Principals/Garages/Jobs) → staged Dataverse drafts; no macros | "List rows present in a table" (Excel) or "Get items" (SharePoint) | — | power-automate-flow-builder | **[BUILD]** logic; **[RESERVED-FOR-USER]** run vs live job sheet |
-| **Azure Functions — parser host** | Wrap `cedocumentmapper_v2.0` HTTP entry: instruction bytes → 13 EVA fields w/ confidence+source | Linux container (PyMuPDF wheels + Tesseract); route `POST /parse` | `PDF_MAPPER_ENABLED` | azure-integration-engineer (host), document-parser-engineer (code) | **[BUILD]** code+Bicep; **[DEPLOY-WITH-LOGIN]** deploy |
+| **Azure Functions — parser host** | Wrap `cedocumentmapper_v2.0` HTTP entry: instruction bytes → 12 EVA fields w/ confidence+source | Linux container (PyMuPDF wheels + Tesseract); route `POST /parse` | `PDF_MAPPER_ENABLED` | azure-integration-engineer (host), document-parser-engineer (code) | **[BUILD]** code+Bicep; **[DEPLOY-WITH-LOGIN]** deploy |
 | **Azure Functions — DVSA enrichment wrapper** | REST over `collisionplugin` `dvsa-mot` behind `ce-mcp-gateway`; `get_vehicle_summary` + `current_mileage_estimate` | Service identity → gateway OAuth2; route `POST /dvsa-mot/enrich`; secret from Key Vault | `ENRICHMENT_ENABLED` + `ENRICHMENT_API_BASE` | azure-integration-engineer | **[BUILD]** code+Bicep; **[DEPLOY-WITH-LOGIN]** deploy |
 | **Azure Key Vault** | Secrets: gateway `CLIENT_ID/SECRET`, EVA `CLIENT_ID/SECRET`; never echoed | Dataverse secret env-vars hold **Key Vault references** only; Infisical is source-of-record | — | azure-integration-engineer | **[DEPLOY-WITH-LOGIN]** create vault; **[RESERVED-FOR-USER]** inject secret values |
 | **Entra app registration** | Service identity for the two Functions + (later) EVA connector OAuth | App-reg spec authored offline; consent interactive | — | azure-integration-engineer | **[BUILD]** spec; **[RESERVED-FOR-USER]** consent/register |
@@ -116,7 +116,7 @@ columns/relationships actively read/written in this slice.
   (SHA256 over normalized subject + from + sorted attachment SHA256s).
 - **Dedup staging:** `duplicateKeys` / `caseLinkState` (`none|pending|linked`) to drive `duplicate_risk`
   and attach-vs-new review.
-- **13 EVA fields** populated by parser/enrichment/staff (pre-fill, staff-reviewed — never auto-final).
+- **12 EVA fields** populated by parser/enrichment/staff (pre-fill, staff-reviewed — never auto-final).
 - **Overview-only columns** imported but MUST NOT drive workflow/readiness/matching: insuredName,
   claimantName, thirdPartyName, claimNumber, policyReference, incidentDate, claimType, insurerName,
   repairerName.
@@ -301,19 +301,19 @@ skills | boundary | offline build-verification.
 
 - **Trigger:** flow step after 5.3 (instruction Evidence exists), OR Code App on-demand re-parse.
 - **Inputs:** `POST /parse` `{ document: base64, filename, provider_hint? }`.
-- **Outputs — the binding 13-field EVA set in contract order** (per the `eva-sentry-api` skill +
+- **Outputs — the binding 12-field EVA set in contract order** (per the `eva-sentry-api` skill +
   prototype `mockup-app/src/mock/types.ts` `EvaFields`/`EVA_FIELD_ORDER`, both agree):
   `{ extraction: {work_provider, vehicle_model, claimant_name, claimant_telephone, claimant_email,
   date_of_loss, date_of_instruction, accident_circumstances, inspection_address, vat_status, mileage,
-  mileage_unit, engineer_allocation}, vrm?, reference?, issues[],
+  mileage_unit}, vrm?, reference?, issues[],
   contract_version: "cedocumentparser_v2.0_eva_json" }`; each EVA field
   `{ value, confidence, source, sourceText?, warnings? }`. **`vrm` and `reference` are Case-identity
   fields the parser may also surface (for 5.3 correlation/dedup), NOT EVA payload fields** — they live
-  on the Case row, never in the 13-field EVA JSON. **The 13th field's exact name is the only open item**
-  (placeholder "Engineer Allocation"); transcribe it from `Sentry API Documentation 1.2 Amended.pdf` /
-  `Final Format Example 02.json` and update `engineer_allocation` in lockstep across the schema, the TS
-  contract, and the prototype.
-- **Dataverse effects:** W the 13 EVA fields onto Case as **pre-fill for staff review** (never auto-final);
+  on the Case row, never in the 12-field EVA JSON. **Engineer allocation is NOT an EVA submission field**
+  — it is left blank and assigned inside EVA *after* submission, so it was removed entirely from the
+  contract (B3 RESOLVED; the field dropped from the schema, the TS contract, the Dataverse Case table,
+  the parser adapter, the connector, and the parse flow).
+- **Dataverse effects:** W the 12 EVA fields onto Case as **pre-fill for staff review** (never auto-final);
   W FieldLevelProvenance per field (`sourceType=pdf_extraction`, confidence carried,
   `reviewState=needs_review`); W AuditEvent (`parser_called`). **The Function is the single parser surface
   (ADR-0004)** — do not re-derive parsing anywhere else. Triggers 5.4 → typically
@@ -455,7 +455,7 @@ skills | boundary | offline build-verification.
 4. **Async conversion** via `useCaseQuery`/`useQueueQuery` hooks (loading/empty/error). The mock stays
    synchronous behind the hook as a permanent offline harness. **[BUILD]**
 5. **Field-name adapter** mapping Dataverse logical names (`cr123_vrm`, `statuscode`) → camelCase domain
-   types; the 13 EVA fields join the Case row with its FieldLevelProvenance rows; `EVA_FIELD_ORDER` stays the
+   types; the 12 EVA fields join the Case row with its FieldLevelProvenance rows; `EVA_FIELD_ORDER` stays the
    canonical iteration order. **[BUILD]**
 
 **Surface A — Intake queue (`Dashboard.tsx` + `CaseList.tsx`):**
@@ -475,7 +475,7 @@ skills | boundary | offline build-verification.
   `acceptedForEva`, `excluded`, `exclusionReason`); `ImageOrderList` order → persist Evidence `sequenceIndex`
   (EVA 2-previews-then-all order). Notes → create Note rows. Chasers → write `drafted` Chaser rows (WhatsApp
   **draft-only**, ADR-0003); the Code App **only drafts** — sending is a flow/user action.
-- **EVA submit (M1 primary path = JSON drag-drop export):** build the 13-field payload via the shared
+- **EVA submit (M1 primary path = JSON drag-drop export):** build the 12-field payload via the shared
   `src/contracts/eva-export.ts` / `eva-payload.schema.json` so app and flow emit **byte-identical** payloads;
   serialize; offer download. The Sentry-API radio stays disabled until `EVA_API_ENABLED`. The actual EVA POST
   + Box sync are a **flow** (gated; activation/live test **[RESERVED-FOR-USER]**); the Code App may write a
@@ -565,7 +565,7 @@ slice is orphaned. The two cross-cutting seams have clear primary owners:
 | Entra app registration | `azure:entra-app-registration` | No |
 | Document Intelligence (Read OCR) | `azure:azure-ai` | No |
 | Bicep IaC authoring | `azure:bicepschema` + `microsoft-docs:*` | No |
-| EVA Sentry contract / 13-field order / photo rules | `eva-sentry-api` | **Partial** — field-level enum semantics (exact 13th field name, Damage Type enums, multi-postcode) may need transcription from the Sentry PDF. **Enhance, don't create.** |
+| EVA Sentry contract / 12-field order / photo rules | `eva-sentry-api` | **Partial** — field-level enum semantics (Damage Type enums, multi-postcode) may need transcription from the Sentry PDF. **Enhance, don't create.** |
 | CE brand tokens / theme / red #db0816 | `collision-engineers-design` | No (theme already ported) |
 | Dataverse/Power Platform/Azure docs lookups | `microsoft-docs:microsoft-docs` / `:microsoft-code-reference` | No |
 | **Power Automate cloud-flow authoring** | — | **YES — no covering skill.** |
@@ -596,7 +596,7 @@ skill should contain, with copy-pasteable flow-JSON fragments:
 | Code App type+build | `tsc -b && vite build` | Green, zero TS errors, dist emitted |
 | Lint | `eslint .` | Clean |
 | Readiness/contract unit tests | Vitest: `computeReadiness`, `EVA_FIELD_ORDER`, queue mapping, `suggestCasePo` (EVA-lowercase/Box-UPPERCASE), `dueInfo`; **status choice set == prototype `CaseStatus` union (`mock/types.ts`) and data-model.md state machine, 1:1** | All pass |
-| EVA payload schema-validate | ajv vs `contracts/eva-payload.schema.json` | exactly 13 fields, contract order; VRM + Work Provider non-empty; dates `^\d{2}/\d{2}/\d{4}$\|^$`; address 6 lines or "Image Based Assessment"; VAT/Mileage-unit enums |
+| EVA payload schema-validate | ajv vs `contracts/eva-payload.schema.json` | exactly 12 fields, contract order; VRM + Work Provider non-empty; dates `^\d{2}/\d{2}/\d{4}$\|^$`; address 6 lines or "Image Based Assessment"; VAT/Mileage-unit enums |
 | Parser | `pytest` + contract-lock (Python output ⇄ TS schema parity) | All pass |
 | Function unit tests | Parser- + DVSA-wrapper with mocked inputs/HTTP | All pass, no network |
 | Flow static check | Power Platform solution/flow checker on exported definitions (static, no run) | No errors |
@@ -628,14 +628,14 @@ these.
 2. Send a **test email** (own address → that mailbox) with one instruction PDF + 2 images (one overview with a
    legible plate, one damage closeup).
 3. Confirm in the Code App: a **Case appears** within the expected interval; status `new_email → ingested`;
-   provider matched by sender domain; 13 fields pre-filled with provenance badges.
+   provider matched by sender domain; 12 fields pre-filled with provenance badges.
 4. Confirm **Outlook categories** applied (provider + ingestion-success).
 5. Open the Case: confirm **image roles / registration-visible**; drive the **readiness checklist** to green;
    confirm the **Address** decision gate (override-with-reason if image-based).
 6. Confirm **dedup**: re-send the same email (exact repeat → dropped); same VRM **different reference** → new
    case + collision flag; same VRM **no reference** → propose-attach for staff confirm.
 7. Confirm **SharePoint mirror/dashboard** reflects the case (if the mirror is activated).
-8. **EVA**: with `EVA_API_ENABLED=false`, **export the 13-field JSON** and drag-drop into EVA **test** env;
+8. **EVA**: with `EVA_API_ENABLED=false`, **export the 12-field JSON** and drag-drop into EVA **test** env;
    confirm acceptance. (Sentry API path only if/when the user enables the gate with test creds.)
 9. Confirm **Box** folder created with the **UPPERCASE** Case/PO in unison with EVA submit; confirm photo order
    (2 previews first, then all including those two).
@@ -651,7 +651,7 @@ these.
 - **Corpus/inspection-address:** WorkProvider matchable by domain; provider policy drives the address gate;
   **no path yields "Image Based Assessment" without an explicit reason** (asserted in tests); 58 Principals +
   38 Garages importable as **drafts** behind a preview-diff (none auto-activated; odd codes flagged).
-- **EVA contract:** exported JSON schema-valid, 13 fields in order, Vitest parity vs `Final Format Example
+- **EVA contract:** exported JSON schema-valid, 12 fields in order, Vitest parity vs `Final Format Example
   02.json`; JSON-export body == API body.
 - **Flows (definition-only):** solution checker clean; status machine matches the authoritative diagram for
   all fixtures; dedup matches ADR-0010; **zero activation by Claude**.
@@ -688,14 +688,14 @@ Dependency-ordered execution plan (what blocks what), suitable to drive an orche
    `caseRef`, `caseLinkState`), Evidence storage column + `sequenceIndex`, FieldLevelProvenance, AuditEvent
    action vocabulary. *Everything writes through this.* *(dataverse-data-architect)*
 2. **Freeze the keystone EVA schema** — author the single canonical `eva-payload.schema.json` from the
-   **already-agreed binding 13-field set** (Work Provider, Vehicle Model, Claimant Name, Claimant Telephone,
+   **already-agreed binding 12-field set** (Work Provider, Vehicle Model, Claimant Name, Claimant Telephone,
    Claimant Email, Date of Loss, Date of Instruction, Accident Circumstances, Inspection Address, VAT Status,
-   Mileage, Mileage Unit, + the 13th field). The `eva-sentry-api` skill, `eva-sentry-api.md`,
+   Mileage, Mileage Unit). The `eva-sentry-api` skill, `eva-sentry-api.md`,
    `integrations.md`, `data-model.md`, and the prototype `mock/types.ts` all already concur — there is **no
-   contract to reconcile**, only **one field name to confirm** (the 13th, placeholder "Engineer Allocation",
-   transcribed from the Sentry PDF / `Final Format Example 02.json`). Land the schema + the Dataverse choice
-   set off this one source. **This is the sync point parser, Code App field binding, and EVA export bind to**
-   — but it is a one-line confirmation, not a blocker-level reconciliation. *(eva-sentry-integration + dataverse)*
+   contract to reconcile** (engineer allocation is NOT an EVA submission field — assigned inside EVA *after*
+   submission; removed from the contract, B3 RESOLVED). Land the schema + the Dataverse choice
+   set off this one source. **This is the sync point parser, Code App field binding, and EVA export bind to.**
+   *(eva-sentry-integration + dataverse)*
 3. **`case-status.ts` + readiness contract** wired as the shared validation surface (consumed by both Code App
    and the status sub-flow to prevent drift; ideally exposed as a validation endpoint). [5.4]
    *(eva-sentry-integration)*
@@ -729,17 +729,16 @@ Dependency-ordered execution plan (what blocks what), suitable to drive an orche
 
 ## 10. Risks & open questions
 
-1. **The 13th EVA field name (open item, low effort).** The binding 13-field set is **already settled and
+1. **The EVA field set (RESOLVED).** The binding 12-field set is **settled and
    consistent** across every authoritative source — the `eva-sentry-api` skill (self-declared source of
    truth), `eva-sentry-api.md`, `integrations.md`, `data-model.md`, and the prototype
    `mockup-app/src/mock/types.ts` (`EvaFields` + `EVA_FIELD_ORDER`) all list the **same** order: Work
    Provider, Vehicle Model, Claimant Name, Claimant Telephone, Claimant Email, Date of Loss, Date of
-   Instruction, Accident Circumstances, Inspection Address, VAT Status, Mileage, Mileage Unit, + a 13th field
-   (placeholder "Engineer Allocation"). There is **no competing list** — the only genuine open item is the
-   13th field's exact name, transcribed from `Sentry API Documentation 1.2 Amended.pdf` /
-   `Final Format Example 02.json`. (`vrm` and `reference` are Case-identity columns, **not** EVA payload
-   fields.) Mitigation: confirm the one name, then freeze `eva-payload.schema.json` off this single set; the
-   TS contract, the parser output, and the prototype move in lockstep. Owner: eva-sentry-integration.
+   Instruction, Accident Circumstances, Inspection Address, VAT Status, Mileage, Mileage Unit. Engineer
+   allocation is **NOT an EVA submission field** — it is left blank and assigned inside EVA *after*
+   submission, so it was removed entirely from the contract (B3 RESOLVED). (`vrm` and `reference` are
+   Case-identity columns, **not** EVA payload fields.) `eva-payload.schema.json` is frozen off this single
+   set; the TS contract, the parser output, and the prototype move in lockstep. Owner: eva-sentry-integration.
 2. **VRM availability at dedup time (5.3) — resolved for M1.** Decision: the **lightweight pre-parse
    VRM/reference sniff** is the M1 default (subject + body + filenames), so case-resolve runs before the
    parser per §9. For arrivals where the sniff finds nothing (instruction-first / image-less), 5.3 resolves

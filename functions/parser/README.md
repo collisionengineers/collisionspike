@@ -2,7 +2,7 @@
 
 Azure Function (Python v2 programming model) that wraps the sibling
 `cedocumentmapper_v2` document parser behind a single HTTP route and returns the
-**settled 13-field snake_case EVA extraction**, validated against the keystone
+**settled 12-field snake_case EVA extraction**, validated against the keystone
 schema `contracts/eva-payload.schema.json`.
 
 This is the **single parser surface** for collisionspike (ADR-0004): parsing is
@@ -33,8 +33,7 @@ Response:
     "inspection_address":   { "value": "line1\n...\n...\n...\n...\nEX1 2MP", "confidence": 0.7, "source": "address_block" },
     "vat_status":           { "value": "Yes",  "confidence": 0.9, "source": "vat_flag" },
     "mileage":              { "value": "42000","confidence": 0.75,"source": "mileage_regex" },
-    "mileage_unit":         { "value": "Miles","confidence": 0.9, "source": "mileage_unit_label" },
-    "engineer_allocation":  { "value": "",    "confidence": null, "source": "absent" }
+    "mileage_unit":         { "value": "Miles","confidence": 0.9, "source": "mileage_unit_label" }
   },
   "vrm":       { "value": "AB12CDE", "confidence": 0.9, "source": "vrm_regex" },
   "reference": { "value": "DEMO-0001", "confidence": 0.88, "source": "ref_regex" },
@@ -43,13 +42,13 @@ Response:
 }
 ```
 
-- The 13 `extraction` keys are always present, **in EVA contract order**, each a
+- The 12 `extraction` keys are always present, **in EVA contract order**, each a
   `{ value, confidence, source, warnings? }` cell. Fields the parser does not
   supply are present-but-empty with `source: "absent"`.
 - **`vrm` and `reference` are Case-identity** (for case-resolve/dedup, plan §5.3)
   and are surfaced **separately** — they are intentionally **NOT** in the EVA
   payload.
-- The flat 13-field payload is validated against
+- The flat 12-field payload is validated against
   `contracts/eva-payload.schema.json`. A schema-invalid (i.e. incomplete) parse
   still returns **200** with each violation listed in `issues` (the case routes
   to `needs_review` / `missing_required_fields` downstream — the parser pre-fills,
@@ -96,14 +95,15 @@ file carrying `filename`'s extension before calling it. There is no bytes-in
 public entry point today.
 
 **Contract reconciliation** (the adapter's job): the sibling's native field set
-is the *legacy* 13, not the settled EVA 13. The adapter renames
+is the *legacy* set, not the settled EVA 12. The adapter renames
 `incident_date → date_of_loss`, `instruction_date → date_of_instruction`; drops
 `inspection_date` from the EVA payload; routes `vrm`/`reference` to Case-identity;
-and defaults the three EVA fields the parser does not yet emit
-(`claimant_telephone`, `claimant_email`, `engineer_allocation`) to empty.
+and defaults the two EVA fields the parser does not yet emit
+(`claimant_telephone`, `claimant_email`) to empty. (Engineer allocation is NOT an
+EVA submission field — assigned inside EVA after submission; not in the contract.)
 
 > **Confirm with document-parser-engineer:** whether the sibling will rename its
-> native keys to the EVA set, add the three missing EVA fields, and/or expose a
+> native keys to the EVA set, add the two missing EVA fields, and/or expose a
 > bytes-in entry point. Until then `parser_adapter.EVA_KEY_FROM_PARSER_KEY` is
 > the authoritative mapping and the only place to change it.
 

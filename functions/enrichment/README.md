@@ -37,7 +37,7 @@ Always returns **HTTP 200** with a `warnings[]` array (advisory; never blocks):
 }
 ```
 
-`vehicle_model` maps to the settled 13-field EVA contract
+`vehicle_model` maps to the settled 12-field EVA contract
 (`contracts/eva-payload.schema.json`); `vrm` is Case-identity and is **not** part
 of the EVA payload. Suggestions are written to empty Case fields with
 `dvla_dvsa` provenance and reviewed by staff before EVA submission.

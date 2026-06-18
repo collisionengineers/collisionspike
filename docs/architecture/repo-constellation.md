@@ -36,7 +36,7 @@ binding contracts). The distilled, binding design lives in
 - **Image rules** (`collisioncc/src/lib/image-rules.ts`): ≥2 EVA-accepted images, including one
   **overview** (registration visible) and one **damage_closeup**; roles
   `overview | damage_closeup | additional | unknown`.
-- **EVA export** (13-field JSON, 6-line inspection address) — see [integrations.md](./integrations.md).
+- **EVA export** (12-field JSON, 6-line inspection address) — see [integrations.md](./integrations.md).
 - **Work-item / evidence-package / provider-principal-config** contracts in `ccc/docs/contracts/`.
 
 ## cedocumentmapper_v2.0

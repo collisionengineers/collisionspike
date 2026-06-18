@@ -1,6 +1,6 @@
 ---
 name: eva-sentry-integration
-description: Use this agent when the work touches EVA submission for collisionspike — the Sentry REST API v1.2, the 13-field EVA JSON contract, the photo-order and image rules, the JSON drag-drop export, or the Box archival coupling. Typical triggers include "submit a case to EVA", "build the Sentry token + Instruction/Inspection call", "validate the 13-field EVA JSON", "implement the two-preview photo ordering", and "generate the EVA drag-drop export". For the Power Automate flow that calls EVA at finalisation, defer to power-automate-flow-builder; for the Azure-hosted secrets/identity, defer to azure-integration-engineer. See "When to invoke" in the agent body for worked scenarios.
+description: Use this agent when the work touches EVA submission for collisionspike — the Sentry REST API v1.2, the 12-field EVA JSON contract, the photo-order and image rules, the JSON drag-drop export, or the Box archival coupling. Typical triggers include "submit a case to EVA", "build the Sentry token + Instruction/Inspection call", "validate the 12-field EVA JSON", "implement the two-preview photo ordering", and "generate the EVA drag-drop export". For the Power Automate flow that calls EVA at finalisation, defer to power-automate-flow-builder; for the Azure-hosted secrets/identity, defer to azure-integration-engineer. See "When to invoke" in the agent body for worked scenarios.
 model: inherit
 color: magenta
 ---
@@ -19,10 +19,12 @@ endpoint/payload detail.
   `/Claim/LocationUpdate`, `/Claim/AuthorityStatusUpdate`, `/Note/SubmitNote`, `/Claim/Update`,
   `/Report/SubmitReport`, `GET /Report/GetAvailableReports`, `GET /Report/GetReport`. Idempotency by
   payload hash. Gate the REST path with `EVA_API_ENABLED`; honor `EVA_BASE_URL`.
-- **The 13-field JSON contract.** Exact field order matching `Final Format Example 02.json`;
+- **The 12-field JSON contract.** Exact field order matching `Final Format Example 02.json`;
   inspection address is **6 newline-separated lines** (or the `Image Based Assessment` marker); dates
   `DD/MM/YYYY`; `VAT Status` ∈ {"", Yes, No}; `Mileage Unit` ∈ {"", Miles, Km}; `Work Provider` must
-  be non-empty. `cedocumentmapper_v2.0` already emits this schema-validated — validate, don't redrive.
+  be non-empty. Engineer allocation is NOT an EVA submission field — it is assigned inside EVA after
+  submission (removed from the contract, B3 RESOLVED). `cedocumentmapper_v2.0` already emits this
+  schema-validated — validate, don't redrive.
 - **Photo order & image rules.** Upload **2 preview photos first** — vehicle overview (full
   registration visible) + main-damage closeup — **then all photos in sequence including those two
   again**. Likely **two requests** (confirm on test). Enforce: ≥2 EVA images incl. ≥1 overview

@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "Collision Engineers Parser",
-    "description": "Custom connector for the cedocumentmapper_v2 parser Function. POST a base64 instruction document and receive the settled 13-field EVA extraction (with per-field value/confidence/source), plus the Case-identity vrm/reference surfaced separately. PDF_MAPPER_ENABLED gating is enforced in the calling flow, not here.",
+    "description": "Custom connector for the cedocumentmapper_v2 parser Function. POST a base64 instruction document and receive the settled 12-field EVA extraction (with per-field value/confidence/source), plus the Case-identity vrm/reference surfaced separately. PDF_MAPPER_ENABLED gating is enforced in the calling flow, not here.",
     "version": "1.0.0",
     "contact": {
       "name": "Collision Engineers — collisionspike"
@@ -23,7 +23,7 @@
     "/parse": {
       "post": {
         "summary": "Parse an instruction document",
-        "description": "Decode a base64 document, extract the 13-field EVA payload, and return it with field-level provenance plus Case-identity vrm/reference.",
+        "description": "Decode a base64 document, extract the 12-field EVA payload, and return it with field-level provenance plus Case-identity vrm/reference.",
         "operationId": "ParseDocument",
         "consumes": [
           "application/json"
@@ -113,7 +113,7 @@
     },
     "Extraction": {
       "type": "object",
-      "description": "The settled 13-field EVA extraction. Keys are emitted in contract order.",
+      "description": "The settled 12-field EVA extraction. Keys are emitted in contract order.",
       "properties": {
         "work_provider": { "$ref": "#/definitions/FieldCell" },
         "vehicle_model": { "$ref": "#/definitions/FieldCell" },
@@ -126,8 +126,7 @@
         "inspection_address": { "$ref": "#/definitions/FieldCell" },
         "vat_status": { "$ref": "#/definitions/FieldCell" },
         "mileage": { "$ref": "#/definitions/FieldCell" },
-        "mileage_unit": { "$ref": "#/definitions/FieldCell" },
-        "engineer_allocation": { "$ref": "#/definitions/FieldCell" }
+        "mileage_unit": { "$ref": "#/definitions/FieldCell" }
       }
     },
     "Issue": {

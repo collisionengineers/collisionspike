@@ -96,7 +96,7 @@ per-environment override; reading only the value misses the default when no over
 
 | Gate | M1 default | Off-path behaviour in-flow |
 |---|---|---|
-| `PDF_MAPPER_ENABLED` | `true` | skip parser; leave 13 fields for manual entry |
+| `PDF_MAPPER_ENABLED` | `true` | skip parser; leave 12 fields for manual entry |
 | `ENRICHMENT_ENABLED` (+ `ENRICHMENT_API_BASE`) | `true` / — | skip DVSA enrichment; mileage/model stay as parsed |
 | `EVA_API_ENABLED` | `false` | use JSON drag-drop export path, not the Sentry REST POST (Pattern 6) |
 | `AZURE_MAPS_ENABLED` | `false` | select postcode.io for address normalisation |

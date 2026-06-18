@@ -95,7 +95,7 @@ owns one vertical slice and defers across boundaries (it says so in its own desc
   Intelligence, postcode.io/Azure Maps. Leans on `azure:*` + `microsoft-docs:*`.
 - **power-automate-flow-builder** — cloud flows: inbox intake, dedup, status machine, parser/
   enrichment calls, EVA-submit + Box-sync, chasers. (No plugin covers Power Automate.)
-- **eva-sentry-integration** — EVA Sentry REST v1.2, the 13-field JSON contract, photo-order/image
+- **eva-sentry-integration** — EVA Sentry REST v1.2, the 12-field JSON contract, photo-order/image
   rules, drag-drop export, Box coupling. Pairs with the `eva-sentry-api` skill.
 - **dataverse-data-architect** — the `CollisionSpike` solution: 10 tables, provenance, env-var gates,
   auditing, ALM. Uses `code-apps-preview:add-dataverse`.
