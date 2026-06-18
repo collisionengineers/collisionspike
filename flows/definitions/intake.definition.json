@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_Intake_<Mailbox> (§5.1). Per-shared-mailbox trigger + Message-ID/payloadHash dedup guard (ADR-0010 exact-repeat = drop). Mirrors collisioncc graph-intake.ts ingestGraphMessage; never calls it. [BUILD] only; activating on a live Collision Engineers mailbox is [RESERVED-FOR-USER]. The IntakeMailbox is a flow parameter, never a hardcoded live address.",
+  "comment": "Flow_Intake_<Mailbox> (§5.1). Per-shared-mailbox trigger + Message-ID/payloadHash dedup guard (ADR-0010 exact-repeat = drop). Mirrors collisioncc graph-intake.ts ingestGraphMessage; never calls it. [BUILD] only; activating on a live Collision Engineers mailbox is [RESERVED-FOR-USER]. The IntakeMailbox is a flow parameter, never a hardcoded live address. GO-LIVE HARDENING: (1) MinIntakeDate guard (String param, default '2026-06-17', set per-environment at activation) — the FIRST action after the trigger drops any email whose receivedDateTime is before MinIntakeDate (Terminate Succeeded), so historical backlog mail is never ingested. (2) Trigger fetchOnlyWithAttachment=true is a TEMPORARY measure to be REMOVED once a full email-management / routing system is implemented later; until then it suppresses no-attachment noise at the source.",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
     "$authentication": { "type": "SecureObject", "defaultValue": {} },
@@ -9,6 +9,11 @@
       "type": "String",
       "defaultValue": "@parameters('IntakeMailbox')",
       "metadata": { "description": "Shared inbox address. Flow parameter (or Dataverse env-var read) so one definition ships to all 3 mailboxes. NEVER a hardcoded live mailbox in the authored definition." }
+    },
+    "MinIntakeDate": {
+      "type": "String",
+      "defaultValue": "2026-06-17",
+      "metadata": { "description": "Inclusive earliest email receivedDateTime to ingest (ISO date/datetime). Set per-environment at activation. The date guard (Drop_if_before_min_date) drops any email received BEFORE this instant so historical backlog mail is never ingested. Default 2026-06-17." }
     }
   },
   "triggers": {
@@ -24,7 +29,7 @@
           "mailboxAddress": "@parameters('IntakeMailbox')",
           "folderPath": "Inbox",
           "includeAttachments": true,
-          "fetchOnlyWithAttachment": false,
+          "fetchOnlyWithAttachment": true,
           "importance": "Any"
         }
       },
@@ -35,13 +40,46 @@
     }
   },
   "actions": {
+    "Drop_if_before_min_date": {
+      "type": "If",
+      "expression": {
+        "equals": [ "@less(ticks(triggerOutputs()?['body/receivedDateTime']), ticks(parameters('MinIntakeDate')))", true ]
+      },
+      "actions": {
+        "Audit_dropped_before_min_date": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_auditevents",
+              "item/cr1bd_name": "@concat('dropped_before_min_date: ', coalesce(triggerOutputs()?['body/internetMessageId'], ''))",
+              "item/cr1bd_action": 100000005,
+              "item/cr1bd_actor": "Flow_Intake",
+              "item/cr1bd_severity": 100000000,
+              "item/cr1bd_after": "@concat('receivedDateTime=', coalesce(triggerOutputs()?['body/receivedDateTime'], ''), ' < MinIntakeDate=', parameters('MinIntakeDate'), ' -> dropped (go-live min-date guard)')",
+              "item/cr1bd_occurredat": "@utcNow()"
+            }
+          },
+          "runAfter": {}
+        },
+        "Terminate_before_min_date": {
+          "type": "Terminate",
+          "inputs": { "runStatus": "Succeeded" },
+          "runAfter": { "Audit_dropped_before_min_date": [ "Succeeded" ] }
+        }
+      },
+      "else": { "actions": {} },
+      "comment": "Go-live min-date guard. FIRST action after the trigger: if the email's receivedDateTime is BEFORE MinIntakeDate (default 2026-06-17), audit a dropped_before_min_date event (reuses the duplicate_dropped action value 100000005 — no schema change — with dropped_before_min_date semantics in name/after, mirroring Audit_duplicate_dropped) then Terminate Succeeded. Otherwise the else-branch is empty and the dedup/ingest chain proceeds. Robust comparison via ticks() so format/timezone differences do not skew the test.",
+      "runAfter": {}
+    },
     "Init_messageId": {
       "type": "InitializeVariable",
       "inputs": { "variables": [ {
         "name": "messageId", "type": "string",
         "value": "@triggerOutputs()?['body/internetMessageId']"
       } ] },
-      "runAfter": {}
+      "runAfter": { "Drop_if_before_min_date": [ "Succeeded" ] }
     },
     "Init_payloadHash": {
       "type": "InitializeVariable",
