@@ -1,0 +1,26 @@
+# Runtime dependencies for the Collision Engineers OCR host (Linux container,
+# Azure Functions on Azure Container Apps). Installed into the image by the
+# Dockerfile `pip install`. Unlike the FC1 parser, this host runs as a CONTAINER,
+# so it CAN carry the tesseract OS binary (added in the Dockerfile via apt-get) —
+# that one binary is the whole reason this host exists (plans/ocr-strategy.md).
+
+# Azure Functions Python worker API.
+azure-functions>=1.21.0
+
+# --- Document OCR (scanned/image-only PDFs) ---------------------------------
+PyMuPDF>=1.24.0        # licensed/approved; render PDF pages -> images (import: fitz)
+Pillow>=10.0.0         # image handling for the rendered pages
+pytesseract>=0.3.10    # thin WRAPPER over the tesseract binary (provided by the image)
+
+# --- Registration-plate OCR (overview photo) --------------------------------
+# fast-alpr bundles a detector (YOLO) + plate OCR (CCT), runs on ONNX Runtime,
+# CPU, MIT-licensed. Pinned conservatively; CPU wheels only (no GPU).
+fast-alpr>=0.1.0
+onnxruntime>=1.17.0
+numpy>=1.26.0
+
+# --- Document Intelligence Read fallback (OCR_PROVIDER=docintel) -------------
+# We call DI Read's REST API directly (async analyze -> poll) with `requests`,
+# rather than the azure-ai-documentintelligence SDK, to keep the image lean and
+# the call shape explicit. Endpoint+key come from app settings / Key Vault ref.
+requests>=2.31.0

@@ -1,0 +1,14 @@
+.git*
+.venv
+venv
+.vscode
+__pycache__
+.pytest_cache
+tests
+infra
+openapi
+local.settings.json
+requirements-dev.txt
+README.md
+.dockerignore
+Dockerfile
