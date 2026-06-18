@@ -1,0 +1,12 @@
+{
+  "_comment": "TEMPLATE only. Copy to local.settings.json for LOCAL dev (gitignored). NEVER commit real EVA credentials. In Azure, EVA_CLIENT_ID/SECRET are Key Vault references (@Microsoft.KeyVault(SecretUri=...)) resolved by the Function's managed identity — they are NOT set to literal values. EVA_API_ENABLED stays false until the operator flips it in a TEST env and the parity test passes ([RESERVED-FOR-USER]).",
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "EVA_API_ENABLED": "false",
+    "EVA_BASE_URL": "https://sentry.evasoftware.co.uk/api/",
+    "EVA_CLIENT_ID": "<RESERVED-FOR-USER: local dev only — never commit>",
+    "EVA_CLIENT_SECRET": "<RESERVED-FOR-USER: local dev only — never commit>"
+  }
+}

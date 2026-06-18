@@ -1,0 +1,8 @@
+{
+  "_comment": "TEMPLATE only. Copy to local.settings.json for LOCAL dev (gitignored). This Function holds NO secrets — it is pure domain logic (the EVA readiness contract). There is no gate and no upstream credential.",
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true"
+  }
+}
