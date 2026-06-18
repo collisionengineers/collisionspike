@@ -35,7 +35,7 @@ import {
   Mail,
   MessageCircle,
 } from 'lucide-react';
-import { SectionHeading, StatusBadge, VrmPlate, LoadingState, ErrorState } from '../components';
+import { SectionHeading, StatusBadge, VrmPlate, ErrorState, DataGridSkeleton } from '../components';
 import {
   QUEUES,
   REASON_LABELS,
@@ -463,7 +463,7 @@ export function CaseList() {
     search.trim() !== '';
 
   return (
-    <div className={styles.root}>
+    <div className={mergeClasses('ce-enter', styles.root)}>
       <SectionHeading
         eyebrow="Queue"
         heading={queue?.label ?? 'Cases'}
@@ -630,7 +630,7 @@ export function CaseList() {
       </div>
 
       {queueQuery.loading && queueQuery.data === undefined ? (
-        <LoadingState label={`Loading ${queue?.label ?? activeName}…`} />
+        <DataGridSkeleton rows={8} />
       ) : queueQuery.error && queueQuery.data === undefined ? (
         <ErrorState
           error={queueQuery.error}

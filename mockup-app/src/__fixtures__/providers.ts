@@ -1,4 +1,6 @@
-import type { Provider } from './types';
+/* TEST FIXTURES — fabricated provider rows. NOT shipped (imported only by
+   src/data/adapter.test.ts; tree-shaken out of dist). See __fixtures__/cases.ts. */
+import type { Provider } from '../mock/types';
 
 /** Mock WorkProvider corpus (from the Principals sheet shape). */
 export const providers: Provider[] = [

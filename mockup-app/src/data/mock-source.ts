@@ -1,72 +1,94 @@
 /* ============================================================
-   Collision Engineers — Code App DATA SEAM: mock source.
+   Collision Engineers — Code App DATA SEAM: empty default source.
 
-   The PERMANENT offline harness. Implements `DataAccess` by delegating to the
-   existing mock/* modules and wrapping the synchronous results in
-   Promise.resolve, so behaviour is byte-identical to the pre-seam screens while
-   the surface is already async (ready for the Dataverse swap).
+   The seam's DEFAULT DataAccess, used until `configureDataAccess(generated
+   Services)` injects the live Dataverse source at startup (src/main.tsx). It
+   carries NO fabricated case data — the app renders only real Dataverse rows.
+   Every method resolves to an empty/zero result (or rejects, for writes) so:
 
-   This is the DEFAULT data source the seam selector returns (see index.ts), so
-   the offline build stays mock-backed and green with no SDK import.
+     - the offline build + unit tests stay green and SDK-free (no
+       '@microsoft/power-apps' import here), and
+     - if the Dataverse injection is ever reverted or races, screens fall back
+       to honest EMPTY states (not fabricated claimant data, and not a crash).
+
+   The fabricated rows that used to back this source were removed from the
+   shipped app (moved to src/__fixtures__, test-only). createCase rejects with a
+   clear "not configured" error so a write attempt before injection is loud
+   rather than silently echoing a synthetic id.
    ============================================================ */
 
-import {
-  caseById as mockCaseById,
-  casesForQueue as mockCasesForQueue,
-  liveCounts as mockLiveCounts,
-  throughput as mockThroughput,
-  agingExceptions as mockAgingExceptions,
-  queueCounts as mockQueueCounts,
-  reasonCounts as mockReasonCounts,
-  pipelineStages as mockPipelineStages,
-  imagesForCase as mockImagesForCase,
-  providers as mockProviders,
-  providerByCode as mockProviderByCode,
-  activity as mockActivity,
-  activityForCase as mockActivityForCase,
-  cases as mockCases,
-} from '../mock';
 import type { DataAccess } from './types';
+import type {
+  LiveCounts,
+  Throughput,
+  AgingExceptions,
+  PipelineStage,
+  PipelineStageKey,
+  QueueName,
+  ReasonFacet,
+} from '../mock/queues';
 
-/** Open (non-terminal) statuses — the set the duplicate "VRM twins" affordance uses. */
-const TERMINAL = new Set(['eva_submitted', 'box_synced']);
+const NOT_CONFIGURED =
+  'Data source not configured — call configureDataAccess(generatedServices) in main.tsx before writes.';
+
+const ZERO_LIVE: LiveCounts = { needsAction: 0, inProgress: 0, ready: 0 };
+const ZERO_THROUGHPUT: Throughput = { inToday: 0, submittedToday: 0, clearedThisWeek: 0 };
+const ZERO_AGING: AgingExceptions = { rows: [], pastDueCount: 0, duplicateCount: 0, conflictCount: 0 };
+const ZERO_QUEUE_COUNTS: Record<QueueName, number> = {
+  'needs-action': 0,
+  'in-progress': 0,
+  ready: 0,
+  done: 0,
+};
+
+/** The empty pipeline strip (all seven stages at zero). */
+function emptyPipelineStages(): PipelineStage[] {
+  const defs: { key: PipelineStageKey; label: string }[] = [
+    { key: 'new', label: 'New' },
+    { key: 'parsing', label: 'Parsing' },
+    { key: 'review', label: 'Review' },
+    { key: 'chasing', label: 'Chasing' },
+    { key: 'ready', label: 'Ready' },
+    { key: 'submitted', label: 'Submitted' },
+    { key: 'box', label: 'Box' },
+  ];
+  return defs.map((d) => ({
+    key: d.key,
+    label: d.label,
+    count: 0,
+    tone: d.key === 'chasing' ? 'stuck' : 'normal',
+  }));
+}
 
 /**
- * The mock-backed DataAccess. Every member resolves synchronously (no real
- * latency); callers `await` it exactly as they will the Dataverse source.
+ * The empty/unconfigured DataAccess. Reads return empty; the only write
+ * (createCase) rejects until the live source is injected.
  */
 export const mockDataAccess: DataAccess = {
   /* ----- Cases ----- */
-  caseById: (id) => Promise.resolve(mockCaseById(id)),
-  // Offline: no persistence — echo a synthetic id so the UI flow stays exercisable.
-  createCase: (_input) =>
-    Promise.resolve({ id: `mock-case-${Date.now().toString(36)}` }),
-  casesForQueue: (name, now) => Promise.resolve(mockCasesForQueue(name, now)),
-  openVrmTwins: (vrm, excludeCaseId) =>
-    Promise.resolve(
-      mockCases.filter(
-        (c) => c.vrm === vrm && !TERMINAL.has(c.status) && c.id !== excludeCaseId,
-      ),
-    ),
+  caseById: (_id) => Promise.resolve(undefined),
+  createCase: (_input) => Promise.reject(new Error(NOT_CONFIGURED)),
+  casesForQueue: (_name, _now) => Promise.resolve([]),
+  openVrmTwins: (_vrm, _excludeCaseId) => Promise.resolve([]),
 
   /* ----- Evidence ----- */
-  imagesForCase: (caseId) => Promise.resolve(mockImagesForCase(caseId)),
+  imagesForCase: (_caseId) => Promise.resolve([]),
 
   /* ----- Providers ----- */
-  providers: () => Promise.resolve(mockProviders),
-  providerByCode: (code) => Promise.resolve(mockProviderByCode(code)),
+  providers: () => Promise.resolve([]),
+  providerByCode: (_code) => Promise.resolve(undefined),
 
   /* ----- Dashboard / queue aggregates ----- */
-  liveCounts: (now) => Promise.resolve(mockLiveCounts(now)),
-  throughput: (now) => Promise.resolve(mockThroughput(now)),
-  agingExceptions: (now) => Promise.resolve(mockAgingExceptions(now)),
-  queueCounts: (now) => Promise.resolve(mockQueueCounts(now)),
-  reasonCounts: (now) => Promise.resolve(mockReasonCounts(now)),
-  pipelineStages: () => Promise.resolve(mockPipelineStages()),
+  liveCounts: (_now) => Promise.resolve(ZERO_LIVE),
+  throughput: (_now) => Promise.resolve(ZERO_THROUGHPUT),
+  agingExceptions: (_now) => Promise.resolve(ZERO_AGING),
+  queueCounts: (_now) => Promise.resolve({ ...ZERO_QUEUE_COUNTS }),
+  reasonCounts: (_now) => Promise.resolve([] as ReasonFacet[]),
+  pipelineStages: () => Promise.resolve(emptyPipelineStages()),
 
   /* ----- Activity feed ----- */
-  recentActivity: () => Promise.resolve(mockActivity),
-  activityForCase: (caseId) => Promise.resolve(mockActivityForCase(caseId)),
+  recentActivity: () => Promise.resolve([]),
+  activityForCase: (_caseId) => Promise.resolve([]),
 };
 
 /** Factory form, for symmetry with `createDataverseDataAccess`. */

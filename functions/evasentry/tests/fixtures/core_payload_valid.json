@@ -1,0 +1,14 @@
+{
+  "work_provider": "Acme Insurance",
+  "vehicle_model": "FORD FOCUS",
+  "claimant_name": "Jane Doe",
+  "claimant_telephone": "07700900123",
+  "claimant_email": "jane.doe@example.com",
+  "date_of_loss": "01/05/2026",
+  "date_of_instruction": "03/05/2026",
+  "accident_circumstances": "Rear-ended at a junction.",
+  "inspection_address": "Image Based Assessment",
+  "vat_status": "No",
+  "mileage": "42000",
+  "mileage_unit": "Miles"
+}

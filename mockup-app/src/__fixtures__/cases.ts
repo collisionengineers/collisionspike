@@ -1,3 +1,15 @@
+/* ============================================================
+   TEST FIXTURES — fabricated case data. NOT shipped.
+
+   These fabricated rows live under src/__fixtures__ and are imported ONLY by
+   unit tests (src/data/adapter.test.ts). Nothing in the production import graph
+   (main.tsx → App → screens → data seam) references this file, so Vite/Rollup
+   tree-shakes it out of `dist`. The deployed app renders ONLY real Dataverse
+   rows (the seam's default source returns empty until configureDataAccess()
+   injects the generated services — see src/data/mock-source.ts).
+
+   Do NOT import these from any production module.
+   ============================================================ */
 import type {
   Case,
   EvaField,
@@ -6,7 +18,7 @@ import type {
   MileageUnit,
   ReviewState,
   VatStatus,
-} from './types';
+} from '../mock/types';
 
 /* ------------------------------------------------------------
    Helpers to build EVA fields tersely.

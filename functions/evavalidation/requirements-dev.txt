@@ -1,0 +1,3 @@
+# Dev/test dependencies. Offline only — pure logic, no network at all.
+-r requirements.txt
+pytest>=8.0.0

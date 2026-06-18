@@ -53,8 +53,9 @@ import {
   SectionHeading,
   StatusBadge,
   VrmPlate,
-  LoadingState,
   ErrorState,
+  CaseDetailSkeleton,
+  ThumbGridSkeleton,
   computeReadiness,
   type ChecklistItem,
 } from '../components';
@@ -519,11 +520,11 @@ export function CaseDetail() {
   const caseQuery = useCaseQuery(caseId);
   const imagesQuery = useImages(caseId);
 
-  // First-load (no case yet) — spinner; hard failure — error panel with retry.
+  // First-load (no case yet) — content-shaped skeleton; hard failure — error panel.
   if (caseQuery.loading && caseQuery.data === undefined) {
     return (
-      <div className={styles.page}>
-        <LoadingState label="Loading case…" />
+      <div className={mergeClasses('ce-enter', styles.page)}>
+        <CaseDetailSkeleton />
         {/* Keep the nested submit dialog mountable during load. */}
         <Outlet />
       </div>
@@ -558,6 +559,7 @@ export function CaseDetail() {
       key={caseQuery.data.id}
       caseData={caseQuery.data}
       images={imagesQuery.data ?? []}
+      imagesLoading={imagesQuery.loading && imagesQuery.data === undefined}
     />
   );
 }
@@ -565,12 +567,14 @@ export function CaseDetail() {
 interface CaseDetailViewProps {
   caseData: Case;
   images: Evidence[];
+  /** True while the image set is still being fetched (evidence tab shows a skeleton). */
+  imagesLoading: boolean;
 }
 
 /* The editing workspace. Receives the loaded Case + images; all edits live in
    local React state (mock only — never persisted). Visually identical to the
    pre-seam screen once data has loaded. */
-function CaseDetailView({ caseData, images }: CaseDetailViewProps) {
+function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps) {
   const styles = useStyles();
   const navigate = useNavigate();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
@@ -690,7 +694,7 @@ function CaseDetailView({ caseData, images }: CaseDetailViewProps) {
   const due = dueInfo(c); // ONE shared due/aging parser for the header chip.
 
   return (
-    <div className={styles.page}>
+    <div className={mergeClasses('ce-enter', styles.page)}>
       <div>
         <div className={styles.backRow}>
           <Link as="button" onClick={() => navigate('/')}>
@@ -829,7 +833,11 @@ function CaseDetailView({ caseData, images }: CaseDetailViewProps) {
 
               {tab === 'evidence' && (
                 <div className={styles.stack}>
-                  {imgState.length === 0 ? (
+                  {imagesLoading && imgState.length === 0 ? (
+                    // Images still loading — show a thumb skeleton, not a false
+                    // "No images" (a slow fetch must not read as empty).
+                    <ThumbGridSkeleton count={4} />
+                  ) : imgState.length === 0 ? (
                     <MessageBar intent="warning">
                       <MessageBarBody>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

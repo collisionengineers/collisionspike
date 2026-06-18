@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_CaseResolve (§5.3). The exact ADR-0010 dedup ladder: drop / attach / new+duplicate_risk / propose-attach / create. INVIOLABLE: never auto-merge on VRM+time, never link across different Work Providers. Every ListRecords on cases is scoped to _cr1bd_workproviderid_value (cross-provider guard) AND excludes terminal statuses. Resolution uses a Filter-array (Query) action whose 'where' references item() -- NOT an arrow-lambda. [BUILD].",
+  "comment": "Flow_CaseResolve (§5.3) — standalone returnable CHILD. The exact ADR-0010 dedup ladder: drop / attach / new+duplicate_risk / propose-attach / create. INVIOLABLE: never auto-merge on VRM+time, never link across different Work Providers. Every ListRecords on cases is scoped to _cr1bd_workproviderid_value (cross-provider guard) AND excludes terminal statuses. Resolution uses a Filter-array (Query) action whose 'where' references item() -- NOT an arrow-lambda. RETURN FIX (task plan §3.5): every branch now records the resolved/created Case id into resolvedCaseId and the flow RETURNS { caseId, resolution } via a Response action so a caller (intake, or the post-parse image-first re-dedup) can pass the id to parse + status-evaluate. NOTE: intake's hot path owns its own Create today and does NOT call this child; case-resolve is kept for ALM/reuse and the image-first VRM-confirm re-dedup pass (§5.3). [BUILD].",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
     "$authentication": { "type": "SecureObject", "defaultValue": {} }
@@ -51,6 +51,12 @@
       "inputs": { "variables": [ { "name": "payloadHash", "type": "string", "value": "@triggerBody()?['payloadHash']" } ] },
       "runAfter": { "Init_messageId": [ "Succeeded" ] }
     },
+    "Init_resolvedCaseId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "resolvedCaseId", "type": "string", "value": "" } ] },
+      "comment": "Holds the resolved/created Case id from whichever ladder branch fires; returned to the caller for the downstream chain.",
+      "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
+    },
     "List_open_provider_cases": {
       "type": "OpenApiConnection",
       "inputs": {
@@ -63,7 +69,7 @@
         }
       },
       "comment": "Cross-provider guard: _cr1bd_workproviderid_value clause is ALWAYS present (VRM twins under a different provider are filtered out before rule 2). Terminal exclusions: eva_submitted=100000008, box_synced=100000009, error=100000010 (kept in lockstep with the terminal set).",
-      "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
+      "runAfter": { "Init_resolvedCaseId": [ "Succeeded" ] }
     },
     "Filter_matching_ref": {
       "type": "Query",
@@ -102,6 +108,11 @@
               "comment": "Rule 3: reference differs from open case(s) for that VRM -> NEW case + duplicate_risk(100000005). caseLinkState none(100000000). Flags VRM collision for staff; never silent merge.",
               "runAfter": {}
             },
+            "Capture_caseId_refdiffers": {
+              "type": "SetVariable",
+              "inputs": { "name": "resolvedCaseId", "value": "@outputs('Create_case_with_risk')?['body/cr1bd_caseid']" },
+              "runAfter": { "Create_case_with_risk": [ "Succeeded" ] }
+            },
             "Audit_duplicate_flagged_refdiffers": {
               "type": "OpenApiConnection",
               "inputs": {
@@ -117,7 +128,7 @@
                   "item/cr1bd_occurredat": "@utcNow()"
                 }
               },
-              "runAfter": { "Create_case_with_risk": [ "Succeeded" ] }
+              "runAfter": { "Capture_caseId_refdiffers": [ "Succeeded" ] }
             }
           }
         },
@@ -140,6 +151,12 @@
               "comment": "Rule 4: no reference + VRM matches an open case -> PROPOSE ATTACH (staff confirm). caseLinkState pending(100000001) + duplicate_risk(100000005). NEVER auto-merges.",
               "runAfter": {}
             },
+            "Capture_caseId_noref": {
+              "type": "SetVariable",
+              "inputs": { "name": "resolvedCaseId", "value": "@first(outputs('List_open_provider_cases')?['body/value'])?['cr1bd_caseid']" },
+              "comment": "Propose-attach targets the EXISTING open case; return that id (the arrival is linked to it, not a new row).",
+              "runAfter": { "Propose_attach": [ "Succeeded" ] }
+            },
             "Audit_duplicate_flagged_noref": {
               "type": "OpenApiConnection",
               "inputs": {
@@ -155,7 +172,7 @@
                   "item/cr1bd_occurredat": "@utcNow()"
                 }
               },
-              "runAfter": { "Propose_attach": [ "Succeeded" ] }
+              "runAfter": { "Capture_caseId_noref": [ "Succeeded" ] }
             }
           }
         },
@@ -182,6 +199,11 @@
               "comment": "Rule 5: no match -> CREATE. new_email -> ingested(100000001). caseLinkState none(100000000).",
               "runAfter": {}
             },
+            "Capture_caseId_create": {
+              "type": "SetVariable",
+              "inputs": { "name": "resolvedCaseId", "value": "@outputs('Create_case_clean')?['body/cr1bd_caseid']" },
+              "runAfter": { "Create_case_clean": [ "Succeeded" ] }
+            },
             "Audit_case_created": {
               "type": "OpenApiConnection",
               "inputs": {
@@ -197,13 +219,19 @@
                   "item/cr1bd_occurredat": "@utcNow()"
                 }
               },
-              "runAfter": { "Create_case_clean": [ "Succeeded" ] }
+              "runAfter": { "Capture_caseId_create": [ "Succeeded" ] }
             }
           }
         }
       },
       "default": {
         "actions": {
+          "Capture_caseId_attach": {
+            "type": "SetVariable",
+            "inputs": { "name": "resolvedCaseId", "value": "@coalesce(first(body('Filter_matching_ref'))?['cr1bd_caseid'], '')" },
+            "comment": "Rule 2 ATTACH: the Switch matched an existing open same-provider case by reference; return that id (the arrival is attached, not a new row).",
+            "runAfter": {}
+          },
           "Audit_case_attached": {
             "type": "OpenApiConnection",
             "comment": "Switch expression returned a caseId GUID -> rule 2 ATTACH: reference matched an open same-provider case. Keep target status.",
@@ -220,11 +248,24 @@
                 "item/cr1bd_occurredat": "@utcNow()"
               }
             },
-            "runAfter": {}
+            "runAfter": { "Capture_caseId_attach": [ "Succeeded" ] }
           }
         }
       },
       "runAfter": { "Filter_matching_ref": [ "Succeeded" ] }
+    },
+    "Respond_caseId": {
+      "type": "Response",
+      "kind": "Http",
+      "inputs": {
+        "statusCode": 200,
+        "body": {
+          "caseId": "@variables('resolvedCaseId')",
+          "resolution": "@if(not(empty(first(body('Filter_matching_ref'))?['cr1bd_caseid'])), 'ATTACH', if(and(not(empty(variables('candidateVrm'))), greater(length(coalesce(outputs('List_open_provider_cases')?['body/value'], json('[]'))), 0)), if(empty(variables('candidateRef')), 'VRM_NO_REF', 'REF_DIFFERS'), 'CREATE'))"
+        }
+      },
+      "comment": "Child-flow return: { caseId (resolved/created), resolution (ATTACH|REF_DIFFERS|VRM_NO_REF|CREATE) }. Mirrors the Switch_resolution decision so the caller can pass caseId to parse + status-evaluate and branch on the dedup outcome. Runs after the Switch so resolvedCaseId is populated by whichever branch fired.",
+      "runAfter": { "Switch_resolution": [ "Succeeded" ] }
     }
   }
 }
