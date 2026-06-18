@@ -20,10 +20,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { QUEUES, data, type QueueName } from '../data';
-// Brand logos imported as modules so Vite fingerprints them and the URLs resolve
-// under the Code App's subpath base (an absolute "/assets/…" 404s once hosted).
-import logoWhite from '../assets/web_logo_white.png';
-import logoMark from '../assets/logo_no_margin.png';
+// Brand logos as base64 data: URIs (generated). `pac code push` corrupts binary image
+// assets on upload (valid PNG → ~75% larger, undecodable) and Vite `?inline` is overridden
+// by the power-apps plugin, so we embed the logos as TEXT. CSP `img-src 'self' data:`
+// permits data URIs. (Fonts can't use this — CSP is `font-src 'self'`.)
+// Regenerate: `node scripts/gen-logo-data-uris.mjs`. See plans/logo-fix-findings.md.
+import { logoWhite, logoMark } from '../assets/logos.generated';
 
 /* Two-part app chrome:
    - charcoal (#2c2a27) left rail: white reverse logo (web_logo_white.png),
