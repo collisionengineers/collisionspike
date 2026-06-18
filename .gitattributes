@@ -1,0 +1,21 @@
+# Normalise text to LF in the repo; let git pick native EOL on checkout.
+* text=auto
+
+# Binary assets must NEVER be line-ending-converted (CRLF mangling corrupts them —
+# this is the failure class behind the broken deployed logo). Treat as binary.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.svg   binary
+*.otf   binary
+*.ttf   binary
+*.woff  binary
+*.woff2 binary
+*.eot   binary
+*.pdf   binary
+*.xls   binary
+*.xlsx  binary
+*.zip   binary
