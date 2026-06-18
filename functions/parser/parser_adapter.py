@@ -85,6 +85,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 from typing import Any
 
 # The settled 12 EVA payload keys, in contract order. Mirrors
@@ -131,6 +132,20 @@ CONTRACT_VERSION = "cedocumentparser_v2.0_eva_json"
 # Supported source suffixes (mirrors readers.get_reader_for_path dispatch).
 _SUPPORTED_SUFFIXES = (".pdf", ".docx", ".doc", ".eml", ".msg")
 
+# The engine is VENDORED next to this file as ``./cedocumentmapper_v2/`` (a
+# top-level package on the worker's sys.path). Its provider catalogue ships
+# inside that package as ``cedocumentmapper_v2/providers.json``. We pin the
+# service to that seed and to a WRITABLE app-data dir so the headless Linux
+# worker never tries to write into ``~/CE Document Mapper`` (the desktop default,
+# which is read-only / absent on Flex Consumption). This is a wrapper-side
+# concern only — the vendored engine source is byte-for-byte the sibling repo.
+_VENDORED_PROVIDERS_JSON = Path(__file__).resolve().parent / "cedocumentmapper_v2" / "providers.json"
+
+# Per-worker writable scratch dir for the service's migrated provider catalogue.
+# Lives under the OS temp root (always writable on FC1) and is reused across
+# invocations on the same warm worker.
+_SERVICE_APP_DATA_DIR = Path(tempfile.gettempdir()) / "cedocumentmapper_v2_appdata"
+
 
 class ParserError(RuntimeError):
     """Raised when the underlying parser fails to read/extract a document.
@@ -167,7 +182,15 @@ def run_parser(document_bytes: bytes, filename: str, provider_hint: str | None =
         with os.fdopen(fd, "wb") as fh:
             fh.write(document_bytes)
 
-        service = DocumentMapperService()
+        # Pin the service to a writable app-data dir + the vendored provider
+        # seed. Passing app_data_dir explicitly also disables the desktop
+        # seed-merge-write-back, so the only write is the one-time schema
+        # migration into our temp dir — never into the read-only home dir.
+        _SERVICE_APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        service = DocumentMapperService(
+            app_data_dir=_SERVICE_APP_DATA_DIR,
+            seed_path=_VENDORED_PROVIDERS_JSON,
+        )
         # provider_hint maps onto the sibling's provider_selector (id or name).
         _document, record = service.process_document(tmp_path, provider_selector=provider_hint)
         return service.record_to_dict(record)

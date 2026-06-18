@@ -72,19 +72,63 @@ the Power Automate flow branch (it reads the Dataverse environment variable and
 only calls `/parse` when enabled). **This Function does not read the gate — it
 just works when called.**
 
+## Engine packaging — VENDORED for Flex Consumption (FC1)
+
+The engine ships **vendored** into this package as the top-level directory
+`./cedocumentmapper_v2/` (a copy of the sibling repo's `src/cedocumentmapper_v2`).
+On the FC1 worker the app root is on `sys.path`, so `import cedocumentmapper_v2`
+resolves directly — no `pip install` of the engine, no wheel, no `PYTHONPATH`
+tweak. The FC1 remote Oryx build (`--build-remote true`) installs the engine's
+runtime deps from `requirements.txt` on Linux.
+
+Why vendor source (not a wheel): it is the simplest robust shape for an FC1
+remote build — one importable directory next to `function_app.py`, the same way
+`parser_adapter.py` is loaded. A wheel would need a build/host/feed step for no
+benefit here.
+
+Two files from the sibling are **omitted** from the vendored copy because they
+are the only modules that import GUI/Windows deps and are never on the runtime
+path: `ui/host.py` (`import webview`) and `cli.py`. `ui/__init__.py` only
+references `host` lazily via `__getattr__`, and `service.py` imports just
+`ui.paths` (stdlib-only, with `ctypes` Windows calls guarded behind
+`sys.platform == "win32"`), so dropping `host.py` is safe. The `.doc` Word-COM
+path (`pythoncom`/`win32com`) and the desktop `_convert_doc_to_docx` are lazy +
+guarded, so they never import on Linux; `.doc` still reads via the
+olefile/text-scrape fallback. **No engine source was modified** — the desktop app
+is untouched.
+
+`providers.json` (the provider catalogue) is vendored inside the package as
+`cedocumentmapper_v2/providers.json`. The adapter pins the service to that seed
+and to a **writable temp app-data dir** (`<tmp>/cedocumentmapper_v2_appdata`),
+because the engine's desktop default writes its migrated catalogue into
+`~/CE Document Mapper`, which is read-only/absent on FC1. This is a wrapper-side
+construction only (`DocumentMapperService(app_data_dir=..., seed_path=...)`).
+
+### OCR on FC1 (Tesseract optional — scanned-image PDFs unavailable)
+
+`pytesseract` is installed but is only a thin **wrapper** — it imports fine with
+no `tesseract` binary present. `readers/pdf.configure_tesseract()` probes
+`shutil.which("tesseract")` and returns `False` gracefully when absent; the OCR
+fallback only fires for image-only PDFs and, if invoked without a binary, is
+caught per-page and noted. **FC1 (Flex Consumption) cannot run a custom
+container, so the tesseract binary cannot be provided — OCR of scanned-image PDFs
+is therefore unavailable here.** Text-based PDFs, DOCX, DOC (text-scrape), EML and
+MSG all work. Scanned-image OCR is deferred to the later Azure Container Apps step
+("B-full"), where a container image can bundle the binary.
+
 ## The sibling seam (`parser_adapter.py`)
 
 `parser_adapter.py` is the **only** module that imports `cedocumentmapper_v2`. It
 is imported **lazily** (inside `run_parser`) so the test suite runs without the
-sibling package or its native deps (PyMuPDF [licensed/approved], Tesseract,
-python-docx) installed.
+engine deps installed even though the engine is vendored alongside.
 
 The exact sibling public API targeted (read from the sibling source on
 2026-06-17):
 
 ```python
 from cedocumentmapper_v2.application import DocumentMapperService
-svc = DocumentMapperService()
+# Pinned to the vendored seed + a writable temp app-data dir (FC1-safe):
+svc = DocumentMapperService(app_data_dir=<tmp>, seed_path=<vendored providers.json>)
 document, record = svc.process_document(path)   # path: str|Path; reader picked by SUFFIX
 result_dict = svc.record_to_dict(record)        # {provider, fields{<key>:{value,confidence,rule_id,...}}, issues}
 ```
@@ -112,11 +156,13 @@ EVA submission field — assigned inside EVA after submission; not in the contra
 | File | Purpose |
 |---|---|
 | `function_app.py` | HTTP trigger `POST /parse`; input validation, mapping, schema validation, error envelopes. |
-| `parser_adapter.py` | The only seam to `cedocumentmapper_v2`; lazy import; native→EVA field mapping. |
+| `parser_adapter.py` | The only seam to `cedocumentmapper_v2`; lazy import; pins service to vendored seed + writable temp app-data; native→EVA field mapping. |
+| `cedocumentmapper_v2/` | **Vendored engine** (sibling `src/cedocumentmapper_v2`, minus `ui/host.py` + `cli.py`); includes `providers.json`. Importable on the FC1 worker. |
 | `schema_validation.py` | Loads + validates against `contracts/eva-payload.schema.json`; structured errors. |
 | `host.json` | Functions host config. |
-| `requirements.txt` | Runtime deps (`azure-functions`, `jsonschema`); sibling referenced via path (NOT vendored). |
+| `requirements.txt` | Linux/FC1 runtime deps: `azure-functions`, `jsonschema`, + the vendored engine's deps (PyMuPDF, pypdf[image], Pillow, python-docx, extract-msg, olefile, pytesseract). **No GUI/Windows deps; engine itself is vendored, not pip-installed.** |
 | `requirements-dev.txt` | `pytest`. |
+| `.funcignore` | Excludes venvs/caches/tests/infra/openapi from the deploy zip. |
 | `local.settings.json.TEMPLATE` | App-setting **names** only; secrets shown as Key Vault reference syntax. **No secret values.** |
 | `infra/main.bicep` | Linux Python Function App + Storage + plan + App Insights; app settings as Key Vault references; parameterized. |
 | `openapi/parser-connector.json` | Power Platform custom-connector OpenAPI 2.0 (swagger) for `POST /parse`. |
