@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "M1 UI/UX prototype for the Collision Engineers case-intake workflow (standalone Vite + React 18 + Fluent UI v9, mock data only).",
+  "description": "Collision Engineers case-intake Power Apps Code App — React 18 + Fluent UI v9 + Vite, Dataverse-backed via the @microsoft/power-apps SDK.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

@@ -23,8 +23,9 @@ import {
   type ChoiceCodec,
 } from './adapter';
 import { CASE_STATUSES, type CaseStatus } from '../contracts/case-status';
-import { providers } from '../mock/providers';
-import { cases } from '../mock/cases';
+// Fabricated round-trip fixtures (test-only; not shipped — see src/__fixtures__).
+import { providers } from '../__fixtures__/providers';
+import { cases } from '../__fixtures__/cases';
 import type { Evidence } from '../mock/types';
 
 // The REAL choice-set artifact (repo-root dataverse/), not a copy — same import

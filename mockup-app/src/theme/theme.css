@@ -220,11 +220,29 @@ body,
   outline-color: var(--ce-red);
 }
 
+/* ----------  Content entrance (route/content mount)  ----------
+   Restrained 140ms fade + 4px rise applied to a screen's outer container so the
+   async→loaded transition (skeleton → content) feels intentional, not a flash.
+   Neutralised by the reduced-motion gate below (animation-duration → 0.001ms). */
+@keyframes ce-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.ce-enter {
+  animation: ce-enter 140ms ease-out both;
+}
+
 /* ----------  Reduced motion (release gate)  ----------
    Honour prefers-reduced-motion across every transition / entrance / animation,
-   including the rail collapse, dashboard hover lifts, pipeline tints and the
-   @dnd-kit sortable transforms. Belt-and-braces: also neutralise inline
-   transition styles dnd-kit writes onto rows. */
+   including the rail collapse, dashboard hover lifts, pipeline tints, the
+   .ce-enter content entrance, and the @dnd-kit sortable transforms.
+   Belt-and-braces: also neutralise inline transition styles dnd-kit writes. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -1,5 +1,4 @@
 import type { ActionReason, Case } from './types';
-import { cases } from './cases';
 
 /* ============================================================
    Intake copy + parsing helpers (shared across the screens).
@@ -35,31 +34,26 @@ export function reasonVerb(reason: ActionReason): string {
   }
 }
 
-/** Count of OTHER open cases sharing this case's VRM (for the duplicate line). */
-function openVrmTwins(c: Case): number {
-  return cases.filter(
-    (o) =>
-      o.vrm === c.vrm &&
-      o.status !== 'eva_submitted' &&
-      o.status !== 'box_synced',
-  ).length;
-}
-
 /**
  * Full active-voice outstanding-work sentence for a case, led by a verb.
  * Replaces the awkward "Add no eva images yet" pattern. Falls back to a
  * generic review prompt when there is no explicit actionReason.
+ *
+ * Pure over the case (no data-source read). The exact open-VRM-twin count for
+ * the `duplicate` line is fetched live via `data.openVrmTwins(vrm)` at the
+ * screen; pass it as `openTwinCount` to enrich the copy, else a generic
+ * "open case(s) for this VRM" phrasing is used.
  */
-export function outstandingText(c: Case): string {
+export function outstandingText(c: Case, openTwinCount?: number): string {
   switch (c.actionReason) {
     case 'missing_images':
       return 'Chase for images — need ≥2 (overview + closeup)';
     case 'missing_instructions':
       return 'Chase provider for instructions';
-    case 'duplicate': {
-      const n = openVrmTwins(c);
-      return `Resolve duplicate — ${n} open case${n === 1 ? '' : 's'} for this VRM`;
-    }
+    case 'duplicate':
+      return typeof openTwinCount === 'number'
+        ? `Resolve duplicate — ${openTwinCount} open case${openTwinCount === 1 ? '' : 's'} for this VRM`
+        : 'Resolve duplicate — open case(s) for this VRM';
     case 'conflict':
       return 'Resolve claimant-name conflict before submit';
     case 'needs_review':
@@ -136,35 +130,25 @@ export interface CasePoSuggestion {
 }
 
 /**
- * Plausible next sequence per provider — seeds from the highest existing
- * Case/PO sequence already minted for that principal in the mock corpus, +1.
- * Defaults to 1 when the provider has no prior submitted case.
- */
-function nextSeqFor(principal: string): number {
-  const code = principal.toUpperCase();
-  let max = 0;
-  for (const c of cases) {
-    if (!c.casePo) continue;
-    const m = c.casePo.toUpperCase().match(/^([A-Z]{4})\d{2}(\d{3})$/);
-    if (m && m[1] === code) {
-      max = Math.max(max, Number(m[2]));
-    }
-  }
-  return max + 1;
-}
-
-/**
  * Compose a suggested Case/PO for a case:
  *   principalCode + 2-digit year + suggested 3-digit sequence.
  * The year is taken from the case's createdAt (DD/MM/YYYY) when parseable,
  * else the current year. Returns both the EVA (lowercase) and Box (UPPER) forms.
+ *
+ * Pure over the case (no data-source read). The next provider sequence comes
+ * from Dataverse in the live flow; pass `nextSeq` to seed it, else it defaults
+ * to 1 (the first case for that principal/year).
  */
-export function suggestCasePo(c: Case, now: Date = new Date()): CasePoSuggestion {
+export function suggestCasePo(
+  c: Case,
+  now: Date = new Date(),
+  nextSeq = 1,
+): CasePoSuggestion {
   const principal = (c.providerCode || '').toUpperCase();
   const created = parseDmy(c.createdAt);
   const fullYear = created ? created.getFullYear() : now.getFullYear();
   const yy = String(fullYear % 100).padStart(2, '0');
-  const seq = String(nextSeqFor(principal)).padStart(3, '0');
+  const seq = String(nextSeq).padStart(3, '0');
   const core = `${principal}${yy}${seq}`;
   return {
     principal,

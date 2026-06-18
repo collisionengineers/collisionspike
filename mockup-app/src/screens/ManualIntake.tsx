@@ -11,12 +11,14 @@ import {
   MessageBarBody,
   MessageBarTitle,
   Option,
+  ProgressBar,
   Spinner,
   Text,
   Textarea,
   Toast,
   ToastTitle,
   makeStyles,
+  mergeClasses,
   tokens,
   useToastController,
   type InputOnChangeData,
@@ -37,7 +39,6 @@ import {
   type EvaFieldKey,
   type EvaFields,
   type MileageUnit,
-  type ParsedIntake,
   type ParserIssue,
   type VatStatus,
 } from '../data';
@@ -132,6 +133,15 @@ const useStyles = makeStyles({
     paddingTop: '26px',
   },
 
+  /* Parse-in-flight progress (under the dropzone) */
+  parseProgress: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalXS,
+    marginTop: tokens.spacingVerticalM,
+  },
+  parseProgressLabel: { color: tokens.colorNeutralForeground3, textAlign: 'center' },
+
   footer: {
     display: 'flex',
     alignItems: 'center',
@@ -141,6 +151,7 @@ const useStyles = makeStyles({
     marginTop: tokens.spacingVerticalM,
   },
   footerActions: { display: 'flex', gap: tokens.spacingHorizontalS, flexWrap: 'wrap' },
+  creatingBar: { marginTop: tokens.spacingVerticalM },
 });
 
 /* Field clusters — same grouping as CaseDetail's review grid. */
@@ -244,7 +255,6 @@ export function ManualIntake() {
 
   const [phase, setPhase] = useState<Phase>('pick');
   const [file, setFile] = useState<File | undefined>();
-  const [parsed, setParsed] = useState<ParsedIntake | undefined>();
   const [fields, setFields] = useState<EvaFields | undefined>();
   const [vrm, setVrm] = useState('');
   const [casePo, setCasePo] = useState('');
@@ -281,7 +291,6 @@ export function ManualIntake() {
         setPhase('pick');
         return;
       }
-      setParsed(result);
       setFields(result.evaFields);
       setVrm(result.vrm);
       setCasePo(result.reference);
@@ -326,7 +335,6 @@ export function ManualIntake() {
 
   const resetToPick = () => {
     setPhase('pick');
-    setParsed(undefined);
     setFields(undefined);
     setVrm('');
     setCasePo('');
@@ -335,10 +343,9 @@ export function ManualIntake() {
   };
 
   const warnings = useMemo(() => issues.filter((i) => i.severity !== 'error'), [issues]);
-  void parsed;
 
   return (
-    <div className={styles.page}>
+    <div className={mergeClasses('ce-enter', styles.page)}>
       <div>
         <div className={styles.backRow}>
           <Button
@@ -402,6 +409,17 @@ export function ManualIntake() {
               {phase === 'parsing' ? 'Parsing…' : 'Parse document'}
             </Button>
           </div>
+
+          {/* Parse is a multi-second Azure-Function call → indeterminate bar +
+              expectation-setting copy while it runs. */}
+          {phase === 'parsing' && (
+            <div className={styles.parseProgress} role="status" aria-live="polite">
+              <ProgressBar aria-label="Parsing document" thickness="medium" />
+              <Caption1 className={styles.parseProgressLabel}>
+                Parsing document — this can take a few seconds for scanned PDFs.
+              </Caption1>
+            </div>
+          )}
         </div>
       )}
 
@@ -470,6 +488,10 @@ export function ManualIntake() {
           ))}
 
           <Divider />
+
+          {phase === 'creating' && (
+            <ProgressBar className={styles.creatingBar} aria-label="Creating case" thickness="medium" />
+          )}
 
           <div className={styles.footer}>
             <Field>

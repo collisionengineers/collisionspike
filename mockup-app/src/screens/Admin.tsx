@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  Accordion,
+  AccordionHeader,
+  AccordionItem,
+  AccordionPanel,
   Badge,
   Button,
   Caption1,
@@ -11,6 +15,7 @@ import {
   MessageBarBody,
   MessageBarTitle,
   Option,
+  SearchBox,
   Switch,
   Tab,
   TabList,
@@ -37,7 +42,8 @@ import {
   ShieldCheck,
   Wrench,
 } from 'lucide-react';
-import { SectionHeading, LoadingState, ErrorState, GLOBAL_TOASTER_ID } from '../components';
+import { SectionHeading, ErrorState, GLOBAL_TOASTER_ID } from '../components';
+import { ProviderListSkeleton } from '../components/Skeletons';
 import {
   useProviders,
   type InspectionLocationPolicy,
@@ -106,32 +112,71 @@ const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL },
   tabs: { marginTop: `-${tokens.spacingVerticalS}` },
 
+  /* ----- providers toolbar (search + segmented filter + counts) ----- */
+  toolbar: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    rowGap: tokens.spacingVerticalS,
+  },
+  search: { width: '280px', maxWidth: '40vw' },
+  segment: { marginLeft: `-${tokens.spacingHorizontalXS}` },
+  toolbarSpacer: { flex: 1 },
+  counts: { color: tokens.colorNeutralForeground3, whiteSpace: 'nowrap' },
+
+  /* ----- collapsed Accordion row (the scannable provider summary) ----- */
+  accordion: {
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground1,
+    overflow: 'hidden',
+  },
+  acItem: { borderBottom: `1px solid ${tokens.colorNeutralStroke2}` },
+  rowSummary: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    minWidth: 0,
+    width: '100%',
+  },
+  rowName: {
+    fontFamily: 'var(--ce-font-display)',
+    fontWeight: 700,
+    fontSize: tokens.fontSizeBase300,
+    color: 'var(--ce-ink)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  rowMeta: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+    color: tokens.colorNeutralForeground3,
+    flexShrink: 0,
+  },
+  rowSpacer: { flex: 1 },
+  noDomainDot: {
+    display: 'inline-block',
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    backgroundColor: 'var(--ce-red)',
+    flexShrink: 0,
+  },
+  panelInner: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+    paddingBottom: tokens.spacingVerticalM,
+  },
+  showMore: { alignSelf: 'center', marginTop: tokens.spacingVerticalS },
+
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
     gap: tokens.spacingHorizontalL,
-  },
-  card: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: tokens.spacingVerticalM,
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderTop: '2px solid var(--ce-red)',
-    borderRadius: tokens.borderRadiusMedium,
-    backgroundColor: tokens.colorNeutralBackground1,
-    padding: tokens.spacingVerticalL,
-  },
-  cardHead: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: tokens.spacingHorizontalS,
-  },
-  cardTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
-    minWidth: 0,
   },
   provName: {
     fontFamily: 'var(--ce-font-display)',
@@ -181,6 +226,10 @@ const useStyles = makeStyles({
 });
 
 type AdminTab = 'providers' | 'read-only' | 'import';
+type ProviderFilter = 'all' | 'active' | 'archived';
+
+/** How many rows to render before the "show more" cap (keeps the DOM bounded). */
+const PAGE = 50;
 
 export function Admin() {
   const styles = useStyles();
@@ -188,7 +237,7 @@ export function Admin() {
   const { data, loading, error, refetch } = useProviders();
 
   return (
-    <div className={styles.root}>
+    <div className={mergeClasses('ce-enter', styles.root)}>
       <SectionHeading
         eyebrow="Admin"
         heading="Corpus administration"
@@ -214,7 +263,7 @@ export function Admin() {
 
       {tab === 'providers' &&
         (loading && data === undefined ? (
-          <LoadingState label="Loading provider corpus…" />
+          <ProviderListSkeleton rows={8} />
         ) : error && data === undefined ? (
           <ErrorState error={error} onRetry={refetch} title="Couldn’t load the provider corpus" />
         ) : (data?.length ?? 0) === 0 ? (
@@ -222,11 +271,7 @@ export function Admin() {
             <MessageBarBody>No work providers in the corpus yet.</MessageBarBody>
           </MessageBar>
         ) : (
-          <div className={styles.grid}>
-            {data!.map((p) => (
-              <ProviderCard key={p.id} provider={p} />
-            ))}
-          </div>
+          <ProvidersTab providers={data!} />
         ))}
 
       {tab === 'read-only' && <ReadOnlyCorpora />}
@@ -235,9 +280,136 @@ export function Admin() {
   );
 }
 
-/* ----------  Editable WorkProvider card (mock local state)  ---------- */
+/* ----------  Providers tab: search + Active/Archived filter + Accordion rows  ---------- */
 
-function ProviderCard({ provider }: { provider: Provider }) {
+function ProvidersTab({ providers }: { providers: Provider[] }) {
+  const styles = useStyles();
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<ProviderFilter>('active'); // default to the working set
+  const [limit, setLimit] = useState(PAGE);
+
+  const activeCount = useMemo(() => providers.filter((p) => p.active).length, [providers]);
+  const archivedCount = providers.length - activeCount;
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return providers.filter((p) => {
+      if (filter === 'active' && !p.active) return false;
+      if (filter === 'archived' && p.active) return false;
+      if (q) {
+        const hay = [p.displayName, p.principalCode, ...p.knownEmailDomains]
+          .join(' ')
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [providers, search, filter]);
+
+  // Reset the visible cap whenever the filter/search narrows the set.
+  useEffect(() => setLimit(PAGE), [search, filter]);
+
+  const shown = filtered.slice(0, limit);
+
+  return (
+    <>
+      <div className={styles.toolbar} role="search">
+        <SearchBox
+          className={styles.search}
+          placeholder="Search name, principal code, domain…"
+          value={search}
+          onChange={(_e, d) => setSearch(d.value)}
+          aria-label="Search providers"
+        />
+        <TabList
+          className={styles.segment}
+          selectedValue={filter}
+          onTabSelect={(_e, d) => setFilter(d.value as ProviderFilter)}
+          size="small"
+          aria-label="Filter by status"
+        >
+          <Tab value="active">Active ({activeCount})</Tab>
+          <Tab value="archived">Archived ({archivedCount})</Tab>
+          <Tab value="all">All ({providers.length})</Tab>
+        </TabList>
+        <span className={styles.toolbarSpacer} />
+        <Caption1 className={styles.counts}>
+          {activeCount} active · {archivedCount} archived · showing {shown.length} of {filtered.length}
+        </Caption1>
+      </div>
+
+      {filtered.length === 0 ? (
+        <MessageBar intent="info">
+          <MessageBarBody>No providers match the current search / filter.</MessageBarBody>
+        </MessageBar>
+      ) : (
+        <>
+          <Accordion collapsible multiple className={styles.accordion}>
+            {shown.map((p) => (
+              <AccordionItem value={p.id} key={p.id} className={styles.acItem}>
+                <AccordionHeader expandIconPosition="end" icon={<Building2 size={18} />}>
+                  <ProviderRowSummary provider={p} />
+                </AccordionHeader>
+                <AccordionPanel>
+                  <div className={styles.panelInner}>
+                    <ProviderEditor provider={p} />
+                  </div>
+                </AccordionPanel>
+              </AccordionItem>
+            ))}
+          </Accordion>
+          {filtered.length > shown.length && (
+            <Button
+              className={styles.showMore}
+              appearance="secondary"
+              onClick={() => setLimit((n) => n + PAGE)}
+            >
+              Show {Math.min(PAGE, filtered.length - shown.length)} more
+            </Button>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+/* ----------  Collapsed row summary (scannable; no editing)  ---------- */
+
+function ProviderRowSummary({ provider }: { provider: Provider }) {
+  const styles = useStyles();
+  const domainCount = provider.knownEmailDomains.length;
+  return (
+    <span className={styles.rowSummary}>
+      <span className={styles.rowName}>{provider.displayName || 'Unnamed provider'}</span>
+      <span className={mergeClasses(styles.code, styles.rowMeta)}>{provider.principalCode}</span>
+      <Badge
+        appearance={provider.active ? 'filled' : 'outline'}
+        color={provider.active ? 'success' : 'subtle'}
+        shape="rounded"
+        size="small"
+      >
+        {provider.active ? 'Active' : 'Archived'}
+      </Badge>
+      <span className={styles.rowSpacer} />
+      {domainCount === 0 ? (
+        <Tooltip content="No domains — this provider will never auto-match" relationship="label">
+          <span className={styles.rowMeta}>
+            <span className={styles.noDomainDot} aria-hidden />
+            no domains
+          </span>
+        </Tooltip>
+      ) : (
+        <Caption1 className={styles.rowMeta}>
+          {domainCount} domain{domainCount === 1 ? '' : 's'}
+        </Caption1>
+      )}
+    </span>
+  );
+}
+
+/* ----------  Editable WorkProvider editor (mock local state)  ---------- */
+
+function ProviderEditor({ provider }: { provider: Provider }) {
   const styles = useStyles();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
@@ -271,22 +443,7 @@ function ProviderCard({ provider }: { provider: Provider }) {
   };
 
   return (
-    <div className={styles.card}>
-      <div className={styles.cardHead}>
-        <span className={styles.cardTitle}>
-          <Building2 size={18} aria-hidden />
-          <span className={styles.provName}>{draft.displayName || 'Unnamed provider'}</span>
-        </span>
-        <Badge
-          appearance={draft.active ? 'filled' : 'outline'}
-          color={draft.active ? 'success' : 'subtle'}
-          shape="rounded"
-          size="small"
-        >
-          {draft.active ? 'Active' : 'Inactive'}
-        </Badge>
-      </div>
-
+    <>
       <Field label="Display name">
         <Input
           value={draft.displayName}
@@ -419,7 +576,7 @@ function ProviderCard({ provider }: { provider: Provider }) {
           </Caption1>
         )}
       </div>
-    </div>
+    </>
   );
 }
 
