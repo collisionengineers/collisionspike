@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Real local settings would carry dev URLs — never commit. (No secrets here.)
+local.settings.json

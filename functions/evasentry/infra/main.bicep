@@ -31,6 +31,9 @@ param evaApiEnabled bool = false
 @description('EVA Sentry base URL. SAME for test and production — the credentials route the environment (ADR-0005). Must end with a trailing slash.')
 param evaBaseUrl string = 'https://sentry.evasoftware.co.uk/api/'
 
+@description('EVA-supplied RequestFrom contact code stamped on each Instruction. Non-secret; set at activation ([RESERVED-FOR-USER]). Empty is allowed (the Function omits the field).')
+param evaRequestFrom string = ''
+
 // ---- Key Vault secret NAMES (values injected out-of-band, RESERVED-FOR-USER) ----
 // These names match dataverse/environment-variables.json (EVA_CLIENT_ID/SECRET
 // secret references) so the Dataverse secret env-vars and this Function point at
@@ -47,6 +50,7 @@ var vaultName = toLower('${namePrefix}kv${substring(suffix, 0, 6)}')
 var planName = '${namePrefix}-plan-${substring(suffix, 0, 6)}'
 var functionAppName = '${namePrefix}-fn-${substring(suffix, 0, 6)}'
 var aiName = '${namePrefix}-ai-${substring(suffix, 0, 6)}'
+var logAnalyticsName = '${namePrefix}-law-${substring(suffix, 0, 6)}'
 var deploymentContainerName = 'app-package'
 
 // ---- Storage (required by Functions; also the FC1 deployment container) ----
@@ -60,6 +64,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
+    allowSharedKeyAccess: false
     supportsHttpsTrafficOnly: true
   }
 }
@@ -77,13 +82,29 @@ resource deployContainer 'Microsoft.Storage/storageAccounts/blobServices/contain
   }
 }
 
-// ---- Application Insights (exception + dependency tracking) ----
+// ---- Observability (workspace-based App Insights) ----
+// Classic (workspace-less) Application Insights is RETIRED and ingests no
+// telemetry; a workspace-less component also force-creates a managed Log
+// Analytics workspace in its own resource group. Declare the workspace here and
+// bind it via WorkspaceResourceId — mirrors functions/parser/infra/main.bicep.
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: logAnalyticsName
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+  }
+}
+
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: aiName
   location: location
   kind: 'web'
   properties: {
     Application_Type: 'web'
+    WorkspaceResourceId: logAnalytics.id
   }
 }
 
@@ -170,10 +191,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'EVA_API_ENABLED'
           value: string(evaApiEnabled)
         }
-        // ---- EVA — non-secret setting ----
+        // ---- EVA — non-secret settings ----
         {
           name: 'EVA_BASE_URL'
           value: evaBaseUrl
+        }
+        {
+          name: 'EVA_REQUEST_FROM'
+          value: evaRequestFrom
         }
         // ---- Key Vault references — NO literal secrets. Resolved by the MI. ----
         {

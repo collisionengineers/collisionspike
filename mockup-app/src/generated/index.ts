@@ -4,6 +4,7 @@
  */
 
 // Models
+export * as CollisionEngineersParserModel from './models/CollisionEngineersParserModel';
 export * as CommonModels from './models/CommonModels';
 export * as Cr1bd_auditeventsModel from './models/Cr1bd_auditeventsModel';
 export * as Cr1bd_casesModel from './models/Cr1bd_casesModel';
@@ -14,6 +15,7 @@ export * as Cr1bd_notesModel from './models/Cr1bd_notesModel';
 export * as Cr1bd_workprovidersModel from './models/Cr1bd_workprovidersModel';
 
 // Services
+export * from './services/CollisionEngineersParserService';
 export * from './services/Cr1bd_auditeventsService';
 export * from './services/Cr1bd_casesService';
 export * from './services/Cr1bd_chasersService';

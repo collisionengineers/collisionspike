@@ -1,10 +1,12 @@
 # ROADMAP — collisionspike
 
-_Phase-1 (M1) case-intake spike for **Collision Engineers** (UK vehicle-damage assessment) on the **Microsoft stack** — Power Apps **Code App** + Dataverse + Power Automate + Azure Functions. Last updated **2026-06-18**._
+_Phase-1 (M1) case-intake spike for **Collision Engineers** (UK vehicle-damage assessment) on the **Microsoft stack** — Power Apps **Code App** + Dataverse + Power Automate + Azure Functions. Last updated **2026-06-19**._
 
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) (single source of truth for "where are we now") · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) (deploy sequence + blockers) · ADRs in [docs/adr/](./docs/adr/)._
 
 > This roadmap is comprehensive: the early phases are largely **complete** because the M1 vertical slice was built offline and much of the non-inbox deploy is already executed in the dedicated Sandbox. The frontier is **live activation** (operator), **enrichment + EVA/Box**, and the **provider-corpus incorporation**.
+
+> **2026-06-19 progress** — (1) **CE Parser connector wired + bound**: the custom connector now exposes `api_key`, a Connected connection exists (`01b43be8…`), the Code App calls the parser through it (`CollisionEngineersParserService` + `parser-connector-transport.ts`), and the old raw-fetch path (`parser-config.ts`) was deleted — so **manual-intake parse is no longer CSP-blocked** and the function key is off the client bundle (204/204 app tests; rebuilt + pushed). (2) **Provider-corpus incorporation (1b.2) LOADED** — scripts 10–14 + verify all passed (WorkProvider 390 updated, 20 named yards, 174 InspectionAddress rows, 20 ImageSource + 98 N:N); **37 over-length principal codes deferred** (widen `cr1bd_principalcode` or supply ≤8-char codes), GGP→GG / ZEN==ZENITH merges deferred. (3) **Built this session, gated-OFF, deploy pending**: EVA Sentry REST v1.2 (`functions/evasentry`, pytest 42/42), inspection-address matching Function (`functions/addressmatch`), OCR host (`ocr/`, ACA — no longer deferred), parser B2 claimant telephone/email extraction, plans for every remaining phase, and hardened IaC (workspace App Insights, no shared-key storage). **Azure deploys for evasentry/addressmatch/ocr + the parser REDEPLOY and the Phase-1 flow-chain activation on `digital@` remain pending.**
 
 ---
 
@@ -25,9 +27,9 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 **Now (operator, single highest-value step)** — activate **live email intake for ONE shared mailbox**: bind the Outlook shared-mailbox connection, bind the Dataverse + parser connection references, turn ON the `intake` + `classify-persist` + `parse` flows, send a test email, watch a real Case appear (DEPLOY-RUNBOOK §7). This is what makes "emails populate the app."
 
-**Next** — (a) incorporate the **provider corpus** + **clarifying-info** into Sandbox Dataverse (the two plans in `plans/`, `[DEPLOY-WITH-LOGIN]`, pure data, no inbox contact); (b) activate **enrichment** (DVSA/DVLA creds → Key Vault, `DVSA_TENANT_ID`, flip `ENRICHMENT_ENABLED` in a test env); (c) drive the **EVA M1 JSON drag-drop** path end-to-end into the EVA **test** environment + **Box** archival.
+**Next** — (a) the **provider corpus** is now **incorporated** (1b.2 done 2026-06-19); the **clarifying-info** second phase remains (the plan in `plans/`, `[DEPLOY-WITH-LOGIN]`, pure data, no inbox contact); (b) activate **enrichment** (DVSA/DVLA creds → Key Vault, `DVSA_TENANT_ID`, flip `ENRICHMENT_ENABLED` in a test env); (c) drive the **EVA M1 JSON drag-drop** path end-to-end into the EVA **test** environment + **Box** archival.
 
-**Later** — **EVA Sentry REST API**, **address-matching service** (resolve part-postcodes → inspection address), **chaser automation** (draft-only), **OCR for scanned PDFs** ("B-full", Azure Container Apps), and the full **§7 live-validation checklist** across all three mailboxes.
+**Later** — **EVA Sentry REST API**, **address-matching service** (resolve part-postcodes → inspection address), and **OCR for scanned PDFs** ("B-full", Azure Container Apps) are now **built (deploy pending)**; **chaser automation** (draft-only) and the full **§7 live-validation checklist** across all three mailboxes remain.
 
 ---
 
@@ -56,7 +58,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [x] **Parser adapter** maps legacy sibling fields → EVA keys.
 - [x] **Parser custom connector** created.
 - [x] **PyMuPDF AGPL** concern **resolved**.
-- [ ] **B2 — telephone / email fields** arrive **empty** (staff fill). Confirm with **document-parser-engineer**. _Optional for M1; required for full auto-fill._
+- [x] **B2 — claimant telephone / email fields** now **extracted** by the parser into the EVA fields with provenance + tests (was: arrive empty / staff fill). _(built; parser REDEPLOY pending to go live.)_
 
 ### 1b. Dataverse schema in Sandbox
 
@@ -79,7 +81,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ---
 
-## Phase 1b — Provider Corpus & Inspection-Address Data _(seed done; incorporation + clarifying-info planned, not yet loaded)_
+## Phase 1b — Provider Corpus & Inspection-Address Data _(seed + incorporation done; clarifying-info second phase remains)_
 
 `[DEPLOY-WITH-LOGIN]` (pure Dataverse data — no inbox/SharePoint/Box/EVA contact).
 
@@ -89,13 +91,13 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [x] **Provider/garage/location data analysis** (2026-06-18) — `raw/principalandrepairersheets/outputs/`, reproducible via `outputs/_scripts/run_all.py`.
 - [x] Actionable outputs: `provider_corpus_recommendation.csv`, `loc_principal_analysis.md`, `principal_address_worklist.md`.
 
-### 1b.2 Corpus incorporation (per `plans/dataverse-corpus-incorporation.md`) _(planned — not loaded)_
+### 1b.2 Corpus incorporation (per `plans/dataverse-corpus-incorporation.md`) _(LOADED — scripts 10–14 + verify all passed 2026-06-19)_
 
-- [ ] `10-seed-workprovider.ps1` — refresh `WorkProvider` from `provider_corpus_recommendation.csv` (upsert on `principalcode`; SEED→active, ARCHIVE→inactive; derive name from address; don't overwrite domains/toggles).
-- [ ] `11-seed-repairers.ps1` — confirmed shared yards + garage↔REPAIRER matches → `Repairer` (upsert on name+postcode).
-- [ ] `12-seed-inspection-sites.ps1` — repeated full postcodes (`count>=3`) → `InspectionAddress` reference rows (`confirmed_physical`).
-- [ ] `13-link-imagesources.ps1` — `ImageSource(kind=repairer)` per yard; idempotent N:N to each linked `WorkProvider`.
-- [ ] `14-verify-corpus.ps1` — post-run validation + idempotency re-run.
+- [x] `10-seed-workprovider.ps1` — `WorkProvider` **390 updated** (`Corpus 2026-06-18` provenance; SEED→active / ARCHIVE→inactive; name from address; domains/toggles preserved); 11 excluded, 2 review-skipped, 12 placeholder names. **37 principal codes >8 chars deferred** (operator must widen `cr1bd_principalcode` or supply canonical ≤8-char codes); GGP→GG and ZEN==ZENITH merges deferred to the clarifying-info phase.
+- [x] `11-seed-repairers.ps1` — **20** named full-postcode yards + **14** garage↔REPAIRER matches → `Repairer`.
+- [x] `12-seed-inspection-sites.ps1` — `InspectionAddress` **174** rows, all Confirmed Physical, all with postcodes.
+- [x] `13-link-imagesources.ps1` — `ImageSource(kind=repairer)` **20**, with **98** WorkProvider N:N links.
+- [x] `14-verify-corpus.ps1` — all 14-verify checks PASSED; idempotent re-run = no-op.
 - [ ] **Deliberately excluded** (deferred): partial postcodes, paper providers, red-herrings, REVIEW unknowns, unconfirmed code-drift, note-mining.
 
 ### 1b.3 Clarifying-info ingestion (per `plans/clarifying-info-ingestion.md`) _(planned — awaits operator worklists)_ 🔒
@@ -143,7 +145,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ### 3c. EVA — Sentry REST API (later)
 
-- [ ] **Build the Sentry REST submit path** (v1.2) — token, Instruction/Inspection, two-request photo submission, idempotency by payload hash.
+- [x] **Build the Sentry REST submit path** (v1.2) — `functions/evasentry`: two-request EVA `Files` submission (`/Instruction/Inspection` then `/Note/SubmitNote`), payload-hash idempotency; pytest **42/42**; `finalize-eva-box` refined. _(built; gated-OFF, Azure deploy pending.)_
 - [ ] 🔒 **B5 — EVA test credentials** → Key Vault; flip `EVA_API_ENABLED=true` in test.
 - [ ] 🔒 **Production cutover** — gated behind a parity test; operator-confirmed.
 
@@ -167,7 +169,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 - [x] **Address-policy gate** in the Code App — per-provider policy; no silent "Image Based Assessment".
 - [x] **Known-site reference data** modelled (`InspectionAddress` + `Repairer`); seeded by Phase 1b.
-- [ ] **Address-matching service** — resolve a Case's part-postcode `Loc` (57% of cases) → the linked yard's full address (district `startswith(outwardCode)` over the corpus) → `InspectionAddress` → EVA field 9. Honours `AZURE_MAPS_ENABLED=false` → **postcode.io**.
+- [x] **Address-matching service** (built; deploy pending) — `functions/addressmatch`: resolve a Case's part-postcode `Loc` (57% of cases) → the linked yard's full address (district `startswith` over the corpus) → `InspectionAddress` → EVA field 9; honours `AZURE_MAPS_ENABLED=false` → **postcode.io**. _(Azure deploy pending.)_
 - [ ] **Azure Maps (gated)** — only if needed (later).
 
 ### 4b. Chaser automation (channel-aware — ADR-0003)
@@ -183,7 +185,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 ### 5a. OCR for scanned PDFs ("B-full")
 
 - [x] **Scope decided** — FC1 can't run Tesseract; OCR deferred to **Azure Container Apps**.
-- [ ] **B-full — OCR host on Azure Container Apps** — OCR for scanned-image PDFs; registration matching in M1. _(Task #9.)_
+- [x] **B-full — OCR host built** (`ocr/`, no longer deferred) — scanned/image-PDF fallback; Dockerfile + Azure Container Apps Bicep + plate/pdf adapters. _(built; **ACA deploy pending** — build+push image, then deploy the Bicep.)_
 
 ### 5b. Image classification AI (ADR-0009 — M2+)
 
@@ -214,11 +216,11 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 | ID | What | State |
 |---|---|---|
 | **B1** | Gateway grant | **Obviated** ✅ — direct DVSA/DVLA. Remaining = inject creds + `DVSA_TENANT_ID` (operator). |
-| **B2** | Parser telephone/email | **Partial** — 2 EVA fields empty (staff fill); needs sibling parser change. |
+| **B2** | Parser telephone/email | **Built** — claimant telephone/email now extracted with provenance + tests; parser REDEPLOY pending to go live. |
 | **B3** | 13th EVA field | **Resolved** ✅ — contract is 12 fields. |
 | **B4** | Code Apps enablement | **Resolved** ✅ — enabled; app pushed. |
 | **B5** | EVA test creds + Box casing | **Open** 🔒 — operator. |
-| **B-full** | OCR for scanned PDFs | **Deferred** — Azure Container Apps. |
+| **B-full** | OCR for scanned PDFs | **Built** — `ocr/` host (Dockerfile + ACA Bicep); ACA deploy pending. |
 
 ---
 

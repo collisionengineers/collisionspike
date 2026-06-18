@@ -62,3 +62,5 @@ venv/
 # claimant data in the job sheet, garage/solicitor contacts). Examined and
 # distilled into docs/, but NOT committed. Keep PII out of git history.
 raw/
+*.pyc
+*.egg-info/

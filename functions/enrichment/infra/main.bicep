@@ -57,6 +57,7 @@ var vaultName = toLower('${namePrefix}kv${substring(suffix, 0, 6)}')
 var planName = '${namePrefix}-plan-${substring(suffix, 0, 6)}'
 var functionAppName = '${namePrefix}-fn-${substring(suffix, 0, 6)}'
 var aiName = '${namePrefix}-ai-${substring(suffix, 0, 6)}'
+var logAnalyticsName = '${namePrefix}-law-${substring(suffix, 0, 6)}'
 var deploymentContainerName = 'app-package'
 
 // ---- Storage (required by Functions; also the FC1 deployment container) ----
@@ -70,6 +71,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
+    allowSharedKeyAccess: false
     supportsHttpsTrafficOnly: true
   }
 }
@@ -87,13 +89,29 @@ resource deployContainer 'Microsoft.Storage/storageAccounts/blobServices/contain
   }
 }
 
-// ---- Application Insights (exception + dependency tracking) ----
+// ---- Observability (workspace-based App Insights) ----
+// Classic (workspace-less) Application Insights is RETIRED and ingests no
+// telemetry; a workspace-less component also force-creates a managed Log
+// Analytics workspace in its own resource group. Declare the workspace here and
+// bind it via WorkspaceResourceId — mirrors functions/parser/infra/main.bicep.
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: logAnalyticsName
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+  }
+}
+
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: aiName
   location: location
   kind: 'web'
   properties: {
     Application_Type: 'web'
+    WorkspaceResourceId: logAnalytics.id
   }
 }
 

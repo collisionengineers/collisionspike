@@ -6,6 +6,7 @@
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "EVA_API_ENABLED": "false",
     "EVA_BASE_URL": "https://sentry.evasoftware.co.uk/api/",
+    "EVA_REQUEST_FROM": "<RESERVED-FOR-USER: EVA-supplied contact code (RequestFrom); non-secret, optional>",
     "EVA_CLIENT_ID": "<RESERVED-FOR-USER: local dev only — never commit>",
     "EVA_CLIENT_SECRET": "<RESERVED-FOR-USER: local dev only — never commit>"
   }

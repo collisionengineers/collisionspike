@@ -21,12 +21,24 @@ Route
     body: {
       "evaPayload12":  str | object,   # the 12-field core (JSON string OR object)
       "payloadHash"?:  str,            # idempotency key (the flow's latch is primary)
-      "casePo"?:       str,            # lowercase Case/PO (EVA uses lowercase)
-      "images"?:       [ { sequenceIndex, content(base64), role?, filename? } ]
+      "casePo"?:       str,            # lowercase Case/PO -> Instruction ExternalRef
+      "vrm"?:          str,            # vehicle registration -> VehReg (claim key)
+      "clmNo"?:        str,            # claim number -> ClmNo (claim key)
+      "images"?:       [ { sequenceIndex, content(base64), role?, filename?,
+                           registrationVisible? } ]
     }
+
+Two-request photo submission (PDF v1.2 pp.13,21-23): the 2 preview photos ride on
+``Instruction/Inspection`` (which creates the claim and returns ``Id``); the FULL
+ordered set (previews + all) then rides on ``Note/SubmitNote``, matched to the
+claim by ``VehReg`` (+ ``ClmNo``/``EvaRef``). Photos are EVA ``Files`` entries
+``{Name,Extension,Data(base64)}`` — NOT ``ImpactImage`` (that is the report
+impact-diagram, unrelated). One token mint covers both requests.
 
 Returns (HTTP 200 on a clean submit; 400 on a malformed/invalid request):
     { "submitted": bool, "evaRef"?: str, "transport": "sentry_rest", "warnings": [str] }
+``submitted`` is True once the instruction is accepted; a failed photo-set second
+request degrades to a warning (claim exists; photos are archived in Box).
 
 Design rules honoured here
 --------------------------
@@ -46,23 +58,68 @@ Design rules honoured here
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
+import threading
 from typing import Any
 
 import azure.functions as func
 
 from eva_client import EvaClient, EvaConfigError, EvaError
-from payload import build_instruction_inspection, validate_core_payload
+from payload import (
+    build_files,
+    build_note_submitnote,
+    core_to_instruction,
+    overview_registration_warnings,
+    split_preview_and_rest,
+    validate_core_payload,
+)
 
 logger = logging.getLogger("evasentry.function")
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
+# In-process idempotency cache: payload-hash -> last result. The PRIMARY guard is
+# the flow's cr1bd_finalizedpayloadhash latch (survives restarts); this is a
+# cheap defensive layer so a duplicate call WITHIN a warm worker never
+# double-submits to EVA. Bounded to avoid unbounded growth.
+_IDEMPOTENCY: "dict[str, dict[str, Any]]" = {}
+_IDEMPOTENCY_LOCK = threading.Lock()
+_IDEMPOTENCY_MAX = 256
+
 
 def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def compute_payload_hash(core: dict[str, Any]) -> str:
+    """Deterministic SHA-256 over the 12-field core in CONTRACT order — the same
+    hash the flow stamps in ``cr1bd_finalizedpayloadhash``. Used to dedup when the
+    caller omits ``payloadHash``."""
+    canonical = json.dumps(core, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _idem_get(key: str) -> dict[str, Any] | None:
+    with _IDEMPOTENCY_LOCK:
+        return _IDEMPOTENCY.get(key)
+
+
+def _idem_put(key: str, value: dict[str, Any]) -> None:
+    with _IDEMPOTENCY_LOCK:
+        if key not in _IDEMPOTENCY and len(_IDEMPOTENCY) >= _IDEMPOTENCY_MAX:
+            # Drop an arbitrary oldest-ish entry (insertion order) to stay bounded.
+            _IDEMPOTENCY.pop(next(iter(_IDEMPOTENCY)), None)
+        _IDEMPOTENCY[key] = value
+
+
+def clear_idempotency_cache() -> None:
+    """Clear the in-process idempotency cache. Used by tests for isolation; in
+    production the cache simply ages out / resets on worker recycle."""
+    with _IDEMPOTENCY_LOCK:
+        _IDEMPOTENCY.clear()
 
 
 def _coerce_core(raw: Any) -> dict[str, Any] | None:
@@ -84,13 +141,19 @@ def submit(
     *,
     images: list[dict[str, Any]] | None = None,
     case_po: str | None = None,
+    vrm: str | None = None,
+    clm_no: str | None = None,
     payload_hash: str | None = None,
     client: EvaClient,
 ) -> dict[str, Any]:
-    """Pure orchestration: validate -> build body -> POST -> map response.
+    """Two-request EVA submission: validate -> POST Instruction (2 previews) ->
+    POST Note (ALL photos in sequence) -> map response.
 
     Separated from the HTTP handler so tests can drive it with a mocked
-    ``EvaClient`` and assert validation/idempotency without an HttpRequest.
+    ``EvaClient`` and assert validation / ordering / idempotency without an
+    HttpRequest. Returns ``submitted=True`` once the **instruction** is accepted;
+    a failed second (photo) request degrades to a warning (the claim exists, the
+    rest of the photos are in Box and can be re-sent) rather than a hard failure.
     """
     warnings: list[str] = []
 
@@ -99,35 +162,85 @@ def submit(
         # Caller-side contract violation: do NOT contact EVA.
         return {"submitted": False, "transport": "sentry_rest", "warnings": errors}
 
-    body = build_instruction_inspection(core, images=images, case_po=case_po)
+    # Idempotency by payload hash (defensive in-process layer; the flow latch is
+    # primary). A repeat of an already-submitted hash short-circuits — no second
+    # EVA submission.
+    key = payload_hash or compute_payload_hash(core)
+    cached = _idem_get(key)
+    if cached is not None:
+        out = dict(cached)
+        out.setdefault("warnings", [])
+        out["warnings"] = [*out["warnings"], "duplicate payload hash; returned the prior submission result (no re-submit)."]
+        out["idempotent"] = True
+        return out
+
+    images = images or []
+    previews, all_in_sequence = split_preview_and_rest(images)
+    warnings.extend(overview_registration_warnings(images))
+
+    request_from = os.environ.get("EVA_REQUEST_FROM", "").strip() or None
+    preview_files = build_files(previews)
+    instruction = core_to_instruction(
+        core,
+        files=preview_files,
+        external_ref=case_po,
+        request_from=request_from,
+        veh_reg=vrm,
+        clm_no=clm_no,
+    )
 
     try:
-        resp = client.post_instruction_inspection(body)
-    except EvaConfigError as exc:
-        logger.warning("eva submit blocked: %s", type(exc).__name__)
+        resp = client.post_instruction_inspection(instruction)
+    except EvaConfigError:
+        logger.warning("eva submit blocked: %s", "EvaConfigError")
         warnings.append("EVA credentials are not configured; submission skipped.")
         return {"submitted": False, "transport": "sentry_rest", "warnings": warnings}
     except EvaError as exc:
         # Surface the failure class only (never the detail/body).
-        logger.warning("eva submit failed: %s", type(exc).__name__)
+        logger.warning("eva instruction failed: %s", type(exc).__name__)
         warnings.append("EVA submission failed; case left for manual review / drag-drop.")
         return {"submitted": False, "transport": "sentry_rest", "warnings": warnings}
 
-    out: dict[str, Any] = {"submitted": True, "transport": "sentry_rest", "warnings": warnings}
-    # EVA acknowledgement field name is unconfirmed against the test server
-    # (plan §13 Q1); echo a best-effort ref if present.
     eva_ref = _extract_ref(resp)
+
+    # Second request: ALL photos in sequence (incl. the two previews again) via
+    # /Note/SubmitNote, matched to the new claim by VehReg + ClmNo/EvaRef. Only
+    # when there is MORE than the preview prefix to send AND we can target a claim.
+    if len(all_in_sequence) > len(previews):
+        all_files = build_files(all_in_sequence)
+        if not (vrm or clm_no or eva_ref):
+            warnings.append(
+                "remaining photos NOT sent: /Note/SubmitNote needs VehReg (+ ClmNo/EvaRef) "
+                "to target the claim; only the 2 preview photos were attached."
+            )
+        elif all_files:
+            note = build_note_submitnote(
+                files=all_files, clm_no=clm_no, veh_reg=vrm, eva_ref=eva_ref
+            )
+            try:
+                client.post_note_submitnote(note)
+            except EvaError as exc:
+                logger.warning("eva note (remaining photos) failed: %s", type(exc).__name__)
+                warnings.append(
+                    "instruction accepted but the remaining photos failed to attach; "
+                    "complete the photo set manually (they are archived in Box)."
+                )
+
+    out: dict[str, Any] = {"submitted": True, "transport": "sentry_rest", "warnings": warnings}
     if eva_ref:
         out["evaRef"] = eva_ref
     if payload_hash:
         out["payloadHash"] = payload_hash
+    _idem_put(key, {k: v for k, v in out.items() if k != "warnings"} | {"warnings": []})
     return out
 
 
 def _extract_ref(resp: dict[str, Any]) -> str | None:
+    """Best-effort EVA acknowledgement ref. v1.2 Instruction returns ``Id`` (PDF
+    p.13); we also accept the common aliases for forward-compat."""
     if not isinstance(resp, dict):
         return None
-    for key in ("evaRef", "EvaRef", "reference", "Reference", "claimRef", "ClaimRef", "id", "Id"):
+    for key in ("Id", "id", "evaRef", "EvaRef", "reference", "Reference", "claimRef", "ClaimRef"):
         val = resp.get(key)
         if isinstance(val, (str, int)) and str(val).strip():
             return str(val)
@@ -180,6 +293,8 @@ def eva_instruction_inspection(req: func.HttpRequest) -> func.HttpResponse:
 
     images = raw_body.get("images") if isinstance(raw_body.get("images"), list) else None
     case_po = raw_body.get("casePo") if isinstance(raw_body.get("casePo"), str) else None
+    vrm = raw_body.get("vrm") if isinstance(raw_body.get("vrm"), str) else None
+    clm_no = raw_body.get("clmNo") if isinstance(raw_body.get("clmNo"), str) else None
     payload_hash = raw_body.get("payloadHash") if isinstance(raw_body.get("payloadHash"), str) else None
 
     client = EvaClient()
@@ -188,6 +303,8 @@ def eva_instruction_inspection(req: func.HttpRequest) -> func.HttpResponse:
             core,
             images=images,
             case_po=case_po,
+            vrm=vrm,
+            clm_no=clm_no,
             payload_hash=payload_hash,
             client=client,
         )
