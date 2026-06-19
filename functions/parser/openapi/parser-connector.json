@@ -23,7 +23,7 @@
     "/parse": {
       "post": {
         "summary": "Parse an instruction document",
-        "description": "Decode a SINGLE-base64 document (binary file param: type string, format byte, x-ms-media-kind File), extract the 12-field EVA payload, and return it with field-level provenance plus Case-identity vrm/reference.",
+        "description": "Decode a base64 document (PLAIN string param — NEVER format:byte / x-ms-media-kind:File), extract the 12-field EVA payload, and return it with field-level provenance plus Case-identity vrm/reference.",
         "operationId": "ParseDocument",
         "consumes": [
           "application/json"
@@ -80,7 +80,7 @@
       "properties": {
         "document": {
           "type": "string",
-          "description": "Base64-encoded document bytes (.pdf/.docx/.doc/.eml/.msg), SINGLE-encoded. DO NOT add `format: byte` or `x-ms-media-kind: File` to this param: this Power Platform runtime then re-encodes the base64 a SECOND time (double-encode) and the parser returns 422 document_unreadable. Verified live 2026-06-19: adding format:byte caused a burst of CS Parse 422s and broke intake; reverting to a plain string fixed it. The Power Automate flow passes `@base64ToBinary(triggerBody()?['instructionBytesB64'])` (NOT the raw base64 string) — with a plain-string param this gateway still byte-encodes the value, so base64ToBinary yields the correct single-encoding. As a belt-and-braces safeguard the parser `_decode_document` also tolerates a redundant 2nd base64 layer (logging each recovery) because this gateway re-encodes unpredictably. See memory `powerplatform-connector-base64-double-encode`."
+          "description": "Base64-encoded document bytes (.pdf/.docx/.doc/.eml/.msg). DO NOT add `format: byte` or `x-ms-media-kind: File` to this param: the gateway then re-encodes the base64 a SECOND time and the parser returns 422 document_unreadable (a burst of CS Parse 422s broke intake when format:byte was added 2026-06-19). The Power Automate flow passes the RAW base64 string `@triggerBody()?['instructionBytesB64']` — NOT `@base64ToBinary(...)`: with this plain-string connector base64ToBinary feeds the gateway BINARY and it returns HTTP 400 (proven live 2026-06-20: test34 -> 400 -> Exceptions; the same doc posts 200 directly to /api/parse). The gateway's encoding DRIFTS with connector state, so the parser `_decode_document` is TOLERANT (peels a redundant 2nd base64 layer, logging each recovery) — THAT is the load-bearing safeguard, not the flow's encoding choice. See memory `powerplatform-connector-base64-double-encode`."
         },
         "filename": {
           "type": "string",

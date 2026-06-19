@@ -64,12 +64,12 @@
             "host": { "connectionName": "shared_ceparser", "operationId": "ParseDocument",
               "apiId": "/providers/Microsoft.PowerApps/apis/shared_ceparser" },
             "parameters": {
-              "body/document": "@base64ToBinary(triggerBody()?['instructionBytesB64'])",
+              "body/document": "@triggerBody()?['instructionBytesB64']",
               "body/filename": "@triggerBody()?['instructionName']",
               "body/provider_hint": "@triggerBody()?['providerHint']"
             }
           },
-          "comment": "ParseDocument returns { extraction:{12 EVA fields}, vrm, reference, issues, contract_version }. vrm/reference are Case-identity fields, NOT EVA payload fields.",
+          "comment": "body/document is the RAW base64 string (@triggerBody()?['instructionBytesB64']) — NOT @base64ToBinary(...). The connector param is a plain string; base64ToBinary feeds the gateway BINARY -> it 400s (proven 2026-06-20: test34 -> 400 -> Exceptions; the SAME doc posts 200 directly to /api/parse). The gateway double-encodes the raw string and the parser's TOLERANT _decode_document peels the redundant layer. See memory powerplatform-connector-base64-double-encode. ParseDocument returns { extraction:{12 EVA fields}, vrm, reference, issues, contract_version }. vrm/reference are Case-identity fields, NOT EVA payload fields.",
           "runAfter": {}
         },
         "Prefill_eva_fields": {

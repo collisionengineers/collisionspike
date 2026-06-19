@@ -68,10 +68,13 @@ rule in the brief. (Origin: review 190626 R2 — brief/spec text was leaking ont
 7. **The CE Parser connector re-encodes the base64 `document` a SECOND time** (a `format:byte`-class
    gateway behaviour). Keep `ParseRequest.document` a plain `{type: string}` — **NEVER** add `format:
    byte` / `x-ms-media-kind: File` (that guarantees the double-encode and broke live intake once);
-   pass `@base64ToBinary(triggerBody()?['instructionBytesB64'])` from `CS Parse` (not the raw base64
-   string); and keep `function_app._decode_document` **tolerant** (peels a redundant 2nd layer, logs
-   each recovery). A flow 422 `document_unreadable` while a **direct** `POST /api/parse` 200s = the
-   gateway double-encoding, not the parser. See memory `powerplatform-connector-base64-double-encode`.
+   pass the **RAW base64 string** `@triggerBody()?['instructionBytesB64']` from `CS Parse` — **NEVER
+   `@base64ToBinary(...)`**: with the plain-string connector that feeds the gateway BINARY and it
+   returns **400** (proven 2026-06-20: `test34` → 400 → Exceptions; the SAME doc posts 200 directly to
+   `/api/parse`). Keep `function_app._decode_document` **tolerant** (peels a redundant 2nd layer, logs
+   each recovery) — it is the load-bearing fix because the gateway encoding **DRIFTS** with connector
+   state. A flow `parser failed: 400` / `422` while a **direct** `POST /api/parse` 200s = the gateway
+   encoding, not the parser. See memory `powerplatform-connector-base64-double-encode`.
 
 ## Verify against reality — don't trust source or summaries
 Prior sessions shipped confident, wrong diagnoses. Always confirm live:
