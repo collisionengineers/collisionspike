@@ -10,6 +10,31 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
 
 ---
 
+## 🔔 Update — 2026-06-19 (review 190626 actioned): UI/UX review pass (branch `review/190626-ui-pass`)
+The binding manual review **`docs/reviews/190626/`** was actioned end-to-end — **all 8 tasks (~44 issues)**,
+checklist complete, **built green + 204/204 tests + pushed live (`pac code push`) + verified on the deployed
+player**. Headlines:
+- **Nav IA re-cut:** first-class expandable **Queues** group → Instructions (awaiting images) / Images only /
+  Ready for review / **Exceptions**; **Corpus→Provider settings**, **Audit→Action logs** (real page over the
+  audit seam); new **Add evidence** second intake; **Done-today** dropped as a page.
+- **Dashboard:** funnel re-cut to **New / Not ready / Review / Submitted** (Parsing/Box/Chasing/Ready folded
+  in); redundant "drainable now" row + dev copy removed; Exceptions bar added.
+- **Case view + chasers** decluttered: Export-JSON gated to ready, minimalistic Job-Sheet chasers (no
+  Mark-held / ADR caption; "Log as chased" auto-note), one no-image warning, "Imported details" panel.
+- **New case** rebuilt (17 fixes): drag-drop, automatic case-type, **split identity fields**
+  (VRM / Work provider / Principal / Case-PO / Claim No / Insured Name), **Date of Incident**, gated DVLA/DVSA
+  **"Look up vehicle"** + postcodes.io **"Normalise address"**, manual-entry path, EVA required set; no dev copy.
+- **Provider settings** (was Corpus): reference-data cards (Repairers 61 / Image sources 23 / Inspection
+  addresses 174); de-jargoned assisted-import.
+- **Broad-review:** removed the floating red `SectionHeading` hairline; documented the **EVA field model**
+  (`docs/architecture/eva-field-model.md`) + the **5 enrichment/AI status checks** — DVLA/DVSA **gated-off**
+  (make/model/mileage only, **no VAT**), OCR built-not-deployed, postcodes.io **live**, AI/Document-AI
+  **not present** (parsing is PyMuPDF). New gated `data/enrichment-client.ts`.
+- **Convention:** `docs/reviews/<DDMMYY>/` reviews are now documented as **binding** (README + CLAUDE.md +
+  AGENTS.md) — superseded only by a later review.
+
+---
+
 ## 🔔 Update — 2026-06-19 (PM): Azure deploys live + UI pass (branch `feat/m1-live-activation`)
 - **Parser Function REDEPLOYED** (`cespike-parser-dev-…`, FC1). Vendored the EVA payload schema into the
   package (`functions/parser/contracts/`) + fixed the resolver order, so `/api/parse` no longer emits a

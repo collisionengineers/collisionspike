@@ -29,7 +29,14 @@ docs/
   requirements/           admin-overview.md, intake-workflow.md, company-background.md
   architecture/           microsoft-stack.md, repo-constellation.md, integrations.md
   reference/              pointers to sibling repos / external specs
+  reviews/                BINDING manual user reviews (dated folders) — see docs/reviews/README.md
 ```
+
+**Binding reviews.** `docs/reviews/<DDMMYY>/` holds **manual user reviews**. A review is the
+**authoritative spec** for the areas it covers — it corrects drift and sets requirements, and is
+**superseded only by a later review** (it outranks older docs/plans/ADRs/code). When a review and an
+older doc disagree, the review wins; reconcile the older doc to it. Method + structure:
+[docs/reviews/README.md](./docs/reviews/README.md).
 
 ## Sibling repos (one folder up — ideas/prior-art only, NONE canonical, do not modify)
 
