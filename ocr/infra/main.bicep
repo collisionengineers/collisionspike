@@ -89,6 +89,14 @@ param tags object = {
   environment: environmentName
 }
 
+@description('Resource ID of a PRE-CREATED user-assigned identity already granted AcrPull on the registry (see acrpull-role.bicep). Supplying it makes the app pull the image via that identity — whose role has already propagated — which avoids the same-deployment RBAC-propagation race that expired revision provisioning. Empty = system-assigned pull (original behaviour).')
+param acrPullIdentityId string = ''
+
+@description('Client (application) ID of acrPullIdentityId — required by Functions-on-ACA siteConfig.acrUserManagedIdentityID. Set together with acrPullIdentityId.')
+param acrPullIdentityClientId string = ''
+
+var useUami = !empty(acrPullIdentityId)
+
 var uniqueSuffix = uniqueString(resourceGroup().id, namePrefix, environmentName)
 // Storage account names: <=24 chars, lowercase alphanumeric.
 var storageAccountName = toLower('${namePrefix}st${substring(uniqueSuffix, 0, 6)}')
@@ -188,7 +196,13 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   location: location
   tags: tags
   kind: 'functionapp,linux,container,azurecontainerapps'
-  identity: {
+  identity: useUami ? {
+    // System-assigned for storage + Key Vault; pre-granted user-assigned for ACR pull.
+    type: 'SystemAssigned, UserAssigned'
+    userAssignedIdentities: {
+      '${acrPullIdentityId}': {}
+    }
+  } : {
     type: 'SystemAssigned' // ACR pull + storage + Key Vault reference resolution
   }
   properties: {
@@ -198,8 +212,10 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       linuxFxVersion: 'DOCKER|${acr.properties.loginServer}/${imageName}'
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'
-      // Identity-based ACR pull (no admin creds). The MI is granted AcrPull below.
+      // Identity-based ACR pull (no admin creds). When a pre-granted UAMI is supplied,
+      // pull via it (its AcrPull role has already propagated); else the system MI.
       acrUseManagedIdentityCreds: true
+      acrUserManagedIdentityID: useUami ? acrPullIdentityClientId : null
       // NB scale-to-zero / burst limits (minReplicas/maxReplicas) are NOT set
       // here: for Functions-on-ACA the siteConfig Elastic-plan knobs
       // (functionAppScaleLimit / minimumElasticInstanceCount) are IGNORED — they
@@ -280,7 +296,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
 // --- RBAC: Function MI -> "AcrPull" on the registry --------------------------
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 
-resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!useUami) {
   scope: acr
   name: guid(acr.id, functionApp.id, acrPullRoleId)
   properties: {
