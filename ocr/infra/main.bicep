@@ -19,7 +19,9 @@
 //   * NO hardcoded subscription / tenant / resource ids.
 //   * Identity-based storage (AzureWebJobsStorage__accountName + MI role) — no
 //     account keys in app settings.
-//   * Identity-based ACR pull (MI granted AcrPull) — no registry username/password.
+//   * Identity-based ACR pull — no registry username/password. The pulling
+//     identity holds AcrPull: either the system-assigned MI (useUami=false) or a
+//     PRE-GRANTED user-assigned identity (useUami=true, acrPullIdentityId set).
 //   * Gating note: OCR_SCANNED_PDF_ENABLED / PLATE_OCR_ENABLED are Dataverse env
 //     vars checked UPSTREAM in the flow/Code App, NOT app settings here.
 //   * Canonical Functions-on-ACA shape (Microsoft Learn,
@@ -89,6 +91,32 @@ param tags object = {
   environment: environmentName
 }
 
+@description('Resource ID of a PRE-CREATED user-assigned identity already granted AcrPull on the registry (see acrpull-role.bicep). Supplying it makes the app pull the image via that identity — whose role has already propagated — which avoids the same-deployment RBAC-propagation race that expired revision provisioning. Empty = system-assigned pull (original behaviour). Functions-on-ACA wants the identity RESOURCE ID here (not the client ID).')
+param acrPullIdentityId string = ''
+
+var useUami = !empty(acrPullIdentityId)
+
+// --- PRECONDITION: useUami REQUIRES an existing ACR ---------------------------
+// The pre-granted user-assigned identity (acrpull-role.bicep) was granted AcrPull
+// on a SPECIFIC, already-existing registry. So supplying acrPullIdentityId while
+// leaving existingAcrName empty is incoherent: this template would create a BRAND
+// NEW ACR (createAcr path) that the identity holds NO role on, and the image pull
+// would fail at runtime — silently, from the operator's point of view. Guard it
+// two ways so the bad combo can NEVER deploy quietly:
+//   1. Structurally: createAcr excludes the useUami case (below), so a UAMI deploy
+//      never spins up a stray, wrong-RBAC registry.
+//   2. Fail-fast: the array access below is empty-and-throws on the bad combo, so
+//      `az deployment` errors out immediately rather than provisioning a doomed app.
+// To satisfy the precondition: pass existingAcrName (the registry the identity was
+// granted on), OR clear acrPullIdentityId to fall back to system-assigned pull.
+var uamiRequiresExistingAcrViolated = useUami && empty(existingAcrName)
+// On violation this resolves to `[][0]` and throws at deploy time. The `filter`
+// over a runtime param keeps it from constant-folding, so `az bicep build` stays
+// clean and the check fires at deployment, not compile.
+var assertUamiHasExistingAcr = (uamiRequiresExistingAcrViolated
+  ? filter(['ERROR: acrPullIdentityId (useUami) requires existingAcrName to be set to the registry the identity was pre-granted AcrPull on; with it empty a new, wrong-RBAC ACR would be created and the pull would fail.'], item => item == existingAcrName)
+  : ['precondition-ok'])[0]
+
 var uniqueSuffix = uniqueString(resourceGroup().id, namePrefix, environmentName)
 // Storage account names: <=24 chars, lowercase alphanumeric.
 var storageAccountName = toLower('${namePrefix}st${substring(uniqueSuffix, 0, 6)}')
@@ -100,7 +128,10 @@ var appInsightsName = '${namePrefix}-ai-${environmentName}'
 var logAnalyticsName = '${namePrefix}-law-${environmentName}'
 
 var wireDocintel = !empty(keyVaultName)
-var createAcr = empty(existingAcrName)
+// Create a new Basic ACR only when no existing one is named AND we are not using a
+// pre-granted UAMI (which is, by definition, bound to an existing registry — see
+// the precondition above). This makes useUami + new-ACR structurally impossible.
+var createAcr = empty(existingAcrName) && !useUami
 
 // --- Observability (workspace-based App Insights; also ACA log destination) --
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -188,7 +219,13 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   location: location
   tags: tags
   kind: 'functionapp,linux,container,azurecontainerapps'
-  identity: {
+  identity: useUami ? {
+    // System-assigned for storage + Key Vault; pre-granted user-assigned for ACR pull.
+    type: 'SystemAssigned, UserAssigned'
+    userAssignedIdentities: {
+      '${acrPullIdentityId}': {}
+    }
+  } : {
     type: 'SystemAssigned' // ACR pull + storage + Key Vault reference resolution
   }
   properties: {
@@ -198,8 +235,10 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       linuxFxVersion: 'DOCKER|${acr.properties.loginServer}/${imageName}'
       minTlsVersion: '1.2'
       ftpsState: 'Disabled'
-      // Identity-based ACR pull (no admin creds). The MI is granted AcrPull below.
+      // Identity-based ACR pull (no admin creds). When a pre-granted UAMI is supplied,
+      // pull via it (its AcrPull role has already propagated); else the system MI.
       acrUseManagedIdentityCreds: true
+      acrUserManagedIdentityID: useUami ? acrPullIdentityId : null
       // NB scale-to-zero / burst limits (minReplicas/maxReplicas) are NOT set
       // here: for Functions-on-ACA the siteConfig Elastic-plan knobs
       // (functionAppScaleLimit / minimumElasticInstanceCount) are IGNORED — they
@@ -280,7 +319,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
 // --- RBAC: Function MI -> "AcrPull" on the registry --------------------------
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 
-resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!useUami) {
   scope: acr
   name: guid(acr.id, functionApp.id, acrPullRoleId)
   properties: {
@@ -329,8 +368,11 @@ output functionAppDefaultHostName string = functionApp.properties.defaultHostNam
 @description('Container registry login server the image is pulled from.')
 output acrLoginServer string = acr.properties.loginServer
 
-@description('System-assigned managed identity principalId (granted AcrPull + storage; grant Key Vault get-secret when using docintel).')
+@description('System-assigned managed identity principalId. It is always granted Storage Blob Data Owner (host storage) and, when docintel is wired, Key Vault Secrets User. It is granted AcrPull ONLY in the system-assigned pull path (useUami=false); when a pre-granted user-assigned identity is supplied (useUami=true) the AcrPull role is held by THAT identity, not this principal.')
 output functionAppPrincipalId string = functionApp.identity.principalId
+
+@description('Precondition sentinel: resolves to "precondition-ok" on a valid deployment. Forces a fail-fast deploy-time error when a pre-granted user-assigned identity (acrPullIdentityId) is supplied without an existingAcrName — the combination that would otherwise create a wrong-RBAC registry and fail the image pull silently.')
+output acrPullPreconditionOk string = assertUamiHasExistingAcr
 
 @description('Requested minimum replicas. Apply post-deploy (see setReplicasCommand). 0 = scale-to-zero (the default).')
 output requestedMinReplicas int = minReplicas
