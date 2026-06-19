@@ -24,6 +24,10 @@ Source of truth for scope/sequencing: [plans/phase-1-intake-and-case-tracking-im
 These do **not** affect the offline build (all gates pass), but each must be settled before the
 dependent live step can work. They are tracked in code/READMEs and surfaced here so none is lost.
 
+> **The consolidated operator registry — every hard/soft blocker across all phases — now lives in
+> [docs/gated.md](./docs/gated.md)** (authoritative for the full list + the hard-vs-soft
+> classification). The table below is the deploy-sequence view of the original blockers (B1–B5).
+
 | # | Blocker | Where | Impact if unresolved | Resolution |
 |---|---|---|---|---|
 | ~~B1~~ | **OBVIATED 2026-06-18 — gateway removed from the path.** The enrichment Function now calls **DVSA + DVLA directly** (the DVSA MOT API is itself Entra-authenticated — `client_credentials` at `login.microsoftonline.com`), so there is **no Google Cloud gateway** and no grant to add. `gateway_client.py` deleted; replaced by `dvsa_client.py` + `dvla_client.py` + `analysis.py`. | (was `functions/enrichment/gateway_client.py`) | None — direct Entra auth. | **RESOLVED by removal.** Remaining = inject DVSA/DVLA creds into Key Vault `cespkenrichkvgi62sd` + set `DVSA_TENANT_ID` (activation, RESERVED-FOR-USER). |
