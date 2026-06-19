@@ -19,8 +19,31 @@ repeatedly bitten this project. Read it before touching the Code App, the flows,
 areas they cover. A review **corrects drift and sets the spec**, and is **superseded only by a later
 review**; it outranks older docs, plans, ADRs, and existing code. Action one by viewing every image,
 turning each `review.md` step into a tracked to-do, implementing it, and filling
-`checklist.md`'s "Changes made and actions taken". Honesty over green ticks — record operator-gated
+`checklist.md`'s "Changes made and actions taken". Honesty over green ticks — record gated/not-yet-live
 items plainly. Convention + method: [docs/reviews/README.md](./docs/reviews/README.md).
+
+## HARD RULE — no engineering language in the app UI
+The Code App is used by **non-technical case handlers**. **Never** let implementation, cloud, process,
+or meta/spec language reach a **user-facing string** (label, heading, eyebrow, subtitle, caption, hint,
+placeholder, button, MessageBar/Toast title+body, tooltip, empty state, validation message, badge,
+dropdown option). Write from the user's side, in plain **sentence-case active voice**: name things by
+what the handler controls and recognises, and say **what they do**, never **how the system works**.
+
+**Banned in rendered strings** (the principle governs, not just this list): Azure, Azure Maps, Blob /
+storage, postcodes.io, DVLA, DVSA, Dataverse, connector, Function, SDK, Power Automate, flow, Key Vault,
+OCR, Document Intelligence, API, endpoint, webhook, CSP, **JSON** (say "file" / "export"), **operator /
+operator-gated / gated**, deploy, provisioned, mock, **seed / seeded**, schema, payload, "12-field",
+**provenance** (→ "source"), **ADR / ADR-00xx**, **M1 / M2 / M3 / milestone**, EVA field numbers,
+"correlation key", **brief/spec phrasing** ("derived from what the case holds", "for reference",
+"read-only in M1", "not wired up"), and internal system names (**Box → "Archive"**).
+**Keep** the real domain words handlers use: EVA, VRM / registration, Case/PO, Principal, work provider,
+claimant, insured, inspection, instruction, chaser, photo / image, evidence, queue.
+
+Gated / not-yet-live features say so **in plain user terms** ("Vehicle lookup isn't available yet."),
+never via "operator-gated" / "connector" / env-var names. Code **comments** may use engineering terms
+freely — this rule is about **rendered strings only**. When you delegate UI work to an agent, pass this
+rule in the brief. (Origin: review 190626 R2 — brief/spec text was leaking onto the screen, e.g.
+"Automatic — derived from what the case holds", "operator-gated Blob-connector step".)
 
 ## Runtime truths (do not relearn the hard way)
 1. **Code Apps enforce CSP `connect-src 'none'` by default.** A Code App must reach external services

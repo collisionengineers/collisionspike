@@ -30,17 +30,16 @@ import { QUEUES, data, type QueueName } from '../data';
 // by the power-apps plugin, so we embed the logos as TEXT. CSP `img-src 'self' data:`
 // permits data URIs. (Fonts can't use this — CSP is `font-src 'self'`.)
 // Regenerate: `node scripts/gen-logo-data-uris.mjs`. See plans/logo-fix-findings.md.
-import { logoWhite } from '../assets/logos.generated';
+import { logoMark } from '../assets/logos.generated';
 import { AppErrorBoundary } from './AppErrorBoundary';
 
-/* Two-part app chrome (review 190626 nav-bar + dashboard Area 2):
-   - charcoal (#2c2a27) left rail with a RED brand header band carrying the
-     single white reverse logo. The previous chrome put the white rail logo
-     directly beside the red top-bar logo (the "white vs red next to each other"
-     clash, dashboard Area 2). Resolution: the brand mark now appears ONCE, white
-     on the CE-red header band ("choose red" — red is the brand colour, white
-     reverse logo is its sanctioned pairing). The top bar carries a neutral menu
-     burger + the page title only — no second, differently-coloured logo.
+/* Two-part app chrome (review 190626 nav-bar + R2 logo/colour):
+   - charcoal (#2c2a27) left rail with a clean WHITE brand header carrying the
+     single full-colour CE logo (the red gear + wordmark). This is the signature
+     element; everything around it stays quiet. The earlier red header band put
+     red + black + white in conflict — resolved by giving the logo its natural
+     white space, so red lives only in the logo + the eyebrows/active accents.
+     The top bar carries a neutral menu burger + the page title only.
    - Nav IA: Overview (Dashboard) · Intake (New case, Add evidence) · a first-
      class expandable "Queues" group (the four natural queues) · Admin (Provider
      Settings, Action Logs). "Done (today)" is no longer a queue page.
@@ -71,18 +70,19 @@ const useStyles = makeStyles({
   },
   railCollapsed: { width: `${RAIL_W_COLLAPSED}px` },
 
-  // RED brand header band — the single brand moment ("choose red", Area 2).
+  // White brand header — the full-colour CE logo (the signature) on clean white,
+  // atop the charcoal rail. Red stays in the logo + accents, never a band.
   railLogo: {
     height: `${TOPBAR_H}px`,
     display: 'flex',
     alignItems: 'center',
     padding: `0 ${tokens.spacingHorizontalL}`,
-    backgroundColor: '#db0816',
-    borderBottom: '1px solid rgba(0,0,0,0.18)',
+    backgroundColor: '#ffffff',
+    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
     flexShrink: 0,
   },
-  railLogoImg: { height: '24px', width: 'auto', display: 'block' },
-  railLogoImgCollapsed: { height: '20px' },
+  railLogoImg: { height: '30px', width: 'auto', maxWidth: '100%', display: 'block' },
+  railLogoImgCollapsed: { height: '22px' },
 
   navList: {
     display: 'flex',
@@ -341,7 +341,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
       <nav className={mergeClasses(styles.rail, collapsed && styles.railCollapsed)} aria-label="Primary">
         <Link to="/" className={mergeClasses('ce-focusable', styles.railLogo)} aria-label="Collision Engineers — home">
           <img
-            src={logoWhite}
+            src={logoMark}
             alt="Collision Engineers"
             className={mergeClasses(styles.railLogoImg, collapsed && styles.railLogoImgCollapsed)}
           />
