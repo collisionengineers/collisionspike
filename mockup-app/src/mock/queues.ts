@@ -111,6 +111,43 @@ export function queueByName(name: string): QueueDef | undefined {
   return QUEUES.find((q) => q.name === name);
 }
 
+/* ----------  Funnel-stage mapping (CANONICAL, shared)  ----------
+   The single source for "which of the 4 funnel stages does this status sit in".
+   Consumed by the Dataverse source (dashboard strip counts) AND the CaseDetail
+   spine ("you are here"), so the funnel, the spine and the queues agree.
+
+   The funnel is the FLOW New → Not ready → Review → Submitted; it deliberately
+   has NO exceptions stage. `error` is an exception, surfaced via the Exceptions
+   queue + the dashboard exceptions bar + the aging hero — never as a funnel
+   count — so it maps to `undefined` here (callers exclude it from the strip).
+   Buckets agree 1:1 with the QUEUES taxonomy:
+     - new        ← new_email, ingested            (intake; see queues #8)
+     - not_ready  ← missing_images, missing_required_fields
+     - review     ← needs_review, duplicate_risk,
+                    linked_to_instruction, ready_for_eva
+     - submitted  ← eva_submitted, box_synced
+     - (none)     ← error                          (Exceptions only; queues #1) */
+export function statusToStage(status: CaseStatus): PipelineStageKey | undefined {
+  switch (status) {
+    case 'new_email':
+    case 'ingested':
+      return 'new';
+    case 'missing_images':
+    case 'missing_required_fields':
+      return 'not_ready';
+    case 'needs_review':
+    case 'duplicate_risk':
+    case 'linked_to_instruction':
+    case 'ready_for_eva':
+      return 'review';
+    case 'eva_submitted':
+    case 'box_synced':
+      return 'submitted';
+    case 'error':
+      return undefined; // Exceptions only — never inflates a funnel stage.
+  }
+}
+
 /* ----------  Case type (review new-case #5) — a NATURAL identifier  ----------
    Not configurable: it is derived from what the case currently holds. Used for
    the case-type badge and to explain which queue a case sits in.
@@ -148,10 +185,13 @@ export function caseTypeOf(
   if (c.status === 'linked_to_instruction') return 'merged';
   const hasImages = flags?.hasImages;
   const hasInstructions = flags?.hasInstructions;
-  if (hasImages !== undefined || hasInstructions !== undefined) {
+  // Only decide from evidence when BOTH flags are known. If either is undefined
+  // we cannot tell "absent" from "unloaded", so fall through to the status-only
+  // heuristic rather than mislabel a half-known case (queues #5, #10).
+  if (hasImages !== undefined && hasInstructions !== undefined) {
     if (hasImages && hasInstructions) return 'both';
-    if (hasInstructions && !hasImages) return 'instructions_only';
-    if (hasImages && !hasInstructions) return 'images_only';
+    if (hasInstructions) return 'instructions_only';
+    if (hasImages) return 'images_only';
     return 'pending';
   }
   // Status-only fallback (aggregate context, no evidence loaded).
@@ -165,7 +205,15 @@ export function caseTypeOf(
     case 'eva_submitted':
     case 'box_synced':
       return 'both';
-    default:
+    case 'duplicate_risk':
+      // A possible-twin case held by dedup: its composition isn't knowable from
+      // status alone (it may be instructions-, images-, or both-bearing), so it
+      // is 'pending' — but enumerated explicitly so this is a deliberate call,
+      // not the catch-all swallowing it (queues #5, #10).
+      return 'pending';
+    case 'new_email':
+    case 'ingested':
+    case 'error':
       return 'pending';
   }
 }
