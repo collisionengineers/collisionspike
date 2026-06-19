@@ -1,33 +1,29 @@
 import { useMemo, useState } from 'react';
 import {
-  Badge,
   Button,
-  Caption1,
   Dropdown,
   Field,
-  MessageBar,
-  MessageBarBody,
   Option,
   Radio,
   RadioGroup,
   Textarea,
   Toast,
-  ToastBody,
   ToastTitle,
   makeStyles,
   tokens,
   useToastController,
 } from '@fluentui/react-components';
-import { Copy, Send, ClipboardCheck, PauseCircle } from 'lucide-react';
+import { Copy, ClipboardCheck } from 'lucide-react';
 import type { Case, ChaserChannel } from '../data';
-import { outstandingText } from '../data';
 import { GLOBAL_TOASTER_ID } from './toaster';
 
-/* Chaser composer. Channel = Email | WhatsApp. Template Dropdown seeds an
-   editable draft Textarea. Copy-to-clipboard (+toast) and Log-as-drafted.
-   NEVER auto-sends — Email send is a disabled "later" affordance (ADR-0003).
-   An explicit "held, awaiting X" affordance records that the case is parked
-   pending the outstanding item; the handoff to actually send is flow/user-owned. */
+/* Chaser composer — minimalistic, adapted from the Job Sheet chaser (review
+   caseview #7). Channel = Email | WhatsApp, a template seeds an editable draft,
+   then Copy or Log-as-chased (which drops an auto-note on the case). It never
+   sends: the send itself is a flow / user action, so there is no "send" button
+   to contradict that, and no ADR reference leaks into the UI (review #10). A
+   case's held/open state is derived from what it is missing, so there is no
+   manual "Mark held" (review #9). */
 
 interface ChaserTemplate {
   key: string;
@@ -67,47 +63,20 @@ const TEMPLATES: ChaserTemplate[] = [
 const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM },
   actions: { display: 'flex', gap: tokens.spacingHorizontalS, flexWrap: 'wrap', alignItems: 'center' },
-  caption: { color: tokens.colorNeutralForeground3 },
-  heldBar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalS,
-    flexWrap: 'wrap',
-  },
-  heldText: { color: tokens.colorNeutralForeground2 },
 });
-
-/** What this case is waiting on, in active-voice — reused for the "held" banner. */
-function awaitingText(c: Case): string {
-  switch (c.actionReason) {
-    case 'missing_images':
-      return 'awaiting images from the garage';
-    case 'missing_instructions':
-      return 'awaiting instructions from the provider';
-    case 'conflict':
-      return 'awaiting claimant-name confirmation';
-    case 'needs_review':
-      return 'awaiting review of parsed details';
-    case 'duplicate':
-      return 'awaiting duplicate resolution';
-    default:
-      return 'awaiting outstanding information';
-  }
-}
 
 export interface ChaserPanelProps {
   case: Case;
-  /** Called when the user logs the draft as a Chaser (mock — no persistence). */
-  onLogDrafted?: (draft: { channel: ChaserChannel; template: string; body: string }) => void;
+  /** Called when the user logs the draft as a chase (the screen adds the note). */
+  onLogChased?: (draft: { channel: ChaserChannel; templateLabel: string }) => void;
 }
 
 /** Channel-aware chaser composer. Drafts only — never sends. */
-export function ChaserPanel({ case: c, onLogDrafted }: ChaserPanelProps) {
+export function ChaserPanel({ case: c, onLogChased }: ChaserPanelProps) {
   const styles = useStyles();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
   const [channel, setChannel] = useState<ChaserChannel>('email');
-  const [held, setHeld] = useState(false);
   const available = useMemo(
     () => TEMPLATES.filter((t) => t.channels.includes(channel)),
     [channel],
@@ -151,53 +120,11 @@ export function ChaserPanel({ case: c, onLogDrafted }: ChaserPanelProps) {
   };
 
   const onLog = () => {
-    onLogDrafted?.({ channel, template: templateKey, body });
-    dispatchToast(
-      <Toast>
-        <ToastTitle>Chaser logged as drafted</ToastTitle>
-      </Toast>,
-      { intent: 'success' },
-    );
-  };
-
-  const onToggleHeld = () => {
-    const next = !held;
-    setHeld(next);
-    dispatchToast(
-      <Toast>
-        <ToastTitle>{next ? 'Case marked held' : 'Hold cleared'}</ToastTitle>
-        <ToastBody>
-          {next
-            ? `Held — ${awaitingText(c)}. Mock only; no record changed and nothing was sent.`
-            : 'The hold flag was cleared (mock).'}
-        </ToastBody>
-      </Toast>,
-      { intent: 'success' },
-    );
+    onLogChased?.({ channel, templateLabel: activeTemplate.label });
   };
 
   return (
     <div className={styles.root}>
-      {/* Explicit "held, awaiting X" affordance — a partial case parked pending
-          the outstanding item. The chaser only DRAFTS; sending is flow/user-owned. */}
-      <MessageBar intent={held ? 'warning' : 'info'}>
-        <MessageBarBody>
-          <span className={styles.heldBar}>
-            <Badge
-              appearance={held ? 'filled' : 'outline'}
-              color={held ? 'warning' : 'informative'}
-              shape="rounded"
-              size="small"
-            >
-              {held ? 'Held' : 'Open'}
-            </Badge>
-            <span className={styles.heldText}>
-              {held ? `Held — ${awaitingText(c)}.` : outstandingText(c)}
-            </span>
-          </span>
-        </MessageBarBody>
-      </MessageBar>
-
       <Field label="Channel">
         <RadioGroup
           layout="horizontal"
@@ -224,12 +151,7 @@ export function ChaserPanel({ case: c, onLogDrafted }: ChaserPanelProps) {
       </Field>
 
       <Field label="Draft">
-        <Textarea
-          value={body}
-          onChange={(_, d) => setBody(d.value)}
-          resize="vertical"
-          rows={8}
-        />
+        <Textarea value={body} onChange={(_, d) => setBody(d.value)} resize="vertical" rows={8} />
       </Field>
 
       <div className={styles.actions}>
@@ -237,26 +159,9 @@ export function ChaserPanel({ case: c, onLogDrafted }: ChaserPanelProps) {
           Copy to clipboard
         </Button>
         <Button appearance="secondary" icon={<ClipboardCheck size={16} />} onClick={onLog}>
-          Log as drafted
+          Log as chased
         </Button>
-        <Button
-          appearance="secondary"
-          icon={<PauseCircle size={16} />}
-          onClick={onToggleHeld}
-        >
-          {held ? 'Release hold' : 'Mark held, awaiting reply'}
-        </Button>
-        {channel === 'email' && (
-          <Button appearance="secondary" icon={<Send size={16} />} disabled>
-            Send via Outlook (later)
-          </Button>
-        )}
       </div>
-
-      <Caption1 className={styles.caption}>
-        This tool never auto-sends (ADR-0003) — it drafts only. Copy the text or log it as drafted;
-        the actual send is a flow / user action.
-      </Caption1>
     </div>
   );
 }

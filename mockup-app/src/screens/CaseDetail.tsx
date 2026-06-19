@@ -62,9 +62,9 @@ import {
 import {
   EVA_FIELD_ORDER,
   dueInfo,
+  statusToStage,
   useCaseQuery,
   useImages,
-  type ActionReason,
   type Case,
   type CaseStatus,
   type EvaFieldKey,
@@ -322,31 +322,13 @@ const POLICY_LABEL: Record<Case['inspectionDecision'], string> = {
   unknown: 'Undecided',
 };
 
-/* Map this case's status onto the pipeline-spine stage it should light.
-   Mirrors the foundation's statusToStage (not exported); status + reason only. */
-function caseStageKey(status: CaseStatus, reason?: ActionReason): PipelineStageKey {
-  switch (status) {
-    case 'new_email':
-      return 'new';
-    case 'ingested':
-    case 'linked_to_instruction':
-      return 'parsing';
-    case 'needs_review':
-      return reason === 'conflict' || reason === 'needs_review' ? 'review' : 'chasing';
-    case 'missing_images':
-    case 'missing_required_fields':
-    case 'duplicate_risk':
-    case 'error':
-      return 'chasing';
-    case 'ready_for_eva':
-      return 'ready';
-    case 'eva_submitted':
-      return 'submitted';
-    case 'box_synced':
-      return 'box';
-    default:
-      return 'parsing';
-  }
+/* Map this case's status onto the pipeline-spine stage it should light "you are
+   here". Uses the shared funnel map (mock/queues.ts) so spine + dashboard agree.
+   `error` has no funnel stage (statusToStage → undefined); on the per-case spine
+   it still needs a home, and "Not ready" is the least-wrong placement for a
+   stalled/errored case. */
+function caseStageKey(status: CaseStatus): PipelineStageKey {
+  return statusToStage(status) ?? 'not_ready';
 }
 
 /* Resolve a readiness ChecklistItem to the tab that owns it and, for a field
@@ -379,7 +361,7 @@ function FieldRow({ fieldKey, label, required, c, onTextChange, registerRef }: F
   const empty = field.value.trim().length === 0;
   const validation =
     required && empty
-      ? ({ validationState: 'error' as const, validationMessage: `${label} is required for EVA` })
+      ? ({ validationState: 'error' as const, validationMessage: 'Required' })
       : {};
 
   const change = (_: unknown, data: InputOnChangeData) => onTextChange(fieldKey, data.value);
@@ -484,7 +466,7 @@ function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
         </Field>
         <div className={styles.thumbRowBetween}>
           <Tooltip
-            content={ev.registrationVisible ? 'Registration is visible (OCR matched VRM)' : 'Registration not detected'}
+            content={ev.registrationVisible ? 'Registration is visible' : 'Registration not visible'}
             relationship="label"
           >
             <Badge
@@ -690,7 +672,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
 
   // VRM now renders as a plate; the Futura title carries Case/PO · provider.
   const titleText = [c.casePo, c.provider].filter(Boolean).join('  ·  ');
-  const stageKey = caseStageKey(c.status, c.actionReason);
+  const stageKey = caseStageKey(c.status);
   const due = dueInfo(c); // ONE shared due/aging parser for the header chip.
 
   return (
@@ -724,14 +706,20 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                   Resolve duplicate
                 </Button>
               )}
-              <Button appearance="secondary" icon={<Upload size={16} />} onClick={() => toast('Upload evidence (mock — no file system)')}>
-                Upload evidence
+              <Button appearance="secondary" icon={<Upload size={16} />} onClick={() => navigate('/evidence')}>
+                Add evidence
               </Button>
-              <Button appearance="secondary" icon={<FileJson size={16} />} onClick={() => { setTab('fields'); toast('EVA JSON ready — see the JSON block below the fields'); }}>
-                Export JSON (gated fallback)
-              </Button>
+              {!blocked && (
+                <Button
+                  appearance="secondary"
+                  icon={<FileJson size={16} />}
+                  onClick={() => { setTab('fields'); toast('EVA submission ready — see the preview below the fields'); }}
+                >
+                  Export for EVA
+                </Button>
+              )}
               <Tooltip
-                content={blocked ? `EVA submit blocked — ${blockerCount} item(s) outstanding` : 'Open the EVA submit dialog'}
+                content={blocked ? `Can't submit to EVA yet — ${blockerCount} item(s) outstanding` : 'Submit this case to EVA'}
                 relationship="label"
               >
                 <Button
@@ -777,7 +765,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
       {blocked && (
         <MessageBar intent="error">
           <MessageBarBody>
-            <MessageBarTitle>EVA submit blocked — {blockerCount} item{blockerCount === 1 ? '' : 's'}</MessageBarTitle>
+            <MessageBarTitle>Can't submit to EVA yet — {blockerCount} item{blockerCount === 1 ? '' : 's'}</MessageBarTitle>
             Use the readiness list — each outstanding item links to the field to fix.
           </MessageBarBody>
         </MessageBar>
@@ -821,11 +809,9 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                   ))}
                   <Divider />
                   <div style={{ marginTop: tokens.spacingVerticalM }}>
-                    <Caption1 className={styles.hint}>
-                      EVA JSON preview (the 12-field contract, in order)
-                    </Caption1>
+                    <Caption1 className={styles.hint}>EVA submission preview</Caption1>
                     <div style={{ marginTop: 8 }}>
-                      <JsonView data={evaJson} label="EVA JSON" />
+                      <JsonView data={evaJson} label="EVA submission" />
                     </div>
                   </div>
                 </div>
@@ -838,44 +824,42 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                     // "No images" (a slow fetch must not read as empty).
                     <ThumbGridSkeleton count={4} />
                   ) : imgState.length === 0 ? (
+                    // ONE no-image message (review caseview #11: the tab used to
+                    // carry three). The sidebar readiness owns the blocking signal.
                     <MessageBar intent="warning">
                       <MessageBarBody>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <ImageOff size={16} /> No images on this case yet — use a chaser to request photos.
+                          <ImageOff size={16} /> No images yet — use a chaser to request photos.
                         </span>
                       </MessageBarBody>
                     </MessageBar>
                   ) : (
-                    <div className={styles.thumbGrid}>
-                      {imgState.map((ev) => (
-                        <EvidenceCard key={ev.id} ev={ev} onRole={onRole} onExclude={onExclude} />
-                      ))}
-                    </div>
-                  )}
+                    <>
+                      <div className={styles.thumbGrid}>
+                        {imgState.map((ev) => (
+                          <EvidenceCard key={ev.id} ev={ev} onRole={onRole} onExclude={onExclude} />
+                        ))}
+                      </div>
 
-                  <Divider />
+                      <Divider />
 
-                  <div className={styles.guidanceBanner}>
-                    <Text size={200}>
-                      <strong>EVA photo order:</strong> upload 2 previews first — vehicle overview
-                      (full registration visible), then the main-damage closeup — then all accepted
-                      photos in sequence, including those two again.
-                    </Text>
-                  </div>
+                      <div className={styles.guidanceBanner}>
+                        <Text size={200}>
+                          <strong>EVA photo order:</strong> 2 previews first — overview (full
+                          registration visible), then the main-damage closeup — then all accepted
+                          photos in sequence, including those two again.
+                        </Text>
+                      </div>
 
-                  {acceptedImages.length > 0 ? (
-                    <ImageOrderList images={acceptedImages} />
-                  ) : (
-                    <Caption1 className={styles.hint}>
-                      No accepted images to order yet.
-                    </Caption1>
+                      {acceptedImages.length > 0 && <ImageOrderList images={acceptedImages} />}
+                    </>
                   )}
                 </div>
               )}
 
               {tab === 'address' && (
                 <div className={styles.stack}>
-                  <Caption1 className={styles.hint}>Inspection address (EVA field 9)</Caption1>
+                  <Caption1 className={styles.hint}>Inspection address</Caption1>
                   <div className={styles.addrLines}>
                     {c.evaFields.inspectionAddress.value === 'Image Based Assessment' ? (
                       <span>Image Based Assessment</span>
@@ -900,26 +884,16 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
 
                   <Checkbox
                     checked={overrideAddr}
-                    label="Override to Image Based Assessment (record an explicit reason — never silent)"
+                    label="Override to Image Based Assessment"
                     onChange={(_, d) => setOverrideAddr(!!d.checked)}
                   />
                   {overrideAddr && (
-                    <Field
-                      label="Override reason"
-                      required
-                      validationState={overrideReason.trim() ? 'none' : 'warning'}
-                      validationMessage={
-                        overrideReason.trim()
-                          ? undefined
-                          : 'Give a reason — image-based assessment must be justified.'
-                      }
-                    >
+                    <Field label="Override reason" required>
                       <Textarea
                         value={overrideReason}
                         onChange={(_, d) => setOverrideReason(d.value)}
                         resize="vertical"
                         rows={3}
-                        placeholder="e.g. Vehicle is a total loss held at a salvage yard; physical inspection not viable."
                       />
                     </Field>
                   )}
@@ -961,7 +935,21 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 </div>
               )}
 
-              {tab === 'chasers' && <ChaserPanel case={c} onLogDrafted={() => toast('Chaser logged as drafted')} />}
+              {tab === 'chasers' && (
+                <ChaserPanel
+                  case={c}
+                  onLogChased={({ channel, templateLabel }) => {
+                    const note: Note = {
+                      id: `note-${Date.now()}`,
+                      author: 'J. Mercer',
+                      timestamp: new Date().toLocaleString('en-GB'),
+                      text: `Chased via ${channel === 'whatsapp' ? 'WhatsApp' : 'email'} — ${templateLabel}.`,
+                    };
+                    setC((prev) => (prev ? { ...prev, notes: [note, ...prev.notes] } : prev));
+                    toast('Logged as chased — note added');
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -973,7 +961,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
             <Text className="ce-section-heading">Readiness</Text>
             <Caption1 className={styles.hint} block style={{ marginTop: 2 }}>
               {blocked
-                ? `${blockerCount} item${blockerCount === 1 ? '' : 's'} block EVA submit — select one to fix.`
+                ? `${blockerCount} item${blockerCount === 1 ? '' : 's'} to resolve before EVA — select one to fix.`
                 : 'Every check passes — ready for EVA.'}
             </Caption1>
             <div className={styles.readyList} role="list">
@@ -1010,9 +998,9 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
           </div>
 
           <div className={styles.factsPanel}>
-            <Text className="ce-section-heading">Case facts (read-only)</Text>
+            <Text className="ce-section-heading">Imported details</Text>
             <Caption1 className={styles.hint} block style={{ marginBottom: 4 }}>
-              Imported context — does NOT drive readiness.
+              From the instruction document or email.
             </Caption1>
             {(
               [

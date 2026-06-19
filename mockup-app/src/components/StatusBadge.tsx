@@ -36,7 +36,7 @@ interface StatusStyle {
 
 const STATUS_STYLES: Record<CaseStatus, StatusStyle> = {
   new_email: { label: 'New email', severity: 'info', icon: Circle },
-  ingested: { label: 'Ingested', severity: 'info', icon: Clock },
+  ingested: { label: 'Logged', severity: 'info', icon: Clock },
   needs_review: { label: 'Needs review', severity: 'attention', icon: AlertTriangle },
   missing_required_fields: { label: 'Missing fields', severity: 'blocker', icon: FileWarning },
   missing_images: { label: 'Missing images', severity: 'blocker', icon: ImageOff },
@@ -44,7 +44,7 @@ const STATUS_STYLES: Record<CaseStatus, StatusStyle> = {
   linked_to_instruction: { label: 'Linked to instruction', severity: 'info', icon: Link2 },
   ready_for_eva: { label: 'Ready for EVA', severity: 'done', icon: CheckCircle2 },
   eva_submitted: { label: 'EVA submitted', severity: 'done', icon: Send },
-  box_synced: { label: 'Box synced', severity: 'done', icon: Archive },
+  box_synced: { label: 'Archived', severity: 'done', icon: Archive },
   error: { label: 'Error', severity: 'blocker', icon: AlertOctagon },
 };
 

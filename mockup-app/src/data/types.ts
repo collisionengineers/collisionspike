@@ -72,6 +72,10 @@ export interface CreateCaseInput {
   /** Provider display name + 4-char principal code, if known. */
   provider?: string;
   providerCode?: string;
+  /** Insured / policyholder name (overview fact). */
+  insuredName?: string;
+  /** Provider's own case / claim number (their reference) — NOT our Case-PO. */
+  providerReference?: string;
   /** Initial workflow status (e.g. 'ingested'). */
   status: CaseStatus;
   /** Free-text source mailbox/label for the manual channel. */

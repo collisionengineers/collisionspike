@@ -15,7 +15,7 @@ Platform + Azure environment. It is the bridge across the hard boundary that gov
 node verify-all.mjs        # expect: OK — 6 passed, 0 failed
 ```
 
-Source of truth for scope/sequencing: [plans/phase-1-intake-and-case-tracking-implementation.md](./plans/phase-1-intake-and-case-tracking-implementation.md) (§9 sequencing, §8.3 live checklist, §8.5 boundary gate).
+Source of truth for scope/sequencing: [docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md](./docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md) (§9 sequencing, §8.3 live checklist, §8.5 boundary gate).
 
 ---
 
@@ -23,6 +23,10 @@ Source of truth for scope/sequencing: [plans/phase-1-intake-and-case-tracking-im
 
 These do **not** affect the offline build (all gates pass), but each must be settled before the
 dependent live step can work. They are tracked in code/READMEs and surfaced here so none is lost.
+
+> **The consolidated operator registry — every hard/soft blocker across all phases — now lives in
+> [docs/gated.md](./docs/gated.md)** (authoritative for the full list + the hard-vs-soft
+> classification). The table below is the deploy-sequence view of the original blockers (B1–B5).
 
 | # | Blocker | Where | Impact if unresolved | Resolution |
 |---|---|---|---|---|

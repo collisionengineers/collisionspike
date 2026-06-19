@@ -2,27 +2,26 @@ import { makeStyles, mergeClasses, tokens } from '@fluentui/react-components';
 import { MapPin } from 'lucide-react';
 import type { PipelineStage, PipelineStageKey } from '../data';
 
-/* The seven pipeline stages, in order, as a count-less skeleton. The Dashboard
-   passes live counts via the `stages` prop (from useDashboard()); the CaseDetail
-   spine variant only needs the labels + the "you are here" highlight, so it falls
-   back to this skeleton — no data fetcher is imported here (keeps the seam the
-   single I/O boundary). */
+/* The four pipeline stages, in order, as a count-less skeleton. Re-cut per
+   review 190626 (dashboard Area 1): Parsing (instant-ish) and Box (== Submitted)
+   were dropped; Chasing folded into "Not ready"; Ready folded into Review. The
+   Dashboard passes live counts via the `stages` prop (from useDashboard()); the
+   CaseDetail spine variant only needs the labels + the "you are here" highlight,
+   so it falls back to this skeleton — no data fetcher is imported here (keeps the
+   seam the single I/O boundary). */
 const STAGE_SKELETON: readonly { key: PipelineStageKey; label: string }[] = [
   { key: 'new', label: 'New' },
-  { key: 'parsing', label: 'Parsing' },
+  { key: 'not_ready', label: 'Not ready' },
   { key: 'review', label: 'Review' },
-  { key: 'chasing', label: 'Chasing' },
-  { key: 'ready', label: 'Ready' },
   { key: 'submitted', label: 'Submitted' },
-  { key: 'box', label: 'Box' },
 ];
 
 /* ============================================================
    PipelineStrip — a thin connected stage track of the real sequence
-   New → Parsing → Review → Chasing → Ready → Submitted → Box.
+   New → Not ready → Review → Submitted.
 
    The dashboard hero (variant="hero"); reused as a slim progress spine
-   atop CaseDetail (variant="spine"). The chasing/stuck stage lights CE red.
+   atop CaseDetail (variant="spine"). The not-ready/stuck stage lights CE red.
    ============================================================ */
 
 const useStyles = makeStyles({
@@ -121,6 +120,17 @@ const useStyles = makeStyles({
   countSpine: { fontSize: '15px' },
   countStuck: { color: 'var(--ce-red)' },
   countZero: { color: tokens.colorNeutralForeground4 },
+
+  // interactive (dashboard) — the segment navigates to its queue on click.
+  segClickable: {
+    cursor: 'pointer',
+    border: 0,
+    borderRight: `1px solid ${tokens.colorNeutralStroke2}`,
+    font: 'inherit',
+    textAlign: 'left',
+    ':hover': { backgroundColor: tokens.colorNeutralBackground1Hover },
+    ':focus-visible': { outline: 'none', boxShadow: 'inset 0 0 0 2px var(--ce-red)', zIndex: 1 },
+  },
 });
 
 export interface PipelineStripProps {
@@ -132,6 +142,8 @@ export interface PipelineStripProps {
   active?: PipelineStageKey;
   /** Force a particular stage to light red (overrides the stage's own tone). */
   stuck?: PipelineStageKey;
+  /** When provided, each stage becomes a button that navigates (dashboard hero). */
+  onStageSelect?: (key: PipelineStageKey) => void;
   className?: string;
 }
 
@@ -141,6 +153,7 @@ export function PipelineStrip({
   variant = 'hero',
   active,
   stuck,
+  onStageSelect,
   className,
 }: PipelineStripProps) {
   const styles = useStyles();
@@ -169,15 +182,29 @@ export function PipelineStrip({
         // subtle work-carrying tint (derived) — suppressed when this is the
         // explicit current stage or the stuck stage, which own the styling.
         const activeHere = !isHere && !stuckHere && (active != null ? false : s.count > 0);
+        const interactive = onStageSelect != null;
         return (
           <div
             key={s.key}
             role="listitem"
             aria-label={`${s.label}: ${s.count}${isHere ? ' (current stage)' : ''}`}
             aria-current={isHere ? 'step' : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            onClick={interactive ? () => onStageSelect?.(s.key) : undefined}
+            onKeyDown={
+              interactive
+                ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onStageSelect?.(s.key);
+                    }
+                  }
+                : undefined
+            }
             className={mergeClasses(
               styles.seg,
               isSpine && styles.segSpine,
+              interactive && styles.segClickable,
               activeHere && styles.segActive,
               stuckHere && styles.segStuck,
               isHere && styles.segHere,

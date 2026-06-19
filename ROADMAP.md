@@ -2,7 +2,13 @@
 
 _Phase-1 (M1) case-intake spike for **Collision Engineers** (UK vehicle-damage assessment) on the **Microsoft stack** — Power Apps **Code App** + Dataverse + Power Automate + Azure Functions. Last updated **2026-06-19**._
 
-_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) (single source of truth for "where are we now") · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) (deploy sequence + blockers) · ADRs in [docs/adr/](./docs/adr/)._
+_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [docs/gated.md](./docs/gated.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
+
+> **Role split.** This **ROADMAP** is the forward phased checklist (per-phase done/remaining).
+> [CURRENT_STATUS.md](./CURRENT_STATUS.md) is what is live *now*. [docs/gated.md](./docs/gated.md) is
+> everything that needs the operator (hard/soft blockers). The canonical phase taxonomy is the
+> **Phase 0–6** used here; each phase's ordered build checklist lives in
+> [docs/plans/&lt;phase&gt;/README.md](./docs/plans/README.md).
 
 > This roadmap is comprehensive: the early phases are largely **complete** because the M1 vertical slice was built offline and much of the non-inbox deploy is already executed in the dedicated Sandbox. The frontier is **live activation** (operator), **enrichment + EVA/Box**, and the **provider-corpus incorporation**.
 
@@ -27,7 +33,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 **Now (operator, single highest-value step)** — activate **live email intake for ONE shared mailbox**: bind the Outlook shared-mailbox connection, bind the Dataverse + parser connection references, turn ON the `intake` + `classify-persist` + `parse` flows, send a test email, watch a real Case appear (DEPLOY-RUNBOOK §7). This is what makes "emails populate the app."
 
-**Next** — (a) the **provider corpus** is now **incorporated** (1b.2 done 2026-06-19); the **clarifying-info** second phase remains (the plan in `plans/`, `[DEPLOY-WITH-LOGIN]`, pure data, no inbox contact); (b) activate **enrichment** (DVSA/DVLA creds → Key Vault, `DVSA_TENANT_ID`, flip `ENRICHMENT_ENABLED` in a test env); (c) drive the **EVA M1 JSON drag-drop** path end-to-end into the EVA **test** environment + **Box** archival.
+**Next** — (a) the **provider corpus** is now **incorporated** (1b.2 done 2026-06-19); the **clarifying-info** second phase remains (the plan in `docs/plans/`, `[DEPLOY-WITH-LOGIN]`, pure data, no inbox contact); (b) activate **enrichment** (DVSA/DVLA creds → Key Vault, `DVSA_TENANT_ID`, flip `ENRICHMENT_ENABLED` in a test env); (c) drive the **EVA M1 JSON drag-drop** path end-to-end into the EVA **test** environment + **Box** archival.
 
 **Later** — **EVA Sentry REST API**, **address-matching service** (resolve part-postcodes → inspection address), and **OCR for scanned PDFs** ("B-full", Azure Container Apps) are now **built (deploy pending)**; **chaser automation** (draft-only) and the full **§7 live-validation checklist** across all three mailboxes remain.
 
@@ -91,7 +97,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [x] **Provider/garage/location data analysis** (2026-06-18) — `raw/principalandrepairersheets/outputs/`, reproducible via `outputs/_scripts/run_all.py`.
 - [x] Actionable outputs: `provider_corpus_recommendation.csv`, `loc_principal_analysis.md`, `principal_address_worklist.md`.
 
-### 1b.2 Corpus incorporation (per `plans/dataverse-corpus-incorporation.md`) _(LOADED — scripts 10–14 + verify all passed 2026-06-19)_
+### 1b.2 Corpus incorporation (per `docs/plans/phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md`) _(LOADED — scripts 10–14 + verify all passed 2026-06-19)_
 
 - [x] `10-seed-workprovider.ps1` — `WorkProvider` **390 updated** (`Corpus 2026-06-18` provenance; SEED→active / ARCHIVE→inactive; name from address; domains/toggles preserved); 11 excluded, 2 review-skipped, 12 placeholder names. **37 principal codes >8 chars deferred** (operator must widen `cr1bd_principalcode` or supply canonical ≤8-char codes); GGP→GG and ZEN==ZENITH merges deferred to the clarifying-info phase.
 - [x] `11-seed-repairers.ps1` — **20** named full-postcode yards + **14** garage↔REPAIRER matches → `Repairer`.
@@ -100,7 +106,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [x] `14-verify-corpus.ps1` — all 14-verify checks PASSED; idempotent re-run = no-op.
 - [ ] **Deliberately excluded** (deferred): partial postcodes, paper providers, red-herrings, REVIEW unknowns, unconfirmed code-drift, note-mining.
 
-### 1b.3 Clarifying-info ingestion (per `plans/clarifying-info-ingestion.md`) _(planned — awaits operator worklists)_ 🔒
+### 1b.3 Clarifying-info ingestion (per `docs/plans/phase-1-intake-and-case-tracking/corpus/clarifying-info-ingestion.md`) _(planned — awaits operator worklists)_ 🔒
 
 - [ ] 🔒 **Input 3** — code reconciliation (canonical `principalCode`).
 - [ ] 🔒 **Input 5** — the 137 active-but-off-jobsheet principals (CONSIDER decisions).
@@ -187,7 +193,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [x] **Scope decided** — FC1 can't run Tesseract; OCR deferred to **Azure Container Apps**.
 - [x] **B-full — OCR host built** (`ocr/`, no longer deferred) — scanned/image-PDF fallback; Dockerfile + Azure Container Apps Bicep + plate/pdf adapters.
 - [x] **OCR image built + pushed to ACR** (2026-06-19) — `ce-ocr:latest` in `cespkocracraeee76` (built via **WSL-root docker**, working around the subscription's ACR-Tasks block + no local Docker). _(the hard part — the image carrying `tesseract` + `fast-alpr` is ready.)_
-- [ ] **OCR ACA host deploy** — **failed 3× (`Failed to provision revision … Operation expired`, ~20 min each)** then rolled back; bicep needed `DOCKER_REGISTRY_SERVER_URL` (bare hostname). Adapters lazy-import, so not a startup crash → likely the **AcrPull RBAC-propagation race** or an ingress health-probe mismatch. **Next:** a pre-granted **user-assigned MI** for AcrPull (2-step: identity+role first, then the site) **or** ACA revision-log diving. Failed-deploy scaffolding (env/storage/AI/LAW) **cleaned up** (ACR + image kept) per the no-idle-infra stance. See `docs/review-followups-2026-06-19.md`.
+- [x] **OCR ACA host deploy** — **DONE 2026-06-19** (PR #7). The prior 3× "provision revision expired" was the **AcrPull RBAC-propagation race** (role created in the same deployment as the app). Fix: a **pre-granted user-assigned identity** for AcrPull via a separate ARM deploy + `siteConfig.acrUserManagedIdentityID`. Function App `cespkocr-fn-dev-glju3v` (Functions-on-ACA, scale-to-zero 0..5) is **Running**. Connector wiring + `OCR_SCANNED_PDF_ENABLED`/`PLATE_OCR_ENABLED` flip remain.
 
 ### 5b. Image classification AI (ADR-0009 — M2+)
 
@@ -215,6 +221,9 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ## Blocker tracker (DEPLOY-RUNBOOK §0)
 
+> The consolidated hard/soft operator registry is **[docs/gated.md](./docs/gated.md)**. The table
+> below is the M1 deploy-blocker snapshot.
+
 | ID | What | State |
 |---|---|---|
 | **B1** | Gateway grant | **Obviated** ✅ — direct DVSA/DVLA. Remaining = inject creds + `DVSA_TENANT_ID` (operator). |
@@ -222,7 +231,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 | **B3** | 13th EVA field | **Resolved** ✅ — contract is 12 fields. |
 | **B4** | Code Apps enablement | **Resolved** ✅ — enabled; app pushed. |
 | **B5** | EVA test creds + Box casing | **Open** 🔒 — operator. |
-| **B-full** | OCR for scanned PDFs | **Image built + pushed** ✅ (`ce-ocr:latest` in ACR); **ACA host deploy pending** — revision provisioning expired 3× (AcrPull race / health probe), needs user-assigned-MI pull or log diving. |
+| **B-full** | OCR for scanned PDFs | **Deployed** ✅ 2026-06-19 (PR #7) — `cespkocr-fn-dev-glju3v` Running (Functions-on-ACA, scale-to-zero); the AcrPull race was fixed with a pre-granted user-assigned identity. Connector wiring + gate flip remain. |
 
 ---
 

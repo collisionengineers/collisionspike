@@ -7,14 +7,19 @@ import EvaSubmitDialog from './screens/EvaSubmitDialog';
 import DedupDecisionDialog from './screens/DedupDecisionDialog';
 import Admin from './screens/Admin';
 import ManualIntake from './screens/ManualIntake';
+import AddEvidence from './screens/AddEvidence';
+import ActionLogs from './screens/ActionLogs';
 
-/* Route map:
+/* Route map (review 190626 nav IA):
    /                      → Dashboard
-   /queue/:name           → CaseList (name = needs-action|in-progress|ready|done)
+   /intake                → ManualIntake (new case)
+   /evidence              → AddEvidence (second intake — link evidence to a case)
+   /queue/:name           → CaseList (name = awaiting-images|images-only|ready-review|exceptions)
    /case/:caseId          → CaseDetail
    /case/:caseId/submit   → CaseDetail with EvaSubmitDialog overlaid (nested)
    /case/:caseId/dedup    → CaseDetail with DedupDecisionDialog overlaid (Surface B)
-   /admin                 → Admin / corpus surface (WorkProvider + read views) */
+   /admin                 → Provider settings (WorkProvider corpus + read views)
+   /logs                  → Action logs (audit-event feed) */
 
 export const router = createBrowserRouter([
   {
@@ -23,6 +28,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'intake', element: <ManualIntake /> },
+      { path: 'evidence', element: <AddEvidence /> },
       { path: 'queue/:name', element: <CaseList /> },
       {
         path: 'case/:caseId',
@@ -33,6 +39,7 @@ export const router = createBrowserRouter([
         ],
       },
       { path: 'admin', element: <Admin /> },
+      { path: 'logs', element: <ActionLogs /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

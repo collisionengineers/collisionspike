@@ -5,7 +5,7 @@
 # Pure echo. No tenant/Azure/EVA/Box contact. Run it for the ordered, boundary-
 # tagged checklist the operator follows to activate M2. Everything Claude built is
 # GATED OFF; every step below that crosses the live-services boundary is tagged
-# [RESERVED-FOR-USER]. Mirrors plans/phase-2-implementation.md.
+# [RESERVED-FOR-USER]. Mirrors docs/plans/m2-umbrella-enrichment-to-scale.md.
 # ============================================================================
 
 $checklist = @'

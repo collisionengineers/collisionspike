@@ -22,6 +22,7 @@ import type { Case, Evidence, Provider, ActivityEvent } from '../mock/types';
 import {
   QUEUES,
   queueByName,
+  statusToStage,
   REASON_LABELS,
   type QueueName,
   type LiveCounts,
@@ -76,43 +77,32 @@ function startOfWeek(d: Date): Date {
   return s;
 }
 
-/** Filter an already-fetched Case[] for a queue (windowing identical to mock). */
-function filterQueue(all: Case[], name: QueueName, now: Date): Case[] {
+/** Filter an already-fetched Case[] for a queue (status membership). */
+function filterQueue(all: Case[], name: QueueName, _now: Date): Case[] {
   const q = queueByName(name);
   if (!q) return [];
-  const today = startOfDay(now);
-  return all.filter((c) => {
-    if (!q.statuses.includes(c.status)) return false;
-    if (name === 'done') return isSameDay(parseDmy(c.submittedAt), today);
-    return true;
-  });
+  return all.filter((c) => q.statuses.includes(c.status));
 }
 
-/** Pipeline-stage mapping (ported verbatim from mock/queues.ts statusToStage). */
-function statusToStage(status: CaseStatus, reason?: ActionReason): PipelineStageKey {
-  switch (status) {
-    case 'new_email':
-      return 'new';
-    case 'ingested':
-    case 'linked_to_instruction':
-      return 'parsing';
-    case 'needs_review':
-      return reason === 'conflict' || reason === 'needs_review' ? 'review' : 'chasing';
-    case 'missing_images':
-    case 'missing_required_fields':
-    case 'duplicate_risk':
-    case 'error':
-      return 'chasing';
-    case 'ready_for_eva':
-      return 'ready';
-    case 'eva_submitted':
-      return 'submitted';
-    case 'box_synced':
-      return 'box';
-    default:
-      return 'parsing';
-  }
+/** The cases that need a human — backs the dashboard "needs action" aging hero
+    list, its past-due/reason tallies, and the reason-facet chips. ALL FOUR
+    queues, exceptions INCLUDED: an errored case is actionable, and an overdue
+    one must still surface in the aging hero / pastDueCount / reasonCounts rather
+    than vanish because the exceptions queue was dropped (queues #4). */
+function actionableCases(all: Case[], now: Date): Case[] {
+  return [
+    ...filterQueue(all, 'awaiting-images', now),
+    ...filterQueue(all, 'images-only', now),
+    ...filterQueue(all, 'ready-review', now),
+    ...filterQueue(all, 'exceptions', now),
+  ];
 }
+
+/* Pipeline-stage mapping for the re-cut 4-stage strip lives in mock/queues.ts
+   (`statusToStage`, imported above) so the dashboard funnel, the CaseDetail spine
+   and the queues all share ONE bucket map. `error` maps to `undefined` there —
+   an exception, surfaced via the Exceptions queue + aging hero, never a funnel
+   count (queues #1). */
 
 const TERMINAL = new Set<CaseStatus>(['eva_submitted', 'box_synced']);
 
@@ -178,6 +168,8 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       cr1bd_intakechannelkind: intakeChannelKindCodec.toInt('email'),
       cr1bd_intakechannelmanual: true,
       cr1bd_sourcemailbox: input.sourceLabel ?? 'Manual intake (Code App)',
+      ...(input.insuredName ? { cr1bd_ovinsuredname: input.insuredName } : {}),
+      ...(input.providerReference ? { cr1bd_ovclaimnumber: input.providerReference } : {}),
       ...evaFieldsToColumns(input.evaFields),
     };
 
@@ -249,9 +241,11 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     liveCounts: async (now = new Date()): Promise<LiveCounts> => {
       const all = await allCases(now);
       return {
-        needsAction: filterQueue(all, 'needs-action', now).length,
-        inProgress: filterQueue(all, 'in-progress', now).length,
-        ready: filterQueue(all, 'ready', now).length,
+        notReady:
+          filterQueue(all, 'awaiting-images', now).length +
+          filterQueue(all, 'images-only', now).length,
+        review: filterQueue(all, 'ready-review', now).length,
+        exceptions: filterQueue(all, 'exceptions', now).length,
       };
     },
 
@@ -276,7 +270,7 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     agingExceptions: async (now = new Date()): Promise<AgingExceptions> => {
       const all = await allCases(now);
       const today = startOfDay(now);
-      const rows: AgingRow[] = filterQueue(all, 'needs-action', now)
+      const rows: AgingRow[] = actionableCases(all, now)
         .map((c) => {
           const due = parseDmy(c.dateDue);
           const daysToDue = due ? daysBetween(today, due) : Number.POSITIVE_INFINITY;
@@ -294,17 +288,17 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     queueCounts: async (now = new Date()): Promise<Record<QueueName, number>> => {
       const all = await allCases(now);
       return {
-        'needs-action': filterQueue(all, 'needs-action', now).length,
-        'in-progress': filterQueue(all, 'in-progress', now).length,
-        ready: filterQueue(all, 'ready', now).length,
-        done: filterQueue(all, 'done', now).length,
+        'awaiting-images': filterQueue(all, 'awaiting-images', now).length,
+        'images-only': filterQueue(all, 'images-only', now).length,
+        'ready-review': filterQueue(all, 'ready-review', now).length,
+        exceptions: filterQueue(all, 'exceptions', now).length,
       };
     },
 
     reasonCounts: async (now = new Date()): Promise<ReasonFacet[]> => {
       const all = await allCases(now);
       const tally = new Map<ActionReason, number>();
-      for (const c of filterQueue(all, 'needs-action', now)) {
+      for (const c of actionableCases(all, now)) {
         if (!c.actionReason) continue;
         tally.set(c.actionReason, (tally.get(c.actionReason) ?? 0) + 1);
       }
@@ -317,23 +311,23 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       const all = await allCases(new Date());
       const defs: { key: PipelineStageKey; label: string }[] = [
         { key: 'new', label: 'New' },
-        { key: 'parsing', label: 'Parsing' },
+        { key: 'not_ready', label: 'Not ready' },
         { key: 'review', label: 'Review' },
-        { key: 'chasing', label: 'Chasing' },
-        { key: 'ready', label: 'Ready' },
         { key: 'submitted', label: 'Submitted' },
-        { key: 'box', label: 'Box' },
       ];
       const counts = new Map<PipelineStageKey, number>(defs.map((d) => [d.key, 0]));
       for (const c of all) {
-        const k = statusToStage(c.status, c.actionReason);
+        const k = statusToStage(c.status);
+        // `error` maps to undefined — an exception, counted in the exceptions
+        // bar/queue, never in the funnel (queues #1). Skip it here.
+        if (k === undefined) continue;
         counts.set(k, (counts.get(k) ?? 0) + 1);
       }
       return defs.map((d) => ({
         key: d.key,
         label: d.label,
         count: counts.get(d.key) ?? 0,
-        tone: d.key === 'chasing' ? 'stuck' : 'normal',
+        tone: d.key === 'not_ready' ? 'stuck' : 'normal',
       }));
     },
 

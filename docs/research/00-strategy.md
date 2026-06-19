@@ -76,7 +76,7 @@ With the corpus seeded (Move 2) and intake feeding real Cases (Move 1), the reso
 
 ### Key files for the next moves
 - `DEPLOY-RUNBOOK.md` — §7 operator activation sequence for Move 1 (and B5 for EVA-export).
-- `plans/dataverse-corpus-incorporation.md` — ready-to-run idempotent spec for Move 2 (scripts `10`–`14`).
+- `docs/plans/phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md` — ready-to-run idempotent spec for Move 2 (scripts `10`–`14`).
 - `raw/principalandrepairersheets/outputs/reports/provider_corpus_recommendation.csv` — the spine of Move 2; pairs with `task5/full_postcodes_repeated.csv` (InspectionAddress seed) and `claudeschoice/top_inspection_locations.csv` (yards feeding Move 3).
-- `plans/clarifying-info-ingestion.md` — writer specs for Move 6 (Inputs 3 then 5) and the address-worklist (Input 1) feeding Move 3's coverage.
+- `docs/plans/phase-1-intake-and-case-tracking/corpus/clarifying-info-ingestion.md` — writer specs for Move 6 (Inputs 3 then 5) and the address-worklist (Input 1) feeding Move 3's coverage.
 - `docs/architecture/integrations.md` — the env-var gates governing Moves 4 and 5.
