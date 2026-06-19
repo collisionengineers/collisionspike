@@ -27,7 +27,7 @@ import pytest
 
 import function_app
 import parser_adapter
-from parser_adapter import ParserError, EVA_FIELD_ORDER
+from parser_adapter import DocumentUnreadableError, ParserError, EVA_FIELD_ORDER
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -204,11 +204,13 @@ def test_unsupported_extension_returns_400(monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# Parser failure -> 502                                                       #
+# Parser DEPENDENCY failure -> 502 (engine broken; safe to retry)             #
 # --------------------------------------------------------------------------- #
-def test_parser_exception_returns_502(monkeypatch):
+def test_parser_dependency_failure_returns_502(monkeypatch):
+    """ParserError means the engine/dependency itself is broken (not importable,
+    reader binary missing). That is a server fault -> 502."""
     def boom(*a, **k):
-        raise ParserError("PyMuPDF blew up reading the PDF")
+        raise ParserError("cedocumentmapper_v2 is not importable: No module named 'docx'")
 
     monkeypatch.setattr(parser_adapter, "run_parser", boom)
     resp = function_app.parse(_make_request(_valid_request_body()))
@@ -216,7 +218,50 @@ def test_parser_exception_returns_502(monkeypatch):
 
     data = json.loads(resp.get_body())
     assert data["issues"][0]["code"] == "parser_failed"
-    assert "PyMuPDF" in data["issues"][0]["message"]
+
+
+# --------------------------------------------------------------------------- #
+# Unreadable document -> 422 (client problem; do NOT retry, route to review)  #
+# --------------------------------------------------------------------------- #
+def test_unreadable_document_returns_422(monkeypatch):
+    """A corrupt / truncated / non-PDF attachment makes the engine raise
+    ReaderError, which the adapter surfaces as DocumentUnreadableError. The
+    handler MUST return 422 (not 502) so the flow routes the case to review and
+    does not retry. This is the regression guard for the 16:49 UTC 502 burst,
+    where an unreadable 'instruction.pdf' (FzErrorFormat 'no objects found')
+    escaped as an unhandled 502 across every FC1 instance."""
+    def unreadable(*a, **k):
+        raise DocumentUnreadableError(
+            "document 'instruction.pdf' could not be read: "
+            "Could not open PDF with PyMuPDF: code=7: no objects found"
+        )
+
+    monkeypatch.setattr(parser_adapter, "run_parser", unreadable)
+    resp = function_app.parse(_make_request(_valid_request_body()))
+    assert resp.status_code == 422
+
+    data = json.loads(resp.get_body())
+    assert data["issues"][0]["code"] == "document_unreadable"
+    assert data["extraction"] is None
+    assert data["contract_version"] == "cedocumentparser_v2.0_eva_json"
+
+
+# --------------------------------------------------------------------------- #
+# Defensive guard: an unexpected escape becomes a 500, never a raw 502        #
+# --------------------------------------------------------------------------- #
+def test_unexpected_exception_returns_500_not_502(monkeypatch):
+    """Any non-classified exception escaping run_parser must be caught by the
+    top-level guard and returned as a structured 500 — never allowed to bubble
+    out of the worker (which the host would surface as a 502 BadGateway)."""
+    def weird(*a, **k):
+        raise KeyError("something nobody anticipated")
+
+    monkeypatch.setattr(parser_adapter, "run_parser", weird)
+    resp = function_app.parse(_make_request(_valid_request_body()))
+    assert resp.status_code == 500
+
+    data = json.loads(resp.get_body())
+    assert data["issues"][0]["code"] == "internal_error"
 
 
 # --------------------------------------------------------------------------- #
