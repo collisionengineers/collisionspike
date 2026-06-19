@@ -171,8 +171,8 @@
       },
       "comment": "Child-flow return action (required to be callable via Run-a-Child-Flow; mirrors classify-persist's Respond_to_parent / 'Respond to a PowerApp or flow'). Echoes the instruction bytes+name the parent passed in plus a parsed flag and the parser contract_version. runAfter the gate branch on ALL outcomes (Succeeded/Skipped = ran or gate off; Failed/TimedOut absorbed by Audit_parser_failed) so the child ALWAYS returns to the parent even when the parser Function 5xxs. outputs('Call_parser') is null-safe (coalesce -> 0) when the parser branch was skipped (gate off) so parsed=false there.",
       "runAfter": {
-        "If_parser_enabled": [ "Succeeded", "Skipped" ],
-        "Audit_parser_failed": [ "Succeeded", "Skipped", "Failed", "TimedOut" ]
+        "If_parser_enabled": [ "Succeeded", "Failed", "Skipped", "TimedOut" ],
+        "Audit_parser_failed": [ "Succeeded", "Skipped" ]
       }
     }
   }
