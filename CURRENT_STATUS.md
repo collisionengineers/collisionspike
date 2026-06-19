@@ -17,10 +17,14 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
   `claimant_telephone` (`07700900123`) + `claimant_email` extracted from document text. (B2 → **Done**.)
 - **Address-match Function DEPLOYED** (`cespkaddr-fn-i7m4re`, FC1, `POST /api/match-address`). Live-verified:
   part-postcode `M1` → district match over candidate sites, postcode.io reachable. (ROADMAP 4a → deployed.)
-- **OCR host DEPLOYED** on **Azure Container Apps** (scale-to-zero, `minReplicas=0`). Image `ce-ocr:latest`
-  in new ACR `cespkocracraeee76`, **built via local WSL docker** because this subscription **blocks ACR
-  Tasks** (`TasksOperationsNotAllowed`) and there is no local Docker Desktop. Two bicep fixes were needed
-  (`DOCKER_REGISTRY_SERVER_URL` required, and as a **bare hostname** not `https://…`). (ROADMAP 5a / B-full → deployed.)
+- **OCR host — image BUILT + PUSHED, ACA host deploy PENDING (not live).** Image `ce-ocr:latest` is in
+  new ACR `cespkocracraeee76`, **built via local WSL-root docker** (the subscription **blocks ACR Tasks**
+  / `TasksOperationsNotAllowed`, and there is no local Docker Desktop — both worked around). The ACA host
+  deploy needed two bicep fixes (`DOCKER_REGISTRY_SERVER_URL` required, as a **bare hostname**) but then
+  **failed 3× with `Failed to provision revision … Operation expired`** (~20 min each); the platform rolled
+  the site back. Adapters lazy-import the heavy libs, so it is not a startup crash — likely the AcrPull
+  RBAC-propagation race or an ingress health-probe mismatch. **Honest state: image ready, host not serving.**
+  Next: user-assigned-MI AcrPull or ACA revision-log diving. (ROADMAP 5a / B-full → image built; host deploy pending.)
 - **Live UI/UX pass** (Chrome DevTools, deployed app): logo renders (data-URI), **real Dataverse data**
   (2 NEW cases, no mock), dashboard KPIs + nav + manual-intake screen render, honest empty states, **no CSP
   violations / no font errors**, parser connector **consented**. One pre-existing **non-fatal** console
