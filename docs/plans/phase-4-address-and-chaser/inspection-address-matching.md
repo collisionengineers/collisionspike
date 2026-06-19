@@ -5,9 +5,9 @@
 > specifies the **remaining build** (the `matching.py` ranker + `function_app.py` HTTP handler + infra +
 > OpenAPI), how it consumes the Phase-1b corpus, and the postcode.io→Azure-Maps gating. It is the deep
 > dive behind **ROADMAP §4a "Inspection-address matching"** (the third checkbox) that
-> [phase-1-operational.md](./phase-1-operational.md) and [dataverse-corpus-incorporation.md](./dataverse-corpus-incorporation.md)
+> [phase-1-operational.md](../phase-1-intake-and-case-tracking/phase-1-operational.md) and [dataverse-corpus-incorporation.md](../phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md)
 > reference. Companion to ADR-0001 (Repairer first-class), the **`eva-sentry-api`** skill,
-> [docs/architecture/integrations.md](../docs/architecture/integrations.md), AGENTS.md. Author date
+> [docs/architecture/integrations.md](../../../docs/architecture/integrations.md), AGENTS.md. Author date
 > **2026-06-18**. Read-only research; **no code/flows/Dataverse changed by this plan**.
 
 ---
