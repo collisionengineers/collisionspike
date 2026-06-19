@@ -58,7 +58,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [x] **Parser adapter** maps legacy sibling fields → EVA keys.
 - [x] **Parser custom connector** created.
 - [x] **PyMuPDF AGPL** concern **resolved**.
-- [x] **B2 — claimant telephone / email fields** now **extracted** by the parser into the EVA fields with provenance + tests (was: arrive empty / staff fill). _(built; parser REDEPLOY pending to go live.)_
+- [x] **B2 — claimant telephone / email fields** now **extracted** by the parser into the EVA fields with provenance + tests (was: arrive empty / staff fill). _(built + **REDEPLOYED live 2026-06-19**; `/api/parse` verified extracting `claimant_telephone`/`claimant_email`, and the EVA schema is now vendored in-package so no spurious `schema_unavailable` issue.)_
 
 ### 1b. Dataverse schema in Sandbox
 
@@ -169,7 +169,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 - [x] **Address-policy gate** in the Code App — per-provider policy; no silent "Image Based Assessment".
 - [x] **Known-site reference data** modelled (`InspectionAddress` + `Repairer`); seeded by Phase 1b.
-- [x] **Address-matching service** (built; deploy pending) — `functions/addressmatch`: resolve a Case's part-postcode `Loc` (57% of cases) → the linked yard's full address (district `startswith` over the corpus) → `InspectionAddress` → EVA field 9; honours `AZURE_MAPS_ENABLED=false` → **postcode.io**. _(Azure deploy pending.)_
+- [x] **Address-matching service** — `functions/addressmatch`: resolve a Case's part-postcode `Loc` (57% of cases) → the linked yard's full address (district `startswith` over the corpus) → `InspectionAddress` → EVA field 9; honours `AZURE_MAPS_ENABLED=false` → **postcode.io**. _(**deployed live 2026-06-19** — `cespkaddr-fn-i7m4re`, `POST /api/match-address` verified: district match + postcode.io reachable.)_
 - [ ] **Azure Maps (gated)** — only if needed (later).
 
 ### 4b. Chaser automation (channel-aware — ADR-0003)
@@ -216,7 +216,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 | ID | What | State |
 |---|---|---|
 | **B1** | Gateway grant | **Obviated** ✅ — direct DVSA/DVLA. Remaining = inject creds + `DVSA_TENANT_ID` (operator). |
-| **B2** | Parser telephone/email | **Built** — claimant telephone/email now extracted with provenance + tests; parser REDEPLOY pending to go live. |
+| **B2** | Parser telephone/email | **Done** ✅ — parser REDEPLOYED 2026-06-19; `/api/parse` live-verified extracting `claimant_telephone`/`claimant_email`. |
 | **B3** | 13th EVA field | **Resolved** ✅ — contract is 12 fields. |
 | **B4** | Code Apps enablement | **Resolved** ✅ — enabled; app pushed. |
 | **B5** | EVA test creds + Box casing | **Open** 🔒 — operator. |
