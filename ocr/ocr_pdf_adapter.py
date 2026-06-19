@@ -25,7 +25,7 @@ Two engines, one switch (``OCR_PROVIDER`` -> ``provider`` here):
       Read is called SERVER-SIDE here (Function -> DI Read over HTTPS, key from a
       Key Vault reference app setting); the Code App/flows only ever see OUR
       connector (CSP-safe), never DI Read. Image Analysis 4.0 is DEPRECATED
-      (retires 2028-09-25) — DI Read is the managed survivor (plans/ocr-strategy §0).
+      (retires 2028-09-25) — DI Read is the managed survivor (docs/plans/phase-5-ocr-and-scale/ocr-strategy §0).
 
 ------------------------------------------------------------------------------
 Two output modes:

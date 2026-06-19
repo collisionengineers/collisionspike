@@ -5,7 +5,7 @@
 > [`raw/principalandrepairersheets/outputs/reports/`](../../raw/principalandrepairersheets/outputs/reports/),
 > which analysed the full EVA principal/case/location exports. Use
 > `reports/provider_corpus_recommendation.csv` (one actionable row per principal — SEED / CONSIDER /
-> ARCHIVE / EXCLUDE) as the authoritative corpus picture, and `plans/dataverse-corpus-incorporation.md`
+> ARCHIVE / EXCLUDE) as the authoritative corpus picture, and `docs/plans/phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md`
 > for how it loads into Dataverse. Key new finding: **137 active principals are not on the job sheet**,
 > so the 45 below under-represent the live provider base.
 

@@ -74,9 +74,13 @@ export {
   QUEUES,
   queueByName,
   statusToQueue,
+  statusToStage,
+  caseTypeOf,
+  CASE_TYPE_LABELS,
   REASON_LABELS,
   type QueueName,
   type QueueDef,
+  type CaseType,
   type LiveCounts,
   type Throughput,
   type AgingRow,
@@ -134,6 +138,20 @@ export {
   type ParserTransport,
   type ParserExtractionKey,
 } from './parser-client';
+
+/* ----------  Vehicle enrichment + address normalisation (gated) ---------- */
+export {
+  enrichVehicle,
+  normaliseAddress,
+  notConnectedVehicleTransport,
+  notConnectedAddressTransport,
+  type VehicleEnrichment,
+  type NormalisedAddress,
+  type EnrichStatus,
+  type EnrichResult,
+  type VehicleEnrichTransport,
+  type AddressNormaliseTransport,
+} from './enrichment-client';
 
 /* ============================================================
    2. The DataAccess selector.

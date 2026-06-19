@@ -1,12 +1,41 @@
 # CURRENT_STATUS — collisionspike
 
 _Single source of truth for "where are we now." Last updated **2026-06-19**._
-_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md)._
+_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
+
+> **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
+> [ROADMAP.md](./ROADMAP.md) is the forward phased checklist; [docs/gated.md](./docs/gated.md) is
+> everything that needs the operator; plans live under [docs/plans/](./docs/plans/).
 
 This is the Phase-1 (M1) case-intake spike on the Microsoft stack (Power Apps **Code App** +
 Dataverse + Power Automate + Azure Functions). Built **offline**; live activation of anything that
 touches the shared inboxes / SharePoint / Box / EVA is the **operator's** step (see the boundary in
 DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows real Dataverse rows only.**
+
+---
+
+## 🔔 Update — 2026-06-19 (review 190626 actioned): UI/UX review pass (branch `review/190626-ui-pass`)
+The binding manual review **`docs/reviews/190626/`** was actioned end-to-end — **all 8 tasks (~44 issues)**,
+checklist complete, **built green + 204/204 tests + pushed live (`pac code push`) + verified on the deployed
+player**. Headlines:
+- **Nav IA re-cut:** first-class expandable **Queues** group → Instructions (awaiting images) / Images only /
+  Ready for review / **Exceptions**; **Corpus→Provider settings**, **Audit→Action logs** (real page over the
+  audit seam); new **Add evidence** second intake; **Done-today** dropped as a page.
+- **Dashboard:** funnel re-cut to **New / Not ready / Review / Submitted** (Parsing/Box/Chasing/Ready folded
+  in); redundant "drainable now" row + dev copy removed; Exceptions bar added.
+- **Case view + chasers** decluttered: Export-JSON gated to ready, minimalistic Job-Sheet chasers (no
+  Mark-held / ADR caption; "Log as chased" auto-note), one no-image warning, "Imported details" panel.
+- **New case** rebuilt (17 fixes): drag-drop, automatic case-type, **split identity fields**
+  (VRM / Work provider / Principal / Case-PO / Claim No / Insured Name), **Date of Incident**, gated DVLA/DVSA
+  **"Look up vehicle"** + postcodes.io **"Normalise address"**, manual-entry path, EVA required set; no dev copy.
+- **Provider settings** (was Corpus): reference-data cards (Repairers 61 / Image sources 23 / Inspection
+  addresses 174); de-jargoned assisted-import.
+- **Broad-review:** removed the floating red `SectionHeading` hairline; documented the **EVA field model**
+  (`docs/architecture/eva-field-model.md`) + the **5 enrichment/AI status checks** — DVLA/DVSA **gated-off**
+  (make/model/mileage only, **no VAT**), OCR built-not-deployed, postcodes.io **live**, AI/Document-AI
+  **not present** (parsing is PyMuPDF). New gated `data/enrichment-client.ts`.
+- **Convention:** `docs/reviews/<DDMMYY>/` reviews are now documented as **binding** (README + CLAUDE.md +
+  AGENTS.md) — superseded only by a later review.
 
 ---
 
@@ -17,14 +46,12 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
   `claimant_telephone` (`07700900123`) + `claimant_email` extracted from document text. (B2 → **Done**.)
 - **Address-match Function DEPLOYED** (`cespkaddr-fn-i7m4re`, FC1, `POST /api/match-address`). Live-verified:
   part-postcode `M1` → district match over candidate sites, postcode.io reachable. (ROADMAP 4a → deployed.)
-- **OCR host — image BUILT + PUSHED, ACA host deploy PENDING (not live).** Image `ce-ocr:latest` is in
-  new ACR `cespkocracraeee76`, **built via local WSL-root docker** (the subscription **blocks ACR Tasks**
-  / `TasksOperationsNotAllowed`, and there is no local Docker Desktop — both worked around). The ACA host
-  deploy needed two bicep fixes (`DOCKER_REGISTRY_SERVER_URL` required, as a **bare hostname**) but then
-  **failed 3× with `Failed to provision revision … Operation expired`** (~20 min each); the platform rolled
-  the site back. Adapters lazy-import the heavy libs, so it is not a startup crash — likely the AcrPull
-  RBAC-propagation race or an ingress health-probe mismatch. **Honest state: image ready, host not serving.**
-  Next: user-assigned-MI AcrPull or ACA revision-log diving. (ROADMAP 5a / B-full → image built; host deploy pending.)
+- **OCR host — DEPLOYED 2026-06-19 (Running).** Function App `cespkocr-fn-dev-glju3v` (Functions-on-ACA,
+  scale-to-zero 0..5, HTTPS-only) pulls `ce-ocr:latest` from ACR `cespkocracraeee76`. The prior 3×
+  `Failed to provision revision … Operation expired` was the **AcrPull RBAC-propagation race** (the role
+  was created in the same deployment as the app); fixed with a **pre-granted user-assigned identity** for
+  AcrPull (separate ARM deploy) + `siteConfig.acrUserManagedIdentityID` (PR #7). Connector wiring +
+  `OCR_SCANNED_PDF_ENABLED`/`PLATE_OCR_ENABLED` flip remain. (ROADMAP 5a / B-full → deployed.)
 - **Live UI/UX pass** (Chrome DevTools, deployed app): logo renders (data-URI), **real Dataverse data**
   (2 NEW cases, no mock), dashboard KPIs + nav + manual-intake screen render, honest empty states, **no CSP
   violations / no font errors**, parser connector **consented**. One pre-existing **non-fatal** console
@@ -68,7 +95,7 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
   `startswith`; postcode.io); **OCR host** (`ocr/`, ROADMAP 5a, **no longer deferred** — scanned/image-PDF
   fallback, Dockerfile + Azure Container Apps Bicep + plate/pdf adapters); parser **B2** (claimant
   telephone/email now extracted with provenance + tests); plans authored for every remaining phase
-  (3c/4a/5a/5b/5c) + `plans/README.md`; IaC hardened (workspace-based App Insights, storage
+  (3c/4a/5a/5b/5c) + `docs/plans/README.md`; IaC hardened (workspace-based App Insights, storage
   `allowSharedKeyAccess:false`, right-sized memory).
 - **Known follow-ups (still pending):** Azure deploys for `evasentry`, `addressmatch`, `ocr` (ACA:
   build+push image then deploy Bicep), and the **parser Function REDEPLOY** (also fixes
@@ -148,8 +175,8 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 - **Corpus incorporated into live Dataverse** — `dataverse/.build/10–14` (+`_corpus-common.ps1`) loaded the
   confirmed analysis: WorkProvider 45→**392** (176 active / 216 archived-dormant), Repairer 38→**61**,
   ImageSource 4→**23** (shared yards), **174** `InspectionAddress` known-sites, **98** N:N links. §9 verify
-  passed; idempotent re-run = no-op. Plans: `plans/dataverse-corpus-incorporation.md` (confirmed) +
-  `plans/clarifying-info-ingestion.md` (the operator-confirmed second phase).
+  passed; idempotent re-run = no-op. Plans: `docs/plans/phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md` (confirmed) +
+  `docs/plans/phase-1-intake-and-case-tracking/corpus/clarifying-info-ingestion.md` (the operator-confirmed second phase).
 - **Research** — `docs/research/` (00 strategy + 01 Power-Platform + 02 Azure/AI + 03 domain + index):
   next moves = activate intake (operator) ∥ corpus incorporation (done) → **address-matching + fast-confirm**;
   explicit anti-features (no EVA REST / image-AI / AI Search / mock data yet).
@@ -159,6 +186,9 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 - **Email-population diagnosis** (above) — no code change; documented activation path.
 
 ## 🟡 Decisions needed (surfaced 2026-06-18)
+
+> Tracked in the operator registry **[docs/gated.md](./docs/gated.md)** — H10 (sender domains) and
+> S10 (over-length principal codes; the column was already widened 8→12, so loading works now).
 
 1. **Email auto-matching needs sender domains.** Provider matching is by **sender email domain only**
    (`WorkProvider.knownemaildomains`). The data analysis carried **no domains**, so only the ~16
@@ -172,6 +202,8 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 
 ## Blockers (DEPLOY-RUNBOOK §0)
 
+> Full hard/soft operator registry: **[docs/gated.md](./docs/gated.md)**. M1 snapshot below.
+
 | ID | State |
 |---|---|
 | B1 gateway grant | **Obviated** — gateway removed, direct DVSA/DVLA |
@@ -184,4 +216,4 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 - **Operational charter / rules:** [AGENTS.md](./AGENTS.md) · **Live ID/resource/flow registry:** [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)
 - Analysis: `raw/principalandrepairersheets/outputs/reports/`
 - Architecture: `docs/architecture/` · ADRs: `docs/adr/` (corpus model = ADR-0011)
-- Plans: `plans/` · Roadmap: `ROADMAP.md` · Deploy: `DEPLOY-RUNBOOK.md`
+- Plans: `docs/plans/` · Roadmap: `ROADMAP.md` · Deploy: `DEPLOY-RUNBOOK.md`

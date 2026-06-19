@@ -9,14 +9,19 @@ import {
   mergeClasses,
 } from '@fluentui/react-components';
 import {
+  Camera,
+  Images,
+  ClipboardCheck,
   AlertTriangle,
-  Loader,
-  CheckCircle2,
-  CheckCheck,
+  ListChecks,
+  ChevronDown,
+  ChevronRight,
   Building2,
   ScrollText,
   FilePlus2,
+  Paperclip,
   LayoutDashboard,
+  Menu,
   type LucideIcon,
 } from 'lucide-react';
 import { QUEUES, data, type QueueName } from '../data';
@@ -24,28 +29,31 @@ import { QUEUES, data, type QueueName } from '../data';
 // assets on upload (valid PNG → ~75% larger, undecodable) and Vite `?inline` is overridden
 // by the power-apps plugin, so we embed the logos as TEXT. CSP `img-src 'self' data:`
 // permits data URIs. (Fonts can't use this — CSP is `font-src 'self'`.)
-// Regenerate: `node scripts/gen-logo-data-uris.mjs`. See plans/logo-fix-findings.md.
-import { logoWhite, logoMark } from '../assets/logos.generated';
+// Regenerate: `node scripts/gen-logo-data-uris.mjs`. See docs/plans/phase-1-intake-and-case-tracking/code-app/logo-fix-findings.md.
+import { logoMark } from '../assets/logos.generated';
 import { AppErrorBoundary } from './AppErrorBoundary';
 
-/* Two-part app chrome:
-   - charcoal (#2c2a27) left rail: white reverse logo (web_logo_white.png),
-     the 4-queue nav IA with INLINE right-aligned counts. The actionable
-     "Needs action" count is the only red pill; the others are muted/charcoal.
-     Active item = WHITE label + 3px red left accent bar + slightly darker fill.
-     Collapses to icons under the burger.
-   - brand top bar: full-colour logo, "Case Intake" title, SearchBox, avatar.
+/* Two-part app chrome (review 190626 nav-bar + R2 logo/colour):
+   - charcoal (#2c2a27) left rail with a clean WHITE brand header carrying the
+     single full-colour CE logo (the red gear + wordmark). This is the signature
+     element; everything around it stays quiet. The earlier red header band put
+     red + black + white in conflict — resolved by giving the logo its natural
+     white space, so red lives only in the logo + the eyebrows/active accents.
+     The top bar carries a neutral menu burger + the page title only.
+   - Nav IA: Overview (Dashboard) · Intake (New case, Add evidence) · a first-
+     class expandable "Queues" group (the four natural queues) · Admin (Provider
+     Settings, Action Logs). "Done (today)" is no longer a queue page.
    <Outlet/> renders the active route. */
 
-const RAIL_W = 232;
+const RAIL_W = 240;
 const RAIL_W_COLLAPSED = 60;
 const TOPBAR_H = 56;
 
 const QUEUE_ICONS: Record<QueueName, LucideIcon> = {
-  'needs-action': AlertTriangle,
-  'in-progress': Loader,
-  ready: CheckCircle2,
-  done: CheckCheck,
+  'awaiting-images': Camera,
+  'images-only': Images,
+  'ready-review': ClipboardCheck,
+  exceptions: AlertTriangle,
 };
 
 const useStyles = makeStyles({
@@ -62,18 +70,29 @@ const useStyles = makeStyles({
   },
   railCollapsed: { width: `${RAIL_W_COLLAPSED}px` },
 
+  // White brand header — the full-colour CE logo (the signature) on clean white,
+  // atop the charcoal rail. Red stays in the logo + accents, never a band.
   railLogo: {
     height: `${TOPBAR_H}px`,
     display: 'flex',
     alignItems: 'center',
     padding: `0 ${tokens.spacingHorizontalL}`,
-    borderBottom: '1px solid rgba(255,255,255,0.10)',
+    backgroundColor: '#ffffff',
+    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
     flexShrink: 0,
   },
-  railLogoImg: { height: '26px', width: 'auto', display: 'block' },
+  railLogoImg: { height: '30px', width: 'auto', maxWidth: '100%', display: 'block' },
   railLogoImgCollapsed: { height: '22px' },
 
-  navList: { display: 'flex', flexDirection: 'column', padding: `${tokens.spacingVerticalM} 0`, gap: '2px', flex: 1 },
+  navList: {
+    display: 'flex',
+    flexDirection: 'column',
+    padding: `${tokens.spacingVerticalM} 0`,
+    gap: '2px',
+    flex: 1,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+  },
   navSectionLabel: {
     fontFamily: "'Futura PT', sans-serif",
     fontSize: '10px',
@@ -88,7 +107,8 @@ const useStyles = makeStyles({
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
-    padding: `${tokens.spacingVerticalSNudge} ${tokens.spacingHorizontalL}`,
+    // extra right padding so the count pill never clips the rail edge (Area 3).
+    padding: `${tokens.spacingVerticalSNudge} ${tokens.spacingHorizontalM} ${tokens.spacingVerticalSNudge} ${tokens.spacingHorizontalL}`,
     color: 'rgba(255,255,255,0.78)',
     textDecoration: 'none',
     fontSize: tokens.fontSizeBase300,
@@ -98,12 +118,16 @@ const useStyles = makeStyles({
     width: '100%',
     textAlign: 'left',
     ':hover': { backgroundColor: 'rgba(255,255,255,0.06)', color: '#fff' },
-    // CE focus ring (3px red halo) for keyboard nav.
     ':focus-visible': {
       outline: 'none',
       boxShadow: '0 0 0 3px rgba(219,8,22,0.55)',
       zIndex: 1,
     },
+  },
+  // queue sub-items sit indented under the "Queues" parent.
+  navSubItem: {
+    paddingLeft: tokens.spacingHorizontalXXL,
+    fontSize: tokens.fontSizeBase200,
   },
   navItemActive: {
     color: '#fff',
@@ -120,23 +144,6 @@ const useStyles = makeStyles({
       borderRadius: '0 2px 2px 0',
     },
   },
-  navItemDisabled: {
-    color: 'rgba(255,255,255,0.32)',
-    cursor: 'default',
-    ':hover': { backgroundColor: 'transparent', color: 'rgba(255,255,255,0.32)' },
-  },
-  navTag: {
-    flexShrink: 0,
-    fontFamily: "'Futura PT', sans-serif",
-    fontSize: '9px',
-    letterSpacing: '0.1em',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.4)',
-    border: '1px solid rgba(255,255,255,0.18)',
-    borderRadius: '3px',
-    padding: '1px 5px',
-    lineHeight: 1.4,
-  },
   navIcon: { flexShrink: 0, display: 'inline-flex' },
   navLabel: {
     flex: 1,
@@ -145,6 +152,8 @@ const useStyles = makeStyles({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
+  chevron: { flexShrink: 0, display: 'inline-flex', color: 'rgba(255,255,255,0.55)' },
+
   // shared count pill — inline, right-aligned, vertically centred in the row.
   countPill: {
     flexShrink: 0,
@@ -160,12 +169,11 @@ const useStyles = makeStyles({
     justifyContent: 'center',
     fontVariantNumeric: 'tabular-nums',
   },
-  // muted (charcoal) count pill for non-actionable queues.
   countMuted: {
     backgroundColor: 'rgba(255,255,255,0.14)',
     color: 'rgba(255,255,255,0.82)',
   },
-  // the ONLY red pill — needs-action. #8f1422 fill so white text passes AA.
+  // the red pill — the human-action queues. #8f1422 fill so white text passes AA.
   countBlocker: {
     backgroundColor: '#8f1422',
     color: '#fff',
@@ -183,7 +191,6 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalL,
     padding: `0 ${tokens.spacingHorizontalXL}`,
   },
-  topLogo: { height: '24px', width: 'auto', display: 'block' },
   burger: {
     border: 0,
     background: 'none',
@@ -220,8 +227,14 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
-  // Rail badge counts come through the data seam (async). Re-fetched on route
-  // change so the pill reflects the latest queue depth.
+  // The "Queues" group expands to its four sub-queues; auto-open on a queue route.
+  const onQueueRoute = location.pathname.startsWith('/queue/');
+  const [queuesOpen, setQueuesOpen] = useState(true);
+  useEffect(() => {
+    if (onQueueRoute) setQueuesOpen(true);
+  }, [onQueueRoute]);
+
+  // Rail badge counts come through the data seam (async).
   const [counts, setCounts] = useState<Record<QueueName, number> | undefined>();
   useEffect(() => {
     let cancelled = false;
@@ -233,7 +246,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
     };
   }, []);
 
-  const renderQueue = (segment: QueueName, label: string, isBlocker: boolean) => {
+  const renderQueue = (segment: QueueName, label: string, isBlocker: boolean, sub: boolean) => {
     const Icon = QUEUE_ICONS[segment];
     const count = counts?.[segment] ?? 0;
     const badge =
@@ -252,7 +265,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
       <NavLink
         to={`/queue/${segment}`}
         className={({ isActive }) =>
-          mergeClasses(styles.navItem, isActive && styles.navItemActive)
+          mergeClasses(styles.navItem, sub && !collapsed && styles.navSubItem, isActive && styles.navItemActive)
         }
       >
         <span className={styles.navIcon}>
@@ -271,9 +284,9 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
     );
   };
 
-  /* A real nav entry (Dashboard, Intake, the corpus surface). `end` makes the
+  /* A real nav entry (Dashboard, intake, the admin surfaces). `end` makes the
      match exact — required for "/" so it isn't active on every route. */
-  const renderAdmin = (to: string, label: string, Icon: LucideIcon, end = false) => {
+  const renderLink = (to: string, label: string, Icon: LucideIcon, end = false) => {
     const inner = (
       <NavLink
         to={to}
@@ -295,27 +308,31 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
     );
   };
 
-  /* Audit — honest read-only stub (not built yet); disabled, never navigates. */
-  const renderAudit = () => {
-    const inner = (
-      <span
-        className={mergeClasses(styles.navItem, styles.navItemDisabled)}
-        aria-disabled="true"
-        title="Audit log — not built yet"
-      >
-        <span className={styles.navIcon}>
-          <ScrollText size={18} />
-        </span>
-        {!collapsed && <span className={styles.navLabel}>Audit</span>}
-        {!collapsed && <span className={styles.navTag}>Soon</span>}
-      </span>
-    );
-    return collapsed ? (
-      <Tooltip key="audit" content="Audit log (not built yet)" relationship="label" positioning="after">
-        {inner}
-      </Tooltip>
-    ) : (
-      <div key="audit">{inner}</div>
+  /* First-class "Queues" group: a button that toggles the four sub-queues
+     (review nav-bar #6). Highlights when any queue route is active. */
+  const renderQueuesGroup = () => {
+    if (collapsed) {
+      // No room to expand — show the four queue icons directly with tooltips.
+      return <>{QUEUES.map((q) => renderQueue(q.name, q.label, q.tone === 'blocker', false))}</>;
+    }
+    return (
+      <>
+        <button
+          type="button"
+          className={mergeClasses('ce-focusable', styles.navItem, onQueueRoute && styles.navItemActive)}
+          aria-expanded={queuesOpen}
+          onClick={() => setQueuesOpen((v) => !v)}
+        >
+          <span className={styles.navIcon}>
+            <ListChecks size={18} />
+          </span>
+          <span className={styles.navLabel}>Queues</span>
+          <span className={styles.chevron}>
+            {queuesOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </span>
+        </button>
+        {queuesOpen && QUEUES.map((q) => renderQueue(q.name, q.label, q.tone === 'blocker', true))}
+      </>
     );
   };
 
@@ -324,7 +341,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
       <nav className={mergeClasses(styles.rail, collapsed && styles.railCollapsed)} aria-label="Primary">
         <Link to="/" className={mergeClasses('ce-focusable', styles.railLogo)} aria-label="Collision Engineers — home">
           <img
-            src={logoWhite}
+            src={logoMark}
             alt="Collision Engineers"
             className={mergeClasses(styles.railLogoImg, collapsed && styles.railLogoImgCollapsed)}
           />
@@ -332,17 +349,18 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
 
         <div className={styles.navList}>
           {!collapsed && <div className={styles.navSectionLabel}>Overview</div>}
-          {renderAdmin('/', 'Dashboard', LayoutDashboard, true)}
+          {renderLink('/', 'Dashboard', LayoutDashboard, true)}
 
           {!collapsed && <div className={styles.navSectionLabel}>Intake</div>}
-          {renderAdmin('/intake', 'New case', FilePlus2)}
+          {renderLink('/intake', 'New case', FilePlus2)}
+          {renderLink('/evidence', 'Add evidence', Paperclip)}
 
           {!collapsed && <div className={styles.navSectionLabel}>Queues</div>}
-          {QUEUES.map((q) => renderQueue(q.name, q.label, q.tone === 'blocker'))}
+          {renderQueuesGroup()}
 
           {!collapsed && <div className={styles.navSectionLabel}>Admin</div>}
-          {renderAdmin('/admin', 'Corpus', Building2)}
-          {renderAudit()}
+          {renderLink('/admin', 'Provider settings', Building2)}
+          {renderLink('/logs', 'Action logs', ScrollText)}
         </div>
       </nav>
 
@@ -354,7 +372,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
             aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
             aria-expanded={!collapsed}
           >
-            <img src={logoMark} alt="" className={styles.topLogo} />
+            <Menu size={20} aria-hidden />
           </button>
           <span className={styles.title}>Case Intake</span>
           <div className={styles.spacer} />

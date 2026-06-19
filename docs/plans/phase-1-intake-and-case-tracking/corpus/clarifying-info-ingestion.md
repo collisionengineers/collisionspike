@@ -1,6 +1,6 @@
 # Clarifying-Info Ingestion Plan (Phase 1b)
 
-_How the clarifying information the operator is about to gather flows into Dataverse, once provided. Companion to [CURRENT_STATUS.md](../CURRENT_STATUS.md), [ADR-0011](../docs/adr/0011-work-provider-intermediary-garage-roles.md), and the corpus seed (`WorkProvider` 45 / `Repairer` 38 / `ImageSource` 4, already live in Sandbox `Collision Engineers - Dev`). Last updated 2026-06-18._
+_How the clarifying information the operator is about to gather flows into Dataverse, once provided. Companion to [CURRENT_STATUS.md](../../../../CURRENT_STATUS.md), [ADR-0011](../../../../docs/adr/0011-work-provider-intermediary-garage-roles.md), and the corpus seed (`WorkProvider` 45 / `Repairer` 38 / `ImageSource` 4, already live in Sandbox `Collision Engineers - Dev`). Last updated 2026-06-18._
 
 ## Purpose & scope
 

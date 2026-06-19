@@ -44,21 +44,20 @@ import {
   queueByName,
   data,
   useQueueQuery,
-  useProviders,
   type ActionReason,
   type Case,
   type CaseStatus,
-  type Provider,
   type QueueName,
   type ReasonFacet,
 } from '../data';
 
-/* Case list at /queue/:name (new 4-queue IA).
-   - TabList across Needs action / In progress / Ready for EVA / Done (today).
-   - On Needs action: reason facet chips (Missing images · Missing instructions ·
-     Duplicate · Conflict) from reasonCounts(), toggling to filter the grid.
-   - Toolbar: SearchBox (VRM / Case-PO / claimant) + Provider / Status / Channel /
-     Age dropdowns, all filtering the mock cases client-side.
+/* Case list at /queue/:name (review 190626 queue IA).
+   - TabList across Instructions (awaiting images) / Images only / Ready for review /
+     Exceptions — the case's natural state (review nav-bar #4 + queues #3).
+   - Reason facet chips (Missing images · Duplicate · Conflict …) from reasonCounts()
+     on the review queue, toggling to filter the grid.
+   - Toolbar: SearchBox (VRM / Case-PO / claimant) + Provider (only providers WITH a
+     case in this queue) / Status (only where statuses vary) / Channel / Age.
    - Fluent v9 declarative DataGrid with FIXED column sizing so Outstanding (verb-led,
      ellipsised + tooltip) and the icon-only Channel column never collide.
    - Row click → /case/:id. duplicate_risk rows keep the ⚠ + tinted background. */
@@ -175,21 +174,6 @@ const useStyles = makeStyles({
   },
 });
 
-/* Distinct statuses that can appear in any queue, for the Status filter. */
-const ALL_STATUSES: CaseStatus[] = [
-  'new_email',
-  'ingested',
-  'needs_review',
-  'missing_required_fields',
-  'missing_images',
-  'duplicate_risk',
-  'linked_to_instruction',
-  'ready_for_eva',
-  'eva_submitted',
-  'box_synced',
-  'error',
-];
-
 const STATUS_LABELS: Record<CaseStatus, string> = {
   new_email: 'New email',
   ingested: 'Ingested',
@@ -200,7 +184,7 @@ const STATUS_LABELS: Record<CaseStatus, string> = {
   linked_to_instruction: 'Linked to instruction',
   ready_for_eva: 'Ready for EVA',
   eva_submitted: 'EVA submitted',
-  box_synced: 'Box synced',
+  box_synced: 'Archived',
   error: 'Error',
 };
 
@@ -217,10 +201,10 @@ const ANY = '__any__';
 
 /* Per-tab empty-state guidance (no filters applied). */
 const EMPTY_HINT: Record<QueueName, string> = {
-  'needs-action': 'Nothing is waiting on a person right now — every case is moving on its own.',
-  'in-progress': 'Nothing is being parsed or linked right now. New email arrivals land here first.',
-  ready: 'No cases are cleared for EVA yet. They appear here once review and chasing are done.',
-  done: 'Nothing has been submitted to EVA today. This list is windowed to today only.',
+  'awaiting-images': 'No cases are waiting on images — instructions are in and photos are chased here.',
+  'images-only': 'No image-only cases — photos that arrive without instructions wait here for the paperwork.',
+  'ready-review': 'Nothing is waiting for review — cases land here once they hold enough to submit.',
+  exceptions: 'No exceptions — every case has the basics it needs (VRM + claimant) to be worked.',
 };
 
 function ageInBucket(ageDays: number, bucket: AgeBucket): boolean {
@@ -243,9 +227,13 @@ export function CaseList() {
   const navigate = useNavigate();
   const { name } = useParams<{ name: string }>();
 
-  const activeName: QueueName = (queueByName(name ?? '')?.name ?? 'needs-action') as QueueName;
+  const activeName: QueueName = (queueByName(name ?? '')?.name ?? 'ready-review') as QueueName;
   const queue = queueByName(activeName);
-  const isNeedsAction = activeName === 'needs-action';
+  // Reason facet chips help most on the review queue, where reasons vary.
+  const showFacets = activeName === 'ready-review';
+  // Status filter only where the queue spans multiple statuses (queues #1):
+  // single-status queues (awaiting images / images only / exceptions) don't need it.
+  const showStatusFilter = (queue?.statuses.length ?? 0) > 1;
 
   const [search, setSearch] = useState('');
   const [providerFilter, setProviderFilter] = useState<string>(ANY);
@@ -258,9 +246,17 @@ export function CaseList() {
   const queueQuery = useQueueQuery(activeName);
   const queueCases = useMemo(() => queueQuery.data ?? [], [queueQuery.data]);
 
-  // The provider corpus (for the Provider filter labels) — seam hook.
-  const providersQuery = useProviders();
-  const providers: Provider[] = useMemo(() => providersQuery.data ?? [], [providersQuery.data]);
+  // Provider filter options = providers WITH a case in THIS queue (queues #1),
+  // derived from the loaded rows — not the whole corpus.
+  const providerOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of queueCases) {
+      if (c.providerCode) m.set(c.providerCode, c.provider || c.providerCode);
+    }
+    return [...m.entries()]
+      .map(([code, label]) => ({ code, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [queueCases]);
 
   // Per-tab counts for the TabList badges (one aggregate fetch via the seam).
   const [queueTabCounts, setQueueTabCounts] = useState<Record<QueueName, number> | undefined>();
@@ -278,9 +274,17 @@ export function CaseList() {
     // Re-fetch the badge counts when the active queue changes (cases may move).
   }, [activeName]);
 
+  // Reset the queue-derived provider filter on ANY queue change — tab click OR a
+  // URL/dashboard-strip navigation (which doesn't fire onTabSelect). The provider
+  // options come from the active queue's rows, so a code selected on the previous
+  // queue won't exist here and would silently filter the grid to zero (queues #6).
+  useEffect(() => {
+    setProviderFilter(ANY);
+  }, [activeName]);
+
   useEffect(() => {
     let cancelled = false;
-    if (!isNeedsAction) {
+    if (!showFacets) {
       setFacets([]);
       return;
     }
@@ -290,12 +294,12 @@ export function CaseList() {
     return () => {
       cancelled = true;
     };
-  }, [isNeedsAction, activeName]);
+  }, [showFacets, activeName]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return queueCases.filter((c) => {
-      if (isNeedsAction && reasonFilter && c.actionReason !== reasonFilter) return false;
+      if (showFacets && reasonFilter && c.actionReason !== reasonFilter) return false;
       if (q) {
         const hay = [
           c.vrm,
@@ -323,11 +327,12 @@ export function CaseList() {
     channelFilter,
     ageFilter,
     reasonFilter,
-    isNeedsAction,
+    showFacets,
   ]);
 
   const onTabSelect = (_e: SelectTabEvent, data: SelectTabData) => {
     setReasonFilter(null);
+    setStatusFilter(ANY);
     navigate(`/queue/${data.value as QueueName}`);
   };
 
@@ -467,7 +472,11 @@ export function CaseList() {
       <SectionHeading
         eyebrow="Queue"
         heading={queue?.label ?? 'Cases'}
-        subtitle="Click a case to open its review workspace."
+        subtitle={
+          activeName === 'awaiting-images' || activeName === 'images-only'
+            ? 'Needs action = a chase is due (weekly cadence) or the case is past due.'
+            : 'Click a case to open its review workspace.'
+        }
       />
 
       <TabList
@@ -484,7 +493,7 @@ export function CaseList() {
         ))}
       </TabList>
 
-      {isNeedsAction && facets.length > 0 && (
+      {showFacets && facets.length > 0 && (
         <div className={styles.facets} role="group" aria-label="Filter by reason">
           <span className={styles.facetLabel}>Reason</span>
           {facets.map((f) => {
@@ -533,7 +542,7 @@ export function CaseList() {
             value={
               providerFilter === ANY
                 ? 'All providers'
-                : providers.find((p) => p.principalCode === providerFilter)?.displayName ?? providerFilter
+                : providerOptions.find((p) => p.code === providerFilter)?.label ?? providerFilter
             }
             selectedOptions={[providerFilter]}
             onOptionSelect={(_e, data) => setProviderFilter(data.optionValue ?? ANY)}
@@ -541,37 +550,39 @@ export function CaseList() {
             <Option value={ANY} text="All providers">
               All providers
             </Option>
-            {providers.map((p) => (
-              <Option key={p.principalCode} value={p.principalCode} text={p.displayName}>
-                {p.displayName} ({p.principalCode})
+            {providerOptions.map((p) => (
+              <Option key={p.code} value={p.code} text={p.label}>
+                {p.label} ({p.code})
               </Option>
             ))}
           </Dropdown>
         </div>
 
-        <div className={styles.filter}>
-          <span className={styles.filterLabel} id="filter-status">
-            Status
-          </span>
-          <Dropdown
-            className={styles.filterControl}
-            aria-labelledby="filter-status"
-            value={statusFilter === ANY ? 'All statuses' : STATUS_LABELS[statusFilter]}
-            selectedOptions={[statusFilter]}
-            onOptionSelect={(_e, data) =>
-              setStatusFilter((data.optionValue as CaseStatus | typeof ANY) ?? ANY)
-            }
-          >
-            <Option value={ANY} text="All statuses">
-              All statuses
-            </Option>
-            {ALL_STATUSES.map((s) => (
-              <Option key={s} value={s} text={STATUS_LABELS[s]}>
-                {STATUS_LABELS[s]}
+        {showStatusFilter && (
+          <div className={styles.filter}>
+            <span className={styles.filterLabel} id="filter-status">
+              Status
+            </span>
+            <Dropdown
+              className={styles.filterControl}
+              aria-labelledby="filter-status"
+              value={statusFilter === ANY ? 'All statuses' : STATUS_LABELS[statusFilter]}
+              selectedOptions={[statusFilter]}
+              onOptionSelect={(_e, data) =>
+                setStatusFilter((data.optionValue as CaseStatus | typeof ANY) ?? ANY)
+              }
+            >
+              <Option value={ANY} text="All statuses">
+                All statuses
               </Option>
-            ))}
-          </Dropdown>
-        </div>
+              {(queue?.statuses ?? []).map((s) => (
+                <Option key={s} value={s} text={STATUS_LABELS[s]}>
+                  {STATUS_LABELS[s]}
+                </Option>
+              ))}
+            </Dropdown>
+          </div>
+        )}
 
         <div className={styles.filter}>
           <span className={styles.filterLabel} id="filter-channel">

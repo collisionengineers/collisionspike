@@ -5,9 +5,9 @@
 > — the two model checkboxes (AI Builder overview-vs-`damage_closeup`; Foundry vision person/reflection),
 > the image-ordering UI, and the WhatsApp media bulk-import (ADR-0007). Pairs with
 > [plans/ocr-strategy.md](./ocr-strategy.md) (the **M1** plate-OCR half — owns `registrationVisible`),
-> [phase-2-implementation.md](./phase-2-implementation.md) §9 (M2.E), ADR-0009, ADR-0007.
+> [m2-umbrella-enrichment-to-scale.md](../m2-umbrella-enrichment-to-scale.md) §9 (M2.E), ADR-0009, ADR-0007.
 > Author date **2026-06-18**. Facts cited inline; verified-live facts from GROUND TRUTH +
-> [live-environment.md](../docs/architecture/live-environment.md).
+> [live-environment.md](../../../docs/architecture/live-environment.md).
 
 ---
 

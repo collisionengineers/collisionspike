@@ -9,7 +9,7 @@ Authoring patterns for the M1 intake pipeline: **email in a shared inbox → par
 case-resolve → status → enrich → EVA + Box finalize → chase**. Every pattern is a real, copy-pasteable
 Power Automate / Logic Apps **`definition`** fragment (`triggers`/`actions`, `@`-expressions, `runAfter`,
 `Foreach`, `If`, `Switch`, `Scope`). Ground truth is the Phase-1 plan
-`plans/phase-1-intake-and-case-tracking-implementation.md` §5 (and §7's skill spec) and
+`docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md` §5 (and §7's skill spec) and
 `docs/architecture/integrations.md`.
 
 ## When to reach for this

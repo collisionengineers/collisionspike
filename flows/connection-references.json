@@ -99,7 +99,7 @@
       "operationIds": ["ValidateCase"],
       "usedBy": [],
       "boundAtActivation": false,
-      "note": "NOT USED by the Phase-1 slice. status-evaluate.definition.json now computes readiness INLINE (image-rules + 7 required EVA fields read straight from Dataverse) because no backing validation Function was ever deployed (no functions/validation/), so the connector + this binding would have blocked ready_for_eva. Kept as a reference for the FUTURE shared-surface design (Path 1 in plans/phase-1-operational.md §3.6): build functions/evavalidation (ValidateCase -> { fieldsValid, imagesValid, openIssues[] }) so the flow + Code App computeReadiness() consume ONE implementation, then repoint status-evaluate and set usedBy=[status-evaluate]. Until then this ref needs NO connection bound (linter reports it as declared-but-unused = WARN, not FAIL)."
+      "note": "NOT USED by the Phase-1 slice. status-evaluate.definition.json now computes readiness INLINE (image-rules + 7 required EVA fields read straight from Dataverse) because no backing validation Function was ever deployed (no functions/validation/), so the connector + this binding would have blocked ready_for_eva. Kept as a reference for the FUTURE shared-surface design (Path 1 in docs/plans/phase-1-intake-and-case-tracking/phase-1-operational.md §3.6): build functions/evavalidation (ValidateCase -> { fieldsValid, imagesValid, openIssues[] }) so the flow + Code App computeReadiness() consume ONE implementation, then repoint status-evaluate and set usedBy=[status-evaluate]. Until then this ref needs NO connection bound (linter reports it as declared-but-unused = WARN, not FAIL)."
     },
     {
       "connectionName": "shared_evasentry",

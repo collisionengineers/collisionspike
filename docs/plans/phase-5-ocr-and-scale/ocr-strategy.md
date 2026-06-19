@@ -3,9 +3,9 @@
 > **Status:** planning / decision document. Read-only research (Microsoft Learn MCP + web). No code,
 > infra, flows, or Dataverse changed. Pairs with task **#9 "B-full: OCR for scanned PDFs via Azure
 > Container Apps (deferred)"**, ADR-0009 (image-AI phasing), ADR-0007 (WhatsApp bulk OCR-match), and
-> [docs/architecture/integrations.md](../docs/architecture/integrations.md).
+> [docs/architecture/integrations.md](../../../docs/architecture/integrations.md).
 > Author date: 2026-06-18. Verified-live facts come from GROUND TRUTH + the repo's
-> [live-environment.md](../docs/architecture/live-environment.md); external facts are cited inline.
+> [live-environment.md](../../../docs/architecture/live-environment.md); external facts are cited inline.
 
 ---
 
