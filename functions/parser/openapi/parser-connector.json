@@ -74,8 +74,7 @@
       "properties": {
         "document": {
           "type": "string",
-          "format": "byte",
-          "description": "Base64-encoded document bytes (.pdf/.docx/.doc/.eml/.msg)."
+          "description": "Base64-encoded document bytes (.pdf/.docx/.doc/.eml/.msg). Do NOT set 'format: byte' — the Power Platform gateway re-encodes byte-format params, mangling the base64 so the parser receives a corrupt document and returns 422 document_unreadable."
         },
         "filename": {
           "type": "string",
