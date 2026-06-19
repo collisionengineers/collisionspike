@@ -46,14 +46,12 @@ player**. Headlines:
   `claimant_telephone` (`07700900123`) + `claimant_email` extracted from document text. (B2 → **Done**.)
 - **Address-match Function DEPLOYED** (`cespkaddr-fn-i7m4re`, FC1, `POST /api/match-address`). Live-verified:
   part-postcode `M1` → district match over candidate sites, postcode.io reachable. (ROADMAP 4a → deployed.)
-- **OCR host — image BUILT + PUSHED, ACA host deploy PENDING (not live).** Image `ce-ocr:latest` is in
-  new ACR `cespkocracraeee76`, **built via local WSL-root docker** (the subscription **blocks ACR Tasks**
-  / `TasksOperationsNotAllowed`, and there is no local Docker Desktop — both worked around). The ACA host
-  deploy needed two bicep fixes (`DOCKER_REGISTRY_SERVER_URL` required, as a **bare hostname**) but then
-  **failed 3× with `Failed to provision revision … Operation expired`** (~20 min each); the platform rolled
-  the site back. Adapters lazy-import the heavy libs, so it is not a startup crash — likely the AcrPull
-  RBAC-propagation race or an ingress health-probe mismatch. **Honest state: image ready, host not serving.**
-  Next: user-assigned-MI AcrPull or ACA revision-log diving. (ROADMAP 5a / B-full → image built; host deploy pending.)
+- **OCR host — DEPLOYED 2026-06-19 (Running).** Function App `cespkocr-fn-dev-glju3v` (Functions-on-ACA,
+  scale-to-zero 0..5, HTTPS-only) pulls `ce-ocr:latest` from ACR `cespkocracraeee76`. The prior 3×
+  `Failed to provision revision … Operation expired` was the **AcrPull RBAC-propagation race** (the role
+  was created in the same deployment as the app); fixed with a **pre-granted user-assigned identity** for
+  AcrPull (separate ARM deploy) + `siteConfig.acrUserManagedIdentityID` (PR #7). Connector wiring +
+  `OCR_SCANNED_PDF_ENABLED`/`PLATE_OCR_ENABLED` flip remain. (ROADMAP 5a / B-full → deployed.)
 - **Live UI/UX pass** (Chrome DevTools, deployed app): logo renders (data-URI), **real Dataverse data**
   (2 NEW cases, no mock), dashboard KPIs + nav + manual-intake screen render, honest empty states, **no CSP
   violations / no font errors**, parser connector **consented**. One pre-existing **non-fatal** console

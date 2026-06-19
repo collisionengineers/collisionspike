@@ -193,7 +193,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [x] **Scope decided** — FC1 can't run Tesseract; OCR deferred to **Azure Container Apps**.
 - [x] **B-full — OCR host built** (`ocr/`, no longer deferred) — scanned/image-PDF fallback; Dockerfile + Azure Container Apps Bicep + plate/pdf adapters.
 - [x] **OCR image built + pushed to ACR** (2026-06-19) — `ce-ocr:latest` in `cespkocracraeee76` (built via **WSL-root docker**, working around the subscription's ACR-Tasks block + no local Docker). _(the hard part — the image carrying `tesseract` + `fast-alpr` is ready.)_
-- [ ] **OCR ACA host deploy** — **failed 3× (`Failed to provision revision … Operation expired`, ~20 min each)** then rolled back; bicep needed `DOCKER_REGISTRY_SERVER_URL` (bare hostname). Adapters lazy-import, so not a startup crash → likely the **AcrPull RBAC-propagation race** or an ingress health-probe mismatch. **Next:** a pre-granted **user-assigned MI** for AcrPull (2-step: identity+role first, then the site) **or** ACA revision-log diving. Failed-deploy scaffolding (env/storage/AI/LAW) **cleaned up** (ACR + image kept) per the no-idle-infra stance. See `docs/review-followups-2026-06-19.md`.
+- [x] **OCR ACA host deploy** — **DONE 2026-06-19** (PR #7). The prior 3× "provision revision expired" was the **AcrPull RBAC-propagation race** (role created in the same deployment as the app). Fix: a **pre-granted user-assigned identity** for AcrPull via a separate ARM deploy + `siteConfig.acrUserManagedIdentityID`. Function App `cespkocr-fn-dev-glju3v` (Functions-on-ACA, scale-to-zero 0..5) is **Running**. Connector wiring + `OCR_SCANNED_PDF_ENABLED`/`PLATE_OCR_ENABLED` flip remain.
 
 ### 5b. Image classification AI (ADR-0009 — M2+)
 
@@ -231,7 +231,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 | **B3** | 13th EVA field | **Resolved** ✅ — contract is 12 fields. |
 | **B4** | Code Apps enablement | **Resolved** ✅ — enabled; app pushed. |
 | **B5** | EVA test creds + Box casing | **Open** 🔒 — operator. |
-| **B-full** | OCR for scanned PDFs | **Image built + pushed** ✅ (`ce-ocr:latest` in ACR); **ACA host deploy pending** — revision provisioning expired 3× (AcrPull race / health probe), needs user-assigned-MI pull or log diving. |
+| **B-full** | OCR for scanned PDFs | **Deployed** ✅ 2026-06-19 (PR #7) — `cespkocr-fn-dev-glju3v` Running (Functions-on-ACA, scale-to-zero); the AcrPull race was fixed with a pre-granted user-assigned identity. Connector wiring + gate flip remain. |
 
 ---
 
