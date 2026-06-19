@@ -2,7 +2,13 @@
 
 _Phase-1 (M1) case-intake spike for **Collision Engineers** (UK vehicle-damage assessment) on the **Microsoft stack** — Power Apps **Code App** + Dataverse + Power Automate + Azure Functions. Last updated **2026-06-19**._
 
-_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) (single source of truth for "where are we now") · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) (deploy sequence + blockers) · ADRs in [docs/adr/](./docs/adr/)._
+_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [docs/gated.md](./docs/gated.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
+
+> **Role split.** This **ROADMAP** is the forward phased checklist (per-phase done/remaining).
+> [CURRENT_STATUS.md](./CURRENT_STATUS.md) is what is live *now*. [docs/gated.md](./docs/gated.md) is
+> everything that needs the operator (hard/soft blockers). The canonical phase taxonomy is the
+> **Phase 0–6** used here; each phase's ordered build checklist lives in
+> [docs/plans/&lt;phase&gt;/README.md](./docs/plans/README.md).
 
 > This roadmap is comprehensive: the early phases are largely **complete** because the M1 vertical slice was built offline and much of the non-inbox deploy is already executed in the dedicated Sandbox. The frontier is **live activation** (operator), **enrichment + EVA/Box**, and the **provider-corpus incorporation**.
 
@@ -214,6 +220,9 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 ---
 
 ## Blocker tracker (DEPLOY-RUNBOOK §0)
+
+> The consolidated hard/soft operator registry is **[docs/gated.md](./docs/gated.md)**. The table
+> below is the M1 deploy-blocker snapshot.
 
 | ID | What | State |
 |---|---|---|

@@ -1,7 +1,11 @@
 # CURRENT_STATUS — collisionspike
 
 _Single source of truth for "where are we now." Last updated **2026-06-19**._
-_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md)._
+_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
+
+> **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
+> [ROADMAP.md](./ROADMAP.md) is the forward phased checklist; [docs/gated.md](./docs/gated.md) is
+> everything that needs the operator; plans live under [docs/plans/](./docs/plans/).
 
 This is the Phase-1 (M1) case-intake spike on the Microsoft stack (Power Apps **Code App** +
 Dataverse + Power Automate + Azure Functions). Built **offline**; live activation of anything that
@@ -185,6 +189,9 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 
 ## 🟡 Decisions needed (surfaced 2026-06-18)
 
+> Tracked in the operator registry **[docs/gated.md](./docs/gated.md)** — H10 (sender domains) and
+> S10 (over-length principal codes; the column was already widened 8→12, so loading works now).
+
 1. **Email auto-matching needs sender domains.** Provider matching is by **sender email domain only**
    (`WorkProvider.knownemaildomains`). The data analysis carried **no domains**, so only the ~16
    prior-seeded providers have one — the other ~376 of the 392 are **blank**, so nothing will auto-match
@@ -196,6 +203,8 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
    the `cr1bd_principalcode` column, or supply canonical ≤8-char codes (it is the Box/Case-PO prefix).
 
 ## Blockers (DEPLOY-RUNBOOK §0)
+
+> Full hard/soft operator registry: **[docs/gated.md](./docs/gated.md)**. M1 snapshot below.
 
 | ID | State |
 |---|---|

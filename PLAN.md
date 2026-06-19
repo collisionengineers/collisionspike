@@ -1,5 +1,10 @@
 # Plan: `collisionspike` — fast Power Platform spike of Collision Engineers admin workflow
 
+> **Phase taxonomy:** the canonical phase numbering is **ROADMAP's Phase 0–6** ([ROADMAP.md](./ROADMAP.md));
+> what is live is in [CURRENT_STATUS.md](./CURRENT_STATUS.md) and operator-gated items in
+> [docs/gated.md](./docs/gated.md). This is the original **narrative** plan — the workstreams below keep
+> their original build order and are labelled with their canonical ROADMAP phase.
+
 ## Context
 
 Collision Engineers (a vehicle-damage assessment firm) run a manual, multi-system case-intake
@@ -146,7 +151,7 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   corpus + OCR (phone/email/postcode→Repairer) + history; **M3** EXIF/GPS + Azure Maps + vision. Spec:
   [docs/requirements/inspection-address.md](./docs/requirements/inspection-address.md).
 
-### Phase 2 — Image classification (ADR-0009)
+### Phase 5b — Image classification (ADR-0009) _(canonical ROADMAP; original sequence: "Phase 2")_
 - **AI Builder image classification** (overview vs damage_closeup) — M2; **Azure OpenAI / Foundry
   vision** for **person/reflection** detection. (Registration OCR-matching already shipped in M1;
   **Azure Custom Vision is not used** — retiring 2028.) Surface results against `image-rules` (≥2 EVA
@@ -171,7 +176,7 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
 - **Box archival — in unison with EVA submission (M1):** folder = **UPPERCASE** Case/PO (e.g.
   `TEST26001`; EVA `test26001`); upload evidence + EVA JSON in the same finalisation step.
 
-### Phase 4 (later) — Azure AI + Document AI + LLM assist
+### Phase 5b/5c (later) — Azure AI + Document AI + LLM assist _(canonical ROADMAP; original sequence: "Phase 4")_
 - Azure AI Vision: people/reflection detection + plate OCR (HTTP/custom connector, gated by
   `AZURE_VISION_ENABLED`). Azure Document Intelligence for PDF extraction. General LLM assist
   (classification/inspection-address ranking).
