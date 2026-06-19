@@ -107,6 +107,12 @@
       "comment": "Holds the get-or-create Case id once the Create action runs; passed into the downstream child chain (classify-persist -> parse -> status-evaluate).",
       "runAfter": { "Init_workProviderId": [ "Succeeded" ] }
     },
+    "Init_attachmentsForChild": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "attachmentsForChild", "type": "array", "value": "@coalesce(triggerOutputs()?['body/attachments'], json('[]'))" } ] },
+      "comment": "Attachments array passed to classify-persist: SEEDED from the trigger attachments, then the source email .eml is appended (Append to array variable — the Microsoft-documented append idiom; union dedups, concat is string-only) inside the failure-isolated Scope_capture_eml AFTER the Case is created. A failed export leaves this seed (the real attachments) intact. (FIX 4 / task #92)",
+      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+    },
     "Find_existing_by_messageId": {
       "type": "OpenApiConnection",
       "inputs": {
@@ -120,7 +126,7 @@
         }
       },
       "comment": "Exact Message-ID probe = the get-or-create idempotency guard (alternate key cr1bd_case_sourcemessageid_key). Combined with trigger concurrency=1, prevents double-create on Graph retries. Message-ID-scoped read (documented linter exception, not a dedup-by-VRM query).",
-      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+      "runAfter": { "Init_attachmentsForChild": [ "Succeeded" ] }
     },
     "If_already_ingested": {
       "type": "If",
@@ -293,6 +299,37 @@
             "comment": "Graceful provider gating: bind only on an unambiguous single anchored match; otherwise create unassigned. runAfter Succeeded+Failed so an unmatched/unavailable resolve still creates the Case. Both branches capture the new Case id into the caseId variable for the downstream chain.",
             "runAfter": { "Filter_exact_domain": [ "Succeeded", "Failed" ] }
           },
+          "Scope_capture_eml": {
+            "type": "Scope",
+            "actions": {
+              "Export_source_email": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_office365", "operationId": "ExportEmail_V2",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365" },
+                  "parameters": { "messageId": "@triggerOutputs()?['body/id']" }
+                },
+                "comment": "Export email (V2) (operationId ExportEmail_V2; the non-V2 ExportEmail is DEPRECATED). messageId = the Graph message id from the V3 trigger (body/id, NOT internetMessageId — CONFIRM the trigger field on apply). Returns the message as binary EML (response: binary, per Learn office365 connector ref). Captured here because OnNewEmailV3 does not surface the source .eml in body/attachments (item attachments unsupported; EML must be zipped to appear).",
+                "runAfter": {}
+              },
+              "Append_eml_to_attachments": {
+                "type": "AppendToArrayVariable",
+                "inputs": {
+                  "name": "attachmentsForChild",
+                  "value": {
+                    "name": "source.eml",
+                    "contentType": "message/rfc822",
+                    "contentBytes": "@base64(body('Export_source_email'))",
+                    "size": "@length(base64(body('Export_source_email')))"
+                  }
+                },
+                "comment": "Append one .eml object matching the trigger-attachment shape (name/contentType/contentBytes(base64)/size). contentBytes = base64(binary export) so classify-persist's base64ToBinary(contentBytes) round-trips to the raw EML bytes in Blob; Compose_kind maps '.eml' -> kind email=100000003 (defined in evidence-kind.json). GATED: operator must confirm ExportEmail_V2's real output is raw binary (not already a base64 string) before trusting base64(...); if already base64, drop the base64() wrapper. See the gated runbook.",
+                "runAfter": { "Export_source_email": [ "Succeeded" ] }
+              }
+            },
+            "comment": "Failure-isolated .eml capture (FIX 4). If ExportEmail_V2 fails/timeouts the Scope fails but attachmentsForChild keeps its trigger-seeded value (the real attachments), so intake/classify continue intact. Run_classify_persist runs after this Scope on ALL outcomes.",
+            "runAfter": { "If_one_provider": [ "Succeeded" ] }
+          },
           "Run_classify_persist": {
             "type": "Workflow",
             "inputs": {
@@ -302,11 +339,11 @@
                 "caseId": "@variables('caseId')",
                 "subject": "@coalesce(triggerOutputs()?['body/subject'], '')",
                 "from": "@coalesce(triggerOutputs()?['body/from'], '')",
-                "attachments": "@coalesce(triggerOutputs()?['body/attachments'], json('[]'))"
+                "attachments": "@variables('attachmentsForChild')"
               }
             },
-            "comment": "STEP 1 of the chain. Run-a-Child-Flow (built-in Workflow action) -> classify-persist. CRITICAL FIX (task plan §3.3): passes the email ATTACHMENTS (body/attachments[*].contentBytes, available because the trigger has includeAttachments=true) plus subject/from so the child actually creates Evidence rows + blobs (the old contract only passed {messageId,caseId}, so the child's Apply-to-each iterated an empty array -> 0 Evidence). Returns { payloadHash, instructionBytesB64, instructionName, imageCount }. host.workflowReferenceName is a PLACEHOLDER rebind in the designer to the imported child's GUID (see top comment).",
-            "runAfter": { "If_one_provider": [ "Succeeded" ] }
+            "comment": "STEP 1 of the chain. Run-a-Child-Flow (built-in Workflow action) -> classify-persist. Passes attachmentsForChild = trigger attachments PLUS the appended source.eml (FIX 4 / task #92), seeded from body/attachments[*].contentBytes (base64, includeAttachments=true) so the child creates Evidence rows + blobs. Returns { payloadHash, instructionBytesB64, instructionName, imageCount }. host.workflowReferenceName is a PLACEHOLDER rebind in the designer to the imported child's GUID (see top comment).",
+            "runAfter": { "Scope_capture_eml": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
           },
           "Run_parse": {
             "type": "Workflow",
