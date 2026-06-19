@@ -156,9 +156,33 @@ _SERVICE_APP_DATA_DIR = Path(tempfile.gettempdir()) / "cedocumentmapper_v2_appda
 
 
 class ParserError(RuntimeError):
-    """Raised when the underlying parser fails to read/extract a document.
+    """Raised when the parser DEPENDENCY itself fails (engine unavailable).
 
-    The HTTP handler maps this to a 502 (the parser is an upstream dependency).
+    This means a *server-side* fault: the ``cedocumentmapper_v2`` package is not
+    importable, a required reader binary/library is missing (e.g. Tesseract /
+    python-docx), or the engine raised an unexpected internal error. The HTTP
+    handler maps this to a 502 — the parser is an upstream dependency and the
+    caller cannot fix it by changing the request.
+
+    NB: a document the engine simply *cannot read* (corrupt / truncated / not a
+    real PDF) is NOT this — that is bad client input and raises
+    ``DocumentUnreadableError`` (-> 422) instead. Conflating the two is what
+    turned routine bad attachments into retried 502s.
+    """
+
+
+class DocumentUnreadableError(ValueError):
+    """Raised when the engine cannot read/parse the SUPPLIED document.
+
+    This is a CLIENT-side problem: the bytes are corrupt, truncated, empty of
+    page objects, password-protected, or otherwise not a parseable document of
+    the claimed type. It is the expected outcome for a junk attachment and MUST
+    NOT be treated as a server failure. The HTTP handler maps this to 422
+    (Unprocessable Entity) so the Power Automate flow routes the case to
+    needs_review rather than retrying a 5xx.
+
+    Subclasses ``ValueError`` so any caller that only distinguishes
+    client-vs-server via ``ValueError`` still classifies it correctly.
     """
 
 
@@ -179,8 +203,15 @@ def run_parser(document_bytes: bytes, filename: str, provider_hint: str | None =
 
     # Lazy import: kept OUT of module scope so tests can patch run_parser /
     # to_eva_extraction without the parser (or PyMuPDF/Tesseract) installed.
+    # The reader-error hierarchy is imported alongside so we can tell a document
+    # the engine *can't read* (client 422) apart from the engine being *broken*
+    # (server 502). A missing reader dependency is a server fault and stays 502.
     try:
         from cedocumentmapper_v2.application import DocumentMapperService
+        from cedocumentmapper_v2.readers.errors import (
+            DependencyMissingError,
+            ReaderError,
+        )
     except Exception as exc:  # pragma: no cover - exercised only with deps absent
         raise ParserError(f"cedocumentmapper_v2 is not importable: {exc}") from exc
 
@@ -204,6 +235,17 @@ def run_parser(document_bytes: bytes, filename: str, provider_hint: str | None =
         return service.record_to_dict(record)
     except ParserError:
         raise
+    except DependencyMissingError as exc:
+        # A reader's external library/binary is absent on the worker (e.g. the
+        # OCR engine). That is a server-side provisioning fault, not bad input.
+        raise ParserError(f"parser dependency missing for {filename!r}: {exc}") from exc
+    except ReaderError as exc:
+        # The engine opened the file but could not read/parse it: corrupt,
+        # truncated, empty of objects, password-protected, or not really the
+        # claimed type. This is a CLIENT problem -> 422, never a 502.
+        raise DocumentUnreadableError(
+            f"document {filename!r} could not be read: {exc}"
+        ) from exc
     except Exception as exc:
         raise ParserError(f"parser failed for {filename!r}: {exc}") from exc
     finally:
