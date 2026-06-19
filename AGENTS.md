@@ -14,6 +14,14 @@ repeatedly bitten this project. Read it before touching the Code App, the flows,
   `digital@collisionengineers.co.uk`.
 - Code App id `da7ba7af-9ffc-4c70-8f75-1f053ca354da`; play URL under `apps.powerapps.com/play/e/<env>/app/<id>`.
 
+## Binding reviews outrank everything older
+`docs/reviews/<DDMMYY>/` holds **manual user reviews** — the **authoritative requirements** for the
+areas they cover. A review **corrects drift and sets the spec**, and is **superseded only by a later
+review**; it outranks older docs, plans, ADRs, and existing code. Action one by viewing every image,
+turning each `review.md` step into a tracked to-do, implementing it, and filling
+`checklist.md`'s "Changes made and actions taken". Honesty over green ticks — record operator-gated
+items plainly. Convention + method: [docs/reviews/README.md](./docs/reviews/README.md).
+
 ## Runtime truths (do not relearn the hard way)
 1. **Code Apps enforce CSP `connect-src 'none'` by default.** A Code App must reach external services
    through a **Power Platform connector** (called via the `@microsoft/power-apps` SDK), **never** a raw
