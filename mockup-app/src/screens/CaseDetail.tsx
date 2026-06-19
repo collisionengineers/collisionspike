@@ -62,6 +62,7 @@ import {
 import {
   EVA_FIELD_ORDER,
   dueInfo,
+  statusToStage,
   useCaseQuery,
   useImages,
   type Case,
@@ -321,28 +322,13 @@ const POLICY_LABEL: Record<Case['inspectionDecision'], string> = {
   unknown: 'Undecided',
 };
 
-/* Map this case's status onto the pipeline-spine stage it should light.
-   Mirrors the foundation's statusToStage (New → Not ready → Review → Submitted). */
+/* Map this case's status onto the pipeline-spine stage it should light "you are
+   here". Uses the shared funnel map (mock/queues.ts) so spine + dashboard agree.
+   `error` has no funnel stage (statusToStage → undefined); on the per-case spine
+   it still needs a home, and "Not ready" is the least-wrong placement for a
+   stalled/errored case. */
 function caseStageKey(status: CaseStatus): PipelineStageKey {
-  switch (status) {
-    case 'new_email':
-    case 'ingested':
-      return 'new';
-    case 'missing_images':
-    case 'missing_required_fields':
-    case 'error':
-      return 'not_ready';
-    case 'needs_review':
-    case 'duplicate_risk':
-    case 'linked_to_instruction':
-    case 'ready_for_eva':
-      return 'review';
-    case 'eva_submitted':
-    case 'box_synced':
-      return 'submitted';
-    default:
-      return 'new';
-  }
+  return statusToStage(status) ?? 'not_ready';
 }
 
 /* Resolve a readiness ChecklistItem to the tab that owns it and, for a field
