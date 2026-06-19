@@ -46,7 +46,7 @@ Bound = has a connection; **empty = NOT yet connected** (operator must create th
 |---|---|---|---|---|
 | `cr1bd_sharedmailbox_office365` | CollisionSpike Shared Mailbox (Outlook) | `shared_office365` | `bd752b83172a4e99b3db595942f1b30f` | **Bound** (digital@, Connected) |
 | `cr1bd_dataverse` | CollisionSpike Dataverse | `shared_commondataserviceforapps` | `c1c7d4e6c3ad40ab9ac7ac63dcfd02c0` | **Bound** |
-| `cr1bd_ceparser` | CollisionSpike CE Parser | **`new_collision-20engineers-20parser`** | `01b43be8542148efbcd1284b8ca64013` | **Bound** ("Collision Engineers Parser", Connected). Connector updated to expose the `api_key` parameter (the `x-functions-key` was previously undefined); `pac code add-data-source` generated `CollisionEngineersParserService`. |
+| `cr1bd_ceparser` | CollisionSpike CE Parser | **`new_collision-20engineers-20parser`** | `01b43be8542148efbcd1284b8ca64013` | **Bound** ("Collision Engineers Parser", Connected). Connector updated to expose the `api_key` parameter (the `x-functions-key` was previously undefined); `pac code add-data-source` generated `CollisionEngineersParserService`. **⚠️ `document` MUST stay plain `{type:string}` — never add `format:byte`/`x-ms-media-kind` (the gateway then re-encodes the base64 → parser 422 `document_unreadable`); the flow passes `base64ToBinary(...)` and the parser decode is tolerant. Memory `powerplatform-connector-base64-double-encode`.** |
 | `cr1bd_evidenceblob` | CollisionSpike Evidence Blob | `shared_azureblob` | _(none)_ | Unbound (later phase) |
 | `cr1bd_box` | CollisionSpike Box Archive | `shared_box` | _(none)_ | Unbound (later phase) |
 | `cr1bd_dvsaenrich` | CollisionSpike DVSA Enrichment | `shared_dvsaenrich` | _(none)_ | Unbound (gated) |
