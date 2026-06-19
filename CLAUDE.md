@@ -15,27 +15,39 @@ enrichment Azure Functions are deployed; the Dataverse schema, 10 cloud flows, a
 corpus are loaded. Email intake is live. See **CURRENT_STATUS.md** and
 **docs/architecture/live-environment.md** for the live registry.
 
-Read first: [README.md](./README.md), [PLAN.md](./PLAN.md),
+Read first: [README.md](./README.md), [CURRENT_STATUS.md](./CURRENT_STATUS.md) (live state),
+[ROADMAP.md](./ROADMAP.md), [PLAN.md](./PLAN.md),
 [docs/architecture/microsoft-stack.md](./docs/architecture/microsoft-stack.md),
-[docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md).
+[docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md). What needs the
+operator: [docs/gated.md](./docs/gated.md).
 
-## Layout
+## Layout & documentation map
 
 ```
-README.md                 project overview
-PLAN.md                   phased implementation plan (kept at repo root)
-CLAUDE.md                 this file
+README.md            project overview        ROADMAP.md          forward phased checklist (Phase 0–6)
+PLAN.md              narrative plan           CURRENT_STATUS.md   what is live now
+CLAUDE.md            this file               DEPLOY-RUNBOOK.md   operator deploy sequence
+AGENTS.md            operating rules + gotchas
 docs/
-  requirements/           admin-overview.md, intake-workflow.md, company-background.md
-  architecture/           microsoft-stack.md, repo-constellation.md, integrations.md
-  reference/              pointers to sibling repos / external specs
-  reviews/                BINDING manual user reviews (dated folders) — see docs/reviews/README.md
+  gated.md           hard/soft operator-blocker registry (everything that needs the user)
+  plans/             one folder per phase, each with an ordered build checklist; index = plans/README.md
+  reviews/           BINDING dated manual reviews — see docs/reviews/README.md
+  adr/               architecture decision records 0001–0011
+  architecture/      microsoft-stack, data-model, eva-*, integrations, live-environment (canonical), environment (historical)
+  requirements/      admin-overview, intake-workflow, provider-corpus, inspection-address, company-background
+  design/  research/  activation/  reference/   UI spec · forward research · operator playbooks · external specs
+  README.md          the docs index
 ```
 
-**Binding reviews.** `docs/reviews/<DDMMYY>/` holds **manual user reviews**. A review is the
-**authoritative spec** for the areas it covers — it corrects drift and sets requirements, and is
-**superseded only by a later review** (it outranks older docs/plans/ADRs/code). When a review and an
-older doc disagree, the review wins; reconcile the older doc to it. Method + structure:
+**Where things live / precedence.** Canonical phase taxonomy is **ROADMAP's Phase 0–6** (M1 = Phase 1;
+M2 = Phases 3–5). Roles: **ROADMAP** = forward checklist · **CURRENT_STATUS** = live now ·
+**docs/gated.md** = needs the operator · **docs/plans/&lt;phase&gt;/README.md** = the ordered build steps.
+When docs disagree, precedence is: a **binding review** (docs/reviews/&lt;DDMMYY&gt;/) > **ADRs** >
+**architecture/requirements** specs > **plans** — reconcile the older/lower doc to the higher one.
+
+**Binding reviews.** `docs/reviews/<DDMMYY>/` holds **manual user reviews** — the **authoritative spec**
+for the areas they cover, **superseded only by a later review** (outranking older docs/plans/ADRs/code).
+When a review and an older doc disagree, the review wins; reconcile the older doc to it. Method:
 [docs/reviews/README.md](./docs/reviews/README.md).
 
 ## Sibling repos (one folder up — ideas/prior-art only, NONE canonical, do not modify)
@@ -97,22 +109,15 @@ All non-trivial integrations are **feature-gated with Dataverse environment vari
 
 ## Agent roster & boundaries
 
-Project agents live in `.claude/agents/`; project skills in `.claude/skills/`. Each domain agent
-owns one vertical slice and defers across boundaries (it says so in its own description):
+Project agents in `.claude/agents/`, skills in `.claude/skills/`. Each owns one slice and defers across
+boundaries; **full descriptions + boundaries are in [AGENTS.md](./AGENTS.md)**. In brief:
 
-- **azure-integration-engineer** — Azure Functions (parser + enrichment REST wrappers calling
-  DVSA/DVLA **directly via Entra** (no gateway)), Key Vault, Entra app registration, custom
-  connectors, Document Intelligence, postcode.io/Azure Maps. Leans on `azure:*` +
-  `microsoft-docs:*`.
-- **power-automate-flow-builder** — cloud flows: inbox intake, dedup, status machine, parser/
-  enrichment calls, EVA-submit + Box-sync, chasers. (No plugin covers Power Automate.)
-- **eva-sentry-integration** — EVA Sentry REST v1.2, the 12-field JSON contract, photo-order/image
-  rules, drag-drop export, Box coupling. Pairs with the `eva-sentry-api` skill.
-- **dataverse-data-architect** — the `CollisionSpike` solution: 10 tables, provenance, env-var gates,
-  auditing, ALM. Uses `code-apps-preview:add-dataverse`.
-- **document-parser-engineer** — completes `cedocumentmapper_v2.0` (Python; **PyMuPDF is licensed —
-  no AGPL remediation**); hands a clean HTTP entry point to the azure agent.
+- **azure-integration-engineer** — Azure Functions (parser + DVSA/DVLA enrichment direct via Entra), Key Vault, connectors, Document Intelligence, postcode.io/Maps.
+- **power-automate-flow-builder** — cloud flows: intake, dedup, status machine, parser/enrichment calls, EVA-submit + Box-sync, chasers.
+- **eva-sentry-integration** — EVA Sentry REST v1.2, the 12-field JSON contract, photo-order/image rules, drag-drop export, Box.
+- **dataverse-data-architect** — the `CollisionSpike` solution: tables, provenance, env-var gates, auditing, ALM.
+- **document-parser-engineer** — completes `cedocumentmapper_v2.0` (Python; PyMuPDF licensed); hands a clean HTTP entry point to the azure agent.
 
-Reused plugin agent: **`code-app-architect`** (code-apps-preview) owns the Code App shell, React/Vite,
-connector *selection*, and `pac code` deploy — our agents defer to it. **Do not** use the
-`canvas-app-*` or `genpage-*` agents: the spike is a **Code App**, not a canvas or model-driven app.
+Reused: **`code-app-architect`** (code-apps-preview) owns the Code App shell, React/Vite, connector
+*selection*, and `pac code` deploy — our agents defer to it. **Do not** use `canvas-app-*` / `genpage-*`
+(this is a Code App, not canvas/model-driven).

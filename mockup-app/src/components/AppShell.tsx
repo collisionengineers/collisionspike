@@ -29,7 +29,7 @@ import { QUEUES, data, type QueueName } from '../data';
 // assets on upload (valid PNG → ~75% larger, undecodable) and Vite `?inline` is overridden
 // by the power-apps plugin, so we embed the logos as TEXT. CSP `img-src 'self' data:`
 // permits data URIs. (Fonts can't use this — CSP is `font-src 'self'`.)
-// Regenerate: `node scripts/gen-logo-data-uris.mjs`. See plans/logo-fix-findings.md.
+// Regenerate: `node scripts/gen-logo-data-uris.mjs`. See docs/plans/phase-1-intake-and-case-tracking/code-app/logo-fix-findings.md.
 import { logoMark } from '../assets/logos.generated';
 import { AppErrorBoundary } from './AppErrorBoundary';
 

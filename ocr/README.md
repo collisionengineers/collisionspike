@@ -12,7 +12,7 @@ Container Apps** (scale-to-zero), exposing two HTTP routes:
 > Built **OFFLINE**, gated **OFF**. No real secrets — the only outbound secret (the
 > Document Intelligence Read key, needed solely for the `docintel` provider) is a
 > Key Vault reference resolved by the host's managed identity. Decision rationale +
-> engine comparison live in **[`plans/ocr-strategy.md`](../plans/ocr-strategy.md)**.
+> engine comparison live in **[`docs/plans/phase-5-ocr-and-scale/ocr-strategy.md`](../docs/plans/phase-5-ocr-and-scale/ocr-strategy.md)**.
 
 ## Why this is a SEPARATE host (not the FC1 parser)
 
@@ -224,7 +224,7 @@ curl.exe -i -X OPTIONS "https://<aca-fqdn>/api/ocr-pdf" \
 # scale-to-zero proven: after idle, first call cold-starts then warms; replicas return to 0
 ```
 
-## Known calibration items (verify on real data — see `plans/ocr-strategy.md` §10)
+## Known calibration items (verify on real data — see `docs/plans/phase-5-ocr-and-scale/ocr-strategy.md` §10)
 
 - **Tesseract accuracy on *real* provider instruction scans** is unverified (the
   fallback has only ever no-op'd on FC1) and capped at ≤2 pages (`OCR_PAGE_LIMIT`).

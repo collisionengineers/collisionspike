@@ -97,7 +97,7 @@ player**. Headlines:
   `startswith`; postcode.io); **OCR host** (`ocr/`, ROADMAP 5a, **no longer deferred** — scanned/image-PDF
   fallback, Dockerfile + Azure Container Apps Bicep + plate/pdf adapters); parser **B2** (claimant
   telephone/email now extracted with provenance + tests); plans authored for every remaining phase
-  (3c/4a/5a/5b/5c) + `plans/README.md`; IaC hardened (workspace-based App Insights, storage
+  (3c/4a/5a/5b/5c) + `docs/plans/README.md`; IaC hardened (workspace-based App Insights, storage
   `allowSharedKeyAccess:false`, right-sized memory).
 - **Known follow-ups (still pending):** Azure deploys for `evasentry`, `addressmatch`, `ocr` (ACA:
   build+push image then deploy Bicep), and the **parser Function REDEPLOY** (also fixes
@@ -177,8 +177,8 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 - **Corpus incorporated into live Dataverse** — `dataverse/.build/10–14` (+`_corpus-common.ps1`) loaded the
   confirmed analysis: WorkProvider 45→**392** (176 active / 216 archived-dormant), Repairer 38→**61**,
   ImageSource 4→**23** (shared yards), **174** `InspectionAddress` known-sites, **98** N:N links. §9 verify
-  passed; idempotent re-run = no-op. Plans: `plans/dataverse-corpus-incorporation.md` (confirmed) +
-  `plans/clarifying-info-ingestion.md` (the operator-confirmed second phase).
+  passed; idempotent re-run = no-op. Plans: `docs/plans/phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md` (confirmed) +
+  `docs/plans/phase-1-intake-and-case-tracking/corpus/clarifying-info-ingestion.md` (the operator-confirmed second phase).
 - **Research** — `docs/research/` (00 strategy + 01 Power-Platform + 02 Azure/AI + 03 domain + index):
   next moves = activate intake (operator) ∥ corpus incorporation (done) → **address-matching + fast-confirm**;
   explicit anti-features (no EVA REST / image-AI / AI Search / mock data yet).
@@ -218,4 +218,4 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 - **Operational charter / rules:** [AGENTS.md](./AGENTS.md) · **Live ID/resource/flow registry:** [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)
 - Analysis: `raw/principalandrepairersheets/outputs/reports/`
 - Architecture: `docs/architecture/` · ADRs: `docs/adr/` (corpus model = ADR-0011)
-- Plans: `plans/` · Roadmap: `ROADMAP.md` · Deploy: `DEPLOY-RUNBOOK.md`
+- Plans: `docs/plans/` · Roadmap: `ROADMAP.md` · Deploy: `DEPLOY-RUNBOOK.md`

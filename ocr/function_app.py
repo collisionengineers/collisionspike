@@ -7,13 +7,13 @@ FC1 (Flex Consumption) runs a Microsoft-managed runtime and structurally
 a no-op there. This host is built as a **container** (Azure Functions on Azure
 Container Apps, scale-to-zero) so the one missing OS binary — `tesseract` — is
 present, lighting up the engine's already-written, already-tested OCR fallback
-with *zero engine-code change*. See plans/ocr-strategy.md.
+with *zero engine-code change*. See docs/plans/phase-5-ocr-and-scale/ocr-strategy.md.
 
 It is invoked **only as a fallback**: the parser Function calls `/api/ocr-pdf`
 only when its own text extraction yields ~no text (an image-only PDF). Text
 PDFs / DOCX / DOC / EML / MSG keep running on FC1 untouched and never reach here.
 
-Two HTTP routes (one container, one cold-start to amortise — plans/ocr-strategy §5):
+Two HTTP routes (one container, one cold-start to amortise — docs/plans/phase-5-ocr-and-scale/ocr-strategy §5):
 
     POST /api/ocr-pdf    image-only instruction PDF  -> OCR text (+ optional 12-field EVA
                          extraction when the vendored engine is present)

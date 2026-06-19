@@ -8,8 +8,8 @@ Grounded in: `CURRENT_STATUS.md`, `ROADMAP.md`, `docs/architecture/integrations.
 0001/0002/0003/0005/0006/0008/0009/0010/0011, the data analysis
 (`raw/principalandrepairersheets/outputs/reports/` — `report.md`, `loc_principal_analysis.md`,
 `principal_address_worklist.md`, `headline_metrics.csv`, `claudeschoice/top_inspection_locations.csv`),
-and the two forward plans (`plans/dataverse-corpus-incorporation.md`,
-`plans/clarifying-info-ingestion.md`).
+and the two forward plans (`docs/plans/phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md`,
+`docs/plans/phase-1-intake-and-case-tracking/corpus/clarifying-info-ingestion.md`).
 
 ---
 
@@ -37,7 +37,7 @@ The analysis changed what "helps" means here. Five facts drive every recommendat
 
 The corpus is therefore not "nice metadata." It is the substrate that makes provider-matching,
 address-resolution, dedup disambiguation, and chaser-targeting *work* rather than *guess*. The two
-plans in `plans/` already specify how it lands in Dataverse idempotently — this doc assesses what to
+plans in `docs/plans/` already specify how it lands in Dataverse idempotently — this doc assesses what to
 *build on top of it* and in what order.
 
 ---

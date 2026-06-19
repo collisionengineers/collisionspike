@@ -88,7 +88,7 @@ The steps above wire the **single** connected `digital@` mailbox (V3 trigger). T
 shared inboxes**. To add the remaining two — onto the **parameterised** definition
 `flows/definitions/intake-shared-mailbox.definition.json` (V2 trigger, `mailboxAddress =
 @parameters('IntakeMailbox')`, one definition per inbox) — follow the dedicated runbook:
-**[`multi-inbox-activation.md`](./multi-inbox-activation.md)** (plan: `plans/multi-inbox-access.md`).
+**[`multi-inbox-activation.md`](./multi-inbox-activation.md)** (plan: `docs/plans/phase-2-live-activation/multi-inbox-access.md`).
 
 Headline: **if the other inbox is a *shared mailbox* that `digital@` has Exchange *Full Access* to, you
 need NO new password and NO new connection** — reuse `cr1bd_sharedmailbox_office365`. If it's a *licensed
