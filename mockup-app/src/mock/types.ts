@@ -51,7 +51,7 @@ export interface EvaField {
 /* ----------  The 12-field EVA contract  ----------
    Order + formats per the eva-sentry-api skill / Final Format Example 02.json:
    1 Work Provider (non-empty) · 2 Vehicle Model · 3 Claimant Name ·
-   4 Claimant Telephone · 5 Claimant Email · 6 Date of Loss (DD/MM/YYYY) ·
+   4 Claimant Telephone · 5 Claimant Email · 6 Date of Incident (DD/MM/YYYY) ·
    7 Date of Instruction (DD/MM/YYYY) · 8 Accident Circumstances ·
    9 Inspection Address (6 newline-separated lines OR "Image Based Assessment") ·
    10 VAT Status ∈ {"",Yes,No} · 11 Mileage · 12 Mileage Unit ∈ {"",Miles,Km}.

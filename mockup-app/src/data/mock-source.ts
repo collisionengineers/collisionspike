@@ -31,32 +31,29 @@ import type {
 const NOT_CONFIGURED =
   'Data source not configured — call configureDataAccess(generatedServices) in main.tsx before writes.';
 
-const ZERO_LIVE: LiveCounts = { needsAction: 0, inProgress: 0, ready: 0 };
+const ZERO_LIVE: LiveCounts = { notReady: 0, review: 0, exceptions: 0 };
 const ZERO_THROUGHPUT: Throughput = { inToday: 0, submittedToday: 0, clearedThisWeek: 0 };
 const ZERO_AGING: AgingExceptions = { rows: [], pastDueCount: 0, duplicateCount: 0, conflictCount: 0 };
 const ZERO_QUEUE_COUNTS: Record<QueueName, number> = {
-  'needs-action': 0,
-  'in-progress': 0,
-  ready: 0,
-  done: 0,
+  'awaiting-images': 0,
+  'images-only': 0,
+  'ready-review': 0,
+  exceptions: 0,
 };
 
-/** The empty pipeline strip (all seven stages at zero). */
+/** The empty pipeline strip (all four stages at zero). */
 function emptyPipelineStages(): PipelineStage[] {
   const defs: { key: PipelineStageKey; label: string }[] = [
     { key: 'new', label: 'New' },
-    { key: 'parsing', label: 'Parsing' },
+    { key: 'not_ready', label: 'Not ready' },
     { key: 'review', label: 'Review' },
-    { key: 'chasing', label: 'Chasing' },
-    { key: 'ready', label: 'Ready' },
     { key: 'submitted', label: 'Submitted' },
-    { key: 'box', label: 'Box' },
   ];
   return defs.map((d) => ({
     key: d.key,
     label: d.label,
     count: 0,
-    tone: d.key === 'chasing' ? 'stuck' : 'normal',
+    tone: d.key === 'not_ready' ? 'stuck' : 'normal',
   }));
 }
 
