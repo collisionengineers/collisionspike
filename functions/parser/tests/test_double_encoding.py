@@ -6,8 +6,9 @@ The Power Platform custom connector that fronts ``/api/parse`` re-encodes a
 base64 ``document`` value UNPREDICTABLY: declaring the param ``format: byte`` (or
 ``x-ms-media-kind: File``) makes the gateway base64-encode it a SECOND time, and
 even a plain ``type: string`` param is byte-encoded by this runtime. The flow
-sends the content via ``base64ToBinary(...)`` (which yields a single layer on the
-wire), but because the gateway's behaviour drifts (a connector-definition change
+sends the RAW base64 string (NOT ``base64ToBinary(...)`` — with the plain-string
+connector that feeds the gateway BINARY and it returns HTTP 400, proven live
+2026-06-20). Because the gateway's behaviour drifts (a connector-definition change
 does not reliably propagate), the Function MUST tolerate a redundant second
 base64 layer. ``function_app._decode_document`` decodes once; if the result is
 not a known document but is itself strict base64, it decodes exactly once more,
@@ -15,9 +16,10 @@ accepting it only if THAT yields a known document magic — and logs a warning o
 every recovery so the double-encode stays observable.
 
 History: a 2026-06-19 attempt to make this STRICT (and add ``format: byte`` to
-the connector) broke live intake with a burst of CS Parse 422s. Reverted to:
-plain ``type: string`` connector + ``base64ToBinary`` flow + tolerant decode.
-See memory ``powerplatform-connector-base64-double-encode``.
+the connector) broke live intake with a burst of CS Parse 422s; and a 2026-06-20
+``base64ToBinary`` flow attempt 400'd live intake (test34 -> Exceptions). Both
+reverted to the working config: plain ``type: string`` connector + RAW base64
+string flow + tolerant decode. See memory ``powerplatform-connector-base64-double-encode``.
 
 These tests pin the tolerant contract:
 
