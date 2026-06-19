@@ -263,7 +263,6 @@ const MILEAGE_UNIT_OPTIONS: MileageUnit[] = ['', 'Miles', 'Km'];
 
 /* Inspection Type is a constant for manual intake — always a desktop / image-based
    "Vehicle Damage Inspection". Recorded, never configured (review #15). */
-const INSPECTION_TYPE = 'Vehicle Damage Inspection (desktop)';
 
 /* The instruction-document parser supports these; images ride along as evidence. */
 const INSTRUCTION_EXT = ['.pdf', '.docx', '.doc', '.eml', '.msg'];
@@ -476,7 +475,7 @@ export function ManualIntake() {
       const errs = result.issues.filter((i) => i.severity === 'error');
       if (errs.length > 0 || !result.evaFields) {
         setIssues(result.issues);
-        setError(errs.map((e) => e.message).join(' · ') || 'The parser could not extract this document.');
+        setError(errs.map((e) => e.message).join(' · ') || 'We could not read the details from this document.');
         setPhase('pick');
         return;
       }
@@ -522,10 +521,10 @@ export function ManualIntake() {
         if (d.model) onFieldChange('vehicleModel', d.model);
         if (d.mileage) onFieldChange('mileage', d.mileage);
         if (d.mileageUnit) onFieldChange('mileageUnit', d.mileageUnit);
-        toast('Vehicle details filled from DVLA/DVSA');
+        toast('Vehicle details filled in');
       } else {
         // not_connected / error — show the returned message, never fabricate.
-        setInfo(res.message ?? 'Vehicle lookup is unavailable.');
+        setInfo(res.message ?? 'Vehicle lookup isn’t available yet.');
       }
     } finally {
       setEnriching(false);
@@ -542,9 +541,9 @@ export function ManualIntake() {
       const res = await normaliseAddress(fields.inspectionAddress.value);
       if (res.status === 'ok' && res.data) {
         onFieldChange('inspectionAddress', res.data.lines);
-        toast('Inspection address normalised');
+        toast('Inspection address standardised');
       } else {
-        setInfo(res.message ?? 'Address normalisation is unavailable.');
+        setInfo(res.message ?? 'Address standardisation isn’t available yet.');
       }
     } finally {
       setNormalising(false);
@@ -638,7 +637,7 @@ export function ManualIntake() {
 
   return (
     <div className={mergeClasses('ce-enter', styles.page)}>
-      <SectionHeading eyebrow="Intake" heading="New case" subtitle="Parse an instruction document or key a case in by hand." />
+      <SectionHeading eyebrow="Intake" heading="New case" subtitle="Read the details from an instruction document, or type a case in by hand." />
 
       {error && (
         <MessageBar intent="error">
@@ -696,7 +695,7 @@ export function ManualIntake() {
                 onClick={runParse}
                 disabled={!instructionFile || phase === 'parsing'}
               >
-                {phase === 'parsing' ? 'Parsing…' : 'Parse document'}
+                {phase === 'parsing' ? 'Reading…' : 'Read document'}
               </Button>
               <Button
                 appearance="transparent"
@@ -743,7 +742,7 @@ export function ManualIntake() {
             )}
             {files.length > 0 && !instructionFile && (
               <Caption1 className={styles.hint}>
-                Add a PDF/Word/email instruction document to parse, or enter the case manually.
+                Add a PDF, Word, or email instruction document to read from, or enter the case manually.
               </Caption1>
             )}
           </div>
@@ -751,9 +750,9 @@ export function ManualIntake() {
           {/* Parse is a multi-second Function call → indeterminate bar + copy. */}
           {phase === 'parsing' && (
             <div className={styles.parseProgress} role="status" aria-live="polite">
-              <ProgressBar aria-label="Parsing document" thickness="medium" />
+              <ProgressBar aria-label="Reading document" thickness="medium" />
               <Caption1 className={styles.parseProgressLabel}>
-                Parsing document — this can take a few seconds for scanned PDFs.
+                Reading the document — this can take a few seconds for scanned PDFs.
               </Caption1>
             </div>
           )}
@@ -766,7 +765,7 @@ export function ManualIntake() {
           {warnings.length > 0 && (
             <MessageBar intent="warning" style={{ marginBottom: tokens.spacingVerticalM }}>
               <MessageBarBody>
-                <MessageBarTitle>Parser warnings</MessageBarTitle>
+                <MessageBarTitle>Check these details</MessageBarTitle>
                 {warnings.map((w) => w.message).join(' · ')}
               </MessageBarBody>
             </MessageBar>
@@ -783,7 +782,6 @@ export function ManualIntake() {
               <Badge appearance="outline" color="brand">
                 {CASE_TYPE_LABELS[caseType]}
               </Badge>
-              <Caption1 className={styles.hint}>Automatic — derived from what the case holds.</Caption1>
             </div>
 
             <div className={styles.identityRow}>{vrm.trim() && <VrmPlate vrm={vrm} size="large" />}</div>
@@ -794,7 +792,7 @@ export function ManualIntake() {
                 <Field
                   className={styles.fieldGrow}
                   label="Vehicle Registration (VRM) *"
-                  hint="The vehicle registration — an EVA field, and the case's correlation key."
+                  hint="The vehicle's number plate."
                   {...(!vrm.trim()
                     ? { validationState: 'error' as const, validationMessage: 'Required' }
                     : {})}
@@ -806,7 +804,7 @@ export function ManualIntake() {
                   onClick={lookUpVehicle}
                   disabled={enriching || !vrm.trim()}
                 >
-                  Look up vehicle (DVLA/DVSA)
+                  Look up vehicle details
                 </Button>
               </div>
               <div />
@@ -826,7 +824,7 @@ export function ManualIntake() {
             <div className={styles.fieldRow}>
               <Field
                 label="Case/PO *"
-                hint="Our internal reference. Format + generation are covered separately — enter the known value here."
+                hint="Our internal reference for the case."
                 {...(!casePo.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
               >
                 <Input value={casePo} onChange={(_, d) => setCasePo(d.value)} />
@@ -890,7 +888,7 @@ export function ManualIntake() {
           <div className={styles.clusterBody}>
             {/* Make (informational/enrichable) + Model side by side (review #11). */}
             <div className={styles.pairRow}>
-              <Field label="Make" hint="Filled by the DVLA/DVSA lookup; not a separate EVA field.">
+              <Field label="Make" hint="Filled by the vehicle lookup.">
                 <Input value={make} onChange={(_, d) => setMake(d.value)} />
               </Field>
               <Field label={LABEL_FOR.vehicleModel.label + (LABEL_FOR.vehicleModel.required ? ' *' : '')} {...(LABEL_FOR.vehicleModel.required && !fields.vehicleModel.value.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
@@ -912,7 +910,7 @@ export function ManualIntake() {
             {/* VAT is manual — DVLA/DVSA do not return it (review #16). The VAT
                 control is rendered by the FieldRow above (vatStatus); add the note. */}
             <Caption1 className={styles.inlineNote}>
-              VAT Status is set manually — DVLA/DVSA don't return VAT (% pending EVA confirmation).
+              Enter the VAT status manually.
             </Caption1>
           </div>
 
@@ -944,7 +942,7 @@ export function ManualIntake() {
                   onClick={normaliseInspectionAddress}
                   disabled={normalising || !fields.inspectionAddress.value.trim()}
                 >
-                  Normalise address
+                  Standardise address
                 </Button>
               </div>
               <div className={styles.fieldMeta}>
@@ -952,7 +950,7 @@ export function ManualIntake() {
               </div>
             </div>
             <Caption1 className={styles.inlineNote}>
-              Normalised via postcodes.io now; Azure Maps later.
+              Tidy the address into a standard format.
             </Caption1>
           </div>
 
@@ -974,7 +972,7 @@ export function ManualIntake() {
               <div />
             </div>
             <Caption1 className={styles.inlineNote}>
-              Inspection Type is always “{INSPECTION_TYPE}” — recorded automatically, not configured here.
+              Inspection type: Vehicle damage inspection.
             </Caption1>
           </div>
 

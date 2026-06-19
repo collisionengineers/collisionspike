@@ -480,7 +480,7 @@ function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
         </Field>
         <div className={styles.thumbRowBetween}>
           <Tooltip
-            content={ev.registrationVisible ? 'Registration is visible (OCR matched VRM)' : 'Registration not detected'}
+            content={ev.registrationVisible ? 'Registration is visible' : 'Registration not visible'}
             relationship="label"
           >
             <Badge
@@ -727,13 +727,13 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 <Button
                   appearance="secondary"
                   icon={<FileJson size={16} />}
-                  onClick={() => { setTab('fields'); toast('EVA JSON ready — see the JSON block below the fields'); }}
+                  onClick={() => { setTab('fields'); toast('EVA submission ready — see the preview below the fields'); }}
                 >
-                  Export EVA JSON
+                  Export for EVA
                 </Button>
               )}
               <Tooltip
-                content={blocked ? `EVA submit blocked — ${blockerCount} item(s) outstanding` : 'Open the EVA submit dialog'}
+                content={blocked ? `Can't submit to EVA yet — ${blockerCount} item(s) outstanding` : 'Submit this case to EVA'}
                 relationship="label"
               >
                 <Button
@@ -779,7 +779,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
       {blocked && (
         <MessageBar intent="error">
           <MessageBarBody>
-            <MessageBarTitle>EVA submit blocked — {blockerCount} item{blockerCount === 1 ? '' : 's'}</MessageBarTitle>
+            <MessageBarTitle>Can't submit to EVA yet — {blockerCount} item{blockerCount === 1 ? '' : 's'}</MessageBarTitle>
             Use the readiness list — each outstanding item links to the field to fix.
           </MessageBarBody>
         </MessageBar>
@@ -823,9 +823,9 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                   ))}
                   <Divider />
                   <div style={{ marginTop: tokens.spacingVerticalM }}>
-                    <Caption1 className={styles.hint}>EVA JSON preview</Caption1>
+                    <Caption1 className={styles.hint}>EVA submission preview</Caption1>
                     <div style={{ marginTop: 8 }}>
-                      <JsonView data={evaJson} label="EVA JSON" />
+                      <JsonView data={evaJson} label="EVA submission" />
                     </div>
                   </div>
                 </div>
@@ -975,7 +975,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
             <Text className="ce-section-heading">Readiness</Text>
             <Caption1 className={styles.hint} block style={{ marginTop: 2 }}>
               {blocked
-                ? `${blockerCount} item${blockerCount === 1 ? '' : 's'} block EVA submit — select one to fix.`
+                ? `${blockerCount} item${blockerCount === 1 ? '' : 's'} to resolve before EVA — select one to fix.`
                 : 'Every check passes — ready for EVA.'}
             </Caption1>
             <div className={styles.readyList} role="list">
@@ -1014,7 +1014,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
           <div className={styles.factsPanel}>
             <Text className="ce-section-heading">Imported details</Text>
             <Caption1 className={styles.hint} block style={{ marginBottom: 4 }}>
-              From the instruction document / email — for reference.
+              From the instruction document or email.
             </Caption1>
             {(
               [

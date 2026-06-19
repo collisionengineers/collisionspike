@@ -54,16 +54,16 @@ const useStyles = makeStyles({
 
 const KIND_LABELS: Record<ActivityKind, string> = {
   intake: 'Intake',
-  parse: 'Parse',
-  classify: 'Classify',
+  parse: 'Read',
+  classify: 'Sort',
   review: 'Review',
   enrich: 'Enrich',
   chaser: 'Chaser',
   eva_submit: 'EVA submit',
-  box_sync: 'Box sync',
+  box_sync: 'Archive',
   status_change: 'Status',
   note: 'Note',
-  dedup: 'Dedup',
+  dedup: 'Duplicate',
 };
 
 export function ActionLogs() {
@@ -86,14 +86,14 @@ export function ActionLogs() {
       <SectionHeading
         eyebrow="Admin"
         heading="Action logs"
-        subtitle="Every pipeline action on a case — newest first."
+        subtitle="Every action on a case — newest first."
       />
 
       {!events || events.length === 0 ? (
         <div className={styles.empty}>
           <ScrollText size={28} strokeWidth={1.5} aria-hidden />
           <Text>No activity recorded yet.</Text>
-          <Caption1>Intake, parse, review, chase and submit events appear here as cases move.</Caption1>
+          <Caption1>Intake, review, chase and submit actions appear here as cases move.</Caption1>
         </div>
       ) : (
         <div className={styles.list}>

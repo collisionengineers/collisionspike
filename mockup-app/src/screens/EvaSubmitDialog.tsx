@@ -289,9 +289,9 @@ export function EvaSubmitDialog() {
   const onExportJson = () => {
     dispatchToast(
       <Toast>
-        <ToastTitle>EVA JSON ready to drag-drop</ToastTitle>
+        <ToastTitle>Export ready to drag into EVA</ToastTitle>
         <ToastBody>
-          12-field payload for {c.vrm} prepared (mock — no file written).
+          Submission for {c.vrm} prepared.
         </ToastBody>
       </Toast>,
       { intent: 'success' },
@@ -302,9 +302,9 @@ export function EvaSubmitDialog() {
     // MOCK: no real Sentry call is ever made in M1.
     dispatchToast(
       <Toast>
-        <ToastTitle>Submitted to EVA (mock)</ToastTitle>
+        <ToastTitle>Submitted to EVA</ToastTitle>
         <ToastBody>
-          {c.vrm} — {evaCode || 'no Case/PO'}. Box folder {boxCode || '—'}.
+          {c.vrm} — {evaCode || 'no Case/PO'}. Archive folder {boxCode || '—'}.
         </ToastBody>
       </Toast>,
       { intent: 'success' },
@@ -397,7 +397,7 @@ export function EvaSubmitDialog() {
                 )}
 
                 <span className={styles.derivedLabel}>
-                  <FolderClosed size={14} /> Box folder
+                  <FolderClosed size={14} /> Archive folder
                 </span>
                 {boxCode ? (
                   <span className={styles.derivedValue}>{boxCode}</span>
@@ -411,15 +411,14 @@ export function EvaSubmitDialog() {
 
             {/* Export path */}
             <div className={styles.section}>
-              <Field label="Submission path">
+              <Field label="How to submit">
                 <RadioGroup defaultValue="json">
-                  <Radio value="json" label="Drag-drop JSON export" />
-                  <Radio value="api" label="Sentry API" disabled />
+                  <Radio value="json" label="Export a file to drag into EVA" />
+                  <Radio value="api" label="Submit directly" disabled />
                 </RadioGroup>
               </Field>
               <Text className={styles.pathNote}>
-                EVA API off (gated by EVA_API_ENABLED) — JSON drag-drop is the M1
-                fallback path.
+                Direct submission isn't available yet — export the file to drag into EVA.
               </Text>
             </div>
           </DialogContent>
@@ -433,9 +432,9 @@ export function EvaSubmitDialog() {
               appearance="secondary"
               icon={<FileJson size={16} />}
               onClick={onExportJson}
-              title="EVA API is off — export the 12-field JSON to drag into EVA"
+              title="Export the file to drag into EVA"
             >
-              Export JSON
+              Export for EVA
             </Button>
             <Button
               className={styles.dialogBtn}
