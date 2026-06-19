@@ -30,8 +30,12 @@ Response envelope:
 
 Status codes:
     200  parsed + schema-valid (or schema-invalid surfaced in issues, see below)
-    400  bad input (missing/!base64 document, missing/unsupported filename, bad JSON)
-    502  parser dependency failed (ParserError)
+    400  bad request (missing/!base64 document, missing/unsupported filename, bad JSON)
+    422  the document itself is unreadable (corrupt/truncated/not a real PDF/etc.) —
+         a CLIENT problem the parser cannot fix; the flow routes the case to review
+    500  unexpected internal error (defensive; should never escape as a raw 502)
+    502  parser DEPENDENCY failed — engine not importable / reader binary missing
+         (ParserError); a genuine server-side fault, safe for the flow to retry
 """
 
 from __future__ import annotations
@@ -45,7 +49,7 @@ from typing import Any
 import azure.functions as func
 
 import parser_adapter
-from parser_adapter import ParserError
+from parser_adapter import DocumentUnreadableError, ParserError
 from schema_validation import SchemaValidationError, validate_eva_payload
 
 app = func.FunctionApp()
@@ -58,7 +62,22 @@ CONTRACT_VERSION = parser_adapter.CONTRACT_VERSION
 @app.function_name(name="parse")
 @app.route(route="parse", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def parse(req: func.HttpRequest) -> func.HttpResponse:
-    """POST /parse — see module docstring."""
+    """POST /parse — see module docstring.
+
+    Wrapped in a defensive guard: every expected condition returns a structured
+    HttpResponse, and ANY unexpected exception is turned into a structured 500
+    rather than being allowed to escape the worker (an escaped exception is what
+    the Functions host reports to the front end as a 502 BadGateway — the very
+    failure mode this guard exists to prevent).
+    """
+    try:
+        return _parse(req)
+    except Exception:  # noqa: BLE001 - last line of defence; never let a 502 escape
+        _LOG.exception("unhandled error in parse handler")
+        return _error(500, "internal_error", "Unexpected internal error while parsing the document.")
+
+
+def _parse(req: func.HttpRequest) -> func.HttpResponse:
     # --- 1. Parse + validate the request body (400 on any input problem) ----
     try:
         body = req.get_json()
@@ -86,14 +105,28 @@ def parse(req: func.HttpRequest) -> func.HttpResponse:
     if not document_bytes:
         return _error(400, "empty_document", "Decoded 'document' is empty.")
 
-    # --- 2. Run the parser via the adapter seam (502 on parser failure) ------
+    # --- 2. Run the parser via the adapter seam --------------------------------
+    # Three failure classes, three status codes:
+    #   DocumentUnreadableError -> 422  the supplied document can't be parsed (client)
+    #   ValueError              -> 400  the request was malformed (e.g. bad extension)
+    #   ParserError             -> 502  the parser DEPENDENCY itself is broken (server)
+    # DocumentUnreadableError subclasses ValueError, so it MUST be caught first.
     try:
         parser_result = parser_adapter.run_parser(document_bytes, filename, provider_hint)
+    except DocumentUnreadableError as exc:
+        # The bytes are not a parseable document (corrupt / truncated / empty /
+        # not a real PDF). NOT a server fault — return 422 so the flow routes the
+        # case to needs_review instead of retrying a 5xx. (This is the fix for the
+        # 502 burst: an unreadable instruction.pdf used to escape as a 502.)
+        _LOG.warning("unreadable document %r: %s", filename, exc)
+        return _error(422, "document_unreadable", str(exc))
     except ValueError as exc:
         # Adapter rejected the input (e.g. unsupported extension) -> client error.
         return _error(400, "unsupported_document", str(exc))
     except ParserError as exc:
-        _LOG.exception("parser failed")
+        # The parser engine/dependency itself failed (not importable, reader
+        # binary missing). A genuine upstream-dependency fault -> 502.
+        _LOG.exception("parser dependency failed")
         return _error(502, "parser_failed", str(exc))
 
     # --- 3. Map to the 12-field EVA contract + Case-identity fields ----------
