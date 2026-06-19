@@ -155,6 +155,23 @@
         }
       },
       "runAfter": { "Set_fieldsValid": [ "Succeeded" ] }
+    },
+    "Respond_to_parent": {
+      "type": "Response",
+      "kind": "Http",
+      "inputs": {
+        "statusCode": 200,
+        "body": {
+          "caseId": "@variables('caseId')",
+          "terminal": "@or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000008), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000009), equals(outputs('Get_case')?['body/cr1bd_status'], 100000010)))",
+          "status": "@coalesce(outputs('Compute_next_status'), 'terminal')",
+          "statusCode": "@if(or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000008), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000009), equals(outputs('Get_case')?['body/cr1bd_status'], 100000010))), outputs('Get_case')?['body/cr1bd_status'], outputs('Map_status_choice'))",
+          "fieldsValid": "@variables('fieldsValid')",
+          "imagesValid": "@variables('imagesValid')"
+        }
+      },
+      "comment": "Child-flow return action (required to be callable via Run-a-Child-Flow; mirrors classify-persist's Respond_to_parent / 'Respond to a PowerApp or flow'). Returns the readiness result: the resolved status label + cr1bd_status integer plus the two readiness predicates. Computed to be correct on BOTH Guard_terminal paths: on the terminal path Compute_next_status/Map_status_choice never ran (coalesce -> 'terminal' / the kept current status); on the else path they carry the computed next status. runAfter Guard_terminal on all completion outcomes so the child always returns.",
+      "runAfter": { "Guard_terminal": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
     }
   }
 }

@@ -207,7 +207,7 @@
         }
       },
       "comment": "Returns the outputs the parent (intake) needs: the folded payloadHash, the first instruction PDF bytes+name (for parse), and the accepted image count. Response is the child-flow return action (mirrors 'Respond to a Power App or flow'). runAfter both the success Scope and the partial-failure audit so a partial batch still returns what it captured.",
-      "runAfter": { "Scope_Persist_Attachments": [ "Succeeded" ], "Handle_attachment_failure": [ "Succeeded", "Skipped" ] }
+      "runAfter": { "Scope_Persist_Attachments": [ "Succeeded", "Failed", "Skipped", "TimedOut" ], "Handle_attachment_failure": [ "Succeeded", "Skipped" ] }
     }
   }
 }

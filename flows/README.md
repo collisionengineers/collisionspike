@@ -116,8 +116,11 @@ fail. It asserts, over `definitions/*.definition.json`:
 1. **Bind connections (login/secret — `[RESERVED-FOR-USER]`):**
    - `cr1bd_evidenceblob` (`shared_azureblob`) → an Azure Blob connection on the evidence storage
      account; confirm an **`evidence`** container exists and the identity can `CreateFile`.
-   - `cr1bd_ceparser` (`new_collision-20engineers-20parser`) → a connection holding the parser
-     **function key** as `x-functions-key` (host already points at `cespike-parser-dev-…`).
+   - `cr1bd_ceparser` (runtime connector `shared_new-5fcollision-20engineers-20parser-5ff48c20e0e0674f63`)
+     → a connection holding the parser **function key** as `x-functions-key` (host already points at
+     `cespike-parser-dev-…`). NB the definitions bind the **portable logical** id `shared_ceparser`
+     (matched against `connection-references.json`); ALM rebinds it to this physical runtime id at
+     import — do not hardcode the runtime id into the definition JSON.
    - **Do NOT** bind `cr1bd_evavalidation` (status-evaluate is inline now). `cr1bd_dataverse` +
      `cr1bd_sharedmailbox_office365` are already bound.
    - **DLP:** Dataverse + Azure Blob + the parser connector must share one DLP data group.
