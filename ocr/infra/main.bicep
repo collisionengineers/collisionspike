@@ -232,6 +232,17 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
             name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
             value: 'false'
           }
+          // Functions-on-ACA with identity-based ACR pull STILL requires the
+          // registry URL app setting — the platform validates it even though the
+          // MI's AcrPull role (acrUseManagedIdentityCreds:true) supplies the
+          // credentials, so USERNAME/PASSWORD are deliberately omitted (no secret).
+          // NB: bare HOSTNAME, NOT 'https://…' — the App Service layer accepts a
+          // scheme but the underlying Container App's registries.server rejects it
+          // (ContainerAppInvalidRegistryServerValue: hostname[:port] only).
+          {
+            name: 'DOCKER_REGISTRY_SERVER_URL'
+            value: acr.properties.loginServer
+          }
           // Engine selectors (read by the container, NOT the Dataverse gates).
           {
             name: 'OCR_PROVIDER'

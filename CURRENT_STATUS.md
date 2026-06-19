@@ -10,6 +10,38 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
 
 ---
 
+## 🔔 Update — 2026-06-19 (PM): Azure deploys live + UI pass (branch `feat/m1-live-activation`)
+- **Parser Function REDEPLOYED** (`cespike-parser-dev-…`, FC1). Vendored the EVA payload schema into the
+  package (`functions/parser/contracts/`) + fixed the resolver order, so `/api/parse` no longer emits a
+  spurious `schema_unavailable` issue. **Live-verified:** returns the 12 EVA fields incl. **B2**
+  `claimant_telephone` (`07700900123`) + `claimant_email` extracted from document text. (B2 → **Done**.)
+- **Address-match Function DEPLOYED** (`cespkaddr-fn-i7m4re`, FC1, `POST /api/match-address`). Live-verified:
+  part-postcode `M1` → district match over candidate sites, postcode.io reachable. (ROADMAP 4a → deployed.)
+- **OCR host — image BUILT + PUSHED, ACA host deploy PENDING (not live).** Image `ce-ocr:latest` is in
+  new ACR `cespkocracraeee76`, **built via local WSL-root docker** (the subscription **blocks ACR Tasks**
+  / `TasksOperationsNotAllowed`, and there is no local Docker Desktop — both worked around). The ACA host
+  deploy needed two bicep fixes (`DOCKER_REGISTRY_SERVER_URL` required, as a **bare hostname**) but then
+  **failed 3× with `Failed to provision revision … Operation expired`** (~20 min each); the platform rolled
+  the site back. Adapters lazy-import the heavy libs, so it is not a startup crash — likely the AcrPull
+  RBAC-propagation race or an ingress health-probe mismatch. **Honest state: image ready, host not serving.**
+  Next: user-assigned-MI AcrPull or ACA revision-log diving. (ROADMAP 5a / B-full → image built; host deploy pending.)
+- **Live UI/UX pass** (Chrome DevTools, deployed app): logo renders (data-URI), **real Dataverse data**
+  (2 NEW cases, no mock), dashboard KPIs + nav + manual-intake screen render, honest empty states, **no CSP
+  violations / no font errors**, parser connector **consented**. One pre-existing **non-fatal** console
+  error remains (`React.createElement … undefined`; app renders fully). The browser file-upload→parse click
+  couldn't be automated through the nested player iframe, but the parse path is verified end-to-end at the
+  connector API level + the connection is consented.
+- **Architecture review** run as a multi-agent ultracode workflow (Azure efficiency / Code App / flows /
+  dead-code / UI-UX, with adversarial verification) — see the final report.
+- **M1 flow-chain activation: prepared + de-risked, NOT forced.** Verified the live `CS Intake` is the
+  **simple** (non-orchestrator) flow and the children (`classify-persist`/`parse`/`status-evaluate`) are
+  **OFF + stale** vs the repo. Full activation re-arms the live webhook + rebinds Run-a-Child-Flow cards —
+  genuine `[RESERVED-FOR-USER]` designer work that must **not** be forced via API onto the working digital@
+  webhook. Precise steps captured in **`docs/activation/m1-flow-chain-activation.md`**.
+- **Deliberately NOT deployed (resource-conscious):** `evavalidation` (status-evaluate does readiness
+  inline → the connector is unused by design) and `evasentry` (EVA REST is Phase 3c/M2; M1 uses JSON
+  drag-drop). All deployed compute is FC1 (~£0 idle) or ACA scale-to-zero.
+
 ## 🔔 Update — 2026-06-19: parser connector wired, corpus loaded, EVA/address/OCR built (gated-OFF)
 - **Manual-intake parse is no longer CSP-blocked.** The CE Parser custom connector
   (`new_collision-20engineers-20parser`) was updated to expose the `api_key` parameter (the
