@@ -209,8 +209,7 @@ export function AddEvidence() {
       {/* Step 3 — attach */}
       <MessageBar intent="info">
         <MessageBarBody>
-          Writing the files to storage is the live Blob-connector step (operator-gated). Attaching
-          opens the case so the evidence can be confirmed and ordered for EVA there.
+          Files are added to the case, where you can review and order them for submission.
         </MessageBarBody>
       </MessageBar>
 

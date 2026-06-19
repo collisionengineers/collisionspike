@@ -41,10 +41,8 @@ export interface EnrichResult<T> {
 export type VehicleEnrichTransport = (vrm: string) => Promise<EnrichResult<VehicleEnrichment>>;
 export type AddressNormaliseTransport = (text: string) => Promise<EnrichResult<NormalisedAddress>>;
 
-const GATED_VEHICLE_MESSAGE =
-  'Vehicle lookup (DVSA/DVLA) is not connected — an operator must bind the enrichment connector and enable ENRICHMENT_ENABLED. (DVSA/DVLA return make, model and a mileage estimate; VAT is not available and stays manual.)';
-const GATED_ADDRESS_MESSAGE =
-  'Address normalisation (postcodes.io) is not connected — an operator must bind the address-match connector.';
+const GATED_VEHICLE_MESSAGE = 'Vehicle lookup isn’t available yet.';
+const GATED_ADDRESS_MESSAGE = 'Address standardisation isn’t available yet.';
 
 /** Default transports — honest "not connected" until the connectors are bound. */
 export const notConnectedVehicleTransport: VehicleEnrichTransport = async () => ({

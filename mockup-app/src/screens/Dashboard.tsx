@@ -347,7 +347,7 @@ const REASON_VERB: Record<ActionReason, string> = {
   missing_instructions: 'Chase provider for instructions',
   duplicate: 'Resolve duplicate',
   conflict: 'Resolve claimant-name conflict before submit',
-  needs_review: 'Review parsed details',
+  needs_review: 'Review the details',
 };
 
 const REASON_ICON: Record<ActionReason, LucideIcon> = {

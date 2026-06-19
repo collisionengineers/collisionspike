@@ -98,9 +98,9 @@ const AUTOMATION_OPTIONS: { value: ProviderAutomationMode; label: string; hint: 
   {
     value: 'review_auto',
     label: 'Review-auto',
-    hint: 'Auto-parse + classify, then human review. The only mode honored in M1.',
+    hint: 'Read and sort incoming cases automatically, then a person reviews them. The only mode in use.',
   },
-  { value: 'full_auto', label: 'Full-auto', hint: 'Reserved — not honored in M1.' },
+  { value: 'full_auto', label: 'Full-auto', hint: 'Not in use yet.' },
 ];
 
 const POLICY_LABEL: Record<InspectionLocationPolicy, string> = {
@@ -282,7 +282,7 @@ export function Admin() {
       <SectionHeading
         eyebrow="Admin"
         heading="Provider settings"
-        subtitle="Manage the work providers that drive email matching and the address gate. Reference tables and assisted import are shown alongside for context."
+        subtitle="Manage the work providers that drive email matching and the address gate. Reference lists and assisted import are shown alongside for context."
       />
 
       <TabList
@@ -357,7 +357,7 @@ function ProvidersTab({ providers }: { providers: Provider[] }) {
       <Caption1 className={styles.workingNote}>
         <CheckCircle2 size={13} aria-hidden />
         Search, filter, and edit each provider's domains, policy, and automation mode below. Changes
-        are kept locally for review; activating them in Dataverse is done by an operator on deploy.
+        are saved here for review before they go live.
       </Caption1>
 
       <div className={styles.toolbar} role="search">
@@ -438,14 +438,14 @@ function ProviderRowSummary({ provider }: { provider: Provider }) {
         {provider.active ? 'Active' : 'Archived'}
       </Badge>
       <span className={styles.rowSpacer} />
-      <Tooltip content="Last used — recency isn't tracked in M1" relationship="label">
+      <Tooltip content="Not tracked yet" relationship="label">
         <Caption1 className={styles.rowLastUsed}>
           <Clock size={12} aria-hidden />
           Last used —
         </Caption1>
       </Tooltip>
       {domainCount === 0 ? (
-        <Tooltip content="No domains — this provider will never auto-match" relationship="label">
+        <Tooltip content="No email domains — won't be matched to incoming emails automatically" relationship="label">
           <span className={styles.rowMeta}>
             <span className={styles.noDomainDot} aria-hidden />
             no domains
@@ -487,8 +487,7 @@ function ProviderEditor({ provider }: { provider: Provider }) {
       <Toast>
         <ToastTitle>Changes saved for review</ToastTitle>
         <ToastBody>
-          {draft.displayName} ({draft.principalCode}) — kept locally. Activating these changes is done
-          by an operator on deploy.
+          {draft.displayName} ({draft.principalCode}) — saved here for review before going live.
         </ToastBody>
       </Toast>,
       { intent: 'success' },
@@ -506,7 +505,7 @@ function ProviderEditor({ provider }: { provider: Provider }) {
 
       <Field
         label="Principal code"
-        hint="Locked — mints the Case/PO (UPPERCASE = Box, lowercase = EVA). Changing it would break references."
+        hint="Locked — used to build the Case/PO. Changing it would break references."
       >
         <Input className={styles.code} value={draft.principalCode} readOnly disabled />
       </Field>
@@ -536,7 +535,7 @@ function ProviderEditor({ provider }: { provider: Provider }) {
               ))}
             </TagGroup>
           ) : (
-            <Caption1 className={styles.fieldHint}>No domains — provider will never auto-match.</Caption1>
+            <Caption1 className={styles.fieldHint}>No email domains — won't be matched to incoming emails automatically.</Caption1>
           )}
           <div className={styles.domainAdd}>
             <Input
@@ -665,7 +664,7 @@ const REFERENCE_TABLES: {
     title: 'Inspection addresses',
     count: 174,
     unit: 'addresses',
-    description: 'Known inspection locations, normalised by postcode — used to suggest an address for the EVA submission.',
+    description: 'Known inspection locations, standardised by postcode — used to suggest an address for the EVA submission.',
   },
 ];
 
@@ -674,8 +673,7 @@ function ReadOnlyCorpora() {
   return (
     <div className={styles.readonlyIntro}>
       <Caption1 className={styles.fieldHint}>
-        Reference tables that support intake. They are seeded and maintained elsewhere — read-only
-        here in M1. Counts shown are the current seeded totals.
+        Reference lists that support intake. Maintained separately — view only here.
       </Caption1>
       <div className={styles.grid}>
         {REFERENCE_TABLES.map((it) => (
@@ -684,12 +682,12 @@ function ReadOnlyCorpora() {
               <it.icon size={18} aria-hidden />
               <Text className={styles.provName}>{it.title}</Text>
               <Badge appearance="outline" color="subtle" shape="rounded" size="small">
-                Reference · read-only
+                View only
               </Badge>
             </span>
             <span className={styles.readonlyCount}>
               <Text className={styles.readonlyCountNum}>{it.count}</Text>
-              <Caption1 className={styles.readonlyCountUnit}>{it.unit} seeded</Caption1>
+              <Caption1 className={styles.readonlyCountUnit}>{it.unit}</Caption1>
             </span>
             <Caption1 className={styles.fieldHint}>{it.description}</Caption1>
           </div>
@@ -709,8 +707,8 @@ function ImportPreview() {
         <MessageBarBody>
           <MessageBarTitle>Assisted import — preview</MessageBarTitle>
           Assisted import drafts provider records from the Principals / Garages sheets so management
-          can review each change before it is activated. Importing isn't wired up yet — when it is,
-          you'll attach a sheet here to preview the proposed changes.
+          can review each change before it goes live. This isn't available yet — when it is, you'll
+          attach a sheet here to preview the proposed changes.
         </MessageBarBody>
       </MessageBar>
 
@@ -745,7 +743,7 @@ function ImportPreview() {
       </div>
 
       <Caption1 className={styles.fieldHint}>
-        Management reviews each proposed change before any record is activated — an import never
+        Management reviews each proposed change before any record goes live — an import never
         overwrites an approved record without a reason and an audit entry.
       </Caption1>
     </div>

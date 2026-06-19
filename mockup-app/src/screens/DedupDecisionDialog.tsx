@@ -127,7 +127,7 @@ function refOf(c: Pick<Case, 'overviewFacts'>): string {
 const RESOLUTION_COPY: Record<DedupResolution, { label: string; detail: string }> = {
   drop: {
     label: 'Exact repeat',
-    detail: 'This arrival is an exact repeat (same message / payload). Normally dropped.',
+    detail: 'This is an exact repeat of an email already received. Normally ignored.',
   },
   attach: {
     label: 'Reference matches',
@@ -181,13 +181,12 @@ export function DedupDecisionDialog() {
     dispatchToast(
       <Toast>
         <ToastTitle>
-          {kind === 'attach' ? 'Link accepted (mock)' : 'Kept as a new case (mock)'}
+          {kind === 'attach' ? 'Link accepted' : 'Kept as a new case'}
         </ToastTitle>
         <ToastBody>
           {kind === 'attach'
-            ? `${c?.vrm} would be linked to ${target?.casePo ?? target?.id} → linked_to_instruction.`
-            : `${c?.vrm} stays separate from the candidate(s).`}{' '}
-          No record was changed.
+            ? `${c?.vrm} would be linked to ${target?.casePo ?? target?.id}.`
+            : `${c?.vrm} stays separate from the candidate(s).`}
         </ToastBody>
       </Toast>,
       { intent: 'success' },
@@ -249,8 +248,8 @@ export function DedupDecisionDialog() {
             <MessageBar intent="warning" icon={<ShieldQuestion size={20} />}>
               <MessageBarBody>
                 <MessageBarTitle>Held for human disambiguation</MessageBarTitle>
-                ADR-0010: a shared VRM is never auto-merged, and cases are never linked across
-                different work providers. Confirm a link only when the references agree.
+                Cases with the same registration are never merged automatically, and cases from
+                different providers are always kept separate. Confirm a link only when the references agree.
               </MessageBarBody>
             </MessageBar>
 
@@ -367,7 +366,7 @@ export function DedupDecisionDialog() {
                 aria-hidden
                 style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: 4 }}
               />
-              Decisions here are mock only — nothing is written and no email or case is merged.
+              A link is only ever made when you confirm it — cases are never merged on their own.
             </Caption1>
           </DialogContent>
 

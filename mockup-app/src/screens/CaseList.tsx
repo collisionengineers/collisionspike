@@ -184,7 +184,7 @@ const STATUS_LABELS: Record<CaseStatus, string> = {
   linked_to_instruction: 'Linked to instruction',
   ready_for_eva: 'Ready for EVA',
   eva_submitted: 'EVA submitted',
-  box_synced: 'Box synced',
+  box_synced: 'Archived',
   error: 'Error',
 };
 
