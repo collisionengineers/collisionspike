@@ -1,8 +1,10 @@
 import { makeStyles, tokens, mergeClasses } from '@fluentui/react-components';
 import type { ReactNode } from 'react';
 
-/* CE section heading lockup: an uppercase red eyebrow over a 2px red hairline,
-   then the heading text (and optional right-aligned actions). */
+/* CE section heading lockup: an uppercase red eyebrow, then the heading text
+   (and optional right-aligned actions). The old free-floating 2px red hairline
+   under the eyebrow was removed (review 190626 broad-review #2: it read as a red
+   bar floating in random places); the red eyebrow carries the brand accent. */
 
 const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: tokens.spacingVerticalM },
@@ -16,12 +18,6 @@ const useStyles = makeStyles({
     letterSpacing: '0.22em',
     textTransform: 'uppercase',
     lineHeight: 1,
-  },
-  hairline: {
-    height: '2px',
-    width: '40px',
-    backgroundColor: '#db0816',
-    borderRadius: '2px',
   },
   heading: {
     fontFamily: "'Futura PT', 'Tw Cen MT Std', sans-serif",
@@ -55,7 +51,6 @@ export function SectionHeading({ eyebrow, heading, subtitle, actions, className 
       <div className={styles.topRow}>
         <div className={styles.left}>
           <span className={styles.eyebrow}>{eyebrow}</span>
-          <hr className={styles.hairline} aria-hidden />
           <h1 className={styles.heading}>{heading}</h1>
           {subtitle && <span className={styles.sub}>{subtitle}</span>}
         </div>
