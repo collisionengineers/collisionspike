@@ -481,6 +481,9 @@ export function ManualIntake() {
       }
       setFields(result.evaFields);
       if (result.vrm) setVrm(result.vrm);
+      // Seed the single Work-provider input from the parsed value (the prominent
+      // input is the one source of truth for Work Provider — review fix).
+      if (result.evaFields.workProvider?.value) setProvider(result.evaFields.workProvider.value);
       setHasInstructions(true);
       setIssues(result.issues); // warnings, if any
       setPhase('review');
@@ -560,13 +563,17 @@ export function ManualIntake() {
     if (!insuredName.trim()) missing.push('Insured Name');
     if (!providerReference.trim()) missing.push('Claim No');
     if (!inspectOn.trim()) missing.push('Inspect on');
-    // Contract-required EVA fields (Incident Date, Inspection Address, Work
-    // Provider, Vehicle Model, Claimant Name, Accident Circumstances, …).
+    // Work Provider is captured by the prominent `provider` input above, not the
+    // EVA field row — validate that, and skip workProvider in the loop below.
+    if (!provider.trim()) missing.push('Work provider');
+    // Contract-required EVA fields (Incident Date, Inspection Address, Vehicle
+    // Model, Claimant Name, Accident Circumstances, …).
     for (const d of EVA_FIELD_ORDER) {
+      if (d.key === 'workProvider') continue;
       if (CONTRACT_REQUIRED.has(d.key) && !fields[d.key].value.trim()) missing.push(d.label);
     }
     return missing;
-  }, [fields, vrm, providerCode, casePo, insuredName, providerReference, inspectOn]);
+  }, [fields, vrm, provider, providerCode, casePo, insuredName, providerReference, inspectOn]);
 
   const canCreate = phase === 'review' && missingRequired.length === 0;
 
@@ -576,10 +583,9 @@ export function ManualIntake() {
     // the created Case's EVA fields are self-consistent (Work Provider = provider).
     const evaForCreate: EvaFields = {
       ...fields,
-      workProvider:
-        provider.trim() && !fields.workProvider.value.trim()
-          ? { ...fields.workProvider, value: provider.trim(), reviewState: 'reviewed' }
-          : fields.workProvider,
+      workProvider: provider.trim()
+        ? { ...fields.workProvider, value: provider.trim(), reviewState: 'reviewed' }
+        : fields.workProvider,
     };
     setPhase('creating');
     setError(undefined);
@@ -812,7 +818,7 @@ export function ManualIntake() {
 
             {/* Work provider + Principal — BOTH, separate (review #7). */}
             <div className={styles.pairRow}>
-              <Field label="Work provider" hint="Provider display name, e.g. “Knightsbridge Solicitors”.">
+              <Field label="Work provider *" hint="Provider display name, e.g. “Knightsbridge Solicitors”." {...(!provider.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
                 <Input value={provider} onChange={(_, d) => setProvider(d.value)} />
               </Field>
               <Field label="Principal *" hint="4-char principal code, e.g. KBS." {...(!providerCode.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
@@ -878,7 +884,6 @@ export function ManualIntake() {
           {/* Provider & claimant + Vehicle (make/model lookup lives here) */}
           <span className={styles.clusterHead}>Provider &amp; claimant</span>
           <div className={styles.clusterBody}>
-            <FieldRow fieldKey="workProvider" label={LABEL_FOR.workProvider.label} required={LABEL_FOR.workProvider.required} fields={fields} onChange={onFieldChange} />
             {FIELD_CLUSTERS[0].keys.map((key) => (
               <FieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} fields={fields} onChange={onFieldChange} />
             ))}
