@@ -2,11 +2,11 @@
 
 > Dependency-ordered, gated roadmap for the second milestone of the Collision Engineers case-intake
 > spike (Power Apps **Code App** + Dataverse + Power Automate + Azure Functions, Sandbox
-> `Collision Engineers - Dev` `b3090c42-…`). Companion to [PLAN.md](../PLAN.md),
-> [ROADMAP.md](../ROADMAP.md), [CURRENT_STATUS.md](../CURRENT_STATUS.md),
-> [AGENTS.md](../AGENTS.md), [docs/architecture/live-environment.md](../docs/architecture/live-environment.md),
-> the ADRs in [docs/adr/](../docs/adr/), and the **eva-sentry-api** skill. Sibling plans it depends on:
-> [plans/ocr-strategy.md](./ocr-strategy.md) (image AI / OCR — M2 owns the classification half).
+> `Collision Engineers - Dev` `b3090c42-…`). Companion to [PLAN.md](../../PLAN.md),
+> [ROADMAP.md](../../ROADMAP.md), [CURRENT_STATUS.md](../../CURRENT_STATUS.md),
+> [AGENTS.md](../../AGENTS.md), [docs/architecture/live-environment.md](../../docs/architecture/live-environment.md),
+> the ADRs in [docs/adr/](../../docs/adr/), and the **eva-sentry-api** skill. Sibling plans it depends on:
+> [plans/ocr-strategy.md](./phase-5-ocr-and-scale/ocr-strategy.md) (image AI / OCR — M2 owns the classification half).
 > Author date **2026-06-18**. Read-only research only; **no code/flows/Dataverse changed by this plan**.
 
 ---
@@ -33,7 +33,7 @@ exist** in `dataverse/environment-variables.json`. So M2 is:
    bind `cr1bd_box`, set `BoxArchiveRootId`, confirm UPPERCASE folder casing (B5). *Operator.*
 4. **Image AI classification (ADR-0009 M2 half)** — overview-vs-damage via **AI Builder image
    classification** (needs **AI Builder capacity**) + **Foundry vision** for person/reflection. Plate
-   **OCR** (the M1 half) is owned by [ocr-strategy.md](./ocr-strategy.md); M2 coordinates with it and
+   **OCR** (the M1 half) is owned by [ocr-strategy.md](./phase-5-ocr-and-scale/ocr-strategy.md); M2 coordinates with it and
    adds classification on top. *Claude-buildable model+flow; capacity is a licensing decision.*
 5. **Valuation (`valuationbot`, `VALUATION_ENABLED`, on-demand)** — staff-triggered; build a
    **direct REST-wrapper Function** (same pattern as DVSA now the Cloud Run gateway is retired) +
@@ -55,7 +55,7 @@ Function and explains why it is mandatory.
 
 ## 1. Boundary legend (used on every item)
 
-Mirrors `flows/flow-state.json` + [AGENTS.md](../AGENTS.md) + memory `live-services-boundary`:
+Mirrors `flows/flow-state.json` + [AGENTS.md](../../AGENTS.md) + memory `live-services-boundary`:
 
 | Tag | Meaning | Who |
 |---|---|---|
@@ -251,7 +251,7 @@ mitigation). **No Function backs this connector yet.** It is on the critical pat
 ## 7. Sub-phase M2.C — EVA Sentry REST submission (net-new Function + connector)
 
 **The spine of M2 and the only item with a hard external-contract design constraint.** Reference:
-**eva-sentry-api skill** + [docs/architecture/eva-sentry-api.md](../docs/architecture/eva-sentry-api.md)
+**eva-sentry-api skill** + [docs/architecture/eva-sentry-api.md](../../docs/architecture/eva-sentry-api.md)
 + ADR-0005 + the field-level PDF `docs/reference/Sentry API Documentation 1.2 Amended.pdf` (re-read
 for payload depth before wiring).
 
@@ -377,7 +377,7 @@ live on the drag-drop transport (`EVA_API_ENABLED=false`) before M2.C exists.**
 
 ## 9. Sub-phase M2.E — Image AI classification (ADR-0009 M2 half)
 
-**Coordinates with [plans/ocr-strategy.md](./ocr-strategy.md).** That plan owns the **M1 half**
+**Coordinates with [plans/ocr-strategy.md](./phase-5-ocr-and-scale/ocr-strategy.md).** That plan owns the **M1 half**
 (plate **OCR** for `registrationVisible` + VRM-match, via `fast-alpr`/DI-Read on an **ACA container**).
 **M2 adds the classification + reflection half on top.** Do not duplicate the OCR build here; treat
 "plate OCR live → `registrationVisible` populated" as a **prerequisite** for the classification flow's
