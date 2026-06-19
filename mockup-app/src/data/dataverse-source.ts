@@ -22,6 +22,7 @@ import type { Case, Evidence, Provider, ActivityEvent } from '../mock/types';
 import {
   QUEUES,
   queueByName,
+  statusToStage,
   REASON_LABELS,
   type QueueName,
   type LiveCounts,
@@ -83,39 +84,25 @@ function filterQueue(all: Case[], name: QueueName, _now: Date): Case[] {
   return all.filter((c) => q.statuses.includes(c.status));
 }
 
-/** The active human-work cases (the three non-exception queues) — backs the
-    dashboard "needs action" hero list + the reason facet tallies. */
+/** The cases that need a human — backs the dashboard "needs action" aging hero
+    list, its past-due/reason tallies, and the reason-facet chips. ALL FOUR
+    queues, exceptions INCLUDED: an errored case is actionable, and an overdue
+    one must still surface in the aging hero / pastDueCount / reasonCounts rather
+    than vanish because the exceptions queue was dropped (queues #4). */
 function actionableCases(all: Case[], now: Date): Case[] {
   return [
     ...filterQueue(all, 'awaiting-images', now),
     ...filterQueue(all, 'images-only', now),
     ...filterQueue(all, 'ready-review', now),
+    ...filterQueue(all, 'exceptions', now),
   ];
 }
 
-/** Pipeline-stage mapping for the re-cut 4-stage strip (review dashboard Area 1:
-    Parsing/Box dropped, Chasing→Not ready, Ready→Review). */
-function statusToStage(status: CaseStatus): PipelineStageKey {
-  switch (status) {
-    case 'new_email':
-    case 'ingested':
-      return 'new';
-    case 'missing_images':
-    case 'missing_required_fields':
-    case 'error':
-      return 'not_ready';
-    case 'needs_review':
-    case 'duplicate_risk':
-    case 'linked_to_instruction':
-    case 'ready_for_eva':
-      return 'review';
-    case 'eva_submitted':
-    case 'box_synced':
-      return 'submitted';
-    default:
-      return 'new';
-  }
-}
+/* Pipeline-stage mapping for the re-cut 4-stage strip lives in mock/queues.ts
+   (`statusToStage`, imported above) so the dashboard funnel, the CaseDetail spine
+   and the queues all share ONE bucket map. `error` maps to `undefined` there —
+   an exception, surfaced via the Exceptions queue + aging hero, never a funnel
+   count (queues #1). */
 
 const TERMINAL = new Set<CaseStatus>(['eva_submitted', 'box_synced']);
 
@@ -331,6 +318,9 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       const counts = new Map<PipelineStageKey, number>(defs.map((d) => [d.key, 0]));
       for (const c of all) {
         const k = statusToStage(c.status);
+        // `error` maps to undefined — an exception, counted in the exceptions
+        // bar/queue, never in the funnel (queues #1). Skip it here.
+        if (k === undefined) continue;
         counts.set(k, (counts.get(k) ?? 0) + 1);
       }
       return defs.map((d) => ({
