@@ -89,11 +89,8 @@ param tags object = {
   environment: environmentName
 }
 
-@description('Resource ID of a PRE-CREATED user-assigned identity already granted AcrPull on the registry (see acrpull-role.bicep). Supplying it makes the app pull the image via that identity — whose role has already propagated — which avoids the same-deployment RBAC-propagation race that expired revision provisioning. Empty = system-assigned pull (original behaviour).')
+@description('Resource ID of a PRE-CREATED user-assigned identity already granted AcrPull on the registry (see acrpull-role.bicep). Supplying it makes the app pull the image via that identity — whose role has already propagated — which avoids the same-deployment RBAC-propagation race that expired revision provisioning. Empty = system-assigned pull (original behaviour). Functions-on-ACA wants the identity RESOURCE ID here (not the client ID).')
 param acrPullIdentityId string = ''
-
-@description('Client (application) ID of acrPullIdentityId — required by Functions-on-ACA siteConfig.acrUserManagedIdentityID. Set together with acrPullIdentityId.')
-param acrPullIdentityClientId string = ''
 
 var useUami = !empty(acrPullIdentityId)
 
@@ -215,7 +212,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       // Identity-based ACR pull (no admin creds). When a pre-granted UAMI is supplied,
       // pull via it (its AcrPull role has already propagated); else the system MI.
       acrUseManagedIdentityCreds: true
-      acrUserManagedIdentityID: useUami ? acrPullIdentityClientId : null
+      acrUserManagedIdentityID: useUami ? acrPullIdentityId : null
       // NB scale-to-zero / burst limits (minReplicas/maxReplicas) are NOT set
       // here: for Functions-on-ACA the siteConfig Elastic-plan knobs
       // (functionAppScaleLimit / minimumElasticInstanceCount) are IGNORED — they
