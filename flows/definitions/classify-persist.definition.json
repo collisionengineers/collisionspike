@@ -81,16 +81,16 @@
             "Upload_bytes_to_storage": {
               "type": "OpenApiConnection",
               "inputs": {
-                "host": { "connectionName": "shared_azureblob", "operationId": "CreateFile",
+                "host": { "connectionName": "shared_azureblob", "operationId": "CreateFile_V2",
                   "apiId": "/providers/Microsoft.PowerApps/apis/shared_azureblob" },
                 "parameters": {
-                  "dataset": "evidence",
-                  "folderPath": "@concat('intake/', variables('messageId'))",
+                  "dataset": "AccountNameFromSettings",
+                  "folderPath": "@concat('evidence/intake/', variables('messageId'))",
                   "name": "@items('Apply_to_each_attachment')?['name']",
                   "body": "@base64ToBinary(items('Apply_to_each_attachment')?['contentBytes'])"
                 }
               },
-              "comment": "Bytes go to Blob; CreateFile returns blob metadata (Path/Name/...). Row carries only the ref (graph-intake invariant: all file data uploaded to storage immediately). No content hash is returned by the stock connector (§3.2).",
+              "comment": "Bytes go to Blob; CreateFile_V2 returns BlobMetadata (Path/Name/Id/...). Row carries only the ref (graph-intake invariant: all file data uploaded to storage immediately). No content hash is returned by the stock connector (§3.2). CONNECTOR RECONCILIATION (2026-06-19): operationId is CreateFile_V2 (path /v2/datasets/{dataset}/files) NOT the deprecated CreateFile (datasets/default/files) — the latter has NO 'dataset' parameter, so passing dataset there fails Flow validation with WorkflowOperationParametersExtraParameter 'dataset'. For the ACCESS-KEY connection (cr1bd_evidenceblob -> account cespkevidstdev01) the dataset value MUST be the literal token 'AccountNameFromSettings' (per the Azure Blob connector known-issue: access-key auth requires dataset='AccountNameFromSettings', not the blob endpoint); the CONTAINER is the first segment of folderPath, hence 'evidence/intake/<messageId>' (was dataset='evidence' + 'intake/...').",
               "runAfter": { "Compose_kind": [ "Succeeded" ] }
             },
             "Append_token": {
