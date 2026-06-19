@@ -14,6 +14,35 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
 
 ---
 
+## 🔔 Update — 2026-06-19 (later): pipeline fixes — parser path, categorization, audit, `.eml` (branch `fix/parser-base64-tolerant-decode`)
+Four issues fixed via Explore→Plan with **Microsoft Learn** verification of every contract. Repo
+committed in slices; the safe flow edits are **PATCHed live + verified** (CS Parse & CS Status Evaluate
+are **manual-trigger** flows — `statecode` stayed 1, **no email webhook touched**):
+- **FIX 1 — CS Parse drift.** `body/document` now `@base64ToBinary(...)`: live had silently drifted off
+  the documented clean single-encode path onto the tolerant-parser **recovery** path (raw string →
+  gateway double-encode → parser peels it). Restores rule 2 of memory
+  `powerplatform-connector-base64-double-encode` (the tolerant decode still backs it, so the switch
+  can't break parsing). `cr1bd_vrm`/`cr1bd_caseref` were already live; **repo reconciled to live.**
+  Live **PATCH 204, verified.**
+- **FIX 2 — accurate failure audit.** `Audit_parser_failed.cr1bd_after` now reports the **real**
+  `statusCode` + parser message (was hardcoded "parser 5xx/timeout"). Live **PATCH 204, verified.**
+- **FIX 3 — categorization (the "Images only" mislabel).** `CS Status Evaluate` was **evidence-blind**
+  (fields-first → any empty-field case became `missing_required_fields` → "Images only"). Rewrote it
+  to be **evidence-aware** (`List_instruction_evidence` + `instructionCount` + `hasIdentity`):
+  instructions-only → **awaiting images**; `missing_required_fields` ("Images only") now **requires real
+  image evidence**; genuinely-empty/unidentifiable → **error → Exceptions** (premature-error-safe for
+  new cases). Existing status values only — no schema change. Live **PATCH 204, verified.**
+- **FIX 4 — save the source `.eml` + original attachment.** Built in `intake.definition.json`
+  (`Init_attachmentsForChild` + a failure-isolated `Scope_capture_eml` using `ExportEmail_V2` +
+  Append-to-array). **Live GATED — see [docs/gated.md](./docs/gated.md) H12** (operator must confirm
+  the real `ExportEmail_V2` output shape, then designer-apply to the webhook-sensitive live intake).
+  The original *attachments* already persist under the live chain; the `.eml` is additive.
+- **Operator confirmation owed:** a single **live test email** to digital@ to confirm the populated case
+  parses on the clean path and an instructions-only case now reads **awaiting images** (not "Images
+  only"). Repo↔live intake drift tracked as **S11**.
+
+---
+
 ## 🔔 Update — 2026-06-19 (late): M1 flow chain WIRED LIVE via CLI (branch `fix/flow-chain-live-reconcile`)
 The **M1 flow chain is now wired LIVE** end-to-end via the Dataverse API (CLI), and the repo is
 **reconciled to the live flows** so a future solution re-import can't regress them:

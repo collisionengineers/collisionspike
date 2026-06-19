@@ -34,6 +34,7 @@ Two classes:
 | **H9** | **Clarifying-info ingestion** (Inputs 1–5: code reconciliation, CONSIDER seeding, addresses→yards, garage↔provider, intermediaries). | Needs operator-gathered worklists **and** a Dataverse login. | Operator supplies the worklists; then the upsert runs (`[DEPLOY-WITH-LOGIN]`). See [./plans/phase-1-intake-and-case-tracking/corpus/clarifying-info-ingestion.md](./plans/phase-1-intake-and-case-tracking/corpus/clarifying-info-ingestion.md). | 1b.3 |
 | **H10** | **Per-provider sender domains** for auto-match. | Needs operator-supplied domains — ~376/392 providers are blank, so nothing auto-matches. | Provide domain(s); run `dataverse/.build/15-seed-emaildomains.ps1` (idempotent). | 1b.3/2 |
 | **H11** | **Phase-6 live evidence** — the §7 validation checklist across **all three** mailboxes, `pac connection list` inventory, deploy log. | Live tests across live inboxes. | Complete [../DEPLOY-RUNBOOK.md](../DEPLOY-RUNBOOK.md) §7/§8. | 6 |
+| **H12** | **`.eml` source-email capture go-live** — apply the FIX 4 `Scope_capture_eml` to the **live** `CS Intake`. Repo carries the build (`Init_attachmentsForChild` + `Export_source_email`/`Append_eml_to_attachments` + `Run_classify_persist.attachments`→the variable). | (1) **`ExportEmail_V2` output shape is unconfirmed** — Learn says binary, but the gateway sometimes hands binary actions on as base64; a wrong assumption corrupts every saved `.eml`. (2) Live intake is **webhook-sensitive** (clientdata can't re-arm the V3 webhook). | Operator runs **one inspected** `ExportEmail_V2` and checks raw-binary vs already-base64 (drop `base64()` if already base64); then **designer-adds** the 3 actions to live `CS Intake`; send a test email → a `source.eml` Evidence row (kind email=100000003) appears and the normal attachments still classify. | 1/2 |
 
 ---
 
@@ -51,6 +52,7 @@ Two classes:
 | **S8** | **Add an intake-specific substring check** to `flows/validate-flows.mjs` (check 8a only covers `provider-match`). | Repo-side lint; pairs with **H3**. | 2 |
 | **S9** | _(optional)_ **Consolidate the 4 per-Function Log Analytics workspaces** into one shared workspace. | Marginal saving in a dev sandbox; reasonable to defer. | infra |
 | **S10** | **37 over-length principal codes** — supply canonical ≤8-char codes. | Needs the operator's canonical codes; **non-blocking** — the `cr1bd_principalcode` column was already widened 8→12 this session, so loading works now. | 1b.2 |
+| **S11** | **Reconcile `flows/definitions/intake.definition.json` ↔ live `CS Intake`** — they have diverged BOTH ways: live carries an `Init_attachmentHashes` action the repo lacks; the repo now carries the FIX 4 `.eml` capture live lacks; and the Response action is named `Respond_to_parent` (repo) vs `Respond_to_flow` (live). | Repo-side reconcile; AI-doable (pull full live clientdata, diff, align). Deferred this session to land the functional fixes first. Pairs with **H12** (the `.eml` go-live is the moment to reconcile). | 1/2 |
 
 ---
 
