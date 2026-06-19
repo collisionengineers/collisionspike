@@ -74,6 +74,7 @@ export {
   QUEUES,
   queueByName,
   statusToQueue,
+  statusToStage,
   caseTypeOf,
   CASE_TYPE_LABELS,
   REASON_LABELS,
