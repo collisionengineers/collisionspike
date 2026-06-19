@@ -44,6 +44,7 @@ import base64
 import binascii
 import json
 import logging
+import re
 from typing import Any
 
 import azure.functions as func
@@ -57,6 +58,47 @@ app = func.FunctionApp()
 _LOG = logging.getLogger("ce.parser")
 
 CONTRACT_VERSION = parser_adapter.CONTRACT_VERSION
+
+_DOC_MAGICS = (b"%PDF", b"PK\x03\x04", b"\xd0\xcf\x11\xe0", b"{\\rtf")
+_STRICT_B64 = re.compile(rb"^[A-Za-z0-9+/]+={0,2}$")
+
+
+def _has_doc_magic(b: bytes) -> bool:
+    return any(b.startswith(m) for m in _DOC_MAGICS)
+
+
+def _decode_document(document_b64: str) -> bytes:
+    """Decode the request ``document`` (base64), tolerating a redundant 2nd layer.
+
+    The Power Platform connector gateway intermittently re-encodes a base64
+    ``document`` value (a ``format: byte``-class behaviour we could NOT reliably
+    suppress — removing/recreating the connector definition did not stop it, and
+    declaring ``format: byte`` made it worse). So a single decode sometimes yields
+    the real bytes and sometimes yields the base64-ASCII OF the real bytes.
+
+    We decode once; if the result is a known document (PDF/OOXML/OLE/RTF) we use
+    it. Otherwise, if the result is itself strict base64, we decode EXACTLY once
+    more and accept it only if THAT yields a known document — and we LOG a warning
+    so the double-encode is observable, not hidden. This makes the parser correct
+    whether the gateway single- or double-encodes.
+
+    A genuinely non-base64 ``document`` raises ``binascii.Error`` -> 400
+    ``bad_base64``; bytes that decode but are not a parseable document reach the
+    reader -> 422 ``document_unreadable``.
+    """
+    first = base64.b64decode(document_b64, validate=True)
+    if _has_doc_magic(first):
+        return first
+    stripped = first.strip()
+    if _STRICT_B64.match(stripped):
+        try:
+            second = base64.b64decode(stripped, validate=True)
+        except (binascii.Error, ValueError):
+            return first
+        if _has_doc_magic(second):
+            _LOG.warning("recovered double-base64-encoded document (%d bytes)", len(second))
+            return second
+    return first
 
 
 @app.function_name(name="parse")
@@ -99,7 +141,7 @@ def _parse(req: func.HttpRequest) -> func.HttpResponse:
         return _error(400, "bad_provider_hint", "'provider_hint' must be a string when provided.")
 
     try:
-        document_bytes = base64.b64decode(document_b64, validate=True)
+        document_bytes = _decode_document(document_b64)
     except (binascii.Error, ValueError):
         return _error(400, "bad_base64", "'document' is not valid base64.")
     if not document_bytes:
