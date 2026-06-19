@@ -18,8 +18,11 @@
 ## Azure (resource group `rg-collisionspike-dev`, UK South)
 | Resource | Name / detail |
 |---|---|
-| **Parser Function** (Flex Consumption FC1, Linux) | `cespike-parser-dev-x7xt3d5ovhi7y` → `https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net`, route `POST /api/parse`, body `{document(base64), filename}`, `authLevel=function`. Platform CORS allows `https://apps.powerapps.com`. The function key now lives **only on the parser connection** (`01b43be8…`, see below) — the old raw-fetch path (`mockup-app/src/data/parser-config.ts`) was **deleted 2026-06-19**, so the key is no longer in the client bundle. |
+| **Parser Function** (Flex Consumption FC1, Linux) | `cespike-parser-dev-x7xt3d5ovhi7y` → `https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net`, route `POST /api/parse`, body `{document(base64), filename}`, `authLevel=function`. Platform CORS allows `https://apps.powerapps.com`. The function key now lives **only on the parser connection** (`01b43be8…`, see below) — the old raw-fetch path (`mockup-app/src/data/parser-config.ts`) was **deleted 2026-06-19**, so the key is no longer in the client bundle. **REDEPLOYED 2026-06-19**: B2 claimant telephone/email extraction live; EVA schema now vendored in-package (`functions/parser/contracts/`) so `/api/parse` no longer emits a spurious `schema_unavailable` issue. |
 | **Enrichment Function** (gated OFF) | `cespkenrich-fn-gi62sd` — calls DVSA + DVLA **directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway** (B1 obviated). KV `cespkenrichkv…`. |
+| **Address-match Function** (FC1, Linux) — **deployed 2026-06-19** | `cespkaddr-fn-i7m4re` → route `POST /api/match-address`, `authLevel=function`. Part-postcode `Loc` → inspection address via **postcode.io** (`AZURE_MAPS_ENABLED=false`). Live-verified (district match + postcode.io reachable). No secrets, no Key Vault. ROADMAP 4a. |
+| **OCR host** (Azure Container Apps, scale-to-zero) — **deployed 2026-06-19** | `cespkocr-fn-dev-…` on managed env `cespkocr-env-dev`; routes `POST /api/ocr-pdf` + `POST /api/plate-ocr`, `authLevel=function`, `minReplicas=0` (~£0 idle). Image `ce-ocr:latest` in ACR **`cespkocracraeee76`** (built via local WSL docker — the subscription blocks ACR Tasks/cloud-build). Carries the `tesseract` binary FC1 can't. ROADMAP 5a / B-full. |
+| **Container Registry** (Basic) — **created 2026-06-19** | `cespkocracraeee76` (`cespkocracraeee76.azurecr.io`), admin user **off** (identity-based AcrPull by the OCR host MI). Holds `ce-ocr:latest`. |
 
 ## Code App
 | Thing | Value |
