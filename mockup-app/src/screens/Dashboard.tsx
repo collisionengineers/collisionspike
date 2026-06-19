@@ -10,8 +10,7 @@ import {
 } from '@fluentui/react-components';
 import {
   RefreshCw,
-  PhoneOutgoing,
-  CheckCircle2,
+  AlertOctagon,
   ChevronRight,
   CircleCheck,
   Inbox,
@@ -27,7 +26,7 @@ import {
 
 import { SectionHeading, PipelineStrip, VrmPlate, ErrorState, DashboardSkeleton } from '../components';
 import { useDashboard } from '../data';
-import type { ActionReason, AgingRow } from '../data';
+import type { ActionReason, AgingRow, PipelineStageKey } from '../data';
 
 /* ============================================================
    Dashboard — the CHASE COCKPIT.
@@ -43,6 +42,14 @@ import type { ActionReason, AgingRow } from '../data';
    ============================================================ */
 
 const POLL_MS = 75_000;
+
+/* Re-cut funnel stage → the queue/view it drills into (clickable strip). */
+const STAGE_ROUTE: Partial<Record<PipelineStageKey, string>> = {
+  new: '/queue/ready-review',
+  not_ready: '/queue/awaiting-images',
+  review: '/queue/ready-review',
+  submitted: '/logs',
+};
 
 /* ----------  styles  ---------- */
 
@@ -77,6 +84,25 @@ const useStyles = makeStyles({
     fontWeight: tokens.fontWeightSemibold,
     ':hover': { color: 'var(--ce-red)' },
   },
+
+  /* exceptions bar — surfaces the can't-pass-through queue (queues #3) */
+  exceptionBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
+    borderRadius: '2px',
+    border: '1px solid var(--ce-red)',
+    backgroundColor: 'var(--ce-red-tint)',
+    color: 'var(--ce-red-dark)',
+    fontWeight: tokens.fontWeightSemibold,
+    fontSize: '13px',
+    cursor: 'pointer',
+    textAlign: 'left',
+    width: '100%',
+    ':hover': { border: '1px solid var(--ce-red-dark)' },
+  },
+  exceptionText: { flexGrow: 1, minWidth: 0 },
 
   /* ----- region scaffolding ----- */
   region: {
@@ -400,11 +426,7 @@ export function Dashboard() {
   if (!dash) {
     return (
       <div className={mergeClasses('ce-enter', styles.root)}>
-        <SectionHeading
-          eyebrow="Overview"
-          heading="Case intake dashboard"
-          subtitle="Clear the backlog — chase what is aging, submit what is ready."
-        />
+        <SectionHeading eyebrow="Overview" heading="Case intake dashboard" />
         {error ? (
           <ErrorState error={error} onRetry={refresh} title="Couldn’t load the dashboard" />
         ) : (
@@ -421,7 +443,6 @@ export function Dashboard() {
       <SectionHeading
         eyebrow="Overview"
         heading="Case intake dashboard"
-        subtitle="Clear the backlog — chase what is aging, submit what is ready."
         actions={
           <span className={styles.updated}>
             {loading && <Spinner size="tiny" aria-label="Refreshing" />}
@@ -435,32 +456,36 @@ export function Dashboard() {
         }
       />
 
-      {/* HERO: the real pipeline, chasing stage lit red */}
-      <PipelineStrip stages={stages} variant="hero" />
+      {/* HERO: the re-cut funnel (New → Not ready → Review → Submitted), clickable.
+          Replaces the old strip + the redundant "drainable now" tile row. */}
+      <PipelineStrip
+        stages={stages}
+        variant="hero"
+        onStageSelect={(key) => {
+          const to = STAGE_ROUTE[key];
+          if (to) navigate(to);
+        }}
+      />
 
-      {/* REGION A — LIVE WORK (drainable depth) */}
-      <section className={styles.region} aria-label="Live work">
-        <span className={styles.regionLabel}>Live work · drainable now</span>
-        <div className={styles.liveStrip}>
-          <LiveButton
-            icon={PhoneOutgoing}
-            count={live.needsAction}
-            label="Needs action"
-            blocker
-            onClick={() => navigate('/queue/needs-action')}
-          />
-          <LiveButton
-            icon={CheckCircle2}
-            count={live.ready}
-            label="Ready for EVA"
-            onClick={() => navigate('/queue/ready')}
-          />
-        </div>
-      </section>
+      {/* Exceptions — cases that can't pass through automatically (queues #3) */}
+      {live.exceptions > 0 && (
+        <button
+          type="button"
+          className={mergeClasses('ce-focusable', styles.exceptionBar)}
+          onClick={() => navigate('/queue/exceptions')}
+        >
+          <AlertOctagon size={18} strokeWidth={2} aria-hidden />
+          <span className={styles.exceptionText}>
+            {live.exceptions} case{live.exceptions === 1 ? '' : 's'} can’t pass through — missing the
+            basics (VRM / claimant). Triage in Exceptions.
+          </span>
+          <ChevronRight size={18} aria-hidden />
+        </button>
+      )}
 
       {/* REGION B — TODAY / THIS WEEK (windowed throughput, never lifetime) */}
       <section className={styles.region} aria-label="Today and this week">
-        <span className={styles.regionLabel}>Today / this week · windowed</span>
+        <span className={styles.regionLabel}>Today / this week</span>
         <div className={styles.thruStrip}>
           <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
           <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
@@ -470,7 +495,7 @@ export function Dashboard() {
 
       {/* REGION C — NEEDS ACTION (the hero list) */}
       <section className={styles.region} aria-label="Needs action">
-        <span className={styles.regionLabel}>Needs action · oldest due first</span>
+        <span className={styles.regionLabel}>Needs action — oldest first</span>
 
         {/* exception chips */}
         {aging.rows.length > 0 && (
@@ -520,42 +545,9 @@ export function Dashboard() {
   );
 }
 
-/* ----------  Region A button  ---------- */
-
-function LiveButton({
-  icon: Icon,
-  count,
-  label,
-  blocker = false,
-  onClick,
-}: {
-  icon: LucideIcon;
-  count: number;
-  label: string;
-  blocker?: boolean;
-  onClick: () => void;
-}) {
-  const styles = useStyles();
-  const lit = blocker && count > 0;
-  return (
-    <button
-      type="button"
-      className={mergeClasses('ce-focusable', styles.liveBtn, blocker && styles.liveBtnBlocker)}
-      onClick={onClick}
-      aria-label={`${label}: ${count} ${count === 1 ? 'case' : 'cases'}. Open queue.`}
-    >
-      <span className={mergeClasses(styles.liveIcon, lit && styles.liveIconBlocker)} aria-hidden>
-        <Icon size={18} strokeWidth={1.75} />
-      </span>
-      <span className={styles.liveText}>
-        <span className={mergeClasses(styles.liveNumber, lit && styles.liveNumberBlocker)}>
-          {count}
-        </span>
-        <span className={styles.liveLabel}>{label}</span>
-      </span>
-    </button>
-  );
-}
+/* (Region A "drainable now" tiles removed — review dashboard Area 1: they
+   overlapped the funnel above and the wording was poor. The re-cut clickable
+   PipelineStrip carries the live depth + navigation now.) */
 
 /* ----------  Region B cell  ---------- */
 
