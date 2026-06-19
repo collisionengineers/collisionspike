@@ -43,7 +43,17 @@ import type { ActionReason, AgingRow, PipelineStageKey } from '../data';
 
 const POLL_MS = 75_000;
 
-/* Re-cut funnel stage → the queue/view it drills into (clickable strip). */
+/* Re-cut funnel stage → the queue/view it drills into (clickable strip).
+   Each stage lands on a destination that CONTAINS the statuses it counts, so the
+   strip never advertises a number then drops the user on a thinner list
+   (queues #2). The mapping mirrors the shared statusToStage buckets:
+     - new (new_email/ingested) live in the ready-review queue → land there (#8).
+     - review (needs_review/duplicate_risk/linked/ready_for_eva) → ready-review.
+     - not_ready spans TWO queues (missing_images → awaiting-images,
+       missing_required_fields → images-only); the queue page is tabbed and shows
+       both with live counts, so land on awaiting-images with images-only one tab
+       across — the destination (the queue page) holds the whole not-ready set.
+     - submitted (terminal) is throughput, not a backlog → the Action Logs. */
 const STAGE_ROUTE: Partial<Record<PipelineStageKey, string>> = {
   new: '/queue/ready-review',
   not_ready: '/queue/awaiting-images',
