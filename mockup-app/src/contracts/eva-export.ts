@@ -81,7 +81,7 @@ export const EVA_FIELD_ORDER: readonly EvaFieldDescriptor[] = [
   { key: 'claimantName', payloadKey: 'claimant_name', label: 'Claimant Name', required: true },
   { key: 'claimantTelephone', payloadKey: 'claimant_telephone', label: 'Claimant Telephone', required: false },
   { key: 'claimantEmail', payloadKey: 'claimant_email', label: 'Claimant Email Address', required: false },
-  { key: 'dateOfLoss', payloadKey: 'date_of_loss', label: 'Date of Loss', required: true },
+  { key: 'dateOfLoss', payloadKey: 'date_of_loss', label: 'Date of Incident', required: true },
   { key: 'dateOfInstruction', payloadKey: 'date_of_instruction', label: 'Date of Instruction', required: true },
   { key: 'accidentCircumstances', payloadKey: 'accident_circumstances', label: 'Accident Circumstances', required: true },
   { key: 'inspectionAddress', payloadKey: 'inspection_address', label: 'Inspection Address', required: true },
