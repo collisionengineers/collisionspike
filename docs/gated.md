@@ -46,7 +46,7 @@ Two classes:
 | **S3** | **Document the ADR-0010 dedup-ladder deferral** as a known M1 limit + turn **`CS Case Resolve` OFF** in live (ON-but-orphaned). | The doc is AI-doable; the live OFF toggle is a small operator action. | 3 |
 | **S4** | **OCR EVA-map B2 sync** — add `claimant_telephone`/`claimant_email` to `ocr/ocr_pdf_adapter.py` + a parser/OCR map-equality test. | Latent until OCR is wired. | 5a |
 | **S5** | **Generated-service hand-edit guard** — DEPLOY-RUNBOOK re-apply note + an `uploadFileToRecord` grep gate; regenerate cleanly at SDK ≥1.0.4. | Maintenance hazard, dead at runtime today. | 1c |
-| **S6** | **OCR ACA host deploy** — pre-granted user-assigned MI for AcrPull (2-step) **or** ACA revision-log diving. | Deferred after the revision provision expired 3×; an AI-doable Azure deploy (no live boundary). The image is already built + pushed. | 5a |
+| ~~**S6**~~ | **OCR ACA host deploy** — ✅ **DONE 2026-06-19** (PR #7). | Resolved: a pre-granted user-assigned identity for AcrPull (separate ARM deploy) fixed the revision-provision race. `cespkocr-fn-dev-glju3v` (Functions-on-ACA, scale-to-zero) is Running. Connector wiring + gate flip remain. | 5a |
 | **S7** | **Redeploy the enrichment Function** from current bicep (clears the managed-LAW RG sprawl) + add `allowSharedKeyAccess:false` to **parser** storage. | Defense-in-depth IaC drift; AI-doable redeploy. | 3a |
 | **S8** | **Add an intake-specific substring check** to `flows/validate-flows.mjs` (check 8a only covers `provider-match`). | Repo-side lint; pairs with **H3**. | 2 |
 | **S9** | _(optional)_ **Consolidate the 4 per-Function Log Analytics workspaces** into one shared workspace. | Marginal saving in a dev sandbox; reasonable to defer. | infra |
@@ -60,5 +60,5 @@ Two classes:
 - **B3** 13th EVA field — **resolved**: the contract is **12 fields** (`engineer_allocation` removed).
 - **B4** Code Apps enablement — **resolved**: enabled on the env; app pushed.
 - **B2** parser telephone/email — **resolved**: parser redeployed 2026-06-19; `/api/parse` extracts both.
-- **OCR "deployed/live" doc claims** — corrected: image built+pushed, host deploy honestly pending (**S6**).
+- **OCR ACA host** — **deployed 2026-06-19** (S6 done, PR #7): `cespkocr-fn-dev-glju3v` Running via the pre-granted-UAMI AcrPull fix.
 - **`cr1bd_principalcode`** widened 8→12 (the residual canonical-codes decision is **S10**).
