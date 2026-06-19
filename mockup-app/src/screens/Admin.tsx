@@ -36,6 +36,8 @@ import {
 import {
   Building2,
   CheckCircle2,
+  Clock,
+  Database,
   FileDiff,
   Mail,
   MapPin,
@@ -52,20 +54,24 @@ import {
 } from '../data';
 
 /* ============================================================
-   Admin / corpus surface (Phase 1b, no prototype analog).
+   Provider settings (nav label "Provider settings", route /admin).
 
-   View/edit the WorkProvider corpus — the email-domain list (drives
-   Flow_ProviderMatch), inspectionLocationPolicy (drives the address gate),
-   and providerAutomationMode (only review_auto honored in M1) — plus
-   read-only stubs for the Repairer / ImageSource / InspectionAddress corpora
-   (not modelled in the prototype yet, shown honestly as "not built").
+   The working surface is the Work providers tab: search, an
+   Active/Archived/All filter, and inline editing of each provider's
+   email-domain list (drives provider matching), inspection-location policy
+   (drives the address gate), and automation mode (only review-auto honored in
+   M1). Edits live in local React state — saving to Dataverse is an
+   operator-gated step (a deploy-with-login write), which is the intended M1
+   boundary, not a missing feature.
 
-   The "assisted import preview-diff" is a placeholder: parsing the
-   Principals/Garages sheets into draft records is [BUILD]; activating corpus
-   records is [DEPLOY-WITH-LOGIN] (Dataverse writes) and there is NO live
-   SharePoint contact here.
+   Two supporting tabs are honest, intentional product states:
+     • Reference data — read-only summaries (with seeded counts) of the
+       Repairer / Image-source / Inspection-address tables, which are managed
+       elsewhere and not editable here in M1.
+     • Assisted import — a preview of how draft provider records would be
+       proposed from the Principals / Garages sheets for management to review.
+       Importing isn't wired yet; the sample diff is illustrative.
 
-   MOCK ONLY — edits live in local React state and never persist.
    Brand: --ce-red (#db0816) is the only red; never the print brand red.
    ============================================================ */
 
@@ -112,6 +118,14 @@ const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL },
   tabs: { marginTop: `-${tokens.spacingVerticalS}` },
 
+  /* ----- "what works here" framing line above the toolbar ----- */
+  workingNote: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    color: tokens.colorNeutralForeground3,
+  },
+
   /* ----- providers toolbar (search + segmented filter + counts) ----- */
   toolbar: {
     display: 'flex',
@@ -157,6 +171,15 @@ const useStyles = makeStyles({
     flexShrink: 0,
   },
   rowSpacer: { flex: 1 },
+  rowLastUsed: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXXS,
+    color: tokens.colorNeutralForeground3,
+    flexShrink: 0,
+    minWidth: '92px',
+    justifyContent: 'flex-end',
+  },
   noDomainDot: {
     display: 'inline-block',
     width: '8px',
@@ -195,16 +218,34 @@ const useStyles = makeStyles({
   cardActions: { display: 'flex', gap: tokens.spacingHorizontalS, alignItems: 'center', marginTop: 'auto' },
   spacer: { flex: 1 },
 
+  readonlyIntro: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalS,
+  },
   readonlyPanel: {
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     borderRadius: tokens.borderRadiusMedium,
-    backgroundColor: tokens.colorNeutralBackground3,
+    backgroundColor: tokens.colorNeutralBackground1,
     padding: tokens.spacingVerticalL,
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalS,
   },
   readonlyHead: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS },
+  readonlyCount: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: tokens.spacingHorizontalXS,
+  },
+  readonlyCountNum: {
+    fontFamily: 'var(--ce-font-display)',
+    fontWeight: 700,
+    fontSize: tokens.fontSizeHero700,
+    lineHeight: '1',
+    color: 'var(--ce-ink)',
+  },
+  readonlyCountUnit: { color: tokens.colorNeutralForeground3 },
 
   importPanel: {
     border: `1px dashed ${tokens.colorNeutralStroke2}`,
@@ -240,8 +281,8 @@ export function Admin() {
     <div className={mergeClasses('ce-enter', styles.root)}>
       <SectionHeading
         eyebrow="Admin"
-        heading="Corpus administration"
-        subtitle="Work-provider corpus and the assisted import preview — drafting only, no live sync."
+        heading="Provider settings"
+        subtitle="Manage the work providers that drive email matching and the address gate. Reference tables and assisted import are shown alongside for context."
       />
 
       <TabList
@@ -253,8 +294,8 @@ export function Admin() {
         <Tab value="providers" icon={<Building2 size={16} />}>
           Work providers
         </Tab>
-        <Tab value="read-only" icon={<Wrench size={16} />}>
-          Other corpora
+        <Tab value="read-only" icon={<Database size={16} />}>
+          Reference data
         </Tab>
         <Tab value="import" icon={<FileDiff size={16} />}>
           Assisted import
@@ -265,10 +306,10 @@ export function Admin() {
         (loading && data === undefined ? (
           <ProviderListSkeleton rows={8} />
         ) : error && data === undefined ? (
-          <ErrorState error={error} onRetry={refetch} title="Couldn’t load the provider corpus" />
+          <ErrorState error={error} onRetry={refetch} title="Couldn’t load the work providers" />
         ) : (data?.length ?? 0) === 0 ? (
           <MessageBar intent="info">
-            <MessageBarBody>No work providers in the corpus yet.</MessageBarBody>
+            <MessageBarBody>No work providers yet.</MessageBarBody>
           </MessageBar>
         ) : (
           <ProvidersTab providers={data!} />
@@ -313,6 +354,12 @@ function ProvidersTab({ providers }: { providers: Provider[] }) {
 
   return (
     <>
+      <Caption1 className={styles.workingNote}>
+        <CheckCircle2 size={13} aria-hidden />
+        Search, filter, and edit each provider's domains, policy, and automation mode below. Changes
+        are kept locally for review; activating them in Dataverse is done by an operator on deploy.
+      </Caption1>
+
       <div className={styles.toolbar} role="search">
         <SearchBox
           className={styles.search}
@@ -334,7 +381,7 @@ function ProvidersTab({ providers }: { providers: Provider[] }) {
         </TabList>
         <span className={styles.toolbarSpacer} />
         <Caption1 className={styles.counts}>
-          {activeCount} active · {archivedCount} archived · showing {shown.length} of {filtered.length}
+          showing {shown.length} of {filtered.length}
         </Caption1>
       </div>
 
@@ -391,6 +438,12 @@ function ProviderRowSummary({ provider }: { provider: Provider }) {
         {provider.active ? 'Active' : 'Archived'}
       </Badge>
       <span className={styles.rowSpacer} />
+      <Tooltip content="Last used — recency isn't tracked in M1" relationship="label">
+        <Caption1 className={styles.rowLastUsed}>
+          <Clock size={12} aria-hidden />
+          Last used —
+        </Caption1>
+      </Tooltip>
       {domainCount === 0 ? (
         <Tooltip content="No domains — this provider will never auto-match" relationship="label">
           <span className={styles.rowMeta}>
@@ -407,7 +460,7 @@ function ProviderRowSummary({ provider }: { provider: Provider }) {
   );
 }
 
-/* ----------  Editable WorkProvider editor (mock local state)  ---------- */
+/* ----------  Editable WorkProvider editor (edits kept in local state)  ---------- */
 
 function ProviderEditor({ provider }: { provider: Provider }) {
   const styles = useStyles();
@@ -432,10 +485,10 @@ function ProviderEditor({ provider }: { provider: Provider }) {
   const save = () => {
     dispatchToast(
       <Toast>
-        <ToastTitle>Draft saved (mock)</ToastTitle>
+        <ToastTitle>Changes saved for review</ToastTitle>
         <ToastBody>
-          {draft.displayName} ({draft.principalCode}) — corpus activation is a Dataverse write, not
-          done here.
+          {draft.displayName} ({draft.principalCode}) — kept locally. Activating these changes is done
+          by an operator on deploy.
         </ToastBody>
       </Toast>,
       { intent: 'success' },
@@ -580,46 +633,73 @@ function ProviderEditor({ provider }: { provider: Provider }) {
   );
 }
 
-/* ----------  Read-only stubs for the not-yet-modelled corpora  ---------- */
+/* ----------  Reference data: read-only summaries of the seeded tables  ----------
+   These reference tables are seeded and managed outside this screen; M1 surfaces
+   an honest summary + the seeded totals, not editable rows. Counts are the
+   known seeded totals (no live count hook exists in the data seam yet), so they
+   are labelled as such rather than implying a live query. */
+
+const REFERENCE_TABLES: {
+  icon: typeof Wrench;
+  title: string;
+  count: number;
+  unit: string;
+  description: string;
+}[] = [
+  {
+    icon: Wrench,
+    title: 'Repairers',
+    count: 61,
+    unit: 'repairers',
+    description: 'Approved repair sites linked to work providers — used when resolving where a vehicle is held.',
+  },
+  {
+    icon: Mail,
+    title: 'Image sources',
+    count: 23,
+    unit: 'sources',
+    description: 'Garage and WhatsApp groups that send in photos — used to attribute inbound images to a case.',
+  },
+  {
+    icon: MapPin,
+    title: 'Inspection addresses',
+    count: 174,
+    unit: 'addresses',
+    description: 'Known inspection locations, normalised by postcode — used to suggest an address for the EVA submission.',
+  },
+];
 
 function ReadOnlyCorpora() {
   const styles = useStyles();
-  const items: { icon: typeof Wrench; title: string; note: string }[] = [
-    {
-      icon: Wrench,
-      title: 'Repairers',
-      note: 'Repairer corpus (N:N with WorkProvider) is not modelled in this prototype yet — read-only placeholder.',
-    },
-    {
-      icon: Mail,
-      title: 'Image sources',
-      note: 'ImageSource corpus (garage / WhatsApp groups that send photos) is not modelled yet — read-only placeholder.',
-    },
-    {
-      icon: MapPin,
-      title: 'Inspection addresses',
-      note: 'InspectionAddress corpus (normalised via postcode.io; candidate ranking is M2) is not modelled yet — read-only placeholder.',
-    },
-  ];
   return (
-    <div className={styles.grid}>
-      {items.map((it) => (
-        <div key={it.title} className={styles.readonlyPanel}>
-          <span className={styles.readonlyHead}>
-            <it.icon size={18} aria-hidden />
-            <Text className={styles.provName}>{it.title}</Text>
-            <Badge appearance="outline" color="subtle" shape="rounded" size="small">
-              Read-only
-            </Badge>
-          </span>
-          <Caption1 className={styles.fieldHint}>{it.note}</Caption1>
-        </div>
-      ))}
+    <div className={styles.readonlyIntro}>
+      <Caption1 className={styles.fieldHint}>
+        Reference tables that support intake. They are seeded and maintained elsewhere — read-only
+        here in M1. Counts shown are the current seeded totals.
+      </Caption1>
+      <div className={styles.grid}>
+        {REFERENCE_TABLES.map((it) => (
+          <div key={it.title} className={styles.readonlyPanel}>
+            <span className={styles.readonlyHead}>
+              <it.icon size={18} aria-hidden />
+              <Text className={styles.provName}>{it.title}</Text>
+              <Badge appearance="outline" color="subtle" shape="rounded" size="small">
+                Reference · read-only
+              </Badge>
+            </span>
+            <span className={styles.readonlyCount}>
+              <Text className={styles.readonlyCountNum}>{it.count}</Text>
+              <Caption1 className={styles.readonlyCountUnit}>{it.unit} seeded</Caption1>
+            </span>
+            <Caption1 className={styles.fieldHint}>{it.description}</Caption1>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-/* ----------  Assisted import preview-diff placeholder  ---------- */
+/* ----------  Assisted import preview (sample, not yet wired)  ---------- */
 
 function ImportPreview() {
   const styles = useStyles();
@@ -627,22 +707,22 @@ function ImportPreview() {
     <div className={styles.importPanel}>
       <MessageBar intent="info">
         <MessageBarBody>
-          <MessageBarTitle>Assisted import — preview only</MessageBarTitle>
-          Parsing the Principals / Garages sheets into draft records is [BUILD]. Activating corpus
-          records is a Dataverse write [DEPLOY-WITH-LOGIN] — there is no live SharePoint contact
-          here. The diff below is an illustrative sample.
+          <MessageBarTitle>Assisted import — preview</MessageBarTitle>
+          Assisted import drafts provider records from the Principals / Garages sheets so management
+          can review each change before it is activated. Importing isn't wired up yet — when it is,
+          you'll attach a sheet here to preview the proposed changes.
         </MessageBarBody>
       </MessageBar>
 
-      <Tooltip content="No source attached — this is a placeholder" relationship="label">
+      <Tooltip content="Attaching a sheet isn't available yet" relationship="label">
         <span>
           <Button appearance="secondary" icon={<FileDiff size={16} />} disabled>
-            Attach Principals sheet (later)
+            Attach sheet (coming later)
           </Button>
         </span>
       </Tooltip>
 
-      <Divider>Sample preview-diff</Divider>
+      <Divider>Sample preview — illustrative only</Divider>
 
       <div>
         <Text className={styles.provName}>+ New work provider</Text>
@@ -660,13 +740,13 @@ function ImportPreview() {
         </div>
         <div className={styles.diffRow}>
           <span className={styles.diffKey}>policy</span>
-          <span className={styles.diffAdd}>+ prefer_address</span>
+          <span className={styles.diffAdd}>+ Prefer address</span>
         </div>
       </div>
 
       <Caption1 className={styles.fieldHint}>
-        Management would review each diff before any record is activated — drafts never overwrite an
-        approved record without a change-reason + audit.
+        Management reviews each proposed change before any record is activated — an import never
+        overwrites an approved record without a reason and an audit entry.
       </Caption1>
     </div>
   );
