@@ -4,7 +4,7 @@
 > flows, or Dataverse changed. Deep dive behind **ROADMAP §5c "Valuation & Copilot (M2 / M3+)"** — the two
 > checkboxes: **(1)** staff-triggered valuation (`valuationbot`, gated `VALUATION_ENABLED`) with a
 > Companion-Report PDF attached as Evidence; **(2)** a Copilot Studio agent over Dataverse (gated
-> `COPILOT_ENABLED`). Pairs with [phase-2-implementation.md](../m2-umbrella-enrichment-to-scale.md) §10/§11 (M2.G),
+> `COPILOT_ENABLED`). Pairs with [m2-umbrella-enrichment-to-scale.md](../m2-umbrella-enrichment-to-scale.md) §10/§11 (M2.G),
 > ADR-0006 (REST-wrapper pattern), ADR-0008 (tool boundary ends at the EVA handoff),
 > [docs/architecture/integrations.md](../../../docs/architecture/integrations.md),
 > [docs/architecture/microsoft-stack.md](../../../docs/architecture/microsoft-stack.md) §9. Author date

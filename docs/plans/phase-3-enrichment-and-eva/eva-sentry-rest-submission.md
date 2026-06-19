@@ -4,7 +4,7 @@
 > (`functions/evasentry/`, task #34, **42 pytest green** via the project venv 2026-06-19); this plan documents that artifact,
 > specifies the deploy → connector-bind → **test** flip → **parity-gated production cutover** sequence,
 > and resolves the **one** unconfirmed contract question (Impact-Image shape). It is the deep dive behind
-> **ROADMAP §3c "EVA — Sentry REST API (later)"** that [phase-2-implementation.md](../m2-umbrella-enrichment-to-scale.md)
+> **ROADMAP §3c "EVA — Sentry REST API (later)"** that [m2-umbrella-enrichment-to-scale.md](../m2-umbrella-enrichment-to-scale.md)
 > §7 (M2.C) only sketches. Companion to the **`eva-sentry-api`** skill,
 > [docs/architecture/eva-sentry-api.md](../../../docs/architecture/eva-sentry-api.md), ADR-0005, AGENTS.md.
 > Author date **2026-06-18**. Read-only research; **no code/flows/Dataverse changed by this plan**.

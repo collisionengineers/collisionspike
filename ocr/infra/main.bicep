@@ -5,7 +5,7 @@
 // which — unlike the parser's Flex Consumption (FC1) plan — lets the image carry
 // the `tesseract` OS binary. This is "B-full" (ROADMAP 5a): a SEPARATE host from
 // the FC1 parser, invoked only as an OCR fallback for image-only PDFs, plus the
-// fast-alpr registration-plate route. See plans/ocr-strategy.md.
+// fast-alpr registration-plate route. See docs/plans/phase-5-ocr-and-scale/ocr-strategy.md.
 //
 // Authored OFFLINE; `az bicep build`-able with no tenant contact. Deploying it
 // (az deployment / azd) is [DEPLOY-WITH-LOGIN]. Injecting the real Document
@@ -46,7 +46,7 @@ param imageName string = 'ce-ocr:latest'
 @description('Use an EXISTING Azure Container Registry instead of creating one. When empty, a new Basic ACR is created.')
 param existingAcrName string = ''
 
-@description('Minimum Container Apps replicas. 0 = scale-to-zero (~GBP0 idle). Raise to 1 during business hours if cold-start latency on synchronous Code App calls is intrusive (plans/ocr-strategy section 10.5).')
+@description('Minimum Container Apps replicas. 0 = scale-to-zero (~GBP0 idle). Raise to 1 during business hours if cold-start latency on synchronous Code App calls is intrusive (docs/plans/phase-5-ocr-and-scale/ocr-strategy section 10.5).')
 @minValue(0)
 @maxValue(5)
 param minReplicas int = 0

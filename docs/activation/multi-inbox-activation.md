@@ -4,7 +4,7 @@
 > inboxes**, `docs/requirements/admin-overview.md:20`) onto the **parameterised** intake flow
 > [`flows/definitions/intake-shared-mailbox.definition.json`](../../flows/definitions/intake-shared-mailbox.definition.json).
 > One definition serves **any** inbox — the only per-copy difference is the `IntakeMailbox` flow
-> parameter. Full rationale + architecture: [`plans/multi-inbox-access.md`](../../plans/multi-inbox-access.md).
+> parameter. Full rationale + architecture: [`docs/plans/phase-2-live-activation/multi-inbox-access.md`](../../docs/plans/phase-2-live-activation/multi-inbox-access.md).
 > The single-mailbox `digital@` setup that is already LIVE is in
 > [`email-intake-activation.md`](./email-intake-activation.md).
 
@@ -17,7 +17,7 @@
 
 Do everything at **make.powerapps.com** / **make.powerautomate.com** with the **`Collision Engineers -
 Dev`** environment selected (env id `b3090c42-51fb-ee24-9868-474da322a3ad`).
-**Do ONE inbox first; only after it succeeds, repeat for the third** (`plans/phase-1-…:632,649`).
+**Do ONE inbox first; only after it succeeds, repeat for the third** (`docs/plans/phase-1-intake-and-case-tracking/phase-1-…:632,649`).
 
 ---
 
@@ -120,7 +120,7 @@ backlog is never ingested. (It's a **flow parameter**, not a Dataverse env-var �
 
 ### A.4 Leave the downstream chain as-is
 `CS Provider Match` and `CS Case Resolve` are already ON and **shared** across all inboxes. The new intake
-flow writes `cr1bd_cases` the same way; **no downstream change**. (Per `plans/phase-1-operational.md` the
+flow writes `cr1bd_cases` the same way; **no downstream change**. (Per `docs/plans/phase-1-intake-and-case-tracking/phase-1-operational.md` the
 classify-persist/parse/status-evaluate flows are presently orphaned/manual — that is a separate gap, not a
 multi-inbox concern.)
 
@@ -214,7 +214,7 @@ next inbox.
 
 ## Reference
 
-- Plan + architecture (Option A, V3-vs-V2, cross-inbox dedup): `plans/multi-inbox-access.md`.
+- Plan + architecture (Option A, V3-vs-V2, cross-inbox dedup): `docs/plans/phase-2-live-activation/multi-inbox-access.md`.
 - Single-mailbox live setup (`digital@`, V3): `docs/activation/email-intake-activation.md`.
 - Flow definition (this doc activates it): `flows/definitions/intake-shared-mailbox.definition.json`
   (mirrors `flows/definitions/intake.definition.json`; `IntakeMailbox` is the only per-inbox knob).

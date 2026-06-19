@@ -24,7 +24,7 @@ UI/UX is solid. The items below are the residue.
    cleaned up (ACR + image kept).
 2. **Live parser default function key is committed in git** — the working `functionKeys.default` for
    `cespike-parser-dev-…` is in `docs/activation/email-intake-activation.md:30` (labelled "Non-sensitive
-   dev key") and `plans/code-audit-cleanup.md:27`, and persists in history via the deleted
+   dev key") and `docs/plans/phase-0-foundations/code-audit-cleanup.md:27`, and persists in history via the deleted
    `parser-config.ts`. Endpoint is internet-reachable. **Recommendation (operator):** rotate the key
    (rotation, not just doc-scrub, is the real fix since it's in history), replace both occurrences with a
    placeholder, add a secret-scan pre-commit gate. _Left for the operator per the standing "these keys

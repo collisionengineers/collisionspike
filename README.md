@@ -34,7 +34,7 @@ and de-duplicate every action. Full pipeline: [docs/requirements/intake-workflow
 Built and offline-verifiable: `node verify-all.mjs` → 6 gates (Code App build + 192 tests, Dataverse
 parity, flow linter, parser + enrichment pytest).
 
-- **Plan:** [plans/phase-1-intake-and-case-tracking-implementation.md](./plans/phase-1-intake-and-case-tracking-implementation.md) · **Deploy:** [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) (the `[DEPLOY-WITH-LOGIN]` / `[RESERVED-FOR-USER]` sequence + blockers).
+- **Plan:** [docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md](./docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md) · **Deploy:** [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) (the `[DEPLOY-WITH-LOGIN]` / `[RESERVED-FOR-USER]` sequence + blockers).
 - `mockup-app/` — the Code App (React + Fluent v9): `src/contracts/` (EVA/status/image), `src/domain/` (classification, ADR-0010 dedup, provider-match, address-policy), `src/data/` (the mock↔Dataverse seam), screens.
 - `dataverse/` — schema-as-code (10 tables + provenance, choice sets, env-vars, relationships).
 - `functions/{parser,enrichment}/` — Azure Functions (code, Bicep, OpenAPI, mocked pytest).

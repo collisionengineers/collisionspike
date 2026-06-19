@@ -18,7 +18,7 @@ Two engines, one switch (``PLATE_PROVIDER`` -> ``provider`` here):
       the case VRM in the returned text. No plate localisation -> lower precision,
       but managed and adequate for M1's "does the image's OCR text contain the
       case VRM?" check (image-rules.ts / data-model.md). Do NOT use Azure AI Vision
-      Image Analysis Read — DEPRECATED, retires 2028-09-25 (plans/ocr-strategy §0).
+      Image Analysis Read — DEPRECATED, retires 2028-09-25 (docs/plans/phase-5-ocr-and-scale/ocr-strategy §0).
 
 M1 SCOPE (ADR-0009): read the plate well enough to set Evidence
 ``registrationVisible`` and VRM-match images to the open Case (ADR-0002/0007).
@@ -170,7 +170,7 @@ def _build_result(
 # Engine: fast-alpr (primary)                                                  #
 # --------------------------------------------------------------------------- #
 # Lazy singleton so the (cold) model load happens once per warm worker, not per
-# request — material for ACA cold-start (plans/ocr-strategy §10.5).
+# request — material for ACA cold-start (docs/plans/phase-5-ocr-and-scale/ocr-strategy §10.5).
 _ALPR_SINGLETON: Any = None
 
 

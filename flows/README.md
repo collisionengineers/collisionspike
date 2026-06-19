@@ -55,7 +55,7 @@ intake (OnNewEmailV3)
 - **`host.workflowReferenceName` is a PLACEHOLDER** (`CS_Classify_Persist` / `CS_Parse` / `CS_Status_Evaluate`). After import, the **designer/Flow API rebinds** it to the imported child's GUID — see the redeploy steps below. The placeholder is *not* a live id.
 - **`case-resolve` + `provider-match` stay standalone** returnable children (Response-equipped) for ALM/reuse and the image-first VRM-confirm re-dedup pass, but are **not** in intake's hot path: intake owns its own anchored match + single Create (avoids a second domain lookup and a second Case write). The §3.4/§3.5 "provider-match returns the id, case-resolve owns the create" split is the documented alternative wiring.
 
-> ⚠️ **Out-of-scope regression hazard:** `flows/definitions/intake-shared-mailbox.definition.json` (the parameterised multi-inbox variant, `plans/multi-inbox-access.md` Option A) was **NOT** touched by this change and still carries the **old `SharedMailboxOnNewEmailV2` trigger + the buggy `contains(cr1bd_knownemaildomains,…)` substring match + no orchestration**. Reconcile it to this file's shape before that variant is ever imported/activated, or it regresses both the trigger and the provider match.
+> ⚠️ **Out-of-scope regression hazard:** `flows/definitions/intake-shared-mailbox.definition.json` (the parameterised multi-inbox variant, `docs/plans/phase-2-live-activation/multi-inbox-access.md` Option A) was **NOT** touched by this change and still carries the **old `SharedMailboxOnNewEmailV2` trigger + the buggy `contains(cr1bd_knownemaildomains,…)` substring match + no orchestration**. Reconcile it to this file's shape before that variant is ever imported/activated, or it regresses both the trigger and the provider match.
 
 ## Intake go-live hardening (intake.definition.json)
 
@@ -136,7 +136,7 @@ fail. It asserts, over `definitions/*.definition.json`:
      connections — Learn) → **Save**.
 5. **Turn ON in order:** `classify-persist`, then `parse`, then `status-evaluate` (intake,
    provider-match, case-resolve already ON). Leave enrich/finalize/chaser/jobsheet OFF.
-6. **Verify** end-to-end per `plans/phase-1-operational.md` §7 (1 instruction PDF + 2 photos →
+6. **Verify** end-to-end per `docs/plans/phase-1-intake-and-case-tracking/phase-1-operational.md` §7 (1 instruction PDF + 2 photos →
    Case + 2 Evidence rows + 12 parsed fields; tag the 2 images `overview`+`registrationVisible` /
    `damage_closeup` → re-invoke status-evaluate → `ready_for_eva`). Trigger health:
    `.../flows/<id>/triggers?api-version=2016-11-01` returns **200**, runs **Succeeded**.

@@ -35,7 +35,7 @@ function TypeCode($t) {
 }
 
 # The M2 deltas (plan phase-2 §12). All default OFF/empty. Adjust the OCR/AI ones
-# to your chosen path before activation (see plans/phase-2-implementation.md §9).
+# to your chosen path before activation (see docs/plans/m2-umbrella-enrichment-to-scale.md §9).
 $M2_VARS = @(
   @{ schemaName="cr1bd_CHASER_SEND_ENABLED"; displayName="Chaser Send Enabled"; type="Boolean"; defaultValue="false";
      description="M2.F outbound email kill switch. Default OFF. When true, Flow_ChaserSend may send a DRAFTED email chaser via the digital@ shared mailbox (whatsapp chasers are never auto-sent). Flipping true is [RESERVED-FOR-USER]." }
