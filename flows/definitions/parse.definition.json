@@ -155,6 +155,25 @@
       },
       "comment": "On Function 5xx/timeout the parser branch fails; audit parser_failed and continue (enrichment/status downstream handle needs_review).",
       "runAfter": { "If_parser_enabled": [ "Failed", "TimedOut" ] }
+    },
+    "Respond_to_parent": {
+      "type": "Response",
+      "kind": "Http",
+      "inputs": {
+        "statusCode": 200,
+        "body": {
+          "caseId": "@variables('caseId')",
+          "parsed": "@and(variables('gate_PDF_MAPPER_ENABLED'), equals(coalesce(outputs('Call_parser')?['statusCode'], 0), 200))",
+          "instructionBytesB64": "@coalesce(triggerBody()?['instructionBytesB64'], '')",
+          "instructionName": "@coalesce(triggerBody()?['instructionName'], '')",
+          "contractVersion": "@coalesce(body('Call_parser')?['contract_version'], '')"
+        }
+      },
+      "comment": "Child-flow return action (required to be callable via Run-a-Child-Flow; mirrors classify-persist's Respond_to_parent / 'Respond to a PowerApp or flow'). Echoes the instruction bytes+name the parent passed in plus a parsed flag and the parser contract_version. runAfter the gate branch on ALL outcomes (Succeeded/Skipped = ran or gate off; Failed/TimedOut absorbed by Audit_parser_failed) so the child ALWAYS returns to the parent even when the parser Function 5xxs. outputs('Call_parser') is null-safe (coalesce -> 0) when the parser branch was skipped (gate off) so parsed=false there.",
+      "runAfter": {
+        "If_parser_enabled": [ "Succeeded", "Skipped" ],
+        "Audit_parser_failed": [ "Succeeded", "Skipped", "Failed", "TimedOut" ]
+      }
     }
   }
 }
