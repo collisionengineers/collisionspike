@@ -14,6 +14,44 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
 
 ---
 
+## 🔔 Update — 2026-06-19 (late): M1 flow chain WIRED LIVE via CLI (branch `fix/flow-chain-live-reconcile`)
+The **M1 flow chain is now wired LIVE** end-to-end via the Dataverse API (CLI), and the repo is
+**reconciled to the live flows** so a future solution re-import can't regress them:
+- **Orchestrator cards added to `CS Intake`.** The live intake now carries `Init_caseId` +
+  `Capture_caseId_matched`/`Capture_caseId_unassigned` + the **3 Run-a-Child-Flow cards**
+  (`Run_classify_persist` → `Run_parse` → `Run_status_evaluate`) that pass `caseId` down the chain.
+  These were already present in `flows/definitions/intake.definition.json` (the orchestrator target) —
+  confirmed byte-for-byte, no change needed there.
+- **Webhook preserved.** The Office 365 `OnNewEmailV3` **trigger node was kept byte-identical** so the
+  existing digital@ webhook subscription survives (clientdata can't re-arm an Office 365 webhook —
+  memory `flow-webhook-trigger-provisioning`).
+- **classify-persist creating Evidence — VERIFIED by a live test email** (the child now receives the
+  attachments array + subject/from and writes one `cr1bd_evidences` row per attachment to Blob).
+- **Two live BUG FIXES reconciled into the repo** (`flows/definitions/`):
+  1. **`payloadhash` truncation (real bug, both intake variants).** The Case-create actions wrote the
+     `subject|from` seed un-truncated → `cr1bd_payloadhash` (MaxLength **80**) overflowed (**89 chars**)
+     → long-subject emails created **NO case**. Wrapped the value in **`@take(..., 80)`** in
+     `Create_case_matched` **and** `Create_case_unassigned` in **both** `intake.definition.json` and
+     `intake-shared-mailbox.definition.json`.
+  2. **Child flows need a `Response` action** to be callable via Run-a-Child-Flow. Added
+     `Respond_to_parent` ("Respond to a PowerApp or flow") to **`parse.definition.json`**
+     (returns `instructionBytesB64`/`instructionName` + `parsed`/`contractVersion`) and
+     **`status-evaluate.definition.json`** (returns the readiness result: `status`/`statusCode` +
+     `fieldsValid`/`imagesValid`). `classify-persist.definition.json` already had one.
+- **Parser runtime apiId** — definitions correctly bind the **portable logical** id `shared_ceparser`
+  (matched against `connection-references.json`; ALM rebinds to the physical runtime id at import), so
+  **no stale `new_collision-…` apiId existed in any definition** to fix. Recorded the physical runtime
+  id (`shared_new-5fcollision-20engineers-20parser-5ff48c20e0e0674f63`) in `flows/README.md` for the
+  operator's connection bind only.
+- **Gate: `node verify-all.mjs` = 6/6** (Code App build + 204 vitest, Dataverse parity, **flow linter
+  114/114**, parser 37 / enrichment 18 pytest).
+- **Residuals (not regressions):** (a) the **parser Function 502** is being fixed separately
+  (`Audit_parser_failed` already absorbs a parser 5xx so status still advances to needs_review);
+  (b) the intake trigger **`concurrency = 1`** is the documented **webhook-risk** edit, **deferred** —
+  changing it re-arms the live webhook in the designer.
+
+---
+
 ## 🔔 Update — 2026-06-19 (review 190626 actioned): UI/UX review pass (branch `review/190626-ui-pass`)
 The binding manual review **`docs/reviews/190626/`** was actioned end-to-end — **all 8 tasks (~44 issues)**,
 checklist complete, **built green + 204/204 tests + pushed live (`pac code push`) + verified on the deployed
@@ -65,6 +103,10 @@ player**. Headlines:
   **OFF + stale** vs the repo. Full activation re-arms the live webhook + rebinds Run-a-Child-Flow cards —
   genuine `[RESERVED-FOR-USER]` designer work that must **not** be forced via API onto the working digital@
   webhook. Precise steps captured in **`docs/activation/m1-flow-chain-activation.md`**.
+  **→ SUPERSEDED by the 2026-06-19 (late) update above: the chain was subsequently WIRED LIVE via CLI**
+  (orchestrator cards added to `CS Intake`, the `OnNewEmailV3` trigger node kept byte-identical so the
+  webhook survived, classify-persist creating Evidence verified by a live test email). Residuals there:
+  parser 502 (fixed separately) + trigger `concurrency=1` (still the deferred webhook-risk edit).
 - **Deliberately NOT deployed (resource-conscious):** `evavalidation` (status-evaluate does readiness
   inline → the connector is unused by design) and `evasentry` (EVA REST is Phase 3c/M2; M1 uses JSON
   drag-drop). All deployed compute is FC1 (~£0 idle) or ACA scale-to-zero.
