@@ -79,11 +79,14 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [x] **Logo / brand fonts / Dashboard nav fixed**; `npm run build` green.
 - [x] **"Emails don't populate" diagnosed** — not an app bug; intake flow `off` + unbound connectors; fix = operator activation, **not** mock data.
 
-### 1d. Flows (imported OFF)
+### 1d. Flows (imported OFF; M1 chain now WIRED LIVE via CLI)
 
 - [x] **10 cloud flows imported `state=off`**; connection refs unbound.
 - [x] **Intake flow guards** — `MinIntakeDate` (2026-06-17) + temporary attachment filter.
 - [x] **Dedup ladder (ADR-0010)** encoded in `case-resolve`.
+- [x] **M1 flow chain WIRED LIVE via CLI (2026-06-19).** The 3 Run-a-Child cards (`Run_classify_persist`→`Run_parse`→`Run_status_evaluate`) + `Init_caseId`/`Capture_caseId_*` were added to **CS Intake** via the Dataverse API; the `OnNewEmailV3` **trigger node was kept byte-identical** so the digital@ webhook survived (clientdata can't re-arm an Office 365 webhook). **classify-persist creating Evidence verified by a live test email.**
+- [x] **Two live bug fixes reconciled into `flows/definitions/`** so a solution re-import can't regress them: (1) `cr1bd_payloadhash` (MaxLength 80) **overflowed at 89 chars** on long-subject emails → no Case; wrapped the `subject|from` seed in **`@take(...,80)`** in `Create_case_matched` **and** `Create_case_unassigned` across **both** intake variants. (2) Child flows need a **`Response`** to be Run-a-Child-callable; added `Respond_to_parent` to `parse` (returns `instructionBytesB64`/`instructionName`) + `status-evaluate` (returns the readiness result) — `classify-persist` already had one. Gate `node verify-all.mjs` **6/6** (flow linter 114/114).
+- [ ] **Residuals (not regressions):** parser Function **502** — fixed separately (`parse` already audits a 5xx and lets status advance to needs_review); intake trigger **`concurrency = 1`** — the documented **webhook-risk** edit, **deferred** (re-arms the live webhook in the designer).
 
 ---
 
@@ -121,7 +124,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 `[RESERVED-FOR-USER]` — after the non-inbox deploy is green, **one mailbox first**, in DEPLOY-RUNBOOK §7 order.
 
 - [ ] 🔒 **Bind the Outlook shared-mailbox connection** + Dataverse + parser connection references.
-- [ ] 🔒 **Turn ON `intake` + `classify-persist` + `parse` for ONE inbox.**
+- [ ] 🔒 **Turn ON `intake` + `classify-persist` + `parse` for ONE inbox.** _(The M1 chain is **wired live via CLI** — orchestrator cards on `CS Intake`, repo reconciled; remaining is the operator/designer step: bind the parser connection, resolve the parser **502**, optionally re-arm the trigger when changing **`concurrency=1`**, flip the children ON.)_
 - [ ] 🔒 **Send a test email** (PDF + 2 images: overview with legible plate + damage closeup).
 - [ ] 🔒 **Confirm a Case appears**; status `new_email → ingested`; provider matched by sender domain; 12 fields pre-filled with provenance.
 - [ ] 🔒 **Confirm Outlook categories** applied.
