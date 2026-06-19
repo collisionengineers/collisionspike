@@ -64,7 +64,7 @@
             "host": { "connectionName": "shared_ceparser", "operationId": "ParseDocument",
               "apiId": "/providers/Microsoft.PowerApps/apis/shared_ceparser" },
             "parameters": {
-              "body/document": "@triggerBody()?['instructionBytesB64']",
+              "body/document": "@base64ToBinary(triggerBody()?['instructionBytesB64'])",
               "body/filename": "@triggerBody()?['instructionName']",
               "body/provider_hint": "@triggerBody()?['providerHint']"
             }
@@ -80,6 +80,8 @@
             "parameters": {
               "entityName": "cr1bd_cases",
               "recordId": "@variables('caseId')",
+              "item/cr1bd_vrm": "@body('Call_parser')?['vrm/value']",
+              "item/cr1bd_caseref": "@body('Call_parser')?['reference/value']",
               "item/cr1bd_evaworkprovider": "@body('Call_parser')?['extraction/work_provider/value']",
               "item/cr1bd_evavehiclemodel": "@body('Call_parser')?['extraction/vehicle_model/value']",
               "item/cr1bd_evaclaimantname": "@body('Call_parser')?['extraction/claimant_name/value']",
@@ -149,7 +151,7 @@
           "item/cr1bd_action": 100000010,
           "item/cr1bd_severity": 100000002,
           "item/cr1bd_actor": "Flow_Parse",
-          "item/cr1bd_after": "parser 5xx/timeout - left at needs_review; see run history",
+          "item/cr1bd_after": "@concat('parser failed: ', string(coalesce(outputs('Call_parser')?['statusCode'], 'unknown')), ' (', coalesce(body('Call_parser')?['message'], 'no details'), ') - left at needs_review; see run history')",
           "item/cr1bd_occurredat": "@utcNow()"
         }
       },
