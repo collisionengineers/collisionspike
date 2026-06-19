@@ -274,6 +274,14 @@ export function CaseList() {
     // Re-fetch the badge counts when the active queue changes (cases may move).
   }, [activeName]);
 
+  // Reset the queue-derived provider filter on ANY queue change — tab click OR a
+  // URL/dashboard-strip navigation (which doesn't fire onTabSelect). The provider
+  // options come from the active queue's rows, so a code selected on the previous
+  // queue won't exist here and would silently filter the grid to zero (queues #6).
+  useEffect(() => {
+    setProviderFilter(ANY);
+  }, [activeName]);
+
   useEffect(() => {
     let cancelled = false;
     if (!showFacets) {
