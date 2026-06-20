@@ -376,9 +376,12 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       ];
       const counts = new Map<PipelineStageKey, number>(defs.map((d) => [d.key, 0]));
       for (const c of all) {
+        // On-hold cases are parked in Held, not a workflow-stage count — skip
+        // them from the funnel just like the Held statuses below.
+        if (c.onHold) continue;
         const k = statusToStage(c.status);
-        // `error` maps to undefined — an exception, counted in the exceptions
-        // bar/queue, never in the funnel (queues #1). Skip it here.
+        // `error`/`duplicate_risk` map to undefined — Held, counted in the Held
+        // bar/queue, never in the funnel. Skip here.
         if (k === undefined) continue;
         counts.set(k, (counts.get(k) ?? 0) + 1);
       }
