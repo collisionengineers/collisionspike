@@ -14,6 +14,32 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
 
 ---
 
+## 🔔 Update — 2026-06-20: M2 mega-build — milestone model, code hardening, Azure deploys, suggested-address corpus (branch `fix/parser-base64-tolerant-decode`)
+A large plan-first, ms-docs-verified multi-agent pass, committed in slices. **All gates green: `node verify-all.mjs` → 7/7** (Code App build + **vitest 217**, schema parity, **flow linter 116/116**, pytest parser **53** + enrichment **29** + ocr **36** + evavalidation **51**, + the new no-`uploadFileToRecord` gate).
+
+**Milestone clarity + plans** (`38e9c75`, `c20f41e`) — new **[docs/plans/milestone-model.md](./docs/plans/milestone-model.md)** is the authoritative two-axis Phase×Milestone map: the *"M2 = Phases 3–5"* shorthand that caused the M1/M2 overlap is **retired**; M0/M1/M2/M3 are capability slices that cut across phases (3b drag-drop EVA = M1, 3c REST = M2). **Valuation locked to M3** (ADR-0006). CLAUDE.md / ROADMAP / plans-README / phase-READMEs / m2-umbrella reconciled to it. Authored the 3 missing **M2 plans** (EVA-validation Function, enrichment-activation, Box-archival-pipeline) + Copilot Studio, WhatsApp coexistence, multi-inbox feasibility, image-storage-backends, and a dated architecture audit.
+
+**Code** (7 slices `acf484c`…`adb3470`)
+- **Dashboard "Submitted" overlap fixed** — funnel re-cut to live backlog depths; the lifetime total moved to the throughput strip as **"Sent to EVA (total)"** beside "Submitted today". + a11y (real funnel buttons, Fluent `Field required`), de-jargon, makeStyles, honest Admin counts.
+- **`case-status.ts` mirrors the live FIX-3 evidence-aware tree** — kills the app↔flow drift (a re-save can no longer re-stamp "Images only").
+- **Suggested-locations** — a new always-suggestions panel (rows tagged `cr1bd_sourcelabel='suggested:<status>'`, decisionMode=unknown, `[Use this address]`→manual; never auto-confirmed).
+- **reg-OCR** connector hardened (strip `format:byte` + apiProperties + tolerant decode) + **S4** parser/OCR EVA-map equality. **Flows** — anchored provider match into `intake-shared-mailbox` + **S8** linter; `finalize-eva-box` **S2** content-bind + the **fictional Box `CreateFolder` removed** (real `CreateFile`+`folderPath`); `cr1bd_box` Premium→Standard. **Enrichment** verified vs real DVSA MOT + DVLA VES (+429 handling, no-secrets dry-run). **evavalidation** hardened (casing-tolerant + a fields-wrapped-Case bug fix) + TS↔Python parity gate. Hardening: parser-storage `allowSharedKeyAccess:false` (**S7**) + the `uploadFileToRecord` regen gate (**S5**).
+
+**Live deploys** ([DEPLOY-WITH-LOGIN], dev sandbox `rg-collisionspike-dev` — all **gated-OFF, no credentials**)
+- **Document Intelligence ONLINE** — `cespkdocintel-dev` (F0, `https://cespkdocintel-dev.cognitiveservices.azure.com/`), the OCR host's managed scanned-PDF fallback. Keyless until the operator injects KV `docintel-read-key` + flips `OCR_PROVIDER/PLATE_PROVIDER=docintel`.
+- **EVA fully set up (no creds)** — **`cespkeva-fn-ufa3ci`** (evasentry, Sentry REST) deployed + **Running**, `EVA_API_ENABLED=false`; KV `cespkevakvufa3ci` holds **reference-only** secrets. Operator injects EVA **test** creds later (B5).
+- **S7 runtime hardening applied** — parser (`cespikestx7xt3d`) + enrichment (`cespkenrichstgi62sd`) storage now `allowSharedKeyAccess=false`; both functions re-verified **Running** (MI-confirmed).
+- **EVA-validation Function (M2.B)** — infra deploy in progress (FC1 plan **429-throttled**, retrying); the Function is built+verified+committed. Remaining: code publish + the `status-evaluate` connector repoint (designer).
+- **Suggested-address corpus LOADED** — **697** suggested InspectionAddress rows from the codexwork sheet (decisionMode=Unknown, never confirmed); 17-verify **ALL PASSED** (0 auto-confirm leaks, 0 confirmed-row downgrades). Live total now 871 (697 suggested + 174 confirmed). Re-run `16-seed -Apply` on a cadence as the sheet changes.
+
+**Operator handoffs** (full detail in [docs/gated.md](./docs/gated.md))
+- **3 "images only" cases** (`test`/`test1`/`test3`) are **stale pre-FIX-3 rows** (zero evidence) — **not** a provider-match bug. Re-run **CS Status Evaluate** with `{ "caseId": "<guid>" }` once each (safe manual-trigger child flow, idempotent, no webhook) → they move to **needs_review** and the "Images only" queue empties. GUIDs in gated.md (H13).
+- **H3** anchored provider match still undeployed live — deploy the anchored block in the designer (keep the trigger byte-identical); for an H3-only deploy, strip FIX-4's `.eml` Scope (**H12**).
+- **Document Intelligence key**, **EVA test creds**, the **InspectionAddress table-add** to the Code App (`pac code add-data-source`, so suggestions render), and the **continuous corpus re-run** are tracked in gated.md.
+- Dashboard re-cut **visual** verification needs the authenticated Power Apps player (operator) — the re-cut is otherwise verified by the green build + 217 vitest; local chrome-devtools confirmed the shell/IA/console are clean.
+
+---
+
 ## 🔔 Update — 2026-06-19 (later): pipeline fixes — parser path, categorization, audit, `.eml` (branch `fix/parser-base64-tolerant-decode`)
 Four issues fixed via Explore→Plan with **Microsoft Learn** verification of every contract. Repo
 committed in slices; the safe flow edits are **PATCHed live + verified** (CS Parse & CS Status Evaluate

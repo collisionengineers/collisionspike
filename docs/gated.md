@@ -19,6 +19,22 @@ Two classes:
 
 ---
 
+## 2026-06-20 session — resolved + new operator items
+
+**Resolved this session** (repo, gates green `verify-all.mjs` 7/7): **S2** (`finalize-eva-box` content-bind + the fictional Box `CreateFolder` replaced with real `CreateFile`+`folderPath`), **S4** (OCR↔parser EVA-map equality + test), **S5** (`uploadFileToRecord` regen gate), **S7** (parser-storage `allowSharedKeyAccess:false` — repo **and applied live** to parser `cespikestx7xt3d` + enrichment `cespkenrichstgi62sd`; both functions re-verified Running), **S8** (intake substring linter, now over both intake variants). The `intake-shared-mailbox` variant now also carries the anchored provider match (repo; live deploy still **H3**). Deployed gated-OFF: **Document Intelligence** (`cespkdocintel-dev`) + **evasentry** (`cespkeva-fn-ufa3ci`, Running, no creds). Loaded: **697 suggested InspectionAddress rows** (decisionMode=Unknown, 17-verify all passed).
+
+**New operator actions:**
+
+| ID | Item | What to do | Why operator |
+|---|---|---|---|
+| **H13** | **Clear the 3 "images only" cases** (`test`, `test1`, `test3`) — they are **stale pre-FIX-3 rows** (zero evidence), **not** a provider-match failure. | Trigger **CS Status Evaluate** with body `{ "caseId": "<guid>" }` once each: `test`=`12a9ee8a-0b6c-f111-ab0e-002248c6a038`, `test1`=`54cdf90a-0c6c-f111-ab0f-0022481b614c`, `test3`=`6f75e9cb-296c-f111-ab0e-002248c6a038` (make.powerautomate.com → Test). Expected: status `100000003`→`100000002` (needs_review); the queue empties. **Do NOT re-save via the Code App** (it would re-stamp the old status). | Live-data mutation; but **safe** — manual-trigger child flow, idempotent, no webhook touched. |
+| **H14** | **Document Intelligence key** — DI is deployed but keyless. | Inject the `cespkdocintel-dev` account key into Key Vault secret `docintel-read-key`; set `DOCINTEL_ENDPOINT` on the OCR host; flip `OCR_PROVIDER`/`PLATE_PROVIDER=docintel`. (Tesseract/fast-alpr stay the in-container default; DI is the managed fallback.) | Secret injection + gate flip. |
+| **S12** | **EVA-validation (M2.B) publish + repoint.** | The FC1 plan 429-throttled at session end — retry `func azure functionapp publish <cespkeval-fn-…> --python` once the deploy finishes; then repoint `status-evaluate` onto the `cr1bd_evavalidation` connector (designer) so flow + Code App share one readiness impl. | Designer repoint = live flow edit; the publish is `[DEPLOY-WITH-LOGIN]`. |
+| **S13** | **Add `cr1bd_inspectionaddress` to the Code App** so the new "Suggested locations" panel + Admin split populate. | `pac code add-data-source` for `cr1bd_inspectionaddress`, rebuild, `pac code push`. Until then the seam returns honest empty suggestions / zero counts. | Deploy-time `pac` step. |
+| **S14** | **Continuous suggested-address re-run** — the codexwork sheet changes continuously. | `pwsh dataverse/.build/16-seed-suggested-addresses.ps1 -Apply` on a cadence (idempotent), then `17-verify`. Non-inbox Dataverse data only; no secrets. | `[DEPLOY-WITH-LOGIN]`. |
+
+---
+
 ## Hard blockers (operator only)
 
 | ID | Item | Why it's the operator's | What unblocks it | Phase |
