@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-19**._
+_Single source of truth for "where are we now." Last updated **2026-06-20**._
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -11,6 +11,21 @@ This is the Phase-1 (M1) case-intake spike on the Microsoft stack (Power Apps **
 Dataverse + Power Automate + Azure Functions). Built **offline**; live activation of anything that
 touches the shared inboxes / SharePoint / Box / EVA is the **operator's** step (see the boundary in
 DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows real Dataverse rows only.**
+
+---
+
+## 🔔 Update — 2026-06-20 (later): Claude self-wired activation pass (operator lifted the boundary)
+The operator authorised Claude to perform the gated activations directly ("wire up the activations
+yourself"). EVA credentials stayed excluded by instruction; no test emails to non-digital inboxes.
+Done + verified live by Claude (full table in [docs/gated.md](./docs/gated.md)):
+
+- **Document Intelligence ONLINE (H14)** — OCR host wired (`DOCINTEL_ENDPOINT/KEY/API_VERSION`); DI Read proven (analyze 202 → poll → **succeeded**). tesseract/fast_alpr stay primary, DI = fallback.
+- **InspectionAddress in the Code App (S13)** — hand-authored the per-table service (pac 2.8.1's connector-style output is incompatible with the seam), build green (217 tests), **`pac code push` succeeded** → Suggested-locations panel + Admin counts populate from 871 rows.
+- **3 "images only" cases cleared (H13)** — re-evaluated on the **real FIX-3 tree**: `test`→**error** (unidentifiable, instruction-only), `test1`/`test3`→**needs_review**. Audit rows written. **Queue now empty.** (The note's blanket "→needs_review" was wrong for `test`; live data corrected it.)
+- **Anchored provider match LIVE (H3)** — spliced `List_active_providers`+`Filter_exact_domain` into live `CS Intake`, removed the unanchored `contains()`; **trigger byte-identical** (webhook preserved), still activated. `.eml` Scope (H12) excluded. _Operator: a test email to digital@ confirms the webhook still fires._
+- **Enrichment PROVEN working (H4)** — creds + DVSA Entra consent were already injected; a live `BC23JZE` lookup returned **SSANGYONG REXTON**. Remaining = pipeline wiring only (add `Run_enrich` to intake + bind connection + turn on `CS Enrich`).
+- **EVA-validation Function PROVEN (S12)** — `validate-case` returns correct `{fieldsValid,imagesValid,openIssues}` on real data. Flow cutover deferred (operator chose safe-only for the critical path).
+- **CS Case Resolve OFF (S3)**, **suggested-address corpus refreshed (S14, 697 upserts)**, **architecture verified** (5 functions Running + OCR-on-ACA; EVA gated-off with KV-refs to missing secrets).
 
 ---
 
