@@ -121,10 +121,12 @@
         "or": [
           { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000008 ] },
           { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000009 ] },
-          { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000010 ] }
+          { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000010 ] },
+          { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000006 ] },
+          { "not": { "equals": [ "@coalesce(outputs('Get_case')?['body/statecode'], 0)", 0 ] } }
         ]
       },
-      "comment": "Terminal lock FIRST: eva_submitted=100000008, box_synced=100000009, error=100000010 never transition backward.",
+      "comment": "Terminal lock FIRST: eva_submitted=100000008, box_synced=100000009, error=100000010 never transition backward. HARDENING (2026-06-20 merge): also treat linked_to_instruction=100000006 AND any inactive case (statecode!=0) as terminal -> keep status, never attempt an update. This prevents a failed write when CS Intake's Run_status_evaluate fires on a case that CS Case Resolve has just merged/retired+deactivated (the image case in an instructions<->images registration merge). The SURVIVOR stays active (statecode=0) with a non-terminal status, so it is recomputed normally and can still reach ready_for_eva (caselinkstate Linked is intentionally NOT a terminal condition).",
       "actions": {
         "Keep_terminal": { "type": "Compose", "inputs": "terminal - no transition", "runAfter": {} }
       },

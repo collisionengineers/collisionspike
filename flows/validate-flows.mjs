@@ -55,7 +55,18 @@ const flowStateByFile = new Map((flowState.flows ?? []).map((f) => [f.definition
 
 // Flows where a cr1bd_cases ListRecords MUST carry the provider scope (cross-provider guard).
 // finalize lists Evidence (not cases) but resolves under a single case, so its cases reads are by id.
-const PROVIDER_SCOPE_REQUIRED = new Set(['case-resolve.definition.json']);
+// NOTE (2026-06-20): case-resolve was repurposed from the ADR-0010 dedup ladder to MERGE-BY-REGISTRATION.
+// Its same-VRM query is keyed on cr1bd_vrm and is INTENTIONALLY NOT provider-scoped — the image case in an
+// instructions<->images pair has NO WorkProvider (only the instructions case does), so a provider scope
+// would make the merge impossible. case-resolve is now a documented VRM-scoped exception (below), not a
+// PROVIDER_SCOPE_REQUIRED flow.
+const PROVIDER_SCOPE_REQUIRED = new Set([]);
+// Registration-scoped exception: cr1bd_cases ListRecords legitimately keyed on cr1bd_vrm (merge-by-registration).
+const VRM_SCOPE_ALLOWED = new Set(['case-resolve.definition.json']);
+// Flows intentionally activated live (state=on) under the 2026-06-20 live-services override (Claude wires
+// activations directly). Each MUST carry flow-state activatedLive:true + an activationNote. Every OTHER flow
+// is still asserted state=off. This keeps the off-by-default guard meaningful while recording the exceptions.
+const ACTIVATED_LIVE_ALLOWED = new Set(['case-resolve.definition.json']);
 
 // Draft-only flows: ADR-0003 requires the send boundary be enforced by the ABSENCE of any send op.
 const DRAFT_ONLY = new Set(['chaser-draft.definition.json']);
@@ -187,11 +198,17 @@ for (const file of files) {
   if (!BOX_ID_LITERAL_RE.test(raw)) pass(`[${file}] no hardcoded Box folder id (parentId/folderId via parameter/@-expr)`);
   else fail(`[${file}] hardcoded Box folder id literal in parentId/folderId`);
 
-  // Check 5: listed in flow-state as state=off
+  // Check 5: listed in flow-state as state=off — OR explicitly activated-live (documented exception).
   const fs = flowStateByFile.get(file);
-  if (fs && fs.state === 'off') pass(`[${file}] flow-state.json lists it as state=off`);
-  else if (!fs) fail(`[${file}] NOT listed in flow-state.json`);
-  else fail(`[${file}] flow-state.json state is '${fs.state}', expected 'off'`);
+  if (!fs) {
+    fail(`[${file}] NOT listed in flow-state.json`);
+  } else if (fs.state === 'off') {
+    pass(`[${file}] flow-state.json lists it as state=off`);
+  } else if (fs.state === 'on' && ACTIVATED_LIVE_ALLOWED.has(file) && fs.activatedLive === true && fs.activationNote) {
+    pass(`[${file}] flow-state.json lists it as state=on (activatedLive — 2026-06-20 override, documented)`);
+  } else {
+    fail(`[${file}] flow-state.json state is '${fs.state}', expected 'off' (or 'on' with activatedLive:true + activationNote for an allowed live flow)`);
+  }
 
   // Check 6: provider scoping on cr1bd_cases ListRecords where required
   const caseLists = casesListRecordsActions(def);
@@ -204,12 +221,22 @@ for (const file of files) {
     } else {
       fail(`[${file}] cr1bd_cases ListRecords MISSING provider scope: ${unscoped.map((a) => a.name).join(', ')}`);
     }
+  } else if (caseLists.length > 0 && VRM_SCOPE_ALLOWED.has(file)) {
+    // documented exception: merge-by-registration lists same-VRM cases (cr1bd_vrm), NOT provider-scoped,
+    // because the image case in a pair has no WorkProvider. Assert the query IS registration-keyed.
+    const vrmScoped = caseLists.every((a) => a.filter.includes('cr1bd_vrm'));
+    if (vrmScoped) pass(`[${file}] cr1bd_cases ListRecords are registration-scoped (cr1bd_vrm; documented merge-by-registration exception)`);
+    else fail(`[${file}] cr1bd_cases ListRecords in a VRM-scoped flow must filter on cr1bd_vrm`);
   } else if (caseLists.length > 0) {
-    // documented exception: case lookups outside the dedup ladder are by Message-ID/id, not provider-scoped.
-    const messageIdScoped = caseLists.every((a) =>
-      a.filter.includes('cr1bd_sourcemessageid') || a.filter.includes('_cr1bd_workproviderid_value'));
-    if (messageIdScoped) pass(`[${file}] cr1bd_cases ListRecords are Message-ID-scoped (documented exception, not a dedup-by-VRM query)`);
-    else fail(`[${file}] cr1bd_cases ListRecords lacks both provider scope and a documented Message-ID exception`);
+    // documented exception: case lookups outside the dedup ladder are by Message-ID/id, by the Case/PO
+    // sequence prefix (startswith(cr1bd_casepo,...) — an aggregate counter, not a dedup-by-VRM query),
+    // or already provider-scoped — none are an unscoped VRM dedup read.
+    const allowed = caseLists.every((a) =>
+      a.filter.includes('cr1bd_sourcemessageid') ||
+      a.filter.includes('_cr1bd_workproviderid_value') ||
+      a.filter.includes('startswith(cr1bd_casepo'));
+    if (allowed) pass(`[${file}] cr1bd_cases ListRecords are Message-ID / Case-PO-prefix scoped (documented exception, not a dedup-by-VRM query)`);
+    else fail(`[${file}] cr1bd_cases ListRecords lacks both provider scope and a documented Message-ID/Case-PO exception`);
   } else {
     pass(`[${file}] no cr1bd_cases ListRecords (provider-scope check N/A)`);
   }
@@ -247,14 +274,26 @@ for (const file of files) {
       fail(`[${file}] provider domain match: expected an anchored exact-membership Filter-array (Query with contains(split(...)))`);
     }
   }
-  // 8b — case-resolve rung-2 reference equality must be case/whitespace-insensitive (mirror dedup.refEquals),
-  //      otherwise 'ref-100' vs 'REF-100' needlessly forks a case instead of attaching.
+  // 8b — case-resolve (MERGE-BY-REGISTRATION) integrity: it must (1) gate on a non-empty registration before
+  //      merging, (2) NEVER auto-merge when more than one complementary candidate exists (route to
+  //      duplicate_risk / Held), and (3) re-point the image case's evidence to the survivor via the verified
+  //      cr1bd_Caseid nav property. These three are the load-bearing safety invariants of the merge.
   if (file === 'case-resolve.definition.json') {
-    const fmWhere = def.actions?.Filter_matching_ref?.inputs?.where ?? '';
-    if (fmWhere.includes('toLower(') && fmWhere.includes('trim(')) {
-      pass(`[${file}] Filter_matching_ref reference equality is case/whitespace-insensitive (toLower+trim, mirrors domain refEquals)`);
+    const guardWhere = JSON.stringify(def.actions?.Guard_mergeable?.expression ?? {});
+    if (guardWhere.includes('cr1bd_vrm')) {
+      pass(`[${file}] merge gates on a non-empty registration (Guard_mergeable references cr1bd_vrm)`);
     } else {
-      fail(`[${file}] Filter_matching_ref reference equality must normalize with toLower( + trim( to mirror domain refEquals`);
+      fail(`[${file}] merge must gate on a non-empty registration (Guard_mergeable must reference cr1bd_vrm)`);
+    }
+    if (/duplicate_risk|100000005/.test(raw) && /Filter_complementary/.test(raw)) {
+      pass(`[${file}] >1 complementary match routes to duplicate_risk (Held), never auto-merge`);
+    } else {
+      fail(`[${file}] merge must set duplicate_risk(100000005) when >1 complementary candidate exists`);
+    }
+    if (/cr1bd_Caseid@odata\.bind/.test(raw)) {
+      pass(`[${file}] image-case evidence is re-pointed to the survivor via cr1bd_Caseid@odata.bind`);
+    } else {
+      fail(`[${file}] merge must re-point evidence via item/cr1bd_Caseid@odata.bind to the survivor case`);
     }
   }
 }
@@ -277,10 +316,16 @@ const declaredButUnused = [...declaredConnNames].filter((c) => !allUsed.has(c));
 if (declaredButUnused.length === 0) pass('every declared connection reference is used by at least one flow');
 else console.log(`WARN  declared-but-unused connection refs: ${declaredButUnused.join(', ')}`);
 
-// flow-state global assertion: all off, all reserved-for-user activation.
-const anyOn = (flowState.flows ?? []).some((f) => f.state !== 'off');
-if (!anyOn) pass('flow-state: ALL flows ship state=off');
-else fail('flow-state: at least one flow is not state=off');
+// flow-state global assertion: every flow is off, EXCEPT the documented activated-live exceptions
+// (2026-06-20 override: Claude wires activations directly; each live flow carries activatedLive:true).
+const unexpectedlyOn = (flowState.flows ?? []).filter(
+  (f) => f.state !== 'off' && !(ACTIVATED_LIVE_ALLOWED.has(f.definition) && f.activatedLive === true),
+);
+if (unexpectedlyOn.length === 0) {
+  pass('flow-state: all flows off except documented activated-live exceptions');
+} else {
+  fail(`flow-state: undocumented activated flow(s): ${unexpectedlyOn.map((f) => f.definition).join(', ')}`);
+}
 
 console.log(`\n${failures === 0 ? 'OK' : 'FAILED'} — ${checks - failures}/${checks} checks passed, ${failures} failure(s).`);
 process.exit(failures === 0 ? 0 : 1);
