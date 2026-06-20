@@ -227,12 +227,20 @@ for (const file of files) {
 
   // Check 8: flow-vs-domain semantic parity (the running flow must mirror the pure domain logic;
   // a green linter + green vitest must actually cover the two layers agreeing, not each alone).
-  // 8a — provider-match must NOT use an OData contains() over the knownEmailDomains Memo: that is an
+  // 8a — every flow that resolves a WorkProvider by sender domain (provider-match AND both intake
+  //      variants) must NOT use an OData contains() over the knownEmailDomains Memo: that is an
   //      unanchored substring test (alias match), e.g. sender 'co.uk' false-matching 'carcompany.co.uk'
-  //      -> an unsafe Case/PO. It must do anchored EXACT membership (mirror domain provider-match.ts).
-  if (file === 'provider-match.definition.json') {
+  //      -> an unsafe Case/PO. It must do anchored EXACT membership: List_active_providers (the
+  //      providers with any domains) + a Filter_exact_domain Query that splits the memo and tests
+  //      contains(split(...)) (mirror domain provider-match.ts / matchProviderByDomain).
+  const PROVIDER_DOMAIN_MATCH_FLOWS = new Set([
+    'provider-match.definition.json',
+    'intake.definition.json',
+    'intake-shared-mailbox.definition.json',
+  ]);
+  if (PROVIDER_DOMAIN_MATCH_FLOWS.has(file)) {
     if (/contains\(\s*cr1bd_knownemaildomains/i.test(raw)) {
-      fail(`[${file}] provider domain match uses OData contains() over the knownEmailDomains memo — unanchored substring/alias match (must mirror domain provider-match.ts: exact membership)`);
+      fail(`[${file}] provider domain match uses OData contains() over the knownEmailDomains memo — unanchored substring/alias match (must use List_active_providers + Filter_exact_domain anchored membership, mirror domain provider-match.ts)`);
     } else if (/"type"\s*:\s*"Query"/.test(raw) && /contains\(split\(/i.test(raw)) {
       pass(`[${file}] provider domain match uses anchored exact membership (split + contains), not OData substring`);
     } else {
