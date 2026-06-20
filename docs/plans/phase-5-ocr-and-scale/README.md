@@ -1,7 +1,11 @@
 # Phase 5 — OCR & Scale
 
-**Goal:** OCR for scanned/image PDFs + plate OCR (M1 half); image-classification AI (M2+); valuation +
-Copilot (M2/M3+).
+**Goal:** OCR for scanned/image PDFs + plate OCR (M1 half); image-classification AI (**M2**); valuation +
+Copilot + WhatsApp import (**M3**).
+
+> **Milestones in this phase** ([milestone-model](../milestone-model.md)): **5a** plate-OCR-for-registration
+> = **M1**; **5b** image classification/reflection = **M2**; **5b** WhatsApp bulk-import + **5c** valuation +
+> **5c** Copilot Studio = **M3**.
 
 **Status:** OCR host **deployed 2026-06-19** (`cespkocr-fn-dev-glju3v`, Functions-on-ACA, scale-to-zero); image-AI and
 valuation/Copilot are **plan-only**. See [../../../ROADMAP.md](../../../ROADMAP.md) Phase 5.

@@ -3,6 +3,9 @@
 **Goal:** cross the live-services boundary — bind the live connections and turn the intake pipeline on,
 **one shared mailbox first**, then scale to all three.
 
+> **Milestone:** this whole phase is **M1's exit gate** — the DEPLOY-RUNBOOK §7 three-mailbox
+> live-validation **is** the M1 "done" definition ([milestone-model](../milestone-model.md)).
+
 **Status:** 🔒 **Operator-gated.** The digital@ intake webhook is live-verified (one mailbox produces a
 real Case); the downstream chain and the other two inboxes are pending. This whole phase is
 `[RESERVED-FOR-USER]` — Claude builds offline, the operator activates. See
