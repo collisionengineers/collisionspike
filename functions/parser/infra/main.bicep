@@ -91,6 +91,10 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
+    // Deny Shared Key (account-key) auth: the host uses identity-based
+    // AzureWebJobsStorage (MI + Storage Blob Data Owner), so no key path is
+    // needed. Defense-in-depth, matching the other Function storage accounts.
+    allowSharedKeyAccess: false
     supportsHttpsTrafficOnly: true
   }
 }
