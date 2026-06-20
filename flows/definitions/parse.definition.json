@@ -90,7 +90,7 @@
               "item/cr1bd_evadateofloss": "@body('Call_parser')?['extraction/date_of_loss/value']",
               "item/cr1bd_evadateofinstruction": "@body('Call_parser')?['extraction/date_of_instruction/value']",
               "item/cr1bd_evaaccidentcircumstances": "@body('Call_parser')?['extraction/accident_circumstances/value']",
-              "item/cr1bd_evainspectionaddress": "@body('Call_parser')?['extraction/inspection_address/value']",
+              "item/cr1bd_evainspectionaddress": "@if(and(empty(coalesce(body('Call_parser')?['extraction/inspection_address/value'], '')), equals(toUpper(coalesce(body('Call_parser')?['extraction/work_provider/value'], '')), 'AX')), 'Image Based Assessment', body('Call_parser')?['extraction/inspection_address/value'])",
               "item/cr1bd_evavatstatus": "@body('Call_parser')?['extraction/vat_status/value']",
               "item/cr1bd_evamileage": "@body('Call_parser')?['extraction/mileage/value']",
               "item/cr1bd_evamileageunit": "@body('Call_parser')?['extraction/mileage_unit/value']"

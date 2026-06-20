@@ -359,6 +359,94 @@
             "comment": "STEP 2 of the chain. Run-a-Child-Flow -> parse. Hands the instruction PDF bytes/name returned by classify-persist plus the matched principalCode as providerHint. parse reads PDF_MAPPER_ENABLED itself and pre-fills the 12 EVA fields on the Case (staff-review, never auto-final). Runs even with empty bytes (parse no-ops/skips gracefully). Skipped if classify-persist failed so a bad attachment batch does not block status.",
             "runAfter": { "Run_classify_persist": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
           },
+          "Scope_generate_casepo": {
+            "type": "Scope",
+            "comment": "Case/PO generation (instructions cases). Runs after Run_parse (the parser has written cr1bd_evaworkprovider) and in PARALLEL with Run_status_evaluate so it is OFF the critical path; Case/PO does not affect status. The whole Scope is failure-isolated (nothing runs after it), so a Case/PO hiccup can never stall a case or break the downstream chain. Format = Principal + 2-digit year + 3-digit zero-padded per-(Principal,year) sequence, e.g. AX26001. The provider's OWN reference stays in cr1bd_caseref (untouched). Skips cleanly when cr1bd_evaworkprovider is empty (image-only / no-provider cases keyed by registration get NO Case/PO). KNOWN small race window: two simultaneous instructions emails for the same (Principal,year) can compute the same seq before either writes -- acceptable at spike volume.",
+            "actions": {
+              "Get_case_for_casepo": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "GetItem",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                  "parameters": {
+                    "entityName": "cr1bd_cases",
+                    "recordId": "@variables('caseId')",
+                    "$select": "cr1bd_caseid,cr1bd_casepo,cr1bd_evaworkprovider"
+                  }
+                },
+                "comment": "Re-read the just-parsed case so we use the AUTHORITATIVE cr1bd_evaworkprovider (Principal) the parser wrote, and confirm cr1bd_casepo is still empty (idempotent: a re-run never overwrites an existing Case/PO).",
+                "runAfter": {}
+              },
+              "If_needs_casepo": {
+                "type": "If",
+                "expression": {
+                  "and": [
+                    { "not": { "equals": [ "@trim(coalesce(outputs('Get_case_for_casepo')?['body/cr1bd_evaworkprovider'], ''))", "" ] } },
+                    { "equals": [ "@trim(coalesce(outputs('Get_case_for_casepo')?['body/cr1bd_casepo'], ''))", "" ] }
+                  ]
+                },
+                "actions": {
+                  "List_provider_year_casepos": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                      "parameters": {
+                        "entityName": "cr1bd_cases",
+                        "$select": "cr1bd_casepo",
+                        "$filter": "startswith(cr1bd_casepo,'@{concat(trim(outputs('Get_case_for_casepo')?['body/cr1bd_evaworkprovider']), substring(utcNow(), 2, 2))}')",
+                        "$top": 5000
+                      }
+                    },
+                    "comment": "Count existing Case/POs for this (Principal, YY) by startswith prefix. seq = length(body/value)+1. No @odata.count dependency (the Dataverse connector does not reliably surface it); mirrors the flow's existing length(...body/value) idiom.",
+                    "runAfter": {}
+                  },
+                  "Compose_next_casepo": {
+                    "type": "Compose",
+                    "inputs": "@concat(trim(outputs('Get_case_for_casepo')?['body/cr1bd_evaworkprovider']), substring(utcNow(), 2, 2), substring(concat('00', string(add(length(coalesce(outputs('List_provider_year_casepos')?['body/value'], json('[]'))), 1))), sub(length(concat('00', string(add(length(coalesce(outputs('List_provider_year_casepos')?['body/value'], json('[]'))), 1)))), 3), 3))",
+                    "comment": "Principal + 2-digit year (substring(utcNow,2,2)) + 3-digit zero-padded seq. Zero-pad = right-most 3 chars of concat('00', seq) (1->'001' .. 999->'999').",
+                    "runAfter": { "List_provider_year_casepos": [ "Succeeded" ] }
+                  },
+                  "Update_case_casepo": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                      "parameters": {
+                        "entityName": "cr1bd_cases",
+                        "recordId": "@variables('caseId')",
+                        "item/cr1bd_casepo": "@outputs('Compose_next_casepo')"
+                      }
+                    },
+                    "comment": "Write the generated Case/PO as the case reference. cr1bd_caseref (provider's own reference) is intentionally NOT touched.",
+                    "runAfter": { "Compose_next_casepo": [ "Succeeded" ] }
+                  },
+                  "Audit_casepo_assigned": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                      "parameters": {
+                        "entityName": "cr1bd_auditevents",
+                        "item/cr1bd_name": "@concat('casepo_assigned: ', outputs('Compose_next_casepo'))",
+                        "item/cr1bd_action": 100000003,
+                        "item/cr1bd_actor": "Flow_Intake",
+                        "item/cr1bd_severity": 100000000,
+                        "item/cr1bd_after": "@concat('case ', variables('caseId'), ' assigned Case/PO ', outputs('Compose_next_casepo'), ' (principal ', trim(outputs('Get_case_for_casepo')?['body/cr1bd_evaworkprovider']), ', seq from ', string(length(coalesce(outputs('List_provider_year_casepos')?['body/value'], json('[]')))), ' existing)')",
+                        "item/cr1bd_occurredat": "@utcNow()"
+                      }
+                    },
+                    "comment": "Audit the Case/PO assignment. Reuses action 100000003 (Case Created) with explicit casepo_assigned semantics in name/after -- SAME precedent as Audit_dropped_before_min_date reusing 100000005 (Duplicate Dropped). runAfter Update Succeeded; an audit hiccup is contained by the enclosing failure-isolated Scope.",
+                    "runAfter": { "Update_case_casepo": [ "Succeeded" ] }
+                  }
+                },
+                "else": { "actions": {} },
+                "comment": "Generate ONLY for an instructions case (non-empty cr1bd_evaworkprovider) that has no cr1bd_casepo yet. Image-only / no-provider cases skip (empty else).",
+                "runAfter": { "Get_case_for_casepo": [ "Succeeded" ] }
+              }
+            },
+            "runAfter": { "Run_parse": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
+          },
           "Run_status_evaluate": {
             "type": "Workflow",
             "inputs": {
@@ -367,7 +455,7 @@
                 "caseId": "@variables('caseId')"
               }
             },
-            "comment": "STEP 3 of the chain. Run-a-Child-Flow -> status-evaluate. Advances the Case through the guard order (new_email -> ingested -> missing_required_fields/missing_images/needs_review -> ready_for_eva) using the INLINE image-rules + 12-field readiness check (no external validation connector). Runs after parse regardless of parse outcome so the status always reflects the current Evidence + fields.",
+            "comment": "STEP 3 of the chain. Run-a-Child-Flow -> status-evaluate. Advances the Case through the guard order (new_email -> ingested -> missing_required_fields/missing_images/needs_review -> ready_for_eva) using the INLINE image-rules + 12-field readiness check (no external validation connector). Runs after parse regardless of parse outcome so the status always reflects the current Evidence + fields. (Case/PO generation runs in a parallel failure-isolated Scope after Run_parse and does not gate this.)",
             "runAfter": { "Run_parse": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
           }
         }
