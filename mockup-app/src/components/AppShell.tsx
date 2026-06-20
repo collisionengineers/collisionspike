@@ -9,8 +9,7 @@ import {
   mergeClasses,
 } from '@fluentui/react-components';
 import {
-  Camera,
-  Images,
+  Clock,
   ClipboardCheck,
   AlertTriangle,
   ListChecks,
@@ -50,10 +49,9 @@ const RAIL_W_COLLAPSED = 60;
 const TOPBAR_H = 56;
 
 const QUEUE_ICONS: Record<QueueName, LucideIcon> = {
-  'awaiting-images': Camera,
-  'images-only': Images,
-  'ready-review': ClipboardCheck,
-  exceptions: AlertTriangle,
+  'not-ready': Clock,
+  review: ClipboardCheck,
+  held: AlertTriangle,
 };
 
 const useStyles = makeStyles({
@@ -227,7 +225,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
-  // The "Queues" group expands to its four sub-queues; auto-open on a queue route.
+  // The "Queues" group expands to its sub-queues; auto-open on a queue route.
   const onQueueRoute = location.pathname.startsWith('/queue/');
   const [queuesOpen, setQueuesOpen] = useState(true);
   useEffect(() => {

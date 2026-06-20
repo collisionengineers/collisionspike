@@ -90,16 +90,15 @@ function filterQueue(all: Case[], name: QueueName, _now: Date): Case[] {
 }
 
 /** The cases that need a human — backs the dashboard "needs action" aging hero
-    list, its past-due/reason tallies, and the reason-facet chips. ALL FOUR
-    queues, exceptions INCLUDED: an errored case is actionable, and an overdue
-    one must still surface in the aging hero / pastDueCount / reasonCounts rather
-    than vanish because the exceptions queue was dropped (queues #4). */
+    list, its past-due/reason tallies, and the reason-facet chips. ALL THREE
+    queues, Held INCLUDED: a held/errored case is actionable, and an overdue one
+    must still surface in the aging hero / pastDueCount / reasonCounts rather
+    than vanish because the Held queue was dropped. */
 function actionableCases(all: Case[], now: Date): Case[] {
   return [
-    ...filterQueue(all, 'awaiting-images', now),
-    ...filterQueue(all, 'images-only', now),
-    ...filterQueue(all, 'ready-review', now),
-    ...filterQueue(all, 'exceptions', now),
+    ...filterQueue(all, 'not-ready', now),
+    ...filterQueue(all, 'review', now),
+    ...filterQueue(all, 'held', now),
   ];
 }
 
@@ -159,7 +158,10 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
 
   /** Fetch + adapt ALL cases (the dashboard/queue aggregates window over these). */
   async function allCases(now: Date): Promise<Case[]> {
-    const res = await services.cases.getAll();
+    // Newest-first, so a freshly-arrived case surfaces at the top of the list,
+    // the queues and the dashboard (Dataverse's default order is ~insertion,
+    // which buried new arrivals below older ones).
+    const res = await services.cases.getAll({ orderBy: ['createdon desc'] });
     return (res.data ?? []).map((rec) => caseFromRecord({ record: rec, now }));
   }
 
@@ -254,7 +256,11 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       // their provider code in the free-text source note, so fetch the suggested
       // subset and filter client-side (a note substring isn't OData-filterable).
       const caseRes = await services.cases.get(caseId);
-      const providerCode = caseRes.data?.cr1bd_provider_code?.trim() ?? '';
+      // The case's principal lives in the work-provider value (e.g. 'AX'). The
+      // old `cr1bd_provider_code` column does not exist on the row, so reading it
+      // always yielded '' — which dropped through to "return all" and showed
+      // every provider's addresses. Read the work-provider value instead.
+      const providerCode = caseRes.data?.cr1bd_evaworkprovider?.trim() ?? '';
       const res = await svc.getAll({
         filter: "startswith(cr1bd_sourcelabel,'suggested')",
       });
@@ -285,11 +291,9 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     liveCounts: async (now = new Date()): Promise<LiveCounts> => {
       const all = await allCases(now);
       return {
-        notReady:
-          filterQueue(all, 'awaiting-images', now).length +
-          filterQueue(all, 'images-only', now).length,
-        review: filterQueue(all, 'ready-review', now).length,
-        exceptions: filterQueue(all, 'exceptions', now).length,
+        notReady: filterQueue(all, 'not-ready', now).length,
+        review: filterQueue(all, 'review', now).length,
+        held: filterQueue(all, 'held', now).length,
       };
     },
 
@@ -332,10 +336,9 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     queueCounts: async (now = new Date()): Promise<Record<QueueName, number>> => {
       const all = await allCases(now);
       return {
-        'awaiting-images': filterQueue(all, 'awaiting-images', now).length,
-        'images-only': filterQueue(all, 'images-only', now).length,
-        'ready-review': filterQueue(all, 'ready-review', now).length,
-        exceptions: filterQueue(all, 'exceptions', now).length,
+        'not-ready': filterQueue(all, 'not-ready', now).length,
+        review: filterQueue(all, 'review', now).length,
+        held: filterQueue(all, 'held', now).length,
       };
     },
 

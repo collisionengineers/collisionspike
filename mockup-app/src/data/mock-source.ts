@@ -31,14 +31,13 @@ import type {
 const NOT_CONFIGURED =
   'Data source not configured — call configureDataAccess(generatedServices) in main.tsx before writes.';
 
-const ZERO_LIVE: LiveCounts = { notReady: 0, review: 0, exceptions: 0 };
+const ZERO_LIVE: LiveCounts = { notReady: 0, review: 0, held: 0 };
 const ZERO_THROUGHPUT: Throughput = { inToday: 0, submittedToday: 0, clearedThisWeek: 0 };
 const ZERO_AGING: AgingExceptions = { rows: [], pastDueCount: 0, duplicateCount: 0, conflictCount: 0 };
 const ZERO_QUEUE_COUNTS: Record<QueueName, number> = {
-  'awaiting-images': 0,
-  'images-only': 0,
-  'ready-review': 0,
-  exceptions: 0,
+  'not-ready': 0,
+  review: 0,
+  held: 0,
 };
 
 /** The empty pipeline strip (all four stages at zero). The dashboard hero

@@ -486,7 +486,7 @@ export function caseFromRecord(input: CaseAssemblyInput): Case {
     vrm: rec.cr1bd_vrm ?? '',
     ...(rec.cr1bd_casepo ? { casePo: rec.cr1bd_casepo } : {}),
     provider: rec.cr1bd_provider_display ?? rec.cr1bd_evaworkprovider ?? '',
-    providerCode: rec.cr1bd_provider_code ?? '',
+    providerCode: rec.cr1bd_evaworkprovider ?? '',
     vehicleModel: rec.cr1bd_evavehiclemodel ?? '',
     evaFields: evaFieldsFromRecord(rec, input.provenanceRows),
     evidence: input.evidence ?? [],

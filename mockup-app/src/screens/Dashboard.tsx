@@ -46,21 +46,19 @@ const POLL_MS = 75_000;
 
 /* Re-cut funnel stage → the queue/view it drills into (clickable strip).
    Each stage lands on a destination that CONTAINS the statuses it counts, so the
-   strip never advertises a number then drops the user on a thinner list
-   (queues #2). The hero funnel now renders only the three live-depth backlog
-   stages; the mapping mirrors the shared statusToStage buckets:
-     - new (new_email/ingested) live in the ready-review queue → land there (#8).
-     - review (needs_review/duplicate_risk/linked/ready_for_eva) → ready-review.
-     - not_ready spans TWO queues (missing_images → awaiting-images,
-       missing_required_fields → images-only); the queue page is tabbed and shows
-       both with live counts, so land on awaiting-images with images-only one tab
-       across — the destination (the queue page) holds the whole not-ready set.
+   strip never advertises a number then drops the user on a thinner list. The
+   mapping mirrors the shared statusToStage buckets onto the three queues:
+     - new (new_email/ingested) live in the Not ready queue → land there.
+     - not_ready (missing_images/missing_required_fields/needs_review/linked) →
+       the Not ready queue.
+     - review (ready_for_eva) → the Review queue.
    `submitted` is no longer a funnel segment (its cumulative total moved to the
-   throughput strip), so it carries no route here. */
+   throughput strip), so it carries no route here. Held (error/duplicate_risk) is
+   reached via the dashboard held bar below, not the funnel. */
 const STAGE_ROUTE: Partial<Record<PipelineStageKey, string>> = {
-  new: '/queue/ready-review',
-  not_ready: '/queue/awaiting-images',
-  review: '/queue/ready-review',
+  new: '/queue/not-ready',
+  not_ready: '/queue/not-ready',
+  review: '/queue/review',
 };
 
 /* ----------  styles  ---------- */
@@ -488,17 +486,17 @@ export function Dashboard() {
         }}
       />
 
-      {/* Exceptions — cases that can't pass through automatically (queues #3) */}
-      {live.exceptions > 0 && (
+      {/* Held — can't pass through automatically, a possible duplicate, or on hold */}
+      {live.held > 0 && (
         <button
           type="button"
           className={mergeClasses('ce-focusable', styles.exceptionBar)}
-          onClick={() => navigate('/queue/exceptions')}
+          onClick={() => navigate('/queue/held')}
         >
           <AlertOctagon size={18} strokeWidth={2} aria-hidden />
           <span className={styles.exceptionText}>
-            {live.exceptions} case{live.exceptions === 1 ? '' : 's'} can’t pass through — missing the
-            basics (VRM / claimant). Triage in Exceptions.
+            {live.held} case{live.held === 1 ? '' : 's'} held — can’t pass through (missing the
+            basics), a possible duplicate, or on hold. Open Held.
           </span>
           <ChevronRight size={18} aria-hidden />
         </button>
