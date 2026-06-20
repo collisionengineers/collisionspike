@@ -496,6 +496,7 @@ export function caseFromRecord(input: CaseAssemblyInput): Case {
     status: statusFromInt(rec.cr1bd_status),
     missing: [], // derived by the readiness component in the UI
     ...(actionReason ? { actionReason } : {}),
+    ...(rec.cr1bd_onhold ? { onHold: true } : {}),
     channel: {
       kind: channelKind,
       mode: rec.cr1bd_intakechannelmanual ? 'manual' : 'auto',
