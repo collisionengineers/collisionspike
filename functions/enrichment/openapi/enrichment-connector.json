@@ -71,6 +71,11 @@
           "type": "boolean",
           "description": "True if the parsed instruction already has a mileage. When true, the DVSA mileage estimate is skipped (document is authoritative). Defaults to true.",
           "x-ms-summary": "Document has mileage"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "When true, returns a no-secrets self-check (config-presence booleans and resolved non-secret endpoints) WITHOUT calling DVSA/DVLA, ignoring vrm. Used to confirm Key Vault wiring before enabling enrichment.",
+          "x-ms-summary": "Dry run (self-check only)"
         }
       }
     },
