@@ -11,6 +11,7 @@ export * as Cr1bd_casesModel from './models/Cr1bd_casesModel';
 export * as Cr1bd_chasersModel from './models/Cr1bd_chasersModel';
 export * as Cr1bd_evidencesModel from './models/Cr1bd_evidencesModel';
 export * as Cr1bd_fieldlevelprovenancesModel from './models/Cr1bd_fieldlevelprovenancesModel';
+export * as Cr1bd_inspectionaddressesModel from './models/Cr1bd_inspectionaddressesModel';
 export * as Cr1bd_notesModel from './models/Cr1bd_notesModel';
 export * as Cr1bd_workprovidersModel from './models/Cr1bd_workprovidersModel';
 
@@ -21,5 +22,6 @@ export * from './services/Cr1bd_casesService';
 export * from './services/Cr1bd_chasersService';
 export * from './services/Cr1bd_evidencesService';
 export * from './services/Cr1bd_fieldlevelprovenancesService';
+export * from './services/Cr1bd_inspectionaddressesService';
 export * from './services/Cr1bd_notesService';
 export * from './services/Cr1bd_workprovidersService';
