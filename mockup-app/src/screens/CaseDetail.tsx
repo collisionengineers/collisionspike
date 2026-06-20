@@ -44,6 +44,8 @@ import {
   MapPin,
   Send,
   Upload,
+  Pause,
+  Play,
   X,
 } from 'lucide-react';
 import {
@@ -62,6 +64,7 @@ import {
   type ChecklistItem,
 } from '../components';
 import {
+  data,
   EVA_FIELD_ORDER,
   dueInfo,
   statusToStage,
@@ -840,6 +843,27 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
               <Button appearance="secondary" icon={<Upload size={16} />} onClick={() => navigate('/evidence')}>
                 Add evidence
               </Button>
+              <Button
+                appearance="secondary"
+                icon={c.onHold ? <Play size={16} /> : <Pause size={16} />}
+                onClick={async () => {
+                  const next = !c.onHold;
+                  try {
+                    await data.setOnHold(c.id, next);
+                    setC({ ...c, onHold: next });
+                    toast(next ? 'Put on hold — moved to Held' : 'Released from hold');
+                  } catch {
+                    dispatchToast(
+                      <Toast>
+                        <ToastTitle>Couldn’t update hold — try again</ToastTitle>
+                      </Toast>,
+                      { intent: 'error' },
+                    );
+                  }
+                }}
+              >
+                {c.onHold ? 'Release' : 'Hold'}
+              </Button>
               {!blocked && (
                 <Button
                   appearance="secondary"
@@ -868,6 +892,11 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
 
         <div className={styles.titleTags}>
           <StatusBadge status={c.status} />
+          {c.onHold && (
+            <Badge appearance="filled" color="warning" shape="rounded">
+              On hold
+            </Badge>
+          )}
           <Badge appearance="outline" color="informative" shape="rounded">
             {c.channel.kind === 'whatsapp' ? 'WhatsApp' : 'Email'} · {c.channel.mode}
           </Badge>

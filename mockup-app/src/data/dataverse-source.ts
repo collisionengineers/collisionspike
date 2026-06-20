@@ -22,6 +22,7 @@ import type { Case, Evidence, Provider, ActivityEvent } from '../mock/types';
 import {
   QUEUES,
   queueByName,
+  statusToQueue,
   statusToStage,
   REASON_LABELS,
   type QueueName,
@@ -84,9 +85,10 @@ function startOfWeek(d: Date): Date {
 
 /** Filter an already-fetched Case[] for a queue (status membership). */
 function filterQueue(all: Case[], name: QueueName, _now: Date): Case[] {
-  const q = queueByName(name);
-  if (!q) return [];
-  return all.filter((c) => q.statuses.includes(c.status));
+  if (!queueByName(name)) return [];
+  // A staff-held case lives in Held regardless of its underlying status; every
+  // other case maps by status (terminal statuses own no active queue).
+  return all.filter((c) => (c.onHold ? 'held' : statusToQueue(c.status)) === name);
 }
 
 /** The cases that need a human — backs the dashboard "needs action" aging hero
@@ -219,6 +221,11 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       return (res.data ?? [])
         .map((rec) => caseFromRecord({ record: rec }))
         .filter((c) => !TERMINAL.has(c.status) && c.id !== excludeCaseId);
+    },
+
+    setOnHold: async (caseId, onHold) => {
+      // Staff manual park/un-park; routes the case to (or out of) the Held queue.
+      await services.cases.update(caseId, { cr1bd_onhold: onHold });
     },
 
     /* ----- Evidence ----- */

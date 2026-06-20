@@ -132,6 +132,8 @@ export interface DataAccess {
   casesForQueue(name: QueueName, now?: Date): Promise<Case[]>;
   /** Other OPEN cases sharing a VRM — the duplicate_risk "VRM twins" affordance. */
   openVrmTwins(vrm: string, excludeCaseId?: string): Promise<Case[]>;
+  /** Park / un-park a case (staff manual hold). On-hold cases route to the Held queue. */
+  setOnHold(caseId: string, onHold: boolean): Promise<void>;
 
   /* ----- Evidence ----- */
   /** Image-kind, non-excluded evidence for a case (mock `imagesForCase`). */
@@ -244,6 +246,7 @@ export interface CaseRecord {
   cr1bd_sourcemailbox?: string;
   cr1bd_actionreason?: number | null; // cr1bd_actionreason integer
   cr1bd_inspectiondecision?: number; // cr1bd_inspectiondecisionmode integer
+  cr1bd_onhold?: boolean; // staff manual hold -> Held queue
 
   cr1bd_datedue?: string | null; // ISO/Dataverse DateOnly
   cr1bd_inspectiondate?: string | null;
