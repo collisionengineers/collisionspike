@@ -191,10 +191,9 @@ const ANY = '__any__';
 
 /* Per-tab empty-state guidance (no filters applied). */
 const EMPTY_HINT: Record<QueueName, string> = {
-  'awaiting-images': 'No cases are waiting on images — instructions are in and photos are chased here.',
-  'images-only': 'No image-only cases — photos that arrive without instructions wait here for the paperwork.',
-  'ready-review': 'Nothing is waiting for review — cases land here once they hold enough to submit.',
-  exceptions: 'No exceptions — every case has the basics it needs (VRM + claimant) to be worked.',
+  'not-ready': 'Nothing here right now — cases waiting on images, instructions or other details land here.',
+  review: 'Nothing to review — cases arrive here once everything’s in and they’re ready to send.',
+  held: 'Nothing held — cases that can’t go through (missing the basics) or are on hold would show here.',
 };
 
 function ageInBucket(ageDays: number, bucket: AgeBucket): boolean {
@@ -217,12 +216,12 @@ export function CaseList() {
   const navigate = useNavigate();
   const { name } = useParams<{ name: string }>();
 
-  const activeName: QueueName = (queueByName(name ?? '')?.name ?? 'ready-review') as QueueName;
+  const activeName: QueueName = (queueByName(name ?? '')?.name ?? 'not-ready') as QueueName;
   const queue = queueByName(activeName);
-  // Reason facet chips help most on the review queue, where reasons vary.
-  const showFacets = activeName === 'ready-review';
+  // Reason facet chips help most on the Not ready queue, where reasons vary.
+  const showFacets = activeName === 'not-ready';
   // Status filter only where the queue spans multiple statuses (queues #1):
-  // single-status queues (awaiting images / images only / exceptions) don't need it.
+  // single-status queues (Review) don't need it.
   const showStatusFilter = (queue?.statuses.length ?? 0) > 1;
 
   const [search, setSearch] = useState('');
@@ -463,7 +462,7 @@ export function CaseList() {
         eyebrow="Queue"
         heading={queue?.label ?? 'Cases'}
         subtitle={
-          activeName === 'awaiting-images' || activeName === 'images-only'
+          activeName === 'not-ready'
             ? 'Needs action = a chase is due (weekly cadence) or the case is past due.'
             : 'Click a case to open its review workspace.'
         }
