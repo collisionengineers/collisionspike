@@ -41,7 +41,9 @@ const ZERO_QUEUE_COUNTS: Record<QueueName, number> = {
   exceptions: 0,
 };
 
-/** The empty pipeline strip (all four stages at zero). */
+/** The empty pipeline strip (all four stages at zero). The dashboard hero
+    renders only the three backlog stages; the `submitted` total feeds the
+    "Sent to EVA (total)" throughput cell and the CaseDetail spine. */
 function emptyPipelineStages(): PipelineStage[] {
   const defs: { key: PipelineStageKey; label: string }[] = [
     { key: 'new', label: 'New' },
@@ -74,6 +76,10 @@ export const mockDataAccess: DataAccess = {
   /* ----- Providers ----- */
   providers: () => Promise.resolve([]),
   providerByCode: (_code) => Promise.resolve(undefined),
+
+  /* ----- Inspection-address suggestions (corpus; empty default) ----- */
+  inspectionAddressSuggestions: (_caseId) => Promise.resolve([]),
+  inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
 
   /* ----- Dashboard / queue aggregates ----- */
   liveCounts: (_now) => Promise.resolve(ZERO_LIVE),

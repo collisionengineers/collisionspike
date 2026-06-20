@@ -42,6 +42,17 @@ function imgEv(over: Partial<ImageRuleEvidence> = {}): ImageRuleEvidence {
   };
 }
 
+/** An instruction-kind evidence row (counts toward instructionCount, not images). */
+function instrEv(): ImageRuleEvidence {
+  return {
+    kind: 'instruction',
+    imageRole: 'unknown',
+    registrationVisible: false,
+    acceptedForEva: false,
+    excluded: false,
+  };
+}
+
 /** A valid image set (passes the image rules). */
 const goodEvidence: ImageRuleEvidence[] = [
   imgEv({ imageRole: 'overview', registrationVisible: true }),
@@ -107,16 +118,18 @@ describe('statusForReviewCase — terminal lock', () => {
   );
 });
 
-describe('statusForReviewCase — missing_required_fields branch', () => {
+describe('statusForReviewCase — missing_required_fields branch (FIX-3: reserved for image-bearing cases)', () => {
+  // FIX-3: missing_required_fields fires ONLY when the case holds accepted image
+  // evidence (imagesValid) but a required field is empty — "Images only".
   it.each<EvaFieldKey>(REQUIRED_FIELD_KEYS as EvaFieldKey[])(
-    'returns missing_required_fields when required %s is empty',
+    'returns missing_required_fields when images pass but required %s is empty',
     (key) => {
       const input = caseInput({ evaFields: fullFields({ [key]: field('', 'needs_review') }) });
       expect(statusForReviewCase(input)).toBe('missing_required_fields');
     },
   );
 
-  it('treats whitespace-only as empty', () => {
+  it('treats whitespace-only as empty (with valid images)', () => {
     const input = caseInput({ evaFields: fullFields({ vehicleModel: field('   ') }) });
     expect(statusForReviewCase(input)).toBe('missing_required_fields');
   });
@@ -124,6 +137,17 @@ describe('statusForReviewCase — missing_required_fields branch', () => {
   it('does NOT trip on an empty optional field', () => {
     const input = caseInput({ evaFields: fullFields({ mileage: field('') }) });
     expect(statusForReviewCase(input)).toBe('ready_for_eva');
+  });
+
+  it('does NOT mint missing_required_fields for an evidence-less, field-incomplete case (the stuck-case fix)', () => {
+    // The 3 live stuck cases: ZERO evidence, missing required fields. Under the
+    // old fields-first tree these wrongly minted missing_required_fields; FIX-3
+    // routes them to needs_review (nothing usable arrived yet).
+    const input = caseInput({
+      evaFields: fullFields({ inspectionAddress: field('') }),
+      evidence: [],
+    });
+    expect(statusForReviewCase(input)).toBe('needs_review');
   });
 });
 
@@ -133,31 +157,49 @@ describe('statusForReviewCase — missing_images branch', () => {
     expect(statusForReviewCase(input)).toBe('missing_images');
   });
 
-  it('missing_required_fields takes precedence over missing_images', () => {
+  it('missing_images fires even with instructions present, when fields are complete', () => {
+    const input = caseInput({ evidence: [instrEv()] });
+    expect(statusForReviewCase(input)).toBe('missing_images');
+  });
+});
+
+describe('statusForReviewCase — needs_review branch (FIX-3 evidence-aware)', () => {
+  it('returns needs_review when nothing usable has arrived (no images, no instructions)', () => {
     const input = caseInput({
       evaFields: fullFields({ claimantName: field('') }),
       evidence: [],
     });
-    expect(statusForReviewCase(input)).toBe('missing_required_fields');
+    expect(statusForReviewCase(input)).toBe('needs_review');
   });
-});
 
-describe('statusForReviewCase — needs_review branch', () => {
-  it('returns needs_review when a field is still in needs_review', () => {
+  it('returns needs_review for an instructions-only, field-incomplete case', () => {
+    // Instructions arrived (instructionCount>0) but no usable images and a
+    // required field is missing -> a human reviews; never "Images only".
     const input = caseInput({
-      evaFields: fullFields({ mileage: field('1000', 'needs_review') }),
+      evaFields: fullFields({ vehicleModel: field('') }),
+      evidence: [instrEv()],
     });
     expect(statusForReviewCase(input)).toBe('needs_review');
   });
 
-  it('returns needs_review when a field is in conflict', () => {
+  it('honours an explicit instructionCount even when no instruction rows are in evidence', () => {
+    const input = caseInput({
+      evaFields: fullFields({ vehicleModel: field('') }),
+      evidence: [],
+      instructionCount: 2,
+    });
+    expect(statusForReviewCase(input)).toBe('needs_review');
+  });
+
+  it('a populated case with an open conflict is ready_for_eva (FIX-3 does not gate on review state)', () => {
+    // Divergence from the old tree: fieldsValid is field-presence only.
     const input = caseInput({
       evaFields: fullFields({ vehicleModel: field('Audi A3', 'conflict') }),
     });
-    expect(statusForReviewCase(input)).toBe('needs_review');
+    expect(statusForReviewCase(input)).toBe('ready_for_eva');
   });
 
-  it('image rules take precedence over needs_review', () => {
+  it('image rules take precedence over an open review state', () => {
     const input = caseInput({
       evaFields: fullFields({ mileage: field('1000', 'needs_review') }),
       evidence: [],
@@ -166,8 +208,69 @@ describe('statusForReviewCase — needs_review branch', () => {
   });
 });
 
+describe('statusForReviewCase — error branch (something arrived, but unidentifiable + field-incomplete)', () => {
+  // The error branch is reached only when fields are incomplete, images fail,
+  // AND something DID arrive (instructions and/or unusable images) — so the
+  // "genuinely empty -> needs_review" branch does not catch it first — and the
+  // case has no identity at all.
+  it('returns error for an instructions-bearing, field-incomplete case with no identity', () => {
+    const input = caseInput({
+      evaFields: fullFields({
+        workProvider: field(''),
+        claimantName: field(''),
+        inspectionAddress: field(''),
+      }),
+      evidence: [instrEv()], // instructionCount=1 -> skips the empty branch
+      hasIdentity: false,
+    });
+    expect(statusForReviewCase(input)).toBe('error');
+  });
+
+  it('a genuinely empty case (no evidence, no instructions) is needs_review even with no identity', () => {
+    // No accepted images AND no instructions short-circuits to needs_review
+    // BEFORE the identity check — never a premature error.
+    const input = caseInput({
+      evaFields: fullFields({
+        workProvider: field(''),
+        claimantName: field(''),
+        inspectionAddress: field(''),
+      }),
+      evidence: [],
+      hasIdentity: false,
+    });
+    expect(statusForReviewCase(input)).toBe('needs_review');
+  });
+
+  it('an explicit hasIdentity=true keeps an instructions-bearing incomplete case in needs_review, not error', () => {
+    const input = caseInput({
+      evaFields: fullFields({
+        workProvider: field(''),
+        claimantName: field(''),
+        inspectionAddress: field(''),
+      }),
+      evidence: [instrEv()],
+      hasIdentity: true,
+    });
+    expect(statusForReviewCase(input)).toBe('needs_review');
+  });
+
+  it('derives identity from workProvider when hasIdentity is not passed', () => {
+    // workProvider present (identity) + instructions arrived + fields incomplete
+    // -> needs_review (identifiable), NOT error.
+    const input = caseInput({
+      evaFields: fullFields({
+        workProvider: field('SBL'),
+        claimantName: field(''),
+        inspectionAddress: field(''),
+      }),
+      evidence: [instrEv()],
+    });
+    expect(statusForReviewCase(input)).toBe('needs_review');
+  });
+});
+
 describe('statusForReviewCase — ready_for_eva', () => {
-  it('returns ready_for_eva when everything passes and nothing is open', () => {
+  it('returns ready_for_eva when fields are complete and images pass', () => {
     expect(statusForReviewCase(caseInput())).toBe('ready_for_eva');
   });
 

@@ -18,6 +18,7 @@ import {
 } from './eva-export';
 import {
   validateEvaImageRules,
+  acceptedEvaImages,
   type ImageRuleEvidence,
 } from './image-rules';
 
@@ -95,8 +96,21 @@ export interface StatusEvaluationInput {
   status: CaseStatus;
   /** The 12 EVA fields, keyed by `EvaFieldKey` (camelCase). */
   evaFields: Record<EvaFieldKey, ReviewableField>;
-  /** Evidence usable by the image rules. */
+  /** Evidence usable by the image rules (+ instruction-kind rows for FIX-3). */
   evidence: readonly ImageRuleEvidence[];
+  /**
+   * Count of active instruction-kind evidence rows (FIX-3). When omitted it is
+   * DERIVED from `evidence` (items whose `kind === 'instruction'`). Lets the tree
+   * tell an instructions-only case from a genuinely-empty one.
+   */
+  instructionCount?: number;
+  /**
+   * Can the case be identified at all? In the live flow: work_provider OR vrm OR
+   * caseref OR claimant present. When omitted it is DERIVED conservatively from
+   * the EVA fields available here (workProvider OR claimantName non-empty); pass
+   * it explicitly when vrm/caseref identity is known (they are NOT EVA fields).
+   */
+  hasIdentity?: boolean;
 }
 
 /* ----------  Required-field check (re-implements payload validation)  ----------
@@ -129,37 +143,81 @@ export function conflictFieldKeys(
   );
 }
 
-/* ----------  The guard (re-implements `statusForReviewCase`)  ----------
-   Guard order is load-bearing and MUST match collisioncc:
-     1. terminal? -> return it unchanged (terminal-lock)
-     2. required fields missing -> 'missing_required_fields'
-     3. image rules fail        -> 'missing_images'
-     4. open review issues      -> 'needs_review'  (conflicts, or any field needs_review)
-     5. otherwise               -> 'ready_for_eva'
+/* ----------  Count of instruction-kind evidence (FIX-3 input)  ----------
+   The image rules ignore non-image evidence; the status tree, however, needs to
+   know whether ANY instructions arrived. `evidence` carries `kind` as a string,
+   so instruction-kind rows are counted here when the caller doesn't pass an
+   explicit `instructionCount`. */
+function instructionCountOf(input: StatusEvaluationInput): number {
+  if (typeof input.instructionCount === 'number') return input.instructionCount;
+  return input.evidence.filter((e) => e.kind === 'instruction').length;
+}
 
-   This computes the *derived review status*. It deliberately does NOT invent
-   `duplicate_risk` / `linked_to_instruction` (set by the dedup flow) nor the
-   submit terminals (`eva_submitted` / `box_synced`, set by finalization); those
-   are handled upstream and protected by the terminal-lock. */
+/** Conservative identity probe from the EVA fields present in this contract. */
+function hasIdentityOf(input: StatusEvaluationInput): boolean {
+  if (typeof input.hasIdentity === 'boolean') return input.hasIdentity;
+  const wp = input.evaFields.workProvider?.value?.trim() ?? '';
+  const cn = input.evaFields.claimantName?.value?.trim() ?? '';
+  return wp.length > 0 || cn.length > 0;
+}
+
+/* ----------  The guard (re-implements `statusForReviewCase`)  ----------
+   Mirrors the LIVE FIX-3 EVIDENCE-AWARE tree (CS Status Evaluate
+   `Compute_next_status`, flows/definitions/status-evaluate.definition.json), so
+   the Code App contract and the deployed flow stop diverging (re-saving a Case
+   through the app no longer re-stamps a status the flow wouldn't). Order is
+   load-bearing:
+     1. terminal?                          -> return it unchanged (terminal-lock)
+     2. fieldsValid && imagesValid          -> 'ready_for_eva'
+     3. fieldsValid && !imagesValid         -> 'missing_images'
+     4. !fieldsValid && imagesValid         -> 'missing_required_fields'
+        (RESERVED for cases that actually hold accepted image evidence but whose
+         required fields are incomplete — the "Images only" queue)
+     5. no accepted images AND no instructions -> 'needs_review'
+        (nothing usable has arrived yet — pending/new; NEVER a premature error,
+         and NEVER 'missing_required_fields' for an evidence-less case)
+     6. identifiable (provider/vrm/caseref/claimant) -> 'needs_review'
+     7. otherwise (unidentifiable, image-less)        -> 'error'
+
+   `fieldsValid` is purely "all required EVA fields non-empty" — it deliberately
+   does NOT gate on review state (matching the live flow), so a fully-populated
+   case is `ready_for_eva` even with an open conflict; surfacing unreviewed
+   conflicts is the readiness UI's job (components/readiness.ts), not this status.
+
+   It deliberately does NOT invent `duplicate_risk` / `linked_to_instruction`
+   (set by the dedup flow) nor the submit terminals (`eva_submitted` /
+   `box_synced`, set by finalization); those are handled upstream and protected
+   by the terminal-lock. */
 export function statusForReviewCase(input: StatusEvaluationInput): CaseStatus {
   if (isTerminalStatus(input.status)) return input.status;
 
-  if (missingRequiredFieldKeys(input.evaFields).length > 0) {
-    return 'missing_required_fields';
-  }
+  const fieldsValid = missingRequiredFieldKeys(input.evaFields).length === 0;
+  const imagesValid = validateEvaImageRules(input.evidence).length === 0;
 
-  if (validateEvaImageRules(input.evidence).length > 0) {
-    return 'missing_images';
-  }
+  if (fieldsValid && imagesValid) return 'ready_for_eva';
+  if (fieldsValid && !imagesValid) return 'missing_images';
+  // missing_required_fields is RESERVED for cases WITH real (accepted) image
+  // evidence — i.e. imagesValid — that are missing required fields. An
+  // evidence-less, field-incomplete case falls through to the pending branches.
+  if (!fieldsValid && imagesValid) return 'missing_required_fields';
 
-  if (hasOpenReviewIssues(input.evaFields)) {
-    return 'needs_review';
-  }
+  const acceptedImages = acceptedEvaImages(input.evidence).length;
+  const instructionCount = instructionCountOf(input);
+  // Nothing usable has arrived yet (no accepted images AND no instructions):
+  // pending/new -> needs_review, never a premature error or "Images only".
+  if (acceptedImages === 0 && instructionCount === 0) return 'needs_review';
 
-  return 'ready_for_eva';
+  // Something arrived (instructions and/or unusable images) but it isn't
+  // EVA-ready: a partially-identified case waits for a human; a wholly
+  // unidentifiable, image-less one is an exception.
+  return hasIdentityOf(input) ? 'needs_review' : 'error';
 }
 
-/** Open review issues = any field still `needs_review`, or any field in `conflict`. */
+/** Open review issues = any field still `needs_review`, or any field in `conflict`.
+    NOTE: the FIX-3 status tree intentionally does NOT gate on this (it matches
+    the live flow's field-presence-only `fieldsValid`). Retained as a helper for
+    callers that want to surface unreviewed conflicts in the UI separately from
+    the workflow status. */
 export function hasOpenReviewIssues(
   fields: Record<EvaFieldKey, ReviewableField>,
 ): boolean {

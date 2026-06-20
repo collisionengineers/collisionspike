@@ -43,6 +43,8 @@ import type {
   CaseRecord,
   EvidenceRecord,
   FieldLevelProvenanceRecord,
+  InspectionAddressRecord,
+  SuggestedAddress,
   WorkProviderRecord,
 } from './types';
 
@@ -383,6 +385,61 @@ export function providerToRecord(p: Provider): WorkProviderRecord {
     cr1bd_inspectionlocationpolicy: inspectionPolicyCodec.toInt(p.inspectionLocationPolicy),
     cr1bd_providerautomationmode: automationModeCodec.toInt(p.providerAutomationMode),
     cr1bd_active: p.active,
+  };
+}
+
+/* ============================================================
+   Inspection-address SUGGESTIONS <-> cr1bd_inspectionaddress row.
+
+   Suggestions are the corpus rows tagged cr1bd_sourcelabel startswith
+   'suggested' (decisionMode=unknown) — loaded from the externally-maintained
+   source by 16-seed-suggested-addresses.ps1. The adapter projects one to the
+   `SuggestedAddress` domain shape the Code App surfaces strictly AS a
+   suggestion (never auto-confirmed). The source label carries an optional
+   confidence band after a colon ('suggested:<address_status>'); the source note
+   carries 'provider=<code> loc=<value>' which we parse for scoping/display.
+   ============================================================ */
+
+/** True when the row is a low-confidence suggestion (sourceLabel startswith 'suggested'). */
+export function isSuggestedAddressRecord(rec: InspectionAddressRecord): boolean {
+  return (rec.cr1bd_sourcelabel ?? '').trim().toLowerCase().startsWith('suggested');
+}
+
+/** Pull a `key=value` token's value out of the free-text source note (space-delimited). */
+function noteToken(note: string | undefined, key: string): string | undefined {
+  if (!note) return undefined;
+  const m = note.match(new RegExp(`${key}=([^\\s|]+)`));
+  return m ? m[1] : undefined;
+}
+
+/** Map a suggestion catalogue row -> the `SuggestedAddress` domain shape. */
+export function suggestionFromRecord(rec: InspectionAddressRecord): SuggestedAddress {
+  const lines = [
+    rec.cr1bd_addressline1,
+    rec.cr1bd_addressline2,
+    rec.cr1bd_addressline3,
+    rec.cr1bd_addressline4,
+    rec.cr1bd_addressline5,
+    rec.cr1bd_addressline6,
+  ]
+    .map((l) => (l ?? '').trim())
+    .filter((l) => l.length > 0);
+  const label = (rec.cr1bd_sourcelabel ?? '').trim();
+  const colon = label.indexOf(':');
+  const confidenceBand = colon >= 0 ? label.slice(colon + 1).trim() : undefined;
+  const note = rec.cr1bd_sourcenote ?? undefined;
+  // The note is 'evidence_source | evidence_detail | provider=X loc=Y status=Z'.
+  // Keep ONLY the human-readable evidence (before the machine `provider=` token)
+  // for display; the machine tokens are surfaced as structured fields instead.
+  const humanEvidence = note ? note.split(/\s*\|\s*provider=/)[0].trim() : '';
+  return {
+    id: rec.cr1bd_inspectionaddressid ?? '',
+    lines,
+    postcode: (rec.cr1bd_postcode ?? '').trim(),
+    ...(noteToken(note, 'provider') ? { providerCode: noteToken(note, 'provider') } : {}),
+    ...(noteToken(note, 'loc') ? { locValue: noteToken(note, 'loc') } : {}),
+    ...(humanEvidence ? { evidenceNote: humanEvidence } : {}),
+    ...(confidenceBand ? { confidenceBand } : {}),
   };
 }
 

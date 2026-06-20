@@ -20,8 +20,11 @@ import {
   evaFieldsToColumns,
   caseFromRecord,
   caseToRecord,
+  suggestionFromRecord,
+  isSuggestedAddressRecord,
   type ChoiceCodec,
 } from './adapter';
+import type { InspectionAddressRecord } from './types';
 import { CASE_STATUSES, type CaseStatus } from '../contracts/case-status';
 // Fabricated round-trip fixtures (test-only; not shipped — see src/__fixtures__).
 import { providers } from '../__fixtures__/providers';
@@ -248,5 +251,72 @@ describe('Case <-> cr1bd_case row round-trip', () => {
     expect(back.casePo).toBeUndefined();
     expect(back.submittedAt).toBeUndefined();
     expect(back.status).toBe('new_email');
+  });
+});
+
+/* ============================================================
+   Inspection-address SUGGESTIONS adapter.
+   ============================================================ */
+describe('isSuggestedAddressRecord', () => {
+  it('matches sourceLabel startswith "suggested" (incl. the banded form)', () => {
+    expect(isSuggestedAddressRecord({ cr1bd_sourcelabel: 'suggested' })).toBe(true);
+    expect(
+      isSuggestedAddressRecord({ cr1bd_sourcelabel: 'suggested:candidate_multiple_addresses' }),
+    ).toBe(true);
+    expect(isSuggestedAddressRecord({ cr1bd_sourcelabel: 'Suggested' })).toBe(true); // case-insensitive
+  });
+
+  it('does NOT match confirmed reference rows', () => {
+    expect(isSuggestedAddressRecord({ cr1bd_sourcelabel: 'storage' })).toBe(false);
+    expect(isSuggestedAddressRecord({ cr1bd_sourcelabel: 'repairer' })).toBe(false);
+    expect(isSuggestedAddressRecord({ cr1bd_sourcelabel: '' })).toBe(false);
+    expect(isSuggestedAddressRecord({})).toBe(false);
+  });
+});
+
+describe('suggestionFromRecord', () => {
+  const rec: InspectionAddressRecord = {
+    cr1bd_inspectionaddressid: 'ia-1',
+    cr1bd_name: 'GG -- OL1 3NE -- 1',
+    cr1bd_sourcelabel: 'suggested:candidate_multiple_addresses',
+    cr1bd_sourcenote:
+      'local repairer match | matched on postcode district | provider=GG loc=OL1 status=candidate_multiple_addresses',
+    cr1bd_addressline1: 'Unit 4, Example Industrial Estate',
+    cr1bd_addressline2: 'Oldham',
+    cr1bd_postcode: 'OL1 3NE',
+  };
+
+  it('splits address lines (blanks dropped) + keeps the postcode separate', () => {
+    const s = suggestionFromRecord(rec);
+    expect(s.id).toBe('ia-1');
+    expect(s.lines).toEqual(['Unit 4, Example Industrial Estate', 'Oldham']);
+    expect(s.postcode).toBe('OL1 3NE');
+  });
+
+  it('parses provider + loc + confidence band out of the label/note', () => {
+    const s = suggestionFromRecord(rec);
+    expect(s.providerCode).toBe('GG');
+    expect(s.locValue).toBe('OL1');
+    expect(s.confidenceBand).toBe('candidate_multiple_addresses');
+  });
+
+  it('keeps ONLY the human evidence (drops the machine provider/loc/status tokens)', () => {
+    const s = suggestionFromRecord(rec);
+    expect(s.evidenceNote).toBe('local repairer match | matched on postcode district');
+    expect(s.evidenceNote).not.toContain('provider=');
+    expect(s.evidenceNote).not.toContain('status=');
+  });
+
+  it('tolerates a bare "suggested" label with no band and an empty note', () => {
+    const s = suggestionFromRecord({
+      cr1bd_inspectionaddressid: 'ia-2',
+      cr1bd_sourcelabel: 'suggested',
+      cr1bd_addressline1: 'Somewhere',
+    });
+    expect(s.confidenceBand).toBeUndefined();
+    expect(s.evidenceNote).toBeUndefined();
+    expect(s.providerCode).toBeUndefined();
+    expect(s.lines).toEqual(['Somewhere']);
+    expect(s.postcode).toBe('');
   });
 });

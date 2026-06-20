@@ -24,6 +24,7 @@ import type {
   PipelineStage,
 } from '../mock/queues';
 import type { QueueName } from '../mock/queues';
+import type { SuggestedAddress, InspectionAddressCounts } from './types';
 
 /** The shape every query hook returns. */
 export interface QueryState<T> {
@@ -126,5 +127,22 @@ export function useImages(caseId: string | undefined): QueryState<Evidence[]> {
 /** The WorkProvider corpus. */
 export function useProviders(): QueryState<Provider[]> {
   const run = useCallback(() => getDataAccess().providers(), []);
+  return useAsync(run, []);
+}
+
+/** Low-confidence inspection-address suggestions for a case (corpus; ALWAYS suggestions). */
+export function useInspectionAddressSuggestions(
+  caseId: string | undefined,
+): QueryState<SuggestedAddress[]> {
+  const run = useCallback(
+    () => (caseId ? getDataAccess().inspectionAddressSuggestions(caseId) : Promise.resolve([])),
+    [caseId],
+  );
+  return useAsync(run, [caseId]);
+}
+
+/** Confirmed-vs-suggested split of the inspection-address corpus (Admin count). */
+export function useInspectionAddressCounts(): QueryState<InspectionAddressCounts> {
+  const run = useCallback(() => getDataAccess().inspectionAddressCounts(), []);
   return useAsync(run, []);
 }

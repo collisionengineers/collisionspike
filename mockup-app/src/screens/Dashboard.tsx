@@ -13,6 +13,7 @@ import {
   AlertOctagon,
   ChevronRight,
   CircleCheck,
+  CheckCheck,
   Inbox,
   Send,
   CalendarRange,
@@ -46,19 +47,20 @@ const POLL_MS = 75_000;
 /* Re-cut funnel stage → the queue/view it drills into (clickable strip).
    Each stage lands on a destination that CONTAINS the statuses it counts, so the
    strip never advertises a number then drops the user on a thinner list
-   (queues #2). The mapping mirrors the shared statusToStage buckets:
+   (queues #2). The hero funnel now renders only the three live-depth backlog
+   stages; the mapping mirrors the shared statusToStage buckets:
      - new (new_email/ingested) live in the ready-review queue → land there (#8).
      - review (needs_review/duplicate_risk/linked/ready_for_eva) → ready-review.
      - not_ready spans TWO queues (missing_images → awaiting-images,
        missing_required_fields → images-only); the queue page is tabbed and shows
        both with live counts, so land on awaiting-images with images-only one tab
        across — the destination (the queue page) holds the whole not-ready set.
-     - submitted (terminal) is throughput, not a backlog → the Action Logs. */
+   `submitted` is no longer a funnel segment (its cumulative total moved to the
+   throughput strip), so it carries no route here. */
 const STAGE_ROUTE: Partial<Record<PipelineStageKey, string>> = {
   new: '/queue/ready-review',
   not_ready: '/queue/awaiting-images',
   review: '/queue/ready-review',
-  submitted: '/logs',
 };
 
 /* ----------  styles  ---------- */
@@ -448,6 +450,12 @@ export function Dashboard() {
 
   const { pipelineStages: stages, liveCounts: live, throughput: thru, agingExceptions: aging } = dash;
 
+  // Cumulative "Sent to EVA" total — the funnel's terminal stage (eva_submitted +
+  // box_synced), lifted out of the hero into the windowed strip so the funnel
+  // shows live depth only. It is a running lifetime total (no time window),
+  // hence "(total)" beside the windowed "Submitted today".
+  const sentToEvaTotal = stages.find((s) => s.key === 'submitted')?.count ?? 0;
+
   return (
     <div className={mergeClasses('ce-enter', styles.root)}>
       <SectionHeading
@@ -466,11 +474,14 @@ export function Dashboard() {
         }
       />
 
-      {/* HERO: the re-cut funnel (New → Not ready → Review → Submitted), clickable.
-          Replaces the old strip + the redundant "drainable now" tile row. */}
+      {/* HERO: the re-cut funnel — the LIVE-DEPTH backlog only (New → Not ready →
+          Review), clickable. The cumulative terminal total moved to the windowed
+          throughput strip below ("Sent to EVA (total)"), so the funnel is purely
+          open-cases depth. Replaces the old strip + the "drainable now" tiles. */}
       <PipelineStrip
         stages={stages}
         variant="hero"
+        caption="Open cases by stage"
         onStageSelect={(key) => {
           const to = STAGE_ROUTE[key];
           if (to) navigate(to);
@@ -499,6 +510,7 @@ export function Dashboard() {
         <div className={styles.thruStrip}>
           <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
           <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
+          <ThruCell icon={CheckCheck} value={sentToEvaTotal} label="Sent to EVA (total)" />
           <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
         </div>
       </section>
