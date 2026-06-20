@@ -136,6 +136,31 @@ def test_mileage_fetched_when_document_lacks_mileage(monkeypatch):
     assert dvsa_route.call_count == 1
 
 
+@respx.mock
+def test_mileage_guard_never_overwrites_document_value(monkeypatch):
+    """ADR-0006 load-bearing negative case: when the document HAS mileage, the
+    Function must emit NO mileage field at all, so the flow can never patch over
+    the parser-sourced value. The DVSA record here HAS a usable odometer history
+    (so an estimate *would* be produced if the guard were broken) — proving the
+    guard, not merely the absence of data."""
+    _pin_as_of(monkeypatch)
+    _mock_token()
+    _mock_dvsa()  # FORD FOCUS with three odometer reads -> estimate is derivable
+
+    result = function_app.enrich(
+        "TE57VRM", document_has_mileage=True, dvsa=_dvsa_client(), dvla=None
+    )
+
+    # The document is authoritative: NONE of the mileage fields may be present,
+    # so there is nothing for the flow to write over cr1bd_evamileage.
+    assert "current_mileage" not in result
+    assert "mileage_unit" not in result
+    assert "mileage_confidence" not in result
+    # And the reason is the document-authoritative skip, not a lookup failure.
+    assert any("authoritative" in w for w in result["warnings"])
+    assert not any("estimate failed" in w for w in result["warnings"])
+
+
 # --------------------------------------------------------------------------
 # DVLA make-only fallback (DVSA has no record / no make)
 # --------------------------------------------------------------------------
@@ -242,6 +267,149 @@ def test_persistent_401_soft_fails(caplog):
     # No exception bubbled; lookup soft-failed into a warning.
     assert any("DVSA lookup failed" in w for w in result["warnings"])
     assert FAKE_SECRET not in caplog.text
+
+
+# --------------------------------------------------------------------------
+# DVSA 429 / 5xx transient retry parity with the DVLA client
+# (a bare HTTP 429 with no errorCode body must back off + retry, not soft-fail).
+# Verified: DVSA documents 429 Too Many Requests (RPS 15 / burst 10 / 500k-day).
+# --------------------------------------------------------------------------
+
+@respx.mock
+def test_dvsa_bare_429_retries_then_succeeds(monkeypatch):
+    # A 429 with NO JSON errorCode (e.g. an API-management throttle) — the old
+    # code soft-failed here; parity with DVLA means it must retry by status.
+    _no_backoff(monkeypatch)  # keep the suite fast + deterministic
+    _pin_as_of(monkeypatch)
+    _mock_token()
+
+    calls = {"n": 0}
+
+    def dvsa_handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(429)  # bare rate-limit, no errorCode body
+        return httpx.Response(200, json=_load("dvsa_vehicle.json"))
+
+    dvsa_route = respx.get(
+        url__regex=rf"{DVSA_BASE}/v1/trade/vehicles/registration/.*"
+    ).mock(side_effect=dvsa_handler)
+
+    result = function_app.enrich(
+        "TE57VRM", document_has_mileage=False, dvsa=_dvsa_client(), dvla=None
+    )
+
+    # Recovered after the retry: make/model + mileage present, no warning leak.
+    assert result["make"] == "FORD"
+    assert result["current_mileage"] == 62400
+    assert calls["n"] == 2  # one 429, one success
+    assert dvsa_route.call_count == 2
+
+
+@respx.mock
+def test_dvsa_503_retries_then_succeeds(monkeypatch):
+    # 5xx transient upstream fault is also retry-safe by status.
+    _no_backoff(monkeypatch)
+    _pin_as_of(monkeypatch)
+    _mock_token()
+
+    calls = {"n": 0}
+
+    def dvsa_handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(503)
+        return httpx.Response(200, json=_load("dvsa_vehicle.json"))
+
+    respx.get(url__regex=rf"{DVSA_BASE}/v1/trade/vehicles/registration/.*").mock(
+        side_effect=dvsa_handler
+    )
+
+    result = function_app.enrich(
+        "TE57VRM", document_has_mileage=True, dvsa=_dvsa_client(), dvla=None
+    )
+    assert result["make"] == "FORD"
+    assert calls["n"] == 2
+
+
+@respx.mock
+def test_dvsa_persistent_429_exhausts_budget_then_soft_fails(monkeypatch, caplog):
+    # Daily-quota exhaustion: every call 429s. After the bounded retry budget the
+    # client raises DvsaError, which the orchestration catches into a warning —
+    # enrichment is advisory and must NEVER bubble / block intake.
+    _no_backoff(monkeypatch)
+    _mock_token()
+    dvsa_route = respx.get(
+        url__regex=rf"{DVSA_BASE}/v1/trade/vehicles/registration/.*"
+    ).mock(return_value=httpx.Response(429))
+
+    with caplog.at_level(logging.WARNING):
+        result = function_app.enrich(
+            "TE57VRM", document_has_mileage=True, dvsa=_dvsa_client(), dvla=None
+        )
+
+    assert any("DVSA lookup failed" in w for w in result["warnings"])
+    # 1 initial attempt + _MAX_RETRIES retries == 5 calls (bounded, no storm).
+    assert dvsa_route.call_count == 5
+    assert FAKE_SECRET not in caplog.text
+
+
+# --------------------------------------------------------------------------
+# Request-shape parity with the verified DVSA / DVLA contracts
+# (token form-encoding, GET path + X-API-Key/Bearer, DVLA POST body + x-api-key).
+# --------------------------------------------------------------------------
+
+@respx.mock
+def test_dvsa_request_shape_matches_contract(monkeypatch):
+    _pin_as_of(monkeypatch)
+    token_route = _mock_token()
+    dvsa_route = _mock_dvsa()
+
+    function_app.enrich(
+        "te57 vrm", document_has_mileage=True, dvsa=_dvsa_client(), dvla=None
+    )
+
+    # Token: form-encoded client_credentials grant with the .default scope.
+    token_req = token_route.calls.last.request
+    assert token_req.method == "POST"
+    assert (
+        token_req.headers["content-type"]
+        == "application/x-www-form-urlencoded"
+    )
+    token_body = token_req.content.decode("utf-8")
+    assert "grant_type=client_credentials" in token_body
+    assert "scope=" in token_body and "tapi.dvsa.gov.uk" in token_body
+
+    # Lookup: GET /v1/trade/vehicles/registration/{reg}, reg normalised
+    # (whitespace stripped + upper-cased), with BOTH auth headers.
+    dvsa_req = dvsa_route.calls.last.request
+    assert dvsa_req.method == "GET"
+    assert dvsa_req.url.path == "/v1/trade/vehicles/registration/TE57VRM"
+    assert dvsa_req.headers["Authorization"] == f"Bearer {FAKE_TOKEN}"
+    assert dvsa_req.headers["X-API-Key"] == FAKE_API_KEY
+
+
+@respx.mock
+def test_dvla_request_shape_matches_contract():
+    _mock_token()
+    no_mot = _load("dvsa_vehicle_no_mot.json")
+    no_mot.pop("make", None)  # force the DVLA fallback
+    respx.get(url__regex=rf"{DVSA_BASE}/v1/trade/vehicles/registration/.*").mock(
+        return_value=httpx.Response(200, json=no_mot)
+    )
+    dvla_route = respx.post(f"{DVLA_BASE}/v1/vehicles").mock(
+        return_value=httpx.Response(200, json=_load("dvla_vehicle.json"))
+    )
+
+    function_app.enrich(
+        "ne71 vrm", document_has_mileage=True, dvsa=_dvsa_client(), dvla=_dvla_client()
+    )
+
+    dvla_req = dvla_route.calls.last.request
+    assert dvla_req.method == "POST"
+    assert dvla_req.headers["x-api-key"] == FAKE_DVLA_KEY
+    # Body is exactly { "registrationNumber": "<normalised reg>" }.
+    assert json.loads(dvla_req.content) == {"registrationNumber": "NE71VRM"}
 
 
 # --------------------------------------------------------------------------
@@ -411,9 +579,141 @@ def test_handler_defaults_document_has_mileage_true(monkeypatch):
     assert payload["vehicle_model"] == "FOCUS"
 
 
+@respx.mock
+def test_handler_gated_off_is_a_true_no_op(monkeypatch):
+    # Gate-off no-op proof: with ENRICHMENT_ENABLED unset/false the handler must
+    # NOT construct a client or hit DVSA/DVLA/Entra at all (zero quota spend).
+    # respx is active with NO routes registered, so any outbound call would raise.
+    monkeypatch.setenv("ENRICHMENT_ENABLED", "false")
+    # Even with full creds present, the gate short-circuits before any call.
+    monkeypatch.setenv("DVSA_TENANT_ID", TENANT)
+    monkeypatch.setenv("DVSA_CLIENT_ID", "fake-client-id")
+    monkeypatch.setenv("DVSA_CLIENT_SECRET", FAKE_SECRET)
+    monkeypatch.setenv("DVSA_API_KEY", FAKE_API_KEY)
+    monkeypatch.setenv("DVLA_API_KEY", FAKE_DVLA_KEY)
+
+    resp = function_app.dvsa_mot_enrich(
+        _fake_request({"vrm": "TE57VRM", "document_has_mileage": False})
+    )
+    assert resp.status_code == 200
+    payload = json.loads(resp.get_body())
+    assert any("ENRICHMENT_ENABLED is false" in w for w in payload["warnings"])
+    # No make/model/mileage suggested — the parsed values stay untouched.
+    assert "vehicle_model" not in payload
+    assert "make" not in payload
+    assert "current_mileage" not in payload
+    # Zero upstream calls were made (respx would have raised otherwise).
+    assert len(respx.calls) == 0
+
+
+# --------------------------------------------------------------------------
+# No-secrets DRY-RUN self-check
+# (config-presence + resolved non-secret endpoints; NEVER a secret value, and
+# NEVER a DVSA/DVLA/Entra call — runs while still gated OFF.)
+# --------------------------------------------------------------------------
+
+def _set_full_creds(monkeypatch):
+    monkeypatch.setenv("DVSA_TENANT_ID", TENANT)
+    monkeypatch.setenv("DVSA_CLIENT_ID", "fake-client-id")
+    monkeypatch.setenv("DVSA_CLIENT_SECRET", FAKE_SECRET)
+    monkeypatch.setenv("DVSA_API_KEY", FAKE_API_KEY)
+    monkeypatch.setenv("DVLA_API_KEY", FAKE_DVLA_KEY)
+    monkeypatch.setenv("DVSA_API_BASE", DVSA_BASE)
+    monkeypatch.setenv("DVLA_API_BASE", DVLA_BASE)
+
+
+@respx.mock
+def test_dry_run_reports_all_present_without_calling_upstreams(monkeypatch):
+    # respx active with NO routes -> any DVSA/DVLA/token call would raise.
+    monkeypatch.setenv("ENRICHMENT_ENABLED", "false")  # self-check works gated OFF
+    _set_full_creds(monkeypatch)
+
+    resp = function_app.dvsa_mot_enrich(_fake_request({"dry_run": True, "vrm": "ignored"}))
+    assert resp.status_code == 200
+    payload = json.loads(resp.get_body())
+
+    assert payload["dry_run"] is True
+    assert payload["enrichment_enabled"] is False  # honestly reports the gate
+    assert payload["dvsa_ready"] is True
+    assert payload["dvla_fallback_present"] is True
+    assert payload["missing"] == []
+    assert all(payload["config_present"].values())
+    # Resolved NON-SECRET endpoints are surfaced for wiring confirmation.
+    assert payload["token_url"] == TOKEN_URL
+    assert payload["dvsa_api_base"] == DVSA_BASE
+    assert payload["dvla_api_base"] == DVLA_BASE
+    assert "tapi.dvsa.gov.uk" in payload["scope"]
+    # The whole point: ZERO upstream calls (no quota, no token fetch).
+    assert len(respx.calls) == 0
+
+
+def test_dry_run_never_leaks_a_secret_value(monkeypatch, caplog):
+    # The load-bearing security assertion: no secret VALUE may appear in the
+    # response body or the logs, even though every secret env var is set.
+    monkeypatch.setenv("ENRICHMENT_ENABLED", "true")
+    _set_full_creds(monkeypatch)
+
+    with caplog.at_level(logging.DEBUG):
+        resp = function_app.dvsa_mot_enrich(_fake_request({"dry_run": True}))
+
+    body_text = resp.get_body().decode("utf-8")
+    for secret in (FAKE_SECRET, FAKE_API_KEY, FAKE_DVLA_KEY, FAKE_TOKEN):
+        assert secret not in body_text
+        assert secret not in caplog.text
+    # client_id is also not echoed (presence is reported as a bool, not a value).
+    assert "fake-client-id" not in body_text
+
+
+def test_dry_run_lists_missing_names_only_when_unconfigured(monkeypatch):
+    # With NO creds set, the self-check reports not-ready and lists the missing
+    # NAMES (never values) — the same required set as DvsaConfig.from_env.
+    monkeypatch.setenv("ENRICHMENT_ENABLED", "false")
+    for name in (
+        "DVSA_TENANT_ID",
+        "DVSA_CLIENT_ID",
+        "DVSA_CLIENT_SECRET",
+        "DVSA_API_KEY",
+        "DVLA_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    resp = function_app.dvsa_mot_enrich(_fake_request({"dry_run": True}))
+    payload = json.loads(resp.get_body())
+
+    assert payload["dvsa_ready"] is False
+    assert payload["dvla_fallback_present"] is False
+    assert set(payload["missing"]) == {
+        "DVSA_TENANT_ID",
+        "DVSA_CLIENT_ID",
+        "DVSA_CLIENT_SECRET",
+        "DVSA_API_KEY",
+    }
+    # token_url is unresolved without the (non-secret) tenant.
+    assert payload["token_url"] is None
+    # Defaults still resolve for the non-secret bases.
+    assert payload["dvsa_api_base"] == "https://history.mot.api.gov.uk"
+
+
+def test_selfcheck_report_is_pure_and_leak_free(monkeypatch):
+    # Direct unit test of the helper: presence-only booleans, no secret values.
+    _set_full_creds(monkeypatch)
+    report = function_app.selfcheck_report()
+    serialized = json.dumps(report)
+    for secret in (FAKE_SECRET, FAKE_API_KEY, FAKE_DVLA_KEY):
+        assert secret not in serialized
+    assert report["config_present"]["DVSA_CLIENT_SECRET"] is True
+    assert report["config_present"]["DVSA_API_KEY"] is True
+
+
 # --------------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------------
+
+def _no_backoff(monkeypatch):
+    """Make the retry backoff a no-op so retry tests are fast + deterministic
+    (the real client sleeps with exponential base 1s; we only assert the retry
+    *count*, not the wall-clock wait)."""
+    monkeypatch.setattr(DvsaClient, "_backoff", staticmethod(lambda attempt: None))
 
 def _pin_as_of(monkeypatch):
     """Freeze current_mileage_estimate's as-of to AS_OF for deterministic output."""
