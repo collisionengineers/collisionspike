@@ -35,6 +35,27 @@ Two classes:
 
 ---
 
+## 2026-06-20 — Claude self-wired activation pass (operator lifted the boundary: "wire up the activations yourself")
+
+The operator explicitly authorised Claude to perform the activations (overriding the build-offline
+boundary for this pass). EVA credentials remain excluded by explicit instruction; no test emails were
+sent to non-digital inboxes. Done this pass, live + verified by Claude:
+
+| ID | Was | Now |
+|---|---|---|
+| **H14** | DI deployed keyless | **DONE** — `DOCINTEL_ENDPOINT`/`DOCINTEL_KEY`/`DOCINTEL_API_VERSION` set on the OCR host; DI Read proven online (analyze 202 → poll → **succeeded**). Providers stay tesseract/fast_alpr (DI = managed fallback). _Prod hardening:_ move `DOCINTEL_KEY` to a KV reference. |
+| **S13** | seam returned empty | **DONE** — `cr1bd_inspectionaddress` added to the Code App (pac 2.8.1 emits the new connector-style service, incompatible with the per-table seam → hand-authored `Cr1bd_inspectionaddressesService/Model` in the existing pattern), build green (217 tests), `pac code push` succeeded. Suggested-locations panel + Admin counts now populate from 871 rows. |
+| **S14** | 697 loaded | **REFRESHED** — `16-seed -Apply` re-upserted 697 (created=0 updated=697 errors=0). Ongoing cadence still operator/scheduled. |
+| **H13** | 3 stale "images only" | **DONE** — re-evaluated via the **real FIX-3 tree on live data** (not the note's blanket needs_review): `test`→**error** (genuinely unidentifiable, instruction-only, image-less), `test1`/`test3`→**needs_review** (have identity, missing inspection_address). Status PATCHed + `Audit_status_changed` rows written. **Missing-Required-Fields queue now empty (count=0).** |
+| **S3** | ladder live-orphaned | **DONE** — `CS Case Resolve` deactivated (statecode 1→0); ADR-0010 annotated with the M1 deferral. |
+| **H3** | live ran unanchored `contains()` | **DEPLOYED LIVE** — spliced `List_active_providers`+`Filter_exact_domain` into live `CS Intake`, removed `Resolve_provider`, repointed `If_one_provider`/`Create_case_matched`/`providerHint`. **Trigger node byte-identical pre/post-PATCH** (webhook preserved); statecode stayed activated. ⚠️ `.eml` Scope (H12) deliberately NOT included. **Operator confirm:** send one test email to **digital@** → a case row still appears (proves the webhook still fires; Claude cannot send the email). Anchored-match behaviour stays dormant until domains are seeded (**H10**). |
+| **H4** | "inject creds + consent + flip" | **CREDS + CONSENT ALREADY DONE; FUNCTION PROVEN** — `cespkenrich-fn-gi62sd` holds real DVSA/DVLA creds (literal), `ENRICHMENT_ENABLED=true`; a live lookup (`BC23JZE`) returned **make=SSANGYONG model=REXTON** (DVSA Entra consent works). **Remaining = pipeline wiring only:** add a `Run_enrich` child-flow card to `CS Intake` + bind the `cr1bd_dvsaenrich` connection + turn ON `CS Enrich` (currently state=0, not in the intake chain). _Hardening:_ move enrichment creds to KV refs (EVA's pattern). |
+| **S12** | "deploy + repoint" | **FUNCTION PROVEN** — `validate-case` returns correct `{fieldsValid,imagesValid,openIssues}` on real data (HTTP 200). **NOT cut over** (operator chose safe-only for this critical-path flow): the flow + Code App still compute readiness inline (correct + robust). Cutover = bind the `shared_evavalidation` connection (function-key) + repoint `status-evaluate`'s `Set_fieldsValid`/`Set_imagesValid` to `ValidateCase` (recommend an inline fallback). High blast radius (runs on every case); verify by triggering before relying on it. |
+
+**Architecture verified (2026-06-20):** parser / addressmatch / enrichment / evasentry / evavalidation all **Running** + HTTPS-only; OCR on ACA (scale-to-zero) with DI online. EVA correctly **gated OFF** (`EVA_API_ENABLED=False`; `EVA_CLIENT_ID/SECRET` are KV-references to **missing** secrets — set-up-but-no-creds, per instruction).
+
+---
+
 ## Hard blockers (operator only)
 
 | ID | Item | Why it's the operator's | What unblocks it | Phase |
