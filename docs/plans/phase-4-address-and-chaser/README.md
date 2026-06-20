@@ -3,6 +3,9 @@
 **Goal:** resolve a Case's part-postcode `Loc` (≈57% of cases) to a full inspection address via the
 corpus yards, and draft chasers for partial cases (never auto-send).
 
+> **Milestones in this phase** ([milestone-model](../milestone-model.md)): **4a** address-**policy** gate
+> = **M1**; **4a** address-**matching** service + **4b** chaser-send = **M2**; **4a** Azure Maps = **M3**.
+
 **Status:** address-matching Function **deployed live**; chaser is **draft-only, built + imported off**.
 See [../../../ROADMAP.md](../../../ROADMAP.md) Phase 4.
 
