@@ -14,6 +14,22 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
 
 ---
 
+## 🔔 Update — 2026-06-20 (evening): intake bug-fix + 3-queue restructure + Case/PO + auto-merge + Hold
+Operator-reported faults on a live **AX** instructions email (case `test6` → `AX26001`) → fixed and **verified live** (Code App via `pac code push`; live flows via the byte-identical-trigger technique). Branch `fix/parser-base64-tolerant-decode` (`71a9690`,`f6314a8`,`dcbabec`,`86629a1`).
+
+- **Queues restructured 4→3: Not Ready / Review / Held** (`mock/queues.ts` + all consumers). Not Ready = arrived-but-incomplete (`needs_review`, `missing_*`, new/ingested, linked); Review = `ready_for_eva` only (human-in-the-loop); Held = `error` + `duplicate_risk` + a new **staff Hold** flag. Fixes "everything stuck in review". Verified (test6 in Not Ready).
+- **Newest-first ordering** — `allCases` → `orderBy createdon desc`. Verified.
+- **Provider-scoped address suggestions** — suggester + `providerCode` read `cr1bd_evaworkprovider` (the phantom `cr1bd_provider_code` never existed → had shown every provider). Verified (test6 Address tab = AX rows only).
+- **Inspection address** — AX stays hardwired "Image Based Assessment" (correct) but was saving **blank** → blocked. `CS Parse` now defaults AX inspection_address to "Image Based Assessment" when the parser returns empty (live + repo); test6 backfilled. Non-AX stay blank → Not Ready.
+- **`.eml` capture** — live `CS Intake` now saves the source email as `source.eml` evidence (`Init_attachmentsForChild`→`Scope_capture_eml`(`ExportEmail_V2`, raw bytes→`@base64`)→augmented attachments→classify). Trigger byte-identical. _Operator confirms: test email to digital@ → `source.eml` row._
+- **Case/PO at intake** — instructions cases get `Principal+YY+seq` (e.g. `AX26001`) after parse (`Scope_generate_casepo`, parallel to enrich, failure-isolated); provider ref kept in `cr1bd_caseref`. test6 = `AX26001`.
+- **Auto-merge by registration (ADR-0010 reactivated)** — `CS Case Resolve` repurposed: a single complementary instructions↔images same-VRM pair → survivor (Case/PO holder) absorbs the image evidence → re-evaluate → Review; >1 candidate → Held (`duplicate_risk`). Wired into intake after parse (non-blocking, trigger byte-identical). Provenance via `cr1bd_caselinkstate=Linked` + `cr1bd_duplicatekeys` memo (no case→case lookup exists). _Operator tests with a paired instructions+photos email for one reg._
+- **Staff Hold** — new `cr1bd_onhold` boolean (CollisionSpike solution) + a Hold/Release button + "On hold" chip; on-hold cases route to Held (and out of the funnel). Verified live (park → Held 4/Not Ready 3 → released).
+
+⚠️ Repo `intake.definition.json` still trails live on action wiring (Run_enrich + Run_case_resolve) — documented drift; **live is authoritative**. Rollback backups for every live flow edit saved under `%TEMP%` (PATCH the saved `clientdata`).
+
+---
+
 ## 🔔 Update — 2026-06-20 (later): Claude self-wired activation pass (operator lifted the boundary)
 The operator authorised Claude to perform the gated activations directly ("wire up the activations
 yourself"). EVA credentials stayed excluded by instruction; no test emails to non-digital inboxes.
