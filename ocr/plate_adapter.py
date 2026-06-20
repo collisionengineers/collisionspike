@@ -272,4 +272,36 @@ def _content_type_for(image_bytes: bytes) -> str:
         return "image/bmp"
     if image_bytes[:4] in (b"II*\x00", b"MM\x00*"):
         return "image/tiff"
+    if image_bytes[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    # RIFF....WEBP — bytes 0-4 'RIFF', bytes 8-12 'WEBP'.
+    if image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
+        return "image/webp"
+    # ISO-BMFF (HEIF/HEIC): bytes 4-8 'ftyp', then a brand (heic/heix/mif1/...).
+    if image_bytes[4:8] == b"ftyp" and image_bytes[8:12] in (
+        b"heic",
+        b"heix",
+        b"hevc",
+        b"heim",
+        b"heis",
+        b"hevm",
+        b"hevs",
+        b"mif1",
+        b"msf1",
+    ):
+        return "image/heif"
     return "application/octet-stream"
+
+
+def looks_like_supported_image(data: bytes) -> bool:
+    """True when ``data`` starts with a magic header for a supported raster image.
+
+    The single magic-byte authority for the plate route (the doc route uses the
+    %PDF magic in function_app). Used by the handler's TOLERANT base64 decode to
+    decide whether a once-decoded payload is already image bytes, or whether the
+    Power Platform gateway double-encoded it and a second base64 peel is needed
+    (memory ``powerplatform-connector-base64-double-encode``). Reuses the same
+    magic-byte table as ``_content_type_for`` (anything it can name a type for is
+    a supported image).
+    """
+    return _content_type_for(data) != "application/octet-stream"

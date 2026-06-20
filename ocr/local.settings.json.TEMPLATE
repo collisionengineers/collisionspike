@@ -9,6 +9,7 @@
     "PLATE_PROVIDER": "fast_alpr",
     "OCR_PAGE_LIMIT": "2",
 
+    "DOCINTEL_ENABLED": "false",
     "DOCINTEL_ENDPOINT": "https://<your-docintel-resource>.cognitiveservices.azure.com",
     "DOCINTEL_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/docintel-read-key/)",
     "DOCINTEL_API_VERSION": "2024-11-30",

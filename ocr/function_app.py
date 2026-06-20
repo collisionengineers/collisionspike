@@ -56,6 +56,7 @@ import binascii
 import json
 import logging
 import os
+import re
 from typing import Any
 
 import azure.functions as func
@@ -63,7 +64,7 @@ import azure.functions as func
 import ocr_pdf_adapter
 import plate_adapter
 from ocr_pdf_adapter import OcrError
-from plate_adapter import PlateOcrError
+from plate_adapter import PlateOcrError, looks_like_supported_image
 
 app = func.FunctionApp()
 
@@ -73,6 +74,47 @@ CONTRACT_VERSION = "ce_ocr_v1"
 
 # Supported raster image suffixes for the plate route (what fast-alpr / DI Read read).
 _PLATE_SUFFIXES = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".heif", ".heic", ".webp")
+
+# Leading magic bytes for an image-only PDF (the only thing /ocr-pdf accepts).
+_PDF_MAGIC = b"%PDF"
+# A strict base64 alphabet matcher (whitespace already stripped) — used to decide
+# whether a once-decoded payload is itself base64 (i.e. double-encoded).
+_STRICT_B64 = re.compile(rb"^[A-Za-z0-9+/]+={0,2}$")
+
+
+def _peel_double_base64(first: bytes, looks_right) -> bytes:
+    """Tolerate a redundant 2nd base64 layer the Power Platform gateway can add.
+
+    Mirrors the parser's load-bearing ``_decode_document`` (functions/parser):
+    the connector gateway intermittently re-encodes a base64 body a SECOND time
+    (a ``format: byte``-class behaviour we could NOT reliably suppress; declaring
+    ``format: byte`` made it worse — memory ``powerplatform-connector-base64-double-encode``).
+    So a single decode sometimes yields the real bytes and sometimes the
+    base64-ASCII OF the real bytes.
+
+    ``first`` is the result of the FIRST ``b64decode``. If it already sniffs as the
+    expected payload (``looks_right(first)`` true) we return it. Otherwise, if it is
+    itself strict base64, we decode EXACTLY once more and accept that only if it
+    THEN sniffs right — logging a warning so the double-encode is observable, not
+    hidden. Anything else returns ``first`` unchanged (the caller's downstream
+    validation/engine then rejects genuinely bad bytes).
+    """
+    if looks_right(first):
+        return first
+    stripped = first.strip()
+    if _STRICT_B64.match(stripped):
+        try:
+            second = base64.b64decode(stripped, validate=True)
+        except (binascii.Error, ValueError):
+            return first
+        if looks_right(second):
+            _LOG.warning("recovered double-base64-encoded payload (%d bytes)", len(second))
+            return second
+    return first
+
+
+def _looks_like_pdf(data: bytes) -> bool:
+    return data.startswith(_PDF_MAGIC)
 
 
 # --------------------------------------------------------------------------- #
@@ -108,6 +150,10 @@ def ocr_pdf(req: func.HttpRequest) -> func.HttpResponse:
         document_bytes = base64.b64decode(document_b64, validate=True)
     except (binascii.Error, ValueError):
         return _doc_error(400, "bad_base64", "'document' is not valid base64.")
+    # Defence-in-depth against the connector gateway double-encoding the body
+    # (memory powerplatform-connector-base64-double-encode): if the first decode
+    # is not a PDF but is itself base64 of a PDF, peel one more layer.
+    document_bytes = _peel_double_base64(document_bytes, _looks_like_pdf)
     if not document_bytes:
         return _doc_error(400, "empty_document", "Decoded 'document' is empty.")
 
@@ -173,6 +219,10 @@ def plate_ocr(req: func.HttpRequest) -> func.HttpResponse:
         image_bytes = base64.b64decode(image_b64, validate=True)
     except (binascii.Error, ValueError):
         return _plate_error(400, "bad_base64", "'image' is not valid base64.")
+    # Defence-in-depth against the connector gateway double-encoding the body
+    # (memory powerplatform-connector-base64-double-encode): if the first decode
+    # is not a recognised image but is itself base64 of one, peel one more layer.
+    image_bytes = _peel_double_base64(image_bytes, looks_like_supported_image)
     if not image_bytes:
         return _plate_error(400, "empty_image", "Decoded 'image' is empty.")
 
