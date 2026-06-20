@@ -48,6 +48,7 @@ import { SectionHeading, ErrorState, GLOBAL_TOASTER_ID } from '../components';
 import { ProviderListSkeleton } from '../components/Skeletons';
 import {
   useProviders,
+  useInspectionAddressCounts,
   type InspectionLocationPolicy,
   type Provider,
   type ProviderAutomationMode,
@@ -246,6 +247,20 @@ const useStyles = makeStyles({
     color: 'var(--ce-ink)',
   },
   readonlyCountUnit: { color: tokens.colorNeutralForeground3 },
+  /* Confirmed/suggested split sub-line under the inspection-address count. */
+  splitLine: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    color: tokens.colorNeutralForeground3,
+    fontSize: tokens.fontSizeBase200,
+  },
+  /* "Suggested" tint chip — distinct from the confirmed brand look. */
+  suggestedChip: {
+    backgroundColor: '#fef3c7',
+    color: '#7a4f01',
+    border: '1px solid #e3c062',
+  },
 
   importPanel: {
     border: `1px dashed ${tokens.colorNeutralStroke2}`,
@@ -632,39 +647,34 @@ function ProviderEditor({ provider }: { provider: Provider }) {
   );
 }
 
-/* ----------  Reference data: read-only summaries of the seeded tables  ----------
-   These reference tables are seeded and managed outside this screen; M1 surfaces
-   an honest summary + the seeded totals, not editable rows. Counts are the
-   known seeded totals (no live count hook exists in the data seam yet), so they
-   are labelled as such rather than implying a live query. */
+/* ----------  Reference data: read-only summaries of the supporting tables  ----------
+   These reference tables are loaded and maintained OUTSIDE this screen; M1 surfaces
+   an honest summary, not editable rows or a live count. The figures are the
+   last-loaded reference totals, so the copy frames them as "last loaded"
+   approximations ("~") rather than implying this screen runs a live query. The
+   inspection-address card is the exception: it reads a live confirmed/suggested
+   split through the data seam (see InspectionAddressCard). */
 
 const REFERENCE_TABLES: {
   icon: typeof Wrench;
   title: string;
-  count: number;
+  approxCount: number;
   unit: string;
   description: string;
 }[] = [
   {
     icon: Wrench,
     title: 'Repairers',
-    count: 61,
+    approxCount: 61,
     unit: 'repairers',
     description: 'Approved repair sites linked to work providers — used when resolving where a vehicle is held.',
   },
   {
     icon: Mail,
     title: 'Image sources',
-    count: 23,
+    approxCount: 23,
     unit: 'sources',
     description: 'Garage and WhatsApp groups that send in photos — used to attribute inbound images to a case.',
-  },
-  {
-    icon: MapPin,
-    title: 'Inspection addresses',
-    count: 174,
-    unit: 'addresses',
-    description: 'Known inspection locations, standardised by postcode — used to suggest an address for the EVA submission.',
   },
 ];
 
@@ -673,7 +683,8 @@ function ReadOnlyCorpora() {
   return (
     <div className={styles.readonlyIntro}>
       <Caption1 className={styles.fieldHint}>
-        Reference lists that support intake. Maintained separately — view only here.
+        Reference lists that support intake. Loaded and maintained separately — this screen shows the
+        last-loaded totals for context, not a live count.
       </Caption1>
       <div className={styles.grid}>
         {REFERENCE_TABLES.map((it) => (
@@ -682,17 +693,59 @@ function ReadOnlyCorpora() {
               <it.icon size={18} aria-hidden />
               <Text className={styles.provName}>{it.title}</Text>
               <Badge appearance="outline" color="subtle" shape="rounded" size="small">
-                View only
+                Last loaded
               </Badge>
             </span>
             <span className={styles.readonlyCount}>
-              <Text className={styles.readonlyCountNum}>{it.count}</Text>
+              <Text className={styles.readonlyCountNum}>~{it.approxCount}</Text>
               <Caption1 className={styles.readonlyCountUnit}>{it.unit}</Caption1>
             </span>
             <Caption1 className={styles.fieldHint}>{it.description}</Caption1>
           </div>
         ))}
+        {/* Inspection addresses — a LIVE confirmed/suggested split via the seam. */}
+        <InspectionAddressCard />
       </div>
+    </div>
+  );
+}
+
+/* ----------  Inspection addresses: a LIVE confirmed/suggested split  ----------
+   Unlike the static reference cards above, this reads the corpus through the data
+   seam and splits the total into CONFIRMED locations and low-confidence
+   SUGGESTIONS (catalogue rows a reviewer must confirm before use), so the number
+   is honest and never implies the suggestions are confirmed addresses. The empty
+   default seam returns 0/0 until the corpus table is wired at deploy time. */
+
+function InspectionAddressCard() {
+  const styles = useStyles();
+  const { data, loading } = useInspectionAddressCounts();
+  const confirmed = data?.confirmed ?? 0;
+  const suggested = data?.suggested ?? 0;
+
+  return (
+    <div className={styles.readonlyPanel}>
+      <span className={styles.readonlyHead}>
+        <MapPin size={18} aria-hidden />
+        <Text className={styles.provName}>Inspection addresses</Text>
+        <Badge appearance="outline" color="subtle" shape="rounded" size="small">
+          Live count
+        </Badge>
+      </span>
+      <span className={styles.readonlyCount}>
+        <Text className={styles.readonlyCountNum}>{loading && !data ? '—' : confirmed}</Text>
+        <Caption1 className={styles.readonlyCountUnit}>confirmed</Caption1>
+      </span>
+      <span className={styles.splitLine}>
+        <Badge appearance="tint" shape="rounded" size="small" className={styles.suggestedChip}>
+          {loading && !data ? '—' : suggested} suggested
+        </Badge>
+        <span>candidates to confirm before use</span>
+      </span>
+      <Caption1 className={styles.fieldHint}>
+        Known inspection locations, standardised by postcode — used to suggest an address for the EVA
+        submission. Suggestions are never applied automatically.
+      </Caption1>
     </div>
   );
 }

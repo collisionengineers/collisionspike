@@ -38,10 +38,13 @@ import {
   caseFromRecord,
   evidenceFromRecord,
   providerFromRecord,
+  suggestionFromRecord,
+  isSuggestedAddressRecord,
   isAcceptedImageRecord,
   evaFieldsToColumns,
   evaFieldToProvenanceRow,
   statusToInt,
+  inspectionDecisionCodec,
   intakeChannelKindCodec,
 } from './adapter';
 import { EVA_FIELD_ORDER } from '../contracts/eva-export';
@@ -51,6 +54,8 @@ import type {
   CreateCaseResult,
   DataAccess,
   GeneratedServices,
+  InspectionAddressCounts,
+  SuggestedAddress,
 } from './types';
 
 /* ----------  Date helpers (ported verbatim from mock/queues.ts)  ---------- */
@@ -237,6 +242,45 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       return rec ? providerFromRecord(rec) : undefined;
     },
 
+    /* ----- Inspection-address suggestions (corpus; ALWAYS suggestions) -----
+       The InspectionAddress table is added at deploy time (pac add-data-source);
+       until then `services.inspectionAddresses` is undefined and we return honest
+       empty results rather than throwing. */
+    inspectionAddressSuggestions: async (caseId): Promise<SuggestedAddress[]> => {
+      const svc = services.inspectionAddresses;
+      if (!svc) return [];
+      // Scope to the case's provider so the reviewer sees candidates for THIS
+      // provider first (corpus plan: provider-scoped). The suggested rows carry
+      // their provider code in the free-text source note, so fetch the suggested
+      // subset and filter client-side (a note substring isn't OData-filterable).
+      const caseRes = await services.cases.get(caseId);
+      const providerCode = caseRes.data?.cr1bd_provider_code?.trim() ?? '';
+      const res = await svc.getAll({
+        filter: "startswith(cr1bd_sourcelabel,'suggested')",
+      });
+      const all = (res.data ?? []).filter(isSuggestedAddressRecord).map(suggestionFromRecord);
+      if (!providerCode) return all;
+      const scoped = all.filter((s) => !s.providerCode || s.providerCode === providerCode);
+      // If the provider has no scoped candidates, fall back to all suggestions so
+      // the reviewer still sees the catalogue rather than an empty panel.
+      return scoped.length > 0 ? scoped : all;
+    },
+
+    inspectionAddressCounts: async (): Promise<InspectionAddressCounts> => {
+      const svc = services.inspectionAddresses;
+      if (!svc) return { confirmed: 0, suggested: 0 };
+      const res = await svc.getAll();
+      const rows = res.data ?? [];
+      let confirmed = 0;
+      let suggested = 0;
+      const confirmedInt = inspectionDecisionCodec.toInt('confirmed_physical');
+      for (const r of rows) {
+        if (isSuggestedAddressRecord(r)) suggested += 1;
+        else if (r.cr1bd_decisionmode === confirmedInt) confirmed += 1;
+      }
+      return { confirmed, suggested };
+    },
+
     /* ----- Dashboard / queue aggregates (window over the adapted set) ----- */
     liveCounts: async (now = new Date()): Promise<LiveCounts> => {
       const all = await allCases(now);
@@ -309,6 +353,11 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
 
     pipelineStages: async (): Promise<PipelineStage[]> => {
       const all = await allCases(new Date());
+      // All four buckets are computed. The dashboard hero renders only the three
+      // live-depth backlog stages (New/Not ready/Review); the `submitted`
+      // cumulative total feeds the "Sent to EVA (total)" throughput cell, and the
+      // CaseDetail spine uses `submitted` for the per-case "you are here". So the
+      // stage set stays four here — the hero filters to the backlog client-side.
       const defs: { key: PipelineStageKey; label: string }[] = [
         { key: 'new', label: 'New' },
         { key: 'not_ready', label: 'Not ready' },

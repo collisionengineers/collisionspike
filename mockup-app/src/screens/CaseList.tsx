@@ -35,7 +35,7 @@ import {
   Mail,
   MessageCircle,
 } from 'lucide-react';
-import { SectionHeading, StatusBadge, VrmPlate, ErrorState, DataGridSkeleton } from '../components';
+import { SectionHeading, StatusBadge, statusLabel, VrmPlate, ErrorState, DataGridSkeleton } from '../components';
 import {
   QUEUES,
   REASON_LABELS,
@@ -174,19 +174,9 @@ const useStyles = makeStyles({
   },
 });
 
-const STATUS_LABELS: Record<CaseStatus, string> = {
-  new_email: 'New email',
-  ingested: 'Ingested',
-  needs_review: 'Needs review',
-  missing_required_fields: 'Missing fields',
-  missing_images: 'Missing images',
-  duplicate_risk: 'Duplicate risk',
-  linked_to_instruction: 'Linked to instruction',
-  ready_for_eva: 'Ready for EVA',
-  eva_submitted: 'EVA submitted',
-  box_synced: 'Archived',
-  error: 'Error',
-};
+/* Status words come from StatusBadge.statusLabel() — the single source of
+   user-facing status copy — so a status reads identically on every screen
+   (this screen used to carry a second, divergent map). */
 
 type AgeBucket = 'all' | 'today' | 'week' | 'over1' | 'over2';
 const AGE_OPTIONS: { value: AgeBucket; label: string }[] = [
@@ -566,7 +556,7 @@ export function CaseList() {
             <Dropdown
               className={styles.filterControl}
               aria-labelledby="filter-status"
-              value={statusFilter === ANY ? 'All statuses' : STATUS_LABELS[statusFilter]}
+              value={statusFilter === ANY ? 'All statuses' : statusLabel(statusFilter)}
               selectedOptions={[statusFilter]}
               onOptionSelect={(_e, data) =>
                 setStatusFilter((data.optionValue as CaseStatus | typeof ANY) ?? ANY)
@@ -576,8 +566,8 @@ export function CaseList() {
                 All statuses
               </Option>
               {(queue?.statuses ?? []).map((s) => (
-                <Option key={s} value={s} text={STATUS_LABELS[s]}>
-                  {STATUS_LABELS[s]}
+                <Option key={s} value={s} text={statusLabel(s)}>
+                  {statusLabel(s)}
                 </Option>
               ))}
             </Dropdown>
