@@ -428,10 +428,23 @@ export function suggestionFromRecord(rec: InspectionAddressRecord): SuggestedAdd
   const colon = label.indexOf(':');
   const confidenceBand = colon >= 0 ? label.slice(colon + 1).trim() : undefined;
   const note = rec.cr1bd_sourcenote ?? undefined;
-  // The note is 'evidence_source | evidence_detail | provider=X loc=Y status=Z'.
-  // Keep ONLY the human-readable evidence (before the machine `provider=` token)
-  // for display; the machine tokens are surfaced as structured fields instead.
-  const humanEvidence = note ? note.split(/\s*\|\s*provider=/)[0].trim() : '';
+  // The seeded note interleaves a human preamble + evidence prose with machine
+  // tokens, e.g. 'SUGGESTION -- confirm before use. <stamp>. provider=X loc=Y
+  // status=Z. source=<prose>. <detail>' (16-seed-suggested-addresses.ps1 writes them
+  // PERIOD-delimited, not the pipe the old code assumed). Drop the machine tokens:
+  // provider/loc/status hold single-token values (\S* also tolerates an empty one)
+  // and are surfaced separately as structured fields; source's value is multi-word
+  // human prose, so drop only its 'source=' key prefix. Then tidy the leftover
+  // whitespace/punctuation, leaving the human preamble + evidence prose.
+  const humanEvidence = note
+    ? note
+        .replace(/\b(?:provider|loc|status)=\S*/gi, '')
+        .replace(/\bsource=/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s+([.,])/g, '$1')
+        .replace(/\.{2,}/g, '.')
+        .trim()
+    : '';
   return {
     id: rec.cr1bd_inspectionaddressid ?? '',
     lines,
