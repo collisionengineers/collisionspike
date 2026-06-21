@@ -280,7 +280,7 @@ describe('suggestionFromRecord', () => {
     cr1bd_name: 'GG -- OL1 3NE -- 1',
     cr1bd_sourcelabel: 'suggested:candidate_multiple_addresses',
     cr1bd_sourcenote:
-      'local repairer match | matched on postcode district | provider=GG loc=OL1 status=candidate_multiple_addresses',
+      'SUGGESTION -- confirm before use. 2026-06-21. provider=GG loc=OL1 status=candidate_multiple_addresses. source=local repairer match. matched on postcode district',
     cr1bd_addressline1: 'Unit 4, Example Industrial Estate',
     cr1bd_addressline2: 'Oldham',
     cr1bd_postcode: 'OL1 3NE',
@@ -300,11 +300,14 @@ describe('suggestionFromRecord', () => {
     expect(s.confidenceBand).toBe('candidate_multiple_addresses');
   });
 
-  it('keeps ONLY the human evidence (drops the machine provider/loc/status tokens)', () => {
+  it('keeps ONLY the human evidence (drops the machine provider/loc/status/source tokens)', () => {
     const s = suggestionFromRecord(rec);
-    expect(s.evidenceNote).toBe('local repairer match | matched on postcode district');
+    expect(s.evidenceNote).toContain('local repairer match');
+    expect(s.evidenceNote).toContain('matched on postcode district');
     expect(s.evidenceNote).not.toContain('provider=');
+    expect(s.evidenceNote).not.toContain('loc=');
     expect(s.evidenceNote).not.toContain('status=');
+    expect(s.evidenceNote).not.toContain('source=');
   });
 
   it('tolerates a bare "suggested" label with no band and an empty note', () => {

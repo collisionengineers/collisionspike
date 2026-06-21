@@ -340,16 +340,18 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
             name: 'PLATE_PROVIDER'
             value: plateProvider
           }
-          // NEW Document-Intelligence feature flag (default OFF). An explicit,
-          // host-readable signal of whether the managed DI fallback was wired by
-          // this deploy (set true only when deployDocIntel=true). It does NOT by
-          // itself select DI — that is OCR_PROVIDER/PLATE_PROVIDER=docintel — but
-          // it lets the host log/guard the DI path coherently and mirrors the
-          // feature-gate style of the rest of the stack. Stays 'false' on the
-          // default deploy so DI is OFF unless explicitly opted in.
+          // NEW Document-Intelligence feature flag (default OFF). A host-readable
+          // signal of whether the DI path is actually USABLE — gated on wireDocintel
+          // so it is true IFF the endpoint + key were wired below (i.e. a Key Vault
+          // was supplied). It does NOT by itself select DI — that is
+          // OCR_PROVIDER/PLATE_PROVIDER=docintel — but tying it to wireDocintel keeps
+          // 'enabled' coherent: it is never 'true' without an endpoint + key present.
+          // Provisioning a DI account (deployDocIntel=true) WITHOUT a Key Vault
+          // therefore leaves DI disabled rather than half-wired; supply keyVaultName
+          // to wire + enable it.
           {
             name: 'DOCINTEL_ENABLED'
-            value: deployDocIntel ? 'true' : 'false'
+            value: wireDocintel ? 'true' : 'false'
           }
         ],
         // Document Intelligence Read settings — wired ONLY when a Key Vault is
