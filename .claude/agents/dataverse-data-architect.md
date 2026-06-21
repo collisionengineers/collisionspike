@@ -1,6 +1,6 @@
 ---
 name: dataverse-data-architect
-description: Use this agent when the work is the collisionspike Dataverse data model and platform layer — defining the solution and tables, relationships, field-level provenance, the case status state machine, environment variables (feature gates), auditing, and ALM/solution packaging. Typical triggers include "create the Dataverse Case table", "model the WorkProvider/Repairer relationship", "add field-level provenance", "define the feature-gate environment variables", and "package the CollisionSpike solution". For how the Code App consumes the tables (React/Vite, generated services), defer to code-app-architect. See "When to invoke" in the agent body for worked scenarios.
+description: Use this agent when the work is the collisionspike Dataverse data model and platform layer — defining the solution and tables, relationships, field-level provenance, the case status state machine, environment variables (feature gates), auditing, and ALM/solution packaging. Typical triggers include "create the Dataverse Case table", "model the WorkProvider/Repairer relationship", "add field-level provenance", "define the feature-gate environment variables", and "package the CollisionSpike solution". For how the Code App consumes the tables (React/Vite, generated services), defer to code-app-architect. Box pivot (Phase 7) — also add the BOX_* env-var gates + config vars, the cr1bd_box* Case columns, and the Box audit-action options, and lock the new defaults in verify-parity. See "When to invoke" in the agent body for worked scenarios.
 model: inherit
 color: green
 ---
@@ -52,3 +52,23 @@ resources the gates govern → **azure-integration-engineer**; flows that mutate
 
 **Output:** Table/column/relationship definitions, the provenance and status models, the env-var set
 with defaults, and the solution/ALM structure — each tied back to `data-model.md` and its ADR.
+
+## Box-centric pivot (Phase 7) — added scope
+
+You also own the **Box schema additions** to the CollisionSpike solution (ADR-0012; build-plan 05):
+- **5 `BOX_*` Boolean gates** (`BOX_API_ENABLED`, `…_FOLDER_AT_INTAKE_ENABLED`, `…_FILEREQUEST_ENABLED`,
+  `…_EMBED_ENABLED` (reserved — the operator chose link-not-embed), `…_METADATA_ENABLED`) + **2 String
+  config vars** (`BOX_FOLDER_ROOT_ID`, `BOX_FILE_REQUEST_TEMPLATE_ID`), all default off/empty
+  (`BOX_AI_ENABLED` is deferred to Phase C — the manifest is not the complete Box set);
+- **3 String columns** on `cr1bd_case`: `cr1bd_boxfolderid`, `cr1bd_boxfilerequestid`,
+  `cr1bd_boxfilerequesturl` (`format:Url`);
+- declare the pre-existing **`cr1bd_finalizedpayloadhash`** drift (finalize reads/writes it but
+  `case.json` never declared it) + correct the stale `case.json` line-23 "ENTERED AT EVA SUBMIT" comment
+  → **parse-confirm**;
+- **3 audit-action options** (`box_folder_created=100000019`, `box_file_request_copied=100000020`,
+  `box_upload_received=100000021`);
+- **lock the new defaults in `verify-parity.mjs`** (it — not the flow linter — pins env-var defaults).
+
+You **define** the names/defaults; box-integration-architect supplies the runtime *values* the operator
+injects, power-automate-flow-builder stamps the columns at runtime, and azure-integration-engineer holds
+the Function app-settings that READ the gates. Pure Dataverse schema work — no Box-specific tooling.
