@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-20**._
+_Single source of truth for "where are we now." Last updated **2026-06-21**._
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -11,6 +11,16 @@ This is the Phase-1 (M1) case-intake spike on the Microsoft stack (Power Apps **
 Dataverse + Power Automate + Azure Functions). Built **offline**; live activation of anything that
 touches the shared inboxes / SharePoint / Box / EVA is the **operator's** step (see the boundary in
 DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows real Dataverse rows only.**
+
+---
+
+## 🔔 Update — 2026-06-21: enrichment gate ON · parser image-based fix (deployed) · job-sheet provider rules applied
+
+- **DVLA/DVSA enrichment turned ON.** The sole cause of "enrichment didn't populate vehicle/mileage" was the Dataverse gate `cr1bd_ENRICHMENT_ENABLED=false`; the whole chain (CS Enrich ON, connector `cr1bd_dvsaenrich` Connected, function `cespkenrich-fn-gi62sd` Running with creds) was already built. Flipped the gate → live-verified the function returns vehicle data (`BC23JZE`→REXTON/SsangYong, `L333FGN`→BMW 220i). Mileage is an MOT-odometer estimate, so near-new vehicles legitimately return none. One-value revert. Memory: enrichment-activated.
+- **Parser image-based inspection fix — DEPLOYED + live-verified.** The parser detected "Image-based/Desktop Assessment" wording but BLANKED it; CS Parse only re-defaulted for AX. Fixed in `cedocumentmapper_v2.0` engine: image-based/desktop statements now emit canonical "Image Based Assessment" (6-line EVA form; real addresses still win; junk still blanked) for ALL providers. pytest 54 passed. Redeployed `cespike-parser-dev-x7xt3d5ovhi7y`; `/api/parse` returns `inspection_address.value="Image Based Assessment"`. ⚠️ The parser lib is **vendored** in `functions/parser/` and had **diverged** from the sibling repo (vendored=B2 contact extraction, sibling=image-based fix) — 4 hunks ported; copies still need reconciling. Memory: parser-vendored-divergence.
+- **CE job-sheet provider rules applied to the corpus.** Examined `raw/Backup of CE Job Sheet 260429.xlsm` (Principals, 58 rows). Mapped to `cr1bd_workproviders` and applied **write-into-empty** across 46 live rows: added `cr1bd_instructionnotes` + `cr1bd_reportreturnnotes` (~44 providers) + 2 missing mailboxes; existing `inspectionlocationpolicy`/`imagessourcenotes`/`defaultmailbox`/`dragintoeva` curation **preserved**. Multi-channel providers merged. Artifacts: `raw/principalandrepairersheets/outputs/jobsheet_rules/`.
+- **Contradictions vs last-12-months EVA — none genuine (after the 2026-06-21 operator correction).** Multi-agent adversarial pass over 33 candidates → **33 REFUTE, 0 CONFIRM**. Key: EVA "Desktop Inspection" is a constant report-TYPE label (≈all CE work), NOT a modality signal — the real discriminator is **loc-rate** — so most "address vs desktop" conflicts are false positives. **Operator correction 2026-06-21:** that lone CONFIRM is **overturned** — RJS is **address-based, not image-based** ("Desktop inspection always goes on"; a high desktop-% is the constant report-TYPE, never a modality signal — whether the *location* is image-based is a separate axis). The job-sheet address note stands, so there are now **0 genuine contradictions**; the live RJS row was already `PreferAddress` (the intended `AlwaysImageBased` override never landed). Also to resolve: ZEN↔ZENITH, R1AM/MOTORX split, 4 no-live-row providers. Memory: jobsheet-provider-rules; detail in `contradictions.md`.
+- **Housekeeping:** `docs/architecture/live-environment.md` refreshed (CS Classify/Parse/Status/Enrich OFF→ON, enrich connector Bound, gate true, InspectionAddress 871, cases cleared).
 
 ---
 
