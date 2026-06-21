@@ -59,7 +59,7 @@ Bound = has a connection; **empty = NOT yet connected** (operator must create th
 |---|---|---|---|
 | `92131f3d-9cd5-4e88-aa9e-a5705a5850a0` | **CS Intake (shared mailbox)** | **ON** ✅ | Email→Case. Trigger rebuilt to `OnNewEmailV3` (own mailbox, Inbox, concurrency=1). Internal workflow guid `8d534fc9-9058-a6f4-4dfd-245b350703b5`. |
 | `0f610d7c-e928-440a-bd6e-69420637446e` | CS Provider Match | **ON** | Sender-domain → WorkProvider (needs `knownemaildomains` seeded). |
-| `1ddb50a5-1036-40b2-a3aa-e071071e7021` | CS Case Resolve (ADR-0010 dedup) | **ON** | VRM/ref dedup ladder. |
+| `1ddb50a5-1036-40b2-a3aa-e071071e7021` | CS Case Resolve (merge-by-registration) | **ON** ✅ | Instructions↔images same-VRM auto-merge; >1 candidate → Held. Wired into live CS Intake (`Run_case_resolve` after parse, verified 2026-06-21). Repo `intake.definition.json` trails live. |
 | `2a6236f9-f0d2-473d-953d-ac5c27320522` | CS Classify + Persist | **ON** ✅ | Attachments → Blob + Evidence rows. |
 | `468ffd29-6e62-42c2-8e2d-9500f51147fc` | CS Parse (PDF mapper) | **ON** ✅ | Calls the parser connector. Inspection: AX default + (2026-06-20) parser emits canonical "Image Based Assessment" for image-based/desktop docs. |
 | `4d963ff7-7f14-40e5-aa3c-07b741b0cba5` | CS Status Evaluate | **ON** ✅ | Image-rules / status machine. |
