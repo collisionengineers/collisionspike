@@ -48,16 +48,92 @@ import os
 import azure.functions as func
 
 from analysis import get_mileage_estimate, get_vehicle_summary
-from dvsa_client import DvsaClient, DvsaError, DvsaNotFoundError
-from dvla_client import DvlaClient, DvlaError, DvlaNotConfigured
+from dvsa_client import (
+    DEFAULT_DVSA_API_BASE,
+    DEFAULT_DVSA_SCOPE,
+    DvsaClient,
+    DvsaError,
+    DvsaNotFoundError,
+)
+from dvla_client import (
+    DEFAULT_DVLA_API_BASE,
+    DvlaClient,
+    DvlaError,
+    DvlaNotConfigured,
+)
 
 logger = logging.getLogger("enrichment.function")
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
+# Config names the self-check reports on. Mirrors DvsaConfig.from_env's required
+# set (the four DVSA names + the optional DVLA fallback key). NAMES ONLY ever
+# leave this Function — never a value.
+_DVSA_REQUIRED_NAMES = (
+    "DVSA_TENANT_ID",
+    "DVSA_CLIENT_ID",
+    "DVSA_CLIENT_SECRET",
+    "DVSA_API_KEY",
+)
+_DVLA_FALLBACK_NAME = "DVLA_API_KEY"
+
 
 def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _present(name: str) -> bool:
+    """True iff the env var is set to a non-blank value. Reads presence only —
+    the VALUE is never returned, logged, or compared against anything secret."""
+    return bool((os.environ.get(name) or "").strip())
+
+
+def selfcheck_report() -> dict:
+    """No-secrets dry-run: report config-presence + resolved NON-SECRET endpoints.
+
+    Used by the ``{"dry_run": true}`` branch so the operator can confirm the Key
+    Vault references resolve via the Function's managed identity (every
+    ``*_present`` is ``true``) BEFORE flipping ``ENRICHMENT_ENABLED`` — with zero
+    DVSA/DVLA quota spend and zero secret exposure.
+
+    Contract (verified against the activation runbook §6 / §7 pre-gate check):
+      * Makes NO DVSA/DVLA/Entra call — only ``os.environ`` presence is read.
+      * Emits ONLY booleans, names, and the non-secret token/api-base URLs
+        (``DVSA_TENANT_ID``/``DVSA_SCOPE``/``DVSA_API_BASE``/``DVLA_API_BASE`` are
+        non-secret per the runbook; the four secret VALUES are never touched).
+      * The ``missing`` list is NAMES only — it reuses the same required set as
+        ``DvsaConfig.from_env`` so the two cannot drift.
+    """
+    tenant = (os.environ.get("DVSA_TENANT_ID") or "").strip()
+    scope = (os.environ.get("DVSA_SCOPE") or "").strip() or DEFAULT_DVSA_SCOPE
+    dvsa_api_base = (
+        (os.environ.get("DVSA_API_BASE") or "").strip() or DEFAULT_DVSA_API_BASE
+    ).rstrip("/")
+    dvla_api_base = (
+        (os.environ.get("DVLA_API_BASE") or "").strip() or DEFAULT_DVLA_API_BASE
+    ).rstrip("/")
+
+    config_present = {name: _present(name) for name in _DVSA_REQUIRED_NAMES}
+    # token_url is only resolvable once the (non-secret) tenant is set.
+    token_url = (
+        f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+        if tenant
+        else None
+    )
+
+    return {
+        "dry_run": True,
+        "enrichment_enabled": _truthy(os.environ.get("ENRICHMENT_ENABLED")),
+        "config_present": config_present,
+        "dvsa_ready": all(config_present[n] for n in _DVSA_REQUIRED_NAMES),
+        "dvla_fallback_present": _present(_DVLA_FALLBACK_NAME),
+        "missing": [n for n in _DVSA_REQUIRED_NAMES if not config_present[n]],
+        # Resolved NON-SECRET endpoints (no credentials anywhere in here):
+        "token_url": token_url,
+        "scope": scope,
+        "dvsa_api_base": dvsa_api_base,
+        "dvla_api_base": dvla_api_base,
+    }
 
 
 def enrich(
@@ -175,20 +251,31 @@ def _clean_mileage(est: dict) -> dict:
 
 @app.route(route="dvsa-mot/enrich", methods=["POST"])
 def dvsa_mot_enrich(req: func.HttpRequest) -> func.HttpResponse:
-    # Gate at the edge as well as in the flow — defence in depth.
-    if not _truthy(os.environ.get("ENRICHMENT_ENABLED")):
-        return func.HttpResponse(
-            json.dumps({"warnings": ["ENRICHMENT_ENABLED is false; enrichment skipped."]}),
-            status_code=200,
-            mimetype="application/json",
-        )
-
     try:
         body = req.get_json()
     except ValueError:
         return func.HttpResponse(
             json.dumps({"error": "Request body must be JSON."}),
             status_code=400,
+            mimetype="application/json",
+        )
+
+    # No-secrets dry-run self-check: reports config-presence + resolved non-secret
+    # endpoints WITHOUT calling DVSA/DVLA and without echoing any secret. Runs
+    # BEFORE the gate so the operator can verify Key Vault / managed-identity
+    # wiring while enrichment is still gated OFF. Function-key auth still applies.
+    if isinstance(body, dict) and bool(body.get("dry_run")):
+        return func.HttpResponse(
+            json.dumps(selfcheck_report()),
+            status_code=200,
+            mimetype="application/json",
+        )
+
+    # Gate at the edge as well as in the flow — defence in depth.
+    if not _truthy(os.environ.get("ENRICHMENT_ENABLED")):
+        return func.HttpResponse(
+            json.dumps({"warnings": ["ENRICHMENT_ENABLED is false; enrichment skipped."]}),
+            status_code=200,
             mimetype="application/json",
         )
 

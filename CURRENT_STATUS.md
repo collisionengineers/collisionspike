@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-19**._
+_Single source of truth for "where are we now." Last updated **2026-06-21**._
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -11,6 +11,105 @@ This is the Phase-1 (M1) case-intake spike on the Microsoft stack (Power Apps **
 Dataverse + Power Automate + Azure Functions). Built **offline**; live activation of anything that
 touches the shared inboxes / SharePoint / Box / EVA is the **operator's** step (see the boundary in
 DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows real Dataverse rows only.**
+
+---
+
+## 🔔 Update — 2026-06-21: enrichment gate ON · parser image-based fix (deployed) · job-sheet provider rules applied
+
+- **DVLA/DVSA enrichment turned ON.** The sole cause of "enrichment didn't populate vehicle/mileage" was the Dataverse gate `cr1bd_ENRICHMENT_ENABLED=false`; the whole chain (CS Enrich ON, connector `cr1bd_dvsaenrich` Connected, function `cespkenrich-fn-gi62sd` Running with creds) was already built. Flipped the gate → live-verified the function returns vehicle data (`BC23JZE`→REXTON/SsangYong, `L333FGN`→BMW 220i). Mileage is an MOT-odometer estimate, so near-new vehicles legitimately return none. One-value revert. Memory: enrichment-activated.
+- **Parser image-based inspection fix — DEPLOYED + live-verified.** The parser detected "Image-based/Desktop Assessment" wording but BLANKED it; CS Parse only re-defaulted for AX. Fixed in `cedocumentmapper_v2.0` engine: image-based/desktop statements now emit canonical "Image Based Assessment" (6-line EVA form; real addresses still win; junk still blanked) for ALL providers. pytest 54 passed. Redeployed `cespike-parser-dev-x7xt3d5ovhi7y`; `/api/parse` returns `inspection_address.value="Image Based Assessment"`. ⚠️ The parser lib is **vendored** in `functions/parser/` and had **diverged** from the sibling repo (vendored=B2 contact extraction, sibling=image-based fix) — 4 hunks ported; copies still need reconciling. Memory: parser-vendored-divergence.
+- **CE job-sheet provider rules applied to the corpus.** Examined `raw/Backup of CE Job Sheet 260429.xlsm` (Principals, 58 rows). Mapped to `cr1bd_workproviders` and applied **write-into-empty** across 46 live rows: added `cr1bd_instructionnotes` + `cr1bd_reportreturnnotes` (~44 providers) + 2 missing mailboxes; existing `inspectionlocationpolicy`/`imagessourcenotes`/`defaultmailbox`/`dragintoeva` curation **preserved**. Multi-channel providers merged. Artifacts: `raw/principalandrepairersheets/outputs/jobsheet_rules/`.
+- **Contradictions vs last-12-months EVA — none genuine (after the 2026-06-21 operator correction).** Multi-agent adversarial pass over 33 candidates → **33 REFUTE, 0 CONFIRM**. Key: EVA "Desktop Inspection" is a constant report-TYPE label (≈all CE work), NOT a modality signal — the real discriminator is **loc-rate** — so most "address vs desktop" conflicts are false positives. **Operator correction 2026-06-21:** that lone CONFIRM is **overturned** — RJS is **address-based, not image-based** ("Desktop inspection always goes on"; a high desktop-% is the constant report-TYPE, never a modality signal — whether the *location* is image-based is a separate axis). The job-sheet address note stands, so there are now **0 genuine contradictions**; the live RJS row was already `PreferAddress` (the intended `AlwaysImageBased` override never landed). Also to resolve: ZEN↔ZENITH, R1AM/MOTORX split, 4 no-live-row providers. Memory: jobsheet-provider-rules; detail in `contradictions.md`.
+- **Housekeeping:** `docs/architecture/live-environment.md` refreshed (CS Classify/Parse/Status/Enrich OFF→ON, enrich connector Bound, gate true, InspectionAddress 871, cases cleared).
+
+---
+
+## 🔔 Update — 2026-06-20 (evening): intake bug-fix + 3-queue restructure + Case/PO + auto-merge + Hold
+Operator-reported faults on a live **AX** instructions email (case `test6` → `AX26001`) → fixed and **verified live** (Code App via `pac code push`; live flows via the byte-identical-trigger technique). Branch `fix/parser-base64-tolerant-decode` (`71a9690`,`f6314a8`,`dcbabec`,`86629a1`).
+
+- **Queues restructured 4→3: Not Ready / Review / Held** (`mock/queues.ts` + all consumers). Not Ready = arrived-but-incomplete (`needs_review`, `missing_*`, new/ingested, linked); Review = `ready_for_eva` only (human-in-the-loop); Held = `error` + `duplicate_risk` + a new **staff Hold** flag. Fixes "everything stuck in review". Verified (test6 in Not Ready).
+- **Newest-first ordering** — `allCases` → `orderBy createdon desc`. Verified.
+- **Provider-scoped address suggestions** — suggester + `providerCode` read `cr1bd_evaworkprovider` (the phantom `cr1bd_provider_code` never existed → had shown every provider). Verified (test6 Address tab = AX rows only).
+- **Inspection address** — AX stays hardwired "Image Based Assessment" (correct) but was saving **blank** → blocked. `CS Parse` now defaults AX inspection_address to "Image Based Assessment" when the parser returns empty (live + repo); test6 backfilled. Non-AX stay blank → Not Ready.
+- **`.eml` capture** — live `CS Intake` now saves the source email as `source.eml` evidence (`Init_attachmentsForChild`→`Scope_capture_eml`(`ExportEmail_V2`, raw bytes→`@base64`)→augmented attachments→classify). Trigger byte-identical. _Operator confirms: test email to digital@ → `source.eml` row._
+- **Case/PO at intake** — instructions cases get `Principal+YY+seq` (e.g. `AX26001`) after parse (`Scope_generate_casepo`, parallel to enrich, failure-isolated); provider ref kept in `cr1bd_caseref`. test6 = `AX26001`.
+- **Auto-merge by registration (ADR-0010 reactivated)** — `CS Case Resolve` repurposed: a single complementary instructions↔images same-VRM pair → survivor (Case/PO holder) absorbs the image evidence → re-evaluate → Review; >1 candidate → Held (`duplicate_risk`). Wired into intake after parse (non-blocking, trigger byte-identical). Provenance via `cr1bd_caselinkstate=Linked` + `cr1bd_duplicatekeys` memo (no case→case lookup exists). _Operator tests with a paired instructions+photos email for one reg._
+- **Staff Hold** — new `cr1bd_onhold` boolean (CollisionSpike solution) + a Hold/Release button + "On hold" chip; on-hold cases route to Held (and out of the funnel). Verified live (park → Held 4/Not Ready 3 → released).
+
+⚠️ Repo `intake.definition.json` still trails live on action wiring (Run_enrich + Run_case_resolve) — documented drift; **live is authoritative**. Rollback backups for every live flow edit saved under `%TEMP%` (PATCH the saved `clientdata`).
+
+---
+
+## 🔔 Update — 2026-06-20 (later): Claude self-wired activation pass (operator lifted the boundary)
+The operator authorised Claude to perform the gated activations directly ("wire up the activations
+yourself"). EVA credentials stayed excluded by instruction; no test emails to non-digital inboxes.
+Done + verified live by Claude (full table in [docs/gated.md](./docs/gated.md)):
+
+- **Document Intelligence ONLINE (H14)** — OCR host wired (`DOCINTEL_ENDPOINT/KEY/API_VERSION`); DI Read proven (analyze 202 → poll → **succeeded**). tesseract/fast_alpr stay primary, DI = fallback.
+- **InspectionAddress in the Code App (S13)** — hand-authored the per-table service (pac 2.8.1's connector-style output is incompatible with the seam), build green (217 tests), **`pac code push` succeeded** → Suggested-locations panel + Admin counts populate from 871 rows.
+- **3 "images only" cases cleared (H13)** — re-evaluated on the **real FIX-3 tree**: `test`→**error** (unidentifiable, instruction-only), `test1`/`test3`→**needs_review**. Audit rows written. **Queue now empty.** (The note's blanket "→needs_review" was wrong for `test`; live data corrected it.)
+- **Anchored provider match LIVE (H3)** — spliced `List_active_providers`+`Filter_exact_domain` into live `CS Intake`, removed the unanchored `contains()`; **trigger byte-identical** (webhook preserved), still activated. `.eml` Scope (H12) excluded. _Operator: a test email to digital@ confirms the webhook still fires._
+- **Enrichment WIRED into the pipeline (H4)** — creds + DVSA Entra consent were already injected; a live `BC23JZE` lookup returned **SSANGYONG REXTON**. Then **fully wired live**: imported the `shared_dvsaenrich` connector, created + bound a function-key connection, reconciled CS Enrich (real connector + reads vrm/ref from the case + added the `Respond_to_flow` it needed to be a child flow), and **inserted `Run_enrich` into CS Intake** (chain is now classify→parse→**enrich**→status-evaluate, non-blocking, trigger byte-identical). `CS Enrich` is **ON**. ⚠️ _Repo flow defs (`intake`, `enrich`) now trail live — reconcile them so a solution re-import can't regress the wiring._
+- **EVA-validation Function PROVEN (S12)** — `validate-case` returns correct `{fieldsValid,imagesValid,openIssues}` on real data. Flow cutover deferred (operator chose safe-only for the critical path).
+- **CS Case Resolve OFF (S3)** _(superseded later the same day — the "evening" entry above repurposed it to merge-by-registration, turned it ON, and wired it into intake; auto-merge wiring verified live 2026-06-21)_, **suggested-address corpus refreshed (S14, 697 upserts)**, **architecture verified** (5 functions Running + OCR-on-ACA; EVA gated-off with KV-refs to missing secrets).
+
+---
+
+## 🔔 Update — 2026-06-20: M2 mega-build — milestone model, code hardening, Azure deploys, suggested-address corpus (branch `fix/parser-base64-tolerant-decode`)
+A large plan-first, ms-docs-verified multi-agent pass, committed in slices. **All gates green: `node verify-all.mjs` → 7/7** (Code App build + **vitest 217**, schema parity, **flow linter 116/116**, pytest parser **53** + enrichment **29** + ocr **36** + evavalidation **51**, + the new no-`uploadFileToRecord` gate).
+
+**Milestone clarity + plans** (`38e9c75`, `c20f41e`) — new **[docs/plans/milestone-model.md](./docs/plans/milestone-model.md)** is the authoritative two-axis Phase×Milestone map: the *"M2 = Phases 3–5"* shorthand that caused the M1/M2 overlap is **retired**; M0/M1/M2/M3 are capability slices that cut across phases (3b drag-drop EVA = M1, 3c REST = M2). **Valuation locked to M3** (ADR-0006). CLAUDE.md / ROADMAP / plans-README / phase-READMEs / m2-umbrella reconciled to it. Authored the 3 missing **M2 plans** (EVA-validation Function, enrichment-activation, Box-archival-pipeline) + Copilot Studio, WhatsApp coexistence, multi-inbox feasibility, image-storage-backends, and a dated architecture audit.
+
+**Code** (7 slices `acf484c`…`adb3470`)
+- **Dashboard "Submitted" overlap fixed** — funnel re-cut to live backlog depths; the lifetime total moved to the throughput strip as **"Sent to EVA (total)"** beside "Submitted today". + a11y (real funnel buttons, Fluent `Field required`), de-jargon, makeStyles, honest Admin counts.
+- **`case-status.ts` mirrors the live FIX-3 evidence-aware tree** — kills the app↔flow drift (a re-save can no longer re-stamp "Images only").
+- **Suggested-locations** — a new always-suggestions panel (rows tagged `cr1bd_sourcelabel='suggested:<status>'`, decisionMode=unknown, `[Use this address]`→manual; never auto-confirmed).
+- **reg-OCR** connector hardened (strip `format:byte` + apiProperties + tolerant decode) + **S4** parser/OCR EVA-map equality. **Flows** — anchored provider match into `intake-shared-mailbox` + **S8** linter; `finalize-eva-box` **S2** content-bind + the **fictional Box `CreateFolder` removed** (real `CreateFile`+`folderPath`); `cr1bd_box` Premium→Standard. **Enrichment** verified vs real DVSA MOT + DVLA VES (+429 handling, no-secrets dry-run). **evavalidation** hardened (casing-tolerant + a fields-wrapped-Case bug fix) + TS↔Python parity gate. Hardening: parser-storage `allowSharedKeyAccess:false` (**S7**) + the `uploadFileToRecord` regen gate (**S5**).
+
+**Live deploys** ([DEPLOY-WITH-LOGIN], dev sandbox `rg-collisionspike-dev` — all **gated-OFF, no credentials**)
+- **Document Intelligence ONLINE** — `cespkdocintel-dev` (F0, `https://cespkdocintel-dev.cognitiveservices.azure.com/`), the OCR host's managed scanned-PDF fallback. Keyless until the operator injects KV `docintel-read-key` + flips `OCR_PROVIDER/PLATE_PROVIDER=docintel`.
+- **EVA fully set up (no creds)** — **`cespkeva-fn-ufa3ci`** (evasentry, Sentry REST) deployed + **Running**, `EVA_API_ENABLED=false`; KV `cespkevakvufa3ci` holds **reference-only** secrets. Operator injects EVA **test** creds later (B5).
+- **S7 runtime hardening applied** — parser (`cespikestx7xt3d`) + enrichment (`cespkenrichstgi62sd`) storage now `allowSharedKeyAccess=false`; both functions re-verified **Running** (MI-confirmed).
+- **EVA-validation Function (M2.B) DEPLOYED + Running** — `cespkeval-fn-6c6fxd` (`/api/validate-case`). The initial FC1 plan-create was **rate-throttled** (a per-region ARM *write* limit re-tripped by the back-to-back deploys — NOT the 250-core memory quota, which excludes idle scale-to-zero apps); it cleared after a **20-min cooldown** → one clean deploy + publish. Remaining: only the `status-evaluate` connector repoint (designer, the M2.B activation).
+- **Suggested-address corpus LOADED** — **697** suggested InspectionAddress rows from the codexwork sheet (decisionMode=Unknown, never confirmed); 17-verify **ALL PASSED** (0 auto-confirm leaks, 0 confirmed-row downgrades). Live total now 871 (697 suggested + 174 confirmed). Re-run `16-seed -Apply` on a cadence as the sheet changes.
+
+**Operator handoffs** (full detail in [docs/gated.md](./docs/gated.md))
+- **3 "images only" cases** (`test`/`test1`/`test3`) are **stale pre-FIX-3 rows** (zero evidence) — **not** a provider-match bug. Re-run **CS Status Evaluate** with `{ "caseId": "<guid>" }` once each (safe manual-trigger child flow, idempotent, no webhook) → they move to **needs_review** and the "Images only" queue empties. GUIDs in gated.md (H13).
+- **H3** anchored provider match still undeployed live — deploy the anchored block in the designer (keep the trigger byte-identical); for an H3-only deploy, strip FIX-4's `.eml` Scope (**H12**).
+- **Document Intelligence key**, **EVA test creds**, the **InspectionAddress table-add** to the Code App (`pac code add-data-source`, so suggestions render), and the **continuous corpus re-run** are tracked in gated.md.
+- Dashboard re-cut **visual** verification needs the authenticated Power Apps player (operator) — the re-cut is otherwise verified by the green build + 217 vitest; local chrome-devtools confirmed the shell/IA/console are clean.
+
+---
+
+## 🔔 Update — 2026-06-19 (later): pipeline fixes — parser path, categorization, audit, `.eml` (branch `fix/parser-base64-tolerant-decode`)
+Four issues fixed via Explore→Plan with **Microsoft Learn** verification of every contract. Repo
+committed in slices; the safe flow edits are **PATCHed live + verified** (CS Parse & CS Status Evaluate
+are **manual-trigger** flows — `statecode` stayed 1, **no email webhook touched**):
+- **FIX 1 — CS Parse drift + a reverted misstep.** Reconciled `cr1bd_vrm`/`cr1bd_caseref` (already
+  live) into the repo. ⚠️ I also switched `body/document` to `@base64ToBinary(...)` per the
+  then-current memory rule 2 — **that REGRESSED live intake**: `test34` got HTTP **400** (the gateway
+  rejects binary in a plain-string param) → Exceptions. **Reverted** live + repo to the RAW base64
+  string `@triggerBody()?['instructionBytesB64']` — the config `test1`/`test3` parsed on, and
+  `test34`'s exact blob (`%PDF-1.7`) posts **200** straight to `/api/parse`. Memory + AGENTS.md +
+  connector spec + tests flipped to **raw string, NEVER base64ToBinary**; the tolerant parser is the
+  load-bearing safeguard.
+- **FIX 2 — accurate failure audit.** `Audit_parser_failed.cr1bd_after` now reports the **real**
+  `statusCode` + parser message (was hardcoded "parser 5xx/timeout"). Live **PATCH 204, verified.**
+- **FIX 3 — categorization (the "Images only" mislabel).** `CS Status Evaluate` was **evidence-blind**
+  (fields-first → any empty-field case became `missing_required_fields` → "Images only"). Rewrote it
+  to be **evidence-aware** (`List_instruction_evidence` + `instructionCount` + `hasIdentity`):
+  instructions-only → **awaiting images**; `missing_required_fields` ("Images only") now **requires real
+  image evidence**; genuinely-empty/unidentifiable → **error → Exceptions** (premature-error-safe for
+  new cases). Existing status values only — no schema change. Live **PATCH 204, verified.**
+- **FIX 4 — save the source `.eml` + original attachment.** Built in `intake.definition.json`
+  (`Init_attachmentsForChild` + a failure-isolated `Scope_capture_eml` using `ExportEmail_V2` +
+  Append-to-array). **Live GATED — see [docs/gated.md](./docs/gated.md) H12** (operator must confirm
+  the real `ExportEmail_V2` output shape, then designer-apply to the webhook-sensitive live intake).
+  The original *attachments* already persist under the live chain; the `.eml` is additive.
+- **Test done (`test34`, 2026-06-19 23:17):** validated FIX 3 — a parse-failed case correctly routed to
+  **Exceptions** (not mislabelled), and it CAUGHT the base64ToBinary regression (reverted above). Owed
+  now: one more test email on the reverted (raw-string) path to confirm a populated case + an
+  instructions-only case reading **awaiting images**. Repo↔live intake drift tracked as **S11**.
 
 ---
 

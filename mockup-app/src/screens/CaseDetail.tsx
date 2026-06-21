@@ -40,8 +40,12 @@ import {
   Copy,
   FileJson,
   ImageOff,
+  Lightbulb,
+  MapPin,
   Send,
   Upload,
+  Pause,
+  Play,
   X,
 } from 'lucide-react';
 import {
@@ -60,11 +64,13 @@ import {
   type ChecklistItem,
 } from '../components';
 import {
+  data,
   EVA_FIELD_ORDER,
   dueInfo,
   statusToStage,
   useCaseQuery,
   useImages,
+  useInspectionAddressSuggestions,
   type Case,
   type CaseStatus,
   type EvaFieldKey,
@@ -73,6 +79,7 @@ import {
   type MileageUnit,
   type Note,
   type PipelineStageKey,
+  type SuggestedAddress,
   type VatStatus,
 } from '../data';
 import { GLOBAL_TOASTER_ID } from '../components';
@@ -91,6 +98,23 @@ import { GLOBAL_TOASTER_ID } from '../components';
 const useStyles = makeStyles({
   page: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL },
   backRow: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS },
+  /* Back-arrow lockup inside the "Dashboard" link (icon + label, baseline). */
+  backLink: { display: 'inline-flex', alignItems: 'center', gap: '4px' },
+  /* EVA submission preview block (under the Fields tab). */
+  evaPreview: { marginTop: tokens.spacingVerticalM },
+  evaPreviewBody: { marginTop: tokens.spacingVerticalS },
+  /* Inline icon + text lockup (e.g. the evidence-tab "No images yet" bar). */
+  inlineIconText: { display: 'inline-flex', alignItems: 'center', gap: tokens.spacingHorizontalXS },
+  /* "Nothing outstanding" ready row in the readiness sidebar. */
+  readyDone: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    marginTop: tokens.spacingVerticalXS,
+  },
+  /* Tight caption spacing nudges (kept off inline style props). */
+  hintNudgeTop: { marginTop: '2px' },
+  hintNudgeBottom: { marginBottom: tokens.spacingVerticalXS },
   titleTags: {
     display: 'flex',
     alignItems: 'center',
@@ -228,6 +252,39 @@ const useStyles = makeStyles({
   },
   stack: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM },
   hint: { color: tokens.colorNeutralForeground3 },
+
+  /* Suggested locations panel (corpus suggestions — ALWAYS a suggestion). */
+  suggestHead: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    color: tokens.colorNeutralForeground2,
+  },
+  suggestList: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
+  suggestRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: tokens.spacingHorizontalM,
+    padding: tokens.spacingVerticalS + ' ' + tokens.spacingHorizontalM,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderLeft: '3px solid #e3a008', // amber rail — unverified suggestion
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  suggestBody: { display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, flexGrow: 1 },
+  suggestAddr: {
+    fontFamily: 'var(--ce-font-mono)',
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground1,
+    whiteSpace: 'pre-line',
+  },
+  suggestMeta: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS, flexWrap: 'wrap' },
+  /* "Suggested" tint badge — distinct from the confirmed brand badge. */
+  suggestBadge: {
+    backgroundColor: '#fef3c7',
+    color: '#7a4f01',
+    border: '1px solid #e3c062',
+  },
 
   /* Notes tab */
   noteList: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS, marginTop: tokens.spacingVerticalM },
@@ -424,7 +481,9 @@ function FieldRow({ fieldKey, label, required, c, onTextChange, registerRef }: F
 
   return (
     <div className={styles.fieldRow} id={`field-${fieldKey}`}>
-      <Field label={required ? `${label} *` : label} {...validation}>
+      {/* Fluent's `required` renders the asterisk AND exposes the required
+          semantic to assistive tech (the hand-appended " *" did neither). */}
+      <Field label={label} required={required} {...validation}>
         {control}
       </Field>
       <div className={styles.fieldMeta}>
@@ -485,6 +544,57 @@ function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
           onChange={(_, d) => onExclude(ev.id, d.checked)}
         />
       </div>
+    </div>
+  );
+}
+
+/* ---------- A single SUGGESTED inspection-location row ----------
+   Renders the candidate as monospace address lines + a DISTINCT "Suggested" tint
+   badge + an evidence Tooltip, with a [Use this address] action. The action is
+   the caller's (it copies into the manual draft + sets decision=manual). Nothing
+   here writes a Case or sets the EVA field directly. */
+interface SuggestedLocationRowProps {
+  suggestion: SuggestedAddress;
+  onUse: () => void;
+}
+
+/** Human-friendly rendering of a raw confidence band (avoids leaking the enum). */
+function friendlyBand(band?: string): string | undefined {
+  if (!band) return undefined;
+  const b = band.toLowerCase();
+  if (b.includes('multiple')) return 'One of several possible addresses';
+  if (b.includes('jobsheet')) return 'From job-sheet guidance';
+  if (b.includes('repairer')) return 'Matched to a local repairer';
+  if (b.startsWith('resolved')) return 'Resolved from records';
+  if (b.startsWith('candidate')) return 'Candidate match';
+  return undefined; // unknown band — omit rather than show a raw code
+}
+
+function SuggestedLocationRow({ suggestion, onUse }: SuggestedLocationRowProps) {
+  const styles = useStyles();
+  const lines = [...suggestion.lines, suggestion.postcode].filter(Boolean);
+  const band = friendlyBand(suggestion.confidenceBand);
+  const tip = [band, suggestion.evidenceNote, 'Suggested — low confidence; verify before use.']
+    .filter(Boolean)
+    .join('\n');
+  return (
+    <div className={styles.suggestRow} role="listitem">
+      <div className={styles.suggestBody}>
+        <span className={styles.suggestAddr}>{lines.join('\n')}</span>
+        <span className={styles.suggestMeta}>
+          <Tooltip content={tip} relationship="description" withArrow>
+            <Badge appearance="tint" shape="rounded" size="small" className={styles.suggestBadge}>
+              <MapPin size={11} strokeWidth={2.25} aria-hidden /> Suggested
+            </Badge>
+          </Tooltip>
+          {suggestion.providerCode && (
+            <Caption1 className={styles.hint}>Provider {suggestion.providerCode}</Caption1>
+          )}
+        </span>
+      </div>
+      <Button appearance="secondary" size="small" icon={<Check size={14} />} onClick={onUse}>
+        Use this address
+      </Button>
     </div>
   );
 }
@@ -567,6 +677,17 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
   const [noteDraft, setNoteDraft] = useState('');
   const [overrideAddr, setOverrideAddr] = useState(caseData.inspectionDecision === 'image_based');
   const [overrideReason, setOverrideReason] = useState('');
+  // The inspection decision mode — staff picking a suggested location sets it to
+  // 'manual' (an explicit human action). Seeded from the loaded case.
+  const [decisionMode, setDecisionMode] = useState<Case['inspectionDecision']>(
+    caseData.inspectionDecision,
+  );
+
+  // Low-confidence inspection-address SUGGESTIONS for this case (corpus). Always
+  // surfaced strictly as suggestions; picking one copies it into the manual draft
+  // and sets the decision to manual — it NEVER auto-confirms or sets image_based.
+  const suggestionsQuery = useInspectionAddressSuggestions(caseData.id);
+  const suggestions = suggestionsQuery.data ?? [];
 
   // Focus targets for field deep-links (keyed by EvaFieldKey).
   const fieldRefs = useRef<Partial<Record<EvaFieldKey, HTMLElement | null>>>({});
@@ -630,6 +751,19 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
     });
   };
 
+  /* Pick a SUGGESTED location: copy its lines into the manual inspection-address
+     draft (marking the field reviewed) and set the decision to MANUAL. This is the
+     ONLY place a suggestion touches the case, and only on an explicit click — it
+     never auto-confirms, never writes image_based, and never fires on load. */
+  const useSuggestion = (s: SuggestedAddress) => {
+    const draft = [...s.lines, s.postcode].map((l) => (l ?? '').trim()).filter(Boolean).join('\n');
+    onTextChange('inspectionAddress', draft);
+    setDecisionMode('manual');
+    setOverrideAddr(false); // a real address supersedes any image-based override
+    setTab('address');
+    toast('Suggested location copied to the address — review before submit');
+  };
+
   const onRole = (id: string, role: ImageRole) =>
     setImgState((prev) => prev.map((e) => (e.id === id ? { ...e, imageRole: role } : e)));
 
@@ -680,7 +814,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
       <div>
         <div className={styles.backRow}>
           <Link as="button" onClick={() => navigate('/')}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span className={styles.backLink}>
               <ArrowLeft size={14} /> Dashboard
             </span>
           </Link>
@@ -708,6 +842,27 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
               )}
               <Button appearance="secondary" icon={<Upload size={16} />} onClick={() => navigate('/evidence')}>
                 Add evidence
+              </Button>
+              <Button
+                appearance="secondary"
+                icon={c.onHold ? <Play size={16} /> : <Pause size={16} />}
+                onClick={async () => {
+                  const next = !c.onHold;
+                  try {
+                    await data.setOnHold(c.id, next);
+                    setC({ ...c, onHold: next });
+                    toast(next ? 'Put on hold — moved to Held' : 'Released from hold');
+                  } catch {
+                    dispatchToast(
+                      <Toast>
+                        <ToastTitle>Couldn’t update hold — try again</ToastTitle>
+                      </Toast>,
+                      { intent: 'error' },
+                    );
+                  }
+                }}
+              >
+                {c.onHold ? 'Release' : 'Hold'}
               </Button>
               {!blocked && (
                 <Button
@@ -737,6 +892,11 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
 
         <div className={styles.titleTags}>
           <StatusBadge status={c.status} />
+          {c.onHold && (
+            <Badge appearance="filled" color="warning" shape="rounded">
+              On hold
+            </Badge>
+          )}
           <Badge appearance="outline" color="informative" shape="rounded">
             {c.channel.kind === 'whatsapp' ? 'WhatsApp' : 'Email'} · {c.channel.mode}
           </Badge>
@@ -808,9 +968,9 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                     </div>
                   ))}
                   <Divider />
-                  <div style={{ marginTop: tokens.spacingVerticalM }}>
+                  <div className={styles.evaPreview}>
                     <Caption1 className={styles.hint}>EVA submission preview</Caption1>
-                    <div style={{ marginTop: 8 }}>
+                    <div className={styles.evaPreviewBody}>
                       <JsonView data={evaJson} label="EVA submission" />
                     </div>
                   </div>
@@ -828,7 +988,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                     // carry three). The sidebar readiness owns the blocking signal.
                     <MessageBar intent="warning">
                       <MessageBarBody>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span className={styles.inlineIconText}>
                           <ImageOff size={16} /> No images yet — use a chaser to request photos.
                         </span>
                       </MessageBarBody>
@@ -872,13 +1032,37 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
 
                   <div className={styles.thumbRowBetween}>
                     <Badge appearance="tint" color="brand" shape="rounded">
-                      Decision: {POLICY_LABEL[c.inspectionDecision]}
+                      Decision: {POLICY_LABEL[decisionMode]}
                     </Badge>
                     <ProvenanceBadge
                       provenance={c.evaFields.inspectionAddress.provenance}
                       reviewState={c.evaFields.inspectionAddress.reviewState}
                     />
                   </div>
+
+                  {/* Suggested locations — low-confidence corpus candidates. Shown
+                      strictly as suggestions; "Use this address" copies one into the
+                      draft above and sets the decision to manual. Never auto-applied,
+                      so it only appears when real candidates exist. */}
+                  {suggestions.length > 0 && (
+                    <>
+                      <Divider />
+                      <span className={styles.suggestHead}>
+                        <Lightbulb size={15} strokeWidth={2} aria-hidden />
+                        <Text size={200} weight="semibold">
+                          Suggested locations
+                        </Text>
+                        <Caption1 className={styles.hint}>
+                          Low confidence — verify before use.
+                        </Caption1>
+                      </span>
+                      <div className={styles.suggestList} role="list">
+                        {suggestions.map((s) => (
+                          <SuggestedLocationRow key={s.id} suggestion={s} onUse={() => useSuggestion(s)} />
+                        ))}
+                      </div>
+                    </>
+                  )}
 
                   <Divider />
 
@@ -959,7 +1143,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
           {/* ONE canonical readiness presentation: each ✗ row deep-links to fix. */}
           <div className={styles.panel}>
             <Text className="ce-section-heading">Readiness</Text>
-            <Caption1 className={styles.hint} block style={{ marginTop: 2 }}>
+            <Caption1 className={mergeClasses(styles.hint, styles.hintNudgeTop)} block>
               {blocked
                 ? `${blockerCount} item${blockerCount === 1 ? '' : 's'} to resolve before EVA — select one to fix.`
                 : 'Every check passes — ready for EVA.'}
@@ -989,7 +1173,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 </div>
               ))}
               {!blocked && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span className={styles.readyDone}>
                   <CheckCircle2 size={16} color="var(--ce-success)" />
                   <Text size={300}>Nothing outstanding — ready for EVA.</Text>
                 </span>
@@ -999,7 +1183,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
 
           <div className={styles.factsPanel}>
             <Text className="ce-section-heading">Imported details</Text>
-            <Caption1 className={styles.hint} block style={{ marginBottom: 4 }}>
+            <Caption1 className={mergeClasses(styles.hint, styles.hintNudgeBottom)} block>
               From the instruction document or email.
             </Caption1>
             {(

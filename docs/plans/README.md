@@ -20,22 +20,27 @@ keep their plans at the phase-folder root. One cross-phase umbrella
 ([m2-umbrella-enrichment-to-scale.md](./m2-umbrella-enrichment-to-scale.md), the M2 dependency graph
 spanning phases 3–5) sits at this folder's root because it belongs to no single phase.
 
-> **Taxonomy.** The canonical phase numbering is **ROADMAP Phase 0–6** (with sub-letters 1a–1d,
-> 1b.1–1b.3, 3a–3e, 4a–4b, 5a–5c). "M1" = Phase 1; "M2" = Phases 3–5. The file once named
-> `phase-2-implementation.md` was the M2 umbrella, **not** live activation — it is now
-> `m2-umbrella-enrichment-to-scale.md` to remove the "Phase 2" collision.
+> **Taxonomy — two axes.** **Phases** (ROADMAP 0–6, with sub-letters 1a–1d, 1b.1–1b.3, 3a–3e, 4a–4b,
+> 5a–5c) are the **work-breakdown** axis (where code lives / build order). **Milestones** (M0/M1/M2/M3)
+> are **capability slices that cut across phases** — the authoritative Phase→Milestone map is
+> **[milestone-model.md](./milestone-model.md)**. Do **not** equate a Phase with a Milestone: the retired
+> "M2 = Phases 3–5" shorthand was the precise source of the M1/M2 overlap (e.g. Phase 3 holds M1 EVA
+> drag-drop **and** M2 EVA-REST). The file once named `phase-2-implementation.md` was the M2 umbrella,
+> **not** live activation — it is now `m2-umbrella-enrichment-to-scale.md` to remove the "Phase 2" collision.
 
 ```
 docs/plans/
   README.md                          this index
+  milestone-model.md                 the Phase × Milestone map (authoritative)
   m2-umbrella-enrichment-to-scale.md M2 dependency graph (cross-phase 3–5)
   phase-0-foundations/               + code-audit-cleanup (findings)
   phase-1-intake-and-case-tracking/  parser/ · code-app/ · corpus/ + bridge (phase-1-operational)
-  phase-2-live-activation/           multi-inbox-access (+ DEPLOY-RUNBOOK §7)
-  phase-3-enrichment-and-eva/        eva-sentry-rest-submission (3c)
+  phase-2-live-activation/           multi-inbox-access · multi-inbox-feasibility · image-storage-backends (+ DEPLOY-RUNBOOK §7)
+  phase-3-enrichment-and-eva/        eva-sentry-rest-submission (3c) · eva-validation-function (3c-Fn) · enrichment-activation (3a) · box-archival-pipeline (3d)
   phase-4-address-and-chaser/        inspection-address-matching (4a)
-  phase-5-ocr-and-scale/             ocr-strategy (5a) · image-classification-ai (5b) · valuation-and-copilot (5c)
+  phase-5-ocr-and-scale/             ocr-strategy (5a) · image-classification-ai (5b) · valuation-and-copilot (5c) · copilot-studio-setup (M3)
   phase-6-handoff/                   boundary evidence (points to DEPLOY-RUNBOOK §8)
+(docs/research/whatsapp-coexistence.md — M3 research, outside this tree)
 ```
 
 ## Plans (one line each: purpose · ROADMAP item)
@@ -58,6 +63,15 @@ docs/plans/
 | [phase-5-ocr-and-scale/ocr-strategy.md](./phase-5-ocr-and-scale/ocr-strategy.md) | Two OCR needs, two engines: Tesseract-in-container for scanned PDFs (B-full) + `fast-alpr` for plate OCR (`registrationVisible`); one Azure Container App, two routes; DI Read fallback; rejects Image Analysis 4.0 (retires 2028). | **Phase 5a** (OCR host, "B-full") + the **M1 plate-OCR** half |
 | [phase-5-ocr-and-scale/image-classification-ai.md](./phase-5-ocr-and-scale/image-classification-ai.md) | overview-vs-`damage_closeup` + person/reflection screening: **recommends Azure OpenAI/Foundry vision over AI Builder** (AI Builder credits sunset 2026-11-01); rejects Custom Vision (retires 2028); image-ordering UI; WhatsApp bulk import. | **Phase 5b** (image classification AI, ADR-0009 M2+) |
 | [phase-5-ocr-and-scale/valuation-and-copilot.md](./phase-5-ocr-and-scale/valuation-and-copilot.md) | Staff-triggered valuation (direct-REST-wrapper Function → Companion PDF as `Evidence(kind=valuation)`, gated `VALUATION_ENABLED`) + optional Copilot Studio agent over Dataverse (gated `COPILOT_ENABLED`). | **Phase 5c** (Valuation & Copilot) |
+| [milestone-model.md](./milestone-model.md) | **Authoritative** Phase×Milestone map (M0/M1/M2/M3 as capability slices) + entry/exit criteria + precedence; CLAUDE.md points here. | **cross-cutting** (taxonomy) |
+| [phase-3-…/eva-validation-function.md](./phase-3-enrichment-and-eva/eva-validation-function.md) | The already-built `functions/evavalidation/` readiness Function (ports image-rules + case-status; one impl for flow ＝ Code App); connector + parity drift-gate + the `status-evaluate` repoint. | **Phase 3e/3c-Fn** (M2.B) |
+| [phase-3-…/enrichment-activation.md](./phase-3-enrichment-and-eva/enrichment-activation.md) | Standalone DVSA/DVLA enrichment activation runbook (Entra consent, KV creds, gate flip in TEST) + contract verification + ADR-0006 mileage acceptance tests. | **Phase 3a** (M1) |
+| [phase-3-…/box-archival-pipeline.md](./phase-3-enrichment-and-eva/box-archival-pipeline.md) | Full Box pipeline design + M2.D activation runbook; the S2 content-bind + the fictional-`CreateFolder` rewrite; UPPERCASE folder + EVA photo-order. | **Phase 3d** (M2.D) |
+| [phase-2-…/multi-inbox-feasibility.md](./phase-2-live-activation/multi-inbox-feasibility.md) | **Investigate-only** feasibility companion to `multi-inbox-access` for the other two inboxes (V2/V3 trigger, webhook re-arm, dedup). Do **not** proceed. | **Phase 2** (operator) |
+| [phase-2-…/image-storage-backends.md](./phase-2-live-activation/image-storage-backends.md) | Swappable, env-var-gated images-only storage abstraction (Azure Blob / SharePoint / local SMB / File Sync) + ready-to-enable connection-ref scaffolds. | **Phase 2** (M1 storage) |
+| [phase-5-…/copilot-studio-setup.md](./phase-5-ocr-and-scale/copilot-studio-setup.md) | M3 Copilot Studio staff-assistant grounded on Dataverse (gate `COPILOT_ENABLED`): pre-reqs, grounding model, Code-App seam, use-cases. | **Phase 5c** (M3) |
+| [../research/whatsapp-coexistence.md](../research/whatsapp-coexistence.md) | M3 research + phased plan for WhatsApp coexistence (ACS Advanced Messaging; thread→Case correlation by VRM/phone; the hard tracking problems). | **Phase 5b** (M3, ADR-0003/0007) |
+| [../architecture/architecture-audit-2026-06-20.md](../architecture/architecture-audit-2026-06-20.md) | Dated architecture-audit findings register (F1–F11) across Functions/IaC/Dataverse/flows/connectors/Code App, each CLAUDE-fixable vs operator. | **cross-cutting** (audit) |
 
 ## ROADMAP coverage check (every phase/feature has a plan)
 
@@ -71,22 +85,25 @@ docs/plans/
 | **Phase 1b.1** — Initial seed + analysis | _(done; analysis under `raw/principalandrepairersheets/outputs/`)_ |
 | **Phase 1b.2** — Corpus incorporation | corpus/dataverse-corpus-incorporation |
 | **Phase 1b.3** — Clarifying-info ingestion | corpus/clarifying-info-ingestion |
-| **Phase 2** — Live activation (operator) | phase-1-operational; multi-inbox-access (+ DEPLOY-RUNBOOK §7) |
-| **Phase 3a** — Enrichment (DVSA/DVLA) | m2-umbrella §5 (M2.A) |
-| **Phase 3b** — EVA JSON drag-drop | m2-umbrella §8 (M2.D); contracts already built |
-| **Phase 3c** — EVA Sentry REST API | **eva-sentry-rest-submission** |
-| **Phase 3d** — Box archival | m2-umbrella §8 (M2.D) |
-| **Phase 3e** — EVA readiness gate | phase-1-operational; m2-umbrella §6 (M2.B) |
-| **Phase 4a** — Inspection-address matching | **inspection-address-matching** |
+| **Phase 2** — Live activation (operator) | phase-1-operational; multi-inbox-access; **multi-inbox-feasibility**; **image-storage-backends** (+ DEPLOY-RUNBOOK §7) |
+| **Phase 3a** — Enrichment (DVSA/DVLA) — **M1** | **enrichment-activation**; m2-umbrella §5 |
+| **Phase 3b** — EVA JSON drag-drop — **M1** | contracts already built (`mockup-app`); milestone-model |
+| **Phase 3c** — EVA Sentry REST API — **M2** | **eva-sentry-rest-submission** |
+| **Phase 3c-Fn** — EVA-validation Function — **M2** | **eva-validation-function** (M2.B) |
+| **Phase 3d** — Box archival — **M2** | **box-archival-pipeline**; m2-umbrella §8 |
+| **Phase 3e** — EVA readiness gate — **M1** | phase-1-operational; eva-validation-function |
+| **Phase 4a** — Inspection-address matching | **inspection-address-matching** (policy=M1, matching=M2) |
 | **Phase 4b** — Chaser automation | m2-umbrella §10 (M2.F) |
-| **Phase 5a** — OCR ("B-full") | ocr-strategy |
-| **Phase 5b** — Image classification AI | **image-classification-ai** (+ ocr-strategy for the OCR half) |
-| **Phase 5c** — Valuation & Copilot | **valuation-and-copilot** |
+| **Phase 5a** — OCR ("B-full") | ocr-strategy (plate-OCR=M1, scanned-PDF host) |
+| **Phase 5b** — Image classification AI — **M2** | **image-classification-ai**; research/whatsapp-coexistence (WhatsApp=M3) |
+| **Phase 5c** — Valuation & Copilot — **M3** | **valuation-and-copilot**; **copilot-studio-setup** |
 | **Phase 6** — Boundary evidence & handoff | code-audit-cleanup (+ `verify-all.mjs` gates; operator evidence in DEPLOY-RUNBOOK) |
 
-**Status:** every ROADMAP phase/feature has at least one plan. Phases **3a/3b/3d/3e** and **4b** are
-covered by the **m2-umbrella** (their sub-phase runbooks); §3c/§4a/§5a/§5b/§5c have **dedicated**
-deep-dive plans. The only items intentionally **without** a standalone plan are the **already-done**
+**Status:** every ROADMAP phase/feature has at least one plan, and (2026-06-20) **3a, 3c-Fn, 3d** were
+promoted to **dedicated** plans (enrichment-activation, eva-validation-function, box-archival-pipeline);
+only **4b** still relies on the **m2-umbrella** sub-phase runbook. §3c/§4a/§5a/§5b/§5c keep their
+deep-dives. Milestone tags follow **[milestone-model.md](./milestone-model.md)** (valuation reconciled to
+**M3**). The only items intentionally **without** a standalone plan are the **already-done**
 Phase-1b.1 seed/analysis (lives in `raw/.../outputs/`) and the pure operator-activation checklists that
 live in **DEPLOY-RUNBOOK.md** + [../gated.md](../gated.md) rather than here. Per-phase status and the
 ordered build checklist live in each phase folder's `README.md`; everything needing the operator is

@@ -2,7 +2,7 @@
 
 _Phase-1 (M1) case-intake spike for **Collision Engineers** (UK vehicle-damage assessment) on the **Microsoft stack** — Power Apps **Code App** + Dataverse + Power Automate + Azure Functions. Last updated **2026-06-19**._
 
-_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [docs/gated.md](./docs/gated.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
+_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [docs/gated.md](./docs/gated.md) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
 
 > **Role split.** This **ROADMAP** is the forward phased checklist (per-phase done/remaining).
 > [CURRENT_STATUS.md](./CURRENT_STATUS.md) is what is live *now*. [docs/gated.md](./docs/gated.md) is
@@ -13,6 +13,8 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 > This roadmap is comprehensive: the early phases are largely **complete** because the M1 vertical slice was built offline and much of the non-inbox deploy is already executed in the dedicated Sandbox. The frontier is **live activation** (operator), **enrichment + EVA/Box**, and the **provider-corpus incorporation**.
 
 > **2026-06-19 progress** — (1) **CE Parser connector wired + bound**: the custom connector now exposes `api_key`, a Connected connection exists (`01b43be8…`), the Code App calls the parser through it (`CollisionEngineersParserService` + `parser-connector-transport.ts`), and the old raw-fetch path (`parser-config.ts`) was deleted — so **manual-intake parse is no longer CSP-blocked** and the function key is off the client bundle (204/204 app tests; rebuilt + pushed). (2) **Provider-corpus incorporation (1b.2) LOADED** — scripts 10–14 + verify all passed (WorkProvider 390 updated, 20 named yards, 174 InspectionAddress rows, 20 ImageSource + 98 N:N); **37 over-length principal codes deferred** (widen `cr1bd_principalcode` or supply ≤8-char codes), GGP→GG / ZEN==ZENITH merges deferred. (3) **Built this session, gated-OFF, deploy pending**: EVA Sentry REST v1.2 (`functions/evasentry`, pytest 42/42), inspection-address matching Function (`functions/addressmatch`), OCR host (`ocr/`, ACA — no longer deferred), parser B2 claimant telephone/email extraction, plans for every remaining phase, and hardened IaC (workspace App Insights, no shared-key storage). **Azure deploys for evasentry/addressmatch/ocr + the parser REDEPLOY and the Phase-1 flow-chain activation on `digital@` remain pending.**
+
+> **2026-06-20 progress** — **M2 mega-build + deploys.** Authored the authoritative **[docs/plans/milestone-model.md](./docs/plans/milestone-model.md)** (retired the *"M2 = Phases 3–5"* shorthand that caused the M1/M2 overlap; valuation reconciled to **M3**) + the 3 missing M2 plans + Copilot/WhatsApp/multi-inbox/storage/architecture docs. **7 verified code slices** (`node verify-all.mjs` **7/7**): dashboard funnel re-cut (the "Submitted" overlap fix), the live **FIX-3** status mirror in `case-status.ts`, the **suggested-locations** panel, reg-OCR + flows (anchored match, **S2** Box content-bind + fictional-`CreateFolder` fix) + **S4/S5/S7/S8** hardening. **Deployed to the sandbox gated-OFF, no creds:** **Document Intelligence** (`cespkdocintel-dev`, online), **evasentry** (`cespkeva-fn-ufa3ci`, Running), parser+enrichment storage hardened live (S7). **Loaded 697 suggested InspectionAddress rows** (decisionMode=Unknown; 17-verify all passed). **evavalidation** (M2.B) deployed + Running (`cespkeval-fn-6c6fxd`) — the FC1 plan-create rate-throttle cleared after a cooldown; only the `status-evaluate` repoint remains. Operator items in **[docs/gated.md](./docs/gated.md)** (H13 3-case re-run, H14 DI key, S12–S14). Detail in **[CURRENT_STATUS.md](./CURRENT_STATUS.md)**.
 
 ---
 
@@ -205,7 +207,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [ ] **Image-ordering UI** — drag to set the 2 preview images.
 - [ ] **WhatsApp media bulk import (ADR-0007)** — OCR each for the registration, auto-match to the open Case by VRM.
 
-### 5c. Valuation & Copilot (M2 / M3+)
+### 5c. Valuation & Copilot (M3)
 
 - [ ] **Valuation (`valuationbot`, gated `VALUATION_ENABLED`)** — staff-triggered; evidence PDF attached.
 - [ ] **Copilot Studio agent (gated `COPILOT_ENABLED`)** — staff assistant over Dataverse.

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_FinalizeEvaBox (§5.10 / phase-2 M2.C+M2.D). EVA + Box finalize in unison inside one Scope. Box folder = UPPERCASE Case/PO; EVA uses lowercase - same identity, two casings. Photo order = 2 previews first (overview w/ full registration + damage closeup) then ALL photos incl. those two again (Evidence sequenceIndex asc). The Sentry REST submit is a TWO-REQUEST photo flow inside the evasentry Function (confirmed against Sentry API v1.2 PDF pp.13,21-23): the 2 preview photos ride as EVA Files {Name,Extension,Data} on POST /Instruction/Inspection (creates the claim, returns Id), then the full ordered set rides on POST /Note/SubmitNote matched by VehReg (+ClmNo) - so the flow passes body/vrm (cr1bd_vrm) and body/clmNo (cr1bd_caseref). EVA_API_ENABLED gates the TRANSPORT (Sentry REST via cr1bd_evasentry when true; JSON drag-drop export staged to Box when false - M1 default + PERMANENT fallback) not the finalization. The Sentry REST token lifecycle lives INSIDE the evasentry Function (Power Platform custom connectors cannot do the OAuth2 client-credentials grant - Microsoft Learn), keyed by function-key; the flow never reads EVA_CLIENT_SECRET. Idempotent by cr1bd_finalizedpayloadhash (stamped LAST; the Function also dedups by payload hash in-process). BoxArchiveRootId is a flow parameter, never a hardcoded live Box id. [BUILD]. ACTIVATION [RESERVED-FOR-USER]: bind cr1bd_box (live Box) + cr1bd_evasentry, set BoxArchiveRootId, inject EVA test Client_Id/Secret into Key Vault, set EVA_REQUEST_FROM (EVA-supplied contact code) app setting, flip EVA_API_ENABLED=true in TEST only, run a parity test (drag-drop==API) before any prod cutover. Box can go live on the drag-drop transport (EVA_API_ENABLED=false) BEFORE the Sentry REST path exists. Claude never injects secrets, binds a live account, or flips the prod gate.",
+  "comment": "Flow_FinalizeEvaBox (§5.10 / phase-2 M2.C+M2.D). EVA + Box finalize in unison inside one Scope. Box folder = UPPERCASE Case/PO; EVA uses lowercase - same identity, two casings. Photo order = 2 previews first (overview w/ full registration + damage closeup) then ALL photos incl. those two again (Evidence sequenceIndex asc). The Sentry REST submit is a TWO-REQUEST photo flow inside the evasentry Function (confirmed against Sentry API v1.2 PDF pp.13,21-23): the 2 preview photos ride as EVA Files {Name,Extension,Data} on POST /Instruction/Inspection (creates the claim, returns Id), then the full ordered set rides on POST /Note/SubmitNote matched by VehReg (+ClmNo) - so the flow passes body/vrm (cr1bd_vrm) and body/clmNo (cr1bd_caseref). EVA_API_ENABLED gates the TRANSPORT (Sentry REST via cr1bd_evasentry when true; JSON drag-drop export staged to Box when false - M1 default + PERMANENT fallback) not the finalization. The Sentry REST token lifecycle lives INSIDE the evasentry Function (Power Platform custom connectors cannot do the OAuth2 client-credentials grant - Microsoft Learn), keyed by function-key; the flow never reads EVA_CLIENT_SECRET. Idempotent by cr1bd_finalizedpayloadhash (stamped LAST; the Function also dedups by payload hash in-process). BoxArchiveRootId is a flow parameter, never a hardcoded live Box id. [BUILD]. BOX CONTRACT (verified Microsoft Learn connectors/box + connectors/azureblobconnector 2026-06-20): the first-party Box connector is class STANDARD and has NO CreateFolder op - the UPPERCASE Case/PO folder is created IMPLICITLY by writing into CreateFile's folderPath. Box CreateFile params are folderPath/name/binary body (folderId is a TRIGGER param, not a CreateFile param). S2 FIX: each photo is read from Azure Blob via Get blob content using path (V2) (cr1bd_evidenceblob, dataset=AccountNameFromSettings) and its REAL bytes go to Box - previously the cr1bd_storagepath PATH STRING was uploaded as the body (silent corruption: a tiny text file, not the image). The .eva.json drag-drop body is a JSON string = already content, so it needs no blob read. ACTIVATION [RESERVED-FOR-USER]: bind cr1bd_box (live Box, interactive OAuth - the connector supports no JWT/CCG) + cr1bd_evidenceblob (Azure Blob, account cespkevidstdev01, access-key, dataset=AccountNameFromSettings) + cr1bd_evasentry, set BoxArchiveRootId (or root the Box connection at the archive parent so folderPath is just /<CASEPO>/), inject EVA test Client_Id/Secret into Key Vault, set EVA_REQUEST_FROM (EVA-supplied contact code) app setting, confirm folderPath auto-creates the UPPERCASE folder + the UPPERCASE casing (B5/H6), flip EVA_API_ENABLED=true in TEST only, run a parity test (drag-drop==API) before any prod cutover. Box can go live on the drag-drop transport (EVA_API_ENABLED=false) BEFORE the Sentry REST path exists. Claude never injects secrets, binds a live account, or flips the prod gate.",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
     "$authentication": { "type": "SecureObject", "defaultValue": {} },
@@ -96,36 +96,37 @@
               },
               "runAfter": {}
             },
-            "Create_box_folder_UPPERCASE": {
-              "type": "OpenApiConnection",
-              "inputs": {
-                "host": { "connectionName": "shared_box", "operationId": "CreateFolder",
-                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_box" },
-                "parameters": { "parentId": "@parameters('BoxArchiveRootId')",
-                  "name": "@toUpper(outputs('Get_case')?['body/cr1bd_casepo'])" }
-              },
-              "comment": "Box folder = UPPERCASE Case/PO (toUpper, e.g. EVA test26001 -> Box TEST26001). CreateFolder 409s on a name collision; on resume reuse the folder by name. [RESERVED-FOR-USER]: bind cr1bd_box to the live Box account + set BoxArchiveRootId to the real parent archive folder id at activation; confirm Box honours the UPPERCASE casing (B5).",
-              "runAfter": { "Order_evidence": [ "Succeeded" ] }
-            },
             "Upload_photos_in_eva_order": {
               "type": "Foreach",
               "foreach": "@outputs('Order_evidence')?['body/value']",
               "runtimeConfiguration": { "concurrency": { "repetitions": 1 } },
-              "comment": "repetitions=1 preserves EVA upload order: 2 previews first, then full sequence incl. those two.",
+              "comment": "repetitions=1 preserves EVA upload order: 2 previews first, then full sequence incl. those two. The UPPERCASE Case/PO folder is created IMPLICITLY by writing into CreateFile's folderPath (the first-party Box connector has NO CreateFolder op — confirmed on Microsoft Learn connectors/box 2026-06-20; the deleted Create_box_folder_UPPERCASE invented one). Each photo is a Get_blob_content_v2 -> Copy_evidence_to_box pair (S2 content-bind fix).",
               "actions": {
+                "Get_blob_content_v2": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": { "connectionName": "shared_azureblob", "operationId": "GetFileContentByPath_V2",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_azureblob" },
+                    "parameters": { "dataset": "AccountNameFromSettings",
+                      "path": "@items('Upload_photos_in_eva_order')?['cr1bd_storagepath']" }
+                  },
+                  "comment": "S2 FIX: read the REAL photo bytes from the evidence Azure Blob before the Box upload. cr1bd_storagepath is an Azure Blob PATH STRING (e.g. /evidence/intake/<messageId>/IMG.jpg), NOT bytes — uploading it as the Box body wrote a tiny text file, not the image (silent corruption). Get blob content using path (V2) (operationId GetFileContentByPath_V2; the non-V2 GetFileContentByPath is DEPRECATED) returns binary; dataset=AccountNameFromSettings matches the classify-persist storage convention (account cespkevidstdev01, access-key auth). Implicit chunking 50MB no-chunk / up to 1024MB chunked, so the read side comfortably exceeds the 75MB Box write ceiling. [RESERVED-FOR-USER]: bind cr1bd_evidenceblob (Azure Blob, access key) at activation so this read works.",
+                  "runAfter": {}
+                },
                 "Copy_evidence_to_box": {
                   "type": "OpenApiConnection",
                   "inputs": {
                     "host": { "connectionName": "shared_box", "operationId": "CreateFile",
                       "apiId": "/providers/Microsoft.PowerApps/apis/shared_box" },
-                    "parameters": { "folderId": "@body('Create_box_folder_UPPERCASE')?['Id']",
+                    "parameters": { "folderPath": "@concat('/', toUpper(outputs('Get_case')?['body/cr1bd_casepo']))",
                       "name": "@items('Upload_photos_in_eva_order')?['cr1bd_filename']",
-                      "body": "@items('Upload_photos_in_eva_order')?['cr1bd_storagepath']" }
+                      "body": "@body('Get_blob_content_v2')" }
                   },
-                  "runAfter": {}
+                  "comment": "Box Create file (operationId CreateFile; verified params folderPath/name/body on Microsoft Learn connectors/box 2026-06-20 — there is NO folderId param on CreateFile, folderId was a TRIGGER param). folderPath = '/' + UPPERCASE Case/PO (e.g. EVA test26001 -> Box /TEST26001/) auto-creates the folder (SharePoint-style; CONFIRM on first live run — open question 1). body = the real blob bytes from Get_blob_content_v2 (S2 fix). Box known-issue #6: a same-name re-upload is an UPDATE not a 409, so the loop is resume-safe by filename. [RESERVED-FOR-USER]: bind cr1bd_box to the live Box account + set BoxArchiveRootId at activation; confirm Box honours the UPPERCASE casing (B5).",
+                  "runAfter": { "Get_blob_content_v2": [ "Succeeded" ] }
                 }
               },
-              "runAfter": { "Create_box_folder_UPPERCASE": [ "Succeeded" ] }
+              "runAfter": { "Order_evidence": [ "Succeeded" ] }
             },
             "Submit_to_EVA": {
               "type": "If",
@@ -133,7 +134,7 @@
               "actions": {
                 "EVA_instruction_inspection": {
                   "type": "OpenApiConnection",
-                  "comment": "Sentry REST path - the evasentry Function mints/caches the 5-min /Connect/token JWT and attaches the bearer SERVER-SIDE (Key Vault refs); this connector is function-keyed only. The Function maps evaPayload12 (the schema-valid 12-field core, byte-identical to the drag-drop body) to the PascalCase Instruction/Inspection model and performs the TWO-REQUEST photo submission server-side (2 previews on /Instruction/Inspection, then the full set on /Note/SubmitNote). payloadHash echoes the idempotency latch; casePo (lowercase) -> ExternalRef; vrm (cr1bd_vrm) -> VehReg and clmNo (cr1bd_caseref) -> ClmNo are the claim keys the Note request uses to attach the remaining photos. Runs only when EVA_API_ENABLED=true. STAGED (plan: confirm on EVA TEST then enable): base-64 photo bytes are not yet streamed to the Function via body/images - the flow archives the image bytes to Box by storagepath, so today EVA renders the 12-field core and the photos live in the Box archive. To attach photos via the API, add a Get_evidence_content loop (Box CreateFile already proves the bytes are reachable) and pass body/images as [{sequenceIndex, content(base64), role, filename, registrationVisible}] - the Function already orders/splits them. [RESERVED-FOR-USER] to enable/cutover.",
+                  "comment": "Sentry REST path - the evasentry Function mints/caches the 5-min /Connect/token JWT and attaches the bearer SERVER-SIDE (Key Vault refs); this connector is function-keyed only. The Function maps evaPayload12 (the schema-valid 12-field core, byte-identical to the drag-drop body) to the PascalCase Instruction/Inspection model and performs the TWO-REQUEST photo submission server-side (2 previews on /Instruction/Inspection, then the full set on /Note/SubmitNote). payloadHash echoes the idempotency latch; casePo (lowercase) -> ExternalRef; vrm (cr1bd_vrm) -> VehReg and clmNo (cr1bd_caseref) -> ClmNo are the claim keys the Note request uses to attach the remaining photos. Runs only when EVA_API_ENABLED=true. STAGED (plan: confirm on EVA TEST then enable): base-64 photo bytes are not yet streamed to the Function via body/images - the flow reads each photo's bytes from Azure Blob (Get_blob_content_v2) and archives them to the Box folder, so today EVA renders the 12-field core and the photos live in the Box archive. To attach photos via the API, reuse the Get_blob_content_v2 bytes (already read per photo for the Box upload, which proves they are reachable) and pass body/images as [{sequenceIndex, content(base64), role, filename, registrationVisible}] - the Function already orders/splits them. [RESERVED-FOR-USER] to enable/cutover.",
                   "inputs": {
                     "host": { "connectionName": "shared_evasentry", "operationId": "InstructionInspection",
                       "apiId": "/providers/Microsoft.PowerApps/apis/shared_evasentry" },
@@ -152,11 +153,11 @@
                 "actions": {
                   "Stage_drag_drop_json": {
                     "type": "OpenApiConnection",
-                    "comment": "M1 default: emit the schema-valid 12-field JSON for staff drag-drop into EVA. Same serializer as the Code App - byte-identical. lowercase Case/PO filename.",
+                    "comment": "M1 default: emit the schema-valid 12-field JSON for staff drag-drop into EVA. Same serializer as the Code App - byte-identical. Box Create file with the path-based contract (folderPath, not folderId): folderPath = '/' + UPPERCASE Case/PO so the .eva.json lands in the SAME single per-case folder as the photos; name = lowercase Case/PO + '.eva.json'. A JSON string is already text content, so NO Get_blob_content is needed here (only the photo bytes needed the S2 fix).",
                     "inputs": {
                       "host": { "connectionName": "shared_box", "operationId": "CreateFile",
                         "apiId": "/providers/Microsoft.PowerApps/apis/shared_box" },
-                      "parameters": { "folderId": "@body('Create_box_folder_UPPERCASE')?['Id']",
+                      "parameters": { "folderPath": "@concat('/', toUpper(outputs('Get_case')?['body/cr1bd_casepo']))",
                         "name": "@concat(toLower(outputs('Get_case')?['body/cr1bd_casepo']), '.eva.json')",
                         "body": "@variables('evaPayload12')" }
                     },

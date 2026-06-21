@@ -359,3 +359,108 @@ def test_build_result_no_case_vrm_returns_best_candidate():
     assert out["vrm_match"] is None
     # Highest-confidence plausible plate wins when there is no case VRM to match.
     assert normalise_vrm(out["plate_text"]) == "XY99ZZZ"
+
+
+# --------------------------------------------------------------------------- #
+# tolerant decode — the connector gateway double-encode landmine               #
+# (memory powerplatform-connector-base64-double-encode)                        #
+# --------------------------------------------------------------------------- #
+def test_ocr_pdf_recovers_double_base64_encoded_document(monkeypatch):
+    # The Power Platform gateway can re-encode the base64 body a SECOND time. A
+    # naive single decode would hand the engine base64-ASCII, not a PDF. The
+    # handler must peel the redundant layer and pass real %PDF bytes to the seam.
+    real_pdf = b"%PDF-1.4 scanned image only\n%%EOF"
+    once = _b64(real_pdf)                       # what the flow SENDS
+    twice = base64.b64encode(once.encode("ascii")).decode("ascii")  # gateway re-encodes
+
+    seen = {}
+
+    def fake_run_ocr(document_bytes, filename, *, provider, provider_hint=None):
+        seen["bytes"] = document_bytes
+        return {"extraction": None, "vrm": None, "reference": None, "ocr_text": "x", "page_count": 1, "issues": []}
+
+    monkeypatch.setattr(ocr_pdf_adapter, "run_ocr", fake_run_ocr)
+    resp = function_app.ocr_pdf(_ocr_request({"document": twice, "filename": "scan.pdf"}))
+    assert resp.status_code == 200
+    # The seam received the genuine PDF bytes, not the still-base64 inner string.
+    assert seen["bytes"] == real_pdf
+
+
+def test_ocr_pdf_single_encoded_document_is_unchanged(monkeypatch):
+    # The normal (single-encoded) case must be untouched: a single decode already
+    # yields %PDF, so no second peel happens.
+    real_pdf = b"%PDF-1.7 ok"
+    seen = {}
+
+    def fake_run_ocr(document_bytes, filename, *, provider, provider_hint=None):
+        seen["bytes"] = document_bytes
+        return {"extraction": None, "vrm": None, "reference": None, "ocr_text": "x", "page_count": 1, "issues": []}
+
+    monkeypatch.setattr(ocr_pdf_adapter, "run_ocr", fake_run_ocr)
+    resp = function_app.ocr_pdf(_ocr_request({"document": _b64(real_pdf), "filename": "scan.pdf"}))
+    assert resp.status_code == 200
+    assert seen["bytes"] == real_pdf
+
+
+def test_plate_ocr_recovers_double_base64_encoded_image(monkeypatch):
+    # Same landmine on the image param: a double-encoded JPEG must be peeled so the
+    # seam receives real \xff\xd8\xff image bytes, not the inner base64 ASCII.
+    real_jpeg = b"\xff\xd8\xff\xe0\x00\x10JFIF fake jpeg body"
+    once = _b64(real_jpeg)
+    twice = base64.b64encode(once.encode("ascii")).decode("ascii")
+
+    seen = {}
+
+    def fake_read(image_bytes, filename, *, case_vrm=None, provider="fast_alpr"):
+        seen["bytes"] = image_bytes
+        return {
+            "plate_text": "AB12 CDE",
+            "confidence": 0.9,
+            "registration_visible": True,
+            "vrm_match": None,
+            "raw_candidates": [],
+            "issues": [],
+        }
+
+    monkeypatch.setattr(plate_adapter, "read_plate", fake_read)
+    resp = function_app.plate_ocr(_plate_request({"image": twice, "filename": "overview.jpg"}))
+    assert resp.status_code == 200
+    assert seen["bytes"] == real_jpeg
+
+
+def test_plate_ocr_single_encoded_png_is_unchanged(monkeypatch):
+    real_png = b"\x89PNG\r\n\x1a\n fake png body"
+    seen = {}
+
+    def fake_read(image_bytes, filename, *, case_vrm=None, provider="fast_alpr"):
+        seen["bytes"] = image_bytes
+        return {
+            "plate_text": "", "confidence": None, "registration_visible": False,
+            "vrm_match": None, "raw_candidates": [], "issues": [],
+        }
+
+    monkeypatch.setattr(plate_adapter, "read_plate", fake_read)
+    resp = function_app.plate_ocr(_plate_request({"image": _b64(real_png), "filename": "overview.png"}))
+    assert resp.status_code == 200
+    assert seen["bytes"] == real_png
+
+
+def test_peel_double_base64_leaves_unrecognised_payload_alone():
+    # A payload that is neither the expected magic NOR base64-of-it must pass
+    # through unchanged (downstream validation/engine then rejects genuine junk):
+    # the peel must never corrupt a legitimately single-encoded body.
+    junk = b"not a pdf and not base64-of-one"
+    assert function_app._peel_double_base64(junk, function_app._looks_like_pdf) == junk
+
+
+def test_looks_like_supported_image_recognises_magics():
+    # The plate-route magic-byte authority lives in plate_adapter; spot-check the
+    # formats the connector advertises so the tolerant decode sniffs them correctly.
+    assert plate_adapter.looks_like_supported_image(b"\xff\xd8\xff rest")           # jpeg
+    assert plate_adapter.looks_like_supported_image(b"\x89PNG\r\n\x1a\n rest")      # png
+    assert plate_adapter.looks_like_supported_image(b"BM bitmap")                   # bmp
+    assert plate_adapter.looks_like_supported_image(b"II*\x00 tiff")               # tiff (LE)
+    assert plate_adapter.looks_like_supported_image(b"RIFF\x00\x00\x00\x00WEBPVP8 ")  # webp
+    assert plate_adapter.looks_like_supported_image(b"\x00\x00\x00\x18ftypheic...")   # heic
+    assert not plate_adapter.looks_like_supported_image(b"%PDF-1.4")               # a PDF is not an image
+    assert not plate_adapter.looks_like_supported_image(b"random bytes")

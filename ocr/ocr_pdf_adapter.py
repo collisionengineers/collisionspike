@@ -77,6 +77,8 @@ EVA_KEY_FROM_PARSER_KEY: dict[str, str] = {
     "work_provider": "work_provider",
     "vehicle_model": "vehicle_model",
     "claimant_name": "claimant_name",
+    "claimant_telephone": "claimant_telephone",
+    "claimant_email": "claimant_email",
     "date_of_loss": "incident_date",
     "date_of_instruction": "instruction_date",
     "accident_circumstances": "accident_circumstances",

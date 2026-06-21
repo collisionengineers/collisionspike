@@ -31,17 +31,18 @@ import type {
 const NOT_CONFIGURED =
   'Data source not configured — call configureDataAccess(generatedServices) in main.tsx before writes.';
 
-const ZERO_LIVE: LiveCounts = { notReady: 0, review: 0, exceptions: 0 };
+const ZERO_LIVE: LiveCounts = { notReady: 0, review: 0, held: 0 };
 const ZERO_THROUGHPUT: Throughput = { inToday: 0, submittedToday: 0, clearedThisWeek: 0 };
 const ZERO_AGING: AgingExceptions = { rows: [], pastDueCount: 0, duplicateCount: 0, conflictCount: 0 };
 const ZERO_QUEUE_COUNTS: Record<QueueName, number> = {
-  'awaiting-images': 0,
-  'images-only': 0,
-  'ready-review': 0,
-  exceptions: 0,
+  'not-ready': 0,
+  review: 0,
+  held: 0,
 };
 
-/** The empty pipeline strip (all four stages at zero). */
+/** The empty pipeline strip (all four stages at zero). The dashboard hero
+    renders only the three backlog stages; the `submitted` total feeds the
+    "Sent to EVA (total)" throughput cell and the CaseDetail spine. */
 function emptyPipelineStages(): PipelineStage[] {
   const defs: { key: PipelineStageKey; label: string }[] = [
     { key: 'new', label: 'New' },
@@ -67,6 +68,7 @@ export const mockDataAccess: DataAccess = {
   createCase: (_input) => Promise.reject(new Error(NOT_CONFIGURED)),
   casesForQueue: (_name, _now) => Promise.resolve([]),
   openVrmTwins: (_vrm, _excludeCaseId) => Promise.resolve([]),
+  setOnHold: (_caseId, _onHold) => Promise.reject(new Error(NOT_CONFIGURED)),
 
   /* ----- Evidence ----- */
   imagesForCase: (_caseId) => Promise.resolve([]),
@@ -74,6 +76,10 @@ export const mockDataAccess: DataAccess = {
   /* ----- Providers ----- */
   providers: () => Promise.resolve([]),
   providerByCode: (_code) => Promise.resolve(undefined),
+
+  /* ----- Inspection-address suggestions (corpus; empty default) ----- */
+  inspectionAddressSuggestions: (_caseId) => Promise.resolve([]),
+  inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
 
   /* ----- Dashboard / queue aggregates ----- */
   liveCounts: (_now) => Promise.resolve(ZERO_LIVE),

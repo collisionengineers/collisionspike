@@ -44,6 +44,10 @@ _BASE_BACKOFF_S = 1.0
 # DVLA VES rate-limit / transient codes worth retrying (subset of dvla-errors).
 _RETRY_SAFE_STATUS = {429, 500, 502, 503, 504}
 
+# Non-secret default (also the dataclass field default below). Exposed so the
+# no-secrets self-check can report the resolved base without re-deriving it.
+DEFAULT_DVLA_API_BASE = "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry"
+
 
 class DvlaError(RuntimeError):
     """Non-recoverable DVLA failure (after the retry budget)."""
@@ -56,14 +60,14 @@ class DvlaNotConfigured(DvlaError):
 @dataclass
 class DvlaConfig:
     api_key: str = field(repr=False)
-    api_base: str = field(default="https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry")
+    api_base: str = field(default=DEFAULT_DVLA_API_BASE)
 
     @classmethod
     def from_env(cls) -> "DvlaConfig":
         api_key = os.environ.get("DVLA_API_KEY", "")
         api_base = (
             os.environ.get("DVLA_API_BASE", "").strip()
-            or "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry"
+            or DEFAULT_DVLA_API_BASE
         ).rstrip("/")
         if not api_key:
             raise DvlaNotConfigured("DVLA_API_KEY is not configured")

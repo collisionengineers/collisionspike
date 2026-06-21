@@ -236,6 +236,9 @@ const useStyles = makeStyles({
   },
   footerActions: { display: 'flex', gap: tokens.spacingHorizontalS, flexWrap: 'wrap' },
   creatingBar: { marginTop: tokens.spacingVerticalM },
+  /* MessageBar spacing nudges (kept off inline style props for theming parity). */
+  barBelow: { marginBottom: tokens.spacingVerticalM },
+  barAbove: { marginTop: tokens.spacingVerticalM },
 });
 
 /* EVA field clusters — same grouping as CaseDetail's review grid. Identity and
@@ -359,7 +362,9 @@ function FieldRow({ fieldKey, label, required, fields, onChange }: FieldRowProps
 
   return (
     <div className={styles.fieldRow}>
-      <Field label={required ? `${label} *` : label} {...validation}>
+      {/* Fluent's `required` renders the asterisk AND exposes the required
+          semantic to assistive tech (the hand-appended " *" did neither). */}
+      <Field label={label} required={required} {...validation}>
         {control}
       </Field>
       <div className={styles.fieldMeta}>
@@ -769,7 +774,7 @@ export function ManualIntake() {
       {(phase === 'review' || phase === 'creating') && fields && (
         <div className={styles.panel}>
           {warnings.length > 0 && (
-            <MessageBar intent="warning" style={{ marginBottom: tokens.spacingVerticalM }}>
+            <MessageBar intent="warning" className={styles.barBelow}>
               <MessageBarBody>
                 <MessageBarTitle>Check these details</MessageBarTitle>
                 {warnings.map((w) => w.message).join(' · ')}
@@ -797,7 +802,8 @@ export function ManualIntake() {
               <div className={styles.fieldWithAction}>
                 <Field
                   className={styles.fieldGrow}
-                  label="Vehicle Registration (VRM) *"
+                  label="Vehicle Registration (VRM)"
+                  required
                   hint="The vehicle's number plate."
                   {...(!vrm.trim()
                     ? { validationState: 'error' as const, validationMessage: 'Required' }
@@ -818,10 +824,10 @@ export function ManualIntake() {
 
             {/* Work provider + Principal — BOTH, separate (review #7). */}
             <div className={styles.pairRow}>
-              <Field label="Work provider *" hint="Provider display name, e.g. “Knightsbridge Solicitors”." {...(!provider.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
+              <Field label="Work provider" required hint="Provider display name, e.g. “Knightsbridge Solicitors”." {...(!provider.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
                 <Input value={provider} onChange={(_, d) => setProvider(d.value)} />
               </Field>
-              <Field label="Principal *" hint="4-char principal code, e.g. KBS." {...(!providerCode.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
+              <Field label="Principal" required hint="4-char principal code, e.g. KBS." {...(!providerCode.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
                 <Input value={providerCode} maxLength={8} onChange={(_, d) => setProviderCode(d.value.toUpperCase())} />
               </Field>
             </div>
@@ -829,7 +835,8 @@ export function ManualIntake() {
             {/* Case/PO — our internal reference (separate from the provider's). */}
             <div className={styles.fieldRow}>
               <Field
-                label="Case/PO *"
+                label="Case/PO"
+                required
                 hint="Our internal reference for the case."
                 {...(!casePo.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
               >
@@ -841,7 +848,8 @@ export function ManualIntake() {
             {/* Provider's reference / Claim No — the provider's own case number. */}
             <div className={styles.fieldRow}>
               <Field
-                label="Provider's reference / Claim No *"
+                label="Provider's reference / Claim No"
+                required
                 hint="The work provider's own case / claim number — not our Case/PO."
                 {...(!providerReference.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
               >
@@ -853,7 +861,8 @@ export function ManualIntake() {
             {/* Insured name. */}
             <div className={styles.fieldRow}>
               <Field
-                label="Insured Name *"
+                label="Insured Name"
+                required
                 {...(!insuredName.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
               >
                 <Input value={insuredName} onChange={(_, d) => setInsuredName(d.value)} />
@@ -896,7 +905,7 @@ export function ManualIntake() {
               <Field label="Make" hint="Filled by the vehicle lookup.">
                 <Input value={make} onChange={(_, d) => setMake(d.value)} />
               </Field>
-              <Field label={LABEL_FOR.vehicleModel.label + (LABEL_FOR.vehicleModel.required ? ' *' : '')} {...(LABEL_FOR.vehicleModel.required && !fields.vehicleModel.value.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
+              <Field label={LABEL_FOR.vehicleModel.label} required={LABEL_FOR.vehicleModel.required} {...(LABEL_FOR.vehicleModel.required && !fields.vehicleModel.value.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
                 <Input value={fields.vehicleModel.value} onChange={(_, d) => onFieldChange('vehicleModel', d.value)} />
               </Field>
             </div>
@@ -930,7 +939,8 @@ export function ManualIntake() {
               <div className={styles.fieldWithAction}>
                 <Field
                   className={styles.fieldGrow}
-                  label={LABEL_FOR.inspectionAddress.label + ' *'}
+                  label={LABEL_FOR.inspectionAddress.label}
+                  required
                   {...(!fields.inspectionAddress.value.trim()
                     ? { validationState: 'error' as const, validationMessage: 'Required' }
                     : {})}
@@ -968,7 +978,8 @@ export function ManualIntake() {
             {/* Inspect on (inspection date) — required, defaults to today (review #15). */}
             <div className={styles.fieldRow}>
               <Field
-                label="Inspect on (inspection date) *"
+                label="Inspect on (inspection date)"
+                required
                 hint="Defaults to today if the instructions carry no date. Format DD/MM/YYYY."
                 {...(!inspectOn.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
               >
@@ -982,7 +993,7 @@ export function ManualIntake() {
           </div>
 
           {missingRequired.length > 0 && (
-            <MessageBar intent="warning" style={{ marginTop: tokens.spacingVerticalM }}>
+            <MessageBar intent="warning" className={styles.barAbove}>
               <MessageBarBody>
                 <MessageBarTitle>Required before creating</MessageBarTitle>
                 {missingRequired.join(' · ')}

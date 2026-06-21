@@ -49,11 +49,12 @@
       "definition": "case-resolve.definition.json",
       "displayName": "Flow_CaseResolve",
       "planRef": "5.3",
-      "state": "off",
+      "state": "on",
+      "activatedLive": true,
       "authoringBoundary": "[BUILD]",
-      "activationBoundary": "[RESERVED-FOR-USER]",
-      "reservedReason": "Part of the live intake chain; ADR-0010 dedup writes Cases from real arrivals.",
-      "trigger": "Request (called by intake)"
+      "activationBoundary": "[CLAUDE-WIRED 2026-06-20]",
+      "activationNote": "Repurposed from the orphaned ADR-0010 dedup ladder to MERGE-BY-REGISTRATION: a single complementary instructions<->images pair on the same registration auto-merges into the instructions case (the one carrying the Case/PO), which re-runs status-evaluate and lands in Review when complete; more than one complementary candidate -> duplicate_risk/Held for staff (one reg can carry two legitimate claims, ADR-0010); zero -> no-op. Request-triggered child (no Office-365 webhook) so safe to edit + recompile (deactivate->reactivate). Turned ON live 2026-06-20 under the live-services override; the merge fires only on a genuine single complementary pair (none exist in the data today) and a human reviews every merged case, so live risk is low. Called by CS Intake via Run_case_resolve after Run_parse, non-blocking, with { caseId } — VERIFIED LIVE 2026-06-21 (live CS Intake invokes classify-persist/parse/status-evaluate/enrich/case-resolve). The repo intake.definition.json trails live (the call is not yet in the repo def) — reconcile before a solution re-import; live is authoritative.",
+      "trigger": "Request (called by intake via Run_case_resolve after parse — LIVE, verified 2026-06-21; repo intake def trails live)"
     },
     {
       "definition": "status-evaluate.definition.json",
@@ -142,9 +143,11 @@
   ],
   "summary": {
     "totalFlows": 12,
-    "stateOff": 12,
-    "stateOn": 0,
+    "stateOff": 11,
+    "stateOn": 1,
+    "activatedLive": ["case-resolve.definition.json"],
     "authoringAllBuild": true,
-    "activationAllReservedForUser": true
+    "activationAllReservedForUser": false,
+    "activationNote": "All flows ship off EXCEPT case-resolve (merge-by-registration), turned ON live 2026-06-20 under the live-services override (Claude wires activations directly). Every other flow's activation remains the operator's reserved step."
   }
 }

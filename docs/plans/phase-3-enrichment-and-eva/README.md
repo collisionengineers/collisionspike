@@ -3,6 +3,10 @@
 **Goal:** enrich a Case (DVSA/DVLA: make/model/mileage — **no VAT route**), export to EVA (JSON
 drag-drop now; Sentry REST later), archive to Box, and drive the readiness gate.
 
+> **Milestones in this phase** ([milestone-model](../milestone-model.md)): **3a** enrichment, **3b** EVA
+> JSON drag-drop, **3e** readiness gate = **M1**; **3c** EVA Sentry REST, **3c-Fn** EVA-validation
+> Function, **3d** Box archival = **M2**.
+
 **Status:** enrichment Function **deployed gated-OFF**; EVA JSON serializer built; EVA Sentry REST
 built (pytest 42/42, **deploy pending**); Box step built (off). See
 [../../../ROADMAP.md](../../../ROADMAP.md) Phase 3 and the M2 graph

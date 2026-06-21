@@ -22,6 +22,7 @@ import type { Case, Evidence, Provider, ActivityEvent } from '../mock/types';
 import {
   QUEUES,
   queueByName,
+  statusToQueue,
   statusToStage,
   REASON_LABELS,
   type QueueName,
@@ -38,10 +39,13 @@ import {
   caseFromRecord,
   evidenceFromRecord,
   providerFromRecord,
+  suggestionFromRecord,
+  isSuggestedAddressRecord,
   isAcceptedImageRecord,
   evaFieldsToColumns,
   evaFieldToProvenanceRow,
   statusToInt,
+  inspectionDecisionCodec,
   intakeChannelKindCodec,
 } from './adapter';
 import { EVA_FIELD_ORDER } from '../contracts/eva-export';
@@ -51,6 +55,8 @@ import type {
   CreateCaseResult,
   DataAccess,
   GeneratedServices,
+  InspectionAddressCounts,
+  SuggestedAddress,
 } from './types';
 
 /* ----------  Date helpers (ported verbatim from mock/queues.ts)  ---------- */
@@ -79,22 +85,22 @@ function startOfWeek(d: Date): Date {
 
 /** Filter an already-fetched Case[] for a queue (status membership). */
 function filterQueue(all: Case[], name: QueueName, _now: Date): Case[] {
-  const q = queueByName(name);
-  if (!q) return [];
-  return all.filter((c) => q.statuses.includes(c.status));
+  if (!queueByName(name)) return [];
+  // A staff-held case lives in Held regardless of its underlying status; every
+  // other case maps by status (terminal statuses own no active queue).
+  return all.filter((c) => (c.onHold ? 'held' : statusToQueue(c.status)) === name);
 }
 
 /** The cases that need a human — backs the dashboard "needs action" aging hero
-    list, its past-due/reason tallies, and the reason-facet chips. ALL FOUR
-    queues, exceptions INCLUDED: an errored case is actionable, and an overdue
-    one must still surface in the aging hero / pastDueCount / reasonCounts rather
-    than vanish because the exceptions queue was dropped (queues #4). */
+    list, its past-due/reason tallies, and the reason-facet chips. ALL THREE
+    queues, Held INCLUDED: a held/errored case is actionable, and an overdue one
+    must still surface in the aging hero / pastDueCount / reasonCounts rather
+    than vanish because the Held queue was dropped. */
 function actionableCases(all: Case[], now: Date): Case[] {
   return [
-    ...filterQueue(all, 'awaiting-images', now),
-    ...filterQueue(all, 'images-only', now),
-    ...filterQueue(all, 'ready-review', now),
-    ...filterQueue(all, 'exceptions', now),
+    ...filterQueue(all, 'not-ready', now),
+    ...filterQueue(all, 'review', now),
+    ...filterQueue(all, 'held', now),
   ];
 }
 
@@ -154,7 +160,10 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
 
   /** Fetch + adapt ALL cases (the dashboard/queue aggregates window over these). */
   async function allCases(now: Date): Promise<Case[]> {
-    const res = await services.cases.getAll();
+    // Newest-first, so a freshly-arrived case surfaces at the top of the list,
+    // the queues and the dashboard (Dataverse's default order is ~insertion,
+    // which buried new arrivals below older ones).
+    const res = await services.cases.getAll({ orderBy: ['createdon desc'] });
     return (res.data ?? []).map((rec) => caseFromRecord({ record: rec, now }));
   }
 
@@ -214,6 +223,11 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
         .filter((c) => !TERMINAL.has(c.status) && c.id !== excludeCaseId);
     },
 
+    setOnHold: async (caseId, onHold) => {
+      // Staff manual park/un-park; routes the case to (or out of) the Held queue.
+      await services.cases.update(caseId, { cr1bd_onhold: onHold });
+    },
+
     /* ----- Evidence ----- */
     imagesForCase: async (caseId) => {
       const res = await services.evidence.getAll({
@@ -237,15 +251,56 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       return rec ? providerFromRecord(rec) : undefined;
     },
 
+    /* ----- Inspection-address suggestions (corpus; ALWAYS suggestions) -----
+       The InspectionAddress table is added at deploy time (pac add-data-source);
+       until then `services.inspectionAddresses` is undefined and we return honest
+       empty results rather than throwing. */
+    inspectionAddressSuggestions: async (caseId): Promise<SuggestedAddress[]> => {
+      const svc = services.inspectionAddresses;
+      if (!svc) return [];
+      // Scope to the case's provider so the reviewer sees candidates for THIS
+      // provider first (corpus plan: provider-scoped). The suggested rows carry
+      // their provider code in the free-text source note, so fetch the suggested
+      // subset and filter client-side (a note substring isn't OData-filterable).
+      const caseRes = await services.cases.get(caseId);
+      // The case's principal lives in the work-provider value (e.g. 'AX'). The
+      // old `cr1bd_provider_code` column does not exist on the row, so reading it
+      // always yielded '' — which dropped through to "return all" and showed
+      // every provider's addresses. Read the work-provider value instead.
+      const providerCode = caseRes.data?.cr1bd_evaworkprovider?.trim() ?? '';
+      const res = await svc.getAll({
+        filter: "startswith(cr1bd_sourcelabel,'suggested')",
+      });
+      const all = (res.data ?? []).filter(isSuggestedAddressRecord).map(suggestionFromRecord);
+      if (!providerCode) return all;
+      const scoped = all.filter((s) => !s.providerCode || s.providerCode === providerCode);
+      // If the provider has no scoped candidates, fall back to all suggestions so
+      // the reviewer still sees the catalogue rather than an empty panel.
+      return scoped.length > 0 ? scoped : all;
+    },
+
+    inspectionAddressCounts: async (): Promise<InspectionAddressCounts> => {
+      const svc = services.inspectionAddresses;
+      if (!svc) return { confirmed: 0, suggested: 0 };
+      const res = await svc.getAll();
+      const rows = res.data ?? [];
+      let confirmed = 0;
+      let suggested = 0;
+      const confirmedInt = inspectionDecisionCodec.toInt('confirmed_physical');
+      for (const r of rows) {
+        if (isSuggestedAddressRecord(r)) suggested += 1;
+        else if (r.cr1bd_decisionmode === confirmedInt) confirmed += 1;
+      }
+      return { confirmed, suggested };
+    },
+
     /* ----- Dashboard / queue aggregates (window over the adapted set) ----- */
     liveCounts: async (now = new Date()): Promise<LiveCounts> => {
       const all = await allCases(now);
       return {
-        notReady:
-          filterQueue(all, 'awaiting-images', now).length +
-          filterQueue(all, 'images-only', now).length,
-        review: filterQueue(all, 'ready-review', now).length,
-        exceptions: filterQueue(all, 'exceptions', now).length,
+        notReady: filterQueue(all, 'not-ready', now).length,
+        review: filterQueue(all, 'review', now).length,
+        held: filterQueue(all, 'held', now).length,
       };
     },
 
@@ -288,10 +343,9 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     queueCounts: async (now = new Date()): Promise<Record<QueueName, number>> => {
       const all = await allCases(now);
       return {
-        'awaiting-images': filterQueue(all, 'awaiting-images', now).length,
-        'images-only': filterQueue(all, 'images-only', now).length,
-        'ready-review': filterQueue(all, 'ready-review', now).length,
-        exceptions: filterQueue(all, 'exceptions', now).length,
+        'not-ready': filterQueue(all, 'not-ready', now).length,
+        review: filterQueue(all, 'review', now).length,
+        held: filterQueue(all, 'held', now).length,
       };
     },
 
@@ -309,6 +363,11 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
 
     pipelineStages: async (): Promise<PipelineStage[]> => {
       const all = await allCases(new Date());
+      // All four buckets are computed. The dashboard hero renders only the three
+      // live-depth backlog stages (New/Not ready/Review); the `submitted`
+      // cumulative total feeds the "Sent to EVA (total)" throughput cell, and the
+      // CaseDetail spine uses `submitted` for the per-case "you are here". So the
+      // stage set stays four here — the hero filters to the backlog client-side.
       const defs: { key: PipelineStageKey; label: string }[] = [
         { key: 'new', label: 'New' },
         { key: 'not_ready', label: 'Not ready' },
@@ -317,9 +376,12 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       ];
       const counts = new Map<PipelineStageKey, number>(defs.map((d) => [d.key, 0]));
       for (const c of all) {
+        // On-hold cases are parked in Held, not a workflow-stage count — skip
+        // them from the funnel just like the Held statuses below.
+        if (c.onHold) continue;
         const k = statusToStage(c.status);
-        // `error` maps to undefined — an exception, counted in the exceptions
-        // bar/queue, never in the funnel (queues #1). Skip it here.
+        // `error`/`duplicate_risk` map to undefined — Held, counted in the Held
+        // bar/queue, never in the funnel. Skip here.
         if (k === undefined) continue;
         counts.set(k, (counts.get(k) ?? 0) + 1);
       }

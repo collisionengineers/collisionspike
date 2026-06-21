@@ -49,6 +49,10 @@
         "chasers": {
           "entitySetName": "cr1bd_chasers",
           "logicalName": "cr1bd_chaser"
+        },
+        "inspectionaddresses": {
+          "entitySetName": "cr1bd_inspectionaddresses",
+          "logicalName": "cr1bd_inspectionaddress"
         }
       },
       "environmentVariableName": ""

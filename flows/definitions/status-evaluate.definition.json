@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_StatusEvaluate (§5.4) — CHILD of intake (Run-a-Child-Flow). Mirrors collisioncc case-status.ts statusForReviewCase (re-implement, never call). Guard order (first hit wins): terminal? -> keep | required EVA fields missing -> missing_required_fields | image-rules fail -> missing_images | open review issues -> needs_review | else -> ready_for_eva. Idempotent: no write when status unchanged. READINESS FIX (task plan §3.6 Path 2): readiness is computed INLINE from Dataverse — the previous shared_evavalidation/ValidateCase connector had NO backing Function (no functions/validation/), so ready_for_eva was unreachable. fieldsValid = the 7 required EVA fields non-empty; imagesValid = the canonical image rule (>=2 accepted images incl >=1 overview with registrationVisible + >=1 damage_closeup) ported from mockup-app/src/contracts/image-rules.ts + readiness.ts. KNOWN SIMPLIFICATION vs the Code App computeReadiness(): per-field review-state (needs_review/conflict) is FieldLevelProvenance, not on the Case row, so openIssues is treated empty here (the needs_review branch is reachable only when a future provenance read is wired). [BUILD].",
+  "comment": "Flow_StatusEvaluate (§5.4) — CHILD of intake (Run-a-Child-Flow). Mirrors collisioncc case-status.ts statusForReviewCase (re-implement, never call). Guard order (first hit wins): terminal? -> keep. Else EVIDENCE-AWARE (FIX 3, replaces the old fields-first guard): fields+images -> ready_for_eva | fields, no images -> missing_images (awaiting photos) | images valid + fields missing -> missing_required_fields (genuine 'Images only' — REQUIRES real image evidence) | no accepted images AND no instruction evidence -> needs_review (pending/new, premature-error-safe) | else identifiable -> needs_review, unidentifiable -> error (Exceptions). instructionCount (List_instruction_evidence) + hasIdentity (work_provider/vrm/caseref/claimant) drive the new branches. Idempotent: no write when status unchanged. READINESS FIX (task plan §3.6 Path 2): readiness is computed INLINE from Dataverse — the previous shared_evavalidation/ValidateCase connector had NO backing Function (no functions/validation/), so ready_for_eva was unreachable. fieldsValid = the 7 required EVA fields non-empty; imagesValid = the canonical image rule (>=2 accepted images incl >=1 overview with registrationVisible + >=1 damage_closeup) ported from mockup-app/src/contracts/image-rules.ts + readiness.ts. KNOWN SIMPLIFICATION vs the Code App computeReadiness(): per-field review-state (needs_review/conflict) is FieldLevelProvenance, not on the Case row, so openIssues is treated empty here (the needs_review branch is reachable only when a future provenance read is wired). [BUILD].",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
     "$authentication": { "type": "SecureObject", "defaultValue": {} }
@@ -44,6 +44,20 @@
       "comment": "Accepted EVA image evidence for THIS case (kind Image=100000000, acceptedForEva=true, active). Excluded (person-reflection) rows are filtered out in-flow next (the connector cannot AND a possibly-null boolean cleanly). Evidence read (not cr1bd_cases) — the cross-provider guard is N/A here; scoping is by the case id.",
       "runAfter": { "Get_case": [ "Succeeded" ] }
     },
+    "List_instruction_evidence": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "cr1bd_evidences",
+          "$filter": "_cr1bd_caseid_value eq @{variables('caseId')} and cr1bd_kind eq 100000002 and statecode eq 0",
+          "$select": "cr1bd_evidenceid,cr1bd_kind"
+        }
+      },
+      "comment": "Active instruction-kind evidence (Instruction=100000002) for THIS case. Powers the evidence-aware status tree (FIX 3): lets Compute_next_status tell an instructions-only case (-> awaiting images) from a genuinely empty/unidentifiable one (-> error/Exceptions), and reserves missing_required_fields ('Images only') for cases that actually hold image evidence.",
+      "runAfter": { "List_case_evidence": [ "Succeeded" ] }
+    },
     "Filter_accepted_images": {
       "type": "Query",
       "inputs": {
@@ -51,7 +65,7 @@
         "where": "@not(equals(coalesce(item()?['cr1bd_excluded'], false), true))"
       },
       "comment": "isAcceptedEvaImage minus excluded: kind/accepted already enforced server-side; drop excluded here. Result = the accepted EVA image set.",
-      "runAfter": { "List_case_evidence": [ "Succeeded" ] }
+      "runAfter": { "List_instruction_evidence": [ "Succeeded" ] }
     },
     "Filter_overview_with_reg": {
       "type": "Query",
@@ -89,16 +103,30 @@
       "comment": "missingRequiredFieldKeys is empty <=> all 7 required EVA fields non-empty (trimmed): work_provider, vehicle_model, claimant_name, date_of_loss, date_of_instruction, accident_circumstances, inspection_address. The other 5 (telephone/email/vat/mileage/mileage_unit) are optional (required:false in eva-export.ts) and do NOT gate readiness.",
       "runAfter": { "Set_imagesValid": [ "Succeeded" ] }
     },
+    "Set_instructionCount": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "instructionCount", "type": "integer", "value": "@length(coalesce(outputs('List_instruction_evidence')?['body/value'], json('[]')))" } ] },
+      "comment": "Count of active instruction-kind evidence rows. Zero accepted images AND instructionCount=0 => nothing usable has arrived yet (pending/new) -> needs_review, NEVER a premature error.",
+      "runAfter": { "Set_fieldsValid": [ "Succeeded" ] }
+    },
+    "Set_hasIdentity": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "hasIdentity", "type": "boolean", "value": "@or(greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_evaworkprovider'], ''))), 0), or(greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_vrm'], ''))), 0), or(greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_caseref'], ''))), 0), greater(length(trim(coalesce(outputs('Get_case')?['body/cr1bd_evaclaimantname'], ''))), 0))))" } ] },
+      "comment": "Can the case be identified at all? principal (work_provider) OR vrm OR caseref OR claimant present. Routes an unidentifiable, image-less case to error (Exceptions) vs a partially-identified one to needs_review.",
+      "runAfter": { "Set_instructionCount": [ "Succeeded" ] }
+    },
     "Guard_terminal": {
       "type": "If",
       "expression": {
         "or": [
           { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000008 ] },
           { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000009 ] },
-          { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000010 ] }
+          { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000010 ] },
+          { "equals": [ "@outputs('Get_case')?['body/cr1bd_status']", 100000006 ] },
+          { "not": { "equals": [ "@coalesce(outputs('Get_case')?['body/statecode'], 0)", 0 ] } }
         ]
       },
-      "comment": "Terminal lock FIRST: eva_submitted=100000008, box_synced=100000009, error=100000010 never transition backward.",
+      "comment": "Terminal lock FIRST: eva_submitted=100000008, box_synced=100000009, error=100000010 never transition backward. HARDENING (2026-06-20 merge): also treat linked_to_instruction=100000006 AND any inactive case (statecode!=0) as terminal -> keep status, never attempt an update. This prevents a failed write when CS Intake's Run_status_evaluate fires on a case that CS Case Resolve has just merged/retired+deactivated (the image case in an instructions<->images registration merge). The SURVIVOR stays active (statecode=0) with a non-terminal status, so it is recomputed normally and can still reach ready_for_eva (caselinkstate Linked is intentionally NOT a terminal condition).",
       "actions": {
         "Keep_terminal": { "type": "Compose", "inputs": "terminal - no transition", "runAfter": {} }
       },
@@ -106,14 +134,14 @@
         "actions": {
           "Compute_next_status": {
             "type": "Compose",
-            "inputs": "@if(not(variables('fieldsValid')), 'missing_required_fields', if(not(variables('imagesValid')), 'missing_images', 'ready_for_eva'))",
-            "comment": "Guard order mirrors statusForReviewCase: missing_required_fields precedes missing_images precedes ready_for_eva. (The needs_review branch — open field-level review issues — is not reachable from the Case row alone in this slice; see the file comment. When FieldLevelProvenance is wired, insert it before ready_for_eva.)",
+            "inputs": "@if(and(variables('fieldsValid'), variables('imagesValid')), 'ready_for_eva', if(and(variables('fieldsValid'), not(variables('imagesValid'))), 'missing_images', if(and(not(variables('fieldsValid')), variables('imagesValid')), 'missing_required_fields', if(and(equals(length(body('Filter_accepted_images')), 0), equals(variables('instructionCount'), 0)), 'needs_review', if(variables('hasIdentity'), 'needs_review', 'error')))))",
+            "comment": "EVIDENCE-AWARE status tree (FIX 3). (1) fields+images -> ready_for_eva; (2) fields, no images -> missing_images (instructions parsed, awaiting photos); (3) images valid but fields missing -> missing_required_fields (genuine 'Images only' — REQUIRES real image evidence); (4) no accepted images AND no instruction evidence -> needs_review (pending/new; NEVER a premature error); (5) else identifiable -> needs_review, unidentifiable -> error (Exceptions). Fixes instructions-only cases mislabelled 'Images only' and routes genuinely-empty/unparseable cases to Exceptions.",
             "runAfter": {}
           },
           "Map_status_choice": {
             "type": "Compose",
-            "inputs": "@if(equals(outputs('Compute_next_status'),'missing_required_fields'),100000003,if(equals(outputs('Compute_next_status'),'missing_images'),100000004,if(equals(outputs('Compute_next_status'),'needs_review'),100000002,100000007)))",
-            "comment": "Bind to cr1bd_status integers: missing_required_fields=100000003, missing_images=100000004, needs_review=100000002, ready_for_eva=100000007.",
+            "inputs": "@if(equals(outputs('Compute_next_status'),'error'),100000010,if(equals(outputs('Compute_next_status'),'missing_required_fields'),100000003,if(equals(outputs('Compute_next_status'),'missing_images'),100000004,if(equals(outputs('Compute_next_status'),'needs_review'),100000002,100000007))))",
+            "comment": "Bind to cr1bd_status integers: error=100000010, missing_required_fields=100000003, missing_images=100000004, needs_review=100000002, ready_for_eva=100000007.",
             "runAfter": { "Compute_next_status": [ "Succeeded" ] }
           },
           "Patch_status_if_changed": {
@@ -154,7 +182,7 @@
           }
         }
       },
-      "runAfter": { "Set_fieldsValid": [ "Succeeded" ] }
+      "runAfter": { "Set_hasIdentity": [ "Succeeded" ] }
     },
     "Respond_to_parent": {
       "type": "Response",
@@ -163,14 +191,14 @@
         "statusCode": 200,
         "body": {
           "caseId": "@variables('caseId')",
-          "terminal": "@or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000008), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000009), equals(outputs('Get_case')?['body/cr1bd_status'], 100000010)))",
+          "terminal": "@or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000008), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000009), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000010), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000006), not(equals(coalesce(outputs('Get_case')?['body/statecode'], 0), 0))))))",
           "status": "@coalesce(outputs('Compute_next_status'), 'terminal')",
-          "statusCode": "@if(or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000008), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000009), equals(outputs('Get_case')?['body/cr1bd_status'], 100000010))), outputs('Get_case')?['body/cr1bd_status'], outputs('Map_status_choice'))",
+          "statusCode": "@if(or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000008), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000009), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000010), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000006), not(equals(coalesce(outputs('Get_case')?['body/statecode'], 0), 0)))))), outputs('Get_case')?['body/cr1bd_status'], outputs('Map_status_choice'))",
           "fieldsValid": "@variables('fieldsValid')",
           "imagesValid": "@variables('imagesValid')"
         }
       },
-      "comment": "Child-flow return action (required to be callable via Run-a-Child-Flow; mirrors classify-persist's Respond_to_parent / 'Respond to a PowerApp or flow'). Returns the readiness result: the resolved status label + cr1bd_status integer plus the two readiness predicates. Computed to be correct on BOTH Guard_terminal paths: on the terminal path Compute_next_status/Map_status_choice never ran (coalesce -> 'terminal' / the kept current status); on the else path they carry the computed next status. runAfter Guard_terminal on all completion outcomes so the child always returns.",
+      "comment": "Child-flow return action (required to be callable via Run-a-Child-Flow; mirrors classify-persist's Respond_to_parent / 'Respond to a PowerApp or flow'). Returns the readiness result: the resolved status label + cr1bd_status integer plus the two readiness predicates. Computed to be correct on BOTH Guard_terminal paths using the SAME 5 terminal conditions as Guard_terminal (cr1bd_status 100000008/9/10/6 OR statecode!=0): on the terminal path Compute_next_status/Map_status_choice never ran, so 'status' coalesces to 'terminal' while 'terminal' and 'statusCode' read cr1bd_status directly (terminal=true, statusCode=the kept current status — including the 100000006/inactive merge case); on the else path they carry the computed next status. runAfter Guard_terminal on all completion outcomes so the child always returns.",
       "runAfter": { "Guard_terminal": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
     }
   }
