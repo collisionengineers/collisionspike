@@ -13,7 +13,7 @@
  * Exit code 0 = all gates passed (skips allowed); nonzero = a gate failed.
  */
 import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -39,6 +39,32 @@ function skip(label, why) {
   results.push({ label, status: 'SKIP' });
 }
 
+// In-process gate (no subprocess): runs `fn()`, which throws to FAIL with a
+// message or returns a one-line PASS summary. Used for repo-static assertions
+// that don't need a build/test runner.
+function gate(label, fn) {
+  process.stdout.write(`\n=== ${label} ===\n`);
+  try {
+    const summary = fn();
+    console.log(summary || 'OK');
+    results.push({ label, status: 'PASS' });
+  } catch (e) {
+    console.log(e.message || String(e));
+    results.push({ label, status: 'FAIL' });
+  }
+}
+
+// Recursively collect files under `dir` whose name matches `extRe`.
+function collectFiles(dir, extRe, acc = []) {
+  if (!existsSync(dir)) return acc;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) collectFiles(full, extRe, acc);
+    else if (extRe.test(entry.name)) acc.push(full);
+  }
+  return acc;
+}
+
 // 1-2. Code App (React/Vite) — type-check + build, then the contract/domain/adapter unit tests.
 run('Code App — tsc + vite build', 'npm run build', { cwd: join(ROOT, 'mockup-app'), tail: 1 });
 run('Code App — vitest', 'npm run test', { cwd: join(ROOT, 'mockup-app'), tail: 3 });
@@ -60,6 +86,34 @@ for (const fn of ['parser', 'enrichment']) {
     skip(`Function ${fn} — pytest`, `no .venv. Setup: cd functions/${fn} && python -m venv .venv && (.venv/Scripts or .venv/bin)/pip install -r requirements.txt -r requirements-dev.txt`);
   }
 }
+
+// 7. Generated-service hand-edit guard — the pac generator (2.8.x) emits a
+//    `client.uploadFileToRecord(...)` call that the @microsoft/power-apps 1.0.3
+//    DataClient does NOT expose, so it does not compile. Cr1bd_evidencesService.ts
+//    carries a hand-edit replacing it (M1 binds Evidence read-only). A silent
+//    regeneration reintroduces the broken call; this gate FAILS if the literal
+//    reappears anywhere under mockup-app/src/generated/. READ-ONLY (never edits
+//    generated code). See DEPLOY-RUNBOOK.md "Generated-service hand-edit".
+gate('Code App — no uploadFileToRecord in generated services', () => {
+  const generatedDir = join(ROOT, 'mockup-app', 'src', 'generated');
+  const NEEDLE = 'client.uploadFileToRecord(';
+  // Match the live CALL, not the explanatory `//` comment in the hand-edited
+  // Cr1bd_evidencesService.ts (which legitimately names the broken API). Strip
+  // each line's trailing line-comment before testing so the documented mention
+  // does not trip the guard; a regenerated call is a statement, not a comment.
+  const hasCall = (src) =>
+    src.split('\n').some((line) => line.replace(/\/\/.*$/, '').includes(NEEDLE));
+  const files = collectFiles(generatedDir, /\.ts$/);
+  const offenders = files.filter((f) => hasCall(readFileSync(f, 'utf8')));
+  if (offenders.length) {
+    const list = offenders.map((f) => `  - ${f.slice(ROOT.length + 1)}`).join('\n');
+    throw new Error(
+      `Found the non-compiling \`${NEEDLE}\` call (pac-generator regression) in:\n${list}\n` +
+        'Re-apply the Cr1bd_evidencesService.ts hand-edit (read-only Evidence binding) — see DEPLOY-RUNBOOK.md.',
+    );
+  }
+  return `OK — scanned ${files.length} generated .ts file(s); no \`${NEEDLE}\`.`;
+});
 
 // Summary -------------------------------------------------------------------
 console.log('\n================ SUMMARY ================');

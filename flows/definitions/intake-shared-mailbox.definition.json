@@ -164,24 +164,32 @@
             },
             "runAfter": {}
           },
-          "Resolve_provider": {
+          "List_active_providers": {
             "type": "OpenApiConnection",
             "inputs": {
               "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
                 "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
               "parameters": {
                 "entityName": "cr1bd_workproviders",
-                "$filter": "cr1bd_active eq true and contains(cr1bd_knownemaildomains, '@{variables('senderDomain')}')",
-                "$select": "cr1bd_workproviderid,cr1bd_principalcode",
-                "$top": 2
+                "$filter": "cr1bd_active eq true and cr1bd_knownemaildomains ne null",
+                "$select": "cr1bd_workproviderid,cr1bd_principalcode,cr1bd_knownemaildomains"
               }
             },
-            "comment": "Resolve the WorkProvider by sender email domain (ADR-0011 domain-only match). Best-effort: If_one_provider runs after Succeeded OR Failed so a filter quirk or zero match never sinks the Case create. NOTE: this mirrors intake.definition.json's CURRENT Resolve_provider exactly (provider-match exact-membership hardening is tracked separately in intake.definition.json + provider-match.definition.json; this multi-inbox copy deliberately stays in lockstep with the live intake logic and is NOT the place to diverge).",
+            "comment": "ALL active providers that have any domains. EXACT membership is applied in-flow next (Filter_exact_domain). OData contains() over the knownEmailDomains Memo is an UNANCHORED substring test and would false-match (sender 'co.uk' inside 'carcompany.co.uk') -> unsafe Case/PO. Mirrors intake.definition.json + provider-match.definition.json + matchProviderByDomain. No $top: the Filter_exact_domain Query does the narrowing.",
             "runAfter": { "Audit_message_ingested": [ "Succeeded" ] }
+          },
+          "Filter_exact_domain": {
+            "type": "Query",
+            "inputs": {
+              "from": "@coalesce(outputs('List_active_providers')?['body/value'], json('[]'))",
+              "where": "@contains(split(replace(replace(toLower(coalesce(item()?['cr1bd_knownemaildomains'], '')), decodeUriComponent('%0D'), ''), ' ', ''), decodeUriComponent('%0A')), variables('senderDomain'))"
+            },
+            "comment": "Anchored exact membership: split the newline-separated knownEmailDomains memo (CRLF + spaces stripped, lowercased) into individual domains and test EXACT membership of senderDomain. 'co.uk' is a DISTINCT array element from 'carcompany.co.uk'. No substring/alias matching. Identical expression to intake.definition.json + provider-match.definition.json Filter_exact_domain; senderDomain is already lowercased upstream; matches the 15-seed-emaildomains.ps1 (-join '\\n', lowercased) storage format.",
+            "runAfter": { "List_active_providers": [ "Succeeded" ] }
           },
           "If_one_provider": {
             "type": "If",
-            "expression": { "equals": [ "@length(coalesce(outputs('Resolve_provider')?['body/value'], json('[]')))", 1 ] },
+            "expression": { "equals": [ "@length(body('Filter_exact_domain'))", 1 ] },
             "actions": {
               "Create_case_matched": {
                 "type": "OpenApiConnection",
@@ -197,10 +205,10 @@
                     "item/cr1bd_intakechannelkind": 100000000,
                     "item/cr1bd_intakechannelmanual": false,
                     "item/cr1bd_sourcemailbox": "@parameters('IntakeMailbox')",
-                    "item/cr1bd_Workproviderid@odata.bind": "@concat('/cr1bd_workproviders(', first(outputs('Resolve_provider')?['body/value'])?['cr1bd_workproviderid'], ')')"
+                    "item/cr1bd_Workproviderid@odata.bind": "@concat('cr1bd_workproviders(', first(body('Filter_exact_domain'))?['cr1bd_workproviderid'], ')')"
                   }
                 },
-                "comment": "Exactly one provider matched the sender domain -> create the Case (new_email) bound to it. cr1bd_sourcemailbox = the per-flow IntakeMailbox gives correct per-inbox attribution for free.",
+                "comment": "Exactly one provider matched the sender domain (anchored exact membership) -> create the Case (new_email) bound to it. cr1bd_sourcemailbox = the per-flow IntakeMailbox gives correct per-inbox attribution for free. @odata.bind uses the navigation-property form cr1bd_Workproviderid (capitalised nav prop) = cr1bd_workproviders(<guid>) with NO leading slash, reconciled with intake.definition.json + case-resolve.",
                 "runAfter": {}
               }
             },
@@ -227,8 +235,8 @@
                 }
               }
             },
-            "comment": "Graceful provider gating: bind only on an unambiguous single match; otherwise create unassigned. runAfter Succeeded+Failed so an unmatched/unavailable resolve still creates the Case.",
-            "runAfter": { "Resolve_provider": [ "Succeeded", "Failed" ] }
+            "comment": "Graceful provider gating: bind only on an unambiguous single anchored match; otherwise create unassigned. runAfter Succeeded+Failed so an unmatched/unavailable resolve still creates the Case.",
+            "runAfter": { "Filter_exact_domain": [ "Succeeded", "Failed" ] }
           }
         }
       },

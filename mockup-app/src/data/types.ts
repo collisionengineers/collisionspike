@@ -90,6 +90,38 @@ export interface CreateCaseResult {
   id: string;
 }
 
+/* ----------  Inspection-address SUGGESTIONS (always a suggestion)  ----------
+   A low-confidence candidate inspection location surfaced from the externally-
+   maintained corpus (cr1bd_inspectionaddress rows tagged
+   cr1bd_sourcelabel startswith 'suggested', cr1bd_decisionmode = unknown). These
+   are NEVER auto-confirmed and NEVER mirrored onto a Case — the reviewer must
+   pick one explicitly, which copies it into the manual 6-line draft and sets the
+   decision mode to manual (see CaseDetail "Suggested locations"). */
+export interface SuggestedAddress {
+  /** Catalogue row id (cr1bd_inspectionaddressid GUID). */
+  id: string;
+  /** The candidate address as up-to-6 lines (already split; blanks trimmed). */
+  lines: string[];
+  /** Normalised UK postcode, if present. */
+  postcode: string;
+  /** Provider principal code this candidate is associated with, if known. */
+  providerCode?: string;
+  /** The location value (loc) the candidate was matched on, if known. */
+  locValue?: string;
+  /** Free-text evidence/provenance note (source + detail) — shown in a tooltip. */
+  evidenceNote?: string;
+  /** The confidence band carried in the source label (e.g. 'candidate_multiple_addresses'). */
+  confidenceBand?: string;
+}
+
+/** Confirmed-vs-suggested split of the inspection-address corpus (Admin count). */
+export interface InspectionAddressCounts {
+  /** Confirmed reference rows (decisionMode confirmed_physical). */
+  confirmed: number;
+  /** Low-confidence suggestion rows (sourceLabel startswith 'suggested'). */
+  suggested: number;
+}
+
 export interface DataAccess {
   /* ----- Cases ----- */
   /** A single case by id (mock `caseById`). */
@@ -100,6 +132,8 @@ export interface DataAccess {
   casesForQueue(name: QueueName, now?: Date): Promise<Case[]>;
   /** Other OPEN cases sharing a VRM — the duplicate_risk "VRM twins" affordance. */
   openVrmTwins(vrm: string, excludeCaseId?: string): Promise<Case[]>;
+  /** Park / un-park a case (staff manual hold). On-hold cases route to the Held queue. */
+  setOnHold(caseId: string, onHold: boolean): Promise<void>;
 
   /* ----- Evidence ----- */
   /** Image-kind, non-excluded evidence for a case (mock `imagesForCase`). */
@@ -110,6 +144,17 @@ export interface DataAccess {
   providers(): Promise<Provider[]>;
   /** One provider by principalCode (mock `providerByCode`). */
   providerByCode(code: string): Promise<Provider | undefined>;
+
+  /* ----- Inspection-address suggestions (corpus; ALWAYS suggestions) ----- */
+  /**
+   * Low-confidence candidate inspection locations for a case (corpus rows tagged
+   * `cr1bd_sourcelabel` startswith 'suggested'), scoped to the case's provider.
+   * NEVER auto-applied — the reviewer picks one explicitly. Empty by default
+   * (the corpus table is added at deploy time; the empty source returns []).
+   */
+  inspectionAddressSuggestions(caseId: string): Promise<SuggestedAddress[]>;
+  /** Confirmed-vs-suggested split of the inspection-address corpus (Admin count). */
+  inspectionAddressCounts(): Promise<InspectionAddressCounts>;
 
   /* ----- Dashboard / queue aggregates ----- */
   /** Live-depth backlogs: needsAction / inProgress / ready (mock `liveCounts`). */
@@ -201,6 +246,7 @@ export interface CaseRecord {
   cr1bd_sourcemailbox?: string;
   cr1bd_actionreason?: number | null; // cr1bd_actionreason integer
   cr1bd_inspectiondecision?: number; // cr1bd_inspectiondecisionmode integer
+  cr1bd_onhold?: boolean; // staff manual hold -> Held queue
 
   cr1bd_datedue?: string | null; // ISO/Dataverse DateOnly
   cr1bd_inspectiondate?: string | null;
@@ -256,6 +302,27 @@ export interface EvidenceRecord {
   cr1bd_storagepath?: string;
   cr1bd_sourcemessageid?: string;
   cr1bd_sourcelabel?: string;
+}
+
+/** An InspectionAddress catalogue row (cr1bd_inspectionaddress logical names).
+    Suggestions are the subset whose cr1bd_sourcelabel starts with 'suggested'. */
+export interface InspectionAddressRecord {
+  cr1bd_inspectionaddressid?: string;
+  cr1bd_name?: string;
+  cr1bd_decisionmode?: number; // cr1bd_inspectiondecisionmode integer
+  cr1bd_decisionreason?: string;
+  /** Origin discriminator: 'suggested[:<status>]' marks a low-confidence row. */
+  cr1bd_sourcelabel?: string;
+  cr1bd_sourcenote?: string;
+  cr1bd_addressline1?: string;
+  cr1bd_addressline2?: string;
+  cr1bd_addressline3?: string;
+  cr1bd_addressline4?: string;
+  cr1bd_addressline5?: string;
+  cr1bd_addressline6?: string;
+  cr1bd_postcode?: string;
+  /** Repairer lookup (GUID), when the location IS a known repairer. */
+  _cr1bd_repairerid_value?: string;
 }
 
 /** A WorkProvider row (cr1bd_workprovider logical names). */
@@ -332,6 +399,14 @@ export interface GeneratedServices {
   cases: GeneratedTableService<CaseRecord>;
   evidence: GeneratedTableService<EvidenceRecord>;
   workProviders: GeneratedTableService<WorkProviderRecord>;
+  /**
+   * The InspectionAddress corpus table. OPTIONAL because it is added at DEPLOY
+   * time via `pac code add-data-source` (code-apps-preview:add-dataverse) — it is
+   * not yet in `src/generated/services/`. Until the operator wires it, the
+   * Dataverse source returns empty suggestions / zero counts (honest empty
+   * states), so the offline build stays green without a fabricated service.
+   */
+  inspectionAddresses?: GeneratedTableService<InspectionAddressRecord>;
   fieldProvenance: GeneratedTableService<FieldLevelProvenanceRecord>;
   notes: GeneratedTableService<NoteRecord>;
   chasers: GeneratedTableService<ChaserRecord>;

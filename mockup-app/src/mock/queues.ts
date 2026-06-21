@@ -3,23 +3,23 @@ import type { ActionReason, Case, CaseStatus } from './types';
 /* ============================================================
    Queue IA + dashboard TYPES + pure helpers.
 
-   REVIEW 190626 (nav-bar + dashboard + queues) reshaped the queue
-   information architecture. The old four queues (needs-action / in-progress /
-   ready / done) are replaced by the case's NATURAL state, surfaced as the four
-   sub-options under the first-class "Queues" nav button and as the tabs on the
-   merged queue page:
+   The queue information architecture is the case's NATURAL state, surfaced as
+   the sub-options under the first-class "Queues" nav button and as the tabs on
+   the merged queue page. THREE queues (revised 2026-06-20):
 
-     1. awaiting-images  — "Instructions (awaiting images)": we hold the
-                            instructions, we are waiting on the vehicle photos.
-     2. images-only      — "Images only": photos arrived without instructions.
-     3. ready-review     — "Ready for review": enough is present; a HUMAN must
-                            review before EVA submit (a full-auto provider would
-                            have been auto-submitted and never land here).
-     4. exceptions       — items that cannot pass through automatically (missing
-                            the basics — VRM / claimant — or errored).
+     1. not-ready  — "Not ready": arrived and progressing but not complete —
+                     instructions without images, images without instructions, a
+                     just-arrived case, or a merged case still missing a detail
+                     (e.g. the inspection address).
+     2. review     — "Review": everything required is present; the human-in-the-
+                     loop check before EVA submit (a full-auto provider would have
+                     auto-submitted and never land here).
+     3. held       — "Held": cannot pass through automatically (missing the basics
+                     — VRM / claimant — or errored), a possible duplicate awaiting
+                     a decision, or put on hold by a person.
 
-   "Done (today)" is no longer a queue PAGE (review nav-bar #3): terminal cases
-   appear in the dashboard throughput strip + Action Logs, never as a backlog.
+   "Done (today)" is not a queue PAGE: terminal cases appear in the dashboard
+   throughput strip + Action Logs, never as a backlog.
 
    PURE LAYER ONLY. This module defines the IA (QUEUES, statusToQueue,
    queueByName, caseTypeOf), the dashboard aggregate result types
@@ -34,10 +34,9 @@ import type { ActionReason, Case, CaseStatus } from './types';
 
 /* ----------  The four user-facing queues (sub-options under "Queues")  ---------- */
 export type QueueName =
-  | 'awaiting-images'
-  | 'images-only'
-  | 'ready-review'
-  | 'exceptions';
+  | 'not-ready'
+  | 'review'
+  | 'held';
 
 export interface QueueDef {
   name: QueueName;
@@ -54,50 +53,43 @@ export interface QueueDef {
 
 export const QUEUES: readonly QueueDef[] = [
   {
-    name: 'awaiting-images',
-    routeSegment: 'awaiting-images',
-    label: 'Instructions (awaiting images)',
-    shortLabel: 'Awaiting images',
-    // Instructions are in; we are chasing the vehicle photos.
-    statuses: ['missing_images'],
-    tone: 'muted',
-  },
-  {
-    name: 'images-only',
-    routeSegment: 'images-only',
-    label: 'Images only',
-    shortLabel: 'Images only',
-    // Photos are in; we are waiting on / parsing the instruction fields.
-    statuses: ['missing_required_fields'],
-    tone: 'muted',
-  },
-  {
-    name: 'ready-review',
-    routeSegment: 'ready-review',
-    label: 'Ready for review',
-    shortLabel: 'Ready for review',
-    // A PERSON must review before submit. `ready_for_eva` lives here too: a
-    // "ready" case still wants human sign-off unless its provider is full-auto
-    // (those auto-submit and never appear). Transient intake/link states surface
-    // here so nothing is invisible while it settles.
+    name: 'not-ready',
+    routeSegment: 'not-ready',
+    label: 'Not ready',
+    shortLabel: 'Not ready',
+    // Arrived and progressing, but not yet complete: waiting on images, waiting
+    // on instructions/fields, just-arrived/settling, or a merged case still
+    // missing a required detail (e.g. the inspection address).
     statuses: [
       'new_email',
       'ingested',
-      'linked_to_instruction',
+      'missing_images',
+      'missing_required_fields',
       'needs_review',
-      'duplicate_risk',
-      'ready_for_eva',
+      'linked_to_instruction',
     ],
+    tone: 'muted',
+  },
+  {
+    name: 'review',
+    routeSegment: 'review',
+    label: 'Review',
+    shortLabel: 'Review',
+    // Everything required is present — the human-in-the-loop check before EVA
+    // submit. (A full-auto provider would have auto-submitted and never appear.)
+    statuses: ['ready_for_eva'],
     tone: 'blocker',
   },
   {
-    name: 'exceptions',
-    routeSegment: 'exceptions',
-    label: 'Exceptions',
-    shortLabel: 'Exceptions',
-    // Cannot pass through automatically — errored, or missing the basics a case
-    // needs to exist at all (VRM / claimant). See queues review #3.
-    statuses: ['error'],
+    name: 'held',
+    routeSegment: 'held',
+    label: 'Held',
+    shortLabel: 'Held',
+    // Parked: cannot pass through automatically (errored, or missing the basics a
+    // case needs at all — VRM / claimant), a possible duplicate awaiting a
+    // decision, or put on hold by a person (the `onHold` flag, routed in the
+    // data source). See the case-status tree + dedup (ADR-0010).
+    statuses: ['error', 'duplicate_risk'],
     tone: 'blocker',
   },
 ];
@@ -117,16 +109,16 @@ export function queueByName(name: string): QueueDef | undefined {
    spine ("you are here"), so the funnel, the spine and the queues agree.
 
    The funnel is the FLOW New → Not ready → Review → Submitted; it deliberately
-   has NO exceptions stage. `error` is an exception, surfaced via the Exceptions
-   queue + the dashboard exceptions bar + the aging hero — never as a funnel
-   count — so it maps to `undefined` here (callers exclude it from the strip).
-   Buckets agree 1:1 with the QUEUES taxonomy:
-     - new        ← new_email, ingested            (intake; see queues #8)
-     - not_ready  ← missing_images, missing_required_fields
-     - review     ← needs_review, duplicate_risk,
-                    linked_to_instruction, ready_for_eva
+   has NO held stage. `error` and `duplicate_risk` are Held — surfaced via the
+   Held queue + the dashboard held bar + the aging hero — never a funnel count —
+   so they map to `undefined` here (callers exclude them from the strip).
+   Buckets align with the QUEUES taxonomy:
+     - new        ← new_email, ingested            (intake/settling)
+     - not_ready  ← missing_images, missing_required_fields, needs_review,
+                    linked_to_instruction
+     - review     ← ready_for_eva
      - submitted  ← eva_submitted, box_synced
-     - (none)     ← error                          (Exceptions only; queues #1) */
+     - (none)     ← error, duplicate_risk          (Held only) */
 export function statusToStage(status: CaseStatus): PipelineStageKey | undefined {
   switch (status) {
     case 'new_email':
@@ -134,17 +126,17 @@ export function statusToStage(status: CaseStatus): PipelineStageKey | undefined 
       return 'new';
     case 'missing_images':
     case 'missing_required_fields':
-      return 'not_ready';
     case 'needs_review':
-    case 'duplicate_risk':
     case 'linked_to_instruction':
+      return 'not_ready';
     case 'ready_for_eva':
       return 'review';
     case 'eva_submitted':
     case 'box_synced':
       return 'submitted';
     case 'error':
-      return undefined; // Exceptions only — never inflates a funnel stage.
+    case 'duplicate_risk':
+      return undefined; // Held — never inflates a funnel stage.
   }
 }
 
@@ -228,12 +220,12 @@ export function caseTypeOf(
    awaiting queues (review dashboard Area 1a); "Review" is the human-review depth
    (review dashboard Area 1b — a "ready" case still counts as review). */
 export interface LiveCounts {
-  /** Awaiting images + images-only — not yet reviewable ("Not ready"). */
+  /** Not ready — arrived but not complete (awaiting images / instructions / details). */
   notReady: number;
-  /** Ready for review (human sign-off pending, incl. ready-for-EVA). */
+  /** Review — everything present; the human-in-the-loop check before EVA. */
   review: number;
-  /** Cannot pass through automatically. */
-  exceptions: number;
+  /** Held — can't pass through automatically, a possible duplicate, or on hold. */
+  held: number;
 }
 
 /* ----------  WINDOWED THROUGHPUT (today / this week)  ---------- */

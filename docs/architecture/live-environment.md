@@ -19,7 +19,7 @@
 | Resource | Name / detail |
 |---|---|
 | **Parser Function** (Flex Consumption FC1, Linux) | `cespike-parser-dev-x7xt3d5ovhi7y` → `https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net`, route `POST /api/parse`, body `{document(base64), filename}`, `authLevel=function`. Platform CORS allows `https://apps.powerapps.com`. The function key now lives **only on the parser connection** (`01b43be8…`, see below) — the old raw-fetch path (`mockup-app/src/data/parser-config.ts`) was **deleted 2026-06-19**, so the key is no longer in the client bundle. **REDEPLOYED 2026-06-19**: B2 claimant telephone/email extraction live; EVA schema now vendored in-package (`functions/parser/contracts/`) so `/api/parse` no longer emits a spurious `schema_unavailable` issue. |
-| **Enrichment Function** (gated OFF) | `cespkenrich-fn-gi62sd` — calls DVSA + DVLA **directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway** (B1 obviated). KV `cespkenrichkv…`. |
+| **Enrichment Function** (**ACTIVATED 2026-06-20**) | `cespkenrich-fn-gi62sd` — calls DVSA + DVLA **directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway** (B1 obviated). KV `cespkenrichkv…`. **`ENRICHMENT_ENABLED=true`** (Dataverse gate flipped 2026-06-20). Live-verified: `BC23JZE`→`REXTON`/SSANGYONG, `L333FGN`→`220I M SPORT AUTO`/BMW. DVSA/DVLA creds present as **plain app settings** (bicep intends KV refs — hygiene deviation). Mileage = MOT-odometer estimate only (near-new vehicles return none, by design). |
 | **Address-match Function** (FC1, Linux) — **deployed 2026-06-19** | `cespkaddr-fn-i7m4re` → route `POST /api/match-address`, `authLevel=function`. Part-postcode `Loc` → inspection address via **postcode.io** (`AZURE_MAPS_ENABLED=false`). Live-verified (district match + postcode.io reachable). No secrets, no Key Vault. ROADMAP 4a. |
 | **OCR host** (Azure Container Apps) — **image ready, host deploy PENDING** (2026-06-19) | Image `ce-ocr:latest` is **built + pushed** to ACR (the hard part — see ACR row). The ACA host deploy (`ocr/infra/main.bicep`, routes `/api/ocr-pdf` + `/api/plate-ocr`, `minReplicas=0`) **failed 3×** — `ContainerAppOperationError: Failed to provision revision … Operation expired` (~20 min each), so the platform rolled back the site (no `cespkocr-fn-…` exists). Adapters already lazy-import the heavy libs, so it is **not** a startup crash — most likely the AcrPull RBAC-propagation race (system-assigned MI granted AcrPull in the same deploy) or an ingress health-probe mismatch. **Next:** use a pre-granted **user-assigned MI** for AcrPull, or inspect ACA revision logs. NOT live. ROADMAP 5a / B-full. |
 | **Container Registry** (Basic) — **created 2026-06-19** | `cespkocracraeee76` (`cespkocracraeee76.azurecr.io`), admin user **off** (identity-based AcrPull). Holds **`ce-ocr:latest`** (digest `sha256:9f1b26…`) — the built OCR image, ready for the host once its revision provisions. |
@@ -38,7 +38,7 @@
 |---|---|
 | Solution **CollisionSpike** (schema) | id `fb532f91-f26a-f111-ab0c-0022481b614c`, unmanaged, prefix **`cr1bd`** |
 | Solution **CollisionSpikeFlows** (flows) | id `41c87a85-f191-409e-af50-7d1d972c881a`, unmanaged |
-| Data loaded | WorkProvider 392 (176 active / 216 archived), Repairer 61, ImageSource 23, InspectionAddress 174, 98 N:N links. `cr1bd_cases` started at 0 (now contains real email-sourced test rows). |
+| Data loaded | WorkProvider 392 (176 active / 216 archived), Repairer 61, ImageSource 23, InspectionAddress 871 (refreshed S14), 98 N:N links. `cr1bd_cases` **0 — all test cases + evidence + audit events cleared 2026-06-20** for a clean re-test (corpus tables untouched). |
 
 ## Connection references (logical name → connector → connection id)
 Bound = has a connection; **empty = NOT yet connected** (operator must create the connection).
@@ -46,10 +46,10 @@ Bound = has a connection; **empty = NOT yet connected** (operator must create th
 |---|---|---|---|---|
 | `cr1bd_sharedmailbox_office365` | CollisionSpike Shared Mailbox (Outlook) | `shared_office365` | `bd752b83172a4e99b3db595942f1b30f` | **Bound** (digital@, Connected) |
 | `cr1bd_dataverse` | CollisionSpike Dataverse | `shared_commondataserviceforapps` | `c1c7d4e6c3ad40ab9ac7ac63dcfd02c0` | **Bound** |
-| `cr1bd_ceparser` | CollisionSpike CE Parser | **`new_collision-20engineers-20parser`** | `01b43be8542148efbcd1284b8ca64013` | **Bound** ("Collision Engineers Parser", Connected). Connector updated to expose the `api_key` parameter (the `x-functions-key` was previously undefined); `pac code add-data-source` generated `CollisionEngineersParserService`. |
+| `cr1bd_ceparser` | CollisionSpike CE Parser | **`new_collision-20engineers-20parser`** | `01b43be8542148efbcd1284b8ca64013` | **Bound** ("Collision Engineers Parser", Connected). Connector updated to expose the `api_key` parameter (the `x-functions-key` was previously undefined); `pac code add-data-source` generated `CollisionEngineersParserService`. **⚠️ `document` MUST stay plain `{type:string}` — never add `format:byte`/`x-ms-media-kind` (the gateway then re-encodes the base64 → parser 422 `document_unreadable`); the flow passes the **RAW base64 string** (NOT `base64ToBinary` — that feeds the gateway binary → **HTTP 400**, proven live 2026-06-20 `test34`) and the **tolerant** parser decode is the load-bearing safeguard. Memory `powerplatform-connector-base64-double-encode`.** |
 | `cr1bd_evidenceblob` | CollisionSpike Evidence Blob | `shared_azureblob` | _(none)_ | Unbound (later phase) |
 | `cr1bd_box` | CollisionSpike Box Archive | `shared_box` | _(none)_ | Unbound (later phase) |
-| `cr1bd_dvsaenrich` | CollisionSpike DVSA Enrichment | `shared_dvsaenrich` | _(none)_ | Unbound (gated) |
+| `cr1bd_dvsaenrich` | CollisionSpike DVSA Enrichment | `shared_dvsaenrich` | `ce0d69449a88437699c27dcaad721c56` | **Bound** (Connected → `cespkenrich-fn-gi62sd`; gate `ENRICHMENT_ENABLED=true` 2026-06-20) |
 | `cr1bd_evavalidation` | CollisionSpike EVA Validation | `shared_evavalidation` | _(none)_ | Unbound (gated) |
 | `cr1bd_evasentry` | CollisionSpike EVA Sentry | `shared_evasentry` | _(none)_ | Unbound (gated) |
 | `cr1bd_jobsheet_excel` | CollisionSpike Job Sheet (Excel) | `shared_excelonlinebusiness` | _(none)_ | Unbound (later phase) |
@@ -59,11 +59,11 @@ Bound = has a connection; **empty = NOT yet connected** (operator must create th
 |---|---|---|---|
 | `92131f3d-9cd5-4e88-aa9e-a5705a5850a0` | **CS Intake (shared mailbox)** | **ON** ✅ | Email→Case. Trigger rebuilt to `OnNewEmailV3` (own mailbox, Inbox, concurrency=1). Internal workflow guid `8d534fc9-9058-a6f4-4dfd-245b350703b5`. |
 | `0f610d7c-e928-440a-bd6e-69420637446e` | CS Provider Match | **ON** | Sender-domain → WorkProvider (needs `knownemaildomains` seeded). |
-| `1ddb50a5-1036-40b2-a3aa-e071071e7021` | CS Case Resolve (ADR-0010 dedup) | **ON** | VRM/ref dedup ladder. |
-| `2a6236f9-f0d2-473d-953d-ac5c27320522` | CS Classify + Persist | OFF | Attachments → Blob + Evidence rows. |
-| `468ffd29-6e62-42c2-8e2d-9500f51147fc` | CS Parse (PDF mapper) | OFF | Calls the parser connector. |
-| `4d963ff7-7f14-40e5-aa3c-07b741b0cba5` | CS Status Evaluate | OFF | Image-rules / status machine. |
-| `4e0f301f-8b21-48cc-8f4f-00b062fc7463` | CS Enrich (DVSA MOT) | OFF | Mileage/MOT enrichment (gated). |
+| `1ddb50a5-1036-40b2-a3aa-e071071e7021` | CS Case Resolve (merge-by-registration) | **ON** ✅ | Instructions↔images same-VRM auto-merge; >1 candidate → Held. Wired into live CS Intake (`Run_case_resolve` after parse, verified 2026-06-21). Repo `intake.definition.json` trails live. |
+| `2a6236f9-f0d2-473d-953d-ac5c27320522` | CS Classify + Persist | **ON** ✅ | Attachments → Blob + Evidence rows. |
+| `468ffd29-6e62-42c2-8e2d-9500f51147fc` | CS Parse (PDF mapper) | **ON** ✅ | Calls the parser connector. Inspection: AX default + (2026-06-20) parser emits canonical "Image Based Assessment" for image-based/desktop docs. |
+| `4d963ff7-7f14-40e5-aa3c-07b741b0cba5` | CS Status Evaluate | **ON** ✅ | Image-rules / status machine. |
+| `4e0f301f-8b21-48cc-8f4f-00b062fc7463` | CS Enrich (DVSA MOT) | **ON** ✅ | Mileage/MOT + vehicle-model enrichment. `ENRICHMENT_ENABLED=true` (2026-06-20); writes into empty fields only. |
 | `8d70ba4c-3a5b-49bb-a499-4198bb4e9067` | CS Finalize EVA + Box | OFF | EVA submit + Box archive (gated). |
 | `1f048996-843c-40fc-9aed-1a9854e6922b` | CS Chaser Draft (draft-only) | OFF | Chaser reminders. |
 | `43552b6f-e362-432c-bc88-59c786903e27` | CS Job Sheet Import | OFF | Excel job-sheet import. |
@@ -79,10 +79,12 @@ Bound = has a connection; **empty = NOT yet connected** (operator must create th
 
 ## Current vs intended (M1 pipeline)
 Intended chain: **intake → classify-persist → parse → provider-match → case-resolve → status-evaluate →
-enrich → finalize (EVA+Box) → chasers**. **Live today:** intake ✅, provider-match ✅, case-resolve ✅.
-**Not yet on:** classify-persist, parse, status-evaluate, enrich, finalize, chasers, job-sheet — so an
-email creates a Case, but attachments/evidence/parse/status/EVA do **not** advance until those are
-turned on/wired. Manual-intake parse in the Code App is **no longer CSP-blocked** — it is now routed
+enrich → finalize (EVA+Box) → chasers**. **Live today (2026-06-20):** intake ✅, classify-persist ✅,
+parse ✅, provider-match ✅, case-resolve ✅, status-evaluate ✅, enrich ✅ (`ENRICHMENT_ENABLED=true`).
+**Not yet on:** finalize (EVA+Box — gated, no EVA creds), chasers, job-sheet import. So an email now
+creates a Case, persists evidence, parses, matches the provider, dedups/merges, evaluates status, and
+enriches vehicle/mileage — but EVA submit + Box archive do **not** advance until finalize is wired.
+Manual-intake parse in the Code App is **no longer CSP-blocked** — it is now routed
 via the CE Parser connector (`cr1bd_ceparser` / `new_collision-20engineers-20parser`, bridged by
 `src/data/parser-connector-transport.ts`); the old raw-fetch transport was removed (2026-06-19).
 

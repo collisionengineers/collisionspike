@@ -50,6 +50,12 @@ logger = logging.getLogger("enrichment.dvsa")
 # Microsoft Entra token authority (tenant-scoped v2.0 client-credentials).
 _TOKEN_AUTHORITY = "https://login.microsoftonline.com"
 
+# Non-secret defaults (also the dataclass field defaults below). Exposed so the
+# no-secrets self-check can report the RESOLVED endpoints without re-deriving the
+# literals. Verified against the DVSA MOT History API docs.
+DEFAULT_DVSA_SCOPE = "https://tapi.dvsa.gov.uk/.default"
+DEFAULT_DVSA_API_BASE = "https://history.mot.api.gov.uk"
+
 # Per-request timeout (seconds). DVSA is a public-cloud API; bound the wait.
 _DEFAULT_TIMEOUT_S = 20.0
 
@@ -66,6 +72,15 @@ _BASE_BACKOFF_S = 1.0
 
 # DVSA upstream error codes that are safe to retry (from dvladvsa errors.ts).
 _RETRY_SAFE_CODES = {"MOTH-FB-02", "MOTH-RL-02", "MOTH-UN-01"}
+
+# Transient HTTP statuses that are safe to retry regardless of the response body
+# (parity with the DVLA client). DVSA documents 429 Too Many Requests for both
+# the RPS (15) and burst (10) limits and returns 5xx on upstream faults; a bare
+# 429 with no/!=errorCode body must still back off rather than soft-fail.
+# Verified against https://documentation.history.mot.api.gov.uk/mot-history-api/rate-limits/
+# (RPS 15, burst 10, daily quota 500,000; over-limit -> 429; backoff is the
+# documented remedy).
+_RETRY_SAFE_STATUS = {429, 500, 502, 503, 504}
 
 
 class DvsaError(RuntimeError):
@@ -102,8 +117,8 @@ class DvsaConfig:
     tenant_id: str
     client_id: str
     client_secret: str = field(repr=False)
-    scope: str = field(default="https://tapi.dvsa.gov.uk/.default")
-    api_base: str = field(default="https://history.mot.api.gov.uk")
+    scope: str = field(default=DEFAULT_DVSA_SCOPE)
+    api_base: str = field(default=DEFAULT_DVSA_API_BASE)
     api_key: str = field(default="", repr=False)
 
     @classmethod
@@ -112,8 +127,8 @@ class DvsaConfig:
         client_id = os.environ.get("DVSA_CLIENT_ID", "").strip()
         client_secret = os.environ.get("DVSA_CLIENT_SECRET", "")
         api_key = os.environ.get("DVSA_API_KEY", "")
-        scope = os.environ.get("DVSA_SCOPE", "").strip() or "https://tapi.dvsa.gov.uk/.default"
-        api_base = (os.environ.get("DVSA_API_BASE", "").strip() or "https://history.mot.api.gov.uk").rstrip("/")
+        scope = os.environ.get("DVSA_SCOPE", "").strip() or DEFAULT_DVSA_SCOPE
+        api_base = (os.environ.get("DVSA_API_BASE", "").strip() or DEFAULT_DVSA_API_BASE).rstrip("/")
 
         missing = [
             name
@@ -265,7 +280,13 @@ class DvsaClient:
 
         if resp.status_code >= 400:
             code = self._error_code(resp)
-            if code in _RETRY_SAFE_CODES and attempt < _MAX_RETRIES:
+            # Retry-safe if EITHER a documented retry-safe errorCode is present OR
+            # the bare HTTP status is transient (429 rate-limit / 5xx). The latter
+            # mirrors the DVLA client and covers a 429 whose body has no/!=errorCode
+            # (e.g. an API-management throttle response). Verified: DVSA returns 429
+            # Too Many Requests on the RPS/burst limits.
+            retry_safe = code in _RETRY_SAFE_CODES or resp.status_code in _RETRY_SAFE_STATUS
+            if retry_safe and attempt < _MAX_RETRIES:
                 self._backoff(attempt)
                 return self._get_with_retry(path, attempt=attempt + 1, refreshed=refreshed)
             # Never include the body verbatim.

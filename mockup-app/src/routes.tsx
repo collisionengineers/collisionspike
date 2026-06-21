@@ -14,7 +14,7 @@ import ActionLogs from './screens/ActionLogs';
    /                      → Dashboard
    /intake                → ManualIntake (new case)
    /evidence              → AddEvidence (second intake — link evidence to a case)
-   /queue/:name           → CaseList (name = awaiting-images|images-only|ready-review|exceptions)
+   /queue/:name           → CaseList (name = not-ready|review|held)
    /case/:caseId          → CaseDetail
    /case/:caseId/submit   → CaseDetail with EvaSubmitDialog overlaid (nested)
    /case/:caseId/dedup    → CaseDetail with DedupDecisionDialog overlaid (Surface B)

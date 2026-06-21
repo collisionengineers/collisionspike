@@ -39,8 +39,10 @@ docs/
   README.md          the docs index
 ```
 
-**Where things live / precedence.** Canonical phase taxonomy is **ROADMAP's Phase 0–6** (M1 = Phase 1;
-M2 = Phases 3–5). Roles: **ROADMAP** = forward checklist · **CURRENT_STATUS** = live now ·
+**Where things live / precedence.** Phases (**ROADMAP 0–6**) are the **work-breakdown** axis;
+Milestones (**M0/M1/M2/M3**) are **capability slices that cut across phases** — authoritative map in
+[docs/plans/milestone-model.md](./docs/plans/milestone-model.md). **Never equate a Phase with a
+Milestone** (e.g. Phase 3 holds M1 EVA drag-drop *and* M2 EVA-REST; valuation in 5c is M3). Roles: **ROADMAP** = forward checklist · **CURRENT_STATUS** = live now ·
 **docs/gated.md** = needs the operator · **docs/plans/&lt;phase&gt;/README.md** = the ordered build steps.
 When docs disagree, precedence is: a **binding review** (docs/reviews/&lt;DDMMYY&gt;/) > **ADRs** >
 **architecture/requirements** specs > **plans** — reconcile the older/lower doc to the higher one.

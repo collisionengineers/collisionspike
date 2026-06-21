@@ -78,11 +78,30 @@ param keyVaultName string = ''
 @description('Key Vault secret name holding the Document Intelligence Read key. The VALUE is RESERVED-FOR-USER. Wired only when keyVaultName is set.')
 param docintelKeySecretName string = 'docintel-read-key'
 
-@description('Document Intelligence resource endpoint (non-secret). Required only when using the docintel provider.')
+@description('Document Intelligence resource endpoint (non-secret). Required only when using the docintel provider AND not provisioning DI here (deployDocIntel=false). When deployDocIntel=true this is IGNORED and the endpoint is taken from the provisioned account output (self-wired).')
 param docintelEndpoint string = ''
 
 @description('Document Intelligence REST API version.')
 param docintelApiVersion string = '2024-11-30'
+
+// --- Document Intelligence provisioning gate (NEW, DEFAULT OFF) ---------------
+// The opt-in switch for whether THIS deploy provisions a managed Document
+// Intelligence ("Document AI") account (docintel.bicep) for the OCR host's
+// fallback engine. Default false keeps DI UNPROVISIONED and the host on its
+// in-container Tesseract/fast-alpr defaults — provisioning DI is a deliberate
+// spend decision and is gated OFF until the operator opts in. Distinct from the
+// Dataverse env-var gates (OCR_SCANNED_PDF_ENABLED / PLATE_OCR_ENABLED), which
+// are checked UPSTREAM and decide whether scanned PDFs/photos route here AT ALL;
+// this gate is purely about creating the DI resource + wiring its endpoint/key.
+@description('NEW gate (default OFF). When true, provision a managed Azure AI Document Intelligence account (docintel.bicep) and self-wire its endpoint + the DOCINTEL_ENABLED app setting. Default false = DI unprovisioned; host stays on in-container Tesseract/fast-alpr. Provisioning DI is a spend decision — keep OFF until opted in.')
+param deployDocIntel bool = false
+
+@description('Pricing tier for a provisioned Document Intelligence account (only when deployDocIntel=true). F0 = free (500 pages/mo, one per subscription+region); S0 = paid standard.')
+@allowed([
+  'F0'
+  'S0'
+])
+param docintelSku string = 'F0'
 
 @description('Tags applied to every resource.')
 param tags object = {
@@ -132,6 +151,19 @@ var wireDocintel = !empty(keyVaultName)
 // pre-granted UAMI (which is, by definition, bound to an existing registry — see
 // the precondition above). This makes useUami + new-ACR structurally impossible.
 var createAcr = empty(existingAcrName) && !useUami
+
+// Document Intelligence account name (only used when deployDocIntel=true). Derived
+// like the other resources so it is unique + stable per RG/env. Cognitive Services
+// account names allow letters/digits/_-. ; keep it <=60 and lowercase for the
+// custom subdomain (which becomes the public endpoint host).
+var docintelAcctName = toLower('${namePrefix}-di-${environmentName}-${substring(uniqueSuffix, 0, 6)}')
+// Effective DI endpoint the host's DOCINTEL_ENDPOINT app setting gets: the freshly
+// PROVISIONED account's endpoint when we created it (self-wired, no hand-copy),
+// otherwise the explicitly-passed docintelEndpoint (referencing a pre-existing DI).
+// `.?`/`??` safe-dereference the conditional module output (null when
+// deployDocIntel=false) so the analyzer can prove no null access; the fallback is
+// the passed-in endpoint, matching the deployDocIntel=false branch exactly.
+var effectiveDocintelEndpoint = deployDocIntel ? (docIntel.?outputs.endpoint ?? docintelEndpoint) : docintelEndpoint
 
 // --- Observability (workspace-based App Insights; also ACA log destination) --
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -207,6 +239,23 @@ resource managedEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
         sharedKey: logAnalytics.listKeys().primarySharedKey
       }
     }
+  }
+}
+
+// --- Document Intelligence ("Document AI") — OPT-IN managed fallback engine ---
+// Provisioned ONLY when deployDocIntel=true (the NEW gate, default OFF). Creating
+// it does NOT change OCR behaviour by itself; the host still defaults to
+// in-container Tesseract/fast-alpr until OCR_PROVIDER/PLATE_PROVIDER are flipped.
+// Its endpoint is self-wired into the Function's DOCINTEL_ENDPOINT below. The DI
+// KEY is sourced separately via a Key Vault reference (value RESERVED-FOR-USER).
+module docIntel 'docintel.bicep' = if (deployDocIntel) {
+  name: 'ocr-docintel'
+  params: {
+    location: location
+    accountName: docintelAcctName
+    sku: docintelSku
+    customSubDomainName: docintelAcctName
+    tags: tags
   }
 }
 
@@ -291,6 +340,19 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
             name: 'PLATE_PROVIDER'
             value: plateProvider
           }
+          // NEW Document-Intelligence feature flag (default OFF). A host-readable
+          // signal of whether the DI path is actually USABLE — gated on wireDocintel
+          // so it is true IFF the endpoint + key were wired below (i.e. a Key Vault
+          // was supplied). It does NOT by itself select DI — that is
+          // OCR_PROVIDER/PLATE_PROVIDER=docintel — but tying it to wireDocintel keeps
+          // 'enabled' coherent: it is never 'true' without an endpoint + key present.
+          // Provisioning a DI account (deployDocIntel=true) WITHOUT a Key Vault
+          // therefore leaves DI disabled rather than half-wired; supply keyVaultName
+          // to wire + enable it.
+          {
+            name: 'DOCINTEL_ENABLED'
+            value: wireDocintel ? 'true' : 'false'
+          }
         ],
         // Document Intelligence Read settings — wired ONLY when a Key Vault is
         // supplied (i.e. the docintel fallback is in play). Key is a KV reference;
@@ -299,7 +361,9 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           ? [
               {
                 name: 'DOCINTEL_ENDPOINT'
-                value: docintelEndpoint
+                // Self-wired from the provisioned DI account when deployDocIntel=true
+                // (no hand-copied endpoint); else the explicitly-passed endpoint.
+                value: effectiveDocintelEndpoint
               }
               {
                 name: 'DOCINTEL_API_VERSION'
@@ -382,3 +446,15 @@ output requestedMaxReplicas int = maxReplicas
 
 @description('Run this AFTER deploy to apply the replica limits on the ACA-hosted Function (Microsoft-documented mechanism).')
 output setReplicasCommand string = 'az functionapp config container set --name ${functionApp.name} --resource-group ${resourceGroup().name} --min-replicas ${minReplicas} --max-replicas ${maxReplicas}'
+
+@description('Whether this deploy provisioned a managed Document Intelligence account (the NEW deployDocIntel gate). False on the default deploy — DI stays unprovisioned and the host runs in-container Tesseract/fast-alpr.')
+output docintelProvisioned bool = deployDocIntel
+
+@description('The provisioned Document Intelligence account name (empty unless deployDocIntel=true).')
+output docintelAccountName string = deployDocIntel ? (docIntel.?outputs.accountName ?? '') : ''
+
+@description('The Document Intelligence endpoint wired into the host as DOCINTEL_ENDPOINT (self-wired from the provisioned account when deployDocIntel=true, else the passed-in value). Empty when DI is neither provisioned nor passed.')
+output docintelEndpointWired string = effectiveDocintelEndpoint
+
+@description('After provisioning DI (deployDocIntel=true), the operator injects the account KEY into Key Vault so the host can resolve the DOCINTEL_KEY reference. Value is RESERVED-FOR-USER; this prints the command shape only (no secret).')
+output docintelKeySetCommandHint string = deployDocIntel && wireDocintel ? 'az keyvault secret set --vault-name ${keyVaultName} --name ${docintelKeySecretName} --value <DOCINTEL-KEY-FROM: az cognitiveservices account keys list -g ${resourceGroup().name} -n ${docintelAcctName} --query key1 -o tsv>' : ''

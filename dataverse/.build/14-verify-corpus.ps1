@@ -77,14 +77,17 @@ foreach ($y in $spot) {
   }
 }
 
-# --- every InspectionAddress: decisionmode=confirmed_physical + non-empty postcode ---
+# --- every CONFIRMED InspectionAddress: decisionmode=confirmed_physical + non-empty postcode ---
+# Scoped to non-suggested rows: low-confidence 'suggested:*' rows (loaded by 16-seed) are decisionmode=
+# Unknown and may carry a partial/blank postcode by design — they are validated by 17-verify-suggested-addresses.ps1.
 $DM_CONFIRMED = Resolve-Choice "cr1bd_inspectiondecisionmode" "Confirmed Physical"
 $iaTotal   = Get-Count -EntitySet "cr1bd_inspectionaddresses" -IdField "cr1bd_inspectionaddressid"
-$iaBadMode = Get-Count -EntitySet "cr1bd_inspectionaddresses" -Filter "cr1bd_decisionmode ne $DM_CONFIRMED" -IdField "cr1bd_inspectionaddressid"
-$iaNoPc    = Get-Count -EntitySet "cr1bd_inspectionaddresses" -Filter "cr1bd_postcode eq null" -IdField "cr1bd_inspectionaddressid"
-Write-Host "InspectionAddress live: total=$iaTotal non-confirmed=$iaBadMode no-postcode=$iaNoPc" -ForegroundColor DarkCyan
-Check ($iaBadMode -eq 0) "all InspectionAddress rows have decisionmode=Confirmed Physical"
-Check ($iaNoPc -eq 0)    "all InspectionAddress rows have a non-empty postcode"
+$iaSug     = Get-Count -EntitySet "cr1bd_inspectionaddresses" -Filter "startswith(cr1bd_sourcelabel,'suggested')" -IdField "cr1bd_inspectionaddressid"
+$iaBadMode = Get-Count -EntitySet "cr1bd_inspectionaddresses" -Filter "not startswith(cr1bd_sourcelabel,'suggested') and cr1bd_decisionmode ne $DM_CONFIRMED" -IdField "cr1bd_inspectionaddressid"
+$iaNoPc    = Get-Count -EntitySet "cr1bd_inspectionaddresses" -Filter "not startswith(cr1bd_sourcelabel,'suggested') and cr1bd_postcode eq null" -IdField "cr1bd_inspectionaddressid"
+Write-Host "InspectionAddress live: total=$iaTotal suggested=$iaSug confirmed-non-confirmed=$iaBadMode confirmed-no-postcode=$iaNoPc" -ForegroundColor DarkCyan
+Check ($iaBadMode -eq 0) "all CONFIRMED InspectionAddress rows have decisionmode=Confirmed Physical (suggestions excluded -> 17-verify)"
+Check ($iaNoPc -eq 0)    "all CONFIRMED InspectionAddress rows have a non-empty postcode (suggestions may be partial)"
 
 # --- corpus provenance marker present on WorkProvider notes (sanity that Step 1 wrote) ---
 $markLit = UrlLit $script:CORPUS_MARK

@@ -269,6 +269,9 @@ export interface Case {
   /** Why a person must act (needs-action cases only). Omit otherwise. */
   actionReason?: ActionReason;
 
+  /** Staff manually parked this case (routes to the Held queue). */
+  onHold?: boolean;
+
   channel: IntakeChannel;
   /** Age of the case in days (for queue urgency). */
   ageDays: number;

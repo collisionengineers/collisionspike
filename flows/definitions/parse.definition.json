@@ -69,7 +69,7 @@
               "body/provider_hint": "@triggerBody()?['providerHint']"
             }
           },
-          "comment": "ParseDocument returns { extraction:{12 EVA fields}, vrm, reference, issues, contract_version }. vrm/reference are Case-identity fields, NOT EVA payload fields.",
+          "comment": "body/document is the RAW base64 string (@triggerBody()?['instructionBytesB64']) — NOT @base64ToBinary(...). The connector param is a plain string; base64ToBinary feeds the gateway BINARY -> it 400s (proven 2026-06-20: test34 -> 400 -> Exceptions; the SAME doc posts 200 directly to /api/parse). The gateway double-encodes the raw string and the parser's TOLERANT _decode_document peels the redundant layer. See memory powerplatform-connector-base64-double-encode. ParseDocument returns { extraction:{12 EVA fields}, vrm, reference, issues, contract_version }. vrm/reference are Case-identity fields, NOT EVA payload fields.",
           "runAfter": {}
         },
         "Prefill_eva_fields": {
@@ -80,6 +80,8 @@
             "parameters": {
               "entityName": "cr1bd_cases",
               "recordId": "@variables('caseId')",
+              "item/cr1bd_vrm": "@body('Call_parser')?['vrm/value']",
+              "item/cr1bd_caseref": "@body('Call_parser')?['reference/value']",
               "item/cr1bd_evaworkprovider": "@body('Call_parser')?['extraction/work_provider/value']",
               "item/cr1bd_evavehiclemodel": "@body('Call_parser')?['extraction/vehicle_model/value']",
               "item/cr1bd_evaclaimantname": "@body('Call_parser')?['extraction/claimant_name/value']",
@@ -88,7 +90,7 @@
               "item/cr1bd_evadateofloss": "@body('Call_parser')?['extraction/date_of_loss/value']",
               "item/cr1bd_evadateofinstruction": "@body('Call_parser')?['extraction/date_of_instruction/value']",
               "item/cr1bd_evaaccidentcircumstances": "@body('Call_parser')?['extraction/accident_circumstances/value']",
-              "item/cr1bd_evainspectionaddress": "@body('Call_parser')?['extraction/inspection_address/value']",
+              "item/cr1bd_evainspectionaddress": "@if(and(empty(coalesce(body('Call_parser')?['extraction/inspection_address/value'], '')), equals(toUpper(coalesce(body('Call_parser')?['extraction/work_provider/value'], '')), 'AX')), 'Image Based Assessment', body('Call_parser')?['extraction/inspection_address/value'])",
               "item/cr1bd_evavatstatus": "@body('Call_parser')?['extraction/vat_status/value']",
               "item/cr1bd_evamileage": "@body('Call_parser')?['extraction/mileage/value']",
               "item/cr1bd_evamileageunit": "@body('Call_parser')?['extraction/mileage_unit/value']"
@@ -149,7 +151,7 @@
           "item/cr1bd_action": 100000010,
           "item/cr1bd_severity": 100000002,
           "item/cr1bd_actor": "Flow_Parse",
-          "item/cr1bd_after": "parser 5xx/timeout - left at needs_review; see run history",
+          "item/cr1bd_after": "@concat('parser failed: ', string(coalesce(outputs('Call_parser')?['statusCode'], 'unknown')), ' (', coalesce(body('Call_parser')?['message'], 'no details'), ') - left at needs_review; see run history')",
           "item/cr1bd_occurredat": "@utcNow()"
         }
       },

@@ -1,4 +1,4 @@
-# Phase 2 (M2) Implementation Plan — collisionspike
+# M2 umbrella — enrichment-to-scale implementation plan (collisionspike)
 
 > Dependency-ordered, gated roadmap for the second milestone of the Collision Engineers case-intake
 > spike (Power Apps **Code App** + Dataverse + Power Automate + Azure Functions, Sandbox
@@ -12,6 +12,13 @@
 ---
 
 ## 0. TL;DR — what M2 actually is
+
+> **Milestone scope (per [milestone-model.md](./milestone-model.md)).** This umbrella is the **M2**
+> dependency graph spanning **ROADMAP Phases 3–5** — *Phase ≠ Milestone*. M2 here = **3c** EVA Sentry
+> REST + the **EVA-validation Function**, **3d** Box archival, **4b** chaser-send, **5b** image
+> classification/reflection. **Enrichment (3a) is M1** (its activation runbook lives here for dependency
+> context). **Valuation (M2.G below) is reconciled to M3** (ADR-0006, locked) — off the EVA/Box critical
+> path, tracked here for dependency context only.
 
 **M2 is mostly activation + connector-build + two genuinely net-new Functions, not greenfield flow
 authoring.** Phase 1 already shipped, **imported `state=off`**, the full downstream chain:
@@ -35,7 +42,7 @@ exist** in `dataverse/environment-variables.json`. So M2 is:
    classification** (needs **AI Builder capacity**) + **Foundry vision** for person/reflection. Plate
    **OCR** (the M1 half) is owned by [ocr-strategy.md](./phase-5-ocr-and-scale/ocr-strategy.md); M2 coordinates with it and
    adds classification on top. *Claude-buildable model+flow; capacity is a licensing decision.*
-5. **Valuation (`valuationbot`, `VALUATION_ENABLED`, on-demand)** — staff-triggered; build a
+5. **Valuation (`valuationbot`, `VALUATION_ENABLED`, on-demand)** — *M3 ([milestone-model](./milestone-model.md) §4)*; staff-triggered; build a
    **direct REST-wrapper Function** (same pattern as DVSA now the Cloud Run gateway is retired) +
    connector; Companion-Report PDF attached as Evidence. *Claude-buildable; operator activation.*
 6. **Chasers send (currently draft-only)** — add an **outbound email-send flow behind a kill switch**
@@ -482,7 +489,10 @@ never automated.**
 
 ---
 
-## 11. Sub-phase M2.G — Valuation (on-demand `valuationbot`, `VALUATION_ENABLED`)
+## 11. Sub-phase M2.G → **M3.A** — Valuation (on-demand `valuationbot`, `VALUATION_ENABLED`)
+
+> **Milestone:** reconciled to **M3** (ADR-0006, locked — see [milestone-model.md](./milestone-model.md) §4).
+> Tracked under the M2.G node below for dependency context only; it is off the EVA/Box critical path.
 
 **Scope (PLAN.md locked decisions; integrations.md):** **in scope at M2, on-demand** — staff-triggered
 on total-loss/disputed cases; comparable search + **Companion Report PDF** attached as **Evidence**;

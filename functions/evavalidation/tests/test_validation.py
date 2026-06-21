@@ -194,6 +194,72 @@ def test_open_review_issue_from_embedded_field():
 
 
 # ==========================================================================
+# Casing tolerance + string review-state names (the hardening edits)
+# ==========================================================================
+
+def test_mixed_case_dataverse_columns_resolve():
+    # Dataverse normally emits lowercase logical names; tolerate mixed case too.
+    case = {
+        "cr1bd_EvaWorkProvider": "Acme",
+        "CR1BD_EVAVEHICLEMODEL": "FOCUS",
+        "cr1bd_evaClaimantName": "Jane",
+        "cr1bd_evadateofloss": "01/05/2026",
+        "cr1bd_evadateofinstruction": "03/05/2026",
+        "cr1bd_evaaccidentcircumstances": "x",
+        "cr1bd_evainspectionaddress": "Image Based Assessment",
+    }
+    assert V.missing_required_field_keys(case) == []
+
+
+def test_mixed_case_evidence_columns_resolve():
+    ev = {
+        "cr1bd_Kind": 100000000,
+        "CR1BD_IMAGEROLE": 100000000,
+        "cr1bd_RegistrationVisible": True,
+        "cr1bd_acceptedforeva": True,
+        "cr1bd_excluded": False,
+    }
+    r = V.evaluate_image_rules([ev, DV_CLOSEUP])
+    assert r["hasOverview"] is True
+    assert r["ok"] is True
+
+
+def test_string_review_state_names_are_open_issues():
+    # The Code App's embedded shape carries the STRING name, not the int.
+    assert "mileage" in V.open_review_issue_keys({"reviewStates": {"mileage": "conflict"}})
+    assert "vehicle_model" in V.open_review_issue_keys(
+        {"reviewStates": {"vehicle_model": "needs_review"}}
+    )
+
+
+def test_string_review_state_reviewed_is_not_open():
+    assert V.open_review_issue_keys({"reviewStates": {"work_provider": "reviewed"}}) == []
+    assert V.open_review_issue_keys(
+        {"reviewStates": {"claimant_telephone": "not_required"}}
+    ) == []
+
+
+def test_fields_wrapped_shape_reads_required_values():
+    # Code App structural shape: fields nested under 'fields' as {value,reviewState}.
+    case = {
+        "fields": {
+            "work_provider": {"value": "Acme", "reviewState": "reviewed"},
+            "vehicle_model": {"value": "FOCUS", "reviewState": "reviewed"},
+            "claimant_name": {"value": "Jane", "reviewState": "reviewed"},
+            "date_of_loss": {"value": "01/05/2026", "reviewState": "reviewed"},
+            "date_of_instruction": {"value": "03/05/2026", "reviewState": "reviewed"},
+            "accident_circumstances": {"value": "x", "reviewState": "reviewed"},
+            "inspection_address": {"value": "Image Based Assessment", "reviewState": "reviewed"},
+        }
+    }
+    assert V.missing_required_field_keys(case) == []
+    out = V.validate_case(case, [OVERVIEW, CLOSEUP])
+    assert out["fieldsValid"] is True
+    assert out["imagesValid"] is True
+    assert out["openIssues"] == []
+
+
+# ==========================================================================
 # The shared contract
 # ==========================================================================
 

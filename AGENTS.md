@@ -65,6 +65,16 @@ rule in the brief. (Origin: review 190626 R2 — brief/spec text was leaking ont
 5. **Build before push, then hard-refresh.** `npm run build` → `pac code push` deploys `dist/`. The
    player caches aggressively — a stale logo/parse is usually an old cached build; **Ctrl+Shift+R**.
 6. **No mock/seed case data in the app, ever.** It renders real Dataverse rows only.
+7. **The CE Parser connector re-encodes the base64 `document` a SECOND time** (a `format:byte`-class
+   gateway behaviour). Keep `ParseRequest.document` a plain `{type: string}` — **NEVER** add `format:
+   byte` / `x-ms-media-kind: File` (that guarantees the double-encode and broke live intake once);
+   pass the **RAW base64 string** `@triggerBody()?['instructionBytesB64']` from `CS Parse` — **NEVER
+   `@base64ToBinary(...)`**: with the plain-string connector that feeds the gateway BINARY and it
+   returns **400** (proven 2026-06-20: `test34` → 400 → Exceptions; the SAME doc posts 200 directly to
+   `/api/parse`). Keep `function_app._decode_document` **tolerant** (peels a redundant 2nd layer, logs
+   each recovery) — it is the load-bearing fix because the gateway encoding **DRIFTS** with connector
+   state. A flow `parser failed: 400` / `422` while a **direct** `POST /api/parse` 200s = the gateway
+   encoding, not the parser. See memory `powerplatform-connector-base64-double-encode`.
 
 ## Verify against reality — don't trust source or summaries
 Prior sessions shipped confident, wrong diagnoses. Always confirm live:
@@ -78,6 +88,22 @@ Prior sessions shipped confident, wrong diagnoses. Always confirm live:
   to prove preflight/CORS.
 - **Chrome DevTools MCP:** load the deployed app, read console + network (asset 200/404, CSP violations).
 - **Microsoft Learn MCP** for authoritative contracts before acting.
+
+## Stack-specific tooling (use these, don't reinvent)
+Agents **should actively reach for these** before training knowledge or web search. Detailed runtime
+gotchas live in [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) and the
+memory files; this is the tool index.
+
+| Group | What to reach for | Rule |
+| --- | --- | --- |
+| **Microsoft Learn MCP** (`mslearn`) — gold-standard source of truth | `microsoft_docs_search` (breadth), `microsoft_code_sample_search` (official samples), `microsoft_docs_fetch` (full-page depth); skills `/microsoft-docs:microsoft-docs`, `microsoft-code-reference`, `microsoft-skill-creator` | **Consult FIRST** for any Power Platform / Power Automate / Dataverse / Azure / Power Apps question. Confirmed working in this env. Run `/microsoft-docs:microsoft-skill-creator` to capture a **hard problem you eventually solved** as a reusable skill. |
+| **Azure CLI + Azure MCP + `azure-*` skills** — all Azure work (Functions, Container Apps, Key Vault, storage, Monitor/App Insights, RBAC, deploy) | Azure MCP routers (`functionapp`/`functions`, `monitor`, `storage`, `keyvault`, `role`, `deploy`, `containerapps`, `bestpractices`…); `extension` tools generate/run `az`/`azd`/`func`/`azqr`; skills `azure-deploy`, `azure-functions`, `azure-storage`, `azure-rbac`, `entra-app-registration` | Prefer the MCP `extension` tools to generate commands; call **`bestpractices` before generating Azure code or deploying**. **Use PowerShell, not Git Bash**, for `az` with URL/resource-id args (MSYS mangles leading-slash args). `az role assignment` returns `MissingSubscription` here — grant roles via **ARM-template**, not the CLI. |
+| **Power Platform CLI `pac` + `code-apps-preview:*` skills** — drives the Code App | `pac code init`/`add-data-source`/`run`/`push`; skills `create-code-app`, `add-dataverse`, `add-sharepoint`, `add-office365`, `add-connector`, `deploy`, `list-connections` | **`code-app-architect` owns** the Code App shell + `pac code` deploy. **Build before push** (`npm run build`) and **hard-refresh** (player caches). `pac` still labels `code` **"(Preview)"** — confirm GA/licensing before production. |
+| **Chrome DevTools MCP + Vite/npm** — debug the deployed Code App in-browser | `chrome-devtools` MCP (navigate, snapshot, console, network, performance, lighthouse); skills `chrome-devtools`, `a11y-debugging`, `debug-optimize-lcp`, `troubleshooting`. (`model-apps` Playwright MCP is an alt browser path.) | Inspect the **live player** (console errors, failed network calls) when the app misbehaves. A blocked request in the network panel usually = the **CSP rule** (`connect-src 'none'`) — external calls must go through a **connector**, not raw `fetch`. There is **no "React CLI"**: the React app is built/served via **Vite/npm** and shipped with `pac code push`. |
+
+**Other tools worth using**
+- **context7 MCP** — live library/SDK docs (React, Vite, Fluent UI, Power Platform SDKs); use for non-Microsoft library APIs where Learn MCP is thin.
+- **Project skills** — `/power-automate-flow` (copy-paste flow-definition JSON + @-expressions), `/eva-sentry-api` (Sentry v1.2 + 12-field contract), `/collision-engineers-design` (CE brand for any UI/asset), `/grill-with-docs` (stress-test a plan against the domain model before building).
 
 ## Agent roster & boundaries (project agents in `.claude/agents/`)
 - **azure-integration-engineer** — Functions (parser + enrichment REST wrappers), Key Vault, Entra,

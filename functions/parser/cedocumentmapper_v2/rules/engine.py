@@ -94,6 +94,27 @@ VRM_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Canonical value emitted for the inspection address when the document states the
+# vehicle will be assessed from images / on a desktop basis rather than at a
+# physical location. Matches the EVA contract convention (see docs/testing
+# testjsons and the queue/case model: "AX inspection=Image Based Assessment").
+IMAGE_BASED_ASSESSMENT = "Image Based Assessment"
+
+# Phrases (case-insensitive) that signal an image-based / desktop assessment
+# statement in an inspection-address field. These are NORMALISED to the canonical
+# IMAGE_BASED_ASSESSMENT value instead of being blanked as junk narrative.
+_IMAGE_BASED_PHRASES = (
+    "image-based assessment",
+    "image based assessment",
+    "image-based",
+    "image based",
+    "desktop assessment",
+    "desktop inspection",
+    "desktop based",
+    "desktop-based",
+    "electronic basis",
+)
+
 
 class RuleEngine:
     def extract_record(
@@ -171,7 +192,13 @@ class RuleEngine:
             elif field_key == FieldKey.MILEAGE_UNIT:
                 norm_val = normalize_mileage_unit(norm_val)
             elif field_key == FieldKey.INSPECTION_ADDRESS:
-                norm_val = normalize_address(norm_val, force_postcode=force_postcode)
+                # An image-based / desktop-assessment statement (with no real
+                # physical address) is not junk narrative: emit the canonical
+                # IMAGE_BASED_ASSESSMENT value instead of letting it be blanked.
+                if self._is_image_based_inspection(ext.raw_value or ext.value):
+                    norm_val = self._canonical_image_based_address(force_postcode=force_postcode)
+                else:
+                    norm_val = normalize_address(norm_val, force_postcode=force_postcode)
             elif field_key == FieldKey.CLAIMANT_NAME:
                 norm_val = self._clean_claimant_name(norm_val)
             elif field_key == FieldKey.CLAIMANT_TELEPHONE:
@@ -1031,8 +1058,47 @@ class RuleEngine:
                 or "report and fee" in lower
             )
         if field_key == FieldKey.INSPECTION_ADDRESS:
+            # An image-based / desktop-assessment statement is a valid canonical
+            # value, not junk narrative — never treat it as suspicious.
+            if self._is_image_based_inspection(cleaned):
+                return False
+            # Precedence: when a real physical address (postcode) is present, the
+            # image-based wording must not on its own blank a genuine address.
+            # Strip only those phrases before the narrative check so other junk
+            # (kind regards, confidentiality, ...) is still caught.
+            if UK_POSTCODE_RE.search(cleaned):
+                stripped = cleaned
+                for phrase in _IMAGE_BASED_PHRASES:
+                    stripped = re.sub(re.escape(phrase), " ", stripped, flags=re.IGNORECASE)
+                return self._address_contains_narrative(stripped)
             return self._address_contains_narrative(cleaned)
         return False
+
+    def _is_image_based_inspection(self, value: str) -> bool:
+        """Return True when ``value`` is an image-based / desktop-assessment
+        statement rather than a real physical inspection address.
+
+        A genuine physical address must win: if the text carries a real UK
+        postcode it is treated as an address (returns False) even if it also
+        mentions image-based wording. Used to substitute the canonical
+        ``IMAGE_BASED_ASSESSMENT`` value instead of blanking the field.
+        """
+        cleaned = clean_val(value)
+        lower = cleaned.lower()
+        if not any(phrase in lower for phrase in _IMAGE_BASED_PHRASES):
+            return False
+        # Precedence: a real physical address (signalled by a UK postcode) wins.
+        if UK_POSTCODE_RE.search(cleaned):
+            return False
+        return True
+
+    def _canonical_image_based_address(self, force_postcode: bool = False) -> str:
+        """Canonical 6-line inspection-address value for an image-based assessment.
+
+        Normalised through :func:`normalize_address` so the value still satisfies
+        the 6-line EVA contract (e.g. ``"Image Based Assessment\\n\\n\\n\\n\\n"``).
+        """
+        return normalize_address(IMAGE_BASED_ASSESSMENT, force_postcode=force_postcode)
 
     def _address_contains_narrative(self, value: str) -> bool:
         lower = clean_val(value).lower()

@@ -107,6 +107,12 @@
       "comment": "Holds the get-or-create Case id once the Create action runs; passed into the downstream child chain (classify-persist -> parse -> status-evaluate).",
       "runAfter": { "Init_workProviderId": [ "Succeeded" ] }
     },
+    "Init_attachmentsForChild": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "attachmentsForChild", "type": "array", "value": "@coalesce(triggerOutputs()?['body/attachments'], json('[]'))" } ] },
+      "comment": "Attachments array passed to classify-persist: SEEDED from the trigger attachments, then the source email .eml is appended (Append to array variable — the Microsoft-documented append idiom; union dedups, concat is string-only) inside the failure-isolated Scope_capture_eml AFTER the Case is created. A failed export leaves this seed (the real attachments) intact. (FIX 4 / task #92)",
+      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+    },
     "Find_existing_by_messageId": {
       "type": "OpenApiConnection",
       "inputs": {
@@ -120,7 +126,7 @@
         }
       },
       "comment": "Exact Message-ID probe = the get-or-create idempotency guard (alternate key cr1bd_case_sourcemessageid_key). Combined with trigger concurrency=1, prevents double-create on Graph retries. Message-ID-scoped read (documented linter exception, not a dedup-by-VRM query).",
-      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+      "runAfter": { "Init_attachmentsForChild": [ "Succeeded" ] }
     },
     "If_already_ingested": {
       "type": "If",
@@ -293,6 +299,37 @@
             "comment": "Graceful provider gating: bind only on an unambiguous single anchored match; otherwise create unassigned. runAfter Succeeded+Failed so an unmatched/unavailable resolve still creates the Case. Both branches capture the new Case id into the caseId variable for the downstream chain.",
             "runAfter": { "Filter_exact_domain": [ "Succeeded", "Failed" ] }
           },
+          "Scope_capture_eml": {
+            "type": "Scope",
+            "actions": {
+              "Export_source_email": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_office365", "operationId": "ExportEmail_V2",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365" },
+                  "parameters": { "messageId": "@triggerOutputs()?['body/id']" }
+                },
+                "comment": "Export email (V2) (operationId ExportEmail_V2; the non-V2 ExportEmail is DEPRECATED). messageId = the Graph message id from the V3 trigger (body/id, NOT internetMessageId — CONFIRM the trigger field on apply). Returns the message as binary EML (response: binary, per Learn office365 connector ref). Captured here because OnNewEmailV3 does not surface the source .eml in body/attachments (item attachments unsupported; EML must be zipped to appear).",
+                "runAfter": {}
+              },
+              "Append_eml_to_attachments": {
+                "type": "AppendToArrayVariable",
+                "inputs": {
+                  "name": "attachmentsForChild",
+                  "value": {
+                    "name": "source.eml",
+                    "contentType": "message/rfc822",
+                    "contentBytes": "@base64(body('Export_source_email'))",
+                    "size": "@length(base64(body('Export_source_email')))"
+                  }
+                },
+                "comment": "Append one .eml object matching the trigger-attachment shape (name/contentType/contentBytes(base64)/size). contentBytes = base64(binary export) so classify-persist's base64ToBinary(contentBytes) round-trips to the raw EML bytes in Blob; Compose_kind maps '.eml' -> kind email=100000003 (defined in evidence-kind.json). GATED: operator must confirm ExportEmail_V2's real output is raw binary (not already a base64 string) before trusting base64(...); if already base64, drop the base64() wrapper. See the gated runbook.",
+                "runAfter": { "Export_source_email": [ "Succeeded" ] }
+              }
+            },
+            "comment": "Failure-isolated .eml capture (FIX 4). If ExportEmail_V2 fails/timeouts the Scope fails but attachmentsForChild keeps its trigger-seeded value (the real attachments), so intake/classify continue intact. Run_classify_persist runs after this Scope on ALL outcomes.",
+            "runAfter": { "If_one_provider": [ "Succeeded" ] }
+          },
           "Run_classify_persist": {
             "type": "Workflow",
             "inputs": {
@@ -302,11 +339,11 @@
                 "caseId": "@variables('caseId')",
                 "subject": "@coalesce(triggerOutputs()?['body/subject'], '')",
                 "from": "@coalesce(triggerOutputs()?['body/from'], '')",
-                "attachments": "@coalesce(triggerOutputs()?['body/attachments'], json('[]'))"
+                "attachments": "@variables('attachmentsForChild')"
               }
             },
-            "comment": "STEP 1 of the chain. Run-a-Child-Flow (built-in Workflow action) -> classify-persist. CRITICAL FIX (task plan §3.3): passes the email ATTACHMENTS (body/attachments[*].contentBytes, available because the trigger has includeAttachments=true) plus subject/from so the child actually creates Evidence rows + blobs (the old contract only passed {messageId,caseId}, so the child's Apply-to-each iterated an empty array -> 0 Evidence). Returns { payloadHash, instructionBytesB64, instructionName, imageCount }. host.workflowReferenceName is a PLACEHOLDER rebind in the designer to the imported child's GUID (see top comment).",
-            "runAfter": { "If_one_provider": [ "Succeeded" ] }
+            "comment": "STEP 1 of the chain. Run-a-Child-Flow (built-in Workflow action) -> classify-persist. Passes attachmentsForChild = trigger attachments PLUS the appended source.eml (FIX 4 / task #92), seeded from body/attachments[*].contentBytes (base64, includeAttachments=true) so the child creates Evidence rows + blobs. Returns { payloadHash, instructionBytesB64, instructionName, imageCount }. host.workflowReferenceName is a PLACEHOLDER rebind in the designer to the imported child's GUID (see top comment).",
+            "runAfter": { "Scope_capture_eml": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
           },
           "Run_parse": {
             "type": "Workflow",
@@ -322,6 +359,94 @@
             "comment": "STEP 2 of the chain. Run-a-Child-Flow -> parse. Hands the instruction PDF bytes/name returned by classify-persist plus the matched principalCode as providerHint. parse reads PDF_MAPPER_ENABLED itself and pre-fills the 12 EVA fields on the Case (staff-review, never auto-final). Runs even with empty bytes (parse no-ops/skips gracefully). Skipped if classify-persist failed so a bad attachment batch does not block status.",
             "runAfter": { "Run_classify_persist": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
           },
+          "Scope_generate_casepo": {
+            "type": "Scope",
+            "comment": "Case/PO generation (instructions cases). Runs after Run_parse (the parser has written cr1bd_evaworkprovider) and in PARALLEL with Run_status_evaluate so it is OFF the critical path; Case/PO does not affect status. The whole Scope is failure-isolated (nothing runs after it), so a Case/PO hiccup can never stall a case or break the downstream chain. Format = Principal + 2-digit year + 3-digit zero-padded per-(Principal,year) sequence, e.g. AX26001. The provider's OWN reference stays in cr1bd_caseref (untouched). Skips cleanly when cr1bd_evaworkprovider is empty (image-only / no-provider cases keyed by registration get NO Case/PO). KNOWN small race window: two simultaneous instructions emails for the same (Principal,year) can compute the same seq before either writes -- acceptable at spike volume.",
+            "actions": {
+              "Get_case_for_casepo": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "GetItem",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                  "parameters": {
+                    "entityName": "cr1bd_cases",
+                    "recordId": "@variables('caseId')",
+                    "$select": "cr1bd_caseid,cr1bd_casepo,cr1bd_evaworkprovider"
+                  }
+                },
+                "comment": "Re-read the just-parsed case so we use the AUTHORITATIVE cr1bd_evaworkprovider (Principal) the parser wrote, and confirm cr1bd_casepo is still empty (idempotent: a re-run never overwrites an existing Case/PO).",
+                "runAfter": {}
+              },
+              "If_needs_casepo": {
+                "type": "If",
+                "expression": {
+                  "and": [
+                    { "not": { "equals": [ "@trim(coalesce(outputs('Get_case_for_casepo')?['body/cr1bd_evaworkprovider'], ''))", "" ] } },
+                    { "equals": [ "@trim(coalesce(outputs('Get_case_for_casepo')?['body/cr1bd_casepo'], ''))", "" ] }
+                  ]
+                },
+                "actions": {
+                  "List_provider_year_casepos": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                      "parameters": {
+                        "entityName": "cr1bd_cases",
+                        "$select": "cr1bd_casepo",
+                        "$filter": "startswith(cr1bd_casepo,'@{concat(trim(outputs('Get_case_for_casepo')?['body/cr1bd_evaworkprovider']), substring(utcNow(), 2, 2))}')",
+                        "$top": 5000
+                      }
+                    },
+                    "comment": "Count existing Case/POs for this (Principal, YY) by startswith prefix. seq = length(body/value)+1. No @odata.count dependency (the Dataverse connector does not reliably surface it); mirrors the flow's existing length(...body/value) idiom.",
+                    "runAfter": {}
+                  },
+                  "Compose_next_casepo": {
+                    "type": "Compose",
+                    "inputs": "@concat(trim(outputs('Get_case_for_casepo')?['body/cr1bd_evaworkprovider']), substring(utcNow(), 2, 2), substring(concat('00', string(add(length(coalesce(outputs('List_provider_year_casepos')?['body/value'], json('[]'))), 1))), sub(length(concat('00', string(add(length(coalesce(outputs('List_provider_year_casepos')?['body/value'], json('[]'))), 1)))), 3), 3))",
+                    "comment": "Principal + 2-digit year (substring(utcNow,2,2)) + 3-digit zero-padded seq. Zero-pad = right-most 3 chars of concat('00', seq) (1->'001' .. 999->'999').",
+                    "runAfter": { "List_provider_year_casepos": [ "Succeeded" ] }
+                  },
+                  "Update_case_casepo": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                      "parameters": {
+                        "entityName": "cr1bd_cases",
+                        "recordId": "@variables('caseId')",
+                        "item/cr1bd_casepo": "@outputs('Compose_next_casepo')"
+                      }
+                    },
+                    "comment": "Write the generated Case/PO as the case reference. cr1bd_caseref (provider's own reference) is intentionally NOT touched.",
+                    "runAfter": { "Compose_next_casepo": [ "Succeeded" ] }
+                  },
+                  "Audit_casepo_assigned": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                      "parameters": {
+                        "entityName": "cr1bd_auditevents",
+                        "item/cr1bd_name": "@concat('casepo_assigned: ', outputs('Compose_next_casepo'))",
+                        "item/cr1bd_action": 100000003,
+                        "item/cr1bd_actor": "Flow_Intake",
+                        "item/cr1bd_severity": 100000000,
+                        "item/cr1bd_after": "@concat('case ', variables('caseId'), ' assigned Case/PO ', outputs('Compose_next_casepo'), ' (principal ', trim(outputs('Get_case_for_casepo')?['body/cr1bd_evaworkprovider']), ', seq from ', string(length(coalesce(outputs('List_provider_year_casepos')?['body/value'], json('[]')))), ' existing)')",
+                        "item/cr1bd_occurredat": "@utcNow()"
+                      }
+                    },
+                    "comment": "Audit the Case/PO assignment. Reuses action 100000003 (Case Created) with explicit casepo_assigned semantics in name/after -- SAME precedent as Audit_dropped_before_min_date reusing 100000005 (Duplicate Dropped). runAfter Update Succeeded; an audit hiccup is contained by the enclosing failure-isolated Scope.",
+                    "runAfter": { "Update_case_casepo": [ "Succeeded" ] }
+                  }
+                },
+                "else": { "actions": {} },
+                "comment": "Generate ONLY for an instructions case (non-empty cr1bd_evaworkprovider) that has no cr1bd_casepo yet. Image-only / no-provider cases skip (empty else).",
+                "runAfter": { "Get_case_for_casepo": [ "Succeeded" ] }
+              }
+            },
+            "runAfter": { "Run_parse": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
+          },
           "Run_status_evaluate": {
             "type": "Workflow",
             "inputs": {
@@ -330,12 +455,12 @@
                 "caseId": "@variables('caseId')"
               }
             },
-            "comment": "STEP 3 of the chain. Run-a-Child-Flow -> status-evaluate. Advances the Case through the guard order (new_email -> ingested -> missing_required_fields/missing_images/needs_review -> ready_for_eva) using the INLINE image-rules + 12-field readiness check (no external validation connector). Runs after parse regardless of parse outcome so the status always reflects the current Evidence + fields.",
+            "comment": "STEP 3 of the chain. Run-a-Child-Flow -> status-evaluate. Advances the Case through the guard order (new_email -> ingested -> missing_required_fields/missing_images/needs_review -> ready_for_eva) using the INLINE image-rules + 12-field readiness check (no external validation connector). Runs after parse regardless of parse outcome so the status always reflects the current Evidence + fields. (Case/PO generation runs in a parallel failure-isolated Scope after Run_parse and does not gate this.)",
             "runAfter": { "Run_parse": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
           }
         }
       },
-      "comment": "Message-ID hit = exact-repeat half of ADR-0010 -> drop. Else branch: anchored exact provider match -> get-or-create the Case -> drive the downstream child chain (classify-persist -> parse -> status-evaluate). case-resolve.definition.json + provider-match.definition.json remain standalone returnable children (Response-equipped for ALM/reuse and the image-first re-dedup path) but are NOT in this hot path: intake owns the single Create here (the §3.4/§3.5 'provider-match returns the id, case-resolve owns the create' split is the alternative wiring; this slice keeps intake's own anchored match + create to avoid a second domain lookup and a second Case write).",
+      "comment": "Message-ID hit = exact-repeat half of ADR-0010 -> drop. Else branch: anchored exact provider match -> get-or-create the Case -> drive the downstream child chain (classify-persist -> parse -> status-evaluate). case-resolve.definition.json + provider-match.definition.json remain standalone returnable children (Response-equipped for ALM/reuse and the image-first re-dedup path) but are NOT in this hot path: intake owns the single Create here (the §3.4/§3.5 'provider-match returns the id, case-resolve owns the create' split is the alternative wiring; this slice keeps intake's own anchored match + create to avoid a second domain lookup and a second Case write). WARNING — LIVE DIVERGES (verified 2026-06-21): the live CS Intake WAS subsequently wired to call Run_case_resolve (+ Run_enrich) after parse, so auto-merge DOES run live; THIS repo definition trails live — reconcile it (add Run_enrich + Run_case_resolve) before any solution re-import, else a re-import would regress the live wiring.",
       "runAfter": { "Find_existing_by_messageId": [ "Succeeded" ] }
     }
   }

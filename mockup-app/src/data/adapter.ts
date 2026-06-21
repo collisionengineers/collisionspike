@@ -43,6 +43,8 @@ import type {
   CaseRecord,
   EvidenceRecord,
   FieldLevelProvenanceRecord,
+  InspectionAddressRecord,
+  SuggestedAddress,
   WorkProviderRecord,
 } from './types';
 
@@ -387,6 +389,74 @@ export function providerToRecord(p: Provider): WorkProviderRecord {
 }
 
 /* ============================================================
+   Inspection-address SUGGESTIONS <-> cr1bd_inspectionaddress row.
+
+   Suggestions are the corpus rows tagged cr1bd_sourcelabel startswith
+   'suggested' (decisionMode=unknown) — loaded from the externally-maintained
+   source by 16-seed-suggested-addresses.ps1. The adapter projects one to the
+   `SuggestedAddress` domain shape the Code App surfaces strictly AS a
+   suggestion (never auto-confirmed). The source label carries an optional
+   confidence band after a colon ('suggested:<address_status>'); the source note
+   carries 'provider=<code> loc=<value>' which we parse for scoping/display.
+   ============================================================ */
+
+/** True when the row is a low-confidence suggestion (sourceLabel startswith 'suggested'). */
+export function isSuggestedAddressRecord(rec: InspectionAddressRecord): boolean {
+  return (rec.cr1bd_sourcelabel ?? '').trim().toLowerCase().startsWith('suggested');
+}
+
+/** Pull a `key=value` token's value out of the free-text source note (space-delimited). */
+function noteToken(note: string | undefined, key: string): string | undefined {
+  if (!note) return undefined;
+  const m = note.match(new RegExp(`${key}=([^\\s|]+)`));
+  return m ? m[1] : undefined;
+}
+
+/** Map a suggestion catalogue row -> the `SuggestedAddress` domain shape. */
+export function suggestionFromRecord(rec: InspectionAddressRecord): SuggestedAddress {
+  const lines = [
+    rec.cr1bd_addressline1,
+    rec.cr1bd_addressline2,
+    rec.cr1bd_addressline3,
+    rec.cr1bd_addressline4,
+    rec.cr1bd_addressline5,
+    rec.cr1bd_addressline6,
+  ]
+    .map((l) => (l ?? '').trim())
+    .filter((l) => l.length > 0);
+  const label = (rec.cr1bd_sourcelabel ?? '').trim();
+  const colon = label.indexOf(':');
+  const confidenceBand = colon >= 0 ? label.slice(colon + 1).trim() : undefined;
+  const note = rec.cr1bd_sourcenote ?? undefined;
+  // The seeded note interleaves a human preamble + evidence prose with machine
+  // tokens, e.g. 'SUGGESTION -- confirm before use. <stamp>. provider=X loc=Y
+  // status=Z. source=<prose>. <detail>' (16-seed-suggested-addresses.ps1 writes them
+  // PERIOD-delimited, not the pipe the old code assumed). Drop the machine tokens:
+  // provider/loc/status hold single-token values (\S* also tolerates an empty one)
+  // and are surfaced separately as structured fields; source's value is multi-word
+  // human prose, so drop only its 'source=' key prefix. Then tidy the leftover
+  // whitespace/punctuation, leaving the human preamble + evidence prose.
+  const humanEvidence = note
+    ? note
+        .replace(/\b(?:provider|loc|status)=\S*/gi, '')
+        .replace(/\bsource=/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s+([.,])/g, '$1')
+        .replace(/\.{2,}/g, '.')
+        .trim()
+    : '';
+  return {
+    id: rec.cr1bd_inspectionaddressid ?? '',
+    lines,
+    postcode: (rec.cr1bd_postcode ?? '').trim(),
+    ...(noteToken(note, 'provider') ? { providerCode: noteToken(note, 'provider') } : {}),
+    ...(noteToken(note, 'loc') ? { locValue: noteToken(note, 'loc') } : {}),
+    ...(humanEvidence ? { evidenceNote: humanEvidence } : {}),
+    ...(confidenceBand ? { confidenceBand } : {}),
+  };
+}
+
+/* ============================================================
    Case <-> cr1bd_case row (the headline assembler).
 
    The Dataverse-backed DataAccess fetches a Case row + its expanded children
@@ -429,7 +499,7 @@ export function caseFromRecord(input: CaseAssemblyInput): Case {
     vrm: rec.cr1bd_vrm ?? '',
     ...(rec.cr1bd_casepo ? { casePo: rec.cr1bd_casepo } : {}),
     provider: rec.cr1bd_provider_display ?? rec.cr1bd_evaworkprovider ?? '',
-    providerCode: rec.cr1bd_provider_code ?? '',
+    providerCode: rec.cr1bd_evaworkprovider ?? '',
     vehicleModel: rec.cr1bd_evavehiclemodel ?? '',
     evaFields: evaFieldsFromRecord(rec, input.provenanceRows),
     evidence: input.evidence ?? [],
@@ -439,6 +509,7 @@ export function caseFromRecord(input: CaseAssemblyInput): Case {
     status: statusFromInt(rec.cr1bd_status),
     missing: [], // derived by the readiness component in the UI
     ...(actionReason ? { actionReason } : {}),
+    ...(rec.cr1bd_onhold ? { onHold: true } : {}),
     channel: {
       kind: channelKind,
       mode: rec.cr1bd_intakechannelmanual ? 'manual' : 'auto',

@@ -23,6 +23,7 @@
 import { Cr1bd_casesService } from '../generated/services/Cr1bd_casesService';
 import { Cr1bd_evidencesService } from '../generated/services/Cr1bd_evidencesService';
 import { Cr1bd_workprovidersService } from '../generated/services/Cr1bd_workprovidersService';
+import { Cr1bd_inspectionaddressesService } from '../generated/services/Cr1bd_inspectionaddressesService';
 import { Cr1bd_auditeventsService } from '../generated/services/Cr1bd_auditeventsService';
 import { Cr1bd_fieldlevelprovenancesService } from '../generated/services/Cr1bd_fieldlevelprovenancesService';
 import { Cr1bd_notesService } from '../generated/services/Cr1bd_notesService';
@@ -36,6 +37,7 @@ import type {
   CaseRecord,
   EvidenceRecord,
   WorkProviderRecord,
+  InspectionAddressRecord,
   AuditEventRecord,
   FieldLevelProvenanceRecord,
   NoteRecord,
@@ -80,6 +82,7 @@ export const generatedServices: GeneratedServices = {
   cases: asTableService<CaseRecord>(Cr1bd_casesService),
   evidence: asTableService<EvidenceRecord>(Cr1bd_evidencesService),
   workProviders: asTableService<WorkProviderRecord>(Cr1bd_workprovidersService),
+  inspectionAddresses: asTableService<InspectionAddressRecord>(Cr1bd_inspectionaddressesService),
   auditEvents: asTableService<AuditEventRecord>(Cr1bd_auditeventsService),
   fieldProvenance: asTableService<FieldLevelProvenanceRecord>(
     Cr1bd_fieldlevelprovenancesService,

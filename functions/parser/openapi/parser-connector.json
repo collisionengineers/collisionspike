@@ -3,7 +3,7 @@
   "info": {
     "title": "Collision Engineers Parser",
     "description": "Custom connector for the cedocumentmapper_v2 parser Function. POST a base64 instruction document and receive the settled 12-field EVA extraction (with per-field value/confidence/source), plus the Case-identity vrm/reference surfaced separately. PDF_MAPPER_ENABLED gating is enforced in the calling flow, not here.",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "contact": {
       "name": "Collision Engineers — collisionspike"
     }
@@ -23,7 +23,7 @@
     "/parse": {
       "post": {
         "summary": "Parse an instruction document",
-        "description": "Decode a base64 document, extract the 12-field EVA payload, and return it with field-level provenance plus Case-identity vrm/reference.",
+        "description": "Decode a base64 document (PLAIN string param — NEVER format:byte / x-ms-media-kind:File), extract the 12-field EVA payload, and return it with field-level provenance plus Case-identity vrm/reference.",
         "operationId": "ParseDocument",
         "consumes": [
           "application/json"
@@ -49,7 +49,13 @@
             }
           },
           "400": {
-            "description": "Bad input (missing/invalid document, filename, or JSON).",
+            "description": "Bad input (missing/invalid document — e.g. not single base64 (bad_base64) — filename, or JSON).",
+            "schema": {
+              "$ref": "#/definitions/ParseResponse"
+            }
+          },
+          "422": {
+            "description": "The document itself is unreadable (corrupt/truncated/not a real document, or a double-encoded payload whose single decode is not a parseable document). A client problem; route the case to review, do not retry.",
             "schema": {
               "$ref": "#/definitions/ParseResponse"
             }
@@ -74,7 +80,7 @@
       "properties": {
         "document": {
           "type": "string",
-          "description": "Base64-encoded document bytes (.pdf/.docx/.doc/.eml/.msg). Do NOT set 'format: byte' — the Power Platform gateway re-encodes byte-format params, mangling the base64 so the parser receives a corrupt document and returns 422 document_unreadable."
+          "description": "Base64-encoded document bytes (.pdf/.docx/.doc/.eml/.msg). DO NOT add `format: byte` or `x-ms-media-kind: File` to this param: the gateway then re-encodes the base64 a SECOND time and the parser returns 422 document_unreadable (a burst of CS Parse 422s broke intake when format:byte was added 2026-06-19). The Power Automate flow passes the RAW base64 string `@triggerBody()?['instructionBytesB64']` — NOT `@base64ToBinary(...)`: with this plain-string connector base64ToBinary feeds the gateway BINARY and it returns HTTP 400 (proven live 2026-06-20: test34 -> 400 -> Exceptions; the same doc posts 200 directly to /api/parse). The gateway's encoding DRIFTS with connector state, so the parser `_decode_document` is TOLERANT (peels a redundant 2nd base64 layer, logging each recovery) — THAT is the load-bearing safeguard, not the flow's encoding choice. See memory `powerplatform-connector-base64-double-encode`."
         },
         "filename": {
           "type": "string",

@@ -82,7 +82,7 @@ const useStyles = makeStyles({
   muted: { color: tokens.colorNeutralForeground3 },
 });
 
-const OPEN_QUEUES = ['awaiting-images', 'images-only', 'ready-review'] as const;
+const OPEN_QUEUES = ['not-ready', 'review'] as const;
 
 export function AddEvidence() {
   const styles = useStyles();
