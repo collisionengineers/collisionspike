@@ -1050,7 +1050,11 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                   <div className={styles.evaPreview}>
                     <Caption1 className={styles.hint}>EVA submission preview</Caption1>
                     <div className={styles.evaPreviewBody}>
-                      <JsonView data={evaJson} label="EVA submission" />
+                      <JsonView
+                        data={evaJson}
+                        label="EVA submission"
+                        filename={`EVA-${c.casePo || c.id}.json`}
+                      />
                     </div>
                   </div>
                 </div>
