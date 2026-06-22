@@ -38,7 +38,7 @@ operator) · [../AGENTS.md](../AGENTS.md) (operating rules).
 
 ## Operator & status
 - [gated.md](./gated.md) — the consolidated **hard/soft blocker** registry (everything that needs the operator).
-- [roles-and-permissions.md](./roles-and-permissions.md) — the **roles required across all three planes** (M365/Entra, Azure RBAC, Box) + why, with the real blockers each resolves.
+- [roles-and-permissions.md](./roles-and-permissions.md) — **gap analysis**: the roles `digital@` does NOT have but NEEDS (Box Business+admin, Exchange Admin, Key Vault Secrets Officer, Power Platform Admin, License Admin) — vs. what Owner + Dataverse System Admin already cover.
 - [review-followups-2026-06-19.md](./review-followups-2026-06-19.md) — verified architecture-review follow-ups.
 
 ## Reviews — binding manual reviews
