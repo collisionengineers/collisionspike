@@ -158,6 +158,14 @@ export const BOX_GATES_ALL_FALSE: BoxGates = {
   fileRequestTemplateConfigured: false,
 };
 
+/** Result of a manual staff case merge (#4). */
+export interface MergeCasesResult {
+  /** The surviving (target) case id. */
+  targetCaseId: string;
+  /** Count of evidence rows reparented from source to target. */
+  movedEvidence: number;
+}
+
 export interface DataAccess {
   /* ----- Cases ----- */
   /** A single case by id (mock `caseById`). */
@@ -170,6 +178,15 @@ export interface DataAccess {
   openVrmTwins(vrm: string, excludeCaseId?: string): Promise<Case[]>;
   /** Park / un-park a case (staff manual hold). On-hold cases route to the Held queue. */
   setOnHold(caseId: string, onHold: boolean): Promise<void>;
+  /** Open, same-provider cases this case could be MERGED into (staff manual merge,
+   *  #4): excludes self, terminal, and already-merged (linked_to_instruction). */
+  mergeCandidates(caseId: string): Promise<Case[]>;
+  /** Manually MERGE a source case into a target (survivor) case: reparent the
+   *  source's evidence onto the target, mark the source linked_to_instruction
+   *  (caseType 'merged') and record the survivor in cr1bd_duplicatekeys. Same
+   *  provider only (asserted). Audit + target readiness recompute are the backend
+   *  flow's job. Returns the survivor id + moved-evidence count. */
+  mergeCases(sourceCaseId: string, targetCaseId: string): Promise<MergeCasesResult>;
 
   /* ----- Evidence ----- */
   /** Image-kind, non-excluded evidence for a case (mock `imagesForCase`). */
@@ -292,6 +309,8 @@ export interface CaseRecord {
   cr1bd_actionreason?: number | null; // cr1bd_actionreason integer
   cr1bd_inspectiondecision?: number; // cr1bd_inspectiondecisionmode integer
   cr1bd_onhold?: boolean; // staff manual hold -> Held queue
+  cr1bd_caselinkstate?: number; // cr1bd_caselinkstate integer (none|pending|linked)
+  cr1bd_duplicatekeys?: string; // DEDUP STAGING Memo: JSON of linked/merged case ids
 
   /* Box one-way mirror (absent until the Case/PO folder is created). */
   cr1bd_boxfolderid?: string;

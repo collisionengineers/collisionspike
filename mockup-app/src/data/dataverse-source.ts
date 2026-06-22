@@ -269,6 +269,66 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       await services.cases.update(caseId, { cr1bd_onhold: onHold });
     },
 
+    mergeCandidates: async (caseId) => {
+      // Targets a staff merge could fold this case into: OPEN, same-provider, not
+      // this case, not already merged. (ADR-0010 rule 2: same provider only.)
+      const selfRes = await services.cases.get(caseId);
+      const self = selfRes.data ? caseFromRecord({ record: selfRes.data }) : undefined;
+      if (!self) return [];
+      const res = await services.cases.getAll({ orderBy: ['createdon desc'] });
+      return (res.data ?? [])
+        .map((rec) => caseFromRecord({ record: rec }))
+        .filter(
+          (cc) =>
+            cc.id !== caseId &&
+            !TERMINAL.has(cc.status) &&
+            cc.status !== 'linked_to_instruction' &&
+            cc.providerCode === self.providerCode,
+        );
+    },
+
+    mergeCases: async (sourceCaseId, targetCaseId) => {
+      if (sourceCaseId === targetCaseId) {
+        throw new Error('Cannot merge a case into itself.');
+      }
+      const [srcRes, tgtRes] = await Promise.all([
+        services.cases.get(sourceCaseId),
+        services.cases.get(targetCaseId),
+      ]);
+      const src = srcRes.data ? caseFromRecord({ record: srcRes.data }) : undefined;
+      const tgt = tgtRes.data ? caseFromRecord({ record: tgtRes.data }) : undefined;
+      if (!src || !tgt) throw new Error('Source or target case not found.');
+      // ADR-0010 rule 2: NEVER link across different work providers.
+      if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
+        throw new Error('Refusing to merge across different work providers.');
+      }
+      if (TERMINAL.has(tgt.status)) {
+        throw new Error('Cannot merge into a finalised (terminal) case.');
+      }
+      // 1. Reparent the source's evidence onto the target (the established
+      //    `_cr1bd_caseid_value` write shape, as used for provenance/evidence rows).
+      const evRes = await services.evidence.getAll({
+        filter: `_cr1bd_caseid_value eq ${sourceCaseId}`,
+      });
+      let moved = 0;
+      for (const e of evRes.data ?? []) {
+        if (!e.cr1bd_evidenceid) continue;
+        await services.evidence.update(e.cr1bd_evidenceid, {
+          _cr1bd_caseid_value: targetCaseId,
+        });
+        moved += 1;
+      }
+      // 2. Retire the source: linked_to_instruction (caseType 'merged'), record the
+      //    survivor in the dedup-staging Memo, clear any manual hold. The backend
+      //    CS Status Evaluate flow recomputes the target's readiness + writes audit.
+      await services.cases.update(sourceCaseId, {
+        cr1bd_status: statusToInt('linked_to_instruction'),
+        cr1bd_duplicatekeys: JSON.stringify({ mergedInto: targetCaseId }),
+        cr1bd_onhold: false,
+      });
+      return { targetCaseId, movedEvidence: moved };
+    },
+
     /* ----- Evidence ----- */
     imagesForCase: async (caseId) => {
       const res = await services.evidence.getAll({
