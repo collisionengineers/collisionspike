@@ -18,6 +18,7 @@
    ============================================================ */
 
 import type { DataAccess } from './types';
+import { BOX_GATES_ALL_FALSE } from './types';
 import type {
   LiveCounts,
   Throughput,
@@ -92,6 +93,9 @@ export const mockDataAccess: DataAccess = {
   /* ----- Activity feed ----- */
   recentActivity: () => Promise.resolve([]),
   activityForCase: (_caseId) => Promise.resolve([]),
+
+  /* ----- Box feature gates (Box off until the live source is injected) ----- */
+  getBoxGates: () => Promise.resolve({ ...BOX_GATES_ALL_FALSE }),
 };
 
 /** Factory form, for symmetry with `createDataverseDataAccess`. */

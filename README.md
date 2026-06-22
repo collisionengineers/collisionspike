@@ -11,6 +11,14 @@ and de-risk the mature cloud build (`collisioncc`, which is on Google Cloud).
 > Function is deployed gated-OFF** (direct DVSA/DVLA — the Google Cloud gateway was retired). The 10 flows
 > are imported **OFF**. Still operator-gated: **live email intake**, **EVA/Box**, **enrichment activation**
 > (the live-services boundary). **No mock data** — the app shows real Dataverse rows only.
+> **Phase 7 (the Box-centric intake pivot — [ADR-0012](./docs/adr/0012-box-centric-intake-additive-hybrid.md))**
+> has its **Dataverse schema + env-vars applied live (all `BOX_*` gates `false`)**, with the `box-webhook`
+> Function, the `cr1bd_box_rest` connector and the Box flows **authored offline (not deployed/bound)**:
+> a per-Case/PO Box folder at parse-confirm + File-Request image chasers + a webhook that advances the case,
+> as a **one-way Box mirror with Dataverse authoritative**; evidence is **linked, not embedded** (a
+> server-minted "Open in Box" deep link — no iframe/`frame-src` edit). The always-on Box-account integration
+> (CCG + `FILE.UPLOADED` webhook + template File Request) is deferred to a future **Business-account** phase
+> (base Box Business is the floor; Business Plus is only for the optional metadata tier).
 > **→ See [CURRENT_STATUS.md](./CURRENT_STATUS.md) (where we are) and [ROADMAP.md](./ROADMAP.md) (the checklist).**
 > Run `node verify-all.mjs` for the offline gate; deploy/activation sequence in [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md).
 

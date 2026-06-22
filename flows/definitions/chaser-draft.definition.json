@@ -56,7 +56,7 @@
         "parameters": {
           "entityName": "cr1bd_chasers",
           "item/cr1bd_name": "@concat('Chasing ', variables('outstandingText'))",
-          "item/cr1bd_caseid@odata.bind": "@concat('cr1bd_cases(', variables('caseId'), ')')",
+          "item/cr1bd_Caseid@odata.bind": "@concat('cr1bd_cases(', variables('caseId'), ')')",
           "item/cr1bd_targettype": "@coalesce(triggerBody()?['targetType'], 100000000)",
           "item/cr1bd_targetname": "@triggerBody()?['targetName']",
           "item/cr1bd_channel": 100000001,

@@ -1,5 +1,27 @@
 # Box archival pipeline — full design + activation runbook (ROADMAP 3d)
 
+> ⚠️ **SUPERSEDED (2026-06-22) — reconciled DOWN to [ADR-0012](../../adr/0012-box-centric-intake-additive-hybrid.md)
+> (the Box-centric intake pivot, Phase 7).** This doc describes the **M2.D** slice: Box archival fired
+> **at EVA-submit** via `finalize-eva-box`, using the **first-party** Box connector. Phase 7 supersedes
+> two of its load-bearing assumptions:
+> 1. **First-party is insufficient; a custom connector is mandatory.** The first-party Box connector is
+>    file-only (no folder-create / shared-links / webhooks / File Requests). All non-byte Box automation now
+>    runs through the **custom `cr1bd_box_rest` connector** (CCG token minted inside the `box-webhook` Azure
+>    Function, never the connector). First-party `shared_box` is **retained for the `finalize-eva-box` BYTE
+>    path only** (the S2 `CreateFile` after `GetFileContentByPath_V2`) — this S2 content-bind detail below is
+>    still correct and still the byte mechanism.
+> 2. **The folder is minted at parse-confirm, not at submit.** `box-folder-create` mints the UPPERCASE
+>    Case/PO folder when `cr1bd_casepo` first exists; `finalize-eva-box` now **augments** that pre-existing
+>    folder instead of creating it, and reads `cr1bd_BOX_FOLDER_ROOT_ID` instead of a hard-coded param.
+>
+> Where this doc and ADR-0012 / [box-integration-pivot/plans/00-BUILD-PLAN.md](../../../box-integration-pivot/plans/00-BUILD-PLAN.md)
+> disagree, **the ADR + build plan win** (precedence: ADR > architecture/plans). Read
+> [docs/plans/phase-7-box-integration/](../phase-7-box-integration/) for the current design; this doc
+> remains useful for the EVA photo-order rule, the UPPERCASE-casing confirm, and the S2 byte-bind detail,
+> which Phase 7 keeps unchanged. **Status: superseded by Phase 7. The Phase-7 Box Dataverse schema +
+> `cr1bd_BOX_*` env-vars are applied live (all `BOX_*` gates OFF); the `box-webhook` Function,
+> `cr1bd_box_rest` connector and Box flows are authored offline (`state=off`), not deployed/bound.**
+
 > **Status:** design + bind/confirm/activate runbook. The Box step **is already built offline**
 > (`flows/definitions/finalize-eva-box.definition.json`, imported `state=off`) — but it is built
 > against **operations that do not exist** on the real first-party Box connector and it carries the

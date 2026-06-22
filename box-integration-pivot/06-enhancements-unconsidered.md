@@ -73,7 +73,7 @@ Two distinct uses:
 ## F. Box Sign — e‑signature
 
 - **What:** create/track signature requests via API on a document in the case folder; signed copy
-  retained in place. **Included Business+** (Sign *API* embedding is a Platform consumption charge).
+  retained in place. **Included on Business or higher** (Sign *API* embedding is a Platform consumption charge).
 - **Fit:** low‑to‑moderate — only if an intake step needs a signed authority/acknowledgement. Park it.
 
 ## G. Box Relay + the Workflow‑Trigger API — Box‑native automation (use sparingly)
@@ -106,6 +106,7 @@ Two distinct uses:
 - **Box as the operator's read view, Dataverse as the machine's write model.** Humans browse the Box
   folder; the pipeline reads/writes Dataverse + Blob. The metadata mirror keeps them aligned without
   making Box load‑bearing for logic.
-- **Don't over‑buy.** The cheapest *useful* configuration is **Business Plus + File Request + webhook +
-  metadata**. AI/Hubs/Doc Gen/Governance are each separate, later, tier‑gated decisions — adopt on
-  evidence of need, not up front.
+- **Don't over‑buy.** The cheapest *useful* configuration is **base Business + File Request + webhook +
+  CCG** (~$15/user/mo) — the whole base pivot. **Business Plus** (the Metadata tier) and
+  AI/Hubs/Doc Gen/Governance are each separate, later, tier‑gated decisions — adopt on evidence of need,
+  not up front.

@@ -18,8 +18,8 @@
 
 ## The decisive fact: tier‑gating
 
-The capabilities that would matter for CE are gated **1–2 tiers above the Business Plus floor** this pivot
-assumes:
+The capabilities that would matter for CE are gated **1–2 tiers above the pivot's base‑Business floor**
+(metadata‑event/AI/HTTPS‑step features sit at Business Plus → Enterprise → Enterprise Advanced):
 
 | Capability | Business / Business Plus | Enterprise / Enterprise Plus | **Enterprise Advanced** |
 |---|---|---|---|
@@ -38,8 +38,8 @@ workflow with a *File Uploaded* trigger calls OUT (custom HTTPS step) to a Power
 Azure Function — letting Box originate the call.
 
 **Answer: no — not a real simplification.**
-- **Tier:** the custom HTTPS step is **Enterprise Advanced only** (triple‑verified) — a **two‑tier jump**
-  from Business Plus purely to avoid writing one Function.
+- **Tier:** the custom HTTPS step is **Enterprise Advanced only** (triple‑verified) — a **multi‑tier jump**
+  from the pivot's base‑Business floor purely to avoid writing one Function.
 - **Security:** roughly a wash, arguably worse — you trade "verify an HMAC you didn't issue" for "manage an
   outbound credential inside Box's connection store + secure the PA trigger's SAS URL." More secret sprawl.
 - **Observability / IaC:** worse — failures surface in **Box's** run‑tracking, not your Azure App Insights /
@@ -59,7 +59,7 @@ stack). Note: `POST /workflows/{id}/start` is **inbound only** (push files *into
   `POST /2.0/workflows/{id}/start` (≤20 files; returns `204`; needs the **"Manage Box Relay" OAuth scope**
   on our Box app — additive to `root_readwrite`/`manage_webhook`) to kick off a pre‑built manual‑start
   workflow → approval task to a senior engineer → on approve, move to a "Final" subfolder / notify.
-- **Core tier (Business+)** for task + move + notify. (Box **Sign** as the approval mechanism would push it
+- **Core tier (Business or higher)** for task + move + notify. (Box **Sign** as the approval mechanism would push it
   to Enterprise Advanced.)
 - **Honest caveat:** this may be **redundant** with the Code App "Review" queue (the human‑in‑the‑loop check
   already happens there, pre‑submit). Adopt only if an *in‑Box, file‑level* audit trail is specifically

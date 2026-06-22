@@ -37,10 +37,11 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
   (the Function host key gates the connector → backend; the **Box** secret never appears in the
   connector).
 - **Connection-reference manifest** — `flows/connection-references.json`. Already declares
-  `cr1bd_box` but **wrongly** points at the first-party `shared_box` (Standard, file-only,
-  interactive-OAuth, no folder/webhook/metadata/file-request/shared-link ops). The note already
-  records "a custom connector is the only service-identity escalation". This entry is **repointed**
-  by this plan.
+  `cr1bd_box` pointing at the first-party `shared_box` (Standard, file-only, interactive-OAuth, no
+  folder/webhook/metadata/file-request/shared-link ops). The note already records "a custom connector is
+  the only service-identity escalation". This plan **adds a PARALLEL `cr1bd_box_rest`** for the custom
+  connector and **keeps `cr1bd_box` first-party** for `finalize-eva-box`'s `CreateFile` byte path
+  (PINNED — 04 §4, ADR-0012).
 - **Live Functions (4)** — parser `cespike-parser-dev-x7xt3d5ovhi7y`, enrichment `cespkenrich-fn-gi62sd`,
   addressmatch `cespkaddr-fn-i7m4re`, evavalidation `cespkeval-fn-6c6fxd` — all FC1, registry in
   `docs/architecture/live-environment.md`. (OCR `cespkocr` on Azure Container Apps is host-pending and
@@ -70,9 +71,12 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
    webhook Function bicep (step 5) declare a KV `standard` vault with `enableRbacAuthorization:true`
    (clone `functions/enrichment/infra/main.bicep` lines 118–141), and an app-setting
    `BOX_CLIENT_SECRET = @Microsoft.KeyVault(SecretUri=${vaultUri}secrets/${boxClientSecretName})`
-   where `boxClientSecretName` defaults to `box-client-secret`. The template declares **only the
-   reference** — never a literal secret. Also wire `BOX_WEBHOOK_PRIMARY_KEY` /
-   `BOX_WEBHOOK_SECONDARY_KEY` as KV refs (the HMAC signature keys Box generates per webhook).
+   where `boxClientSecretName` defaults to the **HYPHENATED** KV secret name `box-client-secret`. The
+   template declares **only the reference** — never a literal secret. Also wire the
+   `BOX_WEBHOOK_PRIMARY_KEY` / `BOX_WEBHOOK_SECONDARY_KEY` **app settings** as KV refs to the **HYPHENATED**
+   KV secrets `box-webhook-primary-key` / `box-webhook-secondary-key` (the HMAC signature keys Box
+   generates per webhook). KV secret names are hyphenated; the UPPER_SNAKE names are the app settings they
+   resolve into.
    · owner **[Claude-buildable]** (the bicep) · depends-on: nothing
    · verify: https://learn.microsoft.com/azure/app-service/app-service-key-vault-references#understand-source-app-settings-from-key-vault
    (`@Microsoft.KeyVault(SecretUri=…)` form, resolved by system-assigned MI with **Key Vault Secrets User**)
@@ -112,11 +116,18 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
    (b) compute HMAC-**SHA256** over **payload-body-bytes ++ timestamp-bytes** with the **primary** key,
    then the **secondary** key; accept if **either** matches using a **timing-safe** comparison
    (supports Box key rotation); else `403`;
-   (c) respond **2xx within 30 s**, *then* do the work (Box retries up to 12× over 2 h, so the handler
-   must be **idempotent** — dedup on `BOX-DELIVERY-ID` / Box event id);
+   (c) **process the Dataverse fan-out ON the request path** and return **200 when SETTLED**, or a
+   **non-2xx (503) on a TRANSIENT failure so Box RETRIES** (Box does NOT retry after a 2xx; it retries up
+   to ~12× over 2 h on a non-2xx). The handler is **idempotent** — durable dedup is the **Evidence-existence
+   check on the `box:file:<id>` tag in `cr1bd_sourcemessageid`** (NOT `cr1bd_boxfileid`, which is a
+   correlation/UI mirror the webhook also writes, never the dedup key);
    (d) for `FILE.UPLOADED`, **disambiguate upload vs move** (the event also fires on `FILE.MOVED`; a
-   move carries source context) and either write a `cr1bd_evidence` row or copy bytes back to Blob for
-   the parser/EVA path, then re-invoke `CS Status Evaluate` (idempotent).
+   move carries source context) and either write a `cr1bd_evidence` row (also stamping `cr1bd_boxfileid`
+   + `cr1bd_acceptedforeva=true`) or copy bytes back to Blob for the parser/EVA path, then re-invoke
+   `CS Status Evaluate` (idempotent). Audit rows use the canonical `cr1bd_name`/`cr1bd_occurredat`/
+   `cr1bd_action`/`cr1bd_after` shape (there is **no `cr1bd_detail` column**). The timed `GetFolderItems`/
+   `ListFolder` reconciliation sweep is a **deferred, not-yet-built** secondary backstop — Box's own retry
+   on the non-2xx is the primary recovery.
    · owner **[Claude-buildable]** · depends-on: 1, 3
    · verify (HTTP trigger `authLevel=function` + `x-functions-key`): https://learn.microsoft.com/azure/azure-functions/functions-bindings-http-webhook-trigger#usage
    · verify (signature alg + body+timestamp + 10-min window + dual key + timing-safe): https://developer.box.com/guides/webhooks/handle/setup-signatures/
@@ -136,10 +147,11 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
    · depends-on: nothing · verify (FC1 identity storage): https://learn.microsoft.com/azure/azure-functions/flex-consumption-how-to#configure-deployment-settings
    · verify (FC1 IaC + `allowSharedKeyAccess:false` MI): https://learn.microsoft.com/azure/azure-functions/functions-infrastructure-as-code#create-storage-account
 
-6. **Add the `cr1bd_box` connection-reference rewrite to `flows/connection-references.json`.** Change
-   `connector`/`apiId` to the custom connector (`shared_box_ccg_jwt` →
-   `/providers/Microsoft.PowerApps/apis/shared_box_ccg_jwt`), set `tier:"Premium"`, `custom:true`,
-   `operationIds:[…]`, `openapi:"functions/box-webhook/openapi/box-connector.json"`,
+6. **Add a PARALLEL `cr1bd_box_rest` connection reference to `flows/connection-references.json`** (PINNED
+   — do **not** repoint the first-party `cr1bd_box` in place; it is retained for `finalize-eva-box`'s
+   `CreateFile` byte path — 04 §4, ADR-0012). New entry bound to the custom connector
+   (`shared_box_rest` → `/providers/Microsoft.PowerApps/apis/shared_box_rest`), set `tier:"Premium"`,
+   `custom:true`, `operationIds:[…]`, `openapi:"functions/box-webhook/openapi/box-connector.json"`,
    `boundAtActivation:true`, and a note: "service-identity = Box Service Account (CCG); Function host
    key on the connection; Box client_secret is a Function-side KV ref, never here; [RESERVED-FOR-USER]
    to import + bind". Recommend **Premium** tier so it sits in the same DLP data group as the other
@@ -188,11 +200,13 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
 11. **Design the status-driven Blob purge (flow-driven, not a blind lifecycle age rule).** Azure Blob
     **Lifecycle Management** can only filter by **age / prefix / blob-index-tag** — it **cannot** read
     Dataverse `case_status=box_synced`. Two-part design: (a) when `finalize-eva-box` sets status
-    `box_synced`, also stamp the blob with an index tag `status=box_synced` (`x-ms-tags` on write, or
-    `Set Blob Tags`); (b) a scheduled "Blob purge" flow (or lifecycle rule keyed on the tag **plus** a
-    grace age) deletes blobs where `status=box_synced` **AND** age > grace (default 30 d, configurable).
-    Prefer the **flow-driven delete** as primary (it can re-check Dataverse `box_synced` is still true
-    and never strands a not-yet-mirrored case); a tag-filtered lifecycle rule is the cheap backstop.
+    `box_synced`, also stamp `cr1bd_boxsyncedat` and the blob with an index tag `status=box_synced`
+    (`x-ms-tags` on write, or `Set Blob Tags`); (b) a scheduled "Blob purge" flow (or lifecycle rule keyed
+    on the tag **plus** a grace age) deletes **only archived (accepted, non-excluded) IMAGE evidence**
+    where `status=box_synced` **AND** age > grace (**default 7 d** per the operator decision, configurable
+    via `PurgeGraceDays`) — non-image transient bytes are retained (a deferred follow-up). Prefer the
+    **flow-driven delete** as primary (it can re-check Dataverse `box_synced` is still true and never
+    strands a not-yet-mirrored case); a tag-filtered lifecycle rule is the cheap backstop.
     Note: with Storage **soft-delete** enabled, lifecycle/flow deletes go to soft-deleted state for the
     retention window (recoverable).
     · owner **[Claude-buildable]** (the rule JSON + the flow) · depends-on: 8 (writes the tag/timestamp)
@@ -203,9 +217,12 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
     Operator pre-reqs (a playbook section): create a **Platform app (Server Authentication / CCG)** in
     the Box Developer Console; set scopes (see step 13); **authorize it in the Admin Console**
     (Platform → Server Authentication Apps → Add by Client ID); capture **Client ID + Client Secret**;
-    inject the secret into Key Vault as `box-client-secret` (and the per-webhook primary/secondary
-    signature keys). Re-authorize on any scope change. AGENTS.md: operator owns Platform app + secret +
-    Admin consent; Claude owns connector def + Functions + flows.
+    inject the secrets into Key Vault under the **HYPHENATED secret names** `box-client-secret`,
+    `box-webhook-primary-key`, `box-webhook-secondary-key` (these resolve into the
+    `BOX_CLIENT_SECRET`/`BOX_WEBHOOK_PRIMARY_KEY`/`BOX_WEBHOOK_SECONDARY_KEY` app settings — the runbook
+    must tell the operator to use the hyphenated KV names, not the UPPER_SNAKE app-setting names).
+    Re-authorize on any scope change. AGENTS.md: operator owns Platform app + secret + Admin consent;
+    Claude owns connector def + Functions + flows.
     · owner **[Claude-buildable]** (the docs) — the steps they describe are **[operator-gated]**
     · verify (Admin authorization by Client ID): file `automationsresearch/box/markdown/552-platform-apps.md`
     · verify (reauthorize after app-settings change): https://developer.box.com/guides/authentication/client-credentials/
@@ -239,8 +256,9 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
 
 **Provides to the other sections:**
 - **→ Connector/flows section:** the importable custom Box connector (`functions/box-webhook/openapi/box-connector.json`)
-  + the repointed `cr1bd_box` connection-reference — every Box flow op binds to this. Without it the
-  finalize rewrite, folder-at-intake, and File-Request flows cannot run.
+  + the **parallel `cr1bd_box_rest`** connection-reference — every Box custom-connector op binds to this
+  (first-party `cr1bd_box` stays for the `CreateFile` byte path). Without it the folder-at-intake and
+  File-Request flows cannot run.
 - **→ Dataverse section:** consumes the **5 `BOX_*` gates + `BOX_WEBHOOK_SECRET_NAME`** and the **3 Box
   columns on `cr1bd_case`** (folder_id / file_request_id+url) that `plans/05-dataverse.md` creates;
   the webhook handler **writes** `cr1bd_evidence` rows and re-invokes status-evaluate (idempotent).
@@ -262,11 +280,14 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
 
 - **FILE.UPLOADED from a File-Request upload is unproven** (Box documents folder-upload firing and the
   upload landing in the folder, but never closes the File-Request→event loop). *Mitigation:* live-test
-  before relying on B2; fallback to a timed `GetFolderItems`/Metadata-Query reconciliation sweep. **(blocking for B2)**
+  before relying on B2; the **primary recovery is Box's own retry** on the receiver's non-2xx; a timed
+  `GetFolderItems`/Metadata-Query reconciliation sweep is a **deferred, not-yet-built** secondary backstop. **(blocking for B2)**
 - **Webhooks are best-effort** — no latency SLA, at-least-once, no ordering, droppable
   (permission-blocked / expired session), and `FILE.UPLOADED` **also fires on moves**. *Mitigation:*
-  HMAC verification + `BOX-DELIVERY-ID` dedup + idempotent status re-evaluate + periodic reconciliation
-  sweep so a missed/duplicate event can't strand or double-process a case.
+  HMAC verification + idempotent **Evidence-existence dedup** (the `box:file:<id>` tag in
+  `cr1bd_sourcemessageid`) + idempotent status re-evaluate + the receiver's non-2xx-triggers-retry model,
+  so a missed/duplicate event can't strand or double-process a case (the reconciliation sweep is a
+  deferred extra backstop).
 - **Webhook count ceiling** — Box documents a per-user/per-application webhook limit (the dossier/EXPLORE
   cite ~1000); the live reference page 404'd during verification. *Action:* one webhook per **case
   folder** could approach a ceiling at scale — **confirm the exact limit at build-time** and prefer a
@@ -280,7 +301,7 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
   (Azure Functions CORS is a platform setting via `az functionapp cors`, not `host.json`, if ever needed.)
 - **Blob purge gate** — lifecycle policies **cannot** read `case_status=box_synced`; a flow-driven
   delete (re-checking Dataverse) is the safer primary, a tag-filtered lifecycle rule the backstop.
-  *Open question:* grace period (30 d vs 60 d) — confirm with operator.
+  *Grace period:* **7 d** (operator decision; configurable via `PurgeGraceDays`).
 - **Folder timing** — provisional-then-rename vs mint-at-parse-confirm. *Recommendation:* parse-confirm
   (simpler, same net result, matches today). Confirm with operator.
 - **Shared-link freshness** — minted per-finalize (always fresh, slight latency) vs cached in Dataverse
@@ -326,4 +347,4 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
 - `box-integration-pivot/plans/05-dataverse.md` (the `BOX_*` gates + `cr1bd_case` Box columns this section consumes)
 - `functions/enrichment/infra/main.bicep`, `functions/addressmatch/infra/main.bicep` (FC1 clone targets)
 - `functions/parser/openapi/parser-connector.json` (OpenAPI 2.0 + api-key-on-connection clone target)
-- `flows/connection-references.json` (the `cr1bd_box` entry repointed by this plan)
+- `flows/connection-references.json` (the parallel `cr1bd_box_rest` entry added by this plan; first-party `cr1bd_box` kept)

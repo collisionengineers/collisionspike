@@ -139,15 +139,48 @@
       "reservedReason": "Sends REAL outbound email across the live-services boundary. Behind the CHASER_SEND_ENABLED kill switch (default false); whatsapp-channel chasers are hard-skipped (manual send only, ADR-0003). Flipping the gate + turning this flow ON is the operator's reserved step; Claude never enables it.",
       "trigger": "Request",
       "gates": ["cr1bd_CHASER_SEND_ENABLED"]
+    },
+    {
+      "definition": "box-folder-create.definition.json",
+      "displayName": "Flow_BoxFolderCreate",
+      "planRef": "phase-7 / ADR-0012 / build-plan 04 §5",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Phase-7 Box pivot. Mints the UPPERCASE Case/PO Box folder at parse-confirm via the custom Box REST connector (CCG token minted server-side in the box-webhook Function). Importing the cr1bd_box_rest connector + binding its connection (Function host key) + setting cr1bd_BOX_FOLDER_ROOT_ID + flipping BOX_API_ENABLED then BOX_FOLDER_AT_INTAKE_ENABLED are reserved. The intake invocation (inside Scope_generate_casepo after Update_case_casepo) is an operator/business-phase LIVE edit (the repo intake def trails live — see box-integration-activation.md). Claude never holds a Box credential, never binds the connection, never flips the gate.",
+      "trigger": "Request (child of intake at parse-confirm, and of case-resolve's survivor-folder ensure)",
+      "gates": ["cr1bd_BOX_FOLDER_AT_INTAKE_ENABLED"]
+    },
+    {
+      "definition": "box-file-request-copy.definition.json",
+      "displayName": "Flow_BoxFileRequestCopy",
+      "planRef": "phase-7 / ADR-0012 / build-plan 04 §7",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Phase-7 Box pivot (B2). Authored STANDBY child: copies the hand-built TEMPLATE File Request onto a case's Box folder and returns the live uploader URL, ready for future operator activation. NOT currently invoked by the Code App — under CSP connect-src 'none' the Code App calls the cr1bd_box_rest connector op (CopyFileRequest / GetFolderSharedLink) DIRECTLY with no flow in the path (pinned 2026-06-21 build-plan decision). Hand-building the ONE template File Request + recording its id (cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID), importing/binding cr1bd_box_rest, flipping BOX_API_ENABLED then BOX_FILEREQUEST_ENABLED, and the BLOCKING B2 FILE.UPLOADED live-test are reserved. Claude never holds a Box credential, never flips the gate.",
+      "trigger": "Request (authored standby; the Code App uses the direct cr1bd_box_rest connector op (no flow in the path) — ready for operator activation)",
+      "gates": ["cr1bd_BOX_FILEREQUEST_ENABLED"]
+    },
+    {
+      "definition": "box-blob-purge.definition.json",
+      "displayName": "Flow_BoxBlobPurge",
+      "planRef": "phase-7 / ADR-0012 / build-plan 04 §11",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Phase-7 Box pivot (Wave 5). Scheduled, status-driven Blob cleanup once Box is the archive of record: deletes ONLY archived (accepted-for-EVA, non-excluded) IMAGE Blob evidence bytes for box_synced cases past the PurgeGraceDays window (non-image transient bytes are retained — a deferred follow-up; never the Box copy, never the Evidence row). Setting a real near-term Recurrence startTime (it ships a far-future placeholder so it never fires on deploy), pinning PurgeGraceDays, binding cr1bd_evidenceblob, and flipping BOX_API_ENABLED are reserved. Claude never flips the gate or binds the connection.",
+      "trigger": "Recurrence (daily; far-future startTime placeholder)",
+      "gates": ["cr1bd_BOX_API_ENABLED"]
     }
   ],
   "summary": {
-    "totalFlows": 12,
-    "stateOff": 11,
+    "totalFlows": 15,
+    "stateOff": 14,
     "stateOn": 1,
     "activatedLive": ["case-resolve.definition.json"],
     "authoringAllBuild": true,
     "activationAllReservedForUser": false,
-    "activationNote": "All flows ship off EXCEPT case-resolve (merge-by-registration), turned ON live 2026-06-20 under the live-services override (Claude wires activations directly). Every other flow's activation remains the operator's reserved step."
+    "activationNote": "All flows ship off EXCEPT case-resolve (merge-by-registration), turned ON live 2026-06-20 under the live-services override (Claude wires activations directly). Every other flow's activation remains the operator's reserved step. Phase-7 added three Box flows (box-folder-create, box-file-request-copy, box-blob-purge), all state=off, gated by BOX_* env-vars (default OFF); case-resolve gained an idempotent survivor-folder ensure (still ON)."
   }
 }

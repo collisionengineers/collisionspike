@@ -10,7 +10,7 @@ app, `client_secret`, `frame-src` CSP edit, live confirms — Claude never holds
 | # | Plan | One-liner |
 |---|---|---|
 | **00** | [**00-BUILD-PLAN.md**](./00-BUILD-PLAN.md) | **Start here.** The ordered master plan: dependency-ordered Waves 0–5, the cross-section reconciliations, the critical path, the consolidated operator checklist, and the risks/gaps/unverified roll-up. |
-| 01 | [01-docs.md](./01-docs.md) | Docs edits + additions booked into the precedence ladder: ADR-0012, architecture §Box, the `phase-3-box-integration/` plan folder, gated.md rows, and reconciling the old box-archival-pipeline.md down. |
+| 01 | [01-docs.md](./01-docs.md) | Docs edits + additions booked into the precedence ladder: ADR-0012, architecture §Box, the `phase-7-box-integration/` plan folder, gated.md rows, and reconciling the old box-archival-pipeline.md down. |
 | 02 | [02-app-and-files.md](./02-app-and-files.md) | Code App changes: the `BoxGates` read, the chaser→File-Request→clipboard flow, the real `finalize-eva-box` submit invocation, "Open in Box" deep link + optional Box Embed iframe — all CSP-safe via connectors. |
 | 03 | [03-azure-cloud.md](./03-azure-cloud.md) | Azure unlock: the custom Box REST connector (API-key + Function-minted CCG token), the webhook-receiver FC1 Function (HMAC + replay + dedup), Key Vault secret, and the status-driven Blob purge. |
 | 04 | [04-power-automate-flows.md](./04-power-automate-flows.md) | Flow-by-flow build: new `box-folder-create` / `box-file-request-copy` / `box-blob-purge` children + intake / case-resolve / status-evaluate edits, all gated by the four BOX_* env-vars. |

@@ -310,6 +310,8 @@ export function evidenceFromRecord(rec: EvidenceRecord): Evidence {
     ...(rec.cr1bd_excluded != null ? { excluded: rec.cr1bd_excluded } : {}),
     ...(rec.cr1bd_exclusionreason ? { exclusionReason: rec.cr1bd_exclusionreason } : {}),
     sourceLabel: rec.cr1bd_sourcelabel ?? '',
+    ...(rec.cr1bd_boxfileid ? { boxFileId: rec.cr1bd_boxfileid } : {}),
+    ...(rec.cr1bd_boxfileurl ? { boxFileUrl: rec.cr1bd_boxfileurl } : {}),
   };
 }
 
@@ -487,6 +489,17 @@ function ageDaysFrom(createdAtDmy: string | undefined, now: Date): number {
   return Math.max(0, Math.round(ms / 86_400_000));
 }
 
+/** Resolve the inspection decision mode. Falls back to image_based when the
+ *  inspection address is the literal "Image Based Assessment" but no decision
+ *  mode was written yet (the parse/classify flow can set the text before the
+ *  mode) — so an image-based provider never shows "Undecided". */
+function deriveInspectionDecision(rec: CaseRecord): Case['inspectionDecision'] {
+  const explicit = inspectionDecisionCodec.toName(rec.cr1bd_inspectiondecision);
+  if (explicit) return explicit;
+  if ((rec.cr1bd_evainspectionaddress ?? '').trim() === 'Image Based Assessment') return 'image_based';
+  return 'unknown';
+}
+
 export function caseFromRecord(input: CaseAssemblyInput): Case {
   const { record: rec } = input;
   const now = input.now ?? new Date();
@@ -516,13 +529,14 @@ export function caseFromRecord(input: CaseAssemblyInput): Case {
       sourceMailbox: rec.cr1bd_sourcemailbox ?? '',
     },
     ageDays: ageDaysFrom(createdAt, now),
-    inspectionDecision:
-      inspectionDecisionCodec.toName(rec.cr1bd_inspectiondecision) ?? 'unknown',
+    inspectionDecision: deriveInspectionDecision(rec),
     createdAt,
     ...(dvDateToDmy(rec.cr1bd_datedue) ? { dateDue: dvDateToDmy(rec.cr1bd_datedue) } : {}),
     ...(dvDateToDmy(rec.cr1bd_submittedat)
       ? { submittedAt: dvDateToDmy(rec.cr1bd_submittedat) }
       : {}),
+    ...(rec.cr1bd_boxfolderid ? { boxFolderId: rec.cr1bd_boxfolderid } : {}),
+    ...(rec.cr1bd_boxfolderurl ? { boxFolderUrl: rec.cr1bd_boxfolderurl } : {}),
   };
 }
 

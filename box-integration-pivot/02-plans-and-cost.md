@@ -1,9 +1,11 @@
 # 02 — Plans & cost
 
-> **Headline:** the right plan is **Box Business Plus** (~$25–33/user/mo, **3‑seat minimum ≈ $900/yr
-> list**). The pivot is **storage‑cost‑neutral** — evidence already lives in cheap Azure Blob, not
-> expensive Dataverse File — so **do not justify the pivot on price**. Its value is workflow, UX,
-> external‑upload ergonomics and governance.
+> **Headline:** the floor for the base pivot is **base Box Business** (~$15/user/mo, **3‑seat minimum ≈
+> $540/yr list**) — it covers folders, File Requests, webhooks and CCG. **Box Business Plus** (~$25–33/
+> user/mo, ≈ $900/yr) is an **optional later tier** needed **only** for the Metadata reg‑capture field.
+> The pivot is **storage‑cost‑neutral** — evidence already lives in cheap Azure Blob, not expensive
+> Dataverse File — so **do not justify the pivot on price**. Its value is workflow, UX, external‑upload
+> ergonomics and governance.
 >
 > All figures are **USD list** (box.com renders prices client‑side, so GBP needs a sales quote; USD list
 > corroborated across Vendr / Costbench / G2). Treat as "approximate list, pre‑discount."
@@ -13,8 +15,8 @@
 | Plan | ~$/user/mo (annual) | Storage | Max file | API calls/mo | Notable | Metadata? |
 |---|---|---|---|---|---|---|
 | Business Starter | ~$5 (~$7 mo) | **100 GB (capped)** | 2 GB | 50K | the only capped Business tier | ❌ |
-| **Business** | ~$15 (~$20 mo) | **Unlimited** | 5 GB | 50K | integrated Box AI, File Requests | ❌ |
-| **Business Plus** ⭐ | **~$25 (~$33 mo)** | Unlimited | 15 GB | 50K | **Metadata**, unlimited external collaborators | ✅ |
+| **Business** ⭐ (the floor) | ~$15 (~$20 mo) | **Unlimited** | 5 GB | 50K | integrated Box AI, File Requests, webhooks, CCG | ❌ |
+| **Business Plus** (optional metadata tier) | **~$25 (~$33 mo)** | Unlimited | 15 GB | 50K | **Metadata**, unlimited external collaborators | ✅ |
 | Enterprise | ~$35 (~$47 mo) | Unlimited | 50 GB | 100K | 1K AI Units/mo, Box Hubs, advanced Relay | ✅ |
 | Enterprise Plus | ~$50 | Unlimited | 150 GB | 100K | 2K AI Units/mo, **Box Governance bundled** | ✅ |
 | Enterprise Advanced | (quote) | Unlimited | 500 GB | quote | 20K AI Units, **Doc Gen API**, Box Forms, AI Studio, custom Extract agents | ✅ |
@@ -22,7 +24,7 @@
 All Business tiers carry a **3‑seat minimum**. (Consumer Individual/Personal Pro tiers lack admin
 console, File Requests, API and metadata — unsuitable.)
 
-## Why the floor is Business Plus (not Business)
+## Why the floor is base Business (and what Business Plus adds)
 
 Walking the proposal's requirements against the gates:
 
@@ -31,16 +33,22 @@ Walking the proposal's requirements against the gates:
 | Unlimited storage | Business |
 | File Requests | Business |
 | Webhooks + Platform API (50K calls/mo incl.) | every Business tier |
-| **Metadata template fields on the upload form** (to capture the **registration**) | **Business Plus** |
+| CCG service identity | every Business tier |
+| **Metadata template fields on the upload form** (to capture the **registration**) — **optional** | **Business Plus** |
 
-**Metadata is the binding gate.** Without it, a File Request can only capture the sender's email and a
-**free‑text description** — the vehicle registration would have to be shoved into free text rather than a
-structured, queryable field. To get a real reg field (and the Box‑native search it enables, see
-[06](./06-enhancements-unconsidered.md)), you need **Business Plus**.
+**The whole base pivot runs on base Business (~$15).** Folder‑create, File Requests, webhooks and the
+CCG service identity are all covered by base Business — so base Business is the floor.
 
-> If structured capture were dropped, **Business (~$15)** would suffice for File Request + webhooks. That
-> is a real fallback if budget is tight — but it forfeits the metadata‑driven matching/search that makes
-> the "central reference" idea powerful.
+**Business Plus buys one optional thing: the structured Metadata field.** Without it, a File Request can
+still capture the sender's email and a **free‑text description** (and the reg can be carried via
+filename‑VRM / the uploader emailing the reg / human triage — see
+[09](./09-metadata-role.md)). To get a *typed, queryable* reg field (and the Box‑native search it
+enables, see [06](./06-enhancements-unconsidered.md)), you upgrade to **Business Plus** — a **later,
+optional reliability upgrade**, not a prerequisite.
+
+> Base **Business (~$15)** suffices for File Request + webhooks + CCG. **Business Plus** is worth it only
+> when the typed reg field / metadata‑driven search is wanted — defer it until then (see
+> [09‑metadata‑role.md](./09-metadata-role.md)).
 
 ## Consumption add‑ons (only if/when you use them)
 
@@ -89,13 +97,14 @@ enrichment Functions, Dataverse, Power Automate, the Code App) is the bulk of th
 
 | Cost line | With the pivot |
 |---|---|
-| Box Business Plus licence | **new** ~$900/yr+ (3‑seat min) |
+| Box base Business licence (floor) | **new** ~$540/yr+ (3‑seat min); Business Plus (~$900/yr) only if the optional metadata field is later wanted |
 | Azure Blob evidence storage | **unchanged** (you may keep it as the bytes source even with Box — see [04](./04-target-architecture.md)) |
 | Parser + enrichment Functions, Dataverse, Power Automate, Code App | **unchanged** |
 | Engineering to build it | **the real cost** — custom Box REST connector (CCG), Azure Function webhook receiver w/ HMAC verification, flow rewiring, live‑testing |
 | Box AI / Doc Gen / Governance / Hubs | **only if adopted** — higher tier + metered AI Units |
 
-**Bottom line:** budget the pivot as **a new ~$900/yr+ SaaS line plus an engineering build**, justified
-by **upload ergonomics, organisation and governance** — not as a cost saving. Azure is *cheaper* for
-cold bytes; Box is *better* for the human upload/collaboration workflow. They are not competing for the
-same job.
+**Bottom line:** budget the base pivot as **a new ~$540/yr+ SaaS line (base Business, 3‑seat min) plus an
+engineering build**, justified by **upload ergonomics, organisation and governance** — not as a cost
+saving (add ~$360/yr for Business Plus only if/when the optional metadata reg field is wanted). Azure is
+*cheaper* for cold bytes; Box is *better* for the human upload/collaboration workflow. They are not
+competing for the same job.

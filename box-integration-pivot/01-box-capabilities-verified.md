@@ -108,15 +108,18 @@ learn.microsoft.com connectors/box.*
 
 ---
 
-## 4. Plan gating — what plan buys all of it · **CONFIRMED: Business Plus**
+## 4. Plan gating — the floor is base Business; Business Plus is the metadata tier · **CONFIRMED**
 
-The cheapest plan with **File Requests + Webhooks/Platform‑API + Metadata together** is **Box Business
-Plus**, ~**$25–33/user/mo annual** (~$33–40 monthly per some trackers), **3‑seat minimum**.
+The **base pivot floor is base Box Business** (~**$15/user/mo**, **3‑seat minimum**): it covers
+**folders, File Requests, Webhooks/Platform‑API and CCG** — everything the base pivot needs. The cheapest
+plan that **additionally** carries **Metadata** is **Box Business Plus**, ~**$25–33/user/mo annual**
+(~$33–40 monthly per some trackers) — an **optional later tier**, not the floor.
 
-- **Metadata is the gate.** Box: *"Metadata is a feature reserved for Business Plus, Enterprise,
-  Enterprise Plus, and Enterprise Advanced accounts."* Standard **Business lacks it** — so although File
-  Requests (Business+) and the 50K‑calls API allowance (every Business tier) are cheaper, the
-  **registration‑capture form forces Business Plus**.
+- **Metadata is the gate — for Business Plus, not for the pivot.** Box: *"Metadata is a feature reserved
+  for Business Plus, Enterprise, Enterprise Plus, and Enterprise Advanced accounts."* Standard **Business
+  lacks it** — so although File Requests, webhooks and the 50K‑calls API allowance (every Business tier)
+  run on base Business, the **structured registration‑capture form field forces Business Plus** **if/when
+  that optional metadata capture is wanted**.
 - **Box Platform / API is *not* a separate product.** Every Business+ plan ships **50K API calls/mo**
   (Enterprise 100K) plus **webhooks, UI Elements and SDKs**. A paid "Box Platform add‑on" exists only to
   *buy more* calls/AI‑units or serve external app users (Core APIs ~$2.35/1,000 calls).

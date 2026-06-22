@@ -1,25 +1,24 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_FinalizeEvaBox (§5.10 / phase-2 M2.C+M2.D). EVA + Box finalize in unison inside one Scope. Box folder = UPPERCASE Case/PO; EVA uses lowercase - same identity, two casings. Photo order = 2 previews first (overview w/ full registration + damage closeup) then ALL photos incl. those two again (Evidence sequenceIndex asc). The Sentry REST submit is a TWO-REQUEST photo flow inside the evasentry Function (confirmed against Sentry API v1.2 PDF pp.13,21-23): the 2 preview photos ride as EVA Files {Name,Extension,Data} on POST /Instruction/Inspection (creates the claim, returns Id), then the full ordered set rides on POST /Note/SubmitNote matched by VehReg (+ClmNo) - so the flow passes body/vrm (cr1bd_vrm) and body/clmNo (cr1bd_caseref). EVA_API_ENABLED gates the TRANSPORT (Sentry REST via cr1bd_evasentry when true; JSON drag-drop export staged to Box when false - M1 default + PERMANENT fallback) not the finalization. The Sentry REST token lifecycle lives INSIDE the evasentry Function (Power Platform custom connectors cannot do the OAuth2 client-credentials grant - Microsoft Learn), keyed by function-key; the flow never reads EVA_CLIENT_SECRET. Idempotent by cr1bd_finalizedpayloadhash (stamped LAST; the Function also dedups by payload hash in-process). BoxArchiveRootId is a flow parameter, never a hardcoded live Box id. [BUILD]. BOX CONTRACT (verified Microsoft Learn connectors/box + connectors/azureblobconnector 2026-06-20): the first-party Box connector is class STANDARD and has NO CreateFolder op - the UPPERCASE Case/PO folder is created IMPLICITLY by writing into CreateFile's folderPath. Box CreateFile params are folderPath/name/binary body (folderId is a TRIGGER param, not a CreateFile param). S2 FIX: each photo is read from Azure Blob via Get blob content using path (V2) (cr1bd_evidenceblob, dataset=AccountNameFromSettings) and its REAL bytes go to Box - previously the cr1bd_storagepath PATH STRING was uploaded as the body (silent corruption: a tiny text file, not the image). The .eva.json drag-drop body is a JSON string = already content, so it needs no blob read. ACTIVATION [RESERVED-FOR-USER]: bind cr1bd_box (live Box, interactive OAuth - the connector supports no JWT/CCG) + cr1bd_evidenceblob (Azure Blob, account cespkevidstdev01, access-key, dataset=AccountNameFromSettings) + cr1bd_evasentry, set BoxArchiveRootId (or root the Box connection at the archive parent so folderPath is just /<CASEPO>/), inject EVA test Client_Id/Secret into Key Vault, set EVA_REQUEST_FROM (EVA-supplied contact code) app setting, confirm folderPath auto-creates the UPPERCASE folder + the UPPERCASE casing (B5/H6), flip EVA_API_ENABLED=true in TEST only, run a parity test (drag-drop==API) before any prod cutover. Box can go live on the drag-drop transport (EVA_API_ENABLED=false) BEFORE the Sentry REST path exists. Claude never injects secrets, binds a live account, or flips the prod gate.",
+  "comment": "Flow_FinalizeEvaBox (§5.10 / phase-2 M2.C+M2.D; Phase-7 BOX-AUGMENT DELTA, ADR-0012 / build-plan 04 / box-flow-patterns Fragment 3). EVA + Box finalize in unison inside one Scope. PHASE-7 CHANGE: the UPPERCASE Case/PO folder now PRE-EXISTS — it is minted at parse-confirm by box-folder-create (custom connector shared_box_rest CreateFolder). Finalize therefore AUGMENTS the folder (uploads photo bytes + the .eva.json into it); it does NOT create it. The dead hard-coded BoxArchiveRootId flow parameter is REMOVED and replaced by a READ of env-var cr1bd_BOX_FOLDER_ROOT_ID (Get_box_root_definition / Set_box_root_id) for cross-section consistency with box-folder-create (dataverse owns the name; build-plan 04 §step-2 hand-off). The first-party shared_box CreateFile byte path is UNCHANGED and folderPath-based (it lands in / auto-finds the pre-existing UPPERCASE folder), so the migration touches no byte op. Box folder = UPPERCASE Case/PO; EVA uses lowercase - same identity, two casings. Photo order = 2 previews first (overview w/ full registration + damage closeup) then ALL photos incl. those two again (Evidence sequenceIndex asc). The Sentry REST submit is a TWO-REQUEST photo flow inside the evasentry Function (confirmed against Sentry API v1.2 PDF pp.13,21-23): the 2 preview photos ride as EVA Files {Name,Extension,Data} on POST /Instruction/Inspection (creates the claim, returns Id), then the full ordered set rides on POST /Note/SubmitNote matched by VehReg (+ClmNo) - so the flow passes body/vrm (cr1bd_vrm) and body/clmNo (cr1bd_caseref). EVA_API_ENABLED gates the TRANSPORT (Sentry REST via cr1bd_evasentry when true; JSON drag-drop export staged to Box when false - M1 default + PERMANENT fallback) not the finalization. The Sentry REST token lifecycle lives INSIDE the evasentry Function (Power Platform custom connectors cannot do the OAuth2 client-credentials grant - Microsoft Learn), keyed by function-key; the flow never reads EVA_CLIENT_SECRET. Idempotent by cr1bd_finalizedpayloadhash (stamped LAST; the Function also dedups by payload hash in-process). [BUILD]. BOX BYTE CONTRACT (verified Microsoft Learn connectors/box + connectors/azureblobconnector 2026-06-20): the first-party Box connector is class STANDARD and has NO CreateFolder op — BYTES upload via CreateFile (params folderPath/name/binary body) into the pre-existing folder; the custom shared_box_rest connector ops NEVER appear in this byte path (folder creation moved to box-folder-create). S2 FIX: each photo is read from Azure Blob via Get blob content using path (V2) (cr1bd_evidenceblob, dataset=AccountNameFromSettings) and its REAL bytes go to Box - previously the cr1bd_storagepath PATH STRING was uploaded as the body (silent corruption: a tiny text file, not the image). The .eva.json drag-drop body is a JSON string = already content, so it needs no blob read. ACTIVATION [RESERVED-FOR-USER]: bind cr1bd_box (live Box, interactive OAuth - the connector supports no JWT/CCG) + cr1bd_evidenceblob (Azure Blob, account cespkevidstdev01, access-key, dataset=AccountNameFromSettings) + cr1bd_evasentry, set cr1bd_BOX_FOLDER_ROOT_ID (or root the Box connection at the archive parent so folderPath is just /<CASEPO>/), inject EVA test Client_Id/Secret into Key Vault, set EVA_REQUEST_FROM (EVA-supplied contact code) app setting, confirm the pre-existing UPPERCASE folder is found + the UPPERCASE casing (B5/H6), flip EVA_API_ENABLED=true in TEST only, run a parity test (drag-drop==API) before any prod cutover. Box can go live on the drag-drop transport (EVA_API_ENABLED=false) BEFORE the Sentry REST path exists. Claude never injects secrets, binds a live account, or flips the prod gate.",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
-    "$authentication": { "type": "SecureObject", "defaultValue": {} },
-    "BoxArchiveRootId": { "type": "String", "defaultValue": "@parameters('BoxArchiveRootId')", "metadata": { "description": "Parent Box folder id for archives. Flow parameter; bound by the user at activation. NEVER a hardcoded live Box id." } }
+    "$authentication": { "type": "SecureObject", "defaultValue": {} }
   },
   "triggers": {
-    "manual": {
-      "type": "Request",
-      "kind": "Http",
-      "comment": "Invoked when staff request submit (the Code App writes a 'submit requested' signal; the Code App never calls EVA/Box directly).",
+    "When_submit_requested": {
+      "type": "OpenApiConnectionWebhook",
+      "comment": "PHASE-7 (ADR-0012 / 00-BUILD-PLAN reconciliation 'Code App -> flow invocation', which WINS over plan-04's stale Request-trigger note): finalize is invoked by a DATAVERSE SUBMIT-SIGNAL, not an HTTP/SAS POST (the Code App runs under CSP connect-src 'none' and never POSTs to a flow URL). The Code App's makeDataverseFinalizeTransport PATCHes cr1bd_submitrequested=true (+ cr1bd_submitpayloadhash + cr1bd_evapayload12); this 'When a row is added, modified or deleted' trigger (SdkMessage Update=3, scope Organization=4) fires only when cr1bd_submitrequested is part of the update (filteringattributes) AND evaluates true (filterexpression), then the flow reads caseId/payloadHash/evaPayload12 from the triggering ROW (a row trigger exposes only the row, not an HTTP body). The flag is RESET to false LAST (Stamp_finalized_hash) so it is the trigger boundary; re-running requires a fresh app request, and the cr1bd_finalizedpayloadhash latch still blocks a duplicate-payload re-submit. [RESERVED-FOR-USER] at activation: this Dataverse trigger registers a CallbackRegistration when the flow is turned on (no Office-365 webhook to re-arm — unlike intake; the flow-webhook-trigger-provisioning gotcha does not apply here, but the flow is state=off until the operator activates it).",
       "inputs": {
-        "schema": {
-          "type": "object",
-          "properties": {
-            "caseId": { "type": "string" },
-            "payloadHash": { "type": "string" },
-            "evaPayload12": { "type": "string" }
-          }
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "SubscribeWebhookTrigger",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "subscriptionRequest/message": 3,
+          "subscriptionRequest/entityname": "cr1bd_cases",
+          "subscriptionRequest/scope": 4,
+          "subscriptionRequest/filteringattributes": "cr1bd_submitrequested",
+          "subscriptionRequest/filterexpression": "cr1bd_submitrequested eq true"
         }
       }
     }
@@ -27,18 +26,20 @@
   "actions": {
     "Init_caseId": {
       "type": "InitializeVariable",
-      "inputs": { "variables": [ { "name": "caseId", "type": "string", "value": "@triggerBody()?['caseId']" } ] },
+      "inputs": { "variables": [ { "name": "caseId", "type": "string", "value": "@triggerOutputs()?['body/cr1bd_caseid']" } ] },
+      "comment": "PHASE-7: caseId is the PRIMARY KEY of the triggering Case row (the row that had cr1bd_submitrequested set true), not an HTTP body field.",
       "runAfter": {}
     },
     "Init_payloadHash": {
       "type": "InitializeVariable",
-      "inputs": { "variables": [ { "name": "payloadHash", "type": "string", "value": "@triggerBody()?['payloadHash']" } ] },
+      "inputs": { "variables": [ { "name": "payloadHash", "type": "string", "value": "@triggerOutputs()?['body/cr1bd_submitpayloadhash']" } ] },
+      "comment": "PHASE-7: the requested byte-identical hash the Code App wrote with the signal (cr1bd_submitpayloadhash), kept DISTINCT from the cr1bd_finalizedpayloadhash latch so the request does not pre-empt the stamped-LAST resume-safety.",
       "runAfter": { "Init_caseId": [ "Succeeded" ] }
     },
     "Init_evaPayload12": {
       "type": "InitializeVariable",
-      "inputs": { "variables": [ { "name": "evaPayload12", "type": "string", "value": "@triggerBody()?['evaPayload12']" } ] },
-      "comment": "The schema-valid 12-field EVA JSON in contract order, built by the SAME serializer the Code App uses (eva-export.ts / eva-payload.schema.json) - byte-identical drag-drop body and API body. vrm/reference are NOT in the 12.",
+      "inputs": { "variables": [ { "name": "evaPayload12", "type": "string", "value": "@triggerOutputs()?['body/cr1bd_evapayload12']" } ] },
+      "comment": "PHASE-7: the schema-valid 12-field EVA JSON in contract order, read VERBATIM from the staged cr1bd_evapayload12 column the Code App PATCHed (built by the SAME serializer the Code App uses - eva-export.ts / eva-payload.schema.json - so it stays byte-identical for both the drag-drop body and the API body; the flow does NOT re-serialize the 12 cr1bd_eva* columns, which would risk format drift). vrm/reference are NOT in the 12.",
       "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
     },
     "Get_gate_definition": {
@@ -65,6 +66,31 @@
       "comment": "M1 default false -> JSON drag-drop export path (permanent fallback).",
       "runAfter": { "Get_gate_definition": [ "Succeeded" ] }
     },
+    "Get_box_root_definition": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "environmentvariabledefinitions",
+          "$filter": "schemaname eq 'cr1bd_BOX_FOLDER_ROOT_ID'",
+          "$select": "environmentvariabledefinitionid,defaultvalue",
+          "$expand": "environmentvariabledefinition_environmentvariablevalue($select=value)",
+          "$top": 1
+        }
+      },
+      "comment": "PHASE-7 MIGRATION: READ the archive root id from env-var cr1bd_BOX_FOLDER_ROOT_ID (replaces the removed hard-coded BoxArchiveRootId flow parameter; dataverse owns the name). The first-party CreateFile byte path is folderPath-based and lands in the pre-existing UPPERCASE folder, so this value is read for cross-section consistency/observability (and a future folder-id-based op) — it is NEVER a hardcoded live Box id.",
+      "runAfter": { "Set_gate_EVA_API_ENABLED": [ "Succeeded" ] }
+    },
+    "Set_box_root_id": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "boxRootId", "type": "string",
+        "value": "@coalesce(first(first(outputs('Get_box_root_definition')?['body/value'])?['environmentvariabledefinition_environmentvariablevalue'])?['value'], first(outputs('Get_box_root_definition')?['body/value'])?['defaultvalue'], '')"
+      } ] },
+      "comment": "The archive root Box folder id (currentValue -> defaultValue -> ''). Read from Dataverse, never a literal.",
+      "runAfter": { "Get_box_root_definition": [ "Succeeded" ] }
+    },
     "Get_case": {
       "type": "OpenApiConnection",
       "inputs": {
@@ -72,12 +98,12 @@
           "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
         "parameters": { "entityName": "cr1bd_cases", "recordId": "@variables('caseId')" }
       },
-      "runAfter": { "Set_gate_EVA_API_ENABLED": [ "Succeeded" ] }
+      "runAfter": { "Set_box_root_id": [ "Succeeded" ] }
     },
     "Guard_already_finalized": {
       "type": "If",
       "expression": { "not": { "equals": [ "@outputs('Get_case')?['body/cr1bd_finalizedpayloadhash']", "@variables('payloadHash')" ] } },
-      "comment": "Idempotency latch: re-running finalize for an already-submitted payload hash must not double-submit or re-create the folder.",
+      "comment": "Idempotency latch: re-running finalize for an already-submitted payload hash must not double-submit or re-create the folder. TRUE branch (hash is NEW) runs the finalize Scope. ELSE branch (hash ALREADY finalized = a duplicate-payload submit): NO finalize work runs (no EVA submit, no Box augment) — it ONLY consumes the stuck submit-signal by resetting cr1bd_submitrequested=false (otherwise the Code App's signal is never cleared and the case stays apparently 'submit pending' forever) and writes a duplicate-submit-ignored audit.",
       "actions": {
         "Scope_Finalize": {
           "type": "Scope",
@@ -209,13 +235,49 @@
                 "parameters": { "entityName": "cr1bd_cases", "recordId": "@variables('caseId')",
                   "item/cr1bd_finalizedpayloadhash": "@variables('payloadHash')",
                   "item/cr1bd_status": 100000009,
-                  "item/cr1bd_submittedat": "@utcNow()" }
+                  "item/cr1bd_submittedat": "@utcNow()",
+                  "item/cr1bd_boxsyncedat": "@utcNow()",
+                  "item/cr1bd_submitrequested": false }
               },
-              "comment": "Stamp LAST = idempotency latch. status box_synced=100000009 (terminal). A partial failure leaves the hash unstamped so a re-run resumes cleanly.",
+              "comment": "Stamp LAST = idempotency latch. status box_synced=100000009 (terminal). cr1bd_boxsyncedat is RESTAMPED here at actual Box-sync time (PHASE-7): box-blob-purge measures its grace window off cr1bd_boxsyncedat, so without restamping at finalize the grace would be measured from box-folder-create's parse-confirm folder-create time — a long-open case (folder minted weeks before finalize) could become purge-eligible immediately on reaching box_synced. Restamping here ties the purge grace to when the bytes actually landed in Box. cr1bd_submitrequested is RESET to false here so the Dataverse submit-signal is consumed - the flag is the trigger boundary, so re-running requires a fresh Code App request; the latch (cr1bd_finalizedpayloadhash vs cr1bd_submitpayloadhash) additionally blocks a duplicate-payload re-submit. A partial failure leaves the latch unstamped AND the flag still true so a re-run resumes cleanly. NOTE: this UpdateRecord modifies cr1bd_submitrequested, which is a filteringattribute of this flow's own trigger; the filterexpression (cr1bd_submitrequested eq true) means setting it FALSE does not satisfy the trigger, so no self-retrigger loop occurs.",
               "runAfter": { "Audit_box_synced": [ "Succeeded" ] }
             }
           },
           "runAfter": {}
+        }
+      },
+      "else": {
+        "actions": {
+          "Reset_submit_signal_duplicate": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": { "entityName": "cr1bd_cases", "recordId": "@variables('caseId')",
+                "item/cr1bd_submitrequested": false }
+            },
+            "comment": "DUPLICATE-PAYLOAD path (cr1bd_finalizedpayloadhash already equals the requested payloadHash): the finalize Scope is SKIPPED (no re-submit, no Box re-augment, no status restamp). But the Code App's submit-signal cr1bd_submitrequested is still TRUE from the request that retriggered this flow — if we did nothing it would stay stuck TRUE forever and the case would look 'submit pending'. Reset it to false here to consume the signal WITHOUT doing any finalize work. (Setting it FALSE does not satisfy the trigger's filterexpression cr1bd_submitrequested eq true, so no self-retrigger.)",
+            "runAfter": {}
+          },
+          "Audit_duplicate_submit_ignored": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": {
+                "entityName": "cr1bd_auditevents",
+                "item/cr1bd_name": "@concat('duplicate submit ignored: ', outputs('Get_case')?['body/cr1bd_casepo'])",
+                "item/cr1bd_action": 100000015,
+                "item/cr1bd_severity": 100000000,
+                "item/cr1bd_actor": "Flow_FinalizeEvaBox",
+                "item/cr1bd_after": "@concat('duplicate submit ignored — payload hash ', variables('payloadHash'), ' already finalized; submit-signal reset, NO re-submit / NO Box re-augment / NO status change')",
+                "item/cr1bd_Caseid@odata.bind": "@concat('cr1bd_cases(', variables('caseId'), ')')",
+                "item/cr1bd_occurredat": "@utcNow()"
+              }
+            },
+            "comment": "Audit the ignored duplicate submit. Reuses action eva_submitted=100000015 (the closest existing value) with explicit 'duplicate submit ignored' semantics in name/after — the SAME no-new-value reuse precedent as the rest of this file (e.g. box_synced reusing 100000016); the dataverse choiceset owns the vocabulary. Linked to the case. NO finalize work ran on this branch.",
+            "runAfter": { "Reset_submit_signal_duplicate": [ "Succeeded" ] }
+          }
         }
       },
       "runAfter": { "Get_case": [ "Succeeded" ] }

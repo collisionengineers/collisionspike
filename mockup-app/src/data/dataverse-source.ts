@@ -49,7 +49,9 @@ import {
   intakeChannelKindCodec,
 } from './adapter';
 import { EVA_FIELD_ORDER } from '../contracts/eva-export';
+import { BOX_GATES_ALL_FALSE } from './types';
 import type {
+  BoxGates,
   CaseRecord,
   CreateCaseInput,
   CreateCaseResult,
@@ -58,6 +60,7 @@ import type {
   InspectionAddressCounts,
   SuggestedAddress,
 } from './types';
+import { BOX_ENV_VAR_SCHEMA_NAMES, boxGatesFromRows } from './box-gates';
 
 /* ----------  Date helpers (ported verbatim from mock/queues.ts)  ---------- */
 function parseDmy(s?: string): Date | undefined {
@@ -206,6 +209,44 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     }
 
     return { id: newId };
+  }
+
+  /* ----------  BOX_* gate read (cached, refetchable, default all-false)  ----------
+     Code Apps cannot read env-vars natively, so read the platform env-var tables
+     the flows read — coalescing value ?? defaultvalue ?? 'false' in box-gates.ts.
+     Cached in a module-scoped promise (read once at startup); a falsy result on
+     ANY failure (tables not wired, query error) is the all-false honest-off
+     baseline. The hook's `refetch` re-runs by clearing the cache via
+     `getDataAccess().getBoxGates()` only after a reload — within a session the
+     cache is intentionally sticky (gates change ~hourly at publish, not live). */
+  let boxGatesCache: Promise<BoxGates> | undefined;
+  async function fetchBoxGates(): Promise<BoxGates> {
+    const defsSvc = services.environmentVariableDefinitions;
+    const valsSvc = services.environmentVariableValues;
+    // Until the operator wires both env-var tables (pac add-data-source), there is
+    // nothing to read — return all-false rather than throwing.
+    if (!defsSvc || !valsSvc) return { ...BOX_GATES_ALL_FALSE };
+    try {
+      // Filter the DEFINITION table to just the BOX_* schema names (an OData
+      // `schemaname eq 'a' or schemaname eq 'b' …` disjunction). The VALUE table
+      // is small (one row per overridden var) so fetch it whole and join in code.
+      const schemaFilter = BOX_ENV_VAR_SCHEMA_NAMES.map(
+        (s) => `schemaname eq '${s}'`,
+      ).join(' or ');
+      const [defsRes, valsRes] = await Promise.all([
+        defsSvc.getAll({
+          select: ['environmentvariabledefinitionid', 'schemaname', 'defaultvalue'],
+          filter: schemaFilter,
+        }),
+        valsSvc.getAll({
+          select: ['value', '_environmentvariabledefinitionid_value'],
+        }),
+      ]);
+      return boxGatesFromRows(defsRes.data ?? [], valsRes.data ?? []);
+    } catch {
+      // Honest off on any read failure — never fabricate an enabled gate.
+      return { ...BOX_GATES_ALL_FALSE };
+    }
   }
 
   return {
@@ -404,6 +445,12 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
         orderBy: ['cr1bd_timestamp desc'],
       });
       return (res.data ?? []).map(auditToActivity);
+    },
+
+    /* ----- Box feature gates (cached env-var read; all-false on failure) ----- */
+    getBoxGates: (): Promise<BoxGates> => {
+      if (!boxGatesCache) boxGatesCache = fetchBoxGates();
+      return boxGatesCache;
     },
   };
 
