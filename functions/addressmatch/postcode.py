@@ -107,16 +107,17 @@ def outward_of(value: str | None) -> str:
 
 
 def district_matches(case_outward: str, candidate_postcode: str | None) -> bool:
-    """ROADMAP-4a district test: does ``candidate_postcode``'s outward code begin
-    with the Case's part-postcode district?
+    """ROADMAP-4a district test: does ``candidate_postcode``'s outward code EQUAL
+    the Case's part-postcode district?
 
     The Case ``Loc`` is an outward code (e.g. ``CH5``); a candidate yard carries a
-    full postcode (e.g. ``CH5 2AB`` → outward ``CH5``). We match when the
-    candidate's outward code **starts with** the Case district. ``startswith``
-    (not equality) so a 2-char district like ``B5`` does not spuriously swallow
-    ``B50`` — UK outward codes are token-distinct, and the corpus rule is
-    deliberately ``startswith(outwardCode)`` to allow a known site recorded at the
-    sector level to satisfy a broader district. Empty inputs never match.
+    full postcode (e.g. ``CH5 2AB`` → outward ``CH5``). We match on outward-code
+    **equality** — UK outward codes are token-distinct, so a 2-char district like
+    ``B5`` must NOT swallow ``B50``. (``'B50'.startswith('B5')`` is True at the
+    string level — exactly the cross-district false positive that equality avoids;
+    a prior ``startswith`` implementation had this bug.) This mirrors the corpus
+    rule (``district == repairer district``, ``raw/.../_scripts/task4.py``). Empty
+    inputs never match.
     """
     co = (case_outward or "").strip().upper()
     if not co:
@@ -124,7 +125,7 @@ def district_matches(case_outward: str, candidate_postcode: str | None) -> bool:
     cand_out = outward_of(candidate_postcode)
     if not cand_out:
         return False
-    return cand_out.startswith(co)
+    return cand_out == co
 
 
 def serialize_six_lines(lines: list[str], postcode: str | None = None) -> str:
