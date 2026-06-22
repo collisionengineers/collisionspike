@@ -84,7 +84,7 @@ function AddDC([string]$dom,[string]$code) {
 $live = Get-Json "$script:base/cr1bd_workproviders?`$filter=cr1bd_active eq true and cr1bd_knownemaildomains ne null&`$select=cr1bd_principalcode,cr1bd_knownemaildomains"
 foreach ($w in $live.value) {
   $c = $w.cr1bd_principalcode
-  $existingByCode[$c] = Split-Domains $w.cr1bd_knownemaildomains
+  $existingByCode[$c] = @(Split-Domains $w.cr1bd_knownemaildomains)
   foreach ($d in $existingByCode[$c]) { AddDC $d $c }
 }
 foreach ($c in $csvByCode.Keys) { foreach ($d in $csvByCode[$c]) { AddDC $d $c } }
@@ -97,7 +97,9 @@ $updated=0; $unchanged=0; $notFound=@(); $report=@()
 foreach ($code in ($csvByCode.Keys | Sort-Object)) {
   $id = Get-WorkProviderIdByCode $code
   if (-not $id) { $notFound += $code; continue }
-  $existing = if ($existingByCode.ContainsKey($code)) { $existingByCode[$code] } else { @() }
+  # @() guards the single-element unwrap: a 1-domain row returns a scalar string, and
+  # "domain" + @("new") would STRING-concatenate (no separator) instead of array-union. Force array.
+  $existing = @(if ($existingByCode.ContainsKey($code)) { $existingByCode[$code] } else { @() })
   $newClean = @($csvByCode[$code] | Where-Object { -not $ambiguous.ContainsKey($_) })
   $desired  = @($existing + $newClean | ForEach-Object { $_.ToLower() } | Sort-Object -Unique)
   $existingSet = @($existing | ForEach-Object { $_.ToLower() } | Sort-Object -Unique)

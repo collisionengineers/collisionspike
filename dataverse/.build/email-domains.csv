@@ -1,0 +1,42 @@
+principal_code,email_domain
+# Built 2026-06-22 from raw/principalandrepairersheets/outputs/provider_email_audit/provider_email_audit_2026-06-22.csv
+# Source = each provider's OWN address (sender_emails / provider_related_emails). Third-party/intermediary
+# addresses (other_external_emails) are excluded; the script's ambiguity guard is a second safety net.
+# Run DRY-RUN first:  pwsh dataverse/.build/15-seed-emaildomains.ps1
+# Then to write live:  pwsh dataverse/.build/15-seed-emaildomains.ps1 -Apply
+QDOS,qdosassist.co.uk
+GG,gcoffey.co.uk
+RJS,robertjameslaw.co.uk
+AX,ax-uk.com
+SS,savasandsavage.co.uk
+QCL,qc-law.co.uk
+OAK,oakwoodscotland.co.uk
+MP,montrealprestige.co.uk
+BLACK,blackstone-legal.co.uk
+KBS,knightsbridgesolicitors.co.uk
+ALS,autologistic.co.uk
+ACSP,accidentspecialist.co.uk
+SBL,smartbusinesslink.com
+BC,bakercoleman.co.uk
+SWAN,swansolicitors.co.uk
+AVI,avisonslaw.com
+KMR,kmrlaw.co.uk
+HTU,htuassessors.co.uk
+MOTORX,motorx.uk
+KERR,kerrbrown.co.uk
+AMS,amssolicitors.co.uk
+ALISON,alison-law.co.uk
+TEN,tenlegal.co.uk
+WLS,woodlands-solicitors.com
+ALL,ac-solicitors.co.uk
+AS,amansolicitors.co.uk
+WIL,williamsinjurylaw.co.uk
+TP,taylorprice.co.uk
+TA,turnamms.co.uk
+ABRAHAMS,abrahamssolicitors.co.uk
+MATT,mattrowlandsolicitors.co.uk
+ASLS,aslsolicitors.com
+# EXCLUDED (deliberately not written):
+#   YML  networkhduk@gmail.com   -> gmail.com is a PUBLIC/free domain, unsafe as a match key
+#   DFD  (website dfd-solicitors.co.uk, no email exposed)   FW  (no email)   RL (no email)
+#   CASTLE (only a third-party hrowen.co.uk thread)   STALLION / RELAY (no stored email files)
