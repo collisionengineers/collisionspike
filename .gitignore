@@ -64,3 +64,4 @@ venv/
 raw/
 *.pyc
 *.egg-info/
+boxconfig.json
