@@ -62,7 +62,7 @@ the recommendation.
 | Rate‑limit/throttle on bursts (link minting, batch AI extract) | Low‑Med | pace calls (1,000/min/user, 240 uploads/min/user; connector 100/conn/60s); exponential backoff on 429 |
 | Cost creep (AI Units no‑rollover, higher tiers for Hubs/Doc Gen/Governance) | Med | gate each feature; pilot before committing; AI Units are metered, not flat |
 | Vendor lock‑in to Box | Low | evidence bytes also kept in Blob (byte source of truth); export is folder‑level |
-| 3‑seat minimum floor | Low | accept ~$900/yr as the entry cost even for 1–2 users |
+| 3‑seat minimum floor | Low | accept ~$540/yr (base Business) as the entry cost even for 1–2 users (~$900/yr only if Business Plus is later wanted) |
 
 ## Options (thought‑trees)
 
@@ -70,14 +70,15 @@ the recommendation.
 |---|---|---|---|
 | **0. Do nothing** | keep Box‑at‑EVA archival only | lowest | if image collection isn't a pain point (it is) |
 | **1. Minimal File Request** | Business tier, File Request + webhook, **reg in free‑text** (no metadata) | ~$540/yr + build | tight budget; accept weaker matching/search |
-| **2. Additive hybrid** ⭐ | Business Plus; folder+archival at intake, File Request, webhook, metadata; **Dataverse authoritative** | ~$900/yr + build | **recommended** — the standout wins without re‑platforming |
+| **2. Additive hybrid** ⭐ | base Business; folder+archival at intake, File Request, webhook (metadata/Business Plus deferred — optional later); **Dataverse authoritative** | ~$540/yr + build (~$900/yr if Business Plus later added) | **recommended** — the standout wins without re‑platforming |
 | **3. Full re‑centre** | Box as spine, minimise Dataverse | high + risk | **not recommended** — Box can't run dedup/status/sequencing |
 | **4. Hybrid + enhancements** | Option 2 + AI/Governance/Hubs over time | higher tiers + metered | once Option 2 proves out and institutional‑memory/compliance value is wanted |
 
 ## Open questions (decisions you owe before building)
 
-1. **Budget & seats:** is **Business Plus (~$900/yr, 3‑seat min)** acceptable, or is the **Business
-   minimal** option (no metadata, reg in free‑text) the starting point?
+1. **Budget & seats:** the operator decision (2026‑06‑21) is to **start on base Business (~$540/yr, 3‑seat
+   min)** with metadata deferred; **Business Plus (~$900/yr)** is an **optional later upgrade** added only
+   when the typed reg field / Metadata‑Query actually lands (see [09‑metadata‑role.md](./09-metadata-role.md)).
 2. **Source of truth:** confirm **Dataverse stays authoritative** and Box is the content/mirror layer
    (recommended), vs any ambition to make Box load‑bearing for logic (advise against).
 3. **Folder timing:** **provisional‑folder‑then‑rename** at first contact, or **mint at parse‑confirm**

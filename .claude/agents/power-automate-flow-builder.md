@@ -56,12 +56,19 @@ dedup/status decisions made explicit, and the connections each flow requires.
 ## Box-centric pivot (Phase 7) — added scope
 
 You also author the **Box flow definitions** (ADR-0012; build-plan 04): `box-folder-create`
-(`CreateFolder` at parse-confirm, 409-idempotent, stamps `cr1bd_boxfolderid`), `box-file-request-copy`
-(`empty(folderId)→folder_not_ready` guard; returns `{fileRequestUrl, expiresAt, outcome}`), the
+(`CreateFolder` at parse-confirm, 409-idempotent, stamps `cr1bd_boxfolderid` + `cr1bd_boxsyncedat`),
+`box-file-request-copy` (guards **both** `empty(folderId)` AND `empty(templateId)` → `folder_not_ready`;
+stamps `cr1bd_boxfilerequestid`/`url`; returns `{fileRequestUrl, expiresAt, outcome}` — a **standby**
+child, since the Code App calls the connector op directly under CSP `connect-src 'none'`), the
 **`finalize-eva-box` Box augment delta** (the folder pre-exists → finalize *augments* not creates; keep
-the S2 first-party `CreateFile` byte path; `box_synced` stamped LAST), `case-resolve` survivor-folder
-ensure, and `box-blob-purge` (status-driven on `box_synced`+grace, never the Box copy) — plus the
-`flow-state.json` / `validate-flows.mjs` registrations.
+the S2 first-party `CreateFile` byte path; `box_synced` + `cr1bd_boxsyncedat` restamp + reset
+`cr1bd_submitrequested`, all stamped LAST), `case-resolve` survivor-folder ensure, and `box-blob-purge`
+(status-driven on `box_synced`+grace; purges **only archived accepted non-excluded IMAGE** Blob bytes,
+clears `cr1bd_storagepath` only on `Succeeded`/`Skipped`, never the Box copy, retains non-image bytes) —
+plus the `flow-state.json` / `validate-flows.mjs` registrations.
+
+The Box flows are **authored offline (state=off)**, not imported/bound live; the Phase-7 Box Dataverse
+schema + env-vars (all gates OFF) are already applied live.
 
 You **receive** connector action signatures from **azure-integration-engineer**, the
 `BOX_FOLDER_ROOT_ID` / `BOX_FILE_REQUEST_TEMPLATE_ID` values from **box-integration-architect**, and the

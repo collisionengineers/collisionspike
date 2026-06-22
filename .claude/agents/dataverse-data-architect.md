@@ -60,14 +60,24 @@ You also own the **Box schema additions** to the CollisionSpike solution (ADR-00
   `…_EMBED_ENABLED` (reserved — the operator chose link-not-embed), `…_METADATA_ENABLED`) + **2 String
   config vars** (`BOX_FOLDER_ROOT_ID`, `BOX_FILE_REQUEST_TEMPLATE_ID`), all default off/empty
   (`BOX_AI_ENABLED` is deferred to Phase C — the manifest is not the complete Box set);
-- **3 String columns** on `cr1bd_case`: `cr1bd_boxfolderid`, `cr1bd_boxfilerequestid`,
-  `cr1bd_boxfilerequesturl` (`format:Url`);
-- declare the pre-existing **`cr1bd_finalizedpayloadhash`** drift (finalize reads/writes it but
-  `case.json` never declared it) + correct the stale `case.json` line-23 "ENTERED AT EVA SUBMIT" comment
-  → **parse-confirm**;
+- **9 new columns on `cr1bd_case`** (`25-box-schema.ps1`): 6 String — `cr1bd_finalizedpayloadhash`,
+  `cr1bd_submitpayloadhash`, `cr1bd_boxfolderid`, `cr1bd_boxfilerequestid`,
+  `cr1bd_boxfilerequesturl` (`format:Url`), `cr1bd_boxfolderurl` (`format:Url`) — 1 Boolean
+  (`cr1bd_submitrequested`), 1 Memo (`cr1bd_evapayload12`), and 1 DateTime
+  (`cr1bd_boxsyncedat`, the box-blob-purge age key — **declared in `case.json`**, not added later);
+  plus **2 String columns on `cr1bd_evidence`** (`cr1bd_boxfileid`, `cr1bd_boxfileurl`);
+- the `cr1bd_finalizedpayloadhash` + `cr1bd_boxsyncedat` declarations also close the pre-existing
+  flow-contract drift (the live flows read/wrote them before `case.json` declared them); `case.json`'s
+  `cr1bd_casepo` description correctly reads **SET AT PARSE-CONFIRM** (not "entered at EVA submit");
 - **3 audit-action options** (`box_folder_created=100000019`, `box_file_request_copied=100000020`,
   `box_upload_received=100000021`);
 - **lock the new defaults in `verify-parity.mjs`** (it — not the flow linter — pins env-var defaults).
+
+The **Phase-7 Box schema + env-vars ARE applied live** in Dev (verified 2026-06-22): the `cr1bd_case` /
+`cr1bd_evidence` Box columns exist and every `BOX_*` env-var exists with all gates OFF (default AND
+current = false). `cr1bd_ENRICHMENT_ENABLED` is default=false / current=**true** (enrichment is LIVE in
+Dev via the current value, not the default). The `box-webhook` Function, `cr1bd_box_rest` connector, and
+Box flows are authored offline (state=off), not deployed/bound.
 
 You **define** the names/defaults; box-integration-architect supplies the runtime *values* the operator
 injects, power-automate-flow-builder stamps the columns at runtime, and azure-integration-engineer holds

@@ -21,7 +21,7 @@ is this better or worse? What's not possible on Box? What's possible but worse? 
 | **Image‑only senders** | held and chased manually | **permanent drop‑box** per sender with reg capture → auto‑match | **Better** |
 | **External collaboration** | email round‑trips | account‑free upload + (optional) shared‑link views | **Better** |
 | **Records governance** | Blob lifecycle + Dataverse audit | + Box **retention / legal hold / classification** (higher tier) | **Better** (if you buy it) |
-| **Cost** | cheap Blob, no extra SaaS seat | + ~$900/yr+ Box seat; storage neutral | **Worse** (modestly) |
+| **Cost** | cheap Blob, no extra SaaS seat | + ~$540/yr+ Box seat (base Business; +~$360/yr for the optional Business Plus metadata tier); storage neutral | **Worse** (modestly) |
 | **Architecture complexity** | first‑party connector at one step | + custom REST connector, webhook Function, HMAC, token lifecycle | **Worse** (more moving parts) |
 | **Source‑of‑truth clarity** | Dataverse is unambiguously authoritative | Box folder *and* Dataverse must be kept in sync | **Worse** (a real risk — see [07](./07-flaws-risks-and-open-questions.md)) |
 | **Case database / dedup / status / Case‑seq** | Dataverse | unchanged — **Box can't do this** | **Neutral** (stays in Dataverse) |

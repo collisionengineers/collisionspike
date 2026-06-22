@@ -53,7 +53,7 @@
 | `CopyFileRequest` | `POST /2.0/file_requests/{templateId}/copy` | `{ folder:{ id, type:"folder" }, status:"active", expires_at? }` | The **only** "create" — copy-from-template only; one File Request per folder; capture-form fields baked into the template. Response carries the live upload `url`. |
 | `GetSharedLink` | `PUT /2.0/files/{id}?fields=shared_link` | `{ shared_link:{ access, password?, unshared_at?, permissions } }` | The **file** variant. Server-minted only. `unshared_at` (expiry) is paid-account only. |
 | `GetFolderSharedLink` | `PUT /2.0/folders/{id}?fields=shared_link` | `{ shared_link:{ access, password?, unshared_at?, permissions } }` | The **folder** variant — backs "Open in Box". Provisioned as a **second operationId** (file vs folder are two ops; one operationId cannot cover both paths). `unshared_at` (expiry) is paid-account only. |
-| `ListFolder` | `GET /2.0/folders/{id}/items` | path `{id}` | The reconciliation sweep (the webhook fallback). |
+| `ListFolder` | `GET /2.0/folders/{id}/items` | path `{id}` | Backs the **deferred** reconciliation sweep (documented-but-not-built secondary backstop; the primary recovery is Box's retry on the receiver's non-2xx). |
 | `CreateWebhook` | `POST /2.0/webhooks` | `{ target:{ id, type }, address, triggers:["FILE.UPLOADED"] }` | `target.type` = file\|folder; scope `manage_webhook`. 409 on a duplicate target+app+user. |
 | webhook lifecycle | `GET` / `DELETE /2.0/webhooks/{id}` | path `{id}` | Renewal/deactivation. |
 | File-Request lifecycle | `GET` / `PUT` / `DELETE /2.0/file_requests/{id}` | `PUT { status:"active"\|"inactive" }` | Deactivate (`inactive`) makes the link 404 without deleting history. |
@@ -106,19 +106,25 @@ public HTTPS (reputable-CA cert, TLS 1.2/1.3; **not** a `*.box.com` URL). Logic 
 2. **Signature verify** — compute HMAC-**SHA256** over **body-bytes ++ timestamp-bytes** with the
    **primary** key, then the **secondary** key; accept if **either** matches via a **timing-safe**
    compare (supports Box key rotation); else `403`.
-3. **Respond 2xx promptly, then work** — Box retries on delivery failure (up to ~12×/2h), so the handler
-   must be idempotent. _(Do **not** hard-code a "within N seconds" ceiling — respond promptly and confirm
-   the exact limit against Box's webhook docs at build time.)_
-4. **Dedup** on `BOX-DELIVERY-ID` (at-least-once delivery; the append-only audit row is **not** a dedup
-   key — dedup before the Evidence write, or key Evidence on a `cr1bd_boxfileid`/source-event-id; confirm
-   the choice with the schema work).
-5. **Disambiguate** `FILE.UPLOADED` from `FILE.MOVED` (the trigger fires on both; a move carries source
+3. **Disambiguate** `FILE.UPLOADED` from `FILE.MOVED` (the trigger fires on both; a move carries source
    context).
-6. **Resolve the case** — Box folder id → `cr1bd_boxfolderid` → Case (state this lookup explicitly in the
-   handler).
-7. **Write Evidence** (the byte **storagePath stays Blob**) and **re-invoke the idempotent
-   `CS Status Evaluate`** so the case advances. For the B3 drop-box path, reg-merge (ADR-0010) the upload
-   to an open instruction case; **unmatched → Held** (don't guess).
+4. **Durable dedup** — check whether an **Evidence row already exists** for this upload, keyed on the
+   `box:file:<id>` tag persisted in **`cr1bd_sourcemessageid`** (NOT `cr1bd_boxfileid` — that column is a
+   correlation/UI **mirror** the webhook also writes, never the dedup key). At-least-once delivery makes
+   this existence-check load-bearing; the append-only audit row is **not** a dedup key.
+5. **Resolve the case** — Box folder id → `cr1bd_boxfolderid` → Case (state this lookup explicitly in the
+   handler). For the B3 drop-box path, reg-merge (ADR-0010) the upload to an open instruction case;
+   **unmatched → Held** (don't guess).
+6. **Process the fan-out ON the request path, then respond** — the receiver does the Dataverse work
+   **inline** (write Evidence with the byte **storagePath stays Blob**; stamp the correlation
+   **`cr1bd_boxfileid`** + **`cr1bd_acceptedforeva=true`**; write the audit row; re-invoke the idempotent
+   `CS Status Evaluate`) and returns **200 only when SETTLED**. On a **transient** failure it returns a
+   **non-2xx (503)** so **Box retries** — Box does **not** retry after a 2xx, so a premature 2xx would
+   silently drop the event. _(This replaces any earlier "respond 202 promptly then a background/daemon
+   fan-out" model.)_ The handler must stay idempotent (the step-4 existence check guarantees that).
+7. **Audit shape** — audit rows use the canonical
+   `cr1bd_name`/`cr1bd_occurredat`/`cr1bd_action`/`cr1bd_after` columns (there is **no** `cr1bd_detail`
+   column).
 
 ### B.3 — bicep (`functions/box-webhook/infra/main.bicep`)
 
@@ -143,7 +149,9 @@ references only, never literals. **No `api.box.com` CORS rule** (server-to-serve
 - Preserve the **2-previews-then-all** photo order and the non-image pass; keep the `EVA_API_ENABLED`
   gate (drag-drop vs Sentry REST).
 - Migrate the hard-coded `BoxArchiveRootId` flow parameter to read `cr1bd_BOX_FOLDER_ROOT_ID`.
-- **Stamp `cr1bd_status=box_synced` (100000009) LAST** — the existing idempotency latch, unchanged.
+- **Stamp `cr1bd_status=box_synced` (100000009) LAST** — the existing idempotency latch, unchanged — and
+  **stamp `cr1bd_boxsyncedat`** at `box_synced` (the sync timestamp `box-blob-purge` reads for its grace
+  window).
 - Linter: extend `BOX_ID_LITERAL_RE` to flag hard-coded `parent_id|folder_id|file_request_id` literals
   (NOT `name:"<digits>"` — the folder name is the UPPERCASE Case/PO); assert `shared_box_rest` (custom
   connector) ops never appear in finalize's byte path; allow `box-blob-purge`'s status+boxsyncedat

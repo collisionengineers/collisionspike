@@ -13,7 +13,7 @@
 # What it does (each step idempotent: re-running is a no-op once applied):
 #   1. Create the 5 BOX_* Boolean gates + 2 String config vars as env-var
 #      DEFINITIONS, default OFF/empty. (mirrors 05/22-envvars*.ps1)
-#   2. Add 8 columns to cr1bd_case (type-aware Build-BoxAttr mirrors 02-tables):
+#   2. Add 9 columns to cr1bd_case (type-aware Build-BoxAttr mirrors 02-tables):
 #         cr1bd_finalizedpayloadhash (String 80)  - finalize idempotency latch,
 #         cr1bd_submitrequested      (Boolean)    - submit-signal flag,
 #         cr1bd_submitpayloadhash    (String 80)  - submit-signal request hash,
@@ -21,7 +21,8 @@
 #         cr1bd_boxfolderid          (String 40),
 #         cr1bd_boxfilerequestid     (String 40),
 #         cr1bd_boxfilerequesturl    (String 400, FormatName=Url),
-#         cr1bd_boxsyncedat          (DateTime UserLocal) - blob-purge age key.
+#         cr1bd_boxsyncedat          (DateTime UserLocal) - blob-purge age key,
+#         cr1bd_boxfolderurl         (String 400, FormatName=Url) - folder shared-link deep link.
 #      (mirrors 02-tables.ps1 Build-Attr / Attributes POST)
 #   3. Insert 3 options into the EXISTING cr1bd_auditaction global choice set
 #      via the InsertOptionValue action (01-choicesets.ps1 only CREATES whole

@@ -1,9 +1,12 @@
 # Box integration — operator activation runbook
 
-> The **operator** view of Phase 7. Claude builds the connector, Functions, flows, schema, and docs
-> **offline, gated-OFF**; **you** do everything here: register the Box Platform app, authorize it in the
-> Admin Console, inject the secrets, designate the archive root, hand-build the template File Request,
-> flip the `BOX_*` gates, and run the live confirms. **Claude never holds a Box credential.** Binding
+> The **operator** view of Phase 7. Claude built the connector, Functions, flows, schema, and docs
+> **gated-OFF**; the **Box Dataverse schema + `cr1bd_BOX_*` env-vars are already APPLIED LIVE in Dev (all
+> `BOX_*` gates OFF)**, while the `box-webhook` Function, the `cr1bd_box_rest` connector and the Box flows
+> remain **authored offline (`state=off`), not deployed/bound**. **You** do everything here: register the
+> Box Platform app, authorize it in the Admin Console, inject the secrets, deploy the Function + import the
+> connector, designate the archive root, hand-build the template File Request, flip the `BOX_*` gates, and
+> run the live confirms. **Claude never holds a Box credential.** Binding
 > decision: [docs/adr/0012-box-centric-intake-additive-hybrid.md](../../adr/0012-box-centric-intake-additive-hybrid.md).
 > Build spec: [box-custom-connector-and-webhook.md](./box-custom-connector-and-webhook.md). Authoritative
 > order: [`box-integration-pivot/plans/00-BUILD-PLAN.md`](../../../box-integration-pivot/plans/00-BUILD-PLAN.md).
@@ -22,9 +25,9 @@ form — a **deferred Wave-2 reliability upgrade** for the orphaned image-only p
 (ADR-0012). Box AI Units are metered and **Business and Business Plus include zero** — Box AI stays a
 Phase-C decision.
 
-> If/when you later take the Business-Plus metadata upgrade, confirm in **Admin Console → Content &
+> If/when you later take the Business Plus metadata upgrade, confirm in **Admin Console → Content &
 > Sharing** that metadata is actually enabled (the plan including it is not the same as it being on) —
-> this needs the live Business-Plus tenant to verify.
+> this needs the live Business Plus tenant to verify.
 
 ## 1. The unlock — Box Platform app + Admin authorization + secrets (B0) 🔒
 
@@ -40,9 +43,11 @@ This is the **hard unlock**; every later flip and the connector binding depend o
    *"Disable unpublished platform apps by default"* is on, **manually mark the app Enabled** (an
    authorized-but-not-enabled app is disabled by that setting). **Re-authorize whenever scopes change.**
 3. **Inject secrets into Key Vault.** Supply the Box **`client_secret`** and the per-webhook
-   **primary/secondary signature keys**:
-   `box-client-secret`, `BOX_WEBHOOK_PRIMARY_KEY`, `BOX_WEBHOOK_SECONDARY_KEY`. Claude declared the KV
-   **references**; you supply the **values**.
+   **primary/secondary signature keys** under the **HYPHENATED** KV secret names —
+   **`box-client-secret`**, **`box-webhook-primary-key`**, **`box-webhook-secondary-key`** — which resolve
+   into the UPPER_SNAKE Function app settings (`BOX_CLIENT_SECRET`, `BOX_WEBHOOK_PRIMARY_KEY`,
+   `BOX_WEBHOOK_SECONDARY_KEY`) via `@Microsoft.KeyVault(SecretUri=…)`. Claude declared the KV
+   **references**; you supply the **values** under the hyphenated names.
 4. **[DEPLOY-WITH-LOGIN]** Deploy the `functions/box-webhook` bicep; **import** the custom connector;
    **bind BOTH Box connections** (PINNED — `flows/connection-references.json`): the **parallel
    `cr1bd_box_rest`** custom connection (the Function host key on the connection — folder-create,
@@ -52,7 +57,8 @@ This is the **hard unlock**; every later flip and the connector binding depend o
 
 > Why the free throwaway test account cannot do this: a **free** Box account's **CCG fails**
 > (`unauthorized_client`) and has **no File Requests and no metadata** — only its ~60-min **dev token**
-> works, and only for raw REST. The service-identity path above lights up **only** on a Business+ tenant.
+> works, and only for raw REST. The service-identity path above lights up **only** on a Business-or-higher
+> tenant (any paid tier — CCG, File Requests and webhooks are all on **base Business**).
 
 ## 2. The BOX_* gate-flip choreography
 
@@ -85,7 +91,7 @@ shows the **full registration**), reflection-excluded photos absent, `.eva.json`
 There is **no create-from-scratch File-Request API** — it is copy-from-template only. Build the template
 **once** by hand: pin a File Request to a folder (e.g. `/FileRequest-Template/`); set the capture form =
 **email + description** (on **base Business** there is **no** metadata reg field — that is the deferred
-Business-Plus upgrade). Record the `file_request_id` from the builder URL → it becomes the
+Business Plus upgrade). Record the `file_request_id` from the builder URL → it becomes the
 `BOX_FILE_REQUEST_TEMPLATE_ID` config value. Per case, the flow does
 `POST /file_requests/{templateId}/copy` onto the Case/PO folder; deactivate later with
 `PUT /file_requests/{id}` `{status:"inactive"}` (the link then 404s).
@@ -95,7 +101,7 @@ Business-Plus upgrade). Record the `file_request_id` from the builder URL → it
 > from a structured reg field, and on base Business that is filename-VRM / an emailed reg / human triage,
 > **not** the File-Request free-text description (a 2026-06-21 verification proved the description is
 > **not** API/webhook-readable at any tier). The metadata field is the only structured option, and it is
-> the deferred Business-Plus upgrade.
+> the deferred Business Plus upgrade.
 
 ## 5. The BUSINESS-account second test phase (CCG + File Requests + the FILE.UPLOADED live-test) 🔒
 
@@ -108,16 +114,17 @@ is validated **only here, on the live Business tenant**, and is **driven by you*
    op (e.g. `CreateFolder`) succeeds. _(If you see `unauthorized_client`, the app is not authorized/enabled
    — redo §1.2.)_
 2. **File Requests** — confirm the hand-built template (§4) copies per case and returns a live upload URL.
-3. **Metadata (only if/when the deferred Business-Plus upgrade is taken)** — create the enterprise
+3. **Metadata (only if/when the deferred Business Plus upgrade is taken)** — create the enterprise
    metadata template (Admin Console → Content → Metadata) and confirm the `vehicle_registration` field is
    **selectable on a File-Request form**. Out of scope on base Business.
 4. **🔒 BLOCKING — the File-Request → `FILE.UPLOADED` live-test.** Drag a file into a copied File Request
    and confirm the target folder's `FILE.UPLOADED` webhook **fires the Function** and the case advances
    (Not Ready → Review). **This is the single biggest empirical unknown** — Box documents that the upload
    lands in the folder and that the trigger fires on folder uploads, but **never** closes the
-   File-Request → event loop. **B2 cannot be relied upon until this passes.** If it does not fire, the
-   wired fallback is the timed **`ListFolder` / Metadata-Query reconciliation sweep** — confirm that
-   advances the case instead.
+   File-Request → event loop. **B2 cannot be relied upon until this passes.** The **primary** recovery if a
+   delivery fails transiently is **Box's own retry** — the receiver returns a non-2xx (503) so Box
+   re-delivers (Box does not retry after a 2xx). A timed **`ListFolder` reconciliation sweep** is
+   **documented but NOT yet built** (a deferred secondary backstop) — do not rely on it as wired.
 
 Then: **[RESERVED-FOR-USER]** flip `BOX_FILEREQUEST_ENABLED` (test first).
 
@@ -126,8 +133,10 @@ Then: **[RESERVED-FOR-USER]** flip `BOX_FILEREQUEST_ENABLED` (test first).
 Subscribe `FILE.UPLOADED` via the connector's `CreateWebhook`. **Prefer a single archive-root (recursive)
 or per-repeat-sender webhook over per-case** to stay under the per-app webhook-count ceiling (cited
 **~1000 — UNVERIFIED**; the live ref 404'd; only the **409 on a duplicate target+app+user is confirmed**).
-Webhooks are **best-effort** (no SLA, at-least-once, droppable, fire on move too) — the receiver dedups on
-`BOX-DELIVERY-ID` and the reconciliation sweep backstops misses, so a missed event cannot strand a case.
+Webhooks are **best-effort** (no SLA, at-least-once, droppable, fire on move too) — the receiver dedups
+durably on the **Evidence-existence check** (the `box:file:<id>` tag in `cr1bd_sourcemessageid`) and, on a
+transient failure, returns a **non-2xx (503)** so **Box retries** (the primary recovery; Box does not retry
+after a 2xx). A timed `ListFolder` reconciliation sweep is a **deferred, not-yet-built** secondary backstop.
 Manage renewal/deactivation via `GET`/`DELETE /webhooks/{id}`.
 
 ## 7. Evidence in the Code App — linked, not embedded (B4)
@@ -156,15 +165,17 @@ insurer later mandates UK residency. **Box Automate watch item:** it is **on-by-
 2. 🔒 Register the Box Platform app (Server Auth / CCG, App Access Only; `root_readwrite` +
    `manage_webhook`); capture Client ID + Client Secret + Enterprise ID.
 3. 🔒 Authorize + enable the app in the Admin Console (re-authorize on any scope change).
-4. 🔒 Inject `box-client-secret` + `BOX_WEBHOOK_PRIMARY_KEY` + `BOX_WEBHOOK_SECONDARY_KEY` into Key Vault.
+4. 🔒 Inject `box-client-secret` + `box-webhook-primary-key` + `box-webhook-secondary-key` (the HYPHENATED
+   KV secret names) into Key Vault.
 5. [DEPLOY-WITH-LOGIN] Deploy the bicep / import the connector / bind `cr1bd_box`.
 6. 🔒 Designate the archive root (+ `/DropBoxes/` parent); record `BOX_FOLDER_ROOT_ID`.
 7. 🔒 Hand-build the ONE template File Request; record `BOX_FILE_REQUEST_TEMPLATE_ID`.
 8. 🔒 Flip the `BOX_*` gates per phase, test env first (`BOX_API_ENABLED` → `BOX_FOLDER_AT_INTAKE_ENABLED`
    → `BOX_FILEREQUEST_ENABLED`; `BOX_EMBED_ENABLED` stays reserved). ~1h publish latency.
 9. 🔒 Run the live confirms: B1 UPPERCASE casing + photo order + reflection exclusion; and the
-   **BLOCKING** B2 File-Request → `FILE.UPLOADED` live-test (reconciliation-sweep fallback if it doesn't
-   fire).
+   **BLOCKING** B2 File-Request → `FILE.UPLOADED` live-test (on a transient miss, Box's own retry on the
+   receiver's 503 is the primary recovery; the `ListFolder` reconciliation sweep is a deferred,
+   not-yet-built backstop).
 
 All of these are consolidated in [../../gated.md](../../gated.md).
 

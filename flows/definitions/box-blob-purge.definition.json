@@ -83,11 +83,11 @@
                   "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
                 "parameters": {
                   "entityName": "cr1bd_evidences",
-                  "$filter": "_cr1bd_caseid_value eq @{item()?['cr1bd_caseid']} and cr1bd_storagepath ne null",
+                  "$filter": "_cr1bd_caseid_value eq @{item()?['cr1bd_caseid']} and cr1bd_storagepath ne null and cr1bd_kind eq 100000000 and cr1bd_acceptedforeva eq true and cr1bd_excluded eq false",
                   "$select": "cr1bd_evidenceid,cr1bd_storagepath,cr1bd_filename"
                 }
               },
-              "comment": "Evidence rows for this case that still reference Blob bytes (non-empty cr1bd_storagepath). _cr1bd_caseid_value is the lookup foreign key.",
+              "comment": "Purges ONLY the evidence finalize archived to Box: accepted, non-excluded IMAGES (cr1bd_kind eq 100000000 and cr1bd_acceptedforeva eq true and cr1bd_excluded eq false) that still reference Blob bytes (non-empty cr1bd_storagepath). finalize-eva-box uploads exactly this set to Box, so these are safe to purge (the Box copy is the archive of record). Non-archived evidence (instructions / .eml / valuation / rejected images) Blob bytes are intentionally RETAINED here — full-artifact archival to Box + their subsequent purge is a deferred follow-up; purging them by storagepath-only would be permanent data loss of bytes never archived. _cr1bd_caseid_value is the lookup foreign key.",
               "runAfter": {}
             },
             "Apply_to_each_evidence": {
@@ -132,8 +132,8 @@
                       "item/cr1bd_storagepath": ""
                     }
                   },
-                  "comment": "Clear the storagepath reference (the row + its Box archive metadata are RETAINED; only the dead Blob pointer is cleared). runAfter the delete on Succeeded|Failed|Skipped so the stale pointer is always cleared: deleted ok (Succeeded), an already-gone blob (Resolve_blob_id 404/Fail -> Delete_blob Skipped), or a tolerated delete error (Failed) — same clear-regardless intent as before, now also covering the Skipped state the id-resolution step introduces.",
-                  "runAfter": { "Delete_blob": [ "Succeeded", "Failed", "Skipped" ] }
+                  "comment": "Clear the storagepath reference (the row + its Box archive metadata are RETAINED; only the dead Blob pointer is cleared) ONLY when the blob was actually deleted (Succeeded) or was already gone (Skipped = Resolve_blob_id 404'd, so Delete_blob never ran). 'Failed' is deliberately DROPPED: on a genuine transient Delete_blob failure (429/5xx) the blob still EXISTS, so clearing the pointer would orphan the blob AND write a false 'purged' audit. Leaving the pointer set on Failed means the next scheduled purge run re-lists this evidence and retries the delete.",
+                  "runAfter": { "Delete_blob": [ "Succeeded", "Skipped" ] }
                 }
               },
               "comment": "Sequential per-evidence (concurrency 1) so a partial failure is deterministic and re-runnable; failure-isolated (the case-level audit still records).",

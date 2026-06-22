@@ -40,12 +40,15 @@ The live work item (replaces the `Jobs` sheet — 31 cols × ~226 rows of formul
 - Overview-only (imported when present, **must not drive workflow/readiness/matching**):
   insuredName, claimantName, thirdPartyName, claimNumber, policyReference, incidentDate, claimType,
   insurerName, repairerName.
-- **Box one-way-mirror fields (Phase 7, ADR-0012):** `boxFolderId` (`cr1bd_boxfolderid`),
+- **Box one-way-mirror fields (Phase 7, ADR-0012 — APPLIED LIVE 2026-06-22, `25-box-schema.ps1` adds 9
+  case columns):** `boxFolderId` (`cr1bd_boxfolderid`), `boxFolderUrl` (`cr1bd_boxfolderurl`),
   `boxFileRequestId` (`cr1bd_boxfilerequestid`), `boxFileRequestUrl` (`cr1bd_boxfilerequesturl`,
-  `format:Url`), `boxSyncedAt` (`cr1bd_boxsyncedat`). **Written Dataverse → Box only**; the Code App
-  *reads* them (e.g. to mint an "Open in Box" deep link) but case **logic never runs off them** — see the
-  Box rule below. Plus the finalize submit-signal columns `submitRequested`/`submitPayloadHash`/
-  `evaPayload12` and the `finalizedPayloadHash` idempotency latch (declared to close pre-existing flow drift).
+  `format:Url`), `boxSyncedAt` (`cr1bd_boxsyncedat`, **declared in `case.json`** — stamped by
+  `finalize-eva-box` at `box_synced`), and `sourceMailbox` (`cr1bd_sourcemailbox`). **Written Dataverse →
+  Box only**; the Code App *reads* them (e.g. to mint an "Open in Box" deep link) but case **logic never
+  runs off them** — see the Box rule below. Plus the finalize submit-signal columns `submitRequested`/
+  `submitPayloadHash`/`evaPayload12` and the `finalizedPayloadHash` idempotency latch (declared to close
+  pre-existing flow drift).
 
 ### WorkProvider  (from `Principals` sheet, 58 rows)
 Governed corpus record. Job-sheet columns map directly:
@@ -91,6 +94,10 @@ Mirrors collisioncc `image-rules`: `kind` (image/video/instruction/email/valuati
 `imageRole` (overview/damage_closeup/additional/unknown), `registrationVisible`, `acceptedForEva`,
 storage state, source message link. `registrationVisible` is **OCR-assisted from M1** (does an
 image's OCR text contain the case VRM?); `imageRole` tagging is **manual until M2** image AI.
+**Box mirror columns (Phase 7, ADR-0012 — applied live):** `boxFileId` (`cr1bd_boxfileid`) and
+`boxFileUrl` (`cr1bd_boxfileurl`). `cr1bd_boxfileid` is a **correlation/UI mirror** the webhook writes on
+accept — it is **not** the dedup key: durable dedup is the Evidence-existence check on the `box:file:<id>`
+tag in **`cr1bd_sourcemessageid`** (see the Box mirror rule below).
 
 ### AuditEvent & ImprovementSignal
 - `AuditEvent`: actor, action, severity, before/after, timestamp — every corpus/case change.
@@ -144,8 +151,12 @@ discovery (highest existing number + 1) is deferred.
 Box is an **additive content + intake + archival mirror**, written **one-way (Dataverse → Box)**. **Box
 Metadata has no joins**, so **dedup (ADR-0010), the status machine, and Case/PO sequencing NEVER run off
 Box** — they run off Dataverse only. The webhook receiver Function may *write* an Evidence row from an
-upload (the byte store stays Azure Blob), but it then re-invokes the idempotent `CS Status Evaluate`; case
-**logic** is never queried off Box. The Box columns above are the mirror's footprint on the Case table.
+upload (the byte store stays Azure Blob), stamping `cr1bd_boxfileid` (a correlation/UI mirror, **not** the
+dedup key) + `cr1bd_acceptedforeva=true`; durable dedup is the Evidence-existence check on the
+`box:file:<id>` tag in **`cr1bd_sourcemessageid`**. The receiver processes this fan-out **on the request
+path** and returns 200 when settled (or a non-2xx so Box retries), then re-invokes the idempotent
+`CS Status Evaluate`; case **logic** is never queried off Box. The Box columns above are the mirror's
+footprint on the Case table.
 
 - **Gates (owned here as schema; read everywhere else):** 5 Boolean `cr1bd_BOX_*` env-vars
   (`BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`, `BOX_FILEREQUEST_ENABLED`, `BOX_EMBED_ENABLED`

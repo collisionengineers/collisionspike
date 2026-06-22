@@ -39,6 +39,7 @@ import logging
 import os
 import random
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 import httpx
@@ -53,6 +54,7 @@ _AUDITEVENTS = "cr1bd_auditevents"
 # Choice values (mirror dataverse/choicesets + 25-box-schema.ps1).
 EVIDENCE_KIND_IMAGE = 100000000
 AUDIT_BOX_UPLOAD_RECEIVED = 100000021
+AUDIT_SEVERITY_INFO = 100000000  # cr1bd_severity Info (matches the CS flows)
 
 _API_VERSION = "v9.2"
 _DEFAULT_TIMEOUT_S = 20.0
@@ -159,9 +161,12 @@ class DataverseClient:
         non-2xx) response is returned for the caller's ``*_or_raise`` to surface
         as a DataverseError — the raise-on-exhaustion contract is unchanged.
 
-        Runs OFF the webhook response path (the receiver does its Dataverse
-        fan-out in a detached worker), so sleeping here never delays the 2xx and
-        never trips Box's response-time retry."""
+        The receiver processes the Dataverse fan-out ON the request path and
+        returns a non-2xx on an exhausted-transient failure so Box RETRIES the
+        delivery; this bounded in-process backoff absorbs a brief throttle before
+        that happens. Heavy/sustained throttling that exceeds Box's response
+        window simply yields a Box retry (idempotent — the durable Evidence-
+        existence dedup keeps the write once-only)."""
         attempt = 0
         while True:
             resp = self.http.request(method, url, **kwargs)
@@ -222,10 +227,15 @@ class DataverseClient:
 
     def evidence_exists_for_box_file(self, case_id: str, box_file_id: str) -> bool:
         """True if an Evidence row already records this Box file id for the case.
-        The Box file id is stored in cr1bd_sourcemessageid (no dedicated
-        cr1bd_boxfileid column exists on the base-Business schema — confirmed
-        against dataverse/schema/evidence.json). Durable dedup behind the
-        in-process BOX-DELIVERY-ID set."""
+
+        The DURABLE dedup key is the namespaced ``box:file:<id>`` tag in
+        cr1bd_sourcemessageid. The dedicated cr1bd_boxfileid column DOES exist
+        (Phase 7, ADR-0012) and create_evidence now also writes it as a
+        correlation/UI mirror, but it is deliberately NOT the dedup key
+        (dedup stays on the namespace-safe sourcemessageid tag — evidence.json
+        note: the Box mirror columns are never read back to drive dedup). This is
+        the durable dedup behind the in-process BOX-DELIVERY-ID fast-path; it
+        survives worker recycles and a changed delivery id on a Box retry."""
         if not (case_id and box_file_id):
             return False
         tag = _box_file_tag(box_file_id)
@@ -252,20 +262,34 @@ class DataverseClient:
         kind: int = EVIDENCE_KIND_IMAGE,
         sha256: str | None = None,
         source_label: str = "box_upload",
+        box_file_url: str | None = None,
     ) -> str:
-        """Create one cr1bd_evidence row. Records the Box file id in
-        cr1bd_sourcemessageid (the dedup key) and a human label in
-        cr1bd_sourcelabel. cr1bd_storagepath is intentionally LEFT BLANK here —
-        the bytes are mirrored to Blob by the finalize/parser path, not copied by
-        the webhook (storagePath stays Blob, per the receiver contract). Returns
-        the new Evidence id."""
+        """Create one cr1bd_evidence row for a File-Request upload. Records:
+        * the DURABLE dedup tag (``box:file:<id>``) in cr1bd_sourcemessageid;
+        * the Box file id in the dedicated cr1bd_boxfileid correlation/UI mirror
+          (Phase 7, ADR-0012) — written here, NOT used as the dedup key;
+        * cr1bd_boxfileurl when a per-file shared link is already known (left
+          unset here — the webhook does not mint a shared link at upload time);
+        * cr1bd_acceptedforeva=true so the uploaded photo counts toward EVA
+          readiness by default (the live column default is False; email-sourced
+          images get the same explicit true in classify-persist — a handler may
+          later EXCLUDE an unusable one, accepted-by-default is the M1 baseline);
+        * a human label in cr1bd_sourcelabel.
+        cr1bd_storagepath is intentionally LEFT BLANK here — the bytes are
+        mirrored to Blob by the finalize/parser path, not copied by the webhook
+        (storagePath stays Blob, per the receiver contract). Returns the new
+        Evidence id."""
         body: dict[str, Any] = {
             "cr1bd_filename": filename,
             "cr1bd_kind": kind,
             "cr1bd_sourcemessageid": _box_file_tag(box_file_id),
+            "cr1bd_boxfileid": box_file_id,
+            "cr1bd_acceptedforeva": True,
             "cr1bd_sourcelabel": source_label,
-            "cr1bd_caseid@odata.bind": f"/{_CASES}({case_id})",
+            "cr1bd_Caseid@odata.bind": f"/{_CASES}({case_id})",
         }
+        if box_file_url:
+            body["cr1bd_boxfileurl"] = box_file_url
         if sha256:
             body["cr1bd_sha256"] = sha256
         resp = self._send(
@@ -279,13 +303,24 @@ class DataverseClient:
 
     # -- step 7b: audit ---------------------------------------------------
 
-    def write_audit(self, *, action: int, case_id: str | None, detail: str) -> None:
-        """Append a cr1bd_auditevent row. Best-effort: an audit failure is logged
-        but must not fail the upload-processing path (the Evidence row is the
-        load-bearing write)."""
-        body: dict[str, Any] = {"cr1bd_action": action, "cr1bd_detail": detail}
+    def write_audit(self, *, action: int, case_id: str | None, name: str, detail: str) -> None:
+        """Append a cr1bd_auditevent row in the CANONICAL shape every CS flow uses
+        (cr1bd_name + cr1bd_action + cr1bd_occurredat + cr1bd_after [+ severity/
+        actor]). NOTE: there is NO cr1bd_detail column — the old body wrote one and
+        would 400; the human detail goes in cr1bd_after, and cr1bd_name (the
+        ApplicationRequired primary column) carries the short label. Best-effort:
+        an audit failure is logged but must not fail the upload-processing path
+        (the Evidence row is the load-bearing write)."""
+        body: dict[str, Any] = {
+            "cr1bd_name": name[:100],
+            "cr1bd_action": action,
+            "cr1bd_occurredat": _utc_now_iso(),
+            "cr1bd_after": detail,
+            "cr1bd_severity": AUDIT_SEVERITY_INFO,
+            "cr1bd_actor": "Function_BoxWebhook",
+        }
         if case_id:
-            body["cr1bd_caseid@odata.bind"] = f"/{_CASES}({case_id})"
+            body["cr1bd_Caseid@odata.bind"] = f"/{_CASES}({case_id})"
         try:
             resp = self._send("POST", f"{self.base}/{_AUDITEVENTS}", headers=self._headers(), json=body)
             if not (200 <= resp.status_code < 300):
@@ -348,6 +383,12 @@ def _box_file_tag(box_file_id: str) -> str:
     """Namespaced provenance tag stored in cr1bd_sourcemessageid so a Box-sourced
     Evidence row is unambiguous + dedup-keyable."""
     return f"box:file:{box_file_id}"
+
+
+def _utc_now_iso() -> str:
+    """UTC timestamp in ISO-8601 for cr1bd_occurredat (DateTime). The CS flows use
+    @utcNow(); this is the Function-side equivalent."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _odata_escape(value: str) -> str:

@@ -76,7 +76,7 @@ ok(m1.length === 4 && m1.join(",") === "cr1bd_auditevent,cr1bd_case,cr1bd_eviden
 const env = read("dataverse/environment-variables.json");
 const byName = Object.fromEntries(env.variables.map((v) => [v.schemaName, v]));
 const expect = {
-  "cr1bd_PDF_MAPPER_ENABLED": "true", "cr1bd_ENRICHMENT_ENABLED": "true",
+  "cr1bd_PDF_MAPPER_ENABLED": "true", "cr1bd_ENRICHMENT_ENABLED": "false",
   "cr1bd_EVA_API_ENABLED": "false", "cr1bd_AZURE_MAPS_ENABLED": "false",
   "cr1bd_VALUATION_ENABLED": "false", "cr1bd_COPILOT_ENABLED": "false",
   "cr1bd_AZURE_VISION_ENABLED": "false",

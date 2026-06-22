@@ -37,7 +37,8 @@ returned is the evidence base for files 01–07.
   list** (corroborated across Vendr / Costbench / G2), not a UK GBP quote. Get a sales quote for GBP and
   any negotiated discount.
 - **Business‑Starter eligibility for File Request** is ambiguous in Box's own wording — treat standard
-  **Business** as the safe floor for File Request, **Business Plus** for the metadata‑capture form.
+  **Business** as the safe floor for File Request, webhooks and CCG (the whole base pivot); **Business
+  Plus** is needed **only** for the optional metadata‑capture form field.
 - **Whether CCG specifically requires Enterprise vs works on Business** is not stated on any primary
   page — the auth guides only say "a Box enterprise account." Verify on the actual tenant.
 - **File‑Request → `FILE.UPLOADED` firing** and **email‑to‑folder upload firing** are inferences — live‑test.

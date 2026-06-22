@@ -38,9 +38,11 @@ section reconciles to, because two of them invert the convenient reading of the 
 - **Webhooks are best-effort.** No SLA, at-least-once, droppable, and `FILE.UPLOADED` **also fires on
   moves**. Signatures are `BOX-SIGNATURE-PRIMARY`/`SECONDARY` = HMAC-SHA256 over body ++
   `BOX-DELIVERY-TIMESTAMP`, with a **10-minute replay** window, **dual-key** rotation, and retries on
-  delivery failure. The receiver must verify, dedup on `BOX-DELIVERY-ID`, disambiguate upload-vs-move,
-  and respond 2xx promptly **then** work — backstopped by a timed `ListFolder`/Metadata-Query
-  reconciliation sweep so a missed event can never strand a case.
+  delivery failure. The receiver must verify, dedup, disambiguate upload-vs-move, **process the
+  Dataverse fan-out on the request path, and return 200 only once the work is settled** — or a non-2xx
+  (503) on a *transient* failure so **Box retries** (Box does **not** retry after a 2xx). A timed
+  `ListFolder`/Metadata-Query reconciliation sweep is **documented but not yet built** — a deferred
+  secondary backstop; Box's own retry on the non-2xx is the primary recovery, not the sweep.
 - **The Code App calls Box only via the connector/flows.** Code Apps enforce `connect-src 'none'`, so
   the UI never `fetch()`es Box. Evidence is surfaced as a **server-minted "Open in Box" deep link**
   (the operator decision is **link, not embed**); no iframe is built and no CSP edit is made.
@@ -49,8 +51,9 @@ Decisions:
 
 - **Additive hybrid; Dataverse is the system of record.** Box is a content + intake + archival mirror,
   written **one-way** (Dataverse → Box). No dedup / status / Case-PO sequencing ever runs off Box
-  Metadata (it has no joins). Dual-store drift is mitigated by one-way authority plus the reconciliation
-  sweep.
+  Metadata (it has no joins). Dual-store drift is mitigated primarily by one-way authority plus Box's own
+  webhook retry (the receiver returns a non-2xx on a transient failure); a reconciliation sweep is a
+  deferred, not-yet-built secondary backstop.
 
 - **All Box automation runs through a custom Box REST connector with a service identity; the CCG token
   is minted inside the Azure Function, not the connector.** The connector carries an **API-key (Function
@@ -65,7 +68,12 @@ Decisions:
   **parallel `cr1bd_box_rest`** custom connector carries folder-create + File-Request copy + shared-link +
   webhook lifecycle, while first-party **`cr1bd_box` (`shared_box`) is RETAINED** for `finalize-eva-box`'s
   byte path (`CreateFile`) — **not** an in-place repoint of `cr1bd_box`. Two Box connections coexist by
-  design; the operator binds **both** at activation.
+  design; the operator binds **both** at activation. For the **chaser path the Code App calls the Box REST
+  connector op directly** (`CopyFileRequest` / `GetFolderSharedLink`) — **no flow in the path**, because
+  under `connect-src 'none'` the app cannot POST to a flow Request URL (the pinned 2026-06-21 build-plan
+  decision). `box-file-request-copy.definition.json` is an authored **standby** child flow for future
+  operator activation, **not** currently invoked by the Code App; at activation the direct transport must
+  also persist `cr1bd_boxfilerequestid`/`url` on the case.
 
 - **The plan floor is base Box Business.** Base Business covers per-Case/PO folders, File Requests, and
   webhooks (Waves 0/1/2) — the whole live intake path runs on it. **Metadata (the Business-Plus tier)
@@ -80,13 +88,20 @@ Decisions:
   would be the only way to get a structured field, and that is what Business Plus buys.
 
 - **The webhook intake path is best-effort and gated on a live test.** The receiver verifies the HMAC
-  dual-key signature, rejects stale timestamps (10-minute window), dedups on `BOX-DELIVERY-ID`,
-  distinguishes `FILE.UPLOADED` from `FILE.MOVED`, writes Evidence (the byte store stays Blob), and
-  re-invokes the idempotent `CS Status Evaluate`. The **File-Request → `FILE.UPLOADED`** firing is
-  **undocumented** and is the single biggest empirical unknown: it is a **live-test gate** (BLOCKING for
-  the File-Request wave), with the timed `ListFolder`/Metadata-Query reconciliation sweep as the wired
-  fallback. We do **not** hard-code a "respond 2xx within N seconds" ceiling: respond 2xx promptly and
-  confirm the exact response-time limit against Box's webhook docs at build time.
+  dual-key signature, rejects stale timestamps (10-minute window), distinguishes `FILE.UPLOADED` from
+  `FILE.MOVED`, writes Evidence (the byte store stays Blob), and re-invokes the idempotent
+  `CS Status Evaluate`. **It processes this Dataverse fan-out on the request path and returns 200 only
+  when the work is settled; a *transient* failure returns a non-2xx (503) so Box retries** (Box does
+  **not** retry after a 2xx) — it is **not** "respond 2xx promptly then a background fan-out." **Durable
+  dedup is the Evidence-existence check on the `box:file:<id>` tag in `cr1bd_sourcemessageid`** (the
+  `BOX-DELIVERY-ID` guard is only an in-process replay drop); the webhook also writes `cr1bd_boxfileid`
+  (a correlation/UI mirror, **never** the dedup key) and `cr1bd_acceptedforeva = true`, with audit rows
+  in the canonical `cr1bd_name`/`cr1bd_occurredat`/`cr1bd_action`/`cr1bd_after` shape. The
+  **File-Request → `FILE.UPLOADED`** firing is **undocumented** and is the single biggest empirical
+  unknown: it is a **live-test gate** (BLOCKING for the File-Request wave); Box's retry on the non-2xx is
+  the primary recovery, and the timed `ListFolder`/Metadata-Query reconciliation sweep is a **deferred,
+  not-yet-built** secondary fallback. We confirm the exact response-time limit against Box's webhook docs
+  at build time.
 
 - **Evidence is linked, not embedded.** The Code App surfaces a **server-minted "Open in Box" deep link**
   via the shared-link op (no CSP change, available whenever the connection is bound). The in-app
@@ -123,7 +138,9 @@ managed. Accepted because the first-party connector simply cannot create folders
 mint shared links, or subscribe webhooks, and because account-free image collection that auto-advances a
 case is the highest-value piece of the intake workflow and has no Dataverse-only equivalent. The
 residual empirical risk — does a File-Request upload actually fire `FILE.UPLOADED`? — is isolated behind
-a live-test gate and a reconciliation-sweep fallback, so the worst case is a polled (not stranded) case.
+a live-test gate, with Box's own webhook retry (a non-2xx on a transient failure) as the primary recovery
+and a reconciliation sweep as a deferred, not-yet-built backstop, so the worst case is a delayed (not
+stranded) case.
 Builds on ADR-0010 (dedup ladder — reg-merge routes drop-box uploads) and ADR-0008 (the tool boundary
 ends at EVA handoff — Box archival sits inside that boundary, not beyond it). **Status: Accepted
 2026-06-21.**

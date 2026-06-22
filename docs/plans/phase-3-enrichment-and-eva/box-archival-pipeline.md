@@ -18,7 +18,9 @@
 > disagree, **the ADR + build plan win** (precedence: ADR > architecture/plans). Read
 > [docs/plans/phase-7-box-integration/](../phase-7-box-integration/) for the current design; this doc
 > remains useful for the EVA photo-order rule, the UPPERCASE-casing confirm, and the S2 byte-bind detail,
-> which Phase 7 keeps unchanged. **Status: authored + offline-verified; NOT live.**
+> which Phase 7 keeps unchanged. **Status: superseded by Phase 7. The Phase-7 Box Dataverse schema +
+> `cr1bd_BOX_*` env-vars are applied live (all `BOX_*` gates OFF); the `box-webhook` Function,
+> `cr1bd_box_rest` connector and Box flows are authored offline (`state=off`), not deployed/bound.**
 
 > **Status:** design + bind/confirm/activate runbook. The Box step **is already built offline**
 > (`flows/definitions/finalize-eva-box.definition.json`, imported `state=off`) — but it is built

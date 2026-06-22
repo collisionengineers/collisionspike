@@ -137,18 +137,23 @@ def verify_signature(
 
 
 class DeliveryDedup:
-    """Bounded, TTL'd seen-set keyed on BOX-DELIVERY-ID (step 4).
+    """Bounded, TTL'd seen-set keyed on BOX-DELIVERY-ID (a best-effort fast-path).
 
-    Box delivers at-least-once and retries up to ~12×/2h, so a repeated delivery
-    id must be a no-op. This is an in-process best-effort layer (resets on worker
-    recycle); the DURABLE dedup is the Evidence-existence check the receiver does
-    against Dataverse before writing (folder id + Box file id). ``seen()`` marks
-    and reports atomically: returns True if the id was already present.
+    Box delivers at-least-once and retries on a non-2xx/timeout, so a repeated
+    delivery must be a no-op. IMPORTANT: BOX-DELIVERY-ID is NOT guaranteed stable
+    across a Box retry (a retry may carry a NEW delivery id; the stable identity
+    is the event body), so this in-process set only catches a same-worker,
+    same-id RAPID duplicate — it resets on worker recycle and cannot see a retry
+    that arrives with a fresh id. The DURABLE, authoritative dedup is the
+    Evidence-existence check the receiver does against Dataverse before writing
+    (case folder id + Box file id, idempotent regardless of the delivery id).
+    ``seen()`` marks and reports atomically: returns True if the id was already
+    present.
 
-    The mark is provisional: if downstream processing of a freshly-seen delivery
-    FAILS, the caller must ``forget()`` the id so Box's retry of the SAME delivery
-    is re-processed rather than silently dropped (a transient fault must not
-    convert at-least-once delivery into never-delivered).
+    The mark is provisional: when the receiver returns a non-2xx after a transient
+    failure (so Box retries), it ``forget()``s the id so a retry that DOES reuse
+    the same id is not blocked by this fast-path; a retry with a new id is handled
+    by the durable check either way.
     """
 
     def __init__(self, *, ttl_s: float = 7200.0, max_entries: int = 4096) -> None:
@@ -173,11 +178,12 @@ class DeliveryDedup:
             return False
 
     def forget(self, delivery_id: str | None) -> None:
-        """Un-mark a previously-``seen()`` id so a subsequent retry of the SAME
-        delivery is processed again. Call this when downstream processing of a
-        freshly-marked delivery failed transiently; otherwise the in-process mark
-        would strand the delivery (Box keeps retrying the same id, which would
-        keep hitting the dedup no-op). No-op if the id is absent/None."""
+        """Un-mark a previously-``seen()`` id so a Box retry that reuses the SAME
+        delivery id is processed again rather than hitting the fast-path no-op.
+        Call this when the receiver returns a non-2xx after a transient failure
+        (the signal that makes Box retry). A retry arriving with a NEW delivery id
+        is handled by the durable Evidence-existence dedup regardless. No-op if the
+        id is absent/None."""
         if not delivery_id:
             return
         with self._lock:

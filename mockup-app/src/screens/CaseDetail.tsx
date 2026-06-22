@@ -408,7 +408,7 @@ const EVIDENCE_KIND_LABEL: Record<string, string> = {
   instruction: 'Instruction',
   email: 'Email (.eml)',
   valuation: 'Valuation report',
-  eva_payload: 'EVA payload',
+  eva_payload: 'EVA file',
   video: 'Video',
   image: 'Photo',
   other: 'Document',
@@ -580,7 +580,7 @@ function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
         />
         {ev.boxFileUrl && (
           <Link href={ev.boxFileUrl} target="_blank" rel="noopener noreferrer">
-            <span className={styles.inlineIconText}>Open in Box <ArrowUpRight size={12} /></span>
+            <span className={styles.inlineIconText}>Open in Archive <ArrowUpRight size={12} /></span>
           </Link>
         )}
       </div>
@@ -1066,7 +1066,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                     <div className={styles.thumbRowBetween}>
                       <Caption1 className={styles.hint}>
                         <span className={styles.inlineIconText}>
-                          <Archive size={14} /> Case archive on Box — the email, instructions and photos are mirrored here.
+                          <Archive size={14} /> Case archive — the email, instructions and photos are mirrored here.
                         </span>
                       </Caption1>
                       {c.boxFolderUrl ? (
@@ -1105,7 +1105,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                             {d.boxFileUrl ? (
                               <Link href={d.boxFileUrl} target="_blank" rel="noopener noreferrer">
                                 <span className={styles.inlineIconText}>
-                                  Open in Box <ArrowUpRight size={14} />
+                                  Open in Archive <ArrowUpRight size={14} />
                                 </span>
                               </Link>
                             ) : (

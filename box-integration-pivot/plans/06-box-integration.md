@@ -10,8 +10,10 @@
 
 ## Overview
 
-Everything Box-side hangs off **one service identity** authorized in the Box Admin Console and **one plan
-gate** (Box Business Plus, because **metadata is the gate**). Most steps are **operator-gated** one-time
+Everything Box-side hangs off **one service identity** authorized in the Box Admin Console and a **base
+plan floor of base Box Business** (folders + File Requests + webhooks + CCG). **Business Plus is an
+optional later tier**, needed **only** for the Metadata reg-capture field (deferred — see
+[09-metadata-role.md](../09-metadata-role.md)). Most steps are **operator-gated** one-time
 Box-UI/Admin-Console actions (register the Platform app, authorize its scopes, hand-build the template File
 Request and the enterprise metadata template, designate the archive root, confirm the plan). The
 **repeatable** verbs — create folder, copy the File Request, mint shared links, subscribe webhooks, write
@@ -35,11 +37,12 @@ key)** — the exact pattern already proven for the EVA Sentry path. Claude neve
   is committed `state=off` and **mis-wired** — invents a non-existent `CreateFolder` op + `folderId` param
   and uploads the Blob path string instead of bytes (S2). Rewrite spec:
   [box-archival-pipeline.md](../../docs/plans/phase-3-enrichment-and-eva/box-archival-pipeline.md) §4–5.
-- **No webhook receiver Function**, no template File Request, no enterprise metadata template, no shared-link
-  minting, no governance policy.
-- **Env-var gates defined in Dataverse, all default `false`:** `BOX_API_ENABLED`,
-  `BOX_FOLDER_AT_INTAKE_ENABLED`, `BOX_FILEREQUEST_ENABLED`, `BOX_EMBED_ENABLED`, `BOX_METADATA_ENABLED`,
-  `BOX_AI_ENABLED`.
+- **Box webhook receiver Function is AUTHORED OFFLINE (state=off) — not deployed/bound live;** no template
+  File Request, no enterprise metadata template, no shared-link minting, no governance policy yet (the
+  always-on Box account integration is deferred to a future Business-account phase).
+- **Env-var gates + Box schema columns APPLIED LIVE in Dev (all `BOX_*` gates OFF — default AND current =
+  false):** `BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`, `BOX_FILEREQUEST_ENABLED`,
+  `BOX_EMBED_ENABLED`, `BOX_METADATA_ENABLED`, `BOX_AI_ENABLED`.
 - **Box admin reference** mirrored locally at
   [automationsresearch/box/markdown/](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown) (File
   Request 289/315/123, metadata 046/047/131, governance 012, shared links 059/320, platform apps 009/055).
@@ -54,11 +57,13 @@ unlock and must complete before any later phase**.
 
 ### Phase 0 — The unlock (service identity + connector + webhook receiver)
 
-1. **Confirm the Box plan is Business Plus (or higher) and the metadata feature is on.**
-   What: verify the tenant is **Business Plus+** — metadata is *"reserved for Business Plus, Enterprise,
-   Enterprise Plus, and Enterprise Advanced"*; standard Business lacks it, which is what forces the floor
-   (File Request alone needs only Business). Confirm **Admin Console → Content & Sharing** shows metadata
-   available. · Owner: **[operator-gated]** · Depends-on: — · Verify:
+1. **Confirm the Box plan is base Business or higher (the base-pivot floor); Business Plus only for the
+   deferred metadata field.**
+   What: verify the tenant is **base Business or higher** — base Business covers folders, File Requests,
+   webhooks and CCG (the whole base pivot). Metadata is *"reserved for Business Plus, Enterprise, Enterprise
+   Plus, and Enterprise Advanced"*; standard Business lacks it — so confirm **Business Plus** only **if/when**
+   the optional metadata reg-capture field is being added (deferred). Confirm **Admin Console → Content &
+   Sharing** shows metadata available before that upgrade. · Owner: **[operator-gated]** · Depends-on: — · Verify:
    support.box.com Using Metadata (gate quote) + local
    [289-administering-box-file-request.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\289-administering-box-file-request.md)
    (*"File Request is available to anyone with a Box Business Plan account"*) +
@@ -108,16 +113,22 @@ unlock and must complete before any later phase**.
    /reference/post-file-requests-id-copy/, /reference/put-files-id--add-shared-link/.
 
 5. **Build the Box service token-mint + webhook-receiver Azure Function.**
-   What: one Function App (`cespkeva-fn-ufa3ci`) carrying (a) a **token-mint/façade** that does the Box CCG
-   `POST https://api.box.com/oauth2/token` server-side (secret from Key Vault, 60-min token, **no refresh
-   token** → re-mint per cycle) and forwards the connector's calls to `api.box.com` with the bearer; and (b)
-   an **HTTP-trigger webhook receiver** (public HTTPS:443, reputable-CA cert, TLS 1.2/1.3, **not** a
-   `*.box.com` URL): verify `BOX-SIGNATURE-PRIMARY/SECONDARY` (HMAC-SHA256 over body+timestamp), reject
-   timestamps > **10 min**, respond **2xx within 30 s**, then write Dataverse Evidence rows / copy bytes
-   back to Blob and re-run *CS Status Evaluate*. **Dedup on `event id`/`source.id`** and **disambiguate
-   upload vs move** (`FILE.UPLOADED` fires on both). Store the webhook signature keys (primary+secondary) +
-   the Box client secret in **Key Vault**. · Owner: **[Claude-buildable]** (build); secret values +
-   public-endpoint cert/DNS confirm are **[operator-gated]** · Depends-on: 2, 3 · Verify:
+   What: a **new `functions/box-webhook/` FC1 Function App** (per the 00-BUILD-PLAN reconciliation —
+   `cespkeva-fn-ufa3ci` is **not** in the live registry; record the chosen name in `live-environment.md` at
+   deploy) carrying (a) a **token-mint/façade** that does the Box CCG `POST https://api.box.com/oauth2/token`
+   server-side (secret from Key Vault, 60-min token, **no refresh token** → re-mint per cycle) and forwards
+   the connector's calls to `api.box.com` with the bearer; and (b) an **HTTP-trigger webhook receiver**
+   (public HTTPS:443, reputable-CA cert, TLS 1.2/1.3, **not** a `*.box.com` URL): verify
+   `BOX-SIGNATURE-PRIMARY/SECONDARY` (HMAC-SHA256 over body+timestamp), reject timestamps > **10 min**,
+   then **process the Dataverse fan-out ON the request path and return 200 when SETTLED, or a non-2xx (503)
+   on a TRANSIENT failure so Box RETRIES** (Box does NOT retry after a 2xx): write Dataverse Evidence rows /
+   copy bytes back to Blob and re-run *CS Status Evaluate*. **Durable dedup = the Evidence-existence check
+   on the `box:file:<id>` tag in `cr1bd_sourcemessageid`** (the webhook also stamps `cr1bd_boxfileid` +
+   `cr1bd_acceptedforeva=true` as a correlation mirror, never the dedup key) and **disambiguate upload vs
+   move** (`FILE.UPLOADED` fires on both). Store the secrets in **Key Vault under the HYPHENATED secret
+   names** `box-client-secret`, `box-webhook-primary-key`, `box-webhook-secondary-key`. · Owner:
+   **[Claude-buildable]** (build); secret values + public-endpoint cert/DNS confirm are **[operator-gated]**
+   · Depends-on: 2, 3 · Verify:
    developer.box.com/guides/authentication/client-credentials/ (60-min token, no refresh) +
    developer.box.com/guides/webhooks/v2/signatures-v2/ + /v2/limitations-v2/ + /guides/webhooks/triggers/
    (`FILE.UPLOADED` = *"A file is uploaded or moved to this folder"*).
@@ -210,7 +221,9 @@ unlock and must complete before any later phase**.
     What: custom connector **`POST /webhooks`** with `target:{type:"folder", id:<root>}`, `address:<Function
     URL>`, `triggers:["FILE.UPLOADED"]`, scope `manage_webhook`; **one webhook per item** (a duplicate
     target+app+user returns 409). Webhook is **best-effort** (no SLA, at-least-once, droppable) — the
-    receiver (step 5) dedups + a periodic `ListFolder` reconciliation sweep backstops misses. · Owner:
+    receiver (step 5) dedups (Evidence-existence on the `box:file:<id>` tag) and, on a transient failure,
+    returns a non-2xx so **Box retries** (the primary recovery); a periodic `ListFolder` reconciliation
+    sweep is a **deferred, not-yet-built** secondary backstop. · Owner:
     **[API-driven by a flow]** (subscription lifecycle managed by the connector) · Depends-on: 5, 7, 8 ·
     Verify: developer.box.com/reference/post-webhooks/ (target file|folder, address, triggers[], 409 on
     duplicate) + developer.box.com/guides/webhooks/v2/limitations-v2/.
@@ -321,7 +334,8 @@ unlock and must complete before any later phase**.
 **Needs from the other sections:**
 - **Dataverse** must hold the canonical `cr1bd_casepo` (UPPERCASE-rendered for Box) and the `BOX_*` gates;
   the status machine owns photo order / 2-previews / reflection-exclusion (Box does **not** enforce these).
-- **Azure** must host the Function App (`cespkeva-fn-ufa3ci`) + Key Vault for the Box secret/webhook keys,
+- **Azure** must host the new `functions/box-webhook/` FC1 Function App (name TBD at deploy —
+  `cespkeva-fn-ufa3ci` is **not** in the live registry) + Key Vault for the Box secret/webhook keys,
   and the Blob (`cespkevidstdev01/evidence`) the receiver and archival read/write.
 - **Flow-builder** owns `finalize-eva-box` and the per-case copy/webhook/shared-link flows that call this
   connector; **Code App** owns the buttons that trigger them.

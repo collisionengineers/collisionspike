@@ -19,26 +19,30 @@ a webhook advances the case on upload. **Dataverse stays the system of record; B
 > intake). It sits **on top of live M1 intake** and gates on each `BOX_*` flag independently.
 
 **Status (2026-06-22):** approved (ADR-0012) and **BUILT in the working tree — authored + offline-verified
-+ free-account REST-tested; NOT live.** The full B0–B4 + Phase-C `[C]` set is authored: the docs spine
-(this README + the two specs + ADR-0012 + architecture §Box), the **Dataverse schema-as-code** (5 `BOX_*`
-gates + 2 config vars + 3 `cr1bd_box*` columns + `cr1bd_boxsyncedat` + the submit-signal columns + the
-`cr1bd_finalizedpayloadhash` drift declaration + 3 audit actions; `verify-parity.mjs` locked), the
-**`box-webhook` Azure Function** (CCG mint + HMAC receiver; **pytest 71**), the **3 new flows**
-(`box-folder-create`, `box-file-request-copy`, `box-blob-purge`) + the `finalize-eva-box`/`case-resolve`
-reworks (**flow linter 154/154**), and the **Code App surfacing** (`getBoxGates`, submit-signal finalize,
-`copy_file_request` chaser, "Open in Box" deep link; **vitest 256, `tsc -b` clean**). **Nothing is
-deployed/bound and every `BOX_*` gate is `false`.** The hard unlock — a Box Platform app + Admin-Console
-authorization on a **Business+** tenant — plus the BLOCKING `FILE.UPLOADED` live-test are operator-only and
-**not yet done** (the long pole; see the two-phase live-testing note below). The B0–B4 checklist boxes below
-stay `[ ]` because they fold in the **operator `[O]` step** that completes each line; the `[C]` build of each
-is done.
++ free-account REST-tested; the Phase-7 Dataverse schema + env-vars are APPLIED LIVE (all `BOX_*` gates
+OFF), the Function/connector/flows are authored offline, not deployed/bound.** The full B0–B4 + Phase-C
+`[C]` set is authored: the docs spine (this README + the two specs + ADR-0012 + architecture §Box), the
+**Dataverse schema-as-code** (5 `BOX_*` gates + 2 config vars + 3 `cr1bd_box*` columns + `cr1bd_boxsyncedat`
++ the submit-signal columns + the `cr1bd_finalizedpayloadhash` drift declaration + 3 audit actions;
+`verify-parity.mjs` locked), the **`box-webhook` Azure Function** (CCG mint + HMAC receiver; **pytest 71**),
+the **3 new flows** (`box-folder-create`, `box-file-request-copy`, `box-blob-purge`) + the
+`finalize-eva-box`/`case-resolve` reworks (**flow linter 154/154**), and the **Code App surfacing**
+(`getBoxGates`, submit-signal finalize, `copy_file_request` chaser, "Open in Box" deep link; **vitest 256,
+`tsc -b` clean**). **The Box Dataverse schema + env-vars ARE applied live** (verified via `az` against Dev
+2026-06-22: the `cr1bd_box*` case + evidence columns and every `cr1bd_BOX_*` env-var exist; every `BOX_*`
+gate is `false`, default AND current). **The `box-webhook` Function, the `cr1bd_box_rest` custom connector,
+and the Box flows are authored offline (`state=off`) — not deployed, imported, or bound; no Box connection
+is bound.** The hard unlock — a Box Platform app + Admin-Console authorization on a **Business or higher**
+tenant — plus the BLOCKING `FILE.UPLOADED` live-test are operator-only and **not yet done** (the long pole;
+see the two-phase live-testing note below). The B0–B4 checklist boxes below stay `[ ]` because they fold in
+the **operator `[O]` step** that completes each line; the `[C]` build of each is done.
 
 ## What is in scope now (and what is not)
 
 - **In scope (base Box Business):** per-Case/PO folders, the template File Request + per-case copies,
   webhook-driven upload intake, the status-driven Blob purge, and the Code App **"Open in Box" deep
   link**. Base Business covers all of this.
-- **Out of scope now:** the **metadata field** on the File-Request form (the Business-Plus tier) — a
+- **Out of scope now:** the **metadata field** on the File-Request form (the Business Plus tier) — a
   later **Wave-2 reliability upgrade** for the orphaned image-only path only; the **Box Embed iframe**
   (`BOX_EMBED_ENABLED` stays reserved/off — evidence is **linked, not embedded**, no `frame-src` edit);
   Box Governance retention, Box AI Units, and Metadata-Query (Phase C, tier-gated). EVA stays gated OFF
@@ -69,7 +73,8 @@ Nothing else runs until the decision record exists, the gates + columns exist, a
    copy/shared-link, a Dataverse-signal trigger for finalize), and the connection-ref identity is a
    **parallel `cr1bd_box_rest`** with first-party `cr1bd_box` retained for the byte path (NOT a repoint).
 5. [ ] **[O]** **Register the Box Platform app** (Server Auth / CCG, App Access Only; scopes
-   `root_readwrite` + `manage_webhook`); **authorize + enable** it in the Admin Console; supply
+   `root_readwrite` + `manage_webhook`) on a **Business-or-higher** tenant; **authorize + enable** it in
+   the Admin Console; supply
    `client_secret` + the per-webhook signature keys into Key Vault; import the connector; bind
    `cr1bd_box`. _(The hard unlock — see [box-integration-activation.md](./box-integration-activation.md).)_
 
@@ -111,7 +116,7 @@ The highest-value piece: account-free image collection that auto-advances the ca
 
 11. [ ] **[O]** Hand-build the **ONE template File Request** (capture form = email + description); record
     its `file_request_id` → `BOX_FILE_REQUEST_TEMPLATE_ID`. _(On base Business the form has **no**
-    metadata reg field — that is the deferred Business-Plus upgrade; case-bound copies carry the case's
+    metadata reg field — that is the deferred Business Plus upgrade; case-bound copies carry the case's
     parsed VRM already.)_
 12. [ ] **[C]** `box-file-request-copy` (Request+Response child): input
     `{caseId, fileRequestTemplateId, folderId}`; **guard `empty(folderId)` → `folder_not_ready`** (never
@@ -124,14 +129,18 @@ The highest-value piece: account-free image collection that auto-advances the ca
     (duplicate target+app+user → 409).
 14. [ ] **[O] LIVE-TEST (BLOCKING for B2):** drag a file into a copied File Request → confirm the target
     folder's `FILE.UPLOADED` fires the Function and the case advances Not Ready → Review. The
-    File-Request → event firing is **undocumented** — this is the single biggest empirical unknown.
-    Fallback wired: the timed `ListFolder`/Metadata-Query reconciliation sweep.
+    File-Request → event firing is **undocumented** — this is the single biggest empirical unknown. The
+    **primary** recovery is Box's own retry: the receiver returns a non-2xx (503) on a transient failure
+    so Box re-delivers (B2 receiver model, [box-custom-connector-and-webhook.md](./box-custom-connector-and-webhook.md)).
+    A timed `ListFolder` reconciliation sweep is **documented but NOT built** — a deferred secondary
+    backstop, not yet wired.
 15. [ ] **[O]** Flip `BOX_FILEREQUEST_ENABLED` (test first).
 
 **B2 exit:** the copy-chaser flow returns a live upload URL for a case with a folder (and an honest
-`folder_not_ready`/`gated_off` otherwise); a File-Request upload **demonstrably** fires the webhook (or
-the poll fallback is confirmed); the Function writes Evidence + re-evaluates status idempotently and the
-case advances without a stranded or double-processed case.
+`folder_not_ready`/`gated_off` otherwise); a File-Request upload **demonstrably** fires the webhook (and
+on a transient failure Box's own retry recovers it — the receiver returns 503); the Function writes
+Evidence + re-evaluates status idempotently and the case advances without a stranded or double-processed
+case. (The `ListFolder` reconciliation sweep is a deferred, not-yet-built secondary backstop.)
 
 ### B3 — Permanent drop-boxes for image-only senders (gate `BOX_FILEREQUEST_ENABLED`)
 
@@ -142,7 +151,7 @@ case advances without a stranded or double-processed case.
     moves/links images into the Case/PO folder; **unmatched → Held** (don't guess). Reuses the B2
     receiver + dedup latch. _(Reg routing here needs a structured reg signal — on base Business that is
     filename-VRM / emailed reg / triage; the metadata **field** that would make this robust is the
-    **deferred Business-Plus upgrade**.)_
+    **deferred Business Plus upgrade**.)_
 
 **B3 exit:** an image-only sender drags photos into their permanent drop-box; they route to the right
 open case's folder (or Held if no match); no anonymous upload is silently lost.
@@ -158,13 +167,17 @@ embedded** — there is no iframe and no `frame-src` edit.
 19. [ ] **[C]** Submit dialog → real `finalize-eva-box` (via the pinned invocation mechanism); the UI
     **never writes status locally** — it awaits the flow and re-reads the flow-stamped `box_synced`. The
     drag-drop JSON export stays the permanent fallback.
-20. [ ] **[C]** Chaser → File-Request → clipboard: a `copy_file_request` template + injected transport
-    binding to `box-file-request-copy`, reading `fileRequestUrl`; visible only when
-    `fileRequestEnabled && fileRequestTemplateConfigured`; honest
-    `not_connected`/`folder_not_ready`/`error` messages, never a fake link.
-21. [ ] **[C]** **Evidence as a server-minted "Open in Box" deep link** via `GetSharedLink` — available
-    whenever `apiEnabled`, **no CSP change**. The Box Embed iframe is **not built**; `BOX_EMBED_ENABLED`
-    stays reserved/off (no `frame-src` edit).
+20. [ ] **[C]** Chaser → File-Request → clipboard: the Code App calls the **Box REST connector op
+    `CopyFileRequest` DIRECTLY** (no flow in the path — the Code App runs under CSP `connect-src 'none'` and
+    cannot POST to a flow Request URL; the pinned 2026-06-21 build-plan decision), reading `fileRequestUrl`;
+    visible only when `fileRequestEnabled && fileRequestTemplateConfigured`; honest
+    `not_connected`/`folder_not_ready`/`error` messages, never a fake link. The direct transport must also
+    persist `cr1bd_boxfilerequestid`/`url` on the case. `box-file-request-copy.definition.json` is an
+    authored **standby** child flow for FUTURE operator activation — **not** currently invoked by the Code App.
+21. [ ] **[C]** **Evidence as a server-minted "Open in Box" deep link** via the connector's
+    `GetFolderSharedLink` op (called directly under CSP, no flow) — available whenever `apiEnabled`, **no
+    CSP change**. The Box Embed iframe is **not built**; `BOX_EMBED_ENABLED` stays reserved/off (no
+    `frame-src` edit).
 22. [ ] **[C]** Webhook-driven advance reflected via existing `refetch` (+ optional light poll); no push
     channel — never promise instant arrival. `box_synced` label/badge surfacing (label-only).
 23. [ ] **[C]** ALM wiring: `pac code add-data-source` for the connector(s); wire generated services.
@@ -195,28 +208,30 @@ The pivot's live verification splits across **two** tenants because the throwawa
   minting shape, `ListFolder`, and webhook signature/replay handling against real Box responses. This
   de-risks the connector + Function wiring **without** touching the business path. _(Test creds live OUT
   OF REPO; never printed or committed.)_
-- **Phase B — the live BUSINESS tenant (the full path).** Only on a Business+ tenant does the
+- **Phase B — the live BUSINESS tenant (the full path).** Only on a Business-or-higher tenant does the
   service-identity path light up: CCG token mint + Admin-authorized Platform app, hand-building the
-  template **File Request**, the **metadata** template (if/when the deferred Business-Plus upgrade is
+  template **File Request**, the **metadata** template (if/when the deferred Business Plus upgrade is
   taken), and the **BLOCKING File-Request → `FILE.UPLOADED` live-test**. The operator drives this phase —
   see [box-integration-activation.md](./box-integration-activation.md).
 
 The two phases gate different things: Phase A proves the **REST mechanics + receiver**; Phase B proves
 the **service identity + File-Request → webhook loop**. B2 cannot be relied upon until Phase B's
-live-test passes, with the reconciliation sweep as the hedge.
+live-test passes; the primary hedge against a missed delivery is **Box's own retry** on the receiver's
+non-2xx (503) response (the timed `ListFolder` reconciliation sweep is a deferred, not-yet-built backstop).
 
 ## Verified vs UNVERIFIED (carry honestly — do not assert the unverified as fact)
 
 - **CONFIRMED:** custom-connector-cannot-do-CCG; CCG `box_subject_type=enterprise` + App Access Only;
   File-Request copy-from-template only; 10-min replay; HMAC-SHA256 dual-key; folder-scoped `FILE.UPLOADED`
   (fires on move); 409 on a duplicate `CreateFolder` (case-insensitive) and on a duplicate webhook
-  target+app+user; base Business covers File Requests + webhooks + folders; Business Plus is the
-  **metadata-field** gate.
-- **UNVERIFIED (confirm at build; do NOT hard-code):** the **"respond 2xx within N seconds"** ceiling
-  (respond 2xx promptly, confirm against Box docs at build); the **~1000 per-app/user webhook ceiling**
-  (the live ref 404'd; only the 409-on-duplicate-target is confirmed); the **~60-min CCG token / no
-  refresh** (re-minting per cycle is safe regardless); and — the big one — the **File-Request →
-  `FILE.UPLOADED`** firing (undocumented; live-test gates B2).
+  target+app+user; **base Business** covers File Requests + webhooks + folders + CCG; **Business Plus** is
+  only the **metadata-field** gate (an optional later upgrade).
+- **UNVERIFIED (confirm at build; do NOT hard-code):** Box's exact **retry/redelivery** schedule on a
+  non-2xx response (the receiver returns 503 on a transient failure so Box re-delivers; confirm the cadence
+  against Box docs at build); the **~1000 per-app/user webhook ceiling** (the live ref 404'd; only the
+  409-on-duplicate-target is confirmed); the **~60-min CCG token / no refresh** (re-minting per cycle is
+  safe regardless); and — the big one — the **File-Request → `FILE.UPLOADED`** firing (undocumented;
+  live-test gates B2).
 
 ## The connection-reference identity (PINNED)
 
@@ -233,8 +248,8 @@ activation. (Earlier docs called this "the one unpinned decision"; it is now pin
   azure section implements (connector OpenAPI shape, CCG token-mint, webhook receiver, bicep, the
   `finalize-eva-box` rewrite contract).
 - [box-integration-activation.md](./box-integration-activation.md) — the operator runbook: the Box
-  Platform-app registration on a Business+ tenant, the `BOX_*` gate-flip choreography, and the BUSINESS
-  second test phase (CCG + File Requests + metadata + the FILE.UPLOADED live-test).
+  Platform-app registration on a Business-or-higher tenant, the `BOX_*` gate-flip choreography, and the
+  BUSINESS second test phase (CCG + File Requests + metadata + the FILE.UPLOADED live-test).
 
 ## Needs the operator
 
