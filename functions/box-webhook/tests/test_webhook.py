@@ -300,11 +300,8 @@ def _wire_keys_and_dedup(monkeypatch):
     monkeypatch.setenv("BOX_WEBHOOK_PRIMARY_KEY", PRIMARY_KEY)
     monkeypatch.setenv("BOX_WEBHOOK_SECONDARY_KEY", SECONDARY_KEY)
     # Fresh dedup set per test (module-level singleton otherwise leaks state).
+    # The receiver now processes ON the request path (no background seam to patch).
     monkeypatch.setattr(function_app, "_DEDUP", DeliveryDedup())
-    # Run the background fan-out INLINE so tests deterministically observe the
-    # side effects. Production dispatches it to a daemon thread (receiver step 3:
-    # respond 2xx promptly, process off the response path).
-    monkeypatch.setattr(function_app, "_dispatch_background", lambda fn: fn())
 
 
 def _patch_dv(monkeypatch, fake):
@@ -323,33 +320,25 @@ def test_receiver_happy_path_writes_evidence_audit_and_reinvokes(monkeypatch):
     _patch_dv(monkeypatch, fake)
 
     resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
-    # Receiver step 3: acknowledge promptly (202) BEFORE the Dataverse fan-out.
-    assert resp.status_code == 202
+    # Processed ON the request path: a settled success returns 200 with work done.
+    assert resp.status_code == 200
     out = json.loads(resp.get_body())
     assert out["received"] is True
-    # The processing side-effects (run inline in tests) land on Dataverse, not in
-    # the fast ack body.
     assert len(fake.created) == 1
     assert fake.created[0]["box_file_id"] == "999"
     assert len(fake.audited) == 1
     assert fake.reinvoked == ["CASE-7"]
 
 
-def test_receiver_acks_before_background_work_runs(monkeypatch):
-    # The handler must return WITHOUT having touched Dataverse: capture the
-    # dispatched callable instead of running it, and assert no writes happened yet.
+def test_receiver_processes_inline_before_responding(monkeypatch):
+    # No background deferral: by the time the response is produced the Dataverse
+    # writes have ALREADY happened, so a worker recycle after the response can
+    # never drop an acknowledged upload.
     fake = _FakeDataverse(case_id="CASE-7")
     _patch_dv(monkeypatch, fake)
-    captured = []
-    monkeypatch.setattr(function_app, "_dispatch_background", lambda fn: captured.append(fn))
-
     resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
-    assert resp.status_code == 202  # acked
-    assert fake.created == []  # ...but the slow fan-out has NOT run yet
-    assert len(captured) == 1
-    # Running the deferred work later performs the writes off the response path.
-    captured[0]()
-    assert len(fake.created) == 1
+    assert resp.status_code == 200
+    assert len(fake.created) == 1          # the write completed BEFORE the 200
     assert fake.reinvoked == ["CASE-7"]
 
 
@@ -376,7 +365,7 @@ def test_receiver_accepts_secondary_signature(monkeypatch):
     _patch_dv(monkeypatch, fake)
     req = _signed_request(_UPLOAD_BODY, key=SECONDARY_KEY, header="secondary")
     resp = function_app.box_webhook(req)
-    assert resp.status_code == 202
+    assert resp.status_code == 200
     # Verified via the secondary key (rotation) -> processing reaches the case.
     assert fake.reinvoked == ["CASE-2"]
 
@@ -385,9 +374,8 @@ def test_receiver_dedups_repeated_delivery_id(monkeypatch):
     fake = _FakeDataverse()
     _patch_dv(monkeypatch, fake)
     first = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="dup"))
-    assert first.status_code == 202
-    # Same delivery id again -> deduped no-op caught synchronously (the dedup mark
-    # is on the request thread, before the ack), so no second Evidence write.
+    assert first.status_code == 200
+    # Same delivery id again -> in-process dedup fast-path no-op, no second write.
     second = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="dup"))
     assert second.status_code == 200
     assert json.loads(second.get_body()).get("deduped") is True
@@ -399,9 +387,8 @@ def test_receiver_skips_file_moved(monkeypatch):
     _patch_dv(monkeypatch, fake)
     moved = dict(_UPLOAD_BODY, trigger="FILE.MOVED")
     resp = function_app.box_webhook(_signed_request(moved))
-    # Acked promptly; the disambiguation (a MOVE is not a fresh upload) runs in
-    # the background worker, so no Evidence is written.
-    assert resp.status_code == 202
+    # A MOVE is a settled no-op (not a fresh upload) -> 200, nothing written.
+    assert resp.status_code == 200
     assert fake.created == []
 
 
@@ -409,9 +396,8 @@ def test_receiver_durable_dedup_when_evidence_exists(monkeypatch):
     fake = _FakeDataverse(case_id="CASE-3", evidence_exists=True)
     _patch_dv(monkeypatch, fake)
     resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
-    # Cross-worker duplicate: the in-process dedup misses it, but the durable
-    # Evidence-existence check in the background worker prevents a second write.
-    assert resp.status_code == 202
+    # The durable Evidence-existence check prevents a second write (200, no create).
+    assert resp.status_code == 200
     assert fake.created == []  # existing Evidence -> no duplicate write
 
 
@@ -419,13 +405,12 @@ def test_receiver_unresolved_folder_routes_to_triage(monkeypatch):
     fake = _FakeDataverse(case_id=None)
     _patch_dv(monkeypatch, fake)
     resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
-    # Acked promptly; the (background) case resolution finds no case -> triage,
-    # never a guessed write.
-    assert resp.status_code == 202
+    # No case resolves -> settled triage skip (200), never a guessed write.
+    assert resp.status_code == 200
     assert fake.created == []
 
 
-def test_receiver_dataverse_error_does_not_ask_box_to_retry(monkeypatch):
+def test_receiver_transient_dataverse_error_returns_503_so_box_retries(monkeypatch):
     from dataverse_client import DataverseError
 
     class _Boom(_FakeDataverse):
@@ -433,19 +418,17 @@ def test_receiver_dataverse_error_does_not_ask_box_to_retry(monkeypatch):
             raise DataverseError("boom", status=500)
 
     _patch_dv(monkeypatch, _Boom())
-    # A Dataverse failure (or, in production, a slow write) must NOT become a 5xx
-    # or a slow response -> the handler still acks 2xx and the error is absorbed
-    # by the background worker; the reconciliation sweep recovers. (No exception
-    # escapes box_webhook even though the inline-run fan-out raises.)
+    # A TRANSIENT Dataverse failure must surface as a non-2xx so Box RETRIES the
+    # delivery (Box does not retry after a 2xx). No exception escapes box_webhook.
     resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
-    assert resp.status_code == 202
+    assert resp.status_code == 503
 
 
-def test_receiver_transient_failure_unmarks_so_box_retry_is_reprocessed(monkeypatch):
-    """Regression: a transient Dataverse fault on the FIRST delivery must NOT
-    strand the case. The in-process dedup mark is provisional — when processing
-    fails, Box's retry of the SAME delivery id must be re-processed, not silently
-    dropped by the dedup no-op."""
+def test_receiver_transient_failure_then_box_retry_is_reprocessed(monkeypatch):
+    """A transient Dataverse fault on the FIRST delivery returns 503 (so Box
+    retries) and un-marks the in-process id, so a Box retry of the SAME id is
+    re-processed (not blocked by the fast-path) and persists Evidence once
+    Dataverse recovers."""
     from dataverse_client import DataverseError
 
     class _FlakyDataverse(_FakeDataverse):
@@ -462,26 +445,24 @@ def test_receiver_transient_failure_unmarks_so_box_retry_is_reprocessed(monkeypa
     fake = _FlakyDataverse()
     _patch_dv(monkeypatch, fake)
 
-    # Delivery 1: Dataverse throttles -> acked 202, nothing written, but the
-    # delivery id is un-marked so the retry can land.
+    # Delivery 1: Dataverse throttles -> 503 (Box will retry), nothing written,
+    # and the delivery id is un-marked so a same-id retry can land.
     first = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-retry"))
-    assert first.status_code == 202
+    assert first.status_code == 503
     assert fake.created == []  # nothing persisted on the failed attempt
 
     # Box retries the SAME delivery id (Dataverse now healthy). It must be
     # re-processed, not dropped as a duplicate no-op.
     second = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-retry"))
-    assert second.status_code == 202
+    assert second.status_code == 200
     assert json.loads(second.get_body()).get("deduped") is not True
     assert len(fake.created) == 1  # the retry persisted Evidence
     assert fake.reinvoked == ["CASE-RETRY"]
 
 
-def test_receiver_status_evaluate_failure_unmarks_and_retry_advances(monkeypatch):
-    """Regression for the silent-strand defect: when Evidence is written but the
-    (idempotent) status-evaluate re-invoke FAILS, the case must not be stranded.
-    The re-invoke failure surfaces as DataverseError -> the worker un-marks the
-    delivery -> Box's retry of the SAME id re-runs. On the retry the Evidence
+def test_receiver_status_evaluate_failure_then_retry_advances(monkeypatch):
+    """When Evidence is written but the (idempotent) status-evaluate re-invoke
+    FAILS, the receiver returns 503 so Box retries; on the retry the Evidence
     already exists (write is once-only) but the case-advance must still fire so
     the case moves Not Ready -> Review."""
     from dataverse_client import DataverseError
@@ -505,30 +486,30 @@ def test_receiver_status_evaluate_failure_unmarks_and_retry_advances(monkeypatch
     fake = _StrandThenAdvance()
     _patch_dv(monkeypatch, fake)
 
-    # Delivery 1: Evidence written, but the status-evaluate re-invoke 503s.
+    # Delivery 1: Evidence written, but the status-evaluate re-invoke 503s -> 503.
     first = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-strand"))
-    assert first.status_code == 202
+    assert first.status_code == 503
     assert len(fake.created) == 1          # Evidence landed
     assert fake.reinvoked == []            # ...but the advance did NOT happen
 
-    # Box retries the SAME delivery id. It must NOT be a dedup no-op (the failure
-    # un-marked it), and the advance must now fire without a second Evidence write.
+    # Box retries the SAME delivery id (the failure un-marked the fast-path). The
+    # durable Evidence-existence check now finds the row, so the WRITE is correctly
+    # deduped — but the idempotent case-advance must STILL fire (no second write).
     second = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-strand"))
-    assert second.status_code == 202
-    assert json.loads(second.get_body()).get("deduped") is not True
-    assert len(fake.created) == 1          # Evidence write stays once-only
-    assert fake.reinvoked == ["CASE-STRAND"]  # the case finally advances
+    assert second.status_code == 200
+    assert json.loads(second.get_body()).get("deduped") is True  # write skipped...
+    assert len(fake.created) == 1          # ...Evidence write stays once-only
+    assert fake.reinvoked == ["CASE-STRAND"]  # ...but the case finally advances
 
 
-def test_receiver_settled_skip_keeps_dedup_mark(monkeypatch):
-    """A settled (non-transient) outcome — here a FILE.MOVED that is deliberately
-    not ingested — must KEEP the dedup mark so a retry of the same delivery stays
-    a no-op (we only un-mark on transient failure, never on a settled skip)."""
+def test_receiver_settled_move_keeps_dedup_mark(monkeypatch):
+    """A settled (non-transient) MOVE keeps the dedup mark so a retry of the same
+    delivery stays a no-op (we only un-mark on a transient failure)."""
     fake = _FakeDataverse()
     _patch_dv(monkeypatch, fake)
     moved = dict(_UPLOAD_BODY, trigger="FILE.MOVED")
     first = function_app.box_webhook(_signed_request(moved, delivery_id="d-move"))
-    assert first.status_code == 202
+    assert first.status_code == 200
     # Retry of the same MOVE delivery -> caught by the still-standing dedup mark.
     second = function_app.box_webhook(_signed_request(moved, delivery_id="d-move"))
     assert second.status_code == 200

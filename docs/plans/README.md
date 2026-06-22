@@ -49,7 +49,9 @@ docs/plans/
 > one-way Box mirror**). Its **authoritative build order + cross-section reconciliations** live in
 > [`box-integration-pivot/plans/00-BUILD-PLAN.md`](../../box-integration-pivot/plans/00-BUILD-PLAN.md)
 > (which **wins over** the six section plans 01–06); the phase folder here is the in-tree spine. Status:
-> **authored + offline-verified + free-account REST-tested; NOT live.**
+> **the Phase-7 Box Dataverse schema + `cr1bd_BOX_*` env-vars are APPLIED LIVE in Dev (all `BOX_*` gates
+> OFF); the `box-webhook` Function, the `cr1bd_box_rest` connector and the Box flows are authored offline
+> (`state=off`), not deployed/bound** — plus free-account REST-tested.
 
 ## Plans (one line each: purpose · ROADMAP item)
 
@@ -77,7 +79,7 @@ docs/plans/
 | [phase-3-…/box-archival-pipeline.md](./phase-3-enrichment-and-eva/box-archival-pipeline.md) | Full Box pipeline design + M2.D activation runbook; the S2 content-bind + the fictional-`CreateFolder` rewrite; UPPERCASE folder + EVA photo-order. **Reconciled DOWN to ADR-0012** (supersession banner). | **Phase 3d** (M2.D) → superseded by **Phase 7** |
 | [phase-7-box-integration/README.md](./phase-7-box-integration/README.md) | Phase-7 goal + the B0–B4 wave checklist for the Box-centric intake pivot (folder at parse-confirm, File-Request chasers, webhook intake); the connection-ref PIN; the two-phase (free vs Business) live-test split. Defers build order to `box-integration-pivot/plans/00-BUILD-PLAN.md`. | **Phase 7** (Box pivot, ADR-0012) |
 | [phase-7-…/box-custom-connector-and-webhook.md](./phase-7-box-integration/box-custom-connector-and-webhook.md) | The BUILD spec the azure section implements: the custom Box REST connector OpenAPI (`api_key` param), the CCG token-mint inside the Function, the `box-webhook` receiver, the FC1 bicep, and the `finalize-eva-box` rewrite contract. | **Phase 7 B0** |
-| [phase-7-…/box-integration-activation.md](./phase-7-box-integration/box-integration-activation.md) | The operator runbook: Box Platform-app registration on a Business+ tenant, the `BOX_*` gate-flip choreography, and the BUSINESS second test phase (CCG + File Requests + the `FILE.UPLOADED` live-test). | **Phase 7** (operator) |
+| [phase-7-…/box-integration-activation.md](./phase-7-box-integration/box-integration-activation.md) | The operator runbook: Box Platform-app registration on a Business-or-higher tenant, the `BOX_*` gate-flip choreography, and the BUSINESS second test phase (CCG + File Requests + the `FILE.UPLOADED` live-test). | **Phase 7** (operator) |
 | [phase-2-…/multi-inbox-feasibility.md](./phase-2-live-activation/multi-inbox-feasibility.md) | **Investigate-only** feasibility companion to `multi-inbox-access` for the other two inboxes (V2/V3 trigger, webhook re-arm, dedup). Do **not** proceed. | **Phase 2** (operator) |
 | [phase-2-…/image-storage-backends.md](./phase-2-live-activation/image-storage-backends.md) | Swappable, env-var-gated images-only storage abstraction (Azure Blob / SharePoint / local SMB / File Sync) + ready-to-enable connection-ref scaffolds. | **Phase 2** (M1 storage) |
 | [phase-5-…/copilot-studio-setup.md](./phase-5-ocr-and-scale/copilot-studio-setup.md) | M3 Copilot Studio staff-assistant grounded on Dataverse (gate `COPILOT_ENABLED`): pre-reqs, grounding model, Code-App seam, use-cases. | **Phase 5c** (M3) |

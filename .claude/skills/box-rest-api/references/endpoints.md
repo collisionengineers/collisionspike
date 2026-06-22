@@ -29,8 +29,10 @@ Field-level depth for the unified operations in `SKILL.md`. Re-read **developer.
   would need that folder link's `/embed/s/{token}` form.
 
 ## ListFolder — `GET /2.0/folders/{id}/items?fields=id,name,created_at,modified_at`
-- Reconciliation sweep (the webhook fallback). Paginate with `limit`/`offset` (or marker). Compare
-  against Dataverse Evidence rows to detect dropped `FILE.UPLOADED` events.
+- The op for the reconciliation sweep — a **deferred, not-yet-built** secondary backstop (documented,
+  not wired; Box's retry on the receiver's non-2xx is the primary recovery today). When built it would
+  paginate with `limit`/`offset` (or marker) and compare against Dataverse Evidence rows to detect
+  dropped `FILE.UPLOADED` events.
 
 ## CreateWebhook — `POST /2.0/webhooks`
 - Body: `{ "target": { "id": "<folderId>", "type": "folder" }, "address": "<https endpoint>",

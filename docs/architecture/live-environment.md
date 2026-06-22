@@ -1,7 +1,9 @@
 # Live environment reference — collisionspike (Sandbox)
 
 > Canonical registry of **what is actually deployed** and its IDs, verified live on **2026-06-19** (parser connector wired/bound; corpus incorporation verified).
-> **2026-06-22:** the Phase-7 Box pivot is **authored offline + NOT deployed** — its placeholder rows are tagged below so this registry stays honest (nothing Box is live).
+> **2026-06-22:** the Phase-7 Box pivot's **Dataverse schema + env-vars ARE applied live** (all `BOX_*` gates OFF);
+> the `box-webhook` Function, `cr1bd_box_rest` connector and Box flows are **authored offline (`state=off`)** —
+> not deployed/imported/bound. Rows below are tagged accordingly so this registry stays honest.
 > Pairs with [AGENTS.md](../../AGENTS.md) (rules/gotchas) and [CURRENT_STATUS.md](../../CURRENT_STATUS.md)
 > (status). For the **intended** end-state see [PLAN.md](../../PLAN.md) and
 > [microsoft-stack.md](./microsoft-stack.md). Re-verify IDs with the toolkit at the bottom before relying on them.
@@ -50,7 +52,7 @@ Bound = has a connection; **empty = NOT yet connected** (operator must create th
 | `cr1bd_ceparser` | CollisionSpike CE Parser | **`new_collision-20engineers-20parser`** | `01b43be8542148efbcd1284b8ca64013` | **Bound** ("Collision Engineers Parser", Connected). Connector updated to expose the `api_key` parameter (the `x-functions-key` was previously undefined); `pac code add-data-source` generated `CollisionEngineersParserService`. **⚠️ `document` MUST stay plain `{type:string}` — never add `format:byte`/`x-ms-media-kind` (the gateway then re-encodes the base64 → parser 422 `document_unreadable`); the flow passes the **RAW base64 string** (NOT `base64ToBinary` — that feeds the gateway binary → **HTTP 400**, proven live 2026-06-20 `test34`) and the **tolerant** parser decode is the load-bearing safeguard. Memory `powerplatform-connector-base64-double-encode`.** |
 | `cr1bd_evidenceblob` | CollisionSpike Evidence Blob | `shared_azureblob` | _(none)_ | Unbound (later phase) |
 | `cr1bd_box` | CollisionSpike Box Archive | `shared_box` | _(none)_ | Unbound. First-party Box (Standard, interactive OAuth) — **RETAINED for `finalize-eva-box`'s byte path only** (Phase-7 pin; not repointed). |
-| `cr1bd_box_rest` | Box REST (custom: CCG service identity) | `shared_box_rest` (custom) | _(none)_ | **Phase 7 — authored in `flows/connection-references.json`, NOT yet imported live.** Parallel custom connector (Premium) fronting the `box-webhook` Function; ops CreateFolder/CopyFileRequest/GetSharedLink/ListFolder/CreateWebhook+lifecycle. Connector import + connection bind are operator steps; the Box `client_secret` is a Function-side KV ref. |
+| `cr1bd_box_rest` | Box REST (custom: CCG service identity) | `shared_box_rest` (custom) | _(none)_ | **Phase 7 — OpenAPI authored offline in `functions/box-webhook/openapi/` + `flows/connection-references.json`, NOT yet imported live.** Parallel custom connector (Premium) fronting the `box-webhook` Function; ops CreateFolder/CopyFileRequest/GetSharedLink/ListFolder/CreateWebhook+lifecycle. Connector import + connection bind are operator steps; the Box `client_secret` is a Function-side KV ref (`box-client-secret`). |
 | `cr1bd_dvsaenrich` | CollisionSpike DVSA Enrichment | `shared_dvsaenrich` | `ce0d69449a88437699c27dcaad721c56` | **Bound** (Connected → `cespkenrich-fn-gi62sd`; gate `ENRICHMENT_ENABLED=true` 2026-06-20) |
 | `cr1bd_evavalidation` | CollisionSpike EVA Validation | `shared_evavalidation` | _(none)_ | Unbound (gated) |
 | `cr1bd_evasentry` | CollisionSpike EVA Sentry | `shared_evasentry` | _(none)_ | Unbound (gated) |
@@ -79,24 +81,28 @@ Bound = has a connection; **empty = NOT yet connected** (operator must create th
 > (inside `Scope_generate_casepo`) is an operator/business-phase live edit and is **not** reflected in the
 > stale repo `intake.definition.json`. See [docs/plans/phase-7-box-integration/](../plans/phase-7-box-integration/).
 
-## Phase-7 Box pivot (authored offline — NOT deployed)
+## Phase-7 Box pivot (schema LIVE; Function/connector/flows authored offline)
 
-ADR-0012's Box-centric intake pivot is **built in the working tree, offline-verified, free-account
-REST-tested, and NOT live** (verified 2026-06-22). Nothing below is in the live environment yet:
+ADR-0012's Box-centric intake pivot has its **Dataverse schema + env-vars APPLIED LIVE** (verified via
+`az` against Dev, 2026-06-22 — all `BOX_*` gates OFF); the `box-webhook` Function, the `cr1bd_box_rest`
+connector and the Box flows are **authored offline (`state=off`), not deployed/imported/bound.**
 
 | Artefact | State | Where |
 |---|---|---|
-| `box-webhook` Azure Function (CCG token-mint + HMAC webhook receiver) | **Authored, NOT deployed** (no Azure resource exists) | `functions/box-webhook/` (pytest 71 passed; bicep in `infra/`, OpenAPI in `openapi/`) |
-| 5 `BOX_*` gates + 2 config vars + 3 audit actions + `cr1bd_box*` columns | **Authored in schema-as-code, NOT applied to the live solution** (all gates `false`) | `dataverse/environment-variables.json`, `dataverse/schema/case.json`, `dataverse/choicesets/audit-event.json`; un-run apply `dataverse/.build/25-box-schema.ps1` |
-| `cr1bd_box_rest` custom connector | **OpenAPI authored, NOT imported**; connection unbound | `functions/box-webhook/openapi/`, `flows/connection-references.json` |
+| `box-webhook` Azure Function (CCG token-mint + HMAC webhook receiver) | **Authored offline, NOT deployed** (no Azure resource exists) | `functions/box-webhook/` (pytest 71 passed; bicep in `infra/`, OpenAPI in `openapi/`) |
+| 5 `BOX_*` gates + 2 config vars + 3 audit actions + `cr1bd_box*` columns | **APPLIED LIVE** — `cr1bd_case` carries `boxfolderid`/`boxfolderurl`/`boxsyncedat`/`boxfilerequestid`/`boxfilerequesturl`/`sourcemailbox`, `cr1bd_evidence` carries `boxfileid`/`boxfileurl`, and all `cr1bd_BOX_*` env-vars exist (default **and** current = `false`) | `dataverse/environment-variables.json`, `dataverse/schema/case.json`, `dataverse/choicesets/audit-event.json`; applied via `dataverse/.build/25-box-schema.ps1` (adds 9 case columns) |
+| `cr1bd_box_rest` custom connector | **OpenAPI authored offline, NOT imported**; connection unbound | `functions/box-webhook/openapi/`, `flows/connection-references.json` |
 | Box flows (`box-folder-create`/`box-file-request-copy`/`box-blob-purge` + finalize/case-resolve deltas) | **Authored `state=off`, NOT imported live** | `flows/definitions/`, lint 154/154 |
 | Code App Box surfacing (`getBoxGates`, submit-signal, copy-File-Request, Open-in-Box link) | **Authored, SDK-free**; degrades to `not_connected` until a connection is bound | `mockup-app/src/data/box-*.ts`, vitest 256 passed |
 
 **Free-account REST live-test (2026-06-22):** 8/9 raw-REST ops verified on a throwaway FREE Box account
 via a dev token (folder created + recursively deleted; no secret printed). The one failure —
-`CreateWebhook` 403 `insufficient_scope` — is expected on a free plan. The service-identity path (CCG,
-File Requests, metadata, the `FILE.UPLOADED` live-test) needs a live **Business+** tenant — the operator's
-second test phase.
+`CreateWebhook` 403 `insufficient_scope` — is expected on a free plan. A free-account demo (case
+`SBL26001`) proved the folder + upload + shared-link pattern manually. The always-on service-identity path
+(CCG token mint, `FILE.UPLOADED` webhook, template File Request) is **deferred to a future BUSINESS-account
+phase** — base Box **Business** (~$15/user/mo) is the floor for folders/File-Requests/webhooks/CCG;
+**Business Plus** is needed only for the deferred metadata feature. That live Business-account test is the
+operator's second test phase.
 
 ## Runtime gotchas (the rules — full detail in AGENTS.md + memory)
 1. Code App CSP `connect-src 'none'` → use **connectors**, never raw `fetch()` to an external host.

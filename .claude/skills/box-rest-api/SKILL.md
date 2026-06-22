@@ -31,7 +31,7 @@ them**; this skill + the build plan are the contract.
 | `CopyFileRequest` | `POST /2.0/file_requests/{templateId}/copy` | The **only** "create" — copy-from-template only; one File Request per folder; the reg field is baked into the template. `status:"active"`, optional `expires_at`. |
 | `GetSharedLink` | `PUT /2.0/files/{id}?fields=shared_link` | The **file** variant. Server-minted only. |
 | `GetFolderSharedLink` | `PUT /2.0/folders/{id}?fields=shared_link` | The **folder** variant — the one "Open in Box" surfaces (and the one an iframe embed, not pursued here, would need). Both variants are provisioned as **two operationIds** (file vs folder); the `*Service` method names are `GetSharedLink` + `GetFolderSharedLink` respectively. |
-| `ListFolder` | `GET /2.0/folders/{id}/items` | Reconciliation sweep (the webhook fallback). |
+| `ListFolder` | `GET /2.0/folders/{id}/items` | The op for the reconciliation sweep — a **deferred, not-yet-built** backstop (Box's retry on the receiver's non-2xx is the primary recovery). |
 | `CreateWebhook` | `POST /2.0/webhooks` | `target` = file\|folder, `triggers:["FILE.UPLOADED"]`. |
 | webhook lifecycle | `GET` / `DELETE /2.0/webhooks/{id}` | |
 | File-Request lifecycle | `GET` / `PUT` (status active\|inactive) / `DELETE /2.0/file_requests/{id}` | |
@@ -39,19 +39,25 @@ them**; this skill + the build plan are the contract.
 Field-level request/response depth → `references/endpoints.md`.
 
 ## Webhook semantics + signatures
-Best-effort: **no SLA, at-least-once, droppable, also fires on MOVE**, retries up to ~12×/2h, respond
-**2xx promptly** then work. Signature: `BOX-SIGNATURE-PRIMARY` / `BOX-SIGNATURE-SECONDARY` =
-**HMAC-SHA256** over `body ++ BOX-DELIVERY-TIMESTAMP`; **10-min replay** window; **dual-key** rotation;
-**timing-safe** compare; **dedup on `BOX-DELIVERY-ID`**. Full receiver step order →
-`references/webhook-receiver.md`.
+Best-effort: **no SLA, at-least-once, droppable, also fires on MOVE**, retries up to ~12×/2h. The
+receiver **processes the Dataverse fan-out ON the request path** and **responds by outcome** — `200`
+when SETTLED, a non-2xx (`503`) on a TRANSIENT failure so **Box retries** (Box does NOT retry after a
+2xx). Signature: `BOX-SIGNATURE-PRIMARY` / `BOX-SIGNATURE-SECONDARY` = **HMAC-SHA256** over
+`body ++ BOX-DELIVERY-TIMESTAMP`; **10-min replay** window; **dual-key** rotation; **timing-safe**
+compare. In-process `BOX-DELIVERY-ID` dedup is a best-effort fast-path; the **durable** dedup is the
+Evidence-existence check on the `box:file:<id>` tag in `cr1bd_sourcemessageid`. Full receiver step order
+→ `references/webhook-receiver.md`.
 
 ## The three cross-platform patterns
 1. **CCG-token-in-Function facade + `api_key` (Function host key) on the connection.** The
    `apiProperties.json` MUST declare `connectionParameters.api_key` — an `apiKey` securityDefinition
    alone does **not** create the param (proven for `cr1bd_ceparser`). Pass base64 bodies as a **plain
    string**, never `format:byte`.
-2. **The webhook-receiver order:** replay → HMAC → **2xx** → work → dedup → `FILE.UPLOADED`-vs-`FILE.MOVED`
-   disambiguation → write Evidence (storagePath stays Blob) → idempotent `CS Status Evaluate` re-invoke.
+2. **The webhook-receiver order:** replay → HMAC → parse + in-process dedup fast-path →
+   **PROCESS on the request path** (`FILE.UPLOADED`-vs-`FILE.MOVED` disambiguation → resolve case →
+   durable Evidence-existence dedup on the `box:file:<id>` tag → write Evidence (storagePath stays Blob;
+   write `cr1bd_boxfileid` + `cr1bd_acceptedforeva=true`) → idempotent `CS Status Evaluate` re-invoke) →
+   respond `200` when SETTLED, non-2xx (`503`) on a transient failure so Box retries.
 3. **`connect-src 'none'` → server-mint shared links.** The Code App calls Box only via the
    connector/flows, never `fetch()`. Evidence is surfaced as a **server-minted "Open in Box" deep link**
    (the operator decision is **link, not embed**). An iframe embed would need a `frame-src` (NOT
@@ -73,9 +79,10 @@ The **connection-reference identity is NOT settled**: plan 04 prefers a parallel
 via a **placeholder** until Wave 0 pins it.
 
 ## Plan floor (precise)
-Box **Business Plus** is the floor **specifically for the reg-capture metadata FIELD on the
-File-Request form** (Wave 2 / Phase C). **Base Business covers File Requests + webhooks + folders**
-(Wave 0/1). Do not imply Business Plus is needed for Wave 0/1. (See
+The floor is **base Box Business** (~$15/user/mo) — it covers **folders + File Requests + webhooks +
+CCG** (Wave 0/1). **Business Plus** (~$25–33/user/mo) is needed **only** for the deferred **reg-capture
+metadata FIELD on the File-Request form** (Wave 2 / Phase C — an optional later reliability upgrade).
+Do not call Business Plus the floor; reserve "Business Plus" for the metadata tier. (See
 `box-integration-pivot/09-metadata-role.md`.)
 
 ## Boundary

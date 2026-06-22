@@ -31,12 +31,12 @@
     { "logicalName": "cr1bd_filebytes", "displayName": "File", "type": "File", "required": "none", "description": "Optional Dataverse File column alternative to an external Blob (Phase-1 Risk #4: file-column vs Blob choice to be confirmed). Holds bytes off-row either way." },
     { "logicalName": "cr1bd_sourcemessageid", "displayName": "Source Message ID", "type": "String", "maxLength": 400, "required": "none", "description": "Graph / Internet Message-ID the artifact arrived on (links Evidence back to its intake message)." },
     { "logicalName": "cr1bd_sourcelabel", "displayName": "Source Label", "type": "String", "maxLength": 400, "required": "none", "description": "Where it came from (message / upload label) for the UI." },
-    { "logicalName": "cr1bd_boxfileid", "displayName": "Box File ID", "type": "String", "maxLength": 40, "required": "none", "description": "BOX ONE-WAY MIRROR (Phase 7, ADR-0012). The Box file id from upload for this artifact; supersedes the box:file id-in-sourcemessageid hack. Webhook/lifecycle correlation. Written Dataverse->Box only." },
+    { "logicalName": "cr1bd_boxfileid", "displayName": "Box File ID", "type": "String", "maxLength": 40, "required": "none", "description": "BOX CORRELATION / UI MIRROR (Phase 7, ADR-0012). The Box file id for this artifact, stamped when a file is archived (Dataverse->Box) OR received via a File Request upload (Box->Dataverse, written by box-webhook). Used for webhook/lifecycle correlation only; it does NOT replace the dedup tag — durable dedup stays on cr1bd_sourcemessageid." },
     { "logicalName": "cr1bd_boxfileurl", "displayName": "Box File URL", "type": "String", "maxLength": 400, "format": "Url", "required": "none", "description": "BOX ONE-WAY MIRROR (Phase 7). The per-file Box shared-link URL (GetSharedLink access=open) surfaced as the direct 'open in Box' link on the evidence row. format:Url. Written Dataverse->Box only." }
   ],
   "notes": [
     "Bytes live off-row (Blob/File column) referenced by storagePath; no inline-bytes write path may exist.",
     "registrationVisible is OCR-set from M1; imageRole stays manual until M2.",
-    "Box one-way mirror (Phase 7, ADR-0012): cr1bd_boxfileid / cr1bd_boxfileurl are written Dataverse->Box only (per-file shared links surfaced in the Evidence tab); never read back to drive dedup/status/sequencing."
+    "Box mirror (Phase 7, ADR-0012): cr1bd_boxfileid is stamped Dataverse-side both when a file is archived (Dataverse->Box) AND on a Box->Dataverse File-Request upload (written by box-webhook), purely for correlation — it is never used as the dedup key (dedup is cr1bd_sourcemessageid). cr1bd_boxfileurl is the per-file shared link, a Dataverse-side mirror surfaced as the Evidence-tab open-in-Box link. Neither is read back to drive dedup/status/sequencing."
   ]
 }

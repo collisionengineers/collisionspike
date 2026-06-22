@@ -22,6 +22,8 @@ Unified operationIds (the generated `*Service` method names MUST equal these):
 `GetFileRequest`/`UpdateFileRequest`/`DeleteFileRequest`.
 
 Gated by `BOX_API_ENABLED` (defence in depth; the flow reads the Dataverse gate).
+When the gate is OFF the facade/receiver `_gated_off` path returns **503** (so an
+upstream caller / Box treats it as transient, not a permanent 2xx accept).
 
 ## B. Webhook receiver — `POST /api/box-webhook`
 Box → Function (server-to-server). The **load-bearing order** is enforced in
@@ -30,18 +32,31 @@ Box → Function (server-to-server). The **load-bearing order** is enforced in
 1. **Replay reject** — `BOX-DELIVERY-TIMESTAMP` older than 10 min → 400.
 2. **Dual-key HMAC-SHA256** over `body ++ timestamp`, timing-safe, primary **or**
    secondary key (rotation) → 403 on mismatch.
-3. **Respond 2xx promptly**, then work (idempotent; verified+deduped deliveries
-   never bounce Box into a retry storm).
-4. **Dedup** on `BOX-DELIVERY-ID` (in-process) + a **durable** Evidence-existence
-   check on the Box file id.
-5. **Disambiguate** `FILE.UPLOADED` from `FILE.MOVED` (the folder-scoped trigger
+3. **Disambiguate** `FILE.UPLOADED` from `FILE.MOVED` (the folder-scoped trigger
    fires on move-in too).
-6. **Resolve the case** — Box folder id → `cr1bd_boxfolderid` → Case
+4. **Dedup** on `BOX-DELIVERY-ID` (in-process) + a **durable** Evidence-existence
+   check on the `box:file:<id>` tag in **`cr1bd_sourcemessageid`** — that tag is
+   the dedup key. (`cr1bd_boxfileid` is a correlation/UI MIRROR the receiver also
+   writes — never the dedup key.)
+5. **Resolve the case** — Box folder id → `cr1bd_boxfolderid` → Case
    (`dataverse_client.py`). Unresolved → triage/Held, never a guess.
-7. **Write Evidence** (`cr1bd_evidence`; **storagePath stays Blob** — the Box file
-   id is recorded as provenance in `cr1bd_sourcemessageid`) + **audit**
-   `box_upload_received` (100000021) + **re-invoke the idempotent CS Status
-   Evaluate** so the case advances.
+6. **Write Evidence** (`cr1bd_evidence`; **storagePath stays Blob** — the Box file
+   id is recorded as the `box:file:<id>` provenance tag in `cr1bd_sourcemessageid`,
+   and **mirrored** to `cr1bd_boxfileid` for the UI; the row is stamped
+   `cr1bd_acceptedforeva=true`) + **audit** `box_upload_received` (100000021) +
+   **re-invoke the idempotent CS Status Evaluate** so the case advances.
+
+The fan-out in steps 3–6 runs **ON the request path** — the receiver returns
+**200 only when the delivery is fully settled**, and a **non-2xx (503)** on a
+**transient** failure so **Box retries** (Box does *not* retry once it sees a 2xx).
+There is **no** "respond 202 promptly then a background/daemon-thread fan-out" —
+the work completes inline before the status code is chosen. Audit rows use the
+canonical `cr1bd_name` / `cr1bd_occurredat` / `cr1bd_action` / `cr1bd_after`
+shape (there is **no** `cr1bd_detail` column).
+
+A timed `ListFolder` reconciliation sweep is **documented but NOT built** — a
+deferred, not-yet-implemented secondary backstop. The **primary** recovery from a
+dropped delivery is **Box's own retry** on the non-2xx response, not the sweep.
 
 Dataverse is reached with the Function's **system-assigned managed identity**
 (no key); the MI must be added as a Dataverse **Application User** (operator step).
@@ -57,7 +72,9 @@ the URL is unset.
 - `dataverse_client.py` — MI-token Dataverse Web API seam.
 - `openapi/box-connector.json` (+ `.apiProperties.json`) — the custom connector.
 - `infra/main.bicep` — FC1 clone; MI → Key Vault Secrets User + Storage Blob Data
-  Owner; KV refs `BOX_CLIENT_SECRET` + `BOX_WEBHOOK_PRIMARY_KEY` +
+  Owner; the **hyphenated** KV secrets `box-client-secret` +
+  `box-webhook-primary-key` + `box-webhook-secondary-key` resolve into the
+  **UPPER_SNAKE** app settings `BOX_CLIENT_SECRET` + `BOX_WEBHOOK_PRIMARY_KEY` +
   `BOX_WEBHOOK_SECONDARY_KEY`; **no `api.box.com` CORS rule** (server-to-server).
 - `tests/` — pytest (mock httpx; no secrets).
 
@@ -78,5 +95,7 @@ python -m pytest -q
 4. Import the custom connector; bind `cr1bd_box_rest` (the parallel REST
    connection — `shared_box` stays for finalize's byte path).
 5. Flip `BOX_API_ENABLED` (test env first). Live-test the
-   File-Request→`FILE.UPLOADED` firing (the single biggest empirical unknown;
-   `ListFolder` sweep is the fallback).
+   File-Request→`FILE.UPLOADED` firing (the single biggest empirical unknown). The
+   primary recovery for a dropped delivery is **Box's own retry** on the receiver's
+   non-2xx; the `ListFolder` reconciliation sweep is a deferred, not-yet-built
+   secondary backstop.

@@ -105,8 +105,10 @@ sign-in: the system mints its own Box token inside the Azure Function from a sto
 **no personal "API key" to paste onto a connection**.
 
 **Why you:** registering the Box app and authorizing it in your Admin Console can only be done by you
-(a Box admin), and only you can supply its secret. This needs a **Business-plus** Box tenant — the
-service-identity (Client Credentials Grant) and File Requests don't exist on free/personal accounts.
+(a Box admin), and only you can supply its secret. This needs a **paid Box tenant — base Business is the
+floor** (the service-identity / Client Credentials Grant, File Requests and webhooks are all covered by
+base Business; they don't exist on free/personal accounts). **Business Plus is only needed later** for the
+optional metadata field.
 
 **Steps:**
 1. In the Box Developer Console, **create a Platform App → Server Authentication (Client Credentials
@@ -124,23 +126,28 @@ service-identity (Client Credentials Grant) and File Requests don't exist on fre
 > tree and offline-verified** — the Dataverse schema-as-code (5 `BOX_*` gates + 2 config vars + 3 `cr1bd_box*`
 > columns + 3 audit actions), the `box-webhook` Azure Function (pytest 71 passed), the 3 new flows +
 > the `finalize-eva-box`/`case-resolve` reworks (linter 154/154), and the Code App surfacing (vitest 256
-> passed). **None of it is live:** nothing is deployed to Azure, no live Dataverse schema change, no live
-> flow edit, **every `BOX_*` gate is `false`**, and no Box connection is bound. So the whole of item 5 is
-> still yours.
+> passed). **The Box Dataverse schema + `cr1bd_BOX_*` env-vars ARE applied live** (verified via `az`
+> against Dev 2026-06-22: the `cr1bd_box*` case + evidence columns and every `cr1bd_BOX_*` env-var exist),
+> with **every `BOX_*` gate `false`** (default AND current). **What is NOT live:** the `box-webhook`
+> Function, the `cr1bd_box_rest` custom connector and the Box flows are authored offline (`state=off`) —
+> not deployed to Azure, not imported, not bound; no Box connection is bound; the `box-folder-create`
+> live-intake edit is not made. So the whole of item 5 — deploy/import/bind/flip + the BUSINESS account —
+> is still yours.
 >
 > **The long pole is the BUSINESS-account second test phase.** Live testing so far used a throwaway **FREE**
 > Box account (dev token), which proved the raw REST mechanics (8/9 ops; folder created + deleted, no secret
 > printed) but **cannot** exercise the service path — CCG fails on free (`unauthorized_client`), and there are
-> **no File Requests and no metadata**. The decisive verifications therefore wait on a live **Business+**
-> tenant and are the gating unknowns:
+> **no File Requests and no metadata**. The decisive verifications therefore wait on a live
+> **Business-or-higher** tenant and are the gating unknowns:
 > - the **CCG token mint** + the Admin-authorized Platform app (steps 1–3 above);
 > - the **hand-built template File Request** (record its id → `BOX_FILE_REQUEST_TEMPLATE_ID`);
 > - the **single biggest empirical unknown** — does a **File-Request upload fire `FILE.UPLOADED`** → the
->   Function → the case advances? (undocumented; **BLOCKING for B2**; the `ListFolder` reconciliation sweep
->   is the proven fallback if it doesn't).
+>   Function → the case advances? (undocumented; **BLOCKING for B2**). On a transient miss the **primary**
+>   recovery is Box's own retry — the receiver returns a non-2xx (503) so Box re-delivers; the `ListFolder`
+>   reconciliation sweep is a **deferred, not-yet-built** secondary backstop.
 >
 > **Scope reminders:** start on **base Box Business** (the **metadata** field that would harden the orphaned
-> image-only path is the **Business-Plus** tier — out of scope now, a later optional upgrade); **EVA stays
+> image-only path is the **Business Plus** tier — out of scope now, a later optional upgrade); **EVA stays
 > gated OFF**; **evidence is linked, not embedded** — a server-minted "Open in Box" deep link, so there is
 > **no `frame-src` CSP edit** to make (`BOX_EMBED_ENABLED` stays reserved/off). The `box-folder-create`
 > invocation into live `intake` is an operator/business-phase **live edit** (the repo intake def trails live,

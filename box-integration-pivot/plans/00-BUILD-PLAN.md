@@ -8,7 +8,7 @@
 > **operator-gated** explicit throughout. The section plans remain the detail of record; this plan is
 > the order + the reconciliations + the roll-up.
 
-> ## ⛏️ BUILD STATUS (updated 2026-06-22) — Waves 0–5 AUTHORED / in-build, NOT live
+> ## ⛏️ BUILD STATUS (updated 2026-06-22) — schema+env-vars LIVE; Function/connector/flows authored offline
 >
 > **Two corrections to the "Decisions locked" block below, both operator-final:**
 > - **Phase number is 7, not 4.** The shipped phase docs live at
@@ -19,8 +19,21 @@
 >   "Metadata → OUT OF SCOPE" decision below; evidence is **linked, not embedded** (a server-minted "Open in
 >   Box" deep link — **no iframe, no `frame-src` edit**; `BOX_EMBED_ENABLED` stays reserved/off).
 >
+> **LIVE STATE (verified via `az` against Dev 2026-06-22):** the **Phase-7 Box Dataverse schema + env-vars
+> ARE applied live** — `cr1bd_case` carries `cr1bd_boxfolderid`/`boxfolderurl`/`boxsyncedat`/
+> `boxfilerequestid`/`boxfilerequesturl`/`sourcemailbox`; `cr1bd_evidence` carries `cr1bd_boxfileid`/
+> `boxfileurl`; and **all `cr1bd_BOX_*` env-vars exist live with every `BOX_*` gate OFF (default AND
+> current = false)**. (`cr1bd_ENRICHMENT_ENABLED` default=false, current=true — enrichment is live/activated
+> in Dev via its *current* value, not the default.) The **box-webhook Azure Function, the `cr1bd_box_rest`
+> custom connector, and the Box cloud-flows are AUTHORED OFFLINE (state=off) — NOT deployed/imported/bound
+> live.** The **always-on Box account integration** (CCG token mint, `FILE.UPLOADED` webhook, template File
+> Request) is **deferred to a future BUSINESS-account phase** (the free Box test account cannot sustain
+> CCG/webhooks/File-Requests). A **free-account demo (case `SBL26001`) proved the folder+upload+shared-link
+> pattern MANUALLY.**
+>
 > **Every Claude-buildable `[C]` item across Waves 0–5 is AUTHORED in the working tree and offline-verified;
-> nothing is live.** Each wave's `[O]` items (Box Platform app + Admin authorization, secret injection,
+> the schema+env-vars are applied live (gates OFF), the Function/connector/Box-flows are not yet
+> deployed/bound.** Each wave's `[O]` items (Box Platform app + Admin authorization, secret injection,
 > connection binds, gate flips, the BLOCKING `FILE.UPLOADED` live-test) remain the operator's. Authored +
 > verified:
 > - **Wave 0** — ADR-0012 + architecture §Box; **5 `BOX_*` gates + 2 config vars + 3 audit actions + 3
@@ -48,8 +61,9 @@
 ## Decisions locked (2026-06-21, operator)
 
 - **Pivot APPROVED** — proceeding to build.
-- **Q1 phase/milestone → New Phase 4.** New docs live in **`docs/plans/phase-4-box-integration/`**
-  (supersedes the "Phase-3-Box / M2.E" working assumption written in Wave 0 below).
+- **Q1 phase/milestone → Phase 7.** New docs live in **`docs/plans/phase-7-box-integration/`**
+  (supersedes the "Phase-3-Box / M2.E" working assumption written in Wave 0 below; see the BUILD STATUS
+  banner above — the earlier "New Phase 4 / `phase-4-box-integration/`" working assumption is stale).
 - **Q2 ADR → a single `ADR-0012`** (one cohesive decision record).
 - **Q3 folder timing → at parse-confirm** (when `cr1bd_casepo` first exists).
 - **Q5 embed → "Open in Box" deep-link first**; the iframe (needs the `frame-src` edit) is optional, later.
@@ -70,7 +84,7 @@
 - **Box Relay / Box Automate → ASSESSED, NOT required** (see
   [../08-relay-automate-assessment.md](../08-relay-automate-assessment.md)). The valuable capabilities
   (custom HTTPS step, AI agents, Box Extract, metadata-triggered routing) are **Enterprise / Enterprise
-  Advanced-gated** (a 1–2 tier jump above the Business-Plus floor) and **duplicate** the authoritative
+  Advanced-gated** (multiple tiers above the pivot's base-Business floor) and **duplicate** the authoritative
   parser/enrichment/Dataverse logic. Keep the bespoke `box-webhook` Function + PA/Dataverse-authoritative
   design. One optional **core-tier** slice (in-Box report approval via the manual-start Workflow Trigger
   API) is noted as a later nicety only. Two ADR caveats: Box Automate is **on-by-default at GA (28 Apr
@@ -93,16 +107,21 @@
 3. **File Request is copy-from-template only.** Hand-build **one** template by hand (capture form +
    `vehicle_registration` metadata field); per case `POST /file_requests/{templateId}/copy`. The reg
    field is baked into the template and cannot be varied by the copy.
-4. **Plan floor = Box Business Plus** — *for the reg-capture metadata field on the File-Request form*.
-   (Box Automate "metadata events/actions" are a separate, higher Enterprise+ tier — do not conflate.)
+4. **Plan floor = base Box Business** — base Business covers folders, File Requests, webhooks and CCG (the
+   whole base pivot). **Business Plus** is needed **only** for the optional **reg-capture metadata field on
+   the File-Request form** (a deferred reliability upgrade — see the "Metadata → OUT OF SCOPE" decision
+   above). (Box Automate "metadata events/actions" are a separate, higher Enterprise+ tier — do not
+   conflate.)
 5. **Code App CSP `connect-src 'none'`** — the UI calls Box **only** via flows/connectors, never
    `fetch()`. In-app embedding is **iframe-only** (Box Embed widget, `/embed/s/{token}`) and needs an
    operator **`frame-src`** edit (NOT `frame-ancestors`). Box UI Elements are not viable.
 6. **Blob is the transient working store; Box is the archive of record.** Blob purge is **status-driven**
    (on `box_synced` + grace), never a blind age rule (lifecycle policies can't read Dataverse status).
 7. **Webhooks are best-effort** (no SLA, at-least-once, droppable, also fire on move) and the
-   **File-Request→`FILE.UPLOADED`** firing is **undocumented — LIVE-TEST it** (fallback: timed
-   `ListFolder`/Metadata-Query reconciliation sweep).
+   **File-Request→`FILE.UPLOADED`** firing is **undocumented — LIVE-TEST it**. The receiver's **primary
+   recovery is Box's own retry** on a non-2xx (the handler returns 503 on a transient failure so Box
+   re-delivers); the timed `ListFolder`/Metadata-Query reconciliation sweep is a **deferred,
+   not-yet-implemented secondary backstop**.
 8. **Operator boundary.** Claude builds connector defs, Functions, flows, schema, docs — all offline.
    The operator owns the **Box Platform app + Admin-Console authorization**, the **`client_secret`** +
    webhook signature keys, the interactive sign-in, the **`frame-src` CSP edit**, and the **live
@@ -117,7 +136,7 @@ names/contracts. These are resolved **once, here**, and the waves below assume t
 |---|---|
 | **Connector OpenAPI + webhook-receiver Function ownership** (03 vs 06) | **Plan 03 (azure) OWNS** the connector OpenAPI and the webhook-receiver/token-mint Function build. **Plan 06 (box) DEFERS** to it and only consumes the contract (mirrors how 06 defers flows to 04). |
 | **Webhook Function host** (03 `functions/box-webhook/` new app vs 06 `cespkeva-fn-ufa3ci`) | **New `functions/box-webhook/` FC1 app** (03's approach — cleaner, consistent with the FC1-clone pattern; `cespkeva-fn-ufa3ci` is **not** in the live registry). Record the chosen name in `live-environment.md` at deploy. |
-| **File-request-copy flow** (02 `chaser-filerequest-copy` `{uploadUrl}` vs 04 `box-file-request-copy` `{fileRequestUrl}`) | **ONE flow:** `box-file-request-copy.definition.json` (plan 04 owns it). Input `{ caseId, fileRequestTemplateId, folderId }`; response **`{ fileRequestUrl, expiresAt, outcome }`**. The app's transport (02) binds to **`fileRequestUrl`**, not `uploadUrl`. |
+| **File-request-copy path** (02 `chaser-filerequest-copy` `{uploadUrl}` vs 04 `box-file-request-copy` `{fileRequestUrl}`) | **PINNED:** the Code App calls the Box REST connector op (`CopyFileRequest`) **DIRECTLY** with **no flow in the path** (the CSP `connect-src 'none'` build-plan decision — the app cannot POST to a flow Request URL). `box-file-request-copy.definition.json` (plan 04) is an authored **STANDBY child flow** for FUTURE operator activation, **NOT currently invoked by the Code App**; its response shape is **`{ fileRequestUrl, expiresAt, outcome }`** and the direct transport returns the same `fileRequestUrl`. At activation the direct transport must also persist `cr1bd_boxfilerequestid`/`url` on the case. |
 | **Connector operation names** (diverged across 02/03/04/06) | **Unify to:** `CreateFolder` (`POST /2.0/folders`), `CopyFileRequest`, `GetSharedLink` (provision **both** the file `PUT /2.0/files/{id}?fields=shared_link` and the folder `PUT /2.0/folders/{id}?fields=shared_link` variant — the embed needs the **folder** link, "Open in Box" can use either), `ListFolder` (reconciliation sweep), `CreateWebhook` + webhook lifecycle (`GET`/`DELETE /webhooks/{id}`) + File-Request lifecycle (`GET`/`PUT`/`DELETE /file_requests/{id}`). The generated `*Service` method names the Code App binds MUST equal these `operationId`s. |
 | **Folder existence: intake-guarantee vs per-call ensure** (02 ensures-in-copy-flow vs 04 mints-at-intake) | **Intake guarantee.** `box-folder-create` mints the UPPERCASE Case/PO folder at **parse-confirm** and stamps `cr1bd_boxfolderid`. `box-file-request-copy` **reads** `cr1bd_boxfolderid`; if null → return **`folder_not_ready`** (do NOT call Box with a null `folder.id`). The folder-create child is 409-idempotent so a re-ensure is harmless, but it is not the copy flow's job. |
 | **`box_synced` write ownership** (05 implies status-evaluate; finalize already stamps it) | **`finalize-eva-box` stamps `cr1bd_status=100000009` LAST** (the existing idempotency latch — unchanged). `status-evaluate` does **NOT** add a competing box_synced transition. The UI is strictly flow-driven and never writes status locally. |
@@ -151,19 +170,20 @@ app registration + secret, which is the hard **[O]** unlock.
 - **[C]** Author **ADR-0012 `box-centric-intake-additive-hybrid`** (01 §1) — the binding decision record;
   leads everything. Mirror the 0010/0011 voice (prose context · `Decisions:` bullets · `Trade-off:`).
   State the verified pillars: custom connector mandatory; **CCG token minted in the Function, not the
-  connector**; File-Request copy-only; Business-Plus floor **for the reg metadata field** (note Automate
-  metadata events are higher-tier); webhook best-effort + live-test-gated; embed iframe-only; data
+  connector**; File-Request copy-only; **base-Business floor** (folders + File Requests + webhooks + CCG) —
+  **Business Plus only for the optional reg metadata field** (note Automate metadata events are
+  higher-tier still); webhook best-effort + live-test-gated; embed iframe-only; data
   residency recorded as **unresolved** (do not assume Business Plus suffices for PII). Do **not**
   hard-code the "2xx within 30s" webhook ceiling as fact — "confirm at build time".
 - **[C]** Expand **`integrations.md §Box`** + **`data-model.md` Box section** + a planning-placeholder
   **`live-environment.md` Box row** (01 §2–4). data-model.md is the canonical home of the
   Dataverse-authoritative / one-way-mirror rule. Note env-var **schema names are owned by plan 05**;
   docs carry the human-readable gate list only.
-- **[C]** Create the phase folder **`docs/plans/phase-3-box-integration/`** (01 §5–7): `README.md` (B0–B4
+- **[C]** Create the phase folder **`docs/plans/phase-7-box-integration/`** (01 §5–7): `README.md` (B0–B4
   checklist), **`box-custom-connector-and-webhook.md`** (the BUILD spec the azure section implements),
-  **`box-integration-activation.md`** (the operator runbook). Working assumption **Phase-3-Box / M2.E** —
-  **frozen only after the operator answers Q1 (phase/milestone number) + Q2 (one-vs-many ADR)** (hard
-  ordering gate; steps 01 §5/§9/§11 move together).
+  **`box-integration-activation.md`** (the operator runbook). The phase number is **Phase 7** (operator-final;
+  Q1 answered) — the earlier "Phase-3-Box / M2.E" / "Phase 4" working assumptions are stale; the ADR is the
+  single `ADR-0012` (Q2 answered).
 
 **Schema (05) — owns the gate + column + audit definitions:**
 - **[C]** Add **5 Boolean gates** (`cr1bd_BOX_API_ENABLED`, `…_FOLDER_AT_INTAKE_ENABLED`,
@@ -187,26 +207,35 @@ app registration + secret, which is the hard **[O]** unlock.
 **Connector + Function unlock (03 owns; 06 supplies the Box-side shape):**
 - **[O]** **Register the Box Platform app** (Server Auth / CCG, App Access Only), scopes
   `root_readwrite` + `manage_webhook`; capture Client ID + **Client Secret** + Enterprise ID (06 §2).
-  **Authorize + enable** it in the Box Admin Console (06 §3). **Confirm the plan is Business Plus** +
-  metadata feature on (06 §1). **The unlock — every later [O] flip and the connector binding depend on
-  this.**
+  **Authorize + enable** it in the Box Admin Console (06 §3). **Confirm the plan is base Business or
+  higher** (the base-pivot floor; 06 §1) — **Business Plus + metadata feature only for the deferred
+  reg-capture field**. **The unlock — every later [O] flip and the connector binding depend on this.**
 - **[C]** Author the **custom Box REST connector OpenAPI 2.0** at `functions/box-webhook/openapi/`
   (03 §2, 06 §4): single `apiKey` securityDefinition (`x-functions-key`); **declare
   `connectionParameters.api_key` in `apiProperties.json`**; operations per the unified op-name list
-  above (incl. webhook + File-Request lifecycle ops 06 needs). Repoint the **`cr1bd_box` connection
-  reference** to the custom connector (`tier:"Premium"`, `custom:true`, `boundAtActivation:true`) and
-  note the Box `client_secret` is a **Function-side KV ref, never on the connection** (03 §6).
-  *(Decide: repoint `cr1bd_box` in place, or add a parallel `cr1bd_box_rest` and keep first-party
-  `shared_box` for `finalize-eva-box`'s `CreateFile` — plan 04 §4 prefers the parallel ref. Pin one.)*
+  above (incl. webhook + File-Request lifecycle ops 06 needs). Add a **parallel `cr1bd_box_rest`
+  connection reference** bound to the custom connector (`tier:"Premium"`, `custom:true`,
+  `boundAtActivation:true`) and note the Box `client_secret` is a **Function-side KV ref, never on the
+  connection** (03 §6). *(PINNED: the **parallel `cr1bd_box_rest`** carries the custom-connector ops while
+  first-party `cr1bd_box`/`shared_box` is retained for `finalize-eva-box`'s `CreateFile` byte path — plan
+  04 §4's parallel-ref choice, now settled in `flows/connection-references.json` + ADR-0012.)*
 - **[C]** Implement the **Box CCG token exchange inside the Function** (`POST /oauth2/token`,
   `grant_type=client_credentials`, `box_subject_type=enterprise`; cache ~lifetime, refresh on 401,
   backoff on 429) (03 §3). Author the **webhook-receiver handler** `functions/box-webhook/` (03 §4):
-  10-min replay reject → dual-key HMAC-SHA256 (timing-safe) → **2xx promptly** then work → dedup on
-  `BOX-DELIVERY-ID` (Box retries up to 12×/2h) → disambiguate `FILE.UPLOADED` from `FILE.MOVED` → write
-  Evidence (storagePath stays Blob) + re-invoke idempotent `CS Status Evaluate`. Author
-  `functions/box-webhook/infra/main.bicep` (FC1 clone; MI → Key Vault Secrets User + Storage Blob Data
-  Owner; KV refs `BOX_CLIENT_SECRET` + `BOX_WEBHOOK_PRIMARY_KEY` + `BOX_WEBHOOK_SECONDARY_KEY`; **no
-  `api.box.com` CORS rule** — server-to-server) (03 §1, §5). The webhook caseId resolution is
+  10-min replay reject → dual-key HMAC-SHA256 (timing-safe) → **process the Dataverse fan-out ON the
+  request path; return 200 when SETTLED, or a non-2xx (503) on a TRANSIENT failure so Box RETRIES** (Box
+  does NOT retry after a 2xx) → **durable dedup = the Evidence-existence check on the `box:file:<id>` tag
+  in `cr1bd_sourcemessageid`** (NOT `cr1bd_boxfileid`, which is a correlation/UI mirror the webhook also
+  writes, never the dedup key) → disambiguate `FILE.UPLOADED` from `FILE.MOVED` → write Evidence
+  (storagePath stays Blob; the webhook also writes `cr1bd_boxfileid` + `cr1bd_acceptedforeva=true`) +
+  re-invoke idempotent `CS Status Evaluate`. Audit rows use the canonical `cr1bd_name`/`cr1bd_occurredat`/
+  `cr1bd_action`/`cr1bd_after` shape (there is **no `cr1bd_detail` column**). The timed `ListFolder`
+  reconciliation sweep is **documented-but-not-built** — a deferred secondary backstop; Box's own retry on
+  the non-2xx is the primary recovery. Author `functions/box-webhook/infra/main.bicep` (FC1 clone; MI →
+  Key Vault Secrets User + Storage Blob Data Owner; KV refs from the HYPHENATED secret names
+  `box-client-secret` + `box-webhook-primary-key` + `box-webhook-secondary-key`, resolved into the
+  `BOX_CLIENT_SECRET` + `BOX_WEBHOOK_PRIMARY_KEY` + `BOX_WEBHOOK_SECONDARY_KEY` app settings; **no
+  `api.box.com` CORS rule** — server-to-server) (03 §5). The webhook caseId resolution is
   Box-folder-id → `cr1bd_boxfolderid` → case (state this lookup explicitly for the handler).
 - **[C]** Author the **`finalize-eva-box` rewrite spec** in `box-custom-connector-and-webhook.md`
   (01 §6); the **definition rewrite itself is owned by the flows section** (Wave 1).
@@ -364,8 +393,9 @@ grep gate passes).
 ### Wave 5 — Status-driven Blob purge + Phase-C enhancements (deferred, tier-gated)
 
 - **[C]** **`box-blob-purge.definition.json`** (04 §11, 03 §11): scheduled `Recurrence` (with `startTime`
-  so it doesn't fire on deploy), param `PurgeGraceDays` (default 7), gate `BOX_API_ENABLED`; deletes
-  Blob evidence where `cr1bd_status=box_synced AND cr1bd_boxsyncedat < now-grace` via `DeleteFile_V2`;
+  so it doesn't fire on deploy), param `PurgeGraceDays` (default 7), gate `BOX_API_ENABLED`; purges **only
+  archived (accepted, non-excluded) IMAGE evidence** where `cr1bd_status=box_synced AND cr1bd_boxsyncedat <
+  now-grace` via `DeleteFile_V2` (non-image transient bytes are retained — a deferred follow-up);
   **never** deletes the Box copy; flow-driven (re-checks Dataverse) as primary, a tag-filtered lifecycle
   rule as the cheap backstop (with soft-delete on). *(Operator Q: grace 7d vs 30d vs 60d — sections
   differ; pin one.)*
@@ -412,10 +442,12 @@ the **Code App→flow invocation connector** must be pinned in Wave 0 before any
 1. **Register the Box Platform app** (Server Auth / CCG, App Access Only; scopes `root_readwrite` +
    `manage_webhook`); capture Client ID + **Client Secret** + Enterprise ID. *(Wave 0 — the unlock.)*
 2. **Authorize + enable** the app in the Box Admin Console (re-authorize on any scope change).
-3. **Confirm the Box plan is Business Plus** + the metadata feature is actually enabled on the live
-   tenant *(needs a live tenant to verify)*.
-4. **Supply `client_secret` + the per-webhook primary/secondary signature keys into Key Vault**
-   (`box-client-secret`, `BOX_WEBHOOK_PRIMARY_KEY`, `BOX_WEBHOOK_SECONDARY_KEY`). Claude never holds a
+3. **Confirm the Box plan is base Business or higher** (the base-pivot floor); **Business Plus + the
+   metadata feature only for the deferred reg-capture field** *(needs a live tenant to verify metadata)*.
+4. **Supply the secrets into Key Vault under the HYPHENATED secret names** `box-client-secret`,
+   `box-webhook-primary-key`, `box-webhook-secondary-key` (they resolve into the
+   `BOX_CLIENT_SECRET`/`BOX_WEBHOOK_PRIMARY_KEY`/`BOX_WEBHOOK_SECONDARY_KEY` app settings — use the
+   hyphenated KV names, not the UPPER_SNAKE app-setting names). Claude never holds a
    Box credential.
 5. **Deploy** the bicep / **import** the custom connector / **bind** the `cr1bd_box` connection (interactive
    sign-in for any first-party byte-write path).
@@ -471,9 +503,10 @@ the **Code App→flow invocation connector** must be pinned in Wave 0 before any
   its `expect` allowlist if they are to be locked.
 - **Pre-existing drift `cr1bd_finalizedpayloadhash` undeclared in `case.json`** — declare it (05) while
   the finalize rewrite touches the same flow.
-- **Evidence dedup latch for webhook uploads** — Box is at-least-once; the append-only audit row is not a
-  dedup key. Confirm with the azure section whether `cr1bd_evidence` needs a `cr1bd_boxfileid` /
-  source-event-id key, or the Function dedups on `BOX-DELIVERY-ID` before the Evidence write.
+- **Evidence dedup latch for webhook uploads — RESOLVED.** Box is at-least-once; the durable dedup is the
+  **Evidence-existence check on the `box:file:<id>` tag in `cr1bd_sourcemessageid`** (the append-only audit
+  row is not a dedup key). `cr1bd_boxfileid` is a **correlation/UI mirror** the webhook also writes — never
+  the dedup key.
 - **Stale docs to correct** — `box-archival-pipeline.md` (reconcile DOWN), `case.json` line-23 comment,
   gated.md item-5 "API key/sign-in" wording (partially obsolete for the service path).
 
@@ -485,8 +518,9 @@ the **Code App→flow invocation connector** must be pinned in Wave 0 before any
   per-target limit is the 409 on a duplicate target+app+user. Confirm the number at build.
 - **Box CCG ~60-min token / no refresh** — not stated verbatim on the pages reached, but the Function
   re-minting per cycle is safe regardless.
-- **Business-Plus floor** is for the **reg-capture metadata field on the File-Request form**; Box Automate
-  metadata events/actions are a separate higher tier — keep them distinct in ADR-0012.
+- **Business Plus** is needed **only** for the **reg-capture metadata field on the File-Request form** (the
+  base-pivot floor is base Business); Box Automate metadata events/actions are a separate higher tier still
+  — keep them distinct in ADR-0012.
 - **Box Embed widget is full-function** (upload/search), not "preview-only" as the dossier says — a
   conservative under-claim that doesn't change the safe-view + "Open in Box" fallback intent.
 

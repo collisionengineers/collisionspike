@@ -353,6 +353,18 @@ The flow's drag-drop **else** branch (Stage_drag_drop_json to Box) is the perman
 
 ## 8. Sub-phase M2.D — Box archival at finalisation
 
+> ⚠️ **Superseded by Phase 7 (ADR-0012, 2026-06-22).** This M2.D sketch (Box folder at **EVA-submit**, via
+> the **first-party** Box connector) is the predecessor of the **Box-centric intake pivot**: the folder is
+> now minted at **parse-confirm** by `box-folder-create`, `finalize-eva-box` **augments** the pre-existing
+> folder and reads `cr1bd_BOX_FOLDER_ROOT_ID`, and all non-byte Box automation runs through the **custom
+> `cr1bd_box_rest` connector** (CCG token minted inside the `box-webhook` Function) while first-party
+> `shared_box` is retained for the byte (`CreateFile`) path only. The UPPERCASE-folder + EVA photo-order
+> rules below stay correct. Current design + live state:
+> [docs/plans/phase-7-box-integration/](./phase-7-box-integration/) and
+> [phase-3-enrichment-and-eva/box-archival-pipeline.md](./phase-3-enrichment-and-eva/box-archival-pipeline.md).
+> (Phase-7 Box Dataverse schema + env-vars are **applied live, gates OFF**; Function/connector/flows are
+> authored offline.)
+
 **Status:** `finalize-eva-box.definition.json` already: orders Evidence (`sequenceindex asc`),
 `Create_box_folder_UPPERCASE` (`toUpper(casepo)` under `BoxArchiveRootId`), `Upload_photos_in_eva_order`
 (foreach, `repetitions:1` to preserve order), stages the `.eva.json`, audits `box_synced`, and

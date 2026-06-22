@@ -81,9 +81,10 @@ describe('public functions guard trivial input then delegate', () => {
 });
 
 describe('connector copy-File-Request transport maps outcomes honestly', () => {
-  /* The op now matches box-connector.json: CopyFileRequest(fileRequestId, body)
-     -> { url, id, status }. The transport resolves caseId -> {folderId, templateId}
-     (injected) and derives the seam status (no flow in the path). */
+  /* The op matches box-connector.json: CopyFileRequest({ fileRequestId, body })
+     -> { url, id, status } (a SINGLE object arg, per the pac-generated service
+     precedent). The transport resolves caseId -> {folderId, templateId} (injected)
+     and derives the seam status (no flow in the path). */
   const READY_GATES: BoxGatesReader = async () => ({
     ...BOX_GATES_ALL_FALSE,
     fileRequestEnabled: true,
@@ -186,9 +187,10 @@ describe('connector copy-File-Request transport maps outcomes honestly', () => {
 });
 
 describe('connector shared-link transport surfaces only a folder link (no embed)', () => {
-  /* The op now matches box-connector.json: GetFolderSharedLink(folderId, body)
-     -> { shared_link: { url } }. The transport resolves caseId -> folderId
-     (injected) and gates on apiEnabled. */
+  /* The op matches box-connector.json: GetFolderSharedLink({ folderId, body })
+     -> { shared_link: { url } } (a SINGLE object arg, per the pac-generated service
+     precedent). The transport resolves caseId -> folderId (injected) and gates on
+     apiEnabled. */
   const API_ON: BoxGatesReader = async () => ({ ...BOX_GATES_ALL_FALSE, apiEnabled: true });
   const resolverOf = (folderId?: string): BoxCaseResolver => ({
     folderId: async () => folderId,

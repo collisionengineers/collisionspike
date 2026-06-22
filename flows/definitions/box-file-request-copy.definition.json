@@ -86,8 +86,8 @@
       "actions": {
         "If_folder_ready": {
           "type": "If",
-          "expression": { "not": { "equals": [ "@trim(variables('folderId'))", "" ] } },
-          "comment": "LOAD-BEARING FOLDER GUARD: only call Box when folderId is non-empty. empty(folderId) -> outcome=folder_not_ready and NO Box call (never POST a null folder.id). Folder existence is guaranteed at intake by box-folder-create.",
+          "expression": { "and": [ { "not": { "equals": [ "@trim(variables('folderId'))", "" ] } }, { "not": { "equals": [ "@trim(variables('templateId'))", "" ] } } ] },
+          "comment": "LOAD-BEARING GUARD: only call Box when BOTH folderId AND templateId are non-empty. empty(folderId) OR empty(templateId) -> outcome=folder_not_ready and NO Box call. folderId empty = the case's Box folder is not yet minted (box-folder-create still running). templateId empty = the operator has not set cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID yet (empty live) — Copy_file_request passes fileRequestId=@variables('templateId') as a PATH param, so calling with it empty would hit Box with an empty file-request path. Guarding both keeps every Box call well-formed.",
           "actions": {
             "Copy_file_request": {
               "type": "OpenApiConnection",
@@ -159,7 +159,7 @@
               "Set_outcome_folder_not_ready": {
                 "type": "SetVariable",
                 "inputs": { "name": "outcome", "value": "folder_not_ready" },
-                "comment": "No Box folder yet (cr1bd_boxfolderid null) -> honest folder_not_ready; the app tells staff the folder is still being created.",
+                "comment": "Either no Box folder yet (cr1bd_boxfolderid null — folder still being created) OR no template id (cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID unset by the operator) -> honest folder_not_ready and NO Box call. The app tells staff the upload link is not ready; a missing TEMPLATE id is an operator-unset config, not a transient error.",
                 "runAfter": {}
               }
             }

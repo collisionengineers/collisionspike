@@ -1,5 +1,10 @@
 # Docs changes & additions — build plan
 
+> **Status (updated 2026-06-22):** Open Q1 is **answered — the phase number is Phase 7** (operator-final).
+> The new phase folder is **`docs/plans/phase-7-box-integration/`**; Open Q2 is answered too (a single
+> `ADR-0012`). Where the prose below still carries the older "Phase-3-Box / M2.E" *working assumption*,
+> read it as **Phase 7** (the milestone-mapping detail is superseded by the operator's Phase-7 choice).
+>
 > **Section owner:** the "Docs changes & additions" slice of the Box-integration pivot.
 > **Research base (SETTLED — do not re-litigate):** the `box-integration-pivot/` dossier (README +
 > [00](../00-method-and-sources.md)–[07](../07-flaws-risks-and-open-questions.md)); the binding strategy
@@ -17,7 +22,7 @@ The pivot is an **additive, env-var-gated** enhancement that re-centres intake o
 early-contact + archival layer while **Dataverse stays the system of record** (Box Metadata has no
 joins; it cannot run dedup/status/Case-sequencing). This plan books the documentation work into the
 repo's existing precedence ladder (**binding review > ADR > architecture/requirements > plans**): one
-new **ADR-0012** as the binding decision record; one new **`docs/plans/phase-3-box-integration/`** phase
+new **ADR-0012** as the binding decision record; one new **`docs/plans/phase-7-box-integration/`** phase
 folder (README checklist + connector/Function spec + activation runbook); **§Box** expansions in
 `integrations.md`, `data-model.md`, `live-environment.md`; reconciliation of the **existing
 `box-archival-pipeline.md`** (built against the *first-party* connector, which cannot do the pivot's
@@ -107,9 +112,10 @@ list (items 1–7; item 5 = "Switch on Box filing… supply the key"). ROADMAP/C
    **older than 10 minutes**; **retries up to 10×** on delivery failure (at-least-once, droppable);
    webhooks are **set on specific files/folders, cannot be set at root**; `FILE.UPLOADED` also fires on
    **moves**; the File-Request→`FILE.UPLOADED` link is **undocumented — live-test**.
-5. **Plan floor = Business Plus** (Metadata is the gate; Metadata events/actions are higher-tier in Box
-   Automate). **Dataverse env-var feature flags** carry definition+value with a default-value fallback;
-   a changed value can take **up to ~1 hour** to publish to flows.
+5. **Plan floor = base Business** (covers folders, File Requests, webhooks and CCG — the whole base pivot);
+   **Business Plus** is needed **only** for the optional Metadata field (Metadata events/actions are
+   higher-tier still in Box Automate). **Dataverse env-var feature flags** carry definition+value with a
+   default-value fallback; a changed value can take **up to ~1 hour** to publish to flows.
 
 ## Changes — ordered build steps
 
@@ -127,7 +133,8 @@ reconcile the old plan + flow registry last.**
    Requests/metadata); (b) the **CCG/JWT service token is minted inside the Azure Function**, NOT the
    connector (custom connectors are authorization-code-only — cite Learn); (c) **File Request =
    copy-from-template only** (`POST /file_requests/{id}/copy`; reg baked into the template); (d)
-   **metadata gate ⇒ Box Business Plus** floor; (e) **webhook best-effort** + the File-Request firing is
+   **base Box Business is the floor** (folders + File Requests + webhooks + CCG); **Business Plus** is the
+   optional later tier needed **only** for the metadata reg-capture field; (e) **webhook best-effort** + the File-Request firing is
    **live-test-gated**; (f) **Code App embed is iframe-only** behind an operator `frame-src` edit. State
    the **env-var gates** (`BOX_API_ENABLED` unlock + `BOX_FOLDER_AT_INTAKE_ENABLED` /
    `BOX_FILEREQUEST_ENABLED` / `BOX_EMBED_ENABLED`; defer `BOX_METADATA_ENABLED`/`BOX_AI_ENABLED`).
@@ -167,11 +174,10 @@ reconcile the old plan + flow registry last.**
    `false`). Add a one-line note that the **first-party `shared_box`** is insufficient for the pivot.
    Verify: live-environment.md conventions; dossier 04 boundary.
 
-5. **Create the phase folder `docs/plans/phase-3-box-integration/` with `README.md`** (the **ordered B1–B4
+5. **Create the phase folder `docs/plans/phase-7-box-integration/` with `README.md`** (the **ordered B1–B4
    build checklist**; "Milestones in this phase" banner; back-link to milestone-model). **[Claude-buildable]**
-   · depends-on: **steps 1–3**. Sequencing decision (Open Q1) recorded as **Phase 3-Box, Milestone
-   **M2.E** (after core M1 intake is live; sibling to M2.D Box archival)** — *pending operator
-   confirmation* (alternatives: Phase 2.5 / a "B"-milestone). Per-milestone rows with state
+   · depends-on: **steps 1–3**. Sequencing decision (Open Q1) is **answered → Phase 7** (operator-final;
+   the earlier "Phase 3-Box / M2.E" working assumption is stale). Per-milestone rows with state
    (`pending`/`built`/`gated-OFF`), owner touchpoints, and cross-refs:
    - **B0 (unlock)** — custom Box REST connector + webhook Function; gate `BOX_API_ENABLED`. → step 6 spec.
    - **B1** — folder + archival at case-creation (`POST /2.0/folders` UPPERCASE Case/PO via the custom
@@ -192,7 +198,7 @@ reconcile the old plan + flow registry last.**
      + tier-gated; **out of M1/M2 scope** (Open Q7).
    Verify: dossier 04 phases B1–C + env-var table; ADR-0012.
 
-6. **Create `docs/plans/phase-3-box-integration/box-custom-connector-and-webhook.md`** (the **BUILD-artifact
+6. **Create `docs/plans/phase-7-box-integration/box-custom-connector-and-webhook.md`** (the **BUILD-artifact
    spec** the other sections implement). **[Claude-buildable]** · depends-on: **steps 1, 2, 5**. Two
    halves: **(A) the custom Power Platform Box REST connector** — operations needed (`POST /2.0/folders`,
    `POST /2.0/file_requests/{id}/copy`, `PUT` shared link, `GET`/`ListFolder` for the reconciliation
@@ -202,20 +208,26 @@ reconcile the old plan + flow registry last.**
    throttle/backoff (Box rate limits + the 100-call/conn/60s connector window), error handling, and the
    **api_key-param-first connection idiom** (memory `codeapp-apikey-connector-connection`). **(B) the
    webhook-receiver Azure Function** — HTTP trigger on the FC-style estate; **signature verification**
-   (HMAC-SHA256 with primary+secondary, 10-min replay reject), function-key gate, **2xx-then-work**,
-   **dedup** (at-least-once) + **disambiguate uploads from moves**, the **Dataverse write** (Evidence row
-   + status re-evaluate, one-way), and the **reconciliation sweep** fallback for missed events. State the
+   (HMAC-SHA256 with primary+secondary, 10-min replay reject), function-key gate, **process the Dataverse
+   fan-out ON the request path → 200 when SETTLED, 503 on a TRANSIENT failure so Box RETRIES** (Box does
+   not retry after a 2xx), **durable dedup = the Evidence-existence check on the `box:file:<id>` tag in
+   `cr1bd_sourcemessageid`** (at-least-once) + **disambiguate uploads from moves**, the **Dataverse write**
+   (Evidence row + status re-evaluate, one-way), and a **deferred (not-yet-built) reconciliation sweep** as
+   a secondary backstop (Box's retry is primary). State the
    **boundary**: the def + Function are Claude-built; the **Box Platform app, secret, and Admin
    authorization are operator-only** (no Box credential held by Claude). This file is the **source of
    truth for the `finalize-eva-box` rewrite** (step 10). Verify: Box folders/file-requests/webhooks-v2
    APIs; Learn custom-connector OAuth + Azure Functions HTTP trigger.
 
-7. **Create `docs/plans/phase-3-box-integration/box-integration-activation.md`** (the **operator runbook**).
+7. **Create `docs/plans/phase-7-box-integration/box-integration-activation.md`** (the **operator runbook**).
    **[Claude-buildable]** (authoring) · depends-on: **steps 5, 6**. Ordered B0→B4 activation with the
    **gate legend** reused from `box-archival-pipeline.md` (`[BUILD]` / `[DEPLOY-WITH-LOGIN]` /
    `[RESERVED-FOR-USER] 🔒`). **Hard operator-only gates:** create the **Box Platform app (Server Auth)**
-   + **Admin-Console authorization**, supply the **`client_secret`**, do the interactive Box sign-in for
-   the first-party connection (if still used for byte writes), make the **`frame-src` CSP edit** (B4).
+   + **Admin-Console authorization**, supply the secrets into **Key Vault under the HYPHENATED secret names**
+   `box-client-secret`, `box-webhook-primary-key`, `box-webhook-secondary-key` (these resolve into the
+   `BOX_CLIENT_SECRET`/`BOX_WEBHOOK_PRIMARY_KEY`/`BOX_WEBHOOK_SECONDARY_KEY` app settings — instruct the
+   operator to use the hyphenated KV names, not the UPPER_SNAKE app-setting names), do the interactive Box
+   sign-in for the first-party connection (if still used for byte writes), make the **`frame-src` CSP edit** (B4).
    **Soft gate:** **live-test that a File-Request upload fires `FILE.UPLOADED`** (with the timed
    `ListFolder`/Metadata-Query poll fallback). Each step pairs to a `gated.md` row (step 8). Verify:
    dossier 04 boundary + B2 live-test note; Learn CSP frame-src edit; memory `live-services-boundary`.
@@ -241,9 +253,9 @@ reconcile the old plan + flow registry last.**
    **custom REST connector is mandatory** — cross-reference `box-custom-connector-and-webhook.md` +
    **ADR-0012**; clarify the **two coexisting paths** (B1+ at-intake folder/File-Request via the **custom**
    connector; the EVA-time byte archive may still use the first-party `CreateFile` for binary uploads, or
-   move to the custom connector — call this out as the boundary between 3d/M2.D and Phase-3-Box). Keep the
-   **S2 content-bind** + photo-order detail intact (still correct). Add a one-line "Milestones" note: 3d
-   = **M2.D**, the broader pivot = **Phase-3-Box / M2.E**. Verify: precedence (`CLAUDE.md` ladder +
+   move to the custom connector — call this out as the boundary between 3d/M2.D and the Phase-7 pivot). Keep
+   the **S2 content-bind** + photo-order detail intact (still correct). Add a one-line "Milestones" note: 3d
+   = **M2.D**, the broader pivot = **Phase 7**. Verify: precedence (`CLAUDE.md` ladder +
    milestone-model §6); ADR-0012.
 
 10. **Update the `flows/` registry for the custom connector** —
@@ -267,21 +279,25 @@ reconcile the old plan + flow registry last.**
     - **`README.md`** — keep "EVA + Box" in line 5 but note Box is **earlier + deeper** (folder at intake);
       add a start-here link to **`box-integration-pivot/`** (and ADR-0012).
     - **`ROADMAP.md`** — Phase 2: add the **provisional-folder-then-rename vs mint-at-parse-confirm**
-      timing note (Open Q3); add a **Phase-3-Box (B1–B4)** block referencing the new plans + the `BOX_*`
-      gates; mark 3d Box as **M2.D** and the pivot as **M2.E** (per milestone-model).
+      timing note (Open Q3); add a **Phase 7 (B1–B4)** block referencing the new plans + the `BOX_*`
+      gates; mark 3d Box as **M2.D** and the pivot as **Phase 7** (per milestone-model).
     - **`CURRENT_STATUS.md`** — add a dated **"Box-integration pivot (approved 2026-06-21)"** section:
-      Option 2 hybrid; B0–B4 phases; the four gates (all default `false`); the boundary (Claude builds
+      Option 2 hybrid; B0–B4 phases; the gates (all OFF); the boundary (Claude builds
       connector/Function/flows/gates/docs offline; operator owns the Box Platform app + service account +
-      `frame-src` edit + live-tests). **No live Box change** is claimed.
-    - **`docs/plans/README.md`** — add the `phase-3-box-integration/` entry (3 plans, one-line each) +
+      `frame-src` edit + live-tests). State the live reality accurately: the **Phase-7 Box Dataverse schema
+      + env-vars ARE applied live (all `BOX_*` gates OFF)**; the **box-webhook Function, the `cr1bd_box_rest`
+      connector and the Box flows are authored offline (state=off), not deployed/bound** — so no *gated*
+      Box behaviour is live.
+    - **`docs/plans/README.md`** — add the `phase-7-box-integration/` entry (3 plans, one-line each) +
       ROADMAP-coverage row; cross-link milestone-model + the dossier.
-    - **`docs/plans/milestone-model.md`** — add the **Phase-3-Box → M2.E** rows (B0–B4) to the canonical
+    - **`docs/plans/milestone-model.md`** — add the **Phase 7** rows (B0–B4) to the canonical
       table + a one-line "Box pivot" note in §2; keep CURRENT_STATUS/ROADMAP pointing here (don't embed a
       rigid table there). Verify: each file's existing structure; ADR-0012; dossier 04.
 
 12. **(Optional housekeeping) Add a one-line MEMORY.md pointer** "Box-integration-pivot" → the dossier +
     ADR-0012 (custom connector mandatory · CCG token in Function not connector · webhook best-effort +
-    live-test · File-Request copy-only · Business Plus floor · Dataverse-authoritative). **[Claude-buildable]**
+    live-test · File-Request copy-only · base-Business floor, Business Plus = optional metadata tier ·
+    Dataverse-authoritative). **[Claude-buildable]**
     · depends-on: **step 1**. *Open Q (operator):* whether the ADR+docs suffice or a 13th memory note is
     wanted (Open Q10).
 
@@ -307,11 +323,11 @@ reconcile the old plan + flow registry last.**
   now.
 - From **Activation**: confirmation of the **operator decisions** (folder timing Q3, embed-vs-deeplink Q5,
   per-sender vs shared drop-box Q6) to finalise the phase-README wording.
-- From the **operator**: the **phase/milestone number** (Open Q1) and **ADR-split** (Open Q2) before the
-  phase folder name and ADR scope are frozen.
+- From the **operator**: the **phase/milestone number** (Open Q1 — answered: **Phase 7**) and **ADR-split**
+  (Open Q2 — answered: a single `ADR-0012`).
 
 **Numbering/anchor coordination:** ROADMAP + `docs/plans/README.md` + `milestone-model.md` must agree on
-**Phase-3-Box / M2.E** (or whatever the operator picks); `gated.md` `B#` anchors must match the
+**Phase 7**; `gated.md` `B#` anchors must match the
 phase-README checklist IDs and the `CLAUDE.md`/AGENTS boundary statement — all describe the **same**
 operator gates (Box Platform app · `frame-src` edit · live-tests).
 
@@ -336,10 +352,10 @@ operator gates (Box Platform app · `frame-src` edit · live-tests).
   + folder-scoping **are** confirmed.
 
 **Open questions (operator decisions owed — carried from dossier 07 + this plan):**
-1. **Phase/milestone number** for B1–B4 — Phase-3-Box / **M2.E** is the working assumption; Phase 2.5 or a
-   distinct "B"-milestone are alternatives. *(Freezes the folder name + milestone rows.)*
-2. **One ADR or many** — single `0012-box-centric-intake-additive-hybrid`, or split (e.g.
-   0012-custom-connector + 0013-filerequest-chaser). *Recommendation: one ADR, sub-decisions inside.*
+1. **Phase/milestone number** for B1–B4 — **ANSWERED: Phase 7** (operator-final; the folder name + milestone
+   rows are frozen to `phase-7-box-integration/`).
+2. **One ADR or many** — **ANSWERED: a single `0012-box-centric-intake-additive-hybrid`** (sub-decisions
+   inside).
 3. **Folder timing** — provisional-folder-then-rename vs mint-at-parse-confirm (dossier recommends the
    latter; affects B1 flow logic + the ROADMAP note).
 4. **File Request template count** — one generic template, or one per form shape / per provider.

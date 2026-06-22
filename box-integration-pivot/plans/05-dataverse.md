@@ -1,5 +1,16 @@
 # Dataverse schema & gates — build plan
 
+> **Status (updated 2026-06-22):** this slice is **applied live** in Dev (verified via `az`). The live
+> schema is **richer than the 3 columns this plan first scoped**: `cr1bd_case` carries
+> `cr1bd_boxfolderid` / `boxfolderurl` / `boxsyncedat` / `boxfilerequestid` / `boxfilerequesturl` /
+> `sourcemailbox` (the `25-box-schema.ps1` apply adds **9** case columns), and `cr1bd_evidence` carries
+> `cr1bd_boxfileid` / `boxfileurl`. **`cr1bd_boxsyncedat` IS declared in `case.json`** (not "added later by
+> the flows section"). All `cr1bd_BOX_*` env-vars exist live with **every `BOX_*` gate OFF** (default AND
+> current = false). For context: `cr1bd_ENRICHMENT_ENABLED` **default = false** (the gate defaults OFF);
+> its Dev *current* value is true (enrichment activated via the value, not the default). The audit shape is
+> the canonical `cr1bd_name`/`cr1bd_occurredat`/`cr1bd_action`/`cr1bd_after` (there is **no `cr1bd_detail`
+> column**). Read the planning prose below against this applied-live reality.
+
 ## Overview
 
 This is the **additive** Dataverse slice of the Box-centric intake pivot. Dataverse stays the
@@ -125,19 +136,23 @@ binding is operator-reserved.
    (https://developer.box.com/reference/post-file-requests-id-copy/ ;
    https://developer.box.com/reference/post-folders/).
 
-4. **Leave `evidence.json` (`cr1bd_evidence`) UNCHANGED.** Record the decision explicitly in the
-   plan: `cr1bd_storagepath` continues to reference the **Azure Blob** container — Blob is the byte
-   source of truth; Box holds archival copies only. Files arriving via File Request → webhook →
-   Function create Evidence rows whose `storagePath` **still points at Blob** (the Function copies the
-   Box bytes back to Blob, or re-reads from Box on demand for the human view). No `cr1bd_box*` column
-   on Evidence. Blob purge stays **status-driven** (on `box_synced` + a grace period), never an age
-   rule. · **owner: Claude-buildable** (no-op + documented rationale) · depends-on: nothing ·
-   verification: `dataverse/schema/evidence.json` (storagePath contract) · dossier
-   `box-integration-pivot/07-flaws-risks-and-open-questions.md` Risk row "Vendor lock-in" (bytes also
-   kept in Blob) + Open Q4 (keep Blob as byte source).
+4. **`cr1bd_evidence` keeps Blob as the byte source; correlation Box columns are additive.**
+   `cr1bd_storagepath` continues to reference the **Azure Blob** container — Blob is the byte source of
+   truth; Box holds archival copies only. Files arriving via File Request → webhook → Function create
+   Evidence rows whose `storagePath` **still points at Blob** (the Function copies the Box bytes back to
+   Blob, or re-reads from Box on demand for the human view). **Update (applied live):** the Evidence table
+   now carries the additive correlation columns `cr1bd_boxfileid` / `cr1bd_boxfileurl` (a UI/correlation
+   mirror the webhook stamps — **not** the dedup key; durable dedup is the Evidence-existence check on the
+   `box:file:<id>` tag in `cr1bd_sourcemessageid`). Blob purge stays **status-driven** (on `box_synced` +
+   a grace period), never an age rule, and **`box-blob-purge` only purges archived (accepted, non-excluded)
+   IMAGE evidence** — non-image transient bytes are retained (a deferred follow-up). · **owner:
+   Claude-buildable** · depends-on: nothing · verification: `dataverse/schema/evidence.json` (storagePath
+   contract) · dossier `box-integration-pivot/07-flaws-risks-and-open-questions.md` Risk row "Vendor
+   lock-in" (bytes also kept in Blob) + Open Q4 (keep Blob as byte source).
 
 5. **Leave `case-status.json` (`cr1bd_casestatus`) UNCHANGED.** `box_synced` = 100000009 already
-   exists as a terminal. `finalize-eva-box` already stamps `cr1bd_status = 100000009`. The
+   exists as a terminal. `finalize-eva-box` stamps `cr1bd_status = 100000009` **and now also stamps
+   `cr1bd_boxsyncedat` at `box_synced`** (the purge-grace clock source). The
    `status-evaluate` change to auto-transition `eva_submitted → box_synced` on
    finalize-complete + `cr1bd_boxfolderid` non-null is a **flow** change (status-evaluate section),
    not a schema change. · **owner: Claude-buildable** (no-op; confirm) · depends-on: step 3

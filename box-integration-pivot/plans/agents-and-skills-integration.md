@@ -51,9 +51,10 @@ procedures.**
    authoritative contract is the BUILD-PLAN reconciliation table + its verified-vs-unverified roll-up
    (00-BUILD-PLAN lines 63–88, 432–444), NOT the four section plans** (they diverged on op names /
    connection-ref name / "facts"); the verified-vs-unverified split is carried honestly (three items are
-   UNVERIFIED); the unpinned `cr1bd_box`-vs-`cr1bd_box_rest` decision is surfaced, not asserted; the
-   Business-Plus floor is stated precisely (the reg metadata FIELD, Wave 2/Phase-C — base Business covers
-   Wave 0/1, per [09-metadata-role.md](../09-metadata-role.md)).
+   UNVERIFIED); the `cr1bd_box`-vs-`cr1bd_box_rest` decision is now **PINNED** (parallel `cr1bd_box_rest`,
+   first-party `cr1bd_box` retained for the byte path); the floor is stated precisely (**base Business** is
+   the floor; **Business Plus** = the optional reg-metadata FIELD only, Wave 2/Phase-C, per
+   [09-metadata-role.md](../09-metadata-role.md)).
 
 **Honesty note (carried from both reviews):** the agent name `box-integration-architect` is referenced
 by both skill descriptions but **does not exist in the roster yet** — keep the name in sync when the
@@ -70,7 +71,7 @@ Open questions).
 | # | Name | New / Extend | Area | One-line purpose |
 |---|---|---|---|---|
 | A1 | **box-integration-architect** | **NEW** | `box` (tenant/admin/contract) | Owns the Box-TENANT side end-to-end: Platform app + CCG identity, scopes, Admin authorisation, the hand-built File Request + metadata template, archive-root/drop-box designation, webhook subscription lifecycle + ceiling strategy, shared-link policy, the verified Box endpoint/scope/limit/auth contract, the FILE.UPLOADED live-test, and residency/Governance/AI-tier decisions. |
-| B1 | **azure-integration-engineer** | **EXTEND** | `azure-box` | Add the Box cloud sub-slice: the custom Box REST connector OpenAPI (`api_key` on the connection), the CCG token-mint INSIDE the Function, the `box-webhook` receiver Function (HMAC dual-key, replay, dedup, upload-vs-move), the FC1-clone bicep + Key Vault refs, and the `cr1bd_box` connection repoint. |
+| B1 | **azure-integration-engineer** | **EXTEND** | `azure-box` | Add the Box cloud sub-slice: the custom Box REST connector OpenAPI (`api_key` on the connection), the CCG token-mint INSIDE the Function, the `box-webhook` receiver Function (HMAC dual-key, replay, dedup, upload-vs-move), the FC1-clone bicep + Key Vault refs, and the parallel `cr1bd_box_rest` connection reference. |
 | B2 | **power-automate-flow-builder** | **EXTEND** | `box` (flows) | Add the Box flow definitions: `box-folder-create`, `box-file-request-copy`, the `finalize-eva-box` Box-augment delta, `case-resolve` survivor-folder ensure, `box-blob-purge`, plus the `flow-state.json` / `validate-flows.mjs` registrations. |
 | B3 | **dataverse-data-architect** | **EXTEND** | `box` (schema) | Add the Box schema: 5 `BOX_*` Boolean gates + 2 String config vars, 3 `cr1bd_box*` columns on the Case table, 3 audit-action options, the `cr1bd_finalizedpayloadhash` drift declaration + the stale-comment fix, and the `verify-parity.mjs` lock. |
 
@@ -161,18 +162,21 @@ finalize EVA payload + photo-order contract and the parser are unchanged by the 
   (`POST /oauth2/token`, `grant_type=client_credentials`, `box_subject_type=enterprise`; `client_secret`
   from Key Vault — client-credentials is unsupported on the connector itself, verified Microsoft Learn);
   the **`box-webhook` receiver Function** (dual-key HMAC-SHA256 timing-safe verify, 10-min replay reject,
-  `BOX-DELIVERY-ID` dedup, FILE.UPLOADED-vs-FILE.MOVED disambiguation, 2xx-then-work, idempotent
-  `CS Status Evaluate` re-invoke); its **FC1-clone bicep** + Key Vault refs (`BOX_CLIENT_SECRET` +
-  primary/secondary webhook keys); and the **`cr1bd_box` connection-reference repoint**.
+  **process-on-request-path → 200 when settled / 503 on transient so Box retries**, Evidence-existence
+  dedup on the `box:file:<id>` tag in `cr1bd_sourcemessageid`, FILE.UPLOADED-vs-FILE.MOVED disambiguation,
+  idempotent `CS Status Evaluate` re-invoke); its **FC1-clone bicep** + Key Vault refs (HYPHENATED
+  `box-client-secret` + `box-webhook-primary-key`/`box-webhook-secondary-key` → the
+  `BOX_CLIENT_SECRET`/`BOX_WEBHOOK_PRIMARY_KEY`/`BOX_WEBHOOK_SECONDARY_KEY` app settings); and the
+  **`cr1bd_box_rest` parallel connection-reference** (first-party `cr1bd_box` retained for the byte path).
 
 - **When-to-use triggers (Box additions to the existing trigger set).** "author the custom Box REST
   connector OpenAPI"; "mint the Box CCG token in the Function"; "build the `box-webhook` receiver / verify
   the BOX-SIGNATURE HMAC"; "clone the FC1 bicep for the `box-webhook` Function"; "store the Box
-  client_secret in Key Vault"; "repoint `cr1bd_box` to the custom connector with the api_key param".
+  client_secret in Key Vault"; "add the parallel `cr1bd_box_rest` connection ref bound to the custom connector with the api_key param".
   *(agent-creator note: the existing description mentions no Box at all, so these phrases MUST be added to
   the trigger field or the router mis-fires to box-integration-architect / produces no match. The
-  HMAC-SHA256 / dual-key / BOX-DELIVERY-ID / 2xx-then-work / idempotent re-invoke specifics stay in the
-  system-prompt body, NOT the frontmatter.)*
+  HMAC-SHA256 / dual-key / process-on-request-path (200-settled/503-retry) / Evidence-existence dedup /
+  idempotent re-invoke specifics stay in the system-prompt body, NOT the frontmatter.)*
 
 - **Boundaries (defer rules — what changes).** It **receives** the Box-side contract (scopes, endpoint
   shapes, webhook event semantics, live-test results) **FROM box-integration-architect — it implements
@@ -329,27 +333,30 @@ truth** — the four section plans diverged and must not be re-imported.
     active|inactive/`DELETE /file_requests/{id}`), metadata endpoints. **State explicitly: the generated
     `*Service` method names the Code App binds MUST equal these `operationId`s.**
   - **Webhook semantics + Signatures (short block):** best-effort, at-least-once, droppable, fires on
-    MOVE too, retries up to ~12×/2h, respond 2xx promptly; `BOX-SIGNATURE-PRIMARY/SECONDARY` HMAC-SHA256
-    over body ++ `BOX-DELIVERY-TIMESTAMP`, 10-min replay, dual-key rotation, timing-safe compare, dedup
-    on `BOX-DELIVERY-ID`.
+    MOVE too, retries up to ~12×/2h **on a non-2xx** (Box does NOT retry after a 2xx — so the receiver
+    returns 200 only when SETTLED, 503 on a transient failure to force a retry); `BOX-SIGNATURE-PRIMARY/
+    SECONDARY` HMAC-SHA256 over body ++ `BOX-DELIVERY-TIMESTAMP`, 10-min replay, dual-key rotation,
+    timing-safe compare; durable dedup = the **Evidence-existence check on the `box:file:<id>` tag in
+    `cr1bd_sourcemessageid`** (NOT `cr1bd_boxfileid`, a correlation/UI mirror).
   - **The three cross-platform patterns (named subsections):** (1) **CCG-token-in-Function facade +
     api_key (function host key) on the connection** — `apiProperties.json` MUST declare
     `connectionParameters.api_key`; base64 body as a plain string, **never `format:byte`**; (2) the
-    **webhook-receiver order** — replay → HMAC → 2xx → work → dedup → upload/move disambiguation →
-    idempotent status re-eval; (3) the **`connect-src 'none'` rule** → server-mint shared links;
-    iframe-only embed needs a **`frame-src`** (NOT `frame-ancestors`) edit.
+    **webhook-receiver order** — replay → HMAC → process-fan-out-on-request-path → 200-settled / 503-retry
+    → Evidence-existence dedup → upload/move disambiguation → idempotent status re-eval; (3) the
+    **`connect-src 'none'` rule** → server-mint shared links; iframe-only embed needs a **`frame-src`**
+    (NOT `frame-ancestors`) edit.
   - **A VERIFIED-vs-UNVERIFIED honesty box.** **CONFIRMED:** 10-min replay, HMAC-SHA256 dual-key, retries
     up to ~12×/2h, folder-scoped FILE.UPLOADED (fires on move), Business-Plus = metadata gate, CCG
     `box_subject_type=enterprise` + App Access Only, custom-connector-cannot-do-CCG, the 409-on-duplicate-
     target. **UNVERIFIED (all three — do not assert as fact):** the **~60-min token / no refresh**
     (re-mint per cycle is safe regardless); the **~1000/app-user webhook ceiling** (live ref 404'd; only
     409-on-duplicate-target is confirmed); the **"2xx within 30 s"** ceiling (confirm at build).
-  - **The one unpinned decision, surfaced (not buried):** the **connection-reference identity is NOT
-    settled** — plan 04 wants a parallel `shared_box_rest`/`cr1bd_box_rest` (keeping first-party
-    `shared_box` for finalize's `CreateFile`); plan 03 repoints `cr1bd_box` in place; 00-BUILD-PLAN line
-    152 says "Pin one." Present it as an open decision.
-  - **Plan floor stated precisely:** Business Plus is the floor **specifically for the reg-capture
-    metadata FIELD on the File-Request form** (Wave 2 / Phase C); **base Business covers File Requests +
+  - **The connection-reference decision (now PINNED):** a **parallel `shared_box_rest` / `cr1bd_box_rest`**
+    is used (keeping first-party `cr1bd_box` / `shared_box` for finalize's `CreateFile` byte path) — plan
+    04 §4's parallel-ref choice, now settled in `flows/connection-references.json` + ADR-0012.
+  - **Plan floor stated precisely:** the floor is **base Business** (File Requests + webhooks + folders +
+    CCG — Wave 0/1); **Business Plus** is the optional tier needed **only** for the reg-capture
+    metadata FIELD on the File-Request form (Wave 2 / Phase C). **base Business covers File Requests +
     webhooks + folders** (Wave 0/1). Do not imply Business Plus is needed for Wave 0/1. (Per
     [09-metadata-role.md](../09-metadata-role.md).)
 
@@ -423,8 +430,8 @@ truth** — the four section plans diverged and must not be re-imported.
   in finalize's byte path** (bytes stay first-party `shared_box`); extend **`BOX_ID_LITERAL_RE`** to
   `parent_id|folder_id|file_request_id` (NOT `name:"<digits>"` — the name is the UPPERCASE Case/PO); allow
   `box-blob-purge`'s `status`+`boxsyncedat` ListRecords as the documented linter exception; **audit every
-  branch**; the connection-ref name is **UNPINNED** (00-BUILD-PLAN line 152) — fragments reference it via
-  a **placeholder**, not an assertion; a one-line **offline-verification note** (`node
+  branch**; the connection-ref name is **PINNED to the parallel `cr1bd_box_rest`** (first-party `cr1bd_box`
+  retained for finalize's byte path); a one-line **offline-verification note** (`node
   flows/validate-flows.mjs` must print `OK`), matching `power-automate-flow`'s **[BUILD]-only** stance.
 
   **Hard boundary (write it into the skill — cross-link, don't duplicate):** `finalize-eva-box`'s **EVA
@@ -458,13 +465,13 @@ slice.** Tested against the existing five project agents + the reused `code-app-
 | Pivot slice (build-plan section) | Decision | Why not a new agent / why new |
 |---|---|---|
 | **Box tenant / admin / contract** (06) | **NEW: box-integration-architect** | The **only** unowned slice. 03 explicitly "DEFERS to plan 06 (box)" for the Box-side shape; 04/05/06 reference a Box-config authority that **does not exist as an agent**. The ~24-step body of Platform-app / Admin-Console / template / metadata-template / archive-root / webhook-lifecycle / live-test / residency work fits **none** of azure (Functions/KV), flows (orchestration), dataverse (schema), eva (payload), parser (Python), or code-app (UI). Scoped `area=box` (not `azure-box`) to keep a hard seam with the azure agent. agent-creator confirmed: **no duplication risk after reading all four existing agent bodies.** |
-| **Custom connector OpenAPI + CCG-mint + `box-webhook` Function + bicep + `cr1bd_box` repoint** (03) | **EXTEND azure-integration-engineer** | Pure Azure-Functions / Key-Vault / custom-connector work = this agent's existing slice; 03 says "Plan 03 (azure) OWNS". A new "Box-Function agent" would split the FC1/connector estate across two owners — duplication. |
+| **Custom connector OpenAPI + CCG-mint + `box-webhook` Function + bicep + parallel `cr1bd_box_rest` ref** (03) | **EXTEND azure-integration-engineer** | Pure Azure-Functions / Key-Vault / custom-connector work = this agent's existing slice; 03 says "Plan 03 (azure) OWNS". A new "Box-Function agent" would split the FC1/connector estate across two owners — duplication. |
 | **Box flow definitions + flow-state/linter** (04) | **EXTEND power-automate-flow-builder** | 04 owns every Box flow; the agent already partially claims it ("Box-sync finalisation"). No Power Platform plugin covers Power Automate → exclusive lane. New flows are members of it, not a new slice. |
 | **`BOX_*` gates + config vars + `cr1bd_box*` columns + audit actions + verify-parity** (05) | **EXTEND dataverse-data-architect** | 05 owns env-var schema + the choiceset exclusively. Additive rows in tables this agent already owns. |
 | **EVA finalize payload / photo order** (unchanged) | **No change** (eva-sentry-integration) | The pivot does not change the EVA 12-field payload or photo order; the Box folder it uploads into now pre-exists, but that is a flow concern, not an EVA-contract change. |
 | **Parser** (unchanged) | **No change** (document-parser-engineer) | The pivot does not touch parsing. |
 | **Code App Box UI** (folder deep-link, file-request URL surface) (02) | **No new agent — cross-boundary brief to code-app-architect** | The reused external `code-app-architect` owns the Code App shell + `pac code` deploy + connector selection. It has **no editable agent file in this repo**, so this is handled as a task brief when that work is triggered (the load-bearing CSP / server-mint / `frame-src`-not-`frame-ancestors` knowledge already lives in **box-rest-api** pattern (3) + the memories `codeapp-csp-use-connectors` / `codeapp-apikey-connector-connection`). agent-creator and skill-reviewer both flagged this gap and both recommended **not** plugging it with a new agent. |
-| **Box Relay / Box Automate** | **No agent (08 verdict: not required)** | [08-relay-automate-assessment.md](../08-relay-automate-assessment.md): the valuable capabilities (custom HTTPS step, AI agents, Box Extract, metadata-triggered routing) are **Enterprise / Enterprise-Advanced-gated** (1–2 tiers above the Business-Plus floor) and **duplicate** the authoritative parser/enrichment/Dataverse logic. box-integration-architect carries the **two ADR-0012 caveats** as a watch item (Automate **on-by-default at GA 28 Apr 2026** → disable if unused; Automate **not interoperable with Governance/Shield/Zones**) rather than a separate owner. |
+| **Box Relay / Box Automate** | **No agent (08 verdict: not required)** | [08-relay-automate-assessment.md](../08-relay-automate-assessment.md): the valuable capabilities (custom HTTPS step, AI agents, Box Extract, metadata-triggered routing) are **Enterprise / Enterprise-Advanced-gated** (multiple tiers above the pivot's base-Business floor) and **duplicate** the authoritative parser/enrichment/Dataverse logic. box-integration-architect carries the **two ADR-0012 caveats** as a watch item (Automate **on-by-default at GA 28 Apr 2026** → disable if unused; Automate **not interoperable with Governance/Shield/Zones**) rather than a separate owner. |
 | **Operator gate-flip choreography** (`BOX_API_ENABLED` → FOLDER_AT_INTAKE → FILEREQUEST → EMBED) | **No skill — a doc** | A doc (`box-integration-activation.md`, per [01-docs.md](./01-docs.md) §7) owned by box-integration-architect, mirroring DEPLOY-RUNBOOK. Revisit a procedure skill only if the choreography proves error-prone. |
 
 **Skill anti-duplication.** Two skills, each mirroring a distinct existing one. `box-rest-api` deliberately
@@ -494,7 +501,7 @@ follow-on step.
    contract (scopes, endpoints, limits, template/metadata-template/archive-root facts) that build-plan 03
    currently defers to a non-existent owner.
 4. **EXTEND azure-integration-engineer (B1).** Author the custom connector OpenAPI (+`api_key` param) +
-   CCG-mint + `box-webhook` Function + FC1 bicep + `cr1bd_box` repoint, consuming the `box-rest-api`
+   CCG-mint + `box-webhook` Function + FC1 bicep + the parallel `cr1bd_box_rest` connection ref, consuming the `box-rest-api`
    skill and the architect's contract (**Wave 0** unlock — this pins the connector op-names + invocation
    mechanism).
 5. **Author the `box-flow-patterns` skill (S2).** Capture the Box flow fragments **once the connector
@@ -514,12 +521,10 @@ tenant owner + connector); step 5 **must** wait for step 4's pinned operationIds
 
 ## Open questions
 
-1. **Connector reference strategy (the one Wave-0 pin both halves assume).** Repoint `cr1bd_box` **in
-   place** (03 step 6) vs add a **parallel `cr1bd_box_rest`** and keep first-party `shared_box` for
-   `finalize-eva-box`'s `CreateFile` byte path (04 §4 prefers parallel; 03 step 6 leaves it open;
-   00-BUILD-PLAN line 152 = "Pin one"). The box-integration-architect ↔ azure split assumes **ONE** is
-   pinned in Wave 0 — **which?** (Both skills reference the connection-ref via a placeholder until this
-   is pinned.)
+1. **Connector reference strategy — ANSWERED (PINNED).** A **parallel `cr1bd_box_rest`** is used and the
+   first-party `cr1bd_box` / `shared_box` is retained for `finalize-eva-box`'s `CreateFile` byte path
+   (04 §4's choice; settled in `flows/connection-references.json` + ADR-0012). Both skills reference the
+   pinned `cr1bd_box_rest`, no longer a placeholder.
 2. **Webhook subscription LIFECYCLE: strategy-vs-execution split.** box-integration-architect owns the
    **strategy** (per-root-recursive vs per-sender vs per-case) + the ceiling/renewal/deactivation policy;
    the runtime `CreateWebhook`/`DELETE` calls are **flow-driven** (power-automate-flow-builder). Confirm

@@ -17,11 +17,15 @@ A. **Connector facade** — thin routes the custom Box REST connector binds to
 
 B. **Webhook receiver** — POST /api/box-webhook, the load-bearing order
    (box-rest-api/references/webhook-receiver.md):
-     1 replay reject -> 2 dual-key HMAC verify -> 3 respond 2xx promptly ->
-     4 dedup on BOX-DELIVERY-ID -> 5 FILE.UPLOADED vs FILE.MOVED ->
-     6 resolve case (folder id -> cr1bd_boxfolderid) ->
+     1 replay reject -> 2 dual-key HMAC verify -> 3 parse + in-process dedup
+       fast-path -> 4 PROCESS on the request path -> 5 FILE.UPLOADED vs FILE.MOVED
+       -> 6 resolve case (folder id -> cr1bd_boxfolderid) ->
      7 write Evidence (storagePath stays Blob; record Box file id) +
-       audit box_upload_received + re-invoke idempotent CS Status Evaluate.
+       audit box_upload_received + re-invoke idempotent CS Status Evaluate ->
+     respond 200 when SETTLED, or a non-2xx (503) on a TRANSIENT dependency
+     failure so Box RETRIES (Box does not retry after a 2xx). The durable
+     Evidence-existence dedup keeps a retry idempotent even if Box assigns the
+     retry a new BOX-DELIVERY-ID, so we never depend on that id being stable.
 
 All routes are ``authLevel=function`` — the Function host key is the connection's
 credential (and the receiver's second gate behind the HMAC signature).
@@ -32,7 +36,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import threading
 from typing import Any, Callable
 
 import azure.functions as func
@@ -70,27 +73,6 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 _DEDUP = DeliveryDedup()
 
 
-def _dispatch_background(fn: Callable[[], None]) -> None:
-    """Run the Dataverse fan-out OFF the response path (receiver step 3).
-
-    Box is best-effort and retries (~12x/2h) on a non-2xx OR a slow response, so
-    the handler must acknowledge promptly and do the (up-to-5-call, each-20s)
-    Dataverse chain afterwards — otherwise a slow-but-successful write trips a
-    retry storm. A daemon thread is the minimal in-process async primitive; a
-    durable Storage-Queue buffer is the documented later upgrade if burst risk
-    emerges. Errors are swallowed here (the worker is detached and the request
-    has already 2xx'd); ``fn`` does its own logging + reconciliation fallback.
-    Tests override this seam to run inline so they can assert the side effects.
-    """
-    def _runner() -> None:
-        try:
-            fn()
-        except Exception as exc:  # pragma: no cover - detached worker safety net
-            logger.warning("box webhook background work failed: %s", type(exc).__name__)
-
-    threading.Thread(target=_runner, name="box-webhook-work", daemon=True).start()
-
-
 def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -102,8 +84,13 @@ def _json_response(payload: dict[str, Any], status: int = 200) -> func.HttpRespo
 
 
 def _gated_off() -> func.HttpResponse:
+    # Return a NON-2xx so a gated-off Box op can NEVER be mistaken for a success.
+    # The flows read the Dataverse gate first and skip the call when off (defence
+    # in depth), so this only fires on a Function/Dataverse gate MISMATCH — which
+    # must fail loudly (503), not return 200 with an empty body the caller would
+    # coalesce into a phantom "created/sent" outcome.
     return _json_response(
-        {"error": "BOX_API_ENABLED is false; Box call skipped.", "status": 0}, status=200
+        {"error": "BOX_API_ENABLED is false; Box call skipped.", "status": 0}, status=503
     )
 
 
@@ -268,11 +255,19 @@ def _int_param(value: str | None) -> int | None:
 
 @app.route(route="box-webhook", methods=["POST"])
 def box_webhook(req: func.HttpRequest) -> func.HttpResponse:
-    """Box -> Function (server-to-server). Order: replay -> HMAC -> dedup-mark
-    -> 2xx PROMPTLY -> (background) UPLOADED/MOVED -> resolve case -> Evidence +
-    audit + re-evaluate. Dedup is marked on the request thread (so a same-worker
-    retry is caught synchronously); the Dataverse fan-out runs off the response
-    path so a slow write never trips a Box retry storm."""
+    """Box -> Function (server-to-server). Order: replay -> HMAC -> parse ->
+    in-process dedup fast-path -> PROCESS on the request path -> respond.
+
+    A SETTLED outcome (processed, durably deduped, a non-upload move, or a
+    deliberate triage skip) returns 200. A TRANSIENT dependency failure returns a
+    non-2xx (503) so Box RETRIES the delivery — the only recovery signal Box
+    honours, since it does NOT retry after a 2xx. The durable Evidence-existence
+    dedup (keyed on the box:file tag) keeps a retry idempotent even when Box
+    assigns the retry a NEW BOX-DELIVERY-ID, so correctness never depends on that
+    id being stable across retries. (A durable Storage-Queue / Durable-Functions
+    buffer is the documented upgrade if upload bursts ever risk exceeding Box's
+    response window; unnecessary at spike volume — a Box retry covers the rare
+    timeout idempotently.)"""
     headers = dict(req.headers.items())
     raw_body = req.get_body() or b""
 
@@ -309,70 +304,64 @@ def box_webhook(req: func.HttpRequest) -> func.HttpResponse:
 
     result: dict[str, Any] = {"received": True, "trigger": trigger}
 
-    # --- 4. Dedup on BOX-DELIVERY-ID (at-least-once delivery) ------------
-    # Marked on the REQUEST thread (before responding) so a fast retry landing on
-    # the SAME warm worker is caught synchronously; cross-worker duplicates are
-    # caught by the durable Evidence-existence check inside _process_upload.
+    # --- 3. In-process dedup fast-path (best-effort) --------------------
+    # A same-worker, same-delivery-id rapid retry is caught here synchronously.
+    # This is NOT the durable dedup (that is the Evidence-existence check inside
+    # _process_upload, which survives worker recycles and a changed delivery id).
     if _DEDUP.seen(delivery_id):
         logger.info("box webhook duplicate delivery; no-op")
         result["deduped"] = True
         return _json_response(result, status=200)
 
-    # --- 3. Respond 2xx PROMPTLY, then work ------------------------------
-    # The (up-to-5-call) Dataverse fan-out runs OFF the response path via
-    # _dispatch_background so a slow-but-successful write can NEVER exceed Box's
-    # response ceiling and trigger a retry storm. Steps 5-7 (disambiguation +
-    # resolve + Evidence + audit + re-evaluate) all happen in that worker; the
-    # request returns 202 immediately. Tests override the seam to run inline.
-    #
-    # The in-process dedup mark above is PROVISIONAL: if the fan-out fails
-    # transiently we MUST un-mark the delivery id, otherwise Box's retry of the
-    # SAME id hits the dedup no-op and the case is stranded (a transient fault
-    # would silently convert at-least-once delivery into never-delivered). The
-    # durable Evidence-existence check inside _process_upload still prevents a
-    # double-write when the retry succeeds.
-    def _work() -> None:
-        if not _process_delivery(body, trigger):
-            _DEDUP.forget(delivery_id)
-
-    _dispatch_background(_work)
-    return _json_response(result, status=202)
+    # --- 4-7. Process ON the request path; respond by outcome -----------
+    # The in-process dedup mark above is PROVISIONAL: on a TRANSIENT failure we
+    # un-mark it (so a same-id Box retry is not blocked by the fast-path) AND
+    # return a non-2xx so Box actually retries — Box does not retry after a 2xx,
+    # so a fire-and-forget ack would silently drop the upload on a transient
+    # Dataverse fault. On a SETTLED outcome we keep the mark and return 200. The
+    # durable Evidence-existence dedup keeps any Box retry idempotent.
+    if _process_delivery(body, trigger, result):
+        return _json_response(result, status=200)
+    _DEDUP.forget(delivery_id)
+    logger.warning("box webhook: transient processing failure; 503 for Box retry")
+    return _json_response({**result, "error": "transient processing failure; retry"}, status=503)
 
 
-def _process_delivery(body: dict[str, Any], trigger: str) -> bool:
-    """Steps 5-7, run OFF the response path. Self-contained: disambiguates
-    FILE.UPLOADED vs FILE.MOVED, then resolves the case + writes Evidence.
+def _process_delivery(body: dict[str, Any], trigger: str, result: dict[str, Any]) -> bool:
+    """Steps 4-7, ON the request path. Disambiguates FILE.UPLOADED vs FILE.MOVED,
+    then resolves the case + writes Evidence + audit + re-evaluates, populating
+    ``result`` for the response body.
 
-    Returns True when the delivery reached a settled state (processed, durably
-    deduped, a non-upload move, or a deliberate triage skip) and the provisional
-    in-process dedup mark should STAND; returns False on a transient failure so
-    the caller un-marks the delivery id and Box's retry of the same id is
-    re-processed (rather than silently dropped). Errors are swallowed here (the
-    request already 2xx'd) — the boolean is the only failure signal."""
-    work: dict[str, Any] = {}
-
+    Returns True when the delivery reached a SETTLED state (processed, durably
+    deduped, a non-upload move, or a deliberate triage skip) -> the caller
+    returns 200; returns False on a TRANSIENT failure -> the caller un-marks the
+    delivery id and returns a non-2xx so Box retries the SAME upload (re-processed
+    idempotently via the durable Evidence-existence dedup). Errors are caught
+    here; the boolean is the failure signal."""
     # --- 5. Disambiguate FILE.UPLOADED vs FILE.MOVED ---------------------
     if not is_upload(body):
         # The folder-scoped trigger also fires on move-in; a moved file is NOT a
         # fresh upload (drop-box merge rules are Wave 3, handled separately).
-        # Settled (nothing to do) -> keep the mark so a retry of this same MOVE
-        # delivery stays a no-op.
+        # Settled (nothing to do) -> 200; a retry of this same MOVE delivery is a
+        # no-op via the in-process dedup mark the caller keeps on True.
         logger.info("box webhook trigger %s is not FILE.UPLOADED; skipped", trigger or "(none)")
+        result["skipped"] = "not_upload"
         return True
 
     # --- 6-7. Resolve case, write Evidence, audit, re-evaluate -----------
     try:
-        _process_upload(body, work)
+        _process_upload(body, result)
         return True
     except DataverseError as exc:
-        # TRANSIENT (e.g. 429/5xx): do NOT 5xx back to Box (that risks a retry
-        # storm), but DO un-mark the delivery (return False) so Box's own retry
-        # of this same id is re-processed once Dataverse recovers. The
-        # reconciliation sweep (ListFolder) remains the backstop for a dropped
-        # delivery that Box never retries.
+        # TRANSIENT (e.g. 429/5xx, or the status-evaluate re-invoke failed): the
+        # caller returns a non-2xx so Box retries this same upload once Dataverse
+        # recovers; the durable Evidence-existence check keeps the retry's write
+        # once-only. (A timed ListFolder reconciliation sweep is the DOCUMENTED,
+        # not-yet-built secondary backstop for the rare case Box exhausts its own
+        # retries — deferred to the business-account activation phase.)
         logger.warning("box webhook dataverse write failed: %s (status=%s)", type(exc).__name__, exc.status)
         return False
-    except Exception as exc:  # pragma: no cover - background worker safety net
+    except Exception as exc:  # pragma: no cover - safety net
         logger.warning("box webhook processing failed: %s", type(exc).__name__)
         return False
 
@@ -427,6 +416,7 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
             dv.write_audit(
                 action=AUDIT_BOX_UPLOAD_RECEIVED,
                 case_id=case_id,
+                name=f"box_upload_received: {filename}",
                 detail=f"FILE.UPLOADED folder={folder_id} file={box_file_id or '?'}",
             )
 

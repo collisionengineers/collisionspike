@@ -192,8 +192,11 @@ interactive Box sign-in, the `frame-src` CSP change, Box-template minting, live 
    **[operator-gated]**) · depends-on: 5 · verify: memory `live-services-boundary` +
    `flow-webhook-trigger-provisioning`; existing intake `Scope_generate_casepo` structure.
 
-7. **CREATE `definitions/box-file-request-copy.definition.json`** — button-triggered returnable flow
-   (Request + Response) the Code App calls on "Send image chaser". Input `{ caseId,
+7. **CREATE `definitions/box-file-request-copy.definition.json`** — Request+Response returnable child.
+   **Note (pinned, per 00-BUILD-PLAN):** the Code App actually calls the Box REST connector op
+   `CopyFileRequest` **DIRECTLY** (no flow in the path — CSP `connect-src 'none'` forbids POSTing to a flow
+   Request URL); this flow is an authored **STANDBY child for FUTURE operator activation**, not currently
+   invoked by the Code App. It mirrors the same contract so it can be wired in later. Input `{ caseId,
    fileRequestTemplateId, folderId }` (pass `folderId` = `cr1bd_boxfolderid`, not a path — the copy API
    takes `folder.id`); param-or-input `fileRequestTemplateId` (operator records the hand-built
    template's id). Actions: `Init_*` → `Read_gate` (`BOX_FILEREQUEST_ENABLED`) → `If_gate_on`
@@ -211,16 +214,19 @@ interactive Box sign-in, the `frame-src` CSP change, Box-template minting, live 
    azure-integration-engineer scope; listed for the flow contract). Public HTTPS, `function-key` second
    gate. On each delivery: (a) **verify HMAC-SHA256** over (raw body ∥ `BOX-DELIVERY-TIMESTAMP`) against
    `BOX-SIGNATURE-PRIMARY` **or** `BOX-SIGNATURE-SECONDARY` (timing-safe); (b) **reject timestamp > 10
-   min** (replay); (c) respond **2xx within 30 s**, then work; (d) **disambiguate upload from move** — act
-   only when `trigger == "FILE.UPLOADED"` and the item's parent folder id matches a tracked Case/PO
-   folder (a `FILE.MOVED`/`FILE.COPIED` event is ignored; FILE.UPLOADED can also fire on moves into the
-   folder, so additionally idempotency-key on storage path + Box event id); (e) on a genuine upload:
-   copy bytes to Blob (so `finalize-eva-box`'s S2 path-read still works) + write an **Evidence** row
-   (`cr1bd_storagepath` → Blob), then **re-invoke `CS Status Evaluate`** (HTTP call to the child's
-   Request URL with `{ caseId }`) so the case advances Not Ready → Review. Audit
-   `webhook_fired`/`webhook_processed`/`webhook_skipped`. Gate `BOX_API_ENABLED`. Idempotent by
-   (storage path + Box event timestamp). **B3 reconciliation sweep** (future): a periodic
-   `ListFolder`/Metadata-Query poll backstops missed webhooks.
+   min** (replay); (c) **process the Dataverse fan-out ON the request path and return 200 when SETTLED,
+   or a non-2xx (503) on a TRANSIENT failure so Box RETRIES** (Box does NOT retry after a 2xx); (d)
+   **disambiguate upload from move** — act only when `trigger == "FILE.UPLOADED"` and the item's parent
+   folder id matches a tracked Case/PO folder (a `FILE.MOVED`/`FILE.COPIED` event is ignored; FILE.UPLOADED
+   can also fire on moves into the folder); (e) on a genuine upload: copy bytes to Blob (so
+   `finalize-eva-box`'s S2 path-read still works) + write an **Evidence** row (`cr1bd_storagepath` → Blob,
+   also stamping `cr1bd_boxfileid` + `cr1bd_acceptedforeva=true`), then **re-invoke `CS Status Evaluate`**
+   (HTTP call to the child's Request URL with `{ caseId }`) so the case advances Not Ready → Review. Audit
+   rows use the canonical `cr1bd_name`/`cr1bd_occurredat`/`cr1bd_action`/`cr1bd_after` shape (no
+   `cr1bd_detail` column). Gate `BOX_API_ENABLED`. **Durable dedup = the Evidence-existence check on the
+   `box:file:<id>` tag in `cr1bd_sourcemessageid`** (NOT `cr1bd_boxfileid`, which is a correlation/UI
+   mirror). The timed `ListFolder`/Metadata-Query reconciliation sweep is a **deferred, not-yet-built**
+   secondary backstop — Box's own retry on the non-2xx is the primary recovery.
    · Owner **[Claude-buildable]** (Function + signature/replay stub); endpoint deploy + function-key +
    `POST /2.0/webhooks` subscribe + the **live FILE.UPLOADED-from-File-Request test** **[operator-gated]**
    · depends-on: 1,3 · verify: Box webhook signature headers + 10-min replay; Box post-webhooks
@@ -258,8 +264,9 @@ interactive Box sign-in, the `frame-src` CSP change, Box-template minting, live 
     relevant once Box is the archive of record) → `If_gate_on` { `List_purgeable_cases` (Dataverse
     ListRecords `cr1bd_cases` `$filter cr1bd_status eq 100000009 and cr1bd_boxsyncedat lt
     @{addDays(utcNow(), mul(parameters('PurgeGraceDays'), -1))}`) → `Apply_to_each_case`
-    (`concurrency.repetitions` modest) { `List_case_evidence` (Evidence with non-empty
-    `cr1bd_storagepath`) → `Apply_to_each_evidence` { `Delete_blob` (`shared_azureblob` **`DeleteFile_V2`**,
+    (`concurrency.repetitions` modest) { `List_case_evidence` (**only archived (accepted, non-excluded)
+    IMAGE evidence** with non-empty `cr1bd_storagepath` — non-image transient bytes are retained, a deferred
+    follow-up) → `Apply_to_each_evidence` { `Delete_blob` (`shared_azureblob` **`DeleteFile_V2`**,
     `dataset:"AccountNameFromSettings"`, `id:@items(...)?['cr1bd_storagepath']`) — idempotent: deleting an
     already-gone blob is tolerated; on failure, audit and continue (failure-isolated) } →
     `Audit_blob_purged_case` } }. Keeps Blob from growing unbounded as Box becomes archive-of-record;
@@ -279,8 +286,9 @@ interactive Box sign-in, the `frame-src` CSP change, Box-template minting, live 
 13. **Extend `validate-flows.mjs`** — add: (a) every new flow with a `BOX_*_ENABLED` gate is listed in
     `flow-state.json` with that gate; (b) `shared_box_rest` ops appear only in `box-folder-create` /
     `box-file-request-copy` (and the connector ref), never in `finalize-eva-box` (which keeps first-party
-    `shared_box`); (c) no hardcoded Box folder id (the existing `BOX_ID_LITERAL_RE` extends to a
-    `name:"<digits>"`/`folder_id:"<non-@ digits>"` check for the new ops); (d) `box-blob-purge`'s
+    `shared_box`); (c) no hardcoded Box folder id (the existing `BOX_ID_LITERAL_RE` extends to
+    `parent_id|folder_id|file_request_id` literals — **NOT** `name:"<digits>"`, since the folder name is the
+    UPPERCASE Case/PO, not all-digits); (d) `box-blob-purge`'s
     `cr1bd_cases` ListRecords is allowed (status+boxsyncedat filter — add to a documented exception set,
     it is not a dedup-by-VRM read). Run `node flows/validate-flows.mjs` → must print `OK` before any PR.
     · Owner **[Claude-buildable]** · depends-on: 4,5,7,11,12 · verify: existing linter Checks 2/4b/5/6.
@@ -288,19 +296,23 @@ interactive Box sign-in, the `frame-src` CSP change, Box-template minting, live 
 ## Cross-section dependencies
 
 - **From Dataverse data architecture (02):** (a) the four `BOX_*_ENABLED` env-var definitions [step 1];
-  (b) `cr1bd_boxfolderid` + `cr1bd_boxsyncedat` columns on `cr1bd_case` [step 2]; (c) **six new audit
-  action choice values** — `box_folder_created`, `file_request_sent`, `webhook_fired`,
-  `webhook_processed`, `webhook_skipped`, `blob_purged_case` (next free ≈ 100000017+) [steps 5,7,8,11];
-  optional `file_request_eligibility_changed` [step 10]; (d) the **Evidence webhook ingestion contract**
-  (which Box webhook fields map to which Evidence columns) [step 8].
+  (b) `cr1bd_boxfolderid` + `cr1bd_boxsyncedat` columns on `cr1bd_case` [step 2]; (c) **the 3 canonical
+  audit-action values owned by plan 05** — `box_folder_created` (100000019),
+  `box_file_request_copied` (100000020), `box_upload_received` (100000021) [steps 5,7,8,11] (plan 05 owns
+  the choiceset; if the flow/Function need finer-grained webhook audit, plan 05 extends additively at
+  100000022+ — 04 does not mint values independently); optional `file_request_eligibility_changed` [step
+  10]; (d) the **Evidence webhook ingestion contract** (which Box webhook fields map to which Evidence
+  columns) [step 8].
 - **From Azure integration (03):** (a) the custom Box REST connector OpenAPI + the **Azure Function
   facade** that performs Box CCG server-side and exposes the four API-key routes [step 3]; (b) the **Box
   webhook receiver Function** (HMAC verify + 10-min replay + function-key + FILE.UPLOADED/move
   disambiguation + Evidence write + status-evaluate re-invoke) [step 8]. Both are offline-buildable;
   the Box Platform-app, its `client_secret`, the function-key, and the `POST /2.0/webhooks` subscribe
   are operator-gated.
-- **Provides to the Code App (05):** (a) `box-file-request-copy` is the button→flow target (returns
-  `{ fileRequestUrl, expiresAt, outcome }`; app copies URL to clipboard + toast) [step 7]; (b) the
+- **Provides to the Code App (05):** (a) the `CopyFileRequest` **connector op** the app calls **directly**
+  (returns the live `fileRequestUrl`; app copies URL to clipboard + toast) — `box-file-request-copy` is the
+  authored STANDBY child mirroring the same `{ fileRequestUrl, expiresAt, outcome }` contract, not the
+  app's live path [step 7]; (b) the
   `file_request_eligibility_changed` audit hint [step 10]; (c) `cr1bd_boxfolderid` for an optional
   `GetSharedLink`-backed Box Embed iframe (B4, separate `BOX_EMBED_ENABLED` + a `frame-src` CSP edit —
   operator-gated; not required for B1/B2).
@@ -315,12 +327,14 @@ interactive Box sign-in, the `frame-src` CSP change, Box-template minting, live 
 
 - **R1 — File-Request→FILE.UPLOADED firing is UNDOCUMENTED (highest-risk live gate).** No Box doc states
   a File-Request upload fires `FILE.UPLOADED` on the target folder. **Must be live-tested** before B2 is
-  relied upon. Fallback: the B3 timed `ListFolder`/Metadata-Query reconciliation sweep, or the
-  first-party `OnNewFilesV2` trigger (≤1-day lag). [operator-gated live test]
+  relied upon. Recovery: the receiver returns a non-2xx on a transient failure so **Box retries** (the
+  primary backstop); a timed `ListFolder`/Metadata-Query reconciliation sweep or the first-party
+  `OnNewFilesV2` trigger (≤1-day lag) is a **deferred, not-yet-built** secondary fallback. [operator-gated live test]
 - **R2 — Webhooks are best-effort** (retry up to 12×/2 h, droppable, at-least-once, also fire on moves).
-  Mitigation in step 8: HMAC + 10-min replay + function-key + idempotency by (storage path + event id) +
-  move-disambiguation + the reconciliation sweep. `status-evaluate` is idempotent so a duplicate
-  re-invoke is harmless.
+  Mitigation in step 8: HMAC + 10-min replay + function-key + idempotent Evidence-existence dedup (the
+  `box:file:<id>` tag in `cr1bd_sourcemessageid`) +
+  move-disambiguation + Box's retry on the receiver's non-2xx (the reconciliation sweep is a deferred
+  extra backstop). `status-evaluate` is idempotent so a duplicate re-invoke is harmless.
 - **R3 — Custom connector cannot do CCG (verified).** Resolved by the Azure Function facade + API-key
   connection. If the facade is unavailable, no Box folder/file-request/link/sweep verb works (folder
   creation degrades gracefully: intake's `box-folder-create` child fails inside its gated branch without

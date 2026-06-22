@@ -67,12 +67,22 @@ You also own the **Azure-side implementation of the Box integration** (ADR-0012;
 - the **Box CCG token-mint INSIDE the Function** (`grant_type=client_credentials`,
   `box_subject_type=enterprise`; `client_secret` from Key Vault — client-credentials is unsupported on
   the connector itself, verified Microsoft Learn);
-- the **`box-webhook` receiver Function** — HMAC-SHA256 dual-key timing-safe verify, 10-min replay,
-  `BOX-DELIVERY-ID` dedup, `FILE.UPLOADED`-vs-`FILE.MOVED` disambiguation, 2xx-then-work, idempotent
-  `CS Status Evaluate` re-invoke;
-- its **FC1-clone bicep** + Key Vault refs (`BOX_CLIENT_SECRET` + primary/secondary webhook keys);
+- the **`box-webhook` receiver Function** — HMAC-SHA256 dual-key timing-safe verify, 10-min replay, an
+  in-process `BOX-DELIVERY-ID` dedup fast-path backed by the **durable** Evidence-existence dedup on the
+  `box:file:<id>` tag in `cr1bd_sourcemessageid` (NOT `cr1bd_boxfileid` — that is a correlation/UI mirror
+  the webhook also writes), `FILE.UPLOADED`-vs-`FILE.MOVED` disambiguation, and the
+  **process-on-the-request-path** model (respond `200` when SETTLED, non-2xx `503` on a transient failure
+  so Box retries — Box does NOT retry after a 2xx), with the idempotent `CS Status Evaluate` re-invoke;
+- its **FC1-clone bicep** + Key Vault refs — create the secrets under their **HYPHENATED** KV names
+  (`box-client-secret`, `box-webhook-primary-key`, `box-webhook-secondary-key`), which resolve into the
+  `BOX_CLIENT_SECRET` / `BOX_WEBHOOK_PRIMARY_KEY` / `BOX_WEBHOOK_SECONDARY_KEY` app settings;
 - the **`cr1bd_box` connection repoint** (repoint-in-place vs a parallel `cr1bd_box_rest` is UNPINNED —
   surface it, don't assert it).
+
+The **Phase-7 Box Dataverse schema + env-vars are applied live** (all `BOX_*` gates default OFF); the
+`box-webhook` Function, the `cr1bd_box_rest` connector, and the Box flows are **authored offline
+(state=off)** — not deployed/imported/bound live. The always-on Box account integration (CCG token mint,
+`FILE.UPLOADED` webhook, template File Request) is **deferred to a future Business-account phase**.
 
 You **receive** the Box contract (scopes, endpoints, webhook semantics, live-test results) **from
 box-integration-architect** — you implement it, you don't define it. Lean on the **box-rest-api** skill.

@@ -103,7 +103,7 @@
     "Guard_already_finalized": {
       "type": "If",
       "expression": { "not": { "equals": [ "@outputs('Get_case')?['body/cr1bd_finalizedpayloadhash']", "@variables('payloadHash')" ] } },
-      "comment": "Idempotency latch: re-running finalize for an already-submitted payload hash must not double-submit or re-create the folder.",
+      "comment": "Idempotency latch: re-running finalize for an already-submitted payload hash must not double-submit or re-create the folder. TRUE branch (hash is NEW) runs the finalize Scope. ELSE branch (hash ALREADY finalized = a duplicate-payload submit): NO finalize work runs (no EVA submit, no Box augment) — it ONLY consumes the stuck submit-signal by resetting cr1bd_submitrequested=false (otherwise the Code App's signal is never cleared and the case stays apparently 'submit pending' forever) and writes a duplicate-submit-ignored audit.",
       "actions": {
         "Scope_Finalize": {
           "type": "Scope",
@@ -236,13 +236,48 @@
                   "item/cr1bd_finalizedpayloadhash": "@variables('payloadHash')",
                   "item/cr1bd_status": 100000009,
                   "item/cr1bd_submittedat": "@utcNow()",
+                  "item/cr1bd_boxsyncedat": "@utcNow()",
                   "item/cr1bd_submitrequested": false }
               },
-              "comment": "Stamp LAST = idempotency latch. status box_synced=100000009 (terminal). cr1bd_submitrequested is RESET to false here (PHASE-7) so the Dataverse submit-signal is consumed - the flag is the trigger boundary, so re-running requires a fresh Code App request; the latch (cr1bd_finalizedpayloadhash vs cr1bd_submitpayloadhash) additionally blocks a duplicate-payload re-submit. A partial failure leaves the latch unstamped AND the flag still true so a re-run resumes cleanly. NOTE: this UpdateRecord modifies cr1bd_submitrequested, which is a filteringattribute of this flow's own trigger; the filterexpression (cr1bd_submitrequested eq true) means setting it FALSE does not satisfy the trigger, so no self-retrigger loop occurs.",
+              "comment": "Stamp LAST = idempotency latch. status box_synced=100000009 (terminal). cr1bd_boxsyncedat is RESTAMPED here at actual Box-sync time (PHASE-7): box-blob-purge measures its grace window off cr1bd_boxsyncedat, so without restamping at finalize the grace would be measured from box-folder-create's parse-confirm folder-create time — a long-open case (folder minted weeks before finalize) could become purge-eligible immediately on reaching box_synced. Restamping here ties the purge grace to when the bytes actually landed in Box. cr1bd_submitrequested is RESET to false here so the Dataverse submit-signal is consumed - the flag is the trigger boundary, so re-running requires a fresh Code App request; the latch (cr1bd_finalizedpayloadhash vs cr1bd_submitpayloadhash) additionally blocks a duplicate-payload re-submit. A partial failure leaves the latch unstamped AND the flag still true so a re-run resumes cleanly. NOTE: this UpdateRecord modifies cr1bd_submitrequested, which is a filteringattribute of this flow's own trigger; the filterexpression (cr1bd_submitrequested eq true) means setting it FALSE does not satisfy the trigger, so no self-retrigger loop occurs.",
               "runAfter": { "Audit_box_synced": [ "Succeeded" ] }
             }
           },
           "runAfter": {}
+        }
+      },
+      "else": {
+        "actions": {
+          "Reset_submit_signal_duplicate": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": { "entityName": "cr1bd_cases", "recordId": "@variables('caseId')",
+                "item/cr1bd_submitrequested": false }
+            },
+            "comment": "DUPLICATE-PAYLOAD path (cr1bd_finalizedpayloadhash already equals the requested payloadHash): the finalize Scope is SKIPPED (no re-submit, no Box re-augment, no status restamp). But the Code App's submit-signal cr1bd_submitrequested is still TRUE from the request that retriggered this flow — if we did nothing it would stay stuck TRUE forever and the case would look 'submit pending'. Reset it to false here to consume the signal WITHOUT doing any finalize work. (Setting it FALSE does not satisfy the trigger's filterexpression cr1bd_submitrequested eq true, so no self-retrigger.)",
+            "runAfter": {}
+          },
+          "Audit_duplicate_submit_ignored": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": {
+                "entityName": "cr1bd_auditevents",
+                "item/cr1bd_name": "@concat('duplicate submit ignored: ', outputs('Get_case')?['body/cr1bd_casepo'])",
+                "item/cr1bd_action": 100000015,
+                "item/cr1bd_severity": 100000000,
+                "item/cr1bd_actor": "Flow_FinalizeEvaBox",
+                "item/cr1bd_after": "@concat('duplicate submit ignored — payload hash ', variables('payloadHash'), ' already finalized; submit-signal reset, NO re-submit / NO Box re-augment / NO status change')",
+                "item/cr1bd_Caseid@odata.bind": "@concat('cr1bd_cases(', variables('caseId'), ')')",
+                "item/cr1bd_occurredat": "@utcNow()"
+              }
+            },
+            "comment": "Audit the ignored duplicate submit. Reuses action eva_submitted=100000015 (the closest existing value) with explicit 'duplicate submit ignored' semantics in name/after — the SAME no-new-value reuse precedent as the rest of this file (e.g. box_synced reusing 100000016); the dataverse choiceset owns the vocabulary. Linked to the case. NO finalize work ran on this branch.",
+            "runAfter": { "Reset_submit_signal_duplicate": [ "Succeeded" ] }
+          }
         }
       },
       "runAfter": { "Get_case": [ "Succeeded" ] }

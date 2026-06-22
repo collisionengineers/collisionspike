@@ -20,8 +20,9 @@ system of record**; Box becomes the content + intake + archival layer.
                                        api.box.com
         Box  ──webhook FILE.UPLOADED──►  Azure Function (HTTP trigger)
                                          · verify BOX-SIGNATURE HMAC + 10‑min replay
-                                         · 2xx within 30s
-                                         · write Dataverse Evidence + re‑evaluate status
+                                         · process the Dataverse fan-out ON the request path
+                                         · 200 when SETTLED · 503 on TRANSIENT fail → Box RETRIES
+                                         · write Dataverse Evidence + re‑evaluate status (idempotent)
 ```
 
 Why this is mandatory (from [01](./01-box-capabilities-verified.md) §6/§7): the **first‑party Box
@@ -34,7 +35,9 @@ manage shared links, subscribe webhooks, or run as a service. So:
   Secret on the connection / Key Vault, **never** in the client bundle (the parser `api_key` pattern).
 - **Azure Function webhook receiver** (fits the existing FC1 Function estate) — public HTTPS:443,
   reputable‑CA cert; verify the `BOX-SIGNATURE-PRIMARY/SECONDARY` HMAC‑SHA256 + reject timestamps >10 min;
-  add a function‑key as a second gate; respond `2xx` within 30 s, then do the work.
+  add a function‑key as a second gate; **process the Dataverse fan‑out ON the request path and return
+  200 when SETTLED, or a non‑2xx (503) on a TRANSIENT failure so Box RETRIES** (Box does not retry
+  after a 2xx). Durable dedup is the Evidence‑existence check (idempotent), not a delivery‑id memory.
 
 **Gate:** `BOX_API_ENABLED` (Dataverse env‑var), sibling to `EVA_API_ENABLED` etc.
 

@@ -179,6 +179,10 @@ export function ChaserPanel({
         : Promise.resolve({ status: 'not_connected' as const, message: 'Image upload link isn’t available yet.' }));
       if (result.status === 'ok' && result.data?.fileRequestUrl) {
         const text = `${body}\n\nUpload your photos here:\n${result.data.fileRequestUrl}`;
+        // Put the full message + link into the visible textarea BEFORE attempting
+        // the clipboard write, so on a clipboard failure the "select the text
+        // manually" guidance has something to select — the link is never lost.
+        setBody(text);
         try {
           await navigator.clipboard.writeText(text);
           dispatchToast(

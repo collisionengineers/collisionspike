@@ -6,8 +6,11 @@ is injected). respx mocks the Dataverse Web API.
 Covered:
 * resolve_case_by_folder filters on cr1bd_boxfolderid and returns the case id.
 * evidence_exists_for_box_file keys on the box:file:<id> provenance tag.
-* create_evidence binds the case lookup + leaves storagePath blank (Blob stays
-  the byte store) + records the Box file id in cr1bd_sourcemessageid.
+* create_evidence binds the case lookup (cr1bd_Caseid, capital C) + leaves
+  storagePath blank (Blob stays the byte store) + records the Box file id in BOTH
+  cr1bd_sourcemessageid (dedup tag) and cr1bd_boxfileid (mirror) + accepts-for-EVA.
+* write_audit posts the canonical cr1bd_name/occurredat/action/after shape (no
+  cr1bd_detail column exists).
 * reinvoke_status_evaluate posts { caseId } to STATUS_EVALUATE_FLOW_URL, and is a
   no-op when unset.
 """
@@ -91,10 +94,60 @@ def test_create_evidence_binds_case_and_leaves_storagepath_blank():
     eid = dv.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999")
     assert eid == "EV-NEW"
     body = captured["body"]
-    assert body["cr1bd_caseid@odata.bind"] == "/cr1bd_cases(CASE-1)"
+    # F4: the case lookup binds via the nav property cr1bd_Caseid (CAPITAL C) — the
+    # lowercase attribute name is not a navigation property and would 400.
+    assert body["cr1bd_Caseid@odata.bind"] == "/cr1bd_cases(CASE-1)"
     assert body["cr1bd_sourcemessageid"] == "box:file:999"
+    # F2: the dedicated Box file id mirror is written; dedup still keys on the
+    # sourcemessageid tag (cr1bd_boxfileid is a correlation/UI mirror, not the key).
+    assert body["cr1bd_boxfileid"] == "999"
+    # F5: a File-Request upload is accepted-for-EVA by default (the live column
+    # default is False, so the webhook must set it explicitly like classify-persist).
+    assert body["cr1bd_acceptedforeva"] is True
     # storagePath stays Blob -> the webhook never writes cr1bd_storagepath.
     assert "cr1bd_storagepath" not in body
+    dv.close()
+
+
+@respx.mock
+def test_create_evidence_writes_box_file_url_when_given():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(201, json={"cr1bd_evidenceid": "EV-NEW"})
+
+    respx.post(f"{BASE}/cr1bd_evidences").mock(side_effect=handler)
+    dv = _dv()
+    dv.create_evidence(
+        case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999",
+        box_file_url="https://app.box.com/s/abc",
+    )
+    assert captured["body"]["cr1bd_boxfileurl"] == "https://app.box.com/s/abc"
+    dv.close()
+
+
+@respx.mock
+def test_write_audit_uses_canonical_columns_not_cr1bd_detail():
+    # F6: cr1bd_auditevent has NO cr1bd_detail column; cr1bd_name + cr1bd_occurredat
+    # + cr1bd_action are ApplicationRequired and the detail rides in cr1bd_after.
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(204)
+
+    respx.post(f"{BASE}/cr1bd_auditevents").mock(side_effect=handler)
+    dv = _dv()
+    dv.write_audit(action=100000021, case_id="CASE-1", name="box_upload_received: IMG_1.jpg",
+                   detail="FILE.UPLOADED folder=777 file=999")
+    body = captured["body"]
+    assert "cr1bd_detail" not in body          # the non-existent column is gone
+    assert body["cr1bd_name"] == "box_upload_received: IMG_1.jpg"
+    assert body["cr1bd_action"] == 100000021
+    assert body["cr1bd_after"] == "FILE.UPLOADED folder=777 file=999"
+    assert "cr1bd_occurredat" in body          # ApplicationRequired
+    assert body["cr1bd_Caseid@odata.bind"] == "/cr1bd_cases(CASE-1)"  # capital C
     dv.close()
 
 
