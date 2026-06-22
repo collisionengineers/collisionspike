@@ -52,7 +52,9 @@ later).
   Intelligence** + general LLM assist are **explicitly later phases**.
 - **EVA:** **full scope** (ADR-0005) — drag-drop JSON now (M1 + permanent fallback); Sentry API
   built against the **EVA test environment** (test vs prod by **credentials**, same URL); production
-  cutover gated. **Box** finalises in unison with EVA submission (UPPERCASE Case/PO; EVA lowercase).
+  cutover gated. **Box** mirrors the case (UPPERCASE Case/PO; EVA lowercase). _Under the Phase-7 Box
+  pivot (ADR-0012) the Box folder is minted at **parse-confirm** (`box-folder-create`), not first at
+  EVA submit; `finalize-eva-box` then **augments** it. Box is a one-way mirror, Dataverse authoritative._
 - **EVA image rule:** **1 full-view image (registration visible) + 1 damage closeup** (the 2 previews).
 - **Audatex:** intake/integration **out of scope** for the spike (deferred entirely).
 - **Tool boundary:** the tool ends at **EVA submission + Box** (the EVA handoff); the engineer
@@ -173,8 +175,12 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   `/Instruction/Inspection` (JWT via `/Connect/token`, 5-min token, idempotency by payload hash).
   **Production cutover gated** by a parity test. Authoritative endpoints:
   [docs/architecture/eva-sentry-api.md](./docs/architecture/eva-sentry-api.md).
-- **Box archival — in unison with EVA submission (M1):** folder = **UPPERCASE** Case/PO (e.g.
-  `TEST26001`; EVA `test26001`); upload evidence + EVA JSON in the same finalisation step.
+- **Box mirror — folder at parse-confirm, augmented at finalisation (Phase 7, ADR-0012):** folder =
+  **UPPERCASE** Case/PO (e.g. `TEST26001`; EVA `test26001`), **minted at parse-confirm**
+  (`box-folder-create`) once the Case/PO exists — not first created at EVA submit. `finalize-eva-box`
+  then **augments** that folder, uploading evidence + EVA JSON in the EVA photo order. Box is a
+  one-way mirror (Dataverse → Box; Dataverse authoritative); the pivot also adds File-Request image
+  chasers + a webhook that advances the case on upload. _(All `BOX_*` gates currently off.)_
 
 ### Phase 5b/5c (later) — Azure AI + Document AI + LLM assist _(canonical ROADMAP; original sequence: "Phase 4")_
 - Azure AI Vision: people/reflection detection + plate OCR (HTTP/custom connector, gated by

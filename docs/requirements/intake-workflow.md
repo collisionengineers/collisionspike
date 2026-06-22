@@ -17,9 +17,18 @@
 7. **If required fields and images are present**, staff can approve and send / export to EVA.
 8. **If images or required data / instructions are missing**, the case is **held** and a
    **chaser workflow** is started.
-9. **When requirements are met**, the case is **submitted to EVA**, a **Box folder** is created,
-   and the case is **finalised**.
+9. **When requirements are met**, the case is **submitted to EVA** and the case is **finalised**;
+   the **Box folder** is *augmented* with the evidence (it was already **created at parse-confirm** —
+   see the note below), not first created here.
 10. **All actions are stored** for **audit** and **deduplication**.
+
+> **Phase 7 / ADR-0012 (Box-centric intake pivot, supersedes the older "Box folder at EVA-submit"
+> timing).** The per-Case/PO **Box folder is minted at parse-confirm** (step ~3, once the Case/PO
+> exists), gated by `BOX_FOLDER_AT_INTAKE_ENABLED`; a **File-Request image chaser** and a **webhook
+> that advances the case on upload** bring Box deeper into intake. Box is an **additive one-way
+> mirror** (Dataverse → Box; **Dataverse stays authoritative**). At finalisation (step 9)
+> `finalize-eva-box` **augments** the pre-existing folder rather than creating it. All `BOX_*` gates
+> are currently **off**; ADR-0012 outranks this requirements doc where they differ.
 
 ## Additional requirements
 

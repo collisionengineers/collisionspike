@@ -197,8 +197,10 @@ Performed **after** §1–6, against live inboxes/SharePoint/Box/EVA. Do **one m
 8. **EVA (M1 path):** with `EVA_API_ENABLED=false`, **export the 12-field JSON** and drag-drop it into
    the EVA **test** environment; confirm acceptance. (Only flip `EVA_API_ENABLED=true` with test creds
    once B1/B5 are settled.)
-9. Confirm **Box** folder created with the **UPPERCASE** Case/PO in unison with EVA submit; confirm the
-   photo order (2 previews first, then all including those two).
+9. Confirm the **Box** folder with the **UPPERCASE** Case/PO — minted at **parse-confirm**
+   (`box-folder-create`, Phase 7/ADR-0012) and **augmented** by `finalize-eva-box`, not first created
+   at EVA submit — confirm the photo order (2 previews first, then all including those two). _(All
+   `BOX_*` gates currently off; Box is a one-way mirror, Dataverse authoritative.)_
 10. Confirm **AuditEvent** rows for ingest/review/submit; confirm a **chaser drafts** (never sends) for
     a deliberately-partial case.
 11. Only after single-mailbox success: turn ON the remaining two shared inboxes.

@@ -30,7 +30,7 @@ built + **deployed gated-OFF** (`cespkeva-fn-ufa3ci`, Running, `EVA_API_ENABLED=
 **3d · Box archival**
 8. [x] `finalize-eva-box` builds the folder + photo-order step (imported off)
 9. [x] Box upload content-bind fix (S2 — real `CreateFile`+`folderPath`, path-string defect resolved; see CURRENT_STATUS.md). Box archival itself is superseded by the Phase-7 Box-centric pivot (ADR-0012)
-10. [ ] 🔒 Confirm Box honours the UPPERCASE Case/PO folder name; activate in unison with EVA submit
+10. [ ] 🔒 Confirm Box honours the UPPERCASE Case/PO folder name; activate Box _(Phase 7/ADR-0012: folder minted at parse-confirm, **augmented** at finalise — not first created in unison with EVA submit)_
 
 **3e · EVA readiness gate**
 11. [x] Image-rules / readiness checklist in the Code App

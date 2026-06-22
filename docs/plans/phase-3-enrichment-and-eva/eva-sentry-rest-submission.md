@@ -87,7 +87,8 @@ Func_EvaSentry  (functions/evasentry, function-key)
   │       └─ 401/5xx/cred-missing → { submitted:false, warnings:[…] }  (SOFT-FAIL)
   ▼
 finalize-eva-box continues:
-  • Box archival ALWAYS (UPPERCASE Case/PO folder; photo-order step) — unison with submit
+  • Box archival ALWAYS (UPPERCASE Case/PO folder; photo-order step) — EVA transport never gates Box
+    [Phase 7/ADR-0012: the folder is minted at parse-confirm; finalize AUGMENTS it, not creates]
   • on submitted:false → leave Case for manual review / drag-drop (no hard error)
   • AuditEvent: eva_submitted (or eva_submit_skipped) with transport + payloadHash
 ```

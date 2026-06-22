@@ -163,9 +163,15 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ### 3d. Box archival
 
+> **Superseded by Phase 7 (ADR-0012).** This is the older **M2.D** "Box folder at EVA-submit" slice. Under
+> the Box-centric pivot the folder is **minted at parse-confirm** (`box-folder-create`) and `finalize-eva-box`
+> **augments** it — Box is no longer first created in unison with EVA submit. See §Phase 7 / B1 below and
+> `docs/plans/phase-3-enrichment-and-eva/box-archival-pipeline.md` (reconciled DOWN). Items below are
+> retained for history.
+
 - [x] `finalize-eva-box` builds the Box folder + photo-order step — imported `off`.
 - [ ] 🔒 **B5 — confirm Box honours the UPPERCASE Case/PO folder name**.
-- [ ] 🔒 **Activate Box archival** in unison with EVA submit; photo order verified.
+- [ ] 🔒 **Activate Box archival** _(legacy timing — now folder-at-parse-confirm + augment-at-finalise per ADR-0012)_; photo order verified.
 
 ### 3e. EVA readiness gate (offline-built)
 
