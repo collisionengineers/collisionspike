@@ -30,10 +30,13 @@
     { "logicalName": "cr1bd_storagepath", "displayName": "Storage Path", "type": "String", "maxLength": 1000, "required": "none", "description": "Reference to the bytes in the File column / Azure Blob container. NEVER inline bytes in the row." },
     { "logicalName": "cr1bd_filebytes", "displayName": "File", "type": "File", "required": "none", "description": "Optional Dataverse File column alternative to an external Blob (Phase-1 Risk #4: file-column vs Blob choice to be confirmed). Holds bytes off-row either way." },
     { "logicalName": "cr1bd_sourcemessageid", "displayName": "Source Message ID", "type": "String", "maxLength": 400, "required": "none", "description": "Graph / Internet Message-ID the artifact arrived on (links Evidence back to its intake message)." },
-    { "logicalName": "cr1bd_sourcelabel", "displayName": "Source Label", "type": "String", "maxLength": 400, "required": "none", "description": "Where it came from (message / upload label) for the UI." }
+    { "logicalName": "cr1bd_sourcelabel", "displayName": "Source Label", "type": "String", "maxLength": 400, "required": "none", "description": "Where it came from (message / upload label) for the UI." },
+    { "logicalName": "cr1bd_boxfileid", "displayName": "Box File ID", "type": "String", "maxLength": 40, "required": "none", "description": "BOX ONE-WAY MIRROR (Phase 7, ADR-0012). The Box file id from upload for this artifact; supersedes the box:file id-in-sourcemessageid hack. Webhook/lifecycle correlation. Written Dataverse->Box only." },
+    { "logicalName": "cr1bd_boxfileurl", "displayName": "Box File URL", "type": "String", "maxLength": 400, "format": "Url", "required": "none", "description": "BOX ONE-WAY MIRROR (Phase 7). The per-file Box shared-link URL (GetSharedLink access=open) surfaced as the direct 'open in Box' link on the evidence row. format:Url. Written Dataverse->Box only." }
   ],
   "notes": [
     "Bytes live off-row (Blob/File column) referenced by storagePath; no inline-bytes write path may exist.",
-    "registrationVisible is OCR-set from M1; imageRole stays manual until M2."
+    "registrationVisible is OCR-set from M1; imageRole stays manual until M2.",
+    "Box one-way mirror (Phase 7, ADR-0012): cr1bd_boxfileid / cr1bd_boxfileurl are written Dataverse->Box only (per-file shared links surfaced in the Evidence tab); never read back to drive dedup/status/sequencing."
   ]
 }

@@ -32,6 +32,9 @@ export type Cr1bd_evidencesstatuscode = keyof typeof Cr1bd_evidencesstatuscode;
 
 export interface Cr1bd_evidencesBase {
   cr1bd_acceptedforeva?: boolean;
+  // Phase-7 Box one-way mirror per-file columns (added post-generation).
+  cr1bd_boxfileid?: string;
+  cr1bd_boxfileurl?: string;
   "cr1bd_Caseid@odata.bind": string;
   cr1bd_contenttype?: string;
   cr1bd_evidenceid: string;

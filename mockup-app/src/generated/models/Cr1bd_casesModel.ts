@@ -59,6 +59,11 @@ export interface Cr1bd_casesBase {
   cr1bd_caselinkstate?: Cr1bd_casescr1bd_caselinkstate;
   cr1bd_casepo?: string;
   cr1bd_caseref?: string;
+  // Phase-7 Box one-way mirror columns (added post-generation; a re-run of
+  // `pac code add-data-source` regenerates these from Dataverse).
+  cr1bd_boxfolderid?: string;
+  cr1bd_boxfolderurl?: string;
+  cr1bd_boxsyncedat?: string;
   cr1bd_datedue?: string;
   cr1bd_duplicatekeys?: string;
   cr1bd_evaaccidentcircumstances?: string;

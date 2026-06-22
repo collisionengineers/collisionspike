@@ -293,6 +293,11 @@ export interface CaseRecord {
   cr1bd_inspectiondecision?: number; // cr1bd_inspectiondecisionmode integer
   cr1bd_onhold?: boolean; // staff manual hold -> Held queue
 
+  /* Box one-way mirror (absent until the Case/PO folder is created). */
+  cr1bd_boxfolderid?: string;
+  cr1bd_boxfolderurl?: string; // folder shared-link ("Open in Box")
+  cr1bd_boxsyncedat?: string | null;
+
   cr1bd_datedue?: string | null; // ISO/Dataverse DateOnly
   cr1bd_inspectiondate?: string | null;
   cr1bd_submittedat?: string | null;
@@ -347,6 +352,9 @@ export interface EvidenceRecord {
   cr1bd_storagepath?: string;
   cr1bd_sourcemessageid?: string;
   cr1bd_sourcelabel?: string;
+  /* Box one-way mirror per-file (absent until archived to Box). */
+  cr1bd_boxfileid?: string;
+  cr1bd_boxfileurl?: string; // per-file shared-link ("open in Box")
 }
 
 /** An InspectionAddress catalogue row (cr1bd_inspectionaddress logical names).
