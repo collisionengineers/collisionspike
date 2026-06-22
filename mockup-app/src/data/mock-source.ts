@@ -70,6 +70,8 @@ export const mockDataAccess: DataAccess = {
   casesForQueue: (_name, _now) => Promise.resolve([]),
   openVrmTwins: (_vrm, _excludeCaseId) => Promise.resolve([]),
   setOnHold: (_caseId, _onHold) => Promise.reject(new Error(NOT_CONFIGURED)),
+  mergeCandidates: (_caseId) => Promise.resolve([]),
+  mergeCases: (_sourceCaseId, _targetCaseId) => Promise.reject(new Error(NOT_CONFIGURED)),
 
   /* ----- Evidence ----- */
   imagesForCase: (_caseId) => Promise.resolve([]),

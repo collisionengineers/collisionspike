@@ -44,6 +44,7 @@ import {
   Copy,
   FileJson,
   FileText,
+  GitMerge,
   ImageOff,
   Mail,
   Lightbulb,
@@ -921,6 +922,13 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
               )}
               <Button appearance="secondary" icon={<Upload size={16} />} onClick={() => navigate('/evidence')}>
                 Add evidence
+              </Button>
+              <Button
+                appearance="secondary"
+                icon={<GitMerge size={16} />}
+                onClick={() => navigate(`/case/${c.id}/merge`)}
+              >
+                Merge…
               </Button>
               <Button
                 appearance="secondary"
