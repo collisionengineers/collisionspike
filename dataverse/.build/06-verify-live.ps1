@@ -43,8 +43,10 @@ Check ($cr1bdOs.Count -eq 19) "19 cr1bd global option sets present (got $($cr1bd
 
 # --- EVA field set on Case: 12 cr1bd_eva* columns ---
 $caseDef = Invoke-RestMethod -Uri "$base/EntityDefinitions(LogicalName='cr1bd_case')?`$expand=Attributes(`$select=LogicalName)" -Headers $H
-$evaCols = $caseDef.Attributes | Where-Object { $_.LogicalName -like "cr1bd_eva*" } | ForEach-Object { $_.LogicalName }
-Check ($evaCols.Count -eq 12) "Case has 12 cr1bd_eva* columns (got $($evaCols.Count))"
+# cr1bd_evapayload12 is the Phase-7 finalize submit-signal staged payload, NOT one of the 12 EVA
+# contract fields (it has no evaField/evaOrder) — exclude it from the eva-field name heuristic.
+$evaCols = $caseDef.Attributes | Where-Object { $_.LogicalName -like "cr1bd_eva*" -and $_.LogicalName -ne "cr1bd_evapayload12" } | ForEach-Object { $_.LogicalName }
+Check ($evaCols.Count -eq 12) "Case has 12 cr1bd_eva* EVA-contract columns (excl. cr1bd_evapayload12 submit-signal) (got $($evaCols.Count))"
 $ovCols = $caseDef.Attributes | Where-Object { $_.LogicalName -like "cr1bd_ov*" } | ForEach-Object { $_.LogicalName }
 Check ($ovCols.Count -eq 9) "Case has 9 cr1bd_ov* overview-only columns (got $($ovCols.Count))"
 # Negative: no engineer-allocation column (B3 removed it)
@@ -73,6 +75,9 @@ $expectDefaults = @{
   "cr1bd_PDF_MAPPER_ENABLED"="true"; "cr1bd_ENRICHMENT_ENABLED"="false"; "cr1bd_EVA_API_ENABLED"="false"
   "cr1bd_AZURE_MAPS_ENABLED"="false"; "cr1bd_VALUATION_ENABLED"="false"; "cr1bd_COPILOT_ENABLED"="false"
   "cr1bd_AZURE_VISION_ENABLED"="false"
+  # Phase-7 Box gates land default OFF (activation flips the per-env currentValue, never the default).
+  "cr1bd_BOX_API_ENABLED"="false"; "cr1bd_BOX_FOLDER_AT_INTAKE_ENABLED"="false"
+  "cr1bd_BOX_FILEREQUEST_ENABLED"="false"; "cr1bd_BOX_EMBED_ENABLED"="false"; "cr1bd_BOX_METADATA_ENABLED"="false"
 }
 $liveEnv = Invoke-RestMethod -Uri "$base/environmentvariabledefinitions?`$filter=startswith(schemaname,'cr1bd_')&`$select=schemaname,defaultvalue,type,secretstore" -Headers $H
 $byName = @{}; foreach ($e in $liveEnv.value) { $byName[$e.schemaname] = $e }
@@ -84,6 +89,11 @@ foreach ($k in $expectDefaults.Keys) {
 foreach ($s in @("cr1bd_EVA_CLIENT_ID","cr1bd_EVA_CLIENT_SECRET")) {
   $e = $byName[$s]
   Check ($e.type -eq 100000005 -and [string]::IsNullOrEmpty($e.defaultvalue)) "$s is Secret with no literal default (Key Vault ref)"
+}
+# Phase-7 Box config vars: String, empty default (per-env value supplied at activation, not in the manifest).
+foreach ($cfg in @("cr1bd_BOX_FOLDER_ROOT_ID","cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID")) {
+  $e = $byName[$cfg]
+  Check ($null -ne $e -and [string]::IsNullOrEmpty($e.defaultvalue)) "$cfg present with empty default (per-env value set at activation)"
 }
 
 Write-Host ""
