@@ -6,18 +6,21 @@
 # and idempotently, in ONE operator-gated pass. It is the live-apply twin of the
 # offline definition edits in this PR:
 #   - dataverse/environment-variables.json   (7 new BOX_* vars)
-#   - dataverse/schema/case.json             (4 new String columns)
+#   - dataverse/schema/case.json             (8 new columns: 5 String, 1 Boolean, 1 Memo, 1 DateTime)
 #   - dataverse/choicesets/audit-event.json  (3 new cr1bd_auditaction options)
 #
 # What it does (each step idempotent: re-running is a no-op once applied):
 #   1. Create the 5 BOX_* Boolean gates + 2 String config vars as env-var
 #      DEFINITIONS, default OFF/empty. (mirrors 05/22-envvars*.ps1)
-#   2. Add 4 String columns to cr1bd_case:
-#         cr1bd_finalizedpayloadhash (80)  - declares the pre-existing finalize
-#                                            idempotency-latch drift,
-#         cr1bd_boxfolderid (40),
-#         cr1bd_boxfilerequestid (40),
-#         cr1bd_boxfilerequesturl (400, FormatName=Url).
+#   2. Add 8 columns to cr1bd_case (type-aware Build-BoxAttr mirrors 02-tables):
+#         cr1bd_finalizedpayloadhash (String 80)  - finalize idempotency latch,
+#         cr1bd_submitrequested      (Boolean)    - submit-signal flag,
+#         cr1bd_submitpayloadhash    (String 80)  - submit-signal request hash,
+#         cr1bd_evapayload12         (Memo 4000)  - submit-signal staged 12-field JSON,
+#         cr1bd_boxfolderid          (String 40),
+#         cr1bd_boxfilerequestid     (String 40),
+#         cr1bd_boxfilerequesturl    (String 400, FormatName=Url),
+#         cr1bd_boxsyncedat          (DateTime UserLocal) - blob-purge age key.
 #      (mirrors 02-tables.ps1 Build-Attr / Attributes POST)
 #   3. Insert 3 options into the EXISTING cr1bd_auditaction global choice set
 #      via the InsertOptionValue action (01-choicesets.ps1 only CREATES whole
@@ -119,35 +122,49 @@ foreach ($v in $BOX_VARS) {
 Write-Host "ENVVARS_BOX_DONE created=$envCreated skipped=$envSkipped" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------------------
-# STEP 2 - the 4 new String columns on cr1bd_case
+# STEP 2 - the 8 new columns on cr1bd_case (String / Boolean / Memo / DateTime)
 # ---------------------------------------------------------------------------
-# FormatName: Url -> Single-Line-of-Text URL format (validated/rendered as link).
+# Type-aware Build-BoxAttr mirrors 02-tables.ps1: FormatName Url -> Single-Line
+# URL format; Memo Format=TextArea; Boolean = Yes/No two-option set; DateTime
+# UserLocal -> DateAndTime (DateOnly -> DateOnly).
 $CASE_COLS = @(
-  @{ logicalName="cr1bd_finalizedpayloadhash"; displayName="Finalized Payload Hash"; maxLength=80;  format="Text";
+  # finalize idempotency latch + submit-signal (Phase 7, Code App -> flow)
+  @{ logicalName="cr1bd_finalizedpayloadhash"; displayName="Finalized Payload Hash"; type="String"; maxLength=80;  format="Text";
      description="FINALIZE IDEMPOTENCY LATCH. SHA256 of the last EVA+Box payload finalize-eva-box successfully submitted; Guard_already_finalized re-runs only when this != the new hash. Declared to close pre-existing drift (the live flow read/wrote it before case.json declared it)." }
-  @{ logicalName="cr1bd_boxfolderid";          displayName="Box Folder ID";          maxLength=40;  format="Text";
+  @{ logicalName="cr1bd_submitrequested";      displayName="Submit Requested";       type="Boolean";
+     description="FINALIZE SUBMIT-SIGNAL (Phase 7, ADR-0012). The Code App PATCHes this true (with cr1bd_submitpayloadhash + cr1bd_evapayload12) to REQUEST finalize under CSP connect-src 'none' (no SAS POST). The Dataverse-triggered finalize-eva-box watches it and resets it false LAST after a successful submit. NEVER read back to drive dedup/status/sequencing." }
+  @{ logicalName="cr1bd_submitpayloadhash";    displayName="Submit Payload Hash";     type="String"; maxLength=80;  format="Text";
+     description="FINALIZE SUBMIT-SIGNAL (Phase 7). The byte-identical SHA256 the Code App requests finalize for. finalize-eva-box compares it to the cr1bd_finalizedpayloadhash latch and stamps the latch = this LAST on success. Kept distinct from the latch so writing the request never pre-empts stamped-LAST resume-safety." }
+  @{ logicalName="cr1bd_evapayload12";         displayName="EVA Payload (12-field JSON)"; type="Memo"; maxLength=4000;
+     description="FINALIZE SUBMIT-SIGNAL (Phase 7). The staged, schema-valid 12-field EVA JSON the Code App built with eva-export.ts and PATCHes with cr1bd_submitrequested. finalize-eva-box reads it back VERBATIM for the EVA submit + .eva.json body, preserving byte-identicality (a row-update trigger exposes only the row, not an HTTP body)." }
+  # Box one-way mirror (Phase 7, ADR-0012)
+  @{ logicalName="cr1bd_boxfolderid";          displayName="Box Folder ID";          type="String"; maxLength=40;  format="Text";
      description="BOX ONE-WAY MIRROR (Phase 7, ADR-0012). Box folder id from CreateFolder; stamped when the UPPERCASE Case/PO folder is minted at parse-confirm (B1). Read for the Open-in-Box deep link + as the copy target; NEVER read back to drive dedup/status/sequencing." }
-  @{ logicalName="cr1bd_boxfilerequestid";     displayName="Box File Request ID";     maxLength=40;  format="Text";
+  @{ logicalName="cr1bd_boxfilerequestid";     displayName="Box File Request ID";     type="String"; maxLength=40;  format="Text";
      description="BOX ONE-WAY MIRROR (Phase 7). File-Request id from CopyFileRequest; used for webhook correlation + expiry/lifecycle (B2/B3)." }
-  @{ logicalName="cr1bd_boxfilerequesturl";    displayName="Box File Request URL";    maxLength=400; format="Url";
+  @{ logicalName="cr1bd_boxfilerequesturl";    displayName="Box File Request URL";    type="String"; maxLength=400; format="Url";
      description="BOX ONE-WAY MIRROR (Phase 7). Live uploader URL from CopyFileRequest, served to the copy-chaser UX for clipboard copy. FormatName=Url (validated/rendered as a link)." }
+  @{ logicalName="cr1bd_boxsyncedat";          displayName="Box Synced At";           type="DateTime"; dateTimeBehavior="UserLocal";
+     description="BOX ONE-WAY MIRROR (Phase 7, ADR-0012). Flow-contract sync timestamp; stamped (=utcNow()) with cr1bd_boxfolderid at folder-create, restamped by finalize-eva-box. The AGE filter key for box-blob-purge (status=box_synced AND cr1bd_boxsyncedat < now-grace). Declared to close the same flow-contract drift as cr1bd_finalizedpayloadhash. NEVER read back to drive dedup/status/sequencing." }
 )
+function Build-BoxAttr($c) {
+  $dn=(Label $c.displayName); $desc=(Label $c.description); $schema=(SchemaFromLogical $c.logicalName)
+  $req=@{ "Value"="None"; "CanBeChanged"=$true; "ManagedPropertyLogicalName"="canmodifyrequirementlevelsettings" }
+  switch ($c.type) {
+    "String"   { return @{ "@odata.type"="Microsoft.Dynamics.CRM.StringAttributeMetadata"; "AttributeType"="String"; "FormatName"=@{ "Value"=$c.format }; "MaxLength"=$c.maxLength; "SchemaName"=$schema; "DisplayName"=$dn; "Description"=$desc; "RequiredLevel"=$req } }
+    "Memo"     { return @{ "@odata.type"="Microsoft.Dynamics.CRM.MemoAttributeMetadata"; "AttributeType"="Memo"; "MaxLength"=$c.maxLength; "Format"="TextArea"; "SchemaName"=$schema; "DisplayName"=$dn; "Description"=$desc; "RequiredLevel"=$req } }
+    "Boolean"  { return @{ "@odata.type"="Microsoft.Dynamics.CRM.BooleanAttributeMetadata"; "AttributeType"="Boolean"; "SchemaName"=$schema; "DisplayName"=$dn; "Description"=$desc; "RequiredLevel"=$req; "OptionSet"=@{ "@odata.type"="Microsoft.Dynamics.CRM.BooleanOptionSetMetadata"; "TrueOption"=@{ "Value"=1; "Label"=(Label "Yes") }; "FalseOption"=@{ "Value"=0; "Label"=(Label "No") } } } }
+    "DateTime" { $fmt = if ($c.dateTimeBehavior -eq "DateOnly") { "DateOnly" } else { "DateAndTime" }; return @{ "@odata.type"="Microsoft.Dynamics.CRM.DateTimeAttributeMetadata"; "AttributeType"="DateTime"; "Format"=$fmt; "DateTimeBehavior"=@{ "Value"=$c.dateTimeBehavior }; "SchemaName"=$schema; "DisplayName"=$dn; "Description"=$desc; "RequiredLevel"=$req } }
+    default    { throw "Unknown column type $($c.type) for $($c.logicalName)" }
+  }
+}
 $colCreated=0; $colSkipped=0
 foreach ($c in $CASE_COLS) {
   if (Test-ColumnExists "cr1bd_case" $c.logicalName) { Write-Host "    [SKIP] col cr1bd_case.$($c.logicalName)" -ForegroundColor DarkYellow; $colSkipped++; continue }
-  $attr = @{
-    "@odata.type" = "Microsoft.Dynamics.CRM.StringAttributeMetadata"
-    "AttributeType" = "String"
-    "FormatName" = @{ "Value" = $c.format }      # Text | Url (Email unused here)
-    "MaxLength" = $c.maxLength
-    "SchemaName" = (SchemaFromLogical $c.logicalName)
-    "DisplayName" = (Label $c.displayName)
-    "Description" = (Label $c.description)
-    "RequiredLevel" = @{ "Value"="None"; "CanBeChanged"=$true; "ManagedPropertyLogicalName"="canmodifyrequirementlevelsettings" }
-  }
-  $abody = $attr | ConvertTo-Json -Depth 20
+  $abody = (Build-BoxAttr $c) | ConvertTo-Json -Depth 20
   Invoke-WithRetry { Invoke-RestMethod -Uri "$base/EntityDefinitions(LogicalName='cr1bd_case')/Attributes" -Method Post -Headers $H -Body $abody | Out-Null } "col cr1bd_case.$($c.logicalName)"
-  Write-Host "    [OK] col cr1bd_case.$($c.logicalName) (String/$($c.format) $($c.maxLength))" -ForegroundColor Green
+  $detail = if ($c.type -eq "String") { "String/$($c.format) $($c.maxLength)" } elseif ($c.type -eq "Memo") { "Memo $($c.maxLength)" } elseif ($c.type -eq "DateTime") { "DateTime/$($c.dateTimeBehavior)" } else { $c.type }
+  Write-Host "    [OK] col cr1bd_case.$($c.logicalName) ($detail)" -ForegroundColor Green
   $colCreated++
 }
 Write-Host "CASE_COLS_BOX_DONE created=$colCreated skipped=$colSkipped" -ForegroundColor Cyan
@@ -163,7 +180,7 @@ $AUDIT_OPTS = @(
   @{ value=100000020; label="Box File Request Copied" }  # box_file_request_copied
   @{ value=100000021; label="Box Upload Received" }       # box_upload_received
 )
-$live = Invoke-RestMethod -Uri "$base/GlobalOptionSetDefinitions(Name='cr1bd_auditaction')?`$select=Name&`$expand=Options" -Headers $H
+$live = Invoke-RestMethod -Uri "$base/GlobalOptionSetDefinitions(Name='cr1bd_auditaction')/Microsoft.Dynamics.CRM.OptionSetMetadata" -Headers $H
 $liveValues = @{}; foreach ($o in $live.Options) { $liveValues[[int]$o.Value] = $true }
 $optInserted=0; $optSkipped=0
 foreach ($o in $AUDIT_OPTS) {
