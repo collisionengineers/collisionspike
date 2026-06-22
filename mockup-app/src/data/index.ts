@@ -108,6 +108,7 @@ export type {
   CreateCaseResult,
   SuggestedAddress,
   InspectionAddressCounts,
+  BoxGates,
   GeneratedServices,
   GeneratedTableService,
   OperationResult,
@@ -120,7 +121,39 @@ export type {
   NoteRecord,
   ChaserRecord,
   AuditEventRecord,
+  EnvironmentVariableDefinitionRecord,
+  EnvironmentVariableValueRecord,
 } from './types';
+// The all-false Box-gate baseline (a value, not a type).
+export { BOX_GATES_ALL_FALSE } from './types';
+
+/* ----------  Box affordances: gates + gated transports (CSP-safe) ----------
+   Gates are read via the Dataverse env-var tables (getBoxGates); the transports
+   route copy/shared-link through DIRECT connector ops and finalize through a
+   Dataverse submit-signal — never a raw fetch (CSP `connect-src 'none'`). The
+   default transports are honest `not_connected` until the operator binds them. */
+export {
+  copyFileRequest,
+  getSharedLink,
+  requestFinalize,
+  notConnectedCopyFileRequestTransport,
+  notConnectedGetSharedLinkTransport,
+  notConnectedRequestFinalizeTransport,
+  configureBoxTransports,
+  resetBoxTransports,
+  activeCopyFileRequestTransport,
+  activeGetSharedLinkTransport,
+  activeRequestFinalizeTransport,
+  type BoxTransportStatus,
+  type BoxResult,
+  type FileRequestLink,
+  type SharedFolderLink,
+  type FinalizeRequest,
+  type FinalizeAck,
+  type CopyFileRequestTransport,
+  type GetSharedLinkTransport,
+  type RequestFinalizeTransport,
+} from './box-transport';
 
 /* ----------  Document-parser response adapter + transport contract (manual intake) ----------
    SDK-free (no '@microsoft/power-apps'), so it stays inside the offline boundary. The live
@@ -215,5 +248,6 @@ export {
   useProviders,
   useInspectionAddressSuggestions,
   useInspectionAddressCounts,
+  useBoxGates,
   type QueryState,
 } from './hooks';

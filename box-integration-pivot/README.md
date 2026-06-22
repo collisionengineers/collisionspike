@@ -1,9 +1,16 @@
 # Box‑Integration Pivot — viability dossier
 
-> **Date:** 2026‑06‑21 · **Status:** ✅ **APPROVED by operator 2026‑06‑21** — proceeding to build; the
-> ordered build plan is in [`plans/`](./plans/) (`00-BUILD-PLAN.md` + six section plans). This dossier
-> remains the verified rationale. · **Author:** Claude, from a deep‑research workflow (3 grounding agents →
-> 7 web‑research angles → 19 adversarial verifiers; see [00‑method‑and‑sources.md](./00-method-and-sources.md)).
+> **Date:** 2026‑06‑21 · **Status (updated 2026‑06‑22):** ✅ APPROVED 2026‑06‑21 → **BUILT in the working
+> tree: Waves 0–5 are AUTHORED + offline-verified + free-account REST-tested, and NOT live** (nothing
+> deployed to Azure, no live Dataverse schema change, no live flow edit, **all `BOX_*` gates `false`**, no
+> Box connection bound). The hard unlock — the Box Platform app + Admin authorization on a **Business+**
+> tenant — and the BLOCKING `FILE.UPLOADED` live-test remain the operator's (the long pole). The ordered
+> build plan is in [`plans/`](./plans/) (`00-BUILD-PLAN.md` + six section plans); this dossier remains the
+> verified rationale. The shipped phase docs live at
+> [`docs/plans/phase-7-box-integration/`](../docs/plans/phase-7-box-integration/) (the operator-chosen
+> phase number is **7**; see the note in `plans/00-BUILD-PLAN.md`). · **Author:** Claude, from a
+> deep‑research workflow (3 grounding agents → 7 web‑research angles → 19 adversarial verifiers; see
+> [00‑method‑and‑sources.md](./00-method-and-sources.md)).
 >
 > **The proposal under evaluation:** re‑centre the intake workflow on **Box** — generate the **Case/PO
 > and a Box folder the moment instructions arrive** (not at EVA submit), make that folder the central

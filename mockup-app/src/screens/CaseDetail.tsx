@@ -14,12 +14,14 @@ import {
   MessageBarBody,
   MessageBarTitle,
   Option,
+  Spinner,
   Switch,
   Tab,
   TabList,
   Text,
   Textarea,
   Toast,
+  ToastBody,
   ToastTitle,
   Tooltip,
   makeStyles,
@@ -33,6 +35,8 @@ import {
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowUpRight,
+  Archive,
   CalendarClock,
   Check,
   CheckCircle2,
@@ -67,10 +71,14 @@ import {
   data,
   EVA_FIELD_ORDER,
   dueInfo,
+  getSharedLink,
   statusToStage,
+  useBoxGates,
   useCaseQuery,
   useImages,
   useInspectionAddressSuggestions,
+  activeCopyFileRequestTransport,
+  activeGetSharedLinkTransport,
   type Case,
   type CaseStatus,
   type EvaFieldKey,
@@ -689,6 +697,43 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
   const suggestionsQuery = useInspectionAddressSuggestions(caseData.id);
   const suggestions = suggestionsQuery.data ?? [];
 
+  // Box (Archive) feature gates — undefined/loading reads as all-off. The chaser
+  // upload-link action needs BOTH the gate AND a configured template; the
+  // "Open in Archive" deep link needs only the master API gate.
+  const { data: gates } = useBoxGates();
+  const archiveEnabled = gates?.apiEnabled ?? false;
+  const uploadLinkEnabled = (gates?.fileRequestEnabled ?? false) && (gates?.fileRequestTemplateConfigured ?? false);
+  const [openingArchive, setOpeningArchive] = useState(false);
+
+  /* "Open in Archive" — fetch the server-minted folder deep link, then open it in
+     a new tab (an external navigation, NOT a fetch — CSP `connect-src` is moot).
+     Honest states: a not_connected / folder_not_ready / error toasts the reason
+     and opens nothing. NO iframe / embed — link only. */
+  const onOpenInArchive = async () => {
+    if (openingArchive) return;
+    setOpeningArchive(true);
+    try {
+      const result = await getSharedLink(c.id, activeGetSharedLinkTransport);
+      if (result.status === 'ok' && result.data?.folderUrl) {
+        window.open(result.data.folderUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const reason =
+        result.status === 'folder_not_ready'
+          ? 'The case archive folder isn’t ready yet.'
+          : result.message ?? 'The archive isn’t available yet.';
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Can’t open the archive</ToastTitle>
+          <ToastBody>{reason}</ToastBody>
+        </Toast>,
+        { intent: 'warning' },
+      );
+    } finally {
+      setOpeningArchive(false);
+    }
+  };
+
   // Focus targets for field deep-links (keyed by EvaFieldKey).
   const fieldRefs = useRef<Partial<Record<EvaFieldKey, HTMLElement | null>>>({});
   const registerRef = (key: EvaFieldKey, el: HTMLElement | null) => {
@@ -979,6 +1024,26 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
 
               {tab === 'evidence' && (
                 <div className={styles.stack}>
+                  {/* "Open in Archive" — a server-minted Box folder deep link
+                      (opens in a new tab; NO iframe/embed). Shown only when the
+                      master Box gate is on; degrades to an honest toast otherwise. */}
+                  {archiveEnabled && (
+                    <div className={styles.thumbRowBetween}>
+                      <Caption1 className={styles.hint}>
+                        <span className={styles.inlineIconText}>
+                          <Archive size={14} /> Photos and documents are mirrored to the case archive.
+                        </span>
+                      </Caption1>
+                      <Button
+                        appearance="secondary"
+                        icon={openingArchive ? <Spinner size="tiny" /> : <ArrowUpRight size={16} />}
+                        onClick={onOpenInArchive}
+                        disabled={openingArchive}
+                      >
+                        {openingArchive ? 'Opening…' : 'Open in Archive'}
+                      </Button>
+                    </div>
+                  )}
                   {imagesLoading && imgState.length === 0 ? (
                     // Images still loading — show a thumb skeleton, not a false
                     // "No images" (a slow fetch must not read as empty).
@@ -1122,6 +1187,8 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
               {tab === 'chasers' && (
                 <ChaserPanel
                   case={c}
+                  fileRequestEnabled={uploadLinkEnabled}
+                  onRequestUploadLink={activeCopyFileRequestTransport}
                   onLogChased={({ channel, templateLabel }) => {
                     const note: Note = {
                       id: `note-${Date.now()}`,

@@ -63,6 +63,27 @@ const flowStateByFile = new Map((flowState.flows ?? []).map((f) => [f.definition
 const PROVIDER_SCOPE_REQUIRED = new Set([]);
 // Registration-scoped exception: cr1bd_cases ListRecords legitimately keyed on cr1bd_vrm (merge-by-registration).
 const VRM_SCOPE_ALLOWED = new Set(['case-resolve.definition.json']);
+// Phase-7 documented exception: box-blob-purge's cr1bd_cases ListRecords is a status+boxsyncedat sweep
+// (find box_synced cases past the grace window), NOT a dedup-by-VRM read — so it is intentionally not
+// provider-scoped. Asserted below to actually filter on cr1bd_status + cr1bd_boxsyncedat.
+const BOXSYNCEDAT_SCOPE_ALLOWED = new Set(['box-blob-purge.definition.json']);
+
+// Phase-7 Box flows: the ONLY definitions allowed to reference the custom Box REST connection
+// (shared_box_rest). The byte path (finalize-eva-box) must NEVER use it — bytes stay on first-party
+// shared_box (CreateFile after GetFileContentByPath_V2). box-blob-purge uses first-party Azure Blob only,
+// so it is NOT in this set (it must not reference shared_box_rest either).
+const BOX_REST_ALLOWED = new Set([
+  'box-folder-create.definition.json',
+  'box-file-request-copy.definition.json',
+  'case-resolve.definition.json',
+]);
+// The custom Box REST connection name (must equal the connection-references.json connectionName).
+const BOX_REST_CONN = 'shared_box_rest';
+// The flow that owns the first-party Box BYTE path; shared_box_rest must never appear in it.
+const FINALIZE_BYTE_FLOW = 'finalize-eva-box.definition.json';
+// Recognise a BOX_*_ENABLED gate read: the flow ListRecords environmentvariabledefinitions for a
+// cr1bd_BOX_*_ENABLED schemaname. Capture the gate schema name(s) the flow actually reads.
+const BOX_GATE_READ_RE = /schemaname eq '(cr1bd_BOX_[A-Z_]*ENABLED)'/g;
 // Flows intentionally activated live (state=on) under the 2026-06-20 live-services override (Claude wires
 // activations directly). Each MUST carry flow-state activatedLive:true + an activationNote. Every OTHER flow
 // is still asserted state=off. This keeps the off-by-default guard meaningful while recording the exceptions.
@@ -87,8 +108,15 @@ const SECRET_VALUE_PATTERNS = [
 // A hardcoded live mailbox = an email literal that is NOT inside an @-expression / parameter reference.
 // Allowed: "@parameters('IntakeMailbox')", "mailbox / WhatsApp group" prose, schema words.
 const EMAIL_LITERAL_RE = /"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"/g;
-// A hardcoded Box id = a "parentId"/"folderId" assigned a literal (digits) rather than a parameter/@-expr.
-const BOX_ID_LITERAL_RE = /"(?:parentId|folderId)"\s*:\s*"(?!@)[0-9]{3,}"/i;
+// A hardcoded Box id = a parent/folder/file-request id KEY assigned a literal (digits) rather than a
+// parameter/@-expr. Phase-7 extends this to the custom-connector OpenApiConnection key shapes:
+//   - first-party / legacy: "parentId" / "folderId"
+//   - custom-connector body sub-props: "body/parent/id" / "body/folder/id" (CreateFolder / CopyFileRequest)
+//   - custom-connector path params / snake-case: "parent_id" / "folder_id" / "file_request_id" / "fileRequestId"
+// The folder NAME (the UPPERCASE Case/PO) is deliberately NOT matched (it is not all-digits, and a name
+// literal is not a Box object id). Only a literal that STARTS with a digit (i.e. a real Box id) is flagged;
+// env-var/@-expression values (e.g. "@parameters('BoxArchiveRootId')", "@variables('folderId')") pass.
+const BOX_ID_LITERAL_RE = /"(?:parentId|folderId|parent_id|folder_id|file_request_id|fileRequestId|body\/parent\/id|body\/folder\/id)"\s*:\s*"(?!@)[0-9]{3,}"/i;
 
 function expressionStringsAreBalanced(raw) {
   // Check parentheses balance only within @-expression strings (values beginning with @).
@@ -227,6 +255,12 @@ for (const file of files) {
     const vrmScoped = caseLists.every((a) => a.filter.includes('cr1bd_vrm'));
     if (vrmScoped) pass(`[${file}] cr1bd_cases ListRecords are registration-scoped (cr1bd_vrm; documented merge-by-registration exception)`);
     else fail(`[${file}] cr1bd_cases ListRecords in a VRM-scoped flow must filter on cr1bd_vrm`);
+  } else if (caseLists.length > 0 && BOXSYNCEDAT_SCOPE_ALLOWED.has(file)) {
+    // Phase-7 documented exception: the blob-purge sweep keys on box_synced status + boxsyncedat age,
+    // not VRM. Assert it actually filters on cr1bd_status AND cr1bd_boxsyncedat (a real status-driven purge).
+    const syncScoped = caseLists.every((a) => a.filter.includes('cr1bd_status') && a.filter.includes('cr1bd_boxsyncedat'));
+    if (syncScoped) pass(`[${file}] cr1bd_cases ListRecords are status+boxsyncedat-scoped (documented box-blob-purge exception, not a dedup-by-VRM query)`);
+    else fail(`[${file}] box-blob-purge cr1bd_cases ListRecords must filter on cr1bd_status AND cr1bd_boxsyncedat`);
   } else if (caseLists.length > 0) {
     // documented exception: case lookups outside the dedup ladder are by Message-ID/id, by the Case/PO
     // sequence prefix (startswith(cr1bd_casepo,...) — an aggregate counter, not a dedup-by-VRM query),
@@ -296,6 +330,34 @@ for (const file of files) {
       fail(`[${file}] merge must re-point evidence via item/cr1bd_Caseid@odata.bind to the survivor case`);
     }
   }
+
+  // Check 9a (Phase-7) — the custom Box REST connection (shared_box_rest) appears ONLY in the allowed Box
+  //   flows, NEVER in finalize-eva-box's byte path (bytes stay on first-party shared_box).
+  const usesBoxRest = used.has(BOX_REST_CONN);
+  if (file === FINALIZE_BYTE_FLOW) {
+    if (!usesBoxRest) pass(`[${file}] byte path uses NO ${BOX_REST_CONN} (bytes stay first-party shared_box)`);
+    else fail(`[${file}] finalize byte path MUST NOT reference ${BOX_REST_CONN} (custom Box REST ops never in the byte path)`);
+  } else if (usesBoxRest && !BOX_REST_ALLOWED.has(file)) {
+    fail(`[${file}] references ${BOX_REST_CONN} but is not an allowed Box flow (${[...BOX_REST_ALLOWED].join(', ')})`);
+  } else if (usesBoxRest) {
+    pass(`[${file}] references ${BOX_REST_CONN} and is an allowed Box flow`);
+  }
+
+  // Check 9b (Phase-7) — every BOX_*_ENABLED gate the flow READS must be registered for this flow in
+  //   flow-state.json's gates[] (so the off-by-default gate-discipline is auditable per flow).
+  const gatesRead = new Set();
+  let gm;
+  BOX_GATE_READ_RE.lastIndex = 0;
+  while ((gm = BOX_GATE_READ_RE.exec(raw)) !== null) gatesRead.add(gm[1]);
+  if (gatesRead.size > 0) {
+    const declaredGates = new Set((fs?.gates ?? []));
+    const missing = [...gatesRead].filter((g) => !declaredGates.has(g));
+    if (missing.length === 0) {
+      pass(`[${file}] every BOX_* gate it reads is registered in flow-state.json gates[] (${[...gatesRead].join(', ')})`);
+    } else {
+      fail(`[${file}] reads BOX_* gate(s) not declared in flow-state.json gates[]: ${missing.join(', ')}`);
+    }
+  }
 }
 
 // Cross-manifest checks ------------------------------------------------------
@@ -304,6 +366,22 @@ for (const file of files) {
 for (const f of flowState.flows ?? []) {
   if (files.includes(f.definition)) pass(`[flow-state] ${f.definition} has a definition file`);
   else fail(`[flow-state] lists ${f.definition} but no such definition file exists`);
+}
+
+// Phase-7 — every flow-state entry that DECLARES a cr1bd_BOX_*_ENABLED gate must have a definition that
+// actually READS it (catches a stale/aspirational gate registration with no gate-read in the flow).
+for (const f of flowState.flows ?? []) {
+  const boxGates = (f.gates ?? []).filter((g) => /^cr1bd_BOX_[A-Z_]*ENABLED$/.test(g));
+  if (boxGates.length === 0) continue;
+  if (!files.includes(f.definition)) continue; // already failed above
+  const raw = readFileSync(join(DEFS_DIR, f.definition), 'utf8');
+  const reads = new Set();
+  BOX_GATE_READ_RE.lastIndex = 0;
+  let m2;
+  while ((m2 = BOX_GATE_READ_RE.exec(raw)) !== null) reads.add(m2[1]);
+  const notRead = boxGates.filter((g) => !reads.has(g));
+  if (notRead.length === 0) pass(`[flow-state] ${f.definition} reads every BOX_* gate it declares (${boxGates.join(', ')})`);
+  else fail(`[flow-state] ${f.definition} declares BOX_* gate(s) it never reads: ${notRead.join(', ')}`);
 }
 
 // Every connectionName used anywhere is declared (global cross-check already per-file; confirm none orphaned).

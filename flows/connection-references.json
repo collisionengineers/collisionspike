@@ -41,13 +41,27 @@
     {
       "connectionName": "shared_box",
       "logicalName": "cr1bd_box",
-      "displayName": "Box (Case/PO archive)",
+      "displayName": "Box (first-party — finalize byte path only)",
       "connector": "shared_box",
       "apiId": "/providers/Microsoft.PowerApps/apis/shared_box",
       "tier": "Standard",
       "usedBy": ["finalize-eva-box"],
       "boundAtActivation": true,
-      "note": "Finalization. The Microsoft first-party Box connector is class STANDARD (verified Microsoft Learn connectors/box 2026-06-20) and has NO CreateFolder op — the UPPERCASE Case/PO folder is created implicitly via CreateFile's folderPath (operationId CreateFile; params folderPath/name/binary body). Interactive Box OAuth only (no JWT/CCG/SSO; a custom connector is the only service-identity escalation). BoxArchiveRootId is a flow parameter, never a hardcoded live Box id. [RESERVED-FOR-USER] to activate (sign into the live Box account)."
+      "note": "KEPT for finalize-eva-box's BYTE path ONLY (the Phase-7 PIN per build-plan 04: parallel REST connector, first-party retained for bytes — NOT repointed in place). The Microsoft first-party Box connector is class STANDARD (verified Microsoft Learn connectors/box 2026-06-20) and has NO CreateFolder op — bytes upload via CreateFile after GetFileContentByPath_V2 (the S2 real-bytes fix). The UPPERCASE Case/PO FOLDER is no longer created here: it is minted at parse-confirm via the custom cr1bd_box_rest CreateFolder op (folder pre-exists, finalize augments). Interactive Box OAuth only (no JWT/CCG/SSO). BoxArchiveRootId migrates to read cr1bd_BOX_FOLDER_ROOT_ID. [RESERVED-FOR-USER] to activate (sign into the live Box account)."
+    },
+    {
+      "connectionName": "shared_box_rest",
+      "logicalName": "cr1bd_box_rest",
+      "displayName": "Box REST (custom: CCG service identity)",
+      "connector": "shared_box_rest",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_box_rest",
+      "tier": "Premium",
+      "custom": true,
+      "operationIds": ["CreateFolder", "CopyFileRequest", "GetSharedLink", "GetFolderSharedLink", "ListFolder", "CreateWebhook", "GetWebhook", "DeleteWebhook", "GetFileRequest", "UpdateFileRequest", "DeleteFileRequest"],
+      "openapi": "functions/box-webhook/openapi/box-connector.json",
+      "usedBy": ["box-folder-create", "box-file-request-copy", "case-resolve"],
+      "boundAtActivation": true,
+      "note": "Phase-7 PIN (ADR-0012, build-plan 04 — supersedes the 'one unpinned decision'): a PARALLEL custom connector, NOT an in-place repoint of cr1bd_box. Fronts the box-webhook Azure Function (functions/box-webhook/). Service identity = Box Service Account (CCG); the Box CCG token is minted INSIDE the Function from a Key Vault client_secret (custom connectors CANNOT run client_credentials — Microsoft Learn). Auth on THIS connection = the Function host key (x-functions-key); the Box client_secret is a Function-side KV ref, NEVER here, never echoed. apiProperties.json declares connectionParameters.api_key (an apiKey securityDefinition alone does NOT create it — proven for cr1bd_ceparser). FOLDER creation + File-Request copy + shared-link mint + webhook lifecycle bind here; BYTES stay on first-party shared_box (CreateFile). Premium so it shares a DLP data group with the other custom service connectors. [DEPLOY-WITH-LOGIN] to import; bind the connection (Function key) is [RESERVED-FOR-USER]. The webhook RECEIVER route is NOT a connector op — Box posts to the Function directly (server-to-server)."
     },
     {
       "connectionName": "shared_excelonlinebusiness",
@@ -117,7 +131,8 @@
   ],
   "notes": [
     "One connection reference per logical connector; flows bind to the reference, the reference binds to a connection at deploy/activation. This is what lets the SAME definition move dev -> test -> prod unchanged.",
-    "Premium connectors in play: Dataverse, Azure Blob, and the four custom connectors (parser/DVSA/validation/EVA) -> require Premium licensing (open Code Apps GA/licensing question). Standard: Office 365 Outlook, Excel Online (Business), Box (the first-party Box connector is class Standard per Microsoft Learn — Standard + Premium connectors coexist in one DLP data group).",
+    "Premium connectors in play: Dataverse, Azure Blob, and the five custom connectors (parser/DVSA/validation/EVA + the Phase-7 Box REST cr1bd_box_rest) -> require Premium licensing (open Code Apps GA/licensing question). Standard: Office 365 Outlook, Excel Online (Business), Box first-party (the first-party Box connector is class Standard per Microsoft Learn — Standard + Premium connectors coexist in one DLP data group).",
+    "Phase-7 Box split (ADR-0012): TWO Box connections coexist by design. cr1bd_box_rest (Premium, custom, CCG via the box-webhook Function) does FOLDER create + File-Request copy + shared-link + webhook lifecycle; first-party cr1bd_box (Standard, interactive OAuth) is KEPT for finalize-eva-box's BYTE upload (CreateFile) only. This is the build-plan-04 PIN of the previously-unpinned connection-ref decision (parallel ref, NOT an in-place repoint).",
     "DLP: every connector here must sit in the SAME data group in the target environment's DLP policy or import/run fails. Confirm before activation."
   ]
 }

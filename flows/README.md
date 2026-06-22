@@ -39,6 +39,42 @@ SharePoint / Box / EVA is **[RESERVED-FOR-USER]**.
 
 Live (2026-06-18): `CS Intake`, `CS Provider Match`, `CS Case Resolve` are ON; the rest OFF. `flow-state.json` keeps `state=off` as the fresh-import default. **The edits in this commit make intake the orchestrator that actually invokes `classify-persist` → `parse` → `status-evaluate` (previously orphaned with manual triggers and nothing calling them).**
 
+## Phase-7 Box flows (ADR-0012 — authored offline, `state=off`, NOT imported live)
+
+The Box-centric intake pivot (Phase 7 / [ADR-0012](../docs/adr/0012-box-centric-intake-additive-hybrid.md);
+ordered build [box-integration-pivot/plans/00-BUILD-PLAN.md](../box-integration-pivot/plans/00-BUILD-PLAN.md))
+adds three new flow definitions and reworks two existing ones. **All are authored + lint-green
+(`node flows/validate-flows.mjs` → 154/154) and ship `state=off`; none is in the live `CollisionSpikeFlows`
+solution.** Every `BOX_*` gate is `false`. **Dataverse stays the system of record; Box is a one-way mirror
+(Dataverse → Box)** — these flows never read Box to drive dedup/status/Case-PO sequencing. Box ops run
+through the **custom `shared_box_rest` connector** (CCG token minted inside the `box-webhook` Function, not
+the connector); **bytes never touch `shared_box_rest`** — the `finalize-eva-box` byte upload stays on the
+first-party `shared_box` `CreateFile` after the S2 `GetFileContentByPath_V2` real-bytes read. Each flow
+**READS** its gate (never defines it; the `BOX_*` names are owned by `dataverse/environment-variables.json`).
+
+| File (`definitions/`) | Flow | Gate read | What it does | Activation |
+|---|---|---|---|---|
+| `box-folder-create.definition.json` | `Flow_BoxFolderCreate` | `BOX_FOLDER_AT_INTAKE_ENABLED` | **New** Request+Response child. Mints the **ONE UPPERCASE Case/PO** Box folder at **parse-confirm** via `shared_box_rest` `CreateFolder` (`name=@toUpper(casePo)`, parent = `BoxArchiveRootId` ← `cr1bd_BOX_FOLDER_ROOT_ID`); stamps `cr1bd_boxfolderid` (durable, idempotency-critical) then `cr1bd_boxsyncedat` (best-effort, decoupled); audits `box_folder_created` (100000019). Idempotent two ways: in-flow `empty(cr1bd_boxfolderid)` guard + the Function swallows Box 409 `item_name_in_use`. Returns `{ caseId, boxFolderId, outcome (created\|exists\|gated_off\|skipped_no_casepo), folderPath }`. **Invoked from live `intake` inside `Scope_generate_casepo` after `Update_case_casepo`** — that invocation is an operator/business-phase **live edit**, NOT added to the stale repo `intake.definition.json` (REPO-TRAILS-LIVE). | **[RESERVED-FOR-USER]** |
+| `box-file-request-copy.definition.json` | `Flow_BoxFileRequestCopy` | `BOX_FILEREQUEST_ENABLED` | **New** Request+Response child. The single file-request-copy flow (the 02-vs-04 duplicate reconciled to this one; the app binds `fileRequestUrl`, not `uploadUrl`). **Load-bearing guard:** `empty(folderId) → folder_not_ready`, never POST a null `folder.id`. Else `shared_box_rest` `CopyFileRequest` (copy-from-template only — the reg field is baked into the template) onto the case's folder, `status:"active"`; stamps `cr1bd_boxfilerequestid` + `cr1bd_boxfilerequesturl` (one-way mirror); audits `box_file_request_copied` (100000020). Returns `{ fileRequestUrl, expiresAt, outcome (sent\|gated_off\|folder_not_ready) }`. | **[RESERVED-FOR-USER]** |
+| `box-blob-purge.definition.json` | `Flow_BoxBlobPurge` | `BOX_API_ENABLED` | **New** scheduled `Recurrence` (far-future `startTime=2099-…` placeholder so it never fires on import; operator sets a real off-peak time). **Status-driven** Blob cleanup, param `PurgeGraceDays` (default 7): lists cases at `box_synced` (100000009) with `cr1bd_boxsyncedat < now-grace`, resolves each Evidence blob id from its path (`GetFileMetadataByPath_V2`) → first-party `DeleteFile_V2` → clears `cr1bd_storagepath`; audits per case. **Never deletes the Box copy** (no `shared_box_rest` op anywhere) and never the Evidence row. The `cr1bd_cases` `status+boxsyncedat` ListRecords is a **documented linter exception**. | **[RESERVED-FOR-USER]** |
+| `finalize-eva-box.definition.json` | `Flow_FinalizeEvaBox` | `EVA_API_ENABLED` (+ Box augment) | **Reworked** (delta, not a new flow). The Box folder now **pre-exists** (minted at parse-confirm) so finalize **augments** rather than creates; keeps the S2 `GetFileContentByPath_V2` real-bytes → first-party `CreateFile` byte path + the 2-previews-then-all EVA photo order; migrates the hard-coded `BoxArchiveRootId` to **read `cr1bd_BOX_FOLDER_ROOT_ID`**; stamps `box_synced` (100000009) **last** (the idempotency latch). | **[RESERVED-FOR-USER]** |
+| `case-resolve.definition.json` | `Flow_CaseResolve` | — | **Reworked** (delta). On a merged single-pair, **ensures** the survivor case has a folder via the **idempotent** `box-folder-create` (no Box byte move/link; status-evaluate re-runs, finalize later uploads). Still a Request-triggered child (no Office-365 webhook). | **[RESERVED-FOR-USER]** |
+
+**Webhook intake is NOT a flow.** The `FILE.UPLOADED` receiver is the `functions/box-webhook/` Azure
+Function (server-to-server; HMAC dual-key + 10-min replay + `BOX-DELIVERY-ID` dedup + upload-vs-move
+disambiguation), which writes an Evidence row and re-invokes the idempotent `CS Status Evaluate`. The
+`CreateWebhook`/lifecycle ops are `shared_box_rest` connector ops (a later operator step). The
+File-Request → `FILE.UPLOADED` firing is **undocumented — live-test-gated on a Business+ tenant**; the
+`box-blob-purge`-style `ListFolder` reconciliation sweep is the proven fallback.
+
+**Connection references (Phase-7 PIN — parallel, not a repoint):** `flows/connection-references.json`
+carries a **new custom `cr1bd_box_rest`** (`shared_box_rest`, Premium, CCG via the `box-webhook` Function;
+ops `CreateFolder`/`CopyFileRequest`/`GetSharedLink`/`GetFolderSharedLink`/`ListFolder` + webhook &
+File-Request lifecycle) used by `box-folder-create`/`box-file-request-copy`/`case-resolve`; the first-party
+**`cr1bd_box` (`shared_box`, Standard) is RETAINED** for `finalize-eva-box`'s byte path only. **Two Box
+connections coexist by design; the operator binds both.** The Box `client_secret` + webhook signature keys
+live in Key Vault (read by the Function), never on a connection.
+
 ## Orchestration (Strategy A — intake calls the chain)
 
 Intake is the single **parent**. After the Message-ID dedup guard and the anchored provider match + get-or-create Case, it calls the children with the **built-in `Run a Child Flow` action** (`"type": "Workflow"`), the Microsoft-blessed, **export-safe** pattern (HTTP-URL chaining breaks across solution import/export — Learn). Each child keeps its **`Manually trigger a flow` (Request)** trigger and returns values via a **`Response`** action:
@@ -99,12 +135,18 @@ fail. It asserts, over `definitions/*.definition.json`:
 1. valid JSON with non-empty `triggers` + `actions`;
 2. references **only** connection refs declared in `connection-references.json`;
 3. **no secret literals** (`client_secret` / `api-key` / `x-functions-key` / bearer tokens);
-4. **no hardcoded live mailbox address or Box id** (only parameters / env-vars);
+4. **no hardcoded live mailbox address or Box id** — including the Phase-7 `BOX_ID_LITERAL_RE` check
+   that the custom-connector id fields (`parent_id`/`folder_id`/`file_request_id`/`body/folder/id`) are
+   `@`-expressions/parameters, never a literal Box id (the folder **name** is the UPPERCASE Case/PO, not
+   all-digits, so it is correctly not flagged);
 5. every flow is listed in `flow-state.json` as `state = off`;
 6. every `cr1bd_cases` `ListRecords` in the dedup flow carries the `_cr1bd_workproviderid_value`
-   **cross-provider guard** (other case reads are Message-ID-scoped, a documented exception); and
-   the draft-only chaser contains **no send operation**;
-7. balanced `@`-expression parentheses.
+   **cross-provider guard** (other case reads are Message-ID-scoped, a documented exception; the Phase-7
+   `box-blob-purge` sweep is a second documented exception, asserted to filter on `cr1bd_status` **and**
+   `cr1bd_boxsyncedat` — a status-driven purge, not a dedup-by-VRM read); and the draft-only chaser
+   contains **no send operation**;
+7. balanced `@`-expression parentheses;
+8. (Phase 7) `shared_box_rest` ops never appear in `finalize-eva-box` (bytes stay first-party `shared_box`).
 
 ## Redeploy + bind steps (operator — do in this order)
 

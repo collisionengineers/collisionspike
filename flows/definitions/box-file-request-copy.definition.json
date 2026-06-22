@@ -1,0 +1,188 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_BoxFileRequestCopy (Phase 7 / ADR-0012 / build-plan 04 §7, Wave 2 / box-flow-patterns Fragment 2). THE single file-request-copy flow (the 02-vs-04 duplicate is reconciled to THIS one; the Code App transport binds to fileRequestUrl, not uploadUrl). Returnable CHILD (Request + Response). Copies the hand-built TEMPLATE File Request onto a case's Box folder and returns the live uploader URL — account-free image collection (B2 highest-value piece). HOUSE RULES: gate cr1bd_BOX_FILEREQUEST_ENABLED is READ not defined (default OFF); the copy runs via the CUSTOM connector shared_box_rest CopyFileRequest (op fronts the box-webhook Function; Box CCG minted server-side); File Request is copy-from-template ONLY (the vehicle_registration capture field is baked into the template and CANNOT be varied by the copy). LOAD-BEARING FOLDER GUARD: if empty(folderId) -> respond folder_not_ready and NEVER call Box with a null folder.id (folder existence is guaranteed at intake by box-folder-create; this flow only READS cr1bd_boxfolderid via the caller-passed folderId). The Code App shows honest not_connected / folder_not_ready / gated_off / error messages, never a fake link. Optionally stamps cr1bd_boxfilerequestid + cr1bd_boxfilerequesturl (one-way mirror). [BUILD] state=off. ACTIVATION [RESERVED-FOR-USER]: hand-build the ONE template File Request, record its id -> cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID, import+bind cr1bd_box_rest, flip BOX_API_ENABLED then BOX_FILEREQUEST_ENABLED in a test env, then the BLOCKING B2 live-test (a File-Request upload must fire FILE.UPLOADED — reconciliation sweep is the fallback). Claude never holds a Box credential, never flips the gate.",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "comment": "Invoked by the Code App on 'Send image chaser'. Input { caseId, fileRequestTemplateId, folderId }. fileRequestTemplateId = cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID (the operator-recorded template id). folderId = the case's cr1bd_boxfolderid (the copy API takes folder.id, NOT a path).",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "caseId": { "type": "string" },
+            "fileRequestTemplateId": { "type": "string" },
+            "folderId": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Init_caseId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "caseId", "type": "string", "value": "@coalesce(triggerBody()?['caseId'], '')" } ] },
+      "runAfter": {}
+    },
+    "Init_folderId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "folderId", "type": "string", "value": "@coalesce(triggerBody()?['folderId'], '')" } ] },
+      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+    },
+    "Init_templateId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "templateId", "type": "string", "value": "@coalesce(triggerBody()?['fileRequestTemplateId'], '')" } ] },
+      "runAfter": { "Init_folderId": [ "Succeeded" ] }
+    },
+    "Init_outcome": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "outcome", "type": "string", "value": "gated_off" } ] },
+      "comment": "One of: sent | gated_off | folder_not_ready. Returned to the caller (the app maps not_connected/error itself on transport failure).",
+      "runAfter": { "Init_templateId": [ "Succeeded" ] }
+    },
+    "Init_fileRequestUrl": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "fileRequestUrl", "type": "string", "value": "" } ] },
+      "runAfter": { "Init_outcome": [ "Succeeded" ] }
+    },
+    "Init_expiresAt": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "expiresAt", "type": "string", "value": "" } ] },
+      "runAfter": { "Init_fileRequestUrl": [ "Succeeded" ] }
+    },
+    "Get_gate_definition": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "environmentvariabledefinitions",
+          "$filter": "schemaname eq 'cr1bd_BOX_FILEREQUEST_ENABLED'",
+          "$select": "environmentvariabledefinitionid,defaultvalue",
+          "$expand": "environmentvariabledefinition_environmentvariablevalue($select=value)",
+          "$top": 1
+        }
+      },
+      "comment": "READ the gate (never DEFINE it).",
+      "runAfter": { "Init_expiresAt": [ "Succeeded" ] }
+    },
+    "Set_gate_BOX_FILEREQUEST_ENABLED": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "gate_BOX_FILEREQUEST_ENABLED", "type": "boolean",
+        "value": "@equals(toLower(coalesce(first(first(outputs('Get_gate_definition')?['body/value'])?['environmentvariabledefinition_environmentvariablevalue'])?['value'], first(outputs('Get_gate_definition')?['body/value'])?['defaultvalue'], 'false')), 'true')"
+      } ] },
+      "runAfter": { "Get_gate_definition": [ "Succeeded" ] }
+    },
+    "If_gate_on": {
+      "type": "If",
+      "expression": { "equals": [ "@variables('gate_BOX_FILEREQUEST_ENABLED')", true ] },
+      "comment": "Gate-on path only. Gate-off leaves outcome=gated_off (set at init).",
+      "actions": {
+        "If_folder_ready": {
+          "type": "If",
+          "expression": { "not": { "equals": [ "@trim(variables('folderId'))", "" ] } },
+          "comment": "LOAD-BEARING FOLDER GUARD: only call Box when folderId is non-empty. empty(folderId) -> outcome=folder_not_ready and NO Box call (never POST a null folder.id). Folder existence is guaranteed at intake by box-folder-create.",
+          "actions": {
+            "Copy_file_request": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_box_rest", "operationId": "CopyFileRequest",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_box_rest" },
+                "parameters": {
+                  "fileRequestId": "@variables('templateId')",
+                  "body/folder/id": "@variables('folderId')",
+                  "body/folder/type": "folder",
+                  "body/status": "active"
+                }
+              },
+              "comment": "CUSTOM connector CopyFileRequest -> POST /2.0/file_requests/{fileRequestId}/copy { folder:{ id, type:'folder' }, status:'active' }. fileRequestId (path) = the TEMPLATE id; body/folder/id = the case's Box folder id (passed in, read from cr1bd_boxfolderid). Both id fields are @-expressions, never literals. expires_at is intentionally omitted (non-expiring upload link for an open case); add it later if a per-case expiry policy is set.",
+              "runAfter": {}
+            },
+            "Set_fileRequestUrl": {
+              "type": "SetVariable",
+              "inputs": { "name": "fileRequestUrl", "value": "@coalesce(outputs('Copy_file_request')?['body/url'], '')" },
+              "runAfter": { "Copy_file_request": [ "Succeeded" ] }
+            },
+            "Set_expiresAt": {
+              "type": "SetVariable",
+              "inputs": { "name": "expiresAt", "value": "@coalesce(outputs('Copy_file_request')?['body/expires_at'], '')" },
+              "runAfter": { "Set_fileRequestUrl": [ "Succeeded" ] }
+            },
+            "Stamp_case_file_request": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_cases",
+                  "recordId": "@variables('caseId')",
+                  "item/cr1bd_boxfilerequestid": "@coalesce(outputs('Copy_file_request')?['body/id'], '')",
+                  "item/cr1bd_boxfilerequesturl": "@variables('fileRequestUrl')"
+                }
+              },
+              "comment": "One-way mirror: stamp the File-Request id (webhook correlation / lifecycle) + the live uploader URL (the copy-chaser UX reads it for clipboard). Written Dataverse->Box only; never read back to drive dedup/status.",
+              "runAfter": { "Set_expiresAt": [ "Succeeded" ] }
+            },
+            "Set_outcome_sent": {
+              "type": "SetVariable",
+              "inputs": { "name": "outcome", "value": "sent" },
+              "runAfter": { "Stamp_case_file_request": [ "Succeeded" ] }
+            },
+            "Audit_box_file_request_copied": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_auditevents",
+                  "item/cr1bd_name": "@concat('box_file_request_copied: case ', variables('caseId'))",
+                  "item/cr1bd_action": 100000020,
+                  "item/cr1bd_severity": 100000000,
+                  "item/cr1bd_actor": "Flow_BoxFileRequestCopy",
+                  "item/cr1bd_after": "@concat('File Request ', coalesce(outputs('Copy_file_request')?['body/id'], ''), ' copied onto folder ', variables('folderId'), ' (active)')",
+                  "item/cr1bd_Caseid@odata.bind": "@concat('cr1bd_cases(', variables('caseId'), ')')",
+                  "item/cr1bd_occurredat": "@utcNow()"
+                }
+              },
+              "comment": "Audit the copy (action box_file_request_copied=100000020, Info). Linked to the case.",
+              "runAfter": { "Set_outcome_sent": [ "Succeeded" ] }
+            }
+          },
+          "else": {
+            "actions": {
+              "Set_outcome_folder_not_ready": {
+                "type": "SetVariable",
+                "inputs": { "name": "outcome", "value": "folder_not_ready" },
+                "comment": "No Box folder yet (cr1bd_boxfolderid null) -> honest folder_not_ready; the app tells staff the folder is still being created.",
+                "runAfter": {}
+              }
+            }
+          },
+          "runAfter": {}
+        }
+      },
+      "else": { "actions": {} },
+      "runAfter": { "Set_gate_BOX_FILEREQUEST_ENABLED": [ "Succeeded" ] }
+    },
+    "Respond_result": {
+      "type": "Response",
+      "kind": "Http",
+      "inputs": {
+        "statusCode": 200,
+        "body": {
+          "fileRequestUrl": "@variables('fileRequestUrl')",
+          "expiresAt": "@variables('expiresAt')",
+          "outcome": "@variables('outcome')"
+        }
+      },
+      "comment": "Child-flow return. { fileRequestUrl, expiresAt, outcome (sent|gated_off|folder_not_ready) }. The app binds to fileRequestUrl (the 02-vs-04 reconciliation). runAfter If_gate_on on ALL completion outcomes so the child always returns.",
+      "runAfter": { "If_gate_on": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
+    }
+  }
+}

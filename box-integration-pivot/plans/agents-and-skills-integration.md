@@ -1,12 +1,22 @@
 # Agents & skills integration plan (Box + Azure↔Box) — pre-implementation
 
-> date 2026-06-21, status: **plan only (nothing created)**
+> date 2026-06-21 · **status (updated 2026-06-22): ✅ CREATED — the recommendations below are now
+> implemented and committed.** The **NEW agent `box-integration-architect`** exists at
+> `.claude/agents/box-integration-architect.md` (frontmatter per the A1 spec). The **two NEW skills**
+> exist and are committed: `.claude/skills/box-rest-api/` (SKILL.md + `references/endpoints.md`,
+> `references/webhook-receiver.md`, `references/filerequest-and-metadata.md`) and
+> `.claude/skills/box-flow-patterns/` (SKILL.md + `references/01-…05-*.md`). The **3 boundary extensions**
+> (B1 azure-integration-engineer, B2 power-automate-flow-builder, B3 dataverse-data-architect) are applied
+> — each agent body now carries its Box sub-slice triggers/boundaries. This doc is retained as the design
+> rationale; the **authoritative contract remains the BUILD-PLAN reconciliation table** in
+> [00-BUILD-PLAN.md](./00-BUILD-PLAN.md), not these specs.
 
-This plan recommends the subagent + skill changes that will support the **Box-centric intake pivot**
+This plan recommended the subagent + skill changes that support the **Box-centric intake pivot**
 (Option 2, additive hybrid — approved 2026-06-21; ordered build in
-[00-BUILD-PLAN.md](./00-BUILD-PLAN.md)). It **creates no agent or skill files** — it specifies them so
-the author step that follows is unambiguous. Net recommendation: **1 new agent + 4 boundary extensions
-+ 2 new skills**. It honours the roster philosophy in [AGENTS.md](../../AGENTS.md) / CLAUDE.md ("Agent
+[00-BUILD-PLAN.md](./00-BUILD-PLAN.md)). _(Originally authored as a spec ahead of the author step; the
+"plan only / creates no files" framing below is the original pre-implementation voice — see the CREATED
+banner above for current state.)_ Net recommendation, now implemented: **1 new agent + 4 boundary
+extensions + 2 new skills**. It honours the roster philosophy in [AGENTS.md](../../AGENTS.md) / CLAUDE.md ("Agent
 roster & boundaries"): **each agent owns ONE slice and DEFERS across boundaries; prefer EXTENDING an
 existing agent / REUSING over adding a new one; skills are reference/knowledge or repeatable
 procedures.**

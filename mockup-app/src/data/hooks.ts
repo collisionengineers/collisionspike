@@ -24,7 +24,7 @@ import type {
   PipelineStage,
 } from '../mock/queues';
 import type { QueueName } from '../mock/queues';
-import type { SuggestedAddress, InspectionAddressCounts } from './types';
+import type { SuggestedAddress, InspectionAddressCounts, BoxGates } from './types';
 
 /** The shape every query hook returns. */
 export interface QueryState<T> {
@@ -144,5 +144,16 @@ export function useInspectionAddressSuggestions(
 /** Confirmed-vs-suggested split of the inspection-address corpus (Admin count). */
 export function useInspectionAddressCounts(): QueryState<InspectionAddressCounts> {
   const run = useCallback(() => getDataAccess().inspectionAddressCounts(), []);
+  return useAsync(run, []);
+}
+
+/**
+ * The BOX_* feature gates. Screens read `const { data: gates } = useBoxGates()`
+ * and treat `undefined`/loading as all-off (the type stays optional). Deps `[]`
+ * like `useProviders`; `refetch` re-runs the read. The read itself defaults
+ * all-false on failure, so this never throws a feature on by accident.
+ */
+export function useBoxGates(): QueryState<BoxGates> {
+  const run = useCallback(() => getDataAccess().getBoxGates(), []);
   return useAsync(run, []);
 }

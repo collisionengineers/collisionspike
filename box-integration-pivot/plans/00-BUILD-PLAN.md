@@ -8,6 +8,43 @@
 > **operator-gated** explicit throughout. The section plans remain the detail of record; this plan is
 > the order + the reconciliations + the roll-up.
 
+> ## ⛏️ BUILD STATUS (updated 2026-06-22) — Waves 0–5 AUTHORED / in-build, NOT live
+>
+> **Two corrections to the "Decisions locked" block below, both operator-final:**
+> - **Phase number is 7, not 4.** The shipped phase docs live at
+>   [`docs/plans/phase-7-box-integration/`](../../docs/plans/phase-7-box-integration/) (the Q1 line below
+>   that says "New Phase 4 → `phase-4-box-integration/`" is **superseded** — the working assumption changed
+>   to **Phase 7**; the ADR is the single `docs/adr/0012-box-centric-intake-additive-hybrid.md` as planned).
+> - **Plan floor is BASE BUSINESS; metadata (Business Plus) is OUT OF SCOPE now** — already reflected in the
+>   "Metadata → OUT OF SCOPE" decision below; evidence is **linked, not embedded** (a server-minted "Open in
+>   Box" deep link — **no iframe, no `frame-src` edit**; `BOX_EMBED_ENABLED` stays reserved/off).
+>
+> **Every Claude-buildable `[C]` item across Waves 0–5 is AUTHORED in the working tree and offline-verified;
+> nothing is live.** Each wave's `[O]` items (Box Platform app + Admin authorization, secret injection,
+> connection binds, gate flips, the BLOCKING `FILE.UPLOADED` live-test) remain the operator's. Authored +
+> verified:
+> - **Wave 0** — ADR-0012 + architecture §Box; **5 `BOX_*` gates + 2 config vars + 3 audit actions + 3
+>   `cr1bd_box*` columns** (+ `cr1bd_boxsyncedat`, the submit-signal columns, the `cr1bd_finalizedpayloadhash`
+>   drift declaration, the stale-comment fix) with `verify-parity.mjs` locking the defaults; the custom Box
+>   REST connector OpenAPI (with `connectionParameters.api_key`) + the `box-webhook` CCG-mint/HMAC receiver
+>   Function + its FC1 bicep (**pytest 71 passed**). The **connection-ref decision is PINNED** = a **parallel
+>   `cr1bd_box_rest`**, first-party `cr1bd_box` retained for the byte path — this closes the "repoint vs
+>   parallel — Pin one" decision left open in Wave 0's connector step (and reflected in
+>   `flows/connection-references.json` + ADR-0012).
+> - **Wave 1** — `box-folder-create` + the `finalize-eva-box` augment rewrite + the `case-resolve`
+>   survivor-ensure; `flow-state.json` + `validate-flows.mjs` extended (**flow linter 154/154**). _(The intake
+>   invocation is an operator/business-phase live edit — the repo intake def trails live, by design.)_
+> - **Wave 2** — `box-file-request-copy` (the reconciled single flow; app binds `fileRequestUrl`).
+> - **Wave 4** — Code App `getBoxGates()` + submit-signal finalize + the `copy_file_request` chaser +
+>   the "Open in Box" deep link (**vitest 256 passed, `tsc -b` clean**).
+> - **Wave 5** — `box-blob-purge` (status-driven, grace default 7d). Phase-C items remain placeholders.
+>
+> **Free-account REST live-test (the only live touch):** a throwaway **FREE** Box account dev token proved
+> **8/9 raw-REST ops** (folder created + recursively deleted; no secret printed); `CreateWebhook` → 403
+> `insufficient_scope` is expected on free. The service path (CCG, File Requests, metadata, the
+> `FILE.UPLOADED` firing) needs the **Business+** tenant — the operator's second test phase and the long
+> pole. Per-wave detail is honest below; treat the `[C]/[O]` split as the current build boundary.
+
 ## Decisions locked (2026-06-21, operator)
 
 - **Pivot APPROVED** — proceeding to build.

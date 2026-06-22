@@ -78,12 +78,64 @@ drafted (later sent via the Outlook connector). **WhatsApp is WhatsApp Business 
 change** → chasers are drafted for staff to send manually; **no free automated WhatsApp send**.
 **Audatex** is **out of scope** (deferred entirely). Model: `Chaser` + `Note` in [data-model.md](./data-model.md).
 
-## Box archival
+## Box (Phase-7 additive intake pivot — ADR-0012)
 
-- **Occurs in unison with EVA submission** (drag-drop JSON export *or* API submit) — one finalisation
-  step, **in M1**. Folder named with the **UPPERCASE** Case/PO (EVA uses lowercase): e.g. EVA
-  `test26001` → Box `TEST26001`. Copy evidence (images, `.eml`, PDFs, EVA JSON) into the folder.
-  Box connector via Power Automate.
+> **Binding decision:** [docs/adr/0012-box-centric-intake-additive-hybrid.md](../adr/0012-box-centric-intake-additive-hybrid.md).
+> **Status (2026-06-22):** authored + offline-verified + free-account REST-tested; **NOT live** (no Azure
+> deploy, no live schema/flows, every `BOX_*` gate `false`, no Box connection bound). The BUSINESS-account
+> live test is the long pole. Phase docs: [docs/plans/phase-7-box-integration/](../plans/phase-7-box-integration/).
+
+Box is an **additive, one-way archival + intake mirror** — **Dataverse stays the system of record; Box is
+written one-way (Dataverse → Box)**. Box Metadata has no joins, so dedup (ADR-0010), the status machine,
+and Case/PO sequencing **never** run off Box. The pivot brings Box **earlier** (a per-Case/PO folder at
+**parse-confirm**, not only at EVA-submit) and **deeper** (File-Request image chasers + webhook-driven
+intake). It does not replace the M1 `finalize-eva-box` archival; it precedes and augments it.
+
+**Verified platform constraints (the binding pillars).**
+- **A custom Power Platform connector is mandatory.** The first-party Box connector is file-only (no
+  folder-create, no shared-links, no webhooks, no File Requests, no metadata) and OAuth-only. All Box
+  automation runs through a **custom connector over Box REST** with a service identity.
+- **The CCG service token is minted inside the Azure Function, never the connector.** Custom connectors
+  cannot run the OAuth2 client-credentials grant (Microsoft Learn). So the connector authenticates by an
+  **API-key (an Azure Function host key) on the connection** (declared as `connectionParameters.api_key`),
+  and the Box **CCG** token (`POST /oauth2/token`, `grant_type=client_credentials`,
+  `box_subject_type=enterprise`, App Access Only, scopes `root_readwrite` + `manage_webhook`) is exchanged
+  **inside `functions/box-webhook/`** from a Key Vault secret — the proven EVA-Sentry / parser facade.
+- **File Request is copy-from-template only** — no create-from-scratch API. Hand-build **one** template
+  File Request once; per case `POST /file_requests/{templateId}/copy` onto the Case/PO folder. Any
+  capture-form field is baked into the template.
+- **Webhooks are best-effort** — no SLA, at-least-once, droppable, and `FILE.UPLOADED` **also fires on
+  moves**. The receiver verifies `BOX-SIGNATURE-PRIMARY`/`SECONDARY` HMAC-SHA256 (dual-key, 10-min replay),
+  dedups on `BOX-DELIVERY-ID`, disambiguates upload-vs-move, and responds 2xx promptly **then** works —
+  backstopped by a timed `ListFolder` reconciliation sweep so a missed event can never strand a case.
+- **The Code App calls Box only via the connector/flows** (`connect-src 'none'`). **Evidence is linked,
+  not embedded:** a **server-minted "Open in Box" deep link** (no CSP change). No iframe is built and no
+  `frame-src` edit is made; `BOX_EMBED_ENABLED` stays **reserved/off**.
+
+**The connection-reference identity is PINNED** (a parallel ref, not an in-place repoint): a custom
+**`cr1bd_box_rest`** (Premium, CCG via the `box-webhook` Function) carries folder-create + File-Request
+copy + shared-link + webhook lifecycle, while first-party **`cr1bd_box` (`shared_box`, Standard, interactive
+OAuth) is RETAINED** for `finalize-eva-box`'s byte path (`CreateFile`). Two Box connections coexist by
+design; the operator binds both at activation.
+
+**Box flows** (authored `state=off`, lint-green; detail in [flows/README.md](../../flows/README.md)):
+`box-folder-create` mints the **UPPERCASE** Case/PO folder at parse-confirm (e.g. EVA `test26001` → Box
+`TEST26001`) and stamps `cr1bd_boxfolderid`; `box-file-request-copy` copies the template File Request
+(guarding `empty(folderId) → folder_not_ready`) and returns the upload URL; `finalize-eva-box` now
+**augments** the pre-existing folder (keeps the S2 real-bytes `CreateFile` path; reads
+`cr1bd_BOX_FOLDER_ROOT_ID`); `box-blob-purge` deletes Blob evidence only once `box_synced` + grace.
+
+**Plan floor = base Box Business.** Base Business covers per-Case/PO folders, File Requests, and webhooks
+— the whole live intake path. **Metadata (the Business-Plus tier) is OUT OF SCOPE now** — a later optional
+reliability upgrade for the orphaned image-only path only (`BOX_METADATA_ENABLED`, reserved). Box Governance
+retention + Box AI (metered AI Units; Business/Business Plus include zero) are deferred Phase-C decisions.
+
+**M1 finalization (unchanged baseline, for reference):** the M1 `finalize-eva-box` step still fires in
+unison with EVA submission (drag-drop JSON export *or* API submit), copying evidence (images, `.eml`, PDFs,
+EVA JSON) into the Case/PO folder in EVA photo order. The Phase-7 pivot moves the folder *creation* earlier
+(parse-confirm) so finalize augments rather than creates. The full M1 archival design is
+[docs/plans/phase-3-enrichment-and-eva/box-archival-pipeline.md](../plans/phase-3-enrichment-and-eva/box-archival-pipeline.md)
+(reconciled DOWN to ADR-0012).
 
 ## Environment variables (feature flags) — summary
 
@@ -97,3 +149,14 @@ change** → chasers are drafted for staff to send manually; **no free automated
 | `AZURE_MAPS_ENABLED` | `false` | Azure Maps vs postcode.io |
 | `VALUATION_ENABLED` | `false` | on-demand valuationbot valuation (M2) |
 | `COPILOT_ENABLED` | `false` | expose the Copilot Studio agent |
+| `BOX_API_ENABLED` | `false` | **Phase 7** — the unlock: the custom Box REST connector + webhook receiver |
+| `BOX_FOLDER_AT_INTAKE_ENABLED` | `false` | **Phase 7 B1** — mint the Case/PO folder at parse-confirm |
+| `BOX_FILEREQUEST_ENABLED` | `false` | **Phase 7 B2/B3** — File-Request image chaser + webhook intake |
+| `BOX_EMBED_ENABLED` | `false` | **Phase 7 B4 — RESERVED** (link-not-embed; flipping also needs the operator `frame-src` edit) |
+| `BOX_METADATA_ENABLED` | `false` | **Phase 7 Wave-2/Phase-C** — Box Metadata-Query (Business Plus; out of scope now) |
+| `BOX_FOLDER_ROOT_ID` / `BOX_FILE_REQUEST_TEMPLATE_ID` | `""` | **Phase 7** per-environment config (archive root id · template File-Request id; set at activation) |
+
+> Box secrets are **not** Dataverse env-vars: the Box CCG `client_secret` + the webhook primary/secondary
+> signature keys live in **Key Vault**, read by the `box-webhook` Function — never on a connection.
+> `BOX_AI_ENABLED` is deliberately omitted (deferred to Phase C); this Box set is not the complete Box
+> feature set.
