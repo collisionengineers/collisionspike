@@ -56,7 +56,10 @@ Response:
 
 Status codes: `200` parsed (extraction may be incomplete; see `issues`);
 `400` bad input (missing/invalid `document`/`filename`, bad base64, bad JSON,
-unsupported extension); `502` the parser dependency failed.
+unsupported extension); `422` the supplied document is unreadable (corrupt/
+truncated — a client fault the flow routes to review); `500` unexpected internal
+error (defensive); `502` the parser dependency failed (engine not importable /
+reader binary missing — safe for the flow to retry).
 
 ## Auth boundary
 
@@ -66,7 +69,7 @@ as the `x-functions-key` header (stored on the **connection**, never embedded in
 connector definition); the Function host is not exposed directly to callers. A request
 without a valid key returns **401**.
 
-> Verified live 2026-06-18 on the deployed Function `cespike-parser-dev` (FC1, UK South):
+> Verified live 2026-06-18 on the deployed Function `cespike-parser-dev-…` (FC1, UK South):
 > no key → 401; bad input → 400; valid request → 200 with the 12-field extraction.
 > (An earlier draft of this note said "anonymous" — that was wrong; the route has always
 > shipped function-level auth.)
@@ -148,13 +151,16 @@ public entry point today.
 is the *legacy* set, not the settled EVA 12. The adapter renames
 `incident_date → date_of_loss`, `instruction_date → date_of_instruction`; drops
 `inspection_date` from the EVA payload; routes `vrm`/`reference` to Case-identity;
-and defaults the two EVA fields the parser does not yet emit
-(`claimant_telephone`, `claimant_email`) to empty. (Engineer allocation is NOT an
-EVA submission field — assigned inside EVA after submission; not in the contract.)
+and passes through `claimant_telephone` / `claimant_email` (which the parser now
+emits natively as of ROADMAP B2 — UK phone + email regex scoped to claimant/insured
+context, with provenance; left empty when not derivable, never invented). (Engineer
+allocation is NOT an EVA submission field — assigned inside EVA after submission; not
+in the contract.)
 
 > **Confirm with document-parser-engineer:** whether the sibling will rename its
-> native keys to the EVA set, add the two missing EVA fields, and/or expose a
-> bytes-in entry point. Until then `parser_adapter.EVA_KEY_FROM_PARSER_KEY` is
+> native keys to the EVA set and/or expose a bytes-in entry point (the claimant
+> telephone/email fields are already emitted natively as of ROADMAP B2). Until then
+> `parser_adapter.EVA_KEY_FROM_PARSER_KEY` is
 > the authoritative mapping and the only place to change it.
 
 ## Files

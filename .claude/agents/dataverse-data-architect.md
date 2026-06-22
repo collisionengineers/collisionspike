@@ -76,8 +76,9 @@ You also own the **Box schema additions** to the CollisionSpike solution (ADR-00
 The **Phase-7 Box schema + env-vars ARE applied live** in Dev (verified 2026-06-22): the `cr1bd_case` /
 `cr1bd_evidence` Box columns exist and every `BOX_*` env-var exists with all gates OFF (default AND
 current = false). `cr1bd_ENRICHMENT_ENABLED` is default=false / current=**true** (enrichment is LIVE in
-Dev via the current value, not the default). The `box-webhook` Function, `cr1bd_box_rest` connector, and
-Box flows are authored offline (state=off), not deployed/bound.
+Dev via the current value, not the default). The `box-webhook` Function is deployed gated-off
+(`cespkbox-fn-v76a47`, Gate-C-verified); the `cr1bd_box_rest` connector and Box flows remain authored
+offline (state=off), not imported/bound.
 
 You **define** the names/defaults; box-integration-architect supplies the runtime *values* the operator
 injects, power-automate-flow-builder stamps the columns at runtime, and azure-integration-engineer holds

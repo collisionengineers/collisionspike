@@ -1,11 +1,14 @@
 # collisionspike — M1 UI/UX design (descriptive spec)
 
-> **Scope.** This describes the **M1 UI/UX prototype** at `mockup-app/` — a standalone
+> **Scope.** This describes the **M1 UI/UX design** first prototyped at `mockup-app/` — a
 > Vite + React 18 + TypeScript app on **Fluent UI v9** (`@fluentui/react-components`), styled to the
-> Collision Engineers brand. It is **not** a Power Apps Code App: there is **no** `@microsoft/power-apps`,
-> no Dataverse, no connectors, and no network I/O. **All data is mock** (`src/mock/*`) and the app runs
-> fully offline. The prototype's job is to freeze the information architecture, the four-screen flow, the
-> status state machine, and the brand → Fluent token mapping before the real Code App is scaffolded.
+> Collision Engineers brand. The prototype's job was to freeze the information architecture, the
+> four-screen flow, the status state machine, and the brand → Fluent token mapping. That IA has since
+> been **promoted into the live Power Apps Code App** (`mockup-app/`, app `da7ba7af-…`): the directory
+> now carries the `@microsoft/power-apps` SDK, generated Dataverse models/services (`src/generated/*`),
+> and connector transports, with a **dual data layer** — the original mock source (`src/mock/*`, still
+> used for offline/test runs) alongside the live Dataverse/connector source (`src/data/dataverse-source.ts`).
+> The screens, status machine and theme mapping below describe the design as built.
 >
 > Companion doc: [`THEME-MAPPING.md`](./THEME-MAPPING.md) (the frozen CE → Fluent v9 token table).
 

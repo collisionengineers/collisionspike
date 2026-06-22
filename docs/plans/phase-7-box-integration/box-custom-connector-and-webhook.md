@@ -83,8 +83,10 @@ Box `client_secret` is a Function-side KV ref, never here."
 
 ## B. The token-mint + webhook-receiver Azure Function
 
-A new **`functions/box-webhook/` FC1 app** (the FC1-clone pattern; `cespkeva-fn-ufa3ci` is **not** in the
-live registry — record the chosen name in `live-environment.md` at deploy). One app carries two surfaces:
+The **`functions/box-webhook/` FC1 app** (the FC1-clone pattern), **deployed gated-off 2026-06-22 as
+`cespkbox-fn-v76a47`** (Running; MI `5db514c8-25f2-4d94-81ec-3878286d0087`; KV `cespkboxkvv76a47` empty —
+secrets pending; `BOX_API_ENABLED=false`, `BOX_ALLOWED_ROOT_ID=392761581105`; Gate-C verified, inert until
+CCG auth + secrets — see `live-environment.md` and REMAINING-STEPS.md). One app carries two surfaces:
 
 ### B.1 — CCG token-mint / facade
 

@@ -110,7 +110,7 @@ Platform app / secret / Admin authorization / interactive sign-in / `frame-src` 
    read identical truth. Add these two tables to `GeneratedServices` (`environmentVariableDefinitions`,
    `environmentVariableValues`, both OPTIONAL like `inspectionAddresses` so the offline build stays green) and
    to `generated-services.ts` once `pac code add-data-source` adds them. `fileRequestTemplateConfigured`
-   is `true` when a `cr1bd_BOX_FILEREQUEST_TEMPLATE_ID` env-var value is non-empty (the template id is an
+   is `true` when a `cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID` env-var value is non-empty (the template id is an
    operator-set value, never hardcoded). Cache the result in a module-level promise (read once at startup;
    expose `refetch` via the hook in step 3). Default every gate **false** on read failure (honest off).
    · **[Claude-buildable]** (the *reads*; the env-var *definitions* are dataverse-data-architect's to create) ·
@@ -307,7 +307,7 @@ Platform app / secret / Admin authorization / interactive sign-in / `frame-src` 
 - **dataverse-data-architect (01-schema-flows? / dataverse section):** the five env-var **definitions**
   `cr1bd_BOX_API_ENABLED`, `cr1bd_BOX_FOLDER_AT_INTAKE_ENABLED`, `cr1bd_BOX_FILEREQUEST_ENABLED`,
   `cr1bd_BOX_EMBED_ENABLED`, `cr1bd_BOX_METADATA_ENABLED` (default `false`) **+** a
-  `cr1bd_BOX_FILEREQUEST_TEMPLATE_ID` value, all in the `CollisionSpike` solution; confirmation `box_synced`
+  `cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID` value, all in the `CollisionSpike` solution; confirmation `box_synced`
   is in the case-status choice set (it already is, value `100000009`). Step 2 reads these.
 - **azure-integration-engineer:** the **custom Box REST connector definition** (CCG/JWT service identity)
   exposing `POST /2.0/folders`, `POST /2.0/file_requests/{id}/copy`, `PUT /2.0/folders/{id}` (shared_link),

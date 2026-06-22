@@ -17,7 +17,7 @@ Function, Dataverse schema, corpus, and Code App are live; the digital@ intake w
 5. [x] **B2** — claimant telephone/email extracted (parser redeployed 2026-06-19)
 
 **1b · Dataverse schema**
-6. [x] 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 11 env-vars (solution `CollisionSpike`)
+6. [x] 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 18 env-vars (M1 froze 11; +VALUATION/AZURE_VISION +Phase-7 BOX_* gates) (solution `CollisionSpike`)
 
 **1b.1/1b.2 · Provider corpus** — [corpus/dataverse-corpus-incorporation.md](./corpus/dataverse-corpus-incorporation.md)
 7. [x] Initial seed + provider/garage/location analysis (`raw/.../outputs/`)

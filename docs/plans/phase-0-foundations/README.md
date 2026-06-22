@@ -3,7 +3,7 @@
 **Goal:** stand up the repo, the typed contracts, the Dataverse schema-as-code, the Code App scaffold,
 the env-var feature gates, and the offline verification gate — everything the M1 slice builds on.
 
-**Status:** ✅ **Complete.** Verified by the offline gate (`node verify-all.mjs` → 6/6). See
+**Status:** ✅ **Complete.** Verified by the offline gate (`node verify-all.mjs` → 7/7). See
 [../../../CURRENT_STATUS.md](../../../CURRENT_STATUS.md) and [../../../ROADMAP.md](../../../ROADMAP.md) Phase 0.
 
 ## Implementation checklist (build order)
@@ -16,7 +16,7 @@ the env-var feature gates, and the offline verification gate — everything the 
 6. [x] **Data seam** — mock↔Dataverse swap + field adapter (app shows real rows only)
 7. [x] **Dataverse schema-as-code** authored (`dataverse/`) + parity test
 8. [x] **Env-var feature gates** defined
-9. [x] **Offline verification gate** green — `verify-all.mjs` (6 gates)
+9. [x] **Offline verification gate** green — `verify-all.mjs` (7 gates)
 10. [x] **Boundary-compliance gates** authored — no live calls in the app; no secret values; all flows `off`
 
 ## Plans in this phase

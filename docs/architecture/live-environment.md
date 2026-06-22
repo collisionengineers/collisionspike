@@ -1,9 +1,10 @@
 # Live environment reference — collisionspike (Sandbox)
 
-> Canonical registry of **what is actually deployed** and its IDs, verified live on **2026-06-19** (parser connector wired/bound; corpus incorporation verified).
-> **2026-06-22:** the Phase-7 Box pivot's **Dataverse schema + env-vars ARE applied live** (all `BOX_*` gates OFF);
-> the `box-webhook` Function, `cr1bd_box_rest` connector and Box flows are **authored offline (`state=off`)** —
-> not deployed/imported/bound. Rows below are tagged accordingly so this registry stays honest.
+> Canonical registry of **what is actually deployed** and its IDs, last re-verified live via `az` on **2026-06-22** (box-webhook Function deployed gated-off; OCR host running gated-off; Phase-7 Dataverse schema applied). Earlier baseline **2026-06-19** (parser connector wired/bound; corpus incorporation verified).
+> **2026-06-22:** the Phase-7 Box pivot's **Dataverse schema + env-vars ARE applied live** (all `BOX_*` gates OFF)
+> and the **`box-webhook` Function is DEPLOYED gated-off** (`cespkbox-fn-v76a47`, Gate-C verified, secret-free);
+> the `cr1bd_box_rest` connector and Box flows remain **authored offline (`state=off`)** — not imported/bound.
+> Rows below are tagged accordingly so this registry stays honest.
 > Pairs with [AGENTS.md](../../AGENTS.md) (rules/gotchas) and [CURRENT_STATUS.md](../../CURRENT_STATUS.md)
 > (status). For the **intended** end-state see [PLAN.md](../../PLAN.md) and
 > [microsoft-stack.md](./microsoft-stack.md). Re-verify IDs with the toolkit at the bottom before relying on them.
@@ -24,8 +25,9 @@
 | **Parser Function** (Flex Consumption FC1, Linux) | `cespike-parser-dev-x7xt3d5ovhi7y` → `https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net`, route `POST /api/parse`, body `{document(base64), filename}`, `authLevel=function`. Platform CORS allows `https://apps.powerapps.com`. The function key now lives **only on the parser connection** (`01b43be8…`, see below) — the old raw-fetch path (`mockup-app/src/data/parser-config.ts`) was **deleted 2026-06-19**, so the key is no longer in the client bundle. **REDEPLOYED 2026-06-19**: B2 claimant telephone/email extraction live; EVA schema now vendored in-package (`functions/parser/contracts/`) so `/api/parse` no longer emits a spurious `schema_unavailable` issue. |
 | **Enrichment Function** (**ACTIVATED 2026-06-20**) | `cespkenrich-fn-gi62sd` — calls DVSA + DVLA **directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway** (B1 obviated). KV `cespkenrichkv…`. **`ENRICHMENT_ENABLED=true`** (Dataverse gate flipped 2026-06-20). Live-verified: `BC23JZE`→`REXTON`/SSANGYONG, `L333FGN`→`220I M SPORT AUTO`/BMW. DVSA/DVLA creds present as **plain app settings** (bicep intends KV refs — hygiene deviation). Mileage = MOT-odometer estimate only (near-new vehicles return none, by design). |
 | **Address-match Function** (FC1, Linux) — **deployed 2026-06-19** | `cespkaddr-fn-i7m4re` → route `POST /api/match-address`, `authLevel=function`. Part-postcode `Loc` → inspection address via **postcode.io** (`AZURE_MAPS_ENABLED=false`). Live-verified (district match + postcode.io reachable). No secrets, no Key Vault. ROADMAP 4a. |
-| **OCR host** (Azure Container Apps) — **image ready, host deploy PENDING** (2026-06-19) | Image `ce-ocr:latest` is **built + pushed** to ACR (the hard part — see ACR row). The ACA host deploy (`ocr/infra/main.bicep`, routes `/api/ocr-pdf` + `/api/plate-ocr`, `minReplicas=0`) **failed 3×** — `ContainerAppOperationError: Failed to provision revision … Operation expired` (~20 min each), so the platform rolled back the site (no `cespkocr-fn-…` exists). Adapters already lazy-import the heavy libs, so it is **not** a startup crash — most likely the AcrPull RBAC-propagation race (system-assigned MI granted AcrPull in the same deploy) or an ingress health-probe mismatch. **Next:** use a pre-granted **user-assigned MI** for AcrPull, or inspect ACA revision logs. NOT live. ROADMAP 5a / B-full. |
-| **Container Registry** (Basic) — **created 2026-06-19** | `cespkocracraeee76` (`cespkocracraeee76.azurecr.io`), admin user **off** (identity-based AcrPull). Holds **`ce-ocr:latest`** (digest `sha256:9f1b26…`) — the built OCR image, ready for the host once its revision provisions. |
+| **Box-webhook Function** (FC1, Linux) — **deployed gated-off 2026-06-22** | `cespkbox-fn-v76a47` → `https://cespkbox-fn-v76a47.azurewebsites.net`, receiver `POST /api/box-webhook` + connector facade routes, `authLevel=function`. KV `cespkboxkvv76a47` (empty — secrets pending), MI `5db514c8-25f2-4d94-81ec-3878286d0087`. `BOX_API_ENABLED=false`, `BOX_ALLOWED_ROOT_ID=392761581105`. Phase 7 / ADR-0012. Endpoint live but inert until secrets + CCG auth (REMAINING-STEPS.md). |
+| **OCR host** (Azure Container Apps) — **DEPLOYED + Running, gated off** (2026-06-22) | `cespkocr-fn-dev-glju3v` (Functions-on-ACA; managed env `cespkocr-env-dev`, UAMI `cespkocr-acrpull-id` for AcrPull) is **deployed and Running**, pulling image `ce-ocr:latest` from ACR (routes `/api/ocr-pdf` + `/api/plate-ocr`, `minReplicas=0`). `OCR_PROVIDER=tesseract`, `PLATE_PROVIDER=fast_alpr`. **Gated off** — dormant until the OCR providers are enabled (no `*_ENABLED` flip). The earlier ACA provision failures (`ContainerAppOperationError … Operation expired`) were resolved by switching to a **pre-granted user-assigned MI** for AcrPull (the remedy this row used to prescribe). ROADMAP 5a / B-full. |
+| **Container Registry** (Basic) — **created 2026-06-19** | `cespkocracraeee76` (`cespkocracraeee76.azurecr.io`), admin user **off** (identity-based AcrPull). Holds **`ce-ocr:latest`** (digest `sha256:9f1b26…`) — the OCR image now pulled by the running ACA host `cespkocr-fn-dev-glju3v` (AcrPull via UAMI `cespkocr-acrpull-id`). |
 
 ## Code App
 | Thing | Value |
@@ -81,15 +83,16 @@ Bound = has a connection; **empty = NOT yet connected** (operator must create th
 > (inside `Scope_generate_casepo`) is an operator/business-phase live edit and is **not** reflected in the
 > stale repo `intake.definition.json`. See [docs/plans/phase-7-box-integration/](../plans/phase-7-box-integration/).
 
-## Phase-7 Box pivot (schema LIVE; Function/connector/flows authored offline)
+## Phase-7 Box pivot (schema LIVE; `box-webhook` Function DEPLOYED gated-off; connector/flows authored offline)
 
 ADR-0012's Box-centric intake pivot has its **Dataverse schema + env-vars APPLIED LIVE** (verified via
-`az` against Dev, 2026-06-22 — all `BOX_*` gates OFF); the `box-webhook` Function, the `cr1bd_box_rest`
-connector and the Box flows are **authored offline (`state=off`), not deployed/imported/bound.**
+`az` against Dev, 2026-06-22 — all `BOX_*` gates OFF) and its **`box-webhook` Function DEPLOYED gated-off**
+(`cespkbox-fn-v76a47`, Gate-C verified, secret-free); the `cr1bd_box_rest` connector and the Box flows
+remain **authored offline (`state=off`), not imported/bound.**
 
 | Artefact | State | Where |
 |---|---|---|
-| `box-webhook` Azure Function (CCG token-mint + HMAC webhook receiver) | **Authored offline, NOT deployed** (no Azure resource exists) | `functions/box-webhook/` (pytest 71 passed; bicep in `infra/`, OpenAPI in `openapi/`) |
+| `box-webhook` Azure Function (CCG token-mint + HMAC webhook receiver) | **DEPLOYED gated-off 2026-06-22** — `cespkbox-fn-v76a47` (FC1 Linux, `rg-collisionspike-dev`, UK South) → `https://cespkbox-fn-v76a47.azurewebsites.net`, receiver `POST /api/box-webhook`. MI principal `5db514c8-25f2-4d94-81ec-3878286d0087`; KV `cespkboxkvv76a47` (**empty — secret values pending**). `BOX_API_ENABLED=false`, `BOX_ALLOWED_ROOT_ID=392761581105` (Layer-2 lock). **Pending:** CCG Admin-auth, the 4 KV secrets (`box-client-secret` + webhook keys + flow URL), Function-MI Dataverse Application User — see `docs/plans/phase-7-box-integration/REMAINING-STEPS.md`. | `functions/box-webhook/` (pytest 79 passed; bicep in `infra/`, OpenAPI in `openapi/`) |
 | 5 `BOX_*` gates + 2 config vars + 3 audit actions + `cr1bd_box*` columns | **APPLIED LIVE** — `cr1bd_case` carries `boxfolderid`/`boxfolderurl`/`boxsyncedat`/`boxfilerequestid`/`boxfilerequesturl`/`sourcemailbox`, `cr1bd_evidence` carries `boxfileid`/`boxfileurl`, and all `cr1bd_BOX_*` env-vars exist (default **and** current = `false`) | `dataverse/environment-variables.json`, `dataverse/schema/case.json`, `dataverse/choicesets/audit-event.json`; applied via `dataverse/.build/25-box-schema.ps1` (adds 9 case columns) |
 | `cr1bd_box_rest` custom connector | **OpenAPI authored offline, NOT imported**; connection unbound | `functions/box-webhook/openapi/`, `flows/connection-references.json` |
 | Box flows (`box-folder-create`/`box-file-request-copy`/`box-blob-purge` + finalize/case-resolve deltas) | **Authored `state=off`, NOT imported live** | `flows/definitions/`, lint 154/154 |

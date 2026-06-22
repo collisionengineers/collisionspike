@@ -20,18 +20,19 @@ a webhook advances the case on upload. **Dataverse stays the system of record; B
 
 **Status (2026-06-22):** approved (ADR-0012) and **BUILT in the working tree — authored + offline-verified
 + free-account REST-tested; the Phase-7 Dataverse schema + env-vars are APPLIED LIVE (all `BOX_*` gates
-OFF), the Function/connector/flows are authored offline, not deployed/bound.** The full B0–B4 + Phase-C
+OFF), the `box-webhook` Function is DEPLOYED gated-off (secret-free, Gate-C-verified), and the connector/flows are authored offline, not imported/bound.** The full B0–B4 + Phase-C
 `[C]` set is authored: the docs spine (this README + the two specs + ADR-0012 + architecture §Box), the
 **Dataverse schema-as-code** (5 `BOX_*` gates + 2 config vars + 3 `cr1bd_box*` columns + `cr1bd_boxsyncedat`
 + the submit-signal columns + the `cr1bd_finalizedpayloadhash` drift declaration + 3 audit actions;
-`verify-parity.mjs` locked), the **`box-webhook` Azure Function** (CCG mint + HMAC receiver; **pytest 71**),
+`verify-parity.mjs` locked), the **`box-webhook` Azure Function** (CCG mint + HMAC receiver; **pytest 79**),
 the **3 new flows** (`box-folder-create`, `box-file-request-copy`, `box-blob-purge`) + the
 `finalize-eva-box`/`case-resolve` reworks (**flow linter 154/154**), and the **Code App surfacing**
 (`getBoxGates`, submit-signal finalize, `copy_file_request` chaser, "Open in Box" deep link; **vitest 256,
 `tsc -b` clean**). **The Box Dataverse schema + env-vars ARE applied live** (verified via `az` against Dev
 2026-06-22: the `cr1bd_box*` case + evidence columns and every `cr1bd_BOX_*` env-var exist; every `BOX_*`
-gate is `false`, default AND current). **The `box-webhook` Function, the `cr1bd_box_rest` custom connector,
-and the Box flows are authored offline (`state=off`) — not deployed, imported, or bound; no Box connection
+gate is `false`, default AND current). **The `box-webhook` Function is DEPLOYED gated-off (`cespkbox-fn-v76a47`,
+`BOX_API_ENABLED=false`, KV `cespkboxkvv76a47` empty/secrets pending, Gate C verified). The `cr1bd_box_rest`
+custom connector and the Box flows are authored offline (`state=off`) — not imported or bound; no Box connection
 is bound.** The hard unlock — a Box Platform app + Admin-Console authorization on a **Business or higher**
 tenant — plus the BLOCKING `FILE.UPLOADED` live-test are operator-only and **not yet done** (the long pole;
 see the two-phase live-testing note below). The B0–B4 checklist boxes below stay `[ ]` because they fold in
@@ -56,8 +57,8 @@ waves. State each line as `[ ]` until built/flipped.
 
 ### B0 — Unlock: connector + token-mint/webhook Function + schema (gate `BOX_API_ENABLED`)
 
-Nothing else runs until the decision record exists, the gates + columns exist, and the custom connector
-+ webhook Function are built and importable.
+Nothing else runs until the decision record exists, the gates + columns exist, the custom connector is
+built and importable, and the webhook Function is built (now deployed gated-off as `cespkbox-fn-v76a47`).
 
 1. [ ] **[C]** ADR-0012 + architecture §Box (`integrations.md`, `data-model.md` one-way-mirror rule,
    a planning-placeholder `live-environment.md` Box row). _(This README + the two specs below are the

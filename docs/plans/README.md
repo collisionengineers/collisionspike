@@ -50,8 +50,9 @@ docs/plans/
 > [`box-integration-pivot/plans/00-BUILD-PLAN.md`](../../box-integration-pivot/plans/00-BUILD-PLAN.md)
 > (which **wins over** the six section plans 01–06); the phase folder here is the in-tree spine. Status:
 > **the Phase-7 Box Dataverse schema + `cr1bd_BOX_*` env-vars are APPLIED LIVE in Dev (all `BOX_*` gates
-> OFF); the `box-webhook` Function, the `cr1bd_box_rest` connector and the Box flows are authored offline
-> (`state=off`), not deployed/bound** — plus free-account REST-tested.
+> OFF); the `box-webhook` Function is DEPLOYED to `rg-collisionspike-dev` (`cespkbox-fn-v76a47`, 9 functions,
+> Gate-C-verified on the deployed host) but runs gated OFF and secret-free; the `cr1bd_box_rest` connector
+> and the Box flows remain authored offline (`state=off`), not deployed/bound** — plus free-account REST-tested.
 
 ## Plans (one line each: purpose · ROADMAP item)
 

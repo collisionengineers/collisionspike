@@ -5,15 +5,16 @@ Power Platform** (Power Apps **Code App** + Dataverse + Power Automate). It prot
 intake → parse → review → enrich → **EVA** + **Box** pipeline cheaply, to validate the workflow
 and de-risk the mature cloud build (`collisioncc`, which is on Google Cloud).
 
-> **Status (2026-06-18):** the M1 slice is built **and much is now deployed to a dedicated Sandbox** —
+> **Status (2026-06-22):** the M1 slice is built **and much is now deployed to a dedicated Sandbox** —
 > the **parser Function is live** (FC1, real extraction), the **Dataverse schema + provider corpus** are
 > built/seeded, the **Code App is live** (manual intake works; logo/fonts/nav fixed), and the **enrichment
-> Function is deployed gated-OFF** (direct DVSA/DVLA — the Google Cloud gateway was retired). The 10 flows
-> are imported **OFF**. Still operator-gated: **live email intake**, **EVA/Box**, **enrichment activation**
+> Function is deployed and live (`ENRICHMENT_ENABLED=true` in Dev)** (direct DVSA/DVLA — the Google Cloud gateway was retired). The 15 flow definitions
+> are imported **OFF** except the Claude-wired `case-resolve` merge-by-registration flow. Still operator-gated: **live email intake** and **EVA/Box**
 > (the live-services boundary). **No mock data** — the app shows real Dataverse rows only.
 > **Phase 7 (the Box-centric intake pivot — [ADR-0012](./docs/adr/0012-box-centric-intake-additive-hybrid.md))**
 > has its **Dataverse schema + env-vars applied live (all `BOX_*` gates `false`)**, with the `box-webhook`
-> Function, the `cr1bd_box_rest` connector and the Box flows **authored offline (not deployed/bound)**:
+> Function **deployed to Azure (`cespkbox-fn-v76a47`) and Gate-C-verified but gated OFF and secret-free**, while the
+> `cr1bd_box_rest` connector and the Box flows remain **authored offline (not imported/bound)**:
 > a per-Case/PO Box folder at parse-confirm + File-Request image chasers + a webhook that advances the case,
 > as a **one-way Box mirror with Dataverse authoritative**; evidence is **linked, not embedded** (a
 > server-minted "Open in Box" deep link — no iframe/`frame-src` edit). The always-on Box-account integration
@@ -39,14 +40,14 @@ and de-duplicate every action. Full pipeline: [docs/requirements/intake-workflow
 
 ## Phase 1 build (M1) — what's in the repo now
 
-Built and offline-verifiable: `node verify-all.mjs` → 6 gates (Code App build + 192 tests, Dataverse
-parity, flow linter, parser + enrichment pytest).
+Built and offline-verifiable: `node verify-all.mjs` → 7 gates (Code App build + 256 tests, Dataverse
+parity, flow linter, parser + enrichment pytest, and a generated-service no-`uploadFileToRecord` guard).
 
 - **Plan:** [docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md](./docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md) · **Deploy:** [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) (the `[DEPLOY-WITH-LOGIN]` / `[RESERVED-FOR-USER]` sequence + blockers).
 - `mockup-app/` — the Code App (React + Fluent v9): `src/contracts/` (EVA/status/image), `src/domain/` (classification, ADR-0010 dedup, provider-match, address-policy), `src/data/` (the mock↔Dataverse seam), screens.
 - `dataverse/` — schema-as-code (10 tables + provenance, choice sets, env-vars, relationships).
-- `functions/{parser,enrichment}/` — Azure Functions (code, Bicep, OpenAPI, mocked pytest).
-- `flows/` — the 10 Power Automate flow definitions (`state=off`) + offline linter.
+- `functions/` — Azure Functions (`parser`, `enrichment`, `addressmatch`, `evasentry`, `evavalidation`, `box-webhook`; code, Bicep, OpenAPI, mocked pytest).
+- `flows/` — the 15 Power Automate flow definitions (`state=off` except the Claude-wired `case-resolve`) + offline linter (154/154).
 - `.claude/skills/power-automate-flow/` — reusable flow-authoring patterns.
 
 ## Relationship to the other repos

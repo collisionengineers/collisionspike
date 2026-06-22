@@ -1,7 +1,12 @@
 # box-webhook Function (Phase 7 / ADR-0012, build-plan 03)
 
-[BUILD] — authored offline; deploy is [DEPLOY-WITH-LOGIN]; the Box `client_secret`
-+ webhook signature keys + the Box app's Admin authorization are [RESERVED-FOR-USER].
+[DEPLOYED] — the Function app (`cespkbox-fn-v76a47`, FC1, system-assigned MI) is
+deployed to `rg-collisionspike-dev` with 9 functions published and **Gate C verified**
+on the live host (receiver no-key → 401, key+unsigned → 400, facade gated-off → 503);
+it runs **gated OFF** (`BOX_API_ENABLED=false`) and **secret-free** (KV
+`cespkboxkvv76a47` empty). Still [RESERVED-FOR-USER]: the Box `client_secret` +
+webhook signature keys (into KV), the Box app's Admin authorization (CCG), the
+`cr1bd_box_rest` connector import/bind, and every gate flip.
 **Claude never holds a Box credential.**
 
 One FC1 Function app, two surfaces:
@@ -22,8 +27,10 @@ Unified operationIds (the generated `*Service` method names MUST equal these):
 `GetFileRequest`/`UpdateFileRequest`/`DeleteFileRequest`.
 
 Gated by `BOX_API_ENABLED` (defence in depth; the flow reads the Dataverse gate).
-When the gate is OFF the facade/receiver `_gated_off` path returns **503** (so an
-upstream caller / Box treats it as transient, not a permanent 2xx accept).
+When the gate is OFF the facade `_gated_off` path returns **503** (so an
+upstream caller treats it as transient, not a permanent 2xx accept). The receiver
+is not gated by `BOX_API_ENABLED`; it returns 400/403 on bad input and 503 only on
+a **transient** processing failure (so Box retries).
 
 ## B. Webhook receiver — `POST /api/box-webhook`
 Box → Function (server-to-server). The **load-bearing order** is enforced in
@@ -91,7 +98,7 @@ python -m pytest -q
    `root_readwrite` + `manage_webhook`); Admin-authorize it.
 2. Inject `box-client-secret`, `box-webhook-primary-key`, `box-webhook-secondary-key`
    into Key Vault.
-3. Deploy the bicep; add the Function MI as a Dataverse Application User.
+3. ~~Deploy the bicep~~ (DONE — `cespkbox-fn-v76a47` is deployed + Gate-C-verified, gated off); add the Function MI as a Dataverse Application User.
 4. Import the custom connector; bind `cr1bd_box_rest` (the parallel REST
    connection — `shared_box` stays for finalize's byte path).
 5. Flip `BOX_API_ENABLED` (test env first). Live-test the

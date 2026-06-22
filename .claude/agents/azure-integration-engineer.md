@@ -79,10 +79,12 @@ You also own the **Azure-side implementation of the Box integration** (ADR-0012;
 - the **`cr1bd_box` connection repoint** (repoint-in-place vs a parallel `cr1bd_box_rest` is UNPINNED —
   surface it, don't assert it).
 
-The **Phase-7 Box Dataverse schema + env-vars are applied live** (all `BOX_*` gates default OFF); the
-`box-webhook` Function, the `cr1bd_box_rest` connector, and the Box flows are **authored offline
-(state=off)** — not deployed/imported/bound live. The always-on Box account integration (CCG token mint,
-`FILE.UPLOADED` webhook, template File Request) is **deferred to a future Business-account phase**.
+The **Phase-7 Box Dataverse schema + env-vars are applied live** (all `BOX_*` gates default OFF), and the
+**`box-webhook` Function IS deployed gated-off** (`cespkbox-fn-v76a47`, FC1, Gate-C-verified;
+`BOX_API_ENABLED=false`, KV secrets not yet injected). The `cr1bd_box_rest` connector and the Box flows
+remain **authored offline (state=off)** — not imported/bound live. The always-on Box account integration
+(CCG token mint, `FILE.UPLOADED` webhook, template File Request) is **deferred to the Business-account
+phase** (operator-gated on the CCG Admin-Console authorization).
 
 You **receive** the Box contract (scopes, endpoints, webhook semantics, live-test results) **from
 box-integration-architect** — you implement it, you don't define it. Lean on the **box-rest-api** skill.

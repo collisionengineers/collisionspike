@@ -39,7 +39,7 @@ NO new connection** — the existing `digital@` connection + the **V2 shared-mai
 
 ---
 
-## 2. Current state (verified live 2026-06-18)
+## 2. Current state (verified live 2026-06-18; flow on/off refreshed 2026-06-21)
 
 - **Connected identity / maker / current intake mailbox:** `digital@collisionengineers.co.uk`
   (`az account show` → user `digital@collisionengineers.co.uk`; `live-environment.md:14`).
@@ -48,9 +48,10 @@ NO new connection** — the existing `digital@` connection + the **V2 shared-mai
   `connectionreferences` GET. This is the **only** Outlook connection; reuse it.
 - **Live flow `CS Intake`** (`workflowid 92131f3d-9cd5-4e88-aa9e-a5705a5850a0`, internal guid
   `8d534fc9-9058-a6f4-4dfd-245b350703b5`): trigger **`OnNewEmailV3`**, folder `Inbox`, **concurrency = 1**,
-  `includeAttachments = true`. ON. Downstream **ON**: `CS Provider Match` (`0f610d7c…`),
-  `CS Case Resolve` (`1ddb50a5…`). OFF: classify-persist, parse, status-evaluate, enrich, finalize, chasers,
-  jobsheet (`live-environment.md:54-66`).
+  `includeAttachments = true`. ON. Downstream **ON**: `CS Classify + Persist` (`2a6236f9…`),
+  `CS Parse` (`468ffd29…`), `CS Provider Match` (`0f610d7c…`), `CS Case Resolve` (`1ddb50a5…`),
+  `CS Status Evaluate` (`4d963ff7…`), `CS Enrich` (`4e0f301f…`) — the full digital@ chain went live
+  2026-06-20/21. **OFF**: finalize (EVA+Box), chasers, jobsheet (`live-environment.md` §"Cloud flow inventory").
 - **Authored definition `flows/definitions/intake.definition.json`** already uses
   **`SharedMailboxOnNewEmailV2`** with `mailboxAddress = @parameters('IntakeMailbox')`, `folderId = 'Inbox'`,
   `includeAttachments`, `hasAttachments`, `importance` — and carries the `MinIntakeDate` go-live guard +

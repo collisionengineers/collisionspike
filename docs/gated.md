@@ -124,15 +124,19 @@ optional metadata field.
 
 > **State of the Box pivot (Phase 7, ADR-0012):** everything Claude can build is **done in the working
 > tree and offline-verified** — the Dataverse schema-as-code (5 `BOX_*` gates + 2 config vars + 3 `cr1bd_box*`
-> columns + 3 audit actions), the `box-webhook` Azure Function (pytest 71 passed), the 3 new flows +
+> columns + 3 audit actions), the `box-webhook` Azure Function (pytest 79 passed), the 3 new flows +
 > the `finalize-eva-box`/`case-resolve` reworks (linter 154/154), and the Code App surfacing (vitest 256
 > passed). **The Box Dataverse schema + `cr1bd_BOX_*` env-vars ARE applied live** (verified via `az`
 > against Dev 2026-06-22: the `cr1bd_box*` case + evidence columns and every `cr1bd_BOX_*` env-var exist),
-> with **every `BOX_*` gate `false`** (default AND current). **What is NOT live:** the `box-webhook`
-> Function, the `cr1bd_box_rest` custom connector and the Box flows are authored offline (`state=off`) —
-> not deployed to Azure, not imported, not bound; no Box connection is bound; the `box-folder-create`
-> live-intake edit is not made. So the whole of item 5 — deploy/import/bind/flip + the BUSINESS account —
-> is still yours.
+> with **every `BOX_*` gate `false`** (default AND current). **The `box-webhook` Azure Function is now
+> DEPLOYED gated-off** (2026-06-22): `cespkbox-fn-v76a47` (FC1, `rg-collisionspike-dev`) — receiver
+> `POST /api/box-webhook` + connector-facade routes, Gate-C-verified (no-key→401, key+unsigned→400,
+> facade gated-off→503), with `BOX_API_ENABLED=false` and `BOX_ALLOWED_ROOT_ID=392761581105`, and its
+> KV `cespkboxkvv76a47` still **empty** (no secrets). **What is still NOT live:** the `cr1bd_box_rest`
+> custom connector and the Box flows are authored offline (`state=off`) — not imported, not bound; no Box
+> connection is bound; the KV secrets + webhook subscription aren't in place; the `box-folder-create`
+> live-intake edit is not made. So the rest of item 5 — connector import/bind, secrets, webhook sub, the
+> gate flips + the BUSINESS account — is still yours.
 >
 > **The long pole is the BUSINESS-account second test phase.** Live testing so far used a throwaway **FREE**
 > Box account (dev token), which proved the raw REST mechanics (8/9 ops; folder created + deleted, no secret
