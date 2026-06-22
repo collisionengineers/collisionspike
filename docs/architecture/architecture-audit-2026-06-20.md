@@ -53,7 +53,7 @@ address-policy gate + plate-OCR) and the **M2** resources that are deliberately 
 | Function / role | Live resource(s) | IaC | State |
 |---|---|---|---|
 | **Parser** (PDF mapper, FC1 Linux Python) | `cespike-parser-dev-x7xt3d5ovhi7y` + storage `cespikestx7xt3d` + `cespike-parser-law-dev` / `cespike-parser-ai-dev` + FC1 plan | [`functions/parser/infra/main.bicep`](../../functions/parser/infra/main.bicep) | **Live** — FC1, identity `AzureWebJobsStorage__accountName` + system-MI Storage Blob Data Owner, `httpsOnly`, TLS 1.2, `ftpsState Disabled`, workspace-bound App Insights. ⚠️ storage **omits** `allowSharedKeyAccess:false` — see [F4](#f4--s7-iac-parser-storage-bicep-omits-allowsharedkeyaccessfalse). |
-| **Enrichment** (DVSA/DVLA direct, gated OFF) | `cespkenrich-fn-gi62sd` + KV `cespkenrichkvgi62sd` + `cespkenrich-ai-gi62sd` — **no `cespkenrich-law` in the RG** | [`functions/enrichment/infra/main.bicep`](../../functions/enrichment/infra/main.bicep) | **Live, gated OFF** — calls DVSA + DVLA directly via Entra `client_credentials` + `X-API-Key` (no Google Cloud gateway). App Insights workspace binding **drifted** — see [F5](#f5--iac-drift-live-enrichment-app-insights-has-no-companion-workspace-in-the-rg). |
+| **Enrichment** (DVSA/DVLA direct, activated 2026-06-20) | `cespkenrich-fn-gi62sd` + KV `cespkenrichkvgi62sd` + `cespkenrich-ai-gi62sd` — **no `cespkenrich-law` in the RG** | [`functions/enrichment/infra/main.bicep`](../../functions/enrichment/infra/main.bicep) | **Live, gate ON** (`ENRICHMENT_ENABLED` current=`true`; default `false`) — calls DVSA + DVLA directly via Entra `client_credentials` + `X-API-Key` (no Google Cloud gateway). App Insights workspace binding **drifted** — see [F5](#f5--iac-drift-live-enrichment-app-insights-has-no-companion-workspace-in-the-rg). |
 | **Address-match** (FC1 Linux) | `cespkaddr-fn-i7m4re` + its own LAW | [`functions/addressmatch/infra/main.bicep`](../../functions/addressmatch/infra/main.bicep) | **Live** — `POST /api/match-address`, part-postcode `Loc` → corpus yard via district, postcode.io (`AZURE_MAPS_ENABLED=false`). No secrets / no Key Vault. Sets `allowSharedKeyAccess:false`. |
 | **OCR host** (Functions-on-ACA, scale-to-zero) | `cespkocr-fn-dev-glju3v` on ACA env `cespkocr-env-dev`, ACR `cespkocracraeee76`, pre-granted UAMI `cespkocr-acrpull-id`, `ocr-law` | [`ocr/infra/main.bicep`](../../ocr/infra/main.bicep) + [`ocr/infra/acrpull-role.bicep`](../../ocr/infra/acrpull-role.bicep) | **Live + Running** — `/api/ocr-pdf` + `/api/plate-ocr`, `minReplicas=0`, HTTPS-only. AcrPull race fixed by the pre-granted UAMI + `siteConfig.acrUserManagedIdentityID`. Connector wiring + `OCR_SCANNED_PDF_ENABLED`/`PLATE_OCR_ENABLED` flip remain. |
 | **Evidence storage** | `cespkevidstdev01` | — | Present (later-phase Blob evidence). |
@@ -87,8 +87,9 @@ references only (no secret literals), `httpsOnly`, `minTlsVersion 1.2`, `ftpsSta
   eva_submitted`; the audit action-value set includes `duplicate_dropped` (`100000005`, reused for
   `dropped_before_min_date`) and the `.eml` evidence kind `email=100000003`.
 - **Env-var feature gates** ([`dataverse/environment-variables.json`](../../dataverse/environment-variables.json),
-  11 declared): `cr1bd_PDF_MAPPER_ENABLED=true`, `cr1bd_ENRICHMENT_ENABLED=true` (default; **overridden
-  OFF** in the Dev sandbox), `cr1bd_ENRICHMENT_API_BASE`, `cr1bd_EVA_API_ENABLED=false`,
+  11 declared): `cr1bd_PDF_MAPPER_ENABLED=true`, `cr1bd_ENRICHMENT_ENABLED` (**default `false`**; the Dev
+  sandbox **current value = `true`** — enrichment is activated live in Dev via the per-env current value,
+  not the shipped default), `cr1bd_ENRICHMENT_API_BASE`, `cr1bd_EVA_API_ENABLED=false`,
   `cr1bd_EVA_BASE_URL`, `cr1bd_EVA_CLIENT_ID`/`cr1bd_EVA_CLIENT_SECRET` (Secret → KV refs),
   `cr1bd_AZURE_MAPS_ENABLED=false`, `cr1bd_VALUATION_ENABLED=false`, `cr1bd_COPILOT_ENABLED=false`,
   `cr1bd_AZURE_VISION_ENABLED=false`. Gaps found — see [F9](#f9--env-var--gate-coherence-manifest-vs-flows--bicep).
@@ -107,7 +108,7 @@ Dataverse `workflows` query (`category eq 5`) on 2026-06-20:
 | **CS Classify + Persist** | **1** | **ON** ← live-environment.md shows OFF ([F1](#f1--doc-drift-live-environmentmd-shows-the-m1-chain-off-but-it-is-on--highest-impact)) |
 | **CS Parse (PDF mapper)** | **1** | **ON** ← live-environment.md shows OFF ([F1](#f1--doc-drift-live-environmentmd-shows-the-m1-chain-off-but-it-is-on--highest-impact)) |
 | **CS Status Evaluate** | **1** | **ON** ← live-environment.md shows OFF ([F1](#f1--doc-drift-live-environmentmd-shows-the-m1-chain-off-but-it-is-on--highest-impact)) |
-| CS Enrich (DVSA MOT) | 0 | OFF (gated) |
+| CS Enrich (DVSA MOT) | 1 | **ON** — activated 2026-06-20 (`ENRICHMENT_ENABLED` current=`true`; default `false`) |
 | CS Finalize EVA + Box | 0 | OFF (gated) |
 | CS Chaser Draft | 0 | OFF |
 | CS Job Sheet Import | 0 | OFF |
@@ -276,12 +277,13 @@ Ordered by impact. **CLAUDE-fixable** = offline, no live mutation (staged here, 
   2. The parser Bicep app setting **`EVA_PAYLOAD_SCHEMA_PATH`** and the enrichment **`DVSA_TENANT_ID`**
      are real per-environment knobs **not** represented as Dataverse env-vars (they are per-env app
      settings, by design — record it).
-  3. The manifest defaults `cr1bd_PDF_MAPPER_ENABLED=true` **and** `cr1bd_ENRICHMENT_ENABLED=true`, but
-     [CURRENT_STATUS.md](../../CURRENT_STATUS.md) says enrichment is gated **OFF** in the sandbox — the
-     per-environment `currentValue` **overrides** the shipped default for Dev.
+  3. The manifest defaults `cr1bd_PDF_MAPPER_ENABLED=true`, while `cr1bd_ENRICHMENT_ENABLED` ships
+     **default `false`**; per [CURRENT_STATUS.md](../../CURRENT_STATUS.md) enrichment is **activated ON**
+     in the Dev sandbox — the per-environment `currentValue=true` **overrides** the shipped `false` default
+     for Dev.
 - **Remediation (staged).** Add the missing `cr1bd_CHASER_SEND_ENABLED` entry; add a note that
   `EVA_PAYLOAD_SCHEMA_PATH` / `DVSA_TENANT_ID` are per-env app settings (not env-vars); document the Dev
-  `ENRICHMENT_ENABLED` per-env OFF override. No live mutation.
+  `ENRICHMENT_ENABLED` per-env ON override (default `false`). No live mutation.
 - **Cite:** [learn.microsoft.com/power-apps/maker/data-platform/environmentvariables](https://learn.microsoft.com/power-apps/maker/data-platform/environmentvariables)
 
 ### F10 — S9 IaC SPRAWL (optional): per-Function Log Analytics workspaces

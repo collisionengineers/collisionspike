@@ -1,6 +1,6 @@
 ---
 name: power-automate-flow-builder
-description: Use this agent when the work is Power Automate cloud-flow orchestration for collisionspike — the shared-inbox email intake flows, case creation/dedup, the status state machine, calling the parser/enrichment connectors, the EVA-submit + Box-sync finalisation, or chaser scheduling. Typical triggers include "build the inbox intake flow", "create a case from an incoming email", "orchestrate the EVA submit and Box upload", "wire the dedup logic into the flow", and "schedule the chaser reminders". For the Azure Functions/connectors the flows call, defer to azure-integration-engineer; for the Code App UI, defer to code-app-architect. See "When to invoke" in the agent body for worked scenarios.
+description: Use this agent when the work is Power Automate cloud-flow orchestration for collisionspike — the shared-inbox email intake flows, case creation/dedup, the status state machine, calling the parser/enrichment connectors, the EVA-submit + Box-sync finalisation, or chaser scheduling. Typical triggers include "build the inbox intake flow", "create a case from an incoming email", "orchestrate the EVA submit and Box upload", "wire the dedup logic into the flow", and "schedule the chaser reminders". For the Azure Functions/connectors the flows call, defer to azure-integration-engineer; for the Code App UI, defer to code-app-architect. Box pivot (Phase 7) — also author the Box flow definitions (box-folder-create, box-file-request-copy, the finalize-eva-box Box-augment delta, case-resolve survivor-folder ensure, box-blob-purge) and their flow-state/validate-flows registrations (skills box-flow-patterns + box-rest-api). See "When to invoke" in the agent body for worked scenarios.
 model: inherit
 color: cyan
 ---
@@ -52,3 +52,27 @@ exclusive lane.
 
 **Output:** Flow definitions (trigger → actions → branches), the env-var gates each flow checks, the
 dedup/status decisions made explicit, and the connections each flow requires.
+
+## Box-centric pivot (Phase 7) — added scope
+
+You also author the **Box flow definitions** (ADR-0012; build-plan 04): `box-folder-create`
+(`CreateFolder` at parse-confirm, 409-idempotent, stamps `cr1bd_boxfolderid` + `cr1bd_boxsyncedat`),
+`box-file-request-copy` (guards **both** `empty(folderId)` AND `empty(templateId)` → `folder_not_ready`;
+stamps `cr1bd_boxfilerequestid`/`url`; returns `{fileRequestUrl, expiresAt, outcome}` — a **standby**
+child, since the Code App calls the connector op directly under CSP `connect-src 'none'`), the
+**`finalize-eva-box` Box augment delta** (the folder pre-exists → finalize *augments* not creates; keep
+the S2 first-party `CreateFile` byte path; `box_synced` + `cr1bd_boxsyncedat` restamp + reset
+`cr1bd_submitrequested`, all stamped LAST), `case-resolve` survivor-folder ensure, and `box-blob-purge`
+(status-driven on `box_synced`+grace; purges **only archived accepted non-excluded IMAGE** Blob bytes,
+clears `cr1bd_storagepath` only on `Succeeded`/`Skipped`, never the Box copy, retains non-image bytes) —
+plus the `flow-state.json` / `validate-flows.mjs` registrations.
+
+The Box flows are **authored offline (state=off)**, not imported/bound live; the Phase-7 Box Dataverse
+schema + env-vars (all gates OFF) are already applied live.
+
+You **receive** connector action signatures from **azure-integration-engineer**, the
+`BOX_FOLDER_ROOT_ID` / `BOX_FILE_REQUEST_TEMPLATE_ID` values from **box-integration-architect**, and the
+gate/column/audit names from **dataverse-data-architect**. Pair with the **box-flow-patterns** skill
+(fragments) + **box-rest-api** (op signatures). ⚠️ The LIVE intake already invokes
+`Run_case_resolve` + `Run_enrich` but the repo `intake.definition.json` **trails** — reconcile it before
+any solution re-import (memory `intake-repo-trails-live`).

@@ -14,12 +14,14 @@ import {
   MessageBarBody,
   MessageBarTitle,
   Option,
+  Spinner,
   Switch,
   Tab,
   TabList,
   Text,
   Textarea,
   Toast,
+  ToastBody,
   ToastTitle,
   Tooltip,
   makeStyles,
@@ -33,13 +35,17 @@ import {
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowUpRight,
+  Archive,
   CalendarClock,
   Check,
   CheckCircle2,
   Clock,
   Copy,
   FileJson,
+  FileText,
   ImageOff,
+  Mail,
   Lightbulb,
   MapPin,
   Send,
@@ -67,10 +73,14 @@ import {
   data,
   EVA_FIELD_ORDER,
   dueInfo,
+  getSharedLink,
   statusToStage,
+  useBoxGates,
   useCaseQuery,
   useImages,
   useInspectionAddressSuggestions,
+  activeCopyFileRequestTransport,
+  activeGetSharedLinkTransport,
   type Case,
   type CaseStatus,
   type EvaFieldKey,
@@ -238,6 +248,20 @@ const useStyles = makeStyles({
   thumbName: { fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3, wordBreak: 'break-all' },
   thumbRowBetween: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacingHorizontalS },
 
+  /* Documents list (source email + instructions + non-image artifacts) */
+  docList: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
+  docRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    padding: tokens.spacingVerticalS + ' ' + tokens.spacingHorizontalM,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  docName: { display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, flexGrow: 1 },
+  docFile: { fontSize: tokens.fontSizeBase300, color: tokens.colorNeutralForeground1, wordBreak: 'break-all' },
+
   /* Address tab */
   addrLines: {
     display: 'flex',
@@ -377,6 +401,17 @@ const POLICY_LABEL: Record<Case['inspectionDecision'], string> = {
   manual: 'Manual override',
   image_based: 'Image Based Assessment',
   unknown: 'Undecided',
+};
+
+/** Friendly label per evidence kind for the Documents list. */
+const EVIDENCE_KIND_LABEL: Record<string, string> = {
+  instruction: 'Instruction',
+  email: 'Email (.eml)',
+  valuation: 'Valuation report',
+  eva_payload: 'EVA file',
+  video: 'Video',
+  image: 'Photo',
+  other: 'Document',
 };
 
 /* Map this case's status onto the pipeline-spine stage it should light "you are
@@ -543,6 +578,11 @@ function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
           label="Exclude (person reflection)"
           onChange={(_, d) => onExclude(ev.id, d.checked)}
         />
+        {ev.boxFileUrl && (
+          <Link href={ev.boxFileUrl} target="_blank" rel="noopener noreferrer">
+            <span className={styles.inlineIconText}>Open in Archive <ArrowUpRight size={12} /></span>
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -689,6 +729,43 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
   const suggestionsQuery = useInspectionAddressSuggestions(caseData.id);
   const suggestions = suggestionsQuery.data ?? [];
 
+  // Box (Archive) feature gates — undefined/loading reads as all-off. The chaser
+  // upload-link action needs BOTH the gate AND a configured template; the
+  // "Open in Archive" deep link needs only the master API gate.
+  const { data: gates } = useBoxGates();
+  const archiveEnabled = gates?.apiEnabled ?? false;
+  const uploadLinkEnabled = (gates?.fileRequestEnabled ?? false) && (gates?.fileRequestTemplateConfigured ?? false);
+  const [openingArchive, setOpeningArchive] = useState(false);
+
+  /* "Open in Archive" — fetch the server-minted folder deep link, then open it in
+     a new tab (an external navigation, NOT a fetch — CSP `connect-src` is moot).
+     Honest states: a not_connected / folder_not_ready / error toasts the reason
+     and opens nothing. NO iframe / embed — link only. */
+  const onOpenInArchive = async () => {
+    if (openingArchive) return;
+    setOpeningArchive(true);
+    try {
+      const result = await getSharedLink(c.id, activeGetSharedLinkTransport);
+      if (result.status === 'ok' && result.data?.folderUrl) {
+        window.open(result.data.folderUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const reason =
+        result.status === 'folder_not_ready'
+          ? 'The case archive folder isn’t ready yet.'
+          : result.message ?? 'The archive isn’t available yet.';
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Can’t open the archive</ToastTitle>
+          <ToastBody>{reason}</ToastBody>
+        </Toast>,
+        { intent: 'warning' },
+      );
+    } finally {
+      setOpeningArchive(false);
+    }
+  };
+
   // Focus targets for field deep-links (keyed by EvaFieldKey).
   const fieldRefs = useRef<Partial<Record<EvaFieldKey, HTMLElement | null>>>({});
   const registerRef = (key: EvaFieldKey, el: HTMLElement | null) => {
@@ -797,6 +874,8 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
   }, [liveCase]);
 
   const acceptedImages = imgState.filter((e) => e.acceptedForEva && !e.excluded);
+  // Non-image artifacts (source email, instruction PDFs, …) for the Documents list.
+  const documents = c.evidence.filter((e) => e.kind !== 'image' && e.kind !== 'video');
   const notesNewestFirst = c.notes; // already inserted newest-first
 
   /* --- header subtitle --- */
@@ -979,6 +1058,67 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
 
               {tab === 'evidence' && (
                 <div className={styles.stack}>
+                  {/* Case archive (Box) — folder deep link at the top. Prefers the
+                      stored folder shared-link (works with no live connector, e.g.
+                      the free-account demo); falls back to the connector "Open in
+                      Archive" when only the master gate is on. NO iframe/embed. */}
+                  {(c.boxFolderUrl || archiveEnabled) && (
+                    <div className={styles.thumbRowBetween}>
+                      <Caption1 className={styles.hint}>
+                        <span className={styles.inlineIconText}>
+                          <Archive size={14} /> Case archive — the email, instructions and photos are mirrored here.
+                        </span>
+                      </Caption1>
+                      {c.boxFolderUrl ? (
+                        <Link href={c.boxFolderUrl} target="_blank" rel="noopener noreferrer">
+                          <span className={styles.inlineIconText}>
+                            Open case archive <ArrowUpRight size={14} />
+                          </span>
+                        </Link>
+                      ) : (
+                        <Button
+                          appearance="secondary"
+                          icon={openingArchive ? <Spinner size="tiny" /> : <ArrowUpRight size={16} />}
+                          onClick={onOpenInArchive}
+                          disabled={openingArchive}
+                        >
+                          {openingArchive ? 'Opening…' : 'Open in Archive'}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Documents — the source email + instruction(s) + any other
+                      non-image artifacts captured for the case. Each links to its
+                      Box copy when archived (honest "Not archived" otherwise). */}
+                  {documents.length > 0 && (
+                    <div className={styles.stack}>
+                      <Text className="ce-section-heading">Documents</Text>
+                      <div className={styles.docList}>
+                        {documents.map((d) => (
+                          <div className={styles.docRow} key={d.id}>
+                            {d.kind === 'email' ? <Mail size={18} aria-hidden /> : <FileText size={18} aria-hidden />}
+                            <span className={styles.docName}>
+                              <span className={styles.docFile}>{d.fileName}</span>
+                              <Caption1 className={styles.hint}>{EVIDENCE_KIND_LABEL[d.kind] ?? 'Document'}</Caption1>
+                            </span>
+                            {d.boxFileUrl ? (
+                              <Link href={d.boxFileUrl} target="_blank" rel="noopener noreferrer">
+                                <span className={styles.inlineIconText}>
+                                  Open in Archive <ArrowUpRight size={14} />
+                                </span>
+                              </Link>
+                            ) : (
+                              <Caption1 className={styles.hint}>Not archived</Caption1>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Photos */}
+                  <Text className="ce-section-heading">Photos</Text>
                   {imagesLoading && imgState.length === 0 ? (
                     // Images still loading — show a thumb skeleton, not a false
                     // "No images" (a slow fetch must not read as empty).
@@ -1122,6 +1262,8 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
               {tab === 'chasers' && (
                 <ChaserPanel
                   case={c}
+                  fileRequestEnabled={uploadLinkEnabled}
+                  onRequestUploadLink={activeCopyFileRequestTransport}
                   onLogChased={({ channel, templateLabel }) => {
                     const note: Note = {
                       id: `note-${Date.now()}`,

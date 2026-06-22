@@ -118,6 +118,10 @@ export interface Evidence {
   thumbColor?: string;
   /** Where it came from (message / upload label). */
   sourceLabel: string;
+  /** Box file id for this artifact (one-way mirror; absent until archived to Box). */
+  boxFileId?: string;
+  /** Box per-file shared-link URL — a direct "open in Box" link for this artifact. */
+  boxFileUrl?: string;
 }
 
 /* ----------  Chaser & Note  ---------- */
@@ -285,4 +289,9 @@ export interface Case {
   dateDue?: string; // DD/MM/YYYY
   /** ISO date the case was submitted to EVA (windowed "Done today" / throughput). */
   submittedAt?: string; // DD/MM/YYYY
+
+  /** Box archive (one-way mirror; absent until the Case/PO folder is created). */
+  boxFolderId?: string;
+  /** Box folder shared-link URL — the "Open in Box" case-archive deep link. */
+  boxFolderUrl?: string;
 }

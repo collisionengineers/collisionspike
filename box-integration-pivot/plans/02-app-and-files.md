@@ -4,9 +4,16 @@
 > [`../04-target-architecture.md`](../04-target-architecture.md) and the risk register in
 > [`../07-flaws-risks-and-open-questions.md`](../07-flaws-risks-and-open-questions.md). Settled facts
 > (additive hybrid; Dataverse stays system of record; ALL Box automation via a custom CCG/JWT
-> connector; File Request is copy-from-template only; Business Plus floor; CSP `connect-src 'none'`;
-> Blob transient/Box archival; webhooks best-effort + File-Request firing live-test-only) are taken as
-> given here, not re-argued.
+> connector; File Request is copy-from-template only; **base-Business floor — Business Plus is the optional
+> metadata tier, not required**; CSP `connect-src 'none'`; Blob transient/Box archival; webhooks
+> best-effort + File-Request firing live-test-only) are taken as given here, not re-argued.
+>
+> **Pinned invocation (per 00-BUILD-PLAN reconciliation table):** the Code App calls single Box ops
+> (copy File Request, get/ensure shared link) via **DIRECT connector ops** (app → connector → Function,
+> **no flow in the path** — the CSP `connect-src 'none'` decision); `finalize` is invoked via a Dataverse
+> submit-signal. The `box-file-request-copy` flow named below is an authored **standby child** for future
+> operator activation, **not currently invoked by the Code App**. Where a step below says "calls a flow"
+> for a single op, read it as the direct-connector transport.
 
 ## Overview
 
@@ -162,7 +169,7 @@ Platform app / secret / Admin authorization / interactive sign-in / `frame-src` 
 6. **Extend `ChaserPanel` with the `copy_file_request` template + an injected transport.**
    In `mockup-app/src/components/ChaserPanel.tsx`: add prop
    `onRequestUploadLink?: CopyFileRequestTransport` and `fileRequestEnabled?: boolean`. Add a fourth
-   `TEMPLATES` entry `{ key: 'copy_file_request', label: 'Image upload link (Box)', channels: ['email','whatsapp'], body: (c) => <chase copy referencing the link placeholder> }`,
+   `TEMPLATES` entry `{ key: 'copy_file_request', label: 'Image upload link', channels: ['email','whatsapp'], body: (c) => <chase copy referencing the link placeholder> }` (rendered handler-facing label says "Image upload link", **not** "Box" — AGENTS.md hard rule: "Archive" not "Box" in rendered strings),
    shown **only when `fileRequestEnabled`** (filter `available` by gate). When that template is active, the
    primary button changes to **"Get upload link & copy"**: it `await onRequestUploadLink(c.id)`; on
    `status==='ok'` it writes `\`${body}\n\nUpload your photos here: ${data.uploadUrl}\`` to the clipboard and
@@ -267,9 +274,11 @@ Platform app / secret / Admin authorization / interactive sign-in / `frame-src` 
     `box_synced` is **already** in the `CaseStatus` union + `TERMINAL_STATUSES`, and `statusToStage` already
     folds it into `'submitted'` — so the funnel/queues need no logic change. The remaining work is **labels**:
     in `mockup-app/src/screens/ActionLogs.tsx` ensure the `box_sync`/`box_synced` audit action renders a
-    distinct **"Box synced"/"Archived to Box"** label (the flow already writes `Audit_box_synced` action
-    `100000016`), and in `CaseDetail`'s status display + the EVA submit hero show `box_synced` as the
-    archive-complete terminal distinct from `eva_submitted` (e.g. a "Archived to Box" badge). Verify
+    distinct **"Archived"** rendered label (the flow already writes `Audit_box_synced` action `100000016`)
+    — **rendered handler-facing strings say "Archive", NOT "Box"** (AGENTS.md hard rule; the internal
+    `box_synced`/connector/var names are fine), and in `CaseDetail`'s status display + the EVA submit hero
+    show `box_synced` as the archive-complete terminal distinct from `eva_submitted` (e.g. an "Archived"
+    badge). Verify
     `Dashboard.tsx` counts `box_synced` toward the `submitted` cell exactly as `eva_submitted` (parity with
     `queues.ts statusToStage`) — it already should; this step is a render/label check, not a remap.
     · **[Claude-buildable]** · depends-on: nothing (status already present) · source: `box_synced` ∈ union/terminals —

@@ -274,6 +274,33 @@
                   "comment": "Recompute the survivor's status now it holds the full evidence set: complete -> ready_for_eva (-> Review); else it stays Not Ready. CS Status Evaluate (4d963ff7...) — Request child, called by GUID. Non-blocking on its own outcome so a status hiccup never fails the merge itself.",
                   "runAfter": { "Set_outcome_merged": [ "Succeeded" ] }
                 },
+                "Get_survivor_for_box": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "GetItem",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                    "parameters": {
+                      "entityName": "cr1bd_cases",
+                      "recordId": "@variables('survivorCaseId')",
+                      "$select": "cr1bd_caseid,cr1bd_casepo,cr1bd_boxfolderid"
+                    }
+                  },
+                  "comment": "PHASE-7 SURVIVOR-FOLDER ENSURE (ADR-0012 / build-plan 04 §9 / box-flow-patterns Fragment 4). Read the survivor's Case/PO + current box folder id for the idempotent ensure below. Non-blocking on the merge.",
+                  "runAfter": { "Run_status_evaluate_survivor": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
+                },
+                "Run_box_folder_create_survivor": {
+                  "type": "Workflow",
+                  "inputs": {
+                    "host": { "workflowReferenceName": "CS_Box_Folder_Create" },
+                    "body": {
+                      "caseId": "@variables('survivorCaseId')",
+                      "casePo": "@coalesce(outputs('Get_survivor_for_box')?['body/cr1bd_casepo'], '')",
+                      "workProviderId": ""
+                    }
+                  },
+                  "comment": "PHASE-7 SURVIVOR-FOLDER ENSURE: idempotent box-folder-create on the merged single-pair survivor (the Case/PO holder). The child re-reads BOX_FOLDER_AT_INTAKE_ENABLED and no-ops when cr1bd_boxfolderid is already set (and the Function swallows Box 409), so this is a harmless re-ensure — NO Box byte move/link here (the image case's evidence is already re-pointed in Dataverse; status-evaluate re-runs; finalize later uploads the photo bytes into the survivor's folder). workProviderId is '' (not load-bearing in the child). placeholder workflowReferenceName CS_Box_Folder_Create rebinds in the designer at import. Non-blocking on its own outcome so a Box hiccup never fails the merge.",
+                  "runAfter": { "Get_survivor_for_box": [ "Succeeded" ] }
+                },
                 "Audit_merged": {
                   "type": "OpenApiConnection",
                   "inputs": {
@@ -290,8 +317,8 @@
                       "item/cr1bd_occurredat": "@utcNow()"
                     }
                   },
-                  "comment": "Audit the merge (action Case Attached=100000004, Info). Linked to the survivor. runAfter status-evaluate on ALL outcomes so the audit always records even if status-evaluate hiccups; an audit hiccup is itself non-fatal (nothing runs after it in this branch).",
-                  "runAfter": { "Run_status_evaluate_survivor": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
+                  "comment": "Audit the merge (action Case Attached=100000004, Info). Linked to the survivor. runAfter the survivor-folder ensure on ALL outcomes so the audit always records even if status-evaluate or the Box ensure hiccups; an audit hiccup is itself non-fatal (nothing runs after it in this branch). The box-folder-create child emits its own box_folder_created audit when it actually creates the folder.",
+                  "runAfter": { "Run_box_folder_create_survivor": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
                 }
               }
             },
@@ -373,10 +400,11 @@
           "caseId": "@variables('caseId')",
           "merged": "@variables('merged')",
           "outcome": "@variables('outcome')",
-          "survivorCaseId": "@variables('survivorCaseId')"
+          "survivorCaseId": "@variables('survivorCaseId')",
+          "boxFolderId": "@outputs('Get_survivor_for_box')?['body/cr1bd_boxfolderid']"
         }
       },
-      "comment": "Child-flow return (required to be callable via Run-a-Child-Flow). { caseId (trigger), merged (bool), outcome (noop|merged|held_multiple|skipped_guard), survivorCaseId }. runAfter Guard_mergeable on ALL completion outcomes so the child always returns even if a sub-step failed.",
+      "comment": "Child-flow return (required to be callable via Run-a-Child-Flow). { caseId (trigger), merged (bool), outcome (noop|merged|held_multiple|skipped_guard), survivorCaseId, boxFolderId }. boxFolderId is the survivor's folder id read during the Phase-7 ensure (null on non-merge outcomes where Get_survivor_for_box never ran — coalesced to null by the ?[] accessor). runAfter Guard_mergeable on ALL completion outcomes so the child always returns even if a sub-step failed.",
       "runAfter": { "Guard_mergeable": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
     }
   }

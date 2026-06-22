@@ -6,7 +6,7 @@ else has been built and switched on.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
-_Last updated **2026-06-20**._
+_Last updated **2026-06-22**._
 
 ---
 
@@ -97,18 +97,65 @@ now matching stays manual.
 
 ---
 
-### 5. Switch on Box filing  ·  *you supply the key*
+### 5. Switch on Box filing  ·  *you register + authorize a Box app*
 
-**What:** the "file the finished case into Box" step is built but not connected.
+**What:** the Box-filing steps (mint the Case/PO folder, copy the upload File Request, mirror the
+finished case) are built but switched off. They run through a **service identity**, not a personal
+sign-in: the system mints its own Box token inside the Azure Function from a stored secret — there is
+**no personal "API key" to paste onto a connection**.
 
-**Why you:** it needs a Box **API key** and sign-in to your live Box account.
+**Why you:** registering the Box app and authorizing it in your Admin Console can only be done by you
+(a Box admin), and only you can supply its secret. This needs a **paid Box tenant — base Business is the
+floor** (the service-identity / Client Credentials Grant, File Requests and webhooks are all covered by
+base Business; they don't exist on free/personal accounts). **Business Plus is only needed later** for the
+optional metadata field.
 
 **Steps:**
-1. Get a Box API key / connection (you mentioned you'll provide one).
-2. Send it to me, or create the Box connection in the flow yourself.
-3. Confirm Box accepts the folder name format (e.g. a case `test26001` files into a folder named
+1. In the Box Developer Console, **create a Platform App → Server Authentication (Client Credentials
+   Grant)**, App Access Only, with scopes *Read/write all files and folders* + *Manage webhooks*.
+   Capture its **Client ID, Client Secret, and Enterprise ID**.
+2. **Authorize + enable** that app in the **Admin Console** (Integrations → Platform Apps Manager →
+   Server Authentication Apps). Re-authorize whenever you change its scopes.
+3. Send me the **Client Secret** (+ the webhook signature keys) for the secure store, or add them
+   yourself — they live in **Key Vault**, never on a connection.
+4. Confirm Box accepts the folder name format (e.g. a case `test26001` files into a folder named
    **TEST26001** in capitals).
-4. Switch on the **CS Finalize EVA + Box** flow.
+5. Flip the **`BOX_*`** switches on (test environment first), then the **CS Finalize EVA + Box** flow.
+
+> **State of the Box pivot (Phase 7, ADR-0012):** everything Claude can build is **done in the working
+> tree and offline-verified** — the Dataverse schema-as-code (5 `BOX_*` gates + 2 config vars + 3 `cr1bd_box*`
+> columns + 3 audit actions), the `box-webhook` Azure Function (pytest 71 passed), the 3 new flows +
+> the `finalize-eva-box`/`case-resolve` reworks (linter 154/154), and the Code App surfacing (vitest 256
+> passed). **The Box Dataverse schema + `cr1bd_BOX_*` env-vars ARE applied live** (verified via `az`
+> against Dev 2026-06-22: the `cr1bd_box*` case + evidence columns and every `cr1bd_BOX_*` env-var exist),
+> with **every `BOX_*` gate `false`** (default AND current). **What is NOT live:** the `box-webhook`
+> Function, the `cr1bd_box_rest` custom connector and the Box flows are authored offline (`state=off`) —
+> not deployed to Azure, not imported, not bound; no Box connection is bound; the `box-folder-create`
+> live-intake edit is not made. So the whole of item 5 — deploy/import/bind/flip + the BUSINESS account —
+> is still yours.
+>
+> **The long pole is the BUSINESS-account second test phase.** Live testing so far used a throwaway **FREE**
+> Box account (dev token), which proved the raw REST mechanics (8/9 ops; folder created + deleted, no secret
+> printed) but **cannot** exercise the service path — CCG fails on free (`unauthorized_client`), and there are
+> **no File Requests and no metadata**. The decisive verifications therefore wait on a live
+> **Business-or-higher** tenant and are the gating unknowns:
+> - the **CCG token mint** + the Admin-authorized Platform app (steps 1–3 above);
+> - the **hand-built template File Request** (record its id → `BOX_FILE_REQUEST_TEMPLATE_ID`);
+> - the **single biggest empirical unknown** — does a **File-Request upload fire `FILE.UPLOADED`** → the
+>   Function → the case advances? (undocumented; **BLOCKING for B2**). On a transient miss the **primary**
+>   recovery is Box's own retry — the receiver returns a non-2xx (503) so Box re-delivers; the `ListFolder`
+>   reconciliation sweep is a **deferred, not-yet-built** secondary backstop.
+>
+> **Scope reminders:** start on **base Box Business** (the **metadata** field that would harden the orphaned
+> image-only path is the **Business Plus** tier — out of scope now, a later optional upgrade); **EVA stays
+> gated OFF**; **evidence is linked, not embedded** — a server-minted "Open in Box" deep link, so there is
+> **no `frame-src` CSP edit** to make (`BOX_EMBED_ENABLED` stays reserved/off). The `box-folder-create`
+> invocation into live `intake` is an operator/business-phase **live edit** (the repo intake def trails live,
+> by design — do not expect it in `flows/definitions/intake.definition.json`).
+>
+> Full operator runbook (app registration, secrets, gate-flip order, the two-phase free-vs-Business live
+> test, the live confirms) is in
+> [plans/phase-7-box-integration/box-integration-activation.md](./plans/phase-7-box-integration/box-integration-activation.md).
 
 ---
 

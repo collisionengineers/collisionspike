@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-21**._
+_Single source of truth for "where are we now." Last updated **2026-06-22**._
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -11,6 +11,116 @@ This is the Phase-1 (M1) case-intake spike on the Microsoft stack (Power Apps **
 Dataverse + Power Automate + Azure Functions). Built **offline**; live activation of anything that
 touches the shared inboxes / SharePoint / Box / EVA is the **operator's** step (see the boundary in
 DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows real Dataverse rows only.**
+
+---
+
+## 🔔 Update — 2026-06-22: Phase 7 (Box-centric intake pivot) — schema + env-vars APPLIED LIVE (gates OFF) · code authored offline · NOT activated
+
+The **Box-centric intake pivot** (ADR-0012, additive hybrid) is **built in the working tree and
+offline-verified**, and its **Dataverse schema + env-vars are now applied live in Dev** (verified via `az`
+on 2026-06-22) — `cr1bd_case` carries the `cr1bd_box*` columns + `cr1bd_sourcemailbox`, `cr1bd_evidence`
+carries `cr1bd_boxfileid`/`cr1bd_boxfileurl`, and every `cr1bd_BOX_*` env-var exists live with **every
+`BOX_*` gate OFF** (default *and* current `false`). What is **NOT** done: the `box-webhook` Azure Function,
+the `cr1bd_box_rest` custom connector, and the Box cloud-flows are **authored offline (`state=off`), not
+deployed/imported/bound live**; no `BOX_*` gate is flipped; no Box connection is bound. Branch
+`feat/phase-7-box-integration`. Binding decision:
+[docs/adr/0012-box-centric-intake-additive-hybrid.md](./docs/adr/0012-box-centric-intake-additive-hybrid.md);
+ordered build + reconciliations: [box-integration-pivot/plans/00-BUILD-PLAN.md](./box-integration-pivot/plans/00-BUILD-PLAN.md);
+phase docs: [docs/plans/phase-7-box-integration/](./docs/plans/phase-7-box-integration/).
+
+**What the pivot is.** Bring Box **earlier** (a per-Case/PO folder at **parse-confirm**, not only at
+EVA-submit) and **deeper** (File-Request image chasers + a webhook that advances the case on upload),
+**without moving the source of truth**. **Dataverse stays authoritative; Box is a one-way mirror**
+(Dataverse → Box). Box Metadata has no joins, so dedup / status / Case-PO sequencing **never** run off
+Box. The floor is **base Box Business** (folders, File Requests, webhooks, CCG); the **Business Plus**
+metadata tier is **out of scope** now (a later, optional reliability upgrade for the orphaned image-only
+path only). EVA stays gated **OFF** throughout; Box never gates EVA and EVA never gates Box. Evidence is **linked, not embedded** — a server-minted "Open in Box"
+deep link; **no iframe, no `frame-src` edit** (`BOX_EMBED_ENABLED` stays reserved/off).
+
+**Applied live + authored offline (the split):**
+- **ADR-0012 + the docs spine** — ADR-0012 (Accepted 2026-06-21), the phase-7 plan folder
+  (`README.md` + `box-custom-connector-and-webhook.md` + `box-integration-activation.md`), and the
+  architecture §Box updates.
+- **Dataverse schema + env-vars — APPLIED LIVE in Dev (all `BOX_*` gates OFF)** — **5 `BOX_*` Boolean gates**
+  (`BOX_API_ENABLED`, `…_FOLDER_AT_INTAKE_ENABLED`, `…_FILEREQUEST_ENABLED`, `…_EMBED_ENABLED`,
+  `…_METADATA_ENABLED`, all default *and* current `false`) + **2 String config vars** (`BOX_FOLDER_ROOT_ID`,
+  `BOX_FILE_REQUEST_TEMPLATE_ID`, default `""`); **9 case columns** on `cr1bd_case`
+  (`cr1bd_boxfolderid`/`boxfolderurl`/`boxsyncedat`/`boxfilerequestid`/`boxfilerequesturl`/`sourcemailbox`
+  + the finalize submit-signal columns) and **`cr1bd_boxfileid`/`cr1bd_boxfileurl`** on `cr1bd_evidence`;
+  **3 audit-action options** (`box_folder_created=100000019`, `box_file_request_copied=100000020`,
+  `box_upload_received=100000021`). `verify-parity.mjs` locks the new defaults; `dataverse/.build/25-box-schema.ps1`
+  (adds the 9 case columns) is the apply script. **Verified live via `az` on 2026-06-22.**
+- **Azure `box-webhook` Function (authored offline, NOT deployed)** — `functions/box-webhook/` (the CCG
+  token-mint inside the Function; the HMAC dual-key + 10-min-replay + `BOX-DELIVERY-ID`-dedup webhook
+  receiver, which **processes the Dataverse fan-out on the request path and returns 200 when settled, or a
+  non-2xx (503) on a transient failure so Box retries** — Box does not retry after a 2xx; the
+  custom-connector OpenAPI under `openapi/`; the FC1 bicep under `infra/`). Durable dedup is the
+  Evidence-existence check on the `box:file:<id>` tag in `cr1bd_sourcemessageid` (NOT `cr1bd_boxfileid`,
+  which the webhook writes as a correlation/UI mirror only); the receiver also stamps `cr1bd_boxfileid` +
+  `cr1bd_acceptedforeva=true` and audits with the canonical `cr1bd_name`/`cr1bd_occurredat`/`cr1bd_action`/`cr1bd_after`
+  shape. **pytest 71 passed.** Secrets are Key Vault references only — created under the **hyphenated** names
+  `box-client-secret`/`box-webhook-primary-key`/`box-webhook-secondary-key` (resolving into the
+  `BOX_CLIENT_SECRET`/`BOX_WEBHOOK_PRIMARY_KEY`/`BOX_WEBHOOK_SECONDARY_KEY` app settings); operator-injected at deploy.
+- **Power Automate flows (authored `state=off`)** — new `box-folder-create`, `box-file-request-copy`
+  (an authored **standby** child flow for FUTURE operator activation — **not** currently invoked by the
+  Code App; the chaser path calls the connector op directly, see below), `box-blob-purge`; `finalize-eva-box`
+  rewritten (folder pre-exists → **augments**, reads `cr1bd_BOX_FOLDER_ROOT_ID`, keeps the S2 byte path,
+  becomes a Dataverse submit-signal-triggered flow, and now stamps `cr1bd_boxsyncedat` at `box_synced`);
+  `box-blob-purge` only purges archived (accepted, non-excluded) **image** evidence (non-image transient
+  bytes are retained — a deferred follow-up); `case-resolve` ensures the survivor's folder idempotently.
+  `flow-state.json` + `validate-flows.mjs` extended; **flow linter 154/154**.
+- **Connection-ref decision PINNED** — a **parallel `cr1bd_box_rest`** custom connector (CCG via the
+  Function) carries folder-create + File-Request copy + shared-link + webhook lifecycle; first-party
+  `cr1bd_box` (`shared_box`) is **RETAINED** for `finalize-eva-box`'s byte path (`CreateFile`). This is a
+  **parallel ref, not an in-place repoint**; two Box connections coexist and the operator binds both. (The
+  build plan's "one unpinned decision" is now closed.)
+- **Code App (authored, SDK-free; pushed nowhere new for Box)** — `getBoxGates()` reads the same
+  `environmentvariabledefinitions`/value rows the flows read (default all-false on failure); the submit
+  dialog drives real `finalize-eva-box` via the Dataverse submit-signal; the chaser gains a
+  `copy_file_request` action that calls the Box REST connector op **directly** (`CopyFileRequest` /
+  `GetFolderSharedLink`, no flow in the path — the Code App runs under CSP `connect-src 'none'` and cannot
+  POST to a flow Request URL, the pinned 2026-06-21 build-plan decision); Evidence gains a server-minted
+  "Open in Box" deep link. **vitest 256 passed, `tsc -b` clean.**
+
+**Free-account REST live-test (the only live touch — a throwaway Box account, OUT-OF-REPO creds).**
+To de-risk the raw REST mechanics, a one-off test ran against a **free** Box account's dev token
+(≈60-min lifetime) on a **throwaway folder**, which was created, exercised, and recursively deleted
+(confirmed gone). **8/9 ops verified live:** `users/me` (200), `CreateFolder` (201; body
+`{name, parent:{id}}`), `ListFolder` (200), `GetSharedLink` for **both** file and folder
+(`PUT …?fields=shared_link` → `access=open` + url — both server-mintable under `connect-src 'none'`),
+multipart Upload on `upload.box.com` (201), `GetFile` with `sha1` (200), recursive delete (204). The lone
+failure is **expected and bounds testing, not the build**: `CreateWebhook` → **403 `insufficient_scope`**
+(a free plan lacks `manage_webhook`; the request *shape* was accepted). **No secret was printed or
+committed.** Not attempted on the free account (all need Business or higher): the **CCG `client_credentials`**
+grant (known `unauthorized_client` on free), **File Requests**, **metadata** (the metadata field itself is
+the Business Plus tier).
+
+**What IS live vs what is NOT (the honest state):**
+- ✅ The Phase-7 Box **Dataverse schema + env-vars ARE applied live** in Dev (the `cr1bd_box*`/`sourcemailbox`
+  case columns, the `cr1bd_boxfileid`/`boxfileurl` evidence columns, the audit-action options, and all
+  `cr1bd_BOX_*` env-vars) — **with every `BOX_*` gate OFF** (default and current `false`); `cr1bd_ENRICHMENT_ENABLED`
+  is default `false` but current `true` (enrichment is live in Dev via the current value).
+- ❌ No Azure deploy of `box-webhook`; ❌ the `cr1bd_box_rest` connector and the Box flows are authored
+  offline (`state=off`), **not** imported/bound live; ❌ no live flow edit (incl. the intake `box-folder-create`
+  invocation — that is an operator/business-phase live edit); ❌ no `BOX_*` gate flipped; ❌ no Box
+  connection bound; ❌ EVA still gated OFF.
+- ✅ A free-account demo (case **SBL26001**) proved the folder + upload + shared-link pattern **manually**
+  (the always-on Box-account integration — CCG token mint, `FILE.UPLOADED` webhook, template File Request —
+  is deferred to a future **Business-account** phase; the free test account cannot sustain CCG/webhooks/File-Requests).
+- ⚠️ **REPO-TRAILS-LIVE:** `flows/definitions/intake.definition.json` does **not** contain the
+  `box-folder-create` invocation (nor `Run_enrich`/`Run_case_resolve`, the documented pre-existing drift);
+  the **live** intake is authoritative and the Box-folder-create invocation from intake is documented as an
+  operator/business-phase live edit, **not** applied to the stale repo def.
+
+**The long pole is the BUSINESS-account second test phase (operator).** The free account cannot exercise
+the service-identity path, so the **BLOCKING** verifications wait on a live Business tenant: the CCG token
+mint + Admin-authorized Platform app, the hand-built template **File Request**, and — the single biggest
+empirical unknown — the **File-Request → `FILE.UPLOADED`** webhook live-test. Primary recovery on a
+transient failure is **Box's own retry** on the receiver's non-2xx (Box does not retry after a 2xx); a
+timed `ListFolder` reconciliation sweep is **documented but not yet built** — a deferred secondary backstop.
+Operator-gated items are in
+[docs/gated.md](./docs/gated.md) item 5; the runbook is
+[docs/plans/phase-7-box-integration/box-integration-activation.md](./docs/plans/phase-7-box-integration/box-integration-activation.md).
 
 ---
 
@@ -286,6 +396,11 @@ player**. Headlines:
   **no emails become Cases** → see "Why emails don't show" below.
 - **EVA / Box** — EVA is JSON drag-drop now (`EVA_API_ENABLED=false`); Sentry REST API later. Box
   archival not activated. Needs EVA **test** creds in Key Vault + Box folder-casing confirmation (B5).
+  The **Phase-7 Box pivot** (folder-at-parse-confirm, File-Request chasers, webhook intake) has its
+  **Dataverse schema + env-vars applied live (all five `BOX_*` gates OFF)**; the `box-webhook` Function,
+  the `cr1bd_box_rest` connector and the Box flows are **authored offline, not deployed/bound**, and no
+  `BOX_*` gate is flipped. The BUSINESS-account live test (CCG + File Request + `FILE.UPLOADED`) is the
+  long pole (see the 2026-06-22 entry above + [docs/gated.md](./docs/gated.md) item 5).
 - **Enrichment** — `ENRICHMENT_ENABLED=false` in the Sandbox; needs DVSA/DVLA creds in Key Vault +
   `DVSA_TENANT_ID` (operator), then flip the gate in a test env.
 
@@ -351,7 +466,7 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 | B3 13th EVA field | **Resolved** — contract is 12 fields |
 | B4 Code Apps enablement | **Resolved** — enabled on the env; app pushed |
 | B2 parser telephone/email | **Built** — claimant telephone/email now extracted with provenance + tests; parser REDEPLOY pending to go live |
-| B5 EVA creds + Box casing | **Open** — operator (EVA test creds in KV, Box UPPERCASE folder check) |
+| B5 EVA creds + Box casing | **Open** — operator (EVA test creds in KV, Box UPPERCASE folder check). The Box pivot (Phase 7) has its Dataverse schema + env-vars applied live (all `BOX_*` gates OFF); the Function/connector/flows are authored offline, **not deployed/bound**; the BUSINESS-account test (CCG + File Request + `FILE.UPLOADED`) is the long pole — gated.md item 5. |
 
 ## Key docs
 - **Operational charter / rules:** [AGENTS.md](./AGENTS.md) · **Live ID/resource/flow registry:** [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)
