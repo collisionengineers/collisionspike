@@ -96,8 +96,8 @@ def test_normalized_form():
 # District startswith(outwardCode) — the ROADMAP-4a rule
 # ==========================================================================
 
-def test_district_matches_startswith():
-    # Case district CH5 matches a candidate at CH5 x and CH5x sector codes.
+def test_district_matches_outward_equality():
+    # Case district CH5 matches a candidate whose OUTWARD code equals CH5.
     assert district_matches("CH5", "CH5 2AB") is True
     assert district_matches("CH5", "CH5") is True
     # CH41 is its own district; CH5 must NOT swallow CH41 (distinct outward token).
@@ -105,6 +105,11 @@ def test_district_matches_startswith():
     assert district_matches("CH41", "CH5 2AB") is False
     # Exact district match.
     assert district_matches("M12", "M12 6BD") is True
+    # Outward-code EQUALITY, not prefix: a shorter district must NOT swallow a
+    # longer one that merely starts with it ('B50'.startswith('B5') is True).
+    assert district_matches("B5", "B50 1AA") is False
+    assert district_matches("M1", "M12 6BD") is False
+    assert district_matches("CH5", "CH50 1AA") is False
     # Empty inputs never match.
     assert district_matches("", "CH5 2AB") is False
     assert district_matches("CH5", "") is False
