@@ -57,6 +57,68 @@ Entra admin role. The gaps below are the things those two *don't* reach.
 
 ---
 
+## Future phases — AI & automation (additional roles/blockers)
+
+The AI/automation lanes on the roadmap (Copilot Studio, Foundry/OpenAI vision, Maps, WhatsApp,
+valuation) mostly **reuse the gaps above** — none introduces a brand-new "must-have" Entra role beyond
+**Power Platform Administrator** + **License/Billing Administrator**, *except* the one Graph-consent
+scenario noted at the end. Details, so there are no surprises when these phases start:
+
+### Copilot Studio (Phase 5c · M3 · gated `COPILOT_ENABLED`) — staff assistant over Dataverse
+- **Power Platform Administrator** (already a gap) — enable **"Publish copilots with AI features"** + the
+  generative-AI tenant settings in the Power Platform admin centre, and assign the **Copilot Studio
+  authors** security group. **UK-specific:** generative answers/Bing grounding run in the US, so a
+  Global/Power Platform admin must **turn on cross-geo data movement** for the environment — only those
+  two roles can.
+- **Billing Administrator** — buy the tenant **Copilot Studio** licence (prepaid credit pack, 25,000
+  messages/mo; a *generative* answer costs **2 messages** — capacity-plan for it).
+- **License Administrator** (already a gap) — assign the per-user **Copilot Studio User License**.
+- Dataverse grounding (the agent's app user/security role) is covered by your **env System Admin**; DLP
+  must allow the connectors the agent uses → Power Platform Admin.
+
+### Azure AI Foundry / Azure OpenAI (Phase 5b image classification + reflection; valuation reasoning)
+- **Provisioning is covered by your Azure Owner.** But inference is **data-plane RBAC** (same
+  management-vs-data-plane split as Key Vault): self-assign **Cognitive Services OpenAI User** (Entra-auth
+  inference calls), **Cognitive Services Contributor** (create/deploy models), and (subscription-level)
+  **Cognitive Services Usages Reader** (view quota). You can grant all three to yourself as Owner.
+- **Model quota (TPM)** is per region/model — you get a default on onboarding; more needs a **quota-increase
+  request** ([aka.ms/oai/stuquotarequest](https://aka.ms/oai/stuquotarequest)). A request/approval blocker, not a role.
+- **Region/model + data residency** — newer vision models may not be in **UK South**; deploying elsewhere
+  is a UK data-residency decision.
+
+### Other AI/automation
+- **AI Builder** — deliberately **NOT used** (ADR-0009; AI Builder credits sunset 2026-11-01 → Foundry
+  vision instead). If ever revisited: AI Builder credit capacity (Billing) + the tenant "AI Builder
+  credits" setting (Power Platform Admin).
+- **Azure Maps** (Phase 4a · M3 · `AZURE_MAPS_ENABLED`) — Azure, **Owner covers**; data-plane Azure Maps
+  Data Reader self-assign or key. Optional — postcode.io is the M1 default.
+- **Azure Communication Services / WhatsApp** (M3 · ADR-0007) — ACS is Azure (**Owner covers**), **but**
+  WhatsApp Business via ACS Advanced Messaging needs **Meta / WhatsApp Business Account onboarding +
+  number/sender verification** — a **vendor** onboarding blocker (like Box), plus a registered WABA.
+- **Valuation (`valuationbot`, M3)** — a REST-wrapper Function (Owner covers) + the valuation provider's
+  API credentials in Key Vault (vendor creds, like EVA/DVSA).
+
+### Cross-cutting blockers to expect as you scale
+1. **Microsoft Graph application-permission consent → Global Administrator / Privileged Role Administrator.**
+   **None needed today** (the external APIs self-issue creds; connectors use api_key). This is the *only*
+   thing that would force a GA/PRA-level grant — triggered if a Copilot agent / Dataverse-MCP, a
+   **Graph-based** email intake (instead of the Outlook connector), or a SharePoint/Teams integration ever
+   needs Graph **application** permissions.
+2. **Capacity & licensing ceilings** — Power Apps/Automate premium, Copilot Studio messages, **Dataverse
+   storage** (DB/file/log), Azure OpenAI TPM. Billing + License Admin + purchases/quota.
+3. **Managed Environments + the test→prod path** — the EVA **production cutover** needs a TEST and a PROD
+   environment (creating/managing them is a **Power Platform Administrator** action — the "Production/Trial
+   environment assignments" tenant setting; Managed Environments may add licensing).
+4. **DLP policy** — every new premium connector (OpenAI, Maps, ACS, Copilot, Box REST) must be
+   classified/allowed → Power Platform Admin.
+5. **Azure quota** — OpenAI TPM, ACA cores, Functions concurrency — support/quota requests.
+6. **Data residency / compliance** — UK residency (Box **Zones** = Business Plus/Enterprise; Azure region
+   pinning; Copilot cross-geo); M365-level DLP/retention would add **Compliance Administrator / Purview**.
+7. **Conditional Access on a service account** — a non-interactive intake identity can be blocked by
+   CA/MFA policy; needs a CA exception or a managed identity → Security / Conditional Access Administrator.
+
+---
+
 ## Who grants what
 
 - **You self-grant** (you're subscription Owner): **Key Vault Secrets Officer** on the vault(s).
