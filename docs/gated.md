@@ -6,7 +6,7 @@ else has been built and switched on.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
-_Last updated **2026-06-22**._
+_Last updated **2026-06-23**._
 
 ---
 
@@ -64,19 +64,18 @@ connection — a security step I'm not able to do.
 
 ---
 
-### 3. Switch on automatic provider matching  ·  *you supply a list*
+### 3. Provider auto-matching  ·  ✅ *32 providers loaded — rest needs your data*
 
-**What:** the system can automatically tag each case with the right provider **by the sender's
-email domain** — but almost none of the providers have their email domains recorded yet, so right
-now matching stays manual.
+**What:** the system auto-tags each case with the right provider **by the sender's email domain**.
+On **2026-06-23** I loaded verified domains for **32 providers** (from your
+`provider_email_audit_2026-06-22.csv`) into the provider records (`cr1bd_knownemaildomains`), so
+auto-matching now works for those on new emails. The load is idempotent and ambiguity-guarded — a
+domain serving >1 active provider is never written (it goes through the intermediary path, ADR-0011).
 
-**Why you:** only you know which email domains belong to which providers.
-
-**Steps:**
-1. Make a simple list of **provider → email domain(s)** (e.g. `QDOS → qdos.co.uk`).
-2. Send me that list, **or** drop it into the provider records yourself.
-3. Once the domains are in, automatic matching (and the automatic vehicle look-ups) start working
-   on new emails — no further switch needed.
+**What's left for you:** the handful I could **not** load — either no email address was exposed in the
+sampled mailbox (DFD, Fairway, Regent, Castle, Stallion, Relay) or the only address is a **public**
+domain that's unsafe as a match key (NETWORK HD UK / YM Law → `gmail.com`). For those, send me the
+real business domain (or confirm there isn't one) and I'll add them — everything else already matches.
 
 ---
 
