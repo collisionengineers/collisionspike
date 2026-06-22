@@ -18,11 +18,15 @@ Field-level depth for the unified operations in `SKILL.md`. Re-read **developer.
   **baked into the template** and cannot be varied by copy.
 - One File Request per folder (a second copy onto the same folder is a duplicate).
 
-## GetSharedLink — `PUT /2.0/files/{id}?fields=shared_link` and `PUT /2.0/folders/{id}?fields=shared_link`
-- Body: `{ "shared_link": { "access": "<open|company|collaborators>", "permissions": {
-  "can_download": true } } }`. Returns `shared_link.url` (+ `shared_link.download_url` for files).
-- Provision **both** the file and folder variants. "Open in Box" can use either; the (not-pursued)
-  iframe embed would need the **folder** link's `/embed/s/{token}` form.
+## GetSharedLink / GetFolderSharedLink — `PUT /2.0/files/{id}?fields=shared_link` · `PUT /2.0/folders/{id}?fields=shared_link`
+- Two **separate operationIds** (the connector + connection-reference + Code App split file vs folder):
+  `GetSharedLink` = the **file** variant (`PUT /2.0/files/{id}`); `GetFolderSharedLink` = the **folder**
+  variant (`PUT /2.0/folders/{id}`). The generated `*Service` method names equal these.
+- Body (identical for both): `{ "shared_link": { "access": "<open|company|collaborators>",
+  "permissions": { "can_download": true } } }`. Returns `shared_link.url` (+ `shared_link.download_url`
+  for files).
+- "Open in Box" surfaces the **folder** link (`GetFolderSharedLink`); the (not-pursued) iframe embed
+  would need that folder link's `/embed/s/{token}` form.
 
 ## ListFolder — `GET /2.0/folders/{id}/items?fields=id,name,created_at,modified_at`
 - Reconciliation sweep (the webhook fallback). Paginate with `limit`/`offset` (or marker). Compare

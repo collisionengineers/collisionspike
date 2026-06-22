@@ -80,6 +80,12 @@ const expect = {
   "cr1bd_EVA_API_ENABLED": "false", "cr1bd_AZURE_MAPS_ENABLED": "false",
   "cr1bd_VALUATION_ENABLED": "false", "cr1bd_COPILOT_ENABLED": "false",
   "cr1bd_AZURE_VISION_ENABLED": "false",
+  // Phase-7 Box gates (ADR-0012) — all default OFF; the 2 String config vars
+  // (BOX_FOLDER_ROOT_ID / BOX_FILE_REQUEST_TEMPLATE_ID) ship "" and are set per-env at activation.
+  "cr1bd_BOX_API_ENABLED": "false", "cr1bd_BOX_FOLDER_AT_INTAKE_ENABLED": "false",
+  "cr1bd_BOX_FILEREQUEST_ENABLED": "false", "cr1bd_BOX_EMBED_ENABLED": "false",
+  "cr1bd_BOX_METADATA_ENABLED": "false",
+  "cr1bd_BOX_FOLDER_ROOT_ID": "", "cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID": "",
 };
 let envOk = true;
 for (const [k, want] of Object.entries(expect)) {

@@ -27,7 +27,10 @@
         { "value": 100000015, "name": "eva_submitted",                "label": "EVA Submitted" },
         { "value": 100000016, "name": "box_synced",                   "label": "Box Synced" },
         { "value": 100000017, "name": "corpus_record_changed",        "label": "Corpus Record Changed" },
-        { "value": 100000018, "name": "inspection_override",          "label": "Inspection Override" }
+        { "value": 100000018, "name": "inspection_override",          "label": "Inspection Override" },
+        { "value": 100000019, "name": "box_folder_created",           "label": "Box Folder Created" },
+        { "value": 100000020, "name": "box_file_request_copied",      "label": "Box File Request Copied" },
+        { "value": 100000021, "name": "box_upload_received",          "label": "Box Upload Received" }
       ]
     },
     {

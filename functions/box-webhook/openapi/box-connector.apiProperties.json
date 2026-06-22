@@ -1,0 +1,25 @@
+{
+  "properties": {
+    "connectionParameters": {
+      "api_key": {
+        "type": "securestring",
+        "uiDefinition": {
+          "displayName": "x-functions-key (Azure Functions key)",
+          "description": "Azure Functions host/function key for the box-webhook Function. Stored on the connection, sent as the x-functions-key header. The Box client_secret is NOT here — it is a Function-side Key Vault reference.",
+          "tooltip": "Provide the box-webhook Function key",
+          "constraints": {
+            "tabIndex": 1,
+            "clearText": false,
+            "required": "true"
+          }
+        }
+      }
+    },
+    "iconBrandColor": "#0061d5",
+    "capabilities": [],
+    "scriptOperations": [],
+    "publisher": "Collision Engineers",
+    "stackOwner": "",
+    "policyTemplateInstances": []
+  }
+}

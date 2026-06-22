@@ -95,6 +95,13 @@ DEPLOY-RUNBOOK order.
 | **5c** — Copilot Studio agent | Staff assistant grounded over Dataverse, gated `COPILOT_ENABLED` | **M3** | `[ ]` planned, gated-OFF | ROADMAP 5c; `docs/architecture/microsoft-stack.md` |
 | **(5c)** — Dataverse-MCP-in-Copilot | Dataverse Model Context Protocol surfaced inside the Copilot agent | **M3** | `[ ]` planned, gated-OFF | `docs/architecture/microsoft-stack.md` |
 | **6** — Boundary evidence & handoff | Offline gates green; connection inventory; deploy log; **§7 live-validation across all three mailboxes** | **M1** *(evidence)* | `[x]` offline gates; `[ ]` 🔒 live evidence | ROADMAP Phase 6 — the §7 checklist is the M1 "done" evidence |
+| **7** — Box-centric intake pivot (ADR-0012) | Folder at parse-confirm + File-Request image chasers + webhook intake; **one-way Box mirror, Dataverse authoritative** | **M2-class** *(extends M2.D)* | `[x]` authored + offline-verified + free-account REST-tested; deploy/bind/flip + the BUSINESS `FILE.UPLOADED` live-test 🔒 | [ADR-0012](../adr/0012-box-centric-intake-additive-hybrid.md); the broader successor to **3d**/M2.D; build order in `box-integration-pivot/plans/00-BUILD-PLAN.md` |
+
+> **Phase 7 vs the milestone axis.** Phase 7 is a later **additive** work-breakdown phase, not a new
+> milestone. Its capabilities are **M2-class** — they extend the **3d = M2.D** Box family (Box-archival)
+> from "folder at EVA-submit" to "folder at parse-confirm + File-Request chasers + webhook intake". It
+> stays off the **M1** critical path (M1 ships on EVA JSON drag-drop with Box archival; Phase 7 is not an
+> M1 gate), and EVA itself stays gated OFF throughout the pivot.
 
 **Why some Phase 4a/5c rows appear more than once:** a few phase sub-letters bundle *more than one
 capability* under one ROADMAP letter (e.g. 4a holds the policy gate **and** the matching service **and**

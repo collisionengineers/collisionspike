@@ -9,7 +9,7 @@ the operator activates** (memory `live-services-boundary`). Canonical context li
 [../../AGENTS.md](../../AGENTS.md),
 [../architecture/live-environment.md](../architecture/live-environment.md), and the ADRs.
 
-Last updated **2026-06-19**.
+Last updated **2026-06-22**.
 
 ## How this folder is organised
 
@@ -40,8 +40,16 @@ docs/plans/
   phase-4-address-and-chaser/        inspection-address-matching (4a)
   phase-5-ocr-and-scale/             ocr-strategy (5a) · image-classification-ai (5b) · valuation-and-copilot (5c) · copilot-studio-setup (M3)
   phase-6-handoff/                   boundary evidence (points to DEPLOY-RUNBOOK §8)
+  phase-7-box-integration/           README (B0–B4 waves) · box-custom-connector-and-webhook (BUILD spec) · box-integration-activation (operator runbook)
 (docs/research/whatsapp-coexistence.md — M3 research, outside this tree)
 ```
+
+> **Phase 7 — Box-centric intake pivot (ADR-0012).** Added 2026-06-22 as a later **additive** phase
+> (folder at parse-confirm, File-Request image chasers, webhook intake; **Dataverse-authoritative,
+> one-way Box mirror**). Its **authoritative build order + cross-section reconciliations** live in
+> [`box-integration-pivot/plans/00-BUILD-PLAN.md`](../../box-integration-pivot/plans/00-BUILD-PLAN.md)
+> (which **wins over** the six section plans 01–06); the phase folder here is the in-tree spine. Status:
+> **authored + offline-verified + free-account REST-tested; NOT live.**
 
 ## Plans (one line each: purpose · ROADMAP item)
 
@@ -66,7 +74,10 @@ docs/plans/
 | [milestone-model.md](./milestone-model.md) | **Authoritative** Phase×Milestone map (M0/M1/M2/M3 as capability slices) + entry/exit criteria + precedence; CLAUDE.md points here. | **cross-cutting** (taxonomy) |
 | [phase-3-…/eva-validation-function.md](./phase-3-enrichment-and-eva/eva-validation-function.md) | The already-built `functions/evavalidation/` readiness Function (ports image-rules + case-status; one impl for flow ＝ Code App); connector + parity drift-gate + the `status-evaluate` repoint. | **Phase 3e/3c-Fn** (M2.B) |
 | [phase-3-…/enrichment-activation.md](./phase-3-enrichment-and-eva/enrichment-activation.md) | Standalone DVSA/DVLA enrichment activation runbook (Entra consent, KV creds, gate flip in TEST) + contract verification + ADR-0006 mileage acceptance tests. | **Phase 3a** (M1) |
-| [phase-3-…/box-archival-pipeline.md](./phase-3-enrichment-and-eva/box-archival-pipeline.md) | Full Box pipeline design + M2.D activation runbook; the S2 content-bind + the fictional-`CreateFolder` rewrite; UPPERCASE folder + EVA photo-order. | **Phase 3d** (M2.D) |
+| [phase-3-…/box-archival-pipeline.md](./phase-3-enrichment-and-eva/box-archival-pipeline.md) | Full Box pipeline design + M2.D activation runbook; the S2 content-bind + the fictional-`CreateFolder` rewrite; UPPERCASE folder + EVA photo-order. **Reconciled DOWN to ADR-0012** (supersession banner). | **Phase 3d** (M2.D) → superseded by **Phase 7** |
+| [phase-7-box-integration/README.md](./phase-7-box-integration/README.md) | Phase-7 goal + the B0–B4 wave checklist for the Box-centric intake pivot (folder at parse-confirm, File-Request chasers, webhook intake); the connection-ref PIN; the two-phase (free vs Business) live-test split. Defers build order to `box-integration-pivot/plans/00-BUILD-PLAN.md`. | **Phase 7** (Box pivot, ADR-0012) |
+| [phase-7-…/box-custom-connector-and-webhook.md](./phase-7-box-integration/box-custom-connector-and-webhook.md) | The BUILD spec the azure section implements: the custom Box REST connector OpenAPI (`api_key` param), the CCG token-mint inside the Function, the `box-webhook` receiver, the FC1 bicep, and the `finalize-eva-box` rewrite contract. | **Phase 7 B0** |
+| [phase-7-…/box-integration-activation.md](./phase-7-box-integration/box-integration-activation.md) | The operator runbook: Box Platform-app registration on a Business+ tenant, the `BOX_*` gate-flip choreography, and the BUSINESS second test phase (CCG + File Requests + the `FILE.UPLOADED` live-test). | **Phase 7** (operator) |
 | [phase-2-…/multi-inbox-feasibility.md](./phase-2-live-activation/multi-inbox-feasibility.md) | **Investigate-only** feasibility companion to `multi-inbox-access` for the other two inboxes (V2/V3 trigger, webhook re-arm, dedup). Do **not** proceed. | **Phase 2** (operator) |
 | [phase-2-…/image-storage-backends.md](./phase-2-live-activation/image-storage-backends.md) | Swappable, env-var-gated images-only storage abstraction (Azure Blob / SharePoint / local SMB / File Sync) + ready-to-enable connection-ref scaffolds. | **Phase 2** (M1 storage) |
 | [phase-5-…/copilot-studio-setup.md](./phase-5-ocr-and-scale/copilot-studio-setup.md) | M3 Copilot Studio staff-assistant grounded on Dataverse (gate `COPILOT_ENABLED`): pre-reqs, grounding model, Code-App seam, use-cases. | **Phase 5c** (M3) |
@@ -98,6 +109,7 @@ docs/plans/
 | **Phase 5b** — Image classification AI — **M2** | **image-classification-ai**; research/whatsapp-coexistence (WhatsApp=M3) |
 | **Phase 5c** — Valuation & Copilot — **M3** | **valuation-and-copilot**; **copilot-studio-setup** |
 | **Phase 6** — Boundary evidence & handoff | code-audit-cleanup (+ `verify-all.mjs` gates; operator evidence in DEPLOY-RUNBOOK) |
+| **Phase 7** — Box-centric intake pivot (ADR-0012) | phase-7-box-integration/README; box-custom-connector-and-webhook; box-integration-activation (+ the authoritative `box-integration-pivot/plans/00-BUILD-PLAN.md`) |
 
 **Status:** every ROADMAP phase/feature has at least one plan, and (2026-06-20) **3a, 3c-Fn, 3d** were
 promoted to **dedicated** plans (enrichment-activation, eva-validation-function, box-archival-pipeline);

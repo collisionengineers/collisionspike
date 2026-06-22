@@ -29,7 +29,8 @@ them**; this skill + the build plan are the contract.
 |---|---|---|
 | `CreateFolder` | `POST /2.0/folders` | `name=@toUpper(casePo)`, parent = archive root. **409 `item_name_in_use`** (case-insensitive) → treat as idempotent success. |
 | `CopyFileRequest` | `POST /2.0/file_requests/{templateId}/copy` | The **only** "create" — copy-from-template only; one File Request per folder; the reg field is baked into the template. `status:"active"`, optional `expires_at`. |
-| `GetSharedLink` | `PUT /2.0/files/{id}?fields=shared_link` **and** `PUT /2.0/folders/{id}?fields=shared_link` | Provision **both** variants — "Open in Box" can use either; an iframe embed (not pursued here) would need the **folder** link. |
+| `GetSharedLink` | `PUT /2.0/files/{id}?fields=shared_link` | The **file** variant. Server-minted only. |
+| `GetFolderSharedLink` | `PUT /2.0/folders/{id}?fields=shared_link` | The **folder** variant — the one "Open in Box" surfaces (and the one an iframe embed, not pursued here, would need). Both variants are provisioned as **two operationIds** (file vs folder); the `*Service` method names are `GetSharedLink` + `GetFolderSharedLink` respectively. |
 | `ListFolder` | `GET /2.0/folders/{id}/items` | Reconciliation sweep (the webhook fallback). |
 | `CreateWebhook` | `POST /2.0/webhooks` | `target` = file\|folder, `triggers:["FILE.UPLOADED"]`. |
 | webhook lifecycle | `GET` / `DELETE /2.0/webhooks/{id}` | |

@@ -12,7 +12,10 @@ which is **reference/context only** — re-implement its contracts; do **not** c
 The Power Apps Code App is built and deployed live (`mockup-app/`, app `da7ba7af-…`) in the
 **`Collision Engineers - Dev`** Sandbox (`b3090c42-…`), wired to live Dataverse; the parser +
 enrichment Azure Functions are deployed; the Dataverse schema, 10 cloud flows, and the provider
-corpus are loaded. Email intake is live. See **CURRENT_STATUS.md** and
+corpus are loaded. Email intake is live. The **Phase 7 Box-centric intake pivot** (ADR-0012 — folder at
+parse-confirm, File-Request chasers, webhook intake; **one-way Box mirror, Dataverse authoritative**) is
+**authored + offline-verified + free-account REST-tested but NOT live** (all `BOX_*` gates `false`,
+nothing deployed/bound). See **CURRENT_STATUS.md** and
 **docs/architecture/live-environment.md** for the live registry.
 
 Read first: [README.md](./README.md), [CURRENT_STATUS.md](./CURRENT_STATUS.md) (live state),
@@ -95,8 +98,14 @@ images without instructions) and are held with a chaser workflow until complete.
 
 All non-trivial integrations are **feature-gated with Dataverse environment variables**
 (`EVA_API_ENABLED`, `PDF_MAPPER_ENABLED`, `ENRICHMENT_ENABLED`, `AZURE_MAPS_ENABLED`,
-`COPILOT_ENABLED`). **EVA** has two paths: JSON drag-drop export now; **Sentry REST API later**
-(in testing). Detail: [docs/architecture/integrations.md](./docs/architecture/integrations.md).
+`COPILOT_ENABLED`, and the **Phase-7 `BOX_*` set** — `BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`,
+`BOX_FILEREQUEST_ENABLED`, `BOX_EMBED_ENABLED` (reserved), `BOX_METADATA_ENABLED` (deferred), all
+default-off). **EVA** has two paths: JSON drag-drop export now; **Sentry REST API later** (in testing).
+**Box (Phase 7, ADR-0012)** is an **additive, one-way mirror** (Dataverse stays the system of record):
+all non-byte Box ops run through a **custom connector** (CCG token minted inside the `box-webhook`
+Function, never the connector); **evidence is linked, not embedded** — a server-minted "Open in Box" deep
+link, so there is **no iframe and no `frame-src` edit** (`BOX_EMBED_ENABLED` stays reserved/off). Detail:
+[docs/architecture/integrations.md](./docs/architecture/integrations.md).
 
 ## Tooling & conventions
 

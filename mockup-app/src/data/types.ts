@@ -122,6 +122,42 @@ export interface InspectionAddressCounts {
   suggested: number;
 }
 
+/* ----------  Box feature gates (the BOX_* env-var rows, read at runtime)  ----------
+   Code Apps have NO native environment-variable mechanism, so the gates are read
+   the SAME way the flows read them — via the Dataverse `environmentvariable*`
+   platform tables (see `getBoxGates` in dataverse-source.ts). Every gate defaults
+   FALSE; the whole object defaults all-false on a read failure (honest off). The
+   names below mirror the `cr1bd_BOX_*` definitions owned by the dataverse section
+   (plan 05); the UI only READS them. */
+export interface BoxGates {
+  /** cr1bd_BOX_API_ENABLED — the master Box switch (shared link, direct submit). */
+  apiEnabled: boolean;
+  /** cr1bd_BOX_FOLDER_AT_INTAKE_ENABLED — folder minted at parse-confirm. */
+  folderAtIntakeEnabled: boolean;
+  /** cr1bd_BOX_FILEREQUEST_ENABLED — the per-case image upload-link chaser. */
+  fileRequestEnabled: boolean;
+  /** cr1bd_BOX_EMBED_ENABLED — the in-app iframe embed (reserved; stays off here). */
+  embedEnabled: boolean;
+  /** cr1bd_BOX_METADATA_ENABLED — Business-Plus metadata path (Wave-2+, out of scope). */
+  metadataEnabled: boolean;
+  /**
+   * Derived (NOT an env-var Boolean): true when `cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID`
+   * carries a non-empty value. The chaser upload-link action needs BOTH
+   * `fileRequestEnabled` AND a configured template id before it may show.
+   */
+  fileRequestTemplateConfigured: boolean;
+}
+
+/** All-false default — the honest "Box not switched on / unreadable" baseline. */
+export const BOX_GATES_ALL_FALSE: BoxGates = {
+  apiEnabled: false,
+  folderAtIntakeEnabled: false,
+  fileRequestEnabled: false,
+  embedEnabled: false,
+  metadataEnabled: false,
+  fileRequestTemplateConfigured: false,
+};
+
 export interface DataAccess {
   /* ----- Cases ----- */
   /** A single case by id (mock `caseById`). */
@@ -175,6 +211,15 @@ export interface DataAccess {
   recentActivity(): Promise<ActivityEvent[]>;
   /** Activity for a single case, newest first (mock `activityForCase`). */
   activityForCase(caseId: string): Promise<ActivityEvent[]>;
+
+  /* ----- Box feature gates ----- */
+  /**
+   * The `BOX_*` feature gates, read from the Dataverse env-var tables (Code Apps
+   * have no native env-var read). Cached after the first read; resolves to
+   * `BOX_GATES_ALL_FALSE` on any failure. The empty/default source returns
+   * all-false (Box off until the live source + bound connection exist).
+   */
+  getBoxGates(): Promise<BoxGates>;
 }
 
 /** A needs-action reason re-exported for callers shaping aging tallies. */
@@ -377,6 +422,33 @@ export interface ChaserRecord {
   cr1bd_sentat?: string;
 }
 
+/* ----------  Environment-variable platform tables (the BOX_* gate read)  ----------
+   Code Apps cannot read environment variables natively, so the BOX_* gates are
+   read from the two SYSTEM tables that back every Power Platform env-var: the
+   DEFINITION (schemaname + defaultvalue) and the VALUE (the current override).
+   We model only the columns the gate read consumes; the real pac-generated
+   services satisfy these structurally. Both are OPTIONAL on GeneratedServices
+   (like inspectionAddresses) so the offline build stays green until the operator
+   wires them with `pac code add-data-source`. */
+
+/** An environmentvariabledefinition row (the gate's name + baked default). */
+export interface EnvironmentVariableDefinitionRecord {
+  environmentvariabledefinitionid?: string;
+  /** The schema name, e.g. 'cr1bd_BOX_API_ENABLED'. */
+  schemaname?: string;
+  /** The baked default ('false' / '' for the BOX_* set) used when no value row exists. */
+  defaultvalue?: string;
+}
+
+/** An environmentvariablevalue row (the current override for a definition). */
+export interface EnvironmentVariableValueRecord {
+  environmentvariablevalueid?: string;
+  /** The override value (Memo/Text up to 2000). Coalesced over the default. */
+  value?: string;
+  /** Lookup back to the owning definition (GUID), for join-side filtering. */
+  _environmentvariabledefinitionid_value?: string;
+}
+
 /** An AuditEvent / activity row (cr1bd_auditevent logical names). */
 export interface AuditEventRecord {
   cr1bd_auditeventid?: string;
@@ -411,4 +483,15 @@ export interface GeneratedServices {
   notes: GeneratedTableService<NoteRecord>;
   chasers: GeneratedTableService<ChaserRecord>;
   auditEvents: GeneratedTableService<AuditEventRecord>;
+  /**
+   * The environment-variable DEFINITION table — backs the BOX_* gate read.
+   * OPTIONAL because it is added at deploy time via `pac code add-data-source`;
+   * until the operator wires it, `getBoxGates()` returns all-false (honest off).
+   */
+  environmentVariableDefinitions?: GeneratedTableService<EnvironmentVariableDefinitionRecord>;
+  /**
+   * The environment-variable VALUE table — the current gate overrides, coalesced
+   * over each definition's default. OPTIONAL for the same deploy-time reason.
+   */
+  environmentVariableValues?: GeneratedTableService<EnvironmentVariableValueRecord>;
 }

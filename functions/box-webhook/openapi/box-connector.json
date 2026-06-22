@@ -1,0 +1,757 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Collision Engineers Box REST",
+    "description": "Custom connector for the Box-centric intake pivot (ADR-0012). Thin Power Platform front for the box-webhook Azure Function, which mints the Box CCG service-identity token server-side (POST /oauth2/token, grant_type=client_credentials, box_subject_type=enterprise; client_secret from Key Vault) and injects the Box bearer on every call. The connector authenticates ONLY by an Azure Functions host key (x-functions-key) carried on the connection — Power Platform custom connectors CANNOT run the OAuth2 client-credentials grant (Microsoft Learn, verbatim), so NO OAuth2 security definition appears here. Operation ids are the UNIFIED set; the generated *Service method names MUST equal them. BOX_* gating is enforced in the calling flow + the Function, not in this document.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Collision Engineers — collisionspike"
+    }
+  },
+  "host": "REPLACE-WITH-BOX-WEBHOOK-FUNCTION-HOST.azurewebsites.net",
+  "basePath": "/api",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/box/folders": {
+      "post": {
+        "summary": "Create a Box folder",
+        "description": "POST /2.0/folders. name = UPPERCASE Case/PO; parent = the archive root id. 409 item_name_in_use (case-insensitive) is treated as idempotent success by the Function, which reads the conflicting id back out of context_info.conflicts[0].id and returns it. Stamp the returned id into cr1bd_boxfolderid.",
+        "operationId": "CreateFolder",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateFolderRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Folder created (201) or already existed (409 reused).",
+            "schema": {
+              "$ref": "#/definitions/BoxFolder"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      }
+    },
+    "/box/file-requests/{fileRequestId}/copy": {
+      "post": {
+        "summary": "Copy a File Request from the template",
+        "description": "POST /2.0/file_requests/{templateId}/copy. The ONLY File-Request create path (copy-from-template only). One File Request per folder; the capture-form fields (incl. the vehicle_registration metadata field) are baked into the template and cannot be varied by copy. Response carries the live upload url.",
+        "operationId": "CopyFileRequest",
+        "parameters": [
+          {
+            "name": "fileRequestId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "The TEMPLATE File-Request id (BOX_FILE_REQUEST_TEMPLATE_ID), not the case's copy."
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CopyFileRequestRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The new File Request (with the live upload url).",
+            "schema": {
+              "$ref": "#/definitions/BoxFileRequest"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      }
+    },
+    "/box/files/{fileId}/shared-link": {
+      "put": {
+        "summary": "Get or create a shared link on a file",
+        "description": "PUT /2.0/files/{id}?fields=shared_link. Server-minted only (the Code App is under connect-src 'none'). Returns shared_link.url (+ download_url).",
+        "operationId": "GetSharedLink",
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SharedLinkRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The item with its shared_link.",
+            "schema": {
+              "$ref": "#/definitions/BoxSharedLinkItem"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      }
+    },
+    "/box/folders/{folderId}/shared-link": {
+      "put": {
+        "summary": "Get or create a shared link on a folder",
+        "description": "PUT /2.0/folders/{id}?fields=shared_link. The FOLDER variant — this is the one 'Open in Box' uses, and the one an iframe embed (not pursued; BOX_EMBED_ENABLED stays off) would need. Server-minted only.",
+        "operationId": "GetFolderSharedLink",
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SharedLinkRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The folder with its shared_link.",
+            "schema": {
+              "$ref": "#/definitions/BoxSharedLinkItem"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      }
+    },
+    "/box/folders/{folderId}/items": {
+      "get": {
+        "summary": "List items in a folder",
+        "description": "GET /2.0/folders/{id}/items. The reconciliation sweep (the webhook fallback): compare against Dataverse Evidence rows to detect dropped FILE.UPLOADED events.",
+        "operationId": "ListFolder",
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "description": "Page size (Box default 100)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The folder's items (paged).",
+            "schema": {
+              "$ref": "#/definitions/BoxItemCollection"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      }
+    },
+    "/box/webhooks": {
+      "post": {
+        "summary": "Create a webhook",
+        "description": "POST /2.0/webhooks. target = file|folder; triggers ['FILE.UPLOADED'] (also fires on move). Prefer one webhook on the archive root over per-case. 409 on a duplicate target+app+user. Scope manage_webhook.",
+        "operationId": "CreateWebhook",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateWebhookRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The created webhook.",
+            "schema": {
+              "$ref": "#/definitions/BoxWebhook"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      }
+    },
+    "/box/webhooks/{webhookId}": {
+      "get": {
+        "summary": "Get a webhook",
+        "description": "GET /2.0/webhooks/{id}. Webhook lifecycle (read current state).",
+        "operationId": "GetWebhook",
+        "parameters": [
+          {
+            "name": "webhookId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The webhook.",
+            "schema": {
+              "$ref": "#/definitions/BoxWebhook"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a webhook",
+        "description": "DELETE /2.0/webhooks/{id}. Webhook lifecycle (deactivation/renewal).",
+        "operationId": "DeleteWebhook",
+        "parameters": [
+          {
+            "name": "webhookId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted (Box returns 204; the Function normalises to 200).",
+            "schema": {
+              "$ref": "#/definitions/DeleteResult"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      }
+    },
+    "/box/file-requests/{fileRequestId}": {
+      "get": {
+        "summary": "Get a File Request",
+        "description": "GET /2.0/file_requests/{id}. File-Request lifecycle (read current state).",
+        "operationId": "GetFileRequest",
+        "parameters": [
+          {
+            "name": "fileRequestId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The File Request.",
+            "schema": {
+              "$ref": "#/definitions/BoxFileRequest"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a File Request status",
+        "description": "PUT /2.0/file_requests/{id}. status: 'inactive' deactivates the upload link (404s) without deleting history; 'active' re-enables.",
+        "operationId": "UpdateFileRequest",
+        "parameters": [
+          {
+            "name": "fileRequestId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateFileRequestRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The updated File Request.",
+            "schema": {
+              "$ref": "#/definitions/BoxFileRequest"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a File Request",
+        "description": "DELETE /2.0/file_requests/{id}. Removes it (vs PUT inactive which only deactivates).",
+        "operationId": "DeleteFileRequest",
+        "parameters": [
+          {
+            "name": "fileRequestId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted (Box returns 204; the Function normalises to 200).",
+            "schema": {
+              "$ref": "#/definitions/DeleteResult"
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          },
+          "502": {
+            "description": "Box dependency failed.",
+            "schema": {
+              "$ref": "#/definitions/BoxError"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "BoxRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Box object id."
+        },
+        "type": {
+          "type": "string",
+          "description": "Box object type (folder|file)."
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "CreateFolderRequest": {
+      "type": "object",
+      "required": [
+        "name",
+        "parent"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "UPPERCASE Case/PO folder name, e.g. CCPY26050."
+        },
+        "parent": {
+          "$ref": "#/definitions/BoxRef",
+          "description": "{ id } of the archive root (BOX_FOLDER_ROOT_ID)."
+        }
+      }
+    },
+    "CopyFileRequestRequest": {
+      "type": "object",
+      "required": [
+        "folder"
+      ],
+      "properties": {
+        "folder": {
+          "$ref": "#/definitions/BoxRef",
+          "description": "{ id, type:'folder' } of the Case/PO folder to attach the File Request to."
+        },
+        "status": {
+          "type": "string",
+          "description": "active | inactive. Default active."
+        },
+        "expires_at": {
+          "type": "string",
+          "description": "Optional ISO-8601 expiry."
+        },
+        "title": {
+          "type": "string",
+          "description": "Optional display title override."
+        }
+      }
+    },
+    "SharedLinkRequest": {
+      "type": "object",
+      "properties": {
+        "shared_link": {
+          "type": "object",
+          "properties": {
+            "access": {
+              "type": "string",
+              "description": "open | company | collaborators."
+            },
+            "password": {
+              "type": "string"
+            },
+            "unshared_at": {
+              "type": "string",
+              "description": "Optional expiry (paid-account only)."
+            },
+            "permissions": {
+              "type": "object",
+              "properties": {
+                "can_download": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "CreateWebhookRequest": {
+      "type": "object",
+      "required": [
+        "target",
+        "address",
+        "triggers"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/BoxRef",
+          "description": "{ id, type } of the file|folder to watch (prefer the archive root folder)."
+        },
+        "address": {
+          "type": "string",
+          "description": "The public HTTPS box-webhook receiver URL."
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "e.g. ['FILE.UPLOADED']."
+        }
+      }
+    },
+    "UpdateFileRequestRequest": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "active | inactive."
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "BoxFolder": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etag": {
+          "type": "string"
+        },
+        "parent": {
+          "$ref": "#/definitions/BoxRef"
+        },
+        "outcome": {
+          "type": "string",
+          "description": "created | reused (the Function tags whether a 201 or an idempotent 409-reuse produced this)."
+        }
+      }
+    },
+    "BoxFileRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "description": "The live public upload URL (return as fileRequestUrl)."
+        },
+        "status": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "folder": {
+          "$ref": "#/definitions/BoxRef"
+        }
+      }
+    },
+    "BoxSharedLinkItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "shared_link": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "download_url": {
+              "type": "string"
+            },
+            "access": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "BoxItemCollection": {
+      "type": "object",
+      "properties": {
+        "total_count": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "sha1": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "BoxWebhook": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/definitions/BoxRef"
+        },
+        "address": {
+          "type": "string"
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "DeleteResult": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "BoxError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string",
+          "description": "Failure class only — never the Box body verbatim, never a token/secret."
+        },
+        "status": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "apiKeyHeader": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "x-functions-key",
+      "description": "Azure Functions host/function key, stored on the custom connection. Never embedded in this definition. The Box client_secret is a Function-side Key Vault reference, NEVER on the connection."
+    }
+  },
+  "security": [
+    {
+      "apiKeyHeader": []
+    }
+  ],
+  "x-ms-connector-metadata": [
+    {
+      "propertyName": "Website",
+      "propertyValue": "https://collisionengineers.example"
+    },
+    {
+      "propertyName": "Authentication note",
+      "propertyValue": "FUNCTION-level auth: the connector sends the Function host key as x-functions-key. The box-webhook Function mints the Box CCG bearer server-side from a Key Vault client_secret. Custom connectors cannot run client-credentials (Microsoft Learn) — hence the Function facade. The webhook RECEIVER route is NOT exposed here (Box posts to it directly, server-to-server)."
+    }
+  ]
+}
