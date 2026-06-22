@@ -42,6 +42,9 @@ param boxEnterpriseId string = ''
 @description('Box app Client ID. Non-secret (the secret is the client_secret KV ref).')
 param boxClientId string = ''
 
+@description('Layer-2 scope lock: the only Box folder (and its descendants) ops may target. Set to the test folder id (392761581105) for the scoped phase; empty lifts the lock for production.')
+param boxAllowedRootId string = ''
+
 @description('Dataverse org URL the webhook receiver writes Evidence/Audit to (Function MI as Application User).')
 param dataverseUrl string = 'https://collisionengineers-dev.crm11.dynamics.com'
 
@@ -221,6 +224,13 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'BOX_CLIENT_ID'
           value: boxClientId
+        }
+        // ---- Layer-2 scope lock: every Box op must target this folder or a
+        // descendant. Set to the test folder for the scoped phase; clear it to
+        // lift the lock for production. ----
+        {
+          name: 'BOX_ALLOWED_ROOT_ID'
+          value: boxAllowedRootId
         }
         // ---- Dataverse (Function MI as Application User; no key) ----
         {

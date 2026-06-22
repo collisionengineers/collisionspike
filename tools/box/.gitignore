@@ -1,0 +1,4 @@
+# Box scope-guard / Phase-B receiver runtime artifacts — not source.
+.sink-events.log        # webhook-sink delivery log (optional local debug)
+.phaseB-state.json      # live-test artifact ids (for cleanup)
+.control-upload.txt     # throwaway control-upload file
