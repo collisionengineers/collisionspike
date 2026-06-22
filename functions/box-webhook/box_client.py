@@ -100,6 +100,12 @@ _BASE_BACKOFF_S = 1.0
 # 5xx on upstream faults). Verified: ~1000/min/user; back off on 429.
 _RETRY_SAFE_STATUS = {429, 500, 502, 503, 504}
 
+# Layer-2 scope lock cache: folder/file ids already confirmed to sit under
+# BOX_ALLOWED_ROOT_ID. Module-level so it survives across warm-worker requests (the
+# facade builds a fresh BoxClient per request). The root itself never needs caching
+# (it short-circuits). Bounded in practice by the number of in-scope case folders.
+_SCOPE_VERIFIED: set[str] = set()
+
 
 class BoxError(RuntimeError):
     """Non-recoverable Box failure (after the 401 retry / retry budget). The
@@ -121,6 +127,14 @@ class BoxConfigError(BoxError):
     """Required Box app settings / Key Vault refs are absent."""
 
 
+class BoxScopeError(BoxError):
+    """Layer-2 of the scope guard: an op targeted a Box item outside
+    ``BOX_ALLOWED_ROOT_ID`` (the test-folder lock). The deployed Function refuses it
+    BEFORE the write reaches Box — the compensating control for the enterprise-wide
+    ``root_readwrite`` scope. Disabled (no-op) when ``BOX_ALLOWED_ROOT_ID`` is unset,
+    which is how the lock is lifted for production."""
+
+
 @dataclass
 class _CachedToken:
     access_token: str
@@ -139,12 +153,16 @@ class BoxConfig:
     enterprise_id: str = ""
     api_base: str = field(default=DEFAULT_BOX_API_BASE)
     upload_base: str = field(default=DEFAULT_BOX_UPLOAD_BASE)
+    # Layer-2 scope lock. When set, every op must target this folder or a descendant
+    # (verified via path_collection). Empty = lock lifted (production).
+    allowed_root_id: str = ""
 
     @classmethod
     def from_env(cls) -> "BoxConfig":
         client_id = os.environ.get("BOX_CLIENT_ID", "").strip()
         client_secret = os.environ.get("BOX_CLIENT_SECRET", "")
         enterprise_id = os.environ.get("BOX_ENTERPRISE_ID", "").strip()
+        allowed_root_id = os.environ.get("BOX_ALLOWED_ROOT_ID", "").strip()
         api_base = (os.environ.get("BOX_API_BASE", "").strip() or DEFAULT_BOX_API_BASE).rstrip("/")
         upload_base = (
             os.environ.get("BOX_UPLOAD_BASE", "").strip() or DEFAULT_BOX_UPLOAD_BASE
@@ -171,6 +189,7 @@ class BoxConfig:
             enterprise_id=enterprise_id,
             api_base=api_base,
             upload_base=upload_base,
+            allowed_root_id=allowed_root_id,
         )
 
     @property
@@ -350,12 +369,45 @@ class BoxClient:
         jitter = base * 0.25 * (random.random() * 2 - 1)
         time.sleep(max(0.0, base + jitter))
 
+    # -- Layer-2 scope lock ------------------------------------------------
+
+    def _assert_in_scope(self, item_type: str, item_id: str) -> None:
+        """Refuse any op whose target is outside ``BOX_ALLOWED_ROOT_ID``. No-op when
+        the env var is unset (production). The root passes free; a descendant is
+        confirmed once via a cached ``path_collection`` lookup. ``item_type`` is the
+        REST collection — ``"folders"`` or ``"files"``."""
+        root = self.config.allowed_root_id
+        if not root:
+            return
+        sid = str(item_id or "")
+        if not sid or sid == root or sid in _SCOPE_VERIFIED:
+            return
+        if item_type not in ("folders", "files"):
+            raise BoxScopeError(f"scope check: unsupported item_type {item_type!r}")
+        resp = self.request("GET", f"/2.0/{item_type}/{sid}", params={"fields": "id,path_collection"})
+        if resp.status_code >= 400:
+            raise BoxScopeError(
+                f"scope check could not resolve {item_type}/{sid} (HTTP {resp.status_code})",
+                status=resp.status_code,
+            )
+        try:
+            entries = (resp.json().get("path_collection") or {}).get("entries") or []
+        except ValueError:
+            entries = []
+        if any(str(e.get("id")) == root for e in entries):
+            _SCOPE_VERIFIED.add(sid)
+            return
+        raise BoxScopeError(
+            f"{item_type}/{sid} is outside the allowed Box root (BOX_ALLOWED_ROOT_ID lock)"
+        )
+
     # -- typed operations (back the connector ops) -------------------------
 
     def create_folder(self, name: str, parent_id: str) -> dict[str, Any]:
         """POST /2.0/folders. 409 item_name_in_use (case-insensitive) is an
         idempotent success: read the conflicting id back out of
         context_info.conflicts[0].id and return it tagged outcome='reused'."""
+        self._assert_in_scope("folders", parent_id)
         resp = self.request(
             "POST", "/2.0/folders",
             json_body={"name": name, "parent": {"id": parent_id}},
@@ -376,6 +428,7 @@ class BoxClient:
         self, template_id: str, folder_id: str, *, status: str = "active",
         expires_at: str | None = None, title: str | None = None,
     ) -> dict[str, Any]:
+        self._assert_in_scope("folders", folder_id)
         body: dict[str, Any] = {"folder": {"id": folder_id, "type": "folder"}, "status": status}
         if expires_at:
             body["expires_at"] = expires_at
@@ -386,6 +439,7 @@ class BoxClient:
 
     def get_shared_link(self, item_type: str, item_id: str, body: dict[str, Any]) -> dict[str, Any]:
         """item_type ∈ {files, folders}. PUT /2.0/{item_type}/{id}?fields=shared_link."""
+        self._assert_in_scope(item_type, item_id)
         resp = self.request(
             "PUT", f"/2.0/{item_type}/{item_id}",
             params={"fields": "shared_link"}, json_body=body,
@@ -393,6 +447,7 @@ class BoxClient:
         return _json_or_raise(resp, "GetSharedLink")
 
     def list_folder(self, folder_id: str, *, limit: int | None = None, offset: int | None = None) -> dict[str, Any]:
+        self._assert_in_scope("folders", folder_id)
         params: dict[str, Any] = {"fields": "id,name,sha1,created_at,modified_at"}
         if limit is not None:
             params["limit"] = limit
@@ -402,6 +457,8 @@ class BoxClient:
         return _json_or_raise(resp, "ListFolder")
 
     def create_webhook(self, target: dict[str, Any], address: str, triggers: list[str]) -> dict[str, Any]:
+        t_type = str(target.get("type") or "folder")
+        self._assert_in_scope("files" if t_type == "file" else "folders", str(target.get("id") or ""))
         resp = self.request(
             "POST", "/2.0/webhooks",
             json_body={"target": target, "address": address, "triggers": triggers},

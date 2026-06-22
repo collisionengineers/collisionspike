@@ -40,7 +40,7 @@ from typing import Any, Callable
 
 import azure.functions as func
 
-from box_client import BoxAuthError, BoxClient, BoxConfigError, BoxError
+from box_client import BoxAuthError, BoxClient, BoxConfigError, BoxError, BoxScopeError
 from dataverse_client import (
     AUDIT_BOX_UPLOAD_RECEIVED,
     DataverseClient,
@@ -118,6 +118,13 @@ def _run_box_op(fn: Callable[[BoxClient], dict[str, Any]]) -> func.HttpResponse:
             {"error": "Box rejected the service-identity token (is the app Admin-authorized?).",
              "status": exc.status or 401},
             status=502,
+        )
+    except BoxScopeError as exc:
+        # Layer-2: target outside BOX_ALLOWED_ROOT_ID — a client/config error, not a
+        # Box fault. 400 so it's never mistaken for a transient retryable failure.
+        logger.warning("box op out of scope: %s", "BoxScopeError")
+        return _json_response(
+            {"error": "Target is outside the allowed Box root (scope lock).", "status": 400}, status=400
         )
     except BoxError as exc:
         logger.warning("box op failed: %s (status=%s)", type(exc).__name__, exc.status)

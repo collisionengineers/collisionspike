@@ -1,0 +1,8 @@
+{
+  "allowedRoot": "392761581105",
+  "allowedIds": [
+    "392761581105"
+  ],
+  "liveReady": false,
+  "_comment": "Box scope guard for the test-folder-scoped integration build. Until liveReady=true, EVERY Box CLI/REST/SDK op enforced by .claude/hooks/box-scope-guard.mjs must stay within allowedRoot (folder 392761581105, 'test folder') and its descendants listed in allowedIds. Box folder 0 (All Files root) is ALWAYS denied. Child ids (folders/files/file-requests/webhooks) created under an already-allowed parent are appended automatically by .claude/hooks/box-scope-postcreate.mjs. Set liveReady to true ONLY when you are ready to operate outside the test folder (production cutover); that lifts the guard."
+}
