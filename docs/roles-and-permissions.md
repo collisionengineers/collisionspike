@@ -43,11 +43,19 @@ registry), [../DEPLOY-RUNBOOK.md](../DEPLOY-RUNBOOK.md), and
 ## Plane B — Azure RBAC (the cloud resources — *not* on the M365 admin page)
 
 The parser/enrichment/EVA/OCR/box-webhook Functions, Key Vault, Storage, Container Apps and Document
-Intelligence live under resource group **`rg-collisionspike-dev`**. These need **Azure** roles:
+Intelligence live under resource group **`rg-collisionspike-dev`**. These need **Azure** roles.
+
+> **These are NOT current blockers.** The "Real blocker it resolves" column below means *the role you
+> needed to deploy/operate the resource* — a **deploy-time requirement that is already met**. The
+> **parser Function is live (Running) and is the primary extractor** (PyMuPDF → the 12-field EVA
+> contract for text PDFs); **enrichment is live (gate ON)**; **Document Intelligence is online** as the
+> managed OCR *fallback* for scanned PDFs (tesseract/fast-alpr on the OCR ACA host are primary). The only
+> not-yet-wired piece is the OCR fallback path for scanned/image PDFs (connector wiring +
+> `OCR_SCANNED_PDF_ENABLED`/`PLATE_OCR_ENABLED`); normal text-PDF extraction does not depend on it.
 
 | Role (scope: `rg-collisionspike-dev`) | What it unlocks | Real blocker it resolves |
 |---|---|---|
-| **Contributor** | Deploy/manage the Function Apps, Storage, ACA, Document Intelligence, App Insights, and apply runtime hardening (e.g. `allowSharedKeyAccess=false`). | Every Azure deploy this build has done (parser FC1, enrichment, EVA Sentry, evavalidation, the OCR ACA host, Document Intelligence). |
+| **Contributor** | Deploy/manage the Function Apps, Storage, ACA, Document Intelligence, App Insights, and apply runtime hardening (e.g. `allowSharedKeyAccess=false`). | Deploy-time requirement (resolved) for every Azure deploy this build has done — all now **Running/online**: parser FC1, enrichment, EVA Sentry, evavalidation, the OCR ACA host, Document Intelligence. |
 | **User Access Administrator** (or **Owner**) | Assign Azure RBAC to managed identities — e.g. **AcrPull** for the OCR container image, and the box-webhook Function's MI. | **OCR ACA deploy (PR #7)** failed 3× with "provision revision expired" — an **AcrPull RBAC-propagation race** (the role was created in the same deployment as the app). Fix: a **pre-granted user-assigned identity** for AcrPull via a separate ARM deploy — which requires the rights to assign that role. |
 | **Key Vault Administrator** / **Key Vault Secrets Officer** | Inject the secrets the Functions read as Key Vault references: EVA `eva-client-id`/`eva-client-secret`, the DVSA/DVLA creds, and (later) Box `box-client-secret` + `box-webhook-primary-key` / `box-webhook-secondary-key`. | **B5 — EVA test creds + Box secrets.** `EVA_API_ENABLED` stays off and the box-webhook can't verify signatures until these KV secrets exist. **Note the naming:** KV secret names are **hyphenated**; the Function app settings are **UPPER_SNAKE** (`BOX_CLIENT_SECRET`, `BOX_WEBHOOK_PRIMARY_KEY`…) and resolve *from* the hyphenated secrets. |
 
