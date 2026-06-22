@@ -17,8 +17,9 @@
 
 Phase 1 is the **M1 vertical slice**: a real email arriving in a Collision Engineers shared inbox becomes a
 tracked `Case` in Dataverse, gets parsed + enriched into the 12 EVA fields with field-level provenance,
-passes a human readiness review in the Code App, and is exported to EVA as drag-drop JSON (with Box
-archival in unison). It does this by re-implementing the `collisioncc` `graph-intake` → `case-status` →
+passes a human readiness review in the Code App, and is exported to EVA as drag-drop JSON (with the
+Box folder minted at parse-confirm per Phase 7/ADR-0012 and **augmented** at finalisation, not first
+created at submit). It does this by re-implementing the `collisioncc` `graph-intake` → `case-status` →
 `image-rules` → `eva-export` pipeline on the Microsoft stack (Power Automate + Dataverse + Azure Functions
 + a React/Vite Code App). Phase 1b (provider corpus + inspection-address) rides alongside as the seed data
 and policy gate that make provider-domain matching and address decisions meaningful. **Everything in Phase 1
@@ -103,7 +104,7 @@ handoff checklist the user executes.
 | **Entra app registration** | Service identity for the two Functions + (later) EVA connector OAuth | App-reg spec authored offline; consent interactive | — | azure-integration-engineer | **[BUILD]** spec; **[RESERVED-FOR-USER]** consent/register |
 | **Custom Power Platform connectors** | Surface `/parse` and `/dvsa-mot/enrich` as connectors for flows/Code App | OpenAPI 2.0 specs authored offline; gated at flow branch | `PDF_MAPPER_ENABLED`, `ENRICHMENT_ENABLED` | azure-integration-engineer (OpenAPI), power-automate-flow-builder (consume) | **[BUILD]** OpenAPI; **[DEPLOY-WITH-LOGIN]** import |
 | **postcode.io** | UK postcode validation/normalisation for manual inspection-address entry | Free, UK-only, no auth; HTTP action or Code App | `AZURE_MAPS_ENABLED=false` selects postcode.io | power-automate-flow-builder / code-app-architect | **[BUILD]** + **[DEPLOY-WITH-LOGIN]** (public endpoint) |
-| **Box connector** (finalization) | Create UPPERCASE Case/PO folder, upload photos in EVA order, in unison with EVA submit | eva-sentry-integration lane; consumes Case data this slice writes | — | eva-sentry-integration / power-automate-flow-builder | **[BUILD]** flow; **[RESERVED-FOR-USER]** activate |
+| **Box connector** (folder at parse-confirm + finalize augment — Phase 7/ADR-0012) | UPPERCASE Case/PO folder minted at parse-confirm (`box-folder-create`); `finalize-eva-box` **augments** it, uploading photos in EVA order — not first created at EVA submit | eva-sentry-integration lane; consumes Case data this slice writes | — | eva-sentry-integration / power-automate-flow-builder | **[BUILD]** flow; **[RESERVED-FOR-USER]** activate |
 | **EVA Sentry REST (gated)** | Sentry v1.2 path built against EVA **test** env; inert in M1 (drag-drop JSON is the M1 path + permanent fallback) | `EVA_BASE_URL` same for test/prod; creds route env (Key Vault) | `EVA_API_ENABLED` (false in M1) | eva-sentry-integration | **[BUILD]** vs test; **[RESERVED-FOR-USER]** enable/cutover |
 
 ---
@@ -115,7 +116,9 @@ columns/relationships actively read/written in this slice.
 
 **Case** *(M1 live, write-heavy)*
 - Identity/workflow R/W: `vrm`, `caseRef` (source/claim reference — the dedup tiebreaker, ADR-0010),
-  `casePo` (entered at EVA submit), `status`, `intakeChannel`, `sourceMailbox`, `workProviderId`
+  `casePo` (generated at parse-confirm by the `intake` flow's `Scope_generate_casepo`, not at EVA
+  submit — so the Box folder can be minted then per Phase 7/ADR-0012), `status`, `intakeChannel`,
+  `sourceMailbox`, `workProviderId`
   (→ WorkProvider), `imageSourceId?`, `inspectionAddressId?`, `dateDue`, `inspectionDate`.
 - **New dedup keys written at intake:** `sourceMessageId` (Graph/Internet Message-ID), `payloadHash`
   (SHA256 over normalized subject + from + sorted attachment SHA256s).
@@ -642,8 +645,9 @@ these.
 7. Confirm **SharePoint mirror/dashboard** reflects the case (if the mirror is activated).
 8. **EVA**: with `EVA_API_ENABLED=false`, **export the 12-field JSON** and drag-drop into EVA **test** env;
    confirm acceptance. (Sentry API path only if/when the user enables the gate with test creds.)
-9. Confirm **Box** folder created with the **UPPERCASE** Case/PO in unison with EVA submit; confirm photo order
-   (2 previews first, then all including those two).
+9. Confirm the **Box** folder with the **UPPERCASE** Case/PO — minted at **parse-confirm**
+   (`box-folder-create`, Phase 7/ADR-0012) and **augmented** by `finalize-eva-box`, not first created
+   at EVA submit; confirm photo order (2 previews first, then all including those two).
 10. Confirm **AuditEvent** rows for ingest/review/submit; confirm a **chaser drafts** correctly for a
     deliberately-partial case.
 11. Only after single-mailbox success: user activates the remaining two shared inboxes.

@@ -14,6 +14,15 @@
 > authored gated-off (repo `functions/evavalidation/`, `functions/evasentry/`) and are **deployed live gated-off**
 > (`cespkeval-fn-6c6fxd` `/api/validate-case`; `cespkeva-fn-ufa3ci`, `EVA_API_ENABLED=false`). Read "build" as
 > **done offline**; the live-remaining M2 work for these is connector **import + bind + activation** ([RESERVED-FOR-USER]).
+>
+> **Box-timing supersession (Phase 7 / [ADR-0012](../adr/0012-box-centric-intake-additive-hybrid.md)).** Wherever
+> this plan frames **M2.D Box** as "Box archival **at finalisation** / **in unison with EVA submit**" (§0, §3, §8,
+> §15), that is the **older M2.D** model. Under the Box-centric intake pivot the per-Case/PO **UPPERCASE folder is
+> minted at parse-confirm** (`box-folder-create`, gate `BOX_FOLDER_AT_INTAKE_ENABLED`) and `finalize-eva-box`
+> **augments** the pre-existing folder (reads `cr1bd_BOX_FOLDER_ROOT_ID`); all non-byte Box ops run through the
+> **custom `cr1bd_box_rest` connector** (CCG via the `box-webhook` Function), with first-party `shared_box` retained
+> for the byte path only. Box is a **one-way mirror, Dataverse authoritative**; all `BOX_*` gates currently OFF. See
+> [docs/plans/phase-7-box-integration/](./phase-7-box-integration/).
 
 ---
 

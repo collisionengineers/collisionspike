@@ -27,8 +27,11 @@ _Avoid_: Job, Claim, Instruction (the instruction is one input to a Case)
 **Case/PO**:
 The case reference: principal code + 2-digit year + 3-digit per-provider sequence, in two
 case-renderings of the same characters — **EVA (lowercase)** e.g. `test26001`, **Box (UPPERCASE)**
-e.g. `TEST26001`. Entered by staff at EVA submit (auto-sequencing deferred). Box upload uses the
-uppercase form, in unison with EVA submission.
+e.g. `TEST26001`. **Generated at parse-confirm** for instructions cases (the live `intake` flow's
+`Scope_generate_casepo`), so it exists well before EVA submit. Under the **Phase-7 Box pivot
+(ADR-0012)** the **UPPERCASE Box folder is minted then** (`box-folder-create` at parse-confirm), and
+`finalize-eva-box` later *augments* that folder rather than creating it — Box is no longer first
+created in unison with EVA submission. (Auto-sequencing of the per-provider number is deferred.)
 _Avoid_: Case number, PO number
 
 **Repairer**:
