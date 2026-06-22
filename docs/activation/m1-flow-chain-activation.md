@@ -38,15 +38,17 @@ the live `CS Intake` does not call the children, and the children are stale + of
 1. **Re-import the corrected flow definitions** so live = repo (orchestrator + the fixed children).
    Import the `CollisionSpikeFlows` solution (or update each flow in the designer from
    `flows/definitions/*.definition.json`). This lands them **off** — expected.
-2. **Evidence blob (the only net-new infra):** create a Storage account + a private container
-   `evidence`, then in Power Apps **create an Azure Blob connection** to it and **bind it to the
-   `cr1bd_evidenceblob` connection reference**. `classify-persist` writes attachment bytes via
+2. **Evidence blob connection:** the evidence Storage account `cespkevidstdev01` + private container
+   `evidence` already exist live in `rg-collisionspike-dev`; the net-new step is in Power Apps —
+   **create an Azure Blob connection** to it and **bind it to the `cr1bd_evidenceblob` connection reference**. `classify-persist` writes attachment bytes via
    `CreateFile(dataset=<account>, folderPath='intake/<messageId>', name=<attachment>)`; confirm the
    `dataset`/container match the connection at first run.
    ```pwsh
-   az storage account create -g rg-collisionspike-dev -n cespkeviddev01 -l uksouth --sku Standard_LRS \
+   # NOTE: the evidence storage account `cespkevidstdev01` already exists live in rg-collisionspike-dev (UK South);
+   # the commands below are only for re-creating it in a fresh environment. Confirm the `evidence` container exists.
+   az storage account create -g rg-collisionspike-dev -n cespkevidstdev01 -l uksouth --sku Standard_LRS \
      --kind StorageV2 --min-tls-version TLS1_2 --allow-blob-public-access false
-   az storage container create --account-name cespkeviddev01 --name evidence --auth-mode login
+   az storage container create --account-name cespkevidstdev01 --name evidence --auth-mode login
    ```
 3. **Designer — wire the orchestrator:** open **CS Intake** in make.powerautomate.com; on each of the
    3 `Run a Child Flow` cards (classify-persist → parse → status-evaluate) re-select the child flow;

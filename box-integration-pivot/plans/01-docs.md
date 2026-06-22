@@ -285,9 +285,9 @@ reconcile the old plan + flow registry last.**
       Option 2 hybrid; B0–B4 phases; the gates (all OFF); the boundary (Claude builds
       connector/Function/flows/gates/docs offline; operator owns the Box Platform app + service account +
       `frame-src` edit + live-tests). State the live reality accurately: the **Phase-7 Box Dataverse schema
-      + env-vars ARE applied live (all `BOX_*` gates OFF)**; the **box-webhook Function, the `cr1bd_box_rest`
-      connector and the Box flows are authored offline (state=off), not deployed/bound** — so no *gated*
-      Box behaviour is live.
+      + env-vars ARE applied live (all `BOX_*` gates OFF)**; the **box-webhook Azure Function IS deployed (cespkbox-fn-v76a47, FC1; Gate-C-verified) but gated OFF
+      and secret-free** (KV empty, BOX_API_ENABLED=false), while the **`cr1bd_box_rest` connector and the Box
+      flows are authored offline (state=off), not deployed/bound** — so no *gated* Box behaviour is live.
     - **`docs/plans/README.md`** — add the `phase-7-box-integration/` entry (3 plans, one-line each) +
       ROADMAP-coverage row; cross-link milestone-model + the dossier.
     - **`docs/plans/milestone-model.md`** — add the **Phase 7** rows (B0–B4) to the canonical

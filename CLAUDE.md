@@ -14,8 +14,10 @@ The Power Apps Code App is built and deployed live (`mockup-app/`, app `da7ba7af
 enrichment Azure Functions are deployed; the Dataverse schema, 10 cloud flows, and the provider
 corpus are loaded. Email intake is live. The **Phase 7 Box-centric intake pivot** (ADR-0012 — folder at
 parse-confirm, File-Request chasers, webhook intake; **one-way Box mirror, Dataverse authoritative**) has
-its **Dataverse schema + env-vars applied live in Dev (all `BOX_*` gates `false`)**, with the `box-webhook`
-Function, the `cr1bd_box_rest` connector and the Box flows **authored offline (not deployed/bound)**. See
+its **Dataverse schema + env-vars applied live in Dev (all `BOX_*` gates `false`)**. The `box-webhook`
+Function (`cespkbox-fn-v76a47`) is **deployed to `rg-collisionspike-dev` and Gate-C-verified, but dormant**
+(`BOX_API_ENABLED=false`, KV empty so no Box secrets provisioned, no webhook subscribed); the
+`cr1bd_box_rest` connector and the Box flows remain **authored offline (not deployed/bound)**. See
 **CURRENT_STATUS.md** and **docs/architecture/live-environment.md** for the live registry.
 
 Read first: [README.md](./README.md), [CURRENT_STATUS.md](./CURRENT_STATUS.md) (live state),

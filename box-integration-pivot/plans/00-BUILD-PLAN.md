@@ -8,7 +8,7 @@
 > **operator-gated** explicit throughout. The section plans remain the detail of record; this plan is
 > the order + the reconciliations + the roll-up.
 
-> ## ⛏️ BUILD STATUS (updated 2026-06-22) — schema+env-vars LIVE; Function/connector/flows authored offline
+> ## ⛏️ BUILD STATUS (updated 2026-06-22) — schema+env-vars LIVE; box-webhook Function DEPLOYED (gated off); connector/flows authored offline
 >
 > **Two corrections to the "Decisions locked" block below, both operator-final:**
 > - **Phase number is 7, not 4.** The shipped phase docs live at
@@ -24,23 +24,26 @@
 > `boxfilerequestid`/`boxfilerequesturl`/`sourcemailbox`; `cr1bd_evidence` carries `cr1bd_boxfileid`/
 > `boxfileurl`; and **all `cr1bd_BOX_*` env-vars exist live with every `BOX_*` gate OFF (default AND
 > current = false)**. (`cr1bd_ENRICHMENT_ENABLED` default=false, current=true — enrichment is live/activated
-> in Dev via its *current* value, not the default.) The **box-webhook Azure Function, the `cr1bd_box_rest`
-> custom connector, and the Box cloud-flows are AUTHORED OFFLINE (state=off) — NOT deployed/imported/bound
-> live.** The **always-on Box account integration** (CCG token mint, `FILE.UPLOADED` webhook, template File
+> in Dev via its *current* value, not the default.) The **box-webhook Azure Function IS DEPLOYED live** as
+> `cespkbox-fn-v76a47` (FC1; 9 functions published; Gate-C-verified on the live host — no-key→401, key+unsigned→400,
+> gated-off facade→503; `BOX_API_ENABLED=false`, `BOX_ALLOWED_ROOT_ID=392761581105`; KV `cespkboxkvv76a47`
+> still EMPTY so its `box-client-secret`/webhook-key KV refs are unresolvable — secret-free + gated off). The
+> **`cr1bd_box_rest` custom connector and the Box cloud-flows remain AUTHORED OFFLINE (state=off) — NOT
+> imported/bound live.** The **always-on Box account integration** (CCG token mint, `FILE.UPLOADED` webhook, template File
 > Request) is **deferred to a future BUSINESS-account phase** (the free Box test account cannot sustain
 > CCG/webhooks/File-Requests). A **free-account demo (case `SBL26001`) proved the folder+upload+shared-link
 > pattern MANUALLY.**
 >
 > **Every Claude-buildable `[C]` item across Waves 0–5 is AUTHORED in the working tree and offline-verified;
-> the schema+env-vars are applied live (gates OFF), the Function/connector/Box-flows are not yet
-> deployed/bound.** Each wave's `[O]` items (Box Platform app + Admin authorization, secret injection,
+> the schema+env-vars are applied live (gates OFF), the box-webhook Function is deployed (gated off, secret-free),
+> and the connector/Box-flows are not yet imported/bound.** Each wave's `[O]` items (Box Platform app + Admin authorization, secret injection,
 > connection binds, gate flips, the BLOCKING `FILE.UPLOADED` live-test) remain the operator's. Authored +
 > verified:
 > - **Wave 0** — ADR-0012 + architecture §Box; **5 `BOX_*` gates + 2 config vars + 3 audit actions + 3
 >   `cr1bd_box*` columns** (+ `cr1bd_boxsyncedat`, the submit-signal columns, the `cr1bd_finalizedpayloadhash`
 >   drift declaration, the stale-comment fix) with `verify-parity.mjs` locking the defaults; the custom Box
 >   REST connector OpenAPI (with `connectionParameters.api_key`) + the `box-webhook` CCG-mint/HMAC receiver
->   Function + its FC1 bicep (**pytest 71 passed**). The **connection-ref decision is PINNED** = a **parallel
+>   Function + its FC1 bicep (**pytest 79 passed**). The **connection-ref decision is PINNED** = a **parallel
 >   `cr1bd_box_rest`**, first-party `cr1bd_box` retained for the byte path — this closes the "repoint vs
 >   parallel — Pin one" decision left open in Wave 0's connector step (and reflected in
 >   `flows/connection-references.json` + ADR-0012).

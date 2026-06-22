@@ -37,12 +37,15 @@ key)** — the exact pattern already proven for the EVA Sentry path. Claude neve
   is committed `state=off` and **mis-wired** — invents a non-existent `CreateFolder` op + `folderId` param
   and uploads the Blob path string instead of bytes (S2). Rewrite spec:
   [box-archival-pipeline.md](../../docs/plans/phase-3-enrichment-and-eva/box-archival-pipeline.md) §4–5.
-- **Box webhook receiver Function is AUTHORED OFFLINE (state=off) — not deployed/bound live;** no template
-  File Request, no enterprise metadata template, no shared-link minting, no governance policy yet (the
-  always-on Box account integration is deferred to a future Business-account phase).
+- **Box webhook receiver Function is DEPLOYED to Azure (cespkbox-fn-v76a47, FC1; Gate-C-verified) but
+  DORMANT — gated OFF (BOX_API_ENABLED=false), KV cespkboxkvv76a47 empty (no client-secret / signature
+  keys), the FILE.UPLOADED webhook not yet subscribed, and the cr1bd_box_rest connector not imported/bound;**
+  no template File Request, no enterprise metadata template, no shared-link minting, no governance policy yet
+  (live Box account integration remains operator-blocked on CCG authorization).
 - **Env-var gates + Box schema columns APPLIED LIVE in Dev (all `BOX_*` gates OFF — default AND current =
   false):** `BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`, `BOX_FILEREQUEST_ENABLED`,
-  `BOX_EMBED_ENABLED`, `BOX_METADATA_ENABLED`, `BOX_AI_ENABLED`.
+  `BOX_EMBED_ENABLED`, `BOX_METADATA_ENABLED`. (`BOX_AI_ENABLED` is **not** in the manifest — Box AI is
+  deferred to Phase C and the gate is added additively only when Phase C is taken up.)
 - **Box admin reference** mirrored locally at
   [automationsresearch/box/markdown/](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown) (File
   Request 289/315/123, metadata 046/047/131, governance 012, shared links 059/320, platform apps 009/055).
@@ -113,9 +116,9 @@ unlock and must complete before any later phase**.
    /reference/post-file-requests-id-copy/, /reference/put-files-id--add-shared-link/.
 
 5. **Build the Box service token-mint + webhook-receiver Azure Function.**
-   What: a **new `functions/box-webhook/` FC1 Function App** (per the 00-BUILD-PLAN reconciliation —
-   `cespkeva-fn-ufa3ci` is **not** in the live registry; record the chosen name in `live-environment.md` at
-   deploy) carrying (a) a **token-mint/façade** that does the Box CCG `POST https://api.box.com/oauth2/token`
+   What: the **`functions/box-webhook/` FC1 Function App — now DEPLOYED as `cespkbox-fn-v76a47`** (its name
+   is recorded in `live-environment.md`; `cespkeva-fn-ufa3ci` is the separate live EVA Sentry app, never the
+   webhook host) carrying (a) a **token-mint/façade** that does the Box CCG `POST https://api.box.com/oauth2/token`
    server-side (secret from Key Vault, 60-min token, **no refresh token** → re-mint per cycle) and forwards
    the connector's calls to `api.box.com` with the bearer; and (b) an **HTTP-trigger webhook receiver**
    (public HTTPS:443, reputable-CA cert, TLS 1.2/1.3, **not** a `*.box.com` URL): verify
@@ -334,8 +337,8 @@ unlock and must complete before any later phase**.
 **Needs from the other sections:**
 - **Dataverse** must hold the canonical `cr1bd_casepo` (UPPERCASE-rendered for Box) and the `BOX_*` gates;
   the status machine owns photo order / 2-previews / reflection-exclusion (Box does **not** enforce these).
-- **Azure** must host the new `functions/box-webhook/` FC1 Function App (name TBD at deploy —
-  `cespkeva-fn-ufa3ci` is **not** in the live registry) + Key Vault for the Box secret/webhook keys,
+- **Azure** hosts the `functions/box-webhook/` FC1 Function App — **deployed as `cespkbox-fn-v76a47`** (KV
+  `cespkboxkvv76a47`, currently empty) for the Box secret/webhook keys,
   and the Blob (`cespkevidstdev01/evidence`) the receiver and archival read/write.
 - **Flow-builder** owns `finalize-eva-box` and the per-case copy/webhook/shared-link flows that call this
   connector; **Code App** owns the buttons that trigger them.

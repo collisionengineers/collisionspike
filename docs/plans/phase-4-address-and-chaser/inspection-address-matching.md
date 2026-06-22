@@ -1,9 +1,11 @@
 # Inspection-address matching service — part-postcode `Loc` → known site → EVA field 9 (ROADMAP 4a)
 
-> **Status:** planning + completion runbook. The **pure helpers are already built** in
-> `functions/addressmatch/` (`postcode.py`, `postcode_client.py`, **offline** [BUILD]); this plan
-> specifies the **remaining build** (the `matching.py` ranker + `function_app.py` HTTP handler + infra +
-> OpenAPI), how it consumes the Phase-1b corpus, and the postcode.io→Azure-Maps gating. It is the deep
+> **Status (UPDATED 2026-06-22):** **BUILT + DEPLOYED LIVE.** The matcher described below is fully
+> built in `functions/addressmatch/` (`postcode.py`, `postcode_client.py`, `matching.py`,
+> `function_app.py`, `infra/main.bicep`, `openapi/addressmatch-connector.json`) and the Function is
+> **deployed live as `cespkaddr-fn-i7m4re`** (route **`POST /api/match-address`**, `AZURE_MAPS_ENABLED=false`
+> → postcode.io). What follows is the original **2026-06-18 planning + completion runbook** retained as
+> design rationale — the live route/contract is authoritative where it differs (see §4). It is the deep
 > dive behind **ROADMAP §4a "Inspection-address matching"** (the third checkbox) that
 > [phase-1-operational.md](../phase-1-intake-and-case-tracking/phase-1-operational.md) and [dataverse-corpus-incorporation.md](../phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md)
 > reference. Companion to ADR-0001 (Repairer first-class), the **`eva-sentry-api`** skill,
@@ -45,14 +47,16 @@ address gate.
 |---|---|---|
 | `functions/addressmatch/postcode.py` | **Built, pure** ([BUILD]) | `parse_postcode` → `full|part|none` + outward/inward (mirrors the corpus parser `outputs/_scripts/_lib.py`); `district_matches(case_outward, candidate_postcode)` = **the ROADMAP-4a `startswith(outwardCode)` rule**; `serialize_six_lines(...)` = **EXACTLY six newline-separated lines** for EVA field 9; `IMAGE_BASED_LITERAL` constant (mirrors `address-policy.ts`). |
 | `functions/addressmatch/postcode_client.py` | **Built, fail-soft** ([BUILD]) | `PostcodeIoClient` over `api.postcodes.io` (`/postcodes/{pc}`, `/outcodes/{oc}`), retry/backoff on 429/5xx, **every failure → `None`** (never blocks the decision), **no secrets** (postcode.io is open). `POSTCODE_IO_BASE` overridable; this is the single seam the `AZURE_MAPS_ENABLED` gate flips. |
-| `functions/addressmatch/{infra,openapi,tests}/` | **Dirs exist; `tests/fixtures/` present; infra+openapi EMPTY** | The Bicep + connector OpenAPI are **still to author** (§4). |
+| `functions/addressmatch/{infra,openapi,tests}/` | **Built (2026-06-22): `infra/main.bicep` + `openapi/addressmatch-connector.json` authored; tests present** | The Bicep + connector OpenAPI now exist; the Function deployed live from them (`cespkaddr-fn-i7m4re`). |
 | **Corpus data** (Phase 1b) | **Seeded + plan'd** | `Repairer` (38 + Input-1 known-sites) carry full address + postcode; N:N `cr1bd_repairer_workprovider` links yards↔providers; `InspectionAddress` reference rows for repeated full postcodes (`confirmed_physical`). The matcher reads these. |
 | `mockup-app/src/domain/address-policy.ts` | **Built** | `resolveInspectionDecision(policy, …)` over `always_image_based | prefer_address | required_address` (default `prefer_address`); owns `IMAGE_BASED_LITERAL`. The matcher **feeds** this gate a candidate; the gate is unchanged. |
 | Dataverse columns (all real) | **Exist** | `Case.cr1bd_evainspectionaddress` (**evaField 9**, Memo), `Case.cr1bd_inspectiondecision` (mirror of decisionMode), `Case.cr1bd_workproviderid`; `InspectionAddress.cr1bd_repairerid` / `cr1bd_decisionmode` / `cr1bd_decisionreason` / 6 address lines + postcode; `Repairer.cr1bd_addressline1..6` + `cr1bd_postcode`; `WorkProvider.cr1bd_inspectionlocationpolicy`. |
 | `cr1bd_AZURE_MAPS_ENABLED` env-var | **Exists**, default **false** | "When false, postcode.io is the address-normalisation path (M1). When true (M3), Azure Maps." (`environment-variables.json`.) |
 
-**Implication:** §4a is **~55 % built** — the deterministic core (parse + match rule + 6-line serializer
-+ postcode.io seam) is done; the **ranker + HTTP/connector surface + pipeline wiring** remain.
+**Implication (2026-06-22):** §4a is **built + deployed** — the deterministic core, the `matching.py`
+ranker, the `function_app.py` HTTP surface, the Bicep, and the connector OpenAPI all exist and the
+Function is **live as `cespkaddr-fn-i7m4re`**. What remains is **operator-gated**: binding the connection
+and wiring the live `address-resolve` pipeline step on real Cases.
 
 ---
 

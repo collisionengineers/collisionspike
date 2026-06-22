@@ -56,7 +56,8 @@ Verified by reading the repo + live Azure (`azure` MCP `group_resource_list`) + 
   **`cr1bd_storagepath` = `@body('Upload_bytes_to_storage')?['Path']`**. That single action is the swap point.
 - **The live storage account is `cespkevidstdev01`** (`rg-collisionspike-dev`, **UK South**, subscription
   `e6076573-23a5-46a8-acef-7e22d264e5db`) — confirmed live. The connection reference
-  **`cr1bd_evidenceblob`** (`shared_azureblob`, Premium, `usedBy:["classify-persist"]`) is declared in
+  **`cr1bd_evidenceblob`** (`shared_azureblob`, Premium, `usedBy:["classify-persist","finalize-eva-box"]` —
+  finalize also reads blob content for the Box byte path) is declared in
   `flows/connection-references.json` but bound by the operator at activation.
 - **There is NO SharePoint reference (`shared_sharepointonline`) and NO File System reference
   (`shared_filesystem`) yet.** `jobsheet-import` only uses **Excel Online** over the live SharePoint job
@@ -64,15 +65,20 @@ Verified by reading the repo + live Azure (`azure` MCP `group_resource_list`) + 
 - **No images-storage gate exists** in `dataverse/environment-variables.json` (today's gates:
   `PDF_MAPPER_ENABLED`, `ENRICHMENT_ENABLED`, `ENRICHMENT_API_BASE`, `EVA_API_ENABLED`, `EVA_BASE_URL`,
   `EVA_CLIENT_ID/SECRET`, `AZURE_MAPS_ENABLED`, `VALUATION_ENABLED`, `COPILOT_ENABLED`,
-  `AZURE_VISION_ENABLED`).
+  `AZURE_VISION_ENABLED`, plus the Phase-7 Box set added 2026-06-22: `BOX_API_ENABLED`,
+  `BOX_FOLDER_AT_INTAKE_ENABLED`, `BOX_FILEREQUEST_ENABLED`, `BOX_EMBED_ENABLED`, `BOX_METADATA_ENABLED`
+  + config `BOX_FOLDER_ROOT_ID` / `BOX_FILE_REQUEST_TEMPLATE_ID`).
 - **`cr1bd_evidence` is already backend-agnostic** — `cr1bd_storagepath` (String 1000) holds the ref for
   any backend; an optional `cr1bd_filebytes` File column exists but is unused by the flow path.
 - **The linter tolerates a scaffolded-but-unbound ref.** `flows/validate-flows.mjs` check 2 requires every
   `connectionName` to be **declared** in `connection-references.json`, and a **declared-but-unused** ref is
-  reported as a **WARN, not a FAIL** (the `shared_evavalidation` precedent at lines 100–103 of the
-  manifest). So both new refs are linter-safe while `usedBy:[]`.
-- **`classify-persist` is OFF today** (`flows/flow-state.json` — all flows ship `state=off`) and stays OFF
-  until the operator binds connections **and Saves in the designer** (children embed their connections; the
+  reported as a **WARN, not a FAIL** (the `shared_evavalidation` `usedBy:[]`/`boundAtActivation:false`
+  precedent in the manifest). So both new refs are linter-safe while `usedBy:[]`.
+- **`classify-persist` ships `state=off` in the repo solution** (`flows/flow-state.json` — every flow ships
+  `state=off` **except** `case-resolve`, which is Claude-wired ON). **Note:** the *live* `CS Classify + Persist`
+  flow is already **ON** for digital@ (full chain live 2026-06-20/21, `live-environment.md` §"Cloud flow
+  inventory"); a *re-import* of the repo solution would land it off again, so the backend refactor here must
+  be Saved in the designer on the live flow (children embed their connections; the
   Dataverse `clientdata` API cannot arm/refresh them — memory `flow-webhook-trigger-provisioning`). The
   `digital@` intake webhook is **not** touched by any edit here.
 
@@ -266,7 +272,7 @@ copy-to-Blob Function), and the bytes appear on-prem via sync.
 | B4 | Env-var read → `storageBackend` variable + the `Switch`-per-backend persist refactor (Azure Blob branch byte-identical; `default` → `azureblob`; branch-scoped `base64ToBinary`) | `flows/definitions/classify-persist.definition.json` |
 | B5 | Linter: confirm the two new refs are recognised; assert **no hardcoded SharePoint site URL / UNC path / gateway id** appears in any definition (only `@parameters`/env-vars); keep the declared-but-unused WARN until bound | `flows/validate-flows.mjs` |
 | B6 | Operator how-to: 4-backend decision matrix + File System/gateway params + DLP + the 2 MB-vs-20 MB limit reconciliation + recovery-key warning | `docs/activation/images-storage-backend-activation.md` |
-| B7 | Re-run `node flows/validate-flows.mjs` + `node verify-all.mjs` → keep **6/6 green** | — |
+| B7 | Re-run `node flows/validate-flows.mjs` + `node verify-all.mjs` → keep **all gates green** (`verify-all` reports **7/7** when the Python `.venv`s are present; flow linter currently **154/154**) | — |
 
 ### 6b. Operator-gated (🔒 [RESERVED-FOR-USER] — the live half)
 
@@ -347,7 +353,7 @@ copy-to-Blob Function), and the bytes appear on-prem via sync.
   `Scope_Persist_Attachments → Apply_to_each_attachment → Upload_bytes_to_storage` (Azure Blob `CreateFile_V2`),
   `Create_Evidence_row` writes `cr1bd_storagepath = @body('Upload_bytes_to_storage')?['Path']`.
 - **Connection manifest:** `flows/connection-references.json` (existing `cr1bd_evidenceblob` →
-  `shared_azureblob`; the `shared_evavalidation` `usedBy:[]` precedent at lines 100–103).
+  `shared_azureblob`; the `shared_evavalidation` `usedBy:[]` precedent).
 - **Gate manifest:** `dataverse/environment-variables.json`.
 - **Linter:** `flows/validate-flows.mjs` (check 2 = declared-only; declared-but-unused = WARN).
 - **Flow state:** `flows/flow-state.json` (all `state=off`).

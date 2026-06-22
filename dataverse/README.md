@@ -27,7 +27,7 @@ dataverse/
     chaser.json                 staged  — missing-item chaser (draft-only)
     note.json                   staged  — free-text note
   choicesets/                   global option sets (case-status is the parity keystone)
-  environment-variables.json    the M1 feature-gate manifest (+ Key Vault secret references)
+  environment-variables.json    the feature-gate manifest — M1 + Phase-7 Box gates (+ Key Vault secret references)
   relationships.json            N:N + all 1:N lookups (authoritative cross-table map)
   verify-parity.mjs             offline integrity + parity check (node, no tenant)
   README.md                     this file
@@ -57,7 +57,7 @@ asserts exactly those four are `m1-live`).
 ## Keystone: the Case Status choice set
 
 `choicesets/case-status.json` holds **exactly the 11** `CaseStatus` values, reconciled **1:1** against
-the prototype union (`mockup-app/src/mock/types.ts`) and `data-model.md` §"Case status state machine".
+the canonical contract union (`mockup-app/src/contracts/case-status.ts`, re-exported by `mockup-app/src/mock/types.ts`) and `data-model.md` §"Case status state machine".
 It is kept importable so a **Vitest parity test** can assert its option `name`s/`label`s equal the
 contracts' `CaseStatus` union with no extras on either side. `verify-parity.mjs` performs the same
 assertion offline today. **Integer `value`s are stable identifiers — never renumber once deployed.**
@@ -114,8 +114,9 @@ dataverse-data-architect's to finalize; the values here are the agreed authoring
 ## Boundary
 
 * **[BUILD]** (done here): author + locally verify the schema spec. `node dataverse/verify-parity.mjs`
-  is the offline gate (14 checks: status parity, 12-field EVA order, overview-only flags, lookup/reln
-  integrity, M1 split, frozen env defaults, secrets-as-references, choiceSet resolution, no print-red).
+  is the offline gate (15 checks: status parity incl. terminal-set parity, 12-field EVA order,
+  overview-only flags, lookup/reln integrity, M1 split, frozen env defaults — incl. the Phase-7 Box
+  gate + config defaults, secrets-as-references, choiceSet/structural conformance, no print-red).
 * **[DEPLOY-WITH-LOGIN]**: import the solution / create tables, choice sets, relationships, env-vars,
   and generate typed models — **non-inbox Dataverse, under the user's login**.
 * **[RESERVED-FOR-USER]**: inject secret **values** into Key Vault; activate any flow; all live

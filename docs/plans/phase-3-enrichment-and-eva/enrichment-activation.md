@@ -1,7 +1,8 @@
 # DVSA/DVLA enrichment — activation runbook (ROADMAP 3a · M1 slice, lifted from M2.A)
 
-> **Status:** activation runbook. The enrichment Function **is already built and deployed gated-OFF**
-> (`functions/enrichment/`, live app `cespkenrich-fn-gi62sd`, **Running**, `ENRICHMENT_ENABLED=false`).
+> **Status:** activation runbook — ✅ **EXECUTED: `ENRICHMENT_ENABLED=true` is now live in Dev** (flipped
+> 2026-06-21, live-verified `BC23JZE`→Ssangyong Rexton). The enrichment Function is built + deployed
+> (`functions/enrichment/`, live app `cespkenrich-fn-gi62sd`, **Running**); this records the dependency-ordered go-live sequence that was followed.
 > This plan is the **standalone DVSA/DVLA go-live runbook** for ROADMAP §3a — the dependency-ordered
 > sequence to take it from "deployed, dark" to "one real VRM enriched end-to-end in a **test** env",
 > plus the **document-authoritative-mileage** acceptance tests (ADR-0006). It deepens the M2-graph
@@ -80,7 +81,7 @@ turning it on is a state toggle — no designer re-publish dance (memory
 | `functions/enrichment/dvsa_client.py` | **Built** — Entra `client_credentials` token (`POST https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token`, form-encoded, cached w/ **60 s** skew); `GET {api_base}/v1/trade/vehicles/registration/{reg}` with `Authorization: Bearer` **+** `X-API-Key`; **one 401 → drop-token → refresh-once → retry**; bounded backoff w/ jitter on retry-safe `errorCode`s `MOTH-FB-02`/`MOTH-RL-02`/`MOTH-UN-01`; 404 → `DvsaNotFoundError`. `__repr__` redacts every credential. | read 2026-06-20 |
 | `functions/enrichment/dvla_client.py` | **Built** — `POST {base}/v1/vehicles`, `x-api-key`, body `{"registrationNumber": reg}`; retries on **status** 429/500/502/503/504; make-only fallback; skipped silently when `DVLA_API_KEY` absent (`DvlaNotConfigured`). | read 2026-06-20 |
 | `functions/enrichment/analysis.py` | **Built, pure** — ported `vehicle_summary` + `current_mileage_estimate` (KM→miles normalise, clocking suppression, confidence bands). No I/O. | read 2026-06-20 |
-| `functions/enrichment/tests/test_enrich.py` | **Green offline** — **18 respx-mocked pytest, zero network**: ADR-0006 mileage guard, DVLA make-only fallback, 401 self-heal, secret hygiene, estimate fixture **62400 / MEDIUM**. | `python -m pytest -q` |
+| `functions/enrichment/tests/test_enrich.py` | **Green offline** — **29 respx-mocked pytest, zero network**: ADR-0006 mileage guard, DVLA make-only fallback, 401 self-heal, 429/5xx-retry parity, no-secrets dry-run self-check, secret hygiene, estimate fixture **62400 / MEDIUM**. | `python -m pytest -q` |
 | `functions/enrichment/infra/main.bicep` | **Built** — FC1 Linux Python 3.11; system-assigned MI granted **Key Vault Secrets User** (`4633458b-17de-408a-b874-0445c86b69e6`) + **Storage Blob Data Owner** (`b7e6dc6d-…`); DVSA/DVLA secrets as `@Microsoft.KeyVault(SecretUri=…)` app settings; `enrichmentEnabled` **default false**; `dvsaTenantId` **default `''`**; workspace-based App Insights (classic retired). | read 2026-06-20 |
 | `functions/enrichment/openapi/enrichment-connector.json` | **Built** — swagger 2.0; one op `POST /dvsa-mot/enrich`, `operationId: EnrichDvsaMot`; `x-functions-key` security; `host` kept `REPLACE_WITH_FUNCTION_HOSTNAME.azurewebsites.net`. | read 2026-06-20 |
 | `flows/definitions/enrich.definition.json` (`CS Enrich`) | **Imported, state OFF** — reads `cr1bd_ENRICHMENT_ENABLED` (+ derives `documentHasMileage` from `cr1bd_evamileage` empty?), calls `EnrichDvsaMot`, writes make/model + mileage **into EMPTY Case fields only** (else conflict path), audits `enrichment_called`. `workflowid 4e0f301f-8b21-48cc-8f4f-00b062fc7463`. | read 2026-06-20 |
@@ -292,10 +293,10 @@ bearer (the clients redact; `DvsaConfig.__repr__`/`DvlaConfig.__repr__` mask).
 ## 9. Verification summary
 
 **Offline (pre-deploy, Claude) [BUILD]:**
-- `cd functions/enrichment && python -m pytest -q` → **18 passed** (respx-mocked, zero network; use the
+- `cd functions/enrichment && python -m pytest -q` → **29 passed** (respx-mocked, zero network; use the
   project venv — bare `python` errors only on a missing `httpx`).
-- New **429-then-200** DVSA-retry test green (after §6 hardening).
-- New **dry-run leak-assertion** test green (no secret in output).
+- **429-then-200** DVSA-retry test green (§6 hardening — built: `_RETRY_SAFE_STATUS = {429,500,502,503,504}`).
+- **dry-run leak-assertion** test green (built: `selfcheck_report()` + `{"dry_run":true}` branch, no secret in output).
 - `node -e "require('./functions/enrichment/openapi/enrichment-connector.json')"` parses; `swagger:2.0`;
   one path `/dvsa-mot/enrich`; security `x-functions-key`, **no** OAuth `securityDefinitions`.
 - `az bicep build functions/enrichment/infra/main.bicep` → no errors; **no** secret literals (KV refs only).

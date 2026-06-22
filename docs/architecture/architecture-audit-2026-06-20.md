@@ -1,8 +1,10 @@
 # Architecture audit — collisionspike live stack (2026-06-20)
 
-> **Dated findings record.** A read-only audit of the live `collisionspike` architecture against its
+> **Dated findings record (2026-06-20 snapshot — partially superseded; see note below).** A read-only audit of the live `collisionspike` architecture against its
 > IaC + canonical docs, verified live on **2026-06-20**. This is a **findings + remediation register**,
 > not a change log — **no remediation was performed here**. Each issue is tagged
+>
+> **SUPERSEDED-SINCE-2026-06-20 (do not act on these as open):** **F1 RESOLVED** — live-environment.md now shows the M1 chain (classify-persist / parse / status-evaluate) **ON**. **F4 RESOLVED** — `functions/parser/infra/main.bicep` now sets `allowSharedKeyAccess: false` (commit `a8522a3`). **F11 OVERTAKEN** — `evasentry` (`cespkeva-fn-ufa3ci`) and `evavalidation` (`cespkeval-fn-6c6fxd`) are now **deployed + Running**, and the Phase-7 `box-webhook` Function (`cespkbox-fn-v76a47`) has since been deployed (gated off); the "Verified live state" table below predates all three. The remaining findings (F4-apply, F5, F6, F7, F8, F9, F10) are point-in-time and should be re-verified before action. The body below is preserved verbatim as the 2026-06-20 record.
 > **CLAUDE-fixable** (offline, no live mutation) or **owner=operator 🔒** (crosses the
 > live-services / secret boundary).
 >

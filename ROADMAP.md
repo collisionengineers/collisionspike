@@ -38,7 +38,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 **Next** — (a) the **provider corpus** is now **incorporated** (1b.2 done 2026-06-19); the **clarifying-info** second phase remains (the plan in `docs/plans/`, `[DEPLOY-WITH-LOGIN]`, pure data, no inbox contact); (b) activate **enrichment** (DVSA/DVLA creds → Key Vault, `DVSA_TENANT_ID`, flip `ENRICHMENT_ENABLED` in a test env); (c) drive the **EVA M1 JSON drag-drop** path end-to-end into the EVA **test** environment + **Box** archival.
 
-**Later** — **EVA Sentry REST API**, **address-matching service** (resolve part-postcodes → inspection address), and **OCR for scanned PDFs** ("B-full", Azure Container Apps) are now **built (deploy pending)**; **chaser automation** (draft-only) and the full **§7 live-validation checklist** across all three mailboxes remain. **Phase 7 (the Box-centric intake pivot, ADR-0012)** has its **Dataverse schema + env-vars applied live (all `BOX_*` gates OFF)**, with the Function/connector/flows **authored offline, not deployed/bound** — the long pole is the **BUSINESS-account** second test phase (see Phase 7 below + gated.md item 5).
+**Later** — **EVA Sentry REST API**, **address-matching service** (resolve part-postcodes → inspection address), and **OCR for scanned PDFs** ("B-full", Azure Container Apps) are now **built (deploy pending)**; **chaser automation** (draft-only) and the full **§7 live-validation checklist** across all three mailboxes remain. **Phase 7 (the Box-centric intake pivot, ADR-0012)** has its **Dataverse schema + env-vars applied live (all `BOX_*` gates OFF)**, with the **`box-webhook` Function now deployed gated-OFF in Dev (`cespkbox-fn-v76a47`, Gate-C-verified, secret-free)** and the connector/flows still **authored offline, not deployed/bound** — the long pole is the **BUSINESS-account** second test phase (see Phase 7 below + gated.md item 5).
 
 ---
 
@@ -52,7 +52,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [x] **Data seam** built — mock↔Dataverse swap + field adapter; app shows real rows only.
 - [x] **Dataverse schema-as-code** authored (`dataverse/`); parity test.
 - [x] **Env-var feature gates** defined.
-- [x] **Offline verification gate** green — `node verify-all.mjs` → 6 gates.
+- [x] **Offline verification gate** green — `node verify-all.mjs` → 7 gates.
 - [x] **Boundary-compliance gates** authored — no live calls in the app; no secret values in the repo; all flows `off`.
 
 ---
@@ -137,11 +137,11 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ---
 
-## Phase 3 — Enrichment & EVA Sentry _(enrichment deployed gated-OFF; EVA M1 path awaits activation; REST later)_
+## Phase 3 — Enrichment & EVA Sentry _(enrichment ON in Dev; EVA M1 path awaits activation; REST later)_
 
 ### 3a. Enrichment (DVSA/DVLA)
 
-- [x] **Enrichment Function deployed** ⚙️ **gated-OFF**.
+- [x] **Enrichment Function deployed + gate ON** ✅ (`ENRICHMENT_ENABLED=true` in Dev, flipped 2026-06-21).
 - [x] **Direct DVSA + DVLA** path; **Google Cloud gateway retired**. **B1 obviated.**
 - [x] Enrichment **custom connector** + Bicep + mocked pytest; live-verified gate behaviour.
 - [ ] 🔒 **Inject DVSA/DVLA creds** into Key Vault + set `DVSA_TENANT_ID`.
@@ -217,7 +217,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ## Phase 6 — Boundary Evidence & Handoff _(gates green; final live evidence pending)_
 
-- [x] **Offline gate green** — `verify-all.mjs` 6/6.
+- [x] **Offline gate green** — `verify-all.mjs` 7/7.
 - [x] **Static grep gate** / **flow-state assertion** / **no-credentials assertion**.
 - [ ] 🔒 **Connection inventory** — `pac connection list` (operator evidence at activation).
 - [ ] 🔒 **Deploy log** — record every `[DEPLOY-WITH-LOGIN]` + `[RESERVED-FOR-USER]` action.
@@ -225,11 +225,11 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ---
 
-## Phase 7 — Box-centric intake pivot (additive hybrid) _(schema + env-vars applied live, gates OFF; code authored offline; NOT activated)_
+## Phase 7 — Box-centric intake pivot (additive hybrid) _(schema + env-vars applied live, gates OFF; box-webhook Function deployed gated-OFF; connector + flows authored offline; NOT activated)_
 
 `[BUILD]` complete in the working tree; the **Dataverse schema + env-vars are applied live in Dev (all
-`BOX_*` gates OFF)**; the Function/connector/flows are authored offline and **everything live beyond the
-schema is `[RESERVED-FOR-USER]`.** Binding decision:
+`BOX_*` gates OFF)** and the **`box-webhook` Function is deployed gated-OFF (`cespkbox-fn-v76a47`, secret-free)**; the connector/flows are authored offline and **everything live beyond the
+schema + the gated-off Function host is `[RESERVED-FOR-USER]`.** Binding decision:
 [ADR-0012](./docs/adr/0012-box-centric-intake-additive-hybrid.md). Ordered build + cross-section
 reconciliations: [box-integration-pivot/plans/00-BUILD-PLAN.md](./box-integration-pivot/plans/00-BUILD-PLAN.md).
 Phase docs: [docs/plans/phase-7-box-integration/](./docs/plans/phase-7-box-integration/).
@@ -246,9 +246,9 @@ Phase docs: [docs/plans/phase-7-box-integration/](./docs/plans/phase-7-box-integ
 
 - [x] **ADR-0012** + architecture §Box (`integrations.md`, `data-model.md` one-way-mirror rule, `live-environment.md` placeholder rows).
 - [x] **Dataverse schema + env-vars — APPLIED LIVE in Dev (all `BOX_*` gates OFF; verified via `az` 2026-06-22)**: **5 `BOX_*` gates** + **2 String config vars** in `environment-variables.json`; **9 case columns** on `cr1bd_case` (`cr1bd_boxfolderid`/`boxfolderurl`/`boxsyncedat`/`boxfilerequestid`/`boxfilerequesturl`/`sourcemailbox` + the finalize submit-signal columns + the `cr1bd_finalizedpayloadhash` drift declaration) and **`cr1bd_boxfileid`/`cr1bd_boxfileurl`** on `cr1bd_evidence`; **3 audit actions** (`box_folder_created`/`box_file_request_copied`/`box_upload_received`); `verify-parity.mjs` locks the defaults; apply script `dataverse/.build/25-box-schema.ps1` (adds the 9 case columns).
-- [x] **`box-webhook` Azure Function** authored offline (NOT deployed) — CCG token-mint inside the Function; HMAC dual-key + 10-min-replay + `BOX-DELIVERY-ID`-dedup receiver that **processes the Dataverse fan-out on the request path and returns 200 when settled, or a non-2xx (503) on a transient failure so Box retries** (Box does not retry after a 2xx); durable dedup = the Evidence-existence check on the `box:file:<id>` tag in `cr1bd_sourcemessageid` (the webhook also writes `cr1bd_boxfileid` as a correlation/UI mirror + `cr1bd_acceptedforeva=true`, audits with the canonical `cr1bd_name`/`occurredat`/`action`/`after` shape); custom-connector OpenAPI under `openapi/`; FC1 bicep under `infra/`. **pytest 71 passed.** Secrets are Key Vault refs only, under the **hyphenated** names `box-client-secret`/`box-webhook-primary-key`/`box-webhook-secondary-key`.
+- [x] **`box-webhook` Azure Function DEPLOYED gated-OFF 2026-06-22** (`cespkbox-fn-v76a47`, FC1, Running; MI `5db514c8-25f2-4d94-81ec-3878286d0087`; `BOX_API_ENABLED=false`, `BOX_ALLOWED_ROOT_ID=392761581105`; Gate-C verified: no-key→401, key+unsigned→400, gated facade→503; KV `cespkboxkvv76a47` empty so secret refs pending) — CCG token-mint inside the Function; HMAC dual-key + 10-min-replay + `BOX-DELIVERY-ID`-dedup receiver that **processes the Dataverse fan-out on the request path and returns 200 when settled, or a non-2xx (503) on a transient failure so Box retries** (Box does not retry after a 2xx); durable dedup = the Evidence-existence check on the `box:file:<id>` tag in `cr1bd_sourcemessageid` (the webhook also writes `cr1bd_boxfileid` as a correlation/UI mirror + `cr1bd_acceptedforeva=true`, audits with the canonical `cr1bd_name`/`occurredat`/`action`/`after` shape); custom-connector OpenAPI under `openapi/`; FC1 bicep under `infra/`. **pytest 79 passed.** Secrets are Key Vault refs only, under the **hyphenated** names `box-client-secret`/`box-webhook-primary-key`/`box-webhook-secondary-key`.
 - [x] **Connection-ref + invocation mechanism PINNED** — a **parallel custom `cr1bd_box_rest`** (CCG via the Function, authored offline) for folder/File-Request/shared-link/webhook; first-party `cr1bd_box` **retained** for the byte path (NOT a repoint). The Code App invokes copy/shared-link via the connector op **directly** (no flow in the path — CSP `connect-src 'none'`), finalize via a Dataverse submit-signal (no SAS-fronted flow); `box-file-request-copy` is an authored **standby** child flow for future operator activation, not currently invoked.
-- [ ] 🔒 **Register + Admin-authorize the Box Platform app** (Server Auth / CCG, scopes `root_readwrite` + `manage_webhook`); supply `client_secret` + webhook signature keys to Key Vault (hyphenated names); deploy the bicep; import the connector; bind **both** Box connections. **The hard unlock** (needs a Business tenant — base Business suffices; Business Plus is only for the deferred metadata tier).
+- [ ] 🔒 **Register + Admin-authorize the Box Platform app** (Server Auth / CCG, scopes `root_readwrite` + `manage_webhook`); supply `client_secret` + webhook signature keys to Key Vault (hyphenated names) — the Function (`cespkbox-fn-v76a47`) is **already deployed gated-OFF**, so the remaining work is setting those secrets, importing the connector, and binding **both** Box connections. **The hard unlock** (needs a Business tenant — base Business suffices; Business Plus is only for the deferred metadata tier).
 
 ### B1 — Folder + archival at parse-confirm (gate `BOX_FOLDER_AT_INTAKE_ENABLED`)
 
@@ -298,7 +298,7 @@ Phase docs: [docs/plans/phase-7-box-integration/](./docs/plans/phase-7-box-integ
 | **B4** | Code Apps enablement | **Resolved** ✅ — enabled; app pushed. |
 | **B5** | EVA test creds + Box casing | **Open** 🔒 — operator. |
 | **B-full** | OCR for scanned PDFs | **Deployed** ✅ 2026-06-19 (PR #7) — `cespkocr-fn-dev-glju3v` Running (Functions-on-ACA, scale-to-zero); the AcrPull race was fixed with a pre-granted user-assigned identity. Connector wiring + gate flip remain. |
-| **B6** | Phase-7 Box pivot (ADR-0012) | **Schema applied live (gates OFF); code authored offline; NOT activated** ✅/🔒 — the Dataverse schema + env-vars are **applied live in Dev with every `BOX_*` gate OFF**; the `box-webhook` Function, the `cr1bd_box_rest` connector, the Box flows + the Code App surfacing are **authored offline, not deployed/bound**. The **BUSINESS-account second test phase** (CCG + File Request + the BLOCKING `FILE.UPLOADED` live-test) is the **long pole** — gated.md item 5. |
+| **B6** | Phase-7 Box pivot (ADR-0012) | **Schema applied live (gates OFF); code authored offline; NOT activated** ✅/🔒 — the Dataverse schema + env-vars are **applied live in Dev with every `BOX_*` gate OFF**; the `box-webhook` Function is **deployed gated-OFF** (`cespkbox-fn-v76a47`, Gate-C-verified, secret-free), while the `cr1bd_box_rest` connector, the Box flows + the Code App surfacing remain **authored offline, not deployed/bound**. The **BUSINESS-account second test phase** (CCG + File Request + the BLOCKING `FILE.UPLOADED` live-test) is the **long pole** — gated.md item 5. |
 
 ---
 

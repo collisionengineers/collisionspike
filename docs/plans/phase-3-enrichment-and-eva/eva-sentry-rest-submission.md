@@ -223,7 +223,7 @@ the `eva-sentry-api` skill's "idempotency by payload hash" realised at the flow 
 
 ## 11. Decision summary (one line)
 
-**The EVA Sentry REST submit path is code-complete and 27-test-green offline (`functions/evasentry/`),
+**The EVA Sentry REST submit path is code-complete and 42-test-green offline (`functions/evasentry/`),
 with the token lifecycle correctly server-side because custom connectors can't do client-credentials;
 §3c is therefore an operator activation — deploy, inject EVA test creds, bind `cr1bd_evasentry`, flip
 `EVA_API_ENABLED` in test, prove drag-drop↔REST parity, then cut over to production behind that parity

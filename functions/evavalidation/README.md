@@ -6,8 +6,11 @@ shared implementation** so the Power Automate status machine
 (`status-evaluate.definition.json` → `ValidateCase`) and the Code App
 `computeReadiness()` agree byte-for-byte (Phase-1 §5.4 drift mitigation). The
 `cr1bd_evavalidation` custom connector (function-key auth) fronts it. Plan
-reference: phase-2 §6 (M2.B). It is on the critical path: turning
-`CS Status Evaluate` on requires this connector to be real.
+reference: phase-2 §6 (M2.B). The Function is DEPLOYED + Running
+(`cespkeval-fn-6c6fxd`, `/api/validate-case` live) and `CS Status Evaluate` is
+already ON — it runs today via the caseId-only safe-negative path. What remains
+on the critical path is the connector **repoint/bind** so the flow does REAL
+validation instead of the safe-negative.
 
 **Pure domain logic — NO gate (always on), NO secrets, NO upstream call.** The
 logic in `validation.py` is a faithful Python port of the canonical TypeScript
@@ -24,9 +27,10 @@ are the authority; this Function must track them.**
 
 | Activity | Tag |
 |---|---|
-| Function **code** (`function_app.py`, `validation.py`), `infra/main.bicep`, `openapi/evavalidation-connector.json` | **[BUILD]** — authored offline, verified by local `pytest`. Zero tenant/Azure/Dataverse contact. |
-| Deploy the Function + import the custom connector | **[DEPLOY-WITH-LOGIN]** |
-| Bind `cr1bd_evavalidation` + turn ON `CS Status Evaluate` | **[RESERVED-FOR-USER]** |
+| Function **code** (`function_app.py`, `validation.py`), `infra/main.bicep`, `openapi/evavalidation-connector.json` | **[BUILD]** — authored offline, verified by local `pytest`. Zero tenant/Azure/Dataverse contact. (The Function has since been **deployed live** as `cespkeval-fn-6c6fxd`, FC1, Running.) |
+| Deploy the Function | **[DONE]** — `cespkeval-fn-6c6fxd` deployed + Running (FC1). |
+| Import the custom connector | **[DEPLOY-WITH-LOGIN]** — pending. |
+| Bind `cr1bd_evavalidation` + repoint `CS Status Evaluate` to it | **[RESERVED-FOR-USER]** — flow is already ON; this is the connector repoint to do real validation. |
 
 No Key Vault, no secret values — this Function holds none.
 

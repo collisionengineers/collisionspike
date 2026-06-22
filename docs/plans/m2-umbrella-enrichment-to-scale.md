@@ -8,6 +8,12 @@
 > the ADRs in [docs/adr/](../../docs/adr/), and the **eva-sentry-api** skill. Sibling plans it depends on:
 > [plans/ocr-strategy.md](./phase-5-ocr-and-scale/ocr-strategy.md) (image AI / OCR — M2 owns the classification half).
 > Author date **2026-06-18**. Read-only research only; **no code/flows/Dataverse changed by this plan**.
+>
+> **Reconciliation note (2026-06-22):** the "net-new to **build**" framing for **M2.B EVA validation** and
+> **M2.C EVA Sentry REST** (§§0, 2, 6, 7) is now superseded — both Functions + their OpenAPI connectors were
+> authored gated-off (repo `functions/evavalidation/`, `functions/evasentry/`) and are **deployed live gated-off**
+> (`cespkeval-fn-6c6fxd` `/api/validate-case`; `cespkeva-fn-ufa3ci`, `EVA_API_ENABLED=false`). Read "build" as
+> **done offline**; the live-remaining M2 work for these is connector **import + bind + activation** ([RESERVED-FOR-USER]).
 
 ---
 
@@ -99,7 +105,7 @@ designer.)
 | Enrichment Function `cespkenrich-fn-gi62sd` | **Deployed, gated-OFF**; direct DVSA+DVLA via Entra; KV `cespkenrichkv…` | M2.A = creds + gate, **no code change**. |
 | Parser Function `cespike-parser-dev-x7xt3d5ovhi7y` | **Live** FC1; cannot run Tesseract/binaries | M2 image-AI plate OCR routes to the **ACA container** (ocr-strategy.md), not FC1. |
 | Connection refs | `cr1bd_dataverse` + `cr1bd_sharedmailbox_office365` **bound**; `cr1bd_dvsaenrich`, `cr1bd_evasentry`, `cr1bd_evavalidation`, `cr1bd_box`, `cr1bd_evidenceblob`, `cr1bd_jobsheet_excel` **unbound** | M2 binds dvsaenrich, evasentry, evavalidation, box, evidenceblob. |
-| Custom-connector OpenAPI on disk | **parser** + **enrichment** exist (`functions/*/openapi/*.json`); **evasentry** + **evavalidation** have **no file and no Function** | M2 **builds** evasentry + evavalidation Functions + OpenAPI. |
+| Custom-connector OpenAPI on disk | **parser**, **enrichment**, **evasentry**, **evavalidation** all exist (`functions/*/openapi/*.json`); the EVA Functions were authored gated-off since this plan was written (git `5ca23df`) and are now DEPLOYED (evasentry `cespkeva-fn-ufa3ci`, evavalidation `cespkeval-fn-6c6fxd`, both Running, gated off). | M2 work for evasentry + evavalidation is now connector-**import** + bind + activate, not build. |
 | Dataverse env-vars | All M2 gates exist incl. `VALUATION_ENABLED`, `AZURE_VISION_ENABLED`, `EVA_*` | M2 adds only: `CHASER_SEND_ENABLED`, `VALUATION_API_BASE`, the 3 OCR gates from ocr-strategy.md, and (if used) `AIBUILDER_CLASSIFY_ENABLED`. |
 
 **Implication:** the heavy flow logic is done. M2's real engineering is **(a) the EVA Sentry Function
@@ -362,8 +368,9 @@ The flow's drag-drop **else** branch (Stage_drag_drop_json to Box) is the perman
 > rules below stay correct. Current design + live state:
 > [docs/plans/phase-7-box-integration/](./phase-7-box-integration/) and
 > [phase-3-enrichment-and-eva/box-archival-pipeline.md](./phase-3-enrichment-and-eva/box-archival-pipeline.md).
-> (Phase-7 Box Dataverse schema + env-vars are **applied live, gates OFF**; Function/connector/flows are
-> authored offline.)
+> (Phase-7 Box Dataverse schema + env-vars are **applied live, gates OFF**; the **`box-webhook` Function
+> `cespkbox-fn-v76a47` is DEPLOYED gated-off + Gate-C-verified 2026-06-22** (KV empty, CCG auth pending);
+> the `cr1bd_box_rest` connector and the Box flows remain authored offline / unimported.)
 
 **Status:** `finalize-eva-box.definition.json` already: orders Evidence (`sequenceindex asc`),
 `Create_box_folder_UPPERCASE` (`toUpper(casepo)` under `BoxArchiveRootId`), `Upload_photos_in_eva_order`
@@ -635,7 +642,7 @@ the harness rules).
 | M2.F | chaser send | grep: draft-only intact, whatsapp-skip, gated | gate-off no-op; gate-on sends to right garage; whatsapp never auto-sent |
 | M2.G | valuation | pytest wrapper mapping; PDF passthrough | Companion PDF as Evidence; gate-off no-op |
 
-**Global offline gate (must stay green through M2):** `node verify-all.mjs` (6 gates) +
+**Global offline gate (must stay green through M2):** `node verify-all.mjs` (7 gates) +
 `flows/validate-flows.mjs` (every definition listed in `flow-state.json` with `state=off`,
 connectionNames ∈ closed set) + the no-credentials static grep. Add the new Functions to the pytest
 sweep and the new flows/connectors to the linters.

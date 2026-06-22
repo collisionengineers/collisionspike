@@ -44,8 +44,9 @@ Verified by reading the repo + live registry + Microsoft Learn:
 - **Only `digital@` is wired.** Flow `CS Intake` (`workflowid 92131f3d-9cd5-4e88-aa9e-a5705a5850a0`,
   internal guid `8d534fc9-9058-a6f4-4dfd-245b350703b5`): trigger **`OnNewEmailV3`** on the connected
   account's **own** mailbox, folder `Inbox`, `concurrency.runs = 1`, `includeAttachments = true`; **ON**
-  (`docs/architecture/live-environment.md`). Downstream `CS Provider Match` + `CS Case Resolve` ON;
-  classify-persist / parse / status-evaluate OFF.
+  (`docs/architecture/live-environment.md`). Downstream `CS Classify + Persist`, `CS Parse`,
+  `CS Provider Match`, `CS Case Resolve`, `CS Status Evaluate`, `CS Enrich` are **ON** for digital@
+  (full chain live 2026-06-20/21); finalize (EVA+Box) / chasers / jobsheet OFF.
 - **The other two intake inboxes are not named anywhere in the repo.**
   `docs/requirements/admin-overview.md:20` says only *"Three separate inboxes (most common)"*. The
   operator's task names them **Info / Engineers / Desk** and states they are **live, operator-only**, so

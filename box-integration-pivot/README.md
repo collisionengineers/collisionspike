@@ -3,8 +3,11 @@
 > **Date:** 2026‑06‑21 · **Status (updated 2026‑06‑22):** ✅ APPROVED 2026‑06‑21 → **BUILT in the working
 > tree and PARTLY LIVE.** The **Phase‑7 Box Dataverse schema + env‑vars ARE applied live** (the
 > `cr1bd_case`/`cr1bd_evidence` Box columns + all `cr1bd_BOX_*` env‑vars exist in Dev, **all `BOX_*` gates
-> OFF** default and current). The **box‑webhook Azure Function, the `cr1bd_box_rest` custom connector, and
-> the Box cloud‑flows are AUTHORED OFFLINE (state=off) — not deployed/imported/bound live.** The hard
+> OFF** default and current). The **box‑webhook Azure Function IS DEPLOYED** (`cespkbox-fn-v76a47`, FC1, system‑assigned MI) to
+> `rg-collisionspike-dev` and **Gate‑C‑verified on the live host** — gated OFF (`BOX_API_ENABLED=false`,
+> `BOX_ALLOWED_ROOT_ID=392761581105`) and **secret‑free** (its KV `cespkboxkvv76a47` is empty; the
+> `BOX_CLIENT_SECRET` + webhook‑key references are not yet provisioned). The **`cr1bd_box_rest` custom
+> connector and the Box cloud‑flows are AUTHORED OFFLINE (flows state=off) — not imported/bound live.** The hard
 > unlock — the always‑on Box account integration (CCG token mint, `FILE.UPLOADED` webhook, template File
 > Request) — is **deferred to a future BUSINESS‑account phase** (the free Box test account cannot sustain
 > CCG/webhooks/File‑Requests); a free‑account demo (case `SBL26001`) proved the folder+upload+shared‑link

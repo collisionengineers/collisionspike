@@ -7,7 +7,7 @@ Platform or Azure feature survey._
 Grounded in: `CURRENT_STATUS.md`, `ROADMAP.md`, `docs/architecture/integrations.md`, ADRs
 0001/0002/0003/0005/0006/0008/0009/0010/0011, the data analysis
 (`raw/principalandrepairersheets/outputs/reports/` — `report.md`, `loc_principal_analysis.md`,
-`principal_address_worklist.md`, `headline_metrics.csv`, `claudeschoice/top_inspection_locations.csv`),
+`principal_address_worklist.md`, `headline_metrics.csv`, plus `outputs/claudeschoice/top_inspection_locations.csv`),
 and the two forward plans (`docs/plans/phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md`,
 `docs/plans/phase-1-intake-and-case-tracking/corpus/clarifying-info-ingestion.md`).
 

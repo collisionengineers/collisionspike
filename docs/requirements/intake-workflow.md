@@ -31,7 +31,7 @@
 - **Valuationbot integration** — potential; comparable-advert valuation + evidence PDF, also in
   `collisionplugin`.
 - **Copilot Studio** → a **Collision Engineers copilot**. Evaluate inclusion in the plan **plus
-  costing** (see [microsoft-stack.md](../architecture/microsoft-stack.md#9-conversational-copilot)).
+  costing** (see [microsoft-stack.md](../architecture/microsoft-stack.md#9-conversational-copilot--copilot-studio)).
 - **postcode.io** — UK address normalisation (free). Microsoft alternative (Azure Maps) evaluated
   for later if reverse geocoding / autocomplete is needed.
 - **cedocumentmapper_v2.0** — the document parser that powers steps 3–4 (already ~75% built; see

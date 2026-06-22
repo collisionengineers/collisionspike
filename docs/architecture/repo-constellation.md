@@ -52,5 +52,8 @@ contract-first parser (~5,100 LOC, Python 3.11+):
 - **Outstanding:** review UI (0%), regression corpus harness (~30%), PyInstaller packaging (~20%),
   CI/CD (0%).
 - **Licensing:** depends on **PyMuPDF (AGPL)** — concern **resolved (licensed); no blocker** for closed-source distribution.
-- **Spike implication:** *complete and harden* this parser and expose it for integration (CLI now;
-  Azure Function + custom connector later) — reuse the engine; do not re-derive parsing in Power Fx.
+- **Spike implication:** *complete and harden* this parser and expose it for integration. The engine
+  is **vendored into `functions/parser/`** and **deployed live** as the parser Azure Function
+  (`cespike-parser-dev-x7xt3d5ovhi7y`, `/api/parse`) behind the live CE Parser custom connector
+  (`cr1bd_ceparser`); the standalone CLI remains for local use. Reuse the engine; do not re-derive
+  parsing in Power Fx.

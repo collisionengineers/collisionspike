@@ -12,7 +12,7 @@
 > Exchange action**: confirming a mailbox type, granting Exchange **Full Access**, creating an Office 365
 > connection (browser + MFA + consent), **publishing the webhook trigger in the designer**, and the live
 > email tests. There is **no headless/API path** for arming a connection-webhook trigger
-> (`AGENTS.md:23-28`; memory `flow-webhook-trigger-provisioning`). Claude authored the definition
+> (`AGENTS.md:54-59`, Runtime truths #2; memory `flow-webhook-trigger-provisioning`). Claude authored the definition
 > **[BUILD]**; activation is **[RESERVED-FOR-USER]** (memory `live-services-boundary`).
 
 Do everything at **make.powerapps.com** / **make.powerautomate.com** with the **`Collision Engineers -
@@ -101,7 +101,7 @@ Save** to arm the webhook):
    - **Concurrency Control = On, Degree of parallelism = 1** *(re-enable it or the save fails
      `CannotDisableTriggerConcurrency`)*
    Then **Save** (a fresh trigger node forces a fresh webhook subscription — the Dataverse `clientdata` /
-   Flow-API path will **not** arm it, `AGENTS.md:23-28`).
+   Flow-API path will **not** arm it, `AGENTS.md:54-59`).
 
 2. **or — solution import** of `flows/definitions/intake-shared-mailbox.definition.json` into
    `CollisionSpikeFlows`, set **`IntakeMailbox` = `<inbox-N-address>`**, bind the two connection references
@@ -218,5 +218,5 @@ next inbox.
 - Single-mailbox live setup (`digital@`, V3): `docs/activation/email-intake-activation.md`.
 - Flow definition (this doc activates it): `flows/definitions/intake-shared-mailbox.definition.json`
   (mirrors `flows/definitions/intake.definition.json`; `IntakeMailbox` is the only per-inbox knob).
-- Webhook-must-be-published-in-designer rule: `AGENTS.md:23-31`; memory `flow-webhook-trigger-provisioning`.
+- Webhook-must-be-published-in-designer rule: `AGENTS.md:54-59` (Runtime truths #2); memory `flow-webhook-trigger-provisioning`.
 - Live registry (ids, verification toolkit): `docs/architecture/live-environment.md`.

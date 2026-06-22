@@ -47,8 +47,11 @@ adds three new flow definitions and reworks two existing ones. **All are authore
 (`node flows/validate-flows.mjs` → 154/154) and ship `state=off`; none is in the live `CollisionSpikeFlows`
 solution.** The Phase-7 Box **Dataverse schema + env-vars ARE applied live** (verified via `az` against Dev
 2026-06-22 — the Box case/evidence columns and all `cr1bd_BOX_*` env-vars exist), with **every `BOX_*` gate
-OFF** (default and current = false); only the `box-webhook` Function, the `cr1bd_box_rest` connector and these
-Box flows are authored offline (`state=off`), not deployed/imported/bound live. **Dataverse stays the system of record; Box is a one-way mirror
+OFF** (default and current = false). The **`box-webhook` Function IS DEPLOYED** to `rg-collisionspike-dev`
+(as `cespkbox-fn-v76a47`, Running, Gate-C-verified — receiver no-key→401, key+unsigned→400, facade gated-off→503),
+but gated **OFF** (`BOX_API_ENABLED=false`) and **secret-free** (its Key Vault holds no Box client_secret / webhook
+keys yet). The `cr1bd_box_rest` connector and these Box flows remain authored offline (`state=off`), not
+imported/bound live. **Dataverse stays the system of record; Box is a one-way mirror
 (Dataverse → Box)** — these flows never read Box to drive dedup/status/Case-PO sequencing. Box ops run
 through the **custom `shared_box_rest` connector** (CCG token minted inside the `box-webhook` Function, not
 the connector); **bytes never touch `shared_box_rest`** — the `finalize-eva-box` byte upload stays on the

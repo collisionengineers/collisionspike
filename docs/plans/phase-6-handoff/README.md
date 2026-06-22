@@ -8,7 +8,7 @@ validation checklist across all three mailboxes — the M1 "done" definition.
 
 ## Implementation checklist
 
-1. [x] Offline gate green — `node verify-all.mjs` (6/6)
+1. [x] Offline gate green — `node verify-all.mjs` (7/7)
 2. [x] Static grep gate (no live EVA/Box/Graph/SharePoint calls in the app) / flow-state assertion (all flows off) / no-credentials assertion (only Key Vault references + env-var names)
 3. [ ] 🔒 Connection inventory — `pac connection list` (operator evidence at activation)
 4. [ ] 🔒 Deploy log — record every `[DEPLOY-WITH-LOGIN]` + `[RESERVED-FOR-USER]` action

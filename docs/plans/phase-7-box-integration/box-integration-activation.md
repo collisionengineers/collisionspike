@@ -2,9 +2,10 @@
 
 > The **operator** view of Phase 7. Claude built the connector, Functions, flows, schema, and docs
 > **gated-OFF**; the **Box Dataverse schema + `cr1bd_BOX_*` env-vars are already APPLIED LIVE in Dev (all
-> `BOX_*` gates OFF)**, while the `box-webhook` Function, the `cr1bd_box_rest` connector and the Box flows
-> remain **authored offline (`state=off`), not deployed/bound**. **You** do everything here: register the
-> Box Platform app, authorize it in the Admin Console, inject the secrets, deploy the Function + import the
+> `BOX_*` gates OFF)** and the **`box-webhook` Function is DEPLOYED gated-OFF (2026-06-22, `cespkbox-fn-v76a47`,
+> Gate-C-verified, secret-free)**, while the `cr1bd_box_rest` connector and the Box flows
+> remain **authored offline (`state=off`), not imported/bound**. **You** do everything here: register the
+> Box Platform app, authorize it in the Admin Console, inject the secrets, import the
 > connector, designate the archive root, hand-build the template File Request, flip the `BOX_*` gates, and
 > run the live confirms. **Claude never holds a Box credential.** Binding
 > decision: [docs/adr/0012-box-centric-intake-additive-hybrid.md](../../adr/0012-box-centric-intake-additive-hybrid.md).
@@ -48,8 +49,9 @@ This is the **hard unlock**; every later flip and the connector binding depend o
    into the UPPER_SNAKE Function app settings (`BOX_CLIENT_SECRET`, `BOX_WEBHOOK_PRIMARY_KEY`,
    `BOX_WEBHOOK_SECONDARY_KEY`) via `@Microsoft.KeyVault(SecretUri=…)`. Claude declared the KV
    **references**; you supply the **values** under the hyphenated names.
-4. **[DEPLOY-WITH-LOGIN]** Deploy the `functions/box-webhook` bicep; **import** the custom connector;
-   **bind BOTH Box connections** (PINNED — `flows/connection-references.json`): the **parallel
+4. **[DEPLOY-WITH-LOGIN]** The `functions/box-webhook` bicep is **already deployed** (`cespkbox-fn-v76a47`,
+   gated-off, Gate-C-verified 2026-06-22) — what remains is to **import** the custom connector (point its
+   OpenAPI `host` at the deployed Function host) and **bind BOTH Box connections** (PINNED — `flows/connection-references.json`): the **parallel
    `cr1bd_box_rest`** custom connection (the Function host key on the connection — folder-create,
    File-Request copy, shared-link, webhook lifecycle) **and** the retained first-party **`cr1bd_box`**
    (`shared_box`) connection (interactive Box sign-in — `finalize-eva-box`'s byte/`CreateFile` path).
@@ -167,7 +169,7 @@ insurer later mandates UK residency. **Box Automate watch item:** it is **on-by-
 3. 🔒 Authorize + enable the app in the Admin Console (re-authorize on any scope change).
 4. 🔒 Inject `box-client-secret` + `box-webhook-primary-key` + `box-webhook-secondary-key` (the HYPHENATED
    KV secret names) into Key Vault.
-5. [DEPLOY-WITH-LOGIN] Deploy the bicep / import the connector / bind `cr1bd_box`.
+5. [DEPLOY-WITH-LOGIN] (Bicep already deployed — `cespkbox-fn-v76a47`.) Import the connector / bind `cr1bd_box` + `cr1bd_box_rest`.
 6. 🔒 Designate the archive root (+ `/DropBoxes/` parent); record `BOX_FOLDER_ROOT_ID`.
 7. 🔒 Hand-build the ONE template File Request; record `BOX_FILE_REQUEST_TEMPLATE_ID`.
 8. 🔒 Flip the `BOX_*` gates per phase, test env first (`BOX_API_ENABLED` → `BOX_FOLDER_AT_INTAKE_ENABLED`

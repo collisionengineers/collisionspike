@@ -60,9 +60,11 @@ is recorded as the constant "Vehicle Damage Inspection".
   enrichment Function. So **VAT is a manual field** (consider defaulting display to TBA); **`n%` is
   unconfirmed** with EVA and is left as a follow-up to test. The intake "Look up vehicle" button fills
   Make/Model/Mileage only.
-- Enrichment + address-normalise are **operator-gated** (connector binding + `ENRICHMENT_ENABLED`); the
-  UI clients return an honest "not connected" until then. Inspection-address normalisation uses
-  **postcodes.io** now (the addressmatch Function is live), Azure Maps later.
+- Enrichment is **live in Dev** — `ENRICHMENT_ENABLED` is flipped on (default `false`, current
+  `true`) and the enrichment Function is bound, so the "Look up vehicle" client returns real
+  Make/Model/Mileage. (It remains gate-guarded: where the gate is off the UI clients return an
+  honest "not connected".) Inspection-address normalisation uses **postcodes.io** now (the
+  addressmatch Function is live), Azure Maps later.
 
 ## Follow-up to EVA devs (Minotaur)
 

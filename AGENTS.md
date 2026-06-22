@@ -10,8 +10,9 @@ repeatedly bitten this project. Read it before touching the Code App, the flows,
   url `https://collisionengineers-dev.crm11.dynamics.com`. **Never** use the **Default** env
   (`858cf5b3-…`).
 - Azure: resource group `rg-collisionspike-dev` (UK South). Functions `cespike-parser-dev-x7xt3d5ovhi7y`
-  (parser) and `cespkenrich-fn-gi62sd` (enrichment). Signed-in identity / intake mailbox:
-  `digital@collisionengineers.co.uk`.
+  (parser), `cespkenrich-fn-gi62sd` (enrichment), and `cespkbox-fn-v76a47` (box-webhook — deployed
+  2026-06-22, **gated off / secret-free**: `BOX_API_ENABLED=false`, `BOX_ALLOWED_ROOT_ID=392761581105`).
+  Signed-in identity / intake mailbox: `digital@collisionengineers.co.uk`.
 - Code App id `da7ba7af-9ffc-4c70-8f75-1f053ca354da`; play URL under `apps.powerapps.com/play/e/<env>/app/<id>`.
 
 ## Binding reviews outrank everything older
@@ -106,8 +107,9 @@ memory files; this is the tool index.
 - **Project skills** — `/power-automate-flow` (copy-paste flow-definition JSON + @-expressions), `/eva-sentry-api` (Sentry v1.2 + 12-field contract), `/collision-engineers-design` (CE brand for any UI/asset), `/grill-with-docs` (stress-test a plan against the domain model before building).
 
 ## Agent roster & boundaries (project agents in `.claude/agents/`)
-- **azure-integration-engineer** — Functions (parser + enrichment REST wrappers), Key Vault, Entra,
-  custom connectors, Document Intelligence, postcode.io/Azure Maps.
+- **azure-integration-engineer** — Functions (parser + DVSA/DVLA enrichment **direct via Entra
+  client_credentials**, no Google gateway; plus the Phase-7 box-webhook receiver + custom Box REST
+  connector), Key Vault, Entra, custom connectors, Document Intelligence, postcode.io/Azure Maps.
 - **power-automate-flow-builder** — cloud flows (intake, dedup, status machine, parser/enrichment calls,
   EVA+Box finalize, chasers).
 - **eva-sentry-integration** — EVA Sentry REST v1.2, the 12-field JSON contract, photo-order/image rules.

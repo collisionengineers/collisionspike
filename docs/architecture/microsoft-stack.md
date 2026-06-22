@@ -42,11 +42,11 @@
 | OCR / identify image content | AI Builder; Azure AI Vision (Read OCR) |
 | Categorise/tag Outlook message | Power Automate "Update email / categories" |
 | Case review UI, queues, missing-info | Power Apps Code App over Dataverse |
-| Mileage + vehicle details | `collisionplugin` `dvsa-mot` via custom connector |
-| Valuation evidence | `collisionplugin` `valuationbot` |
+| Mileage + vehicle details | **Azure Function** (`cespkenrich-fn-gi62sd`) → DVSA + DVLA directly via Entra `client_credentials` + X-API-Key, exposed as a custom connector (M1; no `collisionplugin` gateway) |
+| Valuation evidence | `collisionplugin` `valuationbot` (prior-art, deferred — M3 / `VALUATION_ENABLED`, gated off) |
 | Address normalisation | postcode.io (→ Azure Maps) |
 | Conversational assistant | Copilot Studio |
-| Submit to EVA + Box folder | Custom connector (gated) + Box connector |
+| Submit to EVA + Box folder | EVA custom connector (gated) + **custom Box REST connector** `cr1bd_box_rest` (CCG service identity; ADR-0012, gated off) |
 | Audit + dedup | Dataverse auditing + dedup keys (Message-ID / payload hash) |
 
 ## Detail & rationale

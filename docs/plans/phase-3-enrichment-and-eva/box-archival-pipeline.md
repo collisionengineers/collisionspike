@@ -19,8 +19,11 @@
 > [docs/plans/phase-7-box-integration/](../phase-7-box-integration/) for the current design; this doc
 > remains useful for the EVA photo-order rule, the UPPERCASE-casing confirm, and the S2 byte-bind detail,
 > which Phase 7 keeps unchanged. **Status: superseded by Phase 7. The Phase-7 Box Dataverse schema +
-> `cr1bd_BOX_*` env-vars are applied live (all `BOX_*` gates OFF); the `box-webhook` Function,
-> `cr1bd_box_rest` connector and Box flows are authored offline (`state=off`), not deployed/bound.**
+> `cr1bd_BOX_*` env-vars are applied live (all `BOX_*` gates OFF); the `box-webhook` Function
+> (`cespkbox-fn-v76a47`) **is deployed to `rg-collisionspike-dev` and Gate-C-verified, gated OFF and
+> secret-free**, while the `cr1bd_box_rest` connector and Box flows are authored offline (`state=off`),
+> not deployed/bound. The connector import, webhook subscription, KV secrets and gate flips remain
+> pending (operator-blocked on CCG auth).**
 
 > **Status:** design + bind/confirm/activate runbook. The Box step **is already built offline**
 > (`flows/definitions/finalize-eva-box.definition.json`, imported `state=off`) — but it is built
@@ -103,10 +106,10 @@ Source: [learn.microsoft.com/connectors/box](https://learn.microsoft.com/connect
 
 **Publisher / class.** Box is a **first-party Microsoft connector**, **Class = Standard** (Power
 Apps / Power Automate / Logic Apps / Copilot Studio all list it **Standard**, no Premium badge).
-> ⚠️ **Reconciliation note:** `flows/connection-references.json` currently records `cr1bd_box` as
-> `"tier": "Premium"` — that is wrong per Learn; Box is **Standard**. (DLP grouping is unaffected:
-> Standard + the Premium connectors can coexist in one data group; see §8.) Fixing the manifest line
-> is tracked as a follow-up, handled separately from this doc.
+> ⚠️ **Reconciliation note (resolved):** `flows/connection-references.json` now records `cr1bd_box` as
+> `"tier": "Standard"` — matching Learn. (An earlier draft recorded `"Premium"`, which was wrong; the
+> manifest has since been corrected.) DLP grouping is unaffected: Standard + the Premium connectors can
+> coexist in one data group; see §8.
 
 **Actions (the complete set — there is NO folder-create action):**
 

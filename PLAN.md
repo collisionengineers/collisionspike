@@ -214,13 +214,19 @@ layered, contract-first Python library + CLI (~5,100 LOC): domain models, reader
 ## Open questions to confirm at review
 1. ~~**`collisioncc` integration depth.**~~ **RESOLVED:** collisioncc is reference/context only;
    the spike re-implements its contracts and does not call it at runtime.
-2. **Environment/licensing:** is there a Power Platform environment with Dataverse + a premium/
-   AI Builder capacity available, and an Azure subscription for the later phases?
+2. ~~**Environment/licensing:**~~ **RESOLVED:** the **Collision Engineers - Dev** Sandbox (Power
+   Platform env `b3090c42-…`, solution `CollisionSpike`/`cr1bd`, Code App `da7ba7af-…` deployed) and
+   Azure subscription `e6076573-…` (resource group `rg-collisionspike-dev`, UK South — parser,
+   enrichment, address-match, OCR, EVA, EVA-validation and box-webhook Function apps deployed) are
+   provisioned. AI Builder / premium capacity for the later image-classification phases is the only
+   part still to confirm.
 3. ~~**Scope of first milestone.**~~ **RESOLVED (2026-06-18):** Email intake is **LIVE** — the
    `CS Intake` flow is ON (rebuilt `OnNewEmailV3` trigger on the connected `digital@` mailbox);
    Provider Match + Case Resolve flows are ON; downstream flows (image AI, enrichment, EVA, Box)
-   remain OFF. Code App, parser Function, enrichment Function, Dataverse schema, and 10 flows
-   are deployed. OCR / image AI / valuation / EVA cutover are the remaining fast-follows.
+   remain OFF. Code App, parser Function, enrichment Function, Dataverse schema, and the cloud flows
+   are deployed (10 core flows at the 2026-06-18 resolution; the repo now declares 15 flow
+   definitions including the Phase-7 Box flows — see CURRENT_STATUS.md). OCR / image AI / valuation /
+   EVA cutover are the remaining fast-follows.
 
 ## Verification
 - **Code App:** `code-apps-preview:deploy` to the Power Platform environment; load the app, run a

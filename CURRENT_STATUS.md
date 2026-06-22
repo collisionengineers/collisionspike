@@ -14,15 +14,16 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
 
 ---
 
-## 🔔 Update — 2026-06-22: Phase 7 (Box-centric intake pivot) — schema + env-vars APPLIED LIVE (gates OFF) · code authored offline · NOT activated
+## 🔔 Update — 2026-06-22: Phase 7 (Box-centric intake pivot) — schema + env-vars APPLIED LIVE (gates OFF) · box-webhook Function DEPLOYED gated-off (secret-free) · connector/flows authored offline · NOT activated
 
 The **Box-centric intake pivot** (ADR-0012, additive hybrid) is **built in the working tree and
 offline-verified**, and its **Dataverse schema + env-vars are now applied live in Dev** (verified via `az`
 on 2026-06-22) — `cr1bd_case` carries the `cr1bd_box*` columns + `cr1bd_sourcemailbox`, `cr1bd_evidence`
 carries `cr1bd_boxfileid`/`cr1bd_boxfileurl`, and every `cr1bd_BOX_*` env-var exists live with **every
-`BOX_*` gate OFF** (default *and* current `false`). What is **NOT** done: the `box-webhook` Azure Function,
-the `cr1bd_box_rest` custom connector, and the Box cloud-flows are **authored offline (`state=off`), not
-deployed/imported/bound live**; no `BOX_*` gate is flipped; no Box connection is bound. Branch
+`BOX_*` gate OFF** (default *and* current `false`). The **`box-webhook` Azure Function IS deployed** (gated off,
+secret-free, Gate-C-verified — `cespkbox-fn-v76a47`). What is **NOT** done: the `cr1bd_box_rest` custom connector
+and the Box cloud-flows are **authored offline (`state=off`), not imported/bound live**; no `BOX_*` gate is
+flipped; no Box connection is bound; no Box secrets are in Key Vault; the `FILE.UPLOADED` webhook is not subscribed. Branch
 `feat/phase-7-box-integration`. Binding decision:
 [docs/adr/0012-box-centric-intake-additive-hybrid.md](./docs/adr/0012-box-centric-intake-additive-hybrid.md);
 ordered build + reconciliations: [box-integration-pivot/plans/00-BUILD-PLAN.md](./box-integration-pivot/plans/00-BUILD-PLAN.md);
@@ -50,7 +51,7 @@ deep link; **no iframe, no `frame-src` edit** (`BOX_EMBED_ENABLED` stays reserve
   **3 audit-action options** (`box_folder_created=100000019`, `box_file_request_copied=100000020`,
   `box_upload_received=100000021`). `verify-parity.mjs` locks the new defaults; `dataverse/.build/25-box-schema.ps1`
   (adds the 9 case columns) is the apply script. **Verified live via `az` on 2026-06-22.**
-- **Azure `box-webhook` Function (authored offline, NOT deployed)** — `functions/box-webhook/` (the CCG
+- **Azure `box-webhook` Function (DEPLOYED gated-off, secret-free — `cespkbox-fn-v76a47`)** — `functions/box-webhook/` (the CCG
   token-mint inside the Function; the HMAC dual-key + 10-min-replay + `BOX-DELIVERY-ID`-dedup webhook
   receiver, which **processes the Dataverse fan-out on the request path and returns 200 when settled, or a
   non-2xx (503) on a transient failure so Box retries** — Box does not retry after a 2xx; the
@@ -58,9 +59,9 @@ deep link; **no iframe, no `frame-src` edit** (`BOX_EMBED_ENABLED` stays reserve
   Evidence-existence check on the `box:file:<id>` tag in `cr1bd_sourcemessageid` (NOT `cr1bd_boxfileid`,
   which the webhook writes as a correlation/UI mirror only); the receiver also stamps `cr1bd_boxfileid` +
   `cr1bd_acceptedforeva=true` and audits with the canonical `cr1bd_name`/`cr1bd_occurredat`/`cr1bd_action`/`cr1bd_after`
-  shape. **pytest 71 passed.** Secrets are Key Vault references only — created under the **hyphenated** names
+  shape. **pytest 79 passed** (incl. the `test_scope_lock.py` BOX_ALLOWED_ROOT_ID assertions added this session). Secrets are Key Vault references only — created under the **hyphenated** names
   `box-client-secret`/`box-webhook-primary-key`/`box-webhook-secondary-key` (resolving into the
-  `BOX_CLIENT_SECRET`/`BOX_WEBHOOK_PRIMARY_KEY`/`BOX_WEBHOOK_SECONDARY_KEY` app settings); operator-injected at deploy.
+  `BOX_CLIENT_SECRET`/`BOX_WEBHOOK_PRIMARY_KEY`/`BOX_WEBHOOK_SECONDARY_KEY` app settings). The deployed Function carries these KV references, but vault `cespkboxkvv76a47` is currently **empty** — the secrets are injected post-deploy once CCG auth is authorized (REMAINING-STEPS.md).
 - **Power Automate flows (authored `state=off`)** — new `box-folder-create`, `box-file-request-copy`
   (an authored **standby** child flow for FUTURE operator activation — **not** currently invoked by the
   Code App; the chaser path calls the connector op directly, see below), `box-blob-purge`; `finalize-eva-box`
@@ -100,7 +101,7 @@ the Business Plus tier).
   case columns, the `cr1bd_boxfileid`/`boxfileurl` evidence columns, the audit-action options, and all
   `cr1bd_BOX_*` env-vars) — **with every `BOX_*` gate OFF** (default and current `false`); `cr1bd_ENRICHMENT_ENABLED`
   is default `false` but current `true` (enrichment is live in Dev via the current value).
-- ❌ No Azure deploy of `box-webhook`; ❌ the `cr1bd_box_rest` connector and the Box flows are authored
+- ✅ The `box-webhook` Azure Function IS deployed (gated off, secret-free, Gate-C-verified — `cespkbox-fn-v76a47`); ❌ but its KV secrets are not provisioned, the `FILE.UPLOADED` webhook is not subscribed, and CCG auth is not authorized. ❌ The `cr1bd_box_rest` connector and the Box flows are authored
   offline (`state=off`), **not** imported/bound live; ❌ no live flow edit (incl. the intake `box-folder-create`
   invocation — that is an operator/business-phase live edit); ❌ no `BOX_*` gate flipped; ❌ no Box
   connection bound; ❌ EVA still gated OFF.
@@ -380,12 +381,12 @@ player**. Headlines:
 | Piece | Status | Where |
 |---|---|---|
 | **Parser Function** | Live, extracting real PDFs (provider/claimant/dates/address/VRM/ref), 12-field EVA contract, function-level auth | Azure **Flex Consumption (FC1)**, `cespike-parser-dev-…`, UK South |
-| **Dataverse schema** | Built — 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 11 env-vars | Solution `CollisionSpike`, prefix `cr1bd` |
+| **Dataverse schema** | Built — 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 18 env-vars (11 M1 + 7 Phase-7 Box) | Solution `CollisionSpike`, prefix `cr1bd` |
 | **Provider corpus** | **Incorporated + 2026-06-19 verify passed** — `WorkProvider` **390 updated** (SEED→active / ARCHIVE→inactive, `Corpus 2026-06-18` provenance; 37 over-length codes deferred), `Repairer` **20** named yards + **14** garage matches, `ImageSource(kind=repairer)` **20** (shared storage yards), `InspectionAddress` **174** known-sites (all Confirmed Physical), **98** N:N links. Idempotent (`dataverse/.build/10–14`); all 14-verify checks passed. | Sandbox |
 | **Parser custom connector** | Created, points at the live host | Sandbox |
 | **Code App** | Live + wired to Dataverse; **manual-intake** (upload → parse → Case) works, **parse now routed via the CE Parser connector** (no longer CSP-blocked; key off the bundle); logo/fonts/nav fixed | `mockup-app/`, app `da7ba7af-…` |
-| **Enrichment Function** | Deployed **gated-OFF**; calls **DVSA + DVLA directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway** | `cespkenrich-fn-…`, KV `cespkenrichkv…` |
-| **Cloud flows (×10)** | Imported **`state=off`**; connection refs unbound | Solution `CollisionSpikeFlows` |
+| **Enrichment Function** | Deployed + **gate ON in Dev** (`ENRICHMENT_ENABLED=true`, flipped 2026-06-21; live-verified `BC23JZE`→Ssangyong Rexton); calls **DVSA + DVLA directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway** | `cespkenrich-fn-…`, KV `cespkenrichkv…` |
+| **Cloud flows (×15)** | Imported **`state=off`** (except the Claude-wired `case-resolve`, ON); connection refs unbound | Solution `CollisionSpikeFlows` |
 
 ## ⛔ Built but NOT activated (operator-gated — live-services boundary)
 
@@ -397,12 +398,12 @@ player**. Headlines:
 - **EVA / Box** — EVA is JSON drag-drop now (`EVA_API_ENABLED=false`); Sentry REST API later. Box
   archival not activated. Needs EVA **test** creds in Key Vault + Box folder-casing confirmation (B5).
   The **Phase-7 Box pivot** (folder-at-parse-confirm, File-Request chasers, webhook intake) has its
-  **Dataverse schema + env-vars applied live (all five `BOX_*` gates OFF)**; the `box-webhook` Function,
-  the `cr1bd_box_rest` connector and the Box flows are **authored offline, not deployed/bound**, and no
-  `BOX_*` gate is flipped. The BUSINESS-account live test (CCG + File Request + `FILE.UPLOADED`) is the
+  **Dataverse schema + env-vars applied live (all five `BOX_*` gates OFF)**; the `box-webhook` Function is
+  **deployed gated-off (secret-free)**; the `cr1bd_box_rest` connector and the Box flows are **authored
+  offline, not imported/bound**, and no `BOX_*` gate is flipped. The BUSINESS-account live test (CCG + File Request + `FILE.UPLOADED`) is the
   long pole (see the 2026-06-22 entry above + [docs/gated.md](./docs/gated.md) item 5).
-- **Enrichment** — `ENRICHMENT_ENABLED=false` in the Sandbox; needs DVSA/DVLA creds in Key Vault +
-  `DVSA_TENANT_ID` (operator), then flip the gate in a test env.
+- **Enrichment** — ✅ **no longer gated: ACTIVATED in Dev** (`ENRICHMENT_ENABLED=true`, flipped 2026-06-21;
+  live-verified `BC23JZE`→Ssangyong Rexton). Listed here for history only; see the 2026-06-21 update above.
 
 ## 🔎 "Emails don't show/populate" — RESOLVED 2026-06-18 (PM)
 
@@ -466,7 +467,7 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 | B3 13th EVA field | **Resolved** — contract is 12 fields |
 | B4 Code Apps enablement | **Resolved** — enabled on the env; app pushed |
 | B2 parser telephone/email | **Built** — claimant telephone/email now extracted with provenance + tests; parser REDEPLOY pending to go live |
-| B5 EVA creds + Box casing | **Open** — operator (EVA test creds in KV, Box UPPERCASE folder check). The Box pivot (Phase 7) has its Dataverse schema + env-vars applied live (all `BOX_*` gates OFF); the Function/connector/flows are authored offline, **not deployed/bound**; the BUSINESS-account test (CCG + File Request + `FILE.UPLOADED`) is the long pole — gated.md item 5. |
+| B5 EVA creds + Box casing | **Open** — operator (EVA test creds in KV, Box UPPERCASE folder check). The Box pivot (Phase 7) has its Dataverse schema + env-vars applied live (all `BOX_*` gates OFF); the `box-webhook` Function is deployed gated-off (secret-free), while the connector/flows are authored offline, **not imported/bound**; the BUSINESS-account test (CCG + File Request + `FILE.UPLOADED`) is the long pole — gated.md item 5. |
 
 ## Key docs
 - **Operational charter / rules:** [AGENTS.md](./AGENTS.md) · **Live ID/resource/flow registry:** [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)

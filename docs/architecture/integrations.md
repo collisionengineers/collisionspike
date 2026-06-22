@@ -82,10 +82,16 @@ change** → chasers are drafted for staff to send manually; **no free automated
 
 > **Binding decision:** [docs/adr/0012-box-centric-intake-additive-hybrid.md](../adr/0012-box-centric-intake-additive-hybrid.md).
 > **Status (2026-06-22):** the Phase-7 Box **Dataverse schema + env-vars ARE applied live** (all `BOX_*`
-> gates OFF); the `box-webhook` Function, the `cr1bd_box_rest` connector and the Box flows are **authored
-> offline (`state=off`), not deployed/imported/bound** — and no Box connection is bound. The always-on
-> BUSINESS-account integration (CCG token mint, `FILE.UPLOADED` webhook, template File Request) is the
-> deferred long pole. Phase docs: [docs/plans/phase-7-box-integration/](../plans/phase-7-box-integration/).
+> gates OFF). The **`box-webhook` Function IS deployed** (`cespkbox-fn-v76a47`, FC1; 9 functions:
+> `box_webhook`, `create_folder`, `copy_file_request`, `file_request_lifecycle`, `create_webhook`,
+> `webhook_lifecycle`, `get_shared_link_file`, `get_shared_link_folder`, `list_folder`) and **Gate-C
+> verified** on the live host (no-key → 401; unsigned → 400; facade gated-off → 503) — but it is **gated
+> OFF** (`BOX_API_ENABLED=false`) and **secret-free** (its Key Vault `cespkboxkvv76a47` holds no secrets
+> yet). Still pending: the `cr1bd_box_rest` connector is **not imported/bound**, the Box flows remain
+> **authored offline (`state=off`)**, no Box connection is bound, the KV secrets are unset, and no `BOX_*`
+> gate is flipped. The always-on BUSINESS-account integration (CCG token mint, `FILE.UPLOADED` webhook,
+> template File Request) is the deferred long pole, operator-blocked on CCG authorization. Phase docs:
+> [docs/plans/phase-7-box-integration/](../plans/phase-7-box-integration/).
 
 Box is an **additive, one-way archival + intake mirror** — **Dataverse stays the system of record; Box is
 written one-way (Dataverse → Box)**. Box Metadata has no joins, so dedup (ADR-0010), the status machine,

@@ -27,7 +27,7 @@ operator) · [../AGENTS.md](../AGENTS.md) (operating rules).
 - [architecture/eva-field-model.md](./architecture/eva-field-model.md) — the EVA 12-field contract + mappings + the enrichment/AI status checks.
 - [architecture/eva-sentry-api.md](./architecture/eva-sentry-api.md) — authoritative EVA "Sentry" API v1.2 endpoints & auth (from the PDF in `raw/`).
 - [architecture/integrations.md](./architecture/integrations.md) — EVA, enrichment (DVSA/DVLA), parser, address (postcode.io), Box, and the feature-flag gating model.
-- [architecture/live-environment.md](./architecture/live-environment.md) — **canonical registry** of the live Sandbox env IDs, Azure resources, connectors, flows (verified 2026-06-19).
+- [architecture/live-environment.md](./architecture/live-environment.md) — **canonical registry** of the live Sandbox env IDs, Azure resources, connectors, flows (verified 2026-06-19; refreshed 2026-06-22 for the Phase-7 Box pivot — schema/env-vars applied live, box-webhook Function deployed gated-off).
 - [architecture/repo-constellation.md](./architecture/repo-constellation.md) — the sibling repos (ideas/prior-art only, none canonical).
 - [architecture/environment.md](./architecture/environment.md) — _historical_ build-environment notes (superseded by `live-environment.md`; kept for context).
 

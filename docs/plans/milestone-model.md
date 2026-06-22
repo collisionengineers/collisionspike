@@ -18,7 +18,7 @@
 > [0006](../adr/0006-enrichment-rest-wrapper-dvsa-m1.md) /
 > [0008](../adr/0008-tool-boundary-ends-at-eva-handoff.md) /
 > [0009](../adr/0009-image-ai-ocr-m1-classification-m2.md).
-> Last updated **2026-06-20**. Read-only planning doc; nothing here is activated by Claude.
+> Last updated **2026-06-22**. Read-only planning doc; nothing here is activated by Claude.
 
 ---
 
@@ -78,10 +78,10 @@ DEPLOY-RUNBOOK order.
 | **1c** — Code App (live) | Live Code App wired to live Dataverse; manual-intake upload→parse→Case; real rows only | **M1** | `[x]` live | ROADMAP 1c |
 | **1d** — Flows (imported OFF; M1 chain wired) | 10 flows imported `state=off`; M1 chain wired via CLI; dedup ladder ([ADR-0010](../adr/0010-dedup-reference-disambiguated-no-time-window.md)) | **M1** | `[x]` wired (children await operator flip) | ROADMAP 1d |
 | **2** — Live Activation (all three inboxes) | Bind Outlook shared-mailbox + Dataverse + parser; turn the chain ON; one inbox first, then all three | **M1** *(exit gate)* | `[ ]` 🔒 operator | ROADMAP Phase 2 — the §7 three-mailbox checklist **is** the M1 "done" definition |
-| **3a** — Enrichment (DVSA/DVLA) | DVSA mileage (document-authoritative) + make/model, gated `ENRICHMENT_ENABLED` | **M1** | `[x]` deployed ⚙️ gated-OFF; activation 🔒 | [ADR-0006](../adr/0006-enrichment-rest-wrapper-dvsa-m1.md) ("pulled into M1") |
+| **3a** — Enrichment (DVSA/DVLA) | DVSA mileage (document-authoritative) + make/model, gated `ENRICHMENT_ENABLED` | **M1** | `[x]` deployed + **gate ON in Dev** (`ENRICHMENT_ENABLED=true`, 2026-06-21); prod activation 🔒 | [ADR-0006](../adr/0006-enrichment-rest-wrapper-dvsa-m1.md) ("pulled into M1") |
 | **3b** — EVA JSON drag-drop | 12-field JSON serializer (exact order, 6-line address, enums); drag-drop export | **M1** | `[x]` built; live export 🔒 | [ADR-0005](../adr/0005-eva-api-full-scope-test-environment.md) ("the M1 path and the permanent fallback") |
-| **3c** — EVA Sentry REST API | `functions/evasentry` v1.2 two-request submit; token lifecycle **inside the Function** | **M2** | `[x]` built (pytest 42/42) ⚙️; Azure deploy + activation 🔒 | [ADR-0005](../adr/0005-eva-api-full-scope-test-environment.md) + §3 (connector can't do client-credentials) |
-| **3c-Fn** — EVA-validation Function | `functions/evavalidation` `POST /validate-case`; ports image-rules + case-status so flow ＝ Code App | **M2** | `[ ]` no Function backs `cr1bd_evavalidation` yet | [m2-umbrella §6](./m2-umbrella-enrichment-to-scale.md); on the M2 critical path |
+| **3c** — EVA Sentry REST API | `functions/evasentry` v1.2 two-request submit; token lifecycle **inside the Function** | **M2** | `[x]` built (pytest 42/42) + **deployed** (`cespkeva-fn-ufa3ci` Running, `EVA_API_ENABLED=false`) ⚙️; EVA creds + activation 🔒 | [ADR-0005](../adr/0005-eva-api-full-scope-test-environment.md) + §3 (connector can't do client-credentials) |
+| **3c-Fn** — EVA-validation Function | `functions/evavalidation` `POST /validate-case`; ports image-rules + case-status so flow ＝ Code App | **M2** | `[x]` deployed (`cespkeval-fn-6c6fxd` Running, `/api/validate-case`); `status-evaluate` connector repoint (activation) 🔒 | [m2-umbrella §6](./m2-umbrella-enrichment-to-scale.md); on the M2 critical path |
 | **3d** — Box archival | `finalize-eva-box` Box folder (UPPERCASE Case/PO) + EVA photo-order upload | **M2** | `[x]` flow built ⚙️; bind + activate 🔒 (B5/S2) | [m2-umbrella §8](./m2-umbrella-enrichment-to-scale.md); [ADR-0005](../adr/0005-eva-api-full-scope-test-environment.md)/[0008](../adr/0008-tool-boundary-ends-at-eva-handoff.md) |
 | **3e** — EVA readiness gate | Image-rules / readiness checklist in the Code App; address decision gate; AuditEvent rows | **M1** | `[x]` built; drive green on a live Case 🔒 | ROADMAP 3e; `mockup-app/src/contracts/image-rules.ts` |
 | **4a** — Address **policy** gate | Per-provider inspection-address policy; **no** silent "Image Based Assessment"; postcode.io normalise | **M1** | `[x]` built (Code App) | ROADMAP 4a; `docs/requirements/inspection-address.md` |
@@ -95,7 +95,7 @@ DEPLOY-RUNBOOK order.
 | **5c** — Copilot Studio agent | Staff assistant grounded over Dataverse, gated `COPILOT_ENABLED` | **M3** | `[ ]` planned, gated-OFF | ROADMAP 5c; `docs/architecture/microsoft-stack.md` |
 | **(5c)** — Dataverse-MCP-in-Copilot | Dataverse Model Context Protocol surfaced inside the Copilot agent | **M3** | `[ ]` planned, gated-OFF | `docs/architecture/microsoft-stack.md` |
 | **6** — Boundary evidence & handoff | Offline gates green; connection inventory; deploy log; **§7 live-validation across all three mailboxes** | **M1** *(evidence)* | `[x]` offline gates; `[ ]` 🔒 live evidence | ROADMAP Phase 6 — the §7 checklist is the M1 "done" evidence |
-| **7** — Box-centric intake pivot (ADR-0012) | Folder at parse-confirm + File-Request image chasers + webhook intake; **one-way Box mirror, Dataverse authoritative** | **M2-class** *(extends M2.D)* | `[x]` authored + offline-verified + free-account REST-tested; **Box Dataverse schema + `cr1bd_BOX_*` env-vars APPLIED LIVE in Dev (all `BOX_*` gates OFF)**; Function/connector/flows authored offline (`state=off`); deploy/bind/flip + the BUSINESS `FILE.UPLOADED` live-test 🔒 | [ADR-0012](../adr/0012-box-centric-intake-additive-hybrid.md); the broader successor to **3d**/M2.D; build order in `box-integration-pivot/plans/00-BUILD-PLAN.md` |
+| **7** — Box-centric intake pivot (ADR-0012) | Folder at parse-confirm + File-Request image chasers + webhook intake; **one-way Box mirror, Dataverse authoritative** | **M2-class** *(extends M2.D)* | `[x]` authored + offline-verified + free-account REST-tested; **Box Dataverse schema + `cr1bd_BOX_*` env-vars APPLIED LIVE in Dev (all `BOX_*` gates OFF)**; the **`box-webhook` Function is deployed + Gate-C-verified** (`cespkbox-fn-v76a47` Running, all `BOX_*` gates OFF, KV secret-free); connector (`cr1bd_box_rest`) + Box flows still authored offline (`state=off`); CCG auth + KV secrets + bind/flip + the BUSINESS `FILE.UPLOADED` live-test 🔒 | [ADR-0012](../adr/0012-box-centric-intake-additive-hybrid.md); the broader successor to **3d**/M2.D; build order in `box-integration-pivot/plans/00-BUILD-PLAN.md` |
 
 > **Phase 7 vs the milestone axis.** Phase 7 is a later **additive** work-breakdown phase, not a new
 > milestone. Its capabilities are **M2-class** — they extend the **3d = M2.D** Box family (Box-archival)
@@ -164,7 +164,7 @@ These are the **capability gates** — what must be demonstrably true to *enter*
 
 ### M0 — Foundations _(done)_
 - **Entry:** repo initialised.
-- **Exit `[x]`:** `node verify-all.mjs` green (**6/6 gates**) — typed EVA/case-status/image-rules
+- **Exit `[x]`:** `node verify-all.mjs` green (**7/7 gates**) — typed EVA/case-status/image-rules
   contracts, classification + ADR-0010 dedup + provider-match + address-policy in TS, Dataverse
   schema-as-code parity, env-var gates defined, and the boundary-compliance gates (no live calls in the
   app, no secret values in the repo, all flows `state=off`).

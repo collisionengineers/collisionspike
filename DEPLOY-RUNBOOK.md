@@ -12,7 +12,7 @@ Platform + Azure environment. It is the bridge across the hard boundary that gov
 **Before anything here:** run the offline gate and confirm it is clean.
 
 ```
-node verify-all.mjs        # expect: OK — all gates passed, 0 failed
+node verify-all.mjs        # expect: a final line starting `OK — … 0 failed …` (exit 0)
 ```
 
 (Gate count grew past the original 6 as static guards were added — e.g. the generated-service
@@ -42,19 +42,19 @@ dependent live step can work. They are tracked in code/READMEs and surfaced here
 
 ---
 
-## 0a. Deploy status — what is LIVE (as of 2026-06-18)
+## 0a. Deploy status — what is LIVE (M1 snapshot; enrichment activated 2026-06-21)
 
 Much of §1–§6 is already executed in a dedicated **Sandbox** (NOT the Default environment):
 
 | Piece | Status | Where |
 |---|---|---|
 | **Azure parser Function** | ✅ Deployed + **extracting real PDFs** (live-verified: provider/claimant/dates/address/VRM/reference) | **Flex Consumption (FC1)** — not EP1 — `rg-collisionspike-dev`, UK South, `cespike-parser-dev-x7xt3d5ovhi7y` |
-| **Dataverse schema** | ✅ Built — 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 11 env-vars (`ENRICHMENT_ENABLED=false`), EVA secrets Key-Vault-typed (no values) | Sandbox **`Collision Engineers - Dev`** (`b3090c42-…`), solution `CollisionSpike`, publisher prefix `cr1bd` |
+| **Dataverse schema** | ✅ Built — 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 18 env-vars (11 M1 + 5 Box gates + 2 Box config; `ENRICHMENT_ENABLED` default false but **Dev current=true — live**), EVA secrets Key-Vault-typed (no values) | Sandbox **`Collision Engineers - Dev`** (`b3090c42-…`), solution `CollisionSpike`, publisher prefix `cr1bd` |
 | **Parser custom connector** | ✅ Created, points at the live host | Sandbox, `CollisionSpike` solution (id `ccdec4fd-…`) |
 | **Code App** | ✅ **Deployed + live** (B4 cleared by enabling Code Apps on the env); wired to live Dataverse; **manual-intake** path added (upload → parse → Case) | `mockup-app/`, app id `da7ba7af-…`, Sandbox |
-| **Cloud flows (×10)** | ✅ Imported **`state=off`** (all verified Draft); connection refs unbound (operator binds at activation) | Sandbox, solution `CollisionSpikeFlows` |
-| **Enrichment Function (DVSA)** | ⚙️ **Deployed gated-OFF** — calls **DVSA + DVLA directly** (Entra `client_credentials` + `X-API-Key`); **no gateway, no Google Cloud** (B1 obviated). Live-verified: 401 no-key; 200 "enrichment skipped" gate-off | `cespkenrich-fn-gi62sd`, KV `cespkenrichkvgi62sd`, `rg-collisionspike-dev` |
-| **EVA / Box / live inbox** | ⛔ Not activated | Operator-gated: connections + EVA secret injection + DVSA/DVLA creds into Key Vault (the enrichment Azure Function is already deployed, gated OFF; no Cloud Run deploy needed) |
+| **Cloud flows (×15)** | ✅ Imported **`state=off`** (`case-resolve` ON — Claude-wired merge-by-registration; rest Draft); connection refs unbound (operator binds at activation) | Sandbox, solution `CollisionSpikeFlows` |
+| **Enrichment Function (DVSA)** | ✅ **Deployed + LIVE** (`cr1bd_ENRICHMENT_ENABLED` flipped to `true` in Dev on 2026-06-21) — calls **DVSA + DVLA directly** (Entra `client_credentials` + `X-API-Key`); **no gateway, no Google Cloud** (B1 obviated). Live-verified returning vehicle data (`BC23JZE`→SsangYong Rexton). | `cespkenrich-fn-gi62sd`, KV `cespkenrichkvgi62sd`, `rg-collisionspike-dev` |
+| **EVA / Box / live inbox** | ⛔ Not activated | Operator-gated: connections + EVA secret injection + DVSA/DVLA creds into Key Vault (the enrichment Azure Function is already deployed and live; no Cloud Run deploy needed) |
 
 Notes: the parser engine is **vendored** into the FC1 package (text PDF/DOCX/DOC/EML/MSG work; scanned-image
 **OCR is deferred** to an Azure Container Apps host — "B-full", FC1 can't run the Tesseract binary). The cost
@@ -88,11 +88,12 @@ defaults**). `[DEPLOY-WITH-LOGIN]`
   `ENRICHMENT_ENABLED=true`, `EVA_API_ENABLED=false`, `AZURE_MAPS_ENABLED=false`,
   `VALUATION_ENABLED=false`, `COPILOT_ENABLED=false`, `AZURE_VISION_ENABLED=false`. Secrets
   (`EVA_CLIENT_ID/SECRET`) are **Key Vault references** — values injected in §3.
-  > **Override `ENRICHMENT_ENABLED=false` at import until B1 is resolved.** The manifest default
-  > is `true` (the intended M1-complete state), but the DVSA/DVLA creds aren't in Key Vault yet
-  > (B1 obviated — the gateway was removed), so enrichment must ship OFF per environment. The live Sandbox was imported with it **`false`** for
-  > exactly this reason — the descriptor's `true` is the frozen manifest value, the per-env `false`
-  > is the intentional deviation.
+  > **Per-environment `ENRICHMENT_ENABLED` is the activation gate.** The manifest *default* is
+  > `false` (the shipped value); enrichment ships OFF until DVSA/DVLA creds are in Key Vault.
+  > **In Dev it is now ON** — creds were injected and `cr1bd_ENRICHMENT_ENABLED` was flipped to
+  > `true` on 2026-06-21 (enrichment is live). B1 is obviated (gateway removed). When importing into a
+  > NEW environment, leave it `false` until that environment's DVSA/DVLA creds are injected, then flip
+  > the current value to `true`.
 
 > Reconcile the `cr1bd_` publisher prefix + the `statuscode` integer values against your environment
 > before import; the parity test (`node dataverse/verify-parity.mjs`) is the contract the import must match.
@@ -166,7 +167,7 @@ unused). This is the single deviation from the autogenerated `src/generated/` tr
 
 ## 6. `[DEPLOY-WITH-LOGIN]` — Flows imported, left OFF
 
-Import the 10 flow definitions (`flows/definitions/*.definition.json`) and the connection references
+Import the M1 flow definitions (the 10 non-Box flows under `flows/definitions/`; the 5 Phase-7 Box flows are out of scope for this M1 runbook) and the connection references
 (`flows/connection-references.json`) into the solution. **Every flow ships `state=off`** — importing is
 non-inbox; **activation is the next section.** Bind the connection references to real connections *for
 non-inbox connectors only* (Dataverse, the two custom connectors). Outlook / SharePoint / Box
@@ -211,7 +212,7 @@ Mechanical proof that nothing live was touched before activation:
 1. **Static grep gate** (in `verify-all.mjs` / per-slice): zero live EVA/Box/Graph-send/SharePoint-write
    calls in the Code App; such calls live only in flow definitions that are imported **OFF**.
 2. **Flow-state assertion:** every intake / classify / SharePoint / finalize / chaser flow is present in
-   the solution with state = **off** (`flows/flow-state.json` + the flow linter's 97 checks).
+   the solution with state = **off** (`flows/flow-state.json` + the flow linter's checks — currently 154/154).
 3. **No-credentials assertion:** no EVA / gateway / Box secret **values** in the repo — only Key Vault
    **references** and env-var **names** (the `no secret literals` grep gate).
 4. **Connection inventory:** `pac connection list` — confirm no connection was bound to a live shared
