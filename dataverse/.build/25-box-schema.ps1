@@ -6,7 +6,8 @@
 # and idempotently, in ONE operator-gated pass. It is the live-apply twin of the
 # offline definition edits in this PR:
 #   - dataverse/environment-variables.json   (7 new BOX_* vars)
-#   - dataverse/schema/case.json             (8 new columns: 5 String, 1 Boolean, 1 Memo, 1 DateTime)
+#   - dataverse/schema/case.json             (9 columns: 6 String, 1 Boolean, 1 Memo, 1 DateTime)
+#   - dataverse/schema/evidence.json         (2 String columns: cr1bd_boxfileid, cr1bd_boxfileurl)
 #   - dataverse/choicesets/audit-event.json  (3 new cr1bd_auditaction options)
 #
 # What it does (each step idempotent: re-running is a no-op once applied):
@@ -122,7 +123,7 @@ foreach ($v in $BOX_VARS) {
 Write-Host "ENVVARS_BOX_DONE created=$envCreated skipped=$envSkipped" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------------------
-# STEP 2 - the 8 new columns on cr1bd_case (String / Boolean / Memo / DateTime)
+# STEP 2 - the 9 new columns on cr1bd_case (String / Boolean / Memo / DateTime)
 # ---------------------------------------------------------------------------
 # Type-aware Build-BoxAttr mirrors 02-tables.ps1: FormatName Url -> Single-Line
 # URL format; Memo Format=TextArea; Boolean = Yes/No two-option set; DateTime
@@ -146,6 +147,8 @@ $CASE_COLS = @(
      description="BOX ONE-WAY MIRROR (Phase 7). Live uploader URL from CopyFileRequest, served to the copy-chaser UX for clipboard copy. FormatName=Url (validated/rendered as a link)." }
   @{ logicalName="cr1bd_boxsyncedat";          displayName="Box Synced At";           type="DateTime"; dateTimeBehavior="UserLocal";
      description="BOX ONE-WAY MIRROR (Phase 7, ADR-0012). Flow-contract sync timestamp; stamped (=utcNow()) with cr1bd_boxfolderid at folder-create, restamped by finalize-eva-box. The AGE filter key for box-blob-purge (status=box_synced AND cr1bd_boxsyncedat < now-grace). Declared to close the same flow-contract drift as cr1bd_finalizedpayloadhash. NEVER read back to drive dedup/status/sequencing." }
+  @{ logicalName="cr1bd_boxfolderurl";         displayName="Box Folder URL";          type="String"; maxLength=400; format="Url";
+     description="BOX ONE-WAY MIRROR (Phase 7, ADR-0012). Folder shared-link URL (GetFolderSharedLink access=open) for the Open-in-Box case-archive deep link; stored so the Code App surfaces it directly when the connector is unbound (free-account demo). NEVER read back to drive dedup/status/sequencing." }
 )
 function Build-BoxAttr($c) {
   $dn=(Label $c.displayName); $desc=(Label $c.description); $schema=(SchemaFromLogical $c.logicalName)
@@ -168,6 +171,25 @@ foreach ($c in $CASE_COLS) {
   $colCreated++
 }
 Write-Host "CASE_COLS_BOX_DONE created=$colCreated skipped=$colSkipped" -ForegroundColor Cyan
+
+# ---------------------------------------------------------------------------
+# STEP 2b - 2 new columns on cr1bd_evidence (per-file Box mirror link)
+# ---------------------------------------------------------------------------
+$EVIDENCE_COLS = @(
+  @{ logicalName="cr1bd_boxfileid";  displayName="Box File ID";  type="String"; maxLength=40;  format="Text";
+     description="BOX ONE-WAY MIRROR (Phase 7, ADR-0012). Box file id from upload for this artifact; supersedes the box:file id-in-sourcemessageid hack. Webhook/lifecycle correlation." }
+  @{ logicalName="cr1bd_boxfileurl"; displayName="Box File URL"; type="String"; maxLength=400; format="Url";
+     description="BOX ONE-WAY MIRROR (Phase 7). Per-file Box shared-link URL (GetSharedLink access=open) for the direct open-in-Box link on the evidence row." }
+)
+$evCreated=0; $evSkipped=0
+foreach ($c in $EVIDENCE_COLS) {
+  if (Test-ColumnExists "cr1bd_evidence" $c.logicalName) { Write-Host "    [SKIP] col cr1bd_evidence.$($c.logicalName)" -ForegroundColor DarkYellow; $evSkipped++; continue }
+  $abody = (Build-BoxAttr $c) | ConvertTo-Json -Depth 20
+  Invoke-WithRetry { Invoke-RestMethod -Uri "$base/EntityDefinitions(LogicalName='cr1bd_evidence')/Attributes" -Method Post -Headers $H -Body $abody | Out-Null } "col cr1bd_evidence.$($c.logicalName)"
+  Write-Host "    [OK] col cr1bd_evidence.$($c.logicalName) (String/$($c.format) $($c.maxLength))" -ForegroundColor Green
+  $evCreated++
+}
+Write-Host "EVIDENCE_COLS_BOX_DONE created=$evCreated skipped=$evSkipped" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------------------
 # STEP 3 - 3 new options on the EXISTING cr1bd_auditaction global choice set
@@ -204,5 +226,5 @@ Invoke-WithRetry { Invoke-RestMethod -Uri "$base/PublishAllXml" -Method Post -He
 Write-Host "PUBLISHED" -ForegroundColor DarkCyan
 
 Write-Host ""
-Write-Host "BOX_SCHEMA_DONE  env=$envCreated/+$envSkipped  cols=$colCreated/+$colSkipped  auditopts=$optInserted/+$optSkipped" -ForegroundColor Cyan
+Write-Host "BOX_SCHEMA_DONE  env=$envCreated/+$envSkipped  cols=$colCreated/+$colSkipped  evcols=$evCreated/+$evSkipped  auditopts=$optInserted/+$optSkipped" -ForegroundColor Cyan
 Write-Host "NOTE: BOX_* gates default OFF. Flipping any to 'true' + setting BOX_FOLDER_ROOT_ID / BOX_FILE_REQUEST_TEMPLATE_ID (per-env currentValue) are [RESERVED-FOR-USER] activation steps." -ForegroundColor DarkCyan
