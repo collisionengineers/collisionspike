@@ -38,6 +38,7 @@ operator) · [../AGENTS.md](../AGENTS.md) (operating rules).
 
 ## Operator & status
 - [gated.md](./gated.md) — the consolidated **hard/soft blocker** registry (everything that needs the operator).
+- [roles-and-permissions.md](./roles-and-permissions.md) — the **roles required across all three planes** (M365/Entra, Azure RBAC, Box) + why, with the real blockers each resolves.
 - [review-followups-2026-06-19.md](./review-followups-2026-06-19.md) — verified architecture-review follow-ups.
 
 ## Reviews — binding manual reviews
@@ -55,7 +56,7 @@ operator) · [../AGENTS.md](../AGENTS.md) (operating rules).
 - [activation/email-intake-activation.md](./activation/email-intake-activation.md) · [activation/m1-flow-chain-activation.md](./activation/m1-flow-chain-activation.md) · [activation/multi-inbox-activation.md](./activation/multi-inbox-activation.md)
 
 ## ADRs
-- [adr/](./adr/) — architecture decision records **0001–0011** (entities, dedup, chasers, parser, EVA, enrichment, WhatsApp, tool boundary, image AI, sourcing roles).
+- [adr/](./adr/) — architecture decision records **0001–0012** (entities, dedup, chasers, parser, EVA, enrichment, WhatsApp, tool boundary, image AI, sourcing roles, **Box-centric intake additive hybrid**).
 
 ## Reference
 - [reference/](./reference/) — EVA Sentry API PDFs (v1.2 current) + a superseded provider-corpus snapshot.
