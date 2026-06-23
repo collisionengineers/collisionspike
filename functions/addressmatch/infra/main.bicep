@@ -26,12 +26,19 @@ param azureMapsEnabled bool = false
 @description('postcode.io base URL (override only for testing; public service needs no key).')
 param postcodeIoBase string = 'https://api.postcodes.io'
 
+// ---- Shared observability (S4) ----
+// This Function no longer self-declares Log Analytics + App Insights. It consumes
+// the SHARED App Insights connection string (the parser's cespike-parser-ai-dev),
+// threaded in by the orchestrating deploy from the parser stack's
+// appInsightsConnectionString output. See functions/parser/infra/main.bicep.
+@secure()
+@description('Shared App Insights connection string (the parser App Insights). Consumed by APPLICATIONINSIGHTS_CONNECTION_STRING. Mark @secure() so the ikey embedded in it is not echoed to deployment logs.')
+param sharedAppInsightsConnectionString string = ''
+
 var suffix = uniqueString(resourceGroup().id, namePrefix)
 var storageName = toLower('${namePrefix}st${substring(suffix, 0, 6)}')
 var planName = '${namePrefix}-plan-${substring(suffix, 0, 6)}'
 var functionAppName = '${namePrefix}-fn-${substring(suffix, 0, 6)}'
-var aiName = '${namePrefix}-ai-${substring(suffix, 0, 6)}'
-var logAnalyticsName = '${namePrefix}-law-${substring(suffix, 0, 6)}'
 var deploymentContainerName = 'app-package'
 
 // ---- Storage (required by Functions; also the FC1 deployment container) ----
@@ -63,31 +70,13 @@ resource deployContainer 'Microsoft.Storage/storageAccounts/blobServices/contain
   }
 }
 
-// ---- Observability (workspace-based App Insights) ----
-// Classic (workspace-less) Application Insights is RETIRED and ingests no
-// telemetry; a workspace-less component also force-creates a managed Log
-// Analytics workspace in its own resource group. Declare the workspace here and
-// bind it via WorkspaceResourceId — mirrors functions/parser/infra/main.bicep.
-resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: logAnalyticsName
-  location: location
-  properties: {
-    sku: {
-      name: 'PerGB2018'
-    }
-    retentionInDays: 30
-  }
-}
-
-resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: aiName
-  location: location
-  kind: 'web'
-  properties: {
-    Application_Type: 'web'
-    WorkspaceResourceId: logAnalytics.id
-  }
-}
+// ---- Observability (S4: SHARED sink, no self-declared LAW/App Insights) ----
+// This Function previously declared its own Log Analytics workspace + App
+// Insights. Slice S4 consolidates all six non-parser Functions onto the parser's
+// single shared pair (cespike-parser-law-dev + cespike-parser-ai-dev). The
+// workspace + component are therefore NOT declared here; this app only consumes
+// the shared App Insights connection string (sharedAppInsightsConnectionString)
+// via its APPLICATIONINSIGHTS_CONNECTION_STRING app setting below.
 
 // ---- Flex Consumption (FC1) plan ----
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
@@ -145,7 +134,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-          value: appInsights.properties.ConnectionString
+          value: sharedAppInsightsConnectionString
         }
         {
           name: 'AZURE_MAPS_ENABLED'
