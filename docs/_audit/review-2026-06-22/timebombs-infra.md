@@ -6,6 +6,8 @@ Confirmed findings by corrected severity: **0 critical · 0 high · 1 medium · 
 
 ## [MEDIUM] Live enrichment Function holds DVSA/DVLA credentials as plain-text app settings, and a bicep redeploy would reset them to KV refs against an empty vault
 
+> **RESOLVED 2026-06-23 (S3).** The recommendation was actioned live: the four DVSA/DVLA secrets were injected into `cespkenrichkvgi62sd` and the live app settings (`DVSA_CLIENT_ID`/`DVSA_CLIENT_SECRET`/`DVSA_API_KEY`/`DVLA_API_KEY`) switched to `@Microsoft.KeyVault(SecretUri=…)` references (status=Resolved). A live enrichment test returned **200**, confirming the system-assigned MI resolves them. This closes both the cleartext exposure and the empty-vault redeploy timebomb — live now matches `infra/main.bicep`. (EVA + Box vaults remain empty by design, gated off.)
+
 *(Originally filed "high"; downgraded to medium on verification — see note.)*
 
 **Location:** Live `cespkenrich-fn-gi62sd` app settings `DVSA_CLIENT_SECRET` / `DVSA_API_KEY` / `DVLA_API_KEY` (literal values, not KV refs); `functions/enrichment/README.md:121-131`; `functions/enrichment/infra/main.bicep` (KV refs + Key Vault Secrets User grant, :222-258); KV `cespkenrichkvgi62sd` empty.
