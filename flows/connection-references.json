@@ -103,6 +103,20 @@
       "note": "DVSA enrichment — direct Entra client_credentials to the DVSA MOT History API (+ DVLA). Secrets (DVSA/DVLA client id/secret/api-key) are Key Vault refs inside the Function, never in a definition. [DEPLOY-WITH-LOGIN] to import; secret value inject is [RESERVED-FOR-USER]. (ce-mcp-gateway retired — B1 obviated.)"
     },
     {
+      "connectionName": "shared_addressmatch",
+      "logicalName": "cr1bd_addressmatch",
+      "displayName": "Inspection-Address Match (custom: /match-address)",
+      "connector": "shared_addressmatch",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_addressmatch",
+      "tier": "Premium",
+      "custom": true,
+      "operationIds": ["MatchAddress"],
+      "openapi": "functions/addressmatch/openapi/addressmatch-connector.json",
+      "usedBy": ["address-resolve"],
+      "boundAtActivation": true,
+      "note": "Inspection-address matching (ROADMAP 4a) — fronts the cespkaddr-fn-i7m4re matcher (op MatchAddress, POST /api/match-address). Stateless: the flow passes the district-filtered corpus rows (cr1bd_repairers + cr1bd_inspectionaddresses) in the body so the FLOW stays the sole Dataverse caller; the Function never reads Dataverse. Auth on THIS connection = the Function host key (x-functions-key) on the connection, never in a definition. Premium so it shares a DLP data group with the other custom service connectors (parser/DVSA/EVA/Box REST). [DEPLOY-WITH-LOGIN] to import the connector; binding the connection (function key) to cespkaddr-fn-i7m4re is [RESERVED-FOR-USER]. Full matcher value needs a part-postcode Loc source (parser inspection-location/district extraction + optional cr1bd_loc Case column) — until then a full address short-circuits to confirmed_physical."
+    },
+    {
       "connectionName": "shared_evavalidation",
       "logicalName": "cr1bd_evavalidation",
       "displayName": "EVA Validation Surface (custom: ValidateCase)",
@@ -131,7 +145,7 @@
   ],
   "notes": [
     "One connection reference per logical connector; flows bind to the reference, the reference binds to a connection at deploy/activation. This is what lets the SAME definition move dev -> test -> prod unchanged.",
-    "Premium connectors in play: Dataverse, Azure Blob, and the five custom connectors (parser/DVSA/validation/EVA + the Phase-7 Box REST cr1bd_box_rest) -> require Premium licensing (open Code Apps GA/licensing question). Standard: Office 365 Outlook, Excel Online (Business), Box first-party (the first-party Box connector is class Standard per Microsoft Learn — Standard + Premium connectors coexist in one DLP data group).",
+    "Premium connectors in play: Dataverse, Azure Blob, and the six custom connectors (parser/DVSA/validation/EVA + the address-match cr1bd_addressmatch + the Phase-7 Box REST cr1bd_box_rest) -> require Premium licensing (open Code Apps GA/licensing question). Standard: Office 365 Outlook, Excel Online (Business), Box first-party (the first-party Box connector is class Standard per Microsoft Learn — Standard + Premium connectors coexist in one DLP data group).",
     "Phase-7 Box split (ADR-0012): TWO Box connections coexist by design. cr1bd_box_rest (Premium, custom, CCG via the box-webhook Function) does FOLDER create + File-Request copy + shared-link + webhook lifecycle; first-party cr1bd_box (Standard, interactive OAuth) is KEPT for finalize-eva-box's BYTE upload (CreateFile) only. This is the build-plan-04 PIN of the previously-unpinned connection-ref decision (parallel ref, NOT an in-place repoint).",
     "DLP: every connector here must sit in the SAME data group in the target environment's DLP policy or import/run fails. Confirm before activation."
   ]

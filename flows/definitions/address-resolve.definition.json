@@ -1,0 +1,252 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "comment": "Flow_AddressResolve (ROADMAP 4a — inspection-address matching). Request-triggered child taking { caseId }. Reads the Case, derives the OUTWARD postcode code from cr1bd_evainspectionaddress with a pure Power-Automate expression (no Function), lists district-filtered candidate sites from cr1bd_repairers (+ cr1bd_inspectionaddresses) via startswith(cr1bd_postcode,'<outward>'), then calls the MatchAddress op (custom connector cr1bd_addressmatch -> the cespkaddr-fn matcher) passing { caseLoc, principalCode, repairers, inspectionAddresses }. On a CONFIRMED match (decisionMode=confirmed_physical AND matched=true) it Patches cr1bd_evainspectionaddress + cr1bd_inspectiondecision on the Case; any other outcome (needsReviewerDecision / unknown / image_based / no district) leaves the Case untouched for staff review — GATED-SAFE, no destructive write without a confirmed physical match. Matching is advisory and never blocks intake (mirrors enrich.definition.json's advisory posture). [BUILD] flow. ACTIVATION [RESERVED-FOR-USER]: import the cr1bd_addressmatch custom connector + bind its connection (function key) to cespkaddr-fn-i7m4re, then turn CS Address Resolve ON. CAVEAT (the deep value, why this ships state=off): the parser emits a FULL address into cr1bd_evainspectionaddress and there is no cr1bd_loc district column yet, so this flow derives only a best-effort heuristic district (the second-to-last whitespace token) and feeds THAT to the matcher; a full free-text address has no parseable postcode (the matcher returns needsReviewerDecision, no write). Reliable district candidate ranking needs the parser inspection-location/district extraction (+ optional cr1bd_loc column) — the [RESERVED] Loc-source follow-up. A further refinement: the candidate ListRecords do not $expand the repairer->WorkProvider N:N, so principal-ranking is inert until that linkage is added. Claude never binds the connection or activates the flow.",
+  "parameters": {
+    "$connections": { "type": "Object", "defaultValue": {} },
+    "$authentication": { "type": "SecureObject", "defaultValue": {} }
+  },
+  "triggers": {
+    "manual": {
+      "type": "Request",
+      "kind": "Http",
+      "inputs": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "caseId": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "actions": {
+    "Init_caseId": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "caseId", "type": "string", "value": "@triggerBody()?['caseId']" } ] },
+      "runAfter": {}
+    },
+    "Get_case": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "GetItem",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": { "entityName": "cr1bd_cases", "recordId": "@variables('caseId')" }
+      },
+      "runAfter": { "Init_caseId": [ "Succeeded" ] }
+    },
+    "Set_caseLoc": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "caseLoc", "type": "string",
+        "value": "@trim(coalesce(outputs('Get_case')?['body/cr1bd_evainspectionaddress'], ''))"
+      } ] },
+      "comment": "caseLoc = the Case's current inspection-address text (full address today; a part-postcode Loc once the parser district-extraction follow-up lands). Passed verbatim to the matcher, which classifies locKind full|part|none itself.",
+      "runAfter": { "Get_case": [ "Succeeded" ] }
+    },
+    "Set_principalCode": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "principalCode", "type": "string",
+        "value": "@coalesce(outputs('Get_case')?['body/cr1bd_evaworkprovider'], '')"
+      } ] },
+      "comment": "principalCode disambiguates district-shared yards; the parsed EVA work-provider value is the principal/EVA code. Empty is tolerated (the matcher ranks principal-linked candidates first but does not require one).",
+      "runAfter": { "Set_caseLoc": [ "Succeeded" ] }
+    },
+    "Set_outward": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "outward", "type": "string",
+        "value": "@toUpper(if(greaterOrEquals(length(split(trim(coalesce(outputs('Get_case')?['body/cr1bd_evainspectionaddress'], '')), ' ')), 2), first(skip(split(trim(coalesce(outputs('Get_case')?['body/cr1bd_evainspectionaddress'], '')), ' '), sub(length(split(trim(coalesce(outputs('Get_case')?['body/cr1bd_evainspectionaddress'], '')), ' ')), 2))), ''))"
+      } ] },
+      "comment": "Heuristic OUTWARD postcode code (district): a full UK postcode 'OUTWARD INWARD' sits at the END of an address (e.g. '... Chester, CH5 4AB' -> 'CH5'), so take the SECOND-TO-LAST whitespace token, upper-cased for the startswith filter. This is a best-effort heuristic over a free-text address; a RELIABLE district needs the parser inspection-location/district extraction (the [RESERVED] Loc-source follow-up). Tolerant: an address whose second-to-last token is not an outward simply yields no district candidates and the matcher returns needsReviewerDecision -> no write.",
+      "runAfter": { "Set_principalCode": [ "Succeeded" ] }
+    },
+    "Set_hasOutward": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ {
+        "name": "hasOutward", "type": "boolean",
+        "value": "@and(not(empty(variables('outward'))), greater(length(variables('outward')), 1))"
+      } ] },
+      "comment": "Only run the candidate ListRecords when we actually have a plausible outward code (>1 char). Avoids a startswith(cr1bd_postcode,'') that would pull the whole corpus.",
+      "runAfter": { "Set_outward": [ "Succeeded" ] }
+    },
+    "Init_repairers": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "repairers", "type": "array", "value": [] } ] },
+      "runAfter": { "Set_hasOutward": [ "Succeeded" ] }
+    },
+    "Init_inspectionAddresses": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "inspectionAddresses", "type": "array", "value": [] } ] },
+      "runAfter": { "Init_repairers": [ "Succeeded" ] }
+    },
+    "If_have_district": {
+      "type": "If",
+      "expression": { "equals": [ "@variables('hasOutward')", true ] },
+      "actions": {
+        "List_repairers_in_district": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_repairers",
+              "$filter": "startswith(cr1bd_postcode,'@{variables('outward')}') and cr1bd_active eq true",
+              "$select": "cr1bd_name,cr1bd_postcode,cr1bd_addressline1,cr1bd_addressline2,cr1bd_addressline3,cr1bd_addressline4,cr1bd_addressline5,cr1bd_addressline6,cr1bd_repairerid",
+              "$top": 50
+            }
+          },
+          "comment": "District-filtered Repairer candidates (startswith outward + active). NOT provider-scoped: the corpus directory is cross-provider by design (a repairer serves several providers, ADR-0001), and the matcher does principal ranking from principalCode in-Function. Documented exception in validate-flows.mjs (not a dedup-by-VRM read).",
+          "runAfter": {}
+        },
+        "List_inspectionaddresses_in_district": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "ListRecords",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_inspectionaddresses",
+              "$filter": "startswith(cr1bd_postcode,'@{variables('outward')}') and cr1bd_decisionmode eq 100000000",
+              "$select": "cr1bd_name,cr1bd_postcode,cr1bd_addressline1,cr1bd_addressline2,cr1bd_addressline3,cr1bd_addressline4,cr1bd_addressline5,cr1bd_addressline6,cr1bd_inspectionaddressid",
+              "$top": 50
+            }
+          },
+          "comment": "District-filtered confirmed-physical InspectionAddress reference rows (decisionmode=100000000 confirmed_physical). Suggested rows (decisionMode=unknown) are deliberately excluded — never auto-confirmed (schema note). The matcher accepts these CorpusRow shapes (cr1bd_addressline1..6 / cr1bd_postcode / cr1bd_name) directly.",
+          "runAfter": { "List_repairers_in_district": [ "Succeeded" ] }
+        },
+        "Set_repairers": {
+          "type": "SetVariable",
+          "inputs": { "name": "repairers", "value": "@coalesce(outputs('List_repairers_in_district')?['body/value'], json('[]'))" },
+          "runAfter": { "List_inspectionaddresses_in_district": [ "Succeeded" ] }
+        },
+        "Set_inspectionAddresses": {
+          "type": "SetVariable",
+          "inputs": { "name": "inspectionAddresses", "value": "@coalesce(outputs('List_inspectionaddresses_in_district')?['body/value'], json('[]'))" },
+          "runAfter": { "Set_repairers": [ "Succeeded" ] }
+        }
+      },
+      "else": { "actions": {} },
+      "runAfter": { "Init_inspectionAddresses": [ "Succeeded" ] }
+    },
+    "Call_match_address": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_addressmatch", "operationId": "MatchAddress",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_addressmatch" },
+        "parameters": {
+          "body/caseLoc": "@if(variables('hasOutward'), variables('outward'), variables('caseLoc'))",
+          "body/principalCode": "@variables('principalCode')",
+          "body/repairers": "@variables('repairers')",
+          "body/inspectionAddresses": "@variables('inspectionAddresses')"
+        }
+      },
+      "comment": "MatchAddress always returns 200 with { decisionMode, inspectionAddress, matched, needsReviewerDecision, candidates[], locKind, district, warnings[] }. caseLoc is the DERIVED district (outward) when we have one (the matcher's parse_postcode then classifies it locKind=part and ranks district candidates); a full free-text address has no parseable postcode (parse_postcode is anchored -> locKind=none -> needsReviewerDecision), so reliable auto-resolve depends on the Loc-source follow-up. Stateless: the flow passed the district-filtered corpus rows in the body so the flow stays the SOLE Dataverse caller. The function key lives on the cr1bd_addressmatch connection, never here. [RESERVED-FOR-USER] to bind cr1bd_addressmatch to the live cespkaddr-fn-i7m4re.",
+      "runAfter": { "If_have_district": [ "Succeeded" ] }
+    },
+    "If_confirmed_match": {
+      "type": "If",
+      "expression": { "and": [
+        { "equals": [ "@coalesce(body('Call_match_address')?['matched'], false)", true ] },
+        { "equals": [ "@toLower(coalesce(body('Call_match_address')?['decisionMode'], ''))", "confirmed_physical" ] },
+        { "not": { "equals": [ "@trim(coalesce(body('Call_match_address')?['inspectionAddress'], ''))", "" ] } }
+      ] },
+      "comment": "GATED-SAFE write guard: Patch ONLY on an auto-resolved confirmed_physical match with a non-empty inspectionAddress. needsReviewerDecision / unknown / image_based / null-address ALL fall to the else (leave for review) — the flow never silently writes 'Image Based Assessment' (that needs an explicit reviewer decision + reason, schema note) and never overwrites on an ambiguous match.",
+      "actions": {
+        "Patch_inspection_address": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_cases",
+              "recordId": "@variables('caseId')",
+              "item/cr1bd_evainspectionaddress": "@body('Call_match_address')?['inspectionAddress']",
+              "item/cr1bd_inspectiondecision": 100000000
+            }
+          },
+          "comment": "Write the resolved 6-line EVA inspection address (field 9) + mirror decisionMode=confirmed_physical (100000000) onto the Case. Staff-reviewable; never auto-final downstream.",
+          "runAfter": {}
+        },
+        "Audit_address_resolved": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+            "parameters": {
+              "entityName": "cr1bd_auditevents",
+              "item/cr1bd_name": "@concat('address_resolved: ', variables('caseId'))",
+              "item/cr1bd_action": 100000018,
+              "item/cr1bd_severity": 100000000,
+              "item/cr1bd_actor": "Flow_AddressResolve",
+              "item/cr1bd_after": "@concat('confirmed_physical; district=', coalesce(body('Call_match_address')?['district'], variables('outward')))",
+              "item/cr1bd_occurredat": "@utcNow()"
+            }
+          },
+          "comment": "Audit action inspection_override (100000018) — the flow resolved the inspection location to a confirmed physical site. severity=info.",
+          "runAfter": { "Patch_inspection_address": [ "Succeeded" ] }
+        }
+      },
+      "else": {
+        "actions": {
+          "Audit_address_needs_review": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+              "parameters": {
+                "entityName": "cr1bd_auditevents",
+                "item/cr1bd_name": "@concat('address_needs_review: ', variables('caseId'))",
+                "item/cr1bd_action": 100000018,
+                "item/cr1bd_severity": 100000000,
+                "item/cr1bd_actor": "Flow_AddressResolve",
+                "item/cr1bd_after": "@concat('left for review; decisionMode=', coalesce(body('Call_match_address')?['decisionMode'], 'unknown'), '; locKind=', coalesce(body('Call_match_address')?['locKind'], 'none'), '; candidates=', string(length(coalesce(body('Call_match_address')?['candidates'], json('[]')))))",
+                "item/cr1bd_occurredat": "@utcNow()"
+              }
+            },
+            "comment": "No confirmed auto-resolution — record an audit trail and leave the Case address untouched for a reviewer. No Dataverse write to the Case (gated-safe).",
+            "runAfter": {}
+          }
+        }
+      },
+      "runAfter": { "Call_match_address": [ "Succeeded" ] }
+    },
+    "Audit_address_resolve_failed": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+        "parameters": {
+          "entityName": "cr1bd_auditevents",
+          "item/cr1bd_name": "@concat('address_resolve_failed: ', variables('caseId'))",
+          "item/cr1bd_action": 100000018,
+          "item/cr1bd_severity": 100000001,
+          "item/cr1bd_actor": "Flow_AddressResolve",
+          "item/cr1bd_after": "matcher/list failure - address matching skipped, intake not blocked, address left for review",
+          "item/cr1bd_occurredat": "@utcNow()"
+        }
+      },
+      "comment": "Address matching is advisory and never blocks intake: on a matcher 5xx/timeout, audit (severity=warning) and continue — the Case address is left exactly as parsed. Depends on Call_match_address alone (single key): an AND with If_confirmed_match could never hold, because a failed matcher call leaves If_confirmed_match Skipped (not Failed/TimedOut). Mirrors enrich.definition.json's Audit_enrichment_failed.",
+      "runAfter": { "Call_match_address": [ "Failed", "TimedOut" ] }
+    },
+    "Respond_to_parent": {
+      "type": "Response",
+      "kind": "Http",
+      "inputs": {
+        "statusCode": 200,
+        "body": {
+          "caseId": "@variables('caseId')",
+          "matched": "@coalesce(body('Call_match_address')?['matched'], false)",
+          "decisionMode": "@coalesce(body('Call_match_address')?['decisionMode'], 'unknown')",
+          "needsReviewerDecision": "@coalesce(body('Call_match_address')?['needsReviewerDecision'], true)",
+          "district": "@coalesce(body('Call_match_address')?['district'], variables('outward'))"
+        }
+      },
+      "comment": "Child-flow return action (required to be callable via Run-a-Child-Flow; mirrors enrich/parse Respond_to_parent). Echoes the match outcome. runAfter the decision branch on ALL outcomes so the child ALWAYS returns even when the matcher 5xxs (absorbed by Audit_address_resolve_failed).",
+      "runAfter": {
+        "If_confirmed_match": [ "Succeeded", "Skipped" ],
+        "Audit_address_resolve_failed": [ "Succeeded", "Skipped" ]
+      }
+    }
+  }
+}
