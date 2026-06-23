@@ -123,18 +123,76 @@ class DocumentMapperService:
         provider = self.provider_by_id_or_name(provider_selector, providers) if provider_selector else None
         record = self.extract_document(document, provider, providers)
         if engineer_report is not None:
-            _, engineer_record = self.process_document(engineer_report, provider_selector)
-            record = self.overlay_records(record, engineer_record)
+            engineer_document = self.read_document(engineer_report)
+            engineer_provider = self.detect_engineer_provider(engineer_document, providers)
+            engineer_record = self.extract_document(engineer_document, engineer_provider, providers)
+            record, _ = self.overlay_records_with_overrides(
+                record, engineer_record, engineer_source_name=Path(engineer_report).name
+            )
         return document, record
 
-    def overlay_records(self, base: ExtractedRecord, engineer: ExtractedRecord) -> ExtractedRecord:
+    def detect_engineer_provider(
+        self, document: DocumentModel, providers: list[dict[str, Any]] | None = None
+    ) -> dict[str, Any] | None:
+        """Resolve which provider should parse an engineer-report document.
+
+        Prefers a dedicated ``engineer_report: true`` provider whose detect phrases
+        match the document (faithful to v1, where engineer reports are their own
+        providers with their own field rules). Falls back to the document's own
+        best-matching provider, then to ``None`` (auto-detect) when nothing matches.
+        Never reuses the *instruction's* provider, so the GUI and CLI agree.
+        """
+        loaded = providers or self.load_providers()
+        match = self.detect_provider(document, loaded)
+        chosen = next((p for p in loaded if p.get("id") == match.provider_id), None)
+        if chosen and chosen.get("engineer_report"):
+            return chosen
+        engineer_cfgs = [p for p in loaded if p.get("engineer_report") and p.get("enabled", True)]
+        if engineer_cfgs:
+            engineer_match = self.detect_provider(document, engineer_cfgs)
+            if engineer_match.provider_id:
+                return next((p for p in engineer_cfgs if p.get("id") == engineer_match.provider_id), chosen)
+        return chosen
+
+    def overlay_records_with_overrides(
+        self,
+        base: ExtractedRecord,
+        engineer: ExtractedRecord,
+        engineer_source_name: str | None = None,
+    ) -> tuple[ExtractedRecord, list[str]]:
+        """Single source of truth for the engineer-report overlay (GUI + CLI).
+
+        Non-blank engineer values override the base for every field except
+        ``work_provider``. Returns the merged record plus the list of field keys
+        that were overridden (the "Engineer Overlaid" set). Raises if there is no
+        valid instruction to overlay onto (blank ``work_provider``).
+        """
+        base_work_provider = base.fields.get(FieldKey.WORK_PROVIDER, FieldExtraction("")).value.strip()
+        if not base_work_provider:
+            raise ValueError("You must process an instruction before an engineer's report")
         merged = dict(base.fields)
+        overrides: list[str] = []
         for key, extraction in engineer.fields.items():
             if key == FieldKey.WORK_PROVIDER:
                 continue
             if extraction.value.strip():
                 merged[key] = extraction
-        return ExtractedRecord(provider=base.provider, fields=merged, issues=base.issues + engineer.issues)
+                overrides.append(key.value)
+        notes = tuple(base.notes)
+        if engineer_source_name:
+            notes = notes + (f"Applied engineer report: {engineer_source_name}",)
+        notes = notes + tuple(engineer.notes)
+        merged_record = ExtractedRecord(
+            provider=base.provider,
+            fields=merged,
+            issues=base.issues + engineer.issues,
+            notes=notes,
+        )
+        return merged_record, overrides
+
+    def overlay_records(self, base: ExtractedRecord, engineer: ExtractedRecord) -> ExtractedRecord:
+        record, _ = self.overlay_records_with_overrides(base, engineer)
+        return record
 
     def export_json(self, record: ExtractedRecord, out_dir: Path | None = None) -> Path:
         json_text = EVAJsonExporter().export(record)
@@ -394,6 +452,7 @@ class DocumentMapperService:
                 }
                 for issue in record.issues
             ],
+            "notes": list(record.notes),
         }
 
     def _output_path(self, record: ExtractedRecord, extension: str, out_dir: Path | None) -> Path:
