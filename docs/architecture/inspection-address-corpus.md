@@ -19,7 +19,7 @@ live, provider-scoped **suggestions** in `cr1bd_inspectionaddress`; staff **pick
 
 ```
 Box/EVA case history ──mine offline──▶ master CSV (provider, Loc → full address + status)
-                                            │  16-seed (FULL addresses only: 698 of ~3,497)
+                                            │  16-seed (FULL addresses only: 697 of ~3,497)
                                             ▼
                        cr1bd_inspectionaddress  (suggested:* , decisionMode=Unknown)
                                             ▼  Code App Address tab → staff manual pick / edit
@@ -37,8 +37,8 @@ address_postcode, address_status, evidence_source, evidence_detail`. Loaded by
 
 - **Resolved → live suggestion.** A row with a non-empty `full_address` (and an `address_status` *not*
   in the no-address set) is loaded as `cr1bd_inspectionaddress` `decisionMode=Unknown`,
-  `sourceLabel='suggested:<status>'`. **698 of ~3,497 rows** qualify today — the static totality at this
-  time.
+  `sourceLabel='suggested:<status>'`. **697 of ~3,497 rows** qualify today (live `17-verify` count,
+  2026-06-23; the master CSV is continuously maintained, so this drifts ±1) — the static totality at this time.
 - **Unresolved → future-investigation backlog. NEVER loaded, NEVER suggested.** Rows whose
   `address_status ∈ {needs_full_address_partial_loc, needs_address_lookup, no_loc_recorded,
   image_based_no_physical_location, source_confirms_location_unavailable}` (or with an empty/placeholder

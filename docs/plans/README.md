@@ -37,7 +37,7 @@ docs/plans/
   phase-1-intake-and-case-tracking/  parser/ · code-app/ · corpus/ + bridge (phase-1-operational)
   phase-2-live-activation/           multi-inbox-access · multi-inbox-feasibility · image-storage-backends (+ DEPLOY-RUNBOOK §7)
   phase-3-enrichment-and-eva/        eva-sentry-rest-submission (3c) · eva-validation-function (3c-Fn) · enrichment-activation (3a) · box-archival-pipeline (3d)
-  phase-4-address-and-chaser/        inspection-address-matching (4a)
+  phase-4-address-and-chaser/        README (4a inspection-address: offline corpus + manual confirm, ADR-0013 · chaser 4b)
   phase-5-ocr-and-scale/             ocr-strategy (5a) · image-classification-ai (5b) · valuation-and-copilot (5c) · copilot-studio-setup (M3)
   phase-6-handoff/                   boundary evidence (points to DEPLOY-RUNBOOK §8)
   phase-7-box-integration/           README (B0–B4 waves) · box-custom-connector-and-webhook (BUILD spec) · box-integration-activation (operator runbook)
@@ -106,7 +106,7 @@ docs/plans/
 | **Phase 3c-Fn** — EVA-validation Function — **M2** | **eva-validation-function** (M2.B) |
 | **Phase 3d** — Box archival — **M2** | **box-archival-pipeline**; m2-umbrella §8 |
 | **Phase 3e** — EVA readiness gate — **M1** | phase-1-operational; eva-validation-function |
-| **Phase 4a** — Inspection-address matching | **inspection-address-matching** (policy=M1, matching=M2) |
+| **Phase 4a** — Inspection address (offline corpus + manual confirm) — **M1** | **inspection-address-corpus** (architecture); ADR-0013 — no runtime matcher |
 | **Phase 4b** — Chaser automation | m2-umbrella §10 (M2.F) |
 | **Phase 5a** — OCR ("B-full") | ocr-strategy (plate-OCR=M1, scanned-PDF host) |
 | **Phase 5b** — Image classification AI — **M2** | **image-classification-ai**; research/whatsapp-coexistence (WhatsApp=M3) |
