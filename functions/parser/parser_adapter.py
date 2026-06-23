@@ -265,6 +265,7 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
                           warnings?}, ... },
           "vrm":       {value, confidence, source, warnings?} | None,
           "reference": {value, confidence, source, warnings?} | None,
+          "audit":     {value: bool, signals: [...], source} (audit case-type),
           "issues":    [ {field, severity, code, message}, ... ],
         }
 
@@ -288,12 +289,21 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
     vrm = _to_field_cell(fields["vrm"]) if "vrm" in fields else None
     reference = _to_field_cell(fields["reference"]) if "reference" in fields else None
 
+    # Audit case-type signal — surfaced SEPARATELY (like vrm/reference), NEVER in
+    # the 12-field EVA payload. Content-derived by the engine
+    # (rules.engine.detect_audit_signals); always present so the envelope shape is
+    # stable; ``signals`` explains the decision (auditable / Action-Logged).
+    is_audit = bool((parser_result or {}).get("is_audit"))
+    audit_signals = list((parser_result or {}).get("audit_signals", []) or [])
+    audit = {"value": is_audit, "signals": audit_signals, "source": "instruction_text"}
+
     issues = list((parser_result or {}).get("issues", []) or [])
 
     return {
         "extraction": extraction,
         "vrm": vrm,
         "reference": reference,
+        "audit": audit,
         "issues": issues,
     }
 

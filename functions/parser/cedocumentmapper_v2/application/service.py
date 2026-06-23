@@ -453,6 +453,8 @@ class DocumentMapperService:
                 for issue in record.issues
             ],
             "notes": list(record.notes),
+            "is_audit": record.is_audit,
+            "audit_signals": list(record.audit_signals),
         }
 
     def _output_path(self, record: ExtractedRecord, extension: str, out_dir: Path | None) -> Path:

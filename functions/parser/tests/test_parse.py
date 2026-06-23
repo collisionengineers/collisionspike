@@ -345,3 +345,36 @@ def test_engineer_overlay_notes_never_leak_into_eva_payload():
     assert "notes" not in mapped
     # The B2 contact fields still populate normally alongside the (ignored) notes.
     assert extraction["claimant_telephone"]["value"] == "07700900123"
+
+
+# --------------------------------------------------------------------------- #
+# Audit case-type signal (surfaced separately, NEVER in the EVA payload)       #
+# --------------------------------------------------------------------------- #
+def test_audit_signal_surfaced_separately_not_in_payload(monkeypatch):
+    """An audit instruction's is_audit/audit_signals ride in the top-level
+    ``audit`` envelope field — never inside the 12-field EVA extraction."""
+    record = _load_fixture("parser_record_complete.json")
+    record = {**record, "is_audit": True, "audit_signals": ["audit report", "engineers 2"]}
+    monkeypatch.setattr(parser_adapter, "run_parser", lambda *a, **k: record)
+
+    resp = function_app.parse(_make_request(_valid_request_body()))
+    assert resp.status_code == 200
+    data = json.loads(resp.get_body())
+
+    assert data["audit"]["value"] is True
+    assert "audit report" in data["audit"]["signals"]
+    # Never leaks into the EVA payload / 12-field shape.
+    assert list(data["extraction"].keys()) == list(EVA_FIELD_ORDER)
+    assert "audit" not in data["extraction"]
+    assert "is_audit" not in data["extraction"]
+
+
+def test_non_audit_request_has_false_audit_cell(monkeypatch):
+    """A normal record (no is_audit key) yields a present-but-false audit cell."""
+    record = _load_fixture("parser_record_complete.json")
+    monkeypatch.setattr(parser_adapter, "run_parser", lambda *a, **k: record)
+
+    resp = function_app.parse(_make_request(_valid_request_body()))
+    data = json.loads(resp.get_body())
+    assert data["audit"]["value"] is False
+    assert data["audit"]["signals"] == []

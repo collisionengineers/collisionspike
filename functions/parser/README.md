@@ -37,6 +37,7 @@ Response:
   },
   "vrm":       { "value": "AB12CDE", "confidence": 0.9, "source": "vrm_regex" },
   "reference": { "value": "DEMO-0001", "confidence": 0.88, "source": "ref_regex" },
+  "audit":     { "value": false, "signals": [], "source": "instruction_text" },
   "issues":    [],
   "contract_version": "cedocumentparser_v2.0_eva_json"
 }
@@ -48,6 +49,12 @@ Response:
 - **`vrm` and `reference` are Case-identity** (for case-resolve/dedup, plan §5.3)
   and are surfaced **separately** — they are intentionally **NOT** in the EVA
   payload.
+- **`audit`** is the audit case-type signal (`{ value: bool, signals: [...],
+  source }`) — `true` when the instruction text marks a second, independent CE
+  inspection auditing a third-party engineer's original report (content-derived;
+  `signals` lists the phrases that fired, so the call is auditable). Like
+  `vrm`/`reference` it is surfaced **separately** and is **NOT** an EVA field. See
+  the `collisionspike` ADR-0014 / inspection-address-corpus sibling docs.
 - The flat 12-field payload is validated against
   `contracts/eva-payload.schema.json`. A schema-invalid (i.e. incomplete) parse
   still returns **200** with each violation listed in `issues` (the case routes

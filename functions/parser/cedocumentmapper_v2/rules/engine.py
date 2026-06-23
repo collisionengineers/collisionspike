@@ -116,6 +116,38 @@ _IMAGE_BASED_PHRASES = (
 )
 
 
+# Phrases (case-insensitive) that signal an AUDIT instruction — CE is asked to
+# perform a SECOND, independent inspection that audits a THIRD-PARTY engineer's
+# ORIGINAL report (a distinct case-type, marked by an "A." Case/PO prefix; see
+# collisionspike ADR-0014). This is NOT the engineer-report overlay (CE's own
+# CNX/EVA report). Grounded in real PCH audit instructions — the matching NORMAL
+# instruction in the same corpus contained NONE of these. High-precision on
+# purpose: a false positive would mis-mark a standard case as an audit and
+# corrupt its Case/PO numbering, so we anchor to specific phrases, never the
+# bare word "audit".
+_AUDIT_PHRASES: tuple[str, ...] = (
+    "audit report",
+    "original engineer",
+    "original report",
+    "engineers 2",
+)
+
+
+def detect_audit_signals(text: str) -> tuple[bool, tuple[str, ...]]:
+    """Return ``(is_audit, signals)`` for an instruction's plain text.
+
+    Content-based (the engine cannot see the real filename — the Function parses
+    decoded bytes from a temp file with a random name), conservative, and
+    explainable: ``signals`` lists exactly which phrases fired so the decision is
+    auditable (surfaced to the Action Log). Empty/None text -> not an audit.
+    """
+    if not text:
+        return False, ()
+    haystack = text.lower()
+    signals = tuple(phrase for phrase in _AUDIT_PHRASES if phrase in haystack)
+    return bool(signals), signals
+
+
 class RuleEngine:
     def extract_record(
         self, document: DocumentModel, provider: dict[str, Any]
@@ -296,10 +328,14 @@ class RuleEngine:
             rejected_terms=()
         )
         
+        is_audit, audit_signals = detect_audit_signals(document.plain_text)
+
         return ExtractedRecord(
             provider=provider_match,
             fields=fields,
-            issues=tuple(record_issues)
+            issues=tuple(record_issues),
+            is_audit=is_audit,
+            audit_signals=audit_signals,
         )
 
     def extract_field(

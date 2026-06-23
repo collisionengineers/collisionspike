@@ -64,12 +64,14 @@ _VENDORED_MARKERS: dict[str, tuple[str, ...]] = {
         "CLAIMANT_TELEPHONE",
         "CLAIMANT_EMAIL",
         "notes: tuple[str, ...] = ()",
+        "is_audit: bool = False",
     ),
     # Overlay (sibling-only) lives here; no B2 here.
     "application/service.py": (
         "overlay_records_with_overrides",
         "detect_engineer_provider",
         '"notes": list(record.notes)',
+        '"is_audit": record.is_audit',
     ),
     # B2 (vendored-only) lives here; image-based (converged) too.
     "rules/engine.py": (
@@ -77,6 +79,7 @@ _VENDORED_MARKERS: dict[str, tuple[str, ...]] = {
         "_fallback_email",
         "_CLAIMANT_CONTEXT_WORDS",
         "IMAGE_BASED_ASSESSMENT",
+        "detect_audit_signals",
     ),
     "normalization/normalizers.py": (
         "TELEPHONE_RE",
@@ -94,10 +97,14 @@ _VENDORED_MARKERS: dict[str, tuple[str, ...]] = {
 # bring in (the overlay/notes). If the sibling drops these, the re-vendor command
 # would silently lose them — so we flag it.
 _SIBLING_MARKERS: dict[str, tuple[str, ...]] = {
-    "domain/models.py": ("notes: tuple[str, ...] = ()",),
-    "application/service.py": ("overlay_records_with_overrides", "detect_engineer_provider"),
-    # Image-based (converged) must exist on both sides.
-    "rules/engine.py": ("IMAGE_BASED_ASSESSMENT",),
+    "domain/models.py": ("notes: tuple[str, ...] = ()", "is_audit: bool = False"),
+    "application/service.py": (
+        "overlay_records_with_overrides",
+        "detect_engineer_provider",
+        '"is_audit": record.is_audit',
+    ),
+    # Image-based (converged) + audit-detection must exist on both sides.
+    "rules/engine.py": ("IMAGE_BASED_ASSESSMENT", "detect_audit_signals"),
 }
 
 
