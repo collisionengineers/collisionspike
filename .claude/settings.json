@@ -9,14 +9,14 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "node C:/Users/Alex/Documents/GitHub/collisionspike/.claude/hooks/codeapp-flow-guard.mjs" },
-          { "type": "command", "command": "node C:/Users/Alex/Documents/GitHub/collisionspike/.claude/hooks/box-scope-guard.mjs" }
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/codeapp-flow-guard.mjs\"" },
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/box-scope-guard.mjs\"" }
         ]
       },
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": "node C:/Users/Alex/Documents/GitHub/collisionspike/.claude/hooks/codeapp-flow-guard.mjs" }
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/codeapp-flow-guard.mjs\"" }
         ]
       }
     ],
@@ -24,7 +24,7 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "node C:/Users/Alex/Documents/GitHub/collisionspike/.claude/hooks/box-scope-postcreate.mjs" }
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/box-scope-postcreate.mjs\"" }
         ]
       }
     ]

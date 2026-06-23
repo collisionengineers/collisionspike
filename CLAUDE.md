@@ -57,24 +57,30 @@ for the areas they cover, **superseded only by a later review** (outranking olde
 When a review and an older doc disagree, the review wins; reconcile the older doc to it. Method:
 [docs/reviews/README.md](./docs/reviews/README.md).
 
-## Sibling repos (one folder up — ideas/prior-art only, NONE canonical, do not modify)
+## Related repos (in the `collisionsuite/` tree — ideas/prior-art only, NONE canonical, do not modify)
 
 These hold **ideas and references** to Collision Engineers' processes — mine and adapt them; they
 are not authoritative. The binding design is the spike's own distilled `docs/` + the `raw/` inbox.
+Paths are relative to this repo, now at `collisionsuite/active/collisionspike/` (reorganised 2026-06-23).
 
-- **ccc** — programme planning, skills, and **draft** contracts. Prior art to adapt.
-- **collisioncc** — a mature reference build on Google Cloud; useful source of the EVA Sentry API
-  detail, `case-status`, `image-rules`, provider knowledge, and a **pricing guide**. Reference only.
-- **collisionplugin** — MCP enrichment connectors on Cloud Run behind an OAuth gateway. **M1
-  enrichment bypasses this entirely: the enrichment Azure Function calls DVSA + DVLA directly via
-  Entra `client_credentials` + X-API-Key (no Google Cloud gateway in the path).** The
-  gateway/`valuationbot` remain prior-art for later phases (valuation, M2+).
-- **cedocumentmapper_v2.0** — the document parser, **already ~75% built** (Python library + CLI;
-  engine/readers/rules/normalisers/EVA-JSON exporter/tests done; UI/regression/packaging/CI
-  outstanding; PyMuPDF **licensed** (AGPL concern resolved)). Complete & integrate it — don't re-derive parsing in Power Fx.
-- **cedocumentmapper** — legacy v1 Tkinter monolith; behaviour reference only.
+- **cedocumentmapper_v2.0** (`../cedocumentmapper_v2.0` — active sibling) — the document parser,
+  **already ~75% built** (Python library + CLI; engine/readers/rules/normalisers/EVA-JSON
+  exporter/tests done; UI/regression/packaging/CI outstanding; PyMuPDF **licensed** (AGPL concern
+  resolved)). Complete & integrate it — don't re-derive parsing in Power Fx.
+- **ccc** (`../../archive/ccc`) — programme planning, skills, and **draft** contracts. Prior art to adapt.
+- **collisioncc** (`../../archive/collisioncc`) — a mature reference build on Google Cloud; useful source
+  of the EVA Sentry API detail, `case-status`, `image-rules`, provider knowledge, and a **pricing
+  guide**. Reference only.
+- **cedocumentmapper** (`../../archive/cedocumentmapper`) — legacy v1 Tkinter monolith; behaviour reference only.
+- **collisionplugin** — **dissolved 2026-06-23.** Its MCP enrichment connectors now live under
+  `../../connectors/` (`dvla-dvsa-connector`, `valuation-adverts-connector`, `mcp-gateway`,
+  `report-renderer`) and its skills under `../../skills/`. **M1 enrichment bypasses these entirely:
+  the enrichment Azure Function calls DVSA + DVLA directly via Entra `client_credentials` + X-API-Key
+  (no Google Cloud gateway in the path).** The gateway/valuation connectors remain prior-art for
+  later phases (valuation, M2+).
 
-Full map: [docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md).
+Full map: [docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md)
+(partly stale after the 2026-06-23 reorganisation into `collisionsuite/`).
 
 ## Domain model (business rules any implementation must honor)
 

@@ -47,7 +47,7 @@ key)** — the exact pattern already proven for the EVA Sentry path. Claude neve
   `BOX_EMBED_ENABLED`, `BOX_METADATA_ENABLED`. (`BOX_AI_ENABLED` is **not** in the manifest — Box AI is
   deferred to Phase C and the gate is added additively only when Phase C is taken up.)
 - **Box admin reference** mirrored locally at
-  [automationsresearch/box/markdown/](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown) (File
+  [automationsresearch/box/markdown/](../../../../research/automationsresearch/box/markdown) (File
   Request 289/315/123, metadata 046/047/131, governance 012, shared links 059/320, platform apps 009/055).
 
 ## Changes — ordered build steps
@@ -68,9 +68,9 @@ unlock and must complete before any later phase**.
    the optional metadata reg-capture field is being added (deferred). Confirm **Admin Console → Content &
    Sharing** shows metadata available before that upgrade. · Owner: **[operator-gated]** · Depends-on: — · Verify:
    support.box.com Using Metadata (gate quote) + local
-   [289-administering-box-file-request.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\289-administering-box-file-request.md)
+   [289-administering-box-file-request.md](../../../../research/automationsresearch/box/markdown/289-administering-box-file-request.md)
    (*"File Request is available to anyone with a Box Business Plan account"*) +
-   [191-understanding-ai-units-in-box.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\191-understanding-ai-units-in-box.md);
+   [191-understanding-ai-units-in-box.md](../../../../research/automationsresearch/box/markdown/191-understanding-ai-units-in-box.md);
    box.com/pricing/biz-plus. **⚠ Needs a live Business-Plus tenant to confirm metadata is actually enabled.**
 
 2. **Register a Box Platform app (Server Authentication, CCG) in the Box Developer Console.**
@@ -91,9 +91,9 @@ unlock and must complete before any later phase**.
    on, **manually mark the app Enabled** (an authorized-but-not-manually-enabled app is disabled by that
    setting). **Re-authorize whenever scopes change.** · Owner: **[operator-gated]** (primary admin / co-admin
    only) · Depends-on: 2 · Verify: local
-   [055-managing-platform-apps.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\055-managing-platform-apps.md)
+   [055-managing-platform-apps.md](../../../../research/automationsresearch/box/markdown/055-managing-platform-apps.md)
    (the Server-Authentication-Apps authorize+enable flow, incl. JWT/CCG/limited-access) +
-   [009-enterprise-settings-platform-apps.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\009-enterprise-settings-platform-apps.md)
+   [009-enterprise-settings-platform-apps.md](../../../../research/automationsresearch/box/markdown/009-enterprise-settings-platform-apps.md)
    (the manual-enable caveat) + developer.box.com/guides/authorization/.
 
 4. **Build the custom Box REST connector definition (API-key auth on the connection).**
@@ -193,8 +193,8 @@ unlock and must complete before any later phase**.
     developer.box.com/guides/file-requests/ (*"Currently, the API only allows the creation of new file
     requests by copying an existing file request associated to another folder"*) +
     developer.box.com/reference/post-file-requests-id-copy/ + local
-    [315-about-box-file-request.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\315-about-box-file-request.md),
-    [123-managing-file-requests.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\123-managing-file-requests.md).
+    [315-about-box-file-request.md](../../../../research/automationsresearch/box/markdown/315-about-box-file-request.md),
+    [123-managing-file-requests.md](../../../../research/automationsresearch/box/markdown/123-managing-file-requests.md).
     **⚠ Needs a live Business-Plus tenant** (metadata field on a File Request form requires Business Plus).
 
 12. **Create the enterprise metadata template (Admin Console).**
@@ -206,9 +206,9 @@ unlock and must complete before any later phase**.
     `manage_enterprise_properties` if it ever creates templates via API — out of base scope). · Owner:
     **[operator-gated]** (template creation is an admin action; instances are written API-side in Phase C) ·
     Depends-on: 1 · Verify: local
-    [047-how-to-create-the-right-metadata-structure-for-your-enterprise.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\047-how-to-create-the-right-metadata-structure-for-your-enterprise.md)
+    [047-how-to-create-the-right-metadata-structure-for-your-enterprise.md](../../../../research/automationsresearch/box/markdown/047-how-to-create-the-right-metadata-structure-for-your-enterprise.md)
     (the limits table) +
-    [131-customizing-metadata-templates.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\131-customizing-metadata-templates.md)
+    [131-customizing-metadata-templates.md](../../../../research/automationsresearch/box/markdown/131-customizing-metadata-templates.md)
     + developer.box.com/guides/metadata/.
 
 13. **Per-case: copy the template File Request onto the Case/PO folder (flow).**
@@ -252,8 +252,8 @@ unlock and must complete before any later phase**.
     policy**, so a permanent link is genuinely achievable. **One File Request per folder** (hard rule). ·
     Owner: **[operator-gated]** to create the folders + mark permanent; **[API-driven by a flow]** for the
     copy · Depends-on: 11, 13 · Verify: local
-    [123-managing-file-requests.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\123-managing-file-requests.md)
-    + [059-shared-links-settings-for-your-enterprise.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\059-shared-links-settings-for-your-enterprise.md)
+    [123-managing-file-requests.md](../../../../research/automationsresearch/box/markdown/123-managing-file-requests.md)
+    + [059-shared-links-settings-for-your-enterprise.md](../../../../research/automationsresearch/box/markdown/059-shared-links-settings-for-your-enterprise.md)
     + [01-box-capabilities-verified.md](../01-box-capabilities-verified.md) §1.
 
 18. **Webhook → Function: reg-merge unmatched uploads into the Case/PO folder.**
@@ -273,7 +273,7 @@ unlock and must complete before any later phase**.
     server-side** because the page can't call Box (`connect-src 'none'`). · Owner: **[API-driven by a flow]**
     · Depends-on: 4, 7 · Verify: developer.box.com/reference/put-folders-id--add-shared-link/ (folder
     analogue of the file endpoint; `access`/`password`/`unshared_at`/`permissions`) + local
-    [320-configuring-individual-shared-link-settings.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\320-configuring-individual-shared-link-settings.md).
+    [320-configuring-individual-shared-link-settings.md](../../../../research/automationsresearch/box/markdown/320-configuring-individual-shared-link-settings.md).
 
 20. **Edit the Code App `frame-src` CSP to add the Box origin (PPAC).**
     What: **Power Platform admin center → Environments → (env) → Settings → Product → Privacy + Security →
@@ -298,7 +298,7 @@ unlock and must complete before any later phase**.
     Enterprise Settings → Content & Sharing → Cascading Folder Level Metadata → Configure** so child files
     inherit. Optional Box **Metadata-Query API** for Box-native search. Gate `BOX_METADATA_ENABLED`. · Owner:
     **[API-driven by a flow]** + **[operator-gated]** (enable cascade) · Depends-on: 12 · Verify: local
-    [046-enabling-folder-level-metadata-and-cascade.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\046-enabling-folder-level-metadata-and-cascade.md)
+    [046-enabling-folder-level-metadata-and-cascade.md](../../../../research/automationsresearch/box/markdown/046-enabling-folder-level-metadata-and-cascade.md)
     + developer.box.com/guides/metadata/ + /reference/post-metadata-queries-execute-read/.
 
 23. **Box Governance retention + legal hold over the archive root.** What: **Admin Console → Governance →
@@ -307,7 +307,7 @@ unlock and must complete before any later phase**.
     regulated record-keeping (SEC 17a-4(f)/FINRA); **Legal Holds** by **User (Custodians)** or **Folders**.
     Requires an **Enterprise add-on** + `manage_data_retention` (+ `manage_legal_hold`) scope (re-authorize).
     · Owner: **[operator-gated]** · Depends-on: residency/tier decision · Verify: local
-    [012-governance-settings.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\012-governance-settings.md)
+    [012-governance-settings.md](../../../../research/automationsresearch/box/markdown/012-governance-settings.md)
     (Apply-Policy-To options; modifiable vs non-modifiable; disposition; legal-hold scopes) +
     developer.box.com/guides/api-calls/permissions-and-errors/scopes/. **⚠ Higher tier.**
 
@@ -316,8 +316,8 @@ unlock and must complete before any later phase**.
     **AI Units are metered, no rollover** — Business Plus includes **zero** (purchase ~$10/1,000); corpus-scale
     Q&A is Box AI **for Hubs** (UI-only, Enterprise Plus+). Gate `BOX_AI_ENABLED`. · Owner: **[operator-gated]**
     (purchase + enable) + **[API-driven by a flow]** · Depends-on: tier/budget decision · Verify: local
-    [191-understanding-ai-units-in-box.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\191-understanding-ai-units-in-box.md)
-    + [180-configuring-box-ai.md](C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\180-configuring-box-ai.md)
+    [191-understanding-ai-units-in-box.md](../../../../research/automationsresearch/box/markdown/191-understanding-ai-units-in-box.md)
+    + [180-configuring-box-ai.md](../../../../research/automationsresearch/box/markdown/180-configuring-box-ai.md)
     + developer.box.com/guides/box-ai/. **⚠ Metered / higher tier.**
 
 ## Cross-section dependencies

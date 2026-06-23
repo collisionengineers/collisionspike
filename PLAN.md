@@ -29,7 +29,7 @@ later).
 
 ## Repository constellation (what exists, confirmed by exploration)
 
-| Repo (in `C:\Users\Alex\Documents\GitHub\`) | What it is | Role for the spike |
+| Repo (under `collisionsuite/` — layout reorganised 2026-06-23, see [INDEX.md](../../INDEX.md)) | What it is | Role for the spike |
 |---|---|---|
 | `collisionspike` (**this repo**) | Near-empty: `adminoverview.md`, `CLAUDE.md`, `.claude/settings.json` | **Build target** — the Power Apps Code App spike |
 | `collisioncc` | Mature Next.js + Firebase/GCP app ("Command Centre"); Graph intake, parser+Document AI, image-rules, case-status, EVA Sentry submit | **Contract & architecture reference** (the future cloud version); source of the EVA payload shape, `case-status` states, `image-rules`, provider knowledge |

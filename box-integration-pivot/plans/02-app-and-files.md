@@ -249,7 +249,7 @@ Platform app / secret / Admin authorization / interactive sign-in / `frame-src` 
     source: default CSP `frame-src 'self'` + `connect-src 'none'`, custom values **merge** with defaults, edit
     via PPAC/REST — https://learn.microsoft.com/power-apps/developer/code-apps/how-to/content-security-policy ;
     only `/embed/s/{token}` is framable, shared link required, 3p-cookie/preview-only/mobile caveats —
-    https://developer.box.com/guides/embed/box-embed/ , `C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\310-create-a-box-embed-widget.md` , doc 01 §5.
+    https://developer.box.com/guides/embed/box-embed/ , `../../../../research/automationsresearch/box/markdown/310-create-a-box-embed-widget.md` , doc 01 §5.
 
 ### E. Webhook-driven intake reflected in the UI (gates on `BOX_FILEREQUEST_ENABLED`)
 
@@ -393,7 +393,7 @@ Platform app / secret / Admin authorization / interactive sign-in / `frame-src` 
   `GET /2.0/folders/{id}?fields=shared_link`; only `/embed/s/` is framable —
   https://developer.box.com/guides/embed/box-embed/
 - Box Embed widget — HTML iframe, requires sharing enabled, **third-party-cookie caveat**, preview-only,
-  not mobile-optimized — `C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\310-create-a-box-embed-widget.md`
+  not mobile-optimized — `../../../../research/automationsresearch/box/markdown/310-create-a-box-embed-widget.md`
 - Box capability base (re-confirmed, not re-litigated): File Request copy-only + four ops + metadata baked +
   one-per-folder; webhooks `FILE.UPLOADED` folder-scoped/best-effort/also-on-move/File-Request-firing-unproven;
   first-party connector file-only (no folder/link/webhook/file-request); CCG/JWT service identity; iframe-only

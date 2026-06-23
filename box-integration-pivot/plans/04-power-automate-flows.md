@@ -19,7 +19,7 @@ memory — the facade mints the Box CCG service token server-side from Key Vault
 
 ## Current state (what exists today)
 
-Path: `C:\Users\Alex\Documents\GitHub\collisionspike\flows\` — 12 definitions, 1 ON.
+Path: `../../flows/` — 12 definitions, 1 ON.
 
 - **`definitions/intake.definition.json`** (467 LOC, OFF) — the orchestrator. Trigger `OnNewEmailV3`
   (concurrency=1, `fetchOnlyWithAttachment=true`). Chain: min-date guard → Message-ID dedup → anchored
@@ -395,7 +395,7 @@ Box developer/support docs (via WebFetch):
 - Add shared link (`PUT /2.0/files/{id}?fields=shared_link`, shared_link.access → url):
   https://developer.box.com/reference/put-files-id--add-shared-link/
 - Scopes `root_readwrite` + `manage_webhook` (local OpenAPI mirror):
-  `C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\704-box-openapi-v2025-0.md`
+  `../../../../research/automationsresearch/box/markdown/704-box-openapi-v2025-0.md`
 
 Local repo artifacts read for current-state grounding: `flows/definitions/{intake,case-resolve,
 finalize-eva-box,classify-persist,status-evaluate,enrich}.definition.json`, `flows/connection-references.json`,

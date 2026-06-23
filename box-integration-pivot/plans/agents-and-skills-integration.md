@@ -138,7 +138,7 @@ finalize EVA payload + photo-order contract and the parser are unchanged by the 
     operator-injected into Key Vault.
 
 - **Tools.** `Read`, `Grep`, `Glob` (the dossier + the local Box mirror at
-  `C:/Users/Alex/Documents/GitHub/automationsresearch/box/markdown`); `WebFetch` / `WebSearch`
+  `../../../../research/automationsresearch/box/markdown`); `WebFetch` / `WebSearch`
   (developer.box.com + support.box.com verification); `context7` (Box SDK docs). Leans on the
   **box-rest-api** skill as its primary endpoint/scope/limit reference.
   *(Correction from agent-creator: do NOT list `microsoft-docs` as a primary tool — CSP and connector

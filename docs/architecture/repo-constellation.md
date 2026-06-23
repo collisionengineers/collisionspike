@@ -1,8 +1,9 @@
 # Repository Constellation
 
-The Collision Engineers rebuild spans several sibling repositories under
-`C:\Users\Alex\Documents\GitHub\`. **`collisionspike` (this repo) is an early, fast Power
-Platform spike** of the case-intake workflow.
+The Collision Engineers rebuild spans several projects, now organised under `collisionsuite/`
+(reorganised 2026-06-23 — see [INDEX.md](../../../../INDEX.md); note `collisionplugin` was
+dissolved into `collisionsuite/skills/` + `collisionsuite/connectors/`). **`collisionspike` (this
+repo, at `active/collisionspike/`) is an early, fast Power Platform spike** of the case-intake workflow.
 
 > **None of the adjacent repos are canonical.** They are repos containing **ideas, prior art, and
 > references** to Collision Engineers' processes and possible workflows — useful to mine and adapt,

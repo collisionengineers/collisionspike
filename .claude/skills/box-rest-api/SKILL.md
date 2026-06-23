@@ -8,7 +8,7 @@ description: Box REST API reference for the collisionspike Box-centric intake pi
 Authoritative source of truth (in order): the **00-BUILD-PLAN reconciliation table + verified-vs-
 unverified roll-up** (`box-integration-pivot/plans/00-BUILD-PLAN.md`, the unified op-name row) → the
 dossier `box-integration-pivot/01-box-capabilities-verified.md` → the local Box mirror
-`C:/Users/Alex/Documents/GitHub/automationsresearch/box/markdown` + **developer.box.com** for
+`../../../../../research/automationsresearch/box/markdown` + **developer.box.com** for
 field-level depth. The four section plans diverged on op names / connection-ref — **do not re-import
 them**; this skill + the build plan are the contract.
 

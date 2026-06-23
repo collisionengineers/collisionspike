@@ -336,9 +336,9 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
 - Copy File Request — **`POST /file_requests/{id}/copy` `{folder:{id,type:"folder"}, status, expires_at?}`**: https://developer.box.com/reference/post-file-requests-id-copy/
 - Update shared link on file — **`PUT /2.0/files/{id}?fields=shared_link` `{shared_link:{access}}` → `shared_link.url`**: https://developer.box.com/reference/put-files-id/
 - Webhooks overview — **retry up to 12× over 2 h, 2xx within 30 s, delivery failure semantics**: https://developer.box.com/guides/webhooks/
-- Platform Apps (Admin Console authorize by Client ID; Server vs User Auth): file `C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\552-platform-apps.md`
-- File Request (Business plan required to build; required/optional **metadata form fields**): file `C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\315-about-box-file-request.md`
-- Managing File Requests (deactivate vs delete, status active/inactive): file `C:\Users\Alex\Documents\GitHub\automationsresearch\box\markdown\123-managing-file-requests.md`
+- Platform Apps (Admin Console authorize by Client ID; Server vs User Auth): file `../../../../research/automationsresearch/box/markdown/552-platform-apps.md`
+- File Request (Business plan required to build; required/optional **metadata form fields**): file `../../../../research/automationsresearch/box/markdown/315-about-box-file-request.md`
+- Managing File Requests (deactivate vs delete, status active/inactive): file `../../../../research/automationsresearch/box/markdown/123-managing-file-requests.md`
 
 **Local dossier:**
 - `box-integration-pivot/04-target-architecture.md` (B1–B4 phased gated build, the CCG/webhook unlock)
