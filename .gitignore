@@ -65,7 +65,3 @@ raw/
 *.pyc
 *.egg-info/
 boxconfig.json
-
-# test-cases-and-data/ — operator-supplied real case bundles (PII: claimant
-# names, VRMs, images). Local analysis input only — never commit. (Like raw/.)
-test-cases-and-data/
