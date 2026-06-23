@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import {
   Badge,
@@ -42,7 +42,7 @@ import {
   CheckCircle2,
   Clock,
   Copy,
-  FileJson,
+  Download,
   FileText,
   GitMerge,
   ImageOff,
@@ -58,7 +58,6 @@ import {
 import {
   ChaserPanel,
   ImageOrderList,
-  JsonView,
   PipelineStrip,
   ProvenanceBadge,
   SectionHeading,
@@ -94,6 +93,7 @@ import {
   type VatStatus,
 } from '../data';
 import { GLOBAL_TOASTER_ID } from '../components';
+import { buildEvaJson } from '../contracts/eva-export';
 
 /* ============================================================
    CaseDetail — the core review screen.
@@ -111,9 +111,6 @@ const useStyles = makeStyles({
   backRow: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS },
   /* Back-arrow lockup inside the "Dashboard" link (icon + label, baseline). */
   backLink: { display: 'inline-flex', alignItems: 'center', gap: '4px' },
-  /* EVA submission preview block (under the Fields tab). */
-  evaPreview: { marginTop: tokens.spacingVerticalM },
-  evaPreviewBody: { marginTop: tokens.spacingVerticalS },
   /* Inline icon + text lockup (e.g. the evidence-tab "No images yet" bar). */
   inlineIconText: { display: 'inline-flex', alignItems: 'center', gap: tokens.spacingHorizontalXS },
   /* "Nothing outstanding" ready row in the readiness sidebar. */
@@ -868,11 +865,31 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
     toast('Note added');
   };
 
-  const evaJson = useMemo(() => {
-    const payload: Record<string, string> = {};
-    for (const d of EVA_FIELD_ORDER) payload[d.label] = liveCase.evaFields[d.key].value;
-    return payload;
-  }, [liveCase]);
+  /* Download the canonical 12-field EVA JSON (snake_case, byte-identical to the
+     submit flow). The Fields-tab preview was removed; this is the replacement,
+     offered next to "Submit to EVA" and disabled while the case is blocked. */
+  const onDownloadEvaJson = () => {
+    try {
+      const text = buildEvaJson({ evaFields: liveCase.evaFields });
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `EVA-${liveCase.casePo || liveCase.id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast('EVA JSON downloaded');
+    } catch {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t download — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    }
+  };
 
   const acceptedImages = imgState.filter((e) => e.acceptedForEva && !e.excluded);
   // Non-image artifacts (source email, instruction PDFs, …) for the Documents list.
@@ -951,15 +968,19 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
               >
                 {c.onHold ? 'Release' : 'Hold'}
               </Button>
-              {!blocked && (
+              <Tooltip
+                content={blocked ? `Can't download EVA JSON yet — ${blockerCount} item(s) outstanding` : 'Download the 12-field EVA JSON file'}
+                relationship="label"
+              >
                 <Button
                   appearance="secondary"
-                  icon={<FileJson size={16} />}
-                  onClick={() => { setTab('fields'); toast('EVA submission ready — see the preview below the fields'); }}
+                  icon={<Download size={16} />}
+                  disabled={blocked}
+                  onClick={onDownloadEvaJson}
                 >
-                  Export for EVA
+                  Download JSON
                 </Button>
-              )}
+              </Tooltip>
               <Tooltip
                 content={blocked ? `Can't submit to EVA yet — ${blockerCount} item(s) outstanding` : 'Submit this case to EVA'}
                 relationship="label"
@@ -1054,17 +1075,6 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                       </div>
                     </div>
                   ))}
-                  <Divider />
-                  <div className={styles.evaPreview}>
-                    <Caption1 className={styles.hint}>EVA submission preview</Caption1>
-                    <div className={styles.evaPreviewBody}>
-                      <JsonView
-                        data={evaJson}
-                        label="EVA submission"
-                        filename={`EVA-${c.casePo || c.id}.json`}
-                      />
-                    </div>
-                  </div>
                 </div>
               )}
 

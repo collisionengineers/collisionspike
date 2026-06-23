@@ -26,11 +26,12 @@ import {
 import {
   ArrowUpRight,
   CheckCircle2,
-  FileJson,
+  Download,
   FolderClosed,
   Send,
   ShieldAlert,
 } from 'lucide-react';
+import { buildEvaJson } from '../contracts/eva-export';
 import {
   suggestCasePo,
   useCaseQuery,
@@ -286,16 +287,33 @@ export function EvaSubmitDialog() {
     setSeq(value.replace(/\D/g, '').slice(0, 3));
   };
 
-  const onExportJson = () => {
-    dispatchToast(
-      <Toast>
-        <ToastTitle>Export ready to drag into EVA</ToastTitle>
-        <ToastBody>
-          Submission for {c.vrm} prepared.
-        </ToastBody>
-      </Toast>,
-      { intent: 'success' },
-    );
+  const onDownloadJson = () => {
+    try {
+      const text = buildEvaJson({ evaFields: c.evaFields });
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `EVA-${boxCode || c.casePo || c.id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      dispatchToast(
+        <Toast>
+          <ToastTitle>EVA JSON downloaded</ToastTitle>
+          <ToastBody>Submission for {c.vrm} saved as a file.</ToastBody>
+        </Toast>,
+        { intent: 'success' },
+      );
+    } catch {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t download — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    }
   };
 
   const onSubmit = () => {
@@ -430,11 +448,12 @@ export function EvaSubmitDialog() {
             <Button
               className={styles.dialogBtn}
               appearance="secondary"
-              icon={<FileJson size={16} />}
-              onClick={onExportJson}
-              title="Export the file to drag into EVA"
+              icon={<Download size={16} />}
+              onClick={onDownloadJson}
+              disabled={!ready}
+              title={!ready ? `${blockedCount} readiness item(s) still blocking` : 'Download the EVA JSON file'}
             >
-              Export for EVA
+              Download JSON
             </Button>
             <Button
               className={styles.dialogBtn}

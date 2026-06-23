@@ -7,6 +7,7 @@ import {
   Radio,
   RadioGroup,
   Spinner,
+  Text,
   Textarea,
   Toast,
   ToastBody,
@@ -16,7 +17,8 @@ import {
   useToastController,
 } from '@fluentui/react-components';
 import { Copy, ClipboardCheck, Link2 } from 'lucide-react';
-import type { Case, ChaserChannel, CopyFileRequestTransport } from '../data';
+import type { Case, ChaserChannel, CopyFileRequestTransport, CaseType } from '../data';
+import { caseTypeOf } from '../data';
 import { GLOBAL_TOASTER_ID } from './toaster';
 
 /** The template key for the Box (Archive) image upload-link action. */
@@ -34,14 +36,24 @@ interface ChaserTemplate {
   key: string;
   label: string;
   channels: ChaserChannel[];
+  /** Which case types this chaser is relevant to — gated on what the case is
+   *  MISSING, so an instructions-only case is never offered "Instruction request"
+   *  and an images-only case is never offered "Image request". */
+  applicableTo: (caseType: CaseType) => boolean;
   body: (c: Case) => string;
 }
+
+/** Chasing IMAGES — relevant only when the case lacks images. */
+const NEEDS_IMAGES = (ct: CaseType): boolean => ct === 'instructions_only' || ct === 'pending';
+/** Chasing the INSTRUCTION — relevant only when the case lacks an instruction. */
+const NEEDS_INSTRUCTION = (ct: CaseType): boolean => ct === 'images_only' || ct === 'pending';
 
 const TEMPLATES: ChaserTemplate[] = [
   {
     key: 'image_request',
     label: 'Image request',
     channels: ['email', 'whatsapp'],
+    applicableTo: NEEDS_IMAGES,
     body: (c) =>
       `Hi,\n\nWe're missing photographs for vehicle ${c.vrm} (${c.vehicleModel}). ` +
       `Please could you send:\n• A vehicle overview showing the full registration\n• A main-damage closeup\n• Any additional damage photos\n\n` +
@@ -51,25 +63,20 @@ const TEMPLATES: ChaserTemplate[] = [
     key: 'instruction_request',
     label: 'Instruction request',
     channels: ['email'],
+    applicableTo: NEEDS_INSTRUCTION,
     body: (c) =>
       `Hi,\n\nWe have received images for ${c.vrm} but no instruction. ` +
       `Please could you forward the instruction so we can proceed.\n\nMany thanks,\nCollision Engineers`,
   },
   {
-    key: 'mileage_chase',
-    label: 'Mileage / details chase',
-    channels: ['email', 'whatsapp'],
-    body: (c) =>
-      `Hi,\n\nTo complete the assessment for ${c.vrm} we still need the current mileage. ` +
-      `Could you confirm at your earliest convenience?\n\nThanks,\nCollision Engineers`,
-  },
-  {
     // The image upload-link action. Its body is the covering message; the live
     // upload link is appended only after it is fetched (so the draft never shows a
-    // placeholder/fake link). Shown only when the upload-link feature is on.
+    // placeholder/fake link). Shown only when the upload-link feature is on AND the
+    // case is missing images.
     key: COPY_FILE_REQUEST_KEY,
     label: 'Image upload link',
     channels: ['email', 'whatsapp'],
+    applicableTo: NEEDS_IMAGES,
     body: (c) =>
       `Hi,\n\nPlease upload the photographs for vehicle ${c.vrm} (${c.vehicleModel}) ` +
       `using the secure link below — no account needed. We need:\n` +
@@ -81,6 +88,7 @@ const TEMPLATES: ChaserTemplate[] = [
 const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM },
   actions: { display: 'flex', gap: tokens.spacingHorizontalS, flexWrap: 'wrap', alignItems: 'center' },
+  empty: { color: tokens.colorNeutralForeground3, padding: `${tokens.spacingVerticalS} 0` },
 });
 
 export interface ChaserPanelProps {
@@ -112,20 +120,33 @@ export function ChaserPanel({
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
   const [channel, setChannel] = useState<ChaserChannel>('email');
-  // The upload-link template is gated; everything else is always offered.
+  // What the case currently holds, so chasers are gated by what it is MISSING.
+  const caseType = useMemo(
+    () =>
+      caseTypeOf(c, {
+        hasImages: c.evidence.some((e) => e.kind === 'image'),
+        hasInstructions: c.evidence.some((e) => e.kind === 'instruction'),
+      }),
+    [c],
+  );
+  // A template shows only when (a) it is applicable to THIS case type and (b) —
+  // for the gated upload-link — the feature is on.
   const visibleTemplates = useMemo(
-    () => TEMPLATES.filter((t) => t.key !== COPY_FILE_REQUEST_KEY || fileRequestEnabled),
-    [fileRequestEnabled],
+    () =>
+      TEMPLATES.filter(
+        (t) => t.applicableTo(caseType) && (t.key !== COPY_FILE_REQUEST_KEY || fileRequestEnabled),
+      ),
+    [fileRequestEnabled, caseType],
   );
   const available = useMemo(
     () => visibleTemplates.filter((t) => t.channels.includes(channel)),
     [visibleTemplates, channel],
   );
-  const [templateKey, setTemplateKey] = useState<string>(TEMPLATES[0].key);
+  const [templateKey, setTemplateKey] = useState<string>(visibleTemplates[0]?.key ?? '');
   const activeTemplate = available.find((t) => t.key === templateKey) ?? available[0];
-  const [body, setBody] = useState<string>(activeTemplate.body(c));
+  const [body, setBody] = useState<string>(activeTemplate ? activeTemplate.body(c) : '');
   const [linkLoading, setLinkLoading] = useState(false);
-  const isUploadLinkTemplate = activeTemplate.key === COPY_FILE_REQUEST_KEY;
+  const isUploadLinkTemplate = activeTemplate?.key === COPY_FILE_REQUEST_KEY;
 
   const applyTemplate = (key: string) => {
     setTemplateKey(key);
@@ -138,10 +159,9 @@ export function ChaserPanel({
     const stillValid = visibleTemplates.find(
       (t) => t.key === templateKey && t.channels.includes(next),
     );
-    const fallback = visibleTemplates.find((t) => t.channels.includes(next))!;
-    const chosen = stillValid ?? fallback;
-    setTemplateKey(chosen.key);
-    setBody(chosen.body(c));
+    const chosen = stillValid ?? visibleTemplates.find((t) => t.channels.includes(next));
+    setTemplateKey(chosen?.key ?? '');
+    setBody(chosen ? chosen.body(c) : '');
   };
 
   const onCopy = async () => {
@@ -220,6 +240,18 @@ export function ChaserPanel({
     }
   };
 
+  // After case-type gating, a complete case (both / merged) yields no applicable
+  // template — show a calm empty state rather than an orphaned, crash-prone form.
+  if (visibleTemplates.length === 0) {
+    return (
+      <div className={styles.root}>
+        <Text className={styles.empty}>
+          Nothing to chase — this case already has its instruction and images.
+        </Text>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.root}>
       <Field label="Channel">
@@ -257,16 +289,26 @@ export function ChaserPanel({
             appearance="primary"
             icon={linkLoading ? <Spinner size="tiny" /> : <Link2 size={16} />}
             onClick={onGetUploadLink}
-            disabled={linkLoading}
+            disabled={linkLoading || !activeTemplate}
           >
             {linkLoading ? 'Getting link…' : 'Get upload link & copy'}
           </Button>
         ) : (
-          <Button appearance="primary" icon={<Copy size={16} />} onClick={onCopy}>
+          <Button
+            appearance="primary"
+            icon={<Copy size={16} />}
+            onClick={onCopy}
+            disabled={!activeTemplate}
+          >
             Copy to clipboard
           </Button>
         )}
-        <Button appearance="secondary" icon={<ClipboardCheck size={16} />} onClick={onLog}>
+        <Button
+          appearance="secondary"
+          icon={<ClipboardCheck size={16} />}
+          onClick={onLog}
+          disabled={!activeTemplate}
+        >
           Log as chased
         </Button>
       </div>

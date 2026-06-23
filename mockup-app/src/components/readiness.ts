@@ -43,6 +43,9 @@ export function computeReadiness(c: Case): ReadinessResult {
   // 1. Required fields valid.
   for (const desc of EVA_FIELD_ORDER) {
     if (!desc.required) continue;
+    // The inspection address is represented by the single combined 'address' item
+    // below (present + decided), not as a separate required-field row.
+    if (desc.key === 'inspectionAddress') continue;
     const field = c.evaFields[desc.key];
     const ok = field.value.trim().length > 0;
     items.push({
@@ -54,45 +57,44 @@ export function computeReadiness(c: Case): ReadinessResult {
     });
   }
 
-  // 2. Image rules.
+  // 2. Image rules — ONE combined "Images" item; the detail lists every failing
+  //    sub-rule (≥2 accepted, an overview with a visible registration, a close-up).
   const imgs = acceptedImages(c);
   const hasOverview = imgs.some((e) => e.imageRole === 'overview' && e.registrationVisible);
   const hasCloseup = imgs.some((e) => e.imageRole === 'damage_closeup');
   const atLeastTwo = imgs.length >= 2;
-
+  const imagesOk = atLeastTwo && hasOverview && hasCloseup;
+  const imageGaps: string[] = [];
+  if (!atLeastTwo) imageGaps.push(`need ≥2 accepted (have ${imgs.length})`);
+  if (!hasOverview) imageGaps.push('no overview with a visible registration');
+  if (!hasCloseup) imageGaps.push('no main-damage close-up');
   items.push({
-    id: 'img-count',
-    label: '≥2 EVA images accepted',
-    ok: atLeastTwo,
+    id: 'images',
+    label: 'Images',
+    ok: imagesOk,
     group: 'images',
-    detail: atLeastTwo ? undefined : `Only ${imgs.length} accepted image(s)`,
-  });
-  items.push({
-    id: 'img-overview',
-    label: 'Overview photo with registration visible',
-    ok: hasOverview,
-    group: 'images',
-    detail: hasOverview ? undefined : 'No overview image with a visible registration',
-  });
-  items.push({
-    id: 'img-closeup',
-    label: 'Main-damage closeup present',
-    ok: hasCloseup,
-    group: 'images',
-    detail: hasCloseup ? undefined : 'No damage-closeup image accepted',
+    detail: imagesOk ? undefined : imageGaps.join('; '),
   });
 
-  // 3. Inspection-address decision.
-  const addrOk = c.inspectionDecision !== 'unknown';
+  // 3. Inspection address — ONE combined item: an address is PRESENT *and* a
+  //    decision has been made (image-based override counts: it sets the literal
+  //    address + the decision). The detail says which half is missing.
+  const addrValue = c.evaFields.inspectionAddress.value.trim();
+  const addrDecided = c.inspectionDecision !== 'unknown';
+  const addrOk = addrValue.length > 0 && addrDecided;
   items.push({
     id: 'address-decision',
     label:
       c.inspectionDecision === 'image_based'
         ? 'Inspection address: Image Based Assessment (override)'
-        : 'Inspection address decided',
+        : 'Inspection address ready',
     ok: addrOk,
     group: 'address',
-    detail: addrOk ? undefined : 'No inspection-address decision made',
+    detail: addrOk
+      ? undefined
+      : !addrValue
+        ? 'Inspection address is empty'
+        : 'No inspection-address decision made',
   });
 
   // 4. No conflicts.
