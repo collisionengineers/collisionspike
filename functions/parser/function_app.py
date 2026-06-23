@@ -24,6 +24,7 @@ Response envelope:
       "extraction":       { <12 EVA keys in order>: {value, confidence, source, warnings?} },
       "vrm":              {value, confidence, source, warnings?} | null,
       "reference":        {value, confidence, source, warnings?} | null,
+      "audit":            {value: bool, signals: [...], source} | null,
       "issues":           [ {field, severity?, code, message} ],
       "contract_version": "cedocumentparser_v2.0_eva_json"
     }
@@ -198,6 +199,7 @@ def _parse(req: func.HttpRequest) -> func.HttpResponse:
         "extraction": extraction,
         "vrm": mapped.get("vrm"),
         "reference": mapped.get("reference"),
+        "audit": mapped.get("audit"),
         "issues": issues,
         "contract_version": CONTRACT_VERSION,
     }
@@ -220,6 +222,7 @@ def _error(status: int, code: str, message: str) -> func.HttpResponse:
             "extraction": None,
             "vrm": None,
             "reference": None,
+            "audit": None,
             "issues": [{"field": "(request)", "severity": "error", "code": code, "message": message}],
             "contract_version": CONTRACT_VERSION,
         },

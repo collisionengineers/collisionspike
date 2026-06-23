@@ -54,6 +54,15 @@ A third feature — the **"Image Based Assessment" inspection normalisation**
 `_canonical_image_based_address`) — is **CONVERGED**: present and identical in
 both the sibling and this copy. Nothing to re-apply.
 
+A fourth feature — the **audit case-type detector** (added 2026-06-23;
+`_AUDIT_PHRASES`, `detect_audit_signals` in `rules/engine.py`;
+`ExtractedRecord.is_audit` / `audit_signals` in `domain/models.py`;
+`"is_audit"` / `"audit_signals"` in `record_to_dict`) — is likewise **CONVERGED**:
+authored identically in both copies, so nothing to re-apply (the
+`test_engine_vendored_in_sync` markers pin it on both sides). Content-derived,
+surfaced via `parser_adapter` as the separate `audit` envelope field; **never** an
+EVA field. See the `collisionspike` ADR-0014.
+
 > `notes` is **session provenance only**. It rides at the top level of
 > `record_to_dict`, never inside `fields`, so it never reaches the 12-field EVA
 > payload (`parser_adapter.to_eva_extraction` builds the payload solely from
