@@ -37,7 +37,7 @@ docs/plans/
   phase-1-intake-and-case-tracking/  parser/ · code-app/ · corpus/ + bridge (phase-1-operational)
   phase-2-live-activation/           multi-inbox-access · multi-inbox-feasibility · image-storage-backends (+ DEPLOY-RUNBOOK §7)
   phase-3-enrichment-and-eva/        eva-sentry-rest-submission (3c) · eva-validation-function (3c-Fn) · enrichment-activation (3a) · box-archival-pipeline (3d)
-  phase-4-address-and-chaser/        inspection-address-matching (4a)
+  phase-4-address-and-chaser/        README (4a inspection-address: offline corpus + manual confirm, ADR-0013 · chaser 4b)
   phase-5-ocr-and-scale/             ocr-strategy (5a) · image-classification-ai (5b) · valuation-and-copilot (5c) · copilot-studio-setup (M3)
   phase-6-handoff/                   boundary evidence (points to DEPLOY-RUNBOOK §8)
   phase-7-box-integration/           README (B0–B4 waves) · box-custom-connector-and-webhook (BUILD spec) · box-integration-activation (operator runbook)
@@ -70,7 +70,7 @@ docs/plans/
 | [phase-2-live-activation/multi-inbox-access.md](./phase-2-live-activation/multi-inbox-access.md) | Whether/how to add the other two of the three Outlook shared inboxes (shared-mailbox vs licensed-user, Full Access, the V2 trigger); password question answered. | **Phase 2** (scale to all three inboxes) |
 | [m2-umbrella-enrichment-to-scale.md](./m2-umbrella-enrichment-to-scale.md) | The M2 dependency graph + sub-phase runbook (ENRICHMENT activation, EVA validation surface, EVA Sentry REST, Box finalisation, image AI, chaser-send, valuation) — the umbrella the §3/§4/§5 deep-dive plans sit under. | **Phase 3 + 4 + 5** (M2 umbrella) |
 | [phase-3-enrichment-and-eva/eva-sentry-rest-submission.md](./phase-3-enrichment-and-eva/eva-sentry-rest-submission.md) | Activation runbook for the **already-built** `functions/evasentry/` Sentry REST v1.2 submit path: token-lives-in-Function, deploy→bind→test-flip→**parity-gated prod cutover**; resolves the Impact-Image open question. | **Phase 3c** (EVA Sentry REST API) |
-| [phase-4-address-and-chaser/inspection-address-matching.md](./phase-4-address-and-chaser/inspection-address-matching.md) | The matcher service: part-postcode `Loc` → linked corpus yard via `district startswith(outwardCode)` → `InspectionAddress` → EVA field 9; postcode.io now (`AZURE_MAPS_ENABLED=false`), Azure Maps later. Pure helpers already built in `functions/addressmatch/`. | **Phase 4a** (inspection-address matching) |
+| [../architecture/inspection-address-corpus.md](../architecture/inspection-address-corpus.md) | The inspection-address model ([ADR-0013](../adr/0013-loc-export-artifact-no-runtime-address-matching.md)): `Loc` is an EVA-EXPORT artifact, **not** a runtime input — the full inspection address is derived **offline** from case history into a static, full-addresses-only suggestions corpus (`cr1bd_inspectionaddress`) → staff **manual** pick → "Image Based Assessment" with a reason. **No** runtime matcher; partials are a future-investigation backlog. | **Phase 4a** (inspection-address corpus) |
 | [phase-5-ocr-and-scale/ocr-strategy.md](./phase-5-ocr-and-scale/ocr-strategy.md) | Two OCR needs, two engines: Tesseract-in-container for scanned PDFs (B-full) + `fast-alpr` for plate OCR (`registrationVisible`); one Azure Container App, two routes; DI Read fallback; rejects Image Analysis 4.0 (retires 2028). | **Phase 5a** (OCR host, "B-full") + the **M1 plate-OCR** half |
 | [phase-5-ocr-and-scale/image-classification-ai.md](./phase-5-ocr-and-scale/image-classification-ai.md) | overview-vs-`damage_closeup` + person/reflection screening: **recommends Azure OpenAI/Foundry vision over AI Builder** (AI Builder credits sunset 2026-11-01); rejects Custom Vision (retires 2028); image-ordering UI; WhatsApp bulk import. | **Phase 5b** (image classification AI, ADR-0009 M2+) |
 | [phase-5-ocr-and-scale/valuation-and-copilot.md](./phase-5-ocr-and-scale/valuation-and-copilot.md) | Staff-triggered valuation (direct-REST-wrapper Function → Companion PDF as `Evidence(kind=valuation)`, gated `VALUATION_ENABLED`) + optional Copilot Studio agent over Dataverse (gated `COPILOT_ENABLED`). | **Phase 5c** (Valuation & Copilot) |
@@ -106,7 +106,7 @@ docs/plans/
 | **Phase 3c-Fn** — EVA-validation Function — **M2** | **eva-validation-function** (M2.B) |
 | **Phase 3d** — Box archival — **M2** | **box-archival-pipeline**; m2-umbrella §8 |
 | **Phase 3e** — EVA readiness gate — **M1** | phase-1-operational; eva-validation-function |
-| **Phase 4a** — Inspection-address matching | **inspection-address-matching** (policy=M1, matching=M2) |
+| **Phase 4a** — Inspection address (offline corpus + manual confirm) — **M1** | **inspection-address-corpus** (architecture); ADR-0013 — no runtime matcher |
 | **Phase 4b** — Chaser automation | m2-umbrella §10 (M2.F) |
 | **Phase 5a** — OCR ("B-full") | ocr-strategy (plate-OCR=M1, scanned-PDF host) |
 | **Phase 5b** — Image classification AI — **M2** | **image-classification-ai**; research/whatsapp-coexistence (WhatsApp=M3) |

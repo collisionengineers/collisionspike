@@ -63,8 +63,11 @@ is recorded as the constant "Vehicle Damage Inspection".
 - Enrichment is **live in Dev** — `ENRICHMENT_ENABLED` is flipped on (default `false`, current
   `true`) and the enrichment Function is bound, so the "Look up vehicle" client returns real
   Make/Model/Mileage. (It remains gate-guarded: where the gate is off the UI clients return an
-  honest "not connected".) Inspection-address normalisation uses **postcodes.io** now (the
-  addressmatch Function is live), Azure Maps later.
+  honest "not connected".) The inspection address is an **offline-derived full-address
+  suggestion** (from case history, in `cr1bd_inspectionaddress`) that staff **manually pick** (or
+  fall back to "Image Based Assessment" with a reason); there is **no runtime matcher**. Postcode
+  normalisation uses **postcodes.io**; partials/bare postcodes are a future-investigation backlog
+  (ADR-0013, see [inspection-address-corpus.md](./inspection-address-corpus.md)).
 
 ## Follow-up to EVA devs (Minotaur)
 

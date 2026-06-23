@@ -1,5 +1,0 @@
-# Runtime dependencies for the inspection-address matching Function.
-# postcode.io is keyless REST over HTTP, so only the Functions host library +
-# httpx are needed (no Azure SDK, no secrets).
-azure-functions>=1.21.0
-httpx>=0.27.0

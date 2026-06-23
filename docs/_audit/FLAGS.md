@@ -212,14 +212,15 @@ _Generated 2026-06-22 by the docs-reconcile audit. These are claims the audit fo
   - Confirmed: cespkeval-fn-6c6fxd deployed+Running with /api/validate-case (brief LIVE AZURE FUNCTIONS, LIVE-PROBE state:Running, CURRENT_STATUS line 183). Connection is still genuinely unbound (Unbound/declared-but-unused, §1 table line 67), so the bind/repoint steps stay accurate — only the deploy framing is stale. Flag is correct. oldText matches line 276 verbatim.
   - Suggested: Reconcile to deployed reality: the evavalidation Function is now DEPLOYED + Running as `cespkeval-fn-6c6fxd` (route `POST /api/validate-case`) per the brief and LIVE-PROBE (and CURRENT_STATUS line 183). Mark §8 step 4 '(done — `cespkeval-fn-6c6fxd`, Running)'; set the connector host placeholder (§5 step 5 / §1) to `cespkeval-fn-6c6fxd.azurewebsites.net`; and soften §0/§1 'what remains is activation' to note the deploy itself is done and only connector import + bind + the §5 status-evaluate repoint remain (the connection is still genuinely unbound — live-environment.md). Flagged because the not-yet-deployed framing recurs through the runbook; reconcile the status markers without rewriting the design.
 
-## docs/plans/phase-4-address-and-chaser/inspection-address-matching.md
+## Inspection-address matcher plan — REMOVED 2026-06-23 (ADR-0013)
 
-- **[major]** §4 table, function_app.py row (line 126): "POST /api/address/match body {...}"
-  - oldText matches line 126 verbatim and the route truth is confirmed (function_app.py route=match-address; openapi path /match-address). AMENDED: the original finding's truth wrongly asserted "op MatchAddress never shipped" — operationId MatchAddress IS in openapi/addressmatch-connector.json (it shipped); only the path (/match-address vs /address/match) and request/response body changed. Corrected the newText so the doc edit does not propagate that false claim.
-  - Suggested: Reconcile this row to what shipped: the deployed Function exposes **`POST /api/match-address`** (NOT `/api/address/match`), and the live request body uses `caseLoc` / `principalCode` / `inspectionAddresses[]` / `repairers[]` / `reviewerDecision` with a `{ decisionMode, inspectionAddress, matched, needsReviewerDecision, candidates[], locKind, district, reason, warnings[] }` response (see functions/addressmatch/function_app.py + openapi/addressmatch-connector.json). The connector op name `MatchAddress` DID ship unchanged — only the path and body shape differ from this plan; update the route + body here accordingly.
-- **[minor]** §7 Activation runbook, steps 1-2 (lines 179-180): the [BUILD] rows
-  - oldText matches lines 179-180 verbatim; all step-1/2 artifacts confirmed present and the Function is deployed (steps 4-5 effectively complete per live-environment.md), so these [BUILD] rows are satisfied. action=flag is appropriate (advisory reconciliation, not a destructive runbook rewrite).
-  - Suggested: Steps 1-2 (and deploy steps 4-5) are DONE: matching.py + function_app.py + tests + infra/main.bicep + openapi/addressmatch-connector.json all exist, and the Function is deployed live as cespkaddr-fn-i7m4re (AZURE_MAPS_ENABLED=false). Only step 6 ([RESERVED-FOR-USER] wire the address-resolve flow + bind the connection) and step 7 (live-validate) remain.
+- **[resolved]** The earlier flags here concerned the runtime inspection-address matcher plan (its
+  Function route/contract and activation runbook). That whole stack — the Azure Function, its
+  companion resolve flow, the custom connector, and the planning doc — was **removed root-and-stem
+  on 2026-06-23** because it misread `Loc` (an EVA-export artifact) as a runtime intake input. The
+  live model is the offline-derived full-address suggestions corpus + manual confirm; there is no
+  runtime matcher. See `docs/architecture/inspection-address-corpus.md` and
+  `docs/adr/0013-loc-export-artifact-no-runtime-address-matching.md`. Nothing here remains to flag.
 
 ## docs/plans/phase-5-ocr-and-scale/ocr-strategy.md
 

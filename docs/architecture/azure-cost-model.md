@@ -23,7 +23,7 @@
 
 **Current live Azure-only footprint (`rg-collisionspike-dev`): ≈ £8–15 / month.**
 At spike volume (~500 cases/month, all of OCR / EVA-REST / Box / Azure Maps **gated off**), almost
-the entire Azure resource group is **free**: the serverless compute (6 Flex Function Apps + the ACA
+the entire Azure resource group is **free**: the serverless compute (5 Flex Function Apps + the ACA
 OCR host) sits inside the **per-subscription monthly free grants**, Key Vault is per-operation and
 trivial, and observability ingestion stays under the pooled **5 GB/month free** Log Analytics grant.
 _(Observability was **consolidated 2026-06-23**: the 5 non-parser FC1 apps now report into the
@@ -62,10 +62,10 @@ stated. Workload columns are illustrative _(est. workload)_ at ~500 cases/month.
 
 | Resource | SKU / Meter | Unit price | Source | Example workload _(est.)_ | Est. monthly |
 |---|---|---|---|---|---:|
-| 6× Flex Function Apps — parser, addressmatch, enrich, eva-sentry, evavalidation, box-webhook (compute) | Flex Consumption (FC1), Linux, On-Demand (no Always-Ready) | Exec time **$0.000026/GB-s** (USD); Executions **$0.40/1M** (USD). Free grant **100,000 GB-s + 250,000 exec/mo per subscription** (shared across all apps). Always-Ready baseline $0.000004/GB-s — **not incurred**. _UK South GBP retail rows return £0.00 — list rate is USD-only._ | [Functions pricing](https://azure.microsoft.com/en-us/pricing/details/functions/) · [consumption costs (worked example)](https://learn.microsoft.com/azure/azure-functions/functions-consumption-costs#consumption-based-costs) · [retail feed](https://prices.azure.com/api/retail/prices) (Functions, uksouth) | ~500 parses + light enrich, fan-out ~6 fn-calls/case ≈ **~4,050 GB-s + ~1,700–3,000 exec/mo** across all 6 apps. box-webhook gated off (~0). | **£0.00** (≈4% of GB-s grant, <1% of exec grant) |
+| 5× Flex Function Apps — parser, enrich, eva-sentry, evavalidation, box-webhook (compute) | Flex Consumption (FC1), Linux, On-Demand (no Always-Ready) | Exec time **$0.000026/GB-s** (USD); Executions **$0.40/1M** (USD). Free grant **100,000 GB-s + 250,000 exec/mo per subscription** (shared across all apps). Always-Ready baseline $0.000004/GB-s — **not incurred**. _UK South GBP retail rows return £0.00 — list rate is USD-only._ | [Functions pricing](https://azure.microsoft.com/en-us/pricing/details/functions/) · [consumption costs (worked example)](https://learn.microsoft.com/azure/azure-functions/functions-consumption-costs#consumption-based-costs) · [retail feed](https://prices.azure.com/api/retail/prices) (Functions, uksouth) | ~500 parses + light enrich, fan-out ~5 fn-calls/case ≈ **~4,050 GB-s + ~1,700–3,000 exec/mo** across all 5 apps. box-webhook gated off (~0). | **£0.00** (≈4% of GB-s grant, <1% of exec grant) |
 | _Reference: Consumption (Y1) — NOT used_ | Consumption Y1 (Dynamic) | Exec time **$0.000016/GB-s**; Executions **$0.20/1M** (USD). Free grant **400,000 GB-s + 1,000,000 exec/mo per subscription**. | [Functions pricing](https://azure.microsoft.com/en-us/pricing/details/functions/) | Same workload if these apps were Y1. | **£0.00** _(cheaper/unit but Flex chosen for VNet/instance-sizing; Linux Consumption EOL 2028-09-30)_ |
 
-> **Key finding:** the Flex free grant is **per-subscription, shared across all 6 apps** — so at
+> **Key finding:** the Flex free grant is **per-subscription, shared across all 5 apps** — so at
 > spike volume Functions **compute is effectively £0**. First chargeable GB-s only past 100,000:
 > e.g. a 50,000 GB-s overage = 50,000 × $0.000026 ≈ **$1.30/mo**. Cost only appears at ~25–50× the
 > current volume, or if Always-Ready instances are ever configured (none are).
@@ -118,7 +118,7 @@ stated. Workload columns are illustrative _(est. workload)_ at ~500 cases/month.
 
 | Resource | SKU / Meter | Unit price | Source | Example workload _(est.)_ | Est. monthly |
 |---|---|---|---|---|---:|
-| 6× Function host storage accounts (`cespikestx…`, `cespkaddrst…`, `cespkenrichst…`, `cespkevast…`, `cespkevalst…`, `cespkocrst…`) | Storage v2, Hot LRS | Data **£0.0143/GB/mo**; Write **£0.044/10K**; Read/other **£0.0035/10K** | [retail feed](https://prices.azure.com/api/retail/prices) (Storage, Hot LRS, `General Block Blob v2`, uksouth) · [Blob pricing](https://azure.microsoft.com/en-gb/pricing/details/storage/blobs/) | Each app's deployment package + WebJobs control containers ≈ <1 GB + housekeeping txns. **Each Flex app mandates its own storage account.** | **~£0.10–0.50 total** _(txn-dominated)_ |
+| 5× Function host storage accounts (`cespikestx…`, `cespkenrichst…`, `cespkevast…`, `cespkevalst…`, `cespkocrst…`) | Storage v2, Hot LRS | Data **£0.0143/GB/mo**; Write **£0.044/10K**; Read/other **£0.0035/10K** | [retail feed](https://prices.azure.com/api/retail/prices) (Storage, Hot LRS, `General Block Blob v2`, uksouth) · [Blob pricing](https://azure.microsoft.com/en-gb/pricing/details/storage/blobs/) | Each app's deployment package + WebJobs control containers ≈ <1 GB + housekeeping txns. **Each Flex app mandates its own storage account.** | **~£0.10–0.50 total** _(txn-dominated)_ |
 | Shared evidence storage (`cespkevidstdev01`) — case images/PDFs | Storage v2, Hot LRS | Same meters as above | [retail feed](https://prices.azure.com/api/retail/prices) (Storage, Hot LRS, uksouth) | ~500 cases × ~10 files × ~2 MB ≈ 10 GB/mo ingested; ~20–30 GB resident; ~200K ops. ADR-0012 image-only purge keeps it bounded. | **~£0.70–1.30** |
 | 3× Key Vault — `cespkenrichkv…`, `cespkevakv…`, `cespkboxkvv76a47` (eva + box empty/dormant) | Standard | Operations **£0.0224/10,000**; **no per-vault fixed fee**. Cert renewal £2.2356 each; key rotation £0.7452 each — _not used_. | [retail feed](https://prices.azure.com/api/retail/prices) (Key Vault, uksouth, Standard) · [KV pricing](https://azure.microsoft.com/en-gb/pricing/details/key-vault/) | A few thousand secret-gets/mo across vaults; eva + box KVs empty (~0). Note: enrich creds are now **Key Vault references** (DVSA/DVLA secrets populated 2026-06-23 — the earlier plain-app-settings hygiene deviation is closed); adds a handful more secret-gets, still trivial. | **~£0.05 total** |
 
@@ -206,7 +206,7 @@ Ordered by clarity, not £ (most of these are governance wins at this volume, no
 3. **Keep evidence storage lean (Class E).** ADR-0012's **image-only blob purge** after Box archival
    is the right pattern — it caps the one storage account that scales with case volume. Keep bytes in
    **Blob + Box, out of Dataverse** (preserves the ~£0 Dataverse overage). Prune old Flex deployment
-   packages so the 6 host storage accounts stay near-zero GB (they're transaction-dominated anyway).
+   packages so the 5 host storage accounts stay near-zero GB (they're transaction-dominated anyway).
 
 4. **Stay on `prebuilt-read` (Class C) and postcode.io (Class G).** Read is 6.7× cheaper than Layout
    and 20× cheaper than Custom; postcode.io is free vs Azure Maps Gen2 ($4.50/1k). Both are deliberate
@@ -259,7 +259,7 @@ Azure Maps Gen1→Gen2).
 - **Currency:** GBP where the UK South retail feed prices in GBP; USD list where the feed returns
   £0.00 for a genuinely chargeable meter (Flex GB-s/exec, ACA per-second, DI pages, Maps Gen2).
   USD→GBP at ≈0.78 GBP/USD, marked _(est.)_.
-- **Live SKU verification:** Document Intelligence is **F0** (az-verified); the 6 Function Apps are
+- **Live SKU verification:** Document Intelligence is **F0** (az-verified); the 5 Function Apps are
   **FC1/Flex** and the OCR host is **ACA Consumption** `minReplicas=0` (per `live-environment.md`,
   re-verified 2026-06-22). ACR is **Basic**.
 - **Scope:** this models the Azure RG + Power Platform layer. EVA, Audatex, WhatsApp, Microsoft 365

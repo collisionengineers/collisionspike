@@ -101,11 +101,13 @@ For example, lets say the Provider is CarCompany (not a real provider). The Prin
 
 
 
-**Inspection Address:**
+**Inspection Address:** _(OPEN ISSUE — the single hardest workflow area)_
 
 
 
-This is a tricky area. The vehicle is being inspected by a garage or similar at a specific address, and this needs to go on EVA. Generally, the admin worker will get this somehow, but the process is not fully clear. Sometimes it may be in the e-mail or other data. Sometimes, it may be from their domain knowledge. Sometimes it simply gets put as an "Image Based Assessment" if this is unclear. Full clarity will need to be obtained for this from Collision Engineers.
+This is a tricky area. The vehicle is being inspected by a garage or similar at a specific address, and this needs to go on EVA (field 9, a full address). **The full address is usually NOT obtainable from the documents** — it is **worked out manually** by the admin worker. Sometimes it may be in the e-mail or other data; sometimes it may be from their domain knowledge; sometimes it simply gets put as an **"Image Based Assessment"** — the explicit fallback when no physical address can be established (recorded with a reason, never a silent default). Full clarity will need to be obtained for this from Collision Engineers; it remains a named open issue.
+
+To **aid** (not replace) that manual step, a set of provider-scoped, full-address **suggestions** is derived **offline** from Collision Engineers' own Box/EVA case history and surfaced in the Code App Address tab for staff to pick/edit. These are an aid only — there is no runtime matcher/autofill. See [`../architecture/inspection-address-corpus.md`](../architecture/inspection-address-corpus.md) (how the suggestions are derived) and [ADR-0013](../adr/0013-loc-export-artifact-no-runtime-address-matching.md) (no runtime address resolution).
 
 
 

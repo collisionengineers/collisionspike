@@ -85,7 +85,7 @@ DEPLOY-RUNBOOK order.
 | **3d** — Box archival | `finalize-eva-box` Box folder (UPPERCASE Case/PO) + EVA photo-order upload | **M2** | `[x]` flow built ⚙️; bind + activate 🔒 (B5/S2) | [m2-umbrella §8](./m2-umbrella-enrichment-to-scale.md); [ADR-0005](../adr/0005-eva-api-full-scope-test-environment.md)/[0008](../adr/0008-tool-boundary-ends-at-eva-handoff.md) |
 | **3e** — EVA readiness gate | Image-rules / readiness checklist in the Code App; address decision gate; AuditEvent rows | **M1** | `[x]` built; drive green on a live Case 🔒 | ROADMAP 3e; `mockup-app/src/contracts/image-rules.ts` |
 | **4a** — Address **policy** gate | Per-provider inspection-address policy; **no** silent "Image Based Assessment"; postcode.io normalise | **M1** | `[x]` built (Code App) | ROADMAP 4a; `docs/requirements/inspection-address.md` |
-| **4a** — Address **matching** service | `functions/addressmatch`: part-postcode `Loc` → linked yard → `InspectionAddress` → EVA field 9 | **M2** | `[x]` deployed 2026-06-19; activation 🔒 | ROADMAP 4a; [inspection-address-matching](./phase-4-address-and-chaser/inspection-address-matching.md) |
+| **4a** — Manual inspection address (offline corpus) | Offline-derived **full-address** suggestions (`cr1bd_inspectionaddress`) + the policy gate; staff **manual** pick or "Image Based Assessment" with a reason; **no** runtime matcher (removed 2026-06-23) | **M1** | `[x]` corpus model + policy gate | [ADR-0013](../adr/0013-loc-export-artifact-no-runtime-address-matching.md); [inspection-address-corpus](../architecture/inspection-address-corpus.md) |
 | **4a** — Azure Maps (gated) | Optional geocoding upgrade over postcode.io; `AZURE_MAPS_ENABLED` | **M3** | `[ ]` gated-OFF, optional | ROADMAP 4a ("only if needed, later") |
 | **4b** — Chaser **send** | Kill-switched outbound email send (`CHASER_SEND_ENABLED`); `chaser-draft` stays draft-only | **M2** | `[x]` `chaser-draft` built ⚙️; send flow `[ ]`; activation 🔒 | [ADR-0003](../adr/0003-channel-aware-chasers-whatsapp-constraint.md); [m2-umbrella §10](./m2-umbrella-enrichment-to-scale.md) |
 | **5a** — Plate-OCR for **registration** | `fast-alpr`/DI-Read plate read → `registrationVisible` + VRM-match; OCR host (ACA) for scanned PDFs | **M1** | `[x]` host built + image pushed; deploy done; wiring 🔒 | [ADR-0009](../adr/0009-image-ai-ocr-m1-classification-m2.md) ("M1 — OCR for registration matching only") |
@@ -104,8 +104,8 @@ DEPLOY-RUNBOOK order.
 > M1 gate), and EVA itself stays gated OFF throughout the pivot.
 
 **Why some Phase 4a/5c rows appear more than once:** a few phase sub-letters bundle *more than one
-capability* under one ROADMAP letter (e.g. 4a holds the policy gate **and** the matching service **and**
-Azure Maps; 5c holds valuation **and** Copilot). Each *capability* still maps to exactly one milestone —
+capability* under one ROADMAP letter (e.g. 4a holds the policy gate **and** the offline-corpus
+suggestions **and** Azure Maps; 5c holds valuation **and** Copilot). Each *capability* still maps to exactly one milestone —
 the sub-letter is just a build-folder label, not a milestone. This is itself a worked example of
 "Phase ≠ Milestone".
 
@@ -115,9 +115,9 @@ the sub-letter is just a build-folder label, not a milestone. This is itself a w
 - **M1 — Working vertical slice** (ONE case end-to-end on the **permanent-fallback** transport) =
   **Phase 1** (1a–1d, 1b.\*) + **Phase 2** live activation (**all three inboxes** = the "done" definition)
   + **3a** DVSA enrichment + **3b** EVA JSON drag-drop + **3e** readiness gate + **4a** address-**policy**
-  gate + **5a** plate-OCR-for-registration + **Phase 6** §7 evidence.
+  gate **and** the offline full-address suggestions corpus + **5a** plate-OCR-for-registration + **Phase 6** §7 evidence.
 - **M2 — Automation + richer transports at scale** = **3c** EVA Sentry REST + the **EVA-validation
-  Function** + **3d** Box archival activation + **4a** address-**matching** service + **4b** chaser-send +
+  Function** + **3d** Box archival activation + **4b** chaser-send +
   **5b** image classification / reflection.
 - **M3 — Assistive + optional** (all gated-OFF, none on the EVA/Box critical path) = **5c** valuation
   (LOCKED, [ADR-0006](../adr/0006-enrichment-rest-wrapper-dvsa-m1.md)) + **5c** Copilot Studio + **4a**
@@ -189,7 +189,7 @@ These are the **capability gates** — what must be demonstrably true to *enter*
   image-classified, human-reviewed** `ready_for_eva` Case is **submitted to the EVA *test* environment via
   the Sentry REST API** (3c) and **archived to Box** (3d) in **one idempotent finalisation**; the
   **drag-drop JSON** path is proven as the **permanent fallback**; **kill-switched email chasers** (4b) are
-  sendable; **address auto-matching** (4a) is live; and the **EVA *production* cutover** is staged behind a
+  sendable; and the **EVA *production* cutover** is staged behind a
   **passing parity test** (a case submitted via the API matches the drag-drop result). All integrations
   remain **gated, default-off**.
 
@@ -253,7 +253,7 @@ sub-letters are M1 vs M2 vs M3, and links back to this doc as the authority:
 - **phase-1-intake-and-case-tracking** → all **M1** (1a–1d, 1b.\*).
 - **phase-2-live-activation** → **M1 exit gate** (the three-mailbox §7 checklist).
 - **phase-3-enrichment-and-eva** → **3a/3b/3e = M1**; **3c/3c-Fn/3d = M2**.
-- **phase-4-address-and-chaser** → **4a policy gate = M1**; **4a matching + 4b chaser-send = M2**; **4a Azure
+- **phase-4-address-and-chaser** → **4a policy gate + offline full-address suggestions corpus = M1** ([ADR-0013](../adr/0013-loc-export-artifact-no-runtime-address-matching.md), no runtime matcher); **4b chaser-send = M2**; **4a Azure
   Maps = M3**.
 - **phase-5-ocr-and-scale** → **5a plate-OCR = M1**; **5b classification/reflection = M2**; **5b WhatsApp
   import + 5c valuation + 5c Copilot = M3**.

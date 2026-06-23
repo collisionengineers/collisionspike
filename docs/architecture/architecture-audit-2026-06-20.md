@@ -56,7 +56,7 @@ address-policy gate + plate-OCR) and the **M2** resources that are deliberately 
 |---|---|---|---|
 | **Parser** (PDF mapper, FC1 Linux Python) | `cespike-parser-dev-x7xt3d5ovhi7y` + storage `cespikestx7xt3d` + `cespike-parser-law-dev` / `cespike-parser-ai-dev` + FC1 plan | [`functions/parser/infra/main.bicep`](../../functions/parser/infra/main.bicep) | **Live** — FC1, identity `AzureWebJobsStorage__accountName` + system-MI Storage Blob Data Owner, `httpsOnly`, TLS 1.2, `ftpsState Disabled`, workspace-bound App Insights. ⚠️ storage **omits** `allowSharedKeyAccess:false` — see [F4](#f4--s7-iac-parser-storage-bicep-omits-allowsharedkeyaccessfalse). |
 | **Enrichment** (DVSA/DVLA direct, activated 2026-06-20) | `cespkenrich-fn-gi62sd` + KV `cespkenrichkvgi62sd` + `cespkenrich-ai-gi62sd` — **no `cespkenrich-law` in the RG** | [`functions/enrichment/infra/main.bicep`](../../functions/enrichment/infra/main.bicep) | **Live, gate ON** (`ENRICHMENT_ENABLED` current=`true`; default `false`) — calls DVSA + DVLA directly via Entra `client_credentials` + `X-API-Key` (no Google Cloud gateway). App Insights workspace binding **drifted** — see [F5](#f5--iac-drift-live-enrichment-app-insights-has-no-companion-workspace-in-the-rg). |
-| **Address-match** (FC1 Linux) | `cespkaddr-fn-i7m4re` + its own LAW | [`functions/addressmatch/infra/main.bicep`](../../functions/addressmatch/infra/main.bicep) | **Live** — `POST /api/match-address`, part-postcode `Loc` → corpus yard via district, postcode.io (`AZURE_MAPS_ENABLED=false`). No secrets / no Key Vault. Sets `allowSharedKeyAccess:false`. |
+| **Inspection-address matcher** _(REMOVED 2026-06-23, ADR-0013)_ | _(was a runtime Function + its own LAW/storage — all decommissioned)_ | _(removed)_ | **Removed root-and-stem 2026-06-23** — built on a misreading (`Loc` is an EVA-export artifact, not an intake input). Replaced by an **offline-derived full-address suggestions corpus** (`cr1bd_inspectionaddress`) → staff **manual pick** (or "Image Based Assessment" with a reason); no runtime matcher. See [inspection-address-corpus.md](./inspection-address-corpus.md). |
 | **OCR host** (Functions-on-ACA, scale-to-zero) | `cespkocr-fn-dev-glju3v` on ACA env `cespkocr-env-dev`, ACR `cespkocracraeee76`, pre-granted UAMI `cespkocr-acrpull-id`, `ocr-law` | [`ocr/infra/main.bicep`](../../ocr/infra/main.bicep) + [`ocr/infra/acrpull-role.bicep`](../../ocr/infra/acrpull-role.bicep) | **Live + Running** — `/api/ocr-pdf` + `/api/plate-ocr`, `minReplicas=0`, HTTPS-only. AcrPull race fixed by the pre-granted UAMI + `siteConfig.acrUserManagedIdentityID`. Connector wiring + `OCR_SCANNED_PDF_ENABLED`/`PLATE_OCR_ENABLED` flip remain. |
 | **Evidence storage** | `cespkevidstdev01` | — | Present (later-phase Blob evidence). |
 | **EVA Sentry REST** (M2) | _none_ (`cespkeva-*` absent) | [`functions/evasentry/infra/main.bicep`](../../functions/evasentry/infra/main.bicep) | **Deploy-pending — CORRECT by design** (Phase 3c / M2). See [F11](#f11--deploy-pending-confirmation-evasentry--evavalidation-correctly-absent--record-only). |
@@ -184,8 +184,9 @@ Ordered by impact. **CLAUDE-fixable** = offline, no live mutation (staged here, 
 - **Maps to:** [../gated.md](../gated.md) **S7**.
 - **Finding.** The parser storage resource in
   [`functions/parser/infra/main.bicep`](../../functions/parser/infra/main.bicep) (~lines 83–96) is the
-  **only one of the six Function storage accounts** missing `allowSharedKeyAccess: false` — enrichment,
-  addressmatch, evasentry, evavalidation, and ocr all set it. Microsoft Learn explicitly recommends
+  **only one of the Function storage accounts** missing `allowSharedKeyAccess: false` — enrichment,
+  evasentry, evavalidation, and ocr all set it. _(The inspection-address matcher, which also set it,
+  was removed root-and-stem 2026-06-23 — ADR-0013.)_ Microsoft Learn explicitly recommends
   this for Flex Consumption with identity-based `AzureWebJobsStorage__accountName` (the parser uses
   exactly that). Defense-in-depth: the host already uses MI, so this hardens against an out-of-band
   key path, it does not fix a live exploit.
@@ -292,8 +293,10 @@ Ordered by impact. **CLAUDE-fixable** = offline, no live mutation (staged here, 
 - **Owner:** CLAUDE-fixable but **deferred/optional**.
 - **Maps to:** [../gated.md](../gated.md) **S9**.
 - **Finding.** The RG holds **≥3 separate** Log Analytics workspaces (`cespike-parser-law-dev`,
-  `cespkaddr-law-i7m4re`, `ocr-law` and more), each declared by its own Bicep; OCR additionally force-
-  reads `listKeys().primarySharedKey` for ACA log shipping.
+  `ocr-law` and more), each declared by its own Bicep; OCR additionally force-
+  reads `listKeys().primarySharedKey` for ACA log shipping. _(Note: this 2026-06-20 sprawl was later
+  consolidated 2026-06-23 to a shared pair + the OCR pair; the inspection-address matcher's workspace
+  was decommissioned with it — ADR-0013.)_
 - **Remediation (optional).** Refactor the six templates to accept a shared `logAnalyticsWorkspaceId`
   param (one shared workspace, passed by id). **Do NOT** change OCR's ACA log wiring **shape** — it
   needs `customerId` + `sharedKey`. Marginal cost in a dev sandbox → keep optional / defer to a

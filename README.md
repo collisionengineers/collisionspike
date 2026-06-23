@@ -46,7 +46,7 @@ parity, flow linter, parser + enrichment pytest, and a generated-service no-`upl
 - **Plan:** [docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md](./docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md) · **Deploy:** [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) (the `[DEPLOY-WITH-LOGIN]` / `[RESERVED-FOR-USER]` sequence + blockers).
 - `mockup-app/` — the Code App (React + Fluent v9): `src/contracts/` (EVA/status/image), `src/domain/` (classification, ADR-0010 dedup, provider-match, address-policy), `src/data/` (the mock↔Dataverse seam), screens.
 - `dataverse/` — schema-as-code (10 tables + provenance, choice sets, env-vars, relationships).
-- `functions/` — Azure Functions (`parser`, `enrichment`, `addressmatch`, `evasentry`, `evavalidation`, `box-webhook`; code, Bicep, OpenAPI, mocked pytest).
+- `functions/` — Azure Functions (`parser`, `enrichment`, `evasentry`, `evavalidation`, `box-webhook`; code, Bicep, OpenAPI, mocked pytest).
 - `flows/` — the 15 Power Automate flow definitions (`state=off` except the Claude-wired `case-resolve`) + offline linter (154/154).
 - `.claude/skills/power-automate-flow/` — reusable flow-authoring patterns.
 

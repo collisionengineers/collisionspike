@@ -177,8 +177,11 @@ as `Repairer`/`InspectionAddress` reference rows (Phase 1b.2/1b.3), and resolve 
   address the corpus already holds. Keep `AZURE_MAPS_ENABLED=false` as the design intends; revisit only if a
   genuine map-on-screen or autocomplete requirement appears.
 
-**Recommendation:** build the address-matching service as a **corpus lookup with postcode.io
-normalisation**; treat Azure Maps as a **later, gated, optional** convenience, not a dependency.
+**Recommendation:** establish inspection addresses via an **offline-derived, full-address-only
+suggestions corpus** (mined from Box/EVA case history into `cr1bd_inspectionaddress`) that staff
+**pick/edit** in the Code App, with **postcode.io normalisation** of the chosen postcode — **not** a
+runtime resolver (ADR-0013). Treat Azure Maps as a **later, gated, optional** convenience, not a
+dependency.
 
 ---
 
@@ -330,7 +333,7 @@ them. Keep gates (`*_ENABLED`) on every paid path so cost is opt-in per environm
 |---|---|---|---|---|
 | **1** | **Doc-Intelligence `prebuilt-read` as the default scanned-PDF OCR**, feeding the existing `cedocumentmapper_v2` rules; Tesseract-in-ACA as the all-in-house fallback. | **HIGH** | **M** | Closes the only real parsing gap (B-full) with **zero new infra**, ~£0 at volume, and reuses the whole 12-field contract path. |
 | **2** | **App Insights alerts + Key Vault/managed-identity hardening** applied to every Function and the EVA creds (replicating the enrichment Function's pattern). | **HIGH** | **S** | Best effort:value ratio — failures surface, secrets stay safe, posture preserved; mostly wiring that already exists. |
-| **3** | **Address-matching service as a corpus lookup + postcode.io normalisation** (not Azure Maps). | **HIGH** | **M** | The data proves it's a part-postcode→known-yard **join**, not geocoding; resolves 57%-part-postcode cases with free, UK-only tooling. |
+| **3** | **Offline inspection-address suggestions corpus** (full addresses mined from case history into `cr1bd_inspectionaddress`) → manual pick + postcode.io normalisation, **not** Azure Maps and **not** a runtime resolver (ADR-0013). | **HIGH** | **M** | The data proves the answer is a known-yard full address from history, not geocoding; pre-solves 57%-part-postcode cases as one-click manual picks with free, UK-only tooling. |
 | **4** | **Azure Container Apps OCR worker** (scale-to-zero) hosting Tesseract for the WhatsApp-image plate OCR + as the DI-Read fallback. | **MED–HIGH** | **M** | The decided B-full host; ACA can ship the binary FC1 can't, stays inside the free grant (~£0 idle), reuses the parser readers. |
 | **5** | **Azure OpenAI (structured outputs) as a gated fallback** for extraction misses / fringe email triage, and an **offline** corpus-worklist assistant. | **MED** | **S–M** | Schema-strict last-resort for the messy fringe the rules/DI miss — per-token, opt-in, never the default and never in the live match path. |
 

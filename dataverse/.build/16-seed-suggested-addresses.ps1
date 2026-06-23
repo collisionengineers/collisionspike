@@ -23,7 +23,7 @@
 #   24 cols incl: provider_code, loc_value, address_index_for_loc, full_address, address_postcode,
 #                 address_status, evidence_source, evidence_detail.
 #   Address-bearing rows = full_address non-empty AND address_status NOT in the no-address set below
-#   (verified 2026-06-20: 698 of 3497 rows carry a usable address).
+#   (verified 2026-06-23: 697 of 3497 rows carry a usable address; source is continuously maintained, drifts +-1).
 #
 # IDEMPOTENCY: atomic PATCH-to-key upsert on the alternate key cr1bd_inspectionaddress_label_key
 #   (cr1bd_name). Dataverse rejects an upsert with 400 when no alternate key exists, so 04-altkeys.ps1
