@@ -82,6 +82,13 @@ export interface CreateCaseInput {
   sourceLabel?: string;
   /** Persist a FieldLevelProvenance row per EVA field when true. */
   writeProvenance?: boolean;
+  /** Inspection decision to stamp on create (e.g. 'image_based' for an image-only
+   *  case); omitted -> the back-fill derives it from the address text. */
+  inspectionDecision?: Case['inspectionDecision'];
+  /** Reason for an image-based decision — persisted as a case note when present. */
+  inspectionDecisionReason?: string;
+  /** Park the new case in the Held queue on creation (hold-by-default / per-case). */
+  onHold?: boolean;
 }
 
 /** The result of a Case write — the new row's id (GUID) the UI navigates to. */
@@ -237,6 +244,13 @@ export interface DataAccess {
    * all-false (Box off until the live source + bound connection exist).
    */
   getBoxGates(): Promise<BoxGates>;
+
+  /* ----- App intake preferences ----- */
+  /** Read the 'hold new cases by default' toggle (env-var; false on failure). */
+  getHoldNewCasesDefault(): Promise<boolean>;
+  /** Write the 'hold new cases by default' toggle (upserts its env-var value). The
+   *  ONE Code-App env-var WRITE — needs env-var customization privilege. */
+  setHoldNewCasesDefault(value: boolean): Promise<void>;
 }
 
 /** A needs-action reason re-exported for callers shaping aging tallies. */
@@ -358,7 +372,8 @@ export interface CaseRecord {
 export interface EvidenceRecord {
   cr1bd_evidenceid?: string;
   cr1bd_filename?: string;
-  _cr1bd_caseid_value?: string;
+  _cr1bd_caseid_value?: string; // read form ($filter); writes use the @odata.bind below
+  'cr1bd_Caseid@odata.bind'?: string; // write form: '/cr1bd_cases(<guid>)'
   cr1bd_kind?: number; // cr1bd_evidencekind integer
   cr1bd_imagerole?: number; // cr1bd_imagerole integer
   cr1bd_registrationvisible?: boolean;
@@ -412,7 +427,8 @@ export interface WorkProviderRecord {
 /** A FieldLevelProvenance row (cr1bd_fieldlevelprovenance logical names). */
 export interface FieldLevelProvenanceRecord {
   cr1bd_fieldlevelprovenanceid?: string;
-  _cr1bd_caseid_value?: string;
+  _cr1bd_caseid_value?: string; // read form ($filter); writes use the @odata.bind below
+  'cr1bd_Caseid@odata.bind'?: string; // write form: '/cr1bd_cases(<guid>)'
   cr1bd_fieldname?: string; // EVA_FIELD_ORDER camelCase key
   cr1bd_value?: string;
   cr1bd_sourcetype?: number; // cr1bd_fieldprovenancesourcetype integer
@@ -428,7 +444,8 @@ export interface FieldLevelProvenanceRecord {
 /** A Note row (cr1bd_note logical names). */
 export interface NoteRecord {
   cr1bd_noteid?: string;
-  _cr1bd_caseid_value?: string;
+  _cr1bd_caseid_value?: string; // read form ($filter); writes use the @odata.bind below
+  'cr1bd_Caseid@odata.bind'?: string; // write form: '/cr1bd_cases(<guid>)'
   cr1bd_author?: string;
   cr1bd_timestamp?: string;
   cr1bd_text?: string;
@@ -472,19 +489,33 @@ export interface EnvironmentVariableValueRecord {
   environmentvariablevalueid?: string;
   /** The override value (Memo/Text up to 2000). Coalesced over the default. */
   value?: string;
-  /** Lookup back to the owning definition (GUID), for join-side filtering. */
+  /** Lookup back to the owning definition (GUID), for join-side filtering (read). */
   _environmentvariabledefinitionid_value?: string;
+  /** Write form for the definition lookup on create: '/environmentvariabledefinitions(<guid>)'. */
+  'EnvironmentVariableDefinitionId@odata.bind'?: string;
 }
 
-/** An AuditEvent / activity row (cr1bd_auditevent logical names). */
+/** An AuditEvent / activity row (cr1bd_auditevent logical names — see
+    dataverse/schema/audit-event.json). The flows write one of these for every
+    auto / extraction action; the primary column is `cr1bd_name` (one-line
+    summary) and the event time is `cr1bd_occurredat`. There is NO
+    cr1bd_timestamp / cr1bd_description / cr1bd_vrm column (those were a
+    placeholder shape the activity adapter mis-read). */
 export interface AuditEventRecord {
   cr1bd_auditeventid?: string;
   _cr1bd_caseid_value?: string;
-  cr1bd_vrm?: string;
+  /** Controlled action vocabulary (cr1bd_auditaction integer). */
   cr1bd_action?: number | string;
   cr1bd_actor?: string;
-  cr1bd_timestamp?: string;
-  cr1bd_description?: string;
+  /** One-line human summary (the primary column). */
+  cr1bd_name?: string;
+  /** JSON snapshot after the change (Memo) — fallback detail. */
+  cr1bd_after?: string;
+  cr1bd_before?: string;
+  /** Event time (DateTime, UserLocal) — the sort key. */
+  cr1bd_occurredat?: string;
+  /** info|warning|error (cr1bd_auditseverity integer). */
+  cr1bd_severity?: number;
 }
 
 /**

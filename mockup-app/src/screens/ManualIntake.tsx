@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Badge,
@@ -31,7 +31,6 @@ import {
   Image as ImageIcon,
   MapPin,
   PencilLine,
-  ScanText,
   Send,
   Upload,
   X,
@@ -49,6 +48,7 @@ import {
   parseDocument,
   fileToBase64,
   getDataAccess,
+  useHoldNewCasesDefault,
   enrichVehicle,
   normaliseAddress,
   type CaseStatus,
@@ -235,6 +235,7 @@ const useStyles = makeStyles({
     marginTop: tokens.spacingVerticalM,
   },
   footerActions: { display: 'flex', gap: tokens.spacingHorizontalS, flexWrap: 'wrap' },
+  checkboxStack: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalXXS },
   creatingBar: { marginTop: tokens.spacingVerticalM },
   /* MessageBar spacing nudges (kept off inline style props for theming parity). */
   barBelow: { marginBottom: tokens.spacingVerticalM },
@@ -381,6 +382,11 @@ export function ManualIntake() {
   const navigate = useNavigate();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  /* Identity of the instruction file already auto-parsed (name:size), so adding
+     images afterwards (or a failed parse) does not re-fire the auto-read. */
+  const autoParsedRef = useRef<string | null>(null);
+  const gateAppliedRef = useRef(false);
+  const holdGate = useHoldNewCasesDefault();
 
   const [phase, setPhase] = useState<Phase>('pick');
   const [files, setFiles] = useState<File[]>([]);
@@ -408,6 +414,12 @@ export function ManualIntake() {
   const [enriching, setEnriching] = useState(false);
   const [normalising, setNormalising] = useState(false);
   const [writeProvenance, setWriteProvenance] = useState(true);
+  /* Park the new case in Held on create (seeded from the admin gate; overridable). */
+  const [onHold, setOnHold] = useState(false);
+  /* Image-based intake: locks the inspection address to the "Image Based
+     Assessment" literal + the image_based decision, with an optional reason. */
+  const [inspectionDecision, setInspectionDecision] = useState<'unknown' | 'image_based'>('unknown');
+  const [imageBasedReason, setImageBasedReason] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [info, setInfo] = useState<string | undefined>();
   const [issues, setIssues] = useState<ParserIssue[]>([]);
@@ -504,8 +516,53 @@ export function ManualIntake() {
     setIssues([]);
     setFields(emptyEvaFields());
     setHasInstructions(true); // the user is keying instructions by hand
+    setInspectionDecision('unknown');
     setPhase('review');
   };
+
+  /* Image-based entry: an images-only case with the locked "Image Based
+     Assessment" inspection decision (no instruction document, no physical
+     location). The reviewer adds an optional reason. */
+  const startImageBased = () => {
+    setError(undefined);
+    setIssues([]);
+    const f = emptyEvaFields();
+    f.inspectionAddress = {
+      ...f.inspectionAddress,
+      value: 'Image Based Assessment',
+      reviewState: 'reviewed',
+    };
+    setFields(f);
+    setHasInstructions(false);
+    setInspectionDecision('image_based');
+    setImageBasedReason('');
+    setPhase('review');
+  };
+
+  /* Auto-read the instruction document on drop/pick — no "Read document" button.
+     The ref (keyed on the file's identity) stops a re-parse when extra images are
+     added later, or when a failed parse returns to 'pick'. */
+  useEffect(() => {
+    if (phase !== 'pick') return;
+    if (!instructionFile) {
+      autoParsedRef.current = null;
+      return;
+    }
+    const key = `${instructionFile.name}:${instructionFile.size}`;
+    if (autoParsedRef.current === key) return;
+    autoParsedRef.current = key;
+    void runParse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instructionFile, phase]);
+
+  /* Seed the per-case hold from the admin "hold by default" gate, once, when it
+     first resolves; a later manual toggle then sticks. */
+  useEffect(() => {
+    if (!gateAppliedRef.current && holdGate.data !== undefined) {
+      gateAppliedRef.current = true;
+      setOnHold(holdGate.data);
+    }
+  }, [holdGate.data]);
 
   const onFieldChange = (key: EvaFieldKey, value: string) => {
     setFields((prev) => {
@@ -608,6 +665,11 @@ export function ManualIntake() {
         sourceLabel: instructionFile
           ? `Manual intake — ${instructionFile.name}`
           : 'Manual intake (keyed by hand)',
+        ...(inspectionDecision === 'image_based' ? { inspectionDecision: 'image_based' as const } : {}),
+        ...(inspectionDecision === 'image_based' && imageBasedReason.trim()
+          ? { inspectionDecisionReason: imageBasedReason.trim() }
+          : {}),
+        ...(onHold ? { onHold: true } : {}),
         writeProvenance,
       });
       if (evidenceCount > 0) {
@@ -642,6 +704,10 @@ export function ManualIntake() {
     setIssues([]);
     setError(undefined);
     setInfo(undefined);
+    autoParsedRef.current = null;
+    setInspectionDecision('unknown');
+    setImageBasedReason('');
+    setOnHold(holdGate.data ?? false);
   };
 
   const warnings = useMemo(() => issues.filter((i) => i.severity !== 'error'), [issues]);
@@ -675,10 +741,11 @@ export function ManualIntake() {
             onDrop={onDrop}
           >
             <Upload size={36} className={styles.dropIcon} strokeWidth={1.5} aria-hidden />
-            <Text weight="semibold">Drag a document here, or choose a file</Text>
+            <Text weight="semibold">Drag files here — we’ll read an instruction document automatically</Text>
             <Caption1 className={styles.hint}>
-              Supported: PDF, Word (.docx/.doc), email (.eml/.msg). Add vehicle images or an .eml/.msg
-              to attach them as evidence.
+              Drop a PDF, Word (.docx/.doc) or email (.eml/.msg) and it’s read automatically — no button
+              needed. Add vehicle images alongside to attach them as evidence, or choose “Image based”
+              for an images-only case.
             </Caption1>
             <input
               ref={fileInputRef}
@@ -701,20 +768,20 @@ export function ManualIntake() {
                 {files.length > 0 ? 'Add files' : 'Choose file'}
               </Button>
               <Button
-                appearance="primary"
-                icon={phase === 'parsing' ? <Spinner size="tiny" /> : <ScanText size={16} />}
-                onClick={runParse}
-                disabled={!instructionFile || phase === 'parsing'}
-              >
-                {phase === 'parsing' ? 'Reading…' : 'Read document'}
-              </Button>
-              <Button
                 appearance="transparent"
                 icon={<PencilLine size={16} />}
                 onClick={startManual}
                 disabled={phase === 'parsing'}
               >
                 Enter manually (no document)
+              </Button>
+              <Button
+                appearance="transparent"
+                icon={<ImageIcon size={16} />}
+                onClick={startImageBased}
+                disabled={phase === 'parsing'}
+              >
+                Image based (images only)
               </Button>
             </div>
 
@@ -934,39 +1001,75 @@ export function ManualIntake() {
             {FIELD_CLUSTERS[2].keys.map((key) => (
               <FieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} fields={fields} onChange={onFieldChange} />
             ))}
-            {/* Inspection address — required, with the postcodes.io normalise (review #10). */}
-            <div className={styles.fieldRow}>
-              <div className={styles.fieldWithAction}>
-                <Field
-                  className={styles.fieldGrow}
-                  label={LABEL_FOR.inspectionAddress.label}
-                  required
-                  {...(!fields.inspectionAddress.value.trim()
-                    ? { validationState: 'error' as const, validationMessage: 'Required' }
-                    : {})}
-                >
-                  <Textarea
-                    value={fields.inspectionAddress.value}
-                    onChange={(_, d) => onFieldChange('inspectionAddress', d.value)}
-                    resize="vertical"
-                    rows={6}
-                  />
-                </Field>
-                <Button
-                  icon={normalising ? <Spinner size="tiny" /> : <MapPin size={16} />}
-                  onClick={normaliseInspectionAddress}
-                  disabled={normalising || !fields.inspectionAddress.value.trim()}
-                >
-                  Standardise address
-                </Button>
-              </div>
-              <div className={styles.fieldMeta}>
-                <ProvenanceBadge provenance={fields.inspectionAddress.provenance} reviewState={fields.inspectionAddress.reviewState} />
-              </div>
-            </div>
-            <Caption1 className={styles.inlineNote}>
-              Tidy the address into a standard format.
-            </Caption1>
+            {/* Inspection address — for an image-based case it is the locked
+                "Image Based Assessment" literal + a reason; otherwise the editable
+                address with the postcodes.io normalise (review #10). */}
+            {inspectionDecision === 'image_based' ? (
+              <>
+                <div className={styles.fieldRow}>
+                  <Field label={LABEL_FOR.inspectionAddress.label}>
+                    <MessageBar intent="info">
+                      <MessageBarBody>
+                        <MessageBarTitle>Image Based Assessment</MessageBarTitle>
+                        No physical inspection location — this case is assessed from images.
+                      </MessageBarBody>
+                    </MessageBar>
+                  </Field>
+                  <div className={styles.fieldMeta}>
+                    <ProvenanceBadge provenance={fields.inspectionAddress.provenance} reviewState={fields.inspectionAddress.reviewState} />
+                  </div>
+                </div>
+                <div className={styles.fieldRow}>
+                  <Field
+                    label="Reason for image-based assessment"
+                    hint="Why is there no physical inspection location? Recorded as a case note."
+                  >
+                    <Textarea
+                      value={imageBasedReason}
+                      onChange={(_, d) => setImageBasedReason(d.value)}
+                      resize="vertical"
+                      rows={2}
+                    />
+                  </Field>
+                  <div />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={styles.fieldRow}>
+                  <div className={styles.fieldWithAction}>
+                    <Field
+                      className={styles.fieldGrow}
+                      label={LABEL_FOR.inspectionAddress.label}
+                      required
+                      {...(!fields.inspectionAddress.value.trim()
+                        ? { validationState: 'error' as const, validationMessage: 'Required' }
+                        : {})}
+                    >
+                      <Textarea
+                        value={fields.inspectionAddress.value}
+                        onChange={(_, d) => onFieldChange('inspectionAddress', d.value)}
+                        resize="vertical"
+                        rows={6}
+                      />
+                    </Field>
+                    <Button
+                      icon={normalising ? <Spinner size="tiny" /> : <MapPin size={16} />}
+                      onClick={normaliseInspectionAddress}
+                      disabled={normalising || !fields.inspectionAddress.value.trim()}
+                    >
+                      Standardise address
+                    </Button>
+                  </div>
+                  <div className={styles.fieldMeta}>
+                    <ProvenanceBadge provenance={fields.inspectionAddress.provenance} reviewState={fields.inspectionAddress.reviewState} />
+                  </div>
+                </div>
+                <Caption1 className={styles.inlineNote}>
+                  Tidy the address into a standard format.
+                </Caption1>
+              </>
+            )}
           </div>
 
           {/* Dates + Inspection */}
@@ -1008,11 +1111,18 @@ export function ManualIntake() {
           )}
 
           <div className={styles.footer}>
-            <Checkbox
-              checked={writeProvenance}
-              onChange={(_, d) => setWriteProvenance(d.checked === true)}
-              label="Record where each field came from"
-            />
+            <div className={styles.checkboxStack}>
+              <Checkbox
+                checked={writeProvenance}
+                onChange={(_, d) => setWriteProvenance(d.checked === true)}
+                label="Record where each field came from"
+              />
+              <Checkbox
+                checked={onHold}
+                onChange={(_, d) => setOnHold(d.checked === true)}
+                label="Put this case on hold"
+              />
+            </div>
             <div className={styles.footerActions}>
               <Button appearance="secondary" onClick={resetToPick} disabled={phase === 'creating'}>
                 Start over

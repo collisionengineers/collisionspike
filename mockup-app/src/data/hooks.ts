@@ -157,3 +157,10 @@ export function useBoxGates(): QueryState<BoxGates> {
   const run = useCallback(() => getDataAccess().getBoxGates(), []);
   return useAsync(run, []);
 }
+
+/** The 'hold new cases by default' intake preference (env-var). Loading/undefined
+ *  is treated as false (no accidental hold). */
+export function useHoldNewCasesDefault(): QueryState<boolean> {
+  const run = useCallback(() => getDataAccess().getHoldNewCasesDefault(), []);
+  return useAsync(run, []);
+}

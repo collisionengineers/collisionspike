@@ -151,4 +151,7 @@ class ExtractedRecord:
     provider: ProviderMatch
     fields: dict[FieldKey, FieldExtraction]
     issues: tuple[ExtractionIssue, ...] = ()
+    # Free-text provenance lines (e.g. "Applied engineer report: <file>"), mirroring v1's
+    # per-session notes. Empty for a plain single-document extraction.
+    notes: tuple[str, ...] = ()
 

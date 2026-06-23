@@ -114,3 +114,19 @@ export function boxGatesFromRows(
 ): BoxGates {
   return boxGatesFromResolved(resolveEnvVars(definitions, values));
 }
+
+/* ----------  App intake preference: hold new cases by default  ----------
+   Unlike the BOX_* gates (read-only), the Code App also WRITES this one (the
+   Admin toggle upserts its value). The read path reuses the same coalescing core. */
+export const HOLD_NEW_CASES_SCHEMA = 'cr1bd_HOLD_NEW_CASES_BY_DEFAULT';
+
+/** Resolve the hold-new-cases preference from env-var rows (false on absence). */
+export function holdNewCasesFromRows(
+  definitions: readonly EnvironmentVariableDefinitionRecord[],
+  values: readonly EnvironmentVariableValueRecord[],
+): boolean {
+  const row = resolveEnvVars(definitions, values).find(
+    (r) => r.schemaName === HOLD_NEW_CASES_SCHEMA,
+  );
+  return envValueToBool(row?.value);
+}

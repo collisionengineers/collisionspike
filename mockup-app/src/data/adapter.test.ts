@@ -22,6 +22,8 @@ import {
   caseToRecord,
   suggestionFromRecord,
   isSuggestedAddressRecord,
+  auditActionCodec,
+  auditActionToActivityKind,
   type ChoiceCodec,
 } from './adapter';
 import type { InspectionAddressRecord } from './types';
@@ -354,5 +356,36 @@ describe('suggestionFromRecord', () => {
     expect(s.providerCode).toBeUndefined();
     expect(s.lines).toEqual(['Somewhere']);
     expect(s.postcode).toBe('');
+  });
+});
+
+/* ============================================================
+   Audit action -> Activity-feed kind (the Action Logs fix: every auto /
+   extraction action the flows log renders with its correct badge).
+   ============================================================ */
+describe('auditActionCodec + auditActionToActivityKind', () => {
+  it('decodes the controlled action integers to their names (incl. the Box additions)', () => {
+    expect(auditActionCodec.toName(100000009)).toBe('parser_called');
+    expect(auditActionCodec.toName(100000011)).toBe('enrichment_called');
+    expect(auditActionCodec.toName(100000021)).toBe('box_upload_received');
+    expect(auditActionCodec.toName(undefined)).toBeUndefined();
+  });
+
+  it('maps EXTRACTION + AUTO actions to their badge kinds (not a generic status)', () => {
+    expect(auditActionToActivityKind('parser_called')).toBe('parse');
+    expect(auditActionToActivityKind('parser_failed')).toBe('parse');
+    expect(auditActionToActivityKind('enrichment_called')).toBe('enrich');
+    expect(auditActionToActivityKind('provider_matched')).toBe('classify');
+    expect(auditActionToActivityKind('attachment_classified')).toBe('classify');
+    expect(auditActionToActivityKind('duplicate_dropped')).toBe('dedup');
+    expect(auditActionToActivityKind('case_created')).toBe('intake');
+    expect(auditActionToActivityKind('eva_submitted')).toBe('eva_submit');
+    expect(auditActionToActivityKind('box_folder_created')).toBe('box_sync');
+    expect(auditActionToActivityKind('status_changed')).toBe('status_change');
+  });
+
+  it('falls back to status_change for an unknown/empty action', () => {
+    expect(auditActionToActivityKind(undefined)).toBe('status_change');
+    expect(auditActionToActivityKind('not_a_real_action')).toBe('status_change');
   });
 });

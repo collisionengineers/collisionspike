@@ -38,6 +38,7 @@ import type {
   ProviderAutomationMode,
   ReviewState,
   ProvenanceSourceType,
+  ActivityKind,
 } from '../mock/types';
 import type {
   CaseRecord,
@@ -59,6 +60,7 @@ import reviewStateChoiceSet from '../../../dataverse/choicesets/review-state.jso
 import sourceTypeChoiceSet from '../../../dataverse/choicesets/field-provenance-source-type.json';
 import inspectionPolicyChoiceSet from '../../../dataverse/choicesets/inspection-location-policy.json';
 import automationModeChoiceSet from '../../../dataverse/choicesets/provider-automation-mode.json';
+import auditEventChoiceSet from '../../../dataverse/choicesets/audit-event.json';
 
 /* ============================================================
    Choice-set <-> integer bijection helper.
@@ -129,6 +131,58 @@ export const inspectionPolicyCodec = makeChoiceCodec<InspectionLocationPolicy>(
 export const automationModeCodec = makeChoiceCodec<ProviderAutomationMode>(
   automationModeChoiceSet as ChoiceSet,
 );
+
+/* ----------  Audit action -> Activity-feed kind  ----------
+   audit-event.json is a BUNDLE (action + severity sets), so the action set is
+   indexed by logicalName here rather than imported as a single set. The codec is
+   built from the canonical choiceset (not the pac-generated enum, which can lag
+   the Box additions), so it can never drift from the deployed option values. */
+const auditActionSet = (auditEventChoiceSet as { choiceSets: ChoiceSet[] }).choiceSets.find(
+  (s) => s.logicalName === 'cr1bd_auditaction',
+) as ChoiceSet;
+export const auditActionCodec = makeChoiceCodec<string>(auditActionSet);
+
+/** Map a controlled audit-action name -> the ActivityKind the Action Logs feed
+ *  badges. Covers all 22 canonical actions — including the EXTRACTION (parser_*)
+ *  and AUTO (enrichment/provider/dedup/status/box) actions the flows write — so
+ *  each renders with its correct badge instead of a generic "Status". Unknown ->
+ *  'status_change'. */
+export function auditActionToActivityKind(action: string | undefined): ActivityKind {
+  switch (action) {
+    case 'graph_message_ingested':
+    case 'graph_message_ingest_failed':
+    case 'case_created':
+    case 'case_attached':
+      return 'intake';
+    case 'attachment_classified':
+    case 'provider_matched':
+    case 'provider_unmatched':
+      return 'classify';
+    case 'parser_called':
+    case 'parser_failed':
+      return 'parse';
+    case 'enrichment_called':
+    case 'enrichment_failed':
+      return 'enrich';
+    case 'duplicate_dropped':
+    case 'duplicate_flagged':
+      return 'dedup';
+    case 'eva_submitted':
+      return 'eva_submit';
+    case 'box_synced':
+    case 'box_folder_created':
+    case 'box_file_request_copied':
+    case 'box_upload_received':
+      return 'box_sync';
+    case 'jobsheet_imported':
+    case 'corpus_record_changed':
+    case 'inspection_override':
+      return 'note';
+    case 'status_changed':
+    default:
+      return 'status_change';
+  }
+}
 
 /* ============================================================
    statuscode <-> CaseStatus (the headline mapping the task calls out).
@@ -220,7 +274,7 @@ export function evaFieldToProvenanceRow(
   field: EvaField,
 ): FieldLevelProvenanceRecord {
   return {
-    _cr1bd_caseid_value: caseId,
+    'cr1bd_Caseid@odata.bind': `/cr1bd_cases(${caseId})`,
     cr1bd_fieldname: fieldName,
     cr1bd_value: field.value,
     cr1bd_sourcetype: sourceTypeCodec.toInt(field.provenance.sourceType),
