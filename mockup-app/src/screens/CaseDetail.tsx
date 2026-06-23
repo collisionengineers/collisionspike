@@ -522,7 +522,7 @@ function FieldRow({ fieldKey, label, required, c, onTextChange, registerRef }: F
         {control}
       </Field>
       <div className={styles.fieldMeta}>
-        <ProvenanceBadge provenance={field.provenance} reviewState={field.reviewState} />
+        <ProvenanceBadge provenance={field.provenance} reviewState={field.reviewState} fieldKey={fieldKey} />
       </div>
     </div>
   );

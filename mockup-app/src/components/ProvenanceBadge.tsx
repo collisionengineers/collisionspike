@@ -123,12 +123,21 @@ const useStyles = makeStyles({
 export interface ProvenanceBadgeProps {
   provenance: FieldProvenance;
   reviewState: ReviewState;
+  /** The EVA field this badge annotates (e.g. 'mileage'). When set, lets a
+   *  field carry a field-specific pill label — used so a DVSA-sourced mileage
+   *  reads "Estimated" rather than the generic "DVLA". */
+  fieldKey?: string;
 }
 
 /** One provenance token: fixed source-colour key + shape-coded review state, with full detail in a Tooltip. */
-export function ProvenanceBadge({ provenance, reviewState }: ProvenanceBadgeProps) {
+export function ProvenanceBadge({ provenance, reviewState, fieldKey }: ProvenanceBadgeProps) {
   const styles = useStyles();
   const key = SOURCE_KEY[provenance.sourceType];
+  // The DVSA mileage estimate (sourceType=dvla_dvsa, field=mileage) reads
+  // "Estimated" on the pill — the visible cue that this is an MOT-history
+  // estimate, not a documented mileage. Colour/aria/tooltip stay the DVLA key.
+  const pillLabel =
+    provenance.sourceType === 'dvla_dvsa' && fieldKey === 'mileage' ? 'Estimated' : key;
   const sourceName = SOURCE_LABEL[provenance.sourceType];
   const confidencePct =
     provenance.confidence != null ? `${Math.round(provenance.confidence * 100)}%` : undefined;
@@ -171,7 +180,7 @@ export function ProvenanceBadge({ provenance, reviewState }: ProvenanceBadgeProp
     <Tooltip content={tip} relationship="description" withArrow>
       <span className={styles.pill} aria-label={`${key} source — ${reviewLabel}`}>
         <span className={styles.swatch} style={{ backgroundColor: SOURCE_COLOR[key] }} />
-        <span className={styles.label}>{key}</span>
+        <span className={styles.label}>{pillLabel}</span>
         {glyph}
         <span className={styles.srOnly}>{reviewLabel}</span>
       </span>
