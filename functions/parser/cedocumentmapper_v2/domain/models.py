@@ -154,4 +154,11 @@ class ExtractedRecord:
     # Free-text provenance lines (e.g. "Applied engineer report: <file>"), mirroring v1's
     # per-session notes. Empty for a plain single-document extraction.
     notes: tuple[str, ...] = ()
+    # True when the instruction text signals an AUDIT case — a second, independent
+    # CE inspection auditing a THIRD-PARTY engineer's original report (a distinct
+    # case-type marked by an "A." Case/PO prefix; see collisionspike ADR-0014).
+    # NOT the engineer-report overlay (which merges CE's OWN CNX/EVA report). The
+    # audit_signals list the instruction phrases that fired, so the call is auditable.
+    is_audit: bool = False
+    audit_signals: tuple[str, ...] = ()
 
