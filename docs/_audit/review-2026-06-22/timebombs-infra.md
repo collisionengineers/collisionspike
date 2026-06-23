@@ -44,7 +44,7 @@ Confirmed findings by corrected severity: **0 critical · 0 high · 1 medium · 
 
 ## [LOW] Untracked Azure resource-inventory CSVs at repo root are not gitignored and could be committed accidentally
 
-**Location:** `C:/Users/Alex/Documents/GitHub/collisionspike/Azureresources.csv`; `"Azureresources (1).csv"`; `.gitignore` (no CSV / Azure-export rule).
+**Location:** `../../../Azureresources.csv`; `"Azureresources (1).csv"`; `.gitignore` (no CSV / Azure-export rule).
 
 **Evidence:** Both untracked CSVs contain portal rows enumerating every resource under `rg-collisionspike-dev` including the subscription id `e6076573-23a5-46a8-acef-7e22d264e5db` (function apps, key vaults, storage accounts, container registry, Document Intelligence, etc.; `Azureresources.csv` lines 2-37). `git check-ignore Azureresources.csv` returns NOT IGNORED for both, so a stray `git add .` would commit them. `.gitignore` lines 23-30 cover `.env`/`*.pem`/`*.key`/`secrets.json`/`local.settings.json` but no rule matches these portal exports.
 

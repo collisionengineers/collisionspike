@@ -67,7 +67,7 @@ The recommendation is sound and the infra is indeed generic: the loop already pr
 
 Not intentional-by-design: nothing in the script header (lines 1-14, which claims to test "every slice ... Azure Functions") or in comments signals that 4 of 6 suites are deliberately excluded; the comment at line 78 says "(parser + enrichment)" descriptively but the header's "every slice" promise is broken. The gap is a genuine coverage hole, not a feature gate. Severity "medium" is fair: the un-run suites include real parity/drift guards whose whole purpose is to fail CI on silent divergence, yet they sit outside the only aggregate gate.
 
-Files: `C:/Users/Alex/Documents/GitHub/collisionspike/verify-all.mjs` (loop at line 79; per-dir venv probe + skip at 80-87); `C:/Users/Alex/Documents/GitHub/collisionspike/ocr/tests/test_eva_map_in_sync_with_parser.py`; `C:/Users/Alex/Documents/GitHub/collisionspike/functions/parser/tests/test_schema_vendored_in_sync.py`; `C:/Users/Alex/Documents/GitHub/collisionspike/CURRENT_STATUS.md:170`.
+Files: `../../../verify-all.mjs` (loop at line 79; per-dir venv probe + skip at 80-87); `../../../ocr/tests/test_eva_map_in_sync_with_parser.py`; `../../../functions/parser/tests/test_schema_vendored_in_sync.py`; `../../../CURRENT_STATUS.md:170`.
 
 ## [LOW] provider-match flow is orphaned-by-design and its anchored-domain match logic is duplicated verbatim inside intake
 

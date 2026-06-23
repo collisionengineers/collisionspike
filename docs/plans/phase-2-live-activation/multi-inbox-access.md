@@ -266,7 +266,7 @@ Per inbox, after Phase B:
 ## 9. Files & exact identifiers referenced
 
 - **Flow definition (authored, V2-shaped, parameterised):**
-  `C:/Users/Alex/Documents/GitHub/collisionspike/flows/definitions/intake.definition.json`
+  `../../../flows/definitions/intake.definition.json`
   — trigger `SharedMailboxOnNewEmailV2`, `mailboxAddress = @parameters('IntakeMailbox')`, `folderId='Inbox'`,
   `concurrency.runs = 1`; `MinIntakeDate` guard (`Drop_if_before_min_date`); Message-ID dedup
   (`Find_existing_by_messageId`).

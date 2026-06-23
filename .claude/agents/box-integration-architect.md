@@ -61,7 +61,7 @@ you do NOT author the connector OpenAPI, the Functions, the flows, or the schema
 
 - Lean on the **box-rest-api** skill as your primary endpoint / scope / limit / auth reference.
 - Verify against **developer.box.com / support.box.com** + the local Box mirror at
-  `C:/Users/Alex/Documents/GitHub/automationsresearch/box/markdown`; carry the **verified-vs-unverified**
+  `../../../../research/automationsresearch/box/markdown`; carry the **verified-vs-unverified**
   split honestly (the ~60-min token, the ~1000 webhook ceiling, and the "2xx within 30s" ceiling are
   **UNVERIFIED** — confirm at build, do not assert as fact).
 - The **authoritative contract** is the **00-BUILD-PLAN reconciliation table + roll-up**
