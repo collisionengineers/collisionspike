@@ -43,6 +43,11 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+# MS Office lock/owner temp files (created while a doc is open)
+~$*
+
+# Claude Code worktree scratch (transient agent worktrees)
+.claude/worktrees/
 
 # Test / coverage
 coverage/
