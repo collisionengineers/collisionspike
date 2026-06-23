@@ -11,7 +11,7 @@ explicit **Do-NOT-do-yet** list.
 | 0 | [`00-strategy.md`](./00-strategy.md) | Cross-cutting prioritization, anti-features, next-3-moves, north star |
 | 1 | [`01-power-platform-native.md`](./01-power-platform-native.md) | Copilot, AI Builder, Dataverse search/audit, Power Automate patterns, Power BI/Pages, ALM/DLP |
 | 2 | [`02-azure-ai-document.md`](./02-azure-ai-document.md) | Document Intelligence/OCR, Azure OpenAI, AI Search, Maps vs postcode.io, Service Bus, observability, cost |
-| 3 | [`03-domain-workflow.md`](./03-domain-workflow.md) | EVA Sentry REST, Box, chasers, dedup/matching, address-matching, enrichment, dormancy, image rules |
+| 3 | [`03-domain-workflow.md`](./03-domain-workflow.md) | EVA Sentry REST, Box, chasers, dedup/matching, the offline inspection-address suggestions corpus, enrichment, dormancy, image rules |
 
 ## The convergent answer (all four lanes agree)
 
@@ -19,10 +19,10 @@ explicit **Do-NOT-do-yet** list.
 
 1. ✅ **DONE 2026-06-18 — Live email intake activated on `digital@` mailbox.** `CS Intake` / Provider Match / Case Resolve ON; test email created a real `cr1bd_cases` row. New #1: corpus incorporation + downstream-flow activation (Classify+Persist, Parse, Status Evaluate, Enrich) + parser CSP/connector fix.
 2. **Incorporate the confirmed provider corpus into Dataverse** — *Claude, in parallel*, pure data, no inbox contact (`docs/plans/phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md`). Widens from a 45-row seed toward the real **active** base (the 137 off-jobsheet principals) and lays the `Repairer`/`InspectionAddress`/yard rows the next move needs.
-3. **Address-matching service (with the fast-confirm queue)** — *Claude, depends on #2*. **The single highest-leverage thing the data unlocks**: ~35% of the 7,474 part-postcode cases are pre-solved from each principal's own repeat-postcode history, so the operator confirms a volume-ranked queue with one click (one confirm = **814 QCL cases at M12 5FX**) instead of researching 638 districts. Resolves the 57%-part-postcode data-quality gap → EVA field 9. postcode.io, `AZURE_MAPS_ENABLED=false`.
+3. **Offline inspection-address suggestions corpus (full addresses only)** — *Claude, depends on #2*. **The single highest-leverage thing the data unlocks**: ~35% of the 7,474 part-postcode cases are pre-solved offline from each principal's own repeat-postcode history into provider-scoped suggestions, so staff pick a volume-ranked suggestion with one click (one pick = **814 QCL cases at M12 5FX**) instead of researching 638 districts. Resolves the 57%-part-postcode data-quality gap → EVA field 9. **No runtime resolver** (ADR-0013); partials stay a backlog. postcode.io, `AZURE_MAPS_ENABLED=false`.
 4. **EVA JSON drag-drop → EVA test + Box** — *operator (B5)*. Proves the 12-field contract end-to-end **before** any REST work.
 
-**Per-lane top pick:** L1 → **Managed Environments + DLP + Dataverse search + Power Automate retry/try-catch** (governance & reliability, free with the Premium licence Code App users already need). L2 → **Document Intelligence `prebuilt-read` to close the scanned-PDF OCR gap (B-full)**, feeding the *existing* parser rules (zero new infra, ~£0 at volume). L3 → **address-matching fast-confirm**. L0 → the sequence above.
+**Per-lane top pick:** L1 → **Managed Environments + DLP + Dataverse search + Power Automate retry/try-catch** (governance & reliability, free with the Premium licence Code App users already need). L2 → **Document Intelligence `prebuilt-read` to close the scanned-PDF OCR gap (B-full)**, feeding the *existing* parser rules (zero new infra, ~£0 at volume). L3 → **the offline inspection-address suggestions corpus → manual pick**. L0 → the sequence above.
 
 ## Explicit anti-features (don't build yet — and why)
 

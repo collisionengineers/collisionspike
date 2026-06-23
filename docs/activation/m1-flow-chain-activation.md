@@ -33,7 +33,7 @@ the live `CS Intake` does not call the children, and the children are stale + of
 
 ## Activation steps (operator, in order)
 
-**Pre-req already true:** parser Function live + connector bound; addressmatch + OCR deployed; corpus loaded.
+**Pre-req already true:** parser Function live + connector bound; OCR deployed; corpus loaded.
 
 1. **Re-import the corrected flow definitions** so live = repo (orchestrator + the fixed children).
    Import the `CollisionSpikeFlows` solution (or update each flow in the designer from

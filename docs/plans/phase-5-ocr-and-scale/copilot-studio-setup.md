@@ -30,7 +30,7 @@ M3 — see [valuation-and-copilot.md](./valuation-and-copilot.md); the older
 | Milestone | What it is | Copilot? |
 |---|---|---|
 | **M1** | One case end-to-end on the permanent-fallback transport (parser, all 3 inboxes live, DVSA enrichment, EVA JSON drag-drop, readiness gate, address-policy gate, plate-OCR) | **No** |
-| **M2** | Automation + richer transports at scale (EVA Sentry REST, EVA-validation Function, Box archival, address-matching service, chaser-send, image classification/reflection) | **No** |
+| **M2** | Automation + richer transports at scale (EVA Sentry REST, EVA-validation Function, Box archival, chaser-send, image classification/reflection) | **No** |
 | **M3** | Assistive / optional, all gated-OFF, off the EVA/Box critical path (**valuation**, **Copilot Studio**, Azure Maps, WhatsApp bulk import, Dataverse-MCP-in-Copilot) | **Yes — this doc** |
 
 ---

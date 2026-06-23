@@ -91,8 +91,11 @@ images without instructions) and are held with a chaser workflow until complete.
 - **Image rules / case-status** mirror `collisioncc` (`src/lib/image-rules.ts`,
   `src/lib/case-status.ts`): ≥2 EVA images incl. one `overview` (registration visible) + one
   `damage_closeup`; status `new_email → ingested → needs_review → ready_for_eva → eva_submitted`.
-- **Inspection address** is derived ad hoc, falling back to "Image Based Assessment"; normalise via
-  postcode.io. Not fully specified — surface as an open question.
+- **Inspection address** comes from an **offline-derived, full-address-only suggestions corpus**
+  (`cr1bd_inspectionaddress`) that staff **pick/edit manually**, falling back to "Image Based
+  Assessment" with a reason. `Loc` is an **EVA-export artifact, not an intake input**, and there is
+  **no runtime address matcher** (the one that misread `Loc` was removed 2026-06-23). See **ADR-0013**
+  and `docs/architecture/inspection-address-corpus.md`.
 - **Enrichment:** valuation evidence (Companion Report PDF), mileage (from MOT), Experian
   adverse-history (EVA built-in).
 

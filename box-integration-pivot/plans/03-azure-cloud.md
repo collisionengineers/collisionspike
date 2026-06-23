@@ -27,9 +27,8 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
   `authentication.type:SystemAssignedIdentity`), `minimumTlsVersion TLS1_2`, `httpsOnly:true`,
   app-settings KV references `@Microsoft.KeyVault(SecretUri=…)`, MI granted **Key Vault Secrets User**
   (`4633458b-17de-408a-b874-0445c86b69e6`) + **Storage Blob Data Owner**
-  (`b7e6dc6d-f1e8-4753-8033-0f276bb0955b`). `functions/addressmatch/infra/main.bicep` is the same
-  shape **without** a Key Vault (no-secrets variant) — the closest analogue for the webhook Function's
-  M1 surface (no per-instance secret *except* the HMAC key, which is the one KV ref we add).
+  (`b7e6dc6d-f1e8-4753-8033-0f276bb0955b`). The webhook Function's M1 surface needs **one** per-instance
+  secret — the HMAC key — so it clones the enrichment Key Vault shape and keeps just that single KV ref.
 - **Custom-connector pattern (the template to clone)** —
   `functions/parser/openapi/parser-connector.json`: OpenAPI **2.0**, single `securityDefinitions`
   entry `apiKey` in header (`x-functions-key`), `security: [{apiKeyHeader:[]}]`, the key stored
@@ -42,8 +41,8 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
   the only service-identity escalation". This plan **adds a PARALLEL `cr1bd_box_rest`** for the custom
   connector and **keeps `cr1bd_box` first-party** for `finalize-eva-box`'s `CreateFile` byte path
   (PINNED — 04 §4, ADR-0012).
-- **Live Functions (4)** — parser `cespike-parser-dev-x7xt3d5ovhi7y`, enrichment `cespkenrich-fn-gi62sd`,
-  addressmatch `cespkaddr-fn-i7m4re`, evavalidation `cespkeval-fn-6c6fxd` — all FC1, registry in
+- **Live Functions (3)** — parser `cespike-parser-dev-x7xt3d5ovhi7y`, enrichment `cespkenrich-fn-gi62sd`,
+  evavalidation `cespkeval-fn-6c6fxd` — all FC1, registry in
   `docs/architecture/live-environment.md`. (OCR `cespkocr` on Azure Container Apps is host-pending and
   is **out of scope** for this section.)
 - **Evidence byte store** — Azure Blob account `cespkevidstdev01`, container `evidence`; written by
@@ -345,6 +344,6 @@ authorization, and the `frame-src` CSP edit stay **operator-gated**. Claude neve
 - `box-integration-pivot/04-target-architecture.md` (B1–B4 phased gated build, the CCG/webhook unlock)
 - `box-integration-pivot/07-flaws-risks-and-open-questions.md` (webhook best-effort, File-Request→event unproven, dual-truth)
 - `box-integration-pivot/plans/05-dataverse.md` (the `BOX_*` gates + `cr1bd_case` Box columns this section consumes)
-- `functions/enrichment/infra/main.bicep`, `functions/addressmatch/infra/main.bicep` (FC1 clone targets)
+- `functions/enrichment/infra/main.bicep` (FC1 clone target; `cespkenrich-fn-gi62sd`)
 - `functions/parser/openapi/parser-connector.json` (OpenAPI 2.0 + api-key-on-connection clone target)
 - `flows/connection-references.json` (the parallel `cr1bd_box_rest` entry added by this plan; first-party `cr1bd_box` kept)

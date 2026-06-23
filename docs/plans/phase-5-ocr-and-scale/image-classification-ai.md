@@ -59,7 +59,7 @@ M1, and it changes **no canonical contract** — `image-rules.ts` already consum
 | `mockup-app/src/contracts/image-rules.ts` | **Canonical** | Needs ≥2 accepted images, ≥1 `overview` with `registrationVisible===true`, ≥1 `damage_closeup`. **`imageRole` and `excluded` are the two fields §5b automates.** `registrationVisible` is **OCR's** job (M1), not classification's. |
 | `Evidence` (`cr1bd_evidences`) | **Live** | Carries `imageRole` (overview/damage_closeup/additional/unknown), `registrationVisible`, `acceptedForEva`, `excluded`. §5b writes `imageRole` (classifier) + `excluded` (reflection filter). No schema change. |
 | Plate OCR (`ocr-strategy.md`, M1) | **Planned/partly built** | Owns `registrationVisible` + VRM-match (incl. WhatsApp bulk import). §5b builds **on top** — classification + reflection, not OCR. |
-| The 5×"thin Function → connector → env-var gate" precedent | **Live** (parser, enrichment, evasentry, evavalidation, addressmatch) | §5b's Function reuses this shape verbatim — function-key connector, gate enforced **upstream** in the flow/Code App, secrets as Key Vault refs. |
+| The "thin Function → connector → env-var gate" precedent | **Live** (parser, enrichment, evasentry, evavalidation) | §5b's Function reuses this shape verbatim — function-key connector, gate enforced **upstream** in the flow/Code App, secrets as Key Vault refs. |
 | Env-vars `AZURE_VISION_ENABLED`, `COPILOT_ENABLED`; phase-2 names `AIBUILDER_CLASSIFY_ENABLED` | **Exist / proposed** | §5b is gated by a Dataverse env-var (default OFF), like everything non-trivial. |
 | ADR-0009 / ADR-0007 | **Binding** | M1 = OCR-for-registration only; **classification + reflection = M2**; WhatsApp media = manual bulk import, OCR-match by VRM. |
 
@@ -102,7 +102,7 @@ it doesn't replace it.
 
 ## 4. One vision Function, two routes (the recommended build)
 
-Mirror `functions/evasentry` / `functions/addressmatch`: a thin Azure Function, function-key auth, two
+Mirror `functions/evasentry` / `functions/enrichment`: a thin Azure Function, function-key auth, two
 routes, one custom connector, Dataverse env-var gate enforced **upstream**.
 
 | Route | In | Out | Engine |
