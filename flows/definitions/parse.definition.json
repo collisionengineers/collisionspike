@@ -96,8 +96,35 @@
               "item/cr1bd_evamileageunit": "@body('Call_parser')?['extraction/mileage_unit/value']"
             }
           },
-          "comment": "12 EVA fields written as pre-fill for staff review (never auto-final). FieldLevelProvenance rows (sourceType=pdf_extraction, reviewState=needs_review) are written by the provenance writer; re-parse overwrites only pdf_extraction-sourced fields still in needs_review.",
+          "comment": "12 EVA fields written as pre-fill for staff review (never auto-final). The mileage FieldLevelProvenance row (sourceType=pdf_extraction, reviewState=needs_review, sourceLabel='From instructions') is written by Write_mileage_provenance below — the marker the documentation-first source-priority logic relies on. (S1: mileage is the first provenance field this flow writes; the other 11 fields get their rows when the per-field provenance writer is generalised. ADR-0006 logic already lives in enrich.definition.json's Set_documentHasMileage.) Re-parse overwrites only pdf_extraction-sourced fields still in needs_review.",
           "runAfter": { "Call_parser": [ "Succeeded" ] }
+        },
+        "Write_mileage_provenance": {
+          "type": "If",
+          "expression": { "not": { "equals": [ "@coalesce(string(body('Call_parser')?['extraction/mileage/value']), '')", "" ] } },
+          "comment": "MARKER WRITER (S1): when the parser extracted a mileage, write a FieldLevelProvenance row stamping the documented/instructions source. cr1bd_fieldname uses the camelCase EVA key 'mileage' (the EVA_FIELD_ORDER key the adapter joins on), NOT the Case column cr1bd_evamileage. This is the row that makes the 'From instructions' provenance badge appear and proves document mileage won (enrich.definition.json fills the DVSA estimate ONLY when this never ran). Mirrors the Audit_parser_called CreateRecord idiom (same connection/host); Case lookup via cr1bd_Caseid@odata.bind.",
+          "actions": {
+            "Create_mileage_provenance": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_fieldlevelprovenances",
+                  "item/cr1bd_name": "@concat('mileage @ ', variables('caseId'))",
+                  "item/cr1bd_fieldname": "mileage",
+                  "item/cr1bd_sourcetype": 100000001,
+                  "item/cr1bd_sourcelabel": "From instructions",
+                  "item/cr1bd_value": "@string(body('Call_parser')?['extraction/mileage/value'])",
+                  "item/cr1bd_reviewstate": 100000001,
+                  "item/cr1bd_Caseid@odata.bind": "@concat('cr1bd_cases(', variables('caseId'), ')')"
+                }
+              },
+              "comment": "cr1bd_sourcetype=100000001 (pdf_extraction, per dataverse/choicesets/field-provenance-source-type.json); cr1bd_reviewstate=100000001 (needs_review, per dataverse/choicesets/review-state.json). Both READ from the real artifacts, not guessed.",
+              "runAfter": {}
+            }
+          },
+          "runAfter": { "Prefill_eva_fields": [ "Succeeded" ] }
         },
         "Audit_parser_called": {
           "type": "OpenApiConnection",
@@ -114,7 +141,7 @@
               "item/cr1bd_occurredat": "@utcNow()"
             }
           },
-          "runAfter": { "Prefill_eva_fields": [ "Succeeded" ] }
+          "runAfter": { "Write_mileage_provenance": [ "Succeeded", "Skipped" ] }
         }
       },
       "else": {
