@@ -126,6 +126,25 @@
                   "item/cr1bd_evamileageunit": "@coalesce(body('Call_dvsa_enrich')?['mileage_unit'], 'Miles')" }
               },
               "runAfter": {}
+            },
+            "Write_mileage_provenance": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
+                "parameters": {
+                  "entityName": "cr1bd_fieldlevelprovenances",
+                  "item/cr1bd_name": "@concat('mileage @ ', variables('caseId'))",
+                  "item/cr1bd_fieldname": "mileage",
+                  "item/cr1bd_sourcetype": 100000005,
+                  "item/cr1bd_sourcelabel": "Estimated mileage (DVSA MOT history)",
+                  "item/cr1bd_value": "@string(body('Call_dvsa_enrich')?['current_mileage'])",
+                  "item/cr1bd_reviewstate": 100000001,
+                  "item/cr1bd_Caseid@odata.bind": "@concat('cr1bd_cases(', variables('caseId'), ')')"
+                }
+              },
+              "comment": "MARKER WRITER (S1): the 'estimated' mileage provenance can only be written HERE, where the branch has already proven documentHasMileage==false (Set_mileage_if_doc_empty guard) — so document mileage is never mis-stamped as estimated. cr1bd_fieldname='mileage' (camelCase EVA key, NOT cr1bd_evamileage). cr1bd_sourcetype=100000005 (dvla_dvsa, per dataverse/choicesets/field-provenance-source-type.json); cr1bd_reviewstate=100000001 (needs_review, per dataverse/choicesets/review-state.json). Mirrors the Audit_enrichment_called CreateRecord idiom; Case lookup via cr1bd_Caseid@odata.bind.",
+              "runAfter": { "Patch_mileage": [ "Succeeded" ] }
             }
           },
           "runAfter": { "Set_vehicle_model_if_empty": [ "Succeeded" ] }

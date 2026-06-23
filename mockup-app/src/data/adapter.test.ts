@@ -211,6 +211,39 @@ describe('EVA fields <-> Case columns + provenance', () => {
     expect(built.vehicleModel.provenance.confidence).toBe(0.97);
     expect(built.vehicleModel.provenance.sourceLabel).toBe('Instruction PDF p.1');
   });
+
+  it("round-trips an enrich-written DVSA mileage row (dvla_dvsa + 'Estimated mileage' label)", () => {
+    // The exact shape Flow_Enrich's Write_mileage_provenance CreateRecord writes
+    // into cr1bd_fieldlevelprovenances when the document had no mileage.
+    const cols = evaFieldsToColumns(cases[0].evaFields);
+    const built = evaFieldsFromRecord(cols, [
+      {
+        cr1bd_fieldname: 'mileage',
+        cr1bd_sourcetype: sourceTypeCodec.toInt('dvla_dvsa'),
+        cr1bd_sourcelabel: 'Estimated mileage (DVSA MOT history)',
+        cr1bd_reviewstate: reviewStateCodec.toInt('needs_review'),
+      },
+    ]);
+    expect(built.mileage.provenance.sourceType).toBe('dvla_dvsa');
+    expect(built.mileage.provenance.sourceLabel).toBe('Estimated mileage (DVSA MOT history)');
+    expect(built.mileage.reviewState).toBe('needs_review');
+  });
+
+  it("round-trips a parser-written mileage row (pdf_extraction + 'From instructions' label)", () => {
+    // The exact shape Flow_Parse's Create_mileage_provenance CreateRecord writes
+    // when the parser extracted a documented mileage.
+    const cols = evaFieldsToColumns(cases[0].evaFields);
+    const built = evaFieldsFromRecord(cols, [
+      {
+        cr1bd_fieldname: 'mileage',
+        cr1bd_sourcetype: sourceTypeCodec.toInt('pdf_extraction'),
+        cr1bd_sourcelabel: 'From instructions',
+        cr1bd_reviewstate: reviewStateCodec.toInt('needs_review'),
+      },
+    ]);
+    expect(built.mileage.provenance.sourceType).toBe('pdf_extraction');
+    expect(built.mileage.provenance.sourceLabel).toBe('From instructions');
+  });
 });
 
 /* ============================================================
