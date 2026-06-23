@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
   "contentVersion": "1.0.0.0",
-  "comment": "Flow_AddressResolve (ROADMAP 4a — inspection-address matching). Request-triggered child taking { caseId }. Reads the Case, derives the OUTWARD postcode code from cr1bd_evainspectionaddress with a pure Power-Automate expression (no Function), lists district-filtered candidate sites from cr1bd_repairers (+ cr1bd_inspectionaddresses) via startswith(cr1bd_postcode,'<outward>'), then calls the MatchAddress op (custom connector cr1bd_addressmatch -> the cespkaddr-fn matcher) passing { caseLoc, principalCode, repairers, inspectionAddresses }. On a CONFIRMED match (decisionMode=confirmed_physical AND matched=true) it Patches cr1bd_evainspectionaddress + cr1bd_inspectiondecision on the Case; any other outcome (needsReviewerDecision / unknown / image_based / no district) leaves the Case untouched for staff review — GATED-SAFE, no destructive write without a confirmed physical match. Matching is advisory and never blocks intake (mirrors enrich.definition.json's advisory posture). [BUILD] flow. ACTIVATION [RESERVED-FOR-USER]: import the cr1bd_addressmatch custom connector + bind its connection (function key) to cespkaddr-fn-i7m4re, then turn CS Address Resolve ON. CAVEAT (the deep value): the parser emits a FULL address into cr1bd_evainspectionaddress and there is no cr1bd_loc district column yet, so for a full address the matcher short-circuits to confirmed_physical on the address it was handed; extracting a part-postcode Loc (parser inspection-location/district + optional cr1bd_loc) is the follow-up that unlocks district candidate ranking. Claude never binds the connection or activates the flow.",
+  "comment": "Flow_AddressResolve (ROADMAP 4a — inspection-address matching). Request-triggered child taking { caseId }. Reads the Case, derives the OUTWARD postcode code from cr1bd_evainspectionaddress with a pure Power-Automate expression (no Function), lists district-filtered candidate sites from cr1bd_repairers (+ cr1bd_inspectionaddresses) via startswith(cr1bd_postcode,'<outward>'), then calls the MatchAddress op (custom connector cr1bd_addressmatch -> the cespkaddr-fn matcher) passing { caseLoc, principalCode, repairers, inspectionAddresses }. On a CONFIRMED match (decisionMode=confirmed_physical AND matched=true) it Patches cr1bd_evainspectionaddress + cr1bd_inspectiondecision on the Case; any other outcome (needsReviewerDecision / unknown / image_based / no district) leaves the Case untouched for staff review — GATED-SAFE, no destructive write without a confirmed physical match. Matching is advisory and never blocks intake (mirrors enrich.definition.json's advisory posture). [BUILD] flow. ACTIVATION [RESERVED-FOR-USER]: import the cr1bd_addressmatch custom connector + bind its connection (function key) to cespkaddr-fn-i7m4re, then turn CS Address Resolve ON. CAVEAT (the deep value, why this ships state=off): the parser emits a FULL address into cr1bd_evainspectionaddress and there is no cr1bd_loc district column yet, so this flow derives only a best-effort heuristic district (the second-to-last whitespace token) and feeds THAT to the matcher; a full free-text address has no parseable postcode (the matcher returns needsReviewerDecision, no write). Reliable district candidate ranking needs the parser inspection-location/district extraction (+ optional cr1bd_loc column) — the [RESERVED] Loc-source follow-up. A further refinement: the candidate ListRecords do not $expand the repairer->WorkProvider N:N, so principal-ranking is inert until that linkage is added. Claude never binds the connection or activates the flow.",
   "parameters": {
     "$connections": { "type": "Object", "defaultValue": {} },
     "$authentication": { "type": "SecureObject", "defaultValue": {} }
@@ -57,9 +57,9 @@
       "type": "InitializeVariable",
       "inputs": { "variables": [ {
         "name": "outward", "type": "string",
-        "value": "@toUpper(first(split(trim(coalesce(outputs('Get_case')?['body/cr1bd_evainspectionaddress'], '')), ' ')))"
+        "value": "@toUpper(if(greaterOrEquals(length(split(trim(coalesce(outputs('Get_case')?['body/cr1bd_evainspectionaddress'], '')), ' ')), 2), first(skip(split(trim(coalesce(outputs('Get_case')?['body/cr1bd_evainspectionaddress'], '')), ' '), sub(length(split(trim(coalesce(outputs('Get_case')?['body/cr1bd_evainspectionaddress'], '')), ' ')), 2))), ''))"
       } ] },
-      "comment": "Derive the OUTWARD postcode code (district) with a pure expression: split the address on whitespace and take the FIRST token (UK postcodes are 'OUTWARD INWARD', e.g. 'CH5 4AB' -> 'CH5'); upper-case it for the startswith filter. Tolerant: a full address whose first token is not a postcode simply yields no district candidates and the matcher returns needsReviewerDecision -> no write. NO Function call (the district split is the trivial half; the matcher does the corpus ranking).",
+      "comment": "Heuristic OUTWARD postcode code (district): a full UK postcode 'OUTWARD INWARD' sits at the END of an address (e.g. '... Chester, CH5 4AB' -> 'CH5'), so take the SECOND-TO-LAST whitespace token, upper-cased for the startswith filter. This is a best-effort heuristic over a free-text address; a RELIABLE district needs the parser inspection-location/district extraction (the [RESERVED] Loc-source follow-up). Tolerant: an address whose second-to-last token is not an outward simply yields no district candidates and the matcher returns needsReviewerDecision -> no write.",
       "runAfter": { "Set_principalCode": [ "Succeeded" ] }
     },
     "Set_hasOutward": {
@@ -135,13 +135,13 @@
         "host": { "connectionName": "shared_addressmatch", "operationId": "MatchAddress",
           "apiId": "/providers/Microsoft.PowerApps/apis/shared_addressmatch" },
         "parameters": {
-          "body/caseLoc": "@variables('caseLoc')",
+          "body/caseLoc": "@if(variables('hasOutward'), variables('outward'), variables('caseLoc'))",
           "body/principalCode": "@variables('principalCode')",
           "body/repairers": "@variables('repairers')",
           "body/inspectionAddresses": "@variables('inspectionAddresses')"
         }
       },
-      "comment": "MatchAddress always returns 200 with { decisionMode, inspectionAddress, matched, needsReviewerDecision, candidates[], locKind, district, warnings[] }. Stateless: the flow passed the district-filtered corpus rows in the body so the flow stays the SOLE Dataverse caller (the Function never reads Dataverse). The function key lives on the cr1bd_addressmatch connection, never here. [RESERVED-FOR-USER] to bind cr1bd_addressmatch to the live cespkaddr-fn-i7m4re.",
+      "comment": "MatchAddress always returns 200 with { decisionMode, inspectionAddress, matched, needsReviewerDecision, candidates[], locKind, district, warnings[] }. caseLoc is the DERIVED district (outward) when we have one (the matcher's parse_postcode then classifies it locKind=part and ranks district candidates); a full free-text address has no parseable postcode (parse_postcode is anchored -> locKind=none -> needsReviewerDecision), so reliable auto-resolve depends on the Loc-source follow-up. Stateless: the flow passed the district-filtered corpus rows in the body so the flow stays the SOLE Dataverse caller. The function key lives on the cr1bd_addressmatch connection, never here. [RESERVED-FOR-USER] to bind cr1bd_addressmatch to the live cespkaddr-fn-i7m4re.",
       "runAfter": { "If_have_district": [ "Succeeded" ] }
     },
     "If_confirmed_match": {
@@ -226,8 +226,8 @@
           "item/cr1bd_occurredat": "@utcNow()"
         }
       },
-      "comment": "Address matching is advisory and never blocks intake: on a matcher 5xx/timeout or a list failure, audit (severity=warning) and continue — the Case address is left exactly as parsed.",
-      "runAfter": { "If_confirmed_match": [ "Failed", "TimedOut" ], "Call_match_address": [ "Failed", "TimedOut" ] }
+      "comment": "Address matching is advisory and never blocks intake: on a matcher 5xx/timeout, audit (severity=warning) and continue — the Case address is left exactly as parsed. Depends on Call_match_address alone (single key): an AND with If_confirmed_match could never hold, because a failed matcher call leaves If_confirmed_match Skipped (not Failed/TimedOut). Mirrors enrich.definition.json's Audit_enrichment_failed.",
+      "runAfter": { "Call_match_address": [ "Failed", "TimedOut" ] }
     },
     "Respond_to_parent": {
       "type": "Response",
