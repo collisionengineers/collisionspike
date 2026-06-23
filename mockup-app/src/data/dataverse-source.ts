@@ -227,7 +227,7 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     if (input.inspectionDecisionReason?.trim()) {
       try {
         await services.notes.create({
-          _cr1bd_caseid_value: newId,
+          'cr1bd_Caseid@odata.bind': `/cr1bd_cases(${newId})`,
           cr1bd_author: 'Manual intake (Code App)',
           cr1bd_timestamp: new Date().toISOString(),
           cr1bd_text: `Inspection decision: image-based — ${input.inspectionDecisionReason.trim()}`,
@@ -334,8 +334,9 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       if (TERMINAL.has(tgt.status)) {
         throw new Error('Cannot merge into a finalised (terminal) case.');
       }
-      // 1. Reparent the source's evidence onto the target (the established
-      //    `_cr1bd_caseid_value` write shape, as used for provenance/evidence rows).
+      // 1. Reparent the source's evidence onto the target. A lookup is rebound on
+      //    WRITE via the @odata.bind navigation property — the `_<rel>_value` form
+      //    is read-only (valid only in $filter queries, as used just below).
       const evRes = await services.evidence.getAll({
         filter: `_cr1bd_caseid_value eq ${sourceCaseId}`,
       });
@@ -343,7 +344,7 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       for (const e of evRes.data ?? []) {
         if (!e.cr1bd_evidenceid) continue;
         await services.evidence.update(e.cr1bd_evidenceid, {
-          _cr1bd_caseid_value: targetCaseId,
+          'cr1bd_Caseid@odata.bind': `/cr1bd_cases(${targetCaseId})`,
         });
         moved += 1;
       }
@@ -561,9 +562,10 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       }
     },
 
-    // The ONE Code-App env-var WRITE: upsert the hold-by-default value row. After
-    // deploy applies a value row, this is an UPDATE by value-id (no lookup bind);
-    // the create branch is the rare cold path. Needs env-var customization rights.
+    // The ONE Code-App env-var WRITE: upsert the hold-by-default value row. The var
+    // ships default-only (no value row), so the FIRST toggle on any environment hits
+    // CREATE (binds the definition via @odata.bind); later toggles UPDATE by value-id.
+    // Needs env-var customization rights + the env-var tables wired into the seam.
     setHoldNewCasesDefault: async (value): Promise<void> => {
       const defsSvc = services.environmentVariableDefinitions;
       const valsSvc = services.environmentVariableValues;
@@ -588,7 +590,7 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       } else {
         await valsSvc.create({
           value: valueStr,
-          _environmentvariabledefinitionid_value: defId,
+          'EnvironmentVariableDefinitionId@odata.bind': `/environmentvariabledefinitions(${defId})`,
         });
       }
     },

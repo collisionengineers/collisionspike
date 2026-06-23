@@ -372,7 +372,8 @@ export interface CaseRecord {
 export interface EvidenceRecord {
   cr1bd_evidenceid?: string;
   cr1bd_filename?: string;
-  _cr1bd_caseid_value?: string;
+  _cr1bd_caseid_value?: string; // read form ($filter); writes use the @odata.bind below
+  'cr1bd_Caseid@odata.bind'?: string; // write form: '/cr1bd_cases(<guid>)'
   cr1bd_kind?: number; // cr1bd_evidencekind integer
   cr1bd_imagerole?: number; // cr1bd_imagerole integer
   cr1bd_registrationvisible?: boolean;
@@ -426,7 +427,8 @@ export interface WorkProviderRecord {
 /** A FieldLevelProvenance row (cr1bd_fieldlevelprovenance logical names). */
 export interface FieldLevelProvenanceRecord {
   cr1bd_fieldlevelprovenanceid?: string;
-  _cr1bd_caseid_value?: string;
+  _cr1bd_caseid_value?: string; // read form ($filter); writes use the @odata.bind below
+  'cr1bd_Caseid@odata.bind'?: string; // write form: '/cr1bd_cases(<guid>)'
   cr1bd_fieldname?: string; // EVA_FIELD_ORDER camelCase key
   cr1bd_value?: string;
   cr1bd_sourcetype?: number; // cr1bd_fieldprovenancesourcetype integer
@@ -442,7 +444,8 @@ export interface FieldLevelProvenanceRecord {
 /** A Note row (cr1bd_note logical names). */
 export interface NoteRecord {
   cr1bd_noteid?: string;
-  _cr1bd_caseid_value?: string;
+  _cr1bd_caseid_value?: string; // read form ($filter); writes use the @odata.bind below
+  'cr1bd_Caseid@odata.bind'?: string; // write form: '/cr1bd_cases(<guid>)'
   cr1bd_author?: string;
   cr1bd_timestamp?: string;
   cr1bd_text?: string;
@@ -486,8 +489,10 @@ export interface EnvironmentVariableValueRecord {
   environmentvariablevalueid?: string;
   /** The override value (Memo/Text up to 2000). Coalesced over the default. */
   value?: string;
-  /** Lookup back to the owning definition (GUID), for join-side filtering. */
+  /** Lookup back to the owning definition (GUID), for join-side filtering (read). */
   _environmentvariabledefinitionid_value?: string;
+  /** Write form for the definition lookup on create: '/environmentvariabledefinitions(<guid>)'. */
+  'EnvironmentVariableDefinitionId@odata.bind'?: string;
 }
 
 /** An AuditEvent / activity row (cr1bd_auditevent logical names — see

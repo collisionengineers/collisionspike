@@ -274,7 +274,7 @@ export function evaFieldToProvenanceRow(
   field: EvaField,
 ): FieldLevelProvenanceRecord {
   return {
-    _cr1bd_caseid_value: caseId,
+    'cr1bd_Caseid@odata.bind': `/cr1bd_cases(${caseId})`,
     cr1bd_fieldname: fieldName,
     cr1bd_value: field.value,
     cr1bd_sourcetype: sourceTypeCodec.toInt(field.provenance.sourceType),

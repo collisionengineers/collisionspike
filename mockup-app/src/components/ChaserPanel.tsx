@@ -252,6 +252,30 @@ export function ChaserPanel({
     );
   }
 
+  // A template applies to this case but not to the SELECTED channel (e.g. an
+  // images-only case offers only the email-only Instruction request and WhatsApp
+  // is selected) — activeTemplate is undefined here, so offer the channel switch
+  // rather than deref it (which would crash the render).
+  if (!activeTemplate) {
+    return (
+      <div className={styles.root}>
+        <Field label="Channel">
+          <RadioGroup
+            layout="horizontal"
+            value={channel}
+            onChange={(_, d) => onChannelChange(d.value as ChaserChannel)}
+          >
+            <Radio value="email" label="Email" />
+            <Radio value="whatsapp" label="WhatsApp" />
+          </RadioGroup>
+        </Field>
+        <Text className={styles.empty}>
+          No chaser template for {channel === 'whatsapp' ? 'WhatsApp' : 'Email'} on this case — switch channel.
+        </Text>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.root}>
       <Field label="Channel">

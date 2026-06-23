@@ -11,7 +11,7 @@ import './theme/theme.css';
 
 /* Mounts <App/> inside the canonical Power Apps <PowerProvider> (SDK bootstrap)
    and the CE-themed FluentProvider, with a single global Toaster
-   (id = GLOBAL_TOASTER_ID) that JsonView / ChaserPanel target.
+   (id = GLOBAL_TOASTER_ID) that ChaserPanel and the screens target.
 
    Order: PowerProvider warms the Power Apps host bridge so the data hooks read
    Dataverse against a ready SDK runtime. */
