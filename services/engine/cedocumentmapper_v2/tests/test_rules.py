@@ -1,6 +1,37 @@
 from pathlib import Path
 from cedocumentmapper_v2.domain.models import DocumentModel, DocumentPage, DocumentLine, FieldKey
 from cedocumentmapper_v2.rules import RuleEngine
+from cedocumentmapper_v2.rules.engine import IMAGE_BASED_ASSESSMENT
+
+
+def _doc(lines: list[DocumentLine]) -> DocumentModel:
+    return DocumentModel(
+        source_path=Path("dummy.pdf"),
+        source_type="pdf",
+        pages=(DocumentPage(page_index=0, lines=tuple(lines)),),
+        plain_text="\n".join(line.text for line in lines),
+    )
+
+
+def _inspection_address_record(address_text: str):
+    """Extract the inspection-address field for an arbitrary provider whose only
+    rule targets the inspection address (single labelled line). Returns the
+    FieldExtraction."""
+    doc = _doc([DocumentLine(text=f"Inspection Address: {address_text}", page_index=0, line_index=0)])
+    provider = {
+        "id": "p",
+        "name": "Provider",
+        "work_provider": "P",
+        "field_rules": {
+            "inspection_address": {
+                "id": "inspection_address",
+                "kind": "label_same_line",
+                "labels": ["Inspection Address"],
+            }
+        },
+    }
+    record = RuleEngine().extract_record(doc, provider)
+    return record.fields[FieldKey.INSPECTION_ADDRESS]
 
 
 def test_rule_label_same_line():
@@ -384,3 +415,183 @@ def test_rule_email_date():
     }
     extracted = engine.extract_field(doc, FieldKey.INSTRUCTION_DATE, rule)
     assert extracted.value == "31/05/2026"
+
+
+# ---------------------------------------------------------------------------
+# Image-based / desktop assessment inspection address (B3-style canonicalisation)
+# ---------------------------------------------------------------------------
+
+CANONICAL_IMAGE_BASED = IMAGE_BASED_ASSESSMENT + "\n\n\n\n\n"
+
+
+def test_inspection_address_image_based_assessment_canonicalised():
+    """'Image-based Assessment' must become the canonical value, not be blanked.
+
+    Regression for the bug where the inspection-address narrative filter detected
+    image-based wording and emptied the value (raw_value preserved but value="").
+    """
+    ext = _inspection_address_record("Image-based Assessment")
+    assert ext.value == CANONICAL_IMAGE_BASED
+    # raw_value is preserved exactly as extracted.
+    assert ext.raw_value == "Image-based Assessment"
+
+
+def test_inspection_address_desktop_inspection_canonicalised():
+    ext = _inspection_address_record("Desktop Inspection")
+    assert ext.value == CANONICAL_IMAGE_BASED
+    assert ext.raw_value == "Desktop Inspection"
+
+
+def test_inspection_address_image_based_variants_all_canonicalise():
+    """Reasonable case-insensitive variants all map to the canonical value."""
+    variants = [
+        "image based assessment",
+        "Image Based Assessment",
+        "image-based",
+        "image based",
+        "desktop assessment",
+        "desktop based",
+        "Desktop-based",
+        "electronic basis",
+        "IMAGE-BASED ASSESSMENT",
+        "  image-based assessment  ",
+    ]
+    for variant in variants:
+        ext = _inspection_address_record(variant)
+        assert ext.value == CANONICAL_IMAGE_BASED, f"variant {variant!r} -> {ext.value!r}"
+
+
+def test_inspection_address_junk_narrative_still_blanked():
+    """Genuine junk narrative is still emptied, exactly as before the fix."""
+    for junk in [
+        "Kind regards, John Smith",
+        "Please contact our office for details",
+        "We await your report",
+        "instructions@example.com",
+    ]:
+        ext = _inspection_address_record(junk)
+        assert ext.value == "", f"junk {junk!r} should blank, got {ext.value!r}"
+
+
+def test_inspection_address_real_physical_address_unchanged():
+    """A real physical address is preserved and not replaced by the canonical value."""
+    lines = [
+        DocumentLine(text="Somstar Recovery", page_index=0, line_index=0),
+        DocumentLine(text="Somstar House", page_index=0, line_index=1),
+        DocumentLine(text="Birmingham", page_index=0, line_index=2),
+        DocumentLine(text="B5 6JX", page_index=0, line_index=3),
+    ]
+    doc = DocumentModel(
+        source_path=Path("dummy.pdf"),
+        source_type="pdf",
+        pages=(DocumentPage(page_index=0, lines=tuple(lines)),),
+        plain_text="\n".join(line.text for line in lines),
+        metadata={"raw_lines": [line.text for line in lines]},
+    )
+    provider = {
+        "id": "p",
+        "name": "Provider",
+        "work_provider": "P",
+        "field_rules": {
+            "inspection_address": {
+                "id": "inspection_address",
+                "kind": "fixed_line",
+                "line_start": 1,
+                "line_end": 4,
+            }
+        },
+    }
+    record = RuleEngine().extract_record(doc, provider)
+    value = record.fields[FieldKey.INSPECTION_ADDRESS].value
+    assert value != CANONICAL_IMAGE_BASED
+    assert "Somstar" in value
+    assert "B5 6JX" in value
+
+
+def test_inspection_address_real_address_with_image_wording_keeps_address():
+    """Precedence: when BOTH a real address (postcode) and image-based wording are
+    present, the physical address wins -- the canonical value is NOT emitted."""
+    lines = [
+        DocumentLine(text="Assessment to be image based", page_index=0, line_index=0),
+        DocumentLine(text="12 High Street", page_index=0, line_index=1),
+        DocumentLine(text="Birmingham", page_index=0, line_index=2),
+        DocumentLine(text="B5 6JX", page_index=0, line_index=3),
+    ]
+    doc = DocumentModel(
+        source_path=Path("dummy.pdf"),
+        source_type="pdf",
+        pages=(DocumentPage(page_index=0, lines=tuple(lines)),),
+        plain_text="\n".join(line.text for line in lines),
+        metadata={"raw_lines": [line.text for line in lines]},
+    )
+    provider = {
+        "id": "p",
+        "name": "Provider",
+        "work_provider": "P",
+        "field_rules": {
+            "inspection_address": {
+                "id": "inspection_address",
+                "kind": "fixed_line",
+                "line_start": 1,
+                "line_end": 4,
+            }
+        },
+    }
+    record = RuleEngine().extract_record(doc, provider)
+    value = record.fields[FieldKey.INSPECTION_ADDRESS].value
+    assert value != CANONICAL_IMAGE_BASED
+    assert "B5 6JX" in value
+
+
+def test_is_image_based_inspection_helper():
+    """Unit checks for the detection helper, including the real-address precedence."""
+    engine = RuleEngine()
+    assert engine._is_image_based_inspection("Image-based Assessment") is True
+    assert engine._is_image_based_inspection("Desktop Inspection") is True
+    assert engine._is_image_based_inspection("electronic basis") is True
+    # Real address present (postcode) -> not treated as image-based.
+    assert engine._is_image_based_inspection("Image-based, 1 High St, B5 6JX") is False
+    # Genuine junk -> not image-based.
+    assert engine._is_image_based_inspection("kind regards") is False
+    assert engine._is_image_based_inspection("") is False
+
+
+def test_inspection_address_canonical_value_passes_eva_schema():
+    """The canonical value must satisfy the 6-line EVA Inspection Address contract
+    and survive schema validation in the EVA JSON exporter."""
+    import json
+
+    from cedocumentmapper_v2.exporters.eva_json import EVAJsonExporter
+
+    lines = [
+        DocumentLine(text="Vehicle Reg: AB12CDE", page_index=0, line_index=0),
+        DocumentLine(text="Make/Model: Skoda Superb", page_index=0, line_index=1),
+        DocumentLine(text="Claimant Name: John Smith", page_index=0, line_index=2),
+        DocumentLine(text="Reference: SBL-123", page_index=0, line_index=3),
+        DocumentLine(text="Accident Date: 01/01/2026", page_index=0, line_index=4),
+        DocumentLine(text="Instruction Date: 02/01/2026", page_index=0, line_index=5),
+        DocumentLine(text="Inspection Address: Image-based Assessment", page_index=0, line_index=6),
+    ]
+    doc = _doc(lines)
+    provider = {
+        "id": "sbl",
+        "name": "SBL",
+        "work_provider": "SBL",
+        "field_rules": {
+            "vrm": {"id": "r", "kind": "label_same_line", "labels": ["Vehicle Reg"]},
+            "vehicle_model": {"id": "r", "kind": "label_same_line", "labels": ["Make/Model"]},
+            "claimant_name": {"id": "r", "kind": "label_same_line", "labels": ["Claimant Name"]},
+            "reference": {"id": "r", "kind": "label_same_line", "labels": ["Reference"]},
+            "incident_date": {"id": "r", "kind": "label_same_line", "labels": ["Accident Date"]},
+            "instruction_date": {"id": "r", "kind": "label_same_line", "labels": ["Instruction Date"]},
+            "inspection_address": {
+                "id": "r",
+                "kind": "label_same_line",
+                "labels": ["Inspection Address"],
+            },
+        },
+    }
+    record = RuleEngine().extract_record(doc, provider)
+    # export() validates against the EVA JSON schema and raises on failure.
+    exported = json.loads(EVAJsonExporter().export(record))
+    assert exported["Inspection Address"] == CANONICAL_IMAGE_BASED
