@@ -110,6 +110,22 @@ param tags object = {
   environment: environmentName
 }
 
+// ---- Shared observability (S4 — OCR carve-out) ----
+// OCR is NOT a plain App Insights repoint like the FC1 Functions: its ACA managed
+// environment ships container logs to Log Analytics and needs the WORKSPACE's
+// customerId + primarySharedKey. So instead of dropping the workspace entirely,
+// OCR references the SHARED parser workspace (cespike-parser-law-dev) as an
+// EXISTING resource (customerId + listKeys() both work on an existing ref) and
+// keeps its appLogsConfiguration shape unchanged — only WHICH workspace it reads
+// changes. Application telemetry still flows to the shared App Insights via the
+// connection-string param below. See functions/parser/infra/main.bicep.
+@description('Name of the SHARED Log Analytics workspace (the parser workspace) the ACA managed environment ships container logs to. customerId + primarySharedKey are read from this EXISTING workspace.')
+param sharedLogAnalyticsName string = 'cespike-parser-law-dev'
+
+@secure()
+@description('Shared App Insights connection string (the parser App Insights). Consumed by APPLICATIONINSIGHTS_CONNECTION_STRING. @secure() so the ikey embedded in it is not echoed to deployment logs.')
+param sharedAppInsightsConnectionString string = ''
+
 @description('Resource ID of a PRE-CREATED user-assigned identity already granted AcrPull on the registry (see acrpull-role.bicep). Supplying it makes the app pull the image via that identity — whose role has already propagated — which avoids the same-deployment RBAC-propagation race that expired revision provisioning. Empty = system-assigned pull (original behaviour). Functions-on-ACA wants the identity RESOURCE ID here (not the client ID).')
 param acrPullIdentityId string = ''
 
@@ -143,8 +159,9 @@ var newAcrName = toLower('${namePrefix}acr${substring(uniqueSuffix, 0, 6)}')
 var acrName = empty(existingAcrName) ? newAcrName : existingAcrName
 var envName = '${namePrefix}-env-${environmentName}'
 var functionAppName = '${namePrefix}-fn-${environmentName}-${substring(uniqueSuffix, 0, 6)}'
-var appInsightsName = '${namePrefix}-ai-${environmentName}'
-var logAnalyticsName = '${namePrefix}-law-${environmentName}'
+// NB (S4): appInsightsName + logAnalyticsName are GONE — OCR no longer creates its
+// own pair. App telemetry uses sharedAppInsightsConnectionString; the ACA env reads
+// the EXISTING shared workspace named by sharedLogAnalyticsName.
 
 var wireDocintel = !empty(keyVaultName)
 // Create a new Basic ACR only when no existing one is named AND we are not using a
@@ -165,28 +182,16 @@ var docintelAcctName = toLower('${namePrefix}-di-${environmentName}-${substring(
 // the passed-in endpoint, matching the deployDocIntel=false branch exactly.
 var effectiveDocintelEndpoint = deployDocIntel ? (docIntel.?outputs.endpoint ?? docintelEndpoint) : docintelEndpoint
 
-// --- Observability (workspace-based App Insights; also ACA log destination) --
-resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: logAnalyticsName
-  location: location
-  tags: tags
-  properties: {
-    sku: {
-      name: 'PerGB2018'
-    }
-    retentionInDays: 30
-  }
-}
-
-resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: appInsightsName
-  location: location
-  tags: tags
-  kind: 'web'
-  properties: {
-    Application_Type: 'web'
-    WorkspaceResourceId: logAnalytics.id
-  }
+// --- Observability (S4 carve-out: SHARED workspace, EXISTING reference) -------
+// OCR no longer creates its own Log Analytics workspace + App Insights. The ACA
+// managed environment still needs a workspace's customerId + primarySharedKey to
+// ship container logs, so it references the SHARED parser workspace as an EXISTING
+// resource (both customerId and listKeys() work on an existing ref). Application
+// telemetry flows to the shared App Insights via sharedAppInsightsConnectionString.
+// The appLogsConfiguration shape (customerId + sharedKey) is UNCHANGED — only the
+// workspace it reads changed.
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
+  name: sharedLogAnalyticsName
 }
 
 // --- Container registry (create new Basic, or reference existing) ------------
@@ -313,7 +318,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           }
           {
             name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-            value: appInsights.properties.ConnectionString
+            value: sharedAppInsightsConnectionString
           }
           // Custom-container hosts must not use App Service file storage.
           {
