@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-22**._
+_Single source of truth for "where are we now." Last updated **2026-06-23**._
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -11,6 +11,37 @@ This is the Phase-1 (M1) case-intake spike on the Microsoft stack (Power Apps **
 Dataverse + Power Automate + Azure Functions). Built **offline**; live activation of anything that
 touches the shared inboxes / SharePoint / Box / EVA is the **operator's** step (see the boundary in
 DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows real Dataverse rows only.**
+
+---
+
+## 🔔 Update — 2026-06-23: observability consolidated · enrichment secrets → Key Vault · mileage provenance marker (S1) live
+
+Three live hygiene/correctness changes, all verified live:
+
+- **Observability consolidated (S4).** Previously each Azure Function carried its **own** App Insights + Log
+  Analytics workspace (7 AI + 7 LAW, including an orphaned managed enrich workspace). Now the **5 FC1 Function
+  Apps** — enrichment (`cespkenrich-fn-gi62sd`), addressmatch (`cespkaddr-fn-i7m4re`), eva-sentry
+  (`cespkeva-fn-ufa3ci`), evavalidation (`cespkeval-fn-6c6fxd`), box-webhook (`cespkbox-fn-v76a47`) — send
+  telemetry to the **shared** parser App Insights `cespike-parser-ai-dev` + workspace `cespike-parser-law-dev`
+  (their `APPLICATIONINSIGHTS_CONNECTION_STRING` repointed). **Deleted:** the 5 per-app App Insights
+  (`cespkenrich/addr/eva/eval/box-ai-*`), 4 per-app LAW (`cespkaddr/eva/eval/box-law-*`, soft-deleted/14-day
+  recovery), and the orphaned managed enrich workspace `managed-cespkenrich-ai-gi62sd-ws` + its hidden RG.
+  **Remaining App Insights/LAW in `rg-collisionspike-dev`:** only the shared pair (`cespike-parser-ai-dev` +
+  `cespike-parser-law-dev`) and the **OCR pair** (`cespkocr-ai-dev` + `cespkocr-law-dev`). **OCR is NOT
+  consolidated** — it is a scale-to-zero Functions-on-ACA host where a surgical repoint is unsupported; the
+  bicep change for it is **staged on main for OCR's next deploy**. Net: 7+7 → a shared pair + the OCR pair.
+- **Enrichment secrets → Key Vault (S3).** The enrichment Function's `DVSA_CLIENT_ID`/`DVSA_CLIENT_SECRET`/
+  `DVSA_API_KEY`/`DVLA_API_KEY` are now `@Microsoft.KeyVault` references (status=Resolved) resolving from
+  **`cespkenrichkvgi62sd`** (now populated; functionally verified — a live enrichment test returned **200**).
+  Previously they were **plain-text app settings** while the vault was empty — closing both the cleartext
+  hygiene deviation and the empty-vault redeploy timebomb. The EVA vault `cespkevakvufa3ci` + Box vault
+  `cespkboxkvv76a47` remain **empty** (gated off, no creds yet). _(OCR's `DOCINTEL_KEY` stays a plain-text but
+  **dormant/unused** app setting — `OCR_PROVIDER=tesseract`/`PLATE_PROVIDER=fast_alpr` run in-container, so
+  Document Intelligence is not called; ACR image pull is managed-identity based, no registry creds.)_
+- **Mileage provenance marker live (S1).** The live **CS Parse** and **CS Enrich** flows now write
+  `cr1bd_fieldlevelprovenance` mileage rows: parse stamps `sourceType=pdf_extraction` / "From instructions";
+  enrich stamps `sourceType=dvla_dvsa` / "Estimated mileage (DVSA MOT history)" **only when the document had
+  no mileage** (document-first source priority).
 
 ---
 
@@ -385,7 +416,7 @@ player**. Headlines:
 | **Provider corpus** | **Incorporated + 2026-06-19 verify passed** — `WorkProvider` **390 updated** (SEED→active / ARCHIVE→inactive, `Corpus 2026-06-18` provenance; 37 over-length codes deferred), `Repairer` **20** named yards + **14** garage matches, `ImageSource(kind=repairer)` **20** (shared storage yards), `InspectionAddress` **174** known-sites (all Confirmed Physical), **98** N:N links. Idempotent (`dataverse/.build/10–14`); all 14-verify checks passed. | Sandbox |
 | **Parser custom connector** | Created, points at the live host | Sandbox |
 | **Code App** | Live + wired to Dataverse; **manual-intake** (upload → parse → Case) works, **parse now routed via the CE Parser connector** (no longer CSP-blocked; key off the bundle); logo/fonts/nav fixed | `mockup-app/`, app `da7ba7af-…` |
-| **Enrichment Function** | Deployed + **gate ON in Dev** (`ENRICHMENT_ENABLED=true`, flipped 2026-06-21; live-verified `BC23JZE`→Ssangyong Rexton); calls **DVSA + DVLA directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway** | `cespkenrich-fn-…`, KV `cespkenrichkv…` |
+| **Enrichment Function** | Deployed + **gate ON in Dev** (`ENRICHMENT_ENABLED=true`, flipped 2026-06-21; live-verified `BC23JZE`→Ssangyong Rexton); calls **DVSA + DVLA directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway**. DVSA/DVLA secrets are now **Key Vault references** (populated 2026-06-23, verified live 200) | `cespkenrich-fn-gi62sd`, KV `cespkenrichkvgi62sd` |
 | **Cloud flows (×15)** | Imported **`state=off`** (except the Claude-wired `case-resolve`, ON); connection refs unbound | Solution `CollisionSpikeFlows` |
 
 ## ⛔ Built but NOT activated (operator-gated — live-services boundary)

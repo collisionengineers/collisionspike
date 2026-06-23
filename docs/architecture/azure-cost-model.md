@@ -2,6 +2,8 @@
 
 > **Canonical cost model** for the live `rg-collisionspike-dev` resource group (UK South) plus the
 > Power Platform app layer. Prices captured **2026-06-22** from the **Azure Retail Prices API**
+> _(topology refreshed **2026-06-23**: observability consolidated to a **shared App Insights/LAW pair**
+> + the OCR pair — the per-function workspace sprawl was deleted; enrichment secrets moved into Key Vault.)_
 > (`https://prices.azure.com/api/retail/prices`, UK South), the **Azure pricing pages**, and
 > **Microsoft Learn**. Currency is **GBP** for everything the UK South retail feed prices in GBP;
 > where the retail feed returns **£0.00 for a meter that is genuinely chargeable** (Flex Consumption
@@ -24,6 +26,10 @@ At spike volume (~500 cases/month, all of OCR / EVA-REST / Box / Azure Maps **ga
 the entire Azure resource group is **free**: the serverless compute (6 Flex Function Apps + the ACA
 OCR host) sits inside the **per-subscription monthly free grants**, Key Vault is per-operation and
 trivial, and observability ingestion stays under the pooled **5 GB/month free** Log Analytics grant.
+_(Observability was **consolidated 2026-06-23**: the 5 non-parser FC1 apps now report into the
+**shared** `cespike-parser-ai-dev` / `cespike-parser-law-dev` pair, leaving just that pair + the OCR
+pair — the per-function App Insights/LAW sprawl and the orphaned managed enrich workspace were deleted.
+£-impact ≈ £0 either way at this volume, but the surprise-bill surface and resource count both shrank.)_
 The only **standing, unavoidable** Azure charge is the **ACR Basic registry (~£3.77/month)** holding
 the dormant OCR image.
 
@@ -94,16 +100,19 @@ stated. Workload columns are illustrative _(est. workload)_ at ~500 cases/month.
 
 | Resource | SKU / Meter | Unit price | Source | Example workload _(est.)_ | Est. monthly |
 |---|---|---|---|---|---:|
-| ~6–7 Log Analytics workspaces (one per Function/host) + auto-managed enrich workspace | Pay-as-you-go (Analytics Logs) | Ingestion **£2.1461 / GB**; retention **£0.0969/GB/mo** beyond the included 31 days. **Free 5 GB/month** ingestion (see note on grant scope). | [retail feed](https://prices.azure.com/api/retail/prices) (Log Analytics, uksouth — `Analytics Logs Data Ingestion` £2.1461/GB, `…Data Retention` £0.0969/GB) · [Monitor pricing](https://azure.microsoft.com/en-gb/pricing/details/monitor/) · [cost-logs](https://learn.microsoft.com/azure/azure-monitor/logs/cost-logs) | Low-traffic dev telemetry; ~0.2–0.5 GB per workspace ⇒ **~2–4 GB/mo total** aggregated. | **£0.00** _(under free grant)_ |
-| ~6–7 Application Insights (one per app) | Workspace-based (bills **through** its Log Analytics workspace) | **No separate AI meter** — ingestion bills at the LA rate **£2.1461/GB**. (Avoid multi-step web tests — £7.45/test/mo standing.) | [Monitor pricing](https://azure.microsoft.com/en-gb/pricing/details/monitor/) · LA ingestion meter above | Request/dependency/trace telemetry, folded into the LA workspaces above. | **£0.00 incremental** _(do NOT double-count — it IS the LA ingestion)_ |
+| **2 Log Analytics workspaces** — `cespike-parser-law-dev` (shared: parser + the 5 repointed FC1 apps) + `cespkocr-law-dev` (OCR) | Pay-as-you-go (Analytics Logs) | Ingestion **£2.1461 / GB**; retention **£0.0969/GB/mo** beyond the included 31 days. **Free 5 GB/month** ingestion (see note on grant scope). | [retail feed](https://prices.azure.com/api/retail/prices) (Log Analytics, uksouth — `Analytics Logs Data Ingestion` £2.1461/GB, `…Data Retention` £0.0969/GB) · [Monitor pricing](https://azure.microsoft.com/en-gb/pricing/details/monitor/) · [cost-logs](https://learn.microsoft.com/azure/azure-monitor/logs/cost-logs) | Low-traffic dev telemetry; **~2–4 GB/mo total** across both workspaces. **Consolidated 2026-06-23** (was ~6–7 per-function workspaces + an orphaned managed enrich workspace, all now deleted). | **£0.00** _(under free grant)_ |
+| **2 Application Insights** — `cespike-parser-ai-dev` (shared) + `cespkocr-ai-dev` (OCR) | Workspace-based (bills **through** its Log Analytics workspace) | **No separate AI meter** — ingestion bills at the LA rate **£2.1461/GB**. (Avoid multi-step web tests — £7.45/test/mo standing.) | [Monitor pricing](https://azure.microsoft.com/en-gb/pricing/details/monitor/) · LA ingestion meter above | Request/dependency/trace telemetry, folded into the LA workspaces above. The 5 non-parser FC1 apps' `APPLICATIONINSIGHTS_CONNECTION_STRING` was **repointed to the shared AI** 2026-06-23 (per-app components deleted). | **£0.00 incremental** _(do NOT double-count — it IS the LA ingestion)_ |
 
 > **Key finding (grant scope — the one nuance the older docs split on):** the free **5 GB/month**
 > ingestion is a **per-billing-account** allocation that is **NOT multiplied by adding workspaces**.
-> So the ~6–7-workspace + ~6–7-App-Insights **sprawl does not multiply free headroom** and does not
-> multiply £ at this volume — but it _is_ free-but-fragile: one mis-scoped diagnostic setting
-> ingesting >5 GB bills the excess at **£2.1461/GB**, and cross-service tracing is painful across 13
-> resources. Consolidate to **1 workspace + 1 App Insights** with sampling + a daily cap (£0 saving
-> now, removes ~12 resources and a surprise-bill vector). See §4.
+> So even the former ~6–7-workspace + ~6–7-App-Insights sprawl did not multiply free headroom or £ at
+> this volume — but it _was_ free-but-fragile: one mis-scoped diagnostic ingesting >5 GB bills the
+> excess at **£2.1461/GB**, and cross-service tracing was painful across ~13 resources. **DONE
+> 2026-06-23:** consolidated to the **shared `cespike-parser-*` pair + the OCR pair** (the 5 non-parser
+> FC1 apps repointed to the shared App Insights; per-app components + the orphaned managed enrich
+> workspace deleted). The OCR pair stays separate (scale-to-zero ACA — surgical repoint unsupported;
+> shared-workspace bicep staged on main for OCR's next deploy). £0 saving as predicted, ~10 resources
+> and a surprise-bill vector removed. Still pair the shared workspace with sampling + a daily cap. See §4.
 
 ### Class E — Storage + Key Vault
 
@@ -111,7 +120,7 @@ stated. Workload columns are illustrative _(est. workload)_ at ~500 cases/month.
 |---|---|---|---|---|---:|
 | 6× Function host storage accounts (`cespikestx…`, `cespkaddrst…`, `cespkenrichst…`, `cespkevast…`, `cespkevalst…`, `cespkocrst…`) | Storage v2, Hot LRS | Data **£0.0143/GB/mo**; Write **£0.044/10K**; Read/other **£0.0035/10K** | [retail feed](https://prices.azure.com/api/retail/prices) (Storage, Hot LRS, `General Block Blob v2`, uksouth) · [Blob pricing](https://azure.microsoft.com/en-gb/pricing/details/storage/blobs/) | Each app's deployment package + WebJobs control containers ≈ <1 GB + housekeeping txns. **Each Flex app mandates its own storage account.** | **~£0.10–0.50 total** _(txn-dominated)_ |
 | Shared evidence storage (`cespkevidstdev01`) — case images/PDFs | Storage v2, Hot LRS | Same meters as above | [retail feed](https://prices.azure.com/api/retail/prices) (Storage, Hot LRS, uksouth) | ~500 cases × ~10 files × ~2 MB ≈ 10 GB/mo ingested; ~20–30 GB resident; ~200K ops. ADR-0012 image-only purge keeps it bounded. | **~£0.70–1.30** |
-| 3× Key Vault — `cespkenrichkv…`, `cespkevakv…`, `cespkboxkvv76a47` (box empty/dormant) | Standard | Operations **£0.0224/10,000**; **no per-vault fixed fee**. Cert renewal £2.2356 each; key rotation £0.7452 each — _not used_. | [retail feed](https://prices.azure.com/api/retail/prices) (Key Vault, uksouth, Standard) · [KV pricing](https://azure.microsoft.com/en-gb/pricing/details/key-vault/) | A few thousand secret-gets/mo across vaults; box KV empty (~0). Note: enrich creds currently sit as **plain app settings** (hygiene deviation, not a cost). | **~£0.05 total** |
+| 3× Key Vault — `cespkenrichkv…`, `cespkevakv…`, `cespkboxkvv76a47` (eva + box empty/dormant) | Standard | Operations **£0.0224/10,000**; **no per-vault fixed fee**. Cert renewal £2.2356 each; key rotation £0.7452 each — _not used_. | [retail feed](https://prices.azure.com/api/retail/prices) (Key Vault, uksouth, Standard) · [KV pricing](https://azure.microsoft.com/en-gb/pricing/details/key-vault/) | A few thousand secret-gets/mo across vaults; eva + box KVs empty (~0). Note: enrich creds are now **Key Vault references** (DVSA/DVLA secrets populated 2026-06-23 — the earlier plain-app-settings hygiene deviation is closed); adds a handful more secret-gets, still trivial. | **~£0.05 total** |
 
 ### Class F — Power Platform (NOT in the Azure RG)
 
@@ -185,12 +194,14 @@ Ordered by clarity, not £ (most of these are governance wins at this volume, no
    can be rebuilt and repushed on demand when OCR is activated. This is the single largest concrete
    Azure saving available today.
 
-2. **Consolidate the observability sprawl: ~6–7 Log Analytics + ~6–7 App Insights → 1 + 1.**
-   Cross-ref Class D. **£0 saving now** (already under the pooled 5 GB free grant) but it removes
-   ~12 resources, makes the free grant easy to reason about, gives one place for end-to-end traces,
-   and removes the **surprise-bill vector** (one mis-scoped diagnostic >5 GB bills the excess at
-   **£2.1461/GB**). Pair the consolidation with **adaptive/fixed sampling + a daily cap** so a noisy
-   parser can't push the single workspace past the free band.
+2. **Consolidate the observability sprawl — DONE 2026-06-23.** Cross-ref Class D. The former ~6–7 Log
+   Analytics + ~6–7 App Insights were collapsed to the **shared `cespike-parser-*` pair + the OCR pair**
+   (5 non-parser FC1 apps repointed; per-app components + the orphaned managed enrich workspace deleted;
+   OCR deferred to its next deploy, bicep staged on main). **£0 saving** as predicted (already under the
+   pooled 5 GB free grant) but it removed ~10 resources, makes the free grant easy to reason about, gives
+   one place for end-to-end traces, and removed the **surprise-bill vector** (one mis-scoped diagnostic
+   >5 GB bills the excess at **£2.1461/GB**). Remaining: pair the shared workspace with **adaptive/fixed
+   sampling + a daily cap** so a noisy parser can't push it past the free band.
 
 3. **Keep evidence storage lean (Class E).** ADR-0012's **image-only blob purge** after Box archival
    is the right pattern — it caps the one storage account that scales with case volume. Keep bytes in
