@@ -47,6 +47,8 @@ import {
   statusToInt,
   inspectionDecisionCodec,
   intakeChannelKindCodec,
+  auditActionCodec,
+  auditActionToActivityKind,
 } from './adapter';
 import { EVA_FIELD_ORDER } from '../contracts/eva-export';
 import { BOX_GATES_ALL_FALSE } from './types';
@@ -60,7 +62,12 @@ import type {
   InspectionAddressCounts,
   SuggestedAddress,
 } from './types';
-import { BOX_ENV_VAR_SCHEMA_NAMES, boxGatesFromRows } from './box-gates';
+import {
+  BOX_ENV_VAR_SCHEMA_NAMES,
+  boxGatesFromRows,
+  HOLD_NEW_CASES_SCHEMA,
+  holdNewCasesFromRows,
+} from './box-gates';
 
 /* ----------  Date helpers (ported verbatim from mock/queues.ts)  ---------- */
 function parseDmy(s?: string): Date | undefined {
@@ -182,6 +189,13 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       cr1bd_sourcemailbox: input.sourceLabel ?? 'Manual intake (Code App)',
       ...(input.insuredName ? { cr1bd_ovinsuredname: input.insuredName } : {}),
       ...(input.providerReference ? { cr1bd_ovclaimnumber: input.providerReference } : {}),
+      // Image-based (or other explicit) inspection decision, stamped on create so
+      // it does not rely solely on the address-text back-fill.
+      ...(input.inspectionDecision && input.inspectionDecision !== 'unknown'
+        ? { cr1bd_inspectiondecision: inspectionDecisionCodec.toInt(input.inspectionDecision) }
+        : {}),
+      // Hold-by-default (or a per-case hold): parks the case in the Held queue.
+      ...(input.onHold ? { cr1bd_onhold: true } : {}),
       ...evaFieldsToColumns(input.evaFields),
     };
 
@@ -206,6 +220,21 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
           }
         }),
       );
+    }
+
+    // Persist the image-based reason as a case note when provided (best-effort —
+    // a note failure must not sink the already-created case).
+    if (input.inspectionDecisionReason?.trim()) {
+      try {
+        await services.notes.create({
+          'cr1bd_Caseid@odata.bind': `/cr1bd_cases(${newId})`,
+          cr1bd_author: 'Manual intake (Code App)',
+          cr1bd_timestamp: new Date().toISOString(),
+          cr1bd_text: `Inspection decision: image-based — ${input.inspectionDecisionReason.trim()}`,
+        });
+      } catch {
+        /* a note failure must not sink the create */
+      }
     }
 
     return { id: newId };
@@ -305,8 +334,9 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       if (TERMINAL.has(tgt.status)) {
         throw new Error('Cannot merge into a finalised (terminal) case.');
       }
-      // 1. Reparent the source's evidence onto the target (the established
-      //    `_cr1bd_caseid_value` write shape, as used for provenance/evidence rows).
+      // 1. Reparent the source's evidence onto the target. A lookup is rebound on
+      //    WRITE via the @odata.bind navigation property — the `_<rel>_value` form
+      //    is read-only (valid only in $filter queries, as used just below).
       const evRes = await services.evidence.getAll({
         filter: `_cr1bd_caseid_value eq ${sourceCaseId}`,
       });
@@ -314,7 +344,7 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       for (const e of evRes.data ?? []) {
         if (!e.cr1bd_evidenceid) continue;
         await services.evidence.update(e.cr1bd_evidenceid, {
-          _cr1bd_caseid_value: targetCaseId,
+          'cr1bd_Caseid@odata.bind': `/cr1bd_cases(${targetCaseId})`,
         });
         moved += 1;
       }
@@ -496,13 +526,13 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
 
     /* ----- Activity feed ----- */
     recentActivity: async (): Promise<ActivityEvent[]> => {
-      const res = await services.auditEvents.getAll({ orderBy: ['cr1bd_timestamp desc'] });
+      const res = await services.auditEvents.getAll({ orderBy: ['cr1bd_occurredat desc'] });
       return (res.data ?? []).map(auditToActivity);
     },
     activityForCase: async (caseId): Promise<ActivityEvent[]> => {
       const res = await services.auditEvents.getAll({
         filter: `_cr1bd_caseid_value eq ${caseId}`,
-        orderBy: ['cr1bd_timestamp desc'],
+        orderBy: ['cr1bd_occurredat desc'],
       });
       return (res.data ?? []).map(auditToActivity);
     },
@@ -512,6 +542,58 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       if (!boxGatesCache) boxGatesCache = fetchBoxGates();
       return boxGatesCache;
     },
+
+    /* ----- App intake preference: hold new cases by default (read fresh) ----- */
+    getHoldNewCasesDefault: async (): Promise<boolean> => {
+      const defsSvc = services.environmentVariableDefinitions;
+      const valsSvc = services.environmentVariableValues;
+      if (!defsSvc || !valsSvc) return false;
+      try {
+        const [defsRes, valsRes] = await Promise.all([
+          defsSvc.getAll({
+            select: ['environmentvariabledefinitionid', 'schemaname', 'defaultvalue'],
+            filter: `schemaname eq '${HOLD_NEW_CASES_SCHEMA}'`,
+          }),
+          valsSvc.getAll({ select: ['value', '_environmentvariabledefinitionid_value'] }),
+        ]);
+        return holdNewCasesFromRows(defsRes.data ?? [], valsRes.data ?? []);
+      } catch {
+        return false; // honest off on any read failure
+      }
+    },
+
+    // The ONE Code-App env-var WRITE: upsert the hold-by-default value row. The var
+    // ships default-only (no value row), so the FIRST toggle on any environment hits
+    // CREATE (binds the definition via @odata.bind); later toggles UPDATE by value-id.
+    // Needs env-var customization rights + the env-var tables wired into the seam.
+    setHoldNewCasesDefault: async (value): Promise<void> => {
+      const defsSvc = services.environmentVariableDefinitions;
+      const valsSvc = services.environmentVariableValues;
+      if (!defsSvc || !valsSvc) {
+        throw new Error('Environment-variable tables are not wired (pac add-data-source).');
+      }
+      const defRes = await defsSvc.getAll({
+        select: ['environmentvariabledefinitionid'],
+        filter: `schemaname eq '${HOLD_NEW_CASES_SCHEMA}'`,
+      });
+      const defId = (defRes.data ?? [])[0]?.environmentvariabledefinitionid;
+      if (!defId) throw new Error('Hold-by-default environment variable is not deployed.');
+      const valsRes = await valsSvc.getAll({
+        select: ['environmentvariablevalueid', '_environmentvariabledefinitionid_value'],
+      });
+      const existing = (valsRes.data ?? []).find(
+        (v) => v._environmentvariabledefinitionid_value === defId,
+      );
+      const valueStr = value ? 'true' : 'false';
+      if (existing?.environmentvariablevalueid) {
+        await valsSvc.update(existing.environmentvariablevalueid, { value: valueStr });
+      } else {
+        await valsSvc.create({
+          value: valueStr,
+          'EnvironmentVariableDefinitionId@odata.bind': `/environmentvariabledefinitions(${defId})`,
+        });
+      }
+    },
   };
 
   /* QUEUES is referenced for its statuses via queueByName; keep the import alive
@@ -519,15 +601,33 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
   void QUEUES;
 }
 
-/* ----------  AuditEvent row -> ActivityEvent  ---------- */
+/** Format a Dataverse DateTime (ISO) as DD/MM/YYYY HH:mm for the activity feed. */
+function formatOccurredAt(iso: string | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/* ----------  AuditEvent row -> ActivityEvent  ----------
+   The flows write a cr1bd_auditevent for every auto / extraction action
+   (parser_called, enrichment_called, provider_matched, duplicate_dropped,
+   status_changed, …). Read the REAL columns: derive the kind from cr1bd_action
+   via the choiceset codec, take the summary from cr1bd_name, and the time from
+   cr1bd_occurredat — so each action surfaces with its correct badge, newest
+   first. (No cr1bd_vrm on the audit row; the plate is omitted.) */
 function auditToActivity(rec: import('./types').AuditEventRecord): ActivityEvent {
+  const action = auditActionCodec.toName(
+    rec.cr1bd_action == null ? undefined : Number(rec.cr1bd_action),
+  );
   return {
     id: rec.cr1bd_auditeventid ?? '',
     caseId: rec._cr1bd_caseid_value ?? '',
-    vrm: rec.cr1bd_vrm ?? '',
-    kind: 'status_change',
+    vrm: '',
+    kind: auditActionToActivityKind(action),
     actor: rec.cr1bd_actor ?? 'System',
-    timestamp: rec.cr1bd_timestamp ?? '',
-    description: rec.cr1bd_description ?? String(rec.cr1bd_action ?? ''),
+    timestamp: formatOccurredAt(rec.cr1bd_occurredat),
+    description: rec.cr1bd_name ?? rec.cr1bd_after ?? action ?? '',
   };
 }

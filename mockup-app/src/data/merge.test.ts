@@ -46,7 +46,26 @@ function makeServices() {
       },
       update: async (id: string, changes: Partial<EvidenceRecord>) => {
         const row = evidence.find((e) => e.cr1bd_evidenceid === id);
-        if (row) Object.assign(row, changes);
+        if (row) {
+          // Live Web API: a lookup is rebound via @odata.bind on WRITE; the bare
+          // `_value` form is read-only. Simulate the bind (set the read-back value)
+          // and REJECT a bare `_value` write so the suite guards the live shape.
+          if ('_cr1bd_caseid_value' in changes) {
+            throw new Error('read-only _cr1bd_caseid_value on write; use cr1bd_Caseid@odata.bind');
+          }
+          const bind = (changes as Record<string, unknown>)['cr1bd_Caseid@odata.bind'] as
+            | string
+            | undefined;
+          if (bind) {
+            const m = bind.match(/\(([^)]+)\)/);
+            if (m) row._cr1bd_caseid_value = m[1];
+          }
+          for (const [k, v] of Object.entries(changes)) {
+            if (k !== 'cr1bd_Caseid@odata.bind' && k !== '_cr1bd_caseid_value') {
+              (row as Record<string, unknown>)[k] = v;
+            }
+          }
+        }
         return { data: undefined };
       },
     },
@@ -102,5 +121,57 @@ describe('#4 manual case merge — mergeCases', () => {
     const { services } = makeServices();
     const da = createDataverseDataAccess(services);
     await expect(da.mergeCases('IMGS', 'DONE')).rejects.toThrow(/terminal|finalised/i);
+  });
+});
+
+/* ============================================================
+   Hold-by-default env-var write — the ONE Code-App env-var write. Locks the
+   @odata.bind navigation-property bind on the create branch (the var ships
+   default-only, so the FIRST toggle on any environment hits create, not update).
+   ============================================================ */
+describe('hold-by-default env-var write', () => {
+  function makeEnvServices() {
+    const defs = [
+      {
+        environmentvariabledefinitionid: 'DEF1',
+        schemaname: 'cr1bd_HOLD_NEW_CASES_BY_DEFAULT',
+        defaultvalue: 'false',
+      },
+    ];
+    const values: Array<Record<string, unknown>> = [];
+    let lastCreate: Record<string, unknown> | undefined;
+    const services = {
+      environmentVariableDefinitions: {
+        getAll: async () => ({ data: [...defs] }),
+      },
+      environmentVariableValues: {
+        getAll: async () => ({ data: [...values] }),
+        create: async (rec: Record<string, unknown>) => {
+          lastCreate = rec;
+          values.push(rec);
+          return { data: rec };
+        },
+        update: async () => ({ data: undefined }),
+      },
+    } as unknown as GeneratedServices;
+    return { services, getLastCreate: () => lastCreate };
+  }
+
+  it('binds the definition via @odata.bind on the FIRST write (default-only, no value row)', async () => {
+    const { services, getLastCreate } = makeEnvServices();
+    const da = createDataverseDataAccess(services);
+    await da.setHoldNewCasesDefault(true);
+    const rec = getLastCreate()!;
+    expect(rec.value).toBe('true');
+    expect(rec['EnvironmentVariableDefinitionId@odata.bind']).toBe(
+      '/environmentvariabledefinitions(DEF1)',
+    );
+    // The read-only _value form must NOT be used on a write.
+    expect(rec._environmentvariabledefinitionid_value).toBeUndefined();
+  });
+
+  it('reads false when the env-var tables are not wired into the seam', async () => {
+    const da = createDataverseDataAccess({} as unknown as GeneratedServices);
+    expect(await da.getHoldNewCasesDefault()).toBe(false);
   });
 });

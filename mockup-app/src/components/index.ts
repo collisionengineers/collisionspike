@@ -21,7 +21,6 @@ export {
   type ImageOrderEntry,
 } from './ImageOrderList';
 export { ChaserPanel, type ChaserPanelProps } from './ChaserPanel';
-export { JsonView, type JsonViewProps } from './JsonView';
 export {
   LoadingState,
   EmptyState,

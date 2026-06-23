@@ -249,5 +249,6 @@ export {
   useInspectionAddressSuggestions,
   useInspectionAddressCounts,
   useBoxGates,
+  useHoldNewCasesDefault,
   type QueryState,
 } from './hooks';

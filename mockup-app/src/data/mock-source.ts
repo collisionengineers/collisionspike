@@ -98,6 +98,10 @@ export const mockDataAccess: DataAccess = {
 
   /* ----- Box feature gates (Box off until the live source is injected) ----- */
   getBoxGates: () => Promise.resolve({ ...BOX_GATES_ALL_FALSE }),
+
+  /* ----- App intake preferences (off / not-configured by default) ----- */
+  getHoldNewCasesDefault: () => Promise.resolve(false),
+  setHoldNewCasesDefault: (_value) => Promise.reject(new Error(NOT_CONFIGURED)),
 };
 
 /** Factory form, for symmetry with `createDataverseDataAccess`. */

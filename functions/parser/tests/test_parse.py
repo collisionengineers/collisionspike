@@ -316,3 +316,32 @@ def test_incomplete_extraction_payload_actually_fails_schema(monkeypatch):
         validate_eva_payload(flat)
     offending = {i["field"] for i in exc_info.value.issues}
     assert "work_provider" in offending
+
+
+def test_engineer_overlay_notes_never_leak_into_eva_payload():
+    """Contract guard for the vendored engineer-report overlay.
+
+    ``record_to_dict`` now carries a top-level ``notes`` list (session
+    provenance from ``overlay_records_with_overrides``). ``notes`` is NOT an EVA
+    field — like ``inspection_date`` and ``issues`` it must be dropped from the
+    12-field payload. ``to_eva_extraction`` builds the payload solely from
+    EVA_FIELD_ORDER over ``fields``, so a top-level ``notes`` can never reach it.
+    This test pins that: a record dict WITH notes maps to exactly the 12 EVA keys,
+    in order, with no ``notes`` key anywhere in the extraction.
+    """
+    record = _load_fixture("parser_record_with_contact.json")
+    # Simulate the overlay having stamped session provenance at the top level.
+    record = dict(record)
+    record["notes"] = ["Applied engineer report: engineer_report.pdf"]
+
+    mapped = parser_adapter.to_eva_extraction(record)
+    extraction = mapped["extraction"]
+
+    # Exactly the 12 settled keys, in contract order — notes is invisible to it.
+    assert list(extraction.keys()) == list(EVA_FIELD_ORDER)
+    assert len(extraction) == 12
+    assert "notes" not in extraction
+    # And notes is not smuggled in as a top-level sibling of extraction/vrm/ref.
+    assert "notes" not in mapped
+    # The B2 contact fields still populate normally alongside the (ignored) notes.
+    assert extraction["claimant_telephone"]["value"] == "07700900123"

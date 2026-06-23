@@ -41,6 +41,7 @@ import {
   FileDiff,
   Mail,
   MapPin,
+  Settings,
   ShieldCheck,
   Wrench,
 } from 'lucide-react';
@@ -49,6 +50,8 @@ import { ProviderListSkeleton } from '../components/Skeletons';
 import {
   useProviders,
   useInspectionAddressCounts,
+  useHoldNewCasesDefault,
+  getDataAccess,
   type InspectionLocationPolicy,
   type Provider,
   type ProviderAutomationMode,
@@ -118,6 +121,16 @@ const AUTOMATION_LABEL: Record<ProviderAutomationMode, string> = {
 const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL },
   tabs: { marginTop: `-${tokens.spacingVerticalS}` },
+  intakePanel: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalS,
+    padding: tokens.spacingVerticalL,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground1,
+    maxWidth: '640px',
+  },
 
   /* ----- "what works here" framing line above the toolbar ----- */
   workingNote: {
@@ -281,7 +294,7 @@ const useStyles = makeStyles({
   diffKey: { color: tokens.colorNeutralForeground3 },
 });
 
-type AdminTab = 'providers' | 'read-only' | 'import';
+type AdminTab = 'providers' | 'read-only' | 'import' | 'intake';
 type ProviderFilter = 'all' | 'active' | 'archived';
 
 /** How many rows to render before the "show more" cap (keeps the DOM bounded). */
@@ -315,6 +328,9 @@ export function Admin() {
         <Tab value="import" icon={<FileDiff size={16} />}>
           Assisted import
         </Tab>
+        <Tab value="intake" icon={<Settings size={16} />}>
+          Intake settings
+        </Tab>
       </TabList>
 
       {tab === 'providers' &&
@@ -332,6 +348,61 @@ export function Admin() {
 
       {tab === 'read-only' && <ReadOnlyCorpora />}
       {tab === 'import' && <ImportPreview />}
+      {tab === 'intake' && <IntakeSettings />}
+    </div>
+  );
+}
+
+/* ----------  Intake settings: the functional hold-by-default toggle  ----------
+   The ONE Admin control that writes live — it upserts the
+   cr1bd_HOLD_NEW_CASES_BY_DEFAULT environment variable; every other Admin edit
+   stages locally. Needs env-var customization privilege; a permission failure
+   surfaces as an honest error toast rather than pretending it saved. */
+function IntakeSettings() {
+  const styles = useStyles();
+  const { data, loading, refetch } = useHoldNewCasesDefault();
+  const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
+  const [saving, setSaving] = useState(false);
+  const current = data ?? false;
+
+  const onToggle = async (next: boolean) => {
+    setSaving(true);
+    try {
+      await getDataAccess().setHoldNewCasesDefault(next);
+      refetch();
+      dispatchToast(
+        <Toast>
+          <ToastTitle>
+            {next ? 'New cases will be held by default' : 'New cases will not be held by default'}
+          </ToastTitle>
+        </Toast>,
+        { intent: 'success' },
+      );
+    } catch (e) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t save — you may not have permission to change environment variables</ToastTitle>
+          <ToastBody>{e instanceof Error ? e.message : String(e)}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={styles.intakePanel}>
+      <Switch
+        checked={current}
+        disabled={loading || saving}
+        label="Put new manually-created cases on hold by default"
+        onChange={(_, d) => onToggle(!!d.checked)}
+      />
+      <Caption1 className={styles.fieldHint}>
+        When on, a case created from the New-case screen is parked in the Held queue for a reviewer to
+        release. Saved live to the cr1bd_HOLD_NEW_CASES_BY_DEFAULT environment variable.
+      </Caption1>
     </div>
   );
 }
