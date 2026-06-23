@@ -170,52 +170,54 @@ for the live book of business" with no new logic, only data.
 
 ---
 
-## 5. The address-matching / fast-confirm service ⭐ (the headline)
+## 5. The offline inspection-address suggestions corpus ⭐ (the headline)
 
-**Value: High · Effort: M · ROADMAP 4a, plans Input 1, ADR-0001, ADR-0006 (postcode.io)**
+**Value: High · Effort: M · ROADMAP 4a, ADR-0013, plans Input 1, ADR-0001, ADR-0006 (postcode.io)**
 
 **Why it helps here — this is the single highest-leverage thing the data analysis unlocks.** 57% of
-located cases (7,474) have only a district; EVA field 9 needs a full address; the manual fallback is
-the vague "Image Based Assessment" marker. The analysis already did the hard part: for each
-`(principal, district)` it **pre-filled the likely full address** from that principal's own
-repeat-postcode history (`principal_address_worklist.md`). The service is therefore not
-"geocode a district" — it is **resolve a Case's part-postcode Loc → the linked storage-yard full
-address the corpus already knows**, with the operator doing one-click confirmation rather than data
-entry.
+located cases (7,474) carry only a part-postcode; EVA field 9 needs a full address; the manual fallback
+is the "Image Based Assessment" marker. The analysis already did the hard part: for each
+`(principal, district)` it **derived the likely full address** from that principal's own repeat-postcode
+history (`principal_address_worklist.md`). The win is therefore not "geocode a district at runtime" —
+it is **mine those full addresses offline into provider-scoped suggestions the staff pick from**, so
+the human does a one-click pick rather than per-case research. There is **no runtime resolver**: the
+EVA-export `Loc` is an export artifact, not an intake input, and is never resolved on the fly
+(ADR-0013).
 
-**Concretely (the resolver):**
-1. Case arrives with Loc = district (e.g. `M12`) and provider QCL.
-2. Resolver matches the district against QCL's linked `Repairer` known-sites where
-   `district = startswith(outwardCode)` → finds **M12 5FX (HS Recovery)**, seen 97×.
-3. Binds a `cr1bd_inspectionaddress` row (`decisionmode=confirmed_physical`, `repairerid` → the yard),
-   serialises the **6-line address into `Case.cr1bd_evainspectionaddress`** (EVA field 9).
+**Concretely (the offline derivation → manual pick):**
+1. Offline, Collision Engineers' Box/EVA case history is mined per provider into a master sheet mapping
+   `(provider, Loc) → full address`.
+2. Only rows with a **real full address** are loaded (`dataverse/.build/16-seed-suggested-addresses.ps1`)
+   into `cr1bd_inspectionaddress` as suggestions (`decisionMode=Unknown`, `sourceLabel='suggested:…'`).
+   e.g. for QCL in the `M12` district the corpus holds **M12 5FX (HS Recovery)**, seen 97×.
+3. In the Code App Address tab staff **pick/edit** a suggestion; the chosen **6-line address** is
+   serialised into `Case.cr1bd_evainspectionaddress` (EVA field 9), postcode.io-normalised.
 4. No silent "Image Based Assessment" — the address-policy gate already enforces a per-provider policy
    and an override-with-reason (ROADMAP 4a, built).
 
-**The fast-confirm path (the multiplier):** the ~35% of worklist rows with a pre-filled "Likely full
-address" become a **review queue** — `principal · district · suggested full postcode (seen N×) ·
-[Confirm] [Edit] [Reject]` — ordered by case volume desc. **One click confirms the top row and
-resolves the largest block of district-only cases first** (confirming `M12 5FX` for QCL resolves 814
-cases; `B5 6JX` for FW resolves 355; `CH46 4TP` resolves 991 across the district). This is the
-fastest route from "57% incomplete" to "mostly resolved" that exists, and it costs the operator clicks,
-not research.
+**The volume multiplier:** the ~35% of worklist rows with a derived full address load as suggestions
+**ordered by case volume**, so picking the *top* suggestion resolves the *largest* block of
+district-only cases first (`M12 5FX` for QCL covers 814 cases; `B5 6JX` for FW covers 355; `CH46 4TP`
+covers 991 across the district). This is the fastest route from "57% incomplete" to "mostly resolved"
+that exists, and it costs the staff clicks, not research.
 
 **Dependencies / gotchas:**
 - Honours `AZURE_MAPS_ENABLED=false` → **postcode.io** for normalisation (free, UK-only). Azure Maps
   stays gated/later (ADR-0006 pattern; ~$5/1,000 geocodes only if non-UK/autocomplete needed).
 - A shared **full postcode** is one site (register once in `Repairer`, fan out N:N); a shared
-  **district** is a catchment, **not** one building — the resolver must require a confirmed *full*
-  postcode per `(principal, district)` before auto-filling, never collapse a district to a guess.
-- 🔒 Address truth is operator-owned (Input 1 worklist confirmation) — Claude builds the resolver +
-  queue offline; the operator confirms the addresses.
-- **Blank suggestion (no own-history) → require a supplied full address; never invent one** ("no mock
-  data").
+  **district** is a catchment, **not** one building — **only full addresses are loaded as
+  suggestions**; a bare district/part-postcode is **never** loaded or suggested (it stays a
+  future-investigation backlog — ADR-0013), never collapsed to a guess.
+- 🔒 Address truth is operator-owned (Input 1 worklist confirmation) — Claude mines the corpus and
+  loads the suggestions offline; the operator confirms the addresses.
+- **No own-history full address → require a supplied full address; never invent one** ("no mock data").
 - The corpus-incorporation plan already seeds repeated full postcodes (`count>=3`) as
-  `InspectionAddress` reference rows — the resolver consumes that surface.
+  `InspectionAddress` reference rows — the suggestions ride on that surface.
 
-**Recommendation:** **build this next after the corpus loads.** It is the feature with the largest
-case-coverage impact per unit of effort, and the data analysis is what makes it a confirm-not-research
-task. The fast-confirm queue is the specific UI that converts the analysis into resolved cases.
+**Recommendation:** **derive this corpus next after the corpus loads.** It is the feature with the
+largest case-coverage impact per unit of effort, and the data analysis is what makes it a
+pick-not-research task — a static offline snapshot of suggestions, **not** a runtime service
+(ADR-0013). See [`../architecture/inspection-address-corpus.md`](../architecture/inspection-address-corpus.md).
 
 ---
 
@@ -244,7 +246,7 @@ never silently applied).
 
 **Recommendation:** activate DVSA mileage + vehicle-summary in a test env (low effort, it's built);
 hold valuation for M2. Value is Med not High because mileage is a single field and only fills when
-absent — useful, but not a workflow-mover like address-matching.
+absent — useful, but not a workflow-mover like the inspection-address suggestions corpus.
 
 ---
 
@@ -347,7 +349,7 @@ reflection/classification vision to M2 on Foundry/AI Builder only.
 
 | # | Item | Value | Effort | Why it ranks here |
 |---|---|---|---|---|
-| **1** | **Address-matching + fast-confirm service** (§5) | High | M | Converts 57% district-only cases → confirmed EVA field-9 addresses; the data already pre-filled the answers, so it's confirm-not-research. Largest case-coverage win per unit effort. |
+| **1** | **Offline inspection-address suggestions corpus** (§5) | High | M | Converts 57% district-only cases → EVA field-9 full addresses staff pick in one click; the data already pre-filled the answers offline (no runtime resolver — ADR-0013), so it's pick-not-research. Largest case-coverage win per unit effort. |
 | **2** | **Corpus-widen + intermediary de-collision** (§4 / Inputs 5,2) | High | M | Takes provider-matching from ~39 to ~176 live providers and fixes the intermediary-domain collision — pure data, no new logic, unblocks intake correctness for PCH/HVL/etc. |
 | **3** | **Box archival activation** (§2) | High | S | Terminal audit backstop; already built and `off`; one casing check. Cheapest High-value item. |
 | **4** | **Draft-only chasers, corpus-targeted** (§3) | High | M | Attacks the partial-case backlog directly; corpus + Input-4 coverage make it chase the *right* yard; draft-only matches CE's compliance reality. |
@@ -360,15 +362,19 @@ the next tier — valuable, but either deferred-by-design or lower workflow impa
 
 ## The single highest-leverage thing the data analysis unlocks
 
-**The address-matching service driven by the pre-filled "Likely full address" fast-confirm queue.**
+**The offline-derived inspection-address suggestions corpus — full addresses mined from case history,
+surfaced for a one-click manual pick.**
 
 The analysis didn't just *count* the 57% part-postcode problem — it **pre-solved ~35% of it** by
 deriving each `(principal, district)`'s likely full address from that principal's own repeat-postcode
 history, and it identified the shared yards (with full postcodes and names) corroborated by two
-independent sources. That turns the operator's job from "research 638 districts" into "confirm a
-volume-ranked queue with one click," where confirming the *top* rows resolves the *largest* blocks of
-cases first (one confirm = 814 QCL cases at M12 5FX). No other feature has that ratio of
-cases-resolved to effort, and none of it is possible without the corpus the analysis produced. The
-same corpus simultaneously fixes provider-matching breadth, dedup's cross-provider guard, and
-chaser targeting — so building the address resolver on top of the loaded corpus is the move that
-cashes in the data analysis across the whole workflow at once.
+independent sources. Those confirmed full addresses are loaded **once, offline** into
+`cr1bd_inspectionaddress` as provider-scoped **suggestions** (full addresses only; partials stay a
+backlog, never loaded). That turns the staff job from "research 638 districts" into "pick a
+volume-ranked suggestion with one click" in the Code App Address tab — picking the *top* rows resolves
+the *largest* blocks of cases first (e.g. 814 QCL cases at M12 5FX). There is **no runtime resolver**
+(ADR-0013); the leverage is in the offline mining and the static snapshot, not a live service. No
+other feature has that ratio of cases-resolved to effort, and none of it is possible without the
+corpus the analysis produced. The same corpus simultaneously fixes provider-matching breadth, dedup's
+cross-provider guard, and chaser targeting — so deriving these suggestions on top of the loaded corpus
+is the move that cashes in the data analysis across the whole workflow at once.

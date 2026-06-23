@@ -76,6 +76,12 @@ rule in the brief. (Origin: review 190626 R2 — brief/spec text was leaking ont
    each recovery) — it is the load-bearing fix because the gateway encoding **DRIFTS** with connector
    state. A flow `parser failed: 400` / `422` while a **direct** `POST /api/parse` 200s = the gateway
    encoding, not the parser. See memory `powerplatform-connector-base64-double-encode`.
+8. **`Loc` is an EVA-export artifact, not an intake input.** The inspection address is an
+   **offline-derived full-address suggestion** (a static, full-addresses-only corpus in
+   `cr1bd_inspectionaddress`) that staff **pick/edit manually**, falling back to "Image Based
+   Assessment" with a reason — **there is NO runtime address matcher** (the one that misread `Loc` was
+   removed root-and-stem 2026-06-23). Do not re-derive a partial postcode at runtime; there is no
+   `cr1bd_loc` Case column. See ADR-0013 / `docs/architecture/inspection-address-corpus.md`.
 
 ## Verify against reality — don't trust source or summaries
 Prior sessions shipped confident, wrong diagnoses. Always confirm live:

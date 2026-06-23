@@ -2,7 +2,7 @@
 
 This section catalogues features that are built and (where backed by a Function) deployed live, but are not wired through to a working path — the classic dead-affordance and orphaned-resource failure modes — separated cleanly from artefacts that are unwired *by design*. The genuine orphans cluster in the Code App's manual-intake screen (enrichment + address buttons that always return "not connected" because no connector transport was ever injected) and one latent env-var-gate coherence lag; the EVA submit dialog adds a non-functional duplicate of a working export. All six findings below were independently verified (`verdict.real = true`).
 
-Confirmed findings by severity: **0 critical, 0 high, 2 medium, 3 low, 1 info** (6 total).
+Confirmed findings by severity: **0 critical, 0 high, 2 medium, 3 low, 1 info** (6 total). Note: one of the two MEDIUM findings — the orphaned runtime inspection-address matcher Function + its dead Code App address button — was **resolved 2026-06-23** by removing that whole stack root-and-stem (ADR-0013); see the [RESOLVED 2026-06-23] entry below.
 
 ## [MEDIUM] Code App "Look up vehicle (DVLA/DVSA)" button is permanently non-functional — no connector/transport injected, despite the enrichment Function being live
 
@@ -16,27 +16,19 @@ Confirmed findings by severity: **0 critical, 0 high, 2 medium, 3 low, 1 info** 
 
 **Verifier correction:** Minor under-statement, not a refutation: the §8 "automated-flow vs on-demand-UI" question was de-facto resolved toward the automated flow — enrichment DOES run live in the CS Enrich flow (live-environment.md:72; MEMORY enrichment-activated 2026-06-20). So the on-demand UI button is genuinely redundant for mileage/model, which strengthens the finding's "remove or visibly disable the dead button" branch over the "wire it" branch. Note also the enrichment-activation plan's own facts table (lines 88-89: "Unbound", "gated OFF") trails the live state because it is a pre-activation runbook; the live registry (live-environment.md:58,72) is authoritative and shows the connection Bound and the flow ON.
 
-## [MEDIUM] Code App "Normalise address" button + address-match Function are orphaned — Function deployed/live but no connection reference, no flow caller, no Code App transport
+## [RESOLVED 2026-06-23] Orphaned inspection-address matcher Function + Code App address button — removed root-and-stem (ADR-0013)
 
-**Location:** `mockup-app/src/screens/ManualIntake.tsx:549`; `functions/addressmatch/openapi/addressmatch-connector.json`; `flows/connection-references.json`; `flows/definitions/*.json`
+The original [MEDIUM] finding here flagged a deployed-but-unreachable runtime inspection-address
+matcher Function (no connection reference, no flow caller) plus a dead Code App "Standardise
+address" button. **All of it was removed root-and-stem on 2026-06-23** — the Azure Function, its
+companion resolve flow, the custom connector, and the dead UI affordance — because it misread `Loc`
+(an EVA-export artifact) as a runtime intake input (ADR-0013).
 
-**Evidence:** The address-match Function `cespkaddr-fn-i7m4re` is deployed and Running (live-environment.md:27, ROADMAP 4a marked [x] deployed 2026-06-19) with op `MatchAddress`. But: (1) it is invoked by NO flow — grep for `match-address`/`MatchAddress`/`addressmatch` across flows/definitions/ matches only a comment in status-evaluate.definition.json:4, never an action; (2) there is NO connection reference for it — `flows/connection-references.json` lists cr1bd_box/box_rest/ceparser/dataverse/dvsaenrich/evasentry/evavalidation/evidenceblob/jobsheet_excel but nothing for address-match (grep for addressmatch/cr1bd_addr returns no matches); (3) the Code App "Normalise address" button calls `normaliseAddress(...)` (ManualIntake.tsx:549) with the default `notConnectedAddressTransport`, so it always returns 'not connected'. The docs audit (FLAGS.md, architecture-audit row) states the Function "Needs only its connector bound + flow wiring to be exercised end-to-end."
-
-**Recommendation:** This is Phase-4a work the ROADMAP lists as remaining ("matching service + chaser automation remain"), so it is largely deferred-by-design — but flag that the Function is deployed and incurring existence while wholly unreachable. Decide: either author the `cr1bd_addressmatch` connection reference + wire it (into the address-resolve flow and/or the Code App button), or explicitly mark the button gated/hidden until Phase 4a is taken up so the affordance is not dead in the live UI.
-
-**Verifier (confidence: high):** VERIFIED TRUE (with two cosmetic citation errors). All four load-bearing claims hold against the repo:
-
-(1) Function deployed/live but no flow caller. `cespkaddr-fn-i7m4re` (POST /api/match-address, op MatchAddress) is live per docs/architecture/live-environment.md:27, architecture-audit-2026-06-20.md:59, ROADMAP.md:190 ([x] deployed 2026-06-19). Grep of flows/ for match-address|MatchAddress|addressmatch returns NO matches. The single hit in flows/definitions/status-evaluate.definition.json:103 is a comment listing inspection_address as a required EVA field — not an action. Confirmed.
-
-(2) No connection reference. flows/connection-references.json (lines 7-130) enumerates exactly 10 refs: office365, dataverse, azureblob, box, box_rest, excel, ceparser, dvsaenrich, evavalidation, evasentry. None for address-match. Confirmed.
-
-(3) Code App button is a dead affordance. mockup-app/src/screens/ManualIntake.tsx:549 calls normaliseAddress(fields.inspectionAddress.value) with NO transport arg; the param defaults to notConnectedAddressTransport (enrichment-client.ts:70,52), which always returns status:'not_connected', message "Address standardisation isn't available yet." A repo-wide grep confirms no real AddressNormaliseTransport is wired anywhere. The button (lines 955-961) onClick=normaliseInspectionAddress is therefore permanently inert in the live UI. Confirmed.
-
-(4) Deferred-by-design framing is correct and the recommendation is sound. ROADMAP.md:184 header reads "(policy gate built; matching service + chaser automation remain)"; functions/addressmatch/README.md:111 marks "Bind cr1bd_addressmatch + wire it" as [RESERVED-FOR-USER]; docs/_audit/FLAGS.md:222 states only step 6 (wire flow + bind connection) and step 7 (live-validate) remain. So this is Phase-4a-deferred, and the real residual issue is (a) a deployed-but-wholly-unreachable Function incurring existence and (b) a dead button in the live Code App. Both are legitimately flag-worthy.
-
-This is a genuine orphaned-resource + dead-UI-affordance finding, NOT a false positive and NOT fully handled.
-
-**Verifier correction:** Two cosmetic citation errors that do not change the verdict: (a) the live button label is "Standardise address" (ManualIntake.tsx:960), not "Normalise address" as the finding's title states; the handler is normaliseInspectionAddress at line 543/957. (b) The intended connection-reference logical name is cr1bd_addressmatch (per functions/addressmatch/README.md:111,153 and the phase-4a plan), not "cr1bd_addr" as the finding's grep term implies — but the conclusion (no such ref exists in connection-references.json) is correct either way. Severity is fairly characterized as medium-to-low given it is explicitly deferred Phase-4a work; the dead-button-in-live-UI aspect is the strongest part of the finding.
+The live inspection-address model is the **offline-derived, full-address-only suggestions corpus**
+(`cr1bd_inspectionaddress`) → staff **manual pick/edit** in the CaseDetail Address tab → "Image
+Based Assessment" with a reason when unclear, gated by `address-policy.ts`. There is no runtime
+matcher. See `docs/architecture/inspection-address-corpus.md` and
+`docs/adr/0013-loc-export-artifact-no-runtime-address-matching.md`.
 
 ## [LOW] chaser-send flow gates on env-var cr1bd_CHASER_SEND_ENABLED that is never declared in the env-var manifest — gate can never be turned on
 

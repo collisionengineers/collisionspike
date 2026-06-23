@@ -59,6 +59,11 @@ keeps the brand accent. **Live-verified gone** on the deployed Dashboard + New c
 3. **postcodes.io (address-match) — LIVE.** `cespkaddr-fn-i7m4re` deployed/Running, reachable
    (204/401); `POSTCODE_IO_BASE=https://api.postcodes.io`, `AZURE_MAPS_ENABLED=false`. Needs only its
    connector bound + flow wiring to be exercised end-to-end.
+   > **SUPERSEDED 2026-06-23 (ADR-0013).** This runtime inspection-address matcher (Function + resolve
+   > flow + connector) was a misread of the EVA-export `Loc` and was **removed root-and-stem**; the live
+   > Azure resources are decommissioned. The real model is the offline-derived **full-address** suggestions
+   > corpus + manual confirm — see `docs/architecture/inspection-address-corpus.md`. The 2026-06-19 finding
+   > above is retained only as the point-in-time record.
 4. **AI features — NOT-PRESENT.** `az cognitiveservices account list -g rg-collisionspike-dev` is empty;
    `COPILOT_ENABLED` / `AIBUILDER_CLASSIFY_ENABLED` are off; Copilot + image-classification are
    plan-only (`plans/valuation-and-copilot.md`, `plans/image-classification-ai.md`). Nothing provisioned.

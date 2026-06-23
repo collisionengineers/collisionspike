@@ -89,16 +89,6 @@
       "gates": ["cr1bd_ENRICHMENT_ENABLED", "cr1bd_ENRICHMENT_API_BASE"]
     },
     {
-      "definition": "address-resolve.definition.json",
-      "displayName": "Flow_AddressResolve",
-      "planRef": "ROADMAP 4a / inspection-address-matching.md",
-      "state": "off",
-      "authoringBoundary": "[BUILD]",
-      "activationBoundary": "[RESERVED-FOR-USER]",
-      "reservedReason": "Calls the cespkaddr-fn-i7m4re inspection-address matcher (op MatchAddress) on a real Case's address; the addressmatch connector deploy is [DEPLOY-WITH-LOGIN] and binding cr1bd_addressmatch (function key) + turning CS Address Resolve ON are reserved. Wiring the live intake chain to call Run_address_resolve (byte-identical trigger) is a separate operator/business-phase LIVE edit (the repo intake def trails live).",
-      "trigger": "Request ({ caseId } child; intended to run after parse, before/with status-evaluate)"
-    },
-    {
       "definition": "provider-match.definition.json",
       "displayName": "Flow_ProviderMatch",
       "planRef": "5.8",
@@ -185,12 +175,12 @@
     }
   ],
   "summary": {
-    "totalFlows": 16,
-    "stateOff": 15,
+    "totalFlows": 15,
+    "stateOff": 14,
     "stateOn": 1,
     "activatedLive": ["case-resolve.definition.json"],
     "authoringAllBuild": true,
     "activationAllReservedForUser": false,
-    "activationNote": "All flows ship off EXCEPT case-resolve (merge-by-registration), turned ON live 2026-06-20 under the live-services override (Claude wires activations directly). Every other flow's activation remains the operator's reserved step. Phase-7 added three Box flows (box-folder-create, box-file-request-copy, box-blob-purge), all state=off, gated by BOX_* env-vars (default OFF); case-resolve gained an idempotent survivor-folder ensure (still ON). S2 added address-resolve (ROADMAP 4a inspection-address matching), state=off, binding the cr1bd_addressmatch custom connector — the flow/connection scaffold only; importing/binding the connector + the live intake-chain call to Run_address_resolve are deferred operator/live steps."
+    "activationNote": "All flows ship off EXCEPT case-resolve (merge-by-registration), turned ON live 2026-06-20 under the live-services override (Claude wires activations directly). Every other flow's activation remains the operator's reserved step. Phase-7 added three Box flows (box-folder-create, box-file-request-copy, box-blob-purge), all state=off, gated by BOX_* env-vars (default OFF); case-resolve gained an idempotent survivor-folder ensure (still ON)."
   }
 }

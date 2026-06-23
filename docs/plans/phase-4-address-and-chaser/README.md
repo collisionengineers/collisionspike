@@ -1,20 +1,31 @@
-# Phase 4 — Address-Matching & Chaser
+# Phase 4 — Inspection Address & Chaser
 
-**Goal:** resolve a Case's part-postcode `Loc` (≈57% of cases) to a full inspection address via the
-corpus yards, and draft chasers for partial cases (never auto-send).
+**Goal:** give staff a **manual** inspection-address decision — pick from offline-derived
+**full-address** suggestions, or fall back to "Image Based Assessment" with a reason — and draft
+chasers for partial cases (never auto-send).
+
+> **Inspection-address model ([ADR-0013](../../adr/0013-loc-export-artifact-no-runtime-address-matching.md)).**
+> `Loc` is an EVA-**export** artifact, **not** a runtime input. The full inspection address is derived
+> **offline** from case history into a static, full-addresses-only suggestions corpus
+> (`cr1bd_inspectionaddress`) → staff **manual** pick → "Image Based Assessment" with a reason. Partials
+> are a future-investigation backlog, **never** live. There is **no** runtime matcher — the runtime
+> matcher (Function + resolve flow + connector) was **removed 2026-06-23**. See
+> [../../architecture/inspection-address-corpus.md](../../architecture/inspection-address-corpus.md).
 
 > **Milestones in this phase** ([milestone-model](../milestone-model.md)): **4a** address-**policy** gate
-> = **M1**; **4a** address-**matching** service + **4b** chaser-send = **M2**; **4a** Azure Maps = **M3**.
+> **and** the offline full-address suggestions corpus = **M1**; **4b** chaser-send = **M2**; **4a** Azure
+> Maps = **M3**.
 
-**Status:** address-matching Function **deployed live**; chaser is **draft-only, built + imported off**.
-See [../../../ROADMAP.md](../../../ROADMAP.md) Phase 4.
+**Status:** inspection-address is **offline suggestions + manual confirm** (corpus modelled, policy gate
+in the Code App); the runtime matcher was **removed 2026-06-23** (ADR-0013). Chaser is **draft-only,
+built + imported off**. See [../../../ROADMAP.md](../../../ROADMAP.md) Phase 4.
 
 ## Implementation checklist (by feature)
 
-**4a · Inspection-address matching** — [inspection-address-matching.md](./inspection-address-matching.md)
+**4a · Inspection address (offline corpus + manual confirm)** — [../../architecture/inspection-address-corpus.md](../../architecture/inspection-address-corpus.md), [ADR-0013](../../adr/0013-loc-export-artifact-no-runtime-address-matching.md)
 1. [x] Address-policy gate in the Code App (per-provider; no silent "Image Based Assessment")
 2. [x] Known-site reference data modelled + seeded (`InspectionAddress` + `Repairer`, Phase 1b)
-3. [x] **Address-matching service deployed live** — `functions/addressmatch` (`POST /api/match-address`): part-postcode → district `startswith` over the corpus → EVA field 9; postcode.io (`AZURE_MAPS_ENABLED=false`)
+3. [x] **Offline full-address suggestions corpus** (`cr1bd_inspectionaddress`) derived from case history; staff **manual** pick, or "Image Based Assessment" with a reason. The runtime matcher was **removed 2026-06-23** (ADR-0013); partials are a future-investigation backlog, never live.
 4. [ ] Azure Maps (gated) — only if needed, later
 
 **4b · Chaser automation (ADR-0003)** — covered by [../m2-umbrella-enrichment-to-scale.md](../m2-umbrella-enrichment-to-scale.md) §10
@@ -24,7 +35,7 @@ See [../../../ROADMAP.md](../../../ROADMAP.md) Phase 4.
 
 ## Plans in this phase
 
-- [inspection-address-matching.md](./inspection-address-matching.md) — the 4a matcher deep-dive.
+- [../../architecture/inspection-address-corpus.md](../../architecture/inspection-address-corpus.md) — the 4a offline-corpus + manual-confirm model (ADR-0013).
 - Chaser (4b) lives in the M2 umbrella: [../m2-umbrella-enrichment-to-scale.md](../m2-umbrella-enrichment-to-scale.md).
 
 ## Needs the operator

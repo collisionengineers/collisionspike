@@ -58,7 +58,7 @@
     },
     {
       "unit": "docs/roles-and-permissions.md",
-      "summary": "Both proposed findings independently confirmed. Finding 1: line 18's Owner-covered Functions list omits the box-webhook (cespkbox-fn-v76a47, deployed + Gate-C-verified this session) and address-match (cespkaddr-fn-i7m4re, Running) Functions — both verbatim-matched and accurately added. Finding 2: line 36 frames the Box client_secret + webhook signature keys as a \"later\" KV need, but the now-deployed box-webhook Function already carries unresolvable @Microsoft.KeyVault references to box-client-secret/box-webhook-primary-key/box-webhook-secondary-key against the confirmed-empty vault cespkboxkvv76a47 — so it is an active deployed-host dependency. Both oldTexts match the file verbatim and uniquely; both newTexts are accurate, preserve doc voice, and respect the live-state tier. Neither overclaims that injection can occur before the operator's Box CCG unlock. No findings rejected or amended.",
+      "summary": "Both proposed findings independently confirmed. Finding 1: line 18's Owner-covered Functions list omits the box-webhook (cespkbox-fn-v76a47, deployed + Gate-C-verified this session) Function — verbatim-matched and accurately added. (At audit time a runtime inspection-address matcher Function was also live, but it was removed 2026-06-23 — ADR-0013 — so it is no longer part of the Owner-covered set.) Finding 2: line 36 frames the Box client_secret + webhook signature keys as a \"later\" KV need, but the now-deployed box-webhook Function already carries unresolvable @Microsoft.KeyVault references to box-client-secret/box-webhook-primary-key/box-webhook-secondary-key against the confirmed-empty vault cespkboxkvv76a47 — so it is an active deployed-host dependency. Both oldTexts match the file verbatim and uniquely; both newTexts are accurate, preserve doc voice, and respect the live-state tier. Neither overclaims that injection can occur before the operator's Box CCG unlock. No findings rejected or amended.",
       "kept": 2,
       "rejected": 0
     },
@@ -94,7 +94,7 @@
     },
     {
       "unit": "docs/architecture/eva-field-model.md",
-      "summary": "Verified the single proposed finding against the file and ground truth. The oldText (eva-field-model.md L63-65) appears verbatim and is unique. The truth is independently confirmed: CURRENT_STATUS.md L101-102 states cr1bd_ENRICHMENT_ENABLED is default false but current true (enrichment live in Dev), corroborated by the live-probe fact that cespkenrich-fn-gi62sd is Running with ENRICHMENT_ENABLED=true. The original \\\"operator-gated ... until then\\\" wording predates the 2026-06-20 activation and is stale. The newText is accurate (correctly preserves the gate-guard nuance and the postcodes.io/addressmatch-live clause), matches the doc voice and the 2-space list-continuation indentation, and is a tier-appropriate edit for a live-state architecture doc. Verdict: confirmed, no amendment needed.",
+      "summary": "Verified the single proposed finding against the file and ground truth. The oldText (eva-field-model.md L63-65) appears verbatim and is unique. The truth is independently confirmed: CURRENT_STATUS.md L101-102 states cr1bd_ENRICHMENT_ENABLED is default false but current true (enrichment live in Dev), corroborated by the live-probe fact that cespkenrich-fn-gi62sd is Running with ENRICHMENT_ENABLED=true. The original \\\"operator-gated ... until then\\\" wording predates the 2026-06-20 activation and is stale. The newText is accurate (correctly preserves the gate-guard nuance and the postcodes.io normalisation clause), matches the doc voice and the 2-space list-continuation indentation, and is a tier-appropriate edit for a live-state architecture doc. Verdict: confirmed, no amendment needed.",
       "kept": 1,
       "rejected": 0
     },
@@ -213,8 +213,8 @@
       "rejected": 0
     },
     {
-      "unit": "functions/addressmatch/README.md",
-      "summary": "clean: Audited functions/addressmatch/README.md in full and cross-checked every factual/state claim against the repo and the ground-truth brief. The document is fully accurate; no findings.\n\nVerified claims:\n- Test count \"41 tests, all green\": CONFIRMED. `.venv/Scripts/python -m pytest --collect-only` reports exactly \"41 tests collected\" (30 plain test_ functions + 1 parametrized test_parse_postcode with 11 cases = 41). The raw `def test_` grep alone (31) is misleading; the parametrize expansion makes the README's 41 correct.\n- POST /api/match-address route: CONFIRMED in function_app.py (@app.route(route=\"match-address\")) and openapi/addressmatch-connector.json (\"/match-address\").\n- No-secrets / no-Key-Vault claim: CONSISTENT with the brief (addressmatch is not in the KV-reference set; only eva and box function apps carry @Microsoft.KeyVault refs). main.bicep has no Key Vault resource; postcode_client.py uses keyless api.postcodes.io.\n- Bicep param azureMapsEnabled (default false) and namePrefix=cespkaddr: CONFIRMED (infra/main.bicep param azureMapsEnabled bool = false; param namePrefix string = 'cespkaddr'). Generated functionAppName ${namePrefix}-fn-${substring(suffix,0,6)} matches the live-deployed cespkaddr-fn-i7m4re in the brief.\n- FC1 / Flex Consumption shape and `func azure functionapp publish --python` remote Oryx build: CONFIRMED (bicep sku FC1 / tier FlexConsumption).\n- Connector function-key auth (x-functions-key apiKey header): CONFIRMED in the connector OpenAPI securityDefinitions.\n- AZURE_MAPS_ENABLED gate read in function_app.py: CONFIRMED; ships false (M1 default). Live probe shows cespkaddr-fn-i7m4re AZURE_MAPS_ENABLED=False, matching.\n- All listed source files (function_app.py, matching.py, postcode.py, postcode_client.py, host.json, infra/main.bicep, openapi/addressmatch-connector.json, tests/, requirements*.txt, local.settings.json.TEMPLATE): all present on disk.\n- Cross-references resolve: mockup-app/src/domain/address-policy.ts, dataverse/choicesets/inspection-decision-mode.json, raw/principalandrepairersheets/outputs/reports/loc_principal_analysis.md, and functions/evavalidation all exist.\n\nNote on deploy state (not a finding): The brief confirms cespkaddr-fn-i7m4re is deployed and Running, while the README's Boundary-tags table marks \"Deploy the Function + import the custom connector\" as [DEPLOY-WITH-LOGIN] and includes an operator Deploy section. This is a workflow/role taxonomy (who performs the activity), not an assertion that the function is currently undeployed, so it is not misleading and requires no edit. The connector bind/wire step ([RESERVED-FOR-USER]) remains genuinely pending, consistent with live state.",
+      "unit": "(removed) inspection-address matcher README",
+      "summary": "OBSOLETE: this unit audited the README for the runtime inspection-address matcher Function. That whole stack — the Azure Function, its companion resolve flow, the custom connector, and the README — was removed root-and-stem on 2026-06-23 (ADR-0013) because it misread Loc (an EVA-export artifact) as a runtime intake input. The live inspection-address model is the offline-derived full-address suggestions corpus + manual confirm, gated by mockup-app/src/domain/address-policy.ts; there is no runtime matcher. See docs/architecture/inspection-address-corpus.md and docs/adr/0013-loc-export-artifact-no-runtime-address-matching.md. No findings remain for this unit.",
       "kept": 0,
       "rejected": 0
     },
@@ -304,7 +304,7 @@
     },
     {
       "unit": "plans-phase-456",
-      "summary": "Verified all 7 proposed plan-tier findings against the live repo and brief. The address-matching Function is confirmed built (matching.py, function_app.py, infra/main.bicep, openapi/addressmatch-connector.json all present) and deployed live as cespkaddr-fn-i7m4re (route POST /api/match-address, AZURE_MAPS_ENABLED=false) per ROADMAP §4a and live-environment.md, so findings 1-5 are well-grounded reconciliations. The OCR host is confirmed shipped as a separate top-level ocr/ app (function_app.py, ocr_pdf_adapter.py, plate_adapter.py, infra/main.bicep, openapi/ocr-connector.json with ops OcrPdf+PlateOcr, routes /api/ocr-pdf + /api/plate-ocr) per ocr/README.md, validating finding 7. verify-all.mjs is confirmed to run 7 gates and CURRENT_STATUS.md line 169 documents 7/7, validating finding 6. CONFIRMED 5 findings (3,4,5,6,7). AMENDED 2 findings: (1) the newText DUPLICATED the existing \"It is the deep dive behind ROADMAP §4a\" sentence that immediately follows the oldText span — rewrote newText to end cleanly and flow into the retained sentence; (2) the finding's truth wrongly stated op MatchAddress \"never shipped\" — it DID ship (operationId MatchAddress in the connector); only the PATH changed (/match-address not /address/match) plus the request body shape — corrected the newText to reflect that. REJECTED none.",
+      "summary": "Verified the proposed plan-tier findings against the repo and brief at audit time. The findings 1-5 concerned the runtime inspection-address matcher plan and its Function; that whole stack (the Azure Function, its companion resolve flow, and the custom connector) was subsequently removed root-and-stem on 2026-06-23 (ADR-0013) — it misread Loc (an EVA-export artifact) as a runtime intake input — so those reconciliations are now MOOT (the live model is the offline-derived full-address suggestions corpus + manual confirm; see docs/architecture/inspection-address-corpus.md). The OCR host is confirmed shipped as a separate top-level ocr/ app (function_app.py, ocr_pdf_adapter.py, plate_adapter.py, infra/main.bicep, openapi/ocr-connector.json with ops OcrPdf+PlateOcr, routes /api/ocr-pdf + /api/plate-ocr) per ocr/README.md, validating finding 7. verify-all.mjs is confirmed to run 7 gates and CURRENT_STATUS.md line 169 documents 7/7, validating finding 6. Findings 6 and 7 stand; findings 1-5 are superseded by the 2026-06-23 removal. REJECTED none.",
       "kept": 7,
       "rejected": 0
     },
@@ -376,8 +376,8 @@
         "locator": "Phase 1 build bullet — \"functions/{parser,enrichment}/ — Azure Functions\"",
         "severity": "minor",
         "oldText": "- `functions/{parser,enrichment}/` — Azure Functions (code, Bicep, OpenAPI, mocked pytest).",
-        "newText": "- `functions/` — Azure Functions (`parser`, `enrichment`, `addressmatch`, `evasentry`, `evavalidation`, `box-webhook`; code, Bicep, OpenAPI, mocked pytest).",
-        "note": "Confirmed: ls functions/ shows 6 source dirs (addressmatch, box-webhook, enrichment, evasentry, evavalidation, parser), not 2; oldText matches line 48 verbatim.",
+        "newText": "- `functions/` — Azure Functions (`parser`, `enrichment`, `evasentry`, `evavalidation`, `box-webhook`; code, Bicep, OpenAPI, mocked pytest).",
+        "note": "Confirmed: ls functions/ shows the live source dirs (box-webhook, enrichment, evasentry, evavalidation, parser), not 2; oldText matches line 48 verbatim. (A separate inspection-address matcher dir was present at audit time but was removed 2026-06-23 — ADR-0013 — so it is intentionally omitted here.)",
         "verdict": "confirmed"
       },
       {
@@ -720,8 +720,8 @@
         "locator": "Table row 'Azure RBAC | Owner' (line 18) — the illustrative Functions list",
         "severity": "minor",
         "oldText": "All Azure deploy/manage: the Functions (parser, enrichment, EVA, evavalidation, OCR ACA), Storage, Container Apps, Document Intelligence, App Insights",
-        "newText": "All Azure deploy/manage: the Functions (parser, enrichment, EVA, evavalidation, address-match, OCR ACA, and the now-deployed Box webhook), Storage, Container Apps, Document Intelligence, App Insights",
-        "note": "oldText matches line 18 verbatim and is unique; brief confirms box-webhook (cespkbox-fn-v76a47) deployed + Gate-C-verified this session and address-match (cespkaddr-fn-i7m4re) Running — both are Owner-covered Functions absent from the list; live-state tier permits the reconciliation.",
+        "newText": "All Azure deploy/manage: the Functions (parser, enrichment, EVA, evavalidation, OCR ACA, and the now-deployed Box webhook), Storage, Container Apps, Document Intelligence, App Insights",
+        "note": "oldText matches line 18 verbatim and is unique; brief confirms box-webhook (cespkbox-fn-v76a47) deployed + Gate-C-verified this session — an Owner-covered Function absent from the list; live-state tier permits the reconciliation. (At audit time a runtime inspection-address matcher Function was also Owner-covered, but it was removed 2026-06-23 — ADR-0013.)",
         "verdict": "confirmed"
       },
       {
@@ -837,8 +837,8 @@
         "unit": "docs/architecture/eva-field-model.md",
         "locator": "Verified enrichment + VAT reality (2026-06-19 capability review) — second bullet, \"operator-gated ... until then\"",
         "severity": "major",
-        "oldText": "- Enrichment + address-normalise are **operator-gated** (connector binding + `ENRICHMENT_ENABLED`); the\n  UI clients return an honest \"not connected\" until then. Inspection-address normalisation uses\n  **postcodes.io** now (the addressmatch Function is live), Azure Maps later.",
-        "newText": "- Enrichment is **live in Dev** — `ENRICHMENT_ENABLED` is flipped on (default `false`, current\n  `true`) and the enrichment Function is bound, so the \"Look up vehicle\" client returns real\n  Make/Model/Mileage. (It remains gate-guarded: where the gate is off the UI clients return an\n  honest \"not connected\".) Inspection-address normalisation uses **postcodes.io** now (the\n  addressmatch Function is live), Azure Maps later.",
+        "oldText": "- Enrichment + address-normalise are **operator-gated** (connector binding + `ENRICHMENT_ENABLED`); the\n  UI clients return an honest \"not connected\" until then. Inspection-address normalisation uses\n  **postcodes.io** now, Azure Maps later.",
+        "newText": "- Enrichment is **live in Dev** — `ENRICHMENT_ENABLED` is flipped on (default `false`, current\n  `true`) and the enrichment Function is bound, so the \"Look up vehicle\" client returns real\n  Make/Model/Mileage. (It remains gate-guarded: where the gate is off the UI clients return an\n  honest \"not connected\".) The inspection address is an offline-derived full-address suggestion\n  picked manually by staff (ADR-0013) — there is no runtime address matcher.",
         "note": "Confirmed: oldText matches verbatim/unique at L63-65; CURRENT_STATUS.md L101-102 + live-probe (cespkenrich-fn-gi62sd Running, ENRICHMENT_ENABLED=true) prove enrichment is live in Dev (default false/current true); newText is accurate, preserves doc voice/2-space continuation indent, and respects the live-state tier.",
         "verdict": "confirmed"
       }
@@ -1857,53 +1857,13 @@
         "verdict": "confirmed"
       }
     ],
-    "docs/plans/phase-4-address-and-chaser/inspection-address-matching.md": [
+    "(removed) inspection-address matcher plan": [
       {
         "unit": "plans-phase-456",
-        "locator": "Status blockquote (top), lines 3-6: \"**Status:** planning + completion runbook ... the postcode.io→Azure-Maps gating.\"",
-        "severity": "major",
-        "oldText": "> **Status:** planning + completion runbook. The **pure helpers are already built** in\n> `functions/addressmatch/` (`postcode.py`, `postcode_client.py`, **offline** [BUILD]); this plan\n> specifies the **remaining build** (the `matching.py` ranker + `function_app.py` HTTP handler + infra +\n> OpenAPI), how it consumes the Phase-1b corpus, and the postcode.io→Azure-Maps gating.",
-        "newText": "> **Status (UPDATED 2026-06-22):** **BUILT + DEPLOYED LIVE.** The matcher described below is fully\n> built in `functions/addressmatch/` (`postcode.py`, `postcode_client.py`, `matching.py`,\n> `function_app.py`, `infra/main.bicep`, `openapi/addressmatch-connector.json`) and the Function is\n> **deployed live as `cespkaddr-fn-i7m4re`** (route **`POST /api/match-address`**, `AZURE_MAPS_ENABLED=false`\n> → postcode.io). What follows is the original **2026-06-18 planning + completion runbook** retained as\n> design rationale — the live route/contract is authoritative where it differs (see §4).",
-        "note": "oldText matches lines 3-6 verbatim and the build/deploy truth is confirmed (matching.py/function_app.py/infra/openapi all present; ROADMAP §4a + live-environment.md show cespkaddr-fn-i7m4re live). AMENDED because the original newText re-introduced an \"It is the deep dive behind ROADMAP §4a\" sentence that already follows the oldText span at line 6, which would duplicate that text and break the prose; trimmed newText to end cleanly so the file's existing \" It is the deep dive behind **ROADMAP §4a ...\" continuation stays intact.",
-        "verdict": "amended"
-      },
-      {
-        "unit": "plans-phase-456",
-        "locator": "§4 table, function_app.py row (line 126): \"POST /api/address/match body {...}\"",
-        "severity": "major",
-        "action": "flag",
-        "oldText": "| `functions/addressmatch/function_app.py` | `POST /api/address/match` body `{ loc, workProviderId?, principalCode?, policy? }` → `{ kind, candidates:[{label, line1..6, postcode, source:\"repairer\"|\"inspection_site\", score}], recommendation:{ decisionMode, reason?, evaInspectionAddress? } }`. Function-key auth (`AuthLevel.FUNCTION`), patterned on `functions/evasentry/function_app.py`. | Gate-at-edge optional (the matcher is read-only + safe even when `AZURE_MAPS_ENABLED` is false — it just uses postcode.io). |",
-        "newText": "Reconcile this row to what shipped: the deployed Function exposes **`POST /api/match-address`** (NOT `/api/address/match`), and the live request body uses `caseLoc` / `principalCode` / `inspectionAddresses[]` / `repairers[]` / `reviewerDecision` with a `{ decisionMode, inspectionAddress, matched, needsReviewerDecision, candidates[], locKind, district, reason, warnings[] }` response (see functions/addressmatch/function_app.py + openapi/addressmatch-connector.json). The connector op name `MatchAddress` DID ship unchanged — only the path and body shape differ from this plan; update the route + body here accordingly.",
-        "note": "oldText matches line 126 verbatim and the route truth is confirmed (function_app.py route=match-address; openapi path /match-address). AMENDED: the original finding's truth wrongly asserted \"op MatchAddress never shipped\" — operationId MatchAddress IS in openapi/addressmatch-connector.json (it shipped); only the path (/match-address vs /address/match) and request/response body changed. Corrected the newText so the doc edit does not propagate that false claim.",
-        "verdict": "amended"
-      },
-      {
-        "unit": "plans-phase-456",
-        "locator": "§1 table row (line 48): \"functions/addressmatch/{infra,openapi,tests}/ — ... infra+openapi EMPTY\"",
-        "severity": "minor",
-        "oldText": "| `functions/addressmatch/{infra,openapi,tests}/` | **Dirs exist; `tests/fixtures/` present; infra+openapi EMPTY** | The Bicep + connector OpenAPI are **still to author** (§4). |",
-        "newText": "| `functions/addressmatch/{infra,openapi,tests}/` | **Built (2026-06-22): `infra/main.bicep` + `openapi/addressmatch-connector.json` authored; tests present** | The Bicep + connector OpenAPI now exist; the Function deployed live from them (`cespkaddr-fn-i7m4re`). |",
-        "note": "oldText matches line 48 verbatim; Glob confirms functions/addressmatch/infra/main.bicep and openapi/addressmatch-connector.json both exist (and the Function deployed from them), so the 'infra+openapi EMPTY / still to author' claim is stale. newText is accurate and preserves table format.",
-        "verdict": "confirmed"
-      },
-      {
-        "unit": "plans-phase-456",
-        "locator": "§1 closing line (lines 54-55): \"**Implication:** §4a is **~55 % built**\"",
-        "severity": "minor",
-        "oldText": "**Implication:** §4a is **~55 % built** — the deterministic core (parse + match rule + 6-line serializer\n+ postcode.io seam) is done; the **ranker + HTTP/connector surface + pipeline wiring** remain.",
-        "newText": "**Implication (2026-06-22):** §4a is **built + deployed** — the deterministic core, the `matching.py`\nranker, the `function_app.py` HTTP surface, the Bicep, and the connector OpenAPI all exist and the\nFunction is **live as `cespkaddr-fn-i7m4re`**. What remains is **operator-gated**: binding the connection\nand wiring the live `address-resolve` pipeline step on real Cases.",
-        "note": "oldText matches lines 54-55 verbatim; ranker/HTTP/infra/openapi all confirmed present and the Function is deployed live, so '~55% built / ranker+surface remain' is contradicted by reality. newText reconciles to live state and preserves the [RESERVED-FOR-USER] wiring as the remaining work (matches §7 step 6).",
-        "verdict": "confirmed"
-      },
-      {
-        "unit": "plans-phase-456",
-        "locator": "§7 Activation runbook, steps 1-2 (lines 179-180): the [BUILD] rows",
-        "severity": "minor",
-        "action": "flag",
-        "oldText": "| 1 | **Build** `matching.py` (ranker, §3) + `function_app.py` (HTTP, §4) + `tests/` (mock postcode.io with `respx`; assert `district_matches` ranking, 6-line serialize, image-based recommendation-without-literal). | [BUILD] |\n| 2 | **Build** `infra/main.bicep` + `openapi/addressmatch-connector.json` (mirror evasentry). `az bicep build`; `node` JSON-parse the OpenAPI. | [BUILD] |",
-        "newText": "Steps 1-2 (and deploy steps 4-5) are DONE: matching.py + function_app.py + tests + infra/main.bicep + openapi/addressmatch-connector.json all exist, and the Function is deployed live as cespkaddr-fn-i7m4re (AZURE_MAPS_ENABLED=false). Only step 6 ([RESERVED-FOR-USER] wire the address-resolve flow + bind the connection) and step 7 (live-validate) remain.",
-        "note": "oldText matches lines 179-180 verbatim; all step-1/2 artifacts confirmed present and the Function is deployed (steps 4-5 effectively complete per live-environment.md), so these [BUILD] rows are satisfied. action=flag is appropriate (advisory reconciliation, not a destructive runbook rewrite).",
-        "verdict": "confirmed"
+        "locator": "(removed) inspection-address matcher planning doc",
+        "severity": "resolved",
+        "note": "OBSOLETE: these five findings reconciled the runtime inspection-address matcher planning doc (its Function status block, route/contract table, build-percentage line, and activation runbook) to a then-deployed Function. That whole stack — the Azure Function, its companion resolve flow, the custom connector, and the planning doc — was removed root-and-stem on 2026-06-23 (ADR-0013) because it misread Loc (an EVA-export artifact) as a runtime intake input. The live inspection-address model is the offline-derived full-address suggestions corpus + manual confirm, gated by mockup-app/src/domain/address-policy.ts; there is no runtime matcher. See docs/architecture/inspection-address-corpus.md and docs/adr/0013-loc-export-artifact-no-runtime-address-matching.md. No findings remain for this unit.",
+        "verdict": "superseded"
       }
     ],
     "docs/plans/phase-6-handoff/README.md": [

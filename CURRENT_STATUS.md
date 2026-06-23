@@ -19,12 +19,12 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
 Three live hygiene/correctness changes, all verified live:
 
 - **Observability consolidated (S4).** Previously each Azure Function carried its **own** App Insights + Log
-  Analytics workspace (7 AI + 7 LAW, including an orphaned managed enrich workspace). Now the **5 FC1 Function
-  Apps** — enrichment (`cespkenrich-fn-gi62sd`), addressmatch (`cespkaddr-fn-i7m4re`), eva-sentry
+  Analytics workspace (7 AI + 7 LAW, including an orphaned managed enrich workspace). Now the **4 FC1 Function
+  Apps** — enrichment (`cespkenrich-fn-gi62sd`), eva-sentry
   (`cespkeva-fn-ufa3ci`), evavalidation (`cespkeval-fn-6c6fxd`), box-webhook (`cespkbox-fn-v76a47`) — send
   telemetry to the **shared** parser App Insights `cespike-parser-ai-dev` + workspace `cespike-parser-law-dev`
-  (their `APPLICATIONINSIGHTS_CONNECTION_STRING` repointed). **Deleted:** the 5 per-app App Insights
-  (`cespkenrich/addr/eva/eval/box-ai-*`), 4 per-app LAW (`cespkaddr/eva/eval/box-law-*`, soft-deleted/14-day
+  (their `APPLICATIONINSIGHTS_CONNECTION_STRING` repointed). **Deleted:** the 4 per-app App Insights
+  (`cespkenrich/eva/eval/box-ai-*`), 3 per-app LAW (`cespkeva/eval/box-law-*`, soft-deleted/14-day
   recovery), and the orphaned managed enrich workspace `managed-cespkenrich-ai-gi62sd-ws` + its hidden RG.
   **Remaining App Insights/LAW in `rg-collisionspike-dev`:** only the shared pair (`cespike-parser-ai-dev` +
   `cespike-parser-law-dev`) and the **OCR pair** (`cespkocr-ai-dev` + `cespkocr-law-dev`). **OCR is NOT
@@ -323,8 +323,11 @@ player**. Headlines:
   package (`functions/parser/contracts/`) + fixed the resolver order, so `/api/parse` no longer emits a
   spurious `schema_unavailable` issue. **Live-verified:** returns the 12 EVA fields incl. **B2**
   `claimant_telephone` (`07700900123`) + `claimant_email` extracted from document text. (B2 → **Done**.)
-- **Address-match Function DEPLOYED** (`cespkaddr-fn-i7m4re`, FC1, `POST /api/match-address`). Live-verified:
-  part-postcode `M1` → district match over candidate sites, postcode.io reachable. (ROADMAP 4a → deployed.)
+- **Inspection-address matcher — REMOVED root-and-stem 2026-06-23 (ADR-0013).** A runtime Function was briefly
+  deployed this session on a misreading (`Loc` is an EVA-export artifact, not an intake input). It and its Azure
+  resources were deleted; the inspection address is now an **offline-derived full-address suggestion** (in
+  `cr1bd_inspectionaddress`) that staff **manually pick** (or "Image Based Assessment" with a reason) — no runtime
+  matcher. See `docs/architecture/inspection-address-corpus.md`.
 - **OCR host — DEPLOYED 2026-06-19 (Running).** Function App `cespkocr-fn-dev-glju3v` (Functions-on-ACA,
   scale-to-zero 0..5, HTTPS-only) pulls `ce-ocr:latest` from ACR `cespkocracraeee76`. The prior 3×
   `Failed to provision revision … Operation expired` was the **AcrPull RBAC-propagation race** (the role
@@ -373,14 +376,14 @@ player**. Headlines:
   clarifying-info phase.
 - **Built this session, gated-OFF, DEPLOY PENDING (not yet live):** EVA Sentry REST v1.2
   (`functions/evasentry` — two-request `Files` submission `/Instruction/Inspection` → `/Note/SubmitNote`,
-  payload-hash idempotency, pytest **42/42**; `finalize-eva-box` refined); inspection-address matching
-  Function (`functions/addressmatch`, ROADMAP 4a — part-postcode `Loc` → corpus yard via district
-  `startswith`; postcode.io); **OCR host** (`ocr/`, ROADMAP 5a, **no longer deferred** — scanned/image-PDF
+  payload-hash idempotency, pytest **42/42**; `finalize-eva-box` refined); **OCR host** (`ocr/`, ROADMAP 5a, **no longer deferred** — scanned/image-PDF
   fallback, Dockerfile + Azure Container Apps Bicep + plate/pdf adapters); parser **B2** (claimant
   telephone/email now extracted with provenance + tests); plans authored for every remaining phase
   (3c/4a/5a/5b/5c) + `docs/plans/README.md`; IaC hardened (workspace-based App Insights, storage
-  `allowSharedKeyAccess:false`, right-sized memory).
-- **Known follow-ups (still pending):** Azure deploys for `evasentry`, `addressmatch`, `ocr` (ACA:
+  `allowSharedKeyAccess:false`, right-sized memory). _(A runtime inspection-address matcher was also built
+  this session but later **removed root-and-stem 2026-06-23** — built on a misreading; the inspection address
+  is now offline-derived full-address suggestions + manual confirm, ADR-0013.)_
+- **Known follow-ups (still pending):** Azure deploys for `evasentry`, `ocr` (ACA:
   build+push image then deploy Bicep), and the **parser Function REDEPLOY** (also fixes
   `EVA_PAYLOAD_SCHEMA_PATH` so the EVA payload schema loads from the package, not cwd); the **Phase-1
   flow-chain activation on `digital@`** (turn on classify-persist / parse / status-evaluate, bind
