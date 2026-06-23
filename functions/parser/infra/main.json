@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.44.1.10279",
-      "templateHash": "8672094097647500795"
+      "templateHash": "6562929630771149330"
     }
   },
   "parameters": {
@@ -43,6 +43,27 @@
         "description": "Python runtime version for the Function worker."
       }
     },
+    "instanceMemoryMB": {
+      "type": "int",
+      "defaultValue": 2048,
+      "allowedValues": [
+        512,
+        2048,
+        4096
+      ],
+      "metadata": {
+        "description": "Per-instance memory (MB) for the Flex Consumption worker. 2048 gives PyMuPDF headroom."
+      }
+    },
+    "maximumInstanceCount": {
+      "type": "int",
+      "defaultValue": 40,
+      "minValue": 40,
+      "maxValue": 1000,
+      "metadata": {
+        "description": "Maximum Flex Consumption instance count (burst ceiling)."
+      }
+    },
     "keyVaultName": {
       "type": "string",
       "defaultValue": "",
@@ -76,7 +97,9 @@
     "functionAppName": "[format('{0}-parser-{1}-{2}', parameters('namePrefix'), parameters('environmentName'), variables('uniqueSuffix'))]",
     "appInsightsName": "[format('{0}-parser-ai-{1}', parameters('namePrefix'), parameters('environmentName'))]",
     "logAnalyticsName": "[format('{0}-parser-law-{1}', parameters('namePrefix'), parameters('environmentName'))]",
-    "wireSecretReference": "[and(not(empty(parameters('keyVaultName'))), not(empty(parameters('parserSecretName'))))]"
+    "deploymentContainerName": "app-package",
+    "wireSecretReference": "[and(not(empty(parameters('keyVaultName'))), not(empty(parameters('parserSecretName'))))]",
+    "storageBlobDataOwnerRoleId": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
   },
   "resources": [
     {
@@ -92,8 +115,28 @@
       "properties": {
         "minimumTlsVersion": "TLS1_2",
         "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": false,
         "supportsHttpsTrafficOnly": true
       }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', variables('deploymentContainerName'))]",
+      "properties": {
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageAccountName'), 'default')]"
+      ]
     },
     {
       "type": "Microsoft.OperationalInsights/workspaces",
@@ -130,13 +173,12 @@
       "location": "[parameters('location')]",
       "tags": "[parameters('tags')]",
       "sku": {
-        "name": "EP1",
-        "tier": "ElasticPremium"
+        "name": "FC1",
+        "tier": "FlexConsumption"
       },
-      "kind": "elastic",
+      "kind": "functionapp",
       "properties": {
-        "reserved": true,
-        "maximumElasticWorkerCount": 3
+        "reserved": true
       }
     },
     {
@@ -152,17 +194,49 @@
       "properties": {
         "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
         "httpsOnly": true,
-        "reserved": true,
+        "functionAppConfig": {
+          "deployment": {
+            "storage": {
+              "type": "blobContainer",
+              "value": "[format('{0}{1}', reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-05-01').primaryEndpoints.blob, variables('deploymentContainerName'))]",
+              "authentication": {
+                "type": "SystemAssignedIdentity"
+              }
+            }
+          },
+          "scaleAndConcurrency": {
+            "maximumInstanceCount": "[parameters('maximumInstanceCount')]",
+            "instanceMemoryMB": "[parameters('instanceMemoryMB')]"
+          },
+          "runtime": {
+            "name": "python",
+            "version": "[parameters('pythonVersion')]"
+          }
+        },
         "siteConfig": {
-          "linuxFxVersion": "[format('Python|{0}', parameters('pythonVersion'))]",
-          "ftpsState": "Disabled",
           "minTlsVersion": "1.2",
-          "appSettings": "[concat(createArray(createObject('name', 'AzureWebJobsStorage', 'value', format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', variables('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-05-01').keys[0].value)), createObject('name', 'FUNCTIONS_EXTENSION_VERSION', 'value', '~4'), createObject('name', 'FUNCTIONS_WORKER_RUNTIME', 'value', 'python'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString), createObject('name', 'EVA_PAYLOAD_SCHEMA_PATH', 'value', '')), if(variables('wireSecretReference'), createArray(createObject('name', 'PARSER_OUTBOUND_API_KEY', 'value', format('@Microsoft.KeyVault(SecretUri=https://{0}{1}/secrets/{2}/)', parameters('keyVaultName'), environment().suffixes.keyvaultDns, parameters('parserSecretName')))), createArray()))]"
+          "ftpsState": "Disabled",
+          "appSettings": "[concat(createArray(createObject('name', 'AzureWebJobsStorage__accountName', 'value', variables('storageAccountName')), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'value', reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString), createObject('name', 'EVA_PAYLOAD_SCHEMA_PATH', 'value', '')), if(variables('wireSecretReference'), createArray(createObject('name', 'PARSER_OUTBOUND_API_KEY', 'value', format('@Microsoft.KeyVault(SecretUri=https://{0}{1}/secrets/{2}/)', parameters('keyVaultName'), environment().suffixes.keyvaultDns, parameters('parserSecretName')))), createArray()))]"
         }
       },
       "dependsOn": [
         "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
         "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), resourceId('Microsoft.Web/sites', variables('functionAppName')), variables('storageBlobDataOwnerRoleId'))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2023-12-01', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDataOwnerRoleId'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
       ]
     }
@@ -188,6 +262,20 @@
         "description": "System-assigned managed identity principalId — grant it Key Vault \"get secret\" to resolve references."
       },
       "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2023-12-01', 'full').identity.principalId]"
+    },
+    "appInsightsConnectionString": {
+      "type": "string",
+      "metadata": {
+        "description": "Shared App Insights connection string — pass to each other Function as sharedAppInsightsConnectionString."
+      },
+      "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]"
+    },
+    "logAnalyticsId": {
+      "type": "string",
+      "metadata": {
+        "description": "Shared Log Analytics workspace resource id (OCR’s ACA env reads this workspace by name)."
+      },
+      "value": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
     }
   }
 }

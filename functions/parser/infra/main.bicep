@@ -244,3 +244,16 @@ output functionAppDefaultHostName string = functionApp.properties.defaultHostNam
 
 @description('System-assigned managed identity principalId — grant it Key Vault "get secret" to resolve references.')
 output functionAppPrincipalId string = functionApp.identity.principalId
+
+// --- Shared-observability outputs (S4) --------------------------------------
+// The parser owns the single SHARED telemetry sink for every Function in the RG
+// (slice S4 / observability consolidation). The other Functions stop self-
+// declaring Log Analytics + App Insights and instead consume this App Insights
+// connection string (and, for OCR's ACA managed environment, this workspace).
+// These outputs let an orchestrating deploy thread the shared sink through to
+// each dependent template's sharedAppInsightsConnectionString / sharedLogAnalyticsName.
+@description('Shared App Insights connection string — pass to each other Function as sharedAppInsightsConnectionString.')
+output appInsightsConnectionString string = appInsights.properties.ConnectionString
+
+@description('Shared Log Analytics workspace resource id (OCR’s ACA env reads this workspace by name).')
+output logAnalyticsId string = logAnalytics.id
