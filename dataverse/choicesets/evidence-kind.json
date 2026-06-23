@@ -3,7 +3,7 @@
   "kind": "global-choice-set",
   "logicalName": "cr1bd_evidencekind",
   "displayName": "Evidence Kind",
-  "description": "Evidence.kind — deterministic classification of an attachment (graph-intake parity). `.jpg/.jpeg/.png` -> image; `.pdf/.docx/.doc` -> instruction; the message MIME (.eml) -> email; valuation Companion Report -> valuation; the generated EVA drag-drop JSON -> eva_payload; everything else -> other. Prototype union (mock/types.ts EvidenceKind) lacks `other`; it is added per data-model.md §Evidence + Phase-1 §4.",
+  "description": "Evidence.kind — deterministic classification of an attachment (graph-intake parity). `.jpg/.jpeg/.png` -> image; `.pdf/.docx/.doc` -> instruction; the message MIME (.eml) -> email; valuation Companion Report -> valuation; the generated EVA drag-drop JSON -> eva_payload; everything else -> other. Prototype union (mock/types.ts EvidenceKind) lacks `other`; it is added per data-model.md §Evidence + Phase-1 §4. engineer_report = a THIRD-PARTY engineer\u2019s ORIGINAL report on an AUDIT case (ADR-0014), stored for comparison — never overlaid.",
   "isGlobal": true,
   "options": [
     { "value": 100000000, "name": "image",        "label": "Image" },
@@ -12,6 +12,7 @@
     { "value": 100000003, "name": "email",        "label": "Email (.eml)" },
     { "value": 100000004, "name": "valuation",    "label": "Valuation" },
     { "value": 100000005, "name": "eva_payload",  "label": "EVA Payload" },
-    { "value": 100000006, "name": "other",        "label": "Other" }
+    { "value": 100000006, "name": "other",        "label": "Other" },
+    { "value": 100000007, "name": "engineer_report", "label": "Engineer Report (audited)" }
   ]
 }

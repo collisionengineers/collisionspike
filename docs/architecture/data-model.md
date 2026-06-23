@@ -90,10 +90,14 @@ non-email-domain intake (WhatsApp/individuals) and address defaulting. A Case ca
 WhatsApp media and **OCR-matches images to Cases by VRM**.
 
 ### Evidence
-Mirrors collisioncc `image-rules`: `kind` (image/video/instruction/email/valuation/eva_payload),
+Mirrors collisioncc `image-rules`: `kind` (image/video/instruction/email/valuation/eva_payload/engineer_report),
 `imageRole` (overview/damage_closeup/additional/unknown), `registrationVisible`, `acceptedForEva`,
 storage state, source message link. `registrationVisible` is **OCR-assisted from M1** (does an
 image's OCR text contain the case VRM?); `imageRole` tagging is **manual until M2** image AI.
+An **audit case** (`Case.caseType = audit`, `cr1bd_casetype`; ADR-0014 — a second, independent CE
+inspection auditing a **third-party** engineer's original report, marked by an `A.` Case/PO prefix)
+carries that original as an **`engineer_report`** Evidence — stored for comparison, **never overlaid**
+(distinct from the engineer-report overlay, which merges CE's own CNX/EVA report).
 **Box mirror columns (Phase 7, ADR-0012 — applied live):** `boxFileId` (`cr1bd_boxfileid`) and
 `boxFileUrl` (`cr1bd_boxfileurl`). `cr1bd_boxfileid` is a **correlation/UI mirror** the webhook writes on
 accept — it is **not** the dedup key: durable dedup is the Evidence-existence check on the `box:file:<id>`
