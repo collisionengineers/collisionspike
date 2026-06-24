@@ -82,6 +82,9 @@ const expect = {
   "cr1bd_AZURE_VISION_ENABLED": "false",
   // Phase-2 chaser-send kill switch (M2.F, ADR-0003) — default OFF; flipping it is [RESERVED-FOR-USER].
   "cr1bd_CHASER_SEND_ENABLED": "false",
+  // Phase-9 case-disposition kill switch (ADR-0017 G1) — the destructive purge/anonymise gate; default
+  // OFF until the operator confirms the retention period + store-hardening pre-step ([RESERVED-FOR-USER]).
+  "cr1bd_CASE_DISPOSITION_ENABLED": "false",
   // Phase-7 Box gates (ADR-0012) — all default OFF; the 2 String config vars
   // (BOX_FOLDER_ROOT_ID / BOX_FILE_REQUEST_TEMPLATE_ID) ship "" and are set per-env at activation.
   "cr1bd_BOX_API_ENABLED": "false", "cr1bd_BOX_FOLDER_AT_INTAKE_ENABLED": "false",

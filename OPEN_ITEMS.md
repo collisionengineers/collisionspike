@@ -137,8 +137,11 @@ architecture/requirements > plans):
 - **[DRIFT]** Plan + ROADMAP say "next free audit-action = 100000022" — wrong (taken). Reconcile `intake.definition.json` to live before any triage edit.
 
 ## Phase 9 — Data Governance, Retention & Erasure _(planned; offline authoring authorized 2026-06-24)_
-- **[BUILD]** Author the retention-clock schema (`cr1bd_closedat/retentionexpiresat/legalhold` on Case) + apply
-  script + the scheduled **`case-disposition`** flow (gated-off, two-clock guard, NO Box deletion) + verify-parity.
+- **[DONE 2026-06-24]** Authored the retention-clock schema (`cr1bd_closedat`/`retentionexpiresat`/`legalhold`/
+  `legalholdreason`/`heldby` on Case) + `cr1bd_CASE_DISPOSITION_ENABLED` gate + apply script `27-retention-schema.ps1`
+  (DRY-RUN default) + verify-parity lock. verify-parity 15/15; 12 EVA fields preserved.
+- **[BUILD]** Author the scheduled **`case-disposition`** flow (gated-off, two-clock guard, NO Box deletion,
+  mirror `box-blob-purge`) — deferred for deliberate handling (the retention window + anonymise-vs-hard-delete are operator/legal-gated policy inputs).
 - **[BUILD]** Author the **3-role least-privilege security model** (User + Admin) as real role artefacts + apply script, gated-OFF (Engineer deferred).
 - **[DONE 2026-06-24]** Added KV **purge-protection** (4 vaults) + Blob **soft-delete + versioning** to the
   6 Function-host bicep templates (defense-in-depth); `az bicep build` clean on all 6. Authoring-only — operator applies.
