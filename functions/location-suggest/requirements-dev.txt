@@ -1,0 +1,10 @@
+# Dev/test dependencies. Run the offline suite with:
+#
+#     python -m pip install -r requirements.txt -r requirements-dev.txt
+#     python -m pytest
+#
+# Tests inject fake Vision / Maps / PhotoSource clients, so no Azure key, no Box,
+# and no `func start` are required — the handler + core are exercised directly.
+-r requirements.txt
+
+pytest>=8.2.0

@@ -119,6 +119,23 @@ export interface SuggestedAddress {
   evidenceNote?: string;
   /** The confidence band carried in the source label (e.g. 'candidate_multiple_addresses'). */
   confidenceBand?: string;
+  /* ---- Live-assist origin (Phase 4a — live-location-suggestion-assist.md).
+     `source:'assist'` marks a candidate returned by the reviewer-invoked location
+     assist (Vision + Maps), as opposed to a 'corpus' catalogue row. It changes ONLY
+     the provenance recorded when the reviewer CONFIRMS (cr1bd_sourcelabel
+     'suggested:assist' + a plain "Suggested from the photos" note) — an assist
+     candidate is STILL just a suggestion the reviewer must pick (ADR-0013); it is
+     never auto-applied and never persisted on its own. Absent/'corpus' = the
+     existing offline corpus suggestion (unchanged). */
+  source?: 'corpus' | 'assist';
+  /** 0..1 confidence the assist returned — drives ORDERING only, NEVER auto-select.
+   *  (The Function already orders candidates; this is carried for display parity.) */
+  confidence?: number;
+  /** Short human label the assist returned (e.g. 'Smith Recovery, Acton') — becomes
+   *  the InspectionAddress display name on confirm. Plain language only. */
+  label?: string;
+  /** evidence_id of the primary photo this candidate's top clue came from, if any. */
+  sourcePhotoRef?: string;
   /* ---- Offline-derived ranking metadata (ADR-0016 helper #2). These drive
      suggestion ORDERING + a small "seen N times · last <date>" hint ONLY; they
      NEVER auto-select and are NEVER mirrored onto a Case (ADR-0013 unchanged). */
@@ -163,6 +180,32 @@ export interface BoxGates {
    */
   fileRequestTemplateConfigured: boolean;
 }
+
+/* ----------  Location-assist gate (Phase 4a — read like the BOX_* gates)  ----------
+   Read off the same Dataverse `environmentvariable*` platform tables. `enabled` is
+   the single thing the screen acts on: it is true ONLY when the new gate, the
+   paired Maps gate, AND the per-env API-base config var are all set — so the
+   "Suggest location" action shows only when the feature is genuinely live. The
+   sub-flags are surfaced for honest tooltips/diagnostics; the whole object
+   defaults all-off on a read failure. */
+export interface LocationAssistGate {
+  /** cr1bd_LOCATION_ASSIST_ENABLED — the master assist switch. */
+  assistEnabled: boolean;
+  /** cr1bd_AZURE_MAPS_ENABLED — the paired Maps gate (both must be true). */
+  mapsEnabled: boolean;
+  /** Derived: cr1bd_LOCATION_ASSIST_API_BASE carries a non-empty value. */
+  apiBaseConfigured: boolean;
+  /** Derived AND of the three above — the ONLY flag the UI gates the action on. */
+  enabled: boolean;
+}
+
+/** All-off default — the honest "location assist not switched on / unreadable" baseline. */
+export const LOCATION_ASSIST_GATE_ALL_OFF: LocationAssistGate = {
+  assistEnabled: false,
+  mapsEnabled: false,
+  apiBaseConfigured: false,
+  enabled: false,
+};
 
 /** All-false default — the honest "Box not switched on / unreadable" baseline. */
 export const BOX_GATES_ALL_FALSE: BoxGates = {
@@ -254,6 +297,18 @@ export interface DataAccess {
    */
   getBoxGates(): Promise<BoxGates>;
 
+  /* ----- Location-assist gate (Phase 4a) ----- */
+  /**
+   * Whether the reviewer-invoked "Suggest location" assist may be shown. Read the
+   * SAME way `getBoxGates` reads — off the Dataverse env-var tables — and defaults
+   * to a NOT-enabled result on any failure (honest off). LIVE assist requires BOTH
+   * `cr1bd_LOCATION_ASSIST_ENABLED` AND the paired `cr1bd_AZURE_MAPS_ENABLED` true
+   * AND `cr1bd_LOCATION_ASSIST_API_BASE` set; all default off/empty so v1 ships
+   * dark. The Code App READS this (never writes it); the Function never reads it
+   * (gating is enforced upstream, exactly like PDF_MAPPER_ENABLED for the parser).
+   */
+  getLocationAssistGate(): Promise<LocationAssistGate>;
+
   /* ----- App intake preferences ----- */
   /** Read the 'hold new cases by default' toggle (env-var; false on failure). */
   getHoldNewCasesDefault(): Promise<boolean>;
@@ -324,6 +379,11 @@ export interface CaseRecord {
   cr1bd_vrm?: string;
   cr1bd_caseref?: string;
   cr1bd_casepo?: string;
+  /** Claimant postal address captured at intake (manual + parser best-effort).
+   *  NOT one of the 12 EVA payload columns — a Case-identity/intake-capture clue,
+   *  like vrm/caseRef. Used only as a geolocation text clue for the Phase-4a
+   *  location-suggestion assist; never drives workflow/readiness/matching. */
+  cr1bd_evaclaimantaddress?: string;
 
   cr1bd_status?: number; // cr1bd_casestatus integer (statuscode)
   cr1bd_intakechannelkind?: number; // cr1bd_intakechannelkind integer

@@ -60,13 +60,17 @@ import type {
   DataAccess,
   GeneratedServices,
   InspectionAddressCounts,
+  LocationAssistGate,
   SuggestedAddress,
 } from './types';
+import { LOCATION_ASSIST_GATE_ALL_OFF } from './types';
 import {
   BOX_ENV_VAR_SCHEMA_NAMES,
   boxGatesFromRows,
   HOLD_NEW_CASES_SCHEMA,
   holdNewCasesFromRows,
+  LOCATION_ASSIST_ENV_VAR_SCHEMA_NAMES,
+  locationAssistGateFromRows,
 } from './box-gates';
 
 /* ----------  Date helpers (ported verbatim from mock/queues.ts)  ---------- */
@@ -307,6 +311,35 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     } catch {
       // Honest off on any read failure — never fabricate an enabled gate.
       return { ...BOX_GATES_ALL_FALSE };
+    }
+  }
+
+  /* ----------  Location-assist gate read (cached, default all-off)  ----------
+     Same env-var-table read as the BOX_* gates: the new master gate, the paired
+     Maps gate, and the per-env API-base config var. `enabled` is the AND of all
+     three; a failure (tables not wired, query error) returns all-off so the
+     "Suggest location" action stays hidden until the feature is genuinely live. */
+  let locationAssistGateCache: Promise<LocationAssistGate> | undefined;
+  async function fetchLocationAssistGate(): Promise<LocationAssistGate> {
+    const defsSvc = services.environmentVariableDefinitions;
+    const valsSvc = services.environmentVariableValues;
+    if (!defsSvc || !valsSvc) return { ...LOCATION_ASSIST_GATE_ALL_OFF };
+    try {
+      const schemaFilter = LOCATION_ASSIST_ENV_VAR_SCHEMA_NAMES.map(
+        (s) => `schemaname eq '${s}'`,
+      ).join(' or ');
+      const [defsRes, valsRes] = await Promise.all([
+        defsSvc.getAll({
+          select: ['environmentvariabledefinitionid', 'schemaname', 'defaultvalue'],
+          filter: schemaFilter,
+        }),
+        valsSvc.getAll({
+          select: ['value', '_environmentvariabledefinitionid_value'],
+        }),
+      ]);
+      return locationAssistGateFromRows(defsRes.data ?? [], valsRes.data ?? []);
+    } catch {
+      return { ...LOCATION_ASSIST_GATE_ALL_OFF };
     }
   }
 
@@ -578,6 +611,12 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     getBoxGates: (): Promise<BoxGates> => {
       if (!boxGatesCache) boxGatesCache = fetchBoxGates();
       return boxGatesCache;
+    },
+
+    /* ----- Location-assist gate (cached env-var read; all-off on failure) ----- */
+    getLocationAssistGate: (): Promise<LocationAssistGate> => {
+      if (!locationAssistGateCache) locationAssistGateCache = fetchLocationAssistGate();
+      return locationAssistGateCache;
     },
 
     /* ----- App intake preference: hold new cases by default (read fresh) ----- */

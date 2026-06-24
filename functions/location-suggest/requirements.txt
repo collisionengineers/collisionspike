@@ -1,0 +1,14 @@
+# Runtime dependencies for the Collision Engineers location-suggest Function.
+#
+# Standalone Azure services only (v1 scope): Azure AI Vision (Image Analysis +
+# Read OCR) and Azure Maps (Search/Geocode), both reached over plain REST with an
+# httpx client. NO Azure OpenAI / Foundry model SDK — GPT-4o is the DEFERRED
+# escalation, out of scope here. No Box SDK — photo bytes are read behind the
+# stubbed PhotoSource seam while Box is dormant (the real Box content read is a
+# marked activation step using the existing CCG-token-in-Function pattern).
+
+# Azure Functions Python worker API (the worker also bundles this; pin for parity).
+azure-functions>=1.21.0
+
+# REST client for the Vision / Maps wrappers (same as functions/enrichment).
+httpx>=0.27.0
