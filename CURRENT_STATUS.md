@@ -14,6 +14,57 @@ DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows rea
 
 ---
 
+## 🔔 Update — 2026-06-24: SDLC sweep — Phase-4a/8/9 subsystems + EVA/OCR/parser hardening BUILT OFFLINE (gated-OFF, deploy-pending — NOT live)
+
+This entry records what the **SDLC sweep** added. **Everything here is built offline, gated-OFF, and the
+operator activates** — none of it is live/active in any environment. (Per-item operator steps are in
+[docs/gated.md](./docs/gated.md); the flat worklist is `OPEN_ITEMS.md`.)
+
+**Earlier merges recorded here for the live-state docs (were absent):**
+- **Phase-4a location-suggest subsystem (PR #23) — offline-built / deploy-pending.** The `functions/location-suggest`
+  Function + the `cr1bd_inspectionaddress` save-path seam (`saveInspectionDecision`, honest no-op until the
+  table is wired) + the `location_assist_confirmed=100000022` **reserved/forward-declared** audit action
+  (no emitter yet). **ADR-0013 preserved** — no runtime address matcher; staff still pick per case.
+- **ADR-0016 offline inspection-address corpus build (Proposed) — offline build only.** The vetted 2-year EVA
+  full-address export (`fullevaexportinspectionaddresses.xlsx`) drives a **full-REPLACE** corpus build; all
+  helper methods are **offline corpus-build only**, never a per-Case runtime resolver. Operator runs the
+  destructive `16-seed -ReplaceSuggestions -Apply` (backup-first); ADR-0016 stays Proposed.
+
+**This sweep's additions (all offline / gated-OFF / deploy-pending):**
+- **Phase 1a — parser engine re-vendored.** The 8 drifted engine-core modules were re-cut byte-identical from
+  sibling `af98383`; the vendored-engine **drift guard `test_engine_vendored_in_sync.py` is now GREEN**; parser
+  pytest passing. Sibling untouched. (The committed parser function-key literal in the activation doc was also
+  **scrubbed** to `<set at activation>`; the live key still needs **rotation** — gated.md §7.)
+- **Phase 3 — `status-evaluate` repointed onto `shared_evavalidation/ValidateCase`** (flow `state=off`): the 5
+  inline readiness actions were replaced by the `Validate_readiness` connection call. **`finalize-eva-box`
+  EVA-REST branch now streams photos** (PhotoEntry per photo, reusing the loop's bytes). Plus the **EVA drift
+  gates** — a TS-side readiness parity vitest and the cross-transport drag-drop↔REST 12-field byte-identity test.
+  EVA still gated **OFF**; the EVA-validation custom connector import + `cr1bd_evavalidation` bind remain operator.
+- **Phase 5 — gated OCR fallback wired into `parse.definition.json`** (when extraction is ~empty AND
+  `cr1bd_OCR_SCANNED_PDF_ENABLED`, call OcrPdf and re-prefill via `coalesce(OCR, parser)`; off-path unchanged) +
+  the `cr1bd_OCR_SCANNED_PDF_ENABLED`/`cr1bd_PLATE_OCR_ENABLED` (default false) + `cr1bd_VALUATION_API_BASE`
+  env-var promotions, parity-locked. Operator imports/binds the OCR connector + flips the gate.
+- **Phase 8 — inbound-email classifier + triage subsystem (ADR-0015 Proposed).** A deterministic
+  `email_classifier.py` (authored in the sibling + re-vendored byte-identical; drift guard GREEN) + the
+  `POST /classify-email` route; the `cr1bd_inboundemail` table + 2 choicesets + `inbound_classified=100000024` /
+  `inbound_routed=100000025` audit actions + `26-inbound-email.ps1` + verify-parity; the `triage-classify` flow
+  (`state=off`) + `ClassifyEmail` op (never auto-links on ambiguity); a labelled triage corpus. **The live
+  intake restructure is operator** (gated.md).
+- **Phase 9 — data-governance subsystem (ADR-0017 Proposed).** The retention-clock schema +
+  `cr1bd_CASE_DISPOSITION_ENABLED` gate + `27-retention-schema.ps1`; the scheduled `case-disposition` flow
+  (`state=off`, far-future startTime, anonymise-by-NULL, **zero Box ops / zero DeleteRecord**) +
+  `case_disposed=100000026`; the 3-role least-privilege security model as schema-as-code (`dataverse/roles/` +
+  `28-roles.ps1`, create-not-assign); **bicep store-hardening** (KV purge-protection on 4 vaults + Blob
+  soft-delete/versioning on all 6 Function-host templates) — IaC half only, **the live evidence-bytes store
+  `cespkevidstdev01` is NOT in the IaC and is an operator apply**; governance docs (`data-protection.md` +
+  the DSAR/erasure cross-store runbook). ADR-0017 stays Proposed; the policy/legal inputs are operator/legal.
+- **Phase 6 — `verify-all.mjs` widened + boundary gate.** The pytest loop now covers **every** built Function
+  suite (location-suggest/box-webhook/ocr SKIP locally without a `.venv`), and a new **static boundary grep-gate**
+  forbids raw `fetch`/XHR/external-service-host literals in `mockup-app/src` outside the connector seam.
+  `verify-all` no longer reports a fixed "7/7" — use **"all gates green"**.
+
+---
+
 ## 🔔 Update — 2026-06-23: observability consolidated · enrichment secrets → Key Vault · mileage provenance marker (S1) live
 
 Three live hygiene/correctness changes, all verified live:
@@ -200,7 +251,7 @@ Done + verified live by Claude (full table in [docs/gated.md](./docs/gated.md)):
 ---
 
 ## 🔔 Update — 2026-06-20: M2 mega-build — milestone model, code hardening, Azure deploys, suggested-address corpus (branch `fix/parser-base64-tolerant-decode`)
-A large plan-first, ms-docs-verified multi-agent pass, committed in slices. **All gates green: `node verify-all.mjs` → 7/7** (Code App build + **vitest 217**, schema parity, **flow linter 116/116**, pytest parser **53** + enrichment **29** + ocr **36** + evavalidation **51**, + the new no-`uploadFileToRecord` gate).
+A large plan-first, ms-docs-verified multi-agent pass, committed in slices. **All gates green: `node verify-all.mjs`** _(counts as-of 2026-06-20: Code App build + **vitest 217**, schema parity, **flow linter 116/116**, pytest parser **53** + enrichment **29** + ocr **36** + evavalidation **51**, + the no-`uploadFileToRecord` gate)_. **The gate set has since widened** — `verify-all` no longer reports a fixed "7/7": it now runs the Code App tsc+vite+vitest, Dataverse parity, the flow linter (currently **154/154**), a pytest loop over **every** built Function suite (parser/enrichment/evasentry/evavalidation + location-suggest/box-webhook/ocr — the last three SKIP locally without a `.venv`), and **two static gates** (the `uploadFileToRecord` regen guard + the **new boundary grep-gate**). Use **"all gates green"**, not a pinned number; live per-suite counts live in OPEN_ITEMS + live-environment.
 
 **Milestone clarity + plans** (`38e9c75`, `c20f41e`) — new **[docs/plans/milestone-model.md](./docs/plans/milestone-model.md)** is the authoritative two-axis Phase×Milestone map: the *"M2 = Phases 3–5"* shorthand that caused the M1/M2 overlap is **retired**; M0/M1/M2/M3 are capability slices that cut across phases (3b drag-drop EVA = M1, 3c REST = M2). **Valuation locked to M3** (ADR-0006). CLAUDE.md / ROADMAP / plans-README / phase-READMEs / m2-umbrella reconciled to it. Authored the 3 missing **M2 plans** (EVA-validation Function, enrichment-activation, Box-archival-pipeline) + Copilot Studio, WhatsApp coexistence, multi-inbox feasibility, image-storage-backends, and a dated architecture audit.
 

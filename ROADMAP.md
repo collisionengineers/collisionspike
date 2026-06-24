@@ -60,7 +60,7 @@ _Each rung points at its owning phase / gated.md item rather than restating work
 - [x] **Data seam** built — mock↔Dataverse swap + field adapter; app shows real rows only.
 - [x] **Dataverse schema-as-code** authored (`dataverse/`); parity test.
 - [x] **Env-var feature gates** defined.
-- [x] **Offline verification gate** green — `node verify-all.mjs` → 7 gates.
+- [x] **Offline verification gate** green — `node verify-all.mjs` → **all gates green** (began at 7; now runs more — see CURRENT_STATUS for the current per-suite breakdown).
 - [x] **Boundary-compliance gates** authored — no live calls in the app; no secret values in the repo; all flows `off`.
 
 ---
@@ -241,7 +241,7 @@ _Each rung points at its owning phase / gated.md item rather than restating work
 
 ## Phase 6 — Boundary Evidence & Handoff _(gates green; final live evidence pending)_
 
-- [x] **Offline gate green** — `verify-all.mjs` 7/7.
+- [x] **Offline gate green** — `verify-all.mjs` **all gates green** (began at 7; now runs more, incl. the boundary grep-gate added in this phase).
 - [x] **Static grep gate** / **flow-state assertion** / **no-credentials assertion**.
 - [ ] 🔒 **Connection inventory** — `pac connection list` (operator evidence at activation).
 - [ ] 🔒 **Deploy log** — record every `[DEPLOY-WITH-LOGIN]` + `[RESERVED-FOR-USER]` action.
@@ -323,7 +323,7 @@ ceiling. Same additive pattern as Phase 7. Full plan:
 ### 8a. Phase A — deterministic MVP (offline build)
 
 - [ ] **`/classify-email` parser route + `email_classifier.py`** — pure, unit-tested function reusing `VRM_RE` / `detect_audit_signals` / phrase tuples from `engine.py`; authored in **both** the vendored `functions/parser/` copy and the `cedocumentmapper_v2.0` sibling (keep `test_engine_vendored_in_sync` green).
-- [ ] **`cr1bd_inboundemail` triage table** + 2 additive choicesets (`cr1bd_inboundcategory` / `cr1bd_inboundsubtype`) + `inbound_*` audit actions — build step `26-inbound-email.ps1`; next free audit-action value `100000022`; `verify-parity.mjs` extended. _(Author offline; operator applies.)_
+- [x] **`cr1bd_inboundemail` triage table** + 2 additive choicesets (`cr1bd_inboundcategory` / `cr1bd_inboundsubtype`) + `inbound_*` audit actions — build step `26-inbound-email.ps1`; `verify-parity.mjs` extended. **Built offline 2026-06-24 (deploy-pending, operator applies).** Actions minted: `inbound_classified=100000024` / `inbound_routed=100000025` (the earlier "next free = 100000022" was stale — 100000022 is `location_assist_confirmed`, 100000023 `chaser_sent`, 100000026 `case_disposed`; **next free is now 100000027**).
 - [ ] **`triage-classify` child flow** — create/update the triage row, call `/classify-email`, do the open-Case body-VRM lookup (never auto-link on ambiguity — ADR-0010), return the label.
 - [ ] **Labelled corpus** — relabel the 12 existing fixtures + author synthetic query/enquiry/OOO/bounce `.eml`; **real PII-scrubbed mail = `[RESERVED-FOR-USER]`** (precision unverified until it lands).
 - [ ] 🔒 **Intake restructure (Phase 2 prerequisite, live-designer):** flip `fetchOnlyWithAttachment` true→false + generalise Message-ID dedup + Switch-on-category, on **ONE inbox**, after single-mailbox activation. **Every email is classified** (spam → category `other`); there is **no drop-junk pre-filter**. The classifier is deterministic ($0 within the seeded run limit), so cost is a **monitor** rather than a ceiling.

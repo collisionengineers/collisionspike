@@ -3,10 +3,15 @@
 
    The ONE module that bridges the pac-generated Dataverse services
    (`src/generated/services/*`, which DO import '@microsoft/power-apps') to the
-   seam's structural `GeneratedServices` bundle. Keeping the SDK/generated imports
-   confined here (+ main.tsx) preserves the offline boundary: the seam barrel
-   (`./index`) and `./dataverse-source` stay SDK-free and mock-backed, so the
-   default build/tests never pull in '@microsoft/power-apps'.
+   seam's structural `GeneratedServices` bundle. The SDK/generated imports are
+   confined to THIS module (+ main.tsx), which keeps the rest of the seam barrel
+   (`./index`) and `./dataverse-source` import-clean and unit-testable WITHOUT the
+   SDK. But note: main.tsx imports THIS file and calls
+   `configureDataAccess(generatedServices)` at startup, so the DEPLOYED app build
+   DOES pull in '@microsoft/power-apps' and runs Dataverse-backed (real rows). Only
+   the SDK-free unit tests (which import `./index`/`./dataverse-source` directly,
+   never this bundle) stay on the mock source. (There is no grep gate forbidding
+   the SDK import — verify-all.mjs's boundary gate allowlists this seam.)
 
    Each pac service is a class with STATIC methods
    (getAll/get/create/update/delete); the seam wants an object whose members

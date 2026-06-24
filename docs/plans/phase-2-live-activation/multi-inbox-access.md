@@ -52,15 +52,19 @@ NO new connection** — the existing `digital@` connection + the **V2 shared-mai
   `CS Parse` (`468ffd29…`), `CS Provider Match` (`0f610d7c…`), `CS Case Resolve` (`1ddb50a5…`),
   `CS Status Evaluate` (`4d963ff7…`), `CS Enrich` (`4e0f301f…`) — the full digital@ chain went live
   2026-06-20/21. **OFF**: finalize (EVA+Box), chasers, jobsheet (`live-environment.md` §"Cloud flow inventory").
-- **Authored definition `flows/definitions/intake.definition.json`** already uses
-  **`SharedMailboxOnNewEmailV2`** with `mailboxAddress = @parameters('IntakeMailbox')`, `folderId = 'Inbox'`,
-  `includeAttachments`, `hasAttachments`, `importance` — and carries the `MinIntakeDate` go-live guard +
-  Message-ID dedup + provider-resolve. **So the offline definition is already shaped for the multi-inbox
-  V2 pattern; the live flow simply diverged to V3 during activation** because a single connected mailbox
-  was the fastest path to "first email → Case."
+- **The authored V2-shaped definition is `flows/definitions/intake-shared-mailbox.definition.json`**
+  (verified 2026-06-24) — it uses **`SharedMailboxOnNewEmailV2`** with
+  `mailboxAddress = @parameters('IntakeMailbox')`, `folderId = 'Inbox'`, `includeAttachments`,
+  `hasAttachments`, `importance`, and carries the `MinIntakeDate` go-live guard + Message-ID dedup +
+  provider-resolve. **The main `flows/definitions/intake.definition.json` uses `OnNewEmailV3`** (the
+  connected-account trigger, **no** `mailboxAddress`) — and it is the one that carries the **full
+  downstream chain** (`Run_classify_persist`→`Run_parse`→`Run_status_evaluate`, plus `Scope_generate_casepo`
+  and `Scope_capture_eml`). So the V2 multi-inbox definition exists and is correctly trigger-shaped, **but
+  it is NOT logic-identical to the V3 intake** — see the caveat in §5.
 
 **Implication:** moving to multi-inbox = **re-converging the live flow onto the already-authored V2
-definition** (per-mailbox), not inventing anything new.
+definition** (`intake-shared-mailbox.definition.json`, per-mailbox), then **bringing its body up to the V3
+intake's downstream chain** (§5) — not inventing anything new, but more than a trigger swap.
 
 ---
 
@@ -70,7 +74,7 @@ Three candidate shapes for N inboxes (here N = 3):
 
 | Option | Shape | Verdict |
 |---|---|---|
-| **A. One flow per inbox, `SharedMailboxOnNewEmailV2`, all on the one `digital@` connection** (param `IntakeMailbox`) | 3 clones of `intake.definition.json`, identical except the `IntakeMailbox` parameter value. Each has its own webhook subscription, its own `concurrency = 1`, its own `MinIntakeDate`. | **✅ RECOMMENDED** (assuming shared mailboxes + Full Access). Matches the authored definition, the `power-automate-flow` skill, and the original Phase-1 design ("One flow instance per shared inbox (3)", `phase-1-…:189`, `:649`). Clean isolation, per-mailbox audit (`cr1bd_sourcemailbox`), independent enable/disable, no second credential. |
+| **A. One flow per inbox, `SharedMailboxOnNewEmailV2`, all on the one `digital@` connection** (param `IntakeMailbox`) | 3 clones of the **V2-shaped `intake-shared-mailbox.definition.json`** (not `intake.definition.json`, which is V3), identical except the `IntakeMailbox` parameter value. Each has its own webhook subscription, its own `concurrency = 1`, its own `MinIntakeDate`. **Bring each clone's body up to the live V3 intake's downstream chain** (the V2 definition carries case-create + dedup but **not** the `Run_*` chain — §5). | **✅ RECOMMENDED** (assuming shared mailboxes + Full Access). Matches the authored V2 definition, the `power-automate-flow` skill, and the original Phase-1 design ("One flow instance per shared inbox (3)", `phase-1-…:189`, `:649`). Clean isolation, per-mailbox audit (`cr1bd_sourcemailbox`), independent enable/disable, no second credential. |
 | **B. One flow, fan-out over a list of mailboxes** | Single flow trying to watch all 3. | **❌ Not possible with the V2 trigger.** A V2 trigger binds to exactly **one** `mailboxAddress`; "if you provide an array… the trigger will either fail silently or poll only the first." You'd have to abandon the native trigger for a polling `Recurrence` + Graph `HTTP with Microsoft Entra ID` loop — more moving parts, loses the webhook, loses per-mailbox concurrency. Reject for the spike. |
 | **C. Duplicate the *whole* intake chain (intake→classify→resolve) per mailbox** | 3× every flow. | **❌ Over-build.** Only the **trigger** is mailbox-specific. Keep the single shared downstream chain (`classify-persist`, `case-resolve`, `provider-match`) and let each intake flow feed it (today via Dataverse handoff; later via child-flow `Request`). The `sourceMailbox` is already carried as data (`cr1bd_sourcemailbox`). |
 
@@ -135,7 +139,17 @@ The existing guards are **per-flow** and compose correctly across inboxes — bu
 
 ## 5. Parameterisation — keep ONE definition, ship to N mailboxes
 
-The definition is **already parameterised** the right way (`intake.definition.json:8-17`):
+The V2-shaped definition (`intake-shared-mailbox.definition.json`) is **already parameterised** the right
+way:
+
+> **⚠️ Caveat (verified 2026-06-24): the V2 definition is NOT logic-identical to the live V3 intake.**
+> `intake-shared-mailbox.definition.json` carries the **trigger + case-create + Message-ID dedup +
+> provider-resolve core only** — it does **not** carry the V3 intake's full downstream chain
+> (`Run_classify_persist`→`Run_parse`→`Run_status_evaluate`, `Scope_generate_casepo`, `Scope_capture_eml`).
+> Those were added to `intake.definition.json` (V3) during the 2026-06-19/20 live-wiring work and were not
+> back-ported to the V2 variant. So a multi-inbox clone must **bring its body up to the V3 chain** (copy the
+> `Run_*`/`Scope_*` cards across), not merely swap the trigger. (Earlier wording here claimed the V2 flow
+> was "logic IDENTICAL to intake" — that is downgraded.)
 
 - **`IntakeMailbox`** (String) → the trigger's `mailboxAddress`. **One definition → all 3 inboxes**; the
   only per-copy difference is this value. **Never hardcode a live address** in the authored definition
@@ -266,10 +280,14 @@ Per inbox, after Phase B:
 ## 9. Files & exact identifiers referenced
 
 - **Flow definition (authored, V2-shaped, parameterised):**
-  `../../../flows/definitions/intake.definition.json`
+  `../../../flows/definitions/intake-shared-mailbox.definition.json`
   — trigger `SharedMailboxOnNewEmailV2`, `mailboxAddress = @parameters('IntakeMailbox')`, `folderId='Inbox'`,
-  `concurrency.runs = 1`; `MinIntakeDate` guard (`Drop_if_before_min_date`); Message-ID dedup
-  (`Find_existing_by_messageId`).
+  `concurrency.runs = 1`; `MinIntakeDate` guard; Message-ID dedup (`Find_existing_by_messageId`). **Carries
+  the core only — not the downstream `Run_*` chain (§5).**
+- **Main intake definition (V3, full downstream chain):** `../../../flows/definitions/intake.definition.json`
+  — trigger **`OnNewEmailV3`** (connected-account, **no** `mailboxAddress`); carries
+  `Run_classify_persist`/`Run_parse`/`Run_status_evaluate` + `Scope_generate_casepo`/`Scope_capture_eml`.
+  This is the live `digital@` flow's shape.
 - **Activation checklist:** `…/docs/activation/email-intake-activation.md` (V3-on-digital@ live reality;
   webhook-must-be-published-in-designer; flow-parameter vs env-var note).
 - **Live registry:** `…/docs/architecture/live-environment.md` (connection `bd752b83172a4e99b3db595942f1b30f`;

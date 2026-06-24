@@ -8,8 +8,11 @@
 > **everything is categorised** (spam/auto-replies/newsletters simply fall through to `other`). Cost is
 > negligible — the deterministic classifier is **$0** (within the Power Automate seeded run limit at
 > ~1–3k emails/mo) and the later optional LLM pass is **~$0.21–1.50/mo**; treat run volume as a **monitor**
-> on the `concurrency=1` queue, not a cost ceiling. Next free Dataverse build step = `26-inbound-email.ps1`;
-> next free audit-action option value = `100000022` (name new actions `inbound_*`).
+> on the `concurrency=1` queue, not a cost ceiling. Dataverse build step = `26-inbound-email.ps1`.
+> **As-built (2026-06-24):** the Phase-8 inbound actions are minted — `inbound_classified=100000024` and
+> `inbound_routed=100000025`; `case_disposed=100000026` (Phase 9) is the highest, so the **next free
+> audit-action value is `100000027`**. (The earlier "next free = 100000022" is stale — 100000022 is
+> `location_assist_confirmed`, 100000023 is `chaser_sent`.) Name any further actions `inbound_*`.
 
 # Email Tag/ID + Inbox-Management System — Plan
 

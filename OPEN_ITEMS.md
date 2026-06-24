@@ -20,10 +20,11 @@ architecture/requirements > plans):
 - **[DRIFT]** — doc-vs-code mismatch to reconcile (no functional change).
 - **[DONE 2026-06-24]** — completed in the current sweep (see git log).
 
-> ⚠️ **Live gate is currently RED.** `verify-all.mjs` fails today on one gate: the parser **vendored-engine
-> drift guard** (`test_engine_vendored_in_sync.py`) — 8 engine-core modules differ from the sibling. This is
-> the #1 build item (Phase 1a). All other verify gates pass (Dataverse parity, flow linter 154/154, Code App
-> tsc+vite+vitest, enrichment pytest).
+> ✅ **Sweep status (2026-06-24): substantially complete.** 15 build waves + the doc-drift reconciliation (wave 16)
+> landed on `feat/sdlc-sweep`. `verify-all.mjs` is **GREEN** — 10 passed, 0 failed, 3 Function suites SKIP for want
+> of a local `.venv` (they pass when set up); flow linter 181/181. The parser drift guard that was RED at the
+> sweep's start is fixed (engine re-vendored from sibling `aecbc4b`). Every `[DRIFT]` item below is reconciled.
+> What remains is the `[OPERATOR]` activations + the two recorded `[DEFERRED]` items (images-backend, corpus Pester).
 
 ---
 

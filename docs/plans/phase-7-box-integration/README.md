@@ -27,8 +27,9 @@ OFF), the `box-webhook` Function is DEPLOYED gated-off (secret-free, Gate-C-veri
 `verify-parity.mjs` locked), the **`box-webhook` Azure Function** (CCG mint + HMAC receiver; **pytest 79**),
 the **3 new flows** (`box-folder-create`, `box-file-request-copy`, `box-blob-purge`) + the
 `finalize-eva-box`/`case-resolve` reworks (**flow linter 154/154**), and the **Code App surfacing**
-(`getBoxGates`, submit-signal finalize, `copy_file_request` chaser, "Open in Box" deep link; **vitest 256,
-`tsc -b` clean**). **The Box Dataverse schema + env-vars ARE applied live** (verified via `az` against Dev
+(`getBoxGates`, submit-signal finalize, `copy_file_request` chaser, "Open in Box" deep link; **vitest all
+green, `tsc -b` clean** — the suite has since grown past the once-cited 256, so the count is no longer
+pinned). **The Box Dataverse schema + env-vars ARE applied live** (verified via `az` against Dev
 2026-06-22: the `cr1bd_box*` case + evidence columns and every `cr1bd_BOX_*` env-var exist; every `BOX_*`
 gate is `false`, default AND current). **The `box-webhook` Function is DEPLOYED gated-off (`cespkbox-fn-v76a47`,
 `BOX_API_ENABLED=false`, KV `cespkboxkvv76a47` empty/secrets pending, Gate C verified). The `cr1bd_box_rest`
@@ -181,7 +182,10 @@ embedded** — there is no iframe and no `frame-src` edit.
     `frame-src` edit).
 22. [ ] **[C]** Webhook-driven advance reflected via existing `refetch` (+ optional light poll); no push
     channel — never promise instant arrival. `box_synced` label/badge surfacing (label-only).
-23. [ ] **[C]** ALM wiring: `pac code add-data-source` for the connector(s); wire generated services.
+23. [ ] **[DEPLOY-WITH-LOGIN]** ALM wiring: `pac code add-data-source` for the connector(s); wire generated
+    services. _(Tag corrected 2026-06-24: `pac code add-data-source` requires an authenticated `pac` session
+    against the live environment and a bound connection — it is **not** a pure offline `[C]` step. Only the
+    post-generation hand-wiring of the generated services in the Code App is `[C]`.)_
 
 **B4 exit:** with the connection bound + gates on, the submit dialog drives a real finalize; the chaser
 button produces a real upload link to the clipboard; **"Open in Box" works without any CSP change**;

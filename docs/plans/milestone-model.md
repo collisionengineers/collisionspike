@@ -164,10 +164,11 @@ These are the **capability gates** — what must be demonstrably true to *enter*
 
 ### M0 — Foundations _(done)_
 - **Entry:** repo initialised.
-- **Exit `[x]`:** `node verify-all.mjs` green (**7/7 gates**) — typed EVA/case-status/image-rules
-  contracts, classification + ADR-0010 dedup + provider-match + address-policy in TS, Dataverse
-  schema-as-code parity, env-var gates defined, and the boundary-compliance gates (no live calls in the
-  app, no secret values in the repo, all flows `state=off`).
+- **Exit `[x]`:** `node verify-all.mjs` green (**all gates green** — it began at 7 and grew as later
+  phases landed) — typed EVA/case-status/image-rules contracts, classification + ADR-0010 dedup +
+  provider-match + address-policy in TS, Dataverse schema-as-code parity, env-var gates defined, the
+  per-Function pytest loop, and the boundary-compliance / static gates (no live calls in the app, no
+  secret values in the repo, all flows `state=off`).
 
 ### M1 — Working vertical slice (the permanent-fallback transport)
 - **Entry:** M0 green.

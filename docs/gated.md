@@ -6,7 +6,8 @@ else has been built and switched on.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
-_Last updated **2026-06-23**._
+_Last updated **2026-06-24** (added §8 — the SDLC-sweep features awaiting activation — and the parser-key
+rotation item in §7)._
 
 ---
 
@@ -186,6 +187,64 @@ suggestions (provider code corrections, garage↔provider links, address lists, 
 - **Use the shared readiness check inside the inbox flow:** the readiness logic exists in three
   places that are kept in sync automatically. Merging them into one is a nice-to-have; it touches a
   flow that runs on every case, so it's best done carefully with a test, not in a rush.
+- **Rotate the parser function key (soft security item).** A parser **function key** value was once
+  committed in source + a doc (both now removed/scrubbed), but a doc-scrub leaves it in **git history** —
+  the only true fix is to **regenerate the key in Azure** (Function App `cespike-parser-dev-…` → App keys),
+  then update the `cr1bd_ceparser` connection. Low urgency (dev sandbox key), but worth doing before any
+  prod use. _(This is the entry the Phase-0 README + `OPEN_ITEMS.md` Phase-1a point at.)_
+
+---
+
+### 8. Newly-built features waiting on you (SDLC sweep, 2026-06-24)
+
+These were **built offline and switched OFF** in this sweep. Each is inert until you activate it; none is
+live. (Full per-item detail is in `OPEN_ITEMS.md` + the phase READMEs.)
+
+- **Chaser send (Phase 4b).** The draft-only chaser flow is built; turning real **sending** on means
+  flipping `cr1bd_CHASER_SEND_ENABLED` and turning the flow on. **Why you:** it crosses the live-email
+  boundary (a chaser actually leaves the building). Confirm it drafts/targets the right garage first.
+- **Location-assist (Phase 4a).** The location-suggestion **assist** subsystem (Function + connector +
+  gates + the `location_assist_confirmed` audit action) is built but dormant. **Why you:** it needs the
+  Function + Key Vault deployed, the **CE Location Assist** connector imported, Vision + Maps keys injected,
+  `LOCATION_ASSIST_API_BASE` set, the gates flipped, and `BoxPhotoSource` wired. (Suggestions stay
+  staff-picked — no auto-confirm, ADR-0013.)
+- **OCR for scanned PDFs (Phase 5a) — connector import + gate.** The gated OCR-fallback branch is wired into
+  the parse flow (off-path unchanged). **Why you:** import/bind the **OCR** connector and flip
+  `cr1bd_OCR_SCANNED_PDF_ENABLED` (then calibrate on real scans).
+- **Inbox triage restructure (Phase 8).** The deterministic email classifier, the `cr1bd_inboundemail`
+  triage table, and the `triage-classify` flow are built (`state=off`). **Why you:** the live **intake
+  restructure** — flip `fetchOnlyWithAttachment` true→false, generalise dedup, add the Switch-on-category —
+  is a live-designer edit, on **one inbox first**, after single-mailbox activation. (Reconcile the repo
+  `intake.definition.json` UP to live first — it trails live by design.)
+- **Case disposition / retention (Phase 9, G1).** The retention-clock schema + the scheduled
+  `case-disposition` flow are built (flow `state=off`, far-future start so it never fires on import;
+  anonymise-by-NULL; never deletes from Box). **Why you:** set the **retention window** + the
+  anonymise-vs-hard-delete policy, then flip `cr1bd_CASE_DISPOSITION_ENABLED` (test env first). The
+  apply script `27-retention-schema.ps1` is DRY-RUN by default.
+- **Staff roles assignment (Phase 9, G8).** The 3-role least-privilege model (User + Admin; Engineer
+  deferred) is authored as schema-as-code (`28-roles.ps1`, **create-not-assign** = gated-off). **Why you:**
+  run the apply, then **assign** the roles to staff (the assignment is yours).
+- **Evidence-store hardening (Phase 9, G6).** The IaC store-hardening (KV purge-protection on 4 vaults +
+  Blob soft-delete/versioning) is in the bicep templates for the Function hosts. **Why you:** apply it live;
+  **and** the live evidence-bytes store **`cespkevidstdev01`** (the `evidence` container, reached via
+  `cr1bd_evidenceblob`) is **NOT in the IaC**, so its delete-retention + container-delete-retention +
+  versioning, plus **Key Vault purge-protection**, must be applied directly on the live resource. This is the
+  **hard pre-step before any purge flow (`box-blob-purge`) is armed**.
+- **Org-level Dataverse auditing (Phase 9, G7).** Table-native auditing + the `cr1bd_auditevent` RemoveLink
+  cascade are already authored in the schema-as-code; **why you:** turn Dataverse auditing on at the
+  **organisation** level so the per-table flags take effect.
+- **Policy/legal inputs (Phase 9, G1–G5).** The **retention period**, **lawful basis** (DVSA/DVLA
+  enrichment + valuation), **litigation/legal-hold rule**, **ICO registration** + DVLA data-use terms, and
+  the **per-AI-gate production sign-off** are business/legal decisions only you can make. (AI **testing** on
+  repo data is already authorised — G5.) These keep **ADR-0017 Proposed** until supplied. The DSAR/erasure
+  runbook + the DPIA/controller-processor doc are authored and waiting on these inputs.
+
+> **G-code map (so the Phase-9 README + ADR-0017 cross-links resolve):** G1 = retention period + the
+> retention-clock/case-disposition build; G2 = legal-hold rule; G3 = ICO/DVLA registration + lawful basis +
+> the DPIA; G4 = the DSAR cross-store runbook (incl. the Box-folder-name / File-Request-URL / Outlook-category
+> blind spots); G5 = AI-data-protection production sign-off (testing authorised now); G6 = store hardening
+> incl. `cespkevidstdev01`; G7 = org-level audit enablement; G8 = the 3-role assignment. The build halves are
+> done offline; the items above are the operator activations.
 
 ---
 

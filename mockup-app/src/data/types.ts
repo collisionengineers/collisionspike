@@ -14,9 +14,15 @@
        `pac code add-data-source` (code-apps-preview:add-dataverse) emits under
        `src/generated/services/*`. We code the Dataverse-backed DataAccess against
        THIS interface (injected at runtime), NOT against '@microsoft/power-apps'
-       or `src/generated/` — so the offline build stays SDK-free and mock-backed,
-       and the 'no @microsoft/power-apps import in src' grep gate keeps passing.
-       When pac generates the real services they satisfy this shape structurally.
+       or `src/generated/` — so the data SEAM (this module + dataverse-source.ts)
+       stays import-clean and unit-testable without the SDK. The SDK bootstrap +
+       `configureDataAccess(generatedServices)` live in src/main.tsx, so the
+       DEPLOYED app is Dataverse-backed (real rows); only the pre-bootstrap default
+       and SDK-free tests fall back to the mock source. (There is NO
+       'no @microsoft/power-apps import in src' grep gate in verify-all.mjs — the
+       boundary grep-gate there allowlists the SDK/connector seam and forbids only
+       raw external calls.) When pac generates the real services they satisfy this
+       shape structurally.
 
    PURE TYPES ONLY. No values, no React, no I/O.
    ============================================================ */
@@ -665,8 +671,10 @@ export interface AuditEventRecord {
  * The bundle of generated services the Dataverse-backed DataAccess is injected
  * with. After `pac code add-data-source` runs for each table, the caller wires
  * the real `CasesService`/`EvidenceService`/… (which satisfy these structurally)
- * into this object and hands it to `createDataverseDataAccess`. Nothing here is
- * imported by the default (mock) build.
+ * into this object and hands it to `createDataverseDataAccess`. The deployed app
+ * wires these at startup (src/main.tsx → `configureDataAccess(generatedServices)`),
+ * so it runs Dataverse-backed; only SDK-free unit tests / the pre-bootstrap default
+ * skip this and use the mock source.
  */
 export interface GeneratedServices {
   cases: GeneratedTableService<CaseRecord>;

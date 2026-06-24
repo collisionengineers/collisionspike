@@ -272,7 +272,7 @@ copy-to-Blob Function), and the bytes appear on-prem via sync.
 | B4 | Env-var read → `storageBackend` variable + the `Switch`-per-backend persist refactor (Azure Blob branch byte-identical; `default` → `azureblob`; branch-scoped `base64ToBinary`) | `flows/definitions/classify-persist.definition.json` |
 | B5 | Linter: confirm the two new refs are recognised; assert **no hardcoded SharePoint site URL / UNC path / gateway id** appears in any definition (only `@parameters`/env-vars); keep the declared-but-unused WARN until bound | `flows/validate-flows.mjs` |
 | B6 | Operator how-to: 4-backend decision matrix + File System/gateway params + DLP + the 2 MB-vs-20 MB limit reconciliation + recovery-key warning | `docs/activation/images-storage-backend-activation.md` |
-| B7 | Re-run `node flows/validate-flows.mjs` + `node verify-all.mjs` → keep **all gates green** (`verify-all` reports **7/7** when the Python `.venv`s are present; flow linter currently **154/154**) | — |
+| B7 | Re-run `node flows/validate-flows.mjs` + `node verify-all.mjs` → keep **all gates green** (`verify-all` no longer reports a fixed "7/7" — it now runs more gates incl. the per-Function pytest loop + the boundary grep-gate; flow linter currently **154/154**) | — |
 
 ### 6b. Operator-gated (🔒 [RESERVED-FOR-USER] — the live half)
 

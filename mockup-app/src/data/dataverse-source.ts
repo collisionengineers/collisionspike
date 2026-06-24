@@ -6,11 +6,16 @@
    cr1bd_* logical-name records <-> the camelCase domain types and the choice-set
    integers <-> the string-enum unions.
 
-   AUTHORED FOR DEPLOY, NOT WIRED BY DEFAULT. It imports NO SDK and NO
+   This source is WIRED AT STARTUP: src/main.tsx calls
+   `configureDataAccess(generatedServices)`, so the deployed Code App runs
+   Dataverse-backed (real rows). This module itself imports NO SDK and NO
    `src/generated/` module — only the LOCAL `GeneratedServices` interface, which
    the real pac-generated services satisfy structurally and which the caller
-   injects at runtime. The default build keeps using the mock source, so the
-   'no @microsoft/power-apps import in src' grep gate stays green.
+   injects at runtime; the SDK bootstrap lives in main.tsx, not here. The
+   pre-bootstrap default and the SDK-free unit tests use the empty mock source.
+   (There is NO "no @microsoft/power-apps import in src" grep gate in
+   verify-all.mjs; the boundary grep-gate there allowlists the connector seam and
+   the generated SDK, and forbids only raw fetch/external-host calls.)
 
    The queue/dashboard windowing math mirrors mock/queues.ts EXACTLY (same QUEUES
    map, same Monday-anchored week, same DD/MM/YYYY parsing) but runs over the
