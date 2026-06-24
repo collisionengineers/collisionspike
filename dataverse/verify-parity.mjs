@@ -82,6 +82,10 @@ const expect = {
   "cr1bd_AZURE_VISION_ENABLED": "false",
   // Phase-2 chaser-send kill switch (M2.F, ADR-0003) — default OFF; flipping it is [RESERVED-FOR-USER].
   "cr1bd_CHASER_SEND_ENABLED": "false",
+  // Phase-5 OCR gates (ocr-strategy.md) — the empty-extraction OCR fallback + plate OCR; both default OFF
+  // (ship dark) and flipping either is [RESERVED-FOR-USER]. OCR_PROVIDER/PLATE_PROVIDER are container-side,
+  // NOT env-vars. VALUATION_API_BASE is a non-frozen per-env String (like ENRICHMENT_API_BASE) — not locked here.
+  "cr1bd_OCR_SCANNED_PDF_ENABLED": "false", "cr1bd_PLATE_OCR_ENABLED": "false",
   // Phase-9 case-disposition kill switch (ADR-0017 G1) — the destructive purge/anonymise gate; default
   // OFF until the operator confirms the retention period + store-hardening pre-step ([RESERVED-FOR-USER]).
   "cr1bd_CASE_DISPOSITION_ENABLED": "false",

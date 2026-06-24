@@ -109,7 +109,11 @@ architecture/requirements > plans):
 - **[DEFERRED]** **#2b proximity** (closest-to-accident / claimant-home) suggestion-ordering — needs two sibling extractions + gated geocoding (M3); ordering-only, ADR-0013 intact.
 
 ## Phase 5 — OCR & Scale
-- **[BUILD]** Add the OCR connection-reference + gated OCR-fallback branch in `parse.definition.json` + OCR/valuation gates to `environment-variables.json` + verify-parity (they live only in `22-envvars-m2.ps1`).
+- **[DONE 2026-06-24]** Added the `cr1bd_ocr` connection-ref + the gated empty-extraction **OCR-fallback branch**
+  in `parse.definition.json` (when extraction is ~empty AND `cr1bd_OCR_SCANNED_PDF_ENABLED`, call OcrPdf and
+  re-prefill via `coalesce(OCR, parser)` — null-safe, off-path unchanged) + promoted `cr1bd_OCR_SCANNED_PDF_ENABLED`/
+  `cr1bd_PLATE_OCR_ENABLED` (default false) + `cr1bd_VALUATION_API_BASE` to the env-var manifest + verify-parity locks.
+  `OCR_PROVIDER`/`PLATE_PROVIDER` left container-side (engine selection, not feature gates). validate-flows 181/181.
 - **[DONE 2026-06-24]** Add the `ImageOrderList` ordering-reducer vitest.
 - **[DONE 2026-06-24]** Add the docintel OCR-hook unit test (`_install_docintel_ocr_hook`).
 - **[OPERATOR]** Import/bind the OCR connector + flip OCR gates; calibrate on real scans.

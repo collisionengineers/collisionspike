@@ -89,6 +89,20 @@
       "note": "cedocumentmapper_v2 parser. Two ops on one Function/connection: ParseDocument (/parse, the 12-field EVA extraction, used by Flow_Parse) and ClassifyEmail (/classify-email, the deterministic Phase-8 inbound-email triage label, used by Flow_TriageClassify — ADR-0015). Function key (x-functions-key) stored on the connection, never in a definition. [DEPLOY-WITH-LOGIN] to import the connector (re-import to pick up the added /classify-email op)."
     },
     {
+      "connectionName": "shared_ocr",
+      "logicalName": "cr1bd_ocr",
+      "displayName": "Collision Engineers OCR Host (custom: OcrPdf + PlateOcr)",
+      "connector": "shared_ocr",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_ocr",
+      "tier": "Premium",
+      "custom": true,
+      "operationIds": ["OcrPdf", "PlateOcr"],
+      "openapi": "ocr/openapi/ocr-connector.json",
+      "usedBy": ["parse"],
+      "boundAtActivation": true,
+      "note": "Phase-5 OCR fallback host (Azure Functions on Azure Container Apps). Two ops on one Function/connection: OcrPdf (/ocr-pdf, turns an image-only/scanned instruction PDF into text and — when the engine is present — the 12-field EVA extraction; used by Flow_Parse as the EMPTY-EXTRACTION fallback only) and PlateOcr (/plate-ocr, reads a registration plate from an overview photo for Evidence registrationVisible / VRM match; authored for a later phase, no flow binds it yet). Gating is enforced UPSTREAM in the flow/Code App (cr1bd_OCR_SCANNED_PDF_ENABLED / cr1bd_PLATE_OCR_ENABLED), NOT in the host. body/document + body/image are the RAW base64 strings (NOT @base64ToBinary) — the same Power Platform gateway double-encode landmine the parser hit; the host's tolerant decode peels the redundant layer (memory powerplatform-connector-base64-double-encode). Function key (x-functions-key) stored on the connection, never in a definition; the OCR host base is set at add-data-source/import time, never hardcoded. OCR_PROVIDER / PLATE_PROVIDER are CONTAINER-side settings, not Dataverse env-vars. Premium so it shares a DLP data group with the other custom service connectors. [DEPLOY-WITH-LOGIN] to import; [RESERVED-FOR-USER] to bind the connection (Function host key) + flip the gate at activation."
+    },
+    {
       "connectionName": "shared_dvsaenrich",
       "logicalName": "cr1bd_dvsaenrich",
       "displayName": "DVSA Enrichment (custom: /dvsa-mot/enrich)",
@@ -132,7 +146,7 @@
   ],
   "notes": [
     "One connection reference per logical connector; flows bind to the reference, the reference binds to a connection at deploy/activation. This is what lets the SAME definition move dev -> test -> prod unchanged.",
-    "Premium connectors in play: Dataverse, Azure Blob, and the five custom connectors (parser/DVSA/validation/EVA + the Phase-7 Box REST cr1bd_box_rest) -> require Premium licensing (open Code Apps GA/licensing question). Standard: Office 365 Outlook, Excel Online (Business), Box first-party (the first-party Box connector is class Standard per Microsoft Learn — Standard + Premium connectors coexist in one DLP data group).",
+    "Premium connectors in play: Dataverse, Azure Blob, and the custom connectors (parser/DVSA/validation/EVA + the Phase-7 Box REST cr1bd_box_rest + the Phase-5 OCR host cr1bd_ocr) -> require Premium licensing (open Code Apps GA/licensing question). Standard: Office 365 Outlook, Excel Online (Business), Box first-party (the first-party Box connector is class Standard per Microsoft Learn — Standard + Premium connectors coexist in one DLP data group).",
     "Phase-7 Box split (ADR-0012): TWO Box connections coexist by design. cr1bd_box_rest (Premium, custom, CCG via the box-webhook Function) does FOLDER create + File-Request copy + shared-link + webhook lifecycle; first-party cr1bd_box (Standard, interactive OAuth) is KEPT for finalize-eva-box's BYTE upload (CreateFile) only. This is the build-plan-04 PIN of the previously-unpinned connection-ref decision (parallel ref, NOT an in-place repoint).",
     "DLP: every connector here must sit in the SAME data group in the target environment's DLP policy or import/run fails. Confirm before activation."
   ]
