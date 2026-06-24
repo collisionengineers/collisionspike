@@ -182,25 +182,6 @@ export function CaseDetailSkeleton() {
   );
 }
 
-/* ----------  EVA field cluster ---------- */
-/** Cluster head + N field-row pairs. Reused by CaseDetail + the ManualIntake review step. */
-export function FieldsSkeleton({ fields = 6 }: { fields?: number }) {
-  const styles = useStyles();
-  return (
-    <Skeleton aria-label="Loading fields">
-      <div className={styles.stack}>
-        <Bar w={140} h={12} />
-        {Array.from({ length: fields }).map((_, i) => (
-          <div key={i} className={styles.stack} style={{ gap: tokens.spacingVerticalXS }}>
-            <Bar w={110} h={12} />
-            <SkeletonItem style={{ height: '32px' }} />
-          </div>
-        ))}
-      </div>
-    </Skeleton>
-  );
-}
-
 /* ----------  Image thumbnail grid (CaseDetail evidence tab) ---------- */
 /** A few thumbnail-shaped placeholders while images load. */
 export function ThumbGridSkeleton({ count = 4 }: { count?: number }) {

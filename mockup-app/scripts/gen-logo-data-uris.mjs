@@ -12,7 +12,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const enc = (p) => 'data:image/png;base64,' + readFileSync(p).toString('base64');
-const logoWhite = enc('src/assets/web_logo_white.png');
+// Only the full-colour mark is consumed (AppShell's white brand header). The
+// white-on-transparent variant (web_logo_white.png) is not used anywhere in the
+// app, so it is no longer emitted.
 const logoMark = enc('src/assets/logo_no_margin.png');
 
 const out =
@@ -20,11 +22,10 @@ const out =
   '// Brand logos as base64 data: URIs (pac code push corrupts binary image assets;\n' +
   "// CSP img-src 'self' data: permits data URIs). See docs/plans/phase-1-intake-and-case-tracking/code-app/logo-fix-findings.md.\n" +
   '/* eslint-disable */\n' +
-  'export const logoWhite = ' + JSON.stringify(logoWhite) + ';\n' +
   'export const logoMark = ' + JSON.stringify(logoMark) + ';\n';
 
 writeFileSync('src/assets/logos.generated.ts', out);
 console.log(
-  'wrote src/assets/logos.generated.ts —', out.length, 'chars (white',
-  logoWhite.length, '/ mark', logoMark.length, ')'
+  'wrote src/assets/logos.generated.ts —', out.length, 'chars (mark',
+  logoMark.length, ')'
 );

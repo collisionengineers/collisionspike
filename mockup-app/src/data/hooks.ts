@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getDataAccess } from './index';
-import type { Case, Evidence, Provider } from '../mock/types';
+import type { ActivityEvent, Case, Evidence, Provider } from '../mock/types';
 import type {
   LiveCounts,
   Throughput,
@@ -178,5 +178,11 @@ export function useLocationAssistGate(): QueryState<LocationAssistGate> {
  *  is treated as false (no accidental hold). */
 export function useHoldNewCasesDefault(): QueryState<boolean> {
   const run = useCallback(() => getDataAccess().getHoldNewCasesDefault(), []);
+  return useAsync(run, []);
+}
+
+/** Recent pipeline activity (audit events), newest first. */
+export function useActivity(): QueryState<ActivityEvent[]> {
+  const run = useCallback(() => getDataAccess().recentActivity(), []);
   return useAsync(run, []);
 }

@@ -8,7 +8,6 @@ import {
   Divider,
   Dropdown,
   Field,
-  Input,
   Link,
   MessageBar,
   MessageBarBody,
@@ -28,7 +27,6 @@ import {
   mergeClasses,
   tokens,
   useToastController,
-  type InputOnChangeData,
   type SelectTabData,
   type SelectTabEvent,
 } from '@fluentui/react-components';
@@ -41,7 +39,6 @@ import {
   Check,
   CheckCircle2,
   Clock,
-  Copy,
   Download,
   FileText,
   GitMerge,
@@ -58,7 +55,11 @@ import {
 } from 'lucide-react';
 import {
   ChaserPanel,
+  EvaFieldRow,
+  FIELD_CLUSTERS,
+  LABEL_FOR,
   ImageOrderList,
+  Panel,
   PipelineStrip,
   ProvenanceBadge,
   SectionHeading,
@@ -91,11 +92,9 @@ import {
   type EvaFieldKey,
   type Evidence,
   type ImageRole,
-  type MileageUnit,
   type Note,
   type PipelineStageKey,
   type SuggestedAddress,
-  type VatStatus,
 } from '../data';
 import { resolveInspectionDecision } from '../domain/address-policy';
 import { GLOBAL_TOASTER_ID } from '../components';
@@ -179,12 +178,6 @@ const useStyles = makeStyles({
   },
 
   main: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM, minWidth: 0 },
-  panel: {
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderRadius: tokens.borderRadiusMedium,
-    backgroundColor: tokens.colorNeutralBackground1,
-    padding: tokens.spacingVerticalL,
-  },
   tabBody: { paddingTop: tokens.spacingVerticalM },
 
   /* Fields tab — clustered groups */
@@ -202,20 +195,6 @@ const useStyles = makeStyles({
     width: 'fit-content',
   },
   clusterBody: { paddingTop: tokens.spacingVerticalM },
-  fieldRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr auto',
-    gap: tokens.spacingHorizontalM,
-    alignItems: 'start',
-    paddingBottom: tokens.spacingVerticalM,
-  },
-  fieldMeta: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: tokens.spacingHorizontalXS,
-    paddingTop: '26px',
-  },
 
   /* Evidence tab */
   guidanceBanner: {
@@ -390,18 +369,8 @@ const useStyles = makeStyles({
 
 type TabName = 'fields' | 'evidence' | 'address' | 'notes' | 'chasers';
 
-/* The 12 EVA fields, grouped into legible clusters (order within a cluster
-   preserves the contract order). The union of keys equals EVA_FIELD_ORDER. */
-const FIELD_CLUSTERS: { heading: string; keys: EvaFieldKey[] }[] = [
-  { heading: 'Provider & claimant', keys: ['workProvider', 'claimantName', 'claimantTelephone', 'claimantEmail'] },
-  { heading: 'Vehicle', keys: ['vehicleModel', 'mileage', 'mileageUnit', 'vatStatus'] },
-  { heading: 'Incident', keys: ['accidentCircumstances', 'inspectionAddress'] },
-  { heading: 'Dates', keys: ['dateOfLoss', 'dateOfInstruction'] },
-];
-
-const LABEL_FOR: Record<EvaFieldKey, { label: string; required: boolean }> = Object.fromEntries(
-  EVA_FIELD_ORDER.map((d) => [d.key, { label: d.label, required: d.required }]),
-) as Record<EvaFieldKey, { label: string; required: boolean }>;
+/* The EVA field clusters, label/required lookup, and the editable field row are
+   shared with ManualIntake (src/components/EvaFields.tsx) so they cannot drift. */
 
 const ROLE_OPTIONS: { value: ImageRole; label: string }[] = [
   { value: 'overview', label: 'Overview' },
@@ -409,9 +378,6 @@ const ROLE_OPTIONS: { value: ImageRole; label: string }[] = [
   { value: 'additional', label: 'Additional' },
   { value: 'unknown', label: 'Unclassified' },
 ];
-
-const VAT_OPTIONS: VatStatus[] = ['', 'Yes', 'No'];
-const MILEAGE_UNIT_OPTIONS: MileageUnit[] = ['', 'Miles', 'Km'];
 
 const POLICY_LABEL: Record<Case['inspectionDecision'], string> = {
   confirmed_physical: 'Physical inspection (confirmed)',
@@ -452,97 +418,6 @@ function checklistTarget(item: ChecklistItem, c: Case): { tab: TabName; fieldKey
   // fields group — id is `field-<key>`.
   const key = item.id.startsWith('field-') ? (item.id.slice('field-'.length) as EvaFieldKey) : undefined;
   return { tab: 'fields', fieldKey: key };
-}
-
-/* ---------- A single EVA field row ---------- */
-interface FieldRowProps {
-  fieldKey: EvaFieldKey;
-  label: string;
-  required: boolean;
-  c: Case;
-  onTextChange: (key: EvaFieldKey, value: string) => void;
-  registerRef: (key: EvaFieldKey, el: HTMLElement | null) => void;
-}
-
-function FieldRow({ fieldKey, label, required, c, onTextChange, registerRef }: FieldRowProps) {
-  const styles = useStyles();
-  const field = c.evaFields[fieldKey];
-  const empty = field.value.trim().length === 0;
-  const validation =
-    required && empty
-      ? ({ validationState: 'error' as const, validationMessage: 'Required' })
-      : {};
-
-  const change = (_: unknown, data: InputOnChangeData) => onTextChange(fieldKey, data.value);
-  const setRef = (el: HTMLElement | null) => registerRef(fieldKey, el);
-
-  let control: React.ReactNode;
-  if (fieldKey === 'accidentCircumstances') {
-    control = (
-      <Textarea
-        ref={setRef as (el: HTMLTextAreaElement | null) => void}
-        value={field.value}
-        onChange={(_, d) => onTextChange(fieldKey, d.value)}
-        resize="vertical"
-        rows={3}
-      />
-    );
-  } else if (fieldKey === 'inspectionAddress') {
-    control = (
-      <Textarea
-        ref={setRef as (el: HTMLTextAreaElement | null) => void}
-        value={field.value}
-        onChange={(_, d) => onTextChange(fieldKey, d.value)}
-        resize="vertical"
-        rows={6}
-      />
-    );
-  } else if (fieldKey === 'vatStatus') {
-    control = (
-      <Dropdown
-        ref={setRef as (el: HTMLButtonElement | null) => void}
-        value={field.value || '—'}
-        selectedOptions={[field.value]}
-        onOptionSelect={(_, d) => onTextChange(fieldKey, d.optionValue ?? '')}
-      >
-        {VAT_OPTIONS.map((o) => (
-          <Option key={o || 'blank'} value={o} text={o || '—'}>
-            {o || '—'}
-          </Option>
-        ))}
-      </Dropdown>
-    );
-  } else if (fieldKey === 'mileageUnit') {
-    control = (
-      <Dropdown
-        ref={setRef as (el: HTMLButtonElement | null) => void}
-        value={field.value || '—'}
-        selectedOptions={[field.value]}
-        onOptionSelect={(_, d) => onTextChange(fieldKey, d.optionValue ?? '')}
-      >
-        {MILEAGE_UNIT_OPTIONS.map((o) => (
-          <Option key={o || 'blank'} value={o} text={o || '—'}>
-            {o || '—'}
-          </Option>
-        ))}
-      </Dropdown>
-    );
-  } else {
-    control = <Input ref={setRef as (el: HTMLInputElement | null) => void} value={field.value} onChange={change} />;
-  }
-
-  return (
-    <div className={styles.fieldRow} id={`field-${fieldKey}`}>
-      {/* Fluent's `required` renders the asterisk AND exposes the required
-          semantic to assistive tech (the hand-appended " *" did neither). */}
-      <Field label={label} required={required} {...validation}>
-        {control}
-      </Field>
-      <div className={styles.fieldMeta}>
-        <ProvenanceBadge provenance={field.provenance} reviewState={field.reviewState} fieldKey={fieldKey} />
-      </div>
-    </div>
-  );
 }
 
 /* ---------- Evidence card ---------- */
@@ -1084,15 +959,6 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
           subtitle={subtitle || undefined}
           actions={
             <div className={styles.actions}>
-              {c.status === 'duplicate_risk' && (
-                <Button
-                  appearance="secondary"
-                  icon={<Copy size={16} />}
-                  onClick={() => navigate(`/case/${c.id}/dedup`)}
-                >
-                  Resolve duplicate
-                </Button>
-              )}
               <Button appearance="secondary" icon={<Upload size={16} />} onClick={() => navigate('/evidence')}>
                 Add evidence
               </Button>
@@ -1198,7 +1064,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
       <div className={styles.grid}>
         {/* ---------------- MAIN ---------------- */}
         <div className={styles.main}>
-          <div className={styles.panel}>
+          <Panel>
             <TabList
               selectedValue={tab}
               onTabSelect={(_: SelectTabEvent, d: SelectTabData) => setTab(d.value as TabName)}
@@ -1218,13 +1084,14 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                       <span className={styles.clusterHead}>{cluster.heading}</span>
                       <div className={styles.clusterBody}>
                         {cluster.keys.map((key) => (
-                          <FieldRow
+                          <EvaFieldRow
                             key={key}
                             fieldKey={key}
                             label={LABEL_FOR[key].label}
                             required={LABEL_FOR[key].required}
-                            c={c}
-                            onTextChange={onTextChange}
+                            field={c.evaFields[key]}
+                            onChange={onTextChange}
+                            rowId={`field-${key}`}
                             registerRef={registerRef}
                           />
                         ))}
@@ -1508,13 +1375,13 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 />
               )}
             </div>
-          </div>
+          </Panel>
         </div>
 
         {/* ---------------- SIDEBAR ---------------- */}
         <div className={styles.sidebar}>
           {/* ONE canonical readiness presentation: each ✗ row deep-links to fix. */}
-          <div className={styles.panel}>
+          <Panel>
             <Text className="ce-section-heading">Readiness</Text>
             <Caption1 className={mergeClasses(styles.hint, styles.hintNudgeTop)} block>
               {blocked
@@ -1552,9 +1419,9 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 </span>
               )}
             </div>
-          </div>
+          </Panel>
 
-          <div className={styles.factsPanel}>
+          <Panel className={styles.factsPanel}>
             <Text className="ce-section-heading">Imported details</Text>
             <Caption1 className={mergeClasses(styles.hint, styles.hintNudgeBottom)} block>
               From the instruction document or email.
@@ -1579,7 +1446,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                   <span className={styles.factVal}>{v}</span>
                 </div>
               ))}
-          </div>
+          </Panel>
         </div>
       </div>
 

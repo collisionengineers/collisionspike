@@ -59,11 +59,12 @@ architecture/requirements > plans):
 - **[DRIFT]** InspectionAddress count drift — phase-1 README + Provider card cite 174; CURRENT_STATUS authoritative is 871 (174 confirmed + 697 volatile suggested).
 
 ## Phase 1c / 1d — Code App + Flows
-- **[BUILD]** Build the shared `<Panel>` primitive; consolidate the duplicated card/panel/hero blocks (Admin, CaseDetail, ManualIntake, Skeletons, AppErrorBoundary).
-- **[BUILD]** Extract a shared `<EvaFields>` module (FIELD_CLUSTERS/LABEL_FOR/FieldRow) — defined verbatim in BOTH CaseDetail and ManualIntake (drift risk).
-- **[BUILD]** Add theme utility classes (`.ce-overline/.ce-stat/.ce-stat-lg`) + amber CSS vars; route Dashboard/CaseList through the shared `<EmptyState>`.
-- **[BUILD]** Wire or remove the dead `FieldsSkeleton`; resolve the dead `logoWhite` export; upgrade `ActionLogs` loading/error seam; add a favicon.
-- **[BUILD]** Remove or wire the dead dedup-decision dialog (superseded by MergeCaseDialog); scrub the `(mock)` UI copy + console no-op.
+- **[DONE 2026-06-24]** Built the shared `<Panel>`/`<Panel accent>` primitive; consolidated the duplicated panel
+  blocks (CaseDetail, ManualIntake, Admin, AppErrorBoundary). (Admin `importPanel` + Skeletons borders left as-is — converting would change the rendered fill/DOM.)
+- **[DONE 2026-06-24]** Extracted the shared `<EvaFields>` module (`EvaFieldRow` + FIELD_CLUSTERS + LABEL_FOR + option lists); both screens import it (deep-link id + DVSA-mileage provenance preserved).
+- **[DONE 2026-06-24]** Added `.ce-overline`/`.ce-stat`/`.ce-stat-lg` theme utilities + `--ce-amber*` vars (used in StatusBadge/Dashboard); routed Dashboard + CaseList through the shared `<EmptyState>`.
+- **[DONE 2026-06-24]** Removed dead `FieldsSkeleton` + `logoWhite` (regenerated `logos.generated.ts`); upgraded `ActionLogs` to a loading/error/empty-aware query (`useActivity`); added `public/favicon.svg` + `<link rel=icon>`.
+- **[DONE 2026-06-24]** Removed the dead mock dedup-decision dialog (`DedupDecisionDialog.tsx` + `/dedup` route + CaseDetail entry point; superseded by MergeCaseDialog); no `(mock)` copy remains in rendered UI.
 - **[OPERATOR]** Reconcile repo `intake.definition.json` UP to live (`Run_enrich` + `Run_case_resolve` + `Run_box_folder_create`) — needs a live flow EXPORT.
 - **[OPERATOR]** Live verify of the C5 `React.createElement` console error on the deployed player.
 - **[DRIFT]** `power.config.json logoPath='Default'` maker-portal tile (operator `pac push`).

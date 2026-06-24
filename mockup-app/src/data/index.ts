@@ -287,5 +287,6 @@ export {
   useBoxGates,
   useLocationAssistGate,
   useHoldNewCasesDefault,
+  useActivity,
   type QueryState,
 } from './hooks';

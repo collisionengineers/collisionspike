@@ -31,7 +31,7 @@ import { GLOBAL_TOASTER_ID, StatusBadge, VrmPlate, statusLabel } from '../compon
    MergeCaseDialog — staff manual merge (#4).
 
    Opened at /case/:caseId/merge as a route overlay over CaseDetail (same pattern
-   as DedupDecisionDialog). Lets staff fold THIS case (e.g. an images-only case)
+   as EvaSubmitDialog). Lets staff fold THIS case (e.g. an images-only case)
    into another OPEN, same-provider case (e.g. the instructions case) when
    auto-matching did NOT link them — the common "images arrived separately from
    the instructions" scenario.

@@ -23,7 +23,6 @@ import {
   mergeClasses,
   tokens,
   useToastController,
-  type InputOnChangeData,
 } from '@fluentui/react-components';
 import {
   Car,
@@ -36,6 +35,9 @@ import {
   X,
 } from 'lucide-react';
 import {
+  EvaFieldRow,
+  LABEL_FOR,
+  Panel,
   ProvenanceBadge,
   SectionHeading,
   VrmPlate,
@@ -87,13 +89,6 @@ import { connectorParserTransport } from '../data/parser-connector-transport';
 
 const useStyles = makeStyles({
   page: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL },
-
-  panel: {
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderRadius: tokens.borderRadiusMedium,
-    backgroundColor: tokens.colorNeutralBackground1,
-    padding: tokens.spacingVerticalL,
-  },
 
   /* Dropzone-style picker */
   dropzone: {
@@ -242,28 +237,23 @@ const useStyles = makeStyles({
   barAbove: { marginTop: tokens.spacingVerticalM },
 });
 
-/* EVA field clusters — same grouping as CaseDetail's review grid. Identity and
-   the bespoke (Make/lookup, address-normalise) controls render outside this map;
-   the rest of the 12-field contract is iterated here with labels from
-   EVA_FIELD_ORDER so a contract relabel (e.g. "Date of Incident") flows through. */
-const FIELD_CLUSTERS: { heading: string; keys: EvaFieldKey[] }[] = [
-  { heading: 'Provider & claimant', keys: ['claimantName', 'claimantTelephone', 'claimantEmail'] },
-  { heading: 'Vehicle', keys: ['mileageUnit', 'vatStatus'] },
-  { heading: 'Incident', keys: ['accidentCircumstances'] },
-  { heading: 'Dates', keys: ['dateOfLoss', 'dateOfInstruction'] },
+/* EVA field clusters iterated on this screen — a SUBSET of the shared
+   FIELD_CLUSTERS (src/components/EvaFields.tsx). The identity, make/model lookup,
+   mileage and inspection-address controls render bespoke outside this map, so
+   their keys are deliberately omitted here; the rest of the 12-field contract is
+   iterated via the shared EvaFieldRow with labels from the shared LABEL_FOR (so a
+   contract relabel flows through both screens). */
+const MANUAL_CLUSTER_KEYS: EvaFieldKey[][] = [
+  ['claimantName', 'claimantTelephone', 'claimantEmail'], // Provider & claimant
+  ['mileageUnit', 'vatStatus'], // Vehicle
+  ['accidentCircumstances'], // Incident
+  ['dateOfLoss', 'dateOfInstruction'], // Dates
 ];
 
 /* The EVA-required keys per the contract descriptor (single source of truth). */
 const CONTRACT_REQUIRED: ReadonlySet<EvaFieldKey> = new Set(
   EVA_FIELD_ORDER.filter((d) => d.required).map((d) => d.key),
 );
-
-const LABEL_FOR: Record<EvaFieldKey, { label: string; required: boolean }> = Object.fromEntries(
-  EVA_FIELD_ORDER.map((d) => [d.key, { label: d.label, required: d.required }]),
-) as Record<EvaFieldKey, { label: string; required: boolean }>;
-
-const VAT_OPTIONS: VatStatus[] = ['', 'Yes', 'No'];
-const MILEAGE_UNIT_OPTIONS: MileageUnit[] = ['', 'Miles', 'Km'];
 
 /* Inspection Type is a constant for manual intake — always a desktop / image-based
    "Vehicle Damage Inspection". Recorded, never configured (review #15). */
@@ -303,76 +293,6 @@ function emptyEvaFields(): EvaFields {
   fields.vatStatus = { ...out.vatStatus, value: '' as VatStatus };
   fields.mileageUnit = { ...out.mileageUnit, value: '' as MileageUnit };
   return fields;
-}
-
-/* ---------- A single editable EVA field row (value + provenance) ---------- */
-interface FieldRowProps {
-  fieldKey: EvaFieldKey;
-  label: string;
-  required: boolean;
-  fields: EvaFields;
-  onChange: (key: EvaFieldKey, value: string) => void;
-}
-
-function FieldRow({ fieldKey, label, required, fields, onChange }: FieldRowProps) {
-  const styles = useStyles();
-  const field = fields[fieldKey];
-  const empty = field.value.trim().length === 0;
-  const validation =
-    required && empty
-      ? ({ validationState: 'error' as const, validationMessage: 'Required' })
-      : {};
-  const change = (_: unknown, data: InputOnChangeData) => onChange(fieldKey, data.value);
-
-  let control: React.ReactNode;
-  if (fieldKey === 'accidentCircumstances') {
-    control = (
-      <Textarea value={field.value} onChange={(_, d) => onChange(fieldKey, d.value)} resize="vertical" rows={3} />
-    );
-  } else if (fieldKey === 'vatStatus') {
-    control = (
-      <Dropdown
-        value={field.value || '—'}
-        selectedOptions={[field.value]}
-        onOptionSelect={(_, d) => onChange(fieldKey, d.optionValue ?? '')}
-      >
-        {VAT_OPTIONS.map((o) => (
-          <Option key={o || 'blank'} value={o} text={o || '—'}>
-            {o || '—'}
-          </Option>
-        ))}
-      </Dropdown>
-    );
-  } else if (fieldKey === 'mileageUnit') {
-    control = (
-      <Dropdown
-        value={field.value || '—'}
-        selectedOptions={[field.value]}
-        onOptionSelect={(_, d) => onChange(fieldKey, d.optionValue ?? '')}
-      >
-        {MILEAGE_UNIT_OPTIONS.map((o) => (
-          <Option key={o || 'blank'} value={o} text={o || '—'}>
-            {o || '—'}
-          </Option>
-        ))}
-      </Dropdown>
-    );
-  } else {
-    control = <Input value={field.value} onChange={change} />;
-  }
-
-  return (
-    <div className={styles.fieldRow}>
-      {/* Fluent's `required` renders the asterisk AND exposes the required
-          semantic to assistive tech (the hand-appended " *" did neither). */}
-      <Field label={label} required={required} {...validation}>
-        {control}
-      </Field>
-      <div className={styles.fieldMeta}>
-        <ProvenanceBadge provenance={field.provenance} reviewState={field.reviewState} />
-      </div>
-    </div>
-  );
 }
 
 type Phase = 'pick' | 'parsing' | 'review' | 'creating';
@@ -733,7 +653,7 @@ export function ManualIntake() {
 
       {/* ----- STEP 1: pick + parse ----- */}
       {(phase === 'pick' || phase === 'parsing') && (
-        <div className={styles.panel}>
+        <Panel>
           <div
             className={mergeClasses(styles.dropzone, dragging && styles.dropzoneActive)}
             onDragOver={onDragOver}
@@ -834,12 +754,12 @@ export function ManualIntake() {
               </Caption1>
             </div>
           )}
-        </div>
+        </Panel>
       )}
 
       {/* ----- STEP 2: review + create ----- */}
       {(phase === 'review' || phase === 'creating') && fields && (
-        <div className={styles.panel}>
+        <Panel>
           {warnings.length > 0 && (
             <MessageBar intent="warning" className={styles.barBelow}>
               <MessageBarBody>
@@ -960,8 +880,8 @@ export function ManualIntake() {
           {/* Provider & claimant + Vehicle (make/model lookup lives here) */}
           <span className={styles.clusterHead}>Provider &amp; claimant</span>
           <div className={styles.clusterBody}>
-            {FIELD_CLUSTERS[0].keys.map((key) => (
-              <FieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} fields={fields} onChange={onFieldChange} />
+            {MANUAL_CLUSTER_KEYS[0].map((key) => (
+              <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
             ))}
           </div>
 
@@ -985,11 +905,11 @@ export function ManualIntake() {
                 <ProvenanceBadge provenance={fields.mileage.provenance} reviewState={fields.mileage.reviewState} />
               </div>
             </div>
-            {FIELD_CLUSTERS[1].keys.map((key) => (
-              <FieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} fields={fields} onChange={onFieldChange} />
+            {MANUAL_CLUSTER_KEYS[1].map((key) => (
+              <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
             ))}
             {/* VAT is manual — DVLA/DVSA do not return it (review #16). The VAT
-                control is rendered by the FieldRow above (vatStatus); add the note. */}
+                control is rendered by the EvaFieldRow above (vatStatus); add the note. */}
             <Caption1 className={styles.inlineNote}>
               Enter the VAT status manually.
             </Caption1>
@@ -998,8 +918,8 @@ export function ManualIntake() {
           {/* Incident (accident circumstances + inspection address with normalise) */}
           <span className={styles.clusterHead}>Incident</span>
           <div className={styles.clusterBody}>
-            {FIELD_CLUSTERS[2].keys.map((key) => (
-              <FieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} fields={fields} onChange={onFieldChange} />
+            {MANUAL_CLUSTER_KEYS[2].map((key) => (
+              <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
             ))}
             {/* Inspection address — for an image-based case it is the locked
                 "Image Based Assessment" literal + a reason; otherwise the editable
@@ -1075,8 +995,8 @@ export function ManualIntake() {
           {/* Dates + Inspection */}
           <span className={styles.clusterHead}>Dates &amp; inspection</span>
           <div className={styles.clusterBody}>
-            {FIELD_CLUSTERS[3].keys.map((key) => (
-              <FieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} fields={fields} onChange={onFieldChange} />
+            {MANUAL_CLUSTER_KEYS[3].map((key) => (
+              <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
             ))}
             {/* Inspect on (inspection date) — required, defaults to today (review #15). */}
             <div className={styles.fieldRow}>
@@ -1137,7 +1057,7 @@ export function ManualIntake() {
               </Button>
             </div>
           </div>
-        </div>
+        </Panel>
       )}
     </div>
   );
