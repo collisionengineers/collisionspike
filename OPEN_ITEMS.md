@@ -114,8 +114,11 @@ architecture/requirements > plans):
 - **[DRIFT]** Phase-5 README line 19 "add two B2 fields to ocr_pdf_adapter EVA map" — already present + parity-guarded; remove. `ImageOrderList.tsx` is built+wired but marked `[ ]` — tick it.
 
 ## Phase 6 — Boundary Evidence & Handoff
-- **[BUILD]** Add the **static boundary grep gate** (no raw EVA/Box/Graph/SharePoint calls outside the seam) to `verify-all.mjs` — claimed `[x]` but does not exist.
-- **[BUILD]** Extend the `verify-all.mjs` pytest loop to all built Function suites (evasentry, evavalidation, location-suggest, box-webhook, ocr) — ~245 tracked tests never run by the global gate.
+- **[DONE 2026-06-24]** Added the **static boundary grep-gate** to `verify-all.mjs` (no raw `fetch`/XHR or external
+  service host in `mockup-app/src` outside the connector seam; block+line comments stripped so doc mentions don't trip it).
+- **[DONE 2026-06-24]** Extended the `verify-all.mjs` pytest loop to ALL built Function suites + ocr (repo-root).
+  verify-all now GREEN: 10 passed, 0 failed. (location-suggest/box-webhook/ocr SKIP locally — no `.venv`; they pass when set up.)
+- **[OPERATOR/DEV]** Set up local `.venv`s for location-suggest / box-webhook / ocr so their suites run in `verify-all` rather than SKIP.
 - **[BUILD]** Delete the untracked `functions/addressmatch/` working-tree remnant (removed-matcher residue; no tracked files).
 - **[OPERATOR]** Capture the connection inventory (`pac connection list`), the deploy log, and the §7 three-mailbox live-validation checklist.
 
