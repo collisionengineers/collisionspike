@@ -905,9 +905,22 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
      an unconfirmed suggestion. */
   const useSuggestion = (s: SuggestedAddress) => {
     const lines = [...s.lines, s.postcode].map((l) => (l ?? '').trim()).filter(Boolean);
+    if (lines.length === 0) {
+      // A candidate with no usable address lines (e.g. a live-assist hit that resolved
+      // to only a place label) cannot become a manual physical-address decision. Tell
+      // the reviewer rather than silently no-op'ing the button.
+      toast(
+        'This suggestion has no usable address — pick another, or record Image Based Assessment with a reason',
+      );
+      return;
+    }
     const draft = lines.join('\n');
-    // Validate the confirmation through the policy resolver. A confirmed physical
-    // address is always a manual human decision here (prefer_address default).
+    // Validate the confirmation through the policy resolver. We use the prefer_address
+    // default (a confirmed physical address resolves to a manual human decision).
+    // FOLLOW-UP: when the InspectionAddress upsert/save path is wired, resolve against
+    // the case provider's real inspectionLocationPolicy (required_address ->
+    // confirmed_physical; always_image_based override). The policy is not plumbed onto
+    // this screen yet, and nothing here persists, so the default is safe until then.
     const decision = resolveInspectionDecision('prefer_address', lines.length > 0, {
       choice: 'use_physical_address',
     });

@@ -233,8 +233,11 @@ export function adaptLocationAssistResponse(
   const candidates = resp.candidates ?? [];
   return {
     suggestions: candidates.map((c, i) => candidateToSuggestion(c, i)),
-    // Mutually consistent: a non-empty candidate set is never "no confident location".
-    noConfidentLocation: candidates.length === 0 ? resp.noConfidentLocation !== false : false,
+    // Mutually consistent, enforced HERE defensively: an empty candidate set ALWAYS
+    // means "no confident location" (even if a malformed envelope claims otherwise),
+    // and a non-empty set never does. The Function already guarantees this — we don't
+    // rely on it, so the UI never shows an empty panel with no explanatory line.
+    noConfidentLocation: candidates.length === 0,
     issues: resp.issues ?? [],
   };
 }

@@ -314,12 +314,13 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     }
   }
 
-  /* ----------  Location-assist gate read (cached, default all-off)  ----------
+  /* ----------  Location-assist gate read (read FRESH, default all-off)  ----------
      Same env-var-table read as the BOX_* gates: the new master gate, the paired
      Maps gate, and the per-env API-base config var. `enabled` is the AND of all
      three; a failure (tables not wired, query error) returns all-off so the
-     "Suggest location" action stays hidden until the feature is genuinely live. */
-  let locationAssistGateCache: Promise<LocationAssistGate> | undefined;
+     "Suggest location" action stays hidden until the feature is genuinely live.
+     NOT memoised — an operator gate flip must take effect on the next read, not a
+     full app reload (see getLocationAssistGate). */
   async function fetchLocationAssistGate(): Promise<LocationAssistGate> {
     const defsSvc = services.environmentVariableDefinitions;
     const valsSvc = services.environmentVariableValues;
@@ -459,11 +460,15 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       // their provider code in the free-text source note, so fetch the suggested
       // subset and filter client-side (a note substring isn't OData-filterable).
       const caseRes = await services.cases.get(caseId);
-      // The case's principal lives in the work-provider value (e.g. 'AX'). The
-      // old `cr1bd_provider_code` column does not exist on the row, so reading it
-      // always yielded '' — which dropped through to "return all" and showed
-      // every provider's addresses. Read the work-provider value instead.
-      const providerCode = caseRes.data?.cr1bd_evaworkprovider?.trim() ?? '';
+      // Scope by the 4-char PRINCIPAL code. The suggestion rows carry it in their note
+      // as provider=<CODE> (the EVA-export pre-processor parsed it from the Case ID's
+      // leading-alpha run, uppercased). The Case's principal is likewise the leading
+      // alpha run of the Case/PO (e.g. 'CCPY26050' -> 'CCPY') — NOT cr1bd_evaworkprovider,
+      // which holds the work-provider NAME (EVA field 1, e.g. 'Acme Solicitors'): a
+      // different namespace that almost never matched and fell through to "return all".
+      const providerCode = (
+        caseRes.data?.cr1bd_casepo?.trim().match(/^[A-Za-z]+/)?.[0] ?? ''
+      ).toUpperCase();
       // getAll returns ALL columns (no explicit $select), so the new ADR-0016
       // ranking columns (cr1bd_suggestionrank/-frequency/-lastseenon) come back
       // without a read change; the adapter carries them onto SuggestedAddress.
@@ -472,7 +477,9 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       });
       const all = (res.data ?? []).filter(isSuggestedAddressRecord).map(suggestionFromRecord);
       if (!providerCode) return sortSuggestions(all);
-      const scoped = all.filter((s) => !s.providerCode || s.providerCode === providerCode);
+      const scoped = all.filter(
+        (s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode,
+      );
       // If the provider has no scoped candidates, fall back to all suggestions so
       // the reviewer still sees the catalogue rather than an empty panel. ORDER
       // BY the offline ranking in both branches (ADR-0016 helper #2: ordering
@@ -613,11 +620,11 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       return boxGatesCache;
     },
 
-    /* ----- Location-assist gate (cached env-var read; all-off on failure) ----- */
-    getLocationAssistGate: (): Promise<LocationAssistGate> => {
-      if (!locationAssistGateCache) locationAssistGateCache = fetchLocationAssistGate();
-      return locationAssistGateCache;
-    },
+    /* ----- Location-assist gate (read FRESH per call; all-off on failure) -----
+       NOT cached: an operator enabling/disabling the gate must take effect on the
+       next read (next CaseDetail mount), not require a full app reload. The read is
+       two small env-var-table queries, run only when a case is opened. */
+    getLocationAssistGate: (): Promise<LocationAssistGate> => fetchLocationAssistGate(),
 
     /* ----- App intake preference: hold new cases by default (read fresh) ----- */
     getHoldNewCasesDefault: async (): Promise<boolean> => {

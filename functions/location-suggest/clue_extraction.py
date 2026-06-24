@@ -31,9 +31,18 @@ _UK_POSTCODE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# A UK vehicle registration (current-style) — used to DROP plate-like OCR lines
-# so a number plate read off the overview photo is never geocoded as a "place".
-_VRM_RE = re.compile(r"\b[A-Z]{2}\d{2}\s?[A-Z]{3}\b", re.IGNORECASE)
+# UK number-plate shapes — used to DROP an OCR line that IS (just) a plate, so a
+# registration read off the overview photo is never geocoded as a "place". Matched
+# against the WHOLE (space-normalised) line via fullmatch in signage_queries, so a
+# business-name line that merely CONTAINS a plate substring is KEPT. Covers the
+# current + prefix + suffix formats; dateless plates are deliberately NOT matched
+# (too ambiguous with real signage).
+_VRM_RE = re.compile(
+    r"[A-Z]{2}\d{2}\s?[A-Z]{3}"      # current:  AA00 AAA
+    r"|[A-Z]\d{1,3}\s?[A-Z]{3}"      # prefix:   A0 AAA .. A000 AAA
+    r"|[A-Z]{3}\s?\d{1,3}[A-Z]",     # suffix:   AAA 0A .. AAA 000A
+    re.IGNORECASE,
+)
 
 # Lines that are mostly digits / punctuation carry no place signal.
 _MOSTLY_DIGITS_RE = re.compile(r"^[\d\W]+$")
@@ -97,7 +106,9 @@ def signage_queries(ocr_lines: list[str], *, max_queries: int = 6) -> list[str]:
             continue
         if _MOSTLY_DIGITS_RE.match(line):
             continue
-        if _VRM_RE.search(line):
+        # Drop a line only when the WHOLE line is a plate (not merely contains one),
+        # so a sign like "Smith Recovery AB12 CDE" keeps its business name.
+        if _VRM_RE.fullmatch(line):
             continue
         key = line.lower()
         if key in seen:

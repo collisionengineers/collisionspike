@@ -124,7 +124,9 @@ A per-photo fetch/analysis failure is a **warning**, not a stop; only
 ## How the Power Platform side calls it
 
 On the CaseDetail **Address tab**, the reviewer clicks **"Suggest location"**
-(enabled only when `LOCATION_ASSIST_ENABLED && AZURE_MAPS_ENABLED`). The Code App
+(enabled only when `LOCATION_ASSIST_ENABLED && AZURE_MAPS_ENABLED` **and**
+`LOCATION_ASSIST_API_BASE` is set — the same three-way gate as the *Gating* section
+above). The Code App
 builds the request from already-loaded data (`imagesForCase` → `photo_refs`; the
 case's accident-circumstances + the new claimant-address → `text_clues`), calls
 the **CE Location Assist** connector operation **`SuggestLocation`** through the

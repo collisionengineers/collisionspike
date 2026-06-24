@@ -100,12 +100,15 @@ if ($missing.Count -gt 0) {
 }
 # NEW ranking columns (ADR-0016) are OPTIONAL — present in the EVA-export pre-processor output, absent in
 # older CSVs. We write them only when the column exists AND the row carries a value (tolerate older sources).
-$rankCols = @("frequency","last_seen","rank","case_key_kind")
+# Only the 3 fields actually written below — case_key_kind is a pre-processor AUDIT
+# column that is never loaded, so gating on it would wrongly skip ranking for a CSV
+# that carries frequency/last_seen/rank without it.
+$rankCols = @("frequency","last_seen","rank")
 $haveRank = @($rankCols | Where-Object { $haveCols -contains $_ })
 $hasRankCols = ($haveRank.Count -eq $rankCols.Count)
 Write-Host "[16] Source: $CsvPath  ($($rows.Count) rows)" -ForegroundColor Cyan
 if ($hasRankCols) {
-  Write-Host "[16] Ranking columns present (frequency/last_seen/rank/case_key_kind) — will write the 3 ranking fields." -ForegroundColor Cyan
+  Write-Host "[16] Ranking columns present (frequency/last_seen/rank) — will write the 3 ranking fields." -ForegroundColor Cyan
 } else {
   Write-Host "[16] Ranking columns absent (older CSV) — writing the base suggestion shape only." -ForegroundColor DarkGray
 }
@@ -307,6 +310,17 @@ Write-Host "Re-run is idempotent: same labels upsert in place; the source change
 # reference rows (storage|repairer|home|'' OR decisionMode=Confirmed Physical) are NEVER deleted — this is
 # a LAYER replace, not a truncate (a full truncate is a separate, explicit operator action).
 if ($ReplaceSuggestions) {
+  if ($errors -gt 0) {
+    # SAFETY: the new set did not load cleanly. The keep-set ($newLabels) is computed
+    # from the CSV, NOT from rows actually upserted, so deleting "stale" rows now could
+    # remove a row whose re-keyed replacement failed to load — leaving FEWER live
+    # suggestions than before. Abort the destructive delete; the non-zero exit below
+    # still flags the run. Resolve the errors and re-run.
+    Write-Host ""
+    Write-Host "[16] -ReplaceSuggestions: SKIPPING the stale-row delete — the upsert phase reported $errors error(s)." -ForegroundColor Red
+    Write-Host "     Deleting now could remove rows whose replacement failed to load. Resolve the errors and re-run." -ForegroundColor Red
+  }
+  else {
   Write-Host ""
   Write-Host "[16] -ReplaceSuggestions: scanning live suggested rows to delete those absent from the new set ($($newLabels.Count) new labels)..." -ForegroundColor Yellow
   $deleted=0; $keptSug=0; $delErrors=0
@@ -341,6 +355,7 @@ if ($ReplaceSuggestions) {
   Write-Host "SUGGESTEDADDRESSES_REPLACE_DONE deleted-stale=$deleted kept-current=$keptSug delete-errors=$delErrors" -ForegroundColor Cyan
   Write-Host "Confirmed reference rows were not touched (layer replace, not truncate)." -ForegroundColor DarkGray
   $errors += $delErrors
+  }
 }
 
 if ($errors -gt 0) { exit 1 }

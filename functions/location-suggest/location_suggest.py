@@ -32,6 +32,7 @@ Contract version stamped on the response: ``ce_location_suggest_v1``.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -136,17 +137,21 @@ def suggest_locations(
     """Run the full suggestion pipeline with injected dependencies.
 
     Returns a ``SuggestResult``. Raises ``AllPhotosUnreadable`` ONLY when every
-    supplied photo was unavailable AND there were no usable text clues (the
-    handler maps that to 422). Vision/Maps NOT-configured raises the typed
-    not-configured errors so the handler can return 502 (dependency failed).
-    Per-photo and per-clue failures degrade to warnings in ``issues``.
+    supplied photo was unavailable AND no text clue was supplied (the handler maps
+    that to 422). Vision/Maps NOT-configured raises the typed not-configured errors
+    so the handler can return 502 (dependency failed). Per-photo and per-clue
+    failures degrade to warnings in ``issues``.
     """
     issues: list[dict[str, Any]] = []
     candidates: list[Candidate] = []
 
-    has_text_clue = bool(
-        clue_extraction.extract_place(accident_circumstances)
-        or clue_extraction.extract_place(claimant_address)
+    # Whether the reviewer SUPPLIED any text clue (not whether it proved geocodable).
+    # The 422 below means "nothing to work with at all"; a supplied-but-unusable clue
+    # (e.g. a long narrative with no postcode that extract_place skips) must NOT be
+    # misreported as unreadable photos — it falls through to a normal empty
+    # (noConfidentLocation) result instead.
+    has_text_clue_supplied = bool(
+        (accident_circumstances or "").strip() or (claimant_address or "").strip()
     )
 
     # --- 1+2. Photos -> Vision OCR signage -> geocode -------------------------
@@ -231,7 +236,7 @@ def suggest_locations(
             )
 
     # --- 422 condition: every photo unavailable AND no text clue --------------
-    if photos_attempted > 0 and photos_unavailable == photos_attempted and not has_text_clue:
+    if photos_attempted > 0 and photos_unavailable == photos_attempted and not has_text_clue_supplied:
         raise AllPhotosUnreadable(
             "every supplied photo was unavailable and there were no text clues"
         )
@@ -288,8 +293,11 @@ def _candidate_from_geocode(
 ) -> Candidate:
     """Build a Candidate from a geocode hit + its single source evidence."""
     # Base confidence from the Maps relevance score (0..1-ish), nudged by any
-    # text-match boost (sign text appearing in the returned address).
-    base = g.score if isinstance(g.score, (int, float)) else 0.5
+    # text-match boost (sign text appearing in the returned address). A missing OR
+    # non-finite score (NaN/Infinity — json.loads accepts those tokens by default) is
+    # treated as neutral 0.5, never clamped to 1.0 (min(1.0, nan)==1.0 would float
+    # garbage to the TOP of the ranking).
+    base = g.score if isinstance(g.score, (int, float)) and math.isfinite(g.score) else 0.5
     confidence = max(0.0, min(1.0, float(base) + boost))
     return Candidate(
         label=_short_label(g),
@@ -324,10 +332,19 @@ def _merge_candidates(candidates: list[Candidate]) -> list[Candidate]:
     """Merge candidates that resolve to the same place (same postcode + label),
     summing their evidence and keeping the highest confidence. Ties on key keep
     the first-seen order."""
-    merged: dict[tuple[str, str], Candidate] = {}
-    order: list[tuple[str, str]] = []
+    merged: dict[tuple[str, str, str], Candidate] = {}
+    order: list[tuple[str, str, str]] = []
     for c in candidates:
-        key = ((c.postcode or "").upper(), c.label.strip().lower())
+        # Same postcode + label = same place. With NO postcode, the label alone can
+        # collide across genuinely different places (two "High Street"s in different
+        # towns), so fold the full address lines into the key to avoid over-merging
+        # two distinct postcode-less hits into one.
+        addr_disc = (
+            ""
+            if (c.postcode or "").strip()
+            else "|".join((ln or "").strip().lower() for ln in c.address_lines)
+        )
+        key = ((c.postcode or "").upper(), c.label.strip().lower(), addr_disc)
         if key not in merged:
             merged[key] = c
             order.append(key)
