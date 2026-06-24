@@ -141,8 +141,10 @@ architecture/requirements > plans):
   script + the scheduled **`case-disposition`** flow (gated-off, two-clock guard, NO Box deletion) + verify-parity.
 - **[BUILD]** Author the **3-role least-privilege security model** (User + Admin) as real role artefacts + apply script, gated-OFF (Engineer deferred).
 - **[BUILD]** Add KV **purge-protection** + Blob **soft-delete/versioning** to the function bicep (authoring only — operator applies; purge-protection is irreversible).
-- **[BUILD]** Author the governance docs — `data-protection.md` (controller/processor map, lawful bases),
-  the DSAR/erasure cross-store runbook (Box-folder-name / File-Request-URL / Outlook-category blind spots), and a unit-tested PII pre-scrub helper.
+- **[DONE 2026-06-24]** Authored the governance docs — `docs/architecture/data-protection.md` (controller/processor
+  map, per-processing lawful-basis table, two-clock retention, rights path) + `docs/plans/runbooks/dsar-erasure-cross-store.md`
+  (cross-store DSAR/erasure incl. the Box-folder-name / File-Request-URL / Outlook-category blind spots). Legal sign-offs left [RESERVED-FOR-USER]/[DEFERRED — PENDING LEGAL].
+- **[BUILD]** Author a unit-tested PII pre-scrub helper the Phase-8/4a AI paths can reuse (deferred to the Phase-8 build, which consumes it).
 - **[OPERATOR]** Promote ADR-0017 Proposed→Accepted (needs retention period + lawful basis + litigation-hold rule + ICO/DPIA sign-off).
 - **[DRIFT]** README + ADR-0017 list table-native auditing + cascade as "to-build" — both already in code (narrow to org-level enablement). Add the G1–G8 entries to `docs/gated.md` so the cross-links resolve.
 
