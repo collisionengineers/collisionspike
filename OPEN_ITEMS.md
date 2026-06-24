@@ -140,7 +140,11 @@ architecture/requirements > plans):
 - **[BUILD]** Author the retention-clock schema (`cr1bd_closedat/retentionexpiresat/legalhold` on Case) + apply
   script + the scheduled **`case-disposition`** flow (gated-off, two-clock guard, NO Box deletion) + verify-parity.
 - **[BUILD]** Author the **3-role least-privilege security model** (User + Admin) as real role artefacts + apply script, gated-OFF (Engineer deferred).
-- **[BUILD]** Add KV **purge-protection** + Blob **soft-delete/versioning** to the function bicep (authoring only — operator applies; purge-protection is irreversible).
+- **[DONE 2026-06-24]** Added KV **purge-protection** (4 vaults) + Blob **soft-delete + versioning** to the
+  6 Function-host bicep templates (defense-in-depth); `az bicep build` clean on all 6. Authoring-only — operator applies.
+- **[OPERATOR]** Apply the authoritative G6 hardening (delete-retention + container-delete-retention + versioning)
+  to the LIVE evidence-bytes store **`cespkevidstdev01`** (the `evidence` container, reached via the access-key
+  connection `cr1bd_evidenceblob`) — it is NOT in the IaC, so it can't be hardened from bicep. Hard pre-step before `box-blob-purge` is armed.
 - **[DONE 2026-06-24]** Authored the governance docs — `docs/architecture/data-protection.md` (controller/processor
   map, per-processing lawful-basis table, two-clock retention, rights path) + `docs/plans/runbooks/dsar-erasure-cross-store.md`
   (cross-store DSAR/erasure incl. the Box-folder-name / File-Request-URL / Outlook-category blind spots). Legal sign-offs left [RESERVED-FOR-USER]/[DEFERRED — PENDING LEGAL].
