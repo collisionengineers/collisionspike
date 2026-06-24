@@ -79,11 +79,14 @@ architecture/requirements > plans):
 - **[DRIFT]** The V2 multi-inbox flow is claimed "logic IDENTICAL to intake" but lacks the downstream chain — reconcile up or downgrade the claim.
 
 ## Phase 3 — Enrichment & EVA
-- **[BUILD]** Repoint `status-evaluate` onto `shared_evavalidation/ValidateCase` (M2.B) — delete the 5 inline
-  readiness actions, add the connection call, set usedBy + boundAtActivation (Function already deployed; flow stays off).
-- **[BUILD]** Build the **TS-side EVA-readiness parity vitest** (consume `parity_fixtures.json` through computeReadiness/statusForReviewCase/evaluateEvaImageRules) — only the Python half exists.
-- **[BUILD]** Build the **cross-transport drag-drop ↔ REST byte-identity parity test** (the cutover gate) against `core_to_instruction`/`validate_core_payload`.
-- **[BUILD]** Wire **body/images photo streaming** into `finalize-eva-box`'s EVA-REST branch (Function/connector already support `images[]`; flow only passes the 12-field core).
+- **[DONE 2026-06-24]** Repointed `status-evaluate` onto `shared_evavalidation/ValidateCase` (M2.B) — deleted the
+  5 inline readiness actions, added the `Validate_readiness` connection call (matched the real `{case,evidence}`→
+  `{fieldsValid,imagesValid,openIssues}` shape), set `usedBy:[status-evaluate]` + `boundAtActivation` (cleared the
+  declared-but-unused WARN). Flow stays state=off. validate-flows 155/155.
+- **[DONE 2026-06-24]** Built the **TS-side EVA-readiness parity vitest** (wave 2) — consumes `parity_fixtures.json`, zero drift.
+- **[DONE 2026-06-24]** Built the **cross-transport drag-drop ↔ REST byte-identity parity test** (wave 2) — the cutover gate, zero drift.
+- **[DONE 2026-06-24]** Wired **body/images photo streaming** into `finalize-eva-box`'s EVA-REST branch (PhotoEntry
+  per photo, reusing the bytes the loop already reads). Flow state=off; EVA_API_ENABLED off. Flagged the connector message-size concern for the EVA-test cutover.
 - **[OPERATOR]** Enrichment test/prod cutover (Dev is ON + live-verified).
 - **[OPERATOR]** Export 12-field JSON, drag-drop into EVA **test**; confirm acceptance.
 - **[OPERATOR]** EVA Sentry REST: inject test creds → KV, bind `cr1bd_evasentry`, flip `EVA_API_ENABLED` (after Minotaur one-principal-code patch + parity test); prod cutover.

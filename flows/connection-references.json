@@ -111,9 +111,10 @@
       "tier": "Premium",
       "custom": true,
       "operationIds": ["ValidateCase"],
-      "usedBy": [],
-      "boundAtActivation": false,
-      "note": "NOT USED by the Phase-1 slice. status-evaluate.definition.json now computes readiness INLINE (image-rules + 7 required EVA fields read straight from Dataverse) because no backing validation Function was ever deployed (no functions/validation/), so the connector + this binding would have blocked ready_for_eva. Kept as a reference for the FUTURE shared-surface design (Path 1 in docs/plans/phase-1-intake-and-case-tracking/phase-1-operational.md §3.6): build functions/evavalidation (ValidateCase -> { fieldsValid, imagesValid, openIssues[] }) so the flow + Code App computeReadiness() consume ONE implementation, then repoint status-evaluate and set usedBy=[status-evaluate]. Until then this ref needs NO connection bound (linter reports it as declared-but-unused = WARN, not FAIL)."
+      "openapi": "functions/evavalidation/openapi/evavalidation-connector.json",
+      "usedBy": ["status-evaluate"],
+      "boundAtActivation": true,
+      "note": "M2.B (Path 1 of docs/plans/phase-1-intake-and-case-tracking/phase-1-operational.md §3.6, now DONE): status-evaluate.definition.json computes readiness via this connector's ValidateCase op, fronting the deployed functions/evavalidation Function — so the flow, the Code App computeReadiness() and the Function are ONE implementation of the EVA readiness contract (the Code App has a committed parity test against the same Function). Body-in { case, evidence }; returns { fieldsValid, imagesValid, openIssues[] }. The Function is pure domain logic ported from the canonical TS image-rules.ts + case-status.ts: gate-free (always on), holds NO secrets, makes NO upstream call — keyed by x-functions-key on the connection only. This repoint replaced the five inline Filter/Set actions that previously duplicated the contract. [DEPLOY-WITH-LOGIN] to import the connector; [RESERVED-FOR-USER] to bind the connection (Function host key) at activation."
     },
     {
       "connectionName": "shared_evasentry",
