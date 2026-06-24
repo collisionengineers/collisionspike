@@ -119,6 +119,22 @@ scenario noted at the end. Details, so there are no surprises when these phases 
 
 ---
 
+## Application roles (the in-app role model — distinct from the platform roles above)
+
+The roles above are **platform/operator** roles (Azure RBAC, Dataverse env admin, Entra) that
+`digital@` needs to **build and activate** the spike. Separately, the **application** defines its own
+**three-role model** for staff who *use* the intake app (G8). These are **authored now, offline, and
+gated OFF** (no live security-role assignment yet); the operator assigns them at activation.
+
+| App role | Scope | Status |
+|---|---|---|
+| **User** | All **case-intake** actions — the day-to-day workflow (review cases, complete the 12 fields, drive readiness, pick/edit the inspection address, export to EVA / draft chasers). | **Built now** (offline, gated OFF; operator assigns at activation). |
+| **Admin** | **Settings + audit logs** — the configuration surface (env-var gates, provider/corpus settings) and visibility of the `cr1bd_auditevent` action log. Superset of User. | **Built now** (offline, gated OFF; operator assigns at activation). |
+| **Engineer** | Future **assessment functionality** (the engineer who performs the inspection/assessment). | **DEFERRED — out of scope** for the current build. |
+
+> These are app-level roles, not the platform roles in the gap analysis above. "Admin" here is the
+> in-app settings/audit role, **not** Dataverse System Administrator or Power Platform Administrator.
+
 ## Who grants what
 
 - **You self-grant** (you're subscription Owner): **Key Vault Secrets Officer** on the vault(s).

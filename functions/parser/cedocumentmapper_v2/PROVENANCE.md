@@ -25,6 +25,22 @@ intentional, recorded reconciliations described here.
   > copy was cut from that **working-tree state**, not from a clean tag. When the
   > sibling commits that overlay, re-cut and update this SHA.
 
+> ## ⚠️ RE-VENDOR PENDING (2026-06-24) — drift guard is RED
+>
+> The sibling has advanced well past this cut on branch `feat/audit-case-type-detection`
+> (committed HEAD now `ec89cc0` — advanced past `f818758` since this cut — *plus* further uncommitted work: extraction orchestrator,
+> offline LLM-assist, eval harness, frontend rework). `test_engine_vendored_in_sync.py`
+> currently **fails** for 8 shared engine-core modules (`config/__init__.py`,
+> `config/migration.py`, `detection/__init__.py`, `domain/__init__.py`,
+> `exporters/eva_json.py`, `readers/doc.py`, `readers/email.py`, `readers/pdf.py`).
+>
+> **Do not simply re-run the rsync command below against the sibling's working tree** — that
+> re-introduces the non-reproducible-pin problem and could pull desktop/dev-only surface
+> (`extraction/`, `eval/`, LLM-assist, the GUI) onto the cloud path. Per
+> [ADR-0018](../../../docs/adr/0018-cedocumentmapper-dual-target-vendored-engine.md), the re-vendor
+> must be against a **committed, tagged sibling ref** (engine-core only), and the vendored-only **B2
+> reconciliation should be upstreamed** so the re-cut becomes a pure mirror with zero hand-patching.
+
 ## Two intentional reconciliations (the bidirectional fork)
 
 This copy is a **true superset** of the sibling working-tree engine. Two

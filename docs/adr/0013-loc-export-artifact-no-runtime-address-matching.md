@@ -46,6 +46,11 @@ export artifact as a live input (there is no `cr1bd_loc` Case column), and it tr
 ## Consequences
 
 - One model to reason about; no orphaned "matcher" to mistake for a live capability.
+- **Suggestion *ordering* is permitted and does not reopen this ADR.** Ranking the offline-derived
+  suggestions for a case — by frequency/recency, or by proximity (an accident location when present in
+  the instruction, else claimant-home-address proximity) — is an **ordering signal only**: it changes
+  the order staff see, **never** auto-selects, and there is still **no runtime resolver**. The Phase-4a
+  proximity signal (ADR-0016) sits entirely within this bound.
 - Future improvement of the corpus is **offline** (more case-history mining → more confirmed full
   addresses → re-seed the suggestions), never a runtime resolver. See
   [`docs/architecture/inspection-address-corpus.md`](../architecture/inspection-address-corpus.md).

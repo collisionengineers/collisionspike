@@ -625,7 +625,7 @@ the harness rules).
    Evidence. **Verify:** parity test (TS vs Function) regardless of shape.
 5. **valuationbot's current callable surface.** It was MCP-only behind the **retired** gateway. Is
    there a non-MCP REST surface, or must the wrapper speak MCP to Cloud Run server-side? **Verify:**
-   inspect `collisionplugin/connectors/valuation-tool` + the live Cloud Run service before building
+   inspect `connectors/valuation-adverts-connector` + the live Cloud Run service before building
    `functions/valuation/`. This may be the **only** legitimate remaining Cloud Run hop.
 6. **Real-world OCR/plate accuracy (inherited from ocr-strategy.md §10).** Tesseract on real provider
    scans and `fast-alpr` on UK plates are unbenchmarked; M2.E's classification payoff assumes

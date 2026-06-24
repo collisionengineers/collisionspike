@@ -222,6 +222,15 @@ Mechanical proof that nothing live was touched before activation:
 5. **Deploy log:** every `[DEPLOY-WITH-LOGIN]` action (Dataverse, Functions, Key Vault, connectors, Code
    App) is non-inbox; every `[RESERVED-FOR-USER]` action (flow activation, secret injection, live tests,
    EVA prod cutover) is performed only by you, in §7.
+6. **Repo-trails-live guard — reconcile flow defs to live BEFORE any solution import.** The repo
+   `flows/definitions/intake.definition.json` **trails live**: the `Run_enrich` and `Run_case_resolve`
+   action cards **ARE deployed and running live** (wired into CS Intake, verified 2026-06-21) but are
+   **missing from the repo definition**. A naive solution **re-import from the repo would REGRESS live** —
+   it would drop those two live action cards. So before importing/re-importing `CollisionSpikeFlows`:
+   **export the live flow first** (operator-assisted) and **reconcile the repo definition UP to live**,
+   then import. This is **not** "stuff isn't deployed" — it is the repo def lagging the live wiring. (Same
+   caution applies to the live `box-folder-create` invocation inside `Scope_generate_casepo`, also a live
+   edit not reflected in the stale repo `intake.definition.json`.)
 
 ---
 

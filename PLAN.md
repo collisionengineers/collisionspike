@@ -190,15 +190,23 @@ Power Automate flows; use Dataverse for relational integrity/audit; gate integra
   optional, gated `COPILOT_ENABLED`: staff assistant over Dataverse once core data exists
   (~$0–30/mo PAYG). Not in M1/M2.
 
-### Parallel workstream — `cedocumentmapper_v2.0` (complete & harden — NOT a from-scratch rebuild)
-**Correction:** the sibling `cedocumentmapper_v2.0` repo is **already ~75% built** — a clean,
-layered, contract-first Python library + CLI (~5,100 LOC): domain models, readers
-(PDF/DOCX/DOC/EML/MSG), provider detection, a **12-kind rule engine**, normalisers, a
-**schema-validated 12-field EVA-JSON exporter**, v1→v2 config migration, and pytest are done
-(EPIC-01→07). The work is to **complete and harden**, not rewrite:
-- Outstanding: review UI (0%), **regression corpus harness** (~30%), packaging (~20%), CI/CD (0%).
+### Parallel workstream — `cedocumentmapper_v2.0` (a standalone dual-target product — NOT a from-scratch rebuild)
+**Status (2026-06-24):** the sibling `cedocumentmapper_v2.0` repo is **well past the old "~75%" snapshot**.
+Its **engine core** — domain models, readers (PDF/DOCX/DOC/EML/MSG), provider detection, the **12-kind rule
+engine**, normalisers, the **schema-validated EVA-JSON exporter**, v1→v2 config migration, pytest (241
+passing) — is **complete and tested**, and is **vendored + live** in this repo's parser Function (see
+[ADR-0018](docs/adr/0018-cedocumentmapper-dual-target-vendored-engine.md)). It has since added a **desktop
+review GUI** (React + pywebview), **portable PyInstaller packaging** (`build.ps1`), an **opt-in extraction
+orchestrator + offline LLM-assist**, and an **eval harness** — all **desktop/dev-only, deliberately NOT on
+the cloud path**. So the original "Outstanding: review UI / packaging / CI" list is **superseded**:
+- The sibling is a **dual-target product**: single-user **desktop** (portable exe) **and** a headless
+  **engine-core for the cloud** (our Azure Function vendors it). Awareness/boundary: **ADR-0018**.
 - **PyMuPDF licensed** (AGPL concern resolved — no remediation needed).
-- Keep the **12-field → EVA JSON** contract drag-drop-compatible.
+- Keep the engine-core's EVA projection **drag-drop-compatible**; the contract-parity guard
+  (`ocr/tests/test_eva_map_in_sync_with_parser.py`) + the vendored-engine drift guard
+  (`functions/parser/tests/test_engine_vendored_in_sync.py`) enforce it.
+- **Residual sibling-side gaps** (theirs, not ours): legacy `.doc` via antiword + Word `.doc` export; OCR
+  result caching; desktop GUI manual QA in a running pywebview window.
 - **Integration path (M1 — ADR-0004):** wrap as an Azure Function → custom connector, gated by
   `PDF_MAPPER_ENABLED`, called inline by the Code App. The CLI remains for offline/batch use.
 
@@ -212,7 +220,7 @@ layered, contract-first Python library + CLI (~5,100 LOC): domain models, reader
   `.../eva/sentry_api_complete_guide.md`.
 - Rebuild from: `cedocumentmapper/app.py`, `cedocumentmapper/providers.json`,
   `cedocumentmapper/docs/Final Format Example 02.json` (target JSON shape).
-- Connectors: `collisionplugin/connectors/{valuation-tool,eva}` (M2+ reference only); M1 enrichment
+- Connectors: `connectors/{valuation-adverts-connector,evaconnector}` (M2+ reference only); M1 enrichment
   uses the spike's own Azure Function (direct DVSA/DVLA — no mcp-gateway).
 - Skills to drive the build: `code-apps-preview:create-code-app`, `add-dataverse`,
   `add-sharepoint`, `add-office365`, `add-connector`, `list-connections`, `deploy`.

@@ -20,7 +20,7 @@ repo, at `active/collisionspike/`) is an early, fast Power Platform spike** of t
 | **collisionplugin** | Claude plugin + **MCP enrichment connectors** on Cloud Run, behind an OAuth gateway *(prior art — M1 uses direct Entra auth to DVSA/DVLA, no gateway hop)* | Node/TS + Python (FastMCP), Cloud Run `europe-west2` | **Prior-art / fallback** (M1 enrichment goes direct; valuation wrapper may revisit later) |
 | **cedocumentmapper** | Legacy v1 document parser — 4,244-line Tkinter monolith, no tests/VCS | Python + Tkinter + Tesseract | Behaviour reference only |
 | **cedocumentmapper_v2.0** | Contract-first parser engine; **authoring source of truth** for the engine that is **vendored + live** in this repo | Python library + CLI | **Engine authoring repo** — edit here, then re-vendor into `functions/parser/` |
-| collisionpdf, collisionautomation, dvlaclaudeconnector, valuationbot(*) | Parser-first FastAPI service; React/Vite UI prototype; DVLA connector; valuation prototypes | mixed | Secondary references |
+| collisionpdf, collisionautomation, archive/dvlaclaudeconnector, archive/valuationbot(*) | Parser-first FastAPI service; React/Vite UI prototype; DVLA connector (now `connectors/dvla-dvsa-connector`); valuation prototypes (now `connectors/valuation-adverts-connector`) | mixed | Secondary references |
 
 ## Reusable ideas / prior art (adapt — not authoritative)
 
@@ -47,6 +47,12 @@ A clean, layered, contract-first parser engine (~5,100 LOC, Python 3.11+): domai
 rule engine**; field normalisers (VRM, date, 6-line address, VAT, mileage); **schema-validated
 EVA-JSON exporter**; v1→v2 config migration; a CLI; and a pytest suite.
 
+It is a **standalone dual-target product** (see [ADR-0018](../adr/0018-cedocumentmapper-dual-target-vendored-engine.md)):
+a single-user **desktop review GUI** (React/Vite `frontend/` + a `pywebview` host, portable PyInstaller exe via
+`build.ps1`) **and** the headless **engine-core** packaged for the **cloud** (vendored into our parser Function).
+Since 2026-06-23 it also carries an opt-in **extraction orchestrator**, **offline LLM-assist** (review-only),
+and an **eval harness** — all **desktop/dev-only and deliberately NOT vendored** onto the cloud path.
+
 - **Integrated + guarded.** The engine is **vendored into `functions/parser/cedocumentmapper_v2/`**
   and **deployed live** as the parser Azure Function (`cespike-parser-dev-x7xt3d5ovhi7y`, `/api/parse`)
   behind the live CE Parser custom connector (`cr1bd_ceparser`). Reuse the engine; do not re-derive
@@ -63,7 +69,10 @@ EVA-JSON exporter**; v1→v2 config migration; a CLI; and a pytest suite.
   provenance) to `record_to_dict`; it is **not** an EVA field and never reaches the 12-field EVA
   payload (the adapter builds the payload solely from `EVA_FIELD_ORDER` over `fields`, like
   `inspection_date` is dropped). Locked by `tests/test_parse.py`.
-- **Omissions.** `cli.py` and `ui/host.py` are deliberately not vendored (CLI/GUI/Windows deps off
-  the FC1 path); the standalone CLI remains in the sibling for local/offline use.
+- **Omissions (the boundary).** Only the **engine-core** is vendored. The **product surface** stays
+  sibling-only and never reaches the FC1 worker: `cli.py`, `__main__.py`, `ui/host.py`, `frontend/`,
+  `build.ps1`, and the newer **`extraction/` (orchestrator)**, **`eval/` (harness)**, **LLM-assist**, and
+  `resources/`. The deployed Function is the **deterministic rule engine** only (`ui/paths.py` is vendored
+  for path helpers). The standalone CLI + desktop GUI remain in the sibling for local/offline use.
 - **Licensing:** depends on **PyMuPDF (AGPL)** — concern **resolved (licensed); no blocker** for
   closed-source distribution.

@@ -14,7 +14,7 @@ Set by review [`190626/broad-review`](../reviews/190626/broad-review/review.md) 
   `contracts/eva-payload.schema.json`). **This review does not re-cut those 12 wire keys** — changing
   them would ripple the parser, flow, schema, Dataverse choice set and parity tests. Only the **display
   label** `Date of Loss → Date of Incident` changed (new-case #13); the payload key stays `date_of_loss`.
-- **Sentry REST API — M2+ (in testing).** Carries a broader, differently-named field set (below). The
+- **Sentry REST API — M2+ (gated; blocked by Minotaur's one-principal-code limit, pending vendor patch + parity — see [eva-sentry-api.md](./eva-sentry-api.md)).** Carries a broader, differently-named field set (below). The
   UI now captures the **superset** so the case row is API-ready when that path lands.
 
 ## EVA Sentry **API** required fields (a call fails without these, in a valid format)
