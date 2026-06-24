@@ -148,7 +148,11 @@ class ExtractedRecord:
     # CE inspection auditing a THIRD-PARTY engineer's original report (a distinct
     # case-type marked by an "A." Case/PO prefix; see collisionspike ADR-0014).
     # NOT the engineer-report overlay (which merges CE's OWN CNX/EVA report). The
-    # audit_signals list the instruction phrases that fired, so the call is auditable.
+    # audit_signals list the signals that fired (e.g. the "A." Case/PO prefix), so
+    # the call is auditable. case_type is a coarse internal label ("audit" when
+    # is_audit, else None). All three are INTERNAL state and must NOT appear in the
+    # EVA JSON export.
     is_audit: bool = False
     audit_signals: tuple[str, ...] = ()
+    case_type: str | None = None
 

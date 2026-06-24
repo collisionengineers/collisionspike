@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import sys
+import time
 from pathlib import Path
 import fitz
 from pypdf import PdfReader
@@ -20,6 +21,10 @@ from cedocumentmapper_v2.readers.base import DocumentReader
 from cedocumentmapper_v2.readers.errors import ReaderError, DependencyMissingError
 
 OCR_PAGE_LIMIT = 2
+# Wall-clock ceiling (seconds) for the whole OCR pass. The page-count cap alone
+# does not bound runtime on slow/large rasters, so we also stop once this budget
+# is exceeded and surface it in the reader notes.
+OCR_TIME_LIMIT_SECONDS = 120.0
 
 
 def resource_path(relative_path: str) -> Path:
@@ -84,7 +89,26 @@ class PDFDocumentReader(DocumentReader):
     def __init__(self) -> None:
         configure_tesseract()
 
-    def read(self, path: Path) -> DocumentModel:
+    def read(
+        self,
+        path: Path,
+        *,
+        force_ocr: bool = False,
+        ocr_time_limit_seconds: float = OCR_TIME_LIMIT_SECONDS,
+    ) -> DocumentModel:
+        """Read a PDF into the canonical document model.
+
+        Parameters
+        ----------
+        force_ocr:
+            When True, the OCR fallback is run even if the heuristic page/image
+            triggers would normally skip it (e.g. documents with more than
+            ``OCR_PAGE_LIMIT`` pages, or with multiple images per page). This is
+            the operator override path so OCR can be forced from the service.
+        ocr_time_limit_seconds:
+            Wall-clock budget for the whole OCR pass. OCR stops once exceeded and
+            the cap is recorded in the reader notes.
+        """
         if not path.exists():
             raise ReaderError(f"File not found: {path}")
 
@@ -171,26 +195,57 @@ class PDFDocumentReader(DocumentReader):
                         lines=tuple(lines_list),
                     )
                 )
-                
+
                 # Build page plain text
                 page_text_combined = "\n".join(line.text for line in lines_list)
                 plain_text_parts.append(page_text_combined)
 
             combined_text = "\n\n".join(plain_text_parts).strip()
 
-            # OCR fallback checks
-            should_ocr = (
-                not combined_text
-                and 0 < len(per_page_image_counts) <= OCR_PAGE_LIMIT
-                and all(count == 1 for count in per_page_image_counts)
-            )
+            # OCR fallback checks. The historical heuristic only fires for short,
+            # one-image-per-page scans with no selectable text. We evaluate the
+            # individual conditions so that when OCR is *skipped* we can record an
+            # explicit reason, and so an operator can force it via force_ocr.
+            page_count = len(per_page_image_counts)
+            heuristic_reasons: list[str] = []
+            if combined_text:
+                heuristic_reasons.append("selectable text was already extracted")
+            if not (0 < page_count <= OCR_PAGE_LIMIT):
+                heuristic_reasons.append(
+                    f"page count {page_count} is outside the OCR limit of {OCR_PAGE_LIMIT}"
+                )
+            if not all(count == 1 for count in per_page_image_counts):
+                heuristic_reasons.append("not every page has exactly one image")
+
+            heuristic_ocr = not heuristic_reasons
+            should_ocr = heuristic_ocr or force_ocr
+
+            if not should_ocr:
+                reason = "; ".join(heuristic_reasons) or "OCR heuristic not met"
+                notes.append(
+                    f"OCR skipped ({reason}). Set the OCR override to force OCR."
+                )
+            elif force_ocr and not heuristic_ocr:
+                reason = "; ".join(heuristic_reasons) or "OCR heuristic not met"
+                notes.append(
+                    f"OCR forced via override despite skip heuristic ({reason})."
+                )
 
             if should_ocr:
                 notes.append("Selectable text empty. Initiating OCR fallback.")
                 ocr_pages = []
                 ocr_lines_list = []
-                
+                ocr_start = time.monotonic()
+                ocr_timed_out = False
+
                 for page_idx, page in enumerate(doc):
+                    if time.monotonic() - ocr_start > ocr_time_limit_seconds:
+                        ocr_timed_out = True
+                        notes.append(
+                            f"OCR aborted after exceeding the wall-clock time cap of "
+                            f"{ocr_time_limit_seconds:g}s (stopped at page {page_idx + 1})."
+                        )
+                        break
                     try:
                         # Render page to high-res image
                         pix = page.get_pixmap(matrix=fitz.Matrix(300 / 72, 300 / 72))
@@ -284,5 +339,7 @@ class PDFDocumentReader(DocumentReader):
                 "raw_lines": combined_text.replace("\r\n", "\n").replace("\r", "\n").split("\n") if combined_text else [],
                 "page_count": len(pages_list),
                 "ocr_page_limit": OCR_PAGE_LIMIT,
+                "ocr_time_limit_seconds": ocr_time_limit_seconds,
+                "ocr_forced": force_ocr,
             },
         )

@@ -11,8 +11,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
+from dataclasses import replace
+
 from cedocumentmapper_v2.config import migrate_providers_config
-from cedocumentmapper_v2.detection import ProviderDetector
+from cedocumentmapper_v2.detection import ProviderDetector, audit_signal_for_reference
 from cedocumentmapper_v2.domain.models import (
     DocumentLine,
     DocumentModel,
@@ -23,7 +25,7 @@ from cedocumentmapper_v2.domain.models import (
     ProviderMatch,
 )
 from cedocumentmapper_v2.exporters import EVAJsonExporter, RJSDocxExporter
-from cedocumentmapper_v2.readers import get_reader_for_path
+from cedocumentmapper_v2.readers import PDFDocumentReader, get_reader_for_path
 from cedocumentmapper_v2.rules import RuleEngine
 from cedocumentmapper_v2.ui.paths import (
     APP_DATA_DIR,
@@ -66,9 +68,15 @@ class DocumentMapperService:
         with open(self.config_path, "w", encoding="utf-8") as fh:
             json.dump({"schema_version": 2, "providers": providers}, fh, indent=2)
 
-    def read_document(self, path: str | Path) -> DocumentModel:
+    def read_document(self, path: str | Path, *, force_ocr: bool = False) -> DocumentModel:
         path_obj = Path(path)
-        return get_reader_for_path(path_obj).read(path_obj)
+        reader = get_reader_for_path(path_obj)
+        # Only the PDF reader consumes the OCR override (its read() takes keyword-only
+        # force_ocr); the other readers keep the plain read(path) signature, so we pass
+        # the option selectively to avoid a TypeError on unknown kwargs.
+        if force_ocr and isinstance(reader, PDFDocumentReader):
+            return reader.read(path_obj, force_ocr=True)
+        return reader.read(path_obj)
 
     def detect_provider(self, document: DocumentModel, providers: list[dict[str, Any]] | None = None) -> ProviderMatch:
         return self.detector.detect(document, providers or self.load_providers())
@@ -124,7 +132,27 @@ class DocumentMapperService:
                 }
         if provider_cfg is None:
             return ExtractedRecord(provider=ProviderMatch(None, "Unknown", 0.0), fields={})
-        return self.rule_engine.extract_record(document, provider_cfg)
+        record = self.rule_engine.extract_record(document, provider_cfg)
+        return self._apply_case_type(record)
+
+    def _apply_case_type(self, record: ExtractedRecord) -> ExtractedRecord:
+        """Finalize the internal case-type flags on a freshly extracted record.
+
+        Detects the *audit* case-type from the ``A.`` prefix on the Case/PO value
+        (``FieldKey.REFERENCE``) and sets ``is_audit`` / ``audit_signals`` /
+        ``case_type``. Runs on the finalized record so both the CLI and GUI paths
+        get it. These are INTERNAL flags and never reach the EVA JSON export.
+        """
+        reference = record.fields.get(FieldKey.REFERENCE, FieldExtraction("")).value
+        signal = audit_signal_for_reference(reference)
+        if signal is None:
+            return record
+        return replace(
+            record,
+            is_audit=True,
+            audit_signals=record.audit_signals + (signal,),
+            case_type="audit",
+        )
 
     def process_document(
         self,
@@ -132,13 +160,14 @@ class DocumentMapperService:
         provider_selector: str | None = None,
         engineer_report: str | Path | None = None,
         allow_unknown: bool = True,
+        force_ocr: bool = False,
     ) -> tuple[DocumentModel, ExtractedRecord]:
         providers = self.load_providers()
-        document = self.read_document(path)
+        document = self.read_document(path, force_ocr=force_ocr)
         provider = self.provider_by_id_or_name(provider_selector, providers) if provider_selector else None
         record = self.extract_document(document, provider, providers, allow_unknown=allow_unknown)
         if engineer_report is not None:
-            engineer_document = self.read_document(engineer_report)
+            engineer_document = self.read_document(engineer_report, force_ocr=force_ocr)
             engineer_provider = self.detect_engineer_provider(engineer_document, providers)
             engineer_record = self.extract_document(engineer_document, engineer_provider, providers)
             record, _ = self.overlay_records_with_overrides(
@@ -185,6 +214,15 @@ class DocumentMapperService:
         base_work_provider = base.fields.get(FieldKey.WORK_PROVIDER, FieldExtraction("")).value.strip()
         if not base_work_provider:
             raise ValueError("You must process an instruction before an engineer's report")
+        if base.is_audit:
+            # Audit case-type: the second document is a THIRD-PARTY original being
+            # audited, not CE's own engineer report. It must stay SEPARATE (compared
+            # against), never merged onto the instruction. Refuse the overlay so the
+            # caller keeps the original as its own classified attachment.
+            raise ValueError(
+                "Audit case: the original engineer's report is a third-party "
+                "document and must be kept separate, not overlaid onto the instruction"
+            )
         merged = dict(base.fields)
         overrides: list[str] = []
         for key, extraction in engineer.fields.items():
@@ -470,6 +508,7 @@ class DocumentMapperService:
             "notes": list(record.notes),
             "is_audit": record.is_audit,
             "audit_signals": list(record.audit_signals),
+            "case_type": record.case_type,
         }
 
     def _output_path(self, record: ExtractedRecord, extension: str, out_dir: Path | None) -> Path:
