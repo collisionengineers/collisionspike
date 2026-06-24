@@ -3,7 +3,7 @@
   "info": {
     "title": "Collision Engineers Parser",
     "description": "Custom connector for the cedocumentmapper_v2 parser Function. POST a base64 instruction document and receive the settled 12-field EVA extraction (with per-field value/confidence/source), plus the Case-identity vrm/reference surfaced separately. PDF_MAPPER_ENABLED gating is enforced in the calling flow, not here.",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "contact": {
       "name": "Collision Engineers — collisionspike"
     }
@@ -134,6 +134,25 @@
         "mileage_unit": { "$ref": "#/definitions/FieldCell" }
       }
     },
+    "Audit": {
+      "type": "object",
+      "description": "Audit case-type signal — surfaced SEPARATELY (like vrm/reference), NEVER part of the EVA payload. Content-derived by the parser; the envelope shape is stable, so this is always present (signals may be empty).",
+      "properties": {
+        "value": {
+          "type": "boolean"
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "type": "string",
+          "description": "Provenance label for the audit decision (e.g. 'instruction_text')."
+        }
+      }
+    },
     "Issue": {
       "type": "object",
       "properties": {
@@ -164,6 +183,10 @@
         "reference": {
           "$ref": "#/definitions/FieldCell",
           "description": "Case-identity (correlation/dedup). NOT part of the EVA payload."
+        },
+        "audit": {
+          "$ref": "#/definitions/Audit",
+          "description": "Audit case-type signal. NOT part of the EVA payload."
         },
         "issues": {
           "type": "array",
