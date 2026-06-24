@@ -60,12 +60,17 @@ import type {
   DataAccess,
   GeneratedServices,
   InspectionAddressCounts,
+  InspectionAddressRecord,
+  InspectionDecisionInput,
   LocationAssistGate,
+  SaveInspectionDecisionResult,
   SuggestedAddress,
 } from './types';
 import { LOCATION_ASSIST_GATE_ALL_OFF } from './types';
 import {
   BOX_ENV_VAR_SCHEMA_NAMES,
+  BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA,
+  boxFileRequestTemplateIdFromRows,
   boxGatesFromRows,
   HOLD_NEW_CASES_SCHEMA,
   holdNewCasesFromRows,
@@ -502,6 +507,77 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       return { confirmed, suggested };
     },
 
+    /* ----- Persist a reviewer's CONFIRMED inspection decision (ADR-0013) -----
+       Writes ONE cr1bd_inspectionaddress row carrying the decision a HUMAN just
+       confirmed on CaseDetail (a picked address, or Image Based Assessment with a
+       reason) + its plain-language provenance. Honest NO-OP until the corpus table
+       is wired (services.inspectionAddresses undefined) — exactly like the other
+       not-yet-wired seams, so the confirm still drives the local working copy and
+       the offline build stays green.
+
+       The corpus table is provider-scoped and standalone — it carries NO case
+       lookup (ADR-0013: a corpus row is never mirrored onto / bound to a Case). So
+       the caseId is recorded for traceability INSIDE the source note, not as a
+       lookup. The required primary `cr1bd_name` (Label) is derived from the
+       confirmed address (or the IBA literal).
+
+       ADR-0013 (BINDING): this is reached ONLY from the explicit confirm path; it
+       does not auto-resolve, does not write on load, and reintroduces no runtime
+       address matcher. The row it writes is a CONFIRMED decision (decisionMode !=
+       unknown, sourceLabel NOT 'suggested*'), NOT a new unconfirmed suggestion. */
+    saveInspectionDecision: async (
+      caseId,
+      decision: InspectionDecisionInput,
+    ): Promise<SaveInspectionDecisionResult> => {
+      const svc = services.inspectionAddresses;
+      // Table not yet added (pac add-data-source) -> honest no-op. The local
+      // working-copy capture in CaseDetail still happened; only the durable write
+      // is deferred until deploy.
+      if (!svc) return { persisted: false };
+
+      // Project the confirmed decision onto an InspectionAddress row. A physical
+      // decision carries up-to-6 address lines + postcode; an image-based decision
+      // omits them and rides the reason in the source note. decisionMode is the
+      // HUMAN-confirmed mode (never 'unknown' here — the confirm path supplies a
+      // resolved mode), so the written row is a CONFIRMED reference, not a suggestion.
+      const lines = (decision.addressLines ?? []).map((l) => (l ?? '').trim()).filter(Boolean);
+      const isImageBased = decision.decisionMode === 'image_based';
+      // Required primary column: a short Label for the confirmed location. The IBA
+      // literal for an image-based decision; the first address line (+ postcode) for
+      // a physical one; a safe fallback otherwise.
+      const label = isImageBased
+        ? 'Image Based Assessment'
+        : [lines[0], decision.postcode?.trim()].filter(Boolean).join(', ') || 'Inspection address';
+      // Trace the originating case in the note (no case lookup exists on the corpus).
+      const sourceNote = `case=${caseId} ${decision.sourceNote}`.trim();
+      const record: Partial<InspectionAddressRecord> = {
+        cr1bd_name: label,
+        cr1bd_sourcelabel: decision.sourceLabel,
+        cr1bd_sourcenote: sourceNote,
+        ...(decision.decisionMode && decision.decisionMode !== 'unknown'
+          ? { cr1bd_decisionmode: inspectionDecisionCodec.toInt(decision.decisionMode) }
+          : {}),
+        // The image-based reason also lands in the dedicated decision-reason column
+        // (the schema requires a non-empty reason for an image-based decision).
+        ...(isImageBased && decision.sourceNote.trim()
+          ? { cr1bd_decisionreason: decision.sourceNote.trim() }
+          : {}),
+        ...(lines[0] ? { cr1bd_addressline1: lines[0] } : {}),
+        ...(lines[1] ? { cr1bd_addressline2: lines[1] } : {}),
+        ...(lines[2] ? { cr1bd_addressline3: lines[2] } : {}),
+        ...(lines[3] ? { cr1bd_addressline4: lines[3] } : {}),
+        ...(lines[4] ? { cr1bd_addressline5: lines[4] } : {}),
+        ...(lines[5] ? { cr1bd_addressline6: lines[5] } : {}),
+        ...(!isImageBased && decision.postcode?.trim()
+          ? { cr1bd_postcode: decision.postcode.trim() }
+          : {}),
+      };
+
+      const res = await svc.create(record);
+      const id = res.data?.cr1bd_inspectionaddressid;
+      return { persisted: true, ...(id ? { id } : {}) };
+    },
+
     /* ----- Dashboard / queue aggregates (window over the adapted set) ----- */
     liveCounts: async (now = new Date()): Promise<LiveCounts> => {
       const all = await allCases(now);
@@ -618,6 +694,29 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     getBoxGates: (): Promise<BoxGates> => {
       if (!boxGatesCache) boxGatesCache = fetchBoxGates();
       return boxGatesCache;
+    },
+
+    /* ----- Box File-Request TEMPLATE id (the string value, not the boolean) -----
+       Read FRESH per call off the same env-var tables — undefined when the var is
+       unset/empty or the tables aren't wired (honest off). Consumed only by the
+       Phase-7 deploy wiring's BoxCaseResolver.templateId(); the id is never shown
+       in the UI. NOT cached (a deploy-time read happens at most once per submit). */
+    getBoxFileRequestTemplateId: async (): Promise<string | undefined> => {
+      const defsSvc = services.environmentVariableDefinitions;
+      const valsSvc = services.environmentVariableValues;
+      if (!defsSvc || !valsSvc) return undefined;
+      try {
+        const [defsRes, valsRes] = await Promise.all([
+          defsSvc.getAll({
+            select: ['environmentvariabledefinitionid', 'schemaname', 'defaultvalue'],
+            filter: `schemaname eq '${BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA}'`,
+          }),
+          valsSvc.getAll({ select: ['value', '_environmentvariabledefinitionid_value'] }),
+        ]);
+        return boxFileRequestTemplateIdFromRows(defsRes.data ?? [], valsRes.data ?? []);
+      } catch {
+        return undefined; // honest off on any read failure
+      }
     },
 
     /* ----- Location-assist gate (read FRESH per call; all-off on failure) -----

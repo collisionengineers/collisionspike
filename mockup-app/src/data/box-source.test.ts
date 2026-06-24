@@ -103,3 +103,42 @@ describe('getBoxGates over the empty default (mock) source', () => {
     expect(await mockDataAccess.getBoxGates()).toEqual(BOX_GATES_ALL_FALSE);
   });
 });
+
+describe('getBoxFileRequestTemplateId over the Dataverse source (Item B)', () => {
+  it('returns undefined when the env-var tables are not wired', async () => {
+    const da = createDataverseDataAccess(servicesWith());
+    expect(await da.getBoxFileRequestTemplateId()).toBeUndefined();
+  });
+
+  it('returns the resolved template-id string value when wired', async () => {
+    const defs: EnvironmentVariableDefinitionRecord[] = [
+      { environmentvariabledefinitionid: 't', schemaname: 'cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID', defaultvalue: '' },
+    ];
+    const vals: EnvironmentVariableValueRecord[] = [
+      { _environmentvariabledefinitionid_value: 't', value: 'fr_live_999' },
+    ];
+    const da = createDataverseDataAccess(servicesWith(fakeService(defs), fakeService(vals)));
+    expect(await da.getBoxFileRequestTemplateId()).toBe('fr_live_999');
+  });
+
+  it('returns undefined when the value is empty (never a blank template id)', async () => {
+    const defs: EnvironmentVariableDefinitionRecord[] = [
+      { environmentvariabledefinitionid: 't', schemaname: 'cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID', defaultvalue: '' },
+    ];
+    const da = createDataverseDataAccess(servicesWith(fakeService(defs), fakeService([])));
+    expect(await da.getBoxFileRequestTemplateId()).toBeUndefined();
+  });
+
+  it('returns undefined when the read throws (honest off on error)', async () => {
+    const da = createDataverseDataAccess(
+      servicesWith(throwingService(), throwingService()),
+    );
+    expect(await da.getBoxFileRequestTemplateId()).toBeUndefined();
+  });
+});
+
+describe('getBoxFileRequestTemplateId over the empty default (mock) source', () => {
+  it('is undefined (no template until the live source is injected)', async () => {
+    expect(await mockDataAccess.getBoxFileRequestTemplateId()).toBeUndefined();
+  });
+});

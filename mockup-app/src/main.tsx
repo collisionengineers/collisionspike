@@ -53,16 +53,12 @@ configureDataAccess(generatedServices);
           // Read the case's stamped Box folder id (empty until box-folder-create runs).
           folderId: async (caseId) =>
             (await Cr1bd_casesService.get(caseId))?.data?.cr1bd_boxfolderid ?? undefined,
-          // The operator-set File-Request TEMPLATE id. NOTE: getBoxGates() only
-          // exposes the DERIVED boolean `fileRequestTemplateConfigured`, NOT the
-          // id string itself — so read the raw `cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID`
-          // value from the generated env-var Dataverse service, e.g.:
-          //   templateId: async () =>
-          //     (await EnvironmentVariableValuesService.getAll({
-          //       filter: "schemaname eq 'cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID'",
-          //     }))?.data?.[0]?.value ?? undefined,
-          // TODO read cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID from the generated env-var Dataverse service.
-          templateId: async () => undefined,
+          // The operator-set File-Request TEMPLATE id. getBoxGates() only exposes the
+          // DERIVED boolean `fileRequestTemplateConfigured`, NOT the id string — so
+          // read the resolved `cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID` *value* through the
+          // seam getter, which coalesces value ?? default over the env-var tables the
+          // gates use and returns undefined when unset/empty (honest off).
+          templateId: async () => getDataAccess().getBoxFileRequestTemplateId(),
         };
         configureBoxTransports({
           copyFileRequest: makeConnectorCopyFileRequestTransport(BoxRestService, boxResolver, readGates),

@@ -106,6 +106,8 @@ export type {
   DataAccess,
   CreateCaseInput,
   CreateCaseResult,
+  InspectionDecisionInput,
+  SaveInspectionDecisionResult,
   SuggestedAddress,
   InspectionAddressCounts,
   BoxGates,

@@ -802,22 +802,43 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
     // Defensive: only apply when the resolver returns a non-image-based manual
     // decision (it will, for a non-empty address). NOTHING auto-applies otherwise.
     if (decision.imageBased || decision.needsReviewerDecision) return;
+    const resolvedMode = decision.decisionMode ?? 'manual';
     onTextChange('inspectionAddress', draft);
-    setDecisionMode(decision.decisionMode ?? 'manual');
+    setDecisionMode(resolvedMode);
     setOverrideAddr(false); // a real address supersedes any image-based override
-    // Capture the confirmed decision's provenance into local state for a future
-    // save path (not yet wired). Live-assist picks carry 'suggested:assist' + a
-    // plain "Suggested from the photos" note.
-    if (s.source === 'assist') {
-      const note = s.evidenceNote
-        ? `Suggested from the photos — ${s.evidenceNote.split('\n')[0]}`
-        : 'Suggested from the photos';
-      setConfirmedProvenance({ sourceLabel: 'suggested:assist', sourceNote: note });
-    } else {
-      setConfirmedProvenance(undefined);
-    }
+    // Capture the confirmed decision's provenance into local state (rendered as the
+    // caption below the draft). Live-assist picks carry 'suggested:assist' + a plain
+    // "Suggested from the photos" note; corpus picks carry 'suggested:corpus'.
+    const provenance =
+      s.source === 'assist'
+        ? {
+            sourceLabel: 'suggested:assist',
+            sourceNote: s.evidenceNote
+              ? `Suggested from the photos — ${s.evidenceNote.split('\n')[0]}`
+              : 'Suggested from the photos',
+          }
+        : { sourceLabel: 'suggested:corpus', sourceNote: 'Picked from suggested locations' };
+    // Live-assist picks set the caption; corpus picks clear it (parity with prior behaviour).
+    setConfirmedProvenance(s.source === 'assist' ? provenance : undefined);
     setTab('address');
     toast('Suggested location copied to the address — review before submit');
+
+    // PERSIST the human-confirmed decision + its provenance to the corpus table
+    // (ADR-0013: fires ONLY here, on the explicit "Use this address" click — never
+    // on load, never auto-resolved). Honest no-op until the table is wired, so the
+    // local working copy above is always the source of truth in the meantime; a
+    // write failure must not undo the in-screen pick, so it is best-effort.
+    void data
+      .saveInspectionDecision(c.id, {
+        decisionMode: resolvedMode,
+        sourceLabel: provenance.sourceLabel,
+        sourceNote: provenance.sourceNote,
+        addressLines: s.lines,
+        ...(s.postcode ? { postcode: s.postcode } : {}),
+      })
+      .catch(() => {
+        /* persistence is supplementary — the local pick already stands */
+      });
   };
 
   /* Run the live location-assist (Phase 4a). Builds the request from data ALREADY

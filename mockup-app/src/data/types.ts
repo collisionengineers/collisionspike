@@ -97,6 +97,41 @@ export interface CreateCaseResult {
   id: string;
 }
 
+/* ----------  Inspection-decision SAVE input (ADR-0013 confirm-path persist)  ----------
+   The payload `saveInspectionDecision` persists when a reviewer EXPLICITLY confirms a
+   pick on CaseDetail (picks a suggested location, or records Image Based Assessment with
+   a reason). It captures the HUMAN-CONFIRMED decision + its plain-language provenance —
+   it is NOT an auto-resolve and is NEVER written on load. ADR-0013 (BINDING): nothing
+   here reintroduces a runtime address matcher; the row carries the decision a person made.
+   `addressLines`/`postcode` are present only for a physical-address (manual/confirmed)
+   decision; an image-based decision omits them and carries the reason in sourceNote. */
+export interface InspectionDecisionInput {
+  /** The decision the reviewer confirmed (e.g. 'manual' for a picked address,
+   *  'image_based' for an explicit IBA, 'confirmed_physical' under required_address). */
+  decisionMode: Case['inspectionDecision'];
+  /** Plain-language origin of the confirmed pick (-> cr1bd_sourcelabel), e.g.
+   *  'suggested:assist' (live-assist pick), 'suggested:corpus', 'manual', 'image_based'. */
+  sourceLabel: string;
+  /** Plain-language provenance note (-> cr1bd_sourcenote): "Suggested from the photos",
+   *  the image-based reason, etc. Free text the reviewer's action produced. */
+  sourceNote: string;
+  /** The confirmed address lines (physical-address decisions only; omitted for IBA). */
+  addressLines?: string[];
+  /** Normalised UK postcode for a physical-address decision (omitted for IBA). */
+  postcode?: string;
+}
+
+/** Result of `saveInspectionDecision`. `persisted:false` is the honest no-op the seam
+ *  returns when the InspectionAddress table is not yet wired (services.inspectionAddresses
+ *  undefined) — the confirm still updates the local working copy; only the durable write
+ *  is deferred until deploy. `id` is the upserted row id when a write actually happened. */
+export interface SaveInspectionDecisionResult {
+  /** True only when the decision was durably written to the corpus table. */
+  persisted: boolean;
+  /** The upserted cr1bd_inspectionaddress row id, when a write happened. */
+  id?: string;
+}
+
 /* ----------  Inspection-address SUGGESTIONS (always a suggestion)  ----------
    A low-confidence candidate inspection location surfaced from the externally-
    maintained corpus (cr1bd_inspectionaddress rows tagged
@@ -267,6 +302,25 @@ export interface DataAccess {
   inspectionAddressSuggestions(caseId: string): Promise<SuggestedAddress[]>;
   /** Confirmed-vs-suggested split of the inspection-address corpus (Admin count). */
   inspectionAddressCounts(): Promise<InspectionAddressCounts>;
+  /**
+   * Persist a reviewer's CONFIRMED inspection-address decision + its provenance to
+   * the corpus table. Called ONLY from CaseDetail's explicit confirm path (picking a
+   * suggested location, or recording Image Based Assessment with a reason) — never on
+   * load, never auto-resolved. Upserts one cr1bd_inspectionaddress row stamping
+   * `cr1bd_decisionmode` + `cr1bd_sourcelabel` + `cr1bd_sourcenote` (and the address
+   * lines/postcode for a physical decision).
+   *
+   * ADR-0013 (BINDING): this records a HUMAN-confirmed pick; it does NOT reintroduce a
+   * runtime address matcher and does NOT auto-confirm a candidate. It is an HONEST
+   * NO-OP (resolves `{ persisted: false }`) while `services.inspectionAddresses` is
+   * undefined (the table is added at deploy time via pac add-data-source) — exactly
+   * like the other not-yet-wired seams — so the confirm still drives the local working
+   * copy and the offline build stays green.
+   */
+  saveInspectionDecision(
+    caseId: string,
+    decision: InspectionDecisionInput,
+  ): Promise<SaveInspectionDecisionResult>;
 
   /* ----- Dashboard / queue aggregates ----- */
   /** Live-depth backlogs: needsAction / inProgress / ready (mock `liveCounts`). */
@@ -296,6 +350,17 @@ export interface DataAccess {
    * all-false (Box off until the live source + bound connection exist).
    */
   getBoxGates(): Promise<BoxGates>;
+
+  /**
+   * The resolved `cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID` *string value* (not the
+   * derived `fileRequestTemplateConfigured` boolean on BoxGates). Read the SAME
+   * way the gates are read — off the Dataverse env-var tables — and returns
+   * `undefined` when the var is unset/empty or the tables aren't wired (honest
+   * off). The Phase-7 deploy wiring's `BoxCaseResolver.templateId()` reads this so
+   * the File-Request copy op gets the operator-set template id; nothing else
+   * consumes it (the id is never surfaced in the UI).
+   */
+  getBoxFileRequestTemplateId(): Promise<string | undefined>;
 
   /* ----- Location-assist gate (Phase 4a) ----- */
   /**

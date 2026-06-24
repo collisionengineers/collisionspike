@@ -83,6 +83,10 @@ export const mockDataAccess: DataAccess = {
   /* ----- Inspection-address suggestions (corpus; empty default) ----- */
   inspectionAddressSuggestions: (_caseId) => Promise.resolve([]),
   inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
+  // Honest no-op: the empty default writes nothing (the live source is injected at
+  // startup). The CaseDetail confirm still updates the local working copy; only the
+  // durable corpus write is deferred until the Dataverse source + table are wired.
+  saveInspectionDecision: (_caseId, _decision) => Promise.resolve({ persisted: false }),
 
   /* ----- Dashboard / queue aggregates ----- */
   liveCounts: (_now) => Promise.resolve(ZERO_LIVE),
@@ -98,6 +102,9 @@ export const mockDataAccess: DataAccess = {
 
   /* ----- Box feature gates (Box off until the live source is injected) ----- */
   getBoxGates: () => Promise.resolve({ ...BOX_GATES_ALL_FALSE }),
+
+  /* ----- Box File-Request template id (none until the live source is injected) ----- */
+  getBoxFileRequestTemplateId: () => Promise.resolve(undefined),
 
   /* ----- Location-assist gate (off until the live source is injected) ----- */
   getLocationAssistGate: () => Promise.resolve({ ...LOCATION_ASSIST_GATE_ALL_OFF }),

@@ -117,7 +117,8 @@ architecture/requirements > plans):
 - **[OPERATOR]** Capture the connection inventory (`pac connection list`), the deploy log, and the §7 three-mailbox live-validation checklist.
 
 ## Phase 7 — Box-centric intake pivot
-- **[BUILD]** Resolve the `main.tsx` template-id getter TODO — expose the resolved `cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID` value via a box-gates getter + unit test.
+- **[DONE 2026-06-24]** Resolved the `main.tsx` template-id getter TODO — `boxFileRequestTemplateIdFromRows` +
+  `getBoxFileRequestTemplateId()` seam getter; `BoxCaseResolver.templateId()` now reads the resolved value (connector injection stays deploy-gated). + tests.
 - **[OPERATOR]** Box Platform-app registration + Admin-Console authorization (Business tier) — THE hard unlock for everything Box-live.
 - **[OPERATOR]** Inject Box secrets to KV; hand-build the one template File Request + designate the archive root.
 - **[OPERATOR]** BLOCKING B2 live-test: File-Request → `FILE.UPLOADED` webhook firing on the live Business tenant; gate-flip choreography + B1 live archive confirm.
@@ -158,8 +159,10 @@ architecture/requirements > plans):
 
 ## Cross-cutting
 - **[DONE 2026-06-24]** Add the missing `enrichment-client.ts` vitest.
-- **[BUILD]** Build the InspectionAddress provenance upsert save-path (capture `suggested:assist` sourceLabel/sourceNote
-  behind the data-access seam, honest-off until the table is wired). _ADR-0013-compliant: persists a human-confirmed pick, not a resolver._
+- **[DONE 2026-06-24]** Built the InspectionAddress provenance save-path — `saveInspectionDecision` seam method
+  (dataverse upsert; honest no-op until the table is wired), wired into `CaseDetail.useSuggestion`'s explicit-confirm
+  path, + 9 tests. ADR-0013-preserved: writes only on an explicit reviewer confirm (never on load/construction), the
+  row carries the human-confirmed decisionMode + a non-`suggested*` sourceLabel, no runtime matcher reintroduced.
 - **[DRIFT]** The whole Phase-4a location-suggest subsystem (PR #23) + the ADR-0016 offline corpus build are
   absent from CURRENT_STATUS/gated.md — add offline-built/deploy-pending entries.
 - **[DRIFT]** `chaser-send` + location-assist activations are absent from `docs/gated.md` — add both.
