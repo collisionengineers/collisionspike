@@ -25,7 +25,12 @@ from cedocumentmapper_v2.domain.models import (
 from cedocumentmapper_v2.exporters import EVAJsonExporter, RJSDocxExporter
 from cedocumentmapper_v2.readers import get_reader_for_path
 from cedocumentmapper_v2.rules import RuleEngine
-from cedocumentmapper_v2.ui.paths import APP_DATA_DIR, get_documents_dir, safe_filename, unique_output_path
+from cedocumentmapper_v2.ui.paths import (
+    APP_DATA_DIR,
+    get_desktop_dir,
+    safe_filename,
+    unique_output_path,
+)
 
 
 class DocumentMapperService:
@@ -87,12 +92,21 @@ class DocumentMapperService:
         document: DocumentModel,
         provider: dict[str, Any] | None = None,
         providers: list[dict[str, Any]] | None = None,
+        allow_unknown: bool = True,
     ) -> ExtractedRecord:
         provider_cfg = provider
         if provider_cfg is None:
             loaded = providers or self.load_providers()
             match = self.detect_provider(document, loaded)
             provider_cfg = next((p for p in loaded if p.get("id") == match.provider_id), None)
+            if provider_cfg is None and not allow_unknown:
+                # No configured provider matched and the caller forbids synthesizing
+                # the "unknown_temp" placeholder: surface an unmapped record so the
+                # caller (e.g. headless CLI) can refuse to emit JSON for it.
+                return ExtractedRecord(
+                    provider=ProviderMatch(None, "Unknown", match.confidence),
+                    fields={},
+                )
             if provider_cfg is None:
                 provider_cfg = {
                     "id": "unknown_temp",
@@ -117,11 +131,12 @@ class DocumentMapperService:
         path: str | Path,
         provider_selector: str | None = None,
         engineer_report: str | Path | None = None,
+        allow_unknown: bool = True,
     ) -> tuple[DocumentModel, ExtractedRecord]:
         providers = self.load_providers()
         document = self.read_document(path)
         provider = self.provider_by_id_or_name(provider_selector, providers) if provider_selector else None
-        record = self.extract_document(document, provider, providers)
+        record = self.extract_document(document, provider, providers, allow_unknown=allow_unknown)
         if engineer_report is not None:
             engineer_document = self.read_document(engineer_report)
             engineer_provider = self.detect_engineer_provider(engineer_document, providers)
@@ -294,7 +309,7 @@ class DocumentMapperService:
         return self.create_output_subfolder_from_fields(fields)
 
     def create_output_subfolder_from_fields(self, fields: dict[str, str]) -> Path:
-        root = get_documents_dir() / "cedocumentmapper_outputs"
+        root = get_desktop_dir() / "cedocumentmapper_outputs"
         root.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         work_provider = safe_filename(fields.get("work_provider", "") or "UnknownProvider")
