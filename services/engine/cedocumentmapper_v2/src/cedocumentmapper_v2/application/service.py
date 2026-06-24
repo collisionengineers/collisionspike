@@ -13,7 +13,7 @@ from typing import Any, Literal, cast
 
 from dataclasses import replace
 
-from cedocumentmapper_v2.config import migrate_providers_config
+from cedocumentmapper_v2.config import LLMAssistSettings, migrate_providers_config
 from cedocumentmapper_v2.detection import ProviderDetector, audit_signal_for_reference
 from cedocumentmapper_v2.domain.models import (
     DocumentLine,
@@ -153,6 +153,82 @@ class DocumentMapperService:
             audit_signals=record.audit_signals + (signal,),
             case_type="audit",
         )
+
+    def _resolve_provider_cfg(
+        self,
+        document: DocumentModel,
+        provider: dict[str, Any] | None,
+        providers: list[dict[str, Any]] | None,
+    ) -> dict[str, Any] | None:
+        """Resolve the provider config for a document (explicit, detected, or None).
+
+        Mirrors the lookup ``extract_document`` performs, but returns the raw
+        config (or ``None`` for the unmapped tail) instead of synthesizing the
+        ``unknown_temp`` placeholder. Used by the orchestrator path so the
+        Unknown-provider tail (``None``) can route to the LLM-assist strategy.
+        """
+        if provider is not None:
+            return provider
+        loaded = providers or self.load_providers()
+        match = self.detect_provider(document, loaded)
+        return next((p for p in loaded if p.get("id") == match.provider_id), None)
+
+    def build_orchestrator(self, llm_assist: bool = False):
+        """Construct a :class:`FieldExtractionOrchestrator` (opt-in path only).
+
+        The orchestrator wraps the default :class:`RuleEngine` as a strategy
+        (:class:`RuleStrategy`) plus a :class:`GeometryTableStrategy`. When
+        ``llm_assist`` is requested *and* the :class:`LLMAssistSettings` resolved
+        from the environment report ``is_active`` (flag on + endpoint set), an
+        :class:`LLMAssistStrategy` is appended for the Unknown-provider tail.
+        Otherwise no LLM strategy is added and no network call can occur.
+
+        This is additive and opt-in: nothing here runs unless a caller invokes it.
+        """
+        from cedocumentmapper_v2.extraction import (
+            FieldExtractionOrchestrator,
+            GeometryTableStrategy,
+            LLMAssistStrategy,
+            RuleStrategy,
+        )
+
+        strategies: list[Any] = [
+            RuleStrategy(self.rule_engine),
+            GeometryTableStrategy(),
+        ]
+        if llm_assist:
+            settings = LLMAssistSettings.from_env()
+            if settings.is_active:
+                strategies.append(LLMAssistStrategy(settings=settings))
+        return FieldExtractionOrchestrator(strategies)
+
+    def extract_document_orchestrated(
+        self,
+        document: DocumentModel,
+        provider: dict[str, Any] | None = None,
+        providers: list[dict[str, Any]] | None = None,
+        llm_assist: bool = False,
+    ):
+        """Opt-in extraction via the :class:`FieldExtractionOrchestrator`.
+
+        Returns the orchestrator's :class:`OrchestrationResult` (an
+        ExtractedRecord-compatible ``record`` plus per-field ``provenance`` and a
+        ``needs_review`` tuple). The case-type flags are finalized on the record
+        exactly as the default path does, so downstream consumers behave the same.
+
+        ``llm_assist`` only has an effect when the LLM-assist settings are active;
+        otherwise it is a pure no-op (no strategy added, no network call). Unlike
+        the default path this does NOT synthesize the ``unknown_temp`` placeholder
+        provider — an unmapped document is passed to the orchestrator as ``None``
+        so the LLM-assist tail can engage when enabled.
+        """
+        provider_cfg = self._resolve_provider_cfg(document, provider, providers)
+        orchestrator = self.build_orchestrator(llm_assist=llm_assist)
+        result = orchestrator.extract(document, provider_cfg)
+        finalized = self._apply_case_type(result.record)
+        if finalized is result.record:
+            return result
+        return replace(result, record=finalized)
 
     def process_document(
         self,
@@ -509,6 +585,47 @@ class DocumentMapperService:
             "is_audit": record.is_audit,
             "audit_signals": list(record.audit_signals),
             "case_type": record.case_type,
+        }
+
+    def orchestration_to_dict(self, result: Any) -> dict[str, Any]:
+        """Serialize an :class:`OrchestrationResult` to JSON-safe primitives.
+
+        Includes the standard record dict (so existing consumers can ingest it),
+        plus the orchestrator's per-field provenance (winner + every ranked
+        candidate, with strategy provenance) and the ``needs_review`` list.
+        """
+
+        def candidate_to_dict(candidate: Any) -> dict[str, Any]:
+            return {
+                "field": candidate.field.value,
+                "value": candidate.value,
+                "confidence": candidate.confidence,
+                "strategy_name": candidate.strategy_name,
+                "rule_id": candidate.rule_id,
+                "raw_value": candidate.raw_value,
+                "source_span": {
+                    "page_index": candidate.source_span.page_index,
+                    "line_index": candidate.source_span.line_index,
+                    "bbox": list(candidate.source_span.bbox) if candidate.source_span.bbox else None,
+                }
+                if candidate.source_span
+                else None,
+                "metadata": dict(candidate.metadata),
+            }
+
+        provenance = {
+            field_key.value: {
+                "winner": candidate_to_dict(prov.winner) if prov.winner else None,
+                "candidates": [candidate_to_dict(c) for c in prov.candidates],
+                "needs_review": prov.needs_review,
+                "review_reason": prov.review_reason,
+            }
+            for field_key, prov in result.provenance.items()
+        }
+        return {
+            "record": self.record_to_dict(result.record),
+            "provenance": provenance,
+            "needs_review": [field_key.value for field_key in result.needs_review],
         }
 
     def _output_path(self, record: ExtractedRecord, extension: str, out_dir: Path | None) -> Path:

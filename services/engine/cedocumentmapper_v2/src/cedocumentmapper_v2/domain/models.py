@@ -91,11 +91,27 @@ class DocumentLine:
 
 
 @dataclass(frozen=True)
+class Table:
+    """A table extracted from a source document.
+
+    ``rows`` is an ordered tuple of rows, each a tuple of cell strings (empty
+    string for blank/None cells). ``bbox`` is the table's bounding box on the
+    page when known, and ``page_index`` records which page the table came from.
+    Kept deliberately minimal and additive so downstream code can ignore it.
+    """
+
+    rows: tuple[tuple[str, ...], ...] = ()
+    bbox: tuple[float, float, float, float] | None = None
+    page_index: int | None = None
+
+
+@dataclass(frozen=True)
 class DocumentPage:
     page_index: int
     width: float | None = None
     height: float | None = None
     lines: tuple[DocumentLine, ...] = ()
+    tables: tuple[Table, ...] = ()
 
 
 @dataclass(frozen=True)

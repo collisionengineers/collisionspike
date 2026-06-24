@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import io
 import os
 import re
@@ -16,6 +17,7 @@ from cedocumentmapper_v2.domain.models import (
     DocumentModel,
     DocumentPage,
     DocumentLine,
+    Table,
 )
 from cedocumentmapper_v2.readers.base import DocumentReader
 from cedocumentmapper_v2.readers.errors import ReaderError, DependencyMissingError
@@ -83,6 +85,70 @@ def configure_tesseract() -> bool:
         return False
 
 
+@contextlib.contextmanager
+def _silence_stdout_fd():
+    """Redirect OS-level stdout (fd 1) to devnull for the duration of the block.
+
+    PyMuPDF's ``find_tables()`` prints an advisory line ("Consider using the
+    pymupdf_layout package ...") straight to stdout. On the headless CLI that
+    line would corrupt the machine-readable JSON written to stdout, so we
+    suppress it at the file-descriptor level — capturing both Python-level
+    prints and C-level writes from the underlying MuPDF library.
+    """
+    try:
+        saved_fd = os.dup(1)
+    except (OSError, ValueError):  # no real stdout fd (e.g. embedded host) — nothing to do
+        yield
+        return
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    try:
+        sys.stdout.flush()
+        os.dup2(devnull_fd, 1)
+        yield
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved_fd, 1)
+        os.close(devnull_fd)
+        os.close(saved_fd)
+
+
+def _extract_page_tables(page, page_idx: int) -> tuple[tuple[Table, ...], str | None]:
+    """Extract tables from a fitz page via ``find_tables`` if available.
+
+    Returns ``(tables, note)`` where ``note`` is a free-text reason recorded when
+    table extraction is unavailable or fails, else ``None``. Never raises: older
+    PyMuPDF builds without ``find_tables``, or pages with no tables, degrade
+    gracefully to an empty tuple.
+    """
+    if not hasattr(page, "find_tables"):
+        return (), "Table extraction unavailable (PyMuPDF lacks find_tables)."
+
+    try:
+        tables: list[Table] = []
+        # find_tables() emits an advisory to stdout; silence it so the CLI's
+        # JSON output on stdout stays clean and machine-parseable.
+        with _silence_stdout_fd():
+            finder = page.find_tables()
+            found = getattr(finder, "tables", []) or []
+            for tbl in found:
+                try:
+                    extracted = tbl.extract() or []
+                except Exception:
+                    continue
+                rows = tuple(
+                    tuple("" if cell is None else str(cell) for cell in row)
+                    for row in extracted
+                )
+                if not rows:
+                    continue
+                raw_bbox = getattr(tbl, "bbox", None)
+                bbox = tuple(float(v) for v in raw_bbox) if raw_bbox else None
+                tables.append(Table(rows=rows, bbox=bbox, page_index=page_idx))
+        return tuple(tables), None
+    except Exception as exc:  # pragma: no cover - defensive guard
+        return (), f"Table extraction failed on page {page_idx + 1}: {exc}"
+
+
 class PDFDocumentReader(DocumentReader):
     supported_extensions: frozenset[str] = frozenset([".pdf"])
 
@@ -123,6 +189,7 @@ class PDFDocumentReader(DocumentReader):
 
         try:
             per_page_image_counts = []
+            table_skip_note_added = False
             for page_idx, page in enumerate(doc):
                 try:
                     per_page_image_counts.append(len(page.get_images() or []))
@@ -187,12 +254,18 @@ class PDFDocumentReader(DocumentReader):
                         )
                         line_idx_counter += 1
 
+                page_tables, table_note = _extract_page_tables(page, page_idx)
+                if table_note and not table_skip_note_added:
+                    notes.append(table_note)
+                    table_skip_note_added = True
+
                 pages_list.append(
                     DocumentPage(
                         page_index=page_idx,
                         width=width,
                         height=height,
                         lines=tuple(lines_list),
+                        tables=page_tables,
                     )
                 )
 
@@ -273,7 +346,9 @@ class PDFDocumentReader(DocumentReader):
                         notes.append(f"OCR failed on page {page_idx + 1}: {ocr_exc}")
                         break
                 else:
-                    # If all pages OCR'd successfully, override pages_list and combined_text
+                    # If all pages OCR'd successfully, override pages_list and combined_text.
+                    # Preserve any tables already discovered during the text pass.
+                    prior_tables = {p.page_index: p.tables for p in pages_list}
                     pages_list = []
                     for page_idx, p_lines in enumerate(ocr_lines_list):
                         pages_list.append(
@@ -282,6 +357,7 @@ class PDFDocumentReader(DocumentReader):
                                 width=doc[page_idx].rect.width,
                                 height=doc[page_idx].rect.height,
                                 lines=tuple(p_lines),
+                                tables=prior_tables.get(page_idx, ()),
                             )
                         )
                     combined_text = "\n\n".join(ocr_pages).strip()
