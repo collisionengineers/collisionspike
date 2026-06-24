@@ -7,10 +7,15 @@ environment variables** so they can be toggled per environment with no redeploy.
 ## EVA (legacy case system — "Sentry" API)
 
 - **Full scope (ADR-0005):** EVA integration is in scope, built/validated against the **EVA test
-  environment** now. The base URL is the **same** for test/prod — **credentials** (test vs prod
-  `Client_Id`/`Client_Secret`) route to the test or production server. `EVA_API_ENABLED` toggles the
-  Sentry REST API vs the JSON drag-drop path (drag-drop = M1 path + permanent fallback). The
-  **production** cutover is gated until prod is confirmed and a parity test passes.
+  environment** (it **exists**; credentials in Infisical). The base URL is the **same** for test/prod —
+  **credentials** (test vs prod `Client_Id`/`Client_Secret`) route to the test or production server.
+  `EVA_API_ENABLED` toggles the Sentry REST API vs the JSON drag-drop path. **Drag-drop is the active
+  path for a vendor reason, not merely an "M1 fallback":** Minotaur Software's Sentry API currently
+  supports **only ONE principal code** for API submissions — it cannot route different work-provider
+  codes, so REST would force **every** case under a single work provider. Minotaur is patching this (no
+  ETA); **EVA REST stays gated pending that patch + a parity test**. The **production** cutover is gated
+  until prod is confirmed and a parity test passes. (Enrichment — DVSA/DVLA at intake, pre-EVA — is
+  **separate** from EVA and is **live in Dev**, gate ON since 2026-06-21.)
 - **Image submission:** likely **two requests** (confirm on test) — the 2 preview images, then the
   remaining images — matching the two-preview-then-full-sequence rule.
 - **JSON contract:** 12 fields, exact order matching `Final Format Example 02.json`; inspection
@@ -164,7 +169,7 @@ EVA JSON) into the Case/PO folder in EVA photo order. The Phase-7 pivot moves th
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `EVA_API_ENABLED` | `false` | JSON export vs Sentry REST submit |
+| `EVA_API_ENABLED` | `false` | JSON export vs Sentry REST submit (stays OFF — REST blocked by Minotaur's one-principal-code limit, pending vendor patch + parity) |
 | `EVA_BASE_URL` | prod base | Single EVA base URL (same for test/prod) |
 | `EVA_CLIENT_ID` / `EVA_CLIENT_SECRET` | test creds | EVA credentials (secret); **test creds route to the test server** |
 | `PDF_MAPPER_ENABLED` | `false` | inline `cedocumentmapper_v2.0` call |

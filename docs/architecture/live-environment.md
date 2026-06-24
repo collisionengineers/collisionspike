@@ -127,6 +127,10 @@ parse ✅, provider-match ✅, case-resolve ✅, status-evaluate ✅, enrich ✅
 **Not yet on:** finalize (EVA+Box — gated, no EVA creds), chasers, job-sheet import. So an email now
 creates a Case, persists evidence, parses, matches the provider, dedups/merges, evaluates status, and
 enriches vehicle/mileage — but EVA submit + Box archive do **not** advance until finalize is wired.
+**EVA path:** the **EVA test environment exists** (test creds in Infisical), but the **active EVA path is
+JSON drag-drop, not REST — by a vendor constraint:** Minotaur's Sentry API currently routes only **one
+principal code** per API submission (it cannot handle the multiple work-provider codes), so `EVA_API_ENABLED`
+stays OFF pending Minotaur's patch + a parity test (see [eva-sentry-api.md](./eva-sentry-api.md)).
 Manual-intake parse in the Code App is **no longer CSP-blocked** — it is now routed
 via the CE Parser connector (`cr1bd_ceparser` / `new_collision-20engineers-20parser`, bridged by
 `src/data/parser-connector-transport.ts`); the old raw-fetch transport was removed (2026-06-19).

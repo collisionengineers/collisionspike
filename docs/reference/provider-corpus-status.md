@@ -126,5 +126,8 @@ decision on the Principal code / how to key them.**
    connection). Alternatively, add domains as real sender evidence surfaces.
 2. **The `hackneysolutions.co.uk` collision** (LEX vs QCL) — resolve ownership.
 3. **The 5 unseeded** — decide Principal codes (or routing rules for FRAZ/Arianna).
-4. **Re-seeding is idempotent** — upsert keyed on `cr1bd_principalcode`, so adding domains/rows
+4. **The 37 over-length codes** (>8 chars, skipped by the seed) are EVA-export name-artifacts, not real
+   codes — see [over-length-principal-codes.md](./over-length-principal-codes.md): 5 active businesses to
+   canonicalise, `SILVER 100` deferred, individuals route by VRM (Case/PO = VRM), the rest disregarded (>24m).
+5. **Re-seeding is idempotent** — upsert keyed on `cr1bd_principalcode`, so adding domains/rows
    later updates in place without duplicates.
