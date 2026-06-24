@@ -1,0 +1,223 @@
+{
+  "$comment": [
+    "Phase-8 (ADR-0015) labelled corpus for the deterministic email classifier.",
+    "Single manifest parametrised by functions/parser/tests/test_email_classifier.py.",
+    "",
+    "Tier 1 (tier_1_existing_cases): the 12 existing receiving-work case folders under",
+    "  test-cases-and-data/test-cases/, relabelled to {category, subtype}. Those folders",
+    "  hold real .msg/.pdf binaries the PURE classifier cannot read directly, so each entry",
+    "  records the request the intake flow produces for that case (an instruction document",
+    "  is attached, the provider domain matched, audit phrases fire for the A. cases) plus",
+    "  the ground-truth label. All 12 are receiving_work.",
+    "",
+    "Tier 2 (tier_2_synthetic): plain-text .eml fixtures authored under triage-corpus/<bucket>/",
+    "  for the gaps Tier 1 has none of (queries, enquiries, body-only instruction, auto-reply,",
+    "  bounce). The test parses each .eml (subject/body/from), supplies provider_match_state",
+    "  here (domain matching is the flow's job), and HTML-strips the body the way the route does.",
+    "",
+    "Tier 3 (real, PII-scrubbed sample mail) is operator-gated [RESERVED-FOR-USER]: the operator",
+    "  drops real samples into this folder and the suite consumes them. Not fabricated here."
+  ],
+  "tier_1_existing_cases": [
+    {
+      "case": "A.PCH261269",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_audit" },
+      "request": {
+        "subject": "Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)",
+        "body": "Please find enclosed our inspection request. An audit report is required of the original engineer's findings.",
+        "sender_domain": "pchfinance.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction", "image"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "A.PCH261272",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_audit" },
+      "request": {
+        "subject": "Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)",
+        "body": "Inspection request enclosed. Please audit the original report produced by the original engineer.",
+        "sender_domain": "pchfinance.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction", "image"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "ALS26066",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "New instruction - please inspect",
+        "body": "We instruct you to carry out an inspection and prepare a report.",
+        "sender_domain": "als.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "AX26353",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "Inspection instruction",
+        "body": "Please inspect the vehicle and provide a report.",
+        "sender_domain": "ax.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "BLACK26112",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "New instruction",
+        "body": "We are instructing you on a new matter. Please inspect.",
+        "sender_domain": "blackandwhite.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "DFD26088",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "Instruction to inspect",
+        "body": "Please carry out an inspection and prepare a report.",
+        "sender_domain": "dfd.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "FW26251",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "New instruction",
+        "body": "Please inspect the vehicle for inspection and report on the damage.",
+        "sender_domain": "fw.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "KERR26028",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "Inspection request",
+        "body": "We instruct you to assess the vehicle and prepare a report.",
+        "sender_domain": "kerr.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "MP26071",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "New instruction - please inspect",
+        "body": "Please inspect and provide an engineer's report.",
+        "sender_domain": "mp.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "QDOS261253",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "Inspection instruction",
+        "body": "We instruct you to carry out an inspection and prepare a report.",
+        "sender_domain": "qdoslegal.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "QDOS261530",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "New instruction",
+        "body": "Please inspect the vehicle and prepare a report on the damage.",
+        "sender_domain": "qdoslegal.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "SBL26149",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "Instruction",
+        "body": "We instruct you to inspect and provide a report.",
+        "sender_domain": "sbl.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    }
+  ],
+  "tier_2_synthetic": [
+    {
+      "eml": "query_existing_work/where-is-my-report.eml",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "query", "subtype": "query_existing_work" }
+    },
+    {
+      "eml": "query_existing_work/chase-by-caseref.eml",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "query", "subtype": "query_existing_work" }
+    },
+    {
+      "eml": "query_new_enquiry/cold-quote-enquiry.eml",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "query", "subtype": "query_new_enquiry" }
+    },
+    {
+      "eml": "new_client_work/unknown-domain-instruction.eml",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "receiving_work", "subtype": "new_client_work" }
+    },
+    {
+      "eml": "receiving_work_body/body-only-instruction.eml",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" }
+    },
+    {
+      "eml": "other/out-of-office.eml",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "eml": "other/delivery-bounce.eml",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "eml": "other/newsletter.eml",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "eml": "other/unrelated-admin.eml",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "other", "subtype": "other" }
+    }
+  ]
+}

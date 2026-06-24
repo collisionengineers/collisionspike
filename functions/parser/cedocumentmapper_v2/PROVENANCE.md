@@ -16,9 +16,11 @@ intentional, recorded reconciliations described here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/`
 - **Cut from:** branch `feat/audit-case-type-detection` at commit
-  **`af983833dbc7fe723a8c28f3ae68340e9864d322`** (`af98383`, 2026-06-24) — a
-  **clean, committed, pushed** sibling ref (working tree clean at the cut). This
-  supersedes the earlier `4824136` + dirty-working-tree pin.
+  **`aecbc4bf3050077c53606df904704e63ea45cae1`** (`aecbc4b`, 2026-06-24) — a
+  **clean, committed, pushed** sibling ref. `aecbc4b` is the earlier engine-core cut
+  `af98383` PLUS the Phase-8 `rules/email_classifier.py` + the work/query keyword tuples in
+  `rules/engine.py`; the 8 re-vendored modules are byte-unchanged between `af98383` and `aecbc4b`.
+  This supersedes the earlier `4824136` + dirty-working-tree pin.
 
   > Re-cut policy: this copy is now a **clean-ref mirror** of the sibling's
   > engine-core at `af98383`, plus the single vendored-only B2 reconciliation
@@ -90,6 +92,27 @@ authored identically in both copies, so nothing to re-apply (the
 surfaced via `parser_adapter` as the separate `audit` envelope field; **never** an
 EVA field. See the `collisionspike` ADR-0014.
 
+A fifth feature — the **Phase-8 deterministic email classifier** (added 2026-06-24;
+ADR-0015) — is also **CONVERGED**:
+
+- **`rules/email_classifier.py`** is a **NEW shared engine-core module**, authored
+  **byte-identical** in both copies. It is **not** a reconciled module — it carries
+  no fork — so it falls through to the byte-compare in
+  `test_shared_unreconciled_modules_are_byte_identical` and must stay byte-identical
+  on every re-cut (re-cut it verbatim with `git show <SHA>:src/.../rules/email_classifier.py`).
+- **`rules/engine.py`** gains the `_WORK_KEYWORDS` / `_QUERY_KEYWORDS` keyword
+  tuples + the `_match_keywords` helper, authored identically in both copies and
+  exported for the classifier (same precision discipline as `_AUDIT_PHRASES`).
+  `engine.py` stays in the reconciled set (the vendored-only B2 fork is unchanged),
+  so the new tuples are pinned by **marker** on both sides, not byte-compared.
+
+The classifier is **engine-core**, on the cloud path. Its HTTP surface — the
+`POST /classify-email` route in `functions/parser/function_app.py` — is
+**Function-host-only** and lives **outside** this vendored package (alongside the
+`/parse` route), so it is never part of the engine byte-compare. Pure function, no
+LLM / Dataverse / network; the open-Case link (Case/PO first, VRM fallback) stays
+on the flow side. See the `collisionspike` ADR-0015 + the Phase-8 plan.
+
 > `notes` is **session provenance only**. It rides at the top level of
 > `record_to_dict`, never inside `fields`, so it never reaches the 12-field EVA
 > payload (`parser_adapter.to_eva_extraction` builds the payload solely from
@@ -156,7 +179,7 @@ non-EVA schemas must stay off the cloud path).
 Run from the repo root (`collisionspike/`), Git Bash. Pick the new `<SHA>`:
 
 ```bash
-SHA=af98383   # the committed sibling ref you are cutting from
+SHA=aecbc4b   # the committed sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 
@@ -167,6 +190,7 @@ for f in config/__init__.py config/migration.py detection/__init__.py \
          readers/__init__.py readers/base.py readers/doc.py readers/docx.py \
          readers/email.py readers/errors.py readers/pdf.py \
          detection/detector.py rules/__init__.py rules/base.py \
+         rules/email_classifier.py \
          application/__init__.py ui/__init__.py ui/paths.py __init__.py; do
   ( cd "$S" && git show "$SHA:src/cedocumentmapper_v2/$f" ) > "$V/$f"
 done

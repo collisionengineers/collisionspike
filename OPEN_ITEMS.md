@@ -127,11 +127,14 @@ architecture/requirements > plans):
 - **[DRIFT]** "vitest 256 passed" stale (actual 325+); ALM tag inconsistency `[C]` vs `[DEPLOY-WITH-LOGIN]` for the add-data-source wiring.
 
 ## Phase 8 — Inbox / Triage Management _(planned; full build authorized 2026-06-24)_
-- **[BUILD]** Phase-A **deterministic email classifier** — `rules/email_classifier.py` (pure fn) + `/classify-email`
-  route + `_WORK_/_QUERY_` keyword tuples + `test_email_classifier.py`. _Caveat: the "both copies" rule needs a sibling edit (ADR-0018) — handle via edit-in-sibling-then-revendor; keep `test_engine_vendored_in_sync` green._
+- **[DONE 2026-06-24]** Phase-A **deterministic email classifier** — `rules/email_classifier.py` (pure fn,
+  3 categories / 6 subtypes, abstain-to-Other) + `_WORK_/_QUERY_` keyword tuples + `POST /classify-email`
+  route (`_strip_html`, /parse-style guard) + `test_email_classifier.py`. Authored in the sibling (committed
+  `aecbc4b`) + re-vendored byte-identical; drift guard GREEN; 113 pytest passed; 21/21 corpus precision.
 - **[BUILD]** Phase-8 Dataverse schema — `inbound-email.json` table + 2 choicesets + `inbound_*` audit actions
   (start at **100000024** after `chaser_sent`) + `26-inbound-email.ps1` + `triage-classify` flow (state=off) + verify-parity.
-- **[BUILD]** Phase-8 **labelled triage corpus** — relabel the 12 fixtures + author synthetic query/enquiry/OOO/bounce `.eml`; wire into the classifier test.
+- **[DONE 2026-06-24]** Phase-8 **labelled triage corpus** — `test-cases-and-data/triage-corpus/` (`labels.json`
+  + 9 synthetic `.eml` across query/enquiry/new-client/body-instruction/OOO/bounce/newsletter/remittance), wired into the classifier test.
 - **[OPERATOR]** Intake restructure (flip `fetchOnlyWithAttachment`, generalise dedup, Switch-on-category) — live designer, one inbox first.
 - **[OPERATOR]** Operator drops real PII-scrubbed sample emails for precision tuning.
 - **[DEFERRED]** Phase-B Code App Inbox/Triage screen + query queue (needs the live table with real rows).

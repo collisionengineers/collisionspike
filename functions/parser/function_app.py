@@ -53,12 +53,50 @@ import azure.functions as func
 import parser_adapter
 from parser_adapter import DocumentUnreadableError, ParserError
 from schema_validation import SchemaValidationError, validate_eva_payload
+from cedocumentmapper_v2.rules.email_classifier import (
+    classify_email,
+    CONTRACT_VERSION as EMAIL_CONTRACT_VERSION,
+)
 
 app = func.FunctionApp()
 
 _LOG = logging.getLogger("ce.parser")
 
 CONTRACT_VERSION = parser_adapter.CONTRACT_VERSION
+
+# Strip HTML tags + decode the common entities so the deterministic keyword / VRM
+# scan runs over plain text whatever the V3 connector hands us (HTML or text
+# body). Deliberately tiny + dependency-free: no bs4 on the FC1 worker.
+_TAG_RE = re.compile(r"<[^>]+>")
+_HTML_ENTITIES = {
+    "&nbsp;": " ",
+    "&amp;": "&",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": '"',
+    "&#39;": "'",
+    "&apos;": "'",
+}
+
+
+def _strip_html(value: Any) -> str:
+    """Server-side HTML-strip of an email body to plain text.
+
+    Drops ``<style>``/``<script>`` blocks, replaces tags + ``<br>``/``</p>`` with
+    whitespace, decodes the handful of entities that survive Outlook, and collapses
+    runs of blank lines. Non-string input -> "".
+    """
+    if not isinstance(value, str) or not value:
+        return ""
+    text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", value)
+    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
+    text = re.sub(r"(?i)</(p|div|tr|li|h[1-6])>", "\n", text)
+    text = _TAG_RE.sub(" ", text)
+    for entity, char in _HTML_ENTITIES.items():
+        text = text.replace(entity, char)
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 _DOC_MAGICS = (b"%PDF", b"PK\x03\x04", b"\xd0\xcf\x11\xe0", b"{\\rtf")
 _STRICT_B64 = re.compile(rb"^[A-Za-z0-9+/]+={0,2}$")
@@ -204,6 +242,103 @@ def _parse(req: func.HttpRequest) -> func.HttpResponse:
         "contract_version": CONTRACT_VERSION,
     }
     return _json(200, response)
+
+
+@app.function_name(name="classify_email")
+@app.route(route="classify-email", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+def classify_email_route(req: func.HttpRequest) -> func.HttpResponse:
+    """POST /classify-email — deterministic inbound-email triage (Phase 8 / ADR-0015).
+
+    Runs the email through the engine's pure ``classify_email`` (keyword / phrase /
+    regex only — no LLM, no Dataverse, no network) and returns the triage label.
+    The open-Case lookup (does the body Case/PO or VRM hit an OPEN Case?) stays on
+    the flow side, exactly as the Case-identity question stays out of ``/parse`` —
+    the route surfaces ``body_caseref`` / ``body_vrm`` so the flow can run it.
+
+    AUTH + guard mirror ``/parse``: FUNCTION-level key, every expected condition
+    returns a structured envelope, and any unexpected exception becomes a 500 so
+    nothing escapes the worker as a 502.
+
+    Request (JSON object):
+        subject               str   email subject (optional)
+        body                  str   email body, HTML or text (server-side stripped)
+        from                  str   sender address (optional)
+        sender_domain         str   sender domain (optional)
+        provider_match_state  str   one | none | ambiguous (the flow's match result)
+        attachment_kinds      [str] e.g. ["instruction", "image"] (optional)
+        has_attachments       bool  (optional)
+
+    Response (200): the classifier result + ``contract_version``.
+    Status codes: 200 classified · 400 bad request · 500 unexpected internal error.
+    """
+    try:
+        return _classify_email(req)
+    except Exception:  # noqa: BLE001 - last line of defence; never let a 502 escape
+        _LOG.exception("unhandled error in classify-email handler")
+        return _classify_error(500, "internal_error", "Unexpected internal error while classifying the email.")
+
+
+def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        body = req.get_json()
+    except ValueError:
+        return _classify_error(400, "bad_request", "Request body must be valid JSON.")
+
+    if not isinstance(body, dict):
+        return _classify_error(400, "bad_request", "Request body must be a JSON object.")
+
+    subject = body.get("subject", "")
+    raw_body = body.get("body", "")
+    from_address = body.get("from", "")
+    sender_domain = body.get("sender_domain", "")
+    provider_match_state = body.get("provider_match_state", "")
+    attachment_kinds = body.get("attachment_kinds")
+    has_attachments = body.get("has_attachments", False)
+
+    for name, value in (
+        ("subject", subject),
+        ("body", raw_body),
+        ("from", from_address),
+        ("sender_domain", sender_domain),
+        ("provider_match_state", provider_match_state),
+    ):
+        if value is not None and not isinstance(value, str):
+            return _classify_error(400, "bad_field", f"'{name}' must be a string when provided.")
+    if attachment_kinds is not None and not isinstance(attachment_kinds, list):
+        return _classify_error(400, "bad_field", "'attachment_kinds' must be a list when provided.")
+
+    plain_body = _strip_html(raw_body)
+
+    result = classify_email(
+        subject=subject,
+        body=plain_body,
+        from_address=from_address,
+        sender_domain=sender_domain,
+        provider_match_state=provider_match_state,
+        attachment_kinds=attachment_kinds,
+        has_attachments=has_attachments,
+    )
+    return _json(200, result)
+
+
+def _classify_error(status: int, code: str, message: str) -> func.HttpResponse:
+    """Structured error envelope for /classify-email, shaped like the success body
+    (a stable ``category``/``subtype``/``signals`` plus the issue) so callers parse
+    one schema. The classifier never fails to a label here — an input error returns
+    the catch-all ``other`` so a malformed call still routes safely to a human."""
+    return _json(
+        status,
+        {
+            "category": "other",
+            "subtype": "other",
+            "confidence": 0.0,
+            "signals": [f"error:{code}"],
+            "body_vrm": "",
+            "body_caseref": "",
+            "issues": [{"field": "(request)", "severity": "error", "code": code, "message": message}],
+            "contract_version": EMAIL_CONTRACT_VERSION,
+        },
+    )
 
 
 def _json(status: int, payload: dict[str, Any]) -> func.HttpResponse:

@@ -1,0 +1,14 @@
+From: news@automotive-weekly.example.com
+To: digital@collisionengineers.example.com
+Subject: Automotive Weekly - this month's industry round-up
+Date: Mon, 23 Jun 2026 16:00:00 +0100
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<h1>Automotive Weekly</h1>
+<p>The latest news from across the motor trade. New EV models, repair
+network updates and the month's market movements.</p>
+<p>To stop receiving these updates, do not reply - use the unsubscribe link
+below.</p>
+<a href="https://example.com/unsubscribe">Unsubscribe</a>
+</body></html>
