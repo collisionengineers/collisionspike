@@ -101,11 +101,27 @@ class DocumentLine:
 
 
 @dataclass(frozen=True)
+class Table:
+    """A table extracted from a source document.
+
+    ``rows`` is an ordered tuple of rows, each a tuple of cell strings (empty
+    string for blank/None cells). ``bbox`` is the table's bounding box on the
+    page when known, and ``page_index`` records which page the table came from.
+    Kept deliberately minimal and additive so downstream code can ignore it.
+    """
+
+    rows: tuple[tuple[str, ...], ...] = ()
+    bbox: tuple[float, float, float, float] | None = None
+    page_index: int | None = None
+
+
+@dataclass(frozen=True)
 class DocumentPage:
     page_index: int
     width: float | None = None
     height: float | None = None
     lines: tuple[DocumentLine, ...] = ()
+    tables: tuple[Table, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -158,7 +174,11 @@ class ExtractedRecord:
     # CE inspection auditing a THIRD-PARTY engineer's original report (a distinct
     # case-type marked by an "A." Case/PO prefix; see collisionspike ADR-0014).
     # NOT the engineer-report overlay (which merges CE's OWN CNX/EVA report). The
-    # audit_signals list the instruction phrases that fired, so the call is auditable.
+    # audit_signals list the signals that fired (e.g. the "A." Case/PO prefix), so
+    # the call is auditable. case_type is a coarse internal label ("audit" when
+    # is_audit, else None). All three are INTERNAL state and must NOT appear in the
+    # EVA JSON export.
     is_audit: bool = False
     audit_signals: tuple[str, ...] = ()
+    case_type: str | None = None
 

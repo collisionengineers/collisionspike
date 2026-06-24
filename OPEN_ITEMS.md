@@ -36,12 +36,11 @@ architecture/requirements > plans):
   assert a non-existent "no @microsoft/power-apps grep gate" and a false "mock-backed / SDK-free src" posture — correct them.
 
 ## Phase 1a — Parser Function
-- **[BUILD]** _(★ #1, unblocks the RED gate)_ **Re-vendor the parser engine** — re-cut the 8 drifted engine-core
-  modules (`config/__init__.py`, `config/migration.py`, `detection/__init__.py`, `domain/__init__.py`,
-  `exporters/eva_json.py`, `readers/{doc,email,pdf}.py`) from a **committed** sibling ref, re-apply the
-  vendored-only B2 reconciliation, get `test_engine_vendored_in_sync.py` green. _Authorized 2026-06-24: commit+push the sibling first to create the ref (ADR-0018)._
-- **[BUILD]** Re-vendor blocker: vendor the new `cedocumentmapper_v2.resources` package `eva_json.py` now
-  imports (or keep the old file-path schema resolution) — else `import cedocumentmapper_v2.exporters` raises ImportError → 502.
+- **[DONE 2026-06-24]** _(★ #1)_ **Re-vendored the parser engine** — re-cut the 8 drifted engine-core modules
+  byte-identical from sibling `af98383`, re-applied the vendored-only B2 reconciliation, updated PROVENANCE.
+  Drift guard `test_engine_vendored_in_sync.py` now GREEN; parser pytest 73 passed. Sibling untouched.
+- **[DONE 2026-06-24]** Vendored the `cedocumentmapper_v2.resources` package (`__init__.py` + `eva-json.schema.json`)
+  + new `detection/case_type.py` dep so `import cedocumentmapper_v2.exporters` resolves offline (no ImportError).
 - **[DONE 2026-06-24]** Add the missing `audit` field to the parser custom-connector OpenAPI (`parser-connector.json`).
 - **[OPERATOR]** Rotate the parser function-key in Azure (the literal is in git history → burned).
 - **[OPERATOR]** Live `.doc`/`.msg` parse test on the FC1 host; trim the ManualIntake ACCEPT list if either fails.

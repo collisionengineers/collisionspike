@@ -55,6 +55,10 @@ class DocDocumentReader(DocumentReader):
         try:
             text = self._read_via_antiword(path)
             notes.append("Read DOC using antiword fallback.")
+            notes.append(
+                "Warning: antiword does not extract headers/footers; "
+                "header/footer content may be incomplete or missing."
+            )
             return self._build_model_from_text(path, text, notes)
         except Exception as antiword_exc:
             notes.append(f"antiword extraction failed: {antiword_exc}")
