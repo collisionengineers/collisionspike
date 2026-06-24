@@ -163,6 +163,16 @@
       "gates": ["cr1bd_BOX_FILEREQUEST_ENABLED"]
     },
     {
+      "definition": "triage-classify.definition.json",
+      "displayName": "Flow_TriageClassify",
+      "planRef": "phase-8 / ADR-0015",
+      "state": "off",
+      "authoringBoundary": "[BUILD]",
+      "activationBoundary": "[RESERVED-FOR-USER]",
+      "reservedReason": "Phase-8 inbox triage (ADR-0015). Request-triggered CHILD called once per inbound email by the generalised intake (which flips fetchOnlyWithAttachment false). Classifies EVERY email via the parser connector's deterministic ClassifyEmail (/classify-email) op, upserts one cr1bd_inboundemail row keyed on cr1bd_sourcemessageid, runs the open-Case lookup (Case/PO first, VRM fallback) and NEVER auto-links on ambiguity (ADR-0010). Importing the /classify-email route on the parser connector, applying the cr1bd_inboundemail table + the two triage choicesets + the inbound_classified/inbound_routed audit actions (26-inbound-email.ps1), the intake restructure (flip the trigger, generalise dedup, insert the triage child + Switch), and the single-inbox soft rollout are reserved. Claude never activates the flow or points the trigger at a live inbox.",
+      "trigger": "Request (child of intake, once per inbound email)"
+    },
+    {
       "definition": "box-blob-purge.definition.json",
       "displayName": "Flow_BoxBlobPurge",
       "planRef": "phase-7 / ADR-0012 / build-plan 04 §11",
@@ -175,12 +185,12 @@
     }
   ],
   "summary": {
-    "totalFlows": 15,
-    "stateOff": 14,
+    "totalFlows": 16,
+    "stateOff": 15,
     "stateOn": 1,
     "activatedLive": ["case-resolve.definition.json"],
     "authoringAllBuild": true,
     "activationAllReservedForUser": false,
-    "activationNote": "All flows ship off EXCEPT case-resolve (merge-by-registration), turned ON live 2026-06-20 under the live-services override (Claude wires activations directly). Every other flow's activation remains the operator's reserved step. Phase-7 added three Box flows (box-folder-create, box-file-request-copy, box-blob-purge), all state=off, gated by BOX_* env-vars (default OFF); case-resolve gained an idempotent survivor-folder ensure (still ON)."
+    "activationNote": "All flows ship off EXCEPT case-resolve (merge-by-registration), turned ON live 2026-06-20 under the live-services override (Claude wires activations directly). Every other flow's activation remains the operator's reserved step. Phase-7 added three Box flows (box-folder-create, box-file-request-copy, box-blob-purge), all state=off, gated by BOX_* env-vars (default OFF); case-resolve gained an idempotent survivor-folder ensure (still ON). Phase-8 added the triage-classify child (state=off, ADR-0015), called once per inbound email to classify into the cr1bd_inboundemail triage table."
   }
 }

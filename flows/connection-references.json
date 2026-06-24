@@ -82,11 +82,11 @@
       "apiId": "/providers/Microsoft.PowerApps/apis/shared_ceparser",
       "tier": "Premium",
       "custom": true,
-      "operationIds": ["ParseDocument"],
+      "operationIds": ["ParseDocument", "ClassifyEmail"],
       "openapi": "functions/parser/openapi/parser-connector.json",
-      "usedBy": ["parse"],
+      "usedBy": ["parse", "triage-classify"],
       "boundAtActivation": true,
-      "note": "cedocumentmapper_v2 parser. Function key (x-functions-key) stored on the connection, never in a definition. [DEPLOY-WITH-LOGIN] to import the connector."
+      "note": "cedocumentmapper_v2 parser. Two ops on one Function/connection: ParseDocument (/parse, the 12-field EVA extraction, used by Flow_Parse) and ClassifyEmail (/classify-email, the deterministic Phase-8 inbound-email triage label, used by Flow_TriageClassify — ADR-0015). Function key (x-functions-key) stored on the connection, never in a definition. [DEPLOY-WITH-LOGIN] to import the connector (re-import to pick up the added /classify-email op)."
     },
     {
       "connectionName": "shared_dvsaenrich",

@@ -66,8 +66,8 @@ for (const t of tables) {
 }
 ok(lookupCheck, "every Lookup column targets an existing table and a declared 1:N relationship");
 
-// --- 5) Exactly 10 business tables + the provenance table, 4 m1-live --------
-ok(tables.length === 11, `11 table files present (10 business tables + FieldLevelProvenance) (got ${tables.length})`);
+// --- 5) Exactly 10 business tables + the provenance table + the Phase-8 triage table, 4 m1-live ---
+ok(tables.length === 12, `12 table files present (10 business tables + FieldLevelProvenance + InboundEmail) (got ${tables.length})`);
 const m1 = tables.filter((t) => t.lifecycle.state === "m1-live").map((t) => t.logicalName).sort();
 ok(m1.length === 4 && m1.join(",") === "cr1bd_auditevent,cr1bd_case,cr1bd_evidence,cr1bd_workprovider",
    `exactly the 4 M1-live tables (got ${JSON.stringify(m1)})`);
@@ -123,6 +123,67 @@ for (const t of tables) {
   }
 }
 ok(structOk, "all table/column logical names match cr1bd_ pattern and all Choice columns resolve to a declared choice set");
+
+// --- 6c) Phase-8 inbound-email triage taxonomy == classifier string values --
+// The two choicesets (cr1bd_inboundcategory / cr1bd_inboundsubtype) are the
+// schema mirror of the deterministic classifier's returned category/subtype
+// values; their option `name`s MUST equal the CATEGORY_* / SUBTYPE_* constants
+// in email_classifier.py 1:1 (same parity discipline as the CaseStatus union).
+const classifierSrc = fs.readFileSync(
+  path.join(repo, "functions/parser/cedocumentmapper_v2/rules/email_classifier.py"), "utf8");
+// Constants are assigned as e.g.  CATEGORY_RECEIVING_WORK = "receiving_work"
+const pyConst = (prefix) =>
+  [...classifierSrc.matchAll(new RegExp(`^${prefix}_[A-Z_]+\\s*=\\s*"([a-z_]+)"`, "gm"))]
+    .map((m) => m[1]).sort();
+const pyCategories = pyConst("CATEGORY");
+const pySubtypes = pyConst("SUBTYPE");
+
+const cls = read("dataverse/choicesets/inbound-email-classification.json");
+const setByName = Object.fromEntries(cls.choiceSets.map((s) => [s.logicalName, s]));
+const catSet = setByName["cr1bd_inboundcategory"];
+const subSet = setByName["cr1bd_inboundsubtype"];
+ok(!!catSet && !!subSet,
+   "inbound-email-classification declares cr1bd_inboundcategory + cr1bd_inboundsubtype");
+
+const catNames = (catSet ? catSet.options.map((o) => o.name) : []).slice().sort();
+const subNames = (subSet ? subSet.options.map((o) => o.name) : []).slice().sort();
+ok(pyCategories.length === 3 && JSON.stringify(catNames) === JSON.stringify(pyCategories),
+   `cr1bd_inboundcategory names == classifier CATEGORY_* 1:1 (choiceset=${JSON.stringify(catNames)}, classifier=${JSON.stringify(pyCategories)})`);
+ok(pySubtypes.length === 6 && JSON.stringify(subNames) === JSON.stringify(pySubtypes),
+   `cr1bd_inboundsubtype names == classifier SUBTYPE_* 1:1 (choiceset=${JSON.stringify(subNames)}, classifier=${JSON.stringify(pySubtypes)})`);
+for (const s of [catSet, subSet].filter(Boolean)) {
+  const v = s.options.map((o) => o.value);
+  ok(new Set(v).size === v.length, `${s.logicalName} integer values are unique`);
+  ok(s.options.every((o) => o.label && o.label.length > 0), `every ${s.logicalName} option has a label`);
+}
+
+// --- 6d) Phase-8 inbound-email table shape ----------------------------------
+const inbound = read("dataverse/schema/inbound-email.json");
+const inboundCol = Object.fromEntries((inbound.columns || []).map((c) => [c.logicalName, c]));
+ok(inbound.lifecycle.state === "staged", "inbound-email table is lifecycle=staged (not M1-live)");
+const altKeyCol = inboundCol["cr1bd_sourcemessageid"];
+ok(altKeyCol && altKeyCol.alternateKey === true && altKeyCol.type === "String",
+   "inbound-email cr1bd_sourcemessageid is the String alternate (dedup) key");
+ok((inbound.alternateKeys || []).some((k) => k.columns.length === 1 && k.columns[0] === "cr1bd_sourcemessageid"),
+   "inbound-email declares the cr1bd_sourcemessageid alternate key");
+ok(inboundCol["cr1bd_category"] && inboundCol["cr1bd_category"].choiceSet === "cr1bd_inboundcategory",
+   "inbound-email cr1bd_category -> cr1bd_inboundcategory");
+ok(inboundCol["cr1bd_subtype"] && inboundCol["cr1bd_subtype"].choiceSet === "cr1bd_inboundsubtype",
+   "inbound-email cr1bd_subtype -> cr1bd_inboundsubtype");
+const caseLk = inboundCol["cr1bd_caseid"], wpLk = inboundCol["cr1bd_workproviderid"];
+ok(caseLk && caseLk.type === "Lookup" && caseLk.target === "cr1bd_case" && caseLk.required === "none",
+   "inbound-email cr1bd_caseid is a nullable Lookup -> cr1bd_case");
+ok(wpLk && wpLk.type === "Lookup" && wpLk.target === "cr1bd_workprovider" && wpLk.required === "none",
+   "inbound-email cr1bd_workproviderid is a nullable Lookup -> cr1bd_workprovider");
+
+// --- 6e) Phase-8 audit-action options locked at their pinned values ----------
+const ae = read("dataverse/choicesets/audit-event.json");
+const auditAction = ae.choiceSets.find((s) => s.logicalName === "cr1bd_auditaction");
+const auditByName = Object.fromEntries(auditAction.options.map((o) => [o.name, o.value]));
+const auditVals = auditAction.options.map((o) => o.value);
+ok(new Set(auditVals).size === auditVals.length, "cr1bd_auditaction integer values are unique");
+ok(auditByName["inbound_classified"] === 100000024 && auditByName["inbound_routed"] === 100000025,
+   `Phase-8 audit actions pinned (inbound_classified=${auditByName["inbound_classified"]}, inbound_routed=${auditByName["inbound_routed"]})`);
 
 // --- 7) Print-red #c80a32 must never appear as a COLOR VALUE in the spec ----
 // (Docs that name the token to forbid it are fine; we flag the actual hex color.)

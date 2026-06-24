@@ -137,8 +137,12 @@ architecture/requirements > plans):
   3 categories / 6 subtypes, abstain-to-Other) + `_WORK_/_QUERY_` keyword tuples + `POST /classify-email`
   route (`_strip_html`, /parse-style guard) + `test_email_classifier.py`. Authored in the sibling (committed
   `aecbc4b`) + re-vendored byte-identical; drift guard GREEN; 113 pytest passed; 21/21 corpus precision.
-- **[BUILD]** Phase-8 Dataverse schema — `inbound-email.json` table + 2 choicesets + `inbound_*` audit actions
-  (start at **100000024** after `chaser_sent`) + `26-inbound-email.ps1` + `triage-classify` flow (state=off) + verify-parity.
+- **[DONE 2026-06-24]** Phase-8 Dataverse schema — `inbound-email.json` table (alt-key `cr1bd_sourcemessageid`,
+  2 nullable lookups) + `inbound-email-classification.json` choicesets (members verified 1:1 against the classifier
+  constants) + `inbound_classified`=100000024 / `inbound_routed`=100000025 audit actions + 2 relationships +
+  `26-inbound-email.ps1` + verify-parity (31 checks). Plus the `triage-classify` flow (state=off) + `ClassifyEmail`
+  connector op — classifier call → upsert `cr1bd_inboundemail` → open-Case lookup (Case/PO then VRM, **never
+  auto-links on ambiguity** — 3 linter-asserted invariants, Check 8c) → audit → respond. verify-parity PASS, validate-flows 167/167.
 - **[DONE 2026-06-24]** Phase-8 **labelled triage corpus** — `test-cases-and-data/triage-corpus/` (`labels.json`
   + 9 synthetic `.eml` across query/enquiry/new-client/body-instruction/OOO/bounce/newsletter/remittance), wired into the classifier test.
 - **[OPERATOR]** Intake restructure (flip `fetchOnlyWithAttachment`, generalise dedup, Switch-on-category) — live designer, one inbox first.

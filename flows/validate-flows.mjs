@@ -63,6 +63,12 @@ const flowStateByFile = new Map((flowState.flows ?? []).map((f) => [f.definition
 const PROVIDER_SCOPE_REQUIRED = new Set([]);
 // Registration-scoped exception: cr1bd_cases ListRecords legitimately keyed on cr1bd_vrm (merge-by-registration).
 const VRM_SCOPE_ALLOWED = new Set(['case-resolve.definition.json']);
+// Phase-8 documented exception (ADR-0015): triage-classify's cr1bd_cases ListRecords are an OPEN-CASE LINK
+// LOOKUP for an inbound query/email — Case/PO FIRST (cr1bd_casepo eq), VRM only as a fallback (cr1bd_vrm).
+// This is NOT a dedup/merge-by-VRM read: it only PROPOSES a link a human confirms, and it NEVER auto-links on
+// ambiguity (>1 match -> link_ambiguous, cr1bd_caseid stays null). Each lookup must be Case/PO- OR VRM-keyed AND
+// scoped to ACTIVE non-terminal cases; the no-auto-link-on-ambiguity invariant is asserted separately below.
+const TRIAGE_OPEN_CASE_LOOKUP_ALLOWED = new Set(['triage-classify.definition.json']);
 // Phase-7 documented exception: box-blob-purge's cr1bd_cases ListRecords is a status+boxsyncedat sweep
 // (find box_synced cases past the grace window), NOT a dedup-by-VRM read — so it is intentionally not
 // provider-scoped. Asserted below to actually filter on cr1bd_status + cr1bd_boxsyncedat.
@@ -261,6 +267,16 @@ for (const file of files) {
     const syncScoped = caseLists.every((a) => a.filter.includes('cr1bd_status') && a.filter.includes('cr1bd_boxsyncedat'));
     if (syncScoped) pass(`[${file}] cr1bd_cases ListRecords are status+boxsyncedat-scoped (documented box-blob-purge exception, not a dedup-by-VRM query)`);
     else fail(`[${file}] box-blob-purge cr1bd_cases ListRecords must filter on cr1bd_status AND cr1bd_boxsyncedat`);
+  } else if (caseLists.length > 0 && TRIAGE_OPEN_CASE_LOOKUP_ALLOWED.has(file)) {
+    // Phase-8 documented exception (ADR-0015): triage open-Case LINK lookup. Each cr1bd_cases ListRecords must
+    // be keyed on the Case/PO (cr1bd_casepo) OR the registration fallback (cr1bd_vrm) AND restricted to ACTIVE
+    // (statecode eq 0) non-terminal cases — it proposes a link, never a dedup/merge, and never auto-links on
+    // ambiguity (asserted in Check 8c below).
+    const lookupScoped = caseLists.every(
+      (a) => (a.filter.includes('cr1bd_casepo') || a.filter.includes('cr1bd_vrm')) && a.filter.includes('statecode'),
+    );
+    if (lookupScoped) pass(`[${file}] cr1bd_cases ListRecords are Case/PO- or VRM-keyed ACTIVE open-Case link lookups (documented triage exception, not a dedup-by-VRM query)`);
+    else fail(`[${file}] triage cr1bd_cases ListRecords must be Case/PO- or VRM-keyed AND scoped to active cases (statecode)`);
   } else if (caseLists.length > 0) {
     // documented exception: case lookups outside the dedup ladder are by Message-ID/id, by the Case/PO
     // sequence prefix (startswith(cr1bd_casepo,...) — an aggregate counter, not a dedup-by-VRM query),
@@ -328,6 +344,29 @@ for (const file of files) {
       pass(`[${file}] image-case evidence is re-pointed to the survivor via cr1bd_Caseid@odata.bind`);
     } else {
       fail(`[${file}] merge must re-point evidence via item/cr1bd_Caseid@odata.bind to the survivor case`);
+    }
+  }
+
+  // Check 8c (Phase-8, ADR-0015) — triage-classify NEVER auto-links the open Case on ambiguity. Three
+  // load-bearing invariants: (1) the link is set ONLY inside a single-match guard (an If keyed on
+  // equals(length(...), 1) over a cr1bd_cases ListRecords result), (2) a >1 match routes to link_ambiguous
+  // (NEVER a silent merge — ADR-0010), and (3) the cr1bd_Caseid bind is CONDITIONAL on a resolved match
+  // (if(empty(matchedCaseId), null, ...)) so no-match / ambiguous leaves the link null.
+  if (file === 'triage-classify.definition.json') {
+    if (/"equals"\s*:\s*\[\s*"@length\(coalesce\(outputs\('List_cases_by_(caseref|vrm)'\)[^"]*\)",\s*1\s*\]/.test(raw)) {
+      pass(`[${file}] open-Case link is set ONLY inside a single-match guard (equals(length(...),1))`);
+    } else {
+      fail(`[${file}] triage must auto-link ONLY on exactly one open-Case match (equals(length(List_cases_by_*),1))`);
+    }
+    if (/"link_ambiguous"/.test(raw)) {
+      pass(`[${file}] >1 open-Case match routes to link_ambiguous (never auto-link on ambiguity — ADR-0010)`);
+    } else {
+      fail(`[${file}] triage must route a >1 open-Case match to link_ambiguous (no auto-link on ambiguity)`);
+    }
+    if (/if\(empty\(variables\('matchedCaseId'\)\),\s*null,\s*concat\('cr1bd_cases\(/.test(raw)) {
+      pass(`[${file}] cr1bd_Caseid bind is conditional on a resolved match (null on no-match / ambiguous)`);
+    } else {
+      fail(`[${file}] triage cr1bd_Caseid bind must be null unless a single match resolved (if(empty(matchedCaseId), null, ...))`);
     }
   }
 

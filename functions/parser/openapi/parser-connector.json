@@ -2,8 +2,8 @@
   "swagger": "2.0",
   "info": {
     "title": "Collision Engineers Parser",
-    "description": "Custom connector for the cedocumentmapper_v2 parser Function. POST a base64 instruction document and receive the settled 12-field EVA extraction (with per-field value/confidence/source), plus the Case-identity vrm/reference surfaced separately. PDF_MAPPER_ENABLED gating is enforced in the calling flow, not here.",
-    "version": "1.0.3",
+    "description": "Custom connector for the cedocumentmapper_v2 parser Function. POST a base64 instruction document to /parse and receive the settled 12-field EVA extraction (with per-field value/confidence/source), plus the Case-identity vrm/reference surfaced separately. POST inbound email metadata to /classify-email and receive the deterministic Phase-8 triage label (category/subtype/signals + body_vrm/body_caseref). Feature gating is enforced in the calling flow, not here.",
+    "version": "1.1.0",
     "contact": {
       "name": "Collision Engineers — collisionspike"
     }
@@ -64,6 +64,43 @@
             "description": "Parser dependency failed.",
             "schema": {
               "$ref": "#/definitions/ParseResponse"
+            }
+          }
+        }
+      }
+    },
+    "/classify-email": {
+      "post": {
+        "summary": "Classify an inbound email",
+        "description": "Run an inbound email's already-decoded fields through the deterministic Phase-8 triage classifier and return the operator's label (category/subtype) with the exact signals that fired plus any Case/PO or registration found in the body. PURE: keyword / phrase / regex only — no Dataverse, no network, no AI. The open-Case lookup (does body_caseref / body_vrm hit an open Case?) stays in the calling flow, exactly as Case-identity stays out of /parse. Even a malformed request returns a safe 'other' label so a call always routes to a person.",
+        "operationId": "ClassifyEmail",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ClassifyEmailRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Triage label with the fired signals.",
+            "schema": {
+              "$ref": "#/definitions/ClassifyEmailResponse"
+            }
+          },
+          "400": {
+            "description": "Bad input (body not JSON / a field has the wrong type). The body still carries a safe 'other' label so the caller parses one schema.",
+            "schema": {
+              "$ref": "#/definitions/ClassifyEmailResponse"
             }
           }
         }
@@ -196,6 +233,99 @@
         },
         "contract_version": {
           "type": "string"
+        }
+      }
+    },
+    "ClassifyEmailRequest": {
+      "type": "object",
+      "description": "Inbound email metadata for the deterministic Phase-8 triage classifier. All fields optional — a missing field is treated as empty/absent. The body may be HTML or plain text; the Function strips HTML server-side before scanning.",
+      "properties": {
+        "subject": {
+          "type": "string",
+          "description": "The email subject line."
+        },
+        "body": {
+          "type": "string",
+          "description": "The email body (HTML or plain text; HTML is stripped server-side before keyword / registration scanning)."
+        },
+        "from": {
+          "type": "string",
+          "description": "The sender's email address (informational)."
+        },
+        "sender_domain": {
+          "type": "string",
+          "description": "The sender's domain (the part after '@'), lower-cased by the caller."
+        },
+        "provider_match_state": {
+          "type": "string",
+          "description": "The calling flow's sender-domain match result: 'one' | 'none' | 'ambiguous'.",
+          "enum": [
+            "one",
+            "none",
+            "ambiguous"
+          ]
+        },
+        "attachment_kinds": {
+          "type": "array",
+          "description": "The kinds of attachment on the email, e.g. [\"instruction\", \"image\"]. An empty list / absent means no attachments.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "has_attachments": {
+          "type": "boolean",
+          "description": "Whether the email carried any attachment."
+        }
+      }
+    },
+    "ClassifyEmailResponse": {
+      "type": "object",
+      "description": "The triage label. The same shape is returned for success and for a bad request — on a bad request the label is the safe catch-all 'other' so the caller always parses one schema and routes to a person.",
+      "properties": {
+        "category": {
+          "type": "string",
+          "description": "The top-level triage category: 'receiving_work' | 'query' | 'other'.",
+          "enum": [
+            "receiving_work",
+            "query",
+            "other"
+          ]
+        },
+        "subtype": {
+          "type": "string",
+          "description": "The triage subtype: 'existing_provider_instruction' | 'existing_provider_audit' | 'new_client_work' | 'query_existing_work' | 'query_new_enquiry' | 'other'.",
+          "enum": [
+            "existing_provider_instruction",
+            "existing_provider_audit",
+            "new_client_work",
+            "query_existing_work",
+            "query_new_enquiry",
+            "other"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "format": "float",
+          "description": "Coarse confidence band 0.0–1.0 (lets a later gated AI pass target only the low-confidence rows)."
+        },
+        "signals": {
+          "type": "array",
+          "description": "The exact rule ids / phrases that fired, for explainability (joined into the triage row's signals memo).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "body_vrm": {
+          "type": "string",
+          "description": "The first vehicle registration found in subject+body, or empty. The caller runs the open-Case lookup; the classifier never auto-links."
+        },
+        "body_caseref": {
+          "type": "string",
+          "description": "The first Case/PO found in subject+body, or empty. The caller links by Case/PO first, registration only as a fallback; the classifier never auto-links."
+        },
+        "contract_version": {
+          "type": "string",
+          "description": "The classifier contract tag (distinct from the /parse EVA contract tag so a consumer can tell the two envelopes apart)."
         }
       }
     }
