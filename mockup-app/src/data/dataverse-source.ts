@@ -60,13 +60,17 @@ import type {
   DataAccess,
   GeneratedServices,
   InspectionAddressCounts,
+  LocationAssistGate,
   SuggestedAddress,
 } from './types';
+import { LOCATION_ASSIST_GATE_ALL_OFF } from './types';
 import {
   BOX_ENV_VAR_SCHEMA_NAMES,
   boxGatesFromRows,
   HOLD_NEW_CASES_SCHEMA,
   holdNewCasesFromRows,
+  LOCATION_ASSIST_ENV_VAR_SCHEMA_NAMES,
+  locationAssistGateFromRows,
 } from './box-gates';
 
 /* ----------  Date helpers (ported verbatim from mock/queues.ts)  ---------- */
@@ -121,6 +125,38 @@ function actionableCases(all: Case[], now: Date): Case[] {
    count (queues #1). */
 
 const TERMINAL = new Set<CaseStatus>(['eva_submitted', 'box_synced']);
+
+/* ----------  Suggestion ORDERING (ADR-0016 helper #2 — ordering ONLY)  ----------
+   Order the provider-scoped suggestion list by the offline-derived ranking the
+   EVA-export pre-processor + 16-seed wrote: rank ASC when defined, else frequency
+   DESC, then lastSeen DESC. STABLE — equal-rank rows keep their incoming order
+   (Array.prototype.sort is stable in modern JS, and the comparator returns 0 only
+   for genuine ties so input order is preserved). This is presentation ORDERING
+   ONLY: it never auto-selects a suggestion and never mirrors one onto a Case
+   (ADR-0013 stays binding — staff still pick per case). */
+export function sortSuggestions(list: SuggestedAddress[]): SuggestedAddress[] {
+  return list
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => {
+      // 1) rank ASC when BOTH defined; a defined rank sorts ahead of an undefined.
+      const ra = a.s.rank;
+      const rb = b.s.rank;
+      if (ra != null && rb != null && ra !== rb) return ra - rb;
+      if (ra != null && rb == null) return -1;
+      if (ra == null && rb != null) return 1;
+      // 2) frequency DESC (undefined treated as 0).
+      const fa = a.s.frequency ?? 0;
+      const fb = b.s.frequency ?? 0;
+      if (fa !== fb) return fb - fa;
+      // 3) lastSeen DESC (YYYY-MM-DD sorts lexicographically; '' sorts last).
+      const la = a.s.lastSeen ?? '';
+      const lb = b.s.lastSeen ?? '';
+      if (la !== lb) return lb < la ? -1 : 1;
+      // 4) stable tie-break: preserve incoming order.
+      return a.i - b.i;
+    })
+    .map((x) => x.s);
+}
 
 /**
  * Build a Dataverse-backed DataAccess over the injected generated services.
@@ -278,6 +314,36 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     }
   }
 
+  /* ----------  Location-assist gate read (read FRESH, default all-off)  ----------
+     Same env-var-table read as the BOX_* gates: the new master gate, the paired
+     Maps gate, and the per-env API-base config var. `enabled` is the AND of all
+     three; a failure (tables not wired, query error) returns all-off so the
+     "Suggest location" action stays hidden until the feature is genuinely live.
+     NOT memoised — an operator gate flip must take effect on the next read, not a
+     full app reload (see getLocationAssistGate). */
+  async function fetchLocationAssistGate(): Promise<LocationAssistGate> {
+    const defsSvc = services.environmentVariableDefinitions;
+    const valsSvc = services.environmentVariableValues;
+    if (!defsSvc || !valsSvc) return { ...LOCATION_ASSIST_GATE_ALL_OFF };
+    try {
+      const schemaFilter = LOCATION_ASSIST_ENV_VAR_SCHEMA_NAMES.map(
+        (s) => `schemaname eq '${s}'`,
+      ).join(' or ');
+      const [defsRes, valsRes] = await Promise.all([
+        defsSvc.getAll({
+          select: ['environmentvariabledefinitionid', 'schemaname', 'defaultvalue'],
+          filter: schemaFilter,
+        }),
+        valsSvc.getAll({
+          select: ['value', '_environmentvariabledefinitionid_value'],
+        }),
+      ]);
+      return locationAssistGateFromRows(defsRes.data ?? [], valsRes.data ?? []);
+    } catch {
+      return { ...LOCATION_ASSIST_GATE_ALL_OFF };
+    }
+  }
+
   return {
     /* ----- Cases ----- */
     caseById: (id) => assembleCase(id, new Date()),
@@ -394,20 +460,31 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       // their provider code in the free-text source note, so fetch the suggested
       // subset and filter client-side (a note substring isn't OData-filterable).
       const caseRes = await services.cases.get(caseId);
-      // The case's principal lives in the work-provider value (e.g. 'AX'). The
-      // old `cr1bd_provider_code` column does not exist on the row, so reading it
-      // always yielded '' — which dropped through to "return all" and showed
-      // every provider's addresses. Read the work-provider value instead.
-      const providerCode = caseRes.data?.cr1bd_evaworkprovider?.trim() ?? '';
+      // Scope by the 4-char PRINCIPAL code. The suggestion rows carry it in their note
+      // as provider=<CODE> (the EVA-export pre-processor parsed it from the Case ID's
+      // leading-alpha run, uppercased). The Case's principal is likewise the leading
+      // alpha run of the Case/PO (e.g. 'CCPY26050' -> 'CCPY') — NOT cr1bd_evaworkprovider,
+      // which holds the work-provider NAME (EVA field 1, e.g. 'Acme Solicitors'): a
+      // different namespace that almost never matched and fell through to "return all".
+      const providerCode = (
+        caseRes.data?.cr1bd_casepo?.trim().match(/^[A-Za-z]+/)?.[0] ?? ''
+      ).toUpperCase();
+      // getAll returns ALL columns (no explicit $select), so the new ADR-0016
+      // ranking columns (cr1bd_suggestionrank/-frequency/-lastseenon) come back
+      // without a read change; the adapter carries them onto SuggestedAddress.
       const res = await svc.getAll({
         filter: "startswith(cr1bd_sourcelabel,'suggested')",
       });
       const all = (res.data ?? []).filter(isSuggestedAddressRecord).map(suggestionFromRecord);
-      if (!providerCode) return all;
-      const scoped = all.filter((s) => !s.providerCode || s.providerCode === providerCode);
+      if (!providerCode) return sortSuggestions(all);
+      const scoped = all.filter(
+        (s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode,
+      );
       // If the provider has no scoped candidates, fall back to all suggestions so
-      // the reviewer still sees the catalogue rather than an empty panel.
-      return scoped.length > 0 ? scoped : all;
+      // the reviewer still sees the catalogue rather than an empty panel. ORDER
+      // BY the offline ranking in both branches (ADR-0016 helper #2: ordering
+      // ONLY — never an auto-select; ADR-0013 unchanged).
+      return sortSuggestions(scoped.length > 0 ? scoped : all);
     },
 
     inspectionAddressCounts: async (): Promise<InspectionAddressCounts> => {
@@ -542,6 +619,12 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       if (!boxGatesCache) boxGatesCache = fetchBoxGates();
       return boxGatesCache;
     },
+
+    /* ----- Location-assist gate (read FRESH per call; all-off on failure) -----
+       NOT cached: an operator enabling/disabling the gate must take effect on the
+       next read (next CaseDetail mount), not require a full app reload. The read is
+       two small env-var-table queries, run only when a case is opened. */
+    getLocationAssistGate: (): Promise<LocationAssistGate> => fetchLocationAssistGate(),
 
     /* ----- App intake preference: hold new cases by default (read fresh) ----- */
     getHoldNewCasesDefault: async (): Promise<boolean> => {

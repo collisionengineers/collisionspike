@@ -49,6 +49,7 @@ import {
   Mail,
   Lightbulb,
   MapPin,
+  Search,
   Send,
   Upload,
   Pause,
@@ -75,12 +76,16 @@ import {
   dueInfo,
   getSharedLink,
   statusToStage,
+  suggestLocations,
+  buildSuggestLocationRequest,
   useBoxGates,
   useCaseQuery,
   useImages,
   useInspectionAddressSuggestions,
+  useLocationAssistGate,
   activeCopyFileRequestTransport,
   activeGetSharedLinkTransport,
+  activeLocationAssistTransport,
   type Case,
   type CaseStatus,
   type EvaFieldKey,
@@ -92,6 +97,7 @@ import {
   type SuggestedAddress,
   type VatStatus,
 } from '../data';
+import { resolveInspectionDecision } from '../domain/address-policy';
 import { GLOBAL_TOASTER_ID } from '../components';
 import { buildEvaJson } from '../contracts/eva-export';
 
@@ -283,6 +289,19 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
   },
   suggestList: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
+  /* "Suggest location" action row — heading + button, spaced apart. */
+  assistActionRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: tokens.spacingHorizontalM,
+    flexWrap: 'wrap',
+  },
+  /* Muted "no location could be suggested" line. */
+  assistNoResult: {
+    color: tokens.colorNeutralForeground3,
+    fontStyle: 'italic',
+  },
   suggestRow: {
     display: 'flex',
     alignItems: 'flex-start',
@@ -600,6 +619,9 @@ interface SuggestedLocationRowProps {
 function friendlyBand(band?: string): string | undefined {
   if (!band) return undefined;
   const b = band.toLowerCase();
+  // Phase-4a live assist: the candidate came from the case's photos + map lookup.
+  if (b === 'assist' || b.includes('assist')) return 'Suggested from the photos';
+  if (b.includes('eva_export') || b.includes('eva export')) return 'From EVA inspection history';
   if (b.includes('multiple')) return 'One of several possible addresses';
   if (b.includes('jobsheet')) return 'From job-sheet guidance';
   if (b.includes('repairer')) return 'Matched to a local repairer';
@@ -608,11 +630,27 @@ function friendlyBand(band?: string): string | undefined {
   return undefined; // unknown band — omit rather than show a raw code
 }
 
+/** A muted "seen N times · last <date>" hint from the offline ranking metadata
+ *  (ADR-0016 helper #2). Recency-only or frequency-only rows render the part they
+ *  have; rows with neither render nothing. PRESENTATION ONLY — never auto-selects.
+ *  lastSeen arrives as YYYY-MM-DD; surface it as DD/MM/YYYY for display parity. */
+function frequencyHint(suggestion: SuggestedAddress): string | undefined {
+  const parts: string[] = [];
+  if (typeof suggestion.frequency === 'number' && suggestion.frequency > 0) {
+    parts.push(`seen ${suggestion.frequency} ${suggestion.frequency === 1 ? 'time' : 'times'}`);
+  }
+  const seen = (suggestion.lastSeen ?? '').trim();
+  const m = seen.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) parts.push(`last ${m[3]}/${m[2]}/${m[1]}`);
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
 function SuggestedLocationRow({ suggestion, onUse }: SuggestedLocationRowProps) {
   const styles = useStyles();
   const lines = [...suggestion.lines, suggestion.postcode].filter(Boolean);
   const band = friendlyBand(suggestion.confidenceBand);
-  const tip = [band, suggestion.evidenceNote, 'Suggested — low confidence; verify before use.']
+  const seenHint = frequencyHint(suggestion);
+  const tip = [band, seenHint, suggestion.evidenceNote, 'Suggested — low confidence; verify before use.']
     .filter(Boolean)
     .join('\n');
   return (
@@ -628,6 +666,7 @@ function SuggestedLocationRow({ suggestion, onUse }: SuggestedLocationRowProps) 
           {suggestion.providerCode && (
             <Caption1 className={styles.hint}>Provider {suggestion.providerCode}</Caption1>
           )}
+          {seenHint && <Caption1 className={styles.hint}>{seenHint}</Caption1>}
         </span>
       </div>
       <Button appearance="secondary" size="small" icon={<Check size={14} />} onClick={onUse}>
@@ -726,6 +765,30 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
   // and sets the decision to manual — it NEVER auto-confirms or sets image_based.
   const suggestionsQuery = useInspectionAddressSuggestions(caseData.id);
   const suggestions = suggestionsQuery.data ?? [];
+
+  // Live location-assist (Phase 4a) — a reviewer-invoked action that PROPOSES
+  // candidate inspection locations from the case's own photos + text clues. Gated
+  // off by default (the action is hidden unless LOCATION_ASSIST_ENABLED &&
+  // AZURE_MAPS_ENABLED are on AND the API base is set). Returned candidates are
+  // surfaced strictly as suggestions; picking one runs the SAME confirm path as a
+  // corpus suggestion (copy into the manual draft + decision=manual). NOTHING
+  // auto-applies and nothing fires on load — only the explicit button click calls
+  // out. The candidates live ONLY in this working copy until "Use this address".
+  const { data: assistGate } = useLocationAssistGate();
+  const locationAssistEnabled = assistGate?.enabled ?? false;
+  const [assistRunning, setAssistRunning] = useState(false);
+  const [assistCandidates, setAssistCandidates] = useState<SuggestedAddress[]>([]);
+  // null = not run yet; true/false = the last run's "no confident location" result.
+  const [assistNoResult, setAssistNoResult] = useState<boolean | null>(null);
+  // Plain-language provenance of a CONFIRMED suggestion, captured for a FUTURE
+  // save path (NOT yet wired — this review screen holds local working-copy state
+  // only and writes nothing). When the InspectionAddress upsert is built it will
+  // carry sourceLabel -> cr1bd_sourcelabel + sourceNote -> cr1bd_sourcenote. Set
+  // only when the reviewer picks a live-assist candidate; cleared for corpus picks.
+  // Today only sourceNote is consumed (rendered as the caption below the draft).
+  const [confirmedProvenance, setConfirmedProvenance] = useState<
+    { sourceLabel: string; sourceNote: string } | undefined
+  >(undefined);
 
   // Box (Archive) feature gates — undefined/loading reads as all-off. The chaser
   // upload-link action needs BOTH the gate AND a configured template; the
@@ -826,17 +889,110 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
     });
   };
 
-  /* Pick a SUGGESTED location: copy its lines into the manual inspection-address
-     draft (marking the field reviewed) and set the decision to MANUAL. This is the
-     ONLY place a suggestion touches the case, and only on an explicit click — it
-     never auto-confirms, never writes image_based, and never fires on load. */
+  /* Pick a SUGGESTED location (corpus OR live-assist): copy its lines into the
+     manual inspection-address draft (marking the field reviewed) and set the
+     decision to MANUAL. This is the ONLY place a suggestion touches the case, and
+     only on an explicit click — it never auto-confirms, never writes image_based,
+     and never fires on load.
+
+     The decision is routed through resolveInspectionDecision (ADR-0013 confirmation
+     path): a 'use_physical_address' choice with a real address resolves to
+     decisionMode='manual'. We CAPTURE the plain-language provenance into local
+     working-copy state for a future save path (sourceLabel 'suggested:assist' when
+     the origin is the live assist). This screen does not write anything yet; when
+     the InspectionAddress upsert is wired it will record WHERE the confirmed manual
+     decision came from (cr1bd_sourcelabel/-sourcenote) — it does NOT make the row
+     an unconfirmed suggestion. */
   const useSuggestion = (s: SuggestedAddress) => {
-    const draft = [...s.lines, s.postcode].map((l) => (l ?? '').trim()).filter(Boolean).join('\n');
+    const lines = [...s.lines, s.postcode].map((l) => (l ?? '').trim()).filter(Boolean);
+    if (lines.length === 0) {
+      // A candidate with no usable address lines (e.g. a live-assist hit that resolved
+      // to only a place label) cannot become a manual physical-address decision. Tell
+      // the reviewer rather than silently no-op'ing the button.
+      toast(
+        'This suggestion has no usable address — pick another, or record Image Based Assessment with a reason',
+      );
+      return;
+    }
+    const draft = lines.join('\n');
+    // Validate the confirmation through the policy resolver. We use the prefer_address
+    // default (a confirmed physical address resolves to a manual human decision).
+    // FOLLOW-UP: when the InspectionAddress upsert/save path is wired, resolve against
+    // the case provider's real inspectionLocationPolicy (required_address ->
+    // confirmed_physical; always_image_based override). The policy is not plumbed onto
+    // this screen yet, and nothing here persists, so the default is safe until then.
+    const decision = resolveInspectionDecision('prefer_address', lines.length > 0, {
+      choice: 'use_physical_address',
+    });
+    // Defensive: only apply when the resolver returns a non-image-based manual
+    // decision (it will, for a non-empty address). NOTHING auto-applies otherwise.
+    if (decision.imageBased || decision.needsReviewerDecision) return;
     onTextChange('inspectionAddress', draft);
-    setDecisionMode('manual');
+    setDecisionMode(decision.decisionMode ?? 'manual');
     setOverrideAddr(false); // a real address supersedes any image-based override
+    // Capture the confirmed decision's provenance into local state for a future
+    // save path (not yet wired). Live-assist picks carry 'suggested:assist' + a
+    // plain "Suggested from the photos" note.
+    if (s.source === 'assist') {
+      const note = s.evidenceNote
+        ? `Suggested from the photos — ${s.evidenceNote.split('\n')[0]}`
+        : 'Suggested from the photos';
+      setConfirmedProvenance({ sourceLabel: 'suggested:assist', sourceNote: note });
+    } else {
+      setConfirmedProvenance(undefined);
+    }
     setTab('address');
     toast('Suggested location copied to the address — review before submit');
+  };
+
+  /* Run the live location-assist (Phase 4a). Builds the request from data ALREADY
+     loaded on this screen (the non-excluded photos -> photo_refs; the accident-
+     circumstances + claimant-address text -> text_clues), calls the injected
+     transport, and stores the returned candidates in this working copy. It does
+     NOT write the case, does NOT set the EVA address, and does NOT auto-select —
+     each candidate is rendered as a suggestion the reviewer must confirm. */
+  const onSuggestLocation = async () => {
+    if (assistRunning || !locationAssistEnabled) return;
+    setAssistRunning(true);
+    try {
+      // The claimant-address clue (cr1bd_evaclaimantaddress) is a Case-identity
+      // field carried through the data layer onto the domain Case (adapter maps it
+      // 1:1, like vrm/casePo). The request builder omits an empty clue, and the
+      // Function tolerates a text-clue-less run.
+      const claimantAddressClue: string | undefined = c.claimantAddress;
+      const req = buildSuggestLocationRequest({
+        caseId: c.id,
+        ...(c.casePo ? { casePo: c.casePo } : {}),
+        photos: imgState
+          .filter((e) => !e.excluded)
+          .map((e) => ({
+            id: e.id,
+            ...(e.boxFileId ? { boxFileId: e.boxFileId } : {}),
+            fileName: e.fileName,
+            imageRole: e.imageRole,
+          })),
+        accidentCircumstances: c.evaFields.accidentCircumstances.value,
+        // Claimant address is a Case-identity clue (cr1bd_evaclaimantaddress) the
+        // adapter carries onto the domain Case. Passed best-effort; omitted when
+        // empty so the request still builds (the Function tolerates a clue-less run).
+        ...(claimantAddressClue ? { claimantAddress: claimantAddressClue } : {}),
+      });
+      const result = await suggestLocations(req, activeLocationAssistTransport);
+      setAssistCandidates(result.suggestions);
+      setAssistNoResult(result.noConfidentLocation && result.suggestions.length === 0);
+    } catch {
+      // Honest plain-language failure — never a synthetic candidate.
+      setAssistCandidates([]);
+      setAssistNoResult(null);
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t suggest a location — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setAssistRunning(false);
+    }
   };
 
   const onRole = (id: string, role: ImageRole) =>
@@ -1202,27 +1358,80 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                     />
                   </div>
 
-                  {/* Suggested locations — low-confidence corpus candidates. Shown
-                      strictly as suggestions; "Use this address" copies one into the
-                      draft above and sets the decision to manual. Never auto-applied,
-                      so it only appears when real candidates exist. */}
-                  {suggestions.length > 0 && (
+                  {/* Plain-language provenance of a CONFIRMED live-assist pick
+                      (no engineering terms). Only sourceNote is shown here; the
+                      sourceLabel is held for a future save path (not yet wired). */}
+                  {confirmedProvenance && (
+                    <Caption1 className={styles.hint}>{confirmedProvenance.sourceNote}</Caption1>
+                  )}
+
+                  {/* Suggested locations — low-confidence corpus candidates +
+                      live-assist candidates. Shown strictly as suggestions; "Use
+                      this address" copies one into the draft above and sets the
+                      decision to manual. Never auto-applied. The "Suggest location"
+                      action (gated) proposes candidates from the case's photos +
+                      text clues; it shows when the corpus has any candidates OR the
+                      assist is switched on (so the reviewer can always invoke it). */}
+                  {(suggestions.length > 0 ||
+                    locationAssistEnabled ||
+                    assistCandidates.length > 0 ||
+                    assistNoResult !== null) && (
                     <>
                       <Divider />
-                      <span className={styles.suggestHead}>
-                        <Lightbulb size={15} strokeWidth={2} aria-hidden />
-                        <Text size={200} weight="semibold">
-                          Suggested locations
-                        </Text>
-                        <Caption1 className={styles.hint}>
-                          Low confidence — verify before use.
-                        </Caption1>
-                      </span>
-                      <div className={styles.suggestList} role="list">
-                        {suggestions.map((s) => (
-                          <SuggestedLocationRow key={s.id} suggestion={s} onUse={() => useSuggestion(s)} />
-                        ))}
+                      <div className={styles.assistActionRow}>
+                        <span className={styles.suggestHead}>
+                          <Lightbulb size={15} strokeWidth={2} aria-hidden />
+                          <Text size={200} weight="semibold">
+                            Suggested locations
+                          </Text>
+                          <Caption1 className={styles.hint}>
+                            Low confidence — verify before use.
+                          </Caption1>
+                        </span>
+                        {/* Plain label — no engineering terms. Hidden unless the
+                            assist is switched on (gate + Maps + API base). */}
+                        {locationAssistEnabled && (
+                          <Button
+                            appearance="secondary"
+                            size="small"
+                            icon={assistRunning ? <Spinner size="tiny" /> : <Search size={14} />}
+                            onClick={onSuggestLocation}
+                            disabled={assistRunning}
+                          >
+                            {assistRunning ? 'Looking…' : 'Suggest location'}
+                          </Button>
+                        )}
                       </div>
+
+                      {/* Live-assist candidates render through the SAME row as the
+                          corpus suggestions (identical "Suggested" badge, evidence
+                          tooltip, "Use this address"). Confidence drives ordering
+                          only — nothing is preselected. */}
+                      {(suggestions.length > 0 || assistCandidates.length > 0) && (
+                        <div className={styles.suggestList} role="list">
+                          {assistCandidates.map((s) => (
+                            <SuggestedLocationRow
+                              key={s.id}
+                              suggestion={s}
+                              onUse={() => useSuggestion(s)}
+                            />
+                          ))}
+                          {suggestions.map((s) => (
+                            <SuggestedLocationRow
+                              key={s.id}
+                              suggestion={s}
+                              onUse={() => useSuggestion(s)}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Muted line when the last assist run found nothing. */}
+                      {assistNoResult === true && (
+                        <Caption1 className={styles.assistNoResult}>
+                          No location could be suggested from the photos.
+                        </Caption1>
+                      )}
                     </>
                   )}
 

@@ -24,7 +24,12 @@ import type {
   PipelineStage,
 } from '../mock/queues';
 import type { QueueName } from '../mock/queues';
-import type { SuggestedAddress, InspectionAddressCounts, BoxGates } from './types';
+import type {
+  SuggestedAddress,
+  InspectionAddressCounts,
+  BoxGates,
+  LocationAssistGate,
+} from './types';
 
 /** The shape every query hook returns. */
 export interface QueryState<T> {
@@ -155,6 +160,17 @@ export function useInspectionAddressCounts(): QueryState<InspectionAddressCounts
  */
 export function useBoxGates(): QueryState<BoxGates> {
   const run = useCallback(() => getDataAccess().getBoxGates(), []);
+  return useAsync(run, []);
+}
+
+/**
+ * The location-assist gate (Phase 4a). Screens read
+ * `const { data: assistGate } = useLocationAssistGate()` and treat
+ * `undefined`/loading as off (the action stays hidden). The read defaults all-off
+ * on failure, so this never throws the feature on by accident.
+ */
+export function useLocationAssistGate(): QueryState<LocationAssistGate> {
+  const run = useCallback(() => getDataAccess().getLocationAssistGate(), []);
   return useAsync(run, []);
 }
 

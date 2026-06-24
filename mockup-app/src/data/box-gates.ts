@@ -18,7 +18,12 @@
        cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID value is a non-empty string.
    ============================================================ */
 
-import { BOX_GATES_ALL_FALSE, type BoxGates } from './types';
+import {
+  BOX_GATES_ALL_FALSE,
+  LOCATION_ASSIST_GATE_ALL_OFF,
+  type BoxGates,
+  type LocationAssistGate,
+} from './types';
 import type {
   EnvironmentVariableDefinitionRecord,
   EnvironmentVariableValueRecord,
@@ -113,6 +118,52 @@ export function boxGatesFromRows(
   values: readonly EnvironmentVariableValueRecord[],
 ): BoxGates {
   return boxGatesFromResolved(resolveEnvVars(definitions, values));
+}
+
+/* ----------  Location-assist gate (Phase 4a) — same env-var coalescing core ----------
+   The reviewer-invoked "Suggest location" assist is shown ONLY when its master
+   gate, the paired Maps gate, AND the per-env API-base config var are all set.
+   Read off the same DEFINITION/VALUE platform tables as the BOX_* gates; every
+   part defaults off, and the whole gate is off on any read failure (honest off).
+   The Code App READS this (never writes it); the Function never reads it. */
+export const LOCATION_ASSIST_ENABLED_SCHEMA = 'cr1bd_LOCATION_ASSIST_ENABLED';
+/** The PAIRED Maps gate — reused (not overloaded into AZURE_VISION) per spec. */
+export const AZURE_MAPS_ENABLED_SCHEMA = 'cr1bd_AZURE_MAPS_ENABLED';
+/** Per-env config var whose non-empty value flips apiBaseConfigured. */
+export const LOCATION_ASSIST_API_BASE_SCHEMA = 'cr1bd_LOCATION_ASSIST_API_BASE';
+
+/** All schema names the location-assist gate read needs (2 Booleans + 1 base). */
+export const LOCATION_ASSIST_ENV_VAR_SCHEMA_NAMES: readonly string[] = [
+  LOCATION_ASSIST_ENABLED_SCHEMA,
+  AZURE_MAPS_ENABLED_SCHEMA,
+  LOCATION_ASSIST_API_BASE_SCHEMA,
+];
+
+/**
+ * Build a `LocationAssistGate` from resolved env-vars. `enabled` is the AND of the
+ * two Boolean gates and a non-empty API base; any missing part keeps the gate off.
+ */
+export function locationAssistGateFromResolved(
+  resolved: readonly ResolvedEnvVar[],
+): LocationAssistGate {
+  const gate: LocationAssistGate = { ...LOCATION_ASSIST_GATE_ALL_OFF };
+  for (const { schemaName, value } of resolved) {
+    if (schemaName === LOCATION_ASSIST_ENABLED_SCHEMA) gate.assistEnabled = envValueToBool(value);
+    else if (schemaName === AZURE_MAPS_ENABLED_SCHEMA) gate.mapsEnabled = envValueToBool(value);
+    else if (schemaName === LOCATION_ASSIST_API_BASE_SCHEMA) {
+      gate.apiBaseConfigured = value.trim().length > 0;
+    }
+  }
+  gate.enabled = gate.assistEnabled && gate.mapsEnabled && gate.apiBaseConfigured;
+  return gate;
+}
+
+/** Definition + value rows -> LocationAssistGate, in one call (dataverse-source path). */
+export function locationAssistGateFromRows(
+  definitions: readonly EnvironmentVariableDefinitionRecord[],
+  values: readonly EnvironmentVariableValueRecord[],
+): LocationAssistGate {
+  return locationAssistGateFromResolved(resolveEnvVars(definitions, values));
 }
 
 /* ----------  App intake preference: hold new cases by default  ----------

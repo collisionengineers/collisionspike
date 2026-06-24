@@ -21,6 +21,10 @@ into `cr1bd_inspectionaddress` as provider-scoped **suggestions** (`decisionMode
 `sourceLabel='suggested:…'`), surfaced in the Code App Address tab for a **manual pick**. This corpus is
 the **static totality at this time** — improvable later, but a fixed snapshot now.
 
+> **Update ([ADR-0016](0016-inspection-address-corpus-eva-export.md), 2026-06-24):** the suggestion
+> SOURCE was later regenerated from the 2-year EVA full-address export — this no-runtime-matcher decision
+> is **unchanged and re-affirmed** there; the `codexwork` CSV is now historical provenance, not the live source.
+
 A separate, redundant **runtime matcher** had been built on a misreading of `Loc` — an Azure Function, a
 companion Power Automate resolve flow, and a custom connector — that tried to re-derive a full address at
 runtime by matching a Case's part-postcode `Loc` against a generic repairer corpus. It treated the
@@ -52,7 +56,19 @@ export artifact as a live input (there is no `cr1bd_loc` Case column), and it tr
   the order staff see, **never** auto-selects, and there is still **no runtime resolver**. The Phase-4a
   proximity signal (ADR-0016) sits entirely within this bound.
 - Future improvement of the corpus is **offline** (more case-history mining → more confirmed full
-  addresses → re-seed the suggestions), never a runtime resolver. See
+  addresses → re-seed the suggestions), never a runtime auto-resolver.
+- **Suggestions may also be generated LIVE, per case, for the situation where the corpus *and* the case
+  documents cannot identify the inspection location — provided they stay SUGGESTIONS a reviewer confirms.**
+  A human-in-the-loop assist that proposes candidate location(s) from **vision over the case's own
+  inspection photos** (visible signage / landmarks / plate / EXIF) and/or **geolocation of text clues in
+  the instruction** (e.g. accident location, claimant address) is **permitted**: it ends in the reviewer
+  picking a candidate or recording "Image Based Assessment" with a reason — **nothing auto-applies**.
+- **Scope clarification (2026-06-24):** what this ADR forbids is **runtime AUTO-resolution** — the system
+  deriving *and applying* a location with no human confirmation (the removed matcher). It does **not**
+  forbid offline corpus building, nor live, human-confirmed candidate *suggestions*. For the avoidance of
+  doubt, **partial postcodes are not an input to the live system**: they existed only as the `Loc` column of
+  an EVA *export* spreadsheet (the artifact that spawned the removed matcher); intake documents do not carry
+  them and the app does not handle them. See
   [`docs/architecture/inspection-address-corpus.md`](../architecture/inspection-address-corpus.md).
 - This ADR is the authoritative record; the older ROADMAP-4a framing and the `190626` review line are
   superseded by it.

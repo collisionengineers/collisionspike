@@ -37,15 +37,25 @@ still pick per case. All helper signals bind to the **OFFLINE corpus-build layer
   the export (a high image-based % there usually signals **missing data**, not a deliberate policy).
 - **Helper #2 (frequency + recency ranking)** = **implemented NOW** as offline-derived ranking metadata
   and **surfaced in the Code App now** (not deferred to M2).
-- **Helper #2b ("closest to accident") is IMPLEMENTED NOW as a suggestion-ORDERING signal** — **never
-  an auto-select**, so ADR-0013 is **not reopened**. It uses an **accident location/postcode WHEN
-  PRESENT in the instruction** (formats vary — an opportunistic, best-effort parse), else falls back to
-  **CLAIMANT HOME-ADDRESS proximity** (a *soft* signal — the claimant may have been travelling, so it is
-  not a guarantee). This **replaces the earlier "closest to accident is DROPPED" verdict**. It needs two
-  best-effort parser extractions (accident location, claimant home address) plus **gated** geocoding.
-- **Helper #3 (vision / geocode)** = permitted **ONLY as offline corpus mining + the gated proximity
-  ordering above** (Azure Maps geocode), **gated** (`AZURE_MAPS_ENABLED=false`), **never per-Case
-  auto-resolution**.
+- **Helper #2b ("closest to accident") is ADOPTED as a future suggestion-ORDERING signal — DEFERRED
+  this turn** (it **replaces the earlier "closest to accident is DROPPED" verdict**, but is **not built**;
+  the pre-processor emits frequency + recency only). It will be **never an auto-select**, so ADR-0013 is
+  **not reopened**. It would use an **accident location/postcode WHEN PRESENT in the instruction** (formats
+  vary — an opportunistic, best-effort parse), else fall back to **CLAIMANT HOME-ADDRESS proximity** (a
+  *soft* signal — the claimant may have been travelling, so it is not a guarantee). It needs two best-effort
+  parser extractions (accident location, claimant home address; **sibling** `cedocumentmapper_v2.0`) plus
+  **gated** geocoding (`AZURE_MAPS_ENABLED=false`) — see the *Implementation note* below.
+- **Helper #3 (vision / geocode)** = **re-scoped (2026-06-24) to a LIVE, reviewer-invoked
+  location-suggestion ASSIST** for cases the corpus + documents can't place: vision over the case's own
+  photos + Azure Maps geocoding of text clues (accident location, claimant address) → **candidate
+  suggestions a reviewer confirms** (or "Image Based Assessment" with a reason). **Human-in-the-loop;
+  nothing auto-applies** — permitted under the
+  [ADR-0013](0013-loc-export-artifact-no-runtime-address-matching.md) 2026-06-24 scope clarification (live
+  human-confirmed suggestions allowed; only runtime AUTO-resolution forbidden). Gated
+  (`cr1bd_LOCATION_ASSIST_ENABLED`, default off). **Supersedes the earlier "offline mining only" framing.**
+  Detail + the deferred GPT-4o escalation:
+  [live-location-suggestion-assist.md](../plans/phase-4-address-and-chaser/live-location-suggestion-assist.md),
+  [gpt4o-reasoning-escalation.md](../plans/phase-4-address-and-chaser/gpt4o-reasoning-escalation.md).
 
 ## Consequences
 
@@ -68,6 +78,33 @@ confirmation, and only after the repo backup above).
 
 Every imported row remains a **suggestion** (`decisionMode=Unknown`): staff still pick/edit per case
 and nothing auto-confirms — **ADR-0013 stays intact**.
+
+## Implementation note (2026-06-24)
+
+The **offline pipeline is BUILT** (still **gated-OFF / DRY-RUN by default**; Status stays **Proposed** —
+flipping to Accepted is the operator's review call):
+
+- the three additive nullable schema columns on `cr1bd_inspectionaddress`
+  (`cr1bd_suggestionfrequency`, `cr1bd_lastseenon`, `cr1bd_suggestionrank`);
+- the **pre-processor** `dataverse/.build/sources/preprocess-eva-inspection-export.py` — provider from
+  the `Case ID` leading-alpha prefix, the **VRM-individual** exclusion branch (counted in the run
+  summary), drop image-based + no-site rows, deterministic postcode normalisation, full-address dedup,
+  and the frequency/recency/rank metadata — emitting
+  `dataverse/.build/sources/inspection-suggestions-from-eva-export.csv`;
+- the **`16-seed -ReplaceSuggestions` seed** (DRY-RUN default; writes `suggested:eva_export` +
+  `decisionMode=Unknown` + the new ranking columns; preserves Confirmed rows) and the **repo backup**
+  pre-step (16a);
+- the **Code App ranking surface** (`SuggestedAddress.frequency/lastSeen/rank`, ordered by
+  rank→frequency→last-seen, "seen N times · last <date>" hint) — **ordering only, ADR-0013 unchanged**.
+
+**Status update (2026-06-24):** the **live `-Apply` replace was RUN** — backup via 16a first, then
+`16-seed -ReplaceSuggestions -Apply`: **2,035 `suggested:eva_export` rows live, 503 stale suggestions
+removed, 174 confirmed rows preserved; `17-verify` all-pass** (and the 3 ranking columns created live).
+**Still PENDING:** the **#2b proximity-ordering** signal — two best-effort parser extractions (accident
+location, claimant home address; **sibling** `cedocumentmapper_v2.0`) + **gated** geocoding — is
+**deferred**; and **helper #3 is re-scoped** to a LIVE, human-confirmed location-suggestion assist
+(BUILT OFFLINE, GATED-OFF 2026-06-24 — Function + connector + Code App, tests green; activation pending
+the operator — see the plan docs), **not** offline-only. None of the pending items reopen ADR-0013.
 
 ## Links
 
