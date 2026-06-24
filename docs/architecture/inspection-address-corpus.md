@@ -12,7 +12,8 @@ with [`data-model.md`](./data-model.md) (the `cr1bd_inspectionaddress` table). C
 > **offline pre-processor**, replacing the prior `codexwork` master CSV as the *live* source (the
 > `codexwork` CSV is preserved below as historical/prior provenance). The pipeline (schema columns,
 > pre-processor, `-ReplaceSuggestions`, backup-first, Code-App ranking) is **built offline 2026-06-24**;
-> the **live `-Apply` replace has NOT run** (operator step). ADR-0013 is **unchanged** — this is
+> the **live `-Apply` replace RAN 2026-06-24** (backup-first: 2,035 `suggested:eva_export` live, 503
+> stale removed, 174 confirmed preserved, `17-verify` all-pass). ADR-0013 is **unchanged** — this is
 > offline corpus-build + suggestion-**ordering** only; nothing auto-confirms.
 
 ## The model (one path)
@@ -99,14 +100,17 @@ the Dataverse adapter maps them from the new columns and `dataverse-source.inspe
 "seen N times · last <date>" hint. This is **descriptive ordering metadata only — never an
 auto-select**; staff still pick/edit per case, so ADR-0013 is not reopened.
 
-### Deferred (operator / sibling)
+### Status (operator / sibling)
 
-The **live `-Apply` replace** is an operator step (not yet run). The **#2b "closest to accident"
+The **live `-Apply` replace** RAN 2026-06-24 (backup-first; 2,035 live, 503 removed, 174 preserved,
+`17-verify` all-pass). The **#2b "closest to accident"
 proximity-ordering signal** — two best-effort parser extractions (accident location/postcode when
 present, else claimant home address) feeding **gated** geocoding (`AZURE_MAPS_ENABLED=false`) — is a
 **sibling-parser + gated-geocoding concern, deferred**; like the ranking above it would be
-suggestion-**ordering** only, never an auto-select. **Vision-AI / geolocate** off-corpus mining (ADR-0016
-helper #3) stays offline-only + gated. None of these reopen ADR-0013.
+suggestion-**ordering** only, never an auto-select. **Helper #3 (vision / geolocate)** is re-scoped to a
+**LIVE, human-confirmed location-suggestion assist** (built offline / gated-off 2026-06-24 — *not*
+offline-only mining): the reviewer confirms a candidate or records "Image Based Assessment", nothing
+auto-applies. None of these reopen ADR-0013.
 
 ## Supporting offline analysis (under `raw/principalandrepairersheets/outputs/`)
 

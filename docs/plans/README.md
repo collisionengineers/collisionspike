@@ -56,8 +56,8 @@ docs/plans/
 > **Integrated 2026-06-24.** Items distilled from the drop-zone into the phase structure: **Phase 8 —
 > Inbox/Triage Management** (additive, like Phase 7; ADR-0015 _Proposed_) and the **Phase 4a inspection-address
 > corpus revamp** from the 2-year EVA full-address export (ADR-0016 _Proposed_; **ADR-0013 stays binding — no
-> runtime matcher**; the offline pipeline is **built 2026-06-24**, the live `-Apply` replace pending the
-> operator). The whole-repo review additionally surfaced **Phase 9 — Data Governance, Retention & Erasure**
+> runtime matcher**; the offline pipeline is **built 2026-06-24**, and the live `-Apply` replace **ran
+> 2026-06-24** (backup-first; 2,035 live, 503 removed, 174 preserved)). The whole-repo review additionally surfaced **Phase 9 — Data Governance, Retention & Erasure**
 > (ADR-0017 _Proposed_) as the biggest substantive gap. Their note stubs (`e-mail-management.md`,
 > `inspection-address-revamp/README.md`) have been removed now that they are distilled; consolidated decisions
 > live in [../open-questions.md](../open-questions.md).

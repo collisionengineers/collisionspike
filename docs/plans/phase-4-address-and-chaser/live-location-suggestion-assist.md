@@ -1,6 +1,6 @@
 # Phase 4a — Live inspection-location suggestion assist (helper #3)
 
-> **Status: PLANNED 2026-06-24 (design + decisions settled; build pending, gated/offline).** Human-in-the-loop, **ADR-0013-compliant**
+> **Status: BUILT OFFLINE, GATED-OFF 2026-06-24 (Function + connector + Code App built; tests green; activation pending the operator).** Human-in-the-loop, **ADR-0013-compliant**
 > per its 2026-06-24 scope clarification: *live, human-confirmed candidate suggestions are permitted; only
 > runtime AUTO-resolution is forbidden*. **Supersedes** the earlier "helper #3 = offline mining only" framing
 > in [ADR-0016](../../adr/0016-inspection-address-corpus-eva-export.md) and

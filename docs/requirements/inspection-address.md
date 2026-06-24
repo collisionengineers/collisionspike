@@ -38,9 +38,9 @@ Engineers' own EVA **case history**. The live source is the **2-year EVA full-ad
 `sourceLabel='suggested:eva_export'`). In the Code App Address tab a staff reviewer **picks/edits** one
 suggestion, or records "Image Based Assessment" with a reason. Each chosen address normalises to the
 **6-line EVA address** (postcode.io normalises plain UK postcodes; `AZURE_MAPS_ENABLED=false`)
-before readiness. _(The offline pipeline is built 2026-06-24; the live `-Apply` replace is an operator
-step, not yet run. The prior `codexwork` master CSV is superseded as the live source but kept for
-provenance.)_
+before readiness. _(The offline pipeline is built 2026-06-24; the live `-Apply` replace RAN 2026-06-24
+(backup-first; 2,035 live, 503 removed, 174 preserved, `17-verify` all-pass). The prior `codexwork`
+master CSV is superseded as the live source but kept for provenance.)_
 
 **Suggestions are ranked (ordering only, ADR-0013 unchanged).** The pre-processor carries per-site
 **frequency + recency** as ranking metadata (`cr1bd_suggestionfrequency` / `cr1bd_lastseenon` /

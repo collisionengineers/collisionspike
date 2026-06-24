@@ -2,7 +2,7 @@
 
 > **Status: BUILT + LIVE-REPLACED 2026-06-24.** Offline build done (gated-OFF); the live `-Apply` replace ran
 > (16a backup first → 2,035 `suggested:eva_export` live, 503 stale removed, 174 confirmed preserved,
-> `17-verify` all-pass). **#2b** proximity deferred; **helper #3 re-scoped** to a live human-confirmed assist (building). Integrated into the phase structure on 2026-06-24 (from
+> `17-verify` all-pass). **#2b** proximity deferred; **helper #3 re-scoped** to a live human-confirmed assist (built offline, gated-off). Integrated into the phase structure on 2026-06-24 (from
 > `docs/plans/to-integrate-into-phases/`). Backed by **ADR-0016** (_Proposed_; see its
 > *Implementation note (2026-06-24)*). **ADR-0013 stays binding** — there is **no runtime
 > inspection-address matcher**; everything here is **offline corpus-build + suggestion-ordering**.
@@ -56,7 +56,8 @@ operator explicitly supersedes them too.
 0. **[BUILT 2026-06-24] Back up the current corpus to the repo FIRST.** Snapshot every live
    `cr1bd_inspectionaddress` row to a dated file under the build scripts' outputs **before** any replace
    runs — the full-replace is only safe with a recoverable backup in the tree. (Step 16a.) The backup
-   **capture against live Dataverse** is itself an **[OPERATOR]** run; the script is built.
+   **capture against live Dataverse** RAN 2026-06-24 (871 pre-replace rows snapshotted under
+   `dataverse/.build/backups/`, gitignored).
 1. **[BUILT 2026-06-24] Profile** the `.xlsx` precisely — row count, column completeness,
    `% Image Based Assessment`, postcode coverage, distinct sites. (Verified: ~17,737 data rows; the
    profile fed the pre-processor.)
@@ -82,7 +83,8 @@ operator explicitly supersedes them too.
    deletes/regenerates only `sourceLabel startswith 'suggested'`, **keeping the confirmed-row
    protection** (probe-and-skip). **DRY-RUN is the default** (no `-Apply` ⇒ no tenant contact) and reports
    delete/keep. `17-verify-suggested-addresses.ps1` asserts the new counts + **no Case row is touched**.
-   **[OPERATOR]** the live `-Apply` full-replace has **NOT** run.
+   **[DONE 2026-06-24]** the live `-Apply` full-replace RAN (backup-first via 16a → 2,035
+   `suggested:eva_export` live, 503 stale removed, 174 confirmed preserved, `17-verify` all-pass).
 4. **[BUILT 2026-06-24] Code App ranking surface** — `SuggestedAddress.frequency/lastSeen/rank` in
    `mockup-app/src/data/types.ts`, mapped by the Dataverse adapter, ordered by (rank → frequency →
    last-seen), with a "seen N times · last <date>" hint. **Ordering only — ADR-0013 unchanged.**
@@ -96,8 +98,9 @@ operator explicitly supersedes them too.
   2,035 `suggested:eva_export` live, 503 stale removed, 174 confirmed preserved, `17-verify` all-pass;
 - **[DEFERRED]** the **#2b** proximity-ordering signal (sibling parser extractions + gated Azure Maps
   geocoding) — suggestion-ORDERING only, never an auto-select;
-- **[PLANNED → building]** **helper #3** is re-scoped to a **live, human-confirmed location-suggestion
-  assist** (not offline-only) — see [live-location-suggestion-assist.md](./live-location-suggestion-assist.md).
+- **[BUILT OFFLINE, GATED-OFF 2026-06-24]** **helper #3** is re-scoped to a **live, human-confirmed
+  location-suggestion assist** (not offline-only) — Function + connector + Code App built, tests green,
+  activation pending the operator — see [live-location-suggestion-assist.md](./live-location-suggestion-assist.md).
 
 ## Open questions
 

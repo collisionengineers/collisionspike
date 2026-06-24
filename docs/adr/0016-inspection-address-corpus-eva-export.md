@@ -103,8 +103,8 @@ removed, 174 confirmed rows preserved; `17-verify` all-pass** (and the 3 ranking
 **Still PENDING:** the **#2b proximity-ordering** signal — two best-effort parser extractions (accident
 location, claimant home address; **sibling** `cedocumentmapper_v2.0`) + **gated** geocoding — is
 **deferred**; and **helper #3 is re-scoped** to a LIVE, human-confirmed location-suggestion assist
-(planned / being built — see the plan docs), **not** offline-only. None of the pending items reopen
-ADR-0013.
+(BUILT OFFLINE, GATED-OFF 2026-06-24 — Function + connector + Code App, tests green; activation pending
+the operator — see the plan docs), **not** offline-only. None of the pending items reopen ADR-0013.
 
 ## Links
 
