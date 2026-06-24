@@ -48,8 +48,10 @@ architecture/requirements > plans):
 - **[DRIFT]** Committed parser function-key literal still in `docs/activation/email-intake-activation.md` line 30 — scrub to `<set at activation>`.
 
 ## Phase 1b — Provider corpus & inspection-address data
-- **[BUILD]** Add Pester unit tests for the corpus seed/verify PowerShell pure-functions (postcode normalise,
-  placeholder-name, disposition switch, confirmed-match filter, Split-AddressLines/Get-RowRanking, domain-ambiguity guard).
+- **[DEFERRED — sweep judgment 2026-06-24]** Pester unit tests for the corpus seed/verify PowerShell pure-functions.
+  Deferred: low value (the seed scripts already ran live + the corpus is loaded) and this background job can't
+  drive a Pester/pwsh runner reliably (the PowerShell tool returns exit 1 here). Worth adding as a local dev task
+  when a Pester runner is available — the pure cores (postcode normalise, Split-AddressLines, Get-RowRanking, domain-ambiguity guard) are the targets.
 - **[OPERATOR]** Phase-1b.3 clarifying-info writers (Inputs 1–5): address worklist, intermediary reclassify,
   garage↔provider coverage N:N, code reconciliation, CONSIDER seeding — all await operator-returned worklists.
 - **[OPERATOR]** Supply real sender domains for the ~360 providers with blank `knownEmailDomains`; re-run `15-seed -Apply`.
@@ -70,8 +72,11 @@ architecture/requirements > plans):
 - **[DRIFT]** `power.config.json logoPath='Default'` maker-portal tile (operator `pac push`).
 
 ## Phase 2 — Live Activation
-- **[BUILD]** Images-storage **swappable backend abstraction** (B1–B5), default `azureblob` (byte-identical
-  behaviour), gated OFF — env-vars + 2 unbound connection refs + Switch-per-backend refactor of classify-persist + linter assertion.
+- **[DEFERRED — sweep judgment 2026-06-24]** Images-storage **swappable backend abstraction** (B1–B5,
+  SharePoint/filesystem alternatives to azureblob). Deliberately NOT built this sweep: it's a *speculative*
+  refactor of the working live `classify-persist` flow for a capability not currently needed (azureblob is the
+  only backend in use). Build it when a non-blob backend is actually required — at which point it's a clean
+  env-var + Switch-per-backend change. (Not a gap/bug; a future-flexibility item.)
 - **[OPERATOR]** Bind the Outlook shared-mailbox + Dataverse + parser connection references (digital@ already bound).
 - **[OPERATOR]** Turn ON intake/classify-persist/parse for ONE inbox; send a test email; confirm Case/categories/dedup/intermediary-no-automatch.
 - **[OPERATOR]** Scale live intake to Info/Engineers/Desk inboxes (M1 exit gate).
@@ -160,7 +165,11 @@ architecture/requirements > plans):
   always wins, double-enforced); **anonymise by field-NULL, never row-delete**; **zero Box ops + zero Dataverse
   DeleteRecord** (asserted by validate-flows Check 8d); hard-delete left as a marked operator-policy placeholder. The
   retention window + anonymise-vs-hard-delete remain operator/legal policy (the flow only consumes `retentionexpiresat`). validate-flows 181/181.
-- **[BUILD]** Author the **3-role least-privilege security model** (User + Admin) as real role artefacts + apply script, gated-OFF (Engineer deferred).
+- **[DONE 2026-06-24]** Authored the **3-role least-privilege security model** as schema-as-code — `dataverse/roles/`
+  (`_role.schema.json` + `user-role.json` + `admin-role.json`, per-table 8-axis privilege matrix) + `28-roles.ps1`
+  (DRY-RUN, **create-not-assign** = gated-off) + promoted `roles-and-permissions.md` (Part B). Least-privilege:
+  User no-Delete + corpus read-only + AuditEvent append-only; Admin adds corpus Write (no Delete) + env-var CRUD.
+  Env-resolved privilege/BU GUIDs looked up at apply-time (not fabricated). Engineer deferred. Operator assigns at activation.
 - **[DONE 2026-06-24]** Added KV **purge-protection** (4 vaults) + Blob **soft-delete + versioning** to the
   6 Function-host bicep templates (defense-in-depth); `az bicep build` clean on all 6. Authoring-only — operator applies.
 - **[OPERATOR]** Apply the authoritative G6 hardening (delete-retention + container-delete-retention + versioning)

@@ -1,0 +1,192 @@
+{
+  "$schema": "./_role.schema.json",
+  "roleName": "CollisionSpike User",
+  "schemaName": "cr1bd_CollisionSpikeUser",
+  "summary": "Least-privilege role for day-to-day case-intake staff: full CRUD on the work tables (Case / Evidence / Inbound Email), READ-ONLY on the governed corpus, and create+read (never delete) on the audit trail.",
+  "appliesTo": "Intake / triage / review staff who run the day-to-day workflow: review cases, complete the 12 EVA fields, drive readiness, pick/edit the inspection address, export to EVA, draft chasers.",
+  "lifecycle": {
+    "state": "built-gated-off",
+    "assignment": "operator-assigns-at-activation",
+    "note": "Phase 9 / ADR-0017 G8. Created live by 28-roles.ps1 but NEVER assigned to any user/team -- assignment is the operator's activation step (everything runs as System Administrator today). See docs/roles-and-permissions.md."
+  },
+  "businessUnit": {
+    "resolve": "root-business-unit",
+    "note": "Single-BU environment: all rows live in the root BU, so the 'Organization' access level below == 'everything in the shared queue'. No BU hierarchy is in use; ParentChild/BusinessUnit depths are reserved for a future multi-BU split."
+  },
+  "tablePrivileges": [
+    {
+      "table": "cr1bd_case",
+      "rationale": "The core work item. Shared-queue model: intake is collaborative, not per-owner, so staff need org-wide visibility/edit of cases (Read/Write/Append/AppendTo Organization). Create for manual case entry. Delete WITHHELD entirely -- case deletion is a governance/disposition action (ADR-0017), never an everyday User action; junk-case cleanup runs as an operator/flow identity, not this role. Assign/Share WITHHELD (no per-record sharing model in the single-BU shared queue).",
+      "privileges": {
+        "Create": "Organization",
+        "Read": "Organization",
+        "Write": "Organization",
+        "Delete": "None",
+        "Append": "Organization",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_evidence",
+      "rationale": "Per-case attachments/artifacts. Full CRUD so staff can add/accept/exclude evidence and set image roles during review. Delete IS granted here (a mis-attached or junk attachment is routine to remove, and it is a child of Case, not the case itself). Append/AppendTo Organization so Evidence can be related to its parent Case.",
+      "privileges": {
+        "Create": "Organization",
+        "Read": "Organization",
+        "Write": "Organization",
+        "Delete": "Organization",
+        "Append": "Organization",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_inboundemail",
+      "rationale": "Phase-8 triage queue (ADR-0015). Staff triage/categorise every inbound email. Full CRUD except Delete WITHHELD -- the triage record is the universal 'we saw this' row and a dedup anchor; deleting one would re-open a dropped duplicate. Disposition/erasure of triage rows is a governance action (ADR-0017), not an everyday User action.",
+      "privileges": {
+        "Create": "Organization",
+        "Read": "Organization",
+        "Write": "Organization",
+        "Delete": "None",
+        "Append": "Organization",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_chaser",
+      "rationale": "Missing-item chasers (ADR-0003). The Code App ONLY drafts chasers; full CRUD lets staff create/edit/clear drafts. Child of Case. Delete granted (a draft chaser is disposable). Append/AppendTo so a chaser relates to its Case.",
+      "privileges": {
+        "Create": "Organization",
+        "Read": "Organization",
+        "Write": "Organization",
+        "Delete": "Organization",
+        "Append": "Organization",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_note",
+      "rationale": "Free-text case notes. Full CRUD (everyday collaborative annotation). Child of Case.",
+      "privileges": {
+        "Create": "Organization",
+        "Read": "Organization",
+        "Write": "Organization",
+        "Delete": "Organization",
+        "Append": "Organization",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_improvementsignal",
+      "rationale": "Staff corrections captured during review feed a Management triage queue (NEVER auto-changes rules). Create+Read+Append/AppendTo so a reviewer can RAISE a signal against a case/provider. Write/Delete WITHHELD -- triage/resolution of signals is a Management/Admin action; the corpus governance model is 'Management edits corpus, ImprovementSignal feeds a review queue'.",
+      "privileges": {
+        "Create": "Organization",
+        "Read": "Organization",
+        "Write": "None",
+        "Delete": "None",
+        "Append": "Organization",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_workprovider",
+      "rationale": "Governed corpus (ADR governance: Management edits corpus). READ-ONLY for User -- staff match cases to providers but never edit the provider record. AppendTo so a Case can be related TO a WorkProvider (the N:1 lookup) without granting Write on the provider itself.",
+      "privileges": {
+        "Create": "None",
+        "Read": "Organization",
+        "Write": "None",
+        "Delete": "None",
+        "Append": "None",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_repairer",
+      "rationale": "Governed corpus (first-class, N:N to WorkProvider per ADR-0001). READ-ONLY. AppendTo so an InspectionAddress/ImageSource can reference a Repairer.",
+      "privileges": {
+        "Create": "None",
+        "Read": "Organization",
+        "Write": "None",
+        "Delete": "None",
+        "Append": "None",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_inspectionaddress",
+      "rationale": "Offline-derived suggestions corpus (ADR-0013/0016) that staff PICK from. READ on the corpus is core to picking an address. AppendTo so a Case can reference the chosen InspectionAddress. Create/Write WITHHELD -- the corpus is seeded offline + edited by Management; the per-case ad-hoc location is captured ON THE CASE, not by editing the shared corpus row. (If a future per-case InspectionAddress write path is built, revisit.)",
+      "privileges": {
+        "Create": "None",
+        "Read": "Organization",
+        "Write": "None",
+        "Delete": "None",
+        "Append": "None",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_imagesource",
+      "rationale": "Corpus-adjacent: the party/role supplying images (may reference a Repairer). READ-ONLY + AppendTo so a Case can reference its ImageSource.",
+      "privileges": {
+        "Create": "None",
+        "Read": "Organization",
+        "Write": "None",
+        "Delete": "None",
+        "Append": "None",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_fieldlevelprovenance",
+      "rationale": "Per-field provenance on EVA-relevant Case fields (sourceType/reviewState/reviewer/time). Full CRUD except Delete -- staff stamp/clear reviewState as they review fields, but provenance rows are not deleted in normal operation (they are the review audit). Child of Case.",
+      "privileges": {
+        "Create": "Organization",
+        "Read": "Organization",
+        "Write": "Organization",
+        "Delete": "None",
+        "Append": "Organization",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    },
+    {
+      "table": "cr1bd_auditevent",
+      "rationale": "Append-only domain audit trail. CREATE + READ ONLY -- staff actions write audit rows and staff can read the trail, but NEVER Write/Delete (tamper-evidence; ADR-0017 audit-trail integrity + audit-event.json note 'deny update/delete to non-Management'). AppendTo so an audit row can be related to its Case.",
+      "privileges": {
+        "Create": "Organization",
+        "Read": "Organization",
+        "Write": "None",
+        "Delete": "None",
+        "Append": "Organization",
+        "AppendTo": "Organization",
+        "Assign": "None",
+        "Share": "None"
+      }
+    }
+  ],
+  "notes": [
+    "DEFAULT-DENY: any cr1bd_* table NOT listed grants NOTHING. Notably absent = the environment-variable definition/value tables (Admin-only -- see admin-role.json) and any deletion authority on Case / InboundEmail / AuditEvent / corpus tables.",
+    "NO platform/maker privileges: this role grants ZERO solution-customization, env-var, or import privileges. A User can run the Code App and do intake; it cannot configure the system. (App-access privileges to launch the Code App come from a separate Power Apps run privilege the operator grants alongside, or from the App's own role -- out of scope for this least-privilege data model.)",
+    "Single-BU note: 'Organization' depth here means 'all rows', which equals the shared-queue intent. If a future multi-team / multi-BU split is introduced, downgrade Case/Evidence/InboundEmail Read/Write to ParentChild or BusinessUnit and re-verify.",
+    "Box columns on Case/Evidence (cr1bd_box*) are ordinary columns -- they carry no separate privilege; column-level security is NOT modelled here (would be a Field Security Profile, a separate Phase-9+ artefact if needed)."
+  ]
+}
