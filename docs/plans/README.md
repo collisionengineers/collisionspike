@@ -9,7 +9,7 @@ the operator activates** (memory `live-services-boundary`). Canonical context li
 [../../AGENTS.md](../../AGENTS.md),
 [../architecture/live-environment.md](../architecture/live-environment.md), and the ADRs.
 
-Last updated **2026-06-22**.
+Last updated **2026-06-24**.
 
 ## How this folder is organised
 
@@ -41,8 +41,18 @@ docs/plans/
   phase-5-ocr-and-scale/             ocr-strategy (5a) · image-classification-ai (5b) · valuation-and-copilot (5c) · copilot-studio-setup (M3)
   phase-6-handoff/                   boundary evidence (points to DEPLOY-RUNBOOK §8)
   phase-7-box-integration/           README (B0–B4 waves) · box-custom-connector-and-webhook (BUILD spec) · box-integration-activation (operator runbook)
+  phase-8-inbox-management/          README (email triage; deterministic MVP → query queue → gated LLM; ADR-0015 Proposed)
+  phase-9-data-governance/           README (UK-GDPR retention/erasure/PII lifecycle; ADR-0017 Proposed)
 (docs/research/whatsapp-coexistence.md — M3 research, outside this tree)
+(docs/open-questions.md — consolidated decisions register, outside this tree)
 ```
+
+> **Phases 8 & 9 — integrated 2026-06-24.** Two items from `to-integrate-into-phases/` were filed into the
+> phase structure: **Phase 8 — Inbox/Triage Management** (additive, like Phase 7; ADR-0015 _Proposed_) and a
+> **Phase 4a corpus revamp** from the 2-year EVA full-address export (ADR-0016 _Proposed_; **ADR-0013 stays
+> binding — no runtime matcher**). The whole-repo review additionally surfaced **Phase 9 — Data Governance,
+> Retention & Erasure** (ADR-0017 _Proposed_) as the biggest substantive gap. All three are **planned / not
+> built**; consolidated decisions live in [../open-questions.md](../open-questions.md).
 
 > **Phase 7 — Box-centric intake pivot (ADR-0012).** Added 2026-06-22 as a later **additive** phase
 > (folder at parse-confirm, File-Request image chasers, webhook intake; **Dataverse-authoritative,
@@ -86,6 +96,10 @@ docs/plans/
 | [phase-5-…/copilot-studio-setup.md](./phase-5-ocr-and-scale/copilot-studio-setup.md) | M3 Copilot Studio staff-assistant grounded on Dataverse (gate `COPILOT_ENABLED`): pre-reqs, grounding model, Code-App seam, use-cases. | **Phase 5c** (M3) |
 | [../research/whatsapp-coexistence.md](../research/whatsapp-coexistence.md) | M3 research + phased plan for WhatsApp coexistence (ACS Advanced Messaging; thread→Case correlation by VRM/phone; the hard tracking problems). | **Phase 5b** (M3, ADR-0003/0007) |
 | [../architecture/architecture-audit-2026-06-20.md](../architecture/architecture-audit-2026-06-20.md) | Dated architecture-audit findings register (F1–F11) across Functions/IaC/Dataverse/flows/connectors/Code App, each CLAUDE-fixable vs operator. | **cross-cutting** (audit) |
+| [phase-4-address-and-chaser/inspection-address-revamp.md](./phase-4-address-and-chaser/inspection-address-revamp.md) | Revamp the inspection-address **suggestion** corpus from the 2-year EVA full-address export (~17,737 rows); offline profile→provider-map→dedup→regenerate; helpers are offline-only. **ADR-0013 stays binding.** | **Phase 4a** (ADR-0016 _Proposed_) |
+| [phase-8-inbox-management/README.md](./phase-8-inbox-management/README.md) | Classify **every** inbox email into the operator taxonomy (receiving-work / query / other); deterministic `/classify-email` MVP + `cr1bd_inboundemail` triage table → query-queue UI → gated LLM. | **Phase 8** (ADR-0015 _Proposed_) |
+| [phase-9-data-governance/README.md](./phase-9-data-governance/README.md) | UK-GDPR retention/erasure/PII lifecycle across Dataverse + Blob + Box; two competing clocks (minimisation vs litigation hold); DSAR runbook + DPIA + AI-data-protection gate. | **Phase 9** (ADR-0017 _Proposed_) |
+| [../open-questions.md](../open-questions.md) | Consolidated **decisions** register (distinct from the operator-action registry gated.md) for Phases 4a/8/9 + cross-cutting + doc-hygiene. | **cross-cutting** (decisions) |
 
 ## ROADMAP coverage check (every phase/feature has a plan)
 
@@ -113,6 +127,9 @@ docs/plans/
 | **Phase 5c** — Valuation & Copilot — **M3** | **valuation-and-copilot**; **copilot-studio-setup** |
 | **Phase 6** — Boundary evidence & handoff | code-audit-cleanup (+ `verify-all.mjs` gates; operator evidence in DEPLOY-RUNBOOK) |
 | **Phase 7** — Box-centric intake pivot (ADR-0012) | phase-7-box-integration/README; box-custom-connector-and-webhook; box-integration-activation (+ the authoritative `box-integration-pivot/plans/00-BUILD-PLAN.md`) |
+| **Phase 4a (revamp)** — Inspection-address corpus from EVA export (ADR-0016 _Proposed_) | phase-4-address-and-chaser/inspection-address-revamp |
+| **Phase 8** — Inbox/Triage Management (ADR-0015 _Proposed_) | phase-8-inbox-management/README |
+| **Phase 9** — Data Governance, Retention & Erasure (ADR-0017 _Proposed_) | phase-9-data-governance/README |
 
 **Status:** every ROADMAP phase/feature has at least one plan, and (2026-06-20) **3a, 3c-Fn, 3d** were
 promoted to **dedicated** plans (enrichment-activation, eva-validation-function, box-archival-pipeline);

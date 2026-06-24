@@ -37,7 +37,7 @@ docs/
   gated.md           hard/soft operator-blocker registry (everything that needs the user)
   plans/             one folder per phase, each with an ordered build checklist; index = plans/README.md
   reviews/           BINDING dated manual reviews — see docs/reviews/README.md
-  adr/               architecture decision records 0001–0012
+  adr/               architecture decision records 0001–0018 (0015–0018 Proposed)
   architecture/      microsoft-stack, data-model, eva-*, integrations, live-environment (canonical), environment (historical)
   requirements/      admin-overview, intake-workflow, provider-corpus, inspection-address, company-background
   design/  research/  activation/  reference/   UI spec · forward research · operator playbooks · external specs
@@ -63,10 +63,17 @@ These hold **ideas and references** to Collision Engineers' processes — mine a
 are not authoritative. The binding design is the spike's own distilled `docs/` + the `raw/` inbox.
 Paths are relative to this repo, now at `collisionsuite/active/collisionspike/` (reorganised 2026-06-23).
 
-- **cedocumentmapper_v2.0** (`../cedocumentmapper_v2.0` — active sibling) — the document parser,
-  **already ~75% built** (Python library + CLI; engine/readers/rules/normalisers/EVA-JSON
-  exporter/tests done; UI/regression/packaging/CI outstanding; PyMuPDF **licensed** (AGPL concern
-  resolved)). Complete & integrate it — don't re-derive parsing in Power Fx.
+- **cedocumentmapper_v2.0** (`../cedocumentmapper_v2.0` — active sibling) — the document parser, and the
+  **one exception to the "prior-art only / do not modify" framing above**: it is the **authoring source of
+  truth** for the engine that is **vendored + live** in this repo's parser Function (edit-in-sibling-first,
+  then re-vendor — see [ADR-0018](./docs/adr/0018-cedocumentmapper-dual-target-vendored-engine.md),
+  [repo-constellation](./docs/architecture/repo-constellation.md), and that copy's `PROVENANCE.md`). It is a
+  **standalone dual-target product**: a single-user **desktop review GUI** (React + pywebview; portable
+  PyInstaller exe via `build.ps1`) **and** a headless **engine-core for the cloud** (our Azure Function). The
+  engine core is **complete & tested** — the old "~75%, UI/packaging outstanding" line is **stale**; it now
+  also has the GUI, packaging, an opt-in extraction orchestrator + offline LLM-assist, and an eval harness
+  (all **desktop/dev-only — NOT on the vendored cloud path**). PyMuPDF is **licensed** (AGPL resolved). Reuse
+  the engine; don't re-derive parsing in Power Fx.
 - **ccc** (`../../archive/ccc`) — programme planning, skills, and **draft** contracts. Prior art to adapt.
 - **collisioncc** (`../../archive/collisioncc`) — a mature reference build on Google Cloud; useful source
   of the EVA Sentry API detail, `case-status`, `image-rules`, provider knowledge, and a **pricing
@@ -111,7 +118,9 @@ All non-trivial integrations are **feature-gated with Dataverse environment vari
 (`EVA_API_ENABLED`, `PDF_MAPPER_ENABLED`, `ENRICHMENT_ENABLED`, `AZURE_MAPS_ENABLED`,
 `COPILOT_ENABLED`, and the **Phase-7 `BOX_*` set** — `BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`,
 `BOX_FILEREQUEST_ENABLED`, `BOX_EMBED_ENABLED` (reserved), `BOX_METADATA_ENABLED` (deferred), all
-default-off). **EVA** has two paths: JSON drag-drop export now; **Sentry REST API later** (in testing).
+default-off). **EVA** has two paths: JSON drag-drop export now; **Sentry REST API later** (gated). The
+drag-drop path is current because Minotaur Software's Sentry API supports only **one principal code** per
+API submission (it cannot route different work-provider codes); REST stays gated pending Minotaur's patch.
 **Box (Phase 7, ADR-0012)** is an **additive, one-way mirror** (Dataverse stays the system of record):
 all non-byte Box ops run through a **custom connector** (CCG token minted inside the `box-webhook`
 Function, never the connector); **evidence is linked, not embedded** — a server-minted "Open in Box" deep
@@ -138,7 +147,7 @@ boundaries; **full descriptions + boundaries are in [AGENTS.md](./AGENTS.md)**. 
 - **power-automate-flow-builder** — cloud flows: intake, dedup, status machine, parser/enrichment calls, EVA-submit + Box-sync, chasers.
 - **eva-sentry-integration** — EVA Sentry REST v1.2, the 12-field JSON contract, photo-order/image rules, drag-drop export, Box.
 - **dataverse-data-architect** — the `CollisionSpike` solution: tables, provenance, env-var gates, auditing, ALM.
-- **document-parser-engineer** — completes `cedocumentmapper_v2.0` (Python; PyMuPDF licensed); hands a clean HTTP entry point to the azure agent.
+- **document-parser-engineer** — maintains `cedocumentmapper_v2.0` (Python; PyMuPDF licensed) as the engine's authoring source of truth; hands a clean importable **engine-core** the azure agent vendors into the parser Function's HTTP route (ADR-0004/0018) — not an HTTP service in the sibling itself.
 
 Reused: **`code-app-architect`** (code-apps-preview) owns the Code App shell, React/Vite, connector
 *selection*, and `pac code` deploy — our agents defer to it. **Do not** use `canvas-app-*` / `genpage-*`

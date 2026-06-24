@@ -1,21 +1,25 @@
 # ROADMAP — collisionspike
 
-_Phase-1 (M1) case-intake spike for **Collision Engineers** (UK vehicle-damage assessment) on the **Microsoft stack** — Power Apps **Code App** + Dataverse + Power Automate + Azure Functions. Last updated **2026-06-22**._
+_Phase-1 (M1) case-intake spike for **Collision Engineers** (UK vehicle-damage assessment) on the **Microsoft stack** — Power Apps **Code App** + Dataverse + Power Automate + Azure Functions. Last updated **2026-06-24**._
 
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [docs/gated.md](./docs/gated.md) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
 
 > **Role split.** This **ROADMAP** is the forward phased checklist (per-phase done/remaining).
 > [CURRENT_STATUS.md](./CURRENT_STATUS.md) is what is live *now*. [docs/gated.md](./docs/gated.md) is
-> everything that needs the operator (hard/soft blockers). The canonical phase taxonomy is the
-> **Phase 0–6** used here, **plus the later additive Phase 7** (the Box-centric intake pivot, ADR-0012);
-> each phase's ordered build checklist lives in
+> everything that needs the operator (hard/soft blockers). The canonical phase taxonomy is
+> **Phase 0–6** used here, **plus the additive Phase 7** (Box-centric intake pivot, ADR-0012),
+> **Phase 8** (inbox/triage management, ADR-0015 _Proposed_), and **Phase 9** (data governance,
+> retention & erasure, ADR-0017 _Proposed_); each phase's ordered build checklist lives in
 > [docs/plans/&lt;phase&gt;/README.md](./docs/plans/README.md).
 
-> This roadmap is comprehensive: the early phases are largely **complete** because the M1 vertical slice was built offline and much of the non-inbox deploy is already executed in the dedicated Sandbox. The frontier is **live activation** (operator), **enrichment + EVA/Box**, and the **provider-corpus incorporation**.
+> **Live counts live elsewhere — by design.** Table / choice-set / relationship / env-var / flow /
+> test-gate tallies are **not restated in this ROADMAP** (they drift). The live registry is
+> [CURRENT_STATUS.md](./CURRENT_STATUS.md) + [docs/architecture/live-environment.md](./docs/architecture/live-environment.md);
+> this ROADMAP tracks **what** is done / remaining, not running totals, and carries **no dated change
+> narrative** — that is CURRENT_STATUS's job. ADRs **0001–0014** are recorded; **0015–0018** are
+> _Proposed_ (the two integrated items, the new governance phase, and the parser/repo-boundary ADR-0018).
 
-> **2026-06-19 progress** — (1) **CE Parser connector wired + bound**: the custom connector now exposes `api_key`, a Connected connection exists (`01b43be8…`), the Code App calls the parser through it (`CollisionEngineersParserService` + `parser-connector-transport.ts`), and the old raw-fetch path (`parser-config.ts`) was deleted — so **manual-intake parse is no longer CSP-blocked** and the function key is off the client bundle (204/204 app tests; rebuilt + pushed). (2) **Provider-corpus incorporation (1b.2) LOADED** — scripts 10–14 + verify all passed (WorkProvider 390 updated, 20 named yards, 174 InspectionAddress rows, 20 ImageSource + 98 N:N); **37 over-length principal codes deferred** (widen `cr1bd_principalcode` or supply ≤8-char codes), GGP→GG / ZEN==ZENITH merges deferred. (3) **Built this session, gated-OFF, deploy pending**: EVA Sentry REST v1.2 (`functions/evasentry`, pytest 42/42), OCR host (`ocr/`, ACA — no longer deferred), parser B2 claimant telephone/email extraction, plans for every remaining phase, and hardened IaC (workspace App Insights, no shared-key storage). _(A runtime inspection-address matcher was also built this session but was later **removed root-and-stem 2026-06-23** — built on a misreading; the inspection address is now offline-derived full-address suggestions + manual confirm, ADR-0013.)_ **Azure deploys for evasentry/ocr + the parser REDEPLOY and the Phase-1 flow-chain activation on `digital@` remain pending.**
-
-> **2026-06-20 progress** — **M2 mega-build + deploys.** Authored the authoritative **[docs/plans/milestone-model.md](./docs/plans/milestone-model.md)** (retired the *"M2 = Phases 3–5"* shorthand that caused the M1/M2 overlap; valuation reconciled to **M3**) + the 3 missing M2 plans + Copilot/WhatsApp/multi-inbox/storage/architecture docs. **7 verified code slices** (`node verify-all.mjs` **7/7**): dashboard funnel re-cut (the "Submitted" overlap fix), the live **FIX-3** status mirror in `case-status.ts`, the **suggested-locations** panel, reg-OCR + flows (anchored match, **S2** Box content-bind + fictional-`CreateFolder` fix) + **S4/S5/S7/S8** hardening. **Deployed to the sandbox gated-OFF, no creds:** **Document Intelligence** (`cespkdocintel-dev`, online), **evasentry** (`cespkeva-fn-ufa3ci`, Running), parser+enrichment storage hardened live (S7). **Loaded 697 suggested InspectionAddress rows** (decisionMode=Unknown; 17-verify all passed). **evavalidation** (M2.B) deployed + Running (`cespkeval-fn-6c6fxd`) — the FC1 plan-create rate-throttle cleared after a cooldown; only the `status-evaluate` repoint remains. Operator items in **[docs/gated.md](./docs/gated.md)** (H13 3-case re-run, H14 DI key, S12–S14). Detail in **[CURRENT_STATUS.md](./CURRENT_STATUS.md)**.
+> This roadmap is comprehensive: the early phases are largely **complete** because the M1 vertical slice was built offline and much of the non-inbox deploy is already executed in the dedicated Sandbox. The frontier is **live activation** (operator — scaling intake to the other two inboxes), **EVA/Box test activation**, and the **two newly-integrated phases** (inbox triage + data governance).
 
 ---
 
@@ -34,18 +38,22 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ## Now / Next / Later
 
-**Now (operator, single highest-value step)** — activate **live email intake for ONE shared mailbox**: bind the Outlook shared-mailbox connection, bind the Dataverse + parser connection references, turn ON the `intake` + `classify-persist` + `parse` flows, send a test email, watch a real Case appear (DEPLOY-RUNBOOK §7). This is what makes "emails populate the app."
+_Each rung points at its owning phase / gated.md item rather than restating work tracked below._
 
-**Next** — (a) the **provider corpus** is now **incorporated** (1b.2 done 2026-06-19); the **clarifying-info** second phase remains (the plan in `docs/plans/`, `[DEPLOY-WITH-LOGIN]`, pure data, no inbox contact); (b) activate **enrichment** (DVSA/DVLA creds → Key Vault, `DVSA_TENANT_ID`, flip `ENRICHMENT_ENABLED` in a test env); (c) drive the **EVA M1 JSON drag-drop** path end-to-end into the EVA **test** environment + **Box** archival.
+**Now (operator)** — **scale live intake to the other two shared inboxes.** `digital@` intake is **already live and ON** (gated.md item 2); the frontier is the Info / Engineers / Desk inboxes (Phase 2, "scale to all three"). The two highest-value **build** items in parallel are the newly-integrated **Phase 8** (inbox triage — start with the offline `/classify-email` + table, no live edit) and **Phase 9** (a data-retention/erasure ADR + schema — the biggest substantive gap).
 
-**Later** — **EVA Sentry REST API** and **OCR for scanned PDFs** ("B-full", Azure Container Apps) are now **built (deploy pending)**; **manual inspection address with offline-derived full-address suggestions** is the model (a runtime matcher was built then **removed root-and-stem 2026-06-23** — ADR-0013, see [docs/architecture/inspection-address-corpus.md](./docs/architecture/inspection-address-corpus.md)); **chaser automation** (draft-only) and the full **§7 live-validation checklist** across all three mailboxes remain. **Phase 7 (the Box-centric intake pivot, ADR-0012)** has its **Dataverse schema + env-vars applied live (all `BOX_*` gates OFF)**, with the **`box-webhook` Function now deployed gated-OFF in Dev (`cespkbox-fn-v76a47`, Gate-C-verified, secret-free)** and the connector/flows still **authored offline, not deployed/bound** — the long pole is the **BUSINESS-account** second test phase (see Phase 7 below + gated.md item 5).
+**Next** — (a) **EVA M1 JSON drag-drop** into the EVA **test** env (Phase 3b, gated.md item 4); (b) the **Phase-7 Box BUSINESS-account** second test phase (CCG + File Request + the `FILE.UPLOADED` live-test, gated.md item 5); (c) **enrichment test/prod cutover** — Dev is already ON + live-verified (Phase 3a residual, _not_ a fresh activation); (d) **re-derive the inspection-address corpus** from the new 2-year EVA full-address export (Phase 4a, ADR-0016 _Proposed_).
+
+**Later** — **EVA Sentry REST** prod cutover (Phase 3c, built/deploy-pending); **OCR for scanned PDFs** wiring (Phase 5a, deployed); **chaser automation** (draft-only, Phase 4b); the deferred Box tiers (Business-Plus metadata); the full **§7 live-validation checklist** across all three mailboxes (the M1 "done" definition). The inspection-address model stays **offline-derived suggestions + manual confirm** — **ADR-0013 remains binding, no runtime matcher** ([docs/architecture/inspection-address-corpus.md](./docs/architecture/inspection-address-corpus.md)).
+
+> **Why JSON drag-drop is the EVA path today (not merely an "M1 fallback").** The EVA **test environment exists** (credentials in Infisical); the blocker is a **vendor limitation** — Minotaur Software's Sentry API currently accepts only **one principal code** per API submission, so it cannot route different work-provider codes and would force every case under a single work provider. Minotaur is patching this (no ETA); EVA REST therefore stays **gated** pending that patch **+ a parity test**. Note that **enrichment (DVSA/DVLA) is separate from EVA** — it runs at intake, pre-EVA, and is **live in Dev (gate ON since 2026-06-21)**; EVA stays **OFF**.
 
 ---
 
 ## Phase 0 — Foundations _(complete)_
 
 - [x] Repo, requirements, Microsoft-stack research, phased PLAN distilled into `docs/` + `PLAN.md`.
-- [x] **ADRs 0001–0011** recorded.
+- [x] **ADRs 0001–0014** recorded (0015–0018 _Proposed_ — see Phases 8, 9, Phase 4a, and the parser-boundary ADR-0018).
 - [x] **Power Apps Code App** scaffolded (React + Vite + Fluent v9) in `mockup-app/`.
 - [x] **Shared contracts** ported as typed TS — EVA payload (**12 fields**, 6-line address), case-status state machine, image-rules.
 - [x] **Domain logic** in typed TS — classification, **ADR-0010 dedup ladder**, provider-match, address-policy.
@@ -71,7 +79,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ### 1b. Dataverse schema in Sandbox
 
-- [x] **Schema built** in Sandbox `Collision Engineers - Dev` — solution `CollisionSpike`, prefix `cr1bd`: **11 tables**, 19 choice sets, 15 relationships, 3 alt keys, 11 env-vars.
+- [x] **Schema built** in Sandbox `Collision Engineers - Dev` — solution `CollisionSpike`, prefix `cr1bd`: tables, choice sets, relationships, alt keys, env-var gates (incl. the Phase-7 `BOX_*` set, applied live). _Live tallies: CURRENT_STATUS / live-environment._
 - [x] EVA secrets **Key-Vault-typed, no values**; `ENRICHMENT_ENABLED` imported **`false`** per-env.
 
 ### 1c. Code App (live)
@@ -84,12 +92,12 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ### 1d. Flows (imported OFF; M1 chain now WIRED LIVE via CLI)
 
-- [x] **10 cloud flows imported `state=off`**; connection refs unbound.
+- [x] **Cloud flows imported `state=off`** then progressively wired; the M1 chain (intake / classify-persist / parse / enrich / status-evaluate + case-resolve) is now **ON in Dev** with the core connection refs bound. _Exact flow count + ON/OFF state: CURRENT_STATUS / live-environment._
 - [x] **Intake flow guards** — `MinIntakeDate` (2026-06-17) + temporary attachment filter.
 - [x] **Dedup ladder (ADR-0010)** encoded in `case-resolve`.
 - [x] **M1 flow chain WIRED LIVE via CLI (2026-06-19).** The 3 Run-a-Child cards (`Run_classify_persist`→`Run_parse`→`Run_status_evaluate`) + `Init_caseId`/`Capture_caseId_*` were added to **CS Intake** via the Dataverse API; the `OnNewEmailV3` **trigger node was kept byte-identical** so the digital@ webhook survived (clientdata can't re-arm an Office 365 webhook). **classify-persist creating Evidence verified by a live test email.**
 - [x] **Two live bug fixes reconciled into `flows/definitions/`** so a solution re-import can't regress them: (1) `cr1bd_payloadhash` (MaxLength 80) **overflowed at 89 chars** on long-subject emails → no Case; wrapped the `subject|from` seed in **`@take(...,80)`** in `Create_case_matched` **and** `Create_case_unassigned` across **both** intake variants. (2) Child flows need a **`Response`** to be Run-a-Child-callable; added `Respond_to_parent` to `parse` (returns `instructionBytesB64`/`instructionName`) + `status-evaluate` (returns the readiness result) — `classify-persist` already had one. Gate `node verify-all.mjs` **6/6** (flow linter 114/114).
-- [ ] **Residuals (not regressions):** parser Function **502** — fixed separately (`parse` already audits a 5xx and lets status advance to needs_review); intake trigger **`concurrency = 1`** — the documented **webhook-risk** edit, **deferred** (re-arms the live webhook in the designer).
+- [ ] **Residuals (not regressions):** parser Function **502** — **fixed 2026-06-19, regression-guarded** (the 16:49 UTC unreadable-PDF burst; the handler now returns **422 → needs_review** with no retry for unreadable docs, guarded by `test_unreadable_document_returns_422`; not a live blocker); intake trigger **`concurrency = 1`** — the documented **webhook-risk** edit, **deferred** (re-arms the live webhook in the designer).
 
 ---
 
@@ -105,7 +113,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ### 1b.2 Corpus incorporation (per `docs/plans/phase-1-intake-and-case-tracking/corpus/dataverse-corpus-incorporation.md`) _(LOADED — scripts 10–14 + verify all passed 2026-06-19)_
 
-- [x] `10-seed-workprovider.ps1` — `WorkProvider` **390 updated** (`Corpus 2026-06-18` provenance; SEED→active / ARCHIVE→inactive; name from address; domains/toggles preserved); 11 excluded, 2 review-skipped, 12 placeholder names. **37 principal codes >8 chars deferred** (operator must widen `cr1bd_principalcode` or supply canonical ≤8-char codes); GGP→GG and ZEN==ZENITH merges deferred to the clarifying-info phase.
+- [x] `10-seed-workprovider.ps1` — `WorkProvider` **390 updated** (`Corpus 2026-06-18` provenance; SEED→active / ARCHIVE→inactive; name from address; domains/toggles preserved); 11 excluded, 2 review-skipped, 12 placeholder names. **The 37 over-length "principal codes" are EVA-export NAME-ARTIFACTS, not real codes** — `cr1bd_principalcode` **stays maxLength=8** (NOT widened). Disposition: **canonicalise the 5 active recurring businesses** (WHITELINE, BLACKLINE, SILVERLINE, PROACTIVE, WATERMANS); **defer SILVER 100** (different/unclear Case/PO process); **reclassify the within-24m individuals as VRM-keyed** (no Principal code); **disregard the 19 used >24 months ago**. Full list + dispositions: [docs/reference/over-length-principal-codes.md](./docs/reference/over-length-principal-codes.md). GGP→GG and ZEN==ZENITH merges deferred to the clarifying-info phase.
 - [x] `11-seed-repairers.ps1` — **20** named full-postcode yards + **14** garage↔REPAIRER matches → `Repairer`.
 - [x] `12-seed-inspection-sites.ps1` — `InspectionAddress` **174** rows, all Confirmed Physical, all with postcodes.
 - [x] `13-link-imagesources.ps1` — `ImageSource(kind=repairer)` **20**, with **98** WorkProvider N:N links.
@@ -127,7 +135,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 `[RESERVED-FOR-USER]` — after the non-inbox deploy is green, **one mailbox first**, in DEPLOY-RUNBOOK §7 order.
 
 - [ ] 🔒 **Bind the Outlook shared-mailbox connection** + Dataverse + parser connection references.
-- [ ] 🔒 **Turn ON `intake` + `classify-persist` + `parse` for ONE inbox.** _(The M1 chain is **wired live via CLI** — orchestrator cards on `CS Intake`, repo reconciled; remaining is the operator/designer step: bind the parser connection, resolve the parser **502**, optionally re-arm the trigger when changing **`concurrency=1`**, flip the children ON.)_
+- [ ] 🔒 **Turn ON `intake` + `classify-persist` + `parse` for ONE inbox.** _(The M1 chain is **wired live via CLI** — orchestrator cards on `CS Intake`, repo reconciled; remaining is the operator/designer step: bind the parser connection, optionally re-arm the trigger when changing **`concurrency=1`**, flip the children ON.)_
 - [ ] 🔒 **Send a test email** (PDF + 2 images: overview with legible plate + damage closeup).
 - [ ] 🔒 **Confirm a Case appears**; status `new_email → ingested`; provider matched by sender domain; 12 fields pre-filled with provenance.
 - [ ] 🔒 **Confirm Outlook categories** applied.
@@ -141,14 +149,18 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ### 3a. Enrichment (DVSA/DVLA)
 
-- [x] **Enrichment Function deployed + gate ON** ✅ (`ENRICHMENT_ENABLED=true` in Dev, flipped 2026-06-21).
+- [x] **Enrichment Function deployed + gate ON in Dev** ✅ (`ENRICHMENT_ENABLED=true`; live-verified `BC23JZE`→Ssangyong Rexton).
 - [x] **Direct DVSA + DVLA** path; **Google Cloud gateway retired**. **B1 obviated.**
 - [x] Enrichment **custom connector** + Bicep + mocked pytest; live-verified gate behaviour.
-- [ ] 🔒 **Inject DVSA/DVLA creds** into Key Vault + set `DVSA_TENANT_ID`.
-- [ ] 🔒 **Register/consent the Entra app**.
-- [ ] 🔒 **Flip `ENRICHMENT_ENABLED=true`** in a **test** env; verify mileage (only when the document lacks it — ADR-0006) + make/model.
+- [x] **DVSA/DVLA creds injected + `DVSA_TENANT_ID` set; Entra app registered/consented** — creds are now **Key Vault references** (verified live 200, 2026-06-23). _(was three separate remaining items — all done in Dev.)_
+- [ ] 🔒 **Test/prod cutover** — the only enrichment residual: promote the verified Dev activation to a test/prod env (ADR-0006 mileage acceptance: estimate only when the document lacks it).
 
-### 3b. EVA — JSON drag-drop (M1 path + permanent fallback)
+### 3b. EVA — JSON drag-drop (the current EVA path, pending the Minotaur patch)
+
+> **Current path by vendor constraint, not a stop-gap.** JSON drag-drop is the live EVA path because
+> Minotaur's Sentry API today supports only **one principal code** for API submissions — it cannot route
+> the multiple work-provider codes our cases carry, so REST would funnel every case under a single work
+> provider. Minotaur is patching this (no ETA). REST (3c) stays gated pending the patch **+ a parity test**.
 
 - [x] **12-field EVA JSON serializer** built; exact order, 6-line address, enums.
 - [x] **B3 resolved** — contract is **12 fields**.
@@ -158,8 +170,9 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 ### 3c. EVA — Sentry REST API (later)
 
 - [x] **Build the Sentry REST submit path** (v1.2) — `functions/evasentry`: two-request EVA `Files` submission (`/Instruction/Inspection` then `/Note/SubmitNote`), payload-hash idempotency; pytest **42/42**; `finalize-eva-box` refined. _(built; gated-OFF, Azure deploy pending.)_
-- [ ] 🔒 **B5 — EVA test credentials** → Key Vault; flip `EVA_API_ENABLED=true` in test.
-- [ ] 🔒 **Production cutover** — gated behind a parity test; operator-confirmed.
+- [ ] 🔒 **Vendor blocker — Minotaur one-principal-code limit.** Sentry currently accepts only one principal code per API submission, so REST cannot route our multiple work-provider codes. **Gated pending Minotaur's patch (no ETA) + a parity test** — this, not the absence of a test env (the test env exists; creds in Infisical), is why drag-drop (3b) is the current path.
+- [ ] 🔒 **B5 — EVA test credentials** → Key Vault; flip `EVA_API_ENABLED=true` in test (after the Minotaur patch lands).
+- [ ] 🔒 **Production cutover** — gated behind the parity test; operator-confirmed.
 
 ### 3d. Box archival
 
@@ -188,7 +201,12 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - [x] **Address-policy gate** in the Code App — per-provider policy; no silent "Image Based Assessment".
 - [x] **Known-site reference data** modelled (`InspectionAddress` + `Repairer`); seeded by Phase 1b.
 - [x] **Manual inspection address with offline-derived full-address suggestions** — `Loc` is an **EVA-export artifact, not an intake input**; the full inspection address is derived **offline** from case history into a static, **full-addresses-only** suggestions corpus (`cr1bd_inspectionaddress`) → staff **manually pick** → "Image Based Assessment" with a reason. Postcode normalisation honours `AZURE_MAPS_ENABLED=false` → **postcode.io**. Partials/bare postcodes are a **future-investigation backlog**, never live. _(A runtime matcher Function was built then **removed root-and-stem 2026-06-23** — built on a misreading; ADR-0013, see [docs/architecture/inspection-address-corpus.md](./docs/architecture/inspection-address-corpus.md). There is **no runtime matcher**.)_
-- [ ] **Azure Maps (gated)** — only if needed (later).
+- [ ] **Corpus FULL REPLACE from the vetted 2-year EVA full-address export** (integrated 2026-06-24, **ADR-0016 _Proposed_**) — the EVA export (`fullevaexportinspectionaddresses.xlsx`, ~17,737 inspection rows with full street/postcode/site-name) **fully replaces** the inspection-address corpus (it is **not** an additive suggestion layer over the old rows). **Back up the current corpus to the repo FIRST**, then: profile the export → map each inspection to a **provider/Principal** via the **'Case ID' leading-alpha prefix** (e.g. `CCPY26050`→`CCPY`; a **VRM-shaped Case ID** is an **individual case keyed by VRM**, no Principal code) → dedup to unique physical sites on **full address** (provider + full address; postcode secondary) → import **every row as a SUGGESTION** (`decisionMode=Unknown`, nothing auto-confirms). **ADR-0013 stays binding** — staff still pick per case; all helper methods are **offline corpus-build only**, never a per-Case runtime resolver.
+  - **"Always image-based" is operator-designated** for specific providers only — it is **not** statistically derived from the export (B4).
+  - **Proximity ranking is implemented now** as a suggestion-**ordering** signal (never an auto-select, so ADR-0013 is not reopened): rank by accident location/postcode **when present** in the instruction (formats vary — opportunistic), else fall back to **claimant home-address** proximity (a soft signal, not a guarantee — they may have been travelling). Needs two best-effort parser extractions + gated geocoding (B5).
+  - **Frequency + recency ranking is implemented now** and surfaced in the Code App now (not deferred to M2) (B6).
+  - Plan: [docs/plans/phase-4-address-and-chaser/inspection-address-revamp.md](./docs/plans/phase-4-address-and-chaser/inspection-address-revamp.md).
+- [ ] **Azure Maps (gated)** — only if needed (later); geocoding stays **offline corpus-mining** if ever used.
 
 ### 4b. Chaser automation (channel-aware — ADR-0003)
 
@@ -233,20 +251,16 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 
 ## Phase 7 — Box-centric intake pivot (additive hybrid) _(schema + env-vars applied live, gates OFF; box-webhook Function deployed gated-OFF; connector + flows authored offline; NOT activated)_
 
-`[BUILD]` complete in the working tree; the **Dataverse schema + env-vars are applied live in Dev (all
-`BOX_*` gates OFF)** and the **`box-webhook` Function is deployed gated-OFF (`cespkbox-fn-v76a47`, secret-free)**; the connector/flows are authored offline and **everything live beyond the
-schema + the gated-off Function host is `[RESERVED-FOR-USER]`.** Binding decision:
-[ADR-0012](./docs/adr/0012-box-centric-intake-additive-hybrid.md). Ordered build + cross-section
-reconciliations: [box-integration-pivot/plans/00-BUILD-PLAN.md](./box-integration-pivot/plans/00-BUILD-PLAN.md).
-Phase docs: [docs/plans/phase-7-box-integration/](./docs/plans/phase-7-box-integration/).
-
-> **Phase ≠ Milestone.** Phase 7 is a work-breakdown phase; Box-archival-at-EVA-submit is the older **M2.D**
-> slice (`phase-3-enrichment-and-eva/box-archival-pipeline.md`, reconciled DOWN to ADR-0012). This phase is
-> the broader pivot that brings Box **earlier** (folder at parse-confirm) and **deeper** (File-Request
-> chasers + webhook intake). **Dataverse stays the system of record; Box is a one-way mirror.** Start on
-> **base Box Business** (metadata = Business Plus is out of scope now); **EVA stays gated OFF**; **evidence
-> is linked, not embedded** (a server-minted "Open in Box" deep link — no iframe, no `frame-src` edit;
-> `BOX_EMBED_ENABLED` reserved/off).
+An **additive** pivot: bring Box **earlier** (folder at parse-confirm) and **deeper** (File-Request chasers
++ webhook intake) **without moving the source of truth** — **Dataverse stays authoritative; Box is a one-way
+mirror**. `[BUILD]` complete in the tree; the **Dataverse schema + env-vars are applied live in Dev (all
+`BOX_*` gates OFF)** and the **`box-webhook` Function is deployed gated-OFF** (`cespkbox-fn-v76a47`,
+secret-free); the connector + flows are authored offline, and **everything live beyond that is
+`[RESERVED-FOR-USER]`**. Floor is **base Box Business** (metadata = Business Plus, out of scope now); **EVA
+stays gated OFF**; **evidence is linked not embedded** (`BOX_EMBED_ENABLED` reserved/off — no `frame-src`
+edit). Binding decision [ADR-0012](./docs/adr/0012-box-centric-intake-additive-hybrid.md); ordered build
+[box-integration-pivot/plans/00-BUILD-PLAN.md](./box-integration-pivot/plans/00-BUILD-PLAN.md); phase docs
+[docs/plans/phase-7-box-integration/](./docs/plans/phase-7-box-integration/). _(Live deploy narrative lives in CURRENT_STATUS; Phase≠Milestone map in milestone-model.md.)_
 
 ### B0 — Unlock: custom connector + token-mint/webhook Function + schema (gate `BOX_API_ENABLED`)
 
@@ -290,6 +304,65 @@ Phase docs: [docs/plans/phase-7-box-integration/](./docs/plans/phase-7-box-integ
 **Two-phase live testing.** Phase A (done) — a throwaway **FREE** Box account proved **8/9 raw-REST ops** via a dev token (folder created + recursively deleted; no secret printed), and a free-account demo (case **SBL26001**) proved the folder + upload + shared-link pattern **manually**; the lone REST failure `CreateWebhook` 403 `insufficient_scope` is expected on a free plan. Phase B (pending, operator) — the live **Business-account** tenant lights up the always-on service-identity path (CCG + File Requests + the BLOCKING `FILE.UPLOADED` live-test; metadata is the optional later Business Plus tier). **Phase B is the long pole.**
 
 ---
+
+## Phase 8 — Inbox / Triage Management (additive) _(planned — ADR-0015 Proposed; integrated 2026-06-24)_
+
+Classify **every** email at the 3 shared inboxes (not just attachment-bearing instructions) into the
+operator's taxonomy — route work to the existing Case chain, everything else (queries / enquiries /
+"other") to a lightweight triage record + queue. **Everything is categorised; there is no drop-junk
+pre-filter** — spam simply lands in category `other`. **Deterministic MVP first; LLM gated and deferred.**
+Cost is negligible: the deterministic classifier is **$0** (within the Power Automate seeded run limit at
+~1–3k emails/mo); the later optional LLM pass is **~$0.21–1.50/mo** — track it as a **monitor**, not a cost
+ceiling. Same additive pattern as Phase 7. Full plan:
+[docs/plans/phase-8-inbox-management/README.md](./docs/plans/phase-8-inbox-management/README.md).
+
+> **`.eml` retention rule (A7).** A raw `.eml` is persisted to Blob **only when a Case is extracted**. For
+> query/other email **no `.eml` is persisted** — the mailbox keeps the mail and the triage row holds the
+> metadata + a pointer.
+
+### 8a. Phase A — deterministic MVP (offline build)
+
+- [ ] **`/classify-email` parser route + `email_classifier.py`** — pure, unit-tested function reusing `VRM_RE` / `detect_audit_signals` / phrase tuples from `engine.py`; authored in **both** the vendored `functions/parser/` copy and the `cedocumentmapper_v2.0` sibling (keep `test_engine_vendored_in_sync` green).
+- [ ] **`cr1bd_inboundemail` triage table** + 2 additive choicesets (`cr1bd_inboundcategory` / `cr1bd_inboundsubtype`) + `inbound_*` audit actions — build step `26-inbound-email.ps1`; next free audit-action value `100000022`; `verify-parity.mjs` extended. _(Author offline; operator applies.)_
+- [ ] **`triage-classify` child flow** — create/update the triage row, call `/classify-email`, do the open-Case body-VRM lookup (never auto-link on ambiguity — ADR-0010), return the label.
+- [ ] **Labelled corpus** — relabel the 12 existing fixtures + author synthetic query/enquiry/OOO/bounce `.eml`; **real PII-scrubbed mail = `[RESERVED-FOR-USER]`** (precision unverified until it lands).
+- [ ] 🔒 **Intake restructure (Phase 2 prerequisite, live-designer):** flip `fetchOnlyWithAttachment` true→false + generalise Message-ID dedup + Switch-on-category, on **ONE inbox**, after single-mailbox activation. **Every email is classified** (spam → category `other`); there is **no drop-junk pre-filter**. The classifier is deterministic ($0 within the seeded run limit), so cost is a **monitor** rather than a ceiling.
+- [ ] 🔒 **Classifier testing (gated operator step):** the operator drops real sample emails into the Phase-8 folder and the tests consume them — a planned Phase-8 sub-step to verify precision on real mail.
+
+### 8b. Phase B — query queue + Code App "Inbox / Triage" screen _(planned)_
+### 8c. Phase C — gated LLM assist (`cr1bd_EMAIL_AI_ENABLED`, default off) _(deferred; honours per-provider AI flags; gated by the Phase 9 AI-data-protection prerequisite)_
+
+> **Sequencing:** reconcile the repo `intake.definition.json` to live (`Run_enrich`/`Run_case_resolve`) **before** any triage edit; run the locked decisions (new-table-vs-extend; the 4-quadrant + Other taxonomy) through `grill-with-docs` **before** applying schema. Avoid the triple-loaded "audit" term — name the new actions `inbound_*`.
+
+---
+
+## Phase 9 — Data Governance, Retention & Erasure (NEW) _(planned — ADR-0017 Proposed; the biggest substantive gap surfaced by the 2026-06-24 review)_
+
+The automated pipeline now processes third-party claimant PII (names, VRMs, addresses, accident detail,
+and — **only when a Case is extracted** — a retained `.eml`) across **Dataverse + Azure Blob + Box**, yet
+only **image blobs** are ever purged. No retention policy, no erasure path, no privacy/DPIA artefacts. The
+governance items below are **deferred — pending operator/legal** (G1–G4 / G6); the **retention period +
+lawful basis** are operator/legal input (gated.md).
+
+- [ ] **(deferred — pending operator/legal, G1)** **Retention model = two competing clocks** — GDPR data-minimisation **vs** an engineer-report **litigation / evidential hold** (reports can be disputed years later). Model both, not one expiry.
+- [ ] **(deferred — pending operator, G1)** **Retention-clock schema** — `cr1bd_closedat` / `cr1bd_retentionexpiresat` (+ a legal-hold flag) on `cr1bd_case`; a scheduled **case-disposition** flow (sibling to `box-blob-purge`) that purges retained transient Blob bytes + anonymises/hard-deletes case + evidence PII after the window. **No automated deletion from Box** (see the principle below).
+- [ ] **(deferred — pending operator, G4)** **DSAR / right-to-erasure cross-store runbook** — Dataverse (FetchXML) + Blob (prefix list) + **Box folder by Case/PO**. **DSAR blind spot:** PII-adjacent identifiers also live in **Box folder names, File-Request URLs, and Outlook category strings** outside Dataverse — the path must cover them.
+- [ ] **(deferred — pending operator/legal, G3)** **Privacy notice / DPIA / controller-processor map** — `docs/architecture/data-protection.md` (Box = processor under the one-way mirror; EVA / DVSA / DVLA recipients); **ICO registration** + **DVLA data-use terms** named explicitly.
+- [ ] **Lawful basis** recorded for DVSA/DVLA enrichment (legitimate interest; VRM-only outbound) and valuation (before `VALUATION_ENABLED`).
+- [ ] **AI-data-protection sign-off (deferred, G5)** (gates `EMAIL_AI` / Box-AI / Copilot / vision) — PII pre-scrub, prefer **in-tenant Azure OpenAI** (no external retain/train). The data-protection **production** sign-off is deferred per gate, **but the operator has FULL AUTHORITY for AI testing on all repo data** — so the Phase-8 LLM classifier and the Phase-4a vision/geocode testing are **unblocked now**.
+- [ ] **Audit-trail integrity** — enable native Dataverse auditing on case/evidence/auditevent; define the cascade-delete rule (what happens to `cr1bd_auditevent` when a Case is hard-deleted).
+- [ ] **(deferred — pending operator)** **Store hardening before prod** (G6) — define **KV purge-protection** (blocks permanent secret deletion during the soft-delete window) on the enrichment/EVA/Box vaults; **Azure Blob `evidence` container soft-delete + versioning** (recoverable deletes — the hard pre-step before arming `box-blob-purge`).
+- [ ] **No automated deletion from Box, ever (principle).** `box-blob-purge` only deletes **transient Azure Blob image bytes that are already archived to Box** — it never deletes the Box copy itself. There is **no automated deletion path into Box**.
+- [ ] 🔒 **(deferred — pending operator/legal)** confirm the statutory **retention period** + **lawful basis** + **litigation-hold** rule (G1–G4 / G6 are recorded as deferred-pending-operator, not active work).
+
+> **Staff least-privilege — the 3-role model (G8).** Build **User** (all case-intake actions) + **Admin**
+> (settings + audit logs) **now**, offline and **gated-OFF**, as `cr1bd_*` security roles (the
+> `roles-and-permissions.md` plan); **Engineer** (future assessment functionality) is **deferred / out of
+> scope**. Track here or in Phase 2.
+>
+> **AI testing authority (G5).** Data-protection sign-off is **deferred**, **but** the operator has **full
+> authority for AI testing on all repo data** — an enabler for the Phase-8 LLM classifier and the Phase-4a
+> vision/geocode work.
 
 ## Blocker tracker (DEPLOY-RUNBOOK §0)
 

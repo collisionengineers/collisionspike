@@ -8,10 +8,16 @@ Amended.pdf` (99 pp; the field-level source of truth — v1.1 sits alongside it)
 endpoint names in the older collisioncc guide.
 
 **Scope (ADR-0005):** EVA integration is **full scope**, built/validated against the **EVA test
-environment** now. The base URL is the **same** for test and production — the **credentials** decide:
-**test `Client_Id`/`Client_Secret` route to a different (test) server**. `EVA_API_ENABLED` toggles
-the REST API vs the drag-drop JSON path (drag-drop = M1 path + permanent fallback). The
-**production** cutover is gated until prod is confirmed and a parity test passes.
+environment**, which **exists** (test credentials in Infisical). The base URL is the **same** for test
+and production — the **credentials** decide: **test `Client_Id`/`Client_Secret` route to a different
+(test) server**. `EVA_API_ENABLED` toggles the REST API vs the drag-drop JSON path.
+
+> **Why drag-drop is the current path (vendor constraint, not just an M1 fallback).** Minotaur
+> Software's Sentry API currently supports **only ONE principal code** for API submissions — it cannot
+> route different work-provider codes, so a REST cutover would force **every** case under a single work
+> provider. Minotaur is **patching** this; there is **no ETA**. So JSON drag-drop remains the active EVA
+> path and **`EVA_API_ENABLED` stays gated** pending that patch **plus a parity test**. The
+> **production** cutover is gated until prod is confirmed and a parity test passes.
 
 ## Base & auth
 - **Base URL:** `https://sentry.evasoftware.co.uk/api/` (**same for test and production**). Test vs

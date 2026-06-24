@@ -65,6 +65,11 @@ A python tool to extract data from PDFs was created. This is not 100% foolproof 
 
 > **STATUS UPDATE 2026-06-18:** `cedocumentmapper_v2.0` — a ground-up redesign of the above — is now ~75% complete with structured design, version control, and tests in place. Engine, readers, rules, normalisers, and the 12-field EVA JSON exporter are done; regression harness, packaging, and CI remain. It is deployed as an Azure Function (`Func_Parse`) and powers M1 instruction extraction in the spike. The version-control and design-quality gaps of the original are fully addressed in v2.0.
 
+> **STATUS UPDATE 2026-06-24:** the "~75%" above is **superseded**. The engine core is **complete &
+> tested** and **vendored + live** in the parser Function; the sibling has since added a desktop review GUI,
+> portable packaging, an opt-in extraction orchestrator + offline LLM-assist, and an eval harness (all
+> **desktop/dev-only**, not on the cloud path). The repo boundary + re-vendor method is **[ADR-0018](../adr/0018-cedocumentmapper-dual-target-vendored-engine.md)**.
+
 
 
 Files required in order to add to EVA:
@@ -98,6 +103,12 @@ The current cedocumentmapper tool is used first. This involves dragging the PDF 
 It uses the Princpial (an internal code for each provider) + current year in 2 digit format + current case number from that provider in 3 digit format.
 
 For example, lets say the Provider is CarCompany (not a real provider). The Principal they decided for this is CCPY. CarCompany sends a case. it is the 50th case of this year. The format would be: CCPY26050.
+
+
+
+**Keying rule — PROVIDER work vs INDIVIDUAL/private claimant.** The `Principal+YY+NNN` form above applies to **work-provider** cases: provider work **mints** a Case/PO from the provider's internal Principal code + 2-digit year + 3-digit provider case number (e.g. `CCPY26050`). An **individual / private claimant** (no work provider) has **no minted Principal code** — that case is keyed by the **VRM** (vehicle registration), which becomes the Case/PO. This branch is parsed downstream from the EVA-export "Case ID": a leading alpha prefix means a provider (the prefix is the Principal); a VRM-shaped Case ID means an individual case keyed by VRM (see [provider-corpus.md](./provider-corpus.md)).
+
+> **Cross-cutting.** This keying rule drives Case/PO generation, dedup, and Box folder naming, so the same VRM-vs-Principal branch must hold in all three: dedup matches on **VRM/reference** with **no silent merge** ([ADR-0010](../adr/0010-dedup-reference-disambiguated-no-time-window.md)); the **Box folder is named with the Case/PO** — which for an individual case is the **VRM**. This may warrant its own ADR to pin the keying contract; that is a future decision (no ADR file created here).
 
 
 

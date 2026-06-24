@@ -120,7 +120,9 @@ Decisions:
   **not** mandated. This is revisited only if a client or insurer later mandates UK residency, at which
   point the tier changes. Box Governance retention/legal hold and Box AI (metered AI Units; Business and
   Business Plus include **zero**) are deferred, independently gated Phase-C decisions, each potentially
-  tier-changing.
+  tier-changing. **No automated deletion from Box, ever** (ADR-0017): `box-blob-purge` only deletes the
+  transient Azure **Blob** image bytes already archived to Box — it never touches Box itself, so the
+  one-way mirror is also a write/retain-only archive.
 
 - **Box Relay / Box Automate are assessed and not required.** The valuable capabilities (custom HTTPS
   step, AI agents, Box Extract, metadata-triggered routing) are Enterprise / Enterprise-Advanced-gated

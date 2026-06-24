@@ -177,9 +177,10 @@ suggestions (provider code corrections, garage↔provider links, address lists, 
 
 ### 7. Tidy-up items (optional, low priority)
 
-- **Tidier provider codes:** 37 provider codes are longer than the old 8-character limit. The
-  column was widened so everything loads fine — this is only worth doing if you want neater codes.
-  Send canonical short codes if so.
+- **Tidier provider codes:** 37 EVA-export names are longer than the 8-character `principalcode` cap.
+  These are **export name-artifacts, not real codes**, and the cap **stays 8** (NOT widened) — see
+  [over-length-principal-codes.md](./reference/over-length-principal-codes.md). Only the **5 active
+  recurring businesses** need canonical short codes; send them if you want neater codes.
 - **One internal duplicate-handling step** (`CS Case Resolve`) is intentionally **switched off** —
   it's planned for a later phase, not needed now.
 - **Use the shared readiness check inside the inbox flow:** the readiness logic exists in three

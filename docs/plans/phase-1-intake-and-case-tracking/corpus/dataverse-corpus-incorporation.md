@@ -191,6 +191,10 @@ This **enriches/dedupes against the prior 38** Repairers via the shared `(name, 
 6. **Free-text image-source-note mining** (the highest-value next step) — only **already-corroborated** yards loaded now.
 7. **Dormant >12m providers are NOT activated** — written `active=false` where real principals; kept out of the active matching set.
 8. **Email domains / mailbox / automation toggles** are **not** rewritten (the analysis carries no sender domains).
+9. **The 37 over-length `principal_code`s** (>8 chars) the seed skips are **EVA-export name-artifacts**, not real
+   codes — see [docs/reference/over-length-principal-codes.md](../../../reference/over-length-principal-codes.md).
+   Disposition (Q-H3): keep `maxLength=8`; canonicalise the **5 active businesses**; `SILVER 100` deferred;
+   **individuals route by VRM** (Case/PO = VRM, no Principal code); disregard the 19 used >24 months ago.
 
 ## 9. Pre-flight, validation & rollback
 

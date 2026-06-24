@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-23**._
+_Single source of truth for "where are we now." Last updated **2026-06-24**._
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -139,10 +139,12 @@ the Business Plus tier).
 - ✅ A free-account demo (case **SBL26001**) proved the folder + upload + shared-link pattern **manually**
   (the always-on Box-account integration — CCG token mint, `FILE.UPLOADED` webhook, template File Request —
   is deferred to a future **Business-account** phase; the free test account cannot sustain CCG/webhooks/File-Requests).
-- ⚠️ **REPO-TRAILS-LIVE:** `flows/definitions/intake.definition.json` does **not** contain the
-  `box-folder-create` invocation (nor `Run_enrich`/`Run_case_resolve`, the documented pre-existing drift);
-  the **live** intake is authoritative and the Box-folder-create invocation from intake is documented as an
-  operator/business-phase live edit, **not** applied to the stale repo def.
+- ⚠️ **REPO-TRAILS-LIVE (reconcile repo UP to live):** the `Run_enrich` and `Run_case_resolve` action cards
+  **ARE deployed and running LIVE** but are **missing from** `flows/definitions/intake.definition.json` (and so
+  is the `box-folder-create` invocation). The **live** intake is authoritative — a naive solution re-import
+  **from** the stale repo def would **regress live**. The fix is to **reconcile the repo def UP to live** (needs
+  a live flow export — operator-assisted) **before any import**; this is **NOT** "stuff isn't deployed". The
+  Box-folder-create invocation from intake remains an operator/business-phase live edit, not yet applied to the repo def.
 
 **The long pole is the BUSINESS-account second test phase (operator).** The free account cannot exercise
 the service-identity path, so the **BLOCKING** verifications wait on a live Business tenant: the CCG token
@@ -178,7 +180,7 @@ Operator-reported faults on a live **AX** instructions email (case `test6` → `
 - **Auto-merge by registration (ADR-0010 reactivated)** — `CS Case Resolve` repurposed: a single complementary instructions↔images same-VRM pair → survivor (Case/PO holder) absorbs the image evidence → re-evaluate → Review; >1 candidate → Held (`duplicate_risk`). Wired into intake after parse (non-blocking, trigger byte-identical). Provenance via `cr1bd_caselinkstate=Linked` + `cr1bd_duplicatekeys` memo (no case→case lookup exists). _Operator tests with a paired instructions+photos email for one reg._
 - **Staff Hold** — new `cr1bd_onhold` boolean (CollisionSpike solution) + a Hold/Release button + "On hold" chip; on-hold cases route to Held (and out of the funnel). Verified live (park → Held 4/Not Ready 3 → released).
 
-⚠️ Repo `intake.definition.json` still trails live on action wiring (Run_enrich + Run_case_resolve) — documented drift; **live is authoritative**. Rollback backups for every live flow edit saved under `%TEMP%` (PATCH the saved `clientdata`).
+⚠️ Repo `intake.definition.json` still trails live on action wiring: the `Run_enrich` + `Run_case_resolve` cards **are deployed and running live but are missing from the repo def** — so a naive re-import **from** the repo would **regress live**. **Live is authoritative; reconcile the repo def UP to live** (live flow export, operator-assisted) **before any import**. Rollback backups for every live flow edit saved under `%TEMP%` (PATCH the saved `clientdata`).
 
 ---
 
@@ -286,10 +288,12 @@ The **M1 flow chain is now wired LIVE** end-to-end via the Dataverse API (CLI), 
   operator's connection bind only.
 - **Gate: `node verify-all.mjs` = 6/6** (Code App build + 204 vitest, Dataverse parity, **flow linter
   114/114**, parser 37 / enrichment 18 pytest).
-- **Residuals (not regressions):** (a) the **parser Function 502** is being fixed separately
-  (`Audit_parser_failed` already absorbs a parser 5xx so status still advances to needs_review);
-  (b) the intake trigger **`concurrency = 1`** is the documented **webhook-risk** edit, **deferred** —
-  changing it re-arms the live webhook in the designer.
+- **Residuals (not regressions):** (a) the **parser Function 502** is **fixed (2026-06-19, regression-guarded)** —
+  on 2026-06-19 16:49 UTC an unreadable/corrupt instruction PDF escaped as an unhandled 502; the handler now
+  returns **422 for unreadable documents** → routes to `needs_review`, no retry (guarded by the regression
+  test `test_unreadable_document_returns_422`); `Audit_parser_failed` also absorbs a parser 5xx so status
+  still advances. **Not a live blocker.** (b) the intake trigger **`concurrency = 1`** is the documented
+  **webhook-risk** edit, **deferred** — changing it re-arms the live webhook in the designer.
 
 ---
 
@@ -350,7 +354,7 @@ player**. Headlines:
   **→ SUPERSEDED by the 2026-06-19 (late) update above: the chain was subsequently WIRED LIVE via CLI**
   (orchestrator cards added to `CS Intake`, the `OnNewEmailV3` trigger node kept byte-identical so the
   webhook survived, classify-persist creating Evidence verified by a live test email). Residuals there:
-  parser 502 (fixed separately) + trigger `concurrency=1` (still the deferred webhook-risk edit).
+  parser 502 (fixed 2026-06-19, regression-guarded by `test_unreadable_document_returns_422`) + trigger `concurrency=1` (still the deferred webhook-risk edit).
 - **Deliberately NOT deployed (resource-conscious):** `evavalidation` (status-evaluate does readiness
   inline → the connector is unused by design) and `evasentry` (EVA REST is Phase 3c/M2; M1 uses JSON
   drag-drop). All deployed compute is FC1 (~£0 idle) or ACA scale-to-zero.
@@ -371,8 +375,9 @@ player**. Headlines:
   SEED→active / ARCHIVE→inactive; 11 excluded, 2 review-skipped, 12 placeholder names);
   `Repairer` **20** named full-postcode yards + **14** garage matches; `InspectionAddress` **174**
   rows (all Confirmed Physical, all with postcodes); `ImageSource(kind=repairer)` **20** with **98**
-  WorkProvider N:N links. **37 principal codes >8 chars deferred** (operator: widen
-  `cr1bd_principalcode` or supply ≤8-char codes); GGP→GG and ZEN==ZENITH merges deferred to the
+  WorkProvider N:N links. **37 over-length "principal codes" deferred** (EVA-export NAME-ARTIFACTS, not
+  real codes — the `cr1bd_principalcode` cap **stays 8**; canonicalise the 5 active businesses, individuals
+  go VRM-keyed — see [docs/reference/over-length-principal-codes.md](./docs/reference/over-length-principal-codes.md)); GGP→GG and ZEN==ZENITH merges deferred to the
   clarifying-info phase.
 - **Built this session, gated-OFF, DEPLOY PENDING (not yet live):** EVA Sentry REST v1.2
   (`functions/evasentry` — two-request `Files` submission `/Instruction/Inspection` → `/Note/SubmitNote`,
@@ -416,7 +421,7 @@ player**. Headlines:
 |---|---|---|
 | **Parser Function** | Live, extracting real PDFs (provider/claimant/dates/address/VRM/ref), 12-field EVA contract, function-level auth | Azure **Flex Consumption (FC1)**, `cespike-parser-dev-…`, UK South |
 | **Dataverse schema** | Built — 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 18 env-vars (11 M1 + 7 Phase-7 Box) | Solution `CollisionSpike`, prefix `cr1bd` |
-| **Provider corpus** | **Incorporated + 2026-06-19 verify passed** — `WorkProvider` **390 updated** (SEED→active / ARCHIVE→inactive, `Corpus 2026-06-18` provenance; 37 over-length codes deferred), `Repairer` **20** named yards + **14** garage matches, `ImageSource(kind=repairer)` **20** (shared storage yards), `InspectionAddress` **174** known-sites (all Confirmed Physical), **98** N:N links. Idempotent (`dataverse/.build/10–14`); all 14-verify checks passed. | Sandbox |
+| **Provider corpus** | **Incorporated + 2026-06-19 verify passed** — `WorkProvider` **390 updated** (SEED→active / ARCHIVE→inactive, `Corpus 2026-06-18` provenance; 37 over-length codes are EVA-export name-artifacts, cap stays 8 — see over-length-principal-codes.md), `Repairer` **20** named yards + **14** garage matches, `ImageSource(kind=repairer)` **20** (shared storage yards), `InspectionAddress` **174** known-sites (all Confirmed Physical), **98** N:N links. Idempotent (`dataverse/.build/10–14`); all 14-verify checks passed. | Sandbox |
 | **Parser custom connector** | Created, points at the live host | Sandbox |
 | **Code App** | Live + wired to Dataverse; **manual-intake** (upload → parse → Case) works, **parse now routed via the CE Parser connector** (no longer CSP-blocked; key off the bundle); logo/fonts/nav fixed | `mockup-app/`, app `da7ba7af-…` |
 | **Enrichment Function** | Deployed + **gate ON in Dev** (`ENRICHMENT_ENABLED=true`, flipped 2026-06-21; live-verified `BC23JZE`→Ssangyong Rexton); calls **DVSA + DVLA directly** (Entra `client_credentials` + `X-API-Key`); **no Google Cloud gateway**. DVSA/DVLA secrets are now **Key Vault references** (populated 2026-06-23, verified live 200) | `cespkenrich-fn-gi62sd`, KV `cespkenrichkvgi62sd` |
@@ -479,7 +484,9 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 ## 🟡 Decisions needed (surfaced 2026-06-18)
 
 > Tracked in the operator registry **[docs/gated.md](./docs/gated.md)** — H10 (sender domains) and
-> S10 (over-length principal codes; the column was already widened 8→12, so loading works now).
+> S10 (the 37 over-length "principal codes" — EVA-export NAME-ARTIFACTS, not real codes; the
+> `cr1bd_principalcode` cap **stays 8**, NOT widened — see the disposition below and
+> [docs/reference/over-length-principal-codes.md](./docs/reference/over-length-principal-codes.md)).
 
 1. **Email auto-matching needs sender domains.** Provider matching is by **sender email domain only**
    (`WorkProvider.knownemaildomains`). The data analysis carried **no domains**, so only the ~16
@@ -487,9 +494,13 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
    until domains are supplied. **Action:** provide per-provider sender domain(s) (from the job-sheet Inbox
    column or sample real emails); then `15-seed-emaildomains.ps1` upserts them idempotently. A domain that
    maps to >1 active provider is an **intermediary** (ADR-0011), not a provider domain.
-2. **37 principal codes exceed the 8-char `principalcode` cap** (e.g. `R1AMMCLASS`, `THECARHIRE`,
-   `T&KMOTORS`) — EVA-export truncation artifacts; skipped by the incorporation. **Action:** either widen
-   the `cr1bd_principalcode` column, or supply canonical ≤8-char codes (it is the Box/Case-PO prefix).
+2. **37 over-length "principal codes" are EVA-export NAME-ARTIFACTS, not real codes** (e.g. `R1AMMCLASS`,
+   `THECARHIRE`, `T&KMOTORS`) — skipped by the incorporation. The `cr1bd_principalcode` cap **stays 8**
+   (NOT widened). **Disposition:** **canonicalise only the 5 active recurring businesses** (WHITELINE,
+   BLACKLINE, SILVERLINE, PROACTIVE, WATERMANS); **defer SILVER 100** (different/unclear Case/PO process);
+   **reclassify the within-24m individuals as VRM-keyed** (an individual/private claimant uses the **VRM** as
+   the Case/PO key — no minted Principal code); **disregard the 19 used >24 months ago**. Full list +
+   per-row dispositions: [docs/reference/over-length-principal-codes.md](./docs/reference/over-length-principal-codes.md).
 
 ## Blockers (DEPLOY-RUNBOOK §0)
 
