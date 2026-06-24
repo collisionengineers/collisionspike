@@ -5,25 +5,11 @@ from typing import Any
 from cedocumentmapper_v2.domain.models import FieldKey
 
 
-# v1 rule methods that have a direct v2 translation. Anything outside this set is
-# treated as an unknown rule kind: it is still migrated best-effort, but the
-# original method is preserved in provider metadata so it round-trips and is
-# surfaced in the migration report (per AGENTS.md Migration Rule).
-KNOWN_V1_METHODS: frozenset[str] = frozenset(
-    {
-        "single_label",
-        "labels",
-        "multiline_labels",
-        "two_labels",
-        "fixed_position",
-        "fixed_position_label",
-        "single_label_offset",
-        "email_date",
-        "manual_input",
-        "fixed_value",
-        "acsp_claim_form",
-    }
-)
+# NOTE: unknown-method detection lives in migrate_provider's method dispatch (the
+# else branch preserves the original v1 method in provider metadata so it
+# round-trips and is surfaced in the migration report, per AGENTS.md Migration
+# Rule). A module-level "known methods" set was intentionally removed to avoid a
+# second, drift-prone source of truth alongside that dispatch.
 
 
 def clean_label_token(val: str) -> str:

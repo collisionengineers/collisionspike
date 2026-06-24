@@ -478,6 +478,44 @@ class DocumentMapperService:
             fields=record_fields,
         )
 
+    def record_from_dict(self, data: dict[str, Any]) -> ExtractedRecord:
+        """Rebuild an ExtractedRecord from a :meth:`record_to_dict` payload.
+
+        Used by the GUI batch path so an engineer-report overlay targets the
+        CURRENTLY-DISPLAYED record (supplied by the client) rather than whichever
+        file the host imported last. Reconstructs what the overlay needs: the
+        field map, the provider, and the internal ``is_audit`` / ``audit_signals``
+        / ``case_type`` flags — so the never-overlay-onto-audit guard still fires.
+        """
+        record_fields: dict[FieldKey, FieldExtraction] = {}
+        for raw_key, raw_val in (data.get("fields") or {}).items():
+            try:
+                field_key = FieldKey(raw_key)
+            except ValueError:
+                continue
+            if isinstance(raw_val, dict):
+                record_fields[field_key] = FieldExtraction(
+                    value=str(raw_val.get("value", "") or ""),
+                    raw_value=str(raw_val.get("raw_value", "") or ""),
+                    rule_id=raw_val.get("rule_id"),
+                    confidence=raw_val.get("confidence"),
+                )
+            else:
+                record_fields[field_key] = FieldExtraction(value=str(raw_val or ""))
+        prov = data.get("provider") or {}
+        provider = ProviderMatch(
+            prov.get("provider_id"),
+            prov.get("provider_name", "Unknown"),
+            float(prov.get("confidence", 0.0) or 0.0),
+        )
+        return ExtractedRecord(
+            provider=provider,
+            fields=record_fields,
+            is_audit=bool(data.get("is_audit", False)),
+            audit_signals=tuple(data.get("audit_signals") or ()),
+            case_type=data.get("case_type"),
+        )
+
     def document_to_dict(self, doc: DocumentModel) -> dict[str, Any]:
         return {
             "source_path": str(doc.source_path),

@@ -124,3 +124,41 @@ def test_overlay_requires_instruction_work_provider():
     engineer = _record("ENGINEER", claimant_name="Name")
     with pytest.raises(ValueError):
         service.overlay_records_with_overrides(base, engineer)
+
+
+def test_record_from_dict_round_trips_fields_and_audit_flags():
+    service = _service()
+    base = ExtractedRecord(
+        provider=ProviderMatch("alison", "Alison", 0.9),
+        fields={
+            FieldKey.WORK_PROVIDER: FieldExtraction(value="ALISON"),
+            FieldKey.REFERENCE: FieldExtraction(value="A. 12345"),
+        },
+        is_audit=True,
+        audit_signals=("A.-prefixed Case/PO",),
+        case_type="audit",
+    )
+    rebuilt = service.record_from_dict(service.record_to_dict(base))
+    assert rebuilt.fields[FieldKey.WORK_PROVIDER].value == "ALISON"
+    assert rebuilt.fields[FieldKey.REFERENCE].value == "A. 12345"
+    assert rebuilt.is_audit is True
+    assert rebuilt.case_type == "audit"
+
+
+def test_overlay_onto_reconstructed_audit_base_is_blocked():
+    # The GUI batch overlay reconstructs its base from the client record dict; the
+    # never-overlay-onto-audit guard must still fire on that reconstructed record so
+    # a third-party report can't be silently merged onto an audit instruction.
+    service = _service()
+    audit_dict = service.record_to_dict(
+        ExtractedRecord(
+            provider=ProviderMatch("alison", "Alison", 0.9),
+            fields={FieldKey.WORK_PROVIDER: FieldExtraction(value="ALISON")},
+            is_audit=True,
+            case_type="audit",
+        )
+    )
+    base = service.record_from_dict(audit_dict)
+    engineer = _record("ENGINEER", claimant_name="Name")
+    with pytest.raises(ValueError, match="[Aa]udit"):
+        service.overlay_records_with_overrides(base, engineer)

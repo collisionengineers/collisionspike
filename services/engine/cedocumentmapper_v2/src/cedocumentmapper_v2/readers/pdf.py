@@ -100,15 +100,22 @@ def _silence_stdout_fd():
     except (OSError, ValueError):  # no real stdout fd (e.g. embedded host) — nothing to do
         yield
         return
-    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    devnull_fd = None
     try:
-        sys.stdout.flush()
+        # os.open is inside the try so a failure here (e.g. fd exhaustion) still
+        # runs the finally and closes saved_fd. sys.stdout can be None in an
+        # embedded/windowed host even when fd 1 is valid, so guard the flushes.
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        if sys.stdout is not None:
+            sys.stdout.flush()
         os.dup2(devnull_fd, 1)
         yield
     finally:
-        sys.stdout.flush()
+        if sys.stdout is not None:
+            sys.stdout.flush()
         os.dup2(saved_fd, 1)
-        os.close(devnull_fd)
+        if devnull_fd is not None:
+            os.close(devnull_fd)
         os.close(saved_fd)
 
 

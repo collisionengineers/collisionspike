@@ -238,6 +238,22 @@ def test_missing_citation_is_discarded():
     assert result == ()
 
 
+def test_fabricated_value_with_real_citation_is_discarded():
+    # A real, in-document citation paired with a VALUE that does not appear in the
+    # document (nor within the cited snippet) must be dropped — citing a genuine
+    # line is not enough to launder a hallucinated value.
+    model_json = {
+        FieldKey.VRM.value: {
+            "value": "WRONG",
+            "source": "Vehicle Registration: AB12 CDE",  # genuinely in the document
+            "confidence": 0.5,
+        }
+    }
+    spy = _SpyPoster(_chat_response(model_json))
+    strat = LLMAssistStrategy(settings=_active_settings(), http_poster=spy)
+    assert strat.propose(_SAMPLE_DOC, None, list(FieldKey)) == ()
+
+
 # --- invalid output is dropped ---------------------------------------------
 
 
@@ -346,9 +362,12 @@ def test_orchestrator_high_confidence_deterministic_beats_llm():
                 ),
             )
 
+    # A grounded LLM suggestion (value present in the document) so it survives the
+    # value-grounding guard and is a real ranked candidate — it must still lose to
+    # the confident deterministic one.
     model_json = {
         FieldKey.VRM.value: {
-            "value": "WRONG",
+            "value": "AB12 CDE",
             "source": "Vehicle Registration: AB12 CDE",
             "confidence": 0.5,
         }

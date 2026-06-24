@@ -146,6 +146,29 @@ def test_process_unmapped_marks_result(tmp_path, capsys):
     assert payload["created"] == []
 
 
+def test_process_orchestrator_rejects_engineer_report(tmp_path, capsys):
+    # The orchestrated path performs no overlay; combining it with --engineer-report
+    # must be rejected (exit 2) rather than silently dropping the report.
+    app_data = _appdata(tmp_path)
+    eml = _eml(tmp_path)
+    report = _eml(tmp_path, name="report.eml")
+    code = _run(
+        app_data, "process", str(eml), "--use-orchestrator", "--engineer-report", str(report)
+    )
+    assert code == 2
+    assert "engineer-report" in capsys.readouterr().err.lower()
+
+
+def test_process_orchestrator_rejects_llm_assist(tmp_path, capsys):
+    # --llm-assist is review-only; `process` exports, so the combination is
+    # rejected (exit 2) and the operator is steered to `extract`/the review UI.
+    app_data = _appdata(tmp_path)
+    eml = _eml(tmp_path)
+    code = _run(app_data, "process", str(eml), "--use-orchestrator", "--llm-assist")
+    assert code == 2
+    assert "llm-assist" in capsys.readouterr().err.lower()
+
+
 # --- providers ------------------------------------------------------------
 
 
