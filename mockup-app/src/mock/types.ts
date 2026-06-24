@@ -258,6 +258,12 @@ export interface Case {
   vehicleModel: string;
   vehicleYear?: number;
 
+  /** Claimant postal address captured at intake (cr1bd_evaclaimantaddress). A
+   *  Case-identity/intake-capture clue (like vrm/casePo), NOT one of the 12 EVA
+   *  payload fields. Used ONLY as a geolocation text clue for the Phase-4a
+   *  location-suggestion assist; never drives workflow/readiness/matching. */
+  claimantAddress?: string;
+
   /** The 12 EVA fields, each value + provenance + reviewState. */
   evaFields: EvaFields;
 

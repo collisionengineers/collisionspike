@@ -83,6 +83,25 @@ configureDataAccess(generatedServices);
    affordances per the gates — no fabricated links, no broken iframe (embed stays
    off; "Open in Archive" is a link, never a frame). */
 
+/* ----------  Location-assist deploy-wiring (operator, post add-data-source)  ----------
+   The "Suggest location" action (Phase 4a) is gated OFF (cr1bd_LOCATION_ASSIST_ENABLED
+   + cr1bd_AZURE_MAPS_ENABLED + cr1bd_LOCATION_ASSIST_API_BASE all default off/empty),
+   so it ships dark. AFTER `pac code add-data-source` adds the separate
+   'CE Location Assist' custom connector (operation SuggestLocation; the function key
+   lives on the CONNECTION as x-functions-key, never in the bundle), wire it here:
+
+       import { configureLocationAssistTransport } from './data';
+       import { makeConnectorLocationAssistTransport } from './data/location-assist-connector-transport';
+       import { CollisionEngineersLocationAssistService } from './generated/services/CollisionEngineersLocationAssistService';
+
+       configureLocationAssistTransport(
+         makeConnectorLocationAssistTransport(CollisionEngineersLocationAssistService),
+       );
+
+   Until then the transport stays not-connected (throws a plain "not switched on"
+   message), and the gate read keeps the action hidden — so the feature is fully
+   built + unit-tested without the live connector or any Azure Vision/Maps call. */
+
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element #root not found');
 

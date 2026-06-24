@@ -2,12 +2,14 @@
 # 16-seed-suggested-addresses.ps1 — load the externally-maintained inspection-location sheet into
 # cr1bd_inspectionaddress as LOW-CONFIDENCE SUGGESTIONS (never auto-confirmed).
 #
-# WHY: a separate AI agent continuously maintains a master sheet mapping (provider_code, loc_value) ->
-# candidate full_address rows carrying an address_status confidence band. We ingest ONLY the rows that
-# carry a usable address and tag them DISTINCTLY so the Code App and every downstream guard treat them
-# as suggestions a reviewer must confirm — they are NEVER a "Confirmed Physical" address and are NEVER
+# WHY: an OFFLINE pre-processor distils the 2-year EVA full-address export (~17,737 inspection rows) into
+# a deduped, per-provider suggestion sheet — (provider_code, loc_value) -> candidate full_address rows
+# carrying an address_status band PLUS frequency/recency ranking metadata (ADR-0016). We ingest ONLY the
+# rows that carry a usable address and tag them DISTINCTLY so the Code App and every downstream guard treat
+# them as suggestions a reviewer must confirm — they are NEVER a "Confirmed Physical" address and are NEVER
 # mirrored onto a Case. This separates them cleanly from the confirmed reference rows that 12-seed wrote
-# (cr1bd_sourcelabel in {storage,repairer,home,''} + decisionMode=Confirmed Physical).
+# (cr1bd_sourcelabel in {storage,repairer,home,''} + decisionMode=Confirmed Physical). ADR-0013 stays
+# binding: this is OFFLINE corpus-build + suggestion-ORDERING only — nothing auto-confirms.
 #
 # THE SUGGESTION CONTRACT (the operator's central "always a suggestion" rule — do not weaken):
 #   * cr1bd_sourcelabel = 'suggested:<address_status>'  (always startswith 'suggested' — the Code App
@@ -17,29 +19,44 @@
 #   * the loader writes ONLY catalogue rows; it NEVER touches any Case (no EVA field, no Case decision).
 #   * a pre-existing CONFIRMED row is skipped, never downgraded to a suggestion (probe-and-skip guard).
 #
-# SOURCE (external sibling worktree, maintained by another agent — NOT in this repo; tolerate absent/mid-write):
-#   C:/Users/Alex/.codex/worktrees/47b3/collisionspike/principalandrepairersheets/codexwork/
-#     inspection_locations_and_provider_principal.csv     (master; the .xlsx sheet 'locations' is identical)
-#   24 cols incl: provider_code, loc_value, address_index_for_loc, full_address, address_postcode,
-#                 address_status, evidence_source, evidence_detail.
-#   Address-bearing rows = full_address non-empty AND address_status NOT in the no-address set below
-#   (verified 2026-06-23: 697 of 3497 rows carry a usable address; source is continuously maintained, drifts +-1).
+# SOURCE (now IN-REPO — the offline pre-processor's output; ADR-0016; tolerate absent/mid-write):
+#   dataverse/.build/sources/inspection-suggestions-from-eva-export.csv
+#   Emitted by the Phase-4a pre-processor from fullevaexportinspectionaddresses.xlsx (~17,737 inspections
+#   deduped to unique per-provider physical sites on the FULL ADDRESS, postcode secondary). Columns:
+#     provider_code, loc_value, address_index_for_loc, full_address, address_postcode, address_status,
+#     evidence_source, evidence_detail, frequency, last_seen, rank, case_key_kind.
+#   The last four (frequency/last_seen/rank/case_key_kind) are NEW ranking metadata — this loader writes
+#   them when present and tolerates older CSVs that lack them (the original 8 columns still required).
+#   Address-bearing rows = full_address non-empty AND address_status NOT in the no-address set below.
 #
 # IDEMPOTENCY: atomic PATCH-to-key upsert on the alternate key cr1bd_inspectionaddress_label_key
 #   (cr1bd_name). Dataverse rejects an upsert with 400 when no alternate key exists, so 04-altkeys.ps1
 #   must have created that key first. Deterministic label => safe to re-run as the source changes.
 #
 # USAGE:
-#   pwsh dataverse/.build/16-seed-suggested-addresses.ps1            # DRY-RUN (default): reports, writes nothing
-#   pwsh dataverse/.build/16-seed-suggested-addresses.ps1 -Apply    # actually upserts (requires az login)
-#   pwsh dataverse/.build/16-seed-suggested-addresses.ps1 -CsvPath C:\path\to\master.csv -Apply
+#   pwsh dataverse/.build/16-seed-suggested-addresses.ps1                          # DRY-RUN (default): reports, writes nothing
+#   pwsh dataverse/.build/16-seed-suggested-addresses.ps1 -Apply                   # upserts the new suggestion set (requires az login)
+#   pwsh dataverse/.build/16-seed-suggested-addresses.ps1 -ReplaceSuggestions      # DRY-RUN: also reports stale suggested rows it WOULD delete
+#   pwsh dataverse/.build/16-seed-suggested-addresses.ps1 -ReplaceSuggestions -Apply  # upsert new set + delete stale suggested rows (confirmed preserved)
+#   pwsh dataverse/.build/16-seed-suggested-addresses.ps1 -CsvPath C:\path\to\seed.csv -Apply
+#
+#   BEFORE a -ReplaceSuggestions -Apply run, FIRST snapshot the corpus: pwsh dataverse/.build/16a-backup-inspectionaddress.ps1 -Apply
+#
+# -ReplaceSuggestions (ADR-0016): after upserting the new set, DELETE existing rows whose sourcelabel
+#   startswith 'suggested' and whose cr1bd_name is NOT in the new label set — i.e. regenerate the suggestion
+#   LAYER. Confirmed reference rows (sourcelabel in storage|repairer|home|'' OR decisionMode=Confirmed
+#   Physical) are NEVER deleted. In DRY-RUN it only REPORTS how many suggested rows would be deleted vs kept.
+#   A full truncate happens only on explicit operator confirmation (-ReplaceSuggestions is the layer-replace,
+#   never a truncate).
 #
 # BOUNDARY: non-inbox Dataverse data only. No flow/inbox/SharePoint/Box/EVA contact, no secrets.
-#   The only live action is the -Apply upsert under the operator's interactive login [DEPLOY-WITH-LOGIN].
+#   The only live actions are the -Apply upsert (and -ReplaceSuggestions delete of stale SUGGESTED rows)
+#   under the operator's interactive login [DEPLOY-WITH-LOGIN].
 
 param(
-  [string]$CsvPath = "C:/Users/Alex/.codex/worktrees/47b3/collisionspike/principalandrepairersheets/codexwork/inspection_locations_and_provider_principal.csv",
-  [switch]$Apply
+  [string]$CsvPath = "$PSScriptRoot/sources/inspection-suggestions-from-eva-export.csv",
+  [switch]$Apply,
+  [switch]$ReplaceSuggestions
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,11 +75,12 @@ $PLACEHOLDER_ADDR = @(
 # Existing sourcelabels that denote a CONFIRMED reference row — NEVER downgrade one of these to a suggestion.
 $CONFIRMED_LABELS = @("storage", "repairer", "home", "")
 
-# ---- 0. fail-safe source read (the file is external + may be mid-write) ----
+# ---- 0. fail-safe source read (the file is the pre-processor output + may be mid-write) ----
 if (-not (Test-Path -LiteralPath $CsvPath)) {
-  Write-Host "[16] Source sheet not found: $CsvPath" -ForegroundColor Yellow
-  Write-Host "     This is an external sibling worktree maintained by another agent. If it is mid-write or" -ForegroundColor Yellow
-  Write-Host "     not present, re-run once it is available. Nothing was written (fail-safe, not partial-load)." -ForegroundColor Yellow
+  Write-Host "[16] Seed CSV not found: $CsvPath" -ForegroundColor Yellow
+  Write-Host "     Expected the offline pre-processor's output (ADR-0016). Run the pre-processor to emit" -ForegroundColor Yellow
+  Write-Host "     dataverse/.build/sources/inspection-suggestions-from-eva-export.csv first, or pass -CsvPath." -ForegroundColor Yellow
+  Write-Host "     If it is mid-write, re-run once stable. Nothing was written (fail-safe, not partial-load)." -ForegroundColor Yellow
   return
 }
 try {
@@ -80,7 +98,20 @@ if ($missing.Count -gt 0) {
   Write-Host "     Fail-safe: the schema may have drifted or the file is mid-write. Nothing written." -ForegroundColor Yellow
   return
 }
+# NEW ranking columns (ADR-0016) are OPTIONAL — present in the EVA-export pre-processor output, absent in
+# older CSVs. We write them only when the column exists AND the row carries a value (tolerate older sources).
+# Only the 3 fields actually written below — case_key_kind is a pre-processor AUDIT
+# column that is never loaded, so gating on it would wrongly skip ranking for a CSV
+# that carries frequency/last_seen/rank without it.
+$rankCols = @("frequency","last_seen","rank")
+$haveRank = @($rankCols | Where-Object { $haveCols -contains $_ })
+$hasRankCols = ($haveRank.Count -eq $rankCols.Count)
 Write-Host "[16] Source: $CsvPath  ($($rows.Count) rows)" -ForegroundColor Cyan
+if ($hasRankCols) {
+  Write-Host "[16] Ranking columns present (frequency/last_seen/rank) — will write the 3 ranking fields." -ForegroundColor Cyan
+} else {
+  Write-Host "[16] Ranking columns absent (older CSV) — writing the base suggestion shape only." -ForegroundColor DarkGray
+}
 
 # ---- 1. filter to address-bearing rows only ----
 $kept = @()
@@ -118,18 +149,61 @@ function Split-AddressLines([string]$full, [string]$postcode) {
   return $lines
 }
 
+# Deterministic suggestion label for a source row (provider -- loc -- index); mirrors 12-seed's namespace.
+function Get-RowLabel($r) {
+  $code = ($r.provider_code).Trim()
+  $loc  = ($r.loc_value ?? "").Trim()
+  $idx  = ($r.address_index_for_loc ?? "").Trim(); if (-not $idx) { $idx = "1" }
+  return "$code -- $loc -- $idx"
+}
+
+# Parse the OPTIONAL ranking metadata off a row (returns $null members when absent/blank/unparseable so we
+# never write a junk value). frequency/rank => int; last_seen => ISO yyyy-MM-dd (DateOnly behaviour).
+function Get-RowRanking($r, [bool]$hasCols) {
+  $out = @{ freq = $null; lastSeen = $null; rank = $null }
+  if (-not $hasCols) { return $out }
+  $f = ($r.frequency ?? "").Trim()
+  if ($f -match '^\d+$') { $out.freq = [int]$f }
+  $rk = ($r.rank ?? "").Trim()
+  if ($rk -match '^\d+$') { $out.rank = [int]$rk }
+  $ls = ($r.last_seen ?? "").Trim()
+  if ($ls) {
+    $dt = [datetime]::MinValue
+    if ([datetime]::TryParse($ls, [ref]$dt)) { $out.lastSeen = $dt.ToString("yyyy-MM-dd") }
+  }
+  return $out
+}
+
+# The new suggestion label set (what THIS run would upsert) — the ReplaceSuggestions keep-set.
+$newLabels = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($r in $kept) { [void]$newLabels.Add((Get-RowLabel $r)) }
+
 # ---- DRY-RUN short-circuit: report what WOULD happen without any tenant contact ----
 if (-not $Apply) {
   Write-Host "`n==== 16-seed-suggested-addresses — DRY-RUN (no writes; pass -Apply to upsert) ====" -ForegroundColor Green
   $byStatus = $kept | Group-Object { ($_.address_status ?? "").Trim() } | Sort-Object Count -Descending
   Write-Host "Would upsert $($kept.Count) suggested InspectionAddress rows (all decisionMode=Unknown, sourceLabel='suggested:<status>'):"
   foreach ($g in $byStatus) { Write-Host ("  {0,5}  suggested:{1}" -f $g.Count, $g.Name) -ForegroundColor DarkGray }
+  if ($hasRankCols) {
+    $withFreq = @($kept | Where-Object { ($_.frequency ?? "").Trim() -match '^\d+$' }).Count
+    $withRank = @($kept | Where-Object { ($_.rank ?? "").Trim() -match '^\d+$' }).Count
+    $withSeen = @($kept | Where-Object { (Get-RowRanking $_ $true).lastSeen }).Count
+    Write-Host "Ranking metadata to write: frequency on $withFreq, rank on $withRank, lastSeen on $withSeen of $($kept.Count) rows." -ForegroundColor DarkGray
+  }
   $sample = $kept | Select-Object -First 5
   Write-Host "`nSample labels + addresses:" -ForegroundColor DarkGray
   foreach ($s in $sample) {
-    $idx = if ([string]::IsNullOrWhiteSpace(($s.address_index_for_loc ?? "").Trim())) { "1" } else { $s.address_index_for_loc.Trim() }
-    $label = "$(($s.provider_code).Trim()) -- $(($s.loc_value ?? '').Trim()) -- $idx"
-    Write-Host ("  {0,-28}  {1}" -f $label, ($s.full_address).Trim()) -ForegroundColor DarkGray
+    $label = Get-RowLabel $s
+    $rk = Get-RowRanking $s $hasRankCols
+    $rkTxt = if ($rk.freq -ne $null) { "  [freq=$($rk.freq) rank=$($rk.rank) last=$($rk.lastSeen)]" } else { "" }
+    Write-Host ("  {0,-28}  {1}{2}" -f $label, ($s.full_address).Trim(), $rkTxt) -ForegroundColor DarkGray
+  }
+  if ($ReplaceSuggestions) {
+    Write-Host "`n-ReplaceSuggestions: would upsert the $($newLabels.Count) labels above, then DELETE existing rows where" -ForegroundColor Yellow
+    Write-Host "  startswith(cr1bd_sourcelabel,'suggested') AND cr1bd_name NOT in that set. Confirmed reference rows" -ForegroundColor Yellow
+    Write-Host "  (storage|repairer|home|'' or decisionMode=Confirmed Physical) are NEVER deleted." -ForegroundColor Yellow
+    Write-Host "  Exact delete/keep counts require reading live suggested rows — that read runs under -Apply only" -ForegroundColor Yellow
+    Write-Host "  (DRY-RUN makes NO tenant contact). FIRST snapshot the corpus: 16a-backup-inspectionaddress.ps1 -Apply." -ForegroundColor Yellow
   }
   Write-Host "`nNo tenant contact made. Re-run with -Apply (after az login) to upsert. Idempotent on re-run." -ForegroundColor Green
   return
@@ -159,6 +233,7 @@ foreach ($r in $kept) {
   $pc      = Normalize-Postcode ($r.address_postcode ?? "")
   $evSrc   = ($r.evidence_source ?? "").Trim()
   $evDet   = ($r.evidence_detail ?? "").Trim()
+  $rk      = Get-RowRanking $r $hasRankCols
 
   $label = "$code -- $loc -- $idx"   # deterministic key (ASCII '--', mirrors 12-seed's namespace)
 
@@ -198,6 +273,12 @@ foreach ($r in $kept) {
   }
   if ($pc) { $body["cr1bd_postcode"] = $pc }
 
+  # NEW ranking metadata (ADR-0016 helper #2) — written only when the source carried a parseable value.
+  # ADR-0013 unchanged: these ORDER suggestions in the Code App, they never auto-select.
+  if ($rk.freq     -ne $null) { $body["cr1bd_suggestionfrequency"] = $rk.freq }
+  if ($rk.rank     -ne $null) { $body["cr1bd_suggestionrank"]      = $rk.rank }
+  if ($rk.lastSeen)           { $body["cr1bd_lastseenon"]          = $rk.lastSeen }
+
   # bind a Repairer ONLY on an exact (name, postcode) match — the leading address part is the site name.
   $siteName = (@($full -split '\s*,\s*'))[0].Trim()
   $repairerId = if ($pc -and $siteName) { Get-RepairerId -name $siteName -postcode $pc } else { $null }
@@ -222,4 +303,59 @@ foreach ($r in $kept) {
 Write-Host ""
 Write-Host "SUGGESTEDADDRESSES_DONE created=$created updated=$updated skipped-confirmed=$skippedConfirmed repairer-bound=$boundRepairer errors=$errors" -ForegroundColor Cyan
 Write-Host "Re-run is idempotent: same labels upsert in place; the source changes continuously so re-run whenever it updates." -ForegroundColor DarkGray
+
+# ---- 3. -ReplaceSuggestions: regenerate the suggestion LAYER (delete stale suggested rows; preserve confirmed) ----
+# Only runs with -Apply. After upserting the new set above, delete existing rows that are suggestions
+# (startswith(cr1bd_sourcelabel,'suggested')) whose cr1bd_name is NOT in the new label set. Confirmed
+# reference rows (storage|repairer|home|'' OR decisionMode=Confirmed Physical) are NEVER deleted — this is
+# a LAYER replace, not a truncate (a full truncate is a separate, explicit operator action).
+if ($ReplaceSuggestions) {
+  if ($errors -gt 0) {
+    # SAFETY: the new set did not load cleanly. The keep-set ($newLabels) is computed
+    # from the CSV, NOT from rows actually upserted, so deleting "stale" rows now could
+    # remove a row whose re-keyed replacement failed to load — leaving FEWER live
+    # suggestions than before. Abort the destructive delete; the non-zero exit below
+    # still flags the run. Resolve the errors and re-run.
+    Write-Host ""
+    Write-Host "[16] -ReplaceSuggestions: SKIPPING the stale-row delete — the upsert phase reported $errors error(s)." -ForegroundColor Red
+    Write-Host "     Deleting now could remove rows whose replacement failed to load. Resolve the errors and re-run." -ForegroundColor Red
+  }
+  else {
+  Write-Host ""
+  Write-Host "[16] -ReplaceSuggestions: scanning live suggested rows to delete those absent from the new set ($($newLabels.Count) new labels)..." -ForegroundColor Yellow
+  $deleted=0; $keptSug=0; $delErrors=0
+  # First COLLECT every current suggested row (paged), THEN delete — deleting mid-page would shift the
+  # skiptoken result set and skip rows. The corpus is thousands post-EVA-export, so page fully first.
+  $toDelete = New-Object System.Collections.Generic.List[object]
+  $next = "$script:base/cr1bd_inspectionaddresses?`$filter=startswith(cr1bd_sourcelabel,'suggested')&`$select=cr1bd_inspectionaddressid,cr1bd_name,cr1bd_sourcelabel,cr1bd_decisionmode"
+  while ($next) {
+    $page = Get-Json $next
+    foreach ($row in $page.value) {
+      $rname  = ($row.cr1bd_name ?? "")
+      $rlabel = ($row.cr1bd_sourcelabel ?? "")
+      # belt-and-braces: never delete anything that is not actually a suggestion (filter already scoped, but guard).
+      $isConfirmedRow = ($CONFIRMED_LABELS -contains $rlabel) -or ($row.cr1bd_decisionmode -eq $DM_CONFIRMED)
+      if ($isConfirmedRow -or -not $rlabel.StartsWith("suggested")) { continue }
+      if ($newLabels.Contains($rname)) { $keptSug++; continue }
+      $toDelete.Add($row)
+    }
+    $next = $page.'@odata.nextLink'
+  }
+  foreach ($row in $toDelete) {
+    try {
+      Invoke-Dataverse -Method Delete -Uri "$script:base/cr1bd_inspectionaddresses($($row.cr1bd_inspectionaddressid))" | Out-Null
+      $deleted++
+      Write-Host "  [DEL-STALE] $($row.cr1bd_name)  ($($row.cr1bd_sourcelabel)) — not in new set" -ForegroundColor DarkYellow
+    } catch {
+      $delErrors++
+      Write-Host "  [DEL-ERR] $($row.cr1bd_name) : $($_.Exception.Message)" -ForegroundColor Red
+    }
+  }
+  Write-Host ""
+  Write-Host "SUGGESTEDADDRESSES_REPLACE_DONE deleted-stale=$deleted kept-current=$keptSug delete-errors=$delErrors" -ForegroundColor Cyan
+  Write-Host "Confirmed reference rows were not touched (layer replace, not truncate)." -ForegroundColor DarkGray
+  $errors += $delErrors
+  }
+}
+
 if ($errors -gt 0) { exit 1 }

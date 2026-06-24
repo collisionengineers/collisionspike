@@ -7,10 +7,12 @@ full address is usually **not in the documents** and is **worked out manually** 
 the spike's Microsoft stack (the source docs assume Google Cloud — adapt, don't adopt).
 
 **Authoritative pair:** [ADR-0013](../adr/0013-loc-export-artifact-no-runtime-address-matching.md)
-(the decision — there is **no runtime matcher**) and
+(the binding decision — there is **no runtime matcher**) and
 [`../architecture/inspection-address-corpus.md`](../architecture/inspection-address-corpus.md) (how
-the suggestions are derived offline and what the CSVs are for). This page is the requirements-level
-summary; those two govern.
+the suggestions are derived offline and what the source files are). The suggestion layer is regenerated
+from the **2-year EVA full-address export** per
+[ADR-0016](../adr/0016-inspection-address-corpus-eva-export.md) (2026-06-24; ADR-0013 re-affirmed). This
+page is the requirements-level summary; those three govern.
 
 ## Policy model (per WorkProvider: `inspectionLocationPolicy`)
 | Policy | Behaviour |
@@ -25,14 +27,26 @@ must not.) The Code App `address-policy.ts` gate enforces this: EVA export is **
 address is accepted, edited, or explicitly marked image-based **with a reason**.
 
 ## How the address is established: offline suggestions + a manual pick (no runtime resolver)
-There is **one** inspection-address model. The full addresses were mined **offline** from Collision
-Engineers' own Box/EVA **case history**, per provider, into a master sheet. Only the rows that carry
-a **real full address** are loaded (by `dataverse/.build/16-seed-suggested-addresses.ps1`) into
+There is **one** inspection-address model. The full addresses are mined **offline** from Collision
+Engineers' own EVA **case history**. The live source is the **2-year EVA full-address export**
+(`fullevaexportinspectionaddresses.xlsx`, ~17,737 inspection rows); an offline pre-processor parses the
+**provider/Principal from each `Case ID` leading alpha prefix** (VRM-shaped `Case ID`s are
+**INDIVIDUAL** cases keyed by VRM and excluded), drops "Image Based Assessment" + no-site rows, and
+**dedups to unique physical sites per provider on the FULL ADDRESS**. The resulting rows are loaded (by
+`dataverse/.build/16-seed-suggested-addresses.ps1 -ReplaceSuggestions`, backup-first) into
 `cr1bd_inspectionaddress` as provider-scoped **suggestions** (`decisionMode=Unknown`,
-`sourceLabel='suggested:…'`). In the Code App Address tab a staff reviewer **picks/edits** one
+`sourceLabel='suggested:eva_export'`). In the Code App Address tab a staff reviewer **picks/edits** one
 suggestion, or records "Image Based Assessment" with a reason. Each chosen address normalises to the
 **6-line EVA address** (postcode.io normalises plain UK postcodes; `AZURE_MAPS_ENABLED=false`)
-before readiness.
+before readiness. _(The offline pipeline is built 2026-06-24; the live `-Apply` replace RAN 2026-06-24
+(backup-first; 2,035 live, 503 removed, 174 preserved, `17-verify` all-pass). The prior `codexwork`
+master CSV is superseded as the live source but kept for provenance.)_
+
+**Suggestions are ranked (ordering only, ADR-0013 unchanged).** The pre-processor carries per-site
+**frequency + recency** as ranking metadata (`cr1bd_suggestionfrequency` / `cr1bd_lastseenon` /
+`cr1bd_suggestionrank`); the Code App **orders** suggestions by rank (then frequency, then last-seen)
+and shows a "seen N times · last <date>" hint. This is **descriptive ordering, never an auto-select** —
+staff still pick per case.
 
 The corpus is the **static totality at this time** — a fixed snapshot, not a service. There is **no
 runtime inspection-address matcher**: no Function, flow, or connector that takes a Case and resolves

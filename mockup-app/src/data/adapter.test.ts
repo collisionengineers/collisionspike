@@ -357,6 +357,43 @@ describe('suggestionFromRecord', () => {
     expect(s.lines).toEqual(['Somewhere']);
     expect(s.postcode).toBe('');
   });
+
+  it('carries the ADR-0016 ranking metadata (frequency/lastSeen/rank) when present', () => {
+    const s = suggestionFromRecord({
+      cr1bd_inspectionaddressid: 'ia-3',
+      cr1bd_sourcelabel: 'suggested:eva_export',
+      cr1bd_addressline1: 'Cariocca Business Park',
+      cr1bd_postcode: 'M12 4AH',
+      cr1bd_suggestionfrequency: 7,
+      cr1bd_lastseenon: '2024-06-03',
+      cr1bd_suggestionrank: 1,
+    });
+    expect(s.frequency).toBe(7);
+    expect(s.lastSeen).toBe('2024-06-03'); // DateOnly date portion only
+    expect(s.rank).toBe(1);
+    expect(s.confidenceBand).toBe('eva_export');
+  });
+
+  it('normalises a DateTime cr1bd_lastseenon to its YYYY-MM-DD date portion', () => {
+    const s = suggestionFromRecord({
+      cr1bd_inspectionaddressid: 'ia-4',
+      cr1bd_sourcelabel: 'suggested:eva_export',
+      cr1bd_addressline1: 'Somewhere',
+      cr1bd_lastseenon: '2025-01-15T00:00:00Z',
+    });
+    expect(s.lastSeen).toBe('2025-01-15');
+  });
+
+  it('omits the ranking metadata when the row has none (ordering is optional)', () => {
+    const s = suggestionFromRecord({
+      cr1bd_inspectionaddressid: 'ia-5',
+      cr1bd_sourcelabel: 'suggested',
+      cr1bd_addressline1: 'Somewhere',
+    });
+    expect(s.frequency).toBeUndefined();
+    expect(s.lastSeen).toBeUndefined();
+    expect(s.rank).toBeUndefined();
+  });
 });
 
 /* ============================================================

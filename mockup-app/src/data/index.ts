@@ -109,6 +109,7 @@ export type {
   SuggestedAddress,
   InspectionAddressCounts,
   BoxGates,
+  LocationAssistGate,
   GeneratedServices,
   GeneratedTableService,
   OperationResult,
@@ -124,8 +125,8 @@ export type {
   EnvironmentVariableDefinitionRecord,
   EnvironmentVariableValueRecord,
 } from './types';
-// The all-false Box-gate baseline (a value, not a type).
-export { BOX_GATES_ALL_FALSE } from './types';
+// The all-false Box-gate baseline + the all-off location-assist baseline (values).
+export { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF } from './types';
 
 /* ----------  Box affordances: gates + gated transports (CSP-safe) ----------
    Gates are read via the Dataverse env-var tables (getBoxGates); the transports
@@ -174,6 +175,41 @@ export {
   type ParserTransport,
   type ParserExtractionKey,
 } from './parser-client';
+
+/* ----------  Location-assist response adapter + transport contract (Phase 4a) ----------
+   SDK-free (no '@microsoft/power-apps'), so it stays inside the offline boundary. The live
+   transport (CSP-safe, via the CE Location Assist connector) is in
+   location-assist-connector-transport.ts and is injected at startup; tests inject a fake.
+   Reviewer-invoked candidate suggestions only — NOTHING auto-applies (ADR-0013). */
+export {
+  suggestLocations,
+  adaptLocationAssistResponse,
+  candidateToSuggestion,
+  buildSuggestLocationRequest,
+  buildEvidenceNote,
+  friendlyEvidenceKind,
+  locationAssistErrors,
+  LOCATION_ASSIST_CONTRACT_VERSION,
+  type SuggestLocationRequest,
+  type SuggestLocationResponse,
+  type LocationCandidate,
+  type LocationEvidenceItem,
+  type LocationEvidenceKind,
+  type LocationAssistIssue,
+  type LocationAssistResult,
+  type LocationAssistTransport,
+  type LocationAssistInputs,
+  type PhotoRef,
+  type TextClues,
+} from './location-assist-client';
+export {
+  makeConnectorLocationAssistTransport,
+  configureLocationAssistTransport,
+  resetLocationAssistTransport,
+  activeLocationAssistTransport,
+  notConnectedLocationAssistTransport,
+  type SuggestLocationOp,
+} from './location-assist-connector-transport';
 
 /* ----------  Vehicle enrichment + address normalisation (gated) ---------- */
 export {
@@ -249,6 +285,7 @@ export {
   useInspectionAddressSuggestions,
   useInspectionAddressCounts,
   useBoxGates,
+  useLocationAssistGate,
   useHoldNewCasesDefault,
   type QueryState,
 } from './hooks';

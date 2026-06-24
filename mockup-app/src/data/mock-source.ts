@@ -18,7 +18,7 @@
    ============================================================ */
 
 import type { DataAccess } from './types';
-import { BOX_GATES_ALL_FALSE } from './types';
+import { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF } from './types';
 import type {
   LiveCounts,
   Throughput,
@@ -98,6 +98,9 @@ export const mockDataAccess: DataAccess = {
 
   /* ----- Box feature gates (Box off until the live source is injected) ----- */
   getBoxGates: () => Promise.resolve({ ...BOX_GATES_ALL_FALSE }),
+
+  /* ----- Location-assist gate (off until the live source is injected) ----- */
+  getLocationAssistGate: () => Promise.resolve({ ...LOCATION_ASSIST_GATE_ALL_OFF }),
 
   /* ----- App intake preferences (off / not-configured by default) ----- */
   getHoldNewCasesDefault: () => Promise.resolve(false),

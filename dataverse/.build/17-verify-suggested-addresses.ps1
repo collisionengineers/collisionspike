@@ -10,6 +10,12 @@
 #      were NOT downgraded by the loader (i.e. confirmed-and-unknown = 0).
 #   5. NO Case's EVA inspection address was populated FROM a suggested row (leak signature: a Case whose
 #      serialized cr1bd_evainspectionaddress exactly equals a suggested row's address — spot-checked).
+#   6. EVERY EVA-export suggested row (sourcelabel = 'suggested:eva_export') carries the ADR-0016 ranking
+#      metadata: cr1bd_suggestionfrequency >= 1, a non-null cr1bd_lastseenon, and cr1bd_suggestionrank >= 1.
+#      Scoped to that band so older suggestion bands (without ranking) do not false-fail.
+#
+# SCALE NOTE: the suggestion layer now comes from the 2-year EVA full-address export (~17,737 inspections
+# deduped per provider, ADR-0016) — expect THOUSANDS of suggested rows, not the old "697 of 3497" CSV band.
 #
 # This is the widened companion to 14-verify-corpus.ps1, whose "ALL InspectionAddress rows are Confirmed
 # Physical" assertion is intentionally scoped there to the CONFIRMED rows only once suggestions exist.
@@ -74,6 +80,37 @@ if ($sugTotal -gt 0) {
     if ($hit -gt 0) { $leak++; Write-Host "   LEAK: Case EVA address contains suggested line1 '$line1' (row $($row.cr1bd_name))" -ForegroundColor Red }
   }
   Check ($leak -eq 0) "no Case EVA inspection address derives from a suggested row (checked $checked suggested rows; leaks=$leak)"
+}
+
+# --- 6: EVA-export rows carry ADR-0016 ranking metadata (frequency >= 1, non-null lastseenon, rank >= 1) ---
+# SCOPED to sourcelabel = 'suggested:eva_export' so older suggestion bands (no ranking columns) don't false-fail.
+$evaTotal = Get-Count -EntitySet "cr1bd_inspectionaddresses" -Filter "cr1bd_sourcelabel eq 'suggested:eva_export'" -IdField "cr1bd_inspectionaddressid"
+if ($evaTotal -eq 0) {
+  Write-Host "No 'suggested:eva_export' rows present yet (the EVA-export pipeline has not run). Ranking checks vacuously OK." -ForegroundColor Yellow
+} else {
+  Write-Host "EVA-export suggested rows: $evaTotal (ranking assertions scoped to this band)" -ForegroundColor DarkCyan
+  # frequency: present and >= 1 (i.e. NOT null and NOT < 1).
+  $badFreq = Get-Count -EntitySet "cr1bd_inspectionaddresses" `
+    -Filter "cr1bd_sourcelabel eq 'suggested:eva_export' and (cr1bd_suggestionfrequency eq null or cr1bd_suggestionfrequency lt 1)" `
+    -IdField "cr1bd_inspectionaddressid"
+  Check ($badFreq -eq 0) "every 'suggested:eva_export' row has cr1bd_suggestionfrequency >= 1 (missing/<1=$badFreq of $evaTotal)"
+  # lastseenon: BEST-EFFORT (report, do not fail). The pre-processor emits an empty
+  # last_seen when a source Created Date is unparseable, and 16-seed legitimately skips
+  # writing a blank — so a null here is a tolerable data gap, NOT a load defect. freq/rank
+  # are always set (asserted hard above/below); recency is the soft signal.
+  $badSeen = Get-Count -EntitySet "cr1bd_inspectionaddresses" `
+    -Filter "cr1bd_sourcelabel eq 'suggested:eva_export' and cr1bd_lastseenon eq null" `
+    -IdField "cr1bd_inspectionaddressid"
+  if ($badSeen -eq 0) {
+    Write-Host "PASS every 'suggested:eva_export' row has a non-null cr1bd_lastseenon" -ForegroundColor Green
+  } else {
+    Write-Host "WARN $badSeen of $evaTotal 'suggested:eva_export' rows have a null cr1bd_lastseenon (unparseable source date — recency unavailable; not a failure)" -ForegroundColor Yellow
+  }
+  # rank: present and >= 1.
+  $badRank = Get-Count -EntitySet "cr1bd_inspectionaddresses" `
+    -Filter "cr1bd_sourcelabel eq 'suggested:eva_export' and (cr1bd_suggestionrank eq null or cr1bd_suggestionrank lt 1)" `
+    -IdField "cr1bd_inspectionaddressid"
+  Check ($badRank -eq 0) "every 'suggested:eva_export' row has cr1bd_suggestionrank >= 1 (missing/<1=$badRank of $evaTotal)"
 }
 
 Write-Host ""

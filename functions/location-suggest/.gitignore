@@ -1,0 +1,9 @@
+# Local Functions settings — the REAL file may hold connection strings; never commit it.
+local.settings.json
+
+# Python / pytest artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.venv_headless/

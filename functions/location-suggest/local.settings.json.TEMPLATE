@@ -1,0 +1,27 @@
+{
+  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) for local runs. Contains app-setting NAMES only — NO secret VALUES. Secrets are Key Vault references, resolved by the platform at runtime; the literal values are RESERVED-FOR-USER and never live in code, config, or fixtures.",
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "FUNCTIONS_EXTENSION_VERSION": "~4",
+
+    "_comment_gating": "cr1bd_LOCATION_ASSIST_ENABLED (paired with cr1bd_AZURE_MAPS_ENABLED) gates this Function, but the gate is enforced UPSTREAM in the Code App / flow (Dataverse env vars), NOT read by this Function. Listed here for documentation only.",
+
+    "_comment_box": "Box is dormant in v1. BOX_API_ENABLED=false selects the StubPhotoSource (no Box read). Set true only at activation, AFTER the Box CCG content read (BoxPhotoSource) is implemented and the Box secrets are in Key Vault.",
+    "BOX_API_ENABLED": "false",
+
+    "_comment_vision_nonsecret": "Azure AI Vision endpoint is non-secret (a plain app setting); the KEY below is a Key Vault reference.",
+    "AZURE_VISION_ENDPOINT": "",
+    "AZURE_VISION_API_VERSION": "2024-02-01",
+
+    "_comment_maps_nonsecret": "Azure Maps endpoint/version/country are non-secret app settings; the KEY below is a Key Vault reference.",
+    "AZURE_MAPS_ENDPOINT": "https://atlas.microsoft.com",
+    "AZURE_MAPS_API_VERSION": "1.0",
+    "AZURE_MAPS_COUNTRY_SET": "GB",
+
+    "_comment_secrets": "Secret VALUES never live here. The Vision + Maps keys MUST be Key Vault references of the exact form below (resolved by the Function's managed identity), never literals:",
+    "AZURE_VISION_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/azure-vision-key/)",
+    "AZURE_MAPS_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/azure-maps-key/)"
+  }
+}
