@@ -23,9 +23,9 @@
       "connector": "shared_commondataserviceforapps",
       "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
       "tier": "Premium",
-      "usedBy": ["intake", "classify-persist", "case-resolve", "status-evaluate", "parse", "enrich", "provider-match", "jobsheet-import", "finalize-eva-box", "chaser-draft"],
+      "usedBy": ["intake", "classify-persist", "case-resolve", "status-evaluate", "parse", "enrich", "provider-match", "jobsheet-import", "finalize-eva-box", "chaser-draft", "chaser-send", "triage-classify", "box-folder-create", "box-file-request-copy", "box-blob-purge", "case-disposition"],
       "boundAtActivation": true,
-      "note": "Working store + env-var reads. Flows READ environment variables (environmentvariabledefinitions); they never write environmentvariablevalue/definition."
+      "note": "Working store + env-var reads. Flows READ environment variables (environmentvariabledefinitions); they never write environmentvariablevalue/definition. case-disposition (Phase 9) READS the cr1bd_CASE_DISPOSITION_ENABLED gate + the two-clock retention columns and anonymises Case/Evidence PII (field-null) + audits case_disposed; it never deletes cr1bd_auditevent rows."
     },
     {
       "connectionName": "shared_azureblob",
@@ -34,9 +34,9 @@
       "connector": "shared_azureblob",
       "apiId": "/providers/Microsoft.PowerApps/apis/shared_azureblob",
       "tier": "Premium",
-      "usedBy": ["classify-persist", "finalize-eva-box"],
+      "usedBy": ["classify-persist", "finalize-eva-box", "box-blob-purge", "case-disposition"],
       "boundAtActivation": true,
-      "note": "Attachment/.eml bytes go here (never inline in a Dataverse row). The storage Function returns { Path, sha256, size }. finalize-eva-box also READS blob content here (Get blob content using path (V2), operationId GetFileContentByPath_V2, dataset=AccountNameFromSettings) to fetch real photo bytes before each Box CreateFile (the S2 content-bind fix) — account cespkevidstdev01, container evidence, access-key auth. [RESERVED-FOR-USER] to bind."
+      "note": "Attachment/.eml bytes go here (never inline in a Dataverse row). The storage Function returns { Path, sha256, size }. finalize-eva-box also READS blob content here (Get blob content using path (V2), operationId GetFileContentByPath_V2, dataset=AccountNameFromSettings) to fetch real photo bytes before each Box CreateFile (the S2 content-bind fix) — account cespkevidstdev01, container evidence, access-key auth. box-blob-purge + case-disposition (Phase 9) DELETE transient Blob bytes here (GetFileMetadataByPath_V2 to resolve the opaque id, then DeleteFile_V2) — transient bytes only; the Box archive copy is NEVER touched. [RESERVED-FOR-USER] to bind."
     },
     {
       "connectionName": "shared_box",

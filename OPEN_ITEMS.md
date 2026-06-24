@@ -155,8 +155,11 @@ architecture/requirements > plans):
 - **[DONE 2026-06-24]** Authored the retention-clock schema (`cr1bd_closedat`/`retentionexpiresat`/`legalhold`/
   `legalholdreason`/`heldby` on Case) + `cr1bd_CASE_DISPOSITION_ENABLED` gate + apply script `27-retention-schema.ps1`
   (DRY-RUN default) + verify-parity lock. verify-parity 15/15; 12 EVA fields preserved.
-- **[BUILD]** Author the scheduled **`case-disposition`** flow (gated-off, two-clock guard, NO Box deletion,
-  mirror `box-blob-purge`) — deferred for deliberate handling (the retention window + anonymise-vs-hard-delete are operator/legal-gated policy inputs).
+- **[DONE 2026-06-24]** Authored the scheduled **`case-disposition`** flow (state=off, gated `cr1bd_CASE_DISPOSITION_ENABLED`,
+  far-future startTime so it never fires on import) + `case_disposed`=100000026 audit action. Two-clock guard (legal-hold
+  always wins, double-enforced); **anonymise by field-NULL, never row-delete**; **zero Box ops + zero Dataverse
+  DeleteRecord** (asserted by validate-flows Check 8d); hard-delete left as a marked operator-policy placeholder. The
+  retention window + anonymise-vs-hard-delete remain operator/legal policy (the flow only consumes `retentionexpiresat`). validate-flows 181/181.
 - **[BUILD]** Author the **3-role least-privilege security model** (User + Admin) as real role artefacts + apply script, gated-OFF (Engineer deferred).
 - **[DONE 2026-06-24]** Added KV **purge-protection** (4 vaults) + Blob **soft-delete + versioning** to the
   6 Function-host bicep templates (defense-in-depth); `az bicep build` clean on all 6. Authoring-only — operator applies.

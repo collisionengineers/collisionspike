@@ -184,6 +184,8 @@ const auditVals = auditAction.options.map((o) => o.value);
 ok(new Set(auditVals).size === auditVals.length, "cr1bd_auditaction integer values are unique");
 ok(auditByName["inbound_classified"] === 100000024 && auditByName["inbound_routed"] === 100000025,
    `Phase-8 audit actions pinned (inbound_classified=${auditByName["inbound_classified"]}, inbound_routed=${auditByName["inbound_routed"]})`);
+ok(auditByName["case_disposed"] === 100000026,
+   `Phase-9 audit action pinned (case_disposed=${auditByName["case_disposed"]})`);
 
 // --- 7) Print-red #c80a32 must never appear as a COLOR VALUE in the spec ----
 // (Docs that name the token to forbid it are fine; we flag the actual hex color.)

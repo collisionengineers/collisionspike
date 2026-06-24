@@ -34,7 +34,8 @@
         { "value": 100000022, "name": "location_assist_confirmed",    "label": "Location Assist Confirmed" },
         { "value": 100000023, "name": "chaser_sent",                  "label": "Chaser Sent" },
         { "value": 100000024, "name": "inbound_classified",           "label": "Inbound Classified" },
-        { "value": 100000025, "name": "inbound_routed",               "label": "Inbound Routed" }
+        { "value": 100000025, "name": "inbound_routed",               "label": "Inbound Routed" },
+        { "value": 100000026, "name": "case_disposed",                "label": "Case Disposed" }
       ]
     },
     {
