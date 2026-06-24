@@ -61,7 +61,7 @@ line `[ ]` until built/flipped.
    flag** (boolean + optional reason/`heldby`). _Why:_ the disposition flow needs a per-case clock and a
    per-case exemption; one global number cannot express the two-clock model. _Offline:_ author the columns +
    `verify-parity.mjs` lock; _operator:_ supplies the **window length** + applies live.
-2. **[DEFERRED · G2] Scheduled case-disposition flow** (sibling to `box-blob-purge`) — `Recurrence` trigger, gated;
+2. **[DEFERRED · G1] Scheduled case-disposition flow** (sibling to `box-blob-purge`) — `Recurrence` trigger, gated;
    for cases where `cr1bd_retentionexpiresat < now` **AND no legal hold**: purge any **retained transient
    Blob bytes**, then **anonymise or hard-delete** the case + its Evidence PII per policy; audit every
    branch. _Why:_ `box-blob-purge` only clears archived image blobs — `.eml` bodies, claimant identity

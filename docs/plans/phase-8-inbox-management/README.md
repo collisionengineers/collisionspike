@@ -62,7 +62,7 @@ operator asked for.
 |---|---|
 | Sender domain → existing provider? | `Init_senderDomain` + `Filter_exact_domain` in [intake.definition.json](flows/definitions/intake.definition.json) / [provider-match.definition.json](flows/definitions/provider-match.definition.json); corpus `cr1bd_workproviders.knownEmailDomains` (38 domains in [email-domains.csv](dataverse/.build/email-domains.csv)). ONE → existing provider, NONE → new client, AMBIGUOUS → existing-but-unassigned. |
 | Has attachments / attachment kinds | V3 trigger `body/hasAttachments`; `Compose_kind` in [classify-persist.definition.json](flows/definitions/classify-persist.definition.json) (instruction = strong work signal). |
-| Audit instruction? | `detect_audit_signals(text)` in [engine.py](functions/parser/cedocumentmapper_v2/rules/engine.py), already surfaced in the parser `audit:{value,signals,source}` envelope ([function_app.py](functions/parser/function_app.py), [parser_adapter.py](functions/parser/parser_adapter.py)) per ADR-0014. Distinguishes Type1(a) vs Type1(b). |
+| Audit instruction? | `detect_audit_signals(text)` in [engine.py](../../../functions/parser/cedocumentmapper_v2/rules/engine.py), already surfaced in the parser `audit:{value,signals,source}` envelope ([function_app.py](../../../functions/parser/function_app.py), [parser_adapter.py](../../../functions/parser/parser_adapter.py)) per ADR-0014. Distinguishes Type1(a) vs Type1(b). |
 | Subject/body keywords | NEW phrase lists modelled on `_AUDIT_PHRASES` / `_IMAGE_BASED_PHRASES` in engine.py. |
 | Body case-ref / VRM → an OPEN Case? | **Link by the Case/PO number FIRST** (each accident has its own Case/PO → its own Box folder), **VRM only as a fallback**. Reuse the case-ref + `VRM_RE` extractors from engine.py + a Dataverse lookup on `cr1bd_cases` (same idiom as [case-resolve.definition.json](flows/definitions/case-resolve.definition.json), ADR-0002). A body-mentioned Case/PO (or, failing that, a VRM) that hits an open Case with no instruction doc ⇒ "query about work we did". True ambiguity is **rare**; never silently merge (ADR-0010) — surface it to a human (e.g. a Box "dumping folder"). |
 
@@ -132,7 +132,7 @@ one, not the new table.)
 ## Engine — deterministic MVP (Phase A), LLM deferred (Phase C)
 
 **Where it lives:** a new **`POST /classify-email`** route in the parser Azure Function — *not* Power
-Fx. The strongest signals are already Python in [engine.py](functions/parser/cedocumentmapper_v2/rules/engine.py)
+Fx. The strongest signals are already Python in [engine.py](../../../functions/parser/cedocumentmapper_v2/rules/engine.py)
 (`detect_audit_signals`, `VRM_RE`, the phrase tuples); re-deriving them in Power Fx would duplicate
 and drift (see the vendored-divergence memo). Python is unit-testable; flow expressions are not. The
 parser's connector/function-key path already exists — the second route reuses all of it.
@@ -232,9 +232,9 @@ Keep the labelled corpus **in-repo** for now. A future, gated `BOX_QUERY_ARCHIVE
 **Modify:** [intake.definition.json](flows/definitions/intake.definition.json) (+
 `intake-shared-mailbox.definition.json`) — flip trigger, generalise dedup, insert triage child +
 Switch + case-id write-back (reconcile live `Run_enrich`/`Run_case_resolve` first);
-[function_app.py](functions/parser/function_app.py) — add `/classify-email`;
-[engine.py](functions/parser/cedocumentmapper_v2/rules/engine.py) (+ sibling) — export reusable
-`VRM_RE` / phrase tuples; [environment-variables.json](dataverse/environment-variables.json) — add
+[function_app.py](../../../functions/parser/function_app.py) — add `/classify-email`;
+[engine.py](../../../functions/parser/cedocumentmapper_v2/rules/engine.py) (+ sibling) — export reusable
+`VRM_RE` / phrase tuples; [environment-variables.json](../../../dataverse/environment-variables.json) — add
 `cr1bd_EMAIL_AI_ENABLED` (Phase C).
 
 ## Verification

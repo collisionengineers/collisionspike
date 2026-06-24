@@ -27,7 +27,7 @@ below marks each.
    (`cr1bd_closedat` / `cr1bd_retentionexpiresat` + a legal-hold flag) plus a scheduled
    **case-disposition flow** that purges retained transient Blob bytes and anonymises / hard-deletes
    case + evidence PII after the window.
-3. **(G2 — DEFERRED, pending operator)** A **DSAR / right-to-erasure cross-store runbook** covering
+3. **(G4 — DEFERRED, pending operator)** A **DSAR / right-to-erasure cross-store runbook** covering
    Dataverse + Blob + Box — explicitly including the **blind spot** that **PII-adjacent identifiers live
    in Box FOLDER NAMES, File-Request URLs and Outlook CATEGORY strings OUTSIDE Dataverse**.
 4. **(G3 — DEFERRED, pending operator / legal)** A **privacy-notice / DPIA / controller-processor map**

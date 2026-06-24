@@ -28,7 +28,7 @@ intentional, recorded reconciliations described here.
 > ## ⚠️ RE-VENDOR PENDING (2026-06-24) — drift guard is RED
 >
 > The sibling has advanced well past this cut on branch `feat/audit-case-type-detection`
-> (committed HEAD `f818758` *plus* substantial uncommitted work — extraction orchestrator,
+> (committed HEAD now `ec89cc0` — advanced past `f818758` since this cut — *plus* further uncommitted work: extraction orchestrator,
 > offline LLM-assist, eval harness, frontend rework). `test_engine_vendored_in_sync.py`
 > currently **fails** for 8 shared engine-core modules (`config/__init__.py`,
 > `config/migration.py`, `detection/__init__.py`, `domain/__init__.py`,
