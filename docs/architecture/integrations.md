@@ -190,3 +190,17 @@ EVA JSON) into the Case/PO folder in EVA photo order. The Phase-7 pivot moves th
 > `BOX_WEBHOOK_PRIMARY_KEY` / `BOX_WEBHOOK_SECONDARY_KEY` app settings), read by the `box-webhook` Function
 > — never on a connection. `BOX_AI_ENABLED` is deliberately omitted (deferred to Phase C); this Box set is
 > not the complete Box feature set.
+
+## API intake channel (deferred research)
+
+> **Status:** not in any current phase — deferred pending operator scoping. See ROADMAP "Later".
+
+An additive intake channel that lets providers/principals POST work directly to an HTTP API endpoint rather than via email. The pattern fits the existing Azure Function stack (parser, enrichment, `box-webhook`): a new Function accepts an authenticated POST, validates the payload, and creates a Dataverse Case directly.
+
+Open questions before a phase plan can be authored:
+- **Auth model** — API key (Function host key) vs Entra `client_credentials` per provider (preferred for audit trail).
+- **Payload contract** — likely the same 12-field EVA JSON + image multipart, but needs confirming with providers.
+- **Idempotency** — a provider-supplied reference ID to feed the ADR-0010 dedup ladder.
+- **Provider onboarding** — key issuance / Entra app-registration per provider; operational support burden.
+
+This would be feature-gated (`API_INTAKE_ENABLED`, default `false`) and additive — email intake (Phase 1/2) and Box webhook intake (Phase 7) remain unchanged.

@@ -29,6 +29,7 @@ Function, Dataverse schema, corpus, and Code App are live; the digital@ intake w
 **1c · Code App** — [code-app/ui-redesign.md](./code-app/ui-redesign.md) · [code-app/logo-fix-findings.md](./code-app/logo-fix-findings.md)
 10. [x] Deployed + live, wired to Dataverse; manual-intake (upload → parse → Case) works
 11. [x] Logo / brand fonts / nav fixed; **UI/UX review 190626 actioned** (see `docs/reviews/190626/`)
+12. [ ] **Delete / remove case** — confirmed-delete action on `CaseDetail` (or queue context menu); hard-deletes the Case and cascades Evidence rows; for junk/duplicate cases only. Complement to the `junk-case-cleanup` CLI skill. Must write an `AuditEvent` on delete. If Box is live (`BOX_API_ENABLED`), prompt for manual Box-folder archival first — Box is never deleted automatically (ADR-0017).
 
 **1d · Flows (imported OFF)** — also covered by [phase-1-operational.md](./phase-1-operational.md) (bridge 1→2)
 12. [x] 10 cloud flows imported `state=off`; intake `MinIntakeDate` + attachment guards; dedup ladder encoded

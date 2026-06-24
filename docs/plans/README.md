@@ -148,3 +148,5 @@ Phase-1b.1 seed/analysis (lives in `raw/.../outputs/`) and the pure operator-act
 live in **DEPLOY-RUNBOOK.md** + [../gated.md](../gated.md) rather than here. Per-phase status and the
 ordered build checklist live in each phase folder's `README.md`; everything needing the operator is
 consolidated in [../gated.md](../gated.md).
+
+**Deferred research — no phase plan yet:** the **API intake channel** (allow providers to POST work directly to an HTTP endpoint, bypassing email) is recorded in the ROADMAP "Later" section and in [../architecture/integrations.md](../architecture/integrations.md). A phase plan will be authored once the operator confirms scope (auth model, payload contract, provider onboarding).
