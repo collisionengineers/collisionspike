@@ -43,8 +43,10 @@
   costing** (see [microsoft-stack.md](../architecture/microsoft-stack.md#9-conversational-copilot--copilot-studio)).
 - **postcode.io** — UK address normalisation (free). Microsoft alternative (Azure Maps) evaluated
   for later if reverse geocoding / autocomplete is needed.
-- **cedocumentmapper_v2.0** — the document parser that powers steps 3–4 (already ~75% built; see
-  [repo-constellation.md](../architecture/repo-constellation.md#cedocumentmapper_v20)).
+- **cedocumentmapper_v2.0** — the document parser that powers steps 3–4 (engine-core **complete &
+  vendored-live** in the parser Function; a standalone dual-target product — see
+  [repo-constellation.md](../architecture/repo-constellation.md#cedocumentmapper_v20) and
+  [ADR-0018](../adr/0018-cedocumentmapper-dual-target-vendored-engine.md)).
 - **WhatsApp intake** — manual (WhatsApp Business **app**, no API/webhook — ADR-0007). Planned
   timesaver: bulk-import exported WhatsApp media → OCR/vision matches images to Cases by **VRM**.
 - **Audatex** — **out of scope** for the spike (deferred entirely).
