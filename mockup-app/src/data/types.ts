@@ -119,6 +119,15 @@ export interface SuggestedAddress {
   evidenceNote?: string;
   /** The confidence band carried in the source label (e.g. 'candidate_multiple_addresses'). */
   confidenceBand?: string;
+  /* ---- Offline-derived ranking metadata (ADR-0016 helper #2). These drive
+     suggestion ORDERING + a small "seen N times · last <date>" hint ONLY; they
+     NEVER auto-select and are NEVER mirrored onto a Case (ADR-0013 unchanged). */
+  /** # of source inspections deduped into this site (per provider) — frequency. */
+  frequency?: number;
+  /** Most-recent source Created Date among the deduped inspections (YYYY-MM-DD). */
+  lastSeen?: string;
+  /** 1-based rank within the provider scope, by (frequency desc, lastSeen desc). */
+  rank?: number;
 }
 
 /** Confirmed-vs-suggested split of the inspection-address corpus (Admin count). */
@@ -410,6 +419,15 @@ export interface InspectionAddressRecord {
   cr1bd_postcode?: string;
   /** Repairer lookup (GUID), when the location IS a known repairer. */
   _cr1bd_repairerid_value?: string;
+  /* ---- ADR-0016 offline ranking columns (additive, nullable). Populated by the
+     EVA-export pre-processor + 16-seed; surfaced as suggestion ORDERING + a hint.
+     ORDERING ONLY — never an auto-select, never mirrored onto a Case. */
+  /** # of source inspections deduped into this site (per provider). */
+  cr1bd_suggestionfrequency?: number;
+  /** Most-recent Created Date among the deduped inspections (DateOnly). */
+  cr1bd_lastseenon?: string;
+  /** 1-based rank within the provider scope (frequency desc, lastseen desc). */
+  cr1bd_suggestionrank?: number;
 }
 
 /** A WorkProvider row (cr1bd_workprovider logical names). */

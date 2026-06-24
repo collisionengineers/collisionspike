@@ -47,12 +47,20 @@ docs/plans/
 (docs/open-questions.md — consolidated decisions register, outside this tree)
 ```
 
-> **Phases 8 & 9 — integrated 2026-06-24.** Two items from `to-integrate-into-phases/` were filed into the
-> phase structure: **Phase 8 — Inbox/Triage Management** (additive, like Phase 7; ADR-0015 _Proposed_) and a
-> **Phase 4a corpus revamp** from the 2-year EVA full-address export (ADR-0016 _Proposed_; **ADR-0013 stays
-> binding — no runtime matcher**). The whole-repo review additionally surfaced **Phase 9 — Data Governance,
-> Retention & Erasure** (ADR-0017 _Proposed_) as the biggest substantive gap. All three are **planned / not
-> built**; consolidated decisions live in [../open-questions.md](../open-questions.md).
+> **`to-integrate-into-phases/` is a drop-zone — distil, then remove.** `to-integrate-into-phases/` holds
+> **shorthand operator notes** awaiting distillation into the phase structure. The standing convention: a note
+> is distilled into the relevant `plans/`, ADR, and `docs/`, then the **note stub is removed** from the
+> drop-zone once distilled (any **data file** dropped alongside is **retained** where still referenced — e.g.
+> `inspection-address-revamp/fullevaexportinspectionaddresses.xlsx`, kept for Phase 4a + Phase 9).
+>
+> **Integrated 2026-06-24.** Items distilled from the drop-zone into the phase structure: **Phase 8 —
+> Inbox/Triage Management** (additive, like Phase 7; ADR-0015 _Proposed_) and the **Phase 4a inspection-address
+> corpus revamp** from the 2-year EVA full-address export (ADR-0016 _Proposed_; **ADR-0013 stays binding — no
+> runtime matcher**; the offline pipeline is **built 2026-06-24**, the live `-Apply` replace pending the
+> operator). The whole-repo review additionally surfaced **Phase 9 — Data Governance, Retention & Erasure**
+> (ADR-0017 _Proposed_) as the biggest substantive gap. Their note stubs (`e-mail-management.md`,
+> `inspection-address-revamp/README.md`) have been removed now that they are distilled; consolidated decisions
+> live in [../open-questions.md](../open-questions.md).
 
 > **Phase 7 — Box-centric intake pivot (ADR-0012).** Added 2026-06-22 as a later **additive** phase
 > (folder at parse-confirm, File-Request image chasers, webhook intake; **Dataverse-authoritative,

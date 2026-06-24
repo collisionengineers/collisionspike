@@ -44,6 +44,11 @@ docs/
   README.md          the docs index
 ```
 
+**`docs/plans/to-integrate-into-phases/` is a drop-zone** for shorthand operator notes pending
+distillation: a note is distilled into the relevant `plans/`, ADR, and `docs/`, then the note stub is
+**removed** once distilled (data files dropped alongside may be **retained** where still referenced —
+e.g. `inspection-address-revamp/fullevaexportinspectionaddresses.xlsx`).
+
 **Where things live / precedence.** Phases (**ROADMAP 0–6**) are the **work-breakdown** axis;
 Milestones (**M0/M1/M2/M3**) are **capability slices that cut across phases** — authoritative map in
 [docs/plans/milestone-model.md](./docs/plans/milestone-model.md). **Never equate a Phase with a

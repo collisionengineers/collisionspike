@@ -600,6 +600,7 @@ interface SuggestedLocationRowProps {
 function friendlyBand(band?: string): string | undefined {
   if (!band) return undefined;
   const b = band.toLowerCase();
+  if (b.includes('eva_export') || b.includes('eva export')) return 'From EVA inspection history';
   if (b.includes('multiple')) return 'One of several possible addresses';
   if (b.includes('jobsheet')) return 'From job-sheet guidance';
   if (b.includes('repairer')) return 'Matched to a local repairer';
@@ -608,11 +609,27 @@ function friendlyBand(band?: string): string | undefined {
   return undefined; // unknown band — omit rather than show a raw code
 }
 
+/** A muted "seen N times · last <date>" hint from the offline ranking metadata
+ *  (ADR-0016 helper #2). Recency-only or frequency-only rows render the part they
+ *  have; rows with neither render nothing. PRESENTATION ONLY — never auto-selects.
+ *  lastSeen arrives as YYYY-MM-DD; surface it as DD/MM/YYYY for display parity. */
+function frequencyHint(suggestion: SuggestedAddress): string | undefined {
+  const parts: string[] = [];
+  if (typeof suggestion.frequency === 'number' && suggestion.frequency > 0) {
+    parts.push(`seen ${suggestion.frequency} ${suggestion.frequency === 1 ? 'time' : 'times'}`);
+  }
+  const seen = (suggestion.lastSeen ?? '').trim();
+  const m = seen.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) parts.push(`last ${m[3]}/${m[2]}/${m[1]}`);
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
 function SuggestedLocationRow({ suggestion, onUse }: SuggestedLocationRowProps) {
   const styles = useStyles();
   const lines = [...suggestion.lines, suggestion.postcode].filter(Boolean);
   const band = friendlyBand(suggestion.confidenceBand);
-  const tip = [band, suggestion.evidenceNote, 'Suggested — low confidence; verify before use.']
+  const seenHint = frequencyHint(suggestion);
+  const tip = [band, seenHint, suggestion.evidenceNote, 'Suggested — low confidence; verify before use.']
     .filter(Boolean)
     .join('\n');
   return (
@@ -628,6 +645,7 @@ function SuggestedLocationRow({ suggestion, onUse }: SuggestedLocationRowProps) 
           {suggestion.providerCode && (
             <Caption1 className={styles.hint}>Provider {suggestion.providerCode}</Caption1>
           )}
+          {seenHint && <Caption1 className={styles.hint}>{seenHint}</Caption1>}
         </span>
       </div>
       <Button appearance="secondary" size="small" icon={<Check size={14} />} onClick={onUse}>

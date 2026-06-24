@@ -4,7 +4,7 @@
   "displayName": "Audit Event",
   "displayCollectionName": "Audit Events",
   "schemaName": "cr1bd_AuditEvent",
-  "description": "Append-only audit log of every corpus/case change. Actor, action (controlled vocabulary), severity, before/after JSON, timestamp. Distinct from Dataverse platform auditing -- this is the domain-level workflow trail the predecessor tool lacked.",
+  "description": "Append-only audit log of every corpus/case change. Actor, action (controlled vocabulary), severity, before/after JSON, timestamp. Distinct from Dataverse platform auditing -- this is the domain-level workflow trail the predecessor tool lacked. NAMING (2026-06-24): this is the audit-TRAIL (change log); do NOT confuse it with the ADR-0014 'audit' CASE-TYPE (cr1bd_casetype=audit, where CE audits a third party's engineer report). cr1bd_auditaction values are change-log actions, never audit-case actions. A future rename (e.g. cr1bd_changeevent / cr1bd_eventaction) would remove the overload but is a live migration touching flows + scripts -- deferred, operator's call.",
   "ownership": "UserOwned",
   "lifecycle": { "state": "m1-live", "note": "One of the four M1-live tables. Append-only (no updates/deletes in normal operation)." },
   "primaryColumn": {

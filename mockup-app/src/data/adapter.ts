@@ -501,6 +501,12 @@ export function suggestionFromRecord(rec: InspectionAddressRecord): SuggestedAdd
         .replace(/\.{2,}/g, '.')
         .trim()
     : '';
+  // ADR-0016 offline ranking metadata — carried THROUGH only when the row has it
+  // (the columns are nullable + only populated for EVA-export-seeded rows). These
+  // drive suggestion ORDERING + a small hint; they never auto-select (ADR-0013).
+  // cr1bd_lastseenon is a Dataverse DateOnly (ISO yyyy-mm-dd[...]); surface just
+  // the date portion as YYYY-MM-DD so the hint renders a clean date.
+  const lastSeen = (rec.cr1bd_lastseenon ?? '').trim().slice(0, 10);
   return {
     id: rec.cr1bd_inspectionaddressid ?? '',
     lines,
@@ -509,6 +515,11 @@ export function suggestionFromRecord(rec: InspectionAddressRecord): SuggestedAdd
     ...(noteToken(note, 'loc') ? { locValue: noteToken(note, 'loc') } : {}),
     ...(humanEvidence ? { evidenceNote: humanEvidence } : {}),
     ...(confidenceBand ? { confidenceBand } : {}),
+    ...(rec.cr1bd_suggestionfrequency != null
+      ? { frequency: rec.cr1bd_suggestionfrequency }
+      : {}),
+    ...(lastSeen ? { lastSeen } : {}),
+    ...(rec.cr1bd_suggestionrank != null ? { rank: rec.cr1bd_suggestionrank } : {}),
   };
 }
 
