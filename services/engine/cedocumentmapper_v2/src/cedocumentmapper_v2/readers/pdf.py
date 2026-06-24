@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 import io
 import os
 import re
 import shutil
 import sys
+import time
 from pathlib import Path
 import fitz
 from pypdf import PdfReader
@@ -15,11 +17,16 @@ from cedocumentmapper_v2.domain.models import (
     DocumentModel,
     DocumentPage,
     DocumentLine,
+    Table,
 )
 from cedocumentmapper_v2.readers.base import DocumentReader
 from cedocumentmapper_v2.readers.errors import ReaderError, DependencyMissingError
 
 OCR_PAGE_LIMIT = 2
+# Wall-clock ceiling (seconds) for the whole OCR pass. The page-count cap alone
+# does not bound runtime on slow/large rasters, so we also stop once this budget
+# is exceeded and surface it in the reader notes.
+OCR_TIME_LIMIT_SECONDS = 120.0
 
 
 def resource_path(relative_path: str) -> Path:
@@ -78,13 +85,103 @@ def configure_tesseract() -> bool:
         return False
 
 
+@contextlib.contextmanager
+def _silence_stdout_fd():
+    """Redirect OS-level stdout (fd 1) to devnull for the duration of the block.
+
+    PyMuPDF's ``find_tables()`` prints an advisory line ("Consider using the
+    pymupdf_layout package ...") straight to stdout. On the headless CLI that
+    line would corrupt the machine-readable JSON written to stdout, so we
+    suppress it at the file-descriptor level — capturing both Python-level
+    prints and C-level writes from the underlying MuPDF library.
+    """
+    try:
+        saved_fd = os.dup(1)
+    except (OSError, ValueError):  # no real stdout fd (e.g. embedded host) — nothing to do
+        yield
+        return
+    devnull_fd = None
+    try:
+        # os.open is inside the try so a failure here (e.g. fd exhaustion) still
+        # runs the finally and closes saved_fd. sys.stdout can be None in an
+        # embedded/windowed host even when fd 1 is valid, so guard the flushes.
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        if sys.stdout is not None:
+            sys.stdout.flush()
+        os.dup2(devnull_fd, 1)
+        yield
+    finally:
+        if sys.stdout is not None:
+            sys.stdout.flush()
+        os.dup2(saved_fd, 1)
+        if devnull_fd is not None:
+            os.close(devnull_fd)
+        os.close(saved_fd)
+
+
+def _extract_page_tables(page, page_idx: int) -> tuple[tuple[Table, ...], str | None]:
+    """Extract tables from a fitz page via ``find_tables`` if available.
+
+    Returns ``(tables, note)`` where ``note`` is a free-text reason recorded when
+    table extraction is unavailable or fails, else ``None``. Never raises: older
+    PyMuPDF builds without ``find_tables``, or pages with no tables, degrade
+    gracefully to an empty tuple.
+    """
+    if not hasattr(page, "find_tables"):
+        return (), "Table extraction unavailable (PyMuPDF lacks find_tables)."
+
+    try:
+        tables: list[Table] = []
+        # find_tables() emits an advisory to stdout; silence it so the CLI's
+        # JSON output on stdout stays clean and machine-parseable.
+        with _silence_stdout_fd():
+            finder = page.find_tables()
+            found = getattr(finder, "tables", []) or []
+            for tbl in found:
+                try:
+                    extracted = tbl.extract() or []
+                except Exception:
+                    continue
+                rows = tuple(
+                    tuple("" if cell is None else str(cell) for cell in row)
+                    for row in extracted
+                )
+                if not rows:
+                    continue
+                raw_bbox = getattr(tbl, "bbox", None)
+                bbox = tuple(float(v) for v in raw_bbox) if raw_bbox else None
+                tables.append(Table(rows=rows, bbox=bbox, page_index=page_idx))
+        return tuple(tables), None
+    except Exception as exc:  # pragma: no cover - defensive guard
+        return (), f"Table extraction failed on page {page_idx + 1}: {exc}"
+
+
 class PDFDocumentReader(DocumentReader):
     supported_extensions: frozenset[str] = frozenset([".pdf"])
 
     def __init__(self) -> None:
         configure_tesseract()
 
-    def read(self, path: Path) -> DocumentModel:
+    def read(
+        self,
+        path: Path,
+        *,
+        force_ocr: bool = False,
+        ocr_time_limit_seconds: float = OCR_TIME_LIMIT_SECONDS,
+    ) -> DocumentModel:
+        """Read a PDF into the canonical document model.
+
+        Parameters
+        ----------
+        force_ocr:
+            When True, the OCR fallback is run even if the heuristic page/image
+            triggers would normally skip it (e.g. documents with more than
+            ``OCR_PAGE_LIMIT`` pages, or with multiple images per page). This is
+            the operator override path so OCR can be forced from the service.
+        ocr_time_limit_seconds:
+            Wall-clock budget for the whole OCR pass. OCR stops once exceeded and
+            the cap is recorded in the reader notes.
+        """
         if not path.exists():
             raise ReaderError(f"File not found: {path}")
 
@@ -99,6 +196,7 @@ class PDFDocumentReader(DocumentReader):
 
         try:
             per_page_image_counts = []
+            table_skip_note_added = False
             for page_idx, page in enumerate(doc):
                 try:
                     per_page_image_counts.append(len(page.get_images() or []))
@@ -163,34 +261,71 @@ class PDFDocumentReader(DocumentReader):
                         )
                         line_idx_counter += 1
 
+                page_tables, table_note = _extract_page_tables(page, page_idx)
+                if table_note and not table_skip_note_added:
+                    notes.append(table_note)
+                    table_skip_note_added = True
+
                 pages_list.append(
                     DocumentPage(
                         page_index=page_idx,
                         width=width,
                         height=height,
                         lines=tuple(lines_list),
+                        tables=page_tables,
                     )
                 )
-                
+
                 # Build page plain text
                 page_text_combined = "\n".join(line.text for line in lines_list)
                 plain_text_parts.append(page_text_combined)
 
             combined_text = "\n\n".join(plain_text_parts).strip()
 
-            # OCR fallback checks
-            should_ocr = (
-                not combined_text
-                and 0 < len(per_page_image_counts) <= OCR_PAGE_LIMIT
-                and all(count == 1 for count in per_page_image_counts)
-            )
+            # OCR fallback checks. The historical heuristic only fires for short,
+            # one-image-per-page scans with no selectable text. We evaluate the
+            # individual conditions so that when OCR is *skipped* we can record an
+            # explicit reason, and so an operator can force it via force_ocr.
+            page_count = len(per_page_image_counts)
+            heuristic_reasons: list[str] = []
+            if combined_text:
+                heuristic_reasons.append("selectable text was already extracted")
+            if not (0 < page_count <= OCR_PAGE_LIMIT):
+                heuristic_reasons.append(
+                    f"page count {page_count} is outside the OCR limit of {OCR_PAGE_LIMIT}"
+                )
+            if not all(count == 1 for count in per_page_image_counts):
+                heuristic_reasons.append("not every page has exactly one image")
+
+            heuristic_ocr = not heuristic_reasons
+            should_ocr = heuristic_ocr or force_ocr
+
+            if not should_ocr:
+                reason = "; ".join(heuristic_reasons) or "OCR heuristic not met"
+                notes.append(
+                    f"OCR skipped ({reason}). Set the OCR override to force OCR."
+                )
+            elif force_ocr and not heuristic_ocr:
+                reason = "; ".join(heuristic_reasons) or "OCR heuristic not met"
+                notes.append(
+                    f"OCR forced via override despite skip heuristic ({reason})."
+                )
 
             if should_ocr:
                 notes.append("Selectable text empty. Initiating OCR fallback.")
                 ocr_pages = []
                 ocr_lines_list = []
-                
+                ocr_start = time.monotonic()
+                ocr_timed_out = False
+
                 for page_idx, page in enumerate(doc):
+                    if time.monotonic() - ocr_start > ocr_time_limit_seconds:
+                        ocr_timed_out = True
+                        notes.append(
+                            f"OCR aborted after exceeding the wall-clock time cap of "
+                            f"{ocr_time_limit_seconds:g}s (stopped at page {page_idx + 1})."
+                        )
+                        break
                     try:
                         # Render page to high-res image
                         pix = page.get_pixmap(matrix=fitz.Matrix(300 / 72, 300 / 72))
@@ -218,7 +353,9 @@ class PDFDocumentReader(DocumentReader):
                         notes.append(f"OCR failed on page {page_idx + 1}: {ocr_exc}")
                         break
                 else:
-                    # If all pages OCR'd successfully, override pages_list and combined_text
+                    # If all pages OCR'd successfully, override pages_list and combined_text.
+                    # Preserve any tables already discovered during the text pass.
+                    prior_tables = {p.page_index: p.tables for p in pages_list}
                     pages_list = []
                     for page_idx, p_lines in enumerate(ocr_lines_list):
                         pages_list.append(
@@ -227,6 +364,7 @@ class PDFDocumentReader(DocumentReader):
                                 width=doc[page_idx].rect.width,
                                 height=doc[page_idx].rect.height,
                                 lines=tuple(p_lines),
+                                tables=prior_tables.get(page_idx, ()),
                             )
                         )
                     combined_text = "\n\n".join(ocr_pages).strip()
@@ -284,5 +422,7 @@ class PDFDocumentReader(DocumentReader):
                 "raw_lines": combined_text.replace("\r\n", "\n").replace("\r", "\n").split("\n") if combined_text else [],
                 "page_count": len(pages_list),
                 "ocr_page_limit": OCR_PAGE_LIMIT,
+                "ocr_time_limit_seconds": ocr_time_limit_seconds,
+                "ocr_forced": force_ocr,
             },
         )

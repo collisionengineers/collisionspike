@@ -11,8 +11,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from cedocumentmapper_v2.config import migrate_providers_config
-from cedocumentmapper_v2.detection import ProviderDetector
+from dataclasses import replace
+
+from cedocumentmapper_v2.config import LLMAssistSettings, migrate_providers_config
+from cedocumentmapper_v2.detection import ProviderDetector, audit_signal_for_reference
 from cedocumentmapper_v2.domain.models import (
     DocumentLine,
     DocumentModel,
@@ -23,9 +25,14 @@ from cedocumentmapper_v2.domain.models import (
     ProviderMatch,
 )
 from cedocumentmapper_v2.exporters import EVAJsonExporter, RJSDocxExporter
-from cedocumentmapper_v2.readers import get_reader_for_path
+from cedocumentmapper_v2.readers import PDFDocumentReader, get_reader_for_path
 from cedocumentmapper_v2.rules import RuleEngine
-from cedocumentmapper_v2.ui.paths import APP_DATA_DIR, get_documents_dir, safe_filename, unique_output_path
+from cedocumentmapper_v2.ui.paths import (
+    APP_DATA_DIR,
+    get_desktop_dir,
+    safe_filename,
+    unique_output_path,
+)
 
 
 class DocumentMapperService:
@@ -61,9 +68,15 @@ class DocumentMapperService:
         with open(self.config_path, "w", encoding="utf-8") as fh:
             json.dump({"schema_version": 2, "providers": providers}, fh, indent=2)
 
-    def read_document(self, path: str | Path) -> DocumentModel:
+    def read_document(self, path: str | Path, *, force_ocr: bool = False) -> DocumentModel:
         path_obj = Path(path)
-        return get_reader_for_path(path_obj).read(path_obj)
+        reader = get_reader_for_path(path_obj)
+        # Only the PDF reader consumes the OCR override (its read() takes keyword-only
+        # force_ocr); the other readers keep the plain read(path) signature, so we pass
+        # the option selectively to avoid a TypeError on unknown kwargs.
+        if force_ocr and isinstance(reader, PDFDocumentReader):
+            return reader.read(path_obj, force_ocr=True)
+        return reader.read(path_obj)
 
     def detect_provider(self, document: DocumentModel, providers: list[dict[str, Any]] | None = None) -> ProviderMatch:
         return self.detector.detect(document, providers or self.load_providers())
@@ -87,12 +100,21 @@ class DocumentMapperService:
         document: DocumentModel,
         provider: dict[str, Any] | None = None,
         providers: list[dict[str, Any]] | None = None,
+        allow_unknown: bool = True,
     ) -> ExtractedRecord:
         provider_cfg = provider
         if provider_cfg is None:
             loaded = providers or self.load_providers()
             match = self.detect_provider(document, loaded)
             provider_cfg = next((p for p in loaded if p.get("id") == match.provider_id), None)
+            if provider_cfg is None and not allow_unknown:
+                # No configured provider matched and the caller forbids synthesizing
+                # the "unknown_temp" placeholder: surface an unmapped record so the
+                # caller (e.g. headless CLI) can refuse to emit JSON for it.
+                return ExtractedRecord(
+                    provider=ProviderMatch(None, "Unknown", match.confidence),
+                    fields={},
+                )
             if provider_cfg is None:
                 provider_cfg = {
                     "id": "unknown_temp",
@@ -110,20 +132,118 @@ class DocumentMapperService:
                 }
         if provider_cfg is None:
             return ExtractedRecord(provider=ProviderMatch(None, "Unknown", 0.0), fields={})
-        return self.rule_engine.extract_record(document, provider_cfg)
+        record = self.rule_engine.extract_record(document, provider_cfg)
+        return self._apply_case_type(record)
+
+    def _apply_case_type(self, record: ExtractedRecord) -> ExtractedRecord:
+        """Finalize the internal case-type flags on a freshly extracted record.
+
+        Detects the *audit* case-type from the ``A.`` prefix on the Case/PO value
+        (``FieldKey.REFERENCE``) and sets ``is_audit`` / ``audit_signals`` /
+        ``case_type``. Runs on the finalized record so both the CLI and GUI paths
+        get it. These are INTERNAL flags and never reach the EVA JSON export.
+        """
+        reference = record.fields.get(FieldKey.REFERENCE, FieldExtraction("")).value
+        signal = audit_signal_for_reference(reference)
+        if signal is None:
+            return record
+        return replace(
+            record,
+            is_audit=True,
+            audit_signals=record.audit_signals + (signal,),
+            case_type="audit",
+        )
+
+    def _resolve_provider_cfg(
+        self,
+        document: DocumentModel,
+        provider: dict[str, Any] | None,
+        providers: list[dict[str, Any]] | None,
+    ) -> dict[str, Any] | None:
+        """Resolve the provider config for a document (explicit, detected, or None).
+
+        Mirrors the lookup ``extract_document`` performs, but returns the raw
+        config (or ``None`` for the unmapped tail) instead of synthesizing the
+        ``unknown_temp`` placeholder. Used by the orchestrator path so the
+        Unknown-provider tail (``None``) can route to the LLM-assist strategy.
+        """
+        if provider is not None:
+            return provider
+        loaded = providers or self.load_providers()
+        match = self.detect_provider(document, loaded)
+        return next((p for p in loaded if p.get("id") == match.provider_id), None)
+
+    def build_orchestrator(self, llm_assist: bool = False):
+        """Construct a :class:`FieldExtractionOrchestrator` (opt-in path only).
+
+        The orchestrator wraps the default :class:`RuleEngine` as a strategy
+        (:class:`RuleStrategy`) plus a :class:`GeometryTableStrategy`. When
+        ``llm_assist`` is requested *and* the :class:`LLMAssistSettings` resolved
+        from the environment report ``is_active`` (flag on + endpoint set), an
+        :class:`LLMAssistStrategy` is appended for the Unknown-provider tail.
+        Otherwise no LLM strategy is added and no network call can occur.
+
+        This is additive and opt-in: nothing here runs unless a caller invokes it.
+        """
+        from cedocumentmapper_v2.extraction import (
+            FieldExtractionOrchestrator,
+            GeometryTableStrategy,
+            LLMAssistStrategy,
+            RuleStrategy,
+        )
+
+        strategies: list[Any] = [
+            RuleStrategy(self.rule_engine),
+            GeometryTableStrategy(),
+        ]
+        if llm_assist:
+            settings = LLMAssistSettings.from_env()
+            if settings.is_active:
+                strategies.append(LLMAssistStrategy(settings=settings))
+        return FieldExtractionOrchestrator(strategies)
+
+    def extract_document_orchestrated(
+        self,
+        document: DocumentModel,
+        provider: dict[str, Any] | None = None,
+        providers: list[dict[str, Any]] | None = None,
+        llm_assist: bool = False,
+    ):
+        """Opt-in extraction via the :class:`FieldExtractionOrchestrator`.
+
+        Returns the orchestrator's :class:`OrchestrationResult` (an
+        ExtractedRecord-compatible ``record`` plus per-field ``provenance`` and a
+        ``needs_review`` tuple). The case-type flags are finalized on the record
+        exactly as the default path does, so downstream consumers behave the same.
+
+        ``llm_assist`` only has an effect when the LLM-assist settings are active;
+        otherwise it is a pure no-op (no strategy added, no network call). Unlike
+        the default path this does NOT synthesize the ``unknown_temp`` placeholder
+        provider — an unmapped document is passed to the orchestrator as ``None``
+        so the LLM-assist tail can engage when enabled.
+        """
+        provider_cfg = self._resolve_provider_cfg(document, provider, providers)
+        orchestrator = self.build_orchestrator(llm_assist=llm_assist)
+        result = orchestrator.extract(document, provider_cfg)
+        finalized = self._apply_case_type(result.record)
+        if finalized is result.record:
+            return result
+        return replace(result, record=finalized)
 
     def process_document(
         self,
         path: str | Path,
         provider_selector: str | None = None,
         engineer_report: str | Path | None = None,
+        allow_unknown: bool = True,
+        force_ocr: bool = False,
     ) -> tuple[DocumentModel, ExtractedRecord]:
         providers = self.load_providers()
-        document = self.read_document(path)
+        document = self.read_document(path, force_ocr=force_ocr)
         provider = self.provider_by_id_or_name(provider_selector, providers) if provider_selector else None
-        record = self.extract_document(document, provider, providers)
+        record = self.extract_document(document, provider, providers, allow_unknown=allow_unknown)
         if engineer_report is not None:
-            engineer_document = self.read_document(engineer_report)
+            engineer_document = self.read_document(engineer_report, force_ocr=force_ocr)
             engineer_provider = self.detect_engineer_provider(engineer_document, providers)
             engineer_record = self.extract_document(engineer_document, engineer_provider, providers)
             record, _ = self.overlay_records_with_overrides(
@@ -170,6 +290,15 @@ class DocumentMapperService:
         base_work_provider = base.fields.get(FieldKey.WORK_PROVIDER, FieldExtraction("")).value.strip()
         if not base_work_provider:
             raise ValueError("You must process an instruction before an engineer's report")
+        if base.is_audit:
+            # Audit case-type: the second document is a THIRD-PARTY original being
+            # audited, not CE's own engineer report. It must stay SEPARATE (compared
+            # against), never merged onto the instruction. Refuse the overlay so the
+            # caller keeps the original as its own classified attachment.
+            raise ValueError(
+                "Audit case: the original engineer's report is a third-party "
+                "document and must be kept separate, not overlaid onto the instruction"
+            )
         merged = dict(base.fields)
         overrides: list[str] = []
         for key, extraction in engineer.fields.items():
@@ -294,7 +423,7 @@ class DocumentMapperService:
         return self.create_output_subfolder_from_fields(fields)
 
     def create_output_subfolder_from_fields(self, fields: dict[str, str]) -> Path:
-        root = get_documents_dir() / "cedocumentmapper_outputs"
+        root = get_desktop_dir() / "cedocumentmapper_outputs"
         root.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         work_provider = safe_filename(fields.get("work_provider", "") or "UnknownProvider")
@@ -347,6 +476,44 @@ class DocumentMapperService:
         return ExtractedRecord(
             provider=ProviderMatch(None, fields.get("work_provider", ""), 1.0),
             fields=record_fields,
+        )
+
+    def record_from_dict(self, data: dict[str, Any]) -> ExtractedRecord:
+        """Rebuild an ExtractedRecord from a :meth:`record_to_dict` payload.
+
+        Used by the GUI batch path so an engineer-report overlay targets the
+        CURRENTLY-DISPLAYED record (supplied by the client) rather than whichever
+        file the host imported last. Reconstructs what the overlay needs: the
+        field map, the provider, and the internal ``is_audit`` / ``audit_signals``
+        / ``case_type`` flags — so the never-overlay-onto-audit guard still fires.
+        """
+        record_fields: dict[FieldKey, FieldExtraction] = {}
+        for raw_key, raw_val in (data.get("fields") or {}).items():
+            try:
+                field_key = FieldKey(raw_key)
+            except ValueError:
+                continue
+            if isinstance(raw_val, dict):
+                record_fields[field_key] = FieldExtraction(
+                    value=str(raw_val.get("value", "") or ""),
+                    raw_value=str(raw_val.get("raw_value", "") or ""),
+                    rule_id=raw_val.get("rule_id"),
+                    confidence=raw_val.get("confidence"),
+                )
+            else:
+                record_fields[field_key] = FieldExtraction(value=str(raw_val or ""))
+        prov = data.get("provider") or {}
+        provider = ProviderMatch(
+            prov.get("provider_id"),
+            prov.get("provider_name", "Unknown"),
+            float(prov.get("confidence", 0.0) or 0.0),
+        )
+        return ExtractedRecord(
+            provider=provider,
+            fields=record_fields,
+            is_audit=bool(data.get("is_audit", False)),
+            audit_signals=tuple(data.get("audit_signals") or ()),
+            case_type=data.get("case_type"),
         )
 
     def document_to_dict(self, doc: DocumentModel) -> dict[str, Any]:
@@ -455,6 +622,48 @@ class DocumentMapperService:
             "notes": list(record.notes),
             "is_audit": record.is_audit,
             "audit_signals": list(record.audit_signals),
+            "case_type": record.case_type,
+        }
+
+    def orchestration_to_dict(self, result: Any) -> dict[str, Any]:
+        """Serialize an :class:`OrchestrationResult` to JSON-safe primitives.
+
+        Includes the standard record dict (so existing consumers can ingest it),
+        plus the orchestrator's per-field provenance (winner + every ranked
+        candidate, with strategy provenance) and the ``needs_review`` list.
+        """
+
+        def candidate_to_dict(candidate: Any) -> dict[str, Any]:
+            return {
+                "field": candidate.field.value,
+                "value": candidate.value,
+                "confidence": candidate.confidence,
+                "strategy_name": candidate.strategy_name,
+                "rule_id": candidate.rule_id,
+                "raw_value": candidate.raw_value,
+                "source_span": {
+                    "page_index": candidate.source_span.page_index,
+                    "line_index": candidate.source_span.line_index,
+                    "bbox": list(candidate.source_span.bbox) if candidate.source_span.bbox else None,
+                }
+                if candidate.source_span
+                else None,
+                "metadata": dict(candidate.metadata),
+            }
+
+        provenance = {
+            field_key.value: {
+                "winner": candidate_to_dict(prov.winner) if prov.winner else None,
+                "candidates": [candidate_to_dict(c) for c in prov.candidates],
+                "needs_review": prov.needs_review,
+                "review_reason": prov.review_reason,
+            }
+            for field_key, prov in result.provenance.items()
+        }
+        return {
+            "record": self.record_to_dict(result.record),
+            "provenance": provenance,
+            "needs_review": [field_key.value for field_key in result.needs_review],
         }
 
     def _output_path(self, record: ExtractedRecord, extension: str, out_dir: Path | None) -> Path:

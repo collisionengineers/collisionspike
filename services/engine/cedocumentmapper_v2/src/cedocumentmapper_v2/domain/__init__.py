@@ -11,12 +11,14 @@ from .models import (
     FieldKey,
     ProviderMatch,
     REQUIRED_FIELDS,
+    Table,
 )
 
 __all__ = [
     "DocumentLine",
     "DocumentModel",
     "DocumentPage",
+    "Table",
     "ExtractedRecord",
     "FieldExtraction",
     "SourceSpan",

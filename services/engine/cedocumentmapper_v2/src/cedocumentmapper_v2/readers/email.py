@@ -91,10 +91,15 @@ class EmailDocumentReader(DocumentReader):
 
         body_parts = []
         html_parts = []
+        attachment_names: list[str] = []
         if msg.is_multipart():
             for part in msg.walk():
                 disposition = str(part.get_content_disposition() or "").lower()
                 if disposition == "attachment":
+                    # Preserve attachment names for parity with the MSG path.
+                    name = part.get_filename()
+                    if name:
+                        attachment_names.append(str(name).strip())
                     continue
                 ctype = part.get_content_type()
                 try:
@@ -125,6 +130,11 @@ class EmailDocumentReader(DocumentReader):
             body = "\n\n".join(self._strip_html_tags(part) for part in html_parts if part and part.strip())
         if body:
             parts.append(body.strip())
+
+        attachment_names = [name for name in attachment_names if name]
+        if attachment_names:
+            parts.append("")
+            parts.append("Attachments: " + ", ".join(attachment_names))
 
         text = "\n".join(parts)
         text = text.replace("\r\n", "\n").replace("\r", "\n")

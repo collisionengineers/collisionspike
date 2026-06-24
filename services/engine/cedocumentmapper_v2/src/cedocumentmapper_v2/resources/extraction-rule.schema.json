@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collisionengineers.local/contracts/extraction-rule.schema.json",
+  "title": "Extraction Rule",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["id", "kind"],
+  "properties": {
+    "id": { "type": "string" },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "label_same_line",
+        "label_next_line",
+        "between_labels",
+        "fixed_line",
+        "fixed_line_label",
+        "label_same_or_next_line",
+        "line_offset",
+        "regex",
+        "presence",
+        "manual",
+        "email_date",
+        "acsp_claim_form"
+      ]
+    },
+    "labels": { "type": "array", "items": { "type": "string" } },
+    "start_label": { "type": "string" },
+    "end_label": { "type": "string" },
+    "line_number": { "type": "integer", "minimum": 1 },
+    "line_start": { "type": "integer", "minimum": 1 },
+    "line_end": { "type": "integer", "minimum": 1 },
+    "offset": { "type": "integer" },
+    "pattern": { "type": "string" },
+    "tokens": { "type": "array", "items": { "type": "string" } },
+    "value": { "type": "string" },
+    "absent_value": { "type": "string" },
+    "max_lines": { "type": "integer", "minimum": 1, "default": 1 },
+    "normalizer": { "type": "string" }
+  }
+}
+
