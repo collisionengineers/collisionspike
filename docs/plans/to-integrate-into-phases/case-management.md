@@ -1,2 +1,0 @@
-Delete / remove case option
-
