@@ -1,12 +1,28 @@
 /* ============================================================
-   Collision Engineers — ADR-0010 dedup / case-resolve (DOMAIN LOGIC, M1).
+   Collision Engineers — ADR-0010 dedup ladder, REFERENCE CONTRACT (domain, M1).
 
-   The EXACT ADR-0010 ladder as a pure function. Re-implements the dedup
-   semantics of collisioncc `src/lib/case-linking.ts` (registration/reference
-   correlation, review-required ambiguity) WITHOUT importing or calling it, and
-   matches the Power Automate `Flow_CaseResolve` Switch in the
-   `power-automate-flow` skill (references/03-dedup-branch.md) 1:1 so the flow's
-   branch tokens and this function's `resolution` tokens are the same vocabulary.
+   `resolveCase` encodes the ADR-0010 five-rung dedup ladder as a pure function.
+   It is a REFERENCE / SPEC CONTRACT for the ladder semantics, and it is
+   TEST-ONLY: consumed exclusively by `dedup.test.ts` to pin the ladder decision
+   table; NO screen and NO flow imports it, and it sits on NO live hot path. It
+   re-implements the dedup semantics of collisioncc `src/lib/case-linking.ts`
+   (registration/reference correlation, review-required ambiguity) WITHOUT
+   importing or calling it.
+
+   NOT 1:1 with the live flow. The live Power Automate `Flow_CaseResolve`
+   (`flows/definitions/case-resolve.definition.json`, LIVE 2026-06-20) was
+   rewritten to MERGE-BY-REGISTRATION: it auto-merges a complementary
+   instructions/images pair that share a non-empty VRM (survivor = the Case/PO
+   holder) and returns the outcomes `noop | merged | held_multiple |
+   skipped_guard` off a ONE/MANY/ZERO match-count Switch — NOT this ladder's
+   `drop | attach | new_due_to_reference | propose_attach | create` tokens. The
+   ONLY rule the two share is rungs 3/4's ">1 candidate for that VRM -> Held /
+   duplicate_risk for staff", which survives as the live flow's `held_multiple`
+   (MANY) branch; the old ladder's attach/create rungs were never on intake's
+   hot path (intake owns its own Create). So treat this function as the ADR-0010
+   ladder SPEC, not a mirror of the live Switch. (The per-token `Flow_CaseResolve`
+   Switch-case annotations on the `DedupResolution` type below describe that
+   SUPERSEDED ladder flow and are retained only as historical reference.)
 
    THE TWO INVIOLABLE RULES (ADR-0010):
      1. NEVER auto-merge on VRM + time. A bare VRM match (no disambiguating

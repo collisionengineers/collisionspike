@@ -108,7 +108,7 @@ field that **`mockup-app/src/contracts/image-rules.ts`** already consumes
 existing field from M1, exactly as `data-model.md` specifies. The image rules,
 status machine, and EVA contract are all **unchanged**.
 
-## Gating (three Dataverse environment variables + one app setting)
+## Gating (two Dataverse environment variables + the OCR_PROVIDER/PLATE_PROVIDER app settings)
 
 Enforced **UPSTREAM** (flow / Code App reads the Dataverse env var and only calls
 the route when enabled). The Function does **not** read these gates — it just works
@@ -157,7 +157,7 @@ only ever see **our** connector, so DI Read needs no Power Platform connector.
 
 ```powershell
 # from ocr/
-python -m pytest                                 # 20 passed
+python -m pytest                                 # the OCR suite passes
 az bicep build --file infra/main.bicep --stdout  # exit 0, no warnings
 python -c "import json; json.load(open('openapi/ocr-connector.json'))"  # valid
 python -m py_compile function_app.py ocr_pdf_adapter.py plate_adapter.py

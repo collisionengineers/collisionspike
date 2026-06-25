@@ -48,10 +48,11 @@ a **no-secrets dry-run self-check** (config-wiring only, not the live contract).
    `cr1bd_ENRICHMENT_ENABLED` *env-var* (`enrich.definition.json` `Get_gate_definition`). Flipping only
    one leaves enrichment **silently off** (the Function returns the `"ENRICHMENT_ENABLED is false"`
    advisory), which mis-diagnoses as a creds failure. **Flip both, in the test env only.**
-2. **Latent default drift.** The Dataverse manifest ships `cr1bd_ENRICHMENT_ENABLED` `defaultValue:"true"`
-   (`dataverse/environment-variables.json`) while the Bicep ships `enrichmentEnabled` **`false`**
-   (`infra/main.bicep`). Both should express **"OFF until creds injected"**. This inconsistency is flagged
-   in §6 for reconciliation **before** activation; this read-only plan does not edit either file.
+2. **Gate default reconciled.** The Dataverse manifest (`dataverse/environment-variables.json`) and the
+   Bicep (`infra/main.bicep`) now **both** express **OFF-by-default** — `cr1bd_ENRICHMENT_ENABLED`
+   `defaultValue:"false"` and `enrichmentEnabled` **`false`** — so the shipped default reads **"OFF until
+   creds injected"**. Dev is activated via the **per-environment `currentValue=true`** (never the shipped
+   default). This resolves the drift formerly flagged here and tracked in §6.
 
 ---
 
@@ -203,7 +204,7 @@ These are the offline items that strengthen the artifact **before** the operator
 listed for the build agent; **this read-only plan produces findings, not edits.**
 
 - [ ] **Re-run the offline suite** to re-establish green: `python -m pytest -q` in `functions/enrichment`
-  (18 respx-mocked, zero network). Strongest pre-creds proof of orchestration + ADR-0006 + analysis.
+  (29 respx-mocked, zero network). Strongest pre-creds proof of orchestration + ADR-0006 + analysis.
 - [ ] **Harden DVSA 429/5xx to DVLA parity** (§3 gap (b)): treat a bare HTTP `429` (and optionally
   `500/502/503/504`) from the DVSA history `GET` as retry-safe with the existing bounded backoff, not only
   the JSON `errorCode`s. Add a **429-then-200** mocked test mirroring the existing 401 self-heal test.
@@ -214,11 +215,13 @@ listed for the build agent; **this read-only plan produces findings, not edits.*
   list. Add a mocked **leak-assertion** test. This lets the operator confirm Key Vault wiring + MI
   resolution end-to-end (step S4 below) with **zero quota spend and zero secret exposure**.
   ([Grant your app access to a key vault](https://learn.microsoft.com/azure/app-service/app-service-key-vault-references#grant-your-app-access-to-a-key-vault))
-- [ ] **Reconcile the gate default drift** (§1 gotcha 2): align `dataverse/environment-variables.json`
+- [x] **Reconcile the gate default drift** (§1 gotcha 2): align `dataverse/environment-variables.json`
   `cr1bd_ENRICHMENT_ENABLED` and Bicep `enrichmentEnabled` so both read **"OFF until creds injected"**,
   and document the **double-gate** in the `enrich.definition.json` comment (both the Function app setting
-  **and** the Dataverse env-var must be `true`). *(Cross-doc reconciliation is handled separately — see
-  the precedence note in [CLAUDE.md](../../../CLAUDE.md); do not edit shared docs here.)*
+  **and** the Dataverse env-var must be `true`). **Done** — both now ship `defaultValue:"false"` /
+  `enrichmentEnabled = false`; Dev is activated via the per-env `currentValue=true`, never the shipped
+  default. *(Cross-doc reconciliation is handled separately — see the precedence note in
+  [CLAUDE.md](../../../CLAUDE.md); do not edit shared docs here.)*
 - [ ] **Connector correctness check** — validate `openapi/enrichment-connector.json` (swagger 2.0
   well-formed, `operationId EnrichDvsaMot`, request/response schema matches the Function body in/out,
   `x-functions-key` security). The import copy sets `host` to
@@ -327,7 +330,7 @@ the auth-boundary + secret-hygiene + CORS checks in §8.
 
 ## 11. Decision summary (one line)
 
-**The DVSA/DVLA enrichment Function is code-complete and 18-test-green offline (`functions/enrichment/`),
+**The DVSA/DVLA enrichment Function is code-complete and 29-test-green offline (`functions/enrichment/`),
 deployed dark as `cespkenrich-fn-gi62sd`, with request/response/token shapes re-verified against the
 current DVSA MOT History + DVLA VES specs and Microsoft Learn; §3a is therefore an operator activation
 (🔒 H4) — DVSA Entra admin-consent, inject the four secrets to Key Vault, set `DVSA_TENANT_ID`, bind
