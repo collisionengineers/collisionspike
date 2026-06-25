@@ -20,6 +20,7 @@ import {
   FilePlus2,
   Paperclip,
   LayoutDashboard,
+  Inbox,
   Menu,
   type LucideIcon,
 } from 'lucide-react';
@@ -244,6 +245,19 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
     };
   }, []);
 
+  // Phase 8: the untriaged-inbox backlog drives the Inbox nav pill (honest 0 until
+  // the cr1bd_inboundemail table is wired — the seam returns zero counts).
+  const [inboundUntriaged, setInboundUntriaged] = useState<number | undefined>();
+  useEffect(() => {
+    let cancelled = false;
+    void data.inboundEmailCounts().then((c) => {
+      if (!cancelled) setInboundUntriaged(c.untriaged);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const renderQueue = (segment: QueueName, label: string, isBlocker: boolean, sub: boolean) => {
     const Icon = QUEUE_ICONS[segment];
     const count = counts?.[segment] ?? 0;
@@ -306,6 +320,35 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
     );
   };
 
+  /* The Inbox (Triage) entry — a real nav link carrying the untriaged-count pill
+     (muted, like the non-blocker queue pills). Hidden count when zero. */
+  const renderInboxLink = () => {
+    const count = inboundUntriaged ?? 0;
+    const badge =
+      count > 0 ? (
+        <span className={mergeClasses(styles.countPill, styles.countMuted)}>{count}</span>
+      ) : null;
+    const inner = (
+      <NavLink
+        to="/inbox"
+        className={({ isActive }) => mergeClasses(styles.navItem, isActive && styles.navItemActive)}
+      >
+        <span className={styles.navIcon}>
+          <Inbox size={18} />
+        </span>
+        {!collapsed && <span className={styles.navLabel}>Inbox</span>}
+        {!collapsed && badge}
+      </NavLink>
+    );
+    return collapsed ? (
+      <Tooltip content={`Inbox (${count})`} relationship="label" positioning="after">
+        {inner}
+      </Tooltip>
+    ) : (
+      <div>{inner}</div>
+    );
+  };
+
   /* First-class "Queues" group: a button that toggles the four sub-queues
      (review nav-bar #6). Highlights when any queue route is active. */
   const renderQueuesGroup = () => {
@@ -348,6 +391,9 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
         <div className={styles.navList}>
           {!collapsed && <div className={styles.navSectionLabel}>Overview</div>}
           {renderLink('/', 'Dashboard', LayoutDashboard, true)}
+
+          {!collapsed && <div className={styles.navSectionLabel}>Triage</div>}
+          {renderInboxLink()}
 
           {!collapsed && <div className={styles.navSectionLabel}>Intake</div>}
           {renderLink('/intake', 'New case', FilePlus2)}

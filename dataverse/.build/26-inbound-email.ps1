@@ -27,6 +27,12 @@
 #      add options to an existing set - this is the gap this script fills):
 #         inbound_classified = 100000024
 #         inbound_routed     = 100000025
+#   6. Create the 1 new env-var DEFINITION (the Phase-C deferred-triage gate),
+#      default OFF (mirrors 27-retention-schema.ps1 STEP 2 / 22-envvars-m2.ps1):
+#         cr1bd_EMAIL_AI_ENABLED (Boolean, defaultvalue='false')
+#      Co-located here (NOT 22-envvars-m2.ps1) so one operator -Apply provisions
+#      the Phase-8 table + choicesets + audit actions AND the dark gate together -
+#      same precedent as CASE_DISPOSITION_ENABLED -> 27-retention-schema.ps1 STEP 2.
 #
 # DRY-RUN by default: with NO -Apply switch this script makes ZERO tenant contact
 # (it acquires no token and issues no request) and only PRINTS what it WOULD do.
@@ -62,6 +68,8 @@ $DRY = -not $Apply
 
 function Label($t) { @{ "@odata.type"="Microsoft.Dynamics.CRM.Label"; "LocalizedLabels"=@(@{ "@odata.type"="Microsoft.Dynamics.CRM.LocalizedLabel"; "Label"=$t; "LanguageCode"=1033 }) } }
 function SchemaFromLogical($logical) { $rest = $logical.Substring(6); return "cr1bd_" + ($rest.Substring(0,1).ToUpper() + $rest.Substring(1)) }
+# env-var definition TypeCode map (mirrors 22-envvars-m2.ps1 / 27-retention-schema.ps1): Boolean=100000002, String=100000000.
+function TypeCode($t) { switch ($t) { "Boolean" { 100000002 } "String" { 100000000 } default { throw "Unknown env var type $t" } } }
 
 # In DRY mode these never run (callers are guarded); defined unconditionally so
 # the script is identical on both paths and only -Apply changes behaviour.
@@ -343,6 +351,39 @@ if ($DRY) {
 Write-Host "AUDITACTION_INBOUND_DONE inserted=$optInserted skipped=$optSkipped" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------------------
+# STEP 6 - the 1 new env-var DEFINITION (cr1bd_EMAIL_AI_ENABLED, default OFF)
+# ---------------------------------------------------------------------------
+# Phase-C (ADR-0015) gate for the deferred triage-llm child. Co-located in the
+# Phase-8 build step (NOT 22-envvars-m2.ps1) so one operator -Apply provisions the
+# table + choicesets + audit actions AND this dark gate together - the same
+# precedent as CASE_DISPOSITION_ENABLED in 27-retention-schema.ps1 STEP 2. Default
+# 'false' (ships dark); flipping it true (per-environment currentValue) is a
+# SEPARATE [RESERVED-FOR-USER] activation step this script never performs. Sibling
+# to COPILOT_ENABLED; the Code App READS it only. Idempotent: skips if it exists.
+$EMAIL_AI_VARS = @(
+  @{ schemaName="cr1bd_EMAIL_AI_ENABLED"; displayName="Email AI Enabled"; type="Boolean"; defaultValue="false";
+     description="Phase-C (ADR-0015) gate for the deferred triage-llm child - only category=other / low-confidence rows reach it; honours per-provider cr1bd_aiallowed / cr1bd_providerautomationmode; Code App READS only; sibling to COPILOT_ENABLED. Default OFF (ships dark). Flipping true is [RESERVED-FOR-USER]." }
+)
+$envCreated=0; $envSkipped=0
+foreach ($v in $EMAIL_AI_VARS) {
+  if ($DRY) { Write-Host "    [DRY] WOULD create env var $($v.schemaName) ($($v.type)) default='$($v.defaultValue)'" -ForegroundColor DarkCyan; $envCreated++; continue }
+  $existing = Invoke-RestMethod -Uri "$base/environmentvariabledefinitions?`$filter=schemaname eq '$($v.schemaName)'&`$select=environmentvariabledefinitionid" -Headers $H
+  if ($existing.value.Count -gt 0) { Write-Host "    [SKIP] env var $($v.schemaName) exists" -ForegroundColor DarkYellow; $envSkipped++; continue }
+  $def = @{
+    "schemaname"   = $v.schemaName
+    "displayname"  = $v.displayName
+    "description"  = $v.description
+    "type"         = (TypeCode $v.type)
+    "defaultvalue" = "$($v.defaultValue)"
+  }
+  $body = $def | ConvertTo-Json -Depth 10
+  Invoke-WithRetry { Invoke-RestMethod -Uri "$base/environmentvariabledefinitions" -Method Post -Headers $H -Body $body | Out-Null } "env var $($v.schemaName)"
+  Write-Host "    [OK] env var $($v.schemaName) ($($v.type)) default='$($v.defaultValue)'" -ForegroundColor Green
+  $envCreated++
+}
+Write-Host "ENVVAR_EMAIL_AI_DONE created=$envCreated skipped=$envSkipped" -ForegroundColor Cyan
+
+# ---------------------------------------------------------------------------
 # Publish so the new metadata is visible immediately (apply-mode only).
 # ---------------------------------------------------------------------------
 if (-not $DRY) {
@@ -351,7 +392,7 @@ if (-not $DRY) {
 }
 
 Write-Host ""
-Write-Host "INBOUND_SCHEMA_DONE  choicesets=$csCreated/+$csSkipped  table=$tblCreated/+$tblSkipped  cols=$colCreated/+$colSkipped  altkey=$akCreated/+$akSkipped  auditopts=$optInserted/+$optSkipped" -ForegroundColor Cyan
+Write-Host "INBOUND_SCHEMA_DONE  choicesets=$csCreated/+$csSkipped  table=$tblCreated/+$tblSkipped  cols=$colCreated/+$colSkipped  altkey=$akCreated/+$akSkipped  auditopts=$optInserted/+$optSkipped  envvar=$envCreated/+$envSkipped" -ForegroundColor Cyan
 if ($DRY) {
   Write-Host "DRY-RUN complete - NOTHING was applied. Re-run with -Apply (under az login) at Phase-8 activation." -ForegroundColor Yellow
 } else {

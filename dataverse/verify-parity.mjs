@@ -89,6 +89,9 @@ const expect = {
   // Phase-9 case-disposition kill switch (ADR-0017 G1) — the destructive purge/anonymise gate; default
   // OFF until the operator confirms the retention period + store-hardening pre-step ([RESERVED-FOR-USER]).
   "cr1bd_CASE_DISPOSITION_ENABLED": "false",
+  // Phase-8 email-AI gate (Phase-C, ADR-0015) — the deferred triage-llm child gate; ships dark, sibling
+  // to COPILOT_ENABLED. Default OFF; flipping it is [RESERVED-FOR-USER].
+  "cr1bd_EMAIL_AI_ENABLED": "false",
   // Phase-7 Box gates (ADR-0012) — all default OFF; the 2 String config vars
   // (BOX_FOLDER_ROOT_ID / BOX_FILE_REQUEST_TEMPLATE_ID) ship "" and are set per-env at activation.
   "cr1bd_BOX_API_ENABLED": "false", "cr1bd_BOX_FOLDER_AT_INTAKE_ENABLED": "false",

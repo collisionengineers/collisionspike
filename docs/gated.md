@@ -6,8 +6,8 @@ else has been built and switched on.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
-_Last updated **2026-06-24** (added §8 — the SDLC-sweep features awaiting activation — and the parser-key
-rotation item in §7)._
+_Last updated **2026-06-26** (added the Phase-8 Inbox/Triage activation pointer below; §8 — the
+SDLC-sweep features awaiting activation — and the parser-key rotation item in §7)._
 
 ---
 
@@ -27,6 +27,15 @@ These were on the list and are now finished and working live:
 ---
 
 ## 🔴 Needs you — with steps
+
+> **Phase 8 — Inbox / Triage Management is built offline and awaiting activation** (branch
+> `feat/phase-8-inbox-management`, PR pending). It turns the inbox flow into "classify **every** email →
+> route work to Cases, everything else to a triage queue", and adds an `/inbox` screen. Activating it is a
+> **sequenced, gated** job (reconcile the repo intake flow up to live first, `grill-with-docs` the ADR-0015
+> decisions, apply the `cr1bd_inboundemail` schema, `pac code add-data-source` + redeploy, rebind the child
+> flows, then flip the trigger on **one** inbox as a watched soft-rollout). The exact G1–G7 steps live in
+> [docs/plans/phase-8-inbox-management/IMPLEMENTATION-PLAN.md](./plans/phase-8-inbox-management/IMPLEMENTATION-PLAN.md)
+> §gated-activation. Do this **after** the PR merges; it stays off until you run it.
 
 ### 1. Check the email inbox still works  ·  *2 minutes*
 

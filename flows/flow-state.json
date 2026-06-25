@@ -14,10 +14,10 @@
       "authoringBoundary": "[BUILD]",
       "activationBoundary": "[RESERVED-FOR-USER]",
       "reservedReason": "Trigger points at a live Collision Engineers shared inbox. Activation + all live-inbox tests are reserved.",
-      "trigger": "OnNewEmailV3SharedMailbox (concurrency=1, fetchOnlyWithAttachment=true)",
+      "trigger": "OnNewEmailV3 (concurrency=1, fetchOnlyWithAttachment=false — PHASE-8 triage-first)",
       "goLiveHardening": {
         "minIntakeDateGuard": "First action after the trigger (Drop_if_before_min_date) drops any email whose receivedDateTime is before the MinIntakeDate flow parameter (String, default '2026-06-17', set per-environment at activation) via Terminate runStatus=Succeeded, so historical backlog mail is never ingested. Audits dropped_before_min_date reusing the existing duplicate_dropped action value 100000005 (no Dataverse schema change).",
-        "fetchOnlyWithAttachment": "TEMPORARY measure (trigger param set to true) to suppress no-attachment noise at the source. TO BE REMOVED when a full email-management / routing system is implemented later."
+        "fetchOnlyWithAttachment": "PHASE-8 (ADR-0015): FLIPPED true->false offline — the email-management/routing system has landed (triage-first restructure: Find_existing_inbound dedup + Run_triage child (CS_TriageClassify) + Switch on category). The old attachment-only filter was a documented TEMPORARY noise filter to remove once routing landed. Flipping the LIVE trigger true->false + the single-inbox soft rollout (G6) and reconciling Run_case_resolve/Run_enrich up to live before re-import (G1) remain operator-gated; see docs/plans/phase-8-inbox-management/intake-restructure-notes.md. state stays off."
       }
     },
     {
@@ -28,10 +28,10 @@
       "authoringBoundary": "[BUILD]",
       "activationBoundary": "[RESERVED-FOR-USER]",
       "reservedReason": "Parameterised per-inbox multi-mailbox intake. Trigger points at a live Collision Engineers inbox (shared or licensed). Activation, the Exchange Full-Access grant / new-connection sign-in, the designer webhook publish, and all live-inbox tests are reserved. See docs/activation/multi-inbox-activation.md.",
-      "trigger": "SharedMailboxOnNewEmailV2 (mailboxAddress=@parameters('IntakeMailbox'), concurrency=1, hasAttachments=true)",
+      "trigger": "SharedMailboxOnNewEmailV2 (mailboxAddress=@parameters('IntakeMailbox'), concurrency=1, hasAttachments=false — PHASE-8 triage-first)",
       "goLiveHardening": {
         "minIntakeDateGuard": "First action after the trigger (Drop_if_before_min_date) drops any email whose receivedDateTime is before the MinIntakeDate flow parameter (String, default '2026-06-17', set per-inbox at activation = that inbox's go-live date) via Terminate runStatus=Succeeded, so a freshly-connected inbox never ingests its historical backlog. Audits dropped_before_min_date reusing the existing duplicate_dropped action value 100000005 (no Dataverse schema change).",
-        "hasAttachments": "TEMPORARY measure (trigger param set to true) to suppress no-attachment noise at the source. TO BE REMOVED when a full email-management / routing system is implemented later.",
+        "hasAttachments": "PHASE-8 (ADR-0015): FLIPPED true->false offline (parallel to intake.definition.json) — triage-first restructure (Find_existing_inbound dedup + Run_triage child + Switch on category). This thinner per-inbox variant has no downstream child chain and is not live, so there is no live wiring to reconcile here. Flipping the LIVE trigger + single-inbox soft rollout remain operator-gated (G6). state stays off.",
         "perInboxParameterisation": "IntakeMailbox is the ONLY per-copy difference: one flow per inbox, identical JSON, different IntakeMailbox value bound to the V2 trigger's mailboxAddress and stamped on each Case as cr1bd_sourcemailbox. SHARED-mailbox inbox -> reuse the existing cr1bd_sharedmailbox_office365 (digital@) connection (no new password). LICENSED-user inbox -> bind that same reference to a NEW Office 365 connection signed in as the user, OR grant digital@ Full Access and treat as shared."
       }
     },

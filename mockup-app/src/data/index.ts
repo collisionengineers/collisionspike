@@ -126,9 +126,18 @@ export type {
   AuditEventRecord,
   EnvironmentVariableDefinitionRecord,
   EnvironmentVariableValueRecord,
+  // Phase 8 — Inbox / Triage seam types.
+  InboundEmail,
+  InboundEmailRecord,
+  InboundCategory,
+  InboundSubtype,
+  TriageState,
+  ClassifierMode,
+  InboundFacet,
+  InboundCounts,
 } from './types';
 // The all-false Box-gate baseline + the all-off location-assist baseline (values).
-export { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF } from './types';
+export { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF, INBOUND_COUNTS_ZERO } from './types';
 
 /* ----------  Box affordances: gates + gated transports (CSP-safe) ----------
    Gates are read via the Dataverse env-var tables (getBoxGates); the transports
@@ -290,5 +299,7 @@ export {
   useLocationAssistGate,
   useHoldNewCasesDefault,
   useActivity,
+  useInbox,
+  useInboundCounts,
   type QueryState,
 } from './hooks';

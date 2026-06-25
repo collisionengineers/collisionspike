@@ -269,6 +269,107 @@ export interface MergeCasesResult {
   movedEvidence: number;
 }
 
+/* ============================================================
+   Phase 8 — Inbox / Triage domain types (cr1bd_inboundemail).
+
+   The camelCase domain shape the Inbox screen binds to, plus the three string
+   unions that mirror the two append-only choicesets + the triage-state column.
+   The classifier string values (the CATEGORY_ and SUBTYPE_ constants) equal the
+   choiceset option `name`s 1:1 (IMPLEMENTATION-PLAN §2.3) — keep these unions byte-identical to
+   them; verify-parity.mjs §6c locks the taxonomy. NEVER renumber the option
+   values (see the int maps in dataverse-source.ts).
+   ============================================================ */
+
+/** cr1bd_inboundcategory option names (receiving_work=…000 / query=…001 / other=…002). */
+export type InboundCategory = 'receiving_work' | 'query' | 'other';
+
+/** cr1bd_inboundsubtype option names (six values, …000–…005; see §2.3). */
+export type InboundSubtype =
+  | 'existing_provider_instruction'
+  | 'existing_provider_audit'
+  | 'new_client_work'
+  | 'query_existing_work'
+  | 'query_new_enquiry'
+  | 'other';
+
+/** cr1bd_triagestate (String20): the row's lifecycle in the triage queue. */
+export type TriageState = 'new' | 'routed' | 'actioned' | 'dismissed';
+
+/** cr1bd_classifiermode (String20): which engine settled the label. */
+export type ClassifierMode = 'deterministic' | 'llm' | 'human';
+
+/**
+ * One inbound-email triage row — the universal "we saw this email" record. A
+ * `receiving_work` row points at the Case the existing chain creates (`caseId`);
+ * `query`/`other` rows carry only metadata + the mailbox pointer (no persisted
+ * `.eml`, A7). camelCase mirror of `InboundEmailRecord` (the flat cr1bd_* row).
+ */
+export interface InboundEmail {
+  /** cr1bd_inboundemailid (GUID). */
+  id: string;
+  /** cr1bd_name (primary; one-line summary). */
+  name: string;
+  /** cr1bd_sourcemessageid (dedup anchor + the mailbox pointer for query/other). */
+  sourceMessageId: string;
+  /** cr1bd_subject. */
+  subject: string;
+  /** cr1bd_fromaddress. */
+  fromAddress: string;
+  /** cr1bd_senderdomain (lower-cased). */
+  senderDomain: string;
+  /** cr1bd_sourcemailbox (which of the 3 shared inboxes — the pointer's other half). */
+  sourceMailbox: string;
+  /** cr1bd_receivedon (NOT receivedat — §2.4 pins receivedon). ISO/Dataverse DateTime. */
+  receivedOn: string;
+  /** cr1bd_hasattachments. */
+  hasAttachments: boolean;
+  /** cr1bd_category (choice). */
+  category: InboundCategory;
+  /** cr1bd_subtype (choice). */
+  subtype: InboundSubtype;
+  /** cr1bd_confidence (0–1, banded 0.95/0.8/0.6/0.3). */
+  confidence: number;
+  /** cr1bd_classifiermode. */
+  classifierMode: ClassifierMode;
+  /** cr1bd_signals (Memo) — each rule/phrase that fired; last is "rule:<id>". */
+  signals: string[];
+  /** cr1bd_triagestate. */
+  triageState: TriageState;
+  /** cr1bd_bodyvrm — a VRM lifted from the body (the "typed-in-body" path). */
+  bodyVrm: string;
+  /** cr1bd_bodycaseref — a Case/PO lifted from the body. */
+  bodyCaseref: string;
+  /** cr1bd_bodypreview (Memo) — the triage-UI snippet. */
+  bodyPreview: string;
+  /** _cr1bd_caseid_value — the linked/created Case (work rows; the open Case a query is about). */
+  caseId?: string;
+  /** _cr1bd_workproviderid_value — the matched WorkProvider, if any. */
+  workProviderId?: string;
+}
+
+/** Facet for `inboundEmails(facet?)` — the active category tab (+ optional subtype). */
+export interface InboundFacet {
+  category?: InboundCategory;
+  subtype?: InboundSubtype;
+}
+
+/** Per-category triage counts (+ the untriaged backlog) — tab badges + nav pill. */
+export interface InboundCounts {
+  receiving_work: number;
+  query: number;
+  other: number;
+  /** Rows still in triageState 'new' (the actionable backlog) — drives the nav pill. */
+  untriaged: number;
+}
+
+/** Honest-zero default — the "triage table not wired / unreadable" baseline. */
+export const INBOUND_COUNTS_ZERO: InboundCounts = {
+  receiving_work: 0,
+  query: 0,
+  other: 0,
+  untriaged: 0,
+};
+
 export interface DataAccess {
   /* ----- Cases ----- */
   /** A single case by id (mock `caseById`). */
@@ -389,6 +490,26 @@ export interface DataAccess {
   /** Write the 'hold new cases by default' toggle (upserts its env-var value). The
    *  ONE Code-App env-var WRITE — needs env-var customization privilege. */
   setHoldNewCasesDefault(value: boolean): Promise<void>;
+
+  /* ----- Inbox / Triage (Phase 8 — cr1bd_inboundemail) ----- */
+  /**
+   * Triage rows newest-first (`cr1bd_receivedon desc`), optionally faceted by
+   * category (+subtype). HONEST EMPTY ([]) until the `cr1bd_inboundemail` table is
+   * wired (`services.inboundEmails` undefined — added at deploy via
+   * `pac code add-data-source`, G4), exactly like `inspectionAddressSuggestions`.
+   */
+  inboundEmails(facet?: InboundFacet): Promise<InboundEmail[]>;
+  /**
+   * Per-category triage counts (+ the untriaged backlog) — the TabList badges and
+   * the nav-rail count pill. Zero on any read failure / before the table is wired.
+   */
+  inboundEmailCounts(): Promise<InboundCounts>;
+  /**
+   * The single triage WRITE: set a row's `cr1bd_triagestate` (mark actioned /
+   * dismissed). A direct `UpdateRecord` via the generated service — CSP-safe
+   * (connector op, no raw fetch). HONEST NO-OP (resolves) until the table is wired.
+   */
+  setTriageState(id: string, state: TriageState): Promise<void>;
 }
 
 /** A needs-action reason re-exported for callers shaping aging tallies. */
@@ -670,6 +791,39 @@ export interface AuditEventRecord {
   cr1bd_severity?: number;
 }
 
+/** A cr1bd_inboundemail row as the generated service returns it (Phase 8 triage
+    table; logical names per IMPLEMENTATION-PLAN §2.4). Choice columns
+    (`cr1bd_category` / `cr1bd_subtype`) surface as the integer option value (the
+    adapter maps them to the string unions); `cr1bd_triagestate` / `cr1bd_classifiermode`
+    are String20; `cr1bd_receivedon` (NOT receivedat) is the sort key. Lookups read
+    via `_<rel>_value`; writes use the capitalised `@odata.bind` nav-prop. */
+export interface InboundEmailRecord {
+  cr1bd_inboundemailid?: string;
+  cr1bd_name?: string;
+  cr1bd_sourcemessageid?: string; // ALTERNATE KEY (dedup anchor)
+  cr1bd_subject?: string;
+  cr1bd_fromaddress?: string;
+  cr1bd_senderdomain?: string;
+  cr1bd_sourcemailbox?: string;
+  cr1bd_receivedon?: string; // DateTime UserLocal — NOT cr1bd_receivedat
+  cr1bd_hasattachments?: boolean;
+  cr1bd_category?: number; // cr1bd_inboundcategory integer
+  cr1bd_subtype?: number; // cr1bd_inboundsubtype integer
+  cr1bd_confidence?: number; // 0–1
+  cr1bd_classifiermode?: string; // deterministic|llm|human
+  cr1bd_signals?: string; // Memo
+  cr1bd_triagestate?: string; // new|routed|actioned|dismissed
+  cr1bd_bodyvrm?: string;
+  cr1bd_bodycaseref?: string;
+  cr1bd_bodypreview?: string; // Memo
+  /** Case lookup (read form). Writes use 'cr1bd_Caseid@odata.bind'. */
+  _cr1bd_caseid_value?: string;
+  'cr1bd_Caseid@odata.bind'?: string; // write: '/cr1bd_cases(<guid>)'
+  /** WorkProvider lookup (read form). Writes use 'cr1bd_Workproviderid@odata.bind'. */
+  _cr1bd_workproviderid_value?: string;
+  'cr1bd_Workproviderid@odata.bind'?: string; // write: '/cr1bd_workproviders(<guid>)'
+}
+
 /**
  * The bundle of generated services the Dataverse-backed DataAccess is injected
  * with. After `pac code add-data-source` runs for each table, the caller wires
@@ -691,6 +845,13 @@ export interface GeneratedServices {
    * states), so the offline build stays green without a fabricated service.
    */
   inspectionAddresses?: GeneratedTableService<InspectionAddressRecord>;
+  /**
+   * The Phase-8 `cr1bd_inboundemail` triage table. OPTIONAL because it is added at
+   * DEPLOY time via `pac code add-data-source` (G4) and is gated dark — until the
+   * operator wires it the Inbox screen runs HONEST-EMPTY (zero rows / zero counts),
+   * exactly like `inspectionAddresses`, so the offline build stays green.
+   */
+  inboundEmails?: GeneratedTableService<InboundEmailRecord>;
   fieldProvenance: GeneratedTableService<FieldLevelProvenanceRecord>;
   notes: GeneratedTableService<NoteRecord>;
   chasers: GeneratedTableService<ChaserRecord>;
