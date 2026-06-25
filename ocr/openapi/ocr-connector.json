@@ -119,7 +119,7 @@
       "properties": {
         "document": {
           "type": "string",
-          "description": "Base64-encoded image-only PDF bytes. DO NOT add `format: byte` or `x-ms-media-kind: File` to this param: the Power Platform gateway then re-encodes the base64 a SECOND time and the host's decode yields garbage bytes (the same setting broke CS Parse intake 2026-06-19 — see the parser connector). The calling flow passes the RAW base64 string, NOT `@base64ToBinary(...)` (which feeds the gateway binary and 400s). The host's `_decode_document` is TOLERANT (peels a redundant 2nd base64 layer, logging each recovery) — that tolerant decode is the load-bearing safeguard. See memory `powerplatform-connector-base64-double-encode`."
+          "description": "Base64-encoded image-only PDF bytes. DO NOT add `format: byte` or `x-ms-media-kind: File` to this param: the Power Platform gateway then re-encodes the base64 a SECOND time and the host's decode yields garbage bytes (the same setting broke CS Parse intake 2026-06-19 — see the parser connector). The calling flow passes the RAW base64 string, NOT `@base64ToBinary(...)` (which feeds the gateway binary and 400s). The host's `_peel_double_base64` is TOLERANT (peels a redundant 2nd base64 layer, logging each recovery) — that tolerant decode is the load-bearing safeguard. See memory `powerplatform-connector-base64-double-encode`."
         },
         "filename": {
           "type": "string",

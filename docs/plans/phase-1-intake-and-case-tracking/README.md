@@ -21,7 +21,7 @@ Function, Dataverse schema, corpus, and Code App are live; the digital@ intake w
 
 **1b.1/1b.2 · Provider corpus** — [corpus/dataverse-corpus-incorporation.md](./corpus/dataverse-corpus-incorporation.md)
 7. [x] Initial seed + provider/garage/location analysis (`raw/.../outputs/`)
-8. [x] Corpus incorporation — scripts 10–14 + verify passed (WorkProvider 390, **174 confirmed** InspectionAddress, 20 ImageSource + 98 N:N). The InspectionAddress total is now **871** (174 confirmed + **697 volatile suggested** rows, `decisionMode=Unknown`, loaded 2026-06-20; CURRENT_STATUS authoritative). **37 over-length principal codes deferred** → [../../gated.md](../../gated.md)
+8. [x] Corpus incorporation — scripts 10–14 + verify passed (WorkProvider 390, **871 InspectionAddress** — 174 confirmed + **697 volatile suggested** rows (`decisionMode=Unknown`, loaded 2026-06-20), 20 ImageSource + 98 N:N; CURRENT_STATUS authoritative). **37 over-length principal codes deferred** → [../../gated.md](../../gated.md)
 
 **1b.3 · Clarifying-info** — [corpus/clarifying-info-ingestion.md](./corpus/clarifying-info-ingestion.md)
 9. [ ] 🔒 Five operator worklists (code reconciliation, CONSIDER seeding, addresses→yards, garage↔provider, intermediaries) → [../../gated.md](../../gated.md)
@@ -32,8 +32,8 @@ Function, Dataverse schema, corpus, and Code App are live; the digital@ intake w
 12. [ ] **Delete / remove case** — confirmed-delete action on `CaseDetail` (or queue context menu); hard-deletes the Case and cascades Evidence rows; for junk/duplicate cases only. Complement to the `junk-case-cleanup` CLI skill. Must write an `AuditEvent` on delete. If Box is live (`BOX_API_ENABLED`), prompt for manual Box-folder archival first — Box is never deleted automatically (ADR-0017).
 
 **1d · Flows (imported OFF)** — also covered by [phase-1-operational.md](./phase-1-operational.md) (bridge 1→2)
-12. [x] 10 cloud flows imported `state=off`; intake `MinIntakeDate` + attachment guards; dedup ladder encoded
-13. [ ] 🔒 Activate the downstream chain (classify-persist / parse / status-evaluate) — see **Phase 2**
+13. [x] 17 flows (state=off except case-resolve); intake `MinIntakeDate` + attachment guards; Message-ID dedup + merge-by-registration case-resolve (ADR-0010)
+14. [ ] 🔒 Activate the downstream chain (classify-persist / parse / status-evaluate) — see **Phase 2**
 
 ## Plans in this phase
 

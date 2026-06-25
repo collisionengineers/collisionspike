@@ -82,6 +82,9 @@ const expect = {
   "cr1bd_AZURE_VISION_ENABLED": "false",
   // Phase-2 chaser-send kill switch (M2.F, ADR-0003) — default OFF; flipping it is [RESERVED-FOR-USER].
   "cr1bd_CHASER_SEND_ENABLED": "false",
+  // Phase-4a location-suggestion assist gate (ADR-0013/0016) — the human-confirmed 'Suggest location'
+  // assist; default OFF (ships dark, paired with AZURE_MAPS_ENABLED), flipping it is [RESERVED-FOR-USER].
+  "cr1bd_LOCATION_ASSIST_ENABLED": "false",
   // Phase-5 OCR gates (ocr-strategy.md) — the empty-extraction OCR fallback + plate OCR; both default OFF
   // (ship dark) and flipping either is [RESERVED-FOR-USER]. OCR_PROVIDER/PLATE_PROVIDER are container-side,
   // NOT env-vars. VALUATION_API_BASE is a non-frozen per-env String (like ENRICHMENT_API_BASE) — not locked here.
