@@ -64,6 +64,14 @@ import type {
   CreateCaseResult,
   DataAccess,
   GeneratedServices,
+  InboundCategory,
+  InboundCounts,
+  InboundEmail,
+  InboundEmailRecord,
+  InboundFacet,
+  InboundSubtype,
+  ClassifierMode,
+  TriageState,
   InspectionAddressCounts,
   InspectionAddressRecord,
   InspectionDecisionInput,
@@ -71,7 +79,7 @@ import type {
   SaveInspectionDecisionResult,
   SuggestedAddress,
 } from './types';
-import { LOCATION_ASSIST_GATE_ALL_OFF } from './types';
+import { INBOUND_COUNTS_ZERO, LOCATION_ASSIST_GATE_ALL_OFF } from './types';
 import {
   BOX_ENV_VAR_SCHEMA_NAMES,
   BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA,
@@ -135,6 +143,92 @@ function actionableCases(all: Case[], now: Date): Case[] {
    count (queues #1). */
 
 const TERMINAL = new Set<CaseStatus>(['eva_submitted', 'box_synced']);
+
+/* ----------  Phase 8 — Inbox / Triage choice maps + record adapter  ----------
+   The two append-only choicesets (IMPLEMENTATION-PLAN §2.3): the integer option
+   values are FROZEN — never renumber. `cr1bd_category` / `cr1bd_subtype` come back
+   as these integers; `cr1bd_triagestate` / `cr1bd_classifiermode` are String20.
+   The maps live here (scoped to the seam) rather than in adapter.ts to keep the
+   Phase-8 change additive + self-contained. */
+const INBOUND_CATEGORY_BY_INT: Record<number, InboundCategory> = {
+  100000000: 'receiving_work',
+  100000001: 'query',
+  100000002: 'other',
+};
+const INBOUND_CATEGORY_TO_INT: Record<InboundCategory, number> = {
+  receiving_work: 100000000,
+  query: 100000001,
+  other: 100000002,
+};
+const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
+  100000000: 'existing_provider_instruction',
+  100000001: 'existing_provider_audit',
+  100000002: 'new_client_work',
+  100000003: 'query_existing_work',
+  100000004: 'query_new_enquiry',
+  100000005: 'other',
+};
+const TRIAGE_STATES: readonly TriageState[] = ['new', 'routed', 'actioned', 'dismissed'];
+const CLASSIFIER_MODES: readonly ClassifierMode[] = ['deterministic', 'llm', 'human'];
+
+/** Parse the `cr1bd_signals` Memo into a string[] — JSON array if that's how the
+    flow wrote it, else a delimiter split; tolerant of empties. */
+function parseSignals(memo: string | undefined): string[] {
+  const s = (memo ?? '').trim();
+  if (!s) return [];
+  if (s.startsWith('[')) {
+    try {
+      const arr: unknown = JSON.parse(s);
+      if (Array.isArray(arr)) return arr.map((x) => String(x)).filter(Boolean);
+    } catch {
+      /* fall through to delimiter split */
+    }
+  }
+  return s
+    .split(/[\n,]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+/** Map a flat cr1bd_inboundemail row -> the camelCase `InboundEmail` domain type.
+    Unknown/absent choice ints default to 'other'; an unknown triage/classifier
+    string falls back to the safe baseline. */
+function inboundFromRecord(rec: InboundEmailRecord): InboundEmail {
+  const triageState: TriageState = TRIAGE_STATES.includes(
+    (rec.cr1bd_triagestate ?? '') as TriageState,
+  )
+    ? (rec.cr1bd_triagestate as TriageState)
+    : 'new';
+  const classifierMode: ClassifierMode = CLASSIFIER_MODES.includes(
+    (rec.cr1bd_classifiermode ?? '') as ClassifierMode,
+  )
+    ? (rec.cr1bd_classifiermode as ClassifierMode)
+    : 'deterministic';
+  return {
+    id: rec.cr1bd_inboundemailid ?? '',
+    name: rec.cr1bd_name ?? '',
+    sourceMessageId: rec.cr1bd_sourcemessageid ?? '',
+    subject: rec.cr1bd_subject ?? '',
+    fromAddress: rec.cr1bd_fromaddress ?? '',
+    senderDomain: rec.cr1bd_senderdomain ?? '',
+    sourceMailbox: rec.cr1bd_sourcemailbox ?? '',
+    receivedOn: rec.cr1bd_receivedon ?? '',
+    hasAttachments: rec.cr1bd_hasattachments ?? false,
+    category: INBOUND_CATEGORY_BY_INT[rec.cr1bd_category ?? -1] ?? 'other',
+    subtype: INBOUND_SUBTYPE_BY_INT[rec.cr1bd_subtype ?? -1] ?? 'other',
+    confidence: rec.cr1bd_confidence ?? 0,
+    classifierMode,
+    signals: parseSignals(rec.cr1bd_signals),
+    triageState,
+    bodyVrm: rec.cr1bd_bodyvrm ?? '',
+    bodyCaseref: rec.cr1bd_bodycaseref ?? '',
+    bodyPreview: rec.cr1bd_bodypreview ?? '',
+    ...(rec._cr1bd_caseid_value ? { caseId: rec._cr1bd_caseid_value } : {}),
+    ...(rec._cr1bd_workproviderid_value
+      ? { workProviderId: rec._cr1bd_workproviderid_value }
+      : {}),
+  };
+}
 
 /* ----------  Suggestion ORDERING (ADR-0016 helper #2 — ordering ONLY)  ----------
    Order the provider-scoped suggestion list by the offline-derived ranking the
@@ -814,6 +908,61 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
           'EnvironmentVariableDefinitionId@odata.bind': `/environmentvariabledefinitions(${defId})`,
         });
       }
+    },
+
+    /* ----- Inbox / Triage (Phase 8 — cr1bd_inboundemail) -----
+       The triage table is added at deploy time (pac add-data-source, G4); until
+       then `services.inboundEmails` is undefined and we return honest-empty rather
+       than throwing — exactly like `inspectionAddresses`. The active category tab
+       goes into the OData `$filter` (newest-first by `cr1bd_receivedon`); any
+       subtype sub-facet is applied client-side after the adapter maps the rows.
+       A read error coalesces to empty (honest off — never a fabricated row). */
+    inboundEmails: async (facet?: InboundFacet): Promise<InboundEmail[]> => {
+      const svc = services.inboundEmails;
+      if (!svc) return [];
+      try {
+        const filter =
+          facet?.category != null
+            ? `cr1bd_category eq ${INBOUND_CATEGORY_TO_INT[facet.category]}`
+            : undefined;
+        const res = await svc.getAll({
+          ...(filter ? { filter } : {}),
+          orderBy: ['cr1bd_receivedon desc'],
+        });
+        let rows = (res.data ?? []).map(inboundFromRecord);
+        if (facet?.subtype != null) rows = rows.filter((r) => r.subtype === facet.subtype);
+        return rows;
+      } catch {
+        return []; // honest empty on any read failure
+      }
+    },
+
+    inboundEmailCounts: async (): Promise<InboundCounts> => {
+      const svc = services.inboundEmails;
+      if (!svc) return { ...INBOUND_COUNTS_ZERO };
+      try {
+        const res = await svc.getAll({
+          select: ['cr1bd_category', 'cr1bd_triagestate'],
+        });
+        const counts: InboundCounts = { ...INBOUND_COUNTS_ZERO };
+        for (const r of res.data ?? []) {
+          const cat = INBOUND_CATEGORY_BY_INT[r.cr1bd_category ?? -1];
+          if (cat) counts[cat] += 1;
+          if ((r.cr1bd_triagestate ?? '') === 'new') counts.untriaged += 1;
+        }
+        return counts;
+      } catch {
+        return { ...INBOUND_COUNTS_ZERO };
+      }
+    },
+
+    // The single triage WRITE — a direct UpdateRecord on cr1bd_triagestate (mark
+    // actioned / dismissed). CSP-safe (connector op via the generated service, no
+    // raw fetch). Honest no-op until the table is wired.
+    setTriageState: async (id: string, state: TriageState): Promise<void> => {
+      const svc = services.inboundEmails;
+      if (!svc) return;
+      await svc.update(id, { cr1bd_triagestate: state });
     },
   };
 
