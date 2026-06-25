@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BAY BOARD — Queues · collisionspike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --board:#E6E9EF; --lane:#EEF1F5; --lane-head:#F4F6FA; --card:#FFFFFF; --well:#F4F6F9;
+  --hair:#DBE0E8; --strong:#C4CCD8;
+  --ink:#19202B; --ink2:#505E76; --ink3:#6E7C92; --ink-dis:#AAB3C2;
+  --new:#4A78C8; --parsing:#0E9AA0; --review:#E04A36; --held:#D6912A; --ready:#27A164; --submitted:#6E72A8;
+  --new-wash:#EAF0FA; --parsing-wash:#E1F2F3; --review-wash:#FBEAE6; --held-wash:#F8F0DF; --ready-wash:#E3F4EB; --submitted-wash:#EDEEF6;
+  --new-ink:#34589C; --parsing-ink:#0A7077; --review-ink:#B23121; --held-ink:#946011; --ready-ink:#1C7A4A; --submitted-ink:#4A4E86;
+  --action:#212A3B; --action-hover:#2C3850;
+  --accent:#2D63E0; --accent-hover:#1E4FC4; --focus:#5C8DF2;
+  --error:#C2362A; --neutral:#8794A8; --queries:#9A6DD7; --other:#E0723C;
+  --disp:'Archivo',system-ui,sans-serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'Spline Sans Mono',ui-monospace,monospace;
+  --rail:232px; --topbar:52px;
+}
+*{box-sizing:border-box} html,body{margin:0;height:100%}
+body{font-family:var(--body);background:var(--board);color:var(--ink);font-size:14px;line-height:1.5;overflow:hidden}
+.cap{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.mono{font-family:var(--mono);font-feature-settings:"tnum" 1,"zero" 1}
+button{font-family:inherit;cursor:pointer} a{color:inherit;text-decoration:none}
+:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--focus);border-radius:4px}
+
+.app{display:grid;grid-template-columns:var(--rail) 1fr;grid-template-rows:var(--topbar) 1fr;height:100vh}
+.rail{grid-row:1 / span 2;background:#1B2230;color:#C5CDDB;display:flex;flex-direction:column;border-right:1px solid #11151c}
+.brand{height:var(--topbar);display:flex;align-items:center;gap:9px;padding:0 16px;border-bottom:1px solid #2A3242;color:#fff}
+.brand .glyph{width:18px;height:18px;border-radius:3px;background:linear-gradient(135deg,var(--review) 0 50%,var(--new) 50% 100%)}
+.brand .cap{font-size:14px;letter-spacing:.08em}
+.rail .sect{font-family:var(--disp);text-transform:uppercase;letter-spacing:.12em;font-size:10px;font-weight:700;color:#6C788C;padding:16px 16px 6px}
+.rail nav{display:flex;flex-direction:column;padding:0 8px}
+.navitem{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:7px;color:#C5CDDB;font-size:13px;font-weight:500}
+.navitem .ic{width:18px;text-align:center;opacity:.85}
+.navitem .ct{margin-left:auto;font-family:var(--mono);font-size:11px;color:#8C99AD;background:#222B3A;border-radius:9px;padding:1px 7px;min-width:24px;text-align:center}
+.navitem:hover{background:#222B3A;color:#fff}
+.navitem.on{background:#2A3650;color:#fff;box-shadow:inset 2px 0 0 var(--accent)}
+.navitem.on .ct{color:#fff;background:#39455f}
+.rail .div{height:1px;background:#2A3242;margin:10px 16px}
+.rail .foot{margin-top:auto;padding:12px 16px;border-top:1px solid #2A3242;display:flex;flex-direction:column;gap:6px}
+.kbd{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#8C99AD}
+.kbd b{font-family:var(--mono);background:#222B3A;border:1px solid #39455f;border-radius:4px;padding:0 5px;color:#C5CDDB;font-weight:500}
+
+.topbar{grid-column:2;display:flex;align-items:center;gap:14px;padding:0 16px;background:#fff;border-bottom:1px solid var(--hair);height:var(--topbar)}
+.topbar .ttl{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;font-weight:800;font-size:15px}
+.search{flex:1;max-width:520px;display:flex;align-items:center;gap:8px;background:var(--well);border:1px solid var(--hair);border-radius:8px;padding:7px 11px;color:var(--ink3)}
+.search input{border:0;background:transparent;outline:none;flex:1;font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+.search input::placeholder{color:var(--ink3);font-family:var(--body)}
+.upd{margin-left:auto;font-size:12px;color:var(--ink3);display:flex;align-items:center;gap:6px}
+.upd .mono{color:var(--ink2)}
+.iconbtn{border:1px solid var(--hair);background:#fff;border-radius:7px;width:32px;height:32px;color:var(--ink2);font-size:15px;display:grid;place-items:center}
+.iconbtn:hover{border-color:var(--strong);color:var(--ink)}
+
+.main{grid-column:2;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+
+/* tabs row */
+.tabs{display:flex;align-items:stretch;gap:8px;padding:10px 16px 0;background:#fff;border-bottom:1px solid var(--hair);overflow-x:auto}
+.qtab{display:flex;flex-direction:column;gap:3px;padding:8px 14px 10px;border:1px solid var(--hair);border-bottom:0;border-radius:10px 10px 0 0;background:var(--lane);min-width:140px;position:relative}
+.qtab .nm{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:800;font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:6px;padding-right:26px}
+.qtab .who{font-size:10.5px;color:var(--ink3)}
+.qtab .ct{position:absolute;top:8px;right:12px;font-family:var(--mono);font-weight:600;font-size:13px;color:var(--ink2)}
+.qtab::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--key);border-radius:10px 10px 0 0}
+.qtab.on{background:#fff;margin-bottom:-1px;z-index:2}
+.qtab.on .nm{color:var(--ink)}
+.qtab.hot{--key:var(--review)} .qtab.hot.on .nm{color:var(--review-ink)} .qtab.hot.on .ct{color:var(--review)}
+.qtab[data-q="notready"]{--key:var(--new)} .qtab[data-q="held"]{--key:var(--held)} .qtab[data-q="ready"]{--key:var(--ready)}
+
+/* toolbar */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 16px;background:#fff;border-bottom:1px solid var(--hair)}
+.qsearch{display:flex;align-items:center;gap:7px;background:var(--well);border:1px solid var(--hair);border-radius:8px;padding:6px 10px;min-width:260px}
+.qsearch input{border:0;background:transparent;outline:none;flex:1;font-family:var(--mono);font-size:12px;color:var(--ink)}
+.qsearch input::placeholder{font-family:var(--body);color:var(--ink3)}
+.fil{display:flex;align-items:center;gap:6px;border:1px solid var(--hair);background:#fff;border-radius:8px;padding:5px 9px;font-size:12.5px;color:var(--ink2);font-weight:600}
+.fil select{border:0;background:transparent;outline:none;font-family:inherit;font-size:12.5px;color:var(--ink);font-weight:600}
+.nofm{margin-left:auto;font-size:12.5px;color:var(--ink3)}
+.nofm b{font-family:var(--mono);color:var(--ink);font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--hair);border-radius:8px;overflow:hidden}
+.seg a,.seg button{padding:6px 11px;font-size:12.5px;font-weight:600;color:var(--ink2);background:#fff;border:0}
+.seg .on{background:var(--action);color:#fff}
+
+/* facets */
+.facets{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;background:var(--review-wash);border-bottom:1px solid var(--hair)}
+.facets .lab{font-family:var(--disp);text-transform:uppercase;font-size:10px;letter-spacing:.08em;color:var(--review-ink);font-weight:700}
+.fac{font-size:11.5px;font-weight:600;color:var(--review-ink);background:#fff;border:1px solid #F0C5BC;border-radius:9999px;padding:4px 11px;display:inline-flex;gap:6px;align-items:center}
+.fac:hover{border-color:var(--review)}
+.fac.on{background:var(--review);color:#fff;border-color:var(--review)}
+.fac .n{font-family:var(--mono);opacity:.8}
+
+/* grid */
+.gridwrap{flex:1;overflow:auto;padding:0 16px 16px}
+table.grid{width:100%;border-collapse:separate;border-spacing:0;margin-top:12px;background:#fff;border:1px solid var(--hair);border-radius:10px;overflow:hidden}
+.grid thead th{position:sticky;top:0;background:var(--lane-head);font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-size:10px;font-weight:700;color:var(--ink3);text-align:left;padding:10px 12px;border-bottom:1px solid var(--hair);white-space:nowrap;z-index:1}
+.grid tbody td{padding:10px 12px;border-bottom:1px solid var(--hair);font-size:13px;vertical-align:middle}
+.grid tbody tr{cursor:pointer}
+.grid tbody tr:hover{background:var(--well)}
+.grid tbody tr.sel{background:rgba(45,99,224,.07)}
+.grid tbody tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+.grid tbody tr:last-child td{border-bottom:0}
+
+.vrm{display:inline-flex;align-items:stretch;border:1.5px solid #2A3242;border-radius:4px;overflow:hidden;line-height:1;background:#fff}
+.vrm .gb{background:#16306B;color:#fff;font-family:var(--disp);font-weight:700;font-size:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 3px;gap:1px}
+.vrm .gb .stars{font-size:6px;color:#F6C700;line-height:1}
+.vrm .reg{font-family:var(--mono);font-weight:600;font-size:12.5px;letter-spacing:.08em;color:#11151c;padding:3px 7px}
+.vrm.dup{border-color:var(--submitted)}
+.case{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+.prov b{font-weight:600} .prov .code{font-family:var(--mono);font-size:10.5px;color:var(--ink3);margin-left:4px}
+.sb{display:inline-flex;align-items:center;gap:5px;font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:9.5px;border-radius:5px;padding:3px 8px;white-space:nowrap}
+.sb .g{font-size:10px}
+.sb.review{color:var(--review-ink);background:var(--review-wash)} .sb.new{color:var(--new-ink);background:var(--new-wash)}
+.sb.parsing{color:var(--parsing-ink);background:var(--parsing-wash)} .sb.held{color:var(--held-ink);background:var(--held-wash)}
+.sb.ready{color:var(--ready-ink);background:var(--ready-wash)} .sb.dup{color:var(--submitted-ink);background:var(--submitted-wash)}
+.out{display:flex;align-items:center;gap:7px}
+.out .vb{font-weight:600;color:var(--ink)} .out .more{font-size:10.5px;color:var(--ink3);background:var(--well);border-radius:5px;padding:1px 6px}
+.out .ic{color:var(--review-ink)}
+.ch{font-size:14px;color:var(--ink2)}
+.due{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;font-weight:500;border-radius:9999px;padding:2px 9px}
+.due .bars{letter-spacing:-1px;font-size:10px}
+.due.neutral{color:var(--ink3);background:var(--well)} .due.attn{color:var(--held-ink);background:var(--held-wash)}
+.due.blocker{color:var(--review-ink);background:var(--review-wash);font-weight:600}
+.due .pd{font-size:9px}
+.emptyrow td{text-align:center;color:var(--ink3);padding:40px;font-size:13px}
+
+@media (max-width:1279px){
+  :root{ --rail:64px; }
+  .navitem .tx,.rail .sect,.brand .cap,.rail .foot{display:none}
+  .navitem{justify-content:center;position:relative}
+  .navitem .ct{position:absolute;top:2px;right:6px;margin:0;padding:0 5px;min-width:0;font-size:9px}
+  .brand{justify-content:center;padding:0}
+}
+@media (max-width:720px){
+  body{overflow:auto}
+  .app{grid-template-columns:1fr;grid-template-rows:var(--topbar) 1fr;height:auto}
+  .rail{display:none} .topbar,.main{grid-column:1}
+  .grid thead{display:none}
+  .grid tbody tr{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;padding:10px 12px;border-bottom:1px solid var(--hair)}
+  .grid tbody td{border:0;padding:0}
+  .grid td[data-c="out"],.grid td[data-c="due"]{grid-column:1 / span 2}
+}
+@media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><span class="glyph"></span><span class="cap">BAY BOARD</span></div>
+    <div class="sect">Intake</div>
+    <nav>
+      <a class="navitem" href="index.html"><span class="ic">▦</span><span class="tx">Cockpit</span></a>
+      <a class="navitem" href="index.html#inbox"><span class="ic">✉</span><span class="tx">Inbox</span><span class="ct">47</span></a>
+      <a class="navitem on" href="queues.html"><span class="ic">☷</span><span class="tx">Queues</span><span class="ct">26</span></a>
+      <a class="navitem" href="queues.html#ready"><span class="ic">★</span><span class="tx">Ready</span><span class="ct">5</span></a>
+      <a class="navitem" href="case-detail.html"><span class="ic">＋</span><span class="tx">Manual intake</span></a>
+    </nav>
+    <div class="div"></div>
+    <div class="sect">Admin</div>
+    <nav>
+      <a class="navitem" href="#"><span class="ic">◎</span><span class="tx">Review / Corpus</span></a>
+      <a class="navitem" href="#"><span class="ic">↗</span><span class="tx">Improvement</span><span class="ct">8</span></a>
+      <a class="navitem" href="#"><span class="ic">⚙</span><span class="tx">Settings</span></a>
+      <a class="navitem" href="#"><span class="ic">≣</span><span class="tx">Action logs</span></a>
+    </nav>
+    <div class="foot"><span class="kbd"><b>↵</b> open case</span><span class="kbd"><b>⌘K</b> commands</span></div>
+  </aside>
+
+  <header class="topbar">
+    <span class="ttl">Queues</span>
+    <label class="search"><span>⌕</span><input placeholder="Search VRM · Case/PO · claimant · model" aria-label="Search"></label>
+    <span class="upd">Updated <span class="mono">14:07</span></span>
+    <button class="iconbtn" title="Refresh">↻</button>
+  </header>
+
+  <main class="main">
+    <!-- tabs -->
+    <div class="tabs" id="tabs">
+      <button class="qtab" data-q="notready"><span class="nm">Not ready</span><span class="who">system / arriving</span><span class="ct">12</span></button>
+      <button class="qtab hot on" data-q="review"><span class="nm">⚑ Review</span><span class="who">intake — you</span><span class="ct">8</span></button>
+      <button class="qtab" data-q="held"><span class="nm">Held</span><span class="who">external · chaser out</span><span class="ct">14</span></button>
+      <button class="qtab" data-q="ready"><span class="nm">★ Ready</span><span class="who">intake — submit</span><span class="ct">5</span></button>
+    </div>
+
+    <!-- toolbar -->
+    <div class="toolbar">
+      <label class="qsearch"><span>⌕</span><input id="qsearch" placeholder="Filter rows…" aria-label="Filter rows"></label>
+      <span class="fil">Provider <select id="fProv"><option value="">All</option><option>Acme</option><option>Halcyon</option><option>DriveAssist</option><option>Swift</option></select></span>
+      <span class="fil">Status <select id="fStat"><option value="">All</option><option>Needs review</option><option>Duplicate</option><option>Conflict</option><option>Missing field</option><option>Held</option><option>Ready</option></select></span>
+      <span class="fil">Channel <select id="fChan"><option value="">All</option><option value="email">Email</option><option value="whatsapp">WhatsApp</option></select></span>
+      <span class="fil">Age <select id="fAge"><option value="">Any</option><option value="blocker">Past-due</option><option value="attn">≤ 2 days</option><option value="neutral">Fresh</option></select></span>
+      <span class="nofm">showing <b id="nofm">8 of 8</b></span>
+      <span class="seg"><a href="index.html">▦ Board</a><button class="on">☷ Grid</button></span>
+    </div>
+
+    <!-- review facets -->
+    <div class="facets" id="facets">
+      <span class="lab">Review reasons</span>
+      <button class="fac" data-fac="images">Missing images <span class="n">3</span></button>
+      <button class="fac" data-fac="instructions">Missing instructions <span class="n">1</span></button>
+      <button class="fac" data-fac="duplicate">Duplicate <span class="n">2</span></button>
+      <button class="fac" data-fac="conflict">Conflict <span class="n">2</span></button>
+    </div>
+
+    <!-- grid -->
+    <div class="gridwrap">
+      <table class="grid">
+        <thead><tr>
+          <th>VRM</th><th>Case/PO</th><th>Provider</th><th>Status</th><th>Outstanding</th><th>Ch</th><th>Age / Due</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ---- dataset ---- */
+const DATA=[
+  // REVIEW (hot)
+  {q:'review',vrm:'GK19 ZRT',dup:0,case:'CCPY26048',prov:'Acme',code:'CCPY',status:'conflict',sl:'Conflict',sg:'▲',sc:'review',out:'Verify reg conflict',more:1,ch:'email',age:'2d 04h',bars:'▰▰▰▱',due:'blocker',pd:1,fac:'conflict'},
+  {q:'review',vrm:'LV71 KMX',dup:0,case:'HALX26112',prov:'Halcyon',code:'HALX',status:'needs',sl:'Needs review',sg:'◣',sc:'review',out:'Add 6 photos',more:1,ch:'whatsapp',age:'18h',bars:'▰▰▱▱',due:'attn',pd:0,fac:'images'},
+  {q:'review',vrm:'AB12 CDE',dup:1,case:'CCPY26050',prov:'Acme',code:'CCPY',status:'dup',sl:'Duplicate',sg:'⧉',sc:'dup',out:'Resolve duplicate',more:0,ch:'email',age:'06h',bars:'▰▱▱▱',due:'attn',pd:0,fac:'duplicate'},
+  {q:'review',vrm:'MA67 DXC',dup:0,case:'SWFT26009',prov:'Swift',code:'SWFT',status:'missing',sl:'Missing field',sg:'◣',sc:'review',out:'Set VAT status',more:0,ch:'email',age:'09h',bars:'▰▰▱▱',due:'attn',pd:0,fac:'conflict'},
+  {q:'review',vrm:'TR68 ZPL',dup:0,case:'HALX26108',prov:'Halcyon',code:'HALX',status:'needs',sl:'Needs review',sg:'◣',sc:'review',out:'Confirm claimant tel',more:0,ch:'email',age:'1d 02h',bars:'▰▰▰▱',due:'blocker',pd:1,fac:'images'},
+  {q:'review',vrm:'OV15 RDC',dup:1,case:'DRVE26027',prov:'DriveAssist',code:'DRVE',status:'dup',sl:'Duplicate',sg:'⧉',sc:'dup',out:'Resolve duplicate',more:0,ch:'email',age:'11h',bars:'▰▰▱▱',due:'attn',pd:0,fac:'duplicate'},
+  {q:'review',vrm:'YH19 WBE',dup:0,case:'CCPY26045',prov:'Acme',code:'CCPY',status:'conflict',sl:'Conflict',sg:'▲',sc:'review',out:'Date of loss mismatch',more:0,ch:'email',age:'07h',bars:'▰▱▱▱',due:'attn',pd:0,fac:'conflict'},
+  {q:'review',vrm:'SD20 LNK',dup:0,case:'SWFT26013',prov:'Swift',code:'SWFT',status:'needs',sl:'Needs review',sg:'◣',sc:'review',out:'Add 3 photos',more:0,ch:'whatsapp',age:'04h',bars:'▰▱▱▱',due:'attn',pd:0,fac:'images'},
+  // NOT READY
+  {q:'notready',vrm:'FE68 PHN',dup:0,case:'DRVE26031',prov:'DriveAssist',code:'DRVE',status:'parsing',sl:'Parsing',sg:'◐',sc:'parsing',out:'System extracting fields',more:0,ch:'email',age:'0h',bars:'▱▱▱▱',due:'neutral',pd:0},
+  {q:'notready',vrm:'AB12 CDE',dup:0,case:'CCPY26050',prov:'Acme',code:'CCPY',status:'new',sl:'New email',sg:'◇',sc:'new',out:'Awaiting parse',more:0,ch:'email',age:'0h',bars:'▱▱▱▱',due:'neutral',pd:0},
+  {q:'notready',vrm:'KP18 BNZ',dup:0,case:'SWFT26044',prov:'Swift',code:'SWFT',status:'new',sl:'New email',sg:'◇',sc:'new',out:'Awaiting parse',more:0,ch:'email',age:'0h',bars:'▱▱▱▱',due:'neutral',pd:0},
+  {q:'notready',vrm:'LC19 TTX',dup:0,case:'HALX26119',prov:'Halcyon',code:'HALX',status:'linked',sl:'Linked',sg:'⛓',sc:'new',out:'Joined instruction half',more:0,ch:'whatsapp',age:'1h',bars:'▱▱▱▱',due:'neutral',pd:0},
+  // HELD
+  {q:'held',vrm:'RV20 OWT',dup:0,case:'DRVE26020',prov:'DriveAssist',code:'DRVE',status:'held',sl:'Held',sg:'⏸',sc:'held',out:'Chase garage · images',more:0,ch:'email',age:'1d 18h',bars:'▰▰▰▱',due:'blocker',pd:1},
+  {q:'held',vrm:'EJ70 TCV',dup:0,case:'HALX26101',prov:'Halcyon',code:'HALX',status:'held',sl:'Held',sg:'⏸',sc:'held',out:'Chase · instructions',more:0,ch:'whatsapp',age:'20h',bars:'▰▰▱▱',due:'attn',pd:0},
+  {q:'held',vrm:'WX21 LME',dup:0,case:'CCPY26033',prov:'Acme',code:'CCPY',status:'held',sl:'Held',sg:'⏸',sc:'held',out:'Chase · images',more:1,ch:'email',age:'14h',bars:'▰▰▱▱',due:'attn',pd:0},
+  // READY
+  {q:'ready',vrm:'GN15 VBR',dup:0,case:'CCPY26041',prov:'Acme',code:'CCPY',status:'ready',sl:'Ready for EVA',sg:'✔',sc:'ready',out:'All gates green — submit',more:0,ch:'email',age:'03h',bars:'▱▱▱▱',due:'neutral',pd:0},
+  {q:'ready',vrm:'BD66 HSU',dup:0,case:'DRVE26016',prov:'DriveAssist',code:'DRVE',status:'ready',sl:'Ready for EVA',sg:'✔',sc:'ready',out:'All gates green — submit',more:0,ch:'email',age:'05h',bars:'▱▱▱▱',due:'neutral',pd:0},
+];
+const provName={Acme:'Acme Accident Mgmt',Halcyon:'Halcyon Claims',DriveAssist:'DriveAssist',Swift:'Swift Motor Claims'};
+
+let curQ='review', curFac=null;
+const rows=document.getElementById('rows'), nofm=document.getElementById('nofm');
+const qsearch=document.getElementById('qsearch'), fProv=document.getElementById('fProv'), fStat=document.getElementById('fStat'), fChan=document.getElementById('fChan'), fAge=document.getElementById('fAge');
+
+function render(){
+  const base=DATA.filter(d=>d.q===curQ);
+  const total=base.length;
+  const txt=qsearch.value.trim().toLowerCase();
+  const list=base.filter(d=>{
+    if(curQ==='review'&&curFac&&d.fac!==curFac)return false;
+    if(fProv.value&&d.prov!==fProv.value)return false;
+    if(fStat.value&&d.sl!==fStat.value)return false;
+    if(fChan.value&&d.ch!==fChan.value)return false;
+    if(fAge.value&&d.due!==fAge.value)return false;
+    if(txt&&!(d.vrm+d.case+d.prov+d.out).toLowerCase().includes(txt))return false;
+    return true;
+  });
+  nofm.textContent=list.length+' of '+total;
+  if(!list.length){
+    const over=(txt||fProv.value||fStat.value||fChan.value||fAge.value||curFac);
+    rows.innerHTML='<tr class="emptyrow"><td colspan="7">'+(over?'0 of '+total+' — <a href="#" id="clr" style="color:var(--accent);font-weight:600">clear filters</a>':'Nothing in this queue. ')+'</td></tr>';
+    const clr=document.getElementById('clr'); if(clr)clr.onclick=e=>{e.preventDefault();reset();};
+    return;
+  }
+  rows.innerHTML=list.map(d=>`
+    <tr onclick="location.href='case-detail.html'">
+      <td data-c="vrm"><span class="vrm${d.dup?' dup':''}"><span class="gb"><span class="stars">★</span>GB</span><span class="reg">${d.vrm}</span></span></td>
+      <td data-c="case"><span class="case">${d.case}</span></td>
+      <td data-c="prov" class="prov"><b>${provName[d.prov]}</b><span class="code">${d.code}</span></td>
+      <td data-c="status"><span class="sb ${d.sc}"><span class="g">${d.sg}</span>${d.sl}</span></td>
+      <td data-c="out"><span class="out"><span class="ic">⚑</span><span class="vb">${d.out}</span>${d.more?'<span class="more">+'+d.more+' more</span>':''}</span></td>
+      <td data-c="ch"><span class="ch" title="${d.ch}">${d.ch==='email'?'✉':'⌘'}</span></td>
+      <td data-c="due"><span class="due ${d.due}"><span class="bars">${d.bars}</span>${d.age}${d.pd?' <span class="pd">⬤</span>':''}</span></td>
+    </tr>`).join('');
+}
+function reset(){qsearch.value='';fProv.value='';fStat.value='';fChan.value='';fAge.value='';curFac=null;document.querySelectorAll('.fac').forEach(f=>f.classList.remove('on'));render();}
+
+/* tabs */
+document.getElementById('tabs').addEventListener('click',e=>{
+  const t=e.target.closest('.qtab'); if(!t)return;
+  document.querySelectorAll('.qtab').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+  curQ=t.dataset.q; curFac=null; document.querySelectorAll('.fac').forEach(f=>f.classList.remove('on'));
+  document.getElementById('facets').style.display=(curQ==='review')?'flex':'none';
+  render();
+});
+/* facets */
+document.getElementById('facets').addEventListener('click',e=>{
+  const f=e.target.closest('.fac'); if(!f)return;
+  if(curFac===f.dataset.fac){curFac=null;f.classList.remove('on');}
+  else{curFac=f.dataset.fac;document.querySelectorAll('.fac').forEach(x=>x.classList.remove('on'));f.classList.add('on');}
+  render();
+});
+[qsearch,fProv,fStat,fChan,fAge].forEach(el=>el.addEventListener('input',render));
+
+/* deep-link to ready tab via hash */
+if(location.hash==='#ready'){document.querySelector('.qtab[data-q="ready"]').click();}
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Case · AB12 CDE · CCPY26050 · Cold Slate Reader</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/font.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      canvas:'#ECEFF3', pane:'#FFFFFF', list:'#FAFBFC', sunken:'#F4F6F9', hover:'#F2F4F7',
+      selected:'#EDECFD', rail:'#20242E', hairline:'#E3E7ED', strong:'#D4D9E1',
+      ink900:'#1A1D26', ink700:'#3B414E', muted:'#5C6470', faint:'#828A98', disabled:'#AEB4BF',
+      iris:'#5B53EB', irisStrong:'#463CD1', irisBright:'#6E66F2', irisT050:'#EDECFD', irisT100:'#DFDDFB',
+      info:'#2D6FE0', progress:'#B07212', review:'#D92D32', held:'#C07A12', ready:'#128A52',
+      submitted:'#64748B', errorc:'#C2410C', vrm:'#FFD400'
+    },
+    fontFamily: { sans:['Geist','system-ui','sans-serif'], mono:['"Geist Mono"','ui-monospace','monospace'] }
+  }}
+}
+</script>
+<style>
+  :root{ --accent:#5B53EB; }
+  html,body{height:100%}
+  body{background:#ECEFF3;color:#1A1D26;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{scrollbar-width:thin;scrollbar-color:#D4D9E1 transparent}
+  *::-webkit-scrollbar{width:9px;height:9px}
+  *::-webkit-scrollbar-thumb{background:#D4D9E1;border-radius:9px;border:2px solid transparent;background-clip:content-box}
+  .mono{font-family:"Geist Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .eyebrow{font-family:"Geist Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+  .pane{background:#fff;border:1px solid #E3E7ED;border-radius:8px}
+  .kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;font-family:"Geist Mono",monospace;font-size:10.5px;font-weight:600;color:#5C6470;background:#F4F6F9;border:1px solid #E3E7ED;border-radius:4px;line-height:1}
+  .kbd-dark{color:#AEB4BF;background:#2A2F3A;border-color:#363C49}
+  .vrm{display:inline-flex;align-items:center;gap:5px;background:#FFD400;color:#1A1D26;border:1px solid #C9A800;border-radius:4px;padding:1px 7px 1px 5px;font-family:"Geist Mono",monospace;font-weight:600;font-size:12.5px;letter-spacing:.04em}
+  .vrm::before{content:"";width:4px;height:13px;background:#0B3FA6;border-radius:1px;margin-right:2px}
+  .vrm.sm{font-size:11px;padding:0 5px}
+  .vrm.lg{font-size:17px;padding:3px 10px 3px 7px}
+  .vrm.lg::before{height:18px;width:5px}
+  .badge{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 7px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.02em;border:1px solid transparent;white-space:nowrap}
+  .b-review{color:#D92D32;background:#FDECEC;border-color:#F6CFCF}
+  .b-held{color:#9A6310;background:#FBF1DF;border-color:#EBD9B4}
+  .b-ready{color:#0C7044;background:#E4F4EC;border-color:#BEE5D0}
+  .b-notready{color:#5C6470;background:#F0F2F5;border-color:#E0E4EA}
+  .b-conflict{color:#C2410C;background:#FBEDE3;border-color:#F0D2BC}
+  .catdot{width:7px;height:7px;border-radius:999px;display:inline-block}
+  .duepill{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;font-size:10.5px;font-weight:600;font-family:"Geist Mono",monospace}
+  .due-hot{color:#D92D32;background:#FDECEC}
+  .due-warn{color:#9A6310;background:#FBF1DF}
+  a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--accent);border-radius:5px}
+  /* list spine case rows */
+  .crow{position:relative;cursor:pointer;border-left:2px solid transparent}
+  .crow:hover{background:#F2F4F7}
+  .crow[data-cursor]{box-shadow:inset 0 0 0 1px var(--accent);border-radius:5px}
+  .crow[data-open]{background:#EDECFD;border-left-color:var(--accent)}
+  /* provenance badge */
+  .prov{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 6px;border-radius:4px;font-family:"Geist Mono",monospace;font-size:10px;font-weight:600;letter-spacing:.03em;border:1px solid #E3E7ED;background:#F4F6F9;color:#5C6470}
+  .prov .g{font-size:10px}
+  .prov.rev{color:#0C7044}.prov.rev .g{color:#128A52}
+  .prov.needs{color:#3B414E}.prov.needs .g{color:#5B53EB}
+  .prov.conf{color:#C2410C;background:#FBEDE3;border-color:#F0D2BC}
+  .prov.none{color:#AEB4BF}
+  /* eva field row */
+  .efr{display:grid;grid-template-columns:18px 150px 1fr 96px;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid #E3E7ED}
+  .efr:hover{background:#FAFBFC}
+  .efr .num{font-family:"Geist Mono",monospace;font-size:10.5px;color:#AEB4BF;text-align:right}
+  .efr .lbl{font-size:12px;color:#5C6470}
+  .ctrl{height:28px;padding:0 9px;border:1px solid #E3E7ED;border-radius:6px;background:#fff;font-size:13px;color:#1A1D26;width:100%}
+  .ctrl:hover{border-color:#D4D9E1}
+  .ctrl.err{border-color:#D92D32;background:#FFF7F7}
+  .ctrl.mono{font-family:"Geist Mono",monospace}
+  .tab{position:relative;height:34px;padding:0 12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:#5C6470;border-radius:6px;cursor:pointer}
+  .tab:hover{background:#F2F4F7;color:#1A1D26}
+  .tab[aria-selected="true"]{color:#1A1D26;background:#fff;border:1px solid #E3E7ED;font-weight:600}
+  .tab[aria-selected="true"]::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;background:var(--accent);border-radius:2px}
+  .tabpanel[hidden]{display:none}
+  .actbtn{height:30px;padding:0 11px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;border:1px solid #E3E7ED;background:#fff;color:#3B414E;border-radius:6px;white-space:nowrap}
+  .actbtn:hover{background:#F2F4F7}
+  .actbtn.primary{background:#5B53EB;border-color:#5B53EB;color:#fff}
+  .actbtn.primary:hover{background:#6E66F2}
+  .actbtn:disabled{color:#AEB4BF;background:#F4F6F9;cursor:not-allowed}
+  .actbtn.primary:disabled{background:#C7C4F0;border-color:#C7C4F0;color:#fff}
+  /* pipeline spine */
+  .sp{display:flex;align-items:center;gap:5px}
+  .spseg{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;font-size:11px;font-weight:600;background:#F4F6F9;color:#828A98;border:1px solid #E3E7ED}
+  .spseg.done{color:#5C6470;background:#fff}
+  .spseg.cur{color:#D92D32;background:#FDECEC;border-color:#F6CFCF}
+  .spchev{color:#C2C8D2;font-size:11px}
+  .railitem{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0;color:#9AA1AD;text-decoration:none;border-radius:8px}
+  .railitem:hover{color:#fff;background:#2A2F3A}.railitem.active{color:#fff}
+  .railitem.active::before{content:"";position:absolute;left:-8px;top:6px;bottom:6px;width:2px;background:var(--accent);border-radius:2px}
+  .railitem.active .ricon{background:#3A3168}
+  .ricon{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+  .rbadge{font-family:"Geist Mono",monospace;font-size:9px;font-weight:600;line-height:1}
+  .thumb{position:relative;border:1px solid #E3E7ED;border-radius:6px;overflow:hidden;background:#F4F6F9}
+  [hidden]{display:none!important}
+  @media (max-width:1279px){
+    #shell{ grid-template-columns:56px 288px 1fr 0px !important; }
+    #ctxPane{ display:none !important; }
+    .efr{ grid-template-columns:18px 112px 1fr 80px; gap:8px; }
+  }
+  @media (max-width:767px){
+    body{ overflow:auto !important; }
+    #shell{ display:block !important; height:auto !important; padding-bottom:64px; }
+    #railNav{ display:none !important; }
+    #ctxPane{ display:block !important; border-left:none; border-top:1px solid #E3E7ED; }
+    #shell > section, #shell > aside{ height:auto !important; min-height:0 !important; }
+    #shell .flex-1.overflow-y-auto{ overflow:visible !important; height:auto !important; }
+    #shell .flex-1.overflow-auto{ overflow-x:auto !important; overflow-y:visible !important; height:auto !important; }
+    .efr{ grid-template-columns:18px 96px 1fr 64px; gap:7px; }
+    #mobileTabs{ display:flex !important; }
+  }
+</style>
+</head>
+<body class="overflow-hidden">
+
+<!-- HEADER -->
+<header class="h-12 bg-pane border-b border-hairline flex items-center px-3 gap-3 relative z-20">
+  <div class="flex items-center gap-2 shrink-0">
+    <div class="w-6 h-6 rounded-md bg-iris flex items-center justify-center text-white font-bold text-[13px]">c</div>
+    <span class="font-semibold text-[13px] tracking-tight">collisionspike</span>
+    <span class="mono text-faint text-[11px] hidden sm:inline">/ case</span>
+  </div>
+  <button id="searchBtn" class="flex-1 max-w-xl mx-auto h-8 px-3 flex items-center gap-2 bg-sunken border border-hairline rounded-md text-faint text-[12.5px] hover:border-strong transition">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <span class="truncate">Search cases, VRM, provider…</span>
+    <span class="ml-auto flex items-center gap-1"><span class="kbd">⌘</span><span class="kbd">K</span></span>
+  </button>
+  <div class="flex items-center gap-3 shrink-0">
+    <span class="eyebrow text-faint hidden md:inline">UPDATED 14:07</span>
+    <button id="ctxToggle" class="kbd hidden lg:inline-flex" title="Toggle context pane">]</button>
+    <div class="w-6 h-6 rounded-full bg-rail text-white text-[10px] font-semibold flex items-center justify-center mono">RB</div>
+  </div>
+</header>
+
+<div id="shell" class="grid h-[calc(100vh-48px)]" style="grid-template-columns:56px 340px 1fr 340px">
+
+  <!-- RAIL -->
+  <nav id="railNav" class="bg-rail flex flex-col items-center py-3 gap-1.5 px-2" aria-label="Primary">
+    <a href="index.html" class="railitem" title="Cockpit"><span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span></a>
+    <a href="index.html" class="railitem" title="Inbox"><span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg></span><span class="rbadge text-faint">47</span></a>
+    <a href="queues.html" class="railitem" title="Queues"><span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span><span class="rbadge text-faint">20</span></a>
+    <a href="case-detail.html" class="railitem active" title="Case"><span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span class="rbadge text-iris">·</span></a>
+    <div class="w-7 h-px bg-[#363C49] my-1"></div>
+    <a href="#" class="railitem" title="Manual intake"><span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v10m0-10l-4 4m4-4l4 4"/><path d="M4 19h16"/></svg></span></a>
+    <div class="flex-1"></div>
+    <a href="#" class="railitem" title="Admin / Corpus"><span class="ricon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8 2 2 0 1 1-2.8 2.8 1.6 1.6 0 0 0-2.7 1.1 2 2 0 1 1-4 0A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3 2 2 0 1 1-2.8-2.8A1.6 1.6 0 0 0 2 14"/></svg></span></a>
+    <button id="helpBtn" class="railitem" title="Keyboard reference (?)"><span class="ricon"><span class="kbd kbd-dark">?</span></span></button>
+  </nav>
+
+  <!-- LIST SPINE — case list (J loads next, no back-nav) -->
+  <section class="bg-list border-r border-hairline flex flex-col min-h-0">
+    <div class="h-10 px-3 flex items-center justify-between border-b border-hairline shrink-0">
+      <span class="eyebrow text-ink700">Review queue · 8</span>
+      <div class="flex items-center gap-1 text-faint"><span class="kbd">J</span><span class="kbd">K</span></div>
+    </div>
+    <div id="caseList" class="flex-1 overflow-y-auto p-2 space-y-1" tabindex="0">
+      <div class="crow px-2.5 py-2.5 rounded-md" data-row data-open tabindex="0">
+        <div class="flex items-center gap-2"><span class="vrm sm">AB12 CDE</span><span class="mono text-[11px] text-muted">CCPY26050</span></div>
+        <div class="flex items-center gap-2 mt-1.5"><span class="badge b-review">◣ Review</span><span class="duepill due-hot ml-auto">2d 04h</span></div>
+      </div>
+      <div class="crow px-2.5 py-2.5 rounded-md" data-row tabindex="0">
+        <div class="flex items-center gap-2"><span class="vrm sm">LV71 KMX</span><span class="mono text-[11px] text-muted">HALX26112</span></div>
+        <div class="flex items-center gap-2 mt-1.5"><span class="badge b-review">◣ Review</span><span class="duepill due-warn ml-auto">18h</span></div>
+      </div>
+      <div class="crow px-2.5 py-2.5 rounded-md" data-row tabindex="0">
+        <div class="flex items-center gap-2"><span class="vrm sm">GK19 ZRT</span><span class="mono text-[11px] text-muted">CCPY26048</span></div>
+        <div class="flex items-center gap-2 mt-1.5"><span class="badge b-conflict">◣ Conflict</span><span class="duepill due-warn ml-auto">06h</span></div>
+      </div>
+      <div class="crow px-2.5 py-2.5 rounded-md" data-row tabindex="0">
+        <div class="flex items-center gap-2"><span class="vrm sm">RA20 TBC</span><span class="mono text-[11px] text-muted">CCPY26051</span></div>
+        <div class="flex items-center gap-2 mt-1.5"><span class="badge b-review">◣ Review</span><span class="duepill due-warn ml-auto">04h</span></div>
+      </div>
+      <div class="crow px-2.5 py-2.5 rounded-md" data-row tabindex="0">
+        <div class="flex items-center gap-2"><span class="vrm sm">WD68 ZXC</span><span class="mono text-[11px] text-muted">CCPY26052</span></div>
+        <div class="flex items-center gap-2 mt-1.5"><span class="badge b-review">◣ Review</span><span class="duepill due-warn ml-auto">03h</span></div>
+      </div>
+    </div>
+    <div class="h-9 px-3 flex items-center gap-2 border-t border-hairline shrink-0 text-faint">
+      <span class="kbd">J</span><span class="text-[11px] mono">next case</span>
+      <span class="kbd ml-auto">S</span><span class="text-[11px] mono">submit</span>
+      <span class="kbd ml-1">H</span><span class="text-[11px] mono">hold</span>
+    </div>
+  </section>
+
+  <!-- READING — 5-TAB WORKSPACE -->
+  <section class="bg-canvas min-h-0 flex flex-col">
+
+    <!-- pipeline spine -->
+    <div class="px-4 pt-2.5 pb-2 shrink-0">
+      <div class="sp overflow-x-auto">
+        <span class="spseg done">New</span><span class="spchev">→</span>
+        <span class="spseg done">Ingested</span><span class="spchev">→</span>
+        <span class="spseg cur">◣ Needs review</span><span class="spchev">→</span>
+        <span class="spseg">Ready</span><span class="spchev">→</span>
+        <span class="spseg">Submitted</span><span class="spchev">→</span>
+        <span class="spseg">Box</span>
+      </div>
+    </div>
+
+    <!-- header -->
+    <div class="px-4 pb-2 shrink-0">
+      <div class="pane p-3">
+        <div class="flex items-start gap-3 flex-wrap">
+          <span class="vrm lg">AB12 CDE</span>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="mono text-[14px] font-semibold">CCPY26050</span>
+              <span class="text-[13px] text-muted">ACME · BMW 320d M-Sport 2018</span>
+            </div>
+            <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+              <span class="badge b-review">◣ Needs review</span>
+              <span class="text-[11px] text-faint mono">on-hold no</span>
+              <span class="text-strong">·</span>
+              <span class="text-[11px] text-muted">✉ email</span>
+              <span class="text-strong">·</span>
+              <span class="duepill due-hot">2d 04h past due</span>
+            </div>
+          </div>
+          <div class="ml-auto flex items-center gap-1.5 flex-wrap justify-end">
+            <button class="actbtn"><span>⬆</span>Add evidence</button>
+            <button class="actbtn"><span>⤬</span>Merge</button>
+            <button class="actbtn"><span>⏸</span>Hold</button>
+            <button class="actbtn" disabled title="Disabled while readiness is blocked"><span>⭳</span>Download JSON</button>
+            <button id="submitBtn" class="actbtn primary" disabled title="Resolve readiness to submit"><span>▶</span>Submit to EVA</button>
+            <div class="relative">
+              <button id="ovfBtn" class="actbtn px-2" title="More">⋯</button>
+              <div id="ovf" hidden class="absolute right-0 top-9 z-30 w-52 bg-pane border border-hairline rounded-md py-1 text-[12.5px]" style="box-shadow:0 12px 32px rgba(22,26,38,.16)">
+                <button class="w-full text-left px-3 py-1.5 hover:bg-hover">Copy JSON</button>
+                <button class="w-full text-left px-3 py-1.5 text-disabled cursor-not-allowed flex items-center gap-2">Open in Box <span class="badge b-notready ml-auto">not connected</span></button>
+                <button class="w-full text-left px-3 py-1.5 text-disabled cursor-not-allowed flex items-center gap-2">Enrich <span class="badge b-notready ml-auto">gated</span></button>
+                <div class="h-px bg-hairline my-1"></div>
+                <button class="w-full text-left px-3 py-1.5 text-review hover:bg-hover">Delete → AuditEvent</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- tabs -->
+    <div class="px-4 shrink-0 border-b border-hairline">
+      <div class="flex items-center gap-1" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" data-tab="fields">Fields <span class="badge b-review">2</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="evidence">Evidence <span class="badge b-held">1/2</span></button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="address">Address</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="notes">Notes</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="chasers">Chasers</button>
+        <span class="ml-auto hidden xl:flex items-center gap-1.5 text-faint pr-1"><span class="kbd">1</span>–<span class="kbd">5</span><span class="text-[10.5px] mono ml-1">jump</span></span>
+      </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto px-4 py-3">
+
+      <!-- ===== FIELDS ===== -->
+      <div class="tabpanel" data-panel="fields">
+        <div class="pane overflow-hidden">
+          <!-- cluster: Provider & claimant -->
+          <div class="px-3 h-8 flex items-center bg-sunken border-b border-hairline"><span class="eyebrow text-ink700">Provider &amp; claimant</span></div>
+          <div class="efr"><span class="num">1</span><span class="lbl">Work provider</span><input class="ctrl" value="ACME" /><span class="prov rev"><span class="g">✔</span>PDF</span></div>
+          <div class="efr"><span class="num">2</span><span class="lbl">Claimant name</span><input class="ctrl" value="J. Okafor" /><span class="prov needs"><span class="g">●</span>AI</span></div>
+          <div class="efr"><span class="num">3</span><span class="lbl">Claimant tel</span><input class="ctrl mono" value="07700 900118" /><span class="prov rev"><span class="g">✔</span>MANUAL</span></div>
+          <div class="efr"><span class="num">4</span><span class="lbl">Claimant email</span><input class="ctrl" value="j.okafor@x-claims.co.uk" /><span class="prov rev"><span class="g">✔</span>PDF</span></div>
+          <!-- cluster: Vehicle -->
+          <div class="px-3 h-8 flex items-center bg-sunken border-y border-hairline"><span class="eyebrow text-ink700">Vehicle</span></div>
+          <div class="efr"><span class="num">5</span><span class="lbl">Vehicle</span><input class="ctrl" value="BMW 320d M-Sport" /><span class="prov rev"><span class="g">✔</span>DVLA</span></div>
+          <div class="efr"><span class="num">6</span><span class="lbl">Mileage</span><input class="ctrl mono" value="48,210" /><span class="prov needs"><span class="g">●</span>DVLA</span></div>
+          <div class="efr"><span class="num">7</span><span class="lbl">Mileage unit</span><input class="ctrl mono" value="mi" /><span class="prov rev"><span class="g">✔</span>MANUAL</span></div>
+          <div class="efr" id="field8"><span class="num">8</span><span class="lbl text-review font-medium">VAT status</span>
+            <select class="ctrl err"><option value="">◣ required — choose…</option><option>VAT registered</option><option>Not VAT registered</option></select>
+            <span class="prov none"><span class="g">—</span>none</span></div>
+          <!-- cluster: Incident -->
+          <div class="px-3 h-8 flex items-center bg-sunken border-y border-hairline"><span class="eyebrow text-ink700">Incident</span></div>
+          <div class="efr items-start" id="field9"><span class="num pt-1.5">9</span><span class="lbl pt-1.5">Circumstances</span>
+            <div><textarea class="ctrl" style="height:auto;padding:6px 9px;min-height:46px">Rear-end collision at junction</textarea>
+              <div class="mt-1.5 flex items-center gap-1.5 text-[11px] text-errorc"><span>▲</span>Conflict: PDF says "side impact" — <button class="text-iris underline">review both</button></div></div>
+            <span class="prov conf"><span class="g">▲</span>AI</span></div>
+          <div class="efr"><span class="num">10</span><span class="lbl">Inspection addr</span>
+            <button class="ctrl text-left text-iris flex items-center" onclick="showTab('address')">6-line address → Address tab</button>
+            <span class="prov rev"><span class="g">✔</span>CORPUS</span></div>
+          <!-- cluster: Dates -->
+          <div class="px-3 h-8 flex items-center bg-sunken border-y border-hairline"><span class="eyebrow text-ink700">Dates</span></div>
+          <div class="efr"><span class="num">11</span><span class="lbl">Date of loss</span><input class="ctrl mono" value="18 Jun 2026" /><span class="prov rev"><span class="g">✔</span>PDF</span></div>
+          <div class="efr" style="border-bottom:none"><span class="num">12</span><span class="lbl">Date of instr</span><input class="ctrl mono" value="23 Jun 2026" /><span class="prov rev"><span class="g">✔</span>PDF</span></div>
+        </div>
+
+        <!-- live EVA JSON -->
+        <details class="pane mt-3 group">
+          <summary class="px-3 h-9 flex items-center gap-2 cursor-pointer list-none">
+            <span class="text-faint group-open:rotate-90 transition">▸</span>
+            <span class="eyebrow text-ink700">Live EVA JSON</span>
+            <span class="mono text-[10.5px] text-faint">updates on edit</span>
+            <span class="ml-auto badge b-review">2 fields incomplete</span>
+          </summary>
+          <pre class="px-4 pb-3 pt-1 mono text-[11.5px] leading-relaxed text-ink700 bg-sunken border-t border-hairline overflow-x-auto">{
+  "principal": "CCPY", "year": 26, "seq": "050",
+  "vrm": "AB12 CDE",
+  "provider": "ACME",
+  "claimant": { "name": "J. Okafor", "tel": "07700900118" },
+  "vehicle": "BMW 320d M-Sport", "mileage": 48210, "unit": "mi",
+  "vat_status": <span class="text-review">null</span>,
+  "circumstances": "Rear-end collision at junction",
+  "date_of_loss": "2026-06-18", "date_of_instruction": "2026-06-23"
+}</pre>
+        </details>
+      </div>
+
+      <!-- ===== EVIDENCE ===== -->
+      <div class="tabpanel" data-panel="evidence" hidden>
+        <!-- documents -->
+        <div class="pane mb-3">
+          <div class="px-3 h-9 flex items-center border-b border-hairline"><span class="eyebrow text-ink700">Documents · 2</span><button class="actbtn ml-auto h-7"><span>⬆</span>Add</button></div>
+          <div class="divide-y divide-hairline text-[12.5px]">
+            <div class="px-3 py-2 flex items-center gap-2"><span class="text-muted">📄</span><span class="mono">instruction-CCPY26050.pdf</span><span class="text-faint ml-auto mono text-[11px]">142 KB · 23 Jun</span></div>
+            <div class="px-3 py-2 flex items-center gap-2"><span class="text-muted">📄</span><span class="mono">mot-history.pdf</span><span class="text-faint ml-auto mono text-[11px]">88 KB · 23 Jun</span></div>
+          </div>
+        </div>
+
+        <!-- photo grid -->
+        <div class="pane mb-3">
+          <div class="px-3 h-9 flex items-center border-b border-hairline"><span class="eyebrow text-ink700">Photos · 1 accepted</span><span class="badge b-held ml-2">need ≥2 incl. overview</span></div>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 p-3">
+            <div class="thumb">
+              <img src="https://picsum.photos/seed/ab12overview/300/200" class="w-full h-28 object-cover" alt="overview" />
+              <div class="p-2 space-y-1.5">
+                <div class="flex items-center gap-1.5"><span class="badge b-ready">✔ Reg visible</span></div>
+                <select class="ctrl h-7 text-[12px]"><option>Role: Overview</option><option>Damage closeup</option><option>Other</option></select>
+                <label class="flex items-center gap-1.5 text-[11px] text-muted"><input type="checkbox" class="accent-iris" />Exclude · reflection</label>
+              </div>
+            </div>
+            <div class="thumb opacity-90">
+              <img src="https://picsum.photos/seed/ab12dmg/300/200" class="w-full h-28 object-cover" alt="damage" />
+              <div class="p-2 space-y-1.5">
+                <div class="flex items-center gap-1.5"><span class="badge b-notready">no reg</span></div>
+                <select class="ctrl h-7 text-[12px]"><option>Role: Damage closeup</option><option>Overview</option><option>Other</option></select>
+                <label class="flex items-center gap-1.5 text-[11px] text-review"><input type="checkbox" checked class="accent-iris" />Exclude · reflection</label>
+              </div>
+            </div>
+            <button class="thumb h-full min-h-[180px] grid place-items-center text-faint hover:text-iris hover:border-iris border-dashed">
+              <span class="text-center"><span class="text-2xl">＋</span><br><span class="text-[12px]">Add photos</span></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- EVA photo order (the one permitted micro-rule) -->
+        <div class="pane">
+          <div class="px-3 h-9 flex items-center border-b border-hairline"><span class="eyebrow text-ink700">EVA upload order</span><span class="text-[11px] text-muted ml-2">drag to reorder</span></div>
+          <div class="px-3 py-2 bg-sunken border-b border-hairline text-[11.5px] text-muted flex items-start gap-1.5">
+            <span class="text-info">ℹ</span><span>EVA order: upload the <b>2 preview photos</b> (overview with full registration, then main-damage closeup) first, then <b>all</b> photos in sequence — including those two again.</span>
+          </div>
+          <ol class="divide-y divide-hairline text-[12.5px]">
+            <li class="px-3 py-2 flex items-center gap-3"><span class="text-faint cursor-grab">⋮⋮</span><span class="mono text-faint w-5">1</span><span class="badge b-ready">preview</span>Overview · reg visible</li>
+            <li class="px-3 py-2 flex items-center gap-3"><span class="text-faint cursor-grab">⋮⋮</span><span class="mono text-faint w-5">2</span><span class="badge b-ready">preview</span>Main damage closeup</li>
+            <li class="px-3 py-2 flex items-center gap-3 text-muted"><span class="text-faint cursor-grab">⋮⋮</span><span class="mono text-faint w-5">3</span>Overview (full sequence)</li>
+            <li class="px-3 py-2 flex items-center gap-3 text-muted"><span class="text-faint cursor-grab">⋮⋮</span><span class="mono text-faint w-5">4</span>Damage closeup (full sequence)</li>
+            <li class="px-3 py-2 flex items-center gap-3 text-faint"><span class="cursor-grab">⋮⋮</span><span class="mono w-5">…</span>+ remaining accepted images</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ===== ADDRESS ===== -->
+      <div class="tabpanel" data-panel="address" hidden>
+        <div class="pane mb-3">
+          <div class="px-3 h-9 flex items-center border-b border-hairline"><span class="eyebrow text-ink700">Current decision</span><span class="prov rev ml-auto"><span class="g">✔</span>CORPUS</span></div>
+          <div class="p-3">
+            <div class="mono text-[13px] leading-relaxed text-ink700">Unit 4, Bridgewater Trade Park<br>Crewe Road<br>Crewe<br>Cheshire<br>CW1 6TL<br>United Kingdom</div>
+            <div class="mt-2 flex items-center gap-2"><span class="badge b-ready">✔ Decided</span><span class="text-[11px] text-muted">ACME policy: corpus-first</span></div>
+          </div>
+        </div>
+        <div class="pane mb-3">
+          <div class="px-3 h-9 flex items-center border-b border-hairline"><span class="eyebrow text-ink700">Corpus &amp; live suggestions</span></div>
+          <div class="divide-y divide-hairline">
+            <label class="px-3 py-2.5 flex items-center gap-3 hover:bg-hover cursor-pointer"><input type="radio" name="addr" checked class="accent-iris" /><div class="flex-1"><div class="mono text-[12.5px]">Unit 4, Bridgewater Trade Park, Crewe CW1 6TL</div><div class="text-[11px] text-faint">corpus · seen 14 times · last 19 Jun 2026</div></div></label>
+            <label class="px-3 py-2.5 flex items-center gap-3 hover:bg-hover cursor-pointer"><input type="radio" name="addr" class="accent-iris" /><div class="flex-1"><div class="mono text-[12.5px]">ACME Bodyshop, Weston Rd, Crewe CW1 6FA</div><div class="text-[11px] text-faint">corpus · seen 3 times · last 02 May 2026</div></div></label>
+            <label class="px-3 py-2.5 flex items-center gap-3 hover:bg-hover cursor-pointer"><input type="radio" name="addr" class="accent-iris" /><div class="flex-1"><div class="mono text-[12.5px]">Crewe Road, Crewe CW1 6TL</div><div class="text-[11px] text-faint">live lookup · postcode.io</div></div></label>
+          </div>
+        </div>
+        <div class="pane">
+          <div class="px-3 h-9 flex items-center border-b border-hairline"><span class="eyebrow text-ink700">Image-based assessment override</span></div>
+          <div class="p-3">
+            <label class="flex items-center gap-2 text-[12.5px] mb-2"><input type="checkbox" id="ibaToggle" class="accent-iris" />Use Image-Based Assessment instead of an address</label>
+            <textarea id="ibaReason" disabled placeholder="Typed reason required (e.g. garage closed, mobile inspection)…" class="ctrl w-full opacity-50" style="height:auto;min-height:42px;padding:6px 9px"></textarea>
+            <div class="text-[11px] text-muted mt-1.5">Never a silent default — a reason is logged to the case.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== NOTES ===== -->
+      <div class="tabpanel" data-panel="notes" hidden>
+        <div class="pane mb-3">
+          <div class="p-3"><textarea class="ctrl w-full" placeholder="Add a note…" style="height:auto;min-height:54px;padding:8px 10px"></textarea>
+            <div class="flex justify-end mt-2"><button class="actbtn primary h-8">Add note</button></div></div>
+        </div>
+        <div class="pane">
+          <div class="px-3 h-9 flex items-center border-b border-hairline"><span class="eyebrow text-ink700">Notes &amp; activity</span><span class="text-[11px] text-faint ml-2">newest first · audit interleaved</span></div>
+          <ul class="divide-y divide-hairline text-[12.5px]">
+            <li class="px-3 py-2.5"><div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-rail text-white text-[9px] grid place-items-center mono">RB</span><span class="font-medium">R. Bell</span><span class="mono text-[10.5px] text-faint ml-auto">14:01</span></div><div class="mt-1 text-ink700 pl-7">Asked garage to resend overview with full plate.</div></li>
+            <li class="px-3 py-2 flex items-center gap-2 text-muted"><span class="catdot" style="background:#828A98"></span><span class="text-[11.5px]">Activity · Conflict flagged on field 9 (circumstances)</span><span class="mono text-[10.5px] text-faint ml-auto">13:40</span></li>
+            <li class="px-3 py-2 flex items-center gap-2 text-muted"><span class="catdot" style="background:#828A98"></span><span class="text-[11.5px]">Activity · DVLA enrichment applied (mileage, vehicle)</span><span class="mono text-[10.5px] text-faint ml-auto">09:18</span></li>
+            <li class="px-3 py-2 flex items-center gap-2 text-muted"><span class="catdot" style="background:#828A98"></span><span class="text-[11.5px]">Activity · Case created from instruction-CCPY26050.pdf</span><span class="mono text-[10.5px] text-faint ml-auto">09:14</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ===== CHASERS ===== -->
+      <div class="tabpanel" data-panel="chasers" hidden>
+        <div class="pane mb-3">
+          <div class="px-3 h-9 flex items-center border-b border-hairline gap-2"><span class="eyebrow text-ink700">New chaser</span>
+            <div class="ml-auto flex items-center gap-1"><button class="actbtn h-7 primary">✉ Email</button><button class="actbtn h-7">⌘ WhatsApp</button></div></div>
+          <div class="p-3 space-y-2">
+            <select class="ctrl"><option>Template: Missing images chaser</option><option>Missing instruction</option><option>General status</option></select>
+            <textarea class="ctrl w-full mono text-[12px]" style="height:auto;min-height:120px;padding:8px 10px">Hi ACME,
+
+Re CCPY26050 (AB12 CDE, BMW 320d) — we still need a vehicle overview photo showing the full registration to proceed with the EVA submission.
+
+Could you ask the garage to resend? Thank you.</textarea>
+            <div class="flex items-center gap-2">
+              <button class="actbtn primary h-8">Copy draft</button>
+              <button class="actbtn h-8">Log as drafted</button>
+              <span class="text-[11px] text-muted ml-2">⚠ Never auto-sends — copy into your mail client.</span>
+            </div>
+            <div class="pt-2 border-t border-hairline flex items-center gap-2">
+              <span class="text-[12px] text-muted flex-1">Box File-Request upload link</span>
+              <span class="badge b-notready">disabled · BOX gated off</span>
+            </div>
+          </div>
+        </div>
+        <div class="pane">
+          <div class="px-3 h-9 flex items-center border-b border-hairline"><span class="eyebrow text-ink700">Chaser history</span></div>
+          <ul class="divide-y divide-hairline text-[12.5px]">
+            <li class="px-3 py-2.5 flex items-center gap-2"><span class="text-muted">✉</span><span>Missing images chaser</span><span class="badge b-notready ml-2">drafted</span><span class="mono text-[10.5px] text-faint ml-auto">22 Jun 16:20</span></li>
+            <li class="px-3 py-2.5 flex items-center gap-2"><span class="text-muted">✉</span><span>Acknowledge instruction</span><span class="badge b-ready ml-2">logged</span><span class="mono text-[10.5px] text-faint ml-auto">23 Jun 09:20</span></li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CONTEXT — sticky readiness + imported details -->
+  <aside id="ctxPane" class="bg-pane border-l border-hairline flex flex-col min-h-0">
+    <div class="flex-1 overflow-y-auto p-3 space-y-3">
+      <!-- readiness -->
+      <div class="pane">
+        <div class="px-3 h-9 flex items-center border-b border-hairline"><span class="eyebrow text-ink700">Readiness checklist</span><span class="mono text-[10.5px] text-review ml-auto">2 blocking</span></div>
+        <ul class="divide-y divide-hairline text-[12.5px]">
+          <li class="px-3 py-2 flex items-center gap-2"><span class="text-ready">✔</span><span class="text-ink700">Provider &amp; claimant</span></li>
+          <li class="px-3 py-2 flex items-center gap-2"><span class="text-ready">✔</span><span class="text-ink700">Vehicle + mileage</span></li>
+          <li class="px-3 py-2 flex items-center gap-2 hover:bg-hover cursor-pointer" onclick="showTab('fields','field8')"><span class="text-review">✗</span><span class="text-iris flex-1">VAT status</span><span class="mono text-[10px] text-faint">Fields · 8 →</span></li>
+          <li class="px-3 py-2 flex items-center gap-2 hover:bg-hover cursor-pointer" onclick="showTab('evidence')"><span class="text-review">✗</span><span class="text-iris flex-1">≥2 photos (1/2)</span><span class="mono text-[10px] text-faint">Evidence →</span></li>
+          <li class="px-3 py-2 flex items-center gap-2"><span class="text-ready">✔</span><span class="text-ink700">Address decided</span></li>
+          <li class="px-3 py-2 flex items-center gap-2 hover:bg-hover cursor-pointer" onclick="showTab('fields','field9')"><span class="text-review">✗</span><span class="text-iris flex-1">No conflicts (1)</span><span class="mono text-[10px] text-faint">Fields · 9 →</span></li>
+        </ul>
+        <div class="px-3 py-2 border-t border-hairline">
+          <button class="w-full h-8 text-[12px] font-medium text-disabled bg-sunken border border-hairline rounded-md cursor-not-allowed" disabled>Submit to EVA · 2 blocking</button>
+        </div>
+      </div>
+      <!-- imported details (read-only) -->
+      <div class="pane">
+        <div class="px-3 h-9 flex items-center border-b border-hairline bg-sunken"><span class="eyebrow text-faint">Imported details</span><span class="text-[10px] text-faint ml-auto">read-only · no drive</span></div>
+        <dl class="text-[12px] divide-y divide-hairline">
+          <div class="px-3 py-2 flex justify-between"><dt class="text-muted">Received</dt><dd class="mono">23 Jun 09:14</dd></div>
+          <div class="px-3 py-2 flex justify-between"><dt class="text-muted">Channel</dt><dd class="mono">Outlook · intake</dd></div>
+          <div class="px-3 py-2 flex justify-between"><dt class="text-muted">Principal</dt><dd class="mono">CCPY · locked</dd></div>
+          <div class="px-3 py-2 flex justify-between"><dt class="text-muted">Year</dt><dd class="mono">26 · locked</dd></div>
+          <div class="px-3 py-2 flex justify-between"><dt class="text-muted">Dup risk</dt><dd class="mono text-review">1 candidate</dd></div>
+        </dl>
+      </div>
+      <div class="text-[10.5px] text-faint px-1 mono">Every ✗ deep-links to the owning tab + field.</div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- mobile bottom tab bar -->
+<nav id="mobileTabs" class="fixed bottom-0 inset-x-0 z-40 bg-rail hidden h-14 items-center justify-around px-1 border-t border-[#363C49]" aria-label="Sections">
+  <a href="index.html" class="flex flex-col items-center gap-0.5 px-3 text-[#9AA1AD]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="text-[10px]">Cockpit</span></a>
+  <a href="index.html" class="flex flex-col items-center gap-0.5 px-3 text-[#9AA1AD]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg><span class="text-[10px]">Inbox</span></a>
+  <a href="queues.html" class="flex flex-col items-center gap-0.5 px-3 text-[#9AA1AD]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg><span class="text-[10px]">Queues</span></a>
+  <a href="case-detail.html" class="flex flex-col items-center gap-0.5 px-3 text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span class="text-[10px]">Case</span></a>
+</nav>
+
+<!-- /submit route-modal -->
+<div id="submitModal" hidden class="fixed inset-0 z-50 bg-ink900/30 flex items-center justify-center px-4">
+  <div class="w-full max-w-xl bg-pane rounded-[10px] border border-hairline overflow-hidden" style="box-shadow:0 12px 32px rgba(22,26,38,.16)">
+    <div class="h-11 px-4 flex items-center border-b border-hairline"><span class="eyebrow text-ink900">Submit to EVA</span><span class="mono text-[11px] text-faint ml-2">/submit</span><button id="submitClose" class="ml-auto kbd">Esc</button></div>
+    <div class="p-4 space-y-3">
+      <div class="pane bg-sunken p-3 flex items-center gap-2"><span class="text-review">✗</span><span class="text-[12.5px] text-ink700">Readiness gate not green — 2 items blocking. Resolve to enable submit.</span></div>
+      <div class="grid grid-cols-3 gap-2">
+        <div><label class="eyebrow text-faint">Principal</label><input class="ctrl mono mt-1" value="ccpy" readonly /></div>
+        <div><label class="eyebrow text-faint">Year</label><input class="ctrl mono mt-1" value="26" readonly /></div>
+        <div><label class="eyebrow text-faint">Sequence</label><input class="ctrl mono mt-1" value="050" /></div>
+      </div>
+      <div class="text-[11px] text-muted flex items-center gap-2"><span class="badge b-notready">EVA code lowercase</span><span class="badge b-notready">Box folder UPPERCASE</span></div>
+      <pre class="mono text-[11px] bg-sunken border border-hairline rounded-md p-3 overflow-x-auto text-ink700">{ "case": "ccpy26050", "box_folder": "CCPY26050", "fields": 12, "ready": false }</pre>
+      <div class="flex items-center gap-2 pt-1">
+        <button class="actbtn primary h-9" disabled>⭳ Download JSON / drag to EVA</button>
+        <button class="actbtn h-9" disabled title="Sentry REST gated">Submit via Sentry REST <span class="badge b-notready ml-1">gated</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ⌘K -->
+<div id="cmdk" hidden class="fixed inset-0 z-50 bg-ink900/30 flex items-start justify-center pt-[14vh] px-4">
+  <div class="w-full max-w-lg bg-pane rounded-[10px] border border-hairline overflow-hidden" style="box-shadow:0 12px 32px rgba(22,26,38,.16)">
+    <div class="h-12 px-3 flex items-center gap-2 border-b border-hairline">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C6470" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="cmdkInput" placeholder="Jump to case, VRM, or run a command…" class="flex-1 bg-transparent outline-none text-[13.5px] placeholder:text-faint" />
+      <span class="kbd">Esc</span>
+    </div>
+    <ul class="py-1.5 text-[13px]">
+      <li class="px-3 py-2 flex items-center gap-3 hover:bg-hover cursor-pointer"><span class="text-iris">▶</span>Submit to EVA <span class="kbd ml-auto">S</span></li>
+      <li class="px-3 py-2 flex items-center gap-3 hover:bg-hover cursor-pointer"><span class="text-muted">⏸</span>Hold / release <span class="kbd ml-auto">H</span></li>
+      <li class="px-3 py-2 flex items-center gap-3 hover:bg-hover cursor-pointer"><span class="text-muted">↗</span>Open in Box <span class="badge b-notready ml-auto">gated</span></li>
+    </ul>
+  </div>
+</div>
+
+<!-- ? help -->
+<div id="help" hidden class="fixed inset-0 z-50 bg-ink900/30 flex items-center justify-center px-4">
+  <div class="w-full max-w-md bg-pane rounded-[10px] border border-hairline p-5" style="box-shadow:0 12px 32px rgba(22,26,38,.16)">
+    <div class="flex items-center mb-3"><span class="eyebrow text-ink900">Keyboard reference</span><button id="helpClose" class="ml-auto kbd">Esc</button></div>
+    <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-[12.5px]">
+      <div class="flex items-center justify-between"><span>Next / prev case</span><span><span class="kbd">J</span> <span class="kbd">K</span></span></div>
+      <div class="flex items-center justify-between"><span>Jump to tabs</span><span><span class="kbd">1</span>–<span class="kbd">5</span></span></div>
+      <div class="flex items-center justify-between"><span>Submit (ready)</span><span class="kbd">S</span></div>
+      <div class="flex items-center justify-between"><span>Hold / release</span><span class="kbd">H</span></div>
+      <div class="flex items-center justify-between"><span>Add evidence</span><span class="kbd">A</span></div>
+      <div class="flex items-center justify-between"><span>Draft chaser</span><span class="kbd">R</span></div>
+      <div class="flex items-center justify-between"><span>Command palette</span><span><span class="kbd">⌘</span><span class="kbd">K</span></span></div>
+      <div class="flex items-center justify-between"><span>Toggle panes</span><span><span class="kbd">[</span> <span class="kbd">]</span></span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showTab(name, scrollId){
+    document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.tab===name?'true':'false'));
+    document.querySelectorAll('.tabpanel').forEach(p=>p.hidden = p.dataset.panel!==name);
+    if(scrollId){ const el=document.getElementById(scrollId); if(el){ el.scrollIntoView({block:'center'}); el.querySelector('select,input,textarea')?.focus(); el.style.transition='background .4s'; el.style.background='#EDECFD'; setTimeout(()=>el.style.background='',700);} }
+  }
+(function(){
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
+
+  // case list spine nav
+  const rows=Array.from(document.querySelectorAll('#caseList [data-row]'));
+  let cur=rows.findIndex(r=>r.hasAttribute('data-open')); if(cur<0)cur=0;
+  function setCursor(i){ rows.forEach(r=>r.removeAttribute('data-cursor')); cur=Math.max(0,Math.min(rows.length-1,i)); rows[cur].setAttribute('data-cursor',''); rows[cur].scrollIntoView({block:'nearest'}); }
+  setCursor(cur);
+  rows.forEach((r,i)=>r.addEventListener('click',()=>{ rows.forEach(x=>x.removeAttribute('data-open')); r.setAttribute('data-open',''); setCursor(i); }));
+
+  // IBA toggle
+  const iba=document.getElementById('ibaToggle'), reason=document.getElementById('ibaReason');
+  iba?.addEventListener('change',()=>{ reason.disabled=!iba.checked; reason.classList.toggle('opacity-50',!iba.checked); if(iba.checked)reason.focus(); });
+
+  // overflow menu
+  const ovfBtn=document.getElementById('ovfBtn'), ovf=document.getElementById('ovf');
+  ovfBtn.addEventListener('click',(e)=>{ e.stopPropagation(); ovf.hidden=!ovf.hidden; });
+  document.addEventListener('click',()=>ovf.hidden=true);
+
+  // submit modal (route-modal)
+  const sm=document.getElementById('submitModal');
+  document.getElementById('submitBtn').addEventListener('click',()=>sm.hidden=false);
+  document.getElementById('submitClose').addEventListener('click',()=>sm.hidden=true);
+
+  // overlays
+  const cmdk=document.getElementById('cmdk'), help=document.getElementById('help'), ctx=document.getElementById('ctxPane'), shell=document.getElementById('shell');
+  document.getElementById('searchBtn').addEventListener('click',()=>{cmdk.hidden=false;setTimeout(()=>document.getElementById('cmdkInput').focus(),0)});
+  document.getElementById('helpBtn').addEventListener('click',()=>help.hidden=false);
+  document.getElementById('helpClose').addEventListener('click',()=>help.hidden=true);
+  function toggleCtx(){ const on=ctx.hasAttribute('data-collapsed'); if(on){ctx.removeAttribute('data-collapsed');ctx.style.display='';shell.style.gridTemplateColumns='56px 340px 1fr 340px';} else {ctx.setAttribute('data-collapsed','');ctx.style.display='none';shell.style.gridTemplateColumns='56px 340px 1fr 0px';} }
+  document.getElementById('ctxToggle').addEventListener('click',toggleCtx);
+
+  const tabsOrder=['fields','evidence','address','notes','chasers'];
+  document.addEventListener('keydown',(e)=>{
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); cmdk.hidden=false; setTimeout(()=>document.getElementById('cmdkInput').focus(),0); return; }
+    if(e.key==='Escape'){ cmdk.hidden=true; help.hidden=true; sm.hidden=true; ovf.hidden=true; return; }
+    if(!cmdk.hidden||!sm.hidden) return;
+    const tag=(document.activeElement.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+    if(e.key>='1'&&e.key<='5'){ e.preventDefault(); showTab(tabsOrder[+e.key-1]); }
+    else if(e.key==='j'||e.key==='J'){ e.preventDefault(); rows.forEach(x=>x.removeAttribute('data-open')); setCursor(cur+1); rows[cur].setAttribute('data-open',''); }
+    else if(e.key==='k'||e.key==='K'){ e.preventDefault(); rows.forEach(x=>x.removeAttribute('data-open')); setCursor(cur-1); rows[cur].setAttribute('data-open',''); }
+    else if(e.key==='?'){ help.hidden=false; }
+    else if(e.key===']'||e.key==='['){ toggleCtx(); }
+    else if(e.key==='h'||e.key==='H'){ /* hold toggle stub */ }
+  });
+})();
+</script>
+</body>
+</html>

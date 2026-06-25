@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Queues · Cold Slate Reader · collisionspike</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/font.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      canvas:'#ECEFF3', pane:'#FFFFFF', list:'#FAFBFC', sunken:'#F4F6F9', hover:'#F2F4F7',
+      selected:'#EDECFD', rail:'#20242E', hairline:'#E3E7ED', strong:'#D4D9E1',
+      ink900:'#1A1D26', ink700:'#3B414E', muted:'#5C6470', faint:'#828A98', disabled:'#AEB4BF',
+      iris:'#5B53EB', irisStrong:'#463CD1', irisBright:'#6E66F2', irisT050:'#EDECFD', irisT100:'#DFDDFB',
+      info:'#2D6FE0', progress:'#B07212', review:'#D92D32', held:'#C07A12', ready:'#128A52',
+      submitted:'#64748B', errorc:'#C2410C', vrm:'#FFD400'
+    },
+    fontFamily: { sans:['Geist','system-ui','sans-serif'], mono:['"Geist Mono"','ui-monospace','monospace'] }
+  }}
+}
+</script>
+<style>
+  :root{ --accent:#5B53EB; }
+  html,body{height:100%}
+  body{background:#ECEFF3;color:#1A1D26;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{scrollbar-width:thin;scrollbar-color:#D4D9E1 transparent}
+  *::-webkit-scrollbar{width:9px;height:9px}
+  *::-webkit-scrollbar-thumb{background:#D4D9E1;border-radius:9px;border:2px solid transparent;background-clip:content-box}
+  .mono{font-family:"Geist Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .eyebrow{font-family:"Geist Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+  .pane{background:#fff;border:1px solid #E3E7ED;border-radius:8px}
+  .kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;font-family:"Geist Mono",monospace;font-size:10.5px;font-weight:600;color:#5C6470;background:#F4F6F9;border:1px solid #E3E7ED;border-radius:4px;line-height:1}
+  .kbd-dark{color:#AEB4BF;background:#2A2F3A;border-color:#363C49}
+  .vrm{display:inline-flex;align-items:center;gap:5px;background:#FFD400;color:#1A1D26;border:1px solid #C9A800;border-radius:4px;padding:1px 7px 1px 5px;font-family:"Geist Mono",monospace;font-weight:600;font-size:12.5px;letter-spacing:.04em}
+  .vrm::before{content:"";width:4px;height:13px;background:#0B3FA6;border-radius:1px;margin-right:2px}
+  .vrm.sm{font-size:11px;padding:0 5px}
+  .badge{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 7px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.02em;border:1px solid transparent;white-space:nowrap}
+  .b-review{color:#D92D32;background:#FDECEC;border-color:#F6CFCF}
+  .b-held{color:#9A6310;background:#FBF1DF;border-color:#EBD9B4}
+  .b-ready{color:#0C7044;background:#E4F4EC;border-color:#BEE5D0}
+  .b-notready{color:#5C6470;background:#F0F2F5;border-color:#E0E4EA}
+  .b-conflict{color:#C2410C;background:#FBEDE3;border-color:#F0D2BC}
+  .catdot{width:7px;height:7px;border-radius:999px;display:inline-block}
+  .duepill{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;font-size:10.5px;font-weight:600;font-family:"Geist Mono",monospace}
+  .due-hot{color:#D92D32;background:#FDECEC}
+  .due-warn{color:#9A6310;background:#FBF1DF}
+  .due-soft{color:#5C6470;background:#F0F2F5}
+  a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--accent);border-radius:5px}
+  /* segmented selector */
+  .seg{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 12px;border:1px solid #E3E7ED;border-radius:6px;background:#fff;cursor:pointer;min-width:108px;transition:all .12s}
+  .seg:hover{background:#F2F4F7}
+  .seg[aria-selected="true"]{border-color:var(--accent);background:#EDECFD}
+  .seg.ready[aria-selected="true"]{border-color:#128A52;background:#E4F4EC}
+  /* grid rows */
+  .grow{cursor:pointer;border-left:2px solid transparent}
+  .grow:hover{background:#F2F4F7}
+  .grow[data-cursor]{box-shadow:inset 0 0 0 1px var(--accent)}
+  .grow[data-open]{background:#EDECFD;border-left-color:var(--accent)}
+  /* spine queue item */
+  .qitem{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+  .qitem:hover{background:#F2F4F7}
+  .qitem[aria-selected="true"]{background:#EDECFD;border-color:#DFDDFB}
+  .facet{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:500;border:1px solid #E3E7ED;background:#fff;color:#3B414E;cursor:pointer;transition:all .12s}
+  .facet:hover{background:#F2F4F7}
+  .facet[aria-pressed="true"]{background:#FDECEC;border-color:#F6CFCF;color:#D92D32}
+  .filtsel{height:28px;padding:0 8px;border:1px solid #E3E7ED;border-radius:6px;background:#fff;font-size:12px;color:#3B414E}
+  .railitem{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0;color:#9AA1AD;text-decoration:none;border-radius:8px}
+  .railitem:hover{color:#fff;background:#2A2F3A}
+  .railitem.active{color:#fff}
+  .railitem.active::before{content:"";position:absolute;left:-8px;top:6px;bottom:6px;width:2px;background:var(--accent);border-radius:2px}
+  .railitem.active .ricon{background:#3A3168}
+  .ricon{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+  .rbadge{font-family:"Geist Mono",monospace;font-size:9px;font-weight:600;line-height:1}
+  [hidden]{display:none!important}
+  @media (max-width:1279px){
+    #shell{ grid-template-columns:56px 300px 1fr 0px !important; }
+    #ctxPane{ display:none !important; }
+  }
+  @media (max-width:767px){
+    body{ overflow:auto !important; }
+    #shell{ display:block !important; height:auto !important; padding-bottom:64px; }
+    #railNav{ display:none !important; }
+    #ctxPane{ display:block !important; border-left:none; border-top:1px solid #E3E7ED; }
+    #shell > section, #shell > aside{ height:auto !important; min-height:0 !important; }
+    #shell .flex-1.overflow-y-auto{ overflow:visible !important; height:auto !important; }
+    #shell .flex-1.overflow-auto{ overflow-x:auto !important; overflow-y:visible !important; height:auto !important; }
+    #mobileTabs{ display:flex !important; }
+  }
+</style>
+</head>
+<body class="overflow-hidden">
+
+<!-- HEADER -->
+<header class="h-12 bg-pane border-b border-hairline flex items-center px-3 gap-3 relative z-20">
+  <div class="flex items-center gap-2 shrink-0">
+    <div class="w-6 h-6 rounded-md bg-iris flex items-center justify-center text-white font-bold text-[13px]">c</div>
+    <span class="font-semibold text-[13px] tracking-tight">collisionspike</span>
+    <span class="mono text-faint text-[11px] hidden sm:inline">/ queues</span>
+  </div>
+  <button id="searchBtn" class="flex-1 max-w-xl mx-auto h-8 px-3 flex items-center gap-2 bg-sunken border border-hairline rounded-md text-faint text-[12.5px] hover:border-strong transition">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <span class="truncate">Search cases, VRM, provider…</span>
+    <span class="ml-auto flex items-center gap-1"><span class="kbd">⌘</span><span class="kbd">K</span></span>
+  </button>
+  <div class="flex items-center gap-3 shrink-0">
+    <span class="eyebrow text-faint hidden md:inline">UPDATED 14:07</span>
+    <button id="ctxToggle" class="kbd hidden lg:inline-flex" title="Toggle context pane">]</button>
+    <div class="w-6 h-6 rounded-full bg-rail text-white text-[10px] font-semibold flex items-center justify-center mono">RB</div>
+  </div>
+</header>
+
+<div id="shell" class="grid h-[calc(100vh-48px)]" style="grid-template-columns:56px 360px 1fr 340px">
+
+  <!-- RAIL -->
+  <nav id="railNav" class="bg-rail flex flex-col items-center py-3 gap-1.5 px-2" aria-label="Primary">
+    <a href="index.html" class="railitem" title="Cockpit"><span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span></a>
+    <a href="index.html" class="railitem" title="Inbox"><span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg></span><span class="rbadge text-faint">47</span></a>
+    <a href="queues.html" class="railitem active" title="Queues"><span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span><span class="rbadge text-iris">20</span></a>
+    <a href="case-detail.html" class="railitem" title="Ready for EVA"><span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span><span class="rbadge text-ready">5</span></a>
+    <div class="w-7 h-px bg-[#363C49] my-1"></div>
+    <a href="#" class="railitem" title="Manual intake"><span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v10m0-10l-4 4m4-4l4 4"/><path d="M4 19h16"/></svg></span></a>
+    <div class="flex-1"></div>
+    <a href="#" class="railitem" title="Admin / Corpus"><span class="ricon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8 2 2 0 1 1-2.8 2.8 1.6 1.6 0 0 0-2.7 1.1 2 2 0 1 1-4 0A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3 2 2 0 1 1-2.8-2.8A1.6 1.6 0 0 0 2 14"/></svg></span></a>
+    <button id="helpBtn" class="railitem" title="Keyboard reference (?)"><span class="ricon"><span class="kbd kbd-dark">?</span></span></button>
+  </nav>
+
+  <!-- LIST SPINE — queue selector -->
+  <section class="bg-list border-r border-hairline flex flex-col min-h-0">
+    <div class="h-10 px-3 flex items-center justify-between border-b border-hairline shrink-0">
+      <span class="eyebrow text-ink700">Queues · 39</span>
+      <div class="flex items-center gap-1 text-faint"><span class="kbd">J</span><span class="kbd">K</span></div>
+    </div>
+    <div class="flex-1 overflow-y-auto p-2 space-y-1">
+      <div class="qitem" aria-selected="false" data-q="notready"><span class="catdot" style="background:#6B7280"></span><span class="text-[13px] flex-1">Not ready</span><span class="mono text-[12.5px] text-faint">12</span></div>
+      <div class="qitem" aria-selected="true" data-q="review"><span class="catdot" style="background:#D92D32"></span><span class="text-[13px] font-semibold flex-1">Review</span><span class="mono text-[12.5px] font-semibold text-review">8</span></div>
+      <div class="qitem" aria-selected="false" data-q="held"><span class="catdot" style="background:#C07A12"></span><span class="text-[13px] flex-1">Held</span><span class="mono text-[12.5px] text-held">14</span></div>
+      <div class="qitem" aria-selected="false" data-q="ready"><span class="catdot" style="background:#128A52"></span><span class="text-[13px] flex-1">Ready for EVA ★</span><span class="mono text-[12.5px] text-ready">5</span></div>
+      <div class="h-px bg-hairline my-2 mx-2"></div>
+      <div class="px-3 pt-1 pb-2"><div class="eyebrow text-faint mb-2">Saved views</div>
+        <div class="space-y-1">
+          <div class="qitem" aria-selected="false"><span class="text-muted">★</span><span class="text-[12.5px] flex-1">My past-due</span><span class="mono text-[11px] text-review">3</span></div>
+          <div class="qitem" aria-selected="false"><span class="text-muted">★</span><span class="text-[12.5px] flex-1">ACME today</span><span class="mono text-[11px] text-faint">6</span></div>
+          <div class="qitem" aria-selected="false"><span class="text-muted">★</span><span class="text-[12.5px] flex-1">WhatsApp intake</span><span class="mono text-[11px] text-faint">2</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="h-9 px-3 flex items-center gap-2 border-t border-hairline shrink-0 text-faint">
+      <span class="kbd">↵</span><span class="text-[11px] mono">open case</span>
+      <span class="kbd ml-auto">S</span><span class="text-[11px] mono">submit</span>
+    </div>
+  </section>
+
+  <!-- READING — GRID -->
+  <section class="bg-canvas min-h-0 flex flex-col">
+    <!-- segmented selector -->
+    <div class="px-4 pt-3 pb-2 shrink-0">
+      <div class="flex items-center gap-2 overflow-x-auto pb-1">
+        <button class="seg" aria-selected="false" data-seg="notready"><span class="text-[12.5px] font-medium">Not ready <span class="mono text-faint">⌑12</span></span><span class="text-[10px] text-faint">system / none</span></button>
+        <button class="seg" aria-selected="true" data-seg="review"><span class="text-[12.5px] font-medium text-review">Review <span class="mono">8</span></span><span class="text-[10px] text-faint">intake · you</span></button>
+        <button class="seg" aria-selected="false" data-seg="held"><span class="text-[12.5px] font-medium text-held">Held <span class="mono">14</span></span><span class="text-[10px] text-faint">external</span></button>
+        <button class="seg ready" aria-selected="false" data-seg="ready"><span class="text-[12.5px] font-medium text-ready">★ Ready for EVA <span class="mono">5</span></span><span class="text-[10px] text-faint">pinned action surface</span></button>
+      </div>
+    </div>
+
+    <!-- toolbar -->
+    <div class="px-4 pb-2 shrink-0 flex items-center gap-2 flex-wrap">
+      <select class="filtsel"><option>Provider ▾</option><option>ACME</option><option>HALCYON</option><option>CARELINE</option></select>
+      <select class="filtsel"><option>Status ▾</option><option>Review</option><option>Conflict</option></select>
+      <select class="filtsel"><option>Channel ▾</option><option>Email</option><option>WhatsApp</option></select>
+      <select class="filtsel"><option>Age ▾</option><option>Past due</option><option>&lt; 24h</option></select>
+      <div class="flex items-center gap-2 h-7 px-2.5 bg-pane border border-hairline rounded-md">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#828A98" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="gridSearch" placeholder="Filter…" class="bg-transparent outline-none text-[12px] w-28 placeholder:text-faint" />
+      </div>
+      <span id="nofm" class="ml-auto mono text-[11.5px] text-muted">showing <b id="nShown">4</b> of <b>8</b></span>
+    </div>
+
+    <!-- review facets -->
+    <div id="facets" class="px-4 pb-2 shrink-0 flex items-center gap-2 flex-wrap">
+      <span class="eyebrow text-faint mr-1">Reason</span>
+      <button class="facet" aria-pressed="false" data-reason="dup">◆ Duplicate <span class="mono text-faint">2</span></button>
+      <button class="facet" aria-pressed="false" data-reason="img">▦ Missing images <span class="mono text-faint">1</span></button>
+      <button class="facet" aria-pressed="false" data-reason="instr">▤ Missing instr <span class="mono text-faint">1</span></button>
+      <button class="facet" aria-pressed="false" data-reason="conf">▲ Conflict <span class="mono text-faint">1</span></button>
+      <button class="facet" aria-pressed="false" data-reason="addr">⌖ Address <span class="mono text-faint">3</span></button>
+    </div>
+
+    <!-- grid -->
+    <div class="flex-1 overflow-auto px-4 pb-4 min-h-0">
+      <div class="pane overflow-hidden">
+        <!-- header -->
+        <div class="grid items-center h-9 px-3 border-b border-hairline bg-sunken sticky top-0 z-10 eyebrow text-muted" style="grid-template-columns:94px 94px 116px 102px 1fr 38px 78px">
+          <span>VRM</span><span>Case/PO</span><span>Provider</span><span>Status</span><span>Outstanding</span><span class="text-center">Ch</span><span class="text-right">Age/Due</span>
+        </div>
+        <div id="grid">
+          <div class="grow grid items-center px-3 py-2.5 border-b border-hairline" tabindex="0" data-row data-open data-reason="dup" onclick="if(!event.target.closest('a'))location.href='case-detail.html'" style="grid-template-columns:94px 94px 116px 102px 1fr 38px 78px">
+            <span><span class="vrm sm">AB12 CDE</span></span>
+            <span class="mono text-[12px]">CCPY26050</span>
+            <span class="text-[12.5px]">ACME <span class="mono text-faint text-[10px]">CCPY</span></span>
+            <span><span class="badge b-review">◣ Review</span></span>
+            <span class="text-[12.5px] flex items-center gap-1.5 text-ink700"><span class="text-review">⚑</span>Resolve duplicate <span class="text-faint">+1</span></span>
+            <span class="text-center text-muted" title="Email">✉</span>
+            <span class="text-right flex items-center justify-end gap-1.5"><span class="duepill due-hot">2d 04h</span></span>
+          </div>
+          <div class="grow grid items-center px-3 py-2.5 border-b border-hairline" tabindex="0" data-row data-reason="img" onclick="if(!event.target.closest('a'))location.href='case-detail.html'" style="grid-template-columns:94px 94px 116px 102px 1fr 38px 78px">
+            <span><span class="vrm sm">LV71 KMX</span></span>
+            <span class="mono text-[12px]">HALX26112</span>
+            <span class="text-[12.5px]">HALCYON <span class="mono text-faint text-[10px]">HALX</span></span>
+            <span><span class="badge b-review">◣ Review</span></span>
+            <span class="text-[12.5px] flex items-center gap-1.5 text-ink700"><span class="text-review">⚑</span>Add 6 photos</span>
+            <span class="text-center text-muted" title="WhatsApp">⌘</span>
+            <span class="text-right"><span class="duepill due-warn">18h</span></span>
+          </div>
+          <div class="grow grid items-center px-3 py-2.5 border-b border-hairline" tabindex="0" data-row data-reason="conf" onclick="if(!event.target.closest('a'))location.href='case-detail.html'" style="grid-template-columns:94px 94px 116px 102px 1fr 38px 78px">
+            <span><span class="vrm sm">GK19 ZRT</span></span>
+            <span class="mono text-[12px]">CCPY26048</span>
+            <span class="text-[12.5px]">ACME <span class="mono text-faint text-[10px]">CCPY</span></span>
+            <span><span class="badge b-conflict">◣ Conflict</span></span>
+            <span class="text-[12.5px] flex items-center gap-1.5 text-ink700"><span class="text-errorc">⚑</span>Verify registration</span>
+            <span class="text-center text-muted" title="Email">✉</span>
+            <span class="text-right"><span class="duepill due-soft">06h</span></span>
+          </div>
+          <div class="grow grid items-center px-3 py-2.5 border-b border-hairline" tabindex="0" data-row data-reason="addr" onclick="if(!event.target.closest('a'))location.href='case-detail.html'" style="grid-template-columns:94px 94px 116px 102px 1fr 38px 78px">
+            <span><span class="vrm sm">RA20 TBC</span></span>
+            <span class="mono text-[12px]">CCPY26051</span>
+            <span class="text-[12.5px]">CARELINE <span class="mono text-faint text-[10px]">CARE</span></span>
+            <span><span class="badge b-review">◣ Review</span></span>
+            <span class="text-[12.5px] flex items-center gap-1.5 text-ink700"><span class="text-review">⚑</span>Decide address</span>
+            <span class="text-center text-muted" title="Email">✉</span>
+            <span class="text-right"><span class="duepill due-soft">04h</span></span>
+          </div>
+          <div class="grow grid items-center px-3 py-2.5 border-b border-hairline" tabindex="0" data-row data-reason="addr" onclick="if(!event.target.closest('a'))location.href='case-detail.html'" style="grid-template-columns:94px 94px 116px 102px 1fr 38px 78px">
+            <span><span class="vrm sm">WD68 ZXC</span></span>
+            <span class="mono text-[12px]">CCPY26052</span>
+            <span class="text-[12.5px]">ACME <span class="mono text-faint text-[10px]">CCPY</span></span>
+            <span><span class="badge b-review">◣ Review</span></span>
+            <span class="text-[12.5px] flex items-center gap-1.5 text-ink700"><span class="text-review">⚑</span>Decide address</span>
+            <span class="text-center text-muted" title="WhatsApp">⌘</span>
+            <span class="text-right"><span class="duepill due-soft">03h</span></span>
+          </div>
+          <div class="grow grid items-center px-3 py-2.5 border-b border-hairline" tabindex="0" data-row data-reason="instr" onclick="if(!event.target.closest('a'))location.href='case-detail.html'" style="grid-template-columns:94px 94px 116px 102px 1fr 38px 78px">
+            <span><span class="vrm sm">SF17 NHB</span></span>
+            <span class="mono text-[12px]">HALX26113</span>
+            <span class="text-[12.5px]">HALCYON <span class="mono text-faint text-[10px]">HALX</span></span>
+            <span><span class="badge b-review">◣ Review</span></span>
+            <span class="text-[12.5px] flex items-center gap-1.5 text-ink700"><span class="text-review">⚑</span>Add instruction doc</span>
+            <span class="text-center text-muted" title="Email">✉</span>
+            <span class="text-right"><span class="duepill due-soft">02h</span></span>
+          </div>
+          <div class="grow grid items-center px-3 py-2.5 border-b border-hairline" tabindex="0" data-row data-reason="dup" onclick="if(!event.target.closest('a'))location.href='case-detail.html'" style="grid-template-columns:94px 94px 116px 102px 1fr 38px 78px">
+            <span><span class="vrm sm">PE19 KKD</span></span>
+            <span class="mono text-[12px]">CARE26077</span>
+            <span class="text-[12.5px]">CARELINE <span class="mono text-faint text-[10px]">CARE</span></span>
+            <span><span class="badge b-review">◣ Review</span></span>
+            <span class="text-[12.5px] flex items-center gap-1.5 text-ink700"><span class="text-review">⚑</span>Resolve duplicate</span>
+            <span class="text-center text-muted" title="Email">✉</span>
+            <span class="text-right"><span class="duepill due-soft">01h</span></span>
+          </div>
+          <div class="grow grid items-center px-3 py-2.5" tabindex="0" data-row data-reason="img" onclick="if(!event.target.closest('a'))location.href='case-detail.html'" style="grid-template-columns:94px 94px 116px 102px 1fr 38px 78px">
+            <span><span class="vrm sm">YT70 OPL</span></span>
+            <span class="mono text-[12px]">CCPY26053</span>
+            <span class="text-[12.5px]">ACME <span class="mono text-faint text-[10px]">CCPY</span></span>
+            <span><span class="badge b-review">◣ Review</span></span>
+            <span class="text-[12.5px] flex items-center gap-1.5 text-ink700"><span class="text-review">⚑</span>Add overview photo</span>
+            <span class="text-center text-muted" title="Email">✉</span>
+            <span class="text-right"><span class="duepill due-soft">00h</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTEXT — readiness peek for selected row -->
+  <aside id="ctxPane" class="bg-pane border-l border-hairline flex flex-col min-h-0">
+    <div class="flex-1 overflow-y-auto p-3 space-y-3">
+      <div>
+        <div class="flex items-center gap-2 mb-2"><span class="vrm sm">AB12 CDE</span><a href="case-detail.html" class="mono text-[11px] text-iris ml-auto">open ↗</a></div>
+        <div class="text-[12.5px] text-ink700">ACME · BMW 320d M-Sport 2018</div>
+        <div class="mt-1.5 flex items-center gap-2"><span class="badge b-review">◣ Review</span><span class="duepill due-hot">2d 04h past due</span></div>
+      </div>
+      <div>
+        <div class="eyebrow text-ink700 mb-2">Readiness</div>
+        <ul class="space-y-1.5 text-[12.5px]">
+          <li class="flex items-center gap-2"><span class="text-ready">✔</span><span class="text-ink700">Provider &amp; claimant</span></li>
+          <li class="flex items-center gap-2"><span class="text-ready">✔</span><span class="text-ink700">Vehicle + mileage</span></li>
+          <li class="flex items-center gap-2"><span class="text-review">✗</span><a href="case-detail.html" class="text-iris hover:text-irisStrong">VAT status →</a></li>
+          <li class="flex items-center gap-2"><span class="text-review">✗</span><a href="case-detail.html" class="text-iris hover:text-irisStrong">≥2 photos (1/2) →</a></li>
+          <li class="flex items-center gap-2"><span class="text-ready">✔</span><span class="text-ink700">Address decided</span></li>
+          <li class="flex items-center gap-2"><span class="text-review">✗</span><a href="case-detail.html" class="text-iris hover:text-irisStrong">Resolve duplicate →</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="eyebrow text-ink700 mb-2">Outstanding</div>
+        <div class="pane bg-sunken p-2.5 text-[12.5px] text-ink700 flex items-center gap-2"><span class="text-review">⚑</span>Resolve duplicate, then add 1 photo</div>
+      </div>
+      <div class="flex gap-2">
+        <a href="case-detail.html" class="flex-1 text-center h-8 leading-8 text-[12px] font-medium text-iris bg-irisT050 rounded-md hover:bg-irisT100">Open case</a>
+        <button class="flex-1 text-center h-8 leading-8 text-[12px] font-medium text-muted border border-hairline rounded-md hover:bg-hover">Draft chaser</button>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- mobile bottom tab bar -->
+<nav id="mobileTabs" class="fixed bottom-0 inset-x-0 z-40 bg-rail hidden h-14 items-center justify-around px-1 border-t border-[#363C49]" aria-label="Sections">
+  <a href="index.html" class="flex flex-col items-center gap-0.5 px-3 text-[#9AA1AD]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="text-[10px]">Cockpit</span></a>
+  <a href="index.html" class="flex flex-col items-center gap-0.5 px-3 text-[#9AA1AD]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg><span class="text-[10px]">Inbox</span></a>
+  <a href="queues.html" class="flex flex-col items-center gap-0.5 px-3 text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg><span class="text-[10px]">Queues</span></a>
+  <a href="case-detail.html" class="flex flex-col items-center gap-0.5 px-3 text-[#9AA1AD]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span class="text-[10px]">Case</span></a>
+</nav>
+
+<!-- ⌘K -->
+<div id="cmdk" hidden class="fixed inset-0 z-50 bg-ink900/30 flex items-start justify-center pt-[14vh] px-4">
+  <div class="w-full max-w-lg bg-pane rounded-[10px] border border-hairline overflow-hidden" style="box-shadow:0 12px 32px rgba(22,26,38,.16)">
+    <div class="h-12 px-3 flex items-center gap-2 border-b border-hairline">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C6470" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="cmdkInput" placeholder="Jump to case, VRM, or run a command…" class="flex-1 bg-transparent outline-none text-[13.5px] placeholder:text-faint" />
+      <span class="kbd">Esc</span>
+    </div>
+    <ul class="py-1.5 text-[13px]">
+      <li class="px-3 py-2 flex items-center gap-3 hover:bg-hover cursor-pointer"><span class="catdot" style="background:#5B53EB"></span>Go to cockpit <span class="kbd ml-auto">G I</span></li>
+      <li class="px-3 py-2 flex items-center gap-3 hover:bg-hover cursor-pointer"><span class="text-muted">↗</span>Open AB12 CDE · CCPY26050</li>
+      <li class="px-3 py-2 flex items-center gap-3 hover:bg-hover cursor-pointer"><span class="text-iris">⚑</span>Bulk-draft chasers for Held</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ? help -->
+<div id="help" hidden class="fixed inset-0 z-50 bg-ink900/30 flex items-center justify-center px-4">
+  <div class="w-full max-w-md bg-pane rounded-[10px] border border-hairline p-5" style="box-shadow:0 12px 32px rgba(22,26,38,.16)">
+    <div class="flex items-center mb-3"><span class="eyebrow text-ink900">Keyboard reference</span><button id="helpClose" class="ml-auto kbd">Esc</button></div>
+    <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-[12.5px]">
+      <div class="flex items-center justify-between"><span>Move cursor</span><span><span class="kbd">J</span> <span class="kbd">K</span></span></div>
+      <div class="flex items-center justify-between"><span>Open case</span><span class="kbd">↵</span></div>
+      <div class="flex items-center justify-between"><span>Switch queue</span><span class="kbd">G Q</span></div>
+      <div class="flex items-center justify-between"><span>Submit (ready)</span><span class="kbd">S</span></div>
+      <div class="flex items-center justify-between"><span>Hold / release</span><span class="kbd">H</span></div>
+      <div class="flex items-center justify-between"><span>Filter / search</span><span class="kbd">/</span></div>
+      <div class="flex items-center justify-between"><span>Command palette</span><span><span class="kbd">⌘</span><span class="kbd">K</span></span></div>
+      <div class="flex items-center justify-between"><span>Toggle panes</span><span><span class="kbd">[</span> <span class="kbd">]</span></span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const rows = Array.from(document.querySelectorAll('#grid [data-row]'));
+  let cur = rows.findIndex(r=>r.hasAttribute('data-open')); if(cur<0)cur=0;
+  function setCursor(i){ rows.forEach(r=>r.removeAttribute('data-cursor')); cur=Math.max(0,Math.min(rows.length-1,i)); if(!rows[cur].classList.contains('hidden')){rows[cur].setAttribute('data-cursor','');rows[cur].scrollIntoView({block:'nearest'});} }
+  function openCursor(i){ rows.forEach(r=>r.removeAttribute('data-open')); rows[i].setAttribute('data-open',''); }
+  setCursor(cur); openCursor(cur);
+
+  // facet filtering -> live n-of-m
+  const facetBtns = Array.from(document.querySelectorAll('.facet'));
+  const nShown=document.getElementById('nShown');
+  function applyFacets(){
+    const active = facetBtns.filter(b=>b.getAttribute('aria-pressed')==='true').map(b=>b.dataset.reason);
+    let shown=0;
+    rows.forEach(r=>{ const ok = active.length===0 || active.includes(r.dataset.reason); r.classList.toggle('hidden',!ok); if(ok)shown++; });
+    nShown.textContent=shown;
+  }
+  facetBtns.forEach(b=>b.addEventListener('click',()=>{ b.setAttribute('aria-pressed', b.getAttribute('aria-pressed')==='true'?'false':'true'); applyFacets(); }));
+
+  // segmented selector + spine
+  const segs=Array.from(document.querySelectorAll('.seg'));
+  const spineItems=Array.from(document.querySelectorAll('.qitem[data-q]'));
+  function selectQueue(q){
+    segs.forEach(s=>s.setAttribute('aria-selected', s.dataset.seg===q?'true':'false'));
+    spineItems.forEach(s=>s.setAttribute('aria-selected', s.dataset.q===q?'true':'false'));
+    document.getElementById('facets').style.display = (q==='review')?'':'none';
+  }
+  segs.forEach(s=>s.addEventListener('click',()=>selectQueue(s.dataset.seg)));
+  spineItems.forEach(s=>s.addEventListener('click',()=>selectQueue(s.dataset.q)));
+
+  // overlays
+  const cmdk=document.getElementById('cmdk'), help=document.getElementById('help'), ctx=document.getElementById('ctxPane'), shell=document.getElementById('shell');
+  document.getElementById('searchBtn').addEventListener('click',()=>{cmdk.hidden=false;setTimeout(()=>document.getElementById('cmdkInput').focus(),0)});
+  document.getElementById('helpBtn').addEventListener('click',()=>help.hidden=false);
+  document.getElementById('helpClose').addEventListener('click',()=>help.hidden=true);
+  function toggleCtx(){ const on=ctx.hasAttribute('data-collapsed'); if(on){ctx.removeAttribute('data-collapsed');ctx.style.display='';shell.style.gridTemplateColumns='56px 360px 1fr 340px';} else {ctx.setAttribute('data-collapsed','');ctx.style.display='none';shell.style.gridTemplateColumns='56px 360px 1fr 0px';} }
+  document.getElementById('ctxToggle').addEventListener('click',toggleCtx);
+
+  document.addEventListener('keydown',(e)=>{
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); cmdk.hidden=false; setTimeout(()=>document.getElementById('cmdkInput').focus(),0); return; }
+    if(e.key==='Escape'){ cmdk.hidden=true; help.hidden=true; return; }
+    if(!cmdk.hidden) return;
+    const tag=(document.activeElement.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'){ if(e.key==='/'){} return; }
+    if(e.key==='j'||e.key==='J'){ e.preventDefault(); let n=cur; do{n++;}while(n<rows.length&&rows[n].classList.contains('hidden')); setCursor(n); }
+    else if(e.key==='k'||e.key==='K'){ e.preventDefault(); let n=cur; do{n--;}while(n>0&&rows[n].classList.contains('hidden')); setCursor(n); }
+    else if(e.key==='Enter'){ location.href='case-detail.html'; }
+    else if(e.key==='/'){ e.preventDefault(); document.getElementById('gridSearch').focus(); }
+    else if(e.key==='?'){ help.hidden=false; }
+    else if(e.key===']'||e.key==='['){ toggleCtx(); }
+  });
+})();
+</script>
+</body>
+</html>

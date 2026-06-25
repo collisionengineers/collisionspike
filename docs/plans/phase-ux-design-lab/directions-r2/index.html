@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UX Design Lab — Round 2 Gallery (vet &amp; pick)</title>
+<style>
+  :root{
+    --ink:#16191d; --muted:#6b6b6b; --line:#e6e4e1; --bg:#f7f6f4; --card:#fff;
+    --red:#db0816; --chip:#f0eeec; --ok:#1f7a4d;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 24px 80px}
+  header{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:8px}
+  .eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);font-weight:700}
+  h1{font-size:34px;margin:6px 0 8px;letter-spacing:-.01em}
+  .lead{color:var(--muted);max-width:72ch;font-size:15px}
+  .note{margin:18px 0 10px;padding:12px 16px;background:#fff;border:1px solid var(--line);border-left:3px solid var(--red);font-size:14px}
+  .pass{margin:0 0 28px;padding:12px 16px;background:#fff;border:1px solid var(--line);border-left:3px solid var(--ok);font-size:14px}
+  .pass b{color:var(--ok)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:18px 18px 16px;display:flex;flex-direction:column;gap:10px}
+  .card h2{font-size:19px;margin:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .slug{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .score{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--chip);padding:2px 8px;border-radius:999px}
+  .look{font-size:14px;color:#33373d;margin:0}
+  .suits{font-size:13px;color:var(--muted)}
+  .suits b{color:var(--ink);font-weight:600}
+  .links{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+  .links a{flex:1;text-align:center;min-width:96px;text-decoration:none;font-size:13px;font-weight:600;
+    padding:9px 8px;border:1px solid var(--ink);border-radius:3px;color:var(--ink);background:#fff}
+  .links a.primary{background:var(--ink);color:#fff}
+  .links a:hover{background:var(--red);border-color:var(--red);color:#fff}
+  .meta{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);margin-top:4px}
+  footer{margin-top:40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+  a.docs{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Collision Engineers · UX Design Lab · Round 2</div>
+    <h1>Eight new UI directions — vet &amp; pick one</h1>
+    <p class="lead">A fresh batch, rebuilt to two corrections from round 1: <b>no flow-explaining banners</b>
+    (efficiency-first — the app leads with the work, not an explanation of it) and <b>grounded in how the
+    real app actually works</b> (a true five-tab case workspace, a three-kinds-of-number cockpit, and
+    faceted queues — not a list box as the end state). Scores are <b>advisory only</b>. Nothing downstream
+    runs until you pick.</p>
+  </header>
+
+  <div class="pass"><b>Both corrections landed across all eight.</b> Every direction ships a genuine five-tab
+  case detail (12 EVA fields + provenance + evidence/photo-order + readiness + chasers + address/IBA), an
+  un-conflated three-number cockpit, and faceted queues — and none carry onboarding/explainer banners. So
+  this round differentiates on <b>paradigm, taste, and efficiency</b>, not compliance.</div>
+
+  <div class="note"><b>How to vet:</b> click <b>Cockpit</b> first (the home — three kinds of number + the
+  whole-inbox triage of Receiving work / Queries / Other + a verb-led chase-next worklist), then
+  <b>Queues</b> and <b>Case detail</b> (the five-tab workspace). The order below is by advisory weighted
+  score and is <b>not</b> a recommendation — the top four sit inside scoring noise. Pick on fit &amp; taste.</div>
+
+  <div class="grid">
+
+    <div class="card">
+      <h2>Quiet Premium <span class="slug">product-minimal</span><span class="score">91.6</span></h2>
+      <p class="look">Refined product-SaaS minimalism (Stripe/Linear-light): warm paper, one scarce teal,
+      inline-edit-on-click everywhere, ⌘K + j/k, readiness ✗ that auto-opens the failing field. Efficiency
+      wired, not drawn.</p>
+      <p class="suits"><b>Suits:</b> an operator who wants a quiet, premium, inline-edit-forward tool that
+      ports to CE/Fluent with zero structural change.</p>
+      <div class="links">
+        <a class="primary" href="./product-minimal/index.html">Cockpit</a>
+        <a href="./product-minimal/queues.html">Queues</a>
+        <a href="./product-minimal/case-detail.html">Case detail</a>
+      </div>
+      <div class="meta"><span>Standout: most product-true + portable</span><span>Risk: "quiet" can read austere</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Cold Slate Reader <span class="slug">split-triage</span><span class="score">89.6</span></h2>
+      <p class="look">Superhuman-grade three-pane mail client: a persistent inbox list drives a reading
+      pane and a detail pane, all on screen — "never leave the list" is genuinely wired (J/K · E · S · 1–5 ·
+      ⌘K). The round's efficiency benchmark + most domain-faithful build.</p>
+      <p class="suits"><b>Suits:</b> a power-user / high-volume triager who lives in the inbox and will learn
+      keystrokes.</p>
+      <div class="links">
+        <a class="primary" href="./split-triage/index.html">Cockpit</a>
+        <a href="./split-triage/queues.html">Queues</a>
+        <a href="./split-triage/case-detail.html">Case detail</a>
+      </div>
+      <div class="meta"><span>Standout: efficiency benchmark</span><span>Risk: morphing centre pane is learned</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Day Ledger <span class="slug">agenda-ops</span><span class="score">88.0</span></h2>
+      <p class="look">A day-planner for the backlog: a banded oldest-due-first agenda makes priority
+      <em>spatial</em>, so "what next?" needs no sort, legend, or second click — over a fully-wired dense
+      five-tab workspace.</p>
+      <p class="suits"><b>Suits:</b> an operator who thinks of the backlog as a schedule to clear top-down,
+      not a list to scan.</p>
+      <div class="links">
+        <a class="primary" href="./agenda-ops/index.html">Cockpit</a>
+        <a href="./agenda-ops/queues.html">Queues</a>
+        <a href="./agenda-ops/case-detail.html">Case detail</a>
+      </div>
+      <div class="meta"><span>Standout: kills the morning sort</span><span>Risk: home is non-sortable by design</span></div>
+    </div>
+
+    <div class="card">
+      <h2>The Dossier <span class="slug">case-file</span><span class="score">86.8</span></h2>
+      <p class="look">Tactile case-file: warm paper, manila section-tabs, a rubber-stamp status mark, a
+      desk-tray inbox — borrowed spatial cognition that makes scanning muscle-memory. The most fully-built
+      coverage in the round.</p>
+      <p class="suits"><b>Suits:</b> a team that values approachability + a distinctive, physically-familiar
+      workspace and will buy the IA, not the texture.</p>
+      <div class="links">
+        <a class="primary" href="./case-file/index.html">Cockpit</a>
+        <a href="./case-file/queues.html">Queues</a>
+        <a href="./case-file/case-detail.html">Case detail</a>
+      </div>
+      <div class="meta"><span>Standout: most built + most memorable</span><span>Risk: skeuomorphism spent at port</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Inbox-Zero <span class="slug">focus-flow</span><span class="score">83.6</span></h2>
+      <p class="look">Single-task worklist: one spotlit "next" case beside a thin keyboard rail;
+      submit-and-the-next-rises removes the <em>choice</em> of what to do next. Calm, warm, one big action.</p>
+      <p class="suits"><b>Suits:</b> an operator who wants the choice of what to do next removed and a calm,
+      one-thing-at-a-time loop.</p>
+      <div class="links">
+        <a class="primary" href="./focus-flow/index.html">Cockpit</a>
+        <a href="./focus-flow/queues.html">Queues</a>
+        <a href="./focus-flow/case-detail.html">Case detail</a>
+      </div>
+      <div class="meta"><span>Standout: efficiency pole</span><span>Risk: deep but narrow (3 screens)</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Bay Board <span class="slug">pipeline-board</span><span class="score">83.2</span></h2>
+      <p class="look">Kanban pipeline: five calm colour-keyed lanes with one hot vermilion Review lane that
+      turns "what's next" into a pre-attentive colour-snap; drag-to-advance cards. The board <em>is</em> the
+      funnel you act on.</p>
+      <p class="suits"><b>Suits:</b> a team that wants to see and move the whole pipeline as one Kanban board.</p>
+      <div class="links">
+        <a class="primary" href="./pipeline-board/index.html">Cockpit</a>
+        <a href="./pipeline-board/queues.html">Queues</a>
+        <a href="./pipeline-board/case-detail.html">Case detail</a>
+      </div>
+      <div class="meta"><span>Standout: pipeline-at-a-glance</span><span>Risk: drag vs event-derived status</span></div>
+    </div>
+
+    <div class="card">
+      <h2>IDE Workbench <span class="slug">workbench</span><span class="score">82.0</span></h2>
+      <p class="look">Daylight VS Code/Fleet: an explorer rail, multi-case <em>editor tabs</em>, and an
+      always-open Problems/Readiness inspector whose every ✕ deep-links to the fix. Cleanest brand re-anchor
+      of the round.</p>
+      <p class="suits"><b>Suits:</b> a technical power user who juggles several half-finished cases at once
+      and likes IDE muscle-memory.</p>
+      <div class="links">
+        <a class="primary" href="./workbench/index.html">Cockpit</a>
+        <a href="./workbench/queues.html">Queues</a>
+        <a href="./workbench/case-detail.html">Case detail</a>
+      </div>
+      <div class="meta"><span>Standout: parallel multi-case work</span><span>Risk: IDE idioms must be learned</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Data Grid <span class="slug">grid-native</span><span class="score">79.6</span></h2>
+      <p class="look">Airtable/Notion-grade database workspace: dense inline-editable grids, frozen VRM +
+      Case/PO columns, colour-coded select-chips, and a multi-select <em>bulk-action bar</em> to clear many
+      partials in one pass (unique in the round).</p>
+      <p class="suits"><b>Suits:</b> an operator who triages in bulk and is comfortable with spreadsheet
+      idioms.</p>
+      <div class="links">
+        <a class="primary" href="./grid-native/index.html">Cockpit</a>
+        <a href="./grid-native/queues.html">Queues</a>
+        <a href="./grid-native/case-detail.html">Case detail</a>
+      </div>
+      <div class="meta"><span>Standout: bulk-action throughput</span><span>Risk: implies a configurable-DB product</span></div>
+    </div>
+
+  </div>
+
+  <footer>
+    Advisory detail: <a class="docs" href="../leaderboard-r2.md">leaderboard-r2.md</a> ·
+    each direction folder also holds <code>scorecard.md</code> (per-dimension justification) and
+    <code>a11y.md</code> (accessibility findings). Shared brief: <a class="docs" href="../design-brief.md">design-brief.md</a>.
+    Round 1's eight directions remain at <a class="docs" href="../directions/index.html">directions/index.html</a>
+    for cross-comparison.
+    <br><br>
+    <b>None is AA-clean as built</b> — every direction needs an accessibility pass during convergence (the
+    richer real-app depth added more custom widgets to wire), so a11y is not a differentiator. <b>Back-office
+    screens</b> (manual intake / admin-corpus / settings / logs) are under-built across the whole gallery and
+    will be budgeted on whichever you pick. <b>You choose</b> — convergence + the Fluent-v9 / CE port run only
+    on your pick.
+  </footer>
+</div>
+</body>
+</html>

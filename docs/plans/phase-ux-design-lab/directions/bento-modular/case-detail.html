@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Soft-Pack Bento · Case CCPY26050 — collisionspike</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        tray:'#EDEBE6', tile:'#FFFFFF', inset:'#F6F5F1', hairline:'#E5E2DA',
+        rail:'#20232E', railA:'#2E3142',
+        ink:'#1E2230', ink2:'#51586B', ink3:'#5F6678', onrail:'#E7E8EE', onrailmute:'#A6ABBA',
+        iris:{DEFAULT:'#5B5BD6', ink:'#4338CA', tint:'#ECECFB'},
+        teal:{DEFAULT:'#0D9488', ink:'#0F766E', tint:'#D7F2EE'},
+        apricot:{DEFAULT:'#F97316', ink:'#C2410C', tint:'#FEEBDD'},
+        review:{DEFAULT:'#F43F5E', ink:'#BE123C', tint:'#FCE7EC'},
+        held:{DEFAULT:'#F59E0B', ink:'#B45309', tint:'#FDF1DC'},
+        sky:{DEFAULT:'#0284C7', ink:'#075985', tint:'#E0F0FB'},
+        notready:'#64748B', success:'#10B981', box:'#0D9488', error:'#E11D48',
+        plate:{bg:'#F5D018', ink:'#14161C'},
+      },
+      fontFamily:{
+        display:['Outfit','sans-serif'],
+        body:['"Plus Jakarta Sans"','sans-serif'],
+        mono:['"JetBrains Mono"','ui-monospace','monospace'],
+      },
+      borderRadius:{ sm:'8px', md:'12px', lg:'16px', tile:'20px', hero:'28px', pill:'9999px' },
+    }
+  }
+}
+</script>
+<style>
+:root{
+  --tray:#EDEBE6;--tile:#FFF;--tile-inset:#F6F5F1;--hairline:#E5E2DA;
+  --tray-well:inset 0 1px 2px rgba(28,33,48,.07),inset 0 -1px 0 rgba(255,255,255,.6);
+  --rail:#20232E;--rail-active:#2E3142;
+  --ink:#1E2230;--ink-2:#51586B;--ink-3:#5F6678;--on-rail:#E7E8EE;--on-rail-mute:#A6ABBA;
+  --iris:#5B5BD6;--iris-ink:#4338CA;--iris-tint:#ECECFB;
+  --teal:#0D9488;--teal-ink:#0F766E;--teal-tint:#D7F2EE;
+  --apricot:#F97316;--apricot-ink:#C2410C;--apricot-tint:#FEEBDD;
+  --review:#F43F5E;--review-ink:#BE123C;--review-tint:#FCE7EC;
+  --held:#F59E0B;--held-ink:#B45309;--held-tint:#FDF1DC;
+  --sky:#0284C7;--sky-ink:#075985;--sky-tint:#E0F0FB;
+  --notready:#64748B;--success:#10B981;--box:#0D9488;--error:#E11D48;
+  --plate-bg:#F5D018;--plate-ink:#14161C;--r-tile:20px;--r-hero:28px;
+  --shadow-rest:0 1px 2px rgba(28,33,48,.04),0 2px 8px rgba(28,33,48,.06);
+  --shadow-hover:0 6px 18px rgba(28,33,48,.10);
+}
+html{scroll-behavior:smooth;}
+body{font-family:'Plus Jakarta Sans',sans-serif;color:#1E2230;background:#EDEBE6;-webkit-font-smoothing:antialiased;}
+.font-display{font-family:'Outfit',sans-serif;}
+.font-mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums slashed-zero;}
+.tnum{font-variant-numeric:tabular-nums;}
+.eyebrow{font-family:'Outfit',sans-serif;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+
+.comp{position:relative;background:var(--tile);border:1px solid var(--hairline);border-radius:var(--r-tile);box-shadow:var(--shadow-rest);}
+.comp::before{content:"";position:absolute;inset:-4px;border-radius:calc(var(--r-tile) + 4px);background:#E6E3DB;box-shadow:var(--tray-well);z-index:-1;}
+.tab{position:absolute;top:-11px;left:18px;z-index:2;height:22px;display:inline-flex;align-items:center;gap:6px;padding:0 11px;border-radius:8px;
+  font-family:'Outfit',sans-serif;font-weight:600;font-size:11px;letter-spacing:.04em;text-transform:uppercase;box-shadow:0 1px 2px rgba(28,33,48,.14);white-space:nowrap;}
+.tab.iris{background:var(--iris-tint);color:var(--iris-ink);}
+.tab.review{background:var(--review-tint);color:var(--review-ink);}
+.tab.teal{background:var(--teal-tint);color:var(--teal-ink);}
+.tab.slate{background:#E2E5EA;color:#3B4253;}
+
+.vrm{display:inline-flex;align-items:stretch;border-radius:8px;overflow:hidden;border:1px solid #D9BC00;box-shadow:0 1px 2px rgba(28,33,48,.12);
+  font-family:'JetBrains Mono',monospace;font-weight:700;line-height:1;}
+.vrm.lg{font-size:17px;} .vrm{font-size:13px;}
+.vrm .gb{background:#063298;color:#fff;font-size:9px;line-height:1.05;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 5px;}
+.vrm .reg{background:var(--plate-bg);color:var(--plate-ink);padding:6px 11px;letter-spacing:.7px;white-space:nowrap;}
+
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:99px;font-size:11.5px;font-weight:600;line-height:1;}
+
+.ramp{display:inline-flex;align-items:center;gap:7px;}
+.ramp .bars{display:inline-flex;gap:2px;align-items:flex-end;height:13px;}
+.ramp .bars i{width:4px;border-radius:1px;display:block;background:#CFD3DA;}
+.ramp.warn .bars i{background:var(--held);}
+.ramp .w{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500;}
+
+.cpill{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:99px;font-family:'Outfit',sans-serif;font-weight:600;font-size:11.5px;line-height:1;}
+
+/* spine */
+.spine{display:flex;align-items:center;gap:0;}
+.sbin{flex:1 1 0;height:30px;border-radius:7px;border:1px solid var(--hairline);background:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:#8A8FA0;position:relative;}
+.sbin.done{background:#F1F0EC;color:#9AA0AE;}
+.sbin.cur{background:var(--iris);border-color:var(--iris);color:#fff;font-weight:700;}
+.sbin.ghost{border-style:dashed;color:#B7BCC9;}
+.sconn{flex:0 0 12px;height:1px;background:var(--hairline);}
+
+/* action buttons */
+.act{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border-radius:99px;font-size:13px;font-weight:600;border:1px solid var(--hairline);background:#fff;color:#51586B;transition:border-color .12s,color .12s,background .12s;}
+.act:hover{border-color:#B9BCC6;color:#1E2230;}
+.act.primary{background:var(--apricot);border-color:var(--apricot);color:#fff;}
+.act.primary:hover{background:var(--apricot-ink);}
+.act.primary[disabled]{background:#F3D9C6;border-color:transparent;color:#B07F5E;cursor:not-allowed;}
+.act.danger:hover{border-color:var(--review);color:var(--review-ink);}
+.act.gated{border-style:dashed;color:#9AA0AE;background:var(--inset);cursor:not-allowed;}
+
+/* provenance badge */
+.prov{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:8px;border:1px solid var(--hairline);background:#fff;
+  font-size:10.5px;font-weight:600;color:#51586B;white-space:nowrap;}
+.prov .src{font-family:'Outfit',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
+.prov .rg{font-size:11px;}
+.prov.ok .rg{color:var(--success);} .prov.rev .rg{color:var(--held-ink);} .prov.con .rg{color:var(--review);} .prov.na{color:#9AA0AE;}
+
+/* field row */
+.frow{display:grid;grid-template-columns:24px 1fr auto;gap:12px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--hairline);}
+.frow .idx{font-family:'JetBrains Mono',monospace;font-size:11px;color:#9AA0AE;text-align:right;}
+.frow .lab{font-size:11px;color:#5F6678;}
+.frow .val{font-size:14px;}
+
+/* tabs */
+.tabbtn{height:38px;padding:0 13px;border-radius:99px;font-size:13px;font-weight:600;color:#51586B;white-space:nowrap;}
+.tabbtn[aria-selected="true"]{background:var(--ink);color:#fff;}
+.tabbtn[aria-disabled="true"]{color:#A6ABBA;cursor:not-allowed;border:1px dashed var(--hairline);background:var(--inset);}
+.panel{display:none;} .panel.on{display:block;}
+
+/* readiness */
+.chk{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid var(--hairline);}
+.chk .mk{width:18px;height:18px;border-radius:6px;display:grid;place-items:center;font-size:11px;flex:none;margin-top:1px;}
+.chk.ok .mk{background:#E3F3EA;color:#067A52;} .chk.no .mk{background:var(--review-tint);color:var(--review-ink);}
+
+.switch{width:38px;height:22px;border-radius:99px;background:#D7D3C9;position:relative;transition:background .12s;flex:none;}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:99px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .12s;}
+.switch[aria-checked="true"]{background:var(--review);} .switch[aria-checked="true"]::after{left:18px;}
+
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:none;box-shadow:0 0 0 2px #EDEBE6,0 0 0 4px #5B5BD6;border-radius:8px;}
+.vrm:focus-visible{border-radius:8px;}
+@keyframes seat{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+.seat{animation:seat .26s ease-out both;}
+@keyframes modin{from{opacity:0;transform:scale(.98);}to{opacity:1;transform:scale(1);}}
+.modin{animation:modin .18s ease-out both;}
+.scroll-thin::-webkit-scrollbar{height:8px;width:8px;} .scroll-thin::-webkit-scrollbar-thumb{background:#D4CFC4;border-radius:99px;}
+#railScrim{display:none;}
+@media (max-width:767px){
+  body.nav-open #rail{display:flex !important;position:fixed;top:0;bottom:0;left:0;width:268px;z-index:60;box-shadow:0 0 40px rgba(0,0,0,.4);}
+  body.nav-open #railScrim{display:block;position:fixed;inset:0;background:rgba(28,33,48,.42);z-index:55;}
+}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
+</style>
+</head>
+<body class="text-ink">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-3 focus:rounded-sm focus:bg-rail focus:px-4 focus:py-2 focus:text-white">Skip to content</a>
+
+<div class="flex min-h-screen">
+  <div id="railScrim" aria-hidden="true"></div>
+  <!-- RAIL -->
+  <aside id="rail" class="hidden md:flex md:w-[240px] shrink-0 flex-col bg-rail text-onrail">
+    <div class="flex items-center gap-2.5 px-5 h-16 border-b border-white/5">
+      <span class="grid place-items-center w-8 h-8 rounded-md bg-iris text-white font-display font-bold text-lg">⬡</span>
+      <span class="font-display font-bold text-[17px] tracking-tight text-white">spike</span>
+    </div>
+    <nav class="flex-1 px-3 py-4 space-y-1 text-[13.5px]" aria-label="Primary">
+      <a href="index.html" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrail hover:bg-railA/70"><span class="w-5 text-center text-onrailmute">◆</span><span class="flex-1">Cockpit</span></a>
+      <a href="queues.html" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrail hover:bg-railA/70"><span class="w-5 text-center text-onrailmute">▤</span><span class="flex-1">Inbox</span><span class="cpill bg-white/10 text-onrail">8</span></a>
+      <a href="queues.html" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrail hover:bg-railA/70"><span class="w-5 text-center text-onrailmute">▦</span><span class="flex-1">Queues</span><span class="cpill bg-review/90 text-white">9</span></a>
+      <a href="case-detail.html" aria-current="page" class="relative flex items-center gap-3 rounded-md px-3 py-2.5 bg-railA text-white font-semibold">
+        <span class="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-iris"></span>
+        <span class="w-5 text-center">⬓</span><span class="flex-1">Case</span>
+      </a>
+      <div class="pt-5 pb-1.5 px-3"><div class="eyebrow text-[10px] text-onrailmute">Admin</div><div class="mt-2 border-t border-white/5"></div></div>
+      <a href="#" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrail hover:bg-railA/70"><span class="w-5 text-center text-onrailmute">⚙</span><span class="flex-1">Admin</span><span class="cpill bg-white/10 text-onrail">2</span></a>
+      <a href="#" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrail hover:bg-railA/70"><span class="w-5 text-center text-onrailmute">⛭</span><span class="flex-1">Settings</span></a>
+      <a href="#" aria-disabled="true" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrailmute/70 cursor-not-allowed"><span class="w-5 text-center">◇</span><span class="flex-1">Engineer</span><span class="text-[10px]">reserved</span></a>
+    </nav>
+    <div class="px-3 pb-4"><button class="w-full flex items-center gap-2.5 rounded-md px-3 py-2.5 bg-railA text-onrailmute text-[13px] hover:text-onrail"><span>⌕</span><span>Search…</span></button></div>
+  </aside>
+
+  <!-- TRAY -->
+  <main id="main" class="flex-1 min-w-0 bg-tray">
+    <header class="sticky top-0 z-20 bg-tray/92 backdrop-blur-sm border-b border-hairline">
+      <div class="flex items-center gap-3 px-4 sm:px-6 h-16">
+        <button id="hamb" class="md:hidden -ml-1 w-9 h-9 grid place-items-center rounded-md border border-hairline bg-white" aria-label="Open navigation">☰</button>
+        <a href="queues.html" class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink2 hover:text-iris-ink">← Queues</a>
+        <div class="min-w-0">
+          <h1 class="font-display font-bold text-[18px] sm:text-[20px] leading-none">Case <span class="font-mono">CCPY26050</span></h1>
+        </div>
+        <div class="flex-1"></div>
+        <span class="hidden sm:inline-flex badge" style="background:var(--review-tint);color:var(--review-ink)"><span aria-hidden="true">▲</span> needs_review</span>
+        <span class="hidden lg:inline text-[12px] text-ink3 font-mono">Updated 09:42</span>
+      </div>
+    </header>
+
+    <div class="px-4 sm:px-6 py-6 space-y-4 max-w-[1500px]">
+
+      <!-- SPINE (slim master rail) -->
+      <section class="comp seat" aria-label="Pipeline position: Review">
+        <span class="tab iris">Spine · where in the tray</span>
+        <div class="p-4 pt-6">
+          <div class="spine">
+            <div class="sbin done" title="New">New</div><span class="sconn"></span>
+            <div class="sbin done" title="Parsing">Parse</div><span class="sconn"></span>
+            <div class="sbin cur" title="Review — open case is here">● Review</div><span class="sconn"></span>
+            <div class="sbin" title="Held">Held</div><span class="sconn"></span>
+            <div class="sbin" title="Ready">Ready</div><span class="sconn"></span>
+            <div class="sbin ghost" title="Submitted">Subm</div><span class="sconn"></span>
+            <div class="sbin ghost" title="Box">Box</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CASE HEADER -->
+      <section class="comp seat" aria-labelledby="ch">
+        <span class="tab teal">Case</span>
+        <div class="p-5 pt-6">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <span class="vrm lg"><span class="gb">UK</span><span class="reg">AB12 CDE</span></span>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h2 id="ch" class="font-mono font-bold text-[18px]">CCPY26050</h2>
+                <span class="text-[13px] text-ink2">ABC Claims <span class="font-mono text-[11px] text-ink3">· CCPY</span></span>
+                <span class="badge" style="background:var(--review-tint);color:var(--review-ink)"><span aria-hidden="true">▲</span> needs_review</span>
+                <span class="badge" style="background:var(--inset);color:var(--ink2)">✉ Email · intake</span>
+                <span class="ramp warn"><span class="bars"><i style="height:6px"></i><i style="height:10px"></i><i style="height:7px"></i></span><span class="w text-held-ink">due 2d</span></span>
+              </div>
+              <p class="text-[13px] text-ink2 mt-1">Ford Focus 1.0 EcoBoost · 2019 · silver · claimant J. Smith</p>
+            </div>
+          </div>
+
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button class="act"><span aria-hidden="true">⬆</span> Upload</button>
+            <button class="act"><span aria-hidden="true">⤓</span> Export JSON</button>
+            <button class="act"><span aria-hidden="true">⧉</span> Copy JSON</button>
+            <button class="act gated" disabled title="Not connected — Box gated off">↗ Open in Box <span class="text-[10px]">⊘</span></button>
+            <button class="act gated" disabled title="Not connected — enrichment gated off">✦ Enrich <span class="text-[10px]">⊘</span></button>
+            <button class="act primary" disabled title="3 items outstanding — resolve readiness first"><span aria-hidden="true">▶</span> Submit to EVA <span class="text-[10px]">⊘</span></button>
+            <span class="flex-1"></span>
+            <button class="act danger" title="Junk / duplicate only → logged to AuditEvent"><span aria-hidden="true">🗑</span> Delete</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- READINESS MESSAGEBAR (the one blocker tone) -->
+      <div class="rounded-lg border border-review bg-review-tint px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-1" style="box-shadow:0 0 0 1px var(--review)" role="status">
+        <span class="font-semibold text-review-ink text-[13.5px]"><span aria-hidden="true">▲</span> Not ready for EVA — 3 blockers</span>
+        <span class="text-[13px] text-ink2">1 required field (VAT status) · need 1 more photo (1 of 2) · inspection address not decided</span>
+        <a href="#readiness" class="ml-auto text-[12.5px] font-semibold text-review-ink hover:underline">Jump to readiness →</a>
+      </div>
+
+      <!-- 2-COL BENTO : main tabs + sticky readiness -->
+      <div class="grid grid-cols-12 gap-4 items-start">
+
+        <!-- LEFT : tabbed compartment -->
+        <section class="comp seat col-span-12 lg:col-span-8" aria-labelledby="tabsh">
+          <span class="tab slate">Detail</span>
+          <div class="p-4 sm:p-5 pt-6">
+            <h2 id="tabsh" class="sr-only">Case detail tabs</h2>
+            <div role="tablist" aria-label="Case detail" class="flex flex-wrap gap-1.5 mb-4 overflow-x-auto scroll-thin">
+              <button class="tabbtn" role="tab" aria-selected="true" data-tab="fields">Fields</button>
+              <button class="tabbtn" role="tab" aria-selected="false" data-tab="evidence">Evidence</button>
+              <button class="tabbtn" role="tab" aria-selected="false" data-tab="address">Address</button>
+              <button class="tabbtn" role="tab" aria-selected="false" data-tab="chasers">Chasers</button>
+              <button class="tabbtn" role="tab" aria-selected="false" data-tab="notes">Notes</button>
+              <button class="tabbtn" role="tab" aria-selected="false" data-tab="history">History</button>
+              <button class="tabbtn" role="tab" aria-disabled="true" title="Not connected — enrichment gated off">Enrichment ⊘</button>
+            </div>
+
+            <!-- ===== FIELDS ===== -->
+            <div class="panel on" data-panel="fields">
+              <!-- cluster: provider & claimant -->
+              <h3 class="eyebrow text-[11px] text-iris-ink mt-1 mb-1">▸ Provider &amp; claimant</h3>
+              <div class="frow"><span class="idx">1</span><div><div class="lab">Work provider</div><div class="val">ABC Claims</div></div><span class="prov ok"><span aria-hidden="true">📄</span><span class="src">PDF</span><span class="rg" title="reviewed">✔</span></span></div>
+              <div class="frow"><span class="idx">2</span><div><div class="lab">Claimant name</div><div class="val">J. Smith</div></div><span class="prov ok"><span aria-hidden="true">✎</span><span class="src">Manual</span><span class="rg" title="reviewed">✔</span></span></div>
+              <div class="frow"><span class="idx">3</span><div><div class="lab">Claimant telephone</div><div class="val font-mono text-[13px]">07700 900118</div></div><span class="prov rev"><span aria-hidden="true">📄</span><span class="src">PDF</span><span class="rg" title="needs review">●</span></span></div>
+              <div class="frow"><span class="idx">4</span><div><div class="lab">Claimant email</div><div class="val">j.smith@example.co.uk</div></div><span class="prov rev"><span aria-hidden="true">✦</span><span class="src">AI</span><span class="rg" title="needs review">●</span></span></div>
+
+              <h3 class="eyebrow text-[11px] text-iris-ink mt-4 mb-1">▸ Vehicle</h3>
+              <div class="frow"><span class="idx">5</span><div><div class="lab">Vehicle (make / model)</div><div class="val">Ford Focus 1.0 EcoBoost</div></div><span class="prov ok"><span aria-hidden="true">🛡</span><span class="src">DVLA</span><span class="rg" title="reviewed">✔</span></span></div>
+              <div class="frow"><span class="idx">6</span><div><div class="lab">Mileage</div><div class="val font-mono text-[13px]">41,250</div></div><span class="prov rev"><span aria-hidden="true">📄</span><span class="src">PDF</span><span class="rg" title="needs review">●</span></span></div>
+              <div class="frow"><span class="idx">7</span><div><div class="lab">Mileage unit</div><div class="val">mi</div></div><span class="prov ok"><span aria-hidden="true">✎</span><span class="src">Manual</span><span class="rg" title="reviewed">✔</span></span></div>
+              <!-- field 8 : required + empty -->
+              <div class="frow" style="background:var(--review-tint);border-radius:8px;border-bottom-color:transparent">
+                <span class="idx">8</span>
+                <div>
+                  <div class="lab text-review-ink font-semibold">VAT status · required</div>
+                  <div class="mt-1 flex items-center gap-2">
+                    <select aria-label="VAT status (required)" class="h-9 px-3 rounded-md border border-review bg-white text-[13px] text-ink2">
+                      <option>Choose…</option><option>VAT registered</option><option>Not VAT registered</option>
+                    </select>
+                    <span class="text-[11.5px] text-review-ink">Required for EVA submission</span>
+                  </div>
+                </div>
+                <span class="prov na"><span aria-hidden="true">—</span><span class="src">None</span></span>
+              </div>
+
+              <h3 class="eyebrow text-[11px] text-iris-ink mt-4 mb-1">▸ Incident</h3>
+              <div class="frow"><span class="idx">9</span><div><div class="lab">Accident circumstances</div><div class="val text-[13px]">“Rear-end shunt at junction; third party failed to stop.”</div></div><span class="prov rev"><span aria-hidden="true">✦</span><span class="src">AI</span><span class="rg" title="needs review">●</span></span></div>
+              <div class="frow"><span class="idx">10</span><div><div class="lab">Inspection address (6-line)</div><div class="val text-[13px] text-ink2">Pending — see <button class="text-iris-ink font-semibold" data-jump="address">Address tab →</button></div></div><span class="prov" style="border-color:var(--held);color:var(--held-ink)"><span aria-hidden="true">📚</span><span class="src">Corpus</span><span class="rg" title="needs decision">●</span></span></div>
+
+              <h3 class="eyebrow text-[11px] text-iris-ink mt-4 mb-1">▸ Dates</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                <div class="frow"><span class="idx">11</span><div><div class="lab">Date of loss</div><div class="val font-mono text-[13px]">18 Jun 2026</div></div><span class="prov ok"><span aria-hidden="true">📄</span><span class="src">PDF</span><span class="rg" title="reviewed">✔</span></span></div>
+                <div class="frow"><span class="idx">12</span><div><div class="lab">Date of instruction</div><div class="val font-mono text-[13px]">23 Jun 2026</div></div><span class="prov ok"><span aria-hidden="true">📄</span><span class="src">PDF</span><span class="rg" title="reviewed">✔</span></span></div>
+              </div>
+
+              <!-- live JSON well -->
+              <details class="mt-4 group" open>
+                <summary class="cursor-pointer list-none flex items-center gap-2 text-[12.5px] font-semibold text-ink2">
+                  <span class="transition group-open:rotate-90">▸</span> Live EVA JSON
+                  <span class="text-[11px] text-ink3 font-normal">updates as you edit · drag-drop export path</span>
+                </summary>
+                <pre class="mt-2 p-4 rounded-lg bg-inset border border-hairline font-mono text-[11.5px] leading-relaxed text-ink2 overflow-x-auto scroll-thin" style="box-shadow:var(--tray-well)">{
+  "case_po": "ccpy26050",        <span class="text-ink3">// EVA lowercase</span>
+  "work_provider": "ABC Claims",
+  "claimant": { "name": "J. Smith", "tel": "07700900118",
+                "email": "j.smith@example.co.uk" },
+  "vehicle": "Ford Focus 1.0 EcoBoost",
+  "mileage": 41250, "mileage_unit": "mi",
+  "vat_status": <span class="text-review-ink">null</span>,            <span class="text-review-ink">// ← required, blocks submit</span>
+  "circumstances": "Rear-end shunt at junction…",
+  "inspection_address": <span class="text-held-ink">null</span>,    <span class="text-held-ink">// ← decide on Address tab</span>
+  "date_of_loss": "2026-06-18",
+  "date_of_instruction": "2026-06-23"
+}</pre>
+              </details>
+            </div>
+
+            <!-- ===== EVIDENCE ===== -->
+            <div class="panel" data-panel="evidence">
+              <div class="rounded-lg border border-held bg-held-tint px-4 py-3 mb-4 text-[12.5px] text-held-ink" style="box-shadow:0 0 0 1px var(--held)">
+                <b>Photo order:</b> upload <b>2 previews first</b> — vehicle overview (full registration visible) + main-damage close-up — then <b>all</b> photos in sequence, including those two again. Exclude any photo showing a person’s reflection.
+              </div>
+              <div class="text-[12px] text-ink3 mb-2">2 of ≥2 required roles present · <b class="text-review-ink">need 1 more usable photo</b></div>
+              <ol class="space-y-2">
+                <li class="flex items-center gap-3 p-2 rounded-md border border-hairline bg-white">
+                  <span class="font-mono text-[11px] text-ink3 w-4">1</span>
+                  <span class="w-16 h-12 rounded-md bg-gradient-to-br from-slate-300 to-slate-500 grid place-items-center text-white text-[9px] font-semibold" aria-hidden="true">VEHICLE</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[13px] font-semibold">Overview · front 3/4</div>
+                    <div class="text-[11.5px]"><span class="badge" style="background:#E3F3EA;color:#067A52">✔ reg visible</span></div>
+                  </div>
+                  <select aria-label="Photo role" class="h-9 px-2.5 rounded-md border border-hairline bg-white text-[12px]"><option>Overview</option><option>Damage close-up</option><option>Other</option></select>
+                  <label class="flex items-center gap-2 text-[11px] text-ink3"><button class="switch" role="switch" aria-checked="false" aria-label="Exclude — person reflection"></button>exclude</label>
+                </li>
+                <li class="flex items-center gap-3 p-2 rounded-md border border-hairline bg-white">
+                  <span class="font-mono text-[11px] text-ink3 w-4">2</span>
+                  <span class="w-16 h-12 rounded-md bg-gradient-to-br from-rose-300 to-rose-600 grid place-items-center text-white text-[9px] font-semibold" aria-hidden="true">DAMAGE</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[13px] font-semibold">Damage close-up · rear bumper</div>
+                    <div class="text-[11.5px] text-ink3">primary impact</div>
+                  </div>
+                  <select aria-label="Photo role" class="h-9 px-2.5 rounded-md border border-hairline bg-white text-[12px]"><option>Damage close-up</option><option>Overview</option><option>Other</option></select>
+                  <label class="flex items-center gap-2 text-[11px] text-ink3"><button class="switch" role="switch" aria-checked="false" aria-label="Exclude — person reflection"></button>exclude</label>
+                </li>
+                <li class="flex items-center gap-3 p-2 rounded-md border border-review bg-review-tint" style="box-shadow:0 0 0 1px var(--review)">
+                  <span class="font-mono text-[11px] text-ink3 w-4">3</span>
+                  <span class="w-16 h-12 rounded-md bg-gradient-to-br from-amber-300 to-amber-600 grid place-items-center text-white text-[9px] font-semibold" aria-hidden="true">N/PLATE</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[13px] font-semibold">Side panel</div>
+                    <div class="text-[11.5px] text-review-ink">⚠ person reflection detected — set exclude</div>
+                  </div>
+                  <select aria-label="Photo role" class="h-9 px-2.5 rounded-md border border-hairline bg-white text-[12px]"><option>Other</option><option>Overview</option><option>Damage close-up</option></select>
+                  <label class="flex items-center gap-2 text-[11px] text-review-ink font-semibold"><button class="switch" role="switch" aria-checked="true" aria-label="Exclude — person reflection"></button>exclude</label>
+                </li>
+              </ol>
+              <p class="mt-3 text-[11.5px] text-ink3">↕ Drag or use ↑/↓ keys to reorder. Preview-then-all sequence is enforced on export.</p>
+            </div>
+
+            <!-- ===== ADDRESS ===== -->
+            <div class="panel" data-panel="address">
+              <div class="text-[12.5px] text-ink2 mb-3">Pick a ranked suggestion from the offline corpus, edit the 6-line manually, or fall back to Image-Based Assessment <b>with a reason</b>. No silent address.</div>
+              <ul class="space-y-2">
+                <li class="flex items-center gap-3 p-3 rounded-lg border border-iris bg-iris-tint/50" style="box-shadow:0 0 0 1px var(--iris)">
+                  <input type="radio" name="addr" checked aria-label="Use corpus suggestion: Collision Repair Centre, Leeds LS11 5HT" class="accent-iris w-4 h-4">
+                  <div class="flex-1">
+                    <div class="text-[13px] font-semibold">Collision Repair Centre, Unit 4 Quarry Rd, Leeds, LS11 5HT</div>
+                    <div class="text-[11.5px] text-ink3 font-mono">seen 14× · last 21 Jun 2026 · ABC Claims preferred</div>
+                  </div>
+                  <span class="badge" style="background:var(--iris-tint);color:var(--iris-ink)">📚 Corpus</span>
+                </li>
+                <li class="flex items-center gap-3 p-3 rounded-lg border border-hairline bg-white">
+                  <input type="radio" name="addr" aria-label="Use corpus suggestion: AutoFix Bodyshop, Leeds LS5 3BG" class="accent-iris w-4 h-4">
+                  <div class="flex-1">
+                    <div class="text-[13px]">AutoFix Bodyshop, 22 Kirkstall Ind Est, Leeds, LS5 3BG</div>
+                    <div class="text-[11.5px] text-ink3 font-mono">seen 6× · last 09 Jun 2026</div>
+                  </div>
+                  <span class="badge" style="background:var(--inset);color:var(--ink2)">📚 Corpus</span>
+                </li>
+                <li class="flex items-center gap-3 p-3 rounded-lg border border-dashed border-hairline bg-inset/60">
+                  <input type="radio" name="addr" aria-label="Fall back to Image-Based Assessment" class="accent-iris w-4 h-4">
+                  <div class="flex-1">
+                    <div class="text-[13px] font-semibold">Image-Based Assessment (no physical inspection)</div>
+                    <input aria-label="IBA reason (required)" class="mt-1.5 w-full h-9 px-3 rounded-md border border-hairline bg-white text-[12.5px]" placeholder="Reason required — e.g. vehicle in secure storage, total-loss likely">
+                  </div>
+                  <span class="badge" style="background:var(--held-tint);color:var(--held-ink)">policy</span>
+                </li>
+              </ul>
+              <button class="mt-3 act"><span aria-hidden="true">✎</span> Edit 6-line manually</button>
+            </div>
+
+            <!-- ===== CHASERS ===== -->
+            <div class="panel" data-panel="chasers">
+              <div class="flex flex-wrap gap-2 mb-3">
+                <button class="act" aria-pressed="true">✉ Email template</button>
+                <button class="act">✆ WhatsApp template</button>
+                <button class="act gated" disabled title="Not connected — Box File-Request gated off">↗ Box File-Request ⊘</button>
+              </div>
+              <label class="text-[11px] eyebrow text-ink3">Draft — never sends automatically</label>
+              <textarea aria-label="Chaser draft (never sends automatically)" class="mt-1 w-full h-36 p-3 rounded-lg border border-hairline bg-inset font-body text-[13px] text-ink2 leading-relaxed" style="box-shadow:var(--tray-well)">Hi ABC Claims,
+
+Re: CCPY26050 — Ford Focus AB12 CDE. To complete the EVA assessment we still need 1 more usable photo (a clear vehicle overview with the full registration visible). Could you upload it via the link below?
+
+Many thanks,
+Collision Engineers — Intake</textarea>
+              <div class="mt-3 flex gap-2">
+                <button class="act"><span aria-hidden="true">⧉</span> Copy draft</button>
+                <button class="act"><span aria-hidden="true">▤</span> Log as drafted</button>
+                <span class="self-center text-[11.5px] text-ink3">Logged to History · case stays <b>Held</b> until upload (auto-advances to Review)</span>
+              </div>
+            </div>
+
+            <!-- ===== NOTES ===== -->
+            <div class="panel" data-panel="notes">
+              <ul class="space-y-2">
+                <li class="p-3 rounded-lg border border-hairline bg-white"><div class="text-[13px]">Claimant confirmed vehicle at repairer; awaiting overview photo.</div><div class="text-[11px] text-ink3 font-mono mt-1">Alex M · 24 Jun 2026 14:02</div></li>
+                <li class="p-3 rounded-lg border border-hairline bg-white"><div class="text-[13px]">Email + AI disagree on claimant email domain — flagged for review.</div><div class="text-[11px] text-ink3 font-mono mt-1">System · 23 Jun 2026 09:15</div></li>
+              </ul>
+              <button class="mt-3 act"><span aria-hidden="true">＋</span> Add note</button>
+            </div>
+
+            <!-- ===== HISTORY ===== -->
+            <div class="panel" data-panel="history">
+              <ol class="relative border-l border-hairline ml-1 space-y-4 pl-4 pt-1">
+                <li><div class="text-[13px] font-semibold">Status → needs_review</div><div class="text-[11px] text-ink3 font-mono">23 Jun 2026 09:15 · System</div></li>
+                <li><div class="text-[13px]">Parsed instruction PDF · 11 of 12 fields populated</div><div class="text-[11px] text-ink3 font-mono">23 Jun 2026 09:14 · Parser fn</div></li>
+                <li><div class="text-[13px]">Ingested from Outlook (intake shared inbox)</div><div class="text-[11px] text-ink3 font-mono">23 Jun 2026 09:14 · Intake flow</div></li>
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT : sticky readiness compartment -->
+        <aside id="readiness" class="comp seat col-span-12 lg:col-span-4 lg:sticky lg:top-20" aria-labelledby="rdh">
+          <span class="tab review">Readiness</span>
+          <div class="p-5 pt-6">
+            <div class="flex items-baseline gap-2 mb-1">
+              <h2 id="rdh" class="font-display font-semibold text-[15px]">Readiness gate</h2>
+              <span class="text-[12px] text-review-ink font-semibold">1 of 4 met</span>
+            </div>
+            <p class="text-[11.5px] text-ink3 mb-2">The single source of truth — every ✖ deep-links to the field that fixes it.</p>
+
+            <div class="chk no"><span class="mk">✖</span><div class="flex-1"><div class="text-[13px] font-semibold">Required fields filled</div><div class="text-[11.5px] text-ink3">VAT status missing</div></div><button class="text-[12px] font-semibold text-review-ink hover:underline" data-jump="fields">Fix →</button></div>
+            <div class="chk no"><span class="mk">✖</span><div class="flex-1"><div class="text-[13px] font-semibold">≥2 photos incl. overview + close-up</div><div class="text-[11.5px] text-ink3">1 of 2 usable (1 excluded)</div></div><button class="text-[12px] font-semibold text-review-ink hover:underline" data-jump="evidence">Fix →</button></div>
+            <div class="chk no"><span class="mk">✖</span><div class="flex-1"><div class="text-[13px] font-semibold">Inspection address decided</div><div class="text-[11.5px] text-ink3">no suggestion picked</div></div><button class="text-[12px] font-semibold text-review-ink hover:underline" data-jump="address">Fix →</button></div>
+            <div class="chk ok" style="border-bottom:none"><span class="mk">✔</span><div class="flex-1"><div class="text-[13px] font-semibold">No unresolved conflicts</div><div class="text-[11.5px] text-ink3">clear</div></div></div>
+
+            <button class="mt-4 w-full act primary justify-center" disabled title="Resolve the 3 blockers above"><span aria-hidden="true">▶</span> Submit to EVA ⊘</button>
+            <button id="openSubmit" class="mt-2 w-full text-[12px] font-semibold text-iris-ink hover:underline">Preview submit dialog (S5) →</button>
+
+            <!-- case facts (read-only) -->
+            <div class="mt-5 pt-4 border-t border-hairline">
+              <div class="eyebrow text-[10px] text-ink3 mb-2">Case facts · read-only</div>
+              <dl class="space-y-1.5 text-[12.5px]">
+                <div class="flex justify-between"><dt class="text-ink3">Received</dt><dd class="font-mono">23 Jun 09:14</dd></div>
+                <div class="flex justify-between"><dt class="text-ink3">Channel</dt><dd>Outlook · intake</dd></div>
+                <div class="flex justify-between"><dt class="text-ink3">Principal</dt><dd class="font-mono">CCPY <span class="text-ink3">🔒</span></dd></div>
+                <div class="flex justify-between"><dt class="text-ink3">Year</dt><dd class="font-mono">26 <span class="text-ink3">🔒</span></dd></div>
+                <div class="flex justify-between"><dt class="text-ink3">Sequence</dt><dd class="font-mono">050 <span class="text-ink3">edits at submit</span></dd></div>
+                <div class="flex justify-between"><dt class="text-ink3">Duplicate risk</dt><dd>none</dd></div>
+              </dl>
+              <p class="mt-2 text-[11px] text-ink3">Case facts do not drive readiness. Only the 3-digit sequence edits at submit.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="pt-2 pb-6 text-[11px] text-ink3 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span class="eyebrow">Soft-Pack Bento</span><span>· throwaway prototype · mock data · gated features render disabled / not-connected, never faked</span>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<!-- ===== EVA SUBMIT ROUTE-MODAL (S5) ===== -->
+<div id="submitModal" class="fixed inset-0 z-40 hidden">
+  <div class="absolute inset-0" style="background:rgba(28,33,48,.35)" data-close></div>
+  <div class="absolute inset-0 grid place-items-center p-4">
+    <div class="modin w-full max-w-[560px] bg-white border border-hairline rounded-hero shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="smh">
+      <div class="px-6 pt-5 pb-4 border-b border-hairline flex items-center gap-3">
+        <span class="grid place-items-center w-9 h-9 rounded-md bg-apricot-tint text-apricot-ink">▶</span>
+        <div><h2 id="smh" class="font-display font-bold text-[18px] leading-none">Submit to EVA</h2><p class="text-[12px] text-ink3 mt-1 font-mono">/case/CCPY26050/submit</p></div>
+        <button class="ml-auto w-9 h-9 grid place-items-center rounded-md hover:bg-inset" data-close aria-label="Close">✕</button>
+      </div>
+      <div class="px-6 py-5 space-y-4">
+        <!-- readiness gate -->
+        <div class="rounded-lg border border-review bg-review-tint px-4 py-3 text-[12.5px] text-review-ink" style="box-shadow:0 0 0 1px var(--review)">
+          <b>▲ Gate not green</b> — 3 readiness blockers remain. Submit is locked until they clear (shown for preview).
+        </div>
+        <!-- case code construction -->
+        <div>
+          <div class="eyebrow text-[10px] text-ink3 mb-1.5">Case / PO — locks Principal + year, edits 3-digit sequence</div>
+          <div class="flex items-center gap-1 font-mono text-[20px] font-bold">
+            <span class="px-2.5 py-1.5 rounded-md bg-inset text-ink2" title="locked">CCPY</span>
+            <span class="px-2.5 py-1.5 rounded-md bg-inset text-ink2" title="locked">26</span>
+            <input value="050" maxlength="3" class="w-[68px] text-center px-2.5 py-1.5 rounded-md border border-iris bg-white" aria-label="3-digit sequence">
+            <span class="text-ink3">🔒 🔒 ✎</span>
+          </div>
+        </div>
+        <!-- lowercase/uppercase coupling -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="p-3 rounded-lg border border-hairline bg-inset">
+            <div class="eyebrow text-[10px] text-ink3">EVA code · lowercase</div>
+            <div class="font-mono font-bold text-[15px] mt-1">ccpy26050</div>
+          </div>
+          <div class="p-3 rounded-lg border border-hairline bg-inset">
+            <div class="eyebrow text-[10px] text-ink3">Box folder · UPPERCASE</div>
+            <div class="font-mono font-bold text-[15px] mt-1">CCPY26050</div>
+          </div>
+        </div>
+        <p class="text-[11.5px] text-ink3">Coupling shown live before submit. Box mirror is one-way; Dataverse stays authoritative.</p>
+        <!-- json preview -->
+        <details class="rounded-lg border border-hairline bg-inset" style="box-shadow:var(--tray-well)">
+          <summary class="cursor-pointer list-none px-3 py-2 text-[12.5px] font-semibold text-ink2">12-field JSON preview</summary>
+          <pre class="px-3 pb-3 font-mono text-[11px] text-ink2 overflow-x-auto scroll-thin">{ "case_po":"ccpy26050", "vat_status":null, "inspection_address":null, … }</pre>
+        </details>
+      </div>
+      <div class="px-6 py-4 border-t border-hairline flex flex-wrap items-center gap-2 bg-inset/40">
+        <button class="act primary" disabled title="Gate not green">⧉ Copy JSON / drag to EVA</button>
+        <button class="act gated" disabled title="Sentry REST gated — single-principal limit pending Minotaur patch">Sentry REST ⊘</button>
+        <span class="flex-1"></span>
+        <button class="act" data-close>Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// mobile nav drawer
+var hamb=document.getElementById('hamb'), scrim=document.getElementById('railScrim');
+if(hamb){ hamb.addEventListener('click',function(){document.body.classList.toggle('nav-open');}); }
+if(scrim){ scrim.addEventListener('click',function(){document.body.classList.remove('nav-open');}); }
+// tab switching
+var tabs = document.querySelectorAll('.tabbtn[data-tab]');
+function showTab(name){
+  tabs.forEach(function(t){ t.setAttribute('aria-selected', t.dataset.tab===name ? 'true':'false'); });
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('on', p.dataset.panel===name); });
+}
+tabs.forEach(function(t){ t.addEventListener('click', function(){ showTab(t.dataset.tab); }); });
+// deep-links from readiness / fields
+document.querySelectorAll('[data-jump]').forEach(function(b){
+  b.addEventListener('click', function(){ showTab(b.dataset.jump); document.getElementById('main').scrollIntoView({behavior:'smooth'}); });
+});
+// switches
+document.querySelectorAll('.switch').forEach(function(s){
+  s.addEventListener('click', function(){ s.setAttribute('aria-checked', s.getAttribute('aria-checked')==='true'?'false':'true'); });
+});
+// modal
+var modal = document.getElementById('submitModal');
+document.getElementById('openSubmit').addEventListener('click', function(){ modal.classList.remove('hidden'); });
+modal.querySelectorAll('[data-close]').forEach(function(c){ c.addEventListener('click', function(){ modal.classList.add('hidden'); }); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') modal.classList.add('hidden'); });
+</script>
+</body>
+</html>

@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NOC · Cockpit — collisionspike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================ GRAPHITE NOC — tokens */
+:root{
+  --ground:#0A0D12; --sunken:#070A0E; --surf1:#0F141B; --surf2:#161D27; --surf3:#1E2733;
+  --hair:#232C38; --hair-strong:#2C3848;
+  --tx:#E6EAF0; --tx2:#A7B0BE; --tx-mut:#7C8798; --tx-dis:#515C6E; --on-acc:#06090D;
+  --signal:#4DB6C4; --signal-br:#6FD3E0; --signal-dim:#2E6A74; --signal-bg:rgba(77,182,196,.10);
+  --st-info:#5B9BD5; --st-prog:#C9A14A; --st-review:#E0683C; --st-held:#C99A2E;
+  --st-ready:#46A66B; --st-sub:#5C7891; --st-err:#D24B4B; --st-neu:#6B7686;
+  --vrm-g:#FFD400; --vrm-i:#06090D;
+  --rail-w:220px; --hdr-h:48px;
+  --row-h:30px;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,sans-serif;
+  --disp:'Saira Semi Condensed','IBM Plex Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ground); color:var(--tx); font-family:var(--sans); font-size:14px;
+  line-height:1.35; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+body.dense{--row-h:26px;font-size:13px}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--signal-bg);color:var(--signal-br)}
+/* scrollbars */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:var(--hair-strong);border-radius:0}
+*::-webkit-scrollbar-track{background:var(--sunken)}
+
+/* ============================================================ primitives */
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.disp{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* engraved band / section heads */
+.band-head{display:flex;align-items:baseline;gap:12px;padding:10px 16px 8px;border-bottom:1px solid var(--hair-strong)}
+.band-head .rid{font-family:var(--disp);text-transform:uppercase;letter-spacing:.10em;font-size:11px;color:var(--tx-mut)}
+.band-head .rtitle{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-size:13px;color:var(--tx)}
+.band-head .rmeta{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--tx-mut);font-variant-numeric:tabular-nums}
+.band{border-bottom:1px solid var(--hair-strong)}
+.band-body{padding:14px 16px 18px}
+
+/* VRM plate */
+.vrm{display:inline-flex;align-items:center;background:var(--vrm-g);color:var(--vrm-i);
+  font-family:var(--mono);font-weight:700;letter-spacing:.04em;font-size:13px;line-height:1;
+  padding:4px 8px 5px;border:1px solid var(--vrm-i);border-radius:2px;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}
+.vrm.sm{font-size:11px;padding:3px 6px 4px}
+.vrm.lg{font-size:18px;padding:7px 12px 8px;letter-spacing:.06em}
+
+/* status badge (rect, label + glyph) */
+.badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--disp);text-transform:uppercase;
+  letter-spacing:.05em;font-size:11px;font-weight:600;padding:3px 7px;border-radius:2px;
+  border:1px solid var(--hair-strong);background:var(--surf2);color:var(--tx2);white-space:nowrap}
+.badge .g{font-size:10px;line-height:1}
+.badge.b-review{color:var(--st-review);border-color:rgba(224,104,60,.4);background:rgba(224,104,60,.08)}
+.badge.b-held{color:var(--st-held);border-color:rgba(201,154,46,.4);background:rgba(201,154,46,.08)}
+.badge.b-ready{color:var(--st-ready);border-color:rgba(70,166,107,.4);background:rgba(70,166,107,.08)}
+.badge.b-sub{color:var(--st-sub);border-color:rgba(92,120,145,.4);background:rgba(92,120,145,.08)}
+.badge.b-new{color:var(--st-info);border-color:rgba(91,155,213,.4);background:rgba(91,155,213,.08)}
+.badge.b-conflict{color:var(--st-err);border-color:rgba(210,75,75,.4);background:rgba(210,75,75,.08)}
+
+/* kbd chip */
+.kbd{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:10px;
+  color:var(--tx2);background:var(--surf2);border:1px solid var(--hair-strong);
+  border-bottom-width:2px;border-radius:3px;padding:1px 5px 2px;line-height:1.4}
+
+/* generic button */
+.btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--sans);font-size:12px;font-weight:500;
+  color:var(--tx2);background:var(--surf2);border:1px solid var(--hair-strong);border-radius:2px;
+  padding:5px 9px;cursor:pointer;white-space:nowrap;transition:background .12s,color .12s,border-color .12s}
+.btn:hover{background:var(--surf3);color:var(--tx);border-color:var(--signal-dim)}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 2px var(--ground),0 0 0 3px var(--signal)}
+.btn.tiny{font-size:11px;padding:3px 7px}
+.btn.primary{background:var(--signal-bg);color:var(--signal-br);border-color:var(--signal-dim)}
+.btn.primary:hover{background:rgba(77,182,196,.18);border-color:var(--signal)}
+.btn.ghost{background:transparent}
+.btn[disabled],.btn.gated{color:var(--tx-dis);background:transparent;border-color:var(--hair);cursor:not-allowed}
+.btn[disabled]:hover,.btn.gated:hover{background:transparent;color:var(--tx-dis);border-color:var(--hair)}
+.gatetag{font-family:var(--mono);font-size:9px;color:var(--tx-dis);border:1px solid var(--hair);
+  border-radius:2px;padding:0 3px;margin-left:2px;text-transform:uppercase;letter-spacing:.04em}
+
+/* ============================================================ shell */
+.app{display:grid;grid-template-columns:var(--rail-w) 1fr;min-height:100vh}
+
+/* rail */
+.rail{position:sticky;top:0;height:100vh;background:var(--sunken);border-right:1px solid var(--hair-strong);
+  display:flex;flex-direction:column;overflow:hidden}
+.rail-brand{height:var(--hdr-h);display:flex;align-items:center;gap:9px;padding:0 14px;
+  border-bottom:1px solid var(--hair-strong)}
+.rail-brand .mk{width:20px;height:20px;border:1px solid var(--signal);border-radius:2px;position:relative;flex:0 0 auto}
+.rail-brand .mk::before{content:"";position:absolute;inset:3px;background:var(--signal);opacity:.35}
+.rail-brand .mk::after{content:"";position:absolute;left:3px;right:3px;bottom:3px;height:45%;background:var(--signal)}
+.rail-brand .nm{font-family:var(--disp);text-transform:uppercase;letter-spacing:.14em;font-weight:700;font-size:14px}
+.rail-brand .nm small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--tx-mut);text-transform:none}
+.rail-scroll{flex:1;overflow-y:auto;padding:10px 0}
+.rail-sect{font-family:var(--disp);text-transform:uppercase;letter-spacing:.14em;font-size:10px;color:var(--tx-dis);
+  padding:12px 16px 5px}
+.rail-sect.first{padding-top:4px}
+.rail-div{height:1px;background:var(--hair);margin:8px 14px}
+.nav{display:flex;align-items:center;gap:9px;padding:6px 16px;color:var(--tx2);cursor:pointer;
+  border-left:2px solid transparent;font-size:13px;transition:background .12s,color .12s}
+.nav:hover{background:var(--surf1);color:var(--tx)}
+.nav.active{background:var(--surf2);color:var(--tx);border-left-color:var(--signal)}
+.nav .ic{width:16px;text-align:center;color:var(--tx-mut);font-size:13px}
+.nav.active .ic{color:var(--signal)}
+.nav .lbl{flex:1}
+.nav .ct{font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--tx-mut);
+  background:var(--surf2);border:1px solid var(--hair);border-radius:2px;padding:0 5px;min-width:22px;text-align:center}
+.nav.active .ct{color:var(--signal-br);border-color:var(--signal-dim)}
+.nav .ct.blk{color:var(--st-review);border-color:rgba(224,104,60,.35)}
+.rail-foot{border-top:1px solid var(--hair);padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.rail-foot .kh{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--tx-mut)}
+
+/* main column */
+.main{min-width:0;display:flex;flex-direction:column}
+.hdr{position:sticky;top:0;z-index:30;height:var(--hdr-h);display:flex;align-items:center;gap:14px;
+  padding:0 16px;background:rgba(10,13,18,.92);backdrop-filter:blur(2px);
+  border-bottom:1px solid var(--hair-strong)}
+.crumb{font-family:var(--disp);text-transform:uppercase;letter-spacing:.08em;font-weight:600;font-size:13px;color:var(--tx)}
+.crumb .sep{color:var(--tx-dis);margin:0 7px;font-weight:400}
+.crumb .dim{color:var(--tx-mut)}
+.search{flex:1;max-width:520px;display:flex;align-items:center;gap:8px;background:var(--surf1);
+  border:1px solid var(--hair-strong);border-radius:2px;padding:6px 10px}
+.search:focus-within{border-color:var(--signal-dim);box-shadow:0 0 0 1px var(--signal-dim)}
+.search .mag{color:var(--tx-mut);font-size:12px}
+.search input{flex:1;background:transparent;border:none;outline:none;color:var(--tx);
+  font-family:var(--mono);font-size:12px}
+.search input::placeholder{color:var(--tx-dis)}
+.search .kbd{margin-left:auto}
+.clock{font-family:var(--mono);font-size:11px;color:var(--tx-mut);display:flex;align-items:center;gap:8px;white-space:nowrap}
+.clock b{color:var(--tx2);font-weight:500}
+.clock .rfs{cursor:pointer;color:var(--signal);transition:transform .4s}
+.clock .rfs:hover{color:var(--signal-br)}
+.clock.pulse .rfs{transform:rotate(360deg)}
+.hdr .dty{cursor:pointer;color:var(--tx-mut);border:1px solid var(--hair-strong);border-radius:2px;
+  padding:4px 7px;font-size:11px;font-family:var(--mono);background:var(--surf1)}
+.hdr .dty:hover{color:var(--tx2);border-color:var(--signal-dim)}
+
+/* ============================================================ R0 pipeline */
+.pipe{display:flex;align-items:stretch;gap:0;padding:6px 16px 14px;overflow-x:auto}
+.pseg{flex:1;min-width:96px;position:relative;padding:8px 10px 6px;border:1px solid var(--hair);
+  border-right:none;background:var(--surf1)}
+.pseg:first-child{border-radius:3px 0 0 3px}
+.pseg:last-child{border-right:1px solid var(--hair);border-radius:0 3px 3px 0}
+.pseg .pl{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-size:10px;color:var(--tx-mut);
+  display:flex;align-items:center;gap:5px}
+.pseg .pdot{width:6px;height:6px;border-radius:50%;background:var(--st-neu)}
+.pseg .pn{font-family:var(--mono);font-size:20px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;line-height:1}
+.pseg .pbar{height:3px;margin-top:6px;background:var(--hair);position:relative;overflow:hidden}
+.pseg .pbar span{position:absolute;inset:0 auto 0 0;background:var(--st-neu)}
+.pseg.arrow::after{content:"";position:absolute;right:-7px;top:50%;width:12px;height:12px;
+  transform:translateY(-50%) rotate(45deg);background:var(--surf1);border-right:1px solid var(--hair);
+  border-top:1px solid var(--hair);z-index:2}
+.pseg.s-new .pdot,.pseg.s-new .pbar span{background:var(--st-info)} .pseg.s-new .pn{color:var(--st-info)}
+.pseg.s-parse .pdot,.pseg.s-parse .pbar span{background:var(--st-prog)} .pseg.s-parse .pn{color:var(--st-prog)}
+.pseg.s-review .pdot,.pseg.s-review .pbar span{background:var(--st-review)} .pseg.s-review .pn{color:var(--st-review)}
+.pseg.s-chase{background:var(--surf2);border-color:var(--hair-strong)}
+.pseg.s-chase .pl{color:var(--st-held)} .pseg.s-chase .pdot,.pseg.s-chase .pbar span{background:var(--st-held)}
+.pseg.s-chase .pn{color:var(--st-held);font-size:24px}
+.pseg.s-ready .pdot,.pseg.s-ready .pbar span{background:var(--st-ready)} .pseg.s-ready .pn{color:var(--st-ready)}
+.pseg.s-sub .pdot,.pseg.s-sub .pbar span{background:var(--st-sub)} .pseg.s-sub .pn{color:var(--st-sub)}
+.pseg.s-box .pdot,.pseg.s-box .pbar span{background:var(--st-neu)} .pseg.s-box .pn{color:var(--tx2)}
+.pseg .pterm{font-family:var(--mono);font-size:9px;color:var(--tx-dis);margin-top:2px}
+
+/* ============================================================ R1 triage */
+.triage{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tcol{background:var(--surf1);border:1px solid var(--hair);border-radius:3px;display:flex;flex-direction:column;min-width:0}
+.tcol-h{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--hair)}
+.tcol-h .tt{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-size:11px;font-weight:600}
+.tcol-h .tn{font-family:var(--mono);font-size:11px;color:var(--tx-mut);background:var(--surf2);
+  border:1px solid var(--hair);border-radius:2px;padding:0 5px;font-variant-numeric:tabular-nums}
+.tcol.other .tt{color:var(--st-review)}
+.tcol.other .tn{color:var(--st-review);border-color:rgba(224,104,60,.35)}
+.tcol.other .tcol-h .hint{font-family:var(--mono);font-size:9px;color:var(--st-review);margin-left:auto;text-transform:uppercase;letter-spacing:.04em}
+.trow{padding:8px 10px;border-bottom:1px solid var(--hair);cursor:pointer;outline:none}
+.trow:last-child{border-bottom:none}
+.trow:hover,.trow:focus-visible{background:var(--surf2);box-shadow:inset 2px 0 0 var(--signal)}
+.trow .l1{display:flex;align-items:baseline;gap:7px;min-width:0}
+.trow .snd{font-family:var(--mono);font-size:12px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow .dom{font-family:var(--mono);font-size:10px;color:var(--tx-mut)}
+.trow .subj{font-size:12px;color:var(--tx2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow .l3{display:flex;align-items:center;gap:8px;margin-top:6px}
+.trow .rcv{font-family:var(--mono);font-size:10px;color:var(--tx-mut)}
+.trow .stype{font-family:var(--mono);font-size:10px;color:var(--tx-mut);border:1px solid var(--hair);border-radius:2px;padding:0 4px}
+.trow .acts{margin-left:auto;display:flex;gap:5px;opacity:.55;transition:opacity .12s}
+.trow:hover .acts,.trow:focus-visible .acts{opacity:1}
+.tcol-f{padding:7px 10px;font-family:var(--mono);font-size:11px;color:var(--tx-mut);
+  border-top:1px solid var(--hair);cursor:pointer}
+.tcol-f:hover{color:var(--signal)}
+.tempty{padding:18px 10px;text-align:center;color:var(--tx-mut);font-size:12px}
+.tempty .ic{font-size:16px;color:var(--st-ready);display:block;margin-bottom:5px}
+
+/* ============================================================ R2 drain-gauge tiles */
+.gauges{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.gauge{position:relative;height:118px;background:var(--surf1);border:1px solid var(--hair);border-radius:3px;
+  overflow:hidden;cursor:pointer;outline:none}
+.gauge:hover{border-color:var(--signal-dim)}
+.gauge:focus-visible{box-shadow:0 0 0 2px var(--ground),0 0 0 3px var(--signal)}
+.gauge .fill{position:absolute;left:0;right:0;bottom:0;background:rgba(107,118,152,.14);
+  transition:height .18s ease-out;border-top:1px solid rgba(255,255,255,.06)}
+.gauge .body{position:relative;z-index:2;padding:10px 12px;height:100%;display:flex;flex-direction:column}
+.gauge .cap{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:600;
+  color:var(--tx2);display:flex;align-items:center;justify-content:space-between}
+.gauge .cap .drn{color:var(--tx-mut);font-size:12px}
+.gauge .hero{font-family:var(--mono);font-size:34px;font-weight:600;line-height:1;margin-top:auto;
+  font-variant-numeric:tabular-nums;color:var(--tx)}
+.gauge .sub{font-size:11px;color:var(--tx-mut);margin-top:4px;display:flex;align-items:center;gap:6px}
+.gauge .peak{font-family:var(--mono);font-size:9px;color:var(--tx-dis);margin-left:auto}
+.gauge.g-review .fill{background:rgba(224,104,60,.16)} .gauge.g-review .hero{color:var(--st-review)}
+.gauge.g-review .cap{color:var(--st-review)} .gauge.g-review .cap .drn{color:var(--st-review)}
+.gauge.g-review{border-color:rgba(224,104,60,.35)}
+.gauge.g-held .fill{background:rgba(201,154,46,.15)} .gauge.g-held .hero{color:var(--st-held)} .gauge.g-held .cap .drn{color:var(--st-held)}
+.gauge.g-ready .fill{background:rgba(70,166,107,.14)} .gauge.g-ready .hero{color:var(--st-ready)} .gauge.g-ready .cap .drn{color:var(--st-ready)}
+.gauge.g-new .fill{background:rgba(91,155,213,.14)} .gauge.g-new .hero{color:var(--st-info)} .gauge.g-new .cap .drn{color:var(--st-info)}
+
+/* ============================================================ R3 ghost windowed */
+.ghosts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ghost{background:transparent;border:1px solid var(--hair);border-radius:3px;padding:12px 14px;
+  display:flex;align-items:center;gap:14px}
+.ghost .gh-l{flex:1;min-width:0}
+.ghost .gh-cap{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;font-size:11px;color:var(--tx-mut);
+  display:flex;align-items:center;gap:6px}
+.ghost .gh-cap .dia{color:var(--st-sub)}
+.ghost .gh-n{font-family:var(--mono);font-size:26px;font-weight:500;color:var(--tx2);margin-top:4px;
+  font-variant-numeric:tabular-nums;line-height:1}
+.ghost .gh-n .suf{font-size:11px;color:var(--tx-dis);margin-left:6px}
+.ghost .spark{width:96px;height:40px;flex:0 0 auto}
+.ghost .gh-note{font-family:var(--mono);font-size:9px;color:var(--tx-dis);margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+
+/* ============================================================ R4 severity / chase-next */
+.chase{display:flex;flex-direction:column}
+.crow{display:grid;grid-template-columns:128px 92px 96px 1fr 150px auto;align-items:center;gap:12px;
+  padding:8px 12px;border-bottom:1px solid var(--hair);cursor:pointer;outline:none}
+.crow:hover,.crow:focus-visible{background:var(--surf2);box-shadow:inset 2px 0 0 var(--signal)}
+.crow .verb{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-size:11px;font-weight:600;color:var(--tx)}
+.crow .verb .vi{color:var(--st-held);margin-right:6px}
+.crow .verb.v-conflict .vi{color:var(--st-err)}
+.crow .prov{font-family:var(--mono);font-size:11px;color:var(--tx-mut)}
+.crow .out{font-size:12px;color:var(--tx2)}
+.crow .acts{display:flex;gap:5px;justify-self:end}
+.sev{display:flex;align-items:center;gap:8px}
+.sev-track{flex:1;height:8px;background:var(--hair);border-radius:1px;position:relative;overflow:hidden;
+  background-image:linear-gradient(90deg,transparent 0 33%,var(--sunken) 33% 34%,transparent 34% 66%,var(--sunken) 66% 67%,transparent 67%)}
+.sev-fill{position:absolute;inset:0 auto 0 0;border-radius:1px}
+.sev-fill.lo{background:var(--st-ready)} .sev-fill.md{background:var(--st-held)} .sev-fill.hi{background:var(--st-review)}
+.sev .dur{font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums;width:54px;text-align:right}
+.sev .dur.lo{color:var(--st-ready)} .sev .dur.md{color:var(--st-held)} .sev .dur.hi{color:var(--st-review)}
+
+/* ============================================================ R5 queues snapshot */
+.qsnap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.qchip{display:flex;align-items:center;gap:9px;background:var(--surf1);border:1px solid var(--hair);
+  border-radius:3px;padding:9px 14px;cursor:pointer}
+.qchip:hover{border-color:var(--signal-dim)}
+.qchip .qg{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-size:11px;color:var(--tx-mut)}
+.qchip .qn{font-family:var(--mono);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.qchip.q-notready .qn{color:var(--tx2)}
+.qchip.q-review{border-color:rgba(224,104,60,.3)} .qchip.q-review .qg{color:var(--st-review)} .qchip.q-review .qn{color:var(--st-review)}
+.qchip.q-held .qg{color:var(--st-held)} .qchip.q-held .qn{color:var(--st-held)}
+.qsnap .gomore{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--signal);cursor:pointer}
+
+/* ============================================================ Cmd-K palette */
+.scrim{position:fixed;inset:0;z-index:90;background:rgba(4,6,9,.62);display:none;align-items:flex-start;justify-content:center;padding-top:14vh}
+.scrim.open{display:flex}
+.cmdk{width:min(560px,92vw);background:var(--surf1);border:1px solid var(--hair-strong);border-radius:4px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden}
+.cmdk-in{display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--hair)}
+.cmdk-in input{flex:1;background:transparent;border:none;outline:none;color:var(--tx);font-family:var(--mono);font-size:14px}
+.cmdk-in .pre{color:var(--signal);font-family:var(--mono)}
+.cmdk-list{max-height:46vh;overflow-y:auto;padding:6px}
+.cmdk-grp{font-family:var(--disp);text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--tx-dis);padding:8px 8px 4px}
+.cmdk-it{display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:2px;cursor:pointer;font-size:13px;color:var(--tx2)}
+.cmdk-it:hover,.cmdk-it.sel{background:var(--surf2);color:var(--tx)}
+.cmdk-it .ic{width:16px;text-align:center;color:var(--tx-mut)}
+.cmdk-it .kbd{margin-left:auto}
+
+/* row-clear demo */
+.cleared{height:0!important;padding-top:0!important;padding-bottom:0!important;opacity:0;overflow:hidden;
+  border-color:transparent!important;transition:all .16s ease-out}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+  .clock .rfs{transition:none}
+}
+
+/* ============================================================ responsive */
+@media(max-width:1279px){
+  :root{--rail-w:56px}
+  .rail-brand .nm,.rail-sect,.nav .lbl,.nav .ct,.rail-div,.rail-foot{display:none}
+  .rail-brand{justify-content:center;padding:0}
+  .nav{justify-content:center;padding:9px 0;position:relative}
+  .nav .ic{font-size:16px}
+  .gauges{grid-template-columns:repeat(2,1fr)}
+  .ghosts{grid-template-columns:1fr}
+  .crow{grid-template-columns:120px 1fr auto}
+  .crow .prov,.crow .out{display:none}
+  .search .kbd{display:none}
+}
+@media(max-width:767px){
+  :root{--rail-w:0px}
+  .app{grid-template-columns:1fr}
+  .rail{display:none}
+  .hdr{gap:8px;padding:0 10px}
+  .crumb{font-size:12px}
+  .search{max-width:none}
+  .clock b+span,.hdr .dty{display:none}
+  .pipe{padding:6px 10px 12px}
+  .pseg{min-width:84px}
+  .band-body{padding:12px 10px 14px}
+  .triage{grid-template-columns:1fr}
+  .gauges{grid-template-columns:1fr 1fr;gap:8px}
+  .gauge{height:96px}
+  .gauge .hero{font-size:26px}
+  .crow{grid-template-columns:1fr;gap:6px;padding:10px 12px}
+  .crow .vrm{justify-self:start}
+  .crow .sev{order:5}.crow .acts{justify-self:start}
+  .qsnap .gomore{margin-left:0;width:100%}
+  /* bottom tab bar */
+  .tabbar{display:flex}
+}
+.tabbar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:40;height:54px;
+  background:var(--sunken);border-top:1px solid var(--hair-strong)}
+.tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  color:var(--tx-mut);font-size:10px;font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em}
+.tabbar a.active{color:var(--signal)}
+.tabbar a .ic{font-size:16px}
+.tabbar a .ct{position:absolute;top:6px;margin-left:18px;font-family:var(--mono);font-size:9px;
+  background:var(--st-review);color:#fff;border-radius:6px;padding:0 4px}
+@media(max-width:767px){body{padding-bottom:54px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= RAIL ================= -->
+  <aside class="rail">
+    <div class="rail-brand">
+      <div class="mk"></div>
+      <div class="nm">NOC<small>collisionspike</small></div>
+    </div>
+    <div class="rail-scroll">
+      <div class="rail-sect first">Intake</div>
+      <a class="nav active" href="index.html"><span class="ic">◧</span><span class="lbl">Cockpit</span></a>
+      <a class="nav" href="#" data-go="inbox"><span class="ic">✉</span><span class="lbl">Inbox</span><span class="ct">47</span></a>
+      <a class="nav" href="queues.html"><span class="ic">▦</span><span class="lbl">Queues</span><span class="ct blk">20</span></a>
+      <a class="nav" href="queues.html#ready"><span class="ic">★</span><span class="lbl">Ready for EVA</span><span class="ct">5</span></a>
+      <a class="nav" href="#" data-go="intake"><span class="ic">⤓</span><span class="lbl">Manual intake</span></a>
+      <div class="rail-div"></div>
+      <div class="rail-sect">Admin</div>
+      <a class="nav" href="#" data-go="review"><span class="ic">◷</span><span class="lbl">Improvement Review</span></a>
+      <a class="nav" href="#" data-go="settings"><span class="ic">⚙</span><span class="lbl">Settings</span></a>
+    </div>
+    <div class="rail-foot">
+      <div class="kh"><span class="kbd">j</span><span class="kbd">k</span><span>move</span></div>
+      <div class="kh"><span class="kbd">↵</span><span>open</span><span class="kbd">/</span><span>search</span></div>
+      <div class="kh"><span class="kbd">⌘</span><span class="kbd">K</span><span>commands</span></div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main">
+    <header class="hdr">
+      <div class="crumb">Cockpit<span class="sep">/</span><span class="dim">whole inbox</span></div>
+      <label class="search" id="search">
+        <span class="mag">⌕</span>
+        <input id="searchInput" placeholder="search cases · VRM · PO · sender …" />
+        <span class="kbd">/</span>
+      </label>
+      <div class="clock" id="clock">
+        Updated <b id="clockT">14:07</b> <span>·</span> <span class="rfs" id="refresh" title="Refresh">↻</span>
+      </div>
+      <button class="dty" id="density" title="Toggle density">⊟ density</button>
+    </header>
+
+    <!-- ===== R0 PIPELINE ===== -->
+    <section class="band">
+      <div class="band-head"><span class="rid">R0</span><span class="rtitle">Pipeline</span>
+        <span class="rmeta">live depth → throughput · left-to-right</span></div>
+      <div class="pipe">
+        <div class="pseg s-new arrow"><div class="pl"><span class="pdot"></span>New</div><div class="pn">3</div><div class="pbar"><span style="width:30%"></span></div></div>
+        <div class="pseg s-parse arrow"><div class="pl"><span class="pdot"></span>Parsing</div><div class="pn">1</div><div class="pbar"><span style="width:14%"></span></div></div>
+        <div class="pseg s-review arrow"><div class="pl"><span class="pdot"></span>Review</div><div class="pn">8</div><div class="pbar"><span style="width:80%"></span></div></div>
+        <div class="pseg s-chase arrow"><div class="pl"><span class="pdot"></span>Chasing / Held</div><div class="pn">12</div><div class="pbar"><span style="width:100%"></span></div></div>
+        <div class="pseg s-ready arrow"><div class="pl"><span class="pdot"></span>Ready</div><div class="pn">5</div><div class="pbar"><span style="width:50%"></span></div></div>
+        <div class="pseg s-sub arrow"><div class="pl"><span class="pdot"></span>Submitted</div><div class="pn">19</div><div class="pbar"><span style="width:90%"></span></div><div class="pterm">today · throughput</div></div>
+        <div class="pseg s-box"><div class="pl"><span class="pdot"></span>Box</div><div class="pn">17</div><div class="pbar"><span style="width:85%"></span></div><div class="pterm">today · synced</div></div>
+      </div>
+    </section>
+
+    <!-- ===== R1 INBOX TRIAGE ===== -->
+    <section class="band">
+      <div class="band-head"><span class="rid">R1</span><span class="rtitle">Inbox Triage</span>
+        <span class="rmeta">Receiving 31 · Queries 9 · Other 7</span></div>
+      <div class="band-body">
+        <div class="triage">
+          <!-- Receiving work -->
+          <div class="tcol">
+            <div class="tcol-h"><span class="tt">Receiving work</span><span class="tn">31</span></div>
+            <div class="trow" tabindex="0" data-case="case-detail.html">
+              <div class="l1"><span class="snd">claims@acme-claims.co.uk</span></div>
+              <div class="subj">New instruction — BMW 320d, PO CCPY26050</div>
+              <div class="l3"><span class="rcv">14:02</span><span class="stype">instruction</span>
+                <span class="acts"><button class="btn tiny primary">confirm</button><button class="btn tiny">reclass</button><button class="btn tiny ghost" title="open in mailbox">↗</button></span></div>
+            </div>
+            <div class="trow" tabindex="0" data-case="case-detail.html">
+              <div class="l1"><span class="snd">images@halcyon-eng.com</span></div>
+              <div class="subj">RE: HALX26112 — 14 photos attached</div>
+              <div class="l3"><span class="rcv">13:48</span><span class="stype">images</span>
+                <span class="acts"><button class="btn tiny primary">confirm</button><button class="btn tiny">reclass</button><button class="btn tiny ghost">↗</button></span></div>
+            </div>
+            <div class="trow" tabindex="0" data-case="case-detail.html">
+              <div class="l1"><span class="snd">ops@redline-recovery.co.uk</span></div>
+              <div class="subj">Instruction + V5C — RDLN26033</div>
+              <div class="l3"><span class="rcv">13:31</span><span class="stype">instruction</span>
+                <span class="acts"><button class="btn tiny primary">confirm</button><button class="btn tiny">reclass</button><button class="btn tiny ghost">↗</button></span></div>
+            </div>
+            <div class="tcol-f">… 3 more untriaged →</div>
+          </div>
+          <!-- Queries -->
+          <div class="tcol">
+            <div class="tcol-h"><span class="tt">Queries</span><span class="tn">9</span></div>
+            <div class="trow" tabindex="0" data-case="case-detail.html">
+              <div class="l1"><span class="snd">j.okafor@gmail.com</span></div>
+              <div class="subj">RE: registration query — is it AB12 CDE?</div>
+              <div class="l3"><span class="rcv">13:51</span><span class="stype">query</span>
+                <span class="acts"><button class="btn tiny">open</button><button class="btn tiny ghost">→ case</button></span></div>
+            </div>
+            <div class="trow" tabindex="0" data-case="case-detail.html">
+              <div class="l1"><span class="snd">desk@aviva-x.com</span></div>
+              <div class="subj">Chasing valuation timeline AVVA26210</div>
+              <div class="l3"><span class="rcv">12:20</span><span class="stype">query</span>
+                <span class="acts"><button class="btn tiny">open</button><button class="btn tiny ghost">→ case</button></span></div>
+            </div>
+            <div class="tcol-f">… 7 more →</div>
+          </div>
+          <!-- Other -->
+          <div class="tcol other">
+            <div class="tcol-h"><span class="tt">Other</span><span class="tn">7</span><span class="hint">needs a human</span></div>
+            <div class="trow" tabindex="0">
+              <div class="l1"><span class="snd">noreply@mailer-daemon</span></div>
+              <div class="subj">Delivery Status Notification (Failure)</div>
+              <div class="l3"><span class="rcv">13:30</span><span class="stype">unidentified</span>
+                <span class="acts"><button class="btn tiny">classify</button><button class="btn tiny ghost">open mailbox</button></span></div>
+            </div>
+            <div class="trow" tabindex="0">
+              <div class="l1"><span class="snd">newsletter@autotrade.uk</span></div>
+              <div class="subj">Weekly salvage bulletin — June</div>
+              <div class="l3"><span class="rcv">11:05</span><span class="stype">unidentified</span>
+                <span class="acts"><button class="btn tiny">classify</button><button class="btn tiny ghost">open mailbox</button></span></div>
+            </div>
+            <div class="tcol-f">… 4 more →</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== R2 LIVE WORK (drain-gauge) ===== -->
+    <section class="band">
+      <div class="band-head"><span class="rid">R2</span><span class="rtitle">Live Work</span>
+        <span class="rmeta">solid drain-gauge · fill = depth vs today's peak · ▾ drains</span></div>
+      <div class="band-body">
+        <div class="gauges">
+          <a class="gauge g-review" href="queues.html#review" tabindex="0">
+            <div class="fill" style="height:62%"></div>
+            <div class="body"><div class="cap">Review <span class="drn">▾</span></div>
+              <div class="hero">8</div><div class="sub">needs you <span class="peak">peak 13</span></div></div>
+          </a>
+          <a class="gauge g-held" href="queues.html#held" tabindex="0">
+            <div class="fill" style="height:84%"></div>
+            <div class="body"><div class="cap">Held <span class="drn">▾</span></div>
+              <div class="hero">14</div><div class="sub">chaser out <span class="peak">peak 16</span></div></div>
+          </a>
+          <a class="gauge g-ready" href="queues.html#ready" tabindex="0">
+            <div class="fill" style="height:38%"></div>
+            <div class="body"><div class="cap">Ready <span class="drn">▾</span></div>
+              <div class="hero">5</div><div class="sub">to EVA <span class="peak">peak 11</span></div></div>
+          </a>
+          <a class="gauge g-new" href="#" data-go="inbox" tabindex="0">
+            <div class="fill" style="height:24%"></div>
+            <div class="body"><div class="cap">New <span class="drn">▾</span></div>
+              <div class="hero">3</div><div class="sub">cases <span class="peak">peak 9</span></div></div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== R3 WINDOWED (ghost) ===== -->
+    <section class="band">
+      <div class="band-head"><span class="rid">R3</span><span class="rtitle">Windowed Throughput</span>
+        <span class="rmeta">ghost chips · resets · terminal states live here only</span></div>
+      <div class="band-body">
+        <div class="ghosts">
+          <div class="ghost">
+            <div class="gh-l"><div class="gh-cap"><span class="dia">⌑</span>In today</div>
+              <div class="gh-n">23<span class="suf">cases</span></div><div class="gh-note">+5 vs yesterday</div></div>
+            <svg class="spark" viewBox="0 0 96 40" preserveAspectRatio="none"><polyline fill="none" stroke="#4DB6C4" stroke-width="1.5" points="0,30 12,28 24,32 36,22 48,26 60,16 72,20 84,10 96,14"/></svg>
+          </div>
+          <div class="ghost">
+            <div class="gh-l"><div class="gh-cap"><span class="dia">⌑</span>Submitted today</div>
+              <div class="gh-n">19<span class="suf">to EVA</span></div><div class="gh-note">eva_submitted · terminal</div></div>
+            <svg class="spark" viewBox="0 0 96 40" preserveAspectRatio="none"><polyline fill="none" stroke="#5C7891" stroke-width="1.5" points="0,34 12,30 24,31 36,24 48,20 60,22 72,15 84,12 96,9"/></svg>
+          </div>
+          <div class="ghost">
+            <div class="gh-l"><div class="gh-cap"><span class="dia">⌑</span>Cleared this week</div>
+              <div class="gh-n">88<span class="suf">/ wk</span></div><div class="gh-note">box_synced · terminal</div></div>
+            <svg class="spark" viewBox="0 0 96 40" preserveAspectRatio="none"><polyline fill="none" stroke="#5C7891" stroke-width="1.5" points="0,26 12,22 24,28 36,18 48,24 60,14 72,18 84,8 96,12"/></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== R4 CHASE NEXT (severity ramp) ===== -->
+    <section class="band">
+      <div class="band-head"><span class="rid">R4</span><span class="rtitle">Chase Next</span>
+        <span class="rmeta">oldest-first · verb-led · severity ramp · never auto-sends</span></div>
+      <div class="chase" id="chaseList">
+        <div class="crow" tabindex="0" data-case="case-detail.html">
+          <div class="verb"><span class="vi">⚑</span>Chase images</div>
+          <span class="vrm sm">RDLN 033</span>
+          <span class="prov">RDLN26033 · REDLINE</span>
+          <span class="out">missing 6 photos</span>
+          <div class="sev"><div class="sev-track"><span class="sev-fill hi" style="width:88%"></span></div><span class="dur hi">2d 04h</span></div>
+          <div class="acts"><button class="btn tiny">draft</button><button class="btn tiny gated">file-req<span class="gatetag">box</span></button></div>
+        </div>
+        <div class="crow" tabindex="0" data-case="case-detail.html">
+          <div class="verb"><span class="vi">⚑</span>Chase docs</div>
+          <span class="vrm sm">LV71 KMX</span>
+          <span class="prov">HALX26112 · HALCYON</span>
+          <span class="out">missing instruction</span>
+          <div class="sev"><div class="sev-track"><span class="sev-fill md" style="width:46%"></span></div><span class="dur md">18h 10m</span></div>
+          <div class="acts"><button class="btn tiny">draft</button><button class="btn tiny gated">file-req<span class="gatetag">box</span></button></div>
+        </div>
+        <div class="crow v-conflict" tabindex="0" data-case="case-detail.html">
+          <div class="verb v-conflict"><span class="vi">⚠</span>Verify VRM</div>
+          <span class="vrm sm">GK19 ZRT</span>
+          <span class="prov">CCPY26048 · ACME</span>
+          <span class="out">conflict on reg vs V5C</span>
+          <div class="sev"><div class="sev-track"><span class="sev-fill lo" style="width:18%"></span></div><span class="dur lo">06h 22m</span></div>
+          <div class="acts"><button class="btn tiny">open</button></div>
+        </div>
+        <div class="crow" tabindex="0" data-case="case-detail.html">
+          <div class="verb"><span class="vi">⚑</span>Chase images</div>
+          <span class="vrm sm">YT68 PWA</span>
+          <span class="prov">AVVA26210 · AVIVA</span>
+          <span class="out">missing damage closeup</span>
+          <div class="sev"><div class="sev-track"><span class="sev-fill md" style="width:40%"></span></div><span class="dur md">15h 48m</span></div>
+          <div class="acts"><button class="btn tiny">draft</button><button class="btn tiny gated">file-req<span class="gatetag">box</span></button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== R5 QUEUES SNAPSHOT ===== -->
+    <section class="band" style="border-bottom:none">
+      <div class="band-head"><span class="rid">R5</span><span class="rtitle">Queues Snapshot</span>
+        <span class="rmeta">partitioned by who acts next</span></div>
+      <div class="band-body">
+        <div class="qsnap">
+          <a class="qchip q-notready" href="queues.html#notready"><span class="qg">Not ready</span><span class="qn">12</span></a>
+          <a class="qchip q-review" href="queues.html#review"><span class="qg">◣ Review</span><span class="qn">8</span></a>
+          <a class="qchip q-held" href="queues.html#held"><span class="qg">Held</span><span class="qn">14</span></a>
+          <a class="gomore" href="queues.html">open queues ↗</a>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ===== Cmd-K palette ===== -->
+<div class="scrim" id="scrim">
+  <div class="cmdk" role="dialog" aria-label="Command palette">
+    <div class="cmdk-in"><span class="pre">⌘K</span><input id="cmdkInput" placeholder="jump to a case, queue, or action…" /></div>
+    <div class="cmdk-list">
+      <div class="cmdk-grp">Go to</div>
+      <a class="cmdk-it sel" href="index.html"><span class="ic">◧</span>Cockpit<span class="kbd">g c</span></a>
+      <a class="cmdk-it" href="queues.html"><span class="ic">▦</span>Queues<span class="kbd">g q</span></a>
+      <a class="cmdk-it" href="#" data-go="inbox"><span class="ic">✉</span>Inbox triage<span class="kbd">g i</span></a>
+      <a class="cmdk-it" href="case-detail.html"><span class="ic">▤</span>Case CCPY26050<span class="kbd">↵</span></a>
+      <div class="cmdk-grp">Actions</div>
+      <div class="cmdk-it"><span class="ic">↻</span>Refresh board</div>
+      <div class="cmdk-it"><span class="ic">⊟</span>Toggle density</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== mobile bottom tab bar ===== -->
+<nav class="tabbar">
+  <a href="index.html" class="active"><span class="ic">◧</span>Cockpit</a>
+  <a href="queues.html"><span class="ic">▦</span>Queues<span class="ct">8</span></a>
+  <a href="#" data-go="inbox"><span class="ic">✉</span>Inbox</a>
+  <a href="case-detail.html"><span class="ic">▤</span>Case</a>
+</nav>
+
+<script>
+/* ---- shared NOC behaviours ---- */
+(function(){
+  var rows=[],idx=-1;
+  function collectRows(){rows=[].slice.call(document.querySelectorAll('.trow[tabindex],.crow[tabindex]'));}
+  collectRows();
+  function focusRow(i){if(!rows.length)return;idx=(i+rows.length)%rows.length;rows[idx].focus();}
+  // density
+  var dens=document.getElementById('density');
+  if(dens)dens.addEventListener('click',function(){document.body.classList.toggle('dense');});
+  // refresh
+  var clk=document.getElementById('clock'),rf=document.getElementById('refresh');
+  function doRefresh(){
+    if(clk)clk.classList.add('pulse');
+    var d=new Date();var t=document.getElementById('clockT');
+    if(t)t.textContent=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+    setTimeout(function(){if(clk)clk.classList.remove('pulse');},420);
+  }
+  if(rf)rf.addEventListener('click',doRefresh);
+  // cmd-k
+  var scrim=document.getElementById('scrim'),ci=document.getElementById('cmdkInput');
+  function openK(){if(scrim){scrim.classList.add('open');if(ci){ci.value='';ci.focus();}}}
+  function closeK(){if(scrim)scrim.classList.remove('open');}
+  if(scrim)scrim.addEventListener('click',function(e){if(e.target===scrim)closeK();});
+  // global keys
+  document.addEventListener('keydown',function(e){
+    var tag=(e.target.tagName||'').toLowerCase();var typing=(tag==='input'||tag==='textarea');
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openK();return;}
+    if(e.key==='Escape'){closeK();return;}
+    if(typing)return;
+    if(e.key==='/'){e.preventDefault();var s=document.getElementById('searchInput');if(s)s.focus();return;}
+    if(e.key==='j'){e.preventDefault();focusRow(idx+1);return;}
+    if(e.key==='k'){e.preventDefault();focusRow(idx-1);return;}
+    if(e.key==='Enter'){var el=document.activeElement;if(el&&el.dataset&&el.dataset.case){location.href=el.dataset.case;}return;}
+    if(e.key==='g'){window._g=true;setTimeout(function(){window._g=false;},600);return;}
+    if(window._g){
+      if(e.key==='q')location.href='queues.html';
+      if(e.key==='c')location.href='index.html';
+      if(e.key==='i'){/* inbox stub */}
+      window._g=false;
+    }
+  });
+  // row click navigation
+  document.addEventListener('click',function(e){
+    var btn=e.target.closest('button,.gatetag');
+    var row=e.target.closest('[data-case]');
+    if(row&&!btn){location.href=row.getAttribute('data-case');}
+  });
+  // keep focus index in sync on manual focus
+  document.addEventListener('focusin',function(e){var i=rows.indexOf(e.target);if(i>=0)idx=i;});
+})();
+</script>
+</body>
+</html>

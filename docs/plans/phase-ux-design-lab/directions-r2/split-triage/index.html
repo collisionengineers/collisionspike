@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cockpit · Cold Slate Reader · collisionspike</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/font.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      canvas:'#ECEFF3', pane:'#FFFFFF', list:'#FAFBFC', sunken:'#F4F6F9', hover:'#F2F4F7',
+      selected:'#EDECFD', rail:'#20242E', hairline:'#E3E7ED', strong:'#D4D9E1',
+      ink900:'#1A1D26', ink700:'#3B414E', muted:'#5C6470', faint:'#828A98', disabled:'#AEB4BF',
+      iris:'#5B53EB', irisStrong:'#463CD1', irisBright:'#6E66F2', irisT050:'#EDECFD', irisT100:'#DFDDFB',
+      info:'#2D6FE0', progress:'#B07212', review:'#D92D32', held:'#C07A12', ready:'#128A52',
+      submitted:'#64748B', errorc:'#C2410C', vrm:'#FFD400'
+    },
+    fontFamily: { sans:['Geist','system-ui','sans-serif'], mono:['"Geist Mono"','ui-monospace','monospace'] }
+  }}
+}
+</script>
+<style>
+  :root{ --accent:#5B53EB; }
+  html,body{height:100%}
+  body{background:#ECEFF3;color:#1A1D26;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{scrollbar-width:thin;scrollbar-color:#D4D9E1 transparent}
+  *::-webkit-scrollbar{width:9px;height:9px}
+  *::-webkit-scrollbar-thumb{background:#D4D9E1;border-radius:9px;border:2px solid transparent;background-clip:content-box}
+  *::-webkit-scrollbar-track{background:transparent}
+  .mono{font-family:"Geist Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .eyebrow{font-family:"Geist Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+  .pane{background:#fff;border:1px solid #E3E7ED;border-radius:8px}
+  /* keyboard hint chip */
+  .kbd{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;
+    font-family:"Geist Mono",monospace;font-size:10.5px;font-weight:600;color:#5C6470;background:#F4F6F9;
+    border:1px solid #E3E7ED;border-radius:4px;line-height:1}
+  .kbd-dark{color:#AEB4BF;background:#2A2F3A;border-color:#363C49}
+  /* vrm plate */
+  .vrm{display:inline-flex;align-items:center;gap:5px;background:#FFD400;color:#1A1D26;border:1px solid #C9A800;
+    border-radius:4px;padding:1px 7px 1px 5px;font-family:"Geist Mono",monospace;font-weight:600;font-size:12.5px;letter-spacing:.04em}
+  .vrm::before{content:"";width:4px;height:13px;background:#0B3FA6;border-radius:1px;margin-right:2px}
+  .vrm.sm{font-size:11px;padding:0 5px}
+  /* status badge */
+  .badge{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 7px;border-radius:999px;
+    font-size:10.5px;font-weight:600;letter-spacing:.02em;border:1px solid transparent;white-space:nowrap}
+  .b-review{color:#D92D32;background:#FDECEC;border-color:#F6CFCF}
+  .b-held{color:#9A6310;background:#FBF1DF;border-color:#EBD9B4}
+  .b-ready{color:#0C7044;background:#E4F4EC;border-color:#BEE5D0}
+  .b-notready{color:#5C6470;background:#F0F2F5;border-color:#E0E4EA}
+  .b-submitted{color:#4B5563;background:#EEF0F3;border-color:#DDE1E7}
+  .b-conflict{color:#C2410C;background:#FBEDE3;border-color:#F0D2BC}
+  /* category dot */
+  .catdot{width:7px;height:7px;border-radius:999px;display:inline-block}
+  /* list row dual state */
+  .mrow{position:relative;cursor:pointer;border-left:2px solid transparent;transition:background .12s ease}
+  .mrow:hover{background:#F2F4F7}
+  .mrow[data-cursor]{box-shadow:inset 0 0 0 1px var(--accent);border-radius:5px}
+  .mrow[data-open]{background:#EDECFD;border-left-color:var(--accent)}
+  .mrow[data-open]:hover{background:#E6E4FB}
+  .undot{width:6px;height:6px;border-radius:999px;background:var(--accent);flex:none}
+  /* focus ring */
+  a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:none;
+    box-shadow:0 0 0 2px #fff,0 0 0 4px var(--accent);border-radius:5px}
+  /* morph crossfade */
+  .morph{transition:opacity .14s ease, transform .14s ease}
+  .morph.out{opacity:0;transform:translateY(4px);pointer-events:none;position:absolute;inset:0}
+  /* funnel seg */
+  .fseg{display:flex;flex-direction:column;gap:1px;padding:6px 9px;border:1px solid #E3E7ED;border-radius:6px;background:#fff;min-width:0}
+  .fseg.em{background:#FBF1DF;border-color:#EBD9B4}
+  .chev{color:#C2C8D2;font-size:12px;flex:none}
+  .tile{background:var(--accent);color:#fff;border-radius:8px;padding:12px 14px;position:relative;overflow:hidden}
+  .tile.ghost{background:#fff;color:#1A1D26;border:1px solid #E3E7ED}
+  .duepill{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;font-size:10.5px;font-weight:600;font-family:"Geist Mono",monospace}
+  .due-hot{color:#D92D32;background:#FDECEC}
+  .due-warn{color:#9A6310;background:#FBF1DF}
+  .due-soft{color:#5C6470;background:#F0F2F5}
+  .railitem{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0;color:#9AA1AD;text-decoration:none;border-radius:8px}
+  .railitem:hover{color:#fff;background:#2A2F3A}
+  .railitem.active{color:#fff}
+  .railitem.active::before{content:"";position:absolute;left:-8px;top:6px;bottom:6px;width:2px;background:var(--accent);border-radius:2px}
+  .railitem.active .ricon{background:#3A3168}
+  .ricon{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+  .rbadge{font-family:"Geist Mono",monospace;font-size:9px;font-weight:600;line-height:1}
+  [hidden]{display:none!important}
+  @media (prefers-reduced-motion: reduce){ .morph{transition:none} }
+  /* ---- responsive: degrade pane count (tablet -> two-pane, phone -> single) ---- */
+  @media (max-width:1279px){
+    #shell{ grid-template-columns:56px 300px 1fr 0px !important; }
+    #ctxPane{ display:none !important; }
+  }
+  @media (max-width:767px){
+    body{ overflow:auto !important; }
+    #shell{ display:block !important; height:auto !important; padding-bottom:64px; }
+    #railNav{ display:none !important; }
+    #ctxPane{ display:block !important; border-left:none; border-top:1px solid #E3E7ED; }
+    #shell > section, #shell > aside{ height:auto !important; min-height:0 !important; }
+    #shell .flex-1.overflow-y-auto{ overflow:visible !important; height:auto !important; }
+    #shell .flex-1.overflow-auto{ overflow-x:auto !important; overflow-y:visible !important; height:auto !important; }
+    #cockpit .grid-cols-3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    #mobileTabs{ display:flex !important; }
+  }
+</style>
+</head>
+<body class="overflow-hidden">
+
+<!-- ============ HEADER BAR 48 ============ -->
+<header class="h-12 bg-pane border-b border-hairline flex items-center px-3 gap-3 relative z-20">
+  <div class="flex items-center gap-2 shrink-0">
+    <div class="w-6 h-6 rounded-md bg-iris flex items-center justify-center text-white font-bold text-[13px]">c</div>
+    <span class="font-semibold text-[13px] tracking-tight">collisionspike</span>
+    <span class="mono text-faint text-[11px] hidden sm:inline">/ cockpit</span>
+  </div>
+  <!-- centre search -->
+  <button id="searchBtn" class="flex-1 max-w-xl mx-auto h-8 px-3 flex items-center gap-2 bg-sunken border border-hairline rounded-md text-faint text-[12.5px] hover:border-strong transition">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <span class="truncate">Search cases, VRM, provider…</span>
+    <span class="ml-auto flex items-center gap-1"><span class="kbd">⌘</span><span class="kbd">K</span></span>
+  </button>
+  <div class="flex items-center gap-3 shrink-0">
+    <span class="eyebrow text-faint hidden md:flex items-center gap-1.5">UPDATED 14:07
+      <button class="text-muted hover:text-ink900" title="Refresh"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></button>
+    </span>
+    <button id="ctxToggle" class="kbd hidden lg:inline-flex" title="Toggle context pane">]</button>
+    <div class="w-6 h-6 rounded-full bg-rail text-white text-[10px] font-semibold flex items-center justify-center mono">RB</div>
+  </div>
+</header>
+
+<!-- ============ SHELL ============ -->
+<div id="shell" class="grid h-[calc(100vh-48px)]" style="grid-template-columns:56px 360px 1fr 340px">
+
+  <!-- ---- RAIL 56 ---- -->
+  <nav id="railNav" class="bg-rail flex flex-col items-center py-3 gap-1.5 px-2" aria-label="Primary">
+    <a href="index.html" class="railitem active" title="Cockpit">
+      <span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>
+      <span class="rbadge text-iris">·</span>
+    </a>
+    <a href="index.html" class="railitem" title="Inbox">
+      <span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg></span>
+      <span class="rbadge text-faint">47</span>
+    </a>
+    <a href="queues.html" class="railitem" title="Queues">
+      <span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span>
+      <span class="rbadge text-faint">20</span>
+    </a>
+    <a href="case-detail.html" class="railitem" title="Ready for EVA">
+      <span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span>
+      <span class="rbadge text-ready">5</span>
+    </a>
+    <div class="w-7 h-px bg-[#363C49] my-1"></div>
+    <a href="#" class="railitem" title="Manual intake">
+      <span class="ricon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v10m0-10l-4 4m4-4l4 4"/><path d="M4 19h16"/></svg></span>
+    </a>
+    <div class="flex-1"></div>
+    <!-- admin partition (least-privilege) -->
+    <a href="#" class="railitem" title="Admin / Corpus"><span class="ricon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.2A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 2 14"/></svg></span></a>
+    <a href="#" class="railitem" title="Settings"><span class="ricon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/></svg></span></a>
+    <button id="helpBtn" class="railitem" title="Keyboard reference (?)"><span class="ricon"><span class="kbd kbd-dark">?</span></span></button>
+  </nav>
+
+  <!-- ---- LIST 360 — WHOLE INBOX ---- -->
+  <section class="bg-list border-r border-hairline flex flex-col min-h-0">
+    <div class="h-10 px-3 flex items-center justify-between border-b border-hairline shrink-0">
+      <span class="eyebrow text-ink700">Inbox · 47</span>
+      <div class="flex items-center gap-1 text-faint"><span class="kbd">J</span><span class="kbd">K</span><span class="text-[10.5px] mono ml-1">move</span></div>
+    </div>
+    <div id="inbox" class="flex-1 overflow-y-auto" tabindex="0">
+
+      <!-- segment: RECEIVING WORK -->
+      <div class="px-3 pt-3 pb-1.5 flex items-center gap-2 sticky top-0 bg-list z-10">
+        <span class="catdot" style="background:#5B53EB"></span>
+        <span class="eyebrow text-ink700">Receiving work</span>
+        <span class="mono text-faint text-[11px] ml-auto">31</span>
+      </div>
+
+      <div class="mrow px-3 py-2 flex gap-2.5" data-row data-open data-mode="email"
+           data-from="acme.co" data-subj="PO refresh — new instruction" data-case="CCPY26050" data-vrm="AB12 CDE" data-sub="instruction" data-time="14:02">
+        <span class="undot mt-1.5" aria-label="Untriaged"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-baseline gap-2"><span class="text-[13px] font-semibold truncate">acme.co</span><span class="mono text-[10.5px] text-faint ml-auto shrink-0">14:02</span></div>
+          <div class="text-[12.5px] text-ink700 truncate">PO refresh — new instruction</div>
+          <div class="flex items-center gap-1.5 mt-0.5"><span class="mono text-[10px] text-faint">instruction</span><span class="text-strong">·</span><span class="mono text-[10px] text-iris">CCPY26050 ↗</span></div>
+        </div>
+      </div>
+
+      <div class="mrow px-3 py-2 flex gap-2.5" data-row data-mode="email"
+           data-from="ins@x-claims.co.uk" data-subj="re: VRM AB12 CDE — images attached" data-case="CCPY26050" data-vrm="AB12 CDE" data-sub="query→case" data-time="13:58">
+        <span class="undot mt-1.5" aria-label="Untriaged"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-baseline gap-2"><span class="text-[13px] font-semibold truncate">ins@x-claims.co.uk</span><span class="mono text-[10.5px] text-faint ml-auto shrink-0">13:58</span></div>
+          <div class="text-[12.5px] text-ink700 truncate">re: VRM AB12 CDE — images attached</div>
+          <div class="flex items-center gap-1.5 mt-0.5"><span class="mono text-[10px] text-faint">query → links to case</span><span class="text-strong">·</span><span class="mono text-[10px] text-iris">↗</span></div>
+        </div>
+      </div>
+
+      <div class="mrow px-3 py-2 flex gap-2.5" data-row data-mode="email"
+           data-from="claims@halcyon-group.com" data-subj="Halcyon — LV71 KMX instruction + photos" data-case="HALX26112" data-vrm="LV71 KMX" data-sub="instruction" data-time="13:44">
+        <span class="undot mt-1.5" aria-label="Untriaged"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-baseline gap-2"><span class="text-[13px] font-semibold truncate">claims@halcyon-group.com</span><span class="mono text-[10.5px] text-faint ml-auto shrink-0">13:44</span></div>
+          <div class="text-[12.5px] text-ink700 truncate">Halcyon — LV71 KMX instruction + photos</div>
+          <div class="flex items-center gap-1.5 mt-0.5"><span class="mono text-[10px] text-faint">instruction</span><span class="text-strong">·</span><span class="mono text-[10px] text-iris">HALX26112 ↗</span></div>
+        </div>
+      </div>
+
+      <div class="mrow px-3 py-2 flex gap-2.5" data-row data-mode="email"
+           data-from="dispatch@careline.uk" data-subj="GK19 ZRT — please confirm receipt" data-case="CCPY26051" data-vrm="GK19 ZRT" data-sub="instruction" data-time="13:31">
+        <span class="undot mt-1.5" aria-label="Untriaged"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-baseline gap-2"><span class="text-[13px] font-semibold truncate">dispatch@careline.uk</span><span class="mono text-[10.5px] text-faint ml-auto shrink-0">13:31</span></div>
+          <div class="text-[12.5px] text-ink700 truncate">GK19 ZRT — please confirm receipt</div>
+          <div class="flex items-center gap-1.5 mt-0.5"><span class="mono text-[10px] text-faint">instruction</span></div>
+        </div>
+      </div>
+
+      <!-- segment: QUERIES -->
+      <div class="px-3 pt-4 pb-1.5 flex items-center gap-2 sticky top-0 bg-list z-10 border-t border-hairline">
+        <span class="catdot" style="background:#2D6FE0"></span>
+        <span class="eyebrow text-ink700">Queries</span>
+        <span class="mono text-faint text-[11px] ml-auto">9</span>
+      </div>
+
+      <div class="mrow px-3 py-2 flex gap-2.5" data-row data-mode="email"
+           data-from="broker@meridian-legal.co.uk" data-subj="status? — RA20 TBC valuation" data-case="CCPY26051" data-vrm="RA20 TBC" data-sub="query" data-time="13:51">
+        <span class="undot mt-1.5 opacity-0"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-baseline gap-2"><span class="text-[13px] text-ink700 truncate">broker@meridian-legal.co.uk</span><span class="mono text-[10.5px] text-faint ml-auto shrink-0">13:51</span></div>
+          <div class="text-[12.5px] text-muted truncate">status? — RA20 TBC valuation</div>
+          <div class="flex items-center gap-1.5 mt-0.5"><span class="mono text-[10px] text-faint">query · read</span></div>
+        </div>
+      </div>
+
+      <div class="mrow px-3 py-2 flex gap-2.5" data-row data-mode="email"
+           data-from="j.okafor@x-claims.co.uk" data-subj="chasing report — GK19 ZRT" data-case="CCPY26048" data-vrm="GK19 ZRT" data-sub="query" data-time="12:20">
+        <span class="undot mt-1.5 opacity-0"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-baseline gap-2"><span class="text-[13px] text-ink700 truncate">j.okafor@x-claims.co.uk</span><span class="mono text-[10.5px] text-faint ml-auto shrink-0">12:20</span></div>
+          <div class="text-[12.5px] text-muted truncate">chasing report — GK19 ZRT</div>
+          <div class="flex items-center gap-1.5 mt-0.5"><span class="mono text-[10px] text-faint">query · read</span></div>
+        </div>
+      </div>
+
+      <!-- segment: OTHER -->
+      <div class="px-3 pt-4 pb-1.5 flex items-center gap-2 sticky top-0 bg-list z-10 border-t border-hairline">
+        <span class="catdot" style="background:#828A98"></span>
+        <span class="eyebrow text-ink700">Other</span>
+        <span class="text-[10px] text-faint">· needs a human</span>
+        <span class="mono text-faint text-[11px] ml-auto">7</span>
+      </div>
+
+      <div class="mrow px-3 py-2 flex gap-2.5" data-row data-mode="email"
+           data-from="noreply@mailer-daemon" data-subj="&quot;delivery failure&quot; — unidentified" data-case="" data-vrm="" data-sub="unidentified" data-time="13:30">
+        <span class="undot mt-1.5 opacity-0"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-baseline gap-2"><span class="text-[13px] text-ink700 truncate">noreply@mailer-daemon</span><span class="mono text-[10.5px] text-faint ml-auto shrink-0">13:30</span></div>
+          <div class="text-[12.5px] text-muted truncate">"delivery failure" — unidentified</div>
+          <div class="flex items-center gap-1.5 mt-0.5"><span class="mono text-[10px] text-faint">unidentified · categorise →</span></div>
+        </div>
+      </div>
+
+      <div class="mrow px-3 py-2 flex gap-2.5" data-row data-mode="email"
+           data-from="newsletter@autotrade.news" data-subj="Weekly trade bulletin" data-case="" data-vrm="" data-sub="bulk" data-time="09:05">
+        <span class="undot mt-1.5 opacity-0"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-baseline gap-2"><span class="text-[13px] text-muted truncate">newsletter@autotrade.news</span><span class="mono text-[10.5px] text-faint ml-auto shrink-0">09:05</span></div>
+          <div class="text-[12.5px] text-faint truncate">Weekly trade bulletin</div>
+          <div class="flex items-center gap-1.5 mt-0.5"><span class="mono text-[10px] text-faint">bulk · archive</span></div>
+        </div>
+      </div>
+      <div class="h-8"></div>
+    </div>
+    <div class="h-9 px-3 flex items-center gap-2 border-t border-hairline shrink-0 text-faint">
+      <span class="kbd">E</span><span class="text-[11px] mono">triage</span>
+      <span class="kbd ml-2">↵</span><span class="text-[11px] mono">open</span>
+      <span class="kbd ml-auto">R</span><span class="text-[11px] mono">draft chaser</span>
+    </div>
+  </section>
+
+  <!-- ---- READING — morphs cockpit <-> email preview ---- -->
+  <section class="bg-canvas min-h-0 flex flex-col">
+    <!-- mode header -->
+    <div class="h-10 px-4 flex items-center gap-3 shrink-0">
+      <span id="modeTag" class="eyebrow text-ink900">Chase cockpit</span>
+      <span id="modeSub" class="mono text-[11px] text-faint">live depth · windowed throughput · aging exceptions</span>
+      <button id="backToCockpit" hidden class="ml-auto h-7 px-2.5 inline-flex items-center gap-1.5 text-[12px] text-muted hover:text-ink900 border border-hairline rounded-md bg-pane">
+        <span class="kbd">Esc</span> back to cockpit
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto px-4 pb-4 relative">
+
+      <!-- ===== COCKPIT (default) ===== -->
+      <div id="cockpit" class="morph space-y-3">
+
+        <!-- exception bar (one line, not a banner) -->
+        <div class="pane px-4 h-10 flex items-center gap-4 text-[12.5px]">
+          <span class="flex items-center gap-1.5 font-medium text-review"><span>▲</span>3 past due</span>
+          <span class="text-strong">·</span>
+          <span class="flex items-center gap-1.5 font-medium text-ink700">2 duplicate</span>
+          <span class="text-strong">·</span>
+          <span class="flex items-center gap-1.5 font-medium text-ink700">1 conflict</span>
+          <a href="queues.html" class="ml-auto mono text-[11px] text-iris hover:text-irisStrong">resolve all ↗</a>
+        </div>
+
+        <!-- pipeline funnel -->
+        <div class="pane p-3">
+          <div class="eyebrow text-faint mb-2">Pipeline</div>
+          <div class="flex items-stretch gap-1.5 overflow-x-auto">
+            <div class="fseg"><span class="mono text-[16px] font-semibold leading-none">3</span><span class="text-[10px] text-muted">New</span></div>
+            <span class="chev self-center">▸</span>
+            <div class="fseg"><span class="mono text-[16px] font-semibold leading-none">1</span><span class="text-[10px] text-muted">Parse</span></div>
+            <span class="chev self-center">▸</span>
+            <div class="fseg" style="background:#FDECEC;border-color:#F6CFCF"><span class="mono text-[16px] font-semibold leading-none text-review">8</span><span class="text-[10px] text-review">Review</span></div>
+            <span class="chev self-center">▸</span>
+            <div class="fseg em"><span class="mono text-[16px] font-semibold leading-none text-held">14</span><span class="text-[10px] text-held">Held</span></div>
+            <span class="chev self-center">▸</span>
+            <div class="fseg"><span class="mono text-[16px] font-semibold leading-none text-ready">5</span><span class="text-[10px] text-muted">Ready</span></div>
+            <span class="chev self-center">▸</span>
+            <div class="fseg"><span class="mono text-[16px] font-semibold leading-none text-submitted">19</span><span class="text-[10px] text-muted">Subm</span></div>
+            <span class="chev self-center">▸</span>
+            <div class="fseg"><span class="mono text-[16px] font-semibold leading-none text-muted">19</span><span class="text-[10px] text-muted">Box</span></div>
+          </div>
+        </div>
+
+        <!-- LIVE DEPTH — solid iris tiles (drains) -->
+        <div>
+          <div class="eyebrow text-faint mb-2 px-0.5">Live depth · drains as work clears</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="tile">
+              <div class="text-[11px] font-medium opacity-80 mb-1">Awaiting action</div>
+              <div class="mono font-bold leading-none" style="font-size:30px">22</div>
+              <div class="text-[11px] opacity-85 mt-2 mono">Review 8 · Held 14</div>
+            </div>
+            <a href="case-detail.html" class="tile ghost block hover:border-strong transition">
+              <div class="flex items-center justify-between mb-1"><span class="text-[11px] font-medium text-muted">Ready for EVA</span><span class="badge b-ready">all gates green</span></div>
+              <div class="mono font-bold leading-none text-ready" style="font-size:30px">5</div>
+              <div class="text-[11px] text-faint mt-2 mono">→ open queue</div>
+            </a>
+          </div>
+        </div>
+
+        <!-- WINDOWED — ghost cells + spark (terminal states ONLY) -->
+        <div>
+          <div class="eyebrow text-faint mb-2 px-0.5">Windowed throughput · resets each window</div>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="pane p-3">
+              <div class="text-[11px] text-muted mb-1">In today</div>
+              <div class="flex items-end justify-between">
+                <span class="mono text-[22px] font-semibold leading-none">23</span>
+                <svg width="64" height="22" viewBox="0 0 64 22" fill="none" class="opacity-90"><polyline points="0,18 10,15 20,17 30,9 40,12 52,5 64,7" stroke="#5B53EB" stroke-width="1.6" fill="none"/></svg>
+              </div>
+            </div>
+            <div class="pane p-3">
+              <div class="text-[11px] text-muted mb-1">Submitted today</div>
+              <div class="flex items-end justify-between">
+                <span class="mono text-[22px] font-semibold leading-none">19</span>
+                <svg width="64" height="22" viewBox="0 0 64 22" fill="none" class="opacity-90"><polyline points="0,16 12,17 24,12 36,13 48,8 64,9" stroke="#128A52" stroke-width="1.6" fill="none"/></svg>
+              </div>
+            </div>
+            <div class="pane p-3">
+              <div class="text-[11px] text-muted mb-1">Cleared this week</div>
+              <div class="flex items-end justify-between">
+                <span class="mono text-[22px] font-semibold leading-none">88</span>
+                <svg width="64" height="22" viewBox="0 0 64 22" fill="none" class="opacity-80"><polyline points="0,19 10,14 22,15 34,8 46,10 64,3" stroke="#64748B" stroke-width="1.6" fill="none"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHASE NEXT — oldest due first, verb-led -->
+        <div class="pane">
+          <div class="px-3 h-9 flex items-center border-b border-hairline">
+            <span class="eyebrow text-ink700">Chase next · oldest due first</span>
+            <span class="mono text-[10.5px] text-faint ml-auto">6 actions</span>
+          </div>
+          <ul class="divide-y divide-hairline">
+            <li class="px-3 py-2.5 flex items-center gap-3 hover:bg-hover transition">
+              <span class="w-1 self-stretch rounded-full bg-review"></span>
+              <div class="min-w-0 flex-1">
+                <div class="text-[13px] font-semibold">Chase garage for images</div>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="vrm sm">AB12 CDE</span><span class="mono text-[11px] text-muted">CCPY26050</span>
+                  <span class="text-[11px] text-faint">ACME · BMW 320d</span>
+                </div>
+              </div>
+              <span class="duepill due-hot">2d 04h past due</span>
+              <div class="flex items-center gap-1.5">
+                <button class="h-7 px-2.5 text-[12px] font-medium text-iris bg-irisT050 rounded-md hover:bg-irisT100">Draft</button>
+                <a href="case-detail.html" class="h-7 w-7 grid place-items-center text-muted hover:text-ink900 border border-hairline rounded-md" title="Open case">↗</a>
+              </div>
+            </li>
+            <li class="px-3 py-2.5 flex items-center gap-3 hover:bg-hover transition">
+              <span class="w-1 self-stretch rounded-full bg-held"></span>
+              <div class="min-w-0 flex-1">
+                <div class="text-[13px] font-semibold">Decide inspection address</div>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="vrm sm">LV71 KMX</span><span class="mono text-[11px] text-muted">HALX26112</span>
+                  <span class="text-[11px] text-faint">HALCYON · Audi A4</span>
+                </div>
+              </div>
+              <span class="duepill due-warn">2d due soon</span>
+              <a href="case-detail.html" class="h-7 px-2.5 grid place-items-center text-[12px] font-medium text-muted hover:text-ink900 border border-hairline rounded-md">Open</a>
+            </li>
+            <li class="px-3 py-2.5 flex items-center gap-3 hover:bg-hover transition">
+              <span class="w-1 self-stretch rounded-full bg-review"></span>
+              <div class="min-w-0 flex-1">
+                <div class="text-[13px] font-semibold">Resolve duplicate candidate</div>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="vrm sm">GK19 ZRT</span><span class="mono text-[11px] text-muted">CCPY26048</span>
+                  <span class="text-[11px] text-faint">ACME · VW Golf</span>
+                </div>
+              </div>
+              <span class="duepill due-warn">18h</span>
+              <a href="case-detail.html" class="h-7 px-2.5 grid place-items-center text-[12px] font-medium text-muted hover:text-ink900 border border-hairline rounded-md">Open</a>
+            </li>
+            <li class="px-3 py-2.5 flex items-center gap-3 hover:bg-hover transition">
+              <span class="w-1 self-stretch rounded-full bg-strong"></span>
+              <div class="min-w-0 flex-1">
+                <div class="text-[13px] font-semibold">Chase instruction document</div>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="vrm sm">RA20 TBC</span><span class="mono text-[11px] text-muted">CCPY26051</span>
+                  <span class="text-[11px] text-faint">CARELINE · Ford Kuga</span>
+                </div>
+              </div>
+              <span class="duepill due-soft">06h</span>
+              <a href="case-detail.html" class="h-7 px-2.5 grid place-items-center text-[12px] font-medium text-muted hover:text-ink900 border border-hairline rounded-md">Open</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ===== EMAIL PREVIEW (morph target) ===== -->
+      <div id="preview" class="morph out space-y-3">
+        <div class="pane p-4">
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-full bg-iris/10 text-iris grid place-items-center font-semibold text-[13px] shrink-0" id="pvAvatar">A</div>
+            <div class="min-w-0 flex-1">
+              <div class="text-[15px] font-semibold leading-tight" id="pvSubj">PO refresh — new instruction</div>
+              <div class="text-[12.5px] text-muted mt-0.5"><span id="pvFrom" class="mono">acme.co</span> · <span id="pvTime" class="mono">14:02</span></div>
+            </div>
+            <span class="badge b-notready" id="pvSub">instruction</span>
+          </div>
+          <div class="mt-3 flex flex-wrap items-center gap-2 text-[12px]">
+            <span class="text-faint">links to</span>
+            <span class="vrm sm" id="pvVrm">AB12 CDE</span>
+            <a href="case-detail.html" class="mono text-[12px] text-iris hover:text-irisStrong" id="pvCase">CCPY26050 ↗</a>
+          </div>
+        </div>
+
+        <!-- triage actions -->
+        <div class="pane p-3 flex flex-wrap items-center gap-2">
+          <button class="h-8 px-3 inline-flex items-center gap-2 bg-iris text-white text-[12.5px] font-medium rounded-md hover:bg-irisBright">
+            File to case <span class="kbd kbd-dark">E</span>
+          </button>
+          <button class="h-8 px-3 inline-flex items-center gap-2 border border-hairline bg-pane text-ink700 text-[12.5px] rounded-md hover:bg-hover">Reclassify ▾</button>
+          <a href="case-detail.html" class="h-8 px-3 inline-flex items-center gap-2 border border-hairline bg-pane text-ink700 text-[12.5px] rounded-md hover:bg-hover">Open case ↗</a>
+          <button class="h-8 px-3 inline-flex items-center gap-2 border border-hairline bg-pane text-ink700 text-[12.5px] rounded-md hover:bg-hover">Draft reply <span class="kbd">R</span></button>
+          <button class="h-8 w-8 grid place-items-center border border-hairline bg-pane text-muted rounded-md hover:bg-hover ml-auto" title="Open in mailbox">↗</button>
+        </div>
+
+        <!-- email body -->
+        <div class="pane p-4 text-[13px] leading-relaxed text-ink700">
+          <p class="mb-3">Hi team,</p>
+          <p class="mb-3">Please find attached the refreshed instruction for <span class="mono">AB12 CDE</span> (claimant J. Okafor). The original PO reference is <span class="mono">CCPY26050</span>. Vehicle is a 2018 BMW 320d M-Sport, rear-end damage at a junction.</p>
+          <p class="mb-3">Images to follow from the garage separately. Date of loss 18 Jun 2026.</p>
+          <p class="text-muted">— ACME Claims dispatch</p>
+          <div class="mt-4 pt-3 border-t border-hairline flex items-center gap-2">
+            <span class="eyebrow text-faint">Attachments</span>
+            <span class="inline-flex items-center gap-1.5 h-7 px-2.5 bg-sunken border border-hairline rounded-md text-[12px] mono">instruction-CCPY26050.pdf</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ---- CONTEXT 340 ---- -->
+  <aside id="ctxPane" class="bg-pane border-l border-hairline flex flex-col min-h-0">
+    <div class="flex-1 overflow-y-auto p-3 space-y-3">
+
+      <div>
+        <div class="eyebrow text-ink700 mb-2">Exceptions</div>
+        <div class="space-y-1.5">
+          <a href="queues.html" class="flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-hover border border-hairline">
+            <span class="text-review">▲</span><span class="text-[12.5px] text-ink700 flex-1">Past due</span><span class="mono text-[13px] font-semibold text-review">3</span>
+          </a>
+          <a href="queues.html" class="flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-hover border border-hairline">
+            <span class="text-muted">◆</span><span class="text-[12.5px] text-ink700 flex-1">Duplicate</span><span class="mono text-[13px] font-semibold">2</span>
+          </a>
+          <a href="queues.html" class="flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-hover border border-hairline">
+            <span class="text-errorc">▲</span><span class="text-[12.5px] text-ink700 flex-1">Conflict</span><span class="mono text-[13px] font-semibold">1</span>
+          </a>
+        </div>
+      </div>
+
+      <div>
+        <div class="eyebrow text-ink700 mb-2 flex items-center">Ready to submit <a href="queues.html" class="ml-auto mono text-[10.5px] text-iris">all 5 ↗</a></div>
+        <div class="space-y-1">
+          <a href="case-detail.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-hover">
+            <span class="vrm sm">AB22 OWZ</span><span class="mono text-[11px] text-muted truncate">CCPY26041</span><span class="text-[11px] text-faint ml-auto">ACME</span></a>
+          <a href="case-detail.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-hover">
+            <span class="vrm sm">HX19 PLO</span><span class="mono text-[11px] text-muted truncate">HALX26109</span><span class="text-[11px] text-faint ml-auto">HALCYON</span></a>
+          <a href="case-detail.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-hover">
+            <span class="vrm sm">LV71 KMX</span><span class="mono text-[11px] text-muted truncate">CCPY26033</span><span class="text-[11px] text-faint ml-auto">CARELINE</span></a>
+          <div class="px-2.5 text-[11px] text-faint mono">…2 more</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="eyebrow text-ink700 mb-2">Queues snapshot</div>
+        <div class="space-y-1.5">
+          <a href="queues.html" class="flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-hover border border-hairline">
+            <span class="catdot" style="background:#6B7280"></span><span class="text-[12.5px] flex-1">Not ready</span><span class="mono text-[13px] font-semibold">12</span></a>
+          <a href="queues.html" class="flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-hover border border-hairline">
+            <span class="catdot" style="background:#D92D32"></span><span class="text-[12.5px] flex-1">Review</span><span class="mono text-[13px] font-semibold text-review">8</span></a>
+          <a href="queues.html" class="flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-hover border border-hairline">
+            <span class="catdot" style="background:#C07A12"></span><span class="text-[12.5px] flex-1">Held</span><span class="mono text-[13px] font-semibold text-held">14</span></a>
+        </div>
+        <a href="queues.html" class="block mt-2 text-center h-8 leading-8 text-[12px] font-medium text-iris bg-irisT050 rounded-md hover:bg-irisT100">Open queues →</a>
+      </div>
+
+    </div>
+  </aside>
+
+</div>
+
+<!-- ============ mobile bottom tab bar ============ -->
+<nav id="mobileTabs" class="fixed bottom-0 inset-x-0 z-40 bg-rail hidden h-14 items-center justify-around px-1 border-t border-[#363C49]" aria-label="Sections">
+  <a href="index.html" class="flex flex-col items-center gap-0.5 px-3 text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="text-[10px]">Cockpit</span></a>
+  <a href="index.html" class="flex flex-col items-center gap-0.5 px-3 text-[#9AA1AD]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg><span class="text-[10px]">Inbox</span></a>
+  <a href="queues.html" class="flex flex-col items-center gap-0.5 px-3 text-[#9AA1AD]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg><span class="text-[10px]">Queues</span></a>
+  <a href="case-detail.html" class="flex flex-col items-center gap-0.5 px-3 text-[#9AA1AD]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span class="text-[10px]">Case</span></a>
+</nav>
+
+<!-- ============ ⌘K palette (stub) ============ -->
+<div id="cmdk" hidden class="fixed inset-0 z-50 bg-ink900/30 flex items-start justify-center pt-[14vh] px-4">
+  <div class="w-full max-w-lg bg-pane rounded-[10px] shadow-2xl border border-hairline overflow-hidden" style="box-shadow:0 12px 32px rgba(22,26,38,.16)">
+    <div class="h-12 px-3 flex items-center gap-2 border-b border-hairline">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C6470" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="cmdkInput" autofocus placeholder="Jump to case, VRM, or run a command…" class="flex-1 bg-transparent outline-none text-[13.5px] placeholder:text-faint" />
+      <span class="kbd">Esc</span>
+    </div>
+    <ul class="py-1.5 text-[13px]">
+      <li class="px-3 py-2 flex items-center gap-3 hover:bg-hover cursor-pointer"><span class="catdot" style="background:#5B53EB"></span>Go to cockpit <span class="kbd ml-auto">G I</span></li>
+      <li class="px-3 py-2 flex items-center gap-3 hover:bg-hover cursor-pointer"><span class="catdot" style="background:#2D6FE0"></span>Go to queues <span class="kbd ml-auto">G Q</span></li>
+      <li class="px-3 py-2 flex items-center gap-3 hover:bg-hover cursor-pointer"><span class="text-muted">↗</span>Open AB12 CDE · CCPY26050</li>
+      <li class="px-3 py-2 flex items-center gap-3 hover:bg-hover cursor-pointer"><span class="text-iris">＋</span>Manual intake — upload PDF</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ ? reference overlay ============ -->
+<div id="help" hidden class="fixed inset-0 z-50 bg-ink900/30 flex items-center justify-center px-4">
+  <div class="w-full max-w-md bg-pane rounded-[10px] border border-hairline p-5" style="box-shadow:0 12px 32px rgba(22,26,38,.16)">
+    <div class="flex items-center mb-3"><span class="eyebrow text-ink900">Keyboard reference</span><button id="helpClose" class="ml-auto kbd">Esc</button></div>
+    <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-[12.5px]">
+      <div class="flex items-center justify-between"><span>Move cursor</span><span><span class="kbd">J</span> <span class="kbd">K</span></span></div>
+      <div class="flex items-center justify-between"><span>Open / focus</span><span class="kbd">↵</span></div>
+      <div class="flex items-center justify-between"><span>Back to list</span><span class="kbd">Esc</span></div>
+      <div class="flex items-center justify-between"><span>Command palette</span><span><span class="kbd">⌘</span><span class="kbd">K</span></span></div>
+      <div class="flex items-center justify-between"><span>Triage email</span><span class="kbd">E</span></div>
+      <div class="flex items-center justify-between"><span>Draft chaser</span><span class="kbd">R</span></div>
+      <div class="flex items-center justify-between"><span>Submit (ready)</span><span class="kbd">S</span></div>
+      <div class="flex items-center justify-between"><span>Hold / release</span><span class="kbd">H</span></div>
+      <div class="flex items-center justify-between"><span>Switch surface</span><span class="kbd">G ·</span></div>
+      <div class="flex items-center justify-between"><span>Toggle panes</span><span><span class="kbd">[</span> <span class="kbd">]</span></span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rows = Array.from(document.querySelectorAll('#inbox [data-row]'));
+  const cockpit = document.getElementById('cockpit');
+  const preview = document.getElementById('preview');
+  const modeTag = document.getElementById('modeTag');
+  const modeSub = document.getElementById('modeSub');
+  const backBtn = document.getElementById('backToCockpit');
+  let cur = rows.findIndex(r=>r.hasAttribute('data-open'));
+  if(cur<0) cur=0;
+
+  function setCursor(i){
+    rows.forEach(r=>r.removeAttribute('data-cursor'));
+    cur=Math.max(0,Math.min(rows.length-1,i));
+    rows[cur].setAttribute('data-cursor','');
+    rows[cur].scrollIntoView({block:'nearest'});
+  }
+  function openRow(r){
+    rows.forEach(x=>x.removeAttribute('data-open'));
+    r.setAttribute('data-open','');
+    // populate preview
+    document.getElementById('pvSubj').textContent = r.dataset.subj || '';
+    document.getElementById('pvFrom').textContent = r.dataset.from || '';
+    document.getElementById('pvTime').textContent = r.dataset.time || '';
+    document.getElementById('pvSub').textContent = r.dataset.sub || '';
+    document.getElementById('pvAvatar').textContent = (r.dataset.from||'?')[0].toUpperCase();
+    const vrm=document.getElementById('pvVrm'), cs=document.getElementById('pvCase');
+    if(r.dataset.vrm){ vrm.textContent=r.dataset.vrm; vrm.style.display=''; } else { vrm.style.display='none'; }
+    cs.textContent = r.dataset.case ? r.dataset.case+' ↗' : 'no linked case';
+    morph(true);
+    modeTag.textContent = r.dataset.vrm ? r.dataset.vrm : 'Untriaged';
+    modeSub.textContent = (r.dataset.case||'—') + ' · ' + (r.dataset.sub||'');
+    backBtn.hidden=false;
+  }
+  function morph(toPreview){
+    if(toPreview){ cockpit.classList.add('out'); preview.classList.remove('out'); }
+    else { preview.classList.add('out'); cockpit.classList.remove('out'); modeTag.textContent='Chase cockpit'; modeSub.textContent='live depth · windowed throughput · aging exceptions'; backBtn.hidden=true; }
+  }
+  setCursor(cur);
+  rows.forEach((r,i)=>{
+    r.tabIndex=0;
+    r.addEventListener('click',(e)=>{ if(e.target.closest('a')) return; setCursor(i); openRow(r); });
+  });
+  backBtn.addEventListener('click',()=>morph(false));
+
+  // palette / help / context toggle
+  const cmdk=document.getElementById('cmdk'), help=document.getElementById('help'), ctx=document.getElementById('ctxPane'), shell=document.getElementById('shell');
+  document.getElementById('searchBtn').addEventListener('click',()=>{cmdk.hidden=false;setTimeout(()=>document.getElementById('cmdkInput').focus(),0)});
+  document.getElementById('helpBtn').addEventListener('click',()=>help.hidden=false);
+  document.getElementById('helpClose').addEventListener('click',()=>help.hidden=true);
+  function toggleCtx(){ const on=ctx.hasAttribute('data-collapsed'); if(on){ctx.removeAttribute('data-collapsed');ctx.style.display='';shell.style.gridTemplateColumns='56px 360px 1fr 340px';} else {ctx.setAttribute('data-collapsed','');ctx.style.display='none';shell.style.gridTemplateColumns='56px 360px 1fr 0px';} }
+  document.getElementById('ctxToggle').addEventListener('click',toggleCtx);
+
+  document.addEventListener('keydown',(e)=>{
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); cmdk.hidden=false; setTimeout(()=>document.getElementById('cmdkInput').focus(),0); return; }
+    if(e.key==='Escape'){ cmdk.hidden=true; help.hidden=true; if(!preview.classList.contains('out')) morph(false); return; }
+    if(!cmdk.hidden) return;
+    const tag=(document.activeElement.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea') return;
+    if(e.key==='j'||e.key==='J'){ e.preventDefault(); setCursor(cur+1); }
+    else if(e.key==='k'||e.key==='K'){ e.preventDefault(); setCursor(cur-1); }
+    else if(e.key==='Enter'){ e.preventDefault(); openRow(rows[cur]); }
+    else if(e.key==='e'||e.key==='E'){ e.preventDefault(); openRow(rows[cur]); }
+    else if(e.key==='?'){ help.hidden=false; }
+    else if(e.key===']'||e.key==='['){ toggleCtx(); }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day Ledger · Cockpit — collisionspike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Mulish:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============ DAY LEDGER · agenda-ops · tokens ============ */
+:root{
+  --paper:#F2F3EE; --surface:#FAFAF6; --sunk:#ECEEE7; --rule:#E2E3DC;
+  --border:#D8DAD1; --border-strong:#BFC2B6; --binding:#E7E8E1;
+  --ink:#252A26; --ink2:#444A43; --ink3:#6B7268; --ink4:#9AA093;
+  --pine:#1C6552; --pine-h:#185A4B; --pine-tint:#E4EFE9; --pine-ring:#5FA993;
+  --ov-bar:#B05068; --ov-bg:#F4E0E4; --ov-tx:#8A2F45;
+  --ds-bar:#C98A1E; --ds-bg:#F7EBCF; --ds-tx:#7A5410;
+  --rd-bar:#5E8C57; --rd-bg:#E4EEDB; --rd-tx:#3C6B36;
+  --hd-bar:#5E7A91; --hd-bg:#E1E8EE; --hd-tx:#3C566B;
+  --nw-bar:#1C6552; --nw-bg:#E4EFE9; --nw-tx:#185A4B;
+  --nr-bar:#8A9183; --nr-bg:#ECEEE7; --nr-tx:#525A4F;
+  --charcoal:#2B2E2A; --charcoal-2:#34382F;
+  --sh-sm:0 1px 2px rgba(37,42,38,.05);
+  --sh-pop:0 8px 24px rgba(37,42,38,.12);
+  --font-d:'Familjen Grotesk',system-ui,sans-serif;
+  --font-u:'Mulish',system-ui,sans-serif;
+  --font-m:'Spline Sans Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--font-u);background:var(--paper);color:var(--ink);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--font-m);font-variant-numeric:tabular-nums slashed-zero;font-feature-settings:"zero" 1}
+.disp{font-family:var(--font-d)}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--pine-ring);outline-offset:2px;border-radius:3px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+/* ============ shell grid ============ */
+.app{display:grid;grid-template-columns:56px 1fr;min-height:100vh}
+
+/* nav rail */
+.rail{background:var(--charcoal);color:#C9CCC2;display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:2px;position:sticky;top:0;height:100vh}
+.rail .brand{width:34px;height:34px;border-radius:8px;background:var(--pine);color:#fff;display:grid;place-items:center;font-family:var(--font-d);font-weight:700;font-size:15px;margin-bottom:10px}
+.navitem{width:48px;height:46px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#A7AB9F;position:relative;border:none;background:none;text-align:center}
+.navitem .ic{font-size:16px;line-height:1}
+.navitem .lb{font-size:8.5px;letter-spacing:.02em;font-weight:600}
+.navitem:hover{background:var(--charcoal-2);color:#E6E8DF}
+.navitem.on{background:var(--charcoal-2);color:#fff}
+.navitem.on::before{content:"";position:absolute;left:-4px;top:9px;bottom:9px;width:2px;background:var(--pine-ring);border-radius:2px}
+.navitem .badge{position:absolute;top:5px;right:5px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--ov-bar);color:#fff;font-family:var(--font-m);font-size:9px;font-weight:600;display:grid;place-items:center;line-height:1}
+.navitem .badge.q{background:var(--ds-bar)}
+.rail .sep{width:30px;height:1px;background:#41463C;margin:7px 0}
+.rail .grow{flex:1}
+.rail .kbds{display:flex;flex-direction:column;gap:3px;align-items:center;color:#7E8378;font-family:var(--font-m);font-size:10px}
+.rail .kbds .k{border:1px solid #4A4F44;border-radius:3px;padding:0 4px;line-height:15px;min-width:15px;text-align:center}
+
+/* main */
+.main{display:flex;flex-direction:column;min-width:0}
+
+/* standup bar */
+.standup{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;flex-direction:column;gap:8px;position:sticky;top:0;z-index:30}
+.standup-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.daydate{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.daydate .d{font-family:var(--font-d);font-weight:700;font-size:19px;letter-spacing:-.01em}
+.daydate .sub{font-family:var(--font-m);font-size:11px;color:var(--ink3)}
+.search{flex:1;min-width:180px;max-width:380px;display:flex;align-items:center;gap:7px;background:var(--paper);border:1px solid var(--border);border-radius:4px;padding:6px 9px}
+.search .sl{color:var(--ink4)}
+.search input{border:none;background:none;outline:none;font-family:var(--font-u);font-size:13px;color:var(--ink);width:100%}
+.search .kb{font-family:var(--font-m);font-size:10px;color:var(--ink4);border:1px solid var(--border);border-radius:3px;padding:0 4px;line-height:15px}
+.depth-chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:4px;padding:4px 8px 4px 6px;border:1px solid transparent;font-size:11.5px;font-weight:600;white-space:nowrap}
+.chip .g{font-size:10px}
+.chip .n{font-family:var(--font-m);font-weight:600;font-size:13px}
+.chip.rev{background:var(--ov-bg);color:var(--ov-tx);border-color:#E9C9D1}
+.chip.held{background:var(--hd-bg);color:var(--hd-tx);border-color:#CDD8E0}
+.chip.ready{background:var(--rd-bg);color:var(--rd-tx);border-color:#CFE0C2}
+.chip.new{background:var(--nw-bg);color:var(--nw-tx);border-color:#C7E0D2}
+.updated{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:var(--font-m);font-size:11px;color:var(--ink3);white-space:nowrap}
+.iconbtn{border:1px solid var(--border);background:var(--surface);border-radius:4px;width:26px;height:26px;display:grid;place-items:center;color:var(--ink2)}
+.iconbtn:hover{background:var(--paper)}
+
+/* day-plan meter */
+.dayplan{display:flex;align-items:center;gap:10px}
+.dayplan .lab{font-family:var(--font-d);font-weight:600;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);white-space:nowrap}
+.meter{flex:1;display:flex;height:22px;border-radius:4px;overflow:hidden;border:1px solid var(--border);min-width:240px}
+.seg{display:flex;align-items:center;justify-content:center;gap:4px;color:#fff;font-size:10px;font-weight:600;overflow:hidden;white-space:nowrap;position:relative}
+.seg .sn{font-family:var(--font-m);font-size:10px}
+.seg.s-new{background:#8A9183}
+.seg.s-parse{background:#7E97AB}
+.seg.s-review{background:#B05068}
+.seg.s-held{background:#5E7A91;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}
+.seg.s-ready{background:#5E8C57}
+.seg.s-subm{background:#1C6552}
+.seg.s-box{background:#444A43}
+.seg-cap{font-family:var(--font-m);font-size:10px;color:var(--hd-tx);white-space:nowrap}
+
+/* cockpit body */
+.cockpit{display:grid;grid-template-columns:48px minmax(0,1fr) 326px;flex:1;min-height:0}
+@media(max-width:1279px){.cockpit{grid-template-columns:36px minmax(0,1fr)}.siderail{display:none}}
+@media(max-width:767px){.cockpit{grid-template-columns:24px minmax(0,1fr)}}
+
+/* time-rail binding margin */
+.binding{background:var(--binding);border-right:1px solid var(--border);position:relative;
+  background-image:radial-gradient(circle 3px at 50% center,rgba(37,42,38,.10) 0 3px,transparent 3.4px);
+  background-size:100% 34px;background-position:center 0}
+.binding .tick{position:absolute;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:var(--ink3)}
+.binding .nowline{position:absolute;left:0;right:-1px;height:1px;background:var(--pine);box-shadow:0 0 0 1px rgba(28,101,82,.15)}
+.binding .nowline::after{content:"";position:absolute;right:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:var(--pine)}
+
+/* agenda spine */
+.spine{background:var(--surface);padding:0;min-width:0;overflow:auto}
+.spine-pad{padding:10px 18px 28px}
+
+/* exception tally — one ruled line, not a banner */
+.exceptions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:9px 2px;border-bottom:1px solid var(--rule);font-size:12px}
+.exceptions .x{display:inline-flex;align-items:center;gap:5px;color:var(--ink2)}
+.exceptions .x .g{font-size:11px}
+.exceptions .x.crit{color:var(--ov-tx);font-weight:600}
+.exceptions .x .num{font-family:var(--font-m);font-weight:600}
+.exceptions .more{margin-left:auto;color:var(--pine-h);font-weight:600;font-size:11.5px}
+.exceptions .more:hover{text-decoration:underline}
+
+/* aging-distribution strip */
+.aging{padding:11px 2px 13px;border-bottom:1px solid var(--rule)}
+.aging .ah{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.aging .ah .t{font-family:var(--font-d);font-weight:600;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.aging .ah .axis{font-family:var(--font-m);font-size:10px;color:var(--ink4)}
+.agbars{display:flex;align-items:flex-end;gap:3px;height:46px}
+.agbars .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end;position:relative}
+.agbars .bar{width:100%;border-radius:3px 3px 0 0;min-height:3px}
+.agbars .col .c{font-family:var(--font-m);font-size:9.5px;color:var(--ink3)}
+.agbars .col .lab{font-family:var(--font-m);font-size:9px;color:var(--ink4);white-space:nowrap}
+.agbars .col.today::after{content:"";position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--pine)}
+.b-ov{background:var(--ov-bar)}.b-ds{background:var(--ds-bar)}.b-up{background:#A9AF9F}
+
+/* band divider */
+.band{display:flex;align-items:center;gap:10px;padding:16px 2px 7px}
+.band .lab{font-family:var(--font-d);font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);white-space:nowrap}
+.band .ln{flex:1;height:1px;background:var(--border)}
+.band .ct{font-family:var(--font-m);font-weight:600;font-size:11px;color:var(--ink3)}
+.band.ov .lab{color:var(--ov-tx)}
+.band.ds .lab{color:var(--ds-tx)}
+
+/* agenda row */
+.arow{display:flex;align-items:stretch;gap:0;border-bottom:1px solid var(--rule);position:relative;outline:none}
+.arow .tab{width:3px;flex:0 0 3px;border-radius:2px;margin:6px 0}
+.arow.t-ov .tab{background:var(--ov-bar)}.arow.t-ds .tab{background:var(--ds-bar)}
+.arow.t-rd .tab{background:var(--rd-bar)}.arow.t-nw .tab{background:var(--nw-bar)}
+.arow.t-hd .tab{background:var(--hd-bar)}.arow.t-nr .tab{background:var(--nr-bar)}
+.arow .body{flex:1;display:flex;align-items:center;gap:12px;padding:6px 6px 6px 11px;min-height:40px;min-width:0}
+.arow:hover{background:var(--paper)}
+.arow.cur{background:var(--pine-tint)}
+.arow.cur::after{content:"";position:absolute;inset:0;border:1.5px solid var(--pine-ring);border-radius:6px;pointer-events:none}
+.arow .verb{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.arow .verb .v{font-weight:600;font-size:13.5px;color:var(--ink);display:flex;align-items:center;gap:7px}
+.arow .verb .v .g{font-size:11px}
+.arow.t-ov .verb .v .g{color:var(--ov-bar)}.arow.t-ds .verb .v .g{color:var(--ds-bar)}
+.arow.t-rd .verb .v .g{color:var(--rd-bar)}.arow.t-nw .verb .v .g{color:var(--nw-bar)}
+.arow .verb .meta{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:11.5px;color:var(--ink3)}
+.arow .verb .meta .veh{color:var(--ink2)}
+.arow .verb .meta .prov{color:var(--ink3)}
+.arow .right{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.duetag{font-family:var(--font-m);font-size:11px;font-weight:600;border-radius:4px;padding:2px 7px;white-space:nowrap}
+.duetag.ov{background:var(--ov-bg);color:var(--ov-tx)}
+.duetag.ds{background:var(--ds-bg);color:var(--ds-tx)}
+.duetag.nw{background:var(--nw-bg);color:var(--nw-tx)}
+.duetag.rd{background:var(--rd-bg);color:var(--rd-tx)}
+.rowacts{display:flex;gap:5px}
+.rowacts .ra{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);background:var(--surface);border-radius:4px;padding:3px 7px;font-size:11px;color:var(--ink2);font-weight:600}
+.rowacts .ra:hover{background:var(--paper);border-color:var(--border-strong)}
+.rowacts .ra .k{font-family:var(--font-m);font-size:9.5px;color:var(--ink4);border:1px solid var(--border);border-radius:2px;padding:0 3px;line-height:13px}
+.rowacts .ra.go{background:var(--pine);border-color:var(--pine);color:#fff}
+.rowacts .ra.go .k{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.4)}
+
+/* vrm plate */
+.vrm{display:inline-flex;align-items:stretch;font-family:var(--font-m);font-weight:600;font-size:12px;letter-spacing:.03em;border-radius:4px;overflow:hidden;border:1px solid var(--border-strong);background:#F2D24B;color:#1A1A17;line-height:1;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+.vrm .gb{background:#2A4FA6;color:#fff;font-size:7.5px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 3px;letter-spacing:0}
+.vrm .gb small{font-size:6.5px;line-height:1}
+.vrm .pl{padding:4px 7px;display:flex;align-items:center}
+.vrm.dup{box-shadow:inset 0 0 0 1px rgba(255,255,255,.35),0 0 0 2px var(--ov-bg)}
+
+/* collapsed band */
+.collapse{display:flex;align-items:center;gap:8px;padding:8px 2px;color:var(--ink3);font-size:12px;border-bottom:1px solid var(--rule)}
+.collapse:hover{color:var(--pine-h)}
+.collapse .chev{font-family:var(--font-m)}
+
+/* live-depth tiles */
+.tiles-h{font-family:var(--font-d);font-weight:600;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin:20px 2px 9px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:520px){.tiles{grid-template-columns:1fr}}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:var(--sh-sm);padding:13px 14px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
+.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+.tile.awaiting::before{background:var(--ov-bar)}
+.tile.readyfor::before{background:var(--rd-bar)}
+.tile.newc::before{background:var(--nw-bar)}
+.tile .tl{font-family:var(--font-d);font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)}
+.tile .big{font-family:var(--font-d);font-weight:700;font-size:30px;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+.tile .brk{font-size:11px;color:var(--ink3);display:flex;gap:8px;flex-wrap:wrap}
+.tile .brk b{color:var(--ink2)}
+.tile .arrow{position:absolute;right:11px;top:11px;color:var(--pine-h);font-size:13px}
+
+/* side rail */
+.siderail{background:var(--paper);border-left:1px solid var(--border);overflow:auto;display:flex;flex-direction:column}
+.sr-sec{padding:13px 14px;border-bottom:1px solid var(--border)}
+.sr-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.sr-h .t{font-family:var(--font-d);font-weight:600;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.sr-h .lk{font-size:11px;color:var(--pine-h);font-weight:600}
+
+/* inbox triage tray */
+.tray-seg{border-bottom:1px solid var(--rule);padding:6px 0}
+.tray-seg:last-child{border-bottom:none}
+.tray-head{display:flex;align-items:center;gap:8px;padding:4px 2px}
+.tray-head .g{font-size:10px}
+.tray-head .nm{font-weight:600;font-size:12.5px}
+.tray-head .ct{margin-left:auto;font-family:var(--font-m);font-weight:600;font-size:12px;background:var(--sunk);border-radius:4px;padding:1px 7px;color:var(--ink2)}
+.tray-head.rw .g{color:var(--pine)}
+.tray-head.qr .g{color:var(--ink3)}
+.tray-head.ot .g{color:var(--ds-bar)}
+.tray-row{display:flex;flex-direction:column;gap:1px;padding:6px 2px 6px 18px;min-height:44px;justify-content:center;border-radius:4px}
+.tray-row:hover{background:var(--surface)}
+.tray-row .l1{font-size:12px;color:var(--ink);display:flex;align-items:center;gap:7px}
+.tray-row .l1 .from{font-weight:600}
+.tray-row .l1 .when{margin-left:auto;font-family:var(--font-m);font-size:10px;color:var(--ink4)}
+.tray-row .l2{font-size:11px;color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tray-row .sub{font-family:var(--font-m);font-size:9.5px;color:var(--ink4);text-transform:uppercase;letter-spacing:.04em}
+
+/* cleared log */
+.clearedlog{background:var(--sunk)}
+.cl-nums{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:9px}
+.cl-num{flex:1;display:flex;flex-direction:column;gap:1px;padding:2px 4px 8px}
+.cl-num .v{font-family:var(--font-d);font-weight:700;font-size:20px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.cl-num .l{font-size:9.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.03em}
+.burndown{margin:2px 0 10px}
+.burndown svg{display:block;width:100%;height:38px}
+.burndown .bl{font-family:var(--font-m);font-size:9.5px;color:var(--ink4);display:flex;justify-content:space-between;margin-top:2px}
+.cl-list{display:flex;flex-direction:column;gap:1px}
+.cl-item{display:flex;align-items:center;gap:8px;padding:3px 2px;font-size:11.5px;color:var(--nr-tx)}
+.cl-item .g{color:var(--nr-bar);font-size:11px}
+.cl-item .strk{text-decoration:line-through;text-decoration-color:var(--ink4);color:var(--ink3)}
+.cl-item .strk .po{font-family:var(--font-m)}
+.cl-item .tag{margin-left:auto;font-family:var(--font-m);font-size:9.5px;color:var(--ink4)}
+
+/* queues snapshot */
+.qsnap{display:flex;flex-direction:column;gap:5px}
+.qs-row{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--border);border-radius:4px;background:var(--surface)}
+.qs-row:hover{border-color:var(--border-strong);background:var(--paper)}
+.qs-row .g{font-size:11px}
+.qs-row .nm{font-size:12.5px;font-weight:600;color:var(--ink2)}
+.qs-row .n{margin-left:auto;font-family:var(--font-m);font-weight:600;font-size:13px;color:var(--ink)}
+.qs-row .arr{color:var(--pine-h)}
+.qs-row.nr .g{color:var(--nr-bar)}.qs-row.rev .g{color:var(--ov-bar)}
+.qs-row.held .g{color:var(--hd-bar)}.qs-row.ready .g{color:var(--rd-bar)}
+
+/* tablet drawer toggle */
+.draw-toggle{display:none}
+@media(max-width:1279px) and (min-width:768px){
+  .draw-toggle{display:inline-flex;align-items:center;gap:8px;margin-left:auto;border:1px solid var(--border);background:var(--surface);border-radius:4px;padding:5px 10px;font-size:11.5px;font-weight:600;color:var(--ink2)}
+  .draw-toggle .mono{color:var(--ink3)}
+  .siderail.drawer-open{display:flex;position:fixed;top:0;right:0;bottom:0;width:340px;z-index:60;box-shadow:var(--sh-pop)}
+  .scrim{display:none}.scrim.on{display:block;position:fixed;inset:0;background:rgba(37,42,38,.28);z-index:55}
+}
+
+/* bottom tab bar (phone) */
+.btabs{display:none}
+@media(max-width:767px){
+  .rail{display:none}
+  .app{grid-template-columns:1fr}
+  .standup{padding:8px 12px}
+  .depth-chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .dayplan{display:none}
+  .spine-pad{padding:8px 12px 80px}
+  .band{position:sticky;top:0;background:var(--surface);z-index:5}
+  .btabs{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--charcoal);z-index:70;border-top:1px solid #41463C}
+  .btab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0;color:#A7AB9F;font-size:9.5px;font-weight:600}
+  .btab .ic{font-size:16px}
+  .btab.on{color:#fff}
+}
+
+/* ? overlay */
+.kbref{display:none;position:fixed;inset:0;z-index:90;background:rgba(37,42,38,.28);align-items:center;justify-content:center;padding:20px}
+.kbref.on{display:flex}
+.kbref .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--sh-pop);max-width:460px;width:100%;padding:18px 20px}
+.kbref h3{font-family:var(--font-d);font-weight:700;font-size:16px;margin:0 0 4px}
+.kbref .kgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px 18px;margin-top:12px}
+.kbref .kg{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink2)}
+.kbref kbd{font-family:var(--font-m);font-size:11px;border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:4px;padding:1px 6px;background:var(--paper);min-width:18px;text-align:center}
+.kbref .close{margin-top:14px;border:1px solid var(--border);background:var(--paper);border-radius:4px;padding:6px 12px;font-weight:600;font-size:12px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ NAV RAIL ============ -->
+  <nav class="rail" aria-label="Primary">
+    <div class="brand" title="collisionspike — Day Ledger">CS</div>
+    <a class="navitem on" href="index.html" aria-current="page"><span class="ic">▦</span><span class="lb">Cockpit</span></a>
+    <a class="navitem" href="#" title="Inbox / Triage"><span class="ic">✉</span><span class="lb">Inbox</span><span class="badge">10</span></a>
+    <a class="navitem" href="queues.html" title="Queues"><span class="ic">▤</span><span class="lb">Queues</span><span class="badge q">24</span></a>
+    <div class="sep"></div>
+    <a class="navitem" href="#" title="Manual intake"><span class="ic">⬆</span><span class="lb">Intake</span></a>
+    <a class="navitem" href="#" title="Admin / Corpus"><span class="ic">⚙</span><span class="lb">Admin</span></a>
+    <a class="navitem" href="#" title="Action logs"><span class="ic">☰</span><span class="lb">Logs</span></a>
+    <div class="grow"></div>
+    <button class="navitem" id="kbBtn" title="Keyboard reference (?)"><span class="ic">?</span><span class="lb">Keys</span></button>
+    <div class="kbds" aria-hidden="true"><span class="k">j</span><span class="k">k</span><span class="k">↵</span></div>
+  </nav>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+
+    <!-- standup bar -->
+    <header class="standup">
+      <div class="standup-row">
+        <div class="daydate">
+          <span class="d disp">Wed 25 Jun</span>
+          <span class="sub mono">2026 · wk 26</span>
+        </div>
+        <label class="search">
+          <span class="sl">⌕</span>
+          <input id="search" type="text" placeholder="Search VRM · Case/PO · claimant" aria-label="Search">
+          <span class="kb">/</span>
+        </label>
+        <div class="depth-chips" role="group" aria-label="Live depth">
+          <span class="chip rev"><span class="g">▲</span>Review<span class="n">7</span></span>
+          <span class="chip held"><span class="g">❙❙</span>Held<span class="n">14</span></span>
+          <span class="chip ready"><span class="g">✓</span>Ready<span class="n">3</span></span>
+          <span class="chip new"><span class="g">●</span>New<span class="n">5</span></span>
+        </div>
+        <div class="updated">
+          <span>Updated 09:14</span>
+          <button class="iconbtn" title="Refresh" aria-label="Refresh">↻</button>
+        </div>
+        <button class="draw-toggle" id="drawToggle">Inbox &amp; Cleared <span class="mono">10 · 21</span> ▸</button>
+      </div>
+      <div class="standup-row">
+        <div class="dayplan" role="group" aria-label="Day-plan pipeline (counts by stage)">
+          <span class="lab">Day-plan</span>
+          <div class="meter">
+            <div class="seg s-new" style="flex:5" title="New 5"><span class="sn">5</span></div>
+            <div class="seg s-parse" style="flex:2" title="Parsing 2"><span class="sn">2</span></div>
+            <div class="seg s-review" style="flex:7" title="Review 7">Review<span class="sn">7</span></div>
+            <div class="seg s-held" style="flex:14" title="Chasing / Held 14">Chasing/Held<span class="sn">14</span></div>
+            <div class="seg s-ready" style="flex:3" title="Ready 3"><span class="sn">3</span></div>
+            <div class="seg s-subm" style="flex:9" title="Submitted today 9">Subm<span class="sn">9</span></div>
+            <div class="seg s-box" style="flex:5" title="Box 5"><span class="sn">5</span></div>
+          </div>
+          <span class="seg-cap">▮ stuck: 14</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- cockpit -->
+    <div class="cockpit">
+
+      <!-- time-rail binding margin -->
+      <div class="binding" aria-hidden="true">
+        <div class="nowline" style="top:150px"></div>
+      </div>
+
+      <!-- agenda spine -->
+      <main class="spine" aria-label="Chase-next agenda">
+        <div class="spine-pad">
+
+          <!-- exception tally — ONE line -->
+          <div class="exceptions">
+            <span class="x crit"><span class="g">▲</span><span class="num">3</span> past due</span>
+            <span class="x"><span class="g">⤬</span><span class="num">2</span> duplicate risk</span>
+            <span class="x"><span class="g">▲</span><span class="num">1</span> field conflict</span>
+            <span class="x"><span class="g">❙❙</span><span class="num">14</span> held — awaiting external</span>
+            <a class="more" href="queues.html">Open Review &amp; Held →</a>
+          </div>
+
+          <!-- aging-distribution strip -->
+          <section class="aging" aria-label="Aging distribution">
+            <div class="ah">
+              <span class="t">Aging — where the backlog sits</span>
+              <span class="axis">oldest ← → upcoming</span>
+            </div>
+            <div class="agbars" role="img" aria-label="Distribution of due items over time. See table below.">
+              <div class="col"><div class="bar b-ov" style="height:40%"></div><span class="c mono">2</span><span class="lab">−14d</span></div>
+              <div class="col"><div class="bar b-ov" style="height:62%"></div><span class="c mono">3</span><span class="lab">−7d</span></div>
+              <div class="col"><div class="bar b-ov" style="height:85%"></div><span class="c mono">4</span><span class="lab">−3d</span></div>
+              <div class="col"><div class="bar b-ds" style="height:55%"></div><span class="c mono">3</span><span class="lab">−1d</span></div>
+              <div class="col today"><div class="bar b-ds" style="height:78%"></div><span class="c mono">4</span><span class="lab">today</span></div>
+              <div class="col"><div class="bar b-up" style="height:50%"></div><span class="c mono">3</span><span class="lab">+3d</span></div>
+              <div class="col"><div class="bar b-up" style="height:38%"></div><span class="c mono">2</span><span class="lab">+1w</span></div>
+              <div class="col"><div class="bar b-up" style="height:25%"></div><span class="c mono">4</span><span class="lab">+2w</span></div>
+            </div>
+            <table class="sr-only"><caption>Aging distribution</caption><tr><th>−14d</th><th>−7d</th><th>−3d</th><th>−1d</th><th>today</th><th>+3d</th><th>+1w</th><th>+2w</th></tr><tr><td>2</td><td>3</td><td>4</td><td>3</td><td>4</td><td>3</td><td>2</td><td>4</td></tr></table>
+          </section>
+
+          <!-- ============ AGENDA: banded, oldest-due first ============ -->
+          <div id="agenda" role="list">
+
+            <!-- OVERDUE -->
+            <div class="band ov"><span class="lab">Overdue</span><span class="ln"></span><span class="ct">3</span></div>
+
+            <div class="arow t-ov" role="listitem" tabindex="0" data-href="case-detail.html">
+              <div class="tab"></div>
+              <div class="body">
+                <div class="verb">
+                  <div class="v"><span class="g">▲</span>Chase garage for vehicle images</div>
+                  <div class="meta">
+                    <span class="vrm"><span class="gb">GB</span><span class="pl">LR21&nbsp;KMV</span></span>
+                    <span class="veh">BMW 320d M Sport</span><span>·</span>
+                    <span class="prov">Copart UK · CCPY26041</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <span class="duetag ov">−6d</span>
+                  <div class="rowacts">
+                    <button class="ra">Draft chaser <span class="k">c</span></button>
+                    <a class="ra go" href="case-detail.html">Open <span class="k">↵</span></a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="arow t-ov" role="listitem" tabindex="0" data-href="case-detail.html">
+              <div class="tab"></div>
+              <div class="body">
+                <div class="verb">
+                  <div class="v"><span class="g">▲</span>Resolve duplicate — 2 candidates</div>
+                  <div class="meta">
+                    <span class="vrm dup"><span class="gb">GB</span><span class="pl">BV68&nbsp;WTX</span></span>
+                    <span class="veh">Ford Transit Custom</span><span>·</span>
+                    <span class="prov">Activate Group · ACTV26033</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <span class="duetag ov">−4d</span>
+                  <div class="rowacts">
+                    <button class="ra">Review pair</button>
+                    <a class="ra go" href="case-detail.html">Open <span class="k">↵</span></a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="arow t-ov" role="listitem" tabindex="0" data-href="case-detail.html">
+              <div class="tab"></div>
+              <div class="body">
+                <div class="verb">
+                  <div class="v"><span class="g">▲</span>Resolve 3 field conflicts</div>
+                  <div class="meta">
+                    <span class="vrm"><span class="gb">GB</span><span class="pl">MA70&nbsp;ZPD</span></span>
+                    <span class="veh">VW Golf GTI</span><span>·</span>
+                    <span class="prov">Hexagon Claims · HXGP26077</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <span class="duetag ov">−3d</span>
+                  <div class="rowacts">
+                    <a class="ra go" href="case-detail.html">Open <span class="k">↵</span></a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DUE TODAY -->
+            <div class="band ds"><span class="lab">Due today</span><span class="ln"></span><span class="ct">4</span></div>
+
+            <div class="arow t-rd" role="listitem" tabindex="0" data-href="case-detail.html">
+              <div class="tab"></div>
+              <div class="body">
+                <div class="verb">
+                  <div class="v"><span class="g" style="color:var(--rd-bar)">✓</span>Submit to EVA — gates green</div>
+                  <div class="meta">
+                    <span class="vrm"><span class="gb">GB</span><span class="pl">SF22&nbsp;ONE</span></span>
+                    <span class="veh">Audi A4 Avant</span><span>·</span>
+                    <span class="prov">FMG Repair · FMGP26102</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <span class="duetag rd">today</span>
+                  <div class="rowacts">
+                    <a class="ra go" href="case-detail.html">Submit <span class="k">s</span></a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="arow t-ds" role="listitem" tabindex="0" data-href="case-detail.html">
+              <div class="tab"></div>
+              <div class="body">
+                <div class="verb">
+                  <div class="v"><span class="g">△</span>Chase garage for damage close-up</div>
+                  <div class="meta">
+                    <span class="vrm"><span class="gb">GB</span><span class="pl">KP18&nbsp;TVR</span></span>
+                    <span class="veh">Vauxhall Astra</span><span>·</span>
+                    <span class="prov">Swift Recovery · SWFT26058</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <span class="duetag ds">3h</span>
+                  <div class="rowacts">
+                    <button class="ra">Draft chaser <span class="k">c</span></button>
+                    <a class="ra go" href="case-detail.html">Open <span class="k">↵</span></a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="arow t-ds" role="listitem" tabindex="0" data-href="case-detail.html">
+              <div class="tab"></div>
+              <div class="body">
+                <div class="verb">
+                  <div class="v"><span class="g">△</span>Decide inspection address</div>
+                  <div class="meta">
+                    <span class="vrm"><span class="gb">GB</span><span class="pl">RJ20&nbsp;OWB</span></span>
+                    <span class="veh">Mercedes A200</span><span>·</span>
+                    <span class="prov">Copart UK · CCPY26050</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <span class="duetag ds">5h</span>
+                  <div class="rowacts">
+                    <a class="ra go" href="case-detail.html">Open <span class="k">↵</span></a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="arow t-ds" role="listitem" tabindex="0" data-href="case-detail.html">
+              <div class="tab"></div>
+              <div class="body">
+                <div class="verb">
+                  <div class="v"><span class="g">△</span>Verify registration on overview photo</div>
+                  <div class="meta">
+                    <span class="vrm"><span class="gb">GB</span><span class="pl">GK19&nbsp;ZRT</span></span>
+                    <span class="veh">Kia Sportage</span><span>·</span>
+                    <span class="prov">S&amp;G Response · SGRS26019</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <span class="duetag ds">7h</span>
+                  <div class="rowacts">
+                    <a class="ra go" href="case-detail.html">Open <span class="k">↵</span></a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- THIS WEEK -->
+            <div class="band"><span class="lab">This week</span><span class="ln"></span><span class="ct">6</span></div>
+
+            <div class="arow t-nw" role="listitem" tabindex="0" data-href="case-detail.html">
+              <div class="tab"></div>
+              <div class="body">
+                <div class="verb">
+                  <div class="v"><span class="g">●</span>Review parsed fields</div>
+                  <div class="meta">
+                    <span class="vrm"><span class="gb">GB</span><span class="pl">LD67&nbsp;NMK</span></span>
+                    <span class="veh">Nissan Qashqai</span><span>·</span>
+                    <span class="prov">ACM Group · ACMG26088</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <span class="duetag nw">+2d</span>
+                  <div class="rowacts"><a class="ra go" href="case-detail.html">Open <span class="k">↵</span></a></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="arow t-ds" role="listitem" tabindex="0" data-href="case-detail.html">
+              <div class="tab"></div>
+              <div class="body">
+                <div class="verb">
+                  <div class="v"><span class="g">△</span>Chase provider for claim reference</div>
+                  <div class="meta">
+                    <span class="vrm"><span class="gb">GB</span><span class="pl">EK71&nbsp;AZD</span></span>
+                    <span class="veh">Toyota Yaris</span><span>·</span>
+                    <span class="prov">Hexagon Claims · HXGP26090</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <span class="duetag nw">+3d</span>
+                  <div class="rowacts">
+                    <button class="ra">Draft chaser <span class="k">c</span></button>
+                    <a class="ra go" href="case-detail.html">Open <span class="k">↵</span></a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="arow t-nw" role="listitem" tabindex="0" data-href="case-detail.html">
+              <div class="tab"></div>
+              <div class="body">
+                <div class="verb">
+                  <div class="v"><span class="g">●</span>Add 6 photos to evidence set</div>
+                  <div class="meta">
+                    <span class="vrm"><span class="gb">GB</span><span class="pl">W8&nbsp;GTR</span></span>
+                    <span class="veh">Honda Civic Type R</span><span>·</span>
+                    <span class="prov">FMG Repair · FMGP26095</span>
+                  </div>
+                </div>
+                <div class="right">
+                  <span class="duetag nw">+3d</span>
+                  <div class="rowacts"><a class="ra go" href="case-detail.html">Open <span class="k">↵</span></a></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- UPCOMING / SOMEDAY collapsed -->
+            <button class="collapse" id="upcoming" aria-expanded="false">
+              <span class="chev">▸</span><span class="band-lab disp" style="font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)">Upcoming / Someday</span>
+              <span class="ln" style="flex:1;height:1px;background:var(--border)"></span>
+              <span class="mono" style="font-weight:600;color:var(--ink3)">9</span>
+            </button>
+          </div>
+
+          <!-- live-depth tiles -->
+          <div class="tiles-h">Live depth — drains as work clears</div>
+          <div class="tiles">
+            <a class="tile awaiting" href="queues.html">
+              <span class="arrow">→</span>
+              <span class="tl">Awaiting action</span>
+              <span class="big">21</span>
+              <span class="brk"><span><b>Review</b> 7</span><span><b>Held</b> 14</span></span>
+            </a>
+            <a class="tile readyfor" href="queues.html">
+              <span class="arrow">→</span>
+              <span class="tl">Ready for EVA</span>
+              <span class="big">3</span>
+              <span class="brk"><span>gates green · submit today</span></span>
+            </a>
+            <a class="tile newc" href="#">
+              <span class="arrow">→</span>
+              <span class="tl">New cases</span>
+              <span class="big">5</span>
+              <span class="brk"><span>arrived today · not yet parsed</span></span>
+            </a>
+          </div>
+        </div>
+      </main>
+
+      <!-- ============ SIDE RAIL ============ -->
+      <aside class="siderail" id="siderail" aria-label="Inbox, cleared log and queues">
+
+        <!-- inbox triage tray -->
+        <section class="sr-sec">
+          <div class="sr-h"><span class="t">Inbox triage</span><a class="lk" href="#">Open mailbox →</a></div>
+
+          <div class="tray-seg">
+            <div class="tray-head rw"><span class="g">●</span><span class="nm">Receiving work</span><span class="ct">5</span></div>
+            <a class="tray-row" href="case-detail.html">
+              <div class="l1"><span class="from">acme.co</span><span class="when">09:02</span></div>
+              <div class="l2">Instruction — RJ20 OWB · Mercedes A200</div>
+              <div class="sub">instruction · pdf</div>
+            </a>
+            <a class="tray-row" href="case-detail.html">
+              <div class="l1"><span class="from">claims@hexagon</span><span class="when">08:47</span></div>
+              <div class="l2">12 images attached — no instruction yet</div>
+              <div class="sub">images-only · 12 jpg</div>
+            </a>
+          </div>
+
+          <div class="tray-seg">
+            <div class="tray-head qr"><span class="g">○</span><span class="nm">Queries</span><span class="ct">2</span></div>
+            <a class="tray-row" href="#">
+              <div class="l1"><span class="from">broker@swiftrec</span><span class="when">08:30</span></div>
+              <div class="l2">"Any update on the Astra inspection?"</div>
+              <div class="sub">reply needed</div>
+            </a>
+          </div>
+
+          <div class="tray-seg">
+            <div class="tray-head ot"><span class="g">△</span><span class="nm">Other — needs a human</span><span class="ct">3</span></div>
+            <a class="tray-row" href="#">
+              <div class="l1"><span class="from">noreply@mailer</span><span class="when">07:55</span></div>
+              <div class="l2">Delivery failure notice (bounce)</div>
+              <div class="sub">unidentified · categorise</div>
+            </a>
+          </div>
+        </section>
+
+        <!-- cleared log -->
+        <section class="sr-sec clearedlog">
+          <div class="sr-h"><span class="t">Cleared log — today</span></div>
+          <div class="cl-nums">
+            <div class="cl-num"><span class="v mono">12</span><span class="l">In today</span></div>
+            <div class="cl-num"><span class="v mono">9</span><span class="l">Submitted</span></div>
+            <div class="cl-num"><span class="v mono">41</span><span class="l">This week</span></div>
+          </div>
+          <div class="burndown" aria-label="Queue-zero burndown — cleared vs remaining">
+            <svg viewBox="0 0 200 38" preserveAspectRatio="none">
+              <polyline points="0,4 28,8 56,12 84,16 112,22 140,27 168,32 200,35" fill="none" stroke="#1C6552" stroke-width="1.6"/>
+              <polygon points="0,4 28,8 56,12 84,16 112,22 140,27 168,32 200,35 200,38 0,38" fill="rgba(94,140,87,.18)"/>
+            </svg>
+            <div class="bl"><span>08:00</span><span>remaining 21</span><span>now</span></div>
+          </div>
+          <div class="cl-list">
+            <div class="cl-item"><span class="g">✓</span><span class="strk">Submitted <span class="po">CCPY26048</span> · Skoda Octavia</span><span class="tag">09:08</span></div>
+            <div class="cl-item"><span class="g">✓</span><span class="strk">Cleared <span class="po">HXGP26071</span> · address decided</span><span class="tag">08:51</span></div>
+            <div class="cl-item"><span class="g">✓</span><span class="strk">Submitted <span class="po">ACMG26079</span> · Peugeot 208</span><span class="tag">08:36</span></div>
+            <div class="cl-item"><span class="g">✓</span><span class="strk">Merged dup <span class="po">SWFT26044</span></span><span class="tag">08:20</span></div>
+          </div>
+        </section>
+
+        <!-- queues snapshot -->
+        <section class="sr-sec">
+          <div class="sr-h"><span class="t">Queues snapshot</span><a class="lk" href="queues.html">All →</a></div>
+          <div class="qsnap">
+            <a class="qs-row nr" href="queues.html"><span class="g">○</span><span class="nm">Not ready</span><span class="n">12</span><span class="arr">→</span></a>
+            <a class="qs-row rev" href="queues.html"><span class="g">▲</span><span class="nm">Review</span><span class="n">7</span><span class="arr">→</span></a>
+            <a class="qs-row held" href="queues.html"><span class="g">❙❙</span><span class="nm">Held</span><span class="n">14</span><span class="arr">→</span></a>
+            <a class="qs-row ready" href="queues.html"><span class="g">✓</span><span class="nm">Ready for EVA</span><span class="n">3</span><span class="arr">→</span></a>
+          </div>
+        </section>
+      </aside>
+
+    </div><!-- /cockpit -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- scrim for tablet drawer -->
+<div class="scrim" id="scrim"></div>
+
+<!-- bottom tab bar (phone) -->
+<nav class="btabs" aria-label="Sections">
+  <a class="btab on" href="index.html"><span class="ic">▦</span>Cockpit</a>
+  <a class="btab" href="#"><span class="ic">✉</span>Inbox</a>
+  <a class="btab" href="queues.html"><span class="ic">▤</span>Queues</a>
+  <a class="btab" href="case-detail.html"><span class="ic">▭</span>Case</a>
+  <a class="btab" href="#"><span class="ic">⋯</span>More</a>
+</nav>
+
+<!-- keyboard reference overlay -->
+<div class="kbref" id="kbref" role="dialog" aria-modal="true" aria-label="Keyboard reference">
+  <div class="card">
+    <h3 class="disp">Keyboard</h3>
+    <div style="font-size:12px;color:var(--ink3)">Clear the day top-to-bottom.</div>
+    <div class="kgrid">
+      <div class="kg"><kbd>j</kbd><kbd>k</kbd> move row cursor</div>
+      <div class="kg"><kbd>↵</kbd> open case</div>
+      <div class="kg"><kbd>e</kbd> mark cleared / ready</div>
+      <div class="kg"><kbd>c</kbd> draft chaser</div>
+      <div class="kg"><kbd>s</kbd> submit to EVA</div>
+      <div class="kg"><kbd>h</kbd> hold / release</div>
+      <div class="kg"><kbd>/</kbd> focus search</div>
+      <div class="kg"><kbd>g</kbd> then <kbd>i</kbd><kbd>q</kbd><kbd>u</kbd><kbd>a</kbd> jump</div>
+      <div class="kg"><kbd>1</kbd>–<kbd>5</kbd> case tabs</div>
+      <div class="kg"><kbd>?</kbd> this reference</div>
+    </div>
+    <button class="close" id="kbClose">Close (Esc)</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  // roving cursor over agenda rows
+  var rows = Array.prototype.slice.call(document.querySelectorAll('#agenda .arow'));
+  var cur = -1;
+  function setCur(i){
+    if(i<0||i>=rows.length) return;
+    if(cur>=0) rows[cur].classList.remove('cur');
+    cur=i; rows[cur].classList.add('cur'); rows[cur].focus();
+    rows[cur].scrollIntoView({block:'nearest'});
+  }
+  rows.forEach(function(r,i){
+    r.addEventListener('focus',function(){ if(cur>=0)rows[cur].classList.remove('cur'); cur=i; r.classList.add('cur'); });
+    r.addEventListener('click',function(e){ if(e.target.closest('a,button'))return; if(r.dataset.href)location.href=r.dataset.href; });
+  });
+
+  var search=document.getElementById('search');
+  var kbref=document.getElementById('kbref');
+  function openKb(){kbref.classList.add('on');}
+  function closeKb(){kbref.classList.remove('on');}
+  document.getElementById('kbBtn').addEventListener('click',openKb);
+  document.getElementById('kbClose').addEventListener('click',closeKb);
+  kbref.addEventListener('click',function(e){if(e.target===kbref)closeKb();});
+
+  document.addEventListener('keydown',function(e){
+    if(e.target===search){ if(e.key==='Escape')search.blur(); return; }
+    if(e.key==='/'){e.preventDefault();search.focus();return;}
+    if(e.key==='?'){e.preventDefault();openKb();return;}
+    if(e.key==='Escape'){closeKb();return;}
+    if(e.key==='j'){e.preventDefault();setCur(cur<0?0:Math.min(cur+1,rows.length-1));return;}
+    if(e.key==='k'){e.preventDefault();setCur(cur<0?0:Math.max(cur-1,0));return;}
+    if(e.key==='Enter'&&cur>=0){var h=rows[cur].dataset.href;if(h)location.href=h;return;}
+    if(e.key==='g'){window.__g=true;setTimeout(function(){window.__g=false;},700);return;}
+    if(window.__g){ if(e.key==='q'){location.href='queues.html';} window.__g=false; return; }
+  });
+
+  // collapsed upcoming
+  var up=document.getElementById('upcoming');
+  up.addEventListener('click',function(){
+    var open=up.getAttribute('aria-expanded')==='true';
+    up.setAttribute('aria-expanded',String(!open));
+    up.querySelector('.chev').textContent=open?'▸':'▾';
+  });
+
+  // tablet drawer
+  var dt=document.getElementById('drawToggle'), sr=document.getElementById('siderail'), scrim=document.getElementById('scrim');
+  if(dt){
+    dt.addEventListener('click',function(){sr.classList.add('drawer-open');scrim.classList.add('on');});
+    scrim.addEventListener('click',function(){sr.classList.remove('drawer-open');scrim.classList.remove('on');});
+  }
+})();
+</script>
+</body>
+</html>

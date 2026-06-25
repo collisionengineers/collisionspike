@@ -9,7 +9,7 @@ the operator activates** (memory `live-services-boundary`). Canonical context li
 [../../AGENTS.md](../../AGENTS.md),
 [../architecture/live-environment.md](../architecture/live-environment.md), and the ADRs.
 
-Last updated **2026-06-24**.
+Last updated **2026-06-25**.
 
 ## How this folder is organised
 
@@ -41,8 +41,9 @@ docs/plans/
   phase-5-ocr-and-scale/             ocr-strategy (5a) · image-classification-ai (5b) · valuation-and-copilot (5c) · copilot-studio-setup (M3)
   phase-6-handoff/                   boundary evidence (points to DEPLOY-RUNBOOK §8)
   phase-7-box-integration/           README (B0–B4 waves) · box-custom-connector-and-webhook (BUILD spec) · box-integration-activation (operator runbook)
-  phase-8-inbox-management/          README (email triage; deterministic MVP → query queue → gated LLM; ADR-0015 Proposed)
+  phase-8-inbox-management/          README (email triage; deterministic MVP → query queue → gated LLM; ADR-0015 Proposed) · junk-backlog-and-activation-evidence (live junk-case findings + cleanup + activation trigger)
   phase-9-data-governance/           README (UK-GDPR retention/erasure/PII lifecycle; ADR-0017 Proposed)
+  phase-ux-design-lab/               README (cross-cutting UX lab; 8+ throwaway HTML/React directions → judge → port winner to Fluent v9; 9 UI/UX agents)
 (docs/research/whatsapp-coexistence.md — M3 research, outside this tree)
 (docs/open-questions.md — consolidated decisions register, outside this tree)
 ```
@@ -106,7 +107,9 @@ docs/plans/
 | [../architecture/architecture-audit-2026-06-20.md](../architecture/architecture-audit-2026-06-20.md) | Dated architecture-audit findings register (F1–F11) across Functions/IaC/Dataverse/flows/connectors/Code App, each CLAUDE-fixable vs operator. | **cross-cutting** (audit) |
 | [phase-4-address-and-chaser/inspection-address-revamp.md](./phase-4-address-and-chaser/inspection-address-revamp.md) | Revamp the inspection-address **suggestion** corpus from the 2-year EVA full-address export (~17,737 rows); offline profile→provider-map→dedup→regenerate; helpers are offline-only. **ADR-0013 stays binding.** | **Phase 4a** (ADR-0016 _Proposed_) |
 | [phase-8-inbox-management/README.md](./phase-8-inbox-management/README.md) | Classify **every** inbox email into the operator taxonomy (receiving-work / query / other); deterministic `/classify-email` MVP + `cr1bd_inboundemail` triage table → query-queue UI → gated LLM. | **Phase 8** (ADR-0015 _Proposed_) |
+| [phase-8-…/junk-backlog-and-activation-evidence.md](./phase-8-inbox-management/junk-backlog-and-activation-evidence.md) | Live evidence (2026-06-25) that `digital@` is the team's working inbox cased by `fetchOnlyWithAttachment=false` → 50 blank junk Cases; the blank-guarded cleanup runbook; and why content-based triage keeps test extraction working (`new_client_work`). _Findings + activation trigger._ | **Phase 8** (ADR-0015 _Proposed_) |
 | [phase-9-data-governance/README.md](./phase-9-data-governance/README.md) | UK-GDPR retention/erasure/PII lifecycle across Dataverse + Blob + Box; two competing clocks (minimisation vs litigation hold); DSAR runbook + DPIA + AI-data-protection gate. | **Phase 9** (ADR-0017 _Proposed_) |
+| [phase-ux-design-lab/README.md](./phase-ux-design-lab/README.md) | Cross-cutting UX lab: explore 8+ **throwaway** HTML/React UI directions covering the whole product (main-page inbox cockpit + queues + all Phase 1–9 features), judge them, converge, then **port the winner to the Fluent v9 Code App**. Run by a dynamic **ultracode** workflow over 9 new UI/UX subagents. | **cross-cutting** (UI/UX) |
 | [../open-questions.md](../open-questions.md) | Consolidated **decisions** register (distinct from the operator-action registry gated.md) for Phases 4a/8/9 + cross-cutting + doc-hygiene. | **cross-cutting** (decisions) |
 
 ## ROADMAP coverage check (every phase/feature has a plan)

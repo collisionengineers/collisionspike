@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Dossier · Queues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Libre+Franklin:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{
+ colors:{
+  desk:'#2E2823','desk-edge':'#1F1B17','desk-raised':'#3A332B','desk-ink':'#EFE7D6','desk-ink-muted':'#B6A88C',
+  paper:'#F5EEDD','paper-raised':'#FBF6E9','paper-sunken':'#EBDFC4',manila:'#E6D2A0','manila-edge':'#CBB377',hairline:'#DBCBA4','rule-strong':'#BBA877',
+  ink:'#2B241A','ink-secondary':'#574B38','ink-muted':'#6B5C42','ink-faint':'#9C8B6C',
+  stamp:'#B23A2E','stamp-hover':'#963023','stamp-text':'#8E2E22'},
+ fontFamily:{display:['"Zilla Slab"','serif'],sans:['"Libre Franklin"','system-ui','sans-serif'],mono:['"Courier Prime"','ui-monospace','monospace']},
+ borderRadius:{tab:'6px 6px 0 0',card:'3px',control:'2px'},
+ boxShadow:{sheet:'0 1px 0 rgba(255,255,255,.6) inset,0 2px 8px -2px rgba(43,36,26,.18)',tab:'0 -1px 3px rgba(43,36,26,.12)'}}}}
+</script>
+<style>
+:root{--g:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+body{font-family:'Libre Franklin',system-ui,sans-serif;color:#2B241A;background:#F5EEDD}
+body::before{content:"";position:fixed;inset:0;background-image:var(--g);opacity:.035;pointer-events:none;z-index:0;mix-blend-mode:multiply}
+*:focus-visible{outline:2px solid #B23A2E;outline-offset:2px}
+.eyebrow{font-family:'Zilla Slab';font-weight:600;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#6B5C42}
+.disp{font-family:'Zilla Slab'}.mono{font-family:'Courier Prime'}.tnum{font-variant-numeric:tabular-nums}
+.stamp{position:relative;display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:2px solid var(--si);border-radius:2px;background:var(--st);color:var(--si);font-family:'Courier Prime';font-weight:700;font-size:10px;letter-spacing:.1em;text-transform:uppercase;line-height:1;transform:rotate(-2deg);white-space:nowrap}
+.stamp::before{content:"";position:absolute;inset:2px;border:1px solid var(--si);border-radius:1px;opacity:.8;pointer-events:none}
+.stamp::after{content:"";position:absolute;inset:0;border-radius:2px;background-image:var(--g);background-size:90px;opacity:.13;mix-blend-mode:multiply;pointer-events:none}
+.stamp.mini{font-size:10px;padding:2px 6px}
+.s-review{--si:#B23A2E;--st:#F4DDD5}.s-held{--si:#9A6B12;--st:#F4E6C2}.s-ready{--si:#4A6B33;--st:#E4EACE}.s-neutral{--si:#6B5C42;--st:#EBDFC4}.s-filed{--si:#5E6B72;--st:#E3E4DD}
+.vrm{display:inline-flex;align-items:stretch;border:1px solid #15110a;border-radius:3px;overflow:hidden;font-family:'Courier Prime';font-weight:700;line-height:1}
+.vrm .gb{background:#063298;color:#fff;font-size:7px;padding:0 3px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.vrm .gb b{font-size:8px}
+.vrm .reg{background:#F4C233;color:#161616;padding:2px 7px;font-size:13px;letter-spacing:.04em}
+.railitem{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 14px;min-height:42px;font-family:'Zilla Slab';font-weight:600;font-size:14px;color:#B6A88C;border-left:2px solid transparent;text-decoration:none}
+.railitem:hover{background:#3A332B;color:#EFE7D6}
+.railitem.active{background:#3A332B;color:#EFE7D6;border-left-color:#B23A2E}
+.railitem.sub{font-size:13px;padding-left:26px;min-height:38px;font-family:'Libre Franklin';font-weight:500}
+.railitem.sub.active{border-left-color:#B23A2E}
+.railcount{font-family:'Courier Prime';font-weight:700;font-size:12px}
+.railitem.disabled{opacity:.4;cursor:not-allowed}
+.rail-scroll::-webkit-scrollbar{width:8px}.rail-scroll::-webkit-scrollbar-thumb{background:#3A332B;border-radius:4px}
+/* partition file-tabs */
+.qtab{position:relative;background:#EBDFC4;border:1px solid #CBB377;border-bottom:none;border-radius:6px 6px 0 0;padding:8px 16px;font-family:'Zilla Slab';font-weight:600;font-size:14px;color:#6B5C42;cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.qtab .c{font-family:'Courier Prime';font-weight:700;font-size:12px}
+.qtab[aria-selected=true]{background:#FBF6E9;color:#2B241A;transform:translateY(2px);box-shadow:0 -1px 3px rgba(43,36,26,.1);z-index:3;border-top:2px solid #6B5C42}
+.qtab.blocker[aria-selected=true]{border-top-color:#B23A2E}
+.qtab.blocker .dot{width:7px;height:7px;border-radius:50%;background:#B23A2E;display:inline-block}
+/* grid */
+.qrow{cursor:pointer}
+.qrow:hover{background:#EBDFC4 !important}
+.facet{font-family:'Courier Prime';font-weight:700;font-size:11px;padding:4px 9px;border:1px solid #BBA877;border-radius:2px;background:#FBF6E9;color:#574B38;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+.facet[aria-pressed=true]{background:#F4DDD5;border-color:#B23A2E;color:#8E2E22}
+.fdrop{font-family:'Courier Prime';font-size:12px;padding:6px 10px;border:1px solid #BBA877;border-radius:2px;background:#FBF6E9;color:#574B38}
+@media (max-width:767px){#rail{position:fixed;left:0;top:56px;bottom:0;transform:translateX(-100%);transition:transform .2s;z-index:50}#rail.open{transform:none}
+ .qhide{display:none}}
+</style>
+</head>
+<body class="min-h-screen">
+<header class="bg-desk text-desk-ink border-b border-desk-edge h-14 flex items-center gap-3 px-3 sticky top-0 z-[60]">
+  <button id="navToggle" class="md:hidden text-desk-ink text-xl w-10 h-10 grid place-items-center rounded-control hover:bg-desk-raised" aria-label="Menu">☰</button>
+  <div class="flex items-baseline gap-2 shrink-0"><span class="disp font-bold text-[20px] tracking-tight">The&nbsp;Dossier</span><span class="eyebrow !text-desk-ink-muted hidden lg:inline">Case Intake</span></div>
+  <div class="flex-1 max-w-xl mx-auto relative">
+    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-desk-ink-muted text-sm">⌕</span>
+    <input class="w-full bg-desk-raised border border-desk-edge rounded-control pl-8 pr-3 h-9 text-desk-ink placeholder:text-desk-ink-muted mono text-[13px]" placeholder="VRM / Case·PO / claimant…">
+  </div>
+  <div class="hidden md:flex items-center gap-2 mono text-[12px] text-desk-ink-muted shrink-0"><span>Updated&nbsp;09:14</span><button class="w-8 h-8 grid place-items-center rounded-control hover:bg-desk-raised hover:text-desk-ink" aria-label="Refresh">↻</button></div>
+</header>
+<div id="scrim" onclick="toggleNav()" class="hidden fixed inset-0 bg-black/40 z-40 md:!hidden"></div>
+
+<div class="flex">
+  <nav id="rail" class="bg-desk w-[232px] shrink-0 border-r border-desk-edge flex flex-col rail-scroll overflow-y-auto" style="height:calc(100vh - 56px)" aria-label="Primary">
+    <a href="index.html" class="railitem mt-2"><span>Cockpit</span></a>
+    <a href="#" class="railitem"><span>Inbox / Triage</span><span class="railcount">12</span></a>
+    <div class="px-[14px] pt-3 pb-1"><span class="eyebrow !text-[10px] !text-desk-ink-muted">Queues</span></div>
+    <a href="queues.html" class="railitem sub active"><span>Not ready</span><span class="railcount">6</span></a>
+    <a href="queues.html" class="railitem sub active"><span>Review</span><span class="railcount text-stamp">7</span></a>
+    <a href="queues.html" class="railitem sub active"><span>Held</span><span class="railcount">9</span></a>
+    <a href="queues.html" class="railitem sub active"><span>Ready</span><span class="railcount">5</span></a>
+    <a href="case-detail.html" class="railitem mt-1"><span>Cases</span></a>
+    <a href="#" class="railitem"><span>Manual intake</span></a>
+    <div class="mt-auto border-t border-desk-edge pt-2 pb-4">
+      <div class="px-[14px] py-1"><span class="eyebrow !text-[10px] !text-desk-ink-muted opacity-70">Admin</span></div>
+      <a href="#" class="railitem"><span>Corpus</span></a>
+      <a href="#" class="railitem"><span>Improvement</span><span class="railcount">3</span></a>
+      <a href="#" class="railitem"><span>Settings</span></a>
+      <a href="#" class="railitem"><span>Action logs</span></a>
+      <span class="railitem disabled"><span>Engineer</span><span class="stamp mini s-filed scale-90">⊘ off</span></span>
+    </div>
+  </nav>
+
+  <main class="flex-1 min-w-0 relative z-10" style="min-height:calc(100vh - 56px)">
+   <div class="max-w-[1200px] mx-auto px-4 sm:px-6 py-5">
+    <div class="flex items-end justify-between mb-2"><span class="eyebrow">Queues</span><span class="mono text-[11px] text-ink-muted">partitioned by who acts next</span></div>
+
+    <!-- partition file-tabs -->
+    <div role="tablist" class="flex gap-[3px] border-b-2 border-rule-strong overflow-x-auto" aria-label="Queue partitions">
+      <button role="tab" class="qtab" data-p="notready" aria-selected="false">Not ready <span class="c">6</span></button>
+      <button role="tab" class="qtab blocker" data-p="review" aria-selected="true"><span class="dot"></span>Review <span class="c">7</span></button>
+      <button role="tab" class="qtab" data-p="held" aria-selected="false">Held <span class="c">9</span></button>
+      <button role="tab" class="qtab ml-auto" data-p="ready" aria-selected="false">Ready for EVA <span class="c">5</span></button>
+    </div>
+
+    <div class="bg-paper-raised border border-hairline border-t-0 rounded-b-card shadow-sheet">
+      <!-- toolbar -->
+      <div class="flex flex-wrap items-center gap-2 p-3 border-b border-hairline">
+        <div class="relative">
+          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-muted text-sm">⌕</span>
+          <input id="q" class="mono text-[12px] pl-7 pr-2 py-1.5 border border-rule-strong rounded-control bg-paper-sunken/60 w-44" placeholder="search…" oninput="recount()">
+        </div>
+        <select class="fdrop qhide" onchange="recount()"><option>Provider ▾</option><option>Aviva</option><option>Acme</option><option>Direct Line</option></select>
+        <select class="fdrop" onchange="recount()"><option>Status ▾</option><option>needs_review</option><option>conflict</option><option>duplicate_risk</option></select>
+        <select class="fdrop qhide" onchange="recount()"><option>Channel ▾</option><option>Email</option><option>WhatsApp</option></select>
+        <select class="fdrop" onchange="recount()"><option>Age ▾</option><option>&gt; 5d</option><option>2–5d</option><option>&lt; 2d</option></select>
+        <span id="count" class="mono text-[12px] text-ink-muted ml-auto">showing 7 of 7</span>
+      </div>
+
+      <!-- review reason facets -->
+      <div id="facets" class="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-hairline bg-paper-sunken/40">
+        <span class="eyebrow !text-[10px] mr-1">Reason</span>
+        <button class="facet" data-r="images" aria-pressed="false" onclick="toggleFacet(this)">Missing images <span class="text-ink-muted">3</span></button>
+        <button class="facet" data-r="instr" aria-pressed="false" onclick="toggleFacet(this)">Missing instructions <span class="text-ink-muted">1</span></button>
+        <button class="facet" data-r="dup" aria-pressed="false" onclick="toggleFacet(this)">Duplicate <span class="text-ink-muted">2</span></button>
+        <button class="facet" data-r="conflict" aria-pressed="false" onclick="toggleFacet(this)">Conflict <span class="text-ink-muted">1</span></button>
+      </div>
+
+      <!-- grid header -->
+      <div class="hidden md:grid grid-cols-[150px_110px_1fr_110px_1.4fr_64px_88px] gap-2 px-3 py-2 border-b-2 border-rule-strong">
+        <span class="eyebrow !text-[10px]">VRM</span><span class="eyebrow !text-[10px]">Case/PO</span><span class="eyebrow !text-[10px]">Provider</span><span class="eyebrow !text-[10px]">Status</span><span class="eyebrow !text-[10px]">Outstanding</span><span class="eyebrow !text-[10px]">Chan</span><span class="eyebrow !text-[10px]">Age/Due</span>
+      </div>
+
+      <div id="rows">
+        <!-- rows: dense, zebra -->
+      </div>
+      <div id="empty" class="hidden p-10 text-center">
+        <div class="eyebrow mb-2">No cases match these facets</div>
+        <button onclick="clearAll()" class="facet" aria-pressed="false">✕ clear all filters</button>
+      </div>
+    </div>
+    <p class="mono text-[11px] text-ink-muted mt-2">Row → case detail · duplicates flagged with ⊘ on the plate.</p>
+   </div>
+  </main>
+</div>
+
+<script>
+// seed data per partition
+const DATA={
+ review:[
+  {vrm:'VK19 ZRT',dup:false,po:'CCPY26050',prov:'Aviva',code:'CCPY',st:'review',stl:'Review',out:'▲ Resolve conflict: VAT status',glyph:'conflict',ch:'✉',age:'5d',due:'past',r:'conflict'},
+  {vrm:'LR68 OMW',dup:true,po:'ACME26112',prov:'Acme',code:'ACME',st:'review',stl:'Review',out:'⊘ Decide duplicate (2 candidates)',glyph:'dup',ch:'✉',age:'4d',due:'past',r:'dup'},
+  {vrm:'BD21 KHN',dup:false,po:'— / VRM',prov:'Direct Line',code:'VRM',st:'review',stl:'Review',out:'● Verify claimant telephone',glyph:'dot',ch:'✆',age:'2d',due:'soon',r:'instr'},
+  {vrm:'MA20 PLX',dup:false,po:'CCPY26077',prov:'Aviva',code:'CCPY',st:'review',stl:'Review',out:'● Complete mileage  +1',glyph:'dot',ch:'✉',age:'1d',due:'',r:'instr'},
+  {vrm:'SF67 DTU',dup:false,po:'DLIN26019',prov:'Direct Line',code:'DLIN',st:'review',stl:'Review',out:'● Add make/model  +2',glyph:'dot',ch:'✉',age:'1d',due:'',r:'instr'},
+  {vrm:'WX18 GHF',dup:true,po:'AVIV26081',prov:'Aviva',code:'CCPY',st:'review',stl:'Review',out:'⊘ Decide duplicate (3 candidates)',glyph:'dup',ch:'✉',age:'3d',due:'soon',r:'dup'},
+  {vrm:'GK15 RTP',dup:false,po:'ACME26120',prov:'Acme',code:'ACME',st:'review',stl:'Review',out:'● Confirm date of loss',glyph:'dot',ch:'✆',age:'1d',due:'',r:'images'}
+ ],
+ notready:[
+  {vrm:'HN70 VBC',dup:false,po:'—',prov:'Aviva',code:'CCPY',st:'neutral',stl:'Ingested',out:'· system parsing',glyph:'',ch:'✉',age:'4m',due:''},
+  {vrm:'YE19 KKD',dup:false,po:'—',prov:'Acme',code:'ACME',st:'neutral',stl:'New email',out:'· awaiting parse',glyph:'',ch:'✉',age:'7m',due:''},
+  {vrm:'RT21 LMN',dup:false,po:'—',prov:'Direct Line',code:'DLIN',st:'neutral',stl:'Linked',out:'· partial joined',glyph:'',ch:'✉',age:'22m',due:''},
+  {vrm:'PO68 ASD',dup:false,po:'—',prov:'Aviva',code:'CCPY',st:'neutral',stl:'Ingested',out:'· system parsing',glyph:'',ch:'✉',age:'31m',due:''},
+  {vrm:'UB17 QWE',dup:false,po:'—',prov:'Acme',code:'ACME',st:'neutral',stl:'New email',out:'· awaiting parse',glyph:'',ch:'✉',age:'48m',due:''},
+  {vrm:'CV66 TYU',dup:false,po:'—',prov:'Direct Line',code:'DLIN',st:'neutral',stl:'Ingested',out:'· system parsing',glyph:'',ch:'✉',age:'1h',due:''}
+ ],
+ held:[
+  {vrm:'VK19 ZRT',dup:false,po:'CCPY26050',prov:'Aviva',code:'CCPY',st:'held',stl:'On hold',out:'◷ Chase garage for images',glyph:'',ch:'✆',age:'5d',due:'past'},
+  {vrm:'LM62 PNB',dup:false,po:'ACME26099',prov:'Acme',code:'ACME',st:'held',stl:'On hold',out:'◷ Chase missing instructions',glyph:'',ch:'✉',age:'4d',due:'past'},
+  {vrm:'DA15 ORW',dup:false,po:'DLIN26004',prov:'Direct Line',code:'DLIN',st:'held',stl:'On hold',out:'◷ Awaiting images (File-Request)',glyph:'',ch:'✆',age:'3d',due:'soon'},
+  {vrm:'EJ19 TVX',dup:false,po:'CCPY26061',prov:'Aviva',code:'CCPY',st:'held',stl:'On hold',out:'◷ Chase garage for images',glyph:'',ch:'✉',age:'3d',due:'soon'},
+  {vrm:'NN20 HBV',dup:false,po:'ACME26102',prov:'Acme',code:'ACME',st:'held',stl:'On hold',out:'◷ Awaiting instruction PDF',glyph:'',ch:'✉',age:'2d',due:'soon'},
+  {vrm:'OK68 ZZP',dup:false,po:'DLIN26011',prov:'Direct Line',code:'DLIN',st:'held',stl:'On hold',out:'◷ Chase missing images',glyph:'',ch:'✆',age:'1d',due:''}
+ ],
+ ready:[
+  {vrm:'TR18 MNO',dup:false,po:'CCPY26044',prov:'Aviva',code:'CCPY',st:'ready',stl:'Cleared',out:'✓ all gates green',glyph:'',ch:'✉',age:'1d',due:''},
+  {vrm:'GH67 WED',dup:false,po:'ACME26090',prov:'Acme',code:'ACME',st:'ready',stl:'Cleared',out:'✓ all gates green',glyph:'',ch:'✉',age:'1d',due:''},
+  {vrm:'BV21 KLP',dup:false,po:'DLIN26002',prov:'Direct Line',code:'DLIN',st:'ready',stl:'Cleared',out:'✓ all gates green',glyph:'',ch:'✆',age:'4h',due:''},
+  {vrm:'CD19 RFV',dup:false,po:'CCPY26052',prov:'Aviva',code:'CCPY',st:'ready',stl:'Cleared',out:'✓ all gates green',glyph:'',ch:'✉',age:'2h',due:''},
+  {vrm:'WE66 PLM',dup:false,po:'ACME26115',prov:'Acme',code:'ACME',st:'ready',stl:'Cleared',out:'✓ all gates green',glyph:'',ch:'✉',age:'1h',due:''}
+ ]
+};
+let partition='review', facet=null;
+const stMap={review:'s-review',held:'s-held',ready:'s-ready',neutral:'s-neutral'};
+function dueStamp(d){if(d==='past')return '<span class="stamp mini s-review">▲ Past</span>';if(d==='soon')return '<span class="stamp mini s-held">◷ Soon</span>';return '';}
+function plate(r){return `<span class="vrm">${r.dup?'<span class="gb"><b>⊘</b></span>':'<span class="gb"><b>GB</b></span>'}<span class="reg">${r.vrm}</span></span>`;}
+function render(){
+ const q=document.getElementById('q').value.toLowerCase();
+ let rows=DATA[partition].filter(r=>{
+   if(facet&&partition==='review'&&r.r!==facet)return false;
+   if(q&&!(r.vrm.toLowerCase().includes(q)||r.po.toLowerCase().includes(q)||r.prov.toLowerCase().includes(q)))return false;
+   return true;});
+ const box=document.getElementById('rows');
+ if(rows.length===0){box.innerHTML='';document.getElementById('empty').classList.remove('hidden');}
+ else{document.getElementById('empty').classList.add('hidden');
+   box.innerHTML=rows.map((r,i)=>`
+   <a href="case-detail.html" class="qrow grid grid-cols-2 md:grid-cols-[150px_110px_1fr_110px_1.4fr_64px_88px] gap-2 px-3 py-2.5 items-center border-b border-hairline" style="background:${i%2?'#EBDFC4':'transparent'};min-height:44px">
+     <span>${plate(r)}</span>
+     <span class="mono text-[12px] text-ink-secondary">${r.po}</span>
+     <span class="text-[13px] qhide md:inline">${r.prov} <span class="mono text-[11px] text-ink-muted">(${r.code})</span></span>
+     <span><span class="stamp mini ${stMap[r.st]}">${r.stl}</span></span>
+     <span class="text-[13px] text-ink-secondary col-span-2 md:col-span-1">${r.out}</span>
+     <span class="mono text-[13px] text-ink-muted qhide md:inline">${r.ch}</span>
+     <span class="flex items-center gap-1.5 justify-end md:justify-start"><span class="mono text-[12px] text-ink-muted">${r.age}</span>${dueStamp(r.due)}</span>
+   </a>`).join('');}
+ document.getElementById('count').textContent=`showing ${rows.length} of ${DATA[partition].length}`;
+}
+function recount(){render();}
+function toggleFacet(btn){const r=btn.dataset.r;const on=btn.getAttribute('aria-pressed')==='true';
+ document.querySelectorAll('.facet').forEach(b=>b.setAttribute('aria-pressed','false'));
+ if(on){facet=null;}else{btn.setAttribute('aria-pressed','true');facet=r;}render();}
+function clearAll(){facet=null;document.getElementById('q').value='';document.querySelectorAll('.facet').forEach(b=>b.setAttribute('aria-pressed','false'));render();}
+document.querySelectorAll('.qtab').forEach(t=>t.addEventListener('click',()=>{
+ document.querySelectorAll('.qtab').forEach(x=>x.setAttribute('aria-selected','false'));
+ t.setAttribute('aria-selected','true');partition=t.dataset.p;facet=null;
+ document.querySelectorAll('.facet').forEach(b=>b.setAttribute('aria-pressed','false'));
+ document.getElementById('facets').style.display=partition==='review'?'flex':'none';
+ render();}));
+function toggleNav(){document.getElementById('rail').classList.toggle('open');document.getElementById('scrim').classList.toggle('hidden')}
+document.getElementById('navToggle').addEventListener('click',toggleNav);
+render();
+</script>
+</body>
+</html>

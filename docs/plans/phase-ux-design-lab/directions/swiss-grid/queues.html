@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>swiss-grid · Queues · collisionspike</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config={theme:{extend:{
+ colors:{paper:'#F3F4F2',ink:{900:'#16181C',800:'#0A0A0B',700:'#3A3D44',600:'#52555C',500:'#6B6F76',400:'#9A9DA4',300:'#B7BAC0'},line:'#D8DADE',linesoft:'#E8E9EB',accent:'#1D3FD6',accent2:'#16329F',accenttint:'#ECEEFC',blocker:'#C81E2D',ochre:'#B45309',ok:'#1B6E45',held:'#B45309'},
+ fontFamily:{display:['Archivo','system-ui','sans-serif'],mono:['"IBM Plex Mono"','ui-monospace','monospace']},
+}}}
+</script>
+<style>
+:root{color-scheme:light}
+html,body{height:100%}
+body{font-family:'Archivo',system-ui,sans-serif;color:#16181C;background:#F3F4F2;-webkit-font-smoothing:antialiased}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#6B6F76}
+.ruled-head{display:flex;align-items:center;gap:12px}
+.ruled-head .rule{flex:1 1 auto;height:1px;background:#D8DADE}
+.measure-col{border-right:1px solid #D8DADE;background-image:repeating-linear-gradient(to bottom,#C9CCD2 0,#C9CCD2 1px,transparent 1px,transparent 8px);background-size:7px 8px;background-position:right top;background-repeat:repeat-y}
+.ord{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;color:#9A9DA4}
+.vrm{display:inline-flex;align-items:stretch;border:1px solid #0E1014;border-radius:2px;overflow:hidden;height:24px;line-height:1;font-family:'IBM Plex Mono',monospace;font-weight:700;flex:none}
+.vrm-gb{background:#0A3BAE;color:#fff;font-size:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 4px;letter-spacing:.02em;gap:1px}
+.vrm-num{background:#FBE10A;color:#11131a;font-size:14px;letter-spacing:.06em;display:flex;align-items:center;padding:0 8px}
+.vrm.sm{height:20px}.vrm.sm .vrm-num{font-size:12px;padding:0 6px}.vrm.sm .vrm-gb{font-size:6px}
+a{color:inherit;text-decoration:none}
+.link{color:#1D3FD6}.link:hover{text-decoration:underline;text-underline-offset:2px}
+input::placeholder{color:#9A9DA4}
+.focusable:focus-within{outline:2px solid #1D3FD6;outline-offset:1px}
+button:focus-visible,a:focus-visible{outline:2px solid #1D3FD6;outline-offset:1px}
+::selection{background:#ECEEFC}
+.rowlink:hover{background:#ECEDEF}
+.badge{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;padding:2px 7px;border:1px solid #D8DADE;background:#fff;color:#3A3D44;white-space:nowrap}
+.badge .gl{font-weight:700}
+.badge.b-review{border-color:#C81E2D;color:#B01724}
+.badge.b-held{border-color:#D8DADE;color:#8A4B00}
+.badge.b-ready{border-color:#D8DADE;color:#15613C}
+.badge.b-ingest{border-color:#D8DADE;color:#6B6F76}
+.chip{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border:1px solid #D8DADE;background:#fff;color:#3A3D44;cursor:pointer}
+.chip.on{border-color:#16181C;background:#16181C;color:#fff}
+.filt{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:1px solid #D8DADE;background:#fff;color:#3A3D44;cursor:pointer}
+.filt:hover{border-color:#16181C}
+@media (prefers-reduced-motion:no-preference){a,button,.rowlink,.chip,.filt{transition:background-color .14s ease,border-color .14s ease,color .14s ease}}
+</style>
+</head>
+<body class="h-full">
+<div class="min-h-full flex">
+
+  <!-- RAIL -->
+  <aside class="hidden md:flex flex-col md:w-14 lg:w-60 bg-ink-900 text-white shrink-0 sticky top-0 h-screen z-40">
+    <div class="h-14 flex items-center gap-3 px-3 lg:px-4 border-b border-white/10">
+      <span class="w-7 h-7 grid place-items-center bg-white text-ink-900 mono font-bold text-[12px] shrink-0">CE</span>
+      <div class="hidden lg:block leading-tight">
+        <div class="mono text-[11px] tracking-[.16em] text-white">COLLISION ENG.</div>
+        <div class="mono text-[9px] tracking-[.16em] text-ink-400">INTAKE OPS · SPIKE</div>
+      </div>
+    </div>
+    <nav class="flex-1 py-2">
+      <p class="hidden lg:block eyebrow !text-ink-400 px-4 pt-2 pb-1">Intake</p>
+      <a href="index.html" class="group flex items-center gap-3 h-11 px-3 lg:px-4 border-l-2 border-transparent hover:bg-white/[0.05]">
+        <span class="mono text-[11px] font-semibold w-7 text-center text-ink-400 group-hover:text-white shrink-0">CK</span>
+        <span class="hidden lg:block text-[13px] text-ink-300 group-hover:text-white flex-1">Cockpit</span>
+      </a>
+      <a href="index.html#r1" class="group flex items-center gap-3 h-11 px-3 lg:px-4 border-l-2 border-transparent hover:bg-white/[0.05]">
+        <span class="mono text-[11px] font-semibold w-7 text-center text-ink-400 group-hover:text-white shrink-0">TR</span>
+        <span class="hidden lg:block text-[13px] text-ink-300 group-hover:text-white flex-1">Triage</span>
+        <span class="hidden lg:block mono text-[11px] text-ink-400">14</span>
+      </a>
+      <a href="queues.html" aria-current="page" class="group flex items-center gap-3 h-11 px-3 lg:px-4 border-l-2 border-accent bg-white/[0.07]">
+        <span class="mono text-[11px] font-semibold w-7 text-center text-white shrink-0">QU</span>
+        <span class="hidden lg:block text-[13px] text-white flex-1">Queues</span>
+        <span class="hidden lg:block mono text-[11px] text-ink-300">28</span>
+      </a>
+      <a href="queues.html#ready" class="hidden lg:flex items-center gap-3 h-8 pl-12 pr-4 border-l-2 border-accent bg-white/[0.04]">
+        <span class="text-[12px] text-white flex-1">★ Ready for EVA</span>
+        <span class="mono text-[11px] text-ok">05</span>
+      </a>
+      <a href="#" class="group flex items-center gap-3 h-11 px-3 lg:px-4 border-l-2 border-transparent hover:bg-white/[0.05]">
+        <span class="mono text-[11px] font-semibold w-7 text-center text-ink-400 group-hover:text-white shrink-0">IN</span>
+        <span class="hidden lg:block text-[13px] text-ink-300 group-hover:text-white flex-1">Manual intake</span>
+      </a>
+      <p class="hidden lg:block eyebrow !text-ink-400 px-4 pt-4 pb-1 border-t border-white/10 mt-2">Admin</p>
+      <a href="#" class="group flex items-center gap-3 h-11 px-3 lg:px-4 border-l-2 border-transparent hover:bg-white/[0.05]">
+        <span class="mono text-[11px] font-semibold w-7 text-center text-ink-400 group-hover:text-white shrink-0">AD</span>
+        <span class="hidden lg:block text-[13px] text-ink-300 group-hover:text-white flex-1">Admin · Corpus</span>
+      </a>
+    </nav>
+    <div class="border-t border-white/10 px-3 lg:px-4 py-3 flex items-center gap-3">
+      <span class="w-7 h-7 grid place-items-center bg-white/10 mono text-[11px] shrink-0">AM</span>
+      <div class="hidden lg:block leading-tight">
+        <div class="mono text-[11px] text-white">A. MERCER</div>
+        <div class="mono text-[9px] text-ink-400">INTAKE STAFF</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="flex-1 min-w-0 flex flex-col pb-16 md:pb-0">
+
+    <!-- HEADER -->
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-3 sm:gap-4 px-4 lg:px-6 sticky top-0 z-30">
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="eyebrow">Queues</span>
+        <span class="hidden sm:block w-px h-4 bg-line"></span>
+        <h1 class="hidden sm:block text-[15px] font-semibold tracking-tight whitespace-nowrap">Partitioned by who acts next</h1>
+      </div>
+      <div class="flex-1"></div>
+      <label class="hidden md:flex items-center gap-2 h-9 px-3 border border-line bg-paper w-64 lg:w-72 focusable">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B6F76" stroke-width="2" class="shrink-0"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input class="bg-transparent outline-none text-[13px] w-full mono" placeholder="VRM · Case/PO · claimant" aria-label="Search"/>
+      </label>
+      <div class="flex items-center gap-2 sm:gap-3 mono text-[11px] text-ink-500">
+        <span class="hidden sm:inline whitespace-nowrap">UPDATED 09:42</span>
+        <button class="h-9 px-3 border border-line bg-white hover:border-accent hover:text-accent text-ink-700 font-semibold tracking-wide">REFRESH</button>
+      </div>
+    </header>
+
+    <main class="flex-1 grid grid-cols-[28px_1fr] sm:grid-cols-[40px_1fr]">
+      <div class="measure-col"></div>
+      <div class="min-w-0">
+
+        <!-- PARTITION TABS -->
+        <div class="px-4 sm:px-6 pt-5 bg-paper">
+          <div class="ruled-head mb-3">
+            <span class="eyebrow">Queues · one case = one partition</span><span class="rule"></span>
+            <span class="eyebrow">Status-derived</span>
+          </div>
+          <div class="flex border-l border-t border-line bg-white overflow-x-auto">
+            <a href="#notready" class="relative px-4 py-3 border-r border-b border-line min-w-[140px] hover:bg-[#FAFAF9]">
+              <div class="eyebrow">Not ready</div>
+              <div class="flex items-baseline gap-2 mt-1"><span class="font-display font-bold text-[22px]">9</span><span class="mono text-[9px] text-ink-400">SYSTEM</span></div>
+            </a>
+            <a href="#review" aria-current="page" class="relative px-4 py-3 border-r border-b-2 border-b-blocker border-line min-w-[140px] bg-accenttint/40">
+              <div class="absolute left-0 top-0 h-full w-0.5 bg-blocker"></div>
+              <div class="eyebrow !text-blocker">Review</div>
+              <div class="flex items-baseline gap-2 mt-1"><span class="font-display font-bold text-[22px] text-blocker">8</span><span class="mono text-[9px] text-blocker">STAFF · BLOCKER</span></div>
+            </a>
+            <a href="#held" class="relative px-4 py-3 border-r border-b border-line min-w-[140px] hover:bg-[#FAFAF9]">
+              <div class="eyebrow">Held</div>
+              <div class="flex items-baseline gap-2 mt-1"><span class="font-display font-bold text-[22px] text-[#8A4B00]">11</span><span class="mono text-[9px] text-ink-400">EXTERNAL</span></div>
+            </a>
+            <a href="#ready" class="relative px-4 py-3 border-r border-b border-line min-w-[140px] hover:bg-[#FAFAF9]">
+              <div class="eyebrow !text-[#15613C]">★ Ready for EVA</div>
+              <div class="flex items-baseline gap-2 mt-1"><span class="font-display font-bold text-[22px] text-[#15613C]">5</span><span class="mono text-[9px] text-ink-400">PINNED</span></div>
+            </a>
+          </div>
+        </div>
+
+        <!-- TOOLBAR -->
+        <div class="px-4 sm:px-6 py-3 bg-paper border-b border-line">
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="filt focusable !cursor-text w-44">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6B6F76" stroke-width="2" class="shrink-0"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input class="bg-transparent outline-none w-full" placeholder="FILTER ROWS" aria-label="Filter rows"/>
+            </label>
+            <button class="filt">PROVIDER <span class="text-ink-400">▾</span></button>
+            <button class="filt">STATUS <span class="text-ink-400">▾</span></button>
+            <button class="filt">CHANNEL <span class="text-ink-400">▾</span></button>
+            <button class="filt">AGE <span class="text-ink-400">▾</span></button>
+            <span class="flex-1"></span>
+            <span class="mono text-[11px] text-ink-500 tracking-wide whitespace-nowrap">SHOWING <span class="text-ink-900 font-semibold">7</span> OF 8</span>
+          </div>
+          <!-- REVIEW reason facet chips -->
+          <div class="flex flex-wrap items-center gap-2 mt-3">
+            <span class="eyebrow mr-1">Review reason</span>
+            <button class="chip on">ALL · 8</button>
+            <button class="chip"><span class="gl">▲</span> CONFLICT · 2</button>
+            <button class="chip"><span class="gl">◎</span> DUPLICATE · 1</button>
+            <button class="chip"><span class="gl">□</span> MISSING FIELDS · 3</button>
+            <button class="chip"><span class="gl">✕</span> ERROR · 1</button>
+          </div>
+        </div>
+
+        <!-- COLUMN HEADER -->
+        <div class="hidden lg:grid grid-cols-[112px_92px_140px_172px_1fr_92px_110px] gap-x-4 px-4 sm:px-6 h-8 items-center bg-[#FAFAF9] border-b border-line">
+          <span class="eyebrow">VRM</span><span class="eyebrow">Case/PO</span><span class="eyebrow">Provider</span><span class="eyebrow">Status</span><span class="eyebrow">Outstanding</span><span class="eyebrow">Channel</span><span class="eyebrow text-right">Age</span>
+        </div>
+
+        <!-- ROWS (id=review active) -->
+        <div id="review" class="bg-white scroll-mt-16">
+
+          <!-- row template: line number gutter sits INSIDE the row at left -->
+          <a href="case-detail.html" class="rowlink flex border-b border-line" style="border-left:2px solid #C81E2D">
+            <span class="ord shrink-0 w-7 sm:w-9 pt-3 text-center">01</span>
+            <span class="flex-1 min-w-0 lg:grid lg:grid-cols-[112px_92px_140px_172px_1fr_92px_110px] lg:gap-x-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-3">
+              <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">LR21 KMV</span></span>
+              <span class="mono text-[12px] font-semibold">CCPY26050</span>
+              <span class="text-[13px] truncate">Aviva</span>
+              <span><span class="badge b-review"><span class="gl">▲</span>CONFLICT</span></span>
+              <span class="text-[13px] text-ink-700 flex-1 min-w-[170px] truncate">Resolve VAT status → field 08</span>
+              <span class="mono text-[11px] text-ink-500">EMAIL</span>
+              <span class="mono text-[12px] text-blocker lg:text-right whitespace-nowrap">2d 06h</span>
+            </span>
+          </a>
+
+          <a href="case-detail.html" class="rowlink flex border-b border-line" style="border-left:2px solid #C81E2D">
+            <span class="ord shrink-0 w-7 sm:w-9 pt-3 text-center">02</span>
+            <span class="flex-1 min-w-0 lg:grid lg:grid-cols-[112px_92px_140px_172px_1fr_92px_110px] lg:gap-x-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-3">
+              <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">BD68 ZRC</span></span>
+              <span class="mono text-[12px] font-semibold">DLGP26118</span>
+              <span class="text-[13px] truncate">Direct Line</span>
+              <span><span class="badge b-review"><span class="gl">◎</span>DUP RISK</span></span>
+              <span class="text-[13px] text-ink-700 flex-1 min-w-[170px] truncate">Confirm duplicate vs DLGP26101 — no auto-merge</span>
+              <span class="mono text-[11px] text-ink-500">EMAIL</span>
+              <span class="mono text-[12px] text-blocker lg:text-right whitespace-nowrap">1d 22h</span>
+            </span>
+          </a>
+
+          <a href="case-detail.html" class="rowlink flex border-b border-line" style="border-left:2px solid #C81E2D">
+            <span class="ord shrink-0 w-7 sm:w-9 pt-3 text-center">03</span>
+            <span class="flex-1 min-w-0 lg:grid lg:grid-cols-[112px_92px_140px_172px_1fr_92px_110px] lg:gap-x-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-3">
+              <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">GX70 LMN</span></span>
+              <span class="mono text-[12px] font-semibold">ADML26009</span>
+              <span class="text-[13px] truncate">Admiral</span>
+              <span><span class="badge b-review"><span class="gl">□</span>MISSING FIELDS</span></span>
+              <span class="text-[13px] text-ink-700 flex-1 min-w-[170px] truncate">Add mileage + unit → fields 06 / 07</span>
+              <span class="mono text-[11px] text-ink-500">EMAIL</span>
+              <span class="mono text-[12px] text-[#8A4B00] lg:text-right whitespace-nowrap">1d 04h</span>
+            </span>
+          </a>
+
+          <a href="case-detail.html" class="rowlink flex border-b border-line" style="border-left:2px solid #B45309">
+            <span class="ord shrink-0 w-7 sm:w-9 pt-3 text-center">04</span>
+            <span class="flex-1 min-w-0 lg:grid lg:grid-cols-[112px_92px_140px_172px_1fr_92px_110px] lg:gap-x-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-3">
+              <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">VK19 OTP</span></span>
+              <span class="mono text-[12px] font-semibold">HSTG26207</span>
+              <span class="text-[13px] truncate">Hastings</span>
+              <span><span class="badge b-review"><span class="gl">□</span>MISSING FIELDS</span></span>
+              <span class="text-[13px] text-ink-700 flex-1 min-w-[170px] truncate">Verify claimant email → field 04</span>
+              <span class="mono text-[11px] text-ink-500">MANUAL</span>
+              <span class="mono text-[12px] text-[#8A4B00] lg:text-right whitespace-nowrap">21h</span>
+            </span>
+          </a>
+
+          <a href="case-detail.html" class="rowlink flex border-b border-line" style="border-left:2px solid #B45309">
+            <span class="ord shrink-0 w-7 sm:w-9 pt-3 text-center">05</span>
+            <span class="flex-1 min-w-0 lg:grid lg:grid-cols-[112px_92px_140px_172px_1fr_92px_110px] lg:gap-x-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-3">
+              <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">MA22 TYP</span></span>
+              <span class="mono text-[12px] font-semibold">AXIN26071</span>
+              <span class="text-[13px] truncate">AX Innovation</span>
+              <span><span class="badge b-review"><span class="gl">▲</span>CONFLICT</span></span>
+              <span class="text-[13px] text-ink-700 flex-1 min-w-[170px] truncate">Reconcile date of loss → field 11</span>
+              <span class="mono text-[11px] text-ink-500">EMAIL</span>
+              <span class="mono text-[12px] text-[#8A4B00] lg:text-right whitespace-nowrap">18h</span>
+            </span>
+          </a>
+
+          <a href="case-detail.html" class="rowlink flex border-b border-line" style="border-left:2px solid #9AA0A6">
+            <span class="ord shrink-0 w-7 sm:w-9 pt-3 text-center">06</span>
+            <span class="flex-1 min-w-0 lg:grid lg:grid-cols-[112px_92px_140px_172px_1fr_92px_110px] lg:gap-x-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-3">
+              <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">RF17 WGD</span></span>
+              <span class="mono text-[12px] font-semibold">CCPY26044</span>
+              <span class="text-[13px] truncate">Aviva</span>
+              <span><span class="badge b-review"><span class="gl">✕</span>ERROR</span></span>
+              <span class="text-[13px] text-ink-700 flex-1 min-w-[170px] truncate">Re-run parse — recoverable error</span>
+              <span class="mono text-[11px] text-ink-500">EMAIL</span>
+              <span class="mono text-[12px] text-ink-500 lg:text-right whitespace-nowrap">14h</span>
+            </span>
+          </a>
+
+          <a href="case-detail.html" class="rowlink flex" style="border-left:2px solid #9AA0A6">
+            <span class="ord shrink-0 w-7 sm:w-9 pt-3 text-center">07</span>
+            <span class="flex-1 min-w-0 lg:grid lg:grid-cols-[112px_92px_140px_172px_1fr_92px_110px] lg:gap-x-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-3">
+              <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">KP18 NVR</span></span>
+              <span class="mono text-[12px] font-semibold">CPRT26133</span>
+              <span class="text-[13px] truncate">Copart</span>
+              <span><span class="badge b-review"><span class="gl">□</span>MISSING FIELDS</span></span>
+              <span class="text-[13px] text-ink-700 flex-1 min-w-[170px] truncate">Confirm vehicle make / model → field 05</span>
+              <span class="mono text-[11px] text-ink-500">MANUAL</span>
+              <span class="mono text-[12px] text-ink-500 lg:text-right whitespace-nowrap">9h</span>
+            </span>
+          </a>
+        </div>
+
+        <!-- OTHER PARTITIONS — collapsed previews so all four are represented -->
+        <div class="px-4 sm:px-6 py-5 bg-paper border-t border-line space-y-5">
+          <!-- HELD -->
+          <section id="held" class="scroll-mt-16">
+            <div class="ruled-head mb-3"><span class="eyebrow">Held · external party · chaser out</span><span class="rule"></span><span class="eyebrow">11 cases · auto-advances on upload</span></div>
+            <div class="border border-line bg-white">
+              <a href="case-detail.html" class="rowlink flex items-center gap-3 px-4 h-11 border-b border-line" style="border-left:2px solid #C81E2D">
+                <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">LR21 KMV</span></span>
+                <span class="mono text-[12px] font-semibold w-[84px] hidden sm:block">CCPY26050</span>
+                <span class="badge b-held shrink-0"><span class="gl">▤</span>MISSING IMAGES</span>
+                <span class="text-[13px] text-ink-700 truncate flex-1">Chase 2 EVA photos — overview w/ reg</span>
+                <span class="mono text-[12px] text-blocker whitespace-nowrap">OVERDUE 3d</span>
+              </a>
+              <a href="case-detail.html" class="rowlink flex items-center gap-3 px-4 h-11" style="border-left:2px solid #B45309">
+                <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">BD68 ZRC</span></span>
+                <span class="mono text-[12px] font-semibold w-[84px] hidden sm:block">DLGP26118</span>
+                <span class="badge b-held shrink-0"><span class="gl">▣</span>MISSING INSTR.</span>
+                <span class="text-[13px] text-ink-700 truncate flex-1">Chase instruction PDF — Direct Line</span>
+                <span class="mono text-[12px] text-[#8A4B00] whitespace-nowrap">DUE 6h</span>
+              </a>
+            </div>
+          </section>
+          <!-- NOT READY -->
+          <section id="notready" class="scroll-mt-16">
+            <div class="ruled-head mb-3"><span class="eyebrow">Not ready · system / nothing-yet</span><span class="rule"></span><span class="eyebrow">9 cases · no action needed</span></div>
+            <div class="border border-line bg-white">
+              <a href="case-detail.html" class="rowlink flex items-center gap-3 px-4 h-11 border-b border-line" style="border-left:2px solid #9AA0A6">
+                <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">MA22 TYP</span></span>
+                <span class="mono text-[12px] font-semibold w-[84px] hidden sm:block">AXIN26072</span>
+                <span class="badge b-ingest shrink-0"><span class="gl">●</span>INGESTED</span>
+                <span class="text-[13px] text-ink-500 truncate flex-1">Awaiting parse — system queued</span>
+                <span class="mono text-[12px] text-ink-500 whitespace-nowrap">2m</span>
+              </a>
+              <a href="case-detail.html" class="rowlink flex items-center gap-3 px-4 h-11" style="border-left:2px solid #9AA0A6">
+                <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">VN15 ABX</span></span>
+                <span class="mono text-[12px] font-semibold w-[84px] hidden sm:block">CCPY26051</span>
+                <span class="badge b-ingest shrink-0"><span class="gl">○</span>LINKING</span>
+                <span class="text-[13px] text-ink-500 truncate flex-1">Linking images to instruction</span>
+                <span class="mono text-[12px] text-ink-500 whitespace-nowrap">12m</span>
+              </a>
+            </div>
+          </section>
+          <!-- READY -->
+          <section id="ready" class="scroll-mt-16">
+            <div class="ruled-head mb-3"><span class="eyebrow !text-[#15613C]">★ Ready for EVA · pinned action surface</span><span class="rule"></span><span class="eyebrow">5 cases · gate passed</span></div>
+            <div class="border border-line bg-white">
+              <a href="case-detail.html" class="rowlink flex items-center gap-3 px-4 h-11 border-b border-line" style="border-left:2px solid #1B6E45">
+                <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">SD20 FHK</span></span>
+                <span class="mono text-[12px] font-semibold w-[84px] hidden sm:block">CCPY26039</span>
+                <span class="badge b-ready shrink-0"><span class="gl">✔</span>READY FOR EVA</span>
+                <span class="text-[13px] text-ink-700 truncate flex-1">All fields · 6 images · address decided</span>
+                <span class="mono text-[11px] font-semibold border border-[#1B6E45] text-[#15613C] px-2 py-1 hover:bg-[#1B6E45] hover:text-white whitespace-nowrap">SUBMIT →</span>
+              </a>
+              <a href="case-detail.html" class="rowlink flex items-center gap-3 px-4 h-11" style="border-left:2px solid #1B6E45">
+                <span class="vrm sm shrink-0"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">YE69 JTP</span></span>
+                <span class="mono text-[12px] font-semibold w-[84px] hidden sm:block">HSTG26201</span>
+                <span class="badge b-ready shrink-0"><span class="gl">✔</span>READY FOR EVA</span>
+                <span class="text-[13px] text-ink-700 truncate flex-1">All fields · 8 images · IBA reason logged</span>
+                <span class="mono text-[11px] font-semibold border border-[#1B6E45] text-[#15613C] px-2 py-1 hover:bg-[#1B6E45] hover:text-white whitespace-nowrap">SUBMIT →</span>
+              </a>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer class="px-4 sm:px-6 py-4 mono text-[10px] text-ink-400 tracking-[.14em] border-t border-line flex flex-wrap gap-x-5 gap-y-1 bg-paper">
+      <span>SWISS-GRID · QUEUES</span><span>HAIRLINE RULES · NO ZEBRA · NO RADIUS</span><span>SEED DATA · NOT LIVE</span>
+      <span class="ml-auto">collisionspike · phase-ux-design-lab</span>
+    </footer>
+  </div>
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="md:hidden fixed bottom-0 inset-x-0 z-50 bg-ink-900 text-white border-t border-white/10 grid grid-cols-5">
+  <a href="index.html" class="flex flex-col items-center justify-center gap-0.5 py-2 border-t-2 border-transparent"><span class="mono text-[12px] font-semibold text-ink-400">CK</span><span class="text-[9px] text-ink-400">Cockpit</span></a>
+  <a href="index.html#r1" class="flex flex-col items-center justify-center gap-0.5 py-2 border-t-2 border-transparent"><span class="mono text-[12px] font-semibold text-ink-400">TR</span><span class="text-[9px] text-ink-400">Triage</span></a>
+  <a href="queues.html" aria-current="page" class="flex flex-col items-center justify-center gap-0.5 py-2 border-t-2 border-accent"><span class="mono text-[12px] font-semibold">QU</span><span class="text-[9px] text-ink-300">Queues</span></a>
+  <a href="#" class="flex flex-col items-center justify-center gap-0.5 py-2 border-t-2 border-transparent"><span class="mono text-[12px] font-semibold text-ink-400">IN</span><span class="text-[9px] text-ink-400">Intake</span></a>
+  <a href="#" class="flex flex-col items-center justify-center gap-0.5 py-2 border-t-2 border-transparent"><span class="mono text-[12px] font-semibold text-ink-400">AD</span><span class="text-[9px] text-ink-400">Admin</span></a>
+</nav>
+</body>
+</html>

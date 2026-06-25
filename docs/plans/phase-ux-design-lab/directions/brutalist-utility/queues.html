@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QUEUES — collisionspike · concrete ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+/* ===================================================== CONCRETE LEDGER — tokens */
+:root{
+  --paper:#E9E9E6; --surface:#FFFFFF; --surface-2:#F4F4F2;
+  --rail:#111111; --hairline:#C9C9C4; --border-mid:#8A8A84;
+  --ink-muted:#57574F; --ink-body:#2B2B27; --ink:#0A0A0A;
+  --red:#E10600; --orange:#E8590C; --yellow:#F5B700; --green:#0B7A34; --cobalt:#1A38E5;
+  --plate-yellow:#FFD400;
+  --radius:0; --shadow-hard:4px 4px 0 var(--ink); --shadow-press:2px 2px 0 var(--ink);
+  --rail-w:224px; --hdr-h:52px;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --disp:'Space Grotesk','Public Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink-body);font-family:var(--sans);font-size:14px;line-height:1.4;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+body.dense{font-size:13px}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+::selection{background:var(--cobalt);color:#fff}
+*::-webkit-scrollbar{width:12px;height:12px}
+*::-webkit-scrollbar-thumb{background:var(--border-mid);border:2px solid var(--paper)}
+*::-webkit-scrollbar-track{background:var(--surface-2)}
+:focus-visible{outline:3px solid var(--cobalt);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.disp{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.mut{color:var(--ink-muted)}
+.brk{font-family:var(--mono);font-weight:700}.brk::before{content:"[ "}.brk::after{content:" ]"}
+
+/* shell (shared) */
+.app{display:grid;grid-template-columns:var(--rail-w) 1fr;min-height:100vh}
+.rail{position:sticky;top:0;align-self:start;height:100vh;background:var(--rail);color:#EDEDEA;
+  border-right:3px solid var(--ink);display:flex;flex-direction:column;overflow:hidden;z-index:30}
+.rail-brand{display:flex;align-items:center;gap:8px;height:var(--hdr-h);padding:0 16px;border-bottom:2px solid #000;flex:0 0 auto}
+.rail-brand .glyph{font-family:var(--mono);font-size:18px;line-height:1}
+.rail-brand .name{font-family:var(--disp);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:13px;line-height:1.05}
+.rail-brand .name small{display:block;font-size:9px;color:#8C8C86;letter-spacing:.14em;margin-top:2px}
+.rail-scroll{flex:1 1 auto;overflow-y:auto;padding:14px 0 8px}
+.rail-sec{font-family:var(--disp);text-transform:uppercase;letter-spacing:.16em;font-size:10px;color:#7E7E78;padding:14px 16px 7px}
+.rail-link{display:flex;align-items:center;gap:10px;padding:0 14px;height:38px;color:#CFCFCB;
+  border-left:4px solid transparent;font-size:13px;transition:background .08s linear,color .08s linear}
+.rail-link .ic{width:18px;text-align:center;font-family:var(--mono);font-size:14px;flex:0 0 18px}
+.rail-link .lbl{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:500;font-size:12px}
+.rail-link .ct{margin-left:auto;font-family:var(--mono);font-size:12px;font-weight:500;border:2px solid #3A3A38;padding:1px 6px;color:#E6E6E2;background:#1B1B1A}
+.rail-link:hover{background:#1E1E1D;color:#fff}
+.rail-link.active{background:var(--surface);color:var(--ink);border-left-color:var(--cobalt);font-weight:600}
+.rail-link.active .lbl{color:var(--ink)}
+.rail-link.active .ct{border-color:var(--ink);background:var(--surface);color:var(--ink)}
+.rail-link .ct.blk{background:var(--red);border-color:var(--red);color:#fff}
+.rail-div{height:0;border-top:2px solid #2C2C2A;margin:10px 14px}
+.rail-foot{flex:0 0 auto;border-top:2px solid #000;padding:9px 16px;font-family:var(--mono);font-size:10px;color:#7E7E78;letter-spacing:.04em;line-height:1.6}
+.rail-foot kbd{background:#1E1E1D;border:1px solid #3A3A38;padding:0 4px;color:#CFCFCB}
+.main{min-width:0;display:flex;flex-direction:column}
+.hdr{position:sticky;top:0;height:var(--hdr-h);background:var(--paper);border-bottom:3px solid var(--ink);display:flex;align-items:center;gap:14px;padding:0 16px;z-index:20}
+.crumb{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:15px}
+.crumb .sep{color:var(--border-mid);margin:0 4px;font-weight:500}
+.search{margin-left:8px;flex:1 1 460px;max-width:560px;display:flex;align-items:center;gap:8px;background:var(--surface);border:2px solid var(--ink);height:34px;padding:0 10px}
+.search .mg{font-family:var(--mono);font-size:14px;color:var(--ink-muted)}
+.search input{border:0;outline:0;background:transparent;flex:1;font-family:var(--mono);font-size:12px;color:var(--ink)}
+.search input::placeholder{color:var(--border-mid)}
+.search kbd{font-family:var(--mono);font-size:10px;border:1px solid var(--border-mid);padding:0 4px;color:var(--ink-muted)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.stamp-upd{font-family:var(--mono);font-size:11px;color:var(--ink-muted);white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;background:var(--surface);border:2px solid var(--ink);font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:500;font-size:12px;color:var(--ink);transition:background .08s,color .08s}
+.btn:hover{background:var(--ink);color:var(--surface)}
+.btn.press{box-shadow:var(--shadow-hard)}.btn.press:active{transform:translate(2px,2px);box-shadow:var(--shadow-press)}
+.btn .ic{font-family:var(--mono);font-size:13px}
+.btn-sm{height:26px;padding:0 8px;font-size:11px}
+.canvas{padding:10px;display:flex;flex-direction:column;gap:10px}
+
+/* vrm + stamp (shared) */
+.vrm{display:inline-flex;align-items:center;background:var(--plate-yellow);color:var(--ink);font-family:var(--mono);font-weight:700;letter-spacing:.06em;font-size:13px;line-height:1;padding:4px 8px 5px;border:3px solid var(--ink);white-space:nowrap}
+.vrm.sm{font-size:11px;padding:3px 6px 4px;border-width:2px;letter-spacing:.05em}
+.stamp{display:inline-flex;align-items:center;gap:6px;font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:11px;border:2px solid var(--ink);padding:2px 8px;background:var(--surface);color:var(--ink);white-space:nowrap}
+.stamp .g{font-family:var(--mono);font-size:11px}
+.stamp.review{background:var(--red);color:#fff}.stamp.conflict{background:var(--red);color:#fff}
+.stamp.held{background:var(--orange);color:#fff}.stamp.ready{background:var(--green);color:#fff}.stamp.notready{background:var(--surface-2);color:var(--ink-muted);border-color:var(--border-mid)}
+.thermo{display:inline-flex;align-items:center;gap:7px;min-width:128px}
+.thermo .track{flex:1;height:13px;border:2px solid var(--ink);background:var(--surface-2);position:relative;overflow:hidden}
+.thermo .fill{height:100%;border-right:2px solid var(--ink)}
+.thermo .age{font-family:var(--mono);font-size:11px;font-weight:700;white-space:nowrap;min-width:44px;text-align:right}
+.f-green{background:var(--green)}.f-yellow{background:var(--yellow)}.f-orange{background:var(--orange)}.f-red{background:var(--red)}
+
+/* ===================================================== queues-specific */
+.region{background:var(--surface);border:2px solid var(--ink)}
+.qtabs{display:flex;gap:0;flex-wrap:wrap}
+.qtab{flex:1 1 0;min-width:160px;display:block;border:2px solid var(--ink);border-right-width:0;background:var(--surface);
+  padding:11px 14px;position:relative;transition:background .08s,color .08s}
+.qtab:last-child{border-right-width:2px}
+.qtab .qt{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}
+.qtab .qc{font-family:var(--mono);font-size:13px;font-weight:700;border:2px solid var(--ink);padding:0 6px}
+.qtab .qd{font-size:11px;color:var(--ink-muted);margin-top:5px}
+.qtab.active{background:var(--ink);color:var(--paper)}
+.qtab.active .qc{border-color:var(--paper);color:var(--paper)}
+.qtab.active .qd{color:#C7C7BF}
+.qtab.review .blk{position:absolute;top:0;left:0;right:0;height:6px;background:var(--red)}
+.qtab.review.active{background:var(--red);color:#fff}
+.qtab.review.active .blk{display:none}.qtab.review.active .qc{border-color:#fff}.qtab.review.active .qd{color:#FFD9D6}
+.qtab.ready .qt::before{content:"★ "}
+.qtab.ready.active{background:var(--green)}
+
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-bottom:2px solid var(--ink);background:var(--surface-2)}
+.filter{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;background:var(--surface);border:2px solid var(--ink);font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:500;font-size:11px}
+.filter .v{font-family:var(--sans);text-transform:none;letter-spacing:0;font-weight:600;color:var(--ink)}
+.filter .ca{font-family:var(--mono);font-size:11px;color:var(--ink-muted)}
+.toolbar .count{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--ink-muted)}
+.toolbar .count b{color:var(--ink)}
+
+.facets{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;border-bottom:2px solid var(--ink);background:#FBEFE9}
+.facets .fl{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:10px;color:var(--red)}
+.chip{font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:600;font-size:10px;border:2px solid var(--ink);background:var(--surface);padding:2px 8px;color:var(--ink);transition:background .08s,color .08s}
+.chip:hover{background:var(--ink);color:#fff}
+.chip.on{background:var(--red);color:#fff;border-color:var(--ink)}
+
+/* ledger table */
+.ltbl{width:100%;border-collapse:collapse;font-size:13px}
+.ltbl thead th{position:sticky;top:var(--hdr-h);background:var(--ink);color:var(--paper);font-family:var(--disp);
+  text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:11px;text-align:left;padding:8px 10px;border-right:1px solid #333;z-index:5}
+.ltbl thead th:last-child{border-right:0}
+.ltbl thead th.num{text-align:right}
+.ltbl tbody td{border-bottom:1px solid var(--hairline);border-right:1px solid var(--hairline);padding:8px 10px;vertical-align:middle}
+.ltbl tbody td:last-child{border-right:0}
+.ltbl tbody tr:nth-child(even){background:var(--surface-2)}
+.ltbl tbody tr:hover{background:#EDEDF6}
+.ltbl tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 var(--ink)}
+.ltbl tbody tr.sel{background:#E6E8FB}
+.ltbl tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--cobalt)}
+.cpo{font-family:var(--mono);font-size:12px;font-weight:500}
+.prov{font-size:12px}.prov .code{font-family:var(--mono);font-size:11px;color:var(--ink-muted);display:block}
+.outstanding{font-family:var(--disp);text-transform:uppercase;letter-spacing:.02em;font-weight:700;font-size:11px;display:flex;align-items:center;gap:6px}
+.outstanding .g{font-family:var(--mono);font-size:12px}
+.outstanding .more{font-family:var(--mono);font-weight:400;text-transform:none;color:var(--ink-muted);font-size:11px}
+.ch{font-family:var(--mono);font-size:14px}
+.empty{padding:34px 16px;text-align:center;color:var(--ink-muted)}
+.empty .eh{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;font-weight:700;font-size:14px;color:var(--ink)}
+.tabbar{display:none}
+
+/* responsive */
+@media (max-width:1024px){
+  :root{--rail-w:56px}
+  .rail-brand .name,.rail-link .lbl,.rail-link .ct,.rail-sec,.rail-foot{display:none}
+  .rail-brand{justify-content:center;padding:0}
+  .rail-link{justify-content:center;padding:0;height:46px;position:relative}
+  .rail-link[data-ct]::after{content:attr(data-ct);position:absolute;top:5px;right:5px;font-family:var(--mono);font-size:9px;color:#fff;background:#333;padding:0 2px;line-height:1.3}
+  .rail-link.blkct[data-ct]::after{background:var(--red)}
+  .ltbl .opt{display:none}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .rail{display:none}
+  .hdr{gap:8px;padding:0 10px}.crumb .sep,.crumb .root{display:none}
+  .stamp-upd{display:none}
+  .canvas{padding:8px;padding-bottom:70px;gap:8px}
+  .qtabs{flex-direction:column}
+  .qtab{border-right-width:2px}.qtab+.qtab{border-top-width:0}
+  /* table -> docket cards */
+  .ltbl thead{display:none}
+  .ltbl,.ltbl tbody,.ltbl tr,.ltbl td{display:block;width:100%}
+  .ltbl tbody tr{border:2px solid var(--ink);margin-bottom:8px;box-shadow:var(--shadow-press);background:var(--surface)}
+  .ltbl tbody tr:nth-child(even){background:var(--surface)}
+  .ltbl tbody td{border:0;border-bottom:1px solid var(--hairline);padding:7px 10px;display:flex;align-items:center;gap:10px}
+  .ltbl tbody td:last-child{border-bottom:0}
+  .ltbl tbody td::before{content:attr(data-l);font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:10px;color:var(--ink-muted);min-width:78px}
+  .tabbar{display:flex;position:fixed;bottom:0;left:0;right:0;height:56px;background:var(--rail);border-top:3px solid var(--ink);z-index:50}
+  .tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#CFCFCB;border-right:2px solid #2C2C2A}
+  .tabbar a:last-child{border-right:0}
+  .tabbar a.active{background:var(--surface);color:var(--ink)}
+  .tabbar a .ic{font-family:var(--mono);font-size:16px}
+  .tabbar a .lbl{font-family:var(--disp);text-transform:uppercase;font-size:9px;letter-spacing:.04em;font-weight:700}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ RAIL ============ -->
+  <nav class="rail" aria-label="Primary">
+    <div class="rail-brand"><span class="glyph">▣</span><span class="name">Concrete<br>Ledger<small>COLLISIONSPIKE</small></span></div>
+    <div class="rail-scroll">
+      <div class="rail-sec">Intake</div>
+      <a class="rail-link" href="index.html" data-ct="3"><span class="ic">▣</span><span class="lbl">Cockpit</span></a>
+      <a class="rail-link" href="#" data-ct="47"><span class="ic">✉</span><span class="lbl">Inbox</span><span class="ct">[ 47 ]</span></a>
+      <a class="rail-link active" href="queues.html" aria-current="page" data-ct="20"><span class="ic">▤</span><span class="lbl">Queues</span><span class="ct">[ 20 ]</span></a>
+      <a class="rail-link" href="queues.html" data-ct="5"><span class="ic">★</span><span class="lbl">Ready</span><span class="ct">[ 5 ]</span></a>
+      <div class="rail-div"></div>
+      <div class="rail-sec">Admin</div>
+      <a class="rail-link blkct" href="queues.html" data-ct="8"><span class="ic">▲</span><span class="lbl">Review</span><span class="ct blk">[ 8 ]</span></a>
+      <a class="rail-link" href="#"><span class="ic">⚙</span><span class="lbl">Settings</span></a>
+      <div class="rail-div"></div>
+      <div class="rail-sec">Engineer</div>
+      <a class="rail-link" href="#" style="opacity:.5;pointer-events:none"><span class="ic">▦</span><span class="lbl">Reserved</span></a>
+    </div>
+    <div class="rail-foot"><kbd>J</kbd> <kbd>K</kbd> move · <kbd>↵</kbd> open<br><kbd>F</kbd> filter · <kbd>R</kbd> refresh</div>
+  </nav>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="hdr">
+      <div class="crumb"><span class="root">CONCRETE LEDGER</span><span class="sep">/</span>QUEUES</div>
+      <label class="search"><span class="mg">⌕</span><input type="text" placeholder="search VRM · Case/PO · claimant …" aria-label="Search" /><kbd>/</kbd></label>
+      <div class="hdr-right">
+        <span class="stamp-upd">UPDATED 14:07</span>
+        <button class="btn btn-sm press"><span class="ic">↻</span>Refresh</button>
+        <button class="btn btn-sm press" id="density"><span class="ic">⊟</span>Density</button>
+      </div>
+    </header>
+
+    <main class="canvas">
+
+      <!-- segmented selector tabs -->
+      <section class="region" aria-label="Queue selector">
+        <div class="qtabs" role="tablist">
+          <a class="qtab" href="queues.html" role="tab"><div class="qt">Not Ready <span class="qc brk">12</span></div><div class="qd">system / nothing yet</div></a>
+          <a class="qtab review active" href="queues.html" role="tab" aria-selected="true"><span class="blk"></span><div class="qt">Review <span class="qc brk">8</span></div><div class="qd">intake staff — YOU act</div></a>
+          <a class="qtab held" href="queues.html" role="tab"><div class="qt">Held <span class="qc brk">14</span></div><div class="qd">external party · chaser out</div></a>
+          <a class="qtab ready" href="queues.html" role="tab"><div class="qt">Ready for EVA <span class="qc brk">5</span></div><div class="qd">pinned action surface</div></a>
+        </div>
+      </section>
+
+      <!-- ledger -->
+      <section class="region" aria-label="Review queue">
+        <!-- toolbar -->
+        <div class="toolbar">
+          <span class="filter">Provider <span class="v">All</span><span class="ca">▾</span></span>
+          <span class="filter">Status <span class="v">All</span><span class="ca">▾</span></span>
+          <span class="filter">Channel <span class="v">All</span><span class="ca">▾</span></span>
+          <span class="filter">Age <span class="v">Oldest first</span><span class="ca">▾</span></span>
+          <span class="count">showing <b>8</b> of <b>8</b></span>
+        </div>
+        <!-- review reason facets -->
+        <div class="facets">
+          <span class="fl">Review reason ›</span>
+          <button class="chip on">Missing images</button>
+          <button class="chip">Missing instructions</button>
+          <button class="chip">Duplicate</button>
+          <button class="chip">Conflict</button>
+        </div>
+
+        <div style="overflow-x:auto">
+        <table class="ltbl">
+          <thead>
+            <tr>
+              <th>VRM</th><th>Case / PO</th><th class="opt">Provider</th><th>Status</th>
+              <th>Outstanding</th><th class="opt">Ch</th><th class="num">Age / Due</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr onclick="location.href='case-detail.html'">
+              <td data-l="VRM"><span class="vrm sm">AB12 CDE</span></td>
+              <td data-l="Case/PO"><span class="cpo">ACPY26050</span></td>
+              <td data-l="Provider" class="opt"><div class="prov">ACME<span class="code">ACPY</span></div></td>
+              <td data-l="Status"><span class="stamp review">Needs review <span class="g">▲</span></span></td>
+              <td data-l="Outstanding"><span class="outstanding"><span class="g">⌗</span>Chase garage <span class="more">+6 photos</span></span></td>
+              <td data-l="Ch" class="opt"><span class="ch" title="Email">✉</span></td>
+              <td data-l="Age/Due"><div class="thermo"><div class="track"><div class="fill f-red" style="width:96%"></div></div><span class="age">2d04h</span></div></td>
+            </tr>
+            <tr class="sel" onclick="location.href='case-detail.html'">
+              <td data-l="VRM"><span class="vrm sm">LV71 KMX</span></td>
+              <td data-l="Case/PO"><span class="cpo">HALC26112</span></td>
+              <td data-l="Provider" class="opt"><div class="prov">HALCYON<span class="code">HALC</span></div></td>
+              <td data-l="Status"><span class="stamp review">Needs review <span class="g">●</span></span></td>
+              <td data-l="Outstanding"><span class="outstanding"><span class="g">⧉</span>Resolve duplicate</span></td>
+              <td data-l="Ch" class="opt"><span class="ch" title="WhatsApp">⌬</span></td>
+              <td data-l="Age/Due"><div class="thermo"><div class="track"><div class="fill f-orange" style="width:52%"></div></div><span class="age">18h</span></div></td>
+            </tr>
+            <tr onclick="location.href='case-detail.html'">
+              <td data-l="VRM"><span class="vrm sm">GK19 ZRT</span></td>
+              <td data-l="Case/PO"><span class="cpo">ACPY26048</span></td>
+              <td data-l="Provider" class="opt"><div class="prov">ACME<span class="code">ACPY</span></div></td>
+              <td data-l="Status"><span class="stamp conflict">Conflict <span class="g">▲</span></span></td>
+              <td data-l="Outstanding"><span class="outstanding"><span class="g">▲</span>Verify reg conflict</span></td>
+              <td data-l="Ch" class="opt"><span class="ch" title="Email">✉</span></td>
+              <td data-l="Age/Due"><div class="thermo"><div class="track"><div class="fill f-yellow" style="width:30%"></div></div><span class="age">06h</span></div></td>
+            </tr>
+            <tr onclick="location.href='case-detail.html'">
+              <td data-l="VRM"><span class="vrm sm">RF22 LTX</span></td>
+              <td data-l="Case/PO"><span class="cpo">ACPY26051</span></td>
+              <td data-l="Provider" class="opt"><div class="prov">ACME<span class="code">ACPY</span></div></td>
+              <td data-l="Status"><span class="stamp review">Needs review <span class="g">●</span></span></td>
+              <td data-l="Outstanding"><span class="outstanding"><span class="g">＋</span>Add 1 required field <span class="more">VAT status</span></span></td>
+              <td data-l="Ch" class="opt"><span class="ch" title="Email">✉</span></td>
+              <td data-l="Age/Due"><div class="thermo"><div class="track"><div class="fill f-green" style="width:14%"></div></div><span class="age">02h</span></div></td>
+            </tr>
+            <tr onclick="location.href='case-detail.html'">
+              <td data-l="VRM"><span class="vrm sm">SK68 ONP</span></td>
+              <td data-l="Case/PO"><span class="cpo">CRYS26077</span></td>
+              <td data-l="Provider" class="opt"><div class="prov">CRYSTAL<span class="code">CRYS</span></div></td>
+              <td data-l="Status"><span class="stamp review">Missing instr. <span class="g">●</span></span></td>
+              <td data-l="Outstanding"><span class="outstanding"><span class="g">⌗</span>Chase provider <span class="more">no PDF</span></span></td>
+              <td data-l="Ch" class="opt"><span class="ch" title="Email">✉</span></td>
+              <td data-l="Age/Due"><div class="thermo"><div class="track"><div class="fill f-orange" style="width:60%"></div></div><span class="age">1d02h</span></div></td>
+            </tr>
+            <tr onclick="location.href='case-detail.html'">
+              <td data-l="VRM"><span class="vrm sm">PJ17 WTC</span></td>
+              <td data-l="Case/PO"><span class="cpo">HALC26110</span></td>
+              <td data-l="Provider" class="opt"><div class="prov">HALCYON<span class="code">HALC</span></div></td>
+              <td data-l="Status"><span class="stamp review">Missing fields <span class="g">●</span></span></td>
+              <td data-l="Outstanding"><span class="outstanding"><span class="g">＋</span>Add claimant tel <span class="more">+1 more</span></span></td>
+              <td data-l="Ch" class="opt"><span class="ch" title="Email">✉</span></td>
+              <td data-l="Age/Due"><div class="thermo"><div class="track"><div class="fill f-yellow" style="width:34%"></div></div><span class="age">07h</span></div></td>
+            </tr>
+            <tr onclick="location.href='case-detail.html'">
+              <td data-l="VRM"><span class="vrm sm">YD20 HBN</span></td>
+              <td data-l="Case/PO"><span class="cpo">ACPY26044</span></td>
+              <td data-l="Provider" class="opt"><div class="prov">ACME<span class="code">ACPY</span></div></td>
+              <td data-l="Status"><span class="stamp review">Duplicate risk <span class="g">●</span></span></td>
+              <td data-l="Outstanding"><span class="outstanding"><span class="g">⧉</span>Resolve duplicate <span class="more">2 candidates</span></span></td>
+              <td data-l="Ch" class="opt"><span class="ch" title="Email">✉</span></td>
+              <td data-l="Age/Due"><div class="thermo"><div class="track"><div class="fill f-green" style="width:18%"></div></div><span class="age">03h</span></div></td>
+            </tr>
+            <tr onclick="location.href='case-detail.html'">
+              <td data-l="VRM"><span class="vrm sm">BV68 ORC</span></td>
+              <td data-l="Case/PO"><span class="cpo">CRYS26072</span></td>
+              <td data-l="Provider" class="opt"><div class="prov">CRYSTAL<span class="code">CRYS</span></div></td>
+              <td data-l="Status"><span class="stamp conflict">Error <span class="g">▲</span></span></td>
+              <td data-l="Outstanding"><span class="outstanding"><span class="g">▲</span>Re-run parse <span class="more">recoverable</span></span></td>
+              <td data-l="Ch" class="opt"><span class="ch" title="Manual">✎</span></td>
+              <td data-l="Age/Due"><div class="thermo"><div class="track"><div class="fill f-orange" style="width:46%"></div></div><span class="age">11h</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<nav class="tabbar" aria-label="Primary mobile">
+  <a href="index.html"><span class="ic">▣</span><span class="lbl">Cockpit</span></a>
+  <a class="active" href="queues.html"><span class="ic">▤</span><span class="lbl">Queues</span></a>
+  <a href="#"><span class="ic">✉</span><span class="lbl">Inbox</span></a>
+  <a href="case-detail.html"><span class="ic">▢</span><span class="lbl">Case</span></a>
+  <a href="#"><span class="ic">⋯</span><span class="lbl">More</span></a>
+</nav>
+
+<script>
+  document.getElementById('density').addEventListener('click',function(){document.body.classList.toggle('dense')});
+  document.querySelectorAll('.chip').forEach(function(c){c.addEventListener('click',function(){this.classList.toggle('on')})});
+</script>
+</body>
+</html>

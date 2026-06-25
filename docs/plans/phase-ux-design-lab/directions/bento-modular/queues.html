@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Soft-Pack Bento · Queues — collisionspike</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        tray:'#EDEBE6', tile:'#FFFFFF', inset:'#F6F5F1', hairline:'#E5E2DA',
+        rail:'#20232E', railA:'#2E3142',
+        ink:'#1E2230', ink2:'#51586B', ink3:'#5F6678', onrail:'#E7E8EE', onrailmute:'#A6ABBA',
+        iris:{DEFAULT:'#5B5BD6', ink:'#4338CA', tint:'#ECECFB'},
+        teal:{DEFAULT:'#0D9488', ink:'#0F766E', tint:'#D7F2EE'},
+        apricot:{DEFAULT:'#F97316', ink:'#C2410C', tint:'#FEEBDD'},
+        review:{DEFAULT:'#F43F5E', ink:'#BE123C', tint:'#FCE7EC'},
+        held:{DEFAULT:'#F59E0B', ink:'#B45309', tint:'#FDF1DC'},
+        sky:{DEFAULT:'#0284C7', ink:'#075985', tint:'#E0F0FB'},
+        notready:'#64748B', success:'#10B981', box:'#0D9488', error:'#E11D48',
+        plate:{bg:'#F5D018', ink:'#14161C'},
+      },
+      fontFamily:{
+        display:['Outfit','sans-serif'],
+        body:['"Plus Jakarta Sans"','sans-serif'],
+        mono:['"JetBrains Mono"','ui-monospace','monospace'],
+      },
+      borderRadius:{ sm:'8px', md:'12px', lg:'16px', tile:'20px', hero:'28px', pill:'9999px' },
+    }
+  }
+}
+</script>
+<style>
+:root{
+  --tray:#EDEBE6;--tile:#FFF;--tile-inset:#F6F5F1;--hairline:#E5E2DA;
+  --tray-well:inset 0 1px 2px rgba(28,33,48,.07),inset 0 -1px 0 rgba(255,255,255,.6);
+  --rail:#20232E;--rail-active:#2E3142;
+  --ink:#1E2230;--ink-2:#51586B;--ink-3:#5F6678;--on-rail:#E7E8EE;--on-rail-mute:#A6ABBA;
+  --iris:#5B5BD6;--iris-ink:#4338CA;--iris-tint:#ECECFB;
+  --teal:#0D9488;--teal-ink:#0F766E;--teal-tint:#D7F2EE;
+  --apricot:#F97316;--apricot-ink:#C2410C;--apricot-tint:#FEEBDD;
+  --review:#F43F5E;--review-ink:#BE123C;--review-tint:#FCE7EC;
+  --held:#F59E0B;--held-ink:#B45309;--held-tint:#FDF1DC;
+  --sky:#0284C7;--sky-ink:#075985;--sky-tint:#E0F0FB;
+  --notready:#64748B;--success:#10B981;--box:#0D9488;--error:#E11D48;
+  --plate-bg:#F5D018;--plate-ink:#14161C;
+  --r-tile:20px;--r-hero:28px;
+  --shadow-rest:0 1px 2px rgba(28,33,48,.04),0 2px 8px rgba(28,33,48,.06);
+  --shadow-hover:0 6px 18px rgba(28,33,48,.10);
+}
+html{scroll-behavior:smooth;}
+body{font-family:'Plus Jakarta Sans',sans-serif;color:#1E2230;background:#EDEBE6;-webkit-font-smoothing:antialiased;}
+.font-display{font-family:'Outfit',sans-serif;}
+.font-mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums slashed-zero;}
+.tnum{font-variant-numeric:tabular-nums;}
+.eyebrow{font-family:'Outfit',sans-serif;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+
+.comp{position:relative;background:var(--tile);border:1px solid var(--hairline);border-radius:var(--r-tile);box-shadow:var(--shadow-rest);}
+.comp::before{content:"";position:absolute;inset:-4px;border-radius:calc(var(--r-tile) + 4px);background:#E6E3DB;box-shadow:var(--tray-well);z-index:-1;}
+.tab{position:absolute;top:-11px;left:18px;z-index:2;height:22px;display:inline-flex;align-items:center;gap:6px;padding:0 11px;border-radius:8px;
+  font-family:'Outfit',sans-serif;font-weight:600;font-size:11px;letter-spacing:.04em;text-transform:uppercase;box-shadow:0 1px 2px rgba(28,33,48,.14);white-space:nowrap;}
+.tab.slate{background:#E2E5EA;color:#3B4253;}
+.tab.iris{background:var(--iris-tint);color:var(--iris-ink);}
+.tab.review{background:var(--review-tint);color:var(--review-ink);}
+
+.vrm{display:inline-flex;align-items:stretch;border-radius:8px;overflow:hidden;border:1px solid #D9BC00;box-shadow:0 1px 2px rgba(28,33,48,.12);
+  font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12.5px;line-height:1;}
+.vrm .gb{background:#063298;color:#fff;font-size:8px;line-height:1.05;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 4px;}
+.vrm .reg{background:var(--plate-bg);color:var(--plate-ink);padding:5px 8px;letter-spacing:.6px;white-space:nowrap;}
+.vrm.dup .reg{box-shadow:inset 0 0 0 1px var(--review);}
+
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:99px;font-size:11.5px;font-weight:600;line-height:1;}
+
+.ramp{display:inline-flex;align-items:center;gap:7px;}
+.ramp .bars{display:inline-flex;gap:2px;align-items:flex-end;height:13px;}
+.ramp .bars i{width:4px;border-radius:1px;display:block;background:#CFD3DA;}
+.ramp.warn .bars i{background:var(--held);}
+.ramp.over .bars i{background:var(--review);}
+.ramp .w{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500;}
+
+.cpill{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:99px;font-family:'Outfit',sans-serif;font-weight:600;font-size:11.5px;line-height:1;}
+
+/* partition segment = filled mini-bin */
+.part{position:relative;display:flex;flex-col:column;flex-direction:column;gap:4px;min-width:150px;padding:12px 14px;border-radius:14px;border:1px solid var(--hairline);background:#fff;text-align:left;transition:background .12s,border-color .12s,box-shadow .12s;}
+.part .lab{font-size:12px;color:#5F6678;display:flex;align-items:center;gap:6px;}
+.part .num{font-family:'Outfit',sans-serif;font-weight:700;font-size:24px;line-height:1;}
+.part .pf{height:4px;border-radius:99px;background:#ECEAE3;overflow:hidden;margin-top:2px;}
+.part .pf>span{display:block;height:100%;border-radius:99px;}
+.part[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink);}
+.part.warn[aria-pressed="true"]{border-color:var(--review);box-shadow:0 0 0 1px var(--review);background:var(--review-tint);}
+.part.pin{border-style:dashed;}
+.part.pin[aria-pressed="true"]{border-color:var(--apricot);box-shadow:0 0 0 1px var(--apricot);background:var(--apricot-tint);border-style:solid;}
+
+.facet{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:99px;border:1px solid var(--hairline);background:#fff;font-size:12.5px;font-weight:600;color:#51586B;}
+.facet[aria-pressed="true"]{background:var(--review);border-color:var(--review);color:#fff;}
+
+.fdrop{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 12px;border-radius:99px;border:1px solid var(--hairline);background:#fff;font-size:12.5px;font-weight:600;color:#51586B;}
+
+.qrow{display:grid;grid-template-columns:118px 110px 1fr 120px 1.3fr 44px 96px;gap:12px;align-items:center;}
+@media(max-width:900px){.qrow{grid-template-columns:1fr;gap:6px;}}
+
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:none;box-shadow:0 0 0 2px #EDEBE6,0 0 0 4px #5B5BD6;border-radius:8px;}
+.vrm:focus-visible{border-radius:8px;}
+@keyframes seat{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+.seat{animation:seat .26s ease-out both;}
+.scroll-thin::-webkit-scrollbar{height:8px;width:8px;}
+.scroll-thin::-webkit-scrollbar-thumb{background:#D4CFC4;border-radius:99px;}
+#railScrim{display:none;}
+@media (max-width:767px){
+  body.nav-open #rail{display:flex !important;position:fixed;top:0;bottom:0;left:0;width:268px;z-index:60;box-shadow:0 0 40px rgba(0,0,0,.4);}
+  body.nav-open #railScrim{display:block;position:fixed;inset:0;background:rgba(28,33,48,.42);z-index:55;}
+}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important;}}
+</style>
+</head>
+<body class="text-ink">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-3 focus:rounded-sm focus:bg-rail focus:px-4 focus:py-2 focus:text-white">Skip to content</a>
+
+<div class="flex min-h-screen">
+  <div id="railScrim" aria-hidden="true"></div>
+  <!-- RAIL -->
+  <aside id="rail" class="hidden md:flex md:w-[240px] shrink-0 flex-col bg-rail text-onrail">
+    <div class="flex items-center gap-2.5 px-5 h-16 border-b border-white/5">
+      <span class="grid place-items-center w-8 h-8 rounded-md bg-iris text-white font-display font-bold text-lg">⬡</span>
+      <span class="font-display font-bold text-[17px] tracking-tight text-white">spike</span>
+    </div>
+    <nav class="flex-1 px-3 py-4 space-y-1 text-[13.5px]" aria-label="Primary">
+      <a href="index.html" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrail hover:bg-railA/70">
+        <span class="w-5 text-center text-onrailmute">◆</span><span class="flex-1">Cockpit</span>
+      </a>
+      <a href="queues.html" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrail hover:bg-railA/70">
+        <span class="w-5 text-center text-onrailmute">▤</span><span class="flex-1">Inbox</span>
+        <span class="cpill bg-white/10 text-onrail">8</span>
+      </a>
+      <a href="queues.html" aria-current="page" class="relative flex items-center gap-3 rounded-md px-3 py-2.5 bg-railA text-white font-semibold">
+        <span class="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-iris"></span>
+        <span class="w-5 text-center">▦</span><span class="flex-1">Queues</span>
+        <span class="cpill bg-review/90 text-white">9</span>
+      </a>
+      <a href="case-detail.html" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrail hover:bg-railA/70">
+        <span class="w-5 text-center text-onrailmute">⬓</span><span class="flex-1">Intake</span>
+      </a>
+      <div class="pt-5 pb-1.5 px-3"><div class="eyebrow text-[10px] text-onrailmute">Admin</div><div class="mt-2 border-t border-white/5"></div></div>
+      <a href="#" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrail hover:bg-railA/70"><span class="w-5 text-center text-onrailmute">⚙</span><span class="flex-1">Admin</span><span class="cpill bg-white/10 text-onrail">2</span></a>
+      <a href="#" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrail hover:bg-railA/70"><span class="w-5 text-center text-onrailmute">⛭</span><span class="flex-1">Settings</span></a>
+      <a href="#" aria-disabled="true" class="flex items-center gap-3 rounded-md px-3 py-2.5 text-onrailmute/70 cursor-not-allowed"><span class="w-5 text-center">◇</span><span class="flex-1">Engineer</span><span class="text-[10px]">reserved</span></a>
+    </nav>
+    <div class="px-3 pb-4">
+      <button class="w-full flex items-center gap-2.5 rounded-md px-3 py-2.5 bg-railA text-onrailmute text-[13px] hover:text-onrail"><span>⌕</span><span>Search…</span></button>
+    </div>
+  </aside>
+
+  <!-- TRAY -->
+  <main id="main" class="flex-1 min-w-0 bg-tray">
+    <header class="sticky top-0 z-20 bg-tray/92 backdrop-blur-sm border-b border-hairline">
+      <div class="flex items-center gap-3 px-4 sm:px-6 h-16">
+        <button id="hamb" class="md:hidden -ml-1 w-9 h-9 grid place-items-center rounded-md border border-hairline bg-white" aria-label="Open navigation">☰</button>
+        <div class="min-w-0">
+          <h1 class="font-display font-bold text-[19px] sm:text-[22px] leading-none">Queues</h1>
+          <p class="hidden sm:block text-[12px] text-ink3 mt-0.5">Partitioned by who acts next · one case = one queue</p>
+        </div>
+        <div class="flex-1"></div>
+        <label class="hidden lg:flex items-center gap-2 h-10 px-3.5 rounded-pill bg-white border border-hairline text-ink2 w-[260px]">
+          <span class="text-ink3">⌕</span>
+          <input id="q" name="q" class="bg-transparent outline-none text-[13px] w-full placeholder:text-ink3" placeholder="VRM · Case/PO · claimant">
+        </label>
+        <span class="hidden sm:inline-flex items-center h-9 px-3 rounded-pill bg-white border border-hairline text-[12px] font-semibold text-ink2 font-mono">12 of 28</span>
+      </div>
+    </header>
+
+    <div class="px-4 sm:px-6 py-6 space-y-4 max-w-[1500px]">
+
+      <!-- PARTITION SELECTOR -->
+      <section class="comp seat" aria-labelledby="ph">
+        <span class="tab slate">Partition · who acts next</span>
+        <div class="p-5 pt-6">
+          <h2 id="ph" class="sr-only">Partition selector</h2>
+          <div class="flex gap-3 overflow-x-auto scroll-thin pb-1">
+            <button class="part" aria-pressed="false">
+              <span class="lab"><span aria-hidden="true">◦</span> Not ready · system</span>
+              <span class="num text-notready">6</span>
+              <span class="pf"><span style="width:42%;background:var(--notready)"></span></span>
+            </button>
+            <button class="part warn" aria-pressed="true">
+              <span class="lab text-review-ink font-semibold"><span aria-hidden="true">▲</span> Review · you</span>
+              <span class="num text-review-ink">3</span>
+              <span class="pf" style="background:#F6D2DA"><span style="width:60%;background:var(--review)"></span></span>
+            </button>
+            <button class="part" aria-pressed="false">
+              <span class="lab"><span aria-hidden="true">◆</span> Held · external</span>
+              <span class="num text-held-ink">5</span>
+              <span class="pf" style="background:#F4E3C4"><span style="width:72%;background:var(--held)"></span></span>
+            </button>
+            <button class="part pin" aria-pressed="false">
+              <span class="lab"><span aria-hidden="true">★</span> Ready for EVA</span>
+              <span class="num text-apricot-ink">4</span>
+              <span class="pf"><span style="width:48%;background:var(--apricot)"></span></span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TOOLBAR + REVIEW FACETS -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="fdrop">Provider <span class="text-ink3">▾</span></div>
+        <div class="fdrop">Status <span class="text-ink3">▾</span></div>
+        <div class="fdrop">Channel <span class="text-ink3">▾</span></div>
+        <div class="fdrop">Age <span class="text-ink3">▾</span></div>
+        <span class="flex-1"></span>
+        <div class="flex items-center gap-2 text-[12px] text-ink3">
+          <span class="font-mono">12 of 28</span> in <span class="badge" style="background:var(--review-tint);color:var(--review-ink)">▲ Review</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-[11px] eyebrow text-ink3 mr-1">Review facets</span>
+        <button class="facet" aria-pressed="true">⚑ Missing images</button>
+        <button class="facet" aria-pressed="false">⚑ Missing instructions</button>
+        <button class="facet" aria-pressed="false">⧉ Duplicate</button>
+        <button class="facet" aria-pressed="false">⚠ Conflict</button>
+      </div>
+
+      <!-- CASE LIST -->
+      <section class="comp seat" aria-labelledby="clh">
+        <span class="tab iris">Case list</span>
+        <div class="p-4 sm:p-5 pt-6">
+          <h2 id="clh" class="sr-only">Cases in Review</h2>
+          <!-- column header -->
+          <div class="qrow px-2 pb-2 mb-1 border-b border-hairline text-[10.5px] eyebrow text-ink3 hidden md:grid">
+            <span>VRM</span><span>Case / PO</span><span>Provider</span><span>Status</span><span>Outstanding</span><span>Ch</span><span class="text-right">Age / Due</span>
+          </div>
+
+          <ul class="space-y-1">
+            <!-- row 1 : duplicate / past due -->
+            <li>
+              <a href="case-detail.html" class="qrow px-2 py-2.5 rounded-md hover:bg-inset border-l-[3px] border-transparent hover:border-iris transition">
+                <span class="vrm dup"><span class="gb">UK</span><span class="reg">AB12 CDE</span></span>
+                <span class="font-mono text-[12.5px]">CCPY26050</span>
+                <span class="text-[13px] truncate">ABC Claims <span class="font-mono text-[11px] text-ink3">CCPY</span></span>
+                <span class="badge" style="background:var(--review-tint);color:var(--review-ink)"><span aria-hidden="true">▲</span> Review</span>
+                <span class="text-[13px] text-ink2 truncate">⚑ Resolve duplicate <span class="text-ink3">· +1 more</span></span>
+                <span class="text-ink3" title="Email">✉</span>
+                <span class="md:justify-self-end"><span class="ramp over"><span class="bars"><i style="height:6px"></i><i style="height:9px"></i><i style="height:13px"></i></span><span class="w text-review-ink">3d ↑</span></span></span>
+              </a>
+            </li>
+            <!-- row 2 : missing images / today -->
+            <li>
+              <a href="case-detail.html" class="qrow px-2 py-2.5 rounded-md bg-iris-tint/40 border-l-[3px] border-iris">
+                <span class="vrm"><span class="gb">UK</span><span class="reg">KL19 XYZ</span></span>
+                <span class="font-mono text-[12.5px]">DLGP26117</span>
+                <span class="text-[13px] truncate">Direct Line <span class="font-mono text-[11px] text-ink3">DLGP</span></span>
+                <span class="badge" style="background:var(--review-tint);color:var(--review-ink)"><span aria-hidden="true">▲</span> Review</span>
+                <span class="text-[13px] text-ink2 truncate">⚑ Add 6 photos <span class="text-ink3">(0/6)</span></span>
+                <span class="text-ink3" title="Email">✉</span>
+                <span class="md:justify-self-end"><span class="ramp warn"><span class="bars"><i style="height:6px"></i><i style="height:10px"></i><i style="height:7px"></i></span><span class="w text-held-ink">today</span></span></span>
+              </a>
+            </li>
+            <!-- row 3 : conflict / 2d -->
+            <li>
+              <a href="case-detail.html" class="qrow px-2 py-2.5 rounded-md hover:bg-inset border-l-[3px] border-transparent hover:border-iris transition">
+                <span class="vrm dup"><span class="gb">UK</span><span class="reg">MN21 PQR</span></span>
+                <span class="font-mono text-[12.5px] text-ink3">— pending</span>
+                <span class="text-[13px] truncate">ABC Claims <span class="font-mono text-[11px] text-ink3">CCPY</span></span>
+                <span class="badge" style="background:var(--review-tint);color:var(--review-ink)"><span aria-hidden="true">⚠</span> Conflict</span>
+                <span class="text-[13px] text-ink2 truncate">⚑ Verify registration</span>
+                <span class="text-ink3" title="Email">✉</span>
+                <span class="md:justify-self-end"><span class="ramp"><span class="bars"><i style="height:6px"></i><i style="height:7px"></i><i style="height:6px"></i></span><span class="w text-ink2">2d</span></span></span>
+              </a>
+            </li>
+            <!-- row 4 : missing images / 1d -->
+            <li>
+              <a href="case-detail.html" class="qrow px-2 py-2.5 rounded-md hover:bg-inset border-l-[3px] border-transparent hover:border-iris transition">
+                <span class="vrm"><span class="gb">UK</span><span class="reg">RT68 HJK</span></span>
+                <span class="font-mono text-[12.5px]">ADML26203</span>
+                <span class="text-[13px] truncate">Admiral <span class="font-mono text-[11px] text-ink3">ADML</span></span>
+                <span class="badge" style="background:var(--review-tint);color:var(--review-ink)"><span aria-hidden="true">▲</span> Review</span>
+                <span class="text-[13px] text-ink2 truncate">⚑ Add damage close-up</span>
+                <span class="text-ink3" title="WhatsApp">✆</span>
+                <span class="md:justify-self-end"><span class="ramp"><span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:6px"></i></span><span class="w text-ink2">1d</span></span></span>
+              </a>
+            </li>
+            <!-- row 5 : missing required field / 4d -->
+            <li>
+              <a href="case-detail.html" class="qrow px-2 py-2.5 rounded-md hover:bg-inset border-l-[3px] border-transparent hover:border-iris transition">
+                <span class="vrm"><span class="gb">UK</span><span class="reg">SV70 LMN</span></span>
+                <span class="font-mono text-[12.5px]">AVVA26088</span>
+                <span class="text-[13px] truncate">Aviva <span class="font-mono text-[11px] text-ink3">AVVA</span></span>
+                <span class="badge" style="background:var(--review-tint);color:var(--review-ink)"><span aria-hidden="true">▲</span> Review</span>
+                <span class="text-[13px] text-ink2 truncate">⚑ Choose VAT status</span>
+                <span class="text-ink3" title="Email">✉</span>
+                <span class="md:justify-self-end"><span class="ramp"><span class="bars"><i style="height:5px"></i><i style="height:6px"></i><i style="height:5px"></i></span><span class="w text-ink2">4d</span></span></span>
+              </a>
+            </li>
+          </ul>
+
+          <div class="mt-4 flex items-center justify-between text-[12px] text-ink3">
+            <span>Showing <b class="text-ink2">5</b> of <b class="text-ink2">3</b> in Review with facet <span class="text-review-ink font-semibold">Missing images</span> — clear a facet to see all.</span>
+            <span class="font-mono">Held → Review auto-advances on upload</span>
+          </div>
+        </div>
+      </section>
+
+      <footer class="pt-2 pb-6 text-[11px] text-ink3 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span class="eyebrow">Soft-Pack Bento</span><span>· throwaway prototype · mock data</span>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<script>
+var hamb=document.getElementById('hamb'), scrim=document.getElementById('railScrim');
+if(hamb){ hamb.addEventListener('click',function(){document.body.classList.toggle('nav-open');}); }
+if(scrim){ scrim.addEventListener('click',function(){document.body.classList.remove('nav-open');}); }
+document.querySelectorAll('.part').forEach(function(p){
+  p.addEventListener('click',function(){
+    document.querySelectorAll('.part').forEach(function(x){x.setAttribute('aria-pressed','false');});
+    p.setAttribute('aria-pressed','true');
+  });
+});
+document.querySelectorAll('.facet').forEach(function(f){
+  f.addEventListener('click',function(){f.setAttribute('aria-pressed', f.getAttribute('aria-pressed')==='true'?'false':'true');});
+});
+</script>
+</body>
+</html>

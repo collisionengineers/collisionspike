@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CASE ACPY26050 — collisionspike · concrete ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+/* ===================================================== CONCRETE LEDGER — tokens */
+:root{
+  --paper:#E9E9E6; --surface:#FFFFFF; --surface-2:#F4F4F2;
+  --rail:#111111; --hairline:#C9C9C4; --border-mid:#8A8A84;
+  --ink-muted:#57574F; --ink-body:#2B2B27; --ink:#0A0A0A;
+  --red:#E10600; --orange:#E8590C; --yellow:#F5B700; --green:#0B7A34; --cobalt:#1A38E5;
+  --plate-yellow:#FFD400;
+  --radius:0; --shadow-hard:4px 4px 0 var(--ink); --shadow-press:2px 2px 0 var(--ink);
+  --rail-w:224px; --side-w:312px; --hdr-h:52px;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --disp:'Space Grotesk','Public Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink-body);font-family:var(--sans);font-size:14px;line-height:1.4;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body.dense{font-size:13px}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+::selection{background:var(--cobalt);color:#fff}
+*::-webkit-scrollbar{width:12px;height:12px}
+*::-webkit-scrollbar-thumb{background:var(--border-mid);border:2px solid var(--paper)}
+*::-webkit-scrollbar-track{background:var(--surface-2)}
+:focus-visible{outline:3px solid var(--cobalt);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.disp{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.mut{color:var(--ink-muted)}
+.brk{font-family:var(--mono);font-weight:700}.brk::before{content:"[ "}.brk::after{content:" ]"}
+
+/* shell */
+.app{display:grid;grid-template-columns:var(--rail-w) 1fr;min-height:100vh}
+.rail{position:sticky;top:0;align-self:start;height:100vh;background:var(--rail);color:#EDEDEA;border-right:3px solid var(--ink);display:flex;flex-direction:column;overflow:hidden;z-index:30}
+.rail-brand{display:flex;align-items:center;gap:8px;height:var(--hdr-h);padding:0 16px;border-bottom:2px solid #000;flex:0 0 auto}
+.rail-brand .glyph{font-family:var(--mono);font-size:18px;line-height:1}
+.rail-brand .name{font-family:var(--disp);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:13px;line-height:1.05}
+.rail-brand .name small{display:block;font-size:9px;color:#8C8C86;letter-spacing:.14em;margin-top:2px}
+.rail-scroll{flex:1 1 auto;overflow-y:auto;padding:14px 0 8px}
+.rail-sec{font-family:var(--disp);text-transform:uppercase;letter-spacing:.16em;font-size:10px;color:#7E7E78;padding:14px 16px 7px}
+.rail-link{display:flex;align-items:center;gap:10px;padding:0 14px;height:38px;color:#CFCFCB;border-left:4px solid transparent;font-size:13px;transition:background .08s,color .08s}
+.rail-link .ic{width:18px;text-align:center;font-family:var(--mono);font-size:14px;flex:0 0 18px}
+.rail-link .lbl{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:500;font-size:12px}
+.rail-link .ct{margin-left:auto;font-family:var(--mono);font-size:12px;font-weight:500;border:2px solid #3A3A38;padding:1px 6px;color:#E6E6E2;background:#1B1B1A}
+.rail-link:hover{background:#1E1E1D;color:#fff}
+.rail-link.active{background:var(--surface);color:var(--ink);border-left-color:var(--cobalt);font-weight:600}
+.rail-link.active .lbl{color:var(--ink)}.rail-link.active .ct{border-color:var(--ink);background:var(--surface);color:var(--ink)}
+.rail-link .ct.blk{background:var(--red);border-color:var(--red);color:#fff}
+.rail-div{height:0;border-top:2px solid #2C2C2A;margin:10px 14px}
+.rail-foot{flex:0 0 auto;border-top:2px solid #000;padding:9px 16px;font-family:var(--mono);font-size:10px;color:#7E7E78;letter-spacing:.04em;line-height:1.6}
+.rail-foot kbd{background:#1E1E1D;border:1px solid #3A3A38;padding:0 4px;color:#CFCFCB}
+.main{min-width:0;display:flex;flex-direction:column}
+.hdr{position:sticky;top:0;height:var(--hdr-h);background:var(--paper);border-bottom:3px solid var(--ink);display:flex;align-items:center;gap:14px;padding:0 16px;z-index:20}
+.crumb{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:14px}
+.crumb a{color:var(--ink-muted)}.crumb a:hover{color:var(--ink)}
+.crumb .sep{color:var(--border-mid);margin:0 4px;font-weight:500}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.stamp-upd{font-family:var(--mono);font-size:11px;color:var(--ink-muted);white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;background:var(--surface);border:2px solid var(--ink);font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:500;font-size:12px;color:var(--ink);transition:background .08s,color .08s}
+.btn:hover{background:var(--ink);color:var(--surface)}
+.btn.press{box-shadow:var(--shadow-hard)}.btn.press:active{transform:translate(2px,2px);box-shadow:var(--shadow-press)}
+.btn .ic{font-family:var(--mono);font-size:13px}
+.btn-sm{height:26px;padding:0 8px;font-size:11px}
+
+/* vrm + stamp + thermo */
+.vrm{display:inline-flex;align-items:center;background:var(--plate-yellow);color:var(--ink);font-family:var(--mono);font-weight:700;letter-spacing:.06em;font-size:13px;line-height:1;padding:4px 8px 5px;border:3px solid var(--ink);white-space:nowrap}
+.vrm.lg{font-size:20px;padding:7px 12px 8px;letter-spacing:.08em}
+.stamp{display:inline-flex;align-items:center;gap:6px;font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:11px;border:2px solid var(--ink);padding:2px 8px;background:var(--surface);color:var(--ink);white-space:nowrap}
+.stamp.lg{font-size:13px;padding:4px 10px}
+.stamp .g{font-family:var(--mono);font-size:11px}
+.stamp.review{background:var(--red);color:#fff}.stamp.held{background:var(--orange);color:#fff}.stamp.ready{background:var(--green);color:#fff}
+.thermo{display:inline-flex;align-items:center;gap:7px;min-width:128px}
+.thermo .track{flex:1;height:14px;border:2px solid var(--ink);background:var(--surface-2);position:relative;overflow:hidden}
+.thermo .fill{height:100%;border-right:2px solid var(--ink)}
+.thermo .age{font-family:var(--mono);font-size:11px;font-weight:700;white-space:nowrap}
+.f-red{background:var(--red)}.f-orange{background:var(--orange)}.f-yellow{background:var(--yellow)}.f-green{background:var(--green)}
+
+/* spine */
+.spine{display:flex;border-bottom:2px solid var(--ink);background:var(--surface);overflow-x:auto}
+.snode{flex:1 1 0;min-width:96px;padding:7px 10px;border-right:2px solid var(--ink);position:relative;white-space:nowrap}
+.snode:last-child{border-right:0}
+.snode .sn{font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:700;font-size:10px}
+.snode .ss{font-family:var(--mono);font-size:9px;color:var(--ink-muted);margin-top:2px}
+.snode.done{background:var(--surface-2)}
+.snode.cur{background:var(--ink);color:var(--paper)}.snode.cur .ss{color:#C7C7BF}
+.snode .ch{position:absolute;right:-8px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:12px;z-index:2;background:var(--surface);color:var(--ink)}
+.snode.held{background:var(--orange);color:#fff}.snode.held .ss{color:#FFE3D2}.snode.held .ch{background:var(--orange);color:#fff}
+
+/* identity header */
+.idbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px;border-bottom:2px solid var(--ink);background:var(--surface)}
+.idbar .vehicle{font-size:13px;color:var(--ink-muted)}
+.idbar .vehicle b{color:var(--ink);font-family:var(--mono);font-weight:700;font-size:14px}
+.idbar .cpo{font-family:var(--mono);font-size:16px;font-weight:700}
+.idbar .provtag{font-family:var(--mono);font-size:12px;color:var(--ink-muted)}
+.idbar .chan{font-family:var(--mono);font-size:11px;border:2px solid var(--ink);padding:1px 7px}
+.idbar .right{margin-left:auto;display:flex;align-items:center;gap:12px}
+
+/* actions */
+.actions{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;border-bottom:2px solid var(--ink);background:var(--surface-2)}
+.gated{background:var(--surface-2);border:2px solid var(--border-mid);color:var(--ink-muted);position:relative;cursor:not-allowed}
+.gated:hover{background:var(--surface-2);color:var(--ink-muted)}
+.gated .nc{font-family:var(--mono);font-size:9px;border:1.5px solid var(--border-mid);padding:0 3px;margin-left:4px;letter-spacing:.04em}
+.btn.danger{border-color:var(--red);color:var(--red)}.btn.danger:hover{background:var(--red);color:#fff}
+.btn.prim{background:var(--ink);color:#fff}.btn.prim:hover{background:var(--cobalt);border-color:var(--cobalt)}
+
+/* messagebar */
+.msgbar{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:2px solid var(--ink);background:#FBE9E8;border-left:6px solid var(--red)}
+.msgbar .mt{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:12px;color:var(--ink)}
+.msgbar .md{font-size:12px;color:var(--ink-body)}.msgbar .md b{font-family:var(--mono)}
+
+/* layout: main + sidebar */
+.cdgrid{display:grid;grid-template-columns:1fr var(--side-w)}
+.cdmain{border-right:2px solid var(--ink);min-width:0}
+.cdside{background:var(--surface-2);min-width:0}
+
+/* tabs */
+.tabs{display:flex;border-bottom:2px solid var(--ink);background:var(--surface);overflow-x:auto;position:sticky;top:var(--hdr-h);z-index:10}
+.tab{padding:10px 14px;font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:12px;border-right:2px solid var(--ink);color:var(--ink-muted);white-space:nowrap;background:var(--surface);transition:background .08s,color .08s}
+.tab:hover{background:var(--surface-2);color:var(--ink)}
+.tab.active{background:var(--ink);color:var(--paper)}
+.tab.gat{color:var(--border-mid)}.tab.gat .nc{font-family:var(--mono);font-size:8px;border:1px solid var(--border-mid);padding:0 2px;margin-left:3px}
+.panel{display:none;padding:14px 16px}
+.panel.active{display:block}
+
+/* fields */
+.cluster{margin-bottom:16px}
+.cluster-h{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;font-weight:700;font-size:12px;color:var(--ink);
+  display:flex;align-items:center;gap:8px;padding-bottom:6px;border-bottom:2px solid var(--ink);margin-bottom:0}
+.cluster-h::before{content:"";display:inline-block;width:8px;height:8px;background:var(--ink)}
+.frow{display:grid;grid-template-columns:26px 168px 1fr auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--hairline)}
+.frow:hover{background:var(--surface-2)}
+.frow .fn{font-family:var(--mono);font-size:12px;color:var(--ink-muted);text-align:right}
+.frow .fl{font-size:13px;font-weight:500}
+.frow .fv{font-family:var(--mono);font-size:13px;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis}
+.frow.err{background:#FBE9E8}
+.frow.err .fv{color:var(--red);font-weight:700}
+.req{font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:700;font-size:10px;color:var(--red);border:2px solid var(--red);padding:1px 6px}
+.sel-in{font-family:var(--mono);font-size:12px;border:2px solid var(--ink);background:var(--surface);padding:3px 6px}
+.errline{grid-column:2 / -1;font-size:11px;color:var(--red);font-family:var(--mono);padding-left:2px}
+/* provenance badge */
+.prov-b{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.04em;border:2px solid var(--ink);padding:1px 6px;background:var(--surface);white-space:nowrap}
+.prov-b .g{font-size:11px}
+.prov-b.none{border-color:var(--border-mid);color:var(--ink-muted)}
+.prov-b.conflict{border-color:var(--red)}
+/* live json */
+.json-well{margin-top:8px;border:2px solid var(--ink);background:var(--surface-2)}
+.json-well summary{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:11px;padding:8px 12px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.json-well summary::-webkit-details-marker{display:none}
+.json-well summary .tw{font-family:var(--mono)}
+.json-code{font-family:var(--mono);font-size:11px;line-height:1.6;padding:0 14px 14px;white-space:pre;overflow-x:auto;color:var(--ink-body)}
+.json-code .k{color:var(--cobalt)}.json-code .s{color:var(--green)}.json-code .n{color:var(--ink)}
+
+/* evidence */
+.banner{display:flex;gap:10px;align-items:center;border:2px solid var(--ink);background:var(--surface-2);padding:9px 12px;margin-bottom:12px;font-size:12px}
+.banner .bt{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:11px}
+.photogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
+.photo{border:2px solid var(--ink);background:var(--surface)}
+.photo .img{aspect-ratio:4/3;background:#cfcfca;position:relative;border-bottom:2px solid var(--ink);display:flex;align-items:flex-end;justify-content:space-between}
+.photo .img img{width:100%;height:100%;object-fit:cover;display:block}
+.photo .ord{position:absolute;top:0;left:0;font-family:var(--mono);font-size:11px;font-weight:700;background:var(--ink);color:#fff;padding:1px 6px}
+.photo .pv{position:absolute;top:0;right:0;font-family:var(--disp);font-size:9px;font-weight:700;background:var(--cobalt);color:#fff;padding:1px 5px;letter-spacing:.04em}
+.photo .meta{padding:6px 8px;font-size:11px}
+.photo .role{font-family:var(--mono);font-size:10px;color:var(--ink-muted);text-transform:uppercase}
+.photo .flags{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+.miniflag{font-family:var(--mono);font-size:9px;border:1.5px solid var(--ink);padding:0 4px;text-transform:uppercase;letter-spacing:.03em}
+.miniflag.ok{background:var(--green);color:#fff;border-color:var(--green)}
+.miniflag.warn{background:var(--red);color:#fff;border-color:var(--red)}
+
+/* address */
+.addr-sug{border:2px solid var(--ink);margin-bottom:8px;background:var(--surface)}
+.addr-sug .ah{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--hairline);background:var(--surface-2)}
+.addr-sug .ah .pick{margin-left:auto}
+.addr-sug.chosen{border-width:2px;box-shadow:inset 4px 0 0 var(--green)}
+.addr-lines{font-family:var(--mono);font-size:12px;padding:8px 12px;line-height:1.6}
+.seen{font-family:var(--mono);font-size:10px;color:var(--ink-muted)}
+.policy{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-size:9px;font-weight:700;border:2px solid var(--ink);padding:1px 5px}
+
+/* chasers */
+.chaser-tmpl{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.tmpl-pick{font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:600;font-size:11px;border:2px solid var(--ink);background:var(--surface);padding:4px 10px}
+.tmpl-pick.on{background:var(--ink);color:#fff}
+.draft{border:2px solid var(--ink);background:var(--surface)}
+.draft .dh{font-family:var(--mono);font-size:11px;padding:7px 12px;border-bottom:1px solid var(--hairline);background:var(--surface-2)}
+.draft textarea{width:100%;border:0;outline:0;font-family:var(--mono);font-size:12px;line-height:1.6;padding:12px;resize:vertical;min-height:120px;background:var(--surface)}
+
+/* notes / history */
+.note{border:2px solid var(--ink);padding:9px 12px;margin-bottom:8px;background:var(--surface)}
+.note .nh{font-family:var(--mono);font-size:10px;color:var(--ink-muted);margin-bottom:3px}
+.hist td{border-bottom:1px solid var(--hairline);padding:7px 10px;font-size:12px;vertical-align:top}
+.hist .ts{font-family:var(--mono);font-size:11px;color:var(--ink-muted);white-space:nowrap}
+.hist .ev{font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:700;font-size:10px;border:2px solid var(--ink);padding:1px 6px;white-space:nowrap}
+
+/* gated panel */
+.gatpanel{border:2px dashed var(--border-mid);background:var(--surface-2);padding:26px;text-align:center;color:var(--ink-muted)}
+.gatpanel .gh{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;font-weight:700;font-size:14px;color:var(--ink)}
+.gatpanel .nc{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:11px;border:2px solid var(--border-mid);padding:2px 8px}
+
+/* sidebar */
+.side-sec{border-bottom:2px solid var(--ink);padding:12px 14px}
+.side-h{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;font-weight:700;font-size:12px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.check{display:flex;align-items:flex-start;gap:9px;padding:6px 4px;border-bottom:1px solid var(--hairline)}
+.check:last-child{border-bottom:0}
+.cmark{font-family:var(--mono);font-size:14px;font-weight:700;width:20px;height:20px;border:2px solid var(--ink);display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px;line-height:1}
+.cmark.ok{background:var(--green);color:#fff;border-color:var(--green)}
+.cmark.no{background:var(--red);color:#fff;border-color:var(--red)}
+.check .cl{font-size:12px;font-weight:500}
+.check .cs{font-size:11px;color:var(--ink-muted)}
+.check a.jump{font-family:var(--mono);font-size:10px;border-bottom:1px solid var(--cobalt);color:var(--cobalt)}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12px}
+.facts dt{font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:700;font-size:10px;color:var(--ink-muted)}
+.facts dd{margin:0;font-family:var(--mono);font-size:12px}
+.facts .lock{font-size:9px;color:var(--ink-muted);border:1.5px solid var(--border-mid);padding:0 3px;margin-left:4px}
+.facts .edit{font-size:9px;color:var(--cobalt);border:1.5px solid var(--cobalt);padding:0 3px;margin-left:4px}
+
+/* submit modal */
+.scrim{display:none;position:fixed;inset:0;background:rgba(10,10,10,.45);z-index:80;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+.scrim.open{display:flex}
+.modal{width:min(560px,100%);background:var(--surface);border:3px solid var(--ink);box-shadow:var(--shadow-hard)}
+.modal-h{display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--paper);padding:11px 14px}
+.modal-h .mt{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:14px}
+.modal-h .x{margin-left:auto;font-family:var(--mono);border:2px solid var(--paper);background:transparent;color:var(--paper);width:26px;height:26px}
+.modal-b{padding:16px}
+.codepair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.codepair .cc{border:2px solid var(--ink);padding:9px 12px}
+.codepair .cl{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:10px;color:var(--ink-muted)}
+.codepair .cv{font-family:var(--mono);font-size:16px;font-weight:700;margin-top:3px}
+.seqbox{display:flex;align-items:center;gap:8px;margin:12px 0;font-family:var(--mono)}
+.seqbox .lock{background:var(--surface-2);border:2px solid var(--border-mid);color:var(--ink-muted);padding:7px 10px;font-weight:700;font-size:15px}
+.seqbox .editseq{border:2px solid var(--ink);padding:7px 10px;font-weight:700;font-size:15px;width:64px;text-align:center}
+.gate-ok{display:flex;align-items:center;gap:8px;border:2px solid var(--green);background:#E7F3EC;padding:8px 12px;margin:12px 0;font-size:12px}
+.gate-ok .g{font-family:var(--mono);font-weight:700;color:var(--green)}
+
+.tabbar{display:none}
+
+/* responsive */
+@media (max-width:1180px){ :root{--side-w:280px} }
+@media (max-width:1024px){
+  :root{--rail-w:56px}
+  .rail-brand .name,.rail-link .lbl,.rail-link .ct,.rail-sec,.rail-foot{display:none}
+  .rail-brand{justify-content:center;padding:0}
+  .rail-link{justify-content:center;padding:0;height:46px;position:relative}
+  .rail-link[data-ct]::after{content:attr(data-ct);position:absolute;top:5px;right:5px;font-family:var(--mono);font-size:9px;color:#fff;background:#333;padding:0 2px;line-height:1.3}
+  .rail-link.blkct[data-ct]::after{background:var(--red)}
+  /* sidebar detaches to readiness bar */
+  .cdgrid{grid-template-columns:1fr}
+  .cdmain{border-right:0}
+  .cdside{order:-1;border-bottom:3px solid var(--ink);background:var(--surface)}
+  .cdside .side-sec.facts-sec{display:none}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .rail{display:none}
+  .hdr{gap:8px;padding:0 10px}
+  .stamp-upd{display:none}
+  .idbar{padding:10px}.idbar .right{margin-left:0;width:100%}
+  .actions{padding:10px}
+  .frow{grid-template-columns:24px 1fr;row-gap:4px}
+  .frow .fv{grid-column:1 / -1;padding-left:34px}
+  .frow .prov-b{grid-column:1 / -1;margin-left:34px}
+  .frow .fl{grid-column:2}
+  .canvas{padding-bottom:70px}
+  .tabbar{display:flex;position:fixed;bottom:0;left:0;right:0;height:56px;background:var(--rail);border-top:3px solid var(--ink);z-index:50}
+  .tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#CFCFCB;border-right:2px solid #2C2C2A}
+  .tabbar a:last-child{border-right:0}
+  .tabbar a.active{background:var(--surface);color:var(--ink)}
+  .tabbar a .ic{font-family:var(--mono);font-size:16px}
+  .tabbar a .lbl{font-family:var(--disp);text-transform:uppercase;font-size:9px;letter-spacing:.04em;font-weight:700}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ RAIL ============ -->
+  <nav class="rail" aria-label="Primary">
+    <div class="rail-brand"><span class="glyph">▣</span><span class="name">Concrete<br>Ledger<small>COLLISIONSPIKE</small></span></div>
+    <div class="rail-scroll">
+      <div class="rail-sec">Intake</div>
+      <a class="rail-link" href="index.html" data-ct="3"><span class="ic">▣</span><span class="lbl">Cockpit</span></a>
+      <a class="rail-link" href="#" data-ct="47"><span class="ic">✉</span><span class="lbl">Inbox</span><span class="ct">[ 47 ]</span></a>
+      <a class="rail-link active" href="queues.html" data-ct="20"><span class="ic">▤</span><span class="lbl">Queues</span><span class="ct">[ 20 ]</span></a>
+      <a class="rail-link" href="queues.html" data-ct="5"><span class="ic">★</span><span class="lbl">Ready</span><span class="ct">[ 5 ]</span></a>
+      <div class="rail-div"></div>
+      <div class="rail-sec">Admin</div>
+      <a class="rail-link blkct" href="queues.html" data-ct="8"><span class="ic">▲</span><span class="lbl">Review</span><span class="ct blk">[ 8 ]</span></a>
+      <a class="rail-link" href="#"><span class="ic">⚙</span><span class="lbl">Settings</span></a>
+      <div class="rail-div"></div>
+      <div class="rail-sec">Engineer</div>
+      <a class="rail-link" href="#" style="opacity:.5;pointer-events:none"><span class="ic">▦</span><span class="lbl">Reserved</span></a>
+    </div>
+    <div class="rail-foot"><kbd>U</kbd> upload · <kbd>C</kbd> copy json<br><kbd>S</kbd> submit · <kbd>R</kbd> refresh</div>
+  </nav>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="hdr">
+      <div class="crumb"><a href="queues.html">‹ QUEUES</a><span class="sep">/</span>REVIEW<span class="sep">/</span>ACPY26050</div>
+      <div class="hdr-right">
+        <span class="stamp-upd">UPDATED 14:07</span>
+        <button class="btn btn-sm press"><span class="ic">↻</span>Refresh</button>
+        <button class="btn btn-sm press" id="density"><span class="ic">⊟</span>Density</button>
+      </div>
+    </header>
+
+    <!-- spine -->
+    <div class="spine" aria-label="Pipeline spine">
+      <div class="snode done"><div class="sn">NEW</div><div class="ss">23 Jun</div><div class="ch">▶</div></div>
+      <div class="snode done"><div class="sn">INGESTED</div><div class="ss">parsed</div><div class="ch">▶</div></div>
+      <div class="snode cur"><div class="sn">▓ NEEDS REVIEW</div><div class="ss">you act</div><div class="ch">▶</div></div>
+      <div class="snode"><div class="sn">READY</div><div class="ss">—</div><div class="ch">▶</div></div>
+      <div class="snode"><div class="sn">SUBMITTED</div><div class="ss">—</div><div class="ch">▶</div></div>
+      <div class="snode"><div class="sn">BOX</div><div class="ss">—</div></div>
+    </div>
+
+    <!-- identity header -->
+    <div class="idbar">
+      <span class="vrm lg">AB12 CDE</span>
+      <span class="cpo">ACPY26050</span>
+      <span class="provtag">ACME · ACPY</span>
+      <span class="vehicle"><b>BMW 320d M-Sport</b> · 2018 · diesel</span>
+      <div class="right">
+        <span class="stamp review lg">Needs review <span class="g">▲</span></span>
+        <span class="chan">✉ EMAIL</span>
+        <div class="thermo"><div class="track"><div class="fill f-red" style="width:96%"></div></div><span class="age">2d04h</span></div>
+      </div>
+    </div>
+
+    <!-- actions -->
+    <div class="actions">
+      <button class="btn press"><span class="ic">⬆</span>Upload</button>
+      <button class="btn press"><span class="ic">⧉</span>Copy JSON</button>
+      <button class="btn gated"><span class="ic">↗</span>Open in Box<span class="nc">NOT CONNECTED</span></button>
+      <button class="btn gated"><span class="ic">✦</span>Enrich<span class="nc">NOT CONNECTED</span></button>
+      <button class="btn gated"><span class="ic">▶</span>Submit to EVA<span class="nc">NOT READY</span></button>
+      <button class="btn danger press" style="margin-left:auto"><span class="ic">🗑</span>Delete</button>
+    </div>
+
+    <!-- messagebar -->
+    <div class="msgbar" role="status">
+      <span class="mt">▌ Not Ready for EVA</span>
+      <span class="md"><b>2 blockers</b> — 1 required field empty (VAT status) · need 1 more photo (overview present, +1 closeup).</span>
+    </div>
+
+    <!-- main grid -->
+    <div class="cdgrid">
+
+      <!-- ===== MAIN (tabs) ===== -->
+      <div class="cdmain">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="fields" role="tab">Fields</button>
+          <button class="tab" data-tab="evidence" role="tab">Evidence</button>
+          <button class="tab" data-tab="address" role="tab">Address</button>
+          <button class="tab" data-tab="chasers" role="tab">Chasers</button>
+          <button class="tab" data-tab="notes" role="tab">Notes</button>
+          <button class="tab" data-tab="history" role="tab">History</button>
+          <button class="tab gat" data-tab="enrichment" role="tab">Enrichment<span class="nc">GATED</span></button>
+        </div>
+
+        <!-- FIELDS -->
+        <section class="panel active" id="fields" role="tabpanel">
+          <!-- cluster 1 -->
+          <div class="cluster">
+            <div class="cluster-h">Provider &amp; Claimant</div>
+            <div class="frow"><div class="fn">1</div><div class="fl">Work provider</div><div class="fv">ACME (ACPY)</div><div><span class="prov-b">PDF <span class="g">▣</span></span></div></div>
+            <div class="frow"><div class="fn">2</div><div class="fl">Claimant name</div><div class="fv">J. Okafor</div><div><span class="prov-b">AI <span class="g">●</span></span></div></div>
+            <div class="frow"><div class="fn">3</div><div class="fl">Claimant telephone</div><div class="fv">07700 900118</div><div><span class="prov-b">MANUAL <span class="g">▣</span></span></div></div>
+            <div class="frow"><div class="fn">4</div><div class="fl">Claimant email</div><div class="fv">j.okafor@example.co.uk</div><div><span class="prov-b">PDF <span class="g">▣</span></span></div></div>
+          </div>
+          <!-- cluster 2 -->
+          <div class="cluster">
+            <div class="cluster-h">Vehicle</div>
+            <div class="frow"><div class="fn">5</div><div class="fl">Vehicle (make/model)</div><div class="fv">BMW 320d M-Sport</div><div><span class="prov-b">DVLA <span class="g">▣</span></span></div></div>
+            <div class="frow"><div class="fn">6</div><div class="fl">Mileage</div><div class="fv">48,210</div><div><span class="prov-b">DVLA <span class="g">●</span></span></div></div>
+            <div class="frow"><div class="fn">7</div><div class="fl">Mileage unit</div><div class="fv"><span class="sel-in">MILES ▾</span></div><div><span class="prov-b">MANUAL <span class="g">▣</span></span></div></div>
+            <div class="frow err"><div class="fn">8</div><div class="fl">VAT status</div><div class="fv"><span class="req">▲ Required</span> <span class="sel-in">choose ▾</span></div><div><span class="prov-b none">— NONE</span></div>
+              <div class="errline">↳ required for EVA submit — pick VAT-registered / not-registered</div></div>
+          </div>
+          <!-- cluster 3 -->
+          <div class="cluster">
+            <div class="cluster-h">Incident</div>
+            <div class="frow"><div class="fn">9</div><div class="fl">Accident circumstances</div><div class="fv">"Rear-ended at the A34 junction while stationary…"</div><div><span class="prov-b conflict">AI <span class="g">▲</span></span></div></div>
+            <div class="frow"><div class="fn">10</div><div class="fl">Inspection address</div><div class="fv">6-line · see ADDRESS tab</div><div><span class="prov-b">CORPUS <span class="g">▣</span></span></div></div>
+          </div>
+          <!-- cluster 4 -->
+          <div class="cluster">
+            <div class="cluster-h">Dates</div>
+            <div class="frow"><div class="fn">11</div><div class="fl">Date of loss</div><div class="fv">18 Jun 2026</div><div><span class="prov-b">PDF <span class="g">▣</span></span></div></div>
+            <div class="frow"><div class="fn">12</div><div class="fl">Date of instruction</div><div class="fv">23 Jun 2026</div><div><span class="prov-b">PDF <span class="g">▣</span></span></div></div>
+          </div>
+          <!-- live json -->
+          <details class="json-well">
+            <summary><span class="tw">▾</span>Live JSON · EVA contract preview</summary>
+<pre class="json-code"><span class="k">"work_provider"</span>: <span class="s">"ACME"</span>,  <span class="k">"principal"</span>: <span class="s">"acpy"</span>,
+<span class="k">"claimant_name"</span>: <span class="s">"J. Okafor"</span>,
+<span class="k">"claimant_tel"</span>: <span class="s">"07700 900118"</span>,
+<span class="k">"claimant_email"</span>: <span class="s">"j.okafor@example.co.uk"</span>,
+<span class="k">"vehicle"</span>: <span class="s">"BMW 320d M-Sport"</span>,
+<span class="k">"mileage"</span>: <span class="n">48210</span>, <span class="k">"mileage_unit"</span>: <span class="s">"miles"</span>,
+<span class="k">"vat_status"</span>: <span class="n">null</span>,            <span class="k">// ◄ required, empty</span>
+<span class="k">"circumstances"</span>: <span class="s">"Rear-ended at the A34 junction…"</span>,
+<span class="k">"inspection_address"</span>: [<span class="s">"Halford Tyres &amp; Autocentre"</span>, … ],
+<span class="k">"date_of_loss"</span>: <span class="s">"2026-06-18"</span>,
+<span class="k">"date_of_instruction"</span>: <span class="s">"2026-06-23"</span></pre>
+          </details>
+        </section>
+
+        <!-- EVIDENCE -->
+        <section class="panel" id="evidence" role="tabpanel">
+          <div class="banner">
+            <span class="bt">▌ Photo order</span>
+            <span>Upload <b>2 previews first</b> — overview-with-full-reg + damage_closeup — then <b>ALL</b> photos in sequence <b>including those two again</b>. Any photo showing a person's reflection is excluded.</span>
+          </div>
+          <div class="photogrid">
+            <div class="photo">
+              <div class="img"><img src="https://picsum.photos/seed/bmwoverview/320/240" alt=""><span class="ord">P1</span><span class="pv">PREVIEW</span></div>
+              <div class="meta"><div class="role">Overview ▾</div><div class="flags"><span class="miniflag ok">REG VISIBLE</span></div></div>
+            </div>
+            <div class="photo">
+              <div class="img"><img src="https://picsum.photos/seed/bmwdamage/320/240" alt=""><span class="ord">P2</span><span class="pv">PREVIEW</span></div>
+              <div class="meta"><div class="role">Damage closeup ▾</div><div class="flags"><span class="miniflag warn">NEED +1</span></div></div>
+            </div>
+            <div class="photo">
+              <div class="img"><img src="https://picsum.photos/seed/bmw3/320/240" alt=""><span class="ord">3</span></div>
+              <div class="meta"><div class="role">Front ¾ ▾</div><div class="flags"><span class="miniflag">REFLECTION OK</span></div></div>
+            </div>
+            <div class="photo">
+              <div class="img"><img src="https://picsum.photos/seed/bmw4/320/240" alt=""><span class="ord">4</span></div>
+              <div class="meta"><div class="role">Rear ▾</div></div>
+            </div>
+            <div class="photo">
+              <div class="img"><img src="https://picsum.photos/seed/bmw5/320/240" alt=""><span class="ord">5</span></div>
+              <div class="meta"><div class="role">Interior ▾</div><div class="flags"><span class="miniflag warn">EXCLUDE · PERSON</span></div></div>
+            </div>
+            <div class="photo" style="border-style:dashed;display:flex;align-items:center;justify-content:center;min-height:160px">
+              <span class="disp" style="font-size:11px;color:var(--ink-muted)">⬆ ADD PHOTO</span>
+            </div>
+          </div>
+          <div style="margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--ink-muted)">EVA ORDER: P1 · P2 · P1 · P2 · 3 · 4 · … &nbsp;(previews repeat at the head of the full sequence) · keyboard-reorderable</div>
+        </section>
+
+        <!-- ADDRESS -->
+        <section class="panel" id="address" role="tabpanel">
+          <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;font-family:var(--mono)">RANKED OFFLINE SUGGESTIONS · pick &amp; edit manually · no silent address</div>
+          <div class="addr-sug chosen">
+            <div class="ah"><span class="disp" style="font-size:12px">Halford Tyres &amp; Autocentre</span><span class="seen">seen 41 · last 19 Jun 2026</span><span class="policy">CHOSEN ▣</span><button class="tmpl-pick on pick">Picked</button></div>
+            <div class="addr-lines">Halford Tyres &amp; Autocentre<br>Unit 4, Sherwood Retail Park<br>Northampton Road<br>Kettering<br>Northamptonshire<br>NN15 7HX</div>
+          </div>
+          <div class="addr-sug">
+            <div class="ah"><span class="disp" style="font-size:12px">Kwik-Fit Kettering</span><span class="seen">seen 12 · last 02 Jun 2026</span><button class="tmpl-pick pick">Pick</button></div>
+            <div class="addr-lines">Kwik-Fit · 88 Rockingham Road · Kettering · Northants · NN16 8LH</div>
+          </div>
+          <div class="addr-sug">
+            <div class="ah"><span class="disp" style="font-size:12px">Image-Based Assessment (IBA)</span><span class="policy">REASON REQUIRED ▲</span><button class="tmpl-pick pick">Use IBA</button></div>
+            <div class="addr-lines"><span style="color:var(--ink-muted)">No physical inspection — type a reason:</span><br><input class="sel-in" style="width:90%;margin-top:6px" placeholder="e.g. total loss, vehicle at salvage…"></div>
+          </div>
+          <div style="margin-top:8px;display:flex;align-items:center;gap:10px;font-size:11px"><span class="policy">PROVIDER POLICY</span> <span class="mono mut">ACME — physical inspection preferred where damage &gt; cosmetic</span></div>
+        </section>
+
+        <!-- CHASERS -->
+        <section class="panel" id="chasers" role="tabpanel">
+          <div class="chaser-tmpl">
+            <button class="tmpl-pick on">Email · missing images</button>
+            <button class="tmpl-pick">WhatsApp · missing images</button>
+            <button class="tmpl-pick">Email · missing docs</button>
+            <button class="tmpl-pick gated" style="border-color:var(--border-mid);color:var(--ink-muted)">Box File-Request<span class="nc" style="margin-left:5px">NOT CONNECTED</span></button>
+          </div>
+          <div class="draft">
+            <div class="dh">DRAFT · to claims@acme-am.co.uk · re ACPY26050 / AB12 CDE — <b>never auto-sends</b></div>
+            <textarea>Hi Acme team,
+
+Re: ACPY26050 — BMW 320d (AB12 CDE), instruction dated 23 Jun.
+
+To complete the EVA assessment we still need 6 further photographs, including at least one additional damage close-up. The vehicle overview with the full registration visible has been received.
+
+Could you forward these at your earliest convenience?
+
+Many thanks,
+Collision Engineers · Intake</textarea>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn press"><span class="ic">⧉</span>Copy draft</button>
+            <button class="btn press"><span class="ic">✎</span>Log as drafted</button>
+            <span class="btn gated">Send<span class="nc">MANUAL ONLY</span></span>
+          </div>
+        </section>
+
+        <!-- NOTES -->
+        <section class="panel" id="notes" role="tabpanel">
+          <button class="btn press" style="margin-bottom:12px"><span class="ic">＋</span>Add note</button>
+          <div class="note"><div class="nh">A. NOWAK · 23 Jun 11:42</div>Provider confirmed claimant tel by phone — updated field 3 manually.</div>
+          <div class="note"><div class="nh">SYSTEM · 23 Jun 09:14</div>Parsed from instruction.pdf — 11/12 fields populated, VAT status not found.</div>
+        </section>
+
+        <!-- HISTORY -->
+        <section class="panel" id="history" role="tabpanel">
+          <table style="width:100%;border-collapse:collapse" class="hist">
+            <tbody>
+              <tr><td class="ts">23 Jun 11:42</td><td><span class="ev">FIELD EDIT</span></td><td>Claimant telephone set manually by A. Nowak</td></tr>
+              <tr><td class="ts">23 Jun 10:05</td><td><span class="ev">CHASER DRAFT</span></td><td>Missing-images email drafted (not sent)</td></tr>
+              <tr><td class="ts">23 Jun 09:15</td><td><span class="ev">STATUS</span></td><td>ingested → needs_review</td></tr>
+              <tr><td class="ts">23 Jun 09:14</td><td><span class="ev">PARSE</span></td><td>instruction.pdf parsed · 11/12 fields</td></tr>
+              <tr><td class="ts">23 Jun 09:14</td><td><span class="ev">INTAKE</span></td><td>Email received · Outlook · intake mailbox</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ENRICHMENT (gated) -->
+        <section class="panel" id="enrichment" role="tabpanel">
+          <div class="gatpanel">
+            <div class="gh">Enrichment is gated</div>
+            <p style="max-width:420px;margin:8px auto 0;font-size:13px">DVLA / DVSA / Experian enrichment renders disabled here — the connector is not wired in this prototype.</p>
+            <span class="nc">ENRICHMENT_ENABLED = false · NOT CONNECTED</span>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== SIDEBAR ===== -->
+      <aside class="cdside" aria-label="Readiness">
+        <div class="side-sec">
+          <div class="side-h">▣ Readiness Checklist</div>
+          <div class="check"><span class="cmark ok">✓</span><div><div class="cl">Required fields</div><div class="cs">11 / 12 verified</div></div></div>
+          <div class="check"><span class="cmark ok">✓</span><div><div class="cl">Provider &amp; claimant</div><div class="cs">all 4 present</div></div></div>
+          <div class="check"><span class="cmark no">✗</span><div><div class="cl">VAT status</div><div class="cs">field 8 empty · <a class="jump" href="#" data-jump="fields">→ Fields</a></div></div></div>
+          <div class="check"><span class="cmark no">✗</span><div><div class="cl">≥2 images</div><div class="cs">overview ✓ · closeup 1/1 needs +1 · <a class="jump" href="#" data-jump="evidence">→ Evidence</a></div></div></div>
+          <div class="check"><span class="cmark ok">✓</span><div><div class="cl">Address decided</div><div class="cs">corpus · Halford Kettering</div></div></div>
+          <div class="check"><span class="cmark no">✗</span><div><div class="cl">No conflicts</div><div class="cs">field 9 AI conflict · <a class="jump" href="#" data-jump="fields">→ Fields</a></div></div></div>
+        </div>
+        <div class="side-sec facts-sec">
+          <div class="side-h">▦ Case Facts <span class="mono mut" style="font-weight:400;font-size:10px">read-only</span></div>
+          <dl class="facts">
+            <dt>Received</dt><dd>23 Jun 09:14</dd>
+            <dt>Channel</dt><dd>Outlook · intake</dd>
+            <dt>Principal</dt><dd>ACPY <span class="lock">LOCKED</span></dd>
+            <dt>Year</dt><dd>26 <span class="lock">LOCKED</span></dd>
+            <dt>Sequence</dt><dd>050 <span class="edit">EDIT @ SUBMIT</span></dd>
+            <dt>Dup risk</dt><dd>none</dd>
+          </dl>
+          <button class="btn prim press" style="width:100%;margin-top:12px;justify-content:center" id="openSubmit"><span class="ic">▶</span>Open submit dialog</button>
+          <div class="mono mut" style="font-size:10px;margin-top:6px;text-align:center">disabled in app until readiness is green</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SUBMIT ROUTE-MODAL (S5) ============ -->
+<div class="scrim" id="scrim">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Submit to EVA">
+    <div class="modal-h"><span class="mt">▶ Submit to EVA · /submit</span><button class="x" id="closeSubmit">✕</button></div>
+    <div class="modal-b">
+      <div class="gate-ok"><span class="g">⚠ DEMO</span>Readiness must be all ▣ before this enables — shown here for layout. 3 blockers outstanding.</div>
+      <div class="seqbox">
+        <span>Case/PO</span>
+        <span class="lock" title="locked">ACPY</span>
+        <span class="lock" title="locked">26</span>
+        <input class="editseq" value="050" aria-label="3-digit sequence (editable)">
+        <span class="mono mut" style="font-size:11px">only the 3-digit sequence edits</span>
+      </div>
+      <div class="codepair">
+        <div class="cc"><div class="cl">EVA code · lowercase</div><div class="cv">acpy26050</div></div>
+        <div class="cc"><div class="cl">Box folder · UPPERCASE</div><div class="cv">ACPY26050</div></div>
+      </div>
+      <details class="json-well" open>
+        <summary><span class="tw">▾</span>12-field JSON preview</summary>
+<pre class="json-code"><span class="k">"case"</span>: <span class="s">"acpy26050"</span>, <span class="k">"vrm"</span>: <span class="s">"AB12 CDE"</span>,
+<span class="k">"vat_status"</span>: <span class="n">null</span> <span class="k">// ◄ blocks submit</span>, … 11 more</pre>
+      </details>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <button class="btn prim press"><span class="ic">⧉</span>Copy JSON / drag to EVA</button>
+        <span class="btn gated">Sentry REST submit<span class="nc">NOT CONNECTED</span></span>
+        <button class="btn press" id="cancelSubmit" style="margin-left:auto">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="tabbar" aria-label="Primary mobile">
+  <a href="index.html"><span class="ic">▣</span><span class="lbl">Cockpit</span></a>
+  <a href="queues.html"><span class="ic">▤</span><span class="lbl">Queues</span></a>
+  <a href="#"><span class="ic">✉</span><span class="lbl">Inbox</span></a>
+  <a class="active" href="case-detail.html"><span class="ic">▢</span><span class="lbl">Case</span></a>
+  <a href="#"><span class="ic">⋯</span><span class="lbl">More</span></a>
+</nav>
+
+<script>
+  document.getElementById('density').addEventListener('click',function(){document.body.classList.toggle('dense')});
+  // tabs
+  var tabs=document.querySelectorAll('.tab'),panels=document.querySelectorAll('.panel');
+  function show(id){
+    tabs.forEach(function(t){t.classList.toggle('active',t.dataset.tab===id)});
+    panels.forEach(function(p){p.classList.toggle('active',p.id===id)});
+  }
+  tabs.forEach(function(t){t.addEventListener('click',function(){show(t.dataset.tab)})});
+  document.querySelectorAll('[data-jump]').forEach(function(j){j.addEventListener('click',function(e){e.preventDefault();show(j.dataset.jump);window.scrollTo({top:0})})});
+  // submit modal
+  var scrim=document.getElementById('scrim');
+  document.getElementById('openSubmit').addEventListener('click',function(){scrim.classList.add('open')});
+  document.getElementById('closeSubmit').addEventListener('click',function(){scrim.classList.remove('open')});
+  document.getElementById('cancelSubmit').addEventListener('click',function(){scrim.classList.remove('open')});
+  scrim.addEventListener('click',function(e){if(e.target===scrim)scrim.classList.remove('open')});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')scrim.classList.remove('open')});
+</script>
+</body>
+</html>
