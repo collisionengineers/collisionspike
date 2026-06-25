@@ -1,5 +1,11 @@
 > **Phase 8 — Inbox / Triage Management** (planned, additive — like Phase 7). Promoted from
-> `docs/plans/to-integrate-into-phases/` on 2026-06-24. **Status: PLANNED / not built.** Backed by
+> `docs/plans/to-integrate-into-phases/` on 2026-06-24. **Status: BUILT OFFLINE (Phase A + the Phase-B
+> Code App Inbox/Triage screen), gated-OFF / activation-pending — NOT live** (completed on branch
+> `feat/phase-8-inbox-management`; the deterministic classifier + `/classify-email`, the
+> `cr1bd_inboundemail` table + choicesets + `26-inbound-email.ps1`, the `triage-classify` child + the
+> triage-first intake restructure, the `cr1bd_EMAIL_AI_ENABLED` dark gate, and the faceted `/inbox`
+> screen are all authored + verified offline; live trigger-flip / schema `-Apply` / connection-bind
+> remain operator-gated — see `IMPLEMENTATION-PLAN.md` §gated-activation). Backed by
 > **ADR-0015** (Proposed). Several locked decisions (new-table vs extend-Case; the 4-quadrant + Other
 > taxonomy) should pass a `grill-with-docs` review before any schema is applied. Consolidated open
 > questions: [../../open-questions.md](../../open-questions.md). The core-intake surgery — flipping
@@ -94,7 +100,7 @@ discipline as `detect_audit_signals`.
 universal "we saw this" record); a WORK row then points at the Case the existing chain creates.
 
 Key columns: `cr1bd_sourcemessageid` (String, **alternate key** — dedup anchor, mirrors the Case key);
-`cr1bd_fromaddress`, `cr1bd_senderdomain`, `cr1bd_sourcemailbox`, `cr1bd_receivedat`,
+`cr1bd_fromaddress`, `cr1bd_senderdomain`, `cr1bd_sourcemailbox`, `cr1bd_receivedon`,
 `cr1bd_hasattachments`; `cr1bd_category` + `cr1bd_subtype` (the two choicesets);
 `cr1bd_classifiermode` (deterministic|llm|human); `cr1bd_signals` (Memo — JSON of fired rules);
 `cr1bd_triagestate` (new|routed|actioned|dismissed); `cr1bd_workproviderid` (Lookup → WorkProvider);
@@ -177,9 +183,13 @@ Restructure [intake.definition.json](flows/definitions/intake.definition.json) (
    - `receiving_work` → the **existing chain unchanged** (classify-persist → parse → Case/PO →
      status-evaluate, plus live `Run_case_resolve`/`Run_enrich`); write the Case id back to the
      triage row; refine to `existing_provider_audit` + `A.` prefix once parser `audit.value` known.
-   - `query` → no Case; set `cr1bd_caseid` to the matched open Case if `query_existing_work`; audit
-     `inbound_query_logged`; stop.
-   - `other` → audit `inbound_other`, `triagestate=new`, stop (sits in the Other tab for a human).
+   - `query` → no Case; set `cr1bd_caseid` to the matched open Case if `query_existing_work`; stop.
+   - `other` → `triagestate=new`, stop (sits in the Other tab for a human).
+
+   _(Audit — as built: the `triage-classify` child records **every** category uniformly via
+   `inbound_classified` (100000024) + `inbound_routed` (100000025); the per-branch
+   `inbound_query_logged` / `inbound_other` actions named in earlier drafts were **superseded** by that
+   design and are **not** added — see ADR-0015 / `IMPLEMENTATION-PLAN.md` gap-4. Do not renumber/add.)_
 
 **Reconcile first:** the live intake has `Run_enrich`/`Run_case_resolve` that the repo def lacks
 (intake-repo-trails-live memo) — reconcile before editing so the change re-imports cleanly.

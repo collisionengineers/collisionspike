@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-24**._
+_Single source of truth for "where are we now." Last updated **2026-06-26**._
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -11,6 +11,35 @@ This is the Phase-1 (M1) case-intake spike on the Microsoft stack (Power Apps **
 Dataverse + Power Automate + Azure Functions). Built **offline**; live activation of anything that
 touches the shared inboxes / SharePoint / Box / EVA is the **operator's** step (see the boundary in
 DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows real Dataverse rows only.**
+
+---
+
+## 🔔 Update — 2026-06-26: Phase 8 (Inbox / Triage Management) COMPLETED OFFLINE on a branch (gated-OFF / activation-pending — NOT live)
+
+Phase 8 (ADR-0015 — email triage / **full-inbox** management) is now **built + verified offline** on branch
+`feat/phase-8-inbox-management` (PR pending). Phase A was already minted in the 2026-06-24 SDLC sweep; this
+work **closed the wiring gaps** and added the **Phase-B Code App screen**:
+
+- **Intake restructure (offline)** — `intake.definition.json` + `intake-shared-mailbox.definition.json`
+  flipped to **triage-first**: the trigger now fetches **all** mail (`fetchOnlyWithAttachment` /
+  `hasAttachments` → `false`), Message-ID dedup also probes **`cr1bd_inboundemail`**, a **`Run_triage`**
+  child + a **`Switch(category)`** route work to the unchanged Case chain (`Create_case` moved under
+  `receiving_work`) with case-id write-back; **reconcile-up-to-live** (`Run_case_resolve` / `Run_enrich`)
+  folded in + documented in `intake-restructure-notes.md`.
+- **Dataverse** — added the **`cr1bd_EMAIL_AI_ENABLED`** dark gate (default-OFF, Phase-C LLM) via
+  `26-inbound-email.ps1` Step 6, locked in `verify-parity.mjs`; the `cr1bd_inboundemail` table + 2
+  choicesets + audit actions (`inbound_classified` 100000024 / `inbound_routed` 100000025) confirmed complete.
+- **Code App** — new faceted **`/inbox`** Inbox/Triage screen (receiving_work | query | other + an Other tab),
+  body preview + open-in-mailbox pointer + reclassify, over a new InboundEmail **data seam** that stays
+  **honest-empty** under the live Dataverse source until the table is wired (the "no mock/seed case data on
+  the live path" principle holds).
+- **Parser** — `/classify-email` + the deterministic classifier verified green; vendored↔sibling in sync.
+
+**Verified offline:** pytest **126** · vitest **383** · `npm run build` green · validate-flows **181/181** ·
+verify-parity **all passed**. Live activation (trigger flip, schema `-Apply`, `pac code add-data-source`,
+child-flow rebind, single-inbox soft-rollout) is **operator-gated** — full G1–G7 list in
+[docs/plans/phase-8-inbox-management/IMPLEMENTATION-PLAN.md](./docs/plans/phase-8-inbox-management/IMPLEMENTATION-PLAN.md)
+§gated-activation and [docs/gated.md](./docs/gated.md).
 
 ---
 

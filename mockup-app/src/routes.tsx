@@ -9,9 +9,11 @@ import Admin from './screens/Admin';
 import ManualIntake from './screens/ManualIntake';
 import AddEvidence from './screens/AddEvidence';
 import ActionLogs from './screens/ActionLogs';
+import Inbox from './screens/Inbox';
 
 /* Route map (review 190626 nav IA):
    /                      → Dashboard
+   /inbox                 → Inbox (Phase 8 triage queue — faceted by category)
    /intake                → ManualIntake (new case)
    /evidence              → AddEvidence (second intake — link evidence to a case)
    /queue/:name           → CaseList (name = not-ready|review|held)
@@ -27,6 +29,7 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <Dashboard /> },
+      { path: 'inbox', element: <Inbox /> },
       { path: 'intake', element: <ManualIntake /> },
       { path: 'evidence', element: <AddEvidence /> },
       { path: 'queue/:name', element: <CaseList /> },

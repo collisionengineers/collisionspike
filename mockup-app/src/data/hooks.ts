@@ -29,6 +29,9 @@ import type {
   InspectionAddressCounts,
   BoxGates,
   LocationAssistGate,
+  InboundEmail,
+  InboundCategory,
+  InboundCounts,
 } from './types';
 
 /** The shape every query hook returns. */
@@ -184,5 +187,24 @@ export function useHoldNewCasesDefault(): QueryState<boolean> {
 /** Recent pipeline activity (audit events), newest first. */
 export function useActivity(): QueryState<ActivityEvent[]> {
   const run = useCallback(() => getDataAccess().recentActivity(), []);
+  return useAsync(run, []);
+}
+
+/**
+ * The inbox/triage rows for the active category tab (Phase 8), newest-first.
+ * Re-runs when the category changes. Honest-empty (`[]`) until the
+ * `cr1bd_inboundemail` table is wired — the screen renders the empty state.
+ */
+export function useInbox(category?: InboundCategory): QueryState<InboundEmail[]> {
+  const run = useCallback(
+    () => getDataAccess().inboundEmails(category ? { category } : undefined),
+    [category],
+  );
+  return useAsync(run, [category]);
+}
+
+/** Per-category triage counts (+ untriaged backlog) — TabList badges + nav pill. */
+export function useInboundCounts(): QueryState<InboundCounts> {
+  const run = useCallback(() => getDataAccess().inboundEmailCounts(), []);
   return useAsync(run, []);
 }
