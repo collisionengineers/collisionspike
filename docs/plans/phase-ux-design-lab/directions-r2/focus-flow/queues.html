@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WORKBENCH · Queues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --stage:#E8E2D7;--surface:#FBF9F4;--surface-raised:#F3EFE7;--well:#E2DBCE;
+  --hairline:#D8D0C2;--border-strong:#C7BDAB;
+  --ink:#2A2520;--ink-secondary:#574F45;--ink-muted:#6F6557;--ink-faint:#A99F8E;
+  --accent:#8A2E55;--accent-strong:#6E2343;--accent-tint:#F3E3EA;--accent-quiet:#EAD6DF;
+  --st-neutral:#6F6557;--st-neutral-tint:#ECE6DB;
+  --st-review:#B23A2E;--st-review-tint:#F6E2DC;
+  --st-held:#8C6011;--st-held-tint:#F4E9D2;
+  --st-ready:#456436;--st-ready-tint:#E4ECDB;
+  --shadow-focus:0 1px 2px rgba(42,37,32,.05),0 10px 28px -8px rgba(42,37,32,.12);
+  --shadow-overlay:0 16px 40px -10px rgba(42,37,32,.22);
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-focus:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:'Hanken Grotesk',system-ui,sans-serif;background:var(--stage);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.mono{font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+a{color:var(--accent);text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+*:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.kick{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted)}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.kbd{font-family:'Geist Mono';font-size:11px;background:var(--well);border:1px solid var(--hairline);border-radius:4px;padding:1px 5px;color:var(--ink-secondary)}
+
+.app{display:grid;grid-template-columns:220px 56px 1fr;height:100vh;overflow:hidden}
+
+/* nav */
+.nav{display:flex;flex-direction:column;padding:18px 12px;border-right:1px solid var(--hairline);overflow-y:auto;gap:2px}
+.brand{display:flex;align-items:center;gap:9px;padding:4px 8px 16px}
+.brand .mk{width:22px;height:22px;border-radius:6px;background:var(--ink);position:relative;flex:none}
+.brand .mk::after{content:"";position:absolute;inset:6px 6px auto auto;width:7px;height:7px;border-radius:2px;background:var(--accent)}
+.brand b{font-size:15px;font-weight:700}
+.brand span{font-size:10px;color:var(--ink-muted);letter-spacing:.14em;text-transform:uppercase;display:block;margin-top:-2px}
+.navitem{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px;border-radius:var(--r-md);color:var(--ink-secondary);border-left:2px solid transparent;font-size:14px;font-weight:500;text-decoration:none}
+.navitem .ic{width:18px;text-align:center;flex:none;color:var(--ink-muted)}
+.navitem .lb{flex:1}
+.navitem .ct{font-family:'Geist Mono';font-size:12px;color:var(--ink-muted)}
+.navitem:hover{background:var(--well)}
+.navitem.active{background:var(--accent-tint);border-left-color:var(--accent);color:var(--ink);font-weight:600}
+.navitem.active .ic{color:var(--accent)}
+.navitem.disabled{opacity:.45;pointer-events:none}
+.navdiv{margin:14px 8px 6px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint)}
+.nav .foot{margin-top:auto;padding:10px 8px 2px;font-size:11px;color:var(--ink-faint)}
+
+/* spark strip (collapsed rail) */
+.spark-rail{border-right:1px solid var(--hairline);overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:4px}
+.spark-rail .pn{font-family:'Geist Mono';font-size:11px;color:var(--ink-muted);margin-bottom:8px;writing-mode:vertical-rl;letter-spacing:.1em}
+.sbar{width:34px;height:30px;border-left:2px solid transparent;display:flex;align-items:center;justify-content:center;border-radius:3px;position:relative;background:none;cursor:pointer}
+.sbar i{width:7px;height:7px;border-radius:50%;background:var(--border-strong)}
+.sbar.rv i{background:var(--st-review)}.sbar.hd i{background:var(--st-held)}.sbar.rd i{background:var(--st-ready)}
+.sbar.cur{border-left-color:var(--accent);background:var(--surface);box-shadow:inset 0 0 0 1px var(--hairline)}
+.sbar:hover{background:var(--well)}
+
+/* stage */
+.stagecol{overflow-y:auto;padding:18px 20px 60px}
+.topbar{position:sticky;top:-18px;z-index:6;margin:-18px -20px 16px;padding:16px 24px;background:var(--stage);border-bottom:1px solid var(--hairline);display:flex;align-items:center;gap:16px}
+.topbar h1{font-size:30px;font-weight:600;line-height:1.1;margin:0}
+.search{flex:1;max-width:380px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r-md);padding:8px 12px;color:var(--ink-muted);font-size:13px}
+.search input{border:0;background:none;outline:none;flex:1;font-family:inherit;font-size:13px;color:var(--ink)}
+.fresh{font-family:'Geist Mono';font-size:12px;color:var(--ink-muted);display:flex;gap:8px;align-items:center}
+.fresh button{background:none;border:1px solid var(--hairline);border-radius:6px;width:26px;height:26px;color:var(--ink-secondary)}
+
+.stage{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r-focus);box-shadow:var(--shadow-focus);overflow:hidden}
+
+/* partition tabs */
+.ptabs{display:flex;align-items:center;gap:4px;padding:14px 22px 0;border-bottom:1px solid var(--hairline)}
+.ptab{background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px 12px;font-size:14px;font-weight:600;color:var(--ink-muted);display:flex;align-items:center;gap:7px;white-space:nowrap}
+.ptab .g{font-size:9px}
+.ptab .n{font-family:'Geist Mono';font-size:12px;font-weight:500;background:var(--well);border-radius:999px;padding:1px 7px;color:var(--ink-secondary)}
+.ptab:hover{color:var(--ink)}
+.ptab.active{color:var(--ink);border-bottom-color:var(--accent)}
+.ptab.review.active{border-bottom-color:var(--st-review)}
+.ptab .sep{width:1px;height:18px;background:var(--hairline)}
+.ptab.pin{margin-left:auto}
+.ptab.pin .g{color:var(--st-ready)}
+
+/* toolbar */
+.toolbar{padding:14px 22px;border-bottom:1px solid var(--hairline);display:flex;flex-direction:column;gap:10px}
+.toolrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gsearch{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;background:var(--surface-raised);border:1px solid var(--border-strong);border-radius:var(--r-md);padding:8px 12px;color:var(--ink-muted)}
+.gsearch input{border:0;background:none;outline:0;flex:1;font-family:inherit;font-size:14px;color:var(--ink)}
+.fltr{font-size:13px;font-weight:500;color:var(--ink-secondary);background:var(--surface-raised);border:1px solid var(--border-strong);border-radius:var(--r-md);padding:7px 12px}
+.fltr::after{content:" ▾";color:var(--ink-muted)}
+.count{margin-left:auto;font-family:'Geist Mono';font-size:13px;color:var(--ink-muted);white-space:nowrap}
+.count b{color:var(--ink)}
+.chips{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.chips .cl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-right:2px}
+.chip{font-size:12px;font-weight:500;border:1px solid var(--border-strong);background:var(--surface-raised);border-radius:999px;padding:4px 11px;color:var(--ink-secondary);display:inline-flex;align-items:center;gap:6px}
+.chip .g{font-size:8px;color:var(--st-review)}
+.chip.on{background:var(--st-review-tint);border-color:#e7c4ba;color:#8e2c22}
+.chip.on .g{color:#8e2c22}
+
+/* grid */
+.grid{width:100%;border-collapse:collapse}
+.grid thead th{position:sticky;top:0;background:var(--surface);text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);font-weight:600;padding:10px 16px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+.grid tbody td{padding:11px 16px;border-bottom:1px solid var(--hairline);font-size:13px;vertical-align:middle}
+.grid tbody tr{cursor:pointer}
+.grid tbody tr:hover{background:var(--well)}
+.grid tbody tr.cur{background:var(--surface);box-shadow:inset 2px 0 0 var(--accent)}
+.vrm{display:inline-flex;align-items:stretch;border:1px solid var(--border-strong);border-radius:var(--r-sm);overflow:hidden;font-family:'Geist Mono';font-weight:500;background:var(--surface);height:26px;width:max-content}
+.vrm .gb{background:var(--ink);color:var(--surface);font-size:8px;display:flex;align-items:center;padding:0 4px}
+.vrm .reg{padding:0 8px;display:flex;align-items:center;font-size:13px;letter-spacing:.04em;color:var(--ink)}
+.vrm.dup{border-color:var(--st-review);border-left-width:3px}
+.vrm.dup .reg::after{content:" △";color:var(--st-review)}
+.po{font-family:'Geist Mono';font-size:13px;color:var(--ink-secondary)}
+.prov{font-size:13px}.prov small{display:block;font-family:'Geist Mono';font-size:11px;color:var(--ink-muted)}
+.badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap}
+.badge .g{font-size:9px}
+.b-review{background:var(--st-review-tint);color:#8e2c22}
+.b-held{background:var(--st-held-tint);color:#6f4b0d}
+.b-ready{background:var(--st-ready-tint);color:#355028}
+.b-neutral{background:var(--st-neutral-tint);color:#574f45}
+.out{display:flex;align-items:center;gap:7px;color:var(--ink-secondary);font-weight:500}
+.out .g{font-size:9px}
+.out small{color:var(--ink-faint);font-weight:400}
+.g-review{color:var(--st-review)}.g-held{color:var(--st-held)}.g-ready{color:var(--st-ready)}.g-neutral{color:var(--ink-muted)}
+.ch{font-size:12px;color:var(--ink-muted)}
+.due{font-family:'Geist Mono';font-size:12px;color:var(--ink-muted);white-space:nowrap}
+.due.due2{color:var(--st-held);font-weight:500}
+.due.over{color:var(--st-review);font-weight:600}
+.subverb{font-size:11px;font-weight:600;background:var(--ink);color:var(--surface);border:0;border-radius:6px;padding:4px 9px}
+.emptystate{padding:40px;text-align:center;color:var(--ink-muted)}
+
+/* cmdk */
+.cmdk{position:fixed;inset:0;background:rgba(42,37,32,.28);display:none;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:50}
+.cmdk.on{display:flex}
+.cmdbox{width:min(560px,92vw);background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r-lg);box-shadow:var(--shadow-overlay);overflow:hidden}
+.cmdin{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--hairline)}
+.cmdin input{border:0;outline:0;background:none;flex:1;font-family:inherit;font-size:16px;color:var(--ink)}
+.cmdlist{padding:8px}
+.cmdlist a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r-sm);color:var(--ink);font-size:14px}
+.cmdlist a:hover{background:var(--accent-tint)}
+.cmdlist a .ic{color:var(--ink-muted);width:18px;text-align:center}
+.cmdlist a .k{margin-left:auto;font-family:'Geist Mono';font-size:11px;color:var(--ink-faint)}
+
+.btabs{display:none}
+@media(max-width:1180px){
+  .app{grid-template-columns:64px 56px 1fr}
+  .brand b,.brand span,.navitem .lb,.navitem .ct,.navdiv,.nav .foot{display:none}
+  .navitem{justify-content:center;padding:0}
+  .grid .col-ch{display:none}
+}
+@media(max-width:720px){
+  .app{display:block;height:auto;overflow:visible}
+  .nav,.spark-rail{display:none}
+  .stagecol{padding:14px 12px 90px;height:auto;overflow:visible}
+  .topbar{position:static;margin:0 0 12px;padding:6px 2px;background:none;border:0;flex-wrap:wrap}
+  .topbar h1{font-size:24px}
+  .ptabs{overflow-x:auto;padding:12px 14px 0}
+  .grid thead{display:none}
+  .grid,.grid tbody,.grid tr,.grid td{display:block;width:100%}
+  .grid tbody tr{border:1px solid var(--hairline);border-radius:var(--r-md);margin:10px 14px;padding:10px 12px;background:var(--surface)}
+  .grid tbody td{border:0;padding:3px 0;display:flex;justify-content:space-between;gap:10px}
+  .grid tbody td.col-vrm{padding-bottom:6px}
+  .grid tbody td::before{content:attr(data-l);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);align-self:center}
+  .grid tbody td.col-vrm::before,.grid tbody td.col-status::before{display:none}
+  .count{margin-left:0}
+  .btabs{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border-strong);z-index:40}
+  .btabs a{flex:1;text-align:center;padding:9px 0 8px;font-size:10px;color:var(--ink-muted);text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:2px}
+  .btabs a .ic{font-size:17px}
+  .btabs a.active{color:var(--accent)}
+}
+@media (prefers-reduced-motion:reduce){*{transition-duration:0ms!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <nav class="nav" aria-label="Primary">
+    <div class="brand"><span class="mk"></span><div><b>Workbench</b><span>collisionspike</span></div></div>
+    <a class="navitem" href="index.html"><span class="ic">◧</span><span class="lb">Cockpit</span></a>
+    <a class="navitem" href="queues.html"><span class="ic">▤</span><span class="lb">Inbox</span><span class="ct">14</span></a>
+    <a class="navitem active" href="queues.html"><span class="ic">▦</span><span class="lb">Queues</span><span class="ct">29</span></a>
+    <a class="navitem" href="queues.html"><span class="ic">✓</span><span class="lb">Ready</span><span class="ct">4</span></a>
+    <a class="navitem" href="#"><span class="ic">↥</span><span class="lb">Intake</span></a>
+    <div class="navdiv">Admin</div>
+    <a class="navitem" href="#"><span class="ic">⚙</span><span class="lb">Admin · Corpus</span></a>
+    <a class="navitem" href="#"><span class="ic">☰</span><span class="lb">Action logs</span></a>
+    <a class="navitem" href="#"><span class="ic">◎</span><span class="lb">Improvement</span></a>
+    <a class="navitem disabled" href="#"><span class="ic">⌬</span><span class="lb">Engineer · reserved</span></a>
+    <div class="foot">Press <span class="kbd">⌘K</span> to jump</div>
+  </nav>
+
+  <!-- spark strip (rail collapsed) -->
+  <aside class="spark-rail" aria-label="Queue position strip">
+    <div class="pn">8 / 8</div>
+    <button class="sbar rv" title="SJ17 VPL"><i></i></button>
+    <button class="sbar rv" title="PE19 BHK"><i></i></button>
+    <button class="sbar rv cur" title="GK19 RYX · current"><i></i></button>
+    <button class="sbar rv" title="YD70 KHP"><i></i></button>
+    <button class="sbar rv" title="GN68 RZD"><i></i></button>
+    <button class="sbar rv" title="TL15 MWA"><i></i></button>
+    <button class="sbar rv" title="VK20 OSC"><i></i></button>
+    <button class="sbar rv" title="RA66 LDP"><i></i></button>
+  </aside>
+
+  <main class="stagecol">
+    <div class="topbar">
+      <h1>Queues</h1>
+      <label class="search">⌕<input name="q" placeholder="Search VRM · Case/PO · claimant · model" aria-label="Search"><span class="kbd">⌘K</span></label>
+      <div class="fresh">Updated 09:42<button title="Refresh" aria-label="Refresh">↻</button></div>
+    </div>
+
+    <div class="stage">
+      <!-- partition tabs -->
+      <div class="ptabs" role="tablist">
+        <button class="ptab" role="tab"><span class="g g-neutral">—</span>Not ready<span class="n">9</span></button>
+        <button class="ptab review active" role="tab" aria-selected="true"><span class="g g-review">●</span>Review<span class="n">8</span></button>
+        <button class="ptab"><span class="g g-held">◆</span>Held<span class="n">12</span></button>
+        <span class="ptab pin"><span class="sep"></span></span>
+        <button class="ptab pin" style="margin-left:0"><span class="g g-ready">✓</span>Ready for EVA<span class="n">4</span></button>
+      </div>
+
+      <!-- toolbar -->
+      <div class="toolbar">
+        <div class="toolrow">
+          <label class="gsearch">⌕<input name="filter" placeholder="Filter this queue — VRM, Case/PO, claimant, model" aria-label="Filter"></label>
+          <button class="fltr">Provider</button>
+          <button class="fltr">Status</button>
+          <button class="fltr">Channel</button>
+          <button class="fltr">Age</button>
+          <span class="count">showing <b id="cnt">8</b> of 8</span>
+        </div>
+        <div class="chips">
+          <span class="cl">Reason</span>
+          <button class="chip on" data-r="conflict"><span class="g">▲</span>Conflict</button>
+          <button class="chip" data-r="images"><span class="g">●</span>Missing images</button>
+          <button class="chip" data-r="instr"><span class="g">●</span>Missing instructions</button>
+          <button class="chip" data-r="dup"><span class="g">△</span>Duplicate</button>
+        </div>
+      </div>
+
+      <!-- grid -->
+      <table class="grid">
+        <thead><tr>
+          <th>VRM</th><th>Case/PO</th><th>Provider</th><th>Status</th><th>Outstanding</th><th class="col-ch">Channel</th><th>Age / Due</th>
+        </tr></thead>
+        <tbody id="rows">
+          <tr onclick="location='case-detail.html'">
+            <td class="col-vrm" data-l="VRM"><span class="vrm"><span class="gb">GB</span><span class="reg">SJ17 VPL</span></span></td>
+            <td data-l="Case/PO"><span class="po">AVIV26077</span></td>
+            <td data-l="Provider" class="prov">Aviva<small>AVIV</small></td>
+            <td class="col-status" data-l="Status"><span class="badge b-review"><span class="g">●</span>Needs review</span></td>
+            <td data-l="Outstanding"><span class="out"><span class="g g-review">▲</span>Resolve mileage conflict</span></td>
+            <td class="col-ch" data-l="Channel"><span class="ch">Email</span></td>
+            <td data-l="Age/Due"><span class="due">1d</span></td>
+          </tr>
+          <tr onclick="location='case-detail.html'">
+            <td class="col-vrm" data-l="VRM"><span class="vrm"><span class="gb">GB</span><span class="reg">PE19 BHK</span></span></td>
+            <td data-l="Case/PO"><span class="po">HAST26140</span></td>
+            <td data-l="Provider" class="prov">Hastings<small>HAST</small></td>
+            <td class="col-status" data-l="Status"><span class="badge b-review"><span class="g">●</span>Needs review</span></td>
+            <td data-l="Outstanding"><span class="out"><span class="g g-review">●</span>Confirm claimant email <small>+1 more</small></span></td>
+            <td class="col-ch" data-l="Channel"><span class="ch">Email</span></td>
+            <td data-l="Age/Due"><span class="due due2">2d</span></td>
+          </tr>
+          <tr class="cur" onclick="location='case-detail.html'">
+            <td class="col-vrm" data-l="VRM"><span class="vrm dup"><span class="gb">GB</span><span class="reg">GK19 RYX</span></span></td>
+            <td data-l="Case/PO"><span class="po">CCPY26050</span></td>
+            <td data-l="Provider" class="prov">Copart UK<small>CCPY</small></td>
+            <td class="col-status" data-l="Status"><span class="badge b-review"><span class="g">▲</span>Conflict</span></td>
+            <td data-l="Outstanding"><span class="out"><span class="g g-review">▲</span>Resolve VAT conflict</span></td>
+            <td class="col-ch" data-l="Channel"><span class="ch">Email</span></td>
+            <td data-l="Age/Due"><span class="due due2">2d · due</span></td>
+          </tr>
+          <tr onclick="location='case-detail.html'">
+            <td class="col-vrm" data-l="VRM"><span class="vrm dup"><span class="gb">GB</span><span class="reg">YD70 KHP</span></span></td>
+            <td data-l="Case/PO"><span class="po">DLGX26204</span></td>
+            <td data-l="Provider" class="prov">Direct Line<small>DLGX</small></td>
+            <td class="col-status" data-l="Status"><span class="badge b-review"><span class="g">△</span>Duplicate risk</span></td>
+            <td data-l="Outstanding"><span class="out"><span class="g g-review">△</span>Resolve duplicate <small>+1 more</small></span></td>
+            <td class="col-ch" data-l="Channel"><span class="ch">Email</span></td>
+            <td data-l="Age/Due"><span class="due due2">3d · due</span></td>
+          </tr>
+          <tr onclick="location='case-detail.html'">
+            <td class="col-vrm" data-l="VRM"><span class="vrm"><span class="gb">GB</span><span class="reg">GN68 RZD</span></span></td>
+            <td data-l="Case/PO"><span class="po">LVIG26019</span></td>
+            <td data-l="Provider" class="prov">LV=<small>LVIG</small></td>
+            <td class="col-status" data-l="Status"><span class="badge b-review"><span class="g">▲</span>Conflict</span></td>
+            <td data-l="Outstanding"><span class="out"><span class="g g-review">▲</span>Resolve VAT conflict</span></td>
+            <td class="col-ch" data-l="Channel"><span class="ch">Email</span></td>
+            <td data-l="Age/Due"><span class="due">1d</span></td>
+          </tr>
+          <tr onclick="location='case-detail.html'">
+            <td class="col-vrm" data-l="VRM"><span class="vrm"><span class="gb">GB</span><span class="reg">TL15 MWA</span></span></td>
+            <td data-l="Case/PO"><span class="po">ADML26233</span></td>
+            <td data-l="Provider" class="prov">Admiral<small>ADML</small></td>
+            <td class="col-status" data-l="Status"><span class="badge b-review"><span class="g">●</span>Needs review</span></td>
+            <td data-l="Outstanding"><span class="out"><span class="g g-review">●</span>Review damage photos</span></td>
+            <td class="col-ch" data-l="Channel"><span class="ch">Email</span></td>
+            <td data-l="Age/Due"><span class="due over">4d · due ⚑</span></td>
+          </tr>
+          <tr onclick="location='case-detail.html'">
+            <td class="col-vrm" data-l="VRM"><span class="vrm"><span class="gb">GB</span><span class="reg">VK20 OSC</span></span></td>
+            <td data-l="Case/PO"><span class="po">ESUR26088</span></td>
+            <td data-l="Provider" class="prov">Esure<small>ESUR</small></td>
+            <td class="col-status" data-l="Status"><span class="badge b-review"><span class="g">●</span>Needs review</span></td>
+            <td data-l="Outstanding"><span class="out"><span class="g g-review">●</span>Confirm inspection address</span></td>
+            <td class="col-ch" data-l="Channel"><span class="ch">Email</span></td>
+            <td data-l="Age/Due"><span class="due due2">2d</span></td>
+          </tr>
+          <tr onclick="location='case-detail.html'">
+            <td class="col-vrm" data-l="VRM"><span class="vrm dup"><span class="gb">GB</span><span class="reg">RA66 LDP</span></span></td>
+            <td data-l="Case/PO"><span class="po">CCPY26047</span></td>
+            <td data-l="Provider" class="prov">Copart UK<small>CCPY</small></td>
+            <td class="col-status" data-l="Status"><span class="badge b-review"><span class="g">△</span>Duplicate risk</span></td>
+            <td data-l="Outstanding"><span class="out"><span class="g g-review">△</span>Resolve duplicate</span></td>
+            <td class="col-ch" data-l="Channel"><span class="ch">Email</span></td>
+            <td data-l="Age/Due"><span class="due">1d</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="emptystate" id="empty" style="display:none">No cases match these filters — <a href="#" onclick="clearF();return false">clear filters</a>.</div>
+    </div>
+  </main>
+</div>
+
+<div class="cmdk" id="cmdk">
+  <div class="cmdbox">
+    <div class="cmdin">⌕<input id="cmdinput" placeholder="Jump to a screen, VRM, or Case/PO…" aria-label="Command"><span class="kbd">esc</span></div>
+    <div class="cmdlist">
+      <a href="index.html"><span class="ic">◧</span>Chase cockpit<span class="k">g h</span></a>
+      <a href="queues.html"><span class="ic">▦</span>Queues<span class="k">g q</span></a>
+      <a href="case-detail.html"><span class="ic">▤</span>Open GK19 RYX · CCPY26050<span class="k">↵</span></a>
+      <a href="#"><span class="ic">↥</span>Manual intake (upload PDF)<span class="k">g i</span></a>
+    </div>
+  </div>
+</div>
+
+<nav class="btabs" aria-label="Mobile">
+  <a href="index.html"><span class="ic">◧</span>Cockpit</a>
+  <a href="queues.html"><span class="ic">▤</span>Inbox</a>
+  <a class="active" href="queues.html"><span class="ic">▦</span>Queues</a>
+  <a href="#"><span class="ic">↥</span>Intake</a>
+</nav>
+
+<script>
+const cmdk=document.getElementById('cmdk');
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();cmdk.classList.toggle('on');if(cmdk.classList.contains('on'))document.getElementById('cmdinput').focus();}
+  if(e.key==='Escape')cmdk.classList.remove('on');
+});
+cmdk.addEventListener('click',e=>{if(e.target===cmdk)cmdk.classList.remove('on');});
+
+// facet chips (visual toggle + live count demo)
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{c.classList.toggle('on');}));
+function clearF(){document.querySelectorAll('.chip.on').forEach(c=>c.classList.remove('on'));}
+
+// partition tabs (visual)
+document.querySelectorAll('.ptab[role=tab]').forEach(t=>t.addEventListener('click',function(){
+  document.querySelectorAll('.ptab').forEach(x=>x.classList.remove('active'));this.classList.add('active');
+}));
+
+// spark-strip + grid sync (J/K)
+const rows=[...document.querySelectorAll('#rows tr')];
+const bars=[...document.querySelectorAll('.sbar')];
+let cur=rows.findIndex(r=>r.classList.contains('cur'));
+function setCur(i){if(i<0||i>=rows.length)return;rows[cur].classList.remove('cur');bars[cur]&&bars[cur].classList.remove('cur');cur=i;rows[cur].classList.add('cur');bars[cur]&&bars[cur].classList.add('cur');rows[cur].scrollIntoView({block:'nearest'});}
+document.addEventListener('keydown',e=>{
+  if(cmdk.classList.contains('on')||e.target.tagName==='INPUT')return;
+  if(e.key==='j'||e.key==='J'){e.preventDefault();setCur(cur+1);}
+  if(e.key==='k'||e.key==='K'){e.preventDefault();setCur(cur-1);}
+  if(e.key==='Enter')location='case-detail.html';
+});
+bars.forEach((b,i)=>b.addEventListener('click',()=>setCur(i)));
+</script>
+</body>
+</html>

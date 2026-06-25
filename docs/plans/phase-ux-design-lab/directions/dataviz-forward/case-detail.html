@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Telemetry Deck — Case CCPY26050 · collisionspike</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+:root{
+  --canvas:#0A1018; --rail:#0E1622; --surface:#121A26; --raised:#1B2533; --inset:#0E1620;
+  --hairline:#233044; --border:#324155;
+  --ink:#E6EDF5; --ink2:#9DACC0; --ink3:#7E8DA4;
+  --accent:#3B82F6; --accent-h:#5B97F7; --accent-p:#2563EB; --focus:#7AB0FF;
+  --ok:#2FB57C; --info:#4C9AFF; --warn:#E5A23B; --danger:#E5564B; --idle:#6B7A91;
+  --ramp1:#2C4A6E; --ramp2:#3E7CB1; --ramp3:#E8B84B; --ramp4:#E07A3C; --ramp5:#D14B3C;
+  --mono:'IBM Plex Mono',ui-monospace,monospace; --disp:'Space Grotesk',sans-serif; --body:'IBM Plex Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--canvas);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--mono);font-feature-settings:"tnum" 1,"zero" 1}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:3px}
+
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.rail{background:var(--rail);border-right:1px solid var(--hairline);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{padding:18px 18px 16px;border-bottom:1px solid var(--hairline)}
+.brand .dot{display:inline-block;width:9px;height:9px;background:var(--accent);border-radius:50%;box-shadow:0 0 0 3px rgba(59,130,246,.18);margin-right:9px;vertical-align:middle}
+.brand h1{font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:.16em;text-transform:uppercase;display:inline;vertical-align:middle}
+.brand .sub{font-family:var(--mono);font-size:10.5px;color:var(--ink3);letter-spacing:.04em;margin-top:7px}
+.nav{padding:12px 10px;flex:1;overflow:auto}
+.nav .grp{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);padding:14px 8px 7px}
+.nav a{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:6px;color:var(--ink2);font-size:13px;font-weight:500;position:relative}
+.nav a .ic{width:18px;text-align:center;font-size:14px;color:var(--ink3)}
+.nav a .ct{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--ink2);background:var(--inset);border:1px solid var(--hairline);border-radius:20px;padding:1px 8px}
+.nav a:hover{background:var(--surface);color:var(--ink)}
+.nav a.on{background:linear-gradient(90deg,rgba(59,130,246,.16),rgba(59,130,246,.03));color:var(--ink)}
+.nav a.on::before{content:"";position:absolute;left:-10px;top:6px;bottom:6px;width:3px;background:var(--accent);border-radius:0 3px 3px 0}
+.nav a.on .ic{color:var(--accent)}
+.nav a.ct-danger .ct{color:#fff;background:rgba(229,86,75,.18);border-color:rgba(229,86,75,.5)}
+.nav a.reserved{color:var(--ink3);opacity:.55}
+.railfoot{padding:12px 16px;border-top:1px solid var(--hairline);font-size:11px;color:var(--ink3);display:flex;align-items:center;gap:9px}
+.railfoot .av{width:26px;height:26px;border-radius:50%;background:var(--raised);border:1px solid var(--border);display:grid;place-items:center;font-family:var(--mono);font-size:11px;color:var(--ink2)}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{position:sticky;top:0;z-index:30;background:rgba(10,16,24,.88);backdrop-filter:blur(8px);border-bottom:1px solid var(--hairline);display:flex;align-items:center;gap:12px;padding:11px 22px}
+.crumb{font-family:var(--mono);font-size:11.5px;color:var(--ink3)}
+.crumb b{color:var(--ink2)}
+.updated{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:6px;animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);background:transparent;color:var(--ink2);border-radius:7px;padding:8px 13px;font-size:12.5px;font-weight:500;transition:background .12s,color .12s,border-color .12s}
+.btn:hover{background:var(--raised);color:var(--ink);border-color:var(--accent)}
+.btn.sm{padding:5px 10px;font-size:11.5px}
+.btn.idle{opacity:.6;border-style:dashed;cursor:not-allowed}
+.btn.idle:hover{background:transparent;color:var(--ink2);border-color:var(--border)}
+.btn.danger{color:var(--danger);border-color:rgba(229,86,75,.45)}
+.btn.danger:hover{background:rgba(229,86,75,.12);border-color:var(--danger);color:#fff}
+/* the ONE accent-filled button on the screen */
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.primary:hover{background:var(--accent-h);border-color:var(--accent-h)}
+.btn.primary:disabled{background:var(--raised);border-color:var(--hairline);color:var(--ink3);cursor:not-allowed;opacity:1}
+
+.scroll{padding:20px 22px 40px;display:grid;grid-template-columns:1fr 320px;gap:22px;max-width:1500px;width:100%;align-items:start}
+.col-main{min-width:0;display:flex;flex-direction:column;gap:18px}
+
+/* spine */
+.spine{display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--hairline);border-radius:9px;padding:11px 14px;overflow-x:auto}
+.spine .node{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--ink3);white-space:nowrap}
+.spine .node .d{width:8px;height:8px;border-radius:50%;background:var(--hairline);border:1px solid var(--border)}
+.spine .node.done .d{background:var(--ink3)}
+.spine .node.here{color:var(--danger)}
+.spine .node.here .d{background:var(--danger);box-shadow:0 0 0 3px rgba(229,86,75,.2)}
+.spine .node.here .you{font-family:var(--disp);font-weight:700;color:var(--danger);font-size:11px}
+.spine .conn{flex:1;height:1px;min-width:16px;background:var(--hairline);margin:0 8px}
+
+/* header card */
+.head{background:var(--surface);border:1px solid var(--hairline);border-radius:10px;padding:18px 20px;position:relative;overflow:hidden}
+.head::before{content:"";position:absolute;inset:0 0 auto 0;height:40%;background:linear-gradient(180deg,rgba(255,255,255,.03),transparent)}
+.hrow{display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;position:relative}
+.plate-lg{font-family:var(--mono);font-weight:600;font-size:24px;background:#F4C20D;color:#111;border-radius:5px;padding:7px 16px;letter-spacing:.06em;border:2px solid #b8901f;line-height:1}
+.hmeta{flex:1;min-width:220px}
+.hmeta .ids{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.hmeta .po{font-family:var(--mono);font-weight:600;font-size:18px;color:var(--ink)}
+.hmeta .provc{font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.hmeta .veh{font-size:13px;color:var(--ink2);margin-top:7px}
+.hmeta .sub{font-family:var(--mono);font-size:11px;color:var(--ink3);margin-top:4px}
+.hright{text-align:right;display:flex;flex-direction:column;gap:9px;align-items:flex-end}
+.stbadge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;padding:4px 11px;border-radius:6px;border:1px solid var(--hairline)}
+.stbadge .g{font-size:10px}
+.st-review{color:var(--danger);border-color:rgba(229,86,75,.45);background:rgba(229,86,75,.08)}
+.agewrap{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:10.5px;color:var(--ink3)}
+.dwell{display:inline-flex;align-items:flex-end;gap:7px}
+.dwellticks{display:inline-flex;align-items:flex-end;gap:2px;height:18px}
+.dwellticks .tick{width:3px;border-radius:1px;display:block}
+.dwell-lbl{font-family:var(--mono);font-size:11px;font-feature-settings:"tnum" 1}
+
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px;padding-top:15px;border-top:1px solid var(--hairline);position:relative}
+
+/* message bar */
+.msgbar{display:flex;align-items:center;gap:11px;background:rgba(229,86,75,.09);border:1px solid rgba(229,86,75,.4);border-left:3px solid var(--danger);border-radius:8px;padding:11px 15px}
+.msgbar .g{color:var(--danger);font-size:13px}
+.msgbar .t{font-size:13px;color:var(--ink)}
+.msgbar .t b{color:var(--danger)}
+.msgbar .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink3)}
+
+/* tabs */
+.tabbar{display:flex;gap:2px;border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{position:relative;background:transparent;border:0;color:var(--ink3);padding:11px 15px;font-size:12.5px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:7px}
+.tab .b{font-family:var(--mono);font-size:10px;background:var(--inset);border:1px solid var(--hairline);border-radius:10px;padding:0 6px;color:var(--ink3)}
+.tab:hover{color:var(--ink2)}
+.tab.on{color:var(--ink)}
+.tab.on::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2px;background:var(--accent);transition:left .16s,right .16s}
+.tab.on .b{color:var(--accent);border-color:rgba(59,130,246,.4)}
+
+.tabpane{display:none;padding-top:16px}
+.tabpane.on{display:block}
+
+/* fields */
+.cluster{margin-bottom:18px}
+.clhead{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.clhead .ln{flex:1;height:1px;background:var(--hairline)}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{background:var(--surface);border:1px solid var(--hairline);border-radius:8px;padding:11px 13px}
+.field.err{border-color:rgba(229,86,75,.5);background:linear-gradient(180deg,rgba(229,86,75,.06),var(--surface))}
+.field .flabel{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ink3)}
+.field .num{font-family:var(--mono);font-size:10px;color:var(--ink3);background:var(--inset);border:1px solid var(--hairline);border-radius:3px;padding:0 5px}
+.field .val{font-size:14px;color:var(--ink);margin-top:7px;font-weight:500}
+.field .val.mono{font-family:var(--mono);font-size:13px}
+.field .val.empty{color:var(--danger);font-style:italic;font-weight:400}
+.field .ferr{font-size:11px;color:var(--danger);margin-top:5px;display:flex;align-items:center;gap:5px}
+.prov{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;border:1px solid var(--hairline);border-radius:4px;padding:1px 6px;margin-top:8px;color:var(--ink3)}
+.prov .src{color:var(--ink2);font-weight:600}
+.prov .g{font-size:9px}
+.prov.ok .g{color:var(--ok)} .prov.info .g{color:var(--info)} .prov.warn .g{color:var(--warn)} .prov.warn{border-color:rgba(229,162,59,.4)}
+
+/* live json */
+.jsonbox{background:var(--inset);border:1px solid var(--hairline);border-radius:8px;margin-top:14px;overflow:hidden}
+.jsonbox .jh{display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid var(--hairline);font-family:var(--mono);font-size:10.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em}
+.jsonbox .jh .dotlive{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.jsonbox pre{padding:13px;font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--ink2);overflow-x:auto}
+.jsonbox .k{color:var(--c1)} .jsonbox .s{color:var(--ok)} .jsonbox .n{color:var(--c4)} .jsonbox .nl{color:var(--danger)}
+
+/* evidence */
+.evbanner{display:flex;align-items:center;gap:10px;background:var(--inset);border:1px solid var(--hairline);border-left:3px solid var(--info);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--ink2);margin-bottom:14px}
+.evbanner b{color:var(--ink)}
+.photos{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.photo{position:relative;border-radius:7px;overflow:hidden;border:1px solid var(--hairline);aspect-ratio:4/3;background:var(--raised)}
+.photo img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.9)}
+.photo .ord{position:absolute;top:6px;left:6px;font-family:var(--mono);font-size:10px;background:rgba(10,16,24,.85);border:1px solid var(--hairline);border-radius:4px;padding:1px 6px;color:var(--ink)}
+.photo .role{position:absolute;bottom:0;left:0;right:0;font-family:var(--mono);font-size:9.5px;background:linear-gradient(180deg,transparent,rgba(10,16,24,.92));color:var(--ink2);padding:14px 7px 6px;text-transform:uppercase;letter-spacing:.05em}
+.photo .badge{position:absolute;top:6px;right:6px;font-size:10px;border-radius:4px;padding:1px 5px}
+.photo .badge.reg{background:rgba(47,181,124,.2);border:1px solid var(--ok);color:var(--ok)}
+.photo .badge.excl{background:rgba(229,86,75,.2);border:1px solid var(--danger);color:var(--danger)}
+.photo.preview{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+
+/* address */
+.addrlist{display:flex;flex-direction:column;gap:9px}
+.addrcard{display:flex;align-items:center;gap:13px;background:var(--surface);border:1px solid var(--hairline);border-radius:8px;padding:12px 15px}
+.addrcard.sel{border-color:var(--accent);background:linear-gradient(180deg,rgba(59,130,246,.07),var(--surface))}
+.addrcard .rk{font-family:var(--disp);font-weight:700;font-size:18px;color:var(--ink3);width:24px;text-align:center}
+.addrcard.sel .rk{color:var(--accent)}
+.addrcard .ad{flex:1}
+.addrcard .ad .l1{font-size:13px;color:var(--ink)}
+.addrcard .ad .seen{font-family:var(--mono);font-size:10.5px;color:var(--ink3);margin-top:3px}
+.addrcard .pol{font-family:var(--mono);font-size:9.5px;border:1px solid var(--hairline);border-radius:4px;padding:2px 7px;color:var(--ok)}
+.iba{margin-top:12px;background:var(--inset);border:1px dashed var(--border);border-radius:8px;padding:13px 15px}
+.iba .t{font-size:12.5px;color:var(--ink2)}
+.iba input{margin-top:9px;width:100%;background:var(--surface);border:1px solid var(--hairline);border-radius:6px;padding:8px 11px;color:var(--ink);font-family:var(--body);font-size:12.5px;outline:none}
+
+/* chasers */
+.chaser{background:var(--surface);border:1px solid var(--hairline);border-radius:8px;padding:14px 16px}
+.chaser .seg{display:flex;gap:8px;margin-bottom:12px}
+.tmplbtn{background:var(--raised);border:1px solid var(--hairline);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--ink2)}
+.tmplbtn.on{border-color:var(--accent);color:var(--ink)}
+.draft{background:var(--inset);border:1px solid var(--hairline);border-radius:7px;padding:13px;font-size:12.5px;color:var(--ink2);line-height:1.6;white-space:pre-wrap}
+.never{font-family:var(--mono);font-size:10.5px;color:var(--warn);margin-top:10px;display:flex;align-items:center;gap:6px}
+
+/* history / notes */
+.timeline{position:relative;padding-left:20px}
+.timeline::before{content:"";position:absolute;left:5px;top:4px;bottom:4px;width:1px;background:var(--hairline)}
+.tlitem{position:relative;padding:0 0 16px 4px}
+.tlitem::before{content:"";position:absolute;left:-18px;top:4px;width:9px;height:9px;border-radius:50%;background:var(--raised);border:2px solid var(--accent)}
+.tlitem .tt{font-size:12.5px;color:var(--ink)}
+.tlitem .tm{font-family:var(--mono);font-size:10.5px;color:var(--ink3);margin-top:2px}
+.tlitem .who{color:var(--ink2)}
+
+.gated{display:flex;flex-direction:column;align-items:center;gap:10px;padding:34px;text-align:center;color:var(--ink3)}
+.gated .ic{font-size:26px;opacity:.5}
+.gated .t{font-size:13px;color:var(--ink2)}
+.gated .badge{font-family:var(--mono);font-size:10px;border:1px solid var(--border);border-radius:5px;padding:3px 10px;color:var(--idle)}
+
+/* sidebar */
+.col-side{position:sticky;top:74px;display:flex;flex-direction:column;gap:16px}
+.scard{background:var(--surface);border:1px solid var(--hairline);border-radius:10px;padding:15px 16px}
+.scard h3{font-family:var(--disp);font-weight:700;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.scard h3 .pct{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--warn)}
+.gate{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--hairline);font-size:12.5px}
+.gate:last-child{border-bottom:0}
+.gate .g{width:18px;text-align:center;font-size:12px}
+.gate.ok .g{color:var(--ok)} .gate.bad .g{color:var(--danger)}
+.gate .lk{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--accent)}
+.gate.ok{color:var(--ink2)} .gate.bad{color:var(--ink)}
+.gate.bad .lk:hover{text-decoration:underline}
+.facts dt{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-top:10px}
+.facts dd{font-size:12.5px;color:var(--ink2);margin-top:2px}
+.facts dd.mono{font-family:var(--mono);font-size:12px}
+.facts{opacity:.85}
+
+.bottombar{display:none}
+@media (max-width:1279px){
+  .app{grid-template-columns:64px 1fr}
+  .brand h1,.brand .sub,.nav .grp,.nav a .lbl,.nav a .ct,.railfoot span{display:none}
+  .nav a{justify-content:center;padding:11px 0}
+  .railfoot{justify-content:center}
+  .scroll{grid-template-columns:1fr}
+  .col-side{position:static}
+  .photos{grid-template-columns:repeat(3,1fr)}
+}
+@media (max-width:767px){
+  .app{grid-template-columns:1fr;padding-bottom:62px}
+  .rail{display:none}
+  .scroll{padding:14px}
+  .fields{grid-template-columns:1fr}
+  .photos{grid-template-columns:repeat(2,1fr)}
+  .hright{align-items:flex-start;text-align:left}
+  .plate-lg{font-size:20px}
+  .bottombar{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:50;background:var(--rail);border-top:1px solid var(--hairline);padding:6px 4px}
+  .bottombar a{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 0;color:var(--ink3);font-size:9.5px;min-height:48px;justify-content:center}
+  .bottombar a.on{color:var(--accent)}
+  .bottombar a .ic{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><span class="dot"></span><h1>Telemetry Deck</h1><div class="sub">collisionspike · intake</div></div>
+    <nav class="nav">
+      <div class="grp">Operate</div>
+      <a href="index.html"><span class="ic">▣</span><span class="lbl">Cockpit</span></a>
+      <a href="#"><span class="ic">✉</span><span class="lbl">Inbox triage</span><span class="ct">13</span></a>
+      <a class="ct-danger" href="queues.html"><span class="ic">▤</span><span class="lbl">Queues</span><span class="ct">21</span></a>
+      <a class="on" href="case-detail.html"><span class="ic">◈</span><span class="lbl">Case detail</span></a>
+      <a href="#"><span class="ic">⤓</span><span class="lbl">Manual intake</span></a>
+      <div class="grp">Govern</div>
+      <a href="#"><span class="ic">⚙</span><span class="lbl">Admin</span></a>
+      <a class="reserved" href="#"><span class="ic">⌬</span><span class="lbl">Engineer</span></a>
+    </nav>
+    <div class="railfoot"><span class="av">IM</span><span>Intake · Mara K.</span></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <span class="crumb"><a href="queues.html">Queues</a> / Review / <b>CCPY26050</b></span>
+      <div class="updated"><span class="live"></span>Updated 09:54</div>
+    </header>
+
+    <div class="scroll">
+      <!-- MAIN COLUMN -->
+      <div class="col-main">
+
+        <!-- spine -->
+        <div class="spine">
+          <span class="node done"><span class="d"></span>New</span><span class="conn"></span>
+          <span class="node done"><span class="d"></span>Parsing</span><span class="conn"></span>
+          <span class="node here"><span class="d"></span><span class="you">◆ Review</span></span><span class="conn"></span>
+          <span class="node"><span class="d"></span>Chasing/Held</span><span class="conn"></span>
+          <span class="node"><span class="d"></span>Ready</span><span class="conn"></span>
+          <span class="node"><span class="d"></span>Submitted</span><span class="conn"></span>
+          <span class="node"><span class="d"></span>Box</span>
+        </div>
+
+        <!-- header -->
+        <div class="head">
+          <div class="hrow">
+            <span class="plate-lg">LD71 KXM</span>
+            <div class="hmeta">
+              <div class="ids"><span class="po">CCPY26050</span><span class="provc">Provident Insurance · CCPY · individual keyed by VRM</span></div>
+              <div class="veh">Volkswagen Golf GTI · 2.0 TSI · 5dr · Tornado Red</div>
+              <div class="sub">Claimant: Daniel Whitfield · Channel ✉ email · Recv 18 Jun 2026</div>
+            </div>
+            <div class="hright">
+              <span class="stbadge st-review"><span class="g">▲</span>NEEDS REVIEW</span>
+              <div class="agewrap">age <span class="dwell" data-dwell="9"></span></div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn"><span class="ic">⤓</span>Upload</button>
+            <button class="btn"><span class="ic">⧉</span>Copy JSON</button>
+            <button class="btn idle" title="Box not connected (BOX_API_ENABLED=false)"><span class="ic">⬚</span>Open in Box · not connected</button>
+            <button class="btn idle" title="Enrichment gated"><span class="ic">⌁</span>Enrich · not connected</button>
+            <button class="btn primary" disabled title="Readiness gate not met">▶ Submit to EVA</button>
+            <button class="btn danger" style="margin-left:auto"><span class="ic">🗑</span>Delete → Audit</button>
+          </div>
+        </div>
+
+        <!-- readiness message bar -->
+        <div class="msgbar">
+          <span class="g">▲</span>
+          <span class="t"><b>Not ready for EVA.</b> 2 blockers remain — claimant email missing and 1 more photo needed (overview not confirmed).</span>
+          <span class="cnt">readiness 4 / 6</span>
+        </div>
+
+        <!-- tabs -->
+        <div>
+          <div class="tabbar">
+            <button class="tab on" data-tab="fields">Fields<span class="b">12</span></button>
+            <button class="tab" data-tab="evidence">Evidence<span class="b">7</span></button>
+            <button class="tab" data-tab="address">Address</button>
+            <button class="tab" data-tab="chasers">Chasers<span class="b">2</span></button>
+            <button class="tab" data-tab="notes">Notes</button>
+            <button class="tab" data-tab="history">History</button>
+            <button class="tab" data-tab="enrich">Enrichment</button>
+          </div>
+
+          <!-- FIELDS -->
+          <div class="tabpane on" data-tab="fields">
+            <div class="cluster">
+              <div class="clhead">Provider &amp; claimant<span class="ln"></span><span>1–4</span></div>
+              <div class="fields">
+                <div class="field">
+                  <div class="flabel"><span class="num">1</span>Work provider</div>
+                  <div class="val">Provident Insurance</div>
+                  <span class="prov ok"><span class="src">PDF</span>· PARSED <span class="g">✔</span></span>
+                </div>
+                <div class="field">
+                  <div class="flabel"><span class="num">2</span>Claimant name</div>
+                  <div class="val">Daniel Whitfield</div>
+                  <span class="prov ok"><span class="src">PDF</span>· PARSED <span class="g">✔</span></span>
+                </div>
+                <div class="field">
+                  <div class="flabel"><span class="num">3</span>Claimant telephone</div>
+                  <div class="val mono">07700 900482</div>
+                  <span class="prov info"><span class="src">AI</span>· EXTRACTED <span class="g">●</span></span>
+                </div>
+                <div class="field err">
+                  <div class="flabel"><span class="num">4</span>Claimant email</div>
+                  <div class="val empty">— required, not found —</div>
+                  <div class="ferr"><span>▲</span>Required for EVA submission</div>
+                  <span class="prov warn"><span class="src">—</span>· MISSING <span class="g">▲</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="cluster">
+              <div class="clhead">Vehicle<span class="ln"></span><span>5–8</span></div>
+              <div class="fields">
+                <div class="field">
+                  <div class="flabel"><span class="num">5</span>Vehicle (make / model)</div>
+                  <div class="val">Volkswagen Golf GTI</div>
+                  <span class="prov ok"><span class="src">DVLA</span>· LOOKUP <span class="g">✔</span></span>
+                </div>
+                <div class="field">
+                  <div class="flabel"><span class="num">6</span>Mileage</div>
+                  <div class="val mono">47,210</div>
+                  <span class="prov warn"><span class="src">AI</span>· CHECK <span class="g">▲</span></span>
+                </div>
+                <div class="field">
+                  <div class="flabel"><span class="num">7</span>Mileage unit</div>
+                  <div class="val">miles</div>
+                  <span class="prov info"><span class="src">AI</span>· EXTRACTED <span class="g">●</span></span>
+                </div>
+                <div class="field">
+                  <div class="flabel"><span class="num">8</span>VAT status</div>
+                  <div class="val">VAT qualifying</div>
+                  <span class="prov ok"><span class="src">PDF</span>· PARSED <span class="g">✔</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="cluster">
+              <div class="clhead">Incident<span class="ln"></span><span>9–10</span></div>
+              <div class="fields">
+                <div class="field" style="grid-column:1/3">
+                  <div class="flabel"><span class="num">9</span>Accident circumstances</div>
+                  <div class="val" style="font-weight:400;font-size:13px">Third party failed to stop at junction and collided with the nearside front of the insured vehicle. Insured stationary at the time.</div>
+                  <span class="prov info"><span class="src">AI</span>· SUMMARISED <span class="g">●</span></span>
+                </div>
+                <div class="field" style="grid-column:1/3">
+                  <div class="flabel"><span class="num">10</span>Inspection address (6-line)</div>
+                  <div class="val mono" style="font-size:12px;line-height:1.55">Mancunian Accident Repair Centre<br>Unit 7, Pollard St East<br>Manchester<br>M40 7FT</div>
+                  <span class="prov info"><span class="src">Corpus</span>· SUGGESTED <span class="g">●</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="cluster">
+              <div class="clhead">Dates<span class="ln"></span><span>11–12</span></div>
+              <div class="fields">
+                <div class="field">
+                  <div class="flabel"><span class="num">11</span>Date of loss</div>
+                  <div class="val mono">2026-06-11</div>
+                  <span class="prov ok"><span class="src">PDF</span>· PARSED <span class="g">✔</span></span>
+                </div>
+                <div class="field">
+                  <div class="flabel"><span class="num">12</span>Date of instruction</div>
+                  <div class="val mono">2026-06-18</div>
+                  <span class="prov ok"><span class="src">PDF</span>· PARSED <span class="g">✔</span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- live JSON -->
+            <div class="jsonbox">
+              <div class="jh"><span class="dotlive"></span>Live EVA JSON · drag-drop export preview</div>
+<pre><span class="k">"workProvider"</span>: <span class="s">"Provident Insurance"</span>,
+<span class="k">"principal"</span>: <span class="s">"CCPY"</span>,  <span class="k">"caseRef"</span>: <span class="s">"CCPY26050"</span>,
+<span class="k">"claimantName"</span>: <span class="s">"Daniel Whitfield"</span>,
+<span class="k">"claimantPhone"</span>: <span class="s">"07700 900482"</span>,
+<span class="k">"claimantEmail"</span>: <span class="nl">null</span>,            <span class="k">// ▲ required</span>
+<span class="k">"vehicle"</span>: <span class="s">"Volkswagen Golf GTI"</span>, <span class="k">"vrm"</span>: <span class="s">"LD71 KXM"</span>,
+<span class="k">"mileage"</span>: <span class="n">47210</span>, <span class="k">"mileageUnit"</span>: <span class="s">"miles"</span>,
+<span class="k">"vatStatus"</span>: <span class="s">"qualifying"</span>,
+<span class="k">"dateOfLoss"</span>: <span class="s">"2026-06-11"</span>,
+<span class="k">"dateOfInstruction"</span>: <span class="s">"2026-06-18"</span></pre>
+            </div>
+          </div>
+
+          <!-- EVIDENCE -->
+          <div class="tabpane" data-tab="evidence">
+            <div class="evbanner">📐 <b>Photo order</b> — 2 previews first (overview w/ full reg + damage closeup), then ALL incl. those two. Reflection photos excluded. <span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--warn)">overview reg not yet confirmed ▲</span></div>
+            <div class="photos">
+              <div class="photo preview"><img src="https://picsum.photos/seed/vwfront/320/240" alt=""><span class="ord">P1</span><span class="badge reg" title="registration visible">REG</span><span class="role">overview</span></div>
+              <div class="photo preview"><img src="https://picsum.photos/seed/vwdmg/320/240" alt=""><span class="ord">P2</span><span class="role">damage closeup</span></div>
+              <div class="photo"><img src="https://picsum.photos/seed/vw3/320/240" alt=""><span class="ord">3</span><span class="role">nearside</span></div>
+              <div class="photo"><img src="https://picsum.photos/seed/vw4/320/240" alt=""><span class="ord">4</span><span class="role">offside</span></div>
+              <div class="photo"><img src="https://picsum.photos/seed/vw5/320/240" alt=""><span class="ord">5</span><span class="role">interior</span></div>
+              <div class="photo"><img src="https://picsum.photos/seed/vw6/320/240" alt=""><span class="ord">6</span><span class="role">vin plate</span></div>
+              <div class="photo" style="opacity:.5"><img src="https://picsum.photos/seed/vw7/320/240" alt=""><span class="badge excl" title="person reflection">EXCL</span><span class="role">reflection · unusable</span></div>
+            </div>
+          </div>
+
+          <!-- ADDRESS -->
+          <div class="tabpane" data-tab="address">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--ink3);margin-bottom:11px">Offline corpus suggestions · ranked by frequency · staff pick or edit · no silent guess</div>
+            <div class="addrlist">
+              <div class="addrcard sel">
+                <span class="rk">1</span>
+                <div class="ad"><div class="l1">Mancunian Accident Repair Centre, Unit 7, Pollard St East, Manchester M40 7FT</div><div class="seen">seen 34× · last 22 Jun 2026</div></div>
+                <span class="pol">CORPUS ✔</span>
+              </div>
+              <div class="addrcard">
+                <span class="rk">2</span>
+                <div class="ad"><div class="l1">Trafford Bodyworks Ltd, 12 Ashburton Rd West, Trafford Park M17 1RB</div><div class="seen">seen 11× · last 09 May 2026</div></div>
+                <span class="pol" style="color:var(--ink3)">CORPUS ●</span>
+              </div>
+              <div class="addrcard">
+                <span class="rk">3</span>
+                <div class="ad"><div class="l1">Oldham Vehicle Solutions, Featherstall Rd, Oldham OL9 6BX</div><div class="seen">seen 6× · last 28 Apr 2026</div></div>
+                <span class="pol" style="color:var(--ink3)">CORPUS ●</span>
+              </div>
+            </div>
+            <div class="iba">
+              <div class="t">▢ Fall back to <b>Image Based Assessment</b> — requires a reason (no silent address)</div>
+              <input placeholder="Reason for IBA (e.g. vehicle at salvage, no inspection site)…" />
+            </div>
+          </div>
+
+          <!-- CHASERS -->
+          <div class="tabpane" data-tab="chasers">
+            <div class="chaser">
+              <div class="seg">
+                <button class="tmplbtn on">✉ Email template</button>
+                <button class="tmplbtn">⌬ WhatsApp template</button>
+                <button class="tmplbtn idle btn idle" disabled style="border-style:dashed">⬚ Box File-Request · not connected</button>
+              </div>
+              <div class="draft">Subject: CCPY26050 — Provident / LD71 KXM — photos needed
+
+Hi,
+
+We've received your instruction for the above claim but are still missing inspection photos. To progress the engineer's assessment we need:
+
+  • 1× vehicle overview showing the FULL registration (LD71 KXM)
+  • the full damage sequence
+
+Please reply to this email with the images attached.
+
+Kind regards,
+Collision Engineers · Intake Desk</div>
+              <div class="seg" style="margin-top:12px">
+                <button class="btn sm"><span class="ic">⧉</span>Copy draft</button>
+                <button class="btn sm"><span class="ic">✓</span>Log as chaser</button>
+              </div>
+              <div class="never">⚠ Drafts only — this app never sends. You send from Outlook; the chaser is logged to History.</div>
+            </div>
+          </div>
+
+          <!-- NOTES -->
+          <div class="tabpane" data-tab="notes">
+            <div class="timeline">
+              <div class="tlitem"><div class="tt">Provider confirmed inspection site is the Manchester repair centre, not salvage.</div><div class="tm"><span class="who">Mara K.</span> · 24 Jun 2026 11:02</div></div>
+              <div class="tlitem"><div class="tt">Awaiting 1 more photo — claimant emailed direct, garage CC'd.</div><div class="tm"><span class="who">Mara K.</span> · 23 Jun 2026 16:40</div></div>
+            </div>
+          </div>
+
+          <!-- HISTORY -->
+          <div class="tabpane" data-tab="history">
+            <div class="timeline">
+              <div class="tlitem"><div class="tt">Status → <b>needs_review</b> (2 required fields outstanding)</div><div class="tm">system · 18 Jun 2026 09:14</div></div>
+              <div class="tlitem"><div class="tt">DVLA lookup resolved vehicle: Volkswagen Golf GTI</div><div class="tm">enrichment fn · 18 Jun 2026 09:13</div></div>
+              <div class="tlitem"><div class="tt">Parser extracted 9 / 12 fields from instruction PDF</div><div class="tm">parser fn · 18 Jun 2026 09:13</div></div>
+              <div class="tlitem"><div class="tt">Case created · linked to instruction email</div><div class="tm">intake flow · 18 Jun 2026 09:12</div></div>
+              <div class="tlitem"><div class="tt">Email ingested from claims@providentinsurance.co.uk</div><div class="tm">intake flow · 18 Jun 2026 09:12</div></div>
+            </div>
+          </div>
+
+          <!-- ENRICHMENT -->
+          <div class="tabpane" data-tab="enrich">
+            <div class="gated">
+              <div class="ic">⌁</div>
+              <div class="t">Enrichment is gated and not connected in this environment.</div>
+              <div class="badge">ENRICHMENT_ENABLED = false</div>
+              <div style="font-size:11.5px;max-width:360px">When enabled: MOT mileage cross-check, Companion valuation report, and Experian adverse-history will appear here. Rendered disabled, never faked.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- SIDEBAR -->
+      <aside class="col-side">
+        <div class="scard">
+          <h3>Readiness <span class="pct">4 / 6</span></h3>
+          <div class="gate ok"><span class="g">✔</span>Provider &amp; case identity</div>
+          <div class="gate bad"><span class="g">▲</span>Required fields<a class="lk" href="#" onclick="goTab('fields');return false">→ field 4</a></div>
+          <div class="gate bad"><span class="g">▲</span>≥2 images + overview<a class="lk" href="#" onclick="goTab('evidence');return false">→ Evidence</a></div>
+          <div class="gate ok"><span class="g">✔</span>Damage closeup present</div>
+          <div class="gate ok"><span class="g">✔</span>Inspection address decided</div>
+          <div class="gate ok"><span class="g">✔</span>No conflicts</div>
+        </div>
+
+        <div class="scard">
+          <h3>Case facts</h3>
+          <dl class="facts">
+            <dt>VRM</dt><dd class="mono">LD71 KXM</dd>
+            <dt>Case / PO</dt><dd class="mono">CCPY26050</dd>
+            <dt>Principal</dt><dd class="mono">CCPY · locked</dd>
+            <dt>Provider</dt><dd>Provident Insurance</dd>
+            <dt>Status</dt><dd>needs_review</dd>
+            <dt>Channel</dt><dd>Email · shared inbox</dd>
+            <dt>Received</dt><dd class="mono">18 Jun 2026 09:12</dd>
+            <dt>Box folder</dt><dd class="mono">CCPY26050 · not synced</dd>
+          </dl>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+</div>
+
+<nav class="bottombar">
+  <a href="index.html"><span class="ic">▣</span>Cockpit</a>
+  <a href="#"><span class="ic">✉</span>Triage</a>
+  <a href="queues.html"><span class="ic">▤</span>Queues</a>
+  <a class="on" href="case-detail.html"><span class="ic">◈</span>Case</a>
+  <a href="#"><span class="ic">⚙</span>Admin</a>
+</nav>
+
+<script>
+const ramp=['#2C4A6E','#3E7CB1','#E8B84B','#E07A3C','#D14B3C'];
+function rampColor(f){return ramp[Math.min(ramp.length-1,Math.floor(f*ramp.length))];}
+document.querySelectorAll('[data-dwell]').forEach(el=>{
+  const days=parseInt(el.getAttribute('data-dwell'),10);
+  const n=Math.min(days,8);
+  const wrap=document.createElement('span'); wrap.className='dwellticks';
+  for(let i=0;i<n;i++){const t=document.createElement('span');t.className='tick';const f=(i+1)/8;t.style.background=rampColor(f);t.style.height=(6+i*1.5)+'px';wrap.appendChild(t);}
+  const lbl=document.createElement('span'); lbl.className='dwell-lbl'; lbl.textContent=(days>8?'8+':days)+'d'; lbl.style.color=rampColor(Math.min(days,8)/8);
+  el.appendChild(wrap); el.appendChild(lbl);
+});
+function goTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.getAttribute('data-tab')===name));
+  document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on',p.getAttribute('data-tab')===name));
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>goTab(t.getAttribute('data-tab'))));
+document.querySelectorAll('.tmplbtn').forEach(b=>{
+  if(b.disabled)return;
+  b.addEventListener('click',()=>document.querySelectorAll('.tmplbtn:not([disabled])').forEach(x=>x.classList.toggle('on',x===b)));
+});
+document.querySelectorAll('.addrcard').forEach(c=>{
+  c.addEventListener('click',()=>document.querySelectorAll('.addrcard').forEach(x=>x.classList.toggle('sel',x===c)));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://collisionspike/ux-design-lab/rubric.schema.json",
+  "title": "collisionspike UX Design Lab — scoring rubric",
+  "version": "1.0.0",
+  "created": "2026-06-25",
+  "owner": "ux-architect",
+  "appliesTo": "Each explored UI direction under docs/plans/phase-ux-design-lab/directions/<name>/",
+  "appliedBy": "design-critic (+ accessibility-engineer for the accessibility dimension)",
+  "scale": {
+    "min": 0,
+    "max": 5,
+    "anchors": {
+      "0": "Absent or actively wrong.",
+      "1": "Token / broken — present in name only.",
+      "2": "Partial with material gaps.",
+      "3": "Adequate — meets the bar, unremarkable.",
+      "4": "Strong — clearly above the bar.",
+      "5": "Exemplary — best-in-class for this product."
+    }
+  },
+  "scoring": {
+    "perDimension": "0-5 integer, justified in one sentence with a screen reference.",
+    "total": "Weighted sum, normalised to 100. Report both the weighted total and the raw per-dimension vector.",
+    "gates": [
+      "accessibility < 2 caps the overall result at 'not shippable' regardless of weighted total.",
+      "featureCoverage < 3 disqualifies from winner selection (it cannot represent the product)."
+    ]
+  },
+  "dimensions": [
+    {
+      "key": "featureCoverage",
+      "label": "Feature coverage",
+      "weight": 0.18,
+      "definition": "Renders the full Phases 1-9 screen/feature inventory (design-brief.md S1-S17) — inbox cockpit, triage, queues, case detail with all 12 EVA fields + evidence + provenance + readiness + chasers + address, submit, admin/governance, and gated features in honest disabled states.",
+      "anchor5": "Every S1-S17 surface has a home and the load-bearing screens (S1-S9, S13, S15) are fully realised.",
+      "anchor0": "Whole feature areas (e.g. triage, admin, or evidence/photo order) are missing."
+    },
+    {
+      "key": "taskEfficiency",
+      "label": "Task efficiency",
+      "weight": 0.16,
+      "definition": "How few steps and how little friction the top jobs-to-be-done cost (design-brief.md §7) — triage an email, review a case to ready, chase a partial, submit to EVA — including deep-links, keyboard paths, and the three-kinds-of-number discipline that keeps drainable work obvious.",
+      "anchor5": "Each core flow is a short, obvious path; the cockpit makes 'what do I do next' answerable at a glance.",
+      "anchor0": "Common tasks require hunting, redundant navigation, or conflate backlog with throughput."
+    },
+    {
+      "key": "intuitiveness",
+      "label": "Intuitiveness",
+      "weight": 0.14,
+      "definition": "A first-time intake operator understands the layout, the queues-by-who-acts-next model, status, provenance, and readiness without training; things are named by what people control, and empty/error states give direction.",
+      "anchor5": "Self-evident IA and labels; the next action is always discoverable.",
+      "anchor0": "Jargon, ambiguous nav, or states that leave the user stuck."
+    },
+    {
+      "key": "visualAppeal",
+      "label": "Visual appeal",
+      "weight": 0.12,
+      "definition": "Distinctive, intentional, professional craft — typography, hierarchy, spacing, restraint — that does not read as a templated default and earns trust for a claims-intake tool.",
+      "anchor5": "A confident, memorable visual identity with disciplined hierarchy.",
+      "anchor0": "Generic, cluttered, or visually incoherent."
+    },
+    {
+      "key": "relevanceToFinishedProduct",
+      "label": "Relevance to the finished product",
+      "weight": 0.12,
+      "definition": "Fit to what collisionspike actually is — a single-operator Power Apps case-intake workspace over real Dataverse data and gated integrations — not a generic dashboard; honours the binding business rules (design-brief.md §6).",
+      "anchor5": "Reads as this product; respects the status machine, readiness gate, photo order, no-silent-merge, gated honesty.",
+      "anchor0": "A pretty mock that ignores the domain or contradicts a binding rule."
+    },
+    {
+      "key": "brandReanchorability",
+      "label": "Brand re-anchorability",
+      "weight": 0.08,
+      "definition": "How cleanly the direction can be re-skinned to the Collision Engineers brand at port — CE-red #db0816 as a budgeted accent, Futura display-only, 2px radii, charcoal rail as system chrome — without the design collapsing.",
+      "anchor5": "Structure survives a CE re-skin as pixels, not just spirit.",
+      "anchor0": "Identity depends on off-brand colour/type that cannot be reconciled."
+    },
+    {
+      "key": "accessibility",
+      "label": "Accessibility (WCAG-AA)",
+      "weight": 0.10,
+      "definition": "Meets the AA release gate — visible focus, AA contrast, colour never the sole signal (status/provenance/severity also carry icon+text), >=44px touch targets, keyboard-operable grids/reorder/dialogs, reduced-motion support.",
+      "anchor5": "Passes an axe/contrast + keyboard sweep with no blocking issues.",
+      "anchor0": "Colour-only signals, unfocusable controls, or failing contrast."
+    },
+    {
+      "key": "fluentPortability",
+      "label": "Fluent v9 portability",
+      "weight": 0.10,
+      "definition": "How directly the layout maps to Fluent UI v9 primitives and the existing component library under CSP connect-src 'none' (connectors/data-seam only, no raw fetch, no iframes) — reusing VrmPlate, PipelineStrip, StatusBadge, ProvenanceBadge, ReadinessChecklist, ImageOrderList, ChaserPanel, DataGrid, Dialog.",
+      "anchor5": "Ports to Fluent v9 with low effort; relies on standard components and the CSP-safe data seam.",
+      "anchor0": "Depends on bespoke widgets, raw fetch, or iframes that cannot exist in the Code App."
+    }
+  ]
+}

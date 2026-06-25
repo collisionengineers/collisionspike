@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>collisionspike · CCPY26050 — QUIET</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/geist-sans@5/index.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/geist-mono@5/index.min.css">
+<style>
+:root{
+  --bg:#FBFAF9; --panel:#FFFFFF; --subtle:#F6F5F3; --subtle-2:#EFEDEA;
+  --hairline:#E7E5E1; --hairline-strong:#D7D4CF;
+  --ink:#1B1A17; --ink-2:#5C5852; --ink-3:#74706A; --ink-disabled:#ADA89F; --ink-on-dark:#FBFAF9;
+  --accent:#0E7C72; --accent-text:#0A6A60; --accent-hover:#0B655C; --accent-tint:rgba(14,124,114,.08);
+  --ok:#2E7D46; --ok-tint:#EAF2EC; --warn:#B5790F; --warn-text:#8A5A0A; --warn-tint:#F8F0DF;
+  --danger:#C13B2F; --danger-tint:#FBEAE7; --severe:#962A21; --neutral:#74706A;
+  --r-xs:4px; --r-sm:6px; --r-md:8px; --r-lg:10px; --r-pill:9999px;
+  --shadow-rest:0 1px 2px rgba(20,18,15,.05);
+  --shadow-pop:0 8px 24px rgba(20,18,15,.10);
+  --shadow-modal:0 16px 48px rgba(20,18,15,.16);
+  --sans:"Geist","Inter Tight",system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,"SF Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased}
+.mono,.num{font-family:var(--mono); font-feature-settings:"tnum" 1,"zero" 1; letter-spacing:-.01em}
+button{font-family:inherit; cursor:pointer}
+a{color:inherit; text-decoration:none}
+::selection{background:var(--accent-tint)}
+:focus-visible{outline:none; box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent); border-radius:var(--r-xs)}
+
+/* shell */
+.shell{display:flex; min-height:100vh}
+.rail{width:224px; flex:0 0 224px; background:var(--subtle); border-right:1px solid var(--hairline); position:sticky; top:0; height:100vh; display:flex; flex-direction:column; padding:10px 0; overflow-y:auto}
+.brand{display:flex; align-items:center; gap:8px; padding:6px 16px 14px}
+.brand__mark{width:18px; height:18px; border-radius:5px; background:var(--ink); position:relative}
+.brand__mark::after{content:""; position:absolute; inset:6px 6px auto auto; width:6px; height:6px; border-radius:50%; background:var(--accent)}
+.brand__name{font-weight:600; letter-spacing:-.01em; font-size:14px}
+.nav{display:flex; flex-direction:column; padding:0 8px}
+.nav__item{display:flex; align-items:center; gap:10px; height:34px; padding:0 8px 0 10px; border-radius:var(--r-sm); color:var(--ink-2); font-size:13px; font-weight:450; border-left:2px solid transparent; margin-left:-2px}
+.nav__item:hover{background:var(--subtle-2); color:var(--ink)}
+.nav__item.is-active{background:var(--subtle-2); color:var(--ink); font-weight:500; border-left-color:var(--accent)}
+.nav__item.is-sub{padding-left:30px; height:30px; font-size:12.5px}
+.nav__ico{width:15px; text-align:center; color:var(--ink-3); flex:0 0 15px; font-size:13px}
+.nav__label{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.nav__count{font-family:var(--mono); font-size:11.5px; color:var(--ink-3); font-feature-settings:"tnum" 1,"zero" 1}
+.nav__count.is-blocker{color:var(--danger)}
+.nav__sep{height:1px; background:var(--hairline); margin:10px 16px}
+.rail__section-label{font-size:11px; font-weight:500; letter-spacing:.06em; color:var(--ink-3); text-transform:uppercase; padding:0 16px 6px}
+.nav__item.is-disabled{color:var(--ink-disabled); pointer-events:none}
+.rail__foot{margin-top:auto; padding:12px 16px 4px; display:flex; align-items:center; gap:8px}
+.avatar{width:24px; height:24px; border-radius:50%; background:var(--ink); color:var(--ink-on-dark); display:grid; place-items:center; font-size:11px; font-weight:600}
+.rail__who{font-size:12px; color:var(--ink-2); line-height:1.3}
+.rail__who b{font-weight:500; color:var(--ink); display:block}
+
+.main{flex:1; min-width:0; display:flex; flex-direction:column}
+.topbar{height:52px; flex:0 0 52px; background:var(--bg); border-bottom:1px solid var(--hairline); display:flex; align-items:center; gap:14px; padding:0 18px; position:sticky; top:0; z-index:20}
+.topbar__title{font-size:13px; color:var(--ink-3); font-weight:450; display:flex; align-items:center; gap:8px}
+.topbar__title b{color:var(--ink); font-weight:500}
+.crumb{color:var(--ink-3)} .crumb a:hover{color:var(--accent-text)}
+.search{flex:1; max-width:420px; display:flex; align-items:center; gap:8px; height:32px; padding:0 10px; background:var(--panel); border:1px solid var(--hairline-strong); border-radius:var(--r-sm); color:var(--ink-3); font-size:13px}
+.search:hover{border-color:var(--ink-3)} .search kbd{margin-left:auto}
+kbd{font-family:var(--mono); font-size:10.5px; color:var(--ink-2); background:var(--subtle); border:1px solid var(--hairline-strong); border-bottom-width:2px; border-radius:var(--r-xs); padding:1px 5px; line-height:1.4}
+.topbar__right{margin-left:auto; display:flex; align-items:center; gap:14px}
+.updated{font-size:12px; color:var(--ink-3); display:flex; align-items:center; gap:7px; font-family:var(--mono)}
+.iconbtn{width:28px; height:28px; border-radius:var(--r-sm); border:1px solid transparent; background:transparent; color:var(--ink-2); display:grid; place-items:center; font-size:14px}
+.iconbtn:hover{background:var(--subtle-2)}
+
+.vrm{font-family:var(--mono); font-weight:600; background:#F4C233; color:#1B1A17; border:1px solid #1B1A17; border-radius:var(--r-xs); padding:2px 8px; font-size:15px; letter-spacing:.05em; display:inline-block; white-space:nowrap; font-feature-settings:"tnum" 1,"zero" 1}
+.badge{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--hairline-strong); background:var(--subtle); border-radius:var(--r-pill); padding:2px 10px 2px 8px; font-size:11px; font-weight:500; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap}
+.badge .dot{width:7px; height:7px; flex:0 0 7px; border-radius:1px}
+.badge--danger{color:var(--danger)} .badge--danger .dot{background:var(--danger)}
+.badge--ok{color:var(--ok)} .badge--ok .dot{background:var(--ok); border-radius:50%}
+
+/* case body */
+.case{padding:16px 22px 80px; max-width:1320px; display:flex; flex-direction:column; gap:0}
+
+/* header */
+.chead{display:flex; flex-direction:column; gap:12px; padding-bottom:14px; border-bottom:1px solid var(--hairline)}
+.chead__id{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+.chead__po{font-family:var(--mono); font-size:18px; color:var(--ink); font-weight:500; font-feature-settings:"tnum" 1,"zero" 1}
+.chead__sub{font-size:13px; color:var(--ink-2)}
+.chead__sub .pr{color:var(--ink-3)}
+.chead__meta{display:flex; align-items:center; gap:12px; margin-left:auto; font-size:12px; color:var(--ink-3)}
+.chead__chan{display:flex; align-items:center; gap:5px}
+.due-pill{font-family:var(--mono); font-size:11.5px; padding:1px 8px; border-radius:var(--r-pill); border:1px solid var(--hairline-strong); display:inline-flex; align-items:center; gap:4px}
+.due-pill--danger{color:var(--danger); border-color:#E9C7C2; background:var(--danger-tint)}
+.glyph-sq{font-size:9px; line-height:1}
+.actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.btn{height:32px; padding:0 12px; border-radius:var(--r-sm); border:1px solid var(--hairline-strong); background:var(--panel); color:var(--ink-2); font-size:13px; display:inline-flex; align-items:center; gap:6px}
+.btn:hover{background:var(--subtle-2); color:var(--ink)}
+.btn--primary{background:var(--ink); color:var(--ink-on-dark); border-color:var(--ink); font-weight:500}
+.btn--primary:hover{background:#2E2A25}
+.btn:disabled,.btn.is-disabled{opacity:.45; cursor:not-allowed; background:var(--panel); color:var(--ink-3)}
+.btn--primary.is-disabled{background:var(--subtle-2); color:var(--ink-disabled); border-color:var(--hairline-strong)}
+.spacer{flex:1}
+.overflow{position:relative}
+.overflow__menu{position:absolute; right:0; top:36px; background:var(--panel); border:1px solid var(--hairline-strong); border-radius:var(--r-md); box-shadow:var(--shadow-pop); padding:6px; min-width:200px; z-index:30; display:none}
+.overflow.open .overflow__menu{display:block}
+.ovi{display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:var(--r-sm); font-size:13px; color:var(--ink-2)}
+.ovi:hover{background:var(--subtle)}
+.ovi .oi{width:15px; text-align:center; color:var(--ink-3)}
+.ovi--gated{color:var(--ink-disabled)} .ovi--gated:hover{background:transparent}
+.ovi--danger{color:var(--danger)}
+.notconn{margin-left:auto; font-size:9.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-disabled); border:1px solid var(--hairline); border-radius:var(--r-xs); padding:0 4px}
+.ovi__sep{height:1px; background:var(--hairline); margin:5px 4px}
+
+/* spine */
+.spine{display:flex; align-items:center; padding:13px 2px}
+.spine__node{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-3)}
+.spine__dot{width:8px; height:8px; border-radius:50%; background:var(--hairline-strong)}
+.spine__node.is-done .spine__dot{background:var(--ink-2)}
+.spine__node.is-open .spine__dot{background:var(--ink)}
+.spine__node.is-done{color:var(--ink-2)}
+.spine__node.is-open{color:var(--ink); font-weight:500}
+.spine__line{width:42px; height:1px; background:var(--hairline-strong); margin:0 10px}
+
+/* readiness messagebar */
+.msgbar{display:flex; align-items:center; gap:10px; background:var(--danger-tint); border:1px solid #E9C7C2; border-radius:var(--r-sm); padding:9px 12px; font-size:13px; color:var(--danger); margin-bottom:12px}
+.msgbar__ico{font-size:11px}
+.msgbar a{color:var(--danger); text-decoration:underline; font-weight:500}
+.msgbar.hidden{display:none}
+
+/* body split */
+.cbody{display:flex; gap:22px; align-items:flex-start}
+.cmain{flex:1; min-width:0}
+.tabs{display:flex; gap:2px; border-bottom:1px solid var(--hairline)}
+.tab{padding:9px 13px; font-size:13px; color:var(--ink-2); border-bottom:2px solid transparent; margin-bottom:-1px; border-radius:var(--r-sm) var(--r-sm) 0 0; background:transparent; border-top:0; border-left:0; border-right:0}
+.tab:hover{background:var(--subtle); color:var(--ink)}
+.tab.is-active{color:var(--ink); font-weight:500; border-bottom-color:var(--accent); background:var(--accent-tint)}
+.tabpanel{display:none; padding:6px 0}
+.tabpanel.is-active{display:block}
+
+/* fields */
+.cluster__h{font-size:11px; font-weight:500; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); padding:16px 0 2px}
+.frow{display:grid; grid-template-columns:154px 1fr auto; align-items:center; gap:14px; padding:9px 4px; border-bottom:1px solid var(--hairline)}
+.frow.is-flash{background:var(--accent-tint); transition:background .6s ease}
+.frow__label{font-size:12.5px; color:var(--ink-2)}
+.frow__valwrap{display:flex; align-items:center; min-width:0}
+.frow__val{font-size:13.5px; color:var(--ink)}
+.frow__req{color:var(--danger); font-size:11px; margin-left:8px; white-space:nowrap}
+.prov{display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:10.5px; color:var(--ink-3); border:1px solid var(--hairline); border-radius:var(--r-xs); padding:1px 5px 1px 6px; background:var(--subtle); white-space:nowrap}
+.prov__g{font-size:11px; line-height:1}
+.prov[data-state="check"] .prov__g{color:var(--ok)}
+.prov[data-state="need"] .prov__g{color:var(--neutral)}
+.prov[data-state="conflict"] .prov__g{color:var(--warn)}
+
+.live{border-radius:var(--r-xs); padding:1px 4px; margin:-1px -4px; cursor:text; position:relative; display:inline-block}
+.live:hover{background:var(--subtle)}
+.live:hover::after{content:""; position:absolute; left:4px; right:4px; bottom:-1px; border-bottom:1px dotted var(--accent)}
+.live.editing::after{display:none}
+.live select,.live input,.live textarea{font-family:inherit; font-size:13.5px; border:1px solid var(--hairline-strong); border-radius:var(--r-xs); padding:3px 6px; background:var(--subtle); color:var(--ink); outline:none; box-shadow:0 0 0 2px var(--accent-tint)}
+.savetick{color:var(--ok); font-size:11px; margin-left:5px; opacity:0}
+@keyframes tickIn{0%{opacity:0;transform:translateX(-3px)}100%{opacity:1;transform:translateX(0)}}
+.savetick.show{animation:tickIn .5s ease-out forwards}
+.frow--prose{grid-template-columns:154px 1fr auto; align-items:start}
+.prose{font-size:14px; line-height:1.6; color:var(--ink); max-width:68ch}
+
+.jsonbox{margin-top:14px; border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden}
+.jsonbox__head{display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--subtle); font-size:12px; color:var(--ink-2); cursor:pointer}
+.jsonbox__head .car{color:var(--ink-3); transition:transform .15s}
+.jsonbox.open .jsonbox__head .car{transform:rotate(90deg)}
+.jsonbox pre{margin:0; padding:12px 14px; font-family:var(--mono); font-size:12px; color:var(--ink-2); background:var(--subtle); line-height:1.6; display:none; overflow:auto; font-feature-settings:"tnum" 1}
+.jsonbox.open pre{display:block}
+.jsonbox pre .k{color:var(--accent-text)} .jsonbox pre .nul{color:var(--danger)}
+
+/* evidence */
+.note-rule{font-size:12px; color:var(--ink-3); padding:8px 0 4px; display:flex; align-items:center; gap:7px}
+.docs{border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden; margin-bottom:18px}
+.doc{display:flex; align-items:center; gap:10px; padding:9px 12px; border-bottom:1px solid var(--hairline); font-size:13px}
+.doc:last-child{border-bottom:0}
+.doc__ico{color:var(--ink-3)} .doc__name{color:var(--ink)} .doc__meta{margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-3)}
+.subh{font-size:12px; font-weight:500; letter-spacing:.02em; color:var(--ink-3); padding:10px 0 8px}
+.thumbs{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px}
+.thumb{border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden; background:var(--panel)}
+.thumb__img{height:96px; position:relative; display:grid; place-items:center; color:#fff; font-family:var(--mono); font-size:11px; letter-spacing:.04em}
+.thumb__reg{position:absolute; left:6px; bottom:6px; background:#F4C233; color:#1B1A17; border:1px solid #1B1A17; border-radius:2px; font-family:var(--mono); font-weight:600; font-size:9.5px; padding:0 4px}
+.thumb__body{padding:8px 9px; display:flex; flex-direction:column; gap:7px}
+.thumb__role{display:flex; align-items:center; gap:6px}
+.thumb__role select{flex:1; font-family:inherit; font-size:11.5px; border:1px solid var(--hairline-strong); border-radius:var(--r-xs); padding:2px 4px; background:var(--panel); color:var(--ink)}
+.thumb__sw{display:flex; align-items:center; gap:7px; font-size:11px; color:var(--ink-3)}
+.sw{width:30px; height:17px; border-radius:9px; background:var(--hairline-strong); position:relative; flex:0 0 30px; transition:background .15s}
+.sw::after{content:""; position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%; background:#fff; transition:transform .15s; box-shadow:0 1px 1px rgba(0,0,0,.2)}
+.sw.on{background:var(--accent)} .sw.on::after{transform:translateX(13px)}
+.sw--ok.on{background:var(--ok)}
+.regbadge{font-size:10px; padding:1px 6px; border-radius:var(--r-pill); border:1px solid var(--hairline-strong); color:var(--ink-3)}
+.regbadge.on{color:var(--ok); border-color:#BcD8C5; background:var(--ok-tint)}
+
+.orderlist{border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden; margin-top:8px}
+.olrow{display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid var(--hairline); font-size:12.5px}
+.olrow:last-child{border-bottom:0}
+.olrow__n{font-family:var(--mono); font-size:11px; color:var(--ink-3); width:20px}
+.olrow__handle{color:var(--ink-disabled); cursor:grab}
+.olrow__name{color:var(--ink)}
+.olrow__tag{font-size:10px; color:var(--accent-text); border:1px solid #BfdAD6; border-radius:var(--r-xs); padding:0 5px}
+.olrow__mv{margin-left:auto; display:flex; gap:2px}
+.olrow__mv button{width:22px; height:22px; border:1px solid var(--hairline); background:var(--panel); border-radius:var(--r-xs); color:var(--ink-3); font-size:11px}
+.olrow__mv button:hover{background:var(--subtle-2); color:var(--ink)}
+
+/* address */
+.addr-cur{border:1px solid var(--hairline); border-radius:var(--r-md); padding:14px; margin-bottom:16px; background:var(--panel)}
+.addr-cur__h{display:flex; align-items:center; gap:8px; margin-bottom:8px}
+.addr-cur__lines{font-size:13.5px; line-height:1.6; color:var(--ink)}
+.policy{font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--accent-text); border:1px solid #BfdAD6; border-radius:var(--r-pill); padding:1px 8px; margin-left:auto}
+.sugg{border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden; margin-bottom:16px}
+.sugrow{display:flex; align-items:center; gap:12px; padding:10px 12px; border-bottom:1px solid var(--hairline)}
+.sugrow:last-child{border-bottom:0} .sugrow:hover{background:var(--subtle)}
+.sugrow__addr{font-size:13px; color:var(--ink)}
+.sugrow__seen{font-family:var(--mono); font-size:11px; color:var(--ink-3); margin-left:auto}
+.sugrow__pick{font-size:12px; color:var(--accent-text); border:1px solid var(--hairline-strong); border-radius:var(--r-sm); padding:3px 10px}
+.sugrow.is-chosen{background:var(--accent-tint)} .sugrow.is-chosen .sugrow__pick{background:var(--accent-tint); color:var(--accent-text); border-color:transparent}
+.iba{border:1px solid var(--hairline); border-radius:var(--r-md); padding:14px}
+.iba__h{font-size:12px; font-weight:500; color:var(--ink-2); margin-bottom:8px}
+.iba textarea{width:100%; min-height:64px; border:1px solid var(--hairline-strong); border-radius:var(--r-sm); padding:8px 10px; font-family:inherit; font-size:13px; color:var(--ink); resize:vertical; outline:none}
+.iba textarea:focus{box-shadow:0 0 0 2px var(--accent-tint)}
+.iba__req{font-size:11.5px; color:var(--warn-text); margin-top:6px}
+
+/* notes / chasers */
+.notebox textarea{width:100%; min-height:70px; border:1px solid var(--hairline-strong); border-radius:var(--r-sm); padding:9px 11px; font-family:inherit; font-size:13.5px; color:var(--ink); resize:vertical; outline:none; line-height:1.6}
+.notebox textarea:focus{box-shadow:0 0 0 2px var(--accent-tint)}
+.note{border-bottom:1px solid var(--hairline); padding:11px 2px}
+.note__meta{font-size:11.5px; color:var(--ink-3); font-family:var(--mono); margin-bottom:3px}
+.note__body{font-size:13.5px; color:var(--ink); line-height:1.55; max-width:68ch}
+.seg{display:inline-flex; border:1px solid var(--hairline-strong); border-radius:var(--r-sm); overflow:hidden; height:30px}
+.seg button{border:0; background:var(--panel); color:var(--ink-3); padding:0 14px; font-size:12.5px; border-left:1px solid var(--hairline)}
+.seg button:first-child{border-left:0} .seg button.is-active{background:var(--subtle-2); color:var(--ink); font-weight:500}
+.chaser-row{display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap}
+.tmpl-sel{height:30px; border:1px solid var(--hairline-strong); border-radius:var(--r-sm); padding:0 9px; font-family:inherit; font-size:12.5px; background:var(--panel); color:var(--ink)}
+.chaser-draft{width:100%; min-height:120px; border:1px solid var(--hairline-strong); border-radius:var(--r-sm); padding:10px 12px; font-family:inherit; font-size:13.5px; color:var(--ink); line-height:1.6; resize:vertical; outline:none}
+.chaser-draft:focus{box-shadow:0 0 0 2px var(--accent-tint)}
+.chaser-foot{display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap}
+.muted-line{font-size:12px; color:var(--ink-3)}
+.box-link{display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-disabled); border:1px dashed var(--hairline-strong); border-radius:var(--r-sm); padding:5px 10px}
+
+/* sidebar */
+.sidebar{width:312px; flex:0 0 312px; position:sticky; top:64px; display:flex; flex-direction:column; gap:14px}
+.panel{background:var(--panel); border:1px solid var(--hairline); border-radius:var(--r-md); overflow:hidden}
+.panel__h{display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:1px solid var(--hairline); font-size:12px; font-weight:500; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-2)}
+.panel__h .ct{margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-3)}
+.rdz{display:flex; flex-direction:column}
+.rdz__item{display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--hairline); font-size:13px}
+.rdz__item:last-of-type{border-bottom:0}
+.rdz__g{width:16px; text-align:center; font-size:12px}
+.rdz__item.ok .rdz__g{color:var(--ok)} .rdz__item.bad .rdz__g{color:var(--danger)}
+.rdz__lbl{color:var(--ink-2)} .rdz__item.ok .rdz__lbl{color:var(--ink)}
+.rdz__link{margin-left:auto; font-size:11.5px; color:var(--accent-text); font-family:var(--mono)}
+.rdz__item.ok .rdz__link{color:var(--ink-3)}
+.meter{display:flex; align-items:center; gap:10px; padding:11px 14px; border-top:1px solid var(--hairline)}
+.meter__ticks{display:flex; gap:4px}
+.meter__t{width:24px; height:7px; border-radius:2px; background:var(--hairline)}
+.meter__t.on{background:var(--ok)}
+.meter__lbl{font-size:11px; color:var(--ink-3); font-family:var(--mono)}
+.facts{display:flex; flex-direction:column}
+.fact{display:flex; align-items:baseline; gap:10px; padding:8px 14px; border-bottom:1px solid var(--hairline); font-size:12.5px}
+.fact:last-child{border-bottom:0}
+.fact__k{color:var(--ink-3); width:84px; flex:0 0 84px; font-size:11.5px}
+.fact__v{color:var(--ink-2); font-family:var(--mono); font-size:12px; font-feature-settings:"tnum" 1}
+.fact__v .lock{color:var(--ink-disabled); font-size:10px; margin-left:4px}
+.fact--gated .fact__v{color:var(--ink-disabled)}
+.panel--facts{background:var(--subtle)}
+.panel--facts .panel__h{color:var(--ink-3)}
+
+/* modal */
+.modal[hidden]{display:none}
+.modal{position:fixed; inset:0; z-index:90; display:flex; align-items:flex-start; justify-content:center; padding-top:8vh}
+.modal__scrim{position:absolute; inset:0; background:rgba(20,18,15,.32)}
+.modal__panel{position:relative; width:min(680px,94vw); background:var(--panel); border-radius:var(--r-lg); box-shadow:var(--shadow-modal); overflow:hidden; max-height:84vh; display:flex; flex-direction:column}
+.modal__head{display:flex; align-items:center; gap:10px; padding:16px 18px; border-bottom:1px solid var(--hairline)}
+.modal__title{font-size:16px; font-weight:600; color:var(--ink)}
+.modal__close{margin-left:auto}
+.modal__body{padding:16px 18px; overflow:auto}
+.modal__gate{display:flex; align-items:center; gap:9px; background:var(--ok-tint); border:1px solid #BcD8C5; border-radius:var(--r-sm); padding:9px 12px; font-size:13px; color:var(--ok); margin-bottom:16px}
+.pohero{border:1px solid var(--hairline); border-radius:var(--r-md); padding:14px; margin-bottom:16px; display:flex; align-items:center; gap:4px; flex-wrap:wrap}
+.pohero__seg{display:flex; flex-direction:column; gap:3px}
+.pohero__lbl{font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-3)}
+.pohero__val{font-family:var(--mono); font-size:22px; color:var(--ink); font-feature-settings:"tnum" 1,"zero" 1}
+.pohero__val.locked{color:var(--ink-3)}
+.pohero__seq input{font-family:var(--mono); font-size:22px; width:62px; text-align:center; border:1px solid var(--accent); border-radius:var(--r-xs); padding:1px 4px; color:var(--ink); background:var(--subtle); outline:none; box-shadow:0 0 0 2px var(--accent-tint)}
+.pohero__lock{font-size:9.5px; color:var(--ink-disabled); text-transform:uppercase; letter-spacing:.04em}
+.couple{display:flex; gap:10px; margin:14px 0; flex-wrap:wrap}
+.couple__c{flex:1; min-width:200px; border:1px solid var(--hairline); border-radius:var(--r-sm); padding:9px 12px}
+.couple__k{font-size:11px; color:var(--ink-3); margin-bottom:3px}
+.couple__v{font-family:var(--mono); font-size:14px; color:var(--ink)}
+.couple__v .hi{color:var(--accent-text)}
+.paths{display:flex; gap:10px; margin:8px 0 4px}
+.path{flex:1; border:1px solid var(--hairline-strong); border-radius:var(--r-sm); padding:11px 12px; display:flex; flex-direction:column; gap:3px}
+.path.is-on{border-color:var(--accent); background:var(--accent-tint)}
+.path.is-gated{opacity:.55}
+.path__t{font-size:13px; font-weight:500; color:var(--ink); display:flex; align-items:center; gap:7px}
+.path__d{font-size:11.5px; color:var(--ink-3)}
+.modal__foot{display:flex; align-items:center; gap:10px; padding:14px 18px; border-top:1px solid var(--hairline)}
+.modal pre{margin:0; padding:12px 14px; background:var(--subtle); border-radius:var(--r-sm); font-family:var(--mono); font-size:12px; color:var(--ink-2); line-height:1.6; overflow:auto; max-height:160px}
+
+/* cmd-k */
+.cmdk[hidden]{display:none}
+.cmdk{position:fixed; inset:0; z-index:80; display:flex; align-items:flex-start; justify-content:center; padding-top:12vh}
+.cmdk__scrim{position:absolute; inset:0; background:rgba(20,18,15,.04)}
+.cmdk__panel{position:relative; width:min(580px,92vw); background:var(--panel); border:1px solid var(--hairline-strong); border-radius:var(--r-md); box-shadow:var(--shadow-pop); overflow:hidden}
+.cmdk__input{width:100%; border:0; border-bottom:1px solid var(--hairline); padding:14px 16px; font-size:15px; font-family:var(--sans); color:var(--ink); outline:none}
+.cmdk__sec{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); padding:9px 16px 4px}
+.cmdk__list{list-style:none; margin:0; padding:0 6px 8px}
+.cmdk__item{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:var(--r-sm); font-size:13.5px; color:var(--ink-2)}
+.cmdk__item .ci{width:16px; text-align:center; color:var(--ink-3)} .cmdk__item kbd{margin-left:auto}
+.cmdk__item.is-active{background:var(--accent-tint); color:var(--ink)}
+
+@media (max-width:1180px){
+  .cbody{flex-direction:column}
+  .sidebar{width:100%; flex-basis:auto; position:static; order:-1}
+  .sidebar{flex-direction:row; flex-wrap:wrap} .sidebar .panel{flex:1; min-width:280px}
+}
+@media (max-width:1024px){
+  .rail{width:56px; flex-basis:56px}
+  .nav__label,.nav__count,.brand__name,.rail__section-label,.rail__who{display:none}
+  .nav__item{justify-content:center; padding:0; gap:0} .nav__item.is-sub{padding-left:0}
+  .brand{justify-content:center; padding:6px 0 14px} .rail__foot{justify-content:center; padding:12px 0}
+}
+@media (max-width:767px){
+  .shell{flex-direction:column}
+  .rail{position:fixed; bottom:0; top:auto; left:0; right:0; width:auto; height:54px; flex-direction:row; border-right:0; border-top:1px solid var(--hairline); z-index:50; padding:0; justify-content:space-around}
+  .brand,.nav__sep,.rail__section-label,.rail__foot{display:none}
+  .rail .nav{flex-direction:row; padding:0; flex:1; justify-content:space-around}
+  .rail .nav .nav__item.is-sub{display:none}
+  .nav__item{height:54px; border-left:0; border-top:2px solid transparent; margin:0}
+  .nav__item.is-active{border-top-color:var(--accent); background:transparent}
+  .topbar__title{display:none} .search{max-width:none}
+  .case{padding:14px 14px 70px}
+  .chead__meta{margin-left:0; flex-wrap:wrap}
+  .tabs{overflow-x:auto} .frow{grid-template-columns:120px 1fr; grid-template-areas:"label val" "prov prov"; gap:6px 12px} .frow .prov,.frow .frow__req{grid-area:prov}
+  .sidebar{flex-direction:column}
+  body{font-size:15px}
+}
+@media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important} }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="rail">
+    <div class="brand"><div class="brand__mark"></div><div class="brand__name">collisionspike</div></div>
+    <nav class="nav">
+      <a class="nav__item" href="index.html"><span class="nav__ico">◧</span><span class="nav__label">Cockpit</span></a>
+      <a class="nav__item" href="#"><span class="nav__ico">✉</span><span class="nav__label">Inbox / Triage</span><span class="nav__count">16</span></a>
+      <a class="nav__item" href="queues.html"><span class="nav__ico">▤</span><span class="nav__label">Queues</span></a>
+      <a class="nav__item is-sub" href="queues.html"><span class="nav__label">Not ready</span><span class="nav__count">6</span></a>
+      <a class="nav__item is-sub" href="queues.html"><span class="nav__label">Review</span><span class="nav__count is-blocker">7</span></a>
+      <a class="nav__item is-sub" href="queues.html"><span class="nav__label">Held</span><span class="nav__count">9</span></a>
+      <a class="nav__item is-sub" href="queues.html"><span class="nav__label">Ready for EVA</span><span class="nav__count">5</span></a>
+      <a class="nav__item is-active" href="case-detail.html"><span class="nav__ico">▢</span><span class="nav__label">Cases</span></a>
+      <a class="nav__item" href="#"><span class="nav__ico">⤓</span><span class="nav__label">Manual intake</span></a>
+      <div class="nav__sep"></div>
+      <div class="rail__section-label">Admin</div>
+      <a class="nav__item" href="#"><span class="nav__ico">▦</span><span class="nav__label">Corpus</span></a>
+      <a class="nav__item" href="#"><span class="nav__ico">↻</span><span class="nav__label">Improvement Review</span><span class="nav__count">4</span></a>
+      <a class="nav__item" href="#"><span class="nav__ico">⚙</span><span class="nav__label">Settings / Governance</span></a>
+      <a class="nav__item" href="#"><span class="nav__ico">≡</span><span class="nav__label">Action logs</span></a>
+      <a class="nav__item is-disabled" href="#"><span class="nav__ico">⊘</span><span class="nav__label">Engineer</span></a>
+    </nav>
+    <div class="rail__foot"><div class="avatar">RM</div><div class="rail__who"><b>R. Mensah</b>Intake staff</div></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar__title crumb"><a href="queues.html">Review</a> <span>/</span> <b>CCPY26050</b></div>
+      <button class="search" id="searchOpen"><span>⌕</span><span>Search — or a verb…</span><kbd>⌘K</kbd></button>
+      <div class="topbar__right">
+        <div class="updated">Updated 09:14<button class="iconbtn" title="Refresh">↻</button></div>
+      </div>
+    </header>
+
+    <main class="case">
+
+      <!-- HEADER -->
+      <div class="chead">
+        <div class="chead__id">
+          <span class="vrm">VK19 ZRT</span>
+          <span class="chead__po">CCPY26050</span>
+          <span class="chead__sub">Aviva <span class="pr">(CCPY)</span> · 2019 Ford Focus 1.0</span>
+          <div class="chead__meta">
+            <span class="badge badge--danger"><i class="dot"></i>Review</span>
+            <span class="chead__chan" title="Email">✉ email</span>
+            <span class="due-pill due-pill--danger"><span class="glyph-sq">■</span>5d past due</span>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn">＋ Add evidence</button>
+          <button class="btn">⇄ Merge</button>
+          <button class="btn">⏸ Hold / Release</button>
+          <button class="btn is-disabled" id="dlBtn" title="Not ready — 2 items block submit">⤓ Download JSON</button>
+          <div class="spacer"></div>
+          <button class="btn btn--primary is-disabled" id="submitBtn" title="Resolve 2 readiness items to enable">▮ Submit to EVA</button>
+          <div class="overflow" id="overflow">
+            <button class="btn iconbtn" id="ovBtn" style="width:32px" aria-label="More actions">⋯</button>
+            <div class="overflow__menu">
+              <div class="ovi"><span class="oi">⎘</span>Copy JSON</div>
+              <div class="ovi"><span class="oi">≡</span>History · audit trail</div>
+              <div class="ovi ovi--gated"><span class="oi">⚗</span>Enrichment · DVSA/DVLA<span class="notconn">not connected</span></div>
+              <div class="ovi ovi--gated"><span class="oi">↗</span>Open in Box<span class="notconn">off</span></div>
+              <div class="ovi__sep"></div>
+              <div class="ovi ovi--danger"><span class="oi">🗑</span>Delete case (junk/dup)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPINE -->
+      <div class="spine">
+        <span class="spine__node is-done"><span class="spine__dot"></span>New</span>
+        <span class="spine__line"></span>
+        <span class="spine__node is-done"><span class="spine__dot"></span>Not ready</span>
+        <span class="spine__line"></span>
+        <span class="spine__node is-open"><span class="spine__dot"></span>Review</span>
+        <span class="spine__line"></span>
+        <span class="spine__node"><span class="spine__dot"></span>Submitted</span>
+      </div>
+
+      <!-- READINESS MESSAGEBAR (only if blocked) -->
+      <div class="msgbar" id="msgbar"><span class="msgbar__ico glyph-sq">■</span><span><b id="blockN">2</b> items block submit — <a href="#" id="msgbarLink">see Readiness</a></span></div>
+
+      <!-- BODY -->
+      <div class="cbody">
+        <!-- MAIN: tabs -->
+        <div class="cmain">
+          <div class="tabs" role="tablist">
+            <button class="tab is-active" data-tab="fields">Fields</button>
+            <button class="tab" data-tab="evidence">Evidence</button>
+            <button class="tab" data-tab="address">Address</button>
+            <button class="tab" data-tab="notes">Notes</button>
+            <button class="tab" data-tab="chasers">Chasers</button>
+          </div>
+
+          <!-- FIELDS -->
+          <section class="tabpanel is-active" data-panel="fields">
+            <div class="cluster">
+              <div class="cluster__h">Provider &amp; claimant</div>
+              <div class="frow"><div class="frow__label">Work provider</div>
+                <div class="frow__valwrap"><span class="live frow__val" data-control="text">Aviva</span></div>
+                <span class="prov" data-state="check"><span>CORPUS</span><span class="prov__g">✓</span></span></div>
+              <div class="frow"><div class="frow__label">Claimant name</div>
+                <div class="frow__valwrap"><span class="live frow__val" data-control="text">J. Okafor</span></div>
+                <span class="prov" data-state="check"><span>PDF</span><span class="prov__g">✓</span></span></div>
+              <div class="frow"><div class="frow__label">Claimant telephone</div>
+                <div class="frow__valwrap"><span class="live frow__val num" data-control="text">07700 900118</span></div>
+                <span class="prov" data-state="need"><span>PDF</span><span class="prov__g">•</span></span></div>
+              <div class="frow"><div class="frow__label">Claimant email</div>
+                <div class="frow__valwrap"><span class="live frow__val" data-control="text">j.okafor@mail.com</span></div>
+                <span class="prov" data-state="check"><span>MANUAL</span><span class="prov__g">✓</span></span></div>
+            </div>
+            <div class="cluster">
+              <div class="cluster__h">Vehicle</div>
+              <div class="frow"><div class="frow__label">Vehicle (make/model)</div>
+                <div class="frow__valwrap"><span class="live frow__val" data-control="text">Ford Focus 1.0</span></div>
+                <span class="prov" data-state="need"><span>DVLA</span><span class="prov__g">•</span></span></div>
+              <div class="frow"><div class="frow__label">Mileage</div>
+                <div class="frow__valwrap"><span class="live frow__val num" data-control="text">48,210</span></div>
+                <span class="prov" data-state="need"><span>AI</span><span class="prov__g">•</span></span></div>
+              <div class="frow"><div class="frow__label">Mileage unit</div>
+                <div class="frow__valwrap"><span class="live frow__val" data-control="select" data-options="Miles|Km">Miles</span></div>
+                <span class="prov" data-state="check"><span>PDF</span><span class="prov__g">✓</span></span></div>
+              <div class="frow" id="vatRow"><div class="frow__label">VAT status</div>
+                <div class="frow__valwrap"><span class="live frow__val" id="vatVal" data-field="vat" data-readiness="requiredFields" data-control="select" data-options="choose|Registered (Yes)|Not registered (No)">choose</span><span class="frow__req" id="vatReq">✗ required</span></div>
+                <span class="prov" data-state="conflict"><span>PDF</span><span class="prov__g">▲</span></span></div>
+            </div>
+            <div class="cluster">
+              <div class="cluster__h">Incident</div>
+              <div class="frow frow--prose"><div class="frow__label">Accident circumstances</div>
+                <div class="frow__valwrap"><span class="live prose" data-control="textarea">Third party failed to stop at a junction on the A38 and collided with the nearside front wing of the insured vehicle; airbags did not deploy. Vehicle driven from scene.</span></div>
+                <span class="prov" data-state="check"><span>PDF</span><span class="prov__g">✓</span></span></div>
+              <div class="frow"><div class="frow__label">Inspection address</div>
+                <div class="frow__valwrap"><a class="frow__val" style="color:var(--accent-text)" href="#" data-goto="address">Pelican Bodyworks, Plymouth → Address tab</a></div>
+                <span class="prov" data-state="check"><span>CORPUS</span><span class="prov__g">✓</span></span></div>
+            </div>
+            <div class="cluster">
+              <div class="cluster__h">Dates</div>
+              <div class="frow"><div class="frow__label">Date of loss</div>
+                <div class="frow__valwrap"><span class="live frow__val num" data-control="text">12/05/26</span></div>
+                <span class="prov" data-state="check"><span>PDF</span><span class="prov__g">✓</span></span></div>
+              <div class="frow"><div class="frow__label">Date of instruction</div>
+                <div class="frow__valwrap"><span class="live frow__val num" data-control="text">18/05/26</span></div>
+                <span class="prov" data-state="check"><span>PDF</span><span class="prov__g">✓</span></span></div>
+            </div>
+
+            <div class="jsonbox" id="jsonbox">
+              <div class="jsonbox__head" id="jsonToggle"><span class="car">▸</span>Live EVA JSON preview</div>
+              <pre id="jsonPre"></pre>
+            </div>
+          </section>
+
+          <!-- EVIDENCE -->
+          <section class="tabpanel" data-panel="evidence">
+            <div class="subh">Documents</div>
+            <div class="docs">
+              <div class="doc"><span class="doc__ico">📄</span><span class="doc__name">aviva_instruction.pdf</span><span class="doc__meta">PARSED · 4 pp · 09:02</span></div>
+              <div class="doc"><span class="doc__ico">📄</span><span class="doc__name">engineer_authority.pdf</span><span class="doc__meta">PARSED · 1 p · 09:02</span></div>
+            </div>
+
+            <div class="note-rule"><span>ⓘ</span> EVA photo order — upload the 2 preview photos first (vehicle overview <b>showing the full registration</b> + main-damage closeup), then all photos in sequence including those two again.</div>
+
+            <div class="subh">Photos · 6 accepted</div>
+            <div class="thumbs">
+              <div class="thumb">
+                <div class="thumb__img" style="background:#6B7A6E">overview<span class="thumb__reg">VK19 ZRT</span></div>
+                <div class="thumb__body">
+                  <div class="thumb__role"><select><option selected>Overview</option><option>Damage closeup</option><option>Detail</option><option>Interior</option></select></div>
+                  <div class="thumb__sw"><span>Reg visible</span><span class="sw" id="regSw" data-reg></span></div>
+                  <div class="thumb__sw"><span>Exclude (reflection)</span><span class="sw"></span></div>
+                </div>
+              </div>
+              <div class="thumb">
+                <div class="thumb__img" style="background:#7A6B6B">damage</div>
+                <div class="thumb__body">
+                  <div class="thumb__role"><select><option>Overview</option><option selected>Damage closeup</option><option>Detail</option><option>Interior</option></select></div>
+                  <div class="thumb__sw"><span>Reg visible</span><span class="regbadge on">✓ confirmed</span></div>
+                  <div class="thumb__sw"><span>Exclude (reflection)</span><span class="sw"></span></div>
+                </div>
+              </div>
+              <div class="thumb">
+                <div class="thumb__img" style="background:#6E6B7A">front ¾</div>
+                <div class="thumb__body">
+                  <div class="thumb__role"><select><option>Overview</option><option>Damage closeup</option><option selected>Detail</option><option>Interior</option></select></div>
+                  <div class="thumb__sw"><span>Reg visible</span><span class="regbadge">n/a</span></div>
+                  <div class="thumb__sw"><span>Exclude (reflection)</span><span class="sw on" title="Excluded — reflection"></span></div>
+                </div>
+              </div>
+              <div class="thumb">
+                <div class="thumb__img" style="background:#6B767A">wheel</div>
+                <div class="thumb__body">
+                  <div class="thumb__role"><select><option>Overview</option><option>Damage closeup</option><option selected>Detail</option><option>Interior</option></select></div>
+                  <div class="thumb__sw"><span>Reg visible</span><span class="regbadge">n/a</span></div>
+                  <div class="thumb__sw"><span>Exclude (reflection)</span><span class="sw"></span></div>
+                </div>
+              </div>
+              <div class="thumb">
+                <div class="thumb__img" style="background:#797A6B">interior</div>
+                <div class="thumb__body">
+                  <div class="thumb__role"><select><option>Overview</option><option>Damage closeup</option><option>Detail</option><option selected>Interior</option></select></div>
+                  <div class="thumb__sw"><span>Reg visible</span><span class="regbadge">n/a</span></div>
+                  <div class="thumb__sw"><span>Exclude (reflection)</span><span class="sw"></span></div>
+                </div>
+              </div>
+              <div class="thumb">
+                <div class="thumb__img" style="background:#6B7A78">VIN plate</div>
+                <div class="thumb__body">
+                  <div class="thumb__role"><select><option>Overview</option><option>Damage closeup</option><option selected>Detail</option><option>Interior</option></select></div>
+                  <div class="thumb__sw"><span>Reg visible</span><span class="regbadge">n/a</span></div>
+                  <div class="thumb__sw"><span>Exclude (reflection)</span><span class="sw"></span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="subh" style="padding-top:18px">EVA photo order · preview-then-all</div>
+            <div class="orderlist" id="orderlist">
+              <div class="olrow"><span class="olrow__handle">⠿</span><span class="olrow__n">01</span><span class="olrow__name">Overview (reg visible)</span><span class="olrow__tag">preview</span><span class="olrow__mv"><button data-mv="up">↑</button><button data-mv="down">↓</button></span></div>
+              <div class="olrow"><span class="olrow__handle">⠿</span><span class="olrow__n">02</span><span class="olrow__name">Damage closeup</span><span class="olrow__tag">preview</span><span class="olrow__mv"><button data-mv="up">↑</button><button data-mv="down">↓</button></span></div>
+              <div class="olrow"><span class="olrow__handle">⠿</span><span class="olrow__n">03</span><span class="olrow__name">Overview (reg visible)</span><span class="olrow__mv"><button data-mv="up">↑</button><button data-mv="down">↓</button></span></div>
+              <div class="olrow"><span class="olrow__handle">⠿</span><span class="olrow__n">04</span><span class="olrow__name">Damage closeup</span><span class="olrow__mv"><button data-mv="up">↑</button><button data-mv="down">↓</button></span></div>
+              <div class="olrow"><span class="olrow__handle">⠿</span><span class="olrow__n">05</span><span class="olrow__name">Front ¾</span><span class="olrow__mv"><button data-mv="up">↑</button><button data-mv="down">↓</button></span></div>
+              <div class="olrow"><span class="olrow__handle">⠿</span><span class="olrow__n">06</span><span class="olrow__name">Wheel</span><span class="olrow__mv"><button data-mv="up">↑</button><button data-mv="down">↓</button></span></div>
+              <div class="olrow"><span class="olrow__handle">⠿</span><span class="olrow__n">07</span><span class="olrow__name">Interior</span><span class="olrow__mv"><button data-mv="up">↑</button><button data-mv="down">↓</button></span></div>
+              <div class="olrow"><span class="olrow__handle">⠿</span><span class="olrow__n">08</span><span class="olrow__name">VIN plate</span><span class="olrow__mv"><button data-mv="up">↑</button><button data-mv="down">↓</button></span></div>
+            </div>
+          </section>
+
+          <!-- ADDRESS -->
+          <section class="tabpanel" data-panel="address">
+            <div class="subh">Current decision</div>
+            <div class="addr-cur">
+              <div class="addr-cur__h"><span class="badge badge--ok"><i class="dot"></i>Decided</span><span class="policy">Aviva · corpus-preferred</span></div>
+              <div class="addr-cur__lines">Pelican Bodyworks<br>Unit 4, Faraday Mill<br>Cattedown Road<br>Plymouth<br>PL4 0ST<br>Devon</div>
+            </div>
+            <div class="subh">Ranked suggestions · offline corpus</div>
+            <div class="sugg">
+              <div class="sugrow is-chosen"><span class="sugrow__addr">Pelican Bodyworks, Cattedown Rd, Plymouth PL4 0ST</span><span class="sugrow__seen">seen 41× · last 09/06/26</span><button class="sugrow__pick">Chosen ✓</button></div>
+              <div class="sugrow"><span class="sugrow__addr">Drake Auto Repairs, Estover, Plymouth PL6 7PY</span><span class="sugrow__seen">seen 12× · last 28/05/26</span><button class="sugrow__pick">Pick</button></div>
+              <div class="sugrow"><span class="sugrow__addr">Tamar Accident Centre, Saltash PL12 6LD</span><span class="sugrow__seen">seen 7× · last 14/05/26</span><button class="sugrow__pick">Pick</button></div>
+            </div>
+            <div class="iba">
+              <div class="iba__h">Image-Based Assessment override</div>
+              <textarea placeholder="If no inspection address applies, type the reason for an Image-Based Assessment (required — never a silent default)…"></textarea>
+              <div class="iba__req">A typed reason is required to record IBA.</div>
+            </div>
+          </section>
+
+          <!-- NOTES -->
+          <section class="tabpanel" data-panel="notes">
+            <div class="notebox" style="margin-bottom:16px">
+              <textarea placeholder="Add a note… (⌘Enter to save)"></textarea>
+              <div style="margin-top:8px"><button class="btn">Add note</button></div>
+            </div>
+            <div class="note"><div class="note__meta">R. Mensah · 18/06/26 09:08</div><div class="note__body">Phoned garage — overview photo cuts off the plate; requested a re-shoot showing the full registration. Chaser drafted on WhatsApp.</div></div>
+            <div class="note"><div class="note__meta">System · 18/06/26 09:02</div><div class="note__body">Parsed from aviva_instruction.pdf · 11/12 fields extracted · VAT status flagged for review (conflict).</div></div>
+            <div class="note"><div class="note__meta">R. Mensah · 17/06/26 16:41</div><div class="note__body">Claimant email corrected manually from the instruction body (parser missed the second page).</div></div>
+          </section>
+
+          <!-- CHASERS -->
+          <section class="tabpanel" data-panel="chasers">
+            <div class="chaser-row">
+              <div class="seg" role="group" aria-label="Channel">
+                <button class="is-active" data-ch="email">Email</button>
+                <button data-ch="whatsapp">WhatsApp</button>
+              </div>
+              <select class="tmpl-sel"><option>Template — Missing images (overview w/ reg)</option><option>Template — Missing instruction doc</option><option>Template — General chase</option></select>
+            </div>
+            <textarea class="chaser-draft">Hi Pelican Bodyworks,
+
+Thanks for the images on VK19 ZRT (Ford Focus, Aviva CCPY26050). Before we can proceed we need one more photo: a vehicle overview clearly showing the full registration plate. Please reply to this email with it attached, or use the upload link below.
+
+Many thanks,
+Collision Engineers — Intake</textarea>
+            <div class="chaser-foot">
+              <button class="btn">⎘ Copy draft</button>
+              <button class="btn">✎ Log as drafted</button>
+              <span class="box-link">↗ Box File-Request upload link <span class="notconn">gated · off</span></span>
+              <span class="muted-line">— never auto-sends; you send it yourself.</span>
+            </div>
+          </section>
+        </div>
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+          <div class="panel">
+            <div class="panel__h">Readiness<span class="ct" id="rdzCount">2 of 4</span></div>
+            <div class="rdz" id="rdz">
+              <div class="rdz__item bad" data-key="requiredFields" data-goto="fields" data-field="vat"><span class="rdz__g">✗</span><span class="rdz__lbl">Required fields</span><span class="rdz__link">Fields · VAT</span></div>
+              <div class="rdz__item ok" data-key="conflicts"><span class="rdz__g">✓</span><span class="rdz__lbl">No conflicts</span></div>
+              <div class="rdz__item bad" data-key="images" data-goto="evidence"><span class="rdz__g">✗</span><span class="rdz__lbl">≥2 images + overview</span><span class="rdz__link">Evidence · 1/2</span></div>
+              <div class="rdz__item ok" data-key="address"><span class="rdz__g">✓</span><span class="rdz__lbl">Address decided</span></div>
+            </div>
+            <div class="meter">
+              <div class="meter__ticks">
+                <span class="meter__t" data-tick="requiredFields"></span>
+                <span class="meter__t on" data-tick="images-x"></span>
+                <span class="meter__t on" data-tick="address"></span>
+                <span class="meter__t on" data-tick="conflicts"></span>
+              </div>
+              <span class="meter__lbl">fields · img · addr · conf</span>
+            </div>
+          </div>
+
+          <div class="panel panel--facts">
+            <div class="panel__h">Imported details · read-only</div>
+            <div class="facts">
+              <div class="fact"><span class="fact__k">Source PDF</span><span class="fact__v">aviva_instruction.pdf</span></div>
+              <div class="fact"><span class="fact__k">Received</span><span class="fact__v">09:02 · noreply@aviva</span></div>
+              <div class="fact"><span class="fact__k">Principal</span><span class="fact__v">CCPY <span class="lock">🔒 locked</span></span></div>
+              <div class="fact"><span class="fact__k">Year</span><span class="fact__v">26 <span class="lock">🔒 locked</span></span></div>
+              <div class="fact"><span class="fact__k">Sequence</span><span class="fact__v">050 <span class="lock">edit @ submit</span></span></div>
+              <div class="fact"><span class="fact__k">Dup risk</span><span class="fact__v">1 candidate</span></div>
+              <div class="fact fact--gated"><span class="fact__k">Box</span><span class="fact__v">not synced · off ⊘</span></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- SUBMIT MODAL -->
+<div class="modal" id="submitModal" hidden>
+  <div class="modal__scrim" data-close></div>
+  <div class="modal__panel" role="dialog" aria-label="Submit to EVA">
+    <div class="modal__head">
+      <span class="modal__title">Submit to EVA</span>
+      <button class="btn iconbtn modal__close" data-close style="width:32px">✕</button>
+    </div>
+    <div class="modal__body">
+      <div class="modal__gate"><span>✓</span> Readiness gate — all 4 checks green. This case is ready to submit.</div>
+
+      <div class="subh" style="padding-top:0">Case / PO</div>
+      <div class="pohero">
+        <div class="pohero__seg"><span class="pohero__lbl">Principal</span><span class="pohero__val locked">CCPY</span><span class="pohero__lock">🔒 locked</span></div>
+        <div class="pohero__val locked" style="padding:0 4px">·</div>
+        <div class="pohero__seg"><span class="pohero__lbl">Year</span><span class="pohero__val locked">26</span><span class="pohero__lock">🔒 locked</span></div>
+        <div class="pohero__seg pohero__seq"><span class="pohero__lbl">Sequence</span><input id="seqInput" value="050" maxlength="3" inputmode="numeric"><span class="pohero__lock" style="color:var(--accent-text)">editable</span></div>
+      </div>
+
+      <div class="couple">
+        <div class="couple__c"><div class="couple__k">EVA code (lowercased)</div><div class="couple__v"><span class="hi" id="evaCode">ccpy26050</span></div></div>
+        <div class="couple__c"><div class="couple__k">Box folder (UPPERCASED)</div><div class="couple__v"><span class="hi" id="boxFolder">CCPY26050</span></div></div>
+      </div>
+
+      <div class="subh">Submission path</div>
+      <div class="paths">
+        <div class="path is-on"><span class="path__t">◉ JSON drag-drop export</span><span class="path__d">Current path — downloads the 12-field EVA JSON to drag into Sentry.</span></div>
+        <div class="path is-gated"><span class="path__t">○ Sentry REST API <span class="notconn">gated</span></span><span class="path__d">Later path — single-principal limit; pending Minotaur patch.</span></div>
+      </div>
+
+      <div class="subh">Live 12-field payload</div>
+      <pre id="modalJson"></pre>
+    </div>
+    <div class="modal__foot">
+      <span class="muted-line" style="margin-right:auto">Box folder augmented on success. Nothing is auto-deleted.</span>
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn btn--primary" id="modalSubmit">▮ Submit <kbd style="margin-left:6px">⌘↵</kbd></button>
+    </div>
+  </div>
+</div>
+
+<!-- cmd-k -->
+<div class="cmdk" id="cmdk" hidden>
+  <div class="cmdk__scrim" data-close></div>
+  <div class="cmdk__panel" role="dialog" aria-label="Command palette">
+    <input class="cmdk__input" id="cmdkInput" placeholder="Search VRM / Case·PO / claimant — or a verb…" autocomplete="off">
+    <div class="cmdk__sec">Actions on this case</div>
+    <ul class="cmdk__list">
+      <li class="cmdk__item is-active"><span class="ci">▮</span><span>Submit to EVA</span><kbd>⌘↵</kbd></li>
+      <li class="cmdk__item"><span class="ci">⏸</span><span>Hold · draft chaser</span></li>
+      <li class="cmdk__item"><span class="ci">⇄</span><span>Merge with duplicate candidate</span></li>
+      <li class="cmdk__item"><span class="ci">◧</span><span>Go to Cockpit</span><kbd>G C</kbd></li>
+    </ul>
+  </div>
+</div>
+
+<script>
+/* ---------------- tabs ---------------- */
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('is-active',t.dataset.tab===name));
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.toggle('is-active',p.dataset.panel===name));
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
+/* deep links (readiness ✗, inspection-address link) */
+document.querySelectorAll('[data-goto]').forEach(el=>el.addEventListener('click',e=>{
+  e.preventDefault(); const tab=el.dataset.goto; showTab(tab);
+  if(el.dataset.field==='vat'){const r=document.getElementById('vatRow'); r.classList.add('is-flash'); r.scrollIntoView({block:'center'}); setTimeout(()=>r.classList.remove('is-flash'),900); setTimeout(()=>document.getElementById('vatVal').click(),250);}
+}));
+document.getElementById('msgbarLink').addEventListener('click',e=>{e.preventDefault();document.querySelector('.sidebar').scrollIntoView({behavior:'smooth',block:'start'});});
+
+/* ---------------- readiness state ---------------- */
+const state={requiredFields:false, conflicts:true, images:false, address:true};
+let vatValue=null;
+function renderReadiness(){
+  document.querySelectorAll('.rdz__item').forEach(it=>{
+    const ok=state[it.dataset.key];
+    it.classList.toggle('ok',ok); it.classList.toggle('bad',!ok);
+    it.querySelector('.rdz__g').textContent=ok?'✓':'✗';
+  });
+  const okCount=Object.values(state).filter(Boolean).length;
+  document.getElementById('rdzCount').textContent=okCount+' of 4';
+  // meter
+  document.querySelector('[data-tick="requiredFields"]').classList.toggle('on',state.requiredFields);
+  document.querySelector('[data-tick="images-x"]').classList.toggle('on',state.images);
+  const blocks=4-okCount;
+  const mb=document.getElementById('msgbar');
+  document.getElementById('blockN').textContent=blocks;
+  mb.classList.toggle('hidden',blocks===0);
+  const ready=blocks===0;
+  const sb=document.getElementById('submitBtn'), dl=document.getElementById('dlBtn');
+  sb.classList.toggle('is-disabled',!ready); dl.classList.toggle('is-disabled',!ready);
+  sb.title=ready?'Ready — submit to EVA':'Resolve '+blocks+' readiness item'+(blocks>1?'s':'')+' to enable';
+  dl.title=ready?'Download the 12-field EVA JSON':'Not ready — '+blocks+' items block submit';
+}
+function resolveReadiness(key){state[key]=true;renderReadiness();updateJSON();}
+
+/* ---------------- inline edit ---------------- */
+function startEdit(el){
+  if(el.classList.contains('editing'))return;
+  const prev=el.textContent.trim(); el.classList.add('editing');
+  const ctl=el.dataset.control||'text'; let input;
+  if(ctl==='select'){
+    input=document.createElement('select');
+    (el.dataset.options||'').split('|').forEach(o=>{const op=document.createElement('option');op.textContent=o;if(o===prev)op.selected=true;input.appendChild(op);});
+  }else if(ctl==='textarea'){ input=document.createElement('textarea'); input.value=prev; input.style.width='100%'; input.style.minHeight='80px'; }
+  else { input=document.createElement('input'); input.type='text'; input.value=prev; input.size=Math.max(prev.length,6); }
+  el.textContent=''; el.appendChild(input); input.focus(); if(input.select)input.select();
+  let done=false;
+  function commit(){
+    if(done)return; done=true;
+    const v=(input.value||'').trim()||prev; el.classList.remove('editing'); el.textContent=v;
+    const tick=document.createElement('span'); tick.className='savetick show'; tick.textContent='✓'; el.appendChild(tick); setTimeout(()=>tick.remove(),1400);
+    // flip provenance glyph in this row → reviewed
+    const row=el.closest('.frow');
+    if(row){const prov=row.querySelector('.prov'); if(prov){prov.dataset.state='check'; prov.querySelector('.prov__g').textContent='✓';}}
+    // field-specific hooks
+    if(el.dataset.field==='vat'){
+      if(v!=='choose'){vatValue=/Yes/.test(v)?'Yes':'No'; const req=document.getElementById('vatReq'); if(req)req.remove();
+        state.requiredFields=true; renderReadiness();}
+    }
+    updateJSON();
+  }
+  input.addEventListener('blur',commit);
+  input.addEventListener('keydown',ev=>{
+    ev.stopPropagation();
+    if(ev.key==='Enter'&&ctl!=='textarea'){ev.preventDefault();commit();}
+    if(ev.key==='Escape'){done=true;el.classList.remove('editing');el.textContent=prev;}
+  });
+}
+document.addEventListener('click',e=>{const live=e.target.closest('.live'); if(live){e.preventDefault();startEdit(live);}});
+
+/* ---------------- evidence: reg-visible drives images ---------------- */
+document.getElementById('regSw').addEventListener('click',function(){
+  this.classList.toggle('on'); this.classList.toggle('sw--ok');
+  if(this.classList.contains('on')){
+    resolveReadiness('images');
+    document.querySelector('[data-key="images"] .rdz__link').textContent='Evidence · 2/2';
+  }
+});
+/* generic switches */
+document.querySelectorAll('.sw:not([data-reg])').forEach(s=>s.addEventListener('click',function(){this.classList.toggle('on');}));
+/* image order move */
+document.getElementById('orderlist').addEventListener('click',e=>{
+  const b=e.target.closest('[data-mv]'); if(!b)return; const row=b.closest('.olrow');
+  if(b.dataset.mv==='up'&&row.previousElementSibling)row.parentNode.insertBefore(row,row.previousElementSibling);
+  if(b.dataset.mv==='down'&&row.nextElementSibling)row.parentNode.insertBefore(row.nextElementSibling,row);
+  [...document.querySelectorAll('#orderlist .olrow__n')].forEach((n,i)=>n.textContent=String(i+1).padStart(2,'0'));
+});
+/* chaser channel */
+document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.seg button').forEach(x=>x.classList.remove('is-active'));b.classList.add('is-active');}));
+
+/* ---------------- live JSON ---------------- */
+function updateJSON(){
+  const vat=vatValue?('"'+vatValue+'"'):'<span class="nul">null</span>';
+  const html=
+`{
+  <span class="k">"workProvider"</span>: "Aviva",
+  <span class="k">"claimantName"</span>: "J. Okafor",
+  <span class="k">"claimantTel"</span>: "07700 900118",
+  <span class="k">"claimantEmail"</span>: "j.okafor@mail.com",
+  <span class="k">"vehicle"</span>: "Ford Focus 1.0",
+  <span class="k">"mileage"</span>: 48210,
+  <span class="k">"mileageUnit"</span>: "Miles",
+  <span class="k">"vatStatus"</span>: ${vat},
+  <span class="k">"accidentCircumstances"</span>: "Third party failed to stop…",
+  <span class="k">"inspectionAddress"</span>: ["Pelican Bodyworks","Unit 4, Faraday Mill","Cattedown Road","Plymouth","PL4 0ST","Devon"],
+  <span class="k">"dateOfLoss"</span>: "2026-05-12",
+  <span class="k">"dateOfInstruction"</span>: "2026-05-18"
+}`;
+  document.getElementById('jsonPre').innerHTML=html;
+  const mj=document.getElementById('modalJson'); if(mj)mj.innerHTML=html;
+}
+document.getElementById('jsonToggle').addEventListener('click',()=>document.getElementById('jsonbox').classList.toggle('open'));
+
+/* ---------------- overflow menu ---------------- */
+const overflow=document.getElementById('overflow');
+document.getElementById('ovBtn').addEventListener('click',e=>{e.stopPropagation();overflow.classList.toggle('open');});
+document.addEventListener('click',()=>overflow.classList.remove('open'));
+
+/* ---------------- submit modal ---------------- */
+const modal=document.getElementById('submitModal');
+function openModal(){
+  if(document.getElementById('submitBtn').classList.contains('is-disabled'))return;
+  updateJSON(); modal.hidden=false;
+}
+function closeModal(){modal.hidden=true;}
+document.getElementById('submitBtn').addEventListener('click',openModal);
+modal.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeModal));
+document.getElementById('seqInput').addEventListener('input',function(){
+  const s=this.value.replace(/\D/g,'').slice(0,3); this.value=s;
+  document.getElementById('evaCode').textContent=('ccpy26'+s).toLowerCase();
+  document.getElementById('boxFolder').textContent=('CCPY26'+s).toUpperCase();
+});
+document.getElementById('modalSubmit').addEventListener('click',()=>{closeModal();alert('Submitted (mock) — EVA JSON exported · Box folder CCPY26'+document.getElementById('seqInput').value+' would be augmented.');});
+
+/* ---------------- cmd-k + keyboard ---------------- */
+const cmdk=document.getElementById('cmdk'), cmdkInput=document.getElementById('cmdkInput');
+function openCmdk(){cmdk.hidden=false;setTimeout(()=>cmdkInput.focus(),10);} function closeCmdk(){cmdk.hidden=true;}
+document.getElementById('searchOpen').addEventListener('click',openCmdk);
+cmdk.querySelector('[data-close]').addEventListener('click',closeCmdk);
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();cmdk.hidden?openCmdk():closeCmdk();}
+  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault(); if(!modal.hidden){document.getElementById('modalSubmit').click();} else {openModal();}}
+  if(e.key==='/'&&!/input|textarea|select/i.test(document.activeElement.tagName)){e.preventDefault();openCmdk();}
+  if(e.key==='Escape'){closeCmdk();closeModal();}
+});
+
+/* init */
+renderReadiness(); updateJSON();
+</script>
+</body>
+</html>

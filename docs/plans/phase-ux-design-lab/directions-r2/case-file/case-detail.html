@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Dossier · CCPY26050</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Libre+Franklin:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{
+ colors:{
+  desk:'#2E2823','desk-edge':'#1F1B17','desk-raised':'#3A332B','desk-ink':'#EFE7D6','desk-ink-muted':'#B6A88C',
+  paper:'#F5EEDD','paper-raised':'#FBF6E9','paper-sunken':'#EBDFC4',manila:'#E6D2A0','manila-edge':'#CBB377',hairline:'#DBCBA4','rule-strong':'#BBA877',
+  ink:'#2B241A','ink-secondary':'#574B38','ink-muted':'#6B5C42','ink-faint':'#9C8B6C',
+  stamp:'#B23A2E','stamp-hover':'#963023','stamp-text':'#8E2E22'},
+ fontFamily:{display:['"Zilla Slab"','serif'],sans:['"Libre Franklin"','system-ui','sans-serif'],mono:['"Courier Prime"','ui-monospace','monospace']},
+ borderRadius:{tab:'6px 6px 0 0',card:'3px',control:'2px'},
+ boxShadow:{sheet:'0 1px 0 rgba(255,255,255,.6) inset,0 2px 8px -2px rgba(43,36,26,.18)',tab:'0 -1px 3px rgba(43,36,26,.12)'}}}}
+</script>
+<style>
+:root{--g:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+body{font-family:'Libre Franklin',system-ui,sans-serif;color:#2B241A;background:#F5EEDD}
+body::before{content:"";position:fixed;inset:0;background-image:var(--g);opacity:.035;pointer-events:none;z-index:0;mix-blend-mode:multiply}
+*:focus-visible{outline:2px solid #B23A2E;outline-offset:2px}
+.eyebrow{font-family:'Zilla Slab';font-weight:600;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#6B5C42}
+.disp{font-family:'Zilla Slab'}.mono{font-family:'Courier Prime'}.tnum{font-variant-numeric:tabular-nums}
+.stamp{position:relative;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:2px solid var(--si);border-radius:2px;background:var(--st);color:var(--si);font-family:'Courier Prime';font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;line-height:1;transform:rotate(-3.5deg);white-space:nowrap}
+.stamp::before{content:"";position:absolute;inset:2px;border:1px solid var(--si);border-radius:1px;opacity:.8;pointer-events:none}
+.stamp::after{content:"";position:absolute;inset:0;border-radius:2px;background-image:var(--g);background-size:90px;opacity:.13;mix-blend-mode:multiply;pointer-events:none}
+.stamp.hero{font-size:16px;padding:9px 15px;gap:7px}
+.stamp.mini{font-size:10px;padding:3px 7px;transform:rotate(-2deg);letter-spacing:.08em}
+.s-review{--si:#B23A2E;--st:#F4DDD5}.s-held{--si:#9A6B12;--st:#F4E6C2}.s-ready{--si:#4A6B33;--st:#E4EACE}.s-neutral{--si:#6B5C42;--st:#EBDFC4}.s-filed{--si:#5E6B72;--st:#E3E4DD}
+@keyframes press{from{transform:rotate(-3.5deg) scale(.96) translateY(1px);opacity:0}to{transform:rotate(-3.5deg) scale(1) translateY(0);opacity:1}}
+.press{animation:press .18s cubic-bezier(.2,.7,.3,1) both}
+@media (prefers-reduced-motion:reduce){.press{animation:none}}
+.vrm{display:inline-flex;align-items:stretch;border:1px solid #15110a;border-radius:3px;overflow:hidden;font-family:'Courier Prime';font-weight:700;line-height:1}
+.vrm .gb{background:#063298;color:#fff;font-size:7px;padding:0 3px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.vrm .gb b{font-size:8px}.vrm .reg{background:#F4C233;color:#161616;padding:4px 9px;font-size:16px;letter-spacing:.05em}
+.railitem{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 14px;min-height:42px;font-family:'Zilla Slab';font-weight:600;font-size:14px;color:#B6A88C;border-left:2px solid transparent;text-decoration:none}
+.railitem:hover{background:#3A332B;color:#EFE7D6}.railitem.active{background:#3A332B;color:#EFE7D6;border-left-color:#B23A2E}
+.railitem.sub{font-size:13px;padding-left:26px;min-height:38px;font-family:'Libre Franklin';font-weight:500}
+.railcount{font-family:'Courier Prime';font-weight:700;font-size:12px}.railitem.disabled{opacity:.4;cursor:not-allowed}
+.rail-scroll::-webkit-scrollbar{width:8px}.rail-scroll::-webkit-scrollbar-thumb{background:#3A332B;border-radius:4px}
+/* action buttons */
+.act{font-family:'Libre Franklin';font-weight:600;font-size:13px;padding:7px 12px;border:1px solid #BBA877;border-radius:2px;background:#FBF6E9;color:#2B241A;display:inline-flex;align-items:center;gap:6px;cursor:pointer;min-height:38px}
+.act:hover{background:#fff}
+.act.primary{background:#B23A2E;border-color:#963023;color:#fff}.act.primary:hover{background:#963023}
+.act:disabled,.act.off{opacity:.55;cursor:not-allowed;background:#EBDFC4}
+.act.off:hover{background:#EBDFC4}
+/* source stamp / provenance */
+.src{display:inline-flex;align-items:center;gap:4px;font-family:'Courier Prime';font-weight:700;font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border:1px solid var(--si);border-radius:2px;background:var(--st);color:var(--si);white-space:nowrap}
+.p-pdf{--si:#6B5C42;--st:#EBDFC4}.p-ai{--si:#9A6B12;--st:#F4E6C2}.p-corpus{--si:#4A6B33;--st:#E4EACE}.p-manual{--si:#8E2E22;--st:#F4DDD5}.p-dvla{--si:#5E6B72;--st:#E3E4DD}
+.glyph-ok{color:#4A6B33}.glyph-dot{color:#9A6B12}.glyph-warn{color:#B23A2E}
+/* field row */
+.frow{display:grid;grid-template-columns:170px 1fr auto;gap:12px;align-items:center;padding:9px 12px;border-bottom:1px solid #DBCBA4}
+.frow.flag{background:#F4DDD5/.4;background:rgba(244,221,213,.5)}
+.fctl{font-family:'Libre Franklin';font-size:14px;padding:6px 9px;border:1px solid #BBA877;border-radius:2px;background:#FBF6E9;width:100%}
+.fctl:focus{background:#fff}
+@media(max-width:640px){.frow{grid-template-columns:1fr;gap:6px}}
+/* divider tabs */
+.dtab{position:relative;border:1px solid #CBB377;border-bottom:none;border-radius:6px 6px 0 0;padding:9px 16px;font-family:'Zilla Slab';font-weight:600;font-size:14px;color:#574B38;cursor:pointer;background:var(--stock);white-space:nowrap}
+.dtab:hover{filter:brightness(1.04)}
+.dtab[aria-selected=true]{background:#FBF6E9;color:#2B241A;transform:translateY(2px);z-index:5;box-shadow:0 -1px 3px rgba(43,36,26,.1);border-top:2px solid #B23A2E}
+.dtab[aria-selected=true]::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:3px;background:var(--stock)}
+/* readiness */
+.rchk{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px dashed #CBB377;font-size:13px}
+.rchk .ic{font-family:'Courier Prime';font-weight:700;flex-shrink:0}
+.rlink{color:#8E2E22;text-decoration:underline;text-decoration-color:#B23A2E;text-underline-offset:2px;cursor:pointer;font-weight:600}
+.fhi{animation:hi 1.4s ease}@keyframes hi{0%,40%{background:#F4DDD5}100%{background:transparent}}
+@media (max-width:1023px){#sidebar{position:static !important;width:100% !important}}
+@media (max-width:767px){#rail{position:fixed;left:0;top:56px;bottom:0;transform:translateX(-100%);transition:transform .2s;z-index:50}#rail.open{transform:none}}
+.thumb{aspect-ratio:4/3;border:1px solid #CBB377;border-radius:3px;object-fit:cover;width:100%;display:block}
+.tinput{font-family:'Libre Franklin';font-size:13px;padding:6px 9px;border:1px solid #BBA877;border-radius:2px;background:#FBF6E9;width:100%}
+</style>
+</head>
+<body class="min-h-screen">
+<header class="bg-desk text-desk-ink border-b border-desk-edge h-14 flex items-center gap-3 px-3 sticky top-0 z-[60]">
+  <button id="navToggle" class="md:hidden text-desk-ink text-xl w-10 h-10 grid place-items-center rounded-control hover:bg-desk-raised" aria-label="Menu">☰</button>
+  <div class="flex items-baseline gap-2 shrink-0"><span class="disp font-bold text-[20px] tracking-tight">The&nbsp;Dossier</span></div>
+  <div class="flex-1 max-w-xl mx-auto relative">
+    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-desk-ink-muted text-sm">⌕</span>
+    <input class="w-full bg-desk-raised border border-desk-edge rounded-control pl-8 pr-3 h-9 text-desk-ink placeholder:text-desk-ink-muted mono text-[13px]" placeholder="VRM / Case·PO / claimant…">
+  </div>
+  <div class="hidden md:flex items-center gap-2 mono text-[12px] text-desk-ink-muted shrink-0"><span>Updated&nbsp;09:14</span><button class="w-8 h-8 grid place-items-center rounded-control hover:bg-desk-raised hover:text-desk-ink" aria-label="Refresh">↻</button></div>
+</header>
+<div id="scrim" onclick="toggleNav()" class="hidden fixed inset-0 bg-black/40 z-40 md:!hidden"></div>
+
+<div class="flex">
+  <nav id="rail" class="bg-desk w-[232px] shrink-0 border-r border-desk-edge flex flex-col rail-scroll overflow-y-auto" style="height:calc(100vh - 56px)" aria-label="Primary">
+    <a href="index.html" class="railitem mt-2"><span>Cockpit</span></a>
+    <a href="#" class="railitem"><span>Inbox / Triage</span><span class="railcount">12</span></a>
+    <div class="px-[14px] pt-3 pb-1"><span class="eyebrow !text-[10px] !text-desk-ink-muted">Queues</span></div>
+    <a href="queues.html" class="railitem sub"><span>Not ready</span><span class="railcount">6</span></a>
+    <a href="queues.html" class="railitem sub"><span>Review</span><span class="railcount text-stamp">7</span></a>
+    <a href="queues.html" class="railitem sub"><span>Held</span><span class="railcount">9</span></a>
+    <a href="queues.html" class="railitem sub"><span>Ready</span><span class="railcount">5</span></a>
+    <a href="case-detail.html" class="railitem active mt-1"><span>Cases</span></a>
+    <a href="#" class="railitem"><span>Manual intake</span></a>
+    <div class="mt-auto border-t border-desk-edge pt-2 pb-4">
+      <div class="px-[14px] py-1"><span class="eyebrow !text-[10px] !text-desk-ink-muted opacity-70">Admin</span></div>
+      <a href="#" class="railitem"><span>Corpus</span></a>
+      <a href="#" class="railitem"><span>Improvement</span><span class="railcount">3</span></a>
+      <a href="#" class="railitem"><span>Settings</span></a>
+      <a href="#" class="railitem"><span>Action logs</span></a>
+      <span class="railitem disabled"><span>Engineer</span><span class="stamp mini s-filed scale-90">⊘ off</span></span>
+    </div>
+  </nav>
+
+  <main class="flex-1 min-w-0 relative z-10" style="min-height:calc(100vh - 56px)">
+   <div class="max-w-[1200px] mx-auto px-4 sm:px-6 py-5">
+
+    <!-- FOLDER LABEL HEADER -->
+    <div class="bg-paper-raised border border-hairline rounded-card shadow-sheet p-4">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <span class="vrm shrink-0"><span class="gb"><b>GB</b></span><span class="reg">VK19 ZRT</span></span>
+        <div class="min-w-0">
+          <div class="flex items-baseline gap-2 flex-wrap">
+            <span class="mono font-bold text-[18px] text-ink">CCPY26050</span>
+            <span class="disp font-semibold text-[16px]">Aviva</span>
+            <span class="mono text-[12px] text-ink-muted">(CCPY)</span>
+          </div>
+          <div class="text-[13px] text-ink-secondary">2019 Ford Focus 1.0 EcoBoost · Claimant: J. Okafor</div>
+        </div>
+        <div class="flex items-center gap-3 ml-auto">
+          <div class="text-right hidden sm:block">
+            <div class="mono text-[12px] text-ink-muted">✉ email · 5d</div>
+            <span class="stamp mini s-review">▲ Past due</span>
+          </div>
+          <span class="stamp hero s-review press">Review</span>
+        </div>
+      </div>
+      <!-- action cluster -->
+      <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-hairline">
+        <button class="act">＋ Add evidence</button>
+        <button class="act">⇄ Merge</button>
+        <button class="act">⏸ Hold / Release</button>
+        <button class="act off" disabled title="blocked — resolve readiness first">⬇ Download JSON <span class="stamp mini s-filed scale-90 ml-1">⊘</span></button>
+        <button class="act primary" disabled title="3 items block submit" style="opacity:.6;cursor:not-allowed" onclick="openSubmit()">▮ Submit to EVA <span class="mono text-[11px]">⊘</span></button>
+      </div>
+    </div>
+
+    <!-- ROUTING-SLIP SPINE -->
+    <div class="flex items-center gap-1 my-3 px-3 py-2 bg-paper-sunken/70 border border-hairline rounded-card overflow-x-auto">
+      <span class="eyebrow !text-[10px] mr-2 shrink-0">Spine</span>
+      <span class="mono text-[12px] text-ink-muted">New</span><span class="text-ink-muted">→</span>
+      <span class="mono text-[12px] text-ink-muted">Not ready</span><span class="text-ink-muted">→</span>
+      <span class="mono text-[12px] font-bold text-stamp px-2 py-0.5 border border-stamp rounded-control bg-paper-raised">‹ Review ›</span><span class="text-ink-muted">→</span>
+      <span class="mono text-[12px] text-ink-muted">Submitted</span>
+    </div>
+
+    <!-- BLOCKED BAR (only when blocked) -->
+    <div class="flex items-center gap-2 mb-3 px-3 py-2.5 border-l-[3px] border-stamp bg-[#F4DDD5]/60 rounded-r-card">
+      <span class="stamp mini s-review">▲</span>
+      <span class="text-[13px] font-semibold text-stamp-text">3 items block submit</span>
+      <span class="text-[13px] text-ink-secondary">— see the Readiness checklist →</span>
+    </div>
+
+    <!-- WORKSPACE: tabs + sidebar -->
+    <div class="flex flex-col lg:flex-row gap-5 items-start">
+      <div class="flex-1 min-w-0 w-full">
+
+        <!-- DIVIDER TABS -->
+        <div role="tablist" class="flex gap-[3px] border-b-2 border-rule-strong overflow-x-auto" aria-label="Case sections">
+          <button role="tab" class="dtab" style="--stock:#E6D2A0" data-t="fields" aria-selected="true">Fields</button>
+          <button role="tab" class="dtab" style="--stock:#CDCFA8" data-t="evidence" aria-selected="false">Evidence</button>
+          <button role="tab" class="dtab" style="--stock:#B9C6C4" data-t="address" aria-selected="false">Address</button>
+          <button role="tab" class="dtab" style="--stock:#EAD9B0" data-t="notes" aria-selected="false">Notes</button>
+          <button role="tab" class="dtab" style="--stock:#DDB9AC" data-t="chasers" aria-selected="false">Chasers</button>
+          <button class="dtab" style="--stock:#EBDFC4" title="History / Enrichment (overflow)">⋯</button>
+        </div>
+
+        <!-- PANEL -->
+        <div class="bg-paper-raised border border-hairline border-t-0 rounded-b-card shadow-sheet">
+
+          <!-- ===== FIELDS ===== -->
+          <section data-panel="fields">
+            <!-- Provider & claimant -->
+            <div class="px-3 py-2 bg-paper-sunken/50 border-b border-rule-strong"><span class="eyebrow">Provider &amp; Claimant</span></div>
+            <div id="f-provider" class="frow"><label class="eyebrow !text-ink-secondary">Work provider</label><select class="fctl"><option>Aviva</option><option>Acme</option><option>Direct Line</option></select><span class="src p-corpus">Corpus <span class="glyph-ok">✓</span></span></div>
+            <div class="frow"><label class="eyebrow !text-ink-secondary">Claimant name</label><input class="fctl" value="J. Okafor"><span class="src p-pdf">PDF <span class="glyph-ok">✓</span></span></div>
+            <div id="f-tel" class="frow"><label class="eyebrow !text-ink-secondary">Claimant tel.</label><input class="fctl" value="07700 900142"><span class="src p-pdf">PDF <span class="glyph-dot">●</span></span></div>
+            <div class="frow"><label class="eyebrow !text-ink-secondary">Claimant email</label><input class="fctl" value="j.okafor@email.com"><span class="src p-manual">Manual <span class="glyph-ok">✓</span></span></div>
+            <!-- Vehicle -->
+            <div class="px-3 py-2 bg-paper-sunken/50 border-b border-t border-rule-strong"><span class="eyebrow">Vehicle</span></div>
+            <div id="f-vehicle" class="frow flag"><label class="eyebrow !text-ink-secondary">Vehicle (mk/md)</label>
+              <div><input class="fctl !border-stamp" value="Ford Focus"><div class="mono text-[11px] text-stamp-text mt-1">▲ DVLA says “Ford Focus Titanium” — PDF says “Ford Focus”</div></div>
+              <span class="src p-dvla">DVLA <span class="glyph-warn">▲</span></span></div>
+            <div class="frow"><label class="eyebrow !text-ink-secondary">Mileage</label><input class="fctl mono" value="48,210"><span class="src p-ai">AI <span class="glyph-dot">●</span></span></div>
+            <div class="frow"><label class="eyebrow !text-ink-secondary">Mileage unit</label><select class="fctl"><option>Miles</option><option>Km</option></select><span class="src p-pdf">PDF <span class="glyph-ok">✓</span></span></div>
+            <div id="f-vat" class="frow flag"><label class="eyebrow !text-ink-secondary">VAT status</label>
+              <div><select class="fctl !border-stamp"><option>No</option><option>Yes</option></select><div class="mono text-[11px] text-stamp-text mt-1">▲ conflict — instruction letter implies VAT-registered</div></div>
+              <span class="src p-pdf">PDF <span class="glyph-warn">▲</span></span></div>
+            <!-- Incident -->
+            <div class="px-3 py-2 bg-paper-sunken/50 border-b border-t border-rule-strong"><span class="eyebrow">Incident</span></div>
+            <div class="frow !block"><label class="eyebrow !text-ink-secondary block mb-1">Accident circumstances</label><textarea class="fctl" rows="2" style="max-width:78ch">Third party reversed into claimant's stationary vehicle in a car park, impacting the offside rear quarter and bumper.</textarea><div class="text-right mt-1"><span class="src p-pdf">PDF <span class="glyph-ok">✓</span></span></div></div>
+            <div id="f-address" class="frow"><label class="eyebrow !text-ink-secondary">Inspection address</label><button onclick="switchTab('address')" class="fctl text-left text-ink-secondary mono text-[12px]">6-line address → open Address tab</button><span class="src p-corpus">Corpus <span class="glyph-dot">●</span></span></div>
+            <!-- Dates -->
+            <div class="px-3 py-2 bg-paper-sunken/50 border-b border-t border-rule-strong"><span class="eyebrow">Dates</span></div>
+            <div class="frow"><label class="eyebrow !text-ink-secondary">Date of loss</label><input class="fctl mono" value="12/05/2026"><span class="src p-pdf">PDF <span class="glyph-ok">✓</span></span></div>
+            <div class="frow !border-b-0"><label class="eyebrow !text-ink-secondary">Date of instruction</label><input class="fctl mono" value="18/05/2026"><span class="src p-pdf">PDF <span class="glyph-ok">✓</span></span></div>
+            <!-- JSON preview -->
+            <details class="border-t border-rule-strong">
+              <summary class="px-3 py-2 cursor-pointer eyebrow select-none">Live EVA JSON preview ▾</summary>
+              <pre class="mono text-[11px] leading-relaxed bg-paper-sunken/60 px-4 py-3 overflow-x-auto text-ink-secondary">{
+  "work_provider": "Aviva",
+  "claimant_name": "J. Okafor",
+  "claimant_tel": "07700 900142",
+  "claimant_email": "j.okafor@email.com",
+  "vehicle": "Ford Focus",        <span class="text-stamp-text">// ▲ conflict</span>
+  "mileage": 48210, "mileage_unit": "Miles",
+  "vat_registered": false,          <span class="text-stamp-text">// ▲ conflict</span>
+  "date_of_loss": "2026-05-12",
+  "date_of_instruction": "2026-05-18",
+  "inspection_address": null        <span class="text-stamp-text">// ● not decided</span>
+}</pre>
+            </details>
+          </section>
+
+          <!-- ===== EVIDENCE ===== -->
+          <section data-panel="evidence" hidden>
+            <div class="px-3 py-2 bg-paper-sunken/50 border-b border-rule-strong"><span class="eyebrow">Documents</span></div>
+            <div class="px-3 py-2 divide-y divide-hairline">
+              <div class="flex items-center gap-3 py-2 text-[13px]"><span class="mono text-ink-muted">PDF</span><span class="flex-1">aviva_instruction.pdf</span><span class="mono text-[12px] text-ink-muted">2 pp · 0.4 MB</span></div>
+              <div class="flex items-center gap-3 py-2 text-[13px]"><span class="mono text-ink-muted">PDF</span><span class="flex-1">engineer_estimate.pdf</span><span class="mono text-[12px] text-ink-muted">1 p · 0.2 MB</span></div>
+            </div>
+            <!-- ledger annotation: the ONE permitted micro-rule -->
+            <div class="mx-3 my-2 px-3 py-2 border-l-[3px] border-rule-strong bg-paper-sunken/40 text-[12px] text-ink-secondary">
+              <span class="eyebrow !text-[10px] block mb-0.5">EVA photo order</span>
+              Upload 2 preview photos first — vehicle overview (full registration visible) + main-damage closeup — then all photos in sequence, including those two again.
+            </div>
+            <div class="px-3 py-2 bg-paper-sunken/50 border-y border-rule-strong flex items-center justify-between"><span class="eyebrow">Photos</span><span class="mono text-[11px] text-stamp-text">0 accepted · need ≥2 incl. overview + closeup</span></div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-3">
+              <div class="bg-paper-sunken/40 border border-hairline rounded-card p-2">
+                <img class="thumb" src="https://picsum.photos/seed/focus1/240/180" alt="">
+                <select class="tinput mt-2 text-[12px] mono"><option>overview</option><option>damage_closeup</option><option>other</option></select>
+                <div class="flex items-center justify-between mt-1"><span class="stamp mini s-ready">reg ✓</span><label class="text-[11px] flex items-center gap-1 mono"><input type="checkbox"> exclude</label></div>
+              </div>
+              <div class="bg-paper-sunken/40 border border-hairline rounded-card p-2">
+                <img class="thumb" src="https://picsum.photos/seed/focus2/240/180" alt="">
+                <select class="tinput mt-2 text-[12px] mono"><option>damage_closeup</option><option>overview</option><option>other</option></select>
+                <div class="flex items-center justify-between mt-1"><span class="stamp mini s-neutral">reg —</span><label class="text-[11px] flex items-center gap-1 mono"><input type="checkbox"> exclude</label></div>
+              </div>
+              <div class="bg-paper-sunken/40 border border-hairline rounded-card p-2">
+                <img class="thumb" src="https://picsum.photos/seed/focus3/240/180" alt="">
+                <select class="tinput mt-2 text-[12px] mono"><option>other</option><option>overview</option><option>damage_closeup</option></select>
+                <div class="flex items-center justify-between mt-1"><span class="stamp mini s-neutral">reg —</span><label class="text-[11px] flex items-center gap-1 mono text-stamp-text"><input type="checkbox" checked> exclude</label></div>
+              </div>
+              <button class="bg-paper-sunken/40 border border-dashed border-rule-strong rounded-card grid place-items-center text-ink-muted aspect-[4/3] text-[13px]">＋ Add photo</button>
+            </div>
+            <div class="px-3 py-2 bg-paper-sunken/50 border-y border-rule-strong flex items-center gap-3"><span class="eyebrow">EVA photo order</span><span class="mono text-[11px] text-ink-muted">drag to reorder · preview-then-all</span></div>
+            <ol class="p-3 space-y-1">
+              <li class="flex items-center gap-3 px-3 py-2 bg-paper-sunken/40 border border-hairline rounded-card mono text-[13px]"><span class="text-ink-muted">⠿</span><span class="font-bold">1</span><span>overview · reg-visible</span><span class="stamp mini s-ready ml-auto">preview</span></li>
+              <li class="flex items-center gap-3 px-3 py-2 bg-paper-sunken/40 border border-hairline rounded-card mono text-[13px]"><span class="text-ink-muted">⠿</span><span class="font-bold">2</span><span>damage_closeup</span><span class="stamp mini s-ready ml-auto">preview</span></li>
+              <li class="flex items-center gap-3 px-3 py-2 bg-paper-sunken/40 border border-hairline rounded-card mono text-[13px]"><span class="text-ink-muted">⠿</span><span class="font-bold">3</span><span>overview · reg-visible</span></li>
+              <li class="flex items-center gap-3 px-3 py-2 bg-paper-sunken/40 border border-hairline rounded-card mono text-[13px]"><span class="text-ink-muted">⠿</span><span class="font-bold">4</span><span>damage_closeup</span></li>
+            </ol>
+          </section>
+
+          <!-- ===== ADDRESS ===== -->
+          <section data-panel="address" hidden>
+            <div class="px-3 py-2 bg-paper-sunken/50 border-b border-rule-strong flex items-center justify-between"><span class="eyebrow">Current decision</span><span class="src p-corpus">Aviva policy: corpus-pick</span></div>
+            <div class="p-3">
+              <div class="mono text-[12px] text-stamp-text mb-3">● Not decided — pick a suggestion or record an Image-Based Assessment.</div>
+              <span class="eyebrow block mb-2">Ranked suggestions</span>
+              <div class="space-y-2">
+                <label class="flex items-start gap-3 p-3 border border-hairline rounded-card bg-paper-sunken/40 cursor-pointer hover:bg-paper-sunken/70"><input type="radio" name="addr" class="mt-1"><div class="flex-1"><div class="mono text-[13px]">Kwik-Fit, 14 Mill Rd, Leeds, LS6 1AB</div><div class="text-[12px] text-ink-muted">seen 31× · last 02/06/2026</div></div><span class="stamp mini s-ready">corpus</span></label>
+                <label class="flex items-start gap-3 p-3 border border-hairline rounded-card bg-paper-sunken/40 cursor-pointer hover:bg-paper-sunken/70"><input type="radio" name="addr" class="mt-1"><div class="flex-1"><div class="mono text-[13px]">Halfords Autocentre, Roundhay Rd, Leeds, LS8 5AT</div><div class="text-[12px] text-ink-muted">seen 12× · last 21/05/2026</div></div><span class="stamp mini s-ready">corpus</span></label>
+              </div>
+              <span class="eyebrow block mt-4 mb-2">Or edit a full 6-line address</span>
+              <div class="grid sm:grid-cols-2 gap-2 max-w-xl">
+                <input class="tinput" placeholder="Line 1"><input class="tinput" placeholder="Line 2"><input class="tinput" placeholder="Town"><input class="tinput" placeholder="County"><input class="tinput mono" placeholder="Postcode"><input class="tinput" placeholder="Country">
+              </div>
+              <div class="mt-4 p-3 border-l-[3px] border-stamp bg-[#F4DDD5]/40 rounded-r-card max-w-xl">
+                <label class="flex items-center gap-2 text-[13px] font-semibold"><input type="checkbox" id="iba" onchange="document.getElementById('ibaR').disabled=!this.checked"> Image-Based Assessment (no physical address)</label>
+                <input id="ibaR" class="tinput mt-2" placeholder="Required: reason for IBA…" disabled>
+                <div class="mono text-[11px] text-ink-muted mt-1">No silent default — a reason is recorded on the case.</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===== NOTES ===== -->
+          <section data-panel="notes" hidden>
+            <div class="px-3 py-2 bg-paper-sunken/50 border-b border-rule-strong"><span class="eyebrow">Add note</span></div>
+            <div class="p-3"><textarea class="fctl" rows="2" placeholder="Type a note…" style="max-width:78ch"></textarea><div class="mt-2"><button class="act primary">Add note</button></div></div>
+            <div class="px-3 py-2 bg-paper-sunken/50 border-y border-rule-strong"><span class="eyebrow">Newest first</span></div>
+            <div class="divide-y divide-hairline">
+              <div class="p-3"><div class="flex items-center gap-2 mb-1"><span class="text-[13px] font-semibold">A. Mercer</span><span class="mono text-[11px] text-ink-muted">24/06 · 14:02</span></div><p class="text-[13px] text-ink-secondary">Rang garage — images promised by Thursday. Set chaser due +2d.</p></div>
+              <div class="p-3"><div class="flex items-center gap-2 mb-1"><span class="text-[13px] font-semibold">System</span><span class="mono text-[11px] text-ink-muted">23/06 · 09:11</span></div><p class="text-[13px] text-ink-secondary">DVLA enrichment returned “Titanium” trim — flagged conflict on Vehicle.</p></div>
+            </div>
+          </section>
+
+          <!-- ===== CHASERS ===== -->
+          <section data-panel="chasers" hidden>
+            <div class="px-3 py-2 bg-paper-sunken/50 border-b border-rule-strong"><span class="eyebrow">Carbon-copy chaser</span></div>
+            <div class="p-3 space-y-3">
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="inline-flex border border-rule-strong rounded-control overflow-hidden">
+                  <button class="px-3 py-1.5 text-[13px] bg-paper-raised font-semibold" aria-pressed="true">✉ Email</button>
+                  <button class="px-3 py-1.5 text-[13px] bg-paper-sunken/60 text-ink-muted border-l border-rule-strong">✆ WhatsApp</button>
+                </div>
+                <select class="tinput max-w-[220px]"><option>Template: chase images</option><option>Template: chase instructions</option></select>
+              </div>
+              <textarea class="fctl" rows="5" style="max-width:78ch">Dear Sir/Madam,
+
+Re: VK19 ZRT — CCPY26050. We are awaiting photographs to complete this assessment (vehicle overview showing the full registration + main-damage closeup). Could you please forward these at your earliest convenience.
+
+Kind regards, Collision Engineers</textarea>
+              <div class="flex flex-wrap gap-2">
+                <button class="act">⧉ Copy draft</button>
+                <button class="act primary">Log as drafted</button>
+                <button class="act off" disabled>Box File-Request link <span class="stamp mini s-filed scale-90 ml-1">⊘ off</span></button>
+              </div>
+              <div class="mono text-[11px] text-ink-muted">Never auto-sends — copy into your mail client or log it as drafted.</div>
+            </div>
+          </section>
+
+        </div><!-- /panel -->
+      </div>
+
+      <!-- STICKY SIDEBAR (inside cover) -->
+      <aside id="sidebar" class="w-full lg:w-[320px] shrink-0 lg:sticky lg:top-[72px] space-y-4">
+        <div class="bg-paper-raised border border-hairline rounded-card shadow-sheet p-4">
+          <div class="flex items-center justify-between mb-2"><span class="eyebrow">Readiness</span><span class="stamp mini s-review">3 block</span></div>
+          <div class="rchk"><span class="ic glyph-ok">✓</span><div><div class="font-semibold">Required fields present</div><div class="text-[12px] text-ink-muted">12 of 12 non-empty</div></div></div>
+          <div class="rchk"><span class="ic glyph-warn">✗</span><div><div class="font-semibold">No conflicts</div><div class="text-[12px] text-ink-muted">2 unresolved — <span class="rlink" onclick="deep('fields','f-vat')">VAT</span>, <span class="rlink" onclick="deep('fields','f-vehicle')">Vehicle</span></div></div></div>
+          <div class="rchk"><span class="ic glyph-warn">✗</span><div><div class="font-semibold">≥2 images incl. overview + closeup</div><div class="text-[12px] text-ink-muted">0 accepted — <span class="rlink" onclick="deep('evidence')">go to Evidence</span></div></div></div>
+          <div class="rchk !border-b-0"><span class="ic glyph-warn">✗</span><div><div class="font-semibold">Inspection address decided</div><div class="text-[12px] text-ink-muted">not picked — <span class="rlink" onclick="deep('address')">go to Address</span></div></div></div>
+        </div>
+        <div class="bg-paper-sunken/60 border border-hairline rounded-card p-4">
+          <div class="eyebrow mb-2 opacity-80">Imported details · read-only</div>
+          <dl class="space-y-1.5 text-[12px]">
+            <div class="flex justify-between gap-2"><dt class="text-ink-muted">Source PDF</dt><dd class="mono">aviva_instr.pdf</dd></div>
+            <div class="flex justify-between gap-2"><dt class="text-ink-muted">Received</dt><dd class="mono">09:02 · noreply@aviva</dd></div>
+            <div class="flex justify-between gap-2"><dt class="text-ink-muted">Case/PO</dt><dd class="mono">CCPY26050</dd></div>
+            <div class="flex justify-between gap-2"><dt class="text-ink-muted">Channel</dt><dd class="mono">email</dd></div>
+            <div class="flex justify-between gap-2"><dt class="text-ink-muted">Box folder</dt><dd class="mono">CCPY26050 <span class="text-ink-faint">(not synced ⊘)</span></dd></div>
+          </dl>
+          <div class="mono text-[10px] text-ink-faint mt-2">does not drive readiness</div>
+        </div>
+      </aside>
+    </div>
+   </div>
+  </main>
+</div>
+
+<!-- SUBMIT COVER-SHEET MODAL -->
+<div id="modal" class="hidden fixed inset-0 z-[80] grid place-items-center p-4" role="dialog" aria-modal="true">
+  <div class="absolute inset-0 bg-desk/70" onclick="closeSubmit()"></div>
+  <div class="relative bg-paper-raised border border-rule-strong rounded-card shadow-sheet w-full max-w-md p-5">
+    <div class="flex items-center justify-between mb-3"><span class="eyebrow">Cover sheet · Submit to EVA</span><button onclick="closeSubmit()" class="text-ink-muted text-xl">✕</button></div>
+    <div class="text-center my-4">
+      <span class="mono text-ink-muted text-[12px]">Case / PO</span>
+      <div class="flex items-center justify-center gap-1 mono font-bold text-[22px] mt-1">
+        <span class="text-ink-faint">CCPY</span><span class="text-ink-faint">26</span><input class="w-16 text-center border border-rule-strong rounded-control bg-paper-sunken/60 mono font-bold" value="050" maxlength="3">
+      </div>
+      <div class="mono text-[11px] text-ink-muted mt-1">Principal + year locked · 3-digit sequence editable</div>
+    </div>
+    <div class="grid grid-cols-2 gap-2 text-[12px] mb-4">
+      <div class="p-2 bg-paper-sunken/50 border border-hairline rounded-card"><div class="eyebrow !text-[9px]">EVA code</div><div class="mono">ccpy26050</div></div>
+      <div class="p-2 bg-paper-sunken/50 border border-hairline rounded-card"><div class="eyebrow !text-[9px]">Box folder</div><div class="mono">CCPY26050</div></div>
+    </div>
+    <div class="p-3 border-l-[3px] border-stamp bg-[#F4DDD5]/50 rounded-r-card mb-4 text-[13px] text-stamp-text font-semibold">▲ 3 readiness items still block submit.</div>
+    <div class="flex gap-2">
+      <button class="act flex-1 justify-center">JSON drag-drop export</button>
+      <button class="act off flex-1 justify-center" disabled>Sentry REST <span class="stamp mini s-filed scale-90">⊘</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(name){
+  document.querySelectorAll('.dtab[role=tab]').forEach(b=>b.setAttribute('aria-selected', b.dataset.t===name));
+  document.querySelectorAll('[data-panel]').forEach(p=>p.hidden = p.dataset.panel!==name);
+}
+document.querySelectorAll('.dtab[role=tab]').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.t)));
+function deep(tab,field){switchTab(tab);if(field){const el=document.getElementById(field);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.remove('fhi');void el.offsetWidth;el.classList.add('fhi');}}}
+function openSubmit(){document.getElementById('modal').classList.remove('hidden')}
+function closeSubmit(){document.getElementById('modal').classList.add('hidden')}
+function toggleNav(){document.getElementById('rail').classList.toggle('open');document.getElementById('scrim').classList.toggle('hidden')}
+document.getElementById('navToggle').addEventListener('click',toggleNav);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSubmit()});
+</script>
+</body>
+</html>

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>COCKPIT — collisionspike · concrete ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+/* ===================================================== CONCRETE LEDGER — tokens (§3/§4/§5) */
+:root{
+  --paper:#E9E9E6; --surface:#FFFFFF; --surface-2:#F4F4F2;
+  --rail:#111111; --hairline:#C9C9C4; --border-mid:#8A8A84;
+  --ink-muted:#57574F; --ink-body:#2B2B27; --ink:#0A0A0A;
+  --red:#E10600; --orange:#E8590C; --yellow:#F5B700; --green:#0B7A34; --cobalt:#1A38E5;
+  --plate-yellow:#FFD400; --on-yellow:#0A0A0A;
+  --radius:0;
+  --shadow-hard:4px 4px 0 var(--ink);
+  --shadow-press:2px 2px 0 var(--ink);
+  --rail-w:224px; --hdr-h:52px;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --disp:'Space Grotesk','Public Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink-body);font-family:var(--sans);font-size:14px;line-height:1.4;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:hidden}
+body.dense{font-size:13px}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+::selection{background:var(--cobalt);color:#fff}
+*::-webkit-scrollbar{width:12px;height:12px}
+*::-webkit-scrollbar-thumb{background:var(--border-mid);border:2px solid var(--paper)}
+*::-webkit-scrollbar-track{background:var(--surface-2)}
+:focus-visible{outline:3px solid var(--cobalt);outline-offset:2px}
+
+/* helpers */
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:0}
+.disp{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.tnum{font-variant-numeric:tabular-nums}
+.mut{color:var(--ink-muted)}
+
+/* ===================================================== shell */
+.app{display:grid;grid-template-columns:var(--rail-w) 1fr;min-height:100vh}
+
+/* ---- rail (224 ink block) ---- */
+.rail{position:sticky;top:0;align-self:start;height:100vh;background:var(--rail);color:#EDEDEA;
+  border-right:3px solid var(--ink);display:flex;flex-direction:column;overflow:hidden;z-index:30}
+.rail-brand{display:flex;align-items:center;gap:8px;height:var(--hdr-h);padding:0 16px;
+  border-bottom:2px solid #000;flex:0 0 auto}
+.rail-brand .glyph{font-family:var(--mono);font-size:18px;line-height:1}
+.rail-brand .name{font-family:var(--disp);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  font-size:13px;line-height:1.05}
+.rail-brand .name small{display:block;font-size:9px;color:#8C8C86;letter-spacing:.14em;margin-top:2px}
+.rail-scroll{flex:1 1 auto;overflow-y:auto;padding:14px 0 8px}
+.rail-sec{font-family:var(--disp);text-transform:uppercase;letter-spacing:.16em;font-size:10px;
+  color:#7E7E78;padding:14px 16px 7px}
+.rail-link{display:flex;align-items:center;gap:10px;padding:0 14px;height:38px;color:#CFCFCB;
+  border-left:4px solid transparent;font-size:13px;transition:background .08s linear,color .08s linear}
+.rail-link .ic{width:18px;text-align:center;font-family:var(--mono);font-size:14px;flex:0 0 18px}
+.rail-link .lbl{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:500;font-size:12px}
+.rail-link .ct{margin-left:auto;font-family:var(--mono);font-size:12px;font-weight:500;
+  border:2px solid #3A3A38;padding:1px 6px;color:#E6E6E2;background:#1B1B1A}
+.rail-link:hover{background:#1E1E1D;color:#fff}
+.rail-link.active{background:var(--surface);color:var(--ink);border-left-color:var(--cobalt);font-weight:600}
+.rail-link.active .lbl{color:var(--ink)}
+.rail-link.active .ct{border-color:var(--ink);background:var(--surface);color:var(--ink)}
+.rail-link .ct.blk{background:var(--red);border-color:var(--red);color:#fff}
+.rail-div{height:0;border-top:2px solid #2C2C2A;margin:10px 14px}
+.rail-foot{flex:0 0 auto;border-top:2px solid #000;padding:9px 16px;font-family:var(--mono);
+  font-size:10px;color:#7E7E78;letter-spacing:.04em;line-height:1.6}
+.rail-foot kbd{background:#1E1E1D;border:1px solid #3A3A38;padding:0 4px;color:#CFCFCB}
+
+/* ---- main + header ---- */
+.main{min-width:0;display:flex;flex-direction:column}
+.hdr{position:sticky;top:0;height:var(--hdr-h);background:var(--paper);border-bottom:3px solid var(--ink);
+  display:flex;align-items:center;gap:14px;padding:0 16px;z-index:20}
+.crumb{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:15px}
+.crumb .sep{color:var(--border-mid);margin:0 4px;font-weight:500}
+.search{margin-left:8px;flex:1 1 460px;max-width:560px;display:flex;align-items:center;gap:8px;
+  background:var(--surface);border:2px solid var(--ink);height:34px;padding:0 10px}
+.search .mg{font-family:var(--mono);font-size:14px;color:var(--ink-muted)}
+.search input{border:0;outline:0;background:transparent;flex:1;font-family:var(--mono);font-size:12px;color:var(--ink)}
+.search input::placeholder{color:var(--border-mid)}
+.search kbd{font-family:var(--mono);font-size:10px;border:1px solid var(--border-mid);padding:0 4px;color:var(--ink-muted)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.stamp-upd{font-family:var(--mono);font-size:11px;color:var(--ink-muted);white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;background:var(--surface);
+  border:2px solid var(--ink);font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;
+  font-weight:500;font-size:12px;color:var(--ink);transition:background .08s linear,color .08s linear}
+.btn:hover{background:var(--ink);color:var(--surface)}
+.btn.press{box-shadow:var(--shadow-hard)}
+.btn.press:active{transform:translate(2px,2px);box-shadow:var(--shadow-press)}
+.btn .ic{font-family:var(--mono);font-size:13px}
+.btn-sm{height:26px;padding:0 8px;font-size:11px}
+
+/* ---- canvas + regions ---- */
+.canvas{padding:10px;display:flex;flex-direction:column;gap:10px}
+.region{background:var(--surface);border:2px solid var(--ink)}
+.rhead{display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--paper);
+  padding:7px 12px;border-bottom:2px solid var(--ink)}
+.rhead .rid{font-family:var(--mono);font-size:11px;color:#A7A79F;font-weight:500}
+.rhead .rt{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:13px}
+.rhead .rm{margin-left:auto;font-family:var(--mono);font-size:11px;color:#C7C7BF;display:flex;gap:14px;align-items:center}
+.rhead .rm b{color:#fff;font-weight:700}
+.rlink{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-size:11px;
+  border:2px solid var(--paper);padding:2px 8px;color:var(--paper);transition:background .08s,color .08s}
+.rlink:hover{background:var(--paper);color:var(--ink)}
+.rbody{padding:12px}
+
+/* ---- pipeline (R0) ---- */
+.pipe{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+.station{flex:1 1 0;min-width:118px;border:2px solid var(--ink);border-right-width:0;background:var(--surface);
+  padding:9px 10px 8px;position:relative}
+.station:last-child{border-right-width:2px}
+.station .sn{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;
+  font-size:11px;display:flex;align-items:center;gap:6px}
+.station .sc{font-family:var(--mono);font-size:22px;font-weight:700;line-height:1.05;margin-top:5px}
+.station .ss{font-family:var(--mono);font-size:10px;color:var(--ink-muted);margin-top:2px}
+.station .chev{position:absolute;right:-9px;top:50%;transform:translateY(-50%);z-index:3;
+  font-family:var(--mono);font-size:15px;color:var(--ink);background:var(--surface);padding:0 1px}
+.station.held{background:var(--orange);color:#fff;border-color:var(--ink)}
+.station.held .ss{color:#FFE3D2}
+.station.held .chev{background:var(--orange);color:#fff}
+.station.term{background:var(--surface-2)}
+.station.term .sc{font-size:15px;color:var(--ink-muted);margin-top:8px}
+.brk{font-family:var(--mono);font-weight:700}
+.brk::before{content:"[ "}.brk::after{content:" ]"}
+
+/* ---- triage (R1) ---- */
+.triage{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:0}
+.tcol{border:2px solid var(--ink);border-right-width:0;display:flex;flex-direction:column;min-width:0}
+.tcol:last-child{border-right-width:2px}
+.tcol-h{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:2px solid var(--ink);background:var(--surface-2)}
+.tcol-h .tt{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:12px}
+.tcol-h .tc{margin-left:auto;font-family:var(--mono);font-size:12px;font-weight:700;border:2px solid var(--ink);padding:0 6px}
+.tcol.other .tcol-h{background:#FBEFE9}
+.tcol.other .tcol-h .tt::after{content:" · NEEDS A HUMAN";color:var(--orange);font-size:9px;letter-spacing:.06em}
+.trow{padding:8px 10px;border-bottom:1px solid var(--hairline)}
+.trow:nth-child(even){background:var(--surface-2)}
+.trow .tline1{display:flex;align-items:baseline;gap:6px;min-width:0}
+.trow .snd{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow .dom{font-family:var(--mono);font-size:11px;color:var(--ink-muted)}
+.trow .subtype{margin-left:auto;font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;
+  font-size:9px;border:1.5px solid var(--ink);padding:0 4px;white-space:nowrap}
+.trow .subj{font-size:12px;color:var(--ink-body);margin:3px 0 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow .meta{font-family:var(--mono);font-size:10px;color:var(--ink-muted)}
+.trow .acts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.minib{font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:500;font-size:10px;
+  border:1.5px solid var(--ink);background:var(--surface);padding:2px 6px;color:var(--ink);transition:background .08s,color .08s}
+.minib:hover{background:var(--ink);color:var(--surface)}
+.minib.primary{background:var(--ink);color:var(--surface)}
+.minib.primary:hover{background:var(--cobalt);border-color:var(--cobalt)}
+.tcol-f{margin-top:auto;padding:6px 10px;border-top:1px solid var(--hairline);
+  font-family:var(--mono);font-size:11px;color:var(--ink-muted);background:var(--surface)}
+.tcol-f a{border-bottom:1px solid var(--border-mid)}
+
+/* ---- live work tiles (R2) — FILLED = live depth ---- */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tile{background:var(--surface);border:2px solid var(--ink);box-shadow:var(--shadow-hard);
+  padding:14px 14px 12px;display:block;transition:transform .08s,box-shadow .08s}
+.tile:active{transform:translate(2px,2px);box-shadow:var(--shadow-press)}
+.tile .blk{height:6px;margin:-14px -14px 11px;background:var(--ink)}
+.tile.review .blk{background:var(--red)}
+.tile.held .blk{background:var(--orange)}
+.tile.ready .blk{background:var(--green)}
+.tile.newc .blk{background:var(--cobalt)}
+.tile .tlab{display:flex;align-items:center;gap:7px;font-family:var(--disp);text-transform:uppercase;
+  letter-spacing:.05em;font-weight:700;font-size:13px}
+.tile .tcount{font-family:var(--mono);font-size:40px;font-weight:700;line-height:1;margin:8px 0 4px}
+.tile .tsub{font-size:12px;color:var(--ink-muted)}
+.tile .tsub b{color:var(--ink);font-weight:600}
+.glyphbox{font-family:var(--mono);font-size:12px;border:2px solid var(--ink);width:20px;height:20px;
+  display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.tile.review .glyphbox{background:var(--red);color:#fff;border-color:var(--red)}
+
+/* ---- windowed throughput (R3) — OUTLINE/ghost ---- */
+.ghosts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ghost{background:var(--surface);border:2px dashed var(--ink);padding:12px 14px}
+.ghost .glab{font-family:var(--disp);text-transform:uppercase;letter-spacing:.05em;font-weight:700;
+  font-size:12px;display:flex;align-items:center;gap:8px}
+.ghost .gwin{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-muted);
+  border:1.5px solid var(--border-mid);padding:0 5px;letter-spacing:.04em}
+.ghost .gcount{font-family:var(--mono);font-size:30px;font-weight:500;line-height:1;margin-top:8px}
+.ghost .gnote{font-size:11px;color:var(--ink-muted);margin-top:3px}
+
+/* ---- chase next (R4) — thermometer bars ---- */
+.chase-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.chase-tbl td{border-bottom:1px solid var(--hairline);padding:8px 10px;vertical-align:middle}
+.chase-tbl tr:hover td{background:var(--surface-2)}
+.chase-tbl tr:hover td:first-child{box-shadow:inset 2px 0 0 var(--ink)}
+.verb{font-family:var(--disp);text-transform:uppercase;letter-spacing:.03em;font-weight:700;font-size:12px;white-space:nowrap}
+.thermo{display:flex;align-items:center;gap:8px;min-width:160px}
+.thermo .track{flex:1;height:14px;border:2px solid var(--ink);background:var(--surface-2);position:relative;overflow:hidden}
+.thermo .fill{height:100%;border-right:2px solid var(--ink)}
+.thermo .age{font-family:var(--mono);font-size:11px;font-weight:700;white-space:nowrap;min-width:46px;text-align:right}
+.f-green{background:var(--green)}.f-yellow{background:var(--yellow)}.f-orange{background:var(--orange)}.f-red{background:var(--red)}
+.tag{font-family:var(--mono);font-size:10px;border:1.5px solid var(--ink);padding:0 5px;white-space:nowrap;text-transform:uppercase;letter-spacing:.03em}
+.tag.due{background:var(--red);color:#fff;border-color:var(--red)}
+
+/* ---- VRM plate ---- */
+.vrm{display:inline-flex;align-items:center;background:var(--plate-yellow);color:var(--ink);
+  font-family:var(--mono);font-weight:700;letter-spacing:.06em;font-size:13px;line-height:1;
+  padding:4px 8px 5px;border:3px solid var(--ink);white-space:nowrap}
+.vrm.front{background:var(--surface)}
+.vrm.sm{font-size:11px;padding:3px 6px 4px;border-width:2px;letter-spacing:.05em}
+
+/* ---- status stamp ---- */
+.stamp{display:inline-flex;align-items:center;gap:6px;font-family:var(--disp);text-transform:uppercase;
+  letter-spacing:.04em;font-weight:700;font-size:11px;border:2px solid var(--ink);padding:2px 8px;
+  background:var(--surface);color:var(--ink);white-space:nowrap}
+.stamp .g{font-family:var(--mono);font-size:11px}
+.stamp.review{background:var(--red);color:#fff;border-color:var(--ink)}
+.stamp.conflict{background:var(--red);color:#fff;border-color:var(--ink)}
+.stamp.held{background:var(--orange);color:#fff;border-color:var(--ink)}
+.stamp.ready{background:var(--green);color:#fff;border-color:var(--ink)}
+.stamp.newe{background:var(--cobalt);color:#fff;border-color:var(--ink)}
+
+/* ---- queues snapshot (R5) ---- */
+.snap{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+.snapcell{flex:1 1 0;min-width:150px;border:2px solid var(--ink);border-right-width:0;padding:11px 14px;
+  display:flex;align-items:center;gap:12px}
+.snapcell:last-of-type{border-right-width:2px}
+.snapcell .sl{font-family:var(--disp);text-transform:uppercase;letter-spacing:.04em;font-weight:700;font-size:12px}
+.snapcell .sv{margin-left:auto;font-family:var(--mono);font-size:22px;font-weight:700}
+.snapcell.blk{border-left:6px solid var(--red)}
+.snapbar{display:flex;height:18px;border:2px solid var(--ink);margin-top:0}
+.snapbar span{border-right:2px solid var(--ink);display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;color:#fff;font-weight:700}
+.snapbar span:last-child{border-right:0}
+
+/* mobile bottom tabbar (hidden desktop) */
+.tabbar{display:none}
+
+/* ===================================================== responsive */
+@media (max-width:1100px){
+  .triage{grid-template-columns:1fr 1fr}
+  .tcol:nth-child(2){border-right-width:2px}
+  .tcol.other{grid-column:1 / -1;border-right-width:2px;border-top-width:0}
+  .tiles{grid-template-columns:1fr 1fr}
+}
+@media (max-width:1024px){
+  :root{--rail-w:56px}
+  .rail-brand .name,.rail-link .lbl,.rail-link .ct,.rail-sec,.rail-foot{display:none}
+  .rail-brand{justify-content:center;padding:0}
+  .rail-link{justify-content:center;padding:0;height:46px;position:relative}
+  .rail-link .ic{font-size:16px}
+  .rail-link[data-ct]::after{content:attr(data-ct);position:absolute;top:5px;right:5px;
+    font-family:var(--mono);font-size:9px;color:#fff;background:#333;padding:0 2px;line-height:1.3}
+  .rail-link.blkct[data-ct]::after{background:var(--red)}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .rail{display:none}
+  .hdr{gap:8px;padding:0 10px}
+  .crumb .sep,.crumb .root{display:none}
+  .search{flex-basis:auto}
+  .stamp-upd{display:none}
+  .canvas{padding:8px;padding-bottom:70px;gap:8px}
+  .triage{grid-template-columns:1fr}
+  .tcol{border-right-width:2px}
+  .tcol+.tcol{border-top-width:0}
+  .tiles{grid-template-columns:1fr 1fr;gap:8px}
+  .tile{box-shadow:var(--shadow-press)}
+  .ghosts{grid-template-columns:1fr;gap:8px}
+  .pipe .station{flex:1 1 46%;min-width:46%;border-right-width:2px;border-bottom-width:0}
+  .pipe .station .chev{display:none}
+  .snap{flex-direction:column}
+  .snapcell{border-right-width:2px}.snapcell+.snapcell{border-top-width:0}
+  .tabbar{display:flex;position:fixed;bottom:0;left:0;right:0;height:56px;background:var(--rail);
+    border-top:3px solid var(--ink);z-index:50}
+  .tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    color:#CFCFCB;border-right:2px solid #2C2C2A}
+  .tabbar a:last-child{border-right:0}
+  .tabbar a.active{background:var(--surface);color:var(--ink)}
+  .tabbar a .ic{font-family:var(--mono);font-size:16px}
+  .tabbar a .lbl{font-family:var(--disp);text-transform:uppercase;font-size:9px;letter-spacing:.04em;font-weight:700}
+}
+@media (max-width:430px){ .tiles{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ RAIL ============ -->
+  <nav class="rail" aria-label="Primary">
+    <div class="rail-brand">
+      <span class="glyph">▣</span>
+      <span class="name">Concrete<br>Ledger<small>COLLISIONSPIKE</small></span>
+    </div>
+    <div class="rail-scroll">
+      <div class="rail-sec">Intake</div>
+      <a class="rail-link active" href="index.html" aria-current="page" data-ct="3"><span class="ic">▣</span><span class="lbl">Cockpit</span></a>
+      <a class="rail-link" href="#" data-ct="47"><span class="ic">✉</span><span class="lbl">Inbox</span><span class="ct">[ 47 ]</span></a>
+      <a class="rail-link" href="queues.html" data-ct="20"><span class="ic">▤</span><span class="lbl">Queues</span><span class="ct">[ 20 ]</span></a>
+      <a class="rail-link" href="queues.html" data-ct="5"><span class="ic">★</span><span class="lbl">Ready</span><span class="ct">[ 5 ]</span></a>
+      <div class="rail-div"></div>
+      <div class="rail-sec">Admin</div>
+      <a class="rail-link blkct" href="queues.html" data-ct="8"><span class="ic">▲</span><span class="lbl">Review</span><span class="ct blk">[ 8 ]</span></a>
+      <a class="rail-link" href="#"><span class="ic">⚙</span><span class="lbl">Settings</span></a>
+      <div class="rail-div"></div>
+      <div class="rail-sec">Engineer</div>
+      <a class="rail-link" href="#" style="opacity:.5;pointer-events:none"><span class="ic">▦</span><span class="lbl">Reserved</span></a>
+    </div>
+    <div class="rail-foot">
+      <kbd>J</kbd> <kbd>K</kbd> move · <kbd>↵</kbd> open<br>
+      <kbd>/</kbd> search · <kbd>R</kbd> refresh
+    </div>
+  </nav>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="hdr">
+      <div class="crumb"><span class="root">CONCRETE LEDGER</span><span class="sep">/</span>COCKPIT</div>
+      <label class="search">
+        <span class="mg">⌕</span>
+        <input type="text" placeholder="search VRM · Case/PO · claimant …" aria-label="Search" />
+        <kbd>/</kbd>
+      </label>
+      <div class="hdr-right">
+        <span class="stamp-upd">UPDATED 14:07</span>
+        <button class="btn btn-sm press"><span class="ic">↻</span>Refresh</button>
+        <button class="btn btn-sm press" id="density"><span class="ic">⊟</span>Density</button>
+      </div>
+    </header>
+
+    <main class="canvas">
+
+      <!-- ===== R0 · PIPELINE ===== -->
+      <section class="region" aria-label="Pipeline">
+        <div class="rhead"><span class="rid">R0</span><span class="rt">Pipeline</span>
+          <span class="rm"><span>live depth drains · <b>terminal = throughput</b></span></span></div>
+        <div class="rbody">
+          <div class="pipe">
+            <div class="station"><div class="sn">NEW</div><div class="sc brk">3</div><div class="ss">unworked</div><div class="chev">▶</div></div>
+            <div class="station"><div class="sn">PARSING</div><div class="sc brk">1</div><div class="ss">in engine</div><div class="chev">▶</div></div>
+            <div class="station"><div class="sn">REVIEW</div><div class="sc brk">8</div><div class="ss">needs you</div><div class="chev">▶</div></div>
+            <div class="station held"><div class="sn">▓ CHASING / HELD</div><div class="sc brk">14</div><div class="ss">external · stuck</div><div class="chev">▶</div></div>
+            <div class="station"><div class="sn">READY</div><div class="sc brk">5</div><div class="ss">to submit</div><div class="chev">▶</div></div>
+            <div class="station term"><div class="sn">SUBMITTED</div><div class="sc mono">19·today</div><div class="ss">windowed</div><div class="chev">▶</div></div>
+            <div class="station term"><div class="sn">BOX</div><div class="sc mono">17·today</div><div class="ss">mirrored</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== R1 · INBOX TRIAGE ===== -->
+      <section class="region" aria-label="Inbox triage">
+        <div class="rhead"><span class="rid">R1</span><span class="rt">Inbox Triage</span>
+          <span class="rm"><span>RECEIVING <b>31</b></span><span>QUERIES <b>9</b></span><span>OTHER <b>7</b></span>
+          <a class="rlink" href="#">Open mailbox ↗</a></span></div>
+        <div class="rbody" style="padding:0">
+          <div class="triage">
+
+            <div class="tcol">
+              <div class="tcol-h"><span class="tt">Receiving Work</span><span class="tc">31</span></div>
+              <div class="trow">
+                <div class="tline1"><span class="snd">claims@acme-am.co.uk</span><span class="dom">· acme-am.co.uk</span><span class="subtype">Instruction</span></div>
+                <div class="subj">New instruction — BMW 320d · please action PO refresh</div>
+                <div class="meta">RECEIVED 14:02 · 2 PDF · 0 IMG</div>
+                <div class="acts"><button class="minib primary">Confirm</button><button class="minib">Reclassify</button><a class="minib" href="#">Mailbox ↗</a></div>
+              </div>
+              <div class="trow">
+                <div class="tline1"><span class="snd">instructions@halcyon-claims.com</span><span class="dom">· halcyon</span><span class="subtype">Instruction</span></div>
+                <div class="subj">Audi A4 Avant — engineer inspection request</div>
+                <div class="meta">RECEIVED 13:48 · 1 PDF · 9 IMG</div>
+                <div class="acts"><button class="minib primary">Confirm</button><button class="minib">Reclassify</button><a class="minib" href="#">Mailbox ↗</a></div>
+              </div>
+              <div class="trow">
+                <div class="tline1"><span class="snd">new@crystalclaims.co.uk</span><span class="dom">· crystal</span><span class="subtype">Images</span></div>
+                <div class="subj">Photos only — Vauxhall Corsa SK68 ONP</div>
+                <div class="meta">RECEIVED 13:31 · 0 PDF · 14 IMG</div>
+                <div class="acts"><button class="minib primary">Confirm</button><button class="minib">Reclassify</button><a class="minib" href="#">Mailbox ↗</a></div>
+              </div>
+              <div class="tcol-f">… <a href="#">28 more untriaged</a></div>
+            </div>
+
+            <div class="tcol">
+              <div class="tcol-h"><span class="tt">Queries</span><span class="tc">9</span></div>
+              <div class="trow">
+                <div class="tline1"><span class="snd">ins@acme-am.co.uk</span><span class="dom">· acme-am</span><span class="subtype">Query</span></div>
+                <div class="subj">re: VRM AB12 CDE — chasing report ETA</div>
+                <div class="meta">RECEIVED 13:51 · matches ACPY26050</div>
+                <div class="acts"><a class="minib primary" href="case-detail.html">→ Case</a><a class="minib" href="#">Open</a></div>
+              </div>
+              <div class="trow">
+                <div class="tline1"><span class="snd">adjuster@halcyon-claims.com</span><span class="dom">· halcyon</span><span class="subtype">Query</span></div>
+                <div class="subj">Mileage clarification on HALC26109</div>
+                <div class="meta">RECEIVED 13:22 · matches HALC26109</div>
+                <div class="acts"><a class="minib primary" href="case-detail.html">→ Case</a><a class="minib" href="#">Open</a></div>
+              </div>
+              <div class="tcol-f">… <a href="#">7 more queries</a></div>
+            </div>
+
+            <div class="tcol other">
+              <div class="tcol-h"><span class="tt">Other</span><span class="tc">7</span></div>
+              <div class="trow">
+                <div class="tline1"><span class="snd">mailer-daemon@outlook.com</span><span class="dom">· auto</span><span class="subtype">Unident.</span></div>
+                <div class="subj">"Delivery has failed to these recipients"</div>
+                <div class="meta">RECEIVED 13:30 · no provider match</div>
+                <div class="acts"><button class="minib primary">Classify</button><a class="minib" href="#">Mailbox ↗</a></div>
+              </div>
+              <div class="trow">
+                <div class="tline1"><span class="snd">noreply@scanned-docs.net</span><span class="dom">· unknown</span><span class="subtype">Unident.</span></div>
+                <div class="subj">Scanned document 0042.pdf — no body text</div>
+                <div class="meta">RECEIVED 12:58 · no VRM / PO parsed</div>
+                <div class="acts"><button class="minib primary">Classify</button><a class="minib" href="#">Mailbox ↗</a></div>
+              </div>
+              <div class="tcol-f">… <a href="#">5 more need a human</a></div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== R2 · LIVE WORK (FILLED) ===== -->
+      <section class="region" aria-label="Live work">
+        <div class="rhead"><span class="rid">R2</span><span class="rt">Live Work</span>
+          <span class="rm"><span>FILLED cells = <b>live depth</b> · drain now · bracket-boxed</span></span></div>
+        <div class="rbody">
+          <div class="tiles">
+            <a class="tile review" href="queues.html">
+              <div class="blk"></div>
+              <div class="tlab"><span class="glyphbox">▲</span>Review</div>
+              <div class="tcount">[ 8 ]</div>
+              <div class="tsub"><b>a person acts</b> · needs you now</div>
+            </a>
+            <a class="tile held" href="queues.html">
+              <div class="blk"></div>
+              <div class="tlab"><span class="glyphbox">↻</span>Held</div>
+              <div class="tcount">[ 14 ]</div>
+              <div class="tsub">chaser out · <b>external party</b></div>
+            </a>
+            <a class="tile ready" href="queues.html">
+              <div class="blk"></div>
+              <div class="tlab"><span class="glyphbox">★</span>Ready</div>
+              <div class="tcount">[ 5 ]</div>
+              <div class="tsub">drag-drop <b>to EVA</b></div>
+            </a>
+            <a class="tile newc" href="#">
+              <div class="blk"></div>
+              <div class="tlab"><span class="glyphbox">＋</span>New</div>
+              <div class="tcount">[ 3 ]</div>
+              <div class="tsub">fresh <b>cases</b> · unworked</div>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== R3 · WINDOWED (GHOST) ===== -->
+      <section class="region" aria-label="Windowed throughput">
+        <div class="rhead"><span class="rid">R3</span><span class="rt">Today / This Week</span>
+          <span class="rm"><span>OUTLINE cells = <b>windowed throughput</b> · resets · no fill</span></span></div>
+        <div class="rbody">
+          <div class="ghosts">
+            <div class="ghost"><div class="glab">＋ In<span class="gwin">·TODAY</span></div><div class="gcount">23</div><div class="gnote">arrived since 00:00</div></div>
+            <div class="ghost"><div class="glab">▶ Submitted<span class="gwin">·TODAY</span></div><div class="gcount">19</div><div class="gnote">terminal — counted, not stocked</div></div>
+            <div class="ghost"><div class="glab">✓ Cleared<span class="gwin">·WK</span></div><div class="gcount">88</div><div class="gnote">resolved Mon–today</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== R4 · CHASE NEXT (THERMO) ===== -->
+      <section class="region" aria-label="Chase next">
+        <div class="rhead"><span class="rid">R4</span><span class="rt">Chase Next · oldest first</span>
+          <span class="rm"><span class="tag due">2 PAST DUE</span><span class="tag">1 DUPLICATE</span><span class="tag">1 CONFLICT</span></span></div>
+        <div class="rbody" style="padding:0">
+          <table class="chase-tbl">
+            <tbody>
+              <tr>
+                <td><div class="verb">Chase garage for images</div></td>
+                <td><span class="vrm sm">AB12 CDE</span></td>
+                <td class="mono" style="font-size:12px">ACPY26050</td>
+                <td class="mono mut" style="font-size:11px">ACME · ACPY</td>
+                <td><div class="thermo"><div class="track"><div class="fill f-red" style="width:96%"></div></div><span class="age">2d04h</span></div></td>
+                <td><div class="acts"><a class="minib primary" href="case-detail.html">Draft</a><button class="minib">File-Req</button></div></td>
+              </tr>
+              <tr>
+                <td><div class="verb">Chase provider for docs</div></td>
+                <td><span class="vrm sm">LV71 KMX</span></td>
+                <td class="mono" style="font-size:12px">HALC26112</td>
+                <td class="mono mut" style="font-size:11px">HALCYON · HALC</td>
+                <td><div class="thermo"><div class="track"><div class="fill f-orange" style="width:52%"></div></div><span class="age">18h</span></div></td>
+                <td><div class="acts"><a class="minib primary" href="case-detail.html">Draft</a><button class="minib">File-Req</button></div></td>
+              </tr>
+              <tr>
+                <td><div class="verb">Resolve duplicate</div></td>
+                <td><span class="vrm sm">GK19 ZRT</span></td>
+                <td class="mono" style="font-size:12px">ACPY26048</td>
+                <td class="mono mut" style="font-size:11px">ACME · ACPY</td>
+                <td><div class="thermo"><div class="track"><div class="fill f-yellow" style="width:30%"></div></div><span class="age">06h</span></div></td>
+                <td><div class="acts"><a class="minib primary" href="case-detail.html">Open</a></div></td>
+              </tr>
+              <tr>
+                <td><div class="verb">Decide address</div></td>
+                <td><span class="vrm sm">RF22 LTX</span></td>
+                <td class="mono" style="font-size:12px">ACPY26051</td>
+                <td class="mono mut" style="font-size:11px">ACME · ACPY</td>
+                <td><div class="thermo"><div class="track"><div class="fill f-green" style="width:14%"></div></div><span class="age">02h</span></div></td>
+                <td><div class="acts"><a class="minib primary" href="case-detail.html">Open</a></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== R5 · QUEUES SNAPSHOT ===== -->
+      <section class="region" aria-label="Queues snapshot">
+        <div class="rhead"><span class="rid">R5</span><span class="rt">Queues Snapshot</span>
+          <span class="rm"><a class="rlink" href="queues.html">Open queues ↗</a></span></div>
+        <div class="rbody">
+          <div class="snap">
+            <a class="snapcell" href="queues.html"><span class="sl">Not Ready</span><span class="sv brk">12</span></a>
+            <a class="snapcell blk" href="queues.html"><span class="sl">Review</span><span class="sv brk">8</span></a>
+            <a class="snapcell" href="queues.html"><span class="sl">Held</span><span class="sv brk">14</span></a>
+          </div>
+          <div class="snapbar" aria-hidden="true">
+            <span style="background:var(--border-mid);width:35%">NOT READY · 12</span>
+            <span style="background:var(--red);width:24%">REVIEW · 8</span>
+            <span style="background:var(--orange);width:41%">HELD · 14</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- mobile bottom tab bar -->
+<nav class="tabbar" aria-label="Primary mobile">
+  <a class="active" href="index.html"><span class="ic">▣</span><span class="lbl">Cockpit</span></a>
+  <a href="queues.html"><span class="ic">▤</span><span class="lbl">Queues</span></a>
+  <a href="#"><span class="ic">✉</span><span class="lbl">Inbox</span></a>
+  <a href="case-detail.html"><span class="ic">▢</span><span class="lbl">Case</span></a>
+  <a href="#"><span class="ic">⋯</span><span class="lbl">More</span></a>
+</nav>
+
+<script>
+  document.getElementById('density').addEventListener('click',function(){document.body.classList.toggle('dense')});
+</script>
+</body>
+</html>

@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>swiss-grid · Case CCPY26050 · collisionspike</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config={theme:{extend:{
+ colors:{paper:'#F3F4F2',ink:{900:'#16181C',800:'#0A0A0B',700:'#3A3D44',600:'#52555C',500:'#6B6F76',400:'#9A9DA4',300:'#B7BAC0'},line:'#D8DADE',linesoft:'#E8E9EB',accent:'#1D3FD6',accent2:'#16329F',accenttint:'#ECEEFC',blocker:'#C81E2D',ochre:'#B45309',ok:'#1B6E45',held:'#B45309'},
+ fontFamily:{display:['Archivo','system-ui','sans-serif'],mono:['"IBM Plex Mono"','ui-monospace','monospace']},
+}}}
+</script>
+<style>
+:root{color-scheme:light}
+html,body{height:100%}
+body{font-family:'Archivo',system-ui,sans-serif;color:#16181C;background:#F3F4F2;-webkit-font-smoothing:antialiased}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#6B6F76}
+.ruled-head{display:flex;align-items:center;gap:12px}
+.ruled-head .rule{flex:1 1 auto;height:1px;background:#D8DADE}
+.measure-col{border-right:1px solid #D8DADE;background-image:repeating-linear-gradient(to bottom,#C9CCD2 0,#C9CCD2 1px,transparent 1px,transparent 8px);background-size:7px 8px;background-position:right top;background-repeat:repeat-y}
+.ord{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.04em;color:#9A9DA4}
+.vrm{display:inline-flex;align-items:stretch;border:1px solid #0E1014;border-radius:2px;overflow:hidden;height:28px;line-height:1;font-family:'IBM Plex Mono',monospace;font-weight:700;flex:none}
+.vrm-gb{background:#0A3BAE;color:#fff;font-size:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 5px;letter-spacing:.02em;gap:1px}
+.vrm-num{background:#FBE10A;color:#11131a;font-size:17px;letter-spacing:.08em;display:flex;align-items:center;padding:0 10px}
+.vrm.sm{height:20px}.vrm.sm .vrm-num{font-size:12px;padding:0 6px}.vrm.sm .vrm-gb{font-size:6px}
+a{color:inherit;text-decoration:none}
+.link{color:#1D3FD6}.link:hover{text-decoration:underline;text-underline-offset:2px}
+input::placeholder,textarea::placeholder{color:#9A9DA4}
+.focusable:focus-within{outline:2px solid #1D3FD6;outline-offset:1px}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #1D3FD6;outline-offset:1px}
+::selection{background:#ECEEFC}
+.badge{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;padding:2px 7px;border:1px solid #D8DADE;background:#fff;color:#3A3D44;white-space:nowrap}
+.badge .gl{font-weight:700}
+.badge.b-review{border-color:#C81E2D;color:#B01724}
+.prov{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;padding:1px 6px;border:1px solid #D8DADE;background:#fff;color:#6B6F76;white-space:nowrap}
+.prov .g{font-size:11px;line-height:1}
+.prov.ok{color:#15613C}.prov.warn{color:#B01724;border-color:#C81E2D}.prov.miss{color:#B01724;border-color:#C81E2D}
+.act{font-family:'Archivo';font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border:1px solid #D8DADE;background:#fff;color:#16181C;cursor:pointer;white-space:nowrap}
+.act:hover{border-color:#16181C}
+.act.primary{background:#16181C;color:#fff;border-color:#16181C}
+.act.danger:hover{border-color:#C81E2D;color:#B01724}
+.act[disabled],.act.gated{color:#9A9DA4;border-color:#E8E9EB;background:#FAFAF9;cursor:not-allowed}
+.tab{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-bottom:2px solid transparent;color:#6B6F76;white-space:nowrap}
+.tab:hover{color:#16181C}
+.tab.on{color:#16181C;border-bottom-color:#1D3FD6}
+.tab.gated{color:#B7BAC0}
+.shot{aspect-ratio:4/3;background:repeating-linear-gradient(135deg,#E8E9EB 0,#E8E9EB 8px,#E2E3E6 8px,#E2E3E6 16px);border:1px solid #D8DADE;position:relative;display:flex;align-items:flex-end}
+.modal-wrap{position:fixed;inset:0;z-index:60;display:none;align-items:flex-start;justify-content:center;padding:24px;overflow:auto}
+#submit-toggle:checked ~ .modal-wrap{display:flex}
+.scrim{position:fixed;inset:0;background:rgba(10,10,11,.32)}
+@media (prefers-reduced-motion:no-preference){a,button,.tab,.act,.rowlink{transition:background-color .14s ease,border-color .14s ease,color .14s ease}}
+.rowlink:hover{background:#ECEDEF}
+</style>
+</head>
+<body class="h-full">
+<input type="checkbox" id="submit-toggle" class="hidden"/>
+<div class="min-h-full flex">
+
+  <!-- RAIL -->
+  <aside class="hidden md:flex flex-col md:w-14 lg:w-60 bg-ink-900 text-white shrink-0 sticky top-0 h-screen z-40">
+    <div class="h-14 flex items-center gap-3 px-3 lg:px-4 border-b border-white/10">
+      <span class="w-7 h-7 grid place-items-center bg-white text-ink-900 mono font-bold text-[12px] shrink-0">CE</span>
+      <div class="hidden lg:block leading-tight">
+        <div class="mono text-[11px] tracking-[.16em] text-white">COLLISION ENG.</div>
+        <div class="mono text-[9px] tracking-[.16em] text-ink-400">INTAKE OPS · SPIKE</div>
+      </div>
+    </div>
+    <nav class="flex-1 py-2">
+      <p class="hidden lg:block eyebrow !text-ink-400 px-4 pt-2 pb-1">Intake</p>
+      <a href="index.html" class="group flex items-center gap-3 h-11 px-3 lg:px-4 border-l-2 border-transparent hover:bg-white/[0.05]">
+        <span class="mono text-[11px] font-semibold w-7 text-center text-ink-400 group-hover:text-white shrink-0">CK</span>
+        <span class="hidden lg:block text-[13px] text-ink-300 group-hover:text-white flex-1">Cockpit</span>
+      </a>
+      <a href="index.html#r1" class="group flex items-center gap-3 h-11 px-3 lg:px-4 border-l-2 border-transparent hover:bg-white/[0.05]">
+        <span class="mono text-[11px] font-semibold w-7 text-center text-ink-400 group-hover:text-white shrink-0">TR</span>
+        <span class="hidden lg:block text-[13px] text-ink-300 group-hover:text-white flex-1">Triage</span>
+        <span class="hidden lg:block mono text-[11px] text-ink-400">14</span>
+      </a>
+      <a href="queues.html" class="group flex items-center gap-3 h-11 px-3 lg:px-4 border-l-2 border-accent bg-white/[0.07]">
+        <span class="mono text-[11px] font-semibold w-7 text-center text-white shrink-0">QU</span>
+        <span class="hidden lg:block text-[13px] text-white flex-1">Queues</span>
+        <span class="hidden lg:block mono text-[11px] text-ink-300">28</span>
+      </a>
+      <a href="#" class="group flex items-center gap-3 h-11 px-3 lg:px-4 border-l-2 border-transparent hover:bg-white/[0.05]">
+        <span class="mono text-[11px] font-semibold w-7 text-center text-ink-400 group-hover:text-white shrink-0">IN</span>
+        <span class="hidden lg:block text-[13px] text-ink-300 group-hover:text-white flex-1">Manual intake</span>
+      </a>
+      <p class="hidden lg:block eyebrow !text-ink-400 px-4 pt-4 pb-1 border-t border-white/10 mt-2">Admin</p>
+      <a href="#" class="group flex items-center gap-3 h-11 px-3 lg:px-4 border-l-2 border-transparent hover:bg-white/[0.05]">
+        <span class="mono text-[11px] font-semibold w-7 text-center text-ink-400 group-hover:text-white shrink-0">AD</span>
+        <span class="hidden lg:block text-[13px] text-ink-300 group-hover:text-white flex-1">Admin · Corpus</span>
+      </a>
+    </nav>
+    <div class="border-t border-white/10 px-3 lg:px-4 py-3 flex items-center gap-3">
+      <span class="w-7 h-7 grid place-items-center bg-white/10 mono text-[11px] shrink-0">AM</span>
+      <div class="hidden lg:block leading-tight">
+        <div class="mono text-[11px] text-white">A. MERCER</div>
+        <div class="mono text-[9px] text-ink-400">INTAKE STAFF</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="flex-1 min-w-0 flex flex-col pb-16 md:pb-0">
+
+    <!-- HEADER -->
+    <header class="h-14 shrink-0 bg-white border-b border-line flex items-center gap-3 sm:gap-4 px-4 lg:px-6 sticky top-0 z-30">
+      <a href="queues.html" class="mono text-[11px] text-ink-500 hover:text-accent flex items-center gap-1 shrink-0">‹ QUEUES</a>
+      <span class="hidden sm:block w-px h-4 bg-line"></span>
+      <span class="eyebrow hidden sm:inline">Case detail</span>
+      <span class="mono text-[13px] font-semibold">CCPY26050</span>
+      <div class="flex-1"></div>
+      <div class="flex items-center gap-2 sm:gap-3 mono text-[11px] text-ink-500">
+        <span class="hidden sm:inline whitespace-nowrap">UPDATED 09:42</span>
+        <button class="h-9 px-3 border border-line bg-white hover:border-accent hover:text-accent text-ink-700 font-semibold tracking-wide">REFRESH</button>
+      </div>
+    </header>
+
+    <!-- PIPELINE SPINE -->
+    <div class="bg-white border-b border-line px-4 sm:px-6 py-3 overflow-x-auto">
+      <div class="flex items-center gap-0 min-w-[640px]">
+        <div class="flex items-center gap-2 pr-3"><span class="mono text-[10px] text-ink-400">1</span><span class="w-2 h-2 bg-ink-900"></span><span class="eyebrow !text-ink-900">New</span></div>
+        <div class="h-px w-6 bg-ink-300"></div>
+        <div class="flex items-center gap-2 px-3"><span class="mono text-[10px] text-ink-400">2</span><span class="w-2 h-2 bg-ink-900"></span><span class="eyebrow !text-ink-900">Parsed</span></div>
+        <div class="h-px w-6 bg-ink-300"></div>
+        <div class="flex items-center gap-2 px-3 bg-accenttint -my-1 py-1"><span class="mono text-[10px] text-accent">3</span><span class="w-2.5 h-2.5 border-2 border-accent"></span><span class="eyebrow !text-accent font-bold">Review · here</span></div>
+        <div class="h-px w-6 bg-line"></div>
+        <div class="flex items-center gap-2 px-3"><span class="mono text-[10px] text-ink-400">4</span><span class="w-2 h-2 border border-ink-300"></span><span class="eyebrow !text-ink-400">Chasing</span></div>
+        <div class="h-px w-6 bg-line"></div>
+        <div class="flex items-center gap-2 px-3"><span class="mono text-[10px] text-ink-400">5</span><span class="w-2 h-2 border border-ink-300"></span><span class="eyebrow !text-ink-400">Ready</span></div>
+        <div class="h-px w-6 bg-line"></div>
+        <div class="flex items-center gap-2 px-3"><span class="mono text-[10px] text-ink-400">6</span><span class="w-2 h-2 border border-ink-300"></span><span class="eyebrow !text-ink-400">Submitted</span></div>
+        <div class="h-px w-6 bg-line"></div>
+        <div class="flex items-center gap-2 pl-3"><span class="mono text-[10px] text-ink-400">7</span><span class="w-2 h-2 border border-ink-300"></span><span class="eyebrow !text-ink-400">Box</span></div>
+      </div>
+    </div>
+
+    <!-- IDENTITY HEADER BAND -->
+    <div class="bg-white border-b border-line px-4 sm:px-6 py-4">
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+        <span class="vrm"><span class="vrm-gb">★<br>UK</span><span class="vrm-num">LR21 KMV</span></span>
+        <div class="leading-tight">
+          <div class="mono text-[18px] font-bold tracking-tight">CCPY26050</div>
+          <div class="eyebrow mt-0.5">Case / PO · Aviva</div>
+        </div>
+        <span class="hidden sm:block w-px h-9 bg-line"></span>
+        <div class="leading-tight">
+          <div class="text-[14px] font-semibold">Vauxhall Astra 1.4T SRi</div>
+          <div class="mono text-[11px] text-ink-500 mt-0.5">2021 · J. OKAFOR</div>
+        </div>
+        <div class="flex-1"></div>
+        <span class="badge b-review"><span class="gl">▲</span>NEEDS REVIEW</span>
+        <span class="badge"><span class="gl">✉</span>EMAIL</span>
+        <span class="mono text-[12px] text-blocker whitespace-nowrap">IN REVIEW 2d 06h</span>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="flex flex-wrap items-center gap-2 mt-4">
+        <button class="act"><span>↑</span> Upload</button>
+        <button class="act"><span>{ }</span> Copy JSON</button>
+        <button class="act gated" disabled title="Gated — BOX_API_ENABLED=false"><span>⬓</span> Open in Box <span class="mono text-[9px] border border-line px-1 ml-1">GATED</span></button>
+        <button class="act gated" disabled title="Gated — ENRICHMENT_ENABLED=false"><span>+</span> Enrich <span class="mono text-[9px] border border-line px-1 ml-1">GATED</span></button>
+        <label for="submit-toggle" class="act gated cursor-pointer" title="Disabled until readiness gate passes"><span>→</span> Submit to EVA <span class="mono text-[9px] border border-line px-1 ml-1">NOT READY</span></label>
+        <span class="flex-1"></span>
+        <button class="act danger"><span>⌫</span> Delete (junk/dup) → audit</button>
+      </div>
+    </div>
+
+    <!-- READINESS MESSAGE BAR -->
+    <div class="px-4 sm:px-6 py-3 bg-[#FBEDEE] border-b-2 border-blocker">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span class="mono text-[11px] font-bold text-blocker tracking-wide">✗ NOT READY — 3 ITEMS OUTSTANDING</span>
+        <a href="#field-08" class="mono text-[11px] link">VAT conflict → 08</a>
+        <a href="#field-06" class="mono text-[11px] link">Mileage missing → 06</a>
+        <a href="#evidence" class="mono text-[11px] link">Need overview w/ reg → evidence</a>
+        <a href="#address" class="mono text-[11px] link">Address not decided → address</a>
+      </div>
+    </div>
+
+    <!-- TABS (anchor links; all sections render below) -->
+    <div class="bg-white border-b border-line px-4 sm:px-6 sticky top-14 z-20 overflow-x-auto">
+      <div class="flex items-center gap-1 min-w-max">
+        <a href="#fields" class="tab on">01–12 Fields</a>
+        <a href="#evidence" class="tab">Evidence</a>
+        <a href="#address" class="tab">Address</a>
+        <a href="#chasers" class="tab">Chasers</a>
+        <a href="#notes" class="tab">Notes</a>
+        <a href="#history" class="tab">History</a>
+        <span class="tab gated" title="Gated — ENRICHMENT_ENABLED=false">Enrich · gated</span>
+      </div>
+    </div>
+
+    <!-- BODY: content + sticky sidebar -->
+    <div class="grid grid-cols-1 xl:grid-cols-[1fr_300px] flex-1">
+
+      <!-- ===== LEFT: stacked sections, measure gutter ===== -->
+      <div class="min-w-0 grid grid-cols-[28px_1fr] sm:grid-cols-[40px_1fr] xl:border-r xl:border-line">
+        <div class="measure-col"></div>
+        <div class="min-w-0">
+
+          <!-- §FIELDS -->
+          <section id="fields" class="px-4 sm:px-6 py-5 scroll-mt-28">
+            <div class="ruled-head mb-4"><span class="eyebrow">12 EVA fields · contract order</span><span class="rule"></span><span class="eyebrow">10 / 12 verified</span></div>
+
+            <!-- Cluster A -->
+            <p class="eyebrow !text-ink-900 mb-2">A · Provider &amp; claimant</p>
+            <div class="border-l border-t border-line">
+              <!-- 01 -->
+              <div class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line">
+                <div class="ord pt-3 text-center bg-[#FAFAF9] border-r border-line">01</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32">Work provider</span>
+                  <span class="text-[13px] font-medium flex-1 min-w-[120px]">Aviva Insurance Ltd</span>
+                  <span class="prov ok"><span class="g">✔</span>CORPUS · VERIFIED</span>
+                </div>
+              </div>
+              <!-- 02 -->
+              <div class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line">
+                <div class="ord pt-3 text-center bg-[#FAFAF9] border-r border-line">02</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32">Claimant name</span>
+                  <span class="text-[13px] font-medium flex-1 min-w-[120px]">Jonah Okafor</span>
+                  <span class="prov ok"><span class="g">✔</span>PDF · VERIFIED</span>
+                </div>
+              </div>
+              <!-- 03 -->
+              <div class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line">
+                <div class="ord pt-3 text-center bg-[#FAFAF9] border-r border-line">03</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32">Claimant tel.</span>
+                  <span class="mono text-[13px] flex-1 min-w-[120px]">07911 246 880</span>
+                  <span class="prov"><span class="g">●</span>PDF · PRESENT</span>
+                </div>
+              </div>
+              <!-- 04 -->
+              <div id="field-04" class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line scroll-mt-28">
+                <div class="ord pt-3 text-center bg-[#FAFAF9] border-r border-line">04</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32">Claimant email</span>
+                  <span class="mono text-[13px] flex-1 min-w-[120px] text-[#8A4B00]">j.okafor@—? <span class="text-ink-400">low confidence</span></span>
+                  <span class="prov warn"><span class="g">▲</span>AI · REVIEW</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cluster B -->
+            <p class="eyebrow !text-ink-900 mt-5 mb-2">B · Vehicle</p>
+            <div class="border-l border-t border-line">
+              <!-- 05 -->
+              <div class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line">
+                <div class="ord pt-3 text-center bg-[#FAFAF9] border-r border-line">05</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32">Vehicle</span>
+                  <span class="text-[13px] font-medium flex-1 min-w-[120px]">Vauxhall Astra 1.4T SRi (2021)</span>
+                  <span class="prov ok"><span class="g">✔</span>DVLA · VERIFIED</span>
+                </div>
+              </div>
+              <!-- 06 (missing) -->
+              <div id="field-06" class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line bg-[#FBEDEE] scroll-mt-28">
+                <div class="ord pt-3 text-center bg-[#FBEDEE] border-r border-line !text-blocker">06</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32 !text-blocker">Mileage</span>
+                  <input class="mono text-[13px] flex-1 min-w-[120px] bg-white border border-blocker px-2 h-8 focusable" placeholder="REQUIRED — enter mileage" aria-label="Mileage"/>
+                  <span class="prov miss"><span class="g">—</span>MANUAL · MISSING</span>
+                </div>
+              </div>
+              <!-- 07 -->
+              <div class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line">
+                <div class="ord pt-3 text-center bg-[#FAFAF9] border-r border-line">07</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32">Mileage unit</span>
+                  <span class="mono text-[13px] flex-1 min-w-[120px]">MILES</span>
+                  <span class="prov"><span class="g">▲</span>MANUAL · REVIEW</span>
+                </div>
+              </div>
+              <!-- 08 (conflict) -->
+              <div id="field-08" class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line bg-[#FBEDEE] scroll-mt-28">
+                <div class="ord pt-3 text-center bg-[#FBEDEE] border-r border-line !text-blocker">08</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32 !text-blocker">VAT status</span>
+                  <span class="text-[13px] flex-1 min-w-[120px]"><span class="font-medium">Registered</span> <span class="mono text-[11px] text-blocker">⇄ PDF says "not registered" — conflict</span></span>
+                  <span class="prov warn"><span class="g">▲</span>AI · CONFLICT</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cluster C -->
+            <p class="eyebrow !text-ink-900 mt-5 mb-2">C · Incident</p>
+            <div class="border-l border-t border-line">
+              <!-- 09 -->
+              <div class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line">
+                <div class="ord pt-3 text-center bg-[#FAFAF9] border-r border-line">09</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-start gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32 pt-0.5">Circumstances</span>
+                  <span class="text-[13px] flex-1 min-w-[120px] text-ink-700">Third party failed to stop at junction; impact to nearside front wing &amp; door. Vehicle driven from scene.</span>
+                  <span class="prov"><span class="g">●</span>PDF · PRESENT</span>
+                </div>
+              </div>
+              <!-- 10 -->
+              <div class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line">
+                <div class="ord pt-3 text-center bg-[#FAFAF9] border-r border-line">10</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32">Inspection addr.</span>
+                  <span class="text-[13px] flex-1 min-w-[120px] text-[#8A4B00]">Not yet decided — <a href="#address" class="link">pick or IBA →</a></span>
+                  <span class="prov warn"><span class="g">▲</span>CORPUS · PENDING</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cluster D -->
+            <p class="eyebrow !text-ink-900 mt-5 mb-2">D · Dates</p>
+            <div class="border-l border-t border-line">
+              <!-- 11 -->
+              <div class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line">
+                <div class="ord pt-3 text-center bg-[#FAFAF9] border-r border-line">11</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32">Date of loss</span>
+                  <span class="mono text-[13px] flex-1 min-w-[120px]">2026-06-11</span>
+                  <span class="prov ok"><span class="g">✔</span>PDF · VERIFIED</span>
+                </div>
+              </div>
+              <!-- 12 -->
+              <div class="grid grid-cols-[24px_1fr] sm:grid-cols-[28px_1fr] border-b border-r border-line">
+                <div class="ord pt-3 text-center bg-[#FAFAF9] border-r border-line">12</div>
+                <div class="px-3 py-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span class="eyebrow w-32">Date of instr.</span>
+                  <span class="mono text-[13px] flex-1 min-w-[120px]">2026-06-22</span>
+                  <span class="prov ok"><span class="g">✔</span>PDF · VERIFIED</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- LIVE JSON -->
+            <div class="ruled-head mt-6 mb-2"><span class="eyebrow">EVA JSON · live preview</span><span class="rule"></span><span class="eyebrow">code lowercase ⇄ Box UPPERCASE</span></div>
+            <pre class="mono text-[11px] leading-relaxed text-ink-700 bg-[#FAFAF9] border border-line p-3 overflow-x-auto">{
+  <span class="text-accent">"case_po"</span>: <span class="text-[#15613C]">"ccpy26050"</span>,        <span class="text-ink-400">// box folder: CCPY26050</span>
+  <span class="text-accent">"work_provider"</span>: <span class="text-[#15613C]">"Aviva Insurance Ltd"</span>,
+  <span class="text-accent">"claimant"</span>: { <span class="text-accent">"name"</span>: <span class="text-[#15613C]">"Jonah Okafor"</span>, <span class="text-accent">"tel"</span>: <span class="text-[#15613C]">"07911246880"</span>, <span class="text-accent">"email"</span>: <span class="text-blocker">null</span> },
+  <span class="text-accent">"vehicle"</span>: <span class="text-[#15613C]">"Vauxhall Astra 1.4T SRi"</span>, <span class="text-accent">"reg"</span>: <span class="text-[#15613C]">"LR21KMV"</span>,
+  <span class="text-accent">"mileage"</span>: <span class="text-blocker">null</span>, <span class="text-accent">"mileage_unit"</span>: <span class="text-[#15613C]">"miles"</span>,
+  <span class="text-accent">"vat_status"</span>: <span class="text-blocker">"CONFLICT"</span>,
+  <span class="text-accent">"inspection_address"</span>: <span class="text-blocker">null</span>,
+  <span class="text-accent">"date_of_loss"</span>: <span class="text-[#15613C]">"2026-06-11"</span>, <span class="text-accent">"date_of_instruction"</span>: <span class="text-[#15613C]">"2026-06-22"</span>
+}</pre>
+          </section>
+
+          <!-- §EVIDENCE -->
+          <section id="evidence" class="px-4 sm:px-6 py-5 border-t border-line scroll-mt-28">
+            <div class="ruled-head mb-3"><span class="eyebrow">Evidence · photos</span><span class="rule"></span><span class="eyebrow">5 received · gate needs ≥2</span></div>
+            <!-- photo-order banner -->
+            <div class="border border-line bg-[#FBF4EA] px-3 py-2 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span class="mono text-[11px] font-bold text-[#8A4B00] tracking-wide">EVA ORDER</span>
+              <span class="mono text-[11px] text-[#8A4B00]">2 previews (overview w/ full reg + damage closeup) → THEN all photos incl. those two</span>
+            </div>
+            <!-- preview row -->
+            <p class="eyebrow mb-2">Previews · 1–2</p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
+              <figure class="shot"><figcaption class="w-full bg-white/90 border-t border-line px-2 py-1 flex items-center justify-between"><span class="mono text-[10px]">01 OVERVIEW</span><span class="prov warn"><span class="g">▲</span>REG NOT VISIBLE</span></figcaption></figure>
+              <figure class="shot"><figcaption class="w-full bg-white/90 border-t border-line px-2 py-1 flex items-center justify-between"><span class="mono text-[10px]">02 DAMAGE</span><span class="prov ok"><span class="g">✔</span>CLOSEUP</span></figcaption></figure>
+            </div>
+            <p class="eyebrow mb-2">All photos · sequence</p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              <figure class="shot"><figcaption class="w-full bg-white/90 border-t border-line px-2 py-1 flex items-center justify-between"><span class="mono text-[10px]">03 NSF WING</span><span class="prov"><span class="g">●</span>OK</span></figcaption></figure>
+              <figure class="shot"><figcaption class="w-full bg-white/90 border-t border-line px-2 py-1 flex items-center justify-between"><span class="mono text-[10px]">04 NSF DOOR</span><span class="prov"><span class="g">●</span>OK</span></figcaption></figure>
+              <figure class="shot relative"><div class="absolute inset-0 bg-blocker/10"></div><figcaption class="relative w-full bg-white/90 border-t border-line px-2 py-1 flex items-center justify-between"><span class="mono text-[10px] text-blocker">05 INTERIOR</span><label class="mono text-[9px] flex items-center gap-1 cursor-pointer"><input type="checkbox" checked class="accent-[#C81E2D]"/>EXCLUDE · REFLECTION</label></figcaption></figure>
+              <a href="#" class="shot !bg-white grid place-items-center"><span class="mono text-[11px] text-ink-400">+ UPLOAD</span></a>
+            </div>
+            <p class="eyebrow !text-ink-400 mt-2">Reorder previews with keyboard · overview must show the full registration · person-reflection photos excluded.</p>
+          </section>
+
+          <!-- §ADDRESS -->
+          <section id="address" class="px-4 sm:px-6 py-5 border-t border-line scroll-mt-28">
+            <div class="ruled-head mb-3"><span class="eyebrow">Inspection address · offline corpus</span><span class="rule"></span><span class="badge"><span class="gl">⌗</span>NO RUNTIME MATCH</span></div>
+            <div class="border-l border-t border-line">
+              <label class="grid grid-cols-[1fr_auto] items-center border-b border-r border-line px-3 py-2.5 gap-3 hover:bg-[#ECEDEF] cursor-pointer">
+                <span><span class="text-[13px] font-medium">Vehicle Solutions Ltd, Unit 4, Quarry Rd, Leeds</span> <span class="mono text-[12px] text-ink-500">LS10 2AB</span><br><span class="mono text-[10px] text-ink-400">SEEN 14 · LAST 2026-06-19</span></span>
+                <span class="act"><input type="radio" name="addr" class="accent-accent"/> USE</span>
+              </label>
+              <label class="grid grid-cols-[1fr_auto] items-center border-b border-r border-line px-3 py-2.5 gap-3 hover:bg-[#ECEDEF] cursor-pointer">
+                <span><span class="text-[13px] font-medium">AutoPoint Bodyshop, 22 Kirkstall Rd, Leeds</span> <span class="mono text-[12px] text-ink-500">LS3 1JL</span><br><span class="mono text-[10px] text-ink-400">SEEN 6 · LAST 2026-05-30</span></span>
+                <span class="act"><input type="radio" name="addr" class="accent-accent"/> USE</span>
+              </label>
+              <label class="grid grid-cols-[1fr_auto] items-center border-b border-r border-line px-3 py-2.5 gap-3 hover:bg-[#ECEDEF] cursor-pointer">
+                <span><span class="text-[13px] font-medium">Edit address manually</span> <span class="mono text-[10px] text-ink-400">— 6-line form</span></span>
+                <span class="act"><input type="radio" name="addr" class="accent-accent"/> EDIT</span>
+              </label>
+              <div class="border-b border-r border-line px-3 py-2.5 bg-[#FBF4EA]">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="addr" class="accent-[#B45309]"/><span class="text-[13px] font-medium">Image Based Assessment (IBA)</span><span class="prov warn"><span class="g">▲</span>REASON REQUIRED</span></label>
+                <textarea class="mono text-[12px] w-full mt-2 border border-line bg-white px-2 py-1.5 focusable" rows="2" placeholder="Reason (required) — no silent address…"></textarea>
+              </div>
+            </div>
+            <p class="eyebrow !text-ink-400 mt-2">Pick / edit manually · IBA needs a reason · Loc is an EVA-export artifact, never an intake input.</p>
+          </section>
+
+          <!-- §CHASERS -->
+          <section id="chasers" class="px-4 sm:px-6 py-5 border-t border-line scroll-mt-28">
+            <div class="ruled-head mb-3"><span class="eyebrow">Chasers · drafts only — never auto-sends</span><span class="rule"></span></div>
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <button class="act primary">EMAIL TEMPLATE</button>
+              <button class="act">WHATSAPP TEMPLATE</button>
+              <button class="act gated" disabled title="Gated — BOX_FILEREQUEST_ENABLED=false">BOX FILE-REQUEST LINK <span class="mono text-[9px] border border-line px-1 ml-1">GATED</span></button>
+            </div>
+            <div class="border border-line bg-white">
+              <div class="border-b border-line px-3 py-2 bg-[#FAFAF9] flex items-center justify-between">
+                <span class="eyebrow">Draft · missing-images chaser</span>
+                <span class="mono text-[10px] text-ink-400">TO: claims@aviva.co.uk</span>
+              </div>
+              <div class="px-3 py-3 text-[13px] text-ink-700 leading-relaxed">
+                Dear Aviva,<br><br>
+                Re <span class="mono">CCPY26050</span> — <span class="mono">LR21 KMV</span> (J. Okafor). To proceed to EVA we still require <strong>2 vehicle photographs</strong>: a full overview showing the complete registration, and a main-damage closeup. Please reply with these attached, or use the secure upload link.<br><br>
+                Kind regards,<br>Collision Engineers — Intake
+              </div>
+              <div class="border-t border-line px-3 py-2 flex flex-wrap gap-2">
+                <button class="act"><span>⧉</span> Copy draft</button>
+                <button class="act"><span>✓</span> Log chase → history</button>
+                <span class="flex-1"></span>
+                <span class="mono text-[10px] text-ink-400 self-center">Sending happens in the operator's mail client — never here.</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- §NOTES -->
+          <section id="notes" class="px-4 sm:px-6 py-5 border-t border-line scroll-mt-28">
+            <div class="ruled-head mb-3"><span class="eyebrow">Notes</span><span class="rule"></span></div>
+            <textarea class="mono text-[12px] w-full border border-line bg-white px-3 py-2 focusable" rows="3" placeholder="Internal note (audited)…"></textarea>
+            <div class="mt-2 text-[13px] text-ink-700 border-l-2 border-line pl-3"><span class="mono text-[10px] text-ink-400">2026-06-23 14:02 · A. MERCER</span><br>Left voicemail with bodyshop re: missing overview photo. Will re-chase Wednesday.</div>
+          </section>
+
+          <!-- §HISTORY -->
+          <section id="history" class="px-4 sm:px-6 py-5 border-t border-line scroll-mt-28">
+            <div class="ruled-head mb-3"><span class="eyebrow">History · AuditEvent — append-only</span><span class="rule"></span></div>
+            <div class="border-l border-line pl-4 space-y-3">
+              <div class="relative"><span class="absolute -left-[21px] top-1 w-2 h-2 bg-ink-900"></span><div class="mono text-[10px] text-ink-400">2026-06-24 09:18 · SYSTEM</div><div class="text-[13px]">Chaser logged — missing-images draft prepared.</div></div>
+              <div class="relative"><span class="absolute -left-[21px] top-1 w-2 h-2 bg-ink-900"></span><div class="mono text-[10px] text-ink-400">2026-06-23 14:02 · A. MERCER</div><div class="text-[13px]">Flagged VAT status conflict (field 08) for review.</div></div>
+              <div class="relative"><span class="absolute -left-[21px] top-1 w-2 h-2 bg-ink-300"></span><div class="mono text-[10px] text-ink-400">2026-06-22 08:16 · SYSTEM</div><div class="text-[13px]">Parsed instruction PDF · 9 of 12 fields auto-filled · status → needs_review.</div></div>
+              <div class="relative"><span class="absolute -left-[21px] top-1 w-2 h-2 bg-ink-300"></span><div class="mono text-[10px] text-ink-400">2026-06-22 08:14 · SYSTEM</div><div class="text-[13px]">Case created from Aviva email · channel EMAIL · status → ingested.</div></div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ===== RIGHT: STICKY SIDEBAR ===== -->
+      <aside class="bg-paper border-t xl:border-t-0 border-line">
+        <div class="xl:sticky xl:top-[104px] p-4 sm:p-5 space-y-5">
+          <!-- READINESS CHECKLIST -->
+          <div>
+            <div class="ruled-head mb-3"><span class="eyebrow">Readiness gate</span><span class="rule"></span></div>
+            <div class="border border-line bg-white">
+              <a href="#field-08" class="flex items-start gap-2 px-3 py-2.5 border-b border-line hover:bg-[#ECEDEF]">
+                <span class="mono text-[13px] text-blocker font-bold">✗</span>
+                <span class="flex-1 text-[12px]"><span class="font-medium">Required fields</span><br><span class="mono text-[10px] text-ink-500">VAT (08) conflict · mileage (06) missing</span></span>
+                <span class="mono text-[10px] link self-center">→ 08</span>
+              </a>
+              <a href="#evidence" class="flex items-start gap-2 px-3 py-2.5 border-b border-line hover:bg-[#ECEDEF]">
+                <span class="mono text-[13px] text-blocker font-bold">✗</span>
+                <span class="flex-1 text-[12px]"><span class="font-medium">≥2 EVA images</span><br><span class="mono text-[10px] text-ink-500">need overview w/ reg (have damage)</span></span>
+                <span class="mono text-[10px] link self-center">→ evid.</span>
+              </a>
+              <a href="#address" class="flex items-start gap-2 px-3 py-2.5 border-b border-line hover:bg-[#ECEDEF]">
+                <span class="mono text-[13px] text-blocker font-bold">✗</span>
+                <span class="flex-1 text-[12px]"><span class="font-medium">Address decided</span><br><span class="mono text-[10px] text-ink-500">pick corpus or IBA + reason</span></span>
+                <span class="mono text-[10px] link self-center">→ addr.</span>
+              </a>
+              <div class="flex items-start gap-2 px-3 py-2.5 border-b border-line">
+                <span class="mono text-[13px] text-[#15613C] font-bold">✓</span>
+                <span class="flex-1 text-[12px]"><span class="font-medium">Channel linked</span><br><span class="mono text-[10px] text-ink-500">email · source matched</span></span>
+              </div>
+              <div class="flex items-start gap-2 px-3 py-2.5">
+                <span class="mono text-[13px] text-[#15613C] font-bold">✓</span>
+                <span class="flex-1 text-[12px]"><span class="font-medium">No duplicate</span><br><span class="mono text-[10px] text-ink-500">dedup ladder clear</span></span>
+              </div>
+            </div>
+            <label for="submit-toggle" class="act gated w-full justify-center mt-2 cursor-pointer">→ Submit to EVA · 3 blockers</label>
+          </div>
+
+          <!-- CASE FACTS -->
+          <div>
+            <div class="ruled-head mb-3"><span class="eyebrow">Case facts · read-only</span><span class="rule"></span></div>
+            <div class="border border-line bg-white mono text-[11px]">
+              <div class="flex justify-between px-3 py-2 border-b border-line"><span class="text-ink-500">PRINCIPAL</span><span class="font-semibold">CCPY <span class="text-ink-400">🔒</span></span></div>
+              <div class="flex justify-between px-3 py-2 border-b border-line"><span class="text-ink-500">YEAR</span><span class="font-semibold">26 <span class="text-ink-400">🔒</span></span></div>
+              <div class="flex justify-between px-3 py-2 border-b border-line"><span class="text-ink-500">SEQUENCE</span><span class="font-semibold">050</span></div>
+              <div class="flex justify-between px-3 py-2 border-b border-line"><span class="text-ink-500">VRM</span><span class="font-semibold">LR21 KMV</span></div>
+              <div class="flex justify-between px-3 py-2 border-b border-line"><span class="text-ink-500">CHANNEL</span><span class="font-semibold">EMAIL</span></div>
+              <div class="flex justify-between px-3 py-2 border-b border-line"><span class="text-ink-500">CREATED</span><span class="font-semibold">2026-06-22 08:14</span></div>
+              <div class="flex justify-between px-3 py-2"><span class="text-ink-500">SOURCE</span><span class="font-semibold">Aviva instr. PDF</span></div>
+            </div>
+            <p class="eyebrow !text-ink-400 mt-2">Principal + year locked. Submit edits only the 3-digit sequence.</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="px-4 sm:px-6 py-4 mono text-[10px] text-ink-400 tracking-[.14em] border-t border-line flex flex-wrap gap-x-5 gap-y-1 bg-paper">
+      <span>SWISS-GRID · CASE DETAIL</span><span>THE MEASURE NUMBERS THE 12 FIELDS</span><span>SEED DATA · NOT LIVE</span>
+      <span class="ml-auto">collisionspike · phase-ux-design-lab</span>
+    </footer>
+  </div>
+</div>
+
+<!-- ===== SUBMIT ROUTE-MODAL (sole shadow = scrim) ===== -->
+<div class="modal-wrap">
+  <label for="submit-toggle" class="scrim cursor-pointer" aria-label="Close"></label>
+  <div class="relative bg-white border border-ink-900 w-full max-w-lg mt-8" style="box-shadow:0 0 0 100vmax rgba(10,10,11,.32)">
+    <div class="h-12 border-b border-line flex items-center justify-between px-4">
+      <span class="eyebrow !text-ink-900">EVA submit · /submit</span>
+      <label for="submit-toggle" class="mono text-[14px] cursor-pointer hover:text-blocker px-2">✕</label>
+    </div>
+    <div class="px-4 py-4 space-y-3">
+      <div class="border border-blocker bg-[#FBEDEE] px-3 py-2 mono text-[11px] text-blocker">✗ Gate not passed — preview only. Resolve 3 blockers to enable submit.</div>
+      <!-- Case/PO composer -->
+      <div>
+        <p class="eyebrow mb-1">Case / PO</p>
+        <div class="flex items-stretch border border-line">
+          <span class="mono text-[14px] font-bold px-3 flex items-center bg-[#FAFAF9] border-r border-line">CCPY <span class="text-ink-400 ml-1 text-[10px]">🔒</span></span>
+          <span class="mono text-[14px] font-bold px-3 flex items-center bg-[#FAFAF9] border-r border-line">26 <span class="text-ink-400 ml-1 text-[10px]">🔒</span></span>
+          <input class="mono text-[14px] font-bold px-3 w-20 outline-none" value="050" aria-label="Sequence (editable)"/>
+          <span class="flex-1 flex items-center justify-end px-3 mono text-[10px] text-ink-400">only 3-digit sequence editable</span>
+        </div>
+      </div>
+      <!-- coupling -->
+      <div class="grid grid-cols-2 gap-2">
+        <div class="border border-line p-2"><p class="eyebrow">EVA code</p><p class="mono text-[13px] text-[#15613C]">ccpy26050</p></div>
+        <div class="border border-line p-2"><p class="eyebrow">Box folder</p><p class="mono text-[13px]">CCPY26050</p></div>
+      </div>
+      <!-- json -->
+      <div>
+        <p class="eyebrow mb-1">Payload preview</p>
+        <pre class="mono text-[10px] text-ink-700 bg-[#FAFAF9] border border-line p-2 overflow-x-auto">{ "case_po":"ccpy26050", "reg":"LR21KMV", "fields":"10/12", "images":"1/2", "address":"pending" }</pre>
+      </div>
+      <div class="flex items-center gap-2 pt-1">
+        <button class="act gated" disabled>→ Submit to EVA</button>
+        <span class="badge"><span class="gl">⏸</span>SENTRY REST · GATED</span>
+        <span class="flex-1"></span>
+        <label for="submit-toggle" class="act cursor-pointer">Cancel</label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="md:hidden fixed bottom-0 inset-x-0 z-50 bg-ink-900 text-white border-t border-white/10 grid grid-cols-5">
+  <a href="index.html" class="flex flex-col items-center justify-center gap-0.5 py-2 border-t-2 border-transparent"><span class="mono text-[12px] font-semibold text-ink-400">CK</span><span class="text-[9px] text-ink-400">Cockpit</span></a>
+  <a href="index.html#r1" class="flex flex-col items-center justify-center gap-0.5 py-2 border-t-2 border-transparent"><span class="mono text-[12px] font-semibold text-ink-400">TR</span><span class="text-[9px] text-ink-400">Triage</span></a>
+  <a href="queues.html" class="flex flex-col items-center justify-center gap-0.5 py-2 border-t-2 border-accent"><span class="mono text-[12px] font-semibold">QU</span><span class="text-[9px] text-ink-300">Queues</span></a>
+  <a href="#" class="flex flex-col items-center justify-center gap-0.5 py-2 border-t-2 border-transparent"><span class="mono text-[12px] font-semibold text-ink-400">IN</span><span class="text-[9px] text-ink-400">Intake</span></a>
+  <a href="#" class="flex flex-col items-center justify-center gap-0.5 py-2 border-t-2 border-transparent"><span class="mono text-[12px] font-semibold text-ink-400">AD</span><span class="text-[9px] text-ink-400">Admin</span></a>
+</nav>
+</body>
+</html>

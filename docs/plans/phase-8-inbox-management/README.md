@@ -13,6 +13,11 @@
 > `inbound_routed=100000025`; `case_disposed=100000026` (Phase 9) is the highest, so the **next free
 > audit-action value is `100000027`**. (The earlier "next free = 100000022" is stale — 100000022 is
 > `location_assist_confirmed`, 100000023 is `chaser_sent`.) Name any further actions `inbound_*`.
+>
+> **Live trigger evidence (2026-06-25):** `digital@` (the team's working inbox) running the live trigger on
+> `fetchOnlyWithAttachment=false` produced a backlog of **50 blank junk Cases** (GitHub/vendor/2FA noise). See
+> [junk-backlog-and-activation-evidence.md](./junk-backlog-and-activation-evidence.md) for the findings, the
+> blank-guarded cleanup runbook, and why **content-based** triage keeps test extraction working.
 
 # Email Tag/ID + Inbox-Management System — Plan
 

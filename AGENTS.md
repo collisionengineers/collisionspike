@@ -126,6 +126,29 @@ memory files; this is the tool index.
 - Reuse **code-app-architect** (code-apps-preview) for the Code App shell / `pac code` deploy. Do **not**
   use `canvas-app-*` or `genpage-*` agents — this is a **Code App**.
 
+### UI/UX design-lab agents (`docs/plans/phase-ux-design-lab/`)
+Explore many **throwaway HTML/React** UI directions, judge them, converge, then **port the winner to the
+Fluent v9 Code App**. Each owns one slice and **defers the Code App shell / routes / connector wiring /
+`pac code` deploy to code-app-architect**; none use `canvas-app-*` / `genpage-*` / `mcp-apps:*`.
+- **ux-architect** — information architecture, navigation, the main-page **inbox cockpit** (whole inbox:
+  receiving_work/query/other + new cases + data) + the retained queues, user flows, and the **evaluation
+  rubric** (the shared brief every direction builds against).
+- **ui-ux-pro-max-specialist** — the variety engine: drives `ui-ux-pro-max` to seed one *distinct* design
+  system per direction.
+- **ui-visual-designer** — bespoke visual direction (signature, type, layout, motion intent); refines the
+  seed and re-anchors the winner to the CE brand.
+- **stitch-prototyper** — builds each direction into a runnable throwaway HTML/React mockup (Stitch
+  generate→build→`taste-design`); **not** Fluent.
+- **mobile-ux-designer** — responsive + touch treatment (responsive-web-first; React Native reserved/future).
+- **accessibility-engineer** — WCAG-AA audits (`chrome-devtools` a11y) of prototypes + the production port;
+  gates convergence.
+- **design-critic** — the adversarial **judge**: scores directions vs the rubric, ranks the gallery, runs the
+  completeness critique.
+- **fluent-codeapp-designer** — ports the winner to Fluent v9 + CE brand + CSP, reusing the `mockup-app/`
+  component library; writes `port-spec.md` for **code-app-architect** to build.
+- **motion-demo-designer** *(optional)* — walkthrough/demo videos (`hyperframes` / `stitch-build:remotion`) +
+  the winner's micro-interaction motion.
+
 ## Recommended guardrail hooks (see `.claude/settings.json`)
 - PreToolUse on `pac code push` → remind to `npm run build` first + hard-refresh.
 - PostToolUse on edits to `mockup-app/src/**` introducing `fetch(`/`azurewebsites.net` → remind to use a

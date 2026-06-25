@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Warm Hearth · Case CCPY26050 — collisionspike</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&family=Nunito+Sans:wght@400;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      canvas:'#F6F1EA', sunken:'#EFE8DE', surface:'#FFFDFB',
+      border:{soft:'#E7DED2', strong:'#D8CCBC'},
+      ink:{strong:'#34302B', body:'#4F483F', muted:'#6B6154'},
+      primary:{DEFAULT:'#1B7163', hover:'#145A4E', decor:'#2A8C7D', tint:'#DCEDE8'},
+      accent:{DEFAULT:'#E8A33D', text:'#8A5A10', tint:'#FBEBCF'},
+      review:{500:'#D2685E',700:'#9C3A30',100:'#F8E4E0'},
+      held:{500:'#E8A33D',700:'#8A5A10',100:'#FBEBCF'},
+      ready:{500:'#5B9A6E',700:'#2F6B45',100:'#E0EFE2'},
+      done:{500:'#6E8BA3',700:'#3F5A70',100:'#E5ECF1'},
+      nstate:{500:'#9A8E7E',700:'#5A5045',100:'#EFE8DE'},
+    },
+    fontFamily:{ display:['Nunito','sans-serif'], body:['"Nunito Sans"','sans-serif'], mono:['"Spline Sans Mono"','ui-monospace','monospace'] },
+    borderRadius:{ xs:'6px', sm:'10px', md:'14px', lg:'20px', xl:'28px', pill:'9999px' },
+    boxShadow:{ xs:'0 1px 2px rgba(58,48,38,.06)', sm:'0 2px 6px rgba(58,48,38,.07)', md:'0 6px 16px rgba(58,48,38,.08)', lg:'0 14px 32px rgba(58,48,38,.10)' },
+  }}
+}
+</script>
+<style>
+html{ scroll-behavior:smooth; }
+body{ font-family:'Nunito Sans',sans-serif; color:#4F483F; background:#F6F1EA; -webkit-font-smoothing:antialiased; }
+.font-display{ font-family:'Nunito',sans-serif; }
+.font-mono{ font-family:'Spline Sans Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+.eyebrow{ font-family:'Nunito Sans',sans-serif; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.card{ background:#FFFDFB; border:1px solid #E7DED2; border-radius:14px; box-shadow:0 1px 2px rgba(58,48,38,.06); }
+.lift{ transition:box-shadow .2s ease-out, transform .2s ease-out, background-color .2s ease-out; }
+.lift:hover{ box-shadow:0 2px 6px rgba(58,48,38,.07); }
+.press:active{ transform:scale(.99); }
+.vrm{ display:inline-flex; align-items:stretch; border-radius:2px; overflow:hidden; border:1px solid #E3C200;
+  box-shadow:0 1px 2px rgba(58,48,38,.10); font-family:'Spline Sans Mono',monospace; font-weight:500; }
+.vrm .gb{ background:#0a3d91; color:#fff; font-size:10px; line-height:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 5px; letter-spacing:.02em; }
+.vrm .reg{ background:#F8DD3A; color:#1c1a16; padding:5px 10px; letter-spacing:.06em; white-space:nowrap; }
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{
+  outline:none; box-shadow:0 0 0 2px #FFFDFB, 0 0 0 5px #1B7163; border-radius:8px; }
+.vrm:focus-visible{ border-radius:2px; }
+.scroll-thin::-webkit-scrollbar{ height:8px; width:8px; }
+.scroll-thin::-webkit-scrollbar-thumb{ background:#D8CCBC; border-radius:9999px; }
+.scroll-thin::-webkit-scrollbar-track{ background:transparent; }
+/* provenance badge */
+.prov{ display:inline-flex; align-items:center; gap:5px; border-radius:6px; padding:2px 7px; font-size:10px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.03em; border:1px solid #E7DED2; background:#FFFDFB; color:#6B6154; }
+.prov svg{ width:11px; height:11px; }
+/* tabs */
+.tab{ color:#6B6154; transition:all .2s ease-out; }
+.tab[aria-selected="true"]{ background:#FFFDFB; color:#145A4E; box-shadow:0 1px 2px rgba(58,48,38,.06); }
+.tabpanel[hidden]{ display:none; }
+/* field input look */
+.fld{ width:100%; background:#FFFDFB; border:1px solid #D8CCBC; border-radius:10px; padding:9px 12px; font-size:14px; color:#34302B; }
+.fld:focus{ outline:none; border-color:#1B7163; }
+.fld.err{ border-color:#D2685E; background:#FFFDFB; }
+/* toggle switch */
+.sw{ width:38px; height:22px; border-radius:9999px; background:#D8CCBC; position:relative; transition:background .2s; cursor:pointer; }
+.sw::after{ content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:9999px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:left .2s; }
+.sw[aria-checked="true"]{ background:#1B7163; } .sw[aria-checked="true"]::after{ left:18px; }
+@media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+</style>
+</head>
+<body class="text-ink-body">
+
+<div class="flex min-h-screen">
+
+  <!-- ============================ LEFT RAIL ============================ -->
+  <aside class="hidden md:flex flex-col w-[68px] lg:w-60 shrink-0 bg-sunken border-r border-border-soft sticky top-0 h-screen">
+    <div class="flex items-center gap-3 px-4 lg:px-5 h-16 border-b border-border-soft/70">
+      <div class="w-9 h-9 rounded-md bg-primary text-white grid place-items-center font-display font-extrabold shadow-sm shrink-0">ch</div>
+      <div class="hidden lg:block leading-tight">
+        <div class="font-display font-extrabold text-ink-strong">collisionspike</div>
+        <div class="text-[11px] text-ink-muted">Intake cockpit</div>
+      </div>
+    </div>
+    <nav class="flex-1 px-2 lg:px-3 py-4 space-y-1 overflow-y-auto scroll-thin" aria-label="Primary">
+      <a href="index.html" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M4 13h7V4H4v9Zm9 7h7v-9h-7v9ZM4 20h7v-5H4v5Zm9-16v5h7V4h-7Z" fill="currentColor"/></svg>
+        <span class="hidden lg:block flex-1">Cockpit</span>
+        <span class="hidden lg:inline-flex font-mono text-[11px] px-1.5 py-0.5 rounded-pill bg-surface text-ink-muted">12</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M3 7l9 6 9-6M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="hidden lg:block flex-1">Inbox</span>
+        <span class="hidden lg:inline-flex font-mono text-[11px] px-1.5 py-0.5 rounded-pill bg-surface text-ink-muted">8</span>
+      </a>
+      <a href="queues.html" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        <span class="hidden lg:block flex-1">Queues</span>
+        <span class="hidden lg:inline-flex font-mono text-[11px] px-1.5 py-0.5 rounded-pill bg-review-100 text-review-700 font-semibold">3</span>
+      </a>
+      <a href="case-detail.html" aria-current="page" class="relative flex items-center gap-3 rounded-sm px-3 py-2.5 bg-primary-tint text-primary font-semibold">
+        <span class="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-primary"></span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M13 3v6h6" stroke="currentColor" stroke-width="1.7"/></svg>
+        <span class="hidden lg:block flex-1">Cases</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        <span class="hidden lg:block flex-1">Manual intake</span>
+      </a>
+      <div class="pt-4 mt-3 border-t border-border-soft">
+        <div class="hidden lg:block px-3 pb-1 eyebrow text-[10px] text-ink-muted">Admin</div>
+        <a href="#" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span class="hidden lg:block flex-1">Admin · Corpus</span>
+          <span class="hidden lg:inline-flex font-mono text-[11px] px-1.5 py-0.5 rounded-pill bg-surface text-ink-muted">2</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><circle cx="12" cy="12" r="2.4" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v2m0 12v2m8-8h-2M6 12H4m12.5-5.5-1.4 1.4M8.9 15.1l-1.4 1.4m9.6 0-1.4-1.4M8.9 8.9 7.5 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span class="hidden lg:block flex-1">Settings</span>
+        </a>
+      </div>
+    </nav>
+    <div class="px-3 py-3 border-t border-border-soft flex items-center gap-3">
+      <div class="w-8 h-8 rounded-pill bg-primary-tint text-primary grid place-items-center font-display font-bold text-sm">SM</div>
+      <div class="hidden lg:block leading-tight text-sm">
+        <div class="font-semibold text-ink-strong">Sam Mercer</div>
+        <div class="text-[11px] text-ink-muted">Intake staff</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============================ MAIN ============================ -->
+  <main class="flex-1 min-w-0 pb-24 md:pb-8">
+
+    <!-- header bar: breadcrumb + slim SPINE -->
+    <header class="sticky top-0 z-20 bg-canvas/85 backdrop-blur border-b border-border-soft">
+      <div class="px-4 sm:px-6 lg:px-8 pt-3 pb-2 flex items-center gap-3 flex-wrap">
+        <div class="md:hidden w-8 h-8 rounded-md bg-primary text-white grid place-items-center font-display font-extrabold text-sm">ch</div>
+        <a href="queues.html" class="text-sm text-ink-muted hover:text-primary">← Queues</a>
+        <span class="text-ink-muted text-sm">/</span>
+        <span class="text-sm font-semibold text-ink-strong font-mono">CCPY26050</span>
+        <!-- slim spine: open case at Review (teal) -->
+        <ol class="ml-auto hidden sm:flex items-center gap-1.5" aria-label="Pipeline position: Review">
+          <li class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-pill bg-surface border border-border-strong" title="New"></span></li>
+          <li class="w-4 h-[3px] rounded-pill bg-border-strong" aria-hidden="true"></li>
+          <li><span class="w-3 h-3 rounded-pill bg-surface border border-border-strong" title="Parsing"></span></li>
+          <li class="w-4 h-[3px] rounded-pill bg-primary/40" aria-hidden="true"></li>
+          <li><span class="w-5 h-5 rounded-pill bg-primary border-2 border-primary grid place-items-center" title="Review (current)"><span class="w-1.5 h-1.5 rounded-pill bg-white"></span></span></li>
+          <li class="w-4 h-[3px] rounded-pill bg-border-strong" aria-hidden="true"></li>
+          <li><span class="w-3 h-3 rounded-pill bg-surface border border-border-strong" title="Held"></span></li>
+          <li class="w-4 h-[3px] rounded-pill bg-border-strong" aria-hidden="true"></li>
+          <li><span class="w-3 h-3 rounded-pill bg-surface border border-border-strong" title="Ready"></span></li>
+          <li class="w-4 h-[3px] rounded-pill bg-border-strong" aria-hidden="true"></li>
+          <li><span class="w-3 h-3 rounded-pill bg-transparent border border-dashed border-done-500" title="Submitted"></span></li>
+          <li class="w-4 h-[3px] rounded-pill bg-border-strong" aria-hidden="true"></li>
+          <li><span class="w-3 h-3 rounded-pill bg-transparent border border-dashed border-done-500" title="Box"></span></li>
+        </ol>
+      </div>
+    </header>
+
+    <div class="px-4 sm:px-6 lg:px-8 py-5">
+
+      <!-- ===================== CASE HEADER ===================== -->
+      <section class="card p-5">
+        <div class="space-y-4">
+          <div class="flex items-start gap-4 min-w-0">
+            <span class="vrm text-lg shrink-0"><span class="gb">GB</span><span class="reg">AB12 CDE</span></span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h1 class="font-display font-extrabold text-ink-strong text-xl font-mono">CCPY26050</h1>
+                <span class="inline-flex items-center gap-1.5 rounded-pill bg-review-100 text-review-700 px-2.5 py-1 text-xs font-bold">▲ needs_review</span>
+                <span class="inline-flex items-center gap-1.5 rounded-pill bg-sunken text-ink-body px-2.5 py-1 text-xs font-semibold">✉ Email</span>
+                <span class="inline-flex items-center gap-1.5 rounded-pill bg-sunken text-ink-body px-2.5 py-1 text-xs font-semibold">⏱ 2d</span>
+              </div>
+              <p class="mt-1 text-sm text-ink-body">ABC Claims · <span class="font-mono text-ink-muted">CCPY</span> &nbsp;·&nbsp; Ford Focus 1.0 EcoBoost · 2019 · Silver</p>
+              <p class="text-xs text-ink-muted">Claimant: J. Smith · received 08:31 today</p>
+            </div>
+          </div>
+
+          <!-- actions cluster -->
+          <div class="flex flex-wrap gap-2">
+            <button class="inline-flex items-center gap-1.5 rounded-sm border border-border-strong bg-surface text-sm font-semibold px-3 py-2 text-ink-body hover:bg-canvas press">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0 4 4m-4-4-4 4M4 20h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Upload</button>
+            <button class="inline-flex items-center gap-1.5 rounded-sm border border-border-strong bg-surface text-sm font-semibold px-3 py-2 text-ink-body hover:bg-canvas press">Export JSON</button>
+            <button class="inline-flex items-center gap-1.5 rounded-sm border border-border-strong bg-surface text-sm font-semibold px-3 py-2 text-ink-body hover:bg-canvas press">Copy JSON</button>
+            <button disabled title="Box not connected" class="inline-flex items-center gap-1.5 rounded-sm border border-border-soft bg-sunken text-sm font-semibold px-3 py-2 text-ink-muted/70 cursor-not-allowed">⊘ Open in Box</button>
+            <button disabled title="Enrichment gated off" class="inline-flex items-center gap-1.5 rounded-sm border border-border-soft bg-sunken text-sm font-semibold px-3 py-2 text-ink-muted/70 cursor-not-allowed">⊘ Enrich</button>
+            <button disabled title="3 items outstanding before EVA submit" class="inline-flex items-center gap-1.5 rounded-sm bg-primary/40 text-white/90 text-sm font-bold px-3 py-2 cursor-not-allowed">⊘ Submit to EVA</button>
+            <button class="inline-flex items-center gap-1.5 rounded-sm border border-border-soft bg-surface text-sm font-semibold px-3 py-2 text-ink-muted hover:text-review-700 hover:border-review-500 press">Delete</button>
+          </div>
+        </div>
+
+        <!-- readiness MessageBar -->
+        <div class="mt-4 flex items-center gap-3 rounded-md bg-review-100 border border-review-500/40 px-4 py-3">
+          <span class="w-7 h-7 rounded-pill bg-review-500 text-white grid place-items-center shrink-0" aria-hidden="true">▲</span>
+          <p class="text-sm text-review-700"><b>3 items outstanding</b> before this case can be submitted to EVA — see the readiness checklist.</p>
+        </div>
+      </section>
+
+      <!-- ===================== TABS + SIDEBAR ===================== -->
+      <div class="mt-5 grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-5 items-start">
+
+        <!-- MAIN COLUMN -->
+        <div class="min-w-0 space-y-5">
+          <!-- tablist -->
+          <div class="card p-1.5 flex items-center gap-1 overflow-x-auto scroll-thin" role="tablist" aria-label="Case sections">
+            <button role="tab" aria-selected="true" aria-controls="p-fields" class="tab rounded-pill px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap">Fields</button>
+            <button role="tab" aria-selected="false" aria-controls="p-evidence" class="tab rounded-pill px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap">Evidence</button>
+            <button role="tab" aria-selected="false" aria-controls="p-address" class="tab rounded-pill px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap">Address</button>
+            <button role="tab" aria-selected="false" aria-controls="p-chasers" class="tab rounded-pill px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap">Chasers</button>
+            <button role="tab" aria-selected="false" aria-controls="p-notes" class="tab rounded-pill px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap">Notes</button>
+            <button role="tab" aria-selected="false" aria-controls="p-history" class="tab rounded-pill px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap">History</button>
+            <button role="tab" aria-selected="false" aria-controls="p-enrich" class="tab rounded-pill px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap text-ink-muted/70">Enrichment ⊘</button>
+          </div>
+
+          <!-- ============ FIELDS PANEL ============ -->
+          <section id="p-fields" role="tabpanel" class="tabpanel card p-5 space-y-6">
+            <!-- cluster: Provider & claimant -->
+            <div>
+              <h3 class="eyebrow text-[11px] text-ink-muted mb-3">Provider &amp; claimant</h3>
+              <div class="grid sm:grid-cols-2 gap-x-5 gap-y-4">
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">1 · Work provider</span>
+                    <span class="prov" style="border-color:#5B9A6E"><svg viewBox="0 0 24 24" fill="none"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.6"/><path d="M13 3v6h6" stroke="currentColor" stroke-width="1.6"/></svg>PDF <span class="text-ready-700" aria-label="reviewed">✔</span></span></label>
+                  <input class="fld" value="ABC Claims (CCPY)" />
+                </div>
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">2 · Claimant name</span>
+                    <span class="prov" style="border-color:#5B9A6E"><svg viewBox="0 0 24 24" fill="none"><path d="m4 20 9-9m0 0 4-4-3-3-4 4m3 3-3-3" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>MANUAL <span class="text-ready-700" aria-label="reviewed">✔</span></span></label>
+                  <input class="fld" value="Jane Smith" />
+                </div>
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">3 · Claimant telephone</span>
+                    <span class="prov" style="border-color:#E8A33D"><svg viewBox="0 0 24 24" fill="none"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.6"/><path d="M13 3v6h6" stroke="currentColor" stroke-width="1.6"/></svg>PDF <span class="text-accent-text" aria-label="needs review">●</span></span></label>
+                  <input class="fld font-mono" value="07712 345 678" />
+                </div>
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">4 · Claimant email</span>
+                    <span class="prov" style="border-color:#D2685E"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v3m6.4 1.6L16 10m5 2h-3M6 10 3.6 7.6M6 14H3m3.6 4.4L9 16m6 0 2.4 2.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/></svg>AI <span class="text-review-700" aria-label="conflict">▲</span></span></label>
+                  <input class="fld err font-mono" value="j.smith@gmial.com" />
+                  <p class="mt-1 text-xs text-review-700 flex items-center gap-1.5"><span aria-hidden="true">▲</span> Conflict: AI read differs from PDF (<span class="font-mono">jsmith@gmail.com</span>). Confirm one.</p>
+                </div>
+              </div>
+            </div>
+            <!-- cluster: Vehicle -->
+            <div class="pt-1 border-t border-border-soft">
+              <h3 class="eyebrow text-[11px] text-ink-muted mb-3 mt-4">Vehicle</h3>
+              <div class="grid sm:grid-cols-2 gap-x-5 gap-y-4">
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">5 · Vehicle (make / model)</span>
+                    <span class="prov" style="border-color:#5B9A6E"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4Z" stroke="currentColor" stroke-width="1.5"/></svg>DVLA <span class="text-ready-700" aria-label="reviewed">✔</span></span></label>
+                  <input class="fld" value="Ford Focus 1.0 EcoBoost" />
+                </div>
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">6 · Mileage</span>
+                    <span class="prov" style="border-color:#E8A33D"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4Z" stroke="currentColor" stroke-width="1.5"/></svg>DVLA <span class="text-accent-text" aria-label="needs review">●</span></span></label>
+                  <input class="fld font-mono" value="41,250" />
+                </div>
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">7 · Mileage unit</span>
+                    <span class="prov">— <span class="text-ink-muted/60" aria-label="not required">·</span></span></label>
+                  <select class="fld"><option>Miles</option><option>Kilometres</option></select>
+                </div>
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">8 · VAT status</span>
+                    <span class="prov" style="border-color:#5B9A6E"><svg viewBox="0 0 24 24" fill="none"><path d="m4 20 9-9m0 0 4-4-3-3-4 4m3 3-3-3" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>MANUAL <span class="text-ready-700" aria-label="reviewed">✔</span></span></label>
+                  <select class="fld"><option>Not VAT registered</option><option>VAT registered</option></select>
+                </div>
+              </div>
+            </div>
+            <!-- cluster: Incident -->
+            <div class="pt-1 border-t border-border-soft">
+              <h3 class="eyebrow text-[11px] text-ink-muted mb-3 mt-4">Incident</h3>
+              <div class="grid gap-y-4">
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">9 · Accident circumstances</span>
+                    <span class="prov" style="border-color:#5B9A6E"><svg viewBox="0 0 24 24" fill="none"><path d="m4 20 9-9m0 0 4-4-3-3-4 4m3 3-3-3" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>MANUAL <span class="text-ready-700" aria-label="reviewed">✔</span></span></label>
+                  <textarea class="fld" rows="2">Third party failed to stop at junction and collided with the nearside front of the insured vehicle.</textarea>
+                </div>
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">10 · Inspection address (6-line)</span>
+                    <span class="prov" style="border-color:#E8A33D"><svg viewBox="0 0 24 24" fill="none"><path d="M5 4h11l3 3v13H5V4Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>CORPUS <span class="text-accent-text" aria-label="needs review">●</span></span></label>
+                  <input class="fld err" value="" placeholder="Not decided — pick from suggestions or set Image-Based Assessment" />
+                  <p class="mt-1 text-xs text-review-700 flex items-center gap-1.5"><span aria-hidden="true">▲</span> Required: no inspection address chosen. <a href="#" data-jump="address" class="underline font-semibold">Open Address tab →</a></p>
+                </div>
+              </div>
+            </div>
+            <!-- cluster: Dates -->
+            <div class="pt-1 border-t border-border-soft">
+              <h3 class="eyebrow text-[11px] text-ink-muted mb-3 mt-4">Dates</h3>
+              <div class="grid sm:grid-cols-2 gap-x-5 gap-y-4">
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">11 · Date of loss</span>
+                    <span class="prov" style="border-color:#5B9A6E"><svg viewBox="0 0 24 24" fill="none"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.6"/><path d="M13 3v6h6" stroke="currentColor" stroke-width="1.6"/></svg>PDF <span class="text-ready-700" aria-label="reviewed">✔</span></span></label>
+                  <input class="fld font-mono" value="04/06/2026" />
+                </div>
+                <div>
+                  <label class="flex items-center justify-between mb-1"><span class="text-sm font-semibold text-ink-strong">12 · Date of instruction</span>
+                    <span class="prov" style="border-color:#5B9A6E"><svg viewBox="0 0 24 24" fill="none"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.6"/><path d="M13 3v6h6" stroke="currentColor" stroke-width="1.6"/></svg>PDF <span class="text-ready-700" aria-label="reviewed">✔</span></span></label>
+                  <input class="fld font-mono" value="06/06/2026" />
+                </div>
+              </div>
+            </div>
+            <!-- live JSON well -->
+            <div class="pt-1 border-t border-border-soft">
+              <div class="flex items-center justify-between mt-4 mb-2">
+                <h3 class="eyebrow text-[11px] text-ink-muted">Live EVA JSON</h3>
+                <span class="text-[11px] text-ink-muted">updates as you edit · drag-drop export</span>
+              </div>
+              <pre class="rounded-md bg-sunken border border-border-soft p-4 text-xs text-ink-body font-mono overflow-x-auto scroll-thin leading-relaxed">{
+  "principal": "ccpy",
+  "case_ref": "ccpy26050",
+  "claimant": { "name": "Jane Smith", "tel": "07712345678", "email": "&lt;CONFLICT&gt;" },
+  "vehicle": { "make_model": "Ford Focus 1.0 EcoBoost", "mileage": 41250, "unit": "miles", "vat": false },
+  "incident": { "circumstances": "Third party failed to stop…", "inspection_address": null },
+  "dates": { "loss": "2026-06-04", "instruction": "2026-06-06" }
+}</pre>
+            </div>
+          </section>
+
+          <!-- ============ EVIDENCE PANEL ============ -->
+          <section id="p-evidence" role="tabpanel" hidden class="tabpanel card p-5 space-y-4">
+            <!-- photo-order banner -->
+            <div class="flex items-start gap-3 rounded-md bg-accent-tint border border-accent/40 px-4 py-3">
+              <span class="text-accent-text shrink-0" aria-hidden="true">◆</span>
+              <p class="text-sm text-accent-text"><b>EVA photo order:</b> 2 previews first — overview (full reg visible) + damage close-up — then <b>all</b> photos in sequence, including those two. Photos showing a person's reflection are excluded.</p>
+            </div>
+            <div class="flex items-center justify-between">
+              <h3 class="eyebrow text-[11px] text-ink-muted">Preview-then-all order · drag or use ↑↓ to reorder</h3>
+              <span class="inline-flex items-center gap-1.5 rounded-pill bg-ready-100 text-ready-700 px-2.5 py-1 text-xs font-semibold">7 usable · 1 excluded</span>
+            </div>
+            <!-- thumb grid -->
+            <ol class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              <!-- preview 1 -->
+              <li class="rounded-md border border-primary/50 overflow-hidden bg-surface">
+                <div class="relative aspect-[4/3] grid place-items-center" style="background:linear-gradient(135deg,#cfd9e0,#aeb9c4)">
+                  <svg width="64" height="40" viewBox="0 0 64 40" fill="none"><path d="M6 28h52M10 28l4-12a4 4 0 0 1 3.7-2.6h28.6A4 4 0 0 1 50 16l4 12M16 28v4M48 28v4" stroke="#3F5A70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="20" cy="28" r="3.2" fill="#3F5A70"/><circle cx="44" cy="28" r="3.2" fill="#3F5A70"/></svg>
+                  <span class="absolute top-1.5 left-1.5 text-[10px] font-bold bg-primary text-white px-1.5 py-0.5 rounded-xs">PREVIEW 1</span>
+                </div>
+                <div class="p-2 space-y-1">
+                  <div class="text-xs font-semibold text-ink-strong">Overview</div>
+                  <div class="inline-flex items-center gap-1 text-[10px] font-semibold text-ready-700 bg-ready-100 px-1.5 py-0.5 rounded-xs">✔ reg visible</div>
+                </div>
+              </li>
+              <!-- preview 2 -->
+              <li class="rounded-md border border-primary/50 overflow-hidden bg-surface">
+                <div class="relative aspect-[4/3] grid place-items-center" style="background:linear-gradient(135deg,#d8c4be,#c2a59c)">
+                  <svg width="58" height="40" viewBox="0 0 64 40" fill="none"><path d="M8 30h48" stroke="#7a4b40" stroke-width="2.2" stroke-linecap="round"/><path d="M14 30l5-11h26l5 11" stroke="#7a4b40" stroke-width="2.2" stroke-linejoin="round"/><path d="M24 24l-6 6m10-6-4 6" stroke="#9C3A30" stroke-width="2.4" stroke-linecap="round"/></svg>
+                  <span class="absolute top-1.5 left-1.5 text-[10px] font-bold bg-primary text-white px-1.5 py-0.5 rounded-xs">PREVIEW 2</span>
+                </div>
+                <div class="p-2 space-y-1">
+                  <div class="text-xs font-semibold text-ink-strong">Damage close-up</div>
+                  <div class="inline-flex items-center gap-1 text-[10px] font-semibold text-ink-muted bg-sunken px-1.5 py-0.5 rounded-xs">N/S front</div>
+                </div>
+              </li>
+              <!-- standard 3..6 -->
+              <li class="rounded-md border border-border-soft overflow-hidden bg-surface">
+                <div class="relative aspect-[4/3]" style="background:linear-gradient(135deg,#cbd2cf,#aab5b0)"></div>
+                <div class="p-2 text-xs font-semibold text-ink-strong">Front 3/4</div>
+              </li>
+              <li class="rounded-md border border-border-soft overflow-hidden bg-surface">
+                <div class="relative aspect-[4/3]" style="background:linear-gradient(135deg,#d2cbbf,#b7ad9c)"></div>
+                <div class="p-2 text-xs font-semibold text-ink-strong">Rear 3/4</div>
+              </li>
+              <li class="rounded-md border border-border-soft overflow-hidden bg-surface">
+                <div class="relative aspect-[4/3]" style="background:linear-gradient(135deg,#c6cdd4,#a4afb9)"></div>
+                <div class="p-2 text-xs font-semibold text-ink-strong">Interior</div>
+              </li>
+              <li class="rounded-md border border-border-soft overflow-hidden bg-surface">
+                <div class="relative aspect-[4/3]" style="background:linear-gradient(135deg,#d4c7c2,#bba39a)"></div>
+                <div class="p-2 text-xs font-semibold text-ink-strong">VIN plate</div>
+              </li>
+              <!-- excluded (reflection) -->
+              <li class="rounded-md border border-review-500/50 overflow-hidden bg-surface opacity-90">
+                <div class="relative aspect-[4/3] grid place-items-center" style="background:linear-gradient(135deg,#c9c2bb,#a89f95)">
+                  <span class="absolute inset-0 bg-review-500/10"></span>
+                  <span class="relative text-[10px] font-bold text-review-700 bg-review-100 px-2 py-1 rounded-xs">EXCLUDED · reflection</span>
+                </div>
+                <div class="p-2 flex items-center justify-between">
+                  <span class="text-xs font-semibold text-ink-strong">Wing mirror</span>
+                  <span class="sw" role="switch" aria-checked="true" tabindex="0" aria-label="Exclude this photo"></span>
+                </div>
+              </li>
+            </ol>
+          </section>
+
+          <!-- ============ ADDRESS PANEL ============ -->
+          <section id="p-address" role="tabpanel" hidden class="tabpanel card p-5 space-y-4">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <h3 class="eyebrow text-[11px] text-ink-muted">Inspection address — pick a suggestion, edit, or set IBA</h3>
+              <span class="inline-flex items-center gap-1.5 rounded-pill bg-accent-tint text-accent-text px-2.5 py-1 text-xs font-semibold">Policy: no silent address</span>
+            </div>
+            <p class="text-sm text-review-700 flex items-center gap-1.5"><span aria-hidden="true">▲</span> Not decided yet — required before submit.</p>
+            <!-- ranked suggestions -->
+            <ul class="space-y-2">
+              <li class="flex items-center gap-3 rounded-md border border-border-soft px-4 py-3 hover:bg-canvas lift">
+                <input type="radio" name="addr" class="accent-primary w-4 h-4" />
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-semibold text-ink-strong">Kwik Fit, 14 Mill Road, Cambridge, CB1 2AD</div>
+                  <div class="text-xs text-ink-muted">Repair garage · <span class="font-mono">seen 12× · last 21/06/26</span></div>
+                </div>
+                <span class="inline-flex items-center gap-1 rounded-pill bg-ready-100 text-ready-700 px-2 py-1 text-[11px] font-semibold">Top match</span>
+              </li>
+              <li class="flex items-center gap-3 rounded-md border border-border-soft px-4 py-3 hover:bg-canvas lift">
+                <input type="radio" name="addr" class="accent-primary w-4 h-4" />
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-semibold text-ink-strong">Halfords Autocentre, Newmarket Rd, Cambridge, CB5 8RS</div>
+                  <div class="text-xs text-ink-muted">Repair garage · <span class="font-mono">seen 5× · last 09/05/26</span></div>
+                </div>
+              </li>
+              <li class="flex items-center gap-3 rounded-md border border-border-soft px-4 py-3 hover:bg-canvas lift">
+                <input type="radio" name="addr" class="accent-primary w-4 h-4" />
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-semibold text-ink-strong">Claimant home — 7 Elm Close, Cambridge, CB4 3JT</div>
+                  <div class="text-xs text-ink-muted">From instruction · <span class="font-mono">seen 1×</span></div>
+                </div>
+              </li>
+            </ul>
+            <!-- IBA fallback -->
+            <div class="rounded-md bg-sunken border border-border-soft p-4">
+              <label class="flex items-start gap-3">
+                <input type="radio" name="addr" class="accent-primary w-4 h-4 mt-0.5" />
+                <span>
+                  <span class="text-sm font-semibold text-ink-strong">Image-Based Assessment (no physical inspection)</span>
+                  <input class="fld mt-2" placeholder="Reason required, e.g. total-loss / vehicle off-road…" />
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <!-- ============ CHASERS PANEL ============ -->
+          <section id="p-chasers" role="tabpanel" hidden class="tabpanel card p-5 space-y-4">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="eyebrow text-[11px] text-ink-muted mr-auto">Draft a chaser — never sent automatically</h3>
+              <button class="tab is-on rounded-pill px-3 py-1.5 text-sm font-semibold bg-surface text-primary border border-border-soft shadow-xs">✉ Email</button>
+              <button class="rounded-pill px-3 py-1.5 text-sm font-semibold text-ink-muted hover:text-ink-body">▣ WhatsApp</button>
+            </div>
+            <div class="rounded-md border border-border-soft p-4 space-y-3 bg-surface">
+              <div class="text-xs text-ink-muted">To: <span class="font-mono text-ink-body">garage@kwikfit-millrd.co.uk</span> · Template: <b>Missing damage photos</b></div>
+              <textarea class="fld" rows="6">Hi,
+
+We're missing the damage photos needed to complete the inspection for Ford Focus AB12 CDE (our ref CCPY26050). Could you send a vehicle overview with the full registration visible, plus close-ups of the nearside front damage?
+
+Many thanks,
+Collision Engineers</textarea>
+              <div class="flex flex-wrap gap-2">
+                <button class="inline-flex items-center gap-1.5 rounded-sm bg-primary text-white text-sm font-semibold px-3 py-2 hover:bg-primary-hover press">Copy draft</button>
+                <button class="inline-flex items-center gap-1.5 rounded-sm border border-border-strong text-sm font-semibold px-3 py-2 text-ink-body hover:bg-canvas press">Log as sent</button>
+                <button disabled title="Box File-Request gated off" class="inline-flex items-center gap-1.5 rounded-sm border border-border-soft bg-sunken text-sm font-semibold px-3 py-2 text-ink-muted/70 cursor-not-allowed ml-auto">⊘ Box File-Request link</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ NOTES PANEL ============ -->
+          <section id="p-notes" role="tabpanel" hidden class="tabpanel card p-5 space-y-3">
+            <h3 class="eyebrow text-[11px] text-ink-muted">Internal notes</h3>
+            <textarea class="fld" rows="3" placeholder="Add a note…"></textarea>
+            <ul class="space-y-2 text-sm">
+              <li class="rounded-md bg-sunken px-3 py-2"><span class="font-semibold text-ink-strong">Sam M.</span> <span class="text-xs text-ink-muted font-mono">· 09:12</span><br>Claimant confirmed mobile number by phone.</li>
+              <li class="rounded-md bg-sunken px-3 py-2"><span class="font-semibold text-ink-strong">Priya K.</span> <span class="text-xs text-ink-muted font-mono">· yesterday</span><br>Possible duplicate of CCPY26031 — different VRM, leaving separate.</li>
+            </ul>
+          </section>
+
+          <!-- ============ HISTORY PANEL ============ -->
+          <section id="p-history" role="tabpanel" hidden class="tabpanel card p-5">
+            <h3 class="eyebrow text-[11px] text-ink-muted mb-3">Audit trail</h3>
+            <ol class="relative border-l-2 border-border-soft ml-2 space-y-4">
+              <li class="pl-4 relative"><span class="absolute -left-[7px] top-1 w-3 h-3 rounded-pill bg-accent border-2 border-surface"></span>
+                <div class="text-sm font-semibold text-ink-strong">Conflict flagged on claimant email</div>
+                <div class="text-xs text-ink-muted font-mono">system · 08:33 today</div></li>
+              <li class="pl-4 relative"><span class="absolute -left-[7px] top-1 w-3 h-3 rounded-pill bg-primary border-2 border-surface"></span>
+                <div class="text-sm font-semibold text-ink-strong">Parsed — 9 of 12 fields auto-filled</div>
+                <div class="text-xs text-ink-muted font-mono">parser-fn · 08:32 today</div></li>
+              <li class="pl-4 relative"><span class="absolute -left-[7px] top-1 w-3 h-3 rounded-pill bg-nstate-500 border-2 border-surface"></span>
+                <div class="text-sm font-semibold text-ink-strong">Ingested from ABC Claims (PDF instruction)</div>
+                <div class="text-xs text-ink-muted font-mono">intake-flow · 08:31 today</div></li>
+            </ol>
+          </section>
+
+          <!-- ============ ENRICHMENT PANEL (gated) ============ -->
+          <section id="p-enrich" role="tabpanel" hidden class="tabpanel card p-5">
+            <div class="rounded-md border border-dashed border-border-strong bg-sunken p-6 text-center">
+              <div class="w-12 h-12 mx-auto rounded-pill bg-surface border border-border-soft grid place-items-center text-ink-muted mb-3">⊘</div>
+              <h3 class="font-display font-bold text-ink-strong">Enrichment not connected</h3>
+              <p class="text-sm text-ink-muted mt-1 max-w-md mx-auto">Valuation evidence, MOT mileage and Experian adverse-history are gated off in this environment (<span class="font-mono">ENRICHMENT_ENABLED = false</span>). The surface is here so the workflow has a home.</p>
+            </div>
+          </section>
+        </div>
+
+        <!-- ===================== STICKY SIDEBAR ===================== -->
+        <aside class="space-y-5 xl:sticky xl:top-20">
+          <!-- canonical readiness checklist -->
+          <section class="rounded-lg bg-surface border border-border-soft shadow-sm p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="font-display font-extrabold text-ink-strong">Readiness</h2>
+              <span class="inline-flex items-center gap-1.5 rounded-pill bg-review-100 text-review-700 px-2.5 py-1 text-xs font-bold">1 / 4 done</span>
+            </div>
+            <ul class="space-y-2.5 text-sm">
+              <li class="flex items-start gap-2.5">
+                <span class="w-5 h-5 rounded-pill bg-ready-100 text-ready-700 grid place-items-center text-xs shrink-0 mt-0.5" aria-hidden="true">✔</span>
+                <span class="flex-1 text-ink-body">Required fields filled</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="w-5 h-5 rounded-pill bg-review-100 text-review-700 grid place-items-center text-xs shrink-0 mt-0.5" aria-hidden="true">✖</span>
+                <span class="flex-1"><span class="text-review-700 font-semibold">2 EVA images incl. overview</span><br>
+                  <a href="#" data-jump="evidence" class="text-xs text-primary font-semibold hover:text-primary-hover">Fix → Evidence</a></span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="w-5 h-5 rounded-pill bg-review-100 text-review-700 grid place-items-center text-xs shrink-0 mt-0.5" aria-hidden="true">✖</span>
+                <span class="flex-1"><span class="text-review-700 font-semibold">Inspection address decided</span><br>
+                  <a href="#" data-jump="address" class="text-xs text-primary font-semibold hover:text-primary-hover">Fix → Address</a></span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="w-5 h-5 rounded-pill bg-review-100 text-review-700 grid place-items-center text-xs shrink-0 mt-0.5" aria-hidden="true">✖</span>
+                <span class="flex-1"><span class="text-review-700 font-semibold">No conflicts (1)</span><br>
+                  <a href="#" data-jump="fields" class="text-xs text-primary font-semibold hover:text-primary-hover">Fix → Claimant email</a></span>
+              </li>
+            </ul>
+            <button disabled class="mt-4 w-full rounded-sm bg-primary/40 text-white/90 text-sm font-bold py-2.5 cursor-not-allowed" title="Resolve 3 items first">⊘ Submit to EVA</button>
+          </section>
+
+          <!-- case facts (read-only, does not drive readiness) -->
+          <section class="rounded-lg bg-sunken border border-border-soft p-5">
+            <h2 class="eyebrow text-[11px] text-ink-muted mb-3">Case facts · read-only</h2>
+            <dl class="space-y-2 text-sm">
+              <div class="flex justify-between gap-3"><dt class="text-ink-muted">Channel</dt><dd class="text-ink-body font-semibold">Email</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-ink-muted">Received</dt><dd class="text-ink-body font-mono">08:31 today</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-ink-muted">Age</dt><dd class="text-ink-body font-mono">2d</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-ink-muted">Principal</dt><dd class="text-ink-body font-mono">CCPY</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-ink-muted">Year</dt><dd class="text-ink-body font-mono">26</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-ink-muted">Sequence</dt><dd class="text-ink-body font-mono">050</dd></div>
+              <div class="flex justify-between gap-3"><dt class="text-ink-muted">Box folder</dt><dd class="text-ink-body font-mono">CCPY26050</dd></div>
+            </dl>
+          </section>
+        </aside>
+
+      </div>
+    </div>
+
+    <footer class="px-4 sm:px-6 lg:px-8 pb-6 text-[11px] text-ink-muted">
+      Warm Hearth — throwaway prototype · soft-approachable direction · seed data only, no live connection.
+    </footer>
+  </main>
+</div>
+
+<!-- mobile bottom nav -->
+<nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-surface/95 backdrop-blur border-t border-border-soft flex justify-around px-2 py-1.5" aria-label="Primary mobile">
+  <a href="index.html" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-sm text-ink-muted">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 13h7V4H4v9Zm9 7h7v-9h-7v9ZM4 20h7v-5H4v5Zm9-16v5h7V4h-7Z" fill="currentColor"/></svg>
+    <span class="text-[10px] font-semibold">Cockpit</span>
+  </a>
+  <a href="#" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-sm text-ink-muted">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 7l9 6 9-6M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="text-[10px] font-semibold">Inbox</span>
+  </a>
+  <a href="queues.html" class="relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-sm text-ink-muted">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    <span class="text-[10px] font-semibold">Queues</span>
+    <span class="absolute top-0.5 right-1.5 w-4 h-4 rounded-pill bg-review-500 text-white text-[9px] font-mono grid place-items-center">3</span>
+  </a>
+  <a href="case-detail.html" aria-current="page" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-sm text-primary">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M13 3v6h6" stroke="currentColor" stroke-width="1.7"/></svg>
+    <span class="text-[10px] font-semibold">Cases</span>
+  </a>
+</nav>
+
+<script>
+// tabs
+(function(){
+  const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+  const panels = Array.from(document.querySelectorAll('.tabpanel'));
+  function select(id){
+    tabs.forEach(t => t.setAttribute('aria-selected', String(t.getAttribute('aria-controls') === id)));
+    panels.forEach(p => p.hidden = (p.id !== id));
+  }
+  tabs.forEach(t => t.addEventListener('click', () => select(t.getAttribute('aria-controls'))));
+  // arrow-key roving
+  tabs.forEach((t,i) => t.addEventListener('keydown', e => {
+    if(e.key==='ArrowRight'||e.key==='ArrowLeft'){
+      e.preventDefault();
+      const n = (i + (e.key==='ArrowRight'?1:tabs.length-1)) % tabs.length;
+      tabs[n].focus(); select(tabs[n].getAttribute('aria-controls'));
+    }
+  }));
+  // deep-links from readiness / field errors
+  document.querySelectorAll('[data-jump]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    select('p-' + a.dataset.jump);
+    document.querySelector('[role="tablist"]').scrollIntoView({behavior:'smooth', block:'center'});
+  }));
+})();
+// exclude-reflection switch
+document.querySelectorAll('.sw').forEach(s => {
+  const toggle = () => s.setAttribute('aria-checked', s.getAttribute('aria-checked')==='true' ? 'false':'true');
+  s.addEventListener('click', toggle);
+  s.addEventListener('keydown', e => { if(e.key===' '||e.key==='Enter'){ e.preventDefault(); toggle(); } });
+});
+</script>
+</body>
+</html>

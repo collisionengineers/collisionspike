@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>workbench · AB12CDE — collisionspike</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      editor:'#FCFDFE', eline:'#F1F5FB', gutter:'#F4F6FA',
+      chrome1:'#EDF0F5', chrome2:'#E4E8EF', chrome3:'#DBE0E9',
+      bdf:'#E6E9EF', bdb:'#D7DCE5', bds:'#C2C9D4',
+      tx:'#1B2230', tx2:'#48515F', tx3:'#6B7382', txd:'#A4ABB7',
+      accent:'#1F6FEB', accenth:'#1A5FD0', accentp:'#1850B8',
+      asoft:'#E3EDFD', abd:'#9FC0F6', asel:'#D2E3FB',
+      tkw:'#8250DF', tfn:'#B7791F', tstr:'#1A7F37', tnum:'#0A7E9E',
+      ttype:'#BC4C00', terr:'#CF222E', ttag:'#0550AE', tcom:'#6B7382',
+    },
+    fontFamily: { sans:['Fira Sans','system-ui','sans-serif'], mono:['Fira Code','ui-monospace','monospace'] },
+    borderRadius: { none:'0', sm:'3px', DEFAULT:'4px', md:'4px', lg:'6px' },
+  } }
+}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box}
+html,body{height:100%}
+body{font-family:'Fira Sans',sans-serif;color:#1B2230;background:#E4E8EF;-webkit-font-smoothing:antialiased;font-size:14px}
+.mono{font-family:'Fira Code',monospace;font-variant-ligatures:none}
+.lig{font-family:'Fira Code',monospace;font-variant-ligatures:normal}
+.sc{font-variant:all-small-caps;letter-spacing:.03em}
+.tnum{font-variant-numeric:tabular-nums}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:#C2C9D4;border-radius:6px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#A4ABB7;background-clip:content-box;border:3px solid transparent}
+::-webkit-scrollbar-track{background:transparent}
+a{color:inherit;text-decoration:none}
+.focusring:focus-visible{outline:none;box-shadow:0 0 0 2px #FCFDFE,0 0 0 3.5px #1F6FEB}
+.tab-active{box-shadow:inset 0 2px 0 0 #1F6FEB}
+.row-sel{box-shadow:inset 2px 0 0 0 #1F6FEB}
+.pop{box-shadow:0 4px 12px rgba(20,28,42,.10)}
+.palette-sh{box-shadow:0 16px 40px rgba(20,28,42,.18)}
+.collapsed{display:none !important}
+.squiggle{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='3'%3E%3Cpath d='M0 2 Q1.5 -0.5 3 1.5 T6 1.5' stroke='%23CF222E' fill='none' stroke-width='0.9'/%3E%3C/svg%3E");background-repeat:repeat-x;background-position:left bottom}
+.squiggle-w{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='3'%3E%3Cpath d='M0 2 Q1.5 -0.5 3 1.5 T6 1.5' stroke='%23BC4C00' fill='none' stroke-width='0.9'/%3E%3C/svg%3E");background-repeat:repeat-x;background-position:left bottom}
+.subtab-on{color:#1B2230;box-shadow:inset 0 -2px 0 0 #1F6FEB}
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+.fadein{animation:fadein .14s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}
+.flash{animation:flash 1.1s ease}
+@keyframes flash{0%,100%{box-shadow:none}20%,60%{box-shadow:0 0 0 2px #FCFDFE,0 0 0 4px #1F6FEB}}
+.resolved-fade{animation:rfade .5s ease}
+@keyframes rfade{from{background:#EEF6EF}to{background:transparent}}
+@media (max-width:1023px){ .insp-show{display:flex !important;position:fixed;top:0;bottom:24px;right:0;width:340px;max-width:88vw;z-index:40;box-shadow:-8px 0 24px rgba(20,28,42,.18)} }
+.gline{width:118px}
+</style>
+</head>
+<body class="overflow-hidden">
+<div class="h-screen flex flex-col">
+  <div class="flex-1 flex min-h-0">
+
+    <!-- ACTIVITY RAIL -->
+    <nav class="w-12 shrink-0 bg-chrome2 border-r border-bds hidden md:flex flex-col items-center py-2 gap-1">
+      <a href="index.html" title="Cockpit" class="w-9 h-9 grid place-items-center rounded-sm text-tx3 hover:text-tx hover:bg-chrome1 focusring"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></a>
+      <a href="index.html" title="Inbox / Triage" class="relative w-9 h-9 grid place-items-center rounded-sm text-tx3 hover:text-tx hover:bg-chrome1 focusring"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 12h4l2 3h6l2-3h4"/><path d="M5 5h14l2 7v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/></svg></a>
+      <a href="queues.html" title="Queues" class="relative w-9 h-9 grid place-items-center rounded-sm text-tx3 hover:text-tx hover:bg-chrome1 focusring"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg><span class="absolute -top-0.5 -right-0.5 mono text-[9px] leading-none px-1 py-[1px] rounded-sm bg-terr text-white tnum">8</span></a>
+      <a href="index.html" title="Manual intake" class="w-9 h-9 grid place-items-center rounded-sm text-tx3 hover:text-tx hover:bg-chrome1 focusring"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 16V4"/><path d="M8 8l4-4 4 4"/><path d="M4 20h16"/></svg></a>
+      <div class="flex-1"></div>
+      <a href="index.html" title="Admin / Corpus" class="w-9 h-9 grid place-items-center rounded-sm text-tx3 hover:text-tx hover:bg-chrome1 focusring"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8 2 2 0 1 1-2.8 2.8 1.6 1.6 0 0 0-2.7.7 1.6 1.6 0 0 0-1.5 1.1 2 2 0 1 1-4 0 1.6 1.6 0 0 0-1.1-1.5 1.6 1.6 0 0 0-1.8.3 2 2 0 1 1-2.8-2.8 1.6 1.6 0 0 0 .4-2.7 1.6 1.6 0 0 0-1.5-1 2 2 0 1 1 0-4 1.6 1.6 0 0 0 1.5-1.1 1.6 1.6 0 0 0-.3-1.8 2 2 0 1 1 2.8-2.8 1.6 1.6 0 0 0 2.7-.4 1.6 1.6 0 0 0 1.1-1.5 2 2 0 1 1 4 0 1.6 1.6 0 0 0 1.1 1.5 1.6 1.6 0 0 0 1.8-.3 2 2 0 1 1 2.8 2.8 1.6 1.6 0 0 0-.3 2.7 1.6 1.6 0 0 0 1.4 1 2 2 0 1 1 0 4 1.6 1.6 0 0 0-1.5 1z"/></svg></a>
+    </nav>
+
+    <!-- EXPLORER -->
+    <aside id="explorer" class="w-60 shrink-0 bg-chrome1 border-r border-bds hidden xl:flex flex-col text-[13px] overflow-y-auto">
+      <div class="px-3 pt-2.5 pb-1.5"><div class="flex items-center gap-1.5 text-tx3 sc text-[11px] font-semibold"><span>▾</span> OPEN CASES <span class="mono tnum ml-auto">4</span></div></div>
+      <a href="case-detail.html" class="flex items-center gap-2 pl-7 pr-3 h-7 mono text-[12px] text-accent bg-asoft row-sel"><span class="text-terr">✕</span> AB12CDE <span class="ml-auto w-1.5 h-1.5 rounded-full bg-accent"></span></a>
+      <a href="case-detail.html" class="flex items-center gap-2 pl-7 pr-3 h-7 hover:bg-chrome2 mono text-[12px] text-tx2"><span class="text-tfn">◐</span> LV71KMX</a>
+      <a href="case-detail.html" class="flex items-center gap-2 pl-7 pr-3 h-7 hover:bg-chrome2 mono text-[12px] text-tx2"><span class="text-ttype">△</span> GK19ZRT</a>
+      <a href="index.html" class="flex items-center gap-2 pl-7 pr-3 h-7 hover:bg-chrome2 mono text-[12px] text-tx2"><span class="text-tx3">▣</span> Cockpit</a>
+
+      <div class="px-3 pt-3 pb-1.5"><div class="flex items-center gap-1.5 text-tx3 sc text-[11px] font-semibold"><span>▾</span> QUEUES</div></div>
+      <a href="queues.html" class="flex items-center justify-between pl-7 pr-3 h-7 hover:bg-chrome2"><span>Not ready</span><span class="mono tnum text-tx3">12</span></a>
+      <a href="queues.html" class="flex items-center justify-between pl-7 pr-3 h-7 hover:bg-chrome2"><span class="text-terr font-medium">Review</span><span class="mono tnum text-terr">8</span></a>
+      <a href="queues.html" class="flex items-center justify-between pl-7 pr-3 h-7 hover:bg-chrome2"><span>Held</span><span class="mono tnum text-tx3">14</span></a>
+      <a href="queues.html" class="flex items-center justify-between pl-7 pr-3 h-7 hover:bg-chrome2"><span class="text-tstr">★ Ready</span><span class="mono tnum text-tstr">5</span></a>
+
+      <div class="px-3 pt-3 pb-1.5"><div class="flex items-center gap-1.5 text-tx3 sc text-[11px] font-semibold"><span>▾</span> CHASE NEXT <span class="mono tnum ml-auto">9</span></div></div>
+      <a href="case-detail.html" class="flex items-center gap-2 pl-7 pr-3 h-7 hover:bg-chrome2 mono text-[12px]"><span class="text-ttype">▸</span>img <span class="text-tx2">CCPY26050</span></a>
+      <a href="case-detail.html" class="flex items-center gap-2 pl-7 pr-3 h-7 hover:bg-chrome2 mono text-[12px]"><span class="text-tfn">▸</span>doc <span class="text-tx2">HALX26112</span></a>
+
+      <div class="px-3 pt-3 pb-1.5"><div class="flex items-center gap-1.5 text-tx3 sc text-[11px] font-semibold"><span>▾</span> INBOX</div></div>
+      <a href="index.html" class="flex items-center justify-between pl-7 pr-3 h-7 hover:bg-chrome2"><span>Receiving work</span><span class="mono tnum text-tx3">31</span></a>
+      <a href="index.html" class="flex items-center justify-between pl-7 pr-3 h-7 hover:bg-chrome2"><span>Queries</span><span class="mono tnum text-tx3">9</span></a>
+      <a href="index.html" class="flex items-center justify-between pl-7 pr-3 h-7 hover:bg-chrome2"><span>Other</span><span class="mono tnum text-tx3">7</span></a>
+    </aside>
+
+    <!-- EDITOR CENTRE -->
+    <main class="flex-1 flex flex-col min-w-0 bg-editor">
+
+      <!-- TAB STRIP -->
+      <div class="h-9 shrink-0 bg-chrome2 border-b border-bds flex items-stretch">
+        <div class="flex items-stretch overflow-x-auto">
+          <a href="index.html" class="flex items-center gap-2 pl-3 pr-2.5 bg-chrome2 hover:bg-chrome1 border-r border-bds text-[12px] text-tx2"><span class="text-tx3">▣</span><span class="mono">Cockpit</span></a>
+          <a href="queues.html" class="flex items-center gap-2 pl-3 pr-2.5 bg-chrome2 hover:bg-chrome1 border-r border-bds text-[12px] text-tx2"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="3"/><rect x="3" y="11" width="18" height="3"/><rect x="3" y="17" width="18" height="3"/></svg><span class="mono">Queues</span></a>
+          <a href="case-detail.html" class="tab-active flex items-center gap-2 pl-3 pr-2 bg-editor border-r border-bds text-[12px]"><span class="text-terr text-[11px]">✕</span><span class="mono">AB12CDE</span><span class="w-1.5 h-1.5 rounded-full bg-accent" title="unsaved review"></span><span class="text-tx3 hover:text-tx px-1">×</span></a>
+          <a href="case-detail.html" class="flex items-center gap-2 pl-3 pr-2 bg-chrome2 hover:bg-chrome1 border-r border-bds text-[12px] text-tx2"><span class="text-tfn text-[11px]">◐</span><span class="mono">LV71KMX</span><span class="text-tx3 px-1">×</span></a>
+          <a href="case-detail.html" class="flex items-center gap-2 pl-3 pr-2 bg-chrome2 hover:bg-chrome1 border-r border-bds text-[12px] text-tx2"><span class="text-ttype text-[11px]">△</span><span class="mono">GK19ZRT</span><span class="text-tx3 px-1">×</span></a>
+          <button class="px-2.5 text-tx3 hover:text-tx hover:bg-chrome1 border-r border-bds focusring">+</button>
+        </div>
+        <div class="ml-auto flex items-center pr-2">
+          <button onclick="togglePalette()" class="flex items-center gap-2 h-6 px-2 rounded-sm border border-bdb bg-editor text-tx3 hover:text-tx text-[12px] focusring"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><span class="mono text-[10px] px-1 rounded-sm bg-chrome2 border border-bdb">⌘K</span></button>
+        </div>
+      </div>
+
+      <!-- BREADCRUMB + SUB-TABS -->
+      <div class="h-[30px] shrink-0 bg-chrome1 border-b border-bds flex items-center text-[12px] pl-3 pr-2">
+        <span class="mono text-tx3 truncate">ACME <span class="text-bds">▸</span> <span class="text-tx2">CCPY26050</span></span>
+        <div class="ml-4 flex items-stretch h-[30px]">
+          <button data-subtab="fields" onclick="switchTab('fields')" class="subtab-on px-3 mono text-[12px] text-tx2 hover:text-tx focusring">Fields</button>
+          <button data-subtab="evidence" onclick="switchTab('evidence')" class="px-3 mono text-[12px] text-tx3 hover:text-tx focusring flex items-center gap-1">Evidence <span class="w-1.5 h-1.5 rounded-full bg-terr"></span></button>
+          <button data-subtab="address" onclick="switchTab('address')" class="px-3 mono text-[12px] text-tx3 hover:text-tx focusring">Address</button>
+          <button data-subtab="notes" onclick="switchTab('notes')" class="px-3 mono text-[12px] text-tx3 hover:text-tx focusring">Notes</button>
+          <button data-subtab="chasers" onclick="switchTab('chasers')" class="px-3 mono text-[12px] text-tx3 hover:text-tx focusring">Chasers</button>
+        </div>
+        <span class="ml-auto mono text-[10px] text-tx3 hidden sm:inline">⌘1..5</span>
+      </div>
+
+      <!-- PIPELINE SPINE -->
+      <div class="h-7 shrink-0 bg-gutter border-b border-bdf flex items-center px-3 gap-0 overflow-x-auto">
+        <span class="mono text-[11px] flex items-center gap-1.5">
+          <span class="inline-flex items-center gap-1 text-tx3"><span class="w-2 h-2 rounded-full bg-bds"></span>New</span>
+          <span class="text-bds">─</span>
+          <span class="inline-flex items-center gap-1 text-tx3"><span class="w-2 h-2 rounded-full bg-bds"></span>Not ready</span>
+          <span class="text-bds">─</span>
+          <span class="inline-flex items-center gap-1 text-accent font-semibold"><span class="w-2.5 h-2.5 rounded-full bg-accent"></span>Review</span>
+          <span class="text-bds">─</span>
+          <span class="inline-flex items-center gap-1 text-tx3"><span class="w-2 h-2 rounded-full border border-bds"></span>Ready</span>
+          <span class="text-bds">─</span>
+          <span class="inline-flex items-center gap-1 text-tx3"><span class="w-2 h-2 rounded-full border border-bds"></span>Submitted</span>
+          <span class="text-bds">─</span>
+          <span class="inline-flex items-center gap-1 text-tx3"><span class="w-2 h-2 rounded-full border border-bds"></span>Box</span>
+        </span>
+      </div>
+
+      <!-- HEADER -->
+      <div class="shrink-0 border-b border-bds px-3 py-2 bg-editor">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span class="inline-flex items-stretch rounded-sm overflow-hidden border-2 border-tx bg-[#F4D90B] h-7"><span class="bg-[#1d4ed8] text-white text-[10px] grid place-items-center px-1 font-semibold">GB</span><span class="mono font-bold text-tx text-[16px] px-2 flex items-center tracking-wider">AB12 CDE</span></span>
+          <span class="mono text-[14px] text-tx tnum font-semibold">CCPY26050</span>
+          <span class="text-tx3">·</span>
+          <span class="text-[13px] text-tx2">ACME</span>
+          <span class="text-tx3">·</span>
+          <span class="text-[13px] text-tx2">BMW 320d M-Sport · 2018</span>
+          <span class="mono text-[11px] flex items-center gap-1 ml-1"><span class="text-terr">✕</span><span class="sc text-tx2">Review</span></span>
+          <span class="mono text-[11px] text-tx3" title="channel">✉ email</span>
+          <span class="inline-flex items-center gap-1.5"><span class="block w-12 h-1.5 rounded-full bg-bdf overflow-hidden"><span class="block h-full bg-terr" style="width:100%"></span></span><span class="mono text-[11px] text-terr tnum">2d04h overdue</span></span>
+        </div>
+        <!-- action cluster -->
+        <div class="flex flex-wrap items-center gap-1.5 mt-2">
+          <button onclick="switchTab('evidence')" class="h-7 px-2.5 rounded-sm border border-bdb bg-editor hover:bg-eline text-[12px] flex items-center gap-1.5 focusring"><span class="text-accent">＋</span>Add evidence</button>
+          <button class="h-7 px-2.5 rounded-sm border border-bdb bg-editor hover:bg-eline text-[12px] flex items-center gap-1.5 focusring"><span class="text-tx3">⧉</span>Merge</button>
+          <button class="h-7 px-2.5 rounded-sm border border-bdb bg-editor hover:bg-eline text-[12px] flex items-center gap-1.5 focusring"><span class="text-tx3">⏸</span>Hold / Release</button>
+          <button id="btnDownload" disabled class="h-7 px-2.5 rounded-sm border border-bdb bg-chrome1 text-txd text-[12px] flex items-center gap-1.5 cursor-not-allowed" title="Disabled — readiness blocked (2 problems)"><span>⤓</span>Download JSON</button>
+          <button id="btnSubmit" disabled onclick="openSubmit()" class="h-7 px-3 rounded-sm bg-accent/40 text-white text-[12px] font-medium flex items-center gap-1.5 cursor-not-allowed focusring" title="Disabled until readiness is green — 2 problems"><span>▶</span><span id="submitLabel">Submit to EVA · 2 problems</span></button>
+          <div class="relative">
+            <button onclick="toggleOverflow()" class="h-7 w-7 grid place-items-center rounded-sm border border-bdb bg-editor hover:bg-eline focusring" title="More">⋯</button>
+            <div id="overflow" class="collapsed absolute right-0 mt-1 w-56 bg-editor border border-bds rounded-md pop z-30 py-1 text-[13px]">
+              <button onclick="openSubmit();toggleOverflow()" class="w-full text-left px-3 h-8 hover:bg-asoft flex items-center gap-2"><span class="text-accent">▶</span>Submit dialog (preview)</button>
+              <button class="w-full text-left px-3 h-8 hover:bg-asoft flex items-center gap-2"><span class="text-tx3">⧉</span>Copy JSON</button>
+              <button class="w-full text-left px-3 h-8 text-txd flex items-center gap-2 cursor-not-allowed"><span>↗</span>Open in Box <span class="ml-auto mono text-[10px]">off</span></button>
+              <button onclick="toggleTerminal(true,'enrich');toggleOverflow()" class="w-full text-left px-3 h-8 text-txd flex items-center gap-2 cursor-not-allowed"><span>✦</span>Enrich (DVSA/DVLA) <span class="ml-auto mono text-[10px]">off</span></button>
+              <div class="my-1 h-px bg-bdf"></div>
+              <button class="w-full text-left px-3 h-8 hover:bg-[#FCEEEE] text-terr flex items-center gap-2"><span>🗑</span>Delete case · junk/dup</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BODY + INSPECTOR -->
+      <div class="flex-1 flex min-h-0">
+
+        <!-- TAB PANES -->
+        <div class="flex-1 min-w-0 overflow-y-auto">
+
+          <!-- ===== FIELDS (code editor) ===== -->
+          <section data-pane="fields">
+            <!-- cluster: provider & claimant -->
+            <div class="border-b border-bds">
+              <button onclick="toggleFold(this)" class="w-full flex items-center gap-2 h-7 px-2 bg-chrome1 hover:bg-chrome2 text-[11px] sc font-semibold text-tx2 focusring"><span class="fold-tw text-tx3">▾</span> Provider &amp; claimant <span class="mono text-[10px] text-tx3 normal-case">1–4</span></button>
+              <div class="fold-body">
+                <!-- field 1 -->
+                <div class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">1</span><span class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">PDF <span class="text-tstr" title="reviewed">✓</span></span></div>
+                  <div class="flex-1 px-3 py-1.5"><label class="block text-[11px] sc text-tx3">Work provider</label><input value="ACME" class="w-full mt-0.5 h-7 px-2 rounded-sm border border-bdb bg-editor mono text-[13px] focusring" /></div>
+                </div>
+                <!-- field 2 needs review -->
+                <div class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">2</span><span class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">AI <span class="text-tnum" title="needs review">●</span></span></div>
+                  <div class="flex-1 px-3 py-1.5"><label class="block text-[11px] sc text-tx3">Claimant name <span class="text-tnum normal-case">· needs review</span></label><input value="J. Okafor" class="w-full mt-0.5 h-7 px-2 rounded-sm border border-bdb bg-editor mono text-[13px] focusring" /></div>
+                </div>
+                <!-- field 3 -->
+                <div class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">3</span><span class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">MAN <span class="text-tstr">✓</span></span></div>
+                  <div class="flex-1 px-3 py-1.5"><label class="block text-[11px] sc text-tx3">Claimant telephone</label><input value="07700 900118" class="w-full mt-0.5 h-7 px-2 rounded-sm border border-bdb bg-editor mono text-[13px] focusring" /></div>
+                </div>
+                <!-- field 4 -->
+                <div class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">4</span><span class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">PDF <span class="text-tstr">✓</span></span></div>
+                  <div class="flex-1 px-3 py-1.5"><label class="block text-[11px] sc text-tx3">Claimant email</label><input value="j.okafor@mailbox.co.uk" class="w-full mt-0.5 h-7 px-2 rounded-sm border border-bdb bg-editor mono text-[13px] focusring" /></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- cluster: vehicle -->
+            <div class="border-b border-bds">
+              <button onclick="toggleFold(this)" class="w-full flex items-center gap-2 h-7 px-2 bg-chrome1 hover:bg-chrome2 text-[11px] sc font-semibold text-tx2 focusring"><span class="fold-tw text-tx3">▾</span> Vehicle <span class="mono text-[10px] text-tx3 normal-case">5–8</span></button>
+              <div class="fold-body">
+                <!-- field 5 -->
+                <div class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">5</span><span class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">DVLA <span class="text-tstr">✓</span></span></div>
+                  <div class="flex-1 px-3 py-1.5"><label class="block text-[11px] sc text-tx3">Vehicle (make / model)</label><input value="BMW 320d M-Sport" class="w-full mt-0.5 h-7 px-2 rounded-sm border border-bdb bg-editor mono text-[13px] focusring" /></div>
+                </div>
+                <!-- field 6 conflict (mileage) -->
+                <div id="f-mileage" class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">6</span><span id="prov-mileage" class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">PDF <span class="text-ttype" title="conflict">△</span></span></div>
+                  <div class="flex-1 px-3 py-1.5">
+                    <label class="block text-[11px] sc text-tx3">Mileage <span class="text-ttype normal-case">· conflict</span></label>
+                    <input id="in-mileage" value="48,210" class="w-full mt-0.5 h-7 px-2 rounded-sm border border-ttype/60 bg-editor mono text-[13px] focusring squiggle-w" />
+                    <div id="mileage-conflict" class="mt-1 flex items-center gap-2 text-[11px]"><span class="mono text-ttype">△ MOT record reads 51,030</span><button onclick="resolve('conflict','mot')" class="mono text-[11px] px-1.5 h-5 rounded-sm border border-bdb hover:bg-eline focusring">use MOT</button><button onclick="resolve('conflict','pdf')" class="mono text-[11px] px-1.5 h-5 rounded-sm border border-bdb hover:bg-eline focusring">keep PDF</button></div>
+                  </div>
+                </div>
+                <!-- field 7 -->
+                <div class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">7</span><span class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">MAN <span class="text-tstr">✓</span></span></div>
+                  <div class="flex-1 px-3 py-1.5"><label class="block text-[11px] sc text-tx3">Mileage unit</label><select class="w-full mt-0.5 h-7 px-2 rounded-sm border border-bdb bg-editor mono text-[13px] focusring"><option>mi</option><option>km</option></select></div>
+                </div>
+                <!-- field 8 required empty (VAT) BLOCKER -->
+                <div id="f-vat" class="flex items-stretch border-b border-bdf bg-[#FCEEEE]/40">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-terr tnum w-3 text-right font-bold">8</span><span id="prov-vat" class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-terr/50 bg-editor">— <span class="text-terr" title="required, empty">!!</span></span></div>
+                  <div class="flex-1 px-3 py-1.5">
+                    <label class="block text-[11px] sc text-terr font-semibold">VAT status <span class="normal-case font-normal">· required</span></label>
+                    <select id="in-vat" onchange="onVat(this)" class="w-full mt-0.5 h-7 px-2 rounded-sm border border-terr bg-editor mono text-[13px] text-tx3 focusring squiggle">
+                      <option value="">choose…</option><option value="yes">VAT registered — Yes</option><option value="no">Not VAT registered — No</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- cluster: incident -->
+            <div class="border-b border-bds">
+              <button onclick="toggleFold(this)" class="w-full flex items-center gap-2 h-7 px-2 bg-chrome1 hover:bg-chrome2 text-[11px] sc font-semibold text-tx2 focusring"><span class="fold-tw text-tx3">▾</span> Incident <span class="mono text-[10px] text-tx3 normal-case">9–10</span></button>
+              <div class="fold-body">
+                <div class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">9</span><span class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">PDF <span class="text-tstr">✓</span></span></div>
+                  <div class="flex-1 px-3 py-1.5"><label class="block text-[11px] sc text-tx3">Accident circumstances</label><textarea rows="2" class="w-full mt-0.5 px-2 py-1.5 rounded-sm border border-bdb bg-editor text-[13px] focusring">Rear-end shunt at a give-way junction; offside rear quarter and bumper damage, vehicle driveable.</textarea></div>
+                </div>
+                <div class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">10</span><span class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">COR <span class="text-tstr">✓</span></span></div>
+                  <div class="flex-1 px-3 py-1.5"><label class="block text-[11px] sc text-tx3">Inspection address</label><div class="mt-0.5 flex items-center gap-2"><span class="mono text-[13px] text-tx2">Bridgeworks Garage, Unit 4, Leeds LS11 5T**</span><button onclick="switchTab('address')" class="mono text-[11px] px-1.5 h-5 rounded-sm border border-bdb hover:bg-eline focusring">→ Address tab</button></div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- cluster: dates -->
+            <div class="border-b border-bds">
+              <button onclick="toggleFold(this)" class="w-full flex items-center gap-2 h-7 px-2 bg-chrome1 hover:bg-chrome2 text-[11px] sc font-semibold text-tx2 focusring"><span class="fold-tw text-tx3">▾</span> Dates <span class="mono text-[10px] text-tx3 normal-case">11–12</span></button>
+              <div class="fold-body">
+                <div class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">11</span><span class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">PDF <span class="text-tstr">✓</span></span></div>
+                  <div class="flex-1 px-3 py-1.5"><label class="block text-[11px] sc text-tx3">Date of loss</label><input value="18 Jun 2026" class="w-full mt-0.5 h-7 px-2 rounded-sm border border-bdb bg-editor mono text-[13px] focusring" /></div>
+                </div>
+                <div class="flex items-stretch border-b border-bdf hover:bg-eline/60">
+                  <div class="gline shrink-0 bg-gutter border-r border-bdf flex items-center gap-1.5 px-2"><span class="mono text-[10px] text-txd tnum w-3 text-right">12</span><span class="mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb bg-editor">PDF <span class="text-tstr">✓</span></span></div>
+                  <div class="flex-1 px-3 py-1.5"><label class="block text-[11px] sc text-tx3">Date of instruction</label><input value="23 Jun 2026" class="w-full mt-0.5 h-7 px-2 rounded-sm border border-bdb bg-editor mono text-[13px] focusring" /></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- live EVA JSON -->
+            <div class="border-b border-bds">
+              <button onclick="toggleFold(this)" class="w-full flex items-center gap-2 h-7 px-2 bg-chrome1 hover:bg-chrome2 text-[11px] sc font-semibold text-tx2 focusring"><span class="fold-tw text-tx3">▾</span> Live EVA JSON <span class="mono text-[10px] text-tx3 normal-case">read-only preview</span></button>
+              <div class="fold-body bg-[#FBFCFE]">
+                <pre class="lig text-[12px] leading-[1.6] px-4 py-3 overflow-x-auto text-tx2"><span class="text-tx3">{</span>
+  <span class="text-ttag">"workProvider"</span>: <span class="text-tstr">"ACME"</span>,
+  <span class="text-ttag">"claimant"</span>: <span class="text-tx3">{</span> <span class="text-ttag">"name"</span>: <span class="text-tstr">"J. Okafor"</span>, <span class="text-ttag">"tel"</span>: <span class="text-tstr">"07700900118"</span>, <span class="text-ttag">"email"</span>: <span class="text-tstr">"j.okafor@mailbox.co.uk"</span> <span class="text-tx3">}</span>,
+  <span class="text-ttag">"vehicle"</span>: <span class="text-tstr">"BMW 320d M-Sport"</span>,
+  <span class="text-ttag">"mileage"</span>: <span id="json-mileage" class="text-tnum">48210</span>, <span class="text-ttype">// △ conflict: MOT 51030</span>
+  <span class="text-ttag">"mileageUnit"</span>: <span class="text-tstr">"mi"</span>,
+  <span class="text-ttag">"vat"</span>: <span id="json-vat" class="text-terr">null</span>,  <span class="text-terr">// ✕ required</span>
+  <span class="text-ttag">"circumstances"</span>: <span class="text-tstr">"Rear-end shunt at give-way junction…"</span>,
+  <span class="text-ttag">"inspectionAddress"</span>: <span class="text-tstr">"Bridgeworks Garage, Unit 4, Leeds LS11 5TX"</span>,
+  <span class="text-ttag">"dateOfLoss"</span>: <span class="text-tstr">"2026-06-18"</span>,
+  <span class="text-ttag">"dateOfInstruction"</span>: <span class="text-tstr">"2026-06-23"</span>
+<span class="text-tx3">}</span></pre>
+              </div>
+            </div>
+            <div class="h-4"></div>
+          </section>
+
+          <!-- ===== EVIDENCE ===== -->
+          <section data-pane="evidence" class="collapsed p-4 space-y-4">
+            <!-- documents -->
+            <div>
+              <h3 class="sc text-[12px] font-semibold text-tx2 mb-1.5">Documents</h3>
+              <div class="border border-bdb rounded divide-y divide-bdf text-[12px]">
+                <div class="flex items-center gap-2 px-3 h-9"><span class="text-terr">▤</span><span class="mono">instruction-CCPY26050.pdf</span><span class="mono text-[10px] text-tx3 ml-1">3 pages · 184 KB</span><span class="ml-auto mono text-[10px] inline-flex items-center gap-0.5 px-1 rounded-sm border border-bdb">PDF <span class="text-tstr">✓</span></span></div>
+                <div class="flex items-center gap-2 px-3 h-9"><span class="text-tx3">▤</span><span class="mono">cover-letter-acme.pdf</span><span class="mono text-[10px] text-tx3 ml-1">1 page · 52 KB</span></div>
+              </div>
+            </div>
+
+            <!-- EVA photo-order micro-note (the one permitted domain rule) -->
+            <div class="flex items-start gap-2 px-3 py-2 rounded-sm border border-abd bg-asoft text-[12px]">
+              <span class="text-accent mt-0.5">ⓘ</span>
+              <p class="text-tx2"><span class="font-semibold">EVA photo order</span> — upload <span class="mono">2 preview photos first</span> (vehicle overview <span class="font-semibold">showing the full registration</span> + main-damage closeup), then <span class="mono">all photos</span> in sequence, those two included again. Photos showing a person's reflection are unusable.</p>
+            </div>
+
+            <!-- thumb grid -->
+            <div>
+              <div class="flex items-center gap-2 mb-1.5"><h3 class="sc text-[12px] font-semibold text-tx2">Photos</h3><span class="mono text-[11px] text-terr tnum">1 of 2 valid · need overview + closeup</span></div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <!-- overview accepted -->
+                <div class="border-2 border-tstr rounded overflow-hidden bg-editor">
+                  <div class="h-24 bg-[#9FB4C9] relative"><span class="absolute bottom-1 left-1 mono text-[10px] px-1 rounded-sm bg-tx/70 text-white">AB12 CDE</span></div>
+                  <div class="p-1.5 space-y-1">
+                    <select class="w-full h-6 text-[11px] mono rounded-sm border border-bdb bg-editor px-1"><option>Role · Overview</option><option>Damage closeup</option><option>Interior</option></select>
+                    <div class="flex items-center justify-between text-[10px]"><span class="mono text-tstr">✓ reg visible</span><label class="flex items-center gap-1 mono text-tx3"><input type="checkbox" class="accent-terr"/>exclude</label></div>
+                  </div>
+                </div>
+                <!-- damage closeup EXCLUDED (reflection) -->
+                <div id="photo-closeup" class="border-2 border-ttype rounded overflow-hidden bg-editor relative">
+                  <div class="h-24 bg-[#B9A18C] relative grid place-items-center"><span class="mono text-[10px] px-1 rounded-sm bg-ttype text-white">excluded · reflection</span></div>
+                  <div class="p-1.5 space-y-1">
+                    <select class="w-full h-6 text-[11px] mono rounded-sm border border-bdb bg-editor px-1"><option>Role · Damage closeup</option><option>Overview</option></select>
+                    <div class="flex items-center justify-between text-[10px]"><span class="mono text-tx3">reg n/a</span><button onclick="resolve('photos')" class="mono text-[10px] px-1.5 h-5 rounded-sm border border-bdb hover:bg-eline focusring">re-include</button></div>
+                  </div>
+                </div>
+                <!-- others -->
+                <div class="border border-bdb rounded overflow-hidden bg-editor"><div class="h-24 bg-[#A7B7A0]"></div><div class="p-1.5"><select class="w-full h-6 text-[11px] mono rounded-sm border border-bdb bg-editor px-1"><option>Role · Damage wide</option></select></div></div>
+                <div class="border border-bdb rounded overflow-hidden bg-editor"><div class="h-24 bg-[#C7B6C9]"></div><div class="p-1.5"><select class="w-full h-6 text-[11px] mono rounded-sm border border-bdb bg-editor px-1"><option>Role · VIN plate</option></select></div></div>
+                <!-- add -->
+                <button onclick="resolve('photos')" class="border border-dashed border-bdb rounded h-[120px] grid place-items-center text-tx3 hover:bg-eline focusring"><span class="text-[12px]">＋ Add evidence</span></button>
+              </div>
+            </div>
+
+            <!-- image order list -->
+            <div>
+              <h3 class="sc text-[12px] font-semibold text-tx2 mb-1.5">EVA photo order <span class="font-normal text-tx3 normal-case">· keyboard-reorderable · preview-then-all</span></h3>
+              <div class="border border-bdb rounded divide-y divide-bdf text-[12px] mono">
+                <div class="flex items-center gap-2 px-3 h-9"><span class="tnum text-tx3 w-4">1</span><span class="px-1 rounded-sm bg-asoft text-accent text-[10px]">PREVIEW</span> overview-with-reg.jpg <span class="text-tstr ml-auto">✓</span><span class="text-tx3">⌃ ⌄</span></div>
+                <div class="flex items-center gap-2 px-3 h-9"><span class="tnum text-tx3 w-4">2</span><span class="px-1 rounded-sm bg-asoft text-accent text-[10px]">PREVIEW</span> damage-closeup.jpg <span class="text-tx3 ml-auto">⌃ ⌄</span></div>
+                <div class="flex items-center gap-2 px-3 h-9"><span class="tnum text-tx3 w-4">3</span> overview-with-reg.jpg <span class="text-tx3 ml-auto">⌃ ⌄</span></div>
+                <div class="flex items-center gap-2 px-3 h-9"><span class="tnum text-tx3 w-4">4</span> damage-closeup.jpg <span class="text-tx3 ml-auto">⌃ ⌄</span></div>
+                <div class="flex items-center gap-2 px-3 h-9"><span class="tnum text-tx3 w-4">5</span> damage-wide.jpg <span class="text-tx3 ml-auto">⌃ ⌄</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===== ADDRESS ===== -->
+          <section data-pane="address" class="collapsed p-4 space-y-4">
+            <div class="flex items-center gap-2"><h3 class="sc text-[12px] font-semibold text-tx2">Inspection address</h3><span class="mono text-[10px] inline-flex items-center gap-1 px-1.5 h-5 rounded-sm border border-bdb">policy: <span class="text-tx2">corpus-first</span></span><span class="mono text-[10px] text-tstr">✓ decided</span></div>
+            <!-- current decision -->
+            <div class="border-2 border-tstr rounded p-3 bg-[#EEF6EF]">
+              <div class="flex items-center justify-between"><span class="sc text-[11px] font-semibold text-tstr">Current decision · corpus</span><button class="mono text-[11px] px-2 h-6 rounded-sm border border-bdb bg-editor hover:bg-eline focusring">edit</button></div>
+              <pre class="mono text-[13px] text-tx mt-1.5 leading-[1.5]">Bridgeworks Garage
+Unit 4, Holbeck Trading Estate
+Domestic Street
+Leeds
+West Yorkshire
+LS11 5TX</pre>
+            </div>
+            <!-- ranked suggestions -->
+            <div>
+              <h4 class="sc text-[11px] font-semibold text-tx3 mb-1.5">Ranked suggestions <span class="font-normal normal-case">· offline corpus</span></h4>
+              <div class="border border-bdb rounded divide-y divide-bdf text-[12px]">
+                <div class="flex items-center gap-3 px-3 h-11"><span class="mono">Bridgeworks Garage, Unit 4, Leeds LS11 5TX</span><span class="mono text-[10px] text-tx3 ml-2">seen 14× · last 19 Jun</span><button class="ml-auto mono text-[11px] px-2 h-6 rounded-sm bg-accent text-white hover:bg-accenth focusring">picked</button></div>
+                <div class="flex items-center gap-3 px-3 h-11"><span class="mono">ACME Approved Repairs, Wakefield WF1 2AB</span><span class="mono text-[10px] text-tx3 ml-2">seen 6× · last 02 Jun</span><button class="ml-auto mono text-[11px] px-2 h-6 rounded-sm border border-bdb hover:bg-eline focusring">pick</button></div>
+                <div class="flex items-center gap-3 px-3 h-11"><span class="mono">Claimant home — 22 Elm Road, Leeds LS6 3HJ</span><span class="mono text-[10px] text-tx3 ml-2">seen 1× · last 11 May</span><button class="ml-auto mono text-[11px] px-2 h-6 rounded-sm border border-bdb hover:bg-eline focusring">pick</button></div>
+              </div>
+            </div>
+            <!-- IBA override -->
+            <div class="border border-bdb rounded p-3">
+              <label class="flex items-center gap-2 text-[13px]"><input type="radio" name="addr" class="accent-accent" onclick="document.getElementById('ibaReason').classList.remove('collapsed')"/> Image-Based Assessment <span class="text-tx3 text-[11px]">— requires a typed reason, never a silent default</span></label>
+              <div id="ibaReason" class="collapsed mt-2"><textarea rows="2" placeholder="Reason for IBA (required)…" class="w-full px-2 py-1.5 rounded-sm border border-bdb bg-editor text-[13px] focusring"></textarea></div>
+            </div>
+          </section>
+
+          <!-- ===== NOTES ===== -->
+          <section data-pane="notes" class="collapsed p-4 space-y-3 max-w-2xl">
+            <div><textarea rows="2" placeholder="Add a note…" class="w-full px-2 py-1.5 rounded-sm border border-bdb bg-editor text-[13px] focusring"></textarea><div class="mt-1.5 flex justify-end"><button class="mono text-[12px] px-3 h-7 rounded-sm bg-accent text-white hover:bg-accenth focusring">Add note</button></div></div>
+            <div class="space-y-2">
+              <div class="border border-bdb rounded p-2.5"><div class="flex items-center justify-between text-[11px] mono text-tx3"><span>A. Mercer</span><span class="tnum">23 Jun 11:40</span></div><p class="text-[13px] text-tx mt-1">Called garage — photos promised by EOD. VAT status to confirm with ACME.</p></div>
+              <div class="border border-bdb rounded p-2.5"><div class="flex items-center justify-between text-[11px] mono text-tx3"><span>system</span><span class="tnum">23 Jun 09:14</span></div><p class="text-[13px] text-tx2 mt-1">Case created from inbound instruction · acme-claims.co.uk.</p></div>
+            </div>
+          </section>
+
+          <!-- ===== CHASERS ===== -->
+          <section data-pane="chasers" class="collapsed p-4 space-y-3 max-w-2xl">
+            <div class="flex items-center gap-2">
+              <span class="sc text-[12px] font-semibold text-tx2">Draft chaser</span>
+              <div class="ml-2 inline-flex rounded-sm border border-bdb overflow-hidden text-[12px]"><button class="px-2.5 h-7 bg-asoft text-accent mono">✉ Email</button><button class="px-2.5 h-7 hover:bg-eline mono border-l border-bdb">WhatsApp</button></div>
+              <select class="ml-auto h-7 px-2 rounded-sm border border-bdb bg-editor text-[12px] mono"><option>Template · Image chaser</option><option>Template · Instruction chaser</option></select>
+            </div>
+            <textarea rows="7" class="w-full px-3 py-2 rounded-sm border border-bdb bg-editor text-[13px] focusring leading-[1.5]">Hi Bridgeworks Garage,
+
+Re: CCPY26050 — BMW 320d M-Sport (AB12 CDE). To complete the engineer's assessment we still need 6 photos, including a vehicle overview showing the full registration and a main-damage closeup.
+
+Please reply to this email or use the upload link. Many thanks,
+Collision Engineers</textarea>
+            <div class="flex flex-wrap items-center gap-2">
+              <button class="mono text-[12px] px-3 h-7 rounded-sm border border-bdb hover:bg-eline focusring">⧉ Copy</button>
+              <button class="mono text-[12px] px-3 h-7 rounded-sm bg-accent text-white hover:bg-accenth focusring">Log as drafted</button>
+              <button disabled class="mono text-[12px] px-3 h-7 rounded-sm border border-bdb bg-chrome1 text-txd cursor-not-allowed flex items-center gap-1.5" title="BOX_FILEREQUEST_ENABLED = false">↗ Copy Box File-Request link <span class="text-[10px]">off</span></button>
+              <span class="mono text-[11px] text-tx3 ml-auto">never auto-sends · logs an AuditEvent</span>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- INSPECTOR 340 (never closes) -->
+        <aside id="inspector" class="w-[340px] shrink-0 bg-chrome1 border-l border-bds hidden lg:flex flex-col">
+          <!-- mobile close -->
+          <button onclick="toggleInspector(false)" class="lg:hidden self-end m-2 mono text-[12px] px-2 h-6 rounded-sm border border-bdb bg-editor">close ×</button>
+          <!-- problems / readiness -->
+          <div class="flex flex-col min-h-0 flex-1">
+            <div class="flex items-center justify-between px-3 h-9 border-b border-bds bg-chrome2">
+              <span class="sc text-[11px] font-semibold text-tx">Problems · Readiness</span>
+              <span id="probCount" class="mono text-[11px] text-terr tnum">3 · 2 blockers</span>
+            </div>
+            <div class="overflow-y-auto flex-1">
+              <!-- pass -->
+              <div class="flex items-start gap-2 px-3 py-2 border-b border-bdf"><span class="text-tstr mt-0.5">✓</span><span class="text-[12px] text-tx2">Provider &amp; claimant complete</span></div>
+              <div class="flex items-start gap-2 px-3 py-2 border-b border-bdf"><span class="text-tstr mt-0.5">✓</span><span class="text-[12px] text-tx2">Vehicle identity verified</span></div>
+              <!-- VAT blocker -->
+              <div id="prob-vat" class="px-3 py-2 border-b border-bdf bg-[#FCEEEE]/50">
+                <div class="flex items-start gap-2"><span class="text-terr mt-0.5">✕</span><div class="flex-1"><div class="text-[12px] text-tx font-medium">VAT status set</div><div class="text-[11px] text-tx3">required field empty</div></div></div>
+                <button onclick="goToProblem('fields','f-vat')" class="mt-1 ml-6 mono text-[11px] text-accent hover:underline">Go to problem ↘ Fields · 8</button>
+              </div>
+              <!-- photos blocker -->
+              <div id="prob-photos" class="px-3 py-2 border-b border-bdf bg-[#FCEEEE]/50">
+                <div class="flex items-start gap-2"><span class="text-terr mt-0.5">✕</span><div class="flex-1"><div class="text-[12px] text-tx font-medium">≥2 photos incl. overview + closeup</div><div class="text-[11px] text-tx3">1 of 2 valid · closeup excluded</div></div></div>
+                <button onclick="goToProblem('evidence','photo-closeup')" class="mt-1 ml-6 mono text-[11px] text-accent hover:underline">Go to problem ↘ Evidence</button>
+              </div>
+              <!-- address pass -->
+              <div class="flex items-start gap-2 px-3 py-2 border-b border-bdf"><span class="text-tstr mt-0.5">✓</span><span class="text-[12px] text-tx2">Inspection address decided</span></div>
+              <!-- conflict warning -->
+              <div id="prob-conflict" class="px-3 py-2 border-b border-bdf bg-[#FBF1E7]/60">
+                <div class="flex items-start gap-2"><span class="text-ttype mt-0.5">△</span><div class="flex-1"><div class="text-[12px] text-tx font-medium">No conflicts <span class="text-tx3 font-normal">(1)</span></div><div class="text-[11px] text-tx3">Mileage: PDF 48,210 vs MOT 51,030</div></div></div>
+                <button onclick="goToProblem('fields','f-mileage')" class="mt-1 ml-6 mono text-[11px] text-accent hover:underline">Go to problem ↘ Fields · 6</button>
+              </div>
+              <div id="allClear" class="collapsed px-3 py-6 text-center"><div class="text-tstr text-[20px]">✓</div><div class="text-[12px] text-tstr font-medium mt-1">All gates green</div><div class="text-[11px] text-tx3">ready to submit to EVA</div></div>
+            </div>
+          </div>
+          <!-- imported details -->
+          <div class="border-t border-bds">
+            <div class="px-3 h-8 flex items-center bg-chrome2 border-b border-bdf"><span class="sc text-[11px] font-semibold text-tx2">Imported details</span><span class="ml-auto mono text-[10px] text-tx3">read-only</span></div>
+            <div class="text-[12px] divide-y divide-bdf">
+              <div class="flex justify-between px-3 py-1.5"><span class="text-tx3">Received</span><span class="mono tnum text-tx2">23 Jun 09:14</span></div>
+              <div class="flex justify-between px-3 py-1.5"><span class="text-tx3">Channel</span><span class="mono text-tx2">Outlook · receiving</span></div>
+              <div class="flex justify-between px-3 py-1.5"><span class="text-tx3">Principal</span><span class="mono text-tx2">CCPY <span class="text-txd">🔒</span></span></div>
+              <div class="flex justify-between px-3 py-1.5"><span class="text-tx3">Year</span><span class="mono text-tx2">26 <span class="text-txd">🔒</span></span></div>
+              <div class="flex justify-between px-3 py-1.5"><span class="text-tx3">Seq</span><span class="mono text-tx2">050 <span class="text-tx3 text-[10px]">edit @ submit</span></span></div>
+              <div class="flex justify-between px-3 py-1.5"><span class="text-tx3">Dup risk</span><span class="mono text-ttype">1 candidate</span></div>
+              <div class="flex justify-between px-3 py-1.5"><span class="text-tx3">Box</span><span class="mono text-tx3">not synced · off</span></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- BOTTOM TERMINAL -->
+      <div id="terminal" class="shrink-0 border-t border-bds bg-gutter">
+        <button onclick="toggleTerminal()" class="w-full flex items-center gap-3 h-7 px-3 hover:bg-chrome1 text-[11px] focusring">
+          <span id="termTw" class="text-tx3">▸</span>
+          <span class="sc font-semibold text-tx2">Terminal · Output</span>
+          <span class="mono text-tx3">History (AuditEvent) · Email source · Enrichment·gated</span>
+          <span class="ml-auto mono text-[10px] text-tx3 px-1 rounded-sm bg-chrome2 border border-bdb">⌘J</span>
+        </button>
+        <div id="termBody" class="collapsed h-[200px] border-t border-bdf flex flex-col">
+          <div class="flex items-stretch h-7 bg-chrome1 border-b border-bdf text-[12px]">
+            <button data-term="history" onclick="termTab('history')" class="px-3 mono subtab-on text-tx2 focusring">History</button>
+            <button data-term="email" onclick="termTab('email')" class="px-3 mono text-tx3 hover:text-tx focusring">Email source</button>
+            <button data-term="enrich" onclick="termTab('enrich')" class="px-3 mono text-tx3 hover:text-tx focusring flex items-center gap-1">Enrichment <span class="text-[10px] text-txd">off</span></button>
+          </div>
+          <div class="flex-1 overflow-y-auto">
+            <div data-termpane="history" class="font-mono text-[12px] leading-[1.7] px-3 py-2 text-tx2">
+              <div><span class="text-tx3 tnum">14:02:11</span> <span class="text-tstr">chaser.drafted</span> · A. Mercer · image chaser → Bridgeworks</div>
+              <div><span class="text-tx3 tnum">11:40:03</span> <span class="text-tnum">note.added</span> · A. Mercer</div>
+              <div><span class="text-tx3 tnum">09:21:55</span> <span class="text-ttype">conflict.flagged</span> · mileage PDF≠MOT</div>
+              <div><span class="text-tx3 tnum">09:14:22</span> <span class="text-tkw">case.created</span> · from inbound · acme-claims.co.uk</div>
+              <div><span class="text-tx3 tnum">09:14:20</span> <span class="text-tfn">parse.completed</span> · 10 / 12 fields populated</div>
+            </div>
+            <div data-termpane="email" class="collapsed font-mono text-[12px] leading-[1.6] px-3 py-2 text-tx3">
+              <div>From: claims@acme-claims.co.uk</div><div>To: receiving@collisionengineers.co.uk</div><div>Subject: Instruction — AB12 CDE / BMW 320d</div><div>Date: 23 Jun 2026 09:14</div><div class="mt-1 text-tx2">Please find attached our instruction and cover letter…</div>
+            </div>
+            <div data-termpane="enrich" class="collapsed px-3 py-3 text-[12px]">
+              <div class="flex items-center gap-2 text-tx3"><span class="mono px-1.5 h-5 grid place-items-center rounded-sm border border-bdb bg-chrome1 text-txd">DVSA · DVLA</span> enrichment is <span class="mono text-ttype">disabled</span> <span class="mono text-tx3">(ENRICHMENT_ENABLED = false)</span></div>
+              <button disabled class="mt-2 mono text-[12px] px-3 h-7 rounded-sm border border-bdb bg-chrome1 text-txd cursor-not-allowed">Run enrichment</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="h-6 shrink-0 bg-accent text-white hidden md:flex items-center text-[11px] mono tnum px-3 gap-3 select-none">
+    <span class="font-semibold">Review / 12</span>
+    <span class="opacity-80">|</span>
+    <span id="sbProblems">● 3 problems · 2 blockers</span>
+    <span class="opacity-80">|</span>
+    <span id="sbTab">Fields ⌃</span>
+    <span class="opacity-80">|</span>
+    <span class="flex items-center gap-1">Updated 14:07 <span class="opacity-80">↻</span></span>
+    <span class="ml-auto opacity-90">EVA: off · Box: off</span>
+    <span class="opacity-80">|</span>
+    <span>⌘1..5 ⌘K</span>
+  </div>
+</div>
+
+<!-- mobile problems handle -->
+<button onclick="toggleInspector(true)" class="lg:hidden fixed bottom-16 right-3 z-30 h-9 px-3 rounded-full bg-terr text-white mono text-[12px] flex items-center gap-2 shadow-lg"><span id="mProb">● 3 problems</span></button>
+
+<!-- PHONE BOTTOM NAV -->
+<nav class="md:hidden fixed bottom-0 inset-x-0 h-14 bg-chrome2 border-t border-bds flex items-stretch z-20">
+  <a href="index.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 text-tx3 text-[10px]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Cockpit</a>
+  <a href="queues.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 text-tx3 text-[10px]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="3"/><rect x="3" y="11" width="18" height="3"/><rect x="3" y="17" width="18" height="3"/></svg>Queues</a>
+  <a href="index.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 text-tx3 text-[10px]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 12h4l2 3h6l2-3h4"/><path d="M5 5h14l2 7v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/></svg>Inbox</a>
+  <a href="case-detail.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 text-accent text-[10px]"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Case</a>
+</nav>
+
+<!-- SUBMIT MODAL -->
+<div id="submitModal" class="collapsed fixed inset-0 z-50 bg-tx/25 flex items-start justify-center pt-[7vh] px-4" onclick="if(event.target===this)closeSubmit()">
+  <div class="w-full max-w-lg bg-editor rounded border border-bds palette-sh overflow-hidden fadein">
+    <div class="flex items-center justify-between px-4 h-11 border-b border-bds bg-chrome1"><span class="sc text-[13px] font-semibold">Submit to EVA — CCPY26050</span><button onclick="closeSubmit()" class="text-tx3 hover:text-tx px-1">esc ×</button></div>
+    <div class="p-4 space-y-3 max-h-[72vh] overflow-y-auto">
+      <!-- gate -->
+      <div id="modalGate" class="rounded border border-terr bg-[#FCEEEE] p-2.5 text-[12px]">
+        <div class="flex items-center gap-2 font-semibold text-terr mono"><span>✕</span> Readiness gate — 2 blockers remaining</div>
+        <ul class="mt-1.5 mono text-[11px] text-tx2 space-y-0.5"><li>✕ VAT status set</li><li>✕ ≥2 photos incl. overview + closeup</li></ul>
+      </div>
+      <!-- Case/PO hero -->
+      <div class="rounded border border-bdb p-3">
+        <div class="sc text-[11px] text-tx3 font-semibold mb-1.5">Case / PO</div>
+        <div class="flex items-center gap-1 mono text-[20px]">
+          <span class="px-2 py-1 rounded-sm bg-chrome1 border border-bdb text-tx2" title="Principal — locked">CCPY 🔒</span>
+          <span class="px-2 py-1 rounded-sm bg-chrome1 border border-bdb text-tx2" title="Year — locked">26 🔒</span>
+          <input value="050" maxlength="3" class="w-16 px-2 py-1 rounded-sm border-2 border-accent bg-editor tnum text-center focusring" />
+        </div>
+        <div class="mt-2 text-[11px] mono text-tx3 space-y-0.5">
+          <div>EVA code (lowercased): <span class="text-tx2">ccpy26050</span></div>
+          <div>Box folder (UPPERCASED): <span class="text-tx2">CCPY26050</span></div>
+        </div>
+      </div>
+      <!-- JSON preview -->
+      <div class="rounded border border-bdb overflow-hidden">
+        <div class="px-3 h-7 flex items-center bg-chrome1 border-b border-bdf sc text-[11px] font-semibold text-tx2">12-field JSON preview</div>
+        <pre class="lig text-[11px] leading-[1.55] px-3 py-2 overflow-x-auto text-tx2 bg-[#FBFCFE]"><span class="text-tx3">{</span> <span class="text-ttag">"workProvider"</span>:<span class="text-tstr">"ACME"</span>, <span class="text-ttag">"vat"</span>:<span class="text-terr">null</span>, <span class="text-ttag">"mileage"</span>:<span class="text-tnum">48210</span>, … <span class="text-tx3">}</span></pre>
+      </div>
+      <!-- path -->
+      <div class="flex flex-wrap items-center gap-2 pt-1">
+        <button disabled class="mono text-[12px] px-3 h-8 rounded-sm bg-accent/40 text-white cursor-not-allowed">⤓ Download JSON (drag to EVA)</button>
+        <button disabled class="mono text-[12px] px-3 h-8 rounded-sm border border-bdb bg-chrome1 text-txd cursor-not-allowed flex items-center gap-1.5">Sentry REST submit <span class="text-[10px]">off</span></button>
+        <span class="mono text-[11px] text-terr ml-auto">resolve 2 blockers to enable</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div id="palette" class="collapsed fixed inset-0 z-50 bg-tx/20 flex items-start justify-center pt-[12vh] px-4" onclick="if(event.target===this)togglePalette()">
+  <div class="w-full max-w-xl bg-editor rounded-lg palette-sh border border-bds overflow-hidden fadein">
+    <div class="flex items-center gap-2 px-3 h-12 border-b border-bdf"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7382" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="pInput" placeholder="Run a command or go to a field / case…" class="flex-1 bg-transparent outline-none text-[14px] mono placeholder:text-txd" /><span class="mono text-[10px] px-1.5 py-0.5 rounded-sm bg-chrome2 border border-bdb text-tx3">esc</span></div>
+    <div class="max-h-80 overflow-y-auto py-1.5 text-[13px]">
+      <div class="px-3 py-1 sc text-[10px] text-tx3">This case</div>
+      <button onclick="goToProblem('fields','f-vat');togglePalette(false)" class="w-full text-left flex items-center gap-3 px-3 h-9 hover:bg-asoft"><span class="text-terr">✕</span>Go to problem · VAT status</button>
+      <button onclick="goToProblem('evidence','photo-closeup');togglePalette(false)" class="w-full text-left flex items-center gap-3 px-3 h-9 hover:bg-asoft"><span class="text-terr">✕</span>Go to problem · photos</button>
+      <button onclick="openSubmit();togglePalette(false)" class="w-full text-left flex items-center gap-3 px-3 h-9 hover:bg-asoft"><span class="text-accent">▶</span>Open submit dialog</button>
+      <div class="px-3 py-1 sc text-[10px] text-tx3 mt-1">Go to</div>
+      <a href="index.html" class="flex items-center gap-3 px-3 h-9 hover:bg-asoft"><span class="text-accent">▣</span>Cockpit</a>
+      <a href="queues.html" class="flex items-center gap-3 px-3 h-9 hover:bg-asoft"><span class="text-accent">▦</span>Queues</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const palette=document.getElementById('palette'), pInput=document.getElementById('pInput');
+function togglePalette(force){const show=force===true||(force===undefined&&palette.classList.contains('collapsed'));palette.classList.toggle('collapsed',!show);if(show)setTimeout(()=>pInput&&pInput.focus(),10);}
+
+/* ---- sub-tabs ---- */
+function switchTab(name){
+  document.querySelectorAll('[data-pane]').forEach(p=>p.classList.toggle('collapsed',p.dataset.pane!==name));
+  document.querySelectorAll('[data-subtab]').forEach(b=>{const on=b.dataset.subtab===name;b.classList.toggle('subtab-on',on);b.classList.toggle('text-tx2',on);b.classList.toggle('text-tx3',!on);});
+  document.getElementById('sbTab').textContent=name.charAt(0).toUpperCase()+name.slice(1)+' ⌃';
+}
+function goToProblem(tab,elId){
+  switchTab(tab);
+  toggleInspector(false);
+  setTimeout(()=>{const el=document.getElementById(elId);if(el){el.scrollIntoView({block:'center',behavior:'smooth'});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');}},60);
+}
+
+/* ---- region folds ---- */
+function toggleFold(btn){const body=btn.nextElementSibling;body.classList.toggle('collapsed');btn.querySelector('.fold-tw').textContent=body.classList.contains('collapsed')?'▸':'▾';}
+
+/* ---- terminal ---- */
+function toggleTerminal(force,tab){const b=document.getElementById('termBody');const show=force===true||(force===undefined&&b.classList.contains('collapsed'));b.classList.toggle('collapsed',!show);document.getElementById('termTw').textContent=show?'▾':'▸';if(tab)termTab(tab);}
+function termTab(name){document.querySelectorAll('[data-termpane]').forEach(p=>p.classList.toggle('collapsed',p.dataset.termpane!==name));document.querySelectorAll('[data-term]').forEach(b=>{const on=b.dataset.term===name;b.classList.toggle('subtab-on',on);b.classList.toggle('text-tx2',on);b.classList.toggle('text-tx3',!on);});}
+
+/* ---- overflow ---- */
+function toggleOverflow(){document.getElementById('overflow').classList.toggle('collapsed');}
+document.addEventListener('click',e=>{const o=document.getElementById('overflow');if(!o.classList.contains('collapsed')&&!e.target.closest('#overflow')&&!e.target.closest('[onclick^="toggleOverflow"]'))o.classList.add('collapsed');});
+
+/* ---- inspector drawer (mobile) ---- */
+function toggleInspector(show){const i=document.getElementById('inspector');if(window.innerWidth>=1024)return;i.classList.toggle('insp-show',show);}
+
+/* ---- submit modal ---- */
+function openSubmit(){document.getElementById('submitModal').classList.remove('collapsed');}
+function closeSubmit(){document.getElementById('submitModal').classList.add('collapsed');}
+
+/* ---- problem state + resolution (the showcase moment) ---- */
+const problems={vat:{blocker:true,open:true},photos:{blocker:true,open:true},conflict:{blocker:false,open:true}};
+function onVat(sel){ if(sel.value){ sel.classList.remove('squiggle','text-tx3','border-terr'); sel.classList.add('border-bdb'); document.getElementById('prov-vat').innerHTML='MAN <span class="text-tstr">✓</span>'; document.getElementById('prov-vat').classList.remove('border-terr/50'); document.getElementById('f-vat').classList.remove('bg-[#FCEEEE]/40'); document.getElementById('json-vat').textContent= sel.value==='yes'?'true':'false'; document.getElementById('json-vat').className='text-number text-tnum'; resolve('vat'); } }
+function resolve(kind,which){
+  if(!problems[kind]||!problems[kind].open) {if(kind!=='conflict')return;}
+  problems[kind].open=false;
+  const row=document.getElementById('prob-'+kind);
+  if(row){ row.classList.add('resolved-fade'); row.querySelector('span').outerHTML='<span class="text-tstr mt-0.5">✓</span>'; row.classList.remove('bg-[#FCEEEE]/50','bg-[#FBF1E7]/60'); const link=row.querySelector('button');if(link)link.remove(); }
+  if(kind==='photos'){ const p=document.getElementById('photo-closeup'); if(p){p.classList.remove('border-ttype');p.classList.add('border-tstr'); p.querySelector('.bg-ttype').className='mono text-[10px] px-1 rounded-sm bg-tstr text-white'; p.querySelector('.bg-ttype, .bg-tstr')?.replaceChildren(document.createTextNode('included ✓'));} }
+  if(kind==='conflict'){ const cf=document.getElementById('mileage-conflict'); if(cf)cf.innerHTML='<span class="mono text-tstr text-[11px]">✓ resolved · '+(which==='mot'?'using MOT 51,030':'keeping PDF 48,210')+'</span>'; const inp=document.getElementById('in-mileage'); if(inp){inp.classList.remove('squiggle-w','border-ttype/60');inp.classList.add('border-bdb'); if(which==='mot')inp.value='51,030';} const pv=document.getElementById('prov-mileage'); if(pv)pv.innerHTML=(which==='mot'?'DVLA':'PDF')+' <span class="text-tstr">✓</span>'; const jm=document.getElementById('json-mileage'); if(jm&&which==='mot')jm.textContent='51030'; }
+  recompute();
+}
+function recompute(){
+  const blockers=Object.values(problems).filter(p=>p.blocker&&p.open).length;
+  const total=Object.values(problems).filter(p=>p.open).length;
+  document.getElementById('probCount').textContent=total?(total+' · '+blockers+' blocker'+(blockers===1?'':'s')):'0 · clear';
+  document.getElementById('probCount').className='mono text-[11px] tnum '+(blockers?'text-terr':(total?'text-ttype':'text-tstr'));
+  document.getElementById('sbProblems').textContent=total?('● '+total+' problem'+(total===1?'':'s')+' · '+blockers+' blocker'+(blockers===1?'':'s')):'✓ all gates green';
+  const mProb=document.getElementById('mProb'); if(mProb)mProb.textContent=total?('● '+total+' problem'+(total===1?'':'s')):'✓ ready';
+  const sub=document.getElementById('btnSubmit'), dl=document.getElementById('btnDownload'), lbl=document.getElementById('submitLabel');
+  if(blockers===0){
+    sub.disabled=false;sub.classList.remove('bg-accent/40','cursor-not-allowed');sub.classList.add('bg-accent','hover:bg-accenth');sub.title='Submit to EVA';lbl.textContent='Submit to EVA';
+    dl.disabled=false;dl.classList.remove('bg-chrome1','text-txd','cursor-not-allowed');dl.classList.add('hover:bg-eline','text-tx');dl.title='Download EVA JSON';
+    const gate=document.getElementById('modalGate'); if(gate){gate.className='rounded border border-tstr bg-[#EEF6EF] p-2.5 text-[12px]';gate.innerHTML='<div class="flex items-center gap-2 font-semibold text-tstr mono"><span>✓</span> Readiness gate — all green</div>';}
+  } else { lbl.textContent='Submit to EVA · '+blockers+' problem'+(blockers===1?'':'s'); }
+  if(total===0){ document.getElementById('allClear').classList.remove('collapsed'); }
+}
+
+document.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  const typing=['input','textarea','select'].includes((document.activeElement.tagName||'').toLowerCase());
+  if((e.metaKey||e.ctrlKey)&&k==='k'){e.preventDefault();togglePalette();}
+  else if((e.metaKey||e.ctrlKey)&&k==='b'){e.preventDefault();document.getElementById('explorer').classList.toggle('collapsed');}
+  else if((e.metaKey||e.ctrlKey)&&k==='j'){e.preventDefault();toggleTerminal();}
+  else if((e.metaKey||e.ctrlKey)&&['1','2','3','4','5'].includes(k)){e.preventDefault();switchTab(['fields','evidence','address','notes','chasers'][+k-1]);}
+  else if(k==='escape'){togglePalette(false);closeSubmit();toggleInspector(false);}
+  else if(k==='/'&&!typing){e.preventDefault();togglePalette(true);}
+});
+</script>
+</body>
+</html>

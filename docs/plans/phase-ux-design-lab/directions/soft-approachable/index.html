@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Warm Hearth · Inbox Cockpit — collisionspike</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&family=Nunito+Sans:wght@400;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        canvas:'#F6F1EA', sunken:'#EFE8DE', surface:'#FFFDFB',
+        border:{soft:'#E7DED2', strong:'#D8CCBC'},
+        ink:{strong:'#34302B', body:'#4F483F', muted:'#6B6154'},
+        primary:{DEFAULT:'#1B7163', hover:'#145A4E', decor:'#2A8C7D', tint:'#DCEDE8'},
+        accent:{DEFAULT:'#E8A33D', text:'#8A5A10', tint:'#FBEBCF'},
+        review:{500:'#D2685E',700:'#9C3A30',100:'#F8E4E0'},
+        held:{500:'#E8A33D',700:'#8A5A10',100:'#FBEBCF'},
+        ready:{500:'#5B9A6E',700:'#2F6B45',100:'#E0EFE2'},
+        done:{500:'#6E8BA3',700:'#3F5A70',100:'#E5ECF1'},
+        nstate:{500:'#9A8E7E',700:'#5A5045',100:'#EFE8DE'},
+      },
+      fontFamily:{
+        display:['Nunito','sans-serif'],
+        body:['"Nunito Sans"','sans-serif'],
+        mono:['"Spline Sans Mono"','ui-monospace','monospace'],
+      },
+      borderRadius:{ xs:'6px', sm:'10px', md:'14px', lg:'20px', xl:'28px', pill:'9999px' },
+      boxShadow:{
+        xs:'0 1px 2px rgba(58,48,38,.06)',
+        sm:'0 2px 6px rgba(58,48,38,.07)',
+        md:'0 6px 16px rgba(58,48,38,.08)',
+        lg:'0 14px 32px rgba(58,48,38,.10)',
+      },
+    }
+  }
+}
+</script>
+<style>
+:root{ --bead-elev: 0 6px 16px rgba(58,48,38,.10), inset 0 1px 0 rgba(255,255,255,.75); }
+html{ scroll-behavior:smooth; }
+body{ font-family:'Nunito Sans',sans-serif; color:#4F483F; background:#F6F1EA; -webkit-font-smoothing:antialiased; }
+.font-display{ font-family:'Nunito',sans-serif; }
+.font-mono{ font-family:'Spline Sans Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+.eyebrow{ font-family:'Nunito Sans',sans-serif; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.bead-elev{ box-shadow:var(--bead-elev); }
+.card{ background:#FFFDFB; border:1px solid #E7DED2; border-radius:14px; box-shadow:0 1px 2px rgba(58,48,38,.06); }
+.lift{ transition:box-shadow .2s ease-out, transform .2s ease-out; }
+.lift:hover{ box-shadow:0 2px 6px rgba(58,48,38,.07); transform:translateY(-1px); }
+.press:active{ transform:scale(.99); }
+/* VRM plate — the deliberate 2px rectangular exception */
+.vrm{ display:inline-flex; align-items:stretch; border-radius:2px; overflow:hidden; border:1px solid #E3C200;
+  box-shadow:0 1px 2px rgba(58,48,38,.10); font-family:'Spline Sans Mono',monospace; font-weight:500; }
+.vrm .gb{ background:#0a3d91; color:#fff; font-size:9px; line-height:1; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; padding:0 4px; letter-spacing:.02em; }
+.vrm .reg{ background:#F8DD3A; color:#1c1a16; padding:3px 8px; letter-spacing:.06em; white-space:nowrap; }
+.vrm.dup{ outline:1px solid #9C3A30; outline-offset:1px; }
+/* focus ring — 3px sage teal on any warm surface */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{
+  outline:none; box-shadow:0 0 0 2px #FFFDFB, 0 0 0 5px #1B7163; border-radius:8px; }
+.vrm:focus-visible{ border-radius:2px; }
+/* hearth-bead breathing — only ambient motion, Held only */
+@keyframes breathe{ 0%,100%{opacity:.78} 50%{opacity:1} }
+.breathe{ animation:breathe 2.4s ease-in-out infinite; }
+@keyframes ringpulse{ 0%{box-shadow:0 0 0 0 rgba(27,113,99,.35)} 100%{box-shadow:0 0 0 12px rgba(27,113,99,0)} }
+.scroll-thin::-webkit-scrollbar{ height:8px; width:8px; }
+.scroll-thin::-webkit-scrollbar-thumb{ background:#D8CCBC; border-radius:9999px; }
+.scroll-thin::-webkit-scrollbar-track{ background:transparent; }
+@media (prefers-reduced-motion: reduce){
+  *{ animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+}
+</style>
+</head>
+<body class="text-ink-body">
+
+<div class="flex min-h-screen">
+
+  <!-- ============================ LEFT RAIL ============================ -->
+  <aside class="hidden md:flex flex-col w-[68px] lg:w-60 shrink-0 bg-sunken border-r border-border-soft sticky top-0 h-screen">
+    <div class="flex items-center gap-3 px-4 lg:px-5 h-16 border-b border-border-soft/70">
+      <div class="w-9 h-9 rounded-md bg-primary text-white grid place-items-center font-display font-extrabold shadow-sm shrink-0">ch</div>
+      <div class="hidden lg:block leading-tight">
+        <div class="font-display font-extrabold text-ink-strong">collisionspike</div>
+        <div class="text-[11px] text-ink-muted">Intake cockpit</div>
+      </div>
+    </div>
+
+    <nav class="flex-1 px-2 lg:px-3 py-4 space-y-1 overflow-y-auto scroll-thin" aria-label="Primary">
+      <!-- active: Cockpit -->
+      <a href="index.html" aria-current="page"
+         class="relative flex items-center gap-3 rounded-sm px-3 py-2.5 bg-primary-tint text-primary font-semibold">
+        <span class="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-primary"></span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M4 13h7V4H4v9Zm9 7h7v-9h-7v9ZM4 20h7v-5H4v5Zm9-16v5h7V4h-7Z" fill="currentColor"/></svg>
+        <span class="hidden lg:block flex-1">Cockpit</span>
+        <span class="hidden lg:inline-flex font-mono text-[11px] px-1.5 py-0.5 rounded-pill bg-surface text-ink-muted">12</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M3 7l9 6 9-6M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="hidden lg:block flex-1">Inbox</span>
+        <span class="hidden lg:inline-flex font-mono text-[11px] px-1.5 py-0.5 rounded-pill bg-surface text-ink-muted">8</span>
+      </a>
+      <a href="queues.html" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        <span class="hidden lg:block flex-1">Queues</span>
+        <span class="hidden lg:inline-flex font-mono text-[11px] px-1.5 py-0.5 rounded-pill bg-review-100 text-review-700 font-semibold">3</span>
+      </a>
+      <a href="case-detail.html" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M7 3h7l5 5v13a0 0 0 0 1 0 0H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M13 3v6h6" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        <span class="hidden lg:block flex-1">Cases</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        <span class="hidden lg:block flex-1">Manual intake</span>
+      </a>
+
+      <!-- separated admin group — least privilege -->
+      <div class="pt-4 mt-3 border-t border-border-soft">
+        <div class="hidden lg:block px-3 pb-1 eyebrow text-[10px] text-ink-muted">Admin</div>
+        <a href="#" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          <span class="hidden lg:block flex-1">Admin · Corpus</span>
+          <span class="hidden lg:inline-flex font-mono text-[11px] px-1.5 py-0.5 rounded-pill bg-surface text-ink-muted">2</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-body hover:bg-surface lift">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M10.3 4.3a1.7 1.7 0 0 1 3.4 0l.2 1a7 7 0 0 1 1.7 1l1-.4a1.7 1.7 0 0 1 2 .8l.4.7a1.7 1.7 0 0 1-.4 2.1l-.8.7a7 7 0 0 1 0 2l.8.7a1.7 1.7 0 0 1 .4 2.1l-.4.7a1.7 1.7 0 0 1-2 .8l-1-.4a7 7 0 0 1-1.7 1l-.2 1a1.7 1.7 0 0 1-3.4 0l-.2-1a7 7 0 0 1-1.7-1l-1 .4a1.7 1.7 0 0 1-2-.8l-.4-.7a1.7 1.7 0 0 1 .4-2.1l.8-.7a7 7 0 0 1 0-2l-.8-.7a1.7 1.7 0 0 1-.4-2.1l.4-.7a1.7 1.7 0 0 1 2-.8l1 .4a7 7 0 0 1 1.7-1l.2-1Z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2.4" stroke="currentColor" stroke-width="1.5"/></svg>
+          <span class="hidden lg:block flex-1">Settings</span>
+        </a>
+        <a href="#" aria-disabled="true" class="flex items-center gap-3 rounded-sm px-3 py-2.5 text-ink-muted/70 cursor-not-allowed">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 9 21 7m-1.6 8 1.6 2M4.6 9 3 7m1.6 8L3 17" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span class="hidden lg:flex flex-1 items-center gap-2">Engineer <span class="text-[10px] eyebrow bg-sunken px-1.5 py-0.5 rounded-pill">reserved</span></span>
+        </a>
+      </div>
+    </nav>
+
+    <div class="px-3 py-3 border-t border-border-soft flex items-center gap-3">
+      <div class="w-8 h-8 rounded-pill bg-primary-tint text-primary grid place-items-center font-display font-bold text-sm">SM</div>
+      <div class="hidden lg:block leading-tight text-sm">
+        <div class="font-semibold text-ink-strong">Sam Mercer</div>
+        <div class="text-[11px] text-ink-muted">Intake staff</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============================ MAIN ============================ -->
+  <main class="flex-1 min-w-0 pb-24 md:pb-8">
+
+    <!-- header -->
+    <header class="sticky top-0 z-20 bg-canvas/85 backdrop-blur border-b border-border-soft">
+      <div class="px-4 sm:px-6 lg:px-8 py-3.5 flex items-center gap-3 flex-wrap">
+        <div class="md:hidden w-8 h-8 rounded-md bg-primary text-white grid place-items-center font-display font-extrabold text-sm">ch</div>
+        <h1 class="font-display font-extrabold text-ink-strong text-xl sm:text-2xl mr-auto">Inbox cockpit</h1>
+        <label class="relative flex-1 min-w-[160px] max-w-sm">
+          <span class="sr-only">Search VRM, Case/PO or claimant</span>
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3.2-3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <input type="search" placeholder="Search VRM · Case/PO · claimant"
+            class="w-full rounded-pill bg-surface border border-border-strong pl-9 pr-3 py-2 text-sm placeholder:text-ink-muted focus:border-primary focus:outline-none" />
+        </label>
+        <div class="hidden sm:flex items-center gap-2 text-xs text-ink-muted font-mono">
+          <span>Updated 09:42</span>
+          <button class="w-8 h-8 grid place-items-center rounded-pill bg-surface border border-border-soft hover:text-primary press lift" aria-label="Refresh counts">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 11A8 8 0 1 0 18 16M20 5v6h-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="px-4 sm:px-6 lg:px-8 py-5 grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+      <!-- ===================== R0 · HEARTH BEAD (the hero) ===================== -->
+      <section aria-labelledby="r0-h" class="lg:col-span-12 rounded-xl bg-surface border border-border-soft shadow-md p-5 sm:p-6">
+        <div class="flex items-center justify-between gap-3 mb-1">
+          <h2 id="r0-h" class="font-display font-extrabold text-ink-strong text-lg">Pipeline</h2>
+          <p class="text-xs text-ink-muted hidden sm:block">Filled beads <b class="text-ink-body">drain</b> · ghost beads are <b class="text-ink-body">today's throughput</b></p>
+        </div>
+
+        <!-- bead strip: horizontal, scroll-snaps on small screens (anchor = Chasing/Held) -->
+        <ol class="relative flex items-start gap-2 sm:gap-3 lg:gap-2 lg:justify-between overflow-x-auto scroll-thin snap-x snap-mandatory pt-3 pb-2 px-1"
+            aria-label="Case pipeline, 7 stages">
+          <!-- thread -->
+          <div class="pointer-events-none absolute left-9 right-9 top-[42px] h-[3px] rounded-pill bg-border-strong" aria-hidden="true"></div>
+          <div class="pointer-events-none absolute left-9 top-[42px] h-[3px] w-[42%] rounded-pill bg-primary/40 hidden lg:block" aria-hidden="true"></div>
+
+          <!-- New -->
+          <li class="snap-center shrink-0 w-[104px] lg:w-auto">
+            <a href="queues.html" class="group flex flex-col items-center gap-2 press" aria-label="New: 7 cases">
+              <span class="relative z-10 w-20 h-16 rounded-pill bg-surface border border-border-soft bead-elev grid place-items-center lift">
+                <span class="font-display font-extrabold text-2xl text-ink-strong leading-none">7</span>
+                <span class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-pill bg-sunken border border-border-soft grid place-items-center text-ink-muted text-xs" aria-hidden="true">◦</span>
+              </span>
+              <span class="eyebrow text-[10px] text-ink-muted">New</span>
+            </a>
+          </li>
+          <!-- Parsing -->
+          <li class="snap-center shrink-0 w-[104px] lg:w-auto">
+            <a href="queues.html" class="group flex flex-col items-center gap-2 press" aria-label="Parsing: 2 cases">
+              <span class="relative z-10 w-20 h-16 rounded-pill bg-surface border border-border-soft bead-elev grid place-items-center lift">
+                <span class="font-display font-extrabold text-2xl text-ink-strong leading-none">2</span>
+                <span class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-pill bg-sunken border border-border-soft grid place-items-center text-ink-muted text-xs" aria-hidden="true">◐</span>
+              </span>
+              <span class="eyebrow text-[10px] text-ink-muted">Parsing</span>
+            </a>
+          </li>
+          <!-- Review · the one blocker (>0) -->
+          <li class="snap-center shrink-0 w-[104px] lg:w-auto">
+            <a href="queues.html" class="group flex flex-col items-center gap-2 press" aria-label="Review: 3 cases — needs you">
+              <span class="relative z-10 w-20 h-16 rounded-pill bg-review-100 border border-review-500/40 bead-elev grid place-items-center lift">
+                <span class="font-display font-extrabold text-2xl text-review-700 leading-none">3</span>
+                <span class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-pill bg-review-500 text-white grid place-items-center text-[11px]" aria-hidden="true">▲</span>
+              </span>
+              <span class="eyebrow text-[10px] text-review-700 font-bold">Review</span>
+            </a>
+          </li>
+          <!-- Chasing/Held · emphasised, breathing -->
+          <li class="snap-center shrink-0 w-[104px] lg:w-auto">
+            <a href="queues.html" class="group flex flex-col items-center gap-2 press" aria-current="true" aria-label="Chasing or held: 5 cases — work piles up here">
+              <span class="relative z-10 w-20 h-16 rounded-pill bg-accent-tint border border-accent/50 bead-elev grid place-items-center lift overflow-hidden">
+                <span class="absolute inset-0 breathe" style="background:radial-gradient(circle at 50% 45%, rgba(232,163,61,.55), rgba(232,163,61,0) 72%)" aria-hidden="true"></span>
+                <span class="relative font-display font-extrabold text-2xl text-accent-text leading-none">5</span>
+                <span class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-pill bg-accent text-white grid place-items-center text-[11px]" aria-hidden="true">◆</span>
+              </span>
+              <span class="eyebrow text-[10px] text-accent-text font-bold">Chasing / Held</span>
+            </a>
+          </li>
+          <!-- Ready -->
+          <li class="snap-center shrink-0 w-[104px] lg:w-auto">
+            <a href="queues.html" class="group flex flex-col items-center gap-2 press" aria-label="Ready for EVA: 4 cases">
+              <span class="relative z-10 w-20 h-16 rounded-pill bg-surface border border-border-soft bead-elev grid place-items-center lift">
+                <span class="font-display font-extrabold text-2xl text-ink-strong leading-none">4</span>
+                <span class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-pill bg-ready-100 border border-ready-500/50 text-ready-700 grid place-items-center text-[11px]" aria-hidden="true">✔</span>
+              </span>
+              <span class="eyebrow text-[10px] text-ready-700 font-bold">Ready</span>
+            </a>
+          </li>
+          <!-- Submitted · throughput / ghost -->
+          <li class="snap-center shrink-0 w-[104px] lg:w-auto">
+            <span class="flex flex-col items-center gap-2" aria-label="Submitted today: 24">
+              <span class="relative z-10 w-20 h-16 rounded-pill bg-transparent border border-dashed border-done-500/60 grid place-items-center">
+                <span class="font-display font-bold text-xl text-done-700 leading-none">24</span>
+                <span class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-pill bg-canvas border border-done-500/40 text-done-700 grid place-items-center text-[11px]" aria-hidden="true">◌</span>
+              </span>
+              <span class="eyebrow text-[10px] text-ink-muted">Submitted</span>
+            </span>
+          </li>
+          <!-- Box · throughput / ghost -->
+          <li class="snap-center shrink-0 w-[104px] lg:w-auto">
+            <span class="flex flex-col items-center gap-2" aria-label="Archived to Box today: 24">
+              <span class="relative z-10 w-20 h-16 rounded-pill bg-transparent border border-dashed border-done-500/60 grid place-items-center">
+                <span class="font-display font-bold text-xl text-done-700 leading-none">24</span>
+                <span class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-pill bg-canvas border border-done-500/40 text-done-700 grid place-items-center text-[11px]" aria-hidden="true">◌</span>
+              </span>
+              <span class="eyebrow text-[10px] text-ink-muted">Box</span>
+            </span>
+          </li>
+        </ol>
+      </section>
+
+      <!-- ===================== R1 · INBOX TRIAGE ===================== -->
+      <section aria-labelledby="r1-h" class="lg:col-span-12 card p-5">
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <h2 id="r1-h" class="font-display font-extrabold text-ink-strong text-lg">Inbox triage <span class="text-ink-muted font-body font-normal text-sm">· 8 untriaged</span></h2>
+          <a href="#" class="text-sm font-semibold text-primary hover:text-primary-hover">Open full triage →</a>
+        </div>
+        <!-- segmented chips -->
+        <div class="flex flex-wrap gap-2 mb-4" role="group" aria-label="Filter triage by kind">
+          <button data-seg="all" class="seg-chip is-on inline-flex items-center gap-2 rounded-pill px-3 py-1.5 text-sm font-semibold border">All <span class="font-mono text-xs">8</span></button>
+          <button data-seg="receiving" class="seg-chip inline-flex items-center gap-2 rounded-pill px-3 py-1.5 text-sm font-semibold border">Receiving work <span class="font-mono text-xs">5</span></button>
+          <button data-seg="query" class="seg-chip inline-flex items-center gap-2 rounded-pill px-3 py-1.5 text-sm font-semibold border">Queries <span class="font-mono text-xs">2</span></button>
+          <button data-seg="other" class="seg-chip inline-flex items-center gap-2 rounded-pill px-3 py-1.5 text-sm font-semibold border">Other <span class="font-mono text-xs">1</span> <span class="hidden sm:inline text-[11px] font-normal text-ink-muted">· needs a human</span></button>
+        </div>
+
+        <ul class="divide-y divide-border-soft -mx-2">
+          <!-- row: receiving -->
+          <li data-seg="receiving" class="triage-row flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 py-3 rounded-md hover:bg-canvas lift">
+            <span class="w-9 h-9 shrink-0 rounded-pill bg-primary-tint text-primary grid place-items-center" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.6"/><path d="M13 3v6h6" stroke="currentColor" stroke-width="1.6"/></svg>
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-ink-strong">ABC Claims</span>
+                <span class="font-mono text-xs text-ink-muted">abcclaims.co.uk</span>
+                <span class="eyebrow text-[10px] text-primary bg-primary-tint px-1.5 py-0.5 rounded-xs">PDF</span>
+              </div>
+              <div class="text-sm text-ink-body truncate">Instruction CCPY26050 — Ford Focus 1.0 EcoBoost</div>
+            </div>
+            <span class="font-mono text-xs text-ink-muted sm:w-14">09:31</span>
+            <a href="case-detail.html" class="shrink-0 inline-flex items-center gap-1.5 rounded-sm bg-primary text-white text-sm font-semibold px-3 py-2 hover:bg-primary-hover press">→ Case</a>
+          </li>
+          <!-- row: receiving -->
+          <li data-seg="receiving" class="triage-row flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 py-3 rounded-md hover:bg-canvas lift">
+            <span class="w-9 h-9 shrink-0 rounded-pill bg-primary-tint text-primary grid place-items-center" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.6"/><path d="M13 3v6h6" stroke="currentColor" stroke-width="1.6"/></svg>
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-ink-strong">Direct Line Group</span>
+                <span class="font-mono text-xs text-ink-muted">directlinegroup.com</span>
+                <span class="eyebrow text-[10px] text-primary bg-primary-tint px-1.5 py-0.5 rounded-xs">PDF</span>
+              </div>
+              <div class="text-sm text-ink-body truncate">RE: VW Golf inspection — KL19 XYZ</div>
+            </div>
+            <span class="font-mono text-xs text-ink-muted sm:w-14">09:24</span>
+            <a href="case-detail.html" class="shrink-0 inline-flex items-center gap-1.5 rounded-sm bg-primary text-white text-sm font-semibold px-3 py-2 hover:bg-primary-hover press">→ Case</a>
+          </li>
+          <!-- row: query -->
+          <li data-seg="query" class="triage-row flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 py-3 rounded-md hover:bg-canvas lift">
+            <span class="w-9 h-9 shrink-0 rounded-pill bg-accent-tint text-accent-text grid place-items-center" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10Z" stroke="currentColor" stroke-width="1.6"/></svg>
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-ink-strong">Jordan Hale</span>
+                <span class="font-mono text-xs text-ink-muted">gmail.com</span>
+                <span class="eyebrow text-[10px] text-accent-text bg-accent-tint px-1.5 py-0.5 rounded-xs">IMG</span>
+              </div>
+              <div class="text-sm text-ink-body truncate">photos of my car after the accident</div>
+            </div>
+            <span class="font-mono text-xs text-ink-muted sm:w-14">09:18</span>
+            <div class="shrink-0 flex gap-2">
+              <button class="inline-flex items-center rounded-sm border border-border-strong text-sm font-semibold px-3 py-2 text-ink-body hover:bg-surface press">Confirm</button>
+              <button class="inline-flex items-center rounded-sm border border-border-strong text-sm font-semibold px-3 py-2 text-ink-body hover:bg-surface press">Reclassify</button>
+            </div>
+          </li>
+          <!-- row: query -->
+          <li data-seg="query" class="triage-row flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 py-3 rounded-md hover:bg-canvas lift">
+            <span class="w-9 h-9 shrink-0 rounded-pill bg-accent-tint text-accent-text grid place-items-center" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10Z" stroke="currentColor" stroke-width="1.6"/></svg>
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-ink-strong">Hastings Direct</span>
+                <span class="font-mono text-xs text-ink-muted">hastingsdirect.com</span>
+              </div>
+              <div class="text-sm text-ink-body truncate">Chase — any update on HG18 ONR?</div>
+            </div>
+            <span class="font-mono text-xs text-ink-muted sm:w-14">09:05</span>
+            <div class="shrink-0 flex gap-2">
+              <button class="inline-flex items-center rounded-sm border border-border-strong text-sm font-semibold px-3 py-2 text-ink-body hover:bg-surface press">Confirm</button>
+              <button class="inline-flex items-center rounded-sm border border-border-strong text-sm font-semibold px-3 py-2 text-ink-body hover:bg-surface press">Reclassify</button>
+            </div>
+          </li>
+          <!-- row: other -->
+          <li data-seg="other" class="triage-row flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 py-3 rounded-md hover:bg-canvas lift">
+            <span class="w-9 h-9 shrink-0 rounded-pill bg-sunken text-ink-muted grid place-items-center" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 8v5m0 3h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-ink-strong">mailer-daemon</span>
+                <span class="font-mono text-xs text-ink-muted">postmaster.outlook.com</span>
+                <span class="eyebrow text-[10px] text-ink-muted bg-sunken px-1.5 py-0.5 rounded-xs">needs a human</span>
+              </div>
+              <div class="text-sm text-ink-body truncate">Automatic reply: Out of office until Monday</div>
+            </div>
+            <span class="font-mono text-xs text-ink-muted sm:w-14">08:55</span>
+            <button class="shrink-0 inline-flex items-center gap-1.5 rounded-sm border border-border-strong text-sm font-semibold px-3 py-2 text-ink-body hover:bg-surface press">Open in mailbox</button>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ===================== R2 · LIVE WORK (drainable) ===================== -->
+      <section aria-labelledby="r2-h" class="lg:col-span-8 card p-5">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <h2 id="r2-h" class="font-display font-extrabold text-ink-strong text-lg">Live work</h2>
+          <span class="eyebrow text-[10px] text-ink-muted">drains down</span>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Review · the ONE loud tile -->
+          <a href="queues.html" class="group relative rounded-md bg-review-100 border border-review-500/40 p-4 lift press">
+            <div class="flex items-start justify-between">
+              <span class="badge inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-xs font-bold bg-review-500 text-white">▲ Review</span>
+              <span class="text-review-700 opacity-70 group-hover:translate-x-0.5 transition" aria-hidden="true">→</span>
+            </div>
+            <div class="mt-3 font-display font-extrabold text-4xl text-review-700 leading-none">3</div>
+            <div class="mt-1 text-sm text-review-700/90">cases need your review</div>
+          </a>
+          <!-- Held -->
+          <a href="queues.html" class="group relative rounded-md bg-accent-tint border border-accent/40 p-4 lift press">
+            <div class="flex items-start justify-between">
+              <span class="badge inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-xs font-bold bg-accent text-white">◆ Held</span>
+              <span class="text-accent-text opacity-70 group-hover:translate-x-0.5 transition" aria-hidden="true">→</span>
+            </div>
+            <div class="mt-3 font-display font-extrabold text-4xl text-accent-text leading-none">5</div>
+            <div class="mt-1 text-sm text-accent-text/90">waiting on a chaser</div>
+          </a>
+          <!-- Ready -->
+          <a href="queues.html" class="group relative rounded-md bg-surface border border-border-soft p-4 lift press">
+            <div class="flex items-start justify-between">
+              <span class="badge inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-xs font-bold bg-ready-100 text-ready-700">✔ Ready</span>
+              <span class="text-ink-muted opacity-70 group-hover:translate-x-0.5 transition" aria-hidden="true">→</span>
+            </div>
+            <div class="mt-3 font-display font-extrabold text-4xl text-ink-strong leading-none">4</div>
+            <div class="mt-1 text-sm text-ink-muted">ready to submit to EVA</div>
+          </a>
+          <!-- New cases -->
+          <a href="queues.html" class="group relative rounded-md bg-surface border border-border-soft p-4 lift press">
+            <div class="flex items-start justify-between">
+              <span class="badge inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-xs font-bold bg-sunken text-nstate-700">◦ New</span>
+              <span class="text-ink-muted opacity-70 group-hover:translate-x-0.5 transition" aria-hidden="true">→</span>
+            </div>
+            <div class="mt-3 font-display font-extrabold text-4xl text-ink-strong leading-none">6</div>
+            <div class="mt-1 text-sm text-ink-muted">new cases since 08:00</div>
+          </a>
+        </div>
+      </section>
+
+      <!-- ===================== R3 · TODAY / WEEK (windowed throughput) ===================== -->
+      <section aria-labelledby="r3-h" class="lg:col-span-4 card p-5">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <h2 id="r3-h" class="font-display font-extrabold text-ink-strong text-lg">Throughput</h2>
+          <span class="eyebrow text-[10px] text-ink-muted">resets daily</span>
+        </div>
+        <dl class="space-y-3">
+          <div class="flex items-center justify-between rounded-md border border-dashed border-border-strong px-4 py-3">
+            <dt class="text-sm text-ink-muted">In today</dt>
+            <dd class="font-display font-bold text-2xl text-ink-body font-mono">18</dd>
+          </div>
+          <div class="flex items-center justify-between rounded-md border border-dashed border-done-500/50 px-4 py-3">
+            <dt class="text-sm text-ink-muted flex items-center gap-1.5"><span class="text-done-700" aria-hidden="true">◌</span> Submitted today</dt>
+            <dd class="font-display font-bold text-2xl text-done-700 font-mono">24</dd>
+          </div>
+          <div class="flex items-center justify-between rounded-md border border-dashed border-border-strong px-4 py-3">
+            <dt class="text-sm text-ink-muted">Cleared this week</dt>
+            <dd class="font-display font-bold text-2xl text-ink-body font-mono">96</dd>
+          </div>
+        </dl>
+        <p class="mt-3 text-[11px] text-ink-muted leading-relaxed">Outline numbers are tallies, not a backlog — terminal states never pile up.</p>
+      </section>
+
+      <!-- ===================== R4 · CHASE NEXT ===================== -->
+      <section aria-labelledby="r4-h" class="lg:col-span-8 card p-5">
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-1">
+          <h2 id="r4-h" class="font-display font-extrabold text-ink-strong text-lg">Chase next</h2>
+          <a href="queues.html" class="text-sm font-semibold text-primary hover:text-primary-hover">All work →</a>
+        </div>
+        <p class="text-xs text-ink-muted mb-4"><b class="text-review-700">3 past due</b> · 2 duplicate · 1 conflict · oldest first</p>
+
+        <ul class="space-y-2.5">
+          <!-- row 1 -->
+          <li class="flex flex-col sm:flex-row sm:items-center gap-3 rounded-md border border-border-soft px-3 py-3 hover:bg-canvas lift">
+            <span class="vrm text-sm shrink-0"><span class="gb">GB</span><span class="reg">AB12 CDE</span></span>
+            <div class="min-w-0 flex-1">
+              <div class="font-semibold text-ink-strong">Chase garage for damage photos</div>
+              <div class="text-xs text-ink-muted">Ford Focus · ABC Claims · <span class="font-mono">CCPY26050</span></div>
+            </div>
+            <!-- due ramp: past due -->
+            <span class="shrink-0 inline-flex items-center gap-2 rounded-pill bg-review-100 text-review-700 pl-2.5 pr-3 py-1.5 text-xs font-semibold" aria-label="Due: 3 days overdue">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 9v4l3 2M9 2h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <span class="flex gap-0.5" aria-hidden="true"><i class="w-3 h-1.5 rounded-pill bg-review-500"></i><i class="w-3 h-1.5 rounded-pill bg-review-500"></i><i class="w-3 h-1.5 rounded-pill bg-review-500"></i></span>
+              3d over
+            </span>
+          </li>
+          <!-- row 2 -->
+          <li class="flex flex-col sm:flex-row sm:items-center gap-3 rounded-md border border-border-soft px-3 py-3 hover:bg-canvas lift">
+            <span class="vrm dup text-sm shrink-0"><span class="gb">GB</span><span class="reg">KL19 XYZ</span></span>
+            <div class="min-w-0 flex-1">
+              <div class="font-semibold text-ink-strong">Resolve duplicate — no auto-merge</div>
+              <div class="text-xs text-ink-muted">VW Golf · Direct Line · <span class="font-mono">DLGP26117</span></div>
+            </div>
+            <span class="shrink-0 inline-flex items-center gap-2 rounded-pill bg-accent-tint text-accent-text pl-2.5 pr-3 py-1.5 text-xs font-semibold" aria-label="Due: today">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 9v4l3 2M9 2h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <span class="flex gap-0.5" aria-hidden="true"><i class="w-3 h-1.5 rounded-pill bg-accent"></i><i class="w-3 h-1.5 rounded-pill bg-accent"></i><i class="w-3 h-1.5 rounded-pill bg-accent/25"></i></span>
+              today
+            </span>
+          </li>
+          <!-- row 3 -->
+          <li class="flex flex-col sm:flex-row sm:items-center gap-3 rounded-md border border-border-soft px-3 py-3 hover:bg-canvas lift">
+            <span class="vrm text-sm shrink-0"><span class="gb">GB</span><span class="reg">MN21 PQR</span></span>
+            <div class="min-w-0 flex-1">
+              <div class="font-semibold text-ink-strong">Decide inspection address</div>
+              <div class="text-xs text-ink-muted">Audi A3 · Aviva · <span class="font-mono">AVVA26088</span></div>
+            </div>
+            <span class="shrink-0 inline-flex items-center gap-2 rounded-pill bg-sunken text-ink-body pl-2.5 pr-3 py-1.5 text-xs font-semibold" aria-label="Due: in 2 days">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 9v4l3 2M9 2h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <span class="flex gap-0.5" aria-hidden="true"><i class="w-3 h-1.5 rounded-pill bg-nstate-500"></i><i class="w-3 h-1.5 rounded-pill bg-nstate-500/30"></i><i class="w-3 h-1.5 rounded-pill bg-nstate-500/30"></i></span>
+              2d
+            </span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ===================== R5 · QUEUES SNAPSHOT ===================== -->
+      <section aria-labelledby="r5-h" class="lg:col-span-4 card p-5">
+        <h2 id="r5-h" class="font-display font-extrabold text-ink-strong text-lg mb-4">Queues snapshot</h2>
+        <div class="space-y-3">
+          <a href="queues.html" class="flex items-center justify-between rounded-md border border-border-soft px-4 py-3 hover:bg-canvas lift press">
+            <span class="flex items-center gap-2 text-sm font-semibold text-ink-body"><span class="text-nstate-700" aria-hidden="true">◦</span> Not ready</span>
+            <span class="flex items-center gap-2"><b class="font-display font-extrabold text-ink-strong">6</b><span class="text-ink-muted" aria-hidden="true">→</span></span>
+          </a>
+          <a href="queues.html" class="flex items-center justify-between rounded-md bg-review-100 border border-review-500/40 px-4 py-3 hover:brightness-[.99] lift press">
+            <span class="flex items-center gap-2 text-sm font-bold text-review-700"><span aria-hidden="true">▲</span> Review</span>
+            <span class="flex items-center gap-2"><b class="font-display font-extrabold text-review-700">3</b><span class="text-review-700/70" aria-hidden="true">→</span></span>
+          </a>
+          <a href="queues.html" class="flex items-center justify-between rounded-md border border-border-soft px-4 py-3 hover:bg-canvas lift press">
+            <span class="flex items-center gap-2 text-sm font-semibold text-ink-body"><span class="text-accent-text" aria-hidden="true">◆</span> Held</span>
+            <span class="flex items-center gap-2"><b class="font-display font-extrabold text-ink-strong">5</b><span class="text-ink-muted" aria-hidden="true">→</span></span>
+          </a>
+          <a href="queues.html" class="flex items-center justify-between rounded-md bg-ready-100 border border-ready-500/40 px-4 py-3 hover:brightness-[.99] lift press">
+            <span class="flex items-center gap-2 text-sm font-bold text-ready-700"><span aria-hidden="true">★</span> Ready for EVA</span>
+            <span class="flex items-center gap-2"><b class="font-display font-extrabold text-ready-700">4</b><span class="text-ready-700/70" aria-hidden="true">→</span></span>
+          </a>
+        </div>
+      </section>
+
+    </div>
+
+    <footer class="px-4 sm:px-6 lg:px-8 pb-6 text-[11px] text-ink-muted">
+      Warm Hearth — throwaway prototype · soft-approachable direction · seed data only, no live connection.
+    </footer>
+  </main>
+</div>
+
+<!-- ===================== MOBILE BOTTOM NAV ===================== -->
+<nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-surface/95 backdrop-blur border-t border-border-soft flex justify-around px-2 py-1.5" aria-label="Primary mobile">
+  <a href="index.html" aria-current="page" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-sm text-primary">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 13h7V4H4v9Zm9 7h7v-9h-7v9ZM4 20h7v-5H4v5Zm9-16v5h7V4h-7Z" fill="currentColor"/></svg>
+    <span class="text-[10px] font-semibold">Cockpit</span>
+  </a>
+  <a href="#" class="relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-sm text-ink-muted">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 7l9 6 9-6M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="text-[10px] font-semibold">Inbox</span>
+    <span class="absolute top-0.5 right-2 w-4 h-4 rounded-pill bg-sunken text-[9px] font-mono grid place-items-center text-ink-muted">8</span>
+  </a>
+  <a href="queues.html" class="relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-sm text-ink-muted">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+    <span class="text-[10px] font-semibold">Queues</span>
+    <span class="absolute top-0.5 right-1.5 w-4 h-4 rounded-pill bg-review-500 text-white text-[9px] font-mono grid place-items-center">3</span>
+  </a>
+  <a href="case-detail.html" class="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-sm text-ink-muted">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M13 3v6h6" stroke="currentColor" stroke-width="1.7"/></svg>
+    <span class="text-[10px] font-semibold">Cases</span>
+  </a>
+</nav>
+
+<style>
+.seg-chip{ background:#FFFDFB; border-color:#E7DED2; color:#6B6154; transition:all .2s ease-out; }
+.seg-chip:hover{ border-color:#D8CCBC; }
+.seg-chip.is-on{ background:#DCEDE8; border-color:#1B7163; color:#145A4E; }
+</style>
+<script>
+// R1 triage segment filter (single-select chips)
+(function(){
+  const chips = document.querySelectorAll('.seg-chip');
+  const rows  = document.querySelectorAll('.triage-row');
+  chips.forEach(c => c.addEventListener('click', () => {
+    chips.forEach(x => x.classList.remove('is-on'));
+    c.classList.add('is-on');
+    const seg = c.dataset.seg;
+    rows.forEach(r => r.style.display = (seg === 'all' || r.dataset.seg === seg) ? '' : 'none');
+  }));
+})();
+</script>
+</body>
+</html>

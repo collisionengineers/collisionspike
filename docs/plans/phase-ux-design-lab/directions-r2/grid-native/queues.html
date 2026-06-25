@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CELLWORK · Queues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+ --canvas:#F5F6F8;--surface:#FFFFFF;--stripe:#FAFBFC;--row-hover:#F0F3F9;--row-sel:#EEEDFD;
+ --cell-line:#E7E9EE;--border:#DCDFE6;--border-strong:#C2C7D2;
+ --ink900:#1C2230;--ink700:#3E4656;--ink500:#6B7383;--ink400:#9AA1B0;
+ --acc:#5043E6;--acc700:#3F33C4;--acc050:#EEEDFD;--ring:#8C84F2;
+ --blk-bg:#FCE4E6;--blk-fg:#B01A33;--held-bg:#FAF0CE;--held-fg:#7A5A0A;
+ --rdy-bg:#DDF3E4;--rdy-fg:#14794A;--act-bg:#EEEDFD;--act-fg:#3F33C4;--neu-bg:#EBECEF;--neu-fg:#4A4F5A;
+ --vrm:#FFD400;
+ --sh1:0 1px 2px rgba(28,34,48,.06);--sh2:0 4px 12px rgba(28,34,48,.10);--sh3:0 16px 40px rgba(28,34,48,.18);
+ --r-panel:8px;--rail:248px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--canvas);color:var(--ink900);font-family:"Hanken Grotesk",system-ui,sans-serif;font-size:13px;-webkit-font-smoothing:antialiased}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-feature-settings:"tnum" 1,"zero" 1}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:2px}
+
+.app{display:grid;grid-template-columns:var(--rail) 1fr;min-height:100vh}
+
+/* rail (shared) */
+.rail{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);font-family:"Bricolage Grotesque";font-weight:700;letter-spacing:.02em}
+.brand .mk{width:22px;height:22px;border-radius:5px;background:linear-gradient(135deg,var(--acc),var(--acc700));display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+.rail nav{padding:8px 8px 16px;flex:1}
+.rsec{font:600 10px/1 "Hanken Grotesk";text-transform:uppercase;letter-spacing:.09em;color:var(--ink400);padding:14px 8px 6px}
+.rsec.admin{margin-top:6px;border-top:1px dashed var(--border);padding-top:14px;color:#9A5212}
+.ritem{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;color:var(--ink700);font-weight:500;position:relative}
+.ritem:hover{background:var(--row-hover)}
+.ritem .ic{width:16px;text-align:center;color:var(--ink400);font-size:12px}
+.ritem.tbl{font-weight:600;color:var(--ink900)}
+.ritem.active{background:var(--acc050);color:var(--acc700)}
+.ritem.active::before{content:"";position:absolute;left:-8px;top:4px;bottom:4px;width:3px;border-radius:2px;background:var(--acc)}
+.ritem.dim{color:var(--ink400)}
+.rcount{margin-left:auto;font-family:"JetBrains Mono";font-size:11px;color:var(--ink500);background:var(--neu-bg);padding:1px 6px;border-radius:10px}
+.rcount.blk{background:var(--blk-bg);color:var(--blk-fg)}.rcount.held{background:var(--held-bg);color:var(--held-fg)}.rcount.rdy{background:var(--rdy-bg);color:var(--rdy-fg)}
+.rsub{padding-left:14px;border-left:1px solid var(--cell-line);margin:2px 0 6px 14px}
+.rsub .ritem{font-size:12.5px;padding:5px 8px}
+.rkbd{border-top:1px solid var(--border);padding:10px 14px;display:flex;gap:6px;flex-wrap:wrap}
+.kbd{font-family:"JetBrains Mono";font-size:10px;color:var(--ink500);background:var(--canvas);border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:1px 5px}
+
+/* main */
+.main{display:flex;flex-direction:column;min-width:0}
+.hdr{height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 18px;position:sticky;top:0;z-index:20}
+.hdr h1{font-family:"Bricolage Grotesque";font-weight:700;font-size:19px;margin:0}
+.search{margin-left:8px;flex:1;max-width:460px;display:flex;align-items:center;gap:8px;background:var(--canvas);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--ink500)}
+.search input{border:0;background:transparent;outline:none;flex:1;font-family:"Hanken Grotesk";font-size:13px;color:var(--ink900)}
+.search .sk{margin-left:auto;font-family:"JetBrains Mono";font-size:11px;color:var(--ink400)}
+.updated{margin-left:auto;font-family:"JetBrains Mono";font-size:12px;color:var(--ink500);display:flex;align-items:center;gap:8px;white-space:nowrap}
+.refresh{border:1px solid var(--border);background:#fff;border-radius:6px;width:28px;height:28px;color:var(--ink700)}.refresh:hover{background:var(--row-hover)}
+
+/* view tabs */
+.vtabs{display:flex;align-items:stretch;gap:0;background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;overflow:auto}
+.vtab{display:inline-flex;align-items:center;gap:8px;padding:11px 14px;font-weight:600;color:var(--ink500);border-bottom:2px solid transparent;white-space:nowrap}
+.vtab .c{font-family:"JetBrains Mono";font-size:11px;padding:1px 6px;border-radius:10px;background:var(--neu-bg);color:var(--neu-fg)}
+.vtab.review .c{background:var(--blk-bg);color:var(--blk-fg)}
+.vtab.held .c{background:var(--held-bg);color:var(--held-fg)}
+.vtab.ready .c{background:var(--rdy-bg);color:var(--rdy-fg)}
+.vtab:hover{color:var(--ink900)}
+.vtab.on{color:var(--ink900);border-bottom-color:var(--acc)}
+.vtab .star{color:#C9962B}
+
+/* view bar */
+.vbar{display:flex;align-items:center;gap:6px;background:var(--surface);border-bottom:1px solid var(--border);padding:8px 14px;flex-wrap:wrap}
+.vb-btn{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12.5px;color:var(--ink700);border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 8px}
+.vb-btn:hover{background:var(--row-hover)}
+.vb-btn.on{background:var(--acc050);color:var(--acc700)}
+.vb-sep{width:1px;height:18px;background:var(--border);margin:0 4px}
+.vb-search{display:flex;align-items:center;gap:6px;background:var(--canvas);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--ink500)}
+.vb-search input{border:0;background:transparent;outline:none;font-family:"Hanken Grotesk";font-size:12.5px;width:130px;color:var(--ink900)}
+.nofm{margin-left:auto;font-family:"JetBrains Mono";font-size:12px;color:var(--ink500);white-space:nowrap}
+.nofm b{color:var(--ink900)}
+.vb-new{font-weight:700;font-size:12.5px;color:#fff;background:var(--acc);border:0;border-radius:6px;padding:6px 12px}
+.vb-new:hover{background:var(--acc700)}
+
+/* facet chips */
+.facets{display:flex;align-items:center;gap:8px;background:var(--surface);border-bottom:1px solid var(--border);padding:8px 14px;flex-wrap:wrap}
+.facets .lbl{font:600 10px/1 "Hanken Grotesk";text-transform:uppercase;letter-spacing:.06em;color:var(--ink400)}
+.facet{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid var(--border);background:#fff;color:var(--ink700)}
+.facet .ct{font-family:"JetBrains Mono";font-size:10px;color:var(--ink500)}
+.facet:hover{border-color:var(--border-strong)}
+.facet.on{background:var(--blk-bg);border-color:transparent;color:var(--blk-fg)}
+.facet.on .ct{color:var(--blk-fg)}
+.facet .box{width:12px;height:12px;border:1.5px solid var(--ink400);border-radius:3px;display:inline-block}
+.facet.on .box{background:var(--blk-fg);border-color:var(--blk-fg);position:relative}
+.facet.on .box::after{content:"✓";color:#fff;font-size:9px;position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.fhint{font-size:11px;color:var(--ink400);margin-left:auto}
+
+/* ===== the grid ===== */
+.grid-wrap{flex:1;overflow:auto;background:var(--surface);position:relative}
+table.dg{border-collapse:separate;border-spacing:0;width:100%;font-size:13px;min-width:920px}
+.dg thead th{position:sticky;top:0;z-index:5;background:#fff;font:600 11px/1 "Hanken Grotesk";text-transform:uppercase;letter-spacing:.04em;color:var(--ink500);padding:9px 10px;text-align:left;border-bottom:1px solid var(--border);border-right:1px solid var(--cell-line);white-space:nowrap}
+.dg td{padding:7px 10px;border-bottom:1px solid var(--cell-line);border-right:1px solid var(--cell-line);color:var(--ink700);vertical-align:middle;background:#fff;height:40px}
+.dg tbody tr:nth-child(even) td{background:var(--stripe)}
+.dg tbody tr:hover td{background:var(--row-hover)}
+.dg tbody tr.sel td{background:var(--row-sel)}
+.dg td.num,.dg th.num{text-align:right}
+/* frozen */
+.fz{position:sticky;z-index:4}
+.dg thead th.fz{z-index:6}
+.col-chk{left:0;width:38px;text-align:center;padding-left:0;padding-right:0}
+.col-exp{left:38px;width:34px;text-align:center;padding-left:0;padding-right:0}
+.col-vrm{left:72px;width:128px}
+.col-po{left:200px;width:120px;box-shadow:6px 0 8px -6px rgba(28,34,48,.16)}
+.dg thead th.fz{background:#fff}
+.dg tbody tr td.fz{background:#fff}
+.dg tbody tr:nth-child(even) td.fz{background:var(--stripe)}
+.dg tbody tr:hover td.fz{background:var(--row-hover)}
+.dg tbody tr.sel td.fz{background:var(--row-sel)}
+.dg input[type=checkbox]{width:15px;height:15px;accent-color:var(--acc);cursor:pointer}
+.exp{color:var(--ink400);font-size:14px}
+.exp:hover{color:var(--acc700)}
+.po{font-family:"JetBrains Mono";font-size:12px;color:var(--ink700);font-weight:500}
+
+/* outstanding verb cell */
+.outv{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--ink900)}
+.outv .flag{color:#B01A33;font-size:11px}
+.outv .more{font-family:"JetBrains Mono";font-size:10px;color:var(--ink500);background:var(--neu-bg);border-radius:8px;padding:0 5px}
+
+/* chips */
+.chip{display:inline-flex;align-items:center;gap:4px;font-weight:600;font-size:12px;line-height:1.4;padding:2px 8px;border-radius:5px;white-space:nowrap}
+.h-grey{background:#EBECEF;color:#4A4F5A}.h-red{background:#FCE4E6;color:#B01A33}.h-orange{background:#FBE7D6;color:#9A5212}
+.h-amber{background:#FAF0CE;color:#7A5A0A}.h-green{background:#DDF3E4;color:#14794A}.h-teal{background:#D5F0EE;color:#0C6F6A}
+.h-blue{background:#DEEBFB;color:#1D5BB8}.h-indigo{background:#E6E4FC;color:#3F33C4}.h-purple{background:#F0E5FB;color:#7A36B0}.h-pink{background:#FBE3F1;color:#A52270}
+.glyph{font-size:10px}
+.prov-key{font-family:"JetBrains Mono";font-size:9px;color:var(--ink400);margin-left:6px;letter-spacing:.02em}
+
+/* vrm */
+.vrm{display:inline-flex;align-items:stretch;font-family:"JetBrains Mono";font-weight:700;border:1px solid #C9A400;border-radius:3px;overflow:hidden;line-height:1;font-size:12px}
+.vrm .gb{background:#0b3aa8;color:#FFD400;font-size:7px;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 3px;line-height:1.1}
+.vrm .num{background:var(--vrm);color:#1C2230;padding:4px 6px;letter-spacing:.07em}
+
+/* due-scale cell */
+.due{display:inline-flex;align-items:center;gap:7px;font-family:"JetBrains Mono";font-size:12px;font-weight:500;padding-left:6px;position:relative}
+.due::before{content:"";position:absolute;left:-10px;top:-7px;bottom:-7px;width:3px}
+.due.past{color:#B01A33}.due.past::before{background:#D43B53}
+.due.duen{color:#9A5212}.due.duen::before{background:#E07A2E}
+.due.soon{color:#7A5A0A}.due.soon::before{background:#D9A013}
+.due.fresh{color:#14794A}.due.fresh::before{background:#2FA968}
+
+/* summary bar */
+.summary{display:flex;align-items:center;gap:18px;background:var(--surface);border-top:1px solid var(--border);padding:9px 16px;font-family:"JetBrains Mono";font-size:12px;color:var(--ink500);position:sticky;bottom:0;z-index:8}
+.summary b{color:var(--ink900)}
+.summary .seg{display:flex;align-items:center;gap:7px}
+
+/* BULK ACTION BAR */
+.bulk{position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);opacity:0;pointer-events:none;display:flex;align-items:center;gap:4px;background:#23283A;color:#fff;border-radius:11px;box-shadow:var(--sh2);padding:8px 10px;z-index:60;transition:transform .16s ease-out,opacity .16s ease-out}
+.bulk.up{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.bulk .cnt{font-family:"JetBrains Mono";font-weight:700;background:var(--acc);padding:5px 10px;border-radius:7px;margin-right:6px}
+.bulk button{background:transparent;border:0;color:#E7E9EE;font-weight:600;font-size:12.5px;padding:6px 10px;border-radius:7px}
+.bulk button:hover{background:rgba(255,255,255,.12);color:#fff}
+.bulk .div{width:1px;height:18px;background:rgba(255,255,255,.18)}
+.bulk button.clear{color:#AEB4C6}
+
+.botnav{display:none}
+
+@media(max-width:1180px){
+  :root{--rail:64px}
+  .brand span.txt{display:none}
+  .ritem .lbl{display:none}.rcount{display:none}
+  .rsec{text-align:center;font-size:8px;padding:10px 0 4px}
+  .rsub{margin-left:6px;padding-left:6px}.ritem{justify-content:center}.rkbd{display:none}
+  .ritem.active::before{left:-4px}
+}
+@media(max-width:760px){
+  .app{grid-template-columns:1fr}
+  .rail{display:none}
+  .botnav{display:flex;position:fixed;bottom:0;left:0;right:0;height:58px;background:var(--surface);border-top:1px solid var(--border);z-index:40;box-shadow:var(--sh2)}
+  .botnav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink500);font-size:10px;font-weight:600}
+  .botnav a.active{color:var(--acc700)}.botnav .bi{font-size:17px}
+  .hdr h1{font-size:16px}.search{display:none}
+  .vb-btn .lbl{display:none}
+  .grid-wrap{padding-bottom:60px}
+  .col-vrm{position:static}.col-po{position:static;box-shadow:none}.col-exp{position:static}
+  table.dg{min-width:760px}
+  .bulk{bottom:70px;flex-wrap:wrap;justify-content:center;max-width:94vw}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- RAIL -->
+  <aside class="rail">
+    <div class="brand"><span class="mk">◧</span><span class="txt">CE · INTAKE</span></div>
+    <nav>
+      <div class="rsec">Workspace</div>
+      <a class="ritem" href="index.html"><span class="ic">▦</span><span class="lbl">Cockpit</span></a>
+      <div class="rsec">Tables</div>
+      <a class="ritem tbl active" href="queues.html"><span class="ic">▾</span><span class="lbl">Cases</span><span class="rcount">39</span></a>
+      <div class="rsub">
+        <a class="ritem" href="#" data-view="notready"><span class="lbl">Not ready</span><span class="rcount">12</span></a>
+        <a class="ritem active" href="#" data-view="review"><span class="lbl">Review</span><span class="rcount blk">8</span></a>
+        <a class="ritem" href="#" data-view="held"><span class="lbl">Held</span><span class="rcount held">14</span></a>
+        <a class="ritem" href="#" data-view="ready"><span class="lbl">Ready for EVA</span><span class="rcount rdy">5</span></a>
+      </div>
+      <a class="ritem tbl" href="index.html"><span class="ic">▸</span><span class="lbl">Inbox</span><span class="rcount">47</span></a>
+      <a class="ritem tbl" href="#"><span class="ic">▸</span><span class="lbl">Providers / Corpus</span></a>
+      <a class="ritem tbl" href="#"><span class="ic">▸</span><span class="lbl">Audit</span></a>
+      <div class="rsec admin">Admin</div>
+      <a class="ritem" href="#"><span class="ic">◇</span><span class="lbl">Corpus</span></a>
+      <a class="ritem" href="#"><span class="ic">◇</span><span class="lbl">Improvement</span></a>
+      <a class="ritem" href="#"><span class="ic">◇</span><span class="lbl">Settings</span></a>
+      <a class="ritem dim" href="#" aria-disabled="true"><span class="ic">◷</span><span class="lbl">Engineer · reserved</span></a>
+    </nav>
+    <div class="rkbd"><span class="kbd">/</span><span class="kbd">↑↓</span><span class="kbd">Space</span><span class="kbd">E</span><span class="kbd">[ ]</span></div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="hdr">
+      <h1>Queues</h1>
+      <label class="search"><span>⌕</span><input placeholder="VRM · Case/PO · claimant · model" aria-label="Search"><span class="sk">/</span></label>
+      <div class="updated"><span>Updated 14:07</span><button class="refresh" title="Refresh">↻</button></div>
+    </header>
+
+    <!-- view tabs (saved views = queues) -->
+    <div class="vtabs" id="vtabs">
+      <a class="vtab" data-view="notready"><span>Not ready</span><span class="c">12</span></a>
+      <a class="vtab review on" data-view="review"><span>Review</span><span class="c">8</span></a>
+      <a class="vtab held" data-view="held"><span>Held</span><span class="c">14</span></a>
+      <a class="vtab ready" data-view="ready"><span class="star">★</span><span>Ready for EVA</span><span class="c">5</span></a>
+    </div>
+
+    <!-- view bar -->
+    <div class="vbar">
+      <button class="vb-btn on">▦ Grid</button>
+      <button class="vb-btn">▥ Kanban</button>
+      <button class="vb-btn">▦ Calendar</button>
+      <span class="vb-sep"></span>
+      <span class="vb-search"><span>⌕</span><input placeholder="Filter this view"></span>
+      <button class="vb-btn">⛃ <span class="lbl">Filter</span></button>
+      <button class="vb-btn">⊞ <span class="lbl">Group</span></button>
+      <button class="vb-btn">↕ <span class="lbl">Sort</span></button>
+      <button class="vb-btn">⇕ <span class="lbl">Row height</span></button>
+      <button class="vb-btn">◫ <span class="lbl">Hide fields</span></button>
+      <span class="nofm">Showing <b id="nshow">8</b> of <b>8</b></span>
+      <button class="vb-new">+ New</button>
+    </div>
+
+    <!-- review facet chips -->
+    <div class="facets" id="facets">
+      <span class="lbl">Review reason</span>
+      <button class="facet on" data-reason="missimg"><span class="box"></span>Missing images <span class="ct">3</span></button>
+      <button class="facet on" data-reason="missinstr"><span class="box"></span>Missing instr <span class="ct">1</span></button>
+      <button class="facet on" data-reason="dup"><span class="box"></span>Duplicate <span class="ct">2</span></button>
+      <button class="facet on" data-reason="conflict"><span class="box"></span>Conflict <span class="ct">1</span></button>
+      <button class="facet on" data-reason="vat"><span class="box"></span>Required field <span class="ct">1</span></button>
+      <span class="fhint">facets set each row's verb →</span>
+    </div>
+
+    <!-- the grid -->
+    <div class="grid-wrap">
+      <table class="dg">
+        <thead>
+          <tr>
+            <th class="fz col-chk"><input type="checkbox" id="selall" aria-label="Select all"></th>
+            <th class="fz col-exp"></th>
+            <th class="fz col-vrm">VRM</th>
+            <th class="fz col-po">Case / PO</th>
+            <th>Provider</th>
+            <th>Status</th>
+            <th>Outstanding</th>
+            <th>Channel</th>
+            <th class="num">Age / Due</th>
+            <th>Claimant</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr data-reason="dup">
+            <td class="fz col-chk"><input type="checkbox" class="rsel"></td>
+            <td class="fz col-exp"><a class="exp" href="case-detail.html" title="Expand record">⤢</a></td>
+            <td class="fz col-vrm"><a href="case-detail.html"><span class="vrm"><span class="gb">GB</span><span class="num">AB12 CDE</span></span></a></td>
+            <td class="fz col-po"><a class="po" href="case-detail.html">CCPY26050</a></td>
+            <td><span class="chip h-teal">ACME</span><span class="prov-key">CCPY</span></td>
+            <td><span class="chip h-red"><span class="glyph">◆</span>Needs review</span></td>
+            <td><span class="outv"><span class="flag">⚑</span>Resolve duplicate <span class="more">+1</span></span></td>
+            <td><span class="chip h-blue">✉ Email</span></td>
+            <td class="num"><span class="due past">2d 04h</span></td>
+            <td>J. Okafor</td>
+          </tr>
+          <tr data-reason="conflict">
+            <td class="fz col-chk"><input type="checkbox" class="rsel"></td>
+            <td class="fz col-exp"><a class="exp" href="case-detail.html">⤢</a></td>
+            <td class="fz col-vrm"><a href="case-detail.html"><span class="vrm"><span class="gb">GB</span><span class="num">LV71 KMX</span></span></a></td>
+            <td class="fz col-po"><a class="po" href="case-detail.html">HALX26112</a></td>
+            <td><span class="chip h-purple">HALCYON</span><span class="prov-key">HALX</span></td>
+            <td><span class="chip h-red"><span class="glyph">▲</span>Conflict</span></td>
+            <td><span class="outv"><span class="flag">⚑</span>Verify registration</span></td>
+            <td><span class="chip h-green">✆ Phone</span></td>
+            <td class="num"><span class="due duen">18h</span></td>
+            <td>R. Mensah</td>
+          </tr>
+          <tr data-reason="missimg">
+            <td class="fz col-chk"><input type="checkbox" class="rsel"></td>
+            <td class="fz col-exp"><a class="exp" href="case-detail.html">⤢</a></td>
+            <td class="fz col-vrm"><a href="case-detail.html"><span class="vrm"><span class="gb">GB</span><span class="num">GK19 ZRT</span></span></a></td>
+            <td class="fz col-po"><a class="po" href="case-detail.html">CCPY26048</a></td>
+            <td><span class="chip h-teal">ACME</span><span class="prov-key">CCPY</span></td>
+            <td><span class="chip h-red"><span class="glyph">◆</span>Needs review</span></td>
+            <td><span class="outv"><span class="flag">⚑</span>Add 6 photos <span class="more">+2</span></span></td>
+            <td><span class="chip h-blue">✉ Email</span></td>
+            <td class="num"><span class="due soon">06h</span></td>
+            <td>D. Whitlock</td>
+          </tr>
+          <tr data-reason="missimg">
+            <td class="fz col-chk"><input type="checkbox" class="rsel"></td>
+            <td class="fz col-exp"><a class="exp" href="case-detail.html">⤢</a></td>
+            <td class="fz col-vrm"><a href="case-detail.html"><span class="vrm"><span class="gb">GB</span><span class="num">RA70 OON</span></span></a></td>
+            <td class="fz col-po"><a class="po" href="case-detail.html">CCPY26044</a></td>
+            <td><span class="chip h-amber">BRIDGE</span><span class="prov-key">BRDG</span></td>
+            <td><span class="chip h-red"><span class="glyph">◆</span>Missing image</span></td>
+            <td><span class="outv"><span class="flag">⚑</span>Chase garage</span></td>
+            <td><span class="chip h-green">✆ Phone</span></td>
+            <td class="num"><span class="due soon">04h</span></td>
+            <td>S. Ahmed</td>
+          </tr>
+          <tr data-reason="vat">
+            <td class="fz col-chk"><input type="checkbox" class="rsel"></td>
+            <td class="fz col-exp"><a class="exp" href="case-detail.html">⤢</a></td>
+            <td class="fz col-vrm"><a href="case-detail.html"><span class="vrm"><span class="gb">GB</span><span class="num">YD68 PLF</span></span></a></td>
+            <td class="fz col-po"><a class="po" href="case-detail.html">CCPY26041</a></td>
+            <td><span class="chip h-teal">ACME</span><span class="prov-key">CCPY</span></td>
+            <td><span class="chip h-red"><span class="glyph">◆</span>Needs review</span></td>
+            <td><span class="outv"><span class="flag">⚑</span>Add VAT status</span></td>
+            <td><span class="chip h-blue">✉ Email</span></td>
+            <td class="num"><span class="due fresh">02h</span></td>
+            <td>P. Novak</td>
+          </tr>
+          <tr data-reason="dup">
+            <td class="fz col-chk"><input type="checkbox" class="rsel"></td>
+            <td class="fz col-exp"><a class="exp" href="case-detail.html">⤢</a></td>
+            <td class="fz col-vrm"><a href="case-detail.html"><span class="vrm"><span class="gb">GB</span><span class="num">MK20 VHB</span></span></a></td>
+            <td class="fz col-po"><a class="po" href="case-detail.html">VECT26077</a></td>
+            <td><span class="chip h-orange">VECTRA</span><span class="prov-key">VECT</span></td>
+            <td><span class="chip h-red"><span class="glyph">◆</span>Duplicate risk</span></td>
+            <td><span class="outv"><span class="flag">⚑</span>Resolve duplicate</span></td>
+            <td><span class="chip h-blue">✉ Email</span></td>
+            <td class="num"><span class="due fresh">01h</span></td>
+            <td>L. Bianchi</td>
+          </tr>
+          <tr data-reason="missinstr">
+            <td class="fz col-chk"><input type="checkbox" class="rsel"></td>
+            <td class="fz col-exp"><a class="exp" href="case-detail.html">⤢</a></td>
+            <td class="fz col-vrm"><a href="case-detail.html"><span class="vrm"><span class="gb">GB</span><span class="num">SF67 TYU</span></span></a></td>
+            <td class="fz col-po"><a class="po" href="case-detail.html">HALX26108</a></td>
+            <td><span class="chip h-purple">HALCYON</span><span class="prov-key">HALX</span></td>
+            <td><span class="chip h-red"><span class="glyph">◆</span>Missing instr.</span></td>
+            <td><span class="outv"><span class="flag">⚑</span>Request instruction</span></td>
+            <td><span class="chip h-pink">⌨ WhatsApp</span></td>
+            <td class="num"><span class="due fresh">48m</span></td>
+            <td>T. Adeyemi</td>
+          </tr>
+          <tr data-reason="conflict">
+            <td class="fz col-chk"><input type="checkbox" class="rsel"></td>
+            <td class="fz col-exp"><a class="exp" href="case-detail.html">⤢</a></td>
+            <td class="fz col-vrm"><a href="case-detail.html"><span class="vrm"><span class="gb">GB</span><span class="num">WX18 GHJ</span></span></a></td>
+            <td class="fz col-po"><a class="po" href="case-detail.html">CCPY26039</a></td>
+            <td><span class="chip h-teal">ACME</span><span class="prov-key">CCPY</span></td>
+            <td><span class="chip h-red"><span class="glyph">▲</span>Conflict</span></td>
+            <td><span class="outv"><span class="flag">⚑</span>Reconcile mileage</span></td>
+            <td><span class="chip h-blue">✉ Email</span></td>
+            <td class="num"><span class="due fresh">22m</span></td>
+            <td>G. Fischer</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- summary bar -->
+    <div class="summary">
+      <span class="seg"><b id="sumshow">8</b> of <b>8</b> rows</span>
+      <span class="seg">·</span>
+      <span class="seg">0% ready</span>
+      <span class="seg">·</span>
+      <span class="seg">oldest due <b style="color:#B01A33">2d 04h</b></span>
+      <span class="seg" style="margin-left:auto"><span id="selcount">0</span> selected</span>
+    </div>
+  </div>
+</div>
+
+<!-- BULK ACTION BAR -->
+<div class="bulk" id="bulk" role="toolbar" aria-label="Bulk actions">
+  <span class="cnt"><span id="bulkn">0</span> selected</span>
+  <button>⏸ Hold</button>
+  <button>▶ Release</button>
+  <button>✉ Draft chaser</button>
+  <button>⇄ Change status</button>
+  <button>⬇ Export JSON</button>
+  <span class="div"></span>
+  <button class="clear" id="bulkclear">Clear</button>
+</div>
+
+<nav class="botnav">
+  <a href="index.html"><span class="bi">▦</span>Cockpit</a>
+  <a href="index.html"><span class="bi">✉</span>Inbox</a>
+  <a class="active" href="queues.html"><span class="bi">▤</span>Queues</a>
+  <a href="case-detail.html"><span class="bi">▢</span>Case</a>
+  <a href="#"><span class="bi">⋯</span>More</a>
+</nav>
+
+<script>
+var rows=document.getElementById('rows');
+var bulk=document.getElementById('bulk');
+function refreshSel(){
+  var checks=[].slice.call(document.querySelectorAll('.rsel'));
+  var on=checks.filter(function(c){return c.checked;});
+  on.forEach(function(c){c.closest('tr').classList.add('sel');});
+  checks.filter(function(c){return !c.checked;}).forEach(function(c){c.closest('tr').classList.remove('sel');});
+  var n=on.length;
+  document.getElementById('bulkn').textContent=n;
+  document.getElementById('selcount').textContent=n;
+  if(n>0) bulk.classList.add('up'); else bulk.classList.remove('up');
+}
+rows.addEventListener('change',function(e){ if(e.target.classList.contains('rsel')) refreshSel(); });
+document.getElementById('selall').addEventListener('change',function(e){
+  document.querySelectorAll('.rsel').forEach(function(c){
+    if(c.closest('tr').style.display!=='none') c.checked=e.target.checked;
+  });
+  refreshSel();
+});
+document.getElementById('bulkclear').addEventListener('click',function(){
+  document.querySelectorAll('.rsel').forEach(function(c){c.checked=false;});
+  document.getElementById('selall').checked=false;
+  refreshSel();
+});
+
+// facet chips filter rows + update n-of-m
+var facets=document.getElementById('facets');
+function applyFacets(){
+  var active=[].slice.call(document.querySelectorAll('.facet.on')).map(function(f){return f.dataset.reason;});
+  var shown=0;
+  [].slice.call(rows.children).forEach(function(tr){
+    var ok=active.indexOf(tr.dataset.reason)>=0;
+    tr.style.display=ok?'':'none';
+    if(ok) shown++;
+  });
+  document.getElementById('nshow').textContent=shown;
+  document.getElementById('sumshow').textContent=shown;
+}
+facets.addEventListener('click',function(e){
+  var f=e.target.closest('.facet'); if(!f) return;
+  f.classList.toggle('on'); applyFacets();
+});
+
+// view tabs swap (visual only — demo)
+document.getElementById('vtabs').addEventListener('click',function(e){
+  var t=e.target.closest('.vtab'); if(!t) return;
+  document.querySelectorAll('.vtab').forEach(function(x){x.classList.remove('on');});
+  t.classList.add('on');
+  // facets only meaningful on Review
+  document.getElementById('facets').style.display = t.dataset.view==='review' ? '' : 'none';
+});
+
+// row keyboard nav: Space toggles select on focused row's checkbox
+document.addEventListener('keydown',function(e){
+  if(e.key==='/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();document.querySelector('.search input').focus();}
+});
+</script>
+</body>
+</html>
