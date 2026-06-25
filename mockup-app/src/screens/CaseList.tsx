@@ -35,7 +35,7 @@ import {
   Mail,
   MessageCircle,
 } from 'lucide-react';
-import { SectionHeading, StatusBadge, statusLabel, VrmPlate, ErrorState, DataGridSkeleton } from '../components';
+import { SectionHeading, StatusBadge, statusLabel, VrmPlate, EmptyState, ErrorState, DataGridSkeleton } from '../components';
 import {
   QUEUES,
   REASON_LABELS,
@@ -162,16 +162,6 @@ const useStyles = makeStyles({
   dueSoonText: { color: '#8a5a00', fontWeight: tokens.fontWeightSemibold },
 
   dup: { display: 'inline-flex', color: tokens.colorStatusDangerForeground1, flexShrink: 0 },
-
-  empty: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: tokens.spacingVerticalS,
-    padding: `${tokens.spacingVerticalXXXL} ${tokens.spacingHorizontalL}`,
-    color: tokens.colorNeutralForeground3,
-    textAlign: 'center',
-  },
 });
 
 /* Status words come from StatusBadge.statusLabel() — the single source of
@@ -638,23 +628,23 @@ export function CaseList() {
           title="Couldn’t load this queue"
         />
       ) : filtered.length === 0 ? (
-        <div className={styles.empty}>
-          {queueCases.length === 0 ? (
-            <>
-              <CheckCircle2 size={32} strokeWidth={1.5} aria-hidden />
-              <Text>No cases in “{queue?.label ?? activeName}” right now.</Text>
-              <Caption1>{EMPTY_HINT[activeName]}</Caption1>
-            </>
-          ) : (
-            <>
-              <Inbox size={32} strokeWidth={1.5} aria-hidden />
-              <Text>No cases match the current filters.</Text>
-              {filtersActive && (
-                <Caption1>Clear the reason chip, search box or dropdowns to widen the results.</Caption1>
-              )}
-            </>
-          )}
-        </div>
+        queueCases.length === 0 ? (
+          <EmptyState
+            icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden />}
+            title={`No cases in “${queue?.label ?? activeName}” right now.`}
+            hint={EMPTY_HINT[activeName]}
+          />
+        ) : (
+          <EmptyState
+            icon={<Inbox size={32} strokeWidth={1.5} aria-hidden />}
+            title="No cases match the current filters."
+            hint={
+              filtersActive
+                ? 'Clear the reason chip, search box or dropdowns to widen the results.'
+                : undefined
+            }
+          />
+        )
       ) : (
         <div className={styles.grid}>
           <DataGrid

@@ -107,8 +107,8 @@ channel, no Event Grid subscription, no inbound flow). What is already there:
 - **`cr1bd_chaser`** — `cr1bd_chaserchannel` (email `100000000` | whatsapp `100000001`),
   `cr1bd_chaserstatus` (drafted `100000000` | sent `100000001` | responded | overdue),
   `cr1bd_targetname`, `cr1bd_targettype`.
-- **`cr1bd_auditevent`** — `cr1bd_action` choice; current max value `chaser_sent = 100000019`
-  (next free additive value = **`100000020`**).
+- **`cr1bd_auditevent`** — `cr1bd_action` choice; current max value `case_disposed = 100000026`
+  (next free additive value = **`100000027`**).
 
 **Flows (`flows/definitions/`):**
 - `chaser-draft.definition.json` — writes a **drafted** Chaser (`cr1bd_channel: 100000001`,
@@ -192,7 +192,7 @@ provider / Case / PO:
   `cr1bd_filebytes`), `cr1bd_sha256` for content dedup, `cr1bd_sourcelabel = "WhatsApp <group/contact>"`,
   `cr1bd_contenttype` from mimeType. ([download media][acs-downloadmedia])
 - **Audit trail.** Every ingest writes a `cr1bd_auditevent` with a new additive action
-  **`whatsapp_message_ingested`** (value `100000020`, next free after `chaser_sent = 100000019`). The
+  **`whatsapp_message_ingested`** (value `100000027`, next free after `case_disposed = 100000026`). The
   conversation/thread row + `fromBSUID` mapping give the audit chain WhatsApp otherwise lacks (no email
   envelope to archive).
 - **Reflection / person exclusion (domain rule).** Any photo showing a person's reflection is unusable
@@ -280,8 +280,8 @@ captured live — §0.1). This is the ADR-0007 path, made concrete:
     mapping that survives username changes; **and/or** a lightweight **`cr1bd_whatsappthread`**
     (Conversation) table keyed on `cr1bd_bsuid` + window for accretion;
   - add `cr1bd_bsuid` to inbound provenance on `cr1bd_case` / `cr1bd_evidence` as needed;
-  - add the **`whatsapp_message_ingested`** AuditEvent action value **`100000020`** (next free after
-    `chaser_sent = 100000019`);
+  - add the **`whatsapp_message_ingested`** AuditEvent action value **`100000027`** (next free after
+    `case_disposed = 100000026`);
   - bytes stay **off-row** (`cr1bd_evidence` storagepath / filebytes). Confirm the existing 37-char
     over-length-principal-code and choice-extension ALM rules. ([field types][pp-fieldtypes])
 - [ ] **🔒 (operator) — W2 ACTIVATION.** Bind connection references; **configure BOTH Event Grid

@@ -24,8 +24,8 @@ A **Verification** section at the end gives exact commands and live checks. **Un
 
 ### C1. Hardcoded Azure Function key committed in source (and in a doc, and baked into the bundle)
 - **Where:**
-  - `mockup-app/src/data/parser-config.ts:35` — `functionKey: 'A31IJ9kySfjhR-9bizHWvjWoXk7uDvEuLfDcd1gkJnWxAzFuzYZHaA=='`
-  - `docs/activation/email-intake-activation.md` — same literal (confirmed by repo-wide grep: the key appears in exactly these two files).
+  - `mockup-app/src/data/parser-config.ts:35` — `functionKey: 'A31IJ9kySfjhR-…AzFuzYZHaA=='` (literal truncated here; the now-deleted file once held it in full).
+  - `docs/activation/email-intake-activation.md` — once held the same literal; **scrubbed 2026-06-24** to `<set at activation>` (the doc-scrub leaves it in git history → the only true fix is **rotation**, gated.md S1).
   - Transitively baked into `mockup-app/dist/assets/index-*.js` on every `vite build` (dist is gitignored, but every deployed/shared build embeds it client-side).
 - **Issue:** A FUNCTION-level key for `cespike-parser-dev-x7xt3d5ovhi7y` is a **bearer credential**. Anyone with the static site bundle (or repo read access) can call `POST /api/parse` directly. The in-file comment rationalises it as a "non-sensitive dev key for a throwaway sandbox", but: (a) it is a real working credential against a real deployed Function; (b) it normalises secret-in-source; (c) it would be copied forward into prod if the file is the template. The ground-truth note in the task explicitly says to flag this **even though** it is labelled non-sensitive, and to move it into the connection.
 - **Fix (layered):**

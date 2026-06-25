@@ -1,11 +1,24 @@
-# Roles & permissions — the gaps you still need
+# Roles & permissions
 
-_Last updated **2026-06-22**. A **gap analysis** for the operator account
-**`digital@collisionengineers.co.uk`** — the roles you do **NOT** currently have that you **NEED** to
-finish activation. Companion to [docs/gated.md](./gated.md), [../DEPLOY-RUNBOOK.md](../DEPLOY-RUNBOOK.md),
+_Last updated **2026-06-24**. Two distinct concerns:_
+_**(A)** the **operator platform-role gap analysis** for **`digital@collisionengineers.co.uk`** (the
+Azure/Entra/Dataverse-admin roles needed to BUILD & ACTIVATE the spike), and_
+_**(B)** the **in-app least-privilege role model** for STAFF WHO USE the intake app — the **3-role model**
+(Phase 9, [ADR-0017 §G8](./adr/0017-data-retention-erasure-pii-lifecycle.md)), now **authored as
+schema-as-code**. Companion to [docs/gated.md](./gated.md), [../DEPLOY-RUNBOOK.md](../DEPLOY-RUNBOOK.md),
 [architecture/live-environment.md](./architecture/live-environment.md)._
 
-> **What this doc is.** Not a catalogue of every role — a **gap list**. It starts from what `digital@`
+> **Two role planes, do not conflate them.** (A) below is the **platform/operator** plane (Azure RBAC,
+> Entra, Dataverse env admin) — a **gap list** of what `digital@` still needs. (B) further down is the
+> **application** plane — the Dataverse **security roles** that scope what intake STAFF can do, built now
+> offline and **gated-OFF**. "Admin" in plane (B) is the in-app settings/audit role, **not** Dataverse
+> System Administrator or Power Platform Administrator from plane (A).
+
+---
+
+## Part A — operator platform-role gap analysis
+
+> **What this part is.** Not a catalogue of every role — a **gap list**. It starts from what `digital@`
 > *already holds* (verified live below), then lists only the **missing** roles, what each unblocks, and
 > how to get it. It also calls out roles you might *expect* to need but don't.
 
@@ -119,23 +132,130 @@ scenario noted at the end. Details, so there are no surprises when these phases 
 
 ---
 
-## Application roles (the in-app role model — distinct from the platform roles above)
+---
 
-The roles above are **platform/operator** roles (Azure RBAC, Dataverse env admin, Entra) that
-`digital@` needs to **build and activate** the spike. Separately, the **application** defines its own
-**three-role model** for staff who *use* the intake app (G8). These are **authored now, offline, and
-gated OFF** (no live security-role assignment yet); the operator assigns them at activation.
+## Part B — the in-app least-privilege role model (3-role model, ADR-0017 §G8)
+
+The roles in Part A are **platform/operator** roles that `digital@` needs to **build and activate** the
+spike. Part B is the **application** plane: the Dataverse **security roles** that scope what intake
+**staff** can do inside the Code App + tables. Today everything runs as **System Administrator** (no
+least-privilege); this model closes that gap as part of the Phase-9 governance posture.
+
+These roles are **authored now as schema-as-code, offline, and gated-OFF.** The build **creates** the
+roles but **never assigns** them — assignment is the operator's activation step.
+
+### Schema-as-code artefacts
+
+| Artefact | What it is |
+|---|---|
+| [`dataverse/roles/_role.schema.json`](../dataverse/roles/_role.schema.json) | The authoring shape: a privilege matrix per table (the 8 axes × named access levels), plus `miscPrivileges` for non-`cr1bd_` privileges. |
+| [`dataverse/roles/user-role.json`](../dataverse/roles/user-role.json) | **CollisionSpike User** — the full privilege matrix. |
+| [`dataverse/roles/admin-role.json`](../dataverse/roles/admin-role.json) | **CollisionSpike Admin** — User + corpus write + settings + audit-log management (self-contained, restates User). |
+| [`dataverse/.build/28-roles.ps1`](../dataverse/.build/28-roles.ps1) | The apply twin: creates the two roles + grants privileges via the Web API. **DRY-RUN by default** (no `-Apply` ⇒ zero tenant contact); **creates-not-assigns**. |
+
+### The three roles
 
 | App role | Scope | Status |
 |---|---|---|
-| **User** | All **case-intake** actions — the day-to-day workflow (review cases, complete the 12 fields, drive readiness, pick/edit the inspection address, export to EVA / draft chasers). | **Built now** (offline, gated OFF; operator assigns at activation). |
-| **Admin** | **Settings + audit logs** — the configuration surface (env-var gates, provider/corpus settings) and visibility of the `cr1bd_auditevent` action log. Superset of User. | **Built now** (offline, gated OFF; operator assigns at activation). |
-| **Engineer** | Future **assessment functionality** (the engineer who performs the inspection/assessment). | **DEFERRED — out of scope** for the current build. |
+| **User** | All **case-intake** actions — review cases, complete the 12 fields, drive readiness, pick/edit the inspection address, export to EVA, draft chasers. CRUD on the work tables; **read-only** on the governed corpus; **create+read (never delete)** on the audit trail. | **Built now** (offline, gated-OFF; operator assigns at activation). |
+| **Admin** | **User + settings + audit-log management** — **write** the provider/inspection-address corpus, triage ImprovementSignals, CRUD the env-var feature gates (definitions + values), and **delete** (cascade) audit rows. Superset of User. | **Built now** (offline, gated-OFF; operator assigns at activation). |
+| **Engineer** | Future **assessment functionality** (the engineer who performs the inspection/assessment). | **DEFERRED — out of scope.** No JSON, not built by `28-roles.ps1`. |
 
-> These are app-level roles, not the platform roles in the gap analysis above. "Admin" here is the
-> in-app settings/audit role, **not** Dataverse System Administrator or Power Platform Administrator.
+> "Admin" here is the in-app **settings/audit** role, **not** Dataverse System Administrator or Power
+> Platform Administrator (those are Part-A platform roles).
 
-## Who grants what
+### The format (and why)
+
+Each role JSON declares, **per table**, the eight Dataverse table-privilege axes
+(**Create / Read / Write / Delete / Append / AppendTo / Assign / Share**), each set to a **named access
+level** — `None` · `User` · `BusinessUnit` · `ParentChild` · `Organization`. This mirrors the repo's
+existing JSON-schema-as-code style (`schema/_table.schema.json`, `choicesets/`): a reviewable, diffable,
+**offline** authoring shape that the `.build/` apply script translates into live metadata.
+
+- **`None` = omit the privilege entirely** (least-privilege default-deny). Any table NOT listed grants
+  **nothing**.
+- Named levels map to the **Web API `PrivilegeDepth`** the apply script sends:
+  `User`=Basic(0) · `BusinessUnit`=Local(1) · `ParentChild`=Deep(2) · `Organization`=Global(3).
+  (NB: this is the **Web API** enum, not the C# SDK enum, which numbers them differently.)
+- This is a **single-business-unit** environment, so `Organization` depth means *"every row"* — which is
+  exactly the **shared-queue** intent (intake is collaborative, not per-owner). A future multi-team split
+  would downgrade the work tables to `ParentChild`/`BusinessUnit` and re-verify.
+
+### Privilege matrix — CollisionSpike User
+
+Legend: **C**reate · **R**ead · **W**rite · **D**elete · **A**ppend · **AT** AppendTo · (Assign/Share are
+`None` everywhere — no per-record sharing model in a single-BU shared queue). `O` = Organization, `—` =
+None.
+
+| Table | C | R | W | D | A | AT | Why |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|---|
+| `cr1bd_case` | O | O | O | — | O | O | Core work item; shared-queue CRUD. **No delete** (disposition/junk-cleanup runs as flow/operator, not staff). |
+| `cr1bd_evidence` | O | O | O | O | O | O | Per-case attachments; delete a mis-attached file is routine (child of Case). |
+| `cr1bd_inboundemail` | O | O | O | — | O | O | Phase-8 triage; **no delete** (dedup anchor / "we saw this" row). |
+| `cr1bd_chaser` | O | O | O | O | O | O | Draft chasers (disposable). |
+| `cr1bd_note` | O | O | O | O | O | O | Collaborative case notes. |
+| `cr1bd_improvementsignal` | O | O | — | — | O | O | Staff **raise** signals; triage/resolve is Admin (governance: feeds a Management queue). |
+| `cr1bd_workprovider` | — | O | — | — | — | O | Governed corpus → **read-only**; AppendTo so a Case can reference it. |
+| `cr1bd_repairer` | — | O | — | — | — | O | Governed corpus → **read-only**. |
+| `cr1bd_inspectionaddress` | — | O | — | — | — | O | Suggestions corpus staff **pick** from → read + AppendTo only. |
+| `cr1bd_imagesource` | — | O | — | — | — | O | Corpus-adjacent → read-only. |
+| `cr1bd_fieldlevelprovenance` | O | O | O | — | O | O | Stamp/clear reviewState during review; no delete (review audit). |
+| `cr1bd_auditevent` | O | O | — | — | O | O | **Append-only**: create + read, **never write/delete** (tamper-evidence). |
+
+No platform/maker privileges: a User can run the app and do intake, but cannot configure the system, edit
+schema, or touch env-vars.
+
+### Privilege matrix — CollisionSpike Admin (= User + the additions below)
+
+The Admin JSON is **self-contained** (it restates every User privilege; the apply script never merges).
+Differences vs User:
+
+| Table / privilege | Admin change | Why |
+|---|---|---|
+| `cr1bd_improvementsignal` | **+ Write, + Delete** | Management **triages/resolves** the signal queue. |
+| `cr1bd_workprovider` | **+ Create, + Write** (still **no Delete**) | Management **edits** the provider corpus; referenced providers are **archived/merged, never hard-deleted** (Case/PO history depends on old codes). |
+| `cr1bd_repairer` | **+ Create, + Write** (no Delete) | Edit repairer corpus; archive-not-delete. |
+| `cr1bd_inspectionaddress` | **+ Create, + Write** (no Delete) | Curate the inspection-address suggestions corpus; archive-not-delete. |
+| `cr1bd_imagesource` | **+ Create, + Write** (no Delete) | Edit image-source corpus; archive-not-delete. |
+| `cr1bd_auditevent` | **+ Delete** (still **no Write**) | Audit-log **management** — the ADR-0017 cascade/retention authority. Delete only (governed cascade); **never** in-place edit (rows stay append-only/tamper-evident). |
+| `environmentvariabledefinition` | **Create / Read / Write** | Manage the feature-gate **definitions** (name/type/default). |
+| `environmentvariablevalue` | **Create / Read / Write / Delete** | Set/toggle/clear the per-environment **gate values** — the activation lever (`BOX_API_ENABLED` etc.). Deleting a value reverts the gate to its solution default. |
+
+The two `environmentvariable*` tables are **built-in Dataverse tables** (not `cr1bd_`), so the Admin JSON
+expresses them under `miscPrivileges` by **stable privilege name** (`prvReadEnvironmentVariableValue`, …),
+resolved to GUIDs at apply time — same mechanism as the `cr1bd_` table privileges.
+
+### How "gated-off" is enforced — create-not-assign
+
+`28-roles.ps1` **creates** the roles and **grants their privileges**, but contains **no role-assignment
+call whatsoever** (no `systemuserroles_association` / `teamroles_association`). An **unassigned role
+grants no one anything**, so creating it live is inert — everything keeps running as System Administrator
+until the operator assigns the roles in the Power Platform admin centre. That is the activation step, and
+it is **`[RESERVED-FOR-USER]`**.
+
+The script is also **DRY-RUN by default**: with no `-Apply` flag it reads + validates the role JSON and
+**prints the plan** (every role and its resolved privilege grants) with **zero tenant contact and no
+login**. `-Apply` is required to touch the environment.
+
+### Environment-resolved GUIDs (not fabricated)
+
+A Dataverse security role cannot be fully expressed as standalone code — two GUID classes are
+**per-environment** and are looked up live at `-Apply` time (mirroring how `optionset-ids.json` records
+choiceset GUIDs):
+
+1. **Root business-unit GUID** — a role must bind to a BU; the script queries the BU where
+   `parentbusinessunitid eq null`. Stored nowhere in the JSON.
+2. **Privilege GUIDs** — the role JSON declares stable privilege **names**
+   (`prvReadCr1bd_case`, derived as `prv<Axis><PascalEntity>`; `prvReadEnvironmentVariableValue` for misc);
+   the script queries the `privilege` table by name to resolve each GUID. An unresolved name is a **hard
+   error** (never a fabricated or silently-skipped GUID).
+
+The **depth integer** *is* expressible and is fixed (the Web API `PrivilegeDepth` enum above), so it lives
+in the matrix as a named access level.
+
+---
+
+## Who grants what (Part A platform roles)
 
 - **You self-grant** (you're subscription Owner): **Key Vault Secrets Officer** on the vault(s).
 - **You purchase + self-administer** (Box vendor): **Box Business** plan + **Box Admin/Co-Admin**.

@@ -7,6 +7,7 @@ import {
   tokens,
 } from '@fluentui/react-components';
 import { AlertOctagon, RefreshCw } from 'lucide-react';
+import { Panel } from './Panel';
 
 /* ============================================================
    AppErrorBoundary — defensive boundary around the routed <Outlet/>.
@@ -22,6 +23,8 @@ import { AlertOctagon, RefreshCw } from 'lucide-react';
    ============================================================ */
 
 const useStyles = makeStyles({
+  /* Layout only — border / radius / background / the CE-red accent rail come
+     from the shared <Panel accent>. */
   panel: {
     display: 'flex',
     flexDirection: 'column',
@@ -29,10 +32,6 @@ const useStyles = makeStyles({
     gap: tokens.spacingVerticalS,
     padding: `${tokens.spacingVerticalXXL} ${tokens.spacingHorizontalL}`,
     textAlign: 'center',
-    borderRadius: tokens.borderRadiusMedium,
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderLeft: '3px solid var(--ce-red)',
-    backgroundColor: tokens.colorNeutralBackground1,
   },
   icon: { color: 'var(--ce-red)' },
   title: { color: 'var(--ce-ink)', fontWeight: tokens.fontWeightSemibold },
@@ -52,7 +51,7 @@ interface ErrorFallbackProps {
 function ErrorFallback({ error, onReset }: ErrorFallbackProps) {
   const styles = useStyles();
   return (
-    <div className={styles.panel} role="alert">
+    <Panel accent role="alert" className={styles.panel}>
       <AlertOctagon size={28} strokeWidth={1.75} className={styles.icon} aria-hidden />
       <Text className={styles.title}>This screen hit an unexpected error</Text>
       <Caption1 className={styles.detail}>
@@ -61,7 +60,7 @@ function ErrorFallback({ error, onReset }: ErrorFallbackProps) {
       <Button appearance="secondary" icon={<RefreshCw size={16} />} onClick={onReset}>
         Try again
       </Button>
-    </div>
+    </Panel>
   );
 }
 

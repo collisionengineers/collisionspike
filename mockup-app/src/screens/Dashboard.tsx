@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Spinner } from '@fluentui/react-components';
 import {
-  Text,
   Caption1,
   makeStyles,
   mergeClasses,
@@ -25,7 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { SectionHeading, PipelineStrip, VrmPlate, ErrorState, DashboardSkeleton } from '../components';
+import { SectionHeading, PipelineStrip, VrmPlate, EmptyState, ErrorState, DashboardSkeleton } from '../components';
 import { useDashboard } from '../data';
 import type { ActionReason, AgingRow, PipelineStageKey } from '../data';
 
@@ -120,14 +119,6 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     gap: tokens.spacingVerticalM,
   },
-  regionLabel: {
-    fontFamily: 'var(--ce-font-display)',
-    fontSize: '11px',
-    fontWeight: 700,
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
-    color: tokens.colorNeutralForeground3,
-  },
 
   /* ----- Region A: live depth — thin strip of two buttons ----- */
   liveStrip: {
@@ -217,13 +208,6 @@ const useStyles = makeStyles({
     flexShrink: 0,
   },
   thruText: { display: 'flex', flexDirection: 'column', minWidth: 0 },
-  thruNumber: {
-    fontFamily: 'var(--ce-font-display)',
-    fontWeight: 700,
-    fontSize: '22px',
-    lineHeight: 1.05,
-    color: 'var(--ce-ink)',
-  },
   thruLabel: {
     fontSize: '12px',
     color: tokens.colorNeutralForeground3,
@@ -255,9 +239,9 @@ const useStyles = makeStyles({
     border: '1px solid var(--ce-red-dark)',
   },
   facetAttention: {
-    color: '#3a2e08',
-    backgroundColor: '#f5c244',
-    border: '1px solid #e0a92a',
+    color: 'var(--ce-amber-ink)',
+    backgroundColor: 'var(--ce-amber)',
+    border: '1px solid var(--ce-amber-line)',
   },
 
   list: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
@@ -325,9 +309,9 @@ const useStyles = makeStyles({
     border: `1px solid ${tokens.colorNeutralStroke2}`,
   },
   ageAttention: {
-    color: '#3a2e08',
-    backgroundColor: '#f7e2a6',
-    border: '1px solid #e0a92a',
+    color: 'var(--ce-amber-ink)',
+    backgroundColor: 'var(--ce-amber-tint)',
+    border: '1px solid var(--ce-amber-line)',
   },
   ageBlocker: {
     color: '#ffffff',
@@ -336,18 +320,6 @@ const useStyles = makeStyles({
   },
 
   chev: { color: tokens.colorNeutralForeground4, flexShrink: 0 },
-
-  empty: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalM,
-    padding: `${tokens.spacingVerticalXXL} ${tokens.spacingHorizontalL}`,
-    justifyContent: 'center',
-    textAlign: 'center',
-    color: tokens.colorNeutralForeground3,
-    borderRadius: '2px',
-    border: `1px dashed ${tokens.colorNeutralStroke2}`,
-  },
 });
 
 /* ----------  verb + icon per action reason  ---------- */
@@ -504,7 +476,7 @@ export function Dashboard() {
 
       {/* REGION B — TODAY / THIS WEEK (windowed throughput, never lifetime) */}
       <section className={styles.region} aria-label="Today and this week">
-        <span className={styles.regionLabel}>Today / this week</span>
+        <span className="ce-overline">Today / this week</span>
         <div className={styles.thruStrip}>
           <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
           <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
@@ -515,7 +487,7 @@ export function Dashboard() {
 
       {/* REGION C — NEEDS ACTION (the hero list) */}
       <section className={styles.region} aria-label="Needs action">
-        <span className={styles.regionLabel}>Needs action — oldest first</span>
+        <span className="ce-overline">Needs action — oldest first</span>
 
         {/* exception chips */}
         {aging.rows.length > 0 && (
@@ -542,13 +514,10 @@ export function Dashboard() {
         )}
 
         {aging.rows.length === 0 ? (
-          <div className={styles.empty}>
-            <CircleCheck size={20} strokeWidth={1.75} aria-hidden />
-            <Text>
-              Nothing waiting. New cases land here as email arrives — last checked{' '}
-              {fmtTime(stamp)}.
-            </Text>
-          </div>
+          <EmptyState
+            icon={<CircleCheck size={32} strokeWidth={1.75} aria-hidden />}
+            title={`Nothing waiting. New cases land here as email arrives — last checked ${fmtTime(stamp)}.`}
+          />
         ) : (
           <div className={styles.list}>
             {aging.rows.map((row) => (
@@ -579,7 +548,7 @@ function ThruCell({ icon: Icon, value, label }: { icon: LucideIcon; value: numbe
         <Icon size={16} strokeWidth={1.75} />
       </span>
       <span className={styles.thruText}>
-        <span className={styles.thruNumber}>{value}</span>
+        <span className="ce-stat">{value}</span>
         <span className={styles.thruLabel}>{label}</span>
       </span>
     </div>

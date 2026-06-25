@@ -73,13 +73,18 @@ _VENDORED_MARKERS: dict[str, tuple[str, ...]] = {
         '"notes": list(record.notes)',
         '"is_audit": record.is_audit',
     ),
-    # B2 (vendored-only) lives here; image-based (converged) too.
+    # B2 (vendored-only) lives here; image-based (converged) too; the Phase-8
+    # email-classifier keyword tuples are CONVERGED (added identically to both
+    # copies, exported for rules/email_classifier.py).
     "rules/engine.py": (
         "_fallback_telephone",
         "_fallback_email",
         "_CLAIMANT_CONTEXT_WORDS",
         "IMAGE_BASED_ASSESSMENT",
         "detect_audit_signals",
+        "_WORK_KEYWORDS",
+        "_QUERY_KEYWORDS",
+        "_match_keywords",
     ),
     "normalization/normalizers.py": (
         "TELEPHONE_RE",
@@ -103,8 +108,15 @@ _SIBLING_MARKERS: dict[str, tuple[str, ...]] = {
         "detect_engineer_provider",
         '"is_audit": record.is_audit',
     ),
-    # Image-based (converged) + audit-detection must exist on both sides.
-    "rules/engine.py": ("IMAGE_BASED_ASSESSMENT", "detect_audit_signals"),
+    # Image-based (converged) + audit-detection + the Phase-8 email-classifier
+    # keyword tuples must exist on both sides (else a re-cut loses them).
+    "rules/engine.py": (
+        "IMAGE_BASED_ASSESSMENT",
+        "detect_audit_signals",
+        "_WORK_KEYWORDS",
+        "_QUERY_KEYWORDS",
+        "_match_keywords",
+    ),
 }
 
 

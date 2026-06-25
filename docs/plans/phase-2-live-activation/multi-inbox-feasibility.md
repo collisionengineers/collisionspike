@@ -51,12 +51,15 @@ Verified by reading the repo + live registry + Microsoft Learn:
   `docs/requirements/admin-overview.md:20` says only *"Three separate inboxes (most common)"*. The
   operator's task names them **Info / Engineers / Desk** and states they are **live, operator-only**, so
   their exact SMTP addresses and Exchange recipient types are **unknown to Claude** (open question, §8).
-- **The offline build is already shaped for multi-inbox.**
-  `flows/definitions/intake.definition.json` is the parameterised per-inbox variant — trigger
+- **The offline build is already trigger-shaped for multi-inbox.**
+  `flows/definitions/intake-shared-mailbox.definition.json` (verified 2026-06-24 — **not**
+  `intake.definition.json`, which is the V3 main flow) is the parameterised per-inbox variant — trigger
   **`SharedMailboxOnNewEmailV2`**, `mailboxAddress = @parameters('IntakeMailbox')`, `folderId = 'Inbox'`,
   `concurrency.runs = 1` — carrying the `MinIntakeDate` go-live guard, Message-ID get-or-create dedup,
-  best-effort provider resolve, and `cr1bd_sourcemailbox` provenance. **So there is nothing for Claude
-  to author to answer the feasibility question.**
+  best-effort provider resolve, and `cr1bd_sourcemailbox` provenance. **Caveat:** it carries the
+  case-create + dedup **core only**, not the V3 intake's downstream `Run_*` chain, so a rollout brings its
+  body up to the V3 chain (see `multi-inbox-access.md` §5). **The trigger-shaping question is answered with
+  no new authoring; the body alignment is the build delta.**
 - **One Outlook connection exists.** `cr1bd_sharedmailbox_office365` → connector `shared_office365` →
   connection `bd752b83172a4e99b3db595942f1b30f` (`digital@`, *Connected*). This is the only Outlook
   connection and is reusable (subject to the mailbox-type confirmation in §2).
@@ -100,9 +103,10 @@ connection is bound, not the Exchange type of any mailbox).
 the right shape.** This is a *conclusion to record*, not a step to action:
 
 - **One parameterised definition, shipped once per inbox**, differing **only** by the `IntakeMailbox`
-  parameter (`flows/definitions/intake.definition.json`). Clean per-mailbox isolation, independent
-  enable/disable, per-inbox `concurrency = 1`, per-inbox `MinIntakeDate`, and `cr1bd_sourcemailbox`
-  attribution for free.
+  parameter (`flows/definitions/intake-shared-mailbox.definition.json` — the V2 variant, not the V3
+  `intake.definition.json`). Clean per-mailbox isolation, independent enable/disable, per-inbox
+  `concurrency = 1`, per-inbox `MinIntakeDate`, and `cr1bd_sourcemailbox` attribution for free. (Body-align
+  to the V3 downstream chain at rollout — see `multi-inbox-access.md` §5.)
 - **Reject the fan-out alternative.** A V2 trigger binds **exactly one** `mailboxAddress` and **cannot
   watch a list** — a single flow over all three is not possible without abandoning the native trigger
   for a polling `Recurrence` + Graph `HTTP with Microsoft Entra ID` loop (more parts, loses the native
@@ -177,9 +181,10 @@ but standing up a **new** per-inbox trigger is inherently a new subscription ⇒
   - **(b)** the **live** intake still runs the **OLD unanchored `contains()` substring match**
     (`Resolve_provider`), which can false-match a domain substring and mint the **wrong Case/PO + Box
     prefix**. The repo's anchored `List_active_providers` + `Filter_exact_domain` fix is the separate live
-    deploy tracked in `docs/gated.md`. The parameterised `intake.definition.json` deliberately mirrors the
-    current live (unanchored) logic, so **a multi-inbox rollout before that fix would inherit the same
-    false-match risk** — couple any future rollout with the anchored-match deploy. **Flag, do not fix here.**
+    deploy tracked in `docs/gated.md`. The parameterised V2 `intake-shared-mailbox.definition.json`
+    mirrors the current live (unanchored) logic, so **a multi-inbox rollout before that fix would inherit
+    the same false-match risk** — couple any future rollout with the anchored-match deploy. **Flag, do not
+    fix here.**
 - **Throughput is well within limits.** Microsoft Learn confirms the Office 365 connector limit of
   **300 API calls per connection per 60 s** (plus 70 concurrent requests / 300 MB concurrent transfer per
   connection); three low-volume trigger subscriptions on the one `digital@` connection are comfortably
@@ -197,7 +202,7 @@ but standing up a **new** per-inbox trigger is inherently a new subscription ⇒
 
 | Item | Owner | Gated | Note |
 |---|---|---|---|
-| Author / parameterise the per-inbox definition | — | n/a | **Already done** — `flows/definitions/intake.definition.json` exists. |
+| Author / parameterise the per-inbox definition | — | n/a | **Trigger-shape already done** — `flows/definitions/intake-shared-mailbox.definition.json` (V2) exists; body-align to the V3 downstream chain is the remaining build delta (§5 of `multi-inbox-access.md`). |
 | Confirm mailbox types + Full Access (§2) | operator | 🔒 | Read-only Exchange checks; live-services boundary. |
 | Create connections / grant Full Access / arm triggers / send test mail | operator | 🔒 | Interactive Exchange + Power Automate-designer actions; **no headless path** (4b). **Not now.** |
 | *(future, separate go-ahead only)* add an intake-specific unanchored-substring linter check to `flows/validate-flows.mjs` | Claude | — | Offline, repo-only, no live touch. **Listed to scope future work — not this session.** |
@@ -271,9 +276,10 @@ but standing up a **new** per-inbox trigger is inherently a new subscription ⇒
 
 - **Sibling runbook (authority on *how*, not actioned now):** `docs/plans/phase-2-live-activation/multi-inbox-access.md`
 - **Per-inbox activation steps (future, separate go-ahead):** `docs/activation/multi-inbox-activation.md`
-- **Parameterised per-inbox definition (already shaped, V2):** `flows/definitions/intake.definition.json`
+- **Parameterised per-inbox definition (already shaped, V2):** `flows/definitions/intake-shared-mailbox.definition.json`
   — trigger `SharedMailboxOnNewEmailV2`, `mailboxAddress = @parameters('IntakeMailbox')`, `folderId='Inbox'`,
-  `concurrency.runs = 1`; `MinIntakeDate` guard; Message-ID dedup (`Find_existing_by_messageId`).
+  `concurrency.runs = 1`; `MinIntakeDate` guard; Message-ID dedup (`Find_existing_by_messageId`). Carries the
+  core only — body-align to the V3 `intake.definition.json` downstream chain at rollout (§5 of `multi-inbox-access.md`).
 - **Live registry:** `docs/architecture/live-environment.md` — connection `bd752b83172a4e99b3db595942f1b30f`;
   `CS Intake` `workflowid 92131f3d-9cd5-4e88-aa9e-a5705a5850a0`, internal guid
   `8d534fc9-9058-a6f4-4dfd-245b350703b5`.

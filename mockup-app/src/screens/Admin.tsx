@@ -45,7 +45,7 @@ import {
   ShieldCheck,
   Wrench,
 } from 'lucide-react';
-import { SectionHeading, ErrorState, GLOBAL_TOASTER_ID } from '../components';
+import { Panel, SectionHeading, ErrorState, GLOBAL_TOASTER_ID } from '../components';
 import { ProviderListSkeleton } from '../components/Skeletons';
 import {
   useProviders,
@@ -121,14 +121,11 @@ const AUTOMATION_LABEL: Record<ProviderAutomationMode, string> = {
 const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL },
   tabs: { marginTop: `-${tokens.spacingVerticalS}` },
+  /* Layout only — border / radius / background / padding come from <Panel>. */
   intakePanel: {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalS,
-    padding: tokens.spacingVerticalL,
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderRadius: tokens.borderRadiusMedium,
-    backgroundColor: tokens.colorNeutralBackground1,
     maxWidth: '640px',
   },
 
@@ -237,11 +234,8 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     gap: tokens.spacingVerticalS,
   },
+  /* Layout only — border / radius / background / padding come from <Panel>. */
   readonlyPanel: {
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderRadius: tokens.borderRadiusMedium,
-    backgroundColor: tokens.colorNeutralBackground1,
-    padding: tokens.spacingVerticalL,
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalS,
@@ -275,6 +269,9 @@ const useStyles = makeStyles({
     border: '1px solid #e3c062',
   },
 
+  /* A distinct dashed, fill-less surface (NOT the shared <Panel> card, which has
+     a solid hairline + Background1 fill) — the assisted-import preview reads as a
+     placeholder drop-zone, so it keeps its own block. */
   importPanel: {
     border: `1px dashed ${tokens.colorNeutralStroke2}`,
     borderRadius: tokens.borderRadiusMedium,
@@ -392,7 +389,7 @@ function IntakeSettings() {
   };
 
   return (
-    <div className={styles.intakePanel}>
+    <Panel className={styles.intakePanel}>
       <Switch
         checked={current}
         disabled={loading || saving}
@@ -403,7 +400,7 @@ function IntakeSettings() {
         When on, a case created from the New-case screen is parked in the Held queue for a reviewer to
         release. Saved live to the cr1bd_HOLD_NEW_CASES_BY_DEFAULT environment variable.
       </Caption1>
-    </div>
+    </Panel>
   );
 }
 
@@ -759,7 +756,7 @@ function ReadOnlyCorpora() {
       </Caption1>
       <div className={styles.grid}>
         {REFERENCE_TABLES.map((it) => (
-          <div key={it.title} className={styles.readonlyPanel}>
+          <Panel key={it.title} className={styles.readonlyPanel}>
             <span className={styles.readonlyHead}>
               <it.icon size={18} aria-hidden />
               <Text className={styles.provName}>{it.title}</Text>
@@ -772,7 +769,7 @@ function ReadOnlyCorpora() {
               <Caption1 className={styles.readonlyCountUnit}>{it.unit}</Caption1>
             </span>
             <Caption1 className={styles.fieldHint}>{it.description}</Caption1>
-          </div>
+          </Panel>
         ))}
         {/* Inspection addresses — a LIVE confirmed/suggested split via the seam. */}
         <InspectionAddressCard />
@@ -795,7 +792,7 @@ function InspectionAddressCard() {
   const suggested = data?.suggested ?? 0;
 
   return (
-    <div className={styles.readonlyPanel}>
+    <Panel className={styles.readonlyPanel}>
       <span className={styles.readonlyHead}>
         <MapPin size={18} aria-hidden />
         <Text className={styles.provName}>Inspection addresses</Text>
@@ -817,7 +814,7 @@ function InspectionAddressCard() {
         Known inspection locations, standardised by postcode — used to suggest an address for the EVA
         submission. Suggestions are never applied automatically.
       </Caption1>
-    </div>
+    </Panel>
   );
 }
 

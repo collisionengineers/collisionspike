@@ -1,0 +1,34 @@
+{
+  "$schema": "../schema/_choiceset.schema.json",
+  "kind": "global-choice-set-bundle",
+  "description": "Phase-8 inbound-email triage taxonomy (ADR-0015). Two stable, append-only global choice sets bound by cr1bd_inboundemail.cr1bd_category / cr1bd_subtype. Members mirror the deterministic classifier's returned string values 1:1 -- the `name` of each option EQUALS a CATEGORY_* / SUBTYPE_* constant in functions/parser/cedocumentmapper_v2/rules/email_classifier.py. NEVER renumber (same discipline as case-status.json / audit-event.json); add new members append-only at the next free integer.",
+  "choiceSets": [
+    {
+      "logicalName": "cr1bd_inboundcategory",
+      "displayName": "Inbound Category",
+      "isGlobal": true,
+      "parityKey": "name",
+      "description": "Triage CATEGORY. Members EQUAL email_classifier.py CATEGORY_RECEIVING_WORK / CATEGORY_QUERY / CATEGORY_OTHER. receiving_work routes to the existing Case chain; query logs against an open Case (or none) and stops; other is the catch-all (spam/auto-replies/newsletters fall through here -- never silently dropped).",
+      "options": [
+        { "value": 100000000, "name": "receiving_work", "label": "Receiving Work" },
+        { "value": 100000001, "name": "query",          "label": "Query" },
+        { "value": 100000002, "name": "other",          "label": "Other" }
+      ]
+    },
+    {
+      "logicalName": "cr1bd_inboundsubtype",
+      "displayName": "Inbound Subtype",
+      "isGlobal": true,
+      "parityKey": "name",
+      "description": "Triage SUBTYPE. Members EQUAL email_classifier.py SUBTYPE_EXISTING_PROVIDER_INSTRUCTION / SUBTYPE_EXISTING_PROVIDER_AUDIT / SUBTYPE_NEW_CLIENT_WORK / SUBTYPE_QUERY_EXISTING_WORK / SUBTYPE_QUERY_NEW_ENQUIRY / SUBTYPE_OTHER, mapping the operator's 4-quadrant taxonomy + the Other catch-all. existing_provider_audit is the inbound subtype for an audit re-inspection instruction (distinct from the cr1bd_auditevent action LOG and the ADR-0014 case-TYPE 'audit').",
+      "options": [
+        { "value": 100000000, "name": "existing_provider_instruction", "label": "Existing Provider Instruction" },
+        { "value": 100000001, "name": "existing_provider_audit",       "label": "Existing Provider Audit" },
+        { "value": 100000002, "name": "new_client_work",               "label": "New Client Work" },
+        { "value": 100000003, "name": "query_existing_work",           "label": "Query: Existing Work" },
+        { "value": 100000004, "name": "query_new_enquiry",             "label": "Query: New Enquiry" },
+        { "value": 100000005, "name": "other",                         "label": "Other" }
+      ]
+    }
+  ]
+}

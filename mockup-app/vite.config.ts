@@ -6,9 +6,12 @@ import react from '@vitejs/plugin-react';
 // it is inert under the Vitest `node` env below (no DOM, no network).
 import { powerApps } from '@microsoft/power-apps-vite/plugin';
 
-// Power Apps Code App (M1): mock-backed offline, Dataverse-backed once the seam
-// is configured at startup (see src/main.tsx). The powerApps() plugin attaches
-// the Power Platform deploy metadata; data still flows through the src/data seam.
+// Power Apps Code App (M1): the DEPLOYED build is Dataverse-backed — src/main.tsx
+// calls configureDataAccess(generatedServices) at startup, so the SDK + the
+// pac-generated services are pulled into the bundle and real rows flow through the
+// src/data seam. The mock source is only the pre-bootstrap default + the SDK-free
+// unit tests (vitest `node` env below). The powerApps() plugin attaches the Power
+// Platform deploy metadata.
 export default defineConfig({
   plugins: [react(), powerApps()],
   server: { port: 5173, open: false },

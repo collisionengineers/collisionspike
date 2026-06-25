@@ -153,10 +153,33 @@
       "required": false,
       "cascade": { "delete": "RemoveLink" },
       "description": "ImageSource.defaultInspectionAddressId (nullable default-address hint)."
+    },
+    {
+      "schemaName": "cr1bd_case_inboundemail",
+      "displayName": "Case -> Inbound Emails",
+      "adr": "ADR-0015",
+      "referencedEntity": "cr1bd_case",
+      "referencingEntity": "cr1bd_inboundemail",
+      "referencingAttribute": "cr1bd_caseid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "InboundEmail.caseId (NULLABLE). The Case a receiving_work triage row routes to, or the OPEN Case a query_existing_work row is about (linked Case/PO first, VRM fallback; never silently merged -- ADR-0010). RemoveLink so removing a Case never deletes the audit-of-record triage row (Phase-8, ADR-0015)."
+    },
+    {
+      "schemaName": "cr1bd_workprovider_inboundemail",
+      "displayName": "Work Provider -> Inbound Emails",
+      "adr": "ADR-0015",
+      "referencedEntity": "cr1bd_workprovider",
+      "referencingEntity": "cr1bd_inboundemail",
+      "referencingAttribute": "cr1bd_workproviderid",
+      "required": false,
+      "cascade": { "delete": "RemoveLink" },
+      "description": "InboundEmail.workProviderId (NULLABLE). The provider matched by sender domain (provider_match_state=one); null for new-client / ambiguous. RemoveLink so archiving a provider keeps the triage history (Phase-8, ADR-0015)."
     }
   ],
   "notes": [
     "Append-only/history tables (AuditEvent) and corpus references use RemoveLink on delete so history survives; child rows truly owned by a case (Evidence, FieldLevelProvenance, Chaser, Note) Cascade.",
-    "Referenced corpus records (WorkProvider, Repairer, InspectionAddress) are deactivated/archived/merged, never hard-deleted (governance); cascade choices assume that policy."
+    "Referenced corpus records (WorkProvider, Repairer, InspectionAddress) are deactivated/archived/merged, never hard-deleted (governance); cascade choices assume that policy.",
+    "Phase-8 (ADR-0015): cr1bd_inboundemail is the audit-of-record triage row -- both its lookups (cr1bd_case_inboundemail, cr1bd_workprovider_inboundemail) are nullable and RemoveLink-on-delete so the 'we saw this email' record survives a removed Case or archived Provider."
   ]
 }

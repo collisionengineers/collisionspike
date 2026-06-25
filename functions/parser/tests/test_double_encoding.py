@@ -146,7 +146,9 @@ def test_empty_string_decodes_empty():
 
 
 # --------------------------------------------------------------------------- #
-# End-to-end: parse() — single -> 200; double -> 422 (surfaced, not repaired). #
+# End-to-end: parse() — single -> 200; double -> 200 (RECOVERED, not surfaced). #
+# The decoder peels the redundant base64 layer so the parser seam receives the   #
+# REAL document bytes; see test_parse_handler_double_encoded_pdf_recovered_200.  #
 # --------------------------------------------------------------------------- #
 def _make_request(body: dict) -> func.HttpRequest:
     return func.HttpRequest(

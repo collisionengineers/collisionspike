@@ -24,12 +24,16 @@ built + **deployed gated-OFF** (`cespkeva-fn-ufa3ci`, Running, `EVA_API_ENABLED=
 5. [ ] 🔒 Export + drag-drop into the EVA **test** environment; confirm acceptance
 
 **3c · EVA — Sentry REST API (later)** — [eva-sentry-rest-submission.md](./eva-sentry-rest-submission.md)
-6. [x] Sentry REST v1.2 submit path built (`functions/evasentry`, pytest 42/42)
-7. [x] Function deployed gated-OFF (`cespkeva-fn-ufa3ci`, Running); [ ] 🔒 B5 EVA test creds → Key Vault + import/bind `cr1bd_evasentry` + flip `EVA_API_ENABLED` in test; [ ] 🔒 prod cutover (parity-gated)
+6. [x] Sentry REST v1.2 submit path built (`functions/evasentry`) — **two-request photo flow built** (`Instruction/Inspection` previews → `Note/SubmitNote` full set; `core_to_instruction`)
+7. [x] Function deployed gated-OFF (`cespkeva-fn-ufa3ci`, Running); [ ] 🔒 B5 EVA test creds → Key Vault + import/bind `cr1bd_evasentry` + flip `EVA_API_ENABLED` in test; [ ] 🔒 prod cutover (parity-gated — the **cross-transport drag-drop↔REST byte-identity parity test is built**, wave 2)
 
-**3d · Box archival**
-8. [x] `finalize-eva-box` builds the folder + photo-order step (imported off)
-9. [x] Box upload content-bind fix (S2 — real `CreateFile`+`folderPath`, path-string defect resolved; see CURRENT_STATUS.md). Box archival itself is superseded by the Phase-7 Box-centric pivot (ADR-0012)
+**3c-Fn · EVA-validation Function (M2.B)**
+7b. [x] `functions/evavalidation` `POST /validate-case` deployed (`cespkeval-fn-6c6fxd`, Running)
+7c. [x] **`status-evaluate` repointed onto `shared_evavalidation/ValidateCase`** (sweep wave 2, flow `state=off`) — the 5 inline readiness actions were replaced by the `Validate_readiness` connection call; [ ] 🔒 import the EVA-validation custom connector + bind `cr1bd_evavalidation` to activate
+
+**3d · Box archival** _(superseded by the Phase-7 Box-centric pivot, ADR-0012)_
+8. [x] `finalize-eva-box` builds the folder + photo-order step (imported off); **EVA-REST branch now streams photos** (PhotoEntry per photo, reusing the bytes the loop already reads — sweep wave 2)
+9. [x] Box upload content-bind fix (S2 — real `CreateFile`+`folderPath`, path-string defect resolved; **S2 byte-bind done**; see CURRENT_STATUS.md). Box archival itself is superseded by the Phase-7 Box-centric pivot (ADR-0012)
 10. [ ] 🔒 Confirm Box honours the UPPERCASE Case/PO folder name; activate Box _(Phase 7/ADR-0012: folder minted at parse-confirm, **augmented** at finalise — not first created in unison with EVA submit)_
 
 **3e · EVA readiness gate**

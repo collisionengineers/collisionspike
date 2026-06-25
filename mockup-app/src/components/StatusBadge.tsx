@@ -58,9 +58,9 @@ const useStyles = makeStyles({
   },
   // Attention: amber fill, charcoal text.
   attention: {
-    backgroundColor: '#f5c244',
-    color: '#3a2e08',
-    border: '1px solid #e0a92a',
+    backgroundColor: 'var(--ce-amber)',
+    color: 'var(--ce-amber-ink)',
+    border: '1px solid var(--ce-amber-line)',
   },
   // Info: charcoal outline, no fill.
   info: {

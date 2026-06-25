@@ -21,7 +21,7 @@ Function, Dataverse schema, corpus, and Code App are live; the digital@ intake w
 
 **1b.1/1b.2 · Provider corpus** — [corpus/dataverse-corpus-incorporation.md](./corpus/dataverse-corpus-incorporation.md)
 7. [x] Initial seed + provider/garage/location analysis (`raw/.../outputs/`)
-8. [x] Corpus incorporation — scripts 10–14 + verify passed (WorkProvider 390, 174 InspectionAddress, 20 ImageSource + 98 N:N). **37 over-length principal codes deferred** → [../../gated.md](../../gated.md)
+8. [x] Corpus incorporation — scripts 10–14 + verify passed (WorkProvider 390, **174 confirmed** InspectionAddress, 20 ImageSource + 98 N:N). The InspectionAddress total is now **871** (174 confirmed + **697 volatile suggested** rows, `decisionMode=Unknown`, loaded 2026-06-20; CURRENT_STATUS authoritative). **37 over-length principal codes deferred** → [../../gated.md](../../gated.md)
 
 **1b.3 · Clarifying-info** — [corpus/clarifying-info-ingestion.md](./corpus/clarifying-info-ingestion.md)
 9. [ ] 🔒 Five operator worklists (code reconciliation, CONSIDER seeding, addresses→yards, garage↔provider, intermediaries) → [../../gated.md](../../gated.md)

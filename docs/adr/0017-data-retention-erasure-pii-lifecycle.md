@@ -41,8 +41,12 @@ below marks each.
    operator holds FULL AUTHORITY to run AI testing on all repo data now** — an explicit enabler for the
    Phase-8 LLM classifier and the Phase-4a vision / geocode work. The deferral is on the production
    sign-off, not on development-time AI testing.
-7. **(Audit-trail integrity — active)** Native Dataverse auditing + a defined cascade-delete rule for
-   `cr1bd_auditevent`.
+7. **(Audit-trail integrity — schema-as-code ALREADY IN THE TREE; only org-level enablement remains)** Both
+   halves are already authored: **table-native auditing** (`dataverse/.build/02-tables.ps1` sets
+   `IsAuditEnabled = true`, CanBeChanged, on every table) and the **cascade-delete rule** for
+   `cr1bd_auditevent` (`dataverse/relationships.json`: `cr1bd_case_auditevent` uses `delete: RemoveLink` so
+   audit rows survive a removed Case). What remains is **operator org-level enablement** — turning Dataverse
+   auditing on at the **organisation** level so the per-table flags take effect.
 8. **(G6 — store hardening; DEFERRED as a gate, but the principles are DEFINED now)** Before any purge
    is armed: **Key Vault purge-protection** (blocks permanent secret deletion during the soft-delete
    window) and **Blob soft-delete + versioning** (recoverable deletes). These are the **hard pre-step**
@@ -59,6 +63,13 @@ below marks each.
 
 - Realised as the new **Phase 9**; the bulk of it is **deferred-pending-operator** (see the per-item
   tags above), not active work.
+- **As-built (2026-06-24, offline / gated-OFF — NOT live):** the Claude-buildable surface was authored this
+  sweep — the retention-clock schema + `cr1bd_CASE_DISPOSITION_ENABLED` gate + `27-retention-schema.ps1`
+  (items 1–2), the scheduled `case-disposition` flow + `case_disposed=100000026` (item 2), the DSAR/erasure
+  runbook (item 3), `data-protection.md` (item 4), the bicep store-hardening (item 8, IaC half only —
+  `cespkevidstdev01` is operator-applied), and the 3-role schema-as-code (item 10). The auditing schema-as-code
+  (item 7) was already in the tree. **The operator activations (gate flip, role assignment, org-level auditing,
+  the `cespkevidstdev01` hardening) are tracked in [`docs/gated.md`](../gated.md) §7 (G1–G8).**
 - The **retention period + lawful basis + litigation-hold rule are `[RESERVED-FOR-USER]`** (legal).
 - The inspection-address export `.xlsx` (ADR-0016) is **intentionally git-tracked** — it is critical
   corpus data and the operator has decided it stays in the repo. It is **not** treated as a

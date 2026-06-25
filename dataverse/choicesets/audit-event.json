@@ -7,7 +7,7 @@
       "logicalName": "cr1bd_auditaction",
       "displayName": "Audit Action",
       "isGlobal": true,
-      "description": "Controlled action vocabulary mirrored from Phase-1 §4 AuditEvent + the corpus import + EVA/Box finalization actions. Extend additively only (never renumber). NOTE: location_assist_confirmed (100000022) is RESERVED/forward-declared for the Phase-4a live location-suggestion assist — no emitter exists yet; it is written once the InspectionAddress confirm/save path (Code App or a flow) is wired. See docs/plans/phase-4-address-and-chaser/location-suggest-v1-BUILD.md.",
+      "description": "Controlled action vocabulary mirrored from Phase-1 §4 AuditEvent + the corpus import + EVA/Box finalization actions + the Phase-8 inbound-email triage actions. Extend additively only (never renumber). NOTE: location_assist_confirmed (100000022) is RESERVED/forward-declared for the Phase-4a live location-suggestion assist — no emitter exists yet; it is written once the InspectionAddress confirm/save path (Code App or a flow) is wired. See docs/plans/phase-4-address-and-chaser/location-suggest-v1-BUILD.md. Phase-8 (ADR-0015): inbound_classified (100000024) is written when the triage-classify flow records a /classify-email label on a cr1bd_inboundemail row; inbound_routed (100000025) is written when a receiving_work row is routed to the Case chain (or a query is linked to its open Case).",
       "options": [
         { "value": 100000000, "name": "graph_message_ingested",       "label": "Graph Message Ingested" },
         { "value": 100000001, "name": "graph_message_ingest_failed",   "label": "Graph Message Ingest Failed" },
@@ -31,7 +31,11 @@
         { "value": 100000019, "name": "box_folder_created",           "label": "Box Folder Created" },
         { "value": 100000020, "name": "box_file_request_copied",      "label": "Box File Request Copied" },
         { "value": 100000021, "name": "box_upload_received",          "label": "Box Upload Received" },
-        { "value": 100000022, "name": "location_assist_confirmed",    "label": "Location Assist Confirmed" }
+        { "value": 100000022, "name": "location_assist_confirmed",    "label": "Location Assist Confirmed" },
+        { "value": 100000023, "name": "chaser_sent",                  "label": "Chaser Sent" },
+        { "value": 100000024, "name": "inbound_classified",           "label": "Inbound Classified" },
+        { "value": 100000025, "name": "inbound_routed",               "label": "Inbound Routed" },
+        { "value": 100000026, "name": "case_disposed",                "label": "Case Disposed" }
       ]
     },
     {

@@ -25,16 +25,18 @@
 > not deployed/bound. The connector import, webhook subscription, KV secrets and gate flips remain
 > pending (operator-blocked on CCG auth).**
 
-> **Status:** design + bind/confirm/activate runbook. The Box step **is already built offline**
-> (`flows/definitions/finalize-eva-box.definition.json`, imported `state=off`) — but it is built
-> against **operations that do not exist** on the real first-party Box connector and it carries the
-> **S2 content bug** (it uploads the Blob **path string**, not file **content**). This doc is the
-> deep dive behind **ROADMAP §3d "Box archival"** and the M2.D activation slice that
-> [m2-umbrella-enrichment-to-scale.md](../m2-umbrella-enrichment-to-scale.md) §8 only sketches.
-> It carries (a) the **CLAUDE-buildable** flow rewrite to the verified connector contract + the S2
-> fix, and (b) the **operator-gated** D.1–D.5 activation steps. Cross-references **gated.md S2**
-> (the content fix) and **gated.md H6 / B5** (live Box + UPPERCASE casing confirm). Author date
-> **2026-06-20**. Read-only research; **no flow / Dataverse / Box / EVA changed by this plan**.
+> **Status (refreshed 2026-06-24):** design + bind/confirm/activate runbook. The Box step **is built
+> offline** (`flows/definitions/finalize-eva-box.definition.json`, imported `state=off`). Two findings this
+> doc originally raised are now **resolved**: (i) the **S2 content bug is fixed** — the flow uses real
+> `CreateFile`+`folderPath` (`GetFileContentByPath_V2` → file **content**, not the path string), and (ii)
+> the non-byte ops that "do not exist on the first-party connector" are now carried by the **custom
+> `cr1bd_box_rest` connector** under Phase 7 (the first-party `shared_box` is retained for the byte path
+> only). Under Phase 7 the folder is **minted at parse-confirm** and `finalize-eva-box` **augments** it; the
+> EVA-REST branch now **streams photos** (sweep wave 2). This doc remains the deep dive behind ROADMAP §3d
+> for the **EVA photo-order rule**, the **UPPERCASE-casing confirm**, and the **S2 byte-bind detail** (kept
+> unchanged by Phase 7); the live design is [docs/plans/phase-7-box-integration/](../phase-7-box-integration/).
+> The remaining work is **operator-gated** (bind, confirm casing, gate flips). Author date **2026-06-20**;
+> superseded by Phase 7 (top banner). Read-only research; **no flow / Dataverse / Box / EVA changed by this plan**.
 
 ---
 

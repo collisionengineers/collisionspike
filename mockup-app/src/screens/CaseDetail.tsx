@@ -8,7 +8,6 @@ import {
   Divider,
   Dropdown,
   Field,
-  Input,
   Link,
   MessageBar,
   MessageBarBody,
@@ -28,7 +27,6 @@ import {
   mergeClasses,
   tokens,
   useToastController,
-  type InputOnChangeData,
   type SelectTabData,
   type SelectTabEvent,
 } from '@fluentui/react-components';
@@ -41,7 +39,6 @@ import {
   Check,
   CheckCircle2,
   Clock,
-  Copy,
   Download,
   FileText,
   GitMerge,
@@ -58,7 +55,11 @@ import {
 } from 'lucide-react';
 import {
   ChaserPanel,
+  EvaFieldRow,
+  FIELD_CLUSTERS,
+  LABEL_FOR,
   ImageOrderList,
+  Panel,
   PipelineStrip,
   ProvenanceBadge,
   SectionHeading,
@@ -91,11 +92,9 @@ import {
   type EvaFieldKey,
   type Evidence,
   type ImageRole,
-  type MileageUnit,
   type Note,
   type PipelineStageKey,
   type SuggestedAddress,
-  type VatStatus,
 } from '../data';
 import { resolveInspectionDecision } from '../domain/address-policy';
 import { GLOBAL_TOASTER_ID } from '../components';
@@ -179,12 +178,6 @@ const useStyles = makeStyles({
   },
 
   main: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM, minWidth: 0 },
-  panel: {
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderRadius: tokens.borderRadiusMedium,
-    backgroundColor: tokens.colorNeutralBackground1,
-    padding: tokens.spacingVerticalL,
-  },
   tabBody: { paddingTop: tokens.spacingVerticalM },
 
   /* Fields tab — clustered groups */
@@ -202,20 +195,6 @@ const useStyles = makeStyles({
     width: 'fit-content',
   },
   clusterBody: { paddingTop: tokens.spacingVerticalM },
-  fieldRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr auto',
-    gap: tokens.spacingHorizontalM,
-    alignItems: 'start',
-    paddingBottom: tokens.spacingVerticalM,
-  },
-  fieldMeta: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: tokens.spacingHorizontalXS,
-    paddingTop: '26px',
-  },
 
   /* Evidence tab */
   guidanceBanner: {
@@ -390,18 +369,8 @@ const useStyles = makeStyles({
 
 type TabName = 'fields' | 'evidence' | 'address' | 'notes' | 'chasers';
 
-/* The 12 EVA fields, grouped into legible clusters (order within a cluster
-   preserves the contract order). The union of keys equals EVA_FIELD_ORDER. */
-const FIELD_CLUSTERS: { heading: string; keys: EvaFieldKey[] }[] = [
-  { heading: 'Provider & claimant', keys: ['workProvider', 'claimantName', 'claimantTelephone', 'claimantEmail'] },
-  { heading: 'Vehicle', keys: ['vehicleModel', 'mileage', 'mileageUnit', 'vatStatus'] },
-  { heading: 'Incident', keys: ['accidentCircumstances', 'inspectionAddress'] },
-  { heading: 'Dates', keys: ['dateOfLoss', 'dateOfInstruction'] },
-];
-
-const LABEL_FOR: Record<EvaFieldKey, { label: string; required: boolean }> = Object.fromEntries(
-  EVA_FIELD_ORDER.map((d) => [d.key, { label: d.label, required: d.required }]),
-) as Record<EvaFieldKey, { label: string; required: boolean }>;
+/* The EVA field clusters, label/required lookup, and the editable field row are
+   shared with ManualIntake (src/components/EvaFields.tsx) so they cannot drift. */
 
 const ROLE_OPTIONS: { value: ImageRole; label: string }[] = [
   { value: 'overview', label: 'Overview' },
@@ -409,9 +378,6 @@ const ROLE_OPTIONS: { value: ImageRole; label: string }[] = [
   { value: 'additional', label: 'Additional' },
   { value: 'unknown', label: 'Unclassified' },
 ];
-
-const VAT_OPTIONS: VatStatus[] = ['', 'Yes', 'No'];
-const MILEAGE_UNIT_OPTIONS: MileageUnit[] = ['', 'Miles', 'Km'];
 
 const POLICY_LABEL: Record<Case['inspectionDecision'], string> = {
   confirmed_physical: 'Physical inspection (confirmed)',
@@ -452,97 +418,6 @@ function checklistTarget(item: ChecklistItem, c: Case): { tab: TabName; fieldKey
   // fields group — id is `field-<key>`.
   const key = item.id.startsWith('field-') ? (item.id.slice('field-'.length) as EvaFieldKey) : undefined;
   return { tab: 'fields', fieldKey: key };
-}
-
-/* ---------- A single EVA field row ---------- */
-interface FieldRowProps {
-  fieldKey: EvaFieldKey;
-  label: string;
-  required: boolean;
-  c: Case;
-  onTextChange: (key: EvaFieldKey, value: string) => void;
-  registerRef: (key: EvaFieldKey, el: HTMLElement | null) => void;
-}
-
-function FieldRow({ fieldKey, label, required, c, onTextChange, registerRef }: FieldRowProps) {
-  const styles = useStyles();
-  const field = c.evaFields[fieldKey];
-  const empty = field.value.trim().length === 0;
-  const validation =
-    required && empty
-      ? ({ validationState: 'error' as const, validationMessage: 'Required' })
-      : {};
-
-  const change = (_: unknown, data: InputOnChangeData) => onTextChange(fieldKey, data.value);
-  const setRef = (el: HTMLElement | null) => registerRef(fieldKey, el);
-
-  let control: React.ReactNode;
-  if (fieldKey === 'accidentCircumstances') {
-    control = (
-      <Textarea
-        ref={setRef as (el: HTMLTextAreaElement | null) => void}
-        value={field.value}
-        onChange={(_, d) => onTextChange(fieldKey, d.value)}
-        resize="vertical"
-        rows={3}
-      />
-    );
-  } else if (fieldKey === 'inspectionAddress') {
-    control = (
-      <Textarea
-        ref={setRef as (el: HTMLTextAreaElement | null) => void}
-        value={field.value}
-        onChange={(_, d) => onTextChange(fieldKey, d.value)}
-        resize="vertical"
-        rows={6}
-      />
-    );
-  } else if (fieldKey === 'vatStatus') {
-    control = (
-      <Dropdown
-        ref={setRef as (el: HTMLButtonElement | null) => void}
-        value={field.value || '—'}
-        selectedOptions={[field.value]}
-        onOptionSelect={(_, d) => onTextChange(fieldKey, d.optionValue ?? '')}
-      >
-        {VAT_OPTIONS.map((o) => (
-          <Option key={o || 'blank'} value={o} text={o || '—'}>
-            {o || '—'}
-          </Option>
-        ))}
-      </Dropdown>
-    );
-  } else if (fieldKey === 'mileageUnit') {
-    control = (
-      <Dropdown
-        ref={setRef as (el: HTMLButtonElement | null) => void}
-        value={field.value || '—'}
-        selectedOptions={[field.value]}
-        onOptionSelect={(_, d) => onTextChange(fieldKey, d.optionValue ?? '')}
-      >
-        {MILEAGE_UNIT_OPTIONS.map((o) => (
-          <Option key={o || 'blank'} value={o} text={o || '—'}>
-            {o || '—'}
-          </Option>
-        ))}
-      </Dropdown>
-    );
-  } else {
-    control = <Input ref={setRef as (el: HTMLInputElement | null) => void} value={field.value} onChange={change} />;
-  }
-
-  return (
-    <div className={styles.fieldRow} id={`field-${fieldKey}`}>
-      {/* Fluent's `required` renders the asterisk AND exposes the required
-          semantic to assistive tech (the hand-appended " *" did neither). */}
-      <Field label={label} required={required} {...validation}>
-        {control}
-      </Field>
-      <div className={styles.fieldMeta}>
-        <ProvenanceBadge provenance={field.provenance} reviewState={field.reviewState} fieldKey={fieldKey} />
-      </div>
-    </div>
-  );
 }
 
 /* ---------- Evidence card ---------- */
@@ -898,11 +773,12 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
      The decision is routed through resolveInspectionDecision (ADR-0013 confirmation
      path): a 'use_physical_address' choice with a real address resolves to
      decisionMode='manual'. We CAPTURE the plain-language provenance into local
-     working-copy state for a future save path (sourceLabel 'suggested:assist' when
-     the origin is the live assist). This screen does not write anything yet; when
-     the InspectionAddress upsert is wired it will record WHERE the confirmed manual
-     decision came from (cr1bd_sourcelabel/-sourcenote) — it does NOT make the row
-     an unconfirmed suggestion. */
+     working-copy state AND persist it via saveInspectionDecision (honest no-op until
+     the corpus table is wired). The persisted sourceLabel is a CONFIRMED label
+     ('confirmed:assist' / 'confirmed:corpus') — NOT 'suggested*' — so the row records
+     WHERE the confirmed manual decision came from (cr1bd_sourcelabel/-sourcenote)
+     WITHOUT becoming a new unconfirmed suggestion (the suggestions query + the Admin
+     split + isSuggestedAddressRecord all key on the 'suggested' prefix). */
   const useSuggestion = (s: SuggestedAddress) => {
     const lines = [...s.lines, s.postcode].map((l) => (l ?? '').trim()).filter(Boolean);
     if (lines.length === 0) {
@@ -927,22 +803,81 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
     // Defensive: only apply when the resolver returns a non-image-based manual
     // decision (it will, for a non-empty address). NOTHING auto-applies otherwise.
     if (decision.imageBased || decision.needsReviewerDecision) return;
+    const resolvedMode = decision.decisionMode ?? 'manual';
     onTextChange('inspectionAddress', draft);
-    setDecisionMode(decision.decisionMode ?? 'manual');
+    setDecisionMode(resolvedMode);
     setOverrideAddr(false); // a real address supersedes any image-based override
-    // Capture the confirmed decision's provenance into local state for a future
-    // save path (not yet wired). Live-assist picks carry 'suggested:assist' + a
-    // plain "Suggested from the photos" note.
-    if (s.source === 'assist') {
-      const note = s.evidenceNote
-        ? `Suggested from the photos — ${s.evidenceNote.split('\n')[0]}`
-        : 'Suggested from the photos';
-      setConfirmedProvenance({ sourceLabel: 'suggested:assist', sourceNote: note });
-    } else {
-      setConfirmedProvenance(undefined);
-    }
+    // Capture the confirmed decision's provenance into local state (rendered as the
+    // caption below the draft). The reviewer has just CONFIRMED this pick, so the
+    // sourceLabel must NOT start with 'suggested' — that prefix is reserved for the
+    // unconfirmed corpus candidates (isSuggestedAddressRecord keys on it, and the
+    // suggestions query filters on it). A confirmed pick carries 'confirmed:assist'
+    // (a live-assist pick the reviewer accepted) or 'confirmed:corpus' (a catalogue
+    // row the reviewer accepted) — mirroring the 'suggested:*' shape but excluded
+    // from the suggestion set. The human-facing note still says "Suggested from the
+    // photos" (no engineering terms; describes where the candidate came from).
+    const provenance =
+      s.source === 'assist'
+        ? {
+            sourceLabel: 'confirmed:assist',
+            sourceNote: s.evidenceNote
+              ? `Suggested from the photos — ${s.evidenceNote.split('\n')[0]}`
+              : 'Suggested from the photos',
+          }
+        : { sourceLabel: 'confirmed:corpus', sourceNote: 'Picked from suggested locations' };
+    // Live-assist picks set the caption; corpus picks clear it (parity with prior behaviour).
+    setConfirmedProvenance(s.source === 'assist' ? provenance : undefined);
     setTab('address');
     toast('Suggested location copied to the address — review before submit');
+
+    // PERSIST the human-confirmed decision + its provenance to the corpus table
+    // (ADR-0013: fires ONLY here, on the explicit "Use this address" click — never
+    // on load, never auto-resolved). Honest no-op until the table is wired, so the
+    // local working copy above is always the source of truth in the meantime; a
+    // write failure must not undo the in-screen pick, so it is best-effort.
+    void data
+      .saveInspectionDecision(c.id, {
+        decisionMode: resolvedMode,
+        sourceLabel: provenance.sourceLabel,
+        sourceNote: provenance.sourceNote,
+        addressLines: s.lines,
+        ...(s.postcode ? { postcode: s.postcode } : {}),
+      })
+      .catch(() => {
+        /* persistence is supplementary — the local pick already stands */
+      });
+  };
+
+  /* Confirm an Image Based Assessment override. The reviewer ticked "Override to
+     Image Based Assessment" and typed a reason; this is the explicit confirm for
+     that path (the SAME ADR-0013 shape as picking a suggested address: writes ONLY
+     on this click, never on load, never auto-resolved, no runtime matcher). It sets
+     the local working copy to image_based and PERSISTS the decision + reason to the
+     corpus as an image-based row (sourceLabel 'image_based' — not 'suggested', so it
+     is never re-surfaced as a candidate). Honest no-op until the table is wired. */
+  const confirmImageBased = () => {
+    const reason = overrideReason.trim();
+    if (!reason) {
+      toast('Add a reason before recording Image Based Assessment');
+      return;
+    }
+    onTextChange('inspectionAddress', 'Image Based Assessment');
+    setDecisionMode('image_based');
+    setConfirmedProvenance(undefined);
+    toast('Image Based Assessment recorded — review before submit');
+
+    // PERSIST the image-based decision + reason (ADR-0013: fires ONLY here, on this
+    // explicit confirm). Honest no-op until the table is wired; best-effort so a
+    // write failure never undoes the in-screen decision.
+    void data
+      .saveInspectionDecision(c.id, {
+        decisionMode: 'image_based',
+        sourceLabel: 'image_based',
+        sourceNote: reason,
+      })
+      .catch(() => {
+        /* persistence is supplementary — the local decision already stands */
+      });
   };
 
   /* Run the live location-assist (Phase 4a). Builds the request from data ALREADY
@@ -1084,15 +1019,6 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
           subtitle={subtitle || undefined}
           actions={
             <div className={styles.actions}>
-              {c.status === 'duplicate_risk' && (
-                <Button
-                  appearance="secondary"
-                  icon={<Copy size={16} />}
-                  onClick={() => navigate(`/case/${c.id}/dedup`)}
-                >
-                  Resolve duplicate
-                </Button>
-              )}
               <Button appearance="secondary" icon={<Upload size={16} />} onClick={() => navigate('/evidence')}>
                 Add evidence
               </Button>
@@ -1198,7 +1124,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
       <div className={styles.grid}>
         {/* ---------------- MAIN ---------------- */}
         <div className={styles.main}>
-          <div className={styles.panel}>
+          <Panel>
             <TabList
               selectedValue={tab}
               onTabSelect={(_: SelectTabEvent, d: SelectTabData) => setTab(d.value as TabName)}
@@ -1218,13 +1144,14 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                       <span className={styles.clusterHead}>{cluster.heading}</span>
                       <div className={styles.clusterBody}>
                         {cluster.keys.map((key) => (
-                          <FieldRow
+                          <EvaFieldRow
                             key={key}
                             fieldKey={key}
                             label={LABEL_FOR[key].label}
                             required={LABEL_FOR[key].required}
-                            c={c}
-                            onTextChange={onTextChange}
+                            field={c.evaFields[key]}
+                            onChange={onTextChange}
+                            rowId={`field-${key}`}
                             registerRef={registerRef}
                           />
                         ))}
@@ -1443,14 +1370,25 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                     onChange={(_, d) => setOverrideAddr(!!d.checked)}
                   />
                   {overrideAddr && (
-                    <Field label="Override reason" required>
-                      <Textarea
-                        value={overrideReason}
-                        onChange={(_, d) => setOverrideReason(d.value)}
-                        resize="vertical"
-                        rows={3}
-                      />
-                    </Field>
+                    <>
+                      <Field label="Override reason" required>
+                        <Textarea
+                          value={overrideReason}
+                          onChange={(_, d) => setOverrideReason(d.value)}
+                          resize="vertical"
+                          rows={3}
+                        />
+                      </Field>
+                      <div>
+                        <Button
+                          appearance="primary"
+                          onClick={confirmImageBased}
+                          disabled={!overrideReason.trim()}
+                        >
+                          Record Image Based Assessment
+                        </Button>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -1508,13 +1446,13 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 />
               )}
             </div>
-          </div>
+          </Panel>
         </div>
 
         {/* ---------------- SIDEBAR ---------------- */}
         <div className={styles.sidebar}>
           {/* ONE canonical readiness presentation: each ✗ row deep-links to fix. */}
-          <div className={styles.panel}>
+          <Panel>
             <Text className="ce-section-heading">Readiness</Text>
             <Caption1 className={mergeClasses(styles.hint, styles.hintNudgeTop)} block>
               {blocked
@@ -1552,9 +1490,9 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 </span>
               )}
             </div>
-          </div>
+          </Panel>
 
-          <div className={styles.factsPanel}>
+          <Panel className={styles.factsPanel}>
             <Text className="ce-section-heading">Imported details</Text>
             <Caption1 className={mergeClasses(styles.hint, styles.hintNudgeBottom)} block>
               From the instruction document or email.
@@ -1579,7 +1517,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                   <span className={styles.factVal}>{v}</span>
                 </div>
               ))}
-          </div>
+          </Panel>
         </div>
       </div>
 

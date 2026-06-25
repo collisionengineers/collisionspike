@@ -38,7 +38,7 @@ operator-confirmed gate. Nothing here is on the M1 critical path.
 |---|---|---|
 | `functions/evasentry/function_app.py` | **Built** — HTTP trigger `POST /api/eva/instruction-inspection`; **gate-at-edge** (`EVA_API_ENABLED` re-checked server-side); validate-before-token; soft-fail → `submitted:false` (flow falls back to drag-drop) vs `400` on a malformed payload. | read 2026-06-18 |
 | `functions/evasentry/eva_client.py` | **Built** — `POST {EVA_BASE_URL}Connect/token` (`x-www-form-urlencoded`, `Client_Id`+`Client_Secret`), `expires_in` **minutes → seconds** with a **30 s** skew cache, **401 → refresh once → retry**; patterned on `functions/enrichment/dvsa_client.py`. | README §"The modules" |
-| `functions/evasentry/payload.py` | **Built, pure** — `validate_core_payload` (12-field membership/format, **parity-tested** against `contracts/eva-payload.schema.json`), `order_impact_images` (**2 previews then full sequence incl. those two again**), `build_instruction_inspection` (12-field core **byte-identical** to the drag-drop body + ordered images). | README §"payload.py" |
+| `functions/evasentry/payload.py` | **Built, pure** — `validate_core_payload` (12-field membership/format, **parity-tested** against `contracts/eva-payload.schema.json`), `order_impact_images` (**2 previews then full sequence incl. those two again**), `split_preview_and_rest` + `core_to_instruction` (12-field core **byte-identical** to the drag-drop body + ordered images). _(The function is `core_to_instruction` — the older name `build_instruction_inspection` is retired.)_ | README §"payload.py" |
 | `functions/evasentry/openapi/evasentry-connector.json` | **Built** — OpenAPI **2.0**, one operation on `/eva/instruction-inspection`, **function-key (`x-functions-key`), NO OAuth**. (Verified: `node` parse OK; `swagger=2.0`.) | this plan §9 |
 | `functions/evasentry/infra/main.bicep` | **Built** — Flex Consumption Function + Storage + Key Vault + system-assigned MI granted *Key Vault Secrets User*; `EVA_CLIENT_ID/SECRET` as `@Microsoft.KeyVault(SecretUri=…)` refs; `EVA_BASE_URL` plain. | README §"Secret handling" |
 | `functions/evasentry/tests/` | **Green** — **42 pass** (validate-before-mint; minutes→seconds TTL+skew; 401 self-heal; image ordering; `EVA_PAYLOAD_KEYS`==schema; no secret/token in logs). Use the project venv (`.venv` has `httpx`/`respx`/`azure-functions`); bare `python` errors on the missing `httpx` import only. | `.venv/Scripts/python -m pytest -q` 2026-06-19 |
@@ -81,9 +81,10 @@ Func_EvaSentry  (functions/evasentry, function-key)
   │  gate-at-edge re-check (defence in depth)
   │  validate_core_payload(12 fields)  ── invalid ─▶ 400 (never contacts EVA)
   │  EvaClient: mint/cache JWT (POST {EVA_BASE_URL}Connect/token, KV creds)
-  │  build_instruction_inspection: 12-field core verbatim + order_impact_images
-  │  POST {EVA_BASE_URL}Instruction/Inspection  (Authorization: Bearer)
-  │       ├─ 200 → { submitted:true, evaRef, transport:"sentry_rest" }
+  │  split_preview_and_rest + core_to_instruction: 12-field core verbatim + ordered photos
+  │  REQ 1: POST {EVA_BASE_URL}Instruction/Inspection (2 previews; Authorization: Bearer)
+  │  REQ 2: POST {EVA_BASE_URL}Note/SubmitNote     (ALL photos in sequence, matched by VehReg)
+  │       ├─ instruction 200 → { submitted:true, evaRef, transport:"sentry_rest" } (a failed REQ 2 degrades to a warning; claim exists, photos in Box)
   │       └─ 401/5xx/cred-missing → { submitted:false, warnings:[…] }  (SOFT-FAIL)
   ▼
 finalize-eva-box continues:
@@ -99,24 +100,26 @@ gates archival (integrations.md §Box; ADR-0008 tool boundary ends at the EVA ha
 
 ---
 
-## 4. The two-request photo question (the one real protocol unknown)
+## 4. The two-request photo flow (BUILT — confirm shape on the test env)
 
-The `eva-sentry-api` skill and the architecture doc both flag that image submission is **"likely two
-requests" — previews first, then the remaining images — confirm on the test env.** The built
-`payload.py::order_impact_images` already produces the correct **order** (2 previews, then the full
-sequence including those two again). What is **not** confirmed is *transport*:
+The two-request photo submission is **built** (verified 2026-06-24), matching the v1.2 PDF (pp.13, 21-23):
+the **2 preview photos** ride on the **first** request `POST /Instruction/Inspection` (which creates the
+claim and returns `Id`); the **FULL** ordered set (previews + all, in sequence) then rides on a **second**
+request `POST /Note/SubmitNote`, matched to the claim by `VehReg` (+ `ClmNo`/`EvaRef`). The code is
+`function_app.py` (`split_preview_and_rest` → `core_to_instruction` → `post_instruction_inspection`, then
+`build_files(all_in_sequence)` → the Note submit) and `payload.py::order_impact_images` produces the
+correct **order** (2 previews, then the full sequence including those two again). A failed second request
+**degrades to a warning** (the claim exists; the remaining photos are archived in Box and can be re-sent),
+never a hard failure.
 
-| Option | Shape | Where it's handled today |
-|---|---|---|
-| **(a) Inline** | base-64 `impact_images[]` entries on the **single** `POST /Instruction/Inspection` body. | `build_instruction_inspection` attaches under `impact_images` (clearly-named, easily renamed). |
-| **(b) Two-call** | `/Instruction/Inspection` (the 12-field core) **then** a separate previews/images submission call. | Not built — would add a second `EvaClient` method + a `SubmitPreviews`/equivalent connector op. |
+| Aspect | State |
+|---|---|
+| **Transport (two requests vs inline)** | **BUILT — two requests** (`Instruction/Inspection` then `Note/SubmitNote`), no longer an open question. |
+| **Exact EVA `Files`/Impact-Image field names** | The shape is built to the PDF; **confirm the precise field name(s) against the EVA test server** and adjust the `build_files` mapping if EVA names them differently (a small `[BUILD]` change + a fixture). |
 
-**Resolution path (operator, against EVA test):** re-read `docs/reference/Sentry API Documentation 1.2
-Amended.pdf` for the exact Impact-Image field name(s); submit one real overview+damage set to the EVA
-**test** server; capture the accepted shape. If **(a)**, rename the `impact_images` key to EVA's field
-name in `payload.py` (one-line `[BUILD]` change + a fixture). If **(b)**, add the second `EvaClient`
-method and a second connector operation, and split the flow action into previews-then-rest. **Do not
-finalise the connector until this is captured from the test env.** (Tracked as §10 Q1.)
+**Resolution path (operator, against EVA test):** submit one real overview+damage set to the EVA **test**
+server; confirm both requests are accepted and the `Files` field names match. The two-request *structure*
+is settled; only the field-name confirmation remains. (Tracked as §10 Q1, now narrowed.)
 
 ---
 
@@ -136,13 +139,12 @@ open question** to confirm on the test server before prod cutover — never inve
 
 ROADMAP §3c: *"Production cutover — gated behind a parity test; operator-confirmed."* Concretely:
 
-- **Offline parity (already green, keep green):** `payload.py::EVA_PAYLOAD_KEYS` **equals**
-  `contracts/eva-payload.schema.json` `propertyNames.enum` (a pytest asserts this). The REST core and the
-  drag-drop core are the **same 12 keys in the same order**.
-- **Cross-transport parity (the cutover gate — author as `[BUILD]`):** a test that takes one canonical
-  Case, builds **both** the drag-drop JSON (`mockup-app/src/contracts/eva-export.ts`) **and**
-  `build_instruction_inspection`'s 12-field core, and asserts they are **byte-identical for the 12
-  fields** (dates `DD/MM/YYYY`; `VAT Status` ∈ {"",Yes,No}; `Mileage Unit` ∈ {"",Miles,Km}; Inspection
+- **Offline parity (already green, keep green):** `payload.py::EVA_PAYLOAD_KEYS` (the membership/format set
+  enforced by `validate_core_payload`) **equals** `contracts/eva-payload.schema.json` `propertyNames.enum`
+  (a pytest asserts this). The REST core and the drag-drop core are the **same 12 keys in the same order**.
+- **Cross-transport parity (the cutover gate — BUILT in wave 2, 2026-06-24):** a test that takes one
+  canonical Case, builds **both** the drag-drop JSON (`mockup-app/src/contracts/eva-export.ts`) **and**
+  `core_to_instruction`'s 12-field core, and asserts they are **byte-identical for the 12 fields** (dates `DD/MM/YYYY`; `VAT Status` ∈ {"",Yes,No}; `Mileage Unit` ∈ {"",Miles,Km}; Inspection
   Address 6 newline-separated lines; `Work Provider` non-empty). This proves "REST submit == drag-drop"
   so the cutover changes *transport only*, never *content*.
 - **Live parity (operator, EVA test):** submit the same Case via REST to EVA **test**; confirm the EVA
@@ -171,7 +173,7 @@ the `eva-sentry-api` skill's "idempotency by payload hash" realised at the flow 
 | # | Step | Tag | Command / artifact |
 |---|---|---|---|
 | 1 | Confirm offline green. | [BUILD] (done) | `cd functions/evasentry && .venv/Scripts/python -m pytest -q` → 42 passed. |
-| 2 | **Resolve the Impact-Image shape** against EVA test (§4); apply the one-line rename or the two-call addition; re-run pytest. | [BUILD] + [RESERVED-FOR-USER] to read test env | `payload.py` (+ fixture); `pdf` re-read. |
+| 2 | **Confirm the Impact-Image `Files` field name(s)** against EVA test (§4 — the two-request transport is already built); adjust the `build_files` mapping only if EVA names them differently; re-run pytest. | [BUILD] + [RESERVED-FOR-USER] to read test env | `payload.py`/`function_app.py` (+ fixture). |
 | 3 | Deploy the Function + Key Vault. | [DEPLOY-WITH-LOGIN] | `az bicep build functions/evasentry/infra/main.bicep`; `func azure functionapp publish <evasentry-host>` (rg-collisionspike-dev, UK South). |
 | 4 | Set **non-secret** `EVA_BASE_URL=https://sentry.evasoftware.co.uk/api/` as a Function app setting **and** as the Dataverse env-var current value. | [DEPLOY-WITH-LOGIN] | `az functionapp config appsettings set …`; solution env-var. |
 | 5 | **Inject EVA test creds** `eva-client-id` / `eva-client-secret` into Key Vault (the secret **names** already match the Dataverse refs). | [RESERVED-FOR-USER] | `az keyvault secret set …` (values from Infisical). |
@@ -208,9 +210,11 @@ the `eva-sentry-api` skill's "idempotency by payload hash" realised at the flow 
 
 ## 10. Open questions / uncertainties (resolve on the EVA test server)
 
-1. **(BIGGEST) Impact-Image transport + field name(s)** — inline `impact_images[]` on
-   `/Instruction/Inspection` vs a separate previews call (§4). Decides a one-line rename vs a second
-   connector op. **Capture from EVA test before finalising the connector.**
+1. **Impact-Image `Files` field name(s)** — the **transport is settled and BUILT** (two requests:
+   `Instruction/Inspection` previews then `Note/SubmitNote` for the full set, §4). What remains is to
+   **confirm the exact EVA `Files`/Impact-Image field name(s) against the EVA test server** and adjust the
+   `build_files` mapping if they differ (a small `[BUILD]` change + a fixture). No longer "the biggest
+   unknown".
 2. **Required `Instruction/Inspection` fields beyond the 12 core** (§5) — confirm EVA's mandatory set on
    test; map only from data we hold; flag any gap (never invent).
 3. **`evaRef` acknowledgement field name** — `function_app.py::_extract_ref` tries several

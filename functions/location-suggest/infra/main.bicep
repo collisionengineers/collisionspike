@@ -100,6 +100,22 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
   parent: storage
   name: 'default'
+  // G6 store-hardening (ADR-0017): recoverable blob/container deletes + versioning.
+  // The hard pre-step before any purge flow (box-blob-purge / case-disposition) is
+  // armed. (The live evidence-bytes store cespkevidstdev01 is access-key-bound and
+  // NOT declared in this IaC — hardening it is an operator-confirm item; see the
+  // change note. This is defense-in-depth on the Function-host account.)
+  properties: {
+    deleteRetentionPolicy: {
+      enabled: true
+      days: 7
+    }
+    containerDeleteRetentionPolicy: {
+      enabled: true
+      days: 7
+    }
+    isVersioningEnabled: true
+  }
 }
 
 resource deployContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
@@ -125,6 +141,10 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     tenantId: subscription().tenantId
     enableRbacAuthorization: true
     enableSoftDelete: true
+    // G6 store-hardening (ADR-0017): purge-protection blocks a permanent secret
+    // wipe during the soft-delete window — an accidental/malicious purge is
+    // recoverable. Irreversible once set (the property does not accept false).
+    enablePurgeProtection: true
     softDeleteRetentionInDays: 7
     publicNetworkAccess: 'Enabled'
   }

@@ -8,7 +8,7 @@ validation checklist across all three mailboxes — the M1 "done" definition.
 
 ## Implementation checklist
 
-1. [x] Offline gate green — `node verify-all.mjs` (7/7)
+1. [x] Offline gate green — `node verify-all.mjs` (**all gates green**; it began at 7 and now runs more — Code App build+vitest, Dataverse parity, the flow linter, the per-Function pytest loop, and two static gates incl. the **new boundary grep-gate** added in this phase)
 2. [x] Static grep gate (no live EVA/Box/Graph/SharePoint calls in the app) / flow-state assertion (all flows off) / no-credentials assertion (only Key Vault references + env-var names)
 3. [ ] 🔒 Connection inventory — `pac connection list` (operator evidence at activation)
 4. [ ] 🔒 Deploy log — record every `[DEPLOY-WITH-LOGIN]` + `[RESERVED-FOR-USER]` action

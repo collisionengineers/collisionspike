@@ -91,6 +91,11 @@
   --ce-bg-2: #f5f4f2;
   --ce-success: #16833b;
   --ce-whatsapp: #25d366;
+  /* Amber "attention" severity ramp (status badge + dashboard chips/pills). */
+  --ce-amber: #f5c244; /* fill */
+  --ce-amber-tint: #f7e2a6; /* lighter fill (aging pill) */
+  --ce-amber-line: #e0a92a; /* border */
+  --ce-amber-ink: #3a2e08; /* text on amber */
 
   --ce-font-display: 'Futura PT', 'Tw Cen MT Std', 'Helvetica Neue', Arial, sans-serif;
   --ce-font-brand: 'Tw Cen MT Std', 'Futura PT', 'Century Gothic', sans-serif;
@@ -145,6 +150,40 @@ body,
   font-family: var(--ce-font-display);
   font-weight: 700;
   font-size: 34px;
+  line-height: 1;
+  color: var(--ce-ink);
+}
+
+/* ----------  CE region overline + stat numbers  ----------
+   Reused recipes the dashboard inlined per-element: the uppercase tracked
+   region label, and the two Futura stat sizes (live depth / throughput). The
+   muted colour uses the Fluent neutral token (NOT --ce-muted) so it matches the
+   token-driven surfaces. */
+
+/* Uppercase tracked region/section overline — 11px Futura, muted. */
+.ce-overline {
+  font-family: var(--ce-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--colorNeutralForeground3);
+}
+
+/* Throughput stat — 22px Futura, ink. */
+.ce-stat {
+  font-family: var(--ce-font-display);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.05;
+  color: var(--ce-ink);
+}
+
+/* Live-depth stat — 26px Futura, ink. */
+.ce-stat-lg {
+  font-family: var(--ce-font-display);
+  font-weight: 700;
+  font-size: 26px;
   line-height: 1;
   color: var(--ce-ink);
 }

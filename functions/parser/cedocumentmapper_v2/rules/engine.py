@@ -133,6 +133,87 @@ _AUDIT_PHRASES: tuple[str, ...] = (
 )
 
 
+# Phrases (case-insensitive) that signal an email is INSTRUCTING new work — the
+# sender is asking Collision Engineers to carry out an inspection / produce a
+# report. Mirrors the high-precision _AUDIT_PHRASES discipline: anchored to
+# instruction language ("please inspect", "instructed to") rather than any bare
+# word that could appear in a question about past work. Used by the email
+# classifier alongside attachment/provider signals; a body that fires several of
+# these (plus a Case/PO or VRM) is treated as a typed-in-body instruction even
+# with no attachment. Kept deliberately conservative so an ambiguous email
+# abstains to the "other" bucket rather than getting a wrong receiving-work label.
+_WORK_KEYWORDS: tuple[str, ...] = (
+    "please inspect",
+    "please carry out",
+    "please attend",
+    "please arrange an inspection",
+    "arrange an inspection",
+    "instructed to",
+    "we instruct",
+    "we are instructing",
+    "new instruction",
+    "inspection request",
+    "instruction to inspect",
+    "engineer's report",
+    "engineers report",
+    "provide a report",
+    "prepare a report",
+    "vehicle for inspection",
+    "assess the damage",
+    "assess the vehicle",
+    "carry out an inspection",
+    "pre-accident value",
+    "pre accident value",
+)
+
+
+# Phrases (case-insensitive) that signal an email is ASKING A QUESTION rather than
+# instructing work — a chase for a report we owe, a status question, or a cold
+# enquiry / request for a quote. Same precision discipline as _WORK_KEYWORDS.
+# The classifier uses these only after the work rules have failed, so an email
+# that both instructs and asks a question still reads as work first.
+_QUERY_KEYWORDS: tuple[str, ...] = (
+    "where is my report",
+    "where is the report",
+    "chasing the report",
+    "chase the report",
+    "any update",
+    "any progress",
+    "status of",
+    "could you confirm",
+    "can you confirm",
+    "please confirm",
+    "please update",
+    "how much would",
+    "how much do you charge",
+    "what do you charge",
+    "would you be able to quote",
+    "can you quote",
+    "request a quote",
+    "for a quote",
+    "fee for",
+    "cost to inspect",
+    "would you be able to",
+    "is it possible to",
+    "general enquiry",
+    "enquiring about",
+    "querying",
+)
+
+
+def _match_keywords(text: str, phrases: tuple[str, ...]) -> tuple[str, ...]:
+    """Return the subset of ``phrases`` present (case-insensitive) in ``text``.
+
+    Shared helper for the keyword tuples above, mirroring the matching done in
+    :func:`detect_audit_signals` so every classifier decision can list exactly
+    which phrases fired (explainability). Empty/None text -> no matches.
+    """
+    if not text:
+        return ()
+    haystack = text.lower()
+    return tuple(phrase for phrase in phrases if phrase in haystack)
+
+
 def detect_audit_signals(text: str) -> tuple[bool, tuple[str, ...]]:
     """Return ``(is_audit, signals)`` for an instruction's plain text.
 
