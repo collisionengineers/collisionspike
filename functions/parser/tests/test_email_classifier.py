@@ -98,6 +98,11 @@ def _tier2_cases() -> list:
             "provider_match_state": entry["provider_match_state"],
             "has_attachments": entry["has_attachments"],
         }
+        # attachment_kinds is optional in the manifest (most Tier-2 fixtures are
+        # attachment-less). The collision fixtures that carry an image to exercise
+        # Rule 0 / Rule 2 supply it explicitly.
+        if "attachment_kinds" in entry:
+            request["attachment_kinds"] = entry["attachment_kinds"]
         cases.append(
             pytest.param(request, entry["expected"], id=f"tier2-{entry['eml']}")
         )
@@ -202,6 +207,98 @@ def test_auto_reply_with_no_attachment_abstains_even_with_work_language():
         has_attachments=False,
     )
     assert result["category"] == "other"
+
+
+def test_auto_reply_with_image_attachment_still_abstains():
+    """Regression (ADR-0015): an out-of-office / bounce that CARRIES an image (a
+    signature logo, a returned-message screenshot, the original photo bounced back)
+    from a known provider must STILL abstain to other. Pre-fix Rule 0 only fired
+    with no attachment, so an auto-reply + image skipped it and reached Rule 2 ->
+    receiving_work. Rule 0 now fires on the marker regardless of attachments."""
+    ooo = classify_email(
+        subject="Automatic reply: Out of office",
+        body="I am out of the office and away from my desk until Monday.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
+    assert ooo["category"] == "other"
+    assert ooo["subtype"] == "other"
+    assert ooo["signals"][-1] == "rule:auto_reply_marker"
+
+    bounce = classify_email(
+        subject="Undeliverable: Inspection request",
+        body="Delivery has failed. The message could not be delivered and was returned to sender.",
+        provider_match_state="none",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
+    assert bounce["category"] == "other"
+    assert bounce["signals"][-1] == "rule:auto_reply_marker"
+
+
+def test_query_with_image_from_known_provider_is_query_not_work():
+    """Regression (ADR-0015): a query email that merely re-attaches the original
+    photo — query phrasing, an image, a known provider, but NO work phrase and no
+    instruction doc — must classify as a query, NOT receiving_work. Pre-fix it hit
+    Rule 2 (images_with_work_signal) on the provider match alone, which would
+    create or touch a work Case. The reference makes it query_existing_work."""
+    result = classify_email(
+        subject="FW: claim CCPY26050 - any update?",
+        body="Just chasing the report. Could you confirm where this is up to? I have re-attached the original vehicle photo.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
+    assert result["category"] == "query"
+    assert result["subtype"] == "query_existing_work"
+    assert result["body_caseref"] == "CCPY26050"
+
+
+def test_query_with_image_no_reference_is_query_existing_work():
+    """The same collision without a Case/PO or VRM: query phrasing + image +
+    provider, no work phrase. Falls through Rule 2 to the keyword-only query rule
+    (query_existing_work because the provider is known)."""
+    result = classify_email(
+        subject="FW: claim",
+        body="Just checking the status of this. Could you confirm?",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
+    assert result["category"] == "query"
+    assert result["subtype"] == "query_existing_work"
+
+
+def test_images_with_work_phrase_still_receiving_work():
+    """Guard against over-correction: an image + a genuine work phrase must STILL
+    be receiving_work even when a query phrase is also present (work wins)."""
+    result = classify_email(
+        subject="New instruction",
+        body="Please inspect the vehicle and prepare a report. Could you confirm receipt?",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
+    assert result["category"] == "receiving_work"
+    assert result["subtype"] == "existing_provider_instruction"
+    assert result["signals"][-1] == "rule:images_with_work_signal"
+
+
+def test_images_with_provider_no_query_phrasing_still_receiving_work():
+    """Guard against over-correction: an image + a known provider with NO query
+    phrasing (and no work phrase) remains receiving_work — the abstain only
+    applies when the email is phrased as a query."""
+    result = classify_email(
+        subject="Photos for you",
+        body="Here are the photos as discussed.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
+    assert result["category"] == "receiving_work"
+    assert result["subtype"] == "existing_provider_instruction"
+    assert result["signals"][-1] == "rule:images_with_work_signal"
 
 
 def test_query_with_reference_is_query_existing_work():

@@ -25,6 +25,18 @@ architecture/requirements > plans):
 > of a local `.venv` (they pass when set up); flow linter 181/181. The parser drift guard that was RED at the
 > sweep's start is fixed (engine re-vendored from sibling `aecbc4b`). Every `[DRIFT]` item below is reconciled.
 > What remains is the `[OPERATOR]` activations + the two recorded `[DEFERRED]` items (images-backend, corpus Pester).
+>
+> 🔎 **Post-merge thorough review (2026-06-25):** a 4-agent review of PR #24 (4 commits each) returned **0 blockers**.
+> **Fixed:** the save-path wrote `sourceLabel:'suggested:*'` which would have re-classified a *confirmed* pick as an
+> unconfirmed suggestion → now `confirmed:*` (+ `provider=` token, + the IBA persist path wired, + the inverted test
+> corrected); the classifier's abstain bias for a query/auto-reply email carrying an image from a known provider
+> (Rule 0 + Rule 2, sibling `e256760`, +2 corpus fixtures); a stale `chaser_sent=100000019` collision in
+> `20-connectors-setup.ps1` + `whatsapp-coexistence.md`; a boundary-gate `axios`/`node-fetch` import needle.
+> **Triaged out:** the OpenAPI `audit` `x-nullable` (false positive — `vrm`/`reference` are bare `$ref` too); the
+> `28-roles.ps1` `$EnvUrl` default (repo-wide convention across all 14 `.build` scripts).
+> **Deferred minors:** bicep `isVersioningEnabled` on the Flex-Consumption host-storage accounts (keep soft-delete;
+> versioning belongs on the live evidence store `cespkevidstdev01`, an operator step); a stale pre-scrub
+> `.claude/worktrees/` key copy (not on the branch, won't ship — key rotation in gated.md §7 is the real fix).
 
 ---
 

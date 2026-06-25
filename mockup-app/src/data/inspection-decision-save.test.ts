@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createDataverseDataAccess } from './dataverse-source';
 import { mockDataAccess } from './mock-source';
-import { inspectionDecisionCodec } from './adapter';
+import { inspectionDecisionCodec, isSuggestedAddressRecord } from './adapter';
 import type {
+  CaseRecord,
   GeneratedServices,
   GeneratedTableService,
   InspectionAddressRecord,
@@ -21,8 +22,9 @@ import type {
         sourceNote + address lines/postcode), with a fake service injected.
      3. ADR-0013 invariant: the seam writes nothing on its own; a write happens ONLY
         when the method is explicitly called, and the row it writes is a CONFIRMED
-        decision (decisionMode != unknown, sourceLabel not 'suggested*'), never an
-        auto-resolved/unconfirmed suggestion.
+        decision (decisionMode != unknown, AND sourceLabel does NOT start with
+        'suggested' — so isSuggestedAddressRecord EXCLUDES it and the suggestions
+        query never re-surfaces it), never an auto-resolved/unconfirmed suggestion.
    ============================================================ */
 
 /** A capturing create-spy table service; records every create() payload. */
@@ -41,18 +43,35 @@ function fakeInspectionService(
   };
 }
 
-/** GeneratedServices stub carrying only the inspection-address service (or none). */
+/** A read-only cases stub returning a single case row with the given Case/PO, so the
+ *  seam can derive the provider PRINCIPAL token for the source note. */
+function fakeCasesService(casePo: string): GeneratedTableService<CaseRecord> {
+  return {
+    getAll: async (): Promise<OperationResult<CaseRecord[]>> => ({ data: [] }),
+    get: async (id) => ({ data: { cr1bd_caseid: id, cr1bd_casepo: casePo } as CaseRecord }),
+    create: async () => ({ data: undefined }),
+    update: async () => ({ data: undefined }),
+  };
+}
+
+/** GeneratedServices stub carrying the inspection-address service (or none) and an
+ *  optional cases service (for the provider-token derivation). */
 function servicesWith(
   inspectionAddresses?: GeneratedTableService<InspectionAddressRecord>,
+  cases?: GeneratedTableService<CaseRecord>,
 ): GeneratedServices {
   return {
     ...(inspectionAddresses ? { inspectionAddresses } : {}),
+    ...(cases ? { cases } : {}),
   } as unknown as GeneratedServices;
 }
 
 const ASSIST_PICK: InspectionDecisionInput = {
   decisionMode: 'manual',
-  sourceLabel: 'suggested:assist',
+  // A reviewer-CONFIRMED pick: the label must NOT start with 'suggested' (that
+  // prefix is reserved for the unconfirmed corpus candidates). 'confirmed:assist'
+  // mirrors the 'suggested:assist' convention but is excluded from the suggestion set.
+  sourceLabel: 'confirmed:assist',
   sourceNote: 'Suggested from the photos — sign on the building reads "Smith Recovery"',
   addressLines: ['Smith Recovery', 'Unit 4 Acton Park', 'London'],
   postcode: 'W3 7QE',
@@ -74,7 +93,9 @@ describe('saveInspectionDecision — honest no-op when unwired', () => {
 describe('saveInspectionDecision — correct upsert payload when wired', () => {
   it('writes the confirmed decision + provenance + address onto one corpus row', async () => {
     const created: Array<Partial<InspectionAddressRecord>> = [];
-    const da = createDataverseDataAccess(servicesWith(fakeInspectionService(created)));
+    const da = createDataverseDataAccess(
+      servicesWith(fakeInspectionService(created), fakeCasesService('CCPY26050')),
+    );
 
     const result = await da.saveInspectionDecision('case-42', ASSIST_PICK);
 
@@ -83,11 +104,22 @@ describe('saveInspectionDecision — correct upsert payload when wired', () => {
     expect(created).toHaveLength(1);
     const row = created[0];
 
-    // Provenance columns carry the confirmed pick's origin + note.
-    expect(row.cr1bd_sourcelabel).toBe('suggested:assist');
+    // Provenance columns carry the confirmed pick's origin + note. The label is a
+    // CONFIRMED label (NOT 'suggested*') — so this row is excluded from the suggestion
+    // set rather than re-offered as an unconfirmed candidate (ADR-0013).
+    expect(row.cr1bd_sourcelabel).toBe('confirmed:assist');
+    expect(row.cr1bd_sourcelabel?.startsWith('suggested')).toBe(false);
     expect(row.cr1bd_sourcenote).toContain('Suggested from the photos');
     // The originating case is traced in the note (the corpus has no case lookup).
     expect(row.cr1bd_sourcenote).toContain('case=case-42');
+    // The provider PRINCIPAL is parsed from the Case/PO's leading-alpha run and
+    // recorded for scoping/traceability (mirrors the corpus seeder's provider= token).
+    expect(row.cr1bd_sourcenote).toContain('provider=CCPY');
+
+    // The confirmed-not-suggestion invariant, pinned through the real predicate: the
+    // suggestions query + Admin count both key on isSuggestedAddressRecord, so it MUST
+    // exclude this written row.
+    expect(isSuggestedAddressRecord(row as InspectionAddressRecord)).toBe(false);
 
     // decisionMode is the HUMAN-confirmed mode, mapped to its choice-set integer.
     expect(row.cr1bd_decisionmode).toBe(inspectionDecisionCodec.toInt('manual'));
@@ -121,6 +153,9 @@ describe('saveInspectionDecision — correct upsert payload when wired', () => {
     // No address columns for an image-based decision.
     expect(row.cr1bd_addressline1).toBeUndefined();
     expect(row.cr1bd_postcode).toBeUndefined();
+    // An IBA decision is a CONFIRMED row too — its 'image_based' label is non-suggested,
+    // so it is excluded from the suggestion set (CaseDetail's IBA-override confirm path).
+    expect(isSuggestedAddressRecord(row as InspectionAddressRecord)).toBe(false);
   });
 });
 
@@ -153,9 +188,10 @@ describe('saveInspectionDecision — ADR-0013 invariant (no write without an exp
     const row = created[0];
 
     // The written row carries a RESOLVED decision mode (not the 'unknown' that a
-    // suggestion row must keep) — so isSuggestedAddressRecord would treat it as a
-    // confirmed reference, not a candidate the reviewer must still pick.
+    // suggestion row must keep) AND a non-'suggested' label — so isSuggestedAddressRecord
+    // treats it as a confirmed reference, not a candidate the reviewer must still pick.
     expect(row.cr1bd_decisionmode).not.toBe(inspectionDecisionCodec.toInt('unknown'));
     expect(row.cr1bd_decisionmode).toBe(inspectionDecisionCodec.toInt('manual'));
+    expect(isSuggestedAddressRecord(row as InspectionAddressRecord)).toBe(false);
   });
 });

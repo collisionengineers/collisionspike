@@ -522,14 +522,18 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
 
        The corpus table is provider-scoped and standalone — it carries NO case
        lookup (ADR-0013: a corpus row is never mirrored onto / bound to a Case). So
-       the caseId is recorded for traceability INSIDE the source note, not as a
-       lookup. The required primary `cr1bd_name` (Label) is derived from the
-       confirmed address (or the IBA literal).
+       the originating caseId AND the provider PRINCIPAL (parsed from the Case/PO,
+       like the suggestions query) are recorded for traceability/scoping INSIDE the
+       source note as 'case=<id> provider=<code>', not as a lookup. The required
+       primary `cr1bd_name` (Label) is derived from the confirmed address (or the
+       IBA literal).
 
-       ADR-0013 (BINDING): this is reached ONLY from the explicit confirm path; it
-       does not auto-resolve, does not write on load, and reintroduces no runtime
-       address matcher. The row it writes is a CONFIRMED decision (decisionMode !=
-       unknown, sourceLabel NOT 'suggested*'), NOT a new unconfirmed suggestion. */
+       ADR-0013 (BINDING): this is reached ONLY from the explicit confirm path
+       (a picked suggestion via useSuggestion, OR an Image Based Assessment override
+       via confirmImageBased); it does not auto-resolve, does not write on load, and
+       reintroduces no runtime address matcher. The row it writes is a CONFIRMED
+       decision (decisionMode != unknown, sourceLabel NOT 'suggested*' — so
+       isSuggestedAddressRecord EXCLUDES it), NOT a new unconfirmed suggestion. */
     saveInspectionDecision: async (
       caseId,
       decision: InspectionDecisionInput,
@@ -553,8 +557,34 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       const label = isImageBased
         ? 'Image Based Assessment'
         : [lines[0], decision.postcode?.trim()].filter(Boolean).join(', ') || 'Inspection address';
-      // Trace the originating case in the note (no case lookup exists on the corpus).
-      const sourceNote = `case=${caseId} ${decision.sourceNote}`.trim();
+      // Scope/trace the written row to its provider via the 4-char PRINCIPAL code,
+      // parsed from the Case/PO's leading-alpha run (e.g. 'CCPY26050' -> 'CCPY'),
+      // uppercased — the SAME derivation the suggestions query uses, and the
+      // 'provider=<code>' token the corpus seeder writes. The corpus carries no case
+      // lookup, so the originating case + provider are recorded in the source note.
+      // Provider-scoped EXCLUSION from the suggestion set is already guaranteed by the
+      // non-'suggested' sourceLabel (the suggestions query filters startswith
+      // 'suggested' and never fetches this row); the token is for traceability and any
+      // future provider-scoped reporting over confirmed rows.
+      // Best-effort: the provider token is supplementary traceability — never let a
+      // case-read hiccup (or an absent cases service in a narrow test/host) block the
+      // durable decision write.
+      let providerCode = '';
+      try {
+        const caseRes = await services.cases?.get(caseId);
+        providerCode = (
+          caseRes?.data?.cr1bd_casepo?.trim().match(/^[A-Za-z]+/)?.[0] ?? ''
+        ).toUpperCase();
+      } catch {
+        /* leave providerCode empty — the row still writes without the token */
+      }
+      const sourceNote = [
+        `case=${caseId}`,
+        ...(providerCode ? [`provider=${providerCode}`] : []),
+        decision.sourceNote,
+      ]
+        .join(' ')
+        .trim();
       const record: Partial<InspectionAddressRecord> = {
         cr1bd_name: label,
         cr1bd_sourcelabel: decision.sourceLabel,

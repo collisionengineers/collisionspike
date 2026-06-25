@@ -115,8 +115,11 @@ export interface InspectionDecisionInput {
   /** The decision the reviewer confirmed (e.g. 'manual' for a picked address,
    *  'image_based' for an explicit IBA, 'confirmed_physical' under required_address). */
   decisionMode: Case['inspectionDecision'];
-  /** Plain-language origin of the confirmed pick (-> cr1bd_sourcelabel), e.g.
-   *  'suggested:assist' (live-assist pick), 'suggested:corpus', 'manual', 'image_based'. */
+  /** Origin of the CONFIRMED pick (-> cr1bd_sourcelabel). MUST NOT start with
+   *  'suggested' (that prefix marks the unconfirmed corpus candidates that
+   *  isSuggestedAddressRecord + the suggestions query key on). Confirm-path values:
+   *  'confirmed:assist' (a live-assist pick the reviewer accepted), 'confirmed:corpus'
+   *  (a catalogue row the reviewer accepted), 'manual', or 'image_based'. */
   sourceLabel: string;
   /** Plain-language provenance note (-> cr1bd_sourcenote): "Suggested from the photos",
    *  the image-based reason, etc. Free text the reviewer's action produced. */
@@ -164,7 +167,7 @@ export interface SuggestedAddress {
      `source:'assist'` marks a candidate returned by the reviewer-invoked location
      assist (Vision + Maps), as opposed to a 'corpus' catalogue row. It changes ONLY
      the provenance recorded when the reviewer CONFIRMS (cr1bd_sourcelabel
-     'suggested:assist' + a plain "Suggested from the photos" note) — an assist
+     'confirmed:assist' + a plain "Suggested from the photos" note) — an assist
      candidate is STILL just a suggestion the reviewer must pick (ADR-0013); it is
      never auto-applied and never persisted on its own. Absent/'corpus' = the
      existing offline corpus suggestion (unchanged). */

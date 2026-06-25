@@ -773,11 +773,12 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
      The decision is routed through resolveInspectionDecision (ADR-0013 confirmation
      path): a 'use_physical_address' choice with a real address resolves to
      decisionMode='manual'. We CAPTURE the plain-language provenance into local
-     working-copy state for a future save path (sourceLabel 'suggested:assist' when
-     the origin is the live assist). This screen does not write anything yet; when
-     the InspectionAddress upsert is wired it will record WHERE the confirmed manual
-     decision came from (cr1bd_sourcelabel/-sourcenote) — it does NOT make the row
-     an unconfirmed suggestion. */
+     working-copy state AND persist it via saveInspectionDecision (honest no-op until
+     the corpus table is wired). The persisted sourceLabel is a CONFIRMED label
+     ('confirmed:assist' / 'confirmed:corpus') — NOT 'suggested*' — so the row records
+     WHERE the confirmed manual decision came from (cr1bd_sourcelabel/-sourcenote)
+     WITHOUT becoming a new unconfirmed suggestion (the suggestions query + the Admin
+     split + isSuggestedAddressRecord all key on the 'suggested' prefix). */
   const useSuggestion = (s: SuggestedAddress) => {
     const lines = [...s.lines, s.postcode].map((l) => (l ?? '').trim()).filter(Boolean);
     if (lines.length === 0) {
@@ -807,17 +808,23 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
     setDecisionMode(resolvedMode);
     setOverrideAddr(false); // a real address supersedes any image-based override
     // Capture the confirmed decision's provenance into local state (rendered as the
-    // caption below the draft). Live-assist picks carry 'suggested:assist' + a plain
-    // "Suggested from the photos" note; corpus picks carry 'suggested:corpus'.
+    // caption below the draft). The reviewer has just CONFIRMED this pick, so the
+    // sourceLabel must NOT start with 'suggested' — that prefix is reserved for the
+    // unconfirmed corpus candidates (isSuggestedAddressRecord keys on it, and the
+    // suggestions query filters on it). A confirmed pick carries 'confirmed:assist'
+    // (a live-assist pick the reviewer accepted) or 'confirmed:corpus' (a catalogue
+    // row the reviewer accepted) — mirroring the 'suggested:*' shape but excluded
+    // from the suggestion set. The human-facing note still says "Suggested from the
+    // photos" (no engineering terms; describes where the candidate came from).
     const provenance =
       s.source === 'assist'
         ? {
-            sourceLabel: 'suggested:assist',
+            sourceLabel: 'confirmed:assist',
             sourceNote: s.evidenceNote
               ? `Suggested from the photos — ${s.evidenceNote.split('\n')[0]}`
               : 'Suggested from the photos',
           }
-        : { sourceLabel: 'suggested:corpus', sourceNote: 'Picked from suggested locations' };
+        : { sourceLabel: 'confirmed:corpus', sourceNote: 'Picked from suggested locations' };
     // Live-assist picks set the caption; corpus picks clear it (parity with prior behaviour).
     setConfirmedProvenance(s.source === 'assist' ? provenance : undefined);
     setTab('address');
@@ -838,6 +845,38 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
       })
       .catch(() => {
         /* persistence is supplementary — the local pick already stands */
+      });
+  };
+
+  /* Confirm an Image Based Assessment override. The reviewer ticked "Override to
+     Image Based Assessment" and typed a reason; this is the explicit confirm for
+     that path (the SAME ADR-0013 shape as picking a suggested address: writes ONLY
+     on this click, never on load, never auto-resolved, no runtime matcher). It sets
+     the local working copy to image_based and PERSISTS the decision + reason to the
+     corpus as an image-based row (sourceLabel 'image_based' — not 'suggested', so it
+     is never re-surfaced as a candidate). Honest no-op until the table is wired. */
+  const confirmImageBased = () => {
+    const reason = overrideReason.trim();
+    if (!reason) {
+      toast('Add a reason before recording Image Based Assessment');
+      return;
+    }
+    onTextChange('inspectionAddress', 'Image Based Assessment');
+    setDecisionMode('image_based');
+    setConfirmedProvenance(undefined);
+    toast('Image Based Assessment recorded — review before submit');
+
+    // PERSIST the image-based decision + reason (ADR-0013: fires ONLY here, on this
+    // explicit confirm). Honest no-op until the table is wired; best-effort so a
+    // write failure never undoes the in-screen decision.
+    void data
+      .saveInspectionDecision(c.id, {
+        decisionMode: 'image_based',
+        sourceLabel: 'image_based',
+        sourceNote: reason,
+      })
+      .catch(() => {
+        /* persistence is supplementary — the local decision already stands */
       });
   };
 
@@ -1331,14 +1370,25 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                     onChange={(_, d) => setOverrideAddr(!!d.checked)}
                   />
                   {overrideAddr && (
-                    <Field label="Override reason" required>
-                      <Textarea
-                        value={overrideReason}
-                        onChange={(_, d) => setOverrideReason(d.value)}
-                        resize="vertical"
-                        rows={3}
-                      />
-                    </Field>
+                    <>
+                      <Field label="Override reason" required>
+                        <Textarea
+                          value={overrideReason}
+                          onChange={(_, d) => setOverrideReason(d.value)}
+                          resize="vertical"
+                          rows={3}
+                        />
+                      </Field>
+                      <div>
+                        <Button
+                          appearance="primary"
+                          onClick={confirmImageBased}
+                          disabled={!overrideReason.trim()}
+                        >
+                          Record Image Based Assessment
+                        </Button>
+                      </div>
+                    </>
                   )}
                 </div>
               )}

@@ -178,6 +178,14 @@
       "expected": { "category": "query", "subtype": "query_existing_work" }
     },
     {
+      "$comment": "Phase-8 regression (ADR-0015): a provider chasing a report who RE-ATTACHES the original vehicle photo. Query phrasing + a body Case/PO, an image, and a known provider — but NO work phrase and no instruction doc. Pre-fix this hit Rule 2 (images_with_work_signal) and was wrongly labelled receiving_work, which would create/touch a work Case. Must now fall through to the query rules.",
+      "eml": "query_existing_work/chase-with-reattached-photo.eml",
+      "provider_match_state": "one",
+      "attachment_kinds": ["image"],
+      "has_attachments": true,
+      "expected": { "category": "query", "subtype": "query_existing_work" }
+    },
+    {
       "eml": "query_new_enquiry/cold-quote-enquiry.eml",
       "provider_match_state": "none",
       "has_attachments": false,
@@ -199,6 +207,14 @@
       "eml": "other/out-of-office.eml",
       "provider_match_state": "one",
       "has_attachments": false,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "$comment": "Phase-8 regression (ADR-0015): an out-of-office auto-reply that CARRIES an image (a signature logo / bounced-back photo) from a known provider. Pre-fix Rule 0 only fired when there was no attachment, so this skipped the auto-reply abstain and hit Rule 2 -> receiving_work. Rule 0 must now fire on the auto-reply marker regardless of attachments.",
+      "eml": "other/out-of-office-with-image.eml",
+      "provider_match_state": "one",
+      "attachment_kinds": ["image"],
+      "has_attachments": true,
       "expected": { "category": "other", "subtype": "other" }
     },
     {

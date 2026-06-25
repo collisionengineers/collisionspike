@@ -178,11 +178,15 @@ def classify_email(
 
     First-match-wins decision tree (see ADR-0015 / the Phase-8 plan):
 
-      0. Auto-reply / bounce with no attachment -> other
-         (abstain-to-other; a quoted OOO chain must not read as work).
+      0. Auto-reply / bounce marker present  -> other
+         (abstain-to-other; a quoted OOO chain or a bounce must not read as
+         work, even when it happens to carry an image).
       1. Instruction doc attached            -> receiving_work
          (audit | existing-provider | new-client by audit phrases / provider).
-      2. Images only + (provider known OR work keyword) -> receiving_work.
+      2. Images + (provider known OR work keyword) -> receiving_work, UNLESS the
+         email is phrased as a query with no work language (then fall through to
+         the query rules — a provider chasing a report who re-attaches the
+         original photo must not create/touch a work Case).
       3. No attachment, >=2 work keywords + a body Case/PO or VRM -> receiving_work
          (an instruction typed into the email body).
       4. A query keyword + a body Case/PO or VRM -> query / query_existing_work
@@ -242,18 +246,20 @@ def classify_email(
             "contract_version": CONTRACT_VERSION,
         }
 
-    # --- Rule 0: an auto-reply / bounce with no attachment is never work --------
+    # --- Rule 0: an auto-reply / bounce marker forces ``other`` -----------------
     # A quoted out-of-office or bounce chain can echo work language and a stray
-    # registration; with no attachment to anchor it, force ``other`` rather than
-    # risk a wrong receiving-work label (abstain-to-other; ADR-0015 Risk 2). A
-    # genuine instruction always carries its document, so this guard only fires on
-    # the attachment-less path.
-    if auto_reply_markers and not has_atts:
+    # registration; an OOO or non-delivery report can also carry an attached image
+    # (a signature logo, a returned-message screenshot, the original photo bounced
+    # back). Either way it is not a fresh instruction, so abstain to ``other``
+    # rather than risk a wrong receiving-work label (abstain-to-other; ADR-0015
+    # Risk 2). This guard runs BEFORE the image/work rules so an auto-reply with an
+    # image cannot slip through to Rule 2 and read as work.
+    if auto_reply_markers:
         return _result(
             CATEGORY_OTHER,
             SUBTYPE_OTHER,
             _CONFIDENCE_ABSTAIN,
-            "auto_reply_no_attachment",
+            "auto_reply_marker",
         )
 
     # --- Rule 1: an instruction document is the single strongest work signal ---
@@ -279,8 +285,19 @@ def classify_email(
             "instruction_doc_new_client",
         )
 
-    # --- Rule 2: images only, but a provider or work language confirms work -----
-    if has_images and (provider_known or work_phrases):
+    # --- Rule 2: images + a provider or work language confirms work -------------
+    # An attached image plus a known provider OR instruction language reads as a
+    # fresh instruction (a new client's photos, or a provider's photos with a
+    # "please inspect"). BUT a query email that merely re-attaches the original
+    # photo — query phrasing, no work phrase, no instruction doc (Rule 1 already
+    # consumed those) — must NOT be promoted to work on the provider match alone:
+    # a provider chasing a report who re-sends the photo would otherwise create or
+    # touch a Case. In that one case fall through to the query rules (abstain bias;
+    # ADR-0015). A genuine instruction still wins: a work phrase here keeps Rule 2,
+    # and an instruction doc already classified at Rule 1.
+    if has_images and (provider_known or work_phrases) and not (
+        query_phrases and not work_phrases
+    ):
         subtype = (
             SUBTYPE_EXISTING_PROVIDER_INSTRUCTION
             if provider_known

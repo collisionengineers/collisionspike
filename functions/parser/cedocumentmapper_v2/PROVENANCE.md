@@ -16,11 +16,16 @@ intentional, recorded reconciliations described here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/`
 - **Cut from:** branch `feat/audit-case-type-detection` at commit
-  **`aecbc4bf3050077c53606df904704e63ea45cae1`** (`aecbc4b`, 2026-06-24) — a
-  **clean, committed, pushed** sibling ref. `aecbc4b` is the earlier engine-core cut
-  `af98383` PLUS the Phase-8 `rules/email_classifier.py` + the work/query keyword tuples in
-  `rules/engine.py`; the 8 re-vendored modules are byte-unchanged between `af98383` and `aecbc4b`.
-  This supersedes the earlier `4824136` + dirty-working-tree pin.
+  **`e25676083421c9783101587038a7aab4d955bbe8`** (`e256760`, 2026-06-25) — a
+  **clean, committed, pushed** sibling ref. `e256760` is the earlier cut `aecbc4b`
+  PLUS the Phase-8 (ADR-0015) `rules/email_classifier.py` abstain-bias fix (Rule 0
+  fires on the auto-reply/bounce marker regardless of attachments; Rule 2 falls
+  through to the query rules when the email is phrased as a query with no work
+  phrase and no instruction doc). Only `rules/email_classifier.py` changed between
+  `aecbc4b` and `e256760`; every other re-vendored module is byte-unchanged.
+  `aecbc4b` was itself the earlier engine-core cut `af98383` PLUS the original
+  Phase-8 classifier + the work/query keyword tuples in `rules/engine.py`. This
+  supersedes the earlier `aecbc4b` and `4824136` pins.
 
   > Re-cut policy: this copy is now a **clean-ref mirror** of the sibling's
   > engine-core at `af98383`, plus the single vendored-only B2 reconciliation
@@ -28,6 +33,19 @@ intentional, recorded reconciliations described here.
   > case-type detector are now **committed in the sibling**, so a clean re-cut
   > brings them in naturally — no hand-patching needed for them.
 
+> ## ✅ RE-VENDORED (2026-06-25) — Phase-8 classifier abstain fix — drift guard GREEN
+>
+> `rules/email_classifier.py` re-cut byte-identical from the sibling's committed
+> ref `e256760` (branch `feat/audit-case-type-detection`) after the ADR-0015
+> abstain-bias fix (Rule 0 fires on the auto-reply/bounce marker regardless of
+> attachments; Rule 2 falls through to the query rules for a query-phrased,
+> work-phrase-free, instruction-doc-free email). It is a **non-reconciled shared
+> module**, so it falls through to `test_shared_unreconciled_modules_are_byte_identical`
+> and must stay byte-identical — which it is. No other vendored module changed.
+> `test_engine_vendored_in_sync.py` is **6/6 green**. New collisionspike Tier-2
+> corpus fixtures + unit tests lock the two collisions (see the Phase-8 plan /
+> `test-cases-and-data/triage-corpus/labels.json`).
+>
 > ## ✅ RE-VENDORED (2026-06-24) — drift guard GREEN
 >
 > Re-cut from the sibling's committed ref `af98383` (branch

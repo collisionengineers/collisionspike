@@ -142,6 +142,7 @@ gate('Code App — no raw external calls outside the connector seam', () => {
     /azurewebsites\.net/i,
     /graph\.microsoft/i,
     /login\.microsoftonline/i,
+    /\bfrom\s+['"](?:axios|node-fetch|got|undici)['"]/, // raw HTTP-client imports — the app must go through the connector seam
     /\bapi\.box\.com\b/i,
   ];
   const allow = (rel) =>
