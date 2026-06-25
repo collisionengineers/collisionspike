@@ -37,11 +37,11 @@
           "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
         "parameters": {
           "entityName": "cr1bd_evidences",
-          "$filter": "_cr1bd_caseid_value eq @{variables('caseId')} and cr1bd_kind eq 100000000 and cr1bd_acceptedforeva eq true and statecode eq 0",
+          "$filter": "_cr1bd_caseid_value eq @{variables('caseId')} and cr1bd_kind eq 100000000 and cr1bd_acceptedforeva eq true and cr1bd_excluded ne true and statecode eq 0",
           "$select": "cr1bd_evidenceid,cr1bd_kind,cr1bd_imagerole,cr1bd_registrationvisible,cr1bd_acceptedforeva,cr1bd_excluded"
         }
       },
-      "comment": "Accepted EVA image evidence for THIS case (kind Image=100000000, acceptedForEva=true, active). Excluded (person-reflection) rows are filtered out in-flow next (the connector cannot AND a possibly-null boolean cleanly). Evidence read (not cr1bd_cases) — the cross-provider guard is N/A here; scoping is by the case id.",
+      "comment": "FIX (PR#24 #1): NON-EXCLUDED accepted EVA image evidence for THIS case (kind Image=100000000, acceptedForEva=true, cr1bd_excluded ne true, active). The 'cr1bd_excluded ne true' clause is now in the $filter (matching Order_evidence in finalize-eva-box, which already ANDs the same boolean — the old 'connector cannot AND a possibly-null boolean' note was stale; 'ne true' treats null as not-excluded). PURPOSE: the deleted Filter_accepted_images step used to drop excluded rows before the branch-4 zero-image count; readiness-filtering moved into the Validate_readiness Function (which drops excluded rows in _is_accepted_image), but Compute_next_status branch 4 still tests length(List_case_evidence)==0 DIRECTLY — so a case whose only photos are person-reflection-excluded (acceptedforeva=true AND cr1bd_excluded=true) was counted as length>=1, skipping the zero-image guard and falling through to error/Exceptions instead of needs_review. With excluded rows now filtered OUT of this list, branch 4 correctly sees length==0 for an excluded-only case and routes it to needs_review. Validate_readiness still gets the SAME non-excluded accepted set (its Function drops excluded rows anyway, so the readiness verdict is unchanged — this only fixes the branch-4 direct count). Evidence read (not cr1bd_cases) — the cross-provider guard is N/A here; scoping is by the case id.",
       "runAfter": { "Get_case": [ "Succeeded" ] }
     },
     "List_instruction_evidence": {
@@ -103,7 +103,7 @@
           "Compute_next_status": {
             "type": "Compose",
             "inputs": "@if(and(body('Validate_readiness')?['fieldsValid'], body('Validate_readiness')?['imagesValid']), 'ready_for_eva', if(and(body('Validate_readiness')?['fieldsValid'], not(body('Validate_readiness')?['imagesValid'])), 'missing_images', if(and(not(body('Validate_readiness')?['fieldsValid']), body('Validate_readiness')?['imagesValid']), 'missing_required_fields', if(and(equals(length(coalesce(outputs('List_case_evidence')?['body/value'], json('[]'))), 0), equals(variables('instructionCount'), 0)), 'needs_review', if(variables('hasIdentity'), 'needs_review', 'error')))))",
-            "comment": "EVIDENCE-AWARE status tree (FIX 3). fieldsValid/imagesValid now come from the shared evavalidation Function (body('Validate_readiness')) — same contract, one implementation. (1) fields+images -> ready_for_eva; (2) fields, no images -> missing_images (instructions parsed, awaiting photos); (3) images valid but fields missing -> missing_required_fields (genuine 'Images only' — REQUIRES real image evidence); (4) no accepted EVA images at all (List_case_evidence empty) AND no instruction evidence -> needs_review (pending/new; NEVER a premature error); (5) else identifiable -> needs_review, unidentifiable -> error (Exceptions). The branch-4 zero-image test reads List_case_evidence directly (acceptedForEva image rows) — if any accepted row exists, branch 4 is skipped and the case falls to the premature-error-safe branch 5. Fixes instructions-only cases mislabelled 'Images only' and routes genuinely-empty/unparseable cases to Exceptions.",
+            "comment": "EVIDENCE-AWARE status tree (FIX 3). fieldsValid/imagesValid now come from the shared evavalidation Function (body('Validate_readiness')) — same contract, one implementation. (1) fields+images -> ready_for_eva; (2) fields, no images -> missing_images (instructions parsed, awaiting photos); (3) images valid but fields missing -> missing_required_fields (genuine 'Images only' — REQUIRES real image evidence); (4) no NON-EXCLUDED accepted EVA images at all (List_case_evidence empty) AND no instruction evidence -> needs_review (pending/new; NEVER a premature error); (5) else identifiable -> needs_review, unidentifiable -> error (Exceptions). PR#24 FIX #1: the branch-4 zero-image test reads List_case_evidence directly, which is now filtered to NON-EXCLUDED accepted image rows (cr1bd_excluded ne true added to the $filter) — so a case whose only photos are person-reflection-excluded now correctly counts as zero accepted images here and routes to needs_review (branch 4), instead of being seen as length>=1 and falling through to error (branch 5). If any NON-excluded accepted row exists, branch 4 is skipped and the case falls to the premature-error-safe branch 5. Fixes instructions-only cases mislabelled 'Images only', excluded-only cases mislabelled 'error', and routes genuinely-empty/unparseable cases to Exceptions.",
             "runAfter": {}
           },
           "Map_status_choice": {
@@ -152,21 +152,54 @@
       },
       "runAfter": { "Set_hasIdentity": [ "Succeeded" ] }
     },
-    "Respond_to_parent": {
-      "type": "Response",
-      "kind": "Http",
-      "inputs": {
-        "statusCode": 200,
-        "body": {
-          "caseId": "@variables('caseId')",
-          "terminal": "@or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000008), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000009), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000010), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000006), not(equals(coalesce(outputs('Get_case')?['body/statecode'], 0), 0))))))",
-          "status": "@coalesce(outputs('Compute_next_status'), 'terminal')",
-          "statusCode": "@if(or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000008), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000009), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000010), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000006), not(equals(coalesce(outputs('Get_case')?['body/statecode'], 0), 0)))))), outputs('Get_case')?['body/cr1bd_status'], outputs('Map_status_choice'))",
-          "fieldsValid": "@body('Validate_readiness')?['fieldsValid']",
-          "imagesValid": "@body('Validate_readiness')?['imagesValid']"
+    "Respond_status_persist_outcome": {
+      "type": "If",
+      "expression": {
+        "or": [
+          { "equals": [ "@actions('Update_status')?['status']", "Failed" ] },
+          { "equals": [ "@actions('Update_status')?['status']", "TimedOut" ] }
+        ]
+      },
+      "comment": "PR#24 FIX #2: the child must NOT report success when the actual cr1bd_status write (Update_status) FAILED. Respond_to_parent ran after Guard_terminal on ALL completion outcomes and unconditionally returned 200 with the COMPUTED next status — so a transient Dataverse 5xx on Update_status left the row at its OLD status while the parent intake chain got 200 reporting the new status as if persisted (no retry, silent divergence). This If now gates the response on the write's REAL outcome via actions('Update_status')?['status'] (the single-action accessor; returns null when Update_status never ran — the terminal short-circuit OR the idempotent no-change path where Patch_status_if_changed took its else — so null != Failed/TimedOut falls to the else/200). Only when Update_status actually ran AND ended Failed/TimedOut does the TRUE branch return a non-2xx so the caller knows the transition did NOT persist. NOTE: when Update_status fails, the nested failure propagates Guard_terminal to Failed, but this If still runs (runAfter includes Failed). A Guard_terminal failure for a DIFFERENT reason while Update_status Succeeded leaves actions('Update_status')?['status']='Succeeded' -> else/200 (the write DID persist, success is correct). runAfter Guard_terminal on all completion outcomes so the child always returns exactly one Response.",
+      "actions": {
+        "Respond_persist_failed": {
+          "type": "Response",
+          "kind": "Http",
+          "inputs": {
+            "statusCode": 502,
+            "body": {
+              "caseId": "@variables('caseId')",
+              "error": "status_persist_failed",
+              "message": "@concat('Update_status did not persist (', coalesce(actions('Update_status')?['status'], 'unknown'), '); case remains at status ', string(outputs('Get_case')?['body/cr1bd_status']), ' — caller must retry.')",
+              "attemptedStatus": "@outputs('Map_status_choice')",
+              "persistedStatus": "@outputs('Get_case')?['body/cr1bd_status']"
+            }
+          },
+          "comment": "PR#24 FIX #2: the cr1bd_status write FAILED/TimedOut — return 502 (NOT 200) so the parent intake chain sees the child failed and the transition did not persist. The row is still at its OLD cr1bd_status (Update_status is the only mutation of it), so reporting success here would be a lie. Carries the attempted vs persisted status for the caller's diagnostics. A non-2xx Response makes the child's Run-a-Child-Flow call surface as a failure to the parent.",
+          "runAfter": {}
         }
       },
-      "comment": "Child-flow return action (required to be callable via Run-a-Child-Flow; mirrors classify-persist's Respond_to_parent / 'Respond to a PowerApp or flow'). Returns the readiness result: the resolved status label + cr1bd_status integer plus the two readiness predicates. Computed to be correct on BOTH Guard_terminal paths using the SAME 5 terminal conditions as Guard_terminal (cr1bd_status 100000008/9/10/6 OR statecode!=0): on the terminal path Compute_next_status/Map_status_choice never ran, so 'status' coalesces to 'terminal' while 'terminal' and 'statusCode' read cr1bd_status directly (terminal=true, statusCode=the kept current status — including the 100000006/inactive merge case); on the else path they carry the computed next status. runAfter Guard_terminal on all completion outcomes so the child always returns.",
+      "else": {
+        "actions": {
+          "Respond_to_parent": {
+            "type": "Response",
+            "kind": "Http",
+            "inputs": {
+              "statusCode": 200,
+              "body": {
+                "caseId": "@variables('caseId')",
+                "terminal": "@or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000008), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000009), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000010), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000006), not(equals(coalesce(outputs('Get_case')?['body/statecode'], 0), 0))))))",
+                "status": "@coalesce(outputs('Compute_next_status'), 'terminal')",
+                "statusCode": "@if(or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000008), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000009), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000010), or(equals(outputs('Get_case')?['body/cr1bd_status'], 100000006), not(equals(coalesce(outputs('Get_case')?['body/statecode'], 0), 0)))))), outputs('Get_case')?['body/cr1bd_status'], outputs('Map_status_choice'))",
+                "fieldsValid": "@body('Validate_readiness')?['fieldsValid']",
+                "imagesValid": "@body('Validate_readiness')?['imagesValid']"
+              }
+            },
+            "comment": "SUCCESS path (PR#24 FIX #2: reached only when Update_status either SUCCEEDED, was Skipped/never-ran on the idempotent no-change path, or never ran on the terminal short-circuit — i.e. the cr1bd_status the parent will read is genuinely the persisted state). Child-flow return action (required to be callable via Run-a-Child-Flow; mirrors classify-persist's Respond_to_parent / 'Respond to a PowerApp or flow'). Returns the readiness result: the resolved status label + cr1bd_status integer plus the two readiness predicates. Computed to be correct on BOTH Guard_terminal paths using the SAME 5 terminal conditions as Guard_terminal (cr1bd_status 100000008/9/10/6 OR statecode!=0): on the terminal path Compute_next_status/Map_status_choice never ran, so 'status' coalesces to 'terminal' while 'terminal' and 'statusCode' read cr1bd_status directly (terminal=true, statusCode=the kept current status — including the 100000006/inactive merge case); on the else path they carry the computed next status.",
+            "runAfter": {}
+          }
+        }
+      },
       "runAfter": { "Guard_terminal": [ "Succeeded", "Failed", "Skipped", "TimedOut" ] }
     }
   }

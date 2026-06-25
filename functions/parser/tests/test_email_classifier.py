@@ -209,12 +209,13 @@ def test_auto_reply_with_no_attachment_abstains_even_with_work_language():
     assert result["category"] == "other"
 
 
-def test_auto_reply_with_image_attachment_still_abstains():
+def test_auto_reply_with_image_but_no_instruction_doc_still_abstains():
     """Regression (ADR-0015): an out-of-office / bounce that CARRIES an image (a
     signature logo, a returned-message screenshot, the original photo bounced back)
-    from a known provider must STILL abstain to other. Pre-fix Rule 0 only fired
-    with no attachment, so an auto-reply + image skipped it and reached Rule 2 ->
-    receiving_work. Rule 0 now fires on the marker regardless of attachments."""
+    — but NO instruction doc — from a known provider must STILL abstain to other.
+    An auto-reply + image must not slip through to Rule 2 and read as work. The
+    abstain is preserved for the image-only case; only an instruction DOC overrides
+    it (see test_instruction_doc_overrides_auto_reply_abstain)."""
     ooo = classify_email(
         subject="Automatic reply: Out of office",
         body="I am out of the office and away from my desk until Monday.",
@@ -235,6 +236,42 @@ def test_auto_reply_with_image_attachment_still_abstains():
     )
     assert bounce["category"] == "other"
     assert bounce["signals"][-1] == "rule:auto_reply_marker"
+
+
+def test_instruction_doc_overrides_auto_reply_abstain():
+    """Regression (PR #24 review finding #3): the auto-reply/bounce abstain (Rule 0)
+    must NOT swallow a legitimate automated provider instruction. A real instruction
+    — instruction PDF attached, with a polite "please do not reply" automated footer
+    — is the module's strongest positive signal; pre-fix Rule 0 fired on the footer
+    marker above Rule 1 and forced it to ``other``, so the Case was never created.
+    An attached instruction doc now overrides the abstain and Rule 1 wins."""
+    result = classify_email(
+        subject="New instruction - please inspect",
+        body=(
+            "Please inspect the vehicle and prepare a report.\n\n"
+            "--\nThis is an automated notification. Please do not reply to this address."
+        ),
+        provider_match_state="one",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert result["category"] == "receiving_work"
+    assert result["subtype"] == "existing_provider_instruction"
+    assert result["signals"][-1] == "rule:instruction_doc_existing_provider"
+
+    # The same override holds for an audit instruction whose footer says "do not reply".
+    audit = classify_email(
+        subject="Inspection Request to Engineers 2",
+        body=(
+            "An audit report is required of the original engineer's findings.\n\n"
+            "Automatic message — do not reply."
+        ),
+        provider_match_state="one",
+        attachment_kinds=["instruction", "image"],
+        has_attachments=True,
+    )
+    assert audit["category"] == "receiving_work"
+    assert audit["subtype"] == "existing_provider_audit"
 
 
 def test_query_with_image_from_known_provider_is_query_not_work():

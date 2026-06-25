@@ -157,19 +157,28 @@
                   "comment": "Box Create file (operationId CreateFile; verified params folderPath/name/body on Microsoft Learn connectors/box 2026-06-20 — there is NO folderId param on CreateFile, folderId was a TRIGGER param). folderPath = '/' + UPPERCASE Case/PO (e.g. EVA test26001 -> Box /TEST26001/) auto-creates the folder (SharePoint-style; CONFIRM on first live run — open question 1). body = the real blob bytes from Get_blob_content_v2 (S2 fix). Box known-issue #6: a same-name re-upload is an UPDATE not a 409, so the loop is resume-safe by filename. [RESERVED-FOR-USER]: bind cr1bd_box to the live Box account + set BoxArchiveRootId at activation; confirm Box honours the UPPERCASE casing (B5).",
                   "runAfter": { "Get_blob_content_v2": [ "Succeeded" ] }
                 },
-                "Append_eva_image": {
-                  "type": "AppendToArrayVariable",
-                  "inputs": {
-                    "name": "evaImages",
-                    "value": {
-                      "sequenceIndex": "@coalesce(items('Upload_photos_in_eva_order')?['cr1bd_sequenceindex'], 0)",
-                      "content": "@base64(body('Get_blob_content_v2'))",
-                      "role": "@if(equals(items('Upload_photos_in_eva_order')?['cr1bd_imagerole'], 100000000), 'overview', if(equals(items('Upload_photos_in_eva_order')?['cr1bd_imagerole'], 100000001), 'damage_closeup', if(equals(items('Upload_photos_in_eva_order')?['cr1bd_imagerole'], 100000002), 'additional', 'unknown')))",
-                      "filename": "@items('Upload_photos_in_eva_order')?['cr1bd_filename']",
-                      "registrationVisible": "@coalesce(items('Upload_photos_in_eva_order')?['cr1bd_registrationvisible'], false)"
+                "If_eva_rest_collect_image": {
+                  "type": "If",
+                  "expression": { "equals": [ "@variables('gate_EVA_API_ENABLED')", true ] },
+                  "comment": "PR#24 FIX #5: only accumulate the base64 EVA image array when the EVA-REST transport is ACTUALLY used (EVA_API_ENABLED=true). Previously Append_eva_image ran UNCONDITIONALLY, so even on the drag-drop path (EVA_API_ENABLED=false, the M1 default + permanent fallback — which never reads evaImages) every accepted photo's full base64 (~+33% over the raw bytes) was accumulated into the evaImages variable. A large multi-photo case could exceed the Logic Apps variable / message-size limit and fail Scope_Finalize AFTER every byte was already archived to Box — so the case never reached box_synced despite Box being complete. Gating the append on the gate means: on drag-drop, the image-array accumulation is SKIPPED entirely (evaImages stays the empty init value, which the drag-drop branch never reads), so the size limit cannot be hit on the path that does not need the array; on the REST path the array is built exactly as before and consumed by Submit_to_EVA. The Box upload (Copy_evidence_to_box) and the blob read (Get_blob_content_v2) are unchanged and run on BOTH paths.",
+                  "actions": {
+                    "Append_eva_image": {
+                      "type": "AppendToArrayVariable",
+                      "inputs": {
+                        "name": "evaImages",
+                        "value": {
+                          "sequenceIndex": "@coalesce(items('Upload_photos_in_eva_order')?['cr1bd_sequenceindex'], 0)",
+                          "content": "@base64(body('Get_blob_content_v2'))",
+                          "role": "@if(equals(items('Upload_photos_in_eva_order')?['cr1bd_imagerole'], 100000000), 'overview', if(equals(items('Upload_photos_in_eva_order')?['cr1bd_imagerole'], 100000001), 'damage_closeup', if(equals(items('Upload_photos_in_eva_order')?['cr1bd_imagerole'], 100000002), 'additional', 'unknown')))",
+                          "filename": "@items('Upload_photos_in_eva_order')?['cr1bd_filename']",
+                          "registrationVisible": "@coalesce(items('Upload_photos_in_eva_order')?['cr1bd_registrationvisible'], false)"
+                        }
+                      },
+                      "comment": "M2.C: collect ONE PhotoEntry per photo into evaImages, in the SAME EVA-export order the loop iterates (Order_evidence is sequenceIndex asc; concurrency repetitions=1 keeps the append order = upload order). Shape mirrors the evasentry connector PhotoEntry (functions/evasentry/openapi + payload.py build_files/split_preview_and_rest): sequenceIndex (cr1bd_sequenceindex), content = base64 of the SAME bytes just read by Get_blob_content_v2 for the Box upload (no second blob read — proves they are reachable), role = cr1bd_imagerole int mapped to the enum string (overview=100000000 / damage_closeup=100000001 / additional=100000002 / else unknown), filename (cr1bd_filename -> EVA File Name+Extension), registrationVisible (cr1bd_registrationvisible, advisory for the overview check). The Function re-sorts by sequenceIndex and splits previews/rest server-side, so this is order-robust either way. PR#24 FIX #5: this append now runs ONLY on the EVA-REST path (gated by If_eva_rest_collect_image on EVA_API_ENABLED=true), so the per-photo base64 accumulation — and its message-size risk — never happens on the drag-drop path that does not use the array. On the REST path the whole evaImages array still rides in ONE connector request body to the evasentry Function; the Function performs the two-request split server-side. If a REST case's combined base64 approaches the Logic Apps / connector message-size limit, the drag-drop transport (EVA_API_ENABLED=false, photos already archived to Box) remains the fallback. Flagged for the EVA TEST cutover.",
+                      "runAfter": {}
                     }
                   },
-                  "comment": "M2.C: collect ONE PhotoEntry per photo into evaImages, in the SAME EVA-export order the loop iterates (Order_evidence is sequenceIndex asc; concurrency repetitions=1 keeps the append order = upload order). Shape mirrors the evasentry connector PhotoEntry (functions/evasentry/openapi + payload.py build_files/split_preview_and_rest): sequenceIndex (cr1bd_sequenceindex), content = base64 of the SAME bytes just read by Get_blob_content_v2 for the Box upload (no second blob read — proves they are reachable), role = cr1bd_imagerole int mapped to the enum string (overview=100000000 / damage_closeup=100000001 / additional=100000002 / else unknown), filename (cr1bd_filename -> EVA File Name+Extension), registrationVisible (cr1bd_registrationvisible, advisory for the overview check). The Function re-sorts by sequenceIndex and splits previews/rest server-side, so this is order-robust either way. NOTE on size: each photo is base64 here (~+33% over the raw bytes); the whole evaImages array rides in ONE connector request body to the evasentry Function. The Box write ceiling (75MB per file) is per-file, but the EVA REST body is the SUM of all photos base64 — for a large case this can be heavy; the Function performs the two-request split server-side but the inbound connector body is still one payload. If a case's combined base64 approaches the Logic Apps / connector message-size limit, the drag-drop transport (EVA_API_ENABLED=false, photos already archived to Box) remains the fallback. Flagged for the EVA TEST cutover.",
+                  "else": { "actions": {} },
                   "runAfter": { "Copy_evidence_to_box": [ "Succeeded" ] }
                 }
               },

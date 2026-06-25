@@ -211,6 +211,11 @@ live. (Full per-item detail is in `OPEN_ITEMS.md` + the phase READMEs.)
 - **OCR for scanned PDFs (Phase 5a) — connector import + gate.** The gated OCR-fallback branch is wired into
   the parse flow (off-path unchanged). **Why you:** import/bind the **OCR** connector and flip
   `cr1bd_OCR_SCANNED_PDF_ENABLED` (then calibrate on real scans).
+- **EVA-validation connector binding (Phase 3 / M2.B) — activation ORDER.** `status-evaluate`'s readiness was
+  repointed off five inline filters onto the `cr1bd_evavalidation` connector (`ValidateCase`). **Why you:**
+  import + bind that connection (the Function is already deployed) **BEFORE** re-importing/activating the
+  updated `status-evaluate` — else every `Validate_readiness` call fails and no case can reach `ready_for_eva`
+  via the status machine (the flow was previously self-contained; this is a new hard precondition).
 - **Inbox triage restructure (Phase 8).** The deterministic email classifier, the `cr1bd_inboundemail`
   triage table, and the `triage-classify` flow are built (`state=off`). **Why you:** the live **intake
   restructure** — flip `fetchOnlyWithAttachment` true→false, generalise dedup, add the Switch-on-category —
@@ -220,7 +225,9 @@ live. (Full per-item detail is in `OPEN_ITEMS.md` + the phase READMEs.)
   `case-disposition` flow are built (flow `state=off`, far-future start so it never fires on import;
   anonymise-by-NULL; never deletes from Box). **Why you:** set the **retention window** + the
   anonymise-vs-hard-delete policy, then flip `cr1bd_CASE_DISPOSITION_ENABLED` (test env first). The
-  apply script `27-retention-schema.ps1` is DRY-RUN by default.
+  apply script `27-retention-schema.ps1` is DRY-RUN by default. ⚠️ **Do NOT arm this until the live evidence
+  store `cespkevidstdev01` itself has soft-delete (G6 below) — the bicep hardens the Function-HOST accounts,
+  not the byte store this flow deletes from, so a wrong disposal would otherwise be unrecoverable.**
 - **Staff roles assignment (Phase 9, G8).** The 3-role least-privilege model (User + Admin; Engineer
   deferred) is authored as schema-as-code (`28-roles.ps1`, **create-not-assign** = gated-off). **Why you:**
   run the apply, then **assign** the roles to staff (the assignment is yours).
@@ -229,7 +236,8 @@ live. (Full per-item detail is in `OPEN_ITEMS.md` + the phase READMEs.)
   **and** the live evidence-bytes store **`cespkevidstdev01`** (the `evidence` container, reached via
   `cr1bd_evidenceblob`) is **NOT in the IaC**, so its delete-retention + container-delete-retention +
   versioning, plus **Key Vault purge-protection**, must be applied directly on the live resource. This is the
-  **hard pre-step before any purge flow (`box-blob-purge`) is armed**.
+  **hard pre-step before any purge flow (`box-blob-purge` OR `case-disposition`) is armed** — the Function-host
+  bicep hardening is defense-in-depth, NOT this byte store.
 - **Org-level Dataverse auditing (Phase 9, G7).** Table-native auditing + the `cr1bd_auditevent` RemoveLink
   cascade are already authored in the schema-as-code; **why you:** turn Dataverse auditing on at the
   **organisation** level so the per-table flags take effect.

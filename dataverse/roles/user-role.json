@@ -128,11 +128,11 @@
     },
     {
       "table": "cr1bd_inspectionaddress",
-      "rationale": "Offline-derived suggestions corpus (ADR-0013/0016) that staff PICK from. READ on the corpus is core to picking an address. AppendTo so a Case can reference the chosen InspectionAddress. Create/Write WITHHELD -- the corpus is seeded offline + edited by Management; the per-case ad-hoc location is captured ON THE CASE, not by editing the shared corpus row. (If a future per-case InspectionAddress write path is built, revisit.)",
+      "rationale": "Offline-derived suggestions corpus (ADR-0013/0016) that staff PICK from. READ on the corpus is core to picking an address. AppendTo so a Case can reference the chosen InspectionAddress. Create + Write granted at Organization for the per-case confirmed-decision SAVE PATH (dataverse-source.saveInspectionDecision, fired when a reviewer confirms a picked / assist / image-based inspection decision) -- it upserts a CONFIRMED reference row (non-'suggested' sourceLabel), so the role MUST allow the create/update the Code App performs (the earlier 'if a future write path is built, revisit' is now real). Delete stays None (archive-not-delete).",
       "privileges": {
-        "Create": "None",
+        "Create": "Organization",
         "Read": "Organization",
-        "Write": "None",
+        "Write": "Organization",
         "Delete": "None",
         "Append": "None",
         "AppendTo": "Organization",

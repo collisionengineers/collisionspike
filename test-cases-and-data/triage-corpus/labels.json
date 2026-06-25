@@ -204,6 +204,14 @@
       "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" }
     },
     {
+      "$comment": "PR #24 review (finding #3): a legitimate automated provider instruction — instruction PDF attached, with a polite 'please do not reply' automated footer. Pre-fix Rule 0 (auto-reply/bounce abstain) fired on the footer marker ABOVE Rule 1 and forced this to 'other', so the Case was never created. An attached instruction doc must OVERRIDE the auto-reply abstain so Rule 1 wins.",
+      "eml": "receiving_work_body/instruction-doc-with-do-not-reply-footer.eml",
+      "provider_match_state": "one",
+      "attachment_kinds": ["instruction"],
+      "has_attachments": true,
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" }
+    },
+    {
       "eml": "other/out-of-office.eml",
       "provider_match_state": "one",
       "has_attachments": false,

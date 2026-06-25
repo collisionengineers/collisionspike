@@ -37,6 +37,18 @@ architecture/requirements > plans):
 > **Deferred minors:** bicep `isVersioningEnabled` on the Flex-Consumption host-storage accounts (keep soft-delete;
 > versioning belongs on the live evidence store `cespkevidstdev01`, an operator step); a stale pre-scrub
 > `.claude/worktrees/` key copy (not on the branch, won't ship — key rotation in gated.md §7 is the real fix).
+>
+> 🔬 **`/code-review max` pass (2026-06-25, 53 agents):** 15 verified findings (15 refuted), **0 blockers** — caught
+> 3 regressions from the sweep itself. **Fixed (14):** `status-evaluate` branch-4 counting *excluded* rows + the
+> phantom-200-on-failed-write (both from the M2.B repoint → now `cr1bd_excluded ne true` + a 502 on write failure);
+> classifier Rule 0 swallowing a real instruction with a "do not reply" footer (instruction-doc now overrides) +
+> `CASEREF_RE` over-match (`AB123456`) tightened (sibling `504c3a3`); the `eva_json` exporter crashing on every
+> desktop export (B2 keys added to the bundled schema); `pdf.py` `for…else`/`break` discarding OCR'd pages on
+> timeout; `saveInspectionDecision` `cr1bd_name` 200-cap; the boundary-gate stripper truncating `https://`;
+> the triage OData single-quote; the disposition audit skipped after destructive work; the `user-role`
+> `cr1bd_inspectionaddress` Create/Write (the save-path needs it); + the evavalidation-binding-order &
+> evidence-store-before-disposition operator notes (gated.md §8). **Skipped (1):** re-adding the deleted
+> `DedupDecisionDialog` (a design decision — it was a mock no-op superseded by `MergeCaseDialog`).
 
 ---
 

@@ -153,7 +153,7 @@ gate('Code App — no raw external calls outside the connector seam', () => {
   // documented mention of fetch()/a host (the seam files explain WHY the app avoids
   // raw calls) is never mistaken for a live call.
   const stripComments = (src) =>
-    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1'); // strip line comments but NOT the // inside https://, so host needles still see URL literals
   const files = collectFiles(srcDir, /\.(ts|tsx)$/).filter(
     (f) => !allow(f.slice(ROOT.length + 1).replace(/\\/g, '/')),
   );

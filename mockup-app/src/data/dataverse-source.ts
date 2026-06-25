@@ -554,9 +554,13 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       // Required primary column: a short Label for the confirmed location. The IBA
       // literal for an image-based decision; the first address line (+ postcode) for
       // a physical one; a safe fallback otherwise.
-      const label = isImageBased
+      // cr1bd_name is required + capped at 200 chars; trim the derived label so a very
+      // long first address line + postcode can't 400 the best-effort create() (a .catch'd
+      // overflow would otherwise silently drop the durable confirmed-decision write).
+      const label = (isImageBased
         ? 'Image Based Assessment'
-        : [lines[0], decision.postcode?.trim()].filter(Boolean).join(', ') || 'Inspection address';
+        : [lines[0], decision.postcode?.trim()].filter(Boolean).join(', ') || 'Inspection address'
+      ).slice(0, 200);
       // Scope/trace the written row to its provider via the 4-char PRINCIPAL code,
       // parsed from the Case/PO's leading-alpha run (e.g. 'CCPY26050' -> 'CCPY'),
       // uppercased — the SAME derivation the suggestions query uses, and the

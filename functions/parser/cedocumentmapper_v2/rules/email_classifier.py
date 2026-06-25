@@ -106,13 +106,20 @@ _CONFIDENCE_GOOD = 0.8      # provider + work signal, or a clear query
 _CONFIDENCE_WEAK = 0.6      # typed-in-body work, enquiry-only
 _CONFIDENCE_ABSTAIN = 0.3   # fell through to other
 
-# Case/PO matcher. The Case/PO is a 4-char internal Principal code + 2-digit year
-# + 3-digit provider case number (e.g. "CCPY26050"), optionally carrying the "A."
-# audit prefix (e.g. "A.PCH261269"). Anchored to that exact shape — NOT a bare
-# alphanumeric run — so a phone number or postcode in the body cannot masquerade
-# as a Case/PO. Case-insensitive; tolerates an optional space after the "A.".
+# Case/PO matcher. The Case/PO is a Principal code (2-5 letters) + 2-digit year +
+# a 3-to-4-digit provider case number, optionally carrying the "A." audit prefix.
+# The real corpus splits two ways and the pattern mirrors it exactly:
+#   * a 2-letter Principal always carries a 3-digit sequence  -> 5 trailing digits
+#     ("MP26071", "AX26353", "FW26251");
+#   * a 3-5-letter Principal carries a 3-OR-4-digit sequence   -> 5-6 trailing digits
+#     ("CCPY26050", "ALS26066", "A.PCH261269", "QDOS261253").
+# Anchoring the 2-letter arm to exactly 5 digits is what excludes a stray 6-digit
+# token like "AB123456" (2 letters + 6 digits) while still admitting the genuine
+# 6-digit refs (which all have >=3 letters). NOT a bare alphanumeric run, so a phone
+# number, postcode, or VAT number in the body cannot masquerade as a Case/PO.
+# Case-insensitive; tolerates an optional space after the "A.".
 CASEREF_RE = re.compile(
-    r"\b(?:A\.\s?)?[A-Z]{2,4}\d{2}\d{3,4}\b",
+    r"\b(?:A\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})\b",
     re.IGNORECASE,
 )
 
@@ -178,9 +185,12 @@ def classify_email(
 
     First-match-wins decision tree (see ADR-0015 / the Phase-8 plan):
 
-      0. Auto-reply / bounce marker present  -> other
+      0. Auto-reply / bounce marker present, AND no instruction doc -> other
          (abstain-to-other; a quoted OOO chain or a bounce must not read as
-         work, even when it happens to carry an image).
+         work, even when it happens to carry an image — BUT an attached
+         instruction doc is the module's strongest positive signal and overrides
+         the abstain, so a real provider instruction whose footer says
+         "do not reply" still reaches Rule 1).
       1. Instruction doc attached            -> receiving_work
          (audit | existing-provider | new-client by audit phrases / provider).
       2. Images + (provider known OR work keyword) -> receiving_work, UNLESS the
@@ -250,11 +260,18 @@ def classify_email(
     # A quoted out-of-office or bounce chain can echo work language and a stray
     # registration; an OOO or non-delivery report can also carry an attached image
     # (a signature logo, a returned-message screenshot, the original photo bounced
-    # back). Either way it is not a fresh instruction, so abstain to ``other``
-    # rather than risk a wrong receiving-work label (abstain-to-other; ADR-0015
-    # Risk 2). This guard runs BEFORE the image/work rules so an auto-reply with an
-    # image cannot slip through to Rule 2 and read as work.
-    if auto_reply_markers:
+    # back). With no instruction doc it is not a fresh instruction, so abstain to
+    # ``other`` rather than risk a wrong receiving-work label (abstain-to-other;
+    # ADR-0015 Risk 2). This guard runs BEFORE the image/work rules so an auto-reply
+    # with an image cannot slip through to Rule 2 and read as work.
+    #
+    # EXCEPTION — an attached instruction doc OVERRIDES the abstain. The instruction
+    # doc is the module's strongest positive signal; a legitimate automated provider
+    # instruction (instruction PDF attached, polite "please do not reply" footer) is
+    # genuine work, and forcing it to ``other`` would silently lose the Case. When a
+    # doc is present we fall through to Rule 1; the no-doc auto-reply+image path
+    # still abstains here exactly as before.
+    if auto_reply_markers and not has_instruction_doc:
         return _result(
             CATEGORY_OTHER,
             SUBTYPE_OTHER,

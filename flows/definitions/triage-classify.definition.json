@@ -111,12 +111,12 @@
           "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps" },
         "parameters": {
           "entityName": "cr1bd_inboundemails",
-          "$filter": "cr1bd_sourcemessageid eq '@{variables('sourceMessageId')}'",
+          "$filter": "cr1bd_sourcemessageid eq '@{replace(variables('sourceMessageId'), '''', '''''')}'",
           "$select": "cr1bd_inboundemailid,cr1bd_sourcemessageid",
           "$top": 1
         }
       },
-      "comment": "UPSERT step 1 — find by the alternate key cr1bd_sourcemessageid (alt key cr1bd_inboundemail_sourcemessageid_key). The repo's get-or-create idiom (mirrors intake's Find_existing_by_messageId): exactly one row per email; a re-send / Graph retry updates the same row rather than duplicating it (ADR-0010 exact-repeat). Message-ID-scoped read (not a dedup-by-VRM query).",
+      "comment": "UPSERT step 1 — find by the alternate key cr1bd_sourcemessageid (alt key cr1bd_inboundemail_sourcemessageid_key). The repo's get-or-create idiom (mirrors intake's Find_existing_by_messageId): exactly one row per email; a re-send / Graph retry updates the same row rather than duplicating it (ADR-0010 exact-repeat). Message-ID-scoped read (not a dedup-by-VRM query). PR#24 FIX #3: the Message-ID is OData-escaped before interpolation — replace(variables('sourceMessageId'), '''', '''''') doubles any single quote (the OData literal escape) so a Message-ID containing a quote (rare but RFC-legal in the quoted-string form of the addr-spec) cannot break out of the '...' literal and produce a malformed $filter -> 400 -> silently dropped email. In the @-expression the four-quote token '''' is the literal single-quote string and '''''' is the two-single-quote replacement string. Pairs with the same escaping the EVALUATED key value would need elsewhere; cr1bd_sourcemessageid is read verbatim so the doubled quotes match the stored value under OData's literal-unescaping.",
       "runAfter": { "Compose_signals_text": [ "Succeeded" ] }
     },
     "If_inbound_exists": {
