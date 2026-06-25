@@ -95,8 +95,9 @@ Three clean ways to instantiate the 3 flows (pick per operator preference):
 1. **Designer "Save As"** of the working `CS Intake`, switch trigger to V2, set `mailboxAddress` per copy.
    Simplest for the operator; matches the "rebuild trigger in the designer" rule (webhooks **cannot** be
    armed by the Dataverse `clientdata` API — `AGENTS.md:23-28`, memory `flow-webhook-trigger-provisioning`).
-2. **Solution import** of `intake.definition.json` 3× with different `IntakeMailbox` values (cleanest ALM;
-   keeps all 3 in `CollisionSpikeFlows`). Each still needs a **designer publish** to register its webhook.
+2. **Solution import** of `intake-shared-mailbox.definition.json` (the V2 file — `intake.definition.json` is
+   V3 with **no** `mailboxAddress`, §1/§5) 3× with different `IntakeMailbox` values (cleanest ALM; keeps all
+   3 in `CollisionSpikeFlows`). Each still needs a **designer publish** to register its webhook.
 3. **One canonical flow today, scale later** — keep `digital@` as-is, only add the other two when confirmed.
 
 > **Note on V3 vs V2 for `digital@` itself.** The live `CS Intake` currently uses **V3** on `digital@`.

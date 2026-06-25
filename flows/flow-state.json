@@ -84,7 +84,7 @@
       "state": "off",
       "authoringBoundary": "[BUILD]",
       "activationBoundary": "[RESERVED-FOR-USER]",
-      "reservedReason": "Calls the DVSA enrichment Function via the gateway on real VRMs; gateway secret inject is [RESERVED-FOR-USER].",
+      "reservedReason": "Calls the DVSA enrichment Function directly (Entra client_credentials to DVSA MOT + DVLA); creds are Key Vault refs, secret inject is [RESERVED-FOR-USER].",
       "trigger": "Request",
       "gates": ["cr1bd_ENRICHMENT_ENABLED", "cr1bd_ENRICHMENT_API_BASE"]
     },
@@ -95,8 +95,8 @@
       "state": "off",
       "authoringBoundary": "[BUILD]",
       "activationBoundary": "[RESERVED-FOR-USER]",
-      "reservedReason": "Part of the live intake chain; matches real sender domains and writes provider binding.",
-      "trigger": "Request (called inside case-resolve)"
+      "reservedReason": "standalone returnable child, retained for ALM/reuse — intake inlines the same anchored exact-domain logic; not currently invoked by any flow.",
+      "trigger": "standalone returnable child, retained for ALM/reuse — intake inlines the same anchored exact-domain logic; not currently invoked by any flow."
     },
     {
       "definition": "jobsheet-import.definition.json",

@@ -139,6 +139,7 @@
       "tier": "Premium",
       "custom": true,
       "operationIds": ["InstructionInspection"],
+      "openapi": "functions/evasentry/openapi/evasentry-connector.json",
       "usedBy": ["finalize-eva-box"],
       "boundAtActivation": true,
       "note": "Sentry REST v1.2. Token exchange + bearer live INSIDE the connector (Key Vault refs); the flow never reads EVA_CLIENT_SECRET. Only invoked when EVA_API_ENABLED=true. [RESERVED-FOR-USER] to enable/cutover."
