@@ -42,6 +42,12 @@
       "comment": "PHASE-7: the schema-valid 12-field EVA JSON in contract order, read VERBATIM from the staged cr1bd_evapayload12 column the Code App PATCHed (built by the SAME serializer the Code App uses - eva-export.ts / eva-payload.schema.json - so it stays byte-identical for both the drag-drop body and the API body; the flow does NOT re-serialize the 12 cr1bd_eva* columns, which would risk format drift). vrm/reference are NOT in the 12.",
       "runAfter": { "Init_payloadHash": [ "Succeeded" ] }
     },
+    "Init_evaImages": {
+      "type": "InitializeVariable",
+      "inputs": { "variables": [ { "name": "evaImages", "type": "array", "value": [] } ] },
+      "comment": "M2.C photo streaming: the ordered base-64 photo set for the EVA REST submit (body/images). Initialised at root scope (a variable cannot be declared inside the Scope/Foreach) then appended to once per photo INSIDE Upload_photos_in_eva_order, reusing the SAME blob bytes the loop already reads for the Box upload (no second blob read). Stays empty on the drag-drop path (gate off), so it is harmless when unused.",
+      "runAfter": { "Init_evaPayload12": [ "Succeeded" ] }
+    },
     "Get_gate_definition": {
       "type": "OpenApiConnection",
       "inputs": {
@@ -55,7 +61,7 @@
           "$top": 1
         }
       },
-      "runAfter": { "Init_evaPayload12": [ "Succeeded" ] }
+      "runAfter": { "Init_evaImages": [ "Succeeded" ] }
     },
     "Set_gate_EVA_API_ENABLED": {
       "type": "InitializeVariable",
@@ -150,6 +156,30 @@
                   },
                   "comment": "Box Create file (operationId CreateFile; verified params folderPath/name/body on Microsoft Learn connectors/box 2026-06-20 — there is NO folderId param on CreateFile, folderId was a TRIGGER param). folderPath = '/' + UPPERCASE Case/PO (e.g. EVA test26001 -> Box /TEST26001/) auto-creates the folder (SharePoint-style; CONFIRM on first live run — open question 1). body = the real blob bytes from Get_blob_content_v2 (S2 fix). Box known-issue #6: a same-name re-upload is an UPDATE not a 409, so the loop is resume-safe by filename. [RESERVED-FOR-USER]: bind cr1bd_box to the live Box account + set BoxArchiveRootId at activation; confirm Box honours the UPPERCASE casing (B5).",
                   "runAfter": { "Get_blob_content_v2": [ "Succeeded" ] }
+                },
+                "If_eva_rest_collect_image": {
+                  "type": "If",
+                  "expression": { "equals": [ "@variables('gate_EVA_API_ENABLED')", true ] },
+                  "comment": "PR#24 FIX #5: only accumulate the base64 EVA image array when the EVA-REST transport is ACTUALLY used (EVA_API_ENABLED=true). Previously Append_eva_image ran UNCONDITIONALLY, so even on the drag-drop path (EVA_API_ENABLED=false, the M1 default + permanent fallback — which never reads evaImages) every accepted photo's full base64 (~+33% over the raw bytes) was accumulated into the evaImages variable. A large multi-photo case could exceed the Logic Apps variable / message-size limit and fail Scope_Finalize AFTER every byte was already archived to Box — so the case never reached box_synced despite Box being complete. Gating the append on the gate means: on drag-drop, the image-array accumulation is SKIPPED entirely (evaImages stays the empty init value, which the drag-drop branch never reads), so the size limit cannot be hit on the path that does not need the array; on the REST path the array is built exactly as before and consumed by Submit_to_EVA. The Box upload (Copy_evidence_to_box) and the blob read (Get_blob_content_v2) are unchanged and run on BOTH paths.",
+                  "actions": {
+                    "Append_eva_image": {
+                      "type": "AppendToArrayVariable",
+                      "inputs": {
+                        "name": "evaImages",
+                        "value": {
+                          "sequenceIndex": "@coalesce(items('Upload_photos_in_eva_order')?['cr1bd_sequenceindex'], 0)",
+                          "content": "@base64(body('Get_blob_content_v2'))",
+                          "role": "@if(equals(items('Upload_photos_in_eva_order')?['cr1bd_imagerole'], 100000000), 'overview', if(equals(items('Upload_photos_in_eva_order')?['cr1bd_imagerole'], 100000001), 'damage_closeup', if(equals(items('Upload_photos_in_eva_order')?['cr1bd_imagerole'], 100000002), 'additional', 'unknown')))",
+                          "filename": "@items('Upload_photos_in_eva_order')?['cr1bd_filename']",
+                          "registrationVisible": "@coalesce(items('Upload_photos_in_eva_order')?['cr1bd_registrationvisible'], false)"
+                        }
+                      },
+                      "comment": "M2.C: collect ONE PhotoEntry per photo into evaImages, in the SAME EVA-export order the loop iterates (Order_evidence is sequenceIndex asc; concurrency repetitions=1 keeps the append order = upload order). Shape mirrors the evasentry connector PhotoEntry (functions/evasentry/openapi + payload.py build_files/split_preview_and_rest): sequenceIndex (cr1bd_sequenceindex), content = base64 of the SAME bytes just read by Get_blob_content_v2 for the Box upload (no second blob read — proves they are reachable), role = cr1bd_imagerole int mapped to the enum string (overview=100000000 / damage_closeup=100000001 / additional=100000002 / else unknown), filename (cr1bd_filename -> EVA File Name+Extension), registrationVisible (cr1bd_registrationvisible, advisory for the overview check). The Function re-sorts by sequenceIndex and splits previews/rest server-side, so this is order-robust either way. PR#24 FIX #5: this append now runs ONLY on the EVA-REST path (gated by If_eva_rest_collect_image on EVA_API_ENABLED=true), so the per-photo base64 accumulation — and its message-size risk — never happens on the drag-drop path that does not use the array. On the REST path the whole evaImages array still rides in ONE connector request body to the evasentry Function; the Function performs the two-request split server-side. If a REST case's combined base64 approaches the Logic Apps / connector message-size limit, the drag-drop transport (EVA_API_ENABLED=false, photos already archived to Box) remains the fallback. Flagged for the EVA TEST cutover.",
+                      "runAfter": {}
+                    }
+                  },
+                  "else": { "actions": {} },
+                  "runAfter": { "Copy_evidence_to_box": [ "Succeeded" ] }
                 }
               },
               "runAfter": { "Order_evidence": [ "Succeeded" ] }
@@ -160,7 +190,7 @@
               "actions": {
                 "EVA_instruction_inspection": {
                   "type": "OpenApiConnection",
-                  "comment": "Sentry REST path - the evasentry Function mints/caches the 5-min /Connect/token JWT and attaches the bearer SERVER-SIDE (Key Vault refs); this connector is function-keyed only. The Function maps evaPayload12 (the schema-valid 12-field core, byte-identical to the drag-drop body) to the PascalCase Instruction/Inspection model and performs the TWO-REQUEST photo submission server-side (2 previews on /Instruction/Inspection, then the full set on /Note/SubmitNote). payloadHash echoes the idempotency latch; casePo (lowercase) -> ExternalRef; vrm (cr1bd_vrm) -> VehReg and clmNo (cr1bd_caseref) -> ClmNo are the claim keys the Note request uses to attach the remaining photos. Runs only when EVA_API_ENABLED=true. STAGED (plan: confirm on EVA TEST then enable): base-64 photo bytes are not yet streamed to the Function via body/images - the flow reads each photo's bytes from Azure Blob (Get_blob_content_v2) and archives them to the Box folder, so today EVA renders the 12-field core and the photos live in the Box archive. To attach photos via the API, reuse the Get_blob_content_v2 bytes (already read per photo for the Box upload, which proves they are reachable) and pass body/images as [{sequenceIndex, content(base64), role, filename, registrationVisible}] - the Function already orders/splits them. [RESERVED-FOR-USER] to enable/cutover.",
+                  "comment": "Sentry REST path - the evasentry Function mints/caches the 5-min /Connect/token JWT and attaches the bearer SERVER-SIDE (Key Vault refs); this connector is function-keyed only. The Function maps evaPayload12 (the schema-valid 12-field core, byte-identical to the drag-drop body) to the PascalCase Instruction/Inspection model and performs the TWO-REQUEST photo submission server-side (2 previews on /Instruction/Inspection, then the full set on /Note/SubmitNote). payloadHash echoes the idempotency latch; casePo (lowercase) -> ExternalRef; vrm (cr1bd_vrm) -> VehReg and clmNo (cr1bd_caseref) -> ClmNo are the claim keys the Note request uses to attach the remaining photos. Runs only when EVA_API_ENABLED=true. M2.C PHOTO STREAMING (now wired): body/images carries the ordered base-64 photo set (evaImages, built in Upload_photos_in_eva_order from the SAME bytes already read for the Box upload) as [{sequenceIndex, content(base64), role, filename, registrationVisible}] matching the connector PhotoEntry shape - the Function re-sorts by sequenceIndex and splits previews/rest, so a live REST submit now attaches the photos (previously only the 12-field core went, attaching ZERO photos). [RESERVED-FOR-USER] to enable/cutover; the drag-drop transport stays the fallback if a case's combined base64 body is too large for the connector.",
                   "inputs": {
                     "host": { "connectionName": "shared_evasentry", "operationId": "InstructionInspection",
                       "apiId": "/providers/Microsoft.PowerApps/apis/shared_evasentry" },
@@ -169,7 +199,8 @@
                       "body/payloadHash": "@variables('payloadHash')",
                       "body/casePo": "@toLower(outputs('Get_case')?['body/cr1bd_casepo'])",
                       "body/vrm": "@outputs('Get_case')?['body/cr1bd_vrm']",
-                      "body/clmNo": "@outputs('Get_case')?['body/cr1bd_caseref']"
+                      "body/clmNo": "@outputs('Get_case')?['body/cr1bd_caseref']",
+                      "body/images": "@variables('evaImages')"
                     }
                   },
                   "runAfter": {}

@@ -4,7 +4,6 @@ import Dashboard from './screens/Dashboard';
 import CaseList from './screens/CaseList';
 import CaseDetail from './screens/CaseDetail';
 import EvaSubmitDialog from './screens/EvaSubmitDialog';
-import DedupDecisionDialog from './screens/DedupDecisionDialog';
 import MergeCaseDialog from './screens/MergeCaseDialog';
 import Admin from './screens/Admin';
 import ManualIntake from './screens/ManualIntake';
@@ -18,7 +17,6 @@ import ActionLogs from './screens/ActionLogs';
    /queue/:name           → CaseList (name = not-ready|review|held)
    /case/:caseId          → CaseDetail
    /case/:caseId/submit   → CaseDetail with EvaSubmitDialog overlaid (nested)
-   /case/:caseId/dedup    → CaseDetail with DedupDecisionDialog overlaid (Surface B)
    /case/:caseId/merge    → CaseDetail with MergeCaseDialog overlaid (staff manual merge)
    /admin                 → Provider settings (WorkProvider corpus + read views)
    /logs                  → Action logs (audit-event feed) */
@@ -37,7 +35,6 @@ export const router = createBrowserRouter([
         element: <CaseDetail />,
         children: [
           { path: 'submit', element: <EvaSubmitDialog /> },
-          { path: 'dedup', element: <DedupDecisionDialog /> },
           { path: 'merge', element: <MergeCaseDialog /> },
         ],
       },

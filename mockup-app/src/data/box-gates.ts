@@ -120,6 +120,25 @@ export function boxGatesFromRows(
   return boxGatesFromResolved(resolveEnvVars(definitions, values));
 }
 
+/**
+ * Resolve the `cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID` *string value* (not just the
+ * derived `fileRequestTemplateConfigured` boolean) from env-var rows. Same
+ * value ?? default ?? '' coalescing core as the gates; returns undefined when the
+ * var is absent or its coalesced value is empty/whitespace — so the File-Request
+ * copy op never receives a blank template id. The Phase-7 deploy wiring
+ * (`BoxCaseResolver.templateId()`) reads this.
+ */
+export function boxFileRequestTemplateIdFromRows(
+  definitions: readonly EnvironmentVariableDefinitionRecord[],
+  values: readonly EnvironmentVariableValueRecord[],
+): string | undefined {
+  const row = resolveEnvVars(definitions, values).find(
+    (r) => r.schemaName === BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA,
+  );
+  const value = (row?.value ?? '').trim();
+  return value.length > 0 ? value : undefined;
+}
+
 /* ----------  Location-assist gate (Phase 4a) — same env-var coalescing core ----------
    The reviewer-invoked "Suggest location" assist is shown ONLY when its master
    gate, the paired Maps gate, AND the per-env API-base config var are all set.

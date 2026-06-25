@@ -10,7 +10,7 @@
 #      connection to a LIVE Box/EVA account or the live mailbox is
 #      [RESERVED-FOR-USER]. THIS SCRIPT IMPORTS NOTHING and BINDS NOTHING.
 #   2. Additively extends the cr1bd_auditaction global option set with
-#      chaser_sent = 100000019 (next free value after inspection_override=100000018)
+#      chaser_sent = 100000023 (next free value after location_assist_confirmed=100000022)
 #      so Flow_ChaserSend can write its audit (plan §10). This IS a Dataverse
 #      metadata write ([DEPLOY-WITH-LOGIN]) — idempotent, additive, never renumbers.
 #
@@ -77,12 +77,12 @@ Write-Host "DLP REMINDER: every connector above (Dataverse, Box, the custom Func
 Write-Host "must sit in the SAME DLP data group in the target env or import/run fails. Verify first." -ForegroundColor Yellow
 
 # ============================================================================
-# Additive option-set extension: cr1bd_auditaction += chaser_sent (100000019).
+# Additive option-set extension: cr1bd_auditaction += chaser_sent (100000023).
 # ============================================================================
 Write-Host ""
-Write-Host "--- cr1bd_auditaction: ensure chaser_sent=100000019 (additive) ---" -ForegroundColor White
+Write-Host "--- cr1bd_auditaction: ensure chaser_sent=100000023 (additive) ---" -ForegroundColor White
 $AUDIT_OPTSET = "cr1bd_auditaction"
-$CHASER_SENT_VALUE = 100000019
+$CHASER_SENT_VALUE = 100000023
 $CHASER_SENT_NAME  = "chaser_sent"
 
 try {

@@ -3,8 +3,13 @@
 **Goal:** stand up the repo, the typed contracts, the Dataverse schema-as-code, the Code App scaffold,
 the env-var feature gates, and the offline verification gate — everything the M1 slice builds on.
 
-**Status:** ✅ **Complete.** Verified by the offline gate (`node verify-all.mjs` → 7/7). See
-[../../../CURRENT_STATUS.md](../../../CURRENT_STATUS.md) and [../../../ROADMAP.md](../../../ROADMAP.md) Phase 0.
+**Status:** ✅ **Complete.** Verified by the offline gate (`node verify-all.mjs` → **all gates green**;
+the gate count grew past the original 7 as later phases landed — it now also runs the Code App
+tsc+vite+vitest, Dataverse parity, the flow linter, a pytest loop over every built Function suite
+(parser/enrichment/evasentry/evavalidation + location-suggest/box-webhook/ocr, the last three SKIP
+without a local `.venv`), and **two static gates** — the `uploadFileToRecord` regen guard and the new
+boundary grep-gate). See [../../../CURRENT_STATUS.md](../../../CURRENT_STATUS.md) and
+[../../../ROADMAP.md](../../../ROADMAP.md) Phase 0.
 
 ## Implementation checklist (build order)
 
@@ -16,7 +21,7 @@ the env-var feature gates, and the offline verification gate — everything the 
 6. [x] **Data seam** — mock↔Dataverse swap + field adapter (app shows real rows only)
 7. [x] **Dataverse schema-as-code** authored (`dataverse/`) + parity test
 8. [x] **Env-var feature gates** defined
-9. [x] **Offline verification gate** green — `verify-all.mjs` (7 gates)
+9. [x] **Offline verification gate** green — `verify-all.mjs` (**all gates green**; began at 7, now runs more — Code App build+vitest, Dataverse parity, flow linter, the per-Function pytest loop, and two static gates incl. the boundary grep-gate)
 10. [x] **Boundary-compliance gates** authored — no live calls in the app; no secret values; all flows `off`
 
 ## Plans in this phase
@@ -26,5 +31,8 @@ the env-var feature gates, and the offline verification gate — everything the 
 
 ## Needs the operator
 
-The audit's **committed parser function key** (rotation) is logged in [../../gated.md](../../gated.md)
-(soft blocker). Nothing else here is gated.
+The audit's **committed parser function key** needs **rotation** in Azure (the literal is in git
+history, so a doc-scrub alone is not enough). It is tracked in [../../gated.md](../../gated.md) §7
+(soft blocker) and in `OPEN_ITEMS.md` (Phase 1a). The committed copy in
+`docs/activation/email-intake-activation.md` was **scrubbed 2026-06-24** to `<set at activation>`.
+Nothing else here is gated.

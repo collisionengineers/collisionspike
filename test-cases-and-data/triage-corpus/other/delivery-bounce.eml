@@ -1,0 +1,16 @@
+From: postmaster@mail.example.com
+To: digital@collisionengineers.example.com
+Subject: Undeliverable: Inspection request
+Date: Tue, 24 Jun 2026 06:12:00 +0100
+Content-Type: text/plain; charset="utf-8"
+
+Delivery has failed to these recipients or groups:
+
+claims@unknown-provider.example.invalid
+
+The message could not be delivered and was returned to sender. This is an
+automatically generated delivery status notification. Please do not reply to
+this message.
+
+Diagnostic information for administrators:
+Remote server returned 550 5.1.1 User unknown.

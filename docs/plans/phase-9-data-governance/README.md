@@ -18,8 +18,15 @@ is **no retention policy, no erasure path, and no privacy/DPIA artefact**. Phase
 > (**retention period, lawful basis, litigation-hold rule, ICO registration**) are **business/legal input**
 > and are `[RESERVED-FOR-USER]` — see [docs/gated.md](../../gated.md).
 
-**Status:** **PLANNED / not built.** Nothing in this phase is in the tree yet. The schema + flows are
-Claude-buildable offline and lint-verifiable; the policy inputs are operator/legal. See
+**Status (updated 2026-06-24):** **offline-built / deploy-pending — NOT live.** This sweep authored the
+Claude-buildable surface **offline, gated-OFF**: the retention-clock schema + `cr1bd_CASE_DISPOSITION_ENABLED`
+gate + `27-retention-schema.ps1` (item 1), the scheduled `case-disposition` flow + `case_disposed=100000026`
+(item 2), the DSAR/erasure cross-store runbook (item 3), the `data-protection.md` controller/processor map
+(item 4), the bicep store-hardening — KV purge-protection + Blob soft-delete/versioning (item 8), and the
+3-role least-privilege security model as schema-as-code (item 9). Table-native auditing + the
+`cr1bd_auditevent` RemoveLink cascade were **already in the schema-as-code** (item 7 — narrowed to org-level
+enablement). The **policy/legal inputs remain operator/legal** and **ADR-0017 stays Proposed**. Everything
+built here is **gated-OFF and operator-applies** (DRY-RUN apply scripts; flows `state=off`). See
 [ROADMAP.md](../../../ROADMAP.md) Phase 9.
 
 ---
@@ -56,26 +63,33 @@ line `[ ]` until built/flipped.
 > (see item 9). Two hardening definitions and one absolute principle are stated explicitly below even while
 > the broader hardening is deferred.
 
-1. **[DEFERRED · G1] Retention-clock schema on `cr1bd_case`** — add `cr1bd_closedat` (when the case reached a terminal
-   state), `cr1bd_retentionexpiresat` (computed from `closedat` + the policy window), and a **legal-hold
-   flag** (boolean + optional reason/`heldby`). _Why:_ the disposition flow needs a per-case clock and a
-   per-case exemption; one global number cannot express the two-clock model. _Offline:_ author the columns +
-   `verify-parity.mjs` lock; _operator:_ supplies the **window length** + applies live.
-2. **[DEFERRED · G1] Scheduled case-disposition flow** (sibling to `box-blob-purge`) — `Recurrence` trigger, gated;
-   for cases where `cr1bd_retentionexpiresat < now` **AND no legal hold**: purge any **retained transient
-   Blob bytes**, then **anonymise or hard-delete** the case + its Evidence PII per policy; audit every
-   branch. _Why:_ `box-blob-purge` only clears archived image blobs — `.eml` bodies, claimant identity
-   fields, and Evidence rows are never disposed of today. _Offline:_ author + lint the flow; _operator:_
-   confirms anonymise-vs-hard-delete policy + flips the gate (test env first).
-3. **[DEFERRED · G4] DSAR / right-to-erasure cross-store runbook** — a documented, repeatable erasure procedure
+1. **[C — BUILT OFFLINE 2026-06-24 · G1] Retention-clock schema on `cr1bd_case`** — added `cr1bd_closedat`,
+   `cr1bd_retentionexpiresat`, `cr1bd_legalhold`/`cr1bd_legalholdreason`/`cr1bd_heldby` + the
+   `cr1bd_CASE_DISPOSITION_ENABLED` gate + apply script `27-retention-schema.ps1` (DRY-RUN default) +
+   `verify-parity.mjs` lock (15/15; 12 EVA fields preserved). **Operator still supplies the window length +
+   applies live.** _Why:_ the disposition flow needs a per-case clock and a per-case exemption; one global
+   number cannot express the two-clock model.
+2. **[C — BUILT OFFLINE 2026-06-24 · G1] Scheduled case-disposition flow** (sibling to `box-blob-purge`) —
+   authored `state=off`, gated `cr1bd_CASE_DISPOSITION_ENABLED`, far-future startTime so it never fires on
+   import; two-clock guard (legal-hold always wins, double-enforced); **anonymise by field-NULL, never
+   row-delete**; **zero Box ops + zero Dataverse DeleteRecord** (asserted by validate-flows Check 8d);
+   `case_disposed=100000026` audit action; hard-delete left as a marked operator-policy placeholder.
+   validate-flows 181/181. **Operator confirms anonymise-vs-hard-delete policy + flips the gate (test env
+   first).** _Why:_ `box-blob-purge` only clears archived image blobs — `.eml` bodies, claimant identity
+   fields, and Evidence rows are never disposed of today.
+3. **[C — RUNBOOK AUTHORED OFFLINE 2026-06-24 · G4] DSAR / right-to-erasure cross-store runbook** — authored at
+   [docs/plans/runbooks/dsar-erasure-cross-store.md](../runbooks/dsar-erasure-cross-store.md); the operator
+   executes it (touches live stores). The procedure below is the spec the runbook implements — a documented, repeatable erasure procedure
    spanning **Dataverse (FetchXML by claimant/VRM/Case)** + **Azure Blob (prefix list + delete)** + **the
    Box folder by Case/PO**. _Why:_ a data-subject erasure request must reach **every** store, not just the
    system of record. **⚠️ ERASURE BLIND-SPOT (call out explicitly in the runbook):** PII-adjacent
    identifiers also live **OUTSIDE Dataverse** — in **Box folder NAMES** (Case/PO), **File-Request URLs**,
    and **Outlook CATEGORY strings**. The runbook must enumerate and cover these, or erasure is incomplete.
    _Offline:_ author the runbook; _operator:_ executes it (touches live stores).
-4. **[DEFERRED · G3] Privacy-notice / DPIA / controller-processor map** at
-   [docs/architecture/data-protection.md](../../architecture/data-protection.md) — who controls what, who
+4. **[C — DOC AUTHORED OFFLINE 2026-06-24 · G3] Privacy-notice / DPIA / controller-processor map** authored at
+   [docs/architecture/data-protection.md](../../architecture/data-protection.md) (controller/processor map,
+   per-processing lawful-basis table, two-clock retention, rights path; legal sign-offs left
+   `[RESERVED-FOR-USER]`/`[DEFERRED — PENDING LEGAL]`) — who controls what, who
    processes what, lawful bases, recipients (EVA, DVSA, DVLA), retention, and the data-subject rights path.
    Box is a **processor** under the one-way mirror; name **ICO registration** and **DVLA data-use terms**
    explicitly. _Why:_ a DPIA is effectively mandatory for systematic large-scale PII processing; the doc is
@@ -96,13 +110,20 @@ line `[ ]` until built/flipped.
    in production without a no-retain/no-train guarantee is an unassessed processing activity — but testing on
    repo data is the operator's call and is authorised. _Offline:_ author the prerequisite + wire the
    pre-scrub; _operator:_ signs off per gate before live.
-7. **[C/O] Audit-trail integrity** — enable **native Dataverse auditing** on `cr1bd_case`, `cr1bd_evidence`,
-   and `cr1bd_auditevent`; and **define the cascade-delete rule** for `cr1bd_auditevent` (what becomes of the
-   audit rows when a Case is hard-deleted by the disposition flow or a DSAR). _Why:_ disposition/erasure must
-   not silently destroy the audit trail, and the trail must be tamper-evident. _Offline:_ author the audit
-   config + the cascade decision; _operator:_ enables auditing on the live tables.
-8. **[DEFERRED · G6] Store hardening before prod** — the broader hardening is deferred-pending-operator, but
-   two definitions and one absolute principle are recorded now:
+7. **[O] Audit-trail integrity — NARROWED to org-level enablement (the schema-as-code is already in the tree).**
+   Both halves are **already authored in code**: (a) **table-native auditing** — `dataverse/.build/02-tables.ps1`
+   sets `IsAuditEnabled = true` (CanBeChanged) on every table at create, including `cr1bd_case`/`cr1bd_evidence`/
+   `cr1bd_auditevent`; and (b) **the cascade-delete rule** — `dataverse/relationships.json` defines
+   `cr1bd_case_auditevent` with `delete: RemoveLink` ("keep audit rows even if a case is removed"), so the
+   disposition flow / a DSAR cannot silently destroy the audit trail. **What remains is operator org-level
+   enablement:** turn **on Dataverse auditing at the organisation level** (env setting `IsAuditEnabled`) so the
+   per-table flags take effect, and confirm it on the live tables. _Offline: done. Operator: enable org-level
+   auditing._
+8. **[C/O · G6] Store hardening before prod** — **the IaC half is BUILT OFFLINE 2026-06-24** (KV
+   purge-protection on 4 vaults + Blob soft-delete/versioning added to all 6 Function-host bicep templates,
+   `az bicep build` clean) — authoring-only, **operator applies**. The **live evidence-bytes store
+   `cespkevidstdev01` is NOT in the IaC**, so its G6 hardening is a separate operator apply (see gated.md).
+   Two definitions and one absolute principle:
    - **Key Vault purge-protection** on the **enrichment / EVA / Box** vaults — purge-protection **blocks
      permanent secret deletion during the soft-delete window**, so an accidental/malicious wipe is
      recoverable within that window.
@@ -112,16 +133,18 @@ line `[ ]` until built/flipped.
      Blob image bytes that have already been archived to Box** — it **never** deletes anything in Box itself.
      Box content is removed by a human only; no flow, schedule, or disposition job deletes from Box.
    _Offline:_ author the bicep/config; _operator:_ applies it live **before** any purge flow is armed.
-9. **[C · G8] Sibling — staff least-privilege Dataverse security roles (3-role model)** — **promote** the
-   currently-orphan PLANNING-ONLY doc [docs/roles-and-permissions.md](../../roles-and-permissions.md) into
-   this phase and **author the `cr1bd_*` security roles offline, gated-OFF**. Three roles:
-   - **User** — **all case-intake actions** (the day-to-day intake/triage/review/EVA-export work). **Built
-     now** (offline, gated-OFF).
-   - **Admin** — **settings + audit logs** (environment-variable gates, configuration, the `cr1bd_auditevent`
-     trail). **Built now** (offline, gated-OFF).
+9. **[C — BUILT OFFLINE 2026-06-24 · G8] Sibling — staff least-privilege Dataverse security roles (3-role
+   model)** — authored as **schema-as-code** in `dataverse/roles/` (`_role.schema.json` + `user-role.json` +
+   `admin-role.json`, per-table 8-axis privilege matrix) + `28-roles.ps1` (DRY-RUN, **create-not-assign** =
+   gated-off) + promoted `docs/roles-and-permissions.md` (Part B). Least-privilege: User no-Delete + corpus
+   read-only + AuditEvent append-only; Admin adds corpus Write (no Delete) + env-var CRUD; env-resolved
+   privilege/BU GUIDs looked up at apply-time (not fabricated). Three roles:
+   - **User** — **all case-intake actions**. **Built offline, gated-OFF.**
+   - **Admin** — **settings + audit logs** (env-var gates, configuration, the `cr1bd_auditevent` trail).
+     **Built offline, gated-OFF.**
    - **Engineer** — **DEFERRED** (future assessment functionality, **out of scope** for this phase).
-   _Why:_ least-privilege staff access is part of the same governance posture (today everything runs as
-   System Administrator). _Offline:_ author the User + Admin roles; _operator:_ assigns them.
+   **Operator assigns the roles at activation.** _Why:_ least-privilege staff access is part of the same
+   governance posture (today everything runs as System Administrator).
 
 ---
 

@@ -40,8 +40,10 @@ and de-duplicate every action. Full pipeline: [docs/requirements/intake-workflow
 
 ## Phase 1 build (M1) — what's in the repo now
 
-Built and offline-verifiable: `node verify-all.mjs` → 7 gates (Code App build + 256 tests, Dataverse
-parity, flow linter, parser + enrichment pytest, and a generated-service no-`uploadFileToRecord` guard).
+Built and offline-verifiable: `node verify-all.mjs` → **all gates green** (Code App build + tests, Dataverse
+parity, flow linter, a pytest loop over every built Function suite, the generated-service
+no-`uploadFileToRecord` guard, and the boundary grep-gate). It began at 7 gates and has since widened — use
+"all gates green", not a pinned count; the live breakdown is in CURRENT_STATUS / OPEN_ITEMS.
 
 - **Plan:** [docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md](./docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md) · **Deploy:** [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) (the `[DEPLOY-WITH-LOGIN]` / `[RESERVED-FOR-USER]` sequence + blockers).
 - `mockup-app/` — the Code App (React + Fluent v9): `src/contracts/` (EVA/status/image), `src/domain/` (classification, ADR-0010 dedup, provider-match, address-policy), `src/data/` (the mock↔Dataverse seam), screens.

@@ -23,9 +23,9 @@
       "connector": "shared_commondataserviceforapps",
       "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
       "tier": "Premium",
-      "usedBy": ["intake", "classify-persist", "case-resolve", "status-evaluate", "parse", "enrich", "provider-match", "jobsheet-import", "finalize-eva-box", "chaser-draft"],
+      "usedBy": ["intake", "classify-persist", "case-resolve", "status-evaluate", "parse", "enrich", "provider-match", "jobsheet-import", "finalize-eva-box", "chaser-draft", "chaser-send", "triage-classify", "box-folder-create", "box-file-request-copy", "box-blob-purge", "case-disposition"],
       "boundAtActivation": true,
-      "note": "Working store + env-var reads. Flows READ environment variables (environmentvariabledefinitions); they never write environmentvariablevalue/definition."
+      "note": "Working store + env-var reads. Flows READ environment variables (environmentvariabledefinitions); they never write environmentvariablevalue/definition. case-disposition (Phase 9) READS the cr1bd_CASE_DISPOSITION_ENABLED gate + the two-clock retention columns and anonymises Case/Evidence PII (field-null) + audits case_disposed; it never deletes cr1bd_auditevent rows."
     },
     {
       "connectionName": "shared_azureblob",
@@ -34,9 +34,9 @@
       "connector": "shared_azureblob",
       "apiId": "/providers/Microsoft.PowerApps/apis/shared_azureblob",
       "tier": "Premium",
-      "usedBy": ["classify-persist", "finalize-eva-box"],
+      "usedBy": ["classify-persist", "finalize-eva-box", "box-blob-purge", "case-disposition"],
       "boundAtActivation": true,
-      "note": "Attachment/.eml bytes go here (never inline in a Dataverse row). The storage Function returns { Path, sha256, size }. finalize-eva-box also READS blob content here (Get blob content using path (V2), operationId GetFileContentByPath_V2, dataset=AccountNameFromSettings) to fetch real photo bytes before each Box CreateFile (the S2 content-bind fix) — account cespkevidstdev01, container evidence, access-key auth. [RESERVED-FOR-USER] to bind."
+      "note": "Attachment/.eml bytes go here (never inline in a Dataverse row). The storage Function returns { Path, sha256, size }. finalize-eva-box also READS blob content here (Get blob content using path (V2), operationId GetFileContentByPath_V2, dataset=AccountNameFromSettings) to fetch real photo bytes before each Box CreateFile (the S2 content-bind fix) — account cespkevidstdev01, container evidence, access-key auth. box-blob-purge + case-disposition (Phase 9) DELETE transient Blob bytes here (GetFileMetadataByPath_V2 to resolve the opaque id, then DeleteFile_V2) — transient bytes only; the Box archive copy is NEVER touched. [RESERVED-FOR-USER] to bind."
     },
     {
       "connectionName": "shared_box",
@@ -82,11 +82,25 @@
       "apiId": "/providers/Microsoft.PowerApps/apis/shared_ceparser",
       "tier": "Premium",
       "custom": true,
-      "operationIds": ["ParseDocument"],
+      "operationIds": ["ParseDocument", "ClassifyEmail"],
       "openapi": "functions/parser/openapi/parser-connector.json",
+      "usedBy": ["parse", "triage-classify"],
+      "boundAtActivation": true,
+      "note": "cedocumentmapper_v2 parser. Two ops on one Function/connection: ParseDocument (/parse, the 12-field EVA extraction, used by Flow_Parse) and ClassifyEmail (/classify-email, the deterministic Phase-8 inbound-email triage label, used by Flow_TriageClassify — ADR-0015). Function key (x-functions-key) stored on the connection, never in a definition. [DEPLOY-WITH-LOGIN] to import the connector (re-import to pick up the added /classify-email op)."
+    },
+    {
+      "connectionName": "shared_ocr",
+      "logicalName": "cr1bd_ocr",
+      "displayName": "Collision Engineers OCR Host (custom: OcrPdf + PlateOcr)",
+      "connector": "shared_ocr",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_ocr",
+      "tier": "Premium",
+      "custom": true,
+      "operationIds": ["OcrPdf", "PlateOcr"],
+      "openapi": "ocr/openapi/ocr-connector.json",
       "usedBy": ["parse"],
       "boundAtActivation": true,
-      "note": "cedocumentmapper_v2 parser. Function key (x-functions-key) stored on the connection, never in a definition. [DEPLOY-WITH-LOGIN] to import the connector."
+      "note": "Phase-5 OCR fallback host (Azure Functions on Azure Container Apps). Two ops on one Function/connection: OcrPdf (/ocr-pdf, turns an image-only/scanned instruction PDF into text and — when the engine is present — the 12-field EVA extraction; used by Flow_Parse as the EMPTY-EXTRACTION fallback only) and PlateOcr (/plate-ocr, reads a registration plate from an overview photo for Evidence registrationVisible / VRM match; authored for a later phase, no flow binds it yet). Gating is enforced UPSTREAM in the flow/Code App (cr1bd_OCR_SCANNED_PDF_ENABLED / cr1bd_PLATE_OCR_ENABLED), NOT in the host. body/document + body/image are the RAW base64 strings (NOT @base64ToBinary) — the same Power Platform gateway double-encode landmine the parser hit; the host's tolerant decode peels the redundant layer (memory powerplatform-connector-base64-double-encode). Function key (x-functions-key) stored on the connection, never in a definition; the OCR host base is set at add-data-source/import time, never hardcoded. OCR_PROVIDER / PLATE_PROVIDER are CONTAINER-side settings, not Dataverse env-vars. Premium so it shares a DLP data group with the other custom service connectors. [DEPLOY-WITH-LOGIN] to import; [RESERVED-FOR-USER] to bind the connection (Function host key) + flip the gate at activation."
     },
     {
       "connectionName": "shared_dvsaenrich",
@@ -111,9 +125,10 @@
       "tier": "Premium",
       "custom": true,
       "operationIds": ["ValidateCase"],
-      "usedBy": [],
-      "boundAtActivation": false,
-      "note": "NOT USED by the Phase-1 slice. status-evaluate.definition.json now computes readiness INLINE (image-rules + 7 required EVA fields read straight from Dataverse) because no backing validation Function was ever deployed (no functions/validation/), so the connector + this binding would have blocked ready_for_eva. Kept as a reference for the FUTURE shared-surface design (Path 1 in docs/plans/phase-1-intake-and-case-tracking/phase-1-operational.md §3.6): build functions/evavalidation (ValidateCase -> { fieldsValid, imagesValid, openIssues[] }) so the flow + Code App computeReadiness() consume ONE implementation, then repoint status-evaluate and set usedBy=[status-evaluate]. Until then this ref needs NO connection bound (linter reports it as declared-but-unused = WARN, not FAIL)."
+      "openapi": "functions/evavalidation/openapi/evavalidation-connector.json",
+      "usedBy": ["status-evaluate"],
+      "boundAtActivation": true,
+      "note": "M2.B (Path 1 of docs/plans/phase-1-intake-and-case-tracking/phase-1-operational.md §3.6, now DONE): status-evaluate.definition.json computes readiness via this connector's ValidateCase op, fronting the deployed functions/evavalidation Function — so the flow, the Code App computeReadiness() and the Function are ONE implementation of the EVA readiness contract (the Code App has a committed parity test against the same Function). Body-in { case, evidence }; returns { fieldsValid, imagesValid, openIssues[] }. The Function is pure domain logic ported from the canonical TS image-rules.ts + case-status.ts: gate-free (always on), holds NO secrets, makes NO upstream call — keyed by x-functions-key on the connection only. This repoint replaced the five inline Filter/Set actions that previously duplicated the contract. [DEPLOY-WITH-LOGIN] to import the connector; [RESERVED-FOR-USER] to bind the connection (Function host key) at activation."
     },
     {
       "connectionName": "shared_evasentry",
@@ -131,7 +146,7 @@
   ],
   "notes": [
     "One connection reference per logical connector; flows bind to the reference, the reference binds to a connection at deploy/activation. This is what lets the SAME definition move dev -> test -> prod unchanged.",
-    "Premium connectors in play: Dataverse, Azure Blob, and the five custom connectors (parser/DVSA/validation/EVA + the Phase-7 Box REST cr1bd_box_rest) -> require Premium licensing (open Code Apps GA/licensing question). Standard: Office 365 Outlook, Excel Online (Business), Box first-party (the first-party Box connector is class Standard per Microsoft Learn — Standard + Premium connectors coexist in one DLP data group).",
+    "Premium connectors in play: Dataverse, Azure Blob, and the custom connectors (parser/DVSA/validation/EVA + the Phase-7 Box REST cr1bd_box_rest + the Phase-5 OCR host cr1bd_ocr) -> require Premium licensing (open Code Apps GA/licensing question). Standard: Office 365 Outlook, Excel Online (Business), Box first-party (the first-party Box connector is class Standard per Microsoft Learn — Standard + Premium connectors coexist in one DLP data group).",
     "Phase-7 Box split (ADR-0012): TWO Box connections coexist by design. cr1bd_box_rest (Premium, custom, CCG via the box-webhook Function) does FOLDER create + File-Request copy + shared-link + webhook lifecycle; first-party cr1bd_box (Standard, interactive OAuth) is KEPT for finalize-eva-box's BYTE upload (CreateFile) only. This is the build-plan-04 PIN of the previously-unpinned connection-ref decision (parallel ref, NOT an in-place repoint).",
     "DLP: every connector here must sit in the SAME data group in the target environment's DLP policy or import/run fails. Confirm before activation."
   ]

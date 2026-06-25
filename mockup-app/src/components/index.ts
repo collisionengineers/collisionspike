@@ -1,6 +1,15 @@
 /** Barrel for shared components. Screen agents import from '../components'. */
 export { AppShell, type AppShellProps } from './AppShell';
+export { Panel, type PanelProps } from './Panel';
 export { SectionHeading, type SectionHeadingProps } from './SectionHeading';
+export {
+  EvaFieldRow,
+  FIELD_CLUSTERS,
+  LABEL_FOR,
+  VAT_OPTIONS,
+  MILEAGE_UNIT_OPTIONS,
+  type EvaFieldRowProps,
+} from './EvaFields';
 export { VrmPlate, type VrmPlateProps } from './VrmPlate';
 export { PipelineStrip, type PipelineStripProps } from './PipelineStrip';
 export { StatusBadge, statusLabel, statusSeverity, type StatusBadgeProps } from './StatusBadge';
@@ -35,7 +44,6 @@ export {
   DataGridSkeleton,
   ProviderListSkeleton,
   CaseDetailSkeleton,
-  FieldsSkeleton,
   ThumbGridSkeleton,
 } from './Skeletons';
 export { GLOBAL_TOASTER_ID } from './toaster';

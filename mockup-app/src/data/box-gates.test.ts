@@ -3,6 +3,7 @@ import {
   BOX_ENV_VAR_SCHEMA_NAMES,
   BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA,
   BOX_GATE_SCHEMA_NAMES,
+  boxFileRequestTemplateIdFromRows,
   boxGatesFromResolved,
   boxGatesFromRows,
   envValueToBool,
@@ -169,5 +170,43 @@ describe('schema-name registry', () => {
     expect(BOX_ENV_VAR_SCHEMA_NAMES).toHaveLength(6);
     expect(BOX_ENV_VAR_SCHEMA_NAMES).toContain('cr1bd_BOX_API_ENABLED');
     expect(BOX_ENV_VAR_SCHEMA_NAMES).toContain(BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA);
+  });
+});
+
+describe('boxFileRequestTemplateIdFromRows — the STRING value getter (Item B)', () => {
+  it('returns the coalesced value (override over default)', () => {
+    const defs: EnvironmentVariableDefinitionRecord[] = [
+      { environmentvariabledefinitionid: 't', schemaname: BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA, defaultvalue: '' },
+    ];
+    const vals: EnvironmentVariableValueRecord[] = [
+      { _environmentvariabledefinitionid_value: 't', value: 'fr_template_123' },
+    ];
+    expect(boxFileRequestTemplateIdFromRows(defs, vals)).toBe('fr_template_123');
+  });
+
+  it('falls back to the definition default when no value row joins', () => {
+    const defs: EnvironmentVariableDefinitionRecord[] = [
+      { environmentvariabledefinitionid: 't', schemaname: BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA, defaultvalue: 'fr_default' },
+    ];
+    expect(boxFileRequestTemplateIdFromRows(defs, [])).toBe('fr_default');
+  });
+
+  it('returns undefined for an empty/whitespace value (never a blank template id)', () => {
+    const defs: EnvironmentVariableDefinitionRecord[] = [
+      { environmentvariabledefinitionid: 't', schemaname: BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA, defaultvalue: '' },
+    ];
+    expect(boxFileRequestTemplateIdFromRows(defs, [])).toBeUndefined();
+    expect(
+      boxFileRequestTemplateIdFromRows(defs, [
+        { _environmentvariabledefinitionid_value: 't', value: '   ' },
+      ]),
+    ).toBeUndefined();
+  });
+
+  it('returns undefined when the template var is absent entirely', () => {
+    const defs: EnvironmentVariableDefinitionRecord[] = [
+      { environmentvariabledefinitionid: 'a', schemaname: 'cr1bd_BOX_API_ENABLED', defaultvalue: 'true' },
+    ];
+    expect(boxFileRequestTemplateIdFromRows(defs, [])).toBeUndefined();
   });
 });

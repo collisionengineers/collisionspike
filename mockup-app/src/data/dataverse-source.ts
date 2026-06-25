@@ -6,11 +6,16 @@
    cr1bd_* logical-name records <-> the camelCase domain types and the choice-set
    integers <-> the string-enum unions.
 
-   AUTHORED FOR DEPLOY, NOT WIRED BY DEFAULT. It imports NO SDK and NO
+   This source is WIRED AT STARTUP: src/main.tsx calls
+   `configureDataAccess(generatedServices)`, so the deployed Code App runs
+   Dataverse-backed (real rows). This module itself imports NO SDK and NO
    `src/generated/` module — only the LOCAL `GeneratedServices` interface, which
    the real pac-generated services satisfy structurally and which the caller
-   injects at runtime. The default build keeps using the mock source, so the
-   'no @microsoft/power-apps import in src' grep gate stays green.
+   injects at runtime; the SDK bootstrap lives in main.tsx, not here. The
+   pre-bootstrap default and the SDK-free unit tests use the empty mock source.
+   (There is NO "no @microsoft/power-apps import in src" grep gate in
+   verify-all.mjs; the boundary grep-gate there allowlists the connector seam and
+   the generated SDK, and forbids only raw fetch/external-host calls.)
 
    The queue/dashboard windowing math mirrors mock/queues.ts EXACTLY (same QUEUES
    map, same Monday-anchored week, same DD/MM/YYYY parsing) but runs over the
@@ -60,12 +65,17 @@ import type {
   DataAccess,
   GeneratedServices,
   InspectionAddressCounts,
+  InspectionAddressRecord,
+  InspectionDecisionInput,
   LocationAssistGate,
+  SaveInspectionDecisionResult,
   SuggestedAddress,
 } from './types';
 import { LOCATION_ASSIST_GATE_ALL_OFF } from './types';
 import {
   BOX_ENV_VAR_SCHEMA_NAMES,
+  BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA,
+  boxFileRequestTemplateIdFromRows,
   boxGatesFromRows,
   HOLD_NEW_CASES_SCHEMA,
   holdNewCasesFromRows,
@@ -502,6 +512,111 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
       return { confirmed, suggested };
     },
 
+    /* ----- Persist a reviewer's CONFIRMED inspection decision (ADR-0013) -----
+       Writes ONE cr1bd_inspectionaddress row carrying the decision a HUMAN just
+       confirmed on CaseDetail (a picked address, or Image Based Assessment with a
+       reason) + its plain-language provenance. Honest NO-OP until the corpus table
+       is wired (services.inspectionAddresses undefined) — exactly like the other
+       not-yet-wired seams, so the confirm still drives the local working copy and
+       the offline build stays green.
+
+       The corpus table is provider-scoped and standalone — it carries NO case
+       lookup (ADR-0013: a corpus row is never mirrored onto / bound to a Case). So
+       the originating caseId AND the provider PRINCIPAL (parsed from the Case/PO,
+       like the suggestions query) are recorded for traceability/scoping INSIDE the
+       source note as 'case=<id> provider=<code>', not as a lookup. The required
+       primary `cr1bd_name` (Label) is derived from the confirmed address (or the
+       IBA literal).
+
+       ADR-0013 (BINDING): this is reached ONLY from the explicit confirm path
+       (a picked suggestion via useSuggestion, OR an Image Based Assessment override
+       via confirmImageBased); it does not auto-resolve, does not write on load, and
+       reintroduces no runtime address matcher. The row it writes is a CONFIRMED
+       decision (decisionMode != unknown, sourceLabel NOT 'suggested*' — so
+       isSuggestedAddressRecord EXCLUDES it), NOT a new unconfirmed suggestion. */
+    saveInspectionDecision: async (
+      caseId,
+      decision: InspectionDecisionInput,
+    ): Promise<SaveInspectionDecisionResult> => {
+      const svc = services.inspectionAddresses;
+      // Table not yet added (pac add-data-source) -> honest no-op. The local
+      // working-copy capture in CaseDetail still happened; only the durable write
+      // is deferred until deploy.
+      if (!svc) return { persisted: false };
+
+      // Project the confirmed decision onto an InspectionAddress row. A physical
+      // decision carries up-to-6 address lines + postcode; an image-based decision
+      // omits them and rides the reason in the source note. decisionMode is the
+      // HUMAN-confirmed mode (never 'unknown' here — the confirm path supplies a
+      // resolved mode), so the written row is a CONFIRMED reference, not a suggestion.
+      const lines = (decision.addressLines ?? []).map((l) => (l ?? '').trim()).filter(Boolean);
+      const isImageBased = decision.decisionMode === 'image_based';
+      // Required primary column: a short Label for the confirmed location. The IBA
+      // literal for an image-based decision; the first address line (+ postcode) for
+      // a physical one; a safe fallback otherwise.
+      // cr1bd_name is required + capped at 200 chars; trim the derived label so a very
+      // long first address line + postcode can't 400 the best-effort create() (a .catch'd
+      // overflow would otherwise silently drop the durable confirmed-decision write).
+      const label = (isImageBased
+        ? 'Image Based Assessment'
+        : [lines[0], decision.postcode?.trim()].filter(Boolean).join(', ') || 'Inspection address'
+      ).slice(0, 200);
+      // Scope/trace the written row to its provider via the 4-char PRINCIPAL code,
+      // parsed from the Case/PO's leading-alpha run (e.g. 'CCPY26050' -> 'CCPY'),
+      // uppercased — the SAME derivation the suggestions query uses, and the
+      // 'provider=<code>' token the corpus seeder writes. The corpus carries no case
+      // lookup, so the originating case + provider are recorded in the source note.
+      // Provider-scoped EXCLUSION from the suggestion set is already guaranteed by the
+      // non-'suggested' sourceLabel (the suggestions query filters startswith
+      // 'suggested' and never fetches this row); the token is for traceability and any
+      // future provider-scoped reporting over confirmed rows.
+      // Best-effort: the provider token is supplementary traceability — never let a
+      // case-read hiccup (or an absent cases service in a narrow test/host) block the
+      // durable decision write.
+      let providerCode = '';
+      try {
+        const caseRes = await services.cases?.get(caseId);
+        providerCode = (
+          caseRes?.data?.cr1bd_casepo?.trim().match(/^[A-Za-z]+/)?.[0] ?? ''
+        ).toUpperCase();
+      } catch {
+        /* leave providerCode empty — the row still writes without the token */
+      }
+      const sourceNote = [
+        `case=${caseId}`,
+        ...(providerCode ? [`provider=${providerCode}`] : []),
+        decision.sourceNote,
+      ]
+        .join(' ')
+        .trim();
+      const record: Partial<InspectionAddressRecord> = {
+        cr1bd_name: label,
+        cr1bd_sourcelabel: decision.sourceLabel,
+        cr1bd_sourcenote: sourceNote,
+        ...(decision.decisionMode && decision.decisionMode !== 'unknown'
+          ? { cr1bd_decisionmode: inspectionDecisionCodec.toInt(decision.decisionMode) }
+          : {}),
+        // The image-based reason also lands in the dedicated decision-reason column
+        // (the schema requires a non-empty reason for an image-based decision).
+        ...(isImageBased && decision.sourceNote.trim()
+          ? { cr1bd_decisionreason: decision.sourceNote.trim() }
+          : {}),
+        ...(lines[0] ? { cr1bd_addressline1: lines[0] } : {}),
+        ...(lines[1] ? { cr1bd_addressline2: lines[1] } : {}),
+        ...(lines[2] ? { cr1bd_addressline3: lines[2] } : {}),
+        ...(lines[3] ? { cr1bd_addressline4: lines[3] } : {}),
+        ...(lines[4] ? { cr1bd_addressline5: lines[4] } : {}),
+        ...(lines[5] ? { cr1bd_addressline6: lines[5] } : {}),
+        ...(!isImageBased && decision.postcode?.trim()
+          ? { cr1bd_postcode: decision.postcode.trim() }
+          : {}),
+      };
+
+      const res = await svc.create(record);
+      const id = res.data?.cr1bd_inspectionaddressid;
+      return { persisted: true, ...(id ? { id } : {}) };
+    },
+
     /* ----- Dashboard / queue aggregates (window over the adapted set) ----- */
     liveCounts: async (now = new Date()): Promise<LiveCounts> => {
       const all = await allCases(now);
@@ -618,6 +733,29 @@ export function createDataverseDataAccess(services: GeneratedServices): DataAcce
     getBoxGates: (): Promise<BoxGates> => {
       if (!boxGatesCache) boxGatesCache = fetchBoxGates();
       return boxGatesCache;
+    },
+
+    /* ----- Box File-Request TEMPLATE id (the string value, not the boolean) -----
+       Read FRESH per call off the same env-var tables — undefined when the var is
+       unset/empty or the tables aren't wired (honest off). Consumed only by the
+       Phase-7 deploy wiring's BoxCaseResolver.templateId(); the id is never shown
+       in the UI. NOT cached (a deploy-time read happens at most once per submit). */
+    getBoxFileRequestTemplateId: async (): Promise<string | undefined> => {
+      const defsSvc = services.environmentVariableDefinitions;
+      const valsSvc = services.environmentVariableValues;
+      if (!defsSvc || !valsSvc) return undefined;
+      try {
+        const [defsRes, valsRes] = await Promise.all([
+          defsSvc.getAll({
+            select: ['environmentvariabledefinitionid', 'schemaname', 'defaultvalue'],
+            filter: `schemaname eq '${BOX_FILE_REQUEST_TEMPLATE_ID_SCHEMA}'`,
+          }),
+          valsSvc.getAll({ select: ['value', '_environmentvariabledefinitionid_value'] }),
+        ]);
+        return boxFileRequestTemplateIdFromRows(defsRes.data ?? [], valsRes.data ?? []);
+      } catch {
+        return undefined; // honest off on any read failure
+      }
     },
 
     /* ----- Location-assist gate (read FRESH per call; all-off on failure) -----

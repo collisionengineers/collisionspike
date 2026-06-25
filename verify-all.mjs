@@ -75,15 +75,28 @@ run('Dataverse — schema parity', `node ${JSON.stringify(join(ROOT, 'dataverse'
 // 4. Power Automate flow definitions — offline linter (state=off, connection refs, secrets, dedup parity).
 run('Flows — definition linter', `node ${JSON.stringify(join(ROOT, 'flows', 'validate-flows.mjs'))}`, { tail: 1 });
 
-// 5-6. Azure Functions — mocked-fixture pytest (parser + enrichment). venvs are local + gitignored.
-for (const fn of ['parser', 'enrichment']) {
-  const winPy = join(ROOT, 'functions', fn, '.venv', 'Scripts', 'python.exe');
-  const nixPy = join(ROOT, 'functions', fn, '.venv', 'bin', 'python');
+// 5-6. Azure Functions — mocked-fixture pytest across EVERY built suite. venvs are
+//      local + gitignored; a suite with no local .venv SKIPs (set it up to include
+//      that gate). ocr lives at the repo root, not under functions/.
+const PY_SUITES = [
+  ['parser', join(ROOT, 'functions', 'parser'), 'functions/parser'],
+  ['enrichment', join(ROOT, 'functions', 'enrichment'), 'functions/enrichment'],
+  ['evasentry', join(ROOT, 'functions', 'evasentry'), 'functions/evasentry'],
+  ['evavalidation', join(ROOT, 'functions', 'evavalidation'), 'functions/evavalidation'],
+  ['location-suggest', join(ROOT, 'functions', 'location-suggest'), 'functions/location-suggest'],
+  ['box-webhook', join(ROOT, 'functions', 'box-webhook'), 'functions/box-webhook'],
+  ['ocr', join(ROOT, 'ocr'), 'ocr'],
+];
+for (const [name, dir, rel] of PY_SUITES) {
+  const testsDir = join(dir, 'tests');
+  if (!existsSync(testsDir)) { skip(`Function ${name} — pytest`, 'no tests dir'); continue; }
+  const winPy = join(dir, '.venv', 'Scripts', 'python.exe');
+  const nixPy = join(dir, '.venv', 'bin', 'python');
   const exe = isWin && existsSync(winPy) ? winPy : existsSync(nixPy) ? nixPy : null;
   if (exe) {
-    run(`Function ${fn} — pytest`, `${JSON.stringify(exe)} -m pytest ${JSON.stringify(join(ROOT, 'functions', fn, 'tests'))} -q`, { tail: 1 });
+    run(`Function ${name} — pytest`, `${JSON.stringify(exe)} -m pytest tests -q`, { tail: 1, cwd: dir });
   } else {
-    skip(`Function ${fn} — pytest`, `no .venv. Setup: cd functions/${fn} && python -m venv .venv && (.venv/Scripts or .venv/bin)/pip install -r requirements.txt -r requirements-dev.txt`);
+    skip(`Function ${name} — pytest`, `no .venv. Setup: cd ${rel} && python -m venv .venv && (.venv/Scripts or .venv/bin)/pip install -r requirements.txt -r requirements-dev.txt`);
   }
 }
 
@@ -113,6 +126,50 @@ gate('Code App — no uploadFileToRecord in generated services', () => {
     );
   }
   return `OK — scanned ${files.length} generated .ts file(s); no \`${NEEDLE}\`.`;
+});
+
+// 8. Boundary gate — the Code App must reach external services ONLY through the
+//    connector-transport seam (the @microsoft/power-apps SDK + the generated connector
+//    services), never via a raw network call or a hard-coded service host. FAILS if a
+//    raw fetch/XHR or an external-service host literal appears in mockup-app/src outside
+//    the allowlisted seam (generated SDK + the *-connector-transport modules) or tests.
+//    Line-comments are stripped before testing so a documented mention does not trip it.
+gate('Code App — no raw external calls outside the connector seam', () => {
+  const srcDir = join(ROOT, 'mockup-app', 'src');
+  const NEEDLES = [
+    /\bfetch\s*\(/,
+    /\bnew\s+XMLHttpRequest\b/,
+    /azurewebsites\.net/i,
+    /graph\.microsoft/i,
+    /login\.microsoftonline/i,
+    /\bfrom\s+['"](?:axios|node-fetch|got|undici)['"]/, // raw HTTP-client imports — the app must go through the connector seam
+    /\bapi\.box\.com\b/i,
+  ];
+  const allow = (rel) =>
+    rel.includes('/generated/') ||
+    /\.test\.tsx?$/.test(rel) ||
+    /-connector-transport\.ts$/.test(rel);
+  // Strip BOTH block comments (/* */, JSDoc) and line comments before testing, so a
+  // documented mention of fetch()/a host (the seam files explain WHY the app avoids
+  // raw calls) is never mistaken for a live call.
+  const stripComments = (src) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1'); // strip line comments but NOT the // inside https://, so host needles still see URL literals
+  const files = collectFiles(srcDir, /\.(ts|tsx)$/).filter(
+    (f) => !allow(f.slice(ROOT.length + 1).replace(/\\/g, '/')),
+  );
+  const offenders = [];
+  for (const f of files) {
+    const code = stripComments(readFileSync(f, 'utf8'));
+    const hit = NEEDLES.find((re) => re.test(code));
+    if (hit) offenders.push(`  - ${f.slice(ROOT.length + 1)}  (${hit})`);
+  }
+  if (offenders.length) {
+    throw new Error(
+      'The Code App must reach external services through the connector-transport seam, not raw:\n' +
+        offenders.join('\n'),
+    );
+  }
+  return `OK — scanned ${files.length} src file(s); no raw external calls outside the seam.`;
 });
 
 // Summary -------------------------------------------------------------------

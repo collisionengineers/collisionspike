@@ -16,12 +16,12 @@ valuation/Copilot are **plan-only**. See [../../../ROADMAP.md](../../../ROADMAP.
 1. [x] Scope decided — FC1 can't run Tesseract → Azure Container Apps host
 2. [x] OCR host built (`ocr/`): Dockerfile + ACA Bicep + plate/pdf adapters (two routes, one container)
 3. [x] Image `ce-ocr:latest` built + pushed to ACR (`cespkocracraeee76`)
-4. [x] **ACA host deploy** — **DONE 2026-06-19** (PR #7): a pre-granted user-assigned identity for AcrPull (separate ARM deploy) fixed the revision-provision race; `cespkocr-fn-dev-glju3v` is Running (scale-to-zero 0..5). Remaining (soft → [../../gated.md](../../gated.md)): wire the connector + flip the gate, and add the two B2 fields to `ocr/ocr_pdf_adapter.py` EVA map.
+4. [x] **ACA host deploy** — **DONE 2026-06-19** (PR #7): a pre-granted user-assigned identity for AcrPull (separate ARM deploy) fixed the revision-provision race; `cespkocr-fn-dev-glju3v` is Running (scale-to-zero 0..5). The two B2 fields (`claimant_telephone`/`claimant_email`) are **already present + parity-guarded** in `ocr/ocr_pdf_adapter.py`'s EVA map. **Gated OCR-fallback branch wired into `parse.definition.json`** (sweep wave; gate `cr1bd_OCR_SCANNED_PDF_ENABLED`, `coalesce(OCR, parser)`). Remaining (soft → [../../gated.md](../../gated.md)): import/bind the OCR connector + flip the gate; calibrate on real scans.
 
 **5b · Image classification AI (ADR-0009, M2+)** — [image-classification-ai.md](./image-classification-ai.md)
 5. [ ] overview-vs-`damage_closeup` classification (Foundry vision preferred over AI Builder)
 6. [ ] person / reflection detection (Custom Vision explicitly **not** used — retires 2028)
-7. [ ] Image-ordering UI (drag to set the 2 preview images); [ ] WhatsApp media bulk import (ADR-0007)
+7. [x] **Image-ordering UI** (`ImageOrderList.tsx` + test, wired into CaseDetail — drag to set the 2 preview images); [ ] WhatsApp media bulk import (ADR-0007)
 
 **5c · Valuation & Copilot (M2/M3+)** — [valuation-and-copilot.md](./valuation-and-copilot.md)
 8. [ ] Valuation (`valuationbot`, gated `VALUATION_ENABLED`) — staff-triggered; evidence PDF attached

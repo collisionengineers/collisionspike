@@ -27,7 +27,7 @@ Do **one mailbox first**.
 | **Office 365 Outlook** | Sign in as an account that can read the shared mailbox (member, or delegate/Read access). | Standard |
 | **Microsoft Dataverse** | Sign in (usually one click). | Premium |
 | **Azure Blob Storage** | The **evidence storage account** (from the Functions infra) — account name + access key (or SAS/Entra). If none exists, create a storage account + a container first. | Premium |
-| **CE Parser** (under **Custom connectors** → it's listed → **+ New connection**) | API key prompt → paste the parser **function key**:<br>`A31IJ9kySfjhR-9bizHWvjWoXk7uDvEuLfDcd1gkJnWxAzFuzYZHaA==`<br>(host `https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net`). Non-sensitive dev key. | Premium |
+| **CE Parser** (under **Custom connectors** → it's listed → **+ New connection**) | API key prompt → paste the parser **function key** (`<set at activation>` — copy from the Azure portal: Function App → App keys; the literal is **not** committed to the repo)<br>(host `https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net`). | Premium |
 
 Skip Box / EVA Sentry / EVA Validation / DVSA / Excel — later phases.
 

@@ -1,21 +1,27 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Badge,
   Caption1,
-  Text,
   makeStyles,
   mergeClasses,
   tokens,
 } from '@fluentui/react-components';
 import { ScrollText, ChevronRight } from 'lucide-react';
-import { SectionHeading, VrmPlate } from '../components';
-import { data, type ActivityEvent, type ActivityKind } from '../data';
+import {
+  SectionHeading,
+  VrmPlate,
+  DataGridSkeleton,
+  EmptyState,
+  ErrorState,
+} from '../components';
+import { useActivity, type ActivityKind } from '../data';
 
 /* Action logs (review nav-bar #2: "Audit → Action Logs").
    Was a disabled "Soon" rail stub; now a real read over the audit-event seam
-   (data.recentActivity → cr1bd_auditevents). Newest first. The empty default
-   data source returns [] honestly until Dataverse is injected. */
+   (data.recentActivity → cr1bd_auditevents), through the shared useActivity hook
+   so it shows the same loading / error / empty surfaces as the other screens.
+   Newest first. The empty default data source returns [] honestly until
+   Dataverse is injected. */
 
 const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL },
@@ -25,7 +31,7 @@ const useStyles = makeStyles({
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
     padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
-    borderRadius: '2px',
+    borderRadius: tokens.borderRadiusMedium,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     backgroundColor: tokens.colorNeutralBackground1,
     cursor: 'pointer',
@@ -39,17 +45,6 @@ const useStyles = makeStyles({
   meta: { color: tokens.colorNeutralForeground3 },
   when: { color: tokens.colorNeutralForeground3, whiteSpace: 'nowrap', flexShrink: 0 },
   chev: { color: tokens.colorNeutralForeground4, flexShrink: 0 },
-  empty: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: tokens.spacingVerticalS,
-    padding: `${tokens.spacingVerticalXXXL} ${tokens.spacingHorizontalL}`,
-    color: tokens.colorNeutralForeground3,
-    textAlign: 'center',
-    border: `1px dashed ${tokens.colorNeutralStroke2}`,
-    borderRadius: '2px',
-  },
 });
 
 const KIND_LABELS: Record<ActivityKind, string> = {
@@ -69,17 +64,7 @@ const KIND_LABELS: Record<ActivityKind, string> = {
 export function ActionLogs() {
   const styles = useStyles();
   const navigate = useNavigate();
-  const [events, setEvents] = useState<ActivityEvent[] | undefined>();
-
-  useEffect(() => {
-    let cancelled = false;
-    void data.recentActivity().then((rows) => {
-      if (!cancelled) setEvents(rows);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: events, loading, error, refetch } = useActivity();
 
   return (
     <div className={mergeClasses('ce-enter', styles.root)}>
@@ -89,12 +74,16 @@ export function ActionLogs() {
         subtitle="Every action on a case — newest first."
       />
 
-      {!events || events.length === 0 ? (
-        <div className={styles.empty}>
-          <ScrollText size={28} strokeWidth={1.5} aria-hidden />
-          <Text>No activity recorded yet.</Text>
-          <Caption1>Intake, review, chase and submit actions appear here as cases move.</Caption1>
-        </div>
+      {loading && events === undefined ? (
+        <DataGridSkeleton rows={8} />
+      ) : error && events === undefined ? (
+        <ErrorState error={error} onRetry={refetch} title="Couldn’t load the action logs" />
+      ) : !events || events.length === 0 ? (
+        <EmptyState
+          icon={<ScrollText size={32} strokeWidth={1.5} aria-hidden />}
+          title="No activity recorded yet."
+          hint="Intake, review, chase and submit actions appear here as cases move."
+        />
       ) : (
         <div className={styles.list}>
           {events.map((e) => (

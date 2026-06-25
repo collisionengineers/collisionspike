@@ -63,10 +63,22 @@ const flowStateByFile = new Map((flowState.flows ?? []).map((f) => [f.definition
 const PROVIDER_SCOPE_REQUIRED = new Set([]);
 // Registration-scoped exception: cr1bd_cases ListRecords legitimately keyed on cr1bd_vrm (merge-by-registration).
 const VRM_SCOPE_ALLOWED = new Set(['case-resolve.definition.json']);
+// Phase-8 documented exception (ADR-0015): triage-classify's cr1bd_cases ListRecords are an OPEN-CASE LINK
+// LOOKUP for an inbound query/email — Case/PO FIRST (cr1bd_casepo eq), VRM only as a fallback (cr1bd_vrm).
+// This is NOT a dedup/merge-by-VRM read: it only PROPOSES a link a human confirms, and it NEVER auto-links on
+// ambiguity (>1 match -> link_ambiguous, cr1bd_caseid stays null). Each lookup must be Case/PO- OR VRM-keyed AND
+// scoped to ACTIVE non-terminal cases; the no-auto-link-on-ambiguity invariant is asserted separately below.
+const TRIAGE_OPEN_CASE_LOOKUP_ALLOWED = new Set(['triage-classify.definition.json']);
 // Phase-7 documented exception: box-blob-purge's cr1bd_cases ListRecords is a status+boxsyncedat sweep
 // (find box_synced cases past the grace window), NOT a dedup-by-VRM read — so it is intentionally not
 // provider-scoped. Asserted below to actually filter on cr1bd_status + cr1bd_boxsyncedat.
 const BOXSYNCEDAT_SCOPE_ALLOWED = new Set(['box-blob-purge.definition.json']);
+// Phase-9 documented exception (ADR-0017 G1): case-disposition's cr1bd_cases ListRecords is the TWO-CLOCK
+// retention sweep (find terminal/closed cases whose minimisation window lapsed AND with NO legal hold),
+// NOT a dedup-by-VRM read — so it is intentionally not provider-scoped. Asserted below to actually filter
+// on cr1bd_retentionexpiresat AND cr1bd_legalhold (the two competing clocks). This is the linter's guard
+// that the disposition can NEVER fetch a held case (the litigation clock must always override the expiry).
+const RETENTION_SCOPE_ALLOWED = new Set(['case-disposition.definition.json']);
 
 // Phase-7 Box flows: the ONLY definitions allowed to reference the custom Box REST connection
 // (shared_box_rest). The byte path (finalize-eva-box) must NEVER use it — bytes stay on first-party
@@ -261,6 +273,24 @@ for (const file of files) {
     const syncScoped = caseLists.every((a) => a.filter.includes('cr1bd_status') && a.filter.includes('cr1bd_boxsyncedat'));
     if (syncScoped) pass(`[${file}] cr1bd_cases ListRecords are status+boxsyncedat-scoped (documented box-blob-purge exception, not a dedup-by-VRM query)`);
     else fail(`[${file}] box-blob-purge cr1bd_cases ListRecords must filter on cr1bd_status AND cr1bd_boxsyncedat`);
+  } else if (caseLists.length > 0 && RETENTION_SCOPE_ALLOWED.has(file)) {
+    // Phase-9 documented exception (ADR-0017 G1): the two-clock retention sweep keys on the minimisation
+    // expiry + the legal-hold flag, not VRM. Assert it actually filters on cr1bd_retentionexpiresat AND
+    // cr1bd_legalhold — this is the linter's enforcement that a held case is NEVER fetched for disposal
+    // (the litigation clock always overrides the minimisation expiry).
+    const retentionScoped = caseLists.every((a) => a.filter.includes('cr1bd_retentionexpiresat') && a.filter.includes('cr1bd_legalhold'));
+    if (retentionScoped) pass(`[${file}] cr1bd_cases ListRecords are retentionexpiresat+legalhold-scoped (documented case-disposition two-clock exception, not a dedup-by-VRM query)`);
+    else fail(`[${file}] case-disposition cr1bd_cases ListRecords must filter on cr1bd_retentionexpiresat AND cr1bd_legalhold (the two-clock guard)`);
+  } else if (caseLists.length > 0 && TRIAGE_OPEN_CASE_LOOKUP_ALLOWED.has(file)) {
+    // Phase-8 documented exception (ADR-0015): triage open-Case LINK lookup. Each cr1bd_cases ListRecords must
+    // be keyed on the Case/PO (cr1bd_casepo) OR the registration fallback (cr1bd_vrm) AND restricted to ACTIVE
+    // (statecode eq 0) non-terminal cases — it proposes a link, never a dedup/merge, and never auto-links on
+    // ambiguity (asserted in Check 8c below).
+    const lookupScoped = caseLists.every(
+      (a) => (a.filter.includes('cr1bd_casepo') || a.filter.includes('cr1bd_vrm')) && a.filter.includes('statecode'),
+    );
+    if (lookupScoped) pass(`[${file}] cr1bd_cases ListRecords are Case/PO- or VRM-keyed ACTIVE open-Case link lookups (documented triage exception, not a dedup-by-VRM query)`);
+    else fail(`[${file}] triage cr1bd_cases ListRecords must be Case/PO- or VRM-keyed AND scoped to active cases (statecode)`);
   } else if (caseLists.length > 0) {
     // documented exception: case lookups outside the dedup ladder are by Message-ID/id, by the Case/PO
     // sequence prefix (startswith(cr1bd_casepo,...) — an aggregate counter, not a dedup-by-VRM query),
@@ -328,6 +358,72 @@ for (const file of files) {
       pass(`[${file}] image-case evidence is re-pointed to the survivor via cr1bd_Caseid@odata.bind`);
     } else {
       fail(`[${file}] merge must re-point evidence via item/cr1bd_Caseid@odata.bind to the survivor case`);
+    }
+  }
+
+  // Check 8c (Phase-8, ADR-0015) — triage-classify NEVER auto-links the open Case on ambiguity. Three
+  // load-bearing invariants: (1) the link is set ONLY inside a single-match guard (an If keyed on
+  // equals(length(...), 1) over a cr1bd_cases ListRecords result), (2) a >1 match routes to link_ambiguous
+  // (NEVER a silent merge — ADR-0010), and (3) the cr1bd_Caseid bind is CONDITIONAL on a resolved match
+  // (if(empty(matchedCaseId), null, ...)) so no-match / ambiguous leaves the link null.
+  if (file === 'triage-classify.definition.json') {
+    if (/"equals"\s*:\s*\[\s*"@length\(coalesce\(outputs\('List_cases_by_(caseref|vrm)'\)[^"]*\)",\s*1\s*\]/.test(raw)) {
+      pass(`[${file}] open-Case link is set ONLY inside a single-match guard (equals(length(...),1))`);
+    } else {
+      fail(`[${file}] triage must auto-link ONLY on exactly one open-Case match (equals(length(List_cases_by_*),1))`);
+    }
+    if (/"link_ambiguous"/.test(raw)) {
+      pass(`[${file}] >1 open-Case match routes to link_ambiguous (never auto-link on ambiguity — ADR-0010)`);
+    } else {
+      fail(`[${file}] triage must route a >1 open-Case match to link_ambiguous (no auto-link on ambiguity)`);
+    }
+    if (/if\(empty\(variables\('matchedCaseId'\)\),\s*null,\s*concat\('cr1bd_cases\(/.test(raw)) {
+      pass(`[${file}] cr1bd_Caseid bind is conditional on a resolved match (null on no-match / ambiguous)`);
+    } else {
+      fail(`[${file}] triage cr1bd_Caseid bind must be null unless a single match resolved (if(empty(matchedCaseId), null, ...))`);
+    }
+  }
+
+  // Check 8d (Phase-9, ADR-0017 G1) — case-disposition is the MOST SENSITIVE flow (automated PII handling).
+  // Five load-bearing safety invariants, each linter-enforced because a mistake here is irreversible PII loss:
+  //   (1) GATED — it reads the cr1bd_CASE_DISPOSITION_ENABLED kill switch (READ, never DEFINE) and only acts
+  //       inside the gate-on branch (default OFF -> inert).
+  //   (2) TWO-CLOCK GUARD — the cr1bd_cases sweep filters on cr1bd_legalhold (a held case is never fetched),
+  //       AND a fresh per-case re-read (Reassert_not_held) gates the destructive work, so the litigation clock
+  //       always overrides the minimisation expiry.
+  //   (3) NO BOX DELETION — NO Box connection (shared_box / shared_box_rest) appears ANYWHERE (one-way mirror,
+  //       ADR-0012 §8a 'NO AUTOMATED DELETION FROM BOX, EVER'); bytes are deleted only on first-party Azure Blob.
+  //   (4) NO AUDIT-ROW DELETION + FIELD-NULL NOT HARD-DELETE — the only DeleteRecord-shaped op allowed is the
+  //       first-party Blob DeleteFile_V2; there is NO Dataverse DeleteRecord (the conservative default
+  //       anonymises in place via UpdateRecord, and never deletes a cr1bd_auditevent row).
+  //   (5) FIRES case_disposed audit (action 100000026) — the disposition is recorded.
+  if (file === 'case-disposition.definition.json') {
+    if (/schemaname eq 'cr1bd_CASE_DISPOSITION_ENABLED'/.test(raw) && /"gate_CASE_DISPOSITION_ENABLED"/.test(raw)) {
+      pass(`[${file}] reads the cr1bd_CASE_DISPOSITION_ENABLED kill switch (READ, gate-on branch only)`);
+    } else {
+      fail(`[${file}] must READ the cr1bd_CASE_DISPOSITION_ENABLED gate and branch on it (gate-on only)`);
+    }
+    if (/Reassert_not_held/.test(raw) && /cr1bd_legalhold/.test(raw)) {
+      pass(`[${file}] two-clock guard: legal hold is re-asserted per case before any destructive op (litigation clock overrides expiry)`);
+    } else {
+      fail(`[${file}] disposition must re-assert cr1bd_legalhold per case (Reassert_not_held) before disposing`);
+    }
+    if (!used.has('shared_box') && !used.has('shared_box_rest')) {
+      pass(`[${file}] NO Box connection anywhere (one-way mirror: NO automated deletion from Box, ever — ADR-0012 §8a)`);
+    } else {
+      fail(`[${file}] disposition MUST NOT reference any Box connection (shared_box / shared_box_rest) — Box is never deleted`);
+    }
+    // The ONLY delete in the flow is the first-party Blob DeleteFile_V2; there must be NO Dataverse DeleteRecord
+    // (the conservative default anonymises via UpdateRecord and never hard-deletes a Case/Evidence/audit row).
+    if (/"operationId"\s*:\s*"DeleteRecord"/.test(raw)) {
+      fail(`[${file}] disposition MUST NOT use Dataverse DeleteRecord (conservative field-null default; NEVER delete cr1bd_auditevent / hard-delete rows). Hard-delete is an operator-policy VARIANT, gated-off placeholder comment only.`);
+    } else {
+      pass(`[${file}] no Dataverse DeleteRecord (anonymise via UpdateRecord; cr1bd_auditevent + Case/Evidence rows are never deleted)`);
+    }
+    if (/"item\/cr1bd_action"\s*:\s*100000026/.test(raw)) {
+      pass(`[${file}] fires the case_disposed audit (cr1bd_action 100000026)`);
+    } else {
+      fail(`[${file}] disposition must audit case_disposed (cr1bd_action 100000026)`);
     }
   }
 

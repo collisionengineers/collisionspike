@@ -651,7 +651,7 @@ the harness rules).
 | M2.F | chaser send | grep: draft-only intact, whatsapp-skip, gated | gate-off no-op; gate-on sends to right garage; whatsapp never auto-sent |
 | M2.G | valuation | pytest wrapper mapping; PDF passthrough | Companion PDF as Evidence; gate-off no-op |
 
-**Global offline gate (must stay green through M2):** `node verify-all.mjs` (7 gates) +
+**Global offline gate (must stay green through M2):** `node verify-all.mjs` (**all gates green** — began at 7, now runs more) +
 `flows/validate-flows.mjs` (every definition listed in `flow-state.json` with `state=off`,
 connectionNames ∈ closed set) + the no-credentials static grep. Add the new Functions to the pytest
 sweep and the new flows/connectors to the linters.
