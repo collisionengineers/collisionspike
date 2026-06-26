@@ -21,11 +21,11 @@ Static Web App control-plane region is `westeurope`).
                          │                     │
    shared mailbox        │                     │
    (Outlook/M365)        │                     │
-        │ Graph change-notification (webhook)  │
+        │ Graph delta-poll (Exchange RBAC)     │
         ▼                                       │
-  Orchestration Function App (Flex, TS/Node)    │            [NEW — Durable + webhook receiver]
-        │  webhook receiver ─> Storage Queue ─> Durable orchestrator
-        │  renewal timer + lifecycle-notification handler
+  Orchestration Function App (Flex, TS/Node)    │            [NEW — Durable + delta-poll]
+        │  timer delta-poll ─> Storage Queue ─> Durable orchestrator
+        │  (push subscription + renewal + lifecycle = optional upgrade — see 22 §A)
         │  orchestrator activities call ───────┤ (the Data API for all DB writes)
         │                                       │
         ▼  calls (function key / managed identity)
@@ -45,7 +45,7 @@ Static Web App control-plane region is `westeurope`).
 |---|---|---|---|
 | **SPA** `cespk-spa-dev` (Static Web Apps, Free) | Render the app; no business logic; no secrets in the bundle | Data API | MSAL → Entra; sends Bearer token |
 | **Data API** `cespk-api-dev` (Function App, BFF) | The `DataAccess` contract (~29 methods); status state-machine; dedup; audit writes; gate reads | Postgres; (read) the existing Functions where needed | Validates Entra JWT; app-role authz |
-| **Orchestration** `cespk-orch-dev` (Function App) | Graph subscription + renewal + lifecycle; webhook receiver; queue; Durable intake pipeline; chasers; EVA/Box (gated) | Data API (all DB writes); parser/enrichment/eva/box Functions | Graph app perms (`Mail.Read`); function keys / MI to call Functions |
+| **Orchestration** `cespk-orch-dev` (Function App) | Graph **delta-poll** of Exchange-RBAC-scoped mailboxes (push subscription + renewal + lifecycle retained as an optional upgrade, [`22` §A](./22-orchestration-migration.md)); queue; Durable intake pipeline; chasers; EVA/Box (gated) | Data API (all DB writes); parser/enrichment/eva/box Functions | **No Entra Graph permission** — authorised by **Exchange RBAC for Applications** (resource-scoped mailbox roles, **no Global Admin**); function keys / MI to call Functions |
 | **Postgres B1ms** `cespk-pg-dev` (DB `collisionspike`) | System of record; 12 tables; choiceset lookup tables; FKs + 4 cascade; `UNIQUE(sourcemessageid)`; RLS | — | Entra or password auth from the two Function Apps only |
 | **Existing 6 Functions** | Unchanged — parse, enrich, validate, EVA submit (gated), Box (gated), location-suggest; + OCR ACA | External APIs; KV | Function key / MI |
 
@@ -65,7 +65,8 @@ Static Web App control-plane region is `westeurope`).
 
 ## What is NEW vs what moved
 
-- **New build:** the Data API (BFF), the Graph subscription + webhook receiver + renewal, the Durable
+- **New build:** the Data API (BFF), the Graph **delta-poll** intake over Exchange-RBAC-scoped mailboxes
+  (push subscription + webhook receiver + renewal kept as an optional upgrade), the Durable
   orchestrations, the Postgres schema + RLS, the MSAL wiring.
 - **Moved/rewired:** the React data seam (→ REST client), the 28 gates (→ app-settings), KV refs
   (repointed), the corpus (reseeded).

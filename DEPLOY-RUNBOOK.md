@@ -1,13 +1,30 @@
-# Phase 1 Deploy Runbook — collisionspike (M1)
+# Phase 1 Deploy Runbook — collisionspike (M1) — ⛔ SUPERSEDED (HISTORICAL)
 
-This runbook takes the **offline, fully-built** Phase 1 artifacts in this repo to a **live** Power
-Platform + Azure environment. It is the bridge across the hard boundary that governed the build:
+> **⛔ SUPERSEDED — do not follow this runbook.** It deploys the **decommissioned Power Platform stack**
+> (Power Apps Code App via `pac code`, the Dataverse solution, the Power Automate flows, the custom
+> connectors). That stack has been **migrated off**; the live system is the **Azure PaaS stack**
+> (Static Web App `cespk-spa-dev`, Data API Function App `cespk-api-dev`, orchestration Function App
+> `cespk-orch-dev`, Postgres Flexible `cespk-pg-dev`, plus the 6 retained Python Functions).
+>
+> **The live deploy/migration sequence is [`migration/00-MASTER-WORKFLOW.md`](./migration/00-MASTER-WORKFLOW.md)
+> and [`migration/99`](./migration/99); operator activations are in [docs/gated.md](./docs/gated.md).**
+> Everything below is retained **for provenance and domain reference only** (the EVA 12-field contract,
+> photo order, image rules, dedup, the inspection-address gate). **Do not run any `pac` / Dataverse /
+> Power Automate step here as if current.**
+
+---
+
+<details>
+<summary><strong>Historical (Power Platform Phase-1 deploy runbook — decommissioned)</strong></summary>
+
+This runbook took the **offline, fully-built** Phase 1 artifacts in this repo to a **live** Power
+Platform + Azure environment. It was the bridge across the hard boundary that governed the build:
 
 > **Claude built everything offline (`[BUILD]`) and never touched a live service.** Deploying
-> non-inbox resources (`[DEPLOY-WITH-LOGIN]`) requires *your* interactive login. Activating anything
-> that touches the **live Outlook shared inboxes, the live SharePoint job sheet, live Box, or live
-> EVA** — and all live tests — is **`[RESERVED-FOR-USER]`**: you do it, in the order below, after the
-> non-inbox pieces are deployed and the offline gate is green.
+> non-inbox resources (`[DEPLOY-WITH-LOGIN]`) required *your* interactive login. Activating anything
+> that touched the **live Outlook shared inboxes, the live SharePoint job sheet, live Box, or live
+> EVA** — and all live tests — was **`[RESERVED-FOR-USER]`**: you did it, in the order below, after the
+> non-inbox pieces were deployed and the offline gate was green.
 
 **Before anything here:** run the offline gate and confirm it is clean.
 
@@ -244,3 +261,11 @@ are resolved and their gates are flipped in a test environment. (B1/B3 are resol
 
 > **State snapshot:** [CURRENT_STATUS.md](./CURRENT_STATUS.md) is the single source of truth for what is
 > live vs pending; [ROADMAP.md](./ROADMAP.md) is the phased checklist.
+
+</details>
+
+---
+
+> _End of historical Power Platform runbook. For the live Azure migration sequence see
+> [`migration/00-MASTER-WORKFLOW.md`](./migration/00-MASTER-WORKFLOW.md) + [`migration/99`](./migration/99);
+> for operator activations see [docs/gated.md](./docs/gated.md)._

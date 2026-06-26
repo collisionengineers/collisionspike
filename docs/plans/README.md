@@ -1,7 +1,15 @@
 # `docs/plans/` — index
 
-Planning + activation documents for **collisionspike** (the M1 case-intake spike for Collision Engineers
-on Power Apps Code App + Dataverse + Power Automate + Azure Functions). Each plan is **read-only
+> **⚠️ Historical band — Power Platform era (decommissioned).** These per-phase plans are the **build
+> record of the now-decommissioned Power Platform implementation** (Code App + Dataverse + Power
+> Automate). The **live system is the Azure PaaS stack** — see
+> [../../CURRENT_STATUS.md](../../CURRENT_STATUS.md) and
+> [../architecture/live-environment.md](../architecture/live-environment.md). Read these as prior-era
+> context: **domain/EVA/provider rules remain authoritative; the platform mechanism is historical.**
+> ("Dataverse schema applied live in Dev" etc. describe the prior era, not the current system.)
+
+Planning + activation documents for **collisionspike** (originally the M1 case-intake spike for Collision
+Engineers on Power Apps Code App + Dataverse + Power Automate + Azure Functions). Each plan is **read-only
 research/planning** unless its own header says otherwise: the binding rule is **build offline, gated-OFF;
 the operator activates** (memory `live-services-boundary`). Canonical context lives in
 [../../ROADMAP.md](../../ROADMAP.md), [../../CURRENT_STATUS.md](../../CURRENT_STATUS.md),

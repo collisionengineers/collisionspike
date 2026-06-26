@@ -6,11 +6,11 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
-  try {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-  } catch (e) {
-    throw mod = 0, e;
-  }
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -1276,7 +1276,6 @@ var require_cert_signatures = __commonJS({
       index = expectASN1Seq(data, index).index;
       const { oid, index: indexAfterOID } = readASN1OID(data, index);
       switch (oid) {
-        // RSA
         case "1.2.840.113549.1.1.4":
           return "MD5";
         case "1.2.840.113549.1.1.5":
@@ -1293,7 +1292,6 @@ var require_cert_signatures = __commonJS({
           return "SHA512-224";
         case "1.2.840.113549.1.1.16":
           return "SHA512-256";
-        // ECDSA
         case "1.2.840.10045.4.1":
           return "SHA-1";
         case "1.2.840.10045.4.3.1":
@@ -1304,7 +1302,6 @@ var require_cert_signatures = __commonJS({
           return "SHA-384";
         case "1.2.840.10045.4.3.4":
           return "SHA-512";
-        // RSASSA-PSS: hash is indicated separately
         case "1.2.840.113549.1.1.10": {
           index = indexAfterOID;
           index = expectASN1Seq(data, index).index;
@@ -1313,7 +1310,6 @@ var require_cert_signatures = __commonJS({
           index = expectASN1Seq(data, index).index;
           const { oid: hashOID } = readASN1OID(data, index);
           switch (hashOID) {
-            // standalone hash OIDs
             case "1.2.840.113549.2.5":
               return "MD5";
             case "1.3.14.3.2.26":
@@ -1327,11 +1323,9 @@ var require_cert_signatures = __commonJS({
           }
           throw x509Error("unknown hash OID " + hashOID, data);
         }
-        // Ed25519 -- see https: return//github.com/openssl/openssl/issues/15477
         case "1.3.101.110":
         case "1.3.101.112":
           return "SHA-512";
-        // Ed448 -- still not in pg 17.2 (if supported, digest would be SHAKE256 x 64 bytes)
         case "1.3.101.111":
         case "1.3.101.113":
           throw x509Error("Ed448 certificate channel binding is not currently supported by Postgres");
@@ -3350,8 +3344,8 @@ var require_split2 = __commonJS({
     "use strict";
     var { Transform } = require("stream");
     var { StringDecoder } = require("string_decoder");
-    var kLast = /* @__PURE__ */ Symbol("last");
-    var kDecoder = /* @__PURE__ */ Symbol("decoder");
+    var kLast = Symbol("last");
+    var kDecoder = Symbol("decoder");
     function transform(chunk, enc, cb) {
       let list;
       if (this.overflow) {
@@ -5730,6 +5724,24 @@ function normalize(input) {
 var decode = (input) => new Uint8Array(import_node_buffer.Buffer.from(normalize(input), "base64url"));
 
 // node_modules/jose/dist/node/esm/util/errors.js
+var errors_exports = {};
+__export(errors_exports, {
+  JOSEAlgNotAllowed: () => JOSEAlgNotAllowed,
+  JOSEError: () => JOSEError,
+  JOSENotSupported: () => JOSENotSupported,
+  JWEDecryptionFailed: () => JWEDecryptionFailed,
+  JWEInvalid: () => JWEInvalid,
+  JWKInvalid: () => JWKInvalid,
+  JWKSInvalid: () => JWKSInvalid,
+  JWKSMultipleMatchingKeys: () => JWKSMultipleMatchingKeys,
+  JWKSNoMatchingKey: () => JWKSNoMatchingKey,
+  JWKSTimeout: () => JWKSTimeout,
+  JWSInvalid: () => JWSInvalid,
+  JWSSignatureVerificationFailed: () => JWSSignatureVerificationFailed,
+  JWTClaimValidationFailed: () => JWTClaimValidationFailed,
+  JWTExpired: () => JWTExpired,
+  JWTInvalid: () => JWTInvalid
+});
 var JOSEError = class extends Error {
   static code = "ERR_JOSE_GENERIC";
   code = "ERR_JOSE_GENERIC";
@@ -5773,6 +5785,17 @@ var JOSENotSupported = class extends JOSEError {
   static code = "ERR_JOSE_NOT_SUPPORTED";
   code = "ERR_JOSE_NOT_SUPPORTED";
 };
+var JWEDecryptionFailed = class extends JOSEError {
+  static code = "ERR_JWE_DECRYPTION_FAILED";
+  code = "ERR_JWE_DECRYPTION_FAILED";
+  constructor(message2 = "decryption operation failed", options) {
+    super(message2, options);
+  }
+};
+var JWEInvalid = class extends JOSEError {
+  static code = "ERR_JWE_INVALID";
+  code = "ERR_JWE_INVALID";
+};
 var JWSInvalid = class extends JOSEError {
   static code = "ERR_JWS_INVALID";
   code = "ERR_JWS_INVALID";
@@ -5780,6 +5803,10 @@ var JWSInvalid = class extends JOSEError {
 var JWTInvalid = class extends JOSEError {
   static code = "ERR_JWT_INVALID";
   code = "ERR_JWT_INVALID";
+};
+var JWKInvalid = class extends JOSEError {
+  static code = "ERR_JWK_INVALID";
+  code = "ERR_JWK_INVALID";
 };
 var JWKSInvalid = class extends JOSEError {
   static code = "ERR_JWKS_INVALID";
@@ -6916,7 +6943,7 @@ if (typeof navigator === "undefined" || !navigator.userAgent?.startsWith?.("Mozi
   const VERSION = "v5.10.0";
   USER_AGENT = `${NAME}/${VERSION}`;
 }
-var jwksCache = /* @__PURE__ */ Symbol();
+var jwksCache = Symbol();
 function isFreshJwksCache(input, cacheMaxAge) {
   if (typeof input !== "object" || input === null) {
     return false;
@@ -7056,17 +7083,29 @@ var HttpError = class extends Error {
     this.status = status;
     this.name = "HttpError";
   }
-  status;
 };
+function audienceCandidates() {
+  const a = API_AUDIENCE;
+  if (!a) return [];
+  const bare = a.startsWith("api://") ? a.slice("api://".length) : a;
+  return [bare, `api://${bare}`];
+}
 async function authenticate(req) {
   const header = req.headers.get("authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
   if (!token) throw new HttpError(401, "Missing bearer token");
-  const { payload } = await jwtVerify(token, getJwks(), {
-    issuer: ISSUER,
-    audience: API_AUDIENCE
-  });
-  return payload;
+  try {
+    const { payload } = await jwtVerify(token, getJwks(), {
+      issuer: ISSUER,
+      audience: audienceCandidates()
+    });
+    return payload;
+  } catch (e) {
+    if (e instanceof errors_exports.JOSEError) {
+      throw new HttpError(401, "Invalid or expired token");
+    }
+    throw e;
+  }
 }
 function withRole(required, handler) {
   return async (req, ctx) => {
@@ -7104,12 +7143,14 @@ var defaults = import_lib.default.defaults;
 var _pool;
 function getPool() {
   if (!_pool) {
+    const appRole = (process.env.PGAPPROLE ?? "staff").replace(/[^a-z]/g, "") || "staff";
     _pool = new Pool({
       host: process.env.PGHOST,
       database: process.env.PGDATABASE,
       user: process.env.PGUSER,
       password: process.env.PGPASSWORD,
       ssl: process.env.PGSSLMODE !== "disable" ? { rejectUnauthorized: false } : false,
+      options: `-c app.role=${appRole}`,
       max: 10,
       idleTimeoutMillis: 3e4,
       connectionTimeoutMillis: 5e3
@@ -7652,6 +7693,11 @@ import_functions.app.http("createCase", {
       cols.push(col);
       vals.push(value);
     };
+    const pcode = (input.providerCode ?? "").trim();
+    if (pcode) {
+      const wp = await query("SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1", [pcode]);
+      if (wp[0]?.id) add("work_provider_id", wp[0].id);
+    }
     if (input.casePo) add("case_po", input.casePo);
     if (input.onHold) add("on_hold", true);
     if (input.insuredName) add("ov_insured_name", input.insuredName);
@@ -7836,7 +7882,7 @@ import_functions.app.http("recentActivity", {
   authLevel: "anonymous",
   route: "activity",
   handler: withRole("CollisionSpike.User", async () => {
-    const rows = await query("SELECT * FROM audit_event ORDER BY occurred_at DESC");
+    const rows = await query("SELECT * FROM audit_event ORDER BY occurred_at DESC LIMIT 200");
     return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
   })
 });
@@ -7963,6 +8009,18 @@ import_functions3.app.http("saveInspectionDecision", {
            (label, decision_mode_code, decision_reason, source_label, source_note,
             address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
          VALUES ($1, COALESCE($2, 100000003), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         ON CONFLICT (label) DO UPDATE SET
+           decision_mode_code = EXCLUDED.decision_mode_code,
+           decision_reason    = EXCLUDED.decision_reason,
+           source_label       = EXCLUDED.source_label,
+           source_note        = EXCLUDED.source_note,
+           address_line1      = EXCLUDED.address_line1,
+           address_line2      = EXCLUDED.address_line2,
+           address_line3      = EXCLUDED.address_line3,
+           address_line4      = EXCLUDED.address_line4,
+           address_line5      = EXCLUDED.address_line5,
+           address_line6      = EXCLUDED.address_line6,
+           postcode           = EXCLUDED.postcode
          RETURNING id`,
         [
           label,
@@ -8276,12 +8334,16 @@ import_functions6.app.http("setHoldNewCasesDefault", {
     const body = await req.json();
     const actor = actorFromClaims(claims);
     const valueStr = body.value ? "true" : "false";
-    await query(
-      `INSERT INTO app_setting (key, value, updated_at, updated_by)
-       VALUES ($1, $2, now(), $3)
-       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
-      [HOLD_KEY, valueStr, actor ?? null]
-    );
+    try {
+      await query(
+        `INSERT INTO app_setting (key, value, updated_at, updated_by)
+         VALUES ($1, $2, now(), $3)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
+        [HOLD_KEY, valueStr, actor ?? null]
+      );
+    } catch {
+      return { status: 503, jsonBody: { error: "settings store unavailable" } };
+    }
     await writeAudit({
       action: AUDIT_ACTION.corpus_record_changed,
       summary: `Set hold-new-cases-by-default = ${valueStr}`,
@@ -8420,9 +8482,13 @@ import_functions8.app.http("parserParse", {
     if (!gates.pdfMapper()) {
       return { status: 200, jsonBody: { skipped: true } };
     }
-    const body = await req.json();
-    const result = await callParser(body);
-    return { status: 200, jsonBody: result };
+    try {
+      const body = await req.json();
+      const result = await callParser(body);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { skipped: true, error: true } };
+    }
   })
 });
 

@@ -1,24 +1,105 @@
-# OPEN_ITEMS.md — everything not done yet, by phase
+# OPEN_ITEMS.md — the Azure migration-remediation backlog
 
-_Consolidated, **code-verified** list of outstanding items across **every** phase. Generated from the
-16-agent SDLC audit on **2026-06-24** (each claim re-checked against the actual tree), then maintained as
-the live worklist for the ongoing SDLC sweep._
+_The single worklist of what is **not done** on the **live Azure PaaS stack**. The spike was migrated from
+Power Platform to Azure (Static Web App + Function-App data API + orchestration Function + Postgres Flexible
+Server + the retained Python Functions); the **Power-Platform implementation is decommissioned**. The
+near-term work is **finishing the migration to production-grade**: deploy orchestration + scope the 3 intake
+mailboxes for live intake, the **P0 DB-security** fix, the **Free-Trial→PAYG** upgrade, **durable API
+hardening**, **staff app-role assignment**, and an **IaC config layer** — with the **domain milestones
+(EVA, enrichment, Box, OCR, governance) re-homed onto Azure**. Last reframed **2026-06-26**._
 
 **How this differs from the other status docs** (precedence unchanged — a binding review > ADRs >
 architecture/requirements > plans):
-- [ROADMAP.md](./ROADMAP.md) — forward phased checklist (`[x]`/`[ ]`), no running detail.
-- [CURRENT_STATUS.md](./CURRENT_STATUS.md) — what is **live now**.
+- [ROADMAP.md](./ROADMAP.md) — forward phased checklist + the *Now / Next / Later* Azure backlog.
+- [CURRENT_STATUS.md](./CURRENT_STATUS.md) — what is **live now** (the canonical Azure registry).
 - [docs/gated.md](./docs/gated.md) — the operator hard/soft blocker registry.
-- **OPEN_ITEMS.md (this file)** — the **single flat list of every not-done item**, by phase, each tagged
-  with who can do it. Cross-checked against code, not the docs' self-report.
+- [migration/](./migration/) — the executed Power-Platform→Azure migration plans + parity harness.
+- **OPEN_ITEMS.md (this file)** — the **single flat remediation list**, each item tagged with who can do it.
 
 ### Legend
-- **[BUILD]** — buildable offline **now**, gated-OFF, no operator/secret/live-service/Azure-deploy dependency.
-- **[OPERATOR]** — needs the operator: binds a live connection, injects a secret, flips a gate ON, touches
-  live Outlook/SharePoint/Box/EVA, or supplies business data. _Claude builds offline; the operator activates._
-- **[DEFERRED]** — deferred by design to a later milestone (M2/M3) or behind another phase.
+- **[P0]** — production-blocking security/availability issue on the live Azure stack; do first.
+- **[OPERATOR]** — needs the operator: an Azure subscription/role change, a secret, an Exchange-RBAC grant,
+  a gate flip, or live Outlook/Box/EVA contact, or business data. _Claude builds; the operator activates._
+- **[BUILD]** — buildable now in the repo (code/IaC/config), no operator/secret/live-service dependency.
+- **[DEFERRED]** — deferred by design to a later milestone (M2/M3) or behind another item.
 - **[DRIFT]** — doc-vs-code mismatch to reconcile (no functional change).
-- **[DONE 2026-06-24]** — completed in the current sweep (see git log).
+
+---
+
+## A. Migration remediation backlog (live Azure PaaS) — the current frontier
+
+> The verified live stack: RG `rg-collisionspike-dev` (uksouth) on subscription `e6076573-…` (**Azure Free
+> Trial**). SPA `cespk-spa-dev` · data API `cespk-api-dev` (→ Postgres) · orchestration `cespk-orch-dev`
+> (**zero functions deployed**) · Postgres `cespk-pg-dev` (36 tables; `case_ = 0`) · the 6 retained Python
+> Functions · Key Vaults · Blob `cespkevidstdev01`. Today the system is **read-only + manual case-create**.
+
+### A0 — P0 / hard deadlines (do first)
+- **[DONE 2026-06-26]** **Database-security remediation.** The data API (`cespk-api-dev`) now connects to
+  Postgres as the **non-owner login `cespk_app`** (`rolsuper=false`, `rolbypassrls=false`; password a **Key
+  Vault reference**, no cleartext), so the authored **RLS is enforced** (the prior server-admin `csadmin`
+  connection bypassed it). DB app-role set per connection via `-c app.role=staff` (the `PGAPPROLE`
+  app-setting); grants least-privilege — no DELETE on any table, `audit_event` INSERT/SELECT only (append-only).
+- **[OPERATOR]** **Free-Trial → Pay-As-You-Go upgrade.** Subscription `e6076573-…` is an **Azure Free Trial**
+  (quotaId `FreeTrial_2014-09-01`); **the whole stack is disabled at the ~30-day mark** unless upgraded
+  (the 12-month free Postgres allowance survives). Hard, dated deadline — upgrade or lose the environment.
+
+### A1 — Live automated email intake (orchestration + Exchange RBAC)
+- **[OPERATOR/BUILD]** **Deploy orchestration.** `cespk-orch-dev` is built (source `orchestration/`,
+  bundle `deploy/orch/main.cjs`) but **zero functions are deployed** → no live automated intake. Deploy the
+  Microsoft Graph **delta-poll** intake functions.
+- **[OPERATOR]** **Exchange-RBAC mailbox scoping (the 3 shared inboxes).** An **Exchange Administrator** grants
+  the intake app **resource-scoped** Graph mailbox roles via **Exchange RBAC for Applications**
+  (`New-ServicePrincipal` / `New-ManagementScope` / `New-ManagementRoleAssignment`) — **no Global-Admin
+  tenant consent, no push subscription**; intake **polls** (delta query). _(Supersedes the old "Graph
+  Mail.Read needs Global-Admin/admin consent" assumption wherever it appears.)_
+- **[OPERATOR]** Verify the end-to-end live path: a real email → orchestration poll → parser → a `Case` row
+  in Postgres with the correct status, dedup, provider match (then scale to all 3 inboxes).
+
+### A2 — API + identity hardening
+- **[BUILD]** **Durable API hardening** — durable auth error-handling + token **audience-form** hardening
+  (v2 tokens carry `aud` = the API client-id GUID `fa2fb28c…`). In progress.
+- **[OPERATOR]** **Staff app-role assignment.** Only **one** staff principal is app-role-assigned
+  (`CollisionSpike.User` / `CollisionSpike.Admin`, the 2 roles that map the old 2 Dataverse roles); other
+  staff **403 until assigned**. Assign the full roster in Entra.
+
+### A3 — Reproducibility
+- **[BUILD]** **IaC config layer** — capture the live Azure config (Function-App + Static-Web-App app-settings,
+  RBAC/role assignments, the Exchange-RBAC grant, connection secrets-as-references) as Infrastructure-as-Code
+  so `rg-collisionspike-dev` is reproducible and the P0/role/secret state is version-controlled.
+
+### A4 — Domain milestones, re-homed onto Azure _(unchanged business logic; new host)_
+- **[OPERATOR]** **EVA M1 JSON drag-drop** into the EVA **test** env — via the SPA/data API + the retained
+  `evasentry` Function; confirm acceptance. EVA Sentry **REST** stays gated pending the **Minotaur
+  one-principal-code patch + a parity test**.
+- **[OPERATOR]** **Enrichment cutover** — promote the retained **enrichment Function** (DVSA/DVLA direct via
+  Entra) path on the Azure stack (test/prod).
+- **[OPERATOR]** **Box business-account live-test** — CCG + the one template File Request + the BLOCKING
+  `FILE.UPLOADED` webhook test against the retained **`box-webhook`** Function on a live Business tenant.
+- **[OPERATOR]** **OCR for scanned PDFs** — bind + calibrate the retained **`ocr`** Function on real scans.
+- **[OPERATOR/BUILD]** **Data governance / retention / erasure** — now spanning **Postgres + Blob + Box**:
+  the two-clock retention model (data-minimisation vs litigation/evidential hold), the scheduled
+  case-disposition purge, the cross-store **DSAR / right-to-erasure** runbook (incl. Box folder names,
+  File-Request URLs, Outlook category strings), and the DPIA / controller-processor map. **No automated
+  deletion from Box, ever.** Retention period + lawful basis remain operator/legal input.
+- **[BUILD]** **PII pre-scrub helper** for the gated AI paths (Phase-8 LLM classifier, Phase-4a vision/geocode).
+- **[OPERATOR]** Harden the **live evidence store `cespkevidstdev01`** (the `evidence` container — Blob
+  soft-delete + versioning) before any purge job is armed; it is not in IaC, so it can't be hardened from
+  templates today (folds into A3).
+
+---
+
+# HISTORICAL — Power-Platform-era SDLC worklist (decommissioned; preserved for domain reference)
+
+> **Read as history.** Everything below is the **code-verified outstanding-item list from the original
+> Power Platform build** (the 2026-06-24 16-agent SDLC sweep), kept by phase. It is **retained, not
+> deleted**, because it is the most granular record of the **domain + workflow** work — the
+> parser / EVA / enrichment / image / Box / corpus items, the dedup ladder (ADR-0010), the
+> inspection-address policy (ADR-0013), the Phase-8 triage classifier, the Phase-9 governance schema — **all
+> of which carried over to the Azure stack**. The **platform-mechanism** items (Power Automate flows + the
+> `validate-flows` linter, Dataverse build scripts + `verify-parity`, the `cr1bd_*` env-var gates, custom
+> connectors, `pac code push`) are **superseded by the migration** and are **obsolete on the live stack**.
+> The **domain items that still matter are re-homed into §A above** (EVA, enrichment, Box, OCR, governance).
+> For live status see [CURRENT_STATUS.md](./CURRENT_STATUS.md); for the migration itself, [migration/](./migration/).
 
 > ✅ **Sweep status (2026-06-24): substantially complete.** 15 build waves + the doc-drift reconciliation (wave 16)
 > landed on `feat/sdlc-sweep`. `verify-all.mjs` is **GREEN** — 10 passed, 0 failed, 3 Function suites SKIP for want
@@ -223,5 +304,6 @@ architecture/requirements > plans):
 
 ---
 
-_Last updated 2026-06-24 (post PR #23 merge; SDLC sweep wave 1 done). Maintained as items are completed —
-tick `[DONE]` with the date as work lands._
+_Reframed 2026-06-26 to the Azure migration-remediation backlog (§A is the live forward worklist; the
+per-phase list above is the banded Power-Platform-era SDLC record). The historical sweep's `[DONE]` items
+are kept for provenance — they reflect the decommissioned low-code build, not the live Azure stack._

@@ -133,11 +133,26 @@ app.http('saveInspectionDecision', {
       const decisionReason =
         decisionModeCode === IMAGE_BASED ? decision.sourceNote.trim() || 'Image based assessment' : null;
 
+      // UPSERT on the UNIQUE(label) key: the image-based label is a constant string, so a bare
+      // INSERT silently collided after the first IBA save (sweep #10). DO UPDATE keeps the latest
+      // decision/provenance for that label and still RETURNs an id (persisted:true).
       const rows = await query<Row>(
         `INSERT INTO inspection_address
            (label, decision_mode_code, decision_reason, source_label, source_note,
             address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
          VALUES ($1, COALESCE($2, 100000003), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         ON CONFLICT (label) DO UPDATE SET
+           decision_mode_code = EXCLUDED.decision_mode_code,
+           decision_reason    = EXCLUDED.decision_reason,
+           source_label       = EXCLUDED.source_label,
+           source_note        = EXCLUDED.source_note,
+           address_line1      = EXCLUDED.address_line1,
+           address_line2      = EXCLUDED.address_line2,
+           address_line3      = EXCLUDED.address_line3,
+           address_line4      = EXCLUDED.address_line4,
+           address_line5      = EXCLUDED.address_line5,
+           address_line6      = EXCLUDED.address_line6,
+           postcode           = EXCLUDED.postcode
          RETURNING id`,
         [
           label,

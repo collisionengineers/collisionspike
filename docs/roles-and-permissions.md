@@ -1,18 +1,30 @@
 # Roles & permissions
 
-_Last updated **2026-06-24**. Two distinct concerns:_
+_Last updated **2026-06-26** — reframed to the **live Azure PaaS stack** (the Power Platform
+implementation is **decommissioned**). Two distinct concerns:_
 _**(A)** the **operator platform-role gap analysis** for **`digital@collisionengineers.co.uk`** (the
-Azure/Entra/Dataverse-admin roles needed to BUILD & ACTIVATE the spike), and_
-_**(B)** the **in-app least-privilege role model** for STAFF WHO USE the intake app — the **3-role model**
-(Phase 9, [ADR-0017 §G8](./adr/0017-data-retention-erasure-pii-lifecycle.md)), now **authored as
-schema-as-code**. Companion to [docs/gated.md](./gated.md), [../DEPLOY-RUNBOOK.md](../DEPLOY-RUNBOOK.md),
+Azure/Entra roles needed to BUILD, ACTIVATE & RUN the spike), and_
+_**(B)** the **in-app least-privilege role model** for STAFF WHO USE the intake app — now the **two Entra
+app roles** `CollisionSpike.User` / `CollisionSpike.Admin` enforced by the **Data API** (and, since
+2026-06-26, also **Postgres RLS**), carrying the privilege intent of the prior Dataverse roles (Phase 9,
+[ADR-0017 §G8](./adr/0017-data-retention-erasure-pii-lifecycle.md); migration spec
+[`migration/31-auth-migration.md`](../migration/31-auth-migration.md)). Companion to
+[docs/gated.md](./gated.md), [../DEPLOY-RUNBOOK.md](../DEPLOY-RUNBOOK.md),
 [architecture/live-environment.md](./architecture/live-environment.md)._
 
+> **LIVE-STACK NOTE (2026-06-26).** The running system is the **Azure PaaS stack** (SPA on Static Web App
+> `cespk-spa-dev` with **MSAL/Entra** sign-in → Data API `cespk-api-dev` → Postgres `cespk-pg-dev`; the
+> Python parser/enrichment/EVA/box Functions retained). The **Power Platform** build (Code App, Dataverse,
+> ~16 Power Automate flows, custom connectors) is **decommissioned** — where this doc still describes it
+> (Dataverse security roles, the Code App, DLP, Power-Platform-admin gaps), that content is **HISTORICAL**
+> and banded as such; the **business domain and privilege intent are unchanged**.
+
 > **Two role planes, do not conflate them.** (A) below is the **platform/operator** plane (Azure RBAC,
-> Entra, Dataverse env admin) — a **gap list** of what `digital@` still needs. (B) further down is the
-> **application** plane — the Dataverse **security roles** that scope what intake STAFF can do, built now
-> offline and **gated-OFF**. "Admin" in plane (B) is the in-app settings/audit role, **not** Dataverse
-> System Administrator or Power Platform Administrator from plane (A).
+> Entra directory roles, vendor onboarding) — a **gap list** of what `digital@` still needs to build/run
+> the Azure stack. (B) further down is the **application** plane — the **Entra app roles** that scope what
+> intake STAFF can do inside the SPA + API. "Admin" in plane (B) is the in-app settings/audit role
+> (`CollisionSpike.Admin`), **not** an Azure subscription Owner or any Entra **directory** admin role from
+> plane (A).
 
 ---
 
@@ -22,19 +34,32 @@ schema-as-code**. Companion to [docs/gated.md](./gated.md), [../DEPLOY-RUNBOOK.m
 > *already holds* (verified live below), then lists only the **missing** roles, what each unblocks, and
 > how to get it. It also calls out roles you might *expect* to need but don't.
 
-## What you already have (verified live 2026-06-22)
+> **LIVE-STACK RE-FRAME (2026-06-26).** This gap analysis was written for the Power-Platform build/activate
+> era. On the **live Azure stack** the **subscription Owner** row is the load-bearing one (it covers the
+> SPA, Data API, orchestration, Postgres, and all retained Functions); the **Dataverse System
+> Administrator** row is **HISTORICAL** (Dataverse is decommissioned — see banding below). The biggest
+> auth-model change: **intake mailbox access is now [Exchange RBAC for Applications]**, not the Office 365
+> Outlook connector and **not** a Graph `Mail.Read` admin consent — corrected throughout below. New live
+> blocker not in the original list: the whole stack is on an **Azure Free Trial** (disabled at ~30 days
+> unless upgraded to **Pay-As-You-Go**).
+>
+> [Exchange RBAC for Applications]: https://learn.microsoft.com/exchange/permissions-exo/application-rbac
+
+## What you already have (verified live 2026-06-22, re-confirmed 2026-06-26)
 
 A check of `digital@collisionengineers.co.uk` shows:
 
 | Plane | What you hold | What it already covers |
 |---|---|---|
-| **Azure RBAC** | **Owner** on the subscription (`e6076573-…`) | All Azure deploy/manage: the Functions (parser, enrichment, EVA, evavalidation, address-match, OCR ACA, and the now-deployed Box webhook), Storage, Container Apps, Document Intelligence, App Insights — **and** assigning Azure RBAC to managed identities. Owner ⊇ Contributor + User Access Administrator. |
-| **Dataverse (Dev env)** | **System Administrator** | The whole Power Platform *environment* build: the `CollisionSpike` tables/columns, the 10 cloud flows, the Code App (`pac code push`), env-var feature gates, and connections within the environment. This is a Dataverse **security role**, not an Entra directory role. |
+| **Azure RBAC** | **Owner** on the subscription (`e6076573-…`, **Free Trial**) | All Azure deploy/manage for the **live stack**: the **Data API** (`cespk-api-dev`), the **orchestration** app (`cespk-orch-dev`), **Postgres** (`cespk-pg-dev`), the **SPA** Static Web App (`cespk-spa-dev`), and the retained Functions (parser, enrichment, EVA, evavalidation, OCR, Box webhook), Storage, Document Intelligence, App Insights — **and** assigning Azure RBAC to managed identities. Owner ⊇ Contributor + User Access Administrator. **Management-plane only** — see the Key Vault data-plane gap below. |
+| **Entra app registrations** | **SPA / Data API / Graph-intake** regs created (single-tenant) | The **app-role** plane (`CollisionSpike.User` / `CollisionSpike.Admin`) and MSAL sign-in (Part B). Created without any Entra **directory** admin role (single-tenant app regs need none). |
 | **Entra directory roles** | **None** (0 active, 0 PIM-eligible) | — nothing at the tenant directory level. |
 | **Box** | A **free** account | Raw REST with a dev token only — no CCG, webhooks, File Requests, or metadata. |
+| **[HISTORICAL] Dataverse (Dev env)** | **System Administrator** | *Decommissioned.* Covered the whole Power Platform *environment* build: the `CollisionSpike` tables/columns, the ~16 cloud flows, the Code App (`pac code push`), env-var feature gates, connections. A Dataverse **security role**, not an Entra directory role. No Azure-stack equivalent is needed — the analogous control is now **Azure RBAC** on the resources (Owner, above). |
 
-**Takeaway:** Owner + Dataverse System Administrator are why everything built so far worked **without** any
-Entra admin role. The gaps below are the things those two *don't* reach.
+**Takeaway:** subscription **Owner** is why the Azure stack builds and runs **without** any Entra
+directory admin role. (Historically, Dataverse System Administrator played that part for the Power
+Platform build.) The gaps below are the things Owner *doesn't* reach.
 
 ---
 
@@ -45,49 +70,64 @@ Entra admin role. The gaps below are the things those two *don't* reach.
 | # | Role you're missing | Plane | What it unblocks · why your current roles don't cover it | How to get it |
 |---|---|---|---|---|
 | 1 | **Box Business plan + Box Admin / Co-Admin** | Box (vendor) | The **entire always-on Box layer**: folder-at-intake, the image-chaser **File Request**, and the **FILE.UPLOADED webhook → Evidence** pipeline. Your **free** Box account returns `unauthorized_client` for CCG and has no webhooks/File-Requests/metadata, so this is the long pole — the `SBL26001` demo had to do it all manually with a dev token. **Base Box Business is the floor** (folders + File Requests + webhooks + CCG); **Business Plus** only if you later want the metadata-capture field. | Purchase Box **Business**; make your Box user an **Admin/Co-Admin** in the Box Admin Console. |
-| 2 | **Exchange Administrator** | Entra | Binding the **shared-mailbox intake** for the three Outlook inboxes — create/confirm the shared mailboxes and grant **Full Access / Send-As** to the identity the Office 365 Outlook connection runs as. Your Dataverse System Admin role can build the flow, but it **cannot grant mailbox permissions**. (Single-inbox intake on `digital@` works because you own that mailbox; scaling to the shared inboxes needs this.) | A Global Admin assigns you **Exchange Administrator** in the M365 admin center. |
-| 3 | **Key Vault Secrets Officer** (data plane) | Azure | **Injecting secrets** the Functions read as Key Vault references — the **EVA test creds** (B5) and the **Box** `client_secret` + webhook signature keys (the now-deployed `box-webhook` Function already references these in `cespkboxkvv76a47`, which is empty until you inject them). Nuance: subscription **Owner is management-plane only** — on an RBAC-mode vault it does **not** grant data-plane secret read/write (this is exactly why a Box-secret KV write was blocked before). | **Self-assign** — you're Owner, so grant *yourself* **Key Vault Secrets Officer** on the vault(s). No one else needed. KV secret names are **hyphenated** (`eva-client-secret`, `box-client-secret`, `box-webhook-primary-key`…) and resolve into UPPER_SNAKE app settings. |
+| 2 | **Exchange Administrator** | Entra | **Authorising the intake app's mailbox access** via **Exchange RBAC for Applications** — an Exchange Admin runs `New-ServicePrincipal` + `New-ManagementScope` + `New-ManagementRoleAssignment` to grant the `cespk-graph-intake` app **resource-scoped** Graph mailbox roles over the three intake mailboxes, so the orchestration tier can **delta-poll** them. **This SUPERSEDES the old model** (shared-mailbox Full Access/Send-As for the Office 365 Outlook connector, and the Graph `Mail.Read` admin-consent path) — it needs **NO Global Admin** and **no Entra consent**. **Verified live on `digital@` 2026-06-26** (`Test-ServicePrincipalAuthorization` → `InScope: True`); the 3 real mailboxes are **not yet scoped**, and the orchestration app is **built but undeployed** (no live intake yet). | A **Global Admin** assigns you (or another admin) **Exchange Administrator** in the M365 admin center; the Exchange Admin then runs the RBAC grant. |
+| 3 | **Key Vault Secrets Officer** (data plane) | Azure | **Injecting secrets** read as Key Vault references — the **EVA test creds**, the **Box** `client_secret` + webhook signature keys (the `box-webhook` Function references these in `cespkboxkvv76a47`, empty until injected), the **Graph-intake** client secret/cert. _(The **live P0** here is now **closed (2026-06-26)** — the **Data API's Postgres credential** moved off server-admin `csadmin` to the **non-owner login `cespk_app`** with its password a **Key Vault reference**, RLS now enforced, no cleartext.)_ Nuance: subscription **Owner is management-plane only** — on an RBAC-mode vault it does **not** grant data-plane secret read/write. | **Self-assign** — you're Owner, so grant *yourself* **Key Vault Secrets Officer** on the vault(s). KV secret names are **hyphenated** and resolve into UPPER_SNAKE app settings. |
 
-### 🟠 Needed for tenant governance + the test→prod rollout (not single-env blockers)
+### 🟠 Needed for governance + the test→prod rollout (not single-env blockers)
 
-| # | Role you're missing | Plane | What it unblocks · why your current roles don't cover it | How to get it |
+**LIVE-STACK (Azure):** the **dominant** governance blocker is now **billing**, not a Power-Platform admin
+role — the subscription is an **Azure Free Trial** that **disables the whole stack at ~30 days** unless
+upgraded to **Pay-As-You-Go** (the 12-month free Postgres allowance survives the upgrade). The **test→prod
+rollout** is an Azure action your subscription **Owner** already covers (stand up a prod resource group /
+Static Web App + Function Apps + Postgres; promote Entra app regs). There is **no DLP / connector
+governance / environment-lifecycle** surface to manage — those were Power-Platform concepts.
+
+| # | Role / action you're missing | Plane | What it unblocks | How to get it |
 |---|---|---|---|---|
-| 4 | **Power Platform Administrator** | Entra | **Tenant-level** Power Platform admin that the environment System Administrator role can't reach: managing the **Code Apps tenant setting**, **DLP policies**, **environment lifecycle/capacity** (e.g. standing up a TEST or PROD environment), and tenant-wide connector governance. Your Dev *build* is covered by System Administrator; this is the *admin-centre* gap. (B4 Code Apps enablement was presumably done by whoever holds Global Admin today — you'll need this to own it going forward.) | A Global Admin assigns **Power Platform Administrator**. |
-| 5 | **License Administrator** (+ Billing Admin to purchase) | Entra | Assigning **Power Apps Premium / Power Automate premium** licenses to a dedicated **service account** (so connections aren't tied to a person) and to any additional makers. | A Global Admin assigns **License Administrator**; Billing Admin (or GA) buys the licenses. |
+| 4 | **Billing Administrator** (or Account Admin) | Azure | **Upgrading the Free Trial subscription to Pay-As-You-Go** before the ~30-day cutoff, and standing up a prod subscription/RG. The hard deadline for the live stack. | The account/billing owner upgrades in the Azure portal (Subscriptions → *Upgrade*). |
+| 5 | **[HISTORICAL] Power Platform Administrator** | Entra | *Moot — decommissioned.* Was the tenant-level Power-Platform admin (Code Apps tenant setting, DLP policies, environment lifecycle/capacity, connector governance). No Azure-stack equivalent. | — |
+| 6 | **[HISTORICAL] License Administrator** (Power Apps/Automate premium) | Entra | *Moot — decommissioned.* Was for assigning **Power Apps Premium / Power Automate premium** licenses to a service account. The Azure stack has **no per-user premium licensing** — it bills on Azure consumption (row 4). | — |
 
 ---
 
 ## Roles you might expect to need — but DON'T
 
-- **Application Administrator / Global Administrator for "admin consent"** — **not needed here.** The
-  external APIs (DVSA, DVLA, EVA, Box) issue their **own** credentials via their vendor portals / the Box
-  Admin Console / Key Vault, and the custom connectors authenticate with an **api_key (Function host
-  key)** — there are **no our-tenant Entra app registrations requiring tenant admin consent** in this
-  build. (This is why enrichment went live without you holding any consent role.) Only a *future* Microsoft
-  Graph **application** permission would require Global Admin / Privileged Role Administrator.
+- **Global Administrator for Graph `Mail.Read` admin consent** — **NOT needed, and NOT how intake works.**
+  The intake app holds **no Entra Graph permission**; mailbox access is granted out-of-band by an
+  **Exchange Administrator** via **Exchange RBAC for Applications** (resource-scoped mailbox roles), which
+  needs **no Global Admin and no tenant consent** (verified live 2026-06-26). This **corrects** the older
+  "a future Graph application permission would require Global Admin / Privileged Role Administrator" line —
+  the Graph-intake path is designed precisely to avoid that.
+- **Application Administrator / Global Administrator for SPA→API consent** — **not needed.** The three Entra
+  app regs (SPA, Data API, Graph-intake) are **single-tenant** and owned by the operator, who **self-consents**
+  to the SPA's delegated `access_as_user` scope; the external APIs (DVSA, DVLA, EVA, Box) still issue their
+  **own** vendor credentials into Key Vault. No tenant-admin consent role is required.
 - **Azure Contributor / User Access Administrator** — **already covered** by your subscription **Owner**.
-- **Dataverse System Administrator** — you **already have it** in Dev; no Entra role substitutes for it.
+- **[HISTORICAL] Dataverse System Administrator** — *decommissioned.* It was the build role for the Power
+  Platform environment; the live-stack analogue is **Azure RBAC** (Owner) on the resources.
 
 ---
 
 ## Future phases — AI & automation (additional roles/blockers)
 
-The AI/automation lanes on the roadmap (Copilot Studio, Foundry/OpenAI vision, Maps, WhatsApp,
-valuation) mostly **reuse the gaps above** — none introduces a brand-new "must-have" Entra role beyond
-**Power Platform Administrator** + **License/Billing Administrator**, *except* the one Graph-consent
-scenario noted at the end. Details, so there are no surprises when these phases start:
+The AI/automation lanes on the roadmap (Foundry/OpenAI vision, Maps, WhatsApp, valuation) mostly **reuse
+the Azure gaps above** (subscription **Owner** + data-plane RBAC + **Billing** + vendor onboarding).
+Details, so there are no surprises when these phases start:
 
-### Copilot Studio (Phase 5c · M3 · gated `COPILOT_ENABLED`) — staff assistant over Dataverse
-- **Power Platform Administrator** (already a gap) — enable **"Publish copilots with AI features"** + the
-  generative-AI tenant settings in the Power Platform admin centre, and assign the **Copilot Studio
-  authors** security group. **UK-specific:** generative answers/Bing grounding run in the US, so a
-  Global/Power Platform admin must **turn on cross-geo data movement** for the environment — only those
-  two roles can.
-- **Billing Administrator** — buy the tenant **Copilot Studio** licence (prepaid credit pack, 25,000
-  messages/mo; a *generative* answer costs **2 messages** — capacity-plan for it).
-- **License Administrator** (already a gap) — assign the per-user **Copilot Studio User License**.
-- Dataverse grounding (the agent's app user/security role) is covered by your **env System Admin**; DLP
-  must allow the connectors the agent uses → Power Platform Admin.
+> **BANDING (2026-06-26).** On the live Azure stack the **Azure** lanes below (Foundry/OpenAI, Maps, ACS,
+> valuation) stand. The **Copilot Studio** lane is **Dataverse-anchored** and was scoped against the
+> **decommissioned** Power Platform — it is **HISTORICAL** as written; any future staff-assistant would be
+> re-scoped against **Postgres + the Data API** (e.g. Azure AI Foundry agents), not Copilot Studio over
+> Dataverse, so the Power-Platform-admin/License gaps it cites no longer apply.
+
+### [HISTORICAL] Copilot Studio (was Phase 5c · M3 · gated `COPILOT_ENABLED`) — staff assistant over Dataverse
+- **Power Platform Administrator** — *moot (decommissioned)*: was to enable **"Publish copilots with AI
+  features"** + the generative-AI tenant settings and assign the **Copilot Studio authors** group.
+  **UK-specific:** generative answers/Bing grounding run in the US → cross-geo data movement toggle.
+- **Billing Administrator** — *was* to buy the tenant **Copilot Studio** licence (prepaid credit pack,
+  25,000 messages/mo; a *generative* answer costs **2 messages**).
+- **License Administrator** — *was* to assign the per-user **Copilot Studio User License**.
+- Dataverse grounding + DLP — both Power-Platform constructs; **no live equivalent**.
 
 ### Azure AI Foundry / Azure OpenAI (Phase 5b image classification + reflection; valuation reasoning)
 - **Provisioning is covered by your Azure Owner.** But inference is **data-plane RBAC** (same
@@ -112,19 +152,23 @@ scenario noted at the end. Details, so there are no surprises when these phases 
   API credentials in Key Vault (vendor creds, like EVA/DVSA).
 
 ### Cross-cutting blockers to expect as you scale
-1. **Microsoft Graph application-permission consent → Global Administrator / Privileged Role Administrator.**
-   **None needed today** (the external APIs self-issue creds; connectors use api_key). This is the *only*
-   thing that would force a GA/PRA-level grant — triggered if a Copilot agent / Dataverse-MCP, a
-   **Graph-based** email intake (instead of the Outlook connector), or a SharePoint/Teams integration ever
-   needs Graph **application** permissions.
-2. **Capacity & licensing ceilings** — Power Apps/Automate premium, Copilot Studio messages, **Dataverse
-   storage** (DB/file/log), Azure OpenAI TPM. Billing + License Admin + purchases/quota.
-3. **Managed Environments + the test→prod path** — the EVA **production cutover** needs a TEST and a PROD
-   environment (creating/managing them is a **Power Platform Administrator** action — the "Production/Trial
-   environment assignments" tenant setting; Managed Environments may add licensing).
-4. **DLP policy** — every new premium connector (OpenAI, Maps, ACS, Copilot, Box REST) must be
-   classified/allowed → Power Platform Admin.
-5. **Azure quota** — OpenAI TPM, ACA cores, Functions concurrency — support/quota requests.
+1. **Graph mailbox access → Exchange Administrator (NOT Global Admin).** The live **Graph-delta-poll**
+   email intake is authorised by **Exchange RBAC for Applications** (resource-scoped mailbox roles granted
+   by an Exchange Admin) — it needs **no Graph application permission and no Global-Admin/PRA consent**.
+   This **supersedes** the old "Graph-based email intake would need a GA/PRA application-permission grant"
+   line. A GA/PRA-level Graph **application** consent would only return if some *future* integration
+   (SharePoint/Teams, a Graph-wide app permission) needs it — intake itself does not.
+2. **Billing / capacity ceilings (Azure)** — the **Free-Trial→PAYG** upgrade (row 4 above) is the first
+   ceiling; then Azure OpenAI **TPM**, Postgres tier/storage, Functions/SWA consumption. Billing +
+   quota/support requests. *(Historical: Power Apps/Automate premium, Copilot Studio messages, Dataverse
+   storage — no longer apply.)*
+3. **Test→prod path (Azure)** — the EVA **production cutover** needs a **prod resource group /
+   subscription** (Static Web App + Function Apps + Postgres + Entra app regs), an Azure action your
+   subscription **Owner** covers. *(Historical: the Power-Platform "Managed Environments / TEST+PROD
+   environment" model and its Power-Platform-Administrator action are decommissioned.)*
+4. **[HISTORICAL] DLP policy** — *moot.* Was: every new premium **connector** classified/allowed via Power
+   Platform Admin. The Azure stack has **no connectors / no DLP surface**.
+5. **Azure quota** — OpenAI TPM, Functions concurrency — support/quota requests.
 6. **Data residency / compliance** — UK residency (Box **Zones** = Business Plus/Enterprise; Azure region
    pinning; Copilot cross-geo); M365-level DLP/retention would add **Compliance Administrator / Purview**.
 7. **Conditional Access on a service account** — a non-interactive intake identity can be blocked by
@@ -134,141 +178,167 @@ scenario noted at the end. Details, so there are no surprises when these phases 
 
 ---
 
-## Part B — the in-app least-privilege role model (3-role model, ADR-0017 §G8)
+## Part B — the in-app least-privilege role model (two Entra app roles, ADR-0017 §G8)
 
-The roles in Part A are **platform/operator** roles that `digital@` needs to **build and activate** the
-spike. Part B is the **application** plane: the Dataverse **security roles** that scope what intake
-**staff** can do inside the Code App + tables. Today everything runs as **System Administrator** (no
-least-privilege); this model closes that gap as part of the Phase-9 governance posture.
+The roles in Part A are **platform/operator** roles that `digital@` needs to **build, activate and run**
+the spike. Part B is the **application** plane: the roles that scope what intake **staff** can do inside
+the **SPA + Data API + Postgres**.
 
-These roles are **authored now as schema-as-code, offline, and gated-OFF.** The build **creates** the
-roles but **never assigns** them — assignment is the operator's activation step.
+**LIVE-STACK MODEL (2026-06-26).** Two **Entra app roles** — **`CollisionSpike.User`** and
+**`CollisionSpike.Admin`** — defined on the **Data API** app registration (`cespk-api`). The SPA acquires
+an Entra token for the API audience; the API reads the **`roles`** claim on **every** request and enforces
+User vs Admin per route; **Postgres Row-Level Security** (the DB app-role set **per connection** via the
+libpq startup option `-c app.role`, default `staff`) is the belt-and-braces DB enforcement of the same
+boundary — **live and enforced since 2026-06-26**, since the API connects as the non-owner login `cespk_app`.
+The two app roles **carry the privilege intent of the
+prior two Dataverse security roles** unchanged — only the enforcement mechanism moved. Spec:
+[`migration/31-auth-migration.md`](../migration/31-auth-migration.md) (authz) +
+[`migration/20-data-and-schema-migration.md` §2](../migration/20-data-and-schema-migration.md) (RLS).
 
-### Schema-as-code artefacts
+> **Activation state.** App roles are assigned under **Enterprise Applications → `cespk-api` → Users and
+> groups**. **Only one staff principal is app-role-assigned so far** — unassigned staff get a token with
+> **no `roles` claim** → the API treats them as **no-access (default-deny)** and they 403 until assigned.
+> Assigning the remaining staff is the operator's activation step (`[RESERVED-FOR-USER]`).
+>
+> **RLS now enforced (2026-06-26).** The Data API connects as the **non-owner** login **`cespk_app`**
+> (`rolsuper=false`, `rolbypassrls=false`; password a **Key Vault reference**, no cleartext), so the authored
+> `FORCE ROW LEVEL SECURITY` policies are **enforced** — the prior server-admin `csadmin` connection, as
+> table owner, bypassed them. The DB app-role is set **per connection** via the libpq startup option
+> `-c app.role=staff` (the `PGAPPROLE` app-setting; **not** a `SET LOCAL`-per-query call). The boundary is now
+> enforced **both** in the API code **and** by RLS (belt-and-braces). A future admin-only destructive path
+> (the ADR-0017 retention/erasure cascade — **not yet implemented**) must run on a **separate** pool opened
+> with `-c app.role=admin`, gated on a verified `CollisionSpike.Admin` token — the staff pool's role is never
+> widened.
 
-| Artefact | What it is |
-|---|---|
-| [`dataverse/roles/_role.schema.json`](../dataverse/roles/_role.schema.json) | The authoring shape: a privilege matrix per table (the 8 axes × named access levels), plus `miscPrivileges` for non-`cr1bd_` privileges. |
-| [`dataverse/roles/user-role.json`](../dataverse/roles/user-role.json) | **CollisionSpike User** — the full privilege matrix. |
-| [`dataverse/roles/admin-role.json`](../dataverse/roles/admin-role.json) | **CollisionSpike Admin** — User + corpus write + settings + audit-log management (self-contained, restates User). |
-| [`dataverse/.build/28-roles.ps1`](../dataverse/.build/28-roles.ps1) | The apply twin: creates the two roles + grants privileges via the Web API. **DRY-RUN by default** (no `-Apply` ⇒ zero tenant contact); **creates-not-assigns**. |
+> **[HISTORICAL] Prior authoring shape (decommissioned).** Before migration these were **Dataverse
+> security roles** authored as schema-as-code under `dataverse/roles/` (`_role.schema.json`,
+> `user-role.json`, `admin-role.json`) and applied by `dataverse/.build/28-roles.ps1` (a DRY-RUN-by-default,
+> create-not-assign apply script over the Dataverse Web API, mapping the 8 table-privilege axes to
+> `PrivilegeDepth`). Those JSON files remain the **machine-readable source of the privilege intent** (the
+> migration carries them over as the API authz spec), but the **Dataverse apply mechanics** — business-unit
+> binding, `prv<Axis><Entity>` privilege-GUID resolution, the Power-Platform-admin assignment step — **no
+> longer apply** on the live stack.
 
-### The three roles
+### The two live roles (+ one deferred)
 
 | App role | Scope | Status |
 |---|---|---|
-| **User** | All **case-intake** actions — review cases, complete the 12 fields, drive readiness, pick/edit the inspection address, export to EVA, draft chasers. CRUD on the work tables; **read-only** on the governed corpus; **create+read (never delete)** on the audit trail. | **Built now** (offline, gated-OFF; operator assigns at activation). |
-| **Admin** | **User + settings + audit-log management** — **write** the provider/inspection-address corpus, triage ImprovementSignals, CRUD the env-var feature gates (definitions + values), and **delete** (cascade) audit rows. Superset of User. | **Built now** (offline, gated-OFF; operator assigns at activation). |
-| **Engineer** | Future **assessment functionality** (the engineer who performs the inspection/assessment). | **DEFERRED — out of scope.** No JSON, not built by `28-roles.ps1`. |
+| **`CollisionSpike.User`** | All **case-intake** actions — review cases, complete the 12 fields, drive readiness, pick/edit the inspection address, export to EVA, draft chasers. CRUD on the work tables; **read-only** on the governed corpus; **create+read (never delete)** on the audit trail. | **Live** (one staff principal assigned; others 403 until assigned). |
+| **`CollisionSpike.Admin`** | **User + settings + audit-log management** — **write** the provider/inspection-address corpus, triage improvement signals, manage the **feature-gate app-settings**, and **delete** (retention cascade) audit rows. Superset of User. | **Live** (assigned to the one current admin principal). |
+| **Engineer** | Future **assessment functionality** (the engineer who performs the inspection/assessment). | **DEFERRED — out of scope.** Not defined as an app role. |
 
-> "Admin" here is the in-app **settings/audit** role, **not** Dataverse System Administrator or Power
-> Platform Administrator (those are Part-A platform roles).
+> "Admin" here is the in-app **settings/audit** role (`CollisionSpike.Admin`), **not** an Azure
+> subscription **Owner** or any Entra **directory** admin role (those are Part-A platform roles).
 
-### The format (and why)
+### The format (privilege intent, per table)
 
-Each role JSON declares, **per table**, the eight Dataverse table-privilege axes
-(**Create / Read / Write / Delete / Append / AppendTo / Assign / Share**), each set to a **named access
-level** — `None` · `User` · `BusinessUnit` · `ParentChild` · `Organization`. This mirrors the repo's
-existing JSON-schema-as-code style (`schema/_table.schema.json`, `choicesets/`): a reviewable, diffable,
-**offline** authoring shape that the `.build/` apply script translates into live metadata.
+The privilege intent is expressed **per table** as the CRUD-plus axes
+(**Create / Read / Write / Delete / Append / AppendTo**) — the shape carried over from the prior
+Dataverse role JSON. On the live stack each axis is **allowed or denied**, enforced by the **Data API**
+per route (and, since 2026-06-26, also by **Postgres RLS** policies):
 
-- **`None` = omit the privilege entirely** (least-privilege default-deny). Any table NOT listed grants
-  **nothing**.
-- Named levels map to the **Web API `PrivilegeDepth`** the apply script sends:
-  `User`=Basic(0) · `BusinessUnit`=Local(1) · `ParentChild`=Deep(2) · `Organization`=Global(3).
-  (NB: this is the **Web API** enum, not the C# SDK enum, which numbers them differently.)
-- This is a **single-business-unit** environment, so `Organization` depth means *"every row"* — which is
-  exactly the **shared-queue** intent (intake is collaborative, not per-owner). A future multi-team split
-  would downgrade the work tables to `ParentChild`/`BusinessUnit` and re-verify.
+- **Default-deny.** A table/axis not granted grants **nothing**. There is **no schema / role-management /
+  feature-flag surface** in the app for a User.
+- The tables below use the **prior `cr1bd_*` names**; their **Postgres analogues** carry the identical
+  intent: `cr1bd_case`→`case_`, `cr1bd_evidence`→`evidence`, `cr1bd_inboundemail`→`inbound_email`,
+  `cr1bd_chaser`→`chaser`, `cr1bd_note`→`note`, `cr1bd_improvementsignal`→`improvement_signal`,
+  `cr1bd_workprovider`→`work_provider`, `cr1bd_repairer`→`repairer`,
+  `cr1bd_inspectionaddress`→`inspection_address`, `cr1bd_imagesource`→`image_source`,
+  `cr1bd_fieldlevelprovenance`→`field_level_provenance`, `cr1bd_auditevent`→`audit_event`.
+- This is a **single-tenant, staff-only, shared-queue** system — intake is collaborative (every staff
+  member sees every row), so a granted axis means *"permitted on all rows"* (there is no per-owner /
+  per-record sharing model). A future multi-team split would re-introduce row scoping and re-verify.
 
-### Privilege matrix — CollisionSpike User
+### Privilege matrix — `CollisionSpike.User`
 
-Legend: **C**reate · **R**ead · **W**rite · **D**elete · **A**ppend · **AT** AppendTo · (Assign/Share are
-`None` everywhere — no per-record sharing model in a single-BU shared queue). `O` = Organization, `—` =
-None.
+Legend: **C**reate · **R**ead · **W**rite · **D**elete · **A**ppend · **AT** AppendTo. `✓` = permitted,
+`—` = denied. (No per-record Assign/Share model in a single-tenant shared queue.)
 
-| Table | C | R | W | D | A | AT | Why |
+| Table (Postgres) | C | R | W | D | A | AT | Why |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|---|
-| `cr1bd_case` | O | O | O | — | O | O | Core work item; shared-queue CRUD. **No delete** (disposition/junk-cleanup runs as flow/operator, not staff). |
-| `cr1bd_evidence` | O | O | O | O | O | O | Per-case attachments; delete a mis-attached file is routine (child of Case). |
-| `cr1bd_inboundemail` | O | O | O | — | O | O | Phase-8 triage; **no delete** (dedup anchor / "we saw this" row). |
-| `cr1bd_chaser` | O | O | O | O | O | O | Draft chasers (disposable). |
-| `cr1bd_note` | O | O | O | O | O | O | Collaborative case notes. |
-| `cr1bd_improvementsignal` | O | O | — | — | O | O | Staff **raise** signals; triage/resolve is Admin (governance: feeds a Management queue). |
-| `cr1bd_workprovider` | — | O | — | — | — | O | Governed corpus → **read-only**; AppendTo so a Case can reference it. |
-| `cr1bd_repairer` | — | O | — | — | — | O | Governed corpus → **read-only**. |
-| `cr1bd_inspectionaddress` | — | O | — | — | — | O | Suggestions corpus staff **pick** from → read + AppendTo only. |
-| `cr1bd_imagesource` | — | O | — | — | — | O | Corpus-adjacent → read-only. |
-| `cr1bd_fieldlevelprovenance` | O | O | O | — | O | O | Stamp/clear reviewState during review; no delete (review audit). |
-| `cr1bd_auditevent` | O | O | — | — | O | O | **Append-only**: create + read, **never write/delete** (tamper-evidence). |
+| `case_` | ✓ | ✓ | ✓ | — | ✓ | ✓ | Core work item; shared-queue CRUD. **No delete** (disposition/junk-cleanup runs as the orchestration/operator, not staff). |
+| `evidence` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Per-case attachments; delete a mis-attached file is routine (child of Case). |
+| `inbound_email` | ✓ | ✓ | ✓ | — | ✓ | ✓ | Triage; **no delete** (dedup anchor / "we saw this" row). |
+| `chaser` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Draft chasers (disposable). |
+| `note` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Collaborative case notes. |
+| `improvement_signal` | ✓ | ✓ | — | — | ✓ | ✓ | Staff **raise** signals; triage/resolve is Admin (governance: feeds a Management queue). |
+| `work_provider` | — | ✓ | — | — | — | ✓ | Governed corpus → **read-only**; AppendTo so a Case can reference it. |
+| `repairer` | — | ✓ | — | — | — | ✓ | Governed corpus → **read-only**. |
+| `inspection_address` | — | ✓ | — | — | — | ✓ | Suggestions corpus staff **pick** from → read + AppendTo only. |
+| `image_source` | — | ✓ | — | — | — | ✓ | Corpus-adjacent → read-only. |
+| `field_level_provenance` | ✓ | ✓ | ✓ | — | ✓ | ✓ | Stamp/clear reviewState during review; no delete (review audit). |
+| `audit_event` | ✓ | ✓ | — | — | ✓ | ✓ | **Append-only**: create + read, **never write/delete** (tamper-evidence). |
 
-No platform/maker privileges: a User can run the app and do intake, but cannot configure the system, edit
-schema, or touch env-vars.
+No platform/admin privileges: a User can run the app and do intake, but cannot manage the corpus, the
+feature gates, or the audit trail.
 
-### Privilege matrix — CollisionSpike Admin (= User + the additions below)
+### Privilege matrix — `CollisionSpike.Admin` (= User + the additions below)
 
-The Admin JSON is **self-contained** (it restates every User privilege; the apply script never merges).
+Admin is a **superset** of User (the API checks for `CollisionSpike.Admin` on the privileged routes).
 Differences vs User:
 
 | Table / privilege | Admin change | Why |
 |---|---|---|
-| `cr1bd_improvementsignal` | **+ Write, + Delete** | Management **triages/resolves** the signal queue. |
-| `cr1bd_workprovider` | **+ Create, + Write** (still **no Delete**) | Management **edits** the provider corpus; referenced providers are **archived/merged, never hard-deleted** (Case/PO history depends on old codes). |
-| `cr1bd_repairer` | **+ Create, + Write** (no Delete) | Edit repairer corpus; archive-not-delete. |
-| `cr1bd_inspectionaddress` | **+ Create, + Write** (no Delete) | Curate the inspection-address suggestions corpus; archive-not-delete. |
-| `cr1bd_imagesource` | **+ Create, + Write** (no Delete) | Edit image-source corpus; archive-not-delete. |
-| `cr1bd_auditevent` | **+ Delete** (still **no Write**) | Audit-log **management** — the ADR-0017 cascade/retention authority. Delete only (governed cascade); **never** in-place edit (rows stay append-only/tamper-evident). |
-| `environmentvariabledefinition` | **Create / Read / Write** | Manage the feature-gate **definitions** (name/type/default). |
-| `environmentvariablevalue` | **Create / Read / Write / Delete** | Set/toggle/clear the per-environment **gate values** — the activation lever (`BOX_API_ENABLED` etc.). Deleting a value reverts the gate to its solution default. |
+| `improvement_signal` | **+ Write, + Delete** | Management **triages/resolves** the signal queue. |
+| `work_provider` | **+ Create, + Write** (still **no Delete**) | Management **edits** the provider corpus; referenced providers are **archived/merged (`active=false`), never hard-deleted** (Case/PO history depends on old codes). |
+| `repairer` | **+ Create, + Write** (no Delete) | Edit repairer corpus; archive-not-delete. |
+| `inspection_address` | **+ Create, + Write** (no Delete) | Curate the inspection-address suggestions corpus; archive-not-delete. |
+| `image_source` | **+ Create, + Write** (no Delete) | Edit image-source corpus; archive-not-delete. |
+| `audit_event` | **+ Delete** (still **no Write**) | Audit-log **management** — the ADR-0017 cascade/retention authority. Delete only (governed cascade); **never** in-place edit (rows stay append-only/tamper-evident). |
+| **Feature-gate settings** | **manage** | Set/toggle/clear the **feature gates** (`BOX_API_ENABLED`, `EVA_API_ENABLED`, …) — the activation levers. On the live stack these are **Function App / API app-settings** (the env-var gates carried over from Dataverse environment variables), managed by an Admin-only API route. |
 
-The two `environmentvariable*` tables are **built-in Dataverse tables** (not `cr1bd_`), so the Admin JSON
-expresses them under `miscPrivileges` by **stable privilege name** (`prvReadEnvironmentVariableValue`, …),
-resolved to GUIDs at apply time — same mechanism as the `cr1bd_` table privileges.
+### Invariants carried from the Dataverse roles (now enforced in the API + Postgres)
 
-### How "gated-off" is enforced — create-not-assign
+These three invariants are the heart of the model and are **unchanged** by the platform move
+(`migration/31` "Invariants carried from Dataverse roles"):
 
-`28-roles.ps1` **creates** the roles and **grants their privileges**, but contains **no role-assignment
-call whatsoever** (no `systemuserroles_association` / `teamroles_association`). An **unassigned role
-grants no one anything**, so creating it live is inert — everything keeps running as System Administrator
-until the operator assigns the roles in the Power Platform admin centre. That is the activation step, and
-it is **`[RESERVED-FOR-USER]`**.
+1. **Audit append-only.** `audit_event` is **INSERT + SELECT for all roles, UPDATE for none, DELETE for
+   Admin only** (retention cascade). Enforced in the API write path **and** (belt-and-braces) by withholding
+   UPDATE/DELETE in the Postgres role unless Admin-RLS. **Never** in-place editable, even by Admin.
+2. **Corpus archive-not-delete.** Providers / repairers / inspection-addresses / image-sources are
+   retired with **`active=false`**, **never hard-deleted** (withheld even from Admin) — referenced
+   principal codes must survive for **Case/PO history**.
+3. **Default-deny.** Roles grant only what is listed; there is **no schema / role-management surface** in
+   the app. The platform-admin plane (resource-group / Function / Key Vault / Postgres admin) is **Azure
+   RBAC**, held separately from the two app roles (it was Dataverse System Administrator before).
 
-The script is also **DRY-RUN by default**: with no `-Apply` flag it reads + validates the role JSON and
-**prints the plan** (every role and its resolved privilege grants) with **zero tenant contact and no
-login**. `-Apply` is required to touch the environment.
+### How default-deny is enforced — assign-to-grant
 
-### Environment-resolved GUIDs (not fabricated)
-
-A Dataverse security role cannot be fully expressed as standalone code — two GUID classes are
-**per-environment** and are looked up live at `-Apply` time (mirroring how `optionset-ids.json` records
-choiceset GUIDs):
-
-1. **Root business-unit GUID** — a role must bind to a BU; the script queries the BU where
-   `parentbusinessunitid eq null`. Stored nowhere in the JSON.
-2. **Privilege GUIDs** — the role JSON declares stable privilege **names**
-   (`prvReadCr1bd_case`, derived as `prv<Axis><PascalEntity>`; `prvReadEnvironmentVariableValue` for misc);
-   the script queries the `privilege` table by name to resolve each GUID. An unresolved name is a **hard
-   error** (never a fabricated or silently-skipped GUID).
-
-The **depth integer** *is* expressible and is fixed (the Web API `PrivilegeDepth` enum above), so it lives
-in the matrix as a named access level.
+There is **no inert "create-not-assign" script** any more: the two app roles **exist** on the `cespk-api`
+registration, but an **unassigned** staff account simply gets a token with **no `roles` claim** and is
+treated as **no-access** by the API. Granting access = **assigning** the staff account to
+`CollisionSpike.User` / `.Admin` under **Enterprise Applications → `cespk-api` → Users and groups** — the
+operator activation step. (Historically the equivalent inertia was `28-roles.ps1` creating-but-not-assigning
+Dataverse roles; the principle — *creating/defining a role grants no one anything until assigned* — is the
+same.)
 
 ---
 
 ## Who grants what (Part A platform roles)
 
-- **You self-grant** (you're subscription Owner): **Key Vault Secrets Officer** on the vault(s).
+- **You self-grant** (you're subscription Owner): **Key Vault Secrets Officer** on the vault(s); the
+  data-plane Azure RBAC (Cognitive Services / Maps) for the AI lanes.
+- **You / the account owner do** (Azure billing): the **Free-Trial → Pay-As-You-Go** upgrade before the
+  ~30-day cutoff, and standing up a prod RG/subscription.
 - **You purchase + self-administer** (Box vendor): **Box Business** plan + **Box Admin/Co-Admin**.
-- **A Global Administrator must assign** (Entra/M365 admin centre): **Exchange Administrator**, **Power
-  Platform Administrator**, **License Administrator**. If you don't know who holds Global Admin, the
-  account that first signed up for the tenant is a Global Admin by default; keep GA to a break-glass
-  account with MFA and assign yourself these least-privilege roles instead of standing GA.
+- **An Exchange Administrator runs** (Exchange Online, **NOT Global Admin**): the **Exchange RBAC for
+  Applications** grant for the intake app's mailbox roles (`New-ServicePrincipal` / `New-ManagementScope` /
+  `New-ManagementRoleAssignment`). A Global Admin only needs to assign the *Exchange Administrator* role to
+  whoever runs it.
+- **You assign** (Entra, **Enterprise Applications → `cespk-api`**): staff accounts to
+  `CollisionSpike.User` / `CollisionSpike.Admin` (the app-role activation step; one assigned so far).
+- **[HISTORICAL]** the old GA-assigned **Power Platform Administrator** + **License Administrator** gaps are
+  **decommissioned** — no longer required on the Azure stack.
 
 ---
 
 ## What stays the operator's regardless of roles
 
 Even with every role above, these remain human/operator actions (per the live-services boundary):
-**live email sends** + the "did the inbox fire" confirmation, the **Box Admin Console** authorization
-(CCG / File Request template / webhook), injecting **production** secrets, and the **final live-confirm**
-of any outward-facing change. See [docs/gated.md](./gated.md) for the per-item blocker registry.
+**live email sends** + the "did the inbox fire" confirmation, the **Exchange RBAC grant** on the three real
+intake mailboxes + **deploying the orchestration intake** (no automated intake is live yet), the **Box
+Admin Console** authorization (CCG / File Request template / webhook), injecting **production** secrets
+(EVA / Box / Graph-intake — the **Postgres credential** is already on the non-owner `cespk_app` login + Key
+Vault reference), the **Free-Trial → PAYG** upgrade, the **staff app-role assignments**, and the **final
+live-confirm** of any
+outward-facing change. See [docs/gated.md](./gated.md) for the per-item blocker registry.

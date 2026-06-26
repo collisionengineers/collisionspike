@@ -1,4 +1,26 @@
-# Microsoft Stack — Recommendation
+# Microsoft Stack — Recommendation (SUPERSEDED — retained as historical platform-selection rationale)
+
+> ## ⚠️ SUPERSEDED — the live stack is Azure PaaS, not Power Platform
+> This document is the **original (June 2026) platform-selection rationale** that recommended a **Power
+> Platform** stack (Power Apps Code App + Dataverse + Power Automate). **That stack was built, then
+> migrated to an Azure PaaS stack and decommissioned.** The recommendation content below is **historical**;
+> it is kept for provenance and to explain *why* the spike started on Microsoft. **For what is actually
+> live, read [live-environment.md](./live-environment.md)** (canonical registry) and
+> [`migration/`](../../migration/) (the migration rationale + reversible build). The **domain content**
+> here — the EVA 12-field contract, photo-order / image rules, provider corpus, deterministic-parse-first
+> principle — **remains valid**; only the platform mechanism changed.
+>
+> ### Live Azure stack (2026-06) — what replaced each Power Platform layer
+> | Layer | Power Platform (was) | **Azure PaaS (LIVE)** |
+> |---|---|---|
+> | App shell / UI | Power Apps Code App (React/Vite) | **Static Web App `cespk-spa-dev`** — same React/Vite app from `mockup-app/`, **MSAL/Entra** sign-in, REST to the API |
+> | System of record | Microsoft Dataverse | **PostgreSQL Flexible Server `cespk-pg-dev`** (v16, db `collisionspike`, 36 tables) |
+> | Data / business API | Dataverse + Power Fx | **Data API Function App `cespk-api-dev`** (Node 20 / TS Functions v4; validates Entra JWT, app roles `CollisionSpike.User/.Admin`) |
+> | Email intake + orchestration | Power Automate cloud flows | **Orchestration Function App `cespk-orch-dev`** (Graph **delta-poll** over Exchange-RBAC mailboxes; **built, not yet deployed**) |
+> | Identity | Entra ID (in Power Platform) | **Entra ID workforce** (MSAL in SPA, JWT-validated by the API) |
+> | Integration / gating | custom connectors + Dataverse env-vars | **direct Function calls** (function key / MI) + **app-settings** gates |
+> | Document parse · enrichment · OCR · EVA · Box | Azure Functions behind connectors | **same 6 Python Functions, retained**, called directly by API / orchestration |
+> | Subscription | Power Platform licensing | **Azure Free Trial** `e6076573-…` — **must upgrade to PAYG within ~30 days or the whole stack is disabled** |
 
 > **⚠️ Pricing update (2026-06-18) — see [docs/research/](../research/) for current figures.** Two
 > licensing facts changed since this was first costed: **(1) AI Builder credits retire 2026-11-01**
@@ -15,7 +37,14 @@
 > [intake-workflow.md](../requirements/intake-workflow.md). Integration detail & gating:
 > [integrations.md](./integrations.md).
 
-## TL;DR recommended stack
+---
+
+> **HISTORICAL from here down.** Everything below is the **original Power Platform recommendation and
+> costing** (June 2026). It has been **superseded** by the Azure PaaS stack (see the banner at the top).
+> Read it as the *why we started on Microsoft / Power Platform* record, not as current guidance. Domain
+> facts (EVA contract, image rules, deterministic-parse-first, provider corpus) remain valid.
+
+## TL;DR recommended stack *(historical — Power Platform)*
 
 | Layer | Service | Phase |
 |---|---|---|

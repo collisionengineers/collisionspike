@@ -205,6 +205,13 @@ app.http('createCase', {
       cols.push(col);
       vals.push(value);
     };
+    // Resolve the work_provider FK from the supplied principal code so merge-scoping and the
+    // ADR-0010 cross-provider guard work for manual cases (sweep #24); leave null if unmatched.
+    const pcode = (input.providerCode ?? '').trim();
+    if (pcode) {
+      const wp = await query<Row>('SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1', [pcode]);
+      if (wp[0]?.id) add('work_provider_id', wp[0].id);
+    }
     if (input.casePo) add('case_po', input.casePo);
     if (input.onHold) add('on_hold', true);
     if (input.insuredName) add('ov_insured_name', input.insuredName);
@@ -444,7 +451,7 @@ app.http('recentActivity', {
   authLevel: 'anonymous',
   route: 'activity',
   handler: withRole('CollisionSpike.User', async () => {
-    const rows = await query<Row>('SELECT * FROM audit_event ORDER BY occurred_at DESC');
+    const rows = await query<Row>('SELECT * FROM audit_event ORDER BY occurred_at DESC LIMIT 200');
     return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
   }),
 });

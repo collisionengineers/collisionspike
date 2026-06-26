@@ -1,5 +1,12 @@
 # collisionspike — Power Automate flow definitions (M1 intake pipeline)
 
+> **⚠️ Historical — Power Platform era (decommissioned).** These Power Automate flow definitions belong
+> to the prior Power Platform implementation, which has been **migrated off**. The live intake/orchestration
+> now lives in the Azure **`orchestration/`** Function App (Graph delta-poll over Exchange-RBAC mailboxes —
+> currently built but undeployed). Live state: [../CURRENT_STATUS.md](../CURRENT_STATUS.md) ·
+> [../docs/architecture/live-environment.md](../docs/architecture/live-environment.md). Domain/EVA logic
+> below remains valid; the platform mechanism is historical. ("Dataverse schema applied live" = prior era.)
+
 Authored **offline** Power Automate / Logic Apps `definition` objects for the M1 vertical slice:
 **email in a shared inbox → classify + persist → dedup + case-resolve → status → parse → enrich →
 EVA + Box finalize → chase.** Built from the committed `power-automate-flow` skill
