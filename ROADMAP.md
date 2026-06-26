@@ -5,18 +5,19 @@ Azure PaaS stack** — a **Static Web App** SPA (`cespk-spa-dev`) + a **Function
 Node/TypeScript) + an **orchestration Function App** (`cespk-orch-dev`) + a **Postgres Flexible Server**
 system of record (`cespk-pg-dev`) + the **retained Python Functions** (parser / enrichment / evasentry /
 evavalidation / ocr / box-webhook). The original **Power Platform implementation** (Power Apps Code App +
-Dataverse + ~16 Power Automate flows + custom connectors) has been **migrated and decommissioned**. Last
-updated **2026-06-26**._
+Dataverse + ~16 Power Automate flows + custom connectors) has been **migrated to Azure (deployed); Power
+Platform teardown is pending operator go/no-go (NOT yet decommissioned)**. Last updated **2026-06-27**._
 
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [docs/gated.md](./docs/gated.md) · migration plans under [migration/](./migration/) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
 
-> **Platform migration (2026-06-26).** This repo was first built as a **Power Platform** spike and has
+> **Platform migration (2026-06-27).** This repo was first built as a **Power Platform** spike and has
 > since been **migrated to an Azure PaaS stack** (the reversible code/data migration in [migration/](./migration/)
-> is executed and cut over). The **domain + workflow are unchanged** — the EVA **12-field** contract, the
-> image rules, the provider / inspection-address corpus, the **Case/PO** format, and the
-> intake→parse→review→enrich→EVA+Box pipeline all carry over verbatim; **only the platform mechanism
-> changed**. Power-Platform-era content below is **retained but banded as the prior/decommissioned era** —
-> it remains the reference for the domain logic it encodes. The live registry is
+> is **built + deployed**; the Azure stack is the live system). The **domain + workflow are unchanged** — the
+> EVA **12-field** contract, the image rules, the provider / inspection-address corpus, the **Case/PO**
+> format, and the intake→parse→review→enrich→EVA+Box pipeline all carry over verbatim; **only the platform
+> mechanism changed**. The **Power Platform footprint still exists** and its teardown is **pending operator
+> go/no-go (NOT yet decommissioned)**; Power-Platform-era content below is **retained but banded as the prior
+> era** — it remains the reference for the domain logic it encodes. The live registry is
 > [CURRENT_STATUS.md](./CURRENT_STATUS.md).
 
 > **Live Azure stack (canonical registry: [CURRENT_STATUS.md](./CURRENT_STATUS.md)).** Resource group
@@ -27,7 +28,7 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 > REST — `mockup-app/src/data/rest-client.ts`, **no Power SDK**); **data API** `cespk-api-dev` (source
 > `api/`, esbuild bundle `deploy/api/main.cjs`; validates Entra JWT + app roles **CollisionSpike.User /
 > CollisionSpike.Admin**; connects to Postgres); **orchestration** `cespk-orch-dev` (source
-> `orchestration/`, **built but zero functions deployed — no live automated email intake yet**); **Postgres
+> `orchestration/`, **deployed + wired (41 functions) but not yet live — no live automated email intake yet**); **Postgres
 > Flexible** `cespk-pg-dev` v16, db `collisionspike` (36 tables; seeded work_provider 390 / repairer 32 /
 > image_source 19 / inspection_address 2209 [174 confirmed + 2035 suggested] / case_ **0**); the **6 retained
 > Python Functions**, the **Key Vaults**, **Blob `cespkevidstdev01`**, and **App Insights / LAW**.
@@ -85,16 +86,26 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   Vault reference**, no cleartext), so the authored **RLS is enforced** — the prior server-admin `csadmin`
   connection bypassed it. DB app-role set per connection via `-c app.role=staff` (the `PGAPPROLE`
   app-setting); grants least-privilege (no DELETE; `audit_event` INSERT/SELECT only — append-only).
+- **✅ Secret-exposure sweep — DONE (2026-06-27).** The remaining plaintext exposures beyond Postgres were
+  remediated: **`GRAPH_CLIENT_SECRET`** rotated into Key Vault (`cespk-pg-kv-dev/graph-client-secret`; orch MI
+  granted Key Vault Secrets User — it previously had zero role assignments); both Function Apps' **storage
+  moved to identity-based** (`allowSharedKeyAccess=false`; MIs granted Storage Blob Data Owner, orch also
+  Queue/Table Data Contributor for Durable); **`DOCINTEL_KEY`** neutralized (Document Intelligence local-auth
+  disabled, ocr MI keyless via Cognitive Services User); the retained **parser/enrich/box function keys** moved
+  to Key Vault references. Only `APPLICATIONINSIGHTS_CONNECTION_STRING` (not a secret) + the platform-managed
+  `WEBSITE_AUTH_ENCRYPTION_KEY` remain plaintext — acceptable.
 - **Free-Trial → Pay-As-You-Go.** Subscription `e6076573-…` is an **Azure Free Trial**
   (quotaId `FreeTrial_2014-09-01`); **the whole stack is disabled at the ~30-day mark** unless upgraded
   (the 12-month free Postgres allowance survives the upgrade). A hard, dated deadline.
-- **Deploy orchestration + scope the 3 intake mailboxes (Exchange RBAC) for live intake.** `cespk-orch-dev`
-  is **built but has zero functions deployed**, so there is **no live automated email intake** — today the
-  system is **read-only + manual case-create only**. Deploy the Microsoft Graph **delta-poll** intake, then
-  have an **Exchange Administrator** grant the intake app **resource-scoped** Graph mailbox roles via
-  **Exchange RBAC for Applications** (`New-ServicePrincipal` / `New-ManagementScope` /
-  `New-ManagementRoleAssignment`) on the 3 shared inboxes — **no Global-Admin tenant consent, no push
-  subscription**; intake **polls** (delta query).
+- **Take orchestration live — scope the 3 intake mailboxes (Exchange RBAC).** `cespk-orch-dev` is now
+  **deployed + wired (41 functions)** but **not yet live** — there are **no Graph subscriptions and no
+  Exchange RBAC scope** on the 3 real mailboxes, so the renewal timer lists 0 subscriptions and **no mail is
+  processed**; today the system is **read-only + manual case-create only**. Remaining for go-live: have an
+  **Exchange Administrator** grant the intake app **resource-scoped** Graph mailbox roles via **Exchange RBAC
+  for Applications** (`New-ServicePrincipal` / `New-ManagementScope` / `New-ManagementRoleAssignment`) on the
+  3 shared inboxes — **no Global-Admin tenant consent, no push subscription**; intake **polls** (delta query).
+  Also set `EVIDENCE_BLOB_CONNECTION` (prefer MI), assign the orch MI an app-role on the Data API, and wire
+  the Azure Monitor heartbeat alerts.
 
 **Next:**
 - **Durable API hardening** — durable auth error-handling + token **audience-form** hardening (v2 tokens
@@ -130,11 +141,12 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 
 ---
 
-# HISTORICAL — Power Platform implementation era _(decommissioned; preserved for domain reference)_
+# HISTORICAL — Power Platform implementation era _(teardown pending, not yet decommissioned; preserved for domain reference)_
 
 > **Read as history.** Everything from here to the end of the phase checklist describes the **original
 > Power Platform build** (Power Apps Code App + Dataverse + ~16 Power Automate flows + custom connectors),
-> which has been **migrated to the Azure PaaS stack and decommissioned**. It is **retained, not deleted**,
+> which has been **migrated to the Azure PaaS stack** (the Power Platform footprint still exists; teardown is
+> **pending operator go/no-go**, not yet executed). It is **retained, not deleted**,
 > because it is the most detailed record of the **domain + workflow** — the EVA 12-field contract, the image
 > rules, the dedup ladder (ADR-0010), the provider / inspection-address corpus, the Case/PO format, and the
 > per-stage gating decisions — all of which **carried over unchanged** to the Azure build. Where a step

@@ -8,12 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 de-risks the mature cloud build, **`collisioncc`** (a Next.js + Google Cloud app), which is
 **reference/context only** — re-implement its contracts; do **not** call it at runtime.
 
-**Live platform (as of 2026-06-26): pure Azure PaaS.** The spike has been **migrated off the
+**Live platform (as of 2026-06-27): pure Azure PaaS.** The spike has been **migrated off the
 Microsoft Power Platform** (its original implementation — a Power Apps **Code App** + Dataverse +
-~16 Power Automate flows + custom connectors) and that cutover has been **executed**; the Power
-Platform implementation is now being **decommissioned**. **Only the platform mechanism changed** —
-the **domain model, EVA 12-field contract, image rules, provider corpus, and Case/PO format below
-are unchanged**. The executed migration plan + cutover record is **`migration/`** (a temporary,
+~16 Power Automate flows + custom connectors) **onto the Azure stack below** — the orchestration that
+replaces the flows is now **deployed (2026-06-27)**, so every Power Platform capability has a live Azure
+home. **However, the Power Platform footprint still exists and has NOT been deprovisioned** — the Dev
+sandbox, Code App, both solutions, custom connectors, connections, and the live `case-resolve` flow all
+remain; teardown is **pending operator go-ahead** (irreversible). **Only the platform mechanism
+changed** — the **domain model, EVA 12-field contract, image rules, provider corpus, and Case/PO format
+below are unchanged**. The migration plan + live-status record is **`migration/`** (a temporary,
 delete-when-done folder — see [`migration/README.md`](./migration/README.md)).
 
 The live Azure stack lives in resource group **`rg-collisionspike-dev`** (region **uksouth**), inside
@@ -28,9 +31,12 @@ the **Azure Free-Trial** subscription `e6076573-…` (quotaId `FreeTrial_2014-09
   **`CollisionSpike.User` / `CollisionSpike.Admin`** (the two roles that replace the old Dataverse
   security roles; v2 tokens carry `aud` = the API client-id GUID `fa2fb28c…`). Connects to Postgres;
   owns the status-machine, dedup, audit, and gate reads.
-- **Orchestration** — Function App **`cespk-orch-dev`** (source `orchestration/`) — **built but with
-  ZERO functions currently deployed**. Intended design: Microsoft Graph **delta-poll** intake over
-  **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent, no push subscription).
+- **Orchestration** — Function App **`cespk-orch-dev`** (source `orchestration/`, esbuild bundle
+  `deploy/orch/main.cjs`) — **deployed + wired (41 functions, 2026-06-27)** but **NOT yet live**: the
+  design is Microsoft Graph **delta-poll** intake over **Exchange-RBAC-scoped** mailboxes (no Global-Admin
+  consent, no push subscription), but the 3 real mailboxes are **not yet scoped**, so no mail is processed.
+  (The prior "ZERO functions" state was an esbuild ESM→CJS `import.meta.url` bundle crash — fixed via
+  `build-orch.cjs`.)
 - **System-of-record DB** — **Postgres Flexible Server `cespk-pg-dev`** (v16, database
   `collisionspike`): 36 tables, reference corpus seeded — `work_provider` 390, `repairer` 32,
   `image_source` 19, `inspection_address` 2209 (174 confirmed + 2035 suggested), `case_` 0.
@@ -39,12 +45,20 @@ the **Azure Free-Trial** subscription `e6076573-…` (quotaId `FreeTrial_2014-09
   Insights / Log Analytics.
 
 **Honest live state (do not paper over).** (1) **No automated email intake is live yet** — the
-orchestration app is undeployed, so the system is currently **read-only + manual case-create only**.
+orchestration app is now **deployed + wired (41 functions)** but **not live** (the 3 intake mailboxes are
+not yet Exchange-RBAC-scoped + no Graph subscriptions), so the system remains **read-only + manual
+case-create only** until go-live.
 (2) **Postgres security (P0 + P2 — RESOLVED 2026-06-26):** the Data API connects as a **non-owner login
 `cespk_app`** (no superuser, no `BYPASSRLS`) whose password is a **Key Vault reference** (no cleartext),
 so the authored **Row-Level Security is now enforced** (the prior `csadmin` owner bypassed it) and the
 audit trail is append-only at both the grant and RLS layers; the per-connection DB app-role is set via
-the libpq `-c app.role=staff` startup option (`PGAPPROLE`). (3) **Free-Trial → Pay-As-You-Go
+the libpq `-c app.role=staff` startup option (`PGAPPROLE`). A **2026-06-27 sweep** then closed the
+**other** plaintext exposures too — the **Graph client secret** (rotated → KV ref), the **storage-account
+keys** on the api + orch apps (→ identity-based storage, shared-key disabled), the **DocIntel key**
+(→ keyless, local-auth disabled), and the **retained-function keys** (→ KV refs); the orch managed
+identity (previously **un-granted**) now holds its KV/Storage/Queue/Table roles. No plaintext secrets
+remain in app-settings (only the App Insights connection string, which Microsoft does not class as a
+secret). (3) **Free-Trial → Pay-As-You-Go
 deadline:** the whole stack disables at the ~30-day mark unless upgraded to PAYG (the 12-month free
 Postgres allowance survives the upgrade). (4) **Staff app-role assignment is incomplete** — only ONE
 staff principal is app-role-assigned so far; others 403 until assigned. (5) **Durable auth

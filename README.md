@@ -8,25 +8,30 @@ The **live build is an Azure PaaS stack** — a React/Vite **Static Web App** (M
 sign-in) over a **TypeScript Azure Functions** Data API backed by a **Postgres Flexible Server** system
 of record, plus six retained Python Functions (parser, enrichment, EVA Sentry, EVA-validation, OCR,
 box-webhook). It began on the **Microsoft Power Platform** (Power Apps **Code App** + Dataverse + Power
-Automate + custom connectors); that implementation has since been **migrated off and decommissioned**
-(see the status note below). The **domain + workflow are unchanged** — only the platform mechanism moved.
+Automate + custom connectors); that implementation has since been **migrated off to Azure** (its Power
+Platform footprint still exists; teardown is **pending operator go/no-go**, see the status note below). The
+**domain + workflow are unchanged** — only the platform mechanism moved.
 
-> **Status (2026-06-26):** the **live system is the Azure PaaS stack** in resource group
+> **Status (2026-06-27):** the **live system is the Azure PaaS stack** in resource group
 > `rg-collisionspike-dev` (uksouth): the **SPA `cespk-spa-dev`** (Static Web App, Entra / MSAL sign-in),
 > the **Data API `cespk-api-dev`** (Node 20 / TS Functions, JWT + `CollisionSpike.User` / `.Admin` app
 > roles), and **Postgres `cespk-pg-dev`** (36 tables; the provider / repairer / image-source /
 > inspection-address corpus seeded; `case_`=0). The **six Python Functions, the Key Vaults, and the
 > evidence Blob `cespkevidstdev01` are retained unchanged**. The earlier **Power Platform** build (Code
-> App + Dataverse + ~16 Power Automate flows + custom connectors) is **decommissioned**. **No mock
-> data** — the app shows real rows only.
+> App + Dataverse + ~16 Power Automate flows + custom connectors) is **migrated off to Azure but still
+> present — teardown pending operator go/no-go (NOT yet decommissioned)**. **No mock data** — the app shows
+> real rows only.
 >
-> **Honest gaps:** **(1)** *no automated email intake is live* — the orchestration app `cespk-orch-dev`
-> is a deployed shell with **zero functions deployed**, so the system is **read-only + manual
+> **Honest gaps:** **(1)** *no automated email intake is live yet* — the orchestration app `cespk-orch-dev`
+> is now **deployed + wired (41 functions)** but **not yet live** (no Graph subscriptions / Exchange RBAC
+> scope on the 3 real mailboxes, so no mail is processed), so the system is **read-only + manual
 > case-create**; the intended intake is a Microsoft Graph **delta-poll** over **Exchange-RBAC-scoped**
 > mailboxes (an Exchange Admin grants resource-scoped mailbox roles — **no Global-Admin consent, no push
 > subscription**). **(2)** the earlier **DB-credential / RLS P0 is resolved (2026-06-26)** — the API now
 > connects as the non-owner Postgres login **`cespk_app`** (Key Vault-referenced password, **Row-Level
-> Security enforced**), not `csadmin`. **(3)** the
+> Security enforced**), not `csadmin`; the **other plaintext secret exposures (Graph client secret, storage
+> keys, Document Intelligence key, function keys) were also remediated 2026-06-27** — all moved to Key Vault
+> references / identity-based / keyless auth. **(3)** the
 > subscription is an **Azure Free Trial** — the whole stack **disables at ~30 days** unless upgraded to
 > **Pay-As-You-Go** (the 12-month free Postgres allowance survives the upgrade). **(4)** **staff app-role
 > assignment is incomplete** (one principal assigned; others 403 until assigned).
@@ -64,13 +69,13 @@ The **live Azure stack**:
   seam), screens.
 - `api/` — the TypeScript Azure Functions **Data API** (Entra JWT + `CollisionSpike.User` / `.Admin` app
   roles; Postgres); bundled to `deploy/api/` via esbuild.
-- `orchestration/` — the intake orchestration Functions app (Graph delta-poll design; **built, not yet
-  deployed**); bundled to `deploy/orch/`.
+- `orchestration/` — the intake orchestration Functions app (Graph delta-poll design; **deployed + wired
+  (41 functions), not yet live** — no Graph subscriptions / Exchange RBAC scope yet); bundled to `deploy/orch/`.
 - `packages/domain/` — the shared `@cs/domain` package (the platform-independent domain model).
 - `functions/` (+ `ocr/`) — the six retained Python Azure Functions (`parser`, `enrichment`,
   `evasentry`, `evavalidation`, `box-webhook`, `ocr`): code, Bicep, OpenAPI, mocked pytest.
 
-**Prior-era — Power Platform (decommissioned; retained in-repo for provenance + migration reference):**
+**Prior-era — Power Platform (migrated off Azure; still present, teardown pending; retained in-repo for provenance + migration reference):**
 - `dataverse/` — Dataverse schema-as-code (tables + provenance, choice sets, env-vars, relationships).
 - `flows/` — the Power Automate flow definitions + offline linter.
 - `.claude/skills/power-automate-flow/` — reusable flow-authoring patterns.

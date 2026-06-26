@@ -1,7 +1,8 @@
 # Roles & permissions
 
-_Last updated **2026-06-26** — reframed to the **live Azure PaaS stack** (the Power Platform
-implementation is **decommissioned**). Two distinct concerns:_
+_Last updated **2026-06-27** — reframed to the **live Azure PaaS stack** (the Power Platform
+implementation is **migrated off to Azure; its teardown is pending operator go/no-go, not yet
+decommissioned**). Two distinct concerns:_
 _**(A)** the **operator platform-role gap analysis** for **`digital@collisionengineers.co.uk`** (the
 Azure/Entra roles needed to BUILD, ACTIVATE & RUN the spike), and_
 _**(B)** the **in-app least-privilege role model** for STAFF WHO USE the intake app — now the **two Entra
@@ -15,7 +16,8 @@ app roles** `CollisionSpike.User` / `CollisionSpike.Admin` enforced by the **Dat
 > **LIVE-STACK NOTE (2026-06-26).** The running system is the **Azure PaaS stack** (SPA on Static Web App
 > `cespk-spa-dev` with **MSAL/Entra** sign-in → Data API `cespk-api-dev` → Postgres `cespk-pg-dev`; the
 > Python parser/enrichment/EVA/box Functions retained). The **Power Platform** build (Code App, Dataverse,
-> ~16 Power Automate flows, custom connectors) is **decommissioned** — where this doc still describes it
+> ~16 Power Automate flows, custom connectors) is **superseded by the Azure stack; teardown pending operator
+> go/no-go (not yet decommissioned)** — where this doc still describes it
 > (Dataverse security roles, the Code App, DLP, Power-Platform-admin gaps), that content is **HISTORICAL**
 > and banded as such; the **business domain and privilege intent are unchanged**.
 
@@ -37,7 +39,7 @@ app roles** `CollisionSpike.User` / `CollisionSpike.Admin` enforced by the **Dat
 > **LIVE-STACK RE-FRAME (2026-06-26).** This gap analysis was written for the Power-Platform build/activate
 > era. On the **live Azure stack** the **subscription Owner** row is the load-bearing one (it covers the
 > SPA, Data API, orchestration, Postgres, and all retained Functions); the **Dataverse System
-> Administrator** row is **HISTORICAL** (Dataverse is decommissioned — see banding below). The biggest
+> Administrator** row is **HISTORICAL** (Dataverse is superseded; teardown pending — see banding below). The biggest
 > auth-model change: **intake mailbox access is now [Exchange RBAC for Applications]**, not the Office 365
 > Outlook connector and **not** a Graph `Mail.Read` admin consent — corrected throughout below. New live
 > blocker not in the original list: the whole stack is on an **Azure Free Trial** (disabled at ~30 days
@@ -70,7 +72,7 @@ Platform build.) The gaps below are the things Owner *doesn't* reach.
 | # | Role you're missing | Plane | What it unblocks · why your current roles don't cover it | How to get it |
 |---|---|---|---|---|
 | 1 | **Box Business plan + Box Admin / Co-Admin** | Box (vendor) | The **entire always-on Box layer**: folder-at-intake, the image-chaser **File Request**, and the **FILE.UPLOADED webhook → Evidence** pipeline. Your **free** Box account returns `unauthorized_client` for CCG and has no webhooks/File-Requests/metadata, so this is the long pole — the `SBL26001` demo had to do it all manually with a dev token. **Base Box Business is the floor** (folders + File Requests + webhooks + CCG); **Business Plus** only if you later want the metadata-capture field. | Purchase Box **Business**; make your Box user an **Admin/Co-Admin** in the Box Admin Console. |
-| 2 | **Exchange Administrator** | Entra | **Authorising the intake app's mailbox access** via **Exchange RBAC for Applications** — an Exchange Admin runs `New-ServicePrincipal` + `New-ManagementScope` + `New-ManagementRoleAssignment` to grant the `cespk-graph-intake` app **resource-scoped** Graph mailbox roles over the three intake mailboxes, so the orchestration tier can **delta-poll** them. **This SUPERSEDES the old model** (shared-mailbox Full Access/Send-As for the Office 365 Outlook connector, and the Graph `Mail.Read` admin-consent path) — it needs **NO Global Admin** and **no Entra consent**. **Verified live on `digital@` 2026-06-26** (`Test-ServicePrincipalAuthorization` → `InScope: True`); the 3 real mailboxes are **not yet scoped**, and the orchestration app is **built but undeployed** (no live intake yet). | A **Global Admin** assigns you (or another admin) **Exchange Administrator** in the M365 admin center; the Exchange Admin then runs the RBAC grant. |
+| 2 | **Exchange Administrator** | Entra | **Authorising the intake app's mailbox access** via **Exchange RBAC for Applications** — an Exchange Admin runs `New-ServicePrincipal` + `New-ManagementScope` + `New-ManagementRoleAssignment` to grant the `cespk-graph-intake` app **resource-scoped** Graph mailbox roles over the three intake mailboxes, so the orchestration tier can **delta-poll** them. **This SUPERSEDES the old model** (shared-mailbox Full Access/Send-As for the Office 365 Outlook connector, and the Graph `Mail.Read` admin-consent path) — it needs **NO Global Admin** and **no Entra consent**. **Verified live on `digital@` 2026-06-26** (`Test-ServicePrincipalAuthorization` → `InScope: True`); the 3 real mailboxes are **not yet scoped**, and the orchestration app is now **deployed + wired (41 functions) but not yet live** (no Graph subscriptions / Exchange RBAC scope yet → no live intake). | A **Global Admin** assigns you (or another admin) **Exchange Administrator** in the M365 admin center; the Exchange Admin then runs the RBAC grant. |
 | 3 | **Key Vault Secrets Officer** (data plane) | Azure | **Injecting secrets** read as Key Vault references — the **EVA test creds**, the **Box** `client_secret` + webhook signature keys (the `box-webhook` Function references these in `cespkboxkvv76a47`, empty until injected), the **Graph-intake** client secret/cert. _(The **live P0** here is now **closed (2026-06-26)** — the **Data API's Postgres credential** moved off server-admin `csadmin` to the **non-owner login `cespk_app`** with its password a **Key Vault reference**, RLS now enforced, no cleartext.)_ Nuance: subscription **Owner is management-plane only** — on an RBAC-mode vault it does **not** grant data-plane secret read/write. | **Self-assign** — you're Owner, so grant *yourself* **Key Vault Secrets Officer** on the vault(s). KV secret names are **hyphenated** and resolve into UPPER_SNAKE app settings. |
 
 ### 🟠 Needed for governance + the test→prod rollout (not single-env blockers)
@@ -210,7 +212,16 @@ prior two Dataverse security roles** unchanged — only the enforcement mechanis
 > with `-c app.role=admin`, gated on a verified `CollisionSpike.Admin` token — the staff pool's role is never
 > widened.
 
-> **[HISTORICAL] Prior authoring shape (decommissioned).** Before migration these were **Dataverse
+> **Identity-based secret access (2026-06-27).** The remaining plaintext secret exposures were remediated by
+> moving to **managed-identity / keyless** auth, which added these role assignments: the **orchestration MI**
+> was granted **Key Vault Secrets User** (to resolve the rotated `graph-client-secret`; it previously held
+> **zero** role assignments) plus **Storage Blob Data Owner** and **Queue/Table Data Contributor** (Durable);
+> the **Data API MI** was granted **Storage Blob Data Owner** (identity-based `AzureWebJobsStorage`,
+> `allowSharedKeyAccess=false`); and the **ocr MI** was granted **Cognitive Services User** (Document
+> Intelligence local-auth disabled → keyless). Retained parser/enrich/box function keys are now Key Vault
+> references.
+
+> **[HISTORICAL] Prior authoring shape (superseded; teardown pending).** Before migration these were **Dataverse
 > security roles** authored as schema-as-code under `dataverse/roles/` (`_role.schema.json`,
 > `user-role.json`, `admin-role.json`) and applied by `dataverse/.build/28-roles.ps1` (a DRY-RUN-by-default,
 > create-not-assign apply script over the Dataverse Web API, mapping the 8 table-privilege axes to

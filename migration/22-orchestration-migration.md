@@ -1,5 +1,18 @@
 # 22 — Orchestration migration
 
+> **DEPLOYMENT STATUS (2026-06-27) — DEPLOYED + WIRED, NOT YET LIVE.** This design is now **built and
+> deployed**: `cespk-orch-dev` carries **41 functions** (the full intake chain
+> fetchMessage/providerMatch/caseResolve/classifyPersist/parse/statusEvaluate/enrich + intakeOrchestrator +
+> intake-starter; Graph infra graph-webhook/graph-lifecycle/graph-renew; and all 9 gated orchestrations +
+> their activities/starters/timers). _(The earlier "0 functions deployed" state was an esbuild ESM→CJS load
+> crash at `createRequire(import.meta.url)` — undefined in CJS; fixed with a banner+define build step,
+> `build-orch.cjs`.)_ Wiring: PARSER/ENRICH/BOXWEBHOOK/EVASENTRY `_FN_URL` + KV-referenced function keys,
+> `EVIDENCE_BLOB_CONTAINER`; orch→Data API via **managed identity**; identity-based storage. **It is NOT yet
+> live** — no Graph subscriptions and no Exchange RBAC scope on the 3 real mailboxes, so the renewal timer
+> lists 0 subscriptions and no mail is processed. Go-live items: Exchange-RBAC-scope the 3 mailboxes (§A),
+> set `EVIDENCE_BLOB_CONNECTION` (prefer MI), assign the orch MI an app-role on the Data API, wire Azure
+> Monitor heartbeat alerts.
+
 The 17 Power Automate flows → **Durable Functions + Storage Queues**, and the Outlook intake trigger →
 a **timer-triggered Microsoft Graph delta-query poll** of each Exchange-RBAC-scoped shared mailbox (the
 change-notification **subscription** is retained only as an optional push upgrade — see the amendment
