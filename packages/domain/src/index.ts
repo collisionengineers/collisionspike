@@ -1,0 +1,22 @@
+/**
+ * @cs/domain — main barrel export (browser-safe).
+ *
+ * Re-exports: contracts, domain, model, dto.
+ *
+ * codecs  → import from '@cs/domain/codecs'  (subpath; server-only — JSON choicesets off the client)
+ * gates   → import from '@cs/domain/gates'   (subpath; server-only — process.env out of the browser)
+ */
+
+// contracts (moved verbatim from mockup-app/src/contracts/)
+export * from './contracts/case-status.js';
+export * from './contracts/image-rules.js';
+export * from './contracts/eva-export.js';
+
+// domain (moved verbatim from mockup-app/src/domain/)
+export * from './domain/index.js';
+
+// model — pure domain types + helpers lifted from mock/types.ts + mock/queues.ts
+export * from './model/index.js';
+
+// dto — DataAccess interface + all input/result types from data/types.ts (NO cr1bd_* shapes)
+export * from './dto/index.js';

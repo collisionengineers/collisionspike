@@ -1,0 +1,23 @@
+current_component,repo_path,tag,azure_target,mslearn_topic
+Code App shell (React/Vite),mockup-app/,PP,Azure Static Web Apps (Free),What is Azure Static Web Apps?
+Dataverse system-of-record (12 tables),dataverse/schema/,PP,Azure DB for PostgreSQL Flexible Server B1ms,Use an Azure free account to try Azure Database for PostgreSQL for free; Compute options in Azure Database for PostgreSQL
+Dataverse auto-OData API (via connectors),flows/connection-references.json,PP,NEW standalone Flex Consumption Functions HTTP API (BFF),Overview of API support in Azure Static Web Apps; API support in Azure Static Web Apps with Azure Functions (managed = HTTP-only no MI no Key Vault references)
+Choicesets (17),dataverse/choicesets/,PP,Postgres lookup tables / enums (integer codes preserved),PostgreSQL CREATE TYPE / enumerated types (postgresql.org)
+Relationships (15 one-to-many + 2 NN; 4 Cascade),dataverse/relationships.json,PP,FK + ON DELETE CASCADE/SET NULL; junction tables for NN,PostgreSQL foreign keys / referential actions (postgresql.org)
+Dedup alternate key (sourcemessageid),dataverse/schema/inbound-email.json,PP,UNIQUE constraint,PostgreSQL unique constraints (postgresql.org)
+Security roles (2),dataverse/roles/,PP,Entra app roles + API authz + optional Postgres RLS,Add app roles to your application and receive them in the token; PostgreSQL row-level security (postgresql.org)
+Environment-variable Boolean gates (20) + String config (6),dataverse/environment-variables.json,PP,Function app-settings (HOLD_NEW_CASES_BY_DEFAULT -> DB row),App settings reference for Azure Functions
+KV-ref Secret env-vars (2: EVA_CLIENT_ID/SECRET),dataverse/environment-variables.json,PP,Keep Key Vault + Functions Key Vault references,Use Key Vault references as app settings in Azure App Service and Azure Functions
+Dataverse platform audit,dataverse/schema/audit-event.json,PP,App-written audit (already cr1bd_auditevent),(own table; no platform analogue)
+Intake chain + Outlook OnNewEmailV3,flows/definitions/intake.definition.json,PP,Durable/queue Functions; Graph change-notification subscription + renewal + lifecycle,Change notifications for Outlook resources in Microsoft Graph; Set up notifications for changes in resource data; Reduce missing subscriptions and change notifications
+Gated flows (9: EVA/Box/chaser/disposition),flows/definitions/,PP,Durable orchestrations / folded into API,Programming model overview (durable-functions); Quickstart: Create a TypeScript Durable Functions app
+Custom connectors (7),functions/*/openapi/ + ocr/openapi/ + connectors/,PP,Drop connector layer; call Functions directly (key/managed identity),Work with access keys in Azure Functions; How to use managed identities for App Service and Azure Functions
+PowerProvider getContext(),mockup-app/src/PowerProvider.tsx,PP,Entra via MSAL (SPA) + JWT validation (API),Tutorial: Sign in users in a React single-page app (SPA); Validate tokens
+pac code push deploy,mockup-app/power.config.json,PP,SWA deploy (az staticwebapp / SWA CLI / Actions),Deploy to Azure Static Web Apps
+Solutions + Pipelines (ALM),dataverse/,PP,Bicep + az IaC + Git,What is Bicep?
+Azure Functions (6) + OCR ACA,functions/ + ocr/,AZ,unchanged,(keep)
+Key Vaults (3),live env,AZ,unchanged,(keep)
+App Insights + Log Analytics,live env,AZ,unchanged,(keep)
+Blob (evidence bytes),live env (cespkevidstdev01),AZ,unchanged,(keep)
+Container Registry,live env (cespkocracraeee76),AZ,unchanged,(keep)
+EVA Sentry / Box / DVSA / DVLA / Vision / Maps / postcode.io / Outlook,external,EXT,unchanged,(keep)

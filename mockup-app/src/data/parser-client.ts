@@ -22,7 +22,7 @@
    heuristic fallbacks, Manual for absent/unknown).
    ============================================================ */
 
-import { EVA_FIELD_ORDER, type EvaFieldKey } from '../contracts/eva-export';
+import { EVA_FIELD_ORDER, type EvaFieldKey } from '@cs/domain';
 import type {
   EvaField,
   EvaFields,
@@ -31,7 +31,7 @@ import type {
   ProvenanceSourceType,
   ReviewState,
   VatStatus,
-} from '../mock/types';
+} from '@cs/domain';
 
 /* ============================================================
    1. The wire contract (cedocumentparser_v2.0_eva_json).

@@ -1,0 +1,22 @@
+{
+  "name": "@cs/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "func start",
+    "dev": "func start"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0",
+    "@cs/domain": "*",
+    "jose": "^5.9.6",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.6.3"
+  }
+}

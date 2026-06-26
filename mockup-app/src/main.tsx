@@ -1,113 +1,184 @@
+/* ============================================================
+   Collision Engineers — app bootstrap (plan 30 + 31).
+
+   Replaces the Power Platform SDK bootstrap + PowerProvider wrap with:
+     1. MSAL initialization + sign-in gate (plan 31)
+     2. REST DataAccess injection (plan 30)
+     3. REST transport injection for parser, location-assist, Box
+
+   Identity flow: staff hit the SWA URL → MSAL redirects to Entra sign-in
+   → returns authenticated → SPA acquires an API token silently → all
+   fetch calls in rest-client.ts carry a Bearer token → the API validates
+   the Entra JWT and enforces role-based access (CollisionSpike.User /
+   CollisionSpike.Admin — plan 31).
+
+   Config (all PUBLIC values — no secrets in the bundle):
+     VITE_ENTRA_CLIENT_ID  — cespk-spa Application (client) ID
+     VITE_ENTRA_TENANT_ID  — workforce tenant id
+     VITE_API_SCOPE        — e.g. api://<API_APPID>/access_as_user
+     VITE_API_BASE_URL     — e.g. https://cespk-api-dev.azurewebsites.net
+   ============================================================ */
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { FluentProvider, Toaster } from '@fluentui/react-components';
-import PowerProvider from './PowerProvider';
+import {
+  FluentProvider,
+  Toaster,
+} from '@fluentui/react-components';
+import {
+  MsalProvider,
+  AuthenticatedTemplate,
+  UnauthenticatedTemplate,
+  useMsal,
+} from '@azure/msal-react';
+import { EventType } from '@azure/msal-browser';
+import {
+  msalInstance,
+  acquireApiToken,
+  API_SCOPES,
+} from './auth/msalConfig';
 import App from './App';
 import { ceTheme } from './theme/ceTheme';
 import { GLOBAL_TOASTER_ID } from './components';
 import { configureDataAccess } from './data';
-import { generatedServices } from './data/generated-services';
+import { createRestDataAccess } from './data/rest-client';
+import {
+  configureLocationAssistTransport,
+  makeRestLocationAssistTransport,
+} from './data/location-assist-rest-transport';
+import {
+  configureBoxTransports,
+} from './data/box-transport';
+import {
+  makeRestCopyFileRequestTransport,
+  makeRestGetSharedLinkTransport,
+  makeRestFinalizeTransport,
+} from './data/box-rest-transport';
 import './theme/theme.css';
 
-/* Mounts <App/> inside the canonical Power Apps <PowerProvider> (SDK bootstrap)
-   and the CE-themed FluentProvider, with a single global Toaster
-   (id = GLOBAL_TOASTER_ID) that ChaserPanel and the screens target.
+/* ============================================================
+   1. MSAL initialization (msal-browser v3+ requires explicit init).
 
-   Order: PowerProvider warms the Power Apps host bridge so the data hooks read
-   Dataverse against a ready SDK runtime. */
+   addEventCallback keeps the active account in sync after a sign-in
+   (Learn: addEventCallback / setActiveAccount). The existing-accounts
+   check handles a page reload where the token is already in sessionStorage.
+   ============================================================ */
 
-// Switch the data seam from the unconfigured default to the live Dataverse source
-// by injecting the pac-generated services. This is a pure SELECTOR swap (no I/O):
-// every screen/hook reads through `data`, so no screen edits are needed. The
-// actual SDK bridge initialises lazily on the first data call, which PowerProvider
-// has warmed via getContext() by then.
-configureDataAccess(generatedServices);
+// Register the event callback BEFORE initialize() so it catches the redirect
+// login event; the initialize() await itself happens in the async bootstrap below
+// (top-level await isn't available at the SPA build target).
+msalInstance.addEventCallback((m) => {
+  if (
+    m.eventType === EventType.LOGIN_SUCCESS &&
+    m.payload &&
+    'account' in m.payload
+  ) {
+    msalInstance.setActiveAccount(
+      (m.payload as { account: import('@azure/msal-browser').AccountInfo }).account,
+    );
+  }
+});
 
-/* ----------  Box (Archive) deploy-wiring (operator, post add-data-source)  ----------
-   The BOX_* gate read + the Box affordance transports degrade honestly until the
-   operator binds them. AFTER `pac code add-data-source` adds (a) the env-var
-   Dataverse tables `environmentvariabledefinitions` + `environmentvariablevalues`
-   and (b) the custom Box connector + its connection, wire them here:
+/* ============================================================
+   2. REST DataAccess injection (plan 30).
 
-     1. Add the two env-var services to `generatedServices` (generated-services.ts)
-        so `getBoxGates()` reads real values instead of returning all-false.
-     2. Bind the live Box transports. copy/shared-link are DIRECT connector ops
-        (no flow in the path), so each factory also needs (a) a case resolver that
-        reads `cr1bd_boxfolderid` + the `cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID` value,
-        and (b) the gate read — the connector ops take the Box folder/template ids
-        and a `shared_link` body, NOT a caseId, and return Box shapes
-        (`{url}` / `{shared_link:{url}}`), so the caseId→ids resolution + the
-        seam-status shaping happen in the transport. The Cases service feeds
-        `makeDataverseFinalizeTransport(...)`. Then:
+   The `call` helper lives inside rest-client.ts (closed over opts).
+   We create a thin wrapper so the three transports share the same
+   authenticated fetch surface without re-acquiring the token.
+   ============================================================ */
 
-        import { configureBoxTransports, getDataAccess } from './data';
-        import {
-          makeConnectorCopyFileRequestTransport,
-          makeConnectorGetSharedLinkTransport,
-          makeDataverseFinalizeTransport,
-          type BoxCaseResolver,
-        } from './data/box-connector-transport';
+const restClient = createRestDataAccess({
+  baseUrl: import.meta.env.VITE_API_BASE_URL as string,
+  getToken: acquireApiToken,          // Bearer injected in call(), opaque to hooks
+});
+configureDataAccess(restClient);
 
-        const readGates = () => getDataAccess().getBoxGates();
-        const boxResolver: BoxCaseResolver = {
-          // Read the case's stamped Box folder id (empty until box-folder-create runs).
-          folderId: async (caseId) =>
-            (await Cr1bd_casesService.get(caseId))?.data?.cr1bd_boxfolderid ?? undefined,
-          // The operator-set File-Request TEMPLATE id. getBoxGates() only exposes the
-          // DERIVED boolean `fileRequestTemplateConfigured`, NOT the id string — so
-          // read the resolved `cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID` *value* through the
-          // seam getter, which coalesces value ?? default over the env-var tables the
-          // gates use and returns undefined when unset/empty (honest off).
-          templateId: async () => getDataAccess().getBoxFileRequestTemplateId(),
-        };
-        configureBoxTransports({
-          copyFileRequest: makeConnectorCopyFileRequestTransport(BoxRestService, boxResolver, readGates),
-          getSharedLink: makeConnectorGetSharedLinkTransport(BoxRestService, boxResolver, readGates),
-          requestFinalize: makeDataverseFinalizeTransport(Cr1bd_casesService, {
-            // The submit-signal trio (ADR-0012 / 00-BUILD-PLAN): the flag the
-            // Dataverse-triggered finalize-eva-box watches, the REQUESTED hash
-            // (distinct from the cr1bd_finalizedpayloadhash latch the flow stamps
-            // LAST), and the staged byte-identical 12-field EVA JSON the flow
-            // reads off the row (a row trigger has no HTTP body).
-            submitRequestedColumn: 'cr1bd_submitrequested',
-            payloadHashColumn: 'cr1bd_submitpayloadhash',
-            evaPayloadColumn: 'cr1bd_evapayload12',
-          }),
-        });
+/* ============================================================
+   3. REST transport injection.
 
-   Until then every Box transport stays `not_connected` and the UI hides/greys the
-   affordances per the gates — no fabricated links, no broken iframe (embed stays
-   off; "Open in Archive" is a link, never a frame). */
+   The three transports share the same authenticated `call` helper from
+   rest-client.ts.  We wire them at startup so the Box / location-assist /
+   parser affordances are live by the time the first screen renders.
 
-/* ----------  Location-assist deploy-wiring (operator, post add-data-source)  ----------
-   The "Suggest location" action (Phase 4a) is gated OFF (cr1bd_LOCATION_ASSIST_ENABLED
-   + cr1bd_AZURE_MAPS_ENABLED + cr1bd_LOCATION_ASSIST_API_BASE all default off/empty),
-   so it ships dark. AFTER `pac code add-data-source` adds the separate
-   'CE Location Assist' custom connector (operation SuggestLocation; the function key
-   lives on the CONNECTION as x-functions-key, never in the bundle), wire it here:
+   Parser transport is injected per-call in ManualIntake:
+     `parseDocument(req, makeRestParserTransport(call))`
+   where `call` is re-exported from rest-client.ts.  No global injection
+   needed for the parser because ManualIntake creates it inline.
+   ============================================================ */
 
-       import { configureLocationAssistTransport } from './data';
-       import { makeConnectorLocationAssistTransport } from './data/location-assist-connector-transport';
-       import { CollisionEngineersLocationAssistService } from './generated/services/CollisionEngineersLocationAssistService';
+// Shared authenticated call helper for the three REST transports.
+// We construct a minimal closure that mirrors the one inside rest-client.ts.
+const sharedCall = async <T,>(method: string, path: string, body?: unknown): Promise<T> => {
+  const base = (import.meta.env.VITE_API_BASE_URL as string).replace(/\/$/, '');
+  const token = await acquireApiToken();
+  const res = await fetch(`${base}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  if (res.status === 204) return undefined as T;
+  if (!res.ok)
+    throw new Error(
+      `${method} ${path} → ${res.status} ${await res.text().catch(() => '')}`,
+    );
+  return (await res.json()) as T;
+};
 
-       configureLocationAssistTransport(
-         makeConnectorLocationAssistTransport(CollisionEngineersLocationAssistService),
-       );
+configureLocationAssistTransport(makeRestLocationAssistTransport(sharedCall));
 
-   Until then the transport stays not-connected (throws a plain "not switched on"
-   message), and the gate read keeps the action hidden — so the feature is fully
-   built + unit-tested without the live connector or any Azure Vision/Maps call. */
+configureBoxTransports({
+  copyFileRequest: makeRestCopyFileRequestTransport(sharedCall),
+  getSharedLink:   makeRestGetSharedLinkTransport(sharedCall),
+  requestFinalize: makeRestFinalizeTransport(sharedCall),
+});
+
+/* ============================================================
+   4. Sign-in gate.
+
+   Staff-only: UnauthenticatedTemplate triggers a full-frame loginRedirect
+   immediately — there is no "sign in" button, the app is internal-only.
+   The redirect resumes via MSAL after Entra authentication.
+   ============================================================ */
+
+function SignInGate({ children }: { children: React.ReactNode }) {
+  const { instance } = useMsal();
+  return (
+    <>
+      <AuthenticatedTemplate>{children}</AuthenticatedTemplate>
+      <UnauthenticatedTemplate>
+        {/* Staff-only: redirect straight to sign-in, no anonymous access. */}
+        {void instance.loginRedirect({ scopes: API_SCOPES })}
+      </UnauthenticatedTemplate>
+    </>
+  );
+}
+
+/* ============================================================
+   5. App root.
+   ============================================================ */
 
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element #root not found');
 
-createRoot(rootEl).render(
-  <StrictMode>
-    <PowerProvider>
-      <FluentProvider theme={ceTheme} style={{ height: '100%' }}>
-        <App />
-        <Toaster toasterId={GLOBAL_TOASTER_ID} position="bottom-end" />
-      </FluentProvider>
-    </PowerProvider>
-  </StrictMode>,
-);
+// MSAL v3 requires initialize() to resolve before any use; bootstrap async, then render.
+void (async () => {
+  await msalInstance.initialize();
+  const existing = msalInstance.getAllAccounts();
+  if (existing.length) msalInstance.setActiveAccount(existing[0]);
+
+  createRoot(rootEl).render(
+    <StrictMode>
+      <MsalProvider instance={msalInstance}>
+        <FluentProvider theme={ceTheme} style={{ height: '100%' }}>
+          <SignInGate>
+            <App />
+          </SignInGate>
+          <Toaster toasterId={GLOBAL_TOASTER_ID} position="bottom-end" />
+        </FluentProvider>
+      </MsalProvider>
+    </StrictMode>,
+  );
+})();

@@ -1,33 +1,33 @@
 /* ============================================================
-   Collision Engineers — Code App DATA SEAM: barrel + selector.
+   Collision Engineers — DATA SEAM: barrel + selector (plan 30).
 
    THE ONE IMPORT POINT for the screens. It re-exports:
 
-     1. The PURE, SYNC helpers + types from '../mock' (dueInfo, reasonVerb,
-        outstandingText, suggestCasePo, statusToQueue, QUEUES, REASON_LABELS,
-        EVA_FIELD_ORDER, every domain type, …). These compute over a Case/now
-        with no I/O, so they stay synchronous and identical regardless of source.
+     1. The PURE, SYNC helpers + types from '@cs/domain' (dueInfo,
+        reasonVerb, outstandingText, suggestCasePo, statusToQueue, QUEUES,
+        REASON_LABELS, EVA_FIELD_ORDER, every domain type, …). These
+        compute over a Case/now with no I/O, so they stay synchronous and
+        identical regardless of source.
 
      2. The async repository (`DataAccess`) via a SELECTOR: `getDataAccess()`
-        returns an EMPTY default source (no fabricated rows, SDK-free) until the
-        live Dataverse source is injected via `configureDataAccess(services)` at
-        startup (src/main.tsx). The app is Dataverse-backed in every real run;
-        the empty default exists only so this seam barrel + tests stay SDK-free
-        and so an injection failure degrades to honest empty states, never to
-        fabricated data. Screens never import a pac-generated service directly.
+        returns an EMPTY default source (no fabricated rows) until the REST
+        source is injected via `configureDataAccess(source)` at startup
+        (src/main.tsx). The app is REST-backed in every real run; the empty
+        default exists only so this seam barrel + tests stay auth-free and so
+        an injection failure degrades to honest empty states.  Screens never
+        import a transport or HTTP client directly.
 
-     3. The React hooks (../data/hooks) over the async fetchers.
+     3. The React hooks (./hooks) over the async fetchers.
 
-   This barrel itself imports no '@microsoft/power-apps' / 'src/generated/'
-   module — those are confined to ./generated-services (+ main.tsx).
+   This barrel imports NO '@azure/msal-*', NO '@microsoft/power-apps', NO
+   fetch — those are confined to rest-client.ts (+ main.tsx).
    ============================================================ */
 
-import type { DataAccess, GeneratedServices } from './types';
+import type { DataAccess } from '@cs/domain';
 import { mockDataAccess } from './mock-source';
-import { createDataverseDataAccess } from './dataverse-source';
 
 /* ============================================================
-   1. PURE SYNC helpers + types — re-exported verbatim from '../mock'.
+   1. PURE SYNC helpers + types — re-exported from '@cs/domain'.
    The screens keep calling these directly (no Promise, no behaviour change).
    ============================================================ */
 
@@ -65,11 +65,11 @@ export type {
   MissingItem,
   ActionReason,
   Case,
-} from '../mock/types';
+} from '@cs/domain';
 // EVA field order — the canonical iteration order (pure const).
-export { EVA_FIELD_ORDER } from '../mock/types';
+export { EVA_FIELD_ORDER } from '@cs/domain';
 
-// Queue IA + pure helpers/types (statusToQueue/queueByName/QUEUES are pure).
+// Queue IA + pure helpers/types.
 export {
   QUEUES,
   queueByName,
@@ -88,7 +88,7 @@ export {
   type PipelineStage,
   type PipelineStageKey,
   type ReasonFacet,
-} from '../mock/queues';
+} from '@cs/domain';
 
 // Intake copy + due/aging + Case/PO helpers (all pure over a Case/now).
 export {
@@ -99,7 +99,7 @@ export {
   type DueTone,
   type DueInfo,
   type CasePoSuggestion,
-} from '../mock/intake';
+} from '@cs/domain';
 
 // The seam's own interface types (so screens/tests can type a DataAccess).
 export type {
@@ -112,38 +112,24 @@ export type {
   InspectionAddressCounts,
   BoxGates,
   LocationAssistGate,
-  GeneratedServices,
-  GeneratedTableService,
-  OperationResult,
-  GetAllOptions,
-  CaseRecord,
-  EvidenceRecord,
-  WorkProviderRecord,
-  InspectionAddressRecord,
-  FieldLevelProvenanceRecord,
-  NoteRecord,
-  ChaserRecord,
-  AuditEventRecord,
-  EnvironmentVariableDefinitionRecord,
-  EnvironmentVariableValueRecord,
   // Phase 8 — Inbox / Triage seam types.
   InboundEmail,
-  InboundEmailRecord,
   InboundCategory,
   InboundSubtype,
   TriageState,
   ClassifierMode,
   InboundFacet,
   InboundCounts,
-} from './types';
+} from '@cs/domain';
 // The all-false Box-gate baseline + the all-off location-assist baseline (values).
-export { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF, INBOUND_COUNTS_ZERO } from './types';
+export { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF, INBOUND_COUNTS_ZERO } from '@cs/domain';
 
-/* ----------  Box affordances: gates + gated transports (CSP-safe) ----------
-   Gates are read via the Dataverse env-var tables (getBoxGates); the transports
-   route copy/shared-link through DIRECT connector ops and finalize through a
-   Dataverse submit-signal — never a raw fetch (CSP `connect-src 'none'`). The
-   default transports are honest `not_connected` until the operator binds them. */
+/* ----------  Box affordances: gates + gated transports  ----------
+   Gates are read via the REST API (/api/gates/box); the transports
+   route copy/shared-link/finalize through fetch calls carrying the
+   Bearer token.  The default transports are honest `not_connected`
+   until the operator configures them.  Never a raw Box call from
+   the SPA — all Box ops go via the BFF. */
 export {
   copyFileRequest,
   getSharedLink,
@@ -168,9 +154,9 @@ export {
 } from './box-transport';
 
 /* ----------  Document-parser response adapter + transport contract (manual intake) ----------
-   SDK-free (no '@microsoft/power-apps'), so it stays inside the offline boundary. The live
-   transport (CSP-safe, via the CE Parser connector) is in parser-connector-transport.ts and
-   is injected into parseDocument; tests inject a fake. */
+   SDK-free, so it stays inside the offline boundary.  The live REST transport
+   (parser-rest-transport.ts) is injected into parseDocument per-call in ManualIntake;
+   tests inject a fake. */
 export {
   parseDocument,
   adaptParserResponse,
@@ -188,10 +174,10 @@ export {
 } from './parser-client';
 
 /* ----------  Location-assist response adapter + transport contract (Phase 4a) ----------
-   SDK-free (no '@microsoft/power-apps'), so it stays inside the offline boundary. The live
-   transport (CSP-safe, via the CE Location Assist connector) is in
-   location-assist-connector-transport.ts and is injected at startup; tests inject a fake.
-   Reviewer-invoked candidate suggestions only — NOTHING auto-applies (ADR-0013). */
+   SDK-free, so it stays inside the offline boundary.  The live REST transport is
+   injected at startup (main.tsx); tests inject a fake transport directly into
+   `suggestLocations`. Reviewer-invoked candidate suggestions only — NOTHING auto-applies
+   (ADR-0013). */
 export {
   suggestLocations,
   adaptLocationAssistResponse,
@@ -214,13 +200,12 @@ export {
   type TextClues,
 } from './location-assist-client';
 export {
-  makeConnectorLocationAssistTransport,
+  makeRestLocationAssistTransport,
   configureLocationAssistTransport,
   resetLocationAssistTransport,
   activeLocationAssistTransport,
   notConnectedLocationAssistTransport,
-  type SuggestLocationOp,
-} from './location-assist-connector-transport';
+} from './location-assist-rest-transport';
 
 /* ----------  Vehicle enrichment + address normalisation (gated) ---------- */
 export {
@@ -239,21 +224,21 @@ export {
 /* ============================================================
    2. The DataAccess selector.
 
-   Default = the EMPTY source (no fabricated rows). Inject real generated
-   services to switch to Dataverse without touching any screen. The selection is
-   a one-time configuration the app shell performs at startup (after pac
-   generates the services); screens just read `getDataAccess()` / use the hooks.
+   Default = the EMPTY source (no fabricated rows). Call
+   `configureDataAccess(source)` to switch to the REST-backed source.
+   The selection is a one-time configuration the app shell performs at
+   startup; screens just read `getDataAccess()` / use the hooks.
    ============================================================ */
 
 let active: DataAccess = mockDataAccess;
 
 /**
- * Switch the seam to the Dataverse source by injecting the pac-generated service
- * bundle. Called once at app startup (src/main.tsx) AFTER the SDK bootstrap.
- * Until then (and in SDK-free unit tests) the empty default source is used.
+ * Switch the seam to the REST-backed source.  Called once at app startup
+ * (src/main.tsx) after MSAL is initialized and the REST client is built.
+ * Until then (and in auth-free unit tests) the empty default source is used.
  */
-export function configureDataAccess(services: GeneratedServices): void {
-  active = createDataverseDataAccess(services);
+export function configureDataAccess(source: DataAccess): void {
+  active = source;
 }
 
 /** Reset the seam to the empty default source (tests / storybook). */
@@ -266,11 +251,8 @@ export function getDataAccess(): DataAccess {
   return active;
 }
 
-/* The seam selector is initialised to the empty default above; main.tsx calls
-   configureDataAccess(generatedServices) at startup to switch to Dataverse. */
-
 /**
- * Convenience handle the screens/hooks bind to. It always delegates to the
+ * Convenience handle the screens/hooks bind to.  It always delegates to the
  * currently-selected source, so swapping via `configureDataAccess` takes effect
  * without re-importing. (A Proxy keeps the reference stable across the swap.)
  */
@@ -282,7 +264,7 @@ export const data: DataAccess = new Proxy({} as DataAccess, {
 }) as DataAccess;
 
 export { mockDataAccess, createMockDataAccess } from './mock-source';
-export { createDataverseDataAccess } from './dataverse-source';
+export { createRestDataAccess } from './rest-client';
 
 /* ============================================================
    3. React hooks over the async fetchers.

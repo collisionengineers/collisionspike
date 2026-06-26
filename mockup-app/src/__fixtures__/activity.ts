@@ -1,6 +1,6 @@
 /* TEST FIXTURES — fabricated activity feed. NOT shipped (tree-shaken out of
    dist). See __fixtures__/cases.ts. */
-import type { ActivityEvent } from '../mock/types';
+import type { ActivityEvent } from '@cs/domain';
 
 /** Recent pipeline activity feed (newest first) for the dashboard. */
 export const activity: ActivityEvent[] = [

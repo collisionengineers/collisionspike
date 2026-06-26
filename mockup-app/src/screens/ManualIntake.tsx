@@ -62,7 +62,27 @@ import {
   type ParserIssue,
   type VatStatus,
 } from '../data';
-import { connectorParserTransport } from '../data/parser-connector-transport';
+import { makeRestParserTransport } from '../data/parser-rest-transport';
+import { acquireApiToken } from '../auth/msalConfig';
+
+// Authenticated REST transport for the parser — replaces the connector-backed
+// transport (parser-connector-transport.ts, removed in plan 30 migration).
+// The API proxies the Python parser Function and returns the same ParserResponse.
+const parserApiCall = async <T,>(method: string, path: string, body?: unknown): Promise<T> => {
+  const base = (import.meta.env.VITE_API_BASE_URL as string).replace(/\/$/, '');
+  const token = await acquireApiToken();
+  const res = await fetch(`${base}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}`);
+  return (await res.json()) as T;
+};
+const restParserTransport = makeRestParserTransport(parserApiCall);
 
 /* ============================================================
    ManualIntake — the "New case" / manual-intake screen.
@@ -407,7 +427,7 @@ export function ManualIntake() {
       const base64 = await fileToBase64(instructionFile);
       const result = await parseDocument(
         { document: base64, filename: instructionFile.name },
-        connectorParserTransport,
+        restParserTransport,
       );
       const errs = result.issues.filter((i) => i.severity === 'error');
       if (errs.length > 0 || !result.evaFields) {

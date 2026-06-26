@@ -1,0 +1,58 @@
+/**
+ * @cs/domain/gates — shared gate reader (server-only, process.env).
+ *
+ * Imported as '@cs/domain/gates' by:
+ *   - api/src/lib/gates.ts (re-export)
+ *   - orchestration activity files (direct import)
+ *
+ * Deliberately NOT re-exported from the main barrel (src/index.ts) so that the browser SPA
+ * never pulls process.env code. The SPA reads gate values over HTTP via /api/gates/* instead
+ * (plan 10 §1.4 / plan 21.2).
+ *
+ * All accessors default to false / empty on missing env var (gates are default-off).
+ *
+ * TODO (settings agent): validate against the full gate list in plan 10 §1.2 once all
+ * environment variables are finalised.
+ */
+
+export const gates = {
+  // Core feature gates (plan 10 §1.1, #1–#21 boolean set)
+  pdfMapper: (): boolean => process.env.PDF_MAPPER_ENABLED === 'true',         // #1
+  enrichment: (): boolean => process.env.ENRICHMENT_ENABLED === 'true',        // #2
+  evaApi: (): boolean => process.env.EVA_API_ENABLED === 'true',               // #4
+  azureMaps: (): boolean => process.env.AZURE_MAPS_ENABLED === 'true',         // #8
+  valuation: (): boolean => process.env.VALUATION_ENABLED === 'true',          // #9
+  copilot: (): boolean => process.env.COPILOT_ENABLED === 'true',              // #10
+  azureVision: (): boolean => process.env.AZURE_VISION_ENABLED === 'true',     // #11
+  ocrScannedPdf: (): boolean => process.env.OCR_SCANNED_PDF_ENABLED === 'true',// #12
+  plateOcr: (): boolean => process.env.PLATE_OCR_ENABLED === 'true',           // #13
+  auditCases: (): boolean => process.env.AUDIT_CASES_ENABLED === 'true',       // #15
+  locationAssist: (): boolean => process.env.LOCATION_ASSIST_ENABLED === 'true',// #17
+  chaserSend: (): boolean => process.env.CHASER_SEND_ENABLED === 'true',       // #19
+  caseDisposition: (): boolean => process.env.CASE_DISPOSITION_ENABLED === 'true',// #20
+  emailAi: (): boolean => process.env.EMAIL_AI_ENABLED === 'true',             // #21
+
+  // Box gates (Phase 7, ADR-0012) — all default off
+  boxApi: (): boolean => process.env.BOX_API_ENABLED === 'true',               // #22
+  boxFolderAtIntake: (): boolean => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === 'true',// #23
+  boxFileRequest: (): boolean => process.env.BOX_FILEREQUEST_ENABLED === 'true',// #24
+  boxEmbed: (): boolean => process.env.BOX_EMBED_ENABLED === 'true',           // #25
+  boxMetadata: (): boolean => process.env.BOX_METADATA_ENABLED === 'true',     // #26
+
+  // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
+  enrichmentApiBase: (): string => process.env.ENRICHMENT_API_BASE ?? '',      // #3
+  evaBaseUrl: (): string => process.env.EVA_BASE_URL ?? '',                    // #5
+  valuationApiBase: (): string => process.env.VALUATION_API_BASE ?? '',        // #14
+  locationAssistApiBase: (): string => process.env.LOCATION_ASSIST_API_BASE ?? '',// #18
+  boxFolderRootId: (): string => process.env.BOX_FOLDER_ROOT_ID ?? '',         // #27
+  boxFileRequestTemplateId: (): string => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? '',// #28
+
+  /**
+   * Derived: location assist is only enabled when all three conditions are met.
+   * Used by GET /api/gates/location-assist (plan 21 §21.2).
+   */
+  locationAssistEnabled: (): boolean =>
+    gates.locationAssist() &&
+    gates.azureMaps() &&
+    gates.locationAssistApiBase() !== '',
+};

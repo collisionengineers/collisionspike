@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { arrayMove } from '@dnd-kit/sortable';
 import { buildEvaImageOrder, type ImageOrderEntry } from './ImageOrderList';
-import type { Evidence } from '../mock';
+import type { Evidence } from '@cs/domain';
 
 /* Pure ordering tests for the EVA photo-order seam.
 

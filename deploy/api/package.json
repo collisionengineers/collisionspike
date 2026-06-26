@@ -1,0 +1,8 @@
+{
+  "name": "cs-api",
+  "version": "1.0.0",
+  "main": "main.cjs",
+  "dependencies": {
+    "@azure/functions": "^4.5.0"
+  }
+}

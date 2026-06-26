@@ -1,6 +1,6 @@
 import { makeStyles, tokens, Text } from '@fluentui/react-components';
 import { Check, X } from 'lucide-react';
-import type { Case } from '../mock';
+import type { Case } from '@cs/domain';
 import { computeReadiness, type ReadinessResult } from './readiness';
 
 /* Deterministic EVA readiness checklist for a Case. Renders the ✔/✖ items
