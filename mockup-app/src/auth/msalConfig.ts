@@ -15,6 +15,7 @@ import {
   PublicClientApplication,
   type Configuration,
   InteractionRequiredAuthError,
+  BrowserAuthError,
 } from '@azure/msal-browser';
 
 const config: Configuration = {
@@ -49,9 +50,12 @@ export async function acquireApiToken(): Promise<string> {
     const r = await msalInstance.acquireTokenSilent({ scopes: API_SCOPES, account });
     return r.accessToken;
   } catch (e) {
-    if (e instanceof InteractionRequiredAuthError) {
-      // Full-frame redirect — resumes after Entra sign-in. The call below
-      // never actually returns (the page navigates away).
+    // Fall back to a full-frame redirect on ANY silent-acquisition failure: classic
+    // interaction-required, but ALSO BrowserAuthError (hidden-iframe renewal timeout /
+    // no cached account once the refresh-token lifetime lapses) — otherwise the SPA
+    // dead-ends in an error state after ~24h instead of cleanly re-authing.
+    if (e instanceof InteractionRequiredAuthError || e instanceof BrowserAuthError) {
+      // The redirect navigates away; the call below never actually returns.
       await msalInstance.acquireTokenRedirect({ scopes: API_SCOPES, account });
     }
     throw e;

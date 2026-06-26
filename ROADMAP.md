@@ -1,8 +1,36 @@
 # ROADMAP — collisionspike
 
-_Phase-1 (M1) case-intake spike for **Collision Engineers** (UK vehicle-damage assessment) on the **Microsoft stack** — Power Apps **Code App** + Dataverse + Power Automate + Azure Functions. Last updated **2026-06-24**._
+_Case-intake spike for **Collision Engineers** (UK vehicle-damage assessment). The **live system is the
+Azure PaaS stack** — a **Static Web App** SPA (`cespk-spa-dev`) + a **Function-App data API** (`cespk-api-dev`,
+Node/TypeScript) + an **orchestration Function App** (`cespk-orch-dev`) + a **Postgres Flexible Server**
+system of record (`cespk-pg-dev`) + the **retained Python Functions** (parser / enrichment / evasentry /
+evavalidation / ocr / box-webhook). The original **Power Platform implementation** (Power Apps Code App +
+Dataverse + ~16 Power Automate flows + custom connectors) has been **migrated and decommissioned**. Last
+updated **2026-06-26**._
 
-_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [docs/gated.md](./docs/gated.md) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
+_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [docs/gated.md](./docs/gated.md) · migration plans under [migration/](./migration/) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
+
+> **Platform migration (2026-06-26).** This repo was first built as a **Power Platform** spike and has
+> since been **migrated to an Azure PaaS stack** (the reversible code/data migration in [migration/](./migration/)
+> is executed and cut over). The **domain + workflow are unchanged** — the EVA **12-field** contract, the
+> image rules, the provider / inspection-address corpus, the **Case/PO** format, and the
+> intake→parse→review→enrich→EVA+Box pipeline all carry over verbatim; **only the platform mechanism
+> changed**. Power-Platform-era content below is **retained but banded as the prior/decommissioned era** —
+> it remains the reference for the domain logic it encodes. The live registry is
+> [CURRENT_STATUS.md](./CURRENT_STATUS.md).
+
+> **Live Azure stack (canonical registry: [CURRENT_STATUS.md](./CURRENT_STATUS.md)).** Resource group
+> `rg-collisionspike-dev` (region **uksouth**) on subscription `e6076573-…`, an **Azure Free Trial**
+> (quotaId `FreeTrial_2014-09-01`) — **the whole stack is disabled at the ~30-day mark unless upgraded to
+> Pay-As-You-Go** (the 12-month free Postgres allowance survives the upgrade). Components: **SPA**
+> `cespk-spa-dev` (React/Vite from `mockup-app/`, **MSAL / Entra workforce sign-in**, calls the API over
+> REST — `mockup-app/src/data/rest-client.ts`, **no Power SDK**); **data API** `cespk-api-dev` (source
+> `api/`, esbuild bundle `deploy/api/main.cjs`; validates Entra JWT + app roles **CollisionSpike.User /
+> CollisionSpike.Admin**; connects to Postgres); **orchestration** `cespk-orch-dev` (source
+> `orchestration/`, **built but zero functions deployed — no live automated email intake yet**); **Postgres
+> Flexible** `cespk-pg-dev` v16, db `collisionspike` (36 tables; seeded work_provider 390 / repairer 32 /
+> image_source 19 / inspection_address 2209 [174 confirmed + 2035 suggested] / case_ **0**); the **6 retained
+> Python Functions**, the **Key Vaults**, **Blob `cespkevidstdev01`**, and **App Insights / LAW**.
 
 > **Role split.** This **ROADMAP** is the forward phased checklist (per-phase done/remaining).
 > [CURRENT_STATUS.md](./CURRENT_STATUS.md) is what is live *now*. [docs/gated.md](./docs/gated.md) is
@@ -19,36 +47,102 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 > narrative** — that is CURRENT_STATUS's job. ADRs **0001–0014** are recorded; **0015–0018** are
 > _Proposed_ (the two integrated items, the new governance phase, and the parser/repo-boundary ADR-0018).
 
-> This roadmap is comprehensive: the early phases are largely **complete** because the M1 vertical slice was built offline and much of the non-inbox deploy is already executed in the dedicated Sandbox. The frontier is **live activation** (operator — scaling intake to the other two inboxes), **EVA/Box test activation**, and the **two newly-integrated phases** (inbox triage + data governance).
+> This roadmap has two parts. The **forward frontier** is the **Azure migration-remediation backlog**
+> (below, in Now / Next / Later): standing the migrated stack up to production-grade — deploy orchestration
+> + scope the 3 intake mailboxes for live intake, the P0 DB-security remediation, the Free-Trial→PAYG
+> upgrade, durable API hardening, staff app-role assignment, and an IaC config layer — with the **domain
+> milestones (EVA, enrichment, Box, OCR, governance) re-homed onto the Azure stack**. The **banded Phase
+> 0–9 checklist** that follows is the **Power-Platform-era build record**, preserved for the domain /
+> workflow / EVA / provider knowledge it encodes; its platform-mechanism steps (flows, Dataverse, the Code
+> App push, env-var gates) are **superseded by the migration** and should be read as history.
 
 ---
 
 ## Legend
 
+> The symbols and the two principles below govern the **banded Phase 0–9 checklist** (the Power-Platform-era
+> build record). The forward Azure work is tracked in **Now / Next / Later** above.
+
 - `[x]` **done** — built and/or deployed; verified per CURRENT_STATUS / the offline gate.
 - `[ ]` **remaining** — not yet built or not yet activated.
-- 🔒 **operator-gated** — crosses the live-services boundary (touches the live Outlook shared inboxes, live SharePoint job sheet, live Box, or live EVA, or injects real secrets). **Claude builds offline; the operator activates.**
-- ⚙️ **deployed but gated-OFF** — shipped to the Sandbox in a disabled state by design (env-var gate `false` / flow `state=off`).
+- 🔒 **operator-gated** — crosses the live-services boundary (touches the live Outlook shared inboxes, live Box, or live EVA, or injects real secrets). **Claude builds offline; the operator activates.**
+- ⚙️ **deployed but gated-OFF** — shipped in a disabled state by design (a **retained Python Function** carrying its Key-Vault env-var gate `false`; historically a Dataverse env-var gate / Power Automate flow `state=off`).
 
 **Two hard principles:**
-1. **Offline build vs operator activation** — anything inbox/SharePoint/Box/EVA + all live tests + real secret injection are the operator's, in DEPLOY-RUNBOOK order.
-2. **No mock/seed case data in the app** — the Code App renders **real Dataverse rows only**. The empty intake list is correct until the operator turns on email intake; it is never "fixed" with sample cases.
+1. **Offline build vs operator activation** — anything inbox/Box/EVA + all live tests + real secret injection are the operator's, in DEPLOY-RUNBOOK order.
+2. **No mock/seed case data in the app** — the SPA renders **real rows only**, fetched from Postgres over the data API (historically: real Dataverse rows). With `case_ = 0` and no live intake yet, the empty intake list is **correct**; it is never "fixed" with sample cases.
 
 ---
 
-## Now / Next / Later
+## Now / Next / Later — the Azure migration-remediation backlog
 
-_Each rung points at its owning phase / gated.md item rather than restating work tracked below._
+_The forward axis after the Power-Platform→Azure migration. Each rung names the live Azure component it
+touches. The detailed Power-Platform-era checklist is **banded below** for domain reference._
 
-**Now (operator)** — **scale live intake to the other two shared inboxes.** `digital@` intake is **already live and ON** (gated.md item 2); the frontier is the Info / Engineers / Desk inboxes (Phase 2, "scale to all three"). The two highest-value **build** items in parallel are the newly-integrated **Phase 8** (inbox triage — start with the offline `/classify-email` + table, no live edit) and **Phase 9** (a data-retention/erasure ADR + schema — the biggest substantive gap).
+**Now (highest priority — make the migrated stack production-grade):**
+- **✅ Database-security remediation — DONE (2026-06-26).** The data API (`cespk-api-dev`) now connects to
+  Postgres as the **non-owner login `cespk_app`** (`rolsuper=false`, `rolbypassrls=false`; password a **Key
+  Vault reference**, no cleartext), so the authored **RLS is enforced** — the prior server-admin `csadmin`
+  connection bypassed it. DB app-role set per connection via `-c app.role=staff` (the `PGAPPROLE`
+  app-setting); grants least-privilege (no DELETE; `audit_event` INSERT/SELECT only — append-only).
+- **Free-Trial → Pay-As-You-Go.** Subscription `e6076573-…` is an **Azure Free Trial**
+  (quotaId `FreeTrial_2014-09-01`); **the whole stack is disabled at the ~30-day mark** unless upgraded
+  (the 12-month free Postgres allowance survives the upgrade). A hard, dated deadline.
+- **Deploy orchestration + scope the 3 intake mailboxes (Exchange RBAC) for live intake.** `cespk-orch-dev`
+  is **built but has zero functions deployed**, so there is **no live automated email intake** — today the
+  system is **read-only + manual case-create only**. Deploy the Microsoft Graph **delta-poll** intake, then
+  have an **Exchange Administrator** grant the intake app **resource-scoped** Graph mailbox roles via
+  **Exchange RBAC for Applications** (`New-ServicePrincipal` / `New-ManagementScope` /
+  `New-ManagementRoleAssignment`) on the 3 shared inboxes — **no Global-Admin tenant consent, no push
+  subscription**; intake **polls** (delta query).
 
-**Next** — (a) **EVA M1 JSON drag-drop** into the EVA **test** env (Phase 3b, gated.md item 4); (b) the **Phase-7 Box BUSINESS-account** second test phase (CCG + File Request + the `FILE.UPLOADED` live-test, gated.md item 5); (c) **enrichment test/prod cutover** — Dev is already ON + live-verified (Phase 3a residual, _not_ a fresh activation); (d) **re-derive the inspection-address corpus** from the new 2-year EVA full-address export (Phase 4a, ADR-0016 _Proposed_).
+**Next:**
+- **Durable API hardening** — durable auth error-handling + token **audience-form** hardening (v2 tokens
+  carry `aud` = the API client-id GUID `fa2fb28c…`); in progress.
+- **Staff app-role assignment** — only **one** staff principal is app-role-assigned today
+  (`CollisionSpike.User` / `CollisionSpike.Admin`, the 2 roles that map the old 2 Dataverse roles); other
+  staff **403 until assigned**. Complete the roster.
+- **IaC config layer** — capture the live Azure config (app-settings, role assignments, RBAC grants, the
+  Static Web App + Function-App wiring) as Infrastructure-as-Code so the environment is reproducible.
+- **EVA M1 JSON drag-drop** into the EVA **test** env — the domain milestone, now re-homed onto the Azure
+  data API + the retained `evasentry` Function (Minotaur one-principal-code constraint still gates EVA REST).
+- **Enrichment test/prod cutover** — the **retained** Python enrichment Function (DVSA/DVLA direct via
+  Entra) carries over from the prior build; promote its verified path on the Azure stack.
 
-**Later** — **EVA Sentry REST** prod cutover (Phase 3c, built/deploy-pending); **OCR for scanned PDFs** wiring (Phase 5a, deployed); **chaser automation** (draft-only, Phase 4b); the deferred Box tiers (Business-Plus metadata); the full **§7 live-validation checklist** across all three mailboxes (the M1 "done" definition). The inspection-address model stays **offline-derived suggestions + manual confirm** — **ADR-0013 remains binding, no runtime matcher** ([docs/architecture/inspection-address-corpus.md](./docs/architecture/inspection-address-corpus.md)). **API intake channel (deferred research)** — allow providers/principals to POST work directly to an HTTP endpoint, bypassing email; needs auth model, payload contract, and provider onboarding scoped with the operator before a phase plan is authored (see [docs/architecture/integrations.md](./docs/architecture/integrations.md)).
+**Later:**
+- **Box business-account live-test** — CCG + File Request + the `FILE.UPLOADED` live-test against the
+  **retained** `box-webhook` Function; the deferred Business-Plus metadata tier.
+- **OCR for scanned PDFs** calibration (retained `ocr` Function); **chaser automation** (draft-only);
+  **EVA Sentry REST** cutover pending the **Minotaur patch + a parity test**.
+- **Data governance / retention / erasure** — the biggest substantive gap, now spanning **Postgres + Blob +
+  Box**: a retention model (data-minimisation vs litigation hold), a cross-store DSAR/erasure runbook, and a
+  DPIA / controller-processor map.
+- The inspection-address model stays **offline-derived suggestions + manual confirm** — **ADR-0013 remains
+  binding, no runtime matcher** ([docs/architecture/inspection-address-corpus.md](./docs/architecture/inspection-address-corpus.md)).
+- **API intake channel (deferred research)** — let providers/principals POST work directly to an HTTP
+  endpoint (now naturally a route on the `cespk-api-dev` data API), bypassing email; needs an auth model,
+  payload contract, and provider onboarding scoped with the operator before a phase plan is authored
+  (see [docs/architecture/integrations.md](./docs/architecture/integrations.md)).
 
-> **Why JSON drag-drop is the EVA path today (not merely an "M1 fallback").** The EVA **test environment exists** (credentials in Infisical); the blocker is a **vendor limitation** — Minotaur Software's Sentry API currently accepts only **one principal code** per API submission, so it cannot route different work-provider codes and would force every case under a single work provider. Minotaur is patching this (no ETA); EVA REST therefore stays **gated** pending that patch **+ a parity test**. Note that **enrichment (DVSA/DVLA) is separate from EVA** — it runs at intake, pre-EVA, and is **live in Dev (gate ON since 2026-06-21)**; EVA stays **OFF**.
+> **Why JSON drag-drop is the EVA path today (not merely an "M1 fallback").** The EVA **test environment exists** (credentials held in the secrets store); the blocker is a **vendor limitation** — Minotaur Software's Sentry API currently accepts only **one principal code** per API submission, so it cannot route different work-provider codes and would force every case under a single work provider. Minotaur is patching this (no ETA); EVA REST therefore stays **gated** pending that patch **+ a parity test**. Note that **enrichment (DVSA/DVLA) is separate from EVA** — it runs at intake, pre-EVA, on the retained enrichment Function; EVA stays **OFF**.
 
 ---
+
+---
+
+# HISTORICAL — Power Platform implementation era _(decommissioned; preserved for domain reference)_
+
+> **Read as history.** Everything from here to the end of the phase checklist describes the **original
+> Power Platform build** (Power Apps Code App + Dataverse + ~16 Power Automate flows + custom connectors),
+> which has been **migrated to the Azure PaaS stack and decommissioned**. It is **retained, not deleted**,
+> because it is the most detailed record of the **domain + workflow** — the EVA 12-field contract, the image
+> rules, the dedup ladder (ADR-0010), the provider / inspection-address corpus, the Case/PO format, and the
+> per-stage gating decisions — all of which **carried over unchanged** to the Azure build. Where a step
+> below says "Dataverse", "flow", "Code App push", "Sandbox", or "env-var gate", read the **migrated
+> equivalent**: Postgres / orchestration Function / Static Web App deploy / the `rg-collisionspike-dev`
+> resource group / Key-Vault-or-app-setting gate. The **retained Python Functions** (parser, enrichment,
+> evasentry, evavalidation, ocr, box-webhook), the **Key Vaults**, and **Blob `cespkevidstdev01`** survived
+> the migration intact and remain live components. Live status is **[CURRENT_STATUS.md](./CURRENT_STATUS.md)**.
 
 ## Phase 0 — Foundations _(complete)_
 
@@ -367,7 +461,9 @@ lawful basis** are operator/legal input (gated.md).
 ## Blocker tracker (DEPLOY-RUNBOOK §0)
 
 > The consolidated hard/soft operator registry is **[docs/gated.md](./docs/gated.md)**. The table
-> below is the M1 deploy-blocker snapshot.
+> below is the **Power-Platform-era** M1 deploy-blocker snapshot (historical — most were resolved before the
+> migration; the **live** Azure remediation backlog is in **Now / Next / Later** above). The retained
+> Functions and EVA/Box/OCR domain blockers carried over onto the Azure stack.
 
 | ID | What | State |
 |---|---|---|
@@ -383,4 +479,10 @@ lawful basis** are operator/legal input (gated.md).
 
 ### What "done" looks like for M1
 
-> A real email in one shared inbox becomes a tracked **Case**, is parsed + (optionally) enriched into the **12 EVA fields** with provenance, passes a human readiness review, and is exported to **EVA** as drag-drop JSON with a **Box** archive folder — with dedup, provider matching, and the inspection-address gate all behaving per the offline decision-table tests.
+> A real email in one shared inbox becomes a tracked **Case** (now persisted in **Postgres** via the
+> `cespk-api-dev` data API, surfaced in the Static Web App SPA), is parsed + (optionally) enriched into the
+> **12 EVA fields** with provenance, passes a human readiness review, and is exported to **EVA** as drag-drop
+> JSON with a **Box** archive folder — with dedup, provider matching, and the inspection-address gate all
+> behaving per the offline decision-table tests. The domain definition is unchanged by the migration; the
+> remaining gate is **live automated intake**, which depends on deploying `cespk-orch-dev` + the Exchange-RBAC
+> mailbox scoping (see Now / Next / Later).

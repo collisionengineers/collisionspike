@@ -1,272 +1,409 @@
 # What still needs you
 
-This is the short list of things the system **can't finish on its own** — they need you to
-provide a password/key, click a button in a live account, or send a test message. Everything
-else has been built and switched on.
+This is the short list of things the **live Azure system can't finish on its own** — they need you to
+supply a password/key, click a button in a live Azure/Entra account, grant a mailbox role, or make a
+business/legal decision. Everything else has been built and deployed.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
-_Last updated **2026-06-26** (added the Phase-8 Inbox/Triage activation pointer below; §8 — the
-SDLC-sweep features awaiting activation — and the parser-key rotation item in §7)._
+_Last updated **2026-06-26** — reframed to the **live Azure PaaS stack**. The Power Platform
+implementation (Power Apps Code App, Dataverse, the ~16 Power Automate flows, the custom connectors) has
+been **migrated off and decommissioned**; its old operator checklist is preserved, clearly banded, at the
+bottom under **"Historical — decommissioned Power Platform operator backlog."** The **domain rules are
+unchanged** (EVA 12-field contract, photo order, image rules, provider corpus, Case/PO format) — only the
+platform mechanism changed._
+
+> **What "live" means now.** The system is the **Azure PaaS stack** in resource group
+> `rg-collisionspike-dev` (region **uksouth**), subscription `e6076573-…`:
+> - **SPA** — Static Web App **`cespk-spa-dev`** (westeurope) at
+>   `https://proud-sky-04e318b03.7.azurestaticapps.net`, React/Vite from `mockup-app/`, **MSAL/Entra
+>   workforce sign-in** (staff only), calling the API over REST.
+> - **Data API** — Function App **`cespk-api-dev`** (Node 20 / TypeScript), Entra-JWT-validated with app
+>   roles **`CollisionSpike.User` / `CollisionSpike.Admin`**, on Postgres.
+> - **Orchestration** — Function App **`cespk-orch-dev`** — **built but with ZERO functions deployed**, so
+>   there is **no automated email intake live yet** (today the system is **read-only + manual
+>   case-create** only).
+> - **Database (system of record)** — Postgres Flexible **`cespk-pg-dev`** (v16), database
+>   `collisionspike`, 36 tables, seeded (`work_provider`=390, `repairer`=32, `image_source`=19,
+>   `inspection_address`=2209 = 174 confirmed + 2035 suggested, `case_`=0).
+> - **Retained, unchanged** — the **6 Python Functions** (parser `cespike-parser-dev`, enrichment,
+>   `evasentry`, `evavalidation`, `ocr`, `box-webhook`), the **Key Vaults**, the evidence Blob store
+>   **`cespkevidstdev01`**, App Insights / Log Analytics.
 
 ---
 
-## ✅ Already done — nothing for you to do here
+## ✅ Already working live — nothing for you to do here
 
-These were on the list and are now finished and working live:
+These domain capabilities are **deployed and functioning** on the Azure stack:
 
-- **Reading the documents (OCR / "Document AI")** — switched on and tested.
-- **Suggested inspection locations** — loaded (≈870 rows) and now showing in the app.
-- **The 3 stuck "images only" cases** — sorted (they were old leftovers, not a real fault).
-- **Provider matching fix** — the smarter matching is now live on the email inbox.
-- **Vehicle look-ups (DVSA/DVLA enrichment)** — tested with a real plate (returned "SsangYong
-  Rexton") and now runs automatically on every new case.
-- **EVA and the readiness checks** — built, deployed, and switched on where possible (EVA itself is
-  off until you add its login — see item 4).
+- **Reading the documents (parser).** The parser Function `cespike-parser-dev` is deployed and extracts
+  real PDFs/DOCX/EML/MSG. **OCR** for scanned images is the separate `ocr` Function.
+- **Vehicle look-ups (DVSA/DVLA enrichment).** The enrichment Function is deployed and calls **DVSA + DVLA
+  directly** (Entra `client_credentials` + `X-API-Key`) — no Google Cloud gateway in the path
+  (live-verified previously: `BC23JZE` → SsangYong Rexton).
+- **EVA readiness / validation logic.** The `evasentry` + `evavalidation` Functions and the image-rule /
+  case-status logic are deployed (EVA **submission** stays off until you supply its login — see EVA item
+  below).
+- **Seed data loaded into Postgres.** Providers (390), repairers (32), image sources (19) and the
+  inspection-address suggestions corpus (2209 rows) are seeded and served to the SPA.
+- **Staff sign-in.** Entra **workforce** MSAL sign-in is live on the SPA; the API enforces the two app
+  roles. (Only **one** staff principal is role-assigned so far — see the app-role item below.)
 
 ---
 
 ## 🔴 Needs you — with steps
 
-> **Phase 8 — Inbox / Triage Management is built offline and awaiting activation** (branch
-> `feat/phase-8-inbox-management`, PR pending). It turns the inbox flow into "classify **every** email →
-> route work to Cases, everything else to a triage queue", and adds an `/inbox` screen. Activating it is a
-> **sequenced, gated** job (reconcile the repo intake flow up to live first, `grill-with-docs` the ADR-0015
-> decisions, apply the `cr1bd_inboundemail` schema, `pac code add-data-source` + redeploy, rebind the child
-> flows, then flip the trigger on **one** inbox as a watched soft-rollout). The exact G1–G7 steps live in
-> [docs/plans/phase-8-inbox-management/IMPLEMENTATION-PLAN.md](./plans/phase-8-inbox-management/IMPLEMENTATION-PLAN.md)
-> §gated-activation. Do this **after** the PR merges; it stays off until you run it.
+The items are grouped: **time-critical / security first**, then **turn on email intake**, then **staff
+access**, then the **retained integrations and data**, then **policy/legal**.
 
-### 1. Check the email inbox still works  ·  *2 minutes*
+---
 
-**What:** I changed how the inbox flow matches providers. I can't send an email to test it.
+### A. Time-critical & security
 
-**Why you:** sending a real email is the only way to confirm the inbox still picks things up, and
-I can't send mail.
+#### A1. Upgrade the subscription off the Free Trial → Pay-As-You-Go  ·  *deadline*
+
+**What:** subscription `e6076573-23a5-46a8-acef-7e22d264e5db` is an **Azure Free Trial**
+(`quotaId = FreeTrial_2014-09-01`). At the ~**30-day** mark Azure **disables the entire stack** (SPA, both
+Function Apps, Postgres, Key Vaults, Blob) unless it is upgraded.
+
+**Why you:** only the account owner / billing admin can change the offer and add a payment method.
 
 **Steps:**
-1. From any account, send a short test email to **digital@collisionengineers.co.uk**.
-2. Wait ~1 minute, then open the app's case list.
-3. You should see a **new case** appear for that email.
-4. ✅ If it appears, everything's fine.
-   ❌ If nothing appears after a few minutes, tell me — I kept a backup and can put the inbox flow
-   back to exactly how it was in one step.
+1. In the Azure portal → **Subscriptions → (this subscription) → Upgrade** (or **Cost Management +
+   Billing**) and convert the Free Trial to **Pay-As-You-Go**.
+2. Confirm the **12-month free PostgreSQL Flexible Server allowance survives** the upgrade (it does — it is
+   tied to PAYG, not to the trial).
+3. After upgrade, re-check that all resources in `rg-collisionspike-dev` are **running** (nothing got
+   suspended at the trial boundary).
 
-> Only send test emails to **digital@**. Don't test against the Info, Engineers, or Desk inboxes —
-> those are real and live.
+> Until this is done, treat every other activation as **provisional** — the whole environment can be
+> disabled at the trial deadline.
+
+#### A2. Database-credential exposure & RLS  ·  ✅ **RESOLVED (2026-06-26)** — nothing for you to do
+
+**Done:** the Data API (`cespk-api-dev`) no longer connects as the server administrator `csadmin`. It now
+connects as a **non-owner application login `cespk_app`** (`rolsuper=false`, `rolbypassrls=false`), with its
+password held as a **Key Vault reference** (`cespk-pg-kv-dev/cespk-app-password`, resolved by the Function
+App's managed identity — **no cleartext**). Because `cespk_app` is not the table owner, the authored
+**Row-Level Security is now enforced** (the prior `csadmin` connection bypassed it). The DB app-role is set
+**per connection** via the libpq startup option `-c app.role=staff` (the `PGAPPROLE` app-setting). Grants are
+least-privilege — **no DELETE on any table**, and `audit_event` is **INSERT/SELECT only** (append-only at
+both the grant and RLS layers). _(The earlier `csadmin` cleartext-password leak was separately remediated by
+rotating + Key-Vault-referencing `pg-admin-password`.)_
+
+**Forward note:** a future admin-only destructive path (the ADR-0017 retention/erasure cascade — **not yet
+implemented**) must run on a **separate** pool opened with `-c app.role=admin`, gated on a verified
+`CollisionSpike.Admin` token; do **not** widen the staff pool's role.
 
 ---
 
-### 2. Turn on the other two inboxes  ·  *~10 minutes*
+### B. Turn on automated email intake (currently OFF — there is no live intake)
 
-**What:** only the **digital@** inbox is connected. The other two shared inboxes aren't yet feeding
-in cases.
+> Today the orchestration Function App `cespk-orch-dev` has **zero functions deployed**, so **no email is
+> picked up automatically** — cases are created **manually** in the SPA. The three steps below bring
+> intake online. The intended design is a Microsoft **Graph delta-poll** over the shared intake mailboxes,
+> authorised by **Exchange RBAC for Applications** (resource-scoped, **no Global-Admin consent and no push
+> subscription**).
 
-**Why you:** connecting a live mailbox needs you to sign in to that mailbox and approve the
-connection — a security step I'm not able to do.
+#### B1. Grant the intake app mailbox access via Exchange RBAC (the 3 shared inboxes)
+
+**What:** the intake app must read the **three shared intake mailboxes** (the case-intake mailboxes, e.g.
+`digital@collisionengineers.co.uk` and the two other shared inboxes). We use **Exchange RBAC for
+Applications** so the grant is **scoped to just those mailboxes** — *not* tenant-wide `Mail.Read`.
+
+> **This supersedes any older note that "Graph `Mail.Read` needs Global-Admin / admin consent."** It does
+> **not**: an **Exchange Administrator** grants resource-scoped Graph mailbox access, and intake **polls**
+> (delta query) rather than subscribing to push.
+
+**Why you:** running Exchange Online PowerShell as an Exchange Administrator and choosing which mailboxes to
+expose are privileged identity/governance actions only you can do.
+
+**Steps (Exchange Online PowerShell, as an Exchange Administrator):**
+1. **`New-ServicePrincipal`** — register the intake app's Entra service principal in Exchange.
+2. **`New-ManagementScope`** — define a scope limited to the **three** intake mailboxes only.
+3. **`New-ManagementRoleAssignment`** — assign the app the Graph mailbox role (e.g. `Application Mail.Read`)
+   **bounded by that scope**, so it can read only those three mailboxes and nothing else.
+4. Note the exact SMTP addresses of the three mailboxes — they go into `GRAPH_INTAKE_MAILBOXES` in B3.
+
+#### B2. Put the Graph client secret in Key Vault
+
+**What:** the intake app authenticates to Graph with a **client secret** (or certificate). It must live in
+**Key Vault**, not in app settings.
+
+**Why you:** creating/rotating the Entra app credential and writing it to Key Vault are privileged.
 
 **Steps:**
-1. Go to **make.powerautomate.com** → **My flows** → open **CS Intake (shared mailbox)**.
-2. Make a copy of it for each extra inbox (or adjust the mailbox setting).
-3. When prompted, **sign in / authorise** the connection for that mailbox.
-4. Point it at the correct shared inbox address and **Save**.
-5. Send a test email to that inbox and confirm a case appears.
+1. In the intake app's **Entra app registration**, create a **client secret** (or upload a certificate).
+2. Store it as a secret in the appropriate **Key Vault** (the retained vaults are still in
+   `rg-collisionspike-dev`).
+3. Reference it from `cespk-orch-dev` app settings via a **Key Vault reference**
+   (`@Microsoft.KeyVault(...)`) resolved by the orchestration Function App's **managed identity** — never
+   paste the secret value into config.
 
----
+#### B3. Deploy the orchestration Function App and wire it up
 
-### 3. Provider auto-matching  ·  ✅ *32 providers loaded — rest needs your data*
+**What:** publish the orchestration code to `cespk-orch-dev` and set the env it needs to poll Graph and call
+the existing Functions.
 
-**What:** the system auto-tags each case with the right provider **by the sender's email domain**.
-On **2026-06-23** I loaded verified domains for **32 providers** (from your
-`provider_email_audit_2026-06-22.csv`) into the provider records (`cr1bd_knownemaildomains`), so
-auto-matching now works for those on new emails. The load is idempotent and ambiguity-guarded — a
-domain serving >1 active provider is never written (it goes through the intermediary path, ADR-0011).
-
-**What's left for you:** the handful I could **not** load — either no email address was exposed in the
-sampled mailbox (DFD, Fairway, Regent, Castle, Stallion, Relay) or the only address is a **public**
-domain that's unsafe as a match key (NETWORK HD UK / YM Law → `gmail.com`). For those, send me the
-real business domain (or confirm there isn't one) and I'll add them — everything else already matches.
-
----
-
-### 4. Switch on EVA submission  ·  *you supply the login*
-
-**What:** the EVA connection is fully built and deployed but **switched off**, with no login stored
-(you asked me not to add the credentials yet).
-
-**Why you:** it needs the EVA **test** username/secret, which only you have.
+**Why you:** deploying code to a live Function App and setting its production app settings are deploy/login
+actions.
 
 **Steps:**
-1. When ready, give me the EVA **test** Client ID and Client Secret (or add them yourself to the
-   secure store).
-2. I (or you) flip the EVA switch to **on** in the **test** environment only.
-3. Submit one test case and confirm EVA accepts it (photos in the right order, registration
-   visible on the overview photo).
-4. Only after that test passes do we point it at the **live** EVA.
+1. **Deploy** the orchestration project (`orchestration/`) to **`cespk-orch-dev`** (it currently has **no
+   functions** — this is what creates the live intake timer/poller).
+2. Set app settings:
+   - **`GRAPH_INTAKE_MAILBOXES`** — the three intake mailbox SMTP addresses (from B1).
+   - the **parser** Function base URL **+ function key** (`cespike-parser-dev`),
+   - the **enrichment** Function base URL **+ function key**,
+   - the Entra **tenant id / intake app client-id**, and the **Key Vault reference** to the Graph client
+     secret (from B2).
+3. Confirm a delta poll runs and a test email lands as a **Case** (status `new_email → ingested`), provider
+   matched by sender domain, and the EVA fields pre-fill with provenance.
 
 ---
 
-### 5. Switch on Box filing  ·  *you register + authorize a Box app*
+### C. Staff access
 
-**What:** the Box-filing steps (mint the Case/PO folder, copy the upload File Request, mirror the
-finished case) are built but switched off. They run through a **service identity**, not a personal
-sign-in: the system mints its own Box token inside the Azure Function from a stored secret — there is
-**no personal "API key" to paste onto a connection**.
+#### C1. Assign staff app roles on the Data API  ·  *~5 min per person*
 
-**Why you:** registering the Box app and authorizing it in your Admin Console can only be done by you
-(a Box admin), and only you can supply its secret. This needs a **paid Box tenant — base Business is the
-floor** (the service-identity / Client Credentials Grant, File Requests and webhooks are all covered by
-base Business; they don't exist on free/personal accounts). **Business Plus is only needed later** for the
-optional metadata field.
+**What:** the SPA/API authorise staff via two Entra **app roles** — **`CollisionSpike.User`** and
+**`CollisionSpike.Admin`** (these map one-to-one to the two old Dataverse security roles). Right now **only
+one** staff principal is assigned; **everyone else gets `403`** until you assign them.
+
+**Why you:** assigning enterprise-app roles to users is an Entra directory operation only an admin can do.
+
+**Steps:**
+1. In Entra → **Enterprise applications** → the app that exposes these roles (the `cespk-api-dev` /
+   `CollisionSpike` API registration; v2 tokens carry `aud` = the API client-id GUID `fa2fb28c…`).
+2. **Users and groups → Add user/group**, pick each staff member, and assign **`CollisionSpike.User`**
+   (or **`CollisionSpike.Admin`** for admins).
+3. Have each person sign out/in so a fresh token carries the role, then confirm they can load the app
+   without a `403`.
+
+---
+
+### D. Retained integrations & business data (domain unchanged; mechanism is now Azure)
+
+#### D1. Switch on EVA submission  ·  *you supply the login*
+
+**What:** the EVA Functions (`evasentry`, `evavalidation`) are deployed but **submission is switched off**
+with no login stored. The current export path is **drag-drop 12-field JSON** into EVA; the **Sentry REST**
+path stays gated because Minotaur's Sentry API accepts only **one principal code** per submission (it can't
+route different work-provider codes) — REST waits on Minotaur's patch.
+
+**Why you:** EVA's **test** Client ID/Secret are yours.
+
+**Steps:**
+1. Provide the EVA **test** Client ID + Client Secret (or place them in the EVA Function's **Key Vault**
+   yourself — they live in Key Vault, never in code).
+2. Flip the EVA feature flag **on** in the **test** environment only.
+3. Submit one test case and confirm EVA accepts it — **photo order** must be **2 preview photos first
+   (vehicle overview + main-damage closeup), then all photos in sequence including those two again**, with
+   the **full registration visible** on the overview.
+4. Only after the test passes do you point it at **live** EVA.
+
+#### D2. Switch on Box filing  ·  *you register + authorize a Box app*
+
+**What:** the **`box-webhook`** Function is one of the 6 retained Python Functions (deployed, dormant). Box
+filing (mint the Case/PO folder, copy the upload File Request, mirror the finished case) runs through a
+**service identity** — the Function mints its own Box token from a stored secret (**no personal "API key"
+on a connection**). Box is an **additive, one-way mirror; Postgres stays the system of record**. **Evidence
+is linked, not embedded** — a server-minted "Open in Box" deep link, so there is **no iframe / no CSP
+`frame-src` edit**.
+
+**Why you:** registering and Admin-authorizing the Box app, and supplying its secret, need a Box admin — and
+a **paid Box tenant (base Business is the floor)**; the service identity (Client Credentials Grant), File
+Requests and webhooks don't exist on free/personal accounts. (Business Plus is only needed later, for the
+optional metadata field.)
 
 **Steps:**
 1. In the Box Developer Console, **create a Platform App → Server Authentication (Client Credentials
-   Grant)**, App Access Only, with scopes *Read/write all files and folders* + *Manage webhooks*.
-   Capture its **Client ID, Client Secret, and Enterprise ID**.
-2. **Authorize + enable** that app in the **Admin Console** (Integrations → Platform Apps Manager →
-   Server Authentication Apps). Re-authorize whenever you change its scopes.
-3. Send me the **Client Secret** (+ the webhook signature keys) for the secure store, or add them
-   yourself — they live in **Key Vault**, never on a connection.
-4. Confirm Box accepts the folder name format (e.g. a case `test26001` files into a folder named
-   **TEST26001** in capitals).
-5. Flip the **`BOX_*`** switches on (test environment first), then the **CS Finalize EVA + Box** flow.
+   Grant)**, App Access Only, scopes *Read/write all files and folders* + *Manage webhooks*. Capture
+   **Client ID, Client Secret, Enterprise ID**.
+2. **Authorize + enable** it in the **Admin Console** (Integrations → Platform Apps Manager → Server
+   Authentication Apps).
+3. Put the **Client Secret** + the webhook signature keys into the Box Function's **Key Vault**.
+4. Confirm Box accepts the **UPPERCASE** Case/PO folder name (e.g. case `test26001` → folder
+   **`TEST26001`**).
+5. Turn the Box feature flags **on** (test environment first). *(On Azure these flags are Function
+   **app configuration**; in the decommissioned stack they were the Dataverse `BOX_*` env-vars.)*
 
-> **State of the Box pivot (Phase 7, ADR-0012):** everything Claude can build is **done in the working
-> tree and offline-verified** — the Dataverse schema-as-code (5 `BOX_*` gates + 2 config vars + 3 `cr1bd_box*`
-> columns + 3 audit actions), the `box-webhook` Azure Function (pytest 79 passed), the 3 new flows +
-> the `finalize-eva-box`/`case-resolve` reworks (linter 154/154), and the Code App surfacing (vitest 256
-> passed). **The Box Dataverse schema + `cr1bd_BOX_*` env-vars ARE applied live** (verified via `az`
-> against Dev 2026-06-22: the `cr1bd_box*` case + evidence columns and every `cr1bd_BOX_*` env-var exist),
-> with **every `BOX_*` gate `false`** (default AND current). **The `box-webhook` Azure Function is now
-> DEPLOYED gated-off** (2026-06-22): `cespkbox-fn-v76a47` (FC1, `rg-collisionspike-dev`) — receiver
-> `POST /api/box-webhook` + connector-facade routes, Gate-C-verified (no-key→401, key+unsigned→400,
-> facade gated-off→503), with `BOX_API_ENABLED=false` and `BOX_ALLOWED_ROOT_ID=392761581105`, and its
-> KV `cespkboxkvv76a47` still **empty** (no secrets). **What is still NOT live:** the `cr1bd_box_rest`
-> custom connector and the Box flows are authored offline (`state=off`) — not imported, not bound; no Box
-> connection is bound; the KV secrets + webhook subscription aren't in place; the `box-folder-create`
-> live-intake edit is not made. So the rest of item 5 — connector import/bind, secrets, webhook sub, the
-> gate flips + the BUSINESS account — is still yours.
->
-> **The long pole is the BUSINESS-account second test phase.** Live testing so far used a throwaway **FREE**
-> Box account (dev token), which proved the raw REST mechanics (8/9 ops; folder created + deleted, no secret
-> printed) but **cannot** exercise the service path — CCG fails on free (`unauthorized_client`), and there are
-> **no File Requests and no metadata**. The decisive verifications therefore wait on a live
-> **Business-or-higher** tenant and are the gating unknowns:
-> - the **CCG token mint** + the Admin-authorized Platform app (steps 1–3 above);
-> - the **hand-built template File Request** (record its id → `BOX_FILE_REQUEST_TEMPLATE_ID`);
-> - the **single biggest empirical unknown** — does a **File-Request upload fire `FILE.UPLOADED`** → the
->   Function → the case advances? (undocumented; **BLOCKING for B2**). On a transient miss the **primary**
->   recovery is Box's own retry — the receiver returns a non-2xx (503) so Box re-delivers; the `ListFolder`
->   reconciliation sweep is a **deferred, not-yet-built** secondary backstop.
->
-> **Scope reminders:** start on **base Box Business** (the **metadata** field that would harden the orphaned
-> image-only path is the **Business Plus** tier — out of scope now, a later optional upgrade); **EVA stays
-> gated OFF**; **evidence is linked, not embedded** — a server-minted "Open in Box" deep link, so there is
-> **no `frame-src` CSP edit** to make (`BOX_EMBED_ENABLED` stays reserved/off). The `box-folder-create`
-> invocation into live `intake` is an operator/business-phase **live edit** (the repo intake def trails live,
-> by design — do not expect it in `flows/definitions/intake.definition.json`).
->
-> Full operator runbook (app registration, secrets, gate-flip order, the two-phase free-vs-Business live
-> test, the live confirms) is in
+> The decisive Box verifications still wait on a **Business-or-higher** tenant: the CCG token mint + the
+> Admin-authorized Platform app, the hand-built template File Request, and the single biggest empirical
+> unknown — does a **File-Request upload fire `FILE.UPLOADED`** → the Function → the case advances? On a
+> transient miss the primary recovery is Box's own retry (the receiver returns non-2xx so Box
+> re-delivers). Full design history is preserved in the historical section and
 > [plans/phase-7-box-integration/box-integration-activation.md](./plans/phase-7-box-integration/box-integration-activation.md).
 
----
+#### D3. Provider auto-matching — the missing business domains  ·  *you supply the data*
 
-### 6. Add the extra reference info  ·  *you supply the data*
+**What:** cases are auto-tagged with the right provider **by the sender's email domain**. The provider
+corpus is seeded into Postgres (`work_provider` = 390). Verified domains for **32 providers** were loaded
+previously (ambiguity-guarded — a domain serving >1 active provider is never used as a match key; it goes
+through the intermediary path).
 
-**What:** there are a few reference lists that would improve matching and inspection-location
-suggestions (provider code corrections, garage↔provider links, address lists, etc.).
+**What's left for you:** the handful with **no** usable match domain — either none was exposed in the
+sampled mailbox (**DFD, Fairway, Regent, Castle, Stallion, Relay**) or the only address is a **public**
+domain unsafe as a key (**NETWORK HD UK / YM Law → `gmail.com`**). Send the real business domain for each
+(or confirm there isn't one) and it gets added to the provider's domain field in Postgres. *(In the
+decommissioned stack this was the Dataverse `cr1bd_knownemaildomains` column.)*
+
+#### D4. Add extra reference info  ·  *you supply the data*
+
+**What:** a few reference lists would improve matching and inspection-location suggestions (provider-code
+corrections, garage↔provider links, address lists, etc.).
 
 **Why you:** this is information only the business has.
 
-**Steps:**
-1. Gather whatever you have (even partial is fine).
-2. Send it over and I'll load it in.
+**Steps:** gather whatever you have (partial is fine) and send it over to be loaded into Postgres.
+
+#### D5. Rotate the parser Function key  ·  *soft security item*
+
+**What:** a parser **function key** value was once committed in source + a doc (both removed/scrubbed), but
+a doc-scrub leaves it in **git history**. The only true fix is to **regenerate the key in Azure** (Function
+App `cespike-parser-dev` → App keys), then **update wherever it is consumed** — i.e. the parser URL+key
+that the orchestration Function App holds (B3). Low urgency (dev key), but worth doing before any prod use.
 
 ---
 
-### 7. Tidy-up items (optional, low priority)
+### E. Storage hardening & policy/legal (platform-agnostic — still required)
 
-- **Tidier provider codes:** 37 EVA-export names are longer than the 8-character `principalcode` cap.
-  These are **export name-artifacts, not real codes**, and the cap **stays 8** (NOT widened) — see
-  [over-length-principal-codes.md](./reference/over-length-principal-codes.md). Only the **5 active
-  recurring businesses** need canonical short codes; send them if you want neater codes.
-- **One internal duplicate-handling step** (`CS Case Resolve`) is intentionally **switched off** —
-  it's planned for a later phase, not needed now.
-- **Use the shared readiness check inside the inbox flow:** the readiness logic exists in three
-  places that are kept in sync automatically. Merging them into one is a nice-to-have; it touches a
-  flow that runs on every case, so it's best done carefully with a test, not in a rush.
-- **Rotate the parser function key (soft security item).** A parser **function key** value was once
-  committed in source + a doc (both now removed/scrubbed), but a doc-scrub leaves it in **git history** —
-  the only true fix is to **regenerate the key in Azure** (Function App `cespike-parser-dev-…` → App keys),
-  then update the `cr1bd_ceparser` connection. Low urgency (dev sandbox key), but worth doing before any
-  prod use. _(This is the entry the Phase-0 README + `OPEN_ITEMS.md` Phase-1a point at.)_
+#### E1. Harden the evidence store before any purge/disposition is armed
 
----
+**What:** the live evidence-bytes store **`cespkevidstdev01`** (the `evidence` container) needs
+**blob soft-delete + versioning + container-delete-retention**, and the **Key Vaults** need
+**purge-protection**, *before* any deletion/retention process runs against it.
 
-### 8. Newly-built features waiting on you (SDLC sweep, 2026-06-24)
+**Why you:** applying data-protection settings on the live storage account / vaults is a privileged live
+change — and it is the **hard pre-step** before any case-disposition or blob-purge job is enabled, or a
+wrong disposal is unrecoverable.
 
-These were **built offline and switched OFF** in this sweep. Each is inert until you activate it; none is
-live. (Full per-item detail is in `OPEN_ITEMS.md` + the phase READMEs.)
+#### E2. Policy / legal inputs  ·  *business/legal decisions only you can make*
 
-- **Chaser send (Phase 4b).** The draft-only chaser flow is built; turning real **sending** on means
-  flipping `cr1bd_CHASER_SEND_ENABLED` and turning the flow on. **Why you:** it crosses the live-email
-  boundary (a chaser actually leaves the building). Confirm it drafts/targets the right garage first.
-- **Location-assist (Phase 4a).** The location-suggestion **assist** subsystem (Function + connector +
-  gates + the `location_assist_confirmed` audit action) is built but dormant. **Why you:** it needs the
-  Function + Key Vault deployed, the **CE Location Assist** connector imported, Vision + Maps keys injected,
-  `LOCATION_ASSIST_API_BASE` set, the gates flipped, and `BoxPhotoSource` wired. (Suggestions stay
-  staff-picked — no auto-confirm, ADR-0013.)
-- **OCR for scanned PDFs (Phase 5a) — connector import + gate.** The gated OCR-fallback branch is wired into
-  the parse flow (off-path unchanged). **Why you:** import/bind the **OCR** connector and flip
-  `cr1bd_OCR_SCANNED_PDF_ENABLED` (then calibrate on real scans).
-- **EVA-validation connector binding (Phase 3 / M2.B) — activation ORDER.** `status-evaluate`'s readiness was
-  repointed off five inline filters onto the `cr1bd_evavalidation` connector (`ValidateCase`). **Why you:**
-  import + bind that connection (the Function is already deployed) **BEFORE** re-importing/activating the
-  updated `status-evaluate` — else every `Validate_readiness` call fails and no case can reach `ready_for_eva`
-  via the status machine (the flow was previously self-contained; this is a new hard precondition).
-- **Inbox triage restructure (Phase 8).** The deterministic email classifier, the `cr1bd_inboundemail`
-  triage table, and the `triage-classify` flow are built (`state=off`). **Why you:** the live **intake
-  restructure** — flip `fetchOnlyWithAttachment` true→false, generalise dedup, add the Switch-on-category —
-  is a live-designer edit, on **one inbox first**, after single-mailbox activation. (Reconcile the repo
-  `intake.definition.json` UP to live first — it trails live by design.)
-- **Case disposition / retention (Phase 9, G1).** The retention-clock schema + the scheduled
-  `case-disposition` flow are built (flow `state=off`, far-future start so it never fires on import;
-  anonymise-by-NULL; never deletes from Box). **Why you:** set the **retention window** + the
-  anonymise-vs-hard-delete policy, then flip `cr1bd_CASE_DISPOSITION_ENABLED` (test env first). The
-  apply script `27-retention-schema.ps1` is DRY-RUN by default. ⚠️ **Do NOT arm this until the live evidence
-  store `cespkevidstdev01` itself has soft-delete (G6 below) — the bicep hardens the Function-HOST accounts,
-  not the byte store this flow deletes from, so a wrong disposal would otherwise be unrecoverable.**
-- **Staff roles assignment (Phase 9, G8).** The 3-role least-privilege model (User + Admin; Engineer
-  deferred) is authored as schema-as-code (`28-roles.ps1`, **create-not-assign** = gated-off). **Why you:**
-  run the apply, then **assign** the roles to staff (the assignment is yours).
-- **Evidence-store hardening (Phase 9, G6).** The IaC store-hardening (KV purge-protection on 4 vaults +
-  Blob soft-delete/versioning) is in the bicep templates for the Function hosts. **Why you:** apply it live;
-  **and** the live evidence-bytes store **`cespkevidstdev01`** (the `evidence` container, reached via
-  `cr1bd_evidenceblob`) is **NOT in the IaC**, so its delete-retention + container-delete-retention +
-  versioning, plus **Key Vault purge-protection**, must be applied directly on the live resource. This is the
-  **hard pre-step before any purge flow (`box-blob-purge` OR `case-disposition`) is armed** — the Function-host
-  bicep hardening is defense-in-depth, NOT this byte store.
-- **Org-level Dataverse auditing (Phase 9, G7).** Table-native auditing + the `cr1bd_auditevent` RemoveLink
-  cascade are already authored in the schema-as-code; **why you:** turn Dataverse auditing on at the
-  **organisation** level so the per-table flags take effect.
-- **Policy/legal inputs (Phase 9, G1–G5).** The **retention period**, **lawful basis** (DVSA/DVLA
-  enrichment + valuation), **litigation/legal-hold rule**, **ICO registration** + DVLA data-use terms, and
-  the **per-AI-gate production sign-off** are business/legal decisions only you can make. (AI **testing** on
-  repo data is already authorised — G5.) These keep **ADR-0017 Proposed** until supplied. The DSAR/erasure
-  runbook + the DPIA/controller-processor doc are authored and waiting on these inputs.
+These keep the data-protection posture open until you supply them (they were tracked as ADR-0017 inputs):
 
-> **G-code map (so the Phase-9 README + ADR-0017 cross-links resolve):** G1 = retention period + the
-> retention-clock/case-disposition build; G2 = legal-hold rule; G3 = ICO/DVLA registration + lawful basis +
-> the DPIA; G4 = the DSAR cross-store runbook (incl. the Box-folder-name / File-Request-URL / Outlook-category
-> blind spots); G5 = AI-data-protection production sign-off (testing authorised now); G6 = store hardening
-> incl. `cespkevidstdev01`; G7 = org-level audit enablement; G8 = the 3-role assignment. The build halves are
-> done offline; the items above are the operator activations.
+- the **retention period** (and the anonymise-vs-hard-delete policy),
+- the **lawful basis** for DVSA/DVLA enrichment + valuation,
+- the **litigation / legal-hold** rule,
+- **ICO registration** + DVLA data-use terms,
+- the **per-AI-gate production sign-off** (AI **testing** on repo data is already authorised; only
+  production use awaits sign-off).
+
+The DSAR/erasure runbook and the DPIA/controller-processor doc are authored and wait on these inputs.
 
 ---
 
 ## A note on "credentials"
 
-Where this file says "give me the login/key," those are normal service keys (DVSA, DVLA, Box, EVA).
-You've said the DVSA/DVLA-type keys aren't sensitive — they're already in place and working. EVA and
-Box are the two still waiting on you.
+Where this file says "give me the login/key," those are normal service keys (DVSA, DVLA, Box, EVA) plus the
+two Azure-side secrets (the Postgres app login from A2 and the Graph client secret from B2). DVSA/DVLA keys
+are already in place and working. EVA and Box are still waiting on you; the two Azure secrets and the
+mailbox grant are the new live-stack asks.
+
+---
+
+---
+
+## Historical — decommissioned Power Platform operator backlog
+
+> **BANDED / NOT LIVE.** Everything below describes the **prior Power Platform implementation** (Power Apps
+> Code App, Dataverse, the ~16 Power Automate flows, the custom connectors), which has been **migrated off
+> and decommissioned**. It is retained for provenance and for the **domain knowledge** it carries (EVA
+> photo order, provider corpus specifics, the Box pivot design, retention/legal inputs). **Do not action
+> these steps** — the live operator surface is the Azure sections above. Any `make.powerautomate.com`,
+> `pac code`, Dataverse env-var, or custom-connector step here is **superseded**.
+
+### (historical) Phase 8 — Inbox / Triage Management
+
+Built offline against Dataverse (`cr1bd_inboundemail` triage table, the `triage-classify` flow, an
+`/inbox` screen). It turned the inbox flow into "classify **every** email → route work to Cases, everything
+else to a triage queue." **The triage-first intake *concept* carries forward** into the Azure orchestration
+intake design; the Dataverse/Power-Automate **activation mechanics** (`pac code add-data-source`, rebinding
+child flows, flipping a trigger per inbox) are decommissioned. Design rationale: ADR-0015.
+
+### (historical) §1 Check the email inbox still works
+
+Sent a test email to `digital@collisionengineers.co.uk` and confirmed a new Case appeared via the Power
+Automate **CS Intake (shared mailbox)** flow. *(Superseded — live intake is now the Azure Graph delta-poll
+in section B; there is no live automated intake until that is deployed.)*
+
+### (historical) §2 Turn on the other two inboxes
+
+Originally: **make.powerautomate.com → My flows → CS Intake (shared mailbox)**, copy/adjust per inbox,
+interactively **sign in/authorise** each shared mailbox connection, point at the address and Save.
+**Superseded** by the Exchange-RBAC grant for all three mailboxes + `GRAPH_INTAKE_MAILBOXES` (section B).
+
+### (historical) §3 Provider auto-matching
+
+Verified domains for **32 providers** (from `provider_email_audit_2026-06-22.csv`) were loaded into the
+Dataverse `cr1bd_knownemaildomains` column, idempotent and ambiguity-guarded. The still-open residual
+(DFD, Fairway, Regent, Castle, Stallion, Relay; NETWORK HD UK / YM Law → `gmail.com`) carries forward as
+**D3** above, now against the Postgres provider domain field.
+
+### (historical) §4 EVA submission
+
+The EVA connection was built/deployed on Dataverse but switched off pending the EVA **test** Client
+ID/Secret. The domain rule is unchanged and carries forward as **D1** (photo order: 2 previews first, then
+all photos including those two; registration visible on the overview).
+
+### (historical) §5 Box filing (Phase 7, ADR-0012)
+
+The Box pivot was built offline + partly deployed on the old stack: the Dataverse schema-as-code (5 `BOX_*`
+gates + 2 config vars + 3 `cr1bd_box*` columns + 3 audit actions) was **applied live in Dev with every
+`BOX_*` gate `false`**; the **`box-webhook` Azure Function was deployed gated-off** (`cespkbox-fn-v76a47`,
+FC1, Gate-C-verified: no-key→401, key+unsigned→400, facade gated-off→503; `BOX_API_ENABLED=false`,
+`BOX_ALLOWED_ROOT_ID=392761581105`, KV `cespkboxkvv76a47` empty). The `cr1bd_box_rest` custom connector and
+the Box flows were authored offline (`state=off`), **not imported/bound**. The **`box-webhook` Function
+itself carries forward as a retained Python Function** (now activated via **D2**); the Dataverse env-var
+gates / custom connector / Power Automate Box flows are decommissioned. Scope reminders that **still hold**:
+start on **base Box Business** (Business Plus only for the optional metadata field); evidence is **linked,
+not embedded** (no `frame-src` CSP edit); Box is a **one-way mirror, Postgres authoritative**. Full design
+history: [plans/phase-7-box-integration/box-integration-activation.md](./plans/phase-7-box-integration/box-integration-activation.md).
+
+### (historical) §6 Add extra reference info
+
+Business reference lists (provider-code corrections, garage↔provider links, address lists) — carries
+forward unchanged as **D4** (now loaded into Postgres).
+
+### (historical) §7 Tidy-up items
+
+- **Over-length provider codes:** 37 EVA-export names exceed the 8-char `principalcode` cap; these are
+  **export name-artifacts, not real codes**, and the cap **stays 8** — see
+  [over-length-principal-codes.md](./reference/over-length-principal-codes.md). Only the **5 active
+  recurring businesses** need canonical short codes. *(Domain fact — still true.)*
+- **`CS Case Resolve` duplicate-handling flow** — was intentionally off; Power-Automate-specific,
+  decommissioned.
+- **Shared readiness check inside the inbox flow** — Power-Automate refactor, decommissioned.
+- **Rotate the parser function key** — carries forward as **D5** above (now rotate in Azure + update the
+  orchestration's stored parser key).
+
+### (historical) §8 SDLC-sweep features awaiting activation (2026-06-24)
+
+These were built offline against Dataverse + Power Automate and switched OFF. Their **activation mechanics
+are decommissioned**; the **design intent and any platform-agnostic residual carry forward**:
+
+- **Chaser send (Phase 4b)** — draft-only chaser flow; "real send" was gated behind
+  `cr1bd_CHASER_SEND_ENABLED`. *(Concept carries forward; Power-Automate flow decommissioned.)*
+- **Location-assist (Phase 4a)** — Function + connector + gates + `location_assist_confirmed` audit;
+  suggestions stay staff-picked, no auto-confirm (ADR-0013). *(Concept carries forward.)*
+- **OCR for scanned PDFs (Phase 5a)** — now simply the retained **`ocr` Python Function**; the Dataverse
+  connector/gate is decommissioned.
+- **EVA-validation connector binding (Phase 3 / M2.B)** — now the retained **`evavalidation` Function**;
+  the Dataverse connector-binding order is moot.
+- **Inbox triage restructure (Phase 8)** — see the Phase-8 note above; concept carries forward into the
+  Azure intake design.
+- **Case disposition / retention (Phase 9, G1)** — retention-clock + scheduled disposition. **The hard
+  pre-step survives as E1** (harden `cespkevidstdev01` first); the **policy decisions survive as E2**.
+- **Staff roles assignment (Phase 9, G8)** — the 3-role least-privilege model. **Carries forward as C1**
+  (now Entra app-role assignment on `cespk-api-dev`).
+- **Evidence-store hardening (Phase 9, G6)** — **carries forward as E1**.
+- **Org-level Dataverse auditing (Phase 9, G7)** — Dataverse-specific, decommissioned (Azure uses App
+  Insights / Log Analytics + Postgres audit).
+- **Policy/legal inputs (Phase 9, G1–G5)** — **carries forward unchanged as E2** (retention, lawful basis,
+  legal-hold, ICO/DVLA terms, AI production sign-off).
+
+> **(historical) G-code map:** G1 = retention period + the retention-clock/case-disposition build; G2 =
+> legal-hold rule; G3 = ICO/DVLA registration + lawful basis + the DPIA; G4 = the DSAR cross-store runbook;
+> G5 = AI-data-protection production sign-off (testing authorised now); G6 = store hardening incl.
+> `cespkevidstdev01`; G7 = org-level audit enablement; G8 = the role assignment. Retained for cross-link
+> resolution; the live equivalents are C1 / E1 / E2 above.

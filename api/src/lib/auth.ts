@@ -10,12 +10,14 @@
  *
  * App-settings required:
  *   ENTRA_TENANT_ID  — non-secret; the Entra tenant GUID
- *   API_AUDIENCE     — non-secret; e.g. 'api://<data-api-client-id>'
+ *   API_AUDIENCE     — non-secret; the Data API's client-id GUID. v2 access tokens
+ *                      (the reg's requestedAccessTokenVersion=2) carry aud = the BARE client-id
+ *                      GUID, NOT 'api://<id>'. Both forms are accepted defensively (audienceCandidates).
  *
  * All function registrations use authLevel: 'anonymous' — the bearer token is the gate.
  */
 
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import { createRemoteJWKSet, jwtVerify, errors, type JWTPayload } from 'jose';
 import type { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 
 const TENANT = process.env.ENTRA_TENANT_ID!;
@@ -49,15 +51,37 @@ class HttpError extends Error {
  * Validate the Bearer token in the Authorization header.
  * Throws HttpError(401) if missing/invalid; returns the verified JWT payload.
  */
+/**
+ * Accept BOTH audience forms — the bare client-id GUID (what v2 access tokens carry) and the
+ * `api://<id>` App ID URI — so validation is correct regardless of how API_AUDIENCE is set or the
+ * token version. (A single-form check against `api://<id>` rejected every v2 token and, via the
+ * catch in withRole, surfaced as a 500 — the headline "every page → 500 {error:internal}" outage.)
+ */
+function audienceCandidates(): string[] {
+  const a = API_AUDIENCE;
+  if (!a) return [];
+  const bare = a.startsWith('api://') ? a.slice('api://'.length) : a;
+  return [bare, `api://${bare}`];
+}
+
 export async function authenticate(req: HttpRequest): Promise<JWTPayload> {
   const header = req.headers.get('authorization') ?? '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!token) throw new HttpError(401, 'Missing bearer token');
-  const { payload } = await jwtVerify(token, getJwks(), {
-    issuer: ISSUER,
-    audience: API_AUDIENCE,
-  });
-  return payload;
+  try {
+    const { payload } = await jwtVerify(token, getJwks(), {
+      issuer: ISSUER,
+      audience: audienceCandidates(),
+    });
+    return payload;
+  } catch (e) {
+    // Any jose validation failure (bad audience/issuer/signature/expiry, or a JWKS problem) is an
+    // AUTHENTICATION failure, not a server fault → 401 (lets the SPA re-acquire a token), NOT 500.
+    if (e instanceof errors.JOSEError) {
+      throw new HttpError(401, 'Invalid or expired token');
+    }
+    throw e; // genuinely unexpected → falls through to withRole's 500 path
+  }
 }
 
 /**

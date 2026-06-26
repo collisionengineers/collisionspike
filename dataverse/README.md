@@ -1,5 +1,12 @@
 # CollisionSpike — Dataverse schema-as-code
 
+> **⚠️ Historical — Power Platform era (decommissioned).** Dataverse is no longer the live system of
+> record — the migration cut over to **Postgres `cespk-pg-dev`** (DDL in `migration/assets/schema/*.sql`,
+> see [../migration/20-data-and-schema-migration.md](../migration/20-data-and-schema-migration.md)). These
+> schema-as-code artifacts are the prior-era authoring spec; the EVA integer codes + domain rules they
+> encode remain authoritative (carried into the Postgres `choice_*` tables). Live state:
+> [../CURRENT_STATUS.md](../CURRENT_STATUS.md) · [../docs/architecture/live-environment.md](../docs/architecture/live-environment.md).
+
 Authoritative, reviewable **schema spec** for the `CollisionSpike` Dataverse solution. These are
 **authoring artifacts**, not a Dataverse import package: the **dataverse-data-architect** translates
 them into `EntityMetadata` / `AttributeMetadata` / `OptionSetMetadata` via `pac` + the Web API at

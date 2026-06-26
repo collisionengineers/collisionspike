@@ -1,25 +1,35 @@
 # collisionspike
 
-A fast, early **spike** of the Collision Engineers case-intake workflow, built on the **Microsoft
-Power Platform** (Power Apps **Code App** + Dataverse + Power Automate). It prototypes the
-intake → parse → review → enrich → **EVA** + **Box** pipeline cheaply, to validate the workflow
-and de-risk the mature cloud build (`collisioncc`, which is on Google Cloud).
+A fast, early **spike** of the Collision Engineers case-intake workflow. It prototypes the
+intake → parse → review → enrich → **EVA** + **Box** pipeline cheaply, to validate the workflow and
+de-risk the mature cloud build (`collisioncc`, which is on Google Cloud).
 
-> **Status (2026-06-22):** the M1 slice is built **and much is now deployed to a dedicated Sandbox** —
-> the **parser Function is live** (FC1, real extraction), the **Dataverse schema + provider corpus** are
-> built/seeded, the **Code App is live** (manual intake works; logo/fonts/nav fixed), and the **enrichment
-> Function is deployed and live (`ENRICHMENT_ENABLED=true` in Dev)** (direct DVSA/DVLA — the Google Cloud gateway was retired). The 15 flow definitions
-> are imported **OFF** except the Claude-wired `case-resolve` merge-by-registration flow. Still operator-gated: **live email intake** and **EVA/Box**
-> (the live-services boundary). **No mock data** — the app shows real Dataverse rows only.
-> **Phase 7 (the Box-centric intake pivot — [ADR-0012](./docs/adr/0012-box-centric-intake-additive-hybrid.md))**
-> has its **Dataverse schema + env-vars applied live (all `BOX_*` gates `false`)**, with the `box-webhook`
-> Function **deployed to Azure (`cespkbox-fn-v76a47`) and Gate-C-verified but gated OFF and secret-free**, while the
-> `cr1bd_box_rest` connector and the Box flows remain **authored offline (not imported/bound)**:
-> a per-Case/PO Box folder at parse-confirm + File-Request image chasers + a webhook that advances the case,
-> as a **one-way Box mirror with Dataverse authoritative**; evidence is **linked, not embedded** (a
-> server-minted "Open in Box" deep link — no iframe/`frame-src` edit). The always-on Box-account integration
-> (CCG + `FILE.UPLOADED` webhook + template File Request) is deferred to a future **Business-account** phase
-> (base Box Business is the floor; Business Plus is only for the optional metadata tier).
+The **live build is an Azure PaaS stack** — a React/Vite **Static Web App** (MSAL / Entra workforce
+sign-in) over a **TypeScript Azure Functions** Data API backed by a **Postgres Flexible Server** system
+of record, plus six retained Python Functions (parser, enrichment, EVA Sentry, EVA-validation, OCR,
+box-webhook). It began on the **Microsoft Power Platform** (Power Apps **Code App** + Dataverse + Power
+Automate + custom connectors); that implementation has since been **migrated off and decommissioned**
+(see the status note below). The **domain + workflow are unchanged** — only the platform mechanism moved.
+
+> **Status (2026-06-26):** the **live system is the Azure PaaS stack** in resource group
+> `rg-collisionspike-dev` (uksouth): the **SPA `cespk-spa-dev`** (Static Web App, Entra / MSAL sign-in),
+> the **Data API `cespk-api-dev`** (Node 20 / TS Functions, JWT + `CollisionSpike.User` / `.Admin` app
+> roles), and **Postgres `cespk-pg-dev`** (36 tables; the provider / repairer / image-source /
+> inspection-address corpus seeded; `case_`=0). The **six Python Functions, the Key Vaults, and the
+> evidence Blob `cespkevidstdev01` are retained unchanged**. The earlier **Power Platform** build (Code
+> App + Dataverse + ~16 Power Automate flows + custom connectors) is **decommissioned**. **No mock
+> data** — the app shows real rows only.
+>
+> **Honest gaps:** **(1)** *no automated email intake is live* — the orchestration app `cespk-orch-dev`
+> is a deployed shell with **zero functions deployed**, so the system is **read-only + manual
+> case-create**; the intended intake is a Microsoft Graph **delta-poll** over **Exchange-RBAC-scoped**
+> mailboxes (an Exchange Admin grants resource-scoped mailbox roles — **no Global-Admin consent, no push
+> subscription**). **(2)** the earlier **DB-credential / RLS P0 is resolved (2026-06-26)** — the API now
+> connects as the non-owner Postgres login **`cespk_app`** (Key Vault-referenced password, **Row-Level
+> Security enforced**), not `csadmin`. **(3)** the
+> subscription is an **Azure Free Trial** — the whole stack **disables at ~30 days** unless upgraded to
+> **Pay-As-You-Go** (the 12-month free Postgres allowance survives the upgrade). **(4)** **staff app-role
+> assignment is incomplete** (one principal assigned; others 403 until assigned).
 > **→ See [CURRENT_STATUS.md](./CURRENT_STATUS.md) (where we are) and [ROADMAP.md](./ROADMAP.md) (the checklist).**
 > Run `node verify-all.mjs` for the offline gate; deploy/activation sequence in [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md).
 
@@ -38,18 +48,31 @@ and de-duplicate every action. Full pipeline: [docs/requirements/intake-workflow
 - **Docs index:** [docs/README.md](./docs/README.md).
 - **Agent guidance:** [CLAUDE.md](./CLAUDE.md).
 
-## Phase 1 build (M1) — what's in the repo now
+## What's in the repo
 
-Built and offline-verifiable: `node verify-all.mjs` → **all gates green** (Code App build + tests, Dataverse
-parity, flow linter, a pytest loop over every built Function suite, the generated-service
-no-`uploadFileToRecord` guard, and the boundary grep-gate). It began at 7 gates and has since widened — use
-"all gates green", not a pinned count; the live breakdown is in CURRENT_STATUS / OPEN_ITEMS.
+Offline-verifiable: `node verify-all.mjs` → **all gates green** (build + tests, schema parity, flow
+linter, a pytest loop over every built Function suite, plus the static boundary gates). The gate set has
+widened over time — use "all gates green", not a pinned count; the live breakdown is in CURRENT_STATUS /
+OPEN_ITEMS.
 
-- **Plan:** [docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md](./docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md) · **Deploy:** [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) (the `[DEPLOY-WITH-LOGIN]` / `[RESERVED-FOR-USER]` sequence + blockers).
-- `mockup-app/` — the Code App (React + Fluent v9): `src/contracts/` (EVA/status/image), `src/domain/` (classification, ADR-0010 dedup, provider-match, address-policy), `src/data/` (the mock↔Dataverse seam), screens.
-- `dataverse/` — schema-as-code (10 tables + provenance, choice sets, env-vars, relationships).
-- `functions/` — Azure Functions (`parser`, `enrichment`, `evasentry`, `evavalidation`, `box-webhook`; code, Bicep, OpenAPI, mocked pytest).
-- `flows/` — the 15 Power Automate flow definitions (`state=off` except the Claude-wired `case-resolve`) + offline linter (154/154).
+**Deploy:** [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · **Phase-1 plan:** [docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md](./docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md).
+
+The **live Azure stack**:
+- `mockup-app/` — the React + Vite SPA (Fluent v9), wired to the Data API over REST
+  (`src/data/rest-client.ts`) with MSAL / Entra sign-in: `src/contracts/` (EVA / status / image),
+  `src/domain/` (classification, ADR-0010 dedup, provider-match, address-policy), `src/data/` (the data
+  seam), screens.
+- `api/` — the TypeScript Azure Functions **Data API** (Entra JWT + `CollisionSpike.User` / `.Admin` app
+  roles; Postgres); bundled to `deploy/api/` via esbuild.
+- `orchestration/` — the intake orchestration Functions app (Graph delta-poll design; **built, not yet
+  deployed**); bundled to `deploy/orch/`.
+- `packages/domain/` — the shared `@cs/domain` package (the platform-independent domain model).
+- `functions/` (+ `ocr/`) — the six retained Python Azure Functions (`parser`, `enrichment`,
+  `evasentry`, `evavalidation`, `box-webhook`, `ocr`): code, Bicep, OpenAPI, mocked pytest.
+
+**Prior-era — Power Platform (decommissioned; retained in-repo for provenance + migration reference):**
+- `dataverse/` — Dataverse schema-as-code (tables + provenance, choice sets, env-vars, relationships).
+- `flows/` — the Power Automate flow definitions + offline linter.
 - `.claude/skills/power-automate-flow/` — reusable flow-authoring patterns.
 
 ## Relationship to the other repos
@@ -60,5 +83,9 @@ no-`uploadFileToRecord` guard, and the boundary grep-gate). It began at 7 gates 
 
 ## Tooling
 
-- **Power Platform CLI** (`pac`) installed — `pac code init` / `add-data-source` / `run` / `push`.
-- Node.js + .NET present. Git initialised (`main`).
+- **Node.js + TypeScript** drive the live stack (the SPA, the Data API, orchestration, and `@cs/domain`);
+  **Azure Functions Core Tools** + **Bicep** for the Functions and infra; **Python** for the six
+  retained Functions.
+- **Power Platform CLI** (`pac`) was the **prior-era** Code App toolchain (`pac code init` / `push`) —
+  now historical, since the live frontend is a Static Web App, not a Code App.
+- .NET present. Git initialised (`main`).

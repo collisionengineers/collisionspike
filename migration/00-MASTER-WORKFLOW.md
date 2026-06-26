@@ -66,8 +66,12 @@ ACR, Blob, observability, or the EVA/Box/enrich vaults:
   app itself fronts the UK South API). See [`30`](./30-frontend-preservation.md).
 - **Break-glass DB vault** `cespk-pg-kv-dev` — holds the generated Postgres admin password (never echoed). See [`11`](./11-secrets-and-keyvault.md).
 - **Entra app registrations** (3) — SPA (public client / SPA redirect), API (exposes a scope +
-  app roles), and the Graph daemon `cespk-graph-intake` (application `Mail.Read` for the shared
-  mailbox, tenant-admin consent + ApplicationAccessPolicy scoping). See [`31`](./31-auth-migration.md) + [`22` §A.1](./22-orchestration-migration.md).
+  app roles), and the Graph daemon `cespk-graph-intake`, which holds **no Entra Graph permission**: it is
+  authorised by **Exchange RBAC for Applications** — an **Exchange Administrator** grants the daemon's
+  service principal **resource-scoped** Graph mailbox roles over the intake mailboxes
+  (`New-ServicePrincipal` → `New-ManagementScope` → `New-ManagementRoleAssignment`, **no Global Admin /
+  tenant-admin consent**) — and it **delta-polls** each mailbox. See [`31`](./31-auth-migration.md) +
+  [`22` §A](./22-orchestration-migration.md).
 - **Confirm Key Vault reuse** — the populated `cespkenrichkvgi62sd` (DVSA/DVLA) stays; grant the new
   apps' managed identities **Key Vault Secrets User** (role GUID `4633458b-…`). See [`11`](./11-secrets-and-keyvault.md).
 
@@ -124,15 +128,18 @@ Validate the Entra JWT on every call. Detail + endpoint list in [`21`](./21-back
 **Do:** rebuild the **17 flow definitions** (`flows/definitions/*.json`) as Durable Functions + queues —
 the **7-flow M1 intake chain** (of which only 3 are activated in the live tenant; `flow-state.json`
 ships all `off`) + its per-inbox `intake-shared-mailbox` variant + the **9 gated/offline** flows — and
-replace the Outlook intake trigger with a **Microsoft Graph change-notification subscription** on each
-shared mailbox → HTTPS webhook receiver → queue → Durable orchestrator. Build the **renewal timer**
-(Outlook `message` subscriptions expire in **under 7 days** — 10,080 min without resource data; renew
-every 12 h) and handle **lifecycle notifications** (`reauthorizationRequired` / `subscriptionRemoved` /
-`missed`), plus the mandatory **heartbeat alert** (the run-history UI is gone). Full design in
-[`22`](./22-orchestration-migration.md).
+replace the Outlook intake trigger with a **timer-triggered Microsoft Graph delta-query poll** of each
+**Exchange-RBAC-scoped** shared mailbox (`GET …/messages/delta`) → queue → Durable orchestrator. The
+intake daemon holds **no Entra Graph permission** and needs **no admin consent** (an Exchange
+Administrator grants it resource-scoped mailbox roles — **no Global Admin**); the poll sits inside the
+Functions free grant, needs **no `<7-day` subscription renewal**, and removes the renewal-lapse risk
+(R5). The change-notification **subscription** + renewal timer + lifecycle handling + the mandatory
+**heartbeat alert** are retained only as an **optional push upgrade** (the run-history UI is gone). Full
+design in [`22` §A](./22-orchestration-migration.md).
 
 **Produces:** the intake pipeline running on Azure.
-**Tools:** `az`, `func`; **mslearn** (Graph change notifications for Outlook; Durable Functions).
+**Tools:** `az`, `func`; **mslearn** (Graph delta query for Outlook — and change notifications for the
+optional push upgrade; Durable Functions).
 
 ---
 
@@ -164,10 +171,12 @@ schema/flag parity, the `DataAccess` contract test, frontend build + load, an in
 ## P7 — Hard cutover
 
 **Gate:** P6 green.
-**Do:** in **one change window**, create/enable the live Graph subscriptions on the production shared
-mailboxes (one per intake inbox) **and** turn the old Power Automate intake flows OFF (the `intake` +
-`intake-shared-mailbox` triggers) — a single-consumer switch. The Postgres `UNIQUE(sourcemessageid)`
-constraint is the backstop against any brief double-read (R2).
+**Do:** in **one change window**, start the live Graph **delta-poll** against the production shared
+mailboxes (one per intake inbox, each **Exchange-RBAC-scoped**) **and** turn the old Power Automate
+intake flows OFF (the `intake` + `intake-shared-mailbox` triggers) — a single-consumer switch. The
+Postgres `UNIQUE(sourcemessageid)` constraint is the backstop against any brief double-read (R2). *(If
+the optional push subscription is adopted instead, create the subscriptions here — only after a live test
+confirms `POST /subscriptions` succeeds under the RBAC grant; see [`22` §A](./22-orchestration-migration.md).)*
 
 **Produces:** the new pipeline is the sole live consumer.
 **Tools:** `az`, Power Automate (disable).
@@ -209,5 +218,5 @@ docs/ADRs/skills off-repo, delete them from the working tree, finish the in-plac
 | **R2** | Double-processing — old flow + new webhook both read the mailbox during overlap | Hard cutover in one window; `UNIQUE(sourcemessageid)` backstop |
 | **R3** | Contract churn — `DataAccess`→API drift breaks P4 and P5 | Freeze the mapping in [`21`](./21-backend-api-build.md) before P4/P5 |
 | **R4** | EVA parity — choiceset→enum loses the EVA integer codes | Preserve codes; port `verify-parity` (P2) and run it in P6 |
-| **R5** | Graph renewal lapse — intake silently stops if the subscription expires un-renewed | Renewal timer + lifecycle-notification handling + a heartbeat alert ([`22`](./22-orchestration-migration.md)) |
+| **R5** | Graph renewal lapse — *only if the optional push subscription is adopted*: intake silently stops if the subscription expires un-renewed | The default **delta-poll** needs no subscription and **eliminates** this risk; if the push upgrade is taken, a renewal timer + lifecycle-notification handling + a heartbeat alert mitigate it ([`22` §A](./22-orchestration-migration.md)) |
 | **R6** | Doc-rewrite timing — agents act on stale Power Platform instructions during the build | Rewrite `CLAUDE.md`/`AGENTS.md` at P1; finalize the rest at P9 |

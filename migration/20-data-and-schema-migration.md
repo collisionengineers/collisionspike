@@ -126,10 +126,15 @@ repeated real Graph/Internet Message-ID trips the get-or-create idempotency guar
 ### RLS
 Single-tenant, staff-only — so RLS is **defense-in-depth**, not tenant filtering. Its job: make the
 **audit trail append-only** (INSERT+SELECT for all, *no* UPDATE policy, DELETE admin-only) and gate
-destructive deletes to the admin role. Tables get `ENABLE` + `FORCE ROW LEVEL SECURITY`; the Data API
-connects as a **non-owner** login (mapped from its managed identity) and sets `SET LOCAL app.role =
-'staff'|'admin'` per request. Policies read `current_setting('app.role', true)`. The exact claim →
-role wiring is in [`31`](./31-auth-migration.md).
+destructive deletes to the admin role. Tables get `ENABLE` + `FORCE ROW LEVEL SECURITY`; **live since
+2026-06-26** the Data API connects as the **non-owner** login **`cespk_app`** (`rolsuper=false`,
+`rolbypassrls=false`; its password a **Key Vault reference** read via the Function App's managed identity)
+and sets the DB app-role **per connection** via the libpq startup option `-c app.role=staff` (driven by the
+`PGAPPROLE` app-setting, default `staff` — **not** a `SET LOCAL`-per-query call, and not a role-default GUC,
+which Azure Flexible Server forbids the non-superuser `csadmin` from persisting). Policies read
+`current_setting('app.role', true)`; because `cespk_app` is non-owner the `FORCE` policies are **now
+enforced** (the prior `csadmin`/table-owner connection bypassed them). The exact claim → role wiring is in
+[`31`](./31-auth-migration.md).
 
 ## 3. Apply
 Apply in lexical order (the `NNN` prefixes guarantee dependency order; `000` first, `900` last):

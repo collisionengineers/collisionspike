@@ -7,10 +7,84 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUN
 > [ROADMAP.md](./ROADMAP.md) is the forward phased checklist; [docs/gated.md](./docs/gated.md) is
 > everything that needs the operator; plans live under [docs/plans/](./docs/plans/).
 
-This is the Phase-1 (M1) case-intake spike on the Microsoft stack (Power Apps **Code App** +
-Dataverse + Power Automate + Azure Functions). Built **offline**; live activation of anything that
-touches the shared inboxes / SharePoint / Box / EVA is the **operator's** step (see the boundary in
-DEPLOY-RUNBOOK). **Principle: no mock/seed case data in the app — it shows real Dataverse rows only.**
+> **⚠️ Platform pivot (2026-06-26).** The **live system is now the Azure PaaS stack** (Static Web App +
+> Function Apps + Postgres). The original **Power Platform** implementation (Power Apps Code App,
+> Dataverse, ~16 Power Automate flows, custom connectors) has been **migrated off and decommissioned** —
+> it is **prior-era / historical** and is **no longer the system of record**. The **domain + workflow are
+> unchanged** (intake → parse → review → enrich → EVA + Box; the EVA 12-field contract; image rules; the
+> provider corpus; the `Principal+YY+seq` Case/PO format) — only the **platform mechanism** changed. The
+> dated **🔔 Update —** build log is preserved verbatim under
+> [Historical — Power Platform era (decommissioned)](#historical--power-platform-era-decommissioned) below.
+
+This is the M1 case-intake spike. The live deployment is **read-only + manual case-create** today;
+live automated email intake is **not yet running** (see the honest gaps below). **Principle: no
+mock/seed case data in the app — it shows real rows only.**
+
+---
+
+## ✅ Live now — Azure PaaS stack (verified 2026-06-26)
+
+The live deployment runs in Azure resource group **`rg-collisionspike-dev`** (region **uksouth**) under
+subscription `e6076573-23a5-46a8-acef-7e22d264e5db`. The frontend talks to the Data API over **REST**;
+there is **no Power SDK and no Dataverse** on the live path — Postgres is the system of record.
+
+> **⚠️ This subscription is an Azure _Free Trial_** (quotaId `FreeTrial_2014-09-01`). **The whole stack
+> will be disabled at the ~30-day mark** unless it is upgraded to **Pay-As-You-Go**. (The 12-month free
+> Postgres Flexible Server allowance survives the upgrade.) This is a hard deadline, not a soft gate.
+
+| Piece | What it is | Status |
+|---|---|---|
+| **SPA** (frontend) | Static Web App **`cespk-spa-dev`** (westeurope) at https://proud-sky-04e318b03.7.azurestaticapps.net — React/Vite from `mockup-app/`, **MSAL / Entra workforce sign-in** (staff-only), calls the API over REST (`mockup-app/src/data/rest-client.ts`). **No Power SDK.** | Live |
+| **Data API** | Function App **`cespk-api-dev`** (Node 20 / TypeScript Functions v4; source `api/`, esbuild bundle `deploy/api/main.cjs`). Validates the Entra JWT (`jose`) + app roles **`CollisionSpike.User` / `CollisionSpike.Admin`**; v2 tokens carry `aud` = the API client-id GUID (`fa2fb28c…`). Connects to Postgres. | Live |
+| **Orchestration** | Function App **`cespk-orch-dev`** (source `orchestration/`) — **BUILT but ZERO functions currently deployed**. Intended design: Microsoft Graph **delta-poll** intake over **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent, no push subscription). | Deployed shell, no functions |
+| **System-of-record DB** | **Postgres Flexible `cespk-pg-dev`** (v16), database `collisionspike` — **36 tables**, seeded: `work_provider`=390, `repairer`=32, `image_source`=19, `inspection_address`=2209 (174 confirmed + 2035 suggested), `case_`=0. | Live |
+| **Python Functions (×6, retained)** | The 6 Python Functions are **unchanged** from the prior era and retained: parser **`cespike-parser-dev`**, enrichment, evasentry, evavalidation, ocr, box-webhook. | Retained |
+| **Supporting Azure** | The **Key Vaults**, evidence Blob **`cespkevidstdev01`**, and App Insights / Log Analytics are **retained unchanged**. | Retained |
+
+**Auth / identity.** Entra **workforce** sign-in via MSAL. The two app roles (**`CollisionSpike.User` /
+`CollisionSpike.Admin`**) map the **two** former Dataverse security roles. **Only one staff principal is
+app-role-assigned so far** — every other staff member will receive **403** until an admin assigns them a
+role.
+
+**Intake auth model — Exchange RBAC for Applications (NOT Global-Admin consent).** The intended intake
+path uses **Exchange RBAC for Applications**: an **Exchange Administrator** grants the intake app
+**resource-scoped** Graph mailbox roles (`New-ServicePrincipal` / `New-ManagementScope` /
+`New-ManagementRoleAssignment`) — **no Global-Admin tenant consent and no push subscription** — and
+intake **polls** the mailboxes with a **Graph delta query**. _(This supersedes any earlier note in this
+repo that Graph `Mail.Read` needs Global-Admin / admin consent.)_
+
+### ⚠️ Honest known gaps (live state — stated, not papered over)
+
+1. **No automated email intake is live.** `cespk-orch-dev` is a deployed shell with **zero functions
+   deployed**; the live system is **read-only + manual case-create only**. Email-driven case creation is
+   **not running yet**.
+2. **DB admin creds + RLS bypass — RESOLVED (2026-06-26).** The Data API now connects to Postgres as the
+   **non-owner login `cespk_app`** (`rolsuper=false`, `rolbypassrls=false`), with its password held as a
+   **Key Vault reference** (no cleartext), so the authored **Row-Level Security is now enforced** (the prior
+   server-admin `csadmin` connection, as table owner, bypassed it). The DB app-role is set per connection via
+   `-c app.role=staff` (the `PGAPPROLE` app-setting); grants are least-privilege — no DELETE on any table, and
+   `audit_event` is INSERT/SELECT only (append-only).
+3. **Free-Trial → PAYG deadline.** The whole stack disables at the ~30-day Free-Trial mark unless
+   upgraded to Pay-As-You-Go (see the banner above).
+4. **Staff app-role assignment incomplete.** Only one principal is assigned; all other staff **403**
+   until assigned a `CollisionSpike.User` / `CollisionSpike.Admin` role.
+5. **Auth hardening in progress.** Durable auth error-handling and `aud` (audience-form) hardening are
+   still being finalised.
+
+---
+
+## Historical — Power Platform era (decommissioned)
+
+> **Everything below this line describes the PRIOR Power Platform implementation** (Power Apps Code App
+> + Dataverse + Power Automate + custom connectors), which has since been **migrated to the Azure PaaS
+> stack above and decommissioned**. It is preserved **verbatim, as a dated build log** — valuable for
+> provenance and for the domain / EVA / provider / workflow detail it captures — but it **no longer
+> describes the live system**. Treat every "live / deployed / applied live / activated" statement in
+> this band as **true of the Power Platform era only**. The **domain rules** it records (the EVA 12-field
+> contract, image rules, the provider corpus, the Case/PO format, the dedup / status machine) **remain
+> authoritative**; the **platform mechanism** it records (Dataverse tables, `cr1bd_*` columns, Power
+> Automate flows, the `BOX_*` / `cr1bd_*` env-var gates, `pac code push`, the `Collision Engineers - Dev`
+> Sandbox) is **historical**.
 
 ---
 
@@ -495,7 +569,10 @@ player**. Headlines:
   **Done 2026-06-19** — connector exposes `api_key`, connection `01b43be8…` Connected, app calls
   `CollisionEngineersParserService`; raw-fetch path deleted. See memory `codeapp-csp-use-connectors`.
 
-## ✅ Live now (Sandbox `Collision Engineers - Dev`, NOT Default)
+## ✅ Live then — Power Platform era (Sandbox `Collision Engineers - Dev`, NOT Default)
+
+> _Historical snapshot of the **decommissioned** Power Platform deployment — superseded by the Azure
+> PaaS stack at the top of this file. Retained for provenance; not the live system._
 
 | Piece | Status | Where |
 |---|---|---|

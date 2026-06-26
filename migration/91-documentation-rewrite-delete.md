@@ -87,8 +87,10 @@ Future agents load this roster; stale Power Platform agents/skills will silently
   against Azure.
 - `docs/README.md` (docs index), `docs/TODOS.md`, `docs/open-questions.md` — re-point at the Azure
   layout; drop dead links to deleted folders.
-- `docs/gated.md` — new operator blockers (Entra admin consent for Graph application `Mail.Read`;
-  Postgres subscription choice / free-trial→PAYG; EVA + Box creds when those gates flip).
+- `docs/gated.md` — new operator blockers (the **Exchange RBAC** grant for the intake daemon — an
+  Exchange Administrator scopes the 3 intake mailboxes via `New-ServicePrincipal` / `New-ManagementScope`
+  / `New-ManagementRoleAssignment`, **no Global Admin**, the daemon holding **no Entra Graph permission**;
+  the Free-Trial→PAYG upgrade; staff Entra app-role assignment; EVA + Box creds when those gates flip).
 - `docs/roles-and-permissions.md` — Dataverse security roles → **Entra app roles** (the API resolves
   Admin vs User from the token).
 
@@ -174,7 +176,7 @@ domain **case-type** decision, not a Dataverse-column one — none are platform 
     retention` references → a Postgres job); UK-GDPR decision unchanged.
 - **ADD ADR-0019** — one short record: *"Migrated off Power Platform to Azure PaaS (Static Web Apps SPA
   + standalone Flex-Consumption Functions data API + Durable/queue orchestration + Microsoft Graph
-  change-notification intake + Postgres Flexible Server)."* with the why (SWA managed Functions too
+  delta-poll intake over Exchange-RBAC-scoped mailboxes + Postgres Flexible Server)."* with the why (SWA managed Functions too
   constrained; Sentry single-principal; cost). This is the **only** permitted "we used to be Power
   Platform" trace — one forward-looking decision record, not a legacy archive.
 

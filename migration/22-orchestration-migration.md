@@ -1,9 +1,11 @@
 # 22 — Orchestration migration
 
 The 17 Power Automate flows → **Durable Functions + Storage Queues**, and the Outlook intake trigger →
-a **Microsoft Graph change-notification subscription** on the shared mailbox. This is the operator's
-chosen path (D2) — cheapest to run, at the cost of building the Graph plumbing the managed Outlook
-connector gave for free. **Phase P4.** Lives in a second Flex Consumption Function App
+a **timer-triggered Microsoft Graph delta-query poll** of each Exchange-RBAC-scoped shared mailbox (the
+change-notification **subscription** is retained only as an optional push upgrade — see the amendment
+banner and §A). This is the operator's chosen path (D2) — cheapest to run, at the cost of building the
+Graph plumbing the managed Outlook connector gave for free. **Phase P4.** Lives in a second Flex
+Consumption Function App
 (`cespk-orch-dev`), in **TypeScript/Node 20** (D10) so its activities import the same shared
 domain/contract package (`@cs/domain`) the API + frontend import (workspace member `orchestration` per
 [`21`](./21-backend-api-build.md) §Shared workspace package); it calls the existing **Python**
@@ -24,10 +26,33 @@ key `cr1bd_case_sourcemessageid_key` over `cr1bd_sourcemessageid`; in Postgres t
 
 ---
 
-## A. Intake trigger: Graph change notifications (replaces Outlook `OnNewEmailV3`)
+## A. Intake trigger: app-only Graph over Exchange-RBAC-scoped mailboxes
 
-The project has **three shared intake inboxes** (domain model). Create **one subscription per mailbox**;
-everything below is per-mailbox. All four endpoints live in `cespk-orch-dev`.
+> **AMENDMENT (2026-06-26) — supersedes A.1's consent model and reframes A.2–A.7.** The `Mail.Read`
+> **application** consent that A.1 below assumes is grantable **only by Global Admin / Privileged Role
+> Admin** and was a hard blocker (the tenant GA is unavailable to us). **Resolved:** authorise the intake
+> app via **[RBAC for Applications in Exchange Online]** — an **Exchange Administrator** (digital@) grants
+> **resource-scoped** Graph mailbox roles (`Application Mail.Read`, +`Mail.ReadWrite`/`Mail.Send` if the
+> intake ever categorises/moves/replies), **independent of Entra consent — no GA**. **Verified live**
+> (`Test-ServicePrincipalAuthorization` → `InScope: True`). The intake app therefore holds **no Entra
+> Graph permission** (the unconsented `Mail.Read` was removed from app `5d37a155…`).
+>
+> **Trigger = poll, not push.** Prefer a **timer-triggered delta-query poll** of each scoped mailbox
+> (`GET …/messages/delta`, ~60–120 s) over the change-notification **subscription** below: polling sits
+> inside the Functions free grant (≈£0), **needs no `<7-day` renewal**, and **eliminates Risk R5**. It is
+> also the path *guaranteed* to work on an RBAC-only grant — the subscription-create op (A.2) is the one
+> mailbox operation **not yet confirmed** to ride on RBAC alone. **Keep the webhook design A.2–A.7 only as
+> an optional push upgrade**, to adopt *iff* a live test confirms `POST /subscriptions` succeeds under the
+> RBAC grant; otherwise it is superseded by the poller. **Status:** the 3 real intake mailboxes are **not
+> yet scoped** (operator deferred); the live proof was scoped to digital@ (a personal dev inbox, not an
+> intake mailbox) and that test grant is to be torn down. See memory `exchange-rbac-unblocks-graph-intake`.
+>
+> [RBAC for Applications in Exchange Online]: https://learn.microsoft.com/exchange/permissions-exo/application-rbac
+
+The project has **three shared intake inboxes** (domain model). The text below describes the **push
+(subscription) variant**, retained as the optional upgrade per the amendment; for the **default poll
+variant**, the per-mailbox `resource` and `clientState`/handoff map identically, minus A.2/A.5/A.6.
+All endpoints live in `cespk-orch-dev`.
 
 **Two intake flows collapse into this one design.** `flows/definitions/` holds **two** intake flows:
 `intake.definition.json` (the spine, above) and `intake-shared-mailbox.definition.json` — the
@@ -43,18 +68,24 @@ Graph design here: **one change-notification subscription per mailbox** (§A.2) 
   subscription-create time so a freshly-subscribed mailbox **never ingests historical backlog** — only
   messages at/after go-live.
 
-### A.1 App registration + permission (operator-gated, P1)
-A daemon (no-user) app calling Graph with **application** permission:
+### A.1 App registration + Exchange-RBAC authorisation (operator-gated, P1)
+A daemon (no-user) app calling Graph **app-only**, authorised **not by an Entra Graph permission** but by
+**Exchange RBAC for Applications** (per the amendment banner above):
 - Register an Entra app `cespk-graph-intake`; create a **client secret** (or, better, a federated/MSI
   credential later) → store in Key Vault as `graph-client-secret` ([`11`](./11-secrets-and-keyvault.md)).
-- Add **application** permission `Mail.Read` (Microsoft Graph) → **requires tenant-admin consent**
-  (operator step; the daemon cannot self-consent). `Mail.ReadBasic` is insufficient (no body/attachments).
-- **Scope it down (security):** application `Mail.Read` grants access to *every* mailbox by default.
-  Apply an Exchange Online **ApplicationAccessPolicy** (`New-ApplicationAccessPolicy -AccessRight
-  RestrictAccess -AppId <appId> -PolicyScopeGroupId <mail-enabled security group of the 3 inboxes>`) so
-  the app can read **only** the intake mailboxes. This is a hard operator gate logged in
-  [`docs/gated.md`](../docs/gated.md) equivalent / [`31`](./31-auth-migration.md).
-- Token: client-credentials, scope `https://graph.microsoft.com/.default`, against the tenant.
+  Add **no** Microsoft Graph application permission — the app holds none (the unconsented `Mail.Read` was
+  removed); `Mail.Read`/`Mail.ReadBasic` are **not** requested.
+- **Authorise via Exchange RBAC (no Global Admin):** an **Exchange Administrator** binds the app to an EXO
+  service principal and grants it **resource-scoped** Graph mailbox roles over **only** the intake
+  mailboxes — `New-ServicePrincipal` → `New-ManagementScope` (a recipient scope over the 3 intake
+  mailboxes / their mail-enabled security group) → `New-ManagementRoleAssignment` (`Application Mail.Read`;
+  add `Application Mail.ReadWrite`/`Mail.Send` only if intake ever categorises/moves/replies). This needs
+  **no Entra tenant-admin / Global-Admin consent** and replaces the old `Mail.Read`-application +
+  `ApplicationAccessPolicy` model. Verify with `Test-ServicePrincipalAuthorization` (→ `InScope: True`).
+  Hard operator gate logged in [`docs/gated.md`](../docs/gated.md) equivalent / [`31`](./31-auth-migration.md).
+- Token: client-credentials, scope `https://graph.microsoft.com/.default`, against the tenant — used to
+  **delta-poll** the scoped mailboxes (`GET …/messages/delta`); the **RBAC grant**, not a Graph app role,
+  authorises the read.
 
 ### A.2 Subscription create
 ```http
@@ -397,11 +428,17 @@ references — [`11`](./11-secrets-and-keyvault.md)): `PARSER_FN_URL`/`PARSER_FN
 app's managed identity granted **Key Vault Secrets User**.
 
 ### Operator-gated steps (P1 / P7)
-1. **Admin consent** for Graph application `Mail.Read` (operator/tenant-admin only) — A.1.
-2. **ApplicationAccessPolicy** scoping the app to the 3 intake mailboxes (Exchange Online PowerShell) — A.1.
-3. **Create the subscriptions** (A.2) in **P7** against the production mailboxes — single-consumer cutover
-   (the old intake flow and the new subscription must not both run; disable the Power Automate intake flow
-   first, [`99`](./99-verification-and-cutover.md)).
+1. **Exchange RBAC grant** (Exchange Administrator, **no Global Admin**): `New-ServicePrincipal` →
+   `New-ManagementScope` (the 3 intake mailboxes) → `New-ManagementRoleAssignment` (`Application Mail.Read`)
+   — A.1. (Replaces the old Entra `Mail.Read` admin-consent + `ApplicationAccessPolicy` steps; the app
+   holds no Graph permission.)
+2. **Scope the 3 real intake mailboxes** into the management scope and verify each with
+   `Test-ServicePrincipalAuthorization` (→ `InScope: True`) — A.1. *(Status: the real intake mailboxes are
+   not yet scoped — operator deferred; the live proof was on digital@, a dev inbox, to be torn down.)*
+3. **Start the delta-poll** (A, default) in **P7** against the production mailboxes — single-consumer
+   cutover (the old intake flow and the new poller must not both run; disable the Power Automate intake
+   flow first, [`99`](./99-verification-and-cutover.md)). *(Optional push upgrade: create the subscriptions
+   per A.2 instead — only after a live test confirms `POST /subscriptions` succeeds under the RBAC grant.)*
 
 ---
 

@@ -43,12 +43,17 @@ app.http('setHoldNewCasesDefault', {
     const body = (await req.json()) as { value: boolean };
     const actor = actorFromClaims(claims);
     const valueStr = body.value ? 'true' : 'false';
-    await query(
-      `INSERT INTO app_setting (key, value, updated_at, updated_by)
-       VALUES ($1, $2, now(), $3)
-       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
-      [HOLD_KEY, valueStr, actor ?? null],
-    );
+    try {
+      await query(
+        `INSERT INTO app_setting (key, value, updated_at, updated_by)
+         VALUES ($1, $2, now(), $3)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
+        [HOLD_KEY, valueStr, actor ?? null],
+      );
+    } catch {
+      // app_setting may be absent/unavailable — surface a retryable 503, not a masked 500.
+      return { status: 503, jsonBody: { error: 'settings store unavailable' } };
+    }
     await writeAudit({
       action: AUDIT_ACTION.corpus_record_changed,
       summary: `Set hold-new-cases-by-default = ${valueStr}`,

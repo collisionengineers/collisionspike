@@ -178,7 +178,7 @@ import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import type { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 
 const TENANT = process.env.ENTRA_TENANT_ID!;                 // app-setting (not secret)
-const API_AUDIENCE = process.env.API_AUDIENCE!;              // e.g. 'api://<data-api-client-id>'
+const API_AUDIENCE = process.env.API_AUDIENCE!;              // the API's BARE client-id GUID (v2 aud), e.g. 'fa2fb28c-…' — NOT 'api://<client-id>'
 const ISSUER = `https://login.microsoftonline.com/${TENANT}/v2.0`;
 const JWKS = createRemoteJWKSet(
   new URL(`https://login.microsoftonline.com/${TENANT}/discovery/v2.0/keys`),
@@ -222,6 +222,10 @@ class HttpError extends Error { constructor(public status: number, msg: string) 
 
 - `ENTRA_TENANT_ID` + `API_AUDIENCE` are **non-secret app-settings** (the SPA client id, tenant id, and
   API scope live in Vite build env — never a secret in the bundle, [`11`](./11-secrets-and-keyvault.md)).
+  **`API_AUDIENCE` is the API's bare client-id GUID** (e.g. `fa2fb28c-…`), **not** `api://<client-id>`:
+  Entra **v2** access tokens carry `aud` = the resource app's client-id GUID, so `jwtVerify` must match
+  the GUID form. (The SPA still *requests* the `api://<client-id>/…` scope; that App ID URI is the scope,
+  not the token audience — audience-form hardening accepts the GUID and rejects the `api://` URI.)
 - The three Entra app registrations + the `roles` claim are owned by [`31`](./31-auth-migration.md);
   this file owns only the **server-side check**.
 - All function `app.http(...)` registrations set `authLevel: 'anonymous'` (we do our own auth) — do
@@ -404,7 +408,7 @@ az functionapp identity assign -g "$RG" -n "$API"
 az functionapp config appsettings set -g "$RG" -n "$API" --settings \
   PGHOST=... PGDATABASE=collisionspike PGUSER=... PGSSLMODE=require \
   PGPASSWORD='@Microsoft.KeyVault(SecretUri=https://cespk-pg-kv-dev.vault.azure.net/secrets/pg-admin-password/)' \
-  ENTRA_TENANT_ID=<tenant-guid> API_AUDIENCE='api://<data-api-client-id>'
+  ENTRA_TENANT_ID=<tenant-guid> API_AUDIENCE='<data-api-client-id-guid>'   # bare GUID (v2 aud), not api://<client-id>
 # the 20 gates + 6 config strings (plan 10 §1.2) on this app too
 # allow the SWA origin (plan 30)
 az functionapp cors add -g "$RG" -n "$API" --allowed-origins https://<swa-name>.azurestaticapps.net

@@ -23,8 +23,24 @@ security roles; Postgres is the most portable exit. **Free-tier caveat → see t
 | **Durable / queue Functions** ✅ | Pure code, cheapest to run (consumption free grant); no new service; one ecosystem | **No managed shared-mailbox trigger** → build a Microsoft Graph change-notification webhook + renewal loop (~1–2 wks); no visual run-history | ~£0–5/mo |
 | Logic Apps Consumption | Same Office 365 Outlook trigger (near lift-and-shift); visual designer + run history | Azure-specific workflow JSON; pennies/run but more than Durable | ~£5–15/mo |
 **Why (operator override of the Logic Apps recommendation):** keeps everything in the Functions
-runtime the team already operates and minimises run-cost; the price is the Graph-webhook build, fully
-specified in [`22`](./22-orchestration-migration.md). **Risk R5** (renewal lapse) is owned there.
+runtime the team already operates and minimises run-cost; the price is the Graph intake build, fully
+specified in [`22`](./22-orchestration-migration.md).
+
+**Update (2026-06-26) — intake auth + trigger resolved, GA blocker gone.** The original plan assumed a
+Graph **change-notification webhook** authorised by an Entra-consented `Mail.Read` **application**
+permission. That consent is grantable only by Global Administrator / Privileged Role Administrator
+(App/Cloud-App/AI Admin are excluded for *Microsoft Graph* app roles), and the tenant's only GA is
+unavailable to us — a hard blocker. **Resolved via [RBAC for Applications in Exchange Online]:** an
+**Exchange Administrator** (digital@) grants the intake app **resource-scoped** Graph mailbox roles
+(`Application Mail.Read` / `Mail.ReadWrite` / `Mail.Send`) **independent of Entra consent** — no GA.
+**Verified live 2026-06-26** (`Test-ServicePrincipalAuthorization` → `InScope: True`). Consequences:
+the intake app holds **no Entra Graph permission** (the unconsented `Mail.Read` was removed); intake is
+**app-only Graph against RBAC-scoped mailboxes**; and we **prefer polling (delta query) over a push
+subscription** — polling needs no `<7-day` renewal, so **Risk R5 is eliminated** (push stays an option
+only if subscription-creation is confirmed to work under RBAC-only). Detail in
+[`22`](./22-orchestration-migration.md) + [`31`](./31-auth-migration.md).
+
+[RBAC for Applications in Exchange Online]: https://learn.microsoft.com/exchange/permissions-exo/application-rbac
 
 ### D3 — Power Platform teardown → **Delete the Dev sandbox entirely**
 After cutover is green **and** a final cold CSV export is archived off-repo, delete the sandbox,
@@ -112,4 +128,11 @@ provision Postgres + the new apps in this subscription now, and **upgrade the tr
   ~£0/mo spend ⇒ **~4 weeks of runway** (the deadline is the trial's calendar 30-day expiry, not credit
   burn); provisioning now on the trial is acceptable. Open action: **upgrade trial → Pay-As-You-Go**
   before the 30-day window lapses (keeps the free DB; avoids the existing Functions/KV being disabled).
+- *(2026-06-26)* **Intake auth/trigger re-decided (D2 amendment)** — Graph `Mail.Read` *application*
+  consent is GA-only and was blocked; switched intake to **Exchange RBAC for Applications** (Exchange
+  Admin grants resource-scoped Graph mailbox roles, no Entra consent / no GA), **verified live**
+  (`InScope: True`). Removed the unconsented Entra `Mail.Read` from app `5d37a155…`. **Poll preferred
+  over push** ⇒ **Risk R5 (renewal lapse) eliminated**. The 3 real intake mailboxes are **not yet
+  scoped** (operator deferred); proof was scoped to digital@ (a personal inbox) and that test grant is
+  to be torn down. See memory `exchange-rbac-unblocks-graph-intake`.
 - *(append new decisions here as they are made during execution, with date + who decided)*

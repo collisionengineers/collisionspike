@@ -2,18 +2,59 @@
 
 Complements [CLAUDE.md](./CLAUDE.md) (which covers what the repo *is* and the domain model). This file
 captures **how to work safely against the live cloud** and the **hard-won runtime truths** that have
-repeatedly bitten this project. Read it before touching the Code App, the flows, or the Functions.
+repeatedly bitten this project.
+
+> ## LIVE STACK = Azure PaaS (Power Platform is being DECOMMISSIONED) — read this first
+> **Verified live 2026-06-26.** The running system is the **Azure PaaS stack**; the migration off Power
+> Platform has been executed and cut over. **Do not** treat the Power Platform implementation (Power Apps
+> **Code App**, **Dataverse**, the ~16 **Power Automate** flows, the **custom connectors**) as live — it
+> is the **prior/decommissioned era**, retained below as **historical reference** and clearly banded as
+> such. The **business domain is unchanged** — EVA 12-field contract, image rules, photo order, provider
+> corpus, Case/PO format, inspection-address corpus — **only the platform mechanism changed**.
+>
+> **The live Azure tier (in `rg-collisionspike-dev`, UK South, subscription `e6076573-…`):**
+> - **SPA** — Static Web App **`cespk-spa-dev`** (West Europe), React/Vite built from `mockup-app/`, with
+>   **MSAL / Entra workforce sign-in** (staff-only). It calls the Data API over **plain REST**
+>   (`mockup-app/src/data/rest-client.ts`) — **no Power SDK, no connectors**.
+> - **Data API** — Function App **`cespk-api-dev`** (Node 20 / TypeScript Functions v4, source `api/`).
+>   Validates the **Entra JWT** (`jose`) and enforces app roles **`CollisionSpike.User` /
+>   `CollisionSpike.Admin`**. Connects to Postgres.
+> - **Orchestration** — Function App **`cespk-orch-dev`** (source `orchestration/`) — **built but ZERO
+>   functions deployed**, so **there is no live automated email intake yet** (the system is read-only +
+>   manual case-create only). Intended design: Microsoft **Graph delta-POLL** intake over
+>   **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent, no push subscription).
+> - **System-of-record DB** — Postgres Flexible **`cespk-pg-dev`** (v16), database `collisionspike`.
+> - **Retained from before, unchanged:** the **6 Python Functions** (parser `cespike-parser-dev`,
+>   enrichment, evasentry, evavalidation, ocr, box-webhook), the **Key Vaults**, Blob
+>   `cespkevidstdev01`, App Insights / Log Analytics.
+>
+> **Honest live gaps (state them, don't paper over):** (1) no automated email intake (orch undeployed);
+> (2) the **DB-credential / RLS P0 is resolved (2026-06-26)** — the API connects as the non-owner Postgres
+> login **`cespk_app`** (Key Vault-referenced password; **RLS enforced**), not `csadmin`; (3) the whole stack sits on an **Azure Free Trial** and
+> is **disabled at ~30 days** unless upgraded to Pay-As-You-Go; (4) staff **app-role assignment is
+> incomplete** (one principal assigned; others 403 until assigned); (5) durable auth error-handling +
+> audience-form hardening still in progress. Full live registry:
+> [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
+
+Read it before touching the SPA, the API, or the Functions. (Sections below that describe the **Code App**,
+**Dataverse**, **flows**, and **connectors** are **historical** unless they state a domain rule.)
 
 ## Environment (never guess)
 > Full ID/resource/flow/connection registry (verified live): [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
-- **Work env:** `Collision Engineers - Dev` (sandbox) — id `b3090c42-51fb-ee24-9868-474da322a3ad`,
-  url `https://collisionengineers-dev.crm11.dynamics.com`. **Never** use the **Default** env
-  (`858cf5b3-…`).
-- Azure: resource group `rg-collisionspike-dev` (UK South). Functions `cespike-parser-dev-x7xt3d5ovhi7y`
-  (parser), `cespkenrich-fn-gi62sd` (enrichment), and `cespkbox-fn-v76a47` (box-webhook — deployed
-  2026-06-22, **gated off / secret-free**: `BOX_API_ENABLED=false`, `BOX_ALLOWED_ROOT_ID=392761581105`).
-  Signed-in identity / intake mailbox: `digital@collisionengineers.co.uk`.
-- Code App id `da7ba7af-9ffc-4c70-8f75-1f053ca354da`; play URL under `apps.powerapps.com/play/e/<env>/app/<id>`.
+> The **live** environment is the Azure tier in the banner above (RG `rg-collisionspike-dev`, UK South).
+> The Azure resources below remain accurate; the **Dataverse / Code App** rows are **HISTORICAL** (the
+> Power Platform era — decommissioned, kept for reference).
+- Azure: resource group `rg-collisionspike-dev` (UK South), subscription `e6076573-23a5-46a8-acef-7e22d264e5db`
+  (**Azure Free Trial** — disabled at ~30 days unless upgraded to PAYG). Live Function Apps `cespk-api-dev`
+  (Data API), `cespk-orch-dev` (orchestration, built/undeployed); Postgres `cespk-pg-dev`; SWA
+  `cespk-spa-dev`. Retained Python Functions `cespike-parser-dev` (parser), `cespkenrich-fn-gi62sd`
+  (enrichment), and `cespkbox-fn-v76a47` (box-webhook — deployed 2026-06-22, **gated off / secret-free**:
+  `BOX_API_ENABLED=false`, `BOX_ALLOWED_ROOT_ID=392761581105`).
+- **[HISTORICAL — decommissioned]** Power Platform work env: `Collision Engineers - Dev` (sandbox), id
+  `b3090c42-51fb-ee24-9868-474da322a3ad`, url `https://collisionengineers-dev.crm11.dynamics.com`
+  (**Default** env `858cf5b3-…` was always off-limits). Code App id
+  `da7ba7af-9ffc-4c70-8f75-1f053ca354da` (play URL under `apps.powerapps.com/play/e/<env>/app/<id>`).
+  Intake mailbox `digital@collisionengineers.co.uk`.
 
 ## Binding reviews outrank everything older
 `docs/reviews/<DDMMYY>/` holds **manual user reviews** — the **authoritative requirements** for the
@@ -24,7 +65,10 @@ turning each `review.md` step into a tracked to-do, implementing it, and filling
 items plainly. Convention + method: [docs/reviews/README.md](./docs/reviews/README.md).
 
 ## HARD RULE — no engineering language in the app UI
-The Code App is used by **non-technical case handlers**. **Never** let implementation, cloud, process,
+The live app (the **SPA**, formerly the Code App) is used by **non-technical case handlers**. This rule is
+platform-agnostic and **still binding** — the new stack adds more banned terms (Azure, Postgres, MSAL,
+Entra, JWT, Function App, SWA), and the old ones (Dataverse, Power Automate, flow, connector, Key Vault)
+stay banned. **Never** let implementation, cloud, process,
 or meta/spec language reach a **user-facing string** (label, heading, eyebrow, subtitle, caption, hint,
 placeholder, button, MessageBar/Toast title+body, tooltip, empty state, validation message, badge,
 dropdown option). Write from the user's side, in plain **sentence-case active voice**: name things by
@@ -47,6 +91,14 @@ rule in the brief. (Origin: review 190626 R2 — brief/spec text was leaking ont
 "Automatic — derived from what the case holds", "operator-gated Blob-connector step".)
 
 ## Runtime truths (do not relearn the hard way)
+> **Banding (2026-06-26).** Items **1–5 and 7** are **HISTORICAL Power-Platform mechanics** (Code App CSP /
+> connectors, flow-trigger provisioning, the parser-connector base64 double-encode) — they bit the
+> **decommissioned** stack and no longer apply to the live Azure tier (the SPA calls the API over plain
+> REST; the parser Function is posted by the orchestration tier, not via a connector gateway). They are
+> kept verbatim as the historical record. Items **6 (no mock/seed data)** and **8 (`Loc` is an EVA-export
+> artifact)** are **domain invariants that remain LIVE** and bind the Azure stack unchanged. On the live
+> stack, the CSP analogue is **CORS on `cespk-api-dev` + the SWA origin**, and the base64 tolerance still
+> lives in the retained parser Function.
 1. **Code Apps enforce CSP `connect-src 'none'` by default.** A Code App must reach external services
    through a **Power Platform connector** (called via the `@microsoft/power-apps` SDK), **never** a raw
    `fetch()`/XHR to an arbitrary host (e.g. `*.azurewebsites.net`). A raw call fails with an instant
@@ -85,16 +137,20 @@ rule in the brief. (Origin: review 190626 R2 — brief/spec text was leaking ont
 
 ## Verify against reality — don't trust source or summaries
 Prior sessions shipped confident, wrong diagnoses. Always confirm live:
-- **Dataverse Web API:** `az account get-access-token --resource <org>/` →
-  `GET <org>/api/data/v9.2/workflows?$filter=category eq 5&$select=name,statecode` (flow on/off),
-  `…/cr1bd_cases` (rows).
-- **Flow Management API** (`--resource https://service.flow.microsoft.com/`):
-  `…/environments/<env>/flows/<id>/runs` and `/triggers` + `/triggers/<t>/histories` (a healthy webhook
-  trigger returns 200; **500 = unprovisioned subscription**).
-- **Azure CLI:** `az functionapp cors show`; `curl.exe -X OPTIONS … -H "Origin: https://apps.powerapps.com"`
-  to prove preflight/CORS.
-- **Chrome DevTools MCP:** load the deployed app, read console + network (asset 200/404, CSP violations).
+- **Live Azure tier:** `az functionapp show`/`az functionapp function list` on `cespk-api-dev` /
+  `cespk-orch-dev` (the orch app should show **zero functions** until intake is deployed);
+  `az staticwebapp show` on `cespk-spa-dev`; query Postgres `cespk-pg-dev` (db `collisionspike`) for row
+  state. Token/role checks: decode the Entra JWT and confirm `aud` = the API client-id GUID + the `roles`
+  claim (`CollisionSpike.User` / `.Admin`).
+- **Azure CLI / CORS:** `az functionapp cors show` on `cespk-api-dev`;
+  `curl.exe -X OPTIONS … -H "Origin: https://proud-sky-04e318b03.7.azurestaticapps.net"` to prove the
+  SPA→API preflight.
+- **Chrome DevTools MCP:** load the deployed SPA, read console + network (asset 200/404, 401/403 from the
+  API, CORS).
 - **Microsoft Learn MCP** for authoritative contracts before acting.
+- **[HISTORICAL — decommissioned Power Platform]** `Dataverse Web API` (`…/api/data/v9.2/workflows?$filter=category eq 5`
+  for flow on/off; `…/cr1bd_cases` for rows) and the **Flow Management API**
+  (`…/environments/<env>/flows/<id>/runs|triggers`) were the old verification surfaces — no longer live.
 
 ## Stack-specific tooling (use these, don't reinvent)
 Agents **should actively reach for these** before training knowledge or web search. Detailed runtime
@@ -105,26 +161,44 @@ memory files; this is the tool index.
 | --- | --- | --- |
 | **Microsoft Learn MCP** (`mslearn`) — gold-standard source of truth | `microsoft_docs_search` (breadth), `microsoft_code_sample_search` (official samples), `microsoft_docs_fetch` (full-page depth); skills `/microsoft-docs:microsoft-docs`, `microsoft-code-reference`, `microsoft-skill-creator` | **Consult FIRST** for any Power Platform / Power Automate / Dataverse / Azure / Power Apps question. Confirmed working in this env. Run `/microsoft-docs:microsoft-skill-creator` to capture a **hard problem you eventually solved** as a reusable skill. |
 | **Azure CLI + Azure MCP + `azure-*` skills** — all Azure work (Functions, Container Apps, Key Vault, storage, Monitor/App Insights, RBAC, deploy) | Azure MCP routers (`functionapp`/`functions`, `monitor`, `storage`, `keyvault`, `role`, `deploy`, `containerapps`, `bestpractices`…); `extension` tools generate/run `az`/`azd`/`func`/`azqr`; skills `azure-deploy`, `azure-functions`, `azure-storage`, `azure-rbac`, `entra-app-registration` | Prefer the MCP `extension` tools to generate commands; call **`bestpractices` before generating Azure code or deploying**. **Use PowerShell, not Git Bash**, for `az` with URL/resource-id args (MSYS mangles leading-slash args). `az role assignment` returns `MissingSubscription` here — grant roles via **ARM-template**, not the CLI. |
-| **Power Platform CLI `pac` + `code-apps-preview:*` skills** — drives the Code App | `pac code init`/`add-data-source`/`run`/`push`; skills `create-code-app`, `add-dataverse`, `add-sharepoint`, `add-office365`, `add-connector`, `deploy`, `list-connections` | **`code-app-architect` owns** the Code App shell + `pac code` deploy. **Build before push** (`npm run build`) and **hard-refresh** (player caches). `pac` still labels `code` **"(Preview)"** — confirm GA/licensing before production. |
-| **Chrome DevTools MCP + Vite/npm** — debug the deployed Code App in-browser | `chrome-devtools` MCP (navigate, snapshot, console, network, performance, lighthouse); skills `chrome-devtools`, `a11y-debugging`, `debug-optimize-lcp`, `troubleshooting`. (`model-apps` Playwright MCP is an alt browser path.) | Inspect the **live player** (console errors, failed network calls) when the app misbehaves. A blocked request in the network panel usually = the **CSP rule** (`connect-src 'none'`) — external calls must go through a **connector**, not raw `fetch`. There is **no "React CLI"**: the React app is built/served via **Vite/npm** and shipped with `pac code push`. |
+| **Vite/npm + SWA CLI/deploy** — build & ship the live SPA | `npm run build` (Vite) from `mockup-app/`; deploy the build to Static Web App `cespk-spa-dev`. **`code-app-architect` owns** the SPA shell. **Build before deploy** and **hard-refresh** (the SWA edge caches). The SPA calls the API over plain REST + MSAL — **no connectors**. | Live path. |
+| **[HISTORICAL] Power Platform CLI `pac` + `code-apps-preview:*` skills** — drove the **decommissioned** Code App | `pac code init`/`add-data-source`/`run`/`push`; skills `create-code-app`, `add-dataverse`, `add-office365`, `add-connector`, `deploy`, `list-connections` | **Reference only** — the Code App and its `pac code` deploy path are decommissioned; do not deploy via `pac`. |
+| **Chrome DevTools MCP + Vite/npm** — debug the deployed SPA in-browser | `chrome-devtools` MCP (navigate, snapshot, console, network, performance, lighthouse); skills `chrome-devtools`, `a11y-debugging`, `debug-optimize-lcp`, `troubleshooting`. (`model-apps` Playwright MCP is an alt browser path.) | Inspect the **live SPA** (console errors, failed network calls) when the app misbehaves. A blocked request usually = **CORS** on `cespk-api-dev` or a **401/403** from the API (missing token / unassigned app role) — not a connector. The React app is built/served via **Vite/npm** and shipped to the SWA. |
 
 **Other tools worth using**
 - **context7 MCP** — live library/SDK docs (React, Vite, Fluent UI, Power Platform SDKs); use for non-Microsoft library APIs where Learn MCP is thin.
 - **Project skills** — `/power-automate-flow` (copy-paste flow-definition JSON + @-expressions), `/eva-sentry-api` (Sentry v1.2 + 12-field contract), `/collision-engineers-design` (CE brand for any UI/asset), `/grill-with-docs` (stress-test a plan against the domain model before building).
 
 ## Agent roster & boundaries (project agents in `.claude/agents/`)
-- **azure-integration-engineer** — Functions (parser + DVSA/DVLA enrichment **direct via Entra
-  client_credentials**, no Google gateway; plus the Phase-7 box-webhook receiver + custom Box REST
-  connector), Key Vault, Entra, custom connectors, Document Intelligence, postcode.io/Azure Maps.
-- **power-automate-flow-builder** — cloud flows (intake, dedup, status machine, parser/enrichment calls,
-  EVA+Box finalize, chasers).
-- **eva-sentry-integration** — EVA Sentry REST v1.2, the 12-field JSON contract, photo-order/image rules.
-- **dataverse-data-architect** — the `CollisionSpike` solution: tables, relationships, provenance,
-  env-var gates, auditing, ALM.
-- **document-parser-engineer** — completes/integrates `cedocumentmapper_v2` (PyMuPDF is **licensed** —
-  never re-raise AGPL).
-- Reuse **code-app-architect** (code-apps-preview) for the Code App shell / `pac code` deploy. Do **not**
-  use `canvas-app-*` or `genpage-*` agents — this is a **Code App**.
+> **Live-stack mapping (2026-06-26).** The roster is kept intact, but the **platform** each agent targeted
+> has changed. The live stack is **Azure**: the **Data API** (`api/`, Node/TS Functions v4 on
+> `cespk-api-dev`), the **orchestration tier** (`orchestration/`, Durable-Functions / Graph-delta-poll
+> intake on `cespk-orch-dev`, **built but undeployed**), **Postgres** (`cespk-pg-dev`), and the
+> **SPA/MSAL** front end on Static Web App `cespk-spa-dev`. Agents whose surface was Power Platform are
+> **reference-only for the historical stack** (their **domain/contract** knowledge carries over to the new
+> code; the **platform mechanics** do not). Tagged below.
+- **azure-integration-engineer** — *(live, expanded)* Azure Functions (parser + DVSA/DVLA enrichment
+  **direct via Entra client_credentials**, no Google gateway; plus the box-webhook receiver), Key Vault,
+  **Entra app registrations / MSAL / JWT validation**, Document Intelligence, postcode.io/Azure Maps —
+  now also the home for the **`api/` Data API + `orchestration/` intake** and the **Postgres** wiring.
+- **power-automate-flow-builder** — **[HISTORICAL / reference-only]** authored the Power Automate cloud
+  flows (intake, dedup, status machine, parser/enrichment calls, EVA+Box finalize, chasers). The flows are
+  **decommissioned**; their **logic** (dedup ladder ADR-0010, the status machine, chaser policy) was
+  **re-implemented in the `api/` + `orchestration/` TypeScript Functions** — consult this agent for the
+  contract, not for deploying a flow.
+- **eva-sentry-integration** — *(live, unchanged domain)* EVA Sentry REST v1.2, the 12-field JSON
+  contract, photo-order/image rules — platform-agnostic, fully carried over.
+- **dataverse-data-architect** — **[HISTORICAL / reference-only]** owned the `CollisionSpike` Dataverse
+  solution (tables, relationships, provenance, env-var gates, auditing, ALM). Dataverse is
+  **decommissioned**; the **data model + invariants** (provenance, append-only audit, archive-not-delete
+  corpus, default-deny) moved to **Postgres `cespk-pg-dev`** (`migration/assets/schema/`) — consult this
+  agent for the model, not for Dataverse metadata.
+- **document-parser-engineer** — *(live, unchanged)* completes/integrates `cedocumentmapper_v2` (PyMuPDF
+  is **licensed** — never re-raise AGPL); the vendored engine still runs in the **retained parser
+  Function**.
+- Reuse **code-app-architect** (code-apps-preview) for the **SPA shell** (React/Vite + MSAL + the
+  `mockup-app/` component library). **[HISTORICAL]** its `pac code` deploy path is decommissioned — the SPA
+  now ships to Static Web App `cespk-spa-dev`. Do **not** use `canvas-app-*` or `genpage-*` agents.
 
 ### UI/UX design-lab agents (`docs/plans/phase-ux-design-lab/`)
 Explore many **throwaway HTML/React** UI directions, judge them, converge, then **port the winner to the
@@ -150,6 +224,8 @@ Fluent v9 Code App**. Each owns one slice and **defers the Code App shell / rout
   the winner's micro-interaction motion.
 
 ## Recommended guardrail hooks (see `.claude/settings.json`)
-- PreToolUse on `pac code push` → remind to `npm run build` first + hard-refresh.
-- PostToolUse on edits to `mockup-app/src/**` introducing `fetch(`/`azurewebsites.net` → remind to use a
-  connector (CSP rule above).
+- PreToolUse on the SPA deploy command → remind to `npm run build` first + hard-refresh.
+- **[HISTORICAL]** the old Power-Platform hooks — PreToolUse on `pac code push` (build-first reminder) and
+  PostToolUse on `mockup-app/src/**` `fetch(`/`azurewebsites.net` edits (use-a-connector / CSP reminder) —
+  no longer apply: the SPA calls the API over plain REST, so a `fetch` to the API is **expected**; the live
+  concern is **CORS on `cespk-api-dev` + the SWA origin** and attaching the **MSAL bearer token**.

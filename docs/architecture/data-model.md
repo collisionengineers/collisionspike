@@ -1,14 +1,40 @@
-# Data Model (Dataverse)
+# Data Model (Postgres)
 
-> **Target environment:** Sandbox `Collision Engineers - Dev` (`b3090c42-…`), not the default env (`858cf5b3-…`).
+> **System of record (LIVE):** **PostgreSQL Flexible Server `cespk-pg-dev` (v16), database
+> `collisionspike`** — **36 tables** (14 business + 22 `choice_*` lookup tables) in `rg-collisionspike-dev`
+> (UK South). DDL is [`migration/assets/schema/*.sql`](../../migration/assets/schema/). Seeded corpus:
+> `work_provider` 390, `repairer` 32, `image_source` 19, `inspection_address` 2209 (174 confirmed + 2035
+> suggested); `case_` 0. Registry: [live-environment.md](./live-environment.md).
+>
+> **Platform note:** this model was first built on **Microsoft Dataverse** (`cr1bd_*` tables/choicesets in
+> the `Collision Engineers - Dev` sandbox). That implementation has been **migrated to Postgres and
+> decommissioned** — only the **storage mechanism** changed; **the domain model, the 12-field EVA contract,
+> the EVA integer codes, the image rules, and the corpus are carried over intact**. Below, the original
+> `cr1bd_*` field names are retained in parentheses as the provenance of each Postgres column; the
+> migration mapping is in [`migration/20-data-and-schema-migration.md`](../../migration/20-data-and-schema-migration.md).
 
 Distilled from the real **CE Job Sheet** (`raw/…xlsm`), the provider/inspection-address corpus
 notes, and the case workflow. The job sheet's `Principals` and `Garages` sheets become governed
 corpus tables; the formula-driven `Jobs` sheet becomes the `Case` table. **Source records (with
-PII) live in `raw/` (gitignored) and seed Dataverse later.**
+PII) live in `raw/` (gitignored) and seed Postgres later.**
 
 > All adjacent-repo material is **reference/ideas, not canonical** — this model is the spike's own
 > working design, subject to confirmation (see the grill).
+
+## Storage shape — `cr1bd_*` → Postgres, and the `choice_*` lookup contract
+
+- **Tables/columns:** each Dataverse table became a Postgres table and each `cr1bd_*` column a
+  **snake_case** column (e.g. `cr1bd_case` → `case_` — `case` is a SQL reserved word; `cr1bd_boxfolderid`
+  → `box_folder_id`). The **Data API's contract package** (`@cs/domain`) maps domain **camelCase** keys ↔
+  these snake_case columns, so application code is unchanged by the platform move.
+- **Choicesets → `choice_*` lookup tables (the parity keystone).** Every Dataverse global choice set became
+  a **`choice_*` lookup table** `(code PK, name UNIQUE, label)`, and the Dataverse **option value (the
+  integer code) is copied VERBATIM** into `code`. These integers are a **hard contract** — EVA payload
+  codes, `mockup-app/src/contracts`, the deterministic classifier, and the Vitest parity test all key on
+  them, so they **must never be renumbered** (ADR-0019 / R4). Each business column (`*_code int`) carries a
+  FK to its `choice_*(code)`, reproducing the Dataverse "Choice attribute → global option set"
+  relationship. 22 lookup tables in total (e.g. `choice_case_status`, `choice_evidence_kind`,
+  `choice_audit_action`, `choice_field_provenance_source_type`). Source: `000_enums_lookups.sql`.
 
 ## Tables
 
@@ -40,15 +66,14 @@ The live work item (replaces the `Jobs` sheet — 31 cols × ~226 rows of formul
 - Overview-only (imported when present, **must not drive workflow/readiness/matching**):
   insuredName, claimantName, thirdPartyName, claimNumber, policyReference, incidentDate, claimType,
   insurerName, repairerName.
-- **Box one-way-mirror fields (Phase 7, ADR-0012 — APPLIED LIVE 2026-06-22, `25-box-schema.ps1` adds 9
-  case columns):** `boxFolderId` (`cr1bd_boxfolderid`), `boxFolderUrl` (`cr1bd_boxfolderurl`),
-  `boxFileRequestId` (`cr1bd_boxfilerequestid`), `boxFileRequestUrl` (`cr1bd_boxfilerequesturl`,
-  `format:Url`), `boxSyncedAt` (`cr1bd_boxsyncedat`, **declared in `case.json`** — stamped by
-  `finalize-eva-box` at `box_synced`), and `sourceMailbox` (`cr1bd_sourcemailbox`). **Written Dataverse →
-  Box only**; the Code App *reads* them (e.g. to mint an "Open in Box" deep link) but case **logic never
-  runs off them** — see the Box rule below. Plus the finalize submit-signal columns `submitRequested`/
-  `submitPayloadHash`/`evaPayload12` and the `finalizedPayloadHash` idempotency latch (declared to close
-  pre-existing flow drift).
+- **Box one-way-mirror fields (Phase 7, ADR-0012 — now columns on `case_` in `050_case.sql`):**
+  `boxFolderId` (`box_folder_id` / `cr1bd_boxfolderid`), `boxFolderUrl` (`box_folder_url`),
+  `boxFileRequestId` (`box_file_request_id`), `boxFileRequestUrl` (`box_file_request_url`, `format:Url`),
+  `boxSyncedAt` (`box_synced_at` — stamped by the finalize step at `box_synced`), and `sourceMailbox`
+  (`source_mailbox`). **Written system-of-record → Box only**; the SPA *reads* them (e.g. to mint an
+  "Open in Box" deep link) but case **logic never runs off them** — see the Box rule below. Plus the
+  finalize submit-signal columns `submit_requested` / `submit_payload_hash` / `eva_payload12` and the
+  `finalized_payload_hash` idempotency latch.
 
 ### WorkProvider  (from `Principals` sheet, 58 rows)
 Governed corpus record. Job-sheet columns map directly:
@@ -98,10 +123,11 @@ An **audit case** (`Case.caseType = audit`, `cr1bd_casetype`; ADR-0014 — a sec
 inspection auditing a **third-party** engineer's original report, marked by an `A.` Case/PO prefix)
 carries that original as an **`engineer_report`** Evidence — stored for comparison, **never overlaid**
 (distinct from the engineer-report overlay, which merges CE's own CNX/EVA report).
-**Box mirror columns (Phase 7, ADR-0012 — applied live):** `boxFileId` (`cr1bd_boxfileid`) and
-`boxFileUrl` (`cr1bd_boxfileurl`). `cr1bd_boxfileid` is a **correlation/UI mirror** the webhook writes on
-accept — it is **not** the dedup key: durable dedup is the Evidence-existence check on the `box:file:<id>`
-tag in **`cr1bd_sourcemessageid`** (see the Box mirror rule below).
+**Box mirror columns (Phase 7, ADR-0012 — columns on `evidence` in `060_evidence.sql`):** `boxFileId`
+(`box_file_id` / `cr1bd_boxfileid`) and `boxFileUrl` (`box_file_url`). `box_file_id` is a **correlation/UI
+mirror** the `box-webhook` Function writes on accept — it is **not** the dedup key: durable dedup is the
+Evidence-existence check on the `box:file:<id>` tag in **`source_message_id`** (see the Box mirror rule
+below).
 
 ### AuditEvent & ImprovementSignal
 - `AuditEvent`: actor, action, severity, before/after, timestamp — every corpus/case change.
@@ -151,22 +177,24 @@ exists at parse-confirm, the **UPPERCASE Box folder is minted then** (`box-folde
 "user enters the Case/PO at EVA submit; Box upload happens in unison" model.) Future Box-folder sequence
 discovery (highest existing number + 1) is deferred.
 
-## Box mirror rule (Phase 7, ADR-0012) — one-way, Dataverse-authoritative
-Box is an **additive content + intake + archival mirror**, written **one-way (Dataverse → Box)**. **Box
-Metadata has no joins**, so **dedup (ADR-0010), the status machine, and Case/PO sequencing NEVER run off
-Box** — they run off Dataverse only. The webhook receiver Function may *write* an Evidence row from an
-upload (the byte store stays Azure Blob), stamping `cr1bd_boxfileid` (a correlation/UI mirror, **not** the
-dedup key) + `cr1bd_acceptedforeva=true`; durable dedup is the Evidence-existence check on the
-`box:file:<id>` tag in **`cr1bd_sourcemessageid`**. The receiver processes this fan-out **on the request
-path** and returns 200 when settled (or a non-2xx so Box retries), then re-invokes the idempotent
-`CS Status Evaluate`; case **logic** is never queried off Box. The Box columns above are the mirror's
-footprint on the Case table.
+## Box mirror rule (Phase 7, ADR-0012) — one-way, system-of-record-authoritative
+Box is an **additive content + intake + archival mirror**, written **one-way (system of record → Box)** —
+the system of record is now **Postgres** (was Dataverse). **Box Metadata has no joins**, so **dedup
+(ADR-0010), the status machine, and Case/PO sequencing NEVER run off Box** — they run off the system of
+record only. The **`box-webhook` Function (retained, gated)** may *write* an Evidence row from an upload
+(the byte store stays Azure Blob), stamping `box_file_id` (`cr1bd_boxfileid` — a correlation/UI mirror,
+**not** the dedup key) + `accepted_for_eva=true`; durable dedup is the Evidence-existence check on the
+`box:file:<id>` tag in **`source_message_id`** (`cr1bd_sourcemessageid`). The receiver processes this
+fan-out **on the request path** and returns 200 when settled (or a non-2xx so Box retries), then re-invokes
+the idempotent status-evaluate step; case **logic** is never queried off Box. The Box columns above are the
+mirror's footprint on the Case table.
 
-- **Gates (owned here as schema; read everywhere else):** 5 Boolean `cr1bd_BOX_*` env-vars
+- **Gates (owned here as schema; read everywhere else):** 5 Boolean `BOX_*` gates
   (`BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`, `BOX_FILEREQUEST_ENABLED`, `BOX_EMBED_ENABLED`
   reserved, `BOX_METADATA_ENABLED` deferred) + 2 String config vars (`BOX_FOLDER_ROOT_ID`,
-  `BOX_FILE_REQUEST_TEMPLATE_ID`) — all default OFF/empty in `environment-variables.json`. Flows and the
-  Code App **read** these; none re-defines them.
+  `BOX_FILE_REQUEST_TEMPLATE_ID`) — all default OFF/empty. **Now Function-App / API app-settings** the Data
+  API + orchestration **read** (they were `cr1bd_BOX_*` Dataverse environment variables in the prior
+  build); none re-defines them.
 - **Audit:** 3 append-only `cr1bd_auditaction` options — `box_folder_created` (100000019),
   `box_file_request_copied` (100000020), `box_upload_received` (100000021).
 - **Status:** unchanged — `box_synced` (100000009) already exists in `case-status`; Phase 7 adds no new

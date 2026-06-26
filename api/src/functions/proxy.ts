@@ -45,8 +45,13 @@ app.http('parserParse', {
     if (!gates.pdfMapper()) {
       return { status: 200, jsonBody: { skipped: true } };
     }
-    const body = await req.json();
-    const result = await callParser(body);
-    return { status: 200, jsonBody: result };
+    try {
+      const body = await req.json();
+      const result = await callParser(body);
+      return { status: 200, jsonBody: result };
+    } catch {
+      // Parser proxy failure degrades honestly (mirrors locationAssistSuggest) instead of 500-ing.
+      return { status: 200, jsonBody: { skipped: true, error: true } };
+    }
   }),
 });

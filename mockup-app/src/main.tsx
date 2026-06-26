@@ -29,9 +29,9 @@ import {
   MsalProvider,
   AuthenticatedTemplate,
   UnauthenticatedTemplate,
-  useMsal,
+  useMsalAuthentication,
 } from '@azure/msal-react';
-import { EventType } from '@azure/msal-browser';
+import { EventType, InteractionType } from '@azure/msal-browser';
 import {
   msalInstance,
   acquireApiToken,
@@ -144,13 +144,18 @@ configureBoxTransports({
    ============================================================ */
 
 function SignInGate({ children }: { children: React.ReactNode }) {
-  const { instance } = useMsal();
+  // Staff-only: trigger a redirect sign-in via the idiomatic hook. It fires
+  // loginRedirect ONLY when no MSAL interaction is in progress and there is no
+  // account — which guards against the interaction_in_progress double-fire that a
+  // render-time loginRedirect caused (the sign-in redirect loop).
+  useMsalAuthentication(InteractionType.Redirect, { scopes: API_SCOPES });
   return (
     <>
       <AuthenticatedTemplate>{children}</AuthenticatedTemplate>
       <UnauthenticatedTemplate>
-        {/* Staff-only: redirect straight to sign-in, no anonymous access. */}
-        {void instance.loginRedirect({ scopes: API_SCOPES })}
+        <div style={{ padding: 24, fontFamily: 'Segoe UI, system-ui, sans-serif' }}>
+          Signing you in…
+        </div>
       </UnauthenticatedTemplate>
     </>
   );
@@ -166,6 +171,11 @@ if (!rootEl) throw new Error('Root element #root not found');
 // MSAL v3 requires initialize() to resolve before any use; bootstrap async, then render.
 void (async () => {
   await msalInstance.initialize();
+  // REQUIRED in redirect flow: consume the auth code Entra returns in the URL hash
+  // BEFORE rendering. Without this the response is never processed, so the gate sees
+  // "no account" and redirects again → the sign-in loop. (Fires LOGIN_SUCCESS, which
+  // the callback above turns into setActiveAccount.)
+  await msalInstance.handleRedirectPromise();
   const existing = msalInstance.getAllAccounts();
   if (existing.length) msalInstance.setActiveAccount(existing[0]);
 

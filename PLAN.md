@@ -1,9 +1,21 @@
-# Plan: `collisionspike` — fast Power Platform spike of Collision Engineers admin workflow
+# Plan: `collisionspike` — Collision Engineers case-intake spike (Power Platform origin → live Azure PaaS)
+
+> **Platform note (2026-06-26).** This spike was **first built on Power Platform** (Power Apps Code App +
+> Dataverse + ~16 Power Automate flows + custom connectors) and has since been **migrated to an Azure PaaS
+> stack** — a **Static Web App** SPA, a **Function-App data API** (`cespk-api-dev`), an **orchestration
+> Function App** (`cespk-orch-dev`), a **Postgres Flexible Server** system of record (`cespk-pg-dev`), and
+> the **retained Python Functions**. The Power Platform implementation is **decommissioned**. This document
+> is the original **narrative** plan; its **domain content is unchanged** (it is the source for the EVA
+> 12-field contract, image rules, the provider corpus, the Case/PO format, and the intake→enrich→EVA+Box
+> pipeline), but its **platform mechanism is historical** — read "Dataverse / Power Automate / Code App" as
+> the migrated Azure equivalents (Postgres / orchestration Function / Static Web App). See
+> [migration/](./migration/) for the executed migration and [CURRENT_STATUS.md](./CURRENT_STATUS.md) for live state.
 
 > **Phase taxonomy:** the canonical phase numbering is **ROADMAP's Phase 0–6** ([ROADMAP.md](./ROADMAP.md));
 > what is live is in [CURRENT_STATUS.md](./CURRENT_STATUS.md) and operator-gated items in
-> [docs/gated.md](./docs/gated.md). This is the original **narrative** plan — the workstreams below keep
-> their original build order and are labelled with their canonical ROADMAP phase.
+> [docs/gated.md](./docs/gated.md). The workstreams below keep their original build order and are labelled
+> with their canonical ROADMAP phase. The **forward Azure migration-remediation backlog** lives in
+> ROADMAP's *Now / Next / Later* and in [OPEN_ITEMS.md](./OPEN_ITEMS.md), not here.
 
 ## Context
 
@@ -20,12 +32,20 @@ EVA Sentry-API submission. **This repo (`collisionspike`) is explicitly position
 fast spike of that same product** — a rapid prototype to validate the workflow and UX cheaply
 using Power Platform low-code building blocks, while the GCP build matures in parallel.
 
-The goal of this plan: stand up `collisionspike` as a **Power Apps Code App (React/Vite)** on
+The **original** goal of this plan: stand up `collisionspike` as a **Power Apps Code App (React/Vite)** on
 Power Platform that prototypes the core intake→enrich→EVA workflow, **reusing collisioncc's
 proven contracts** (EVA payload, case-status, image-roles) so findings transfer to the mature
 build. Two adjacent deliverables are folded in: rebuilding `cedocumentmapper` as a clean
 `cedocumentmapper_v2.0` Python CLI, and gating the EVA integration (JSON-export now, Sentry API
 later).
+
+> **As migrated (2026-06-26).** The React/Vite front end was **preserved** and now runs as the
+> **`cespk-spa-dev` Static Web App** with **MSAL / Entra workforce sign-in**, calling the **`cespk-api-dev`
+> Function-App data API** over REST (`mockup-app/src/data/rest-client.ts`) — **no Power SDK**. The case
+> store moved from Dataverse to **Postgres Flexible Server** (`cespk-pg-dev`). The intake→enrich→EVA
+> workflow, the reused collisioncc contracts, and the `cedocumentmapper_v2.0` parser are **all unchanged**;
+> only the hosting/data mechanism changed. The forward work is the migration-remediation backlog
+> (ROADMAP *Now / Next / Later* + [OPEN_ITEMS.md](./OPEN_ITEMS.md)).
 
 ## Repository constellation (what exists, confirmed by exploration)
 
@@ -39,9 +59,13 @@ later).
 
 ## Locked decisions (from clarification)
 
-- **Front end:** Power Apps **Code App (React/Vite)** — built via `code-apps-preview` skills.
-- **Case store:** Reference the existing **SharePoint** job sheet; **mirror it into Dataverse**
-  as the spike's working store (start read-only import; SharePoint remains source of record).
+- **Front end:** _(origin)_ Power Apps **Code App (React/Vite)** — built via `code-apps-preview` skills.
+  _**As migrated:** the same React/Vite app is preserved and served as the **`cespk-spa-dev` Static Web App**
+  with **MSAL / Entra workforce sign-in** (staff-only), calling the data API over REST — no Power SDK._
+- **Case store:** _(origin)_ Reference the existing **SharePoint** job sheet; **mirror it into Dataverse**
+  as the spike's working store (start read-only import; SharePoint remains source of record). _**As migrated:**
+  the working store is **Postgres Flexible Server** (`cespk-pg-dev`, db `collisionspike`, 36 tables),
+  authoritative system of record; the SharePoint job sheet remains the historical business reference._
 - **`collisioncc` = reference / information / context guide only** (CONFIRMED). The spike does
   **not** call collisioncc at runtime; it is a **reference** (not canonical) for the domain model,
   EVA payload, case-status, image-rules, and provider knowledge — the spike's own `docs/` +
@@ -63,7 +87,50 @@ later).
   total-loss/disputed value): comparable search + evidence PDF attached as Evidence, gated
   `VALUATION_ENABLED`; same REST-wrapper pattern as DVSA.
 
-## Recommended architecture (the spike)
+## Recommended architecture
+
+### Live — Azure PaaS stack (as migrated, 2026-06-26)
+
+```
+ Outlook (3 shared inboxes) ──┐  Microsoft Graph DELTA-POLL intake (Exchange-RBAC-scoped mailboxes)
+ WhatsApp / Audatex (later) ──┤  Function App  cespk-orch-dev  [BUILT — zero functions deployed yet]
+                              ▼
+              Postgres Flexible  cespk-pg-dev  (case_, evidence, work_provider, inspection_address, audit…)
+                              ▲
+        Function-App data API  cespk-api-dev  (Node/TS; Entra-JWT + app roles User/Admin → Postgres)
+                              ▲  REST  (mockup-app/src/data/rest-client.ts)
+        Static Web App  cespk-spa-dev  (React/Vite; MSAL/Entra workforce sign-in) ── the spike UI
+                              │  HTTP (retained Python Functions + Key Vault)
+        ┌─────────────────────┼───────────────────────────────┐
+        ▼                     ▼                                ▼
+  ocr Function     enrichment Function                 parser Function (cespike-parser-dev)
+  (scanned PDFs)   DVSA/DVLA direct via Entra          (cedocumentmapper_v2.0 engine, vendored)
+                              │                         evasentry / evavalidation / box-webhook Functions
+                              ▼
+                     EVA: JSON export now │ Sentry REST when flag ON       Box: one-way mirror archive
+```
+
+> **Auth + intake model (corrects the old "Graph Mail.Read needs Global-Admin consent" assumption).**
+> Staff reach the SPA via **MSAL / Entra workforce sign-in**; the API validates the Entra JWT and the two
+> app roles **CollisionSpike.User / CollisionSpike.Admin** (which map the old 2 Dataverse roles).
+> **Automated intake** uses **Exchange RBAC for Applications**: an **Exchange Administrator** grants the
+> intake app **resource-scoped** Graph mailbox roles (`New-ServicePrincipal` / `New-ManagementScope` /
+> `New-ManagementRoleAssignment`) on the 3 inboxes — **no Global-Admin tenant consent, no push subscription**
+> — and intake **polls** (delta query). Orchestration is **built but not yet deployed**, so live automated
+> intake is **pending** (today: read-only + manual case-create).
+
+**Where logic lives (live):** the typed TS domain modules + contracts run in the SPA and the `cespk-api-dev`
+data API; **Postgres** holds relational integrity + audit (with RLS to be enforced once the **P0 DB-security
+remediation** lands — see the migration backlog); the **retained Python Functions** carry parsing /
+enrichment / EVA / OCR / Box; integrations are gated by **Key-Vault-backed app-settings** rather than
+Dataverse environment variables. The whole stack sits in `rg-collisionspike-dev` (uksouth) on an **Azure
+Free Trial** subscription — **upgrade to Pay-As-You-Go before the ~30-day cutoff** or it is disabled.
+
+### Historical — Power Platform spike architecture (decommissioned)
+
+> Retained for reference: the original low-code topology, migrated to the Azure stack above. The domain
+> shape (Case / Evidence / Provider / AuditEvent, the connector seam, the EVA/Box handoff) carried over;
+> the mechanism (Power Automate / Dataverse / Code App / Dataverse env-vars) did not.
 
 ```
  Outlook (3 shared inboxes) ──┐
@@ -85,15 +152,25 @@ later).
                      EVA: JSON export now │ Sentry API when flag ON
 ```
 
-**Why a Code App (not Canvas/model-driven):** chosen by the user, and it lets the spike **share
+**Why a Code App (not Canvas/model-driven):** chosen by the user, and it let the spike **share
 React/TypeScript domain code and contracts with `collisioncc`** (case-status, EVA payload,
-image-roles) rather than reinventing them in Power Fx — maximising transfer to the mature build.
+image-roles) rather than reinventing them in Power Fx. _That same React/TypeScript investment is exactly
+what made the later lift to a Static Web App + REST data API cheap — the domain code was preserved verbatim._
 
-**Where logic lives:** keep heavy/business logic in typed TS modules in the Code App and in
-Power Automate flows; use Dataverse for relational integrity/audit; gate integrations with
+**Where logic lived:** heavy/business logic in typed TS modules in the Code App and in
+Power Automate flows; Dataverse for relational integrity/audit; integrations gated with
 **Dataverse environment variables** (solution-packaged, per-environment, no redeploy).
 
 ## Workstreams (phased)
+
+> **HISTORICAL — Power Platform build narrative (decommissioned; preserved for domain reference).** The
+> phased workstreams below describe the **original** low-code build order. They remain the most complete
+> record of the **domain decisions** — the M1 vertical slice, the parser/EVA/enrichment/image/Box rules, the
+> inspection-address policy — every one of which **carried over to the Azure stack unchanged**. Read the
+> platform verbs as their migrated equivalents (Code App → Static Web App + data API; Dataverse → Postgres;
+> Power Automate flow → orchestration Function; `add-*` Code App skills → the migrated wiring). The **forward
+> Azure work** is in ROADMAP *Now / Next / Later* + [OPEN_ITEMS.md](./OPEN_ITEMS.md); it does not re-derive
+> the domain, it re-homes it.
 
 > **First milestone — M1 vertical slice (decided).** ONE mailbox → VRM-correlated Case →
 > deterministic readiness checklist + Missing → manual Case/PO + drag-drop EVA JSON export. Minimal
@@ -228,28 +305,47 @@ the cloud path**. So the original "Outstanding: review UI / packaging / CI" list
 ## Open questions to confirm at review
 1. ~~**`collisioncc` integration depth.**~~ **RESOLVED:** collisioncc is reference/context only;
    the spike re-implements its contracts and does not call it at runtime.
-2. ~~**Environment/licensing:**~~ **RESOLVED:** the **Collision Engineers - Dev** Sandbox (Power
-   Platform env `b3090c42-…`, solution `CollisionSpike`/`cr1bd`, Code App `da7ba7af-…` deployed) and
-   Azure subscription `e6076573-…` (resource group `rg-collisionspike-dev`, UK South — parser,
-   enrichment, address-match, OCR, EVA, EVA-validation and box-webhook Function apps deployed) are
-   provisioned. AI Builder / premium capacity for the later image-classification phases is the only
-   part still to confirm.
-3. ~~**Scope of first milestone.**~~ **RESOLVED (2026-06-18):** Email intake is **LIVE** — the
-   `CS Intake` flow is ON (rebuilt `OnNewEmailV3` trigger on the connected `digital@` mailbox);
-   Provider Match + Case Resolve flows are ON; downstream flows (image AI, enrichment, EVA, Box)
-   remain OFF. Code App, parser Function, enrichment Function, Dataverse schema, and the cloud flows
-   are deployed (10 core flows at the 2026-06-18 resolution; the repo now declares 15 flow
-   definitions including the Phase-7 Box flows — see CURRENT_STATUS.md). OCR / image AI / valuation /
-   EVA cutover are the remaining fast-follows.
+2. ~~**Environment/licensing:**~~ **RESOLVED, then MIGRATED:** the spike originally ran in the
+   **Collision Engineers - Dev** Power Platform Sandbox (env `b3090c42-…`, solution `CollisionSpike`/`cr1bd`,
+   Code App `da7ba7af-…`). It has since been **migrated to the Azure PaaS stack** in subscription
+   `e6076573-…` (resource group `rg-collisionspike-dev`, **uksouth**): Static Web App `cespk-spa-dev`, data
+   API `cespk-api-dev`, orchestration `cespk-orch-dev`, Postgres `cespk-pg-dev`, plus the retained parser /
+   enrichment / evasentry / evavalidation / ocr / box-webhook Functions, Key Vaults, and Blob
+   `cespkevidstdev01`. **Licensing caveat (now the dominant constraint):** the subscription is an **Azure
+   Free Trial** (quotaId `FreeTrial_2014-09-01`) — **the whole stack is disabled at the ~30-day mark unless
+   upgraded to Pay-As-You-Go** (the 12-month free Postgres allowance survives the upgrade). The Power
+   Platform tenant/licensing question is moot post-migration.
+3. ~~**Scope of first milestone.**~~ **RESOLVED, then SUPERSEDED by the migration:** in the Power-Platform
+   era email intake reached **live** — the `CS Intake` flow ran an `OnNewEmailV3` trigger on the connected
+   `digital@` mailbox, with Provider Match + Case Resolve ON. That low-code intake was **decommissioned**
+   with the platform. **On the Azure stack, live automated intake is currently PENDING:** the orchestration
+   Function App `cespk-orch-dev` is **built but has zero functions deployed**, so today the system is
+   **read-only + manual case-create only** (`case_ = 0`). The remaining work to re-light intake is
+   deploying the Graph **delta-poll** orchestration + the **Exchange-RBAC** mailbox scoping on the 3 inboxes
+   (ROADMAP *Now*). The parser, enrichment, OCR, EVA, and Box Functions were retained through the migration.
 
 ## Verification
-- **Code App:** `code-apps-preview:deploy` to the Power Platform environment; load the app, run a
-  sample email through the intake flow, confirm a `Case` appears in Dataverse with correct status
-  and the SharePoint mirror dashboard reflects "ready/missing".
-- **Image AI:** upload a known overview+damage set; assert AI Builder classification and
-  image-rules validation (≥2 images, plate visible) match expectations.
-- **EVA gating:** with `EVA_API_ENABLED=false`, confirm JSON export matches
-  `Final Format Example 02.json`; flip the flag in a test environment and confirm the Sentry
-  call path (mock endpoint) without redeploying.
-- **`cedocumentmapper_v2.0`:** `pytest` over fixture documents; CLI `extract` on a real provider
-  PDF produces JSON byte-compatible with the v1 EVA contract for the same input.
+
+_Re-homed onto the Azure stack; the domain assertions (status machine, image rules, EVA JSON shape, parser
+byte-parity) are unchanged from the Power-Platform era._
+
+- **SPA + data API (was "Code App"):** sign in to the **`cespk-spa-dev`** Static Web App with an Entra
+  account holding **CollisionSpike.User/Admin**; confirm the SPA fetches over REST
+  (`mockup-app/src/data/rest-client.ts`) from **`cespk-api-dev`**, which validates the JWT + app role and
+  reads **Postgres** (`cespk-pg-dev`). With no live intake yet, the case list is correctly **empty**
+  (`case_ = 0`); exercise the **manual case-create** path and confirm the row + correct status in Postgres.
+  _Once orchestration + Exchange-RBAC intake are deployed, re-run with a sample email and confirm a `Case`
+  appears with the right status._
+- **Image AI:** upload a known overview+damage set; assert classification + **image-rules** validation
+  (≥2 images, plate visible, one damage closeup) match expectations. _(Image-classification AI itself is a
+  later phase; the rule engine runs now.)_
+- **EVA gating:** confirm the JSON export matches `Final Format Example 02.json` (the 12-field contract);
+  the Sentry call path is exercised via the **retained `evasentry` Function** behind its Key-Vault-backed
+  enable flag against the EVA **test** env (no redeploy) — gated pending the Minotaur one-principal-code patch.
+- **`cedocumentmapper_v2.0`:** `pytest` over fixture documents; the engine (vendored into the retained
+  **parser Function**, `cespike-parser-dev`) produces JSON byte-compatible with the v1 EVA contract for the
+  same input — enforced by the vendored-engine drift guard.
+- **Migration parity + remediation:** run the migration parity harness (see [migration/](./migration/)) to
+  confirm the Postgres seed matches the prior Dataverse corpus (work_provider 390 / repairer 32 /
+  image_source 19 / inspection_address 2209); and track the **P0 DB-security remediation**, the
+  **Free-Trial→PAYG** upgrade, and **staff app-role assignment** to closure (ROADMAP *Now / Next*).

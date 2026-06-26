@@ -5,6 +5,32 @@ explicit auth and the connectors carry the credentials. Off Power Platform we ad
 sign-in via MSAL** in the SPA and **JWT validation** in the API. Staff-only — **no External ID** (D8).
 **Phase P1 (app registrations) + P5 (wiring).**
 
+> **AMENDMENT (2026-06-26) — supersedes the Graph-daemon consent model + records two live lessons.**
+> Three corrections from live build/verification, in **precedence over the body below**:
+> 1. **Intake identity is authorised via [Exchange RBAC for Applications], NOT an Entra `Mail.Read`
+>    consent.** The Graph `Mail.Read` *application* permission is grantable only by Global Administrator /
+>    Privileged Role Administrator, and the tenant's only GA is unavailable to us — a hard blocker.
+>    Instead an **Exchange Administrator** grants the intake app **resource-scoped** Graph mailbox roles in
+>    Exchange Online (`New-ServicePrincipal` + `New-ManagementScope` + `New-ManagementRoleAssignment`),
+>    **independent of Entra consent — no GA**. **Verified live 2026-06-26**
+>    (`Test-ServicePrincipalAuthorization` → `InScope: True`). The intake app therefore holds **no Entra
+>    Graph permission**, and intake **polls** (delta query) rather than subscribing (which kills the
+>    `<7-day` renewal loop, Risk R5). See [`02`](./02-decisions-and-open-questions.md) +
+>    [`22`](./22-orchestration-migration.md) + memory `exchange-rbac-unblocks-graph-intake`.
+> 2. **Token audience = the API's client-id GUID, not `api://<appId>`.** The Data API reg sets
+>    `requestedAccessTokenVersion=2`, so v2 access tokens carry `aud = <API client-id GUID>` (Microsoft
+>    Learn — *Access token claims reference*: "in v2.0 tokens this value is always the client ID of the
+>    API"). Validating against `api://<appId>` rejects **every** real token; and because that rejection
+>    was not an auth-typed error it fell through to a generic **500** — the live "every page →
+>    `500 {error:internal}`" fault. Fixed live (app-setting `API_AUDIENCE` = the bare GUID); the API
+>    should additionally **accept both forms** and **map JWT failures to 401** (not 500).
+> 3. **`SignInGate` must NOT call `loginRedirect` during render.** The sample further down does; that
+>    double-fires `interaction_in_progress` → an Entra redirect loop ("we couldn't sign you in"). The live
+>    fix uses the idiomatic `useMsalAuthentication(InteractionType.Redirect, …)` hook **plus** a
+>    `handleRedirectPromise()` in bootstrap **before first render** (see `mockup-app/src/main.tsx`).
+>
+> [Exchange RBAC for Applications]: https://learn.microsoft.com/exchange/permissions-exo/application-rbac
+
 All three app registrations live in the **same workforce tenant** that owns `rg-collisionspike-dev`
 ("Accounts in this organizational directory only" — single-tenant). Verified on Microsoft Learn
 (*Single-page application: Code configuration* — record the Application (client) ID + Directory
@@ -15,7 +41,7 @@ All three app registrations live in the **same workforce tenant** that owns `rg-
 |---|---|---|
 | **SPA** (`cespk-spa`) | Single-page app (Auth Code + PKCE) | Staff sign-in; redirect = the SWA URL; requests the API scope |
 | **Data API** (`cespk-api`) | Web/API (protected resource) | Exposes scope `access_as_user`; defines **app roles** `CollisionSpike.User` / `CollisionSpike.Admin`; validates tokens |
-| **Graph daemon** (`cespk-graph-intake`) | Confidential client (app-only) | Holds `Mail.Read` **application** permission for the shared-mailbox subscription ([`22`](./22-orchestration-migration.md)); **admin consent required (operator step)** |
+| **Graph daemon** (`cespk-graph-intake`) | Confidential client (app-only) | App-only Graph against the intake mailboxes, **authorised via Exchange RBAC for Applications** (an Exchange Admin grants resource-scoped mailbox roles — see the amendment), **not** an Entra `Mail.Read` consent; **polls** (delta query), no subscription ([`22`](./22-orchestration-migration.md)) |
 
 ### Why three (not one)
 Separating the SPA (public client) from the API (protected resource) is the standard delegated-flow
@@ -46,15 +72,20 @@ SPA_APPID=$(az ad app create --display-name cespk-spa \
   --query appId -o tsv)
 #  add a delegated permission to api://$API_APPID/access_as_user and grant admin consent.
 
-# 3) Graph daemon (app-only) — Mail.Read APPLICATION permission, admin consent (operator)
+# 3) Graph daemon (app-only) — NO Entra Graph permission; mailbox access via Exchange RBAC (no GA)
 GRAPH_APPID=$(az ad app create --display-name cespk-graph-intake --sign-in-audience AzureADMyOrg --query appId -o tsv)
-#  add Microsoft Graph application permission Mail.Read (id 810c84a8-...), then:
-#  az ad app permission admin-consent --id $GRAPH_APPID   ← operator/Global-Admin step (docs/gated.md)
+#  Do NOT add a Microsoft Graph Mail.Read APPLICATION permission (that would need Global-Admin consent).
+#  Instead an EXCHANGE ADMINISTRATOR scopes the mailboxes in Exchange Online PowerShell (no GA):
+#    New-ServicePrincipal      -AppId $GRAPH_APPID -ObjectId <sp-object-id>
+#    New-ManagementScope       -Name CS-Intake -RecipientRestrictionFilter "MemberOfGroup -eq '<intake-group-DN>'"
+#    New-ManagementRoleAssignment -App $GRAPH_APPID -Role 'Application Mail.ReadWrite' -CustomResourceScope CS-Intake
+#  Verify: Test-ServicePrincipalAuthorization -Identity $GRAPH_APPID -Resource <mailbox>  → InScope=True.
 ```
 > The `--spa-redirect-uris` flag is what puts the redirect URI in the **SPA platform** tile (the `spa`
 > type), which is the PKCE+CORS path MSAL.js v2 requires — not the legacy **Web** tile. `localhost:5173`
-> is added for local dev. The Graph daemon's secret/cert and `Mail.Read` admin consent are **operator
-> blockers** — record them in [`docs/gated.md` equivalent] alongside the existing Power-Platform gates.
+> is added for local dev. The Graph daemon's **secret/cert** and the **Exchange-RBAC mailbox grant** (an
+> Exchange Administrator, NOT Global Admin — see the amendment) are the **operator blockers** for intake —
+> record them in [`docs/gated.md`](../docs/gated.md).
 
 ## SPA side (MSAL)
 
@@ -165,8 +196,10 @@ from `staticwebapp.config.json`.
 
 ## API side (validation + authz)
 The API ([`21`](./21-backend-api-build.md)) validates the Entra JWT on **every** request:
-- **issuer** = `https://login.microsoftonline.com/<tenantId>/v2.0`; **audience** = the Data API app
-  (`api://<API_APPID>` or its client id); **signature** via the tenant JWKS
+- **issuer** = `https://login.microsoftonline.com/<tenantId>/v2.0`; **audience** = the Data API app's
+  **client-id GUID** (the reg uses `requestedAccessTokenVersion=2`, so v2 tokens carry `aud = <client-id>`,
+  **not** `api://<appId>` — see the amendment; accept both forms defensively and map JWT failures to 401);
+  **signature** via the tenant JWKS
   (`https://login.microsoftonline.com/<tenantId>/discovery/v2.0/keys`). Reject anonymous/invalid →
   401. Use a maintained validator (e.g. `jwks-rsa` + `jsonwebtoken`, or `passport-azure-ad`) — the
   Node/TS API owns this.
@@ -176,8 +209,10 @@ The API ([`21`](./21-backend-api-build.md)) validates the Entra JWT on **every**
     **no** case delete.
   - **Admin** — User + corpus write + improvement-signal resolve + gate/app-setting management + audit
     **delete** (retention cascade only). **Audit is never UPDATE-able**, even by Admin.
-- Optionally set the **Postgres RLS** role per request from the validated claim so the DB enforces the
-  same boundary independently of the API code path ([`20`](./20-data-and-schema-migration.md) §2).
+- The **Postgres RLS** role is set **per connection** (libpq `-c app.role=staff`, the `PGAPPROLE`
+  app-setting) so the DB enforces the same boundary independently of the API code path — **live since
+  2026-06-26**, with the API connecting as the non-owner login `cespk_app` so the `FORCE` policies actually
+  apply ([`20`](./20-data-and-schema-migration.md) §2).
 
 App roles are assigned to staff under **Enterprise Applications → cespk-api → Users and groups**;
 unassigned users get a token with no `roles` claim → the API treats them as no-access (default-deny).
@@ -193,8 +228,12 @@ unassigned users get a token with no `roles` claim → the API treats them as no
   resources — resource-group/Function/KV/Postgres admin — held separately from the two app roles).
 
 ## Operator blockers (record in the gated registry)
-- **Admin consent** for the Graph daemon's `Mail.Read` application permission (Global Admin).
-- **App-role assignment** of staff accounts to `CollisionSpike.User` / `.Admin`.
+- **Exchange RBAC grant** for the intake app's mailbox roles — an **Exchange Administrator** (NOT Global
+  Admin) runs `New-ServicePrincipal`/`New-ManagementScope`/`New-ManagementRoleAssignment` scoped to the 3
+  intake mailboxes. _Verified live on digital@ 2026-06-26; the 3 real mailboxes are not yet scoped._
+  **Supersedes** the old "Mail.Read admin consent (Global Admin)" blocker, which is no longer needed.
+- **App-role assignment** of staff accounts to `CollisionSpike.User` / `.Admin` (only one Admin assigned
+  so far — other staff would 403 until assigned).
 - The Graph daemon **client secret or certificate** (stored in Key Vault — [`11`](./11-secrets-and-keyvault.md));
   consumed by the orchestration app via Key Vault reference + its managed identity.
 

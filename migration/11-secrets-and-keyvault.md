@@ -37,9 +37,13 @@ touches, and only once gated on):
   `cespk-pg-kv-dev` (secret `pg-admin-password`); if the Data API ever falls back to password auth it
   KV-references that secret out of `cespk-pg-kv-dev` (**never** the enrichment vault). No other secrets
   in M1 — EVA secrets stay gated.
-- **Orchestration** — Graph app credentials for the `Mail.Read` change-notification subscription. Prefer a
-  **federated credential / managed identity** for Graph app-only auth where possible; otherwise a client
-  secret in a vault, referenced. EVA/Box secrets stay gated (their vaults stay empty until those gates flip).
+- **Orchestration** — Graph app credentials for the **app-only token** the intake daemon uses to
+  **delta-poll** its mailboxes. The daemon holds **no Entra Graph permission**: its mailbox access is
+  granted by **Exchange RBAC for Applications** (an Exchange Administrator scopes the resource-scoped
+  mailbox roles — **no Global Admin**; see [`22` §A](./22-orchestration-migration.md)), so the credential
+  authenticates the app but carries no Graph application role. Prefer a **federated credential / managed
+  identity** for Graph app-only auth where possible; otherwise a client secret in a vault, referenced.
+  EVA/Box secrets stay gated (their vaults stay empty until those gates flip).
 
 ## Grant pattern (managed identity → Key Vault Secrets User)
 All three vaults must be RBAC-authorization vaults (`--enable-rbac-authorization true`) for the **Key Vault

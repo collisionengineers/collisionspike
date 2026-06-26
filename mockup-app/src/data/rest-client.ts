@@ -148,8 +148,14 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccess {
     liveCounts: () => get<LiveCounts>('/api/dashboard/live-counts'),
     throughput: () => get<Throughput>('/api/dashboard/throughput'),
     agingExceptions: () => get<AgingExceptions>('/api/dashboard/aging-exceptions'),
-    queueCounts: () => get<Record<QueueName, number>>('/api/dashboard/queue-counts'),
-    reasonCounts: () => get<ReasonFacet[]>('/api/dashboard/reason-counts'),
+    // safe()-wrapped like the other aggregate reads: a 5xx must never crash the nav
+    // badges / dashboard — degrade to the zero baseline (sweep #12).
+    queueCounts: () =>
+      safe(
+        () => get<Record<QueueName, number>>('/api/dashboard/queue-counts'),
+        { 'not-ready': 0, review: 0, held: 0 } as Record<QueueName, number>,
+      ),
+    reasonCounts: () => safe(() => get<ReasonFacet[]>('/api/dashboard/reason-counts'), []),
     pipelineStages: () => get<PipelineStage[]>('/api/dashboard/pipeline-stages'),
 
     /* ----- Activity feed ----- */

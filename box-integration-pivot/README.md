@@ -1,5 +1,11 @@
 # Box‑Integration Pivot — viability dossier
 
+> **⚠️ Historical — Power Platform era (decommissioned).** The "Dataverse schema + env‑vars applied live"
+> claims below describe the prior Power Platform era; **Dataverse is decommissioned** (live system of record
+> is now Postgres `cespk-pg-dev`). The **box‑webhook Azure Function** (`cespkbox-fn-v76a47`) remains a
+> retained live (gated‑off) Function. Live state: [../CURRENT_STATUS.md](../CURRENT_STATUS.md) ·
+> [../docs/architecture/live-environment.md](../docs/architecture/live-environment.md).
+
 > **Date:** 2026‑06‑21 · **Status (updated 2026‑06‑22):** ✅ APPROVED 2026‑06‑21 → **BUILT in the working
 > tree and PARTLY LIVE.** The **Phase‑7 Box Dataverse schema + env‑vars ARE applied live** (the
 > `cr1bd_case`/`cr1bd_evidence` Box columns + all `cr1bd_BOX_*` env‑vars exist in Dev, **all `BOX_*` gates
