@@ -8,6 +8,14 @@ used. `‖` marks work that can run in parallel. Do not start a phase until its 
 > operator-only (Azure subscription choice, Entra admin consent, irreversible deletes). Agents
 > author code/DDL/IaC and draft commands; a human runs the provisioning and teardown commands.
 
+> **PROGRESS STATUS (2026-06-27).** The reversible build is **deployed**: P1–P3 + P5 are done (substrate,
+> schema/settings, Data API, and SPA+auth all live on Azure), and **P4 (orchestration) is now deployed +
+> wired — 41 functions — but NOT yet live** (no Graph subscriptions / Exchange RBAC scope on the 3 real
+> mailboxes, so no mail is processed). **P7 (hard cutover) is not complete** — live intake is not switched
+> on — and **P8 (deprovision Power Platform) and P9 (docs finalize/delete) have NOT run**: the Power Platform
+> footprint (Dev sandbox, Code App, both solutions, connectors, the `case-resolve` flow still ON) is **still
+> present** and its teardown is **pending operator go/no-go**. Treat P7–P9 as outstanding.
+
 ## Phase map
 
 ```

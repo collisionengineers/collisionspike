@@ -1,10 +1,12 @@
 # Live environment reference — collisionspike (Azure PaaS)
 
-> **Canonical registry of what is actually deployed.** Re-verified live on **2026-06-26**.
+> **Canonical registry of what is actually deployed.** Re-verified live on **2026-06-27**.
 > **The LIVE system is the Azure PaaS stack** (Static Web App + two Node/TypeScript Function Apps +
 > Postgres Flexible Server, alongside the 6 retained Python Functions). The earlier **Power Platform
 > implementation** (Power Apps Code App, Dataverse, ~16 Power Automate flows, the `cr1bd_*` custom
-> connectors) **has been migrated and decommissioned** — the cutover was executed. It survives in this
+> connectors) **has been migrated to Azure (deployed)** — but its Power Platform footprint **still exists**
+> (the Dev sandbox, Code App, both solutions, custom connectors and the `case-resolve` flow are all still
+> present) and its **teardown is pending operator go/no-go — NOT yet decommissioned**. It survives in this
 > document **only as a clearly-banded historical appendix**; do **not** treat any Power Platform row as
 > live. The migration plan + reversible build live in [`migration/`](../../migration/).
 > Pairs with [AGENTS.md](../../AGENTS.md) (rules/gotchas) and [CURRENT_STATUS.md](../../CURRENT_STATUS.md).
@@ -32,13 +34,17 @@
 |---|---|---|
 | **SPA** — Static Web App (Free) | **`cespk-spa-dev`** (control plane `westeurope`) → **`https://proud-sky-04e318b03.7.azurestaticapps.net`**. The **preserved React/Vite app** built from `mockup-app/`. Sign-in is **MSAL / Microsoft Entra workforce** (staff-only). It carries **no secret and no Power SDK** — it calls the Data API over **REST + Bearer token** via `mockup-app/src/data/rest-client.ts`. | **LIVE** |
 | **Data API** — Function App (BFF) | **`cespk-api-dev`** — **Node 20 / TypeScript Azure Functions v4** (source `api/`, deployed as an **esbuild bundle** `deploy/api/main.cjs`). Validates the **Entra JWT** (`jose`) and authorizes by **app role** `CollisionSpike.User` / `CollisionSpike.Admin`. v2 access tokens carry `aud` = the **API client-id GUID** (`fa2fb28c…`). Owns the status state-machine, dedup, audit writes, and gate reads. **Connects to Postgres** as the non-owner login `cespk_app` (RLS enforced; password a Key Vault reference). | **LIVE** |
-| **Orchestration** — Function App | **`cespk-orch-dev`** (source `orchestration/`) — **BUILT but ZERO functions are currently deployed.** Intended design: Microsoft **Graph delta-POLL** intake over **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent, no push subscription) feeding a Durable intake pipeline. **Consequence: there is no live automated email intake yet** — the running system is **read-only + manual case-create only**. | **BUILT, NOT DEPLOYED** |
+| **Orchestration** — Function App | **`cespk-orch-dev`** (source `orchestration/`) — **DEPLOYED + WIRED (41 functions registered) but NOT YET LIVE.** The full Microsoft **Graph delta-POLL** intake chain over **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent, no push subscription) feeding a Durable intake pipeline is deployed and wired (PARSER/ENRICH/BOXWEBHOOK/EVASENTRY `_FN_URL` + KV-referenced function keys, `EVIDENCE_BLOB_CONTAINER`; orch→Data API via **managed identity**; identity-based storage). **But it is not yet live** — no Graph subscriptions and no Exchange RBAC scope on the 3 real mailboxes, so the renewal timer lists 0 subscriptions and **no mail is processed**; the running system stays **read-only + manual case-create only**. | **DEPLOYED + WIRED, NOT LIVE** |
 | **Postgres** — Flexible Server (system of record) | **`cespk-pg-dev`** (**PostgreSQL v16**), database **`collisionspike`** — **36 tables** (14 business + 22 `choice_*` lookups). Seeded corpus: `work_provider` **390**, `repairer` **32**, `image_source` **19**, `inspection_address` **2209** (174 confirmed + 2035 suggested); `case_` **0**. Schema is `migration/assets/schema/*.sql`. Free Postgres allowance survives the PAYG upgrade. | **LIVE** |
 | **Retained Python Functions (UNCHANGED, 6)** | `cespike-parser-dev` (parser, `POST /api/parse`) · `cespkenrich-fn-gi62sd` (enrichment — DVSA + DVLA direct via Entra `client_credentials` + X-API-Key) · `evavalidation` · `evasentry` (gated) · `cespkocr-fn-dev-glju3v` (OCR on Azure Container Apps, scale-to-zero, gated) · `cespkbox-fn-v76a47` (`box-webhook`, gated). Called **directly by the Data API / orchestration** (function key / managed identity), not via any connector. | **LIVE (gated where noted)** |
-| **Key Vaults** | `cespkenrichkvgi62sd` (enrichment DVSA/DVLA secrets — populated, KV references resolve) · `cespkboxkvv76a47` (Box — empty, gated) · EVA vault (gated). | **LIVE** |
+| **Key Vaults** | `cespkenrichkvgi62sd` (enrichment DVSA/DVLA secrets — populated, KV references resolve) · `cespkboxkvv76a47` (Box — empty, gated) · EVA vault (gated) · **`cespk-pg-kv-dev`** (the Postgres `cespk_app` password; the rotated **`graph-client-secret`**; and the retained **`parser-fn-key` / `enrich-fn-key` / `boxwebhook-fn-key`** function keys — all KV-referenced, no plaintext). | **LIVE** |
 | **Evidence Blob** | `cespkevidstdev01` — evidence bytes (off-row; cases reference by `storage_path`). | **LIVE** |
 | **Observability** | Shared **App Insights** `cespike-parser-ai-dev` + **Log Analytics** `cespike-parser-law-dev`; OCR keeps its own `cespkocr-ai-dev` / `cespkocr-law-dev` pair. | **LIVE** |
 | **Container Registry** | `cespkocracraeee76` (Basic) — holds `ce-ocr:latest`, pulled by the OCR ACA host via UAMI AcrPull. | **LIVE** |
+
+### Orphans & deprovisioned (cost / cleanup tracking)
+- **`valuationbot-mcp`** (Container App) — **DEPROVISIONED 2026-06-27** (was public-internet; deleted, its image kept in ACR). It belongs to a **separate suite project**, not this stack.
+- **`digital-3339-resource`** (an AI Foundry account + project with its own App Insights / Log Analytics) — **ORPHAN: present, undocumented, with no model deployments** (≈no cost). **Flagged for an operator keep/delete decision.**
 
 ## Auth & identity (Entra workforce)
 - **Sign-in:** Microsoft **Entra ID workforce** via **MSAL** in the SPA (`mockup-app/src/auth/`). The SPA
@@ -63,14 +69,24 @@ Global Administrator and no tenant-wide admin consent**. Intake then **polls** t
 > **delta poll**, not a change-notification subscription. Correct that wherever it still appears.
 
 ## Known live gaps (state honestly — do not paper over)
-1. **No automated email intake is live.** `cespk-orch-dev` is built but has **zero deployed functions**, so
-   the Graph delta-poll pipeline does not run. The system is **read-only + manual case-create** today.
-2. **Postgres connection security — RESOLVED (2026-06-26).** The Data API connects as the **non-owner**
-   login **`cespk_app`** (`rolsuper=false`, `rolbypassrls=false`) with its password held as a **Key Vault
-   reference** (no cleartext), and sets the DB app-role per connection via `-c app.role=staff` (the
+1. **No automated email intake is live yet.** `cespk-orch-dev` is now **deployed + wired (41 functions)**
+   but **not yet live** — no Graph subscriptions and no Exchange RBAC scope on the 3 real mailboxes, so the
+   Graph delta-poll pipeline processes no mail. The system is **read-only + manual case-create** today.
+   Go-live items: Exchange-RBAC-scope the 3 mailboxes, set `EVIDENCE_BLOB_CONNECTION` (prefer MI), assign the
+   orch MI an app-role on the Data API, wire the Azure Monitor heartbeat alerts.
+2. **Connection & secret security — RESOLVED (2026-06-26 / 2026-06-27).** The Data API connects as the
+   **non-owner** login **`cespk_app`** (`rolsuper=false`, `rolbypassrls=false`) with its password held as a
+   **Key Vault reference** (no cleartext), and sets the DB app-role per connection via `-c app.role=staff` (the
    `PGAPPROLE` app-setting). The authored **RLS by app role is now enforced** — the prior server-admin
    `csadmin` connection bypassed it. Grants are least-privilege (no DELETE on any table; `audit_event`
-   INSERT/SELECT only — append-only).
+   INSERT/SELECT only — append-only). **On 2026-06-27 the remaining plaintext exposures were also remediated:**
+   `GRAPH_CLIENT_SECRET` rotated into `cespk-pg-kv-dev/graph-client-secret` (orch MI granted Key Vault Secrets
+   User — it previously had zero role assignments); both Function Apps' storage moved to **identity-based**
+   (`allowSharedKeyAccess=false`, MIs granted Storage Blob Data Owner; orch also Queue/Table Data Contributor
+   for Durable); `DOCINTEL_KEY` neutralized (Document Intelligence local-auth disabled, ocr MI keyless via
+   Cognitive Services User); the parser/enrich/box function keys moved to KV references (the parser host key
+   rotated). Only `APPLICATIONINSIGHTS_CONNECTION_STRING` (not a secret) and the platform-managed
+   `WEBSITE_AUTH_ENCRYPTION_KEY` remain plaintext — acceptable, no action.
 3. **Free-Trial → PAYG deadline** (the whole-stack expiry above).
 4. **Staff app-role assignment incomplete** — only one principal assigned; others 403.
 5. **Durable auth error-handling + audience-form hardening in progress** (token-validation robustness).
@@ -86,8 +102,9 @@ Intended chain: **intake → classify-persist → parse → provider-match → c
 enrich → finalize (EVA + Box) → chasers**, driven by the **orchestration** app's Durable pipeline.
 **Live today (Azure):** the SPA + Data API + Postgres are up and serve **read + manual case-create**; the
 6 Python Functions are reachable (parser/enrichment live, EVA/Box/OCR gated). **Not yet live:** the
-**automated intake pipeline** (orchestration undeployed), finalize (EVA + Box — gated), chasers. So a staff
-member can sign in, browse, and create a case manually, but **email does not yet auto-create cases**.
+**automated intake pipeline** (orchestration is now **deployed + wired but not yet live** — no Graph
+subscriptions / Exchange RBAC scope), finalize (EVA + Box — gated), chasers. So a staff member can sign in,
+browse, and create a case manually, but **email does not yet auto-create cases**.
 
 **EVA path (domain — unchanged):** the active EVA path is **JSON drag-drop, not REST — by a vendor
 constraint.** Minotaur Software's Sentry API currently routes only **one principal code** per API
@@ -109,9 +126,9 @@ az resource list -g rg-collisionspike-dev -o table
 # Static Web App (SPA) hostname + status
 az staticwebapp show -g rg-collisionspike-dev -n cespk-spa-dev --query "defaultHostname" -o tsv
 
-# Function Apps — which functions are actually deployed (orch should currently be EMPTY)
+# Function Apps — which functions are actually deployed (orch now lists 41, but is NOT yet live)
 az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table
-az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: none yet
+az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 41 functions (deployed + wired, not live)
 
 # Postgres — table count + seeded corpus counts (psql via the admin connection string)
 #   SELECT count(*) FROM information_schema.tables WHERE table_schema='public';      -- expect 36
@@ -129,11 +146,13 @@ curl.exe -i -X OPTIONS "https://cespike-parser-dev.azurewebsites.net/api/parse" 
 
 ---
 
-# Appendix — HISTORICAL: the decommissioned Power Platform environment
+# Appendix — HISTORICAL: the prior Power Platform environment
 
 > **NOT LIVE.** Everything below describes the **prior Power Platform implementation**, which was
-> **migrated to the Azure stack above and decommissioned**. It is retained for provenance and for the
-> migration's deprovision step ([`migration/90-deprovision-power-platform.md`](../../migration/90-deprovision-power-platform.md)).
+> **migrated to the Azure stack above**. The Power Platform footprint **still exists** and its teardown is
+> **pending operator go/no-go** (the migration's deprovision step
+> [`migration/90-deprovision-power-platform.md`](../../migration/90-deprovision-power-platform.md)) — it is
+> **not yet decommissioned**, but it is **no longer the live system**. Retained for provenance.
 > Do not rely on these resources or treat any of them as current.
 
 ## (historical) Environment & identity
@@ -161,8 +180,9 @@ preserved). The Dataverse org is slated for deprovisioning.
 ~16 cloud flows (`category eq 5`) — CS Intake (shared mailbox), CS Provider Match, CS Case Resolve, CS
 Classify + Persist, CS Parse, CS Status Evaluate, CS Enrich, CS Finalize EVA + Box, CS Chaser Draft, CS
 Job Sheet Import, plus the Phase-7 Box flows. **Their orchestration logic was re-expressed in the
-TypeScript `cespk-orch-dev` Durable pipeline** (the build target; not yet deployed). The flows themselves
-are decommissioned.
+TypeScript `cespk-orch-dev` Durable pipeline** (now deployed + wired, not yet live). The flows themselves
+are **slated for teardown (pending operator go/no-go), not yet decommissioned** (the `case-resolve` flow is
+still ON).
 
 ## (historical) Power Platform custom connectors
 `cr1bd_ceparser`, `cr1bd_dvsaenrich`, `cr1bd_evasentry`, `cr1bd_evavalidation`, `cr1bd_box_rest`,

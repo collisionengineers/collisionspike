@@ -2,4 +2,5 @@
 
 - [SDLC sweep (2026-06-24)](sdlc-sweep-2026-06-24.md) — in-progress ultracode sweep of all docs/plans phases after PR #23 merge; build-offline/gated-off guardrails.
 - [Exchange RBAC unblocks Graph intake](exchange-rbac-unblocks-graph-intake.md) — EXO RBAC-for-Apps grants the intake app scoped mailbox perms with no GA Entra consent (verified live 2026-06-26); poll, don't subscribe.
-- [Azure API deploy + auth](azure-api-deploy-and-auth.md) — rebuild/redeploy recipe for the cespk-api-dev esbuild bundle (MUST ship node_modules; func publish drops it), the v2-token audience fix, and the P0 csadmin/cleartext/RLS-bypass risk.
+- [Azure API deploy + auth](azure-api-deploy-and-auth.md) — rebuild/redeploy recipe for the cespk-api-dev esbuild bundle (MUST ship node_modules; func publish drops it), the v2-token audience fix, the RLS least-priv login, and the secret-remediation posture.
+- [Azure orchestration deploy](azure-orch-deploy.md) — Durable cespk-orch-dev deploy recipe + the esbuild import.meta.url crash that left it at 0 functions (fixed via build-orch.cjs); identity-based storage roles for Durable; deployed-but-not-live wiring.

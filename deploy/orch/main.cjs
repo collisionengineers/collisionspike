@@ -1,3 +1,4 @@
+const __importMetaUrl = require('url').pathToFileURL(__filename).href;
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -6,11 +7,7 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
-  try {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-  } catch (e) {
-    throw mod = 0, e;
-  }
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -685,7 +682,7 @@ var require_src = __commonJS({
 var require_helpers = __commonJS({
   "node_modules/agent-base/dist/helpers.js"(exports2) {
     "use strict";
-    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
       if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
@@ -694,13 +691,13 @@ var require_helpers = __commonJS({
         } };
       }
       Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
+    } : function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+    });
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? function(o, v) {
       Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
+    } : function(o, v) {
       o["default"] = v;
     });
     var __importStar = exports2 && exports2.__importStar || function(mod) {
@@ -755,7 +752,7 @@ var require_helpers = __commonJS({
 var require_dist = __commonJS({
   "node_modules/agent-base/dist/index.js"(exports2) {
     "use strict";
-    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
       if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
@@ -764,13 +761,13 @@ var require_dist = __commonJS({
         } };
       }
       Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
+    } : function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+    });
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? function(o, v) {
       Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
+    } : function(o, v) {
       o["default"] = v;
     });
     var __importStar = exports2 && exports2.__importStar || function(mod) {
@@ -791,7 +788,7 @@ var require_dist = __commonJS({
     var http2 = __importStar(require("http"));
     var https_1 = require("https");
     __exportStar(require_helpers(), exports2);
-    var INTERNAL = /* @__PURE__ */ Symbol("AgentBaseInternalState");
+    var INTERNAL = Symbol("AgentBaseInternalState");
     var Agent = class extends http2.Agent {
       constructor(opts) {
         super(opts);
@@ -1007,7 +1004,7 @@ var require_parse_proxy_response = __commonJS({
 var require_dist2 = __commonJS({
   "node_modules/https-proxy-agent/dist/index.js"(exports2) {
     "use strict";
-    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
       if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
@@ -1016,13 +1013,13 @@ var require_dist2 = __commonJS({
         } };
       }
       Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
+    } : function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+    });
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? function(o, v) {
       Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
+    } : function(o, v) {
       o["default"] = v;
     });
     var __importStar = exports2 && exports2.__importStar || function(mod) {
@@ -1805,7 +1802,7 @@ var require_src2 = __commonJS({
 var require_dist3 = __commonJS({
   "node_modules/http-proxy-agent/dist/index.js"(exports2) {
     "use strict";
-    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       var desc = Object.getOwnPropertyDescriptor(m, k);
       if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
@@ -1814,13 +1811,13 @@ var require_dist3 = __commonJS({
         } };
       }
       Object.defineProperty(o, k2, desc);
-    }) : (function(o, m, k, k2) {
+    } : function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
-    }));
-    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? (function(o, v) {
+    });
+    var __setModuleDefault = exports2 && exports2.__setModuleDefault || (Object.create ? function(o, v) {
       Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
+    } : function(o, v) {
       o["default"] = v;
     });
     var __importStar = exports2 && exports2.__importStar || function(mod) {
@@ -4067,13 +4064,13 @@ function toStream(source) {
 async function concat(sources) {
   return function() {
     const streams = sources.map((x) => typeof x === "function" ? x() : x).map(toStream);
-    return import_stream.Readable.from((async function* () {
+    return import_stream.Readable.from(async function* () {
       for (const stream of streams) {
         for await (const chunk of stream) {
           yield chunk;
         }
       }
-    })());
+    }());
   };
 }
 
@@ -4266,7 +4263,7 @@ function userAgentPolicy2(options = {}) {
 }
 
 // node_modules/@azure/core-rest-pipeline/dist/esm/util/file.js
-var rawContent = /* @__PURE__ */ Symbol("rawContent");
+var rawContent = Symbol("rawContent");
 function hasRawContent(x) {
   return typeof x[rawContent] === "function";
 }
@@ -4436,8 +4433,8 @@ function tlsPolicy2(tlsSettings) {
 
 // node_modules/@azure/core-tracing/dist/esm/tracingContext.js
 var knownContextKeys = {
-  span: /* @__PURE__ */ Symbol.for("@azure/core-tracing span"),
-  namespace: /* @__PURE__ */ Symbol.for("@azure/core-tracing namespace")
+  span: Symbol.for("@azure/core-tracing span"),
+  namespace: Symbol.for("@azure/core-tracing namespace")
 };
 function createTracingContext(options = {}) {
   let context3 = new TracingContextImpl(options.parentContext);
@@ -5991,7 +5988,7 @@ function getPropertyFromParameterPath(parent, parameterPath) {
   }
   return result;
 }
-var originalRequestSymbol = /* @__PURE__ */ Symbol.for("@azure/core-client original request");
+var originalRequestSymbol = Symbol.for("@azure/core-client original request");
 function hasOriginalRequest(request2) {
   return originalRequestSymbol in request2;
 }
@@ -6786,8 +6783,8 @@ function requestToOptions(request2) {
 }
 
 // node_modules/@azure/core-http-compat/dist/esm/util.js
-var originalRequestSymbol2 = /* @__PURE__ */ Symbol("Original PipelineRequest");
-var originalClientRequestSymbol = /* @__PURE__ */ Symbol.for("@azure/core-client original request");
+var originalRequestSymbol2 = Symbol("Original PipelineRequest");
+var originalClientRequestSymbol = Symbol.for("@azure/core-client original request");
 function toPipelineRequest(webResource, options = {}) {
   const compatWebResource = webResource;
   const request2 = compatWebResource[originalRequestSymbol2];
@@ -7022,7 +7019,7 @@ var HttpHeaders = class _HttpHeaders {
 };
 
 // node_modules/@azure/core-http-compat/dist/esm/response.js
-var originalResponse = /* @__PURE__ */ Symbol("Original FullOperationResponse");
+var originalResponse = Symbol("Original FullOperationResponse");
 function toCompatResponse(response, options) {
   let request2 = toWebResourceLike(response.request);
   let headers = toHttpHeadersLike(response.headers);
@@ -8993,7 +8990,6 @@ var EntityDecoder = class {
         return "";
       case NCR_LEVEL.leave:
         return void 0;
-      // signal: keep literal
       case NCR_LEVEL.throw:
         throw new Error(
           `[EntityDecoder] Prohibited numeric character reference &${token}; (U+${cp.toString(16).toUpperCase().padStart(4, "0")})`
@@ -9174,7 +9170,7 @@ var METADATA_SYMBOL;
 if (typeof Symbol !== "function") {
   METADATA_SYMBOL = "@@xmlMetadata";
 } else {
-  METADATA_SYMBOL = /* @__PURE__ */ Symbol("XML Node Metadata");
+  METADATA_SYMBOL = Symbol("XML Node Metadata");
 }
 var XmlNode = class {
   constructor(tagname) {
@@ -9860,7 +9856,6 @@ function handleInfinity(str, num, options) {
       return null;
     case "infinity":
       return num;
-    // Return Infinity or -Infinity
     case "string":
       return isPositive ? "Infinity" : "-Infinity";
     case "original":
@@ -13432,20 +13427,19 @@ var import_node_stream3 = __toESM(require("node:stream"), 1);
 var import_node_module = require("node:module");
 var import_node_path = require("node:path");
 var import_node_url = require("node:url");
-var import_meta = {};
 var __isNode__ = typeof process === "object" && typeof process.versions === "object" && typeof process.versions.node === "string";
 var require2;
 var __filename;
 var __dirname;
 if (__isNode__) {
-  require2 = (0, import_node_module.createRequire)(import_meta.url);
-  __filename = (0, import_node_url.fileURLToPath)(import_meta.url);
+  require2 = (0, import_node_module.createRequire)(__importMetaUrl);
+  __filename = (0, import_node_url.fileURLToPath)(__importMetaUrl);
   __dirname = (0, import_node_path.dirname)(__filename);
 }
 var NativeCRC64 = (() => {
   var _scriptDir = typeof document !== "undefined" && document.currentScript ? document.currentScript.src : void 0;
   if (typeof __filename !== "undefined") _scriptDir = _scriptDir || __filename;
-  return (function(NativeCRC642) {
+  return function(NativeCRC642) {
     NativeCRC642 = NativeCRC642 || {};
     var Module = typeof NativeCRC642 != "undefined" ? NativeCRC642 : {};
     var readyPromiseResolve, readyPromiseReject;
@@ -15686,7 +15680,7 @@ var NativeCRC64 = (() => {
       _emscripten_bind_Crc64Hash___destroy___0(self2);
     };
     return NativeCRC642.ready;
-  });
+  };
 })();
 var crc64_default = NativeCRC64;
 
@@ -34622,9 +34616,7 @@ var AvroType = class _AvroType {
         }
         return new AvroMapType(_AvroType.fromSchema(schema.values));
       case AvroComplex.ARRAY:
-      // Unused today
       case AvroComplex.FIXED:
-      // Unused today
       default:
         throw new Error(`Unexpected Avro type ${type} in ${schema}`);
     }

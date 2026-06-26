@@ -1,5 +1,14 @@
 # 90 — Deprovision Power Platform
 
+> **STATUS (2026-06-27) — NOT YET EXECUTED; pending operator go/no-go.** This teardown has **not run**. The
+> Power Platform footprint is **still fully present** — the Dev sandbox `b3090c42-…`, the Code App
+> `da7ba7af-…`, **both** solutions (`CollisionSpike` + `CollisionSpikeFlows`), the custom connectors, 5+
+> connections, and the **`case-resolve` flow (still ON)** all exist (verified via `pac`). The Azure
+> migration is **deployed** (the flows' Azure home — `cespk-orch-dev` — is live with 41 functions; custom
+> connectors → the retained parser/enrich Functions; Code App → the SWA SPA; Dataverse → Postgres), but the
+> sandbox delete is **irreversible** and awaits an **explicit operator go-ahead** after the
+> cold-export-first precondition gate below. Do **not** treat any step here as done.
+
 Tear down the Power Platform footprint completely (D3). **Phase P8 — runs only after P7 cutover is
 green and observed healthy.** Order avoids orphaned dependencies and keeps the audit trail until the
 new pipeline is proven.

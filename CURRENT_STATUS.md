@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-26**._
+_Single source of truth for "where are we now." Last updated **2026-06-27**._
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -9,12 +9,14 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUN
 
 > **⚠️ Platform pivot (2026-06-26).** The **live system is now the Azure PaaS stack** (Static Web App +
 > Function Apps + Postgres). The original **Power Platform** implementation (Power Apps Code App,
-> Dataverse, ~16 Power Automate flows, custom connectors) has been **migrated off and decommissioned** —
-> it is **prior-era / historical** and is **no longer the system of record**. The **domain + workflow are
-> unchanged** (intake → parse → review → enrich → EVA + Box; the EVA 12-field contract; image rules; the
-> provider corpus; the `Principal+YY+seq` Case/PO format) — only the **platform mechanism** changed. The
-> dated **🔔 Update —** build log is preserved verbatim under
-> [Historical — Power Platform era (decommissioned)](#historical--power-platform-era-decommissioned) below.
+> Dataverse, ~16 Power Automate flows, custom connectors) has been **migrated off to Azure** — it is
+> **prior-era / historical** and is **no longer the system of record**, but its Power Platform footprint
+> **still exists** (the Dev sandbox, Code App, both solutions, custom connectors and the `case-resolve`
+> flow are all still present) and its **teardown is pending operator go/no-go — NOT yet decommissioned**.
+> The **domain + workflow are unchanged** (intake → parse → review → enrich → EVA + Box; the EVA 12-field
+> contract; image rules; the provider corpus; the `Principal+YY+seq` Case/PO format) — only the **platform
+> mechanism** changed. The dated **🔔 Update —** build log is preserved verbatim under
+> [Historical — Power Platform era (prior build)](#historical--power-platform-era-prior-build) below.
 
 This is the M1 case-intake spike. The live deployment is **read-only + manual case-create** today;
 live automated email intake is **not yet running** (see the honest gaps below). **Principle: no
@@ -36,7 +38,7 @@ there is **no Power SDK and no Dataverse** on the live path — Postgres is the 
 |---|---|---|
 | **SPA** (frontend) | Static Web App **`cespk-spa-dev`** (westeurope) at https://proud-sky-04e318b03.7.azurestaticapps.net — React/Vite from `mockup-app/`, **MSAL / Entra workforce sign-in** (staff-only), calls the API over REST (`mockup-app/src/data/rest-client.ts`). **No Power SDK.** | Live |
 | **Data API** | Function App **`cespk-api-dev`** (Node 20 / TypeScript Functions v4; source `api/`, esbuild bundle `deploy/api/main.cjs`). Validates the Entra JWT (`jose`) + app roles **`CollisionSpike.User` / `CollisionSpike.Admin`**; v2 tokens carry `aud` = the API client-id GUID (`fa2fb28c…`). Connects to Postgres. | Live |
-| **Orchestration** | Function App **`cespk-orch-dev`** (source `orchestration/`) — **BUILT but ZERO functions currently deployed**. Intended design: Microsoft Graph **delta-poll** intake over **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent, no push subscription). | Deployed shell, no functions |
+| **Orchestration** | Function App **`cespk-orch-dev`** (source `orchestration/`) — **DEPLOYED + WIRED (41 functions registered) but NOT YET LIVE**. The full Microsoft Graph **delta-poll** intake chain over **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent, no push subscription) is deployed and wired, but **no Graph subscriptions and no Exchange RBAC scope on the 3 real mailboxes exist yet**, so the renewal timer lists 0 subscriptions and **no mail is processed**. | Deployed + wired, not yet live |
 | **System-of-record DB** | **Postgres Flexible `cespk-pg-dev`** (v16), database `collisionspike` — **36 tables**, seeded: `work_provider`=390, `repairer`=32, `image_source`=19, `inspection_address`=2209 (174 confirmed + 2035 suggested), `case_`=0. | Live |
 | **Python Functions (×6, retained)** | The 6 Python Functions are **unchanged** from the prior era and retained: parser **`cespike-parser-dev`**, enrichment, evasentry, evavalidation, ocr, box-webhook. | Retained |
 | **Supporting Azure** | The **Key Vaults**, evidence Blob **`cespkevidstdev01`**, and App Insights / Log Analytics are **retained unchanged**. | Retained |
@@ -55,15 +57,26 @@ repo that Graph `Mail.Read` needs Global-Admin / admin consent.)_
 
 ### ⚠️ Honest known gaps (live state — stated, not papered over)
 
-1. **No automated email intake is live.** `cespk-orch-dev` is a deployed shell with **zero functions
-   deployed**; the live system is **read-only + manual case-create only**. Email-driven case creation is
-   **not running yet**.
+1. **No automated email intake is live yet.** `cespk-orch-dev` is now **deployed + wired (41 functions)**
+   but **not yet live** — there are **no Graph subscriptions and no Exchange RBAC scope on the 3 real
+   mailboxes**, so the renewal timer lists 0 subscriptions and **no mail is processed**. The live system is
+   **read-only + manual case-create only** until the operator scopes the mailboxes (Exchange RBAC), sets
+   `EVIDENCE_BLOB_CONNECTION` (prefer MI), assigns the orch MI an app-role on the Data API, and wires the
+   Azure Monitor heartbeat alerts.
 2. **DB admin creds + RLS bypass — RESOLVED (2026-06-26).** The Data API now connects to Postgres as the
    **non-owner login `cespk_app`** (`rolsuper=false`, `rolbypassrls=false`), with its password held as a
    **Key Vault reference** (no cleartext), so the authored **Row-Level Security is now enforced** (the prior
    server-admin `csadmin` connection, as table owner, bypassed it). The DB app-role is set per connection via
    `-c app.role=staff` (the `PGAPPROLE` app-setting); grants are least-privilege — no DELETE on any table, and
-   `audit_event` is INSERT/SELECT only (append-only).
+   `audit_event` is INSERT/SELECT only (append-only). **Secret-exposure sweep — RESOLVED (2026-06-27):** the
+   remaining plaintext exposures were also remediated — `GRAPH_CLIENT_SECRET` rotated into Key Vault
+   (`cespk-pg-kv-dev/graph-client-secret`, orch managed identity granted **Key Vault Secrets User**); both
+   Function Apps' storage moved to **identity-based** (`AzureWebJobsStorage__accountName` + system-assigned MI,
+   `allowSharedKeyAccess=false`, MIs granted Storage Blob Data Owner — orch also Queue/Table Data Contributor
+   for Durable); `DOCINTEL_KEY` neutralized (Document Intelligence local-auth disabled, ocr MI on the keyless
+   **Cognitive Services User** path); and the retained parser/enrich/box function keys moved to Key Vault
+   references. Only `APPLICATIONINSIGHTS_CONNECTION_STRING` (not a secret) and the platform-managed
+   `WEBSITE_AUTH_ENCRYPTION_KEY` remain as plaintext config — acceptable, no action.
 3. **Free-Trial → PAYG deadline.** The whole stack disables at the ~30-day Free-Trial mark unless
    upgraded to Pay-As-You-Go (see the banner above).
 4. **Staff app-role assignment incomplete.** Only one principal is assigned; all other staff **403**
@@ -73,11 +86,12 @@ repo that Graph `Mail.Read` needs Global-Admin / admin consent.)_
 
 ---
 
-## Historical — Power Platform era (decommissioned)
+## Historical — Power Platform era (prior build)
 
 > **Everything below this line describes the PRIOR Power Platform implementation** (Power Apps Code App
 > + Dataverse + Power Automate + custom connectors), which has since been **migrated to the Azure PaaS
-> stack above and decommissioned**. It is preserved **verbatim, as a dated build log** — valuable for
+> stack above** (the Power Platform footprint still exists; its teardown is **pending operator go/no-go**,
+> not yet executed). It is preserved **verbatim, as a dated build log** — valuable for
 > provenance and for the domain / EVA / provider / workflow detail it captures — but it **no longer
 > describes the live system**. Treat every "live / deployed / applied live / activated" statement in
 > this band as **true of the Power Platform era only**. The **domain rules** it records (the EVA 12-field

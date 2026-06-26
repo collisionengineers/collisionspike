@@ -1,0 +1,50 @@
+---
+name: azure-orch-deploy
+description: How to build + deploy the Durable orchestration Function App (cespk-orch-dev) — incl. the esbuild import.meta.url bundle crash that left it with 0 functions, and identity-based storage for Durable
+metadata:
+  type: project
+---
+
+`cespk-orch-dev` is the TypeScript **Durable Functions** orchestration app (source `orchestration/`,
+Node 20, `durable-functions` v3 + `@azure/functions` v4). It is deployed as a **single esbuild bundle**
+`deploy/orch/main.cjs`, same shape as the Data API ([[azure-api-deploy-and-auth]]).
+
+**THE BUG that kept it at ZERO functions (fixed 2026-06-27).** The orchestration source is ESM
+(`"type":"module"`). esbuild bundling ESM→CJS leaves `import.meta.url` as **`undefined`**, and some
+bundled dep calls `createRequire(import.meta.url)` → throws `ERR_INVALID_ARG_VALUE` at module load. The
+Functions host then registers **0 functions** while still reporting `state: Running` (the entry module
+crashed before any `app.*`/`df.app.*` registration ran). Tell-tale: a local `node -e "require('./deploy/orch/main.cjs')"`
+crashes with that error. FIX = build via **`build-orch.cjs`** (esbuild JS API) with a banner+define:
+`define: { 'import.meta.url': '__importMetaUrl' }` + `banner: { js: "const __importMetaUrl = require('url').pathToFileURL(__filename).href;" }`.
+After the fix the bundle loads (test-mode warnings only) and the host registers **41 functions**.
+
+**Build + deploy recipe (verified 2026-06-27):**
+1. `npm run build --prefix orchestration` (tsc -b typecheck; builds `@cs/domain` too).
+2. `node build-orch.cjs` (esbuild bundle with the import.meta.url fix; externals `@azure/functions` +
+   `durable-functions`, bundles `@azure/storage-blob` + `@cs/domain`). esbuild binary is borrowed from
+   `mockup-app/node_modules` (not installed at repo root).
+3. **GOTCHA (same as the API):** `remotebuild=false` → the deploy zip MUST contain `node_modules`. Run
+   `npm install --prefix deploy/orch --omit=dev` (installs the 2 externalized deps) BEFORE publishing.
+4. Smoke: `node -e "require('./deploy/orch/main.cjs')"` — healthy = test-mode warnings + "LOADED OK" (NOT
+   the createRequire crash).
+5. `func azure functionapp publish cespk-orch-dev --javascript` from `deploy/orch/`. Verify with
+   `az functionapp function list … --query "[].name"` → 41 functions (the `length(@)` form trips the
+   Windows az.cmd paren-mangling — use `[].name` and count, never `length(@)`).
+
+**Identity-based storage for the Durable host.** Switched off the plaintext storage connection strings
+(`AzureWebJobsStorage` + `DEPLOYMENT_STORAGE_CONNECTION_STRING`) to the same identity-based pattern the 6
+retained apps use: set `AzureWebJobsStorage__accountName=cespkorchstdev01`, PATCH
+`functionAppConfig.deployment.storage.authentication.type=SystemAssignedIdentity` (the ARM PATCH needs the
+FULL functionAppConfig incl. `runtime` + `scaleAndConcurrency` or it 400s "Runtime is invalid"), remove
+both connection strings, `allowSharedKeyAccess=false`. Durable needs **Storage Blob Data Owner + Queue
+Data Contributor + Table Data Contributor** on the storage account (Blob alone is not enough for the task
+hub) — the host stays at 41 functions after the switch once those roles are granted.
+
+**Wiring (deployed but NOT live).** App-settings: `PARSER_FN_URL`/`ENRICH_FN_URL`/`BOXWEBHOOK_FN_URL`
+(+ keys as KV refs `@Microsoft.KeyVault(VaultName=cespk-pg-kv-dev;SecretName=parser-fn-key|enrich-fn-key|boxwebhook-fn-key)`),
+`EVASENTRY_FN_URL`, `EVIDENCE_BLOB_CONTAINER`, `GRAPH_*` (secret a KV ref), gates. orch→Data API auth uses
+the **managed identity** (`IDENTITY_ENDPOINT`), not a token in config. It is **deployed + wired but inert**:
+no Graph subscriptions, the 3 real mailboxes are not Exchange-RBAC-scoped, `EVIDENCE_BLOB_CONNECTION` is
+left unset (would be a plaintext connection string — prefer MI on `cespkevidstdev01` at go-live). Go-live
+remainder: scope the mailboxes, set evidence-blob auth, assign orch MI an app-role on the Data API, wire
+the Azure Monitor heartbeat alerts. See [[exchange-rbac-unblocks-graph-intake]].

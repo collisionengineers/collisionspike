@@ -8,6 +8,13 @@ It is **temporary by design.** When [`99-verification-and-cutover.md`](./99-veri
 is green and the working tree no longer references Power Platform outside this folder, **delete
 `migration/` wholesale.** It must not become part of the permanent docs.
 
+> **STATUS (2026-06-27) — build deployed, cutover + teardown OUTSTANDING.** The reversible code/data build
+> is **deployed** (Data API, SPA+auth, Postgres live; **orchestration `cespk-orch-dev` deployed + wired with
+> 41 functions but NOT yet live** — no Graph subscriptions / Exchange RBAC scope on the 3 real mailboxes).
+> **P7 cutover is not complete and P8 (deprovision) + P9 (docs delete) have NOT run** — the Power Platform
+> footprint (Dev sandbox, Code App, both solutions, connectors, the `case-resolve` flow still ON) is **still
+> present**, and its teardown is **pending operator go/no-go**. So this folder is **not yet deletable**.
+
 ## Two principles that govern every file here
 
 1. **Hard cutover, not strangler.** The project is **not live as a service** — there is no

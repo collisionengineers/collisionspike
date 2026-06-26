@@ -6,10 +6,11 @@ business/legal decision. Everything else has been built and deployed.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
-_Last updated **2026-06-26** — reframed to the **live Azure PaaS stack**. The Power Platform
+_Last updated **2026-06-27** — reframed to the **live Azure PaaS stack**. The Power Platform
 implementation (Power Apps Code App, Dataverse, the ~16 Power Automate flows, the custom connectors) has
-been **migrated off and decommissioned**; its old operator checklist is preserved, clearly banded, at the
-bottom under **"Historical — decommissioned Power Platform operator backlog."** The **domain rules are
+been **migrated off to Azure**; its footprint **still exists** and **teardown is pending operator go/no-go
+(NOT yet decommissioned)**. Its old operator checklist is preserved, clearly banded, at the bottom under
+**"Historical — Power Platform operator backlog (teardown pending)."** The **domain rules are
 unchanged** (EVA 12-field contract, photo order, image rules, provider corpus, Case/PO format) — only the
 platform mechanism changed._
 
@@ -20,8 +21,9 @@ platform mechanism changed._
 >   workforce sign-in** (staff only), calling the API over REST.
 > - **Data API** — Function App **`cespk-api-dev`** (Node 20 / TypeScript), Entra-JWT-validated with app
 >   roles **`CollisionSpike.User` / `CollisionSpike.Admin`**, on Postgres.
-> - **Orchestration** — Function App **`cespk-orch-dev`** — **built but with ZERO functions deployed**, so
->   there is **no automated email intake live yet** (today the system is **read-only + manual
+> - **Orchestration** — Function App **`cespk-orch-dev`** — **deployed + wired (41 functions) but NOT YET
+>   LIVE** (no Graph subscriptions / Exchange RBAC scope on the 3 real mailboxes, so no mail is processed),
+>   so there is **no automated email intake live yet** (today the system is **read-only + manual
 >   case-create** only).
 > - **Database (system of record)** — Postgres Flexible **`cespk-pg-dev`** (v16), database
 >   `collisionspike`, 36 tables, seeded (`work_provider`=390, `repairer`=32, `image_source`=19,
@@ -95,15 +97,37 @@ rotating + Key-Vault-referencing `pg-admin-password`.)_
 implemented**) must run on a **separate** pool opened with `-c app.role=admin`, gated on a verified
 `CollisionSpike.Admin` token; do **not** widen the staff pool's role.
 
+#### A3. Other plaintext secret exposures  ·  ✅ **RESOLVED (2026-06-27)** — nothing for you to do
+
+**Done:** a full audit found three more plaintext exposures beyond the Postgres credential; all are now fixed.
+- **`GRAPH_CLIENT_SECRET`** (`cespk-orch-dev`) was plaintext → **rotated** on the intake app registration
+  (`5d37a155…`), stored in Key Vault (`cespk-pg-kv-dev/graph-client-secret`), and referenced via the orch
+  **managed identity** (granted **Key Vault Secrets User** — it previously had zero role assignments).
+  _(This closes B2 below.)_
+- **Storage-account keys** (`AzureWebJobsStorage` + `DEPLOYMENT_STORAGE_CONNECTION_STRING`) on **both**
+  `cespk-api-dev` and `cespk-orch-dev` → switched to **identity-based** storage
+  (`AzureWebJobsStorage__accountName` + SystemAssignedIdentity deploy auth, matching the 6 retained apps);
+  both connection strings removed; MIs granted **Storage Blob Data Owner** (orch also **Queue/Table Data
+  Contributor** for Durable); `allowSharedKeyAccess=false` on both storage accounts.
+- **`DOCINTEL_KEY`** (ocr) → Document Intelligence account `cespkdocintel-dev` **local-auth disabled** (key
+  neutralized), ocr MI granted **Cognitive Services User** (keyless path), the plaintext setting blanked.
+- **Retained function keys** (parser/enrich/box) moved to Key Vault (`parser-fn-key` / `enrich-fn-key` /
+  `boxwebhook-fn-key`) and KV-referenced from orch (the parser host key was rotated).
+- Only `APPLICATIONINSIGHTS_CONNECTION_STRING` (Microsoft: not a secret) and the platform-managed
+  `WEBSITE_AUTH_ENCRYPTION_KEY` remain as plaintext config — acceptable, no action.
+
 ---
 
 ### B. Turn on automated email intake (currently OFF — there is no live intake)
 
-> Today the orchestration Function App `cespk-orch-dev` has **zero functions deployed**, so **no email is
-> picked up automatically** — cases are created **manually** in the SPA. The three steps below bring
-> intake online. The intended design is a Microsoft **Graph delta-poll** over the shared intake mailboxes,
-> authorised by **Exchange RBAC for Applications** (resource-scoped, **no Global-Admin consent and no push
-> subscription**).
+> Today the orchestration Function App `cespk-orch-dev` is **deployed + wired (41 functions) but not yet
+> live** — there are **no Graph subscriptions and no Exchange RBAC scope on the 3 real mailboxes**, so the
+> renewal timer lists 0 subscriptions and **no email is picked up automatically**; cases are created
+> **manually** in the SPA. **B2 (Graph secret in Key Vault) and B3 (deploy + wire orchestration) are now
+> DONE** — the remaining step to bring intake live is **B1 (Exchange RBAC scope the 3 mailboxes)**, plus the
+> finishing items listed in B3. The design is a Microsoft **Graph delta-poll** over the shared intake
+> mailboxes, authorised by **Exchange RBAC for Applications** (resource-scoped, **no Global-Admin consent and
+> no push subscription**).
 
 #### B1. Grant the intake app mailbox access via Exchange RBAC (the 3 shared inboxes)
 
@@ -125,14 +149,19 @@ expose are privileged identity/governance actions only you can do.
    **bounded by that scope**, so it can read only those three mailboxes and nothing else.
 4. Note the exact SMTP addresses of the three mailboxes — they go into `GRAPH_INTAKE_MAILBOXES` in B3.
 
-#### B2. Put the Graph client secret in Key Vault
+#### B2. Put the Graph client secret in Key Vault  ·  ✅ **DONE (2026-06-27)** — nothing for you to do
+
+**Done:** the Graph client secret was **rotated** on the intake app registration (`5d37a155…`), stored in
+Key Vault (`cespk-pg-kv-dev/graph-client-secret`), and referenced from `cespk-orch-dev` via the orchestration
+Function App's **managed identity** (granted **Key Vault Secrets User**); the plaintext setting was removed and
+the reference resolves. _(Original operator steps retained for reference below.)_
 
 **What:** the intake app authenticates to Graph with a **client secret** (or certificate). It must live in
 **Key Vault**, not in app settings.
 
 **Why you:** creating/rotating the Entra app credential and writing it to Key Vault are privileged.
 
-**Steps:**
+**Steps (for reference):**
 1. In the intake app's **Entra app registration**, create a **client secret** (or upload a certificate).
 2. Store it as a secret in the appropriate **Key Vault** (the retained vaults are still in
    `rg-collisionspike-dev`).
@@ -140,7 +169,20 @@ expose are privileged identity/governance actions only you can do.
    (`@Microsoft.KeyVault(...)`) resolved by the orchestration Function App's **managed identity** — never
    paste the secret value into config.
 
-#### B3. Deploy the orchestration Function App and wire it up
+#### B3. Deploy the orchestration Function App and wire it up  ·  ✅ **DEPLOY + WIRE DONE (2026-06-27)** — a few finishing items remain
+
+**Done:** `cespk-orch-dev` now has **41 functions deployed and registered** (the full intake chain
+fetchMessage/providerMatch/caseResolve/classifyPersist/parse/statusEvaluate/enrich + intakeOrchestrator +
+intake-starter; Graph infra graph-webhook/graph-lifecycle/graph-renew; and all 9 gated orchestrations + their
+activities/starters/timers). _(Root cause of the earlier "0 functions" state: the esbuild ESM→CJS bundle
+crashed on load at `createRequire(import.meta.url)`; fixed with a banner+define build step `build-orch.cjs`.)_
+Wired: PARSER/ENRICH/BOXWEBHOOK/EVASENTRY `_FN_URL` + KV-referenced function keys, `EVIDENCE_BLOB_CONTAINER`;
+orch→Data API uses **managed identity**; storage is identity-based.
+
+**Still needed before intake is live:** **B1** (Exchange RBAC scope the 3 mailboxes — no Graph subscriptions
+exist yet, so the renewal timer no-ops); set **`EVIDENCE_BLOB_CONNECTION`** (prefer a managed-identity form —
+currently unset to avoid a plaintext secret); assign the **orch managed identity an app-role on the Data
+API**; wire **Azure Monitor heartbeat alerts**.
 
 **What:** publish the orchestration code to `cespk-orch-dev` and set the env it needs to poll Graph and call
 the existing Functions.
@@ -148,9 +190,9 @@ the existing Functions.
 **Why you:** deploying code to a live Function App and setting its production app settings are deploy/login
 actions.
 
-**Steps:**
-1. **Deploy** the orchestration project (`orchestration/`) to **`cespk-orch-dev`** (it currently has **no
-   functions** — this is what creates the live intake timer/poller).
+**Steps (for reference — deploy + wire already done):**
+1. **Deploy** the orchestration project (`orchestration/`) to **`cespk-orch-dev`** (this deploy is what
+   created the 41 live functions / the intake timer/poller).
 2. Set app settings:
    - **`GRAPH_INTAKE_MAILBOXES`** — the three intake mailbox SMTP addresses (from B1).
    - the **parser** Function base URL **+ function key** (`cespike-parser-dev`),
@@ -297,18 +339,20 @@ The DSAR/erasure runbook and the DPIA/controller-processor doc are authored and 
 
 Where this file says "give me the login/key," those are normal service keys (DVSA, DVLA, Box, EVA) plus the
 two Azure-side secrets (the Postgres app login from A2 and the Graph client secret from B2). DVSA/DVLA keys
-are already in place and working. EVA and Box are still waiting on you; the two Azure secrets and the
-mailbox grant are the new live-stack asks.
+are already in place and working; the **two Azure secrets (A2 + B2) are now both resolved** (see A2 / A3 / B2).
+EVA and Box are still waiting on you; the remaining live-stack ask to bring intake online is the **mailbox
+grant (B1)**.
 
 ---
 
 ---
 
-## Historical — decommissioned Power Platform operator backlog
+## Historical — Power Platform operator backlog (teardown pending)
 
 > **BANDED / NOT LIVE.** Everything below describes the **prior Power Platform implementation** (Power Apps
 > Code App, Dataverse, the ~16 Power Automate flows, the custom connectors), which has been **migrated off
-> and decommissioned**. It is retained for provenance and for the **domain knowledge** it carries (EVA
+> to Azure** (its footprint still exists; **teardown pending operator go/no-go, not yet decommissioned**).
+> It is retained for provenance and for the **domain knowledge** it carries (EVA
 > photo order, provider corpus specifics, the Box pivot design, retention/legal inputs). **Do not action
 > these steps** — the live operator surface is the Azure sections above. Any `make.powerautomate.com`,
 > `pac code`, Dataverse env-var, or custom-connector step here is **superseded**.
