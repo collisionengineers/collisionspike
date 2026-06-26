@@ -18,7 +18,7 @@ import type {
   MileageUnit,
   ReviewState,
   VatStatus,
-} from '../mock/types';
+} from '@cs/domain';
 
 /* ------------------------------------------------------------
    Helpers to build EVA fields tersely.

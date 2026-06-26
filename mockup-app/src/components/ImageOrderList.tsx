@@ -18,7 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Badge, makeStyles, tokens, Text } from '@fluentui/react-components';
 import { GripVertical, ImageIcon, ChevronUp, ChevronDown } from 'lucide-react';
-import type { Evidence } from '../mock';
+import type { Evidence } from '@cs/domain';
 
 /* Keyboard-reorderable EVA photo-order list (@dnd-kit/sortable).
 

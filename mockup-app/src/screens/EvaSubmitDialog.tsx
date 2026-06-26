@@ -31,7 +31,7 @@ import {
   Send,
   ShieldAlert,
 } from 'lucide-react';
-import { buildEvaJson } from '../contracts/eva-export';
+import { buildEvaJson } from '@cs/domain';
 import {
   suggestCasePo,
   useCaseQuery,

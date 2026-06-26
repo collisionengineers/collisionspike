@@ -23,9 +23,6 @@ import type {
   InboundCounts,
   InboundFacet,
   TriageState,
-} from './types';
-import { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF } from './types';
-import type {
   LiveCounts,
   Throughput,
   AgingExceptions,
@@ -33,10 +30,11 @@ import type {
   PipelineStageKey,
   QueueName,
   ReasonFacet,
-} from '../mock/queues';
+} from '@cs/domain';
+import { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF } from '@cs/domain';
 
 const NOT_CONFIGURED =
-  'Data source not configured — call configureDataAccess(generatedServices) in main.tsx before writes.';
+  'Data source not configured — call configureDataAccess(restClient) in main.tsx before writes.';
 
 const ZERO_LIVE: LiveCounts = { notReady: 0, review: 0, held: 0 };
 const ZERO_THROUGHPUT: Throughput = { inToday: 0, submittedToday: 0, clearedThisWeek: 0 };

@@ -1,0 +1,200 @@
+/**
+ * orchestration/src/lib/data-api.ts
+ *
+ * Typed client for the new Data API (plan 21, the BFF). Every DB write the orchestration
+ * makes goes through the Data API — the orchestration never opens a Postgres connection
+ * (plan 22: "it calls ... the new Data API for every DB write"). The two INVIOLABLE dedup
+ * rules run in the shared `@cs/domain` `resolveCase`/`matchProviderByDomain` inside the
+ * activities; the Data API persists the result.
+ *
+ * Two route families are used:
+ *   - the frozen §21.1 DataAccess endpoints where they fit (createCase POST /api/cases);
+ *   - internal orchestration-facing routes under `/api/internal/*` for intake-time writes
+ *     that have no SPA equivalent (provider-match records, dedup context, evidence persist,
+ *     status recompute, audit). Keeping them under a distinct prefix leaves the DataAccess
+ *     freeze (R3) untouched (plan 21 §21.3 pattern).
+ *
+ * Auth: a service Bearer token for the Data API audience. In Azure it is the orchestration
+ * app's managed identity (App Service MSI token endpoint, dependency-free REST); locally a
+ * static DATA_API_TOKEN app-setting short-circuits it.
+ *
+ * App-settings: DATA_API_URL, DATA_API_AUDIENCE (api://<data-api-client-id>),
+ *   optional DATA_API_TOKEN (local dev).
+ */
+
+import type { CreateCaseInput, CreateCaseResult } from '@cs/domain';
+import type { ProviderMatchRecord, OpenProviderCase } from '@cs/domain';
+import type { EvidenceDescriptor } from '@cs/domain';
+
+/* ---------- service token ---------- */
+
+let cachedToken: { value: string; expiresAt: number } | null = null;
+
+async function getDataApiToken(): Promise<string> {
+  const local = process.env.DATA_API_TOKEN;
+  if (local) return local; // local dev / func start
+
+  const now = Date.now();
+  if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.value;
+
+  const audience = process.env.DATA_API_AUDIENCE;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (!audience || !idEndpoint || !idHeader) {
+    throw new Error('missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth');
+  }
+  const url = `${idEndpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`;
+  const res = await fetch(url, { headers: { 'X-IDENTITY-HEADER': idHeader } });
+  if (!res.ok) throw new Error(`MSI token ${res.status}`);
+  const json = (await res.json()) as { access_token: string; expires_on?: string };
+  cachedToken = {
+    value: json.access_token,
+    expiresAt: json.expires_on ? Number(json.expires_on) * 1000 : now + 3_300_000,
+  };
+  return cachedToken.value;
+}
+
+/* ---------- request core ---------- */
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const baseUrl = (process.env.DATA_API_URL ?? '').replace(/\/$/, '');
+  if (!baseUrl) throw new Error('missing DATA_API_URL');
+  const token = await getDataApiToken();
+  const res = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 409) {
+    // Surfaced verbatim so caseResolve can map a UNIQUE(sourcemessageid) collision
+    // to `already_ingested` (idempotent intake).
+    throw new ConflictError(`${method} ${path} → 409`);
+  }
+  if (!res.ok) {
+    throw new Error(`data-api ${method} ${path} → ${res.status}: ${await safeText(res)}`);
+  }
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
+}
+
+export class ConflictError extends Error {}
+
+/* ---------- typed surface ---------- */
+
+/** Intake-time dedup context for a provider+VRM (internal route). */
+export interface DedupContext {
+  openProviderCases: OpenProviderCase[];
+  seenMessageIds: string[];
+  seenPayloadHashes: string[];
+}
+
+export const dataApi = {
+  /** ProviderMatchRecord[] for the in-activity `matchProviderByDomain` (internal route). */
+  providerMatchRecords(): Promise<ProviderMatchRecord[]> {
+    return request('GET', '/api/internal/provider-match-records');
+  },
+
+  /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
+  dedupContext(params: {
+    workProviderId: string;
+    vrm: string;
+    messageId: string;
+  }): Promise<DedupContext> {
+    const q = new URLSearchParams({
+      workProviderId: params.workProviderId,
+      vrm: params.vrm,
+      messageId: params.messageId,
+    });
+    return request('GET', `/api/internal/dedup-context?${q.toString()}`);
+  },
+
+  /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
+  createCase(input: CreateCaseInput): Promise<CreateCaseResult> {
+    return request('POST', '/api/cases', input);
+  },
+
+  /**
+   * Persist the result of the in-activity dedup decision (internal route). The orchestration
+   * owns the ADR-0010 *decision* (shared `resolveCase`); the API owns the *persist* — it
+   * constructs the Case row (default EvaFields, status machine) on create, reparents evidence
+   * on attach, stamps duplicate-risk / case-link flags, and maps a UNIQUE(sourcemessageid)
+   * collision to `already_ingested`. Keeps EvaFields construction + status machine in the API.
+   */
+  resolvePersist(payload: {
+    inbound: unknown;
+    providerId?: string;
+    matchState?: string;
+    decision: {
+      resolution: string;
+      targetCaseId?: string;
+      setDuplicateRisk: boolean;
+      caseLinkState?: 'none' | 'pending';
+      statusEffect: string;
+      auditAction: string;
+    };
+  }): Promise<{ outcome: 'created' | 'attached' | 'already_ingested'; caseId: string }> {
+    return request('POST', '/api/internal/cases/resolve', payload);
+  },
+
+  /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
+  persistEvidence(
+    caseId: string,
+    rows: Array<EvidenceDescriptor & { blobPath: string; size: number }>,
+  ): Promise<{ persisted: number }> {
+    return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+
+  /** Recompute EVA-readiness + status machine and persist (internal route). */
+  evaluateStatus(caseId: string): Promise<{ value: string }> {
+    return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {});
+  },
+
+  /** Append one audit_event row (internal route; the API enforces append-only). */
+  recordAudit(payload: {
+    action: string;
+    caseId?: string;
+    summary: string;
+    severity?: 'info' | 'warning' | 'error';
+    before?: unknown;
+    after?: unknown;
+  }): Promise<void> {
+    return request('POST', '/api/internal/audit', payload);
+  },
+
+  /** Per-principal job rows for the jobsheet-import fan-out (internal route). */
+  principals(): Promise<Array<{ principalCode: string }>> {
+    return request('GET', '/api/internal/principals');
+  },
+
+  /** Cases due for retention disposition (internal route; case-disposition job). */
+  casesForDisposition(): Promise<Array<{ caseId: string }>> {
+    return request('GET', '/api/internal/disposition/due');
+  },
+
+  /** Run the retention/erasure for one case (internal route; job identity only). */
+  disposeCase(caseId: string): Promise<void> {
+    return request('POST', `/api/internal/disposition/${caseId}`, {});
+  },
+
+  /** Evidence blob paths eligible for the post-mirror purge (internal route). */
+  blobsForPurge(): Promise<Array<{ caseId: string; blobPath: string }>> {
+    return request('GET', '/api/internal/box/purge-candidates');
+  },
+
+  /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
+  markBlobPurged(payload: { caseId: string; blobPath: string }): Promise<void> {
+    return request('POST', '/api/internal/box/mark-purged', payload);
+  },
+};
+
+async function safeText(res: Response): Promise<string> {
+  try {
+    return (await res.text()).slice(0, 500);
+  } catch {
+    return '<no body>';
+  }
+}

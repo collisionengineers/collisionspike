@@ -3,7 +3,7 @@ import {
   type Case,
   type Evidence,
   type MissingItem,
-} from '../mock';
+} from '@cs/domain';
 
 /** A single deterministic readiness check result. */
 export interface ChecklistItem {

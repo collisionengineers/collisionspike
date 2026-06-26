@@ -16,14 +16,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getDataAccess } from './index';
-import type { ActivityEvent, Case, Evidence, Provider } from '../mock/types';
+import type { ActivityEvent, Case, Evidence, Provider } from '@cs/domain';
 import type {
   LiveCounts,
   Throughput,
   AgingExceptions,
   PipelineStage,
-} from '../mock/queues';
-import type { QueueName } from '../mock/queues';
+} from '@cs/domain';
+import type { QueueName } from '@cs/domain';
 import type {
   SuggestedAddress,
   InspectionAddressCounts,

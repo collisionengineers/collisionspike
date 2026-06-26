@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Collision Engineers case-intake Power Apps Code App — React 18 + Fluent UI v9 + Vite, Dataverse-backed via the @microsoft/power-apps SDK.",
+  "description": "Collision Engineers case-intake SPA — React 18 + Fluent UI v9 + Vite, hosted on Azure Static Web Apps, backed by the @cs/api BFF.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -11,18 +11,19 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@azure/msal-browser": "^3.28.0",
+    "@azure/msal-react": "^2.1.0",
+    "@cs/domain": "*",
     "@dnd-kit/core": "^6.1.0",
     "@dnd-kit/sortable": "^8.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fluentui/react-components": "^9.54.0",
-    "@microsoft/power-apps": "1.0.3",
     "lucide-react": "^0.456.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
-    "@microsoft/power-apps-vite": "1.0.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",

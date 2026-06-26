@@ -13,7 +13,7 @@ import {
   Archive,
   type LucideIcon,
 } from 'lucide-react';
-import type { CaseStatus } from '../mock';
+import type { CaseStatus } from '@cs/domain';
 
 /* ============================================================
    StatusBadge — severity ramp, never colour-only.

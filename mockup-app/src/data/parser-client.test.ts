@@ -8,7 +8,7 @@ import {
   type ParserResponse,
   type ParserTransport,
 } from './parser-client';
-import { EVA_FIELD_ORDER } from '../contracts/eva-export';
+import { EVA_FIELD_ORDER } from '@cs/domain';
 
 /* A CANNED live response captured from the cespike-parser-dev Function
    (contract_version cedocumentparser_v2.0_eva_json) — keeps this test offline

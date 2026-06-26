@@ -1,0 +1,9 @@
+{
+  "name": "cs-orch",
+  "version": "1.0.0",
+  "main": "main.cjs",
+  "dependencies": {
+    "@azure/functions": "^4.5.0",
+    "durable-functions": "^3.3.2"
+  }
+}

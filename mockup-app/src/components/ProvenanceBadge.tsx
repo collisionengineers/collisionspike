@@ -5,7 +5,7 @@ import type {
   FieldProvenance,
   ProvenanceSourceType,
   ReviewState,
-} from '../mock';
+} from '@cs/domain';
 
 /* ============================================================
    ProvenanceBadge — ONE coherent provenance token.

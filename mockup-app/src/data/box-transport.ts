@@ -28,7 +28,7 @@
    live in box-connector-transport.ts alongside parser-connector-transport.ts).
    ============================================================ */
 
-import type { CaseStatus } from '../mock/types';
+import type { CaseStatus } from '@cs/domain';
 
 /* ----------  Shared status vocabulary  ---------- */
 

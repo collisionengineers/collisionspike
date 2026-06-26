@@ -96,9 +96,8 @@ import {
   type PipelineStageKey,
   type SuggestedAddress,
 } from '../data';
-import { resolveInspectionDecision } from '../domain/address-policy';
+import { resolveInspectionDecision, buildEvaJson } from '@cs/domain';
 import { GLOBAL_TOASTER_ID } from '../components';
-import { buildEvaJson } from '../contracts/eva-export';
 
 /* ============================================================
    CaseDetail — the core review screen.
