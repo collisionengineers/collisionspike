@@ -41646,10 +41646,36 @@ var KnownEncryptionAlgorithmType2;
 
 // orchestration/src/lib/blob.ts
 var cachedClient = null;
+var cachedStorageToken = null;
+async function storageMiToken() {
+  const now = Date.now();
+  if (cachedStorageToken && cachedStorageToken.expiresAt > now + 6e4) {
+    return { token: cachedStorageToken.token, expiresOnTimestamp: cachedStorageToken.expiresAt };
+  }
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (!idEndpoint || !idHeader) {
+    throw new Error("missing managed-identity endpoint (IDENTITY_ENDPOINT/HEADER) for evidence blob auth");
+  }
+  const resource = "https://storage.azure.com/";
+  const url2 = `${idEndpoint}?resource=${encodeURIComponent(resource)}&api-version=2019-08-01`;
+  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+  if (!res.ok) throw new Error(`MSI storage token ${res.status}`);
+  const json = await res.json();
+  const expiresAt = json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5;
+  cachedStorageToken = { token: json.access_token, expiresAt };
+  return { token: json.access_token, expiresOnTimestamp: expiresAt };
+}
+var miCredential = { getToken: async () => storageMiToken() };
 function client() {
   if (cachedClient) return cachedClient;
+  const account = process.env.EVIDENCE_BLOB_ACCOUNT;
+  if (account) {
+    cachedClient = new BlobServiceClient(`https://${account}.blob.core.windows.net`, miCredential);
+    return cachedClient;
+  }
   const conn = process.env.EVIDENCE_BLOB_CONNECTION;
-  if (!conn) throw new Error("missing EVIDENCE_BLOB_CONNECTION");
+  if (!conn) throw new Error("missing EVIDENCE_BLOB_ACCOUNT (MI) or EVIDENCE_BLOB_CONNECTION");
   cachedClient = BlobServiceClient.fromConnectionString(conn);
   return cachedClient;
 }
