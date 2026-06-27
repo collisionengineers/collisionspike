@@ -217,6 +217,18 @@ app.http('internalDedupContext', {
       const workProviderId = req.query.get('workProviderId') ?? '';
       const vrm = req.query.get('vrm') ?? '';
 
+      // No provider matched (unknown sender, e.g. a non-provider gmail address):
+      // there is nothing to dedup on the provider axis, and work_provider_id is a
+      // uuid column so binding '' raises `invalid input syntax for type uuid`.
+      // Return an empty context — the UNIQUE(source_message_id) insert backstop in
+      // cases/resolve still guards a genuine repeat of the same message.
+      if (!workProviderId) {
+        return {
+          status: 200,
+          jsonBody: { openProviderCases: [], seenMessageIds: [], seenPayloadHashes: [] },
+        };
+      }
+
       // Open same-provider cases (non-terminal) for the provider + VRM.
       // VRM = '' skips the VRM filter so resolveCase sees all provider cases.
       const caseRows = vrm
@@ -509,9 +521,9 @@ app.http('internalCasesEvidence', {
           const result = await query<{ id: string }>(
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label)
-             SELECT $1, $2, $3, $4, $5, $6, 'auto-intake'
+             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake'
              WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6
+               SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
              RETURNING id`,
             [row.filename, caseId, kindCode, row.contentType || null, row.size ?? null, row.blobPath ?? null],
