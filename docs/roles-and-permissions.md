@@ -1,13 +1,14 @@
 # Roles & permissions
 
 _Last updated **2026-06-27** — reframed to the **live Azure PaaS stack** (the Power Platform
-implementation is **migrated off to Azure; its teardown is pending operator go/no-go, not yet
-decommissioned**). Two distinct concerns:_
+implementation is **migrated off to Azure and deprovisioned 2026-06-27** — the Dev sandbox deleted via
+`pac admin delete`). Two distinct concerns:_
 _**(A)** the **operator platform-role gap analysis** for **`digital@collisionengineers.co.uk`** (the
 Azure/Entra roles needed to BUILD, ACTIVATE & RUN the spike), and_
-_**(B)** the **in-app least-privilege role model** for STAFF WHO USE the intake app — now the **two Entra
-app roles** `CollisionSpike.User` / `CollisionSpike.Admin` enforced by the **Data API** (and, since
-2026-06-26, also **Postgres RLS**), carrying the privilege intent of the prior Dataverse roles (Phase 9,
+_**(B)** the **in-app least-privilege role model** for STAFF WHO USE the intake app — now the **Entra
+app roles** `CollisionSpike.User` / `CollisionSpike.Superuser` (Superuser is the full-privilege role
+**renamed from `Admin`**; plus a defined-but-unenforced `CollisionSpike.Engineer` placeholder) enforced by
+the **Data API** (and, since 2026-06-26, also **Postgres RLS**), carrying the privilege intent of the prior Dataverse roles (Phase 9,
 [ADR-0017 §G8](./adr/0017-data-retention-erasure-pii-lifecycle.md); migration spec
 [`migration/31-auth-migration.md`](../migration/31-auth-migration.md)). Companion to
 [docs/gated.md](./gated.md), [../DEPLOY-RUNBOOK.md](../DEPLOY-RUNBOOK.md),
@@ -16,16 +17,16 @@ app roles** `CollisionSpike.User` / `CollisionSpike.Admin` enforced by the **Dat
 > **LIVE-STACK NOTE (2026-06-26).** The running system is the **Azure PaaS stack** (SPA on Static Web App
 > `cespk-spa-dev` with **MSAL/Entra** sign-in → Data API `cespk-api-dev` → Postgres `cespk-pg-dev`; the
 > Python parser/enrichment/EVA/box Functions retained). The **Power Platform** build (Code App, Dataverse,
-> ~16 Power Automate flows, custom connectors) is **superseded by the Azure stack; teardown pending operator
-> go/no-go (not yet decommissioned)** — where this doc still describes it
+> ~16 Power Automate flows, custom connectors) is **superseded by the Azure stack and deprovisioned
+> 2026-06-27** (the Dev sandbox deleted via `pac admin delete`) — where this doc still describes it
 > (Dataverse security roles, the Code App, DLP, Power-Platform-admin gaps), that content is **HISTORICAL**
 > and banded as such; the **business domain and privilege intent are unchanged**.
 
 > **Two role planes, do not conflate them.** (A) below is the **platform/operator** plane (Azure RBAC,
 > Entra directory roles, vendor onboarding) — a **gap list** of what `digital@` still needs to build/run
 > the Azure stack. (B) further down is the **application** plane — the **Entra app roles** that scope what
-> intake STAFF can do inside the SPA + API. "Admin" in plane (B) is the in-app settings/audit role
-> (`CollisionSpike.Admin`), **not** an Azure subscription Owner or any Entra **directory** admin role from
+> intake STAFF can do inside the SPA + API. "Superuser" (formerly "Admin") in plane (B) is the in-app
+> full-privilege settings/audit role (`CollisionSpike.Superuser`), **not** an Azure subscription Owner or any Entra **directory** admin role from
 > plane (A).
 
 ---
@@ -39,7 +40,7 @@ app roles** `CollisionSpike.User` / `CollisionSpike.Admin` enforced by the **Dat
 > **LIVE-STACK RE-FRAME (2026-06-26).** This gap analysis was written for the Power-Platform build/activate
 > era. On the **live Azure stack** the **subscription Owner** row is the load-bearing one (it covers the
 > SPA, Data API, orchestration, Postgres, and all retained Functions); the **Dataverse System
-> Administrator** row is **HISTORICAL** (Dataverse is superseded; teardown pending — see banding below). The biggest
+> Administrator** row is **HISTORICAL** (Dataverse is superseded; **deprovisioned 2026-06-27** — see banding below). The biggest
 > auth-model change: **intake mailbox access is now [Exchange RBAC for Applications]**, not the Office 365
 > Outlook connector and **not** a Graph `Mail.Read` admin consent — corrected throughout below. New live
 > blocker not in the original list: the whole stack is on an **Azure Free Trial** (disabled at ~30 days
@@ -54,7 +55,7 @@ A check of `digital@collisionengineers.co.uk` shows:
 | Plane | What you hold | What it already covers |
 |---|---|---|
 | **Azure RBAC** | **Owner** on the subscription (`e6076573-…`, **Free Trial**) | All Azure deploy/manage for the **live stack**: the **Data API** (`cespk-api-dev`), the **orchestration** app (`cespk-orch-dev`), **Postgres** (`cespk-pg-dev`), the **SPA** Static Web App (`cespk-spa-dev`), and the retained Functions (parser, enrichment, EVA, evavalidation, OCR, Box webhook), Storage, Document Intelligence, App Insights — **and** assigning Azure RBAC to managed identities. Owner ⊇ Contributor + User Access Administrator. **Management-plane only** — see the Key Vault data-plane gap below. |
-| **Entra app registrations** | **SPA / Data API / Graph-intake** regs created (single-tenant) | The **app-role** plane (`CollisionSpike.User` / `CollisionSpike.Admin`) and MSAL sign-in (Part B). Created without any Entra **directory** admin role (single-tenant app regs need none). |
+| **Entra app registrations** | **SPA / Data API / Graph-intake** regs created (single-tenant) | The **app-role** plane (`CollisionSpike.User` / `CollisionSpike.Superuser`, the latter formerly `Admin`) and MSAL sign-in (Part B). Created without any Entra **directory** admin role (single-tenant app regs need none). |
 | **Entra directory roles** | **None** (0 active, 0 PIM-eligible) | — nothing at the tenant directory level. |
 | **Box** | A **free** account | Raw REST with a dev token only — no CCG, webhooks, File Requests, or metadata. |
 | **[HISTORICAL] Dataverse (Dev env)** | **System Administrator** | *Decommissioned.* Covered the whole Power Platform *environment* build: the `CollisionSpike` tables/columns, the ~16 cloud flows, the Code App (`pac code push`), env-var feature gates, connections. A Dataverse **security role**, not an Entra directory role. No Azure-stack equivalent is needed — the analogous control is now **Azure RBAC** on the resources (Owner, above). |
@@ -180,16 +181,21 @@ Details, so there are no surprises when these phases start:
 
 ---
 
-## Part B — the in-app least-privilege role model (two Entra app roles, ADR-0017 §G8)
+## Part B — the in-app least-privilege role model (two enforced Entra app roles + a deferred Engineer placeholder, ADR-0017 §G8)
 
 The roles in Part A are **platform/operator** roles that `digital@` needs to **build, activate and run**
 the spike. Part B is the **application** plane: the roles that scope what intake **staff** can do inside
 the **SPA + Data API + Postgres**.
 
-**LIVE-STACK MODEL (2026-06-26).** Two **Entra app roles** — **`CollisionSpike.User`** and
-**`CollisionSpike.Admin`** — defined on the **Data API** app registration (`cespk-api`). The SPA acquires
-an Entra token for the API audience; the API reads the **`roles`** claim on **every** request and enforces
-User vs Admin per route; **Postgres Row-Level Security** (the DB app-role set **per connection** via the
+**LIVE-STACK MODEL (2026-06-26; roles updated 2026-06-27).** Two **enforced Entra app roles** —
+**`CollisionSpike.User`** and **`CollisionSpike.Superuser`** — defined on the **Data API** app registration
+(`cespk-api`). **`CollisionSpike.Superuser`** is the full-privilege role **renamed from `CollisionSpike.Admin`**
+(same app-role id, so the existing assignment carried over; `auth.ts` accepts **both** `CollisionSpike.Superuser`
+**and** the legacy `CollisionSpike.Admin` for back-compat, and the settings route is Superuser-gated). A third
+role **`CollisionSpike.Engineer`** is **defined but NOT yet enforced** — a placeholder for future
+assessment/engineer functionality. The SPA acquires an Entra token for the API audience; the API reads the
+**`roles`** claim on **every** request and enforces User vs Superuser per route; **Postgres Row-Level Security**
+(the DB app-role set **per connection** via the
 libpq startup option `-c app.role`, default `staff`) is the belt-and-braces DB enforcement of the same
 boundary — **live and enforced since 2026-06-26**, since the API connects as the non-owner login `cespk_app`.
 The two app roles **carry the privilege intent of the
@@ -209,7 +215,7 @@ prior two Dataverse security roles** unchanged — only the enforcement mechanis
 > `-c app.role=staff` (the `PGAPPROLE` app-setting; **not** a `SET LOCAL`-per-query call). The boundary is now
 > enforced **both** in the API code **and** by RLS (belt-and-braces). A future admin-only destructive path
 > (the ADR-0017 retention/erasure cascade — **not yet implemented**) must run on a **separate** pool opened
-> with `-c app.role=admin`, gated on a verified `CollisionSpike.Admin` token — the staff pool's role is never
+> with `-c app.role=admin`, gated on a verified `CollisionSpike.Superuser` token — the staff pool's role is never
 > widened.
 
 > **Identity-based secret access (2026-06-27).** The remaining plaintext secret exposures were remediated by
@@ -221,7 +227,7 @@ prior two Dataverse security roles** unchanged — only the enforcement mechanis
 > Intelligence local-auth disabled → keyless). Retained parser/enrich/box function keys are now Key Vault
 > references.
 
-> **[HISTORICAL] Prior authoring shape (superseded; teardown pending).** Before migration these were **Dataverse
+> **[HISTORICAL] Prior authoring shape (superseded; Power Platform deprovisioned 2026-06-27).** Before migration these were **Dataverse
 > security roles** authored as schema-as-code under `dataverse/roles/` (`_role.schema.json`,
 > `user-role.json`, `admin-role.json`) and applied by `dataverse/.build/28-roles.ps1` (a DRY-RUN-by-default,
 > create-not-assign apply script over the Dataverse Web API, mapping the 8 table-privilege axes to
@@ -230,15 +236,15 @@ prior two Dataverse security roles** unchanged — only the enforcement mechanis
 > binding, `prv<Axis><Entity>` privilege-GUID resolution, the Power-Platform-admin assignment step — **no
 > longer apply** on the live stack.
 
-### The two live roles (+ one deferred)
+### The two enforced roles (+ a deferred Engineer placeholder)
 
 | App role | Scope | Status |
 |---|---|---|
 | **`CollisionSpike.User`** | All **case-intake** actions — review cases, complete the 12 fields, drive readiness, pick/edit the inspection address, export to EVA, draft chasers. CRUD on the work tables; **read-only** on the governed corpus; **create+read (never delete)** on the audit trail. | **Live** (one staff principal assigned; others 403 until assigned). |
-| **`CollisionSpike.Admin`** | **User + settings + audit-log management** — **write** the provider/inspection-address corpus, triage improvement signals, manage the **feature-gate app-settings**, and **delete** (retention cascade) audit rows. Superset of User. | **Live** (assigned to the one current admin principal). |
-| **Engineer** | Future **assessment functionality** (the engineer who performs the inspection/assessment). | **DEFERRED — out of scope.** Not defined as an app role. |
+| **`CollisionSpike.Superuser`** _(formerly `CollisionSpike.Admin`)_ | **User + settings + audit-log management** — **write** the provider/inspection-address corpus, triage improvement signals, manage the **feature-gate app-settings**, and **delete** (retention cascade) audit rows. Superset of User. The full-privilege/operator role. | **Live** (the renamed role kept the prior assignment; the legacy `CollisionSpike.Admin` is still accepted for back-compat). |
+| **`CollisionSpike.Engineer`** | Future **assessment functionality** (the engineer who performs the inspection/assessment). | **DEFINED but NOT yet enforced** — the app role exists as a placeholder; no privileges are wired to it yet. |
 
-> "Admin" here is the in-app **settings/audit** role (`CollisionSpike.Admin`), **not** an Azure
+> "Superuser" (formerly "Admin") here is the in-app full-privilege **settings/audit** role (`CollisionSpike.Superuser`), **not** an Azure
 > subscription **Owner** or any Entra **directory** admin role (those are Part-A platform roles).
 
 ### The format (privilege intent, per table)
@@ -272,7 +278,7 @@ Legend: **C**reate · **R**ead · **W**rite · **D**elete · **A**ppend · **AT*
 | `inbound_email` | ✓ | ✓ | ✓ | — | ✓ | ✓ | Triage; **no delete** (dedup anchor / "we saw this" row). |
 | `chaser` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Draft chasers (disposable). |
 | `note` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Collaborative case notes. |
-| `improvement_signal` | ✓ | ✓ | — | — | ✓ | ✓ | Staff **raise** signals; triage/resolve is Admin (governance: feeds a Management queue). |
+| `improvement_signal` | ✓ | ✓ | — | — | ✓ | ✓ | Staff **raise** signals; triage/resolve is Superuser (governance: feeds a Management queue). |
 | `work_provider` | — | ✓ | — | — | — | ✓ | Governed corpus → **read-only**; AppendTo so a Case can reference it. |
 | `repairer` | — | ✓ | — | — | — | ✓ | Governed corpus → **read-only**. |
 | `inspection_address` | — | ✓ | — | — | — | ✓ | Suggestions corpus staff **pick** from → read + AppendTo only. |
@@ -283,12 +289,12 @@ Legend: **C**reate · **R**ead · **W**rite · **D**elete · **A**ppend · **AT*
 No platform/admin privileges: a User can run the app and do intake, but cannot manage the corpus, the
 feature gates, or the audit trail.
 
-### Privilege matrix — `CollisionSpike.Admin` (= User + the additions below)
+### Privilege matrix — `CollisionSpike.Superuser` (= User + the additions below)
 
-Admin is a **superset** of User (the API checks for `CollisionSpike.Admin` on the privileged routes).
-Differences vs User:
+Superuser is a **superset** of User (the API checks for `CollisionSpike.Superuser` — or the legacy
+`CollisionSpike.Admin`, still accepted for back-compat — on the privileged routes). Differences vs User:
 
-| Table / privilege | Admin change | Why |
+| Table / privilege | Superuser change | Why |
 |---|---|---|
 | `improvement_signal` | **+ Write, + Delete** | Management **triages/resolves** the signal queue. |
 | `work_provider` | **+ Create, + Write** (still **no Delete**) | Management **edits** the provider corpus; referenced providers are **archived/merged (`active=false`), never hard-deleted** (Case/PO history depends on old codes). |
@@ -296,7 +302,7 @@ Differences vs User:
 | `inspection_address` | **+ Create, + Write** (no Delete) | Curate the inspection-address suggestions corpus; archive-not-delete. |
 | `image_source` | **+ Create, + Write** (no Delete) | Edit image-source corpus; archive-not-delete. |
 | `audit_event` | **+ Delete** (still **no Write**) | Audit-log **management** — the ADR-0017 cascade/retention authority. Delete only (governed cascade); **never** in-place edit (rows stay append-only/tamper-evident). |
-| **Feature-gate settings** | **manage** | Set/toggle/clear the **feature gates** (`BOX_API_ENABLED`, `EVA_API_ENABLED`, …) — the activation levers. On the live stack these are **Function App / API app-settings** (the env-var gates carried over from Dataverse environment variables), managed by an Admin-only API route. |
+| **Feature-gate settings** | **manage** | Set/toggle/clear the **feature gates** (`BOX_API_ENABLED`, `EVA_API_ENABLED`, …) — the activation levers. On the live stack these are **Function App / API app-settings** (the env-var gates carried over from Dataverse environment variables), managed by a Superuser-only API route. |
 
 ### Invariants carried from the Dataverse roles (now enforced in the API + Postgres)
 
@@ -304,10 +310,10 @@ These three invariants are the heart of the model and are **unchanged** by the p
 (`migration/31` "Invariants carried from Dataverse roles"):
 
 1. **Audit append-only.** `audit_event` is **INSERT + SELECT for all roles, UPDATE for none, DELETE for
-   Admin only** (retention cascade). Enforced in the API write path **and** (belt-and-braces) by withholding
-   UPDATE/DELETE in the Postgres role unless Admin-RLS. **Never** in-place editable, even by Admin.
+   Superuser only** (retention cascade). Enforced in the API write path **and** (belt-and-braces) by withholding
+   UPDATE/DELETE in the Postgres role unless Superuser-RLS. **Never** in-place editable, even by Superuser.
 2. **Corpus archive-not-delete.** Providers / repairers / inspection-addresses / image-sources are
-   retired with **`active=false`**, **never hard-deleted** (withheld even from Admin) — referenced
+   retired with **`active=false`**, **never hard-deleted** (withheld even from Superuser) — referenced
    principal codes must survive for **Case/PO history**.
 3. **Default-deny.** Roles grant only what is listed; there is **no schema / role-management surface** in
    the app. The platform-admin plane (resource-group / Function / Key Vault / Postgres admin) is **Azure
@@ -318,7 +324,7 @@ These three invariants are the heart of the model and are **unchanged** by the p
 There is **no inert "create-not-assign" script** any more: the two app roles **exist** on the `cespk-api`
 registration, but an **unassigned** staff account simply gets a token with **no `roles` claim** and is
 treated as **no-access** by the API. Granting access = **assigning** the staff account to
-`CollisionSpike.User` / `.Admin` under **Enterprise Applications → `cespk-api` → Users and groups** — the
+`CollisionSpike.User` / `.Superuser` under **Enterprise Applications → `cespk-api` → Users and groups** — the
 operator activation step. (Historically the equivalent inertia was `28-roles.ps1` creating-but-not-assigning
 Dataverse roles; the principle — *creating/defining a role grants no one anything until assigned* — is the
 same.)
@@ -337,7 +343,7 @@ same.)
   `New-ManagementRoleAssignment`). A Global Admin only needs to assign the *Exchange Administrator* role to
   whoever runs it.
 - **You assign** (Entra, **Enterprise Applications → `cespk-api`**): staff accounts to
-  `CollisionSpike.User` / `CollisionSpike.Admin` (the app-role activation step; one assigned so far).
+  `CollisionSpike.User` / `CollisionSpike.Superuser` (the app-role activation step; one assigned so far).
 - **[HISTORICAL]** the old GA-assigned **Power Platform Administrator** + **License Administrator** gaps are
   **decommissioned** — no longer required on the Azure stack.
 

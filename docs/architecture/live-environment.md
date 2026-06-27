@@ -4,11 +4,11 @@
 > **The LIVE system is the Azure PaaS stack** (Static Web App + two Node/TypeScript Function Apps +
 > Postgres Flexible Server, alongside the 6 retained Python Functions). The earlier **Power Platform
 > implementation** (Power Apps Code App, Dataverse, ~16 Power Automate flows, the `cr1bd_*` custom
-> connectors) **has been migrated to Azure (deployed)** — but its Power Platform footprint **still exists**
-> (the Dev sandbox, Code App, both solutions, custom connectors and the `case-resolve` flow are all still
-> present) and its **teardown is pending operator go/no-go — NOT yet decommissioned**. It survives in this
-> document **only as a clearly-banded historical appendix**; do **not** treat any Power Platform row as
-> live. The migration plan + reversible build live in [`migration/`](../../migration/).
+> connectors) **has been migrated to Azure (deployed)** and its Power Platform footprint **deprovisioned
+> 2026-06-27** (the Dev sandbox, Code App, both solutions, custom connectors and the remaining
+> `case-resolve` flow were deleted via `pac admin delete`; `CollisionSpike.zip` cold-exported off-repo). It
+> survives in this document **only as a clearly-banded historical appendix**; do **not** treat any Power
+> Platform row as live. The migration plan + reversible build live in [`migration/`](../../migration/).
 > Pairs with [AGENTS.md](../../AGENTS.md) (rules/gotchas) and [CURRENT_STATUS.md](../../CURRENT_STATUS.md).
 > Re-verify IDs with the toolkit at the bottom before relying on them.
 
@@ -50,8 +50,12 @@
 - **Sign-in:** Microsoft **Entra ID workforce** via **MSAL** in the SPA (`mockup-app/src/auth/`). The SPA
   acquires an access token for the API scope and sends it as a Bearer token; the **Data API validates the
   JWT with `jose`** and authorizes by app role.
-- **App roles:** **`CollisionSpike.User`** and **`CollisionSpike.Admin`** — the two roles that **map the old
-  two Dataverse security roles** 1:1.
+- **App roles:** **`CollisionSpike.User`** and **`CollisionSpike.Superuser`** — the full-privilege role
+  **`CollisionSpike.Superuser`** was **renamed from `CollisionSpike.Admin`** (same app-role id, so the
+  existing assignment carried over; `auth.ts` still accepts the legacy `CollisionSpike.Admin` for
+  back-compat, and the settings route is Superuser-gated). These map the old two Dataverse security roles
+  1:1. A third role **`CollisionSpike.Engineer`** is **defined but NOT yet enforced** — a placeholder for
+  future assessment/engineer functionality.
 - **Token audience:** v2 access tokens carry `aud` = the **API app-registration client-id GUID**
   (`fa2fb28c…`); the API validates against this. Audience-form hardening is in progress (see gaps).
 - **Assignment state:** **only ONE staff principal is app-role-assigned so far.** Any other signed-in user
@@ -149,11 +153,11 @@ curl.exe -i -X OPTIONS "https://cespike-parser-dev.azurewebsites.net/api/parse" 
 # Appendix — HISTORICAL: the prior Power Platform environment
 
 > **NOT LIVE.** Everything below describes the **prior Power Platform implementation**, which was
-> **migrated to the Azure stack above**. The Power Platform footprint **still exists** and its teardown is
-> **pending operator go/no-go** (the migration's deprovision step
-> [`migration/90-deprovision-power-platform.md`](../../migration/90-deprovision-power-platform.md)) — it is
-> **not yet decommissioned**, but it is **no longer the live system**. Retained for provenance.
-> Do not rely on these resources or treat any of them as current.
+> **migrated to the Azure stack above** and then **deprovisioned 2026-06-27** (the migration's deprovision
+> step [`migration/90-deprovision-power-platform.md`](../../migration/90-deprovision-power-platform.md) was
+> executed — the Dev sandbox deleted via `pac admin delete`). It is **no longer the live system** and the
+> resources below no longer exist. Retained for provenance. Do not rely on these resources or treat any of
+> them as current.
 
 ## (historical) Environment & identity
 | Thing | Value |
@@ -174,15 +178,15 @@ curl.exe -i -X OPTIONS "https://cespike-parser-dev.azurewebsites.net/api/parse" 
 `CollisionSpike` (schema, prefix `cr1bd`, id `fb532f91-f26a-f111-ab0c-0022481b614c`) +
 `CollisionSpikeFlows` (flows). All `cr1bd_*` tables/choicesets were the source the **Postgres schema was
 translated from** (every `cr1bd_*` global choiceset → a `choice_*` lookup table; EVA integer codes
-preserved). The Dataverse org is slated for deprovisioning.
+preserved). The Dataverse org was **deprovisioned 2026-06-27** with the rest of the Power Platform footprint.
 
 ## (historical) Power Automate flows
 ~16 cloud flows (`category eq 5`) — CS Intake (shared mailbox), CS Provider Match, CS Case Resolve, CS
 Classify + Persist, CS Parse, CS Status Evaluate, CS Enrich, CS Finalize EVA + Box, CS Chaser Draft, CS
 Job Sheet Import, plus the Phase-7 Box flows. **Their orchestration logic was re-expressed in the
 TypeScript `cespk-orch-dev` Durable pipeline** (now deployed + wired, not yet live). The flows themselves
-are **slated for teardown (pending operator go/no-go), not yet decommissioned** (the `case-resolve` flow is
-still ON).
+were **deprovisioned 2026-06-27** (deleted with the Dev sandbox via `pac admin delete`; their definitions
+remain in `flows/definitions/` for provenance).
 
 ## (historical) Power Platform custom connectors
 `cr1bd_ceparser`, `cr1bd_dvsaenrich`, `cr1bd_evasentry`, `cr1bd_evavalidation`, `cr1bd_box_rest`,

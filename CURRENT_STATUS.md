@@ -10,9 +10,9 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUN
 > **⚠️ Platform pivot (2026-06-26).** The **live system is now the Azure PaaS stack** (Static Web App +
 > Function Apps + Postgres). The original **Power Platform** implementation (Power Apps Code App,
 > Dataverse, ~16 Power Automate flows, custom connectors) has been **migrated off to Azure** — it is
-> **prior-era / historical** and is **no longer the system of record**, but its Power Platform footprint
-> **still exists** (the Dev sandbox, Code App, both solutions, custom connectors and the `case-resolve`
-> flow are all still present) and its **teardown is pending operator go/no-go — NOT yet decommissioned**.
+> **prior-era / historical** and is **no longer the system of record**; its Power Platform footprint was
+> **deprovisioned 2026-06-27** (the Dev sandbox, Code App, both solutions, custom connectors and the
+> remaining `case-resolve` flow were deleted via `pac admin delete`; `CollisionSpike.zip` cold-exported off-repo).
 > The **domain + workflow are unchanged** (intake → parse → review → enrich → EVA + Box; the EVA 12-field
 > contract; image rules; the provider corpus; the `Principal+YY+seq` Case/PO format) — only the **platform
 > mechanism** changed. The dated **🔔 Update —** build log is preserved verbatim under
@@ -37,16 +37,19 @@ there is **no Power SDK and no Dataverse** on the live path — Postgres is the 
 | Piece | What it is | Status |
 |---|---|---|
 | **SPA** (frontend) | Static Web App **`cespk-spa-dev`** (westeurope) at https://proud-sky-04e318b03.7.azurestaticapps.net — React/Vite from `mockup-app/`, **MSAL / Entra workforce sign-in** (staff-only), calls the API over REST (`mockup-app/src/data/rest-client.ts`). **No Power SDK.** | Live |
-| **Data API** | Function App **`cespk-api-dev`** (Node 20 / TypeScript Functions v4; source `api/`, esbuild bundle `deploy/api/main.cjs`). Validates the Entra JWT (`jose`) + app roles **`CollisionSpike.User` / `CollisionSpike.Admin`**; v2 tokens carry `aud` = the API client-id GUID (`fa2fb28c…`). Connects to Postgres. | Live |
+| **Data API** | Function App **`cespk-api-dev`** (Node 20 / TypeScript Functions v4; source `api/`, esbuild bundle `deploy/api/main.cjs`). Validates the Entra JWT (`jose`) + app roles **`CollisionSpike.User` / `CollisionSpike.Superuser`** (Superuser is the full-privilege role renamed from **`CollisionSpike.Admin`** — `auth.ts` still accepts the legacy name; a **`CollisionSpike.Engineer`** placeholder is defined but not enforced); v2 tokens carry `aud` = the API client-id GUID (`fa2fb28c…`). Connects to Postgres. | Live |
 | **Orchestration** | Function App **`cespk-orch-dev`** (source `orchestration/`) — **DEPLOYED + WIRED (41 functions registered) but NOT YET LIVE**. The full Microsoft Graph **delta-poll** intake chain over **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent, no push subscription) is deployed and wired, but **no Graph subscriptions and no Exchange RBAC scope on the 3 real mailboxes exist yet**, so the renewal timer lists 0 subscriptions and **no mail is processed**. | Deployed + wired, not yet live |
 | **System-of-record DB** | **Postgres Flexible `cespk-pg-dev`** (v16), database `collisionspike` — **36 tables**, seeded: `work_provider`=390, `repairer`=32, `image_source`=19, `inspection_address`=2209 (174 confirmed + 2035 suggested), `case_`=0. | Live |
 | **Python Functions (×6, retained)** | The 6 Python Functions are **unchanged** from the prior era and retained: parser **`cespike-parser-dev`**, enrichment, evasentry, evavalidation, ocr, box-webhook. | Retained |
 | **Supporting Azure** | The **Key Vaults**, evidence Blob **`cespkevidstdev01`**, and App Insights / Log Analytics are **retained unchanged**. | Retained |
 
-**Auth / identity.** Entra **workforce** sign-in via MSAL. The two app roles (**`CollisionSpike.User` /
-`CollisionSpike.Admin`**) map the **two** former Dataverse security roles. **Only one staff principal is
-app-role-assigned so far** — every other staff member will receive **403** until an admin assigns them a
-role.
+**Auth / identity.** Entra **workforce** sign-in via MSAL. The two enforced app roles (**`CollisionSpike.User`
+/ `CollisionSpike.Superuser`**) map the **two** former Dataverse security roles — **`CollisionSpike.Superuser`**
+is the full-privilege (settings / feature-gates / audit / corpus-write) role, **renamed from
+`CollisionSpike.Admin`** (same app-role id, so the existing assignment carried over; the legacy name is still
+accepted for back-compat). A third role **`CollisionSpike.Engineer`** is **defined but NOT yet enforced** (a
+placeholder for future assessment/engineer functionality). **Only one staff principal is app-role-assigned so
+far** — every other staff member will receive **403** until an admin assigns them a role.
 
 **Intake auth model — Exchange RBAC for Applications (NOT Global-Admin consent).** The intended intake
 path uses **Exchange RBAC for Applications**: an **Exchange Administrator** grants the intake app
@@ -80,7 +83,7 @@ repo that Graph `Mail.Read` needs Global-Admin / admin consent.)_
 3. **Free-Trial → PAYG deadline.** The whole stack disables at the ~30-day Free-Trial mark unless
    upgraded to Pay-As-You-Go (see the banner above).
 4. **Staff app-role assignment incomplete.** Only one principal is assigned; all other staff **403**
-   until assigned a `CollisionSpike.User` / `CollisionSpike.Admin` role.
+   until assigned a `CollisionSpike.User` / `CollisionSpike.Superuser` role.
 5. **Auth hardening in progress.** Durable auth error-handling and `aud` (audience-form) hardening are
    still being finalised.
 
@@ -90,8 +93,8 @@ repo that Graph `Mail.Read` needs Global-Admin / admin consent.)_
 
 > **Everything below this line describes the PRIOR Power Platform implementation** (Power Apps Code App
 > + Dataverse + Power Automate + custom connectors), which has since been **migrated to the Azure PaaS
-> stack above** (the Power Platform footprint still exists; its teardown is **pending operator go/no-go**,
-> not yet executed). It is preserved **verbatim, as a dated build log** — valuable for
+> stack above** (the Power Platform footprint was **deprovisioned 2026-06-27** — the Dev sandbox deleted via
+> `pac admin delete`). It is preserved **verbatim, as a dated build log** — valuable for
 > provenance and for the domain / EVA / provider / workflow detail it captures — but it **no longer
 > describes the live system**. Treat every "live / deployed / applied live / activated" statement in
 > this band as **true of the Power Platform era only**. The **domain rules** it records (the EVA 12-field

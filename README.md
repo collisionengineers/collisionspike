@@ -8,19 +8,21 @@ The **live build is an Azure PaaS stack** — a React/Vite **Static Web App** (M
 sign-in) over a **TypeScript Azure Functions** Data API backed by a **Postgres Flexible Server** system
 of record, plus six retained Python Functions (parser, enrichment, EVA Sentry, EVA-validation, OCR,
 box-webhook). It began on the **Microsoft Power Platform** (Power Apps **Code App** + Dataverse + Power
-Automate + custom connectors); that implementation has since been **migrated off to Azure** (its Power
-Platform footprint still exists; teardown is **pending operator go/no-go**, see the status note below). The
-**domain + workflow are unchanged** — only the platform mechanism moved.
+Automate + custom connectors); that implementation has since been **migrated off to Azure** and its Power
+Platform footprint **deprovisioned 2026-06-27** (the Dev sandbox + both solutions + Code App + connectors +
+the remaining flow deleted via `pac admin delete`). The **domain + workflow are unchanged** — only the
+platform mechanism moved.
 
 > **Status (2026-06-27):** the **live system is the Azure PaaS stack** in resource group
 > `rg-collisionspike-dev` (uksouth): the **SPA `cespk-spa-dev`** (Static Web App, Entra / MSAL sign-in),
-> the **Data API `cespk-api-dev`** (Node 20 / TS Functions, JWT + `CollisionSpike.User` / `.Admin` app
-> roles), and **Postgres `cespk-pg-dev`** (36 tables; the provider / repairer / image-source /
+> the **Data API `cespk-api-dev`** (Node 20 / TS Functions, JWT + `CollisionSpike.User` / `.Superuser`
+> app roles — `.Superuser` is the full-privilege role formerly named `.Admin`; a `.Engineer` placeholder is
+> defined but not yet enforced), and **Postgres `cespk-pg-dev`** (36 tables; the provider / repairer / image-source /
 > inspection-address corpus seeded; `case_`=0). The **six Python Functions, the Key Vaults, and the
 > evidence Blob `cespkevidstdev01` are retained unchanged**. The earlier **Power Platform** build (Code
-> App + Dataverse + ~16 Power Automate flows + custom connectors) is **migrated off to Azure but still
-> present — teardown pending operator go/no-go (NOT yet decommissioned)**. **No mock data** — the app shows
-> real rows only.
+> App + Dataverse + ~16 Power Automate flows + custom connectors) is **migrated off to Azure and
+> deprovisioned 2026-06-27** (the Dev sandbox deleted via `pac admin delete`; `CollisionSpike.zip`
+> cold-exported off-repo). **No mock data** — the app shows real rows only.
 >
 > **Honest gaps:** **(1)** *no automated email intake is live yet* — the orchestration app `cespk-orch-dev`
 > is now **deployed + wired (41 functions)** but **not yet live** (no Graph subscriptions / Exchange RBAC
@@ -67,15 +69,16 @@ The **live Azure stack**:
   (`src/data/rest-client.ts`) with MSAL / Entra sign-in: `src/contracts/` (EVA / status / image),
   `src/domain/` (classification, ADR-0010 dedup, provider-match, address-policy), `src/data/` (the data
   seam), screens.
-- `api/` — the TypeScript Azure Functions **Data API** (Entra JWT + `CollisionSpike.User` / `.Admin` app
-  roles; Postgres); bundled to `deploy/api/` via esbuild.
+- `api/` — the TypeScript Azure Functions **Data API** (Entra JWT + `CollisionSpike.User` / `.Superuser`
+  app roles — `.Superuser` formerly `.Admin`, with the legacy name still accepted for back-compat; Postgres);
+  bundled to `deploy/api/` via esbuild.
 - `orchestration/` — the intake orchestration Functions app (Graph delta-poll design; **deployed + wired
   (41 functions), not yet live** — no Graph subscriptions / Exchange RBAC scope yet); bundled to `deploy/orch/`.
 - `packages/domain/` — the shared `@cs/domain` package (the platform-independent domain model).
 - `functions/` (+ `ocr/`) — the six retained Python Azure Functions (`parser`, `enrichment`,
   `evasentry`, `evavalidation`, `box-webhook`, `ocr`): code, Bicep, OpenAPI, mocked pytest.
 
-**Prior-era — Power Platform (migrated off Azure; still present, teardown pending; retained in-repo for provenance + migration reference):**
+**Prior-era — Power Platform (migrated off to Azure and deprovisioned 2026-06-27; these definitions are retained in-repo for provenance + migration reference):**
 - `dataverse/` — Dataverse schema-as-code (tables + provenance, choice sets, env-vars, relationships).
 - `flows/` — the Power Automate flow definitions + offline linter.
 - `.claude/skills/power-automate-flow/` — reusable flow-authoring patterns.

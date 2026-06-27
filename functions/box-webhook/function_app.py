@@ -1,7 +1,7 @@
 """Box-webhook Azure Function (Python v2) — CCG token-mint facade + webhook receiver.
 
 [BUILD] — authored offline; verified by ``pytest`` with the Box token/REST
-endpoints, the webhook signatures, and the Dataverse Web API all mocked. No
+endpoints, the webhook signatures, and the Data API all mocked. No
 ``func start`` / Core Tools required: every handler is a plain function
 exercised directly via a fake HttpRequest. NOTHING here contacts live Box,
 Azure, or any tenant. The Box ``client_secret`` + webhook signature keys are
@@ -19,9 +19,9 @@ B. **Webhook receiver** — POST /api/box-webhook, the load-bearing order
    (box-rest-api/references/webhook-receiver.md):
      1 replay reject -> 2 dual-key HMAC verify -> 3 parse + in-process dedup
        fast-path -> 4 PROCESS on the request path -> 5 FILE.UPLOADED vs FILE.MOVED
-       -> 6 resolve case (folder id -> cr1bd_boxfolderid) ->
-     7 write Evidence (storagePath stays Blob; record Box file id) +
-       audit box_upload_received + re-invoke idempotent CS Status Evaluate ->
+       -> 6 resolve case via the Data API (folder id -> case_.box_folder_id) ->
+     7 write Evidence via the Data API (storage_path stays Blob; record Box file
+       id) + audit box_upload_received + re-invoke the idempotent status-evaluate ->
      respond 200 when SETTLED, or a non-2xx (503) on a TRANSIENT dependency
      failure so Box RETRIES (Box does not retry after a 2xx). The durable
      Evidence-existence dedup keeps a retry idempotent even if Box assigns the
@@ -41,10 +41,10 @@ from typing import Any, Callable
 import azure.functions as func
 
 from box_client import BoxAuthError, BoxClient, BoxConfigError, BoxError, BoxScopeError
-from dataverse_client import (
+from data_api_client import (
     AUDIT_BOX_UPLOAD_RECEIVED,
-    DataverseClient,
-    DataverseError,
+    DataApiClient,
+    DataApiError,
 )
 from webhook_verify import (
     DeliveryDedup,
@@ -67,9 +67,9 @@ logger = logging.getLogger("boxwebhook.function")
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
-# In-process best-effort dedup of webhook deliveries (durable dedup is the
-# Evidence-existence check in Dataverse). Module-level so it survives across
-# invocations on a warm worker.
+# In-process best-effort dedup of webhook deliveries (the durable dedup is the
+# Data API's idempotent evidence POST, keyed on the box:file:<id> tag). Module-
+# level so it survives across invocations on a warm worker.
 _DEDUP = DeliveryDedup()
 
 
@@ -325,8 +325,8 @@ def box_webhook(req: func.HttpRequest) -> func.HttpResponse:
     # un-mark it (so a same-id Box retry is not blocked by the fast-path) AND
     # return a non-2xx so Box actually retries — Box does not retry after a 2xx,
     # so a fire-and-forget ack would silently drop the upload on a transient
-    # Dataverse fault. On a SETTLED outcome we keep the mark and return 200. The
-    # durable Evidence-existence dedup keeps any Box retry idempotent.
+    # Data API fault. On a SETTLED outcome we keep the mark and return 200. The
+    # durable (server-side) evidence dedup keeps any Box retry idempotent.
     if _process_delivery(body, trigger, result):
         return _json_response(result, status=200)
     _DEDUP.forget(delivery_id)
@@ -359,14 +359,14 @@ def _process_delivery(body: dict[str, Any], trigger: str, result: dict[str, Any]
     try:
         _process_upload(body, result)
         return True
-    except DataverseError as exc:
+    except DataApiError as exc:
         # TRANSIENT (e.g. 429/5xx, or the status-evaluate re-invoke failed): the
-        # caller returns a non-2xx so Box retries this same upload once Dataverse
-        # recovers; the durable Evidence-existence check keeps the retry's write
-        # once-only. (A timed ListFolder reconciliation sweep is the DOCUMENTED,
-        # not-yet-built secondary backstop for the rare case Box exhausts its own
-        # retries — deferred to the business-account activation phase.)
-        logger.warning("box webhook dataverse write failed: %s (status=%s)", type(exc).__name__, exc.status)
+        # caller returns a non-2xx so Box retries this same upload once the Data
+        # API recovers; the durable (idempotent-POST) evidence dedup keeps the
+        # retry's write once-only. (A timed ListFolder reconciliation sweep is the
+        # DOCUMENTED, not-yet-built secondary backstop for the rare case Box
+        # exhausts its own retries — deferred to the business-account phase.)
+        logger.warning("box webhook data-api write failed: %s (status=%s)", type(exc).__name__, exc.status)
         return False
     except Exception as exc:  # pragma: no cover - safety net
         logger.warning("box webhook processing failed: %s", type(exc).__name__)
@@ -375,7 +375,7 @@ def _process_delivery(body: dict[str, Any], trigger: str, result: dict[str, Any]
 
 def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
     """Steps 6-7 of the receiver order. Separated so tests drive it with a mocked
-    DataverseClient and assert the case-resolution + idempotent Evidence write."""
+    DataApiClient and assert the case-resolution + idempotent Evidence write."""
     folder_id = extract_folder_id(body)
     box_file_id = extract_file_id(body)
     filename = extract_file_name(body) or (f"box-{box_file_id}" if box_file_id else "box-upload")
@@ -386,9 +386,9 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
         result["skipped"] = "no_folder_id"
         return
 
-    dv = DataverseClient()
+    dv = DataApiClient()
     try:
-        # Step 6: Box folder id -> cr1bd_boxfolderid -> Case.
+        # Step 6: Box folder id -> case_.box_folder_id -> Case (via the Data API).
         case_id = dv.resolve_case_by_folder(folder_id)
         if not case_id:
             # Unresolved folder -> Held/triage, never a guess (drop-box reg-merge
@@ -427,9 +427,9 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
                 detail=f"FILE.UPLOADED folder={folder_id} file={box_file_id or '?'}",
             )
 
-        # Step 7: re-invoke the idempotent CS Status Evaluate so the case advances.
+        # Step 7: re-invoke the idempotent status-evaluate so the case advances.
         # Runs on BOTH the fresh-write and the Evidence-dedup paths: a failure here
-        # raises DataverseError (see reinvoke_status_evaluate) -> the worker un-marks
+        # raises DataApiError (see reinvoke_status_evaluate) -> the worker un-marks
         # the delivery -> Box's retry re-runs this advance. Idempotent, so harmless
         # to repeat; the Evidence dedup above keeps the write itself once-only.
         reinvoked = dv.reinvoke_status_evaluate(case_id)

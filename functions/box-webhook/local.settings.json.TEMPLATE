@@ -1,5 +1,5 @@
 {
-  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) to run locally. NO SECRET VALUES here — the Box client_secret and the two webhook signature keys are Azure Key Vault references resolved by the platform at runtime via the Function's system-assigned managed identity. The Box CCG token is minted INSIDE the Function (custom connectors cannot run client-credentials). Dataverse is reached with the Function MI (no key). Nothing here is a Box credential.",
+  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) to run locally. NO SECRET VALUES here — the Box client_secret and the two webhook signature keys are Azure Key Vault references resolved by the platform at runtime via the Function's system-assigned managed identity. The Box CCG token is minted INSIDE the Function (custom connectors cannot run client-credentials). The Data API (cespk-api-dev) is reached with a client-credentials MI token for DATA_API_AUDIENCE (no key) — the webhook writes Evidence/audit + re-evaluates status through it, NOT Dataverse. Nothing here is a Box credential.",
   "IsEncrypted": false,
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
@@ -12,12 +12,11 @@
     "BOX_ENTERPRISE_ID": "<box-enterprise-id>",
     "BOX_CLIENT_ID": "<box-app-client-id>",
 
-    "DATAVERSE_URL": "https://collisionengineers-dev.crm11.dynamics.com",
+    "DATA_API_URL": "https://cespk-api-dev.azurewebsites.net",
+    "DATA_API_AUDIENCE": "api://fa2fb28c-fef6-40a4-8d3b-ae6725891d72",
 
     "BOX_CLIENT_SECRET": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/box-client-secret/)",
     "BOX_WEBHOOK_PRIMARY_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/box-webhook-primary-key/)",
-    "BOX_WEBHOOK_SECONDARY_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/box-webhook-secondary-key/)",
-
-    "STATUS_EVALUATE_FLOW_URL": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/status-evaluate-flow-url/)"
+    "BOX_WEBHOOK_SECONDARY_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/box-webhook-secondary-key/)"
   }
 }

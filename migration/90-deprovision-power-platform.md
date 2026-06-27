@@ -1,13 +1,14 @@
 # 90 — Deprovision Power Platform
 
-> **STATUS (2026-06-27) — NOT YET EXECUTED; pending operator go/no-go.** This teardown has **not run**. The
-> Power Platform footprint is **still fully present** — the Dev sandbox `b3090c42-…`, the Code App
-> `da7ba7af-…`, **both** solutions (`CollisionSpike` + `CollisionSpikeFlows`), the custom connectors, 5+
-> connections, and the **`case-resolve` flow (still ON)** all exist (verified via `pac`). The Azure
-> migration is **deployed** (the flows' Azure home — `cespk-orch-dev` — is live with 41 functions; custom
-> connectors → the retained parser/enrich Functions; Code App → the SWA SPA; Dataverse → Postgres), but the
-> sandbox delete is **irreversible** and awaits an **explicit operator go-ahead** after the
-> cold-export-first precondition gate below. Do **not** treat any step here as done.
+> **STATUS (2026-06-27) — EXECUTED.** This teardown has **run**. The Dev sandbox `b3090c42-…` — with **both**
+> solutions (`CollisionSpike` + `CollisionSpikeFlows`), the Code App `da7ba7af-…`, the custom connectors,
+> connections, and the remaining **`case-resolve` flow** — was **deleted via `pac admin delete`** (async
+> deletion initiated/confirmed in progress). The cold-export-first precondition gate was honoured:
+> `CollisionSpike.zip` was **cold-exported to an off-repo archive** before the delete, and the flow
+> definitions remain in `flows/definitions/` + the connector definitions in `connectors/` for provenance.
+> The Azure migration was already **deployed** (the flows' Azure home — `cespk-orch-dev` — is live with 41
+> functions; custom connectors → the retained parser/enrich Functions; Code App → the SWA SPA; Dataverse →
+> Postgres). **Power Platform is now deprovisioned.** The steps below are retained as the executed runbook.
 
 Tear down the Power Platform footprint completely (D3). **Phase P8 — runs only after P7 cutover is
 green and observed healthy.** Order avoids orphaned dependencies and keeps the audit trail until the

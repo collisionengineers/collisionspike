@@ -8,12 +8,14 @@ It is **temporary by design.** When [`99-verification-and-cutover.md`](./99-veri
 is green and the working tree no longer references Power Platform outside this folder, **delete
 `migration/` wholesale.** It must not become part of the permanent docs.
 
-> **STATUS (2026-06-27) — build deployed, cutover + teardown OUTSTANDING.** The reversible code/data build
-> is **deployed** (Data API, SPA+auth, Postgres live; **orchestration `cespk-orch-dev` deployed + wired with
-> 41 functions but NOT yet live** — no Graph subscriptions / Exchange RBAC scope on the 3 real mailboxes).
-> **P7 cutover is not complete and P8 (deprovision) + P9 (docs delete) have NOT run** — the Power Platform
-> footprint (Dev sandbox, Code App, both solutions, connectors, the `case-resolve` flow still ON) is **still
-> present**, and its teardown is **pending operator go/no-go**. So this folder is **not yet deletable**.
+> **STATUS (2026-06-27) — build deployed; P8 deprovision EXECUTED; P7 cutover + P9 docs-delete OUTSTANDING.**
+> The reversible code/data build is **deployed** (Data API, SPA+auth, Postgres live; **orchestration
+> `cespk-orch-dev` deployed + wired with 41 functions but NOT yet live** — no Graph subscriptions / Exchange
+> RBAC scope on the 3 real mailboxes). **P8 (deprovision Power Platform) has now run** — the Dev sandbox,
+> Code App, both solutions, connectors and the remaining `case-resolve` flow were **deleted via
+> `pac admin delete` 2026-06-27** (`CollisionSpike.zip` cold-exported off-repo first). **P7 hard cutover is
+> still not complete** (live intake is not switched on yet) and **P9 (docs delete) has NOT run**, so this
+> folder is **not yet deletable**.
 
 ## Two principles that govern every file here
 

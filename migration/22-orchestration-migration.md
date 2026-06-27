@@ -62,6 +62,20 @@ key `cr1bd_case_sourcemessageid_key` over `cr1bd_sourcemessageid`; in Postgres t
 >
 > [RBAC for Applications in Exchange Online]: https://learn.microsoft.com/exchange/permissions-exo/application-rbac
 
+> **FOLLOW-UP (2026-06-27) — push/subscription CONFIRMED viable under RBAC; renew now bootstraps.** Microsoft
+> Learn confirms the **push (change-notification subscription) path works under Exchange RBAC for
+> Applications**: creating a subscription on an Outlook `message` resource needs **`Mail.Read` _application_
+> permission**, and an **RBAC `Application Mail.Read` assignment "has the same effect"** — so the
+> subscription-create op (A.2) **does** ride on the RBAC grant (use the RBAC `Application Mail.Read` role; do
+> **not** use `Mail.Read.Shared`). The "not yet confirmed" caveat in the 2026-06-26 amendment above is
+> therefore **resolved** — poll and push are **both** viable on the RBAC-only grant. Accordingly
+> **`graph-renew` now BOOTSTRAPS** a subscription per configured mailbox when none exists (it was renew-only —
+> nothing created the first subscription). Mailbox config is read from **`GRAPH_INTAKE_MAILBOXES`** — now valid
+> **JSON** `[{mailbox,minIntakeDate}]` (it had been a plain string that JSON-parse-failed to **zero**
+> mailboxes), currently listing **`engineers@collisionengineers.co.uk`** + **`digital@collisionengineers.co.uk`**
+> (watermarked 2026-06-27). Still **NOT live** until an Exchange Admin runs the RBAC scope grant for those
+> mailboxes (`grant-exo-rbac-intake.ps1`) and `EVIDENCE_BLOB_CONNECTION` is set.
+
 The project has **three shared intake inboxes** (domain model). The text below describes the **push
 (subscription) variant**, retained as the optional upgrade per the amendment; for the **default poll
 variant**, the per-mailbox `resource` and `clientState`/handoff map identically, minus A.2/A.5/A.6.
@@ -194,7 +208,9 @@ app.storageQueue("intake-starter", {
 ### A.5 Renewal timer (R5 — the price of D2)
 Verified (**subscription resource type → renew via PATCH**; lifetime table): renew before the <7-day max
 by PATCHing `expirationDateTime` forward. Timer-triggered, **every 12 h** (well inside the 7-day window;
-12 h gives ~13 renewal attempts before any single subscription could lapse).
+12 h gives ~13 renewal attempts before any single subscription could lapse). _(As built 2026-06-27,
+`graph-renew` also **bootstraps** the first subscription per configured `GRAPH_INTAKE_MAILBOXES` mailbox when
+none exists yet — see the 2026-06-27 follow-up in §A — so nothing else has to create the initial subscription.)_
 ```ts
 // src/functions/graph-renew.ts  (timer: 0 0 */12 * * *)
 app.timer("graph-renew", { schedule: "0 0 */12 * * *", handler: async (_t, ctx) => {

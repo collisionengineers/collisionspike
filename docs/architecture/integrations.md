@@ -112,8 +112,14 @@ change** → chasers are drafted for staff to send manually; **no free automated
 > Function is retained and deployed** (`cespkbox-fn-v76a47`, 9 functions: `box_webhook`, `create_folder`,
 > `copy_file_request`, `file_request_lifecycle`, `create_webhook`, `webhook_lifecycle`,
 > `get_shared_link_file`, `get_shared_link_folder`, `list_folder`) but **gated OFF** (`BOX_API_ENABLED=false`)
-> and **secret-free** (its Key Vault `cespkboxkvv76a47` holds no secrets yet). In the Azure stack the
-> **orchestration calls the `box-webhook` Function directly** (function key / MI). The always-on
+> and **secret-free** (its Key Vault `cespkboxkvv76a47` holds no secrets yet). **Migrated off Dataverse
+> (2026-06-27):** the Function was the **one** retained Function still writing to Dataverse + calling a Power
+> Automate flow (`STATUS_EVALUATE_FLOW_URL`); its `dataverse_client.py` is **deleted** in favour of
+> `data_api_client.py`, which mints a **managed-identity token** for the Data API audience (`DATA_API_URL` +
+> `DATA_API_AUDIENCE` app-settings) and calls `/api/internal/*` — including the new
+> `GET /api/internal/box/case-by-folder/{folderId}` — so **Postgres (via the Data API) is the system of
+> record**. In the Azure stack the **orchestration calls the `box-webhook` Function directly** (function key
+> / MI). The always-on
 > BUSINESS-account integration (CCG token mint, `FILE.UPLOADED` webhook, template File Request) is the
 > deferred long pole, operator-blocked on CCG authorization + a Box Business plan. *(Historical: the
 > Power Platform delivery used a custom `cr1bd_box_rest` connector + offline Box flows — decommissioned with
@@ -142,12 +148,13 @@ intake). It does not replace the M1 `finalize-eva-box` archival; it precedes and
   capture-form field is baked into the template.
 - **Webhooks are best-effort** — no SLA, at-least-once, droppable, and `FILE.UPLOADED` **also fires on
   moves**. The receiver verifies `BOX-SIGNATURE-PRIMARY`/`SECONDARY` HMAC-SHA256 (dual-key, 10-min replay)
-  and disambiguates upload-vs-move. It **processes the Dataverse fan-out on the request path** and returns
-  **200 only when settled**, or a **non-2xx (503) on a transient failure so Box retries** (Box does **not**
-  retry after a 2xx) — it is **not** "respond 202 then a background fan-out". Durable dedup is the
-  **Evidence-existence check on the `box:file:<id>` tag in `cr1bd_sourcemessageid`** (not `cr1bd_boxfileid`,
-  which is a correlation/UI mirror the webhook also writes); on accept it stamps `cr1bd_boxfileid` +
-  `cr1bd_acceptedforeva=true`. A timed `ListFolder` reconciliation sweep is **documented but not yet built**
+  and disambiguates upload-vs-move. It **processes the persistence — via the Data API → Postgres — on the
+  request path** and returns **200 only when settled**, or a **non-2xx (503) on a transient failure so Box
+  retries** (Box does **not** retry after a 2xx) — it is **not** "respond 202 then a background fan-out".
+  Durable dedup is the **Evidence-existence check on the `box:file:<id>` tag in `source_message_id`** (the
+  evidence route dedups Box rows on this; not `box_file_id`, which is a correlation/UI mirror the webhook
+  also writes); on accept it stamps `box_file_id` + `accepted_for_eva=true`. A timed `ListFolder`
+  reconciliation sweep is **documented but not yet built**
   — a deferred secondary backstop; the primary recovery is **Box's own retry on the non-2xx**.
 - **The SPA never calls Box directly** — Box ops go through the **Data API → `box-webhook` Function**
   (server-side, holding the service identity). **Evidence is linked, not embedded:** a **server-minted

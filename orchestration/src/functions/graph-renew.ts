@@ -21,14 +21,32 @@ import {
   renewSubscription,
   createSubscription,
   mailboxOfResource,
+  intakeMailboxes,
 } from '../lib/subscriptions.js';
 
 app.timer('graph-renew', {
   schedule: '0 0 */12 * * *',
   handler: async (_timerInfo: unknown, ctx: InvocationContext): Promise<void> => {
     const subs = await listOurSubscriptions();
+    const configured = intakeMailboxes();
+    const subbed = new Set(subs.map((s) => mailboxOfResource(s.resource)).filter(Boolean));
+
+    // BOOTSTRAP — ensure every configured intake mailbox has a subscription (create if missing).
+    // This is what actually STARTS intake: the renew loop below only extends existing subscriptions,
+    // so a freshly-configured mailbox would otherwise never get one. Until the mailbox is
+    // Exchange-RBAC-scoped, POST /subscriptions 403s — logged and retried next tick; a no-op once scoped.
+    for (const cfg of configured) {
+      if (subbed.has(cfg.mailbox)) continue;
+      try {
+        const created = await createSubscription(cfg.mailbox);
+        ctx.log(JSON.stringify({ evt: 'graph-subscription-created', subId: created.id, mailbox: cfg.mailbox, next: created.expirationDateTime }));
+      } catch (e) {
+        ctx.error(`[graph-renew] bootstrap subscription for ${cfg.mailbox} failed (is the mailbox Exchange-RBAC-scoped?): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
     if (subs.length === 0) {
-      ctx.warn('[graph-renew] no managed subscriptions found');
+      if (configured.length === 0) ctx.warn('[graph-renew] no managed subscriptions and no configured intake mailboxes');
       return;
     }
 
