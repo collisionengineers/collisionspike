@@ -8,9 +8,9 @@ Each item below says **what it is**, **why only you can do it**, and the **exact
 
 _Last updated **2026-06-27** — reframed to the **live Azure PaaS stack**. The Power Platform
 implementation (Power Apps Code App, Dataverse, the ~16 Power Automate flows, the custom connectors) has
-been **migrated off to Azure**; its footprint **still exists** and **teardown is pending operator go/no-go
-(NOT yet decommissioned)**. Its old operator checklist is preserved, clearly banded, at the bottom under
-**"Historical — Power Platform operator backlog (teardown pending)."** The **domain rules are
+been **migrated off to Azure** and its footprint **deprovisioned 2026-06-27** (the Dev sandbox deleted via
+`pac admin delete`). Its old operator checklist is preserved, clearly banded, at the bottom under
+**"Historical — Power Platform operator backlog (deprovisioned 2026-06-27)."** The **domain rules are
 unchanged** (EVA 12-field contract, photo order, image rules, provider corpus, Case/PO format) — only the
 platform mechanism changed._
 
@@ -20,7 +20,9 @@ platform mechanism changed._
 >   `https://proud-sky-04e318b03.7.azurestaticapps.net`, React/Vite from `mockup-app/`, **MSAL/Entra
 >   workforce sign-in** (staff only), calling the API over REST.
 > - **Data API** — Function App **`cespk-api-dev`** (Node 20 / TypeScript), Entra-JWT-validated with app
->   roles **`CollisionSpike.User` / `CollisionSpike.Admin`**, on Postgres.
+>   roles **`CollisionSpike.User` / `CollisionSpike.Superuser`** (Superuser is the full-privilege role
+>   renamed from `CollisionSpike.Admin`, legacy name still accepted; a `CollisionSpike.Engineer` placeholder
+>   is defined but not enforced), on Postgres.
 > - **Orchestration** — Function App **`cespk-orch-dev`** — **deployed + wired (41 functions) but NOT YET
 >   LIVE** (no Graph subscriptions / Exchange RBAC scope on the 3 real mailboxes, so no mail is processed),
 >   so there is **no automated email intake live yet** (today the system is **read-only + manual
@@ -95,7 +97,7 @@ rotating + Key-Vault-referencing `pg-admin-password`.)_
 
 **Forward note:** a future admin-only destructive path (the ADR-0017 retention/erasure cascade — **not yet
 implemented**) must run on a **separate** pool opened with `-c app.role=admin`, gated on a verified
-`CollisionSpike.Admin` token; do **not** widen the staff pool's role.
+`CollisionSpike.Superuser` token; do **not** widen the staff pool's role.
 
 #### A3. Other plaintext secret exposures  ·  ✅ **RESOLVED (2026-06-27)** — nothing for you to do
 
@@ -194,7 +196,10 @@ actions.
 1. **Deploy** the orchestration project (`orchestration/`) to **`cespk-orch-dev`** (this deploy is what
    created the 41 live functions / the intake timer/poller).
 2. Set app settings:
-   - **`GRAPH_INTAKE_MAILBOXES`** — the three intake mailbox SMTP addresses (from B1).
+   - **`GRAPH_INTAKE_MAILBOXES`** — the intake mailboxes as **JSON** `[{mailbox,minIntakeDate}]` (it had been
+     a plain string that JSON-parse-failed to **zero** mailboxes; now fixed). **Currently set** to
+     `engineers@collisionengineers.co.uk` + `digital@collisionengineers.co.uk` (watermarked 2026-06-27); add
+     the third intake mailbox here once it is RBAC-scoped in B1.
    - the **parser** Function base URL **+ function key** (`cespike-parser-dev`),
    - the **enrichment** Function base URL **+ function key**,
    - the Entra **tenant id / intake app client-id**, and the **Key Vault reference** to the Graph client
@@ -208,9 +213,13 @@ actions.
 
 #### C1. Assign staff app roles on the Data API  ·  *~5 min per person*
 
-**What:** the SPA/API authorise staff via two Entra **app roles** — **`CollisionSpike.User`** and
-**`CollisionSpike.Admin`** (these map one-to-one to the two old Dataverse security roles). Right now **only
-one** staff principal is assigned; **everyone else gets `403`** until you assign them.
+**What:** the SPA/API authorise staff via two enforced Entra **app roles** — **`CollisionSpike.User`** and
+**`CollisionSpike.Superuser`** (these map one-to-one to the two old Dataverse security roles).
+**`CollisionSpike.Superuser`** is the full-privilege role, **renamed from `CollisionSpike.Admin`** (same
+app-role id, so any existing assignment carried over; the API still accepts the legacy `CollisionSpike.Admin`
+for back-compat). A third role **`CollisionSpike.Engineer`** is **defined but not yet enforced** — don't
+assign it for access yet. Right now **only one** staff principal is assigned; **everyone else gets `403`**
+until you assign them.
 
 **Why you:** assigning enterprise-app roles to users is an Entra directory operation only an admin can do.
 
@@ -218,7 +227,7 @@ one** staff principal is assigned; **everyone else gets `403`** until you assign
 1. In Entra → **Enterprise applications** → the app that exposes these roles (the `cespk-api-dev` /
    `CollisionSpike` API registration; v2 tokens carry `aud` = the API client-id GUID `fa2fb28c…`).
 2. **Users and groups → Add user/group**, pick each staff member, and assign **`CollisionSpike.User`**
-   (or **`CollisionSpike.Admin`** for admins).
+   (or **`CollisionSpike.Superuser`** for full-privilege admins).
 3. Have each person sign out/in so a fresh token carries the role, then confirm they can load the app
    without a `403`.
 
@@ -347,11 +356,11 @@ grant (B1)**.
 
 ---
 
-## Historical — Power Platform operator backlog (teardown pending)
+## Historical — Power Platform operator backlog (deprovisioned 2026-06-27)
 
 > **BANDED / NOT LIVE.** Everything below describes the **prior Power Platform implementation** (Power Apps
 > Code App, Dataverse, the ~16 Power Automate flows, the custom connectors), which has been **migrated off
-> to Azure** (its footprint still exists; **teardown pending operator go/no-go, not yet decommissioned**).
+> to Azure** and **deprovisioned 2026-06-27** (the Dev sandbox deleted via `pac admin delete`).
 > It is retained for provenance and for the **domain knowledge** it carries (EVA
 > photo order, provider corpus specifics, the Box pivot design, retention/legal inputs). **Do not action
 > these steps** — the live operator surface is the Azure sections above. Any `make.powerautomate.com`,

@@ -35,7 +35,17 @@ function getJwks(): ReturnType<typeof createRemoteJWKSet> {
   return _jwks;
 }
 
-export type AppRole = 'CollisionSpike.User' | 'CollisionSpike.Admin';
+// The two enforceable in-app roles. 'CollisionSpike.Superuser' is the full-privilege role
+// (renamed from 'CollisionSpike.Admin' 2026-06-27); 'CollisionSpike.Engineer' exists as a
+// defined-but-unenforced placeholder app-role (assessment functionality is added later).
+export type AppRole = 'CollisionSpike.User' | 'CollisionSpike.Superuser';
+
+// Back-compat: a token minted before the rename still carries the legacy 'CollisionSpike.Admin'
+// value. Treat either as superuser so renaming the app-role can never lock out an assigned user.
+const SUPERUSER_VALUES = ['CollisionSpike.Superuser', 'CollisionSpike.Admin'];
+function hasSuperuser(roles: string[]): boolean {
+  return roles.some((r) => SUPERUSER_VALUES.includes(r));
+}
 
 class HttpError extends Error {
   constructor(
@@ -100,9 +110,11 @@ export function withRole(
     try {
       const claims = await authenticate(req);
       const roles = (claims.roles as string[] | undefined) ?? [];
+      // Superuser satisfies any route; a User-required route also accepts a plain User.
       const ok =
-        roles.includes(required) ||
-        (required === 'CollisionSpike.User' && roles.includes('CollisionSpike.Admin'));
+        required === 'CollisionSpike.Superuser'
+          ? hasSuperuser(roles)
+          : roles.includes('CollisionSpike.User') || hasSuperuser(roles);
       if (!ok) return { status: 403, jsonBody: { error: 'forbidden' } };
       return await handler(req, ctx, claims);
     } catch (e) {

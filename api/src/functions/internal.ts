@@ -1,25 +1,29 @@
 /**
  * api/src/functions/internal.ts — orchestration-facing internal routes.
  *
- * All 11 /api/internal/* routes called by orchestration/src/lib/data-api.ts.
- * Auth: service-level Bearer token (orchestration MSI), validated against the
- * tenant JWKS (same jwtVerify as user routes) but no CollisionSpike.* app role
- * required — the orchestration's MSI token carries the API audience but is not
- * a user token with assigned app roles. Plan 21 §21.3 pattern: the distinct
- * /api/internal/* prefix leaves the DataAccess freeze (R3) untouched.
+ * The /api/internal/* routes called by orchestration/src/lib/data-api.ts AND by
+ * the retained box-webhook Python Function (the box/case-by-folder lookup + the
+ * box-aware evidence persist — see functions/box-webhook/data_api_client.py).
+ * Auth: service-level Bearer token (a client-credentials MSI token for the API
+ * audience), validated against the tenant JWKS (same jwtVerify as user routes)
+ * but no CollisionSpike.* app role required — the orchestration / box-webhook MSI
+ * token carries the API audience but is not a user token with assigned app roles.
+ * Plan 21 §21.3 pattern: the distinct /api/internal/* prefix leaves the
+ * DataAccess freeze (R3) untouched.
  *
- * Routes (plan 21 §21.3 + orchestration/src/lib/data-api.ts surface):
- *  GET  /api/internal/provider-match-records       → ProviderMatchRecord[]
- *  GET  /api/internal/dedup-context                → DedupContext
- *  POST /api/internal/cases/resolve                → { outcome, caseId }
- *  POST /api/internal/cases/{id}/evidence          → { persisted: number }
- *  POST /api/internal/cases/{id}/status-evaluate   → { value: string }
- *  POST /api/internal/audit                        → 204
- *  GET  /api/internal/principals                   → [{ principalCode }]
- *  GET  /api/internal/disposition/due              → [{ caseId }]
- *  POST /api/internal/disposition/{id}             → 204
- *  GET  /api/internal/box/purge-candidates         → [{ caseId, blobPath }]
- *  POST /api/internal/box/mark-purged              → 204
+ * Routes (plan 21 §21.3 + orchestration/src/lib/data-api.ts + box-webhook surface):
+ *  GET  /api/internal/provider-match-records         → ProviderMatchRecord[]
+ *  GET  /api/internal/dedup-context                  → DedupContext
+ *  POST /api/internal/cases/resolve                  → { outcome, caseId }
+ *  POST /api/internal/cases/{id}/evidence            → { persisted: number }
+ *  POST /api/internal/cases/{id}/status-evaluate     → { value: string }
+ *  POST /api/internal/audit                          → 204
+ *  GET  /api/internal/principals                     → [{ principalCode }]
+ *  GET  /api/internal/disposition/due                → [{ caseId }]
+ *  POST /api/internal/disposition/{id}               → 204
+ *  GET  /api/internal/box/case-by-folder/{folderId}  → { caseId: string | null }
+ *  GET  /api/internal/box/purge-candidates           → [{ caseId, blobPath }]
+ *  POST /api/internal/box/mark-purged                → 204
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
@@ -421,10 +425,19 @@ function isUniqueViolation(e: unknown): boolean {
 
 /* ============================================================
    4 — POST /api/internal/cases/{id}/evidence
-   Called by: orchestration classifyPersist activity (plan 22 §B §A3).
-   Body: { rows: Array<EvidenceDescriptor & { blobPath: string; size: number }> }
-   Idempotent upsert by (case_id, storage_path): re-running the activity after
-   a partial failure updates updated_at rather than duplicating rows.
+   Called by: orchestration classifyPersist activity (plan 22 §B §A3) AND the
+   box-webhook Function (FILE.UPLOADED → one Box evidence row).
+   Body: { rows: Array<EvidenceDescriptor-ish row> } where each row is either:
+     - an EMAIL/ORCHESTRATION row: { ...descriptor, blobPath, size } — bytes live
+       in Blob, deduped idempotently on (case_id, storage_path);
+     - a BOX row: { filename, evidenceClass, sourceMessageId:'box:file:<id>',
+       boxFileId, boxFileUrl?, acceptedForEva?, sourceLabel? } — storage_path
+       stays BLANK (the bytes are mirrored to Blob later, not here), deduped
+       idempotently on (case_id, source_message_id) which is the durable
+       box:file:<id> tag (box_file_id is a correlation/UI mirror, not the key).
+   The two dedup keys never collide: an email row has no sourceMessageId/boxFileId
+   and a Box row has no blobPath. Re-running either is idempotent (NOT EXISTS
+   guard), so an at-least-once retry updates nothing rather than duplicating.
    ============================================================ */
 app.http('internalCasesEvidence', {
   methods: ['POST'],
@@ -434,24 +447,77 @@ app.http('internalCasesEvidence', {
     withServiceAuth(req, ctx, async () => {
       const caseId = req.params.id;
       const body = (await req.json()) as {
-        rows: Array<EvidenceDescriptor & { blobPath: string; size: number }>;
+        rows: Array<
+          Partial<EvidenceDescriptor> & {
+            filename: string;
+            blobPath?: string;
+            size?: number;
+            sourceMessageId?: string;
+            boxFileId?: string;
+            boxFileUrl?: string;
+            sourceLabel?: string;
+            acceptedForEva?: boolean;
+          }
+        >;
       };
 
       let persisted = 0;
       for (const row of body.rows ?? []) {
-        const kindCode = evidenceKindCodec.toInt(row.evidenceClass as 'image' | 'instruction' | 'email' | 'other') ?? null;
-        // Conditional insert: skip if a row with this (case_id, storage_path) already exists.
-        const result = await query<{ id: string }>(
-          `INSERT INTO evidence
-             (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label)
-           SELECT $1, $2, $3, $4, $5, $6, 'auto-intake'
-           WHERE NOT EXISTS (
-             SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6
-           )
-           RETURNING id`,
-          [row.filename, caseId, kindCode, row.contentType || null, row.size ?? null, row.blobPath ?? null],
-        );
-        if (result.length > 0) persisted++;
+        const kindCode =
+          evidenceKindCodec.toInt(
+            (row.evidenceClass as 'image' | 'instruction' | 'email' | 'other') ?? 'other',
+          ) ?? null;
+
+        const sourceMessageId = (row.sourceMessageId ?? '').trim() || null;
+        const boxFileId = (row.boxFileId ?? '').trim() || null;
+        const isBoxRow = sourceMessageId != null || boxFileId != null;
+
+        if (isBoxRow) {
+          // Box upload: storage_path stays NULL (bytes mirror to Blob later); dedup
+          // on the durable box:file:<id> tag in source_message_id (fall back to
+          // box_file_id only if the tag is absent). Record both Box correlation
+          // columns + the explicit accepted-for-EVA flag (the column default is
+          // true; the box client sets it explicitly like classify-persist does).
+          const dedupCol = sourceMessageId != null ? 'source_message_id' : 'box_file_id';
+          const dedupVal = sourceMessageId ?? boxFileId;
+          const result = await query<{ id: string }>(
+            `INSERT INTO evidence
+               (file_name, case_id, kind_code, content_type, size_bytes,
+                source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+             WHERE NOT EXISTS (
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $11
+             )
+             RETURNING id`,
+            [
+              row.filename,
+              caseId,
+              kindCode,
+              row.contentType || null,
+              row.size ?? null,
+              sourceMessageId,
+              boxFileId,
+              (row.boxFileUrl ?? '').trim() || null,
+              row.acceptedForEva ?? true,
+              (row.sourceLabel ?? '').trim() || 'box_upload',
+              dedupVal,
+            ],
+          );
+          if (result.length > 0) persisted++;
+        } else {
+          // Email/orchestration: idempotent on (case_id, storage_path) — unchanged.
+          const result = await query<{ id: string }>(
+            `INSERT INTO evidence
+               (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label)
+             SELECT $1, $2, $3, $4, $5, $6, 'auto-intake'
+             WHERE NOT EXISTS (
+               SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6
+             )
+             RETURNING id`,
+            [row.filename, caseId, kindCode, row.contentType || null, row.size ?? null, row.blobPath ?? null],
+          );
+          if (result.length > 0) persisted++;
+        }
       }
 
       return { status: 200, jsonBody: { persisted } };
@@ -603,6 +669,30 @@ app.http('internalDispositionCase', {
       });
 
       return { status: 204 };
+    }),
+});
+
+/* ============================================================
+   — GET /api/internal/box/case-by-folder/{folderId}
+   Called by: the box-webhook Function (FILE.UPLOADED → resolve the case).
+   Box folder id → case_.box_folder_id → the Case id. Returns { caseId: null }
+   (200) when the folder resolves to no case — never guesses; the webhook then
+   routes the upload to triage/Held.
+   ============================================================ */
+app.http('internalBoxCaseByFolder', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'internal/box/case-by-folder/{folderId}',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const folderId = (req.params.folderId ?? '').trim();
+      if (!folderId) return { status: 200, jsonBody: { caseId: null } };
+      const rows = await query<Row>(
+        'SELECT id FROM case_ WHERE box_folder_id = $1 LIMIT 1',
+        [folderId],
+      );
+      const caseId = rows.length > 0 ? (rows[0].id as string) : null;
+      return { status: 200, jsonBody: { caseId } };
     }),
 });
 

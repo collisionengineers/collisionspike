@@ -45,8 +45,11 @@ param boxClientId string = ''
 @description('Layer-2 scope lock: the only Box folder (and its descendants) ops may target. Set to the test folder id (392761581105) for the scoped phase; empty lifts the lock for production.')
 param boxAllowedRootId string = ''
 
-@description('Dataverse org URL the webhook receiver writes Evidence/Audit to (Function MI as Application User).')
-param dataverseUrl string = 'https://collisionengineers-dev.crm11.dynamics.com'
+@description('Data API base URL the webhook receiver writes Evidence/audit + re-evaluates status through (Function MI client-credentials token; no key). Replaces the retired Dataverse + Power Automate path.')
+param dataApiUrl string = 'https://cespk-api-dev.azurewebsites.net'
+
+@description('Data API audience for the MI client-credentials token (api://<api-client-id> URI, or a bare GUID — the Function normalises it).')
+param dataApiAudience string = 'api://fa2fb28c-fef6-40a4-8d3b-ae6725891d72'
 
 // ---- Key Vault secret NAMES (values injected out-of-band, RESERVED-FOR-USER) ----
 @description('KV secret name holding the Box app client_secret.')
@@ -57,9 +60,6 @@ param boxWebhookPrimaryKeySecretName string = 'box-webhook-primary-key'
 
 @description('KV secret name holding the Box webhook SECONDARY signature key (rotation).')
 param boxWebhookSecondaryKeySecretName string = 'box-webhook-secondary-key'
-
-@description('KV secret name holding the status-evaluate flow Request URL (re-invoke transport).')
-param statusEvaluateFlowUrlSecretName string = 'status-evaluate-flow-url'
 
 // ---- Shared observability (S4) ----
 // This Function no longer self-declares Log Analytics + App Insights. It consumes
@@ -157,7 +157,6 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 var boxClientSecretUri = '${keyVault.properties.vaultUri}secrets/${boxClientSecretSecretName}'
 var boxWebhookPrimaryKeyUri = '${keyVault.properties.vaultUri}secrets/${boxWebhookPrimaryKeySecretName}'
 var boxWebhookSecondaryKeyUri = '${keyVault.properties.vaultUri}secrets/${boxWebhookSecondaryKeySecretName}'
-var statusEvaluateFlowUrlUri = '${keyVault.properties.vaultUri}secrets/${statusEvaluateFlowUrlSecretName}'
 
 // ---- Flex Consumption (FC1) plan ----
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
@@ -243,10 +242,16 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'BOX_ALLOWED_ROOT_ID'
           value: boxAllowedRootId
         }
-        // ---- Dataverse (Function MI as Application User; no key) ----
+        // ---- Data API (Function MI client-credentials; no key). The receiver
+        // resolves the case, writes Evidence/audit, and re-evaluates status via
+        // the Data API's /api/internal/* routes — NOT Dataverse / Power Automate. ----
         {
-          name: 'DATAVERSE_URL'
-          value: dataverseUrl
+          name: 'DATA_API_URL'
+          value: dataApiUrl
+        }
+        {
+          name: 'DATA_API_AUDIENCE'
+          value: dataApiAudience
         }
         // ---- Key Vault references — NO literal secrets. Resolved by the MI. ----
         {
@@ -260,10 +265,6 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'BOX_WEBHOOK_SECONDARY_KEY'
           value: '@Microsoft.KeyVault(SecretUri=${boxWebhookSecondaryKeyUri})'
-        }
-        {
-          name: 'STATUS_EVALUATE_FLOW_URL'
-          value: '@Microsoft.KeyVault(SecretUri=${statusEvaluateFlowUrlUri})'
         }
       ]
     }

@@ -34,12 +34,12 @@ app.http('getHoldNewCasesDefault', {
   }),
 });
 
-// 26 — PUT /api/settings/hold-new-cases   (Admin-only)
+// 26 — PUT /api/settings/hold-new-cases   (Superuser-only)
 app.http('setHoldNewCasesDefault', {
   methods: ['PUT'],
   authLevel: 'anonymous',
   route: 'settings/hold-new-cases',
-  handler: withRole('CollisionSpike.Admin', async (req, _ctx, claims) => {
+  handler: withRole('CollisionSpike.Superuser', async (req, _ctx, claims) => {
     const body = (await req.json()) as { value: boolean };
     const actor = actorFromClaims(claims);
     const valueStr = body.value ? 'true' : 'false';

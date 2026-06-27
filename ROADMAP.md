@@ -5,8 +5,8 @@ Azure PaaS stack** — a **Static Web App** SPA (`cespk-spa-dev`) + a **Function
 Node/TypeScript) + an **orchestration Function App** (`cespk-orch-dev`) + a **Postgres Flexible Server**
 system of record (`cespk-pg-dev`) + the **retained Python Functions** (parser / enrichment / evasentry /
 evavalidation / ocr / box-webhook). The original **Power Platform implementation** (Power Apps Code App +
-Dataverse + ~16 Power Automate flows + custom connectors) has been **migrated to Azure (deployed); Power
-Platform teardown is pending operator go/no-go (NOT yet decommissioned)**. Last updated **2026-06-27**._
+Dataverse + ~16 Power Automate flows + custom connectors) has been **migrated to Azure (deployed) and the
+Power Platform footprint deprovisioned 2026-06-27** (Dev sandbox deleted via `pac admin delete`). Last updated **2026-06-27**._
 
 _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [docs/gated.md](./docs/gated.md) · migration plans under [migration/](./migration/) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
 
@@ -15,9 +15,10 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 > is **built + deployed**; the Azure stack is the live system). The **domain + workflow are unchanged** — the
 > EVA **12-field** contract, the image rules, the provider / inspection-address corpus, the **Case/PO**
 > format, and the intake→parse→review→enrich→EVA+Box pipeline all carry over verbatim; **only the platform
-> mechanism changed**. The **Power Platform footprint still exists** and its teardown is **pending operator
-> go/no-go (NOT yet decommissioned)**; Power-Platform-era content below is **retained but banded as the prior
-> era** — it remains the reference for the domain logic it encodes. The live registry is
+> mechanism changed**. The **Power Platform footprint was deprovisioned 2026-06-27** (the Dev sandbox + both
+> solutions + Code App + connectors + the remaining flow deleted via `pac admin delete`); Power-Platform-era
+> content below is **retained but banded as the prior era** — it remains the reference for the domain logic
+> it encodes. The live registry is
 > [CURRENT_STATUS.md](./CURRENT_STATUS.md).
 
 > **Live Azure stack (canonical registry: [CURRENT_STATUS.md](./CURRENT_STATUS.md)).** Resource group
@@ -27,7 +28,9 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 > `cespk-spa-dev` (React/Vite from `mockup-app/`, **MSAL / Entra workforce sign-in**, calls the API over
 > REST — `mockup-app/src/data/rest-client.ts`, **no Power SDK**); **data API** `cespk-api-dev` (source
 > `api/`, esbuild bundle `deploy/api/main.cjs`; validates Entra JWT + app roles **CollisionSpike.User /
-> CollisionSpike.Admin**; connects to Postgres); **orchestration** `cespk-orch-dev` (source
+> CollisionSpike.Superuser** — Superuser is the full-privilege role formerly named **CollisionSpike.Admin**
+> (legacy name still accepted), plus a defined-but-unenforced **CollisionSpike.Engineer** placeholder;
+> connects to Postgres); **orchestration** `cespk-orch-dev` (source
 > `orchestration/`, **deployed + wired (41 functions) but not yet live — no live automated email intake yet**); **Postgres
 > Flexible** `cespk-pg-dev` v16, db `collisionspike` (36 tables; seeded work_provider 390 / repairer 32 /
 > image_source 19 / inspection_address 2209 [174 confirmed + 2035 suggested] / case_ **0**); the **6 retained
@@ -111,8 +114,8 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 - **Durable API hardening** — durable auth error-handling + token **audience-form** hardening (v2 tokens
   carry `aud` = the API client-id GUID `fa2fb28c…`); in progress.
 - **Staff app-role assignment** — only **one** staff principal is app-role-assigned today
-  (`CollisionSpike.User` / `CollisionSpike.Admin`, the 2 roles that map the old 2 Dataverse roles); other
-  staff **403 until assigned**. Complete the roster.
+  (`CollisionSpike.User` / `CollisionSpike.Superuser` — Superuser formerly `.Admin`; a `.Engineer`
+  placeholder is defined but not enforced); other staff **403 until assigned**. Complete the roster.
 - **IaC config layer** — capture the live Azure config (app-settings, role assignments, RBAC grants, the
   Static Web App + Function-App wiring) as Infrastructure-as-Code so the environment is reproducible.
 - **EVA M1 JSON drag-drop** into the EVA **test** env — the domain milestone, now re-homed onto the Azure
@@ -141,12 +144,12 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 
 ---
 
-# HISTORICAL — Power Platform implementation era _(teardown pending, not yet decommissioned; preserved for domain reference)_
+# HISTORICAL — Power Platform implementation era _(deprovisioned 2026-06-27; preserved for domain reference)_
 
 > **Read as history.** Everything from here to the end of the phase checklist describes the **original
 > Power Platform build** (Power Apps Code App + Dataverse + ~16 Power Automate flows + custom connectors),
-> which has been **migrated to the Azure PaaS stack** (the Power Platform footprint still exists; teardown is
-> **pending operator go/no-go**, not yet executed). It is **retained, not deleted**,
+> which has been **migrated to the Azure PaaS stack** (the Power Platform footprint was **deprovisioned
+> 2026-06-27** — the Dev sandbox deleted via `pac admin delete`). The text is **retained, not deleted**,
 > because it is the most detailed record of the **domain + workflow** — the EVA 12-field contract, the image
 > rules, the dedup ladder (ADR-0010), the provider / inspection-address corpus, the Case/PO format, and the
 > per-stage gating decisions — all of which **carried over unchanged** to the Azure build. Where a step

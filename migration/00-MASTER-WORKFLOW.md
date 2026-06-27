@@ -12,9 +12,10 @@ used. `‖` marks work that can run in parallel. Do not start a phase until its 
 > schema/settings, Data API, and SPA+auth all live on Azure), and **P4 (orchestration) is now deployed +
 > wired — 41 functions — but NOT yet live** (no Graph subscriptions / Exchange RBAC scope on the 3 real
 > mailboxes, so no mail is processed). **P7 (hard cutover) is not complete** — live intake is not switched
-> on — and **P8 (deprovision Power Platform) and P9 (docs finalize/delete) have NOT run**: the Power Platform
-> footprint (Dev sandbox, Code App, both solutions, connectors, the `case-resolve` flow still ON) is **still
-> present** and its teardown is **pending operator go/no-go**. Treat P7–P9 as outstanding.
+> on — and **P9 (docs finalize/delete) has NOT run**, but **P8 (deprovision Power Platform) was EXECUTED
+> 2026-06-27**: the Dev sandbox, Code App, both solutions, connectors and the remaining `case-resolve` flow
+> were **deleted via `pac admin delete`** (async deletion in progress; `CollisionSpike.zip` cold-exported
+> off-repo first). Treat **P7 and P9** as outstanding.
 
 ## Phase map
 
@@ -192,6 +193,11 @@ confirms `POST /subscriptions` succeeds under the RBAC grant; see [`22` §A](./2
 ---
 
 ## P8 — Deprovision Power Platform
+
+> **Status (2026-06-27): EXECUTED.** The Dev sandbox `b3090c42-…` — both solutions, the Code App, the
+> custom connectors, connections, and the remaining `case-resolve` flow — was **deleted via
+> `pac admin delete`** (async deletion in progress); `CollisionSpike.zip` was cold-exported off-repo first.
+> Power Platform is now deprovisioned.
 
 **Gate:** P7 green and observed healthy for the agreed soak period.
 **Do:** execute [`90`](./90-deprovision-power-platform.md) — flows off → Code App → connectors →

@@ -7077,6 +7077,10 @@ function getJwks() {
   }
   return _jwks;
 }
+var SUPERUSER_VALUES = ["CollisionSpike.Superuser", "CollisionSpike.Admin"];
+function hasSuperuser(roles) {
+  return roles.some((r) => SUPERUSER_VALUES.includes(r));
+}
 var HttpError = class extends Error {
   constructor(status, message2) {
     super(message2);
@@ -7112,7 +7116,7 @@ function withRole(required, handler) {
     try {
       const claims = await authenticate(req);
       const roles = claims.roles ?? [];
-      const ok = roles.includes(required) || required === "CollisionSpike.User" && roles.includes("CollisionSpike.Admin");
+      const ok = required === "CollisionSpike.Superuser" ? hasSuperuser(roles) : roles.includes("CollisionSpike.User") || hasSuperuser(roles);
       if (!ok) return { status: 403, jsonBody: { error: "forbidden" } };
       return await handler(req, ctx, claims);
     } catch (e) {
@@ -8330,7 +8334,7 @@ import_functions6.app.http("setHoldNewCasesDefault", {
   methods: ["PUT"],
   authLevel: "anonymous",
   route: "settings/hold-new-cases",
-  handler: withRole("CollisionSpike.Admin", async (req, _ctx, claims) => {
+  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
     const body = await req.json();
     const actor = actorFromClaims(claims);
     const valueStr = body.value ? "true" : "false";
@@ -8743,18 +8747,52 @@ import_functions9.app.http("internalCasesEvidence", {
     const body = await req.json();
     let persisted = 0;
     for (const row of body.rows ?? []) {
-      const kindCode = evidenceKindCodec.toInt(row.evidenceClass) ?? null;
-      const result = await query(
-        `INSERT INTO evidence
-             (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label)
-           SELECT $1, $2, $3, $4, $5, $6, 'auto-intake'
-           WHERE NOT EXISTS (
-             SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6
-           )
-           RETURNING id`,
-        [row.filename, caseId, kindCode, row.contentType || null, row.size ?? null, row.blobPath ?? null]
-      );
-      if (result.length > 0) persisted++;
+      const kindCode = evidenceKindCodec.toInt(
+        row.evidenceClass ?? "other"
+      ) ?? null;
+      const sourceMessageId = (row.sourceMessageId ?? "").trim() || null;
+      const boxFileId = (row.boxFileId ?? "").trim() || null;
+      const isBoxRow = sourceMessageId != null || boxFileId != null;
+      if (isBoxRow) {
+        const dedupCol = sourceMessageId != null ? "source_message_id" : "box_file_id";
+        const dedupVal = sourceMessageId ?? boxFileId;
+        const result = await query(
+          `INSERT INTO evidence
+               (file_name, case_id, kind_code, content_type, size_bytes,
+                source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+             WHERE NOT EXISTS (
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $11
+             )
+             RETURNING id`,
+          [
+            row.filename,
+            caseId,
+            kindCode,
+            row.contentType || null,
+            row.size ?? null,
+            sourceMessageId,
+            boxFileId,
+            (row.boxFileUrl ?? "").trim() || null,
+            row.acceptedForEva ?? true,
+            (row.sourceLabel ?? "").trim() || "box_upload",
+            dedupVal
+          ]
+        );
+        if (result.length > 0) persisted++;
+      } else {
+        const result = await query(
+          `INSERT INTO evidence
+               (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label)
+             SELECT $1, $2, $3, $4, $5, $6, 'auto-intake'
+             WHERE NOT EXISTS (
+               SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6
+             )
+             RETURNING id`,
+          [row.filename, caseId, kindCode, row.contentType || null, row.size ?? null, row.blobPath ?? null]
+        );
+        if (result.length > 0) persisted++;
+      }
     }
     return { status: 200, jsonBody: { persisted } };
   })
@@ -8846,6 +8884,21 @@ import_functions9.app.http("internalDispositionCase", {
       severity: "warning"
     });
     return { status: 204 };
+  })
+});
+import_functions9.app.http("internalBoxCaseByFolder", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/box/case-by-folder/{folderId}",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const folderId = (req.params.folderId ?? "").trim();
+    if (!folderId) return { status: 200, jsonBody: { caseId: null } };
+    const rows = await query(
+      "SELECT id FROM case_ WHERE box_folder_id = $1 LIMIT 1",
+      [folderId]
+    );
+    const caseId = rows.length > 0 ? rows[0].id : null;
+    return { status: 200, jsonBody: { caseId } };
   })
 });
 import_functions9.app.http("internalBoxPurgeCandidates", {

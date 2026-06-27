@@ -12,10 +12,10 @@ de-risks the mature cloud build, **`collisioncc`** (a Next.js + Google Cloud app
 Microsoft Power Platform** (its original implementation — a Power Apps **Code App** + Dataverse +
 ~16 Power Automate flows + custom connectors) **onto the Azure stack below** — the orchestration that
 replaces the flows is now **deployed (2026-06-27)**, so every Power Platform capability has a live Azure
-home. **However, the Power Platform footprint still exists and has NOT been deprovisioned** — the Dev
-sandbox, Code App, both solutions, custom connectors, connections, and the live `case-resolve` flow all
-remain; teardown is **pending operator go-ahead** (irreversible). **Only the platform mechanism
-changed** — the **domain model, EVA 12-field contract, image rules, provider corpus, and Case/PO format
+home. The Power Platform footprint has now been **deprovisioned (2026-06-27)** — the Dev sandbox, both
+solutions, the Code App, custom connectors, connections, and the `case-resolve` flow were deleted via
+`pac admin delete` (the `CollisionSpike` solution was cold-exported off-repo first; flow definitions are
+retained in `flows/definitions/` for provenance). **Only the platform mechanism changed** — the **domain model, EVA 12-field contract, image rules, provider corpus, and Case/PO format
 below are unchanged**. The migration plan + live-status record is **`migration/`** (a temporary,
 delete-when-done folder — see [`migration/README.md`](./migration/README.md)).
 
@@ -28,26 +28,32 @@ the **Azure Free-Trial** subscription `e6076573-…` (quotaId `FreeTrial_2014-09
   (`mockup-app/src/data/rest-client.ts`) — **no Power SDK**.
 - **Data API** — Function App **`cespk-api-dev`** (Node 20 / TypeScript Functions v4; source `api/`,
   esbuild bundle `deploy/api/main.cjs`). Validates Entra JWTs (`jose`) and the app roles
-  **`CollisionSpike.User` / `CollisionSpike.Admin`** (the two roles that replace the old Dataverse
-  security roles; v2 tokens carry `aud` = the API client-id GUID `fa2fb28c…`). Connects to Postgres;
-  owns the status-machine, dedup, audit, and gate reads.
+  **`CollisionSpike.User` / `CollisionSpike.Superuser`** (Superuser = full privileges, renamed from
+  `Admin` 2026-06-27 keeping the same role-id so the assignment carried over; plus a deferred
+  **`CollisionSpike.Engineer`** placeholder app-role) — the roles that replace the old Dataverse security
+  roles; v2 tokens carry `aud` = the API client-id GUID `fa2fb28c…`). Connects to Postgres; owns the
+  status-machine, dedup, audit, and gate reads.
 - **Orchestration** — Function App **`cespk-orch-dev`** (source `orchestration/`, esbuild bundle
   `deploy/orch/main.cjs`) — **deployed + wired (41 functions, 2026-06-27)** but **NOT yet live**: the
-  design is Microsoft Graph **delta-poll** intake over **Exchange-RBAC-scoped** mailboxes (no Global-Admin
-  consent, no push subscription), but the 3 real mailboxes are **not yet scoped**, so no mail is processed.
-  (The prior "ZERO functions" state was an esbuild ESM→CJS `import.meta.url` bundle crash — fixed via
-  `build-orch.cjs`.)
+  deployed design is Microsoft Graph **change-notification subscriptions (push)** over **Exchange-RBAC-scoped**
+  mailboxes (no Global-Admin consent; Microsoft Learn confirms subscription-create rides on the RBAC
+  `Application Mail.Read` grant). `GRAPH_INTAKE_MAILBOXES` is configured for **engineers@ + digital@** and
+  `graph-renew` bootstraps one subscription per mailbox — but they are **not yet RBAC-scoped**, so no mail
+  is processed. (The prior "ZERO functions" state was an esbuild ESM→CJS `import.meta.url` bundle crash —
+  fixed via `build-orch.cjs`.)
 - **System-of-record DB** — **Postgres Flexible Server `cespk-pg-dev`** (v16, database
   `collisionspike`): 36 tables, reference corpus seeded — `work_provider` 390, `repairer` 32,
   `image_source` 19, `inspection_address` 2209 (174 confirmed + 2035 suggested), `case_` 0.
-- **Retained UNCHANGED** — the **6 Python Functions** (parser `cespike-parser-dev`, enrichment,
-  evasentry, evavalidation, ocr, box-webhook), the Key Vaults, Blob `cespkevidstdev01`, and App
-  Insights / Log Analytics.
+- **Retained** — the **6 Python Functions** (parser `cespike-parser-dev`, enrichment, evasentry,
+  evavalidation, ocr, and **box-webhook** — the last **migrated 2026-06-27** off Dataverse + a Power
+  Automate flow onto the **Data API/Postgres** via its managed identity), the Key Vaults, Blob
+  `cespkevidstdev01`, and App Insights / Log Analytics.
 
 **Honest live state (do not paper over).** (1) **No automated email intake is live yet** — the
-orchestration app is now **deployed + wired (41 functions)** but **not live** (the 3 intake mailboxes are
-not yet Exchange-RBAC-scoped + no Graph subscriptions), so the system remains **read-only + manual
-case-create only** until go-live.
+orchestration app is **deployed + wired (41 functions)** but **not live**: the 2 configured intake
+mailboxes (**engineers@ + digital@**) are not yet Exchange-RBAC-scoped and no Graph subscriptions exist,
+so the system remains **read-only + manual case-create only** until the operator runs the RBAC grant
+(`grant-exo-rbac-intake.ps1`), after which `graph-renew` self-bootstraps the subscriptions.
 (2) **Postgres security (P0 + P2 — RESOLVED 2026-06-26):** the Data API connects as a **non-owner login
 `cespk_app`** (no superuser, no `BYPASSRLS`) whose password is a **Key Vault reference** (no cleartext),
 so the authored **Row-Level Security is now enforced** (the prior `csadmin` owner bypassed it) and the

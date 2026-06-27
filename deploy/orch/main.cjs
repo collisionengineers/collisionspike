@@ -2087,6 +2087,16 @@ async function safeText(res) {
 // orchestration/src/lib/subscriptions.ts
 var RENEWAL_MARGIN_MS = (6 * 24 + 23) * 36e5;
 var SUBSCRIPTIONS_PATH = "/subscriptions";
+function intakeMailboxes() {
+  const raw = process.env.GRAPH_INTAKE_MAILBOXES;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 function resourceFor(mailbox) {
   return `users/${mailbox}/mailFolders('Inbox')/messages`;
 }
@@ -2225,8 +2235,19 @@ import_functions3.app.timer("graph-renew", {
   schedule: "0 0 */12 * * *",
   handler: async (_timerInfo, ctx) => {
     const subs = await listOurSubscriptions();
+    const configured = intakeMailboxes();
+    const subbed = new Set(subs.map((s) => mailboxOfResource(s.resource)).filter(Boolean));
+    for (const cfg of configured) {
+      if (subbed.has(cfg.mailbox)) continue;
+      try {
+        const created = await createSubscription(cfg.mailbox);
+        ctx.log(JSON.stringify({ evt: "graph-subscription-created", subId: created.id, mailbox: cfg.mailbox, next: created.expirationDateTime }));
+      } catch (e) {
+        ctx.error(`[graph-renew] bootstrap subscription for ${cfg.mailbox} failed (is the mailbox Exchange-RBAC-scoped?): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
     if (subs.length === 0) {
-      ctx.warn("[graph-renew] no managed subscriptions found");
+      if (configured.length === 0) ctx.warn("[graph-renew] no managed subscriptions and no configured intake mailboxes");
       return;
     }
     for (const sub of subs) {

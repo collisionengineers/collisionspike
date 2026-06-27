@@ -1,8 +1,10 @@
 # collisionspike — Power Automate flow definitions (M1 intake pipeline)
 
-> **⚠️ Historical — Power Platform era (prior build).** These Power Automate flow definitions belong
-> to the prior Power Platform implementation, which has been **migrated to Azure** (its footprint still
-> exists — teardown pending operator go-ahead). The live intake/orchestration now lives in the Azure
+> **⚠️ Historical — Power Platform era (prior build, deprovisioned 2026-06-27).** These Power Automate flow
+> definitions belong to the prior Power Platform implementation, which has been **migrated to Azure** and
+> **deprovisioned 2026-06-27** (the Dev sandbox + both solutions + connectors + the remaining flow deleted
+> via `pac admin delete`; these definitions are retained in-repo for provenance). The live
+> intake/orchestration now lives in the Azure
 > **`orchestration/`** Function App (Graph delta-poll over Exchange-RBAC mailboxes — **deployed + wired
 > (41 functions, 2026-06-27), not yet live** pending mailbox scoping). Live state: [../CURRENT_STATUS.md](../CURRENT_STATUS.md) ·
 > [../docs/architecture/live-environment.md](../docs/architecture/live-environment.md). Domain/EVA logic
