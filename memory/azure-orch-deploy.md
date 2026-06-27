@@ -40,6 +40,18 @@ both connection strings, `allowSharedKeyAccess=false`. Durable needs **Storage B
 Data Contributor + Table Data Contributor** on the storage account (Blob alone is not enough for the task
 hub) — the host stays at 41 functions after the switch once those roles are granted.
 
+**GOTCHA — `GRAPH_INTAKE_MAILBOXES` is JSON, not a CSV/plain string.** It is parsed as
+`JSON.parse(...) as [{mailbox, minIntakeDate}]` (subscriptions.ts `intakeMailboxes()` + graph-lifecycle).
+A plain value like `engineers@…` JSON-parse-throws → **zero mailboxes, silently** (intake never starts).
+Correct: `[{"mailbox":"engineers@collisionengineers.co.uk","minIntakeDate":"2026-06-27T00:00:00Z"}, …]`
+(set via a `--settings @file` to survive quoting). **Bootstrap:** `graph-renew` (12h timer) now
+*ensure-creates* one subscription per configured mailbox (it was renew-only — nothing created the first
+subscription, so intake could never start). Per Microsoft Learn the **push/subscription path works under
+Exchange RBAC** (`Application Mail.Read` "has the same effect" as the Graph app permission; do NOT use
+`Mail.Read.Shared`). Operator scopes the mailboxes via `C:\Users\Alex\grant-exo-rbac-intake.ps1`, then
+the timer self-bootstraps (or restart orch to trigger sooner). `EVIDENCE_BLOB_CONNECTION` stays unset
+until go-live (would be a plaintext storage key — prefer MI on `cespkevidstdev01`).
+
 **Wiring (deployed but NOT live).** App-settings: `PARSER_FN_URL`/`ENRICH_FN_URL`/`BOXWEBHOOK_FN_URL`
 (+ keys as KV refs `@Microsoft.KeyVault(VaultName=cespk-pg-kv-dev;SecretName=parser-fn-key|enrich-fn-key|boxwebhook-fn-key)`),
 `EVASENTRY_FN_URL`, `EVIDENCE_BLOB_CONTAINER`, `GRAPH_*` (secret a KV ref), gates. orch→Data API auth uses
