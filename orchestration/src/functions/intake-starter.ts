@@ -18,7 +18,10 @@ app.storageQueue('intake-starter', {
   connection: 'AzureWebJobsStorage',
   extraInputs: [df.input.durableClient()],
   handler: async (item: unknown, ctx: InvocationContext): Promise<void> => {
-    const msg = JSON.parse(item as string) as {
+    // The Functions v4 storage-queue trigger auto-deserializes a JSON message into an
+    // object; only a non-JSON message arrives as a raw string. Accept both (parsing an
+    // already-parsed object throws `"[object Object]" is not valid JSON`).
+    const msg = (typeof item === 'string' ? JSON.parse(item) : item) as {
       messageId: string;
       subscriptionId?: string;
       tenantId?: string;

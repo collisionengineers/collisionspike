@@ -2279,7 +2279,7 @@ import_functions4.app.storageQueue("intake-starter", {
   connection: "AzureWebJobsStorage",
   extraInputs: [df.input.durableClient()],
   handler: async (item, ctx) => {
-    const msg = JSON.parse(item);
+    const msg = typeof item === "string" ? JSON.parse(item) : item;
     const client2 = df.getClient(ctx);
     const instanceId = `intake-${msg.messageId}`;
     const existing = await client2.getStatus(instanceId);
