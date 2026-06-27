@@ -48,9 +48,34 @@ Correct: `[{"mailbox":"engineers@collisionengineers.co.uk","minIntakeDate":"2026
 *ensure-creates* one subscription per configured mailbox (it was renew-only — nothing created the first
 subscription, so intake could never start). Per Microsoft Learn the **push/subscription path works under
 Exchange RBAC** (`Application Mail.Read` "has the same effect" as the Graph app permission; do NOT use
-`Mail.Read.Shared`). Operator scopes the mailboxes via `C:\Users\Alex\grant-exo-rbac-intake.ps1`, then
-the timer self-bootstraps (or restart orch to trigger sooner). `EVIDENCE_BLOB_CONNECTION` stays unset
-until go-live (would be a plaintext storage key — prefer MI on `cespkevidstdev01`).
+`Mail.Read.Shared`). Operator scopes the mailboxes via `C:\Users\Alex\grant-exo-rbac-intake.ps1`.
+`EVIDENCE_BLOB_CONNECTION` stays unset until go-live (would be a plaintext storage key — prefer MI on
+`cespkevidstdev01`).
+
+**THE BIG GOTCHA that wasted ~50 min (2026-06-27) — RBAC-for-Applications PERMISSION CACHE.** After the
+grant, Graph `POST /subscriptions` (and even `GET /users/{mbx}/messages`) kept returning **403
+`ExtensionError … Access is denied. Check credentials`** while `Test-ServicePrincipalAuthorization`
+showed `InScope=True`. The grant was CORRECT (verified: token `appid`/`oid` match the EXO `New-ServicePrincipal`,
+role `Application Mail.Read`, scope filter matches). Root cause is documented in MS Learn *Role Based
+Access Control for Applications in Exchange Online → Limitations §5*: **app-permission changes are cached
+30 min – 2 h; the TEST command bypasses the cache (hence instant `True`), but live calls read the stale
+pre-grant "deny". The cache of an app with NO inbound API calls resets after 30 min; an ACTIVE app keeps
+the stale cache alive up to 2 h.** So **DO NOT poll/probe after granting** — every call (my graph-renew
+fires + token probes) refreshed the 2 h active-cache and *prevented* the 30-min reset. CORRECT PROCEDURE:
+grant → **leave the Graph app totally idle ≥30 min (no token probes, no graph-renew fires; no subscription
+exists so nothing else calls Graph)** → then fire graph-renew **once**. (RBAC for Apps supports MS Graph +
+EWS; `Application Mail.Read` = Graph `Mail.Read`. Restarting orch does NOT reset the cache — it is
+server-side per-app on Microsoft's side.)
+
+**Operational mechanics learned 2026-06-27:** (1) the grant script needs `Connect-ExchangeOnline -Device`
+(device-code) and must be run in a REAL terminal, NOT via the `!` prefix — interactive WAM browser auth
+fails "A window handle must be configured", and `-Device` blocks waiting for the code which `!` won't show
+live. (2) Trigger the `graph-renew` timer on demand via the Functions admin API:
+`POST https://cespk-orch-dev.azurewebsites.net/admin/functions/graph-renew` with header
+`x-functions-key: <masterKey>` (from `az functionapp keys list … --query masterKey`) body `{"input":""}`
+→ 202. (3) The `graph-webhook` validation handshake is verified working — POST `…/api/graph-webhook?validationToken=X`
+(anonymous, no function key) returns 200 `text/plain` echoing `X`, so subscription-create won't fail the
+Graph validation step once the cache clears.
 
 **Wiring (deployed but NOT live).** App-settings: `PARSER_FN_URL`/`ENRICH_FN_URL`/`BOXWEBHOOK_FN_URL`
 (+ keys as KV refs `@Microsoft.KeyVault(VaultName=cespk-pg-kv-dev;SecretName=parser-fn-key|enrich-fn-key|boxwebhook-fn-key)`),
