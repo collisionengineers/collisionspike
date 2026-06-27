@@ -23,8 +23,14 @@ API app `fa2fb28c-fef6-40a4-8d3b-ae6725891d72` with `requestedAccessTokenVersion
 **`aud` = the bare client-id GUID**, NOT `api://…` (Microsoft Learn: "in v2.0 tokens the audience is
 the client ID of the API"). `api/src/lib/auth.ts` now accepts both forms (`audienceCandidates`) and maps
 any `jose` error to **401** (previously a non-HttpError fell through to a generic **500** — that was the
-"every page → 500 {error:internal}" outage). App roles `CollisionSpike.User`/`.Admin`; only one staff
-principal is app-role-assigned so far (others 403 until assigned). Related: [[exchange-rbac-unblocks-graph-intake]].
+"every page → 500 {error:internal}" outage). **App roles (renamed 2026-06-27): `CollisionSpike.User` /
+`CollisionSpike.Superuser` (full priv; was `Admin` — same role-id so the assignment carried over;
+`auth.ts` accepts both via a back-compat set) + a deferred `CollisionSpike.Engineer` placeholder.** Only
+one staff principal is app-role-assigned so far (others 403 until assigned). The **`/api/internal/*`**
+routes use `withServiceAuth` (validates a JWT for the API audience but requires NO app-role) so a service
+MI client-credentials token is accepted — the orchestration AND the box-webhook Function call them this
+way (box-webhook was migrated off Dataverse onto these routes 2026-06-27). Related:
+[[exchange-rbac-unblocks-graph-intake]], [[azure-orch-deploy]].
 
 **Postgres credential (P0 — credential leak REMEDIATED 2026-06-26):** `PGPASSWORD` is now a Key Vault
 reference to `cespk-pg-kv-dev/pg-admin-password` (API system-assigned MI has Key Vault Secrets User), the
