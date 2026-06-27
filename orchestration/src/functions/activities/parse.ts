@@ -30,7 +30,14 @@ df.app.activity('parse', {
     });
 
     if (!res.ok) {
-      // Throw so the Durable retry policy retries this activity.
+      // 4xx = nothing to parse for this case (e.g. an instruction-only / no-PDF email)
+      // or an otherwise non-retryable request — skip gracefully so the case still lands
+      // (a partial case held for review per the domain model) instead of failing the whole
+      // orchestration. 5xx / network = transient → throw so the Durable retry policy retries.
+      if (res.status >= 400 && res.status < 500) {
+        ctx.log(`[parse] parser returned ${res.status} — no parseable document for case ${input.caseId}; skipping`);
+        return { skipped: true, status: res.status };
+      }
       throw new Error(`[parse] parser Function responded ${res.status}`);
     }
 

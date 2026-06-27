@@ -29,9 +29,23 @@ app.storageQueue('intake-starter', {
     };
 
     const client = df.getClient(ctx);
-    const instanceId = `intake-${msg.messageId}`;
+    // The Graph messageId is base64url WITH '=' padding (and other non-alphanumerics);
+    // a Durable instanceId must be management-API-safe, so strip to [A-Za-z0-9_-].
+    // Deterministic, so re-delivered notifications still map to the same instance.
+    const safeMessageId = String(msg.messageId).replace(/[^A-Za-z0-9_-]/g, '');
+    const instanceId = `intake-${safeMessageId}`;
 
-    const existing = await client.getStatus(instanceId);
+    // getStatus THROWS an HTTP 404 ("could not find any data associated with the
+    // instanceId") when no instance exists yet — the normal first-seen case. Treat that
+    // as "no prior run" instead of letting it fail the whole starter (which dropped every
+    // first email). A genuine duplicate returns a status object and is deduped below.
+    let existing;
+    try {
+      existing = await client.getStatus(instanceId);
+    } catch (err) {
+      ctx.log(`[intake-starter] no existing instance for ${instanceId} (${err instanceof Error ? err.message : String(err)})`);
+      existing = undefined;
+    }
     if (
       existing &&
       existing.runtimeStatus !== 'Failed' &&

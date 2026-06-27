@@ -2137,7 +2137,7 @@ async function listOurSubscriptions() {
   return (res.value ?? []).filter((s) => (s.notificationUrl ?? "").startsWith(url2));
 }
 function mailboxOfResource(resource) {
-  const m = /^users\/([^/]+)\//.exec(resource ?? "");
+  const m = /^users\/([^/]+)\//i.exec(resource ?? "");
   return m ? m[1] : "";
 }
 function requireClientState() {
@@ -2281,8 +2281,15 @@ import_functions4.app.storageQueue("intake-starter", {
   handler: async (item, ctx) => {
     const msg = typeof item === "string" ? JSON.parse(item) : item;
     const client2 = df.getClient(ctx);
-    const instanceId = `intake-${msg.messageId}`;
-    const existing = await client2.getStatus(instanceId);
+    const safeMessageId = String(msg.messageId).replace(/[^A-Za-z0-9_-]/g, "");
+    const instanceId = `intake-${safeMessageId}`;
+    let existing;
+    try {
+      existing = await client2.getStatus(instanceId);
+    } catch (err) {
+      ctx.log(`[intake-starter] no existing instance for ${instanceId} (${err instanceof Error ? err.message : String(err)})`);
+      existing = void 0;
+    }
     if (existing && existing.runtimeStatus !== "Failed" && existing.runtimeStatus !== "Terminated") {
       ctx.log(`[intake-starter] skipping duplicate \u2014 instance ${instanceId} already ${existing.runtimeStatus}`);
       return;
@@ -42228,6 +42235,10 @@ df7.app.activity("parse", {
       body: JSON.stringify({ caseId: input10.caseId })
     });
     if (!res.ok) {
+      if (res.status >= 400 && res.status < 500) {
+        ctx.log(`[parse] parser returned ${res.status} \u2014 no parseable document for case ${input10.caseId}; skipping`);
+        return { skipped: true, status: res.status };
+      }
       throw new Error(`[parse] parser Function responded ${res.status}`);
     }
     return res.json();
@@ -42261,6 +42272,10 @@ df9.app.activity("enrich", {
       body: JSON.stringify({ caseId: input10.caseId })
     });
     if (!res.ok) {
+      if (res.status >= 400 && res.status < 500) {
+        ctx.log(`[enrich] enrichment returned ${res.status} \u2014 nothing to enrich for case ${input10.caseId}; skipping`);
+        return { skipped: true, status: res.status };
+      }
       throw new Error(`[enrich] enrichment Function responded ${res.status}`);
     }
     return res.json();

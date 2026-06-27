@@ -30,6 +30,13 @@ df.app.activity('enrich', {
     });
 
     if (!res.ok) {
+      // 4xx = nothing to enrich for this case (e.g. no VRM resolved yet) or otherwise
+      // non-retryable — skip gracefully so the case still lands rather than failing the
+      // orchestration. 5xx / network = transient → throw so the Durable retry policy retries.
+      if (res.status >= 400 && res.status < 500) {
+        ctx.log(`[enrich] enrichment returned ${res.status} — nothing to enrich for case ${input.caseId}; skipping`);
+        return { skipped: true, status: res.status };
+      }
       throw new Error(`[enrich] enrichment Function responded ${res.status}`);
     }
 

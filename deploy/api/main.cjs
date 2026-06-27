@@ -1,3 +1,4 @@
+const __importMetaUrl = require('url').pathToFileURL(__filename).href;
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -8589,6 +8590,12 @@ import_functions9.app.http("internalDedupContext", {
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const workProviderId = req.query.get("workProviderId") ?? "";
     const vrm = req.query.get("vrm") ?? "";
+    if (!workProviderId) {
+      return {
+        status: 200,
+        jsonBody: { openProviderCases: [], seenMessageIds: [], seenPayloadHashes: [] }
+      };
+    }
     const caseRows = vrm ? await query(
       `SELECT id, case_ref, status_code, work_provider_id
                FROM case_
@@ -8784,9 +8791,9 @@ import_functions9.app.http("internalCasesEvidence", {
         const result = await query(
           `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label)
-             SELECT $1, $2, $3, $4, $5, $6, 'auto-intake'
+             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake'
              WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6
+               SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
              RETURNING id`,
           [row.filename, caseId, kindCode, row.contentType || null, row.size ?? null, row.blobPath ?? null]

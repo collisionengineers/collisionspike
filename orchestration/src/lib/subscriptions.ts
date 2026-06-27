@@ -104,8 +104,9 @@ export async function listOurSubscriptions(): Promise<GraphSubscription[]> {
 
 /** Resolve the mailbox a subscription is scoped to (parse the `resource`). */
 export function mailboxOfResource(resource: string): string {
-  // users/<mailbox>/mailFolders('Inbox')/messages
-  const m = /^users\/([^/]+)\//.exec(resource ?? '');
+  // users/<mailbox>/mailFolders('Inbox')/messages — Graph change notifications echo the
+  // path with varying casing (e.g. "Users/<mbx>/Messages/<id>"), so match case-insensitively.
+  const m = /^users\/([^/]+)\//i.exec(resource ?? '');
   return m ? m[1] : '';
 }
 
