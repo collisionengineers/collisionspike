@@ -36,11 +36,8 @@ param boxApiBase string = 'https://api.box.com'
 @description('Box upload host base URL (separate from the API host).')
 param boxUploadBase string = 'https://upload.box.com'
 
-@description('Box Enterprise ID (box_subject_id for the CCG grant). Non-secret.')
-param boxEnterpriseId string = ''
-
-@description('Box app Client ID. Non-secret (the secret is the client_secret KV ref).')
-param boxClientId string = ''
+// Box clientID / clientSecret / enterpriseID + the JWT keypair now all live inside the
+// single BOX_CONFIG_JSON Key Vault secret (Server Authentication with JWT).
 
 @description('Layer-2 scope lock: the only Box folder (and its descendants) ops may target. Set to the test folder id (392761581105) for the scoped phase; empty lifts the lock for production.')
 param boxAllowedRootId string = ''
@@ -52,8 +49,8 @@ param dataApiUrl string = 'https://cespk-api-dev.azurewebsites.net'
 param dataApiAudience string = 'api://fa2fb28c-fef6-40a4-8d3b-ae6725891d72'
 
 // ---- Key Vault secret NAMES (values injected out-of-band, RESERVED-FOR-USER) ----
-@description('KV secret name holding the Box app client_secret.')
-param boxClientSecretSecretName string = 'box-client-secret'
+@description('KV secret name holding the Box app Config.JSON (clientID, clientSecret, JWT keypair, enterpriseID).')
+param boxConfigJsonSecretName string = 'box-config-json'
 
 @description('KV secret name holding the Box webhook PRIMARY signature key.')
 param boxWebhookPrimaryKeySecretName string = 'box-webhook-primary-key'
@@ -154,7 +151,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 // NOTE: the secret VALUES are injected out-of-band ([RESERVED-FOR-USER]); this
 // template intentionally does NOT declare Microsoft.KeyVault/vaults/secrets with
 // any value. The SecretUris below are constructed from the agreed secret names.
-var boxClientSecretUri = '${keyVault.properties.vaultUri}secrets/${boxClientSecretSecretName}'
+var boxConfigJsonUri = '${keyVault.properties.vaultUri}secrets/${boxConfigJsonSecretName}'
 var boxWebhookPrimaryKeyUri = '${keyVault.properties.vaultUri}secrets/${boxWebhookPrimaryKeySecretName}'
 var boxWebhookSecondaryKeyUri = '${keyVault.properties.vaultUri}secrets/${boxWebhookSecondaryKeySecretName}'
 
@@ -227,14 +224,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'BOX_UPLOAD_BASE'
           value: boxUploadBase
         }
-        {
-          name: 'BOX_ENTERPRISE_ID'
-          value: boxEnterpriseId
-        }
-        {
-          name: 'BOX_CLIENT_ID'
-          value: boxClientId
-        }
+        // BOX_ENTERPRISE_ID / BOX_CLIENT_ID removed — both now arrive inside BOX_CONFIG_JSON.
         // ---- Layer-2 scope lock: every Box op must target this folder or a
         // descendant. Set to the test folder for the scoped phase; clear it to
         // lift the lock for production. ----
@@ -255,8 +245,8 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         // ---- Key Vault references — NO literal secrets. Resolved by the MI. ----
         {
-          name: 'BOX_CLIENT_SECRET'
-          value: '@Microsoft.KeyVault(SecretUri=${boxClientSecretUri})'
+          name: 'BOX_CONFIG_JSON'
+          value: '@Microsoft.KeyVault(SecretUri=${boxConfigJsonUri})'
         }
         {
           name: 'BOX_WEBHOOK_PRIMARY_KEY'

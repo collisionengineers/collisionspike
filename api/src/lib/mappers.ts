@@ -422,6 +422,14 @@ const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000004: 'query_new_enquiry',
   100000005: 'other',
 };
+export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
+  existing_provider_instruction: 100000000,
+  existing_provider_audit: 100000001,
+  new_client_work: 100000002,
+  query_existing_work: 100000003,
+  query_new_enquiry: 100000004,
+  other: 100000005,
+};
 const TRIAGE_STATES: readonly TriageState[] = ['new', 'routed', 'actioned', 'dismissed'];
 const CLASSIFIER_MODES: readonly ClassifierMode[] = ['deterministic', 'llm', 'human'];
 

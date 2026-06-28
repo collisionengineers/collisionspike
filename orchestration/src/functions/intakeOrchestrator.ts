@@ -32,12 +32,35 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
 
   // 1 — provider-match (idempotent read; safe to retry)
   const provider: unknown = yield ctx.df.callActivityWithRetry('providerMatch', retry, inbound);
+  const workProviderId = (provider as { workProviderId?: string }).workProviderId;
+  const matchState = (provider as { matchState?: string }).matchState;
+
+  // 1.5 — triage classify (ADR-0015): records the classified inbound_email row and decides
+  // whether this email is RECEIVING WORK (→ a Case) or a QUERY / OTHER (→ no Case).
+  const classification = (yield ctx.df.callActivityWithRetry('classifyInbound', retry, {
+    inbound,
+    workProviderId,
+    matchState,
+  })) as { category: string; subtype: string; bodyCaseref: string };
+
+  // QUERY / OTHER never become a Case — the inbound_email triage row IS the record of it.
+  if (classification.category !== 'receiving_work') {
+    return { triaged: classification.category, subtype: classification.subtype };
+  }
+
+  // RECEIVING WORK → carry the body-derived Case/PO into the dedup ladder (Case/PO-first,
+  // VRM fallback — ADR-0015 §5) when the subject hadn't already yielded one.
+  const inboundForCase = {
+    ...(inbound as Record<string, unknown>),
+    candidateRef:
+      ((inbound as { candidateRef?: string }).candidateRef || classification.bodyCaseref) ?? '',
+  };
 
   // 2 — case-resolve (UNIQUE(sourcemessageid) backstop makes upsert idempotent)
   const resolved = (yield ctx.df.callActivityWithRetry('caseResolve', retry, {
-    inbound,
-    providerId: (provider as { workProviderId?: string }).workProviderId,
-    matchState: (provider as { matchState?: string }).matchState,
+    inbound: inboundForCase,
+    providerId: workProviderId,
+    matchState,
   })) as { outcome: string; caseId: string };
 
   if (resolved.outcome === 'already_ingested') {

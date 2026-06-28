@@ -80,10 +80,12 @@ error-handling + token-audience-form hardening** are in progress.
 > **prior era**, not the live system.
 
 Read first: [README.md](./README.md), [CURRENT_STATUS.md](./CURRENT_STATUS.md) (live state),
-[docs/architecture/live-environment.md](./docs/architecture/live-environment.md) (the live registry),
-[migration/README.md](./migration/README.md) (cutover record), [ROADMAP.md](./ROADMAP.md),
+[OPEN_ITEMS.md](./OPEN_ITEMS.md) (**the single remediation worklist — §A "current frontier" is the
+start-here for what's next**), [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)
+(the live registry), [migration/README.md](./migration/README.md) (cutover record), [ROADMAP.md](./ROADMAP.md),
 [PLAN.md](./PLAN.md), [docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md).
-What needs the operator: [docs/gated.md](./docs/gated.md).
+What needs the operator: [docs/gated.md](./docs/gated.md). **Activating Box:**
+[docs/azure/box-activation.md](./docs/azure/box-activation.md).
 
 ## Layout & documentation map
 
@@ -192,12 +194,43 @@ because Minotaur Software's Sentry API supports only **one principal code** per 
 route different work-provider codes); REST stays gated pending Minotaur's patch.
 **Box (Phase 7, ADR-0012)** is an **additive, one-way mirror** (**Postgres** is now the system of record —
 Dataverse was, in the prior build): **evidence is linked, not embedded** — a server-minted "Open in Box"
-deep link, so there is **no iframe and no `frame-src` edit** (`BOX_EMBED_ENABLED` stays reserved/off). Box
-stays **gated off across the migration** (every `BOX_*` resolves false). The non-byte Box operations that
-formerly ran through a Power Platform **custom connector** (`cr1bd_box_rest`, with a CCG token minted inside
-the `box-webhook` Function — never the connector) are, in the Azure design, carried by the **retained
-`box-webhook` Function plus the orchestration app**; the Power Platform connector itself is decommissioned.
+deep link, so there is **no iframe and no `frame-src` edit** (`BOX_EMBED_ENABLED` stays reserved/off).
+**Box auth is JWT "Server Authentication"** (the whole app `Config.JSON` in one Key Vault secret), **not
+CCG.** As of **2026-06-28 the Box credentials are PROVEN working** (token mint + an authenticated REST call
+to the allowed root succeeded; the app is Admin-authorized — no reauthorization needed). Activation is
+**staged, not yet live**: the credentials still need wiring into Key Vault and the `BOX_*` gates flipped on
+`cespk-api-dev` + `cespk-orch-dev` — blocked only on an `az login` — so until the runbook is run **`BOX_*`
+remains effectively off**. Step-by-step: [docs/azure/box-activation.md](./docs/azure/box-activation.md).
+The non-byte Box operations that formerly ran through a Power Platform **custom connector**
+(`cr1bd_box_rest`, with the service-identity token minted inside the `box-webhook` Function — never the
+connector) are, in the Azure design, carried by the **retained `box-webhook` Function plus the
+orchestration app**; the Power Platform connector itself is decommissioned.
 Detail: [docs/architecture/integrations.md](./docs/architecture/integrations.md).
+
+## Azure task routing (invoke the skill — don't hand-roll and churn)
+
+The live stack is pure Azure PaaS. Before hand-rolling `az`/`func`/`psql`/KQL for any **non-trivial**
+Azure task, match it below and **invoke the named skill/tool first** — the skills encode the procedure +
+footguns; raw CLI is the fallback. Full playbooks: **[docs/azure/README.md](./docs/azure/README.md)**.
+
+| Task | Invoke first → | Playbook |
+|---|---|---|
+| Diagnose a live Function/API/orch error or outage | `azure:azure-diagnostics` → `mcp__azure__applens`/`resourcehealth`; dispatch **azure-diagnostician** | `diagnose.md` |
+| Read App Insights / Log Analytics (KQL) | `azure:azure-kusto` / `mcp__azure__monitor` (Win: `--analytics-query "@q.kql"`) | `logs-kql.md` |
+| Build + deploy API / orch / SWA | `azure:azure-validate` → `azure:azure-deploy`; `mcp__azure__get_azure_bestpractices` | `deploy.md` |
+| Grant RBAC / managed identity | `azure:azure-rbac` → `mcp__azure__role` (here `az role assignment` 500s `MissingSubscription` → ARM) | `identity-rbac.md` |
+| Secrets / Key Vault / rotation | `azure:azure-compliance` + KV-ref pattern → `mcp__azure__keyvault` | `secrets-keyvault.md` |
+| Entra app-reg / token audience / Graph subs / Exchange-RBAC | `azure:entra-app-registration`; `microsoft-docs:microsoft-docs` | `entra-graph.md` |
+| Postgres ops (RLS, app.role, audit) | `mcp__azure__postgres` / `psql` | `postgres.md` |
+| Understand any Microsoft behavior/limit/error | `microsoft-docs:microsoft-docs` **before** retrying | — |
+| What's deployed / inventory | `azure:azure-resource-lookup` → `mcp__azure__group_resource_list` | README |
+
+**Anti-churn doctrine** (the point): (1) **Two strikes → stop** — if the same Azure op fails twice, don't
+run it a third time; invoke the matching skill or `microsoft-docs` to learn *why* first (the
+`azure-route-guard`/`azure-churn-guard` hooks enforce this). (2) **Skill before CLI** for non-trivial ops.
+(3) **Docs before retry** when a behavior/limit/error is unclear. Live registry:
+[docs/architecture/live-environment.md](./docs/architecture/live-environment.md); deep gotchas:
+[AGENTS.md](./AGENTS.md) + `memory/azure-*`.
 
 ## Tooling & conventions
 
@@ -223,9 +256,10 @@ Azure migration, so some agents now describe the **prior Power Platform mechanis
 
 **Live (platform-current):**
 
-- **azure-integration-engineer** — Azure Functions (parser + DVSA/DVLA enrichment direct via Entra), Key Vault, connectors, Document Intelligence, postcode.io/Maps.
+- **azure-integration-engineer** — the live Azure stack end-to-end: the **Data API** (`cespk-api-dev`) + **orchestration** (`cespk-orch-dev`) Function Apps, **Postgres** (`cespk-pg-dev`), the **SPA** (`cespk-spa-dev`), the 6 retained Python Functions, Key Vault, managed-identity/RBAC, Entra/MSAL/JWT, Document Intelligence, and the Box-webhook Function. Routes through **[docs/azure/](./docs/azure/README.md)** + the `azure:*` skills.
+- **azure-diagnostician** — **read-only** live triage: pulls App Insights/KQL, AppLens/resource-health, function lists, RLS/secret state, cross-checks Microsoft Learn, and returns a **root-cause + recommended fix**. Dispatch it for "why is X failing" instead of debugging inline; it applies nothing (fixes go to azure-integration-engineer).
 - **eva-sentry-integration** — EVA Sentry REST v1.2, the 12-field JSON contract, photo-order/image rules, drag-drop export, Box. (EVA contract is platform-independent — unchanged by the migration.)
-- **document-parser-engineer** — maintains `cedocumentmapper_v2.0` (Python; PyMuPDF licensed) as the engine's authoring source of truth; hands a clean importable **engine-core** the azure agent vendors into the parser Function's HTTP route (ADR-0004/0018) — not an HTTP service in the sibling itself.
+- The **`cedocumentmapper_v2.0` sibling** (Python; PyMuPDF licensed) is the parser engine's authoring source of truth; its clean **engine-core** is vendored into the parser Function's HTTP route (ADR-0004/0018). _(The former `document-parser-engineer` agent is retired — edit-in-sibling + re-vendor; **azure-integration-engineer** deploys it.)_
 
 **Reference-only (prior Power Platform build, decommissioned — defer to the Azure components, not these mechanisms):**
 

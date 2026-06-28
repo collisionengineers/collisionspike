@@ -21,8 +21,10 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import httpx
+import jwt
 import pytest
 import respx
 
@@ -30,6 +32,13 @@ FN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(FN_DIR))
 
 from box_client import BoxClient, BoxConfig, BoxError  # noqa: E402
+from jwt_testkit import (  # noqa: E402
+    TEST_CLIENT_ID,
+    TEST_ENTERPRISE_ID,
+    TEST_KID,
+    TEST_PUBLIC_PEM,
+    jwt_box_config,
+)
 
 # Must be an https *.box.com host: box_client pins the CREDENTIAL token-mint
 # host (the client_secret is POSTed to it), so a non-Box base is refused.
@@ -42,13 +51,9 @@ FAKE_TOKEN_2 = "FAKE.box.access-token.refreshed"  # noqa: S105
 
 
 def _client() -> BoxClient:
-    cfg = BoxConfig(
-        client_id="fake-client-id",
-        client_secret=FAKE_SECRET,
-        enterprise_id="1234567",
-        api_base=API_BASE,
-    )
-    return BoxClient(config=cfg)
+    # App Access Only Service Account via JWT (the live auth method), signed by the
+    # throwaway test keypair so the mint runs fully offline.
+    return BoxClient(config=jwt_box_config())
 
 
 def _mock_token(token: str = FAKE_TOKEN, expires_in: int = 3599) -> respx.Route:
@@ -66,7 +71,9 @@ def _no_backoff(monkeypatch):
 # ==========================================================================
 
 @respx.mock
-def test_token_mint_shape_is_ccg_enterprise():
+def test_token_mint_shape_is_jwt_bearer():
+    """The mint posts a jwt-bearer grant whose assertion is a real RS512-signed JWT
+    with the Box Service-Account claims (sub=enterpriseID, box_sub_type=enterprise)."""
     token_route = _mock_token()
     c = _client()
     assert c.get_token() == FAKE_TOKEN
@@ -74,10 +81,54 @@ def test_token_mint_shape_is_ccg_enterprise():
     req = token_route.calls.last.request
     assert req.method == "POST"
     assert req.headers["content-type"] == "application/x-www-form-urlencoded"
-    form = req.content.decode("utf-8")
-    assert "grant_type=client_credentials" in form
-    assert "box_subject_type=enterprise" in form
-    assert "box_subject_id=1234567" in form
+    form = parse_qs(req.content.decode("utf-8"))
+    assert form["grant_type"] == ["urn:ietf:params:oauth:grant-type:jwt-bearer"]
+    assert form["client_id"] == [TEST_CLIENT_ID]
+    assert "assertion" in form
+
+    assertion = form["assertion"][0]
+    header = jwt.get_unverified_header(assertion)
+    assert header["alg"] == "RS512"
+    assert header["kid"] == TEST_KID
+    claims = jwt.decode(
+        assertion,
+        TEST_PUBLIC_PEM,
+        algorithms=["RS512"],
+        audience=f"{API_BASE}/oauth2/token",
+    )
+    assert claims["iss"] == TEST_CLIENT_ID
+    assert claims["sub"] == TEST_ENTERPRISE_ID
+    assert claims["box_sub_type"] == "enterprise"
+    assert len(claims["jti"]) >= 16
+    assert 0 < claims["exp"] - claims["iat"] <= 60
+    c.close()
+
+
+@respx.mock
+def test_token_mint_corrects_clock_skew_and_retries(monkeypatch):
+    """A 400 carrying a Date header far from our clock triggers ONE rebuild around
+    Box's time, then succeeds (host-clock-drift resilience)."""
+    from datetime import datetime, timedelta, timezone
+    from email.utils import format_datetime
+
+    _no_backoff(monkeypatch)
+    future = datetime.now(timezone.utc) + timedelta(minutes=10)
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(
+                400,
+                json={"error": "invalid_grant"},
+                headers={"Date": format_datetime(future)},
+            )
+        return httpx.Response(200, json={"access_token": FAKE_TOKEN, "expires_in": 3599})
+
+    respx.post(TOKEN_URL).mock(side_effect=handler)
+    c = _client()
+    assert c.get_token() == FAKE_TOKEN
+    assert calls["n"] == 2  # one skew-rejected, one corrected success
     c.close()
 
 
@@ -312,8 +363,8 @@ def test_token_value_never_logged(caplog):
 def test_config_from_env_missing_raises(monkeypatch):
     from box_client import BoxConfigError
 
-    for n in ("BOX_CLIENT_ID", "BOX_CLIENT_SECRET", "BOX_ENTERPRISE_ID"):
-        monkeypatch.delenv(n, raising=False)
+    # JWT auth resolves everything from the single BOX_CONFIG_JSON secret.
+    monkeypatch.delenv("BOX_CONFIG_JSON", raising=False)
     with pytest.raises(BoxConfigError):
         BoxConfig.from_env()
 

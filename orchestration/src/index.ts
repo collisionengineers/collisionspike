@@ -17,6 +17,7 @@ import './functions/intake-starter.js';
 import './functions/intakeOrchestrator.js';
 import './functions/activities/fetchMessage.js';
 import './functions/activities/providerMatch.js';
+import './functions/activities/classifyInbound.js';
 import './functions/activities/caseResolve.js';
 import './functions/activities/classifyPersist.js';
 import './functions/activities/parse.js';

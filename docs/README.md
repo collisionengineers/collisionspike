@@ -55,6 +55,13 @@ operator) · [../AGENTS.md](../AGENTS.md) (operating rules).
 ## Activation playbooks (operator)
 - [activation/email-intake-activation.md](./activation/email-intake-activation.md) · [activation/m1-flow-chain-activation.md](./activation/m1-flow-chain-activation.md) · [activation/multi-inbox-activation.md](./activation/multi-inbox-activation.md)
 
+## Azure operations (runbooks)
+- [azure/README.md](./azure/README.md) — **the Azure task router**: match a task → the skill/tool/agent to
+  invoke (diagnose · logs-KQL · deploy · identity-RBAC · secrets-Key Vault · entra-Graph · postgres), plus
+  the **anti-churn doctrine**. Each playbook references [architecture/live-environment.md](./architecture/live-environment.md)
+  + `memory/azure-*` rather than duplicating them. Mirrors the routing table in [CLAUDE.md](../CLAUDE.md);
+  enforced by the `azure-route-guard` / `azure-churn-guard` hooks.
+
 ## ADRs
 - [adr/](./adr/) — architecture decision records **0001–0012** (entities, dedup, chasers, parser, EVA, enrichment, WhatsApp, tool boundary, image AI, sourcing roles, **Box-centric intake additive hybrid**).
 

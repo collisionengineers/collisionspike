@@ -64,6 +64,22 @@ access**, then the **retained integrations and data**, then **policy/legal**.
 
 ### A. Time-critical & security
 
+#### A0. Re-authenticate the Azure CLI session (`az login`)  ·  *unblocks everything below*
+
+**What:** the Azure CLI session token expired (during the 2026-06-28 work). `az` **and** the agent's MCP
+Azure tools both fail with *"An attempt was made to reference a token that does not exist"* / 401 — so **no
+live Azure change can be made** (no Key Vault writes, app-setting changes, deploys, or RBAC grants) until the
+session is re-authenticated. (Offline/local work and the Box-credential proof did not need it.)
+
+**Why you:** `az login` opens an interactive browser sign-in — an agent can't complete it.
+
+**Steps:**
+1. In this session, run **`! az login`** (the `!` prefix runs it here so the output lands in the chat), or
+   run `az login` in your own terminal. Sign in with the account that owns `rg-collisionspike-dev`.
+2. Confirm with `az account show` (should print subscription `e6076573-…`, state **Enabled**).
+3. Once done, the agent can proceed with the staged Azure work — **Box activation (D2)** is the first thing
+   ready to run end-to-end (see [docs/azure/box-activation.md](./docs/azure/box-activation.md)).
+
 #### A1. Upgrade the subscription off the Free Trial → Pay-As-You-Go  ·  *deadline*
 
 **What:** subscription `e6076573-23a5-46a8-acef-7e22d264e5db` is an **Azure Free Trial**
@@ -253,37 +269,30 @@ route different work-provider codes) — REST waits on Minotaur's patch.
    the **full registration visible** on the overview.
 4. Only after the test passes do you point it at **live** EVA.
 
-#### D2. Switch on Box filing  ·  *you register + authorize a Box app*
+#### D2. Switch on Box filing  ·  ✅ **credentials PROVEN (2026-06-28)** — only the KV wiring remains
 
-**What:** the **`box-webhook`** Function is one of the 6 retained Python Functions (deployed, dormant). Box
-filing (mint the Case/PO folder, copy the upload File Request, mirror the finished case) runs through a
-**service identity** — the Function mints its own Box token from a stored secret (**no personal "API key"
-on a connection**). Box is an **additive, one-way mirror; Postgres stays the system of record**. **Evidence
-is linked, not embedded** — a server-minted "Open in Box" deep link, so there is **no iframe / no CSP
-`frame-src` edit**.
+**What:** the **`box-webhook`** Function (one of the 6 retained Python Functions; deployed) files cases to
+Box (mint the Case/PO folder, copy the upload File Request, mirror the finished case) using a **service
+identity** — the Function mints its own Box token from a stored secret. Box is an **additive, one-way
+mirror; Postgres stays the system of record**; **evidence is linked, not embedded** (a server-minted "Open
+in Box" deep link — no iframe / no CSP `frame-src` edit).
 
-**Why you:** registering and Admin-authorizing the Box app, and supplying its secret, need a Box admin — and
-a **paid Box tenant (base Business is the floor)**; the service identity (Client Credentials Grant), File
-Requests and webhooks don't exist on free/personal accounts. (Business Plus is only needed later, for the
-optional metadata field.)
+**Status (2026-06-28):** the Box app uses **JWT "Server Authentication"** (not CCG). You generated a fresh
+keypair and dropped the complete `Config.JSON` at the repo root (`941197__config.json`, gitignored). It was
+**verified end-to-end against `api.box.com`** — token mint **HTTP 200** + an authenticated
+`GET /2.0/folders/392761581105` **HTTP 200**. So the **app is registered + Admin-authorized** (no
+reauthorization needed) and the **Service Account is already a collaborator** on the allowed root. The Box
+tenant is clearly Business-or-higher (JWT + the folder all work). **The hard parts are done.**
 
-**Steps:**
-1. In the Box Developer Console, **create a Platform App → Server Authentication (Client Credentials
-   Grant)**, App Access Only, scopes *Read/write all files and folders* + *Manage webhooks*. Capture
-   **Client ID, Client Secret, Enterprise ID**.
-2. **Authorize + enable** it in the **Admin Console** (Integrations → Platform Apps Manager → Server
-   Authentication Apps).
-3. Put the **Client Secret** + the webhook signature keys into the Box Function's **Key Vault**.
-4. Confirm Box accepts the **UPPERCASE** Case/PO folder name (e.g. case `test26001` → folder
-   **`TEST26001`**).
-5. Turn the Box feature flags **on** (test environment first). *(On Azure these flags are Function
-   **app configuration**; in the decommissioned stack they were the Dataverse `BOX_*` env-vars.)*
+**What's left (mechanical — blocked only on A0 `az login`):** push the credentials into Key Vault, restart,
+smoke-test, and flip the `BOX_*` gates on `cespk-api-dev` + `cespk-orch-dev`. One script + a step-by-step
+runbook: **[docs/azure/box-activation.md](./docs/azure/box-activation.md)**. The remaining *Box-side*
+follow-ups (not blockers for basic filing) are the **hand-built template File Request** id and subscribing
+the **`FILE.UPLOADED` webhook** — both covered in that runbook (§5).
 
-> The decisive Box verifications still wait on a **Business-or-higher** tenant: the CCG token mint + the
-> Admin-authorized Platform app, the hand-built template File Request, and the single biggest empirical
-> unknown — does a **File-Request upload fire `FILE.UPLOADED`** → the Function → the case advances? On a
-> transient miss the primary recovery is Box's own retry (the receiver returns non-2xx so Box
-> re-delivers). Full design history is preserved in the historical section and
+> The one empirical unknown that still wants a live exercise: does a **File-Request upload fire
+> `FILE.UPLOADED`** → the Function → the case advances? On a transient miss the recovery is Box's own retry
+> (the receiver returns non-2xx so Box re-delivers). Design history:
 > [plans/phase-7-box-integration/box-integration-activation.md](./plans/phase-7-box-integration/box-integration-activation.md).
 
 #### D3. Provider auto-matching — the missing business domains  ·  *you supply the data*

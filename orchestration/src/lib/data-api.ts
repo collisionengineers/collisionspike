@@ -140,6 +140,26 @@ export const dataApi = {
     return request('POST', '/api/internal/cases/resolve', payload);
   },
 
+  /**
+   * Record a classified inbound_email triage row with NO case (ADR-0015). Used for
+   * query/other AND as the always-on first write for receiving_work (caseResolve later
+   * stamps case_id onto the same row). Idempotent upsert on source_message_id.
+   */
+  recordInboundEmail(payload: {
+    inbound: unknown;
+    providerId?: string;
+    classification: {
+      category: string;
+      subtype: string;
+      confidence: number;
+      signals: string[];
+      bodyVrm: string;
+      bodyCaseref: string;
+    };
+  }): Promise<{ inboundEmailId: string | null }> {
+    return request('POST', '/api/internal/inbound-email', payload);
+  },
+
   /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
   persistEvidence(
     caseId: string,

@@ -12,12 +12,16 @@
 import * as df from 'durable-functions';
 import { describeEvidence } from '@cs/domain';
 import { dataApi } from '../../lib/data-api.js';
+import { uploadEvidenceBytes } from '../../lib/blob.js';
 import type { InboundEnvelope } from './fetchMessage.js';
 
 interface ClassifyPersistInput {
   caseId: string;
   inbound: InboundEnvelope;
 }
+
+/** Minimum body length to treat as a genuine in-body instruction (skip one-liners/footers). */
+const MIN_BODY_INSTRUCTION_CHARS = 40;
 
 df.app.activity('classifyPersist', {
   handler: async (input: ClassifyPersistInput, ctx): Promise<{ persisted: number }> => {
@@ -28,6 +32,31 @@ df.app.activity('classifyPersist', {
       blobPath: a.blobPath,
       size: a.size,
     }));
+
+    // Body-only instruction (ADR-0015): a RECEIVING-WORK email whose instructions are typed
+    // in the body with NO instruction attachment must still yield instruction evidence, else
+    // the case lands empty. Persist the body text to Blob and add one instruction row.
+    const hasInstructionAttachment = rows.some((r) => r.evidenceClass === 'instruction');
+    const bodyText = (inbound.body ?? '').trim();
+    if (!hasInstructionAttachment && bodyText.length >= MIN_BODY_INSTRUCTION_CHARS) {
+      const up = await uploadEvidenceBytes(
+        inbound.messageId,
+        'email-body.txt',
+        Buffer.from(bodyText, 'utf8'),
+        'text/plain',
+      );
+      rows.push({
+        filename: 'email-body.txt',
+        contentType: 'text/plain',
+        extension: 'txt',
+        evidenceClass: 'instruction',
+        isImage: false,
+        isInstruction: true,
+        blobPath: up.blobPath,
+        size: up.size,
+      });
+      ctx.log(JSON.stringify({ evt: 'classifyPersist.bodyInstruction', caseId, bytes: up.size }));
+    }
 
     const result = await dataApi.persistEvidence(caseId, rows);
 

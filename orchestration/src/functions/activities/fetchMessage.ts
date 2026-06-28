@@ -41,6 +41,10 @@ export interface InboundEnvelope {
   candidateVrm: string;
   /** Best-effort provider reference sniff from the subject (pre-parse; '' when none). */
   candidateRef: string;
+  /** Plain-text email body (Graph text representation, capped at BODY_CAP). '' when none. */
+  body: string;
+  /** Whitespace-collapsed body preview for the inbound_email triage row. */
+  bodyPreview: string;
   attachments: Array<{
     filename: string;
     contentType: string;
@@ -50,6 +54,11 @@ export interface InboundEnvelope {
 }
 
 const UK_VRM_RE = /\b([A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/;
+
+/** Cap the body carried through the durable envelope (keeps activity state bounded). */
+const BODY_CAP = 20_000;
+/** inbound_email.body_preview is a Memo(4000); keep the preview well under that. */
+const BODY_PREVIEW_CAP = 3_500;
 
 df.app.activity('fetchMessage', {
   handler: async (input: FetchMessageInput, ctx): Promise<InboundEnvelope> => {
@@ -68,7 +77,12 @@ df.app.activity('fetchMessage', {
     const subject = message.subject ?? '';
     const senderAddress = message.from?.emailAddress?.address ?? '';
     const payloadHash = hashPayload(subject, senderAddress, landed);
-    const candidateVrm = sniffVrm(subject);
+    // Body: Graph returns the text representation (Prefer header in getMessageWithAttachments);
+    // fall back to the 255-char bodyPreview. Capped to keep the durable envelope bounded.
+    const body = (message.body?.content ?? message.bodyPreview ?? '').slice(0, BODY_CAP);
+    const bodyPreview = body.replace(/\s+/g, ' ').trim().slice(0, BODY_PREVIEW_CAP);
+    // VRM sniff spans subject + body — a body-only instruction carries the reg in the text.
+    const candidateVrm = sniffVrm(`${subject}\n${body}`);
 
     const envelope: InboundEnvelope = {
       messageId: input.messageId,
@@ -80,6 +94,8 @@ df.app.activity('fetchMessage', {
       payloadHash,
       candidateVrm,
       candidateRef: '', // a provider reference is parser-confirmed later (step 4); '' pre-parse
+      body,
+      bodyPreview,
       attachments: landed,
     };
     ctx.log(JSON.stringify({ evt: 'fetchMessage', messageId: input.messageId, mailbox, attachments: landed.length }));

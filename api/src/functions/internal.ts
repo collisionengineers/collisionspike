@@ -33,6 +33,8 @@ import {
   statusForReviewCase,
   type CaseStatus,
   type EvidenceDescriptor,
+  type InboundCategory,
+  type InboundSubtype,
   type StatusEvaluationInput,
 } from '@cs/domain';
 import {
@@ -47,6 +49,8 @@ import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import {
   CASE_SELECT,
   EVA_COLUMN_BY_KEY,
+  INBOUND_CATEGORY_TO_INT,
+  INBOUND_SUBTYPE_TO_INT,
   rowToCase,
   rowToEvidence,
   type Row,
@@ -157,7 +161,19 @@ interface InboundEnvelope {
   payloadHash: string;
   candidateVrm: string;
   candidateRef: string;
+  body?: string;
+  bodyPreview?: string;
   attachments: Array<{ filename: string; contentType: string; blobPath: string; size: number }>;
+}
+
+/** Triage classification carried from the orchestration classifyInbound activity (ADR-0015). */
+interface InboundClassificationDto {
+  category: string;
+  subtype: string;
+  confidence: number;
+  signals: string[];
+  bodyVrm: string;
+  bodyCaseref: string;
 }
 
 /* ============================================================
@@ -389,23 +405,79 @@ app.http('internalCasesResolve', {
     }),
 });
 
-/** Upsert an inbound_email row for Phase-8 triage provenance (one row per arrival). */
+/* ============================================================
+   3b — POST /api/internal/inbound-email
+   Called by: orchestration classifyInbound activity (ADR-0015). Records the
+   classified triage row for EVERY email (one per arrival) with NO case yet —
+   query/other stop here; receiving_work has caseResolve stamp case_id onto the
+   SAME row afterwards (idempotent COALESCE upsert on source_message_id).
+   ============================================================ */
+app.http('internalInboundEmail', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/inbound-email',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json()) as {
+        inbound: InboundEnvelope;
+        providerId?: string;
+        classification: InboundClassificationDto;
+      };
+      const inboundEmailId = await upsertInboundEmail(
+        body.inbound,
+        body.providerId ?? null,
+        null,
+        body.classification,
+      );
+      return { status: 200, jsonBody: { inboundEmailId } };
+    }),
+});
+
+/**
+ * Upsert the inbound_email triage row (one per arrival; ADR-0015). When `classification`
+ * is provided the triage columns (category/subtype/confidence/signals/body_*) are written.
+ * The COALESCE upsert makes the two writers order-robust: a later case_id-only stamp
+ * (caseResolve) preserves an earlier classification, and a later classification preserves
+ * an earlier case_id. Returns the row id, or null on a (swallowed) failure.
+ */
 async function upsertInboundEmail(
   inbound: InboundEnvelope,
   workProviderId: string | null,
-  caseId: string,
-): Promise<void> {
+  caseId: string | null,
+  classification?: InboundClassificationDto,
+): Promise<string | null> {
   const subject = (inbound.subject ?? '').trim();
   const name = `Email: ${subject || inbound.internetMessageId}`;
+  const categoryCode = classification
+    ? INBOUND_CATEGORY_TO_INT[classification.category as InboundCategory] ?? null
+    : null;
+  const subtypeCode = classification
+    ? INBOUND_SUBTYPE_TO_INT[classification.subtype as InboundSubtype] ?? null
+    : null;
+  const bodyVrm = (classification?.bodyVrm || inbound.candidateVrm || '') || null;
+  const bodyCaseref = (classification?.bodyCaseref || inbound.candidateRef || '') || null;
+  const bodyPreview = (inbound.bodyPreview ?? '') || null;
+  const confidence = classification ? classification.confidence : null;
+  const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
   try {
-    await query(
+    const rows = await query<{ id: string }>(
       `INSERT INTO inbound_email
          (name, source_message_id, subject, from_address, sender_domain,
-          source_mailbox, received_on, has_attachments, triage_state,
-          classifier_mode, body_vrm, case_id, work_provider_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'new','deterministic',$9,$10,$11)
-       ON CONFLICT (source_message_id)
-       DO UPDATE SET case_id = EXCLUDED.case_id, updated_at = now()`,
+          source_mailbox, received_on, has_attachments, category_code, subtype_code,
+          confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
+          body_preview, case_id, work_provider_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,'new',$13,$14,$15,$16,$17)
+       ON CONFLICT (source_message_id) DO UPDATE SET
+         case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
+         category_code    = COALESCE(EXCLUDED.category_code, inbound_email.category_code),
+         subtype_code     = COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code),
+         confidence       = COALESCE(EXCLUDED.confidence, inbound_email.confidence),
+         signals          = COALESCE(EXCLUDED.signals, inbound_email.signals),
+         body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
+         body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
+         work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
+         updated_at       = now()
+       RETURNING id`,
       [
         name,
         inbound.internetMessageId ?? null,
@@ -415,13 +487,21 @@ async function upsertInboundEmail(
         inbound.sourceMailbox ?? null,
         inbound.receivedAt ?? null,
         (inbound.attachments?.length ?? 0) > 0,
-        (inbound.candidateVrm ?? '') || null,
+        categoryCode,
+        subtypeCode,
+        confidence,
+        signals,
+        bodyVrm,
+        bodyCaseref,
+        bodyPreview,
         caseId,
         workProviderId,
       ],
     );
+    return rows[0]?.id ?? null;
   } catch {
     // inbound_email is triage provenance; failure must not block primary intake.
+    return null;
   }
 }
 

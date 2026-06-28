@@ -1,25 +1,28 @@
-"""Box REST client — CCG service-identity token minted INSIDE the Function.
+"""Box REST client — JWT (Server Auth) service-identity token minted INSIDE the Function.
 
 [BUILD] — authored offline, exercised only by mocked pytest (respx / httpx
 transport mocking). No live Box, no Azure/tenant contact. The real token + Box
 endpoints are reached ONLY at runtime inside the deployed Function.
 
-Why the token lives here (not on the connector)
------------------------------------------------
-A Power Platform custom connector CANNOT run the OAuth2 client-credentials grant
-(Microsoft Learn, verbatim). So the connector authenticates by an Azure Functions
-host key on the connection, and THIS module exchanges the Box CCG
-service-identity token from a Key Vault ``client_secret``:
+Why the token lives here (server-side, never on a client)
+---------------------------------------------------------
+The orchestration + Data API call this Function's HTTP routes server-to-server
+(managed identity / function key); THIS module is where the Box service-identity
+token is minted, so the app secret + JWT keypair never leave the Function. It builds
++ RS512-signs a short-lived JWT assertion from the app's Config.JSON and exchanges it
+for an access token (Box "Server Authentication with JWT"):
 
     POST https://api.box.com/oauth2/token
-        grant_type=client_credentials
-        client_id=..&client_secret=..
-        box_subject_type=enterprise&box_subject_id=<Enterprise ID>
-      -> { "access_token": "..", "expires_in": 3599 }   # App Access Only
+        grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
+        client_id=..&client_secret=..&assertion=<RS512-signed JWT>
+      -> { "access_token": "..", "expires_in": 3599 }   # Service Account (App Access Only)
 
-The app must be **authorized in the Box Admin Console** before the first call
-succeeds (``unauthorized_client`` otherwise — exactly why a free test account
-cannot use this path).
+The whole Config.JSON (clientID, clientSecret, appAuth keypair, enterpriseID) is ONE
+Key Vault secret, ``BOX_CONFIG_JSON``; the RSA private key is decrypted with its
+passphrase to sign each assertion and is NEVER logged. The app must be authorized in
+the Box Admin Console for the first call to succeed — but note that "Pending
+Reauthorization" (after an app-config change) does NOT revoke the previously approved
+configuration, so the prior keypair keeps working.
 
 Caching + resilience (mirrors functions/enrichment/dvsa_client.py)
 ------------------------------------------------------------------
@@ -39,16 +42,21 @@ The minted bearer token is likewise never logged or returned to the caller.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import random
+import secrets
 import threading
 import time
 from dataclasses import dataclass, field
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+import jwt
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 logger = logging.getLogger("boxwebhook.box")
 
@@ -99,6 +107,29 @@ _BASE_BACKOFF_S = 1.0
 # Transient HTTP statuses safe to retry (Box documents 429 on rate-limit;
 # 5xx on upstream faults). Verified: ~1000/min/user; back off on 429.
 _RETRY_SAFE_STATUS = {429, 500, 502, 503, 504}
+
+# --- JWT (Server Authentication) assertion + token exchange ---------------
+_JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+# Assertion lifetime — Box rejects exp > 60s beyond iat; keep margin.
+_ASSERTION_TTL_S = 45
+# jti entropy (token_urlsafe(24) -> 32 chars, over Box's 16-char floor).
+_JTI_BYTES = 24
+# If our host clock has drifted past this vs Box's Date header, rebuild the
+# assertion around Box's clock and retry once.
+_CLOCK_SKEW_RETRY_THRESHOLD_S = 5
+# Default signing algorithm (Box accepts RS256 / RS384 / RS512).
+_DEFAULT_JWT_ALGORITHM = "RS512"
+
+
+def _parse_http_date(date_str: str | None) -> float | None:
+    """Parse an HTTP ``Date`` header to an epoch float (or None). Used to correct a
+    drifted host clock against Box's server time on a JWT-mint rejection."""
+    if not date_str:
+        return None
+    try:
+        return parsedate_to_datetime(date_str).timestamp()
+    except (TypeError, ValueError):
+        return None
 
 # Layer-2 scope lock cache: folder/file ids already confirmed to sit under
 # BOX_ALLOWED_ROOT_ID. Module-level so it survives across warm-worker requests (the
@@ -151,6 +182,13 @@ class BoxConfig:
     client_id: str
     client_secret: str = field(repr=False)
     enterprise_id: str = ""
+    # JWT (Server Authentication) app-auth material — from the app's Config.JSON.
+    # The private key is decrypted with the passphrase to sign each short-lived
+    # assertion; neither is ever logged (repr=False + the redacted __repr__).
+    jwt_public_key_id: str = ""
+    jwt_private_key: str = field(default="", repr=False)
+    jwt_passphrase: str = field(default="", repr=False)
+    jwt_algorithm: str = _DEFAULT_JWT_ALGORITHM
     api_base: str = field(default=DEFAULT_BOX_API_BASE)
     upload_base: str = field(default=DEFAULT_BOX_UPLOAD_BASE)
     # Layer-2 scope lock. When set, every op must target this folder or a descendant
@@ -159,34 +197,64 @@ class BoxConfig:
 
     @classmethod
     def from_env(cls) -> "BoxConfig":
-        client_id = os.environ.get("BOX_CLIENT_ID", "").strip()
-        client_secret = os.environ.get("BOX_CLIENT_SECRET", "")
-        enterprise_id = os.environ.get("BOX_ENTERPRISE_ID", "").strip()
-        allowed_root_id = os.environ.get("BOX_ALLOWED_ROOT_ID", "").strip()
-        api_base = (os.environ.get("BOX_API_BASE", "").strip() or DEFAULT_BOX_API_BASE).rstrip("/")
-        upload_base = (
-            os.environ.get("BOX_UPLOAD_BASE", "").strip() or DEFAULT_BOX_UPLOAD_BASE
-        ).rstrip("/")
+        # JWT (Server Authentication): the whole app Config.JSON is supplied as ONE
+        # Key Vault secret BOX_CONFIG_JSON (clientID, clientSecret, appAuth keypair,
+        # enterpriseID). Non-secret endpoint/scope settings stay as plain app settings.
+        raw = os.environ.get("BOX_CONFIG_JSON", "").strip()
+        if not raw:
+            raise BoxConfigError(
+                "Box credentials are not configured (missing Key Vault ref / app "
+                "setting: BOX_CONFIG_JSON — the app's downloaded Config.JSON)"
+            )
+        try:
+            doc = json.loads(raw)
+        except (ValueError, TypeError):
+            raise BoxConfigError(
+                "BOX_CONFIG_JSON is not valid JSON (expected the Box app Config.JSON)"
+            ) from None
+
+        app = doc.get("boxAppSettings") or {}
+        auth = app.get("appAuth") or {}
+        client_id = str(app.get("clientID", "")).strip()
+        client_secret = str(app.get("clientSecret", ""))
+        enterprise_id = str(doc.get("enterpriseID", "")).strip()
+        public_key_id = str(auth.get("publicKeyID", "")).strip()
+        private_key = str(auth.get("privateKey", ""))
+        passphrase = str(auth.get("passphrase", ""))
 
         missing = [
             name
             for name, val in (
-                ("BOX_CLIENT_ID", client_id),
-                ("BOX_CLIENT_SECRET", client_secret),
-                ("BOX_ENTERPRISE_ID", enterprise_id),
+                ("boxAppSettings.clientID", client_id),
+                ("boxAppSettings.clientSecret", client_secret),
+                ("enterpriseID", enterprise_id),
+                ("boxAppSettings.appAuth.publicKeyID", public_key_id),
+                ("boxAppSettings.appAuth.privateKey", private_key),
+                ("boxAppSettings.appAuth.passphrase", passphrase),
             )
             if not val
         ]
         if missing:
             # Signal the gap by NAME only — never the values.
             raise BoxConfigError(
-                "Box credentials are not configured (missing Key Vault refs / "
-                f"app settings: {', '.join(missing)})"
+                "BOX_CONFIG_JSON is missing required field(s): " + ", ".join(missing)
             )
+
+        algorithm = os.environ.get("BOX_JWT_ALGORITHM", "").strip() or _DEFAULT_JWT_ALGORITHM
+        allowed_root_id = os.environ.get("BOX_ALLOWED_ROOT_ID", "").strip()
+        api_base = (os.environ.get("BOX_API_BASE", "").strip() or DEFAULT_BOX_API_BASE).rstrip("/")
+        upload_base = (
+            os.environ.get("BOX_UPLOAD_BASE", "").strip() or DEFAULT_BOX_UPLOAD_BASE
+        ).rstrip("/")
+
         return cls(
             client_id=client_id,
             client_secret=client_secret,
             enterprise_id=enterprise_id,
+            jwt_public_key_id=public_key_id,
+            jwt_private_key=private_key,
+            jwt_passphrase=passphrase,
+            jwt_algorithm=algorithm,
             api_base=api_base,
             upload_base=upload_base,
             allowed_root_id=allowed_root_id,
@@ -226,6 +294,7 @@ class BoxClient:
         self._timeout_s = timeout_s
         self._client: httpx.Client | None = None
         self._token: _CachedToken | None = None
+        self._priv_key: Any = None  # decrypted RSA private key, cached after first sign
         self._lock = threading.Lock()
 
     # -- lazy wiring -------------------------------------------------------
@@ -247,39 +316,53 @@ class BoxClient:
             self._client.close()
             self._client = None
 
-    # -- token lifecycle (CCG) --------------------------------------------
+    # -- token lifecycle (JWT Server Authentication) ----------------------
 
     def _fetch_token(self) -> _CachedToken:
+        """Mint a Service-Account access token via the Box JWT grant: build + RS-sign a
+        short-lived assertion, exchange it for a token, cache it. One clock-skew
+        correction (using Box's Date header) handles a drifted host clock; 429/5xx are
+        backed off; a 400/401 (bad keypair / app not authorized) raises BoxAuthError."""
         cfg = self.config
-        data = {
-            "grant_type": "client_credentials",
-            "client_id": cfg.client_id,
-            "client_secret": cfg.client_secret,
-            "box_subject_type": "enterprise",
-            "box_subject_id": cfg.enterprise_id,
-        }
-        # The token endpoint shares the ~1000/min/user budget, so it can also
-        # return 429 / 5xx under burst. Apply the SAME bounded backoff the REST
-        # path uses. Auth-failure statuses (400/401 -> unauthorized_client) are
-        # NOT transient and fall through to raise without retry.
-        attempt = 0
-        while True:
-            resp = self.http.post(
+        clock_offset = 0.0
+        resp: httpx.Response | None = None
+        for corrected in (False, True):
+            assertion = self._build_jwt_assertion(cfg, now=time.time() + clock_offset)
+            resp = self._post_token(
                 cfg.token_url,
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                {
+                    "grant_type": _JWT_BEARER_GRANT,
+                    "client_id": cfg.client_id,
+                    "client_secret": cfg.client_secret,
+                    "assertion": assertion,
+                },
             )
-            if resp.status_code in _RETRY_SAFE_STATUS and attempt < _MAX_RETRIES:
-                self._backoff(attempt)
-                attempt += 1
-                continue
+            if resp.status_code < 400:
+                break
+            # A 400/401 can be a drifted clock (Box rejects an assertion whose exp is
+            # >60s ahead of ITS time). If Box's Date header shows real skew, rebuild
+            # the assertion around Box's clock and retry exactly once.
+            if not corrected and resp.status_code in (400, 401):
+                server_time = _parse_http_date(resp.headers.get("Date"))
+                if (
+                    server_time is not None
+                    and abs(server_time - time.time()) > _CLOCK_SKEW_RETRY_THRESHOLD_S
+                ):
+                    clock_offset = server_time - time.time()
+                    logger.warning(
+                        "box jwt: host clock drift ~%ss vs Box; rebuilding assertion and retrying once",
+                        int(clock_offset),
+                    )
+                    continue
             break
+
+        assert resp is not None  # the loop always assigns at least once
         if resp.status_code in (400, 401):
-            # unauthorized_client (app not Admin-authorized) lands here. Never
-            # echo resp.text — it can reflect the request.
+            # Bad keypair / app not authorized / stale clock land here. Never echo
+            # resp.text — it can reflect the request / assertion.
             raise BoxAuthError(
-                "Box rejected the CCG client-credentials grant "
-                f"(HTTP {resp.status_code}; app may not be Admin-Console authorized)",
+                "Box rejected the JWT assertion "
+                f"(HTTP {resp.status_code}; check the app keypair, authorization, scopes, and host clock)",
                 status=resp.status_code,
             )
         if resp.status_code >= 400:
@@ -294,8 +377,62 @@ class BoxClient:
             raise BoxError("Box token response did not include an access_token")
         ttl = float(payload.get("expires_in") or _FALLBACK_TTL_S)
         deadline = time.monotonic() + max(0.0, ttl - _EXPIRY_SKEW_S)
-        logger.info("box ccg token acquired (ttl=%ss)", int(ttl))  # no token value
+        logger.info("box jwt token acquired (ttl=%ss)", int(ttl))  # no token value
         return _CachedToken(access_token=token, expires_at_monotonic=deadline)
+
+    def _post_token(self, token_url: str, data: dict[str, str]) -> httpx.Response:
+        """POST the token request with the SAME bounded 429/5xx backoff the REST path uses."""
+        attempt = 0
+        while True:
+            resp = self.http.post(
+                token_url,
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if resp.status_code in _RETRY_SAFE_STATUS and attempt < _MAX_RETRIES:
+                self._backoff(attempt)
+                attempt += 1
+                continue
+            return resp
+
+    def _build_jwt_assertion(self, cfg: "BoxConfig", *, now: float) -> str:
+        """Build + RS-sign the Box JWT assertion. Service Account: sub=enterpriseID,
+        box_sub_type=enterprise. exp stays under Box's 60s ceiling; jti is a fresh
+        anti-replay nonce per mint; aud is the (host-pinned) token endpoint."""
+        issued = int(now)
+        claims = {
+            "iss": cfg.client_id,
+            "sub": cfg.enterprise_id,
+            "box_sub_type": "enterprise",
+            "aud": cfg.token_url,
+            "jti": secrets.token_urlsafe(_JTI_BYTES),
+            "exp": issued + _ASSERTION_TTL_S,
+            "iat": issued,
+        }
+        return jwt.encode(
+            claims,
+            self._private_key(),
+            algorithm=cfg.jwt_algorithm,
+            headers={"kid": cfg.jwt_public_key_id},
+        )
+
+    def _private_key(self) -> Any:
+        """Decrypt + cache the RSA private key from the Config.JSON (passphrase-protected).
+        Cached per-client so we decrypt once, not per mint. Never logged."""
+        if self._priv_key is None:
+            cfg = self.config
+            passphrase = cfg.jwt_passphrase.encode("utf-8") if cfg.jwt_passphrase else None
+            try:
+                self._priv_key = load_pem_private_key(
+                    cfg.jwt_private_key.encode("utf-8"), password=passphrase
+                )
+            except (ValueError, TypeError):
+                # Wrong passphrase / malformed key — a config error, not transient.
+                raise BoxConfigError(
+                    "Box JWT private key could not be loaded "
+                    "(bad passphrase or malformed key in BOX_CONFIG_JSON)"
+                ) from None
+        return self._priv_key
 
     def get_token(self, *, force_refresh: bool = False) -> str:
         with self._lock:
