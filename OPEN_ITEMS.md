@@ -46,11 +46,15 @@ _What this session changed and the exact next actions. Workstream tags (WS#) mat
   dropped at repo root (`941197__config.json`, **gitignored**). Verified end-to-end vs `api.box.com`: token
   mint **HTTP 200** + authenticated `GET /2.0/folders/392761581105` **HTTP 200** (the Service Account is a
   collaborator on the allowed root; the app **is** Admin-authorized — **no reauthorization needed**).
-- **[OPERATOR → then BUILD · WS2] Finish Box wiring** (blocked only on `az login`): set the 3 KV secrets +
-  restart + smoke-test + reconcile the `BOX_*` gates onto `cespk-api-dev` + `cespk-orch-dev`. One script +
-  full runbook: **[docs/azure/box-activation.md](./docs/azure/box-activation.md)** (runs
-  `functions/box-webhook/infra/wire-box-secrets.ps1`). Follow-ups there: File-Request template id,
-  `FILE.UPLOADED` webhook subscription, lifting the scope lock for prod.
+- **[DONE 2026-06-28 · WS2] Box wiring + activation COMPLETE — Box is LIVE.** Stored the `Config.JSON` as
+  the KV secret **`box-config-json`** (the load-bearing piece — *not* "3 secrets"; the webhook keys already
+  matched), wired the **`BOX_CONFIG_JSON`** app-setting on `cespkbox-fn-v76a47`, and **redeployed box-fn**
+  (the active deploy predated the JWT code → it was still minting via CCG; that, not just the missing
+  secret, caused the 502). Live smoke-test **`GET /api/box/folders/392761581105/items` → HTTP 200**
+  (folder `CCPY26050`). `BOX_*` gates set on `cespk-api-dev` + `cespk-orch-dev`. Record:
+  **[docs/handoff/02-box-activation.md](./docs/handoff/02-box-activation.md)**. **REMAINING (operator/Box-side):**
+  File-Request template id → `BOX_FILE_REQUEST_TEMPLATE_ID`; `FILE.UPLOADED` webhook subscription;
+  scope-lock decision for prod (`BOX_ALLOWED_ROOT_ID`).
 - **[DONE 2026-06-28 · WS1] Email pipeline — triage-first + body-only + parser route.** Intake now classifies
   every email (receiving_work → Case; query/other → `inbound_email`, no case) and carries the body for
   body-only instructions; parser **`/classify-email` redeployed** (both `classify_email` + `parse` live on
@@ -115,9 +119,12 @@ _What this session changed and the exact next actions. Workstream tags (WS#) mat
   one-principal-code patch + a parity test**.
 - **[OPERATOR]** **Enrichment cutover** — promote the retained **enrichment Function** (DVSA/DVLA direct via
   Entra) path on the Azure stack (test/prod).
-- **[OPERATOR → BUILD]** **Box activation** — credentials **proven working 2026-06-28** (JWT Server Auth,
-  not CCG). Remaining: set the 3 KV secrets + reconcile gates + the BLOCKING `FILE.UPLOADED` webhook test
-  against the retained **`box-webhook`** Function. Full runbook: **[docs/azure/box-activation.md](./docs/azure/box-activation.md)**.
+- **[OPERATOR → Box-side]** **Box activation** — **auth + gates DONE 2026-06-28** (JWT Server Auth, not CCG;
+  `box-config-json` in KV, `BOX_CONFIG_JSON` wired, box-fn redeployed, live smoke-test HTTP 200, gates set
+  on api+orch). Remaining is **Box-side only**: the hand-built File-Request template (→
+  `BOX_FILE_REQUEST_TEMPLATE_ID`) and the BLOCKING `FILE.UPLOADED` webhook subscription/test against the
+  retained **`box-webhook`** Function. Record: **[docs/handoff/02-box-activation.md](./docs/handoff/02-box-activation.md)**;
+  runbook: **[docs/azure/box-activation.md](./docs/azure/box-activation.md)**.
 - **[OPERATOR]** **OCR for scanned PDFs** — bind + calibrate the retained **`ocr`** Function on real scans.
 - **[OPERATOR/BUILD]** **Data governance / retention / erasure** — now spanning **Postgres + Blob + Box**:
   the two-clock retention model (data-minimisation vs litigation/evidential hold), the scheduled

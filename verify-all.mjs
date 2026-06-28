@@ -5,10 +5,17 @@
  *   Run:  node verify-all.mjs
  *
  * ZERO tenant / Azure / Power Platform / live-inbox contact. Pure local
- * build + test + lint over every slice (Code App, Dataverse schema-as-code,
- * Power Automate flow definitions, Azure Functions). This is the [BUILD]
- * gate from the Phase 1 plan §8.1/§8.5 — it must pass before any
+ * build + test + lint over every live slice (the SPA in mockup-app/ + its
+ * @cs/domain package, and the retained Python Azure Functions). This is the
+ * [BUILD] gate from the Phase 1 plan §8.1/§8.5 — it must pass before any
  * [DEPLOY-WITH-LOGIN] step in DEPLOY-RUNBOOK.md.
+ *
+ * NOTE (post Power-Platform decommission, 2026-06-27): the Dataverse schema-parity,
+ * Power-Automate flow-linter, and connector-seam gates are RETIRED to SKIP — their
+ * targets were deleted in migration purge 5eac80e and the live SPA uses plain
+ * REST+MSAL (see each gate below). The live Data API (api/) is now covered (tsc
+ * build + vitest auth suite, gate 2b below); the orchestration/ TypeScript app is
+ * not yet covered here — add it to extend live-stack coverage.
  *
  * Exit code 0 = all gates passed (skips allowed); nonzero = a gate failed.
  */
@@ -69,11 +76,28 @@ function collectFiles(dir, extRe, acc = []) {
 run('Code App — tsc + vite build', 'npm run build', { cwd: join(ROOT, 'mockup-app'), tail: 1 });
 run('Code App — vitest', 'npm run test', { cwd: join(ROOT, 'mockup-app'), tail: 3 });
 
-// 3. Dataverse schema-as-code — parity + integrity (incl. case-status 1:1 + terminal-set parity).
-run('Dataverse — schema parity', `node ${JSON.stringify(join(ROOT, 'dataverse', 'verify-parity.mjs'))}`, { tail: 1 });
+// 2b. Live Data API (api/, Node/TS Functions v4 on cespk-api-dev) — tsc build then the
+//     vitest auth suite (Entra JWT validation + app-role authz). `npm run build:api` also
+//     builds its @cs/domain project reference, so this is the live Data API's offline gate.
+run('Data API — tsc build', 'npm run build:api', { tail: 1 });
+run('Data API — vitest (auth)', 'npm run test --workspace @cs/api', { tail: 3 });
 
-// 4. Power Automate flow definitions — offline linter (state=off, connection refs, secrets, dedup parity).
-run('Flows — definition linter', `node ${JSON.stringify(join(ROOT, 'flows', 'validate-flows.mjs'))}`, { tail: 1 });
+// 3. Dataverse schema-as-code — RETIRED. The Power Platform footprint (Dataverse +
+//    Power Automate flows + Code App + connectors) was deprovisioned 2026-06-27 and
+//    its in-repo artifacts (incl. dataverse/verify-parity.mjs) were deleted in the
+//    migration purge (commit 5eac80e). The live system of record is Postgres
+//    `cespk-pg-dev` (migration/assets/schema/), not Dataverse. SKIP, don't FAIL on a
+//    target that was intentionally removed. (Linux/Windows-agnostic — the file is gone.)
+const dvParity = join(ROOT, 'dataverse', 'verify-parity.mjs');
+if (existsSync(dvParity)) run('Dataverse — schema parity', `node ${JSON.stringify(dvParity)}`, { tail: 1 });
+else skip('Dataverse — schema parity', 'Power Platform decommissioned 2026-06-27; dataverse/verify-parity.mjs removed in migration purge 5eac80e. Live system-of-record is Postgres cespk-pg-dev.');
+
+// 4. Power Automate flow definitions — RETIRED for the same reason: flows/ (incl.
+//    validate-flows.mjs and every *.definition.json) was deleted in 5eac80e. The flow
+//    logic was re-implemented in the api/ + orchestration/ TypeScript Functions.
+const flowLint = join(ROOT, 'flows', 'validate-flows.mjs');
+if (existsSync(flowLint)) run('Flows — definition linter', `node ${JSON.stringify(flowLint)}`, { tail: 1 });
+else skip('Flows — definition linter', 'Power Platform decommissioned 2026-06-27; flows/ removed in migration purge 5eac80e. Flow logic now lives in api/ + orchestration/ TS Functions.');
 
 // 5-6. Azure Functions — mocked-fixture pytest across EVERY built suite. venvs are
 //      local + gitignored; a suite with no local .venv SKIPs (set it up to include
@@ -128,49 +152,20 @@ gate('Code App — no uploadFileToRecord in generated services', () => {
   return `OK — scanned ${files.length} generated .ts file(s); no \`${NEEDLE}\`.`;
 });
 
-// 8. Boundary gate — the Code App must reach external services ONLY through the
-//    connector-transport seam (the @microsoft/power-apps SDK + the generated connector
-//    services), never via a raw network call or a hard-coded service host. FAILS if a
-//    raw fetch/XHR or an external-service host literal appears in mockup-app/src outside
-//    the allowlisted seam (generated SDK + the *-connector-transport modules) or tests.
-//    Line-comments are stripped before testing so a documented mention does not trip it.
-gate('Code App — no raw external calls outside the connector seam', () => {
-  const srcDir = join(ROOT, 'mockup-app', 'src');
-  const NEEDLES = [
-    /\bfetch\s*\(/,
-    /\bnew\s+XMLHttpRequest\b/,
-    /azurewebsites\.net/i,
-    /graph\.microsoft/i,
-    /login\.microsoftonline/i,
-    /\bfrom\s+['"](?:axios|node-fetch|got|undici)['"]/, // raw HTTP-client imports — the app must go through the connector seam
-    /\bapi\.box\.com\b/i,
-  ];
-  const allow = (rel) =>
-    rel.includes('/generated/') ||
-    /\.test\.tsx?$/.test(rel) ||
-    /-connector-transport\.ts$/.test(rel);
-  // Strip BOTH block comments (/* */, JSDoc) and line comments before testing, so a
-  // documented mention of fetch()/a host (the seam files explain WHY the app avoids
-  // raw calls) is never mistaken for a live call.
-  const stripComments = (src) =>
-    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1'); // strip line comments but NOT the // inside https://, so host needles still see URL literals
-  const files = collectFiles(srcDir, /\.(ts|tsx)$/).filter(
-    (f) => !allow(f.slice(ROOT.length + 1).replace(/\\/g, '/')),
-  );
-  const offenders = [];
-  for (const f of files) {
-    const code = stripComments(readFileSync(f, 'utf8'));
-    const hit = NEEDLES.find((re) => re.test(code));
-    if (hit) offenders.push(`  - ${f.slice(ROOT.length + 1)}  (${hit})`);
-  }
-  if (offenders.length) {
-    throw new Error(
-      'The Code App must reach external services through the connector-transport seam, not raw:\n' +
-        offenders.join('\n'),
-    );
-  }
-  return `OK — scanned ${files.length} src file(s); no raw external calls outside the seam.`;
-});
+// 8. Connector-seam boundary gate — RETIRED. This gate enforced the Power Platform
+//    Code App's CSP `connect-src 'none'` invariant: the app could only reach external
+//    services through the @microsoft/power-apps connector seam, never a raw fetch/XHR
+//    (AGENTS.md runtime-truth #1, now banded HISTORICAL). The live SPA on Static Web App
+//    `cespk-spa-dev` instead calls the Data API over PLAIN REST + MSAL (no Power SDK, no
+//    connectors) — so `fetch()` in rest-client.ts / screens / msalConfig.ts is now the
+//    EXPECTED, correct transport, and this gate's NEEDLES (fetch, login.microsoftonline,
+//    …) flag legitimate code. The live boundary is CORS on cespk-api-dev + the SWA origin
+//    plus MSAL bearer-token attachment, verified against the deployed stack, not by this
+//    static check. SKIP rather than fail-on-correct-architecture.
+skip(
+  'Code App — no raw external calls outside the connector seam',
+  'superseded by the REST+MSAL architecture: the Power Platform connector seam was decommissioned 2026-06-27; the live SPA fetches the Data API directly (AGENTS.md runtime-truth #1, banded HISTORICAL). The live boundary is CORS + MSAL on cespk-api-dev, not a static fetch-ban.',
+);
 
 // Summary -------------------------------------------------------------------
 console.log('\n================ SUMMARY ================');
@@ -179,5 +174,5 @@ const failed = results.filter((r) => r.status === 'FAIL');
 const passed = results.filter((r) => r.status === 'PASS');
 const skipped = results.filter((r) => r.status === 'SKIP');
 console.log(`\n${failed.length === 0 ? 'OK' : 'FAILED'} — ${passed.length} passed, ${failed.length} failed, ${skipped.length} skipped.`);
-if (skipped.length) console.log('(skips are Python Function suites whose local .venv is absent — set them up to include those gates.)');
+if (skipped.length) console.log('(skips: retired Power-Platform gates — Dataverse/Flows targets deleted in migration purge 5eac80e, and the connector-seam gate superseded by the live REST+MSAL SPA. A Python Function suite also SKIPs if its local .venv is absent — set it up to include that gate.)');
 process.exit(failed.length === 0 ? 0 : 1);

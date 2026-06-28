@@ -46,7 +46,10 @@ from pathlib import Path
 FN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(FN_DIR))
 REPO_ROOT = FN_DIR.parent.parent  # collisionspike/
-EVA_EXPORT_TS = REPO_ROOT / "mockup-app" / "src" / "contracts" / "eva-export.ts"
+# eva-export.ts moved mockup-app/src/contracts -> packages/domain/src/contracts in
+# the Power Platform -> Azure migration (commit d3ae145); the SPA now imports it
+# from the @cs/domain workspace package. Point the parity check at its live home.
+EVA_EXPORT_TS = REPO_ROOT / "packages" / "domain" / "src" / "contracts" / "eva-export.ts"
 
 import payload as payload_mod  # noqa: E402
 
