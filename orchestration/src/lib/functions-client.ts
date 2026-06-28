@@ -56,13 +56,41 @@ export function callParser(caseId: string): Promise<unknown> {
   return callFunction(PARSER, 'POST', 'parse', { caseId });
 }
 
-/** Email triage classifier (parser `ClassifyEmail` op) — triage-classify activity (§C). */
-export function callTriageClassify(input: {
+/** Result of the parser's deterministic /classify-email route (ADR-0015). */
+export interface ClassifyEmailResult {
+  category: string;
+  subtype: string;
+  confidence?: number;
+  signals?: string[];
+  body_vrm?: string;
+  body_caseref?: string;
+}
+
+/**
+ * Email triage classifier — the parser's deterministic `/classify-email` route
+ * (ADR-0015). Field names match the route contract EXACTLY (`from`, `sender_domain`,
+ * `provider_match_state`, `attachment_kinds`, `has_attachments`); the route strips
+ * HTML server-side. Always-on (deterministic); EMAIL_AI_ENABLED gates only the later
+ * optional LLM refinement, never this call.
+ */
+export function callClassifyEmail(input: {
   subject?: string;
   body?: string;
-  senderAddress?: string;
-}): Promise<{ category?: string; subtype?: string }> {
-  return callFunction(PARSER, 'POST', 'classify-email', input);
+  from?: string;
+  senderDomain?: string;
+  providerMatchState?: string;
+  attachmentKinds?: string[];
+  hasAttachments?: boolean;
+}): Promise<ClassifyEmailResult> {
+  return callFunction(PARSER, 'POST', 'classify-email', {
+    subject: input.subject ?? '',
+    body: input.body ?? '',
+    from: input.from ?? '',
+    sender_domain: input.senderDomain ?? '',
+    provider_match_state: input.providerMatchState ?? '',
+    attachment_kinds: input.attachmentKinds ?? [],
+    has_attachments: input.hasAttachments ?? false,
+  });
 }
 
 /* ---------- enrichment ---------- */

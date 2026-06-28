@@ -61,3 +61,7 @@ denied. A future admin-delete path (ADR-0017 retention cascade) must use a SEPAR
 `-c app.role=admin` gated on a verified `CollisionSpike.Admin` token. To run DDL from a workstation, add a
 transient Postgres firewall rule for your IP (`az postgres flexible-server firewall-rule create -s
 cespk-pg-dev -n <name> …`) then delete it — only `AllowAzureServices` (0.0.0.0) should remain.
+
+**Playbook:** the canonical operational guides are [docs/azure/deploy.md](../docs/azure/deploy.md),
+[secrets-keyvault.md](../docs/azure/secrets-keyvault.md) + [postgres.md](../docs/azure/postgres.md)
+(routing + anti-churn); this memory holds the deep gotchas they link back to.

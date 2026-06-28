@@ -34,3 +34,6 @@ migration/02). **How to apply:** intake should use **app-only Graph against thes
 prefer **polling** (delta query) over a Graph push-subscription — the subscription-create path is the one
 op not guaranteed to ride on RBAC-only, and polling also kills the <7-day renewal loop (migration risk
 R5). The Logic-App + O365-connector path remains the no-code fallback. Related: [[live-services-boundary]].
+
+**Playbook:** the canonical operational guide is [docs/azure/entra-graph.md](../docs/azure/entra-graph.md)
+(routing + anti-churn, incl. the permission-cache STOP); this memory holds the deep detail it links back to.

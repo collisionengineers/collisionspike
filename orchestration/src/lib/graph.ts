@@ -100,6 +100,7 @@ export interface GraphMessage {
   receivedDateTime?: string;
   from?: { emailAddress?: { name?: string; address?: string } };
   bodyPreview?: string;
+  body?: { contentType?: string; content?: string };
   hasAttachments?: boolean;
 }
 
@@ -118,7 +119,11 @@ export async function getMessageWithAttachments(
   messageId: string,
 ): Promise<FetchedMessage> {
   const base = `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}`;
-  const message = await graphFetch<GraphMessage>(base);
+  // Prefer the plain-text body representation so message.body.content is text, not HTML
+  // (the classifier + the body-as-instruction path want text; Graph defaults to HTML).
+  const message = await graphFetch<GraphMessage>(base, {
+    headers: { Prefer: 'outlook.body-content-type="text"' },
+  });
   let attachments: GraphAttachment[] = [];
   if (message.hasAttachments) {
     const list = await graphFetch<{ value: GraphAttachment[] }>(`${base}/attachments`);

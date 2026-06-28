@@ -1,5 +1,5 @@
 {
-  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) to run locally. NO SECRET VALUES here — the Box client_secret and the two webhook signature keys are Azure Key Vault references resolved by the platform at runtime via the Function's system-assigned managed identity. The Box CCG token is minted INSIDE the Function (custom connectors cannot run client-credentials). The Data API (cespk-api-dev) is reached with a client-credentials MI token for DATA_API_AUDIENCE (no key) — the webhook writes Evidence/audit + re-evaluates status through it, NOT Dataverse. Nothing here is a Box credential.",
+  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) to run locally. NO SECRET VALUES here. The Box service-identity token is minted INSIDE the Function via JWT (Server Authentication): the whole app Config.JSON (clientID, clientSecret, appAuth keypair, enterpriseID) is ONE Azure Key Vault secret, BOX_CONFIG_JSON, resolved at runtime via the Function's system-assigned managed identity. The two webhook signature keys are likewise Key Vault references. The Data API (cespk-api-dev) is reached with a client-credentials MI token for DATA_API_AUDIENCE (no key) — the webhook writes Evidence/audit + re-evaluates status through it. Nothing here is a Box credential value.",
   "IsEncrypted": false,
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
@@ -9,13 +9,11 @@
 
     "BOX_API_BASE": "https://api.box.com",
     "BOX_UPLOAD_BASE": "https://upload.box.com",
-    "BOX_ENTERPRISE_ID": "<box-enterprise-id>",
-    "BOX_CLIENT_ID": "<box-app-client-id>",
 
     "DATA_API_URL": "https://cespk-api-dev.azurewebsites.net",
     "DATA_API_AUDIENCE": "api://fa2fb28c-fef6-40a4-8d3b-ae6725891d72",
 
-    "BOX_CLIENT_SECRET": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/box-client-secret/)",
+    "BOX_CONFIG_JSON": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/box-config-json/)",
     "BOX_WEBHOOK_PRIMARY_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/box-webhook-primary-key/)",
     "BOX_WEBHOOK_SECONDARY_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/box-webhook-secondary-key/)"
   }

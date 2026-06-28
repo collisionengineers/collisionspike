@@ -22,6 +22,21 @@ This is the M1 case-intake spike. The live deployment is **read-only + manual ca
 live automated email intake is **not yet running** (see the honest gaps below). **Principle: no
 mock/seed case data in the app — it shows real rows only.**
 
+> **🔔 2026-06-28 — Box credentials PROVEN; activation staged; Azure session needs `az login`.**
+> The single forward worklist is **[OPEN_ITEMS.md §A](./OPEN_ITEMS.md)** (start there). This session:
+> - **Box** is **JWT Server Auth** (not CCG). A fresh keypair was generated and the full `Config.JSON`
+>   verified end-to-end vs `api.box.com` — **token mint 200 + authenticated `GET /2.0/folders/392761581105`
+>   200** (the app **is** Admin-authorized; the Service Account is a collaborator on the allowed root).
+>   What remains is mechanical KV wiring + gate reconciliation, captured in
+>   **[docs/azure/box-activation.md](./docs/azure/box-activation.md)**. So the line elsewhere in this file
+>   that the **Box vault `cespkboxkvv76a47` is "empty, no creds yet"** is now only half-true: the creds
+>   exist and are proven, they just are **not yet in the vault**.
+> - **Email pipeline** — triage-first classify + body-only instructions are wired; the parser
+>   **`/classify-email`** route is redeployed (live alongside `/parse`). Go-live still needs the
+>   Exchange-RBAC `Mail.Read` grant on the intake mailboxes (prod = **info@ + engineers@ + desk@**).
+> - **Blocker:** the Azure CLI session token expired — `az` + the MCP credential chain both 401; an
+>   interactive **`! az login`** is required before any further live Azure change.
+
 ---
 
 ## ✅ Live now — Azure PaaS stack (verified 2026-06-26)

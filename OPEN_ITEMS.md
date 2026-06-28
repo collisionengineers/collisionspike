@@ -30,8 +30,49 @@ architecture/requirements > plans):
 
 > The verified live stack: RG `rg-collisionspike-dev` (uksouth) on subscription `e6076573-…` (**Azure Free
 > Trial**). SPA `cespk-spa-dev` · data API `cespk-api-dev` (→ Postgres) · orchestration `cespk-orch-dev`
-> (**zero functions deployed**) · Postgres `cespk-pg-dev` (36 tables; `case_ = 0`) · the 6 retained Python
+> (**DEPLOYED + WIRED — 41 functions — but NOT yet live**: no Graph subscriptions, mailboxes not yet
+> Exchange-RBAC-scoped) · Postgres `cespk-pg-dev` (36 tables; `case_ = 0`) · the 6 retained Python
 > Functions · Key Vaults · Blob `cespkevidstdev01`. Today the system is **read-only + manual case-create**.
+
+### A* — 2026-06-28 session frontier (start here)
+
+_What this session changed and the exact next actions. Workstream tags (WS#) match the remediation plan._
+
+- **[BLOCKER · OPERATOR · this session] Azure CLI session re-auth.** The `az` session token expired
+  mid-session — `az` **and** the MCP credential chain both return *"a token that does not exist"* / 401, so
+  **no live Azure change can be made until** the operator runs `! az login`. Every Azure step below waits on
+  this. (Local/offline work and Box-credential proof did **not** need it.)
+- **[DONE 2026-06-28 · WS2] Box JWT credentials PROVEN working.** New keypair generated; full `Config.JSON`
+  dropped at repo root (`941197__config.json`, **gitignored**). Verified end-to-end vs `api.box.com`: token
+  mint **HTTP 200** + authenticated `GET /2.0/folders/392761581105` **HTTP 200** (the Service Account is a
+  collaborator on the allowed root; the app **is** Admin-authorized — **no reauthorization needed**).
+- **[OPERATOR → then BUILD · WS2] Finish Box wiring** (blocked only on `az login`): set the 3 KV secrets +
+  restart + smoke-test + reconcile the `BOX_*` gates onto `cespk-api-dev` + `cespk-orch-dev`. One script +
+  full runbook: **[docs/azure/box-activation.md](./docs/azure/box-activation.md)** (runs
+  `functions/box-webhook/infra/wire-box-secrets.ps1`). Follow-ups there: File-Request template id,
+  `FILE.UPLOADED` webhook subscription, lifting the scope lock for prod.
+- **[DONE 2026-06-28 · WS1] Email pipeline — triage-first + body-only + parser route.** Intake now classifies
+  every email (receiving_work → Case; query/other → `inbound_email`, no case) and carries the body for
+  body-only instructions; parser **`/classify-email` redeployed** (both `classify_email` + `parse` live on
+  `cespike-parser-dev-x7xt3d5ovhi7y`). See WS1 detail in A1 below.
+- **[OPERATOR · WS1b] Email go-live** — Exchange-RBAC `Application Mail.Read` grant (read-only) over the
+  intake mailboxes, then `graph-renew` self-bootstraps the subscriptions. **Test** with `digital@` +
+  `engineers@`; **production** mailboxes = **`info@` + `engineers@` + `desk@`** (drop `digital@` — it is the
+  operator's personal dev mailbox, test-only). Add an Azure Monitor heartbeat alert on intake.
+- **[WS3] OCR + Location-assist.** OCR: the parser does scanned-PDF OCR **in-process** (vendored
+  `pytesseract`, 2-page cap) — confirm whether the standalone OCR Function (`cespkocr-fn-dev-glju3v`,
+  tesseract + `fast_alpr` plate reader) is meant to be invoked (likely plate-reading) or is redundant.
+  Location-assist (`functions/location-suggest/`) is offline-built, **deploy-pending**: needs an Azure Maps
+  account (**none exists**) + a Vision endpoint — the AIServices S0 `digital-3339-resource` provides Image
+  Analysis, so it is **probably the Vision backend, not waste** (see WS4). Deploy keyless/MI; the bicep's
+  `cr1bd_*` gate comments are stale Power-Platform framing.
+- **[WS4] Cost (no billing change — flag only).** App Insights has no sampling/cap (the one sleeper bill);
+  `digital-3339-resource` (AIServices S0) — **do not tear down**, likely load-bearing for location-assist
+  Vision. Keep ACR Basic (OCR needs the image). **#1 existential risk = the Free-Trial→PAYG ~30-day deadline.**
+- **[OPERATOR · WS6] Identity** — assign `CollisionSpike.User`/`Superuser` to the remaining staff (only one
+  principal assigned → others 403). Verify the orch MI can call the Data API internal routes.
+- **[WS7] Verification + status refresh** — once intake is live + Box wired: run the `triage-corpus`
+  end-to-end checks, KQL error sweep, and reconcile `CURRENT_STATUS.md` / `live-environment.md`.
 
 ### A0 — P0 / hard deadlines (do first)
 - **[DONE 2026-06-26]** **Database-security remediation.** The data API (`cespk-api-dev`) now connects to
@@ -44,9 +85,10 @@ architecture/requirements > plans):
   (the 12-month free Postgres allowance survives). Hard, dated deadline — upgrade or lose the environment.
 
 ### A1 — Live automated email intake (orchestration + Exchange RBAC)
-- **[OPERATOR/BUILD]** **Deploy orchestration.** `cespk-orch-dev` is built (source `orchestration/`,
-  bundle `deploy/orch/main.cjs`) but **zero functions are deployed** → no live automated intake. Deploy the
-  Microsoft Graph **delta-poll** intake functions.
+- **[DONE 2026-06-27]** **Deploy orchestration.** `cespk-orch-dev` is **deployed + wired (41 functions
+  registered)** from `orchestration/` (bundle `deploy/orch/main.cjs`; the prior "zero functions" was an
+  esbuild ESM→CJS `import.meta.url` crash, fixed via `build-orch.cjs`). It is **not yet live** — see the
+  Exchange-RBAC item below.
 - **[OPERATOR]** **Exchange-RBAC mailbox scoping (the 3 shared inboxes).** An **Exchange Administrator** grants
   the intake app **resource-scoped** Graph mailbox roles via **Exchange RBAC for Applications**
   (`New-ServicePrincipal` / `New-ManagementScope` / `New-ManagementRoleAssignment`) — **no Global-Admin
@@ -73,8 +115,9 @@ architecture/requirements > plans):
   one-principal-code patch + a parity test**.
 - **[OPERATOR]** **Enrichment cutover** — promote the retained **enrichment Function** (DVSA/DVLA direct via
   Entra) path on the Azure stack (test/prod).
-- **[OPERATOR]** **Box business-account live-test** — CCG + the one template File Request + the BLOCKING
-  `FILE.UPLOADED` webhook test against the retained **`box-webhook`** Function on a live Business tenant.
+- **[OPERATOR → BUILD]** **Box activation** — credentials **proven working 2026-06-28** (JWT Server Auth,
+  not CCG). Remaining: set the 3 KV secrets + reconcile gates + the BLOCKING `FILE.UPLOADED` webhook test
+  against the retained **`box-webhook`** Function. Full runbook: **[docs/azure/box-activation.md](./docs/azure/box-activation.md)**.
 - **[OPERATOR]** **OCR for scanned PDFs** — bind + calibrate the retained **`ocr`** Function on real scans.
 - **[OPERATOR/BUILD]** **Data governance / retention / erasure** — now spanning **Postgres + Blob + Box**:
   the two-clock retention model (data-minimisation vs litigation/evidential hold), the scheduled

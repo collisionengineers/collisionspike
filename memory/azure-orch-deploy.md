@@ -85,3 +85,7 @@ no Graph subscriptions, the 3 real mailboxes are not Exchange-RBAC-scoped, `EVID
 left unset (would be a plaintext connection string — prefer MI on `cespkevidstdev01` at go-live). Go-live
 remainder: scope the mailboxes, set evidence-blob auth, assign orch MI an app-role on the Data API, wire
 the Azure Monitor heartbeat alerts. See [[exchange-rbac-unblocks-graph-intake]].
+
+**Playbook:** the canonical operational guides are [docs/azure/deploy.md](../docs/azure/deploy.md) +
+[entra-graph.md](../docs/azure/entra-graph.md) (routing + anti-churn); this memory holds the deep gotchas
+they link back to.

@@ -165,6 +165,12 @@ Agents **should actively reach for these** before training knowledge or web sear
 gotchas live in [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) and the
 memory files; this is the tool index.
 
+**Azure task routing.** For any Azure op, match the task → skill/tool/agent in
+**[docs/azure/README.md](./docs/azure/README.md)** (per-task playbooks) and **invoke the named skill
+first** — don't hand-roll `az`/`func`/`psql`/KQL in a loop. Two guard hooks enforce it (see
+*Recommended guardrail hooks* below). Read-only live triage → the **azure-diagnostician** agent;
+build/deploy/wire → **azure-integration-engineer**.
+
 | Group | What to reach for | Rule |
 | --- | --- | --- |
 | **Microsoft Learn MCP** (`mslearn`) — gold-standard source of truth | `microsoft_docs_search` (breadth), `microsoft_code_sample_search` (official samples), `microsoft_docs_fetch` (full-page depth); skills `/microsoft-docs:microsoft-docs`, `microsoft-code-reference`, `microsoft-skill-creator` | **Consult FIRST** for any Power Platform / Power Automate / Dataverse / Azure / Power Apps question. Confirmed working in this env. Run `/microsoft-docs:microsoft-skill-creator` to capture a **hard problem you eventually solved** as a reusable skill. |
@@ -185,10 +191,20 @@ memory files; this is the tool index.
 > **SPA/MSAL** front end on Static Web App `cespk-spa-dev`. Agents whose surface was Power Platform are
 > **reference-only for the historical stack** (their **domain/contract** knowledge carries over to the new
 > code; the **platform mechanics** do not). Tagged below.
+> **Roster delta (2026-06-27):** added **azure-diagnostician** (read-only Azure triage). The
+> **`dataverse-data-architect`**, **`document-parser-engineer`**, and **`fluent-codeapp-designer`** agent
+> files were **deleted** — their domain guidance survives in the docs + the `cedocumentmapper_v2.0`
+> sibling, but the agents are no longer dispatchable. All Azure work routes through
+> **[docs/azure/](./docs/azure/README.md)**.
 - **azure-integration-engineer** — *(live, expanded)* Azure Functions (parser + DVSA/DVLA enrichment
   **direct via Entra client_credentials**, no Google gateway; plus the box-webhook receiver), Key Vault,
   **Entra app registrations / MSAL / JWT validation**, Document Intelligence, postcode.io/Azure Maps —
   now also the home for the **`api/` Data API + `orchestration/` intake** and the **Postgres** wiring.
+  Routes through the **[docs/azure/](./docs/azure/README.md)** playbooks + the `azure:*` skills.
+- **azure-diagnostician** — *(live, new)* **read-only** root-cause triage of live Azure issues: pulls App
+  Insights/KQL (`cespike-parser-ai-dev`), AppLens/resource-health, function lists, and RLS/secret state,
+  cross-checks Microsoft Learn, and returns a **root-cause + recommended fix**. Dispatch it for "why is X
+  failing" so the main loop stops thrashing; it **applies nothing** — fixes go to azure-integration-engineer.
 - **power-automate-flow-builder** — **[HISTORICAL / reference-only]** authored the Power Automate cloud
   flows (intake, dedup, status machine, parser/enrichment calls, EVA+Box finalize, chasers). The flows were
   **deprovisioned 2026-06-27 with the rest of the Power Platform footprint**; their **logic** (dedup ladder ADR-0010, the status machine, chaser policy) was
@@ -232,6 +248,8 @@ Fluent v9 Code App**. Each owns one slice and **defers the Code App shell / rout
   the winner's micro-interaction motion.
 
 ## Recommended guardrail hooks (see `.claude/settings.json`)
+- **PreToolUse `azure-route-guard.mjs`** (`Bash|PowerShell`) → on a high-value Azure op (`az role|keyvault|monitor|functionapp`, `func azure … publish`, `psql`, KQL, Graph/Exchange-RBAC) injects a one-line **route reminder** (which skill/playbook to use). Non-blocking, low-noise, skips trivial reads.
+- **PostToolUse `azure-churn-guard.mjs`** (`Bash|PowerShell`) → on the **2nd identical failure** of an Azure op, injects a **STOP** (two-strikes rule) pointing at `azure-diagnostics`/`azure-kusto`/`microsoft-docs`/the **azure-diagnostician** agent. Shared logic in `azure-guard-lib.mjs`. This is the deterministic anti-churn backstop behind [docs/azure/](./docs/azure/README.md).
 - PreToolUse on the SPA deploy command → remind to `npm run build` first + hard-refresh.
 - **[HISTORICAL]** the old Power-Platform hooks — PreToolUse on `pac code push` (build-first reminder) and
   PostToolUse on `mockup-app/src/**` `fetch(`/`azurewebsites.net` edits (use-a-connector / CSP reminder) —

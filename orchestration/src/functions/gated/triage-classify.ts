@@ -11,7 +11,7 @@
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import * as df from 'durable-functions';
 import { gates } from '@cs/domain/gates';
-import { callTriageClassify } from '../../lib/functions-client.js';
+import { callClassifyEmail } from '../../lib/functions-client.js';
 import { dataApi } from '../../lib/data-api.js';
 
 interface TriageInput {
@@ -49,10 +49,10 @@ df.app.activity('triageClassify', {
       ctx.log('[triageClassify] skipped — EMAIL_AI_ENABLED=false');
       return { skipped: true };
     }
-    const res = await callTriageClassify({
+    const res = await callClassifyEmail({
       subject: input.subject,
       body: input.body,
-      senderAddress: input.senderAddress,
+      from: input.senderAddress,
     });
     await dataApi.recordAudit({ action: 'inbound_classified', summary: `triage ${res.category}/${res.subtype}` });
     ctx.log(JSON.stringify({ evt: 'triageClassify', inboundEmailId: input.inboundEmailId, category: res.category, subtype: res.subtype }));

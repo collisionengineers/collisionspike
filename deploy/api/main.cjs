@@ -7493,6 +7493,14 @@ var INBOUND_SUBTYPE_BY_INT = {
   100000004: "query_new_enquiry",
   100000005: "other"
 };
+var INBOUND_SUBTYPE_TO_INT = {
+  existing_provider_instruction: 1e8,
+  existing_provider_audit: 100000001,
+  new_client_work: 100000002,
+  query_existing_work: 100000003,
+  query_new_enquiry: 100000004,
+  other: 100000005
+};
 var TRIAGE_STATES = ["new", "routed", "actioned", "dismissed"];
 var CLASSIFIER_MODES = ["deterministic", "llm", "human"];
 function inboundCategoryFromInt(v) {
@@ -8713,18 +8721,50 @@ import_functions9.app.http("internalCasesResolve", {
     return { status: 200, jsonBody: { outcome: "created", caseId: newCaseId } };
   })
 });
-async function upsertInboundEmail(inbound, workProviderId, caseId) {
+import_functions9.app.http("internalInboundEmail", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound-email",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body = await req.json();
+    const inboundEmailId = await upsertInboundEmail(
+      body.inbound,
+      body.providerId ?? null,
+      null,
+      body.classification
+    );
+    return { status: 200, jsonBody: { inboundEmailId } };
+  })
+});
+async function upsertInboundEmail(inbound, workProviderId, caseId, classification) {
   const subject = (inbound.subject ?? "").trim();
   const name = `Email: ${subject || inbound.internetMessageId}`;
+  const categoryCode = classification ? INBOUND_CATEGORY_TO_INT[classification.category] ?? null : null;
+  const subtypeCode = classification ? INBOUND_SUBTYPE_TO_INT[classification.subtype] ?? null : null;
+  const bodyVrm = classification?.bodyVrm || inbound.candidateVrm || "" || null;
+  const bodyCaseref = classification?.bodyCaseref || inbound.candidateRef || "" || null;
+  const bodyPreview = (inbound.bodyPreview ?? "") || null;
+  const confidence = classification ? classification.confidence : null;
+  const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
   try {
-    await query(
+    const rows = await query(
       `INSERT INTO inbound_email
          (name, source_message_id, subject, from_address, sender_domain,
-          source_mailbox, received_on, has_attachments, triage_state,
-          classifier_mode, body_vrm, case_id, work_provider_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'new','deterministic',$9,$10,$11)
-       ON CONFLICT (source_message_id)
-       DO UPDATE SET case_id = EXCLUDED.case_id, updated_at = now()`,
+          source_mailbox, received_on, has_attachments, category_code, subtype_code,
+          confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
+          body_preview, case_id, work_provider_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,'new',$13,$14,$15,$16,$17)
+       ON CONFLICT (source_message_id) DO UPDATE SET
+         case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
+         category_code    = COALESCE(EXCLUDED.category_code, inbound_email.category_code),
+         subtype_code     = COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code),
+         confidence       = COALESCE(EXCLUDED.confidence, inbound_email.confidence),
+         signals          = COALESCE(EXCLUDED.signals, inbound_email.signals),
+         body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
+         body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
+         work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
+         updated_at       = now()
+       RETURNING id`,
       [
         name,
         inbound.internetMessageId ?? null,
@@ -8734,12 +8774,20 @@ async function upsertInboundEmail(inbound, workProviderId, caseId) {
         inbound.sourceMailbox ?? null,
         inbound.receivedAt ?? null,
         (inbound.attachments?.length ?? 0) > 0,
-        (inbound.candidateVrm ?? "") || null,
+        categoryCode,
+        subtypeCode,
+        confidence,
+        signals,
+        bodyVrm,
+        bodyCaseref,
+        bodyPreview,
         caseId,
         workProviderId
       ]
     );
+    return rows[0]?.id ?? null;
   } catch {
+    return null;
   }
 }
 function isUniqueViolation(e) {

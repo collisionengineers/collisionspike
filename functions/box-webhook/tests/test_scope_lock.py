@@ -24,7 +24,8 @@ FN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(FN_DIR))
 
 import box_client as bc  # noqa: E402
-from box_client import BoxClient, BoxConfig, BoxScopeError  # noqa: E402
+from box_client import BoxClient, BoxScopeError  # noqa: E402
+from jwt_testkit import jwt_box_config  # noqa: E402
 
 API_BASE = "https://api.box.com"
 TOKEN_URL = f"{API_BASE}/oauth2/token"
@@ -39,14 +40,7 @@ def _clear_scope_cache():
 
 
 def _client(allowed_root: str = ROOT) -> BoxClient:
-    cfg = BoxConfig(
-        client_id="cid",
-        client_secret="sek",  # noqa: S106
-        enterprise_id="1",
-        api_base=API_BASE,
-        allowed_root_id=allowed_root,
-    )
-    return BoxClient(config=cfg)
+    return BoxClient(config=jwt_box_config(allowed_root_id=allowed_root))
 
 
 def _mock_token() -> None:
