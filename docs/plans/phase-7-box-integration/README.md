@@ -8,7 +8,7 @@ a webhook advances the case on upload. **Dataverse stays the system of record; B
 
 > **Binding decision:** [docs/adr/0012-box-centric-intake-additive-hybrid.md](../../adr/0012-box-centric-intake-additive-hybrid.md).
 > **Authoritative build order + cross-section reconciliations:** the master build plan
-> [`box-integration-pivot/plans/00-BUILD-PLAN.md`](../../../box-integration-pivot/plans/00-BUILD-PLAN.md)
+> [`docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md`](../../HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md)
 > (the reconciliation table + the verified-vs-unverified roll-up) — **it wins over the six section
 > plans, which diverged on op names / connection-ref.** Read the ADR + the build plan before acting.
 

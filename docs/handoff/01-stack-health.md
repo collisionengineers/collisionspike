@@ -79,22 +79,26 @@ correctly; no P0 was found.
   services can reach it. Reasonable for now; private endpoint would be the hardening step.
 - **Owner/fix:** azure-integration-engineer — track for private-endpoint / keep firewall tight.
 
-### P2-3 · Function-count drift vs docs
-- **Evidence:** **orch = 42** functions live (docs/diagnose.md say "healthy = 41"); **api = 44** (docs say 42).
-  Full lists captured during the sweep. Both apps registered *more* than documented (not fewer — so not the
-  "registered 0 functions" crash class; this is benign drift).
-- **Owner/fix:** operator-scribe / docs — update `docs/architecture/live-environment.md` + `docs/azure/diagnose.md`
-  baselines to 42 (orch) / 44 (api).
+### P2-3 · Function-count drift vs docs — RESOLVED (registry is now authoritative)
+- **Evidence:** the live orch/api function counts were higher than older docs stated (benign drift — both apps
+  registered *more* than documented, not fewer, so not the "registered 0 functions" crash class). Full lists
+  captured during the sweep.
+- **Fix applied (2026-06-28):** the authoritative counts now live **only** in the registry
+  [../architecture/live-environment.md](../architecture/live-environment.md) (single source `LIVE_FACTS.json`);
+  every other doc links it rather than re-stating a number. **Remaining:** update the `docs/azure/diagnose.md`
+  healthy-count baseline to match the registry.
 
 ### P2-4 · Orchestration app emitted ZERO telemetry in 72h — cannot confirm timers are firing
 - **Evidence:** on the `cespk-orch-dev` component: `requests`=0, `traces`=0, `customEvents`=0 over 72h
   (no `graph-renewal-success` / `graph-notification-received`).
-- **Read:** consistent with "deployed + wired, NOT live" (no Graph subscriptions / no Exchange-RBAC scope), **but**
-  the `graph-renew` / `case-disposition` / `box-blob-purge` **timer triggers** should still fire on schedule and log
-  *something* (even "0 subscriptions"). Zero traces over 72h means we **cannot confirm the timers are executing**.
-  Could be benign (long timer intervals / sampling) or a real gap (timers not running / AI not capturing from orch).
-- **Owner/fix:** azure-diagnostician / azure-integration-engineer — confirm timer execution (one targeted run check,
-  or temporarily lower sampling). Not urgent while intake is intentionally not live.
+- **Read:** ⚠️ now **more concerning** — email intake is **live in testing** (2 Graph PUSH subscriptions over
+  the scoped test mailboxes), and the 2 subscriptions **expire 2026-07-05**, yet App Insights still shows **0
+  `graph-renew` executions** in the recent window. If the renewer truly is not firing, the subscriptions
+  silently lapse and intake stops. Could still be benign (sampling / the renewer logging under a different
+  name) — but this is now a **time-critical watch-item**, not benign drift.
+- **Owner/fix:** azure-diagnostician / azure-integration-engineer — confirm `graph-renew` is executing (one
+  targeted run check, or temporarily lower sampling) **before** the 2026-07-05 expiry. Tracked as the renewal
+  watch-item in the registry + `docs/gated.md`.
 
 ### P2-5 · Postgres AAD auth enabled but no AAD admin principal (informational)
 - **Evidence:** `authConfig.activeDirectoryAuth=Enabled`, `passwordAuth=Enabled`, but `ad-admin list` is **empty**.

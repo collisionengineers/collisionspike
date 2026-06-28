@@ -5,7 +5,7 @@
 > API, or Azure AI Foundry?*
 >
 > **Grounding.** This isn't greenfield thinking — the repo already analysed the native AI story in
-> [`docs/research/01-power-platform-native.md`](../01-power-platform-native.md) and **deferred Copilot
+> [`docs/research/01-power-platform-native.md`](../../01-power-platform-native.md) and **deferred Copilot
 > Studio to M3** ("bounded queue-work UI doesn't need conversational AI for 5 staff; real value only
 > over a large closed-case history"). The `COPILOT_ENABLED` and `AIBUILDER_CLASSIFY_ENABLED` gates are
 > both **off / plan-only**. This doc extends that conclusion to the *migration* decision. Facts below
@@ -129,4 +129,4 @@ Claude-in-Foundry) that the per-credit Copilot model can't match.
 - Claude models in Azure AI Foundry (`claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`) — https://learn.microsoft.com/azure/foundry/foundry-models/concepts/claude-models · catalogue https://learn.microsoft.com/azure/foundry/concepts/foundry-models-overview
 - Microsoft Agent Framework — Anthropic/Claude agents (public API or Foundry-hosted) — https://learn.microsoft.com/agent-framework/agents/providers/anthropic
 - Embed a Copilot Studio agent in a Code App — https://learn.microsoft.com/power-apps/developer/code-apps/how-to/connect-to-copilot-studio
-- Prior repo analysis (Copilot deferred to M3) — [`docs/research/01-power-platform-native.md`](../01-power-platform-native.md)
+- Prior repo analysis (Copilot deferred to M3) — [`docs/research/01-power-platform-native.md`](../../01-power-platform-native.md)

@@ -7089,6 +7089,13 @@ var HttpError = class extends Error {
     this.name = "HttpError";
   }
 };
+function toErrorResponse(e, ctx) {
+  if (e instanceof HttpError) {
+    return { status: e.status, jsonBody: { error: e.message } };
+  }
+  ctx.error(e);
+  return { status: 500, jsonBody: { error: "internal" } };
+}
 function audienceCandidates() {
   const a = API_AUDIENCE;
   if (!a) return [];
@@ -7121,11 +7128,7 @@ function withRole(required, handler) {
       if (!ok) return { status: 403, jsonBody: { error: "forbidden" } };
       return await handler(req, ctx, claims);
     } catch (e) {
-      if (e instanceof HttpError) {
-        return { status: e.status, jsonBody: { error: e.message } };
-      }
-      ctx.error(e);
-      return { status: 500, jsonBody: { error: "internal" } };
+      return toErrorResponse(e, ctx);
     }
   };
 }
@@ -8508,13 +8511,10 @@ import_functions8.app.http("parserParse", {
 // api/src/functions/internal.ts
 var import_functions9 = require("@azure/functions");
 async function withServiceAuth(req, ctx, fn) {
-  const header = req.headers.get("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!token) return { status: 401, jsonBody: { error: "Missing bearer token" } };
   try {
     await authenticate(req);
-  } catch {
-    return { status: 401, jsonBody: { error: "Invalid or expired token" } };
+  } catch (e) {
+    return toErrorResponse(e, ctx);
   }
   try {
     return await fn(req, ctx);

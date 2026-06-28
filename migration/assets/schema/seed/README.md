@@ -4,7 +4,7 @@ There is **no production case data** to migrate (hard cutover, project not live 
 The only thing that must land in the new database is the **reference corpus**, reseeded from the
 **same offline seed sources** the Power-Platform build used under `dataverse/.build/` — never by
 exporting live `cr1bd_*` rows. (The single Dataverse row export is the cold-archive CSV taken at
-teardown — see [`../../90-deprovision-power-platform.md`](../../../90-deprovision-power-platform.md).)
+teardown — see [`90-deprovision-power-platform.md`](../../../../docs/HISTORICAL/migration/90-deprovision-power-platform.md).)
 
 ## Source → table map (real files in the repo)
 

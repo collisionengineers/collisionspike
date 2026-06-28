@@ -1,0 +1,173 @@
+{
+  "lastVerified": "2026-06-28T21:42:06Z",
+  "verifiedBy": "live-truth agent",
+  "subscription": "e6076573-23a5-46a8-acef-7e22d264e5db",
+  "resourceGroup": "rg-collisionspike-dev",
+  "region": "uksouth",
+  "tenant": "858cf5b3-aa0a-47a6-9b40-4851fd0afa94",
+  "notes": "READ-ONLY ground-truth snapshot. No secrets/tokens stored. Several CLAUDE.md/CURRENT_STATUS claims are stale as of this snapshot — see per-fact docDrift notes.",
+
+  "functionCounts": {
+    "value": { "orch": 42, "api": 44 },
+    "sourceCommand": "az functionapp function list -g rg-collisionspike-dev -n <app> --query 'length(@)' -o tsv",
+    "verifiedAt": "2026-06-28T21:37:50Z",
+    "verified": true,
+    "docDrift": "Docs (CLAUDE.md) say orch has 41 functions; live count is 42. API has 44 (not previously stated)."
+  },
+
+  "graphSubscriptions": {
+    "value": [
+      {
+        "id": "09489bf1-ffa8-4eca-9449-32301b2847ba",
+        "resource": "users/engineers@collisionengineers.co.uk/mailFolders('Inbox')/messages",
+        "changeType": "created",
+        "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
+        "expirationDateTime": "2026-07-05T11:00:00.496Z"
+      },
+      {
+        "id": "5bb19aa0-579a-42e9-bb36-75efcfc07f1e",
+        "resource": "users/digital@collisionengineers.co.uk/mailFolders('Inbox')/messages",
+        "changeType": "created",
+        "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
+        "expirationDateTime": "2026-07-05T11:00:04.827Z"
+      }
+    ],
+    "sourceCommand": "client_credentials token for app 5d37a155-... (secret from KV cespk-pg-kv-dev/graph-client-secret) -> GET https://graph.microsoft.com/v1.0/subscriptions",
+    "verifiedAt": "2026-06-28T21:39:00Z",
+    "verified": true,
+    "docDrift": "CLAUDE.md 'Honest live state' says 'no Graph subscriptions exist' and mailboxes 'not yet RBAC-scoped'. FALSE as of this snapshot: 2 live push subscriptions exist for engineers@ + digital@ Inbox, pushing to graph-webhook, expiring 2026-07-05. Confirms prior session's observation."
+  },
+
+  "mailboxRbac": {
+    "value": {
+      "digital@collisionengineers.co.uk": { "http": 200, "result": "OK" },
+      "engineers@collisionengineers.co.uk": { "http": 200, "result": "OK" },
+      "info@collisionengineers.co.uk": { "http": 403, "result": "ErrorAccessDenied" },
+      "desk@collisionengineers.co.uk": { "http": 403, "result": "ErrorAccessDenied" }
+    },
+    "sourceCommand": "GET https://graph.microsoft.com/v1.0/users/<mbx>/messages?$top=1 with app-only token",
+    "verifiedAt": "2026-06-28T21:39:10Z",
+    "verified": true,
+    "docDrift": "Exchange RBAC application-read IS scoped for the 2 configured intake mailboxes (engineers@, digital@ -> 200). info@ and desk@ are NOT scoped (403). Contradicts the docs' 'mailboxes not yet RBAC-scoped' claim."
+  },
+
+  "subscriptionRenewalRisk": {
+    "value": {
+      "nearestExpiration": "2026-07-05T11:00:00.496Z",
+      "daysUntilExpiry": 6.6,
+      "today": "2026-06-28T21:42:06Z",
+      "graphRenewTelemetryLast3Days": "0 matching execution traces/requests/customEvents found"
+    },
+    "sourceCommand": "az monitor app-insights query --app <cespk-orch-dev appId> --analytics-query \"union traces,requests,customEvents | where timestamp>ago(3d) | where ... contains 'graph-renew'\"",
+    "verifiedAt": "2026-06-28T21:42:06Z",
+    "verified": true,
+    "note": "KQL query succeeded (table returned, 0 rows). No observable graph-renew execution in the last 3 days despite subscriptions expiring in ~7 days. Either the renewal timer logs under a different name or it is not firing — flag for follow-up; subscriptions will silently lapse on 2026-07-05 if renewal is not running."
+  },
+
+  "postgresCounts": {
+    "value": {
+      "work_provider": null,
+      "repairer": null,
+      "image_source": null,
+      "inspection_address": null,
+      "case_": null
+    },
+    "sourceCommand": "mcp__azure__postgres postgres_database_query (server cespk-pg-dev, db collisionspike, MicrosoftEntra)",
+    "verifiedAt": "2026-06-28T21:41:00Z",
+    "verified": false,
+    "reason": "host not in pg firewall allowlist — MCP egress IP 51.142.242.153 could not connect to cespk-pg-dev:5432 (NpgsqlException 'Failed to connect'). Counts NOT verified; do not treat doc-stated counts (work_provider 390, repairer 32, image_source 19, inspection_address 2209, case_ 0) as confirmed by this snapshot."
+  },
+
+  "httpsOnly": {
+    "value": { "cespk-api-dev": true, "cespk-orch-dev": true },
+    "sourceCommand": "az resource show -g rg-collisionspike-dev -n <app> --resource-type Microsoft.Web/sites --query properties.httpsOnly -o tsv",
+    "verifiedAt": "2026-06-28T21:41:30Z",
+    "verified": true,
+    "note": "az functionapp show --query httpsOnly returned null (property not surfaced by that path); az resource show confirmed true for both."
+  },
+
+  "boxSmoke": {
+    "value": {
+      "endpoint": "https://cespkbox-fn-v76a47.azurewebsites.net/api/box/folders/392761581105/items",
+      "http": 200,
+      "sampleResult": { "total_count": 1, "firstEntry": { "type": "folder", "id": "392816013365", "name": "CCPY26050" } }
+    },
+    "sourceCommand": "az functionapp keys list (cespkbox-fn-v76a47) -> GET /api/box/folders/392761581105/items?code=<key>",
+    "verifiedAt": "2026-06-28T21:41:30Z",
+    "verified": true,
+    "docDrift": "Box JWT auth is LIVE and working: authenticated REST call to the allowed root (folder id 392761581105) returned 200 with a real case folder (CCPY26050). Consistent with memory note 'Box went LIVE 2026-06-28'. CLAUDE.md claim that all BOX_* gates are/​remain false is STALE (see gates)."
+  },
+
+  "gates": {
+    "value": {
+      "cespk-api-dev": {
+        "ENRICHMENT_ENABLED": "true",
+        "BOX_API_ENABLED": "true",
+        "BOX_FOLDER_AT_INTAKE_ENABLED": "true",
+        "BOX_FILEREQUEST_ENABLED": "true",
+        "BOX_FOLDER_ROOT_ID": "392761581105",
+        "EVA_API_ENABLED": "(absent)",
+        "VALUATION_ENABLED": "(absent)",
+        "BOX_EMBED_ENABLED": "(absent)",
+        "BOX_METADATA_ENABLED": "(absent)"
+      },
+      "cespk-orch-dev": {
+        "ENRICHMENT_ENABLED": "true",
+        "BOX_API_ENABLED": "true",
+        "BOX_FOLDER_AT_INTAKE_ENABLED": "true",
+        "BOX_FILEREQUEST_ENABLED": "true",
+        "BOX_FOLDER_ROOT_ID": "392761581105",
+        "GRAPH_INTAKE_MAILBOXES": "[{\"mailbox\":\"engineers@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-27T00:00:00Z\"},{\"mailbox\":\"digital@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-27T00:00:00Z\"}]",
+        "EVA_API_ENABLED": "(absent)",
+        "VALUATION_ENABLED": "(absent)",
+        "BOX_EMBED_ENABLED": "(absent)",
+        "BOX_METADATA_ENABLED": "(absent)"
+      }
+    },
+    "sourceCommand": "az functionapp config appsettings list -g rg-collisionspike-dev -n <app> --query \"[?contains(name,'BOX_')||contains(name,'EVA_')||contains(name,'ENRICHMENT')||contains(name,'VALUATION')||name=='GRAPH_INTAKE_MAILBOXES']\"",
+    "verifiedAt": "2026-06-28T21:40:00Z",
+    "verified": true,
+    "docDrift": "BOX_API_ENABLED, BOX_FOLDER_AT_INTAKE_ENABLED, BOX_FILEREQUEST_ENABLED are all 'true' on BOTH api and orch — Box is ACTIVATED, not off. ENRICHMENT_ENABLED is 'true'. EVA_API_ENABLED, VALUATION_ENABLED, BOX_EMBED_ENABLED, BOX_METADATA_ENABLED are not set (effectively off/reserved) — consistent with docs. GRAPH_INTAKE_MAILBOXES = engineers@ + digital@ (minIntakeDate 2026-06-27)."
+  },
+
+  "resourceInventory": {
+    "value": {
+      "count": 43,
+      "coreLiveResources": [
+        "cespk-api-dev (Microsoft.Web/sites - Data API)",
+        "cespk-orch-dev (Microsoft.Web/sites - orchestration)",
+        "cespk-spa-dev (Microsoft.Web/staticSites - SPA, westeurope)",
+        "cespk-pg-dev (Microsoft.DBforPostgreSQL/flexibleServers)",
+        "cespk-pg-kv-dev (Microsoft.KeyVault/vaults)",
+        "cespkbox-fn-v76a47 (Microsoft.Web/sites - Box fn)",
+        "cespkbox-plan-v76a47, cespkboxkvv76a47, cespkboxstv76a47 (Box plan/kv/storage)",
+        "cespkapistdev01, cespkorchstdev01 (api/orch storage)",
+        "cespike-parser-dev-x7xt3d5ovhi7y, cespkenrich-fn-gi62sd, cespkeva-fn-ufa3ci, cespkeval-fn-6c6fxd, cespkocr-fn-dev-glju3v (retained Python fns)",
+        "cespkdocintel-dev (Document Intelligence)",
+        "cespkevidstdev01 (evidence blob)",
+        "digital-3339-resource (+ project/appinsights) (Microsoft.CognitiveServices - AI Foundry)"
+      ]
+    },
+    "sourceCommand": "mcp__azure__group_resource_list (rg-collisionspike-dev)",
+    "verifiedAt": "2026-06-28T21:37:25Z",
+    "verified": true
+  },
+
+  "csvComparison": {
+    "value": {
+      "files": ["Azureresources.csv (31 data rows)", "Azureresources (1).csv (names-only, 32 rows)"],
+      "stale": true,
+      "missingFromCsvButLive": [
+        "cespk-api-dev", "cespk-orch-dev", "cespk-spa-dev",
+        "cespk-pg-dev", "cespk-pg-kv-dev",
+        "cespkbox-fn-v76a47", "cespkbox-plan-v76a47", "cespkboxkvv76a47", "cespkboxstv76a47",
+        "cespkapistdev01", "cespkorchstdev01",
+        "digital-3339-resource (and project/appinsights)"
+      ]
+    },
+    "sourceCommand": "cut -d',' -f1 on both CSVs vs mcp__azure__group_resource_list output",
+    "verifiedAt": "2026-06-28T21:40:30Z",
+    "verified": true,
+    "recommendation": "Both root CSVs are STALE/superseded — they predate the API/orchestration/SPA/Postgres/Box/Foundry deployment and omit all of those core live resources. Safe to delete; the live registry (docs/architecture/live-environment.md) + mcp__azure__group_resource_list are authoritative."
+  }
+}

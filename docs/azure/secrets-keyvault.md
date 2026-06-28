@@ -28,10 +28,10 @@ Names: [`live-environment.md`](../architecture/live-environment.md).
   served the **old cached version** after rotation — even across `az functionapp restart` and a `func
   publish` — so the API kept sending the old Postgres password → every query failed. **Fix: pin the
   VERSIONED SecretUri** (`.../secrets/<name>/<versionId>`) to force immediate re-resolution. Trade-off: a
-  later rotation must re-point. Ref [[azure-api-deploy-and-auth]].
+  later rotation must re-point. Ref [azure-api-deploy-and-auth](../../memory/azure-api-deploy-and-auth.md).
 - **Identity-based connections (Functions 4.x):** when a setting feeds an MI connection, the key separator
   is `:` or `/`, **not `__`** (e.g. `Storage1:blobServiceUri`). Storage uses `AzureWebJobsStorage__accountName`
-  with `allowSharedKeyAccess=false`. Ref [[azure-orch-deploy]].
+  with `allowSharedKeyAccess=false`. Ref [azure-orch-deploy](../../memory/azure-orch-deploy.md).
 - **A 403 SecretGet from the app's public IP followed by a success from its private IP is *by design*** —
   don't chase it as a failure.
 - **Don't pre-deploy a gate's secret into an empty vault** — inject only when the gate flips, or the KV

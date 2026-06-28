@@ -24,12 +24,13 @@ platform mechanism moved.
 > deprovisioned 2026-06-27** (the Dev sandbox deleted via `pac admin delete`; `CollisionSpike.zip`
 > cold-exported off-repo). **No mock data** — the app shows real rows only.
 >
-> **Honest gaps:** **(1)** *no automated email intake is live yet* — the orchestration app `cespk-orch-dev`
-> is now **deployed + wired (41 functions)** but **not yet live** (no Graph subscriptions / Exchange RBAC
-> scope on the 3 real mailboxes, so no mail is processed), so the system is **read-only + manual
-> case-create**; the intended intake is a Microsoft Graph **delta-poll** over **Exchange-RBAC-scoped**
-> mailboxes (an Exchange Admin grants resource-scoped mailbox roles — **no Global-Admin consent, no push
-> subscription**). **(2)** the earlier **DB-credential / RLS P0 is resolved (2026-06-26)** — the API now
+> **Honest gaps:** **(1)** *email intake is LIVE IN TESTING* — `cespk-orch-dev` runs with **2 Microsoft
+> Graph PUSH change-notification subscriptions** over the test mailbox set engineers@ + digital@ (both
+> Exchange-RBAC-scoped); transport is **push, not delta-poll**. The **production target is info@ + engineers@
+> + desk@** (info@ + desk@ not yet scoped). ⚠️ The subscriptions **expire 2026-07-05** and `graph-renew` showed
+> **0 executions in the last 3 days** — confirm the renewer is firing or intake lapses ([docs/gated.md](./docs/gated.md)).
+> Function/subscription counts: the live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
+> **(2)** the earlier **DB-credential / RLS P0 is resolved (2026-06-26)** — the API now
 > connects as the non-owner Postgres login **`cespk_app`** (Key Vault-referenced password, **Row-Level
 > Security enforced**), not `csadmin`; the **other plaintext secret exposures (Graph client secret, storage
 > keys, Document Intelligence key, function keys) were also remediated 2026-06-27** — all moved to Key Vault
@@ -72,8 +73,9 @@ The **live Azure stack**:
 - `api/` — the TypeScript Azure Functions **Data API** (Entra JWT + `CollisionSpike.User` / `.Superuser`
   app roles — `.Superuser` formerly `.Admin`, with the legacy name still accepted for back-compat; Postgres);
   bundled to `deploy/api/` via esbuild.
-- `orchestration/` — the intake orchestration Functions app (Graph delta-poll design; **deployed + wired
-  (41 functions), not yet live** — no Graph subscriptions / Exchange RBAC scope yet); bundled to `deploy/orch/`.
+- `orchestration/` — the intake orchestration Functions app (Microsoft Graph **PUSH change-notification**
+  design; email intake **live in testing** over the test mailbox set — function/subscription counts in the
+  [live registry](./docs/architecture/live-environment.md)); bundled to `deploy/orch/`.
 - `packages/domain/` — the shared `@cs/domain` package (the platform-independent domain model).
 - `functions/` (+ `ocr/`) — the six retained Python Azure Functions (`parser`, `enrichment`,
   `evasentry`, `evavalidation`, `box-webhook`, `ocr`): code, Bicep, OpenAPI, mocked pytest.

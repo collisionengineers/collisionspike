@@ -68,5 +68,6 @@ The canonical, re-verified registry of resource names, IDs, app roles, and the l
 [`architecture/live-environment.md`](../architecture/live-environment.md). Each playbook cites only the
 few names it needs; that doc is the source of truth.
 
-> Playbooks reference memory files with the repo's `[[name]]` convention — it points to
-> `memory/<name>.md` (e.g. `[[azure-orch-deploy]]` → [`memory/azure-orch-deploy.md`](../../memory/azure-orch-deploy.md)).
+> Double-bracket wikilinks are reserved for `memory/`-internal cross-refs only. Docs link to memory
+> via relative paths — e.g. [azure-orch-deploy](../../memory/azure-orch-deploy.md) →
+> `memory/azure-orch-deploy.md`.

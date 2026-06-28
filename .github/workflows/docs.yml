@@ -1,0 +1,63 @@
+name: docs
+
+# Documentation-freshness CI for collisionspike.
+#
+#   doc-links   — runs on every PR + push. NO secrets / NO Azure login needed.
+#                 Fails the build on broken relative links, orphaned docs, or
+#                 live-number leakage (see scripts/check-doc-links.mjs).
+#
+#   verify-live — re-queries the live Azure/Graph control plane and diffs reality
+#                 against LIVE_FACTS.json. Requires an Azure login, so it is GATED on
+#                 a repo secret being present and is OPT-IN per the verify-all gate
+#                 (VERIFY_LIVE=1). It runs only when the `AZURE_CREDENTIALS` secret
+#                 exists.  ⚠ OPERATOR ACTION REQUIRED: configuring the Azure
+#                 service-principal / OIDC federation + the AZURE_CREDENTIALS secret is
+#                 a one-time operator task (see docs/MAINTENANCE.md). Until then this
+#                 job is skipped and the doc-links job runs on its own.
+
+on:
+  pull_request:
+  push:
+    branches: ['**']
+
+jobs:
+  doc-links:
+    name: doc-links (no secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check doc links, orphans, and live-fact leakage
+        run: node scripts/check-doc-links.mjs
+
+  verify-live:
+    name: verify-live (gated on Azure secret)
+    runs-on: ubuntu-latest
+    # Only run when the operator has configured Azure credentials as a repo secret.
+    # `secrets` cannot be referenced in a job-level `if:`, so surface it via an env var.
+    needs: doc-links
+    env:
+      HAVE_AZURE: ${{ secrets.AZURE_CREDENTIALS != '' }}
+    if: ${{ needs.doc-links.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip notice
+        if: env.HAVE_AZURE != 'true'
+        run: |
+          echo "AZURE_CREDENTIALS secret not set — skipping live registry-drift verification."
+          echo "OPERATOR ACTION: configure an Azure service principal / OIDC and add the"
+          echo "AZURE_CREDENTIALS secret to enable this job (see docs/MAINTENANCE.md)."
+      - uses: actions/setup-node@v4
+        if: env.HAVE_AZURE == 'true'
+        with:
+          node-version: '20'
+      - name: Azure login
+        if: env.HAVE_AZURE == 'true'
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Verify LIVE_FACTS.json against live Azure/Graph
+        if: env.HAVE_AZURE == 'true'
+        run: VERIFY_LIVE=1 node verify-all.mjs

@@ -118,7 +118,7 @@ structured output.
 - **T4 (claude) — `docs/plans/phase-1-intake-and-case-tracking/README.md`, `docs/plans/phase-2-live-activation/multi-inbox-access.md`**
   - Phase-1 README: renumber the duplicate "12.", change "10 cloud flows" → "17 flows (state=off except
     case-resolve)", reword "dedup ladder encoded" → "Message-ID dedup + merge-by-registration case-resolve
-    (ADR-0010)", and cite InspectionAddress 871 (174 confirmed + 697 suggested).
+    (ADR-0010)", and cite InspectionAddress 871 (confirmed + suggested split — live counts in the [registry](../architecture/live-environment.md)).
   - multi-inbox-access.md §3: point the per-inbox import instruction at `intake-shared-mailbox.definition.json`
     (the V2 file), consistent with the doc's own §1/§5.
 - **T5 (claude) — `mockup-app/src/domain/dedup.ts`**
@@ -171,7 +171,7 @@ live wording); and every real-gap that is a feature build or design decision.
   Access to (reuse the V2 trigger) or licensed user mailboxes (new OAuth each)? The two inbox addresses
   are also undocumented. Lives in M365 admin; blocks finishing Phase 2.
 - **Phase-4a corpus FULL REPLACE** — ADR-0016/architecture record the destructive `16-seed -Apply` as
-  RAN 2026-06-24 (~2,035 `suggested:eva_export` + 174 confirmed; backup `inspectionaddress-20260624.json`),
+  RAN 2026-06-24 (~2,035 `suggested:eva_export` + the confirmed rows [174 at load]; backup `inspectionaddress-20260624.json`),
   but ROADMAP/CURRENT_STATUS still read not-yet-run. Confirm the live row count, then reconcile up to the
   ADR (destructive live action — confirm before editing docs).
 - **Phase-6 live boundary evidence (items 3–5)** — `pac connection list` inventory, the deploy log of

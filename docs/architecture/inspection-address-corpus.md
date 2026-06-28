@@ -13,7 +13,7 @@ with [`data-model.md`](./data-model.md) (the `cr1bd_inspectionaddress` table). C
 > `codexwork` CSV is preserved below as historical/prior provenance). The pipeline (schema columns,
 > pre-processor, `-ReplaceSuggestions`, backup-first, Code-App ranking) is **built offline 2026-06-24**;
 > the **live `-Apply` replace RAN 2026-06-24** (backup-first: 2,035 `suggested:eva_export` live, 503
-> stale removed, 174 confirmed preserved, `17-verify` all-pass). ADR-0013 is **unchanged** — this is
+> stale removed, the confirmed rows preserved (174 at load — live count in the [registry](live-environment.md)), `17-verify` all-pass). ADR-0013 is **unchanged** — this is
 > offline corpus-build + suggestion-**ordering** only; nothing auto-confirms.
 
 ## The model (one path)
@@ -125,7 +125,7 @@ Point-in-time analysis that produced the seed inputs (one line each; which seed 
 | `reports/loc_principal_analysis.md` | The `Loc` analysis (the 57%-partial figure; shared multi-principal sites) — `Loc` is the EVA export's column, not an intake field | — (analysis) |
 | `reports/principal_address_worklist.md` · `reports/loc_part_postcodes_by_principal_rollup.csv` · `useraddedpartiallocs.txt` | The **partial backlog** — districts still awaiting a full address (offline future work) | — (backlog, never live) |
 | `provider_email_audit/provider_email_audit_2026-06-22.csv` | Provider → sender email domains | `15-seed-emaildomains.ps1` |
-| `…/codexwork/inspection_locations_and_provider_principal.csv` | **HISTORICAL / prior provenance** — the prior master `(provider, Loc) → full address` sheet (yielded ~697 suggested rows). **Superseded as the live source 2026-06-24 by the EVA full-address export** (ADR-0016); kept for provenance, no longer loaded. | (historical) |
+| `…/codexwork/inspection_locations_and_provider_principal.csv` | **HISTORICAL / prior provenance** — the prior master `(provider, Loc) → full address` sheet (yielded ~697 rows of suggestions). **Superseded as the live source 2026-06-24 by the EVA full-address export** (ADR-0016); kept for provenance, no longer loaded. | (historical) |
 
 > `raw/` is git-ignored (PII drop-zone). This doc is the committed, canonical description of that
 > local data; a short `raw/principalandrepairersheets/outputs/README.md` (local-only) points back here.

@@ -14,7 +14,7 @@
 >    Case/PO folder when `cr1bd_casepo` first exists; `finalize-eva-box` now **augments** that pre-existing
 >    folder instead of creating it, and reads `cr1bd_BOX_FOLDER_ROOT_ID` instead of a hard-coded param.
 >
-> Where this doc and ADR-0012 / [box-integration-pivot/plans/00-BUILD-PLAN.md](../../../box-integration-pivot/plans/00-BUILD-PLAN.md)
+> Where this doc and ADR-0012 / [docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md](../../HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md)
 > disagree, **the ADR + build plan win** (precedence: ADR > architecture/plans). Read
 > [docs/plans/phase-7-box-integration/](../phase-7-box-integration/) for the current design; this doc
 > remains useful for the EVA photo-order rule, the UPPERCASE-casing confirm, and the S2 byte-bind detail,

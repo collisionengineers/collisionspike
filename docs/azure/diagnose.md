@@ -27,12 +27,12 @@ yesterday." This is the **highest-churn** area — route here instead of looping
 - **Host registered 0 functions but `state: Running`** → the esbuild **ESM→CJS `import.meta.url`** crash
   (entry module threw before any registration). Confirm: `node -e "require('./deploy/orch/main.cjs')"`
   crashes with `ERR_INVALID_ARG_VALUE`. Fix lives in [deploy.md](./deploy.md) (the `build-orch.cjs`
-  banner). Healthy = 41 functions (orch) / 42 (api). Ref [[azure-orch-deploy]].
+  banner). Healthy = the orch/api function counts in the registry [../architecture/live-environment.md](../architecture/live-environment.md) (single source `LIVE_FACTS.json`) — a non-zero count near that baseline; `0` is the crash signature. Ref [azure-orch-deploy](../../memory/azure-orch-deploy.md).
 - **Every route 404** after a deploy → the deploy zip shipped **without `node_modules`** (`remotebuild=false`
-  → Kudu won't `npm install`). Fix in [deploy.md](./deploy.md). Ref [[azure-api-deploy-and-auth]].
+  → Kudu won't `npm install`). Fix in [deploy.md](./deploy.md). Ref [azure-api-deploy-and-auth](../../memory/azure-api-deploy-and-auth.md).
 - **Every page 500 `{error:internal}`** (auth itself fine) → either the **versionless KV ref** serving a
   stale Postgres password ([secrets-keyvault.md](./secrets-keyvault.md)), or a `jose` error mapped to 500
-  instead of 401 (token-audience). Ref [[azure-api-deploy-and-auth]].
+  instead of 401 (token-audience). Ref [azure-api-deploy-and-auth](../../memory/azure-api-deploy-and-auth.md).
 - **Orch deployed but processing no mail** → it is **deployed + wired, NOT live** by design (no Graph
   subscriptions / no Exchange-RBAC scope). That's not a bug — see
   [`live-environment.md`](../architecture/live-environment.md) §gaps + [entra-graph.md](./entra-graph.md).

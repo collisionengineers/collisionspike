@@ -28,11 +28,11 @@ Both are a **single esbuild bundle** (`deploy/api/main.cjs`, `deploy/orch/main.c
 ## Gotchas (load-bearing — caused real outages)
 - **esbuild ESM→CJS `import.meta.url` → 0 functions.** Omitting the `build-{api,orch}.cjs` banner
   (`define {'import.meta.url':'__importMetaUrl'}` + `banner` setting it from `pathToFileURL(__filename)`)
-  leaves the host at **0 functions while `state: Running`**. Ref [[azure-orch-deploy]].
+  leaves the host at **0 functions while `state: Running`**. Ref [azure-orch-deploy](../../memory/azure-orch-deploy.md).
 - **`remotebuild=false` → must ship `node_modules`.** Kudu won't `npm install`; skip step 3 and every
-  route **404s**. Ref [[azure-api-deploy-and-auth]].
+  route **404s**. Ref [azure-api-deploy-and-auth](../../memory/azure-api-deploy-and-auth.md).
 - **`API_AUDIENCE` must be the bare client-id GUID** (`fa2fb28c…`), not `api://<guid>` — v2 tokens carry
-  `aud` = client-id. The wrong form rejected every token as a generic **500**. Ref [[azure-api-deploy-and-auth]].
+  `aud` = client-id. The wrong form rejected every token as a generic **500**. Ref [azure-api-deploy-and-auth](../../memory/azure-api-deploy-and-auth.md).
 - **An app-setting change recycles the app** (brief restart) — expected; flip gates off-hours.
 - **Counting functions:** `--query "[].name"` then count — **never `length(@)`** (Windows az.cmd parens).
 - Use **PowerShell, not Git Bash**, for `az` with resource-id/URL args.

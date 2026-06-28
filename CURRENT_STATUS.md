@@ -1,7 +1,7 @@
 # CURRENT_STATUS — collisionspike
 
 _Single source of truth for "where are we now." Last updated **2026-06-27**._
-_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [ROADMAP.md](./ROADMAP.md) · [docs/gated.md](./docs/gated.md)._
+_Companion docs: [README.md](./README.md) · [ROADMAP.md](./ROADMAP.md) (forward worklist) · [docs/gated.md](./docs/gated.md) · live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
 > [ROADMAP.md](./ROADMAP.md) is the forward phased checklist; [docs/gated.md](./docs/gated.md) is
@@ -23,7 +23,7 @@ live automated email intake is **not yet running** (see the honest gaps below). 
 mock/seed case data in the app — it shows real rows only.**
 
 > **🔔 2026-06-28 — Box is now LIVE (JWT Server Auth); auth + gates reconciled.**
-> The single forward worklist is **[OPEN_ITEMS.md §A](./OPEN_ITEMS.md)** (start there). This session:
+> The single forward worklist is **[ROADMAP.md § Now / Next / Later](./ROADMAP.md)** (start there). This session:
 > - **Box** is **JWT Server Auth** (not CCG) and is **LIVE**: the `941197_re7d6t50_config.json` `Config.JSON`
 >   is now stored as the Key Vault secret **`box-config-json`** in `cespkboxkvv76a47`, wired into the
 >   **`BOX_CONFIG_JSON`** app-setting on `cespkbox-fn-v76a47` as a `@Microsoft.KeyVault(...)` reference.
@@ -45,24 +45,30 @@ mock/seed case data in the app — it shows real rows only.**
 
 ---
 
-## ✅ Live now — Azure PaaS stack (verified 2026-06-26)
+## Snapshot — Azure PaaS stack (live state)
 
-The live deployment runs in Azure resource group **`rg-collisionspike-dev`** (region **uksouth**) under
-subscription `e6076573-23a5-46a8-acef-7e22d264e5db`. The frontend talks to the Data API over **REST**;
-there is **no Power SDK and no Dataverse** on the live path — Postgres is the system of record.
+> **Live numbers** (function counts, table/corpus counts, mailbox set, subscription/subscription-state) are
+> **NOT duplicated here**. Single source: [LIVE_FACTS.json](./LIVE_FACTS.json), mirrored in the canonical
+> registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
+
+The live deployment runs in Azure resource group **`rg-collisionspike-dev`** (region **uksouth**) under an
+**Azure Free Trial** subscription. The frontend — Static Web App **`cespk-spa-dev`** (React/Vite from
+`mockup-app/`, **MSAL / Entra workforce sign-in**, staff-only) — talks to the Data API (Function App
+**`cespk-api-dev`**, Node/TypeScript Functions v4) over **REST** (`mockup-app/src/data/rest-client.ts`):
+there is **no Power SDK and no Dataverse** on the live path — **Postgres** (**`cespk-pg-dev`**, v16) is the
+system of record. The **orchestration** Function App (**`cespk-orch-dev`**) has **email intake LIVE IN
+TESTING** — 2 Graph **PUSH** change-notification subscriptions over the test mailbox set engineers@ +
+digital@ (both Exchange-RBAC-scoped); the production mailbox set (info@ + engineers@ + desk@) is not yet
+fully scoped, so manual case-create remains alongside. The **retained Python Functions** (parser
+**`cespike-parser-dev`**, enrichment, evasentry, evavalidation, ocr, box-webhook), the **Key Vaults**,
+evidence Blob **`cespkevidstdev01`**, and App Insights / Log Analytics are unchanged from the prior era.
+**Box is LIVE** (JWT Server Auth) as of 2026-06-28.
+
+Per-component status + live IDs/counts (SPA, Data API, orchestration, Postgres, retained Functions) — function counts, corpus counts, mailbox set, Graph subscription/RBAC state, feature-gate values: see the live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) (single source: [LIVE_FACTS.json](./LIVE_FACTS.json)).
 
 > **⚠️ This subscription is an Azure _Free Trial_** (quotaId `FreeTrial_2014-09-01`). **The whole stack
 > will be disabled at the ~30-day mark** unless it is upgraded to **Pay-As-You-Go**. (The 12-month free
 > Postgres Flexible Server allowance survives the upgrade.) This is a hard deadline, not a soft gate.
-
-| Piece | What it is | Status |
-|---|---|---|
-| **SPA** (frontend) | Static Web App **`cespk-spa-dev`** (westeurope) at https://proud-sky-04e318b03.7.azurestaticapps.net — React/Vite from `mockup-app/`, **MSAL / Entra workforce sign-in** (staff-only), calls the API over REST (`mockup-app/src/data/rest-client.ts`). **No Power SDK.** | Live |
-| **Data API** | Function App **`cespk-api-dev`** (Node 20 / TypeScript Functions v4; source `api/`, esbuild bundle `deploy/api/main.cjs`). Validates the Entra JWT (`jose`) + app roles **`CollisionSpike.User` / `CollisionSpike.Superuser`** (Superuser is the full-privilege role renamed from **`CollisionSpike.Admin`** — `auth.ts` still accepts the legacy name; a **`CollisionSpike.Engineer`** placeholder is defined but not enforced); v2 tokens carry `aud` = the API client-id GUID (`fa2fb28c…`). Connects to Postgres. | Live |
-| **Orchestration** | Function App **`cespk-orch-dev`** (source `orchestration/`) — **DEPLOYED + WIRED (41 functions registered) but NOT YET LIVE**. The full Microsoft Graph **delta-poll** intake chain over **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent, no push subscription) is deployed and wired, but **no Graph subscriptions and no Exchange RBAC scope on the 3 real mailboxes exist yet**, so the renewal timer lists 0 subscriptions and **no mail is processed**. | Deployed + wired, not yet live |
-| **System-of-record DB** | **Postgres Flexible `cespk-pg-dev`** (v16), database `collisionspike` — **36 tables**, seeded: `work_provider`=390, `repairer`=32, `image_source`=19, `inspection_address`=2209 (174 confirmed + 2035 suggested), `case_`=0. | Live |
-| **Python Functions (×6, retained)** | The 6 Python Functions are **unchanged** from the prior era and retained: parser **`cespike-parser-dev`**, enrichment, evasentry, evavalidation, ocr, box-webhook. | Retained |
-| **Supporting Azure** | The **Key Vaults**, evidence Blob **`cespkevidstdev01`**, and App Insights / Log Analytics are **retained unchanged**. | Retained |
 
 **Auth / identity.** Entra **workforce** sign-in via MSAL. The two enforced app roles (**`CollisionSpike.User`
 / `CollisionSpike.Superuser`**) map the **two** former Dataverse security roles — **`CollisionSpike.Superuser`**
@@ -72,21 +78,25 @@ accepted for back-compat). A third role **`CollisionSpike.Engineer`** is **defin
 placeholder for future assessment/engineer functionality). **Only one staff principal is app-role-assigned so
 far** — every other staff member will receive **403** until an admin assigns them a role.
 
-**Intake auth model — Exchange RBAC for Applications (NOT Global-Admin consent).** The intended intake
-path uses **Exchange RBAC for Applications**: an **Exchange Administrator** grants the intake app
-**resource-scoped** Graph mailbox roles (`New-ServicePrincipal` / `New-ManagementScope` /
-`New-ManagementRoleAssignment`) — **no Global-Admin tenant consent and no push subscription** — and
-intake **polls** the mailboxes with a **Graph delta query**. _(This supersedes any earlier note in this
-repo that Graph `Mail.Read` needs Global-Admin / admin consent.)_
+**Intake auth model — Exchange RBAC for Applications + Graph PUSH subscriptions (NOT Global-Admin consent,
+NOT delta-poll).** The intake path uses **Exchange RBAC for Applications**: an **Exchange Administrator**
+grants the intake app **resource-scoped** Graph mailbox roles (`New-ServicePrincipal` / `New-ManagementScope`
+/ `New-ManagementRoleAssignment`) — **no Global-Admin tenant consent** — and intake reads mail via **Graph
+change-notification (PUSH) subscriptions** (one per Inbox, pushing to `…/api/graph-webhook`). _(This
+supersedes any earlier note that Graph `Mail.Read` needs Global-Admin consent **and** any earlier
+"delta-poll, no push subscription" wording — the live transport is PUSH.)_ Live subscription/RBAC state +
+mailbox set: the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 
 ### ⚠️ Honest known gaps (live state — stated, not papered over)
 
-1. **No automated email intake is live yet.** `cespk-orch-dev` is now **deployed + wired (41 functions)**
-   but **not yet live** — there are **no Graph subscriptions and no Exchange RBAC scope on the 3 real
-   mailboxes**, so the renewal timer lists 0 subscriptions and **no mail is processed**. The live system is
-   **read-only + manual case-create only** until the operator scopes the mailboxes (Exchange RBAC), sets
-   `EVIDENCE_BLOB_CONNECTION` (prefer MI), assigns the orch MI an app-role on the Data API, and wires the
-   Azure Monitor heartbeat alerts.
+1. **Email intake is LIVE IN TESTING — not yet on the production mailbox set.** `cespk-orch-dev` runs with
+   **2 Graph PUSH subscriptions** over the test set engineers@ + digital@ (both Exchange-RBAC-scoped; counts
+   + subscription state in the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)).
+   ⚠️ The subscriptions **expire 2026-07-05** and `graph-renew` showed **0 executions in the last 3 days** —
+   confirm the renewer is firing or intake silently lapses (see [docs/gated.md](./docs/gated.md)). For
+   **production**, grant info@ + desk@ Exchange RBAC (then add to `GRAPH_INTAKE_MAILBOXES`, drop test-only
+   digital@), set `EVIDENCE_BLOB_CONNECTION` (prefer MI), assign the orch MI an app-role on the Data API, and
+   wire the Azure Monitor heartbeat alerts.
 2. **DB admin creds + RLS bypass — RESOLVED (2026-06-26).** The Data API now connects to Postgres as the
    **non-owner login `cespk_app`** (`rolsuper=false`, `rolbypassrls=false`), with its password held as a
    **Key Vault reference** (no cleartext), so the authored **Row-Level Security is now enforced** (the prior
@@ -249,7 +259,7 @@ and the Box cloud-flows are **authored offline (`state=off`), not imported/bound
 flipped; no Box connection is bound; no Box secrets are in Key Vault; the `FILE.UPLOADED` webhook is not subscribed. Branch
 `feat/phase-7-box-integration`. Binding decision:
 [docs/adr/0012-box-centric-intake-additive-hybrid.md](./docs/adr/0012-box-centric-intake-additive-hybrid.md);
-ordered build + reconciliations: [box-integration-pivot/plans/00-BUILD-PLAN.md](./box-integration-pivot/plans/00-BUILD-PLAN.md);
+ordered build + reconciliations: [docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md](./docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md);
 phase docs: [docs/plans/phase-7-box-integration/](./docs/plans/phase-7-box-integration/).
 
 **What the pivot is.** Bring Box **earlier** (a per-Case/PO folder at **parse-confirm**, not only at
@@ -407,7 +417,7 @@ A large plan-first, ms-docs-verified multi-agent pass, committed in slices. **Al
 - **EVA fully set up (no creds)** — **`cespkeva-fn-ufa3ci`** (evasentry, Sentry REST) deployed + **Running**, `EVA_API_ENABLED=false`; KV `cespkevakvufa3ci` holds **reference-only** secrets. Operator injects EVA **test** creds later (B5).
 - **S7 runtime hardening applied** — parser (`cespikestx7xt3d`) + enrichment (`cespkenrichstgi62sd`) storage now `allowSharedKeyAccess=false`; both functions re-verified **Running** (MI-confirmed).
 - **EVA-validation Function (M2.B) DEPLOYED + Running** — `cespkeval-fn-6c6fxd` (`/api/validate-case`). The initial FC1 plan-create was **rate-throttled** (a per-region ARM *write* limit re-tripped by the back-to-back deploys — NOT the 250-core memory quota, which excludes idle scale-to-zero apps); it cleared after a **20-min cooldown** → one clean deploy + publish. Remaining: only the `status-evaluate` connector repoint (designer, the M2.B activation).
-- **Suggested-address corpus LOADED** — **697** suggested InspectionAddress rows from the codexwork sheet (decisionMode=Unknown, never confirmed); 17-verify **ALL PASSED** (0 auto-confirm leaks, 0 confirmed-row downgrades). Live total now 871 (697 suggested + 174 confirmed). Re-run `16-seed -Apply` on a cadence as the sheet changes.
+- **Suggested-address corpus LOADED** — **697** InspectionAddress suggestion rows from the codexwork sheet (decisionMode=Unknown, never confirmed); 17-verify **ALL PASSED** (0 auto-confirm leaks, 0 confirmed-row downgrades). _(Dated 2026-06-20 snapshot — this 871-row interim total was later superseded; current counts in the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).)_ Re-run `16-seed -Apply` on a cadence as the sheet changes.
 
 **Operator handoffs** (full detail in [docs/gated.md](./docs/gated.md))
 - **3 "images only" cases** (`test`/`test1`/`test3`) are **stale pre-FIX-3 rows** (zero evidence) — **not** a provider-match bug. Re-run **CS Status Evaluate** with `{ "caseId": "<guid>" }` once each (safe manual-trigger child flow, idempotent, no webhook) → they move to **needs_review** and the "Images only" queue empties. GUIDs in gated.md (H13).
@@ -710,7 +720,7 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 | B5 EVA creds + Box casing | **Open** — operator (EVA test creds in KV, Box UPPERCASE folder check). The Box pivot (Phase 7) has its Dataverse schema + env-vars applied live (all `BOX_*` gates OFF); the `box-webhook` Function is deployed gated-off (secret-free), while the connector/flows are authored offline, **not imported/bound**; the BUSINESS-account test (CCG + File Request + `FILE.UPLOADED`) is the long pole — gated.md item 5. |
 
 ## Key docs
-- **Operational charter / rules:** [AGENTS.md](./AGENTS.md) · **Live ID/resource/flow registry:** [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)
+- **Forward worklist:** [ROADMAP.md](./ROADMAP.md) (§ Now / Next / Later) · **What needs the operator:** [docs/gated.md](./docs/gated.md) · **Live registry (authoritative numbers):** [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) / [LIVE_FACTS.json](./LIVE_FACTS.json)
+- **Operational charter / rules:** [AGENTS.md](./AGENTS.md) · backlog pointer [OPEN_ITEMS.md](./OPEN_ITEMS.md) (merged → ROADMAP)
+- Architecture: [docs/architecture/](./docs/architecture/README.md) · ADRs: [docs/adr/](./docs/adr/README.md) · Plans: [docs/plans/](./docs/plans/) · live deploy: [docs/azure/](./docs/azure/README.md)
 - Analysis: `raw/principalandrepairersheets/outputs/reports/`
-- Architecture: `docs/architecture/` · ADRs: `docs/adr/` (corpus model = ADR-0011)
-- Plans: `docs/plans/` · Roadmap: `ROADMAP.md` · Deploy: `DEPLOY-RUNBOOK.md`

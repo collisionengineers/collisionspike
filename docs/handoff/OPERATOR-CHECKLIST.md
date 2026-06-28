@@ -4,30 +4,38 @@ _Assembled 2026-06-28 by the agent team. These are the items the team **cannot**
 an Exchange/Entra admin action, an external credential, or a Box-side artifact. Everything else (Box auth
 fix, env, hardening, IaC) is being done by the team and tracked in the sibling `0X-*.md` handoff docs._
 
-Live stack (verified): RG **`rg-collisionspike-dev`** (uksouth), sub `e6076573-…`. Apps all Running.
-The system is **read-only + manual case-create** until item **#1** below is done.
+Live stack (verified): RG **`rg-collisionspike-dev`** (uksouth), sub `e6076573-…`. Apps all Running
+(`cespk-orch-dev` is the orchestration app; live function counts — orch + api — are in the registry
+[../architecture/live-environment.md](../architecture/live-environment.md)). **Email intake is LIVE IN
+TESTING**; item **#1** below extends it to the production mailbox set.
 
 ---
 
-## #1 — Exchange-RBAC mailbox grant → turns on automated email intake (THE functional unlock)
+## #1 — Exchange-RBAC grant for info@ + desk@ → extends email intake to the production mailbox set
 
-Today no automated intake runs: the orchestration app `cespk-orch-dev` is deployed + wired (42 functions)
-but the intake mailboxes are **not Exchange-RBAC-scoped**, so no Graph subscription/poll can read mail.
+Email intake is **live in testing**: `cespk-orch-dev` runs **2 Graph PUSH change-notification subscriptions**
+over the test mailbox set engineers@ + digital@ (both Exchange-RBAC app-read scoped → 200). info@ + desk@ are
+**not yet scoped** (→ 403), so they can't be read until the grant below.
+
+⚠️ **Renewal watch-item (time-critical).** The 2 live subscriptions **expire 2026-07-05** and `graph-renew`
+showed **0 executions in the last 3 days** — confirm the renewer is firing (or re-bootstrap the subscriptions)
+**before** the expiry or intake silently lapses.
 
 **Identity to grant:** intake app **`CollisionSpike Graph Intake`**, appId
 `5d37a155-2af8-4878-b96a-6faad5207137` (tenant `858cf5b3-…`).
 
-**Mailboxes.** Live `GRAPH_INTAKE_MAILBOXES` is currently **engineers@ + digital@** (test set).
-For **production** the target is **info@ + engineers@ + desk@** (drop `digital@` — it's the dev mailbox).
-Grant the test pair first, prove the path, then update the setting + grant the prod set.
+**Mailboxes.** Live `GRAPH_INTAKE_MAILBOXES` is currently **engineers@ + digital@** (test set, already
+scoped + subscribed). For **production** the target is **info@ + engineers@ + desk@** (drop `digital@` — it's
+the dev mailbox). Grant **info@ + desk@**, then update the setting to the prod set.
 
 **How (Exchange Online PowerShell — needs a real terminal, not the `!` prefix; WAM browser auth fails):**
 ```powershell
 Connect-ExchangeOnline -Device          # device-code flow; a plain Connect-ExchangeOnline may fail "window handle"
+# engineers@ + digital@ are already scoped (test set); extend the scope to the production set info@ + engineers@ + desk@.
 # grant resource-scoped Application Mail.Read (NOT Mail.Read.Shared), no Global-Admin consent:
-New-ServicePrincipal -AppId 5d37a155-2af8-4878-b96a-6faad5207137 -ServiceId <objectId> -DisplayName "CollisionSpike Graph Intake"
-New-ManagementScope    -Name "CollisionSpike-Intake-Scope" -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'engineers@collisionengineers.co.uk' -or PrimarySmtpAddress -eq 'digital@collisionengineers.co.uk'"
-New-ManagementRoleAssignment -App 5d37a155-2af8-4878-b96a-6faad5207137 -Role "Application Mail.Read" -CustomResourceScope "CollisionSpike-Intake-Scope"
+New-ServicePrincipal -AppId 5d37a155-2af8-4878-b96a-6faad5207137 -ServiceId <objectId> -DisplayName "CollisionSpike Graph Intake"   # already exists for the test pair
+Set-ManagementScope    -Identity "CollisionSpike-Intake-Scope" -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'info@collisionengineers.co.uk' -or PrimarySmtpAddress -eq 'engineers@collisionengineers.co.uk' -or PrimarySmtpAddress -eq 'desk@collisionengineers.co.uk'"
+New-ManagementRoleAssignment -App 5d37a155-2af8-4878-b96a-6faad5207137 -Role "Application Mail.Read" -CustomResourceScope "CollisionSpike-Intake-Scope"   # if not already assigned
 ```
 (The original helper was `C:\Users\Alex\grant-exo-rbac-intake.ps1` on the old PC — re-create it here, or run the cmdlets directly. Full detail: `docs/azure/entra-graph.md`.)
 

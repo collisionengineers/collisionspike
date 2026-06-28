@@ -10,7 +10,7 @@ app roles** `CollisionSpike.User` / `CollisionSpike.Superuser` (Superuser is the
 **renamed from `Admin`**; plus a defined-but-unenforced `CollisionSpike.Engineer` placeholder) enforced by
 the **Data API** (and, since 2026-06-26, also **Postgres RLS**), carrying the privilege intent of the prior Dataverse roles (Phase 9,
 [ADR-0017 §G8](./adr/0017-data-retention-erasure-pii-lifecycle.md); migration spec
-[`migration/31-auth-migration.md`](../migration/31-auth-migration.md)). Companion to
+[`migration/31-auth-migration.md`](HISTORICAL/migration/31-auth-migration.md)). Companion to
 [docs/gated.md](./gated.md), [../DEPLOY-RUNBOOK.md](../DEPLOY-RUNBOOK.md),
 [architecture/live-environment.md](./architecture/live-environment.md)._
 
@@ -73,7 +73,7 @@ Platform build.) The gaps below are the things Owner *doesn't* reach.
 | # | Role you're missing | Plane | What it unblocks · why your current roles don't cover it | How to get it |
 |---|---|---|---|---|
 | 1 | **Box Business plan + Box Admin / Co-Admin** | Box (vendor) | The **entire always-on Box layer**: folder-at-intake, the image-chaser **File Request**, and the **FILE.UPLOADED webhook → Evidence** pipeline. Your **free** Box account returns `unauthorized_client` for CCG and has no webhooks/File-Requests/metadata, so this is the long pole — the `SBL26001` demo had to do it all manually with a dev token. **Base Box Business is the floor** (folders + File Requests + webhooks + CCG); **Business Plus** only if you later want the metadata-capture field. | Purchase Box **Business**; make your Box user an **Admin/Co-Admin** in the Box Admin Console. |
-| 2 | **Exchange Administrator** | Entra | **Authorising the intake app's mailbox access** via **Exchange RBAC for Applications** — an Exchange Admin runs `New-ServicePrincipal` + `New-ManagementScope` + `New-ManagementRoleAssignment` to grant the `cespk-graph-intake` app **resource-scoped** Graph mailbox roles over the three intake mailboxes, so the orchestration tier can **delta-poll** them. **This SUPERSEDES the old model** (shared-mailbox Full Access/Send-As for the Office 365 Outlook connector, and the Graph `Mail.Read` admin-consent path) — it needs **NO Global Admin** and **no Entra consent**. **Verified live on `digital@` 2026-06-26** (`Test-ServicePrincipalAuthorization` → `InScope: True`); the 3 real mailboxes are **not yet scoped**, and the orchestration app is now **deployed + wired (41 functions) but not yet live** (no Graph subscriptions / Exchange RBAC scope yet → no live intake). | A **Global Admin** assigns you (or another admin) **Exchange Administrator** in the M365 admin center; the Exchange Admin then runs the RBAC grant. |
+| 2 | **Exchange Administrator** | Entra | **Authorising the intake app's mailbox access** via **Exchange RBAC for Applications** — an Exchange Admin runs `New-ServicePrincipal` + `New-ManagementScope` + `New-ManagementRoleAssignment` to grant the `cespk-graph-intake` app **resource-scoped** Graph mailbox roles over the intake mailboxes, so the orchestration tier can read them via **Graph PUSH change-notification subscriptions** (not delta-poll). **This SUPERSEDES the old model** (shared-mailbox Full Access/Send-As for the Office 365 Outlook connector, and the Graph `Mail.Read` admin-consent path) — it needs **NO Global Admin** and **no Entra consent**. **Email intake is LIVE IN TESTING:** engineers@ + digital@ are scoped (→ 200) with 2 live push subscriptions; **info@ + desk@ are not yet scoped** (→ 403) — the remaining production grant. Live counts/subscription state: the registry [architecture/live-environment.md](./architecture/live-environment.md). | A **Global Admin** assigns you (or another admin) **Exchange Administrator** in the M365 admin center; the Exchange Admin then runs the RBAC grant. |
 | 3 | **Key Vault Secrets Officer** (data plane) | Azure | **Injecting secrets** read as Key Vault references — the **EVA test creds**, the **Box** `client_secret` + webhook signature keys (the `box-webhook` Function references these in `cespkboxkvv76a47`, empty until injected), the **Graph-intake** client secret/cert. _(The **live P0** here is now **closed (2026-06-26)** — the **Data API's Postgres credential** moved off server-admin `csadmin` to the **non-owner login `cespk_app`** with its password a **Key Vault reference**, RLS now enforced, no cleartext.)_ Nuance: subscription **Owner is management-plane only** — on an RBAC-mode vault it does **not** grant data-plane secret read/write. | **Self-assign** — you're Owner, so grant *yourself* **Key Vault Secrets Officer** on the vault(s). KV secret names are **hyphenated** and resolve into UPPER_SNAKE app settings. |
 
 ### 🟠 Needed for governance + the test→prod rollout (not single-env blockers)
@@ -155,9 +155,10 @@ Details, so there are no surprises when these phases start:
   API credentials in Key Vault (vendor creds, like EVA/DVSA).
 
 ### Cross-cutting blockers to expect as you scale
-1. **Graph mailbox access → Exchange Administrator (NOT Global Admin).** The live **Graph-delta-poll**
-   email intake is authorised by **Exchange RBAC for Applications** (resource-scoped mailbox roles granted
-   by an Exchange Admin) — it needs **no Graph application permission and no Global-Admin/PRA consent**.
+1. **Graph mailbox access → Exchange Administrator (NOT Global Admin).** The live **Graph PUSH
+   change-notification** email intake is authorised by **Exchange RBAC for Applications** (resource-scoped
+   mailbox roles granted by an Exchange Admin) — it needs **no Graph application permission and no
+   Global-Admin/PRA consent**.
    This **supersedes** the old "Graph-based email intake would need a GA/PRA application-permission grant"
    line. A GA/PRA-level Graph **application** consent would only return if some *future* integration
    (SharePoint/Teams, a Graph-wide app permission) needs it — intake itself does not.
@@ -200,8 +201,8 @@ libpq startup option `-c app.role`, default `staff`) is the belt-and-braces DB e
 boundary — **live and enforced since 2026-06-26**, since the API connects as the non-owner login `cespk_app`.
 The two app roles **carry the privilege intent of the
 prior two Dataverse security roles** unchanged — only the enforcement mechanism moved. Spec:
-[`migration/31-auth-migration.md`](../migration/31-auth-migration.md) (authz) +
-[`migration/20-data-and-schema-migration.md` §2](../migration/20-data-and-schema-migration.md) (RLS).
+[`migration/31-auth-migration.md`](HISTORICAL/migration/31-auth-migration.md) (authz) +
+[`migration/20-data-and-schema-migration.md` §2](HISTORICAL/migration/20-data-and-schema-migration.md) (RLS).
 
 > **Activation state.** App roles are assigned under **Enterprise Applications → `cespk-api` → Users and
 > groups**. **Only one staff principal is app-role-assigned so far** — unassigned staff get a token with
@@ -352,9 +353,9 @@ same.)
 ## What stays the operator's regardless of roles
 
 Even with every role above, these remain human/operator actions (per the live-services boundary):
-**live email sends** + the "did the inbox fire" confirmation, the **Exchange RBAC grant** on the three real
-intake mailboxes + **deploying the orchestration intake** (no automated intake is live yet), the **Box
-Admin Console** authorization (CCG / File Request template / webhook), injecting **production** secrets
+**live email sends** + the "did the inbox fire" confirmation, the **Exchange RBAC grant** on the remaining
+production mailboxes (info@ + desk@; email intake is **live in testing** on engineers@ + digital@), the **Box
+File Request template / webhook** subscription (Box auth itself is live), injecting **production** secrets
 (EVA / Box / Graph-intake — the **Postgres credential** is already on the non-owner `cespk_app` login + Key
 Vault reference), the **Free-Trial → PAYG** upgrade, the **staff app-role assignments**, and the **final
 live-confirm** of any
