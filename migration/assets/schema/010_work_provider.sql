@@ -16,6 +16,9 @@ CREATE TABLE work_provider (
   principal_code                  varchar(8),
   -- cr1bd_knownemaildomains (Memo) -- MATCHING KEY, newline/JSON list; domain match only
   known_email_domains             text,
+  -- full sender-address overrides for generic domains (gmail/outlook) that can't be domain-keyed;
+  -- newline/JSON list; address-level match, takes PRECEDENCE over domain match (seeded by 915)
+  known_email_addresses           text,
   default_mailbox                 varchar(256),
   inspection_location_policy_code integer NOT NULL DEFAULT 100000001
                                     REFERENCES choice_inspection_location_policy(code), -- prefer_address
@@ -38,6 +41,7 @@ CREATE TABLE work_provider (
 
 COMMENT ON TABLE  work_provider IS 'cr1bd_workprovider -- governed work-provider corpus; email-domain matched; principal_code seeds Case/PO.';
 COMMENT ON COLUMN work_provider.known_email_domains IS 'cr1bd_knownemaildomains (Dataverse Memo, maxLength 2000). Match key; domain only, no alias matching.';
+COMMENT ON COLUMN work_provider.known_email_addresses IS 'Full sender-address overrides for generic domains (e.g. gmail). Newline/JSON list; address-level match, takes precedence over domain match. Seeded by 915_corpus_email_address_match.sql.';
 
 CREATE INDEX ix_work_provider_active ON work_provider (active);
 

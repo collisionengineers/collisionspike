@@ -74,6 +74,13 @@ ALTER TABLE case_ ADD CONSTRAINT uq_case_source_message_id
 ALTER TABLE inbound_email ADD CONSTRAINT uq_inbound_email_source_message_id
   UNIQUE (source_message_id);                                                                   -- cr1bd_inboundemail_sourcemessageid_key
 
+-- Case/PO uniqueness (#11) — belt-and-braces over the intake mint. The automated mint
+-- (api/src/functions/internal.ts) already guarantees no duplicate per-(principal,year)
+-- sequence via a pg_advisory_xact_lock that spans the MAX+1 probe and the INSERT, so this
+-- partial UNIQUE only additionally catches an auto-vs-manual collision. Partial (case_po IS
+-- NOT NULL) so the many manually-created / pre-mint rows with NULL case_po are unaffected.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_case_case_po ON case_ (case_po) WHERE case_po IS NOT NULL;
+
 -- Helpful FK-side indexes not already created in the table files.
 CREATE INDEX ix_improvement_signal_case_id          ON improvement_signal (case_id);
 CREATE INDEX ix_improvement_signal_work_provider_id ON improvement_signal (work_provider_id);

@@ -10,7 +10,7 @@ teardown — see [`90-deprovision-power-platform.md`](../../../../docs/HISTORICA
 
 | New table | Source file(s) under `dataverse/.build/` | Old loader (logic to port) | Rows (approx) |
 |---|---|---|---|
-| `work_provider` | `sources/…provider_corpus_recommendation.csv` (via `_corpus-common.ps1`) + `email-domains.csv` (principal_code,email_domain) for `known_email_domains` | `10-seed-workprovider.ps1`, `15-seed-emaildomains.ps1` | ~392 |
+| `work_provider` | `sources/…provider_corpus_recommendation.csv` (via `_corpus-common.ps1`) + `email-domains.csv` (principal_code,email_domain) for `known_email_domains` + `email-addresses.csv` (principal_code,email_address) for `known_email_addresses` (full-address overrides for generic domains, e.g. gmail) | `10-seed-workprovider.ps1`, `15-seed-emaildomains.ps1` | ~392 |
 | `repairer` | `…/claudeschoice/top_inspection_locations.csv` + `…/task1_garages_vs_repairer/matches.csv` | `11-seed-repairers.ps1` | ~61 |
 | `inspection_address` (confirmed) | confirmed sites (repairer/storage/home) | `12-seed-inspection-sites.ps1` | small |
 | `inspection_address` (suggested) | `sources/inspection-suggestions-from-eva-export.csv` (2,035 data rows; `rank,frequency,last_seen` already computed by `preprocess-eva-inspection-export.py`) | `16-seed-suggested-addresses.ps1` | ~871 deduped sites |
@@ -19,6 +19,17 @@ teardown — see [`90-deprovision-power-platform.md`](../../../../docs/HISTORICA
 
 The CSV column headers are stable (e.g. the suggestions CSV is
 `provider_code,loc_value,address_index_for_loc,full_address,address_postcode,address_status,evidence_source,evidence_detail,frequency,last_seen,rank,case_key_kind`).
+
+### Additive match fixes — `915_corpus_email_address_match.sql`
+
+`915_corpus_email_address_match.sql` is an **idempotent** patch applied **after** `910_seed_corpus.sql`.
+It adds the `work_provider.known_email_addresses` column (full sender-address overrides for generic
+domains that can't be domain-keyed — `@cs/domain` provider-match consults it **first**, before the
+domain match) and reinforces two mappings from the 2026-06 live test: `OAK` (both Oakwood domains)
+and `YML` (`networkhduk@gmail.com`). For a full reseed to reproduce these without the patch, add the
+`OAK,oakwoodsolicitors.co.uk` row to `email-domains.csv` and a new `email-addresses.csv`
+(`principal_code,email_address`) carrying `YML,networkhduk@gmail.com`. `work_provider` has FORCE RLS,
+so run the seed/patch with `app.role` in `('staff','admin')`.
 
 ## Reseed pattern (staging table + `\copy` + idempotent upsert)
 
