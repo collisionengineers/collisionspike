@@ -25,6 +25,7 @@ contract keys — this guards the engine, not the EVA mapping (that is
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -54,6 +55,49 @@ def _docx_available() -> bool:
     return True
 
 
+def _ocr_available() -> bool:
+    """True only when the Tesseract OCR *binary* is callable.
+
+    ``pytesseract`` is a pure-python wrapper that imports fine but is a no-op
+    without the binary, which FC1 cannot provide (see README "OCR on FC1"). A
+    SCANNED PDF (no text layer) therefore extracts nothing here — the engine
+    degrades gracefully rather than erroring. We gate scanned fixtures on this so
+    the smoke slice passes in OCR-less environments (this dev box, lean CI, FC1),
+    exactly as the DOCX fixtures skip without python-docx, while STILL running the
+    scanned case wherever the OCR binary is installed."""
+    if shutil.which("tesseract"):
+        return True
+    try:
+        import pytesseract
+
+        pytesseract.get_tesseract_version()
+        return True
+    except Exception:
+        return False
+
+
+def _pdf_has_text_layer(path: Path) -> bool:
+    """True when a PDF carries an embedded text layer (so it parses WITHOUT OCR).
+
+    Used only to decide whether a fixture needs the OCR binary; on any probe error
+    we assume it has text (do not skip on this basis)."""
+    if path.suffix.lower() != ".pdf":
+        return True
+    try:
+        import fitz
+
+        doc = fitz.open(str(path))
+    except Exception:
+        return True
+    try:
+        return any(
+            len((doc.load_page(i).get_text("text") or "").strip()) > 50
+            for i in range(doc.page_count)
+        )
+    finally:
+        doc.close()
+
+
 def _fixtures() -> list[tuple[str, Path, Path]]:
     if not EXPECTED.exists():
         return []
@@ -74,6 +118,8 @@ _FIXTURES = _fixtures()
 def test_engine_end_to_end(fixture_id: str, src: Path, golden: Path, tmp_path: Path) -> None:
     if src.suffix.lower() in {".docx", ".doc"} and not _docx_available():
         pytest.skip("python-docx not installed; DOCX/DOC fixture skipped")
+    if not _pdf_has_text_layer(src) and not _ocr_available():
+        pytest.skip("scanned PDF (no text layer) needs the Tesseract OCR binary, absent here")
 
     expected = json.loads(golden.read_text(encoding="utf-8"))
     expected_values: dict[str, str] = expected["expected_values"]
@@ -112,6 +158,8 @@ def test_engine_record_to_dict_has_native_shape(
     so it can never leak into the 12-field EVA payload."""
     if src.suffix.lower() in {".docx", ".doc"} and not _docx_available():
         pytest.skip("python-docx not installed; DOCX/DOC fixture skipped")
+    if not _pdf_has_text_layer(src) and not _ocr_available():
+        pytest.skip("scanned PDF (no text layer) needs the Tesseract OCR binary, absent here")
 
     service = DocumentMapperService(
         app_data_dir=tmp_path / "appdata",

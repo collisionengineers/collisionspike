@@ -106,7 +106,12 @@ const useStyles = makeStyles({
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
-    // extra right padding so the count pill never clips the rail edge (Area 3).
+    // box-sizing:border-box so `width:100%` INCLUDES the padding. Without it the
+    // 16px+12px L/R padding pushed the row to ~268px inside the 240px rail, and
+    // navList's `overflowX:hidden` clipped the right-aligned count pill (the
+    // Inbox / Not-ready / Review / Held badges). With border-box the right
+    // padding reads as an inner gutter that keeps the badge inside the rail edge.
+    boxSizing: 'border-box',
     padding: `${tokens.spacingVerticalSNudge} ${tokens.spacingHorizontalM} ${tokens.spacingVerticalSNudge} ${tokens.spacingHorizontalL}`,
     color: 'rgba(255,255,255,0.78)',
     textDecoration: 'none',

@@ -281,6 +281,8 @@ export const mockDataAccess: DataAccess = {
   /* ----- Cases ----- */
   caseById: (_id) => Promise.resolve(undefined),
   createCase: (_input) => Promise.reject(new Error(NOT_CONFIGURED)),
+  // Write — rejects until the live source is injected (mirrors createCase/setOnHold).
+  updateCase: (_id, _patch) => Promise.reject(new Error(NOT_CONFIGURED)),
   casesForQueue: (_name, _now) => Promise.resolve([]),
   openVrmTwins: (_vrm, _excludeCaseId) => Promise.resolve([]),
   setOnHold: (_caseId, _onHold) => Promise.reject(new Error(NOT_CONFIGURED)),

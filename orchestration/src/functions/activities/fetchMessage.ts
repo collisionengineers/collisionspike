@@ -14,9 +14,10 @@
 
 import { createHash } from 'node:crypto';
 import * as df from 'durable-functions';
-import { getMessageWithAttachments } from '../../lib/graph.js';
+import { getMessageWithAttachments, getMessageHeaders } from '../../lib/graph.js';
 import { mailboxOfResource } from '../../lib/subscriptions.js';
 import { uploadEvidenceBytes } from '../../lib/blob.js';
+import { extractVrm } from '@cs/domain';
 
 interface FetchMessageInput {
   messageId: string;
@@ -45,6 +46,10 @@ export interface InboundEnvelope {
   body: string;
   /** Whitespace-collapsed body preview for the inbound_email triage row. */
   bodyPreview: string;
+  /** RFC In-Reply-To header (reply detection, ADR-0015 / #3). '' when absent. */
+  inReplyTo: string;
+  /** RFC References header (reply detection, ADR-0015 / #3). '' when absent. */
+  references: string;
   attachments: Array<{
     filename: string;
     contentType: string;
@@ -52,8 +57,6 @@ export interface InboundEnvelope {
     size: number;
   }>;
 }
-
-const UK_VRM_RE = /\b([A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/;
 
 /** Cap the body carried through the durable envelope (keeps activity state bounded). */
 const BODY_CAP = 20_000;
@@ -66,6 +69,8 @@ df.app.activity('fetchMessage', {
     if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input.resource}"`);
 
     const { message, attachments } = await getMessageWithAttachments(mailbox, input.messageId);
+    // Reply-detection headers (failure-tolerant; {} on error → RE: subject fallback in classifier).
+    const headers = await getMessageHeaders(mailbox, input.messageId);
 
     const landed: InboundEnvelope['attachments'] = [];
     for (const a of attachments) {
@@ -82,7 +87,8 @@ df.app.activity('fetchMessage', {
     const body = (message.body?.content ?? message.bodyPreview ?? '').slice(0, BODY_CAP);
     const bodyPreview = body.replace(/\s+/g, ' ').trim().slice(0, BODY_PREVIEW_CAP);
     // VRM sniff spans subject + body — a body-only instruction carries the reg in the text.
-    const candidateVrm = sniffVrm(`${subject}\n${body}`);
+    // Canonical shared ruleset (@cs/domain) — postcode/junk-guarded (B8/LS8/BOX2 rejected).
+    const candidateVrm = extractVrm(`${subject}\n${body}`);
 
     const envelope: InboundEnvelope = {
       messageId: input.messageId,
@@ -96,6 +102,8 @@ df.app.activity('fetchMessage', {
       candidateRef: '', // a provider reference is parser-confirmed later (step 4); '' pre-parse
       body,
       bodyPreview,
+      inReplyTo: headers['in-reply-to'] ?? '',
+      references: headers['references'] ?? '',
       attachments: landed,
     };
     ctx.log(JSON.stringify({ evt: 'fetchMessage', messageId: input.messageId, mailbox, attachments: landed.length }));
@@ -120,7 +128,3 @@ function hashPayload(
   return createHash('sha256').update(norm).digest('hex');
 }
 
-function sniffVrm(subject: string): string {
-  const m = UK_VRM_RE.exec(subject.toUpperCase());
-  return m ? m[1].replace(/\s+/g, '') : '';
-}

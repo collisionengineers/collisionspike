@@ -12,6 +12,7 @@
 
 import { app, type InvocationContext } from '@azure/functions';
 import * as df from 'durable-functions';
+import { ensureSubscriptionMonitor } from './subscriptionMonitor.js';
 
 app.storageQueue('intake-starter', {
   queueName: 'intake-messages',
@@ -29,6 +30,16 @@ app.storageQueue('intake-starter', {
     };
 
     const client = df.getClient(ctx);
+
+    // Belt-and-braces: ensure the eternal subscription-renewal monitor is running. A durable
+    // timer message wakes a scaled-to-zero Flex app (a plain timer trigger does not), so any
+    // intake traffic re-bootstraps renewal. Best-effort — never blocks intake.
+    try {
+      await ensureSubscriptionMonitor(client, (m) => ctx.log(m));
+    } catch (e) {
+      ctx.warn(`[intake-starter] ensureSubscriptionMonitor: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
     // The Graph messageId is base64url WITH '=' padding (and other non-alphanumerics);
     // a Durable instanceId must be management-API-safe, so strip to [A-Za-z0-9_-].
     // Deterministic, so re-delivered notifications still map to the same instance.

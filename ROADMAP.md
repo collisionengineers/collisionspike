@@ -113,10 +113,13 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   (the 12-month free Postgres allowance survives the upgrade). A hard, dated deadline.
 - **Take orchestration to the production mailbox set (email intake is LIVE IN TESTING).** `cespk-orch-dev`
   is live with **2 Microsoft Graph PUSH change-notification subscriptions** over the test mailbox set
-  engineers@ + digital@ (both Exchange-RBAC-scoped) — transport is **push, not delta-poll**. ⚠️ **Renewal
-  watch-item (time-critical):** the 2 subscriptions **expire 2026-07-05** and `graph-renew` showed **0
-  executions in the last 3 days** — confirm the renewer is firing (or re-bootstrap) before expiry or intake
-  silently lapses. Remaining for the **production** set (info@ + engineers@ + desk@; drop test-only digital@):
+  engineers@ + digital@ (both Exchange-RBAC-scoped) — transport is **push, not delta-poll**. ✅ **Renewal
+  RESOLVED (2026-06-29):** the 2 subscriptions were renewed to 2026-07-06 and are now kept alive by a Durable
+  eternal orchestration (`subscriptionMonitorOrchestrator`) — a plain NCRONTAB timer can't wake the
+  scale-to-zero FC1 app (root cause), so the `graph-renew` timer is retained as a backstop. Residual
+  watch-item: `graph-webhook` still emits some `499`/`BadHttpRequestException` cold-start aborts but intake
+  still flows (Graph retries absorb the misses); the always-ready instance is left OFF for Free-Trial cost
+  (enable only if drops persist). Remaining for the **production** set (info@ + engineers@ + desk@; drop test-only digital@):
   have an **Exchange Administrator** grant info@ + desk@ **resource-scoped** Graph mailbox roles via **Exchange
   RBAC for Applications** (`New-ServicePrincipal` / `New-ManagementScope` / `New-ManagementRoleAssignment`) —
   **no Global-Admin tenant consent**; then add them to `GRAPH_INTAKE_MAILBOXES`. Also set

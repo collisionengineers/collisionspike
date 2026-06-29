@@ -35,6 +35,8 @@ export interface InboundClassification {
   signals: string[];
   bodyVrm: string;
   bodyCaseref: string;
+  /** Reply about existing work (#3) — drives the open-case link path. Default false. */
+  isReply: boolean;
 }
 
 /** providerMatch outcome -> the classifier's provider_match_state vocab (one|none|ambiguous). */
@@ -67,6 +69,8 @@ df.app.activity('classifyInbound', {
       providerMatchState: MATCH_STATE_TO_CLASSIFIER[matchState ?? 'unmatched'] ?? 'none',
       attachmentKinds,
       hasAttachments: inbound.attachments.length > 0,
+      inReplyTo: inbound.inReplyTo,
+      references: inbound.references,
     });
 
     const category: InboundCategory = KNOWN_CATEGORIES.has(res.category as InboundCategory)
@@ -80,6 +84,7 @@ df.app.activity('classifyInbound', {
       signals: res.signals ?? [],
       bodyVrm: res.body_vrm ?? '',
       bodyCaseref: res.body_caseref ?? '',
+      isReply: res.is_reply ?? false,
     };
 
     // Record the classified triage row (no case yet). Idempotent upsert on source_message_id.

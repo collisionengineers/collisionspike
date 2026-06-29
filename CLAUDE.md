@@ -40,7 +40,7 @@ the **Azure Free-Trial** subscription `e6076573-…` (quotaId `FreeTrial_2014-09
   Graph **change-notification subscriptions (PUSH)** — NOT delta-poll — over **Exchange-RBAC-scoped**
   mailboxes (no Global-Admin consent; subscription-create rides on the RBAC `Application Mail.Read` grant).
   **2 live push subscriptions** exist for the test set **engineers@ + digital@** (both RBAC-scoped),
-  expiring 2026-07-05; the **production target is info@ + engineers@ + desk@** (info@ + desk@ not yet scoped).
+  renewed to 2026-07-06 and kept alive by the durable `subscriptionMonitorOrchestrator`; the **production target is info@ + engineers@ + desk@** (info@ + desk@ not yet scoped).
   Function count + subscription/RBAC state + expiry: see the live registry
   [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) (single source:
   [LIVE_FACTS.json](./LIVE_FACTS.json)). (The prior "ZERO functions" state was an esbuild ESM→CJS
@@ -59,10 +59,14 @@ the **Azure Free-Trial** subscription `e6076573-…` (quotaId `FreeTrial_2014-09
 runs with **2 Graph PUSH subscriptions** over the test mailbox set **engineers@ + digital@** (both
 Exchange-RBAC app-read scoped). digital@ is a test/dev mailbox; engineers@ is a real production mailbox
 currently under test; the **production target is info@ + engineers@ + desk@** (info@ + desk@ not yet scoped →
-403). ⚠️ The subscriptions **expire 2026-07-05** and `graph-renew` showed **0 executions in the last 3 days** —
-confirm the renewer is firing or intake silently lapses (a live operator watch-item; see
-[docs/gated.md](./docs/gated.md)). Manual case-create remains available alongside. Live counts/subscription
-state: the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
+403). ✅ **Graph renewal RESOLVED (2026-06-29):** the 2 subscriptions were renewed to 2026-07-06 and are now
+kept alive by a Durable eternal orchestration (`subscriptionMonitorOrchestrator`) — a plain NCRONTAB timer
+can't wake the scale-to-zero FC1 app (the root cause), so the `graph-renew` timer is retained only as a
+backstop. ⚠️ Residual watch-item: `graph-webhook` still emits some `499`/`BadHttpRequestException` cold-start
+aborts; intake still flows (Graph retries absorb the misses), and an always-ready instance is left OFF for
+Free-Trial cost (enable only if drops persist; see [docs/gated.md](./docs/gated.md)). Manual case-create
+remains available alongside. Live counts/subscription state: the registry
+[docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 (2) **Postgres security (P0 + P2 — RESOLVED 2026-06-26):** the Data API connects as a **non-owner login
 `cespk_app`** (no superuser, no `BYPASSRLS`) whose password is a **Key Vault reference** (no cleartext),
 so the authored **Row-Level Security is now enforced** (the prior `csadmin` owner bypassed it) and the

@@ -106,6 +106,7 @@ export type {
   DataAccess,
   CreateCaseInput,
   CreateCaseResult,
+  CaseUpdateInput,
   InspectionDecisionInput,
   SaveInspectionDecisionResult,
   SuggestedAddress,
@@ -283,5 +284,12 @@ export {
   useActivity,
   useInbox,
   useInboundCounts,
+  useCaseUpdate,
   type QueryState,
+  type CaseUpdateState,
 } from './hooks';
+
+/* ============================================================
+   4. Client-side input validation (pure; reuses the domain VRM ruleset).
+   ============================================================ */
+export { checkVrm, normaliseVrm, type VrmCheck } from './vrm-validate';
