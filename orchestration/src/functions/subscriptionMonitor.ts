@@ -27,6 +27,12 @@ export const SUBSCRIPTION_MONITOR_INSTANCE_ID = 'subscription-monitor-singleton'
 const INTERVAL_HOURS = Number(process.env.SUBSCRIPTION_MONITOR_INTERVAL_HOURS ?? '6');
 const INTERVAL_MS = (Number.isFinite(INTERVAL_HOURS) && INTERVAL_HOURS > 0 ? INTERVAL_HOURS : 6) * 3_600_000;
 
+/** Retry for the maintenance activity: 30 s first retry, 2x backoff, cap 5 min, 4 attempts — so a
+ *  transient Graph/list/auth blip is absorbed before it ever reaches the orchestrator's catch. */
+const maintenanceRetry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 30_000, /*maxNumberOfAttempts*/ 4);
+maintenanceRetry.backoffCoefficient = 2;
+maintenanceRetry.maxRetryIntervalInMilliseconds = 300_000;
+
 /** Activity: the actual Graph renew/bootstrap work (I/O lives here, not in the orchestrator). */
 df.app.activity('subscriptionMaintenance', {
   handler: async (_input: unknown, ctx): Promise<unknown> => {
@@ -46,8 +52,21 @@ df.app.activity('subscriptionMaintenance', {
 
 /** Eternal orchestrator: renew now, sleep on a durable timer, then continueAsNew (forever). */
 df.app.orchestration('subscriptionMonitorOrchestrator', function* (ctx) {
-  yield ctx.df.callActivity('subscriptionMaintenance');
-  // currentUtcDateTime (NOT Date.now()) keeps the orchestrator replay-deterministic.
+  // This singleton is the ONLY thing keeping the Graph subscriptions alive (a plain timer can't
+  // wake a scaled-to-zero Flex app), so it must be UNKILLABLE (#49). Maintenance is retried; and
+  // EVEN IF it ultimately throws, we swallow it and STILL reschedule below — a thrown maintenance
+  // must never stop the eternal loop, or the renewer dies and the subscriptions silently lapse.
+  try {
+    yield ctx.df.callActivityWithRetry('subscriptionMaintenance', maintenanceRetry);
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(
+        `[subscriptionMonitor] maintenance failed after retries — rescheduling anyway so the renewer never dies: ${String(e)}`,
+      );
+    }
+  }
+  // currentUtcDateTime (NOT Date.now()) keeps the orchestrator replay-deterministic. This runs
+  // unconditionally (even after a caught failure) so the loop ALWAYS schedules the next pass.
   const next = new Date(ctx.df.currentUtcDateTime.getTime() + INTERVAL_MS);
   yield ctx.df.createTimer(next);
   ctx.df.continueAsNew(undefined);

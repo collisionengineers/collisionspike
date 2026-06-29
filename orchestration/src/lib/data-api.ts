@@ -130,6 +130,11 @@ export const dataApi = {
     matchState?: string;
     /** Parser-confirmed PDF VRM — the API prefers it over the email-body sniff (#7). */
     parserVrm?: string;
+    /** #100 — parser-confirmed provider reference; a PDF-only ref feeds dedup + persists as case_ref. */
+    parserRef?: string;
+    /** #107 — parser-extracted document mileage (+unit); persisted fill-if-empty (ADR-0006 doc-first). */
+    parserMileage?: string;
+    parserMileageUnit?: string;
     decision: {
       resolution: string;
       targetCaseId?: string;

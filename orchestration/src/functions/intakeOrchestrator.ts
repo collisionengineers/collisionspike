@@ -92,19 +92,49 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // 4 (runs FIRST now) — parse the instruction document so its PDF VRM + mileage feed case
   // creation (#7) and enrichment (#1). Gate PDF_MAPPER_ENABLED + skip-on-no-doc/4xx handled
   // inside; result is the parser envelope or { skipped }. No caseId yet (case not created).
-  const parseResult = (yield ctx.df.callActivityWithRetry('parse', retry, {
-    messageId: (inbound as { messageId?: string }).messageId,
-    attachments: (inbound as { attachments?: unknown }).attachments,
-    providerHint: principalCode,
-  })) as {
+  //
+  // BEST-EFFORT (resilience #95): parse.ts throws on a sustained 5xx/network outage AFTER its
+  // retries are exhausted. Because parse now runs FIRST, that throw would sink the whole
+  // orchestration → NO Case is ever minted for the email (a regression vs the old order). So the
+  // call is wrapped: on total parser failure we log (once, guarded by !isReplaying) and continue
+  // with an EMPTY parse result so case-create still proceeds on the email-sniff VRM. The retry
+  // policy still absorbs transient blips; only a total outage falls through here.
+  let parseResult: {
     vrm?: { value?: string };
-    extraction?: { mileage?: { value?: string } };
+    reference?: { value?: string };
+    extraction?: { mileage?: { value?: string }; mileage_unit?: { value?: string } };
     skipped?: boolean;
-  };
+  } = {};
+  try {
+    parseResult = (yield ctx.df.callActivityWithRetry('parse', retry, {
+      messageId: (inbound as { messageId?: string }).messageId,
+      attachments: (inbound as { attachments?: unknown }).attachments,
+      providerHint: principalCode,
+    })) as {
+      vrm?: { value?: string };
+      reference?: { value?: string };
+      extraction?: { mileage?: { value?: string }; mileage_unit?: { value?: string } };
+      skipped?: boolean;
+    };
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(
+        `[intake] parse failed after retries (parser outage) — proceeding with empty parse result so case-create still runs: ${String(e)}`,
+      );
+    }
+  }
   const parserVrm = (parseResult.vrm?.value ?? '').trim();
   // The document is authoritative for mileage (ADR-0006): true only when the parser actually
   // extracted a mileage value → enrichment then SKIPS the MOT estimate.
   const documentHasMileage = Boolean(parseResult.extraction?.mileage?.value);
+  // #100 — a provider reference appearing ONLY in the instruction PDF (not the email subject/
+  // body) must still feed the ADR-0010 Case/PO-first dedup ladder AND persist as case_ref.
+  // #107 — the document is authoritative for mileage (ADR-0006): when the parser extracted a
+  // value, persist it fill-if-empty so the suppressed MOT estimate is not a silent data loss.
+  // caseResolve forwards all three to the Data API resolve-persist (fill-if-empty, provenance).
+  const parserRef = (parseResult.reference?.value ?? '').trim();
+  const parserMileage = (parseResult.extraction?.mileage?.value ?? '').trim();
+  const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? '').trim();
 
   // 2 — case-resolve (UNIQUE(sourcemessageid) backstop makes upsert idempotent). The parser
   // VRM is preferred over the email sniff for dedup scoping AND the persisted case VRM (#7);
@@ -114,6 +144,9 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     providerId: workProviderId,
     matchState,
     parserVrm,
+    parserRef,
+    parserMileage,
+    parserMileageUnit,
   })) as { outcome: string; caseId: string; casePo?: string | null };
 
   if (resolved.outcome === 'already_ingested') {

@@ -47,6 +47,7 @@ import {
   caseStatusCodec,
   evidenceKindCodec,
   intakeChannelKindCodec,
+  sourceTypeCodec,
   statusToInt,
 } from '@cs/domain/codecs';
 import { authenticate, toErrorResponse } from '../lib/auth.js';
@@ -153,6 +154,77 @@ async function recomputeStatus(caseId: string): Promise<CaseStatus> {
     });
   }
   return next;
+}
+
+/**
+ * Fill-if-empty persist of parser-extracted instruction fields onto a case (cross-cutting
+ * parser-field persistence). ADVISORY: never clobbers a staff/intake value (mirrors the
+ * enrichment fill-if-empty pattern below).
+ *  - case_ref           ← parserRef           (only when the case has no case_ref yet)
+ *  - eva_mileage (+unit) ← parserMileage/Unit  (only when the case has no mileage yet), with
+ *    a field_level_provenance row (pdf_extraction / "From instructions").
+ * A no-op when both inputs are absent, so callers can pass them unconditionally (the
+ * orchestration caseResolve activity only populates them when the parser found them).
+ */
+async function applyParserFields(
+  caseId: string,
+  parserRef?: string,
+  parserMileage?: string,
+  parserMileageUnit?: string,
+): Promise<void> {
+  const ref = (parserRef ?? '').trim();
+  const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, '') : '';
+  const unitRaw = (parserMileageUnit ?? '').trim();
+  const unit = unitRaw === 'Miles' || unitRaw === 'Km' ? unitRaw : '';
+  if (!ref && !mileage) return; // backward-compatible no-op when the parser found neither
+
+  const cur = await query<Row>('SELECT case_ref, eva_mileage FROM case_ WHERE id = $1', [caseId]);
+  if (!cur[0]) return;
+  const isEmpty = (v: unknown): boolean => !String(v ?? '').trim();
+
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  let mileageFilled = false;
+
+  if (ref && isEmpty(cur[0].case_ref)) {
+    sets.push(`case_ref = $${sets.length + 1}`);
+    vals.push(ref.slice(0, 200));
+  }
+  if (mileage && isEmpty(cur[0].eva_mileage)) {
+    sets.push(`eva_mileage = $${sets.length + 1}`);
+    vals.push(mileage.slice(0, 20));
+    mileageFilled = true;
+    if (unit) {
+      sets.push(`eva_mileage_unit = $${sets.length + 1}`);
+      vals.push(unit);
+    }
+  }
+
+  if (sets.length === 0) return; // both fields already populated — respect the existing value
+
+  vals.push(caseId);
+  await query(
+    `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
+    vals,
+  );
+
+  // Provenance for the mileage fill (mirror the manual-create field_level_provenance shape):
+  // pdf_extraction source / "From instructions" label. Supplementary — must not block intake.
+  if (mileageFilled) {
+    await query(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        `${caseId}:mileage`,
+        caseId,
+        'mileage',
+        mileage.slice(0, 20),
+        sourceTypeCodec.toInt('pdf_extraction') ?? 100000000,
+        'From instructions',
+      ],
+    ).catch(() => { /* provenance is supplementary */ });
+  }
 }
 
 /* ============================================================
@@ -332,6 +404,11 @@ app.http('internalCasesResolve', {
         /** Parser-confirmed VRM from the instruction PDF — preferred over the email-body
          *  sniff (inbound.candidateVrm) when present; both are postcode/junk-filtered. */
         parserVrm?: string;
+        /** Parser-extracted instruction fields, persisted FILL-IF-EMPTY (cross-cutting
+         *  parser-field persistence). Absent → no-op (backward-compatible). */
+        parserRef?: string;
+        parserMileage?: string;
+        parserMileageUnit?: 'Miles' | 'Km' | '';
         decision: {
           resolution: string;
           targetCaseId?: string;
@@ -351,6 +428,9 @@ app.http('internalCasesResolve', {
       // Attach: link inbound_email to the existing target case; no new case_.
       if (decision.resolution === 'attach' && decision.targetCaseId) {
         await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId, undefined, body.parserVrm);
+        // Fill-if-empty parser fields onto the EXISTING case (it may lack a ref/mileage the
+        // parser found on this email); never clobbers a value already there.
+        await applyParserFields(decision.targetCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit);
         await writeAudit({
           action: AUDIT_ACTION.case_attached,
           caseId: decision.targetCaseId,
@@ -397,11 +477,13 @@ app.http('internalCasesResolve', {
             // The sequence is the digits AFTER the principal+year prefix — strip the prefix by
             // length ($3) so the contiguous year digits are NOT swept into the number (a trailing
             // [0-9]{3,}$ regex would read "CCPY26050" as 26050, not 050). The ~ filter guarantees
-            // everything after the prefix is digits, so the cast is safe.
+            // everything after the prefix is digits, so the cast is safe. Probe on upper(case_po)
+            // (prefix + regex are already upper-cased) so a manual lowercase row like 'ccpy26050'
+            // is counted — matching the case-insensitive uq_case_case_po index (#82).
             const seqRows = await q<{ next_seq: string | number }>(
-              `SELECT COALESCE(MAX(SUBSTRING(case_po FROM length($3) + 1)::int), 0) + 1 AS next_seq
+              `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) + 1 AS next_seq
                  FROM case_
-                WHERE case_po LIKE $1 AND case_po ~ $2`,
+                WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
               [`${prefix}%`, casePoSequenceRegex(principal, yy), prefix],
             );
             casePo = formatCasePo(principal, yy, Number(seqRows[0]?.next_seq ?? 1));
@@ -456,6 +538,9 @@ app.http('internalCasesResolve', {
       // Stamp the triage row + upgrade its body_vrm to the best VRM (fixes the "reg on the
       // inbox but blank on the case" split for parser-derived marks).
       await upsertInboundEmail(inbound, workProviderId, newCaseId, undefined, body.parserVrm);
+      // Fill-if-empty parser fields onto the new case (case_ref takes the inbound candidateRef
+      // first, so parserRef only fills when that was blank; mileage gets provenance).
+      await applyParserFields(newCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit);
 
       const auditAction =
         AUDIT_ACTION[decision.auditAction as keyof typeof AUDIT_ACTION] ??
@@ -534,6 +619,9 @@ async function upsertInboundEmail(
   caseId: string | null,
   classification?: InboundClassificationDto,
   parserVrm?: string,
+  /** When set (e.g. 'routed' for a linked reply), stamps triage_state on INSERT and ON
+   *  CONFLICT; when omitted, INSERT defaults to 'new' and an existing state is preserved. */
+  triageState?: string,
 ): Promise<string | null> {
   const subject = (inbound.subject ?? '').trim();
   const name = `Email: ${subject || inbound.internetMessageId}`;
@@ -557,7 +645,7 @@ async function upsertInboundEmail(
           source_mailbox, received_on, has_attachments, category_code, subtype_code,
           confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
           body_preview, case_id, work_provider_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,'new',$13,$14,$15,$16,$17)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17)
        ON CONFLICT (source_message_id) DO UPDATE SET
          case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
          category_code    = COALESCE(EXCLUDED.category_code, inbound_email.category_code),
@@ -568,6 +656,7 @@ async function upsertInboundEmail(
          body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
          body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
          work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
+         triage_state     = COALESCE($18, inbound_email.triage_state),
          updated_at       = now()
        RETURNING id`,
       [
@@ -588,6 +677,7 @@ async function upsertInboundEmail(
         bodyPreview,
         caseId,
         workProviderId,
+        triageState ?? null,
       ],
     );
     return rows[0]?.id ?? null;
@@ -683,6 +773,11 @@ app.http('internalCasesEnrichment', {
           `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
           vals,
         );
+        // The orchestrator runs statusEvaluate BEFORE enrich, so a readiness-required field
+        // filled here (e.g. mileage/model) would otherwise leave the status stale (e.g. stuck
+        // in needs_review though now ready). Recompute now that the new fields are persisted —
+        // ONLY when fields were actually applied; recomputeStatus persists only on a change (#680).
+        await recomputeStatus(caseId);
       }
 
       await writeAudit({
@@ -748,9 +843,18 @@ app.http('internalInboundLinkReply', {
         );
       }
 
-      // Stamp the triage row with the matched case only on an UNAMBIGUOUS single hit.
+      // Stamp the triage row with the matched case only on an UNAMBIGUOUS single hit, and mark
+      // it 'routed' so a successfully-linked reply no longer counts as untriaged in
+      // /api/inbound/counts (#753). Ambiguous / no-match leave it defaulting to 'new'.
       const linkCaseId = candidates.length === 1 ? (candidates[0].id as string) : null;
-      await upsertInboundEmail(inbound, workProviderId, linkCaseId);
+      await upsertInboundEmail(
+        inbound,
+        workProviderId,
+        linkCaseId,
+        undefined,
+        undefined,
+        linkCaseId ? 'routed' : undefined,
+      );
 
       if (linkCaseId) {
         await writeAudit({

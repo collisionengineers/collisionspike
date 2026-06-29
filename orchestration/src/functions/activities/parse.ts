@@ -93,8 +93,19 @@ df.app.activity('parse', {
     });
 
     if (!res.ok) {
-      // 4xx (incl. 422 unreadable) = nothing parseable for this case — skip gracefully so the
-      // case still lands (partial case held for review). 5xx/network = transient → throw to retry.
+      if (res.status === 401 || res.status === 403) {
+        // Auth/config (e.g. wrong/missing PARSER_FN_KEY) — a 401/403 disables ALL parsing
+        // invisibly if folded into the silent 4xx skip below, so surface it loudly (mirrors
+        // enrich.ts). Don't throw: a config fault won't fix on retry, and parsing must never
+        // block the case from landing.
+        ctx.error(
+          `[parse] parser auth/config error ${res.status} for ${corr} (${doc.filename}) — check PARSER_FN_KEY`,
+        );
+        return { skipped: true, error: 'auth', status: res.status };
+      }
+      // Other 4xx (incl. 422 unreadable / 400 bad doc) = nothing parseable for this case — skip
+      // gracefully so the case still lands (partial case held for review). 5xx/network =
+      // transient → throw to retry.
       if (res.status >= 400 && res.status < 500) {
         ctx.log(
           `[parse] parser returned ${res.status} for ${corr} (${doc.filename}); skipping`,

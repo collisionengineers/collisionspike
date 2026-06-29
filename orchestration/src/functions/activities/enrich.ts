@@ -89,13 +89,11 @@ df.app.activity('enrich', {
 
     const result = (await res.json()) as EnrichmentResult;
 
-    // Persist the advisory result onto the case (fill-if-empty, server-side).
+    // Persist the advisory result onto the case (fill-if-empty, server-side). The Data API's
+    // internalCasesEnrichment ALREADY writes the single `enrichment_called` audit row, so we do
+    // NOT record a second one here — doing so double-counted every enrichment in the activity
+    // feed (#94). The data-layer audit is the single source.
     const persisted = await dataApi.persistEnrichment(input.caseId, result);
-    await dataApi.recordAudit({
-      action: 'enrichment_called',
-      caseId: input.caseId,
-      summary: `enrichment applied: ${persisted.applied.length ? persisted.applied.join(', ') : 'no new fields'}`,
-    });
     ctx.log(JSON.stringify({ evt: 'enrich', caseId: input.caseId, applied: persisted.applied }));
     return { enriched: true, applied: persisted.applied, warnings: result.warnings ?? [] };
   },

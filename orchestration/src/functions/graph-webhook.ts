@@ -12,10 +12,12 @@
  * COLD-START HARDENING: on Flex scale-to-zero the worker can take seconds to start; Graph aborts
  * at its ~3 s SLA and closes the socket (499), which truncated the request stream and surfaced as
  * unhandled `BadHttpRequestException: Unexpected end of request content`. The body is now read
- * defensively (req.text → JSON.parse, both guarded) so a truncated/aborted request never throws —
- * we just ack (Graph redelivers; the deterministic intake instanceId dedups the replay). The only
- * real cure for the 3 s p95 under cold start is an always-ready HTTP instance (cost — flagged to
- * the operator, NOT enabled here).
+ * defensively (req.text → JSON.parse, both guarded) so a truncated/aborted request never throws an
+ * unhandled exception — instead we return a 5xx (503) so Graph REDELIVERS the un-processed
+ * notification (per change-notification semantics any 2xx = "delivered, don't redeliver", so
+ * acking a read/parse failure would silently drop it; the deterministic intake instanceId dedups
+ * any redelivered notification we DO process). The only real cure for the 3 s p95 under cold start
+ * is an always-ready HTTP instance (cost — flagged to the operator, NOT enabled here).
  *
  * App-settings required:
  *   GRAPH_CLIENT_STATE  — the clientState secret (KV-backed); verified on every notification.
@@ -59,15 +61,18 @@ app.http('graph-webhook', {
       raw = await req.text();
     } catch (e) {
       ctx.warn(`[graph-webhook] request body read aborted (cold-start/timeout): ${e instanceof Error ? e.message : String(e)}`);
-      return { status: 202 }; // moot if Graph already closed; Graph will redeliver
+      // NOT processed → return 5xx so Graph REDELIVERS. Any 2xx within the window tells Graph
+      // "delivered, don't redeliver", which would silently DROP this notification (#62).
+      return { status: 503 };
     }
 
     let body: { value?: GraphNotification[] };
     try {
       body = raw ? (JSON.parse(raw) as { value?: GraphNotification[] }) : {};
     } catch {
-      ctx.warn('[graph-webhook] unparseable notification body — acking');
-      return { status: 202 };
+      // NOT processed → 5xx so Graph redelivers (a 2xx would tell Graph not to, dropping it, #62).
+      ctx.warn('[graph-webhook] unparseable notification body — returning 5xx so Graph redelivers');
+      return { status: 503 };
     }
 
     const expected = process.env.GRAPH_CLIENT_STATE;

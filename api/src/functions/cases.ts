@@ -283,7 +283,10 @@ app.http('createCase', {
       const wp = await query<Row>('SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1', [pcode]);
       if (wp[0]?.id) add('work_provider_id', wp[0].id);
     }
-    if (input.casePo) add('case_po', input.casePo);
+    // Normalise to canonical UPPER (+ trim) so a manual 'ccpy26050' is stored the same as the
+    // automated mint's 'CCPY26050' and collides on the case-insensitive uq_case_case_po (#82).
+    const casePo = (input.casePo ?? '').trim().toUpperCase();
+    if (casePo) add('case_po', casePo);
     if (input.onHold) add('on_hold', true);
     if (input.insuredName) add('ov_insured_name', input.insuredName);
     if (input.providerReference) add('ov_claim_number', input.providerReference);

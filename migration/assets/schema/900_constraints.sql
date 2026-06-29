@@ -77,9 +77,12 @@ ALTER TABLE inbound_email ADD CONSTRAINT uq_inbound_email_source_message_id
 -- Case/PO uniqueness (#11) — belt-and-braces over the intake mint. The automated mint
 -- (api/src/functions/internal.ts) already guarantees no duplicate per-(principal,year)
 -- sequence via a pg_advisory_xact_lock that spans the MAX+1 probe and the INSERT, so this
--- partial UNIQUE only additionally catches an auto-vs-manual collision. Partial (case_po IS
--- NOT NULL) so the many manually-created / pre-mint rows with NULL case_po are unaffected.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_case_case_po ON case_ (case_po) WHERE case_po IS NOT NULL;
+-- partial UNIQUE only additionally catches an auto-vs-manual collision. CASE-INSENSITIVE
+-- (upper(case_po), #82): a manual 'ccpy26050' and an automated 'CCPY26050' are the SAME
+-- Case/PO and must collide — the API normalises manual case_po to UPPER and probes on
+-- upper(case_po), this index is the DB backstop. Partial (case_po IS NOT NULL) so the many
+-- manually-created / pre-mint rows with NULL case_po are unaffected.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_case_case_po ON case_ (upper(case_po)) WHERE case_po IS NOT NULL;
 
 -- Helpful FK-side indexes not already created in the table files.
 CREATE INDEX ix_improvement_signal_case_id          ON improvement_signal (case_id);

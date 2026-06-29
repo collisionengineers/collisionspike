@@ -796,9 +796,11 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
     }
     try {
       const updated = await updateCaseVrm(c.id, { vrm: next });
-      // Reflect server truth (the canonical normalised VRM) without clobbering any
-      // other in-progress local edits to the working copy.
-      setC((prev) => ({ ...prev, vrm: updated.vrm }));
+      // Merge the FULL server-returned Case: the PATCH recomputes status + readiness,
+      // so changing the registration can move the case server-side. Keeping only
+      // `updated.vrm` would leave the screen rendering a stale status/checklist/pipeline.
+      // (VRM editing is its own isolated editor, so this won't clobber other concurrent edits.)
+      setC((prev) => ({ ...prev, ...updated }));
       setEditingVrm(false);
       toast('Registration updated');
       requestAnimationFrame(() => vrmEditBtnRef.current?.focus());
@@ -1118,7 +1120,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                       className={styles.vrmInput}
                       aria-label="Vehicle registration"
                       value={vrmDraft}
-                      maxLength={12}
+                      maxLength={16}
                       onChange={(_, d) => setVrmDraft(d.value.toUpperCase())}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {

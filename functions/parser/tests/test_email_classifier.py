@@ -459,20 +459,41 @@ def test_image_with_provider_and_postcode_only_abstains():
 
 
 def test_instruction_doc_with_vrm_token_only_unknown_provider_abstains():
-    """F1: an instruction-class attachment from an unknown provider whose body carries
-    only a loose VRM-shaped token (a model code) and no work phrase / Case/PO must NOT
-    mint a Case — a body VRM no longer corroborates. Abstains to other."""
-    result = classify_email(
+    """F1: an instruction-class attachment from an unknown provider with no work phrase
+    / Case/PO must NOT mint a Case — a body VRM does not corroborate. Abstains to other.
+
+    F162 (2026-06-29): natural-language / model text that the well-formed VRM tier
+    mis-read as a plate ("Model X5 now …" -> "X5 NOW", suffix is an English word) is no
+    longer surfaced as a body_vrm at all when no VRM context word sits nearby, so the
+    inbox chip stays clean. A GENUINE VRM-shaped token is still surfaced but likewise
+    does not corroborate the doc."""
+    # F162: the model-text token is suppressed (its trigram "NOW" is a stop-word and
+    # there is no VRM context word beside it) — not surfaced, and it never promoted.
+    model_text = classify_email(
         subject="Special offer",
         body="Model X5 now 20% off — best deal this year.",
         provider_match_state="none",
         attachment_kinds=["instruction"],
         has_attachments=True,
     )
-    assert result["category"] == "other"
-    assert result["subtype"] == "other"
-    assert "uncorroborated_instruction_doc" in result["signals"]
-    assert result["body_vrm"]  # VRM-shaped token found, but did NOT promote
+    assert model_text["category"] == "other"
+    assert model_text["subtype"] == "other"
+    assert "uncorroborated_instruction_doc" in model_text["signals"]
+    assert model_text["body_vrm"] == ""  # F162: "X5 NOW" no longer mis-surfaced
+
+    # A genuine VRM-shaped token IS surfaced, but a body VRM still does not corroborate
+    # an instruction doc from an unknown provider — it abstains all the same.
+    real_vrm = classify_email(
+        subject="Documents enclosed",
+        body="Please see the attached re AB12 XYZ.",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert real_vrm["category"] == "other"
+    assert real_vrm["subtype"] == "other"
+    assert "uncorroborated_instruction_doc" in real_vrm["signals"]
+    assert real_vrm["body_vrm"] == "AB12XYZ"  # VRM-shaped token found, but did NOT promote
 
 
 def test_instruction_doc_audit_unknown_provider_is_not_existing_provider_audit():
@@ -639,6 +660,49 @@ def test_body_vrm_full_postcode_not_surfaced():
         has_attachments=False,
     )
     assert result["body_vrm"] == ""
+
+
+def test_wellformed_vrm_rejects_stopword_trigram_without_context():
+    """F162 (2026-06-29): the well-formed VRM tier ([A-Z]\\d{1,3} [A-Z]{3}, etc.) matched
+    natural-language / model text — 'Any update on the Model X5 now available?' produced
+    body_vrm='X5NOW' (the suffix 'NOW' is an English word), feeding the inbox VRM chip /
+    corroboration. A well-formed candidate whose 3-letter alpha group spells a stop-word
+    is now rejected WHEN no VRM context word sits nearby — but the SAME shape WITH a
+    context word is kept (a genuine cherished plate), and plates whose trigram is not a
+    stop-word are unaffected (covered by test_body_vrm_accepts_wellformed_uk_vrms)."""
+    # The regression: a stop-word-suffixed token in plain prose is NOT a plate.
+    noise = classify_email(
+        subject="Any update on the Model X5 now available?",
+        body="Thanks.",
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert noise["body_vrm"] == "", noise["signals"]
+
+    # Guard against over-rejection: the same stop-word-suffixed shape WITH a VRM context
+    # word IS surfaced (it is a real plate, e.g. a cherished 'GO12 NEW').
+    anchored = classify_email(
+        subject="Inspection",
+        body="Please note the vehicle reg GO12 NEW for the file.",
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert anchored["body_vrm"] == "GO12NEW"
+
+
+def test_loose_vrm_survives_unrelated_nearby_postcode():
+    """F209 (2026-06-29): the loose-VRM postcode guard scanned the whole ±30-char window,
+    so a valid loose reg was dropped whenever an UNRELATED postcode happened to sit
+    nearby. The guard is now CANDIDATE-ANCHORED (is the candidate ITSELF a postcode
+    outward code?), mirroring the engine's /parse fallback, so a real 'reg AB1234'
+    survives even with a separate 'LS8 2AB' in the same sentence."""
+    result = classify_email(
+        subject="Inspection",
+        body="Vehicle reg AB1234, near LS8 2AB please.",
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert result["body_vrm"] == "AB1234", result["signals"]
 
 
 # --------------------------------------------------------------------------- #
@@ -920,6 +984,40 @@ def test_reply_with_no_reference_and_no_query_keyword_abstains_to_other():
     )
     assert result["category"] == "other"
     assert result["is_reply"] is True
+
+
+def test_reply_inherited_subject_work_phrase_does_not_defeat_suppression():
+    """F467 (2026-06-29): a reply's SUBJECT is inherited from the original thread, not
+    freshly written. Pre-fix the "new work phrase" discriminator scanned subject+body, so
+    a work phrase carried in the inherited subject ('RE: New instruction CCPY26050 -
+    please inspect') kept the reply OUT of the suppression and it wrongly promoted to
+    receiving_work, minting a DUPLICATE Case. The discriminator now keys on the sender-
+    written BODY only, so a reply whose body adds no new work language is suppressed to
+    query_existing_work (the quoted Case/PO makes it about work we did)."""
+    result = classify_email(
+        subject="RE: New instruction CCPY26050 - please inspect",
+        body="Thanks for your note.",
+        provider_match_state="one",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert result["category"] == "query"
+    assert result["subtype"] == "query_existing_work"
+    assert result["is_reply"] is True
+    assert result["body_caseref"] == "CCPY26050"
+
+    # Precision guard (unchanged): when the SENDER's own BODY carries the new work
+    # phrase, the same inherited-subject reply STILL promotes — the body is freshly
+    # written, so this is a genuine "and here's the next job".
+    promotes = classify_email(
+        subject="RE: New instruction CCPY26050 - please inspect",
+        body="Thanks — please also inspect AB12 CDE and prepare a report.",
+        provider_match_state="one",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert promotes["category"] == "receiving_work"
+    assert promotes["subtype"] == "existing_provider_instruction"
 
 
 # --------------------------------------------------------------------------- #
