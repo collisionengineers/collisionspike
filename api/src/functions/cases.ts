@@ -23,6 +23,7 @@
 import { app, type HttpRequest } from '@azure/functions';
 import {
   EVA_FIELD_ORDER,
+  extractVrm,
   statusForReviewCase,
   type Case,
   type CreateCaseInput,
@@ -160,6 +161,76 @@ app.http('caseById', {
     const c = await loadCaseFull(id, new Date());
     if (!c) return { status: 404, jsonBody: { error: 'not found' } };
     return { status: 200, jsonBody: c };
+  }),
+});
+
+/* ============================================================
+   1b — PATCH /api/cases/{id}   (in-place field edit; SPA manual VRM correction)
+   Accepts { vrm } today; designed extensible (add fields to the handler below).
+   Returns the FULL updated Case (same shape as GET /api/cases/{id}) at 200 so the
+   SPA can take server truth back. Authz: CollisionSpike.User (regular intake work).
+   ============================================================ */
+app.http('patchCase', {
+  methods: ['PATCH'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body = (await req.json().catch(() => ({}))) as { vrm?: string };
+    const actor = actorFromClaims(claims);
+
+    const existing = await loadCaseLite(id);
+    if (!existing) return { status: 404, jsonBody: { error: 'not found' } };
+
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    const before: Record<string, unknown> = {};
+    const after: Record<string, unknown> = {};
+
+    // --- vrm (extensible: add further PATCHable fields as new `if` blocks below) ---
+    if (body.vrm !== undefined) {
+      const raw = String(body.vrm ?? '').trim();
+      // Lenient by design: normalise via the shared canonical sniff (which strips embedded
+      // postcodes/junk), but if the sniff rejects it, accept the operator's input verbatim
+      // (uppercased, alphanumerics only, ≤16) — deliberate corrections of foreign/trade/
+      // personal plates must land. '' clears the VRM. Never hard-4xx a non-standard mark.
+      const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+      const newVrm = raw ? extractVrm(raw) || cleaned : '';
+      if (newVrm !== existing.vrm) {
+        sets.push(`vrm = $${sets.length + 1}`);
+        vals.push(newVrm);
+        before.vrm = existing.vrm;
+        after.vrm = newVrm;
+      }
+    }
+
+    // No supplied change → return the current full Case unchanged (idempotent PATCH).
+    if (sets.length === 0) {
+      const cur = await loadCaseFull(id, new Date());
+      return { status: 200, jsonBody: cur };
+    }
+
+    vals.push(id);
+    await query(
+      `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
+      vals,
+    );
+
+    await writeAudit({
+      action: AUDIT_ACTION.status_changed,
+      caseId: id,
+      summary: `Case edited: ${Object.keys(after).join(', ')}`,
+      before,
+      after,
+      ...(actor ? { actor } : {}),
+    });
+
+    // A VRM change alters case identity (hasIdentity) → recompute the workflow status
+    // (terminal-locked by the shared guard); writes its own status_changed audit if it moves.
+    await recomputeStatus(id, actor);
+
+    const updated = await loadCaseFull(id, new Date());
+    return { status: 200, jsonBody: updated };
   }),
 });
 

@@ -77,6 +77,18 @@ export interface CreateCaseResult {
   id: string;
 }
 
+/**
+ * Patch body for `updateCase` — the human-correction write path for fields the
+ * extractor can get wrong. Today only the VRM is editable (issue #12: the
+ * registration mis-extraction safety net). It is a PARTIAL on purpose — future
+ * correctable fields can be added without minting a new endpoint, and the server
+ * patches only the keys present.
+ */
+export interface CaseUpdateInput {
+  /** Corrected vehicle registration mark. Stored normalised (uppercase, no spaces). */
+  vrm?: string;
+}
+
 /* ----------  Inspection-decision SAVE input (ADR-0013 confirm-path persist)  ----------
    The payload `saveInspectionDecision` persists when a reviewer EXPLICITLY confirms a
    pick on CaseDetail (picks a suggested location, or records Image Based Assessment with
@@ -273,6 +285,13 @@ export interface DataAccess {
   /* ----- Cases ----- */
   caseById(id: string): Promise<Case | undefined>;
   createCase(input: CreateCaseInput): Promise<CreateCaseResult>;
+  /**
+   * Patch an existing case (human correction — e.g. the editable VRM, issue #12).
+   * `PATCH /api/cases/{id}` with a partial body → 200 + the updated Case JSON.
+   * A mutation, NOT safe()-wrapped: a failed correction must surface, never be
+   * swallowed (a silent failure would let the operator believe a bad VRM was fixed).
+   */
+  updateCase(id: string, patch: CaseUpdateInput): Promise<Case>;
   casesForQueue(name: QueueName, now?: Date): Promise<Case[]>;
   openVrmTwins(vrm: string, excludeCaseId?: string): Promise<Case[]>;
   setOnHold(caseId: string, onHold: boolean): Promise<void>;

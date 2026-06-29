@@ -7,10 +7,12 @@
  * df.app.activity calls in each module.
  */
 
-// Graph webhook + lifecycle + renewal timer
+// Graph webhook + lifecycle + renewal (timer backstop + HTTP route + durable monitor)
 import './functions/graph-webhook.js';
 import './functions/graph-lifecycle.js';
 import './functions/graph-renew.js';
+import './functions/graph-renew-http.js';
+import './functions/subscriptionMonitor.js';
 
 // Queue intake starter → Durable orchestrator + activities
 import './functions/intake-starter.js';
@@ -18,6 +20,7 @@ import './functions/intakeOrchestrator.js';
 import './functions/activities/fetchMessage.js';
 import './functions/activities/providerMatch.js';
 import './functions/activities/classifyInbound.js';
+import './functions/activities/linkReply.js';
 import './functions/activities/caseResolve.js';
 import './functions/activities/classifyPersist.js';
 import './functions/activities/parse.js';

@@ -24,12 +24,17 @@
  *  GET  /api/internal/box/case-by-folder/{folderId}  → { caseId: string | null }
  *  GET  /api/internal/box/purge-candidates           → [{ caseId, blobPath }]
  *  POST /api/internal/box/mark-purged                → 204
+ *  GET  /api/internal/cases/{id}/box-folder          → { boxFolderId, boxFolderUrl, casePo }
+ *  POST /api/internal/cases/{id}/box-folder          → { applied, boxFolderId } (first-wins stamp)
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import {
   EVA_FIELD_ORDER,
   TERMINAL_STATUSES,
+  casePoSequenceRegex,
+  casePoYear,
+  formatCasePo,
   statusForReviewCase,
   type CaseStatus,
   type EvidenceDescriptor,
@@ -38,14 +43,16 @@ import {
   type StatusEvaluationInput,
 } from '@cs/domain';
 import {
+  actionReasonCodec,
   caseStatusCodec,
   evidenceKindCodec,
   intakeChannelKindCodec,
   statusToInt,
 } from '@cs/domain/codecs';
 import { authenticate, toErrorResponse } from '../lib/auth.js';
-import { query } from '../lib/db.js';
+import { query, tx } from '../lib/db.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
+import { combineMakeModel } from '../lib/enrichment-map.js';
 import {
   CASE_SELECT,
   EVA_COLUMN_BY_KEY,
@@ -190,12 +197,13 @@ app.http('internalProviderMatchRecords', {
   handler: (req, ctx) =>
     withServiceAuth(req, ctx, async () => {
       const rows = await query<Row>(
-        'SELECT id, principal_code, known_email_domains, active FROM work_provider ORDER BY display_name',
+        'SELECT id, principal_code, known_email_domains, known_email_addresses, active FROM work_provider ORDER BY display_name',
       );
       const records = rows.map((r) => ({
         workProviderId: r.id as string,
         principalCode: r.principal_code as string,
         knownEmailDomains: parseDomains(r.known_email_domains),
+        knownEmailAddresses: parseDomains(r.known_email_addresses),
         active: Boolean(r.active),
       }));
       return { status: 200, jsonBody: records };
@@ -321,6 +329,9 @@ app.http('internalCasesResolve', {
         inbound: InboundEnvelope;
         providerId?: string;
         matchState?: string;
+        /** Parser-confirmed VRM from the instruction PDF — preferred over the email-body
+         *  sniff (inbound.candidateVrm) when present; both are postcode/junk-filtered. */
+        parserVrm?: string;
         decision: {
           resolution: string;
           targetCaseId?: string;
@@ -333,10 +344,13 @@ app.http('internalCasesResolve', {
 
       const { inbound, providerId, decision } = body;
       const workProviderId = providerId ?? null;
+      // #7 — prefer the parser-extracted PDF VRM over the email-body sniff. Both have
+      // already run through the canonical postcode/junk filter (extractVrm / Python sniff).
+      const vrm = ((body.parserVrm || inbound.candidateVrm) ?? '').trim();
 
       // Attach: link inbound_email to the existing target case; no new case_.
       if (decision.resolution === 'attach' && decision.targetCaseId) {
-        await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId);
+        await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId, undefined, body.parserVrm);
         await writeAudit({
           action: AUDIT_ACTION.case_attached,
           caseId: decision.targetCaseId,
@@ -352,45 +366,96 @@ app.http('internalCasesResolve', {
       // returns as 409 (→ ConflictError → already_ingested in the client).
       const rawStatus = decision.statusEffect as CaseStatus;
       const statusCode = caseStatusCodec.toInt(rawStatus) ?? statusToInt('new_email');
-      const vrm = (inbound.candidateVrm ?? '').trim();
       const caseRef = (inbound.candidateRef ?? '').trim();
       const subject = (inbound.subject ?? '').trim();
       const name = [vrm || null, subject || null].filter(Boolean).join(' · ') || 'Email intake';
-
       const emailKindCode = intakeChannelKindCodec.toInt('email') ?? null;
 
-      let newCaseId: string;
+      // The create + (for a known provider) the Case/PO mint run in ONE transaction so the
+      // advisory lock that serialises the per-(principal,year) sequence spans both the
+      // MAX+1 probe and the INSERT — no duplicate POs under concurrency (#11). A new client
+      // with no matched provider mints NO PO and is routed to Held for operator setup.
+      let created: { caseId: string; casePo: string | null; newClient: boolean; principalCode: string };
       try {
-        const cols = [
-          'name', 'vrm', 'status_code',
-          'intake_channel_kind_code', 'intake_channel_manual', 'source_mailbox',
-          'source_message_id', 'payload_hash', 'work_provider_id',
-        ];
-        const vals: unknown[] = [
-          name, vrm || null, statusCode,
-          emailKindCode, false, inbound.sourceMailbox ?? null,
-          inbound.internetMessageId ?? null,
-          inbound.payloadHash ?? null,
-          workProviderId,
-        ];
-        if (caseRef) { cols.push('case_ref'); vals.push(caseRef); }
+        created = await tx(async (q) => {
+          // Resolve the provider's principal code (the PO prefix + the known/new-client test).
+          let principalCode = '';
+          if (workProviderId) {
+            const wp = await q<Row>('SELECT principal_code FROM work_provider WHERE id = $1', [workProviderId]);
+            principalCode = String(wp[0]?.principal_code ?? '').trim();
+          }
+          const newClient = !workProviderId || !principalCode;
 
-        const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ');
-        const rows = await query<Row>(
-          `INSERT INTO case_ (${cols.join(', ')}) VALUES (${placeholders}) RETURNING id`,
-          vals,
-        );
-        newCaseId = rows[0]?.id as string;
-        if (!newCaseId) return { status: 500, jsonBody: { error: 'case insert returned no id' } };
+          // Known provider → mint Case/PO = principal + YY + 3-digit per-(principal,year) seq.
+          let casePo: string | null = null;
+          if (!newClient) {
+            const principal = principalCode.toUpperCase();
+            const yy = casePoYear();
+            const prefix = `${principal}${yy}`; // e.g. "CCPY26"
+            // Serialise concurrent mints for this (principal, year); released at COMMIT/ROLLBACK.
+            await q('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [`casepo:${prefix}`]);
+            // The sequence is the digits AFTER the principal+year prefix — strip the prefix by
+            // length ($3) so the contiguous year digits are NOT swept into the number (a trailing
+            // [0-9]{3,}$ regex would read "CCPY26050" as 26050, not 050). The ~ filter guarantees
+            // everything after the prefix is digits, so the cast is safe.
+            const seqRows = await q<{ next_seq: string | number }>(
+              `SELECT COALESCE(MAX(SUBSTRING(case_po FROM length($3) + 1)::int), 0) + 1 AS next_seq
+                 FROM case_
+                WHERE case_po LIKE $1 AND case_po ~ $2`,
+              [`${prefix}%`, casePoSequenceRegex(principal, yy), prefix],
+            );
+            casePo = formatCasePo(principal, yy, Number(seqRows[0]?.next_seq ?? 1));
+          }
+
+          const cols = [
+            'name', 'vrm', 'status_code',
+            'intake_channel_kind_code', 'intake_channel_manual', 'source_mailbox',
+            'source_message_id', 'payload_hash', 'work_provider_id',
+          ];
+          const vals: unknown[] = [
+            name, vrm || null, statusCode,
+            emailKindCode, false, inbound.sourceMailbox ?? null,
+            inbound.internetMessageId ?? null,
+            inbound.payloadHash ?? null,
+            workProviderId,
+          ];
+          if (caseRef) { cols.push('case_ref'); vals.push(caseRef); }
+          if (casePo) { cols.push('case_po'); vals.push(casePo); }
+          // New client → Held: park on the operator safety net with a structured reason
+          // (ADR-0010; never silent). on_hold routes to the Held queue; needs_review is the
+          // actionReason the SPA surfaces; a note (written after commit) carries the specifics.
+          if (newClient) {
+            cols.push('on_hold'); vals.push(true);
+            cols.push('action_reason_code'); vals.push(actionReasonCodec.toInt('needs_review') ?? null);
+          }
+
+          const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ');
+          const rows = await q<Row>(
+            `INSERT INTO case_ (${cols.join(', ')}) VALUES (${placeholders}) RETURNING id`,
+            vals,
+          );
+          const caseId = rows[0]?.id as string;
+          if (!caseId) throw new Error('case insert returned no id');
+          return { caseId, casePo, newClient, principalCode };
+        });
       } catch (e: unknown) {
-        // PG unique violation on source_message_id → already ingested backstop.
         if (isUniqueViolation(e)) {
+          const constraint = uniqueConstraintName(e);
+          // case_po collision is near-impossible (advisory lock serialises auto-mints); a
+          // source_message_id collision is the expected replay backstop → already_ingested.
+          if (constraint === 'uq_case_case_po') {
+            ctx.error(`[cases/resolve] case_po unique collision (${constraint})`);
+            return { status: 500, jsonBody: { error: 'case_po_collision' } };
+          }
           return { status: 409, jsonBody: { error: 'conflict', detail: 'source_message_id already exists' } };
         }
         throw e;
       }
 
-      await upsertInboundEmail(inbound, workProviderId, newCaseId);
+      const newCaseId = created.caseId;
+      // Stamp the triage row + upgrade its body_vrm to the best VRM (fixes the "reg on the
+      // inbox but blank on the case" split for parser-derived marks).
+      await upsertInboundEmail(inbound, workProviderId, newCaseId, undefined, body.parserVrm);
 
       const auditAction =
         AUDIT_ACTION[decision.auditAction as keyof typeof AUDIT_ACTION] ??
@@ -399,10 +464,32 @@ app.http('internalCasesResolve', {
         action: auditAction,
         caseId: newCaseId,
         summary: `Case ${decision.resolution}: ${name}`,
-        after: { resolution: decision.resolution, status: rawStatus, vrm },
+        after: { resolution: decision.resolution, status: rawStatus, vrm, casePo: created.casePo },
       });
 
-      return { status: 200, jsonBody: { outcome: 'created', caseId: newCaseId } };
+      if (created.newClient) {
+        const domain = senderDomain(inbound.senderAddress ?? '');
+        // Best-effort note (human-readable new-client tag) — must not block intake.
+        await query(
+          `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
+          [
+            'New client',
+            newCaseId,
+            'Email intake (auto)',
+            `New client — no work provider matched for sender${domain ? ` @${domain}` : ''}. ` +
+              `No Case/PO minted; set up the work provider and confirm before EVA.`,
+          ],
+        ).catch(() => { /* note is supplementary */ });
+        await writeAudit({
+          action: AUDIT_ACTION.inbound_routed,
+          caseId: newCaseId,
+          severity: 'warning',
+          summary: 'New client routed to Held (no work provider matched)',
+          after: { newClient: true, onHold: true, senderDomain: domain },
+        });
+      }
+
+      return { status: 200, jsonBody: { outcome: 'created', caseId: newCaseId, casePo: created.casePo } };
     }),
 });
 
@@ -446,6 +533,7 @@ async function upsertInboundEmail(
   workProviderId: string | null,
   caseId: string | null,
   classification?: InboundClassificationDto,
+  parserVrm?: string,
 ): Promise<string | null> {
   const subject = (inbound.subject ?? '').trim();
   const name = `Email: ${subject || inbound.internetMessageId}`;
@@ -455,7 +543,9 @@ async function upsertInboundEmail(
   const subtypeCode = classification
     ? INBOUND_SUBTYPE_TO_INT[classification.subtype as InboundSubtype] ?? null
     : null;
-  const bodyVrm = (classification?.bodyVrm || inbound.candidateVrm || '') || null;
+  // Prefer the parser-confirmed PDF VRM for the inbox triage row too (so it shows the same
+  // mark the case persists), then the classifier body sniff, then the email-subject sniff.
+  const bodyVrm = ((parserVrm || classification?.bodyVrm || inbound.candidateVrm) ?? '').trim() || null;
   const bodyCaseref = (classification?.bodyCaseref || inbound.candidateRef || '') || null;
   const bodyPreview = (inbound.bodyPreview ?? '') || null;
   const confidence = classification ? classification.confidence : null;
@@ -474,6 +564,7 @@ async function upsertInboundEmail(
          subtype_code     = COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code),
          confidence       = COALESCE(EXCLUDED.confidence, inbound_email.confidence),
          signals          = COALESCE(EXCLUDED.signals, inbound_email.signals),
+         body_vrm         = COALESCE(EXCLUDED.body_vrm, inbound_email.body_vrm),
          body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
          body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
          work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
@@ -515,6 +606,180 @@ function isUniqueViolation(e: unknown): boolean {
     (e as { code: unknown }).code === '23505'
   );
 }
+
+/** The name of the violated UNIQUE constraint on a 23505 (pg `error.constraint`), if present. */
+function uniqueConstraintName(e: unknown): string | undefined {
+  if (e != null && typeof e === 'object' && 'constraint' in e) {
+    const c = (e as { constraint: unknown }).constraint;
+    return typeof c === 'string' ? c : undefined;
+  }
+  return undefined;
+}
+
+/* ============================================================
+   POST /api/internal/cases/{id}/enrichment
+   Called by: orchestration enrich activity (#1) AFTER a 200 from the enrichment
+   Function (DVSA MOT + DVLA fallback). Persists the ADVISORY result onto the case's
+   EVA columns — FILL-IF-EMPTY only (never clobbers a staff/parser value; enrichment
+   is advisory per ADR-0006). There is no separate `make` column: make+model fold into
+   the single EVA field #2 (eva_vehicle_model). Mileage + unit move as a pair (the MOT
+   estimate is normalised to Miles). Returns { applied: [...] } — the fields it filled.
+   ============================================================ */
+app.http('internalCasesEnrichment', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/{id}/enrichment',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = req.params.id;
+      const body = (await req.json()) as {
+        vehicle_model?: string;
+        make?: string;
+        current_mileage?: number | string;
+        mileage_unit?: string;
+        warnings?: string[];
+      };
+
+      const cur = await query<Row>(
+        'SELECT eva_vehicle_model, eva_mileage, eva_mileage_unit FROM case_ WHERE id = $1',
+        [caseId],
+      );
+      if (!cur[0]) return { status: 404, jsonBody: { error: 'case not found' } };
+
+      const vehicleModel = combineMakeModel(
+        String(body.make ?? '').trim(),
+        String(body.vehicle_model ?? '').trim(),
+      );
+      const mileage = body.current_mileage != null ? String(body.current_mileage).replace(/[^\d]/g, '') : '';
+      const mileageUnitRaw = String(body.mileage_unit ?? '').trim();
+      const mileageUnit = mileageUnitRaw === 'Miles' || mileageUnitRaw === 'Km' ? mileageUnitRaw : '';
+
+      const applied: string[] = [];
+      const sets: string[] = [];
+      const vals: unknown[] = [];
+      const isEmpty = (v: unknown): boolean => !String(v ?? '').trim();
+
+      if (vehicleModel && isEmpty(cur[0].eva_vehicle_model)) {
+        sets.push(`eva_vehicle_model = $${sets.length + 1}`);
+        vals.push(vehicleModel.slice(0, 200));
+        applied.push('vehicleModel');
+      }
+      // Mileage + unit are a pair: only fill when the case has no mileage yet (the parsed
+      // document is authoritative — the Function already skips the estimate when the doc had it).
+      if (mileage && isEmpty(cur[0].eva_mileage)) {
+        sets.push(`eva_mileage = $${sets.length + 1}`);
+        vals.push(mileage.slice(0, 20));
+        applied.push('mileage');
+        if (mileageUnit) {
+          sets.push(`eva_mileage_unit = $${sets.length + 1}`);
+          vals.push(mileageUnit);
+          applied.push('mileageUnit');
+        }
+      }
+
+      if (sets.length > 0) {
+        vals.push(caseId);
+        await query(
+          `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
+          vals,
+        );
+      }
+
+      await writeAudit({
+        action: AUDIT_ACTION.enrichment_called,
+        caseId,
+        summary: `Enrichment persisted: ${applied.length ? applied.join(', ') : 'no new fields'}`,
+        after: { applied, warnings: body.warnings ?? [] },
+      });
+      ctx.log(JSON.stringify({ evt: 'internalCasesEnrichment', caseId, applied }));
+
+      return { status: 200, jsonBody: { applied } };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/inbound/link-reply
+   Called by: orchestration linkReply activity (#3). When the classifier flagged an
+   inbound as a REPLY about existing work (is_reply, typically query_existing_work), this
+   resolves it against OPEN (non-terminal) cases — Case-ref (provider ref / case_po) FIRST,
+   then VRM — and links the triage row to the one matching case rather than minting a new
+   one. ADR-0010: >1 candidate (or ambiguous) → NEVER auto-link; the triage row is left
+   unrouted + duplicate_flagged for a human (the reply's "Held" — there is no new case).
+   Returns { outcome: 'linked' | 'ambiguous' | 'no_match', caseId?, candidateCount }.
+   ============================================================ */
+app.http('internalInboundLinkReply', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/inbound/link-reply',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json()) as {
+        inbound: InboundEnvelope;
+        providerId?: string;
+        ref?: string;
+        vrm?: string;
+      };
+      const { inbound } = body;
+      const workProviderId = body.providerId ?? null;
+      const ref = (body.ref ?? '').trim();
+      const vrm = (body.vrm ?? '').trim();
+
+      // Resolve candidate OPEN cases — Case-ref first (case_ref OR case_po), then VRM.
+      // Cross-provider is allowed here ON PURPOSE: a reply can arrive from the claimant/
+      // repairer on a different domain than the instructing provider, so we match on the
+      // case identifiers, not the sender's provider.
+      let candidates: Row[] = [];
+      if (ref) {
+        candidates = await query<Row>(
+          `SELECT id, case_ref, case_po, vrm FROM case_
+            WHERE (case_ref = $1 OR case_po = $1)
+              AND status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
+            ORDER BY created_at`,
+          [ref],
+        );
+      }
+      if (candidates.length === 0 && vrm) {
+        candidates = await query<Row>(
+          `SELECT id, case_ref, case_po, vrm FROM case_
+            WHERE vrm = $1
+              AND status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
+            ORDER BY created_at`,
+          [vrm],
+        );
+      }
+
+      // Stamp the triage row with the matched case only on an UNAMBIGUOUS single hit.
+      const linkCaseId = candidates.length === 1 ? (candidates[0].id as string) : null;
+      await upsertInboundEmail(inbound, workProviderId, linkCaseId);
+
+      if (linkCaseId) {
+        await writeAudit({
+          action: AUDIT_ACTION.inbound_routed,
+          caseId: linkCaseId,
+          summary: `Reply linked to existing case (${ref ? `ref ${ref}` : `vrm ${vrm}`})`,
+          after: { matchedBy: ref ? 'caseref' : 'vrm', messageId: inbound.internetMessageId },
+        });
+        ctx.log(JSON.stringify({ evt: 'linkReply', outcome: 'linked', caseId: linkCaseId }));
+        return { status: 200, jsonBody: { outcome: 'linked', caseId: linkCaseId, candidateCount: 1 } };
+      }
+
+      if (candidates.length > 1) {
+        // ADR-0010: never auto-link an ambiguous reply. Flag for a human; the triage row
+        // stays unrouted (its own "Held"). No new case is minted for a reply.
+        await writeAudit({
+          action: AUDIT_ACTION.duplicate_flagged,
+          severity: 'warning',
+          summary: `Reply matched ${candidates.length} open cases (${ref ? `ref ${ref}` : `vrm ${vrm}`}); held for manual linking`,
+          after: { candidateCount: candidates.length, candidateIds: candidates.map((c) => c.id) },
+        });
+        ctx.log(JSON.stringify({ evt: 'linkReply', outcome: 'ambiguous', count: candidates.length }));
+        return { status: 200, jsonBody: { outcome: 'ambiguous', candidateCount: candidates.length } };
+      }
+
+      ctx.log(JSON.stringify({ evt: 'linkReply', outcome: 'no_match' }));
+      return { status: 200, jsonBody: { outcome: 'no_match', candidateCount: 0 } };
+    }),
+});
 
 /* ============================================================
    4 — POST /api/internal/cases/{id}/evidence
@@ -842,5 +1107,86 @@ app.http('internalBoxMarkPurged', {
         [body.caseId, body.blobPath],
       );
       return { status: 204 };
+    }),
+});
+
+/* ============================================================
+   12 — GET /api/internal/cases/{id}/box-folder
+   Called by: orchestration boxFolderCreate activity (intake wiring + manual
+   starter — ADR-0012). Reads the case's current Box folder linkage so the
+   activity SKIPS creating a second folder for a case that already has one
+   (idempotency). Returns case_po too, so the caller can confirm the folder
+   name. { boxFolderId: null } (200) when the case has no folder yet (or the
+   case id is unknown) — never guesses.
+   ============================================================ */
+app.http('internalCaseBoxFolderGet', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/{id}/box-folder',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = (req.params.id ?? '').trim();
+      if (!caseId) return { status: 200, jsonBody: { boxFolderId: null, boxFolderUrl: null, casePo: null } };
+      const rows = await query<Row>(
+        'SELECT box_folder_id, box_folder_url, case_po FROM case_ WHERE id = $1',
+        [caseId],
+      );
+      const r = rows[0];
+      return {
+        status: 200,
+        jsonBody: {
+          boxFolderId: (r?.box_folder_id as string) ?? null,
+          boxFolderUrl: (r?.box_folder_url as string) ?? null,
+          casePo: (r?.case_po as string) ?? null,
+        },
+      };
+    }),
+});
+
+/* ============================================================
+   13 — POST /api/internal/cases/{id}/box-folder
+   Called by: orchestration boxFolderCreate activity AFTER it mints the Box
+   folder. FIRST-WINS idempotent stamp of box_folder_id/box_folder_url onto the
+   case via a conditional UPDATE (... WHERE box_folder_id IS NULL), so a replay /
+   concurrent create never relinks. Writes the box_folder_created audit ONLY when
+   it actually stamps (applied:true) — no double-audit on a re-run. Returns the
+   effective box_folder_id either way.
+   ============================================================ */
+app.http('internalCaseBoxFolderStamp', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/{id}/box-folder',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = (req.params.id ?? '').trim();
+      const body = (await req.json()) as { boxFolderId?: string; boxFolderUrl?: string };
+      const boxFolderId = (body.boxFolderId ?? '').trim();
+      const boxFolderUrl = (body.boxFolderUrl ?? '').trim() || null;
+      if (!caseId || !boxFolderId) {
+        return { status: 400, jsonBody: { error: 'caseId and boxFolderId required' } };
+      }
+      // Conditional UPDATE → only the first stamp wins; a second matches no row.
+      const stamped = await query<Row>(
+        `UPDATE case_
+            SET box_folder_id = $2, box_folder_url = $3, updated_at = now()
+          WHERE id = $1 AND box_folder_id IS NULL
+        RETURNING box_folder_id`,
+        [caseId, boxFolderId, boxFolderUrl],
+      );
+      if (stamped.length > 0) {
+        await writeAudit({
+          action: AUDIT_ACTION.box_folder_created,
+          caseId,
+          summary: `Box folder ${boxFolderId} linked to case`,
+          after: { boxFolderId, boxFolderUrl },
+        });
+        return { status: 200, jsonBody: { applied: true, boxFolderId } };
+      }
+      // Already linked (or unknown case) — return the current value, no audit.
+      const cur = await query<Row>('SELECT box_folder_id FROM case_ WHERE id = $1', [caseId]);
+      return {
+        status: 200,
+        jsonBody: { applied: false, boxFolderId: (cur[0]?.box_folder_id as string) ?? null },
+      };
     }),
 });

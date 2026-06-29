@@ -86,6 +86,18 @@ export async function uploadEvidenceBytes(
 }
 
 /**
+ * Download one evidence blob's bytes (parse activity, plan 22 §B step 4). The instruction
+ * document bytes are re-read here, base64-encoded, and sent to the parser Function per its
+ * `{document, filename}` contract. Throws if the blob is missing/unreadable (caller decides
+ * whether to skip or retry).
+ */
+export async function downloadEvidenceBytes(blobPath: string): Promise<Buffer> {
+  const container = client().getContainerClient(containerName());
+  const block = container.getBlockBlobClient(blobPath);
+  return block.downloadToBuffer();
+}
+
+/**
  * Delete one evidence blob (box-blob-purge job, plan 22 §C). Idempotent — deleting an
  * already-gone blob is a no-op. Returns true when a blob was actually removed.
  */

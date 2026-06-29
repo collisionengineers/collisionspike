@@ -7,6 +7,11 @@
 
    THE RULES (§5.8):
      - Match on the DOMAIN AFTER '@' only. NO alias matching, no fuzzy/substring.
+     - EXCEPTION (address-level): a provider may also list FULL sender addresses
+       (`knownEmailAddresses[]`) for generic domains that cannot be domain-keyed
+       (e.g. a provider that emails from `someone@gmail.com`). A full-address hit
+       is EXACT and takes PRECEDENCE over a domain hit. Same no-alias discipline;
+       same >1-active-provider => 'ambiguous' guard.
      - Unique-domain discipline keeps Case/PO generation safe.
      - A domain mapping to >1 ACTIVE provider is AMBIGUOUS -> never auto-pick
        (an auto-picked principalCode would mint an unsafe Case/PO). Surface for
@@ -25,6 +30,13 @@ export interface ProviderMatchRecord {
   principalCode: string;
   /** Domains this provider sends from, e.g. ["acme.co.uk"]. Matched verbatim, no aliasing. */
   knownEmailDomains: readonly string[];
+  /**
+   * Full sender addresses this provider sends from, e.g. ["networkhduk@gmail.com"].
+   * For generic domains (gmail/outlook/etc.) that cannot be domain-keyed. Matched
+   * verbatim (exact, case-insensitive); takes precedence over a domain match.
+   * Optional — absent/empty on the vast majority of providers.
+   */
+  knownEmailAddresses?: readonly string[];
   /** Inactive providers are never matched. */
   active: boolean;
 }
@@ -39,7 +51,11 @@ export interface ProviderMatchResult {
   outcome: ProviderMatchOutcome;
   /** The normalised domain that was looked up (lower-case, after '@'). '' if unparseable. */
   matchedDomain: string;
-  /** On 'ambiguous', the providers that collided on the domain (for the review UI). */
+  /** Which signal produced a 'matched'/'ambiguous' outcome. */
+  matchedBy?: 'domain' | 'address';
+  /** The normalised full address that was looked up (lower-case). '' if unparseable. */
+  matchedAddress?: string;
+  /** On 'ambiguous', the providers that collided (on the domain OR the address). */
   ambiguousProviderIds?: string[];
 }
 
@@ -63,15 +79,68 @@ export function domainOf(senderAddress: string): string {
 }
 
 /**
- * Match a sender address to a WorkProvider by exact domain.
- * Exact, case-insensitive, no-alias. Ambiguity (domain → >1 active provider)
- * NEVER auto-picks — it returns 'ambiguous' with the colliding ids.
+ * Extract the full normalised sender address (lower-cased, `<addr>` unwrapped).
+ * Returns '' when there is no usable `local@domain.tld` address.
+ */
+export function addressOf(senderAddress: string): string {
+  const raw = senderAddress.trim().toLowerCase();
+  const lt = raw.lastIndexOf('<');
+  const gt = raw.lastIndexOf('>');
+  const addr = lt >= 0 && gt > lt ? raw.slice(lt + 1, gt).trim() : raw;
+  // Shape check: local@domain.tld, no whitespace.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) return '';
+  return addr;
+}
+
+/**
+ * Match a sender address to a WorkProvider.
+ *
+ * ORDER (§5.8 + address-level exception):
+ *   1. ADDRESS-LEVEL — exact full-address hit in `knownEmailAddresses[]`. The only
+ *      signal for generic domains (gmail/outlook) that can't be domain-keyed.
+ *      Takes PRECEDENCE over a domain hit.
+ *   2. DOMAIN — exact domain hit in `knownEmailDomains[]` (the default path).
+ *
+ * Both are exact, case-insensitive, no-alias. Ambiguity (signal → >1 ACTIVE
+ * provider) NEVER auto-picks — it returns 'ambiguous' with the colliding ids.
+ * (Name kept as `matchProviderByDomain` — the shared entry point the API/SPA/orch call.)
  */
 export function matchProviderByDomain(
   senderAddress: string,
   providers: readonly ProviderMatchRecord[],
 ): ProviderMatchResult {
+  const address = addressOf(senderAddress);
   const domain = domainOf(senderAddress);
+
+  // 1) ADDRESS-LEVEL — exact, takes precedence (generic-domain providers).
+  if (address) {
+    const addrHits = providers.filter(
+      (p) =>
+        p.active &&
+        (p.knownEmailAddresses ?? []).some((a) => a.trim().toLowerCase() === address),
+    );
+    if (addrHits.length === 1) {
+      return {
+        outcome: 'matched',
+        matchedDomain: domain,
+        matchedAddress: address,
+        matchedBy: 'address',
+        workProviderId: addrHits[0].workProviderId,
+        principalCode: addrHits[0].principalCode,
+      };
+    }
+    if (addrHits.length > 1) {
+      return {
+        outcome: 'ambiguous',
+        matchedDomain: domain,
+        matchedAddress: address,
+        matchedBy: 'address',
+        ambiguousProviderIds: addrHits.map((p) => p.workProviderId),
+      };
+    }
+  }
+
+  // 2) DOMAIN — the default path.
   if (!domain) {
     return { outcome: 'unmatched', matchedDomain: '' };
   }
@@ -90,6 +159,7 @@ export function matchProviderByDomain(
     return {
       outcome: 'ambiguous',
       matchedDomain: domain,
+      matchedBy: 'domain',
       ambiguousProviderIds: hits.map((p) => p.workProviderId),
     };
   }
@@ -97,6 +167,7 @@ export function matchProviderByDomain(
   return {
     outcome: 'matched',
     matchedDomain: domain,
+    matchedBy: 'domain',
     workProviderId: hits[0].workProviderId,
     principalCode: hits[0].principalCode,
   };

@@ -20,27 +20,32 @@ interface CaseResolveInput {
   inbound: InboundEnvelope;
   providerId?: string;
   matchState?: string;
+  /** Parser-confirmed PDF VRM (from the parse activity, which now runs first). Preferred
+   *  over the email-body sniff for BOTH dedup scoping and the persisted case VRM (#7). */
+  parserVrm?: string;
 }
 
 df.app.activity('caseResolve', {
   handler: async (
     input: CaseResolveInput,
     ctx,
-  ): Promise<{ outcome: string; caseId: string }> => {
+  ): Promise<{ outcome: string; caseId: string; casePo?: string | null }> => {
     const { inbound, providerId, matchState } = input;
+    // Best known VRM = parser PDF VRM (most reliable) over the email-body sniff; both filtered.
+    const bestVrm = ((input.parserVrm || inbound.candidateVrm) ?? '').trim();
 
     try {
       // Dedup context — open same-provider cases + seen ids/hashes (caller-scoped, re-asserted in resolveCase).
       const context = await dataApi.dedupContext({
         workProviderId: providerId ?? '',
-        vrm: inbound.candidateVrm,
+        vrm: bestVrm,
         messageId: inbound.messageId,
       });
 
       const decision = resolveCase({
         messageId: inbound.messageId,
         payloadHash: inbound.payloadHash,
-        candidateVrm: inbound.candidateVrm,
+        candidateVrm: bestVrm,
         candidateRef: inbound.candidateRef,
         workProviderId: providerId ?? '',
         openProviderCases: context.openProviderCases,
@@ -58,6 +63,7 @@ df.app.activity('caseResolve', {
         inbound,
         providerId,
         matchState,
+        parserVrm: input.parserVrm,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
@@ -69,7 +75,9 @@ df.app.activity('caseResolve', {
       });
 
       ctx.log(JSON.stringify({ evt: 'caseResolve', resolution: decision.resolution, outcome: persisted.outcome, caseId: persisted.caseId }));
-      return { outcome: persisted.outcome, caseId: persisted.caseId };
+      // casePo is minted (non-null) only for a known-provider `created` case — the intake
+      // orchestrator uses it to name the Box folder (new-client→Held has no PO → no folder).
+      return { outcome: persisted.outcome, caseId: persisted.caseId, casePo: persisted.casePo ?? null };
     } catch (e) {
       if (e instanceof ConflictError) {
         // UNIQUE(sourcemessageid) backstop fired — a concurrent/replayed ingest already landed it.

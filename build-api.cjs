@@ -1,6 +1,10 @@
 // Bundle the Data API for deploy (esbuild borrowed from mockup-app, same as build-orch.cjs).
 // Includes the import.meta.url banner/define guard defensively (harmless if unused).
-const esbuild = require('./mockup-app/node_modules/esbuild');
+// esbuild: prefer mockup-app's copy (dev env), fall back to the root node_modules (WSL/CI env).
+const esbuild = (() => {
+  try { return require('./mockup-app/node_modules/esbuild'); }
+  catch { return require('esbuild'); }
+})();
 esbuild.build({
   entryPoints: ['api/src/index.ts'],
   bundle: true,

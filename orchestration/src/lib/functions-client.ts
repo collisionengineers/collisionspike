@@ -64,6 +64,9 @@ export interface ClassifyEmailResult {
   signals?: string[];
   body_vrm?: string;
   body_caseref?: string;
+  /** True when the email is a reply about existing work (#3). Default false; the route
+   *  derives it from in_reply_to/references when supplied, else a RE:-subject heuristic. */
+  is_reply?: boolean;
 }
 
 /**
@@ -81,6 +84,9 @@ export function callClassifyEmail(input: {
   providerMatchState?: string;
   attachmentKinds?: string[];
   hasAttachments?: boolean;
+  /** RFC In-Reply-To / References headers — make is_reply detection reliable (#3). */
+  inReplyTo?: string;
+  references?: string;
 }): Promise<ClassifyEmailResult> {
   return callFunction(PARSER, 'POST', 'classify-email', {
     subject: input.subject ?? '',
@@ -90,6 +96,8 @@ export function callClassifyEmail(input: {
     provider_match_state: input.providerMatchState ?? '',
     attachment_kinds: input.attachmentKinds ?? [],
     has_attachments: input.hasAttachments ?? false,
+    in_reply_to: input.inReplyTo ?? '',
+    references: input.references ?? '',
   });
 }
 
