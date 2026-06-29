@@ -26,8 +26,8 @@ platform mechanism changed._
 > - **Orchestration** — Function App **`cespk-orch-dev`** — email intake is **LIVE IN TESTING**: **2
 >   Microsoft Graph PUSH change-notification subscriptions** over the test mailbox set engineers@ + digital@
 >   (both Exchange-RBAC-scoped); transport is **push, not delta-poll**. The production target is info@ +
->   engineers@ + desk@ (info@ + desk@ not yet scoped); manual case-create remains alongside. ⚠️ Subscriptions
->   expire 2026-07-05 — see the renewal watch-item (B0 below).
+>   engineers@ + desk@ (info@ + desk@ not yet scoped); manual case-create remains alongside. ✅ Subscriptions
+>   renewed to 2026-07-06, kept alive by the durable `subscriptionMonitorOrchestrator` (renewal RESOLVED 2026-06-29; see the renewal note below).
 > - **Database (system of record)** — Postgres Flexible **`cespk-pg-dev`** (v16), database
 >   `collisionspike` (table + corpus counts in the registry
 >   [architecture/live-environment.md](./architecture/live-environment.md), single source
@@ -146,9 +146,12 @@ implemented**) must run on a **separate** pool opened with `-c app.role=admin`, 
 > **push, not delta-poll**. **B2 (Graph secret in Key Vault) and B3 (deploy + wire orchestration) are DONE.**
 > The remaining step to reach the **production** set (info@ + engineers@ + desk@; drop test-only digital@) is
 > **B1 — Exchange-RBAC-scope info@ + desk@** (engineers@ + digital@ are already scoped → 200; info@ + desk@ →
-> 403), plus the finishing items in B3. ⚠️ **Renewal watch-item:** the 2 subscriptions **expire 2026-07-05**
-> and `graph-renew` showed **0 executions in the last 3 days** — confirm the renewer is firing (or
-> re-bootstrap) before expiry or intake silently lapses. The design is authorised by **Exchange RBAC for
+> 403), plus the finishing items in B3. ✅ **Renewal RESOLVED (2026-06-29):** the 2 subscriptions were renewed
+> to 2026-07-06 and are now kept alive by a **Durable eternal orchestration** (`subscriptionMonitorOrchestrator`)
+> — a plain NCRONTAB timer can't wake the scale-to-zero FC1 app (root cause), so the `graph-renew` timer is
+> retained only as a backstop. Residual watch-item: `graph-webhook` still emits some `499`/`BadHttpRequestException`
+> cold-start aborts, but intake still flows (Graph retries absorb the misses) and an always-ready instance is
+> left OFF for Free-Trial cost (enable only if drops persist). The design is authorised by **Exchange RBAC for
 > Applications** (resource-scoped, **no Global-Admin consent**) layered with **Graph PUSH subscriptions**.
 
 #### B1. Exchange-RBAC-scope the remaining production mailboxes (info@ + desk@)
@@ -209,8 +212,9 @@ Graph PUSH subscriptions over engineers@ + digital@.
 **Still needed for the production mailbox set:** **B1** (Exchange-RBAC-scope info@ + desk@ — engineers@ +
 digital@ are already scoped with live push subscriptions); set **`EVIDENCE_BLOB_CONNECTION`** (prefer a
 managed-identity form — currently unset to avoid a plaintext secret); assign the **orch managed identity an
-app-role on the Data API**; wire **Azure Monitor heartbeat alerts**. ⚠️ And **confirm `graph-renew` is firing**
-before the 2026-07-05 subscription expiry (0 executions seen in the last 3 days).
+app-role on the Data API**; wire **Azure Monitor heartbeat alerts**. ✅ Graph renewal is RESOLVED (2026-06-29):
+the durable `subscriptionMonitorOrchestrator` keeps the subscriptions renewed (the `graph-renew` timer never
+fired on Flex scale-to-zero — now a backstop); subscriptions renewed to 2026-07-06.
 
 **What:** publish the orchestration code to `cespk-orch-dev` and set the env it needs to poll Graph and call
 the existing Functions.

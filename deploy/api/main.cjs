@@ -5285,6 +5285,76 @@ function statusForReviewCase(input) {
   return hasIdentityOf(input) ? "needs_review" : "error";
 }
 
+// packages/domain/dist/domain/vrm-filter.js
+var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
+var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
+var ANCHOR = /\b(?:registration|reg|vrm|vehicle|plate|number\s?plate)\b/i;
+var EXCLUDE_WORDS = /* @__PURE__ */ new Set([
+  "VAT",
+  "TEL",
+  "REF",
+  "REFERENCE",
+  "INVOICE",
+  "INV",
+  "PHONE",
+  "FAX",
+  "FAO",
+  "PO",
+  "ORDER",
+  "ACCOUNT",
+  "ACC"
+]);
+var EXCLUDE_LABEL = new RegExp(`\\b(?:${[...EXCLUDE_WORDS].join("|")})[:.#\\-\\s]*$`);
+function isPostcodeOutward(upper, idx, cand) {
+  const after = upper.slice(idx + cand.length);
+  return /^\s?[0-9][A-Z]{2}\b/.test(after);
+}
+function precededByExcludeLabel(upper, idx) {
+  const before = upper.slice(Math.max(0, idx - 16), idx);
+  return EXCLUDE_LABEL.test(before);
+}
+function extractVrm(text) {
+  if (!text)
+    return "";
+  const upper = text.toUpperCase();
+  for (const m of upper.matchAll(STRICT)) {
+    const cand = m[0];
+    if (isPostcodeOutward(upper, m.index ?? 0, cand))
+      continue;
+    return cand.replace(/\s+/g, "");
+  }
+  if (ANCHOR.test(text)) {
+    for (const m of upper.matchAll(LOOSE)) {
+      const cand = m[0];
+      const idx = m.index ?? 0;
+      if (isPostcodeOutward(upper, idx, cand))
+        continue;
+      const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
+      if (EXCLUDE_WORDS.has(alpha))
+        continue;
+      if (precededByExcludeLabel(upper, idx))
+        continue;
+      return cand.replace(/\s+/g, "");
+    }
+  }
+  return "";
+}
+
+// packages/domain/dist/domain/case-po.js
+var CASE_PO_SEQ_WIDTH = 3;
+function formatCasePo(principalCode, year2, seq) {
+  const principal = String(principalCode).trim().toUpperCase();
+  const yy = String(year2).trim().padStart(2, "0").slice(-2);
+  const n = Math.max(0, Math.trunc(Number(seq) || 0));
+  return `${principal}${yy}${String(n).padStart(CASE_PO_SEQ_WIDTH, "0")}`;
+}
+function casePoYear(d = /* @__PURE__ */ new Date()) {
+  return String(d.getFullYear() % 100).padStart(2, "0");
+}
+function casePoSequenceRegex(principal, yy) {
+  return `^${principal.toUpperCase()}${yy}[0-9]{${CASE_PO_SEQ_WIDTH},}$`;
+}
+
 // packages/domain/dist/model/queues.js
 var QUEUES = [
   {
@@ -7173,6 +7243,24 @@ async function query(sql, params) {
   const result = await getPool().query(sql, params);
   return result.rows;
 }
+async function tx(fn) {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const q = async (sql, params) => (await client.query(sql, params)).rows;
+    const result = await fn(q);
+    await client.query("COMMIT");
+    return result;
+  } catch (e) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
 
 // api/src/lib/audit.ts
 var AUDIT_ACTION = {
@@ -7678,6 +7766,53 @@ import_functions.app.http("caseById", {
     const c = await loadCaseFull(id, /* @__PURE__ */ new Date());
     if (!c) return { status: 404, jsonBody: { error: "not found" } };
     return { status: 200, jsonBody: c };
+  })
+});
+import_functions.app.http("patchCase", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "cases/{id}",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body = await req.json().catch(() => ({}));
+    const actor = actorFromClaims(claims);
+    const existing = await loadCaseLite(id);
+    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
+    const sets = [];
+    const vals = [];
+    const before = {};
+    const after = {};
+    if (body.vrm !== void 0) {
+      const raw = String(body.vrm ?? "").trim();
+      const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
+      const newVrm = raw ? extractVrm(raw) || cleaned : "";
+      if (newVrm !== existing.vrm) {
+        sets.push(`vrm = $${sets.length + 1}`);
+        vals.push(newVrm);
+        before.vrm = existing.vrm;
+        after.vrm = newVrm;
+      }
+    }
+    if (sets.length === 0) {
+      const cur = await loadCaseFull(id, /* @__PURE__ */ new Date());
+      return { status: 200, jsonBody: cur };
+    }
+    vals.push(id);
+    await query(
+      `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
+      vals
+    );
+    await writeAudit({
+      action: AUDIT_ACTION.status_changed,
+      caseId: id,
+      summary: `Case edited: ${Object.keys(after).join(", ")}`,
+      before,
+      after,
+      ...actor ? { actor } : {}
+    });
+    await recomputeStatus(id, actor);
+    const updated = await loadCaseFull(id, /* @__PURE__ */ new Date());
+    return { status: 200, jsonBody: updated };
   })
 });
 import_functions.app.http("createCase", {
@@ -8510,6 +8645,18 @@ import_functions8.app.http("parserParse", {
 
 // api/src/functions/internal.ts
 var import_functions9 = require("@azure/functions");
+
+// api/src/lib/enrichment-map.ts
+function combineMakeModel(make, model) {
+  const mk = (make ?? "").trim();
+  const md = (model ?? "").trim();
+  if (mk && md) {
+    return md.toUpperCase().startsWith(mk.toUpperCase()) ? md : `${mk} ${md}`;
+  }
+  return md || mk || "";
+}
+
+// api/src/functions/internal.ts
 async function withServiceAuth(req, ctx, fn) {
   try {
     await authenticate(req);
@@ -8568,12 +8715,13 @@ import_functions9.app.http("internalProviderMatchRecords", {
   route: "internal/provider-match-records",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const rows = await query(
-      "SELECT id, principal_code, known_email_domains, active FROM work_provider ORDER BY display_name"
+      "SELECT id, principal_code, known_email_domains, known_email_addresses, active FROM work_provider ORDER BY display_name"
     );
     const records = rows.map((r) => ({
       workProviderId: r.id,
       principalCode: r.principal_code,
       knownEmailDomains: parseDomains2(r.known_email_domains),
+      knownEmailAddresses: parseDomains2(r.known_email_addresses),
       active: Boolean(r.active)
     }));
     return { status: 200, jsonBody: records };
@@ -8652,8 +8800,9 @@ import_functions9.app.http("internalCasesResolve", {
     const body = await req.json();
     const { inbound, providerId, decision } = body;
     const workProviderId = providerId ?? null;
+    const vrm = ((body.parserVrm || inbound.candidateVrm) ?? "").trim();
     if (decision.resolution === "attach" && decision.targetCaseId) {
-      await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId);
+      await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId, void 0, body.parserVrm);
       await writeAudit({
         action: AUDIT_ACTION.case_attached,
         caseId: decision.targetCaseId,
@@ -8664,61 +8813,119 @@ import_functions9.app.http("internalCasesResolve", {
     }
     const rawStatus = decision.statusEffect;
     const statusCode = caseStatusCodec.toInt(rawStatus) ?? statusToInt("new_email");
-    const vrm = (inbound.candidateVrm ?? "").trim();
     const caseRef = (inbound.candidateRef ?? "").trim();
     const subject = (inbound.subject ?? "").trim();
     const name = [vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Email intake";
     const emailKindCode = intakeChannelKindCodec.toInt("email") ?? null;
-    let newCaseId;
+    let created;
     try {
-      const cols = [
-        "name",
-        "vrm",
-        "status_code",
-        "intake_channel_kind_code",
-        "intake_channel_manual",
-        "source_mailbox",
-        "source_message_id",
-        "payload_hash",
-        "work_provider_id"
-      ];
-      const vals = [
-        name,
-        vrm || null,
-        statusCode,
-        emailKindCode,
-        false,
-        inbound.sourceMailbox ?? null,
-        inbound.internetMessageId ?? null,
-        inbound.payloadHash ?? null,
-        workProviderId
-      ];
-      if (caseRef) {
-        cols.push("case_ref");
-        vals.push(caseRef);
-      }
-      const placeholders = vals.map((_, i) => `$${i + 1}`).join(", ");
-      const rows = await query(
-        `INSERT INTO case_ (${cols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
-        vals
-      );
-      newCaseId = rows[0]?.id;
-      if (!newCaseId) return { status: 500, jsonBody: { error: "case insert returned no id" } };
+      created = await tx(async (q) => {
+        let principalCode = "";
+        if (workProviderId) {
+          const wp = await q("SELECT principal_code FROM work_provider WHERE id = $1", [workProviderId]);
+          principalCode = String(wp[0]?.principal_code ?? "").trim();
+        }
+        const newClient = !workProviderId || !principalCode;
+        let casePo = null;
+        if (!newClient) {
+          const principal = principalCode.toUpperCase();
+          const yy = casePoYear();
+          const prefix = `${principal}${yy}`;
+          await q("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [`casepo:${prefix}`]);
+          const seqRows = await q(
+            `SELECT COALESCE(MAX(SUBSTRING(case_po FROM length($3) + 1)::int), 0) + 1 AS next_seq
+                 FROM case_
+                WHERE case_po LIKE $1 AND case_po ~ $2`,
+            [`${prefix}%`, casePoSequenceRegex(principal, yy), prefix]
+          );
+          casePo = formatCasePo(principal, yy, Number(seqRows[0]?.next_seq ?? 1));
+        }
+        const cols = [
+          "name",
+          "vrm",
+          "status_code",
+          "intake_channel_kind_code",
+          "intake_channel_manual",
+          "source_mailbox",
+          "source_message_id",
+          "payload_hash",
+          "work_provider_id"
+        ];
+        const vals = [
+          name,
+          vrm || null,
+          statusCode,
+          emailKindCode,
+          false,
+          inbound.sourceMailbox ?? null,
+          inbound.internetMessageId ?? null,
+          inbound.payloadHash ?? null,
+          workProviderId
+        ];
+        if (caseRef) {
+          cols.push("case_ref");
+          vals.push(caseRef);
+        }
+        if (casePo) {
+          cols.push("case_po");
+          vals.push(casePo);
+        }
+        if (newClient) {
+          cols.push("on_hold");
+          vals.push(true);
+          cols.push("action_reason_code");
+          vals.push(actionReasonCodec.toInt("needs_review") ?? null);
+        }
+        const placeholders = vals.map((_, i) => `$${i + 1}`).join(", ");
+        const rows = await q(
+          `INSERT INTO case_ (${cols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
+          vals
+        );
+        const caseId = rows[0]?.id;
+        if (!caseId) throw new Error("case insert returned no id");
+        return { caseId, casePo, newClient, principalCode };
+      });
     } catch (e) {
       if (isUniqueViolation(e)) {
+        const constraint = uniqueConstraintName(e);
+        if (constraint === "uq_case_case_po") {
+          ctx.error(`[cases/resolve] case_po unique collision (${constraint})`);
+          return { status: 500, jsonBody: { error: "case_po_collision" } };
+        }
         return { status: 409, jsonBody: { error: "conflict", detail: "source_message_id already exists" } };
       }
       throw e;
     }
-    await upsertInboundEmail(inbound, workProviderId, newCaseId);
+    const newCaseId = created.caseId;
+    await upsertInboundEmail(inbound, workProviderId, newCaseId, void 0, body.parserVrm);
     const auditAction = AUDIT_ACTION[decision.auditAction] ?? AUDIT_ACTION.case_created;
     await writeAudit({
       action: auditAction,
       caseId: newCaseId,
       summary: `Case ${decision.resolution}: ${name}`,
-      after: { resolution: decision.resolution, status: rawStatus, vrm }
+      after: { resolution: decision.resolution, status: rawStatus, vrm, casePo: created.casePo }
     });
-    return { status: 200, jsonBody: { outcome: "created", caseId: newCaseId } };
+    if (created.newClient) {
+      const domain = senderDomain(inbound.senderAddress ?? "");
+      await query(
+        `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
+        [
+          "New client",
+          newCaseId,
+          "Email intake (auto)",
+          `New client \u2014 no work provider matched for sender${domain ? ` @${domain}` : ""}. No Case/PO minted; set up the work provider and confirm before EVA.`
+        ]
+      ).catch(() => {
+      });
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_routed,
+        caseId: newCaseId,
+        severity: "warning",
+        summary: "New client routed to Held (no work provider matched)",
+        after: { newClient: true, onHold: true, senderDomain: domain }
+      });
+    }
+    return { status: 200, jsonBody: { outcome: "created", caseId: newCaseId, casePo: created.casePo } };
   })
 });
 import_functions9.app.http("internalInboundEmail", {
@@ -8736,12 +8943,12 @@ import_functions9.app.http("internalInboundEmail", {
     return { status: 200, jsonBody: { inboundEmailId } };
   })
 });
-async function upsertInboundEmail(inbound, workProviderId, caseId, classification) {
+async function upsertInboundEmail(inbound, workProviderId, caseId, classification, parserVrm) {
   const subject = (inbound.subject ?? "").trim();
   const name = `Email: ${subject || inbound.internetMessageId}`;
   const categoryCode = classification ? INBOUND_CATEGORY_TO_INT[classification.category] ?? null : null;
   const subtypeCode = classification ? INBOUND_SUBTYPE_TO_INT[classification.subtype] ?? null : null;
-  const bodyVrm = classification?.bodyVrm || inbound.candidateVrm || "" || null;
+  const bodyVrm = ((parserVrm || classification?.bodyVrm || inbound.candidateVrm) ?? "").trim() || null;
   const bodyCaseref = classification?.bodyCaseref || inbound.candidateRef || "" || null;
   const bodyPreview = (inbound.bodyPreview ?? "") || null;
   const confidence = classification ? classification.confidence : null;
@@ -8760,6 +8967,7 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
          subtype_code     = COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code),
          confidence       = COALESCE(EXCLUDED.confidence, inbound_email.confidence),
          signals          = COALESCE(EXCLUDED.signals, inbound_email.signals),
+         body_vrm         = COALESCE(EXCLUDED.body_vrm, inbound_email.body_vrm),
          body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
          body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
          work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
@@ -8793,6 +9001,123 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
 function isUniqueViolation(e) {
   return e != null && typeof e === "object" && "code" in e && e.code === "23505";
 }
+function uniqueConstraintName(e) {
+  if (e != null && typeof e === "object" && "constraint" in e) {
+    const c = e.constraint;
+    return typeof c === "string" ? c : void 0;
+  }
+  return void 0;
+}
+import_functions9.app.http("internalCasesEnrichment", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/enrichment",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    const body = await req.json();
+    const cur = await query(
+      "SELECT eva_vehicle_model, eva_mileage, eva_mileage_unit FROM case_ WHERE id = $1",
+      [caseId]
+    );
+    if (!cur[0]) return { status: 404, jsonBody: { error: "case not found" } };
+    const vehicleModel = combineMakeModel(
+      String(body.make ?? "").trim(),
+      String(body.vehicle_model ?? "").trim()
+    );
+    const mileage = body.current_mileage != null ? String(body.current_mileage).replace(/[^\d]/g, "") : "";
+    const mileageUnitRaw = String(body.mileage_unit ?? "").trim();
+    const mileageUnit = mileageUnitRaw === "Miles" || mileageUnitRaw === "Km" ? mileageUnitRaw : "";
+    const applied = [];
+    const sets = [];
+    const vals = [];
+    const isEmpty = (v) => !String(v ?? "").trim();
+    if (vehicleModel && isEmpty(cur[0].eva_vehicle_model)) {
+      sets.push(`eva_vehicle_model = $${sets.length + 1}`);
+      vals.push(vehicleModel.slice(0, 200));
+      applied.push("vehicleModel");
+    }
+    if (mileage && isEmpty(cur[0].eva_mileage)) {
+      sets.push(`eva_mileage = $${sets.length + 1}`);
+      vals.push(mileage.slice(0, 20));
+      applied.push("mileage");
+      if (mileageUnit) {
+        sets.push(`eva_mileage_unit = $${sets.length + 1}`);
+        vals.push(mileageUnit);
+        applied.push("mileageUnit");
+      }
+    }
+    if (sets.length > 0) {
+      vals.push(caseId);
+      await query(
+        `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
+        vals
+      );
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.enrichment_called,
+      caseId,
+      summary: `Enrichment persisted: ${applied.length ? applied.join(", ") : "no new fields"}`,
+      after: { applied, warnings: body.warnings ?? [] }
+    });
+    ctx.log(JSON.stringify({ evt: "internalCasesEnrichment", caseId, applied }));
+    return { status: 200, jsonBody: { applied } };
+  })
+});
+import_functions9.app.http("internalInboundLinkReply", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/link-reply",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body = await req.json();
+    const { inbound } = body;
+    const workProviderId = body.providerId ?? null;
+    const ref = (body.ref ?? "").trim();
+    const vrm = (body.vrm ?? "").trim();
+    let candidates = [];
+    if (ref) {
+      candidates = await query(
+        `SELECT id, case_ref, case_po, vrm FROM case_
+            WHERE (case_ref = $1 OR case_po = $1)
+              AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
+            ORDER BY created_at`,
+        [ref]
+      );
+    }
+    if (candidates.length === 0 && vrm) {
+      candidates = await query(
+        `SELECT id, case_ref, case_po, vrm FROM case_
+            WHERE vrm = $1
+              AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
+            ORDER BY created_at`,
+        [vrm]
+      );
+    }
+    const linkCaseId = candidates.length === 1 ? candidates[0].id : null;
+    await upsertInboundEmail(inbound, workProviderId, linkCaseId);
+    if (linkCaseId) {
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_routed,
+        caseId: linkCaseId,
+        summary: `Reply linked to existing case (${ref ? `ref ${ref}` : `vrm ${vrm}`})`,
+        after: { matchedBy: ref ? "caseref" : "vrm", messageId: inbound.internetMessageId }
+      });
+      ctx.log(JSON.stringify({ evt: "linkReply", outcome: "linked", caseId: linkCaseId }));
+      return { status: 200, jsonBody: { outcome: "linked", caseId: linkCaseId, candidateCount: 1 } };
+    }
+    if (candidates.length > 1) {
+      await writeAudit({
+        action: AUDIT_ACTION.duplicate_flagged,
+        severity: "warning",
+        summary: `Reply matched ${candidates.length} open cases (${ref ? `ref ${ref}` : `vrm ${vrm}`}); held for manual linking`,
+        after: { candidateCount: candidates.length, candidateIds: candidates.map((c) => c.id) }
+      });
+      ctx.log(JSON.stringify({ evt: "linkReply", outcome: "ambiguous", count: candidates.length }));
+      return { status: 200, jsonBody: { outcome: "ambiguous", candidateCount: candidates.length } };
+    }
+    ctx.log(JSON.stringify({ evt: "linkReply", outcome: "no_match" }));
+    return { status: 200, jsonBody: { outcome: "no_match", candidateCount: 0 } };
+  })
+});
 import_functions9.app.http("internalCasesEvidence", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -8991,5 +9316,62 @@ import_functions9.app.http("internalBoxMarkPurged", {
       [body.caseId, body.blobPath]
     );
     return { status: 204 };
+  })
+});
+import_functions9.app.http("internalCaseBoxFolderGet", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/box-folder",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 200, jsonBody: { boxFolderId: null, boxFolderUrl: null, casePo: null } };
+    const rows = await query(
+      "SELECT box_folder_id, box_folder_url, case_po FROM case_ WHERE id = $1",
+      [caseId]
+    );
+    const r = rows[0];
+    return {
+      status: 200,
+      jsonBody: {
+        boxFolderId: r?.box_folder_id ?? null,
+        boxFolderUrl: r?.box_folder_url ?? null,
+        casePo: r?.case_po ?? null
+      }
+    };
+  })
+});
+import_functions9.app.http("internalCaseBoxFolderStamp", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/box-folder",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = (req.params.id ?? "").trim();
+    const body = await req.json();
+    const boxFolderId = (body.boxFolderId ?? "").trim();
+    const boxFolderUrl = (body.boxFolderUrl ?? "").trim() || null;
+    if (!caseId || !boxFolderId) {
+      return { status: 400, jsonBody: { error: "caseId and boxFolderId required" } };
+    }
+    const stamped = await query(
+      `UPDATE case_
+            SET box_folder_id = $2, box_folder_url = $3, updated_at = now()
+          WHERE id = $1 AND box_folder_id IS NULL
+        RETURNING box_folder_id`,
+      [caseId, boxFolderId, boxFolderUrl]
+    );
+    if (stamped.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.box_folder_created,
+        caseId,
+        summary: `Box folder ${boxFolderId} linked to case`,
+        after: { boxFolderId, boxFolderUrl }
+      });
+      return { status: 200, jsonBody: { applied: true, boxFolderId } };
+    }
+    const cur = await query("SELECT box_folder_id FROM case_ WHERE id = $1", [caseId]);
+    return {
+      status: 200,
+      jsonBody: { applied: false, boxFolderId: cur[0]?.box_folder_id ?? null }
+    };
   })
 });

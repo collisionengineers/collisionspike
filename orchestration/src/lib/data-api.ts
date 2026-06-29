@@ -128,6 +128,13 @@ export const dataApi = {
     inbound: unknown;
     providerId?: string;
     matchState?: string;
+    /** Parser-confirmed PDF VRM — the API prefers it over the email-body sniff (#7). */
+    parserVrm?: string;
+    /** #100 — parser-confirmed provider reference; a PDF-only ref feeds dedup + persists as case_ref. */
+    parserRef?: string;
+    /** #107 — parser-extracted document mileage (+unit); persisted fill-if-empty (ADR-0006 doc-first). */
+    parserMileage?: string;
+    parserMileageUnit?: string;
     decision: {
       resolution: string;
       targetCaseId?: string;
@@ -136,7 +143,7 @@ export const dataApi = {
       statusEffect: string;
       auditAction: string;
     };
-  }): Promise<{ outcome: 'created' | 'attached' | 'already_ingested'; caseId: string }> {
+  }): Promise<{ outcome: 'created' | 'attached' | 'already_ingested'; caseId: string; casePo?: string | null }> {
     return request('POST', '/api/internal/cases/resolve', payload);
   },
 
@@ -171,6 +178,37 @@ export const dataApi = {
   /** Recompute EVA-readiness + status machine and persist (internal route). */
   evaluateStatus(caseId: string): Promise<{ value: string }> {
     return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {});
+  },
+
+  /**
+   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
+   * Fill-if-empty on the API side; returns the fields it actually filled.
+   */
+  persistEnrichment(
+    caseId: string,
+    result: {
+      vehicle_model?: string;
+      make?: string;
+      current_mileage?: number | string;
+      mileage_unit?: string;
+      warnings?: string[];
+    },
+  ): Promise<{ applied: string[] }> {
+    return request('POST', `/api/internal/cases/${caseId}/enrichment`, result);
+  },
+
+  /**
+   * Resolve a REPLY about existing work against OPEN cases (Case-ref first, then VRM) and
+   * link the triage row to the single match — or, when ambiguous (>1), leave it for a human
+   * (ADR-0010: never auto-link). The DB lookup + ADR-0010 decision run server-side (#3).
+   */
+  linkReplyToOpenCase(payload: {
+    inbound: unknown;
+    providerId?: string;
+    ref?: string;
+    vrm?: string;
+  }): Promise<{ outcome: 'linked' | 'ambiguous' | 'no_match'; caseId?: string; candidateCount: number }> {
+    return request('POST', '/api/internal/inbound/link-reply', payload);
   },
 
   /** Append one audit_event row (internal route; the API enforces append-only). */
@@ -208,6 +246,29 @@ export const dataApi = {
   /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
   markBlobPurged(payload: { caseId: string; blobPath: string }): Promise<void> {
     return request('POST', '/api/internal/box/mark-purged', payload);
+  },
+
+  /**
+   * Read a case's current Box folder linkage (internal route; idempotency source for
+   * box-folder-create). `boxFolderId` is null when the case has no folder yet.
+   */
+  getCaseBoxFolder(
+    caseId: string,
+  ): Promise<{ boxFolderId: string | null; boxFolderUrl: string | null; casePo: string | null }> {
+    return request('GET', `/api/internal/cases/${caseId}/box-folder`);
+  },
+
+  /**
+   * First-wins stamp of the Box folder id/url onto a case (internal route). Idempotent:
+   * a re-run / concurrent create returns { applied: false } and the API audits
+   * box_folder_created ONLY on the stamping call. The activity reads back first, so this
+   * is the durable backstop, not the primary dedup.
+   */
+  stampCaseBoxFolder(
+    caseId: string,
+    payload: { boxFolderId: string; boxFolderUrl?: string },
+  ): Promise<{ applied: boolean; boxFolderId: string | null }> {
+    return request('POST', `/api/internal/cases/${caseId}/box-folder`, payload);
   },
 };
 

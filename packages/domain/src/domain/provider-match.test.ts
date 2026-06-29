@@ -40,6 +40,14 @@ const PROVIDERS: ProviderMatchRecord[] = [
     knownEmailDomains: ['shared-domain.com'],
     active: true,
   },
+  // Generic-domain provider matched by FULL ADDRESS only (gmail can't be domain-keyed).
+  {
+    workProviderId: 'wp-yml',
+    principalCode: 'YML',
+    knownEmailDomains: [],
+    knownEmailAddresses: ['networkhduk@gmail.com'],
+    active: true,
+  },
 ];
 
 /* ----------  matched / unmatched / ambiguous  ---------- */
@@ -126,5 +134,65 @@ describe('domainOf', () => {
     const r = matchProviderByDomain('garbage', PROVIDERS);
     expect(r.outcome).toBe('unmatched');
     expect(r.matchedDomain).toBe('');
+  });
+});
+
+/* ----------  Address-level matching (generic domains, e.g. gmail)  ---------- */
+
+describe('matchProviderByDomain — address-level (knownEmailAddresses)', () => {
+  it('matched: exact full address on a generic domain', () => {
+    const r = matchProviderByDomain('networkhduk@gmail.com', PROVIDERS);
+    expect(r.outcome).toBe('matched');
+    expect(r.workProviderId).toBe('wp-yml');
+    expect(r.principalCode).toBe('YML');
+    expect(r.matchedBy).toBe('address');
+    expect(r.matchedAddress).toBe('networkhduk@gmail.com');
+  });
+
+  it('matched: address is case-insensitive and unwraps a display-name form', () => {
+    const r = matchProviderByDomain('"Network HD" <NetworkHDUK@Gmail.com>', PROVIDERS);
+    expect(r.outcome).toBe('matched');
+    expect(r.workProviderId).toBe('wp-yml');
+  });
+
+  it('unmatched: a DIFFERENT generic-domain address is not matched by domain', () => {
+    const r = matchProviderByDomain('someoneelse@gmail.com', PROVIDERS);
+    expect(r.outcome).toBe('unmatched');
+    expect(r.matchedDomain).toBe('gmail.com');
+  });
+
+  it('address match takes PRECEDENCE over a domain match', () => {
+    const providers: ProviderMatchRecord[] = [
+      { workProviderId: 'wp-dom', principalCode: 'dom', knownEmailDomains: ['shared.com'], active: true },
+      {
+        workProviderId: 'wp-addr',
+        principalCode: 'adr',
+        knownEmailDomains: [],
+        knownEmailAddresses: ['vip@shared.com'],
+        active: true,
+      },
+    ];
+    const r = matchProviderByDomain('vip@shared.com', providers);
+    expect(r.outcome).toBe('matched');
+    expect(r.workProviderId).toBe('wp-addr');
+    expect(r.matchedBy).toBe('address');
+  });
+
+  it('ambiguous: two ACTIVE providers sharing a known address never auto-pick', () => {
+    const providers: ProviderMatchRecord[] = [
+      { workProviderId: 'a1', principalCode: 'a1', knownEmailDomains: [], knownEmailAddresses: ['x@gmail.com'], active: true },
+      { workProviderId: 'a2', principalCode: 'a2', knownEmailDomains: [], knownEmailAddresses: ['x@gmail.com'], active: true },
+    ];
+    const r = matchProviderByDomain('x@gmail.com', providers);
+    expect(r.outcome).toBe('ambiguous');
+    expect(r.matchedBy).toBe('address');
+    expect(r.ambiguousProviderIds).toEqual(['a1', 'a2']);
+  });
+
+  it('falls back to domain when no address override matches', () => {
+    const r = matchProviderByDomain('claims@acme.co.uk', PROVIDERS);
+    expect(r.outcome).toBe('matched');
+    expect(r.workProviderId).toBe('wp-acme');
+    expect(r.matchedBy).toBe('domain');
   });
 });

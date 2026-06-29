@@ -102,6 +102,83 @@ export async function listOurSubscriptions(): Promise<GraphSubscription[]> {
   return (res.value ?? []).filter((s) => (s.notificationUrl ?? '').startsWith(url));
 }
 
+/** Minimal logger shape shared by the timer / HTTP / durable-activity callers. */
+export interface MaintenanceLog {
+  log: (m: string) => void;
+  warn: (m: string) => void;
+  error: (m: string) => void;
+}
+
+export interface MaintenanceSummary {
+  created: string[];
+  renewed: Array<{ subId: string; next?: string }>;
+  recreated: string[];
+  errors: string[];
+}
+
+/**
+ * Bootstrap-create any missing intake subscriptions, then PATCH-renew every existing one
+ * (plan 22 §A.2/§A.5). The single shared routine behind the graph-renew timer (backstop), the
+ * graph-renew HTTP route, and the durable subscriptionMonitor — so renewal no longer depends on
+ * the Flex scale-to-zero timer that never fires (the timer trigger is not woken at a scheduled
+ * tick; durable timers and HTTP ARE). Idempotent + best-effort: a per-mailbox / per-subscription
+ * failure is logged and collected, never thrown (one bad mailbox must not stop the rest).
+ */
+export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promise<MaintenanceSummary> {
+  const summary: MaintenanceSummary = { created: [], renewed: [], recreated: [], errors: [] };
+  const subs = await listOurSubscriptions();
+  const configured = intakeMailboxes();
+  const subbed = new Set(subs.map((s) => mailboxOfResource(s.resource)).filter(Boolean));
+
+  // BOOTSTRAP — ensure every configured intake mailbox has a subscription (create if missing).
+  for (const cfg of configured) {
+    if (subbed.has(cfg.mailbox)) continue;
+    try {
+      const created = await createSubscription(cfg.mailbox);
+      summary.created.push(cfg.mailbox);
+      logger.log(JSON.stringify({ evt: 'graph-subscription-created', subId: created.id, mailbox: cfg.mailbox, next: created.expirationDateTime }));
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      summary.errors.push(`create ${cfg.mailbox}: ${m}`);
+      logger.error(`[subscription-maintenance] bootstrap ${cfg.mailbox} failed (is the mailbox Exchange-RBAC-scoped?): ${m}`);
+    }
+  }
+
+  // RENEW — PATCH every existing subscription forward; 404 (gone) → recreate for the same mailbox.
+  for (const sub of subs) {
+    try {
+      const renewed = await renewSubscription(sub.id);
+      summary.renewed.push({ subId: sub.id, next: renewed.expirationDateTime });
+      logger.log(JSON.stringify({ evt: 'graph-renewal-success', subId: sub.id, next: renewed.expirationDateTime }));
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      if (m.includes('→ 404')) {
+        const mailbox = mailboxOfResource(sub.resource);
+        logger.warn(`[subscription-maintenance] subscription ${sub.id} gone — recreating for ${mailbox}`);
+        if (mailbox) {
+          try {
+            const rc = await createSubscription(mailbox);
+            summary.recreated.push(mailbox);
+            logger.log(JSON.stringify({ evt: 'graph-renewal-success', subId: rc.id, recreated: true, next: rc.expirationDateTime }));
+          } catch (e2) {
+            const m2 = e2 instanceof Error ? e2.message : String(e2);
+            summary.errors.push(`recreate ${mailbox}: ${m2}`);
+            logger.error(`[subscription-maintenance] recreate ${mailbox} failed: ${m2}`);
+          }
+        }
+      } else {
+        summary.errors.push(`renew ${sub.id}: ${m}`);
+        logger.error(`[subscription-maintenance] PATCH ${sub.id} failed: ${m}`);
+      }
+    }
+  }
+
+  if (subs.length === 0 && configured.length === 0) {
+    logger.warn('[subscription-maintenance] no managed subscriptions and no configured intake mailboxes');
+  }
+  return summary;
+}
+
 /** Resolve the mailbox a subscription is scoped to (parse the `resource`). */
 export function mailboxOfResource(resource: string): string {
   // users/<mailbox>/mailFolders('Inbox')/messages — Graph change notifications echo the

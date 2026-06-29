@@ -94,6 +94,28 @@ VRM_RE = re.compile(
     re.IGNORECASE,
 )
 
+
+def vrm_candidate_is_bad(candidate: str, context: str) -> bool:
+    """True when a VRM-shaped ``candidate`` should be REJECTED.
+
+    Shared guard for BOTH the loose /parse fallback VRM extraction (RuleEngine)
+    and the email classifier's canonical ``body_vrm`` sniff (collisionspike #7),
+    so the two never drift. Rejects: a too-short compact that is not a full
+    letter-digit-letter plate; a candidate that is actually the OUTWARD half of a
+    UK postcode (immediately followed by an inward ``\\d[A-Z]{2}`` code, e.g.
+    ``LS8 2AB``); and bare label words. ``RuleEngine._vrm_candidate_is_bad``
+    delegates here.
+    """
+    compact = normalize_vrm(candidate)
+    if len(compact) < 5 and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}[A-Z]{1,3}", compact):
+        return True
+    if re.search(rf"\b{re.escape(candidate)}\s*\d[ABD-HJLNP-UW-Z]{{2}}\b", context, re.IGNORECASE):
+        return True
+    if compact in {"CLIENT", "VEHICLE", "REG", "MODEL"}:
+        return True
+    return False
+
+
 # Canonical value emitted for the inspection address when the document states the
 # vehicle will be assessed from images / on a desktop basis rather than at a
 # physical location. Matches the EVA contract convention (see docs/testing
@@ -184,6 +206,23 @@ _QUERY_KEYWORDS: tuple[str, ...] = (
     "can you confirm",
     "please confirm",
     "please update",
+    # collisionspike #8 — broader chase / status / advice wording. Real provider
+    # chases ("can we please have an update on our client") matched NO keyword and
+    # fell through to 'other'. These are deliberately NOT instruction wording (no
+    # inspect/report/attend verbs), so the work rules still win an email that both
+    # instructs and asks; the classifier only reaches these after the work rules.
+    "update on",
+    "an update",
+    "please advise",
+    "can you advise",
+    "could you advise",
+    "information regarding",
+    "any news",
+    "where are we with",
+    "when will",
+    "please chase",
+    "just chasing",
+    "awaiting your",
     "how much would",
     "how much do you charge",
     "what do you charge",
@@ -1507,14 +1546,7 @@ class RuleEngine:
         return FieldExtraction(value="", rule_id="fallback_vrm_label", confidence=0.0)
 
     def _vrm_candidate_is_bad(self, candidate: str, context: str) -> bool:
-        compact = normalize_vrm(candidate)
-        if len(compact) < 5 and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}[A-Z]{1,3}", compact):
-            return True
-        if re.search(rf"\b{re.escape(candidate)}\s*\d[ABD-HJLNP-UW-Z]{{2}}\b", context, re.IGNORECASE):
-            return True
-        if compact in {"CLIENT", "VEHICLE", "REG", "MODEL"}:
-            return True
-        return False
+        return vrm_candidate_is_bad(candidate, context)
 
     def _fallback_reference(self, lines: list[DocumentLine]) -> FieldExtraction:
         labels = ("reference", "ref", "claim no", "claim number", "case number", "our ref", "your ref")

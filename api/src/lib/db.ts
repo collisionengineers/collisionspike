@@ -68,3 +68,40 @@ export async function query<T extends Record<string, unknown>>(
   const result = await getPool().query<T>(sql, params);
   return result.rows;
 }
+
+/** A `query`-shaped function bound to a single transaction's client. */
+export type TxQuery = <R extends Record<string, unknown>>(
+  sql: string,
+  params?: unknown[],
+) => Promise<R[]>;
+
+/**
+ * Run `fn` inside a single transaction on ONE pooled client (BEGIN/COMMIT, ROLLBACK on
+ * throw). The callback receives a `query`-shaped function bound to that client so every
+ * statement — and any `pg_advisory_xact_lock` it takes — shares the transaction and is
+ * released together at COMMIT/ROLLBACK. Used by the intake Case/PO allocator, where the
+ * advisory lock must serialise concurrent mints of the same (principal, year) and span
+ * both the MAX+1 probe and the INSERT (no duplicate POs under concurrency).
+ *
+ * Note: the pool already opens each backend with `-c app.role=staff` (see header), so the
+ * transaction inherits the RLS app-role; this helper never widens it.
+ */
+export async function tx<T>(fn: (q: TxQuery) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const q: TxQuery = async (sql, params) => (await client.query(sql, params)).rows as never;
+    const result = await fn(q);
+    await client.query('COMMIT');
+    return result;
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore rollback failure — surface the original error */
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}

@@ -162,6 +162,25 @@ const useStyles = makeStyles({
   spacer: { flex: 1 },
   count: { color: tokens.colorNeutralForeground3, whiteSpace: 'nowrap', alignSelf: 'center' },
 
+  // "Showing cached" banner — a refetch failed but the previously-loaded rows are
+  // still on screen, so we keep them and flag staleness rather than blanking to an
+  // empty inbox. Amber "attention" idiom (the data is stale, not gone — the red
+  // hard-error panel is reserved for a first-load failure with no data). Carries a
+  // Retry; role=status (polite) so it's announced without stealing focus.
+  staleBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+    padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalM}`,
+    borderRadius: '2px',
+    border: '1px solid var(--ce-amber-line)',
+    backgroundColor: 'var(--ce-amber-tint)',
+    color: 'var(--ce-amber-ink)',
+    fontSize: '13px',
+  },
+  staleIcon: { flexShrink: 0, display: 'inline-flex' },
+  staleText: { flex: 1, minWidth: 0 },
+
   grid: {
     backgroundColor: tokens.colorNeutralBackground1,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
@@ -652,6 +671,29 @@ export function Inbox() {
           {filtered.length} of {rows.length} email{rows.length === 1 ? '' : 's'}
         </Text>
       </div>
+
+      {/* Stale refetch: a reload failed but we still hold the last-loaded rows —
+          keep them visible (below) and flag staleness here, instead of silently
+          collapsing to an empty inbox. First-load failure (no data) drops to the
+          hard ErrorState below instead. */}
+      {inbox.error && inbox.data !== undefined && (
+        <div className={styles.staleBanner} role="status">
+          <span className={styles.staleIcon}>
+            <AlertCircle size={16} strokeWidth={2} aria-hidden />
+          </span>
+          <span className={styles.staleText}>
+            Showing the last loaded inbox — couldn’t refresh just now.
+          </span>
+          <Button
+            appearance="transparent"
+            size="small"
+            icon={<RotateCcw size={14} strokeWidth={2} />}
+            onClick={inbox.refetch}
+          >
+            Retry
+          </Button>
+        </div>
+      )}
 
       {inbox.loading && inbox.data === undefined ? (
         <DataGridSkeleton rows={8} />

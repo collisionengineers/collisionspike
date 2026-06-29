@@ -267,8 +267,12 @@ def classify_email_route(req: func.HttpRequest) -> func.HttpResponse:
         provider_match_state  str   one | none | ambiguous (the flow's match result)
         attachment_kinds      [str] e.g. ["instruction", "image"] (optional)
         has_attachments       bool  (optional)
+        in_reply_to           str   RFC-5322 In-Reply-To header (optional) — authoritative
+                                    reply signal; strengthens reply/query-on-existing
+                                    detection beyond the "RE:" subject fallback
+        references            str   RFC-5322 References header (optional) — as above
 
-    Response (200): the classifier result + ``contract_version``.
+    Response (200): the classifier result + ``contract_version`` (incl. ``is_reply``).
     Status codes: 200 classified · 400 bad request · 500 unexpected internal error.
     """
     try:
@@ -294,6 +298,8 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
     provider_match_state = body.get("provider_match_state", "")
     attachment_kinds = body.get("attachment_kinds")
     has_attachments = body.get("has_attachments", False)
+    in_reply_to = body.get("in_reply_to", "")
+    references = body.get("references", "")
 
     for name, value in (
         ("subject", subject),
@@ -301,6 +307,8 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
         ("from", from_address),
         ("sender_domain", sender_domain),
         ("provider_match_state", provider_match_state),
+        ("in_reply_to", in_reply_to),
+        ("references", references),
     ):
         if value is not None and not isinstance(value, str):
             return _classify_error(400, "bad_field", f"'{name}' must be a string when provided.")
@@ -317,6 +325,8 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
         provider_match_state=provider_match_state,
         attachment_kinds=attachment_kinds,
         has_attachments=has_attachments,
+        in_reply_to=in_reply_to,
+        references=references,
     )
     return _json(200, result)
 
@@ -333,6 +343,7 @@ def _classify_error(status: int, code: str, message: str) -> func.HttpResponse:
             "subtype": "other",
             "confidence": 0.0,
             "signals": [f"error:{code}"],
+            "is_reply": False,
             "body_vrm": "",
             "body_caseref": "",
             "issues": [{"field": "(request)", "severity": "error", "code": code, "message": message}],

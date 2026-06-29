@@ -258,6 +258,22 @@
       "provider_match_state": "one",
       "has_attachments": false,
       "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "$comment": "collisionspike #3 (is_reply) — the ST04VRX live failure: a client REPLY after our total-loss report went out, re-attaching OUR OWN report (RE: subject, an instruction-kind PDF, a known provider). The sender writes no new work phrase and no query keyword; the only work phrase ('engineer's report') sits in the QUOTED cover note. Pre-fix Rule 1 promoted on the provider + doc and would mint a DUPLICATE Case. is_reply now suppresses the promotion (keying on sender-written text, not the quoted thread); the quoted Case/PO makes it query_existing_work so the orchestrator can link the existing Case.",
+      "eml": "query_existing_work/reply-reattached-report.eml",
+      "provider_match_state": "one",
+      "attachment_kinds": ["instruction"],
+      "has_attachments": true,
+      "expected": { "category": "query", "subtype": "query_existing_work" }
+    },
+    {
+      "$comment": "collisionspike #3 (is_reply) precision guard: a provider who REPLIES on an existing thread with a genuinely NEW instruction — a fresh instruction doc, a new Case/PO, and real work language the SENDER wrote ('please inspect', 'prepare a report'). The new work phrase is the discriminator, so is_reply does NOT suppress it: it must STILL be receiving_work. (The quoted thread also contains a chase phrase, proving work wins over both query and reply.)",
+      "eml": "receiving_work_reply/new-instruction-as-reply.eml",
+      "provider_match_state": "one",
+      "attachment_kinds": ["instruction"],
+      "has_attachments": true,
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" }
     }
   ]
 }

@@ -136,6 +136,32 @@ export async function getMessageWithAttachments(
 }
 
 /**
+ * Fetch a message's internet headers (lower-cased name -> value) — used to detect a REPLY
+ * reliably via In-Reply-To / References (ADR-0015 / #3). `internetMessageHeaders` is only
+ * returned when explicitly $select'd, so this is a separate, FAILURE-TOLERANT call: any
+ * error returns {} so the classifier just falls back to its RE:-subject heuristic and intake
+ * is never blocked. Kept off the main getMessageWithAttachments fetch so it cannot regress it.
+ */
+export async function getMessageHeaders(
+  mailbox: string,
+  messageId: string,
+): Promise<Record<string, string>> {
+  try {
+    const path =
+      `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}` +
+      `?$select=internetMessageHeaders`;
+    const msg = await graphFetch<{ internetMessageHeaders?: Array<{ name?: string; value?: string }> }>(path);
+    const out: Record<string, string> = {};
+    for (const h of msg.internetMessageHeaders ?? []) {
+      if (h?.name) out[h.name.toLowerCase()] = h.value ?? '';
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
  * List message ids received at/after a watermark (lifecycle `missed` resync, plan 22 §A.6).
  * Returns ids oldest-first so the watermark can advance monotonically.
  */
