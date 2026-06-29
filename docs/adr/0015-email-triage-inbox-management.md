@@ -83,3 +83,45 @@ table; never silently dropped) stands. The Power Platform specifics are supersed
 transport is **Microsoft Graph change-notification (PUSH)** handled by **`cespk-orch-dev`**, not the
 `fetchOnlyWithAttachment` Power Automate trigger; the deterministic classifier is a parser / Data-API
 route. The cost / `concurrency=1` notes about the Power Automate seeded-run allowance no longer apply.
+
+## Update (2026-06-29) — attachment-corroboration gate (over-promotion fix)
+
+Live triage in testing surfaced ~8 **blank auto-created Cases** (no VRM, no Case/PO, no provider) and a
+complaint that "most emails" were becoming Cases. Investigation separated this into **two distinct
+things** — be honest about which this change fixes:
+
+1. **The ~8 existing blank Cases are HISTORICAL artifacts, NOT classifier over-promotions.** Their
+   `inbound_email` rows carry `category_code = NULL`, **empty `signals`**, and attachment-less, test-like
+   subjects (`test`, `2FA authentication code`, `Terms of Service`, `Box invitation`). The current
+   orchestrator always runs `classifyInbound` (which always persists non-empty `signals`) before
+   `caseResolve`, so a Case whose triage row has a NULL classification could not have been minted by
+   today's pipeline — these predate the triage-classifier wiring and are **not reproduced** by current
+   intake (the recent inbound rows all correctly abstain to `other`, no Case). They are a **separate
+   data-cleanup item** (out of scope here; they may include the operator's own early tests).
+2. **A genuine FORWARD over-promotion vector in the classifier** (`cedocumentmapper_v2/rules/email_classifier.py`)
+   — the bug this change fixes. The classifier promoted to `receiving_work` on an **attachment kind
+   alone**, and the attachment kind is derived purely by **file extension** (`.pdf/.doc/.docx →
+   instruction`, an image → `image`) with **no content inspection**. So **any** email carrying a PDF/DOC
+   (a spam flyer, invoice, statement, newsletter, forwarded letter) would hit **Rule 1** and mint a Case,
+   and **any** image from a known-provider domain (a forwarded chain, a signature logo, a bounced-back
+   photo) would hit **Rule 2** on the provider match alone. Confirmed live against the deployed route
+   (uncorroborated PDF → `other`; corroborated instruction → `receiving_work`).
+
+This violates the ADR's **abstain-to-other** bias (NEVER auto-link / auto-create on ambiguity). The fix
+adds a **corroboration gate** — a deliberate, surgical tightening of the same pure $0 classifier:
+
+- **Rule 1 (instruction doc).** The audit-phrase and known-provider early-returns are kept (both ARE
+  corroboration). The **new-client** arm now requires a corroborating signal — a **work phrase**, a body
+  **Case/PO**, or a **VRM**. With none, the doc is flagged `uncorroborated_instruction_doc` and **falls
+  through** to the query / abstain rules instead of minting a Case.
+- **Rule 2 (images).** Promotion now requires `work_phrase OR body Case/PO OR VRM OR audit signal`. A
+  **known provider domain alone no longer promotes** a bare image (it still selects the *subtype* once
+  another signal corroborates); the uncorroborated case is flagged `uncorroborated_provider_image` and
+  falls through. The asymmetry is deliberate: a document is a deliberate work artifact, a bare image is
+  weak.
+
+Uncorroborated attachments **abstain to `other`** at `_CONFIDENCE_ABSTAIN` (0.3) so the deferred,
+gated LLM pass can target exactly those low-confidence rows. **Forward-only** fix (parser Function
+`cespike-parser-dev` redeployed; orch/api untouched); the ~8 already-created blank Cases are a separate
+cleanup pass. The sibling engine was absent at fix time, so the change landed in the **vendored copy
+only** with a replay hunk recorded in `cedocumentmapper_v2/PROVENANCE.md`.

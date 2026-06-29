@@ -322,10 +322,14 @@ def test_images_with_work_phrase_still_receiving_work():
     assert result["signals"][-1] == "rule:images_with_work_signal"
 
 
-def test_images_with_provider_no_query_phrasing_still_receiving_work():
-    """Guard against over-correction: an image + a known provider with NO query
-    phrasing (and no work phrase) remains receiving_work — the abstain only
-    applies when the email is phrased as a query."""
+def test_image_with_provider_only_abstains_to_other():
+    """Over-promotion fix (2026-06-29): an image + a known provider with NO work
+    phrase, NO Case/PO, NO VRM and NO audit signal must NOT be promoted to work on
+    the provider-domain match alone — a forwarded chain, a signature logo, or a
+    bounced-back photo from a provider address would all match the domain. Pre-fix
+    this hit Rule 2 (``provider_known`` was a trigger) and minted a blank Case;
+    the provider match now only selects the subtype once another signal
+    corroborates, so a bare provider image abstains to ``other``."""
     result = classify_email(
         subject="Photos for you",
         body="Here are the photos as discussed.",
@@ -333,9 +337,101 @@ def test_images_with_provider_no_query_phrasing_still_receiving_work():
         attachment_kinds=["image"],
         has_attachments=True,
     )
+    assert result["category"] == "other"
+    assert result["subtype"] == "other"
+    assert "uncorroborated_provider_image" in result["signals"]
+    assert result["signals"][-1] == "rule:abstain_to_other"
+
+
+def test_instruction_doc_without_corroboration_abstains_to_other():
+    """Over-promotion fix (2026-06-29): a bare attachment whose kind was derived
+    from the file extension alone (.pdf/.doc/.docx -> "instruction") — a spam
+    flyer, invoice, statement or newsletter — with NO provider match, NO work
+    phrase and NO Case/PO or VRM must NOT mint a Case. Pre-fix Rule 1 promoted any
+    instruction-kind attachment to new_client_work unconditionally; the new-client
+    arm now requires corroboration, so an uncorroborated doc abstains to other and
+    is flagged for the deferred LLM pass."""
+    result = classify_email(
+        subject="Spring sale - 20% off all services",
+        body="See the attached flyer for our latest offers. Visit our website today.",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert result["category"] == "other"
+    assert result["subtype"] == "other"
+    assert "attachment_kinds:instruction" in result["signals"]
+    assert "uncorroborated_instruction_doc" in result["signals"]
+    assert result["signals"][-1] == "rule:abstain_to_other"
+
+
+def test_instruction_doc_with_caseref_promotes():
+    """An instruction-kind attachment from an UNKNOWN provider is still promoted
+    to new_client_work when a body Case/PO corroborates it — the doc is no longer
+    promoted on the extension alone, but a real reference is enough."""
+    result = classify_email(
+        subject="Documents enclosed - CCPY26050",
+        body="Please see the attached paperwork in relation to CCPY26050.",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert result["category"] == "receiving_work"
+    assert result["subtype"] == "new_client_work"
+    assert result["body_caseref"] == "CCPY26050"
+    assert result["signals"][-1] == "rule:instruction_doc_new_client"
+
+
+def test_image_with_provider_and_caseref_promotes():
+    """An image from a known provider IS promoted when a body Case/PO corroborates
+    it (no work phrase, no query phrasing) — the provider match selects the
+    existing-provider subtype while the Case/PO is the corroborating signal."""
+    result = classify_email(
+        subject="Photos - CCPY26050",
+        body="Vehicle photographs attached for CCPY26050.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
     assert result["category"] == "receiving_work"
     assert result["subtype"] == "existing_provider_instruction"
+    assert result["body_caseref"] == "CCPY26050"
     assert result["signals"][-1] == "rule:images_with_work_signal"
+
+
+def test_image_with_audit_signal_promotes():
+    """Corroboration fix (Rule 2): an audit signal is one of the corroborating
+    signals that re-enables image promotion. An image + an audit phrase (no work
+    phrase, no Case/PO, no provider) IS receiving_work — a re-inspection request
+    with photos. Guards the NEW `is_audit` Rule-2 trigger added by the fix."""
+    result = classify_email(
+        subject="Re-inspection photos",
+        body="An audit report is required of the original engineer's findings.",
+        provider_match_state="none",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
+    assert result["category"] == "receiving_work"
+    assert result["subtype"] == "new_client_work"  # provider none -> new client
+    assert result["signals"][-1] == "rule:images_with_work_signal"
+
+
+def test_uncorroborated_instruction_doc_with_query_falls_through_to_query():
+    """Corroboration fix (Rule 1 fall-through): an uncorroborated instruction doc
+    (no provider, no work phrase, no Case/PO or VRM) does NOT mint a Case — it
+    flags `uncorroborated_instruction_doc` and falls through. When the email is
+    ALSO phrased as a query, it correctly lands `query` (Rule 5), not `other`."""
+    result = classify_email(
+        subject="Quick question",
+        body="Could you confirm your availability for next week?",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert result["category"] == "query"
+    assert result["subtype"] == "query_new_enquiry"  # provider none
+    assert "uncorroborated_instruction_doc" in result["signals"]
+    assert result["signals"][-1] == "rule:query_keyword_only"
 
 
 def test_query_with_reference_is_query_existing_work():

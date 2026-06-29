@@ -191,12 +191,23 @@ def classify_email(
          instruction doc is the module's strongest positive signal and overrides
          the abstain, so a real provider instruction whose footer says
          "do not reply" still reaches Rule 1).
-      1. Instruction doc attached            -> receiving_work
-         (audit | existing-provider | new-client by audit phrases / provider).
-      2. Images + (provider known OR work keyword) -> receiving_work, UNLESS the
-         email is phrased as a query with no work language (then fall through to
-         the query rules — a provider chasing a report who re-attaches the
-         original photo must not create/touch a work Case).
+      1. Instruction doc attached:
+           - audit phrases        -> receiving_work · existing_provider_audit
+           - known provider        -> receiving_work · existing_provider_instruction
+           - else CORROBORATED by a work phrase OR a body Case/PO OR a VRM
+                                   -> receiving_work · new_client_work
+           - otherwise NOT promoted: a bare PDF/DOC with no provider, no work
+             language and no reference (a spam flyer, invoice, statement,
+             newsletter or forwarded letter) must not become a Case on the file
+             extension alone — flag ``uncorroborated_instruction_doc`` and fall
+             through to the query / abstain rules.
+      2. Images + (a work phrase OR a body Case/PO OR a VRM OR an audit signal)
+         -> receiving_work, UNLESS the email is phrased as a query with no work
+         language (then fall through to the query rules — a provider chasing a
+         report who re-attaches the original photo must not create/touch a work
+         Case). A known provider domain ALONE no longer promotes a bare image (a
+         forwarded chain, a signature logo, a bounced-back photo); it only selects
+         the subtype once another signal corroborates.
       3. No attachment, >=2 work keywords + a body Case/PO or VRM -> receiving_work
          (an instruction typed into the email body).
       4. A query keyword + a body Case/PO or VRM -> query / query_existing_work
@@ -280,6 +291,15 @@ def classify_email(
         )
 
     # --- Rule 1: an instruction document is the single strongest work signal ---
+    # An audit instruction or a known-provider instruction is self-corroborating
+    # (the audit phrases / the matched provider domain ARE the corroboration), so
+    # those two early-returns are unconditional. But a bare attachment whose kind
+    # was derived from the file extension alone (.pdf/.doc/.docx -> "instruction")
+    # is NOT proof of work: a spam flyer, an invoice, a statement, a newsletter or
+    # a forwarded letter would all carry one. Promoting it to new_client_work on
+    # the extension alone mints a blank Case, so the new-client arm now REQUIRES a
+    # corroborating signal — a work phrase, a body Case/PO, or a VRM. With none,
+    # flag it and FALL THROUGH to the query / abstain rules (abstain-to-other).
     if has_instruction_doc:
         if is_audit:
             return _result(
@@ -295,24 +315,29 @@ def classify_email(
                 _CONFIDENCE_STRONG,
                 "instruction_doc_existing_provider",
             )
-        return _result(
-            CATEGORY_RECEIVING_WORK,
-            SUBTYPE_NEW_CLIENT_WORK,
-            _CONFIDENCE_GOOD,
-            "instruction_doc_new_client",
-        )
+        if work_phrases or body_caseref or body_vrm:
+            return _result(
+                CATEGORY_RECEIVING_WORK,
+                SUBTYPE_NEW_CLIENT_WORK,
+                _CONFIDENCE_GOOD,
+                "instruction_doc_new_client",
+            )
+        signals.append("uncorroborated_instruction_doc")
+        # FALL THROUGH — an uncorroborated attachment is not work; let the query
+        # rules / Rule 6 abstain handle it.
 
-    # --- Rule 2: images + a provider or work language confirms work -------------
-    # An attached image plus a known provider OR instruction language reads as a
-    # fresh instruction (a new client's photos, or a provider's photos with a
-    # "please inspect"). BUT a query email that merely re-attaches the original
-    # photo — query phrasing, no work phrase, no instruction doc (Rule 1 already
-    # consumed those) — must NOT be promoted to work on the provider match alone:
-    # a provider chasing a report who re-sends the photo would otherwise create or
-    # touch a Case. In that one case fall through to the query rules (abstain bias;
-    # ADR-0015). A genuine instruction still wins: a work phrase here keeps Rule 2,
-    # and an instruction doc already classified at Rule 1.
-    if has_images and (provider_known or work_phrases) and not (
+    # --- Rule 2: images + a corroborating work signal confirms work -------------
+    # An attached image plus a work phrase, a body Case/PO, a VRM, or an audit
+    # signal reads as a fresh instruction (a new client's photos with "please
+    # inspect", a provider's photos quoting the Case/PO). A known provider domain
+    # is, on its OWN, too weak to promote a bare image — a forwarded chain, a
+    # signature logo, or a returned-message screenshot from a provider address
+    # would all match the domain — so it no longer triggers Rule 2; it only
+    # selects the subtype once another signal corroborates. A query email that
+    # merely re-attaches the original photo (query phrasing, no work phrase) still
+    # falls through to the query rules (abstain bias; ADR-0015). An instruction doc
+    # was already classified at Rule 1.
+    if has_images and (work_phrases or body_caseref or body_vrm or is_audit) and not (
         query_phrases and not work_phrases
     ):
         subtype = (
@@ -326,6 +351,10 @@ def classify_email(
             _CONFIDENCE_GOOD,
             "images_with_work_signal",
         )
+    if has_images and provider_known:
+        # Images from a known provider but with no corroborating work signal: not
+        # promoted (see above). Flag for the deferred LLM pass; fall through.
+        signals.append("uncorroborated_provider_image")
 
     # --- Rule 3: no attachment, but a body instruction (>=2 work phrases + id) --
     # The two-phrase floor + a real Case/PO or VRM is what lets a typed-in-body

@@ -232,6 +232,22 @@
       "expected": { "category": "other", "subtype": "other" }
     },
     {
+      "$comment": "Over-promotion fix (2026-06-29): a spam flyer that carries a PDF brochure. The PDF's kind is derived from the file extension alone (.pdf -> 'instruction'), but there is NO provider match, NO work phrase and NO Case/PO or VRM. Pre-fix Rule 1 promoted ANY instruction-kind attachment to receiving_work/new_client_work unconditionally, minting a blank Case. The new-client arm now requires corroboration, so this abstains to other (flagged uncorroborated_instruction_doc).",
+      "eml": "other/instruction-doc-spam-flyer.eml",
+      "provider_match_state": "none",
+      "attachment_kinds": ["instruction"],
+      "has_attachments": true,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "$comment": "Over-promotion fix (2026-06-29): a forwarded email from a known provider domain carrying a bare image and no other context — no work phrase, no Case/PO, no VRM, no query phrasing. Pre-fix Rule 2 promoted it on the provider-domain match alone (provider_known was a trigger), minting a blank Case. The provider match now only selects the subtype once another signal corroborates, so a bare provider image abstains to other (flagged uncorroborated_provider_image).",
+      "eml": "other/provider-image-no-context.eml",
+      "provider_match_state": "one",
+      "attachment_kinds": ["image"],
+      "has_attachments": true,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
       "eml": "other/newsletter.eml",
       "provider_match_state": "none",
       "has_attachments": false,
