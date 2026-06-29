@@ -275,6 +275,14 @@
         "has_attachments": {
           "type": "boolean",
           "description": "Whether the email carried any attachment."
+        },
+        "in_reply_to": {
+          "type": "string",
+          "description": "The RFC-5322 In-Reply-To header, if available. The authoritative reply signal — when present it marks the email a reply (about EXISTING work) even with a plain subject, strengthening detection beyond the 'RE:' subject fallback. A 'FW:'/'FWD:' forward is never treated as a reply."
+        },
+        "references": {
+          "type": "string",
+          "description": "The RFC-5322 References header, if available. Treated like In-Reply-To: when non-empty it marks the email a reply."
         }
       }
     },
@@ -310,10 +318,14 @@
         },
         "signals": {
           "type": "array",
-          "description": "The exact rule ids / phrases that fired, for explainability (joined into the triage row's signals memo).",
+          "description": "The exact rule ids / phrases that fired, for explainability (joined into the triage row's signals memo). Includes the token 'reply' when the email is a reply.",
           "items": {
             "type": "string"
           }
+        },
+        "is_reply": {
+          "type": "boolean",
+          "description": "The email is a REPLY in an existing thread (not a forward) — derived from the In-Reply-To / References headers when supplied, else a leading 'RE:' subject. The orchestrator keys on this to run the EXISTING-Case lookup (by body_caseref then body_vrm) instead of minting a new Case: a reply about work we already do is suppressed out of receiving_work into query_existing_work unless the sender added a NEW work phrase."
         },
         "body_vrm": {
           "type": "string",

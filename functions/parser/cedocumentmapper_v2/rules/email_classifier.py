@@ -36,6 +36,23 @@ Dataverse lookup itself and, on a match, keep the ``query_existing_work`` label
 the classifier already proposes. The classifier NEVER auto-links and NEVER
 guesses a Case — it only reports what it found in the text.
 
+Replies / queries-on-existing-work (collisionspike #3)
+------------------------------------------------------
+A REPLY about work we are already doing (a chase for more assessment photos on a
+submitted case, a client question after our report went out, with our own report
+re-attached) looks like fresh work — a known provider plus an attachment — and
+would otherwise be promoted to ``receiving_work`` and mint a DUPLICATE Case. The
+classifier therefore derives an ``is_reply`` signal (from the In-Reply-To /
+References threading headers when the caller passes them, else a leading ``RE:``
+subject prefix; a ``FW:``/``FWD:`` forward is NOT a reply — it may carry a
+genuinely new instruction onward). A reply with NO new work language is treated as
+about-existing and suppressed out of the receiving-work rules into
+``query_existing_work`` — but a reply that DOES carry a work phrase (a provider
+replying "and here's the next job") still promotes, so precision stays high. The
+classifier only reports ``is_reply`` + ``body_caseref`` / ``body_vrm``; the
+EXISTING-Case lookup / linking stays on the orchestrator side (it alone can tell a
+freshly-minted Case/PO from one quoted out of the reply thread).
+
 Request fields (all optional; missing ones are treated as empty/absent):
 
     subject               the email subject line (plain text)
@@ -45,6 +62,8 @@ Request fields (all optional; missing ones are treated as empty/absent):
     provider_match_state  one | none | ambiguous  (the flow's domain match result)
     attachment_kinds      list of attachment kinds, e.g. ["instruction", "image"]
     has_attachments       bool
+    in_reply_to           the RFC-5322 In-Reply-To header, if the caller passes it
+    references            the RFC-5322 References header, if the caller passes it
 
 Response (a plain dict, JSON-serialisable):
 
@@ -52,6 +71,7 @@ Response (a plain dict, JSON-serialisable):
     subtype           str   one of the six subtypes
     confidence        float 0.0–1.0, coarse banding (see _CONFIDENCE_*)
     signals           list  the exact rule ids / phrases that fired (explainable)
+    is_reply          bool  the email is a reply in an existing thread (not a forward)
     body_vrm          str   first VRM found in subject+body, or ""
     body_caseref      str   first Case/PO found in subject+body, or ""
     contract_version  str   the engine contract tag
@@ -63,8 +83,9 @@ import re
 from typing import Any
 
 from cedocumentmapper_v2.rules.engine import (
-    VRM_RE,
+    UK_POSTCODE_RE,
     detect_audit_signals,
+    vrm_candidate_is_bad,
     _match_keywords,
     _WORK_KEYWORDS,
     _QUERY_KEYWORDS,
@@ -123,6 +144,78 @@ CASEREF_RE = re.compile(
     re.IGNORECASE,
 )
 
+# --- Canonical body_vrm matcher (collisionspike #7) -------------------------- #
+# The inbox VRM chip is fed by ``body_vrm``. The engine's ``VRM_RE`` is
+# deliberately LOOSE for /parse PDF-field extraction (guarded downstream), and its
+# 4th, dateless alternative ``[A-Z]{1,3}\d{1,4}`` over-matches: live inboxes showed
+# UK postcode outward codes (B8/LS8/G3/BD8) and security-mail junk (BOX2/AT8/LH3/
+# ON26) surfaced AS VRMs. The classifier therefore uses a tighter, two-tier
+# ruleset for ``body_vrm`` only — the loose /parse path is unchanged.
+#
+# Tier 1 — a WELL-FORMED UK VRM (current / prefix / suffix) is accepted outright:
+#   * current/post-2001 : [A-Z]{2}\d{2} [A-Z]{3}   (MX17 PNL, AP70 WAA, AB12 CDE)
+#   * prefix 1983-2001  : [A-Z]\d{1,3} [A-Z]{3}     (A123 BCD)
+#   * suffix 1963-1983  : [A-Z]{3} \d{1,3}[A-Z]     (ABC 123D)
+_VRM_WELLFORMED_RE = re.compile(
+    r"\b(?!VAT\b)(?!TEL\b)(?!REF\b)("
+    r"[A-Z]{2}\d{2}\s?[A-Z]{3}"
+    r"|[A-Z]\d{1,3}\s?[A-Z]{3}"
+    r"|[A-Z]{3}\s?\d{1,3}[A-Z]"
+    r")\b",
+    re.IGNORECASE,
+)
+# Tier 2 — the loose, dateless shape. It is admitted ONLY with a nearby VRM context
+# word AND only when it clears the postcode / junk guards (see _canonical_body_vrm).
+_VRM_LOOSE_RE = re.compile(
+    r"\b(?!VAT\b)(?!TEL\b)(?!REF\b)([A-Z]{1,3}\s?\d{1,4})\b",
+    re.IGNORECASE,
+)
+# Words that must sit near a loose/dateless candidate for it to count as a VRM.
+_VRM_CONTEXT_WORDS: tuple[str, ...] = (
+    "reg",  # also covers "registration"
+    "registration",
+    "vrm",
+    "vehicle",
+    "plate",
+)
+# How far either side of a loose candidate to look for a context word / postcode.
+_VRM_CONTEXT_WINDOW = 30
+
+
+def _canonical_body_vrm(text: str) -> str:
+    """First well-formed UK VRM in ``text`` (uppercased, whitespace-stripped), or "".
+
+    Tighter than the engine's ``VRM_RE`` so the inbox VRM chip never shows postcode
+    outward codes or junk tokens (collisionspike #7). A well-formed VRM is accepted
+    outright; a loose, dateless candidate is admitted only when a VRM context word
+    sits nearby AND it is not postcode-shaped (``UK_POSTCODE_RE``) and clears
+    ``vrm_candidate_is_bad`` (the same guard the /parse fallback uses).
+    """
+    if not text:
+        return ""
+    # Tier 1 — a well-formed VRM anywhere wins outright (no context needed).
+    m = _VRM_WELLFORMED_RE.search(text)
+    if m:
+        return re.sub(r"\s+", "", m.group(1)).upper()
+    # Tier 2 — a loose/dateless candidate must clear the postcode / junk guards AND
+    # have a VRM context word nearby. Iterate so a junk token early in the body does
+    # not mask a real, context-anchored dateless plate later on.
+    lowered = text.lower()
+    for m in _VRM_LOOSE_RE.finditer(text):
+        candidate = m.group(1)
+        start = max(0, m.start() - _VRM_CONTEXT_WINDOW)
+        end = m.end() + _VRM_CONTEXT_WINDOW
+        window = text[start:end]
+        if UK_POSTCODE_RE.search(window):
+            continue  # the candidate sits inside a full postcode (e.g. "LS8 2AB")
+        if vrm_candidate_is_bad(candidate, window):
+            continue  # too short / postcode-outward / label word (B8, G3, BOX2, ...)
+        if not any(word in lowered[start:end] for word in _VRM_CONTEXT_WORDS):
+            continue  # dateless shape with no "reg/registration/vrm/vehicle/plate"
+        return re.sub(r"\s+", "", candidate).upper()
+    return ""
+
+
 # Out-of-office / automatic-reply / bounce markers. These do NOT drop the email
 # (everything is categorised) — they bias an otherwise weak email firmly to
 # ``other`` so an auto-reply that happens to quote a work phrase in its history is
@@ -172,6 +265,78 @@ def _is_auto_reply(text: str) -> tuple[str, ...]:
     return tuple(marker for marker in _AUTO_REPLY_MARKERS if marker in haystack)
 
 
+# Reply vs forward subject prefixes (collisionspike #3). A leading ``RE:`` marks a
+# reply (a message in an existing thread); ``FW:`` / ``FWD:`` marks a forward (an
+# onward-send of someone else's mail). Anchored to the LEADING token with a required
+# colon, so "Re-inspection" (no colon) is NOT a reply and a body that merely mentions
+# "re:" cannot trip it. Only a reply trips the about-existing suppression below.
+_REPLY_SUBJECT_RE = re.compile(r"^\s*re\s*:", re.IGNORECASE)
+_FORWARD_SUBJECT_RE = re.compile(r"^\s*fw(?:d)?\s*:", re.IGNORECASE)
+
+
+def _is_reply(subject: str, in_reply_to: str, references: str) -> bool:
+    """Return True when the email is a REPLY in an existing thread (not a forward).
+
+    Precedence (collisionspike #3):
+      * A forward (``FW:`` / ``FWD:`` subject) is NEVER a reply — it is an onward-send
+        that may carry a genuinely NEW instruction, so it must not trip the
+        about-existing suppression. Checked FIRST so a threading header riding on a
+        forwarded chain is not misread as a reply.
+      * The RFC-5322 threading headers ``In-Reply-To`` / ``References`` are the
+        authoritative reply signal when the caller passes them (a well-behaved client
+        sets them only on a reply). Stronger than the subject, so checked next.
+      * Otherwise fall back to a leading ``RE:`` subject prefix — the signal available
+        today, before the orchestrator wires the headers through.
+    """
+    if _FORWARD_SUBJECT_RE.match(subject):
+        return False
+    if in_reply_to.strip() or references.strip():
+        return True
+    return bool(_REPLY_SUBJECT_RE.match(subject))
+
+
+# Markers that begin a QUOTED reply chain. Everything from such a marker onward (and
+# any plain-text ``>``-prefixed line) is PRIOR thread text, not what THIS sender wrote.
+# Used ONLY to decide whether a reply carries a NEW work phrase — the about-existing
+# suppression discriminator (collisionspike #3, "no NEW work phrase beyond the quoted
+# thread"): our own report cover note quoted back ("please find our engineer's report")
+# must not read as the sender instructing fresh work. The FULL text is still scanned for
+# the Case/PO + registration, so a reference quoted from the thread is still surfaced for
+# the orchestrator's open-Case lookup.
+_QUOTED_THREAD_MARKERS: tuple[str, ...] = (
+    "-----original message-----",
+    "----- original message -----",
+    "------ original message ------",
+    "________________________________",  # Outlook reply divider
+)
+# Gmail-style attribution line ("On <date>, <name> wrote:") that introduces a quote.
+_GMAIL_QUOTE_RE = re.compile(r"^\s*On\b.*\bwrote:\s*$", re.IGNORECASE | re.MULTILINE)
+
+
+def _sender_written_text(text: str) -> str:
+    """Return only the text THIS sender wrote — quoted reply-chain text removed.
+
+    Conventions handled: an Outlook ``-----Original Message-----`` / underscore
+    divider, the Gmail ``On <date>, <name> wrote:`` attribution, and plain-text
+    ``>``-quoted lines. Everything from the earliest such marker onward is dropped.
+    Best-effort and conservative — it only ever REMOVES text, so the worst case is
+    that a quoted work phrase survives (no over-suppression of genuine new work).
+    """
+    if not text:
+        return text
+    lowered = text.lower()
+    cut = len(text)
+    for marker in _QUOTED_THREAD_MARKERS:
+        idx = lowered.find(marker)
+        if idx != -1:
+            cut = min(cut, idx)
+    gmail = _GMAIL_QUOTE_RE.search(text)
+    if gmail:
+        cut = min(cut, gmail.start())
+    head = text[:cut]
+    return "\n".join(line for line in head.splitlines() if not line.lstrip().startswith(">"))
+
+
 def classify_email(
     subject: Any = "",
     body: Any = "",
@@ -180,6 +345,8 @@ def classify_email(
     provider_match_state: Any = "",
     attachment_kinds: Any = None,
     has_attachments: Any = False,
+    in_reply_to: Any = "",
+    references: Any = "",
 ) -> dict[str, Any]:
     """Classify one inbound email into the triage taxonomy. PURE — no I/O.
 
@@ -192,8 +359,10 @@ def classify_email(
          the abstain, so a real provider instruction whose footer says
          "do not reply" still reaches Rule 1).
       1. Instruction doc attached (necessary but NOT sufficient — the kind is
-         extension-derived), UNLESS query-phrased with no work language (suppressed
-         -> falls through to the query rules):
+         extension-derived), UNLESS the email is about EXISTING work — query-phrased
+         OR a reply (``is_reply``) — with no NEW work language (suppressed -> falls
+         through to the query rules; a reply that re-attaches our own prior report
+         must not mint a duplicate Case):
            - known provider + audit -> receiving_work · existing_provider_audit
            - known provider          -> receiving_work · existing_provider_instruction
            - unknown provider CORROBORATED by a work phrase OR a body Case/PO
@@ -206,17 +375,20 @@ def classify_email(
              new-client-audit subtype). Flag ``uncorroborated_instruction_doc`` and
              fall through to the query / abstain rules.
       2. Images + (a work phrase OR a body Case/PO OR an audit signal from a KNOWN
-         provider) -> receiving_work, UNLESS the email is phrased as a query with no
-         work language (then fall through to the query rules — a provider chasing a
-         report who re-attaches the original photo must not create/touch a work Case).
+         provider) -> receiving_work, UNLESS the email is about EXISTING work —
+         phrased as a query OR a reply (``is_reply``) — with no work language (then
+         fall through to the query rules — a provider chasing a report who re-attaches
+         the original photo, or replying with further-assessment photos on a submitted
+         case, must not create/touch a work Case).
          A known provider domain ALONE, a bare VRM, or an audit signal from an UNKNOWN
          provider do NOT promote a bare image (a forwarded chain, signature logo, or
          bounced-back photo all match the domain); a known provider only selects the
          subtype (and emits the audit subtype) once another signal corroborates.
       3. No attachment, >=2 work keywords + a body Case/PO or VRM -> receiving_work
          (an instruction typed into the email body).
-      4. A query keyword + a body Case/PO or VRM -> query / query_existing_work
-         (the flow confirms the open-Case link; the classifier proposes it).
+      4. A query keyword OR a reply (``is_reply``) + a body Case/PO or VRM -> query /
+         query_existing_work (the flow confirms the open-Case link; the classifier
+         proposes it — a reply naming a Case/PO or registration is about work we did).
       5. A query keyword, no Case/PO or VRM  -> query
          (query_existing_work if the sender is a known provider, else
          query_new_enquiry).
@@ -228,6 +400,7 @@ def classify_email(
     state = _normalise(provider_match_state).strip().lower()
     kinds = {str(k).strip().lower() for k in (attachment_kinds or []) if str(k).strip()}
     has_atts = bool(has_attachments) or bool(kinds)
+    is_reply = _is_reply(subject_s, _normalise(in_reply_to), _normalise(references))
 
     haystack = f"{subject_s}\n{body_s}"
 
@@ -236,7 +409,7 @@ def classify_email(
     query_phrases = _match_keywords(haystack, _QUERY_KEYWORDS)
     is_audit, audit_phrases = detect_audit_signals(haystack)
     auto_reply_markers = _is_auto_reply(haystack)
-    body_vrm = _first_match(VRM_RE, haystack)
+    body_vrm = _canonical_body_vrm(haystack)
     body_caseref = _first_match(CASEREF_RE, haystack)
 
     provider_known = state == PROVIDER_ONE
@@ -252,6 +425,8 @@ def classify_email(
         signals.append("audit_phrases:" + ",".join(audit_phrases))
     if auto_reply_markers:
         signals.append("auto_reply:" + ",".join(auto_reply_markers))
+    if is_reply:
+        signals.append("reply")
     if body_caseref:
         signals.append(f"body_caseref:{body_caseref}")
     if body_vrm:
@@ -267,10 +442,32 @@ def classify_email(
             "subtype": subtype,
             "confidence": confidence,
             "signals": signals + [f"rule:{rule}"],
+            "is_reply": is_reply,
             "body_vrm": body_vrm,
             "body_caseref": body_caseref,
             "contract_version": CONTRACT_VERSION,
         }
+
+    # Shared about-existing suppression (used by Rule 1 AND Rule 2). An email that is
+    # about EXISTING work is suppressed out of the receiving-work rules and falls through
+    # to the query rules. Two ways in:
+    #   * query branch (long-standing, unchanged): a query phrase + NO work phrase
+    #     anywhere in the text.
+    #   * reply branch (collisionspike #3 — the ST04VRX / MX17PNL live failures): a reply
+    #     (``is_reply``) whose SENDER added NO new work language. A work phrase in the
+    #     QUOTED thread (e.g. our own report cover note quoted back) does NOT count — per
+    #     "no NEW work phrase beyond the quoted thread" — so the reply branch keys on
+    #     ``new_work_phrases`` (sender-written text only). This keeps precision both ways:
+    #     a NEW instruction that happens to be a reply ("and here's the next job, please
+    #     inspect …") carries a NEW work phrase, so it is NOT suppressed and still
+    #     promotes. A bare Case/PO does NOT rescue it — the classifier cannot tell a
+    #     freshly-minted Case/PO from one quoted out of the reply thread (that novelty
+    #     check is the orchestrator's DB lookup), so fresh work LANGUAGE is the sole
+    #     discriminator.
+    new_work_phrases = _match_keywords(_sender_written_text(haystack), _WORK_KEYWORDS)
+    suppress_as_query = (bool(query_phrases) and not work_phrases) or (
+        is_reply and not new_work_phrases
+    )
 
     # --- Rule 0: an auto-reply / bounce marker forces ``other`` -----------------
     # A quoted out-of-office or bounce chain can echo work language and a stray
@@ -308,12 +505,13 @@ def classify_email(
     #   * audit phrases ALONE never promote an unknown-provider doc — there is no
     #     new-client-audit subtype, and labelling it existing_provider_audit would
     #     attribute an "A."-prefixed Case/PO to a provider that does not exist.
-    # A query-phrased email that merely re-attaches an instruction doc (query wording,
-    # no work phrase) is SUPPRESSED here and falls through to the query rules (exactly
-    # as Rule 2 does for images). With no corroboration at all the doc is flagged
-    # ``uncorroborated_instruction_doc`` and falls through (abstain-to-other).
+    # An about-existing email that merely re-attaches an instruction doc — query wording
+    # OR a reply (``is_reply``), with no NEW work phrase — is SUPPRESSED here (shared
+    # ``suppress_as_query``) and falls through to the query rules (exactly as Rule 2 does
+    # for images): a client replying after our report went out, with our own report
+    # re-attached, must not mint a duplicate Case. With no corroboration at all the doc is
+    # flagged ``uncorroborated_instruction_doc`` and falls through (abstain-to-other).
     if has_instruction_doc:
-        suppress_as_query = bool(query_phrases) and not work_phrases
         if not suppress_as_query:
             if provider_known:
                 if is_audit:
@@ -351,14 +549,15 @@ def classify_email(
     # a bare image (a forwarded chain, a signature logo, or a returned-message
     # screenshot all match the domain); a body VRM is too loose (see Rule 1). An audit
     # signal promotes ONLY for a known provider — the only path that can emit the audit
-    # subtype — so an audit-shaped image from an unknown provider abstains. A query
-    # email that merely re-attaches the original photo (query phrasing, no work phrase)
-    # falls through to the query rules (abstain bias; ADR-0015). An instruction doc was
-    # already handled at Rule 1.
+    # subtype — so an audit-shaped image from an unknown provider abstains. An
+    # about-existing email that merely re-attaches the original photo — query phrasing OR
+    # a reply (``is_reply``), no work phrase (shared ``suppress_as_query``) — falls
+    # through to the query rules (abstain bias; ADR-0015; collisionspike #3). An
+    # instruction doc was already handled at Rule 1.
     if (
         has_images
         and (work_phrases or body_caseref or (is_audit and provider_known))
-        and not (query_phrases and not work_phrases)
+        and not suppress_as_query
     ):
         if provider_known and is_audit:
             subtype = SUBTYPE_EXISTING_PROVIDER_AUDIT
@@ -395,10 +594,13 @@ def classify_email(
             "body_only_instruction",
         )
 
-    # --- Rule 4: a question that names a Case/PO or VRM — about work we did ------
+    # --- Rule 4: a question OR a reply that names a Case/PO or VRM — about work we did
     # The classifier proposes query_existing_work; the flow confirms the open-Case
-    # link by Case/PO first, VRM as fallback (it never auto-links on ambiguity).
-    if query_phrases and (body_caseref or body_vrm):
+    # link by Case/PO first, VRM as fallback (it never auto-links on ambiguity). A reply
+    # (``is_reply``) naming a Case/PO or registration but carrying no NEW work phrase is
+    # about work we did too — it reaches here after the suppression above, so it proposes
+    # query_existing_work rather than abstaining to ``other`` (collisionspike #3).
+    if (query_phrases or is_reply) and (body_caseref or body_vrm):
         return _result(
             CATEGORY_QUERY,
             SUBTYPE_QUERY_EXISTING_WORK,
