@@ -31,8 +31,9 @@ import {
   Send,
   ShieldAlert,
 } from 'lucide-react';
-import { buildEvaJson } from '@cs/domain';
+import { buildEvaJson, type NextCasePoResult } from '@cs/domain';
 import {
+  data,
   suggestCasePo,
   useCaseQuery,
   type Case,
@@ -45,6 +46,7 @@ import {
   statusLabel,
 } from '../components';
 import { Spinner } from '@fluentui/react-components';
+import type { DataAccessExt } from '../data/rest-client';
 
 /* EVA submit Dialog — opened at /case/:caseId/submit as a route overlay over
    CaseDetail. Controlled Dialog; Cancel / dismiss navigates back. Readiness
@@ -224,13 +226,37 @@ export function EvaSubmitDialog() {
 
   const suggestion = useMemo(() => (c ? suggestCasePo(c) : undefined), [c]);
 
-  // Only the 3-digit sequence is user-editable; Principal + YY are locked
-  // segments derived from the case. Seeded with the suggested next sequence.
-  const [seq, setSeq] = useState<string>('');
-  // Seed the sequence once the case (and its suggestion) resolve.
+  // Live Case/PO allocator PREVIEW (TKT-004) — the REAL next sequence from DB
+  // history (or the Box folder scan fallback), replacing the local 001 default.
+  const [nextPo, setNextPo] = useState<NextCasePoResult | undefined>();
   useEffect(() => {
-    if (suggestion) setSeq((prev) => (prev === '' ? suggestion.seq : prev));
-  }, [suggestion]);
+    const principal = c?.providerCode;
+    if (!principal) return;
+    let cancelled = false;
+    void (data as DataAccessExt)
+      .nextCasePo(principal)
+      .then((r) => {
+        if (!cancelled) setNextPo(r);
+      })
+      .catch(() => {
+        /* fall back to the local suggestion */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [c?.providerCode]);
+
+  // Only the 3-digit sequence is user-editable; Principal + YY are locked
+  // segments derived from the case. Seeded with the previewed next sequence (the
+  // live allocator when available, else the local suggestion) until the operator
+  // edits it.
+  const [seq, setSeq] = useState<string>('');
+  const [seqEdited, setSeqEdited] = useState(false);
+  useEffect(() => {
+    if (seqEdited) return;
+    const seed = nextPo?.seq ?? suggestion?.seq;
+    if (seed) setSeq(seed);
+  }, [nextPo, suggestion, seqEdited]);
 
   const readiness = useMemo(() => (c ? computeReadiness(c) : undefined), [c]);
 
@@ -276,14 +302,18 @@ export function EvaSubmitDialog() {
   const ready = readiness.ready;
   const blockedCount = readiness.missing.length;
 
-  // Compose the live Case/PO from locked segments + the edited sequence.
+  // Compose the live Case/PO from locked segments + the edited sequence. Prefer
+  // the live allocator's principal/yy, falling back to the local suggestion.
+  const principal = nextPo?.principal ?? suggestion.principal;
+  const yy = nextPo?.yy ?? suggestion.yy;
   const seqClean = seq.replace(/\D/g, '').slice(0, 3);
-  const core = `${suggestion.principal}${suggestion.yy}${seqClean}`;
+  const core = `${principal}${yy}${seqClean}`;
   const complete = seqClean.length === 3;
   const evaCode = complete ? core.toLowerCase() : '';
   const boxCode = complete ? core.toUpperCase() : '';
 
   const onSeqChange = (value: string) => {
+    setSeqEdited(true);
     setSeq(value.replace(/\D/g, '').slice(0, 3));
   };
 
@@ -301,7 +331,7 @@ export function EvaSubmitDialog() {
       URL.revokeObjectURL(url);
       dispatchToast(
         <Toast>
-          <ToastTitle>EVA JSON downloaded</ToastTitle>
+          <ToastTitle>Case exported for EVA</ToastTitle>
           <ToastBody>Submission for {c.vrm} saved as a file.</ToastBody>
         </Toast>,
         { intent: 'success' },
@@ -381,10 +411,10 @@ export function EvaSubmitDialog() {
 
               <div className={styles.composer}>
                 <span className={styles.segLocked} title="Principal code (locked)">
-                  {suggestion.principal}
+                  {principal}
                 </span>
                 <span className={styles.segLocked} title="2-digit year (locked)">
-                  {suggestion.yy}
+                  {yy}
                 </span>
                 <Field>
                   <Input
@@ -401,6 +431,17 @@ export function EvaSubmitDialog() {
                   3-digit provider sequence
                 </span>
               </div>
+
+              {/* Where the previewed next number came from (TKT-004). */}
+              {nextPo && (
+                <Text className={styles.heroHint}>
+                  Suggested next for {principal}: {nextPo.boxUpper} —{' '}
+                  {nextPo.source === 'box'
+                    ? 'next after the latest archive folder'
+                    : 'next in our records'}
+                  .
+                </Text>
+              )}
 
               <div className={styles.derivedGrid}>
                 <span className={styles.derivedLabel}>
@@ -451,9 +492,9 @@ export function EvaSubmitDialog() {
               icon={<Download size={16} />}
               onClick={onDownloadJson}
               disabled={!ready}
-              title={!ready ? `${blockedCount} readiness item(s) still blocking` : 'Download the EVA JSON file'}
+              title={!ready ? `${blockedCount} readiness item(s) still blocking` : 'Save the case as an EVA file to drag into EVA'}
             >
-              Download JSON
+              Export for EVA
             </Button>
             <Button
               className={styles.dialogBtn}

@@ -21,6 +21,10 @@ import {
   ImageOff,
   FileWarning,
   AlertTriangle,
+  AlertCircle,
+  Briefcase,
+  Mail,
+  MailQuestion,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -176,15 +180,48 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
   },
 
-  /* ----- Region B: throughput — inline windowed figures ----- */
+  /* ----- Region B: throughput — windowed figures + a SEPARATE all-time tile ----- */
+  // The windowed strip and the lifetime "Sent to EVA" tile sit side-by-side but are
+  // visually distinct surfaces, so a lifetime total is never read as a windowed one.
+  thruRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'stretch',
+    gap: tokens.spacingHorizontalM,
+  },
   thruStrip: {
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'stretch',
     gap: 0,
+    flex: '1 1 320px',
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     borderRadius: '2px',
     overflow: 'hidden',
+  },
+  // Lifetime "Sent to EVA" — its own bordered tile, captioned "All time", set apart
+  // from the windowed strip so the metric is honest (work-todo-spike: dashboard-logic).
+  allTimeTile: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: '4px',
+    minWidth: '180px',
+    padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: '2px',
+    backgroundColor: tokens.colorNeutralBackground3,
+  },
+  allTimeHead: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    fontFamily: 'var(--ce-font-display)',
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.18em',
+    textTransform: 'uppercase',
+    color: tokens.colorNeutralForeground3,
   },
   thruCell: {
     display: 'flex',
@@ -418,13 +455,20 @@ export function Dashboard() {
     );
   }
 
-  const { pipelineStages: stages, liveCounts: live, throughput: thru, agingExceptions: aging } = dash;
+  const {
+    pipelineStages: stages,
+    liveCounts: live,
+    throughput: thru,
+    agingExceptions: aging,
+    inbound,
+  } = dash;
 
-  // Cumulative "Sent to EVA" total — the funnel's terminal stage (eva_submitted +
-  // box_synced), lifted out of the hero into the windowed strip so the funnel
-  // shows live depth only. It is a running lifetime total (no time window),
-  // hence "(total)" beside the windowed "Submitted today".
-  const sentToEvaTotal = stages.find((s) => s.key === 'submitted')?.count ?? 0;
+  // Lifetime "Sent to EVA" — the cumulative submitted count read from throughput
+  // (NOT the funnel, which shows live depth only). Rendered in its OWN all-time tile,
+  // never mixed into the windowed strip. Falls back to the terminal funnel stage when
+  // the windowed source hasn't populated submittedTotal yet.
+  const sentToEvaTotal =
+    thru.submittedTotal ?? stages.find((s) => s.key === 'submitted')?.count ?? 0;
 
   return (
     <div className={mergeClasses('ce-enter', styles.root)}>
@@ -444,44 +488,82 @@ export function Dashboard() {
         }
       />
 
-      {/* HERO: the re-cut funnel — the LIVE-DEPTH backlog only (New → Not ready →
-          Review), clickable. The cumulative terminal total moved to the windowed
-          throughput strip below ("Sent to EVA (total)"), so the funnel is purely
-          open-cases depth. Replaces the old strip + the "drainable now" tiles. */}
-      <PipelineStrip
-        stages={stages}
-        variant="hero"
-        caption="Open cases by stage"
-        onStageSelect={(key) => {
-          const to = STAGE_ROUTE[key];
-          if (to) navigate(to);
-        }}
-      />
+      {/* SECTION 1 — INTAKE PIPELINE: the live-depth backlog funnel (New → Not ready →
+          Review), clickable into its queue, plus the Held bar. The cumulative terminal
+          total lives in the all-time tile below, so the funnel is purely open-cases depth. */}
+      <section className={styles.region} aria-label="Intake pipeline">
+        <span className="ce-overline">Intake pipeline</span>
+        <PipelineStrip
+          stages={stages}
+          variant="hero"
+          onStageSelect={(key) => {
+            const to = STAGE_ROUTE[key];
+            if (to) navigate(to);
+          }}
+        />
+        {/* Held — can't pass through automatically, a possible duplicate, or on hold */}
+        {live.held > 0 && (
+          <button
+            type="button"
+            className={mergeClasses('ce-focusable', styles.exceptionBar)}
+            onClick={() => navigate('/queue/held')}
+          >
+            <AlertOctagon size={18} strokeWidth={2} aria-hidden />
+            <span className={styles.exceptionText}>
+              {live.held} case{live.held === 1 ? '' : 's'} held — can’t pass through (missing the
+              basics), a possible duplicate, or on hold. Open Held.
+            </span>
+            <ChevronRight size={18} aria-hidden />
+          </button>
+        )}
+      </section>
 
-      {/* Held — can't pass through automatically, a possible duplicate, or on hold */}
-      {live.held > 0 && (
-        <button
-          type="button"
-          className={mergeClasses('ce-focusable', styles.exceptionBar)}
-          onClick={() => navigate('/queue/held')}
-        >
-          <AlertOctagon size={18} strokeWidth={2} aria-hidden />
-          <span className={styles.exceptionText}>
-            {live.held} case{live.held === 1 ? '' : 's'} held — can’t pass through (missing the
-            basics), a possible duplicate, or on hold. Open Held.
-          </span>
-          <ChevronRight size={18} aria-hidden />
-        </button>
-      )}
+      {/* SECTION 2 — INBOX: incoming-mail pressure, summarised. Each tile drills into the
+          triage queue; "Needs sorting" lights when email is still untriaged. Detail
+          (search, per-email actions) lives on /inbox — the cockpit stays scannable. */}
+      <section className={styles.region} aria-label="Inbox">
+        <span className="ce-overline">Inbox</span>
+        <div className={styles.liveStrip}>
+          <InboxTile
+            icon={Briefcase}
+            value={inbound.receiving_work}
+            label="Receiving work"
+            onOpen={() => navigate('/inbox')}
+          />
+          <InboxTile
+            icon={MailQuestion}
+            value={inbound.query}
+            label="Queries"
+            onOpen={() => navigate('/inbox')}
+          />
+          <InboxTile icon={Mail} value={inbound.other} label="Other" onOpen={() => navigate('/inbox')} />
+          <InboxTile
+            icon={AlertCircle}
+            value={inbound.untriaged}
+            label="Needs sorting"
+            blocker={inbound.untriaged > 0}
+            onOpen={() => navigate('/inbox')}
+          />
+        </div>
+      </section>
 
-      {/* REGION B — TODAY / THIS WEEK (windowed throughput, never lifetime) */}
-      <section className={styles.region} aria-label="Today and this week">
+      {/* SECTION 3 — THROUGHPUT: windowed metrics (today / this week) kept SEPARATE from
+          the lifetime "Sent to EVA" tile, so a running total is never read as a window. */}
+      <section className={styles.region} aria-label="Throughput">
         <span className="ce-overline">Today / this week</span>
-        <div className={styles.thruStrip}>
-          <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
-          <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
-          <ThruCell icon={CheckCheck} value={sentToEvaTotal} label="Sent to EVA (total)" />
-          <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
+        <div className={styles.thruRow}>
+          <div className={styles.thruStrip}>
+            <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
+            <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
+            <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
+          </div>
+          <div className={styles.allTimeTile}>
+            <span className={styles.allTimeHead}>
+              <CheckCheck size={12} strokeWidth={2} aria-hidden /> All time
+            </span>
+            <span className="ce-stat">{sentToEvaTotal}</span>
+            <span className={styles.thruLabel}>Sent to EVA</span>
+          </div>
         </div>
       </section>
 
@@ -552,6 +634,42 @@ function ThruCell({ icon: Icon, value, label }: { icon: LucideIcon; value: numbe
         <span className={styles.thruLabel}>{label}</span>
       </span>
     </div>
+  );
+}
+
+/* ----------  Section 2 inbox tile (clickable → /inbox)  ---------- */
+
+function InboxTile({
+  icon: Icon,
+  value,
+  label,
+  blocker,
+  onOpen,
+}: {
+  icon: LucideIcon;
+  value: number;
+  label: string;
+  blocker?: boolean;
+  onOpen: () => void;
+}) {
+  const styles = useStyles();
+  return (
+    <button
+      type="button"
+      className={mergeClasses('ce-focusable', styles.liveBtn, blocker && styles.liveBtnBlocker)}
+      onClick={onOpen}
+      aria-label={`${label}: ${value}. Open inbox.`}
+    >
+      <span className={mergeClasses(styles.liveIcon, blocker && styles.liveIconBlocker)} aria-hidden>
+        <Icon size={18} strokeWidth={1.85} />
+      </span>
+      <span className={styles.liveText}>
+        <span className={mergeClasses(styles.liveNumber, blocker && styles.liveNumberBlocker)}>
+          {value}
+        </span>
+        <span className={styles.liveLabel}>{label}</span>
+      </span>
+    </button>
   );
 }
 

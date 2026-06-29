@@ -26,7 +26,7 @@ describe('Dataverse case-status choice set <-> CaseStatus union parity', () => {
 
   it('has exactly one option per CaseStatus value (same count)', () => {
     expect(options).toHaveLength(CASE_STATUSES.length);
-    expect(options).toHaveLength(11);
+    expect(options).toHaveLength(12);
   });
 
   it('option `name`s equal the CaseStatus union as a set (1:1, no extras/omissions)', () => {

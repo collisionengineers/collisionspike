@@ -91,7 +91,16 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   (100000023, 'chaser_sent',                'Chaser Sent'),
   (100000024, 'inbound_classified',         'Inbound Classified'),
   (100000025, 'inbound_routed',             'Inbound Routed'),
-  (100000026, 'case_disposed',              'Case Disposed');
+  (100000026, 'case_disposed',              'Case Disposed'),
+  -- Phase-8 staff triage state-change actions (work-todo-spike: email-management).
+  -- Written by the Data API when staff move an inbound_email between active/handled.
+  (100000027, 'inbound_dismissed',          'Inbound Dismissed'),
+  (100000028, 'inbound_actioned',           'Inbound Actioned'),
+  (100000029, 'inbound_reopened',           'Inbound Reopened'),
+  -- Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
+  (100000030, 'case_removed',               'Case Removed'),
+  -- Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
+  (100000031, 'inbound_reclassified',       'Inbound Reclassified');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code
@@ -140,7 +149,11 @@ INSERT INTO choice_case_status (code, name, label) VALUES
   (100000007, 'ready_for_eva',           'Ready for EVA'),
   (100000008, 'eva_submitted',           'EVA Submitted'),
   (100000009, 'box_synced',              'Box Synced'),
-  (100000010, 'error',                   'Error');
+  (100000010, 'error',                   'Error'),
+  -- TERMINAL. Superuser soft-remove (work-todo-spike: ui-changes/delete-case): the case
+  -- row + audit trail survive; PII is anonymised and the status is locked here so the
+  -- status guard never re-promotes it and dedup/merge never targets it. Append-only.
+  (100000011, 'removed',                 'Removed');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_casetype  (case-type.json)  -- Case.case_type_code

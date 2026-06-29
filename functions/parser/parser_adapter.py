@@ -87,6 +87,8 @@ OPEN ITEM to confirm with document-parser-engineer:
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import os
 import tempfile
 from pathlib import Path
@@ -254,6 +256,85 @@ def run_parser(document_bytes: bytes, filename: str, provider_hint: str | None =
                 os.remove(tmp_path)
             except OSError:  # pragma: no cover - best-effort cleanup
                 pass
+
+
+# Source suffixes the engine's image extractor understands (PDF embeds, DOCX/DOC media).
+_IMAGE_SOURCE_SUFFIXES = (".pdf", ".docx", ".doc")
+
+
+def run_image_extraction(document_bytes: bytes, filename: str) -> dict[str, Any]:
+    """Extract embedded images from an instruction document and return their BYTES.
+
+    Wraps the vendored engine's ``DocumentMapperService.extract_images`` (PyMuPDF
+    first, ``pypdf`` fallback for PDFs; word/media for DOCX/DOC). The engine writes
+    extracted images to a local folder (a desktop-tooling concern); here we point it
+    at a throwaway temp dir, read each file back, compute a sha256, and return the
+    bytes base64-encoded with stable metadata — so the orchestration can persist each
+    image as evidence in Blob + Postgres (pdf-image-extraction ticket).
+
+    The engine is unmodified (no drift): this is a Function-layer wrapper, exactly
+    like ``run_parser``. Returns ``{count, images: [{filename, ext, content_type,
+    size, sha256, content_base64, sequence_index}], message}``. An unreadable / image-
+    free document yields ``count: 0`` (never an exception) — the caller treats that as
+    "nothing to extract", not a failure.
+    """
+    suffix = os.path.splitext(filename)[1].lower()
+    if suffix not in _IMAGE_SOURCE_SUFFIXES:
+        return {"count": 0, "images": [], "message": f"image extraction unsupported for {suffix!r}"}
+
+    try:
+        from cedocumentmapper_v2.application import DocumentMapperService
+    except Exception as exc:  # pragma: no cover - exercised only with deps absent
+        raise ParserError(f"cedocumentmapper_v2 is not importable: {exc}") from exc
+
+    _SERVICE_APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    service = DocumentMapperService(
+        app_data_dir=_SERVICE_APP_DATA_DIR, seed_path=_VENDORED_PROVIDERS_JSON
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        out_dir = Path(tmp) / "extracted"
+        # fields={} -> the engine uses generic stems; out_dir set -> NO desktop write.
+        result = service.extract_images(document_bytes, filename, fields={}, out_dir=out_dir)
+        images: list[dict[str, Any]] = []
+        for idx, path_str in enumerate(result.get("paths", []) or [], start=1):
+            p = Path(path_str)
+            try:
+                data = p.read_bytes()
+            except OSError:
+                continue
+            ext = p.suffix.lstrip(".").lower() or "bin"
+            images.append(
+                {
+                    "filename": p.name,
+                    "ext": ext,
+                    "content_type": _IMAGE_CONTENT_TYPES.get(ext, "application/octet-stream"),
+                    "size": len(data),
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                    "content_base64": base64.b64encode(data).decode("ascii"),
+                    "sequence_index": idx,
+                }
+            )
+    return {
+        "count": len(images),
+        "images": images,
+        "message": result.get("message", ""),
+        "source": filename,
+    }
+
+
+# Map an extracted-image extension to a content type (EVA only consumes raster photos).
+_IMAGE_CONTENT_TYPES: dict[str, str] = {
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "gif": "image/gif",
+    "bmp": "image/bmp",
+    "tif": "image/tiff",
+    "tiff": "image/tiff",
+    "webp": "image/webp",
+    "emf": "image/emf",
+    "wmf": "image/wmf",
+}
 
 
 def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:

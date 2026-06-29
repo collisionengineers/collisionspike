@@ -1,5 +1,15 @@
 # Phase 1 — Make the WHOLE pipeline operational (checklist + gap analysis)
 
+> ⚠️ **HISTORICAL — Power Platform era (decommissioned 2026-06-27).** This gap-analysis + activation
+> checklist targets the prior **Power Automate flows / Dataverse / Code App** mechanism, which was
+> **migrated to the Azure PaaS stack** and deprovisioned. The **pipeline shape it describes**
+> (intake → classify-persist → parse → provider-match → case-resolve → status-evaluate → `ready_for_eva`)
+> carried over to the orchestration Function App `cespk-orch-dev` (now **live** on info@ + engineers@ +
+> desk@) — read it for that domain sequencing, **not** as a live runbook (the `flows/definitions/*.json`
+> it analyses are decommissioned). Live state: the registry
+> [live-environment.md](../../architecture/live-environment.md); forward work:
+> [ROADMAP.md](../../../ROADMAP.md) + [docs/tickets/](../../tickets/README.md).
+
 > **Goal.** Take the Phase-1 intake pipeline from "an email creates a bare Case" to **an email
 > (1 instruction PDF + 2 photos) produces a Case that reaches `ready_for_eva` with the 12 EVA fields
 > pre-filled and 2 Evidence image rows**.

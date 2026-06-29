@@ -18,10 +18,11 @@ _Companion docs: [README.md](./README.md) · [CURRENT_STATUS.md](./CURRENT_STATU
 > mechanism changed**. The **Power Platform footprint was deprovisioned 2026-06-27** (the Dev sandbox + both
 > solutions + Code App + connectors + the remaining flow deleted via `pac admin delete`); Power-Platform-era
 > content below is **retained but banded as the prior era** — it remains the reference for the domain logic
-> it encodes. The live registry is
-> [CURRENT_STATUS.md](./CURRENT_STATUS.md).
+> it encodes. Live facts come from the registry
+> [LIVE_FACTS.json](./LIVE_FACTS.json) / [docs/architecture/live-environment.md](./docs/architecture/live-environment.md);
+> [CURRENT_STATUS.md](./CURRENT_STATUS.md) is the human-readable snapshot.
 
-> **Live Azure stack (canonical registry: [CURRENT_STATUS.md](./CURRENT_STATUS.md)).** Resource group
+> **Live Azure stack (canonical live registry: [docs/architecture/live-environment.md](./docs/architecture/live-environment.md), single source [LIVE_FACTS.json](./LIVE_FACTS.json)).** Resource group
 > `rg-collisionspike-dev` (region **uksouth**) on subscription `e6076573-…`, an **Azure Free Trial**
 > (quotaId `FreeTrial_2014-09-01`) — **the whole stack is disabled at the ~30-day mark unless upgraded to
 > Pay-As-You-Go** (the 12-month free Postgres allowance survives the upgrade). Components: **SPA**
@@ -31,8 +32,8 @@ _Companion docs: [README.md](./README.md) · [CURRENT_STATUS.md](./CURRENT_STATU
 > CollisionSpike.Superuser** — Superuser is the full-privilege role formerly named **CollisionSpike.Admin**
 > (legacy name still accepted), plus a defined-but-unenforced **CollisionSpike.Engineer** placeholder;
 > connects to Postgres); **orchestration** `cespk-orch-dev` (source
-> `orchestration/`, **email intake live in testing** — 2 Microsoft Graph **PUSH** subscriptions over the
-> scoped test mailboxes, not delta-poll); **Postgres Flexible** `cespk-pg-dev` v16, db `collisionspike`
+> `orchestration/`, **email intake LIVE** — Microsoft Graph **PUSH** subscriptions over the production
+> mailbox set **info@ + engineers@ + desk@**, not delta-poll); **Postgres Flexible** `cespk-pg-dev` v16, db `collisionspike`
 > (the seeded provider / repairer / image-source / inspection-address corpus; `case_` 0); the **6 retained
 > Python Functions** (**Box now live** — JWT Server Auth), the **Key Vaults**, **Blob `cespkevidstdev01`**,
 > and **App Insights / LAW**. Live function/corpus/subscription counts + feature-gate states: the registry
@@ -49,7 +50,8 @@ _Companion docs: [README.md](./README.md) · [CURRENT_STATUS.md](./CURRENT_STATU
 
 > **Live counts live elsewhere — by design.** Table / choice-set / relationship / env-var / flow /
 > test-gate tallies are **not restated in this ROADMAP** (they drift). The live registry is
-> [CURRENT_STATUS.md](./CURRENT_STATUS.md) + [docs/architecture/live-environment.md](./docs/architecture/live-environment.md);
+> [LIVE_FACTS.json](./LIVE_FACTS.json) + [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)
+> ([CURRENT_STATUS.md](./CURRENT_STATUS.md) is the human snapshot);
 > this ROADMAP tracks **what** is done / remaining, not running totals, and carries **no dated change
 > narrative** — that is CURRENT_STATUS's job. ADRs **0001–0014** are recorded; **0015–0018** are
 > _Proposed_ (the two integrated items, the new governance phase, and the parser/repo-boundary ADR-0018).
@@ -111,22 +113,20 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 - **Free-Trial → Pay-As-You-Go.** Subscription `e6076573-…` is an **Azure Free Trial**
   (quotaId `FreeTrial_2014-09-01`); **the whole stack is disabled at the ~30-day mark** unless upgraded
   (the 12-month free Postgres allowance survives the upgrade). A hard, dated deadline.
-- **Take orchestration to the production mailbox set (email intake is LIVE IN TESTING).** `cespk-orch-dev`
-  is live with **2 Microsoft Graph PUSH change-notification subscriptions** over the test mailbox set
-  engineers@ + digital@ (both Exchange-RBAC-scoped) — transport is **push, not delta-poll**. ✅ **Renewal
-  RESOLVED (2026-06-29):** the 2 subscriptions were renewed to 2026-07-06 and are now kept alive by a Durable
-  eternal orchestration (`subscriptionMonitorOrchestrator`) — a plain NCRONTAB timer can't wake the
-  scale-to-zero FC1 app (root cause), so the `graph-renew` timer is retained as a backstop. Residual
-  watch-item: `graph-webhook` still emits some `499`/`BadHttpRequestException` cold-start aborts but intake
-  still flows (Graph retries absorb the misses); the always-ready instance is left OFF for Free-Trial cost
-  (enable only if drops persist). Remaining for the **production** set (info@ + engineers@ + desk@; drop test-only digital@):
-  have an **Exchange Administrator** grant info@ + desk@ **resource-scoped** Graph mailbox roles via **Exchange
-  RBAC for Applications** (`New-ServicePrincipal` / `New-ManagementScope` / `New-ManagementRoleAssignment`) —
-  **no Global-Admin tenant consent**; then add them to `GRAPH_INTAKE_MAILBOXES`. Also set
-  `EVIDENCE_BLOB_CONNECTION` (prefer MI), assign the orch MI an app-role on the Data API, and wire the Azure
-  Monitor heartbeat alerts. Verify the end-to-end live path (a real email → graph-webhook → parser → a `Case`
-  row in Postgres with the correct status, dedup, and provider match) on each newly-scoped inbox. Live
-  counts/subscription state: the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
+- **✅ Production mailbox cutover — DONE (2026-06-29). Email intake is LIVE on info@ + engineers@ + desk@.**
+  `cespk-orch-dev` runs **Microsoft Graph PUSH change-notification subscriptions** over the production
+  mailbox set (all Exchange-RBAC-scoped; the cutover added info@ + desk@ and removed the test/dev mailbox
+  digital@) — transport is **push, not delta-poll**. ✅ **Renewal RESOLVED (2026-06-29):** subscriptions are
+  kept alive by a Durable eternal orchestration (`subscriptionMonitorOrchestrator` — a durable timer wakes
+  the scale-to-zero FC1 app, which a plain NCRONTAB timer can't); the `graph-renew` timer is retained as a
+  backstop. Remaining to make it fully production-grade (not blocking intake): **verify the end-to-end live
+  path** (a real email → graph-webhook → parser → a `Case` row in Postgres with the correct status, dedup,
+  provider match); confirm an **unattended renew** at the next ~6h durable-timer wake; set
+  `EVIDENCE_BLOB_CONNECTION` (prefer MI); assign the orch MI an app-role on the Data API; wire the Azure
+  Monitor heartbeat alerts; and add a subscription-**prune** step (`runSubscriptionMaintenance` creates+renews
+  but doesn't yet delete a sub for a mailbox removed from `GRAPH_INTAKE_MAILBOXES` — why digital@ had to be
+  deleted by hand). Some residual `graph-webhook` `499`/cold-start aborts remain (Graph retries absorb them).
+  Live subscription state: the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 
 **Next:**
 - **Durable API hardening** — durable auth error-handling + token **audience-form** hardening (v2 tokens
@@ -524,6 +524,7 @@ lawful basis** are operator/legal input (gated.md).
 > `cespk-api-dev` data API, surfaced in the Static Web App SPA), is parsed + (optionally) enriched into the
 > **12 EVA fields** with provenance, passes a human readiness review, and is exported to **EVA** as drag-drop
 > JSON with a **Box** archive folder — with dedup, provider matching, and the inspection-address gate all
-> behaving per the offline decision-table tests. The domain definition is unchanged by the migration; the
-> remaining gate is **live automated intake**, which depends on deploying `cespk-orch-dev` + the Exchange-RBAC
-> mailbox scoping (see Now / Next / Later).
+> behaving per the offline decision-table tests. The domain definition is unchanged by the migration.
+> **Live automated intake is now running** (`cespk-orch-dev`, Graph PUSH over info@ + engineers@ + desk@,
+> Box live); what remains for the "done" bar is the end-to-end live verification + production-hardening rungs
+> in Now / Next / Later (evidence-blob connection, orch MI app-role, heartbeat alerts, EVA finalize).

@@ -23,12 +23,18 @@
 import { app, type HttpRequest } from '@azure/functions';
 import {
   EVA_FIELD_ORDER,
+  casePoSequenceRegex,
+  casePoYear,
   extractVrm,
+  formatCasePo,
   statusForReviewCase,
   type Case,
   type CreateCaseInput,
+  type EvaFieldKey,
   type MergeCasesResult,
+  type NextCasePoResult,
   type QueueName,
+  type RemoveCaseResult,
   type StatusEvaluationInput,
 } from '@cs/domain';
 import {
@@ -41,11 +47,14 @@ import {
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
+import { gates } from '../lib/gates.js';
+import { listBoxFolderNames } from '../lib/functions-client.js';
 import {
   CASE_SELECT,
   EVA_COLUMN_BY_KEY,
   TWIN_TERMINAL,
   filterQueue,
+  maxCasePoSeqFromNames,
   rowToActivityEvent,
   rowToCase,
   rowToEvidence,
@@ -149,6 +158,79 @@ async function recomputeStatus(caseId: string, actor?: string): Promise<void> {
   });
 }
 
+/* ----------  Durable case-page EVA-field edits (work-todo-spike: casepage)  ---------- */
+
+/** Per-key max length (mirrors the case_.eva_* column widths) so an edit never 500s on a
+ *  length overflow — over-long free text is clipped, validated fields are rejected (400). */
+const EVA_MAXLEN: Record<EvaFieldKey, number> = {
+  workProvider: 200,
+  vehicleModel: 200,
+  claimantName: 200,
+  claimantTelephone: 60,
+  claimantEmail: 320,
+  dateOfLoss: 10,
+  dateOfInstruction: 10,
+  accidentCircumstances: 4000,
+  inspectionAddress: 2000,
+  vatStatus: 3,
+  mileage: 20,
+  mileageUnit: 6,
+};
+const isDmyOrEmpty = (v: string): boolean => v === '' || /^\d{2}\/\d{2}\/\d{4}$/.test(v);
+const VAT_VALUES = new Set(['', 'Yes', 'No']);
+const MILEAGE_UNITS = new Set(['', 'Miles', 'Km']);
+
+/**
+ * Validate + normalise a single editable EVA field value. Returns the normalised string to
+ * persist, or an `{ error }` when the value violates the EVA format invariants (the same
+ * CHECKs the DB enforces) — surfaced as a 400 so a bad edit never reaches the DB as a 500.
+ */
+function normaliseEvaEdit(key: EvaFieldKey, raw: string): { value: string } | { error: string } {
+  const trimmed = raw.trim();
+  if (key === 'dateOfLoss' || key === 'dateOfInstruction') {
+    if (!isDmyOrEmpty(trimmed)) return { error: `${key} must be DD/MM/YYYY or empty` };
+    return { value: trimmed };
+  }
+  if (key === 'vatStatus') {
+    if (!VAT_VALUES.has(trimmed)) return { error: "vatStatus must be '', 'Yes' or 'No'" };
+    return { value: trimmed };
+  }
+  if (key === 'mileageUnit') {
+    if (!MILEAGE_UNITS.has(trimmed)) return { error: "mileageUnit must be '', 'Miles' or 'Km'" };
+    return { value: trimmed };
+  }
+  // Free-text fields: keep as-is but clip to the column width (no hard 4xx on length).
+  return { value: raw.slice(0, EVA_MAXLEN[key]) };
+}
+
+/** Upsert a 'staff' (manual edit) field_level_provenance row for one EVA field. One row per
+ *  (case_id, field_name): UPDATE if present, else INSERT. Best-effort — provenance is
+ *  supplementary and must never sink a durable case edit. */
+async function upsertManualProvenance(caseId: string, fieldName: string, value: string): Promise<void> {
+  try {
+    const staff = sourceTypeCodec.toInt('staff') ?? 100000000;
+    const reviewed = reviewStateCodec.toInt('reviewed') ?? 100000002;
+    const upd = await query<{ id: string }>(
+      `UPDATE field_level_provenance
+          SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
+              review_state_code = $5, updated_at = now()
+        WHERE case_id = $1 AND field_name = $2
+        RETURNING id`,
+      [caseId, fieldName, value, staff, reviewed],
+    );
+    if (upd.length === 0) {
+      await query(
+        `INSERT INTO field_level_provenance
+           (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
+         VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
+        [`${caseId}:${fieldName}`, caseId, fieldName, value, staff, reviewed],
+      );
+    }
+  } catch {
+    /* provenance is supplementary — never block the edit. */
+  }
+}
+
 /* ============================================================
    1 — GET /api/cases/{id}
    ============================================================ */
@@ -165,10 +247,12 @@ app.http('caseById', {
 });
 
 /* ============================================================
-   1b — PATCH /api/cases/{id}   (in-place field edit; SPA manual VRM correction)
-   Accepts { vrm } today; designed extensible (add fields to the handler below).
-   Returns the FULL updated Case (same shape as GET /api/cases/{id}) at 200 so the
-   SPA can take server truth back. Authz: CollisionSpike.User (regular intake work).
+   1b — PATCH /api/cases/{id}   (durable in-place case edits)
+   Accepts { vrm?, evaFields? } — the manual VRM correction PLUS durable case-page edits of
+   the editable EVA fields (date_of_incident, date_of_instruction, vehicle model, etc.;
+   work-todo-spike: casepage). Each changed EVA field is persisted, audited, and gets a
+   'staff' (manual edit) field_level_provenance row. Returns the FULL updated Case (200) so
+   the SPA can take server truth back. Authz: CollisionSpike.User (regular intake work).
    ============================================================ */
 app.http('patchCase', {
   methods: ['PATCH'],
@@ -176,7 +260,10 @@ app.http('patchCase', {
   route: 'cases/{id}',
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = req.params.id;
-    const body = (await req.json().catch(() => ({}))) as { vrm?: string };
+    const body = (await req.json().catch(() => ({}))) as {
+      vrm?: string;
+      evaFields?: Partial<Record<EvaFieldKey, string>>;
+    };
     const actor = actorFromClaims(claims);
 
     const existing = await loadCaseLite(id);
@@ -186,8 +273,9 @@ app.http('patchCase', {
     const vals: unknown[] = [];
     const before: Record<string, unknown> = {};
     const after: Record<string, unknown> = {};
+    const changedEvaFields: Array<{ key: EvaFieldKey; value: string }> = [];
 
-    // --- vrm (extensible: add further PATCHable fields as new `if` blocks below) ---
+    // --- vrm ---
     if (body.vrm !== undefined) {
       const raw = String(body.vrm ?? '').trim();
       // Lenient by design: normalise via the shared canonical sniff (which strips embedded
@@ -204,6 +292,23 @@ app.http('patchCase', {
       }
     }
 
+    // --- editable EVA fields (durable case-page edits) ---
+    if (body.evaFields && typeof body.evaFields === 'object') {
+      for (const [k, rawVal] of Object.entries(body.evaFields)) {
+        if (rawVal === undefined || !(k in EVA_COLUMN_BY_KEY)) continue; // ignore unknown keys
+        const key = k as EvaFieldKey;
+        const norm = normaliseEvaEdit(key, String(rawVal ?? ''));
+        if ('error' in norm) return { status: 400, jsonBody: { error: norm.error } };
+        const oldVal = existing.evaFields[key]?.value ?? '';
+        if (norm.value === oldVal) continue; // unchanged
+        sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${sets.length + 1}`);
+        vals.push(norm.value);
+        before[key] = oldVal;
+        after[key] = norm.value;
+        changedEvaFields.push({ key, value: norm.value });
+      }
+    }
+
     // No supplied change → return the current full Case unchanged (idempotent PATCH).
     if (sets.length === 0) {
       const cur = await loadCaseFull(id, new Date());
@@ -216,6 +321,9 @@ app.http('patchCase', {
       vals,
     );
 
+    // One 'staff' (manual edit) provenance row per changed EVA field (best-effort upsert).
+    for (const f of changedEvaFields) await upsertManualProvenance(id, f.key, f.value);
+
     await writeAudit({
       action: AUDIT_ACTION.status_changed,
       caseId: id,
@@ -225,8 +333,8 @@ app.http('patchCase', {
       ...(actor ? { actor } : {}),
     });
 
-    // A VRM change alters case identity (hasIdentity) → recompute the workflow status
-    // (terminal-locked by the shared guard); writes its own status_changed audit if it moves.
+    // A VRM or required-EVA-field change can alter identity/readiness → recompute the workflow
+    // status (terminal-locked by the shared guard); writes its own status_changed audit if it moves.
     await recomputeStatus(id, actor);
 
     const updated = await loadCaseFull(id, new Date());
@@ -544,6 +652,165 @@ app.http('activityForCase', {
       [id],
     );
     return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
+  }),
+});
+
+/* ============================================================
+   DELETE /api/cases/{id}   (Superuser-only SOFT remove — work-todo-spike: delete-case)
+   Per ADR-0017 + data-protection.md: a SOFT remove only — status -> terminal 'removed',
+   PII anonymised, the case row + append-only audit trail KEPT. Runs under the least-privilege
+   staff grant (an UPDATE, never a hard DELETE — the app login has no DELETE). The Box folder is
+   NEVER auto-deleted: `acknowledgeBoxFolderHandled` is an audit-only ACK; the operator follows
+   the archive runbook by hand and the box_folder_id/url + case_po are PRESERVED for them.
+   Requires the live choice_case_status row (100000011,'removed') — see 000_enums_lookups.sql.
+   ============================================================ */
+app.http('removeCase', {
+  methods: ['DELETE'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}',
+  handler: withRole('CollisionSpike.Superuser', async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body = (await req.json().catch(() => ({}))) as {
+      acknowledgeBoxFolderHandled?: boolean;
+      reason?: string;
+    };
+    const actor = actorFromClaims(claims);
+
+    const existing = await loadCaseLite(id);
+    if (!existing) return { status: 404, jsonBody: { error: 'not found' } };
+
+    // Idempotent: a re-remove is a no-op success (never errors on an already-removed case).
+    if (existing.status === 'removed') {
+      const done: RemoveCaseResult = {
+        id,
+        status: 'removed',
+        alreadyRemoved: true,
+        ...(existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}),
+      };
+      return { status: 200, jsonBody: done };
+    }
+
+    // Snapshot identity for the audit BEFORE anonymising (the trail keeps what was removed).
+    const before = {
+      status: existing.status,
+      vrm: existing.vrm,
+      casePo: existing.casePo ?? null,
+      provider: existing.provider,
+      claimantName: existing.evaFields.claimantName.value,
+    };
+
+    // Soft remove: status -> 'removed' (terminal), anonymise PII (the 12 EVA fields + VRM +
+    // overview facts + claimant address). KEEP case_po + box_folder_id/url so the operator can
+    // still find + handle the archive folder. on_hold cleared; closed_at stamped.
+    const evaCols = EVA_FIELD_ORDER.map((d) => `${EVA_COLUMN_BY_KEY[d.key]} = ''`).join(', ');
+    await query(
+      `UPDATE case_
+          SET status_code = $2, ${evaCols},
+              vrm = '', case_ref = '', name = '[removed]',
+              ov_insured_name = NULL, ov_claimant_name = NULL,
+              ov_third_party_name = NULL, ov_claim_number = NULL,
+              ov_policy_reference = NULL, ov_incident_date = NULL,
+              ov_insurer_name = NULL, ov_repairer_name = NULL,
+              eva_claimant_address = NULL,
+              on_hold = false, closed_at = now(), updated_at = now()
+        WHERE id = $1`,
+      [id, statusToInt('removed')],
+    );
+
+    await writeAudit({
+      action: AUDIT_ACTION.case_removed,
+      caseId: id,
+      severity: 'warning',
+      summary: `Case removed (soft): ${before.vrm || before.casePo || id}`,
+      before,
+      after: {
+        status: 'removed',
+        // The "also remove Box folder" tickbox is an INTENT FLAG only — no automated deletion.
+        boxFolderAcknowledged: body.acknowledgeBoxFolderHandled === true,
+        boxFolderId: existing.boxFolderId ?? null,
+        boxFolderUrl: existing.boxFolderUrl ?? null,
+        ...(typeof body.reason === 'string' && body.reason.trim() ? { reason: body.reason.trim() } : {}),
+      },
+      ...(actor ? { actor } : {}),
+    });
+
+    const result: RemoveCaseResult = {
+      id,
+      status: 'removed',
+      alreadyRemoved: false,
+      ...(existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}),
+    };
+    return { status: 200, jsonBody: result };
+  }),
+});
+
+/* ============================================================
+   GET /api/cases/next-po?principal=XXX[&year=YY]   (Case/PO allocator PREVIEW)
+   work-todo-spike: case-po-gen. DB history is authoritative: the next per-(principal,year)
+   sequence is MAX+1 over committed case_po rows (case-insensitive — the same probe the
+   advisory-locked mint in internal.ts uses). For a BRAND-NEW provider with NO DB history,
+   falls back to scanning the Box root (BOX_FOLDER_ROOT_ID) for folders matching the
+   principal prefix and takes max+1. PREVIEW only — the durable claim happens under the
+   advisory lock at case create (the allocator authority stays the API/DB, not the UI).
+   This literal route out-ranks the cases/{id} parameter route (host literal precedence).
+   ============================================================ */
+app.http('nextCasePo', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'cases/next-po',
+  handler: withRole('CollisionSpike.User', async (req, ctx) => {
+    const principalRaw = (req.query.get('principal') ?? '').trim();
+    if (!principalRaw) return { status: 400, jsonBody: { error: 'principal is required' } };
+    const principal = principalRaw.toUpperCase();
+    // Leading-alpha provider code, alphanumeric, ≤ 8 (matches work_provider.principal_code).
+    if (!/^[A-Z][A-Z0-9]{0,7}$/.test(principal)) {
+      return { status: 400, jsonBody: { error: 'invalid principal code' } };
+    }
+    const yearParam = (req.query.get('year') ?? '').trim();
+    const yy = /^\d{2}$/.test(yearParam)
+      ? yearParam
+      : /^\d{4}$/.test(yearParam)
+        ? yearParam.slice(-2)
+        : casePoYear();
+    const prefix = `${principal}${yy}`;
+
+    // 1) DB history (authoritative). Strip the prefix by length so the contiguous year digits
+    //    are not swept into the sequence (e.g. "CCPY26050" -> 050, not 26050).
+    const seqRows = await query<{ max_seq: string | number }>(
+      `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) AS max_seq
+         FROM case_
+        WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
+      [`${prefix}%`, casePoSequenceRegex(principal, yy), prefix],
+    );
+    let maxSeq = Number(seqRows[0]?.max_seq ?? 0);
+    let source: 'db' | 'box' = 'db';
+
+    // 2) Box fallback — ONLY when the DB has no history for this (principal, year) AND Box is on.
+    if (maxSeq === 0 && gates.boxApi() && gates.boxFolderRootId() && process.env.BOX_FN_URL) {
+      try {
+        const names = await listBoxFolderNames(gates.boxFolderRootId());
+        const boxMax = maxCasePoSeqFromNames(names, principal, yy);
+        if (boxMax > 0) {
+          maxSeq = boxMax;
+          source = 'box';
+        }
+      } catch (e) {
+        ctx.error(`[next-po] Box fallback failed: ${String(e)}`); // best-effort; fall back to seq 1
+      }
+    }
+
+    const nextSeq = maxSeq + 1;
+    const casePo = formatCasePo(principal, yy, nextSeq);
+    const result: NextCasePoResult = {
+      principal,
+      yy,
+      seq: String(nextSeq).padStart(3, '0'),
+      nextSeq,
+      evaLower: casePo.toLowerCase(),
+      boxUpper: casePo,
+      source,
+    };
+    return { status: 200, jsonBody: result };
   }),
 });
 

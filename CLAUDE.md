@@ -36,12 +36,13 @@ the **Azure Free-Trial** subscription `e6076573-…` (quotaId `FreeTrial_2014-09
   roles; v2 tokens carry `aud` = the API client-id GUID `fa2fb28c…`). Connects to Postgres; owns the
   status-machine, dedup, audit, and gate reads.
 - **Orchestration** — Function App **`cespk-orch-dev`** (source `orchestration/`, esbuild bundle
-  `deploy/orch/main.cjs`) — deployed + wired and **email intake is LIVE IN TESTING**. Transport is Microsoft
-  Graph **change-notification subscriptions (PUSH)** — NOT delta-poll — over **Exchange-RBAC-scoped**
-  mailboxes (no Global-Admin consent; subscription-create rides on the RBAC `Application Mail.Read` grant).
-  **2 live push subscriptions** exist for the test set **engineers@ + digital@** (both RBAC-scoped),
-  renewed to 2026-07-06 and kept alive by the durable `subscriptionMonitorOrchestrator`; the **production target is info@ + engineers@ + desk@** (info@ + desk@ not yet scoped).
-  Function count + subscription/RBAC state + expiry: see the live registry
+  `deploy/orch/main.cjs`) — deployed + wired and **email intake is LIVE** on the production mailbox set.
+  Transport is Microsoft Graph **change-notification subscriptions (PUSH)** — NOT delta-poll — over
+  **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent; subscription-create rides on the RBAC
+  `Application Mail.Read` grant). Live push subscriptions cover the **production set info@ + engineers@ +
+  desk@** (all RBAC-scoped; the **2026-06-29 mailbox cutover** added info@ + desk@ and removed the test/dev
+  mailbox **digital@**), kept alive by the durable `subscriptionMonitorOrchestrator`.
+  Function count + subscription/RBAC state: see the live registry
   [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) (single source:
   [LIVE_FACTS.json](./LIVE_FACTS.json)). (The prior "ZERO functions" state was an esbuild ESM→CJS
   `import.meta.url` bundle crash — fixed via `build-orch.cjs`.)
@@ -55,17 +56,17 @@ the **Azure Free-Trial** subscription `e6076573-…` (quotaId `FreeTrial_2014-09
   Automate flow onto the **Data API/Postgres** via its managed identity), the Key Vaults, Blob
   `cespkevidstdev01`, and App Insights / Log Analytics.
 
-**Honest live state (do not paper over).** (1) **Email intake is LIVE IN TESTING** — the orchestration app
-runs with **2 Graph PUSH subscriptions** over the test mailbox set **engineers@ + digital@** (both
-Exchange-RBAC app-read scoped). digital@ is a test/dev mailbox; engineers@ is a real production mailbox
-currently under test; the **production target is info@ + engineers@ + desk@** (info@ + desk@ not yet scoped →
-403). ✅ **Graph renewal RESOLVED (2026-06-29):** the 2 subscriptions were renewed to 2026-07-06 and are now
-kept alive by a Durable eternal orchestration (`subscriptionMonitorOrchestrator`) — a plain NCRONTAB timer
-can't wake the scale-to-zero FC1 app (the root cause), so the `graph-renew` timer is retained only as a
-backstop. ⚠️ Residual watch-item: `graph-webhook` still emits some `499`/`BadHttpRequestException` cold-start
-aborts; intake still flows (Graph retries absorb the misses), and an always-ready instance is left OFF for
-Free-Trial cost (enable only if drops persist; see [docs/gated.md](./docs/gated.md)). Manual case-create
-remains available alongside. Live counts/subscription state: the registry
+**Honest live state (do not paper over).** (1) **Email intake is LIVE on the production mailbox set** — the
+orchestration app runs **Graph PUSH subscriptions** over **info@ + engineers@ + desk@** (all Exchange-RBAC
+app-read scoped; the **2026-06-29 mailbox cutover** added info@ + desk@ — their subscription creates
+succeeded once the ~30min–2h Exchange-RBAC permission cache cleared — and removed the test/dev mailbox
+**digital@**). ✅ **Graph renewal RESOLVED (2026-06-29):** subscriptions are kept alive by a Durable eternal
+orchestration (`subscriptionMonitorOrchestrator`) — a durable timer wakes the scale-to-zero FC1 app, which a
+plain NCRONTAB timer can't; the `graph-renew` timer is retained only as a backstop. ⚠️ Operator watch-items:
+confirm an **unattended renew** at the next ~6h durable-timer wake, and add a subscription-**prune** step (a
+mailbox removed from `GRAPH_INTAKE_MAILBOXES` isn't yet auto-deleted — why digital@ had to be removed by
+hand). `graph-webhook` still emits some `499`/cold-start aborts; intake still flows (Graph retries absorb the
+misses). Manual case-create remains available alongside. Live subscription state: the registry
 [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 (2) **Postgres security (P0 + P2 — RESOLVED 2026-06-26):** the Data API connects as a **non-owner login
 `cespk_app`** (no superuser, no `BYPASSRLS`) whose password is a **Key Vault reference** (no cleartext),
@@ -158,6 +159,24 @@ pre-commit hook and CI. Activate the hook once: `git config core.hooksPath scrip
 
 Full protocol + precedence hierarchy: [`docs/MAINTENANCE.md`](./docs/MAINTENANCE.md).
 
+## Ticket-based planning
+
+Granular work is tracked as **atomic Markdown tickets** in [`docs/tickets/`](./docs/tickets/README.md) —
+the layer **under** ROADMAP.md (ROADMAP is the strategic Now/Next/Later; a ticket is one self-contained
+item). **One ticket = one `.md` file** with YAML frontmatter:
+`id` · `title` · `status` (`backlog`/`now`/`next`/`done`/`blocked`) · `priority` (`P0`–`P3`) · `area` ·
+`tickets-it-relates-to` (ids, or `[]`) · `research-link` (path to the backing research pack). The
+[`BOARD.md`](./docs/tickets/BOARD.md) tracker mirrors each ticket's column (Now / Next / Backlog / Done).
+**Lifecycle:** a `work-todo-spike` operator stub + fan-out research pack → distilled into a ticket
+(`backlog`) → `now`/`next` when picked up → `done` (or `blocked` on an operator/dependency).
+
+**Research packs are advisory aids — verify, don't trust.** The packs under
+[`docs/plans/work-todo-spike/`](./docs/plans/work-todo-spike/) (linked from each ticket) are detailed
+fan-out research, but any live fact (counts, gates, mailbox set, function/route names) must be checked
+against the registry ([live-environment.md](./docs/architecture/live-environment.md) / `LIVE_FACTS.json`)
+before acting — they are point-in-time snapshots, not the source of truth. Validate the board with
+`node scripts/check-tickets.mjs` (frontmatter present, enums valid, `research-link` resolves, ids unique).
+
 ## Related repos (in the `collisionsuite/` tree — ideas/prior-art only, NONE canonical, do not modify)
 
 These hold **ideas and references** to Collision Engineers' processes — mine and adapt them; they
@@ -219,7 +238,9 @@ images without instructions) and are held with a chaser workflow until complete.
 
 All non-trivial integrations are **feature-gated**. Under the live Azure stack the gates are **Function
 app-settings** that the Data API + orchestration apps read (they were **Dataverse environment variables**
-in the prior Power Platform build); the names and **default-off** semantics are unchanged:
+in the prior Power Platform build); the names and **default-off** *semantics* are unchanged (but the **live
+values** live in the registry, not here — **`ENRICHMENT_ENABLED` and `PDF_MAPPER_ENABLED` are currently
+`true`** on the live stack, as are the three live `BOX_*` gates below):
 `EVA_API_ENABLED`, `PDF_MAPPER_ENABLED`, `ENRICHMENT_ENABLED`, `AZURE_MAPS_ENABLED`, `COPILOT_ENABLED`,
 and the **Phase-7 `BOX_*` set** — `BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`,
 `BOX_FILEREQUEST_ENABLED`, `BOX_EMBED_ENABLED` (reserved), `BOX_METADATA_ENABLED` (deferred). **EVA** has

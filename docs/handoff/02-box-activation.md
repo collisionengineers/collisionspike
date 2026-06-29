@@ -110,7 +110,7 @@ embedded — ADR-0012; metadata needs Box Business Plus).
 - **`CURRENT_STATUS.md`** — replaced the top "Box credentials PROVEN; activation staged; needs az login"
   banner with "Box is now LIVE", documenting the stale-deploy root cause and superseding the older
   "vault empty / no Box creds yet" lines below.
-- **`OPEN_ITEMS.md` §A** — flipped the "[OPERATOR → BUILD] Finish Box wiring (set 3 KV secrets)" items to
+- **The forward worklist ([ROADMAP.md](../../ROADMAP.md); formerly `OPEN_ITEMS.md` §A, now merged in)** — flipped the "[OPERATOR → BUILD] Finish Box wiring (set 3 KV secrets)" items to
   **DONE**, corrected the "3 secrets" framing to the single load-bearing `box-config-json`, and narrowed the
   remaining Box work to Box-side items.
 
