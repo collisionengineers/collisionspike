@@ -37,8 +37,16 @@ import type {
   NextCasePoResult,
   ProviderUpdateInput,
   ReclassifyInboundInput,
+  AiSuggestion,
+  AiSuggestionReviewInput,
+  AiSuggestionReviewResult,
+  GenerateAiSuggestionsResult,
 } from '@cs/domain';
-import { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF } from '@cs/domain';
+import {
+  BOX_GATES_ALL_FALSE,
+  LOCATION_ASSIST_GATE_ALL_OFF,
+  AI_ASSIST_GATE_ALL_OFF,
+} from '@cs/domain';
 import type { DataAccessExt } from './rest-client';
 
 const NOT_CONFIGURED =
@@ -424,6 +432,17 @@ export const mockDataAccess: DataAccessExt = {
     row.classifierMode = 'human';
     return Promise.resolve({ ...row });
   },
+
+  /* ----- AI suggestion layer (TKT-015) — honest-empty / honest-off default ----- */
+  // No fabricated AI rows: the empty default has no suggestions and the gate is OFF, so
+  // the gated panel renders NOTHING. generate is the same honest no-op the live API gives
+  // when disabled; the durable review write rejects until the live source is injected.
+  aiSuggestions: (_caseId): Promise<AiSuggestion[]> => Promise.resolve([]),
+  getAiAssistGate: () => Promise.resolve({ ...AI_ASSIST_GATE_ALL_OFF }),
+  generateAiSuggestions: (_caseId): Promise<GenerateAiSuggestionsResult> =>
+    Promise.resolve({ generated: 0, reason: 'disabled' }),
+  reviewAiSuggestion: (_id, _input: AiSuggestionReviewInput): Promise<AiSuggestionReviewResult> =>
+    Promise.reject(new Error(NOT_CONFIGURED)),
 };
 
 /** Factory form, for symmetry with `createDataverseDataAccess`. */

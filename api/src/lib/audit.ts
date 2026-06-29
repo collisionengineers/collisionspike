@@ -56,6 +56,11 @@ export const AUDIT_ACTION = {
   case_removed: 100000030,
   // Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
   inbound_reclassified: 100000031,
+  // AI suggestion lifecycle (TKT-015 AI suggestion layer; gated by AI_ASSIST_ENABLED).
+  // created = a model produced a suggestion; accepted/rejected = a human reviewed it.
+  ai_suggestion_created: 100000032,
+  ai_suggestion_accepted: 100000033,
+  ai_suggestion_rejected: 100000034,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

@@ -25,6 +25,11 @@ import type {
   NextCasePoResult,
   ReclassifyInboundInput,
   TriageState,
+  AiSuggestion,
+  AiSuggestionReviewInput,
+  AiSuggestionReviewResult,
+  GenerateAiSuggestionsResult,
+  AiAssistGate,
 } from '@cs/domain';
 import type { QueueName } from '@cs/domain';
 import type {
@@ -170,6 +175,26 @@ export function useBoxGates(): QueryState<BoxGates> {
 export function useLocationAssistGate(): QueryState<LocationAssistGate> {
   const run = useCallback(() => getDataAccess().getLocationAssistGate(), []);
   return useAsync(run, []);
+}
+
+/**
+ * The AI-assist gate (TKT-015). Screens read `const { data: aiGate } = useAiAssistGate()`
+ * and treat `undefined`/loading as OFF (the panel stays hidden). The read defaults all-off
+ * on failure, so this never throws the feature on by accident.
+ */
+export function useAiAssistGate(): QueryState<AiAssistGate> {
+  const run = useCallback(() => getDataAccess().getAiAssistGate(), []);
+  return useAsync(run, []);
+}
+
+/** Pending + recently-reviewed AI suggestions for a case (TKT-015). Honest-empty (`[]`)
+ *  on any failure (the read is safe()-wrapped). Re-runs on case id change. */
+export function useAiSuggestions(caseId: string | undefined): QueryState<AiSuggestion[]> {
+  const run = useCallback(
+    () => (caseId ? getDataAccess().aiSuggestions(caseId) : Promise.resolve([])),
+    [caseId],
+  );
+  return useAsync(run, [caseId]);
 }
 
 /** The 'hold new cases by default' intake preference (env-var). Loading/undefined
@@ -368,4 +393,32 @@ export function useProviderUpdate(): ProviderUpdateState {
     getDataAccess().updateProvider(idOrCode, input),
   );
   return { update: m.run, saving: m.pending, error: m.error };
+}
+
+/** What `useReviewAiSuggestion` hands the screen (TKT-015). `review` resolves the
+ *  AiSuggestionReviewResult (surfacing whether a value was promoted) and REJECTS on failure. */
+export interface ReviewAiSuggestionState {
+  review: (id: string, input: AiSuggestionReviewInput) => Promise<AiSuggestionReviewResult>;
+  saving: boolean;
+  error: Error | undefined;
+}
+/** Accept/reject an AI suggestion (TKT-015 AI suggestion layer). */
+export function useReviewAiSuggestion(): ReviewAiSuggestionState {
+  const m = useMutationFn((id: string, input: AiSuggestionReviewInput) =>
+    getDataAccess().reviewAiSuggestion(id, input),
+  );
+  return { review: m.run, saving: m.pending, error: m.error };
+}
+
+/** What `useGenerateAiSuggestions` hands the screen (TKT-015). `generate` resolves the
+ *  honest `{ generated, reason? }` result (no-op when the gate is off / model unconfigured). */
+export interface GenerateAiSuggestionsState {
+  generate: (caseId: string) => Promise<GenerateAiSuggestionsResult>;
+  generating: boolean;
+  error: Error | undefined;
+}
+/** Ask the server to generate AI suggestions for a case (TKT-015). */
+export function useGenerateAiSuggestions(): GenerateAiSuggestionsState {
+  const m = useMutationFn((caseId: string) => getDataAccess().generateAiSuggestions(caseId));
+  return { generate: m.run, generating: m.pending, error: m.error };
 }

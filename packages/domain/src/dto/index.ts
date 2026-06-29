@@ -284,6 +284,93 @@ export interface MergeCasesResult {
 }
 
 /* ============================================================
+   AI suggestion layer (TKT-015) — observation-first, GATED.
+
+   AI output lands here as a SUGGESTION (with model version + confidence), never
+   as a silent mutation; promotion into evidence/case fields happens only on a
+   human accept (fill-if-empty). Producers: image-analysis (TKT-016), reg-OCR
+   (TKT-017), triage-category; the deferred total-loss VLM (TKT-018) reuses it.
+   The whole surface is dark unless AI_ASSIST_ENABLED is on.
+   ============================================================ */
+
+/** Known suggestion kinds (open vocabulary — producers add more; the DB does not
+ *  constrain the value, so the string fallback keeps new kinds type-compatible). */
+export type AiSuggestionType =
+  | 'image_role'
+  | 'registration'
+  | 'inspection_address'
+  | 'triage_category'
+  | (string & {});
+
+/** Review lifecycle of a suggestion. `superseded` = a newer suggestion replaced it. */
+export type AiSuggestionReviewState = 'pending' | 'accepted' | 'rejected' | 'superseded';
+
+/** One AI suggestion/observation row (camelCase domain shape over `ai_suggestion`). */
+export interface AiSuggestion {
+  id: string;
+  /** Subject anchors (any/all may be absent). */
+  caseId?: string;
+  evidenceId?: string;
+  inboundEmailId?: string;
+  suggestionType: AiSuggestionType;
+  /** The proposed value — shape varies by suggestionType (e.g. { role } | { vrm }). */
+  suggestedValue: unknown;
+  /** Plain-language "why", shown to the reviewer. */
+  rationale?: string;
+  /** 0..1 model confidence (ordering/triage only — never auto-applies). */
+  confidence?: number;
+  /** e.g. 'gpt-4o-2024-08-06' / 'fast-alpr@1.2'; absent for a non-model suggestion. */
+  modelVersion?: string;
+  reviewState: AiSuggestionReviewState;
+  createdAt: string;
+  /** Entra oid/upn + time of the human review decision (present once reviewed). */
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
+/** The human decision on a pending suggestion. */
+export type AiSuggestionReviewDecision = 'accepted' | 'rejected';
+
+/** Body for `POST /api/ai-suggestions/{id}/review`. */
+export interface AiSuggestionReviewInput {
+  decision: AiSuggestionReviewDecision;
+}
+
+/** Result of reviewing a suggestion. On accept the API MAY promote the value into
+ *  the target field FILL-IF-EMPTY; `promoted`/`promotedField` report whether it did. */
+export interface AiSuggestionReviewResult {
+  id: string;
+  reviewState: AiSuggestionReviewState;
+  /** True when an accepted suggestion was promoted into its target field. */
+  promoted: boolean;
+  /** Which field was promoted into (e.g. 'evidence.image_role_code'), when promoted. */
+  promotedField?: string;
+}
+
+/** Result of `POST /api/cases/{id}/ai-suggestions/generate`. When the gate is OFF
+ *  or no model is configured this is the honest no-op `{ generated: 0, reason:
+ *  'disabled' }`; when ON + configured it reports how many suggestions were minted. */
+export interface GenerateAiSuggestionsResult {
+  generated: number;
+  /** Why nothing was generated — 'disabled' (gate/model off), 'no_input', or 'error'. */
+  reason?: 'disabled' | 'no_input' | 'error';
+}
+
+/** The AI-assist feature gate, read by the SPA via GET /api/gates/ai-assist. */
+export interface AiAssistGate {
+  /** AI_ASSIST_ENABLED — the master switch the UI panel keys on. */
+  enabled: boolean;
+  /** A model endpoint + deployment are both configured (generate can do real work). */
+  modelConfigured: boolean;
+}
+
+/** All-off default — the honest "AI assist not switched on / unreadable" baseline. */
+export const AI_ASSIST_GATE_ALL_OFF: AiAssistGate = {
+  enabled: false,
+  modelConfigured: false,
+};
+
+/* ============================================================
    Phase 8 — Inbox / Triage domain types (cr1bd_inboundemail).
    ============================================================ */
 

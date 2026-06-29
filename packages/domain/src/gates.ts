@@ -31,6 +31,10 @@ export const gates = {
   chaserSend: (): boolean => process.env.CHASER_SEND_ENABLED === 'true',       // #19
   caseDisposition: (): boolean => process.env.CASE_DISPOSITION_ENABLED === 'true',// #20
   emailAi: (): boolean => process.env.EMAIL_AI_ENABLED === 'true',             // #21
+  // AI assistant suggestion layer (TKT-015) — default OFF. Gates the embedded AI
+  // suggestion surface + the server-side model call path; honest no-op while off
+  // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
+  aiAssist: (): boolean => process.env.AI_ASSIST_ENABLED === 'true',
 
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: (): boolean => process.env.BOX_API_ENABLED === 'true',               // #22
@@ -47,6 +51,13 @@ export const gates = {
   boxFolderRootId: (): string => process.env.BOX_FOLDER_ROOT_ID ?? '',         // #27
   boxFileRequestTemplateId: (): string => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? '',// #28
 
+  // AI model endpoint config (TKT-015). The server-side model call path is built but
+  // dormant: digital-3339-resource has ZERO model deployments, so these are ABSENT in
+  // live app-settings and the generate route stays an honest no-op until a model is
+  // deployed + wired. Prefer managed-identity/keyless — no API key gate by design.
+  aiModelEndpoint: (): string => process.env.AI_MODEL_ENDPOINT ?? '',
+  aiModelDeployment: (): string => process.env.AI_MODEL_DEPLOYMENT ?? '',
+
   /**
    * Derived: location assist is only enabled when all three conditions are met.
    * Used by GET /api/gates/location-assist (plan 21 §21.2).
@@ -55,4 +66,13 @@ export const gates = {
     gates.locationAssist() &&
     gates.azureMaps() &&
     gates.locationAssistApiBase() !== '',
+
+  /**
+   * Derived: a model endpoint AND deployment are both configured. The AI generate
+   * route requires this in ADDITION to the aiAssist() switch — gate ON but model
+   * UNCONFIGURED is still an honest no-op (the live state today). Used by
+   * GET /api/gates/ai-assist + the generate route's disabled-reason.
+   */
+  aiAssistConfigured: (): boolean =>
+    gates.aiModelEndpoint() !== '' && gates.aiModelDeployment() !== '',
 };

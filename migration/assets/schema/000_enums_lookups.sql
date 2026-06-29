@@ -100,7 +100,12 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   -- Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
   (100000030, 'case_removed',               'Case Removed'),
   -- Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
-  (100000031, 'inbound_reclassified',       'Inbound Reclassified');
+  (100000031, 'inbound_reclassified',       'Inbound Reclassified'),
+  -- AI suggestion lifecycle (TKT-015 AI suggestion layer; gated by AI_ASSIST_ENABLED).
+  -- created = a model produced a suggestion; accepted/rejected = a human reviewed it.
+  (100000032, 'ai_suggestion_created',      'AI Suggestion Created'),
+  (100000033, 'ai_suggestion_accepted',     'AI Suggestion Accepted'),
+  (100000034, 'ai_suggestion_rejected',     'AI Suggestion Rejected');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code

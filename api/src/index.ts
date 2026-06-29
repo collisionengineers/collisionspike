@@ -17,3 +17,4 @@ import './functions/settings.js';
 import './functions/inbound.js';
 import './functions/proxy.js';
 import './functions/internal.js';
+import './functions/ai-suggestions.js';

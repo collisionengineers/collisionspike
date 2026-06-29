@@ -41,6 +41,11 @@ import type {
   NextCasePoResult,
   ProviderUpdateInput,
   ReclassifyInboundInput,
+  AiSuggestion,
+  AiSuggestionReviewInput,
+  AiSuggestionReviewResult,
+  GenerateAiSuggestionsResult,
+  AiAssistGate,
 } from '@cs/domain';
 import type { Case, Evidence, Provider, ActivityEvent } from '@cs/domain';
 import type {
@@ -55,6 +60,7 @@ import {
   BOX_GATES_ALL_FALSE,
   LOCATION_ASSIST_GATE_ALL_OFF,
   INBOUND_COUNTS_ZERO,
+  AI_ASSIST_GATE_ALL_OFF,
 } from '@cs/domain';
 
 export interface RestClientOptions {
@@ -101,6 +107,19 @@ export interface DataAccessExt extends DataAccess {
   /** Staff reclassify/override of an inbound email -> the updated row (so the UI
    *  can re-render the chosen vs. suggested category/subtype). Throws on non-2xx. */
   reclassifyInbound(id: string, input: ReclassifyInboundInput): Promise<InboundEmail>;
+
+  /* ----- AI suggestion layer (TKT-015) — observation-first, GATED ----- */
+  /** Pending + recently-reviewed AI suggestions for a case. safe()-empty on failure
+   *  (the panel only renders when AI_ASSIST_ENABLED, so an empty read is harmless). */
+  aiSuggestions(caseId: string): Promise<AiSuggestion[]>;
+  /** Record the human decision on a suggestion (accept/reject). On accept the server
+   *  MAY promote the value into its target field FILL-IF-EMPTY. Throws on non-2xx. */
+  reviewAiSuggestion(id: string, input: AiSuggestionReviewInput): Promise<AiSuggestionReviewResult>;
+  /** Ask the server to generate suggestions for a case. Honest no-op
+   *  `{ generated: 0, reason: 'disabled' }` when the gate is off / no model configured. */
+  generateAiSuggestions(caseId: string): Promise<GenerateAiSuggestionsResult>;
+  /** The AI-assist feature gate (honest all-off on failure) — the SPA panel keys on `enabled`. */
+  getAiAssistGate(): Promise<AiAssistGate>;
 }
 
 export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
@@ -302,5 +321,19 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     // the screen re-renders the chosen-vs-suggested marker.
     reclassifyInbound: (id, input: ReclassifyInboundInput) =>
       call<InboundEmail>('PATCH', `/api/inbound/${enc(id)}/classification`, input),
+
+    /* ----- AI suggestion layer (TKT-015) ----- */
+    // The LIST read is safe()-wrapped to honest [] (mirrors the API's own honest-empty
+    // GET): the panel is a secondary, gated surface — a soft failure shows nothing, never
+    // a crash. The review + generate WRITES are NOT safe()-wrapped — a failed accept/reject
+    // or generate must reach the operator (never a fake success); the hooks surface it.
+    aiSuggestions: (id) =>
+      safe(() => get<AiSuggestion[]>(`/api/cases/${enc(id)}/ai-suggestions`), []),
+    reviewAiSuggestion: (id, input: AiSuggestionReviewInput) =>
+      post<AiSuggestionReviewResult>(`/api/ai-suggestions/${enc(id)}/review`, input),
+    generateAiSuggestions: (id) =>
+      post<GenerateAiSuggestionsResult>(`/api/cases/${enc(id)}/ai-suggestions/generate`),
+    getAiAssistGate: () =>
+      safe(() => get<AiAssistGate>('/api/gates/ai-assist'), { ...AI_ASSIST_GATE_ALL_OFF }),
   };
 }

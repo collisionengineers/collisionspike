@@ -9,10 +9,12 @@ import {
   inboundCategoryFromInt,
   inboundSubtypeFromInt,
   inboundViewWhere,
+  isAiReviewState,
   isHandledTriageState,
   isValidTriageState,
   maxCasePoSeqFromNames,
   richTagToClassification,
+  rowToAiSuggestion,
   tallyActiveInboundCounts,
 } from './mappers';
 
@@ -118,5 +120,66 @@ describe('inbound code <-> name', () => {
     expect(inboundSubtypeFromInt(100000001)).toBe('existing_provider_audit');
     expect(inboundSubtypeFromInt(100000006)).toBe('existing_provider_diminution');
     expect(inboundCategoryFromInt(undefined)).toBeUndefined();
+  });
+});
+
+/* ----------  AI suggestion layer (TKT-015)  ---------- */
+
+describe('isAiReviewState — review-state token validation', () => {
+  it('accepts the four canonical states', () => {
+    for (const s of ['pending', 'accepted', 'rejected', 'superseded']) {
+      expect(isAiReviewState(s)).toBe(true);
+    }
+  });
+  it('rejects unknown / non-string values', () => {
+    expect(isAiReviewState('approved')).toBe(false);
+    expect(isAiReviewState('')).toBe(false);
+    expect(isAiReviewState(1)).toBe(false);
+    expect(isAiReviewState(undefined)).toBe(false);
+  });
+});
+
+describe('rowToAiSuggestion — row -> domain mapping', () => {
+  it('maps a full pending suggestion row (jsonb already parsed)', () => {
+    const s = rowToAiSuggestion({
+      id: 'sug-1',
+      case_id: 'case-1',
+      evidence_id: 'ev-1',
+      inbound_email_id: null,
+      suggestion_type: 'image_role',
+      suggested_value: { role: 'overview' }, // node-postgres parses jsonb already
+      rationale: 'Wide shot showing the whole vehicle',
+      confidence: 0.82,
+      model_version: 'gpt-4o-2024-08-06',
+      review_state: 'pending',
+      created_at: '2026-06-29T10:00:00Z',
+      reviewed_by: null,
+      reviewed_at: null,
+    });
+    expect(s).toMatchObject({
+      id: 'sug-1',
+      caseId: 'case-1',
+      evidenceId: 'ev-1',
+      suggestionType: 'image_role',
+      suggestedValue: { role: 'overview' },
+      rationale: 'Wide shot showing the whole vehicle',
+      confidence: 0.82,
+      modelVersion: 'gpt-4o-2024-08-06',
+      reviewState: 'pending',
+    });
+    expect(s.inboundEmailId).toBeUndefined();
+    expect(s.reviewedBy).toBeUndefined();
+  });
+  it('tolerates a jsonb string and a bad review_state (defaults to pending)', () => {
+    const s = rowToAiSuggestion({
+      id: 'sug-2',
+      suggestion_type: 'registration',
+      suggested_value: '{"visible":true}', // string form -> coerced
+      review_state: 'bogus',
+      created_at: '2026-06-29T11:00:00Z',
+    });
+    expect(s.suggestedValue).toEqual({ visible: true });
+    expect(s.reviewState).toBe('pending');
+    expect(s.confidence).toBeUndefined();
   });
 });
