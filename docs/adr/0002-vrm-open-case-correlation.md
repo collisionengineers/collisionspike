@@ -1,5 +1,7 @@
 # Cases correlate by VRM within an open-case window
 
+**Status:** Accepted (2026-06-17).
+
 Separately-arriving images and instructions are merged into one Case by **VRM**, scoped to the
 currently **open** case for that VRM. If no open case exists, a new Case is created; multiple
 historical Cases may share a VRM over time (later unrelated claims / re-inspections). Ambiguous or

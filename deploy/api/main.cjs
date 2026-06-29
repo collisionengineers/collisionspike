@@ -5384,7 +5384,7 @@ var INBOUND_COUNTS_ZERO = {
   untriaged: 0
 };
 
-// dataverse/choicesets/case-status.json
+// packages/domain/dist/data/choicesets/case-status.json
 var case_status_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5413,7 +5413,7 @@ var case_status_default = {
   }
 };
 
-// dataverse/choicesets/action-reason.json
+// packages/domain/dist/data/choicesets/action-reason.json
 var action_reason_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5430,7 +5430,7 @@ var action_reason_default = {
   ]
 };
 
-// dataverse/choicesets/inspection-decision-mode.json
+// packages/domain/dist/data/choicesets/inspection-decision-mode.json
 var inspection_decision_mode_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5447,7 +5447,7 @@ var inspection_decision_mode_default = {
   ]
 };
 
-// dataverse/choicesets/intake-channel.json
+// packages/domain/dist/data/choicesets/intake-channel.json
 var intake_channel_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5461,7 +5461,7 @@ var intake_channel_default = {
   ]
 };
 
-// dataverse/choicesets/evidence-kind.json
+// packages/domain/dist/data/choicesets/evidence-kind.json
 var evidence_kind_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5481,7 +5481,7 @@ var evidence_kind_default = {
   ]
 };
 
-// dataverse/choicesets/image-role.json
+// packages/domain/dist/data/choicesets/image-role.json
 var image_role_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5498,7 +5498,7 @@ var image_role_default = {
   ]
 };
 
-// dataverse/choicesets/review-state.json
+// packages/domain/dist/data/choicesets/review-state.json
 var review_state_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5515,7 +5515,7 @@ var review_state_default = {
   ]
 };
 
-// dataverse/choicesets/field-provenance-source-type.json
+// packages/domain/dist/data/choicesets/field-provenance-source-type.json
 var field_provenance_source_type_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5538,7 +5538,7 @@ var field_provenance_source_type_default = {
   ]
 };
 
-// dataverse/choicesets/inspection-location-policy.json
+// packages/domain/dist/data/choicesets/inspection-location-policy.json
 var inspection_location_policy_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5554,7 +5554,7 @@ var inspection_location_policy_default = {
   ]
 };
 
-// dataverse/choicesets/provider-automation-mode.json
+// packages/domain/dist/data/choicesets/provider-automation-mode.json
 var provider_automation_mode_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5570,7 +5570,7 @@ var provider_automation_mode_default = {
   ]
 };
 
-// dataverse/choicesets/audit-event.json
+// packages/domain/dist/data/choicesets/audit-event.json
 var audit_event_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set-bundle",
@@ -7089,6 +7089,13 @@ var HttpError = class extends Error {
     this.name = "HttpError";
   }
 };
+function toErrorResponse(e, ctx) {
+  if (e instanceof HttpError) {
+    return { status: e.status, jsonBody: { error: e.message } };
+  }
+  ctx.error(e);
+  return { status: 500, jsonBody: { error: "internal" } };
+}
 function audienceCandidates() {
   const a = API_AUDIENCE;
   if (!a) return [];
@@ -7121,11 +7128,7 @@ function withRole(required, handler) {
       if (!ok) return { status: 403, jsonBody: { error: "forbidden" } };
       return await handler(req, ctx, claims);
     } catch (e) {
-      if (e instanceof HttpError) {
-        return { status: e.status, jsonBody: { error: e.message } };
-      }
-      ctx.error(e);
-      return { status: 500, jsonBody: { error: "internal" } };
+      return toErrorResponse(e, ctx);
     }
   };
 }
@@ -8508,13 +8511,10 @@ import_functions8.app.http("parserParse", {
 // api/src/functions/internal.ts
 var import_functions9 = require("@azure/functions");
 async function withServiceAuth(req, ctx, fn) {
-  const header = req.headers.get("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!token) return { status: 401, jsonBody: { error: "Missing bearer token" } };
   try {
     await authenticate(req);
-  } catch {
-    return { status: 401, jsonBody: { error: "Invalid or expired token" } };
+  } catch (e) {
+    return toErrorResponse(e, ctx);
   }
   try {
     return await fn(req, ctx);

@@ -14,7 +14,7 @@ is **no retention policy, no erasure path, and no privacy/DPIA artefact**. Phase
 > **Same additive pattern as Phase 7 / Phase 8.** Everything Claude can build — the retention-clock schema,
 > the disposition flow, the DSAR runbook, the DPIA/controller-processor doc, the audit-integrity config, the
 > store-hardening steps — is **built offline, gated-OFF, and the operator activates** in
-> [DEPLOY-RUNBOOK](../../../DEPLOY-RUNBOOK.md) order. The numbers and policy that drive it
+> [DEPLOY-RUNBOOK](../../HISTORICAL/DEPLOY-RUNBOOK.md) order. The numbers and policy that drive it
 > (**retention period, lawful basis, litigation-hold rule, ICO registration**) are **business/legal input**
 > and are `[RESERVED-FOR-USER]` — see [docs/gated.md](../../gated.md).
 

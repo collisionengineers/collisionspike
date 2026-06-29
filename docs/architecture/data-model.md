@@ -2,16 +2,17 @@
 
 > **System of record (LIVE):** **PostgreSQL Flexible Server `cespk-pg-dev` (v16), database
 > `collisionspike`** — **36 tables** (14 business + 22 `choice_*` lookup tables) in `rg-collisionspike-dev`
-> (UK South). DDL is [`migration/assets/schema/*.sql`](../../migration/assets/schema/). Seeded corpus:
-> `work_provider` 390, `repairer` 32, `image_source` 19, `inspection_address` 2209 (174 confirmed + 2035
-> suggested); `case_` 0. Registry: [live-environment.md](./live-environment.md).
+> (UK South). DDL is [`migration/assets/schema/*.sql`](../../migration/assets/schema/). Seeded corpus
+> (provider / repairer / image-source / inspection-address; `case_` 0) — **live counts live only in the
+> registry** [live-environment.md](./live-environment.md) (single source: [LIVE_FACTS.json](../../LIVE_FACTS.json)),
+> where they are banded last-known/unverified-this-snapshot.
 >
 > **Platform note:** this model was first built on **Microsoft Dataverse** (`cr1bd_*` tables/choicesets in
 > the `Collision Engineers - Dev` sandbox). That implementation has been **migrated to Postgres and
 > decommissioned** — only the **storage mechanism** changed; **the domain model, the 12-field EVA contract,
 > the EVA integer codes, the image rules, and the corpus are carried over intact**. Below, the original
 > `cr1bd_*` field names are retained in parentheses as the provenance of each Postgres column; the
-> migration mapping is in [`migration/20-data-and-schema-migration.md`](../../migration/20-data-and-schema-migration.md).
+> migration mapping is in [`migration/20-data-and-schema-migration.md`](../HISTORICAL/migration/20-data-and-schema-migration.md).
 
 Distilled from the real **CE Job Sheet** (`raw/…xlsm`), the provider/inspection-address corpus
 notes, and the case workflow. The job sheet's `Principals` and `Garages` sheets become governed

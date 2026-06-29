@@ -55,8 +55,8 @@ export const CASE_STATUSES: readonly CaseStatus[] = [
  * Terminal statuses — once a Case reaches one, the guard never moves it.
  * Per Phase-1 plan §5.4 the terminals are `eva_submitted`, `box_synced`, and
  * `error`; these reconcile 1:1 with the Dataverse choice set's
- * `stateMachine.terminals` (dataverse/choicesets/case-status.json), asserted by
- * `dataverse/verify-parity.mjs`. `linked_to_instruction` and `duplicate_risk`
+ * `stateMachine.terminals` (`packages/domain/src/data/choicesets/case-status.json`), asserted by
+ * `migration/assets/verify-parity-pg.mjs`. `linked_to_instruction` and `duplicate_risk`
  * are BRANCH states set by the dedup flow, NOT terminals — the guard may
  * recompute a linked/duplicate case once its fields/images resolve.
  */

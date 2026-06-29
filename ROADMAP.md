@@ -8,10 +8,10 @@ evavalidation / ocr / box-webhook). The original **Power Platform implementation
 Dataverse + ~16 Power Automate flows + custom connectors) has been **migrated to Azure (deployed) and the
 Power Platform footprint deprovisioned 2026-06-27** (Dev sandbox deleted via `pac admin delete`). Last updated **2026-06-27**._
 
-_Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · [docs/gated.md](./docs/gated.md) · migration plans under [migration/](./migration/) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
+_Companion docs: [README.md](./README.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [docs/gated.md](./docs/gated.md) · live deploy playbooks [docs/azure/](./docs/azure/README.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md) · migration record [docs/HISTORICAL/migration/](./docs/HISTORICAL/migration/) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
 
 > **Platform migration (2026-06-27).** This repo was first built as a **Power Platform** spike and has
-> since been **migrated to an Azure PaaS stack** (the reversible code/data migration in [migration/](./migration/)
+> since been **migrated to an Azure PaaS stack** (the reversible code/data migration in [docs/HISTORICAL/migration/](./docs/HISTORICAL/migration/)
 > is **built + deployed**; the Azure stack is the live system). The **domain + workflow are unchanged** — the
 > EVA **12-field** contract, the image rules, the provider / inspection-address corpus, the **Case/PO**
 > format, and the intake→parse→review→enrich→EVA+Box pipeline all carry over verbatim; **only the platform
@@ -31,10 +31,13 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 > CollisionSpike.Superuser** — Superuser is the full-privilege role formerly named **CollisionSpike.Admin**
 > (legacy name still accepted), plus a defined-but-unenforced **CollisionSpike.Engineer** placeholder;
 > connects to Postgres); **orchestration** `cespk-orch-dev` (source
-> `orchestration/`, **deployed + wired (41 functions) but not yet live — no live automated email intake yet**); **Postgres
-> Flexible** `cespk-pg-dev` v16, db `collisionspike` (36 tables; seeded work_provider 390 / repairer 32 /
-> image_source 19 / inspection_address 2209 [174 confirmed + 2035 suggested] / case_ **0**); the **6 retained
-> Python Functions**, the **Key Vaults**, **Blob `cespkevidstdev01`**, and **App Insights / LAW**.
+> `orchestration/`, **email intake live in testing** — 2 Microsoft Graph **PUSH** subscriptions over the
+> scoped test mailboxes, not delta-poll); **Postgres Flexible** `cespk-pg-dev` v16, db `collisionspike`
+> (the seeded provider / repairer / image-source / inspection-address corpus; `case_` 0); the **6 retained
+> Python Functions** (**Box now live** — JWT Server Auth), the **Key Vaults**, **Blob `cespkevidstdev01`**,
+> and **App Insights / LAW**. Live function/corpus/subscription counts + feature-gate states: the registry
+> [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) (single source:
+> [LIVE_FACTS.json](./LIVE_FACTS.json)).
 
 > **Role split.** This **ROADMAP** is the forward phased checklist (per-phase done/remaining).
 > [CURRENT_STATUS.md](./CURRENT_STATUS.md) is what is live *now*. [docs/gated.md](./docs/gated.md) is
@@ -72,6 +75,14 @@ _Companion docs: [README.md](./README.md) · [PLAN.md](./PLAN.md) · [CURRENT_ST
 - 🔒 **operator-gated** — crosses the live-services boundary (touches the live Outlook shared inboxes, live Box, or live EVA, or injects real secrets). **Claude builds offline; the operator activates.**
 - ⚙️ **deployed but gated-OFF** — shipped in a disabled state by design (a **retained Python Function** carrying its Key-Vault env-var gate `false`; historically a Dataverse env-var gate / Power Automate flow `state=off`).
 
+**Worklist tags** (carried over from the merged OPEN_ITEMS backlog; used in the Now / Next / Later section):
+
+- **[P0]** — production-blocking security/availability issue on the live Azure stack; do first.
+- **[OPERATOR]** — needs the operator: an Azure subscription/role change, a secret, an Exchange-RBAC grant, a gate flip, live Outlook/Box/EVA contact, or business data. _Claude builds; the operator activates._
+- **[BUILD]** — buildable now in the repo (code/IaC/config), no operator/secret/live-service dependency.
+- **[DEFERRED]** — deferred by design to a later milestone (M2/M3) or behind another item.
+- **[DRIFT]** — doc-vs-code mismatch to reconcile (no functional change).
+
 **Two hard principles:**
 1. **Offline build vs operator activation** — anything inbox/Box/EVA + all live tests + real secret injection are the operator's, in DEPLOY-RUNBOOK order.
 2. **No mock/seed case data in the app** — the SPA renders **real rows only**, fetched from Postgres over the data API (historically: real Dataverse rows). With `case_ = 0` and no live intake yet, the empty intake list is **correct**; it is never "fixed" with sample cases.
@@ -100,15 +111,19 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 - **Free-Trial → Pay-As-You-Go.** Subscription `e6076573-…` is an **Azure Free Trial**
   (quotaId `FreeTrial_2014-09-01`); **the whole stack is disabled at the ~30-day mark** unless upgraded
   (the 12-month free Postgres allowance survives the upgrade). A hard, dated deadline.
-- **Take orchestration live — scope the 3 intake mailboxes (Exchange RBAC).** `cespk-orch-dev` is now
-  **deployed + wired (41 functions)** but **not yet live** — there are **no Graph subscriptions and no
-  Exchange RBAC scope** on the 3 real mailboxes, so the renewal timer lists 0 subscriptions and **no mail is
-  processed**; today the system is **read-only + manual case-create only**. Remaining for go-live: have an
-  **Exchange Administrator** grant the intake app **resource-scoped** Graph mailbox roles via **Exchange RBAC
-  for Applications** (`New-ServicePrincipal` / `New-ManagementScope` / `New-ManagementRoleAssignment`) on the
-  3 shared inboxes — **no Global-Admin tenant consent, no push subscription**; intake **polls** (delta query).
-  Also set `EVIDENCE_BLOB_CONNECTION` (prefer MI), assign the orch MI an app-role on the Data API, and wire
-  the Azure Monitor heartbeat alerts.
+- **Take orchestration to the production mailbox set (email intake is LIVE IN TESTING).** `cespk-orch-dev`
+  is live with **2 Microsoft Graph PUSH change-notification subscriptions** over the test mailbox set
+  engineers@ + digital@ (both Exchange-RBAC-scoped) — transport is **push, not delta-poll**. ⚠️ **Renewal
+  watch-item (time-critical):** the 2 subscriptions **expire 2026-07-05** and `graph-renew` showed **0
+  executions in the last 3 days** — confirm the renewer is firing (or re-bootstrap) before expiry or intake
+  silently lapses. Remaining for the **production** set (info@ + engineers@ + desk@; drop test-only digital@):
+  have an **Exchange Administrator** grant info@ + desk@ **resource-scoped** Graph mailbox roles via **Exchange
+  RBAC for Applications** (`New-ServicePrincipal` / `New-ManagementScope` / `New-ManagementRoleAssignment`) —
+  **no Global-Admin tenant consent**; then add them to `GRAPH_INTAKE_MAILBOXES`. Also set
+  `EVIDENCE_BLOB_CONNECTION` (prefer MI), assign the orch MI an app-role on the Data API, and wire the Azure
+  Monitor heartbeat alerts. Verify the end-to-end live path (a real email → graph-webhook → parser → a `Case`
+  row in Postgres with the correct status, dedup, and provider match) on each newly-scoped inbox. Live
+  counts/subscription state: the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 
 **Next:**
 - **Durable API hardening** — durable auth error-handling + token **audience-form** hardening (v2 tokens
@@ -116,8 +131,11 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 - **Staff app-role assignment** — only **one** staff principal is app-role-assigned today
   (`CollisionSpike.User` / `CollisionSpike.Superuser` — Superuser formerly `.Admin`; a `.Engineer`
   placeholder is defined but not enforced); other staff **403 until assigned**. Complete the roster.
-- **IaC config layer** — capture the live Azure config (app-settings, role assignments, RBAC grants, the
+- **[BUILD] IaC config layer** — capture the live Azure config (app-settings, role assignments, RBAC grants, the
   Static Web App + Function-App wiring) as Infrastructure-as-Code so the environment is reproducible.
+  - **[OPERATOR] Blob-hardening** — harden the **live evidence store `cespkevidstdev01`** (the `evidence`
+    container — Blob **soft-delete + versioning**) before any purge job is armed. It is **not in IaC**, so it
+    can't be hardened from templates today — folds into this rung.
 - **EVA M1 JSON drag-drop** into the EVA **test** env — the domain milestone, now re-homed onto the Azure
   data API + the retained `evasentry` Function (Minotaur one-principal-code constraint still gates EVA REST).
 - **Enrichment test/prod cutover** — the **retained** Python enrichment Function (DVSA/DVLA direct via
@@ -128,9 +146,14 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   **retained** `box-webhook` Function; the deferred Business-Plus metadata tier.
 - **OCR for scanned PDFs** calibration (retained `ocr` Function); **chaser automation** (draft-only);
   **EVA Sentry REST** cutover pending the **Minotaur patch + a parity test**.
-- **Data governance / retention / erasure** — the biggest substantive gap, now spanning **Postgres + Blob +
-  Box**: a retention model (data-minimisation vs litigation hold), a cross-store DSAR/erasure runbook, and a
-  DPIA / controller-processor map.
+- **[OPERATOR/BUILD] Data governance / retention / erasure** — the biggest substantive gap, now spanning
+  **Postgres + Blob + Box**: a two-clock retention model (data-minimisation vs litigation/evidential hold), a
+  scheduled case-disposition purge, a **cross-store DSAR / right-to-erasure runbook** (covering Box folder
+  names, File-Request URLs, and Outlook category strings — the PII-adjacent identifiers outside the DB), and a
+  DPIA / controller-processor map. **No automated deletion from Box, ever.** Retention period + lawful basis
+  remain operator/legal input.
+- **[BUILD] PII pre-scrub helper** — a unit-tested helper the gated AI paths (Phase-8 LLM classifier,
+  Phase-4a vision/geocode) reuse before any external model call.
 - The inspection-address model stays **offline-derived suggestions + manual confirm** — **ADR-0013 remains
   binding, no runtime matcher** ([docs/architecture/inspection-address-corpus.md](./docs/architecture/inspection-address-corpus.md)).
 - **API intake channel (deferred research)** — let providers/principals POST work directly to an HTTP
@@ -368,7 +391,7 @@ secret-free); the connector + flows are authored offline, and **everything live 
 `[RESERVED-FOR-USER]`**. Floor is **base Box Business** (metadata = Business Plus, out of scope now); **EVA
 stays gated OFF**; **evidence is linked not embedded** (`BOX_EMBED_ENABLED` reserved/off — no `frame-src`
 edit). Binding decision [ADR-0012](./docs/adr/0012-box-centric-intake-additive-hybrid.md); ordered build
-[box-integration-pivot/plans/00-BUILD-PLAN.md](./box-integration-pivot/plans/00-BUILD-PLAN.md); phase docs
+[docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md](./docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md); phase docs
 [docs/plans/phase-7-box-integration/](./docs/plans/phase-7-box-integration/). _(Live deploy narrative lives in CURRENT_STATUS; Phase≠Milestone map in milestone-model.md.)_
 
 ### B0 — Unlock: custom connector + token-mint/webhook Function + schema (gate `BOX_API_ENABLED`)

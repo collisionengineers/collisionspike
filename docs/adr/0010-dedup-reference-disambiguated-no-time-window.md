@@ -1,5 +1,7 @@
 # Deduplication: reference-disambiguated, human-confirmed; no time-window auto-merge
 
+**Status:** Accepted (2026-06-17). The dedup *decision* stands; the **mechanism** moved to Azure — see the dated update at the foot.
+
 The same VRM can legitimately have multiple distinct claims — **even two accidents on the same day**
 — so **time/recency cannot decide whether two arrivals are the same case.** Rules:
 
@@ -48,3 +50,12 @@ arrivals (reference-match → attach; reference-differs → new + collision flag
 VRM-match → propose-attach/staff-confirm) are **not yet implemented** for the general case; the live
 behaviour is specifically the instructions↔images registration merge above. No data is lost; the
 conservative failure mode remains "two Cases a human reconciles," never a wrong auto-merge.
+
+## Update (2026-06-27) — platform migration (mechanism only)
+
+The dedup **decision** above is unchanged. The **implementation** described in the 2026-06-20 status
+section was the Power Platform build (`CS Intake` / `CS Case Resolve` flows; the `cr1bd_payloadhash` /
+`cr1bd_caselinkstate` / `cr1bd_duplicatekeys` Dataverse columns), which was **deprovisioned 2026-06-27**.
+Dedup now runs in the **Data API (`cespk-api-dev`) + orchestration (`cespk-orch-dev`)** over **Postgres**
+(the `cr1bd_*` columns map to their Postgres equivalents). The no-wrong-auto-merge invariant and the
+human-confirmed / reversible rule carry over verbatim.

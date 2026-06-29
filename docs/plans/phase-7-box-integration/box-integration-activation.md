@@ -10,7 +10,7 @@
 > run the live confirms. **Claude never holds a Box credential.** Binding
 > decision: [docs/adr/0012-box-centric-intake-additive-hybrid.md](../../adr/0012-box-centric-intake-additive-hybrid.md).
 > Build spec: [box-custom-connector-and-webhook.md](./box-custom-connector-and-webhook.md). Authoritative
-> order: [`box-integration-pivot/plans/00-BUILD-PLAN.md`](../../../box-integration-pivot/plans/00-BUILD-PLAN.md).
+> order: [`docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md`](../../HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md).
 
 Gate legend (reused from the house runbooks): **[BUILD]** = Claude, offline · **[DEPLOY-WITH-LOGIN]** =
 you run a deploy/import that needs your sign-in · **[RESERVED-FOR-USER] 🔒** = only you can do it (a Box

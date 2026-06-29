@@ -23,18 +23,21 @@ repeatedly bitten this project.
 >   `CollisionSpike.Superuser`** (Superuser is the full-privilege role formerly named `CollisionSpike.Admin`,
 >   whose legacy name `auth.ts` still accepts; a `CollisionSpike.Engineer` role is defined but not yet
 >   enforced). Connects to Postgres.
-> - **Orchestration** — Function App **`cespk-orch-dev`** (source `orchestration/`) — **deployed + wired
->   (41 functions) but NOT YET LIVE**: no Graph subscriptions and no Exchange RBAC scope on the 3 real
->   mailboxes, so **no mail is processed** and **there is no live automated email intake yet** (the system
->   is read-only + manual case-create only). Design: Microsoft **Graph delta-POLL** intake over
->   **Exchange-RBAC-scoped** mailboxes (no Global-Admin consent, no push subscription).
+> - **Orchestration** — Function App **`cespk-orch-dev`** (source `orchestration/`) — email intake is
+>   **LIVE IN TESTING**: **2 Microsoft Graph PUSH change-notification subscriptions** over the test mailbox
+>   set engineers@ + digital@ (both Exchange-RBAC-scoped; no Global-Admin consent). Transport is **PUSH, not
+>   delta-poll.** The production target is info@ + engineers@ + desk@ (info@ + desk@ not yet scoped); manual
+>   case-create remains alongside. ⚠️ Subscriptions expire **2026-07-05** with `graph-renew` showing 0 recent
+>   executions — a live watch-item. Function/subscription counts + RBAC state: the live registry
+>   [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 > - **System-of-record DB** — Postgres Flexible **`cespk-pg-dev`** (v16), database `collisionspike`.
 > - **Retained from before, unchanged:** the **6 Python Functions** (parser `cespike-parser-dev`,
 >   enrichment, evasentry, evavalidation, ocr, box-webhook), the **Key Vaults**, Blob
 >   `cespkevidstdev01`, App Insights / Log Analytics.
 >
-> **Honest live gaps (state them, don't paper over):** (1) no live automated email intake yet (orch
-> deployed + wired but not yet live — no Graph subscriptions / Exchange RBAC scope on the 3 mailboxes);
+> **Honest live gaps (state them, don't paper over):** (1) email intake is **live in testing** (orch runs 2
+> Graph PUSH subscriptions over the scoped test mailboxes engineers@ + digital@; production set info@/engineers@/desk@
+> not yet fully scoped; subscriptions expire 2026-07-05 — renewal is a live watch-item);
 > (2) the **DB-credential / RLS P0 is resolved (2026-06-26)** — the API connects as the non-owner Postgres
 > login **`cespk_app`** (Key Vault-referenced password; **RLS enforced**), not `csadmin`; **the other
 > plaintext secret exposures (Graph client secret, storage keys, Document Intelligence key, function keys)
@@ -54,10 +57,11 @@ Read it before touching the SPA, the API, or the Functions. (Sections below that
 > Power Platform era — superseded by the Azure stack; **deprovisioned 2026-06-27**, kept for reference).
 - Azure: resource group `rg-collisionspike-dev` (UK South), subscription `e6076573-23a5-46a8-acef-7e22d264e5db`
   (**Azure Free Trial** — disabled at ~30 days unless upgraded to PAYG). Live Function Apps `cespk-api-dev`
-  (Data API), `cespk-orch-dev` (orchestration, **deployed + wired, not yet live**); Postgres `cespk-pg-dev`; SWA
+  (Data API), `cespk-orch-dev` (orchestration, **email intake live in testing** — 2 Graph PUSH subs over the scoped test mailboxes); Postgres `cespk-pg-dev`; SWA
   `cespk-spa-dev`. Retained Python Functions `cespike-parser-dev` (parser), `cespkenrich-fn-gi62sd`
-  (enrichment), and `cespkbox-fn-v76a47` (box-webhook — deployed 2026-06-22, **gated off / secret-free**:
-  `BOX_API_ENABLED=false`, `BOX_ALLOWED_ROOT_ID=392761581105`).
+  (enrichment), and `cespkbox-fn-v76a47` (box-webhook — **Box is now LIVE** (JWT Server Auth, 2026-06-28):
+  `BOX_API_ENABLED`/`BOX_FOLDER_AT_INTAKE_ENABLED`/`BOX_FILEREQUEST_ENABLED`=true on api + orch,
+  `BOX_FOLDER_ROOT_ID=392761581105`; gate states in the [registry](./docs/architecture/live-environment.md)).
 - **[HISTORICAL — deprovisioned 2026-06-27]** Power Platform work env: `Collision Engineers - Dev` (sandbox — **deleted via `pac admin delete`**), id
   `b3090c42-51fb-ee24-9868-474da322a3ad`, url `https://collisionengineers-dev.crm11.dynamics.com`
   (**Default** env `858cf5b3-…` was always off-limits). Code App id
@@ -146,7 +150,8 @@ rule in the brief. (Origin: review 190626 R2 — brief/spec text was leaking ont
 ## Verify against reality — don't trust source or summaries
 Prior sessions shipped confident, wrong diagnoses. Always confirm live:
 - **Live Azure tier:** `az functionapp show`/`az functionapp function list` on `cespk-api-dev` /
-  `cespk-orch-dev` (the orch app now lists **41 functions** — deployed + wired, but **not yet live** until the 3 mailboxes are Exchange-RBAC-scoped);
+  `cespk-orch-dev` (live function counts in the [registry](./docs/architecture/live-environment.md) — email
+  intake is **live in testing** via 2 Graph PUSH subscriptions over the scoped test mailboxes);
   `az staticwebapp show` on `cespk-spa-dev`; query Postgres `cespk-pg-dev` (db `collisionspike`) for row
   state. Token/role checks: decode the Entra JWT and confirm `aud` = the API client-id GUID + the `roles`
   claim (`CollisionSpike.User` / `.Admin`).
@@ -186,8 +191,8 @@ build/deploy/wire → **azure-integration-engineer**.
 ## Agent roster & boundaries (project agents in `.claude/agents/`)
 > **Live-stack mapping (2026-06-26).** The roster is kept intact, but the **platform** each agent targeted
 > has changed. The live stack is **Azure**: the **Data API** (`api/`, Node/TS Functions v4 on
-> `cespk-api-dev`), the **orchestration tier** (`orchestration/`, Durable-Functions / Graph-delta-poll
-> intake on `cespk-orch-dev`, **deployed + wired, not yet live**), **Postgres** (`cespk-pg-dev`), and the
+> `cespk-api-dev`), the **orchestration tier** (`orchestration/`, Durable-Functions / Graph **PUSH**
+> change-notification intake on `cespk-orch-dev`, **email intake live in testing**), **Postgres** (`cespk-pg-dev`), and the
 > **SPA/MSAL** front end on Static Web App `cespk-spa-dev`. Agents whose surface was Power Platform are
 > **reference-only for the historical stack** (their **domain/contract** knowledge carries over to the new
 > code; the **platform mechanics** do not). Tagged below.

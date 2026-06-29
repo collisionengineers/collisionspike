@@ -1,5 +1,7 @@
 # The tool's responsibility ends at EVA submission + Box archival (the EVA handoff)
 
+**Status:** Accepted (2026-06-17).
+
 The spike's scope ends when a Case is submitted to EVA and archived to Box — the "EVA handoff." The
 subsequent **engineer assessment, report generation, and return-to-client are out of scope**: they
 happen in EVA / by the engineers, not in this tool. The tool's job is to **intake, parse, enrich,

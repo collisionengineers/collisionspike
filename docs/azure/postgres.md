@@ -21,7 +21,7 @@ per-connection via libpq **`-c app.role=staff`** (`PGAPPROLE`). Names/counts: [`
 ## Gotchas (this project)
 - **RLS only bites as `cespk_app`.** The owner/admin `csadmin` **bypasses RLS** — so a query that "works"
   as csadmin proves nothing about policy. Verify policies with `SELECT * FROM pg_policies WHERE tablename=…`;
-  they read `current_setting('app.role')`. Ref [[azure-api-deploy-and-auth]].
+  they read `current_setting('app.role')`. Ref [azure-api-deploy-and-auth](../../memory/azure-api-deploy-and-auth.md).
 - **`app.role` is a libpq startup option, not `SET LOCAL`.** It's set in the `pg.Pool` `options`
   (`-c app.role=staff`) — Azure Flexible Server forbids a non-superuser persisting a role-default GUC
   ("permission denied to set parameter"). A future admin-delete path uses a **separate pool** with

@@ -76,5 +76,12 @@ dataverse/.build/backups/
 boxconfig.json
 # Box JWT app config (downloaded Box "Config.JSON" — contains the RSA private key,
 # passphrase, client secret + webhook keys). NEVER commit; it lives in Key Vault.
+# Box names downloads as <enterpriseId>_<keyId>_config.json (single underscores), so the
+# old double-underscore patterns missed them — match both forms.
 941197__config.json
 *__config.json
+*_config.json
+[0-9]*_config.json
+
+# WSL/Windows download marker streams (e.g. <file>:Zone.Identifier) — never useful in-repo.
+*:Zone.Identifier

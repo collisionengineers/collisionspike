@@ -120,3 +120,12 @@ case-type, no original-report classification, no flow/Code App concept.
 - Any change to the 12-field EVA contract (audit is internal; EVA submission remains CE's fresh
   assessment).
 - Reconciling CE's own completed audit report at intake (it is a later output, never an intake input).
+
+## Update (2026-06-27) — platform migration (mechanism only)
+
+The audit-case-type **decision** stands and the **parser layer** (Layer 1) is unaffected. The "planned"
+Layers 2–4 were written for the Power Platform stack, **deprovisioned 2026-06-27** — read them as their
+**Azure** equivalents: **Layer 2 → Postgres** (`case.case_type` enum + an `engineer_report` evidence
+kind, not `cr1bd_*`); **Layer 3 → the Data API / orchestration** (Case/PO `A.` prefix, audit Action-Log,
+evidence write), not a Power Automate flow; **Layer 4 → the SPA** (`cespk-spa-dev`), not the Code App.
+The `A.`-prefix and case-typed-chaser decisions are unchanged.

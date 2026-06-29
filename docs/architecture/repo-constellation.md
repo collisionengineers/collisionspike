@@ -1,23 +1,34 @@
 # Repository Constellation
 
 The Collision Engineers rebuild spans several projects, now organised under `collisionsuite/`
-(reorganised 2026-06-23 — see [INDEX.md](../../../../INDEX.md); note `collisionplugin` was
+(reorganised 2026-06-23 — see `collisionsuite/INDEX.md` in the parent tree; note `collisionplugin` was
 dissolved into `collisionsuite/skills/` + `collisionsuite/connectors/`). **`collisionspike` (this
-repo, at `active/collisionspike/`) is an early, fast Power Platform spike** of the case-intake workflow.
+repo, at `active/collisionspike/`) is an early, fast spike** of the case-intake workflow — built on
+**Azure PaaS** (migrated off the original Microsoft Power Platform implementation on 2026-06-27; the
+live registry is [live-environment.md](./live-environment.md)).
 
 > **None of the adjacent repos are canonical.** They are repos containing **ideas, prior art, and
 > references** to Collision Engineers' processes and possible workflows — useful to mine and adapt,
 > not authoritative specs. The spike's own distilled docs (this folder + `docs/requirements/`) plus
 > the `raw/` source material are the working source of truth. Do not modify sibling repos from here.
 
+> **Coupling model — no package imports across repos.** Each leaf in `collisionsuite/` is an
+> **independent git repo**; collisionspike does **not** depend on any sibling as a package or pull one
+> in at runtime. The couplings are: (1) the **parser engine** from `cedocumentmapper_v2.0` is
+> **vendored** — a build-time copy snapshotted into `functions/parser/cedocumentmapper_v2/`, never a
+> live import of the sibling (ADR-0004/0018); (2) **enrichment** reaches DVSA/DVLA **directly** over
+> Entra `client_credentials` (the MCP connectors under `connectors/` are prior-art/fallback, not in
+> the live path); and (3) everything else (`ccc`, `collisioncc`, …) is **reference/documentation**
+> only — re-implement their contracts, do not call them.
+
 ## Map
 
 | Repo | What it is | Stack | Role for the spike |
 |---|---|---|---|
-| **collisionspike** (this) | Fast Power Platform spike of the intake→EVA workflow | Power Apps **Code App** (React/Vite) + Dataverse + Power Automate | **Build target** |
+| **collisionspike** (this) | Fast spike of the intake→EVA workflow | **Azure PaaS** — React/Vite SPA (Static Web App) + Data API & orchestration Function Apps + Postgres _(migrated off Power Platform 2026-06-27)_ | **Build target** |
 | **ccc** | Planning, ideas & draft contracts for the wider programme ("Collision Command Centre"); Python parser core, skills library, ADRs | Python (parser core); UI/DB undecided | **Ideas / prior art** — mine its draft contracts, adapt; not authoritative |
 | **collisioncc** | **Mature reference build** of the product on Google Cloud; Graph email intake, parser + Google Document AI, EVA Sentry submit, image-rules, case-status, **pricing guide** | Next.js + Firebase / Google Cloud (deploys as `ccc-web`) | **Reference/context only** — re-implement its contracts; do not call at runtime |
-| **collisionplugin** | Claude plugin + **MCP enrichment connectors** on Cloud Run, behind an OAuth gateway *(prior art — M1 uses direct Entra auth to DVSA/DVLA, no gateway hop)* | Node/TS + Python (FastMCP), Cloud Run `europe-west2` | **Prior-art / fallback** (M1 enrichment goes direct; valuation wrapper may revisit later) |
+| **collisionplugin** _(dissolved 2026-06-23 → `connectors/` + `skills/`)_ | Was a Claude plugin + **MCP enrichment connectors** on Cloud Run, behind an OAuth gateway *(prior art — M1 uses direct Entra auth to DVSA/DVLA, no gateway hop)* | Node/TS + Python (FastMCP), Cloud Run `europe-west2` | **Prior-art / fallback** (M1 enrichment goes direct; valuation wrapper may revisit later) |
 | **cedocumentmapper** | Legacy v1 document parser — 4,244-line Tkinter monolith, no tests/VCS | Python + Tkinter + Tesseract | Behaviour reference only |
 | **cedocumentmapper_v2.0** | Contract-first parser engine; **authoring source of truth** for the engine that is **vendored + live** in this repo | Python library + CLI | **Engine authoring repo** — edit here, then re-vendor into `functions/parser/` |
 | collisionpdf, collisionautomation, archive/dvlaclaudeconnector, archive/valuationbot(*) | Parser-first FastAPI service; React/Vite UI prototype; DVLA connector (now `connectors/dvla-dvsa-connector`); valuation prototypes (now `connectors/valuation-adverts-connector`) | mixed | Secondary references |
@@ -54,9 +65,10 @@ Since 2026-06-23 it also carries an opt-in **extraction orchestrator**, **offlin
 and an **eval harness** — all **desktop/dev-only and deliberately NOT vendored** onto the cloud path.
 
 - **Integrated + guarded.** The engine is **vendored into `functions/parser/cedocumentmapper_v2/`**
-  and **deployed live** as the parser Azure Function (`cespike-parser-dev-x7xt3d5ovhi7y`, `/api/parse`)
-  behind the live CE Parser custom connector (`cr1bd_ceparser`). Reuse the engine; do not re-derive
-  parsing in Power Fx.
+  and **deployed live** as the parser Azure Function (short name `cespike-parser-dev`, route
+  `/api/parse`), called over HTTP by the Data API + orchestration apps — identities in the registry
+  [live-environment.md](./live-environment.md). _(The prior Power Platform `cr1bd_ceparser` custom
+  connector is decommissioned.)_ Reuse the engine; do not re-derive parsing in the API/SPA.
 - **Authoring rule (single direction).** This sibling repo is the **authoring source of truth** for
   the engine. `functions/parser/cedocumentmapper_v2/` is a **pinned vendored copy** re-cut by the
   documented command in `functions/parser/cedocumentmapper_v2/PROVENANCE.md`. **All engine edits land
@@ -65,6 +77,13 @@ and an **eval harness** — all **desktop/dev-only and deliberately NOT vendored
   engineer-report overlay/notes), with the "Image Based Assessment" normalisation converged in both.
   `functions/parser/tests/test_engine_vendored_in_sync.py` is a drift guard that fails on divergence
   (and skips when the sibling is unreachable).
+  - **⚠ Open reconciliation item — vendored copy is BEHIND the sibling.** A parser fix has landed in
+    the `cedocumentmapper_v2.0` engine-core that has **not yet been re-vendored** here, so the copy
+    has diverged from its source. Re-vendor per the procedure in
+    [`PROVENANCE.md`](../../functions/parser/cedocumentmapper_v2/PROVENANCE.md) (see its **OPEN** banner)
+    against the latest committed sibling ref, then confirm the drift guard is green. Note the sibling
+    is **not currently checked out** in this workspace, so the drift guard **skips** rather than
+    failing — the divergence will not be caught locally until the sibling is cloned (SETUP.md).
 - **Contract fidelity.** The vendored engineer-report overlay adds a top-level `notes` (session
   provenance) to `record_to_dict`; it is **not** an EVA field and never reaches the 12-field EVA
   payload (the adapter builds the payload solely from `EVA_FIELD_ORDER` over `fields`, like

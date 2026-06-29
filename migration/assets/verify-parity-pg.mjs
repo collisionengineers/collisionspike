@@ -49,7 +49,7 @@ const ok = (cond, msg) => {
 // --- JSON choice sets -------------------------------------------------------
 // Map: cr1bd_logicalName -> { file, options: [{value, name, label}], parityKey?, stateMachine? }
 const jsonSets = new Map();
-const choiceDir = path.join(repo, "dataverse/choicesets");
+const choiceDir = path.join(repo, "packages/domain/src/data/choicesets");
 for (const f of fs.readdirSync(choiceDir).filter((x) => x.endsWith(".json"))) {
   const cs = JSON.parse(fs.readFileSync(path.join(choiceDir, f), "utf8"));
   const add = (s) => jsonSets.set(s.logicalName, {

@@ -16,10 +16,10 @@ Exchange-RBAC-for-Applications mailbox grant.
   `e25ca6f2-…`); tenant `858cf5b3-aa0a-47a6-9b40-4851fd0afa94`. Source: [`live-environment.md`](../architecture/live-environment.md).
 
 ## ⚠️ Poll vs push — a known doc conflict; verify against the deployed app
-- [`live-environment.md`](../architecture/live-environment.md) + memory [[exchange-rbac-unblocks-graph-intake]]
+- [`live-environment.md`](../architecture/live-environment.md) + memory [exchange-rbac-unblocks-graph-intake](../../memory/exchange-rbac-unblocks-graph-intake.md)
   describe the intake auth model as **delta-POLL** ("poll, don't subscribe") and treat that as canonical.
 - The **deployed `cespk-orch-dev`** ships `graph-renew` + `graph-webhook` (a **push/subscription** design),
-  and [[azure-orch-deploy]] notes the subscription path *does* ride on Exchange RBAC.
+  and [azure-orch-deploy](../../memory/azure-orch-deploy.md) notes the subscription path *does* ride on Exchange RBAC.
 - **Do not assert one over the other from docs.** Check the live app
   (`az functionapp function list … -n cespk-orch-dev` → is `graph-renew`/`graph-webhook` present and what
   does it do?) and follow `live-environment.md` per the repo precedence rules. Either way, **mailbox access
@@ -31,7 +31,7 @@ Exchange-RBAC-for-Applications mailbox grant.
   `Test-ServicePrincipalAuthorization` shows `InScope: True` (the test cmdlet bypasses the cache). App-perm
   changes are cached **30 min – 2 h**; an **idle** app resets at 30 min, an **active** app keeps the stale
   "deny" alive up to 2 h. **CORRECT: grant → leave the app totally idle ≥30 min (no token probes, no
-  `graph-renew`) → fire it once.** Polling/probing *prevents* the reset. Ref [[azure-orch-deploy]] +
+  `graph-renew`) → fire it once.** Polling/probing *prevents* the reset. Ref [azure-orch-deploy](../../memory/azure-orch-deploy.md) +
   MS Learn "RBAC for Applications in Exchange Online → Limitations §5".
 - **Exchange-RBAC grant needs `Connect-ExchangeOnline -Device`** in a **real terminal** (not the `!`
   prefix) — WAM browser auth fails "A window handle must be configured." Script:
@@ -39,7 +39,7 @@ Exchange-RBAC-for-Applications mailbox grant.
   `New-ManagementRoleAssignment`; `Application Mail.Read` = Graph `Mail.Read` (do **not** use
   `Mail.Read.Shared`); **no Global Admin / no Entra consent** — leave the unconsented Entra `Mail.Read` off.
 - **`GRAPH_INTAKE_MAILBOXES` is JSON, not CSV** — `[{"mailbox":"…","minIntakeDate":"…Z"}]`; a plain string
-  JSON-parse-throws → **zero mailboxes, silently**. Set via `--settings @file`. Ref [[azure-orch-deploy]].
+  JSON-parse-throws → **zero mailboxes, silently**. Set via `--settings @file`. Ref [azure-orch-deploy](../../memory/azure-orch-deploy.md).
 - **Token audience:** v2 tokens carry `aud` = bare client-id GUID, not `api://…` — see [deploy.md](./deploy.md).
 - **Trigger `graph-renew` on demand:** `POST https://cespk-orch-dev.azurewebsites.net/admin/functions/graph-renew`
   with `x-functions-key: <masterKey>` (`az functionapp keys list … --query masterKey`), body `{"input":""}` → 202.

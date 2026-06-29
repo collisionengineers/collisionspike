@@ -1,7 +1,7 @@
 # Phase 4a — Inspection-address corpus revamp (from the 2-year EVA full-address export)
 
 > **Status: BUILT + LIVE-REPLACED 2026-06-24.** Offline build done (gated-OFF); the live `-Apply` replace ran
-> (16a backup first → 2,035 `suggested:eva_export` live, 503 stale removed, 174 confirmed preserved,
+> (16a backup first → 2,035 `suggested:eva_export` live, 503 stale removed, the confirmed rows preserved (174 at load — live count in the [registry](../../architecture/live-environment.md)),
 > `17-verify` all-pass). **#2b** proximity deferred; **helper #3 re-scoped** to a live human-confirmed assist (built offline, gated-off). Integrated into the phase structure on 2026-06-24 (from
 > `docs/plans/to-integrate-into-phases/`). Backed by **ADR-0016** (_Proposed_; see its
 > *Implementation note (2026-06-24)*). **ADR-0013 stays binding** — there is **no runtime
@@ -22,7 +22,7 @@ InspLocName · InspLocCont · InspLocAdd1`. Unlike the old `Loc`-only artifact, 
 addresses** (street line, postcode e.g. `B5 6JX`, site name e.g. "Somstar Recovery & Storage", contact,
 second line). Many rows are literally `Image Based Assessment` in the address field.
 
-This is far richer than today's live corpus (~871 `cr1bd_inspectionaddress` rows = **697 suggested**, from
+This is far richer than today's live corpus (~871 `cr1bd_inspectionaddress` rows — last-known split in the [registry](../../architecture/live-environment.md), from
 the prior `codexwork` CSV, **+ 174 hand-curated Confirmed Physical**).
 
 ## The decision (ADR-0016) — adopt for the *suggestion layer*, ADR-0013 unchanged
@@ -84,7 +84,7 @@ operator explicitly supersedes them too.
    protection** (probe-and-skip). **DRY-RUN is the default** (no `-Apply` ⇒ no tenant contact) and reports
    delete/keep. `17-verify-suggested-addresses.ps1` asserts the new counts + **no Case row is touched**.
    **[DONE 2026-06-24]** the live `-Apply` full-replace RAN (backup-first via 16a → 2,035
-   `suggested:eva_export` live, 503 stale removed, 174 confirmed preserved, `17-verify` all-pass).
+   `suggested:eva_export` live, 503 stale removed, the confirmed rows preserved (174 at load), `17-verify` all-pass).
 4. **[BUILT 2026-06-24] Code App ranking surface** — `SuggestedAddress.frequency/lastSeen/rank` in
    `mockup-app/src/data/types.ts`, mapped by the Dataverse adapter, ordered by (rank → frequency →
    last-seen), with a "seen N times · last <date>" hint. **Ordering only — ADR-0013 unchanged.**
@@ -95,7 +95,7 @@ operator explicitly supersedes them too.
 
 ### Pending / status
 - **[DONE 2026-06-24]** the live backup (16a) + the `-Apply` `-ReplaceSuggestions` full-replace ran:
-  2,035 `suggested:eva_export` live, 503 stale removed, 174 confirmed preserved, `17-verify` all-pass;
+  2,035 `suggested:eva_export` live, 503 stale removed, the confirmed rows preserved (174 at load), `17-verify` all-pass;
 - **[DEFERRED]** the **#2b** proximity-ordering signal (sibling parser extractions + gated Azure Maps
   geocoding) — suggestion-ORDERING only, never an auto-select;
 - **[BUILT OFFLINE, GATED-OFF 2026-06-24]** **helper #3** is re-scoped to a **live, human-confirmed

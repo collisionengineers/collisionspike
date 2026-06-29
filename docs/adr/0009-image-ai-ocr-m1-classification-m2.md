@@ -1,5 +1,7 @@
 # Image AI: OCR-for-registration in M1; AI Builder classification + Foundry vision in M2
 
+**Status:** Accepted (2026-06-17).
+
 Microsoft Learn (June 2026) confirms **Azure Custom Vision** and **Image Analysis 4.0** (custom
 models + people detection) are on the **retirement path (2028-09-25)**, so neither is used for new
 work. The image-AI work is phased:

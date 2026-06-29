@@ -1,8 +1,9 @@
 /**
  * api/src/lib/auth.ts — Entra JWT validation + app-role authz.
  *
- * Validates Bearer tokens via the tenant JWKS and enforces CollisionSpike.User / .Admin
- * app roles. Plan 21 "Entra JWT validation + app-role authz (API side)" section.
+ * Validates Bearer tokens via the tenant JWKS and enforces the CollisionSpike.User /
+ * .Superuser app roles (legacy .Admin is still accepted as a Superuser alias for
+ * back-compat). Plan 21 "Entra JWT validation + app-role authz (API side)" section.
  *
  * Azure Functions provides no built-in JWT validation for Node (App Service Easy Auth
  * injects client identity only for .NET). We validate in code with 'jose' against the
@@ -47,7 +48,7 @@ function hasSuperuser(roles: string[]): boolean {
   return roles.some((r) => SUPERUSER_VALUES.includes(r));
 }
 
-class HttpError extends Error {
+export class HttpError extends Error {
   constructor(
     public readonly status: number,
     message: string,
@@ -55,6 +56,23 @@ class HttpError extends Error {
     super(message);
     this.name = 'HttpError';
   }
+}
+
+/**
+ * Map a thrown error to a response with consistent semantics:
+ *   - an HttpError (e.g. the 401 from authenticate) → its own status + message;
+ *   - anything else → 500 {error:'internal'} (logged, never leaked).
+ * Shared by withRole and the internal routes' withServiceAuth so an UNEXPECTED
+ * failure (e.g. a transient JWKS fetch error, which jose surfaces as a non-JOSE
+ * throw) becomes a 500 server fault, not a misleading 401 "bad token" — the
+ * latter is non-retryable and would mis-diagnose a transient outage as auth.
+ */
+export function toErrorResponse(e: unknown, ctx: InvocationContext): HttpResponseInit {
+  if (e instanceof HttpError) {
+    return { status: e.status, jsonBody: { error: e.message } };
+  }
+  ctx.error(e);
+  return { status: 500, jsonBody: { error: 'internal' } };
 }
 
 /**
@@ -96,7 +114,7 @@ export async function authenticate(req: HttpRequest): Promise<JWTPayload> {
 
 /**
  * Wrap a handler with Entra JWT authentication + required app-role enforcement.
- * Admin implies User (superset).
+ * Superuser implies User (superset).
  */
 export function withRole(
   required: AppRole,
@@ -118,11 +136,7 @@ export function withRole(
       if (!ok) return { status: 403, jsonBody: { error: 'forbidden' } };
       return await handler(req, ctx, claims);
     } catch (e) {
-      if (e instanceof HttpError) {
-        return { status: e.status, jsonBody: { error: e.message } };
-      }
-      ctx.error(e);
-      return { status: 500, jsonBody: { error: 'internal' } };
+      return toErrorResponse(e, ctx);
     }
   };
 }

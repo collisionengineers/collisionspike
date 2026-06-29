@@ -10,7 +10,7 @@
 >
 > Companion docs: [../../ROADMAP.md](../../ROADMAP.md) (the forward Phase 0–6 checklist) ·
 > [../../CURRENT_STATUS.md](../../CURRENT_STATUS.md) (what is live now) ·
-> [../../PLAN.md](../../PLAN.md) · [../gated.md](../gated.md) (operator blockers) ·
+> [PLAN.md](../HISTORICAL/PLAN.md) · [../gated.md](../gated.md) (operator blockers) ·
 > [./README.md](./README.md) (plans index) ·
 > [./m2-umbrella-enrichment-to-scale.md](./m2-umbrella-enrichment-to-scale.md) (the M2 dependency graph) ·
 > ADRs [0004](../adr/0004-parser-as-azure-function-inline.md) /
@@ -73,7 +73,7 @@ DEPLOY-RUNBOOK order.
 | **1a** — Parser → Azure Function | cedocumentmapper_v2.0 vendored into an FC1 Function; 12-field extraction + provenance | **M1** | `[x]` live | [ADR-0004](../adr/0004-parser-as-azure-function-inline.md) |
 | **1b** — Dataverse schema in Sandbox | `CollisionSpike` solution: 11 tables, 19 choice sets, 15 relationships, 3 alt keys, 11 env-vars | **M1** | `[x]` built | ROADMAP 1b |
 | **1b.1** — Provider-corpus seed + analysis | WorkProvider/Repairer/ImageSource seed; reproducible analysis | **M1** | `[x]` done | ROADMAP 1b.1 |
-| **1b.2** — Corpus incorporation | Idempotent upsert of the CONFIRMED corpus (390 WorkProvider, 174 InspectionAddress, N:N) | **M1** | `[x]` loaded 2026-06-19 | ROADMAP 1b.2 |
+| **1b.2** — Corpus incorporation | Idempotent upsert of the CONFIRMED provider / inspection-address corpus + N:N (live counts in the [registry](../architecture/live-environment.md)) | **M1** | `[x]` loaded 2026-06-19 | ROADMAP 1b.2 |
 | **1b.3** — Clarifying-info ingestion | The five operator worklists (code reconciliation, CONSIDER seeding, addresses, coverage, intermediaries) | **M1** | `[ ]` 🔒 awaits operator worklists | ROADMAP 1b.3 |
 | **1c** — Code App (live) | Live Code App wired to live Dataverse; manual-intake upload→parse→Case; real rows only | **M1** | `[x]` live | ROADMAP 1c |
 | **1d** — Flows (imported OFF; M1 chain wired) | 10 flows imported `state=off`; M1 chain wired via CLI; dedup ladder ([ADR-0010](../adr/0010-dedup-reference-disambiguated-no-time-window.md)) | **M1** | `[x]` wired (children await operator flip) | ROADMAP 1d |

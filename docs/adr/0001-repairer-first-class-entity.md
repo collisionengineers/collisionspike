@@ -1,5 +1,7 @@
 # Repairer is a first-class entity, distinct from Inspection Address
 
+**Status:** Accepted (2026-06-17).
+
 A repairer/garage is modelled as its own directory entity (name, address, contacts, "Figures"
 status), **many-to-many with Work Provider**, rather than as a label on a per-case Inspection
 Address. Chosen because the job sheet's `Garages` list is a reusable business directory that
