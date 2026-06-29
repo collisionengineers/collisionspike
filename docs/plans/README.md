@@ -13,7 +13,7 @@ Engineers on Power Apps Code App + Dataverse + Power Automate + Azure Functions)
 research/planning** unless its own header says otherwise: the binding rule is **build offline, gated-OFF;
 the operator activates** (memory `live-services-boundary`). Canonical context lives in
 [../../ROADMAP.md](../../ROADMAP.md), [../../CURRENT_STATUS.md](../../CURRENT_STATUS.md),
-[../../DEPLOY-RUNBOOK.md](../../DEPLOY-RUNBOOK.md), [../gated.md](../gated.md),
+[../azure/deploy.md](../azure/deploy.md), [../gated.md](../gated.md),
 [../../AGENTS.md](../../AGENTS.md),
 [../architecture/live-environment.md](../architecture/live-environment.md), and the ADRs.
 

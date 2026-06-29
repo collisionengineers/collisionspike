@@ -39,7 +39,7 @@ platform mechanism moved.
 > **Pay-As-You-Go** (the 12-month free Postgres allowance survives the upgrade). **(4)** **staff app-role
 > assignment is incomplete** (one principal assigned; others 403 until assigned).
 > **→ See [CURRENT_STATUS.md](./CURRENT_STATUS.md) (where we are) and [ROADMAP.md](./ROADMAP.md) (the checklist).**
-> Run `node verify-all.mjs` for the offline gate; deploy/activation sequence in [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md).
+> Run `node verify-all.mjs` for the offline gate; deploy/activation sequence in [docs/azure/deploy.md](./docs/azure/deploy.md).
 
 ## What it does (target)
 
@@ -50,7 +50,7 @@ and de-duplicate every action. Full pipeline: [docs/requirements/intake-workflow
 
 ## Start here
 
-- **Plan:** [PLAN.md](./PLAN.md) — phased implementation.
+- **Plan:** [PLAN.md](./docs/HISTORICAL/PLAN.md) — phased implementation.
 - **Microsoft stack:** [docs/architecture/microsoft-stack.md](./docs/architecture/microsoft-stack.md) — the recommended services, costing, and citations.
 - **Ecosystem:** [docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md) — how this repo relates to `ccc`, `collisioncc`, `collisionplugin`, and `cedocumentmapper_v2.0`.
 - **Docs index:** [docs/README.md](./docs/README.md).
@@ -63,7 +63,7 @@ linter, a pytest loop over every built Function suite, plus the static boundary 
 widened over time — use "all gates green", not a pinned count; the live breakdown is in CURRENT_STATUS /
 OPEN_ITEMS.
 
-**Deploy:** [DEPLOY-RUNBOOK.md](./DEPLOY-RUNBOOK.md) · **Phase-1 plan:** [docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md](./docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md).
+**Deploy:** [docs/azure/deploy.md](./docs/azure/deploy.md) · **Phase-1 plan:** [docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md](./docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md).
 
 The **live Azure stack**:
 - `mockup-app/` — the React + Vite SPA (Fluent v9), wired to the Data API over REST

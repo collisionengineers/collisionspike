@@ -51,4 +51,4 @@ error string. A repeated failing `az` will trip the `azure-churn-guard` STOP.
 ## Verify the fix
 - API: `no-auth → 401`, bad token → 401 (not 500); a real route 200 (load the live dashboard with the
   chrome-devtools MCP — every `/api/dashboard/*` + `/api/queues/*/cases` should be 200).
-- Orch: `az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev --query "[].name"` → 41.
+- Orch: `az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev --query "[].name"` → 42.

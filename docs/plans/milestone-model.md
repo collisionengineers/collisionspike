@@ -10,7 +10,7 @@
 >
 > Companion docs: [../../ROADMAP.md](../../ROADMAP.md) (the forward Phase 0–6 checklist) ·
 > [../../CURRENT_STATUS.md](../../CURRENT_STATUS.md) (what is live now) ·
-> [../../PLAN.md](../../PLAN.md) · [../gated.md](../gated.md) (operator blockers) ·
+> [PLAN.md](../HISTORICAL/PLAN.md) · [../gated.md](../gated.md) (operator blockers) ·
 > [./README.md](./README.md) (plans index) ·
 > [./m2-umbrella-enrichment-to-scale.md](./m2-umbrella-enrichment-to-scale.md) (the M2 dependency graph) ·
 > ADRs [0004](../adr/0004-parser-as-azure-function-inline.md) /

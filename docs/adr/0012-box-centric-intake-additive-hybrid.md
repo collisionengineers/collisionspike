@@ -146,3 +146,19 @@ stranded) case.
 Builds on ADR-0010 (dedup ladder — reg-merge routes drop-box uploads) and ADR-0008 (the tool boundary
 ends at EVA handoff — Box archival sits inside that boundary, not beyond it). **Status: Accepted
 2026-06-21.**
+
+## Update (2026-06-28) — superseded by the Azure migration + Box go-live
+
+Two load-bearing premises of this ADR changed; the **archival decision** (Box is an additive, one-way,
+linked-not-embedded mirror; no case logic ever runs off Box) is **unchanged**:
+
+- **System of record:** **Postgres** (`cespk-pg-dev`), not Dataverse. The one-way mirror is now
+  **Postgres → Box**.
+- **Box auth:** **JWT "Server Authentication"** (the whole `Config.JSON` in Key Vault
+  `cespkboxkvv76a47/box-config-json`), **not CCG**. Box went **LIVE 2026-06-28**; `BOX_API_ENABLED` /
+  `BOX_FOLDER_AT_INTAKE_ENABLED` / `BOX_FILEREQUEST_ENABLED` are `true` (gate states in the registry
+  [live-environment.md](../architecture/live-environment.md)).
+- **No Power Platform connector:** the `cr1bd_box_rest` custom connector + the Box flows were
+  **deprovisioned 2026-06-27**; Box REST is now called by the **retained `box-webhook` Function +
+  orchestration app** directly. The Code-App / `connect-src 'none'` constraints no longer apply — the SPA
+  calls the Data API over REST, and the "Open in Box" deep link is server-minted by the Data API.

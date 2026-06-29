@@ -1,18 +1,18 @@
 {
-  "lastVerified": "2026-06-28T21:42:06Z",
-  "verifiedBy": "live-truth agent",
+  "lastVerified": "2026-06-28T23:55:15Z",
+  "verifiedBy": "live-truth agent (re-verified in the 2026-06-29 doc-hygiene pass via az CLI + az MCP)",
   "subscription": "e6076573-23a5-46a8-acef-7e22d264e5db",
   "resourceGroup": "rg-collisionspike-dev",
   "region": "uksouth",
   "tenant": "858cf5b3-aa0a-47a6-9b40-4851fd0afa94",
-  "notes": "READ-ONLY ground-truth snapshot. No secrets/tokens stored. Several CLAUDE.md/CURRENT_STATUS claims are stale as of this snapshot — see per-fact docDrift notes.",
+  "notes": "READ-ONLY ground-truth snapshot. No secrets/tokens stored. Re-verified in the 2026-06-29 doc-hygiene pass: functionCounts, gates, graphSubscriptions, mailboxRbac and httpsOnly all still match live. One change since the prior snapshot — PDF_MAPPER_ENABLED=true was found live on both apps and added to gates (it was unrecorded). postgresCounts remain unverified (PG firewall + no local psql). docDrift notes that referenced an OLDER CLAUDE.md are marked RESOLVED where the current docs already align.",
 
   "functionCounts": {
     "value": { "orch": 42, "api": 44 },
     "sourceCommand": "az functionapp function list -g rg-collisionspike-dev -n <app> --query 'length(@)' -o tsv",
     "verifiedAt": "2026-06-28T21:37:50Z",
     "verified": true,
-    "docDrift": "Docs (CLAUDE.md) say orch has 41 functions; live count is 42. API has 44 (not previously stated)."
+    "docDrift": "RESOLVED in the doc-hygiene pass: live orch=42, api=44 re-confirmed. Forward docs registry-link the count; the residual '41/42' embeds in docs/azure/diagnose.md + docs/azure/deploy.md were corrected to 42/44."
   },
 
   "graphSubscriptions": {
@@ -35,7 +35,7 @@
     "sourceCommand": "client_credentials token for app 5d37a155-... (secret from KV cespk-pg-kv-dev/graph-client-secret) -> GET https://graph.microsoft.com/v1.0/subscriptions",
     "verifiedAt": "2026-06-28T21:39:00Z",
     "verified": true,
-    "docDrift": "CLAUDE.md 'Honest live state' says 'no Graph subscriptions exist' and mailboxes 'not yet RBAC-scoped'. FALSE as of this snapshot: 2 live push subscriptions exist for engineers@ + digital@ Inbox, pushing to graph-webhook, expiring 2026-07-05. Confirms prior session's observation."
+    "docDrift": "RESOLVED: 2 live push subscriptions exist for engineers@ + digital@ Inbox, pushing to graph-webhook, expiring 2026-07-05 — re-confirmed live in the doc-hygiene pass. The current CLAUDE.md / live-environment.md already state '2 live push subscriptions'; the earlier 'no Graph subscriptions exist' wording has been corrected."
   },
 
   "mailboxRbac": {
@@ -48,7 +48,7 @@
     "sourceCommand": "GET https://graph.microsoft.com/v1.0/users/<mbx>/messages?$top=1 with app-only token",
     "verifiedAt": "2026-06-28T21:39:10Z",
     "verified": true,
-    "docDrift": "Exchange RBAC application-read IS scoped for the 2 configured intake mailboxes (engineers@, digital@ -> 200). info@ and desk@ are NOT scoped (403). Contradicts the docs' 'mailboxes not yet RBAC-scoped' claim."
+    "docDrift": "RESOLVED: re-confirmed engineers@ + digital@ scoped (200), info@ + desk@ not scoped (403). The current docs already state this per-mailbox; the earlier blanket 'mailboxes not yet RBAC-scoped' claim has been corrected."
   },
 
   "subscriptionRenewalRisk": {
@@ -102,6 +102,7 @@
     "value": {
       "cespk-api-dev": {
         "ENRICHMENT_ENABLED": "true",
+        "PDF_MAPPER_ENABLED": "true",
         "BOX_API_ENABLED": "true",
         "BOX_FOLDER_AT_INTAKE_ENABLED": "true",
         "BOX_FILEREQUEST_ENABLED": "true",
@@ -113,6 +114,7 @@
       },
       "cespk-orch-dev": {
         "ENRICHMENT_ENABLED": "true",
+        "PDF_MAPPER_ENABLED": "true",
         "BOX_API_ENABLED": "true",
         "BOX_FOLDER_AT_INTAKE_ENABLED": "true",
         "BOX_FILEREQUEST_ENABLED": "true",
@@ -125,9 +127,9 @@
       }
     },
     "sourceCommand": "az functionapp config appsettings list -g rg-collisionspike-dev -n <app> --query \"[?contains(name,'BOX_')||contains(name,'EVA_')||contains(name,'ENRICHMENT')||contains(name,'VALUATION')||name=='GRAPH_INTAKE_MAILBOXES']\"",
-    "verifiedAt": "2026-06-28T21:40:00Z",
+    "verifiedAt": "2026-06-28T23:55:15Z",
     "verified": true,
-    "docDrift": "BOX_API_ENABLED, BOX_FOLDER_AT_INTAKE_ENABLED, BOX_FILEREQUEST_ENABLED are all 'true' on BOTH api and orch — Box is ACTIVATED, not off. ENRICHMENT_ENABLED is 'true'. EVA_API_ENABLED, VALUATION_ENABLED, BOX_EMBED_ENABLED, BOX_METADATA_ENABLED are not set (effectively off/reserved) — consistent with docs. GRAPH_INTAKE_MAILBOXES = engineers@ + digital@ (minIntakeDate 2026-06-27)."
+    "docDrift": "BOX_API_ENABLED, BOX_FOLDER_AT_INTAKE_ENABLED, BOX_FILEREQUEST_ENABLED are all 'true' on BOTH api and orch — Box is ACTIVATED, not off. ENRICHMENT_ENABLED and PDF_MAPPER_ENABLED are 'true' on both. EVA_API_ENABLED, VALUATION_ENABLED, BOX_EMBED_ENABLED, BOX_METADATA_ENABLED are not set (effectively off/reserved). GRAPH_INTAKE_MAILBOXES = engineers@ + digital@ (minIntakeDate 2026-06-27). NOTE: PDF_MAPPER_ENABLED=true was unrecorded before the 2026-06-29 re-verification; CLAUDE.md's gate list describes default-off SEMANTICS, not current live values."
   },
 
   "resourceInventory": {

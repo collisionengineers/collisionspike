@@ -1,5 +1,7 @@
 # cedocumentmapper_v2.0 runs as an Azure Function, called inline from M1
 
+**Status:** Accepted (2026-06-17).
+
 The document parser is integrated from the **first milestone** as an HTTP **Azure Function** (exposed
 to the Power Apps Code App via a custom connector, gated by `PDF_MAPPER_ENABLED`), rather than left
 as an offline CLI or deferred to a later milestone. The Code App calls it on the instruction to

@@ -9,8 +9,7 @@ of the Collision Engineers case-intake workflow.
 **the live registry — authoritative numbers:** [../LIVE_FACTS.json](../LIVE_FACTS.json) +
 [architecture/live-environment.md](./architecture/live-environment.md). Live deploy procedure is the Azure
 playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./HISTORICAL/PLAN.md)
-(narrative plan) · [DEPLOY-RUNBOOK.md](./HISTORICAL/DEPLOY-RUNBOOK.md) (Power-Platform-era deploy) ·
-[../OPEN_ITEMS.md](../OPEN_ITEMS.md) (merged → ROADMAP).
+(narrative plan) · [DEPLOY-RUNBOOK.md](./HISTORICAL/DEPLOY-RUNBOOK.md) (Power-Platform-era deploy).
 
 > **Precedence.** A dated **binding review** in [reviews/](./reviews/) outranks everything older
 > (docs, plans, ADRs, code) for the areas it covers; then **ADRs** ([adr/](./adr/)); then the

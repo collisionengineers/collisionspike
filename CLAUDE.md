@@ -8,16 +8,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 de-risks the mature cloud build, **`collisioncc`** (a Next.js + Google Cloud app), which is
 **reference/context only** — re-implement its contracts; do **not** call it at runtime.
 
-**Live platform (as of 2026-06-27): pure Azure PaaS.** The spike has been **migrated off the
+**Live platform (as of 2026-06-28): pure Azure PaaS.** The spike has been **migrated off the
 Microsoft Power Platform** (its original implementation — a Power Apps **Code App** + Dataverse +
 ~16 Power Automate flows + custom connectors) **onto the Azure stack below** — the orchestration that
 replaces the flows is now **deployed (2026-06-27)**, so every Power Platform capability has a live Azure
 home. The Power Platform footprint has now been **deprovisioned (2026-06-27)** — the Dev sandbox, both
 solutions, the Code App, custom connectors, connections, and the `case-resolve` flow were deleted via
-`pac admin delete` (the `CollisionSpike` solution was cold-exported off-repo first; flow definitions are
-retained in `flows/definitions/` for provenance). **Only the platform mechanism changed** — the **domain model, EVA 12-field contract, image rules, provider corpus, and Case/PO format
-below are unchanged**. The migration plan + live-status record is **`migration/`** (a temporary,
-delete-when-done folder — see [`migration/README.md`](./migration/README.md)).
+`pac admin delete` (the `CollisionSpike` solution was cold-exported off-repo first; the flow definitions
+were removed in the migration purge — the cutover narrative survives in [docs/HISTORICAL/migration/](./docs/HISTORICAL/migration/)). **Only the platform mechanism changed** — the **domain model, EVA 12-field contract, image rules, provider corpus, and Case/PO format
+below are unchanged**. The executed cutover **narrative** lives in [`docs/HISTORICAL/migration/`](./docs/HISTORICAL/migration/);
+the repo-root **`migration/`** is **retained, not temporary** — it holds the **canonical live Postgres DDL**
+(`migration/assets/schema/*.sql`) plus the reversible-build assets (see
+[`migration/README.md`](./migration/README.md)).
 
 The live Azure stack lives in resource group **`rg-collisionspike-dev`** (region **uksouth**), inside
 the **Azure Free-Trial** subscription `e6076573-…` (quotaId `FreeTrial_2014-09-01`):
@@ -93,18 +95,20 @@ Read first: [README.md](./README.md), [CURRENT_STATUS.md](./CURRENT_STATUS.md) (
 [ROADMAP.md](./ROADMAP.md) (**the single forward worklist — its § Now / Next / Later is the start-here for
 what's next**; the old `OPEN_ITEMS.md` was merged into it), [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)
 (the live registry), [docs/HISTORICAL/migration/](./docs/HISTORICAL/migration/) (cutover record),
-[PLAN.md](./PLAN.md), [docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md).
+[docs/HISTORICAL/PLAN.md](./docs/HISTORICAL/PLAN.md) (historical narrative plan — ROADMAP.md is the live forward plan),
+[docs/architecture/repo-constellation.md](./docs/architecture/repo-constellation.md).
 What needs the operator: [docs/gated.md](./docs/gated.md). **Activating Box:**
 [docs/azure/box-activation.md](./docs/azure/box-activation.md).
 
 ## Layout & documentation map
 
 ```
-README.md            project overview        ROADMAP.md          forward phased checklist (Phase 0–6 + Phase 7 Box pivot)
-PLAN.md              narrative plan           CURRENT_STATUS.md   what is live now
-CLAUDE.md            this file               DEPLOY-RUNBOOK.md   operator deploy sequence
-AGENTS.md            operating rules + gotchas
-migration/           EXECUTED Power Platform → Azure PaaS cutover record (temporary; delete-when-done)
+README.md            project overview        ROADMAP.md          forward phased checklist (the live worklist)
+CLAUDE.md            this file                CURRENT_STATUS.md   what is live now
+AGENTS.md            operating rules + gotchas CONTEXT.md         domain glossary / canonical terms
+LIVE_FACTS.json      machine-readable live registry (human mirror: docs/architecture/live-environment.md)
+migration/           RETAINED: canonical live Postgres DDL (assets/schema/) + reversible-build assets
+                     (the executed PP→Azure cutover NARRATIVE lives in docs/HISTORICAL/migration/)
 api/  orchestration/ LIVE Azure: TS Data API (BFF) + Durable/Graph orchestration Function Apps
 docs/
   gated.md           hard/soft operator-blocker registry (everything that needs the user)
@@ -188,8 +192,8 @@ Pipeline: **intake (3 Outlook shared inboxes) → parse + classify → human rev
 to EVA + archive to Box → audit/dedup**. Cases can arrive partial (instructions without images, or
 images without instructions) and are held with a chaser workflow until complete.
 
-- **Case/PO format:** `Principal` (4-char internal provider code) + 2-digit year + 3-digit provider
-  case number, e.g. `CCPY26050`. Box folder is named with this.
+- **Case/PO format:** `Principal` (a **leading-alpha** internal provider code — typically 4 chars, 2–5
+  observed) + 2-digit year + 3-digit provider case number, e.g. `CCPY26050`. Box folder is named with this.
 - **EVA photo order:** upload **2 preview photos** (vehicle overview + main-damage closeup) first,
   then **all** photos in sequence **including those two again**. The overview must show the full
   registration.
@@ -272,8 +276,21 @@ run it a third time; invoke the matching skill or `microsoft-docs` to learn *why
   export-for-reference and teardown (`pac admin delete`). Likewise the `code-apps-preview:*` skills.
 - Relevant skills: `azure:*` (Document Intelligence, Functions, Postgres, Static Web Apps),
   `microsoft-docs:*` (Learn lookups).
-- Windows environment; primary shell is PowerShell (Bash also available). Git initialised on `main`
-  — commit as work progresses (the predecessor tool's lack of version control was a known problem).
+- **Cross-platform:** **Linux/WSL2 (bash)** is this session's environment (after the Linux-onboarding
+  commit); **PowerShell on Windows** is also supported — some playbooks note `(Win:)` variants. Git
+  initialised on `main` — commit as work progresses (the predecessor tool's lack of version control was a
+  known problem).
+
+## Quick commands
+
+```bash
+node verify-all.mjs                       # offline build/contract/doc gate (skips live cleanly)
+VERIFY_LIVE=1 node verify-all.mjs         # also diff live Azure vs LIVE_FACTS.json (needs az login)
+node scripts/check-doc-links.mjs          # broken links / orphans / live-number leakage
+git config core.hooksPath scripts/hooks   # activate the pre-commit doc gate (once)
+npm --prefix mockup-app run dev           # run the SPA locally
+# build + deploy api/orch (esbuild -> deploy/{api,orch}/main.cjs): see docs/azure/deploy.md
+```
 
 ## Agent roster & boundaries
 

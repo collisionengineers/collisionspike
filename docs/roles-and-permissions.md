@@ -11,7 +11,7 @@ app roles** `CollisionSpike.User` / `CollisionSpike.Superuser` (Superuser is the
 the **Data API** (and, since 2026-06-26, also **Postgres RLS**), carrying the privilege intent of the prior Dataverse roles (Phase 9,
 [ADR-0017 §G8](./adr/0017-data-retention-erasure-pii-lifecycle.md); migration spec
 [`migration/31-auth-migration.md`](HISTORICAL/migration/31-auth-migration.md)). Companion to
-[docs/gated.md](./gated.md), [../DEPLOY-RUNBOOK.md](../DEPLOY-RUNBOOK.md),
+[docs/gated.md](./gated.md), [azure/deploy.md](./azure/deploy.md),
 [architecture/live-environment.md](./architecture/live-environment.md)._
 
 > **LIVE-STACK NOTE (2026-06-26).** The running system is the **Azure PaaS stack** (SPA on Static Web App

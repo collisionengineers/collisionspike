@@ -1,5 +1,7 @@
 # EVA Sentry API is full scope, developed against the EVA test environment
 
+**Status:** Accepted (2026-06-17).
+
 The EVA Sentry REST API is **in scope** for the spike, not merely a deferred "later" path. Collision
 Engineers have an **EVA test environment**, so the API integration is built and validated there now
 rather than waiting for EVA's production API. The base URL is the **same** for test and production —

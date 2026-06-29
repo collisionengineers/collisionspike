@@ -721,6 +721,6 @@ seeded (run `dataverse/.build/15-seed-emaildomains.ps1`), and downstream `Classi
 
 ## Key docs
 - **Forward worklist:** [ROADMAP.md](./ROADMAP.md) (§ Now / Next / Later) · **What needs the operator:** [docs/gated.md](./docs/gated.md) · **Live registry (authoritative numbers):** [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) / [LIVE_FACTS.json](./LIVE_FACTS.json)
-- **Operational charter / rules:** [AGENTS.md](./AGENTS.md) · backlog pointer [OPEN_ITEMS.md](./OPEN_ITEMS.md) (merged → ROADMAP)
+- **Operational charter / rules:** [AGENTS.md](./AGENTS.md) · backlog now in [ROADMAP.md](./ROADMAP.md)
 - Architecture: [docs/architecture/](./docs/architecture/README.md) · ADRs: [docs/adr/](./docs/adr/README.md) · Plans: [docs/plans/](./docs/plans/) · live deploy: [docs/azure/](./docs/azure/README.md)
 - Analysis: `raw/principalandrepairersheets/outputs/reports/`

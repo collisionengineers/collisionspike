@@ -1,5 +1,7 @@
 # WhatsApp intake is manual (Business app); bulk media OCR→VRM matching as a timesaver
 
+**Status:** Accepted (2026-06-17).
+
 Collision Engineers use the **WhatsApp Business app** (not the Platform/Cloud API), so there is no
 programmatic inbound webhook: WhatsApp-sourced images/instructions are **manually attached** to Cases
 by staff, and the Image Source records the group/contact for tracking. As a timesaver, a **bulk

@@ -4,6 +4,14 @@
 decision and the `190626` review's "address-match — LIVE" line (both recorded a runtime matcher that
 should never have existed).
 
+> **Framing note (read the H1 precisely).** "Never resolved at runtime" means **no AUTO-resolver** — not
+> "no live address feature." Three distinct things: (1) the **offline-derived corpus** is *data* (mined
+> offline, re-seeded offline) — "offline" applies **here only**; (2) a **live, human-confirmed**
+> suggestion *pick* **and** a gated, reviewer-invoked **"Suggest location"** assist (vision + geocode)
+> **do run at review time** — they only ever *suggest*, never auto-apply (see Consequences §60–72);
+> (3) the removed **auto-matcher** is the only thing that is dead. So inspection address is a **live
+> staff find/pick aid**, not an offline-only artefact.
+
 ## Context
 
 EVA field 9 needs the **full inspection address**. EVA stores it, but its **export only surfaces a
