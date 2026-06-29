@@ -91,6 +91,28 @@ VRM_RE = re.compile(
     re.IGNORECASE,
 )
 
+
+def vrm_candidate_is_bad(candidate: str, context: str) -> bool:
+    """True when a VRM-shaped ``candidate`` should be REJECTED.
+
+    Shared guard for BOTH the loose /parse fallback VRM extraction (RuleEngine)
+    and the email classifier's canonical ``body_vrm`` sniff (collisionspike #7),
+    so the two never drift. Rejects: a too-short compact that is not a full
+    letter-digit-letter plate; a candidate that is actually the OUTWARD half of a
+    UK postcode (immediately followed by an inward ``\\d[A-Z]{2}`` code, e.g.
+    ``LS8 2AB``); and bare label words. ``RuleEngine._vrm_candidate_is_bad``
+    delegates here.
+    """
+    compact = normalize_vrm(candidate)
+    if len(compact) < 5 and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}[A-Z]{1,3}", compact):
+        return True
+    if re.search(rf"\b{re.escape(candidate)}\s*\d[ABD-HJLNP-UW-Z]{{2}}\b", context, re.IGNORECASE):
+        return True
+    if compact in {"CLIENT", "VEHICLE", "REG", "MODEL"}:
+        return True
+    return False
+
+
 # Canonical value emitted for the inspection address when the document states the
 # vehicle will be assessed from images / on a desktop basis rather than at a
 # physical location. Matches the EVA contract convention (see docs/testing
@@ -128,6 +150,104 @@ _AUDIT_PHRASES: tuple[str, ...] = (
     "original report",
     "engineers 2",
 )
+
+
+# Phrases (case-insensitive) that signal an email is INSTRUCTING new work — the
+# sender is asking Collision Engineers to carry out an inspection / produce a
+# report. Mirrors the high-precision _AUDIT_PHRASES discipline: anchored to
+# instruction language ("please inspect", "instructed to") rather than any bare
+# word that could appear in a question about past work. Used by the email
+# classifier alongside attachment/provider signals; a body that fires several of
+# these (plus a Case/PO or VRM) is treated as a typed-in-body instruction even
+# with no attachment. Kept deliberately conservative so an ambiguous email
+# abstains to the "other" bucket rather than getting a wrong receiving-work label.
+_WORK_KEYWORDS: tuple[str, ...] = (
+    "please inspect",
+    "please carry out",
+    "please attend",
+    "please arrange an inspection",
+    "arrange an inspection",
+    "instructed to",
+    "we instruct",
+    "we are instructing",
+    "new instruction",
+    "inspection request",
+    "instruction to inspect",
+    "engineer's report",
+    "engineers report",
+    "provide a report",
+    "prepare a report",
+    "vehicle for inspection",
+    "assess the damage",
+    "assess the vehicle",
+    "carry out an inspection",
+    "pre-accident value",
+    "pre accident value",
+)
+
+
+# Phrases (case-insensitive) that signal an email is ASKING A QUESTION rather than
+# instructing work — a chase for a report we owe, a status question, or a cold
+# enquiry / request for a quote. Same precision discipline as _WORK_KEYWORDS.
+# The classifier uses these only after the work rules have failed, so an email
+# that both instructs and asks a question still reads as work first.
+_QUERY_KEYWORDS: tuple[str, ...] = (
+    "where is my report",
+    "where is the report",
+    "chasing the report",
+    "chase the report",
+    "any update",
+    "any progress",
+    "status of",
+    "could you confirm",
+    "can you confirm",
+    "please confirm",
+    "please update",
+    # collisionspike #8 — broader chase / status / advice wording. Real provider
+    # chases ("can we please have an update on our client") matched NO keyword and
+    # fell through to 'other'. These are deliberately NOT instruction wording (no
+    # inspect/report/attend verbs), so the work rules still win an email that both
+    # instructs and asks; the classifier only reaches these after the work rules.
+    "update on",
+    "an update",
+    "please advise",
+    "can you advise",
+    "could you advise",
+    "information regarding",
+    "any news",
+    "where are we with",
+    "when will",
+    "please chase",
+    "just chasing",
+    "awaiting your",
+    "how much would",
+    "how much do you charge",
+    "what do you charge",
+    "would you be able to quote",
+    "can you quote",
+    "request a quote",
+    "for a quote",
+    "fee for",
+    "cost to inspect",
+    "would you be able to",
+    "is it possible to",
+    "general enquiry",
+    "enquiring about",
+    "querying",
+)
+
+
+def _match_keywords(text: str, phrases: tuple[str, ...]) -> tuple[str, ...]:
+    """Return the subset of ``phrases`` present (case-insensitive) in ``text``.
+
+    Shared helper for the keyword tuples above, mirroring the matching done in
+    :func:`detect_audit_signals` so every classifier decision can list exactly
+    which phrases fired (explainability). Empty/None text -> no matches.
+    """
+    if not text:
+        return ()
+    haystack = text.lower()
+    return tuple(phrase for phrase in phrases if phrase in haystack)
 
 
 def detect_audit_signals(text: str) -> tuple[bool, tuple[str, ...]]:
@@ -1411,14 +1531,7 @@ class RuleEngine:
         return FieldExtraction(value="", rule_id="fallback_vrm_label", confidence=0.0)
 
     def _vrm_candidate_is_bad(self, candidate: str, context: str) -> bool:
-        compact = normalize_vrm(candidate)
-        if len(compact) < 5 and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}[A-Z]{1,3}", compact):
-            return True
-        if re.search(rf"\b{re.escape(candidate)}\s*\d[ABD-HJLNP-UW-Z]{{2}}\b", context, re.IGNORECASE):
-            return True
-        if compact in {"CLIENT", "VEHICLE", "REG", "MODEL"}:
-            return True
-        return False
+        return vrm_candidate_is_bad(candidate, context)
 
     def _fallback_reference(self, lines: list[DocumentLine]) -> FieldExtraction:
         labels = ("reference", "ref", "claim no", "claim number", "case number", "our ref", "your ref")
