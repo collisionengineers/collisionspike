@@ -5384,7 +5384,7 @@ var INBOUND_COUNTS_ZERO = {
   untriaged: 0
 };
 
-// dataverse/choicesets/case-status.json
+// packages/domain/dist/data/choicesets/case-status.json
 var case_status_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5413,7 +5413,7 @@ var case_status_default = {
   }
 };
 
-// dataverse/choicesets/action-reason.json
+// packages/domain/dist/data/choicesets/action-reason.json
 var action_reason_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5430,7 +5430,7 @@ var action_reason_default = {
   ]
 };
 
-// dataverse/choicesets/inspection-decision-mode.json
+// packages/domain/dist/data/choicesets/inspection-decision-mode.json
 var inspection_decision_mode_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5447,7 +5447,7 @@ var inspection_decision_mode_default = {
   ]
 };
 
-// dataverse/choicesets/intake-channel.json
+// packages/domain/dist/data/choicesets/intake-channel.json
 var intake_channel_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5461,7 +5461,7 @@ var intake_channel_default = {
   ]
 };
 
-// dataverse/choicesets/evidence-kind.json
+// packages/domain/dist/data/choicesets/evidence-kind.json
 var evidence_kind_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5481,7 +5481,7 @@ var evidence_kind_default = {
   ]
 };
 
-// dataverse/choicesets/image-role.json
+// packages/domain/dist/data/choicesets/image-role.json
 var image_role_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5498,7 +5498,7 @@ var image_role_default = {
   ]
 };
 
-// dataverse/choicesets/review-state.json
+// packages/domain/dist/data/choicesets/review-state.json
 var review_state_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5515,7 +5515,7 @@ var review_state_default = {
   ]
 };
 
-// dataverse/choicesets/field-provenance-source-type.json
+// packages/domain/dist/data/choicesets/field-provenance-source-type.json
 var field_provenance_source_type_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5538,7 +5538,7 @@ var field_provenance_source_type_default = {
   ]
 };
 
-// dataverse/choicesets/inspection-location-policy.json
+// packages/domain/dist/data/choicesets/inspection-location-policy.json
 var inspection_location_policy_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5554,7 +5554,7 @@ var inspection_location_policy_default = {
   ]
 };
 
-// dataverse/choicesets/provider-automation-mode.json
+// packages/domain/dist/data/choicesets/provider-automation-mode.json
 var provider_automation_mode_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set",
@@ -5570,7 +5570,7 @@ var provider_automation_mode_default = {
   ]
 };
 
-// dataverse/choicesets/audit-event.json
+// packages/domain/dist/data/choicesets/audit-event.json
 var audit_event_default = {
   $schema: "../schema/_choiceset.schema.json",
   kind: "global-choice-set-bundle",

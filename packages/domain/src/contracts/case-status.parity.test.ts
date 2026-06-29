@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { CASE_STATUSES, type CaseStatus } from './case-status';
-// Import the REAL Dataverse choice set artifact (repo-root dataverse/), not a copy.
-// Vitest/Vite resolve this out-of-src JSON at runtime; resolveJsonModule is on.
-import caseStatusChoiceSet from '../../../../dataverse/choicesets/case-status.json';
+// Import the REAL choice-set artifact (the frozen contract source in src/data/choicesets/), not a copy.
+// resolveJsonModule is on.
+import caseStatusChoiceSet from '../data/choicesets/case-status.json';
 
 /* ============================================================
    Schema parity — the Dataverse `cr1bd_casestatus` global choice set MUST
