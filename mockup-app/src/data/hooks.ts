@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getDataAccess } from './index';
-import type { ActivityEvent, Case, Evidence, Provider } from '@cs/domain';
+import type { ActivityEvent, Case, CaseUpdateInput, Evidence, Provider } from '@cs/domain';
 import type {
   LiveCounts,
   Throughput,
@@ -207,4 +207,53 @@ export function useInbox(category?: InboundCategory): QueryState<InboundEmail[]>
 export function useInboundCounts(): QueryState<InboundCounts> {
   const run = useCallback(() => getDataAccess().inboundEmailCounts(), []);
   return useAsync(run, []);
+}
+
+/* ============================================================
+   Mutation hooks.
+
+   Unlike the query hooks above (auto-run on mount via useAsync), a mutation
+   hook hands back an EXPLICIT trigger the screen calls on a user action, plus
+   in-flight + error state. The first one (useCaseUpdate) backs the editable-VRM
+   correction (issue #12).
+   ============================================================ */
+
+/** What `useCaseUpdate` hands the screen. */
+export interface CaseUpdateState {
+  /** Persist the patch; resolves the updated Case, REJECTS on a transport error. */
+  update: (id: string, patch: CaseUpdateInput) => Promise<Case>;
+  /** True while a save is in flight (drives the Save button's spinner + disabled). */
+  saving: boolean;
+  /** The last save error (cleared at the start of each attempt). */
+  error: Error | undefined;
+}
+
+/**
+ * Patch a case (human correction — the editable VRM, issue #12). The trigger
+ * resolves the server's updated Case so the caller can fold it into local state
+ * (the working copy reflects the new VRM immediately), and rethrows on failure so
+ * the editor can stay open and surface the error rather than silently "succeed".
+ */
+export function useCaseUpdate(): CaseUpdateState {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<Error | undefined>(undefined);
+
+  const update = useCallback(
+    async (id: string, patch: CaseUpdateInput): Promise<Case> => {
+      setSaving(true);
+      setError(undefined);
+      try {
+        return await getDataAccess().updateCase(id, patch);
+      } catch (err: unknown) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        setError(e);
+        throw e; // rethrow: the caller keeps the editor open + toasts the failure
+      } finally {
+        setSaving(false);
+      }
+    },
+    [],
+  );
+
+  return { update, saving, error };
 }

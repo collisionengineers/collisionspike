@@ -96,6 +96,13 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccess {
 
   const enc = encodeURIComponent;
 
+  // Dashboard reads accept `?now=<ISO-8601>` so the server windows (today / this
+  // week, Monday-anchored) against the CLIENT's clock, not the server's. The hooks
+  // pass `now`; absent => the server falls back to its own now(). This was being
+  // dropped — the `now` arg never reached the URL, so client/server windows could
+  // disagree across timezones / clock skew.
+  const nowQ = (now?: Date) => (now ? `?now=${enc(now.toISOString())}` : '');
+
   return {
     /* ----- Cases ----- */
     // 404 resolves undefined (plan 21 §21.1: "404 if absent → SPA maps to undefined").
@@ -106,6 +113,12 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccess {
         /→ 404\b/.test(String(e)) ? undefined : Promise.reject(e),
       ),
     createCase: (input: CreateCaseInput) => post<CreateCaseResult>('/api/cases', input),
+    // Human-correction write path (issue #12): PATCH the case with a partial body
+    // (`{ vrm }`) → 200 + the updated Case JSON. DELIBERATELY NOT safe()-wrapped — a
+    // failed VRM correction MUST reach the operator (a silent swallow would let them
+    // believe a mis-extracted registration was fixed when it wasn't). call() encodes
+    // any non-ok status in the thrown error so the screen can toast + keep the editor open.
+    updateCase: (id, patch) => call<Case>('PATCH', `/api/cases/${enc(id)}`, patch),
     casesForQueue: (name) => get<Case[]>(`/api/queues/${enc(name)}/cases`),
     openVrmTwins: (vrm, exclude) =>
       get<Case[]>(
@@ -144,18 +157,19 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccess {
         d,
       ),
 
-    /* ----- Dashboard aggregates (computed server-side) ----- */
-    liveCounts: () => get<LiveCounts>('/api/dashboard/live-counts'),
-    throughput: () => get<Throughput>('/api/dashboard/throughput'),
-    agingExceptions: () => get<AgingExceptions>('/api/dashboard/aging-exceptions'),
+    /* ----- Dashboard aggregates (computed server-side; client `now` threaded) ----- */
+    liveCounts: (now) => get<LiveCounts>(`/api/dashboard/live-counts${nowQ(now)}`),
+    throughput: (now) => get<Throughput>(`/api/dashboard/throughput${nowQ(now)}`),
+    agingExceptions: (now) => get<AgingExceptions>(`/api/dashboard/aging-exceptions${nowQ(now)}`),
     // safe()-wrapped like the other aggregate reads: a 5xx must never crash the nav
     // badges / dashboard — degrade to the zero baseline (sweep #12).
-    queueCounts: () =>
+    queueCounts: (now) =>
       safe(
-        () => get<Record<QueueName, number>>('/api/dashboard/queue-counts'),
+        () => get<Record<QueueName, number>>(`/api/dashboard/queue-counts${nowQ(now)}`),
         { 'not-ready': 0, review: 0, held: 0 } as Record<QueueName, number>,
       ),
-    reasonCounts: () => safe(() => get<ReasonFacet[]>('/api/dashboard/reason-counts'), []),
+    reasonCounts: (now) =>
+      safe(() => get<ReasonFacet[]>(`/api/dashboard/reason-counts${nowQ(now)}`), []),
     pipelineStages: () => get<PipelineStage[]>('/api/dashboard/pipeline-stages'),
 
     /* ----- Activity feed ----- */
@@ -190,20 +204,21 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccess {
     setHoldNewCasesDefault: (value) =>
       call<void>('PUT', '/api/settings/hold-new-cases', { value }),
 
-    /* ----- Inbox / Triage (honest [] / zero on failure) ----- */
+    /* ----- Inbox / Triage ----- */
+    // The inbox LIST is deliberately NOT safe()-wrapped: a 5xx / timeout must
+    // reach the screen as an error / retry state, never masquerade as an empty
+    // inbox (which is what swallowing the error to `[]` did — a transient API
+    // failure looked exactly like "no email"). The COUNTS read below STAYS
+    // safe() — a zero badge degrades cleanly and must never crash the nav.
     inboundEmails: (facet?: InboundFacet) =>
-      safe(
-        () =>
-          get<InboundEmail[]>(
-            `/api/inbound${
-              facet?.category
-                ? `?category=${enc(facet.category)}${
-                    facet.subtype ? `&subtype=${enc(facet.subtype)}` : ''
-                  }`
-                : ''
-            }`,
-          ),
-        [],
+      get<InboundEmail[]>(
+        `/api/inbound${
+          facet?.category
+            ? `?category=${enc(facet.category)}${
+                facet.subtype ? `&subtype=${enc(facet.subtype)}` : ''
+              }`
+            : ''
+        }`,
       ),
     inboundEmailCounts: () =>
       safe(

@@ -8,6 +8,7 @@ import {
   Divider,
   Dropdown,
   Field,
+  Input,
   Link,
   MessageBar,
   MessageBarBody,
@@ -46,6 +47,7 @@ import {
   Mail,
   Lightbulb,
   MapPin,
+  Pencil,
   Search,
   Send,
   Upload,
@@ -79,8 +81,10 @@ import {
   statusToStage,
   suggestLocations,
   buildSuggestLocationRequest,
+  checkVrm,
   useBoxGates,
   useCaseQuery,
+  useCaseUpdate,
   useImages,
   useInspectionAddressSuggestions,
   useLocationAssistGate,
@@ -140,6 +144,35 @@ const useStyles = makeStyles({
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
     flexWrap: 'wrap',
+  },
+  /* VRM VIEW row: the plate + a pencil edit affordance that's de-emphasised until
+     the operator hovers the plate or keyboard-focuses the button (issue #12). */
+  vrmViewRow: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    '& .ce-vrm-edit-affordance': { opacity: 0, transition: 'opacity 100ms ease-out' },
+    '&:hover .ce-vrm-edit-affordance': { opacity: 1 },
+    '&:focus-within .ce-vrm-edit-affordance': { opacity: 1 },
+    // Touch / no-hover devices can't hover to reveal — keep the affordance visible.
+    '@media (hover: none)': { '& .ce-vrm-edit-affordance': { opacity: 1 } },
+  },
+  /* VRM EDIT row: the Field-wrapped input + Save/Cancel, replacing the plate in place. */
+  vrmEditRow: {
+    display: 'inline-flex',
+    alignItems: 'flex-start',
+    gap: tokens.spacingHorizontalS,
+    flexWrap: 'wrap',
+  },
+  vrmInput: {
+    minWidth: '170px',
+    // Echo the plate's condensed mono so the field reads as "the registration".
+    '& input': {
+      fontFamily: 'var(--ce-font-mono)',
+      fontWeight: 700,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+    },
   },
   titleText: { lineHeight: 1.1 },
   spine: { marginTop: tokens.spacingVerticalS },
@@ -624,6 +657,14 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
 
   // Local working copy so mock edits feel live (never persisted).
   const [c, setC] = useState<Case>(caseData);
+
+  // Editable VRM (issue #12) — the human-correction safety net for a mis-extracted
+  // registration. View mode shows the plate; edit mode swaps in a validated field.
+  const { update: updateCaseVrm, saving: savingVrm } = useCaseUpdate();
+  const [editingVrm, setEditingVrm] = useState(false);
+  const [vrmDraft, setVrmDraft] = useState(caseData.vrm);
+  const vrmInputRef = useRef<HTMLInputElement>(null);
+  const vrmEditBtnRef = useRef<HTMLButtonElement>(null);
   const [tab, setTab] = useState<TabName>('fields');
   const [noteDraft, setNoteDraft] = useState('');
   const [overrideAddr, setOverrideAddr] = useState(caseData.inspectionDecision === 'image_based');
@@ -729,6 +770,49 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
       </Toast>,
       { intent: 'success' },
     );
+
+  /* --- editable VRM (issue #12) --- */
+  const vrmCheck = checkVrm(vrmDraft);
+  const beginEditVrm = () => {
+    setVrmDraft(c.vrm);
+    setEditingVrm(true);
+    // Focus the input once it mounts (next frame).
+    requestAnimationFrame(() => vrmInputRef.current?.focus());
+  };
+  const cancelEditVrm = () => {
+    setEditingVrm(false);
+    setVrmDraft(c.vrm);
+    requestAnimationFrame(() => vrmEditBtnRef.current?.focus());
+  };
+  const saveVrm = async () => {
+    const check = checkVrm(vrmDraft);
+    if (check.status === 'empty') return; // hard block — Save is disabled anyway
+    const next = check.vrm;
+    if (next === c.vrm) {
+      // No actual change — close without a write.
+      setEditingVrm(false);
+      requestAnimationFrame(() => vrmEditBtnRef.current?.focus());
+      return;
+    }
+    try {
+      const updated = await updateCaseVrm(c.id, { vrm: next });
+      // Reflect server truth (the canonical normalised VRM) without clobbering any
+      // other in-progress local edits to the working copy.
+      setC((prev) => ({ ...prev, vrm: updated.vrm }));
+      setEditingVrm(false);
+      toast('Registration updated');
+      requestAnimationFrame(() => vrmEditBtnRef.current?.focus());
+    } catch {
+      // Mutation failures surface (rest-client doesn't swallow them) — keep the
+      // editor open so the operator can retry; never a silent "success".
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t update registration — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    }
+  };
 
   /* Switch to a tab and (for field items) focus + reveal the offending field. */
   const goToBlocker = (item: ChecklistItem) => {
@@ -1011,7 +1095,74 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
           eyebrow={`Case · ${c.providerCode}`}
           heading={
             <span className={styles.titleLockup}>
-              <VrmPlate vrm={c.vrm} size="large" />
+              {editingVrm ? (
+                <span className={styles.vrmEditRow} role="group" aria-label="Edit registration">
+                  <Field
+                    validationState={
+                      vrmCheck.status === 'malformed'
+                        ? 'warning'
+                        : vrmCheck.status === 'empty'
+                          ? 'error'
+                          : 'none'
+                    }
+                    validationMessage={
+                      vrmCheck.status === 'malformed'
+                        ? 'Doesn’t look like a UK registration — save anyway if this is correct.'
+                        : vrmCheck.status === 'empty'
+                          ? 'Registration can’t be empty.'
+                          : undefined
+                    }
+                  >
+                    <Input
+                      ref={vrmInputRef}
+                      className={styles.vrmInput}
+                      aria-label="Vehicle registration"
+                      value={vrmDraft}
+                      maxLength={12}
+                      onChange={(_, d) => setVrmDraft(d.value.toUpperCase())}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void saveVrm();
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          cancelEditVrm();
+                        }
+                      }}
+                    />
+                  </Field>
+                  <Button
+                    appearance="primary"
+                    icon={savingVrm ? <Spinner size="tiny" /> : <Check size={16} />}
+                    disabled={savingVrm || vrmCheck.status === 'empty'}
+                    onClick={() => void saveVrm()}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    appearance="subtle"
+                    icon={<X size={16} />}
+                    disabled={savingVrm}
+                    onClick={cancelEditVrm}
+                  >
+                    Cancel
+                  </Button>
+                </span>
+              ) : (
+                <span className={styles.vrmViewRow}>
+                  <VrmPlate vrm={c.vrm} size="large" />
+                  <Tooltip content="Edit registration" relationship="label">
+                    <Button
+                      ref={vrmEditBtnRef}
+                      className="ce-vrm-edit-affordance"
+                      appearance="subtle"
+                      size="small"
+                      icon={<Pencil size={14} />}
+                      onClick={beginEditVrm}
+                    />
+                  </Tooltip>
+                </span>
+              )}
               <span className={mergeClasses('ce-display', styles.titleText)}>{titleText}</span>
             </span>
           }
