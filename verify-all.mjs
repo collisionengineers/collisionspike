@@ -8,7 +8,7 @@
  * build + test + lint over every live slice (the SPA in mockup-app/ + its
  * @cs/domain package, and the retained Python Azure Functions). This is the
  * [BUILD] gate from the Phase 1 plan §8.1/§8.5 — it must pass before any
- * [DEPLOY-WITH-LOGIN] step in DEPLOY-RUNBOOK.md.
+ * [DEPLOY-WITH-LOGIN] step (the live deploy runbook is docs/azure/deploy.md).
  *
  * NOTE (post Power-Platform decommission, 2026-06-27): the Dataverse schema-parity,
  * Power-Automate flow-linter, and connector-seam gates are RETIRED to SKIP — their
@@ -20,7 +20,7 @@
  * Exit code 0 = all gates passed (skips allowed); nonzero = a gate failed.
  */
 import { execSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -61,17 +61,6 @@ function gate(label, fn) {
   }
 }
 
-// Recursively collect files under `dir` whose name matches `extRe`.
-function collectFiles(dir, extRe, acc = []) {
-  if (!existsSync(dir)) return acc;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) collectFiles(full, extRe, acc);
-    else if (extRe.test(entry.name)) acc.push(full);
-  }
-  return acc;
-}
-
 // 1-2. Code App (React/Vite) — type-check + build, then the contract/domain/adapter unit tests.
 run('Code App — tsc + vite build', 'npm run build', { cwd: join(ROOT, 'mockup-app'), tail: 1 });
 run('Code App — vitest', 'npm run test', { cwd: join(ROOT, 'mockup-app'), tail: 3 });
@@ -81,6 +70,13 @@ run('Code App — vitest', 'npm run test', { cwd: join(ROOT, 'mockup-app'), tail
 //     builds its @cs/domain project reference, so this is the live Data API's offline gate.
 run('Data API — tsc build', 'npm run build:api', { tail: 1 });
 run('Data API — vitest (auth)', 'npm run test --workspace @cs/api', { tail: 3 });
+
+// 2c. @cs/domain — the shared contract/codec/domain package the SPA + Data API both
+//     import. Runs its vitest (incl. the choiceset<->TS-contract parity: case-status
+//     option/terminal parity, EVA export field-order, codec bijection). This RE-ESTABLISHES
+//     the parity coverage the retired Dataverse schema-parity gate (gate 3) used to give —
+//     without it, an inconsistent edit to a relocated choiceset JSON would pass `verify-all`.
+run('Domain — vitest (contract/codec/parity)', 'npm run test --workspace @cs/domain', { tail: 3 });
 
 // 3. Dataverse schema-as-code — RETIRED. The Power Platform footprint (Dataverse +
 //    Power Automate flows + Code App + connectors) was deprovisioned 2026-06-27 and
@@ -124,33 +120,17 @@ for (const [name, dir, rel] of PY_SUITES) {
   }
 }
 
-// 7. Generated-service hand-edit guard — the pac generator (2.8.x) emits a
-//    `client.uploadFileToRecord(...)` call that the @microsoft/power-apps 1.0.3
-//    DataClient does NOT expose, so it does not compile. Cr1bd_evidencesService.ts
-//    carries a hand-edit replacing it (M1 binds Evidence read-only). A silent
-//    regeneration reintroduces the broken call; this gate FAILS if the literal
-//    reappears anywhere under mockup-app/src/generated/. READ-ONLY (never edits
-//    generated code). See DEPLOY-RUNBOOK.md "Generated-service hand-edit".
-gate('Code App — no uploadFileToRecord in generated services', () => {
-  const generatedDir = join(ROOT, 'mockup-app', 'src', 'generated');
-  const NEEDLE = 'client.uploadFileToRecord(';
-  // Match the live CALL, not the explanatory `//` comment in the hand-edited
-  // Cr1bd_evidencesService.ts (which legitimately names the broken API). Strip
-  // each line's trailing line-comment before testing so the documented mention
-  // does not trip the guard; a regenerated call is a statement, not a comment.
-  const hasCall = (src) =>
-    src.split('\n').some((line) => line.replace(/\/\/.*$/, '').includes(NEEDLE));
-  const files = collectFiles(generatedDir, /\.ts$/);
-  const offenders = files.filter((f) => hasCall(readFileSync(f, 'utf8')));
-  if (offenders.length) {
-    const list = offenders.map((f) => `  - ${f.slice(ROOT.length + 1)}`).join('\n');
-    throw new Error(
-      `Found the non-compiling \`${NEEDLE}\` call (pac-generator regression) in:\n${list}\n` +
-        'Re-apply the Cr1bd_evidencesService.ts hand-edit (read-only Evidence binding) — see DEPLOY-RUNBOOK.md.',
-    );
-  }
-  return `OK — scanned ${files.length} generated .ts file(s); no \`${NEEDLE}\`.`;
-});
+// 7. Generated-service hand-edit guard — RETIRED. This guarded a pac-generator
+//    regression (a non-compiling `client.uploadFileToRecord(` call) in the Code App's
+//    mockup-app/src/generated/ Dataverse services. The Power Platform Code App was
+//    decommissioned 2026-06-27 and that directory no longer exists — the live SPA on
+//    cespk-spa-dev calls the Data API over plain REST + MSAL (no pac-generated services).
+//    With nothing left to scan the gate was a vacuous PASS, so SKIP it like the sibling
+//    Power-Platform gates 3/4/8 rather than report a hollow pass over zero files.
+skip(
+  'Code App — no uploadFileToRecord in generated services',
+  'Power Platform Code App decommissioned 2026-06-27; mockup-app/src/generated/ removed. The live SPA uses plain REST+MSAL (no pac-generated services), so there is nothing to scan.',
+);
 
 // 8. Connector-seam boundary gate — RETIRED. This gate enforced the Power Platform
 //    Code App's CSP `connect-src 'none'` invariant: the app could only reach external
@@ -354,5 +334,5 @@ const failed = results.filter((r) => r.status === 'FAIL');
 const passed = results.filter((r) => r.status === 'PASS');
 const skipped = results.filter((r) => r.status === 'SKIP');
 console.log(`\n${failed.length === 0 ? 'OK' : 'FAILED'} — ${passed.length} passed, ${failed.length} failed, ${skipped.length} skipped.`);
-if (skipped.length) console.log('(skips: retired Power-Platform gates — Dataverse/Flows targets deleted in migration purge 5eac80e, and the connector-seam gate superseded by the live REST+MSAL SPA. A Python Function suite also SKIPs if its local .venv is absent — set it up to include that gate.)');
+if (skipped.length) console.log('(skips: retired Power-Platform gates — Dataverse/Flows targets deleted in migration purge 5eac80e, and the connector-seam + generated-service gates superseded by the live REST+MSAL SPA. A Python Function suite also SKIPs if its local .venv is absent — set it up to include that gate.)');
 process.exit(failed.length === 0 ? 0 : 1);

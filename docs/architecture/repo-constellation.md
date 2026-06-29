@@ -1,7 +1,7 @@
 # Repository Constellation
 
 The Collision Engineers rebuild spans several projects, now organised under `collisionsuite/`
-(reorganised 2026-06-23 — see [INDEX.md](../../../../INDEX.md); note `collisionplugin` was
+(reorganised 2026-06-23 — see `collisionsuite/INDEX.md` in the parent tree; note `collisionplugin` was
 dissolved into `collisionsuite/skills/` + `collisionsuite/connectors/`). **`collisionspike` (this
 repo, at `active/collisionspike/`) is an early, fast spike** of the case-intake workflow — built on
 **Azure PaaS** (migrated off the original Microsoft Power Platform implementation on 2026-06-27; the

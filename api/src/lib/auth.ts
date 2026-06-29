@@ -1,8 +1,9 @@
 /**
  * api/src/lib/auth.ts — Entra JWT validation + app-role authz.
  *
- * Validates Bearer tokens via the tenant JWKS and enforces CollisionSpike.User / .Admin
- * app roles. Plan 21 "Entra JWT validation + app-role authz (API side)" section.
+ * Validates Bearer tokens via the tenant JWKS and enforces the CollisionSpike.User /
+ * .Superuser app roles (legacy .Admin is still accepted as a Superuser alias for
+ * back-compat). Plan 21 "Entra JWT validation + app-role authz (API side)" section.
  *
  * Azure Functions provides no built-in JWT validation for Node (App Service Easy Auth
  * injects client identity only for .NET). We validate in code with 'jose' against the
@@ -113,7 +114,7 @@ export async function authenticate(req: HttpRequest): Promise<JWTPayload> {
 
 /**
  * Wrap a handler with Entra JWT authentication + required app-role enforcement.
- * Admin implies User (superset).
+ * Superuser implies User (superset).
  */
 export function withRole(
   required: AppRole,

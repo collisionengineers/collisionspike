@@ -2,8 +2,9 @@
 // CONFIG-CAPTURE — Orchestration Function App `cespk-orch-dev` (OPEN_ITEMS A3).
 //
 // Captures the live, hand-applied config of the orchestration app (Durable +
-// Graph-delta intake; 41 functions; DEPLOYED + WIRED but NOT yet live until the
-// intake mailboxes are Exchange-RBAC-scoped). Same CAPTURE rules as api.bicep:
+// Graph change-notification intake). Live function count + subscription/RBAC state
+// live in the registry (LIVE_FACTS.json / docs/architecture/live-environment.md),
+// never embedded here. Same CAPTURE rules as api.bicep:
 //   * Existing plan/storage/KV are referenced, not recreated.
 //   * Secrets are KV REFERENCES from secret NAMES only — never literals.
 //   * `az bicep build` validates offline; do NOT deploy/what-if in the capture task.
@@ -32,7 +33,9 @@ param dataApiUrl string = 'https://cespk-api-dev.azurewebsites.net'
 param dataApiAudience string = 'api://fa2fb28c-fef6-40a4-8d3b-ae6725891d72'
 param graphTenantId string = '858cf5b3-aa0a-47a6-9b40-4851fd0afa94'
 param graphClientId string = '5d37a155-2af8-4878-b96a-6faad5207137'
-param graphClientState string = '640c10ee5dba9096d8bd2134e9be9446'
+// GRAPH_CLIENT_STATE is a SECRET (the Graph change-notification shared validation
+// token echoed back on every push). Captured as a KV REFERENCE (secret name only,
+// see graphClientStateSecretName below) — NEVER a literal, per the secret rule above.
 
 @description('Configured intake mailboxes. engineers@ + digital@ today; production target is info@ + engineers@ + desk@ (digital@ is the operator dev mailbox, test-only).')
 param graphIntakeMailboxes string = '[{"mailbox":"engineers@collisionengineers.co.uk","minIntakeDate":"2026-06-27T00:00:00Z"},{"mailbox":"digital@collisionengineers.co.uk","minIntakeDate":"2026-06-27T00:00:00Z"}]'
@@ -55,6 +58,7 @@ param boxFileRequestEnabled bool = true
 
 // ---- Secret reference NAMES (values injected out-of-band) ----
 param graphClientSecretName string = 'graph-client-secret'
+param graphClientStateSecretName string = 'graph-client-state'
 param parserFnKeySecretName string = 'parser-fn-key'
 param enrichFnKeySecretName string = 'enrich-fn-key'
 param boxWebhookFnKeySecretName string = 'boxwebhook-fn-key'
@@ -69,6 +73,7 @@ var keyVaultUri = 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/
 // Two KV-reference forms are present live and preserved as captured:
 //   SecretUri form (graph secret) and VaultName;SecretName form (the fn keys).
 var graphClientSecretRef = '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/${graphClientSecretName})'
+var graphClientStateRef = '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/${graphClientStateSecretName})'
 var parserFnKeyRef = '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=${parserFnKeySecretName})'
 var enrichFnKeyRef = '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=${enrichFnKeySecretName})'
 var boxWebhookFnKeyRef = '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=${boxWebhookFnKeySecretName})'
@@ -99,7 +104,7 @@ var capturedAppSettings = {
   DATA_API_AUDIENCE: dataApiAudience
   GRAPH_TENANT_ID: graphTenantId
   GRAPH_CLIENT_ID: graphClientId
-  GRAPH_CLIENT_STATE: graphClientState
+  GRAPH_CLIENT_STATE: graphClientStateRef
   GRAPH_CLIENT_SECRET: graphClientSecretRef
   GRAPH_INTAKE_MAILBOXES: graphIntakeMailboxes
   MISSED_RESYNC_LOOKBACK_HOURS: missedResyncLookbackHours

@@ -163,6 +163,11 @@ describe('scrubPii — VRM', () => {
       expect(r.text).toBe('Reg [VRM]');
     },
   );
+
+  it('redacts prefix (A000 AAA) and suffix (AAA 000A) plate formats when opted in', () => {
+    expect(scrubPii('Reg A123 BCD', { redactVrm: true }).text).toBe('Reg [VRM]');
+    expect(scrubPii('Reg ABC 123A', { redactVrm: true }).text).toBe('Reg [VRM]');
+  });
 });
 
 /* ----------  combined / realistic email body  ---------- */
@@ -225,6 +230,8 @@ describe('scrubPii — options and edges', () => {
     expect(scrubPii(null).text).toBe('');
     // @ts-expect-error — exercising defensive non-string guard
     expect(scrubPii(undefined).text).toBe('');
+    // @ts-expect-error — a non-string number must COERCE to '', not pass through
+    expect(scrubPii(42).text).toBe('');
   });
 
   it('leaves clean text untouched', () => {

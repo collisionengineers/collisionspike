@@ -110,8 +110,25 @@ const PHONE_RE =
 const NAME_RE =
   /(?<![\w])(?:Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+[A-Z](?:[A-Za-z'-]+|\.)?(?:\s+[A-Z](?:[A-Za-z'-]+|\.)?){0,2}/g;
 
-// UK vehicle registration (current 2001+ format) — AA00 AAA. Opt-in only.
-const VRM_RE = /(?<![\w])[A-Z]{2}\d{2}[\s-]?[A-Z]{3}(?![\w])/gi;
+// UK vehicle registration — current (AA00 AAA), prefix (A000 AAA) and suffix (AAA 000A)
+// formats, so the opt-in scrub matches the same plate shapes the live intake sniffer does
+// (the orchestration UK_VRM_RE). Opt-in only. A single canonical matcher shared with
+// orchestration would beat this parallel copy — see Known limitations / docs follow-up.
+const VRM_RE =
+  /(?<![\w])(?:[A-Z]{2}\d{2}[\s-]?[A-Z]{3}|[A-Z]\d{1,3}[\s-]?[A-Z]{3}|[A-Z]{3}[\s-]?\d{1,3}[A-Z])(?![\w])/gi;
+
+/* ----------  Known limitations (the precision/recall note referenced above)  ----------
+ * Pattern matching cannot resolve genuine ambiguity; these tradeoffs are accepted:
+ *   - PHONE over-match: a bare-0 numeric run of UK-phone length (e.g. a 10–11 digit
+ *     claim/policy reference like "0123456789") is structurally identical to a UK
+ *     landline/mobile and IS redacted to [PHONE]. Erring toward redaction is the safe
+ *     default for a PII pre-scrub, but it can clip a non-phone reference.
+ *   - NAME over-match: the title-anchored rule (Mr/Mrs/Ms/Miss/Dr/Prof + Capitalised
+ *     word) also fires on title+common-noun/brand collisions ("Dr Martens", "Ms Excel").
+ *     Excluding those reliably needs NER, which is out of scope.
+ *   - Free-standing names and unanchored addresses are NOT detected (need NLP).
+ * A caller that cannot tolerate over-redaction should treat the scrub as advisory.
+ */
 
 /* ----------  Engine  ---------- */
 
@@ -149,7 +166,10 @@ export function scrubPii(input: string, opts: ScrubOptions = {}): ScrubResult {
     opts.placeholders?.[kind] ?? DEFAULT_PLACEHOLDERS[kind];
 
   if (typeof input !== 'string' || input.length === 0) {
-    return { text: input ?? '', redactions: [], totalRedactions: 0 };
+    // Coerce ANY non-string (number, object, null, undefined) to '' — never return a
+    // non-string `text`: a downstream `.toLowerCase()` or AI call would break, and an
+    // un-stringified value could bypass scrubbing entirely. An empty string returns as-is.
+    return { text: typeof input === 'string' ? input : '', redactions: [], totalRedactions: 0 };
   }
 
   let text = input;

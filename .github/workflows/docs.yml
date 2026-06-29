@@ -53,6 +53,12 @@ jobs:
         if: env.HAVE_AZURE == 'true'
         with:
           node-version: '20'
+      - name: Install dependencies
+        # verify-all.mjs runs the offline build/test gates (mockup-app build, api build +
+        # vitest, @cs/domain vitest) BEFORE the live drift check, so deps must be installed
+        # or the job fails on the first gate before ever reaching verify-live.
+        if: env.HAVE_AZURE == 'true'
+        run: npm ci
       - name: Azure login
         if: env.HAVE_AZURE == 'true'
         uses: azure/login@v2

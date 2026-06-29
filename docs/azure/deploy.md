@@ -48,7 +48,10 @@ node_modules** gotchas above before re-publishing. Don't re-`func publish` in a 
 the `azure-churn-guard` will STOP.
 
 ## Verify
-- API: publish lists **44** functions; `no-auth → 401`; a real route 200.
-- Orch: `az functionapp function list … -n cespk-orch-dev --query "[].name"` → **42**.
+- API: `func` publish lists the API's function count — cross-check it against the registry
+  [live-environment.md](../architecture/live-environment.md) (`0` is the registration-crash signature, not
+  a healthy deploy); `no-auth → 401`; a real route 200.
+- Orch: `az functionapp function list … -n cespk-orch-dev --query "[].name"` matches the orch count in the
+  [same registry](../architecture/live-environment.md) (`0` = the `import.meta.url` crash, not healthy).
 - SPA: load `https://proud-sky-04e318b03.7.azurestaticapps.net` (chrome-devtools MCP) — assets 200, the
   API calls 200/401 (not CORS-blocked).

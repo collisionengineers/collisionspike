@@ -112,9 +112,11 @@ const isKnownAbsent = (resolved, rawPath = '') =>
 // Deliberately narrow (anchored to the specific volatile facts) to avoid prose false-positives.
 const LEAKAGE_PATTERNS = [
   {
-    // Function-app counts, e.g. "41 functions", "42 functions", "44 functions".
+    // Function-app counts, e.g. "41 functions", "42 functions", "44 functions" —
+    // including markdown-bolded "**44** functions" (the `\*{0,2}` tolerates the bold
+    // close that would otherwise break digit→"functions" adjacency).
     // Volatile: orch/api counts change on every deploy → registry only.
-    re: /\b4[0-9]\s+functions\b/gi,
+    re: /\b4[0-9]\*{0,2}\s+functions\b/gi,
     why: 'function count ("4N functions") — lives only in the registry',
   },
   {
@@ -245,6 +247,16 @@ function checkLinks() {
     const content = readFileSync(join(ROOT, relFile), 'utf8');
     for (const { line, target, path } of linksIn(relFile, content)) {
       const resolved = resolveLink(relFile, path);
+      // A resolved path that starts with '..' escapes the repo root. Such a link can NEVER
+      // resolve for a standalone consumer (a fresh clone, the GitHub viewer, or CI) — yet
+      // existsSync() below would silently FOLLOW it out of the tree and pass on a dev box
+      // that happens to have the parent dir checked out alongside (e.g. a sibling repo under
+      // a shared parent). That is exactly how a green local run goes red in CI. Treat
+      // escapers as hard failures unconditionally so the gate is deterministic everywhere.
+      if (resolved.startsWith('..')) {
+        failures.push({ file: relFile, line, target, resolved: `${resolved} (outside repo)` });
+        continue;
+      }
       const absResolved = join(ROOT, resolved);
       if (!existsSync(absResolved)) {
         if (isKnownAbsent(resolved, path)) backlog.push({ file: relFile, line, target, resolved });
