@@ -83,3 +83,60 @@ table; never silently dropped) stands. The Power Platform specifics are supersed
 transport is **Microsoft Graph change-notification (PUSH)** handled by **`cespk-orch-dev`**, not the
 `fetchOnlyWithAttachment` Power Automate trigger; the deterministic classifier is a parser / Data-API
 route. The cost / `concurrency=1` notes about the Power Automate seeded-run allowance no longer apply.
+
+## Update (2026-06-29) — attachment-corroboration gate (over-promotion fix)
+
+Live triage in testing surfaced a number of **blank auto-created Cases** (no VRM, no Case/PO, no provider)
+and a complaint that "most emails" were becoming Cases. Investigation separated this into **two distinct
+things** — be honest about which this change fixes:
+
+1. **The pre-existing blank Cases are HISTORICAL artifacts, NOT classifier over-promotions.** Their
+   `inbound_email` rows carry `category_code = NULL`, **empty `signals`**, and attachment-less, test-like
+   subjects (`test`, `2FA authentication code`, `Terms of Service`, `Box invitation`). The current
+   orchestrator always runs `classifyInbound` (which always persists non-empty `signals`) before
+   `caseResolve`, so a Case whose triage row has a NULL classification could not have been minted by
+   today's pipeline — these predate the triage-classifier wiring and are **not reproduced** by current
+   intake (the recent inbound rows all correctly abstain to `other`, no Case). They are a **separate
+   data-cleanup item** (out of scope here; they may include the operator's own early tests). _(Live
+   counts: the registry [live-environment.md](../architecture/live-environment.md) — never embed here.)_
+2. **A genuine FORWARD over-promotion vector in the classifier** (`cedocumentmapper_v2/rules/email_classifier.py`)
+   — the bug this change fixes. The classifier promoted to `receiving_work` on an **attachment kind
+   alone**, and the attachment kind is derived purely by **file extension** (`.pdf/.doc/.docx →
+   instruction`, an image → `image`) with **no content inspection**. So **any** email carrying a PDF/DOC
+   (a spam flyer, invoice, statement, newsletter, forwarded letter) would hit **Rule 1** and mint a Case,
+   and **any** image from a known-provider domain (a forwarded chain, a signature logo, a bounced-back
+   photo) would hit **Rule 2** on the provider match alone. Confirmed live against the deployed route.
+
+This violates the ADR's **abstain-to-other** bias (NEVER auto-link / auto-create on ambiguity). The fix
+adds a **corroboration gate** — a deliberate, surgical tightening of the same pure $0 classifier (the
+calibration below reflects the post-review remediation):
+
+- **Rule 1 (instruction doc).** An instruction-class attachment is **necessary but not sufficient** (the
+  kind is extension-derived). Promotion requires corroboration: a **known provider** (the match IS the
+  corroboration — and ONLY this path may emit the existing-provider/**audit** subtypes), or for an unknown
+  provider a **work phrase** OR a body **Case/PO**. A body **VRM does NOT corroborate** (`VRM_RE` is
+  deliberately loose for `/parse` and over-matches postcodes/model-codes/years — it is still surfaced for
+  the open-Case fallback, just not as a promotion signal). **Audit phrases alone do not promote an unknown
+  provider** (there is no new-client-audit subtype, so labelling it `existing_provider_audit` would
+  attribute an `A.`-prefixed Case/PO to a non-existent provider). A **query-phrased** doc with no work
+  phrase is suppressed and falls through to the query rules (symmetric with Rule 2). With no corroboration
+  the doc is flagged `uncorroborated_instruction_doc` and falls through.
+- **Rule 2 (images).** Promotion requires a **work phrase OR a body Case/PO OR an audit signal from a
+  known provider**. A **known provider domain alone**, a bare **VRM**, or an **audit signal from an unknown
+  provider** do NOT promote a bare image; a known provider only selects the subtype (and emits the audit
+  subtype) once another signal corroborates. An uncorroborated provider image is flagged
+  `uncorroborated_provider_image` (only when it truly lacked corroboration — not when a corroborated image
+  was merely query-suppressed). The asymmetry vs Rule 1 is deliberate: a document is a deliberate work
+  artifact, a bare image is weak.
+
+Uncorroborated attachments **fall through** to the query/abstain rules: most land `other` at
+`_CONFIDENCE_ABSTAIN` (0.3), but one that also reads as a query lands `query`/`query_new_enquiry` at
+`_CONFIDENCE_WEAK` (0.6). The deferred, gated LLM pass should therefore target these rows by the
+**signal flag** (`uncorroborated_instruction_doc` / `uncorroborated_provider_image`), not the 0.3 band
+alone. **Accepted tradeoff (abstain-bias):** a genuine but sparse new-client instruction (unknown
+provider, no `_WORK_KEYWORDS` phrase, no Case/PO in the email text) now lands `other` and is visible in
+Inbox→Other with manual-create available, rather than auto-creating a Case — we do not loosen the gate to
+"promote any doc" (that was the original bug). **Forward-only** fix (parser Function `cespike-parser-dev`
+redeployed; orch/api untouched). The sibling engine was absent at fix time, so the change landed in the
+**vendored copy only** — the vendored copy is authoritative; see `cedocumentmapper_v2/PROVENANCE.md` for
+the re-vendor/reconciliation contract.
