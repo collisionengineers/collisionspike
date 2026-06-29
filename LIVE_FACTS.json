@@ -1,11 +1,11 @@
 {
-  "lastVerified": "2026-06-29T14:12:00Z",
-  "verifiedBy": "azure-integration-engineer (Wave C 2026-06-29: #6 Box-folder-at-intake wiring + SWA UI deploy. intakeOrchestrator now calls boxFolderCreateOrchestrator after caseResolve (casePo-guarded, idempotent, best-effort); api 47->49 (added GET+POST /api/internal/cases/{id}/box-folder); orch stays 46 (wiring into existing funcs). SPA #2/#4/#12 fixes built with prod VITE_* and deployed to cespk-spa-dev production env. All via az config-zip / swa CLI since func is broken in this WSL env). Prior: Wave B api 44->47, orch 45->46.",
+  "lastVerified": "2026-06-29T15:39:00Z",
+  "verifiedBy": "azure-integration-engineer (2026-06-29T15:39Z Graph intake mailbox cutover FINISHED on cespk-orch-dev: created Graph PUSH subscriptions for info@ (4559ceb6-2225-4cdc-9a0a-bd1ae6a8f216) + desk@ (c76b9841-6d7d-498b-8d47-7d8f06908f3a) via the orch create-missing path (POST /api/graph-renew -> runSubscriptionMaintenance; summary created:[info@,desk@], errors:[]) once the Exchange-RBAC deny-cache had cleared (>=30min app-idle after the 14:58:34Z renew); deleted the de-scoped test mailbox digital@ sub 5bb19aa0-579a-4eca-... via Graph DELETE -> 204. Active intake set now EXACTLY info@ + engineers@ + desk@; durable monitor subscription-monitor-singleton confirmed Running. Prior Wave C: #6 Box-folder-at-intake wiring + SWA UI deploy; api 49, orch 46.",
   "subscription": "e6076573-23a5-46a8-acef-7e22d264e5db",
   "resourceGroup": "rg-collisionspike-dev",
   "region": "uksouth",
   "tenant": "858cf5b3-aa0a-47a6-9b40-4851fd0afa94",
-  "notes": "READ-ONLY ground-truth snapshot. No secrets/tokens stored. Re-verified in the 2026-06-29 doc-hygiene pass: functionCounts, gates, graphSubscriptions, mailboxRbac and httpsOnly all still match live. One change since the prior snapshot — PDF_MAPPER_ENABLED=true was found live on both apps and added to gates (it was unrecorded). postgresCounts remain unverified (PG firewall + no local psql). docDrift notes that referenced an OLDER CLAUDE.md are marked RESOLVED where the current docs already align.",
+  "notes": "READ-ONLY ground-truth snapshot. No secrets/tokens stored. 2026-06-29T15:39Z UPDATE — Graph intake mailbox cutover finished: graphSubscriptions, mailboxRbac and gates.GRAPH_INTAKE_MAILBOXES now reflect the production set info@ + engineers@ + desk@ (test mailbox digital@ removed). Other fields (functionCounts, BOX/ENRICHMENT gates, httpsOnly) unchanged from the 2026-06-29 doc-hygiene pass. postgresCounts remain unverified (PG firewall + no local psql). KNOWN DURABILITY GAP: runSubscriptionMaintenance auto-creates missing intake mailboxes but does NOT delete subscriptions for mailboxes removed from GRAPH_INTAKE_MAILBOXES (it renews ALL existing subs), so a mailbox REMOVAL needs manual deletion until a prune step is added (see subscriptionRenewalRisk.note).",
 
   "functionCounts": {
     "value": { "orch": 46, "api": 49 },
@@ -18,51 +18,58 @@
   "graphSubscriptions": {
     "value": [
       {
+        "id": "4559ceb6-2225-4cdc-9a0a-bd1ae6a8f216",
+        "resource": "users/info@collisionengineers.co.uk/mailFolders('Inbox')/messages",
+        "changeType": "created",
+        "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
+        "expirationDateTime": "2026-07-06T14:38:05.251Z"
+      },
+      {
         "id": "09489bf1-ffa8-4eca-9449-32301b2847ba",
         "resource": "users/engineers@collisionengineers.co.uk/mailFolders('Inbox')/messages",
         "changeType": "created",
         "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
-        "expirationDateTime": "2026-07-06T10:19:08.555Z"
+        "expirationDateTime": "2026-07-06T14:38:06.899Z"
       },
       {
-        "id": "5bb19aa0-579a-42e9-bb36-75efcfc07f1e",
-        "resource": "users/digital@collisionengineers.co.uk/mailFolders('Inbox')/messages",
+        "id": "c76b9841-6d7d-498b-8d47-7d8f06908f3a",
+        "resource": "users/desk@collisionengineers.co.uk/mailFolders('Inbox')/messages",
         "changeType": "created",
         "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
-        "expirationDateTime": "2026-07-06T10:19:09.050Z"
+        "expirationDateTime": "2026-07-06T14:38:06.155Z"
       }
     ],
-    "sourceCommand": "POST https://cespk-orch-dev.azurewebsites.net/api/graph-renew (graph-renew-http) -> runSubscriptionMaintenance PATCH /subscriptions; new expirationDateTime echoed in the JSON summary",
-    "verifiedAt": "2026-06-29T11:19:09Z",
+    "sourceCommand": "GET https://graph.microsoft.com/v1.0/subscriptions with the intake app-only token (filtered to our notificationUrl host). info@/desk@ created via POST /api/graph-renew -> runSubscriptionMaintenance create-missing; de-scoped digital@ removed via Graph DELETE /subscriptions/{id} -> 204.",
+    "verifiedAt": "2026-06-29T15:39:00Z",
     "verified": true,
-    "docDrift": "2026-06-29 (AIE Wave A): both subscriptions PATCH-renewed to 2026-07-06T10:19Z (was 2026-07-05T11:00). engineers@ + digital@ Inbox -> graph-webhook unchanged. Ongoing renewal is now driven by the durable subscriptionMonitorOrchestrator (see subscriptionRenewalRisk)."
+    "docDrift": "2026-06-29T15:39Z (AIE — mailbox cutover finished): active intake set is now EXACTLY the production target info@ + engineers@ + desk@. info@ (4559ceb6) + desk@ (c76b9841) push subscriptions CREATED (Exchange-RBAC cache had cleared; create summary errors:[]); the de-scoped test mailbox digital@ sub 5bb19aa0-579a-... was DELETED (204). All three -> graph-webhook, changeType=created, expiry ~2026-07-06T14:38Z. WAS: engineers@ + digital@ only. Ongoing renewal continues via the durable subscriptionMonitorOrchestrator (it renews ALL existing subs, so the new info@/desk@ are auto-covered)."
   },
 
   "mailboxRbac": {
     "value": {
-      "digital@collisionengineers.co.uk": { "http": 200, "result": "OK" },
+      "info@collisionengineers.co.uk": { "http": 200, "result": "OK (subscription create succeeded)" },
       "engineers@collisionengineers.co.uk": { "http": 200, "result": "OK" },
-      "info@collisionengineers.co.uk": { "http": 403, "result": "ErrorAccessDenied" },
-      "desk@collisionengineers.co.uk": { "http": 403, "result": "ErrorAccessDenied" }
+      "desk@collisionengineers.co.uk": { "http": 200, "result": "OK (subscription create succeeded)" },
+      "digital@collisionengineers.co.uk": { "http": 200, "result": "OK but de-scoped from intake config (subscription deleted)" }
     },
-    "sourceCommand": "GET https://graph.microsoft.com/v1.0/users/<mbx>/messages?$top=1 with app-only token",
-    "verifiedAt": "2026-06-28T21:39:10Z",
+    "sourceCommand": "info@/desk@ effective access proven by a SUCCESSFUL POST /subscriptions (create-missing returned created:[info@,desk@], errors:[]) at 2026-06-29T15:38Z, after the Exchange-RBAC permission cache cleared. (Direct GET /users/<mbx>/messages deliberately not re-run, to avoid extra Graph calls during the cache-sensitive window.)",
+    "verifiedAt": "2026-06-29T15:39:00Z",
     "verified": true,
-    "docDrift": "RESOLVED: re-confirmed engineers@ + digital@ scoped (200), info@ + desk@ not scoped (403). The current docs already state this per-mailbox; the earlier blanket 'mailboxes not yet RBAC-scoped' claim has been corrected."
+    "docDrift": "2026-06-29T15:39Z: info@ + desk@ are now Exchange-RBAC EFFECTIVE (scope CollisionSpike-Intake-Prod, Application Mail.Read) — their Graph push-subscription creates SUCCEEDED with zero ErrorAccessDenied, flipping them from the prior 403. The earlier 403s were the ~30min-2h permission cache, not a wrong grant (Test-ServicePrincipalAuthorization already showed InScope:True). digital@ remains scoped but is dropped from the intake config. Production mailbox set info@ + engineers@ + desk@ is now fully scoped + subscribed."
   },
 
   "subscriptionRenewalRisk": {
     "value": {
-      "nearestExpiration": "2026-07-06T10:19:08.555Z",
-      "today": "2026-06-29T12:25:00Z",
+      "nearestExpiration": "2026-07-06T14:38:05.251Z",
+      "today": "2026-06-29T15:39:00Z",
       "status": "RESOLVED",
       "rootCause": "Flex Consumption does not wake a scaled-to-zero app for a plain timer trigger, so graph-renew (NCRONTAB) logged 0 executions in 7d and subscriptions were heading for a silent lapse (azure-diagnostician root-caused, App Insights component cespk-orch-dev).",
       "fix": "Durable eternal-orchestration subscriptionMonitorOrchestrator (instanceId subscription-monitor-singleton, runtimeStatus Running): renew activity -> durable timer (SUBSCRIPTION_MONITOR_INTERVAL_HOURS, default 6h) -> continueAsNew. A durable timer message WAKES a scaled-to-zero Flex app (Microsoft Learn), so renewal fires unattended with NO always-ready instance and NO external scheduler. Bootstrapped by intake-starter (any intake traffic) and by the graph-renew HTTP route; the original graph-renew timer is retained as a backstop."
     },
-    "sourceCommand": "durable mgmt GET /runtime/webhooks/durabletask/instances/subscription-monitor-singleton (runtimeStatus Running, name subscriptionMonitorOrchestrator)",
-    "verifiedAt": "2026-06-29T11:17:24Z",
+    "sourceCommand": "durable mgmt GET /runtime/webhooks/durabletask/instances/subscription-monitor-singleton (runtimeStatus Running, name subscriptionMonitorOrchestrator); also confirmed via POST /api/graph-renew JSON monitor.status=Running",
+    "verifiedAt": "2026-06-29T15:39:00Z",
     "verified": true,
-    "note": "OPERATOR WATCH (next cycle): confirm an UNATTENDED renew fires at the durable-timer wake (~6h after 2026-06-29T11:17Z) i.e. graph-renewal-success in App Insights with no manual trigger. Belt-and-braces fallback if it ever doesn't: az functionapp scale config always-ready set -g rg-collisionspike-dev -n cespk-orch-dev --settings function:graph-renew=1 (incurs an always-ready baseline cost — flagged, NOT enabled)."
+    "note": "OPERATOR WATCH (next cycle): confirm an UNATTENDED renew fires at the durable-timer wake (~6h cadence) i.e. graph-renewal-success in App Insights with no manual trigger. 2026-06-29T15:39Z: the singleton was re-confirmed Running during the mailbox cutover (graph-renew HTTP returned monitor.status=Running) and it now covers all 3 production subs (it renews EVERY existing sub). DURABILITY GAP (recommended small code fix): runSubscriptionMaintenance create-misses + renews but never PRUNES — a mailbox REMOVED from GRAPH_INTAKE_MAILBOXES keeps its subscription (renewed forever), which is exactly why the de-scoped digital@ sub had to be deleted by hand here. Recommend adding a prune step to runSubscriptionMaintenance (subscriptions.ts): after create+renew, delete any of OUR subs whose mailboxOfResource(resource) is not in intakeMailboxes(), so a GRAPH_INTAKE_MAILBOXES change fully self-reconciles (add+remove) on the next maintenance tick. Belt-and-braces renewal fallback if the durable timer ever fails: az functionapp scale config always-ready set -g rg-collisionspike-dev -n cespk-orch-dev --settings function:graph-renew=1 (always-ready cost — flagged, NOT enabled)."
   },
 
   "postgresCounts": {
@@ -120,7 +127,7 @@
         "BOX_FOLDER_AT_INTAKE_ENABLED": "true",
         "BOX_FILEREQUEST_ENABLED": "true",
         "BOX_FOLDER_ROOT_ID": "392761581105",
-        "GRAPH_INTAKE_MAILBOXES": "[{\"mailbox\":\"engineers@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-27T00:00:00Z\"},{\"mailbox\":\"digital@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-27T00:00:00Z\"}]",
+        "GRAPH_INTAKE_MAILBOXES": "[{\"mailbox\":\"info@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-29T00:00:00Z\"},{\"mailbox\":\"engineers@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-27T00:00:00Z\"},{\"mailbox\":\"desk@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-29T00:00:00Z\"}]",
         "EVA_API_ENABLED": "(absent)",
         "VALUATION_ENABLED": "(absent)",
         "BOX_EMBED_ENABLED": "(absent)",
@@ -128,9 +135,9 @@
       }
     },
     "sourceCommand": "az functionapp config appsettings list -g rg-collisionspike-dev -n <app> --query \"[?contains(name,'BOX_')||contains(name,'EVA_')||contains(name,'ENRICHMENT')||contains(name,'VALUATION')||name=='GRAPH_INTAKE_MAILBOXES']\"",
-    "verifiedAt": "2026-06-28T23:55:15Z",
+    "verifiedAt": "2026-06-28T23:55:15Z (BOX/ENRICHMENT gates); 2026-06-29T15:14Z (GRAPH_INTAKE_MAILBOXES re-read live)",
     "verified": true,
-    "docDrift": "BOX_API_ENABLED, BOX_FOLDER_AT_INTAKE_ENABLED, BOX_FILEREQUEST_ENABLED are all 'true' on BOTH api and orch — Box is ACTIVATED, not off. ENRICHMENT_ENABLED and PDF_MAPPER_ENABLED are 'true' on both. EVA_API_ENABLED, VALUATION_ENABLED, BOX_EMBED_ENABLED, BOX_METADATA_ENABLED are not set (effectively off/reserved). GRAPH_INTAKE_MAILBOXES = engineers@ + digital@ (minIntakeDate 2026-06-27). NOTE: PDF_MAPPER_ENABLED=true was unrecorded before the 2026-06-29 re-verification; CLAUDE.md's gate list describes default-off SEMANTICS, not current live values."
+    "docDrift": "BOX_API_ENABLED, BOX_FOLDER_AT_INTAKE_ENABLED, BOX_FILEREQUEST_ENABLED are all 'true' on BOTH api and orch — Box is ACTIVATED, not off. ENRICHMENT_ENABLED and PDF_MAPPER_ENABLED are 'true' on both. EVA_API_ENABLED, VALUATION_ENABLED, BOX_EMBED_ENABLED, BOX_METADATA_ENABLED are not set (effectively off/reserved). GRAPH_INTAKE_MAILBOXES = info@ + engineers@ + desk@ (the production target; test mailbox digital@ removed in the 2026-06-29 mailbox cutover; info@/desk@ minIntakeDate 2026-06-29, engineers@ 2026-06-27). NOTE: PDF_MAPPER_ENABLED=true was unrecorded before the 2026-06-29 re-verification; CLAUDE.md's gate list describes default-off SEMANTICS, not current live values."
   },
 
   "resourceInventory": {
