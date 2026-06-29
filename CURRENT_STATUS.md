@@ -92,8 +92,12 @@ mailbox set: the registry [docs/architecture/live-environment.md](./docs/archite
 1. **Email intake is LIVE IN TESTING — not yet on the production mailbox set.** `cespk-orch-dev` runs with
    **2 Graph PUSH subscriptions** over the test set engineers@ + digital@ (both Exchange-RBAC-scoped; counts
    + subscription state in the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)).
-   ⚠️ The subscriptions **expire 2026-07-05** and `graph-renew` showed **0 executions in the last 3 days** —
-   confirm the renewer is firing or intake silently lapses (see [docs/gated.md](./docs/gated.md)). For
+   ✅ **Graph renewal RESOLVED (2026-06-29):** the subscriptions were renewed to 2026-07-06 and are kept alive
+   by a Durable eternal orchestration (`subscriptionMonitorOrchestrator`) — a plain NCRONTAB timer can't wake
+   the scale-to-zero FC1 app (root cause); the `graph-renew` timer is retained as a backstop. Residual
+   watch-item: `graph-webhook` still emits some `499`/`BadHttpRequestException` cold-start aborts, but intake
+   still flows (Graph retries absorb the misses) and an always-ready instance is left OFF for Free-Trial cost
+   (enable only if drops persist; see [docs/gated.md](./docs/gated.md)). For
    **production**, grant info@ + desk@ Exchange RBAC (then add to `GRAPH_INTAKE_MAILBOXES`, drop test-only
    digital@), set `EVIDENCE_BLOB_CONNECTION` (prefer MI), assign the orch MI an app-role on the Data API, and
    wire the Azure Monitor heartbeat alerts.

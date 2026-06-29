@@ -1,6 +1,6 @@
 {
-  "lastVerified": "2026-06-28T23:55:15Z",
-  "verifiedBy": "live-truth agent (re-verified in the 2026-06-29 doc-hygiene pass via az CLI + az MCP)",
+  "lastVerified": "2026-06-29T14:12:00Z",
+  "verifiedBy": "azure-integration-engineer (Wave C 2026-06-29: #6 Box-folder-at-intake wiring + SWA UI deploy. intakeOrchestrator now calls boxFolderCreateOrchestrator after caseResolve (casePo-guarded, idempotent, best-effort); api 47->49 (added GET+POST /api/internal/cases/{id}/box-folder); orch stays 46 (wiring into existing funcs). SPA #2/#4/#12 fixes built with prod VITE_* and deployed to cespk-spa-dev production env. All via az config-zip / swa CLI since func is broken in this WSL env). Prior: Wave B api 44->47, orch 45->46.",
   "subscription": "e6076573-23a5-46a8-acef-7e22d264e5db",
   "resourceGroup": "rg-collisionspike-dev",
   "region": "uksouth",
@@ -8,11 +8,11 @@
   "notes": "READ-ONLY ground-truth snapshot. No secrets/tokens stored. Re-verified in the 2026-06-29 doc-hygiene pass: functionCounts, gates, graphSubscriptions, mailboxRbac and httpsOnly all still match live. One change since the prior snapshot — PDF_MAPPER_ENABLED=true was found live on both apps and added to gates (it was unrecorded). postgresCounts remain unverified (PG firewall + no local psql). docDrift notes that referenced an OLDER CLAUDE.md are marked RESOLVED where the current docs already align.",
 
   "functionCounts": {
-    "value": { "orch": 42, "api": 44 },
-    "sourceCommand": "az functionapp function list -g rg-collisionspike-dev -n <app> --query 'length(@)' -o tsv",
-    "verifiedAt": "2026-06-28T21:37:50Z",
+    "value": { "orch": 46, "api": 49 },
+    "sourceCommand": "az functionapp function list -g rg-collisionspike-dev -n <app> --query '[].name' -o tsv | wc -l",
+    "verifiedAt": "2026-06-29T14:12:00Z",
     "verified": true,
-    "docDrift": "RESOLVED in the doc-hygiene pass: live orch=42, api=44 re-confirmed. Forward docs registry-link the count; the residual '41/42' embeds in docs/azure/diagnose.md + docs/azure/deploy.md were corrected to 42/44."
+    "docDrift": "2026-06-29 (AIE Wave C): api 47->49 — added internalCaseBoxFolderGet (GET /api/internal/cases/{id}/box-folder) + internalCaseBoxFolderStamp (POST, first-wins box_folder_id/url stamp + box_folder_created audit). orch stays 46 — #6 wired INTO intakeOrchestrator (callSubOrchestrator boxFolderCreateOrchestrator after caseResolve) + boxFolderCreate activity made idempotent; no new registrations. Prior Wave B: api 44->47, orch 45->46."
   },
 
   "graphSubscriptions": {
@@ -22,20 +22,20 @@
         "resource": "users/engineers@collisionengineers.co.uk/mailFolders('Inbox')/messages",
         "changeType": "created",
         "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
-        "expirationDateTime": "2026-07-05T11:00:00.496Z"
+        "expirationDateTime": "2026-07-06T10:19:08.555Z"
       },
       {
         "id": "5bb19aa0-579a-42e9-bb36-75efcfc07f1e",
         "resource": "users/digital@collisionengineers.co.uk/mailFolders('Inbox')/messages",
         "changeType": "created",
         "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
-        "expirationDateTime": "2026-07-05T11:00:04.827Z"
+        "expirationDateTime": "2026-07-06T10:19:09.050Z"
       }
     ],
-    "sourceCommand": "client_credentials token for app 5d37a155-... (secret from KV cespk-pg-kv-dev/graph-client-secret) -> GET https://graph.microsoft.com/v1.0/subscriptions",
-    "verifiedAt": "2026-06-28T21:39:00Z",
+    "sourceCommand": "POST https://cespk-orch-dev.azurewebsites.net/api/graph-renew (graph-renew-http) -> runSubscriptionMaintenance PATCH /subscriptions; new expirationDateTime echoed in the JSON summary",
+    "verifiedAt": "2026-06-29T11:19:09Z",
     "verified": true,
-    "docDrift": "RESOLVED: 2 live push subscriptions exist for engineers@ + digital@ Inbox, pushing to graph-webhook, expiring 2026-07-05 — re-confirmed live in the doc-hygiene pass. The current CLAUDE.md / live-environment.md already state '2 live push subscriptions'; the earlier 'no Graph subscriptions exist' wording has been corrected."
+    "docDrift": "2026-06-29 (AIE Wave A): both subscriptions PATCH-renewed to 2026-07-06T10:19Z (was 2026-07-05T11:00). engineers@ + digital@ Inbox -> graph-webhook unchanged. Ongoing renewal is now driven by the durable subscriptionMonitorOrchestrator (see subscriptionRenewalRisk)."
   },
 
   "mailboxRbac": {
@@ -53,29 +53,30 @@
 
   "subscriptionRenewalRisk": {
     "value": {
-      "nearestExpiration": "2026-07-05T11:00:00.496Z",
-      "daysUntilExpiry": 6.6,
-      "today": "2026-06-28T21:42:06Z",
-      "graphRenewTelemetryLast3Days": "0 matching execution traces/requests/customEvents found"
+      "nearestExpiration": "2026-07-06T10:19:08.555Z",
+      "today": "2026-06-29T12:25:00Z",
+      "status": "RESOLVED",
+      "rootCause": "Flex Consumption does not wake a scaled-to-zero app for a plain timer trigger, so graph-renew (NCRONTAB) logged 0 executions in 7d and subscriptions were heading for a silent lapse (azure-diagnostician root-caused, App Insights component cespk-orch-dev).",
+      "fix": "Durable eternal-orchestration subscriptionMonitorOrchestrator (instanceId subscription-monitor-singleton, runtimeStatus Running): renew activity -> durable timer (SUBSCRIPTION_MONITOR_INTERVAL_HOURS, default 6h) -> continueAsNew. A durable timer message WAKES a scaled-to-zero Flex app (Microsoft Learn), so renewal fires unattended with NO always-ready instance and NO external scheduler. Bootstrapped by intake-starter (any intake traffic) and by the graph-renew HTTP route; the original graph-renew timer is retained as a backstop."
     },
-    "sourceCommand": "az monitor app-insights query --app <cespk-orch-dev appId> --analytics-query \"union traces,requests,customEvents | where timestamp>ago(3d) | where ... contains 'graph-renew'\"",
-    "verifiedAt": "2026-06-28T21:42:06Z",
+    "sourceCommand": "durable mgmt GET /runtime/webhooks/durabletask/instances/subscription-monitor-singleton (runtimeStatus Running, name subscriptionMonitorOrchestrator)",
+    "verifiedAt": "2026-06-29T11:17:24Z",
     "verified": true,
-    "note": "KQL query succeeded (table returned, 0 rows). No observable graph-renew execution in the last 3 days despite subscriptions expiring in ~7 days. Either the renewal timer logs under a different name or it is not firing — flag for follow-up; subscriptions will silently lapse on 2026-07-05 if renewal is not running."
+    "note": "OPERATOR WATCH (next cycle): confirm an UNATTENDED renew fires at the durable-timer wake (~6h after 2026-06-29T11:17Z) i.e. graph-renewal-success in App Insights with no manual trigger. Belt-and-braces fallback if it ever doesn't: az functionapp scale config always-ready set -g rg-collisionspike-dev -n cespk-orch-dev --settings function:graph-renew=1 (incurs an always-ready baseline cost — flagged, NOT enabled)."
   },
 
   "postgresCounts": {
     "value": {
-      "work_provider": null,
+      "work_provider": 390,
       "repairer": null,
       "image_source": null,
       "inspection_address": null,
       "case_": null
     },
-    "sourceCommand": "mcp__azure__postgres postgres_database_query (server cespk-pg-dev, db collisionspike, MicrosoftEntra)",
-    "verifiedAt": "2026-06-28T21:41:00Z",
+    "sourceCommand": "psql (Entra oss-rdbms token, user digital@collisionengineers.co.uk, options '-c app.role=staff') SELECT count(*) FROM work_provider",
+    "verifiedAt": "2026-06-29T11:30:00Z",
     "verified": false,
-    "reason": "host not in pg firewall allowlist — MCP egress IP 51.142.242.153 could not connect to cespk-pg-dev:5432 (NpgsqlException 'Failed to connect'). Counts NOT verified; do not treat doc-stated counts (work_provider 390, repairer 32, image_source 19, inspection_address 2209, case_ 0) as confirmed by this snapshot."
+    "reason": "2026-06-29 (AIE Wave A): work_provider=390 CONFIRMED via psql with app.role=staff (a transient PG firewall rule for the workstation IP was added then removed). KEY GOTCHA: work_provider has FORCE RLS — without app.role set, ALL rows read as 0 (the mcp__azure__postgres tool can't set app.role and is single-SELECT only, so it always sees 0). Other corpus counts not re-verified this pass. work_provider also gained a known_email_addresses column; OAK now carries oakwoodscotland.co.uk + oakwoodsolicitors.co.uk, YML carries address-level networkhduk@gmail.com."
   },
 
   "httpsOnly": {

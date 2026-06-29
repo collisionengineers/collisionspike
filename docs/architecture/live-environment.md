@@ -37,8 +37,8 @@
 | Resource | Name / detail | Status |
 |---|---|---|
 | **SPA** — Static Web App (Free) | **`cespk-spa-dev`** (control plane `westeurope`) → **`https://proud-sky-04e318b03.7.azurestaticapps.net`**. The **preserved React/Vite app** built from `mockup-app/`. Sign-in is **MSAL / Microsoft Entra workforce** (staff-only). It carries **no secret and no Power SDK** — it calls the Data API over **REST + Bearer token** via `mockup-app/src/data/rest-client.ts`. | **LIVE** |
-| **Data API** — Function App (BFF) | **`cespk-api-dev`** — **Node 20 / TypeScript Azure Functions v4** (source `api/`, deployed as an **esbuild bundle** `deploy/api/main.cjs`); **44 functions** registered (verified 2026-06-28); **`httpsOnly` = true**. Validates the **Entra JWT** (`jose`) and authorizes by **app role** `CollisionSpike.User` / `CollisionSpike.Superuser` (Superuser formerly `CollisionSpike.Admin`, legacy name still accepted). v2 access tokens carry `aud` = the **API client-id GUID** (`fa2fb28c…`). Owns the status state-machine, dedup, audit writes, and gate reads. **Connects to Postgres** as the non-owner login `cespk_app` (RLS enforced; password a Key Vault reference). Feature gates set: **`ENRICHMENT_ENABLED=true`** / **`PDF_MAPPER_ENABLED=true`**, **`BOX_API_ENABLED`/`BOX_FOLDER_AT_INTAKE_ENABLED`/`BOX_FILEREQUEST_ENABLED`=true** (`BOX_FOLDER_ROOT_ID=392761581105`); `EVA_API_ENABLED`/`VALUATION_ENABLED`/`BOX_EMBED_ENABLED`/`BOX_METADATA_ENABLED` absent (off/reserved). | **LIVE** |
-| **Orchestration** — Function App | **`cespk-orch-dev`** (source `orchestration/`) — **42 functions** registered (verified 2026-06-28); **`httpsOnly` = true**. **Email intake is LIVE IN TESTING.** The intake chain is wired (PARSER/ENRICH/BOXWEBHOOK/EVASENTRY `_FN_URL` + KV-referenced function keys, `EVIDENCE_BLOB_CONTAINER`; orch→Data API via **managed identity**; identity-based storage), and transport is **PUSH — Microsoft Graph change-notification subscriptions**, NOT delta-poll. **2 live push subscriptions exist** (engineers@ + digital@ Inbox `…/messages`, `changeType=created`, → `https://cespk-orch-dev.azurewebsites.net/api/graph-webhook`), **both expiring 2026-07-05T11:00Z**. `GRAPH_INTAKE_MAILBOXES` = engineers@ + digital@ (`minIntakeDate` 2026-06-27). Same gates as the API (`ENRICHMENT`/`PDF_MAPPER`/`BOX_*` on). ⚠️ **Renewal watch:** App Insights shows **0 `graph-renew` executions in the last 3 days** — if the renewer is not firing, the 2 subscriptions silently lapse on **2026-07-05** and intake stops (see the renewal watch-item below). | **LIVE IN TESTING (push subs; renewal at risk)** |
+| **Data API** — Function App (BFF) | **`cespk-api-dev`** — **Node 20 / TypeScript Azure Functions v4** (source `api/`, deployed as an **esbuild bundle** `deploy/api/main.cjs`); **49 functions** registered (verified 2026-06-29; +2 internal box-folder routes `GET`/`POST /api/internal/cases/{id}/box-folder` for #6 Box-folder-at-intake); **`httpsOnly` = true**. Validates the **Entra JWT** (`jose`) and authorizes by **app role** `CollisionSpike.User` / `CollisionSpike.Superuser` (Superuser formerly `CollisionSpike.Admin`, legacy name still accepted). v2 access tokens carry `aud` = the **API client-id GUID** (`fa2fb28c…`). Owns the status state-machine, dedup, audit writes, and gate reads. **Connects to Postgres** as the non-owner login `cespk_app` (RLS enforced; password a Key Vault reference). Feature gates set: **`ENRICHMENT_ENABLED=true`** / **`PDF_MAPPER_ENABLED=true`**, **`BOX_API_ENABLED`/`BOX_FOLDER_AT_INTAKE_ENABLED`/`BOX_FILEREQUEST_ENABLED`=true** (`BOX_FOLDER_ROOT_ID=392761581105`); `EVA_API_ENABLED`/`VALUATION_ENABLED`/`BOX_EMBED_ENABLED`/`BOX_METADATA_ENABLED` absent (off/reserved). | **LIVE** |
+| **Orchestration** — Function App | **`cespk-orch-dev`** (source `orchestration/`) — **46 functions** registered (verified 2026-06-29); **`httpsOnly` = true**. **Email intake is LIVE IN TESTING.** The intake chain is wired (PARSER/ENRICH/BOXWEBHOOK/EVASENTRY `_FN_URL` + KV-referenced function keys, `EVIDENCE_BLOB_CONTAINER`; orch→Data API via **managed identity**; identity-based storage), and transport is **PUSH — Microsoft Graph change-notification subscriptions**, NOT delta-poll. **2 live push subscriptions exist** (engineers@ + digital@ Inbox `…/messages`, `changeType=created`, → `https://cespk-orch-dev.azurewebsites.net/api/graph-webhook`), **both renewed to 2026-07-06T10:19Z** (durable monitor — below). `GRAPH_INTAKE_MAILBOXES` = engineers@ + digital@ (`minIntakeDate` 2026-06-27). Same gates as the API (`ENRICHMENT`/`PDF_MAPPER`/`BOX_*` on). ✅ **Renewal RESOLVED (2026-06-29):** the plain `graph-renew` timer never fired on Flex scale-to-zero; renewal now runs via the durable `subscriptionMonitorOrchestrator` (eternal — durable timers wake a scaled-to-zero app) + a function-keyed `graph-renew` HTTP lever (see the renewal note below). | **LIVE IN TESTING (push subs; durable renewal)** |
 | **Postgres** — Flexible Server (system of record) | **`cespk-pg-dev`** (**PostgreSQL v16**), database **`collisionspike`** — **36 tables** (14 business + 22 `choice_*` lookups). Seeded corpus (**last-known, 2026-06-18 corpus load — NOT re-verified this snapshot**; the 2026-06-28 verifier was blocked by the PG firewall): `work_provider` **390**, `repairer` **32**, `image_source` **19**, `inspection_address` **2209** (174 confirmed + 2035 suggested); `case_` **0**. Treat these as last-known, not confirmed-current, until a verified query refreshes them. Schema is `migration/assets/schema/*.sql`. Free Postgres allowance survives the PAYG upgrade. | **LIVE** |
 | **Retained Python Functions (UNCHANGED, 6)** | `cespike-parser-dev` (parser, `POST /api/parse`) · `cespkenrich-fn-gi62sd` (enrichment — DVSA + DVLA direct via Entra `client_credentials` + X-API-Key) · `evavalidation` · `evasentry` (gated) · `cespkocr-fn-dev-glju3v` (OCR on Azure Container Apps, scale-to-zero, gated) · `cespkbox-fn-v76a47` (`box-webhook`) — **Box is LIVE (JWT Server Auth, 2026-06-28):** authed smoke `GET …/folders/392761581105/items` → **200** (folder `CCPY26050`). Called **directly by the Data API / orchestration** (function key / managed identity), not via any connector. | **LIVE (Box live; others gated where noted)** |
 | **Key Vaults** | `cespkenrichkvgi62sd` (enrichment DVSA/DVLA secrets — populated, KV references resolve) · `cespkboxkvv76a47` (Box — holds **`box-config-json`** (the JWT `Config.JSON`, load-bearing) + webhook keys) · EVA vault (gated) · **`cespk-pg-kv-dev`** (the Postgres `cespk_app` password; the rotated **`graph-client-secret`**; and the retained **`parser-fn-key` / `enrich-fn-key` / `boxwebhook-fn-key`** function keys — all KV-referenced, no plaintext). | **LIVE** |
@@ -71,11 +71,11 @@ Graph grant: an **Exchange Administrator** grants the intake service principal a
 mailbox role with `New-ServicePrincipal` / `New-ManagementScope` / `New-ManagementRoleAssignment` — **no
 Global Administrator and no tenant-wide admin consent**. On top of that RBAC grant, intake uses **Graph
 change-notification (PUSH) subscriptions** — one per Inbox, `changeType=created`, pushing to
-`…/api/graph-webhook` — bootstrapped/renewed by `graph-renew`. **This is PUSH, not delta-poll.**
+`…/api/graph-webhook` — bootstrapped/renewed by the durable `subscriptionMonitorOrchestrator` (+ `graph-renew` timer backstop / HTTP lever). **This is PUSH, not delta-poll.**
 
 **Live state (verified 2026-06-28 — see the registry table above for the authoritative values):** engineers@
-+ digital@ ARE Exchange-RBAC app-read scoped (200) and each has a **live push subscription** (expiring
-2026-07-05); info@ + desk@ are **not yet scoped** (403). Mailbox labelling: **digital@ = test/dev mailbox;
++ digital@ ARE Exchange-RBAC app-read scoped (200) and each has a **live push subscription** (renewed to
+2026-07-06; durable monitor); info@ + desk@ are **not yet scoped** (403). Mailbox labelling: **digital@ = test/dev mailbox;
 engineers@ = a real production mailbox currently used for testing**; the **production target is info@ +
 engineers@ + desk@** (digital@ dropped) — still in the testing phase.
 
@@ -90,11 +90,13 @@ engineers@ + desk@** (digital@ dropped) — still in the testing phase.
    **production**: grant **info@ + desk@** Exchange RBAC (then add them to `GRAPH_INTAKE_MAILBOXES` and drop the
    test-only digital@), set `EVIDENCE_BLOB_CONNECTION` (prefer MI), assign the orch MI an app-role on the Data
    API, and wire the Azure Monitor heartbeat alerts.
-   - ⚠️ **Renewal watch-item (live, time-critical).** The 2 push subscriptions **expire 2026-07-05T11:00Z** and
-     App Insights shows **0 `graph-renew` executions in the last 3 days**. If the renewer is not firing, intake
-     **silently lapses** on 2026-07-05. Confirm `graph-renew` is executing (it may log under a different name)
-     **before** the expiry, or re-bootstrap the subscriptions. This is a docs-only flag — do not change a
-     running Azure resource from here.
+   - ✅ **Renewal RESOLVED (2026-06-29, AIE Wave A).** Root cause: a plain timer trigger isn't woken on Flex
+     scale-to-zero, so `graph-renew` logged 0 executions and the 2 subscriptions were heading for a silent
+     lapse. Fix: the durable **`subscriptionMonitorOrchestrator`** (eternal — renew → durable timer →
+     continueAsNew; a durable timer message wakes a scaled-to-zero app) plus a function-keyed **`graph-renew`
+     HTTP** lever and an intake-starter bootstrap; the `graph-renew` timer is kept as a backstop. Subscriptions
+     renewed to 2026-07-06T10:19Z. **Operator watch:** confirm an unattended renew at the next ~6h durable-timer
+     wake (a `graph-renewal-success` trace with no manual trigger).
 2. **Connection & secret security — RESOLVED (2026-06-26 / 2026-06-27).** The Data API connects as the
    **non-owner** login **`cespk_app`** (`rolsuper=false`, `rolbypassrls=false`) with its password held as a
    **Key Vault reference** (no cleartext), and sets the DB app-role per connection via `-c app.role=staff` (the
@@ -126,8 +128,8 @@ enrich → finalize (EVA + Box) → chasers**, driven by the **orchestration** a
 the **automated intake pipeline** — orchestration runs with **2 Graph PUSH subscriptions** over engineers@ +
 digital@ (the production mailbox set info@ + engineers@ + desk@ is not yet fully scoped). Still gated:
 finalize EVA (gated), chasers. So a staff member can sign in, browse, and create a case manually, **and**
-email to the two scoped test mailboxes can auto-create cases — subject to the 2026-07-05 subscription-renewal
-watch-item above.
+email to the two scoped test mailboxes can auto-create cases (subscription renewal is now durable — see the
+renewal note above).
 
 **EVA path (domain — unchanged):** the active EVA path is **JSON drag-drop, not REST — by a vendor
 constraint.** Minotaur Software's Sentry API currently routes only **one principal code** per API
@@ -149,9 +151,9 @@ az resource list -g rg-collisionspike-dev -o table
 # Static Web App (SPA) hostname + status
 az staticwebapp show -g rg-collisionspike-dev -n cespk-spa-dev --query "defaultHostname" -o tsv
 
-# Function Apps — which functions are actually deployed (verified 2026-06-28: orch 42, api 44)
-az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 44 functions
-az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 42 functions (live in testing — 2 push subs)
+# Function Apps — which functions are actually deployed (verified 2026-06-29: orch 46, api 49)
+az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 49 functions
+az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 46 functions (live in testing — 2 push subs)
 
 # Postgres — table count + seeded corpus counts (psql via the admin connection string)
 #   SELECT count(*) FROM information_schema.tables WHERE table_schema='public';      -- expect 36
