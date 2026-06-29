@@ -116,6 +116,9 @@ import {
 import { resolveInspectionDecision, buildEvaJson } from '@cs/domain';
 import { GLOBAL_TOASTER_ID } from '../components';
 import { LinkedEmailsPanel } from '../components/LinkedEmailsPanel';
+// Gated AI "Assistant" surface (TKT-015). Self-contained: renders NOTHING unless
+// AI_ASSIST_ENABLED (checks the gate via its own hook), so this is an honest-off mount.
+import { AiAssistPanel } from '../components/AiAssistPanel';
 import { useIsSuperuser } from '../components/useIsSuperuser';
 // DataAccessExt: the SPA-side seam with the work-todo-spike additive methods
 // (removeCase). The base DataAccess in '@cs/domain' stays the frozen server contract.
@@ -1862,6 +1865,11 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 </div>
               ))}
           </Panel>
+
+          {/* Gated AI "Assistant" (TKT-015) — renders NOTHING unless AI_ASSIST_ENABLED.
+              Observation-first: suggestions with Accept/Reject; nothing mutates the case
+              on its own (the API promotes an accepted value FILL-IF-EMPTY). */}
+          <AiAssistPanel caseId={c.id} />
         </div>
       </div>
 

@@ -16,8 +16,10 @@
 
 import { app } from '@azure/functions';
 import {
+  AI_ASSIST_GATE_ALL_OFF,
   BOX_GATES_ALL_FALSE,
   LOCATION_ASSIST_GATE_ALL_OFF,
+  type AiAssistGate,
   type BoxGates,
   type LocationAssistGate,
 } from '@cs/domain';
@@ -77,6 +79,26 @@ app.http('getLocationAssistGate', {
       return { status: 200, jsonBody: result };
     } catch {
       return { status: 200, jsonBody: { ...LOCATION_ASSIST_GATE_ALL_OFF } };
+    }
+  }),
+});
+
+// GET /api/gates/ai-assist — the AI suggestion-layer gate (TKT-015). `enabled` is the
+// AI_ASSIST_ENABLED master switch the SPA panel keys on; `modelConfigured` reports whether
+// a model endpoint + deployment are set (generate can do real work). Honest all-off on failure.
+app.http('getAiAssistGate', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'gates/ai-assist',
+  handler: withRole('CollisionSpike.User', async () => {
+    try {
+      const result: AiAssistGate = {
+        enabled: gates.aiAssist(),
+        modelConfigured: gates.aiAssistConfigured(),
+      };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...AI_ASSIST_GATE_ALL_OFF } };
     }
   }),
 });

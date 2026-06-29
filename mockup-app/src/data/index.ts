@@ -130,12 +130,26 @@ export type {
   ProviderUpdateInput,
   NextCasePoResult,
   ReclassifyInboundInput,
+  // AI suggestion layer (TKT-015) — observation-first, gated.
+  AiSuggestion,
+  AiSuggestionType,
+  AiSuggestionReviewState,
+  AiSuggestionReviewDecision,
+  AiSuggestionReviewInput,
+  AiSuggestionReviewResult,
+  GenerateAiSuggestionsResult,
+  AiAssistGate,
 } from '@cs/domain';
 // The seam's EXTENDED DataAccess (frozen @cs/domain DataAccess + the work-todo-spike
 // methods). `getDataAccess()` returns this; screens that type-annotate use it.
 export type { DataAccessExt } from './rest-client';
 // The all-false Box-gate baseline + the all-off location-assist baseline (values).
-export { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF, INBOUND_COUNTS_ZERO } from '@cs/domain';
+export {
+  BOX_GATES_ALL_FALSE,
+  LOCATION_ASSIST_GATE_ALL_OFF,
+  INBOUND_COUNTS_ZERO,
+  AI_ASSIST_GATE_ALL_OFF,
+} from '@cs/domain';
 
 /* ----------  Box affordances: gates + gated transports  ----------
    Gates are read via the REST API (/api/gates/box); the transports
@@ -303,12 +317,19 @@ export {
   useReclassifyInbound,
   useCaseRemove,
   useProviderUpdate,
+  // AI suggestion layer hooks (TKT-015) — gate, list, review, generate.
+  useAiAssistGate,
+  useAiSuggestions,
+  useReviewAiSuggestion,
+  useGenerateAiSuggestions,
   type QueryState,
   type CaseUpdateState,
   type TriageMutationState,
   type ReclassifyInboundState,
   type CaseRemoveState,
   type ProviderUpdateState,
+  type ReviewAiSuggestionState,
+  type GenerateAiSuggestionsState,
 } from './hooks';
 
 /* ============================================================

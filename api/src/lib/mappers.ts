@@ -20,6 +20,8 @@ import {
   queueByName,
   statusToQueue,
   type ActivityEvent,
+  type AiSuggestion,
+  type AiSuggestionReviewState,
   type Case,
   type CaseStatus,
   type ClassifierMode,
@@ -517,6 +519,57 @@ export function rowToInboundEmail(rec: Row): InboundEmail {
     ...(rec.suggested_subtype_code != null && INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code]
       ? { suggestedSubtype: INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code] }
       : {}),
+  };
+}
+
+/* ============================================================
+   AI suggestion row -> AiSuggestion  (TKT-015 AI suggestion layer).
+   review_state is a short String token (pending|accepted|rejected|superseded).
+   ============================================================ */
+
+const AI_REVIEW_STATES: readonly AiSuggestionReviewState[] = [
+  'pending',
+  'accepted',
+  'rejected',
+  'superseded',
+];
+
+/** True when `s` is one of the four canonical review-state tokens (route validation). */
+export function isAiReviewState(s: unknown): s is AiSuggestionReviewState {
+  return typeof s === 'string' && (AI_REVIEW_STATES as readonly string[]).includes(s);
+}
+
+/** Coerce a jsonb column to a JS value. node-postgres parses jsonb already; this is
+ *  belt-and-braces for a path that hands back a JSON string. Never throws. */
+function coerceJson(v: unknown): unknown {
+  if (typeof v !== 'string') return v ?? null;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return v;
+  }
+}
+
+export function rowToAiSuggestion(rec: Row): AiSuggestion {
+  const reviewState: AiSuggestionReviewState = AI_REVIEW_STATES.includes(
+    (rec.review_state ?? '') as AiSuggestionReviewState,
+  )
+    ? (rec.review_state as AiSuggestionReviewState)
+    : 'pending';
+  return {
+    id: rec.id ?? '',
+    ...(rec.case_id ? { caseId: rec.case_id } : {}),
+    ...(rec.evidence_id ? { evidenceId: rec.evidence_id } : {}),
+    ...(rec.inbound_email_id ? { inboundEmailId: rec.inbound_email_id } : {}),
+    suggestionType: rec.suggestion_type ?? '',
+    suggestedValue: coerceJson(rec.suggested_value),
+    ...(rec.rationale ? { rationale: rec.rationale } : {}),
+    ...(rec.confidence != null ? { confidence: Number(rec.confidence) } : {}),
+    ...(rec.model_version ? { modelVersion: rec.model_version } : {}),
+    reviewState,
+    createdAt: toIso(rec.created_at),
+    ...(rec.reviewed_by ? { reviewedBy: rec.reviewed_by } : {}),
+    ...(rec.reviewed_at ? { reviewedAt: toIso(rec.reviewed_at) } : {}),
   };
 }
 
