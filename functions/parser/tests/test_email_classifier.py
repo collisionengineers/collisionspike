@@ -290,6 +290,10 @@ def test_query_with_image_from_known_provider_is_query_not_work():
     assert result["category"] == "query"
     assert result["subtype"] == "query_existing_work"
     assert result["body_caseref"] == "CCPY26050"
+    # F6: the image carried a corroborating Case/PO and was suppressed by the
+    # query-guard (not for lack of corroboration), so it must NOT carry the
+    # contradictory ``uncorroborated_provider_image`` flag the LLM pass keys on.
+    assert "uncorroborated_provider_image" not in result["signals"]
 
 
 def test_query_with_image_no_reference_is_query_existing_work():
@@ -399,11 +403,27 @@ def test_image_with_provider_and_caseref_promotes():
     assert result["signals"][-1] == "rule:images_with_work_signal"
 
 
-def test_image_with_audit_signal_promotes():
-    """Corroboration fix (Rule 2): an audit signal is one of the corroborating
-    signals that re-enables image promotion. An image + an audit phrase (no work
-    phrase, no Case/PO, no provider) IS receiving_work — a re-inspection request
-    with photos. Guards the NEW `is_audit` Rule-2 trigger added by the fix."""
+def test_image_with_audit_signal_from_known_provider_is_audit_subtype():
+    """F3: an audit-phrase image from a KNOWN provider promotes to the audit subtype
+    (the only path that may emit existing_provider_audit). A re-inspection arriving as
+    photos from a matched provider keeps the 'A.'-prefixed audit case-type."""
+    result = classify_email(
+        subject="Re-inspection photos",
+        body="An audit report is required of the original engineer's findings.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
+    assert result["category"] == "receiving_work"
+    assert result["subtype"] == "existing_provider_audit"
+    assert result["signals"][-1] == "rule:images_with_work_signal"
+
+
+def test_image_with_audit_signal_unknown_provider_abstains():
+    """F3: an audit-phrase image from an UNKNOWN provider abstains to other — there is
+    no new-client-audit subtype, and an audit signal alone (no provider, no work phrase,
+    no Case/PO) is too weak to promote a bare image (audit subtype needs a known
+    provider). Pre-remediation this mislabelled it new_client_work."""
     result = classify_email(
         subject="Re-inspection photos",
         body="An audit report is required of the original engineer's findings.",
@@ -411,9 +431,87 @@ def test_image_with_audit_signal_promotes():
         attachment_kinds=["image"],
         has_attachments=True,
     )
-    assert result["category"] == "receiving_work"
-    assert result["subtype"] == "new_client_work"  # provider none -> new client
-    assert result["signals"][-1] == "rule:images_with_work_signal"
+    assert result["category"] == "other"
+    assert result["subtype"] == "other"
+
+
+def test_image_with_provider_and_postcode_only_abstains():
+    """F1 (headline regression): a bare image from a known provider whose body carries
+    only a routine token (a postcode) must NOT promote. VRM_RE over-matches the postcode
+    ('CV1'), but a body VRM no longer corroborates, so it abstains to other and flags
+    uncorroborated_provider_image. body_vrm is still surfaced for the open-Case fallback."""
+    result = classify_email(
+        subject="FW: pictures",
+        body="Here are the photos. Our office: Coventry CV1 2AB. Tel 024 7600 1234.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
+    assert result["category"] == "other"
+    assert result["subtype"] == "other"
+    assert "uncorroborated_provider_image" in result["signals"]
+    assert result["body_vrm"]  # VRM-shaped token found, but did NOT promote
+
+
+def test_instruction_doc_with_vrm_token_only_unknown_provider_abstains():
+    """F1: an instruction-class attachment from an unknown provider whose body carries
+    only a loose VRM-shaped token (a model code) and no work phrase / Case/PO must NOT
+    mint a Case — a body VRM no longer corroborates. Abstains to other."""
+    result = classify_email(
+        subject="Special offer",
+        body="Model X5 now 20% off — best deal this year.",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert result["category"] == "other"
+    assert result["subtype"] == "other"
+    assert "uncorroborated_instruction_doc" in result["signals"]
+    assert result["body_vrm"]  # VRM-shaped token found, but did NOT promote
+
+
+def test_instruction_doc_audit_unknown_provider_is_not_existing_provider_audit():
+    """F2: an audit-phrase instruction doc from an UNKNOWN provider must never be
+    labelled existing_provider_audit (that would attribute an 'A.'-prefixed Case/PO to a
+    non-existent provider). With a corroborating work phrase it promotes as new_client_work;
+    with audit phrases ALONE it abstains to other."""
+    corroborated = classify_email(
+        subject="New matter",
+        body="An audit report is required of the original engineer. Please inspect the vehicle.",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert corroborated["category"] == "receiving_work"
+    assert corroborated["subtype"] == "new_client_work"
+
+    audit_alone = classify_email(
+        subject="FW: report",
+        body="An audit report is required of the original engineer.",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert audit_alone["category"] == "other"
+    assert "uncorroborated_instruction_doc" in audit_alone["signals"]
+
+
+def test_instruction_doc_query_with_caseref_falls_through_to_query():
+    """F4: a chased query that re-attaches the ORIGINAL instruction doc (query phrasing,
+    a Case/PO, no work phrase) must land query — NOT receiving_work — even from a known
+    provider. Rule 1 now has Rule 2's query-guard, so it suppresses and falls through to
+    the query rules; no contradictory uncorroborated flag (the Case/PO corroborates)."""
+    result = classify_email(
+        subject="FW: CCPY26050",
+        body="Any update on CCPY26050? Could you confirm where this is up to?",
+        provider_match_state="one",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert result["category"] == "query"
+    assert result["subtype"] == "query_existing_work"
+    assert result["body_caseref"] == "CCPY26050"
+    assert "uncorroborated_instruction_doc" not in result["signals"]
 
 
 def test_uncorroborated_instruction_doc_with_query_falls_through_to_query():

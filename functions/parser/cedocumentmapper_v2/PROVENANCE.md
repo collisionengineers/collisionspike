@@ -29,77 +29,56 @@ intentional, recorded reconciliations described here.
 > `SETUP.md`. The deployed Function is unaffected; it runs the older, self-consistent
 > vendored copy until the re-vendor lands.
 
-> ## ⚠ VENDORED-ONLY DIVERGENCE (2026-06-29) — over-promotion corroboration gate (replay into sibling pending)
+> ## ⚠ VENDORED-ONLY DIVERGENCE (2026-06-29) — over-promotion corroboration gate (re-sync sibling pending)
 >
-> `rules/email_classifier.py` was edited **in this vendored copy only** to add the
-> **attachment-corroboration gate** (collisionspike ADR-0015 "Update (2026-06-29)"):
-> live triage was minting blank Cases because Rule 1 promoted on any
-> file-extension-derived `instruction` attachment and Rule 2 promoted on a known
-> provider domain alone. The sibling `cedocumentmapper_v2.0` repo was **not checked
-> out** at fix time, so the engine-core authoring source was **not** updated and the
-> drift guard **skipped** — this is an **un-upstreamed divergence**, NOT a clean
-> mirror. The deployed `cespike-parser-dev` Function runs this copy, so the fix is
-> live; the sibling must be re-synced when next reachable.
+> `rules/email_classifier.py` was edited **in this vendored copy only** to add (and then,
+> after an xhigh code review, recalibrate) the **attachment-corroboration gate**
+> (collisionspike ADR-0015 "Update (2026-06-29)"): live triage was minting blank Cases
+> because Rule 1 promoted on any file-extension-derived `instruction` attachment and
+> Rule 2 promoted on a known provider domain alone. The sibling `cedocumentmapper_v2.0`
+> repo was **not checked out** at fix time, so the engine-core authoring source was **not**
+> updated. **This vendored copy is now AUTHORITATIVE for `rules/email_classifier.py`** until
+> the sibling is re-synced.
 >
-> **To close it:** apply the replay hunk below to
-> `src/cedocumentmapper_v2/rules/email_classifier.py` in the sibling (branch
-> `feat/audit-case-type-detection`), commit + push, then re-vendor this copy verbatim
-> from that committed ref per the [Re-vendor procedure](#re-vendor-procedure-against-a-committed-sibling-ref)
-> and confirm `tests/test_engine_vendored_in_sync.py` is green
-> (`email_classifier.py` is a **shared, non-reconciled** module → must end byte-identical).
-> Lock by the collisionspike Tier-2 corpus fixtures `other/instruction-doc-spam-flyer.eml`
-> + `other/provider-image-no-context.eml` and the unit tests
-> `test_instruction_doc_without_corroboration_abstains_to_other`,
-> `test_instruction_doc_with_caseref_promotes`,
-> `test_image_with_provider_and_caseref_promotes`,
-> `test_image_with_provider_only_abstains_to_other`.
+> **Drift-guard expectation (read this).** `email_classifier.py` is a **shared, non-reconciled**
+> module — `tests/test_engine_vendored_in_sync.py` requires it to be **byte-identical** to the
+> sibling. It is **deliberately NOT added to `RECONCILED_MODULES`** (a marker-only exemption would
+> permanently blind the guard to *future* real drift on this shared file). Consequence: wherever the
+> sibling **is** checked out, the drift guard will **fail red** until the sibling is re-synced to
+> match this copy. **That red is EXPECTED, not accidental drift.** It SKIPS in CI / this workspace
+> (sibling absent), so the deployed Function is unaffected.
 >
-> **Replay hunk** (the two functional changes — Rule 1 new-client corroboration gate
-> and Rule 2 trigger; the surrounding docstring/comment reflow is cosmetic):
+> **To close it (re-sync, do NOT hand-patch the sibling from a hunk):** the vendored
+> `rules/email_classifier.py` is the source of truth for this change — copy it **verbatim** into the
+> sibling, e.g. from this repo `cp functions/parser/cedocumentmapper_v2/rules/email_classifier.py
+> <sibling>/src/cedocumentmapper_v2/rules/email_classifier.py` (this carries the code **and** the
+> docstring decision-tree + Rule 1/Rule 2 block comments together — no partial-hunk staleness trap),
+> commit + push on branch `feat/audit-case-type-detection`, re-cut this copy verbatim from that
+> committed ref per the [Re-vendor procedure](#re-vendor-procedure-against-a-committed-sibling-ref),
+> and confirm `tests/test_engine_vendored_in_sync.py` is GREEN.
 >
-> ```diff
-> @@ Rule 1: new-client arm (was an unconditional return) @@
-> -        return _result(
-> -            CATEGORY_RECEIVING_WORK,
-> -            SUBTYPE_NEW_CLIENT_WORK,
-> -            _CONFIDENCE_GOOD,
-> -            "instruction_doc_new_client",
-> -        )
-> +        if work_phrases or body_caseref or body_vrm:
-> +            return _result(
-> +                CATEGORY_RECEIVING_WORK,
-> +                SUBTYPE_NEW_CLIENT_WORK,
-> +                _CONFIDENCE_GOOD,
-> +                "instruction_doc_new_client",
-> +            )
-> +        signals.append("uncorroborated_instruction_doc")
-> +        # FALL THROUGH — an uncorroborated attachment is not work; let the query
-> +        # rules / Rule 6 abstain handle it.
-> @@ Rule 2: image trigger (provider_known dropped as a trigger; kept for subtype) @@
-> -    if has_images and (provider_known or work_phrases) and not (
-> +    if has_images and (work_phrases or body_caseref or body_vrm or is_audit) and not (
->          query_phrases and not work_phrases
->      ):
->          subtype = (
->              SUBTYPE_EXISTING_PROVIDER_INSTRUCTION
->              if provider_known
->              else SUBTYPE_NEW_CLIENT_WORK
->          )
->          return _result(
->              CATEGORY_RECEIVING_WORK,
->              subtype,
->              _CONFIDENCE_GOOD,
->              "images_with_work_signal",
->          )
-> +    if has_images and provider_known:
-> +        # Images from a known provider but with no corroborating work signal: not
-> +        # promoted (see above). Flag for the deferred LLM pass; fall through.
-> +        signals.append("uncorroborated_provider_image")
-> ```
+> **Complete semantic changelog (what diverged from the `504c3a3` cut):**
+> 1. **Rule 1 (instruction doc) — corroboration gate + audit fix.** New-client arm promotes only when
+>    `work_phrases or body_caseref` (a body **VRM no longer corroborates** — `VRM_RE` over-matches
+>    postcodes/models/years). The audit arm now requires `provider_known` (so an unknown-provider doc is
+>    never mislabelled `existing_provider_audit`, which would corrupt `A.`-prefix Case/PO numbering). A
+>    **query-guard** (`query_phrases and not work_phrases` → suppress + fall through) mirrors Rule 2.
+>    Uncorroborated docs flag `uncorroborated_instruction_doc` (only when genuinely uncorroborated, not
+>    when query-suppressed) and fall through.
+> 2. **Rule 2 (images) — corroboration gate.** Trigger is `work_phrases or body_caseref or (is_audit and
+>    provider_known)`; `provider_known` alone and a bare VRM no longer promote. Subtype: `existing_provider_audit`
+>    (known provider + audit), else `existing_provider_instruction` (known provider), else `new_client_work`.
+>    `uncorroborated_provider_image` is flagged only when Rule 2 fell through for **lack of corroboration**.
+> 3. **Docstring decision-tree (Rule 1/Rule 2 entries) and the Rule 1/Rule 2 block comments** were updated
+>    to match — they travel with the file on a verbatim copy.
 >
-> The `classify_email` docstring decision-tree (Rule 1 / Rule 2 entries) and the
-> Rule 1 / Rule 2 block comments were updated to match; replay those verbatim from
-> this copy when re-syncing the sibling.
+> **Lock (collisionspike-side):** Tier-2 corpus fixtures `other/instruction-doc-spam-flyer.eml` +
+> `other/provider-image-no-context.eml`, and the unit tests `test_instruction_doc_without_corroboration_abstains_to_other`,
+> `test_image_with_provider_only_abstains_to_other`, `test_image_with_provider_and_postcode_only_abstains`,
+> `test_instruction_doc_audit_unknown_provider_is_not_existing_provider_audit`,
+> `test_image_with_audit_signal_from_known_provider_is_audit_subtype`,
+> `test_image_with_audit_signal_unknown_provider_abstains`,
+> `test_instruction_doc_query_with_caseref_falls_through_to_query`.
 
 ## Source
 

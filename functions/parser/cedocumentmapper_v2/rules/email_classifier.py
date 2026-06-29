@@ -191,23 +191,28 @@ def classify_email(
          instruction doc is the module's strongest positive signal and overrides
          the abstain, so a real provider instruction whose footer says
          "do not reply" still reaches Rule 1).
-      1. Instruction doc attached:
-           - audit phrases        -> receiving_work · existing_provider_audit
-           - known provider        -> receiving_work · existing_provider_instruction
-           - else CORROBORATED by a work phrase OR a body Case/PO OR a VRM
-                                   -> receiving_work · new_client_work
+      1. Instruction doc attached (necessary but NOT sufficient — the kind is
+         extension-derived), UNLESS query-phrased with no work language (suppressed
+         -> falls through to the query rules):
+           - known provider + audit -> receiving_work · existing_provider_audit
+           - known provider          -> receiving_work · existing_provider_instruction
+           - unknown provider CORROBORATED by a work phrase OR a body Case/PO
+                                     -> receiving_work · new_client_work
            - otherwise NOT promoted: a bare PDF/DOC with no provider, no work
-             language and no reference (a spam flyer, invoice, statement,
-             newsletter or forwarded letter) must not become a Case on the file
-             extension alone — flag ``uncorroborated_instruction_doc`` and fall
-             through to the query / abstain rules.
-      2. Images + (a work phrase OR a body Case/PO OR a VRM OR an audit signal)
-         -> receiving_work, UNLESS the email is phrased as a query with no work
-         language (then fall through to the query rules — a provider chasing a
-         report who re-attaches the original photo must not create/touch a work
-         Case). A known provider domain ALONE no longer promotes a bare image (a
-         forwarded chain, a signature logo, a bounced-back photo); it only selects
-         the subtype once another signal corroborates.
+             language and no Case/PO (a spam flyer, invoice, statement, newsletter or
+             forwarded letter) must not become a Case on the file extension alone.
+             A body VRM does NOT corroborate (VRM_RE over-matches postcodes / models /
+             years); audit phrases ALONE do not promote an unknown provider (no
+             new-client-audit subtype). Flag ``uncorroborated_instruction_doc`` and
+             fall through to the query / abstain rules.
+      2. Images + (a work phrase OR a body Case/PO OR an audit signal from a KNOWN
+         provider) -> receiving_work, UNLESS the email is phrased as a query with no
+         work language (then fall through to the query rules — a provider chasing a
+         report who re-attaches the original photo must not create/touch a work Case).
+         A known provider domain ALONE, a bare VRM, or an audit signal from an UNKNOWN
+         provider do NOT promote a bare image (a forwarded chain, signature logo, or
+         bounced-back photo all match the domain); a known provider only selects the
+         subtype (and emits the audit subtype) once another signal corroborates.
       3. No attachment, >=2 work keywords + a body Case/PO or VRM -> receiving_work
          (an instruction typed into the email body).
       4. A query keyword + a body Case/PO or VRM -> query / query_existing_work
@@ -290,70 +295,87 @@ def classify_email(
             "auto_reply_marker",
         )
 
-    # --- Rule 1: an instruction document is the single strongest work signal ---
-    # An audit instruction or a known-provider instruction is self-corroborating
-    # (the audit phrases / the matched provider domain ARE the corroboration), so
-    # those two early-returns are unconditional. But a bare attachment whose kind
-    # was derived from the file extension alone (.pdf/.doc/.docx -> "instruction")
-    # is NOT proof of work: a spam flyer, an invoice, a statement, a newsletter or
-    # a forwarded letter would all carry one. Promoting it to new_client_work on
-    # the extension alone mints a blank Case, so the new-client arm now REQUIRES a
-    # corroborating signal — a work phrase, a body Case/PO, or a VRM. With none,
-    # flag it and FALL THROUGH to the query / abstain rules (abstain-to-other).
+    # --- Rule 1: an instruction document is necessary but NOT sufficient --------
+    # The attachment kind is derived from the file extension alone (.pdf/.doc/.docx
+    # -> "instruction"), so a spam flyer, invoice, statement, newsletter or forwarded
+    # letter all carry one. Promotion therefore requires CORROBORATION:
+    #   * a known provider domain (the match IS the corroboration) — and ONLY this
+    #     path may emit the existing-provider / audit subtypes; or
+    #   * for an unknown provider, a work phrase OR a body Case/PO. A body VRM does
+    #     NOT corroborate: VRM_RE is deliberately loose for /parse field extraction
+    #     and over-matches postcodes / model codes / years, so a lone VRM-shaped token
+    #     must not mint a Case (it is still returned for the open-Case VRM fallback).
+    #   * audit phrases ALONE never promote an unknown-provider doc — there is no
+    #     new-client-audit subtype, and labelling it existing_provider_audit would
+    #     attribute an "A."-prefixed Case/PO to a provider that does not exist.
+    # A query-phrased email that merely re-attaches an instruction doc (query wording,
+    # no work phrase) is SUPPRESSED here and falls through to the query rules (exactly
+    # as Rule 2 does for images). With no corroboration at all the doc is flagged
+    # ``uncorroborated_instruction_doc`` and falls through (abstain-to-other).
     if has_instruction_doc:
-        if is_audit:
-            return _result(
-                CATEGORY_RECEIVING_WORK,
-                SUBTYPE_EXISTING_PROVIDER_AUDIT,
-                _CONFIDENCE_STRONG,
-                "instruction_doc_audit",
-            )
-        if provider_known:
-            return _result(
-                CATEGORY_RECEIVING_WORK,
-                SUBTYPE_EXISTING_PROVIDER_INSTRUCTION,
-                _CONFIDENCE_STRONG,
-                "instruction_doc_existing_provider",
-            )
-        if work_phrases or body_caseref or body_vrm:
-            return _result(
-                CATEGORY_RECEIVING_WORK,
-                SUBTYPE_NEW_CLIENT_WORK,
-                _CONFIDENCE_GOOD,
-                "instruction_doc_new_client",
-            )
-        signals.append("uncorroborated_instruction_doc")
-        # FALL THROUGH — an uncorroborated attachment is not work; let the query
-        # rules / Rule 6 abstain handle it.
+        suppress_as_query = bool(query_phrases) and not work_phrases
+        if not suppress_as_query:
+            if provider_known:
+                if is_audit:
+                    return _result(
+                        CATEGORY_RECEIVING_WORK,
+                        SUBTYPE_EXISTING_PROVIDER_AUDIT,
+                        _CONFIDENCE_STRONG,
+                        "instruction_doc_audit",
+                    )
+                return _result(
+                    CATEGORY_RECEIVING_WORK,
+                    SUBTYPE_EXISTING_PROVIDER_INSTRUCTION,
+                    _CONFIDENCE_STRONG,
+                    "instruction_doc_existing_provider",
+                )
+            if work_phrases or body_caseref:
+                return _result(
+                    CATEGORY_RECEIVING_WORK,
+                    SUBTYPE_NEW_CLIENT_WORK,
+                    _CONFIDENCE_GOOD,
+                    "instruction_doc_new_client",
+                )
+        # Not promoted. Flag ONLY when genuinely uncorroborated (not merely
+        # query-suppressed): a query-suppressed doc that DID carry a provider match /
+        # work phrase / Case/PO must not also carry the contradictory ``uncorroborated``
+        # marker the deferred LLM pass keys on.
+        if not (provider_known or work_phrases or body_caseref):
+            signals.append("uncorroborated_instruction_doc")
+        # FALL THROUGH to the query / abstain rules.
 
     # --- Rule 2: images + a corroborating work signal confirms work -------------
-    # An attached image plus a work phrase, a body Case/PO, a VRM, or an audit
-    # signal reads as a fresh instruction (a new client's photos with "please
-    # inspect", a provider's photos quoting the Case/PO). A known provider domain
-    # is, on its OWN, too weak to promote a bare image — a forwarded chain, a
-    # signature logo, or a returned-message screenshot from a provider address
-    # would all match the domain — so it no longer triggers Rule 2; it only
-    # selects the subtype once another signal corroborates. A query email that
-    # merely re-attaches the original photo (query phrasing, no work phrase) still
-    # falls through to the query rules (abstain bias; ADR-0015). An instruction doc
-    # was already classified at Rule 1.
-    if has_images and (work_phrases or body_caseref or body_vrm or is_audit) and not (
-        query_phrases and not work_phrases
+    # An attached image plus a work phrase or a body Case/PO reads as a fresh
+    # instruction (a new client's photos with "please inspect", a provider's photos
+    # quoting the Case/PO). A known provider domain on its OWN is too weak to promote
+    # a bare image (a forwarded chain, a signature logo, or a returned-message
+    # screenshot all match the domain); a body VRM is too loose (see Rule 1). An audit
+    # signal promotes ONLY for a known provider — the only path that can emit the audit
+    # subtype — so an audit-shaped image from an unknown provider abstains. A query
+    # email that merely re-attaches the original photo (query phrasing, no work phrase)
+    # falls through to the query rules (abstain bias; ADR-0015). An instruction doc was
+    # already handled at Rule 1.
+    if (
+        has_images
+        and (work_phrases or body_caseref or (is_audit and provider_known))
+        and not (query_phrases and not work_phrases)
     ):
-        subtype = (
-            SUBTYPE_EXISTING_PROVIDER_INSTRUCTION
-            if provider_known
-            else SUBTYPE_NEW_CLIENT_WORK
-        )
+        if provider_known and is_audit:
+            subtype = SUBTYPE_EXISTING_PROVIDER_AUDIT
+        elif provider_known:
+            subtype = SUBTYPE_EXISTING_PROVIDER_INSTRUCTION
+        else:
+            subtype = SUBTYPE_NEW_CLIENT_WORK
         return _result(
             CATEGORY_RECEIVING_WORK,
             subtype,
             _CONFIDENCE_GOOD,
             "images_with_work_signal",
         )
-    if has_images and provider_known:
-        # Images from a known provider but with no corroborating work signal: not
-        # promoted (see above). Flag for the deferred LLM pass; fall through.
+    if has_images and provider_known and not (work_phrases or body_caseref or is_audit):
+        # Images from a known provider with NO corroborating signal: not promoted.
+        # Flag for the deferred LLM pass; fall through. NOT appended when Rule 2 was
+        # suppressed by the query-guard on a corroborated image — that row is a query.
         signals.append("uncorroborated_provider_image")
 
     # --- Rule 3: no attachment, but a body instruction (>=2 work phrases + id) --
