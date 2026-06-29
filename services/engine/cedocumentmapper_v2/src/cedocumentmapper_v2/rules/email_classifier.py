@@ -83,7 +83,6 @@ import re
 from typing import Any
 
 from cedocumentmapper_v2.rules.engine import (
-    UK_POSTCODE_RE,
     detect_audit_signals,
     vrm_candidate_is_bad,
     _match_keywords,
@@ -181,33 +180,75 @@ _VRM_CONTEXT_WORDS: tuple[str, ...] = (
 # How far either side of a loose candidate to look for a context word / postcode.
 _VRM_CONTEXT_WINDOW = 30
 
+# Common English words a WELL-FORMED VRM's 3-letter alpha group can accidentally
+# spell out of natural-language / model text ("Model X5 now …" -> "X5 NOW";
+# "the GO12 OFF …"). A Tier-1 candidate whose trigram is one of these is rejected
+# ONLY when no VRM context word sits beside it — a genuine plate that spells a word
+# ("reg AB12 NEW") still passes on the context anchor (collisionspike #7 / F162).
+# Deliberately small + conservative so real plates (AP70 WAA, MX17 PNL, A123 BCD,
+# ABC 123D) are never dropped.
+_VRM_STOPWORD_TRIGRAMS: frozenset[str] = frozenset({
+    "NOW", "NEW", "OUT", "OFF", "AND", "THE", "FOR", "ALL", "ANY", "ONE",
+    "TWO", "WAS", "ARE", "HAS", "HAD", "YOU", "OUR", "NOT", "BUT", "WHO",
+    "WHY", "HOW", "CAN", "GET", "GOT", "SEE", "DUE", "PER", "VAT", "TAX",
+})
+
+
+def _wellformed_trigram_is_stopword(candidate: str) -> bool:
+    """True when a well-formed VRM candidate's 3-letter alpha group spells a common
+    English stop-word — a strong hint it is natural-language noise, not a plate
+    (collisionspike #7 / F162). The whitespace-stripped candidate is split into its
+    maximal letter runs; a run of exactly three letters that is a known stop-word
+    trips it (covers the trailing trigram of the current/prefix shapes AND the
+    leading trigram of the dateless-suffix shape)."""
+    compact = re.sub(r"\s+", "", candidate).upper()
+    return any(
+        len(run) == 3 and run in _VRM_STOPWORD_TRIGRAMS
+        for run in re.findall(r"[A-Z]+", compact)
+    )
+
 
 def _canonical_body_vrm(text: str) -> str:
     """First well-formed UK VRM in ``text`` (uppercased, whitespace-stripped), or "".
 
     Tighter than the engine's ``VRM_RE`` so the inbox VRM chip never shows postcode
     outward codes or junk tokens (collisionspike #7). A well-formed VRM is accepted
-    outright; a loose, dateless candidate is admitted only when a VRM context word
-    sits nearby AND it is not postcode-shaped (``UK_POSTCODE_RE``) and clears
-    ``vrm_candidate_is_bad`` (the same guard the /parse fallback uses).
+    outright — UNLESS its 3-letter alpha group spells a common English stop-word and
+    no VRM context word sits nearby (natural-language / model text such as "Model X5
+    now …" matched the prefix alternative as "X5 NOW"; F162). A loose, dateless
+    candidate is admitted only when a VRM context word sits nearby AND it clears
+    ``vrm_candidate_is_bad`` — whose postcode guard is CANDIDATE-ANCHORED (is the
+    candidate itself a postcode outward code?), mirroring the engine's /parse
+    fallback, so an UNRELATED postcode elsewhere in the window no longer suppresses a
+    valid loose reg (F209).
     """
     if not text:
         return ""
-    # Tier 1 — a well-formed VRM anywhere wins outright (no context needed).
-    m = _VRM_WELLFORMED_RE.search(text)
-    if m:
-        return re.sub(r"\s+", "", m.group(1)).upper()
-    # Tier 2 — a loose/dateless candidate must clear the postcode / junk guards AND
-    # have a VRM context word nearby. Iterate so a junk token early in the body does
-    # not mask a real, context-anchored dateless plate later on.
     lowered = text.lower()
+    # Tier 1 — a well-formed VRM wins outright. Iterate (not just .search) so a
+    # stop-word false positive ("X5 NOW") early in the text does not mask a real
+    # plate later; a candidate whose alpha trigram is a stop-word is rejected ONLY
+    # when no VRM context word sits nearby (a genuine "reg AB12 NEW" still passes).
+    for m in _VRM_WELLFORMED_RE.finditer(text):
+        candidate = m.group(1)
+        if _wellformed_trigram_is_stopword(candidate):
+            start = max(0, m.start() - _VRM_CONTEXT_WINDOW)
+            end = m.end() + _VRM_CONTEXT_WINDOW
+            if not any(word in lowered[start:end] for word in _VRM_CONTEXT_WORDS):
+                continue  # stop-word trigram + no VRM context -> natural-language noise
+        return re.sub(r"\s+", "", candidate).upper()
+    # Tier 2 — a loose/dateless candidate must clear the junk / CANDIDATE-ANCHORED
+    # postcode guard (``vrm_candidate_is_bad``) AND have a VRM context word nearby.
+    # The postcode test is anchored to the candidate (is IT a postcode outward code,
+    # i.e. immediately followed by an inward ``\d[A-Z]{2}``?) rather than a window-wide
+    # scan, so a real loose reg survives an UNRELATED postcode nearby (F209 — e.g.
+    # "reg AB1234 … Leeds LS8 2AB"). Iterate so a junk token early in the body does
+    # not mask a real, context-anchored dateless plate later on.
     for m in _VRM_LOOSE_RE.finditer(text):
         candidate = m.group(1)
         start = max(0, m.start() - _VRM_CONTEXT_WINDOW)
         end = m.end() + _VRM_CONTEXT_WINDOW
         window = text[start:end]
-        if UK_POSTCODE_RE.search(window):
-            continue  # the candidate sits inside a full postcode (e.g. "LS8 2AB")
         if vrm_candidate_is_bad(candidate, window):
             continue  # too short / postcode-outward / label word (B8, G3, BOX2, ...)
         if not any(word in lowered[start:end] for word in _VRM_CONTEXT_WORDS):
@@ -464,7 +505,13 @@ def classify_email(
     #     freshly-minted Case/PO from one quoted out of the reply thread (that novelty
     #     check is the orchestrator's DB lookup), so fresh work LANGUAGE is the sole
     #     discriminator.
-    new_work_phrases = _match_keywords(_sender_written_text(haystack), _WORK_KEYWORDS)
+    # F467: a reply's SUBJECT is inherited from the original thread, not freshly
+    # written, so the "new work phrase" discriminator is derived from the sender-
+    # written BODY only (``body_s``) — never the carried-over subject. Otherwise a
+    # reply whose sole work phrase rode in on the inherited subject (e.g. "RE: New
+    # instruction CCPY26050 - please inspect") would dodge the suppression and mint a
+    # duplicate Case. The quoted thread is still stripped (``_sender_written_text``).
+    new_work_phrases = _match_keywords(_sender_written_text(body_s), _WORK_KEYWORDS)
     suppress_as_query = (bool(query_phrases) and not work_phrases) or (
         is_reply and not new_work_phrases
     )
