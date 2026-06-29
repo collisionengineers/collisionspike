@@ -1,5 +1,7 @@
 # Work provider, intermediary, and garage are distinct sourcing roles
 
+**Status:** Accepted (2026-06-18).
+
 The party that requests and pays for the work and goes on EVA — the **Work Provider** — is modelled
 separately from the **intermediary** that sometimes routes the instruction/images on its behalf, and
 from the **garage/repairer** that sometimes holds the images. Not every provider uses an intermediary;

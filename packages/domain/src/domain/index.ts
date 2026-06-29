@@ -12,3 +12,4 @@ export * from './classification';
 export * from './dedup';
 export * from './provider-match';
 export * from './address-policy';
+export * from './pii-scrub';

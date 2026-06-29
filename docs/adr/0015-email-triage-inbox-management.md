@@ -73,3 +73,13 @@ The operator wants **every email** arriving at the 3 shared inboxes classified i
 - ADR-0014 (audit case-type)
 - Phase 8 plan — [`docs/plans/phase-8-inbox-management/README.md`](../plans/phase-8-inbox-management/README.md)
 - [`docs/open-questions.md`](../open-questions.md)
+
+## Update (2026-06-27) — platform migration (mechanism only)
+
+The triage **decision** (classify every email; RECEIVING WORK / QUERIES / OTHER; a dedicated triage
+table; never silently dropped) stands. The Power Platform specifics are superseded by the Azure stack
+(**deprovisioned 2026-06-27**): the new triage table moves from Dataverse `cr1bd_inboundemail` to a
+**Postgres** `inbound_email` table (with `inbound_category` / `inbound_subtype` lookups); intake
+transport is **Microsoft Graph change-notification (PUSH)** handled by **`cespk-orch-dev`**, not the
+`fetchOnlyWithAttachment` Power Automate trigger; the deterministic classifier is a parser / Data-API
+route. The cost / `concurrency=1` notes about the Power Automate seeded-run allowance no longer apply.

@@ -2,7 +2,7 @@
 
 > Dependency-ordered, gated roadmap for the second milestone of the Collision Engineers case-intake
 > spike (Power Apps **Code App** + Dataverse + Power Automate + Azure Functions, Sandbox
-> `Collision Engineers - Dev` `b3090c42-…`). Companion to [PLAN.md](../../PLAN.md),
+> `Collision Engineers - Dev` `b3090c42-…`). Companion to [PLAN.md](../HISTORICAL/PLAN.md),
 > [ROADMAP.md](../../ROADMAP.md), [CURRENT_STATUS.md](../../CURRENT_STATUS.md),
 > [AGENTS.md](../../AGENTS.md), [docs/architecture/live-environment.md](../../docs/architecture/live-environment.md),
 > the ADRs in [docs/adr/](../../docs/adr/), and the **eva-sentry-api** skill. Sibling plans it depends on:

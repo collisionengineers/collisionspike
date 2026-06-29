@@ -1,5 +1,7 @@
 # Chasers are channel-aware; WhatsApp outbound is draft-only (WhatsApp Business constraint)
 
+**Status:** Accepted (2026-06-17).
+
 Chasing a Case's Missing items is **assisted and tracked**, but constrained by channel. Collision
 Engineers use **WhatsApp Business only** and will not change this, so the tool cannot freely
 auto-send WhatsApp messages: for WhatsApp Image Sources a chaser is **drafted for the staff member

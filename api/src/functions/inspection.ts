@@ -42,7 +42,7 @@ app.http('inspectionAddressSuggestions', {
   handler: withRole('CollisionSpike.User', async (req) => {
     try {
       const id = req.params.id;
-      // Scope by the 4-char PRINCIPAL parsed from the Case/PO leading-alpha run.
+      // Scope by the leading-alpha PRINCIPAL parsed from the Case/PO (typically 4 chars; 2–5 observed).
       const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [id]);
       const providerCode = (
         (caseRows[0]?.case_po ?? '').trim().match(/^[A-Za-z]+/)?.[0] ?? ''

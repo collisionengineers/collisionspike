@@ -1,5 +1,7 @@
 # Enrichment connectors via a REST wrapper; DVSA mileage + vehicle details in M1
 
+**Status:** Accepted (2026-06-17).
+
 > **Update 2026-06: gateway retired for M1.** The chosen pattern (thin REST wrapper Azure Function →
 > custom connector) stands; the implementation calls **DVSA + DVLA directly via Entra
 > `client_credentials` + X-API-Key** — there is no Cloud Run OAuth-gateway hop (option B1

@@ -13,7 +13,7 @@ Engineers on Power Apps Code App + Dataverse + Power Automate + Azure Functions)
 research/planning** unless its own header says otherwise: the binding rule is **build offline, gated-OFF;
 the operator activates** (memory `live-services-boundary`). Canonical context lives in
 [../../ROADMAP.md](../../ROADMAP.md), [../../CURRENT_STATUS.md](../../CURRENT_STATUS.md),
-[../../DEPLOY-RUNBOOK.md](../../DEPLOY-RUNBOOK.md), [../gated.md](../gated.md),
+[../azure/deploy.md](../azure/deploy.md), [../gated.md](../gated.md),
 [../../AGENTS.md](../../AGENTS.md),
 [../architecture/live-environment.md](../architecture/live-environment.md), and the ADRs.
 
@@ -74,7 +74,7 @@ docs/plans/
 > **Phase 7 — Box-centric intake pivot (ADR-0012).** Added 2026-06-22 as a later **additive** phase
 > (folder at parse-confirm, File-Request image chasers, webhook intake; **Dataverse-authoritative,
 > one-way Box mirror**). Its **authoritative build order + cross-section reconciliations** live in
-> [`box-integration-pivot/plans/00-BUILD-PLAN.md`](../../box-integration-pivot/plans/00-BUILD-PLAN.md)
+> [`docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md`](../HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md)
 > (which **wins over** the six section plans 01–06); the phase folder here is the in-tree spine. Status:
 > **the Phase-7 Box Dataverse schema + `cr1bd_BOX_*` env-vars are APPLIED LIVE in Dev (all `BOX_*` gates
 > OFF); the `box-webhook` Function is DEPLOYED to `rg-collisionspike-dev` (`cespkbox-fn-v76a47`, 9 functions,
@@ -119,6 +119,32 @@ docs/plans/
 | [phase-9-data-governance/README.md](./phase-9-data-governance/README.md) | UK-GDPR retention/erasure/PII lifecycle across Dataverse + Blob + Box; two competing clocks (minimisation vs litigation hold); DSAR runbook + DPIA + AI-data-protection gate. | **Phase 9** (ADR-0017 _Proposed_) |
 | [phase-ux-design-lab/README.md](./phase-ux-design-lab/README.md) | Cross-cutting UX lab: explore 8+ **throwaway** HTML/React UI directions covering the whole product (main-page inbox cockpit + queues + all Phase 1–9 features), judge them, converge, then **port the winner to the Fluent v9 Code App**. Run by a dynamic **ultracode** workflow over 9 new UI/UX subagents. | **cross-cutting** (UI/UX) |
 | [../open-questions.md](../open-questions.md) | Consolidated **decisions** register (distinct from the operator-action registry gated.md) for Phases 4a/8/9 + cross-cutting + doc-hygiene. | **cross-cutting** (decisions) |
+
+## Per-phase READMEs & loose plans
+
+Each phase folder's **`README.md`** carries that phase's goal, current status, and ordered build
+checklist:
+[phase-0](./phase-0-foundations/README.md) ·
+[phase-1](./phase-1-intake-and-case-tracking/README.md) ·
+[phase-2](./phase-2-live-activation/README.md) ·
+[phase-3](./phase-3-enrichment-and-eva/README.md) ·
+[phase-4](./phase-4-address-and-chaser/README.md) ·
+[phase-5](./phase-5-ocr-and-scale/README.md) ·
+[phase-6](./phase-6-handoff/README.md) ·
+[phase-7](./phase-7-box-integration/README.md) ·
+[phase-8](./phase-8-inbox-management/README.md) ·
+[phase-9](./phase-9-data-governance/README.md) ·
+[phase-ux-design-lab](./phase-ux-design-lab/README.md).
+
+Loose / cross-cutting plans and runbooks under this tree:
+
+- [phase-4-address-and-chaser/location-suggest-v1-BUILD.md](./phase-4-address-and-chaser/location-suggest-v1-BUILD.md) — Phase 4a live location-suggestion assist (helper #3): v1 BUILD report + activation runbook.
+- [phase-8-inbox-management/intake-restructure-notes.md](./phase-8-inbox-management/intake-restructure-notes.md) — operator reconcile-up-to-live note for the Phase 8 intake restructure (slice A).
+- [phase-ux-design-lab/design-brief.md](./phase-ux-design-lab/design-brief.md) — the UX Design Lab **shared design brief + rubric** (Stage A); the real index for the `directions*/` exploration files.
+- [phases-1-7-sweep-report.md](./phases-1-7-sweep-report.md) — the consolidated Phases 1–7 SDLC sweep report.
+- [user-accounts-and-permissions.md](./user-accounts-and-permissions.md) — plan for staff user accounts & permission levels (personas).
+- [runbooks/box-business-test.md](./runbooks/box-business-test.md) — runbook for the Box Business-account test against the test folder.
+- [runbooks/live-email-linking.md](./runbooks/live-email-linking.md) — runbook for live email linking (`digital@` → all three shared inboxes).
 
 ## ROADMAP coverage check (every phase/feature has a plan)
 

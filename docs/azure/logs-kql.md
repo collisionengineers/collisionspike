@@ -31,7 +31,7 @@ customEvents | where name in ("graph-renewal-success","graph-notification-receiv
 - **Windows `az.cmd` mangles inline KQL.** Long inline `--analytics-query "..."` (and especially
   `length(@)` with parens) gets corrupted → broad/garbage results. **Write the KQL to a file and pass
   `--analytics-query "@q.kql"`**, or use `mcp__azure__monitor`. To count functions use `--query "[].name"`
-  and count, **never `length(@)`**. Ref [[azure-orch-deploy]].
+  and count, **never `length(@)`**. Ref [azure-orch-deploy](../../memory/azure-orch-deploy.md).
 - **"Missing" logs are usually sampling.** App Insights samples by default; rows you expect can be dropped.
   Don't conclude "it didn't run" — adjust/inspect sampling (`host.json`; the API already excludes
   `Exception` from sampling so DB errors are captured).

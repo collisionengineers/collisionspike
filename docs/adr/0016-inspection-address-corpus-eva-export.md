@@ -8,7 +8,7 @@ ADR-0017 (data governance). Realised in Phase 4a.
 A new EVA export `fullevaexportinspectionaddresses.xlsx` (**~17,737 inspection rows**) has arrived with
 columns *Case ID, Vehicle Reg, Insured Name, Claim No, Created Date, InspLocAdd, InspLocPCode,
 InspLocName, InspLocCont, InspLocAdd1* — i.e. the **FULL street / postcode / site-name**, much richer
-than the prior `codexwork` CSV that yielded only ~697 suggested rows.
+than the prior `codexwork` CSV that yielded only ~697 rows of suggestions.
 
 The operator says it "**is now the source of truth and to entirely replace the current records**", and
 lists three helper methods to consider: (1) provider-always-image-based autofill; (2) most-common /
@@ -99,7 +99,7 @@ flipping to Accepted is the operator's review call):
 
 **Status update (2026-06-24):** the **live `-Apply` replace was RUN** — backup via 16a first, then
 `16-seed -ReplaceSuggestions -Apply`: **2,035 `suggested:eva_export` rows live, 503 stale suggestions
-removed, 174 confirmed rows preserved; `17-verify` all-pass** (and the 3 ranking columns created live).
+removed, the confirmed rows preserved (174 at the 2026-06-24 load — live count in the [registry](../architecture/live-environment.md)); `17-verify` all-pass** (and the 3 ranking columns created live).
 **Still PENDING:** the **#2b proximity-ordering** signal — two best-effort parser extractions (accident
 location, claimant home address; **sibling** `cedocumentmapper_v2.0`) + **gated** geocoding — is
 **deferred**; and **helper #3 is re-scoped** to a LIVE, human-confirmed location-suggestion assist

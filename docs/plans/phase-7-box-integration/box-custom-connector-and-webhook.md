@@ -3,10 +3,9 @@
 > The **build-artefact spec** for the Box-side unlock (B0). It defines the **contract** the azure
 > section implements; it does **not** author the connector OpenAPI, the Functions, the flows, or the
 > schema (those are owned across the seam — see Ownership). Ground truth, in order: ADR-0012 →
-> [`box-integration-pivot/plans/00-BUILD-PLAN.md`](../../../box-integration-pivot/plans/00-BUILD-PLAN.md)
+> [`docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md`](../../HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md)
 > reconciliation table → the local Box mirror (`automationsresearch/box/markdown`) + developer.box.com.
-> The skills [`box-rest-api`](../../../.claude/skills/box-rest-api/SKILL.md) and
-> [`box-flow-patterns`](../../../.claude/skills/box-flow-patterns/SKILL.md) carry the field-level depth.
+> The skill [`box-rest-api`](../../../.claude/skills/box-rest-api/SKILL.md) carries the field-level depth.
 
 ## Ownership (the seam)
 

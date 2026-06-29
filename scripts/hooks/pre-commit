@@ -1,0 +1,46 @@
+#!/bin/sh
+# pre-commit — documentation-freshness guard for collisionspike.
+#
+# Activation (one-time, per clone — .git/hooks is NOT tracked):
+#     git config core.hooksPath scripts/hooks
+# See docs/MAINTENANCE.md → "Activate the hook".
+#
+# What it does:
+#   1. BLOCKS the commit if `node scripts/check-doc-links.mjs` fails
+#      (broken relative links, orphaned docs, or live-number leakage).
+#   2. WARNS (does NOT block) if docs/architecture/live-environment.md is staged
+#      but LIVE_FACTS.json is not — a possible un-mirrored live edit. The registry
+#      mirror and LIVE_FACTS.json should move together.
+#
+# Bypass (use sparingly, e.g. a WIP commit mid-restructure):  git commit --no-verify
+
+# Resolve repo root so the hook works regardless of the invoking cwd.
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT" || exit 1
+
+# --- 1. Link / orphan / leakage gate (BLOCKING) ---
+if command -v node >/dev/null 2>&1; then
+  if ! node scripts/check-doc-links.mjs --quiet; then
+    echo ""
+    echo "pre-commit: doc-links check FAILED — commit blocked."
+    echo "  Fix the issues above, or bypass once with:  git commit --no-verify"
+    exit 1
+  fi
+else
+  echo "pre-commit: node not found — skipping doc-links check (install Node to enable)."
+fi
+
+# --- 2. Registry-mirror co-staging WARNING (non-blocking) ---
+STAGED="$(git diff --cached --name-only)"
+echo "$STAGED" | grep -qx "docs/architecture/live-environment.md"
+MIRROR_STAGED=$?
+echo "$STAGED" | grep -qx "LIVE_FACTS.json"
+FACTS_STAGED=$?
+if [ "$MIRROR_STAGED" -eq 0 ] && [ "$FACTS_STAGED" -ne 0 ]; then
+  echo ""
+  echo "pre-commit WARNING: docs/architecture/live-environment.md is staged but LIVE_FACTS.json is NOT."
+  echo "  The registry mirror and LIVE_FACTS.json should change together. If you edited a live"
+  echo "  number, update LIVE_FACTS.json (bump lastVerified) too. (Warning only — commit allowed.)"
+fi
+
+exit 0

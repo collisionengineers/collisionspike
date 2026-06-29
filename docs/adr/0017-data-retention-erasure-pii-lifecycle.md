@@ -80,3 +80,14 @@ below marks each.
 - Phase 9 plan — [`docs/plans/phase-9-data-governance/README.md`](../plans/phase-9-data-governance/README.md)
 - [`docs/gated.md`](../gated.md)
 - ADR-0016 (inspection-address corpus — the git-tracked EVA full-address export)
+
+## Update (2026-06-27) — platform migration (mechanism only)
+
+The retention / erasure / PII **decisions** stand; the **"As-built (2026-06-24)" surface** named above was
+the Power Platform build (`27-retention-schema.ps1`, the `case-disposition` Power Automate flow,
+`cr1bd_CASE_DISPOSITION_ENABLED`, Dataverse auditing), **deprovisioned 2026-06-27**. The Azure
+equivalents: retention-clock columns + disposition live in **Postgres** + the **Data API** (gate
+`CASE_DISPOSITION_ENABLED`); audit is the append-only Postgres `audit_event` table (RLS-enforced); the
+role model is the Entra app-roles **`CollisionSpike.User` / `.Superuser`** (the **Admin** role above was
+renamed → **Superuser**), with **`.Engineer`** deferred. The `[RESERVED-FOR-USER]` legal items and the
+git-tracked corpus `.xlsx` are unchanged.

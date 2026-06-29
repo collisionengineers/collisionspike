@@ -25,12 +25,12 @@ Data API; or you're assigning an Entra app role.
   not found").
 - **Durable (orch) needs three storage roles**, not one: **Storage Blob Data Owner + Queue Data
   Contributor + Table Data Contributor** on `cespkorchstdev01` (Blob alone can't run the task hub).
-  Ref [[azure-orch-deploy]].
+  Ref [azure-orch-deploy](../../memory/azure-orch-deploy.md).
 - **Vaults must be RBAC-authorized** (`--enable-rbac-authorization true`) for the role to apply.
 - **Entra app roles** on the API: `CollisionSpike.User` / `CollisionSpike.Superuser` (full; was `Admin`,
   same role-id) / `CollisionSpike.Engineer` (placeholder, not enforced). **Only one staff principal is
   assigned** — others reach the API and **403** until assigned. The orch MI also needs an app-role on the
-  Data API at go-live. Ref [[azure-api-deploy-and-auth]] · [`live-environment.md`](../architecture/live-environment.md).
+  Data API at go-live. Ref [azure-api-deploy-and-auth](../../memory/azure-api-deploy-and-auth.md) · [`live-environment.md`](../architecture/live-environment.md).
 - Use **PowerShell, not Git Bash**, for `az role`/scope args (MSYS mangles the leading-slash resource id).
 
 ## Best-practice refs (Microsoft Learn)

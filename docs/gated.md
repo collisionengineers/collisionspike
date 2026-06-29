@@ -23,13 +23,15 @@ platform mechanism changed._
 >   roles **`CollisionSpike.User` / `CollisionSpike.Superuser`** (Superuser is the full-privilege role
 >   renamed from `CollisionSpike.Admin`, legacy name still accepted; a `CollisionSpike.Engineer` placeholder
 >   is defined but not enforced), on Postgres.
-> - **Orchestration** — Function App **`cespk-orch-dev`** — **deployed + wired (41 functions) but NOT YET
->   LIVE** (no Graph subscriptions / Exchange RBAC scope on the 3 real mailboxes, so no mail is processed),
->   so there is **no automated email intake live yet** (today the system is **read-only + manual
->   case-create** only).
+> - **Orchestration** — Function App **`cespk-orch-dev`** — email intake is **LIVE IN TESTING**: **2
+>   Microsoft Graph PUSH change-notification subscriptions** over the test mailbox set engineers@ + digital@
+>   (both Exchange-RBAC-scoped); transport is **push, not delta-poll**. The production target is info@ +
+>   engineers@ + desk@ (info@ + desk@ not yet scoped); manual case-create remains alongside. ⚠️ Subscriptions
+>   expire 2026-07-05 — see the renewal watch-item (B0 below).
 > - **Database (system of record)** — Postgres Flexible **`cespk-pg-dev`** (v16), database
->   `collisionspike`, 36 tables, seeded (`work_provider`=390, `repairer`=32, `image_source`=19,
->   `inspection_address`=2209 = 174 confirmed + 2035 suggested, `case_`=0).
+>   `collisionspike` (table + corpus counts in the registry
+>   [architecture/live-environment.md](./architecture/live-environment.md), single source
+>   [LIVE_FACTS.json](../LIVE_FACTS.json); `case_`=0).
 > - **Retained, unchanged** — the **6 Python Functions** (parser `cespike-parser-dev`, enrichment,
 >   `evasentry`, `evavalidation`, `ocr`, `box-webhook`), the **Key Vaults**, the evidence Blob store
 >   **`cespkevidstdev01`**, App Insights / Log Analytics.
@@ -48,8 +50,9 @@ These domain capabilities are **deployed and functioning** on the Azure stack:
 - **EVA readiness / validation logic.** The `evasentry` + `evavalidation` Functions and the image-rule /
   case-status logic are deployed (EVA **submission** stays off until you supply its login — see EVA item
   below).
-- **Seed data loaded into Postgres.** Providers (390), repairers (32), image sources (19) and the
-  inspection-address suggestions corpus (2209 rows) are seeded and served to the SPA.
+- **Seed data loaded into Postgres.** The provider, repairer, image-source and inspection-address
+  suggestions corpus is seeded and served to the SPA (live counts in the registry
+  [architecture/live-environment.md](./architecture/live-environment.md)).
 - **Staff sign-in.** Entra **workforce** MSAL sign-in is live on the SPA; the API enforces the two app
   roles. (Only **one** staff principal is role-assigned so far — see the app-role item below.)
 
@@ -78,7 +81,7 @@ session is re-authenticated. (Offline/local work and the Box-credential proof di
    run `az login` in your own terminal. Sign in with the account that owns `rg-collisionspike-dev`.
 2. Confirm with `az account show` (should print subscription `e6076573-…`, state **Enabled**).
 3. Once done, the agent can proceed with the staged Azure work — **Box activation (D2)** is the first thing
-   ready to run end-to-end (see [docs/azure/box-activation.md](./docs/azure/box-activation.md)).
+   ready to run end-to-end (see [docs/azure/box-activation.md](./azure/box-activation.md)).
 
 #### A1. Upgrade the subscription off the Free Trial → Pay-As-You-Go  ·  *deadline*
 
@@ -136,36 +139,40 @@ implemented**) must run on a **separate** pool opened with `-c app.role=admin`, 
 
 ---
 
-### B. Turn on automated email intake (currently OFF — there is no live intake)
+### B. Email intake is LIVE IN TESTING — extend it to the production mailbox set
 
-> Today the orchestration Function App `cespk-orch-dev` is **deployed + wired (41 functions) but not yet
-> live** — there are **no Graph subscriptions and no Exchange RBAC scope on the 3 real mailboxes**, so the
-> renewal timer lists 0 subscriptions and **no email is picked up automatically**; cases are created
-> **manually** in the SPA. **B2 (Graph secret in Key Vault) and B3 (deploy + wire orchestration) are now
-> DONE** — the remaining step to bring intake live is **B1 (Exchange RBAC scope the 3 mailboxes)**, plus the
-> finishing items listed in B3. The design is a Microsoft **Graph delta-poll** over the shared intake
-> mailboxes, authorised by **Exchange RBAC for Applications** (resource-scoped, **no Global-Admin consent and
-> no push subscription**).
+> Email intake is **live in testing**: `cespk-orch-dev` runs **2 Microsoft Graph PUSH change-notification
+> subscriptions** over the test mailbox set engineers@ + digital@ (both Exchange-RBAC-scoped). Transport is
+> **push, not delta-poll**. **B2 (Graph secret in Key Vault) and B3 (deploy + wire orchestration) are DONE.**
+> The remaining step to reach the **production** set (info@ + engineers@ + desk@; drop test-only digital@) is
+> **B1 — Exchange-RBAC-scope info@ + desk@** (engineers@ + digital@ are already scoped → 200; info@ + desk@ →
+> 403), plus the finishing items in B3. ⚠️ **Renewal watch-item:** the 2 subscriptions **expire 2026-07-05**
+> and `graph-renew` showed **0 executions in the last 3 days** — confirm the renewer is firing (or
+> re-bootstrap) before expiry or intake silently lapses. The design is authorised by **Exchange RBAC for
+> Applications** (resource-scoped, **no Global-Admin consent**) layered with **Graph PUSH subscriptions**.
 
-#### B1. Grant the intake app mailbox access via Exchange RBAC (the 3 shared inboxes)
+#### B1. Exchange-RBAC-scope the remaining production mailboxes (info@ + desk@)
 
-**What:** the intake app must read the **three shared intake mailboxes** (the case-intake mailboxes, e.g.
-`digital@collisionengineers.co.uk` and the two other shared inboxes). We use **Exchange RBAC for
-Applications** so the grant is **scoped to just those mailboxes** — *not* tenant-wide `Mail.Read`.
+**What:** the intake app already reads the **test** mailboxes engineers@ + digital@ (scoped → 200, with
+live push subscriptions). For the **production** set it must also read **info@** and **desk@**
+(currently → 403). We use **Exchange RBAC for Applications** so the grant is **scoped to just those mailboxes**
+— *not* tenant-wide `Mail.Read`.
 
-> **This supersedes any older note that "Graph `Mail.Read` needs Global-Admin / admin consent."** It does
-> **not**: an **Exchange Administrator** grants resource-scoped Graph mailbox access, and intake **polls**
-> (delta query) rather than subscribing to push.
+> **This supersedes any older note that "Graph `Mail.Read` needs Global-Admin / admin consent"** — it does
+> **not**: an **Exchange Administrator** grants resource-scoped Graph mailbox access. (It also supersedes the
+> old "delta-poll / no push subscription" wording — the **live transport is Graph PUSH subscriptions**.)
 
 **Why you:** running Exchange Online PowerShell as an Exchange Administrator and choosing which mailboxes to
 expose are privileged identity/governance actions only you can do.
 
 **Steps (Exchange Online PowerShell, as an Exchange Administrator):**
-1. **`New-ServicePrincipal`** — register the intake app's Entra service principal in Exchange.
-2. **`New-ManagementScope`** — define a scope limited to the **three** intake mailboxes only.
+1. **`New-ServicePrincipal`** — register the intake app's Entra service principal in Exchange (already done
+   for the test pair).
+2. **`New-ManagementScope`** — extend/define a scope covering the production mailboxes (info@ + desk@ +
+   engineers@; drop test-only digital@).
 3. **`New-ManagementRoleAssignment`** — assign the app the Graph mailbox role (e.g. `Application Mail.Read`)
-   **bounded by that scope**, so it can read only those three mailboxes and nothing else.
-4. Note the exact SMTP addresses of the three mailboxes — they go into `GRAPH_INTAKE_MAILBOXES` in B3.
+   **bounded by that scope**, so it can read only those mailboxes and nothing else.
+4. Note the exact SMTP addresses — they go into `GRAPH_INTAKE_MAILBOXES` in B3.
 
 #### B2. Put the Graph client secret in Key Vault  ·  ✅ **DONE (2026-06-27)** — nothing for you to do
 
@@ -189,18 +196,21 @@ the reference resolves. _(Original operator steps retained for reference below.)
 
 #### B3. Deploy the orchestration Function App and wire it up  ·  ✅ **DEPLOY + WIRE DONE (2026-06-27)** — a few finishing items remain
 
-**Done:** `cespk-orch-dev` now has **41 functions deployed and registered** (the full intake chain
+**Done:** `cespk-orch-dev` has the full intake chain deployed and registered (live function count in the
+registry [architecture/live-environment.md](./architecture/live-environment.md)):
 fetchMessage/providerMatch/caseResolve/classifyPersist/parse/statusEvaluate/enrich + intakeOrchestrator +
 intake-starter; Graph infra graph-webhook/graph-lifecycle/graph-renew; and all 9 gated orchestrations + their
 activities/starters/timers). _(Root cause of the earlier "0 functions" state: the esbuild ESM→CJS bundle
 crashed on load at `createRequire(import.meta.url)`; fixed with a banner+define build step `build-orch.cjs`.)_
 Wired: PARSER/ENRICH/BOXWEBHOOK/EVASENTRY `_FN_URL` + KV-referenced function keys, `EVIDENCE_BLOB_CONTAINER`;
-orch→Data API uses **managed identity**; storage is identity-based.
+orch→Data API uses **managed identity**; storage is identity-based. **Email intake is live in testing** — 2
+Graph PUSH subscriptions over engineers@ + digital@.
 
-**Still needed before intake is live:** **B1** (Exchange RBAC scope the 3 mailboxes — no Graph subscriptions
-exist yet, so the renewal timer no-ops); set **`EVIDENCE_BLOB_CONNECTION`** (prefer a managed-identity form —
-currently unset to avoid a plaintext secret); assign the **orch managed identity an app-role on the Data
-API**; wire **Azure Monitor heartbeat alerts**.
+**Still needed for the production mailbox set:** **B1** (Exchange-RBAC-scope info@ + desk@ — engineers@ +
+digital@ are already scoped with live push subscriptions); set **`EVIDENCE_BLOB_CONNECTION`** (prefer a
+managed-identity form — currently unset to avoid a plaintext secret); assign the **orch managed identity an
+app-role on the Data API**; wire **Azure Monitor heartbeat alerts**. ⚠️ And **confirm `graph-renew` is firing**
+before the 2026-07-05 subscription expiry (0 executions seen in the last 3 days).
 
 **What:** publish the orchestration code to `cespk-orch-dev` and set the env it needs to poll Graph and call
 the existing Functions.
@@ -210,17 +220,17 @@ actions.
 
 **Steps (for reference — deploy + wire already done):**
 1. **Deploy** the orchestration project (`orchestration/`) to **`cespk-orch-dev`** (this deploy is what
-   created the 41 live functions / the intake timer/poller).
+   created the live functions / the intake chain).
 2. Set app settings:
    - **`GRAPH_INTAKE_MAILBOXES`** — the intake mailboxes as **JSON** `[{mailbox,minIntakeDate}]` (it had been
      a plain string that JSON-parse-failed to **zero** mailboxes; now fixed). **Currently set** to
-     `engineers@collisionengineers.co.uk` + `digital@collisionengineers.co.uk` (watermarked 2026-06-27); add
-     the third intake mailbox here once it is RBAC-scoped in B1.
+     `engineers@collisionengineers.co.uk` + `digital@collisionengineers.co.uk` (the test set, watermarked
+     2026-06-27); add `info@` + `desk@` here (and drop test-only `digital@`) once they are RBAC-scoped in B1.
    - the **parser** Function base URL **+ function key** (`cespike-parser-dev`),
    - the **enrichment** Function base URL **+ function key**,
    - the Entra **tenant id / intake app client-id**, and the **Key Vault reference** to the Graph client
      secret (from B2).
-3. Confirm a delta poll runs and a test email lands as a **Case** (status `new_email → ingested`), provider
+3. Confirm a push notification fires (graph-webhook) and a test email lands as a **Case** (status `new_email → ingested`), provider
    matched by sender domain, and the EVA fields pre-fill with provenance.
 
 ---
@@ -269,7 +279,7 @@ route different work-provider codes) — REST waits on Minotaur's patch.
    the **full registration visible** on the overview.
 4. Only after the test passes do you point it at **live** EVA.
 
-#### D2. Switch on Box filing  ·  ✅ **credentials PROVEN (2026-06-28)** — only the KV wiring remains
+#### D2. Box filing  ·  ✅ **LIVE (2026-06-28)** — only the two Box-side artifacts remain (see #4 / OPERATOR-CHECKLIST)
 
 **What:** the **`box-webhook`** Function (one of the 6 retained Python Functions; deployed) files cases to
 Box (mint the Case/PO folder, copy the upload File Request, mirror the finished case) using a **service
@@ -284,11 +294,12 @@ keypair and dropped the complete `Config.JSON` at the repo root (`941197__config
 reauthorization needed) and the **Service Account is already a collaborator** on the allowed root. The Box
 tenant is clearly Business-or-higher (JWT + the folder all work). **The hard parts are done.**
 
-**What's left (mechanical — blocked only on A0 `az login`):** push the credentials into Key Vault, restart,
-smoke-test, and flip the `BOX_*` gates on `cespk-api-dev` + `cespk-orch-dev`. One script + a step-by-step
-runbook: **[docs/azure/box-activation.md](./docs/azure/box-activation.md)**. The remaining *Box-side*
-follow-ups (not blockers for basic filing) are the **hand-built template File Request** id and subscribing
-the **`FILE.UPLOADED` webhook** — both covered in that runbook (§5).
+**Now live:** the `Config.JSON` is in Key Vault (`cespkboxkvv76a47/box-config-json`) and the `BOX_*` gates
+(`BOX_API_ENABLED` / `BOX_FOLDER_AT_INTAKE_ENABLED` / `BOX_FILEREQUEST_ENABLED`, `BOX_FOLDER_ROOT_ID=392761581105`)
+are **true** on `cespk-api-dev` + `cespk-orch-dev`; an authed smoke call returned **200** (folder `CCPY26050`).
+Runbook: **[docs/azure/box-activation.md](./azure/box-activation.md)**. The remaining *Box-side*
+follow-ups (operator, not blockers for basic filing) are the **hand-built template File Request** id and
+subscribing the **`FILE.UPLOADED` webhook** — both covered in that runbook (§5).
 
 > The one empirical unknown that still wants a live exercise: does a **File-Request upload fire
 > `FILE.UPLOADED`** → the Function → the case advances? On a transient miss the recovery is Box's own retry
@@ -358,8 +369,8 @@ The DSAR/erasure runbook and the DPIA/controller-processor doc are authored and 
 Where this file says "give me the login/key," those are normal service keys (DVSA, DVLA, Box, EVA) plus the
 two Azure-side secrets (the Postgres app login from A2 and the Graph client secret from B2). DVSA/DVLA keys
 are already in place and working; the **two Azure secrets (A2 + B2) are now both resolved** (see A2 / A3 / B2).
-EVA and Box are still waiting on you; the remaining live-stack ask to bring intake online is the **mailbox
-grant (B1)**.
+**Box is live** (only the two Box-side artifacts remain — D2); **EVA** still waits on you; and the remaining
+live-stack ask to extend intake to the production mailbox set is the **info@ + desk@ mailbox grant (B1)**.
 
 ---
 
@@ -386,8 +397,8 @@ child flows, flipping a trigger per inbox) are decommissioned. Design rationale:
 ### (historical) §1 Check the email inbox still works
 
 Sent a test email to `digital@collisionengineers.co.uk` and confirmed a new Case appeared via the Power
-Automate **CS Intake (shared mailbox)** flow. *(Superseded — live intake is now the Azure Graph delta-poll
-in section B; there is no live automated intake until that is deployed.)*
+Automate **CS Intake (shared mailbox)** flow. *(Superseded — live intake is now the Azure Graph PUSH-subscription
+pipeline in section B; it is live in testing over the scoped test mailboxes, pending the production mailbox set.)*
 
 ### (historical) §2 Turn on the other two inboxes
 

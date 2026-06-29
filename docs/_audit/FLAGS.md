@@ -63,7 +63,7 @@ _Generated 2026-06-22 by the docs-reconcile audit. These are claims the audit fo
 
 - **[minor]** "How to read this folder" index table — row after 08-relay-automate-assessment.md (line 133)
   - Confirmed: directory listing shows 09-metadata-role.md exists (25171 bytes); Grep finds no reference to it anywhere in README — the index table stops at 08, leaving the file undiscoverable. oldText (line 133) matches verbatim/uniquely. Flag-only with advisory newText is appropriate.
-  - Suggested: Add a row for 09-metadata-role.md (e.g. "| [09-metadata-role.md](./09-metadata-role.md) | The Box Metadata field's role — optional Business Plus reliability upgrade for structured registration capture (not the floor) |") so the index covers every file in the folder.
+  - Suggested: Add a row for 09-metadata-role.md (e.g. "| [09-metadata-role.md](../HISTORICAL/box-integration-pivot/09-metadata-role.md) | The Box Metadata field's role — optional Business Plus reliability upgrade for structured registration capture (not the floor) |") so the index covers every file in the folder.
 
 ## box-integration-pivot/plans/00-BUILD-PLAN.md
 

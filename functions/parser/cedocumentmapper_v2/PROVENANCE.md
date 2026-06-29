@@ -10,6 +10,25 @@ ALL engine edits land in the sibling first, then this copy is re-cut by the
 documented command below — it is **never hand-edited** except for the two
 intentional, recorded reconciliations described here.
 
+> ## ⚠ OPEN — vendored copy is BEHIND the sibling (re-vendor pending)
+>
+> A parser fix has landed in the `cedocumentmapper_v2.0` engine-core upstream that
+> has **not yet been re-vendored** into this copy, so the two have **diverged**. This
+> is an **open reconciliation item**, not a clean mirror — treat the GREEN
+> "RE-VENDORED" log entries below as the state **as of their dates (latest pin
+> `504c3a3`, 2026-06-25)**, superseded by this note.
+>
+> **To close it:** re-cut from the latest **committed, pushed** sibling ref using the
+> [Re-vendor procedure](#re-vendor-procedure-against-a-committed-sibling-ref) below,
+> re-apply reconciliation #1 (B2) if still un-upstreamed, update the **Source** pin
+> to the new SHA, and confirm `tests/test_engine_vendored_in_sync.py` is green.
+>
+> **Caveat:** the sibling is **not currently checked out** in this workspace, so the
+> drift guard **skips** (it only runs when the sibling is reachable) — this divergence
+> will **not** be caught by the local test until the sibling is cloned per the parent
+> `SETUP.md`. The deployed Function is unaffected; it runs the older, self-consistent
+> vendored copy until the re-vendor lands.
+
 ## Source
 
 - **Sibling repo:** `collisionengineers/cedocumentmapper_v2.0`

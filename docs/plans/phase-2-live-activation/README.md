@@ -11,7 +11,7 @@ real Case) **and the downstream chain is now ON live for digital@** (classify-pe
 case-resolve, status-evaluate, enrich — see `live-environment.md` §"Cloud flow inventory"); the **other two
 inboxes** remain pending. The remaining `[RESERVED-FOR-USER]` work here is scaling to all three inboxes —
 Claude builds offline, the operator activates. See
-[../../../DEPLOY-RUNBOOK.md](../../../DEPLOY-RUNBOOK.md) §7 and [../../gated.md](../../gated.md).
+[DEPLOY-RUNBOOK.md](../../HISTORICAL/DEPLOY-RUNBOOK.md) §7 and [../../gated.md](../../gated.md).
 
 ## Implementation checklist (operator, in order — DEPLOY-RUNBOOK §7)
 

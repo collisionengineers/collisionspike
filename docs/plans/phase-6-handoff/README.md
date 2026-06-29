@@ -4,7 +4,7 @@
 validation checklist across all three mailboxes — the M1 "done" definition.
 
 **Status:** offline gates green; the live evidence + §7 checklist are operator work. See
-[../../../DEPLOY-RUNBOOK.md](../../../DEPLOY-RUNBOOK.md) §8.
+[DEPLOY-RUNBOOK.md](../../HISTORICAL/DEPLOY-RUNBOOK.md) §8.
 
 ## Implementation checklist
 
@@ -17,7 +17,7 @@ validation checklist across all three mailboxes — the M1 "done" definition.
 ## References (no standalone plan)
 
 - Boundary/quality audit: [../phase-0-foundations/code-audit-cleanup.md](../phase-0-foundations/code-audit-cleanup.md)
-- Operator sequence + boundary gate: [../../../DEPLOY-RUNBOOK.md](../../../DEPLOY-RUNBOOK.md) §8
+- Operator sequence + boundary gate: [DEPLOY-RUNBOOK.md](../../HISTORICAL/DEPLOY-RUNBOOK.md) §8
 - Offline gate: `verify-all.mjs` at the repo root
 
 ## Needs the operator

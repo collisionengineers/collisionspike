@@ -4,14 +4,14 @@
    Choice-set integer<->name codecs and DD/MM/YYYY date helpers.
    Lifted from mockup-app/src/data/adapter.ts.
 
-   SERVER-ONLY: imports Dataverse choiceset JSON from the repo root.
-   NOT re-exported from the main src/index.ts barrel (browser-safe).
+   SERVER-ONLY: imports the frozen choiceset-contract JSON co-located in this
+   package (src/data/choicesets/). NOT re-exported from the main src/index.ts barrel (browser-safe).
    Consumers: api/ and orchestration/ (import '@cs/domain/codecs').
 
    The integer<->name maps are derived FROM THE REAL CHOICE-SET ARTIFACTS in
-   repo-root dataverse/choicesets/*.json (not copied) so the codec can never
-   drift from the deployed option values. resolveJsonModule is on in the package
-   tsconfig so these out-of-src JSON imports resolve correctly.
+   src/data/choicesets/*.json — the frozen contract source (originally the Dataverse
+   global choicesets, now co-located in this package) so the codec can never drift
+   from the deployed option values. resolveJsonModule is on in the package tsconfig.
 
    Round-trippable: codec.toName(codec.toInt(name)) === name for every option.
    ============================================================ */
@@ -33,19 +33,18 @@ import type {
   ActivityKind,
 } from '../model/types';
 
-/* The REAL choice-set artifacts (repo-root dataverse/choicesets/).
-   Path: packages/domain/src/codecs/ is 4 levels below repo root. */
-import caseStatusChoiceSet from '../../../../dataverse/choicesets/case-status.json';
-import actionReasonChoiceSet from '../../../../dataverse/choicesets/action-reason.json';
-import inspectionDecisionChoiceSet from '../../../../dataverse/choicesets/inspection-decision-mode.json';
-import intakeChannelChoiceSet from '../../../../dataverse/choicesets/intake-channel.json';
-import evidenceKindChoiceSet from '../../../../dataverse/choicesets/evidence-kind.json';
-import imageRoleChoiceSet from '../../../../dataverse/choicesets/image-role.json';
-import reviewStateChoiceSet from '../../../../dataverse/choicesets/review-state.json';
-import sourceTypeChoiceSet from '../../../../dataverse/choicesets/field-provenance-source-type.json';
-import inspectionPolicyChoiceSet from '../../../../dataverse/choicesets/inspection-location-policy.json';
-import automationModeChoiceSet from '../../../../dataverse/choicesets/provider-automation-mode.json';
-import auditEventChoiceSet from '../../../../dataverse/choicesets/audit-event.json';
+/* The REAL choice-set artifacts, co-located in this package (src/data/choicesets/). */
+import caseStatusChoiceSet from '../data/choicesets/case-status.json';
+import actionReasonChoiceSet from '../data/choicesets/action-reason.json';
+import inspectionDecisionChoiceSet from '../data/choicesets/inspection-decision-mode.json';
+import intakeChannelChoiceSet from '../data/choicesets/intake-channel.json';
+import evidenceKindChoiceSet from '../data/choicesets/evidence-kind.json';
+import imageRoleChoiceSet from '../data/choicesets/image-role.json';
+import reviewStateChoiceSet from '../data/choicesets/review-state.json';
+import sourceTypeChoiceSet from '../data/choicesets/field-provenance-source-type.json';
+import inspectionPolicyChoiceSet from '../data/choicesets/inspection-location-policy.json';
+import automationModeChoiceSet from '../data/choicesets/provider-automation-mode.json';
+import auditEventChoiceSet from '../data/choicesets/audit-event.json';
 
 /* ============================================================
    Choice-set <-> integer bijection helper.

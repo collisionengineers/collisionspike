@@ -43,7 +43,7 @@ import {
   intakeChannelKindCodec,
   statusToInt,
 } from '@cs/domain/codecs';
-import { authenticate } from '../lib/auth.js';
+import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query } from '../lib/db.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import {
@@ -68,13 +68,14 @@ async function withServiceAuth(
   ctx: InvocationContext,
   fn: (req: HttpRequest, ctx: InvocationContext) => Promise<HttpResponseInit>,
 ): Promise<HttpResponseInit> {
-  const header = req.headers.get('authorization') ?? '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (!token) return { status: 401, jsonBody: { error: 'Missing bearer token' } };
+  // authenticate() throws HttpError(401) for a missing/invalid/expired token and
+  // rethrows anything UNEXPECTED (e.g. a transient JWKS fetch failure). toErrorResponse
+  // maps the former to 401 and the latter to 500 — same discrimination as withRole, so a
+  // transient server-side fault is reported as 500 (server fault), not a misleading 401.
   try {
     await authenticate(req);
-  } catch {
-    return { status: 401, jsonBody: { error: 'Invalid or expired token' } };
+  } catch (e) {
+    return toErrorResponse(e, ctx);
   }
   try {
     return await fn(req, ctx);

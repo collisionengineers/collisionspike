@@ -13,6 +13,12 @@ explicit **Do-NOT-do-yet** list.
 | 2 | [`02-azure-ai-document.md`](./02-azure-ai-document.md) | Document Intelligence/OCR, Azure OpenAI, AI Search, Maps vs postcode.io, Service Bus, observability, cost |
 | 3 | [`03-domain-workflow.md`](./03-domain-workflow.md) | EVA Sentry REST, Box, chasers, dedup/matching, the offline inspection-address suggestions corpus, enrichment, dormancy, image rules |
 
+**Refactor / re-platforming research (13-lane deep-dive):** a separate, structured comparison of where
+the stack could run — see [`refactor-research/README.md`](./refactor-research/README.md), which indexes
+the numbered sub-studies `00`–`12` (current-architecture baseline, Power-Platform→Azure, desktop+backend,
+AWS, GCP, Supabase, Cloudflare, self-hosted VPS, app-platform PaaS, low-code/hybrid, Outlook/M365
+integration, MX-routing, and the AI layer).
+
 ## The convergent answer (all four lanes agree)
 
 **The frontier is not "build more app" — it's flip the built slice to running on one real input, then widen the corpus that makes matching good.** Concretely, the next moves in order:

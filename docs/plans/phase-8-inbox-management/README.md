@@ -196,7 +196,7 @@ Restructure [intake.definition.json](flows/definitions/intake.definition.json) (
 
 ## Labelled corpus
 
-Today [test-cases-and-data/test-cases/](test-cases-and-data/test-cases) has 12 dirs, **all
+Today [test-cases-and-data/test-cases/](../../../test-cases-and-data/test-cases) has 12 dirs, **all
 RECEIVING-WORK** (incl. audit cases `A.PCH261269`, `A.PCH261272`). No query/enquiry/other examples.
 Build in three tiers:
 1. **Relabel existing** — a `labels.json` manifest mapping each fixture → `{category, subtype}`.

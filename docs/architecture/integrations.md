@@ -199,7 +199,7 @@ EVA JSON) into the Case/PO folder in EVA photo order. The Phase-7 pivot moves th
 > These were **Dataverse environment variables**; in the Azure stack they are **Function-App / API
 > app-settings** the Data API + orchestration read (the gate semantics and defaults are unchanged). The
 > migration mapping of all 28 gates is in
-> [`migration/10-settings-migration.md`](../../migration/10-settings-migration.md).
+> [`docs/HISTORICAL/migration/10-settings-migration.md`](../HISTORICAL/migration/10-settings-migration.md).
 
 | Variable | Default | Purpose |
 |---|---|---|
