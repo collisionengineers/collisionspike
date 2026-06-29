@@ -14,7 +14,7 @@
 
 import { createHash } from 'node:crypto';
 import * as df from 'durable-functions';
-import { getMessageWithAttachments, getMessageHeaders } from '../../lib/graph.js';
+import { getMessageWithAttachments, getMessageHeaders, getMessageRawMime } from '../../lib/graph.js';
 import { mailboxOfResource } from '../../lib/subscriptions.js';
 import { uploadEvidenceBytes } from '../../lib/blob.js';
 import { extractVrm } from '@cs/domain';
@@ -56,6 +56,18 @@ export interface InboundEnvelope {
     blobPath: string;
     size: number;
   }>;
+  /**
+   * The original message captured as raw MIME (Graph `$value`), landed in Blob as
+   * `message.eml`. Persisted as email evidence + archived to the case Box folder
+   * (box-sync ticket). Undefined when the `$value` fetch failed (best-effort; never
+   * blocks intake).
+   */
+  rawEml?: {
+    filename: string;
+    contentType: string;
+    blobPath: string;
+    size: number;
+  };
 }
 
 /** Cap the body carried through the durable envelope (keeps activity state bounded). */
@@ -77,6 +89,23 @@ df.app.activity('fetchMessage', {
       const bytes = Buffer.from(a.contentBytes ?? '', 'base64');
       const up = await uploadEvidenceBytes(input.messageId, a.name, bytes, a.contentType);
       landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size });
+    }
+
+    // Capture the ORIGINAL message as raw MIME (`.eml`) so the case archive holds
+    // the email itself, not just its attachments (box-sync ticket). Best-effort: a
+    // `$value` failure must never block intake — we just omit rawEml.
+    let rawEml: InboundEnvelope['rawEml'];
+    try {
+      const mime = await getMessageRawMime(mailbox, input.messageId);
+      const emlUp = await uploadEvidenceBytes(input.messageId, 'message.eml', mime, 'message/rfc822');
+      rawEml = {
+        filename: 'message.eml',
+        contentType: 'message/rfc822',
+        blobPath: emlUp.blobPath,
+        size: emlUp.size,
+      };
+    } catch (e) {
+      ctx.warn(`[fetchMessage] raw .eml capture failed for ${input.messageId}: ${e instanceof Error ? e.message : String(e)}`);
     }
 
     const subject = message.subject ?? '';
@@ -105,8 +134,9 @@ df.app.activity('fetchMessage', {
       inReplyTo: headers['in-reply-to'] ?? '',
       references: headers['references'] ?? '',
       attachments: landed,
+      ...(rawEml ? { rawEml } : {}),
     };
-    ctx.log(JSON.stringify({ evt: 'fetchMessage', messageId: input.messageId, mailbox, attachments: landed.length }));
+    ctx.log(JSON.stringify({ evt: 'fetchMessage', messageId: input.messageId, mailbox, attachments: landed.length, eml: Boolean(rawEml) }));
     return envelope;
   },
 });

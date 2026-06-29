@@ -1,5 +1,14 @@
 # Box archival pipeline — full design + activation runbook (ROADMAP 3d)
 
+> ⚠️ **HISTORICAL — Power Platform era (decommissioned 2026-06-27); Box mechanism also changed.** This
+> describes the prior **Power Automate `finalize-eva-box` flow + first-party / `cr1bd_box_rest` connector +
+> CCG** mechanism. The platform migrated to the **Azure PaaS stack**, and **Box is now LIVE via JWT "Server
+> Authentication" (NOT CCG)**, carried by the retained `box-webhook` Function + the orchestration app, with
+> the `BOX_*` gates on (see ADR-0012 / Phase 7 + the registry
+> [live-environment.md](../../architecture/live-environment.md)). Read this for the **EVA photo-order rule,
+> the UPPERCASE Case/PO folder-name confirm, and the byte-bind detail** — domain that carried over — **not**
+> as a live runbook. Forward work: [ROADMAP.md](../../../ROADMAP.md) + [docs/tickets/](../../tickets/README.md).
+
 > ⚠️ **SUPERSEDED (2026-06-22) — reconciled DOWN to [ADR-0012](../../adr/0012-box-centric-intake-additive-hybrid.md)
 > (the Box-centric intake pivot, Phase 7).** This doc describes the **M2.D** slice: Box archival fired
 > **at EVA-submit** via `finalize-eva-box`, using the **first-party** Box connector. Phase 7 supersedes

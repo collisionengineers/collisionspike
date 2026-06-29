@@ -124,15 +124,82 @@ export async function getMessageWithAttachments(
   const message = await graphFetch<GraphMessage>(base, {
     headers: { Prefer: 'outlook.body-content-type="text"' },
   });
-  let attachments: GraphAttachment[] = [];
+  const attachments: GraphAttachment[] = [];
   if (message.hasAttachments) {
     const list = await graphFetch<{ value: GraphAttachment[] }>(`${base}/attachments`);
-    // Keep only file attachments (have contentBytes); skip inline + item attachments.
-    attachments = (list.value ?? []).filter(
-      (a) => a.contentBytes !== undefined && a.isInline !== true,
-    );
+    for (const a of list.value ?? []) {
+      if (a.isInline === true) continue;
+      const otype = (a['@odata.type'] ?? '').toLowerCase();
+      if (a.contentBytes !== undefined) {
+        // A normal fileAttachment with inline base64 bytes — the common case.
+        attachments.push(a);
+        continue;
+      }
+      // No contentBytes: either an ITEM attachment (a forwarded message — the
+      // instruction often arrives this way and was previously DROPPED, so the
+      // parser saw nothing → the "only registration" symptom) or a large
+      // fileAttachment whose bytes Graph omitted. Both are fetchable via `$value`.
+      // Best-effort: a fetch failure skips that one attachment, never the message.
+      try {
+        const raw = await getAttachmentRawValue(mailbox, messageId, a.id);
+        if (otype.includes('itemattachment')) {
+          // The embedded item's MIME — land it as a parseable/archivable `.eml`.
+          attachments.push({
+            ...a,
+            name: ensureEmlName(a.name),
+            contentType: 'message/rfc822',
+            size: raw.length,
+            contentBytes: raw.toString('base64'),
+          });
+        } else {
+          attachments.push({ ...a, size: raw.length, contentBytes: raw.toString('base64') });
+        }
+      } catch {
+        /* best-effort — a forwarded/large attachment we cannot fetch is skipped */
+      }
+    }
   }
   return { message, attachments };
+}
+
+/** Append `.eml` to an item-attachment name (forwarded items often have no extension). */
+function ensureEmlName(name: string | undefined): string {
+  const n = (name ?? '').trim() || 'forwarded-message';
+  return /\.eml$/i.test(n) ? n : `${n}.eml`;
+}
+
+/**
+ * Fetch the RAW MIME of a message via Graph `$value` (Microsoft Learn: "Get message"
+ * — `GET /users/{id}/messages/{id}/$value` returns the message as MIME). Used to
+ * archive the original `.eml` into the case Box folder + persist it as evidence
+ * (box-sync ticket). Returns the bytes; the caller decides whether a failure is fatal.
+ */
+export async function getMessageRawMime(mailbox: string, messageId: string): Promise<Buffer> {
+  const token = await getGraphToken();
+  const url =
+    `${GRAPH_BASE}/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}/$value`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    throw new Error(`graph GET message $value → ${res.status}: ${await safeText(res)}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/** Fetch one attachment's raw bytes via `$value` (item-attachment MIME / large file bytes). */
+async function getAttachmentRawValue(
+  mailbox: string,
+  messageId: string,
+  attachmentId: string,
+): Promise<Buffer> {
+  const token = await getGraphToken();
+  const url =
+    `${GRAPH_BASE}/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}` +
+    `/attachments/${encodeURIComponent(attachmentId)}/$value`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    throw new Error(`graph GET attachment $value → ${res.status}: ${await safeText(res)}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
 }
 
 /**

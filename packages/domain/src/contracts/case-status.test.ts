@@ -71,7 +71,7 @@ function caseInput(over: Partial<StatusEvaluationInput> = {}): StatusEvaluationI
 /* ----------  Union / terminal authority  ---------- */
 
 describe('CaseStatus union authority', () => {
-  it('has exactly the 11 prototype values', () => {
+  it('has exactly the 12 prototype values', () => {
     expect([...CASE_STATUSES].sort()).toEqual(
       [
         'box_synced',
@@ -85,20 +85,26 @@ describe('CaseStatus union authority', () => {
         'needs_review',
         'new_email',
         'ready_for_eva',
+        'removed',
       ].sort(),
     );
-    expect(CASE_STATUSES).toHaveLength(11);
+    expect(CASE_STATUSES).toHaveLength(12);
   });
 
-  it('marks the three terminal statuses', () => {
+  it('marks the four terminal statuses (incl. the soft-remove terminal)', () => {
     expect([...TERMINAL_STATUSES].sort()).toEqual(
-      ['box_synced', 'error', 'eva_submitted'].sort(),
+      ['box_synced', 'error', 'eva_submitted', 'removed'].sort(),
     );
     for (const s of TERMINAL_STATUSES) expect(isTerminalStatus(s)).toBe(true);
     expect(isTerminalStatus('needs_review')).toBe(false);
     // linked_to_instruction is a BRANCH state (set by the dedup flow), not a
     // terminal — the guard may recompute it. Plan §5.4.
     expect(isTerminalStatus('linked_to_instruction')).toBe(false);
+  });
+
+  it('locks a removed case — the guard never re-promotes it', () => {
+    const input: StatusEvaluationInput = caseInput({ status: 'removed', evidence: [] });
+    expect(statusForReviewCase(input)).toBe('removed');
   });
 });
 

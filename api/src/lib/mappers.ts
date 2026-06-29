@@ -29,6 +29,7 @@ import {
   type Evidence,
   type EvidenceKind,
   type InboundCategory,
+  type InboundCounts,
   type InboundEmail,
   type InboundSubtype,
   type MileageUnit,
@@ -421,6 +422,7 @@ const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000003: 'query_existing_work',
   100000004: 'query_new_enquiry',
   100000005: 'other',
+  100000006: 'existing_provider_diminution',
 };
 export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   existing_provider_instruction: 100000000,
@@ -429,13 +431,33 @@ export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   query_existing_work: 100000003,
   query_new_enquiry: 100000004,
   other: 100000005,
+  existing_provider_diminution: 100000006,
 };
-const TRIAGE_STATES: readonly TriageState[] = ['new', 'routed', 'actioned', 'dismissed'];
+export const TRIAGE_STATES: readonly TriageState[] = ['new', 'routed', 'actioned', 'dismissed'];
 const CLASSIFIER_MODES: readonly ClassifierMode[] = ['deterministic', 'llm', 'human'];
+
+/** The two DURABLE handled states a staff action sets — hidden from the active-first
+ *  list/counts (work-todo-spike: email-management). 'new'/'routed' are active. */
+export const HANDLED_TRIAGE_STATES: readonly TriageState[] = ['actioned', 'dismissed'];
+
+/** True when `s` is one of the four canonical TriageState tokens (route input validation). */
+export function isValidTriageState(s: unknown): s is TriageState {
+  return typeof s === 'string' && (TRIAGE_STATES as readonly string[]).includes(s);
+}
+
+/** True when a row's triage_state is a durable handled state (actioned/dismissed). */
+export function isHandledTriageState(s: string | null | undefined): boolean {
+  return s === 'actioned' || s === 'dismissed';
+}
 
 /** category int -> name (exported for inboundEmailCounts tallying). */
 export function inboundCategoryFromInt(v: number | null | undefined): InboundCategory | undefined {
   return v == null ? undefined : INBOUND_CATEGORY_BY_INT[v];
+}
+
+/** subtype int -> name (exported for the reclassify override-capture). */
+export function inboundSubtypeFromInt(v: number | null | undefined): InboundSubtype | undefined {
+  return v == null ? undefined : INBOUND_SUBTYPE_BY_INT[v];
 }
 
 function parseSignals(memo: string | undefined): string[] {
@@ -487,7 +509,96 @@ export function rowToInboundEmail(rec: Row): InboundEmail {
     bodyPreview: rec.body_preview ?? '',
     ...(rec.case_id ? { caseId: rec.case_id } : {}),
     ...(rec.work_provider_id ? { workProviderId: rec.work_provider_id } : {}),
+    // The classifier's original suggestion (columns may be absent on a not-yet-migrated DB
+    // — SELECT * simply omits them, so these stay undefined). work-todo-spike: suggested-tags.
+    ...(rec.suggested_category_code != null && INBOUND_CATEGORY_BY_INT[rec.suggested_category_code]
+      ? { suggestedCategory: INBOUND_CATEGORY_BY_INT[rec.suggested_category_code] }
+      : {}),
+    ...(rec.suggested_subtype_code != null && INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code]
+      ? { suggestedSubtype: INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code] }
+      : {}),
   };
+}
+
+/* ============================================================
+   Pure helpers for the work-todo-spike features (testable; no DB).
+   ============================================================ */
+
+/** Active-first inbound list scope -> the SQL WHERE fragment over triage_state.
+ *  'active' (default) hides handled rows; 'handled' shows only them; 'all' = no filter.
+ *  Returns '' for 'all' (no clause). work-todo-spike: email-management. */
+export function inboundViewWhere(view: string | null | undefined): string {
+  switch (view) {
+    case 'handled':
+      return "triage_state IN ('actioned','dismissed')";
+    case 'all':
+      return '';
+    case 'active':
+    default:
+      // active = everything NOT handled. NULL triage_state counts as active (it maps to 'new').
+      return "(triage_state IS NULL OR triage_state NOT IN ('actioned','dismissed'))";
+  }
+}
+
+/** Tally ACTIVE inbound rows per category (+ untriaged='new') from {category_code, triage_state}
+ *  rows. Handled rows (actioned/dismissed) are excluded so the count reflects outstanding work
+ *  (work-todo-spike: amalgamated-dashboard / email-management). */
+export function tallyActiveInboundCounts(
+  rows: ReadonlyArray<{ category_code?: number | null; triage_state?: string | null }>,
+): InboundCounts {
+  const counts: InboundCounts = { receiving_work: 0, query: 0, other: 0, untriaged: 0 };
+  for (const r of rows) {
+    if (isHandledTriageState(r.triage_state)) continue; // handled = not active work
+    const cat = inboundCategoryFromInt(r.category_code ?? undefined);
+    if (cat) counts[cat] += 1;
+    if ((r.triage_state ?? 'new') === 'new') counts.untriaged += 1;
+  }
+  return counts;
+}
+
+/** Parse the 3-digit sequence from a Box folder / Case-PO name that EXACTLY matches
+ *  `<PRINCIPAL><YY><digits>` (case-insensitive). Returns 0 when it does not match. */
+export function casePoSeqOfName(name: string, principal: string, yy: string): number {
+  const prefix = `${principal}${yy}`.toUpperCase();
+  const up = String(name ?? '').trim().toUpperCase();
+  if (!up.startsWith(prefix)) return 0;
+  const tail = up.slice(prefix.length);
+  if (!/^[0-9]{3,}$/.test(tail)) return 0;
+  return Number.parseInt(tail, 10);
+}
+
+/** The MAX sequence across a list of folder/Case-PO names for a (principal, year), or 0
+ *  when none match. Used by the Case/PO allocator's Box fallback (work-todo-spike: case-po-gen). */
+export function maxCasePoSeqFromNames(
+  names: ReadonlyArray<string>,
+  principal: string,
+  yy: string,
+): number {
+  let max = 0;
+  for (const n of names) {
+    const seq = casePoSeqOfName(n, principal, yy);
+    if (seq > max) max = seq;
+  }
+  return max;
+}
+
+/** Map the richer operator taxonomy tag onto a {category, subtype} pair
+ *  (work-todo-spike: suggested-tags-and-folders). Returns undefined for an unknown tag. */
+export function richTagToClassification(
+  tag: string,
+): { category: InboundCategory; subtype: InboundSubtype } | undefined {
+  switch (tag) {
+    case 'Inspection':
+      return { category: 'receiving_work', subtype: 'existing_provider_instruction' };
+    case 'Audit':
+      return { category: 'receiving_work', subtype: 'existing_provider_audit' };
+    case 'Diminution':
+      return { category: 'receiving_work', subtype: 'existing_provider_diminution' };
+    case 'Query':
+      return { category: 'query', subtype: 'query_existing_work' };
+    default:
+      return undefined;
+  }
 }
 
 /* ============================================================
@@ -539,11 +650,13 @@ export function actionableCases(all: Case[]): Case[] {
 }
 
 /** Twin/merge terminal set: a finalised case is NOT an open twin/merge target.
- *  Mirrors dataverse-source's TERMINAL (eva_submitted, box_synced only — `error`
- *  is still an open, actionable twin). */
+ *  Mirrors dataverse-source's TERMINAL (eva_submitted, box_synced — `error` is still
+ *  an open, actionable twin). `removed` (soft-remove) is also excluded: a removed case
+ *  must never surface as a twin or be a merge target (work-todo-spike: delete-case). */
 export const TWIN_TERMINAL: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
   'eva_submitted',
   'box_synced',
+  'removed',
 ]);
 
 /* QUEUES kept referenced for downstream filter-builders / parity readers. */

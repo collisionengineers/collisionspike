@@ -1,5 +1,16 @@
 # EVA Sentry REST v1.2 submission — activation, parity, prod cutover (ROADMAP 3c)
 
+> ⚠️ **HISTORICAL mechanism — Power Platform era (decommissioned 2026-06-27).** This runbook is framed around
+> the prior **Power Platform custom connector / Dataverse** delivery; that stack was **migrated to Azure
+> PaaS** and deprovisioned. The **EVA Sentry v1.2 contract** (the 12-field payload, two-request
+> Instruction/Inspection submission, photo order, idempotency) is **platform-independent and still
+> authoritative**, and the submit path lives in the **retained `evasentry` Python Function** (auth is minted
+> inside the Function, not a connector). **EVA REST stays gated OFF** by the live vendor constraint —
+> Minotaur's Sentry API routes only one principal code per submission — so JSON drag-drop remains the live
+> EVA path (see [ROADMAP.md](../../../ROADMAP.md) §3b/3c + the registry
+> [live-environment.md](../../architecture/live-environment.md)). Read for the contract, **not** the
+> connector/Dataverse mechanism.
+
 > **Status:** planning + activation runbook. The Function **is already built offline**
 > (`functions/evasentry/`, task #34, **42 pytest green** via the project venv 2026-06-19); this plan documents that artifact,
 > specifies the deploy → connector-bind → **test** flip → **parity-gated production cutover** sequence,

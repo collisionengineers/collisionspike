@@ -1,5 +1,16 @@
 # Phase 1 Implementation Plan — Email Intake + Case Tracking (collisionspike, M1 vertical slice)
 
+> ⚠️ **HISTORICAL — Power Platform era (decommissioned 2026-06-27).** This plan describes the prior
+> **Dataverse / Power Automate / Code App / `digital@`** mechanism, which was **migrated to the Azure PaaS
+> stack** (Postgres + TypeScript Functions + Static Web App) and the Power Platform footprint
+> deprovisioned. Read it for the **domain logic it encodes** (the 12-field EVA contract, image rules,
+> provider corpus, dedup, the `Principal+YY+seq` Case/PO format) — that carried over unchanged — **not** as a
+> live runbook. The live equivalents: orchestration Function App `cespk-orch-dev` (Graph PUSH intake, now
+> **live** on info@ + engineers@ + desk@) + the Data API `cespk-api-dev`. Live state: the registry
+> [live-environment.md](../../architecture/live-environment.md) (single source
+> [LIVE_FACTS.json](../../../LIVE_FACTS.json)); forward work: [ROADMAP.md](../../../ROADMAP.md) +
+> [docs/tickets/](../../tickets/README.md).
+
 > Status: planning only. This document authors and sequences work; it does **not** deploy, activate, or
 > live-test anything. `collisioncc` is reference-only — its contracts (`case-status`, `image-rules`,
 > `graph-intake`, EVA payload) are **re-implemented**, never called at runtime. PyMuPDF is licensed and

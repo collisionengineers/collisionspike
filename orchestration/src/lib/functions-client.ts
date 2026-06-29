@@ -23,6 +23,7 @@ const ENRICH: FnTarget = { urlEnv: 'ENRICH_FN_URL', keyEnv: 'ENRICH_FN_KEY' };
 const BOX: FnTarget = { urlEnv: 'BOXWEBHOOK_FN_URL', keyEnv: 'BOXWEBHOOK_FN_KEY' };
 const EVA: FnTarget = { urlEnv: 'EVASENTRY_FN_URL', keyEnv: 'EVASENTRY_FN_KEY' };
 const LOCATION: FnTarget = { urlEnv: 'LOCATION_FN_URL', keyEnv: 'LOCATION_FN_KEY' };
+const OCR: FnTarget = { urlEnv: 'OCR_FN_URL', keyEnv: 'OCR_FN_KEY' };
 
 async function callFunction<T = unknown>(
   target: FnTarget,
@@ -101,6 +102,63 @@ export function callClassifyEmail(input: {
   });
 }
 
+/* ---------- parser image extraction (pdf-image-extraction ticket) ---------- */
+
+export interface ExtractedImage {
+  filename: string;
+  ext: string;
+  content_type: string;
+  size: number;
+  sha256: string;
+  content_base64: string;
+  sequence_index: number;
+}
+
+/**
+ * Pull embedded images out of an instruction document (PDF/DOCX/DOC) via the parser
+ * `/extract-images` route. Returns the image BYTES (base64) + sha/metadata so the
+ * orchestration can persist each as image evidence. A document with no embedded images
+ * returns `{ count: 0 }`; a non-2xx (422 unreadable / 502 dep) throws so the caller can
+ * skip-or-retry.
+ */
+export function callExtractImages(input: {
+  documentBase64: string;
+  filename: string;
+}): Promise<{ count: number; images: ExtractedImage[]; message?: string }> {
+  return callFunction(PARSER, 'POST', 'extract-images', {
+    document: input.documentBase64,
+    filename: input.filename,
+  });
+}
+
+/* ---------- plate OCR (registration-visible detection, ADR-0009 M1) ---------- */
+
+export interface PlateOcrResult {
+  plate_text: string;
+  confidence?: number | null;
+  /** True when the OCR read a plate (and, when case_vrm supplied, it matched). */
+  registration_visible: boolean;
+  vrm_match?: string | null;
+}
+
+/**
+ * Read a UK registration plate from a vehicle photo via the OCR Function `/plate-ocr`
+ * route (`cespkocr-fn-dev`). Used to set `registration_visible` on extracted images.
+ * `filename` MUST carry a raster image extension (.jpg/.jpeg/.png/…). Throws on a
+ * non-2xx so the caller (best-effort) can fall back to "OCR not run" (NULL tri-state).
+ */
+export function callPlateOcr(input: {
+  imageBase64: string;
+  filename: string;
+  caseVrm?: string;
+}): Promise<PlateOcrResult> {
+  return callFunction(OCR, 'POST', 'plate-ocr', {
+    image: input.imageBase64,
+    filename: input.filename,
+    ...(input.caseVrm ? { case_vrm: input.caseVrm } : {}),
+  });
+}
+
 /* ---------- enrichment ---------- */
 
 export function callEnrichment(caseId: string): Promise<unknown> {
@@ -124,6 +182,26 @@ export function callLocationSuggest(caseId: string): Promise<unknown> {
 export const box = {
   createFolder(name: string, parentId: string): Promise<{ id: string }> {
     return callFunction(BOX, 'POST', 'box/folders', { name, parent: { id: parentId } });
+  },
+  /**
+   * Archive one evidence byte-stream into a case Box folder — the one-way
+   * Blob -> Box mirror (ADR-0012; box-sync ticket). The bytes ride as base64 in a
+   * JSON body (the facade carries no multipart); the box-webhook Function decodes
+   * and multipart-POSTs them to upload.box.com, scope-locked to BOX_ALLOWED_ROOT_ID.
+   * 409 name-conflict is an idempotent reuse server-side, so a replayed archive
+   * never duplicates a file.
+   */
+  uploadFile(
+    folderId: string,
+    filename: string,
+    contentBase64: string,
+    contentType?: string,
+  ): Promise<{ id: string; name?: string; sha1?: string; outcome?: string }> {
+    return callFunction(BOX, 'POST', `box/folders/${folderId}/files`, {
+      filename,
+      contentBase64,
+      ...(contentType ? { contentType } : {}),
+    });
   },
   copyFileRequest(fileRequestId: string, folderId: string): Promise<unknown> {
     return callFunction(BOX, 'POST', `box/file-requests/${fileRequestId}/copy`, {

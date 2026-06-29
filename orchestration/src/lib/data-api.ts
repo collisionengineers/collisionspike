@@ -143,7 +143,18 @@ export const dataApi = {
       statusEffect: string;
       auditAction: string;
     };
-  }): Promise<{ outcome: 'created' | 'attached' | 'already_ingested'; caseId: string; casePo?: string | null }> {
+  }): Promise<{
+    outcome: 'created' | 'attached' | 'already_ingested';
+    caseId: string;
+    casePo?: string | null;
+    /**
+     * The matched work-provider's automation mode ('manual' | 'review_auto' |
+     * 'full_auto') — the SEAM BACKEND-API adds to internalCasesResolve so the
+     * orchestrator can branch intake (automation-mode ticket). Absent → the
+     * orchestrator defaults to 'review_auto' (current behaviour preserved).
+     */
+    providerAutomationMode?: 'manual' | 'review_auto' | 'full_auto';
+  }> {
     return request('POST', '/api/internal/cases/resolve', payload);
   },
 
@@ -171,6 +182,34 @@ export const dataApi = {
   persistEvidence(
     caseId: string,
     rows: Array<EvidenceDescriptor & { blobPath: string; size: number }>,
+  ): Promise<{ persisted: number }> {
+    return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+
+  /**
+   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
+   * ticket). Same internal evidence route (idempotent on storage_path), but carries
+   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
+   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
+   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
+   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
+   * idempotently on the child blob path, so this is forward-compatible.
+   */
+  persistImageEvidence(
+    caseId: string,
+    rows: Array<{
+      filename: string;
+      contentType?: string;
+      size?: number;
+      blobPath: string;
+      evidenceClass: 'image';
+      imageRoleCode?: string;
+      registrationVisible?: boolean;
+      acceptedForEva?: boolean;
+      sha256?: string;
+      sequenceIndex?: number;
+      sourceLabel?: string;
+    }>,
   ): Promise<{ persisted: number }> {
     return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
   },

@@ -6,7 +6,8 @@ business/legal decision. Everything else has been built and deployed.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
-_Last updated **2026-06-27** — reframed to the **live Azure PaaS stack**. The Power Platform
+_Last updated **2026-06-29** — the production mailbox cutover is **done** (intake now live on info@ +
+engineers@ + desk@; test/dev mailbox digital@ removed). Reframed to the **live Azure PaaS stack**. The Power Platform
 implementation (Power Apps Code App, Dataverse, the ~16 Power Automate flows, the custom connectors) has
 been **migrated off to Azure** and its footprint **deprovisioned 2026-06-27** (the Dev sandbox deleted via
 `pac admin delete`). Its old operator checklist is preserved, clearly banded, at the bottom under
@@ -23,11 +24,11 @@ platform mechanism changed._
 >   roles **`CollisionSpike.User` / `CollisionSpike.Superuser`** (Superuser is the full-privilege role
 >   renamed from `CollisionSpike.Admin`, legacy name still accepted; a `CollisionSpike.Engineer` placeholder
 >   is defined but not enforced), on Postgres.
-> - **Orchestration** — Function App **`cespk-orch-dev`** — email intake is **LIVE IN TESTING**: **2
->   Microsoft Graph PUSH change-notification subscriptions** over the test mailbox set engineers@ + digital@
->   (both Exchange-RBAC-scoped); transport is **push, not delta-poll**. The production target is info@ +
->   engineers@ + desk@ (info@ + desk@ not yet scoped); manual case-create remains alongside. ✅ Subscriptions
->   renewed to 2026-07-06, kept alive by the durable `subscriptionMonitorOrchestrator` (renewal RESOLVED 2026-06-29; see the renewal note below).
+> - **Orchestration** — Function App **`cespk-orch-dev`** — email intake is **LIVE** on the production
+>   mailbox set: **Microsoft Graph PUSH change-notification subscriptions** over **info@ + engineers@ +
+>   desk@** (all Exchange-RBAC-scoped; the 2026-06-29 mailbox cutover added info@ + desk@ and removed the
+>   test/dev mailbox digital@); transport is **push, not delta-poll**. Manual case-create remains alongside.
+>   ✅ Subscriptions are kept alive by the durable `subscriptionMonitorOrchestrator` (renewal RESOLVED 2026-06-29; see the renewal note below).
 > - **Database (system of record)** — Postgres Flexible **`cespk-pg-dev`** (v16), database
 >   `collisionspike` (table + corpus counts in the registry
 >   [architecture/live-environment.md](./architecture/live-environment.md), single source
@@ -139,43 +140,46 @@ implemented**) must run on a **separate** pool opened with `-c app.role=admin`, 
 
 ---
 
-### B. Email intake is LIVE IN TESTING — extend it to the production mailbox set
+### B. Email intake is LIVE on the production mailbox set — finishing items only
 
-> Email intake is **live in testing**: `cespk-orch-dev` runs **2 Microsoft Graph PUSH change-notification
-> subscriptions** over the test mailbox set engineers@ + digital@ (both Exchange-RBAC-scoped). Transport is
-> **push, not delta-poll**. **B2 (Graph secret in Key Vault) and B3 (deploy + wire orchestration) are DONE.**
-> The remaining step to reach the **production** set (info@ + engineers@ + desk@; drop test-only digital@) is
-> **B1 — Exchange-RBAC-scope info@ + desk@** (engineers@ + digital@ are already scoped → 200; info@ + desk@ →
-> 403), plus the finishing items in B3. ✅ **Renewal RESOLVED (2026-06-29):** the 2 subscriptions were renewed
-> to 2026-07-06 and are now kept alive by a **Durable eternal orchestration** (`subscriptionMonitorOrchestrator`)
-> — a plain NCRONTAB timer can't wake the scale-to-zero FC1 app (root cause), so the `graph-renew` timer is
-> retained only as a backstop. Residual watch-item: `graph-webhook` still emits some `499`/`BadHttpRequestException`
-> cold-start aborts, but intake still flows (Graph retries absorb the misses) and an always-ready instance is
-> left OFF for Free-Trial cost (enable only if drops persist). The design is authorised by **Exchange RBAC for
-> Applications** (resource-scoped, **no Global-Admin consent**) layered with **Graph PUSH subscriptions**.
+> ✅ **Production mailbox cutover DONE (2026-06-29).** `cespk-orch-dev` runs **Microsoft Graph PUSH
+> change-notification subscriptions** over the production set **info@ + engineers@ + desk@** (all
+> Exchange-RBAC-scoped). Transport is **push, not delta-poll**. **B1 (Exchange-RBAC-scope info@ + desk@), B2
+> (Graph secret in Key Vault) and B3 (deploy + wire orchestration) are DONE**; the test/dev mailbox digital@
+> was de-scoped from config and its subscription deleted. ✅ **Renewal RESOLVED (2026-06-29):** subscriptions
+> are kept alive by a **Durable eternal orchestration** (`subscriptionMonitorOrchestrator`) — a durable timer
+> wakes the scale-to-zero FC1 app, which a plain NCRONTAB timer can't; the `graph-renew` timer is retained
+> only as a backstop. **Remaining (finishing items, do not block intake):** confirm an **unattended renew** at
+> the next ~6h durable-timer wake; set **`EVIDENCE_BLOB_CONNECTION`** (prefer MI); assign the **orch MI an
+> app-role on the Data API**; wire **Azure Monitor heartbeat alerts**; add a subscription-**prune** step (a
+> mailbox removed from `GRAPH_INTAKE_MAILBOXES` is not yet auto-deleted — why digital@ had to be removed by
+> hand). Residual `graph-webhook` `499`/cold-start aborts remain (Graph retries absorb the misses). The design
+> is authorised by **Exchange RBAC for Applications** (resource-scoped, **no Global-Admin consent**) layered
+> with **Graph PUSH subscriptions**.
 
-#### B1. Exchange-RBAC-scope the remaining production mailboxes (info@ + desk@)
+#### B1. Exchange-RBAC-scope the production mailboxes (info@ + desk@)  ·  ✅ **DONE (2026-06-29)** — nothing for you to do
 
-**What:** the intake app already reads the **test** mailboxes engineers@ + digital@ (scoped → 200, with
-live push subscriptions). For the **production** set it must also read **info@** and **desk@**
-(currently → 403). We use **Exchange RBAC for Applications** so the grant is **scoped to just those mailboxes**
-— *not* tenant-wide `Mail.Read`.
+**Done:** info@ + desk@ are now Exchange-RBAC app-read scoped (scope `CollisionSpike-Intake-Prod`,
+`Application Mail.Read`) alongside engineers@; their Graph push-subscription creates succeeded (200) once the
+~30min–2h Exchange-RBAC permission cache cleared (the earlier 403s were the cache, not a wrong grant). The
+production set **info@ + engineers@ + desk@** is fully scoped + subscribed; the test/dev mailbox digital@ was
+de-scoped from intake config and its subscription deleted. _(Original operator steps retained for reference.)_
+
+**What (for reference):** the intake app must read the production mailboxes via **Exchange RBAC for
+Applications** so the grant is **scoped to just those mailboxes** — *not* tenant-wide `Mail.Read`.
 
 > **This supersedes any older note that "Graph `Mail.Read` needs Global-Admin / admin consent"** — it does
 > **not**: an **Exchange Administrator** grants resource-scoped Graph mailbox access. (It also supersedes the
 > old "delta-poll / no push subscription" wording — the **live transport is Graph PUSH subscriptions**.)
 
-**Why you:** running Exchange Online PowerShell as an Exchange Administrator and choosing which mailboxes to
-expose are privileged identity/governance actions only you can do.
-
-**Steps (Exchange Online PowerShell, as an Exchange Administrator):**
-1. **`New-ServicePrincipal`** — register the intake app's Entra service principal in Exchange (already done
-   for the test pair).
-2. **`New-ManagementScope`** — extend/define a scope covering the production mailboxes (info@ + desk@ +
-   engineers@; drop test-only digital@).
+**Steps (for reference — Exchange Online PowerShell, as an Exchange Administrator):**
+1. **`New-ServicePrincipal`** — register the intake app's Entra service principal in Exchange.
+2. **`New-ManagementScope`** — define a scope covering the production mailboxes (info@ + engineers@ + desk@).
 3. **`New-ManagementRoleAssignment`** — assign the app the Graph mailbox role (e.g. `Application Mail.Read`)
    **bounded by that scope**, so it can read only those mailboxes and nothing else.
 4. Note the exact SMTP addresses — they go into `GRAPH_INTAKE_MAILBOXES` in B3.
+   > ⏳ **Footgun:** after the grant, leave the app **idle ≥30 min** before the first Graph call — polling
+   > keeps the permission cache stale (the 403 that wasted ~50 min in this very cutover).
 
 #### B2. Put the Graph client secret in Key Vault  ·  ✅ **DONE (2026-06-27)** — nothing for you to do
 
@@ -206,15 +210,14 @@ intake-starter; Graph infra graph-webhook/graph-lifecycle/graph-renew; and all 9
 activities/starters/timers). _(Root cause of the earlier "0 functions" state: the esbuild ESM→CJS bundle
 crashed on load at `createRequire(import.meta.url)`; fixed with a banner+define build step `build-orch.cjs`.)_
 Wired: PARSER/ENRICH/BOXWEBHOOK/EVASENTRY `_FN_URL` + KV-referenced function keys, `EVIDENCE_BLOB_CONTAINER`;
-orch→Data API uses **managed identity**; storage is identity-based. **Email intake is live in testing** — 2
-Graph PUSH subscriptions over engineers@ + digital@.
+orch→Data API uses **managed identity**; storage is identity-based. **Email intake is LIVE** — Graph PUSH
+subscriptions over the production set info@ + engineers@ + desk@ (mailbox cutover finished 2026-06-29).
 
-**Still needed for the production mailbox set:** **B1** (Exchange-RBAC-scope info@ + desk@ — engineers@ +
-digital@ are already scoped with live push subscriptions); set **`EVIDENCE_BLOB_CONNECTION`** (prefer a
-managed-identity form — currently unset to avoid a plaintext secret); assign the **orch managed identity an
-app-role on the Data API**; wire **Azure Monitor heartbeat alerts**. ✅ Graph renewal is RESOLVED (2026-06-29):
-the durable `subscriptionMonitorOrchestrator` keeps the subscriptions renewed (the `graph-renew` timer never
-fired on Flex scale-to-zero — now a backstop); subscriptions renewed to 2026-07-06.
+**Finishing items (do not block intake):** set **`EVIDENCE_BLOB_CONNECTION`** (prefer a managed-identity
+form — currently unset to avoid a plaintext secret); assign the **orch managed identity an app-role on the
+Data API**; wire **Azure Monitor heartbeat alerts**; add a subscription-**prune** step. ✅ Graph renewal is
+RESOLVED (2026-06-29): the durable `subscriptionMonitorOrchestrator` keeps the subscriptions renewed (the
+`graph-renew` timer never fired on Flex scale-to-zero — now a backstop).
 
 **What:** publish the orchestration code to `cespk-orch-dev` and set the env it needs to poll Graph and call
 the existing Functions.
@@ -227,9 +230,10 @@ actions.
    created the live functions / the intake chain).
 2. Set app settings:
    - **`GRAPH_INTAKE_MAILBOXES`** — the intake mailboxes as **JSON** `[{mailbox,minIntakeDate}]` (it had been
-     a plain string that JSON-parse-failed to **zero** mailboxes; now fixed). **Currently set** to
-     `engineers@collisionengineers.co.uk` + `digital@collisionengineers.co.uk` (the test set, watermarked
-     2026-06-27); add `info@` + `desk@` here (and drop test-only `digital@`) once they are RBAC-scoped in B1.
+     a plain string that JSON-parse-failed to **zero** mailboxes; now fixed). **Currently set** to the
+     production set `info@` + `engineers@` + `desk@collisionengineers.co.uk` (cutover finished 2026-06-29; the
+     test/dev mailbox `digital@` was removed). ⚠️ A mailbox removed here is not yet auto-pruned from Graph —
+     delete its subscription by hand until the prune step lands (see the finishing items above).
    - the **parser** Function base URL **+ function key** (`cespike-parser-dev`),
    - the **enrichment** Function base URL **+ function key**,
    - the Entra **tenant id / intake app client-id**, and the **Key Vault reference** to the Graph client

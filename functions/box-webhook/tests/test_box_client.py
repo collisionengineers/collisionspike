@@ -339,6 +339,64 @@ def test_create_folder_201_tagged_created():
 
 
 # ==========================================================================
+# UploadFile — the one-way Blob -> Box archive mirror (box-sync ticket)
+# ==========================================================================
+
+UPLOAD_URL = "https://upload.box.com/api/2.0/files/content"
+
+
+@respx.mock
+def test_upload_file_201_posts_multipart_to_upload_host_tagged_created():
+    _mock_token()
+    route = respx.post(UPLOAD_URL).mock(
+        return_value=httpx.Response(
+            201,
+            json={"entries": [{"id": "f1", "type": "file", "name": "message.eml", "sha1": "abc"}]},
+        )
+    )
+    c = _client()
+    out = c.upload_file("0", "message.eml", b"raw-eml-bytes", "message/rfc822")
+    assert out["id"] == "f1"
+    assert out["outcome"] == "created"
+    assert route.called
+    # The multipart body carries BOTH the attributes JSON (name+parent) and the bytes.
+    sent = route.calls.last.request.content
+    assert b"message.eml" in sent
+    assert b"raw-eml-bytes" in sent
+    assert b'"parent"' in sent
+    c.close()
+
+
+@respx.mock
+def test_upload_file_409_name_conflict_is_idempotent_reuse():
+    # The file-upload 409 returns context_info.conflicts as a SINGLE object (not a
+    # list like CreateFolder); _conflict_id must read the id out of it so a replayed
+    # archive reuses the existing file id instead of erroring.
+    _mock_token()
+    conflict = {
+        "type": "error", "code": "item_name_in_use",
+        "context_info": {"conflicts": {"type": "file", "id": "999", "name": "message.eml"}},
+    }
+    respx.post(UPLOAD_URL).mock(return_value=httpx.Response(409, json=conflict))
+    c = _client()
+    out = c.upload_file("0", "message.eml", b"x")
+    assert out["id"] == "999"
+    assert out["outcome"] == "reused"
+    c.close()
+
+
+@respx.mock
+def test_upload_file_5xx_raises_box_error(monkeypatch):
+    _no_backoff(monkeypatch)
+    _mock_token()
+    respx.post(UPLOAD_URL).mock(return_value=httpx.Response(500))
+    c = _client()
+    with pytest.raises(BoxError):
+        c.upload_file("0", "a.pdf", b"x")
+    c.close()
+
+
+# ==========================================================================
 # Secret hygiene
 # ==========================================================================
 

@@ -48,6 +48,14 @@ export const AUDIT_ACTION = {
   inbound_classified: 100000024,
   inbound_routed: 100000025,
   case_disposed: 100000026,
+  // Phase-8 staff triage state-change actions (work-todo-spike: email-management).
+  inbound_dismissed: 100000027,
+  inbound_actioned: 100000028,
+  inbound_reopened: 100000029,
+  // Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
+  case_removed: 100000030,
+  // Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
+  inbound_reclassified: 100000031,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

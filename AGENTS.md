@@ -24,20 +24,23 @@ repeatedly bitten this project.
 >   whose legacy name `auth.ts` still accepts; a `CollisionSpike.Engineer` role is defined but not yet
 >   enforced). Connects to Postgres.
 > - **Orchestration** — Function App **`cespk-orch-dev`** (source `orchestration/`) — email intake is
->   **LIVE IN TESTING**: **2 Microsoft Graph PUSH change-notification subscriptions** over the test mailbox
->   set engineers@ + digital@ (both Exchange-RBAC-scoped; no Global-Admin consent). Transport is **PUSH, not
->   delta-poll.** The production target is info@ + engineers@ + desk@ (info@ + desk@ not yet scoped); manual
->   case-create remains alongside. ⚠️ Subscriptions expire **2026-07-05** with `graph-renew` showing 0 recent
->   executions — a live watch-item. Function/subscription counts + RBAC state: the live registry
+>   **LIVE** on the production mailbox set: **Microsoft Graph PUSH change-notification subscriptions** over
+>   **info@ + engineers@ + desk@** (all Exchange-RBAC-scoped; no Global-Admin consent; the 2026-06-29 mailbox
+>   cutover added info@ + desk@ and removed the test/dev mailbox digital@). Transport is **PUSH, not
+>   delta-poll.** Manual case-create remains alongside. ✅ Subscription renewal is **durable** (the eternal
+>   `subscriptionMonitorOrchestrator` wakes the scale-to-zero app) — operator watch-item = confirm an
+>   unattended renew at the next wake. Subscription counts + RBAC state: the live registry
 >   [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 > - **System-of-record DB** — Postgres Flexible **`cespk-pg-dev`** (v16), database `collisionspike`.
 > - **Retained from before, unchanged:** the **6 Python Functions** (parser `cespike-parser-dev`,
 >   enrichment, evasentry, evavalidation, ocr, box-webhook), the **Key Vaults**, Blob
 >   `cespkevidstdev01`, App Insights / Log Analytics.
 >
-> **Honest live gaps (state them, don't paper over):** (1) email intake is **live in testing** (orch runs 2
-> Graph PUSH subscriptions over the scoped test mailboxes engineers@ + digital@; production set info@/engineers@/desk@
-> not yet fully scoped; subscriptions expire 2026-07-05 — renewal is a live watch-item);
+> **Honest live gaps (state them, don't paper over):** (1) email intake is **live** on the production
+> mailbox set (orch runs Graph PUSH subscriptions over info@ + engineers@ + desk@, all Exchange-RBAC-scoped;
+> the 2026-06-29 cutover removed the test/dev mailbox digital@); subscription renewal is durable
+> (`subscriptionMonitorOrchestrator`) — confirming an unattended renew + adding a subscription-prune step are
+> the live watch-items;
 > (2) the **DB-credential / RLS P0 is resolved (2026-06-26)** — the API connects as the non-owner Postgres
 > login **`cespk_app`** (Key Vault-referenced password; **RLS enforced**), not `csadmin`; **the other
 > plaintext secret exposures (Graph client secret, storage keys, Document Intelligence key, function keys)
@@ -57,7 +60,7 @@ Read it before touching the SPA, the API, or the Functions. (Sections below that
 > Power Platform era — superseded by the Azure stack; **deprovisioned 2026-06-27**, kept for reference).
 - Azure: resource group `rg-collisionspike-dev` (UK South), subscription `e6076573-23a5-46a8-acef-7e22d264e5db`
   (**Azure Free Trial** — disabled at ~30 days unless upgraded to PAYG). Live Function Apps `cespk-api-dev`
-  (Data API), `cespk-orch-dev` (orchestration, **email intake live in testing** — 2 Graph PUSH subs over the scoped test mailboxes); Postgres `cespk-pg-dev`; SWA
+  (Data API), `cespk-orch-dev` (orchestration, **email intake live** — Graph PUSH subs over the production mailboxes info@ + engineers@ + desk@); Postgres `cespk-pg-dev`; SWA
   `cespk-spa-dev`. Retained Python Functions `cespike-parser-dev` (parser), `cespkenrich-fn-gi62sd`
   (enrichment), and `cespkbox-fn-v76a47` (box-webhook — **Box is now LIVE** (JWT Server Auth, 2026-06-28):
   `BOX_API_ENABLED`/`BOX_FOLDER_AT_INTAKE_ENABLED`/`BOX_FILEREQUEST_ENABLED`=true on api + orch,
@@ -151,7 +154,7 @@ rule in the brief. (Origin: review 190626 R2 — brief/spec text was leaking ont
 Prior sessions shipped confident, wrong diagnoses. Always confirm live:
 - **Live Azure tier:** `az functionapp show`/`az functionapp function list` on `cespk-api-dev` /
   `cespk-orch-dev` (live function counts in the [registry](./docs/architecture/live-environment.md) — email
-  intake is **live in testing** via 2 Graph PUSH subscriptions over the scoped test mailboxes);
+  intake is **live** via Graph PUSH subscriptions over the production mailboxes info@ + engineers@ + desk@);
   `az staticwebapp show` on `cespk-spa-dev`; query Postgres `cespk-pg-dev` (db `collisionspike`) for row
   state. Token/role checks: decode the Entra JWT and confirm `aud` = the API client-id GUID + the `roles`
   claim (`CollisionSpike.User` / `.Admin`).

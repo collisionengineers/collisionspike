@@ -43,6 +43,7 @@ import {
   VrmPlate,
   GLOBAL_TOASTER_ID,
 } from '../components';
+import { DateField } from '../components/DateField';
 import {
   EVA_FIELD_ORDER,
   CASE_TYPE_LABELS,
@@ -63,6 +64,8 @@ import {
   type VatStatus,
 } from '../data';
 import { makeRestParserTransport } from '../data/parser-rest-transport';
+import type { DataAccessExt } from '../data/rest-client';
+import type { NextCasePoResult } from '@cs/domain';
 import { acquireApiToken } from '../auth/msalConfig';
 
 // Authenticated REST transport for the parser — replaces the connector-backed
@@ -341,6 +344,8 @@ export function ManualIntake() {
   const [provider, setProvider] = useState(''); // Work provider display name
   const [providerCode, setProviderCode] = useState(''); // 4-char Principal code
   const [casePo, setCasePo] = useState(''); // our internal reference
+  // Live Case/PO allocator preview for the entered Principal (TKT-004).
+  const [casePoPreview, setCasePoPreview] = useState<NextCasePoResult | undefined>();
   const [providerReference, setProviderReference] = useState(''); // provider's Claim No
   const [insuredName, setInsuredName] = useState('');
   const [status, setStatus] = useState<CaseStatus>('ingested');
@@ -503,6 +508,39 @@ export function ManualIntake() {
       setOnHold(holdGate.data);
     }
   }, [holdGate.data]);
+
+  /* Preview the next Case/PO for the entered Principal (TKT-004) — DB history is
+     authoritative, falling back to the Box folder scan. Debounced; previews only
+     (the durable claim happens server-side at create). */
+  useEffect(() => {
+    const code = providerCode.trim();
+    if (code.length < 2) {
+      setCasePoPreview(undefined);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      void (getDataAccess() as DataAccessExt)
+        .nextCasePo(code)
+        .then((r) => {
+          if (!cancelled) setCasePoPreview(r);
+        })
+        .catch(() => {
+          if (!cancelled) setCasePoPreview(undefined);
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [providerCode]);
+
+  /* Pre-fill the Case/PO with the previewed next value, but only while the
+     operator hasn't typed one (never clobber a manual entry). */
+  useEffect(() => {
+    if (casePoPreview && !casePo.trim()) setCasePo(casePoPreview.boxUpper);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [casePoPreview]);
 
   const onFieldChange = (key: EvaFieldKey, value: string) => {
     setFields((prev) => {
@@ -839,18 +877,36 @@ export function ManualIntake() {
               </Field>
             </div>
 
-            {/* Case/PO — our internal reference (separate from the provider's). */}
+            {/* Case/PO — our internal reference (separate from the provider's).
+                Pre-filled from the live next-Case/PO preview for the Principal. */}
             <div className={styles.fieldRow}>
-              <Field
-                label="Case/PO"
-                required
-                hint="Our internal reference for the case."
-                {...(!casePo.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
-              >
-                <Input value={casePo} onChange={(_, d) => setCasePo(d.value)} />
-              </Field>
+              <div className={styles.fieldWithAction}>
+                <Field
+                  className={styles.fieldGrow}
+                  label="Case/PO"
+                  required
+                  hint="Our internal reference for the case."
+                  {...(!casePo.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
+                >
+                  <Input value={casePo} onChange={(_, d) => setCasePo(d.value)} />
+                </Field>
+                {casePoPreview && casePoPreview.boxUpper !== casePo.trim().toUpperCase() && (
+                  <Button onClick={() => setCasePo(casePoPreview.boxUpper)}>
+                    Use {casePoPreview.boxUpper}
+                  </Button>
+                )}
+              </div>
               <div />
             </div>
+            {casePoPreview && (
+              <Caption1 className={styles.inlineNote}>
+                Suggested next for {casePoPreview.principal}: {casePoPreview.boxUpper} —{' '}
+                {casePoPreview.source === 'box'
+                  ? 'next after the latest archive folder'
+                  : 'next in our records'}
+                .
+              </Caption1>
+            )}
 
             {/* Provider's reference / Claim No — the provider's own case number. */}
             <div className={styles.fieldRow}>
@@ -1023,10 +1079,14 @@ export function ManualIntake() {
               <Field
                 label="Inspect on (inspection date)"
                 required
-                hint="Defaults to today if the instructions carry no date. Format DD/MM/YYYY."
+                hint="Defaults to today if the instructions carry no date."
                 {...(!inspectOn.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
               >
-                <Input value={inspectOn} onChange={(_, d) => setInspectOn(d.value)} />
+                <DateField
+                  value={inspectOn}
+                  onChange={setInspectOn}
+                  aria-label="Inspect on (inspection date)"
+                />
               </Field>
               <div />
             </div>

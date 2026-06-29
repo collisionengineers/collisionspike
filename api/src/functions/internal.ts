@@ -38,14 +38,17 @@ import {
   statusForReviewCase,
   type CaseStatus,
   type EvidenceDescriptor,
+  type ImageRole,
   type InboundCategory,
   type InboundSubtype,
   type StatusEvaluationInput,
 } from '@cs/domain';
 import {
   actionReasonCodec,
+  automationModeCodec,
   caseStatusCodec,
   evidenceKindCodec,
+  imageRoleCodec,
   intakeChannelKindCodec,
   sourceTypeCodec,
   statusToInt,
@@ -269,7 +272,7 @@ app.http('internalProviderMatchRecords', {
   handler: (req, ctx) =>
     withServiceAuth(req, ctx, async () => {
       const rows = await query<Row>(
-        'SELECT id, principal_code, known_email_domains, known_email_addresses, active FROM work_provider ORDER BY display_name',
+        'SELECT id, principal_code, known_email_domains, known_email_addresses, active, provider_automation_mode_code FROM work_provider ORDER BY display_name',
       );
       const records = rows.map((r) => ({
         workProviderId: r.id as string,
@@ -277,6 +280,10 @@ app.http('internalProviderMatchRecords', {
         knownEmailDomains: parseDomains(r.known_email_domains),
         knownEmailAddresses: parseDomains(r.known_email_addresses),
         active: Boolean(r.active),
+        // Lets the orchestrator branch on the matched provider's automation mode
+        // (work-todo-spike: automation-mode). Default review_auto (the live default).
+        providerAutomationMode:
+          automationModeCodec.toName(r.provider_automation_mode_code) ?? 'review_auto',
       }));
       return { status: 200, jsonBody: records };
     }),
@@ -425,6 +432,20 @@ app.http('internalCasesResolve', {
       // already run through the canonical postcode/junk filter (extractVrm / Python sniff).
       const vrm = ((body.parserVrm || inbound.candidateVrm) ?? '').trim();
 
+      // The matched provider's automation mode — the SEAM the orchestration worker reads to
+      // branch intake (work-todo-spike: automation-mode). No provider (new/unknown client) =>
+      // 'manual' (the safest default: do not auto-proceed). A matched provider with an
+      // unreadable mode defaults to 'review_auto' (the live default).
+      let providerAutomationMode: 'manual' | 'review_auto' | 'full_auto' = 'manual';
+      if (workProviderId) {
+        const wpMode = await query<Row>(
+          'SELECT provider_automation_mode_code FROM work_provider WHERE id = $1',
+          [workProviderId],
+        );
+        providerAutomationMode =
+          automationModeCodec.toName(wpMode[0]?.provider_automation_mode_code) ?? 'review_auto';
+      }
+
       // Attach: link inbound_email to the existing target case; no new case_.
       if (decision.resolution === 'attach' && decision.targetCaseId) {
         await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId, undefined, body.parserVrm);
@@ -437,7 +458,10 @@ app.http('internalCasesResolve', {
           summary: `Email ${inbound.internetMessageId} attached to existing case`,
           after: { messageId: inbound.internetMessageId, resolution: 'attach' },
         });
-        return { status: 200, jsonBody: { outcome: 'attached', caseId: decision.targetCaseId } };
+        return {
+          status: 200,
+          jsonBody: { outcome: 'attached', caseId: decision.targetCaseId, providerAutomationMode },
+        };
       }
 
       // Create: new case_ for create / new_due_to_reference / propose_attach.
@@ -574,7 +598,10 @@ app.http('internalCasesResolve', {
         });
       }
 
-      return { status: 200, jsonBody: { outcome: 'created', caseId: newCaseId, casePo: created.casePo } };
+      return {
+        status: 200,
+        jsonBody: { outcome: 'created', caseId: newCaseId, casePo: created.casePo, providerAutomationMode },
+      };
     }),
 });
 
@@ -656,7 +683,14 @@ async function upsertInboundEmail(
          body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
          body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
          work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
-         triage_state     = COALESCE($18, inbound_email.triage_state),
+         -- Re-ingest / link MUST NOT reset a staff-set durable handled state (work-todo-spike
+         -- email-management d): once a person actioned/dismissed a row, an automated replay
+         -- (classify / caseResolve / link-reply 'routed') leaves it handled.
+         triage_state     = CASE
+                              WHEN inbound_email.triage_state IN ('actioned','dismissed')
+                                THEN inbound_email.triage_state
+                              ELSE COALESCE($18, inbound_email.triage_state)
+                            END,
          updated_at       = now()
        RETURNING id`,
       [
@@ -680,7 +714,20 @@ async function upsertInboundEmail(
         triageState ?? null,
       ],
     );
-    return rows[0]?.id ?? null;
+    const inboundEmailId = rows[0]?.id ?? null;
+    // Stamp the classifier SUGGESTION distinctly (fill-if-null) so a later staff override is
+    // visible (work-todo-spike: suggested-tags). Guarded: the suggested_* columns may be
+    // absent on a not-yet-migrated DB — a failure here must not block intake.
+    if (inboundEmailId && classification && (categoryCode != null || subtypeCode != null)) {
+      await query(
+        `UPDATE inbound_email
+            SET suggested_category_code = COALESCE(suggested_category_code, $2),
+                suggested_subtype_code  = COALESCE(suggested_subtype_code, $3)
+          WHERE id = $1`,
+        [inboundEmailId, categoryCode, subtypeCode],
+      ).catch(() => { /* suggested_* columns absent pre-migration — best-effort */ });
+    }
+    return inboundEmailId;
   } catch {
     // inbound_email is triage provenance; failure must not block primary intake.
     return null;
@@ -885,6 +932,67 @@ app.http('internalInboundLinkReply', {
     }),
 });
 
+/**
+ * Update image metadata on an ALREADY-persisted evidence row (the seam that lets the
+ * image-extraction worker enrich an attachment that intake created without it). Only the
+ * fields the caller actually supplied are written (so an intake row's defaults are never
+ * clobbered). excluded + exclusion_reason move together (the schema CHECK requires a reason
+ * when excluded). Best-effort: a failure is logged + swallowed so one bad row never sinks the
+ * batch. Returns the number of rows updated. `whereClause` keys on $1..$N from `whereVals`.
+ */
+async function applyEvidenceMetadata(
+  ctx: InvocationContext,
+  whereClause: string,
+  whereVals: unknown[],
+  row: {
+    imageRole?: string;
+    imageRoleCode?: number;
+    registrationVisible?: boolean;
+    excluded?: boolean;
+    exclusionReason?: string;
+    sha256?: string;
+    sequenceIndex?: number;
+  },
+  computed: {
+    imageRoleCode: number;
+    registrationVisible: boolean | null;
+    excluded: boolean;
+    exclusionReason: string | null;
+    sha256: string | null;
+    sequenceIndex: number | null;
+  },
+): Promise<number> {
+  const sets: string[] = [];
+  const vals: unknown[] = [...whereVals];
+  const push = (col: string, v: unknown): void => {
+    vals.push(v);
+    sets.push(`${col} = $${vals.length}`);
+  };
+
+  if (row.imageRoleCode != null || row.imageRole != null) push('image_role_code', computed.imageRoleCode);
+  if (typeof row.registrationVisible === 'boolean') push('registration_visible', computed.registrationVisible);
+  if (row.excluded != null) {
+    push('excluded', computed.excluded);
+    push('exclusion_reason', computed.exclusionReason); // CHECK-safe: non-empty when excluded
+  } else if (typeof row.exclusionReason === 'string' && row.exclusionReason.trim()) {
+    push('exclusion_reason', row.exclusionReason.trim());
+  }
+  if (row.sha256 != null) push('sha256', computed.sha256);
+  if (row.sequenceIndex != null) push('sequence_index', computed.sequenceIndex);
+
+  if (sets.length === 0) return 0;
+  try {
+    const res = await query<{ id: string }>(
+      `UPDATE evidence SET ${sets.join(', ')}, updated_at = now() WHERE ${whereClause} RETURNING id`,
+      vals,
+    );
+    return res.length;
+  } catch (e) {
+    ctx.error(e);
+    return 0;
+  }
+}
+
 /* ============================================================
    4 — POST /api/internal/cases/{id}/evidence
    Called by: orchestration classifyPersist activity (plan 22 §B §A3) AND the
@@ -919,36 +1027,73 @@ app.http('internalCasesEvidence', {
             boxFileUrl?: string;
             sourceLabel?: string;
             acceptedForEva?: boolean;
+            // Image metadata — the SEAM the image-extraction worker writes (work-todo-spike:
+            // pdf-image-extraction). Accept either the imageRole NAME or imageRoleCode int.
+            imageRole?: string;
+            imageRoleCode?: number;
+            registrationVisible?: boolean;
+            excluded?: boolean;
+            exclusionReason?: string;
+            sha256?: string;
+            sequenceIndex?: number;
           }
         >;
       };
 
       let persisted = 0;
+      let updated = 0;
       for (const row of body.rows ?? []) {
         const kindCode =
           evidenceKindCodec.toInt(
             (row.evidenceClass as 'image' | 'instruction' | 'email' | 'other') ?? 'other',
           ) ?? null;
 
+        // ---- image metadata (defaults match the schema: image_role_code NOT NULL DEFAULT
+        // unknown(100000003); excluded NOT NULL DEFAULT false; exclusion_reason required when
+        // excluded). Computed once; used for both INSERT and the existing-row UPDATE. ----
+        const imageRoleCode =
+          (typeof row.imageRoleCode === 'number' ? row.imageRoleCode : undefined) ??
+          imageRoleCodec.toInt(row.imageRole as ImageRole | undefined) ??
+          100000003;
+        const registrationVisible =
+          typeof row.registrationVisible === 'boolean' ? row.registrationVisible : null;
+        const excluded = row.excluded === true;
+        const exclusionReason = excluded
+          ? (row.exclusionReason ?? '').trim() || 'Excluded' // schema CHECK: required when excluded
+          : (row.exclusionReason ?? '').trim() || null;
+        const sha256 = (row.sha256 ?? '').trim() || null;
+        const sequenceIndex = Number.isInteger(row.sequenceIndex)
+          ? (row.sequenceIndex as number)
+          : null;
+        // Did the caller actually supply any image metadata (vs an intake row that has none)?
+        const hasMetadata =
+          row.imageRoleCode != null ||
+          row.imageRole != null ||
+          typeof row.registrationVisible === 'boolean' ||
+          row.excluded != null ||
+          row.exclusionReason != null ||
+          row.sha256 != null ||
+          row.sequenceIndex != null;
+
         const sourceMessageId = (row.sourceMessageId ?? '').trim() || null;
         const boxFileId = (row.boxFileId ?? '').trim() || null;
         const isBoxRow = sourceMessageId != null || boxFileId != null;
 
+        let inserted = false;
         if (isBoxRow) {
           // Box upload: storage_path stays NULL (bytes mirror to Blob later); dedup
           // on the durable box:file:<id> tag in source_message_id (fall back to
-          // box_file_id only if the tag is absent). Record both Box correlation
-          // columns + the explicit accepted-for-EVA flag (the column default is
-          // true; the box client sets it explicitly like classify-persist does).
+          // box_file_id only if the tag is absent).
           const dedupCol = sourceMessageId != null ? 'source_message_id' : 'box_file_id';
           const dedupVal = sourceMessageId ?? boxFileId;
           const result = await query<{ id: string }>(
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes,
-                source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label)
-             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
+                image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
              WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $11
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $17
              )
              RETURNING id`,
             [
@@ -962,27 +1107,69 @@ app.http('internalCasesEvidence', {
               (row.boxFileUrl ?? '').trim() || null,
               row.acceptedForEva ?? true,
               (row.sourceLabel ?? '').trim() || 'box_upload',
+              imageRoleCode,
+              registrationVisible,
+              excluded,
+              exclusionReason,
+              sha256,
+              sequenceIndex,
               dedupVal,
             ],
           );
-          if (result.length > 0) persisted++;
+          inserted = result.length > 0;
+          // Existing Box row + new metadata (e.g. OCR ran after the upload) -> update in place.
+          if (!inserted && hasMetadata) {
+            updated += await applyEvidenceMetadata(
+              ctx,
+              `case_id = $1 AND ${dedupCol} = $2`,
+              [caseId, dedupVal],
+              row,
+              { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
+            );
+          }
         } else {
-          // Email/orchestration: idempotent on (case_id, storage_path) — unchanged.
+          // Email/orchestration: idempotent on (case_id, storage_path).
           const result = await query<{ id: string }>(
             `INSERT INTO evidence
-               (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label)
-             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake'
+               (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
+                image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
+             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12
              WHERE NOT EXISTS (
                SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
              RETURNING id`,
-            [row.filename, caseId, kindCode, row.contentType || null, row.size ?? null, row.blobPath ?? null],
+            [
+              row.filename,
+              caseId,
+              kindCode,
+              row.contentType || null,
+              row.size ?? null,
+              row.blobPath ?? null,
+              imageRoleCode,
+              registrationVisible,
+              excluded,
+              exclusionReason,
+              sha256,
+              sequenceIndex,
+            ],
           );
-          if (result.length > 0) persisted++;
+          inserted = result.length > 0;
+          // Existing intake row + new image metadata -> update it in place (the seam that
+          // lets the image-extraction worker enrich an already-persisted attachment).
+          if (!inserted && hasMetadata && row.blobPath) {
+            updated += await applyEvidenceMetadata(
+              ctx,
+              'case_id = $1 AND storage_path = $2::text',
+              [caseId, row.blobPath],
+              row,
+              { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
+            );
+          }
         }
+        if (inserted) persisted++;
       }
 
-      return { status: 200, jsonBody: { persisted } };
+      return { status: 200, jsonBody: { persisted, updated } };
     }),
 });
 

@@ -147,10 +147,33 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     parserRef,
     parserMileage,
     parserMileageUnit,
-  })) as { outcome: string; caseId: string; casePo?: string | null };
+  })) as {
+    outcome: string;
+    caseId: string;
+    casePo?: string | null;
+    providerAutomationMode?: 'manual' | 'review_auto' | 'full_auto';
+  };
 
   if (resolved.outcome === 'already_ingested') {
     return { skipped: true, caseId: resolved.caseId };
+  }
+
+  // Automation-mode branch (am ticket). The matched provider's mode decides how far
+  // intake auto-advances. It comes from the resolve SEAM; default 'review_auto' keeps
+  // the current behaviour when the field is absent.
+  //   • manual      — record + classify the case + persist evidence, but DO NOT
+  //                   auto-advance: no auto Box folder, no auto Box archive, no auto
+  //                   enrichment (staff drive those from the queue).
+  //   • review_auto — the default live path: prepare the case for review (everything
+  //                   below), stopping short of EVA submission (always a staff action).
+  //   • full_auto   — RESERVED. It behaves EXACTLY as review_auto today; its aggressive
+  //                   steps (auto-EVA, auto-chaser, …) stay behind a default-off flag
+  //                   (FULL_AUTO_ENABLED) and are intentionally NOT enabled here — we
+  //                   only build the branch point cleanly (ADR-0015 / am research §full).
+  const automationMode = resolved.providerAutomationMode ?? 'review_auto';
+  const autoAdvance = automationMode !== 'manual';
+  if (!autoAdvance && !ctx.df.isReplaying) {
+    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; recording only, no auto-advance`);
   }
 
   // 2.5 — Box folder at intake (#6, ADR-0012: additive one-way mirror). A known-provider case
@@ -162,7 +185,8 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // (the parse/enrich/chaser convention; the recorded activity result is what replays). The
   // mirror is additive: a Box failure must NOT block the core intake (evidence/status/enrich),
   // so it is best-effort here — the manual box-folder-create starter can retry.
-  if (resolved.casePo) {
+  // Skipped in `manual` mode (no auto Box folder until staff advance the case).
+  if (autoAdvance && resolved.casePo) {
     try {
       yield ctx.df.callSubOrchestratorWithRetry('boxFolderCreateOrchestrator', retry, {
         caseId: resolved.caseId,
@@ -175,11 +199,48 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     }
   }
 
-  // 3 — classify + persist evidence rows
+  // 3 — classify + persist evidence rows (always — recording evidence is not "advancing")
   yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
     caseId: resolved.caseId,
     inbound,
   });
+
+  // 3.5 — Box ARCHIVE (#box-sync): copy the landed evidence bytes (attachments + the
+  // raw .eml) from Blob INTO the case Box folder — the fix for "folder created but
+  // files never stored". Gated + scope-locked INSIDE the activity; best-effort here so
+  // a Box failure never sinks intake. Skipped in `manual` mode. Runs after the folder
+  // exists (2.5) and after evidence persist (3) so the case row + folder are both set.
+  if (autoAdvance && resolved.casePo) {
+    try {
+      yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, {
+        caseId: resolved.caseId,
+        inbound,
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+      }
+    }
+  }
+
+  // 3.6 — extract embedded images from instruction PDFs/EML into image evidence
+  // (#pdf-image-extraction). Gated + best-effort INSIDE the activity; skipped in
+  // `manual` mode. Persists each image as an evidence row + flags an unsuitable set
+  // (no viewable registration). Runs after evidence persist so the case exists.
+  if (autoAdvance) {
+    try {
+      yield ctx.df.callActivityWithRetry('extractImages', retry, {
+        caseId: resolved.caseId,
+        messageId: (inbound as { messageId?: string }).messageId,
+        attachments: (inbound as { attachments?: unknown }).attachments,
+        caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+      }
+    }
+  }
 
   // 5 — status evaluate (EVA-readiness + status machine via Data API)
   const status = (yield ctx.df.callActivityWithRetry('statusEvaluate', retry, {
@@ -188,12 +249,15 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
 
   // 6 — enrich (gate ENRICHMENT_ENABLED checked inside; no-op when off). Pass the best VRM
   // (parser PDF VRM preferred over the email sniff) + whether the doc already had mileage;
-  // the activity persists the advisory result onto the case on a 200 (#1).
-  yield ctx.df.callActivityWithRetry('enrich', retry, {
-    caseId: resolved.caseId,
-    vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
-    documentHasMileage,
-  });
+  // the activity persists the advisory result onto the case on a 200 (#1). Skipped in
+  // `manual` mode (no automatic enrichment — staff trigger it).
+  if (autoAdvance) {
+    yield ctx.df.callActivityWithRetry('enrich', retry, {
+      caseId: resolved.caseId,
+      vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+      documentHasMileage,
+    });
+  }
 
-  return { caseId: resolved.caseId, status: status.value };
+  return { caseId: resolved.caseId, status: status.value, mode: automationMode };
 });

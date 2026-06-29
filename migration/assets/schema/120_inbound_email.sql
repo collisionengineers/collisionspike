@@ -19,8 +19,13 @@ CREATE TABLE inbound_email (
   source_mailbox    varchar(256),
   received_on       timestamptz,                 -- triage queue age/ordering key
   has_attachments   boolean,
-  category_code     integer REFERENCES choice_inbound_category(code),
-  subtype_code      integer REFERENCES choice_inbound_subtype(code),
+  category_code     integer REFERENCES choice_inbound_category(code),  -- CHOSEN/current category (defaults to the classifier suggestion)
+  subtype_code      integer REFERENCES choice_inbound_subtype(code),   -- CHOSEN/current subtype
+  -- The ORIGINAL classifier suggestion, kept distinct from the chosen value so a staff
+  -- override is captured (work-todo-spike: suggested-tags-and-folders). Written once at
+  -- classify time (fill-if-null); category_code/subtype_code carry the human-chosen value.
+  suggested_category_code integer REFERENCES choice_inbound_category(code),
+  suggested_subtype_code  integer REFERENCES choice_inbound_subtype(code),
   confidence        double precision CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1)),
   classifier_mode   varchar(20),                 -- deterministic | llm | human
   signals           text,                        -- JSON/newline rule-id list (Memo 4000)

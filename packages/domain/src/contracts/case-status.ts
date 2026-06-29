@@ -22,7 +22,11 @@ import {
   type ImageRuleEvidence,
 } from './image-rules';
 
-/* ----------  The 11-value status union (the prototype authority)  ---------- */
+/* ----------  The 12-value status union (the prototype authority)  ----------
+   `removed` (12th, append-only) is the Superuser SOFT-REMOVE terminal
+   (work-todo-spike: ui-changes/delete-case): the case row + audit trail survive,
+   PII is anonymised, and the status is locked here so the guard never re-promotes
+   it and dedup/merge never targets it. */
 export type CaseStatus =
   | 'new_email'
   | 'ingested'
@@ -34,9 +38,10 @@ export type CaseStatus =
   | 'ready_for_eva'
   | 'eva_submitted'
   | 'box_synced'
-  | 'error';
+  | 'error'
+  | 'removed';
 
-/** All 11 values, frozen in declaration order (drives the choice-set parity test). */
+/** All 12 values, frozen in declaration order (drives the choice-set parity test). */
 export const CASE_STATUSES: readonly CaseStatus[] = [
   'new_email',
   'ingested',
@@ -49,12 +54,14 @@ export const CASE_STATUSES: readonly CaseStatus[] = [
   'eva_submitted',
   'error',
   'box_synced',
+  'removed',
 ] as const;
 
 /**
  * Terminal statuses — once a Case reaches one, the guard never moves it.
  * Per Phase-1 plan §5.4 the terminals are `eva_submitted`, `box_synced`, and
- * `error`; these reconcile 1:1 with the Dataverse choice set's
+ * `error`, plus `removed` (the Superuser soft-remove terminal, work-todo-spike);
+ * these reconcile 1:1 with the Dataverse choice set's
  * `stateMachine.terminals` (`packages/domain/src/data/choicesets/case-status.json`), asserted by
  * `migration/assets/verify-parity-pg.mjs`. `linked_to_instruction` and `duplicate_risk`
  * are BRANCH states set by the dedup flow, NOT terminals — the guard may
@@ -64,6 +71,7 @@ export const TERMINAL_STATUSES: readonly CaseStatus[] = [
   'eva_submitted',
   'box_synced',
   'error',
+  'removed',
 ] as const;
 
 const TERMINAL_SET: ReadonlySet<CaseStatus> = new Set(TERMINAL_STATUSES);
