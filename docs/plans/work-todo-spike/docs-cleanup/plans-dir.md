@@ -1,0 +1,1 @@
+Need to go through plans with a fine tooth comb. Remove anything that is stale. Extract anything that needs implementing and distill into small atomic tasks, each with its own ticket.

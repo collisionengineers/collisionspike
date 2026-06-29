@@ -1,0 +1,1 @@
+Need to revamp our whole planning system to markdown based tickets with a tracker. Possibly switch to a Kanban board if doable on markdown. Need to determine which plans are stale, and what bloat needs cutting from the repo.

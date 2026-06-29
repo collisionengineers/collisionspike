@@ -1,0 +1,2 @@
+Parser check - registration shows as G3 on inbox. Does not show in case at all.
+
