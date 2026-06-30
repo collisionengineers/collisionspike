@@ -213,7 +213,7 @@ skip(
     // (a) function counts
     if (facts.functionCounts?.verified) {
       for (const [app, expected] of Object.entries(facts.functionCounts.value)) {
-        const appName = app === 'orch' ? 'cespk-orch-dev' : app === 'api' ? 'cespk-api-dev' : app;
+        const appName = app === 'orch' ? 'cespk-orch-dev' : app === 'api' ? 'cespk-api-dev' : app === 'parser' ? 'cespike-parser-dev-x7xt3d5ovhi7y' : app;
         const out = sh(`az functionapp function list -g ${RG} -n ${appName} --query "length(@)" -o tsv`);
         const actual = out === null ? null : Number(out);
         if (actual !== expected) drift.push({ fact: `functionCounts.${app}`, expected, actual });

@@ -8689,6 +8689,76 @@ import_functions.app.http("nextCasePo", {
     return { status: 200, jsonBody: result };
   })
 });
+async function readCaseBoxFolder(caseId) {
+  const rows = await query(
+    "SELECT box_folder_id, box_folder_url FROM case_ WHERE id = $1",
+    [caseId]
+  );
+  return {
+    boxFolderId: rows[0]?.box_folder_id ?? null,
+    boxFolderUrl: rows[0]?.box_folder_url ?? null
+  };
+}
+import_functions.app.http("caseBoxSharedLink", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/box/shared-link",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    if (!gates.boxApi()) {
+      return { status: 200, jsonBody: { status: "gated_off", message: "Box is not enabled." } };
+    }
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
+    const { boxFolderId, boxFolderUrl } = await readCaseBoxFolder(caseId);
+    if (!boxFolderId) {
+      return {
+        status: 200,
+        jsonBody: { status: "folder_not_ready", message: "This case has no Box folder yet." }
+      };
+    }
+    const folderUrl = boxFolderUrl && boxFolderUrl.trim() || `https://app.box.com/folder/${encodeURIComponent(boxFolderId)}`;
+    return { status: 200, jsonBody: { status: "ok", data: { folderUrl } } };
+  })
+});
+import_functions.app.http("caseBoxCopyFileRequest", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/box/copy-file-request",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    if (!gates.boxApi() || !gates.boxFileRequest()) {
+      return { status: 200, jsonBody: { status: "gated_off", message: "Image-upload links are not enabled." } };
+    }
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
+    if (!gates.boxFileRequestTemplateId()) {
+      return {
+        status: 200,
+        jsonBody: { status: "gated_off", message: "The image-upload template isn\u2019t set up yet." }
+      };
+    }
+    const { boxFolderId } = await readCaseBoxFolder(caseId);
+    if (!boxFolderId) {
+      return { status: 200, jsonBody: { status: "folder_not_ready", message: "This case has no Box folder yet." } };
+    }
+    return {
+      status: 200,
+      jsonBody: { status: "gated_off", message: "Image-upload links aren\u2019t wired up yet." }
+    };
+  })
+});
+import_functions.app.http("caseBoxFinalize", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/box/finalize",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
+    return {
+      status: 200,
+      jsonBody: { status: "gated_off", message: "Direct submit isn\u2019t enabled \u2014 use \u201CExport for EVA\u201D." }
+    };
+  })
+});
 function nowParam(req) {
   const raw = req.query.get("now");
   if (!raw) return /* @__PURE__ */ new Date();
@@ -9457,6 +9527,34 @@ function combineMakeModel(make, model) {
   return md || mk || "";
 }
 
+// api/src/lib/parser-eva-fields.ts
+var DDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/;
+var SPEC = {
+  vehicle_model: { column: "eva_vehicle_model", provenanceField: "vehicleModel", normalize: (v) => v.slice(0, 200) },
+  claimant_name: { column: "eva_claimant_name", provenanceField: "claimantName", normalize: (v) => v.slice(0, 200) },
+  claimant_telephone: { column: "eva_claimant_telephone", provenanceField: "claimantTelephone", normalize: (v) => v.slice(0, 60) },
+  claimant_email: { column: "eva_claimant_email", provenanceField: "claimantEmail", normalize: (v) => v.slice(0, 320) },
+  // CHECK ck_case_eva_date_of_loss / _instruction: must match DD/MM/YYYY (or empty) — skip junk.
+  date_of_loss: { column: "eva_date_of_loss", provenanceField: "dateOfLoss", normalize: (v) => DDMMYYYY.test(v) ? v : "" },
+  date_of_instruction: { column: "eva_date_of_instruction", provenanceField: "dateOfInstruction", normalize: (v) => DDMMYYYY.test(v) ? v : "" },
+  accident_circumstances: { column: "eva_accident_circumstances", provenanceField: "accidentCircumstances", normalize: (v) => v.slice(0, 4e3) },
+  // CHECK ck_case_eva_vat_status: IN ('', 'Yes', 'No') — the parser normalizes to Yes/No; skip anything else.
+  vat_status: { column: "eva_vat_status", provenanceField: "vatStatus", normalize: (v) => v === "Yes" || v === "No" ? v : "" }
+};
+function selectParserEvaCandidates(parserEva) {
+  if (!parserEva) return [];
+  const out = [];
+  for (const key of Object.keys(SPEC)) {
+    const raw = (parserEva[key] ?? "").toString().trim();
+    if (!raw) continue;
+    const spec = SPEC[key];
+    const value = spec.normalize(raw);
+    if (!value) continue;
+    out.push({ column: spec.column, provenanceField: spec.provenanceField, value });
+  }
+  return out;
+}
+
 // api/src/functions/internal.ts
 async function withServiceAuth(req, ctx, fn) {
   try {
@@ -9510,18 +9608,21 @@ async function recomputeStatus2(caseId) {
   }
   return next;
 }
-async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit) {
+async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva) {
   const ref = (parserRef ?? "").trim();
   const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, "") : "";
   const unitRaw = (parserMileageUnit ?? "").trim();
   const unit = unitRaw === "Miles" || unitRaw === "Km" ? unitRaw : "";
-  if (!ref && !mileage) return;
-  const cur = await query("SELECT case_ref, eva_mileage FROM case_ WHERE id = $1", [caseId]);
+  const evaCandidates = selectParserEvaCandidates(parserEva);
+  if (!ref && !mileage && evaCandidates.length === 0) return;
+  const readCols = ["case_ref", "eva_mileage", ...evaCandidates.map((c) => c.column)];
+  const cur = await query(`SELECT ${readCols.join(", ")} FROM case_ WHERE id = $1`, [caseId]);
   if (!cur[0]) return;
   const isEmpty = (v) => !String(v ?? "").trim();
   const sets = [];
   const vals = [];
   let mileageFilled = false;
+  const provenance = [];
   if (ref && isEmpty(cur[0].case_ref)) {
     sets.push(`case_ref = $${sets.length + 1}`);
     vals.push(ref.slice(0, 200));
@@ -9535,25 +9636,27 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
       vals.push(unit);
     }
   }
+  for (const cand of evaCandidates) {
+    if (isEmpty(cur[0][cand.column])) {
+      sets.push(`${cand.column} = $${sets.length + 1}`);
+      vals.push(cand.value);
+      provenance.push({ field: cand.provenanceField, value: cand.value });
+    }
+  }
   if (sets.length === 0) return;
   vals.push(caseId);
   await query(
     `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
     vals
   );
-  if (mileageFilled) {
+  if (mileageFilled) provenance.unshift({ field: "mileage", value: mileage.slice(0, 20) });
+  const sourceTypeCode = sourceTypeCodec.toInt("pdf_extraction") ?? 1e8;
+  for (const p of provenance) {
     await query(
       `INSERT INTO field_level_provenance
          (name, case_id, field_name, value, source_type_code, source_label)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        `${caseId}:mileage`,
-        caseId,
-        "mileage",
-        mileage.slice(0, 20),
-        sourceTypeCodec.toInt("pdf_extraction") ?? 1e8,
-        "From instructions"
-      ]
+      [`${caseId}:${p.field}`, caseId, p.field, p.value, sourceTypeCode, "From instructions"]
     ).catch(() => {
     });
   }
@@ -9663,7 +9766,7 @@ import_functions9.app.http("internalCasesResolve", {
     }
     if (decision.resolution === "attach" && decision.targetCaseId) {
       await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId, void 0, body.parserVrm);
-      await applyParserFields(decision.targetCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit);
+      await applyParserFields(decision.targetCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit, body.parserEva);
       await writeAudit({
         action: AUDIT_ACTION.case_attached,
         caseId: decision.targetCaseId,
@@ -9762,7 +9865,7 @@ import_functions9.app.http("internalCasesResolve", {
     }
     const newCaseId = created.caseId;
     await upsertInboundEmail(inbound, workProviderId, newCaseId, void 0, body.parserVrm);
-    await applyParserFields(newCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit);
+    await applyParserFields(newCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit, body.parserEva);
     const auditAction = AUDIT_ACTION[decision.auditAction] ?? AUDIT_ACTION.case_created;
     await writeAudit({
       action: auditAction,
