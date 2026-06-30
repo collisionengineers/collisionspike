@@ -1,7 +1,7 @@
 ---
 id: TKT-008
 title: Calendar picker on the date-of-incident / instruction fields
-status: now
+status: done
 priority: P3
 area: ui
 tickets-it-relates-to: [TKT-011]

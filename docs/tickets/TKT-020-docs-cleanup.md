@@ -1,7 +1,7 @@
 ---
 id: TKT-020
 title: Stale-plan cleanup + root-doc reconciliation
-status: now
+status: done
 priority: P2
 area: docs
 tickets-it-relates-to: [TKT-019]
