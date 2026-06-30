@@ -59,7 +59,9 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
 
   // QUERY / OTHER never mint a Case — the inbound_email triage row IS the record. BUT a REPLY
   // about existing work (#3) links/appends to its OPEN case (Case-ref first, then VRM; >1 →
-  // Held, never auto-link — the DB lookup + ADR-0010 decision run in the Data API).
+  // Held, never auto-link — the DB lookup + ADR-0010 decision run in the Data API). When a
+  // reply links to a case, still run the record-keeping path so its email/attachments/images
+  // are evidence and can be mirrored into the archive.
   if (classification.category !== 'receiving_work') {
     if (classification.isReply) {
       const inb = inbound as { candidateRef?: string; candidateVrm?: string };
@@ -71,6 +73,46 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
         ref,
         vrm,
       })) as { outcome: string; caseId?: string };
+      if (link.outcome === 'linked' && link.caseId) {
+        yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
+          caseId: link.caseId,
+          inbound,
+        });
+
+        try {
+          yield ctx.df.callActivityWithRetry('extractImages', retry, {
+            caseId: link.caseId,
+            messageId: (inbound as { messageId?: string }).messageId,
+            attachments: (inbound as { attachments?: unknown }).attachments,
+            caseVrm: vrm || (inbound as { candidateVrm?: string }).candidateVrm,
+          });
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(`[intake] image extraction failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
+          }
+        }
+
+        try {
+          yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, {
+            caseId: link.caseId,
+          });
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(`[intake] archive failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
+          }
+        }
+
+        const status = (yield ctx.df.callActivityWithRetry('statusEvaluate', retry, {
+          caseId: link.caseId,
+        })) as { value: string };
+        return {
+          triaged: classification.category,
+          subtype: classification.subtype,
+          replyLink: link.outcome,
+          caseId: link.caseId,
+          status: status.value,
+        };
+      }
       return {
         triaged: classification.category,
         subtype: classification.subtype,

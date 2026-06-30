@@ -8083,6 +8083,8 @@ function richTagToClassification(tag2) {
   switch (tag2) {
     case "Inspection":
       return { category: "receiving_work", subtype: "existing_provider_instruction" };
+    case "New client work":
+      return { category: "receiving_work", subtype: "new_client_work" };
     case "Audit":
       return { category: "receiving_work", subtype: "existing_provider_audit" };
     case "Diminution":
@@ -8659,7 +8661,7 @@ import_functions.app.http("removeCase", {
               source_message_id = NULL,
               source_label = 'removed',
               sha256 = NULL,
-              exclusion_reason = NULL,
+              exclusion_reason = 'removed',
               accepted_for_eva = false,
               excluded = true,
               updated_at = now()
@@ -9997,10 +9999,26 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17)
        ON CONFLICT (source_message_id) DO UPDATE SET
          case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
-         category_code    = COALESCE(EXCLUDED.category_code, inbound_email.category_code),
-         subtype_code     = COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code),
-         confidence       = COALESCE(EXCLUDED.confidence, inbound_email.confidence),
-         signals          = COALESCE(EXCLUDED.signals, inbound_email.signals),
+         category_code    = CASE
+                              WHEN inbound_email.classifier_mode = 'human'
+                                THEN inbound_email.category_code
+                              ELSE COALESCE(EXCLUDED.category_code, inbound_email.category_code)
+                            END,
+         subtype_code     = CASE
+                              WHEN inbound_email.classifier_mode = 'human'
+                                THEN inbound_email.subtype_code
+                              ELSE COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code)
+                            END,
+         confidence       = CASE
+                              WHEN inbound_email.classifier_mode = 'human'
+                                THEN inbound_email.confidence
+                              ELSE COALESCE(EXCLUDED.confidence, inbound_email.confidence)
+                            END,
+         signals          = CASE
+                              WHEN inbound_email.classifier_mode = 'human'
+                                THEN inbound_email.signals
+                              ELSE COALESCE(EXCLUDED.signals, inbound_email.signals)
+                            END,
          body_vrm         = COALESCE(EXCLUDED.body_vrm, inbound_email.body_vrm),
          body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
          body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
@@ -10337,11 +10355,41 @@ import_functions9.app.http("internalCasesArchiveEvidence", {
          FROM evidence
          WHERE case_id = $1
            AND storage_path IS NOT NULL
+           AND box_file_id IS NULL
            AND blob_purged_at IS NULL
          ORDER BY created_at ASC, file_name ASC`,
       [caseId]
     );
     return { status: 200, jsonBody: { rows } };
+  })
+});
+import_functions9.app.http("internalCasesArchiveEvidenceStamp", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/archive-evidence/stamp",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    if (!caseId) return { status: 400, jsonBody: { error: "caseId required" } };
+    const body = await req.json();
+    const evidenceId = typeof body.evidenceId === "string" ? body.evidenceId.trim() : "";
+    const blobPath = typeof body.blobPath === "string" ? body.blobPath.trim() : "";
+    const boxFileId = typeof body.boxFileId === "string" ? body.boxFileId.trim() : "";
+    const boxFileUrl = typeof body.boxFileUrl === "string" ? body.boxFileUrl.trim() : "";
+    if (!evidenceId || !blobPath || !boxFileId) {
+      return { status: 400, jsonBody: { error: "evidenceId, blobPath and boxFileId required" } };
+    }
+    const updated = await query(
+      `UPDATE evidence
+            SET box_file_id = $4,
+                box_file_url = COALESCE($5, box_file_url),
+                updated_at = now()
+          WHERE case_id = $1
+            AND id = $2
+            AND storage_path = $3
+          RETURNING id`,
+      [caseId, evidenceId, blobPath, boxFileId, boxFileUrl || null]
+    );
+    return { status: 200, jsonBody: { updated: updated.length > 0 } };
   })
 });
 import_functions9.app.http("internalCasesStatusEvaluate", {

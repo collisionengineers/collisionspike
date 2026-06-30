@@ -90,11 +90,15 @@ describe('casePoSeqOfName / maxCasePoSeqFromNames — Box fallback parsing', () 
   });
 });
 
-describe('richTagToClassification — Inspection/Audit/Diminution/Query taxonomy', () => {
+describe('richTagToClassification — staff reclassification taxonomy', () => {
   it('maps each tag onto a category+subtype', () => {
     expect(richTagToClassification('Inspection')).toEqual({
       category: 'receiving_work',
       subtype: 'existing_provider_instruction',
+    });
+    expect(richTagToClassification('New client work')).toEqual({
+      category: 'receiving_work',
+      subtype: 'new_client_work',
     });
     expect(richTagToClassification('Audit')).toEqual({
       category: 'receiving_work',

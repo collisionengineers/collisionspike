@@ -31,6 +31,7 @@ interface BoxArchiveInput {
 }
 
 interface ArchiveItem {
+  id: string;
   filename: string;
   blobPath: string;
   contentType: string;
@@ -67,6 +68,7 @@ df.app.activity('boxArchiveEvidence', {
     try {
       const persisted = await dataApi.archiveEvidenceRows(caseId);
       items = persisted.rows.map((row) => ({
+        id: row.id,
         filename: row.filename,
         blobPath: row.blobPath,
         contentType: row.contentType || 'application/octet-stream',
@@ -86,17 +88,42 @@ df.app.activity('boxArchiveEvidence', {
       if (seen.has(it.blobPath)) continue;
       seen.add(it.blobPath);
       total++;
+      let res: { id?: string; name?: string; sha1?: string; outcome?: string };
       try {
         const bytes = await downloadEvidenceBytes(it.blobPath);
-        const res = await box.uploadFile(folderId, it.filename, bytes.toString('base64'), it.contentType);
-        uploaded++;
-        if (res.id) fileIds.push(res.id);
+        res = await box.uploadFile(folderId, it.filename, bytes.toString('base64'), it.contentType);
       } catch (e) {
         // Best-effort per item: a single upload failure must not abort the others.
         ctx.warn(
           `[boxArchive] upload failed for ${it.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`,
         );
+        continue;
       }
+      if (!res.id) {
+        ctx.warn(`[boxArchive] upload returned no file id for ${it.filename} (case ${caseId})`);
+        continue;
+      }
+
+      const boxFileUrl = `https://app.box.com/file/${encodeURIComponent(res.id)}`;
+      try {
+        const stamped = await dataApi.stampArchivedEvidence({
+          caseId,
+          evidenceId: it.id,
+          blobPath: it.blobPath,
+          boxFileId: res.id,
+          boxFileUrl,
+        });
+        if (!stamped.updated) {
+          ctx.warn(`[boxArchive] evidence row was not stamped for ${it.filename} (case ${caseId})`);
+        }
+      } catch (e) {
+        ctx.warn(
+          `[boxArchive] upload succeeded but evidence stamp failed for ${it.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`,
+        );
+        throw e;
+      }
+      uploaded++;
+      fileIds.push(res.id);
     }
 
     // Audit the archive (best-effort; box_synced action code). Records what was mirrored.

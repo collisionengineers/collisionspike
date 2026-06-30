@@ -20,7 +20,7 @@
  * Exit code 0 = all gates passed (skips allowed); nonzero = a gate failed.
  */
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -36,7 +36,12 @@ const MOCKUP_VITE = nodeScript('mockup-app', 'node_modules', 'vite', 'bin', 'vit
 function run(label, cmd, opts = {}) {
   process.stdout.write(`\n=== ${label} ===\n`);
   try {
-    const out = execSync(cmd, { cwd: opts.cwd ?? ROOT, encoding: 'utf8', shell: true });
+    const out = execSync(cmd, {
+      cwd: opts.cwd ?? ROOT,
+      encoding: 'utf8',
+      shell: true,
+      env: { ...process.env, ...(opts.env ?? {}) },
+    });
     console.log(out.trim().split('\n').slice(-(opts.tail ?? 2)).join('\n'));
     results.push({ label, status: 'PASS' });
   } catch (e) {
@@ -119,7 +124,17 @@ for (const [name, dir, rel] of PY_SUITES) {
   const nixPy = join(dir, '.venv', 'bin', 'python');
   const exe = isWin && existsSync(winPy) ? winPy : existsSync(nixPy) ? nixPy : null;
   if (exe) {
-    run(`Function ${name} — pytest`, `${JSON.stringify(exe)} -m pytest tests -q`, { tail: 1, cwd: dir });
+    const pyEnv = isWin ? {} : { TMPDIR: '/tmp', PYTEST_DEBUG_TEMPROOT: `/tmp/pytest-collisionspike-${name}` };
+    if (pyEnv.PYTEST_DEBUG_TEMPROOT) mkdirSync(pyEnv.PYTEST_DEBUG_TEMPROOT, { recursive: true });
+    run(
+      `Function ${name} — pytest`,
+      `${JSON.stringify(exe)} -m pytest tests -q -s`,
+      {
+        tail: 1,
+        cwd: dir,
+        env: pyEnv,
+      },
+    );
   } else {
     skip(`Function ${name} — pytest`, `no .venv. Setup: cd ${rel} && python -m venv .venv && (.venv/Scripts or .venv/bin)/pip install -r requirements.txt -r requirements-dev.txt`);
   }

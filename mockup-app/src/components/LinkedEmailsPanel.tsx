@@ -82,7 +82,7 @@ export interface LinkedEmailsPanelProps {
 export function LinkedEmailsPanel({ caseId, emails }: LinkedEmailsPanelProps) {
   const styles = useStyles();
   // Fall back to the inbound feed only when the case payload didn't carry emails.
-  const inbox = useInbox();
+  const inbox = useInbox({ view: 'all' });
   const usePayload = emails !== undefined;
   const linked = useMemo(
     () => (usePayload ? emails! : (inbox.data ?? []).filter((e) => e.caseId === caseId)),
@@ -114,7 +114,7 @@ export function LinkedEmailsPanel({ caseId, emails }: LinkedEmailsPanelProps) {
   return (
     <div className={styles.root}>
       <Caption1 className={styles.hint}>
-        Emails received for this case. Open one to read the full message.
+        Emails received for this case. Open one to read the saved preview.
       </Caption1>
       <div className={styles.list} role="list">
         {linked.map((e) => (

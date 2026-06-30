@@ -759,7 +759,7 @@ app.http('removeCase', {
               source_message_id = NULL,
               source_label = 'removed',
               sha256 = NULL,
-              exclusion_reason = NULL,
+              exclusion_reason = 'removed',
               accepted_for_eva = false,
               excluded = true,
               updated_at = now()

@@ -440,13 +440,13 @@ export interface InboundFacet {
 
 /** Body for `PATCH /api/inbound/{id}/classification` — the staff reclassify/override
  *  (work-todo-spike: suggested-tags-and-folders). Supply EITHER an explicit
- *  category/subtype OR a `tag` from the richer Inspection/Audit/Diminution/Query
+ *  category/subtype OR a `tag` from the richer Inspection/New client work/Audit/Diminution/Query
  *  taxonomy (mapped server-side onto category+subtype). `reason` is optional override copy. */
 export interface ReclassifyInboundInput {
   category?: InboundCategory;
   subtype?: InboundSubtype;
   /** Richer-taxonomy shortcut, mapped to category+subtype server-side. */
-  tag?: 'Inspection' | 'Audit' | 'Diminution' | 'Query';
+  tag?: 'Inspection' | 'New client work' | 'Audit' | 'Diminution' | 'Query';
   reason?: string;
 }
 

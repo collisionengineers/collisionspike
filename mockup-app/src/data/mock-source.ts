@@ -283,6 +283,7 @@ const TAG_MAP: Record<
   { category: InboundCategory; subtype: InboundSubtype }
 > = {
   Inspection: { category: 'receiving_work', subtype: 'existing_provider_instruction' },
+  'New client work': { category: 'receiving_work', subtype: 'new_client_work' },
   Audit: { category: 'receiving_work', subtype: 'existing_provider_audit' },
   Diminution: { category: 'receiving_work', subtype: 'existing_provider_diminution' },
   Query: { category: 'query', subtype: 'query_existing_work' },
