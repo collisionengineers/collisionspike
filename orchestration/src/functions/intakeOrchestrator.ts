@@ -102,7 +102,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   let parseResult: {
     vrm?: { value?: string };
     reference?: { value?: string };
-    extraction?: { mileage?: { value?: string }; mileage_unit?: { value?: string } };
+    extraction?: Record<string, { value?: string } | undefined>;
     skipped?: boolean;
   } = {};
   try {
@@ -113,7 +113,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     })) as {
       vrm?: { value?: string };
       reference?: { value?: string };
-      extraction?: { mileage?: { value?: string }; mileage_unit?: { value?: string } };
+      extraction?: Record<string, { value?: string } | undefined>;
       skipped?: boolean;
     };
   } catch (e) {
@@ -136,6 +136,24 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   const parserMileage = (parseResult.extraction?.mileage?.value ?? '').trim();
   const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? '').trim();
 
+  // The parser extracts ALL 12 EVA fields; intake historically forwarded only VRM/ref/mileage,
+  // so an email-minted case showed just its registration + Case/PO. Forward the other parser-
+  // owned EVA fields too (caseResolve → resolve-persist fills them fill-if-empty + constraint-
+  // guarded). work_provider + inspection_address are omitted on purpose (provider-match / the
+  // corpus picker own them — ADR-0013). Empty when parse was skipped/failed → Data API no-op.
+  const ex = parseResult.extraction ?? {};
+  const exVal = (k: string): string => (ex[k]?.value ?? '').trim();
+  const parserEvaFields = {
+    vehicle_model: exVal('vehicle_model'),
+    claimant_name: exVal('claimant_name'),
+    claimant_telephone: exVal('claimant_telephone'),
+    claimant_email: exVal('claimant_email'),
+    date_of_loss: exVal('date_of_loss'),
+    date_of_instruction: exVal('date_of_instruction'),
+    accident_circumstances: exVal('accident_circumstances'),
+    vat_status: exVal('vat_status'),
+  };
+
   // 2 — case-resolve (UNIQUE(sourcemessageid) backstop makes upsert idempotent). The parser
   // VRM is preferred over the email sniff for dedup scoping AND the persisted case VRM (#7);
   // a known provider mints the Case/PO, a new client (no provider) routes to Held (#11).
@@ -147,6 +165,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     parserRef,
     parserMileage,
     parserMileageUnit,
+    parserEvaFields,
   })) as {
     outcome: string;
     caseId: string;

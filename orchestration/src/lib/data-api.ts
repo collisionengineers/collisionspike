@@ -26,6 +26,23 @@ import type { CreateCaseInput, CreateCaseResult } from '@cs/domain';
 import type { ProviderMatchRecord, OpenProviderCase } from '@cs/domain';
 import type { EvidenceDescriptor } from '@cs/domain';
 
+/**
+ * Parser-owned EVA fields (value-only) forwarded from the orchestration `parse` activity to
+ * the Data API resolve-persist, where they fill the case_ eva_* columns fill-if-empty. Keyed
+ * by EVA contract key. work_provider + inspection_address are intentionally excluded (owned by
+ * provider-match / the corpus picker — ADR-0013); mileage rides its own parserMileage field.
+ */
+export interface ParserEvaFields {
+  vehicle_model?: string;
+  claimant_name?: string;
+  claimant_telephone?: string;
+  claimant_email?: string;
+  date_of_loss?: string;
+  date_of_instruction?: string;
+  accident_circumstances?: string;
+  vat_status?: string;
+}
+
 /* ---------- service token ---------- */
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
@@ -135,6 +152,10 @@ export const dataApi = {
     /** #107 — parser-extracted document mileage (+unit); persisted fill-if-empty (ADR-0006 doc-first). */
     parserMileage?: string;
     parserMileageUnit?: string;
+    /** Parser-owned EVA fields (claimant, dates, vehicle, circumstances, VAT) — persisted
+     *  fill-if-empty by the API (constraint-guarded). The fix for "email case shows only its
+     *  registration + Case/PO": the parser extracts all 12 fields; this carries the other 8. */
+    parserEva?: ParserEvaFields;
     decision: {
       resolution: string;
       targetCaseId?: string;

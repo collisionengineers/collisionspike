@@ -13,7 +13,7 @@
 
 import * as df from 'durable-functions';
 import { resolveCase } from '@cs/domain';
-import { dataApi, ConflictError } from '../../lib/data-api.js';
+import { dataApi, ConflictError, type ParserEvaFields } from '../../lib/data-api.js';
 import type { InboundEnvelope } from './fetchMessage.js';
 
 interface CaseResolveInput {
@@ -30,6 +30,10 @@ interface CaseResolveInput {
    *  document-first), so the MOT-estimate suppression is not a silent data loss. */
   parserMileage?: string;
   parserMileageUnit?: string;
+  /** Parser-owned EVA fields (claimant, dates, vehicle, circumstances, VAT) extracted from the
+   *  instruction document — forwarded to resolve-persist for fill-if-empty so an email-minted
+   *  case carries the full extraction, not just its registration + Case/PO. */
+  parserEvaFields?: ParserEvaFields;
 }
 
 df.app.activity('caseResolve', {
@@ -82,6 +86,7 @@ df.app.activity('caseResolve', {
         parserRef: input.parserRef,
         parserMileage: input.parserMileage,
         parserMileageUnit: input.parserMileageUnit,
+        parserEva: input.parserEvaFields,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
