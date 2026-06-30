@@ -26,6 +26,8 @@ import './functions/activities/classifyPersist.js';
 import './functions/activities/parse.js';
 import './functions/activities/statusEvaluate.js';
 import './functions/activities/enrich.js';
+import './functions/activities/boxArchive.js'; // Blob -> Box archive mirror (box-sync)
+import './functions/activities/extractImages.js'; // embedded-image extraction (pdf-image-extraction)
 
 // The 9 gated orchestrations (plan 22 §C) — all wired off behind their gates, no-op when invoked
 import './functions/gated/finalize-eva-box.js';

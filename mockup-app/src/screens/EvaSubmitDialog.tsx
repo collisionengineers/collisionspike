@@ -31,8 +31,9 @@ import {
   Send,
   ShieldAlert,
 } from 'lucide-react';
-import { buildEvaJson } from '@cs/domain';
+import { buildEvaJson, type NextCasePoResult } from '@cs/domain';
 import {
+  data,
   suggestCasePo,
   useCaseQuery,
   type Case,
@@ -45,6 +46,7 @@ import {
   statusLabel,
 } from '../components';
 import { Spinner } from '@fluentui/react-components';
+import type { DataAccessExt } from '../data/rest-client';
 
 /* EVA submit Dialog — opened at /case/:caseId/submit as a route overlay over
    CaseDetail. Controlled Dialog; Cancel / dismiss navigates back. Readiness
@@ -213,6 +215,32 @@ function readyGroupSummary(c: Case): string {
   return present.map((g) => g.label).join(' · ');
 }
 
+function splitExistingCasePo(casePo: string | undefined): {
+  principal: string;
+  yy: string;
+  seq: string;
+  evaLower: string;
+  boxUpper: string;
+} | undefined {
+  const boxUpper = (casePo ?? '').trim().toUpperCase();
+  if (!boxUpper) return undefined;
+  if (boxUpper.length <= 5) {
+    return { principal: boxUpper, yy: '', seq: '', evaLower: boxUpper.toLowerCase(), boxUpper };
+  }
+  const yy = boxUpper.slice(-5, -3);
+  const seq = boxUpper.slice(-3);
+  if (!/^\d{2}$/.test(yy) || !/^\d{3}$/.test(seq)) {
+    return { principal: boxUpper, yy: '', seq: '', evaLower: boxUpper.toLowerCase(), boxUpper };
+  }
+  return {
+    principal: boxUpper.slice(0, -5),
+    yy,
+    seq,
+    evaLower: boxUpper.toLowerCase(),
+    boxUpper,
+  };
+}
+
 export function EvaSubmitDialog() {
   const styles = useStyles();
   const { caseId } = useParams<{ caseId: string }>();
@@ -223,14 +251,40 @@ export function EvaSubmitDialog() {
   const close = () => navigate(caseId ? `/case/${caseId}` : '/');
 
   const suggestion = useMemo(() => (c ? suggestCasePo(c) : undefined), [c]);
+  const existingCasePo = useMemo(() => splitExistingCasePo(c?.casePo), [c?.casePo]);
+
+  // Live Case/PO allocator PREVIEW (TKT-004) — the REAL next sequence from DB
+  // history (or the Box folder scan fallback), replacing the local 001 default.
+  const [nextPo, setNextPo] = useState<NextCasePoResult | undefined>();
+  useEffect(() => {
+    if (existingCasePo) return;
+    const principal = c?.providerCode;
+    if (!principal) return;
+    let cancelled = false;
+    void (data as DataAccessExt)
+      .nextCasePo(principal)
+      .then((r) => {
+        if (!cancelled) setNextPo(r);
+      })
+      .catch(() => {
+        /* fall back to the local suggestion */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [c?.providerCode, existingCasePo]);
 
   // Only the 3-digit sequence is user-editable; Principal + YY are locked
-  // segments derived from the case. Seeded with the suggested next sequence.
+  // segments derived from the case. Seeded with the previewed next sequence (the
+  // live allocator when available, else the local suggestion) until the operator
+  // edits it.
   const [seq, setSeq] = useState<string>('');
-  // Seed the sequence once the case (and its suggestion) resolve.
+  const [seqEdited, setSeqEdited] = useState(false);
   useEffect(() => {
-    if (suggestion) setSeq((prev) => (prev === '' ? suggestion.seq : prev));
-  }, [suggestion]);
+    if (seqEdited) return;
+    const seed = existingCasePo?.seq ?? nextPo?.seq ?? suggestion?.seq;
+    if (seed) setSeq(seed);
+  }, [existingCasePo, nextPo, suggestion, seqEdited]);
 
   const readiness = useMemo(() => (c ? computeReadiness(c) : undefined), [c]);
 
@@ -276,14 +330,19 @@ export function EvaSubmitDialog() {
   const ready = readiness.ready;
   const blockedCount = readiness.missing.length;
 
-  // Compose the live Case/PO from locked segments + the edited sequence.
+  // Compose the live Case/PO from locked segments + the edited sequence. Existing
+  // case references are authoritative; otherwise prefer the allocator preview.
+  const principal = existingCasePo?.principal ?? nextPo?.principal ?? suggestion.principal;
+  const yy = existingCasePo?.yy ?? nextPo?.yy ?? suggestion.yy;
   const seqClean = seq.replace(/\D/g, '').slice(0, 3);
-  const core = `${suggestion.principal}${suggestion.yy}${seqClean}`;
-  const complete = seqClean.length === 3;
-  const evaCode = complete ? core.toLowerCase() : '';
-  const boxCode = complete ? core.toUpperCase() : '';
+  const core = `${principal}${yy}${seqClean}`;
+  const complete = existingCasePo ? true : seqClean.length === 3;
+  const evaCode = existingCasePo?.evaLower ?? (complete ? core.toLowerCase() : '');
+  const boxCode = existingCasePo?.boxUpper ?? (complete ? core.toUpperCase() : '');
 
   const onSeqChange = (value: string) => {
+    if (existingCasePo) return;
+    setSeqEdited(true);
     setSeq(value.replace(/\D/g, '').slice(0, 3));
   };
 
@@ -301,7 +360,7 @@ export function EvaSubmitDialog() {
       URL.revokeObjectURL(url);
       dispatchToast(
         <Toast>
-          <ToastTitle>EVA JSON downloaded</ToastTitle>
+          <ToastTitle>Case exported for EVA</ToastTitle>
           <ToastBody>Submission for {c.vrm} saved as a file.</ToastBody>
         </Toast>,
         { intent: 'success' },
@@ -381,26 +440,43 @@ export function EvaSubmitDialog() {
 
               <div className={styles.composer}>
                 <span className={styles.segLocked} title="Principal code (locked)">
-                  {suggestion.principal}
+                  {principal}
                 </span>
                 <span className={styles.segLocked} title="2-digit year (locked)">
-                  {suggestion.yy}
+                  {yy}
                 </span>
                 <Field>
                   <Input
                     className={styles.seqInput}
                     value={seq}
                     onChange={(_, d) => onSeqChange(d.value)}
-                    inputMode="numeric"
-                    maxLength={3}
-                    placeholder="000"
-                    aria-label="Provider case sequence (3 digits)"
-                  />
-                </Field>
-                <span className={styles.segNote}>
-                  3-digit provider sequence
-                </span>
-              </div>
+                      inputMode="numeric"
+                      maxLength={3}
+                      placeholder="000"
+                      aria-label="Provider case sequence (3 digits)"
+                      readOnly={!!existingCasePo}
+                      disabled={!!existingCasePo}
+                    />
+                  </Field>
+                  <span className={styles.segNote}>
+                    {existingCasePo ? 'Existing case reference' : '3-digit provider sequence'}
+                  </span>
+                </div>
+
+                {/* Where the previewed next number came from (TKT-004). */}
+                {existingCasePo ? (
+                  <Text className={styles.heroHint}>
+                    This case already has a Case/PO. EVA export uses that reference.
+                  </Text>
+                ) : nextPo && (
+                  <Text className={styles.heroHint}>
+                    Suggested next for {principal}: {nextPo.boxUpper} —{' '}
+                    {nextPo.source === 'box'
+                      ? 'next after the latest archive folder'
+                      : 'next in our records'}
+                    .
+                  </Text>
+                )}
 
               <div className={styles.derivedGrid}>
                 <span className={styles.derivedLabel}>
@@ -451,9 +527,9 @@ export function EvaSubmitDialog() {
               icon={<Download size={16} />}
               onClick={onDownloadJson}
               disabled={!ready}
-              title={!ready ? `${blockedCount} readiness item(s) still blocking` : 'Download the EVA JSON file'}
+              title={!ready ? `${blockedCount} readiness item(s) still blocking` : 'Save the case as an EVA file to drag into EVA'}
             >
-              Download JSON
+              Export for EVA
             </Button>
             <Button
               className={styles.dialogBtn}

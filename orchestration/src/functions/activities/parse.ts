@@ -41,15 +41,31 @@ interface ParseInput {
   providerHint?: string;
 }
 
-/** Parser-supported document extensions (PDF/Word/RTF — engine-core readers). */
-const DOC_EXT = /\.(pdf|docx?|rtf)$/i;
-const DOC_CTYPE = /pdf|msword|officedocument|rtf/i;
+/** Parser-supported document extensions (PDF/Word/RTF + email files — engine-core readers). */
+const DOC_EXT = /\.(pdf|docx?|rtf|eml|msg)$/i;
+const DOC_CTYPE = /pdf|msword|officedocument|rtf|rfc822|ms-outlook/i;
+/** An email FILE (.eml/.msg) — a parse candidate of LAST resort (a forwarded message). */
+const EMAIL_EXT = /\.(eml|msg)$/i;
+const EMAIL_CTYPE = /rfc822|ms-outlook/i;
 
-/** Choose the instruction document: prefer a PDF, else the first parser-supported document. */
+function isEmailFile(a: ParseAttachment): boolean {
+  return EMAIL_EXT.test(a.filename ?? '') || EMAIL_CTYPE.test(a.contentType ?? '');
+}
+
+/**
+ * Choose the instruction document to parse. Prefer a real instruction document
+ * (PDF > other Word/RTF) over an email FILE (.eml/.msg) — the latter is only a
+ * candidate when a forwarded message arrived as an item attachment with no separate
+ * instruction doc (previously DROPPED entirely; now landed by fetchMessage). A PDF
+ * wins because it extracts best; an email file is the last resort.
+ */
 function pickInstructionDoc(atts: readonly ParseAttachment[]): ParseAttachment | undefined {
   const docs = atts.filter((a) => DOC_CTYPE.test(a.contentType ?? '') || DOC_EXT.test(a.filename ?? ''));
+  if (!docs.length) return undefined;
+  const nonEmail = docs.filter((a) => !isEmailFile(a));
+  const pool = nonEmail.length ? nonEmail : docs;
   return (
-    docs.find((a) => /pdf/i.test(a.contentType ?? '') || /\.pdf$/i.test(a.filename ?? '')) ?? docs[0]
+    pool.find((a) => /pdf/i.test(a.contentType ?? '') || /\.pdf$/i.test(a.filename ?? '')) ?? pool[0]
   );
 }
 

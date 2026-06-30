@@ -23,7 +23,7 @@
    fetch — those are confined to rest-client.ts (+ main.tsx).
    ============================================================ */
 
-import type { DataAccess } from '@cs/domain';
+import type { DataAccessExt } from './rest-client';
 import { mockDataAccess } from './mock-source';
 
 /* ============================================================
@@ -120,10 +120,36 @@ export type {
   TriageState,
   ClassifierMode,
   InboundFacet,
+  InboundView,
   InboundCounts,
+  // work-todo-spike DTOs (amalgamated dashboard, soft-remove, Case/PO preview,
+  // provider PATCH, inbound reclassify) — shipped by the BACKEND-API worker.
+  DashboardSummary,
+  RemoveCaseInput,
+  RemoveCaseResult,
+  ProviderUpdateInput,
+  NextCasePoResult,
+  ReclassifyInboundInput,
+  // AI suggestion layer (TKT-015) — observation-first, gated.
+  AiSuggestion,
+  AiSuggestionType,
+  AiSuggestionReviewState,
+  AiSuggestionReviewDecision,
+  AiSuggestionReviewInput,
+  AiSuggestionReviewResult,
+  GenerateAiSuggestionsResult,
+  AiAssistGate,
 } from '@cs/domain';
+// The seam's EXTENDED DataAccess (frozen @cs/domain DataAccess + the work-todo-spike
+// methods). `getDataAccess()` returns this; screens that type-annotate use it.
+export type { DataAccessExt } from './rest-client';
 // The all-false Box-gate baseline + the all-off location-assist baseline (values).
-export { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF, INBOUND_COUNTS_ZERO } from '@cs/domain';
+export {
+  BOX_GATES_ALL_FALSE,
+  LOCATION_ASSIST_GATE_ALL_OFF,
+  INBOUND_COUNTS_ZERO,
+  AI_ASSIST_GATE_ALL_OFF,
+} from '@cs/domain';
 
 /* ----------  Box affordances: gates + gated transports  ----------
    Gates are read via the REST API (/api/gates/box); the transports
@@ -231,14 +257,14 @@ export {
    startup; screens just read `getDataAccess()` / use the hooks.
    ============================================================ */
 
-let active: DataAccess = mockDataAccess;
+let active: DataAccessExt = mockDataAccess;
 
 /**
  * Switch the seam to the REST-backed source.  Called once at app startup
  * (src/main.tsx) after MSAL is initialized and the REST client is built.
  * Until then (and in auth-free unit tests) the empty default source is used.
  */
-export function configureDataAccess(source: DataAccess): void {
+export function configureDataAccess(source: DataAccessExt): void {
   active = source;
 }
 
@@ -248,7 +274,7 @@ export function useMockDataAccess(): void {
 }
 
 /** The currently-selected DataAccess (empty default until configured). */
-export function getDataAccess(): DataAccess {
+export function getDataAccess(): DataAccessExt {
   return active;
 }
 
@@ -257,12 +283,12 @@ export function getDataAccess(): DataAccess {
  * currently-selected source, so swapping via `configureDataAccess` takes effect
  * without re-importing. (A Proxy keeps the reference stable across the swap.)
  */
-export const data: DataAccess = new Proxy({} as DataAccess, {
+export const data: DataAccessExt = new Proxy({} as DataAccessExt, {
   get(_t, prop: string) {
     // Forward every member call to the live source.
     return (active as unknown as Record<string, unknown>)[prop];
   },
-}) as DataAccess;
+}) as DataAccessExt;
 
 export { mockDataAccess, createMockDataAccess } from './mock-source';
 export { createRestDataAccess } from './rest-client';
@@ -284,9 +310,26 @@ export {
   useActivity,
   useInbox,
   useInboundCounts,
+  useNextCasePo,
   useCaseUpdate,
+  // work-todo-spike mutation hooks (triage, reclassify, soft-remove, provider PATCH).
+  useTriage,
+  useReclassifyInbound,
+  useCaseRemove,
+  useProviderUpdate,
+  // AI suggestion layer hooks (TKT-015) — gate, list, review, generate.
+  useAiAssistGate,
+  useAiSuggestions,
+  useReviewAiSuggestion,
+  useGenerateAiSuggestions,
   type QueryState,
   type CaseUpdateState,
+  type TriageMutationState,
+  type ReclassifyInboundState,
+  type CaseRemoveState,
+  type ProviderUpdateState,
+  type ReviewAiSuggestionState,
+  type GenerateAiSuggestionsState,
 } from './hooks';
 
 /* ============================================================

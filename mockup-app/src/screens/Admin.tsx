@@ -16,6 +16,7 @@ import {
   MessageBarTitle,
   Option,
   SearchBox,
+  Spinner,
   Switch,
   Tab,
   TabList,
@@ -340,7 +341,7 @@ export function Admin() {
             <MessageBarBody>No work providers yet.</MessageBarBody>
           </MessageBar>
         ) : (
-          <ProvidersTab providers={data!} />
+          <ProvidersTab providers={data!} onProvidersChanged={refetch} />
         ))}
 
       {tab === 'read-only' && <ReadOnlyCorpora />}
@@ -406,7 +407,14 @@ function IntakeSettings() {
 
 /* ----------  Providers tab: search + Active/Archived filter + Accordion rows  ---------- */
 
-function ProvidersTab({ providers }: { providers: Provider[] }) {
+function ProvidersTab({
+  providers,
+  onProvidersChanged,
+}: {
+  providers: Provider[];
+  /** Re-pull the corpus after a successful provider save (reflects the persisted row). */
+  onProvidersChanged: () => void;
+}) {
   const styles = useStyles();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<ProviderFilter>('active'); // default to the working set
@@ -439,8 +447,8 @@ function ProvidersTab({ providers }: { providers: Provider[] }) {
     <>
       <Caption1 className={styles.workingNote}>
         <CheckCircle2 size={13} aria-hidden />
-        Search, filter, and edit each provider's domains, policy, and automation mode below. Changes
-        are saved here for review before they go live.
+        Search, filter, and edit each provider's domains, policy, and automation mode below. Saving a
+        provider writes the change straight away (superuser only).
       </Caption1>
 
       <div className={styles.toolbar} role="search">
@@ -482,7 +490,7 @@ function ProvidersTab({ providers }: { providers: Provider[] }) {
                 </AccordionHeader>
                 <AccordionPanel>
                   <div className={styles.panelInner}>
-                    <ProviderEditor provider={p} />
+                    <ProviderEditor provider={p} onSaved={onProvidersChanged} />
                   </div>
                 </AccordionPanel>
               </AccordionItem>
@@ -545,16 +553,19 @@ function ProviderRowSummary({ provider }: { provider: Provider }) {
 
 /* ----------  Editable WorkProvider editor (edits kept in local state)  ---------- */
 
-function ProviderEditor({ provider }: { provider: Provider }) {
+function ProviderEditor({ provider, onSaved }: { provider: Provider; onSaved: () => void }) {
   const styles = useStyles();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
   const [draft, setDraft] = useState<Provider>(provider);
   const [newDomain, setNewDomain] = useState('');
+  const [saving, setSaving] = useState(false);
   // Re-seed when the underlying corpus row changes (e.g. after refetch).
   useEffect(() => setDraft(provider), [provider]);
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(provider);
+  const dirty =
+    draft.providerAutomationMode !== provider.providerAutomationMode ||
+    JSON.stringify(draft.knownEmailDomains) !== JSON.stringify(provider.knownEmailDomains);
 
   const addDomain = () => {
     const d = newDomain.trim().toLowerCase();
@@ -565,24 +576,44 @@ function ProviderEditor({ provider }: { provider: Provider }) {
   const removeDomain = (d: string) =>
     setDraft((p) => ({ ...p, knownEmailDomains: p.knownEmailDomains.filter((x) => x !== d) }));
 
-  const save = () => {
-    dispatchToast(
-      <Toast>
-        <ToastTitle>Changes saved for review</ToastTitle>
-        <ToastBody>
-          {draft.displayName} ({draft.principalCode}) — saved here for review before going live.
-        </ToastBody>
-      </Toast>,
-      { intent: 'success' },
-    );
+  // Persist the two server-writable fields (principal code is immutable; the
+  // address policy is staged-only in M1). A failed save keeps the editor open with
+  // the draft intact and surfaces the real error — never a fake success.
+  const save = async () => {
+    setSaving(true);
+    try {
+      await getDataAccess().updateProvider(provider.id, {
+        providerAutomationMode: draft.providerAutomationMode,
+        knownEmailDomains: draft.knownEmailDomains,
+      });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Provider saved</ToastTitle>
+          <ToastBody>Sender domains and handling mode were saved.</ToastBody>
+        </Toast>,
+        { intent: 'success' },
+      );
+      onSaved(); // re-pull the corpus so the row reflects the persisted values
+    } catch (e) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t save — you may not have permission to edit providers</ToastTitle>
+          <ToastBody>{e instanceof Error ? e.message : String(e)}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
-  return (
-    <>
+    return (
+      <>
       <Field label="Display name">
         <Input
           value={draft.displayName}
-          onChange={(_, d) => setDraft((p) => ({ ...p, displayName: d.value }))}
+          readOnly
+          disabled
         />
       </Field>
 
@@ -597,7 +628,8 @@ function ProviderEditor({ provider }: { provider: Provider }) {
         <Input
           contentBefore={<Mail size={14} />}
           value={draft.defaultMailbox}
-          onChange={(_, d) => setDraft((p) => ({ ...p, defaultMailbox: d.value }))}
+          readOnly
+          disabled
         />
       </Field>
 
@@ -623,7 +655,7 @@ function ProviderEditor({ provider }: { provider: Provider }) {
           <div className={styles.domainAdd}>
             <Input
               value={newDomain}
-              placeholder="acme.co.uk"
+              aria-label="Add an email domain"
               onChange={(_, d) => setNewDomain(d.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -643,13 +675,7 @@ function ProviderEditor({ provider }: { provider: Provider }) {
         <Dropdown
           value={POLICY_LABEL[draft.inspectionLocationPolicy]}
           selectedOptions={[draft.inspectionLocationPolicy]}
-          onOptionSelect={(_, d) =>
-            d.optionValue &&
-            setDraft((p) => ({
-              ...p,
-              inspectionLocationPolicy: d.optionValue as InspectionLocationPolicy,
-            }))
-          }
+          disabled
         >
           {POLICY_OPTIONS.map((o) => (
             <Option key={o.value} value={o.value} text={o.label}>
@@ -662,8 +688,8 @@ function ProviderEditor({ provider }: { provider: Provider }) {
         {POLICY_OPTIONS.find((o) => o.value === draft.inspectionLocationPolicy)?.hint}
       </Caption1>
 
-      <Field label="Automation mode">
-        <Dropdown
+        <Field label="Handling mode">
+          <Dropdown
           value={AUTOMATION_LABEL[draft.providerAutomationMode]}
           selectedOptions={[draft.providerAutomationMode]}
           onOptionSelect={(_, d) =>
@@ -685,17 +711,22 @@ function ProviderEditor({ provider }: { provider: Provider }) {
         {AUTOMATION_OPTIONS.find((o) => o.value === draft.providerAutomationMode)?.hint}
       </Caption1>
 
-      <Switch
-        checked={draft.active}
-        label="Active (eligible for domain matching)"
-        onChange={(_, d) => setDraft((p) => ({ ...p, active: !!d.checked }))}
-      />
+        <Switch
+          checked={draft.active}
+          label="Active (eligible for domain matching)"
+          disabled
+        />
 
       <div className={styles.cardActions}>
-        <Button appearance="primary" icon={<ShieldCheck size={16} />} onClick={save} disabled={!dirty}>
-          Save draft
+        <Button
+          appearance="primary"
+          icon={saving ? <Spinner size="tiny" /> : <ShieldCheck size={16} />}
+          onClick={() => void save()}
+          disabled={!dirty || saving}
+        >
+          {saving ? 'Saving…' : 'Save'}
         </Button>
-        {dirty && (
+        {dirty && !saving && (
           <Button appearance="secondary" onClick={() => setDraft(provider)}>
             Discard
           </Button>

@@ -24,7 +24,7 @@ FN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(FN_DIR))
 
 import box_client as bc  # noqa: E402
-from box_client import BoxClient, BoxScopeError  # noqa: E402
+from box_client import BoxClient, BoxConfigError, BoxScopeError  # noqa: E402
 from jwt_testkit import jwt_box_config  # noqa: E402
 
 API_BASE = "https://api.box.com"
@@ -41,6 +41,10 @@ def _clear_scope_cache():
 
 def _client(allowed_root: str = ROOT) -> BoxClient:
     return BoxClient(config=jwt_box_config(allowed_root_id=allowed_root))
+
+
+def _client_with_upload_base(upload_base: str) -> BoxClient:
+    return BoxClient(config=jwt_box_config(allowed_root_id=ROOT, upload_base=upload_base))
 
 
 def _mock_token() -> None:
@@ -114,3 +118,65 @@ def test_lock_disabled_when_root_unset():
     respx.post(f"{API_BASE}/2.0/folders").mock(return_value=httpx.Response(201, json={"id": "c"}))
     out = _client(allowed_root="").create_folder("X", "999")  # no lock -> proceeds
     assert out["id"] == "c"
+
+
+# --- UploadFile is scope-locked too (the archive mirror must stay in the test root) ---
+
+UPLOAD_URL = "https://upload.box.com/api/2.0/files/content"
+
+
+@respx.mock
+def test_upload_under_root_passes_without_scope_lookup():
+    _mock_token()
+    up = respx.post(UPLOAD_URL).mock(
+        return_value=httpx.Response(201, json={"entries": [{"id": "f", "name": "a.pdf"}]})
+    )
+    out = _client().upload_file(ROOT, "a.pdf", b"bytes")  # parent == root short-circuits
+    assert out["id"] == "f"
+    assert up.called
+
+
+@respx.mock
+def test_upload_out_of_scope_folder_raises_and_does_not_upload():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/folders/999").mock(
+        return_value=httpx.Response(200, json={"id": "999", "path_collection": {"entries": [{"id": "0"}]}})
+    )
+    up = respx.post(UPLOAD_URL).mock(return_value=httpx.Response(201, json={"entries": [{"id": "f"}]}))
+    with pytest.raises(BoxScopeError):
+        _client().upload_file("999", "a.pdf", b"bytes")
+    assert not up.called  # refused before the bytes reach Box
+
+
+@respx.mock
+def test_upload_descendant_passes_via_path_collection():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/folders/555").mock(
+        return_value=httpx.Response(
+            200, json={"id": "555", "path_collection": {"entries": [{"id": "0"}, {"id": ROOT}]}}
+        )
+    )
+    up = respx.post(UPLOAD_URL).mock(
+        return_value=httpx.Response(201, json={"entries": [{"id": "f"}]})
+    )
+    out = _client().upload_file("555", "a.pdf", b"bytes")  # case subfolder under the root
+    assert out["id"] == "f"
+    assert up.called
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "upload_base",
+    [
+        "http://upload.box.com",
+        "https://upload.box.com.evil.example",
+        "https://example.com",
+    ],
+)
+def test_upload_base_must_be_https_box_host(upload_base):
+    up = respx.post(f"{upload_base}/api/2.0/files/content").mock(
+        return_value=httpx.Response(201, json={"entries": [{"id": "f"}]})
+    )
+    with pytest.raises(BoxConfigError):
+        _client_with_upload_base(upload_base).upload_file(ROOT, "a.pdf", b"bytes")
+    assert not up.called

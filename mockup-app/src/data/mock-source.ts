@@ -18,8 +18,9 @@
    ============================================================ */
 
 import type {
-  DataAccess,
   InboundEmail,
+  InboundCategory,
+  InboundSubtype,
   InboundCounts,
   InboundFacet,
   TriageState,
@@ -30,8 +31,23 @@ import type {
   PipelineStageKey,
   QueueName,
   ReasonFacet,
+  DashboardSummary,
+  RemoveCaseInput,
+  RemoveCaseResult,
+  NextCasePoResult,
+  ProviderUpdateInput,
+  ReclassifyInboundInput,
+  AiSuggestion,
+  AiSuggestionReviewInput,
+  AiSuggestionReviewResult,
+  GenerateAiSuggestionsResult,
 } from '@cs/domain';
-import { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF } from '@cs/domain';
+import {
+  BOX_GATES_ALL_FALSE,
+  LOCATION_ASSIST_GATE_ALL_OFF,
+  AI_ASSIST_GATE_ALL_OFF,
+} from '@cs/domain';
+import type { DataAccessExt } from './rest-client';
 
 const NOT_CONFIGURED =
   'Data source not configured — call configureDataAccess(restClient) in main.tsx before writes.';
@@ -254,22 +270,47 @@ const inboundRows: InboundEmail[] = [
   },
 ];
 
-/** Filter the seed by the active category-tab facet (+ optional subtype). */
+/** A row is "active" until staff handle it — `actioned` / `dismissed` are handled
+ *  (the active-first list scope + counts, work-todo-spike: email-management). */
+function isActiveInbound(r: InboundEmail): boolean {
+  return r.triageState !== 'actioned' && r.triageState !== 'dismissed';
+}
+
+/** Richer-taxonomy `tag` -> (category, subtype) for the reclassify demo write
+ *  (the server does this mapping for real; the mock mirrors it). */
+const TAG_MAP: Record<
+  NonNullable<ReclassifyInboundInput['tag']>,
+  { category: InboundCategory; subtype: InboundSubtype }
+> = {
+  Inspection: { category: 'receiving_work', subtype: 'existing_provider_instruction' },
+  Audit: { category: 'receiving_work', subtype: 'existing_provider_audit' },
+  Diminution: { category: 'receiving_work', subtype: 'existing_provider_diminution' },
+  Query: { category: 'query', subtype: 'query_existing_work' },
+};
+
+/** Filter the seed by the active category-tab facet (+ optional subtype + view).
+ *  `view` defaults to 'active' (handled rows hidden), mirroring the server. */
 function filterInbound(rows: InboundEmail[], facet?: InboundFacet): InboundEmail[] {
+  const view = facet?.view ?? 'active';
   return rows
     .filter((r) => (facet?.category ? r.category === facet.category : true))
     .filter((r) => (facet?.subtype ? r.subtype === facet.subtype : true))
+    .filter((r) =>
+      view === 'all' ? true : view === 'handled' ? !isActiveInbound(r) : isActiveInbound(r),
+    )
     .slice() // copy so callers can sort without mutating the seed
     .sort((a, b) => (a.receivedOn < b.receivedOn ? 1 : -1)); // newest-first
 }
 
-/** Per-category counts (+ untriaged backlog) over the seed. */
+/** Per-category ACTIVE-first counts (+ untriaged backlog) over the seed — handled
+ *  rows (actioned/dismissed) are excluded, matching the `/api/inbound/counts` contract. */
 function countInbound(rows: InboundEmail[]): InboundCounts {
+  const active = rows.filter(isActiveInbound);
   return {
-    receiving_work: rows.filter((r) => r.category === 'receiving_work').length,
-    query: rows.filter((r) => r.category === 'query').length,
-    other: rows.filter((r) => r.category === 'other').length,
-    untriaged: rows.filter((r) => r.triageState === 'new').length,
+    receiving_work: active.filter((r) => r.category === 'receiving_work').length,
+    query: active.filter((r) => r.category === 'query').length,
+    other: active.filter((r) => r.category === 'other').length,
+    untriaged: active.filter((r) => r.triageState === 'new').length,
   };
 }
 
@@ -277,7 +318,7 @@ function countInbound(rows: InboundEmail[]): InboundCounts {
  * The empty/unconfigured DataAccess. Reads return empty; the only write
  * (createCase) rejects until the live source is injected.
  */
-export const mockDataAccess: DataAccess = {
+export const mockDataAccess: DataAccessExt = {
   /* ----- Cases ----- */
   caseById: (_id) => Promise.resolve(undefined),
   createCase: (_input) => Promise.reject(new Error(NOT_CONFIGURED)),
@@ -288,6 +329,30 @@ export const mockDataAccess: DataAccess = {
   setOnHold: (_caseId, _onHold) => Promise.reject(new Error(NOT_CONFIGURED)),
   mergeCandidates: (_caseId) => Promise.resolve([]),
   mergeCases: (_sourceCaseId, _targetCaseId) => Promise.reject(new Error(NOT_CONFIGURED)),
+  // Durable Superuser write — rejects until the live source is injected (a faked
+  // "removed" result would be exactly the synthetic echo this source refuses to give).
+  removeCase: (_id, _input: RemoveCaseInput): Promise<RemoveCaseResult> =>
+    Promise.reject(new Error(NOT_CONFIGURED)),
+  // Honest READ: the case corpus is empty (case_ count 0), so the next sequence for
+  // ANY principal is 001 — computed, not fabricated. `source:'db'` (empty DB baseline).
+  nextCasePo: (principal, year): Promise<NextCasePoResult> => {
+    const p = (principal ?? '').toUpperCase();
+    const yy = (year !== undefined && year !== ''
+      ? String(year)
+      : String(new Date().getFullYear())
+    ).slice(-2);
+    const seq = '001';
+    const id = `${p}${yy}${seq}`;
+    return Promise.resolve({
+      principal: p,
+      yy,
+      seq,
+      nextSeq: 1,
+      evaLower: id.toLowerCase(),
+      boxUpper: id.toUpperCase(),
+      source: 'db',
+    });
+  },
 
   /* ----- Evidence ----- */
   imagesForCase: (_caseId) => Promise.resolve([]),
@@ -295,6 +360,9 @@ export const mockDataAccess: DataAccess = {
   /* ----- Providers ----- */
   providers: () => Promise.resolve([]),
   providerByCode: (_code) => Promise.resolve(undefined),
+  // Durable corpus write — rejects until the live source is injected (mirrors createCase).
+  updateProvider: (_idOrCode, _input: ProviderUpdateInput) =>
+    Promise.reject(new Error(NOT_CONFIGURED)),
 
   /* ----- Inspection-address suggestions (corpus; empty default) ----- */
   inspectionAddressSuggestions: (_caseId) => Promise.resolve([]),
@@ -305,6 +373,18 @@ export const mockDataAccess: DataAccess = {
   saveInspectionDecision: (_caseId, _decision) => Promise.resolve({ persisted: false }),
 
   /* ----- Dashboard / queue aggregates ----- */
+  // Amalgamated summary: zero case pipeline (no fabricated cases) + the inbound demo
+  // counts (active-first), so the dev cockpit's inbound pill mirrors the Inbox seed.
+  dashboardSummary: (): Promise<DashboardSummary> =>
+    Promise.resolve({
+      liveCounts: ZERO_LIVE,
+      throughput: ZERO_THROUGHPUT,
+      queueCounts: { ...ZERO_QUEUE_COUNTS },
+      pipelineStages: emptyPipelineStages(),
+      reasonFacets: [] as ReasonFacet[],
+      agingExceptions: ZERO_AGING,
+      inbound: countInbound(inboundRows),
+    }),
   liveCounts: (_now) => Promise.resolve(ZERO_LIVE),
   throughput: (_now) => Promise.resolve(ZERO_THROUGHPUT),
   agingExceptions: (_now) => Promise.resolve(ZERO_AGING),
@@ -338,9 +418,34 @@ export const mockDataAccess: DataAccess = {
     if (row) row.triageState = state;
     return Promise.resolve();
   },
+  // Demo write (mirrors setTriageState): apply the explicit category/subtype OR map the
+  // richer-taxonomy `tag`, record the classifier's ORIGINAL suggestion so the
+  // chosen-vs-suggested marker shows, mark it human-settled, and return the updated row.
+  reclassifyInbound: (id, input: ReclassifyInboundInput): Promise<InboundEmail> => {
+    const row = inboundRows.find((r) => r.id === id);
+    if (!row) return Promise.reject(new Error(`Inbound email ${id} not found`));
+    if (row.suggestedCategory === undefined) row.suggestedCategory = row.category;
+    if (row.suggestedSubtype === undefined) row.suggestedSubtype = row.subtype;
+    const mapped = input.tag ? TAG_MAP[input.tag] : undefined;
+    row.category = input.category ?? mapped?.category ?? row.category;
+    row.subtype = input.subtype ?? mapped?.subtype ?? row.subtype;
+    row.classifierMode = 'human';
+    return Promise.resolve({ ...row });
+  },
+
+  /* ----- AI suggestion layer (TKT-015) — honest-empty / honest-off default ----- */
+  // No fabricated AI rows: the empty default has no suggestions and the gate is OFF, so
+  // the gated panel renders NOTHING. generate is the same honest no-op the live API gives
+  // when disabled; the durable review write rejects until the live source is injected.
+  aiSuggestions: (_caseId): Promise<AiSuggestion[]> => Promise.resolve([]),
+  getAiAssistGate: () => Promise.resolve({ ...AI_ASSIST_GATE_ALL_OFF }),
+  generateAiSuggestions: (_caseId): Promise<GenerateAiSuggestionsResult> =>
+    Promise.resolve({ generated: 0, reason: 'disabled' }),
+  reviewAiSuggestion: (_id, _input: AiSuggestionReviewInput): Promise<AiSuggestionReviewResult> =>
+    Promise.reject(new Error(NOT_CONFIGURED)),
 };
 
 /** Factory form, for symmetry with `createDataverseDataAccess`. */
-export function createMockDataAccess(): DataAccess {
+export function createMockDataAccess(): DataAccessExt {
   return mockDataAccess;
 }

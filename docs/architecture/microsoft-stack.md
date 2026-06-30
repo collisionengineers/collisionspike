@@ -15,8 +15,8 @@
 > |---|---|---|
 > | App shell / UI | Power Apps Code App (React/Vite) | **Static Web App `cespk-spa-dev`** — same React/Vite app from `mockup-app/`, **MSAL/Entra** sign-in, REST to the API |
 > | System of record | Microsoft Dataverse | **PostgreSQL Flexible Server `cespk-pg-dev`** (v16, db `collisionspike`, 36 tables) |
-> | Data / business API | Dataverse + Power Fx | **Data API Function App `cespk-api-dev`** (Node 20 / TS Functions v4; validates Entra JWT, app roles `CollisionSpike.User/.Admin`) |
-> | Email intake + orchestration | Power Automate cloud flows | **Orchestration Function App `cespk-orch-dev`** (Graph **delta-poll** over Exchange-RBAC mailboxes; **built, not yet deployed**) |
+> | Data / business API | Dataverse + Power Fx | **Data API Function App `cespk-api-dev`** (Node 20 / TS Functions v4; validates Entra JWT, app roles `CollisionSpike.User/.Superuser` — Superuser formerly `.Admin`) |
+> | Email intake + orchestration | Power Automate cloud flows | **Orchestration Function App `cespk-orch-dev`** (Microsoft Graph **PUSH** change-notification subscriptions over Exchange-RBAC mailboxes — **NOT delta-poll**; **LIVE** on info@ + engineers@ + desk@) |
 > | Identity | Entra ID (in Power Platform) | **Entra ID workforce** (MSAL in SPA, JWT-validated by the API) |
 > | Integration / gating | custom connectors + Dataverse env-vars | **direct Function calls** (function key / MI) + **app-settings** gates |
 > | Document parse · enrichment · OCR · EVA · Box | Azure Functions behind connectors | **same 6 Python Functions, retained**, called directly by API / orchestration |

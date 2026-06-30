@@ -77,7 +77,8 @@ const EXCLUDED_FROM_LEAKAGE = (rel) =>
   rel.startsWith('memory/') ||
   rel.startsWith('docs/HISTORICAL/') || // FROZEN ARCHIVE — point-in-time numbers, not maintained
   rel === 'docs/MAINTENANCE.md' || // documents the rule (quotes example patterns)
-  rel.startsWith('docs/_audit/repo-hygiene-2026-06-28/'); // point-in-time audit artefacts (IA-MOVE-MAP, REVIEW) deliberately cite the before/after numbers they reconciled
+  rel.startsWith('docs/_audit/repo-hygiene-2026-06-28/') || // point-in-time audit artefacts (IA-MOVE-MAP, REVIEW) deliberately cite the before/after numbers they reconciled
+  rel.startsWith('docs/plans/work-todo-spike/'); // ticket-source RESEARCH drop-zone: point-in-time fan-out research snapshots (advisory, verify-not-trust — see docs/tickets/README.md). The authored tickets in docs/tickets/ are NOT exempt and must link the registry.
 
 // docs/HISTORICAL/** is a FROZEN ARCHIVE: its internal links were valid at the original
 // pre-move paths and we deliberately do not rewrite them. Skip link-checking files that

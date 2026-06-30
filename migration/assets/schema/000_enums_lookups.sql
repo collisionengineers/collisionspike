@@ -81,17 +81,31 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   (100000013, 'status_changed',             'Status Changed'),
   (100000014, 'jobsheet_imported',          'Job Sheet Imported'),
   (100000015, 'eva_submitted',              'EVA Submitted'),
-  (100000016, 'box_synced',                 'Box Synced'),
+  (100000016, 'box_synced',                 'Archive Synced'),
   (100000017, 'corpus_record_changed',      'Corpus Record Changed'),
   (100000018, 'inspection_override',        'Inspection Override'),
-  (100000019, 'box_folder_created',         'Box Folder Created'),
-  (100000020, 'box_file_request_copied',    'Box File Request Copied'),
-  (100000021, 'box_upload_received',        'Box Upload Received'),
+  (100000019, 'box_folder_created',         'Archive Folder Created'),
+  (100000020, 'box_file_request_copied',    'Image Upload Link Created'),
+  (100000021, 'box_upload_received',        'Archive Upload Received'),
   (100000022, 'location_assist_confirmed',  'Location Assist Confirmed'),
   (100000023, 'chaser_sent',                'Chaser Sent'),
   (100000024, 'inbound_classified',         'Inbound Classified'),
   (100000025, 'inbound_routed',             'Inbound Routed'),
-  (100000026, 'case_disposed',              'Case Disposed');
+  (100000026, 'case_disposed',              'Case Disposed'),
+  -- Phase-8 staff triage state-change actions (work-todo-spike: email-management).
+  -- Written by the Data API when staff move an inbound_email between active/handled.
+  (100000027, 'inbound_dismissed',          'Inbound Dismissed'),
+  (100000028, 'inbound_actioned',           'Inbound Actioned'),
+  (100000029, 'inbound_reopened',           'Inbound Reopened'),
+  -- Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
+  (100000030, 'case_removed',               'Case Removed'),
+  -- Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
+  (100000031, 'inbound_reclassified',       'Inbound Reclassified'),
+  -- AI suggestion lifecycle (TKT-015 AI suggestion layer; gated by AI_ASSIST_ENABLED).
+  -- created = a model produced a suggestion; accepted/rejected = a human reviewed it.
+  (100000032, 'ai_suggestion_created',      'AI Suggestion Created'),
+  (100000033, 'ai_suggestion_accepted',     'AI Suggestion Accepted'),
+  (100000034, 'ai_suggestion_rejected',     'AI Suggestion Rejected');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code
@@ -139,8 +153,12 @@ INSERT INTO choice_case_status (code, name, label) VALUES
   (100000006, 'linked_to_instruction',   'Linked to Instruction'),
   (100000007, 'ready_for_eva',           'Ready for EVA'),
   (100000008, 'eva_submitted',           'EVA Submitted'),
-  (100000009, 'box_synced',              'Box Synced'),
-  (100000010, 'error',                   'Error');
+  (100000009, 'box_synced',              'Archive Synced'),
+  (100000010, 'error',                   'Error'),
+  -- TERMINAL. Superuser soft-remove (work-todo-spike: ui-changes/delete-case): the case
+  -- row + audit trail survive; PII is anonymised and the status is locked here so the
+  -- status guard never re-promotes it and dedup/merge never targets it. Append-only.
+  (100000011, 'removed',                 'Removed');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_casetype  (case-type.json)  -- Case.case_type_code
@@ -318,7 +336,8 @@ INSERT INTO choice_inbound_subtype (code, name, label) VALUES
   (100000002, 'new_client_work',               'New Client Work'),
   (100000003, 'query_existing_work',           'Query: Existing Work'),
   (100000004, 'query_new_enquiry',             'Query: New Enquiry'),
-  (100000005, 'other',                         'Other');
+  (100000005, 'other',                         'Other'),
+  (100000006, 'existing_provider_diminution',  'Existing Provider Diminution');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inspectiondecisionmode  (inspection-decision-mode.json)

@@ -1,9 +1,10 @@
-# Handoff 03 — Data API + identity hardening (OPEN_ITEMS §A2 [BUILD])
+# Handoff 03 — Data API + identity hardening (ROADMAP "Next" — Durable API hardening)
 
 _Author: `api-hardener` · 2026-06-28 · scope: Data API auth hardening, tests, httpsOnly, verify-all coverage._
 
-This closes the **[BUILD]** half of OPEN_ITEMS **§A2 — API + identity hardening** ("Durable API
-hardening — durable auth error-handling + token **audience-form** hardening"), plus two stack-doctor
+This closes the **[BUILD]** half of the **API + identity hardening** work (ROADMAP "Next" → Durable API
+hardening — durable auth error-handling + token **audience-form** hardening; formerly OPEN_ITEMS §A2, now
+merged into [ROADMAP.md](../../ROADMAP.md)), plus two stack-doctor
 findings (httpsOnly P2; verify-all api coverage). The remaining §A2 item ("Staff app-role assignment")
 is **[OPERATOR]** and out of scope here.
 

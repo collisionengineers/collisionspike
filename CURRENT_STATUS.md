@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-27**._
+_Single source of truth for "where are we now." Last updated **2026-06-29**._
 _Companion docs: [README.md](./README.md) · [ROADMAP.md](./ROADMAP.md) (forward worklist) · [docs/gated.md](./docs/gated.md) · live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -18,8 +18,12 @@ _Companion docs: [README.md](./README.md) · [ROADMAP.md](./ROADMAP.md) (forward
 > mechanism** changed. The dated **🔔 Update —** build log is preserved verbatim under
 > [Historical — Power Platform era (prior build)](#historical--power-platform-era-prior-build) below.
 
-This is the M1 case-intake spike. The live deployment is **read-only + manual case-create** today;
-live automated email intake is **not yet running** (see the honest gaps below). **Principle: no
+This is the M1 case-intake spike. The live deployment serves **read + manual case-create**, and
+**automated email intake is LIVE** — `cespk-orch-dev` runs Microsoft Graph **PUSH** change-notification
+subscriptions over the **production mailbox set info@ + engineers@ + desk@** (mailbox cutover finished
+2026-06-29; the test/dev mailbox `digital@` was removed), kept alive by the durable renewer. Manual
+case-create remains available alongside. Subscription/mailbox state: the registry
+[docs/architecture/live-environment.md](./docs/architecture/live-environment.md). **Principle: no
 mock/seed case data in the app — it shows real rows only.**
 
 > **🔔 2026-06-28 — Box is now LIVE (JWT Server Auth); auth + gates reconciled.**
@@ -56,10 +60,11 @@ The live deployment runs in Azure resource group **`rg-collisionspike-dev`** (re
 `mockup-app/`, **MSAL / Entra workforce sign-in**, staff-only) — talks to the Data API (Function App
 **`cespk-api-dev`**, Node/TypeScript Functions v4) over **REST** (`mockup-app/src/data/rest-client.ts`):
 there is **no Power SDK and no Dataverse** on the live path — **Postgres** (**`cespk-pg-dev`**, v16) is the
-system of record. The **orchestration** Function App (**`cespk-orch-dev`**) has **email intake LIVE IN
-TESTING** — 2 Graph **PUSH** change-notification subscriptions over the test mailbox set engineers@ +
-digital@ (both Exchange-RBAC-scoped); the production mailbox set (info@ + engineers@ + desk@) is not yet
-fully scoped, so manual case-create remains alongside. The **retained Python Functions** (parser
+system of record. The **orchestration** Function App (**`cespk-orch-dev`**) has **email intake LIVE** —
+Graph **PUSH** change-notification subscriptions over the **production mailbox set info@ + engineers@ +
+desk@** (all Exchange-RBAC-scoped; mailbox cutover finished 2026-06-29, test mailbox digital@ removed),
+kept alive by the durable renewer (`subscriptionMonitorOrchestrator`); manual case-create remains
+alongside. The **retained Python Functions** (parser
 **`cespike-parser-dev`**, enrichment, evasentry, evavalidation, ocr, box-webhook), the **Key Vaults**,
 evidence Blob **`cespkevidstdev01`**, and App Insights / Log Analytics are unchanged from the prior era.
 **Box is LIVE** (JWT Server Auth) as of 2026-06-28.
@@ -89,18 +94,19 @@ mailbox set: the registry [docs/architecture/live-environment.md](./docs/archite
 
 ### ⚠️ Honest known gaps (live state — stated, not papered over)
 
-1. **Email intake is LIVE IN TESTING — not yet on the production mailbox set.** `cespk-orch-dev` runs with
-   **2 Graph PUSH subscriptions** over the test set engineers@ + digital@ (both Exchange-RBAC-scoped; counts
-   + subscription state in the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)).
-   ✅ **Graph renewal RESOLVED (2026-06-29):** the subscriptions were renewed to 2026-07-06 and are kept alive
-   by a Durable eternal orchestration (`subscriptionMonitorOrchestrator`) — a plain NCRONTAB timer can't wake
-   the scale-to-zero FC1 app (root cause); the `graph-renew` timer is retained as a backstop. Residual
-   watch-item: `graph-webhook` still emits some `499`/`BadHttpRequestException` cold-start aborts, but intake
-   still flows (Graph retries absorb the misses) and an always-ready instance is left OFF for Free-Trial cost
-   (enable only if drops persist; see [docs/gated.md](./docs/gated.md)). For
-   **production**, grant info@ + desk@ Exchange RBAC (then add to `GRAPH_INTAKE_MAILBOXES`, drop test-only
-   digital@), set `EVIDENCE_BLOB_CONNECTION` (prefer MI), assign the orch MI an app-role on the Data API, and
-   wire the Azure Monitor heartbeat alerts.
+1. **Email intake is LIVE on the production mailbox set.** `cespk-orch-dev` runs Graph **PUSH**
+   subscriptions over **info@ + engineers@ + desk@** (all Exchange-RBAC-scoped; the 2026-06-29 mailbox
+   cutover added info@ + desk@ and removed the test/dev mailbox digital@; subscription state in the registry
+   [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)).
+   ✅ **Graph renewal RESOLVED (2026-06-29):** subscriptions are kept alive by a Durable eternal orchestration
+   (`subscriptionMonitorOrchestrator` — a durable timer wakes the scale-to-zero FC1 app, which a plain
+   NCRONTAB timer can't); the `graph-renew` timer is retained as a backstop. **Operator watch:** confirm an
+   unattended renew at the next ~6h durable-timer wake (a `graph-renewal-success` trace with no manual
+   trigger; see [docs/gated.md](./docs/gated.md)). Remaining for hardening: set `EVIDENCE_BLOB_CONNECTION`
+   (prefer MI), assign the orch MI an app-role on the Data API, wire the Azure Monitor heartbeat alerts, and
+   add a subscription-**prune** step (`runSubscriptionMaintenance` creates+renews but doesn't yet delete a
+   subscription for a mailbox removed from `GRAPH_INTAKE_MAILBOXES` — why digital@ had to be deleted by hand).
+   Some residual `graph-webhook` `499`/cold-start aborts remain (Graph retries absorb the misses).
 2. **DB admin creds + RLS bypass — RESOLVED (2026-06-26).** The Data API now connects to Postgres as the
    **non-owner login `cespk_app`** (`rolsuper=false`, `rolbypassrls=false`), with its password held as a
    **Key Vault reference** (no cleartext), so the authored **Row-Level Security is now enforced** (the prior
@@ -173,7 +179,7 @@ child-flow rebind, single-inbox soft-rollout) is **operator-gated** — full G1�
 
 This entry records what the **SDLC sweep** added. **Everything here is built offline, gated-OFF, and the
 operator activates** — none of it is live/active in any environment. (Per-item operator steps are in
-[docs/gated.md](./docs/gated.md); the flat worklist is `OPEN_ITEMS.md`.)
+[docs/gated.md](./docs/gated.md); the forward worklist is now [ROADMAP.md](./ROADMAP.md) — the old `OPEN_ITEMS.md` was merged in.)
 
 **Earlier merges recorded here for the live-state docs (were absent):**
 - **Phase-4a location-suggest subsystem (PR #23) — offline-built / deploy-pending.** The `functions/location-suggest`
@@ -406,7 +412,7 @@ Done + verified live by Claude (full table in [docs/gated.md](./docs/gated.md)):
 ---
 
 ## 🔔 Update — 2026-06-20: M2 mega-build — milestone model, code hardening, Azure deploys, suggested-address corpus (branch `fix/parser-base64-tolerant-decode`)
-A large plan-first, ms-docs-verified multi-agent pass, committed in slices. **All gates green: `node verify-all.mjs`** _(counts as-of 2026-06-20: Code App build + **vitest 217**, schema parity, **flow linter 116/116**, pytest parser **53** + enrichment **29** + ocr **36** + evavalidation **51**, + the no-`uploadFileToRecord` gate)_. **The gate set has since widened** — `verify-all` no longer reports a fixed "7/7": it now runs the Code App tsc+vite+vitest, Dataverse parity, the flow linter (currently **154/154**), a pytest loop over **every** built Function suite (parser/enrichment/evasentry/evavalidation + location-suggest/box-webhook/ocr — the last three SKIP locally without a `.venv`), and **two static gates** (the `uploadFileToRecord` regen guard + the **new boundary grep-gate**). Use **"all gates green"**, not a pinned number; live per-suite counts live in OPEN_ITEMS + live-environment.
+A large plan-first, ms-docs-verified multi-agent pass, committed in slices. **All gates green: `node verify-all.mjs`** _(counts as-of 2026-06-20: Code App build + **vitest 217**, schema parity, **flow linter 116/116**, pytest parser **53** + enrichment **29** + ocr **36** + evavalidation **51**, + the no-`uploadFileToRecord` gate)_. **The gate set has since widened** — `verify-all` no longer reports a fixed "7/7": it now runs the Code App tsc+vite+vitest, Dataverse parity, the flow linter (currently **154/154**), a pytest loop over **every** built Function suite (parser/enrichment/evasentry/evavalidation + location-suggest/box-webhook/ocr — the last three SKIP locally without a `.venv`), and **two static gates** (the `uploadFileToRecord` regen guard + the **new boundary grep-gate**). Use **"all gates green"**, not a pinned number; live per-suite counts live in the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 
 **Milestone clarity + plans** (`38e9c75`, `c20f41e`) — new **[docs/plans/milestone-model.md](./docs/plans/milestone-model.md)** is the authoritative two-axis Phase×Milestone map: the *"M2 = Phases 3–5"* shorthand that caused the M1/M2 overlap is **retired**; M0/M1/M2/M3 are capability slices that cut across phases (3b drag-drop EVA = M1, 3c REST = M2). **Valuation locked to M3** (ADR-0006). CLAUDE.md / ROADMAP / plans-README / phase-READMEs / m2-umbrella reconciled to it. Authored the 3 missing **M2 plans** (EVA-validation Function, enrichment-activation, Box-archival-pipeline) + Copilot Studio, WhatsApp coexistence, multi-inbox feasibility, image-storage-backends, and a dated architecture audit.
 

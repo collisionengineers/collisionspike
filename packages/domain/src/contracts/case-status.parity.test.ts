@@ -17,6 +17,9 @@ interface ChoiceOption {
   label: string;
 }
 const options = caseStatusChoiceSet.options as ChoiceOption[];
+const DISPLAY_LABEL_WORD_ALIASES: Partial<Record<CaseStatus, string[]>> = {
+  box_synced: ['archive', 'synced'],
+};
 
 describe('Dataverse case-status choice set <-> CaseStatus union parity', () => {
   it('targets the cr1bd_casestatus global choice set', () => {
@@ -26,7 +29,7 @@ describe('Dataverse case-status choice set <-> CaseStatus union parity', () => {
 
   it('has exactly one option per CaseStatus value (same count)', () => {
     expect(options).toHaveLength(CASE_STATUSES.length);
-    expect(options).toHaveLength(11);
+    expect(options).toHaveLength(12);
   });
 
   it('option `name`s equal the CaseStatus union as a set (1:1, no extras/omissions)', () => {
@@ -75,7 +78,7 @@ describe('Dataverse case-status choice set <-> CaseStatus union parity', () => {
       // Compare on a normalised, case-insensitive, word-set basis so brand/small
       // words ("for", "to", "EVA") don't cause false negatives.
       const labelWords = label!.toLowerCase().replace(/\s+/g, ' ').split(' ').sort();
-      const nameWords = fromName(status).split(' ').sort();
+      const nameWords = (DISPLAY_LABEL_WORD_ALIASES[status] ?? fromName(status).split(' ')).sort();
       expect(labelWords).toEqual(nameWords);
     }
   });

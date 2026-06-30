@@ -33,6 +33,18 @@ df.app.activity('classifyPersist', {
       size: a.size,
     }));
 
+    // The original message captured as raw `.eml` (box-sync ticket) becomes its own
+    // email-class evidence row so the archive holds the email itself. Idempotent on
+    // its deterministic blob path ({messageId}/message.eml). Omitted when the
+    // `$value` capture failed in fetchMessage (best-effort).
+    if (inbound.rawEml) {
+      rows.push({
+        ...describeEvidence(inbound.rawEml.filename, inbound.rawEml.contentType),
+        blobPath: inbound.rawEml.blobPath,
+        size: inbound.rawEml.size,
+      });
+    }
+
     // Body-only instruction (ADR-0015): a RECEIVING-WORK email whose instructions are typed
     // in the body with NO instruction attachment must still yield instruction evidence, else
     // the case lands empty. Persist the body text to Blob and add one instruction row.

@@ -507,7 +507,7 @@ export const cases: Case[] = [
         id: 'note-006-a',
         author: 'System',
         timestamp: '30/04/2026 10:05',
-        text: 'Archived to Box folder TEST26012 (uppercase). EVA + Box in unison.',
+        text: 'Archived to archive folder TEST26012. EVA and archive updated together.',
       },
     ],
     chasers: [],

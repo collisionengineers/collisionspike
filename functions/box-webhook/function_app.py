@@ -33,6 +33,8 @@ credential (and the receiver's second gate behind the HMAC signature).
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 import os
@@ -154,6 +156,35 @@ def create_folder(req: func.HttpRequest) -> func.HttpResponse:
     return _run_box_op(lambda c: c.create_folder(name, parent_id))
 
 
+@app.route(route="box/folders/{folderId}/files", methods=["POST"])
+def upload_file(req: func.HttpRequest) -> func.HttpResponse:
+    """POST one evidence byte-stream into a case folder — the one-way Blob -> Box
+    archive mirror (ADR-0012; box-sync ticket). The orchestration archive activity
+    calls this server-to-server with the evidence bytes base64-encoded in a JSON
+    body (the connector/orchestration seam carries no multipart); this route decodes
+    and hands the raw bytes to ``BoxClient.upload_file`` which multipart-POSTs them to
+    upload.box.com. Scope-locked to BOX_ALLOWED_ROOT_ID inside the client. 409
+    name-conflict is an idempotent reuse, so a replayed archive never duplicates."""
+    if not _truthy(os.environ.get("BOX_API_ENABLED")):
+        return _gated_off()
+    folder_id = req.route_params.get("folderId", "")
+    if not folder_id:
+        return _json_response({"error": "folderId is required.", "status": 400}, status=400)
+    body = _body(req)
+    if not body or not isinstance(body.get("filename"), str) or not isinstance(body.get("contentBase64"), str):
+        return _json_response(
+            {"error": "Body must be { filename, contentBase64, contentType? }.", "status": 400}, status=400
+        )
+    try:
+        content = base64.b64decode(body["contentBase64"], validate=True)
+    except (binascii.Error, ValueError):
+        return _json_response({"error": "contentBase64 is not valid base64.", "status": 400}, status=400)
+    if not content:
+        return _json_response({"error": "Decoded content is empty.", "status": 400}, status=400)
+    content_type = body.get("contentType") if isinstance(body.get("contentType"), str) else None
+    return _run_box_op(lambda c: c.upload_file(folder_id, body["filename"], content, content_type))
+
+
 @app.route(route="box/file-requests/{fileRequestId}/copy", methods=["POST"])
 def copy_file_request(req: func.HttpRequest) -> func.HttpResponse:
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
@@ -178,7 +209,9 @@ def get_shared_link_file(req: func.HttpRequest) -> func.HttpResponse:
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
         return _gated_off()
     file_id = req.route_params.get("fileId", "")
-    body = _body(req) or {"shared_link": {"access": "open"}}
+    body = _body(req) or {}
+    if (body.get("shared_link") or {}).get("access") == "open":
+        return _json_response({"error": "Open shared links are not allowed.", "status": 400}, status=400)
     if not file_id:
         return _json_response({"error": "fileId is required.", "status": 400}, status=400)
     return _run_box_op(lambda c: c.get_shared_link("files", file_id, body))
@@ -189,7 +222,9 @@ def get_shared_link_folder(req: func.HttpRequest) -> func.HttpResponse:
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
         return _gated_off()
     folder_id = req.route_params.get("folderId", "")
-    body = _body(req) or {"shared_link": {"access": "open"}}
+    body = _body(req) or {}
+    if (body.get("shared_link") or {}).get("access") == "open":
+        return _json_response({"error": "Open shared links are not allowed.", "status": 400}, status=400)
     if not folder_id:
         return _json_response({"error": "folderId is required.", "status": 400}, status=400)
     return _run_box_op(lambda c: c.get_shared_link("folders", folder_id, body))

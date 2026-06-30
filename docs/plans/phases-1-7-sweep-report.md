@@ -4,7 +4,7 @@
 address/chaser → OCR/scale → handoff boundary → Box pivot) · **Method:** seven per-phase as-built
 audits consolidated against the precedence chain (binding review > ADR > architecture/requirements >
 plans; `CURRENT_STATUS.md` = live now, `docs/gated.md` = what needs the operator,
-`OPEN_ITEMS.md` = flat worklist).
+`ROADMAP.md` = forward worklist — the old `OPEN_ITEMS.md` was merged in).
 
 ## How to read this report
 

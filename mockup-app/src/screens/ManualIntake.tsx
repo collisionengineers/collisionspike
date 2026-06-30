@@ -43,6 +43,7 @@ import {
   VrmPlate,
   GLOBAL_TOASTER_ID,
 } from '../components';
+import { DateField } from '../components/DateField';
 import {
   EVA_FIELD_ORDER,
   CASE_TYPE_LABELS,
@@ -63,6 +64,8 @@ import {
   type VatStatus,
 } from '../data';
 import { makeRestParserTransport } from '../data/parser-rest-transport';
+import type { DataAccessExt } from '../data/rest-client';
+import type { NextCasePoResult } from '@cs/domain';
 import { acquireApiToken } from '../auth/msalConfig';
 
 // Authenticated REST transport for the parser — replaces the connector-backed
@@ -340,7 +343,8 @@ export function ManualIntake() {
   const [vrm, setVrm] = useState('');
   const [provider, setProvider] = useState(''); // Work provider display name
   const [providerCode, setProviderCode] = useState(''); // 4-char Principal code
-  const [casePo, setCasePo] = useState(''); // our internal reference
+  // Live Case/PO allocator preview for the entered Principal (TKT-004).
+  const [casePoPreview, setCasePoPreview] = useState<NextCasePoResult | undefined>();
   const [providerReference, setProviderReference] = useState(''); // provider's Claim No
   const [insuredName, setInsuredName] = useState('');
   const [status, setStatus] = useState<CaseStatus>('ingested');
@@ -504,6 +508,32 @@ export function ManualIntake() {
     }
   }, [holdGate.data]);
 
+  /* Preview the next Case/PO for the entered Principal (TKT-004) — DB history is
+     authoritative, falling back to the Box folder scan. Debounced; previews only
+     (the durable claim happens server-side at create). */
+  useEffect(() => {
+    const code = providerCode.trim();
+    if (code.length < 2) {
+      setCasePoPreview(undefined);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      void (getDataAccess() as DataAccessExt)
+        .nextCasePo(code)
+        .then((r) => {
+          if (!cancelled) setCasePoPreview(r);
+        })
+        .catch(() => {
+          if (!cancelled) setCasePoPreview(undefined);
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [providerCode]);
+
   const onFieldChange = (key: EvaFieldKey, value: string) => {
     setFields((prev) => {
       if (!prev) return prev;
@@ -561,7 +591,6 @@ export function ManualIntake() {
     const missing: string[] = [];
     if (!vrm.trim()) missing.push('Vehicle Registration');
     if (!providerCode.trim()) missing.push('Principal');
-    if (!casePo.trim()) missing.push('Case/PO');
     if (!insuredName.trim()) missing.push('Insured Name');
     if (!providerReference.trim()) missing.push('Claim No');
     if (!inspectOn.trim()) missing.push('Inspect on');
@@ -575,7 +604,7 @@ export function ManualIntake() {
       if (CONTRACT_REQUIRED.has(d.key) && !fields[d.key].value.trim()) missing.push(d.label);
     }
     return missing;
-  }, [fields, vrm, provider, providerCode, casePo, insuredName, providerReference, inspectOn]);
+  }, [fields, vrm, provider, providerCode, insuredName, providerReference, inspectOn]);
 
   const canCreate = phase === 'review' && missingRequired.length === 0;
 
@@ -596,10 +625,9 @@ export function ManualIntake() {
       const { id } = await getDataAccess().createCase({
         evaFields: evaForCreate,
         vrm: vrm.trim(),
-        ...(provider.trim() ? { provider: provider.trim() } : {}),
-        ...(providerCode.trim() ? { providerCode: providerCode.trim() } : {}),
-        ...(casePo.trim() ? { casePo: casePo.trim() } : {}),
-        ...(insuredName.trim() ? { insuredName: insuredName.trim() } : {}),
+          ...(provider.trim() ? { provider: provider.trim() } : {}),
+          ...(providerCode.trim() ? { providerCode: providerCode.trim() } : {}),
+          ...(insuredName.trim() ? { insuredName: insuredName.trim() } : {}),
         ...(providerReference.trim() ? { providerReference: providerReference.trim() } : {}),
         status,
         sourceLabel: instructionFile
@@ -635,8 +663,7 @@ export function ManualIntake() {
     setVrm('');
     setProvider('');
     setProviderCode('');
-    setCasePo('');
-    setProviderReference('');
+      setProviderReference('');
     setInsuredName('');
     setMake('');
     setInspectOn(todayDdMmYyyy());
@@ -839,18 +866,28 @@ export function ManualIntake() {
               </Field>
             </div>
 
-            {/* Case/PO — our internal reference (separate from the provider's). */}
-            <div className={styles.fieldRow}>
-              <Field
-                label="Case/PO"
-                required
-                hint="Our internal reference for the case."
-                {...(!casePo.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
-              >
-                <Input value={casePo} onChange={(_, d) => setCasePo(d.value)} />
-              </Field>
-              <div />
-            </div>
+              {/* Case/PO preview — server allocates the real value when the case is created. */}
+              <div className={styles.fieldRow}>
+                <div className={styles.fieldWithAction}>
+                  <Field
+                    className={styles.fieldGrow}
+                    label="Case/PO"
+                    hint="Assigned when the case is created."
+                  >
+                    <Input value={casePoPreview?.boxUpper ?? ''} placeholder="Assigned on create" readOnly disabled />
+                  </Field>
+                </div>
+                <div />
+              </div>
+            {casePoPreview && (
+              <Caption1 className={styles.inlineNote}>
+                Suggested next for {casePoPreview.principal}: {casePoPreview.boxUpper} —{' '}
+                {casePoPreview.source === 'box'
+                  ? 'next after the latest archive folder'
+                  : 'next in our records'}
+                .
+              </Caption1>
+            )}
 
             {/* Provider's reference / Claim No — the provider's own case number. */}
             <div className={styles.fieldRow}>
@@ -1023,10 +1060,14 @@ export function ManualIntake() {
               <Field
                 label="Inspect on (inspection date)"
                 required
-                hint="Defaults to today if the instructions carry no date. Format DD/MM/YYYY."
+                hint="Defaults to today if the instructions carry no date."
                 {...(!inspectOn.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
               >
-                <Input value={inspectOn} onChange={(_, d) => setInspectOn(d.value)} />
+                <DateField
+                  value={inspectOn}
+                  onChange={setInspectOn}
+                  aria-label="Inspect on (inspection date)"
+                />
               </Field>
               <div />
             </div>

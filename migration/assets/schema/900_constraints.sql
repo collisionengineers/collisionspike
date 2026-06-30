@@ -56,6 +56,17 @@ ALTER TABLE inbound_email ADD CONSTRAINT fk_inbound_email_case
 ALTER TABLE inbound_email ADD CONSTRAINT fk_inbound_email_work_provider
   FOREIGN KEY (work_provider_id) REFERENCES work_provider(id) ON DELETE SET NULL;               -- cr1bd_workprovider_inboundemail (RemoveLink)
 
+-- AI suggestion layer (TKT-015) -> case/evidence (CASCADE: the working suggestion
+-- is owned by its subject -- a retention purge of the case takes its suggestions
+-- with it) and inbound_email (SET NULL: the email is the audit-of-record, RemoveLink
+-- everywhere). Producers: image-analysis (TKT-016), reg-OCR (TKT-017), triage-category.
+ALTER TABLE ai_suggestion ADD CONSTRAINT fk_ai_suggestion_case
+  FOREIGN KEY (case_id) REFERENCES case_(id) ON DELETE CASCADE;
+ALTER TABLE ai_suggestion ADD CONSTRAINT fk_ai_suggestion_evidence
+  FOREIGN KEY (evidence_id) REFERENCES evidence(id) ON DELETE CASCADE;
+ALTER TABLE ai_suggestion ADD CONSTRAINT fk_ai_suggestion_inbound_email
+  FOREIGN KEY (inbound_email_id) REFERENCES inbound_email(id) ON DELETE SET NULL;
+
 -- ---- N:N intersect FKs (2 junction tables; CASCADE from either side) --------
 ALTER TABLE repairer_workprovider ADD CONSTRAINT fk_rwp_repairer
   FOREIGN KEY (repairer_id)      REFERENCES repairer(id)      ON DELETE CASCADE;
@@ -93,6 +104,9 @@ CREATE INDEX ix_inspection_address_repairer_id      ON inspection_address (repai
 CREATE INDEX ix_image_source_repairer_id            ON image_source (repairer_id);
 CREATE INDEX ix_rwp_work_provider                   ON repairer_workprovider (work_provider_id);
 CREATE INDEX ix_iswp_work_provider                  ON imagesource_workprovider (work_provider_id);
+-- ai_suggestion FK-side indexes (case_id is already covered by ix_ai_suggestion_case_review in 160).
+CREATE INDEX ix_ai_suggestion_evidence_id           ON ai_suggestion (evidence_id);
+CREATE INDEX ix_ai_suggestion_inbound_email_id      ON ai_suggestion (inbound_email_id);
 
 COMMIT;
 
@@ -130,7 +144,8 @@ BEGIN
   FOREACH t IN ARRAY ARRAY[
     'case_','evidence','field_level_provenance','chaser','note',
     'work_provider','repairer','image_source','inspection_address',
-    'improvement_signal','inbound_email','repairer_workprovider','imagesource_workprovider'
+    'improvement_signal','inbound_email','repairer_workprovider','imagesource_workprovider',
+    'ai_suggestion'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE  ROW LEVEL SECURITY;', t);

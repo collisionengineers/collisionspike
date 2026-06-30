@@ -26,6 +26,23 @@ import type { CreateCaseInput, CreateCaseResult } from '@cs/domain';
 import type { ProviderMatchRecord, OpenProviderCase } from '@cs/domain';
 import type { EvidenceDescriptor } from '@cs/domain';
 
+/**
+ * Parser-owned EVA fields (value-only) forwarded from the orchestration `parse` activity to
+ * the Data API resolve-persist, where they fill the case_ eva_* columns fill-if-empty. Keyed
+ * by EVA contract key. work_provider + inspection_address are intentionally excluded (owned by
+ * provider-match / the corpus picker — ADR-0013); mileage rides its own parserMileage field.
+ */
+export interface ParserEvaFields {
+  vehicle_model?: string;
+  claimant_name?: string;
+  claimant_telephone?: string;
+  claimant_email?: string;
+  date_of_loss?: string;
+  date_of_instruction?: string;
+  accident_circumstances?: string;
+  vat_status?: string;
+}
+
 /* ---------- service token ---------- */
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
@@ -135,6 +152,10 @@ export const dataApi = {
     /** #107 — parser-extracted document mileage (+unit); persisted fill-if-empty (ADR-0006 doc-first). */
     parserMileage?: string;
     parserMileageUnit?: string;
+    /** Parser-owned EVA fields (claimant, dates, vehicle, circumstances, VAT) — persisted
+     *  fill-if-empty by the API (constraint-guarded). The fix for "email case shows only its
+     *  registration + Case/PO": the parser extracts all 12 fields; this carries the other 8. */
+    parserEva?: ParserEvaFields;
     decision: {
       resolution: string;
       targetCaseId?: string;
@@ -143,7 +164,18 @@ export const dataApi = {
       statusEffect: string;
       auditAction: string;
     };
-  }): Promise<{ outcome: 'created' | 'attached' | 'already_ingested'; caseId: string; casePo?: string | null }> {
+  }): Promise<{
+    outcome: 'created' | 'attached' | 'already_ingested';
+    caseId: string;
+    casePo?: string | null;
+    /**
+     * The matched work-provider's automation mode ('manual' | 'review_auto' |
+     * 'full_auto') — the SEAM BACKEND-API adds to internalCasesResolve so the
+     * orchestrator can branch intake (automation-mode ticket). Absent → the
+     * orchestrator defaults to 'review_auto' (current behaviour preserved).
+     */
+    providerAutomationMode?: 'manual' | 'review_auto' | 'full_auto';
+  }> {
     return request('POST', '/api/internal/cases/resolve', payload);
   },
 
@@ -173,6 +205,41 @@ export const dataApi = {
     rows: Array<EvidenceDescriptor & { blobPath: string; size: number }>,
   ): Promise<{ persisted: number }> {
     return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+
+  /**
+   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
+   * ticket). Same internal evidence route (idempotent on storage_path), but carries
+   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
+   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
+   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
+   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
+   * idempotently on the child blob path, so this is forward-compatible.
+   */
+  persistImageEvidence(
+    caseId: string,
+    rows: Array<{
+      filename: string;
+      contentType?: string;
+      size?: number;
+      blobPath: string;
+      evidenceClass: 'image';
+      imageRoleCode?: string;
+      registrationVisible?: boolean;
+      acceptedForEva?: boolean;
+      sha256?: string;
+      sequenceIndex?: number;
+      sourceLabel?: string;
+    }>,
+  ): Promise<{ persisted: number }> {
+    return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+
+  /** Persisted blob-backed evidence rows ready for archive mirroring. */
+  archiveEvidenceRows(
+    caseId: string,
+  ): Promise<{ rows: Array<{ id: string; filename: string; contentType: string | null; blobPath: string }> }> {
+    return request('GET', `/api/internal/cases/${caseId}/archive-evidence`);
   },
 
   /** Recompute EVA-readiness + status machine and persist (internal route). */

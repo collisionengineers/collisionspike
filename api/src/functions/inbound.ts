@@ -1,14 +1,16 @@
 /**
- * api/src/functions/inbound.ts — inbox / triage HTTP routes (Phase 8).
+ * api/src/functions/inbound.ts — inbox / triage HTTP routes (Phase 8 + work-todo-spike).
  *
- * DataAccess methods 27–29 (plan 21 §21.1):
- *   27 GET  /api/inbound?category=&subtype=   inboundEmails       (honest [])
- *   28 GET  /api/inbound/counts               inboundEmailCounts  (honest INBOUND_COUNTS_ZERO)
- *   29 POST /api/inbound/{id}/triage          setTriageState      (204; honest no-op)
+ * DataAccess methods 27–29 (plan 21 §21.1) + the work-todo-spike email-management work:
+ *   27 GET   /api/inbound?category=&subtype=&view=  inboundEmails (ACTIVE-FIRST; honest [])
+ *   28 GET   /api/inbound/counts                    inboundEmailCounts (active-first; honest zero)
+ *   29 POST  /api/inbound/{id}/triage               setTriageState (validated; 404/400/500; audited)
+ *   --  PATCH /api/inbound/{id}/classification       reclassifyInbound (override capture)
  *
- * "Honest-empty" (plan 21 conventions): 27 + 28 resolve 200 with [] / zero on ANY
- * failure (table not wired / read error). 29 resolves (204) even on a soft failure —
- * the seam treats the triage write as an honest no-op until the table is wired.
+ * Read endpoints 27 + 28 stay "honest-empty" on ANY read failure (table not wired / read
+ * error) so the SPA never hard-fails. The WRITE endpoints are now trustworthy: 29 validates
+ * the state, uses RETURNING (404 on unknown id), surfaces real DB errors (500), and writes a
+ * staff-action audit row; reclassify captures the suggested-vs-chosen override.
  */
 
 import { app } from '@azure/functions';
@@ -22,14 +24,29 @@ import {
 } from '@cs/domain';
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
+import { AUDIT_ACTION, actorFromClaims, writeAudit, type AuditAction } from '../lib/audit.js';
 import {
   INBOUND_CATEGORY_TO_INT,
+  INBOUND_SUBTYPE_TO_INT,
   inboundCategoryFromInt,
+  inboundSubtypeFromInt,
+  inboundViewWhere,
+  isValidTriageState,
+  richTagToClassification,
   rowToInboundEmail,
+  tallyActiveInboundCounts,
   type Row,
 } from '../lib/mappers.js';
 
-// 27 — GET /api/inbound?category=&subtype=   (honest [])
+/** Map a staff-set target triage state -> the audit action recorded for the transition. */
+const TRIAGE_AUDIT_ACTION: Record<TriageState, AuditAction> = {
+  dismissed: AUDIT_ACTION.inbound_dismissed,
+  actioned: AUDIT_ACTION.inbound_actioned,
+  new: AUDIT_ACTION.inbound_reopened,
+  routed: AUDIT_ACTION.inbound_routed,
+};
+
+// 27 — GET /api/inbound?category=&subtype=&view=active|handled|all   (ACTIVE-FIRST; honest [])
 app.http('inboundEmails', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -38,12 +55,17 @@ app.http('inboundEmails', {
     try {
       const category = req.query.get('category') as InboundCategory | null;
       const subtype = req.query.get('subtype') as InboundSubtype | null;
+      const view = req.query.get('view'); // active (default) | handled | all
+      const clauses: string[] = [];
       const params: unknown[] = [];
-      let where = '';
       if (category && category in INBOUND_CATEGORY_TO_INT) {
         params.push(INBOUND_CATEGORY_TO_INT[category]);
-        where = `WHERE category_code = $${params.length}`;
+        clauses.push(`category_code = $${params.length}`);
       }
+      // Active-first: default hides handled (actioned/dismissed) rows; view= switches the slice.
+      const viewClause = inboundViewWhere(view);
+      if (viewClause) clauses.push(viewClause);
+      const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
       const rows = await query<Row>(
         `SELECT * FROM inbound_email ${where} ORDER BY received_on DESC`,
         params,
@@ -57,7 +79,7 @@ app.http('inboundEmails', {
   }),
 });
 
-// 28 — GET /api/inbound/counts   (honest INBOUND_COUNTS_ZERO)
+// 28 — GET /api/inbound/counts   (ACTIVE-FIRST per-category tally; honest INBOUND_COUNTS_ZERO)
 app.http('inboundEmailCounts', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -65,12 +87,8 @@ app.http('inboundEmailCounts', {
   handler: withRole('CollisionSpike.User', async () => {
     try {
       const rows = await query<Row>('SELECT category_code, triage_state FROM inbound_email');
-      const counts: InboundCounts = { ...INBOUND_COUNTS_ZERO };
-      for (const r of rows) {
-        const cat = inboundCategoryFromInt(r.category_code);
-        if (cat) counts[cat] += 1;
-        if ((r.triage_state ?? '') === 'new') counts.untriaged += 1;
-      }
+      // Counts reflect OUTSTANDING work — handled rows are excluded (work-todo-spike).
+      const counts: InboundCounts = tallyActiveInboundCounts(rows);
       return { status: 200, jsonBody: counts };
     } catch {
       return { status: 200, jsonBody: { ...INBOUND_COUNTS_ZERO } };
@@ -78,22 +96,192 @@ app.http('inboundEmailCounts', {
   }),
 });
 
-// 29 — POST /api/inbound/{id}/triage   (204; honest no-op on failure)
+// 29 — POST /api/inbound/{id}/triage   (validated; 404 unknown id; 400 bad state; 500 on error; audited)
 app.http('setTriageState', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'inbound/{id}/triage',
-  handler: withRole('CollisionSpike.User', async (req) => {
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = req.params.id;
-    const body = (await req.json()) as { state: TriageState };
-    try {
-      await query('UPDATE inbound_email SET triage_state = $2, updated_at = now() WHERE id = $1', [
-        id,
-        body.state,
-      ]);
-    } catch {
-      /* honest no-op — the triage table may not be wired yet */
+    const body = (await req.json().catch(() => ({}))) as { state?: unknown };
+    const state = body.state;
+    // VALIDATE the requested state against the allowed set — never write free text (400).
+    if (!isValidTriageState(state)) {
+      return { status: 400, jsonBody: { error: 'invalid triage state' } };
     }
+
+    // Read the current row first so the audit carries the before-state + case linkage,
+    // and so an unknown id is a clean 404 (not a swallowed no-op).
+    const existing = await query<Row>(
+      'SELECT id, triage_state, case_id, source_message_id FROM inbound_email WHERE id = $1',
+      [id],
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
+    const before = (existing[0].triage_state as string | null) ?? 'new';
+
+    // Real error handling: NO try/catch swallow — a DB failure surfaces as a 500 via withRole.
+    const updated = await query<Row>(
+      'UPDATE inbound_email SET triage_state = $2, updated_at = now() WHERE id = $1 RETURNING id',
+      [id, state],
+    );
+    if (!updated[0]) return { status: 404, jsonBody: { error: 'not found' } };
+
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: TRIAGE_AUDIT_ACTION[state],
+      ...(existing[0].case_id ? { caseId: existing[0].case_id as string } : {}),
+      summary: `Inbound email ${before} -> ${state}`,
+      before: { triageState: before },
+      after: {
+        triageState: state,
+        inboundEmailId: id,
+        sourceMessageId: existing[0].source_message_id ?? null,
+      },
+      ...(actor ? { actor } : {}),
+    });
+
     return { status: 204 };
   }),
 });
+
+// PATCH /api/inbound/{id}/classification   (staff reclassify / override capture)
+app.http('reclassifyInbound', {
+  methods: ['PATCH'],
+  authLevel: 'anonymous',
+  route: 'inbound/{id}/classification',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body = (await req.json().catch(() => ({}))) as {
+      category?: unknown;
+      subtype?: unknown;
+      tag?: unknown;
+      reason?: unknown;
+    };
+
+    // Resolve the chosen {category, subtype}: a richer-taxonomy `tag` wins, else explicit values.
+    let category: InboundCategory | undefined;
+    let subtype: InboundSubtype | undefined;
+    if (typeof body.tag === 'string') {
+      const mapped = richTagToClassification(body.tag);
+      if (!mapped) return { status: 400, jsonBody: { error: 'unknown tag' } };
+      category = mapped.category;
+      subtype = mapped.subtype;
+    } else {
+      if (typeof body.category === 'string') {
+        if (!(body.category in INBOUND_CATEGORY_TO_INT)) {
+          return { status: 400, jsonBody: { error: 'invalid category' } };
+        }
+        category = body.category as InboundCategory;
+      }
+      if (typeof body.subtype === 'string') {
+        if (!(body.subtype in INBOUND_SUBTYPE_TO_INT)) {
+          return { status: 400, jsonBody: { error: 'invalid subtype' } };
+        }
+        subtype = body.subtype as InboundSubtype;
+      }
+    }
+    if (!category && !subtype) {
+      return { status: 400, jsonBody: { error: 'category, subtype or tag required' } };
+    }
+
+    const existing = await query<Row>(
+      `SELECT id, category_code, subtype_code, suggested_category_code, suggested_subtype_code,
+              case_id, work_provider_id, source_message_id
+         FROM inbound_email WHERE id = $1`,
+      [id],
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
+    const cur = existing[0];
+
+    // Persist the CHOSEN values + mark the row human-settled. category/subtype are the
+    // chosen/current values; suggested_* (set at classify time) stay untouched here.
+    const sets: string[] = ["classifier_mode = 'human'"];
+    const vals: unknown[] = [];
+    if (category) {
+      vals.push(INBOUND_CATEGORY_TO_INT[category]);
+      sets.push(`category_code = $${vals.length}`);
+    }
+    if (subtype) {
+      vals.push(INBOUND_SUBTYPE_TO_INT[subtype]);
+      sets.push(`subtype_code = $${vals.length}`);
+    }
+    vals.push(id);
+    const updated = await query<Row>(
+      `UPDATE inbound_email SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}
+       RETURNING *`,
+      vals,
+    );
+    if (!updated[0]) return { status: 404, jsonBody: { error: 'not found' } };
+
+    const actor = actorFromClaims(claims);
+    // Override capture: compare the chosen value to the SUGGESTION (suggested_* if present,
+    // else the prior current value) BY NAME. A genuine override -> an improvement_signal row
+    // (best-effort) so the classifier can be tuned; the audit always records the change.
+    const suggestedCat = inboundCategoryFromInt(
+      (cur.suggested_category_code ?? cur.category_code) as number | null | undefined,
+    );
+    const suggestedSub = inboundSubtypeFromInt(
+      (cur.suggested_subtype_code ?? cur.subtype_code) as number | null | undefined,
+    );
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+
+    if (category && category !== suggestedCat) {
+      await writeImprovementSignal(cur, 'category', suggestedCat ?? '(none)', category, actor, reason);
+    }
+    if (subtype && subtype !== suggestedSub) {
+      await writeImprovementSignal(cur, 'subtype', suggestedSub ?? '(none)', subtype, actor, reason);
+    }
+
+    await writeAudit({
+      action: AUDIT_ACTION.inbound_reclassified,
+      ...(cur.case_id ? { caseId: cur.case_id as string } : {}),
+      summary: `Inbound reclassified${category ? ` category=${category}` : ''}${subtype ? ` subtype=${subtype}` : ''}`,
+      before: { category: suggestedCat ?? null, subtype: suggestedSub ?? null },
+      after: {
+        category: category ?? null,
+        subtype: subtype ?? null,
+        inboundEmailId: id,
+        sourceMessageId: cur.source_message_id ?? null,
+        ...(reason ? { reason } : {}),
+      },
+      ...(actor ? { actor } : {}),
+    });
+
+    return { status: 200, jsonBody: rowToInboundEmail(updated[0]) };
+  }),
+});
+
+/**
+ * Best-effort append of an improvement_signal row capturing a suggested-vs-chosen override.
+ * Classification = parser_rule_candidate (the classifier picked the wrong label — a candidate
+ * for a rule fix). Never throws — a feedback-write failure must not sink the reclassify.
+ */
+async function writeImprovementSignal(
+  row: Row,
+  fieldName: string,
+  originalValue: string,
+  correctedValue: string,
+  actor: string | undefined,
+  reason: string,
+): Promise<void> {
+  try {
+    await query(
+      `INSERT INTO improvement_signal
+         (name, case_id, work_provider_id, field_name, original_value, corrected_value,
+          original_provenance, actor, occurred_at, affects_eva_readiness, classification_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), false, 100000000)`,
+      [
+        `Inbound ${fieldName} override: ${originalValue || '(none)'} -> ${correctedValue}`,
+        row.case_id ?? null,
+        row.work_provider_id ?? null,
+        `inbound.${fieldName}`,
+        originalValue || null,
+        correctedValue,
+        reason || 'classifier suggestion',
+        actor ?? null,
+      ],
+    );
+  } catch {
+    /* improvement_signal is feedback provenance — failure must not block the reclassify. */
+  }
+}
