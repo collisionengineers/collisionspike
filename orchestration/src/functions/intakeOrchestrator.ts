@@ -177,22 +177,22 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     return { skipped: true, caseId: resolved.caseId };
   }
 
-  // Automation-mode branch (am ticket). The matched provider's mode decides how far
-  // intake auto-advances. It comes from the resolve SEAM; default 'review_auto' keeps
-  // the current behaviour when the field is absent.
-  //   • manual      — record + classify the case + persist evidence, but DO NOT
-  //                   auto-advance: no auto Box folder, no auto Box archive, no auto
-  //                   enrichment (staff drive those from the queue).
-  //   • review_auto — the default live path: prepare the case for review (everything
-  //                   below), stopping short of EVA submission (always a staff action).
-  //   • full_auto   — RESERVED. It behaves EXACTLY as review_auto today; its aggressive
-  //                   steps (auto-EVA, auto-chaser, …) stay behind a default-off flag
-  //                   (FULL_AUTO_ENABLED) and are intentionally NOT enabled here — we
-  //                   only build the branch point cleanly (ADR-0015 / am research §full).
+  // Automation-mode branch (am ticket). RECONCILED (work-todo-spike "Both", 2026-06-30):
+  // Box folder-create + evidence-archive + image-extraction are RECORD-KEEPING and now run
+  // for ANY known-provider case (case_po present) REGARDLESS of mode — they were the cause of
+  // "folders not getting made / box sync not working" when every provider resolved to manual.
+  // Only ENRICHMENT (and the reserved EVA-submit) remain gated by automation mode:
+  //   • manual      — record + classify + persist evidence + Box folder + Box archive + image
+  //                   extraction, but DO NOT auto-enrich (staff trigger enrichment from the queue).
+  //   • review_auto — the default live path: everything manual does PLUS auto-enrichment, still
+  //                   stopping short of EVA submission (always a staff action).
+  //   • full_auto   — RESERVED. Behaves EXACTLY as review_auto today; its aggressive steps
+  //                   (auto-EVA, auto-chaser, …) stay behind a default-off flag (FULL_AUTO_ENABLED)
+  //                   and are intentionally NOT enabled here (ADR-0015 / am research §full).
   const automationMode = resolved.providerAutomationMode ?? 'review_auto';
-  const autoAdvance = automationMode !== 'manual';
-  if (!autoAdvance && !ctx.df.isReplaying) {
-    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; recording only, no auto-advance`);
+  const autoEnrich = automationMode !== 'manual';
+  if (!autoEnrich && !ctx.df.isReplaying) {
+    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; record-keeping (Box folder/archive/images) runs, enrichment deferred to staff`);
   }
 
   // 2.5 — Box folder at intake (#6, ADR-0012: additive one-way mirror). A known-provider case
@@ -204,8 +204,8 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // (the parse/enrich/chaser convention; the recorded activity result is what replays). The
   // mirror is additive: a Box failure must NOT block the core intake (evidence/status/enrich),
   // so it is best-effort here — the manual box-folder-create starter can retry.
-  // Skipped in `manual` mode (no auto Box folder until staff advance the case).
-  if (autoAdvance && resolved.casePo) {
+  // Runs for ANY known-provider case (casePo present) regardless of mode (work-todo-spike "Both").
+  if (resolved.casePo) {
     try {
       yield ctx.df.callSubOrchestratorWithRetry('boxFolderCreateOrchestrator', retry, {
         caseId: resolved.caseId,
@@ -227,9 +227,9 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // 3.5 — Box ARCHIVE (#box-sync): copy the landed evidence bytes (attachments + the
   // raw .eml) from Blob INTO the case Box folder — the fix for "folder created but
   // files never stored". Gated + scope-locked INSIDE the activity; best-effort here so
-  // a Box failure never sinks intake. Skipped in `manual` mode. Runs after the folder
+  // a Box failure never sinks intake. Runs regardless of mode (record-keeping). After the folder
   // exists (2.5) and after evidence persist (3) so the case row + folder are both set.
-  if (autoAdvance && resolved.casePo) {
+  if (resolved.casePo) {
     try {
       yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, {
         caseId: resolved.caseId,
@@ -243,21 +243,20 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   }
 
   // 3.6 — extract embedded images from instruction PDFs/EML into image evidence
-  // (#pdf-image-extraction). Gated + best-effort INSIDE the activity; skipped in
-  // `manual` mode. Persists each image as an evidence row + flags an unsuitable set
-  // (no viewable registration). Runs after evidence persist so the case exists.
-  if (autoAdvance) {
-    try {
-      yield ctx.df.callActivityWithRetry('extractImages', retry, {
-        caseId: resolved.caseId,
-        messageId: (inbound as { messageId?: string }).messageId,
-        attachments: (inbound as { attachments?: unknown }).attachments,
-        caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
-      });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
-      }
+  // (#pdf-image-extraction). RECORD-KEEPING — runs regardless of automation mode
+  // (work-todo-spike "Both"); the BOX/image gates + best-effort handling live INSIDE the
+  // activity. Persists each image as an evidence row + flags an unsuitable set (no viewable
+  // registration). Runs after evidence persist so the case exists.
+  try {
+    yield ctx.df.callActivityWithRetry('extractImages', retry, {
+      caseId: resolved.caseId,
+      messageId: (inbound as { messageId?: string }).messageId,
+      attachments: (inbound as { attachments?: unknown }).attachments,
+      caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
     }
   }
 
@@ -268,9 +267,9 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
 
   // 6 — enrich (gate ENRICHMENT_ENABLED checked inside; no-op when off). Pass the best VRM
   // (parser PDF VRM preferred over the email sniff) + whether the doc already had mileage;
-  // the activity persists the advisory result onto the case on a 200 (#1). Skipped in
-  // `manual` mode (no automatic enrichment — staff trigger it).
-  if (autoAdvance) {
+  // the activity persists the advisory result onto the case on a 200 (#1). The ONE step still
+  // gated by automation mode: skipped in `manual` (staff trigger enrichment from the queue).
+  if (autoEnrich) {
     yield ctx.df.callActivityWithRetry('enrich', retry, {
       caseId: resolved.caseId,
       vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
