@@ -81,8 +81,8 @@
       "repairer": null,
       "image_source": null,
       "inspection_address": null,
-      "case_": 0,
-      "_case_note": "0 at the 2026-06-30T10:21:17Z clean-slate reset; POINT-IN-TIME only — intake is LIVE so new emails repopulate (a real email processed e2e at 10:11Z on the new code).",
+      "case_": 2,
+      "_case_note": "Was 0 at the 2026-06-30T10:21:17Z clean-slate reset; live-growing. A read-only e2e verification later on 2026-06-30 found case_=2 — two post-reset live intakes on the new code: dc307411 (connexus sender, no provider match → partial path, ~10:30Z) and ca3acf21 = Case/PO QDOS26001 (full happy path: 8/6 EVA cols + provenance, Box folder 395397724540 with .eml+PDF, ~10:43Z). POINT-IN-TIME only — intake is LIVE so the count keeps growing.",
       "_publicBaseTables": 38
     },
     "sourceCommand": "psql via Entra digital@ (azure_pg_admin, --resource-type oss-rdbms) -> SET ROLE csadmin (owner; csadmin BYPASSES RLS) -> SELECT count(*); transient FW rule added+removed (only AllowAzureServices remains)",

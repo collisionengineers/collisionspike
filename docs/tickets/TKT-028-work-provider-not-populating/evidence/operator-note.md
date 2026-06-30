@@ -1,0 +1,1 @@
+Need to check work provider field on new cases - not populating although provider is being detected. e.g. KV64EHB QDOS26001 for QDOS
