@@ -5242,7 +5242,8 @@ function validateEvaImageRules(evidence) {
 var TERMINAL_STATUSES = [
   "eva_submitted",
   "box_synced",
-  "error"
+  "error",
+  "removed"
 ];
 var TERMINAL_SET = new Set(TERMINAL_STATUSES);
 function isTerminalStatus(status) {
@@ -5309,6 +5310,136 @@ function isPostcodeOutward(upper, idx, cand) {
   const after = upper.slice(idx + cand.length);
   return /^\s?[0-9][A-Z]{2}\b/.test(after);
 }
+var POSTCODE_AREAS = /* @__PURE__ */ new Set([
+  "AB",
+  "AL",
+  "B",
+  "BA",
+  "BB",
+  "BD",
+  "BH",
+  "BL",
+  "BN",
+  "BR",
+  "BS",
+  "BT",
+  "CA",
+  "CB",
+  "CF",
+  "CH",
+  "CM",
+  "CO",
+  "CR",
+  "CT",
+  "CV",
+  "CW",
+  "DA",
+  "DD",
+  "DE",
+  "DG",
+  "DH",
+  "DL",
+  "DN",
+  "DT",
+  "DY",
+  "E",
+  "EC",
+  "EH",
+  "EN",
+  "EX",
+  "FK",
+  "FY",
+  "G",
+  "GL",
+  "GU",
+  "GY",
+  "HA",
+  "HD",
+  "HG",
+  "HP",
+  "HR",
+  "HS",
+  "HU",
+  "HX",
+  "IG",
+  "IM",
+  "IP",
+  "IV",
+  "JE",
+  "KA",
+  "KT",
+  "KW",
+  "KY",
+  "L",
+  "LA",
+  "LD",
+  "LE",
+  "LL",
+  "LN",
+  "LS",
+  "LU",
+  "M",
+  "ME",
+  "MK",
+  "ML",
+  "N",
+  "NE",
+  "NG",
+  "NN",
+  "NP",
+  "NR",
+  "NW",
+  "OL",
+  "OX",
+  "PA",
+  "PE",
+  "PH",
+  "PL",
+  "PO",
+  "PR",
+  "RG",
+  "RH",
+  "RM",
+  "S",
+  "SA",
+  "SE",
+  "SG",
+  "SK",
+  "SL",
+  "SM",
+  "SN",
+  "SO",
+  "SP",
+  "SR",
+  "SS",
+  "ST",
+  "SW",
+  "SY",
+  "TA",
+  "TD",
+  "TF",
+  "TN",
+  "TQ",
+  "TR",
+  "TS",
+  "TW",
+  "UB",
+  "W",
+  "WA",
+  "WC",
+  "WD",
+  "WF",
+  "WN",
+  "WR",
+  "WS",
+  "WV",
+  "YO",
+  "ZE"
+]);
+function isPostcodeOutwardCode(compact) {
+  const m = /^([A-Z]{1,2})[0-9]{1,2}$/.exec(compact);
+  return m !== null && POSTCODE_AREAS.has(m[1]);
+}
 function precededByExcludeLabel(upper, idx) {
   const before = upper.slice(Math.max(0, idx - 16), idx);
   return EXCLUDE_LABEL.test(before);
@@ -5327,14 +5458,17 @@ function extractVrm(text) {
     for (const m of upper.matchAll(LOOSE)) {
       const cand = m[0];
       const idx = m.index ?? 0;
+      const compact = cand.replace(/\s+/g, "");
       if (isPostcodeOutward(upper, idx, cand))
+        continue;
+      if (isPostcodeOutwardCode(compact))
         continue;
       const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
       if (EXCLUDE_WORDS.has(alpha))
         continue;
       if (precededByExcludeLabel(upper, idx))
         continue;
-      return cand.replace(/\s+/g, "");
+      return compact;
     }
   }
   return "";
@@ -5353,6 +5487,60 @@ function casePoYear(d = /* @__PURE__ */ new Date()) {
 }
 function casePoSequenceRegex(principal, yy) {
   return `^${principal.toUpperCase()}${yy}[0-9]{${CASE_PO_SEQ_WIDTH},}$`;
+}
+
+// packages/domain/dist/domain/pii-scrub.js
+var DEFAULT_PLACEHOLDERS = {
+  email: "[EMAIL]",
+  phone: "[PHONE]",
+  postcode: "[POSTCODE]",
+  address: "[ADDRESS]",
+  nino: "[NINO]",
+  name: "[NAME]",
+  vrm: "[VRM]"
+};
+var EMAIL_RE = /(?<![\w])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w])/g;
+var NINO_RE = /(?<![\w])[ABCEGHJ-PRSTW-Z][ABCEGHJ-NPRSTW-Z][\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?[A-D](?![\w])/gi;
+var ADDRESS_RE = /(?<![\w])\d{1,4}[A-Za-z]?[\s,]+(?:[A-Z][A-Za-z'-]+[\s,]+){1,4}(?:Road|Rd|Street|St|Avenue|Ave|Lane|Ln|Drive|Dr|Close|Cl|Way|Court|Ct|Crescent|Cres|Place|Pl|Terrace|Gardens|Grove|Grv|Walk|Row|Hill|Park)\b\.?/g;
+var POSTCODE_RE = /(?<![\w])(?:[A-Z]{1,2}\d[A-Z\d]?|GIR)[\s-]?\d[A-Z]{2}(?![\w])/gi;
+var PHONE_RE = /(?<![\w])(?:\+44[\s-]?\(?0?\)?|\(?0)(?:[\s\-()]{0,2}\d){9,10}(?![\w])/g;
+var NAME_RE = /(?<![\w])(?:Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+[A-Z](?:[A-Za-z'-]+|\.)?(?:\s+[A-Z](?:[A-Za-z'-]+|\.)?){0,2}/g;
+var VRM_RE = /(?<![\w])(?:[A-Z]{2}\d{2}[\s-]?[A-Z]{3}|[A-Z]\d{1,3}[\s-]?[A-Z]{3}|[A-Z]{3}[\s-]?\d{1,3}[A-Z])(?![\w])/gi;
+var RULES = [
+  { kind: "email", re: EMAIL_RE, enabled: () => true },
+  { kind: "nino", re: NINO_RE, enabled: () => true },
+  { kind: "address", re: ADDRESS_RE, enabled: () => true },
+  { kind: "postcode", re: POSTCODE_RE, enabled: () => true },
+  { kind: "phone", re: PHONE_RE, enabled: () => true },
+  { kind: "name", re: NAME_RE, enabled: (o) => o.redactNames },
+  { kind: "vrm", re: VRM_RE, enabled: (o) => o.redactVrm }
+];
+function scrubPii(input, opts = {}) {
+  const cfg = {
+    redactVrm: opts.redactVrm ?? false,
+    redactNames: opts.redactNames ?? true
+  };
+  const placeholderFor = (kind) => opts.placeholders?.[kind] ?? DEFAULT_PLACEHOLDERS[kind];
+  if (typeof input !== "string" || input.length === 0) {
+    return { text: typeof input === "string" ? input : "", redactions: [], totalRedactions: 0 };
+  }
+  let text = input;
+  const redactions = [];
+  for (const rule of RULES) {
+    if (!rule.enabled(cfg))
+      continue;
+    let count = 0;
+    const placeholder = placeholderFor(rule.kind);
+    rule.re.lastIndex = 0;
+    text = text.replace(rule.re, () => {
+      count += 1;
+      return placeholder;
+    });
+    if (count > 0)
+      redactions.push({ kind: rule.kind, count });
+  }
+  const totalRedactions = redactions.reduce((sum, r) => sum + r.count, 0);
+  return { text, redactions, totalRedactions };
 }
 
 // packages/domain/dist/model/queues.js
@@ -5447,6 +5635,10 @@ var LOCATION_ASSIST_GATE_ALL_OFF = {
   apiBaseConfigured: false,
   enabled: false
 };
+var AI_ASSIST_GATE_ALL_OFF = {
+  enabled: false,
+  modelConfigured: false
+};
 var INBOUND_COUNTS_ZERO = {
   receiving_work: 0,
   query: 0,
@@ -5474,12 +5666,13 @@ var case_status_default = {
     { value: 100000007, name: "ready_for_eva", label: "Ready for EVA" },
     { value: 100000008, name: "eva_submitted", label: "EVA Submitted" },
     { value: 100000009, name: "box_synced", label: "Box Synced" },
-    { value: 100000010, name: "error", label: "Error" }
+    { value: 100000010, name: "error", label: "Error" },
+    { value: 100000011, name: "removed", label: "Removed" }
   ],
   stateMachine: {
     linear: ["new_email", "ingested", "needs_review", "ready_for_eva", "eva_submitted", "box_synced"],
     branches: ["missing_required_fields", "missing_images", "duplicate_risk", "linked_to_instruction"],
-    terminals: ["eva_submitted", "box_synced", "error"]
+    terminals: ["eva_submitted", "box_synced", "error", "removed"]
   }
 };
 
@@ -5678,7 +5871,12 @@ var audit_event_default = {
         { value: 100000023, name: "chaser_sent", label: "Chaser Sent" },
         { value: 100000024, name: "inbound_classified", label: "Inbound Classified" },
         { value: 100000025, name: "inbound_routed", label: "Inbound Routed" },
-        { value: 100000026, name: "case_disposed", label: "Case Disposed" }
+        { value: 100000026, name: "case_disposed", label: "Case Disposed" },
+        { value: 100000027, name: "inbound_dismissed", label: "Inbound Dismissed" },
+        { value: 100000028, name: "inbound_actioned", label: "Inbound Actioned" },
+        { value: 100000029, name: "inbound_reopened", label: "Inbound Reopened" },
+        { value: 100000030, name: "case_removed", label: "Case Removed" },
+        { value: 100000031, name: "inbound_reclassified", label: "Inbound Reclassified" }
       ]
     },
     {
@@ -7290,7 +7488,20 @@ var AUDIT_ACTION = {
   chaser_sent: 100000023,
   inbound_classified: 100000024,
   inbound_routed: 100000025,
-  case_disposed: 100000026
+  case_disposed: 100000026,
+  // Phase-8 staff triage state-change actions (work-todo-spike: email-management).
+  inbound_dismissed: 100000027,
+  inbound_actioned: 100000028,
+  inbound_reopened: 100000029,
+  // Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
+  case_removed: 100000030,
+  // Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
+  inbound_reclassified: 100000031,
+  // AI suggestion lifecycle (TKT-015 AI suggestion layer; gated by AI_ASSIST_ENABLED).
+  // created = a model produced a suggestion; accepted/rejected = a human reviewed it.
+  ai_suggestion_created: 100000032,
+  ai_suggestion_accepted: 100000033,
+  ai_suggestion_rejected: 100000034
 };
 var SEVERITY_CODE = {
   info: 1e8,
@@ -7320,6 +7531,143 @@ async function writeAudit(opts) {
 function actorFromClaims(claims) {
   const pick = (v) => typeof v === "string" && v.length > 0 ? v : void 0;
   return pick(claims.oid) ?? pick(claims.preferred_username) ?? pick(claims.name) ?? pick(claims.sub);
+}
+
+// packages/domain/dist/gates.js
+var gates = {
+  // Core feature gates (plan 10 §1.1, #1–#21 boolean set)
+  pdfMapper: () => process.env.PDF_MAPPER_ENABLED === "true",
+  // #1
+  enrichment: () => process.env.ENRICHMENT_ENABLED === "true",
+  // #2
+  evaApi: () => process.env.EVA_API_ENABLED === "true",
+  // #4
+  azureMaps: () => process.env.AZURE_MAPS_ENABLED === "true",
+  // #8
+  valuation: () => process.env.VALUATION_ENABLED === "true",
+  // #9
+  copilot: () => process.env.COPILOT_ENABLED === "true",
+  // #10
+  azureVision: () => process.env.AZURE_VISION_ENABLED === "true",
+  // #11
+  ocrScannedPdf: () => process.env.OCR_SCANNED_PDF_ENABLED === "true",
+  // #12
+  plateOcr: () => process.env.PLATE_OCR_ENABLED === "true",
+  // #13
+  auditCases: () => process.env.AUDIT_CASES_ENABLED === "true",
+  // #15
+  locationAssist: () => process.env.LOCATION_ASSIST_ENABLED === "true",
+  // #17
+  chaserSend: () => process.env.CHASER_SEND_ENABLED === "true",
+  // #19
+  caseDisposition: () => process.env.CASE_DISPOSITION_ENABLED === "true",
+  // #20
+  emailAi: () => process.env.EMAIL_AI_ENABLED === "true",
+  // #21
+  // AI assistant suggestion layer (TKT-015) — default OFF. Gates the embedded AI
+  // suggestion surface + the server-side model call path; honest no-op while off
+  // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
+  aiAssist: () => process.env.AI_ASSIST_ENABLED === "true",
+  // Box gates (Phase 7, ADR-0012) — all default off
+  boxApi: () => process.env.BOX_API_ENABLED === "true",
+  // #22
+  boxFolderAtIntake: () => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === "true",
+  // #23
+  boxFileRequest: () => process.env.BOX_FILEREQUEST_ENABLED === "true",
+  // #24
+  boxEmbed: () => process.env.BOX_EMBED_ENABLED === "true",
+  // #25
+  boxMetadata: () => process.env.BOX_METADATA_ENABLED === "true",
+  // #26
+  // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
+  enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
+  // #3
+  evaBaseUrl: () => process.env.EVA_BASE_URL ?? "",
+  // #5
+  valuationApiBase: () => process.env.VALUATION_API_BASE ?? "",
+  // #14
+  locationAssistApiBase: () => process.env.LOCATION_ASSIST_API_BASE ?? "",
+  // #18
+  boxFolderRootId: () => process.env.BOX_FOLDER_ROOT_ID ?? "",
+  // #27
+  boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
+  // #28
+  // AI model endpoint config (TKT-015). The server-side model call path is built but
+  // dormant: digital-3339-resource has ZERO model deployments, so these are ABSENT in
+  // live app-settings and the generate route stays an honest no-op until a model is
+  // deployed + wired. Prefer managed-identity/keyless — no API key gate by design.
+  aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
+  aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
+  /**
+   * Derived: location assist is only enabled when all three conditions are met.
+   * Used by GET /api/gates/location-assist (plan 21 §21.2).
+   */
+  locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== "",
+  /**
+   * Derived: a model endpoint AND deployment are both configured. The AI generate
+   * route requires this in ADDITION to the aiAssist() switch — gate ON but model
+   * UNCONFIGURED is still an honest no-op (the live state today). Used by
+   * GET /api/gates/ai-assist + the generate route's disabled-reason.
+   */
+  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== ""
+};
+
+// api/src/lib/functions-client.ts
+async function callFn(baseUrl, fnKey, method, path, body) {
+  const res = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "x-functions-key": fnKey
+    },
+    ...body !== void 0 ? { body: JSON.stringify(body) } : {}
+  });
+  if (!res.ok) {
+    throw new Error(`[functions-client] ${method} ${path} \u2192 ${res.status} ${await res.text().catch(() => "")}`);
+  }
+  return res.json();
+}
+async function callParser(body) {
+  return callFn(
+    process.env.PARSER_FN_URL,
+    process.env.PARSER_FN_KEY,
+    "POST",
+    "/api/parse",
+    body
+  );
+}
+async function callLocationSuggest(body) {
+  return callFn(
+    process.env.LOCATION_SUGGEST_FN_URL,
+    process.env.LOCATION_SUGGEST_FN_KEY,
+    "POST",
+    "/api/location-suggest",
+    body
+  );
+}
+async function callBoxListFolder(folderId, limit = 1e3, offset = 0) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "GET",
+    `/api/box/folders/${encodeURIComponent(folderId)}/items?limit=${limit}&offset=${offset}`
+  );
+}
+async function listBoxFolderNames(folderId) {
+  const names = [];
+  const limit = 1e3;
+  let offset = 0;
+  for (let page = 0; page < 20; page++) {
+    const res = await callBoxListFolder(folderId, limit, offset);
+    const entries = res.entries ?? [];
+    for (const e of entries) if (e?.name) names.push(String(e.name));
+    if (entries.length < limit) break;
+    offset += limit;
+  }
+  return names;
 }
 
 // api/src/lib/mappers.ts
@@ -7582,7 +7930,8 @@ var INBOUND_SUBTYPE_BY_INT = {
   100000002: "new_client_work",
   100000003: "query_existing_work",
   100000004: "query_new_enquiry",
-  100000005: "other"
+  100000005: "other",
+  100000006: "existing_provider_diminution"
 };
 var INBOUND_SUBTYPE_TO_INT = {
   existing_provider_instruction: 1e8,
@@ -7590,12 +7939,22 @@ var INBOUND_SUBTYPE_TO_INT = {
   new_client_work: 100000002,
   query_existing_work: 100000003,
   query_new_enquiry: 100000004,
-  other: 100000005
+  other: 100000005,
+  existing_provider_diminution: 100000006
 };
 var TRIAGE_STATES = ["new", "routed", "actioned", "dismissed"];
 var CLASSIFIER_MODES = ["deterministic", "llm", "human"];
+function isValidTriageState(s) {
+  return typeof s === "string" && TRIAGE_STATES.includes(s);
+}
+function isHandledTriageState(s) {
+  return s === "actioned" || s === "dismissed";
+}
 function inboundCategoryFromInt(v) {
   return v == null ? void 0 : INBOUND_CATEGORY_BY_INT[v];
+}
+function inboundSubtypeFromInt(v) {
+  return v == null ? void 0 : INBOUND_SUBTYPE_BY_INT[v];
 }
 function parseSignals(memo) {
   const s = (memo ?? "").trim();
@@ -7636,8 +7995,100 @@ function rowToInboundEmail(rec) {
     bodyCaseref: rec.body_caseref ?? "",
     bodyPreview: rec.body_preview ?? "",
     ...rec.case_id ? { caseId: rec.case_id } : {},
-    ...rec.work_provider_id ? { workProviderId: rec.work_provider_id } : {}
+    ...rec.work_provider_id ? { workProviderId: rec.work_provider_id } : {},
+    // The classifier's original suggestion (columns may be absent on a not-yet-migrated DB
+    // — SELECT * simply omits them, so these stay undefined). work-todo-spike: suggested-tags.
+    ...rec.suggested_category_code != null && INBOUND_CATEGORY_BY_INT[rec.suggested_category_code] ? { suggestedCategory: INBOUND_CATEGORY_BY_INT[rec.suggested_category_code] } : {},
+    ...rec.suggested_subtype_code != null && INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code] ? { suggestedSubtype: INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code] } : {}
   };
+}
+var AI_REVIEW_STATES = [
+  "pending",
+  "accepted",
+  "rejected",
+  "superseded"
+];
+function isAiReviewState(s) {
+  return typeof s === "string" && AI_REVIEW_STATES.includes(s);
+}
+function coerceJson(v) {
+  if (typeof v !== "string") return v ?? null;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return v;
+  }
+}
+function rowToAiSuggestion(rec) {
+  const reviewState = AI_REVIEW_STATES.includes(
+    rec.review_state ?? ""
+  ) ? rec.review_state : "pending";
+  return {
+    id: rec.id ?? "",
+    ...rec.case_id ? { caseId: rec.case_id } : {},
+    ...rec.evidence_id ? { evidenceId: rec.evidence_id } : {},
+    ...rec.inbound_email_id ? { inboundEmailId: rec.inbound_email_id } : {},
+    suggestionType: rec.suggestion_type ?? "",
+    suggestedValue: coerceJson(rec.suggested_value),
+    ...rec.rationale ? { rationale: rec.rationale } : {},
+    ...rec.confidence != null ? { confidence: Number(rec.confidence) } : {},
+    ...rec.model_version ? { modelVersion: rec.model_version } : {},
+    reviewState,
+    createdAt: toIso(rec.created_at),
+    ...rec.reviewed_by ? { reviewedBy: rec.reviewed_by } : {},
+    ...rec.reviewed_at ? { reviewedAt: toIso(rec.reviewed_at) } : {}
+  };
+}
+function inboundViewWhere(view) {
+  switch (view) {
+    case "handled":
+      return "triage_state IN ('actioned','dismissed')";
+    case "all":
+      return "";
+    case "active":
+    default:
+      return "(triage_state IS NULL OR triage_state NOT IN ('actioned','dismissed'))";
+  }
+}
+function tallyActiveInboundCounts(rows) {
+  const counts = { receiving_work: 0, query: 0, other: 0, untriaged: 0 };
+  for (const r of rows) {
+    if (isHandledTriageState(r.triage_state)) continue;
+    const cat = inboundCategoryFromInt(r.category_code ?? void 0);
+    if (cat) counts[cat] += 1;
+    if ((r.triage_state ?? "new") === "new") counts.untriaged += 1;
+  }
+  return counts;
+}
+function casePoSeqOfName(name, principal, yy) {
+  const prefix = `${principal}${yy}`.toUpperCase();
+  const up = String(name ?? "").trim().toUpperCase();
+  if (!up.startsWith(prefix)) return 0;
+  const tail = up.slice(prefix.length);
+  if (!/^[0-9]{3,}$/.test(tail)) return 0;
+  return Number.parseInt(tail, 10);
+}
+function maxCasePoSeqFromNames(names, principal, yy) {
+  let max = 0;
+  for (const n of names) {
+    const seq = casePoSeqOfName(n, principal, yy);
+    if (seq > max) max = seq;
+  }
+  return max;
+}
+function richTagToClassification(tag2) {
+  switch (tag2) {
+    case "Inspection":
+      return { category: "receiving_work", subtype: "existing_provider_instruction" };
+    case "Audit":
+      return { category: "receiving_work", subtype: "existing_provider_audit" };
+    case "Diminution":
+      return { category: "receiving_work", subtype: "existing_provider_diminution" };
+    case "Query":
+      return { category: "query", subtype: "query_existing_work" };
+    default:
+      return void 0;
+  }
 }
 function parseDmy(s) {
   if (!s) return void 0;
@@ -7674,7 +8125,8 @@ function actionableCases(all) {
 }
 var TWIN_TERMINAL = /* @__PURE__ */ new Set([
   "eva_submitted",
-  "box_synced"
+  "box_synced",
+  "removed"
 ]);
 
 // api/src/functions/cases.ts
@@ -7757,6 +8209,62 @@ async function recomputeStatus(caseId, actor) {
     ...actor ? { actor } : {}
   });
 }
+var EVA_MAXLEN = {
+  workProvider: 200,
+  vehicleModel: 200,
+  claimantName: 200,
+  claimantTelephone: 60,
+  claimantEmail: 320,
+  dateOfLoss: 10,
+  dateOfInstruction: 10,
+  accidentCircumstances: 4e3,
+  inspectionAddress: 2e3,
+  vatStatus: 3,
+  mileage: 20,
+  mileageUnit: 6
+};
+var isDmyOrEmpty = (v) => v === "" || /^\d{2}\/\d{2}\/\d{4}$/.test(v);
+var VAT_VALUES = /* @__PURE__ */ new Set(["", "Yes", "No"]);
+var MILEAGE_UNITS = /* @__PURE__ */ new Set(["", "Miles", "Km"]);
+function normaliseEvaEdit(key, raw) {
+  const trimmed = raw.trim();
+  if (key === "dateOfLoss" || key === "dateOfInstruction") {
+    if (!isDmyOrEmpty(trimmed)) return { error: `${key} must be DD/MM/YYYY or empty` };
+    return { value: trimmed };
+  }
+  if (key === "vatStatus") {
+    if (!VAT_VALUES.has(trimmed)) return { error: "vatStatus must be '', 'Yes' or 'No'" };
+    return { value: trimmed };
+  }
+  if (key === "mileageUnit") {
+    if (!MILEAGE_UNITS.has(trimmed)) return { error: "mileageUnit must be '', 'Miles' or 'Km'" };
+    return { value: trimmed };
+  }
+  return { value: raw.slice(0, EVA_MAXLEN[key]) };
+}
+async function upsertManualProvenance(caseId, fieldName, value) {
+  try {
+    const staff = sourceTypeCodec.toInt("staff") ?? 1e8;
+    const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
+    const upd = await query(
+      `UPDATE field_level_provenance
+          SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
+              review_state_code = $5, updated_at = now()
+        WHERE case_id = $1 AND field_name = $2
+        RETURNING id`,
+      [caseId, fieldName, value, staff, reviewed]
+    );
+    if (upd.length === 0) {
+      await query(
+        `INSERT INTO field_level_provenance
+           (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
+         VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
+        [`${caseId}:${fieldName}`, caseId, fieldName, value, staff, reviewed]
+      );
+    }
+  } catch {
+  }
+}
 import_functions.app.http("caseById", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -7782,6 +8290,7 @@ import_functions.app.http("patchCase", {
     const vals = [];
     const before = {};
     const after = {};
+    const changedEvaFields = [];
     if (body.vrm !== void 0) {
       const raw = String(body.vrm ?? "").trim();
       const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
@@ -7793,6 +8302,21 @@ import_functions.app.http("patchCase", {
         after.vrm = newVrm;
       }
     }
+    if (body.evaFields && typeof body.evaFields === "object") {
+      for (const [k, rawVal] of Object.entries(body.evaFields)) {
+        if (rawVal === void 0 || !(k in EVA_COLUMN_BY_KEY)) continue;
+        const key = k;
+        const norm = normaliseEvaEdit(key, String(rawVal ?? ""));
+        if ("error" in norm) return { status: 400, jsonBody: { error: norm.error } };
+        const oldVal = existing.evaFields[key]?.value ?? "";
+        if (norm.value === oldVal) continue;
+        sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${sets.length + 1}`);
+        vals.push(norm.value);
+        before[key] = oldVal;
+        after[key] = norm.value;
+        changedEvaFields.push({ key, value: norm.value });
+      }
+    }
     if (sets.length === 0) {
       const cur = await loadCaseFull(id, /* @__PURE__ */ new Date());
       return { status: 200, jsonBody: cur };
@@ -7802,6 +8326,7 @@ import_functions.app.http("patchCase", {
       `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
       vals
     );
+    for (const f of changedEvaFields) await upsertManualProvenance(id, f.key, f.value);
     await writeAudit({
       action: AUDIT_ACTION.status_changed,
       caseId: id,
@@ -7849,7 +8374,8 @@ import_functions.app.http("createCase", {
       const wp = await query("SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1", [pcode]);
       if (wp[0]?.id) add("work_provider_id", wp[0].id);
     }
-    if (input.casePo) add("case_po", input.casePo);
+    const casePo = (input.casePo ?? "").trim().toUpperCase();
+    if (casePo) add("case_po", casePo);
     if (input.onHold) add("on_hold", true);
     if (input.insuredName) add("ov_insured_name", input.insuredName);
     if (input.providerReference) add("ov_claim_number", input.providerReference);
@@ -8050,6 +8576,119 @@ import_functions.app.http("activityForCase", {
     return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
   })
 });
+import_functions.app.http("removeCase", {
+  methods: ["DELETE"],
+  authLevel: "anonymous",
+  route: "cases/{id}",
+  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body = await req.json().catch(() => ({}));
+    const actor = actorFromClaims(claims);
+    const existing = await loadCaseLite(id);
+    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
+    if (existing.status === "removed") {
+      const done = {
+        id,
+        status: "removed",
+        alreadyRemoved: true,
+        ...existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}
+      };
+      return { status: 200, jsonBody: done };
+    }
+    const before = {
+      status: existing.status,
+      vrm: existing.vrm,
+      casePo: existing.casePo ?? null,
+      provider: existing.provider,
+      claimantName: existing.evaFields.claimantName.value
+    };
+    const evaCols = EVA_FIELD_ORDER.map((d) => `${EVA_COLUMN_BY_KEY[d.key]} = ''`).join(", ");
+    await query(
+      `UPDATE case_
+          SET status_code = $2, ${evaCols},
+              vrm = '', case_ref = '', name = '[removed]',
+              ov_insured_name = NULL, ov_claimant_name = NULL,
+              ov_third_party_name = NULL, ov_claim_number = NULL,
+              ov_policy_reference = NULL, ov_incident_date = NULL,
+              ov_insurer_name = NULL, ov_repairer_name = NULL,
+              eva_claimant_address = NULL,
+              on_hold = false, closed_at = now(), updated_at = now()
+        WHERE id = $1`,
+      [id, statusToInt("removed")]
+    );
+    await writeAudit({
+      action: AUDIT_ACTION.case_removed,
+      caseId: id,
+      severity: "warning",
+      summary: `Case removed (soft): ${before.vrm || before.casePo || id}`,
+      before,
+      after: {
+        status: "removed",
+        // The "also remove Box folder" tickbox is an INTENT FLAG only — no automated deletion.
+        boxFolderAcknowledged: body.acknowledgeBoxFolderHandled === true,
+        boxFolderId: existing.boxFolderId ?? null,
+        boxFolderUrl: existing.boxFolderUrl ?? null,
+        ...typeof body.reason === "string" && body.reason.trim() ? { reason: body.reason.trim() } : {}
+      },
+      ...actor ? { actor } : {}
+    });
+    const result = {
+      id,
+      status: "removed",
+      alreadyRemoved: false,
+      ...existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}
+    };
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions.app.http("nextCasePo", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/next-po",
+  handler: withRole("CollisionSpike.User", async (req, ctx) => {
+    const principalRaw = (req.query.get("principal") ?? "").trim();
+    if (!principalRaw) return { status: 400, jsonBody: { error: "principal is required" } };
+    const principal = principalRaw.toUpperCase();
+    if (!/^[A-Z][A-Z0-9]{0,7}$/.test(principal)) {
+      return { status: 400, jsonBody: { error: "invalid principal code" } };
+    }
+    const yearParam = (req.query.get("year") ?? "").trim();
+    const yy = /^\d{2}$/.test(yearParam) ? yearParam : /^\d{4}$/.test(yearParam) ? yearParam.slice(-2) : casePoYear();
+    const prefix = `${principal}${yy}`;
+    const seqRows = await query(
+      `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) AS max_seq
+         FROM case_
+        WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
+      [`${prefix}%`, casePoSequenceRegex(principal, yy), prefix]
+    );
+    let maxSeq = Number(seqRows[0]?.max_seq ?? 0);
+    let source = "db";
+    if (maxSeq === 0 && gates.boxApi() && gates.boxFolderRootId() && process.env.BOX_FN_URL) {
+      try {
+        const names = await listBoxFolderNames(gates.boxFolderRootId());
+        const boxMax = maxCasePoSeqFromNames(names, principal, yy);
+        if (boxMax > 0) {
+          maxSeq = boxMax;
+          source = "box";
+        }
+      } catch (e) {
+        ctx.error(`[next-po] Box fallback failed: ${String(e)}`);
+      }
+    }
+    const nextSeq = maxSeq + 1;
+    const casePo = formatCasePo(principal, yy, nextSeq);
+    const result = {
+      principal,
+      yy,
+      seq: String(nextSeq).padStart(3, "0"),
+      nextSeq,
+      evaLower: casePo.toLowerCase(),
+      boxUpper: casePo,
+      source
+    };
+    return { status: 200, jsonBody: result };
+  })
+});
 function nowParam(req) {
   const raw = req.query.get("now");
   if (!raw) return /* @__PURE__ */ new Date();
@@ -8079,6 +8718,83 @@ import_functions2.app.http("providerByCode", {
     ]);
     if (!rows[0]) return { status: 404, jsonBody: { error: "not found" } };
     return { status: 200, jsonBody: rowToProvider(rows[0]) };
+  })
+});
+var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function normaliseDomains(input) {
+  if (!Array.isArray(input)) return void 0;
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const d of input) {
+    const v = String(d ?? "").trim().toLowerCase();
+    if (v && !seen.has(v)) {
+      seen.add(v);
+      out.push(v);
+    }
+  }
+  return out;
+}
+import_functions2.app.http("updateProvider", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "providers/{id}",
+  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
+    const idOrCode = (req.params.id ?? "").trim();
+    if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
+    const body = await req.json().catch(() => ({}));
+    let modeCode;
+    if (body.providerAutomationMode !== void 0) {
+      const mode = String(body.providerAutomationMode);
+      const code = automationModeCodec.toInt(mode);
+      if (code == null) return { status: 400, jsonBody: { error: "invalid providerAutomationMode" } };
+      modeCode = code;
+    }
+    let domains;
+    if (body.knownEmailDomains !== void 0) {
+      domains = normaliseDomains(body.knownEmailDomains);
+      if (domains === void 0) {
+        return { status: 400, jsonBody: { error: "knownEmailDomains must be an array of strings" } };
+      }
+    }
+    if (modeCode === void 0 && domains === void 0) {
+      return { status: 400, jsonBody: { error: "nothing to update" } };
+    }
+    const where = UUID_RE.test(idOrCode) ? "id = $1" : "principal_code = $1";
+    const existing = await query(`SELECT * FROM work_provider WHERE ${where} LIMIT 1`, [idOrCode]);
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const beforeRow = existing[0];
+    const sets = [];
+    const vals = [];
+    const before = {};
+    const after = {};
+    if (modeCode !== void 0) {
+      vals.push(modeCode);
+      sets.push(`provider_automation_mode_code = $${vals.length}`);
+      before.providerAutomationMode = automationModeCodec.toName(beforeRow.provider_automation_mode_code) ?? null;
+      after.providerAutomationMode = automationModeCodec.toName(modeCode);
+    }
+    if (domains !== void 0) {
+      vals.push(domains.join("\n"));
+      sets.push(`known_email_domains = $${vals.length}`);
+      before.knownEmailDomains = beforeRow.known_email_domains ?? null;
+      after.knownEmailDomains = domains;
+    }
+    vals.push(beforeRow.id);
+    const updated = await query(
+      `UPDATE work_provider SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}
+       RETURNING *`,
+      vals
+    );
+    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.corpus_record_changed,
+      summary: `Provider ${beforeRow.principal_code ?? beforeRow.id} updated: ${Object.keys(after).join(", ")}`,
+      before,
+      after: { ...after, principalCode: beforeRow.principal_code ?? null },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: rowToProvider(updated[0]) };
   })
 });
 
@@ -8216,19 +8932,93 @@ async function loadAllCases2(now) {
   const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
   return rows.map((r) => rowToCase(r, { now }));
 }
+function computeLiveCounts(all) {
+  return {
+    notReady: filterQueue(all, "not-ready").length,
+    review: filterQueue(all, "review").length,
+    held: filterQueue(all, "held").length
+  };
+}
+function computeThroughput(all, now) {
+  const today = startOfDay(now);
+  const weekStart = startOfWeek(now);
+  let inToday = 0;
+  let submittedToday = 0;
+  let clearedThisWeek = 0;
+  let submittedTotal = 0;
+  for (const c of all) {
+    if (isSameDay(parseDmy(c.createdAt), today)) inToday += 1;
+    if (statusToStage(c.status) === "submitted") submittedTotal += 1;
+    const sub = parseDmy(c.submittedAt);
+    if (sub) {
+      if (isSameDay(sub, today)) submittedToday += 1;
+      if (startOfDay(sub).getTime() >= weekStart.getTime()) clearedThisWeek += 1;
+    }
+  }
+  return { inToday, submittedToday, clearedThisWeek, submittedTotal };
+}
+function computeAgingExceptions(all, now) {
+  const today = startOfDay(now);
+  const rows = actionableCases(all).map((c) => {
+    const due = parseDmy(c.dateDue);
+    const daysToDue = due ? daysBetween(today, due) : Number.POSITIVE_INFINITY;
+    return {
+      case: c,
+      daysToDue,
+      pastDue: due ? daysToDue < 0 : false,
+      ...c.actionReason ? { reason: c.actionReason } : {}
+    };
+  }).sort((a, b) => a.daysToDue - b.daysToDue);
+  return {
+    rows,
+    pastDueCount: rows.filter((r) => r.pastDue).length,
+    duplicateCount: rows.filter((r) => r.reason === "duplicate").length,
+    conflictCount: rows.filter((r) => r.reason === "conflict").length
+  };
+}
+function computeQueueCounts(all) {
+  return {
+    "not-ready": filterQueue(all, "not-ready").length,
+    review: filterQueue(all, "review").length,
+    held: filterQueue(all, "held").length
+  };
+}
+function computeReasonFacets(all) {
+  const tally = /* @__PURE__ */ new Map();
+  for (const c of actionableCases(all)) {
+    if (!c.actionReason) continue;
+    tally.set(c.actionReason, (tally.get(c.actionReason) ?? 0) + 1);
+  }
+  return Object.keys(REASON_LABELS).map((reason) => ({ reason, label: REASON_LABELS[reason], count: tally.get(reason) ?? 0 })).filter((f) => f.count > 0);
+}
+function computePipelineStages(all) {
+  const defs = [
+    { key: "new", label: "New" },
+    { key: "not_ready", label: "Not ready" },
+    { key: "review", label: "Review" },
+    { key: "submitted", label: "Submitted" }
+  ];
+  const counts = new Map(defs.map((d) => [d.key, 0]));
+  for (const c of all) {
+    if (c.onHold) continue;
+    const k = statusToStage(c.status);
+    if (k === void 0) continue;
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return defs.map((d) => ({
+    key: d.key,
+    label: d.label,
+    count: counts.get(d.key) ?? 0,
+    tone: d.key === "not_ready" ? "stuck" : "normal"
+  }));
+}
 import_functions4.app.http("liveCounts", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "dashboard/live-counts",
   handler: withRole("CollisionSpike.User", async (req) => {
-    const now = nowParam2(req);
-    const all = await loadAllCases2(now);
-    const result = {
-      notReady: filterQueue(all, "not-ready").length,
-      review: filterQueue(all, "review").length,
-      held: filterQueue(all, "held").length
-    };
-    return { status: 200, jsonBody: result };
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computeLiveCounts(all) };
   })
 });
 import_functions4.app.http("throughput", {
@@ -8238,21 +9028,7 @@ import_functions4.app.http("throughput", {
   handler: withRole("CollisionSpike.User", async (req) => {
     const now = nowParam2(req);
     const all = await loadAllCases2(now);
-    const today = startOfDay(now);
-    const weekStart = startOfWeek(now);
-    let inToday = 0;
-    let submittedToday = 0;
-    let clearedThisWeek = 0;
-    for (const c of all) {
-      if (isSameDay(parseDmy(c.createdAt), today)) inToday += 1;
-      const sub = parseDmy(c.submittedAt);
-      if (sub) {
-        if (isSameDay(sub, today)) submittedToday += 1;
-        if (startOfDay(sub).getTime() >= weekStart.getTime()) clearedThisWeek += 1;
-      }
-    }
-    const result = { inToday, submittedToday, clearedThisWeek };
-    return { status: 200, jsonBody: result };
+    return { status: 200, jsonBody: computeThroughput(all, now) };
   })
 });
 import_functions4.app.http("agingExceptions", {
@@ -8262,24 +9038,7 @@ import_functions4.app.http("agingExceptions", {
   handler: withRole("CollisionSpike.User", async (req) => {
     const now = nowParam2(req);
     const all = await loadAllCases2(now);
-    const today = startOfDay(now);
-    const rows = actionableCases(all).map((c) => {
-      const due = parseDmy(c.dateDue);
-      const daysToDue = due ? daysBetween(today, due) : Number.POSITIVE_INFINITY;
-      return {
-        case: c,
-        daysToDue,
-        pastDue: due ? daysToDue < 0 : false,
-        ...c.actionReason ? { reason: c.actionReason } : {}
-      };
-    }).sort((a, b) => a.daysToDue - b.daysToDue);
-    const result = {
-      rows,
-      pastDueCount: rows.filter((r) => r.pastDue).length,
-      duplicateCount: rows.filter((r) => r.reason === "duplicate").length,
-      conflictCount: rows.filter((r) => r.reason === "conflict").length
-    };
-    return { status: 200, jsonBody: result };
+    return { status: 200, jsonBody: computeAgingExceptions(all, now) };
   })
 });
 import_functions4.app.http("queueCounts", {
@@ -8287,14 +9046,8 @@ import_functions4.app.http("queueCounts", {
   authLevel: "anonymous",
   route: "dashboard/queue-counts",
   handler: withRole("CollisionSpike.User", async (req) => {
-    const now = nowParam2(req);
-    const all = await loadAllCases2(now);
-    const result = {
-      "not-ready": filterQueue(all, "not-ready").length,
-      review: filterQueue(all, "review").length,
-      held: filterQueue(all, "held").length
-    };
-    return { status: 200, jsonBody: result };
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computeQueueCounts(all) };
   })
 });
 import_functions4.app.http("reasonCounts", {
@@ -8302,15 +9055,8 @@ import_functions4.app.http("reasonCounts", {
   authLevel: "anonymous",
   route: "dashboard/reason-counts",
   handler: withRole("CollisionSpike.User", async (req) => {
-    const now = nowParam2(req);
-    const all = await loadAllCases2(now);
-    const tally = /* @__PURE__ */ new Map();
-    for (const c of actionableCases(all)) {
-      if (!c.actionReason) continue;
-      tally.set(c.actionReason, (tally.get(c.actionReason) ?? 0) + 1);
-    }
-    const result = Object.keys(REASON_LABELS).map((reason) => ({ reason, label: REASON_LABELS[reason], count: tally.get(reason) ?? 0 })).filter((f) => f.count > 0);
-    return { status: 200, jsonBody: result };
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computeReasonFacets(all) };
   })
 });
 import_functions4.app.http("pipelineStages", {
@@ -8318,97 +9064,38 @@ import_functions4.app.http("pipelineStages", {
   authLevel: "anonymous",
   route: "dashboard/pipeline-stages",
   handler: withRole("CollisionSpike.User", async (req) => {
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computePipelineStages(all) };
+  })
+});
+import_functions4.app.http("dashboardSummary", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard",
+  handler: withRole("CollisionSpike.User", async (req) => {
     const now = nowParam2(req);
     const all = await loadAllCases2(now);
-    const defs = [
-      { key: "new", label: "New" },
-      { key: "not_ready", label: "Not ready" },
-      { key: "review", label: "Review" },
-      { key: "submitted", label: "Submitted" }
-    ];
-    const counts = new Map(defs.map((d) => [d.key, 0]));
-    for (const c of all) {
-      if (c.onHold) continue;
-      const k = statusToStage(c.status);
-      if (k === void 0) continue;
-      counts.set(k, (counts.get(k) ?? 0) + 1);
+    let inbound = { ...INBOUND_COUNTS_ZERO };
+    try {
+      const inboundRows = await query("SELECT category_code, triage_state FROM inbound_email");
+      inbound = tallyActiveInboundCounts(inboundRows);
+    } catch {
     }
-    const result = defs.map((d) => ({
-      key: d.key,
-      label: d.label,
-      count: counts.get(d.key) ?? 0,
-      tone: d.key === "not_ready" ? "stuck" : "normal"
-    }));
-    return { status: 200, jsonBody: result };
+    const summary = {
+      liveCounts: computeLiveCounts(all),
+      throughput: computeThroughput(all, now),
+      queueCounts: computeQueueCounts(all),
+      pipelineStages: computePipelineStages(all),
+      reasonFacets: computeReasonFacets(all),
+      agingExceptions: computeAgingExceptions(all, now),
+      inbound
+    };
+    return { status: 200, jsonBody: summary };
   })
 });
 
 // api/src/functions/gates.ts
 var import_functions5 = require("@azure/functions");
-
-// packages/domain/dist/gates.js
-var gates = {
-  // Core feature gates (plan 10 §1.1, #1–#21 boolean set)
-  pdfMapper: () => process.env.PDF_MAPPER_ENABLED === "true",
-  // #1
-  enrichment: () => process.env.ENRICHMENT_ENABLED === "true",
-  // #2
-  evaApi: () => process.env.EVA_API_ENABLED === "true",
-  // #4
-  azureMaps: () => process.env.AZURE_MAPS_ENABLED === "true",
-  // #8
-  valuation: () => process.env.VALUATION_ENABLED === "true",
-  // #9
-  copilot: () => process.env.COPILOT_ENABLED === "true",
-  // #10
-  azureVision: () => process.env.AZURE_VISION_ENABLED === "true",
-  // #11
-  ocrScannedPdf: () => process.env.OCR_SCANNED_PDF_ENABLED === "true",
-  // #12
-  plateOcr: () => process.env.PLATE_OCR_ENABLED === "true",
-  // #13
-  auditCases: () => process.env.AUDIT_CASES_ENABLED === "true",
-  // #15
-  locationAssist: () => process.env.LOCATION_ASSIST_ENABLED === "true",
-  // #17
-  chaserSend: () => process.env.CHASER_SEND_ENABLED === "true",
-  // #19
-  caseDisposition: () => process.env.CASE_DISPOSITION_ENABLED === "true",
-  // #20
-  emailAi: () => process.env.EMAIL_AI_ENABLED === "true",
-  // #21
-  // Box gates (Phase 7, ADR-0012) — all default off
-  boxApi: () => process.env.BOX_API_ENABLED === "true",
-  // #22
-  boxFolderAtIntake: () => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === "true",
-  // #23
-  boxFileRequest: () => process.env.BOX_FILEREQUEST_ENABLED === "true",
-  // #24
-  boxEmbed: () => process.env.BOX_EMBED_ENABLED === "true",
-  // #25
-  boxMetadata: () => process.env.BOX_METADATA_ENABLED === "true",
-  // #26
-  // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
-  enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
-  // #3
-  evaBaseUrl: () => process.env.EVA_BASE_URL ?? "",
-  // #5
-  valuationApiBase: () => process.env.VALUATION_API_BASE ?? "",
-  // #14
-  locationAssistApiBase: () => process.env.LOCATION_ASSIST_API_BASE ?? "",
-  // #18
-  boxFolderRootId: () => process.env.BOX_FOLDER_ROOT_ID ?? "",
-  // #27
-  boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
-  // #28
-  /**
-   * Derived: location assist is only enabled when all three conditions are met.
-   * Used by GET /api/gates/location-assist (plan 21 §21.2).
-   */
-  locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== ""
-};
-
-// api/src/functions/gates.ts
 import_functions5.app.http("getBoxGates", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -8460,6 +9147,22 @@ import_functions5.app.http("getLocationAssistGate", {
     }
   })
 });
+import_functions5.app.http("getAiAssistGate", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/ai-assist",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = {
+        enabled: gates.aiAssist(),
+        modelConfigured: gates.aiAssistConfigured()
+      };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...AI_ASSIST_GATE_ALL_OFF } };
+    }
+  })
+});
 
 // api/src/functions/settings.ts
 var import_functions6 = require("@azure/functions");
@@ -8507,6 +9210,12 @@ import_functions6.app.http("setHoldNewCasesDefault", {
 
 // api/src/functions/inbound.ts
 var import_functions7 = require("@azure/functions");
+var TRIAGE_AUDIT_ACTION = {
+  dismissed: AUDIT_ACTION.inbound_dismissed,
+  actioned: AUDIT_ACTION.inbound_actioned,
+  new: AUDIT_ACTION.inbound_reopened,
+  routed: AUDIT_ACTION.inbound_routed
+};
 import_functions7.app.http("inboundEmails", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -8515,12 +9224,16 @@ import_functions7.app.http("inboundEmails", {
     try {
       const category = req.query.get("category");
       const subtype = req.query.get("subtype");
+      const view = req.query.get("view");
+      const clauses = [];
       const params = [];
-      let where = "";
       if (category && category in INBOUND_CATEGORY_TO_INT) {
         params.push(INBOUND_CATEGORY_TO_INT[category]);
-        where = `WHERE category_code = $${params.length}`;
+        clauses.push(`category_code = $${params.length}`);
       }
+      const viewClause = inboundViewWhere(view);
+      if (viewClause) clauses.push(viewClause);
+      const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
       const rows = await query(
         `SELECT * FROM inbound_email ${where} ORDER BY received_on DESC`,
         params
@@ -8540,12 +9253,7 @@ import_functions7.app.http("inboundEmailCounts", {
   handler: withRole("CollisionSpike.User", async () => {
     try {
       const rows = await query("SELECT category_code, triage_state FROM inbound_email");
-      const counts = { ...INBOUND_COUNTS_ZERO };
-      for (const r of rows) {
-        const cat = inboundCategoryFromInt(r.category_code);
-        if (cat) counts[cat] += 1;
-        if ((r.triage_state ?? "") === "new") counts.untriaged += 1;
-      }
+      const counts = tallyActiveInboundCounts(rows);
       return { status: 200, jsonBody: counts };
     } catch {
       return { status: 200, jsonBody: { ...INBOUND_COUNTS_ZERO } };
@@ -8556,58 +9264,151 @@ import_functions7.app.http("setTriageState", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "inbound/{id}/triage",
-  handler: withRole("CollisionSpike.User", async (req) => {
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = req.params.id;
-    const body = await req.json();
-    try {
-      await query("UPDATE inbound_email SET triage_state = $2, updated_at = now() WHERE id = $1", [
-        id,
-        body.state
-      ]);
-    } catch {
+    const body = await req.json().catch(() => ({}));
+    const state = body.state;
+    if (!isValidTriageState(state)) {
+      return { status: 400, jsonBody: { error: "invalid triage state" } };
     }
+    const existing = await query(
+      "SELECT id, triage_state, case_id, source_message_id FROM inbound_email WHERE id = $1",
+      [id]
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const before = existing[0].triage_state ?? "new";
+    const updated = await query(
+      "UPDATE inbound_email SET triage_state = $2, updated_at = now() WHERE id = $1 RETURNING id",
+      [id, state]
+    );
+    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: TRIAGE_AUDIT_ACTION[state],
+      ...existing[0].case_id ? { caseId: existing[0].case_id } : {},
+      summary: `Inbound email ${before} -> ${state}`,
+      before: { triageState: before },
+      after: {
+        triageState: state,
+        inboundEmailId: id,
+        sourceMessageId: existing[0].source_message_id ?? null
+      },
+      ...actor ? { actor } : {}
+    });
     return { status: 204 };
   })
 });
+import_functions7.app.http("reclassifyInbound", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/classification",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body = await req.json().catch(() => ({}));
+    let category;
+    let subtype;
+    if (typeof body.tag === "string") {
+      const mapped = richTagToClassification(body.tag);
+      if (!mapped) return { status: 400, jsonBody: { error: "unknown tag" } };
+      category = mapped.category;
+      subtype = mapped.subtype;
+    } else {
+      if (typeof body.category === "string") {
+        if (!(body.category in INBOUND_CATEGORY_TO_INT)) {
+          return { status: 400, jsonBody: { error: "invalid category" } };
+        }
+        category = body.category;
+      }
+      if (typeof body.subtype === "string") {
+        if (!(body.subtype in INBOUND_SUBTYPE_TO_INT)) {
+          return { status: 400, jsonBody: { error: "invalid subtype" } };
+        }
+        subtype = body.subtype;
+      }
+    }
+    if (!category && !subtype) {
+      return { status: 400, jsonBody: { error: "category, subtype or tag required" } };
+    }
+    const existing = await query(
+      `SELECT id, category_code, subtype_code, suggested_category_code, suggested_subtype_code,
+              case_id, work_provider_id, source_message_id
+         FROM inbound_email WHERE id = $1`,
+      [id]
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const cur = existing[0];
+    const sets = ["classifier_mode = 'human'"];
+    const vals = [];
+    if (category) {
+      vals.push(INBOUND_CATEGORY_TO_INT[category]);
+      sets.push(`category_code = $${vals.length}`);
+    }
+    if (subtype) {
+      vals.push(INBOUND_SUBTYPE_TO_INT[subtype]);
+      sets.push(`subtype_code = $${vals.length}`);
+    }
+    vals.push(id);
+    const updated = await query(
+      `UPDATE inbound_email SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}
+       RETURNING *`,
+      vals
+    );
+    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    const suggestedCat = inboundCategoryFromInt(
+      cur.suggested_category_code ?? cur.category_code
+    );
+    const suggestedSub = inboundSubtypeFromInt(
+      cur.suggested_subtype_code ?? cur.subtype_code
+    );
+    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+    if (category && category !== suggestedCat) {
+      await writeImprovementSignal(cur, "category", suggestedCat ?? "(none)", category, actor, reason);
+    }
+    if (subtype && subtype !== suggestedSub) {
+      await writeImprovementSignal(cur, "subtype", suggestedSub ?? "(none)", subtype, actor, reason);
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.inbound_reclassified,
+      ...cur.case_id ? { caseId: cur.case_id } : {},
+      summary: `Inbound reclassified${category ? ` category=${category}` : ""}${subtype ? ` subtype=${subtype}` : ""}`,
+      before: { category: suggestedCat ?? null, subtype: suggestedSub ?? null },
+      after: {
+        category: category ?? null,
+        subtype: subtype ?? null,
+        inboundEmailId: id,
+        sourceMessageId: cur.source_message_id ?? null,
+        ...reason ? { reason } : {}
+      },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: rowToInboundEmail(updated[0]) };
+  })
+});
+async function writeImprovementSignal(row, fieldName, originalValue, correctedValue, actor, reason) {
+  try {
+    await query(
+      `INSERT INTO improvement_signal
+         (name, case_id, work_provider_id, field_name, original_value, corrected_value,
+          original_provenance, actor, occurred_at, affects_eva_readiness, classification_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), false, 100000000)`,
+      [
+        `Inbound ${fieldName} override: ${originalValue || "(none)"} -> ${correctedValue}`,
+        row.case_id ?? null,
+        row.work_provider_id ?? null,
+        `inbound.${fieldName}`,
+        originalValue || null,
+        correctedValue,
+        reason || "classifier suggestion",
+        actor ?? null
+      ]
+    );
+  } catch {
+  }
+}
 
 // api/src/functions/proxy.ts
 var import_functions8 = require("@azure/functions");
-
-// api/src/lib/functions-client.ts
-async function callFn(baseUrl, fnKey, method, path, body) {
-  const res = await fetch(`${baseUrl}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "x-functions-key": fnKey
-    },
-    ...body !== void 0 ? { body: JSON.stringify(body) } : {}
-  });
-  if (!res.ok) {
-    throw new Error(`[functions-client] ${method} ${path} \u2192 ${res.status} ${await res.text().catch(() => "")}`);
-  }
-  return res.json();
-}
-async function callParser(body) {
-  return callFn(
-    process.env.PARSER_FN_URL,
-    process.env.PARSER_FN_KEY,
-    "POST",
-    "/api/parse",
-    body
-  );
-}
-async function callLocationSuggest(body) {
-  return callFn(
-    process.env.LOCATION_SUGGEST_FN_URL,
-    process.env.LOCATION_SUGGEST_FN_KEY,
-    "POST",
-    "/api/location-suggest",
-    body
-  );
-}
-
-// api/src/functions/proxy.ts
 import_functions8.app.http("locationAssistSuggest", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -8709,20 +9510,71 @@ async function recomputeStatus2(caseId) {
   }
   return next;
 }
+async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit) {
+  const ref = (parserRef ?? "").trim();
+  const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, "") : "";
+  const unitRaw = (parserMileageUnit ?? "").trim();
+  const unit = unitRaw === "Miles" || unitRaw === "Km" ? unitRaw : "";
+  if (!ref && !mileage) return;
+  const cur = await query("SELECT case_ref, eva_mileage FROM case_ WHERE id = $1", [caseId]);
+  if (!cur[0]) return;
+  const isEmpty = (v) => !String(v ?? "").trim();
+  const sets = [];
+  const vals = [];
+  let mileageFilled = false;
+  if (ref && isEmpty(cur[0].case_ref)) {
+    sets.push(`case_ref = $${sets.length + 1}`);
+    vals.push(ref.slice(0, 200));
+  }
+  if (mileage && isEmpty(cur[0].eva_mileage)) {
+    sets.push(`eva_mileage = $${sets.length + 1}`);
+    vals.push(mileage.slice(0, 20));
+    mileageFilled = true;
+    if (unit) {
+      sets.push(`eva_mileage_unit = $${sets.length + 1}`);
+      vals.push(unit);
+    }
+  }
+  if (sets.length === 0) return;
+  vals.push(caseId);
+  await query(
+    `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
+    vals
+  );
+  if (mileageFilled) {
+    await query(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        `${caseId}:mileage`,
+        caseId,
+        "mileage",
+        mileage.slice(0, 20),
+        sourceTypeCodec.toInt("pdf_extraction") ?? 1e8,
+        "From instructions"
+      ]
+    ).catch(() => {
+    });
+  }
+}
 import_functions9.app.http("internalProviderMatchRecords", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/provider-match-records",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const rows = await query(
-      "SELECT id, principal_code, known_email_domains, known_email_addresses, active FROM work_provider ORDER BY display_name"
+      "SELECT id, principal_code, known_email_domains, known_email_addresses, active, provider_automation_mode_code FROM work_provider ORDER BY display_name"
     );
     const records = rows.map((r) => ({
       workProviderId: r.id,
       principalCode: r.principal_code,
       knownEmailDomains: parseDomains2(r.known_email_domains),
       knownEmailAddresses: parseDomains2(r.known_email_addresses),
-      active: Boolean(r.active)
+      active: Boolean(r.active),
+      // Lets the orchestrator branch on the matched provider's automation mode
+      // (work-todo-spike: automation-mode). Default review_auto (the live default).
+      providerAutomationMode: automationModeCodec.toName(r.provider_automation_mode_code) ?? "review_auto"
     }));
     return { status: 200, jsonBody: records };
   })
@@ -8801,15 +9653,27 @@ import_functions9.app.http("internalCasesResolve", {
     const { inbound, providerId, decision } = body;
     const workProviderId = providerId ?? null;
     const vrm = ((body.parserVrm || inbound.candidateVrm) ?? "").trim();
+    let providerAutomationMode = "manual";
+    if (workProviderId) {
+      const wpMode = await query(
+        "SELECT provider_automation_mode_code FROM work_provider WHERE id = $1",
+        [workProviderId]
+      );
+      providerAutomationMode = automationModeCodec.toName(wpMode[0]?.provider_automation_mode_code) ?? "review_auto";
+    }
     if (decision.resolution === "attach" && decision.targetCaseId) {
       await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId, void 0, body.parserVrm);
+      await applyParserFields(decision.targetCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit);
       await writeAudit({
         action: AUDIT_ACTION.case_attached,
         caseId: decision.targetCaseId,
         summary: `Email ${inbound.internetMessageId} attached to existing case`,
         after: { messageId: inbound.internetMessageId, resolution: "attach" }
       });
-      return { status: 200, jsonBody: { outcome: "attached", caseId: decision.targetCaseId } };
+      return {
+        status: 200,
+        jsonBody: { outcome: "attached", caseId: decision.targetCaseId, providerAutomationMode }
+      };
     }
     const rawStatus = decision.statusEffect;
     const statusCode = caseStatusCodec.toInt(rawStatus) ?? statusToInt("new_email");
@@ -8833,9 +9697,9 @@ import_functions9.app.http("internalCasesResolve", {
           const prefix = `${principal}${yy}`;
           await q("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [`casepo:${prefix}`]);
           const seqRows = await q(
-            `SELECT COALESCE(MAX(SUBSTRING(case_po FROM length($3) + 1)::int), 0) + 1 AS next_seq
+            `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) + 1 AS next_seq
                  FROM case_
-                WHERE case_po LIKE $1 AND case_po ~ $2`,
+                WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
             [`${prefix}%`, casePoSequenceRegex(principal, yy), prefix]
           );
           casePo = formatCasePo(principal, yy, Number(seqRows[0]?.next_seq ?? 1));
@@ -8898,6 +9762,7 @@ import_functions9.app.http("internalCasesResolve", {
     }
     const newCaseId = created.caseId;
     await upsertInboundEmail(inbound, workProviderId, newCaseId, void 0, body.parserVrm);
+    await applyParserFields(newCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit);
     const auditAction = AUDIT_ACTION[decision.auditAction] ?? AUDIT_ACTION.case_created;
     await writeAudit({
       action: auditAction,
@@ -8925,7 +9790,10 @@ import_functions9.app.http("internalCasesResolve", {
         after: { newClient: true, onHold: true, senderDomain: domain }
       });
     }
-    return { status: 200, jsonBody: { outcome: "created", caseId: newCaseId, casePo: created.casePo } };
+    return {
+      status: 200,
+      jsonBody: { outcome: "created", caseId: newCaseId, casePo: created.casePo, providerAutomationMode }
+    };
   })
 });
 import_functions9.app.http("internalInboundEmail", {
@@ -8943,7 +9811,7 @@ import_functions9.app.http("internalInboundEmail", {
     return { status: 200, jsonBody: { inboundEmailId } };
   })
 });
-async function upsertInboundEmail(inbound, workProviderId, caseId, classification, parserVrm) {
+async function upsertInboundEmail(inbound, workProviderId, caseId, classification, parserVrm, triageState) {
   const subject = (inbound.subject ?? "").trim();
   const name = `Email: ${subject || inbound.internetMessageId}`;
   const categoryCode = classification ? INBOUND_CATEGORY_TO_INT[classification.category] ?? null : null;
@@ -8960,7 +9828,7 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
           source_mailbox, received_on, has_attachments, category_code, subtype_code,
           confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
           body_preview, case_id, work_provider_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,'new',$13,$14,$15,$16,$17)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17)
        ON CONFLICT (source_message_id) DO UPDATE SET
          case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
          category_code    = COALESCE(EXCLUDED.category_code, inbound_email.category_code),
@@ -8971,6 +9839,14 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
          body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
          body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
          work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
+         -- Re-ingest / link MUST NOT reset a staff-set durable handled state (work-todo-spike
+         -- email-management d): once a person actioned/dismissed a row, an automated replay
+         -- (classify / caseResolve / link-reply 'routed') leaves it handled.
+         triage_state     = CASE
+                              WHEN inbound_email.triage_state IN ('actioned','dismissed')
+                                THEN inbound_email.triage_state
+                              ELSE COALESCE($18, inbound_email.triage_state)
+                            END,
          updated_at       = now()
        RETURNING id`,
       [
@@ -8990,10 +9866,22 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
         bodyCaseref,
         bodyPreview,
         caseId,
-        workProviderId
+        workProviderId,
+        triageState ?? null
       ]
     );
-    return rows[0]?.id ?? null;
+    const inboundEmailId = rows[0]?.id ?? null;
+    if (inboundEmailId && classification && (categoryCode != null || subtypeCode != null)) {
+      await query(
+        `UPDATE inbound_email
+            SET suggested_category_code = COALESCE(suggested_category_code, $2),
+                suggested_subtype_code  = COALESCE(suggested_subtype_code, $3)
+          WHERE id = $1`,
+        [inboundEmailId, categoryCode, subtypeCode]
+      ).catch(() => {
+      });
+    }
+    return inboundEmailId;
   } catch {
     return null;
   }
@@ -9052,6 +9940,7 @@ import_functions9.app.http("internalCasesEnrichment", {
         `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
         vals
       );
+      await recomputeStatus2(caseId);
     }
     await writeAudit({
       action: AUDIT_ACTION.enrichment_called,
@@ -9093,7 +9982,14 @@ import_functions9.app.http("internalInboundLinkReply", {
       );
     }
     const linkCaseId = candidates.length === 1 ? candidates[0].id : null;
-    await upsertInboundEmail(inbound, workProviderId, linkCaseId);
+    await upsertInboundEmail(
+      inbound,
+      workProviderId,
+      linkCaseId,
+      void 0,
+      void 0,
+      linkCaseId ? "routed" : void 0
+    );
     if (linkCaseId) {
       await writeAudit({
         action: AUDIT_ACTION.inbound_routed,
@@ -9118,6 +10014,35 @@ import_functions9.app.http("internalInboundLinkReply", {
     return { status: 200, jsonBody: { outcome: "no_match", candidateCount: 0 } };
   })
 });
+async function applyEvidenceMetadata(ctx, whereClause, whereVals, row, computed) {
+  const sets = [];
+  const vals = [...whereVals];
+  const push = (col, v) => {
+    vals.push(v);
+    sets.push(`${col} = $${vals.length}`);
+  };
+  if (row.imageRoleCode != null || row.imageRole != null) push("image_role_code", computed.imageRoleCode);
+  if (typeof row.registrationVisible === "boolean") push("registration_visible", computed.registrationVisible);
+  if (row.excluded != null) {
+    push("excluded", computed.excluded);
+    push("exclusion_reason", computed.exclusionReason);
+  } else if (typeof row.exclusionReason === "string" && row.exclusionReason.trim()) {
+    push("exclusion_reason", row.exclusionReason.trim());
+  }
+  if (row.sha256 != null) push("sha256", computed.sha256);
+  if (row.sequenceIndex != null) push("sequence_index", computed.sequenceIndex);
+  if (sets.length === 0) return 0;
+  try {
+    const res = await query(
+      `UPDATE evidence SET ${sets.join(", ")}, updated_at = now() WHERE ${whereClause} RETURNING id`,
+      vals
+    );
+    return res.length;
+  } catch (e) {
+    ctx.error(e);
+    return 0;
+  }
+}
 import_functions9.app.http("internalCasesEvidence", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -9126,23 +10051,33 @@ import_functions9.app.http("internalCasesEvidence", {
     const caseId = req.params.id;
     const body = await req.json();
     let persisted = 0;
+    let updated = 0;
     for (const row of body.rows ?? []) {
       const kindCode = evidenceKindCodec.toInt(
         row.evidenceClass ?? "other"
       ) ?? null;
+      const imageRoleCode = (typeof row.imageRoleCode === "number" ? row.imageRoleCode : void 0) ?? imageRoleCodec.toInt(row.imageRole) ?? 100000003;
+      const registrationVisible = typeof row.registrationVisible === "boolean" ? row.registrationVisible : null;
+      const excluded = row.excluded === true;
+      const exclusionReason = excluded ? (row.exclusionReason ?? "").trim() || "Excluded" : (row.exclusionReason ?? "").trim() || null;
+      const sha256 = (row.sha256 ?? "").trim() || null;
+      const sequenceIndex = Number.isInteger(row.sequenceIndex) ? row.sequenceIndex : null;
+      const hasMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || row.excluded != null || row.exclusionReason != null || row.sha256 != null || row.sequenceIndex != null;
       const sourceMessageId = (row.sourceMessageId ?? "").trim() || null;
       const boxFileId = (row.boxFileId ?? "").trim() || null;
       const isBoxRow = sourceMessageId != null || boxFileId != null;
+      let inserted = false;
       if (isBoxRow) {
         const dedupCol = sourceMessageId != null ? "source_message_id" : "box_file_id";
         const dedupVal = sourceMessageId ?? boxFileId;
         const result = await query(
           `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes,
-                source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label)
-             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
+                image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
              WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $11
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $17
              )
              RETURNING id`,
           [
@@ -9156,25 +10091,64 @@ import_functions9.app.http("internalCasesEvidence", {
             (row.boxFileUrl ?? "").trim() || null,
             row.acceptedForEva ?? true,
             (row.sourceLabel ?? "").trim() || "box_upload",
+            imageRoleCode,
+            registrationVisible,
+            excluded,
+            exclusionReason,
+            sha256,
+            sequenceIndex,
             dedupVal
           ]
         );
-        if (result.length > 0) persisted++;
+        inserted = result.length > 0;
+        if (!inserted && hasMetadata) {
+          updated += await applyEvidenceMetadata(
+            ctx,
+            `case_id = $1 AND ${dedupCol} = $2`,
+            [caseId, dedupVal],
+            row,
+            { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex }
+          );
+        }
       } else {
         const result = await query(
           `INSERT INTO evidence
-               (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label)
-             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake'
+               (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
+                image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
+             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12
              WHERE NOT EXISTS (
                SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
              RETURNING id`,
-          [row.filename, caseId, kindCode, row.contentType || null, row.size ?? null, row.blobPath ?? null]
+          [
+            row.filename,
+            caseId,
+            kindCode,
+            row.contentType || null,
+            row.size ?? null,
+            row.blobPath ?? null,
+            imageRoleCode,
+            registrationVisible,
+            excluded,
+            exclusionReason,
+            sha256,
+            sequenceIndex
+          ]
         );
-        if (result.length > 0) persisted++;
+        inserted = result.length > 0;
+        if (!inserted && hasMetadata && row.blobPath) {
+          updated += await applyEvidenceMetadata(
+            ctx,
+            "case_id = $1 AND storage_path = $2::text",
+            [caseId, row.blobPath],
+            row,
+            { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex }
+          );
+        }
       }
+      if (inserted) persisted++;
     }
-    return { status: 200, jsonBody: { persisted } };
+    return { status: 200, jsonBody: { persisted, updated } };
   })
 });
 import_functions9.app.http("internalCasesStatusEvaluate", {
@@ -9375,3 +10349,195 @@ import_functions9.app.http("internalCaseBoxFolderStamp", {
     };
   })
 });
+
+// api/src/functions/ai-suggestions.ts
+var import_functions10 = require("@azure/functions");
+var IMAGE_ROLE_UNKNOWN = 100000003;
+import_functions10.app.http("caseAiSuggestions", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/ai-suggestions",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    try {
+      const caseId = req.params.id;
+      const rows = await query(
+        `SELECT * FROM ai_suggestion
+          WHERE case_id = $1
+          ORDER BY (review_state = 'pending') DESC, created_at DESC
+          LIMIT 100`,
+        [caseId]
+      );
+      const result = rows.map(rowToAiSuggestion);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions10.app.http("reviewAiSuggestion", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "ai-suggestions/{id}/review",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body = await req.json().catch(() => ({}));
+    const decision = body.decision;
+    if (!isAiReviewState(decision) || decision !== "accepted" && decision !== "rejected") {
+      return { status: 400, jsonBody: { error: "decision must be 'accepted' or 'rejected'" } };
+    }
+    const existing = await query(
+      `SELECT id, case_id, evidence_id, suggestion_type, suggested_value, review_state
+         FROM ai_suggestion WHERE id = $1`,
+      [id]
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const row = existing[0];
+    const actor = actorFromClaims(claims);
+    if (row.review_state !== "pending") {
+      const result2 = {
+        id,
+        reviewState: row.review_state,
+        promoted: false
+      };
+      return { status: 200, jsonBody: result2 };
+    }
+    const updated = await query(
+      `UPDATE ai_suggestion
+          SET review_state = $2, reviewed_by = $3, reviewed_at = now()
+        WHERE id = $1 AND review_state = 'pending'
+      RETURNING id, review_state`,
+      [id, decision, actor ?? null]
+    );
+    if (!updated[0]) {
+      const cur = await query("SELECT review_state FROM ai_suggestion WHERE id = $1", [id]);
+      return {
+        status: 200,
+        jsonBody: { id, reviewState: cur[0]?.review_state ?? "pending", promoted: false }
+      };
+    }
+    let promotion = { promoted: false };
+    if (decision === "accepted") {
+      promotion = await promoteAcceptedSuggestion(row);
+    }
+    await writeAudit({
+      action: decision === "accepted" ? AUDIT_ACTION.ai_suggestion_accepted : AUDIT_ACTION.ai_suggestion_rejected,
+      ...row.case_id ? { caseId: row.case_id } : {},
+      summary: `AI suggestion ${row.suggestion_type} ${decision}${promotion.promoted ? ` (promoted -> ${promotion.promotedField})` : ""}`,
+      before: { reviewState: "pending" },
+      after: {
+        reviewState: decision,
+        suggestionId: id,
+        suggestionType: row.suggestion_type,
+        ...promotion.promoted ? { promotedField: promotion.promotedField } : {}
+      },
+      ...actor ? { actor } : {}
+    });
+    const result = {
+      id,
+      reviewState: decision,
+      promoted: promotion.promoted,
+      ...promotion.promotedField ? { promotedField: promotion.promotedField } : {}
+    };
+    return { status: 200, jsonBody: result };
+  })
+});
+async function promoteAcceptedSuggestion(row) {
+  const evidenceId = row.evidence_id;
+  const value = coerceJsonValue(row.suggested_value);
+  try {
+    if (row.suggestion_type === "image_role" && evidenceId) {
+      const role = value?.role;
+      const code = role ? imageRoleCodec.toInt(role) : void 0;
+      if (code != null) {
+        const upd = await query(
+          `UPDATE evidence SET image_role_code = $2, updated_at = now()
+             WHERE id = $1 AND image_role_code = $3 RETURNING id`,
+          [evidenceId, code, IMAGE_ROLE_UNKNOWN]
+        );
+        if (upd[0]) return { promoted: true, promotedField: "evidence.image_role_code" };
+      }
+    } else if (row.suggestion_type === "registration" && evidenceId) {
+      const visible = value?.visible;
+      if (typeof visible === "boolean") {
+        const upd = await query(
+          `UPDATE evidence SET registration_visible = $2, updated_at = now()
+             WHERE id = $1 AND registration_visible IS NULL RETURNING id`,
+          [evidenceId, visible]
+        );
+        if (upd[0]) return { promoted: true, promotedField: "evidence.registration_visible" };
+      }
+    }
+  } catch {
+  }
+  return { promoted: false };
+}
+function coerceJsonValue(v) {
+  if (typeof v !== "string") return v ?? null;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return v;
+  }
+}
+import_functions10.app.http("generateAiSuggestions", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/ai-suggestions/generate",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    if (!gates.aiAssist() || !gates.aiAssistConfigured()) {
+      const result = { generated: 0, reason: "disabled" };
+      return { status: 200, jsonBody: result };
+    }
+    const caseId = req.params.id;
+    try {
+      const ctx = await query(
+        `SELECT vrm, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1`,
+        [caseId]
+      );
+      if (!ctx[0]) return { status: 404, jsonBody: { error: "not found" } };
+      const rawText = [ctx[0].eva_accident_circumstances, ctx[0].eva_claimant_address].filter((s) => typeof s === "string" && s.trim().length > 0).join("\n");
+      const scrubbed = scrubPii(rawText, { redactVrm: false });
+      const drafts = await callModelForSuggestions({
+        caseId,
+        vrm: typeof ctx[0].vrm === "string" ? ctx[0].vrm : "",
+        scrubbedText: scrubbed.text
+      });
+      let generated = 0;
+      const actor = actorFromClaims(claims);
+      for (const d of drafts) {
+        const ins = await query(
+          `INSERT INTO ai_suggestion
+             (case_id, evidence_id, suggestion_type, suggested_value, rationale, confidence, model_version)
+           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7) RETURNING id`,
+          [
+            caseId,
+            d.evidenceId ?? null,
+            d.suggestionType,
+            JSON.stringify(d.suggestedValue),
+            d.rationale ?? null,
+            d.confidence ?? null,
+            d.modelVersion ?? gates.aiModelDeployment()
+          ]
+        );
+        if (ins[0]) {
+          generated += 1;
+          await writeAudit({
+            action: AUDIT_ACTION.ai_suggestion_created,
+            caseId,
+            summary: `AI suggestion ${d.suggestionType} created`,
+            after: { suggestionId: ins[0].id, suggestionType: d.suggestionType },
+            ...actor ? { actor } : {}
+          });
+        }
+      }
+      const result = { generated };
+      return { status: 200, jsonBody: result };
+    } catch {
+      const result = { generated: 0, reason: "error" };
+      return { status: 200, jsonBody: result };
+    }
+  })
+});
+async function callModelForSuggestions(_input) {
+  return [];
+}

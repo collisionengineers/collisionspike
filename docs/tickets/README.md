@@ -128,3 +128,9 @@ stay in place and are linked from the ticket.
 | `docs-cleanup/` | [TKT-020](./TKT-020-docs-cleanup.md) |
 
 See [BOARD.md](./BOARD.md) for the live status of each.
+
+## Proposed additions (operator to vet)
+
+Beyond the distilled tickets, [`proposed-usability-additions.md`](../plans/work-todo-spike/proposed-usability-additions.md)
+captures **10 usability features judged genuinely important but not yet requested** (global quick-find,
+bulk triage, intake-health alerting, …) — proposals for the operator to prioritise into `backlog` tickets.
