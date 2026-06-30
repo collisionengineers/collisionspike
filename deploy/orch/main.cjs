@@ -1663,6 +1663,18 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
   const parserRef = (parseResult.reference?.value ?? "").trim();
   const parserMileage = (parseResult.extraction?.mileage?.value ?? "").trim();
   const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? "").trim();
+  const ex = parseResult.extraction ?? {};
+  const exVal = (k) => (ex[k]?.value ?? "").trim();
+  const parserEvaFields = {
+    vehicle_model: exVal("vehicle_model"),
+    claimant_name: exVal("claimant_name"),
+    claimant_telephone: exVal("claimant_telephone"),
+    claimant_email: exVal("claimant_email"),
+    date_of_loss: exVal("date_of_loss"),
+    date_of_instruction: exVal("date_of_instruction"),
+    accident_circumstances: exVal("accident_circumstances"),
+    vat_status: exVal("vat_status")
+  };
   const resolved = yield ctx.df.callActivityWithRetry("caseResolve", retry, {
     inbound: inboundForCase,
     providerId: workProviderId,
@@ -1670,17 +1682,18 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
     parserVrm,
     parserRef,
     parserMileage,
-    parserMileageUnit
+    parserMileageUnit,
+    parserEvaFields
   });
   if (resolved.outcome === "already_ingested") {
     return { skipped: true, caseId: resolved.caseId };
   }
   const automationMode = resolved.providerAutomationMode ?? "review_auto";
-  const autoAdvance = automationMode !== "manual";
-  if (!autoAdvance && !ctx.df.isReplaying) {
-    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; recording only, no auto-advance`);
+  const autoEnrich = automationMode !== "manual";
+  if (!autoEnrich && !ctx.df.isReplaying) {
+    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; record-keeping (Box folder/archive/images) runs, enrichment deferred to staff`);
   }
-  if (autoAdvance && resolved.casePo) {
+  if (resolved.casePo) {
     try {
       yield ctx.df.callSubOrchestratorWithRetry("boxFolderCreateOrchestrator", retry, {
         caseId: resolved.caseId,
@@ -1696,7 +1709,7 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
     caseId: resolved.caseId,
     inbound
   });
-  if (autoAdvance && resolved.casePo) {
+  if (resolved.casePo) {
     try {
       yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry, {
         caseId: resolved.caseId,
@@ -1708,24 +1721,22 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
       }
     }
   }
-  if (autoAdvance) {
-    try {
-      yield ctx.df.callActivityWithRetry("extractImages", retry, {
-        caseId: resolved.caseId,
-        messageId: inbound.messageId,
-        attachments: inbound.attachments,
-        caseVrm: parserVrm || inbound.candidateVrm
-      });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
-      }
+  try {
+    yield ctx.df.callActivityWithRetry("extractImages", retry, {
+      caseId: resolved.caseId,
+      messageId: inbound.messageId,
+      attachments: inbound.attachments,
+      caseVrm: parserVrm || inbound.candidateVrm
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
     }
   }
   const status = yield ctx.df.callActivityWithRetry("statusEvaluate", retry, {
     caseId: resolved.caseId
   });
-  if (autoAdvance) {
+  if (autoEnrich) {
     yield ctx.df.callActivityWithRetry("enrich", retry, {
       caseId: resolved.caseId,
       vrm: parserVrm || inbound.candidateVrm,
@@ -41991,6 +42002,7 @@ df9.app.activity("caseResolve", {
         parserRef: input11.parserRef,
         parserMileage: input11.parserMileage,
         parserMileageUnit: input11.parserMileageUnit,
+        parserEva: input11.parserEvaFields,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
