@@ -141,7 +141,7 @@ const TAB_ICON: Record<InboundCategory, typeof Briefcase> = {
 
 /** The handler-facing override taxonomy (work-todo-spike: suggested-tags-and-folders).
  *  `reclassifyInbound` maps the tag onto category+subtype server-side. */
-const RECLASSIFY_TAGS = ['Inspection', 'Audit', 'Diminution', 'Query'] as const;
+const RECLASSIFY_TAGS = ['Inspection', 'New client work', 'Audit', 'Diminution', 'Query'] as const;
 type ReclassifyTag = (typeof RECLASSIFY_TAGS)[number];
 
 /** Best-effort current tag from the chosen subtype (prefills the override radio). */
@@ -155,8 +155,9 @@ function subtypeToTag(subtype: InboundSubtype): ReclassifyTag | undefined {
     case 'query_new_enquiry':
       return 'Query';
     case 'existing_provider_instruction':
-    case 'new_client_work':
       return 'Inspection';
+    case 'new_client_work':
+      return 'New client work';
     default:
       return undefined;
   }

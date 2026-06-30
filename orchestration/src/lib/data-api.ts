@@ -242,6 +242,22 @@ export const dataApi = {
     return request('GET', `/api/internal/cases/${caseId}/archive-evidence`);
   },
 
+  /** Stamp one evidence row after its bytes were mirrored into the archive. */
+  stampArchivedEvidence(payload: {
+    caseId: string;
+    evidenceId: string;
+    blobPath: string;
+    boxFileId: string;
+    boxFileUrl?: string;
+  }): Promise<{ updated: boolean }> {
+    return request('POST', `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
+      evidenceId: payload.evidenceId,
+      blobPath: payload.blobPath,
+      boxFileId: payload.boxFileId,
+      ...(payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}),
+    });
+  },
+
   /** Recompute EVA-readiness + status machine and persist (internal route). */
   evaluateStatus(caseId: string): Promise<{ value: string }> {
     return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {});

@@ -1631,6 +1631,43 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
         ref,
         vrm
       });
+      if (link.outcome === "linked" && link.caseId) {
+        yield ctx.df.callActivityWithRetry("classifyPersist", retry, {
+          caseId: link.caseId,
+          inbound
+        });
+        try {
+          yield ctx.df.callActivityWithRetry("extractImages", retry, {
+            caseId: link.caseId,
+            messageId: inbound.messageId,
+            attachments: inbound.attachments,
+            caseVrm: vrm || inbound.candidateVrm
+          });
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(`[intake] image extraction failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
+          }
+        }
+        try {
+          yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry, {
+            caseId: link.caseId
+          });
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(`[intake] archive failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
+          }
+        }
+        const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry, {
+          caseId: link.caseId
+        });
+        return {
+          triaged: classification.category,
+          subtype: classification.subtype,
+          replyLink: link.outcome,
+          caseId: link.caseId,
+          status: status2.value
+        };
+      }
       return {
         triaged: classification.category,
         subtype: classification.subtype,
@@ -41705,6 +41742,15 @@ var dataApi = {
   archiveEvidenceRows(caseId) {
     return request("GET", `/api/internal/cases/${caseId}/archive-evidence`);
   },
+  /** Stamp one evidence row after its bytes were mirrored into the archive. */
+  stampArchivedEvidence(payload) {
+    return request("POST", `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
+      evidenceId: payload.evidenceId,
+      blobPath: payload.blobPath,
+      boxFileId: payload.boxFileId,
+      ...payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}
+    });
+  },
   /** Recompute EVA-readiness + status machine and persist (internal route). */
   evaluateStatus(caseId) {
     return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
@@ -42309,6 +42355,7 @@ df14.app.activity("boxArchiveEvidence", {
     try {
       const persisted = await dataApi.archiveEvidenceRows(caseId);
       items = persisted.rows.map((row) => ({
+        id: row.id,
         filename: row.filename,
         blobPath: row.blobPath,
         contentType: row.contentType || "application/octet-stream"
@@ -42325,16 +42372,40 @@ df14.app.activity("boxArchiveEvidence", {
       if (seen.has(it.blobPath)) continue;
       seen.add(it.blobPath);
       total++;
+      let res;
       try {
         const bytes = await downloadEvidenceBytes(it.blobPath);
-        const res = await box.uploadFile(folderId, it.filename, bytes.toString("base64"), it.contentType);
-        uploaded++;
-        if (res.id) fileIds.push(res.id);
+        res = await box.uploadFile(folderId, it.filename, bytes.toString("base64"), it.contentType);
       } catch (e) {
         ctx.warn(
           `[boxArchive] upload failed for ${it.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
         );
+        continue;
       }
+      if (!res.id) {
+        ctx.warn(`[boxArchive] upload returned no file id for ${it.filename} (case ${caseId})`);
+        continue;
+      }
+      const boxFileUrl = `https://app.box.com/file/${encodeURIComponent(res.id)}`;
+      try {
+        const stamped = await dataApi.stampArchivedEvidence({
+          caseId,
+          evidenceId: it.id,
+          blobPath: it.blobPath,
+          boxFileId: res.id,
+          boxFileUrl
+        });
+        if (!stamped.updated) {
+          ctx.warn(`[boxArchive] evidence row was not stamped for ${it.filename} (case ${caseId})`);
+        }
+      } catch (e) {
+        ctx.warn(
+          `[boxArchive] upload succeeded but evidence stamp failed for ${it.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
+        );
+        throw e;
+      }
+      uploaded++;
+      fileIds.push(res.id);
     }
     try {
       await dataApi.recordAudit({

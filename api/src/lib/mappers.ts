@@ -643,6 +643,8 @@ export function richTagToClassification(
   switch (tag) {
     case 'Inspection':
       return { category: 'receiving_work', subtype: 'existing_provider_instruction' };
+    case 'New client work':
+      return { category: 'receiving_work', subtype: 'new_client_work' };
     case 'Audit':
       return { category: 'receiving_work', subtype: 'existing_provider_audit' };
     case 'Diminution':
