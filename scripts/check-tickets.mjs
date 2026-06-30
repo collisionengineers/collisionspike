@@ -8,8 +8,12 @@
  *
  *   Exit code 0 = all tickets valid; nonzero = at least one problem.
  *
- *   Zero npm dependencies — pure Node built-ins. Scans docs/tickets/TKT-*.md
- *   (README.md / BOARD.md are NOT tickets and are skipped). For each ticket it checks:
+ *   Zero npm dependencies — pure Node built-ins. Scans docs/tickets/ for the ticket
+ *   spec file in each per-ticket subfolder — docs/tickets/TKT-NNN-slug/TKT-NNN-slug.md —
+ *   and still accepts a legacy flat docs/tickets/TKT-*.md if one is present. The
+ *   per-ticket changes.md / verification.md / evidence/* artifacts are NOT tickets and
+ *   are skipped (only the TKT-*.md spec is validated). README.md / BOARD.md are skipped.
+ *   For each ticket it checks:
  *
  *     - a YAML frontmatter block is present (--- … ---),
  *     - every required field is present: id, title, status, priority, area,
@@ -71,12 +75,27 @@ if (!existsSync(TICKET_DIR)) {
   console.error(`No docs/tickets/ directory found at ${TICKET_DIR}`);
   process.exit(2);
 }
-const files = readdirSync(TICKET_DIR)
-  .filter((f) => /^TKT-.*\.md$/.test(f))
-  .sort();
+// Discover the ticket spec file in each per-ticket subfolder
+// (docs/tickets/TKT-NNN-slug/TKT-NNN-slug.md), plus any legacy flat TKT-*.md.
+// Returns paths relative to TICKET_DIR so error messages show the subfolder.
+function discoverTickets(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (!/^TKT-/.test(entry.name)) continue; // only TKT-* subfolders
+      for (const inner of readdirSync(join(dir, entry.name))) {
+        if (/^TKT-.*\.md$/.test(inner)) out.push(join(entry.name, inner));
+      }
+    } else if (/^TKT-.*\.md$/.test(entry.name)) {
+      out.push(entry.name); // legacy flat layout (still accepted)
+    }
+  }
+  return out.sort();
+}
+const files = discoverTickets(TICKET_DIR);
 
 if (files.length === 0) {
-  console.error('No TKT-*.md ticket files found in docs/tickets/.');
+  console.error('No TKT-*.md ticket spec files found under docs/tickets/ (expected docs/tickets/TKT-NNN-slug/TKT-NNN-slug.md).');
   process.exit(2);
 }
 

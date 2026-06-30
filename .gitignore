@@ -89,3 +89,4 @@ boxconfig.json
 
 # WSL/Windows download marker streams (e.g. <file>:Zone.Identifier) — never useful in-repo.
 *:Zone.Identifier
+*:OECustomProperty
