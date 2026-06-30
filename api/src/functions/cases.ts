@@ -814,6 +814,112 @@ app.http('nextCasePo', {
   }),
 });
 
+/* ============================================================
+   Box affordance routes (work-todo-spike: box-sync / evidence viewing).
+   The SPA's box-rest-transport.ts calls these THREE routes; before this they did
+   NOT exist on the API, so every "Open in Archive" / image-upload / direct-submit
+   click 404'd (the operator's reported "Open in archive … 404"). Each returns the
+   seam BoxResult envelope { status, data?, message } with HTTP 200 ALWAYS (the
+   client maps the status rather than throwing on non-2xx):
+     status: 'ok' | 'gated_off' | 'folder_not_ready' | 'error'.
+   ============================================================ */
+
+/** Read a case's stamped Box folder id + url (set at intake step 2.5 / manual lever). */
+async function readCaseBoxFolder(
+  caseId: string,
+): Promise<{ boxFolderId: string | null; boxFolderUrl: string | null }> {
+  const rows = await query<{ box_folder_id: string | null; box_folder_url: string | null }>(
+    'SELECT box_folder_id, box_folder_url FROM case_ WHERE id = $1',
+    [caseId],
+  );
+  return {
+    boxFolderId: rows[0]?.box_folder_id ?? null,
+    boxFolderUrl: rows[0]?.box_folder_url ?? null,
+  };
+}
+
+/* GET /api/cases/{id}/box/shared-link → BoxResult<SharedFolderLink>
+   The "Open in Box" deep link for evidence viewing. DB-only + privacy-safe: returns
+   the folder's stamped URL, else constructs the AUTHENTICATED app deep link from the
+   folder id. NO public shared link is minted — staff open it under their own Box auth
+   (BOX_EMBED_ENABLED stays reserved/off: link, never iframe). */
+app.http('caseBoxSharedLink', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/box/shared-link',
+  handler: withRole('CollisionSpike.User', async (req) => {
+    if (!gates.boxApi()) {
+      return { status: 200, jsonBody: { status: 'gated_off', message: 'Box is not enabled.' } };
+    }
+    const caseId = (req.params.id ?? '').trim();
+    if (!caseId) return { status: 400, jsonBody: { status: 'error', message: 'caseId is required' } };
+    const { boxFolderId, boxFolderUrl } = await readCaseBoxFolder(caseId);
+    if (!boxFolderId) {
+      return {
+        status: 200,
+        jsonBody: { status: 'folder_not_ready', message: 'This case has no Box folder yet.' },
+      };
+    }
+    const folderUrl =
+      (boxFolderUrl && boxFolderUrl.trim()) ||
+      `https://app.box.com/folder/${encodeURIComponent(boxFolderId)}`;
+    return { status: 200, jsonBody: { status: 'ok', data: { folderUrl } } };
+  }),
+});
+
+/* POST /api/cases/{id}/box/copy-file-request → BoxResult<FileRequestLink>
+   Copies the per-case File Request (account-free upload page) from the template.
+   Requires the operator-provisioned BOX_FILE_REQUEST_TEMPLATE_ID (an outstanding
+   Box-side item). Until that is set, an honest gated_off — NOT a 404 — so the chaser
+   action degrades cleanly. (Wiring the box-fn copy op is a follow-up once the template
+   id exists; it cannot be exercised before then, so it is not shipped half-built.) */
+app.http('caseBoxCopyFileRequest', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/box/copy-file-request',
+  handler: withRole('CollisionSpike.User', async (req) => {
+    if (!gates.boxApi() || !gates.boxFileRequest()) {
+      return { status: 200, jsonBody: { status: 'gated_off', message: 'Image-upload links are not enabled.' } };
+    }
+    const caseId = (req.params.id ?? '').trim();
+    if (!caseId) return { status: 400, jsonBody: { status: 'error', message: 'caseId is required' } };
+    if (!gates.boxFileRequestTemplateId()) {
+      return {
+        status: 200,
+        jsonBody: { status: 'gated_off', message: 'The image-upload template isn’t set up yet.' },
+      };
+    }
+    const { boxFolderId } = await readCaseBoxFolder(caseId);
+    if (!boxFolderId) {
+      return { status: 200, jsonBody: { status: 'folder_not_ready', message: 'This case has no Box folder yet.' } };
+    }
+    // Template id present (operator provisioned it) but the box-fn copy bridge is not
+    // yet wired — honest gated_off rather than a fabricated link. Follow-up ticket.
+    return {
+      status: 200,
+      jsonBody: { status: 'gated_off', message: 'Image-upload links aren’t wired up yet.' },
+    };
+  }),
+});
+
+/* POST /api/cases/{id}/box/finalize → BoxResult<FinalizeAck>
+   Direct EVA submit-signal. EVA submission is the JSON drag-drop path today
+   (EVA_API_ENABLED is off), so direct submit is not wired — an honest gated_off,
+   never a fabricated terminal status. Staff use "Export for EVA". */
+app.http('caseBoxFinalize', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/box/finalize',
+  handler: withRole('CollisionSpike.User', async (req) => {
+    const caseId = (req.params.id ?? '').trim();
+    if (!caseId) return { status: 400, jsonBody: { status: 'error', message: 'caseId is required' } };
+    return {
+      status: 200,
+      jsonBody: { status: 'gated_off', message: 'Direct submit isn’t enabled — use “Export for EVA”.' },
+    };
+  }),
+});
+
 /* ----------  shared: the windowing clock query param  ---------- */
 function nowParam(req: HttpRequest): Date {
   const raw = req.query.get('now');
