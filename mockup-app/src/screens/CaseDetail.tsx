@@ -5,11 +5,22 @@ import {
   Button,
   Caption1,
   Checkbox,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
   Divider,
   Dropdown,
   Field,
   Input,
   Link,
+  Menu,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
   MessageBar,
   MessageBarBody,
   MessageBarTitle,
@@ -47,9 +58,11 @@ import {
   Mail,
   Lightbulb,
   MapPin,
+  MoreHorizontal,
   Pencil,
   Search,
   Send,
+  Trash2,
   Upload,
   Pause,
   Play,
@@ -102,6 +115,14 @@ import {
 } from '../data';
 import { resolveInspectionDecision, buildEvaJson } from '@cs/domain';
 import { GLOBAL_TOASTER_ID } from '../components';
+import { LinkedEmailsPanel } from '../components/LinkedEmailsPanel';
+// Gated AI "Assistant" surface (TKT-015). Self-contained: renders NOTHING unless
+// AI_ASSIST_ENABLED (checks the gate via its own hook), so this is an honest-off mount.
+import { AiAssistPanel } from '../components/AiAssistPanel';
+import { useIsSuperuser } from '../components/useIsSuperuser';
+// DataAccessExt: the SPA-side seam with the work-todo-spike additive methods
+// (removeCase). The base DataAccess in '@cs/domain' stays the frozen server contract.
+import type { DataAccessExt } from '../data/rest-client';
 
 /* ============================================================
    CaseDetail — the core review screen.
@@ -397,9 +418,19 @@ const useStyles = makeStyles({
   factRow: { display: 'grid', gridTemplateColumns: '120px 1fr', gap: tokens.spacingHorizontalS, fontSize: tokens.fontSizeBase200 },
   factKey: { color: tokens.colorNeutralForeground3 },
   factVal: { color: tokens.colorNeutralForeground2 },
+
+  /* Remove-case confirmation dialog */
+  removeBody: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM },
+  removeFacts: {
+    display: 'grid',
+    gridTemplateColumns: '120px 1fr',
+    columnGap: tokens.spacingHorizontalM,
+    rowGap: '2px',
+    fontSize: tokens.fontSizeBase200,
+  },
 });
 
-type TabName = 'fields' | 'evidence' | 'address' | 'notes' | 'chasers';
+type TabName = 'fields' | 'evidence' | 'address' | 'notes' | 'chasers' | 'emails';
 
 /* The EVA field clusters, label/required lookup, and the editable field row are
    shared with ManualIntake (src/components/EvaFields.tsx) so they cannot drift. */
@@ -631,13 +662,14 @@ export function CaseDetail() {
   }
 
   return (
-    <CaseDetailView
-      key={caseQuery.data.id}
-      caseData={caseQuery.data}
-      images={imagesQuery.data ?? []}
-      imagesLoading={imagesQuery.loading && imagesQuery.data === undefined}
-    />
-  );
+      <CaseDetailView
+        key={caseQuery.data.id}
+        caseData={caseQuery.data}
+        images={imagesQuery.data ?? []}
+        imagesLoading={imagesQuery.loading && imagesQuery.data === undefined}
+        onRefreshImages={imagesQuery.refetch}
+      />
+    );
 }
 
 interface CaseDetailViewProps {
@@ -645,18 +677,25 @@ interface CaseDetailViewProps {
   images: Evidence[];
   /** True while the image set is still being fetched (evidence tab shows a skeleton). */
   imagesLoading: boolean;
+  onRefreshImages: () => void;
 }
 
 /* The editing workspace. Receives the loaded Case + images; all edits live in
    local React state (mock only — never persisted). Visually identical to the
    pre-seam screen once data has loaded. */
-function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps) {
+function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: CaseDetailViewProps) {
   const styles = useStyles();
   const navigate = useNavigate();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
   // Local working copy so mock edits feel live (never persisted).
   const [c, setC] = useState<Case>(caseData);
+
+  const refreshAfterAiPromotion = async () => {
+    onRefreshImages();
+    const updated = await data.caseById(c.id);
+    if (updated) setC(updated);
+  };
 
   // Editable VRM (issue #12) — the human-correction safety net for a mis-extracted
   // registration. View mode shows the plate; edit mode swaps in a validated field.
@@ -770,6 +809,113 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
       </Toast>,
       { intent: 'success' },
     );
+
+  /* --- durable EVA field edits (work-todo-spike: ui-changes/casepage) ---
+     onTextChange keeps the working copy responsive while typing; on COMMIT
+     (blur / dropdown select / calendar pick) the field is PERSISTED via
+     updateCase. Per-field saving/error state drives the row's indicator. The
+     server recomputes status + the committed field; we adopt ONLY those so a
+     save never clobbers other locally-edited-but-uncommitted fields. */
+  const { update: persistField } = useCaseUpdate();
+  const cRef = useRef(c);
+  cRef.current = c;
+  const lastSavedRef = useRef<Partial<Record<EvaFieldKey, string>>>({});
+  const [savingKeys, setSavingKeys] = useState<ReadonlySet<EvaFieldKey>>(new Set());
+  const [errorKeys, setErrorKeys] = useState<ReadonlySet<EvaFieldKey>>(new Set());
+
+  const commitField = async (key: EvaFieldKey, value: string) => {
+    const baseline = lastSavedRef.current[key] ?? caseData.evaFields[key].value;
+    if (value === baseline) return; // nothing actually changed
+    setSavingKeys((s) => new Set(s).add(key));
+    setErrorKeys((s) => {
+      const n = new Set(s);
+      n.delete(key);
+      return n;
+    });
+    try {
+      const updated = await persistField(caseData.id, { evaFields: { [key]: value } });
+      lastSavedRef.current[key] = value;
+      setC((prev) => ({
+        ...prev,
+        status: updated.status,
+        evaFields: { ...prev.evaFields, [key]: updated.evaFields[key] ?? prev.evaFields[key] },
+      }));
+    } catch {
+      setErrorKeys((s) => new Set(s).add(key));
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t save changes — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setSavingKeys((s) => {
+        const n = new Set(s);
+        n.delete(key);
+        return n;
+      });
+    }
+  };
+
+  /* --- Superuser soft-remove (TKT-010, work-todo-spike: ui-changes/delete-case) ---
+     Hidden for non-superusers; the server soft-removes + anonymises and NEVER
+     auto-deletes the Box folder. The checkbox is an ACK only. */
+  const isSuperuser = useIsSuperuser();
+  const isRemoved = c.status === 'removed';
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeConfirmText, setRemoveConfirmText] = useState('');
+  const [removeAckBox, setRemoveAckBox] = useState(false);
+  const [removeReason, setRemoveReason] = useState('');
+  const [removing, setRemoving] = useState(false);
+  // What the operator must type to confirm — the Case/PO, or the VRM/id if there's none yet.
+  const removeMatch = (c.casePo || c.vrm || c.id).trim();
+  const removeConfirmed =
+    removeMatch.length > 0 && removeConfirmText.trim().toUpperCase() === removeMatch.toUpperCase();
+
+  const openRemove = () => {
+    setRemoveConfirmText('');
+    setRemoveAckBox(false);
+    setRemoveReason('');
+    setRemoveOpen(true);
+  };
+
+  const doRemove = async () => {
+    if (!removeConfirmed || removing) return;
+    setRemoving(true);
+    try {
+      const result = await (data as DataAccessExt).removeCase(c.id, {
+        acknowledgeArchiveFolderHandled: removeAckBox,
+        ...(removeReason.trim() ? { reason: removeReason.trim() } : {}),
+      });
+      setRemoveOpen(false);
+      // Surface the archive deep link so the operator can handle Box separately
+      // (it is NEVER auto-deleted). The toast persists across the navigate-away.
+      dispatchToast(
+        <Toast>
+          <ToastTitle>{result.alreadyRemoved ? 'Case already removed' : 'Case removed'}</ToastTitle>
+          <ToastBody>
+            {result.boxFolderUrl ? (
+              <Link href={result.boxFolderUrl} target="_blank" rel="noopener noreferrer">
+                Open archive folder
+              </Link>
+            ) : (
+              'Remember to handle the archive folder separately.'
+            )}
+          </ToastBody>
+        </Toast>,
+        { intent: 'success' },
+      );
+      navigate('/');
+    } catch {
+      setRemoving(false);
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t remove the case — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    }
+  };
 
   /* --- editable VRM (issue #12) --- */
   const vrmCheck = checkVrm(vrmDraft);
@@ -890,6 +1036,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
     if (decision.imageBased || decision.needsReviewerDecision) return;
     const resolvedMode = decision.decisionMode ?? 'manual';
     onTextChange('inspectionAddress', draft);
+    void commitField('inspectionAddress', draft); // persist the picked address durably
     setDecisionMode(resolvedMode);
     setOverrideAddr(false); // a real address supersedes any image-based override
     // Capture the confirmed decision's provenance into local state (rendered as the
@@ -947,6 +1094,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
       return;
     }
     onTextChange('inspectionAddress', 'Image Based Assessment');
+    void commitField('inspectionAddress', 'Image Based Assessment'); // persist durably
     setDecisionMode('image_based');
     setConfirmedProvenance(undefined);
     toast('Image Based Assessment recorded — review before submit');
@@ -1056,7 +1204,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast('EVA JSON downloaded');
+      toast('Case exported for EVA');
     } catch {
       dispatchToast(
         <Toast>
@@ -1068,6 +1216,12 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
   };
 
   const acceptedImages = imgState.filter((e) => e.acceptedForEva && !e.excluded);
+  // TKT-002 (display-only): images are present but NONE (non-excluded) shows a
+  // readable registration — the case can't be EVA-ready until a vehicle overview
+  // with the full plate arrives. Derived from the per-image registrationVisible
+  // flag the OCR (plate_ocr) sets at intake.
+  const noViewableRegistration =
+    imgState.some((e) => !e.excluded) && !imgState.some((e) => !e.excluded && e.registrationVisible);
   // Non-image artifacts (source email, instruction PDFs, …) for the Documents list.
   const documents = c.evidence.filter((e) => e.kind !== 'image' && e.kind !== 'video');
   const notesNewestFirst = c.notes; // already inserted newest-first
@@ -1203,16 +1357,16 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 {c.onHold ? 'Release' : 'Hold'}
               </Button>
               <Tooltip
-                content={blocked ? `Can't download EVA JSON yet — ${blockerCount} item(s) outstanding` : 'Download the 12-field EVA JSON file'}
+                content={blocked ? `Can't export yet — ${blockerCount} item(s) outstanding` : 'Save the case as an EVA file to drag into EVA'}
                 relationship="label"
               >
                 <Button
                   appearance="secondary"
                   icon={<Download size={16} />}
-                  disabled={blocked}
+                  disabled={blocked || isRemoved}
                   onClick={onDownloadEvaJson}
                 >
-                  Download JSON
+                  Export for EVA
                 </Button>
               </Tooltip>
               <Tooltip
@@ -1222,12 +1376,30 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 <Button
                   appearance="primary"
                   icon={<Send size={16} />}
-                  disabled={blocked}
+                  disabled={blocked || isRemoved}
                   onClick={() => navigate(`/case/${c.id}/submit`)}
                 >
                   Submit to EVA
                 </Button>
               </Tooltip>
+              {/* Destructive Superuser-only action, tucked in an overflow menu so
+                  it never crowds (or sits beside) the primary actions. */}
+              {isSuperuser && !isRemoved && (
+                <Menu>
+                  <MenuTrigger disableButtonEnhancement>
+                    <Tooltip content="More actions" relationship="label">
+                      <Button appearance="subtle" icon={<MoreHorizontal size={16} />} aria-label="More actions" />
+                    </Tooltip>
+                  </MenuTrigger>
+                  <MenuPopover>
+                    <MenuList>
+                      <MenuItem icon={<Trash2 size={16} />} onClick={openRemove}>
+                        Remove case…
+                      </MenuItem>
+                    </MenuList>
+                  </MenuPopover>
+                </Menu>
+              )}
             </div>
           }
         />
@@ -1264,7 +1436,16 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
         </div>
       </div>
 
-      {blocked && (
+      {isRemoved && (
+        <MessageBar intent="warning">
+          <MessageBarBody>
+            <MessageBarTitle>This case has been removed</MessageBarTitle>
+            Its personal details were anonymised. The record is kept for audit only.
+          </MessageBarBody>
+        </MessageBar>
+      )}
+
+      {blocked && !isRemoved && (
         <MessageBar intent="error">
           <MessageBarBody>
             <MessageBarTitle>Can't submit to EVA yet — {blockerCount} item{blockerCount === 1 ? '' : 's'}</MessageBarTitle>
@@ -1286,6 +1467,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
               <Tab value="address">Address</Tab>
               <Tab value="notes">Notes</Tab>
               <Tab value="chasers">Chasers</Tab>
+              <Tab value="emails">Emails</Tab>
             </TabList>
 
             <div className={styles.tabBody}>
@@ -1303,6 +1485,10 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                             required={LABEL_FOR[key].required}
                             field={c.evaFields[key]}
                             onChange={onTextChange}
+                            onCommit={(k, v) => void commitField(k, v)}
+                            saving={savingKeys.has(key)}
+                            saveError={errorKeys.has(key)}
+                            onRetry={() => void commitField(key, cRef.current.evaFields[key].value)}
                             rowId={`field-${key}`}
                             registerRef={registerRef}
                           />
@@ -1392,6 +1578,18 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                     </MessageBar>
                   ) : (
                     <>
+                      {/* TKT-002 (display-only): images present but none show a readable
+                          registration — one concise inline warning, distinct from the
+                          "No images yet" state above. */}
+                      {noViewableRegistration && (
+                        <MessageBar intent="warning">
+                          <MessageBarBody>
+                            <span className={styles.inlineIconText}>
+                              <AlertTriangle size={16} /> No photo shows a readable registration yet — a vehicle overview with the full number plate is still needed.
+                            </span>
+                          </MessageBarBody>
+                        </MessageBar>
+                      )}
                       <div className={styles.thumbGrid}>
                         {imgState.map((ev) => (
                           <EvidenceCard key={ev.id} ev={ev} onRole={onRole} onExclude={onExclude} />
@@ -1432,6 +1630,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                       Decision: {POLICY_LABEL[decisionMode]}
                     </Badge>
                     <ProvenanceBadge
+                      variant="full"
                       provenance={c.evaFields.inspectionAddress.provenance}
                       reviewState={c.evaFields.inspectionAddress.reviewState}
                     />
@@ -1597,6 +1796,10 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                   }}
                 />
               )}
+
+              {/* Emails linked to this case (TKT-009). Mounted only when the tab
+                  is open so the inbound feed isn't fetched on every case view. */}
+              {tab === 'emails' && <LinkedEmailsPanel caseId={c.id} />}
             </div>
           </Panel>
         </div>
@@ -1670,8 +1873,94 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
                 </div>
               ))}
           </Panel>
+
+          {/* Gated AI "Assistant" (TKT-015) — renders NOTHING unless AI_ASSIST_ENABLED.
+              Observation-first: suggestions with Accept/Reject; nothing mutates the case
+              on its own (the API promotes an accepted value FILL-IF-EMPTY). */}
+          <AiAssistPanel caseId={c.id} onPromoted={() => void refreshAfterAiPromotion()} />
         </div>
       </div>
+
+      {/* Remove-case confirmation (TKT-010) — Superuser only. Typed confirm + a
+          Box-archive-handled ACK; the server soft-removes + anonymises and never
+          auto-deletes the Box folder. */}
+      <Dialog
+        open={removeOpen}
+        modalType="modal"
+        onOpenChange={(_, d) => {
+          if (!d.open && !removing) setRemoveOpen(false);
+        }}
+      >
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Remove case</DialogTitle>
+            <DialogContent className={styles.removeBody}>
+              <MessageBar intent="error" icon={<AlertTriangle size={20} />}>
+                <MessageBarBody>
+                  <MessageBarTitle>This can’t be undone</MessageBarTitle>
+                  Removing this case takes it out of the workspace and anonymises its personal
+                  details. The record is kept for audit only.
+                </MessageBarBody>
+              </MessageBar>
+
+              <div className={styles.removeFacts}>
+                <span className={styles.factKey}>Case</span>
+                <span className={styles.factVal}>{c.casePo || c.id}</span>
+                <span className={styles.factKey}>Registration</span>
+                <span className={styles.factVal}>{c.vrm}</span>
+                <span className={styles.factKey}>Provider</span>
+                <span className={styles.factVal}>{c.provider}</span>
+                {c.evaFields.claimantName.value && (
+                  <>
+                    <span className={styles.factKey}>Claimant</span>
+                    <span className={styles.factVal}>{c.evaFields.claimantName.value}</span>
+                  </>
+                )}
+              </div>
+
+              <Field label={`Type ${removeMatch} to confirm`} required>
+                <Input
+                  value={removeConfirmText}
+                  onChange={(_, d) => setRemoveConfirmText(d.value)}
+                  placeholder={removeMatch}
+                  aria-label="Type the case reference to confirm removal"
+                />
+              </Field>
+
+              <Checkbox
+                checked={removeAckBox}
+                onChange={(_, d) => setRemoveAckBox(d.checked === true)}
+                label="I’ve handled the archive folder separately"
+              />
+              <Caption1 className={styles.hint}>
+                The archive folder is never removed automatically. Handle it separately.
+              </Caption1>
+
+              <Field label="Reason (optional)">
+                <Textarea
+                  value={removeReason}
+                  onChange={(_, d) => setRemoveReason(d.value)}
+                  resize="vertical"
+                  rows={2}
+                />
+              </Field>
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={() => setRemoveOpen(false)} disabled={removing}>
+                Cancel
+              </Button>
+              <Button
+                appearance="primary"
+                icon={removing ? <Spinner size="tiny" /> : <Trash2 size={16} />}
+                disabled={!removeConfirmed || removing}
+                onClick={() => void doRemove()}
+              >
+                {removing ? 'Removing…' : 'Remove case'}
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
 
       {/* Nested /case/:id/submit dialog overlay. */}
       <Outlet />

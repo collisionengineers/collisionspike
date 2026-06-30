@@ -19,8 +19,10 @@ import type {
   Case,
   CaseStatus,
   EvaFields,
+  EvaFieldKey,
   Evidence,
   Provider,
+  ProviderAutomationMode,
   ActivityEvent,
 } from '../model/types';
 import type {
@@ -87,6 +89,80 @@ export interface CreateCaseResult {
 export interface CaseUpdateInput {
   /** Corrected vehicle registration mark. Stored normalised (uppercase, no spaces). */
   vrm?: string;
+  /**
+   * Durable case-page edits (work-todo-spike: ui-changes/casepage): a partial map of
+   * EVA field key -> new value (e.g. { dateOfLoss: '12/06/2026', vehicleModel: 'Audi A3' }).
+   * Each changed field is persisted, audited, and gets a field_level_provenance row
+   * (source 'staff' / manual). Date fields must be DD/MM/YYYY or ''; vatStatus ∈ {'',Yes,No};
+   * mileageUnit ∈ {'',Miles,Km} — invalid values are rejected (400), not coerced.
+   */
+  evaFields?: Partial<Record<EvaFieldKey, string>>;
+}
+
+/* ----------  Superuser case soft-remove (work-todo-spike: ui-changes/delete-case)  ----------
+   ADR-0017 + data-protection.md: a SOFT remove only — status -> terminal 'removed',
+   PII anonymised, the case row + append-only audit trail KEPT. Works under the
+   least-privilege staff grant (an UPDATE, never a hard DELETE). The Box folder is
+   NEVER auto-deleted: `acknowledgeBoxFolderHandled` records the operator's intent in
+   the audit `after` only (the human follows the archive runbook separately). */
+export interface RemoveCaseInput {
+  /** The archive folder has been handled separately (audit-only flag). */
+  acknowledgeArchiveFolderHandled?: boolean;
+  /** Legacy request field accepted for older clients. */
+  acknowledgeBoxFolderHandled?: boolean;
+  /** Free-text reason captured in the audit trail. */
+  reason?: string;
+}
+
+export interface RemoveCaseResult {
+  id: string;
+  /** Always 'removed' on success. */
+  status: CaseStatus;
+  /** True when the case was ALREADY removed (idempotent re-remove). */
+  alreadyRemoved: boolean;
+  /** The case's Box archive deep link, surfaced so the operator can open + handle it. */
+  boxFolderUrl?: string;
+}
+
+/* ----------  Superuser provider update (work-todo-spike: automation-mode + acme)  ----------
+   PATCH /api/providers/{id}. principal_code is IMMUTABLE (not accepted here). */
+export interface ProviderUpdateInput {
+  /** New automation trust level (manual | review_auto | full_auto). */
+  providerAutomationMode?: ProviderAutomationMode;
+  /** New sender-domain list (replaces the stored list). */
+  knownEmailDomains?: string[];
+}
+
+/* ----------  Case/PO allocator preview (work-todo-spike: box/case-po-gen)  ----------
+   GET /api/cases/next-po?principal=XXX[&year=YY]. DB history is authoritative; a
+   brand-new provider with NO DB rows falls back to the Box folder scan. PREVIEW only —
+   the durable claim happens under the advisory-locked mint at case create. */
+export interface NextCasePoResult {
+  principal: string;
+  yy: string;
+  seq: string;
+  /** The next sequence as an integer. */
+  nextSeq: number;
+  /** EVA (lowercase) form, e.g. "ccpy26051". */
+  evaLower: string;
+  /** Box folder / Case-PO (UPPERCASE) form, e.g. "CCPY26051". */
+  boxUpper: string;
+  /** Where the baseline came from: 'db' (DB history or empty), or 'box' (Box fallback). */
+  source: 'db' | 'box';
+}
+
+/* ----------  Amalgamated dashboard summary (work-todo-spike: amalgamated-dashboard)  ----------
+   GET /api/dashboard — ONE call returning the case overview AND the inbound-email
+   overview, so the compact cockpit needs a single request, not two. */
+export interface DashboardSummary {
+  liveCounts: LiveCounts;
+  throughput: Throughput;
+  queueCounts: Record<QueueName, number>;
+  pipelineStages: PipelineStage[];
+  reasonFacets: ReasonFacet[];
+  agingExceptions: AgingExceptions;
+  /** Active-first inbound triage counts (handled rows excluded). */
+  inbound: InboundCounts;
 }
 
 /* ----------  Inspection-decision SAVE input (ADR-0013 confirm-path persist)  ----------
@@ -210,16 +286,107 @@ export interface MergeCasesResult {
 }
 
 /* ============================================================
+   AI suggestion layer (TKT-015) — observation-first, GATED.
+
+   AI output lands here as a SUGGESTION (with model version + confidence), never
+   as a silent mutation; promotion into evidence/case fields happens only on a
+   human accept (fill-if-empty). Producers: image-analysis (TKT-016), reg-OCR
+   (TKT-017), triage-category; the deferred total-loss VLM (TKT-018) reuses it.
+   The whole surface is dark unless AI_ASSIST_ENABLED is on.
+   ============================================================ */
+
+/** Known suggestion kinds (open vocabulary — producers add more; the DB does not
+ *  constrain the value, so the string fallback keeps new kinds type-compatible). */
+export type AiSuggestionType =
+  | 'image_role'
+  | 'registration'
+  | 'inspection_address'
+  | 'triage_category'
+  | (string & {});
+
+/** Review lifecycle of a suggestion. `superseded` = a newer suggestion replaced it. */
+export type AiSuggestionReviewState = 'pending' | 'accepted' | 'rejected' | 'superseded';
+
+/** One AI suggestion/observation row (camelCase domain shape over `ai_suggestion`). */
+export interface AiSuggestion {
+  id: string;
+  /** Subject anchors (any/all may be absent). */
+  caseId?: string;
+  evidenceId?: string;
+  inboundEmailId?: string;
+  suggestionType: AiSuggestionType;
+  /** The proposed value — shape varies by suggestionType (e.g. { role } | { vrm }). */
+  suggestedValue: unknown;
+  /** Plain-language "why", shown to the reviewer. */
+  rationale?: string;
+  /** 0..1 model confidence (ordering/triage only — never auto-applies). */
+  confidence?: number;
+  /** e.g. 'gpt-4o-2024-08-06' / 'fast-alpr@1.2'; absent for a non-model suggestion. */
+  modelVersion?: string;
+  reviewState: AiSuggestionReviewState;
+  createdAt: string;
+  /** Entra oid/upn + time of the human review decision (present once reviewed). */
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
+/** The human decision on a pending suggestion. */
+export type AiSuggestionReviewDecision = 'accepted' | 'rejected';
+
+/** Body for `POST /api/ai-suggestions/{id}/review`. */
+export interface AiSuggestionReviewInput {
+  decision: AiSuggestionReviewDecision;
+}
+
+/** Result of reviewing a suggestion. On accept the API MAY promote the value into
+ *  the target field FILL-IF-EMPTY; `promoted`/`promotedField` report whether it did. */
+export interface AiSuggestionReviewResult {
+  id: string;
+  reviewState: AiSuggestionReviewState;
+  /** True when an accepted suggestion was promoted into its target field. */
+  promoted: boolean;
+  /** Which field was promoted into (e.g. 'evidence.image_role_code'), when promoted. */
+  promotedField?: string;
+}
+
+/** Result of `POST /api/cases/{id}/ai-suggestions/generate`. When the gate is OFF
+ *  or no model is configured this is the honest no-op `{ generated: 0, reason:
+ *  'disabled' }`; when ON + configured it reports how many suggestions were minted. */
+export interface GenerateAiSuggestionsResult {
+  generated: number;
+  /** Why nothing was generated — 'disabled' (gate/model off), 'no_input', or 'error'. */
+  reason?: 'disabled' | 'no_input' | 'error';
+}
+
+/** The AI-assist feature gate, read by the SPA via GET /api/gates/ai-assist. */
+export interface AiAssistGate {
+  /** AI_ASSIST_ENABLED — the master switch the UI panel keys on. */
+  enabled: boolean;
+  /** A model endpoint + deployment are both configured (generate can do real work). */
+  modelConfigured: boolean;
+}
+
+/** All-off default — the honest "AI assist not switched on / unreadable" baseline. */
+export const AI_ASSIST_GATE_ALL_OFF: AiAssistGate = {
+  enabled: false,
+  modelConfigured: false,
+};
+
+/* ============================================================
    Phase 8 — Inbox / Triage domain types (cr1bd_inboundemail).
    ============================================================ */
 
 /** cr1bd_inboundcategory option names. */
 export type InboundCategory = 'receiving_work' | 'query' | 'other';
 
-/** cr1bd_inboundsubtype option names. */
+/** cr1bd_inboundsubtype option names. `existing_provider_diminution` (append-only,
+ *  work-todo-spike: suggested-tags-and-folders) is the staff-applicable Diminution tag
+ *  in the richer Inspection/Audit/Diminution/Query taxonomy; the deterministic classifier
+ *  may not emit it yet (staff set it via the reclassify route). */
 export type InboundSubtype =
   | 'existing_provider_instruction'
   | 'existing_provider_audit'
+  | 'existing_provider_diminution'
   | 'new_client_work'
   | 'query_existing_work'
   | 'query_new_enquiry'
@@ -253,12 +420,34 @@ export interface InboundEmail {
   bodyPreview: string;
   caseId?: string;
   workProviderId?: string;
+  /** The classifier's ORIGINAL suggestion, kept distinct from category/subtype (the
+   *  chosen value) so a staff override is visible (work-todo-spike: suggested-tags). */
+  suggestedCategory?: InboundCategory;
+  suggestedSubtype?: InboundSubtype;
 }
+
+/** Which slice of the triage queue to load. `active` (default) hides handled rows
+ *  (actioned/dismissed); `handled` shows only those; `all` shows everything. */
+export type InboundView = 'active' | 'handled' | 'all';
 
 /** Facet for `inboundEmails(facet?)`. */
 export interface InboundFacet {
   category?: InboundCategory;
   subtype?: InboundSubtype;
+  /** Active-first list scope (default 'active'). work-todo-spike: email-management. */
+  view?: InboundView;
+}
+
+/** Body for `PATCH /api/inbound/{id}/classification` — the staff reclassify/override
+ *  (work-todo-spike: suggested-tags-and-folders). Supply EITHER an explicit
+ *  category/subtype OR a `tag` from the richer Inspection/Audit/Diminution/Query
+ *  taxonomy (mapped server-side onto category+subtype). `reason` is optional override copy. */
+export interface ReclassifyInboundInput {
+  category?: InboundCategory;
+  subtype?: InboundSubtype;
+  /** Richer-taxonomy shortcut, mapped to category+subtype server-side. */
+  tag?: 'Inspection' | 'Audit' | 'Diminution' | 'Query';
+  reason?: string;
 }
 
 /** Per-category triage counts. */

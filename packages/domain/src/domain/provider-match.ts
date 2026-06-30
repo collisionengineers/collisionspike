@@ -39,6 +39,13 @@ export interface ProviderMatchRecord {
   knownEmailAddresses?: readonly string[];
   /** Inactive providers are never matched. */
   active: boolean;
+  /**
+   * The provider's automation trust level (manual | review_auto | full_auto). Optional +
+   * additive: it lets the intake orchestrator branch on the matched provider's mode
+   * (work-todo-spike: automation-mode) without a second corpus read. Absent on records
+   * that predate the field; callers treat absent as the live default 'review_auto'.
+   */
+  providerAutomationMode?: 'manual' | 'review_auto' | 'full_auto';
 }
 
 export type ProviderMatchOutcome = 'matched' | 'unmatched' | 'ambiguous';

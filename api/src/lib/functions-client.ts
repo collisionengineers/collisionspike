@@ -68,3 +68,55 @@ export async function callLocationSuggest(body: unknown): Promise<unknown> {
     body,
   );
 }
+
+// --- Box-webhook Function: folder listing (Case/PO allocator Box fallback) ---
+// The retained box-webhook Function exposes GET box/folders/{folderId}/items (a thin proxy
+// of the Box ListFolder op). It is normally called by orchestration; the Data API calls it
+// ONLY for the Case/PO allocator's brand-new-provider fallback (work-todo-spike: case-po-gen).
+// Configured via BOX_FN_URL / BOX_FN_KEY (absent => the caller skips the fallback).
+interface BoxFolderEntry {
+  id?: string;
+  name?: string;
+  type?: string;
+}
+interface BoxListFolderResponse {
+  entries?: BoxFolderEntry[];
+  total_count?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export async function callBoxListFolder(
+  folderId: string,
+  limit = 1000,
+  offset = 0,
+): Promise<BoxListFolderResponse> {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] BOX_FN_URL/BOX_FN_KEY not configured');
+  return callFn(
+    base,
+    key,
+    'GET',
+    `/api/box/folders/${encodeURIComponent(folderId)}/items?limit=${limit}&offset=${offset}`,
+  ) as Promise<BoxListFolderResponse>;
+}
+
+/**
+ * Page through a Box folder and return ALL entry names (sub-folders + files). Box paginates,
+ * so this loops on offset until a short page (capped at 20 pages / ~20k entries as a safety
+ * net). Best-effort: throws on a transport/config error (callers catch and fall back to DB).
+ */
+export async function listBoxFolderNames(folderId: string): Promise<string[]> {
+  const names: string[] = [];
+  const limit = 1000;
+  let offset = 0;
+  for (let page = 0; page < 20; page++) {
+    const res = await callBoxListFolder(folderId, limit, offset);
+    const entries = res.entries ?? [];
+    for (const e of entries) if (e?.name) names.push(String(e.name));
+    if (entries.length < limit) break;
+    offset += limit;
+  }
+  return names;
+}

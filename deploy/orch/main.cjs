@@ -37,14 +37,13 @@ var require_ms = __commonJS({
     var m = s * 60;
     var h = m * 60;
     var d = h * 24;
-    var w = d * 7;
     var y = d * 365.25;
     module2.exports = function(val, options) {
       options = options || {};
       var type = typeof val;
       if (type === "string" && val.length > 0) {
         return parse2(val);
-      } else if (type === "number" && isFinite(val)) {
+      } else if (type === "number" && isNaN(val) === false) {
         return options.long ? fmtLong(val) : fmtShort(val);
       }
       throw new Error(
@@ -56,7 +55,7 @@ var require_ms = __commonJS({
       if (str.length > 100) {
         return;
       }
-      var match = /^(-?(?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)?$/i.exec(
+      var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(
         str
       );
       if (!match) {
@@ -71,10 +70,6 @@ var require_ms = __commonJS({
         case "yr":
         case "y":
           return n * y;
-        case "weeks":
-        case "week":
-        case "w":
-          return n * w;
         case "days":
         case "day":
         case "d":
@@ -108,515 +103,223 @@ var require_ms = __commonJS({
       }
     }
     function fmtShort(ms) {
-      var msAbs = Math.abs(ms);
-      if (msAbs >= d) {
+      if (ms >= d) {
         return Math.round(ms / d) + "d";
       }
-      if (msAbs >= h) {
+      if (ms >= h) {
         return Math.round(ms / h) + "h";
       }
-      if (msAbs >= m) {
+      if (ms >= m) {
         return Math.round(ms / m) + "m";
       }
-      if (msAbs >= s) {
+      if (ms >= s) {
         return Math.round(ms / s) + "s";
       }
       return ms + "ms";
     }
     function fmtLong(ms) {
-      var msAbs = Math.abs(ms);
-      if (msAbs >= d) {
-        return plural(ms, msAbs, d, "day");
-      }
-      if (msAbs >= h) {
-        return plural(ms, msAbs, h, "hour");
-      }
-      if (msAbs >= m) {
-        return plural(ms, msAbs, m, "minute");
-      }
-      if (msAbs >= s) {
-        return plural(ms, msAbs, s, "second");
-      }
-      return ms + " ms";
+      return plural(ms, d, "day") || plural(ms, h, "hour") || plural(ms, m, "minute") || plural(ms, s, "second") || ms + " ms";
     }
-    function plural(ms, msAbs, n, name) {
-      var isPlural = msAbs >= n * 1.5;
-      return Math.round(ms / n) + " " + name + (isPlural ? "s" : "");
+    function plural(ms, n, name) {
+      if (ms < n) {
+        return;
+      }
+      if (ms < n * 1.5) {
+        return Math.floor(ms / n) + " " + name;
+      }
+      return Math.ceil(ms / n) + " " + name + "s";
     }
   }
 });
 
-// node_modules/debug/src/common.js
-var require_common = __commonJS({
-  "node_modules/debug/src/common.js"(exports2, module2) {
-    function setup(env) {
-      createDebug.debug = createDebug;
-      createDebug.default = createDebug;
-      createDebug.coerce = coerce;
-      createDebug.disable = disable2;
-      createDebug.enable = enable2;
-      createDebug.enabled = enabled2;
-      createDebug.humanize = require_ms();
-      createDebug.destroy = destroy2;
-      Object.keys(env).forEach((key) => {
-        createDebug[key] = env[key];
-      });
-      createDebug.names = [];
-      createDebug.skips = [];
-      createDebug.formatters = {};
-      function selectColor(namespace) {
-        let hash = 0;
-        for (let i = 0; i < namespace.length; i++) {
-          hash = (hash << 5) - hash + namespace.charCodeAt(i);
-          hash |= 0;
-        }
-        return createDebug.colors[Math.abs(hash) % createDebug.colors.length];
+// node_modules/debug/src/debug.js
+var require_debug = __commonJS({
+  "node_modules/debug/src/debug.js"(exports2, module2) {
+    exports2 = module2.exports = createDebug.debug = createDebug["default"] = createDebug;
+    exports2.coerce = coerce;
+    exports2.disable = disable2;
+    exports2.enable = enable2;
+    exports2.enabled = enabled2;
+    exports2.humanize = require_ms();
+    exports2.names = [];
+    exports2.skips = [];
+    exports2.formatters = {};
+    var prevTime;
+    function selectColor(namespace) {
+      var hash = 0, i;
+      for (i in namespace) {
+        hash = (hash << 5) - hash + namespace.charCodeAt(i);
+        hash |= 0;
       }
-      createDebug.selectColor = selectColor;
-      function createDebug(namespace) {
-        let prevTime;
-        let enableOverride = null;
-        let namespacesCache;
-        let enabledCache;
-        function debug(...args) {
-          if (!debug.enabled) {
-            return;
-          }
-          const self2 = debug;
-          const curr = Number(/* @__PURE__ */ new Date());
-          const ms = curr - (prevTime || curr);
-          self2.diff = ms;
-          self2.prev = prevTime;
-          self2.curr = curr;
-          prevTime = curr;
-          args[0] = createDebug.coerce(args[0]);
-          if (typeof args[0] !== "string") {
-            args.unshift("%O");
-          }
-          let index = 0;
-          args[0] = args[0].replace(/%([a-zA-Z%])/g, (match, format) => {
-            if (match === "%%") {
-              return "%";
-            }
-            index++;
-            const formatter = createDebug.formatters[format];
-            if (typeof formatter === "function") {
-              const val = args[index];
-              match = formatter.call(self2, val);
-              args.splice(index, 1);
-              index--;
-            }
-            return match;
-          });
-          createDebug.formatArgs.call(self2, args);
-          const logFn = self2.log || createDebug.log;
-          logFn.apply(self2, args);
-        }
-        debug.namespace = namespace;
-        debug.useColors = createDebug.useColors();
-        debug.color = createDebug.selectColor(namespace);
-        debug.extend = extend2;
-        debug.destroy = createDebug.destroy;
-        Object.defineProperty(debug, "enabled", {
-          enumerable: true,
-          configurable: false,
-          get: () => {
-            if (enableOverride !== null) {
-              return enableOverride;
-            }
-            if (namespacesCache !== createDebug.namespaces) {
-              namespacesCache = createDebug.namespaces;
-              enabledCache = createDebug.enabled(namespace);
-            }
-            return enabledCache;
-          },
-          set: (v) => {
-            enableOverride = v;
-          }
-        });
-        if (typeof createDebug.init === "function") {
-          createDebug.init(debug);
-        }
-        return debug;
-      }
-      function extend2(namespace, delimiter2) {
-        const newDebug = createDebug(this.namespace + (typeof delimiter2 === "undefined" ? ":" : delimiter2) + namespace);
-        newDebug.log = this.log;
-        return newDebug;
-      }
-      function enable2(namespaces) {
-        createDebug.save(namespaces);
-        createDebug.namespaces = namespaces;
-        createDebug.names = [];
-        createDebug.skips = [];
-        const split = (typeof namespaces === "string" ? namespaces : "").trim().replace(/\s+/g, ",").split(",").filter(Boolean);
-        for (const ns of split) {
-          if (ns[0] === "-") {
-            createDebug.skips.push(ns.slice(1));
-          } else {
-            createDebug.names.push(ns);
-          }
-        }
-      }
-      function matchesTemplate(search, template) {
-        let searchIndex = 0;
-        let templateIndex = 0;
-        let starIndex = -1;
-        let matchIndex = 0;
-        while (searchIndex < search.length) {
-          if (templateIndex < template.length && (template[templateIndex] === search[searchIndex] || template[templateIndex] === "*")) {
-            if (template[templateIndex] === "*") {
-              starIndex = templateIndex;
-              matchIndex = searchIndex;
-              templateIndex++;
-            } else {
-              searchIndex++;
-              templateIndex++;
-            }
-          } else if (starIndex !== -1) {
-            templateIndex = starIndex + 1;
-            matchIndex++;
-            searchIndex = matchIndex;
-          } else {
-            return false;
-          }
-        }
-        while (templateIndex < template.length && template[templateIndex] === "*") {
-          templateIndex++;
-        }
-        return templateIndex === template.length;
-      }
-      function disable2() {
-        const namespaces = [
-          ...createDebug.names,
-          ...createDebug.skips.map((namespace) => "-" + namespace)
-        ].join(",");
-        createDebug.enable("");
-        return namespaces;
-      }
-      function enabled2(name) {
-        for (const skip of createDebug.skips) {
-          if (matchesTemplate(name, skip)) {
-            return false;
-          }
-        }
-        for (const ns of createDebug.names) {
-          if (matchesTemplate(name, ns)) {
-            return true;
-          }
-        }
-        return false;
-      }
-      function coerce(val) {
-        if (val instanceof Error) {
-          return val.stack || val.message;
-        }
-        return val;
-      }
-      function destroy2() {
-        console.warn("Instance method `debug.destroy()` is deprecated and no longer does anything. It will be removed in the next major version of `debug`.");
-      }
-      createDebug.enable(createDebug.load());
-      return createDebug;
+      return exports2.colors[Math.abs(hash) % exports2.colors.length];
     }
-    module2.exports = setup;
+    function createDebug(namespace) {
+      function debug() {
+        if (!debug.enabled) return;
+        var self2 = debug;
+        var curr = +/* @__PURE__ */ new Date();
+        var ms = curr - (prevTime || curr);
+        self2.diff = ms;
+        self2.prev = prevTime;
+        self2.curr = curr;
+        prevTime = curr;
+        var args = new Array(arguments.length);
+        for (var i = 0; i < args.length; i++) {
+          args[i] = arguments[i];
+        }
+        args[0] = exports2.coerce(args[0]);
+        if ("string" !== typeof args[0]) {
+          args.unshift("%O");
+        }
+        var index = 0;
+        args[0] = args[0].replace(/%([a-zA-Z%])/g, function(match, format) {
+          if (match === "%%") return match;
+          index++;
+          var formatter = exports2.formatters[format];
+          if ("function" === typeof formatter) {
+            var val = args[index];
+            match = formatter.call(self2, val);
+            args.splice(index, 1);
+            index--;
+          }
+          return match;
+        });
+        exports2.formatArgs.call(self2, args);
+        var logFn = debug.log || exports2.log || console.log.bind(console);
+        logFn.apply(self2, args);
+      }
+      debug.namespace = namespace;
+      debug.enabled = exports2.enabled(namespace);
+      debug.useColors = exports2.useColors();
+      debug.color = selectColor(namespace);
+      if ("function" === typeof exports2.init) {
+        exports2.init(debug);
+      }
+      return debug;
+    }
+    function enable2(namespaces) {
+      exports2.save(namespaces);
+      exports2.names = [];
+      exports2.skips = [];
+      var split = (typeof namespaces === "string" ? namespaces : "").split(/[\s,]+/);
+      var len = split.length;
+      for (var i = 0; i < len; i++) {
+        if (!split[i]) continue;
+        namespaces = split[i].replace(/\*/g, ".*?");
+        if (namespaces[0] === "-") {
+          exports2.skips.push(new RegExp("^" + namespaces.substr(1) + "$"));
+        } else {
+          exports2.names.push(new RegExp("^" + namespaces + "$"));
+        }
+      }
+    }
+    function disable2() {
+      exports2.enable("");
+    }
+    function enabled2(name) {
+      var i, len;
+      for (i = 0, len = exports2.skips.length; i < len; i++) {
+        if (exports2.skips[i].test(name)) {
+          return false;
+        }
+      }
+      for (i = 0, len = exports2.names.length; i < len; i++) {
+        if (exports2.names[i].test(name)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    function coerce(val) {
+      if (val instanceof Error) return val.stack || val.message;
+      return val;
+    }
   }
 });
 
 // node_modules/debug/src/browser.js
 var require_browser = __commonJS({
   "node_modules/debug/src/browser.js"(exports2, module2) {
+    exports2 = module2.exports = require_debug();
+    exports2.log = log2;
     exports2.formatArgs = formatArgs;
     exports2.save = save;
     exports2.load = load;
     exports2.useColors = useColors;
-    exports2.storage = localstorage();
-    exports2.destroy = /* @__PURE__ */ (() => {
-      let warned = false;
-      return () => {
-        if (!warned) {
-          warned = true;
-          console.warn("Instance method `debug.destroy()` is deprecated and no longer does anything. It will be removed in the next major version of `debug`.");
-        }
-      };
-    })();
+    exports2.storage = "undefined" != typeof chrome && "undefined" != typeof chrome.storage ? chrome.storage.local : localstorage();
     exports2.colors = [
-      "#0000CC",
-      "#0000FF",
-      "#0033CC",
-      "#0033FF",
-      "#0066CC",
-      "#0066FF",
-      "#0099CC",
-      "#0099FF",
-      "#00CC00",
-      "#00CC33",
-      "#00CC66",
-      "#00CC99",
-      "#00CCCC",
-      "#00CCFF",
-      "#3300CC",
-      "#3300FF",
-      "#3333CC",
-      "#3333FF",
-      "#3366CC",
-      "#3366FF",
-      "#3399CC",
-      "#3399FF",
-      "#33CC00",
-      "#33CC33",
-      "#33CC66",
-      "#33CC99",
-      "#33CCCC",
-      "#33CCFF",
-      "#6600CC",
-      "#6600FF",
-      "#6633CC",
-      "#6633FF",
-      "#66CC00",
-      "#66CC33",
-      "#9900CC",
-      "#9900FF",
-      "#9933CC",
-      "#9933FF",
-      "#99CC00",
-      "#99CC33",
-      "#CC0000",
-      "#CC0033",
-      "#CC0066",
-      "#CC0099",
-      "#CC00CC",
-      "#CC00FF",
-      "#CC3300",
-      "#CC3333",
-      "#CC3366",
-      "#CC3399",
-      "#CC33CC",
-      "#CC33FF",
-      "#CC6600",
-      "#CC6633",
-      "#CC9900",
-      "#CC9933",
-      "#CCCC00",
-      "#CCCC33",
-      "#FF0000",
-      "#FF0033",
-      "#FF0066",
-      "#FF0099",
-      "#FF00CC",
-      "#FF00FF",
-      "#FF3300",
-      "#FF3333",
-      "#FF3366",
-      "#FF3399",
-      "#FF33CC",
-      "#FF33FF",
-      "#FF6600",
-      "#FF6633",
-      "#FF9900",
-      "#FF9933",
-      "#FFCC00",
-      "#FFCC33"
+      "lightseagreen",
+      "forestgreen",
+      "goldenrod",
+      "dodgerblue",
+      "darkorchid",
+      "crimson"
     ];
     function useColors() {
-      if (typeof window !== "undefined" && window.process && (window.process.type === "renderer" || window.process.__nwjs)) {
+      if (typeof window !== "undefined" && window.process && window.process.type === "renderer") {
         return true;
       }
-      if (typeof navigator !== "undefined" && navigator.userAgent && navigator.userAgent.toLowerCase().match(/(edge|trident)\/(\d+)/)) {
-        return false;
-      }
-      let m;
-      return typeof document !== "undefined" && document.documentElement && document.documentElement.style && document.documentElement.style.WebkitAppearance || // Is firebug? http://stackoverflow.com/a/398120/376773
-      typeof window !== "undefined" && window.console && (window.console.firebug || window.console.exception && window.console.table) || // Is firefox >= v31?
+      return typeof document !== "undefined" && document.documentElement && document.documentElement.style && document.documentElement.style.WebkitAppearance || // is firebug? http://stackoverflow.com/a/398120/376773
+      typeof window !== "undefined" && window.console && (window.console.firebug || window.console.exception && window.console.table) || // is firefox >= v31?
       // https://developer.mozilla.org/en-US/docs/Tools/Web_Console#Styling_messages
-      typeof navigator !== "undefined" && navigator.userAgent && (m = navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/)) && parseInt(m[1], 10) >= 31 || // Double check webkit in userAgent just in case we are in a worker
+      typeof navigator !== "undefined" && navigator.userAgent && navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) && parseInt(RegExp.$1, 10) >= 31 || // double check webkit in userAgent just in case we are in a worker
       typeof navigator !== "undefined" && navigator.userAgent && navigator.userAgent.toLowerCase().match(/applewebkit\/(\d+)/);
     }
-    function formatArgs(args) {
-      args[0] = (this.useColors ? "%c" : "") + this.namespace + (this.useColors ? " %c" : " ") + args[0] + (this.useColors ? "%c " : " ") + "+" + module2.exports.humanize(this.diff);
-      if (!this.useColors) {
-        return;
+    exports2.formatters.j = function(v) {
+      try {
+        return JSON.stringify(v);
+      } catch (err) {
+        return "[UnexpectedJSONParseError]: " + err.message;
       }
-      const c = "color: " + this.color;
+    };
+    function formatArgs(args) {
+      var useColors2 = this.useColors;
+      args[0] = (useColors2 ? "%c" : "") + this.namespace + (useColors2 ? " %c" : " ") + args[0] + (useColors2 ? "%c " : " ") + "+" + exports2.humanize(this.diff);
+      if (!useColors2) return;
+      var c = "color: " + this.color;
       args.splice(1, 0, c, "color: inherit");
-      let index = 0;
-      let lastC = 0;
-      args[0].replace(/%[a-zA-Z%]/g, (match) => {
-        if (match === "%%") {
-          return;
-        }
+      var index = 0;
+      var lastC = 0;
+      args[0].replace(/%[a-zA-Z%]/g, function(match) {
+        if ("%%" === match) return;
         index++;
-        if (match === "%c") {
+        if ("%c" === match) {
           lastC = index;
         }
       });
       args.splice(lastC, 0, c);
     }
-    exports2.log = console.debug || console.log || (() => {
-    });
+    function log2() {
+      return "object" === typeof console && console.log && Function.prototype.apply.call(console.log, console, arguments);
+    }
     function save(namespaces) {
       try {
-        if (namespaces) {
-          exports2.storage.setItem("debug", namespaces);
-        } else {
+        if (null == namespaces) {
           exports2.storage.removeItem("debug");
+        } else {
+          exports2.storage.debug = namespaces;
         }
-      } catch (error) {
+      } catch (e) {
       }
     }
     function load() {
-      let r;
+      var r;
       try {
-        r = exports2.storage.getItem("debug") || exports2.storage.getItem("DEBUG");
-      } catch (error) {
+        r = exports2.storage.debug;
+      } catch (e) {
       }
       if (!r && typeof process !== "undefined" && "env" in process) {
         r = process.env.DEBUG;
       }
       return r;
     }
+    exports2.enable(load());
     function localstorage() {
       try {
-        return localStorage;
-      } catch (error) {
+        return window.localStorage;
+      } catch (e) {
       }
     }
-    module2.exports = require_common()(exports2);
-    var { formatters } = module2.exports;
-    formatters.j = function(v) {
-      try {
-        return JSON.stringify(v);
-      } catch (error) {
-        return "[UnexpectedJSONParseError]: " + error.message;
-      }
-    };
-  }
-});
-
-// node_modules/has-flag/index.js
-var require_has_flag = __commonJS({
-  "node_modules/has-flag/index.js"(exports2, module2) {
-    "use strict";
-    module2.exports = (flag, argv = process.argv) => {
-      const prefix2 = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
-      const position = argv.indexOf(prefix2 + flag);
-      const terminatorPosition = argv.indexOf("--");
-      return position !== -1 && (terminatorPosition === -1 || position < terminatorPosition);
-    };
-  }
-});
-
-// node_modules/supports-color/index.js
-var require_supports_color = __commonJS({
-  "node_modules/supports-color/index.js"(exports2, module2) {
-    "use strict";
-    var os2 = require("os");
-    var tty = require("tty");
-    var hasFlag = require_has_flag();
-    var { env } = process;
-    var flagForceColor;
-    if (hasFlag("no-color") || hasFlag("no-colors") || hasFlag("color=false") || hasFlag("color=never")) {
-      flagForceColor = 0;
-    } else if (hasFlag("color") || hasFlag("colors") || hasFlag("color=true") || hasFlag("color=always")) {
-      flagForceColor = 1;
-    }
-    function envForceColor() {
-      if ("FORCE_COLOR" in env) {
-        if (env.FORCE_COLOR === "true") {
-          return 1;
-        }
-        if (env.FORCE_COLOR === "false") {
-          return 0;
-        }
-        return env.FORCE_COLOR.length === 0 ? 1 : Math.min(Number.parseInt(env.FORCE_COLOR, 10), 3);
-      }
-    }
-    function translateLevel(level) {
-      if (level === 0) {
-        return false;
-      }
-      return {
-        level,
-        hasBasic: true,
-        has256: level >= 2,
-        has16m: level >= 3
-      };
-    }
-    function supportsColor(haveStream, { streamIsTTY, sniffFlags = true } = {}) {
-      const noFlagForceColor = envForceColor();
-      if (noFlagForceColor !== void 0) {
-        flagForceColor = noFlagForceColor;
-      }
-      const forceColor = sniffFlags ? flagForceColor : noFlagForceColor;
-      if (forceColor === 0) {
-        return 0;
-      }
-      if (sniffFlags) {
-        if (hasFlag("color=16m") || hasFlag("color=full") || hasFlag("color=truecolor")) {
-          return 3;
-        }
-        if (hasFlag("color=256")) {
-          return 2;
-        }
-      }
-      if (haveStream && !streamIsTTY && forceColor === void 0) {
-        return 0;
-      }
-      const min = forceColor || 0;
-      if (env.TERM === "dumb") {
-        return min;
-      }
-      if (process.platform === "win32") {
-        const osRelease = os2.release().split(".");
-        if (Number(osRelease[0]) >= 10 && Number(osRelease[2]) >= 10586) {
-          return Number(osRelease[2]) >= 14931 ? 3 : 2;
-        }
-        return 1;
-      }
-      if ("CI" in env) {
-        if (["TRAVIS", "CIRCLECI", "APPVEYOR", "GITLAB_CI", "GITHUB_ACTIONS", "BUILDKITE", "DRONE"].some((sign) => sign in env) || env.CI_NAME === "codeship") {
-          return 1;
-        }
-        return min;
-      }
-      if ("TEAMCITY_VERSION" in env) {
-        return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env.TEAMCITY_VERSION) ? 1 : 0;
-      }
-      if (env.COLORTERM === "truecolor") {
-        return 3;
-      }
-      if ("TERM_PROGRAM" in env) {
-        const version2 = Number.parseInt((env.TERM_PROGRAM_VERSION || "").split(".")[0], 10);
-        switch (env.TERM_PROGRAM) {
-          case "iTerm.app":
-            return version2 >= 3 ? 3 : 2;
-          case "Apple_Terminal":
-            return 2;
-        }
-      }
-      if (/-256(color)?$/i.test(env.TERM)) {
-        return 2;
-      }
-      if (/^screen|^xterm|^vt100|^vt220|^rxvt|color|ansi|cygwin|linux/i.test(env.TERM)) {
-        return 1;
-      }
-      if ("COLORTERM" in env) {
-        return 1;
-      }
-      return min;
-    }
-    function getSupportLevel(stream, options = {}) {
-      const level = supportsColor(stream, {
-        streamIsTTY: stream && stream.isTTY,
-        ...options
-      });
-      return translateLevel(level);
-    }
-    module2.exports = {
-      supportsColor: getSupportLevel,
-      stdout: getSupportLevel({ isTTY: tty.isatty(1) }),
-      stderr: getSupportLevel({ isTTY: tty.isatty(2) })
-    };
   }
 });
 
@@ -625,179 +328,125 @@ var require_node = __commonJS({
   "node_modules/debug/src/node.js"(exports2, module2) {
     var tty = require("tty");
     var util3 = require("util");
+    exports2 = module2.exports = require_debug();
     exports2.init = init;
     exports2.log = log2;
     exports2.formatArgs = formatArgs;
     exports2.save = save;
     exports2.load = load;
     exports2.useColors = useColors;
-    exports2.destroy = util3.deprecate(
-      () => {
-      },
-      "Instance method `debug.destroy()` is deprecated and no longer does anything. It will be removed in the next major version of `debug`."
-    );
     exports2.colors = [6, 2, 3, 4, 5, 1];
-    try {
-      const supportsColor = require_supports_color();
-      if (supportsColor && (supportsColor.stderr || supportsColor).level >= 2) {
-        exports2.colors = [
-          20,
-          21,
-          26,
-          27,
-          32,
-          33,
-          38,
-          39,
-          40,
-          41,
-          42,
-          43,
-          44,
-          45,
-          56,
-          57,
-          62,
-          63,
-          68,
-          69,
-          74,
-          75,
-          76,
-          77,
-          78,
-          79,
-          80,
-          81,
-          92,
-          93,
-          98,
-          99,
-          112,
-          113,
-          128,
-          129,
-          134,
-          135,
-          148,
-          149,
-          160,
-          161,
-          162,
-          163,
-          164,
-          165,
-          166,
-          167,
-          168,
-          169,
-          170,
-          171,
-          172,
-          173,
-          178,
-          179,
-          184,
-          185,
-          196,
-          197,
-          198,
-          199,
-          200,
-          201,
-          202,
-          203,
-          204,
-          205,
-          206,
-          207,
-          208,
-          209,
-          214,
-          215,
-          220,
-          221
-        ];
-      }
-    } catch (error) {
-    }
-    exports2.inspectOpts = Object.keys(process.env).filter((key) => {
+    exports2.inspectOpts = Object.keys(process.env).filter(function(key) {
       return /^debug_/i.test(key);
-    }).reduce((obj, key) => {
-      const prop = key.substring(6).toLowerCase().replace(/_([a-z])/g, (_, k) => {
+    }).reduce(function(obj, key) {
+      var prop = key.substring(6).toLowerCase().replace(/_([a-z])/g, function(_, k) {
         return k.toUpperCase();
       });
-      let val = process.env[key];
-      if (/^(yes|on|true|enabled)$/i.test(val)) {
-        val = true;
-      } else if (/^(no|off|false|disabled)$/i.test(val)) {
-        val = false;
-      } else if (val === "null") {
-        val = null;
-      } else {
-        val = Number(val);
-      }
+      var val = process.env[key];
+      if (/^(yes|on|true|enabled)$/i.test(val)) val = true;
+      else if (/^(no|off|false|disabled)$/i.test(val)) val = false;
+      else if (val === "null") val = null;
+      else val = Number(val);
       obj[prop] = val;
       return obj;
     }, {});
+    var fd = parseInt(process.env.DEBUG_FD, 10) || 2;
+    if (1 !== fd && 2 !== fd) {
+      util3.deprecate(function() {
+      }, "except for stderr(2) and stdout(1), any other usage of DEBUG_FD is deprecated. Override debug.log if you want to use a different log function (https://git.io/debug_fd)")();
+    }
+    var stream = 1 === fd ? process.stdout : 2 === fd ? process.stderr : createWritableStdioStream(fd);
     function useColors() {
-      return "colors" in exports2.inspectOpts ? Boolean(exports2.inspectOpts.colors) : tty.isatty(process.stderr.fd);
+      return "colors" in exports2.inspectOpts ? Boolean(exports2.inspectOpts.colors) : tty.isatty(fd);
     }
+    exports2.formatters.o = function(v) {
+      this.inspectOpts.colors = this.useColors;
+      return util3.inspect(v, this.inspectOpts).split("\n").map(function(str) {
+        return str.trim();
+      }).join(" ");
+    };
+    exports2.formatters.O = function(v) {
+      this.inspectOpts.colors = this.useColors;
+      return util3.inspect(v, this.inspectOpts);
+    };
     function formatArgs(args) {
-      const { namespace: name, useColors: useColors2 } = this;
+      var name = this.namespace;
+      var useColors2 = this.useColors;
       if (useColors2) {
-        const c = this.color;
-        const colorCode = "\x1B[3" + (c < 8 ? c : "8;5;" + c);
-        const prefix2 = `  ${colorCode};1m${name} \x1B[0m`;
+        var c = this.color;
+        var prefix2 = "  \x1B[3" + c + ";1m" + name + " \x1B[0m";
         args[0] = prefix2 + args[0].split("\n").join("\n" + prefix2);
-        args.push(colorCode + "m+" + module2.exports.humanize(this.diff) + "\x1B[0m");
+        args.push("\x1B[3" + c + "m+" + exports2.humanize(this.diff) + "\x1B[0m");
       } else {
-        args[0] = getDate() + name + " " + args[0];
+        args[0] = (/* @__PURE__ */ new Date()).toUTCString() + " " + name + " " + args[0];
       }
     }
-    function getDate() {
-      if (exports2.inspectOpts.hideDate) {
-        return "";
-      }
-      return (/* @__PURE__ */ new Date()).toISOString() + " ";
-    }
-    function log2(...args) {
-      return process.stderr.write(util3.formatWithOptions(exports2.inspectOpts, ...args) + "\n");
+    function log2() {
+      return stream.write(util3.format.apply(util3, arguments) + "\n");
     }
     function save(namespaces) {
-      if (namespaces) {
-        process.env.DEBUG = namespaces;
-      } else {
+      if (null == namespaces) {
         delete process.env.DEBUG;
+      } else {
+        process.env.DEBUG = namespaces;
       }
     }
     function load() {
       return process.env.DEBUG;
     }
+    function createWritableStdioStream(fd2) {
+      var stream2;
+      var tty_wrap = process.binding("tty_wrap");
+      switch (tty_wrap.guessHandleType(fd2)) {
+        case "TTY":
+          stream2 = new tty.WriteStream(fd2);
+          stream2._type = "tty";
+          if (stream2._handle && stream2._handle.unref) {
+            stream2._handle.unref();
+          }
+          break;
+        case "FILE":
+          var fs2 = require("fs");
+          stream2 = new fs2.SyncWriteStream(fd2, { autoClose: false });
+          stream2._type = "fs";
+          break;
+        case "PIPE":
+        case "TCP":
+          var net = require("net");
+          stream2 = new net.Socket({
+            fd: fd2,
+            readable: false,
+            writable: true
+          });
+          stream2.readable = false;
+          stream2.read = null;
+          stream2._type = "pipe";
+          if (stream2._handle && stream2._handle.unref) {
+            stream2._handle.unref();
+          }
+          break;
+        default:
+          throw new Error("Implement me. Unknown stream file type!");
+      }
+      stream2.fd = fd2;
+      stream2._isStdio = true;
+      return stream2;
+    }
     function init(debug) {
       debug.inspectOpts = {};
-      const keys = Object.keys(exports2.inspectOpts);
-      for (let i = 0; i < keys.length; i++) {
+      var keys = Object.keys(exports2.inspectOpts);
+      for (var i = 0; i < keys.length; i++) {
         debug.inspectOpts[keys[i]] = exports2.inspectOpts[keys[i]];
       }
     }
-    module2.exports = require_common()(exports2);
-    var { formatters } = module2.exports;
-    formatters.o = function(v) {
-      this.inspectOpts.colors = this.useColors;
-      return util3.inspect(v, this.inspectOpts).split("\n").map((str) => str.trim()).join(" ");
-    };
-    formatters.O = function(v) {
-      this.inspectOpts.colors = this.useColors;
-      return util3.inspect(v, this.inspectOpts);
-    };
+    exports2.enable(load());
   }
 });
 
 // node_modules/debug/src/index.js
 var require_src = __commonJS({
   "node_modules/debug/src/index.js"(exports2, module2) {
-    if (typeof process === "undefined" || process.type === "renderer" || process.browser === true || process.__nwjs) {
+    if (typeof process !== "undefined" && process.type === "renderer") {
       module2.exports = require_browser();
     } else {
       module2.exports = require_node();
@@ -1456,14 +1105,14 @@ import_functions.app.http("graph-webhook", {
       raw = await req.text();
     } catch (e) {
       ctx.warn(`[graph-webhook] request body read aborted (cold-start/timeout): ${e instanceof Error ? e.message : String(e)}`);
-      return { status: 202 };
+      return { status: 503 };
     }
     let body2;
     try {
       body2 = raw ? JSON.parse(raw) : {};
     } catch {
-      ctx.warn("[graph-webhook] unparseable notification body \u2014 acking");
-      return { status: 202 };
+      ctx.warn("[graph-webhook] unparseable notification body \u2014 returning 5xx so Graph redelivers");
+      return { status: 503 };
     }
     const expected = process.env.GRAPH_CLIENT_STATE;
     const msgs = [];
@@ -1548,14 +1197,56 @@ async function getMessageWithAttachments(mailbox, messageId) {
   const message = await graphFetch(base, {
     headers: { Prefer: 'outlook.body-content-type="text"' }
   });
-  let attachments = [];
+  const attachments = [];
   if (message.hasAttachments) {
     const list = await graphFetch(`${base}/attachments`);
-    attachments = (list.value ?? []).filter(
-      (a) => a.contentBytes !== void 0 && a.isInline !== true
-    );
+    for (const a of list.value ?? []) {
+      if (a.isInline === true) continue;
+      const otype = (a["@odata.type"] ?? "").toLowerCase();
+      if (a.contentBytes !== void 0) {
+        attachments.push(a);
+        continue;
+      }
+      try {
+        const raw = await getAttachmentRawValue(mailbox, messageId, a.id);
+        if (otype.includes("itemattachment")) {
+          attachments.push({
+            ...a,
+            name: ensureEmlName(a.name),
+            contentType: "message/rfc822",
+            size: raw.length,
+            contentBytes: raw.toString("base64")
+          });
+        } else {
+          attachments.push({ ...a, size: raw.length, contentBytes: raw.toString("base64") });
+        }
+      } catch {
+      }
+    }
   }
   return { message, attachments };
+}
+function ensureEmlName(name) {
+  const n = (name ?? "").trim() || "forwarded-message";
+  return /\.eml$/i.test(n) ? n : `${n}.eml`;
+}
+async function getMessageRawMime(mailbox, messageId) {
+  const token = await getGraphToken();
+  const url2 = `${GRAPH_BASE}/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}/$value`;
+  const res = await fetch(url2, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    throw new Error(`graph GET message $value \u2192 ${res.status}: ${await safeText(res)}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+async function getAttachmentRawValue(mailbox, messageId, attachmentId) {
+  const token = await getGraphToken();
+  const url2 = `${GRAPH_BASE}/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}/$value`;
+  const res = await fetch(url2, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    throw new Error(`graph GET attachment $value \u2192 ${res.status}: ${await safeText(res)}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
 }
 async function getMessageHeaders(mailbox, messageId) {
   try {
@@ -1803,6 +1494,14 @@ var df = __toESM(require("durable-functions"), 1);
 var SUBSCRIPTION_MONITOR_INSTANCE_ID = "subscription-monitor-singleton";
 var INTERVAL_HOURS = Number(process.env.SUBSCRIPTION_MONITOR_INTERVAL_HOURS ?? "6");
 var INTERVAL_MS = (Number.isFinite(INTERVAL_HOURS) && INTERVAL_HOURS > 0 ? INTERVAL_HOURS : 6) * 36e5;
+var maintenanceRetry = new df.RetryOptions(
+  /*firstRetryIntervalInMilliseconds*/
+  3e4,
+  /*maxNumberOfAttempts*/
+  4
+);
+maintenanceRetry.backoffCoefficient = 2;
+maintenanceRetry.maxRetryIntervalInMilliseconds = 3e5;
 df.app.activity("subscriptionMaintenance", {
   handler: async (_input, ctx) => {
     const summary = await runSubscriptionMaintenance(ctx);
@@ -1819,7 +1518,15 @@ df.app.activity("subscriptionMaintenance", {
   }
 });
 df.app.orchestration("subscriptionMonitorOrchestrator", function* (ctx) {
-  yield ctx.df.callActivity("subscriptionMaintenance");
+  try {
+    yield ctx.df.callActivityWithRetry("subscriptionMaintenance", maintenanceRetry);
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(
+        `[subscriptionMonitor] maintenance failed after retries \u2014 rescheduling anyway so the renewer never dies: ${String(e)}`
+      );
+    }
+  }
   const next = new Date(ctx.df.currentUtcDateTime.getTime() + INTERVAL_MS);
   yield ctx.df.createTimer(next);
   ctx.df.continueAsNew(void 0);
@@ -1937,21 +1644,54 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
     ...inbound,
     candidateRef: (inbound.candidateRef || classification.bodyCaseref) ?? ""
   };
-  const parseResult = yield ctx.df.callActivityWithRetry("parse", retry, {
-    messageId: inbound.messageId,
-    attachments: inbound.attachments,
-    providerHint: principalCode
-  });
+  let parseResult = {};
+  try {
+    parseResult = yield ctx.df.callActivityWithRetry("parse", retry, {
+      messageId: inbound.messageId,
+      attachments: inbound.attachments,
+      providerHint: principalCode
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(
+        `[intake] parse failed after retries (parser outage) \u2014 proceeding with empty parse result so case-create still runs: ${String(e)}`
+      );
+    }
+  }
   const parserVrm = (parseResult.vrm?.value ?? "").trim();
   const documentHasMileage = Boolean(parseResult.extraction?.mileage?.value);
+  const parserRef = (parseResult.reference?.value ?? "").trim();
+  const parserMileage = (parseResult.extraction?.mileage?.value ?? "").trim();
+  const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? "").trim();
+  const ex = parseResult.extraction ?? {};
+  const exVal = (k) => (ex[k]?.value ?? "").trim();
+  const parserEvaFields = {
+    vehicle_model: exVal("vehicle_model"),
+    claimant_name: exVal("claimant_name"),
+    claimant_telephone: exVal("claimant_telephone"),
+    claimant_email: exVal("claimant_email"),
+    date_of_loss: exVal("date_of_loss"),
+    date_of_instruction: exVal("date_of_instruction"),
+    accident_circumstances: exVal("accident_circumstances"),
+    vat_status: exVal("vat_status")
+  };
   const resolved = yield ctx.df.callActivityWithRetry("caseResolve", retry, {
     inbound: inboundForCase,
     providerId: workProviderId,
     matchState,
-    parserVrm
+    parserVrm,
+    parserRef,
+    parserMileage,
+    parserMileageUnit,
+    parserEvaFields
   });
   if (resolved.outcome === "already_ingested") {
     return { skipped: true, caseId: resolved.caseId };
+  }
+  const automationMode = resolved.providerAutomationMode ?? "review_auto";
+  const autoEnrich = automationMode !== "manual";
+  if (!autoEnrich && !ctx.df.isReplaying) {
+    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; record-keeping (Box folder/archive/images) runs, enrichment deferred to staff`);
   }
   if (resolved.casePo) {
     try {
@@ -1969,15 +1709,38 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
     caseId: resolved.caseId,
     inbound
   });
+  try {
+    yield ctx.df.callActivityWithRetry("extractImages", retry, {
+      caseId: resolved.caseId,
+      messageId: inbound.messageId,
+      attachments: inbound.attachments,
+      caseVrm: parserVrm || inbound.candidateVrm
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
+  try {
+    yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry, {
+      caseId: resolved.caseId
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
   const status = yield ctx.df.callActivityWithRetry("statusEvaluate", retry, {
     caseId: resolved.caseId
   });
-  yield ctx.df.callActivityWithRetry("enrich", retry, {
-    caseId: resolved.caseId,
-    vrm: parserVrm || inbound.candidateVrm,
-    documentHasMileage
-  });
-  return { caseId: resolved.caseId, status: status.value };
+  if (autoEnrich) {
+    yield ctx.df.callActivityWithRetry("enrich", retry, {
+      caseId: resolved.caseId,
+      vrm: parserVrm || inbound.candidateVrm,
+      documentHasMileage
+    });
+  }
+  return { caseId: resolved.caseId, status: status.value, mode: automationMode };
 });
 
 // orchestration/src/functions/activities/fetchMessage.ts
@@ -41380,7 +41143,8 @@ var EVA_PAYLOAD_KEYS = EVA_FIELD_ORDER.map((d) => d.payloadKey);
 var TERMINAL_STATUSES = [
   "eva_submitted",
   "box_synced",
-  "error"
+  "error",
+  "removed"
 ];
 var TERMINAL_SET = new Set(TERMINAL_STATUSES);
 function isTerminalStatus(status) {
@@ -41609,6 +41373,136 @@ function isPostcodeOutward(upper, idx, cand) {
   const after = upper.slice(idx + cand.length);
   return /^\s?[0-9][A-Z]{2}\b/.test(after);
 }
+var POSTCODE_AREAS = /* @__PURE__ */ new Set([
+  "AB",
+  "AL",
+  "B",
+  "BA",
+  "BB",
+  "BD",
+  "BH",
+  "BL",
+  "BN",
+  "BR",
+  "BS",
+  "BT",
+  "CA",
+  "CB",
+  "CF",
+  "CH",
+  "CM",
+  "CO",
+  "CR",
+  "CT",
+  "CV",
+  "CW",
+  "DA",
+  "DD",
+  "DE",
+  "DG",
+  "DH",
+  "DL",
+  "DN",
+  "DT",
+  "DY",
+  "E",
+  "EC",
+  "EH",
+  "EN",
+  "EX",
+  "FK",
+  "FY",
+  "G",
+  "GL",
+  "GU",
+  "GY",
+  "HA",
+  "HD",
+  "HG",
+  "HP",
+  "HR",
+  "HS",
+  "HU",
+  "HX",
+  "IG",
+  "IM",
+  "IP",
+  "IV",
+  "JE",
+  "KA",
+  "KT",
+  "KW",
+  "KY",
+  "L",
+  "LA",
+  "LD",
+  "LE",
+  "LL",
+  "LN",
+  "LS",
+  "LU",
+  "M",
+  "ME",
+  "MK",
+  "ML",
+  "N",
+  "NE",
+  "NG",
+  "NN",
+  "NP",
+  "NR",
+  "NW",
+  "OL",
+  "OX",
+  "PA",
+  "PE",
+  "PH",
+  "PL",
+  "PO",
+  "PR",
+  "RG",
+  "RH",
+  "RM",
+  "S",
+  "SA",
+  "SE",
+  "SG",
+  "SK",
+  "SL",
+  "SM",
+  "SN",
+  "SO",
+  "SP",
+  "SR",
+  "SS",
+  "ST",
+  "SW",
+  "SY",
+  "TA",
+  "TD",
+  "TF",
+  "TN",
+  "TQ",
+  "TR",
+  "TS",
+  "TW",
+  "UB",
+  "W",
+  "WA",
+  "WC",
+  "WD",
+  "WF",
+  "WN",
+  "WR",
+  "WS",
+  "WV",
+  "YO",
+  "ZE"
+]);
+function isPostcodeOutwardCode(compact) {
+  const m = /^([A-Z]{1,2})[0-9]{1,2}$/.exec(compact);
+  return m !== null && POSTCODE_AREAS.has(m[1]);
+}
 function precededByExcludeLabel(upper, idx) {
   const before = upper.slice(Math.max(0, idx - 16), idx);
   return EXCLUDE_LABEL.test(before);
@@ -41627,14 +41521,17 @@ function extractVrm(text) {
     for (const m of upper.matchAll(LOOSE)) {
       const cand = m[0];
       const idx = m.index ?? 0;
+      const compact = cand.replace(/\s+/g, "");
       if (isPostcodeOutward(upper, idx, cand))
+        continue;
+      if (isPostcodeOutwardCode(compact))
         continue;
       const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
       if (EXCLUDE_WORDS.has(alpha))
         continue;
       if (precededByExcludeLabel(upper, idx))
         continue;
-      return cand.replace(/\s+/g, "");
+      return compact;
     }
   }
   return "";
@@ -41654,6 +41551,19 @@ df5.app.activity("fetchMessage", {
       const bytes = Buffer.from(a.contentBytes ?? "", "base64");
       const up = await uploadEvidenceBytes(input11.messageId, a.name, bytes, a.contentType);
       landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size });
+    }
+    let rawEml;
+    try {
+      const mime = await getMessageRawMime(mailbox, input11.messageId);
+      const emlUp = await uploadEvidenceBytes(input11.messageId, "message.eml", mime, "message/rfc822");
+      rawEml = {
+        filename: "message.eml",
+        contentType: "message/rfc822",
+        blobPath: emlUp.blobPath,
+        size: emlUp.size
+      };
+    } catch (e) {
+      ctx.warn(`[fetchMessage] raw .eml capture failed for ${input11.messageId}: ${e instanceof Error ? e.message : String(e)}`);
     }
     const subject = message.subject ?? "";
     const senderAddress = message.from?.emailAddress?.address ?? "";
@@ -41677,9 +41587,10 @@ ${body2}`);
       bodyPreview,
       inReplyTo: headers["in-reply-to"] ?? "",
       references: headers["references"] ?? "",
-      attachments: landed
+      attachments: landed,
+      ...rawEml ? { rawEml } : {}
     };
-    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input11.messageId, mailbox, attachments: landed.length }));
+    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input11.messageId, mailbox, attachments: landed.length, eml: Boolean(rawEml) }));
     return envelope;
   }
 });
@@ -41778,6 +41689,22 @@ var dataApi = {
   persistEvidence(caseId, rows) {
     return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
   },
+  /**
+   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
+   * ticket). Same internal evidence route (idempotent on storage_path), but carries
+   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
+   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
+   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
+   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
+   * idempotently on the child blob path, so this is forward-compatible.
+   */
+  persistImageEvidence(caseId, rows) {
+    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+  /** Persisted blob-backed evidence rows ready for archive mirroring. */
+  archiveEvidenceRows(caseId) {
+    return request("GET", `/api/internal/cases/${caseId}/archive-evidence`);
+  },
   /** Recompute EVA-readiness + status machine and persist (internal route). */
   evaluateStatus(caseId) {
     return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
@@ -41875,6 +41802,7 @@ var df7 = __toESM(require("durable-functions"), 1);
 var PARSER = { urlEnv: "PARSER_FN_URL", keyEnv: "PARSER_FN_KEY" };
 var BOX = { urlEnv: "BOXWEBHOOK_FN_URL", keyEnv: "BOXWEBHOOK_FN_KEY" };
 var EVA = { urlEnv: "EVASENTRY_FN_URL", keyEnv: "EVASENTRY_FN_KEY" };
+var OCR = { urlEnv: "OCR_FN_URL", keyEnv: "OCR_FN_KEY" };
 async function callFunction(target, method, route, body2) {
   const base = process.env[target.urlEnv];
   const key = process.env[target.keyEnv];
@@ -41907,12 +41835,40 @@ function callClassifyEmail(input11) {
     references: input11.references ?? ""
   });
 }
+function callExtractImages(input11) {
+  return callFunction(PARSER, "POST", "extract-images", {
+    document: input11.documentBase64,
+    filename: input11.filename
+  });
+}
+function callPlateOcr(input11) {
+  return callFunction(OCR, "POST", "plate-ocr", {
+    image: input11.imageBase64,
+    filename: input11.filename,
+    ...input11.caseVrm ? { case_vrm: input11.caseVrm } : {}
+  });
+}
 function callEvaSubmit(caseId) {
   return callFunction(EVA, "POST", "submit", { caseId });
 }
 var box = {
   createFolder(name, parentId) {
     return callFunction(BOX, "POST", "box/folders", { name, parent: { id: parentId } });
+  },
+  /**
+   * Archive one evidence byte-stream into a case Box folder — the one-way
+   * Blob -> Box mirror (ADR-0012; box-sync ticket). The bytes ride as base64 in a
+   * JSON body (the facade carries no multipart); the box-webhook Function decodes
+   * and multipart-POSTs them to upload.box.com, scope-locked to BOX_ALLOWED_ROOT_ID.
+   * 409 name-conflict is an idempotent reuse server-side, so a replayed archive
+   * never duplicates a file.
+   */
+  uploadFile(folderId, filename, contentBase64, contentType2) {
+    return callFunction(BOX, "POST", `box/folders/${folderId}/files`, {
+      filename,
+      contentBase64,
+      ...contentType2 ? { contentType: contentType2 } : {}
+    });
   },
   copyFileRequest(fileRequestId, folderId) {
     return callFunction(BOX, "POST", `box/file-requests/${fileRequestId}/copy`, {
@@ -41921,9 +41877,6 @@ var box = {
   },
   listFolderItems(folderId) {
     return callFunction(BOX, "GET", `box/folders/${folderId}/items`);
-  },
-  folderSharedLink(folderId) {
-    return callFunction(BOX, "PUT", `box/folders/${folderId}/shared-link`, {});
   }
 };
 async function safeText3(res) {
@@ -42027,7 +41980,9 @@ df9.app.activity("caseResolve", {
         messageId: inbound.messageId,
         payloadHash: inbound.payloadHash,
         candidateVrm: bestVrm,
-        candidateRef: inbound.candidateRef,
+        // #100 — fall back to the parser-confirmed reference for dedup when the email
+        // subject/body did not yield a Case/PO (a ref that lives only in the PDF).
+        candidateRef: inbound.candidateRef || input11.parserRef || "",
         workProviderId: providerId ?? "",
         openProviderCases: context3.openProviderCases,
         seenMessageIds: context3.seenMessageIds,
@@ -42042,6 +41997,10 @@ df9.app.activity("caseResolve", {
         providerId,
         matchState,
         parserVrm: input11.parserVrm,
+        parserRef: input11.parserRef,
+        parserMileage: input11.parserMileage,
+        parserMileageUnit: input11.parserMileageUnit,
+        parserEva: input11.parserEvaFields,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
@@ -42051,8 +42010,13 @@ df9.app.activity("caseResolve", {
           auditAction: decision.auditAction
         }
       });
-      ctx.log(JSON.stringify({ evt: "caseResolve", resolution: decision.resolution, outcome: persisted.outcome, caseId: persisted.caseId }));
-      return { outcome: persisted.outcome, caseId: persisted.caseId, casePo: persisted.casePo ?? null };
+      ctx.log(JSON.stringify({ evt: "caseResolve", resolution: decision.resolution, outcome: persisted.outcome, caseId: persisted.caseId, mode: persisted.providerAutomationMode }));
+      return {
+        outcome: persisted.outcome,
+        caseId: persisted.caseId,
+        casePo: persisted.casePo ?? null,
+        providerAutomationMode: persisted.providerAutomationMode
+      };
     } catch (e) {
       if (e instanceof ConflictError) {
         ctx.log(JSON.stringify({ evt: "caseResolve", outcome: "already_ingested", messageId: inbound.messageId }));
@@ -42074,6 +42038,13 @@ df10.app.activity("classifyPersist", {
       blobPath: a.blobPath,
       size: a.size
     }));
+    if (inbound.rawEml) {
+      rows.push({
+        ...describeEvidence(inbound.rawEml.filename, inbound.rawEml.contentType),
+        blobPath: inbound.rawEml.blobPath,
+        size: inbound.rawEml.size
+      });
+    }
     const hasInstructionAttachment = rows.some((r) => r.evidenceClass === "instruction");
     const bodyText = (inbound.body ?? "").trim();
     if (!hasInstructionAttachment && bodyText.length >= MIN_BODY_INSTRUCTION_CHARS) {
@@ -42140,6 +42111,10 @@ var gates = {
   // #20
   emailAi: () => process.env.EMAIL_AI_ENABLED === "true",
   // #21
+  // AI assistant suggestion layer (TKT-015) — default OFF. Gates the embedded AI
+  // suggestion surface + the server-side model call path; honest no-op while off
+  // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
+  aiAssist: () => process.env.AI_ASSIST_ENABLED === "true",
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: () => process.env.BOX_API_ENABLED === "true",
   // #22
@@ -42164,19 +42139,40 @@ var gates = {
   // #27
   boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
   // #28
+  // AI model endpoint config (TKT-015). The server-side model call path is built but
+  // dormant: digital-3339-resource has ZERO model deployments, so these are ABSENT in
+  // live app-settings and the generate route stays an honest no-op until a model is
+  // deployed + wired. Prefer managed-identity/keyless — no API key gate by design.
+  aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
+  aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
   /**
    * Derived: location assist is only enabled when all three conditions are met.
    * Used by GET /api/gates/location-assist (plan 21 §21.2).
    */
-  locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== ""
+  locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== "",
+  /**
+   * Derived: a model endpoint AND deployment are both configured. The AI generate
+   * route requires this in ADDITION to the aiAssist() switch — gate ON but model
+   * UNCONFIGURED is still an honest no-op (the live state today). Used by
+   * GET /api/gates/ai-assist + the generate route's disabled-reason.
+   */
+  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== ""
 };
 
 // orchestration/src/functions/activities/parse.ts
-var DOC_EXT = /\.(pdf|docx?|rtf)$/i;
-var DOC_CTYPE = /pdf|msword|officedocument|rtf/i;
+var DOC_EXT = /\.(pdf|docx?|rtf|eml|msg)$/i;
+var DOC_CTYPE = /pdf|msword|officedocument|rtf|rfc822|ms-outlook/i;
+var EMAIL_EXT = /\.(eml|msg)$/i;
+var EMAIL_CTYPE = /rfc822|ms-outlook/i;
+function isEmailFile(a) {
+  return EMAIL_EXT.test(a.filename ?? "") || EMAIL_CTYPE.test(a.contentType ?? "");
+}
 function pickInstructionDoc(atts) {
   const docs = atts.filter((a) => DOC_CTYPE.test(a.contentType ?? "") || DOC_EXT.test(a.filename ?? ""));
-  return docs.find((a) => /pdf/i.test(a.contentType ?? "") || /\.pdf$/i.test(a.filename ?? "")) ?? docs[0];
+  if (!docs.length) return void 0;
+  const nonEmail = docs.filter((a) => !isEmailFile(a));
+  const pool = nonEmail.length ? nonEmail : docs;
+  return pool.find((a) => /pdf/i.test(a.contentType ?? "") || /\.pdf$/i.test(a.filename ?? "")) ?? pool[0];
 }
 df11.app.activity("parse", {
   handler: async (input11, ctx) => {
@@ -42213,6 +42209,12 @@ df11.app.activity("parse", {
       })
     });
     if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        ctx.error(
+          `[parse] parser auth/config error ${res.status} for ${corr} (${doc.filename}) \u2014 check PARSER_FN_KEY`
+        );
+        return { skipped: true, error: "auth", status: res.status };
+      }
       if (res.status >= 400 && res.status < 500) {
         ctx.log(
           `[parse] parser returned ${res.status} for ${corr} (${doc.filename}); skipping`
@@ -42278,45 +42280,212 @@ df13.app.activity("enrich", {
     }
     const result = await res.json();
     const persisted = await dataApi.persistEnrichment(input11.caseId, result);
-    await dataApi.recordAudit({
-      action: "enrichment_called",
-      caseId: input11.caseId,
-      summary: `enrichment applied: ${persisted.applied.length ? persisted.applied.join(", ") : "no new fields"}`
-    });
     ctx.log(JSON.stringify({ evt: "enrich", caseId: input11.caseId, applied: persisted.applied }));
     return { enriched: true, applied: persisted.applied, warnings: result.warnings ?? [] };
   }
 });
 
+// orchestration/src/functions/activities/boxArchive.ts
+var df14 = __toESM(require("durable-functions"), 1);
+df14.app.activity("boxArchiveEvidence", {
+  handler: async (input11, ctx) => {
+    if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
+      return { uploaded: 0, total: 0, skipped: "gated_off" };
+    }
+    const { caseId } = input11;
+    let folderId = null;
+    try {
+      const cf = await dataApi.getCaseBoxFolder(caseId);
+      folderId = cf.boxFolderId;
+    } catch (e) {
+      ctx.warn(`[boxArchive] could not read case box folder for ${caseId}: ${String(e)}`);
+      return { uploaded: 0, total: 0, skipped: "folder_unreadable" };
+    }
+    if (!folderId) {
+      ctx.log(`[boxArchive] case ${caseId} has no archive folder yet; nothing to archive`);
+      return { uploaded: 0, total: 0, skipped: "no_folder" };
+    }
+    let items;
+    try {
+      const persisted = await dataApi.archiveEvidenceRows(caseId);
+      items = persisted.rows.map((row) => ({
+        filename: row.filename,
+        blobPath: row.blobPath,
+        contentType: row.contentType || "application/octet-stream"
+      }));
+    } catch (e) {
+      ctx.warn(`[boxArchive] could not read evidence rows for ${caseId}: ${String(e)}`);
+      return { uploaded: 0, total: 0, skipped: "evidence_unreadable" };
+    }
+    const seen = /* @__PURE__ */ new Set();
+    let uploaded = 0;
+    const fileIds = [];
+    let total = 0;
+    for (const it of items) {
+      if (seen.has(it.blobPath)) continue;
+      seen.add(it.blobPath);
+      total++;
+      try {
+        const bytes = await downloadEvidenceBytes(it.blobPath);
+        const res = await box.uploadFile(folderId, it.filename, bytes.toString("base64"), it.contentType);
+        uploaded++;
+        if (res.id) fileIds.push(res.id);
+      } catch (e) {
+        ctx.warn(
+          `[boxArchive] upload failed for ${it.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+    try {
+      await dataApi.recordAudit({
+        action: "box_synced",
+        caseId,
+        summary: `archived ${uploaded}/${total} evidence file(s) to archive folder ${folderId}`,
+        after: { folderId, uploaded, fileIds }
+      });
+    } catch {
+    }
+    ctx.log(JSON.stringify({ evt: "boxArchiveEvidence", caseId, folderId, uploaded, total }));
+    return { uploaded, total };
+  }
+});
+
+// orchestration/src/functions/activities/extractImages.ts
+var df15 = __toESM(require("durable-functions"), 1);
+var IMG_SOURCE_EXT = /\.(pdf|docx?)$/i;
+var IMG_SOURCE_CTYPE = /pdf|msword|officedocument/i;
+var OCR_OK_EXT = /\.(jpe?g|png|bmp|tiff?|webp|heic|heif)$/i;
+df15.app.activity("extractImages", {
+  handler: async (input11, ctx) => {
+    if (!gates.pdfMapper()) return { extracted: 0, registrationVisible: false, skipped: "gate_off" };
+    const docs = (input11.attachments ?? []).filter(
+      (a) => IMG_SOURCE_EXT.test(a.filename ?? "") || IMG_SOURCE_CTYPE.test(a.contentType ?? "")
+    );
+    if (!docs.length) return { extracted: 0, registrationVisible: false, skipped: "no_source" };
+    const messageId = input11.messageId || input11.caseId;
+    let totalExtracted = 0;
+    let anyRegVisible = false;
+    for (const doc of docs) {
+      let bytes;
+      try {
+        bytes = await downloadEvidenceBytes(doc.blobPath);
+      } catch (e) {
+        ctx.warn(`[extractImages] could not read ${doc.blobPath}: ${e instanceof Error ? e.message : String(e)}`);
+        continue;
+      }
+      let extracted;
+      try {
+        extracted = await callExtractImages({ documentBase64: bytes.toString("base64"), filename: doc.filename });
+      } catch (e) {
+        ctx.warn(`[extractImages] extract failed for ${doc.filename}: ${e instanceof Error ? e.message : String(e)}`);
+        continue;
+      }
+      if (!extracted.images?.length) continue;
+      const rows = [];
+      for (const img of extracted.images) {
+        const childName = `${stripExt(doc.filename)}__${img.filename}`;
+        let blobPath;
+        let size;
+        try {
+          const up = await uploadEvidenceBytes(
+            messageId,
+            childName,
+            Buffer.from(img.content_base64, "base64"),
+            img.content_type
+          );
+          blobPath = up.blobPath;
+          size = up.size;
+        } catch (e) {
+          ctx.warn(`[extractImages] blob upload failed for ${childName}: ${e instanceof Error ? e.message : String(e)}`);
+          continue;
+        }
+        let registrationVisible;
+        if (gates.plateOcr() && process.env.OCR_FN_URL && OCR_OK_EXT.test(img.filename)) {
+          try {
+            const ocr = await callPlateOcr({
+              imageBase64: img.content_base64,
+              filename: img.filename,
+              caseVrm: input11.caseVrm
+            });
+            registrationVisible = Boolean(ocr.registration_visible);
+            if (registrationVisible) anyRegVisible = true;
+          } catch (e) {
+            ctx.warn(`[extractImages] plate OCR failed for ${img.filename}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+        rows.push({
+          filename: childName,
+          contentType: img.content_type,
+          size,
+          blobPath,
+          evidenceClass: "image",
+          imageRoleCode: "unknown",
+          // role tagging is M2 (ADR-0009); default unknown
+          acceptedForEva: false,
+          // auto-extracted unknowns: staff tag role + accept
+          ...registrationVisible !== void 0 ? { registrationVisible } : {},
+          sha256: img.sha256,
+          sequenceIndex: img.sequence_index,
+          sourceLabel: `extracted from ${doc.filename}`
+        });
+      }
+      if (rows.length) {
+        try {
+          const res = await dataApi.persistImageEvidence(input11.caseId, rows);
+          totalExtracted += res.persisted;
+        } catch (e) {
+          ctx.warn(`[extractImages] persist failed for ${doc.filename}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    }
+    if (totalExtracted > 0) {
+      try {
+        await dataApi.recordAudit({
+          action: "attachment_classified",
+          caseId: input11.caseId,
+          severity: anyRegVisible ? "info" : "warning",
+          summary: anyRegVisible ? `extracted ${totalExtracted} image(s) from instruction docs; at least one shows the registration` : `extracted ${totalExtracted} image(s) from instruction docs, but a photo showing the registration is still needed`
+        });
+      } catch {
+      }
+    }
+    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input11.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible }));
+    return { extracted: totalExtracted, registrationVisible: anyRegVisible };
+  }
+});
+function stripExt(name) {
+  return name.replace(/\.[^.]+$/, "") || name;
+}
+
 // orchestration/src/functions/gated/finalize-eva-box.ts
 var import_functions6 = require("@azure/functions");
-var df14 = __toESM(require("durable-functions"), 1);
+var df16 = __toESM(require("durable-functions"), 1);
 import_functions6.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
-  extraInputs: [df14.input.durableClient()],
+  extraInputs: [df16.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.evaApi() || !gates.boxApi()) {
       ctx.log("[finalize-eva-box] skipped \u2014 EVA_API_ENABLED and/or BOX_API_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const { caseId } = await req.json();
-    const client2 = df14.getClient(ctx);
+    const client2 = df16.getClient(ctx);
     const instanceId = await client2.startNew("finalizeEvaBoxOrchestrator", { input: { caseId } });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry2 = new df14.RetryOptions(5e3, 3);
+var retry2 = new df16.RetryOptions(5e3, 3);
 retry2.backoffCoefficient = 2;
 retry2.maxRetryIntervalInMilliseconds = 6e4;
-df14.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
+df16.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
   const { caseId } = ctx.df.getInput();
   const eva = yield ctx.df.callActivityWithRetry("evaSubmit", retry2, { caseId });
   const boxResult = yield ctx.df.callActivityWithRetry("boxFolderAugment", retry2, { caseId });
   return { caseId, eva, box: boxResult };
 });
-df14.app.activity("evaSubmit", {
+df16.app.activity("evaSubmit", {
   handler: async (input11, ctx) => {
     if (!gates.evaApi()) return { skipped: true };
     const res = await callEvaSubmit(input11.caseId);
@@ -42325,47 +42494,47 @@ df14.app.activity("evaSubmit", {
     return res;
   }
 });
-df14.app.activity("boxFolderAugment", {
+df16.app.activity("boxFolderAugment", {
   handler: async (input11, ctx) => {
     if (!gates.boxApi()) return { skipped: true };
     const folder = await box.createFolder(input11.caseId, gates.boxFolderRootId());
-    const link = await box.folderSharedLink(folder.id);
-    await dataApi.recordAudit({ action: "box_synced", caseId: input11.caseId, summary: `Box folder ${folder.id} augmented` });
+    const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
+    await dataApi.recordAudit({ action: "box_synced", caseId: input11.caseId, summary: `Archive folder ${folder.id} augmented` });
     ctx.log(JSON.stringify({ evt: "boxFolderAugment", caseId: input11.caseId, folderId: folder.id }));
-    return { folderId: folder.id, sharedLink: link.shared_link?.url };
+    return { folderId: folder.id, folderUrl };
   }
 });
 
 // orchestration/src/functions/gated/chaser.ts
 var import_functions7 = require("@azure/functions");
-var df15 = __toESM(require("durable-functions"), 1);
+var df17 = __toESM(require("durable-functions"), 1);
 import_functions7.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
-  extraInputs: [df15.input.durableClient()],
+  extraInputs: [df17.input.durableClient()],
   handler: async (req, ctx) => {
     const input11 = await req.json();
-    const client2 = df15.getClient(ctx);
+    const client2 = df17.getClient(ctx);
     const instanceId = await client2.startNew("chaserOrchestrator", { input: input11 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry3 = new df15.RetryOptions(5e3, 3);
+var retry3 = new df17.RetryOptions(5e3, 3);
 retry3.backoffCoefficient = 2;
-df15.app.orchestration("chaserOrchestrator", function* (ctx) {
+df17.app.orchestration("chaserOrchestrator", function* (ctx) {
   const input11 = ctx.df.getInput();
   const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry3, input11);
   const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry3, { caseId: input11.caseId, draft });
   return { caseId: input11.caseId, draft, sent };
 });
-df15.app.activity("chaserDraft", {
+df17.app.activity("chaserDraft", {
   handler: async (input11, ctx) => {
     ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input11.caseId, targetType: input11.targetType }));
     return { drafted: true, targetType: input11.targetType };
   }
 });
-df15.app.activity("chaserSend", {
+df17.app.activity("chaserSend", {
   handler: async (input11, ctx) => {
     if (!gates.chaserSend()) {
       ctx.log("[chaserSend] skipped \u2014 CHASER_SEND_ENABLED=false (draft-only)");
@@ -42379,27 +42548,27 @@ df15.app.activity("chaserSend", {
 
 // orchestration/src/functions/gated/triage-classify.ts
 var import_functions8 = require("@azure/functions");
-var df16 = __toESM(require("durable-functions"), 1);
+var df18 = __toESM(require("durable-functions"), 1);
 import_functions8.app.http("triage-classify-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "triage-classify",
-  extraInputs: [df16.input.durableClient()],
+  extraInputs: [df18.input.durableClient()],
   handler: async (req, ctx) => {
     const input11 = await req.json();
-    const client2 = df16.getClient(ctx);
+    const client2 = df18.getClient(ctx);
     const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input11 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry4 = new df16.RetryOptions(5e3, 3);
+var retry4 = new df18.RetryOptions(5e3, 3);
 retry4.backoffCoefficient = 2;
-df16.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
+df18.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
   const input11 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("triageClassify", retry4, input11);
   return result;
 });
-df16.app.activity("triageClassify", {
+df18.app.activity("triageClassify", {
   handler: async (input11, ctx) => {
     if (!gates.emailAi()) {
       ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED=false");
@@ -42418,76 +42587,76 @@ df16.app.activity("triageClassify", {
 
 // orchestration/src/functions/gated/box-folder-create.ts
 var import_functions9 = require("@azure/functions");
-var df17 = __toESM(require("durable-functions"), 1);
+var df19 = __toESM(require("durable-functions"), 1);
 import_functions9.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
-  extraInputs: [df17.input.durableClient()],
+  extraInputs: [df19.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-folder-create] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input11 = await req.json();
-    const client2 = df17.getClient(ctx);
+    const client2 = df19.getClient(ctx);
     const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input11 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry5 = new df17.RetryOptions(5e3, 3);
+var retry5 = new df19.RetryOptions(5e3, 3);
 retry5.backoffCoefficient = 2;
-df17.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
+df19.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
   const input11 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry5, input11);
   return result;
 });
-df17.app.activity("boxFolderCreate", {
+df19.app.activity("boxFolderCreate", {
   handler: async (input11, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) return { skipped: true, reason: "gated off" };
     const existing = await dataApi.getCaseBoxFolder(input11.caseId);
     if (existing.boxFolderId) {
       ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input11.caseId, skipped: "already_linked", folderId: existing.boxFolderId }));
-      return { skipped: true, reason: "already_linked", folderId: existing.boxFolderId, sharedLink: existing.boxFolderUrl ?? void 0 };
+      return { skipped: true, reason: "already_linked", folderId: existing.boxFolderId, folderUrl: existing.boxFolderUrl ?? void 0 };
     }
     const folder = await box.createFolder(input11.folderName, gates.boxFolderRootId());
-    const link = await box.folderSharedLink(folder.id);
+    const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
     const stamp = await dataApi.stampCaseBoxFolder(input11.caseId, {
       boxFolderId: folder.id,
-      boxFolderUrl: link.shared_link?.url
+      boxFolderUrl: folderUrl
     });
     ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input11.caseId, folderId: folder.id, applied: stamp.applied }));
-    return { folderId: folder.id, sharedLink: link.shared_link?.url, applied: stamp.applied };
+    return { folderId: folder.id, folderUrl, applied: stamp.applied };
   }
 });
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
 var import_functions10 = require("@azure/functions");
-var df18 = __toESM(require("durable-functions"), 1);
+var df20 = __toESM(require("durable-functions"), 1);
 import_functions10.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
-  extraInputs: [df18.input.durableClient()],
+  extraInputs: [df20.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) {
       ctx.log("[box-file-request-copy] skipped \u2014 BOX_API_ENABLED and/or BOX_FILEREQUEST_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input11 = await req.json();
-    const client2 = df18.getClient(ctx);
+    const client2 = df20.getClient(ctx);
     const instanceId = await client2.startNew("boxFileRequestCopyOrchestrator", { input: input11 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry6 = new df18.RetryOptions(5e3, 3);
+var retry6 = new df20.RetryOptions(5e3, 3);
 retry6.backoffCoefficient = 2;
-df18.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
+df20.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
   const input11 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxFileRequestCopy", retry6, input11);
   return result;
 });
-df18.app.activity("boxFileRequestCopy", {
+df20.app.activity("boxFileRequestCopy", {
   handler: async (input11, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) return { skipped: true };
     const templateId = gates.boxFileRequestTemplateId();
@@ -42504,35 +42673,35 @@ df18.app.activity("boxFileRequestCopy", {
 
 // orchestration/src/functions/gated/box-blob-purge.ts
 var import_functions11 = require("@azure/functions");
-var df19 = __toESM(require("durable-functions"), 1);
+var df21 = __toESM(require("durable-functions"), 1);
 import_functions11.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
-  extraInputs: [df19.input.durableClient()],
+  extraInputs: [df21.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.boxApi()) {
       ctx.log("[box-blob-purge] skipped \u2014 BOX_API_ENABLED=false");
       return;
     }
-    const client2 = df19.getClient(ctx);
+    const client2 = df21.getClient(ctx);
     await client2.startNew("boxBlobPurgeOrchestrator", {});
     ctx.log("[box-blob-purge] started orchestration");
   }
 });
-var retry7 = new df19.RetryOptions(5e3, 3);
+var retry7 = new df21.RetryOptions(5e3, 3);
 retry7.backoffCoefficient = 2;
-df19.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
+df21.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
   const candidates = yield ctx.df.callActivityWithRetry("boxPurgeList", retry7, {});
   const tasks = candidates.map((c) => ctx.df.callActivityWithRetry("boxPurgeOne", retry7, c));
   const results = yield ctx.df.Task.all(tasks);
   return { purged: results.length };
 });
-df19.app.activity("boxPurgeList", {
+df21.app.activity("boxPurgeList", {
   handler: async () => {
     if (!gates.boxApi()) return [];
     return dataApi.blobsForPurge();
   }
 });
-df19.app.activity("boxPurgeOne", {
+df21.app.activity("boxPurgeOne", {
   handler: async (input11, ctx) => {
     if (!gates.boxApi()) return { purged: false };
     const purged = await deleteEvidenceBytes(input11.blobPath);
@@ -42544,35 +42713,35 @@ df19.app.activity("boxPurgeOne", {
 
 // orchestration/src/functions/gated/case-disposition.ts
 var import_functions12 = require("@azure/functions");
-var df20 = __toESM(require("durable-functions"), 1);
+var df22 = __toESM(require("durable-functions"), 1);
 import_functions12.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
-  extraInputs: [df20.input.durableClient()],
+  extraInputs: [df22.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.caseDisposition()) {
       ctx.log("[case-disposition] skipped \u2014 CASE_DISPOSITION_ENABLED=false");
       return;
     }
-    const client2 = df20.getClient(ctx);
+    const client2 = df22.getClient(ctx);
     await client2.startNew("caseDispositionOrchestrator", {});
     ctx.log("[case-disposition] started orchestration");
   }
 });
-var retry8 = new df20.RetryOptions(5e3, 3);
+var retry8 = new df22.RetryOptions(5e3, 3);
 retry8.backoffCoefficient = 2;
-df20.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
+df22.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
   const due = yield ctx.df.callActivityWithRetry("dispositionList", retry8, {});
   const tasks = due.map((c) => ctx.df.callActivityWithRetry("dispositionOne", retry8, c));
   const results = yield ctx.df.Task.all(tasks);
   return { disposed: results.length };
 });
-df20.app.activity("dispositionList", {
+df22.app.activity("dispositionList", {
   handler: async () => {
     if (!gates.caseDisposition()) return [];
     return dataApi.casesForDisposition();
   }
 });
-df20.app.activity("dispositionOne", {
+df22.app.activity("dispositionOne", {
   handler: async (input11, ctx) => {
     if (!gates.caseDisposition()) return { disposed: false };
     await dataApi.disposeCase(input11.caseId);
@@ -42584,31 +42753,31 @@ df20.app.activity("dispositionOne", {
 
 // orchestration/src/functions/gated/jobsheet-import.ts
 var import_functions13 = require("@azure/functions");
-var df21 = __toESM(require("durable-functions"), 1);
+var df23 = __toESM(require("durable-functions"), 1);
 import_functions13.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
-  extraInputs: [df21.input.durableClient()],
+  extraInputs: [df23.input.durableClient()],
   handler: async (req, ctx) => {
-    const client2 = df21.getClient(ctx);
+    const client2 = df23.getClient(ctx);
     const instanceId = await client2.startNew("jobsheetImportOrchestrator", {});
     ctx.log(`[jobsheet-import] started ${instanceId}`);
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry9 = new df21.RetryOptions(5e3, 3);
+var retry9 = new df23.RetryOptions(5e3, 3);
 retry9.backoffCoefficient = 2;
-df21.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
+df23.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
   const principals = yield ctx.df.callActivityWithRetry("jobsheetPrincipals", retry9, {});
   const tasks = principals.map((p) => ctx.df.callActivityWithRetry("jobsheetImportOne", retry9, p));
   const results = yield ctx.df.Task.all(tasks);
   return { principals: principals.length, results };
 });
-df21.app.activity("jobsheetPrincipals", {
+df23.app.activity("jobsheetPrincipals", {
   handler: async () => dataApi.principals()
 });
-df21.app.activity("jobsheetImportOne", {
+df23.app.activity("jobsheetImportOne", {
   handler: async (input11, ctx) => {
     await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input11.principalCode}` });
     ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input11.principalCode }));

@@ -102,7 +102,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   let parseResult: {
     vrm?: { value?: string };
     reference?: { value?: string };
-    extraction?: { mileage?: { value?: string }; mileage_unit?: { value?: string } };
+    extraction?: Record<string, { value?: string } | undefined>;
     skipped?: boolean;
   } = {};
   try {
@@ -113,7 +113,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     })) as {
       vrm?: { value?: string };
       reference?: { value?: string };
-      extraction?: { mileage?: { value?: string }; mileage_unit?: { value?: string } };
+      extraction?: Record<string, { value?: string } | undefined>;
       skipped?: boolean;
     };
   } catch (e) {
@@ -136,6 +136,24 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   const parserMileage = (parseResult.extraction?.mileage?.value ?? '').trim();
   const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? '').trim();
 
+  // The parser extracts ALL 12 EVA fields; intake historically forwarded only VRM/ref/mileage,
+  // so an email-minted case showed just its registration + Case/PO. Forward the other parser-
+  // owned EVA fields too (caseResolve → resolve-persist fills them fill-if-empty + constraint-
+  // guarded). work_provider + inspection_address are omitted on purpose (provider-match / the
+  // corpus picker own them — ADR-0013). Empty when parse was skipped/failed → Data API no-op.
+  const ex = parseResult.extraction ?? {};
+  const exVal = (k: string): string => (ex[k]?.value ?? '').trim();
+  const parserEvaFields = {
+    vehicle_model: exVal('vehicle_model'),
+    claimant_name: exVal('claimant_name'),
+    claimant_telephone: exVal('claimant_telephone'),
+    claimant_email: exVal('claimant_email'),
+    date_of_loss: exVal('date_of_loss'),
+    date_of_instruction: exVal('date_of_instruction'),
+    accident_circumstances: exVal('accident_circumstances'),
+    vat_status: exVal('vat_status'),
+  };
+
   // 2 — case-resolve (UNIQUE(sourcemessageid) backstop makes upsert idempotent). The parser
   // VRM is preferred over the email sniff for dedup scoping AND the persisted case VRM (#7);
   // a known provider mints the Case/PO, a new client (no provider) routes to Held (#11).
@@ -147,10 +165,34 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     parserRef,
     parserMileage,
     parserMileageUnit,
-  })) as { outcome: string; caseId: string; casePo?: string | null };
+    parserEvaFields,
+  })) as {
+    outcome: string;
+    caseId: string;
+    casePo?: string | null;
+    providerAutomationMode?: 'manual' | 'review_auto' | 'full_auto';
+  };
 
   if (resolved.outcome === 'already_ingested') {
     return { skipped: true, caseId: resolved.caseId };
+  }
+
+  // Automation-mode branch (am ticket). RECONCILED (work-todo-spike "Both", 2026-06-30):
+  // Box folder-create + evidence-archive + image-extraction are RECORD-KEEPING and now run
+  // for ANY known-provider case (case_po present) REGARDLESS of mode — they were the cause of
+  // "folders not getting made / box sync not working" when every provider resolved to manual.
+  // Only ENRICHMENT (and the reserved EVA-submit) remain gated by automation mode:
+  //   • manual      — record + classify + persist evidence + Box folder + Box archive + image
+  //                   extraction, but DO NOT auto-enrich (staff trigger enrichment from the queue).
+  //   • review_auto — the default live path: everything manual does PLUS auto-enrichment, still
+  //                   stopping short of EVA submission (always a staff action).
+  //   • full_auto   — RESERVED. Behaves EXACTLY as review_auto today; its aggressive steps
+  //                   (auto-EVA, auto-chaser, …) stay behind a default-off flag (FULL_AUTO_ENABLED)
+  //                   and are intentionally NOT enabled here (ADR-0015 / am research §full).
+  const automationMode = resolved.providerAutomationMode ?? 'review_auto';
+  const autoEnrich = automationMode !== 'manual';
+  if (!autoEnrich && !ctx.df.isReplaying) {
+    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; record-keeping (Box folder/archive/images) runs, enrichment deferred to staff`);
   }
 
   // 2.5 — Box folder at intake (#6, ADR-0012: additive one-way mirror). A known-provider case
@@ -162,6 +204,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // (the parse/enrich/chaser convention; the recorded activity result is what replays). The
   // mirror is additive: a Box failure must NOT block the core intake (evidence/status/enrich),
   // so it is best-effort here — the manual box-folder-create starter can retry.
+  // Runs for ANY known-provider case (casePo present) regardless of mode (work-todo-spike "Both").
   if (resolved.casePo) {
     try {
       yield ctx.df.callSubOrchestratorWithRetry('boxFolderCreateOrchestrator', retry, {
@@ -175,11 +218,43 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     }
   }
 
-  // 3 — classify + persist evidence rows
+  // 3 — classify + persist evidence rows (always — recording evidence is not "advancing")
   yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
     caseId: resolved.caseId,
     inbound,
   });
+
+  // 3.5 — extract embedded images from instruction PDFs/EML into image evidence
+  // (#pdf-image-extraction). RECORD-KEEPING — runs regardless of automation mode
+  // (work-todo-spike "Both"); the BOX/image gates + best-effort handling live INSIDE the
+  // activity. Persists each image as an evidence row + flags an unsuitable set (no viewable
+  // registration). Runs after evidence persist so the case exists.
+  try {
+    yield ctx.df.callActivityWithRetry('extractImages', retry, {
+      caseId: resolved.caseId,
+      messageId: (inbound as { messageId?: string }).messageId,
+      attachments: (inbound as { attachments?: unknown }).attachments,
+      caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
+
+  // 3.6 — Box ARCHIVE (#box-sync): copy persisted blob-backed evidence rows INTO the
+  // case Box folder. Runs after all evidence generation so raw email, body text,
+  // attachments, and extracted images are covered. The activity skips cleanly when
+  // an attached/replied case has no archive folder yet.
+  try {
+    yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, {
+      caseId: resolved.caseId,
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
 
   // 5 — status evaluate (EVA-readiness + status machine via Data API)
   const status = (yield ctx.df.callActivityWithRetry('statusEvaluate', retry, {
@@ -188,12 +263,15 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
 
   // 6 — enrich (gate ENRICHMENT_ENABLED checked inside; no-op when off). Pass the best VRM
   // (parser PDF VRM preferred over the email sniff) + whether the doc already had mileage;
-  // the activity persists the advisory result onto the case on a 200 (#1).
-  yield ctx.df.callActivityWithRetry('enrich', retry, {
-    caseId: resolved.caseId,
-    vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
-    documentHasMileage,
-  });
+  // the activity persists the advisory result onto the case on a 200 (#1). The ONE step still
+  // gated by automation mode: skipped in `manual` (staff trigger enrichment from the queue).
+  if (autoEnrich) {
+    yield ctx.df.callActivityWithRetry('enrich', retry, {
+      caseId: resolved.caseId,
+      vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+      documentHasMileage,
+    });
+  }
 
-  return { caseId: resolved.caseId, status: status.value };
+  return { caseId: resolved.caseId, status: status.value, mode: automationMode };
 });

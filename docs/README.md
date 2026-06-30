@@ -35,16 +35,26 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
 - [architecture/repo-constellation.md](./architecture/repo-constellation.md) — the sibling repos (ideas/prior-art only, none canonical).
 - [architecture/environment.md](./architecture/environment.md) — _historical_ build-environment notes (superseded by `live-environment.md`; kept for context).
 
+## Tickets — atomic work items
+- [tickets/README.md](./tickets/README.md) — the **Markdown ticket system**: one `.md` per work item
+  (YAML frontmatter: `id`/`title`/`status`/`priority`/`area`/`tickets-it-relates-to`/`research-link`),
+  tracked on [tickets/BOARD.md](./tickets/BOARD.md) (Now / Next / Backlog / Done). The granular layer
+  under `ROADMAP.md`; distilled from the [work-todo-spike](./plans/work-todo-spike/) research drop-zone.
+  Validated by `node scripts/check-tickets.mjs`.
+
 ## Plans — what to build, by phase
 - [plans/README.md](./plans/README.md) — the plans index. One folder per ROADMAP phase, each with an
   ordered build checklist; feature subfolders inside larger phases. The cross-phase M2 umbrella is
   [plans/m2-umbrella-enrichment-to-scale.md](./plans/m2-umbrella-enrichment-to-scale.md).
+  - **Ticket-source drop-zone:** [plans/work-todo-spike/](./plans/work-todo-spike/) holds the operator
+    stubs, fan-out **research packs**, and sample data behind the [tickets/](./tickets/README.md) — retained
+    (other agents consume the fixtures), indexed from the tickets README, **not** authoritative on live state.
 
 ## Operator & status
-- [TODOS.md](./TODOS.md) — signpost: there is **no flat TODO list**; this routes each kind of work item to where it actually lives (per-phase checklists, `gated.md`, review follow-ups, ROADMAP).
+- [../ROADMAP.md](../ROADMAP.md) — the forward worklist; tickets carry the atomic work items beneath it.
 - [gated.md](./gated.md) — the consolidated **hard/soft blocker** registry (everything that needs the operator).
 - [roles-and-permissions.md](./roles-and-permissions.md) — **gap analysis**: the roles `digital@` does NOT have but NEEDS (Box Business+admin, Exchange Admin, Key Vault Secrets Officer, Power Platform Admin, License Admin) — vs. what Owner + Dataverse System Admin already cover.
-- [review-followups-2026-06-19.md](./review-followups-2026-06-19.md) — verified architecture-review follow-ups.
+- [reviews/README.md](./reviews/README.md) — binding manual-review workflow and follow-ups.
 
 ## Operator handoff
 - [handoff/README.md](./handoff/README.md) — the 2026-06-27 operator handoff pack. Start with
@@ -78,7 +88,7 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
 - [research/README.md](./research/README.md) — four research lanes (strategy, Power Platform native, Azure AI/document, domain workflow); top picks + anti-features.
 
 ## Activation playbooks (operator)
-> Index: [activation/README.md](./activation/README.md). _(These describe the prior `digital@`/V3-trigger path; live intake is the Azure delta-poll/Exchange-RBAC path — see [azure/entra-graph.md](./azure/entra-graph.md).)_
+> Index: [activation/README.md](./activation/README.md). _(These describe the prior `digital@`/V3-trigger path; live intake is the Azure **Graph PUSH** change-notification / Exchange-RBAC path — see [azure/entra-graph.md](./azure/entra-graph.md).)_
 - [activation/email-intake-activation.md](./activation/email-intake-activation.md) · [activation/m1-flow-chain-activation.md](./activation/m1-flow-chain-activation.md) · [activation/multi-inbox-activation.md](./activation/multi-inbox-activation.md)
 
 ## Azure operations (runbooks)

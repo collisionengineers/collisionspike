@@ -68,20 +68,21 @@ df.app.activity('boxFolderCreate', {
     const existing = await dataApi.getCaseBoxFolder(input.caseId);
     if (existing.boxFolderId) {
       ctx.log(JSON.stringify({ evt: 'boxFolderCreate', caseId: input.caseId, skipped: 'already_linked', folderId: existing.boxFolderId }));
-      return { skipped: true, reason: 'already_linked', folderId: existing.boxFolderId, sharedLink: existing.boxFolderUrl ?? undefined };
+      return { skipped: true, reason: 'already_linked', folderId: existing.boxFolderId, folderUrl: existing.boxFolderUrl ?? undefined };
     }
 
     // Mint the folder via the box-webhook facade (never re-mints Box tokens — plan 22 §C).
+    // Do not mint a public shared link: staff open the authenticated app deep link.
     const folder = await box.createFolder(input.folderName, gates.boxFolderRootId());
-    const link = await box.folderSharedLink(folder.id);
+    const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
 
     // Stamp box_folder_id/url onto the case (first-wins) — the Data API writes the
     // box_folder_created audit on the stamping call only.
     const stamp = await dataApi.stampCaseBoxFolder(input.caseId, {
       boxFolderId: folder.id,
-      boxFolderUrl: link.shared_link?.url,
+      boxFolderUrl: folderUrl,
     });
     ctx.log(JSON.stringify({ evt: 'boxFolderCreate', caseId: input.caseId, folderId: folder.id, applied: stamp.applied }));
-    return { folderId: folder.id, sharedLink: link.shared_link?.url, applied: stamp.applied };
+    return { folderId: folder.id, folderUrl, applied: stamp.applied };
   },
 });

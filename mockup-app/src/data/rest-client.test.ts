@@ -37,14 +37,21 @@ function clientWith(fetchMock: ReturnType<typeof vi.fn>) {
   });
 }
 
+/** The arguments of the most recent fetch call (index access — ES2020-lib-safe; the
+ *  esbuild target lacks Array.prototype.at typings). */
+function lastCall(fetchMock: ReturnType<typeof vi.fn>): unknown[] {
+  const { calls } = fetchMock.mock;
+  return (calls[calls.length - 1] ?? []) as unknown[];
+}
+
 /** The URL passed to the most recent fetch call. */
 function lastUrl(fetchMock: ReturnType<typeof vi.fn>): string {
-  return String(fetchMock.mock.calls.at(-1)?.[0]);
+  return String(lastCall(fetchMock)[0]);
 }
 
 /** The RequestInit (method/headers/body) passed to the most recent fetch call. */
 function lastInit(fetchMock: ReturnType<typeof vi.fn>): RequestInit {
-  return (fetchMock.mock.calls.at(-1)?.[1] ?? {}) as RequestInit;
+  return (lastCall(fetchMock)[1] ?? {}) as RequestInit;
 }
 
 afterEach(() => {
@@ -151,5 +158,164 @@ describe('rest-client — updateCase / editable VRM (issue #12)', () => {
     const fetchMock = vi.fn().mockResolvedValue(errStatus(409, 'conflict'));
     const da = clientWith(fetchMock);
     await expect(da.updateCase(caseId, { vrm: 'MX17PNL' })).rejects.toThrow(/409/);
+  });
+
+  it('PATCHes evaFields through the body (durable case-page edits)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson(updated));
+    const da = clientWith(fetchMock);
+    const patch = { evaFields: { dateOfLoss: '12/06/2026', vehicleModel: 'Audi A3' } };
+    await da.updateCase(caseId, patch);
+    const init = lastInit(fetchMock);
+    expect(init.method).toBe('PATCH');
+    expect(init.body).toBe(JSON.stringify(patch));
+  });
+});
+
+describe('rest-client — amalgamated dashboard + inbound view (work-todo-spike)', () => {
+  const now = new Date('2026-06-29T10:00:00.000Z');
+  const encoded = encodeURIComponent(now.toISOString());
+
+  it('dashboardSummary(now) GETs /api/dashboard?now=<ISO> and returns the summary', async () => {
+    const summary = { liveCounts: { notReady: 0 }, inbound: { untriaged: 2 } };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(summary));
+    const da = clientWith(fetchMock);
+    const res = await da.dashboardSummary(now);
+    expect(lastUrl(fetchMock)).toBe(`https://api.test/api/dashboard?now=${encoded}`);
+    expect(res).toEqual(summary);
+  });
+
+  it('dashboardSummary() omits the query when no `now` is supplied', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({}));
+    const da = clientWith(fetchMock);
+    await da.dashboardSummary();
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/dashboard');
+  });
+
+  it('dashboardSummary REJECTS on a 5xx (the dashboard shows its error panel)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(503));
+    const da = clientWith(fetchMock);
+    await expect(da.dashboardSummary()).rejects.toThrow(/503/);
+  });
+
+  it('inboundEmails threads `view` alongside the category facet', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson([]));
+    const da = clientWith(fetchMock);
+    await da.inboundEmails({ category: 'query', view: 'handled' });
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/inbound?category=query&view=handled');
+  });
+
+  it('inboundEmails sends `view` alone when no category facet is set', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson([]));
+    const da = clientWith(fetchMock);
+    await da.inboundEmails({ view: 'all' });
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/inbound?view=all');
+  });
+});
+
+describe('rest-client — removeCase (soft-remove, Superuser)', () => {
+  it('DELETEs /api/cases/{id} with the JSON body and returns the result', async () => {
+    const result = {
+      id: 'c-9',
+      status: 'removed',
+      alreadyRemoved: false,
+      boxFolderUrl: 'https://app.box.com/folder/392761581105',
+    };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(result));
+    const da = clientWith(fetchMock);
+	    const input = { acknowledgeArchiveFolderHandled: true, reason: 'duplicate of CCPY26050' };
+    const res = await da.removeCase('c-9', input);
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/c-9');
+    const init = lastInit(fetchMock);
+    expect(init.method).toBe('DELETE');
+    expect(init.body).toBe(JSON.stringify(input));
+    expect(res).toEqual(result);
+  });
+
+  it('REJECTS on a non-ok status — never a fake "removed"', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(403, 'forbidden'));
+    const da = clientWith(fetchMock);
+    await expect(da.removeCase('c-9', {})).rejects.toThrow(/403/);
+  });
+
+  it('URL-encodes the case id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(okJson({ id: 'a/b', status: 'removed', alreadyRemoved: false }));
+    const da = clientWith(fetchMock);
+    await da.removeCase('a/b', {});
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/a%2Fb');
+  });
+});
+
+describe('rest-client — nextCasePo (Case/PO preview)', () => {
+  it('GETs /api/cases/next-po?principal=… and returns the result', async () => {
+    const result = {
+      principal: 'CCPY',
+      yy: '26',
+      seq: '051',
+      nextSeq: 51,
+      evaLower: 'ccpy26051',
+      boxUpper: 'CCPY26051',
+      source: 'db',
+    };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(result));
+    const da = clientWith(fetchMock);
+    const res = await da.nextCasePo('CCPY');
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/next-po?principal=CCPY');
+    expect(res).toEqual(result);
+  });
+
+  it('appends &year= when a year is supplied', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({}));
+    const da = clientWith(fetchMock);
+    await da.nextCasePo('CCPY', 26);
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/next-po?principal=CCPY&year=26');
+  });
+});
+
+describe('rest-client — updateProvider (Superuser)', () => {
+  it('PATCHes /api/providers/{idOrCode} with the body and returns the Provider', async () => {
+    const updated = { id: 'wp-1', principalCode: 'CCPY', providerAutomationMode: 'review_auto' };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(updated));
+    const da = clientWith(fetchMock);
+    const input = {
+      providerAutomationMode: 'review_auto' as const,
+      knownEmailDomains: ['acuity-law.co.uk'],
+    };
+    const res = await da.updateProvider('CCPY', input);
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/providers/CCPY');
+    const init = lastInit(fetchMock);
+    expect(init.method).toBe('PATCH');
+    expect(init.body).toBe(JSON.stringify(input));
+    expect(res).toEqual(updated);
+  });
+
+  it('REJECTS on a non-ok status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(403));
+    const da = clientWith(fetchMock);
+    await expect(
+      da.updateProvider('CCPY', { providerAutomationMode: 'full_auto' }),
+    ).rejects.toThrow(/403/);
+  });
+});
+
+describe('rest-client — reclassifyInbound (staff override)', () => {
+  it('PATCHes /api/inbound/{id}/classification with the body and returns the row', async () => {
+    const row = { id: 'ibe-1', category: 'receiving_work', subtype: 'existing_provider_diminution' };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(row));
+    const da = clientWith(fetchMock);
+    const input = { tag: 'Diminution' as const, reason: 'staff override' };
+    const res = await da.reclassifyInbound('ibe-1', input);
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/inbound/ibe-1/classification');
+    const init = lastInit(fetchMock);
+    expect(init.method).toBe('PATCH');
+    expect(init.body).toBe(JSON.stringify(input));
+    expect(res).toEqual(row);
+  });
+
+  it('REJECTS on a non-ok status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(404));
+    const da = clientWith(fetchMock);
+    await expect(da.reclassifyInbound('nope', { category: 'other' })).rejects.toThrow(/404/);
   });
 });

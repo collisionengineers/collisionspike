@@ -176,7 +176,16 @@ SELECT
     WHEN wp.inspection_modality = 'image-based' THEN 100000000
     ELSE 100000001
   END AS inspection_location_policy_code,
-  100000000 AS provider_automation_mode_code
+  -- provider_automation_mode_code = 100000001 (review_auto).
+  -- RECONCILIATION (work-todo-spike: automation-mode): the 3-mode enum is manual |
+  -- review_auto | full_auto. The schema column default is review_auto (010_work_provider.sql)
+  -- and review_auto is the documented live default AND exactly the path the orchestrator runs
+  -- today (auto-prepare, human review before EVA). Seeding 'manual' here would, once the
+  -- (gated-OFF) automation-mode branching is enabled, STOP the existing corpus auto-processing —
+  -- a regression. So seeded providers default to review_auto to match the schema default and
+  -- current live behaviour; full_auto stays reserved/deferred. The ON CONFLICT below does NOT
+  -- touch provider_automation_mode_code, so a live Superuser edit survives a reseed.
+  100000001 AS provider_automation_mode_code
 FROM _stg_work_provider wp
 LEFT JOIN _email_domains_grouped edg ON wp.principal_code = edg.principal_code
 WHERE

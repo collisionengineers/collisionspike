@@ -11,6 +11,7 @@ import {
   Link2,
   Send,
   Archive,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 import type { CaseStatus } from '@cs/domain';
@@ -18,15 +19,17 @@ import type { CaseStatus } from '@cs/domain';
 /* ============================================================
    StatusBadge — severity ramp, never colour-only.
 
-   Three severities, each ALWAYS paired with a Lucide icon:
+   Severities, each ALWAYS paired with a Lucide icon:
      - blocker   → CE red (#db0816). White-on-red text uses #8f1422 (--ce-red-dark)
                    at semibold to clear AA on the badge fill.
      - attention → amber, charcoal text.
      - info      → charcoal outline (no fill).
      - done      → success green (terminal, windowed states).
+     - muted     → low-key grey outline (the terminal 'removed' soft-delete — a
+                   case that is out of the workflow, never an action item).
    ============================================================ */
 
-type Severity = 'blocker' | 'attention' | 'info' | 'done';
+type Severity = 'blocker' | 'attention' | 'info' | 'done' | 'muted';
 
 interface StatusStyle {
   label: string;
@@ -46,6 +49,9 @@ const STATUS_STYLES: Record<CaseStatus, StatusStyle> = {
   eva_submitted: { label: 'EVA submitted', severity: 'done', icon: Send },
   box_synced: { label: 'Archived', severity: 'done', icon: Archive },
   error: { label: 'Error', severity: 'blocker', icon: AlertOctagon },
+  // Terminal soft-remove (ADR-0017): PII anonymised, row + audit kept. A muted
+  // chip — out of the workflow, never a work item, never red/amber.
+  removed: { label: 'Removed', severity: 'muted', icon: Trash2 },
 };
 
 const useStyles = makeStyles({
@@ -68,12 +74,19 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
     border: `1px solid ${tokens.colorNeutralStroke1}`,
   },
+  // Muted: low-contrast grey outline — the terminal 'removed' soft-delete.
+  muted: {
+    backgroundColor: 'transparent',
+    color: tokens.colorNeutralForeground3,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+  },
 });
 
 const SEVERITY_CLASS: Record<Severity, keyof ReturnType<typeof useStyles> | undefined> = {
   blocker: 'blocker',
   attention: 'attention',
   info: 'info',
+  muted: 'muted',
   done: undefined, // uses Fluent success color
 };
 
@@ -125,6 +138,6 @@ export function statusLabel(status: CaseStatus): string {
 }
 
 /** Severity of a status — for callers wanting to colour rows/icons consistently. */
-export function statusSeverity(status: CaseStatus): 'blocker' | 'attention' | 'info' | 'done' {
+export function statusSeverity(status: CaseStatus): Severity {
   return STATUS_STYLES[status].severity;
 }

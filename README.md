@@ -13,7 +13,7 @@ Platform footprint **deprovisioned 2026-06-27** (the Dev sandbox + both solution
 the remaining flow deleted via `pac admin delete`). The **domain + workflow are unchanged** — only the
 platform mechanism moved.
 
-> **Status (2026-06-27):** the **live system is the Azure PaaS stack** in resource group
+> **Status (2026-06-29):** the **live system is the Azure PaaS stack** in resource group
 > `rg-collisionspike-dev` (uksouth): the **SPA `cespk-spa-dev`** (Static Web App, Entra / MSAL sign-in),
 > the **Data API `cespk-api-dev`** (Node 20 / TS Functions, JWT + `CollisionSpike.User` / `.Superuser`
 > app roles — `.Superuser` is the full-privilege role formerly named `.Admin`; a `.Engineer` placeholder is
@@ -24,12 +24,13 @@ platform mechanism moved.
 > deprovisioned 2026-06-27** (the Dev sandbox deleted via `pac admin delete`; `CollisionSpike.zip`
 > cold-exported off-repo). **No mock data** — the app shows real rows only.
 >
-> **Honest gaps:** **(1)** *email intake is LIVE IN TESTING* — `cespk-orch-dev` runs with **2 Microsoft
-> Graph PUSH change-notification subscriptions** over the test mailbox set engineers@ + digital@ (both
-> Exchange-RBAC-scoped); transport is **push, not delta-poll**. The **production target is info@ + engineers@
-> + desk@** (info@ + desk@ not yet scoped). ⚠️ The subscriptions **expire 2026-07-05** and `graph-renew` showed
-> **0 executions in the last 3 days** — confirm the renewer is firing or intake lapses ([docs/gated.md](./docs/gated.md)).
-> Function/subscription counts: the live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
+> **Honest gaps:** **(1)** *email intake is LIVE on the production mailbox set* — `cespk-orch-dev` runs
+> **Microsoft Graph PUSH change-notification subscriptions** over **info@ + engineers@ + desk@** (all
+> Exchange-RBAC-scoped; the 2026-06-29 mailbox cutover added info@ + desk@ and removed the test/dev mailbox
+> digital@); transport is **push, not delta-poll**. ✅ The earlier subscription-expiry time-bomb is **RESOLVED** —
+> a Durable eternal orchestration (`subscriptionMonitorOrchestrator`) keeps the subscriptions renewed (a
+> durable timer wakes the scale-to-zero app); operator watch-item = confirm an unattended renew at the next
+> wake ([docs/gated.md](./docs/gated.md)). Subscription state: the live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 > **(2)** the earlier **DB-credential / RLS P0 is resolved (2026-06-26)** — the API now
 > connects as the non-owner Postgres login **`cespk_app`** (Key Vault-referenced password, **Row-Level
 > Security enforced**), not `csadmin`; the **other plaintext secret exposures (Graph client secret, storage
@@ -60,8 +61,9 @@ and de-duplicate every action. Full pipeline: [docs/requirements/intake-workflow
 
 Offline-verifiable: `node verify-all.mjs` → **all gates green** (build + tests, schema parity, flow
 linter, a pytest loop over every built Function suite, plus the static boundary gates). The gate set has
-widened over time — use "all gates green", not a pinned count; the live breakdown is in CURRENT_STATUS /
-OPEN_ITEMS.
+widened over time — use "all gates green", not a pinned count; the live breakdown is in
+[CURRENT_STATUS.md](./CURRENT_STATUS.md) and the live registry
+[docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 
 **Deploy:** [docs/azure/deploy.md](./docs/azure/deploy.md) · **Phase-1 plan:** [docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md](./docs/plans/phase-1-intake-and-case-tracking/phase-1-intake-and-case-tracking-implementation.md).
 
@@ -74,8 +76,9 @@ The **live Azure stack**:
   app roles — `.Superuser` formerly `.Admin`, with the legacy name still accepted for back-compat; Postgres);
   bundled to `deploy/api/` via esbuild.
 - `orchestration/` — the intake orchestration Functions app (Microsoft Graph **PUSH change-notification**
-  design; email intake **live in testing** over the test mailbox set — function/subscription counts in the
-  [live registry](./docs/architecture/live-environment.md)); bundled to `deploy/orch/`.
+  design; email intake **live** over the production mailbox set info@ + engineers@ + desk@ —
+  function/subscription counts in the [live registry](./docs/architecture/live-environment.md)); bundled to
+  `deploy/orch/`.
 - `packages/domain/` — the shared `@cs/domain` package (the platform-independent domain model).
 - `functions/` (+ `ocr/`) — the six retained Python Azure Functions (`parser`, `enrichment`,
   `evasentry`, `evavalidation`, `box-webhook`, `ocr`): code, Bicep, OpenAPI, mocked pytest.

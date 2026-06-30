@@ -206,6 +206,7 @@ export function caseTypeOf(
     case 'new_email':
     case 'ingested':
     case 'error':
+    case 'removed': // soft-removed: composition is irrelevant; never a live work item.
       return 'pending';
   }
 }
@@ -236,6 +237,14 @@ export interface Throughput {
   submittedToday: number;
   /** Cases submitted to EVA so far this week (Mon-anchored). */
   clearedThisWeek: number;
+  /**
+   * LIFETIME cumulative count of cases that reached the submitted stage
+   * (eva_submitted / box_synced). Distinct from the windowed metrics above so the UI
+   * can label a "Sent to EVA (total)" tile honestly instead of mislabelling a
+   * lifetime count as windowed (work-todo-spike: amalgamated-dashboard / dashboard-logic).
+   * Optional + additive so existing constructors (e.g. the SPA mock source) still compile.
+   */
+  submittedTotal?: number;
 }
 
 /* ----------  AGING / EXCEPTIONS (the hero)  ---------- */

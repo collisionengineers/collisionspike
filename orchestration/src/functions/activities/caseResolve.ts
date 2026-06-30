@@ -13,7 +13,7 @@
 
 import * as df from 'durable-functions';
 import { resolveCase } from '@cs/domain';
-import { dataApi, ConflictError } from '../../lib/data-api.js';
+import { dataApi, ConflictError, type ParserEvaFields } from '../../lib/data-api.js';
 import type { InboundEnvelope } from './fetchMessage.js';
 
 interface CaseResolveInput {
@@ -30,13 +30,23 @@ interface CaseResolveInput {
    *  document-first), so the MOT-estimate suppression is not a silent data loss. */
   parserMileage?: string;
   parserMileageUnit?: string;
+  /** Parser-owned EVA fields (claimant, dates, vehicle, circumstances, VAT) extracted from the
+   *  instruction document — forwarded to resolve-persist for fill-if-empty so an email-minted
+   *  case carries the full extraction, not just its registration + Case/PO. */
+  parserEvaFields?: ParserEvaFields;
 }
 
 df.app.activity('caseResolve', {
   handler: async (
     input: CaseResolveInput,
     ctx,
-  ): Promise<{ outcome: string; caseId: string; casePo?: string | null }> => {
+  ): Promise<{
+    outcome: string;
+    caseId: string;
+    casePo?: string | null;
+    /** Matched provider's automation mode — drives the orchestrator's intake branch (am ticket). */
+    providerAutomationMode?: 'manual' | 'review_auto' | 'full_auto';
+  }> => {
     const { inbound, providerId, matchState } = input;
     // Best known VRM = parser PDF VRM (most reliable) over the email-body sniff; both filtered.
     const bestVrm = ((input.parserVrm || inbound.candidateVrm) ?? '').trim();
@@ -76,6 +86,7 @@ df.app.activity('caseResolve', {
         parserRef: input.parserRef,
         parserMileage: input.parserMileage,
         parserMileageUnit: input.parserMileageUnit,
+        parserEva: input.parserEvaFields,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
@@ -86,10 +97,16 @@ df.app.activity('caseResolve', {
         },
       });
 
-      ctx.log(JSON.stringify({ evt: 'caseResolve', resolution: decision.resolution, outcome: persisted.outcome, caseId: persisted.caseId }));
+      ctx.log(JSON.stringify({ evt: 'caseResolve', resolution: decision.resolution, outcome: persisted.outcome, caseId: persisted.caseId, mode: persisted.providerAutomationMode }));
       // casePo is minted (non-null) only for a known-provider `created` case — the intake
       // orchestrator uses it to name the Box folder (new-client→Held has no PO → no folder).
-      return { outcome: persisted.outcome, caseId: persisted.caseId, casePo: persisted.casePo ?? null };
+      // providerAutomationMode comes from the resolve SEAM; the orchestrator branches on it.
+      return {
+        outcome: persisted.outcome,
+        caseId: persisted.caseId,
+        casePo: persisted.casePo ?? null,
+        providerAutomationMode: persisted.providerAutomationMode,
+      };
     } catch (e) {
       if (e instanceof ConflictError) {
         // UNIQUE(sourcemessageid) backstop fired — a concurrent/replayed ingest already landed it.

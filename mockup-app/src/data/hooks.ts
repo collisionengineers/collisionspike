@@ -18,10 +18,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { getDataAccess } from './index';
 import type { ActivityEvent, Case, CaseUpdateInput, Evidence, Provider } from '@cs/domain';
 import type {
-  LiveCounts,
-  Throughput,
-  AgingExceptions,
-  PipelineStage,
+  DashboardSummary,
+  RemoveCaseInput,
+  RemoveCaseResult,
+  ProviderUpdateInput,
+  NextCasePoResult,
+  ReclassifyInboundInput,
+  TriageState,
+  AiSuggestion,
+  AiSuggestionReviewInput,
+  AiSuggestionReviewResult,
+  GenerateAiSuggestionsResult,
+  AiAssistGate,
 } from '@cs/domain';
 import type { QueueName } from '@cs/domain';
 import type {
@@ -30,7 +38,8 @@ import type {
   BoxGates,
   LocationAssistGate,
   InboundEmail,
-  InboundCategory,
+  InboundFacet,
+  InboundView,
   InboundCounts,
 } from './types';
 
@@ -101,25 +110,16 @@ export function useQueueQuery(name: QueueName): QueryState<Case[]> {
   return useAsync(run, [name]);
 }
 
-/** The dashboard bundle: live counts, throughput, aging, pipeline stages. */
-export interface DashboardData {
-  liveCounts: LiveCounts;
-  throughput: Throughput;
-  agingExceptions: AgingExceptions;
-  pipelineStages: PipelineStage[];
-}
-export function useDashboard(): QueryState<DashboardData> {
-  const run = useCallback(async (): Promise<DashboardData> => {
-    const da = getDataAccess();
-    const now = new Date();
-    const [liveCounts, throughput, agingExceptions, pipelineStages] = await Promise.all([
-      da.liveCounts(now),
-      da.throughput(now),
-      da.agingExceptions(now),
-      da.pipelineStages(),
-    ]);
-    return { liveCounts, throughput, agingExceptions, pipelineStages };
-  }, []);
+/**
+ * The amalgamated dashboard summary (work-todo-spike: amalgamated-dashboard) — the
+ * case pipeline (liveCounts, throughput, queueCounts, pipelineStages, reasonFacets,
+ * agingExceptions) AND the active-first `inbound` triage counts, in ONE fetch
+ * (replacing the prior 4-call fan-out). `now` is threaded so the server windows
+ * (today / this week) against the CLIENT clock. NOT safe()-wrapped: a transport
+ * failure surfaces as `error` so the dashboard renders its error panel.
+ */
+export function useDashboard(): QueryState<DashboardSummary> {
+  const run = useCallback(() => getDataAccess().dashboardSummary(new Date()), []);
   return useAsync(run, []);
 }
 
@@ -177,6 +177,26 @@ export function useLocationAssistGate(): QueryState<LocationAssistGate> {
   return useAsync(run, []);
 }
 
+/**
+ * The AI-assist gate (TKT-015). Screens read `const { data: aiGate } = useAiAssistGate()`
+ * and treat `undefined`/loading as OFF (the panel stays hidden). The read defaults all-off
+ * on failure, so this never throws the feature on by accident.
+ */
+export function useAiAssistGate(): QueryState<AiAssistGate> {
+  const run = useCallback(() => getDataAccess().getAiAssistGate(), []);
+  return useAsync(run, []);
+}
+
+/** Pending + recently-reviewed AI suggestions for a case (TKT-015). Honest-empty (`[]`)
+ *  on any failure (the read is safe()-wrapped). Re-runs on case id change. */
+export function useAiSuggestions(caseId: string | undefined): QueryState<AiSuggestion[]> {
+  const run = useCallback(
+    () => (caseId ? getDataAccess().aiSuggestions(caseId) : Promise.resolve([])),
+    [caseId],
+  );
+  return useAsync(run, [caseId]);
+}
+
 /** The 'hold new cases by default' intake preference (env-var). Loading/undefined
  *  is treated as false (no accidental hold). */
 export function useHoldNewCasesDefault(): QueryState<boolean> {
@@ -191,22 +211,46 @@ export function useActivity(): QueryState<ActivityEvent[]> {
 }
 
 /**
- * The inbox/triage rows for the active category tab (Phase 8), newest-first.
- * Re-runs when the category changes. Honest-empty (`[]`) until the
- * `cr1bd_inboundemail` table is wired — the screen renders the empty state.
+ * The inbox/triage rows for the active facet (Phase 8 + work-todo-spike:
+ * email-management), newest-first. `view` defaults to 'active' (handled rows
+ * hidden); pass 'handled' or 'all' to widen. Re-runs when category/subtype/view
+ * change. Honest-empty (`[]`) until wired. The inbox LIST is NOT safe()-wrapped —
+ * a 5xx surfaces as `error`/retry, never a fake empty inbox.
  */
-export function useInbox(category?: InboundCategory): QueryState<InboundEmail[]> {
+export function useInbox(facet?: InboundFacet): QueryState<InboundEmail[]> {
+  const category = facet?.category;
+  const subtype = facet?.subtype;
+  const view: InboundView = facet?.view ?? 'active';
   const run = useCallback(
-    () => getDataAccess().inboundEmails(category ? { category } : undefined),
-    [category],
+    () => getDataAccess().inboundEmails({ category, subtype, view }),
+    [category, subtype, view],
   );
-  return useAsync(run, [category]);
+  return useAsync(run, [category, subtype, view]);
 }
 
-/** Per-category triage counts (+ untriaged backlog) — TabList badges + nav pill. */
+/** Per-category ACTIVE-first triage counts (+ untriaged backlog) — TabList badges +
+ *  nav pill. safe()-degrades to the zero baseline (the badge must never crash the nav). */
 export function useInboundCounts(): QueryState<InboundCounts> {
   const run = useCallback(() => getDataAccess().inboundEmailCounts(), []);
   return useAsync(run, []);
+}
+
+/**
+ * Preview the next Case/PO for a principal (+ optional year) — work-todo-spike:
+ * box/case-po-gen. Re-runs as `principal`/`year` change so a manual-intake form can
+ * show a live "next PO" preview; resolves `undefined` until a principal is supplied.
+ * PREVIEW only — the durable claim happens at case create under the advisory-locked mint.
+ */
+export function useNextCasePo(
+  principal: string | undefined,
+  year?: string | number,
+): QueryState<NextCasePoResult | undefined> {
+  const run = useCallback(
+    () =>
+      principal ? getDataAccess().nextCasePo(principal, year) : Promise.resolve(undefined),
+    [principal, year],
+  );
+  return useAsync(run, [principal, year]);
 }
 
 /* ============================================================
@@ -256,4 +300,125 @@ export function useCaseUpdate(): CaseUpdateState {
   );
 
   return { update, saving, error };
+}
+
+/**
+ * Internal: back a mutation trigger with in-flight + error state. `fn` runs on the
+ * user action (NOT on mount) and reads `getDataAccess()` fresh each call, so the
+ * stable trigger never goes stale across a source swap. The trigger REJECTS on
+ * failure (after recording `error`) so the caller can keep its editor/dialog open
+ * and surface the failure rather than silently "succeed".
+ */
+function useMutationFn<A extends unknown[], R>(
+  fn: (...args: A) => Promise<R>,
+): { run: (...args: A) => Promise<R>; pending: boolean; error: Error | undefined } {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<Error | undefined>(undefined);
+  const run = useCallback(
+    async (...args: A): Promise<R> => {
+      setPending(true);
+      setError(undefined);
+      try {
+        return await fn(...args);
+      } catch (err: unknown) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        setError(e);
+        throw e; // rethrow: caller keeps the UI open + toasts the failure
+      } finally {
+        setPending(false);
+      }
+    },
+    // `fn` intentionally excluded: it only forwards to the live seam, read fresh per call.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  return { run, pending, error };
+}
+
+/** What `useTriage` hands the screen. `setState` REJECTS on non-2xx so the UI shows
+ *  the failure (never a fake success). */
+export interface TriageMutationState {
+  setState: (id: string, state: TriageState) => Promise<void>;
+  saving: boolean;
+  error: Error | undefined;
+}
+/** Set an inbound email's triage state (Phase 8). */
+export function useTriage(): TriageMutationState {
+  const m = useMutationFn((id: string, state: TriageState) =>
+    getDataAccess().setTriageState(id, state),
+  );
+  return { setState: m.run, saving: m.pending, error: m.error };
+}
+
+/** What `useReclassifyInbound` hands the screen. `reclassify` resolves the updated
+ *  InboundEmail (chosen vs. suggested category/subtype) and REJECTS on failure. */
+export interface ReclassifyInboundState {
+  reclassify: (id: string, input: ReclassifyInboundInput) => Promise<InboundEmail>;
+  saving: boolean;
+  error: Error | undefined;
+}
+/** Staff reclassify/override an inbound email (work-todo-spike: suggested-tags-and-folders). */
+export function useReclassifyInbound(): ReclassifyInboundState {
+  const m = useMutationFn((id: string, input: ReclassifyInboundInput) =>
+    getDataAccess().reclassifyInbound(id, input),
+  );
+  return { reclassify: m.run, saving: m.pending, error: m.error };
+}
+
+/** What `useCaseRemove` hands the screen. `remove` resolves the RemoveCaseResult
+ *  (surfacing `boxFolderUrl` + `alreadyRemoved`) and REJECTS on failure. Superuser. */
+export interface CaseRemoveState {
+  remove: (id: string, input: RemoveCaseInput) => Promise<RemoveCaseResult>;
+  removing: boolean;
+  error: Error | undefined;
+}
+/** Soft-remove a case (Superuser, work-todo-spike: ui-changes/delete-case). */
+export function useCaseRemove(): CaseRemoveState {
+  const m = useMutationFn((id: string, input: RemoveCaseInput) =>
+    getDataAccess().removeCase(id, input),
+  );
+  return { remove: m.run, removing: m.pending, error: m.error };
+}
+
+/** What `useProviderUpdate` hands the screen. `update` resolves the full updated
+ *  Provider and REJECTS on failure. Superuser; principal_code is immutable. */
+export interface ProviderUpdateState {
+  update: (idOrCode: string, input: ProviderUpdateInput) => Promise<Provider>;
+  saving: boolean;
+  error: Error | undefined;
+}
+/** Update a provider's automation mode / known sender-domains (work-todo-spike). */
+export function useProviderUpdate(): ProviderUpdateState {
+  const m = useMutationFn((idOrCode: string, input: ProviderUpdateInput) =>
+    getDataAccess().updateProvider(idOrCode, input),
+  );
+  return { update: m.run, saving: m.pending, error: m.error };
+}
+
+/** What `useReviewAiSuggestion` hands the screen (TKT-015). `review` resolves the
+ *  AiSuggestionReviewResult (surfacing whether a value was promoted) and REJECTS on failure. */
+export interface ReviewAiSuggestionState {
+  review: (id: string, input: AiSuggestionReviewInput) => Promise<AiSuggestionReviewResult>;
+  saving: boolean;
+  error: Error | undefined;
+}
+/** Accept/reject an AI suggestion (TKT-015 AI suggestion layer). */
+export function useReviewAiSuggestion(): ReviewAiSuggestionState {
+  const m = useMutationFn((id: string, input: AiSuggestionReviewInput) =>
+    getDataAccess().reviewAiSuggestion(id, input),
+  );
+  return { review: m.run, saving: m.pending, error: m.error };
+}
+
+/** What `useGenerateAiSuggestions` hands the screen (TKT-015). `generate` resolves the
+ *  honest `{ generated, reason? }` result (no-op when the gate is off / model unconfigured). */
+export interface GenerateAiSuggestionsState {
+  generate: (caseId: string) => Promise<GenerateAiSuggestionsResult>;
+  generating: boolean;
+  error: Error | undefined;
+}
+/** Ask the server to generate AI suggestions for a case (TKT-015). */
+export function useGenerateAiSuggestions(): GenerateAiSuggestionsState {
+  const m = useMutationFn((caseId: string) => getDataAccess().generateAiSuggestions(caseId));
+  return { generate: m.run, generating: m.pending, error: m.error };
 }

@@ -1,5 +1,14 @@
 # Dataverse Corpus Incorporation — CONFIRMED provider-corpus analysis → live Sandbox Dataverse
 
+> ⚠️ **HISTORICAL — Power Platform era (decommissioned 2026-06-27).** The **target store named below is
+> Dataverse**, which was **migrated to PostgreSQL Flexible Server `cespk-pg-dev`** and deprovisioned. The
+> `cr1bd_*` tables / `pac` / Sandbox steps are the **prior mechanism**; the corpus **content + dispositions**
+> (WorkProvider / Repairer / InspectionAddress / N:N, provenance, the over-length-principal-code rules) are
+> the domain reference and were carried into the Postgres schema (`migration/assets/schema/*.sql`). Read for
+> the corpus rules, **not** as a live load runbook. Live corpus counts: the registry
+> [live-environment.md](../../../architecture/live-environment.md) (single source
+> [LIVE_FACTS.json](../../../../LIVE_FACTS.json)).
+
 **Status:** Ready for implementation by `dataverse-data-architect`
 **Target:** Sandbox `Collision Engineers - Dev` (`https://collisionengineers-dev.crm11.dynamics.com`), solution `CollisionSpike`, publisher prefix `cr1bd`
 **Date:** 2026-06-18

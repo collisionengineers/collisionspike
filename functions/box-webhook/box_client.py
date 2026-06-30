@@ -77,6 +77,15 @@ _TOKEN_PATH = "/oauth2/token"
 _BOX_TOKEN_HOST_SUFFIX = ".box.com"
 
 
+def _validate_box_base(base_url: str, setting_label: str) -> None:
+    """Raise BoxConfigError unless a configured Box base URL is HTTPS on box.com."""
+    parts = urlsplit(base_url)
+    host = (parts.hostname or "").lower()
+    ok = parts.scheme == "https" and (host == "box.com" or host.endswith(_BOX_TOKEN_HOST_SUFFIX))
+    if not ok:
+        raise BoxConfigError(f"Refusing to use Box {setting_label}: must be an https *.box.com host")
+
+
 def _assert_box_token_host(token_url: str) -> None:
     """Raise BoxConfigError unless ``token_url`` is https on a ``*.box.com``
     host. Guards the credential POST, NOT ordinary REST calls."""
@@ -450,14 +459,17 @@ class BoxClient:
         json_body: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
         base: str | None = None,
+        files: dict[str, Any] | None = None,
     ) -> httpx.Response:
         """Issue an authenticated Box REST call. ``path`` is appended to
-        ``base`` (default the api host). Refreshes the token once on a 401, then
-        backs off on 429/5xx. Returns the raw httpx.Response so callers can map
-        Box-specific success/idempotent-conflict codes themselves (e.g. the
-        409-on-CreateFolder idempotency)."""
+        ``base`` (default the api host; pass the upload host for ``files`` uploads).
+        Refreshes the token once on a 401, then backs off on 429/5xx. ``files`` is a
+        multipart map (httpx form) used by the file-upload op; when set, the body is
+        sent as multipart/form-data instead of JSON. Returns the raw httpx.Response so
+        callers can map Box-specific success/idempotent-conflict codes themselves
+        (e.g. the 409-on-CreateFolder/Upload idempotency)."""
         return self._request_with_retry(
-            method, path, json_body=json_body, params=params, base=base
+            method, path, json_body=json_body, params=params, base=base, files=files
         )
 
     def _request_with_retry(
@@ -470,6 +482,7 @@ class BoxClient:
         base: str | None,
         attempt: int = 0,
         refreshed: bool = False,
+        files: dict[str, Any] | None = None,
     ) -> httpx.Response:
         cfg = self.config
         url = f"{(base or cfg.api_base).rstrip('/')}{path}"
@@ -477,7 +490,11 @@ class BoxClient:
             "Authorization": f"Bearer {self.get_token(force_refresh=refreshed)}",
             "Accept": "application/json",
         }
-        resp = self.http.request(method, url, headers=headers, json=json_body, params=params)
+        if files is not None:
+            # Multipart upload (upload.box.com): never send a JSON body alongside.
+            resp = self.http.request(method, url, headers=headers, files=files, params=params)
+        else:
+            resp = self.http.request(method, url, headers=headers, json=json_body, params=params)
 
         # 401: refresh the token exactly once, then retry.
         if resp.status_code == 401 and not refreshed:
@@ -485,7 +502,7 @@ class BoxClient:
                 self._token = None  # drop the stale token
             return self._request_with_retry(
                 method, path, json_body=json_body, params=params, base=base,
-                attempt=attempt, refreshed=True,
+                attempt=attempt, refreshed=True, files=files,
             )
         if resp.status_code == 401:
             raise BoxAuthError("Box returned 401 after one token refresh", status=401)
@@ -495,7 +512,7 @@ class BoxClient:
             self._backoff(attempt)
             return self._request_with_retry(
                 method, path, json_body=json_body, params=params, base=base,
-                attempt=attempt + 1, refreshed=refreshed,
+                attempt=attempt + 1, refreshed=refreshed, files=files,
             )
 
         return resp
@@ -560,6 +577,44 @@ class BoxClient:
                 return {"id": conflict_id, "type": "folder", "name": name, "outcome": "reused"}
             raise BoxError("Box returned 409 with no resolvable conflict id", status=409)
         raise BoxError(f"Box CreateFolder returned HTTP {resp.status_code}", status=resp.status_code)
+
+    def upload_file(
+        self,
+        folder_id: str,
+        filename: str,
+        content: bytes,
+        content_type: str | None = None,
+    ) -> dict[str, Any]:
+        """POST /api/2.0/files/content (multipart) to the UPLOAD host — archive one
+        evidence byte-stream into a case folder (the one-way Blob -> Box mirror,
+        ADR-0012). Scope-locked to the parent folder (BOX_ALLOWED_ROOT_ID) BEFORE the
+        bytes leave us. 409 item_name_in_use is an IDEMPOTENT success: the same
+        filename already lives in the folder (a replayed archive), so we read the
+        conflicting file id out of context_info.conflicts and return it tagged
+        outcome='reused' — never a duplicate upload."""
+        self._assert_in_scope("folders", folder_id)
+        _validate_box_base(self.config.upload_base, "upload base")
+        attributes = json.dumps({"name": filename, "parent": {"id": folder_id}})
+        files = {
+            # attributes part: (filename=None -> a plain form field), value, content-type
+            "attributes": (None, attributes, "application/json"),
+            "file": (filename, content, content_type or "application/octet-stream"),
+        }
+        resp = self.request(
+            "POST", "/api/2.0/files/content", base=self.config.upload_base, files=files
+        )
+        if resp.status_code == 201:
+            body = resp.json()
+            entry = (body.get("entries") or [{}])[0] if isinstance(body, dict) else {}
+            entry["outcome"] = "created"
+            return entry
+        if resp.status_code == 409:
+            conflict_id = _conflict_id(resp)
+            if conflict_id:
+                logger.info("box file already exists in folder (409); reusing id")
+                return {"id": conflict_id, "type": "file", "name": filename, "outcome": "reused"}
+            raise BoxError("Box UploadFile returned 409 with no resolvable conflict id", status=409)
+        raise BoxError(f"Box UploadFile returned HTTP {resp.status_code}", status=resp.status_code)
 
     def copy_file_request(
         self, template_id: str, folder_id: str, *, status: str = "active",
@@ -637,7 +692,11 @@ def _json_or_raise(resp: httpx.Response, op: str) -> dict[str, Any]:
 
 
 def _conflict_id(resp: httpx.Response) -> str | None:
-    """Pull context_info.conflicts[0].id from a 409 item_name_in_use body."""
+    """Pull the conflicting item id from a 409 item_name_in_use body.
+
+    CreateFolder returns ``context_info.conflicts`` as a LIST; the file-upload
+    (files/content) 409 returns it as a SINGLE object (the conflicting file mini).
+    Handle both so the upload idempotency reads the existing file id back out."""
     try:
         body = resp.json()
     except ValueError:
@@ -650,4 +709,7 @@ def _conflict_id(resp: httpx.Response) -> str | None:
         if isinstance(first, dict):
             cid = first.get("id")
             return str(cid) if cid is not None else None
+    if isinstance(conflicts, dict):
+        cid = conflicts.get("id")
+        return str(cid) if cid is not None else None
     return None

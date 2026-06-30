@@ -244,6 +244,89 @@ def _parse(req: func.HttpRequest) -> func.HttpResponse:
     return _json(200, response)
 
 
+@app.function_name(name="extract_images")
+@app.route(route="extract-images", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+def extract_images_route(req: func.HttpRequest) -> func.HttpResponse:
+    """POST /extract-images — pull embedded images out of an instruction document.
+
+    Request (JSON object):
+        document   str   base64-encoded source bytes (PDF / DOCX / DOC)
+        filename   str   name WITH extension (selects the extractor)
+
+    Response (200):
+        { "count": int,
+          "images": [ {filename, ext, content_type, size, sha256, content_base64,
+                       sequence_index} ],
+          "message": str, "contract_version": "cedocumentparser_v2.0_images" }
+
+    A document with no embedded images returns 200 with ``count: 0`` (NOT an error).
+    Status codes mirror /parse: 400 bad request · 422 unreadable · 500 internal ·
+    502 parser dependency failed. Same defensive wrapper so nothing escapes as a 502.
+    """
+    try:
+        return _extract_images(req)
+    except Exception:  # noqa: BLE001 - last line of defence; never let a 502 escape
+        _LOG.exception("unhandled error in extract-images handler")
+        return _images_error(500, "internal_error", "Unexpected internal error while extracting images.")
+
+
+IMAGES_CONTRACT_VERSION = "cedocumentparser_v2.0_images"
+
+
+def _extract_images(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        body = req.get_json()
+    except ValueError:
+        return _images_error(400, "bad_request", "Request body must be valid JSON.")
+    if not isinstance(body, dict):
+        return _images_error(400, "bad_request", "Request body must be a JSON object.")
+
+    document_b64 = body.get("document")
+    filename = body.get("filename")
+    if not document_b64 or not isinstance(document_b64, str):
+        return _images_error(400, "missing_document", "'document' (base64 string) is required.")
+    if not filename or not isinstance(filename, str):
+        return _images_error(400, "missing_filename", "'filename' (string with extension) is required.")
+
+    try:
+        document_bytes = _decode_document(document_b64)
+    except (binascii.Error, ValueError):
+        return _images_error(400, "bad_base64", "'document' is not valid base64.")
+    if not document_bytes:
+        return _images_error(400, "empty_document", "Decoded 'document' is empty.")
+
+    try:
+        result = parser_adapter.run_image_extraction(document_bytes, filename)
+    except DocumentUnreadableError as exc:
+        _LOG.warning("unreadable document for image extraction %r: %s", filename, exc)
+        return _images_error(422, "document_unreadable", str(exc))
+    except ParserError as exc:
+        _LOG.exception("image extraction dependency failed")
+        return _images_error(502, "parser_failed", str(exc))
+
+    return _json(
+        200,
+        {
+            "count": result.get("count", 0),
+            "images": result.get("images", []),
+            "message": result.get("message", ""),
+            "contract_version": IMAGES_CONTRACT_VERSION,
+        },
+    )
+
+
+def _images_error(status: int, code: str, message: str) -> func.HttpResponse:
+    return _json(
+        status,
+        {
+            "count": 0,
+            "images": [],
+            "issues": [{"field": "(request)", "severity": "error", "code": code, "message": message}],
+            "contract_version": IMAGES_CONTRACT_VERSION,
+        },
+    )
+
+
 @app.function_name(name="classify_email")
 @app.route(route="classify-email", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def classify_email_route(req: func.HttpRequest) -> func.HttpResponse:

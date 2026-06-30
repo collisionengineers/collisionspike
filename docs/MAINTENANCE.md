@@ -4,6 +4,9 @@ This is the human protocol that keeps the docs honest. It is **enforced** by thr
 (all created in the doc-hygiene pass, 2026-06-28):
 
 - `scripts/check-doc-links.mjs` — broken-link / orphan / live-number-leakage gate (zero npm deps).
+- `scripts/check-tickets.mjs` — ticket-frontmatter validator for [`docs/tickets/`](./tickets/README.md)
+  (frontmatter present; `status`/`priority` enums valid; `research-link` resolves; ids unique). Zero npm
+  deps. Run it alongside the link checker.
 - `verify-all.mjs` → the `verify-live` gate — re-queries live Azure/Graph and diffs vs the registry.
 - `scripts/hooks/pre-commit` + `.github/workflows/docs.yml` — run the above at commit time and in CI.
 
@@ -143,6 +146,7 @@ Orthogonal to the above, for **live numbers** the registry (`LIVE_FACTS.json` +
 | Live numbers (authoritative) | `LIVE_FACTS.json` · `docs/architecture/live-environment.md` |
 | What's live now (narrative changelog) | `CURRENT_STATUS.md` |
 | Forward work backlog | `ROADMAP.md` |
+| Atomic work items (tickets + board) | `docs/tickets/` (README + BOARD; validated by `scripts/check-tickets.mjs`) |
 | What needs the operator | `docs/gated.md` |
 | Operator handoff pack | `docs/handoff/` (start: `OPERATOR-CHECKLIST.md`) |
 | How the system is built | `docs/architecture/` (canonical registry = `live-environment.md`) |
