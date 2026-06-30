@@ -1,7 +1,7 @@
 ---
 id: TKT-012
 title: Define the combined dashboard/queue count contract
-status: now
+status: done
 priority: P2
 area: dashboard
 tickets-it-relates-to: [TKT-007]

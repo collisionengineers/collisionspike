@@ -1,7 +1,7 @@
 ---
 id: TKT-014
 title: Remove the acme.co.uk placeholder from provider fields
-status: now
+status: done
 priority: P3
 area: ui
 tickets-it-relates-to: []

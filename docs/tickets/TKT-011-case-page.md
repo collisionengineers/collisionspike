@@ -1,7 +1,7 @@
 ---
 id: TKT-011
 title: Case page de-jargon + layout fixes
-status: now
+status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-008, TKT-009]

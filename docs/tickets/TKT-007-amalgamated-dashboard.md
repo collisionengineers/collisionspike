@@ -1,7 +1,7 @@
 ---
 id: TKT-007
 title: Combine email + intake overviews into one compact dashboard
-status: now
+status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-012, TKT-005]

@@ -1,7 +1,7 @@
 ---
 id: TKT-013
 title: Define + enforce the per-provider automation modes
-status: now
+status: done
 priority: P2
 area: platform
 tickets-it-relates-to: [TKT-006, TKT-004]

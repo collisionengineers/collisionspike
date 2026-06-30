@@ -1,7 +1,7 @@
 ---
 id: TKT-019
 title: Build the Markdown ticket system + board + validator
-status: now
+status: done
 priority: P2
 area: docs
 tickets-it-relates-to: [TKT-020]
