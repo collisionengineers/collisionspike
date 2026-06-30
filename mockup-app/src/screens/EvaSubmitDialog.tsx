@@ -215,6 +215,32 @@ function readyGroupSummary(c: Case): string {
   return present.map((g) => g.label).join(' · ');
 }
 
+function splitExistingCasePo(casePo: string | undefined): {
+  principal: string;
+  yy: string;
+  seq: string;
+  evaLower: string;
+  boxUpper: string;
+} | undefined {
+  const boxUpper = (casePo ?? '').trim().toUpperCase();
+  if (!boxUpper) return undefined;
+  if (boxUpper.length <= 5) {
+    return { principal: boxUpper, yy: '', seq: '', evaLower: boxUpper.toLowerCase(), boxUpper };
+  }
+  const yy = boxUpper.slice(-5, -3);
+  const seq = boxUpper.slice(-3);
+  if (!/^\d{2}$/.test(yy) || !/^\d{3}$/.test(seq)) {
+    return { principal: boxUpper, yy: '', seq: '', evaLower: boxUpper.toLowerCase(), boxUpper };
+  }
+  return {
+    principal: boxUpper.slice(0, -5),
+    yy,
+    seq,
+    evaLower: boxUpper.toLowerCase(),
+    boxUpper,
+  };
+}
+
 export function EvaSubmitDialog() {
   const styles = useStyles();
   const { caseId } = useParams<{ caseId: string }>();
@@ -225,11 +251,13 @@ export function EvaSubmitDialog() {
   const close = () => navigate(caseId ? `/case/${caseId}` : '/');
 
   const suggestion = useMemo(() => (c ? suggestCasePo(c) : undefined), [c]);
+  const existingCasePo = useMemo(() => splitExistingCasePo(c?.casePo), [c?.casePo]);
 
   // Live Case/PO allocator PREVIEW (TKT-004) — the REAL next sequence from DB
   // history (or the Box folder scan fallback), replacing the local 001 default.
   const [nextPo, setNextPo] = useState<NextCasePoResult | undefined>();
   useEffect(() => {
+    if (existingCasePo) return;
     const principal = c?.providerCode;
     if (!principal) return;
     let cancelled = false;
@@ -244,7 +272,7 @@ export function EvaSubmitDialog() {
     return () => {
       cancelled = true;
     };
-  }, [c?.providerCode]);
+  }, [c?.providerCode, existingCasePo]);
 
   // Only the 3-digit sequence is user-editable; Principal + YY are locked
   // segments derived from the case. Seeded with the previewed next sequence (the
@@ -254,9 +282,9 @@ export function EvaSubmitDialog() {
   const [seqEdited, setSeqEdited] = useState(false);
   useEffect(() => {
     if (seqEdited) return;
-    const seed = nextPo?.seq ?? suggestion?.seq;
+    const seed = existingCasePo?.seq ?? nextPo?.seq ?? suggestion?.seq;
     if (seed) setSeq(seed);
-  }, [nextPo, suggestion, seqEdited]);
+  }, [existingCasePo, nextPo, suggestion, seqEdited]);
 
   const readiness = useMemo(() => (c ? computeReadiness(c) : undefined), [c]);
 
@@ -302,17 +330,18 @@ export function EvaSubmitDialog() {
   const ready = readiness.ready;
   const blockedCount = readiness.missing.length;
 
-  // Compose the live Case/PO from locked segments + the edited sequence. Prefer
-  // the live allocator's principal/yy, falling back to the local suggestion.
-  const principal = nextPo?.principal ?? suggestion.principal;
-  const yy = nextPo?.yy ?? suggestion.yy;
+  // Compose the live Case/PO from locked segments + the edited sequence. Existing
+  // case references are authoritative; otherwise prefer the allocator preview.
+  const principal = existingCasePo?.principal ?? nextPo?.principal ?? suggestion.principal;
+  const yy = existingCasePo?.yy ?? nextPo?.yy ?? suggestion.yy;
   const seqClean = seq.replace(/\D/g, '').slice(0, 3);
   const core = `${principal}${yy}${seqClean}`;
-  const complete = seqClean.length === 3;
-  const evaCode = complete ? core.toLowerCase() : '';
-  const boxCode = complete ? core.toUpperCase() : '';
+  const complete = existingCasePo ? true : seqClean.length === 3;
+  const evaCode = existingCasePo?.evaLower ?? (complete ? core.toLowerCase() : '');
+  const boxCode = existingCasePo?.boxUpper ?? (complete ? core.toUpperCase() : '');
 
   const onSeqChange = (value: string) => {
+    if (existingCasePo) return;
     setSeqEdited(true);
     setSeq(value.replace(/\D/g, '').slice(0, 3));
   };
@@ -421,27 +450,33 @@ export function EvaSubmitDialog() {
                     className={styles.seqInput}
                     value={seq}
                     onChange={(_, d) => onSeqChange(d.value)}
-                    inputMode="numeric"
-                    maxLength={3}
-                    placeholder="000"
-                    aria-label="Provider case sequence (3 digits)"
-                  />
-                </Field>
-                <span className={styles.segNote}>
-                  3-digit provider sequence
-                </span>
-              </div>
+                      inputMode="numeric"
+                      maxLength={3}
+                      placeholder="000"
+                      aria-label="Provider case sequence (3 digits)"
+                      readOnly={!!existingCasePo}
+                      disabled={!!existingCasePo}
+                    />
+                  </Field>
+                  <span className={styles.segNote}>
+                    {existingCasePo ? 'Existing case reference' : '3-digit provider sequence'}
+                  </span>
+                </div>
 
-              {/* Where the previewed next number came from (TKT-004). */}
-              {nextPo && (
-                <Text className={styles.heroHint}>
-                  Suggested next for {principal}: {nextPo.boxUpper} —{' '}
-                  {nextPo.source === 'box'
-                    ? 'next after the latest archive folder'
-                    : 'next in our records'}
-                  .
-                </Text>
-              )}
+                {/* Where the previewed next number came from (TKT-004). */}
+                {existingCasePo ? (
+                  <Text className={styles.heroHint}>
+                    This case already has a Case/PO. EVA export uses that reference.
+                  </Text>
+                ) : nextPo && (
+                  <Text className={styles.heroHint}>
+                    Suggested next for {principal}: {nextPo.boxUpper} —{' '}
+                    {nextPo.source === 'box'
+                      ? 'next after the latest archive folder'
+                      : 'next in our records'}
+                    .
+                  </Text>
+                )}
 
               <div className={styles.derivedGrid}>
                 <span className={styles.derivedLabel}>

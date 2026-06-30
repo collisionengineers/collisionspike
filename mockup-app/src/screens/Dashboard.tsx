@@ -525,25 +525,25 @@ export function Dashboard() {
         <span className="ce-overline">Inbox</span>
         <div className={styles.liveStrip}>
           <InboxTile
-            icon={Briefcase}
-            value={inbound.receiving_work}
-            label="Receiving work"
-            onOpen={() => navigate('/inbox')}
-          />
-          <InboxTile
-            icon={MailQuestion}
-            value={inbound.query}
-            label="Queries"
-            onOpen={() => navigate('/inbox')}
-          />
-          <InboxTile icon={Mail} value={inbound.other} label="Other" onOpen={() => navigate('/inbox')} />
-          <InboxTile
-            icon={AlertCircle}
-            value={inbound.untriaged}
-            label="Needs sorting"
-            blocker={inbound.untriaged > 0}
-            onOpen={() => navigate('/inbox')}
-          />
+              icon={Briefcase}
+              value={inbound.receiving_work}
+              label="Receiving work"
+              onOpen={() => navigate('/inbox?category=receiving_work&view=active')}
+            />
+            <InboxTile
+              icon={MailQuestion}
+              value={inbound.query}
+              label="Queries"
+              onOpen={() => navigate('/inbox?category=query&view=active')}
+            />
+            <InboxTile icon={Mail} value={inbound.other} label="Other" onOpen={() => navigate('/inbox?category=other&view=active')} />
+            <InboxTile
+              icon={AlertCircle}
+              value={inbound.untriaged}
+              label="Needs sorting"
+              blocker={inbound.untriaged > 0}
+              onOpen={() => navigate('/inbox?view=active')}
+            />
         </div>
       </section>
 

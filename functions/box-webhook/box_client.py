@@ -77,6 +77,15 @@ _TOKEN_PATH = "/oauth2/token"
 _BOX_TOKEN_HOST_SUFFIX = ".box.com"
 
 
+def _validate_box_base(base_url: str, setting_label: str) -> None:
+    """Raise BoxConfigError unless a configured Box base URL is HTTPS on box.com."""
+    parts = urlsplit(base_url)
+    host = (parts.hostname or "").lower()
+    ok = parts.scheme == "https" and (host == "box.com" or host.endswith(_BOX_TOKEN_HOST_SUFFIX))
+    if not ok:
+        raise BoxConfigError(f"Refusing to use Box {setting_label}: must be an https *.box.com host")
+
+
 def _assert_box_token_host(token_url: str) -> None:
     """Raise BoxConfigError unless ``token_url`` is https on a ``*.box.com``
     host. Guards the credential POST, NOT ordinary REST calls."""
@@ -584,6 +593,7 @@ class BoxClient:
         conflicting file id out of context_info.conflicts and return it tagged
         outcome='reused' — never a duplicate upload."""
         self._assert_in_scope("folders", folder_id)
+        _validate_box_base(self.config.upload_base, "upload base")
         attributes = json.dumps({"name": filename, "parent": {"id": folder_id}})
         files = {
             # attributes part: (filename=None -> a plain form field), value, content-type

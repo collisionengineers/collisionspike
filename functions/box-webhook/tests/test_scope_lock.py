@@ -24,7 +24,7 @@ FN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(FN_DIR))
 
 import box_client as bc  # noqa: E402
-from box_client import BoxClient, BoxScopeError  # noqa: E402
+from box_client import BoxClient, BoxConfigError, BoxScopeError  # noqa: E402
 from jwt_testkit import jwt_box_config  # noqa: E402
 
 API_BASE = "https://api.box.com"
@@ -41,6 +41,10 @@ def _clear_scope_cache():
 
 def _client(allowed_root: str = ROOT) -> BoxClient:
     return BoxClient(config=jwt_box_config(allowed_root_id=allowed_root))
+
+
+def _client_with_upload_base(upload_base: str) -> BoxClient:
+    return BoxClient(config=jwt_box_config(allowed_root_id=ROOT, upload_base=upload_base))
 
 
 def _mock_token() -> None:
@@ -158,3 +162,21 @@ def test_upload_descendant_passes_via_path_collection():
     out = _client().upload_file("555", "a.pdf", b"bytes")  # case subfolder under the root
     assert out["id"] == "f"
     assert up.called
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "upload_base",
+    [
+        "http://upload.box.com",
+        "https://upload.box.com.evil.example",
+        "https://example.com",
+    ],
+)
+def test_upload_base_must_be_https_box_host(upload_base):
+    up = respx.post(f"{upload_base}/api/2.0/files/content").mock(
+        return_value=httpx.Response(201, json={"entries": [{"id": "f"}]})
+    )
+    with pytest.raises(BoxConfigError):
+        _client_with_upload_base(upload_base).upload_file(ROOT, "a.pdf", b"bytes")
+    assert not up.called

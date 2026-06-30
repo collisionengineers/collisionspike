@@ -203,16 +203,13 @@ export const box = {
       ...(contentType ? { contentType } : {}),
     });
   },
-  copyFileRequest(fileRequestId: string, folderId: string): Promise<unknown> {
-    return callFunction(BOX, 'POST', `box/file-requests/${fileRequestId}/copy`, {
-      folder: { id: folderId },
-    });
-  },
+	  copyFileRequest(fileRequestId: string, folderId: string): Promise<unknown> {
+	    return callFunction(BOX, 'POST', `box/file-requests/${fileRequestId}/copy`, {
+	      folder: { id: folderId },
+	    });
+	  },
   listFolderItems(folderId: string): Promise<{ entries: Array<{ id: string; name: string }> }> {
     return callFunction(BOX, 'GET', `box/folders/${folderId}/items`);
-  },
-  folderSharedLink(folderId: string): Promise<{ shared_link?: { url: string } }> {
-    return callFunction(BOX, 'PUT', `box/folders/${folderId}/shared-link`, {});
   },
 };
 

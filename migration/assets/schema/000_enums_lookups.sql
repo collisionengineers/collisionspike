@@ -81,12 +81,12 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   (100000013, 'status_changed',             'Status Changed'),
   (100000014, 'jobsheet_imported',          'Job Sheet Imported'),
   (100000015, 'eva_submitted',              'EVA Submitted'),
-  (100000016, 'box_synced',                 'Box Synced'),
+  (100000016, 'box_synced',                 'Archive Synced'),
   (100000017, 'corpus_record_changed',      'Corpus Record Changed'),
   (100000018, 'inspection_override',        'Inspection Override'),
-  (100000019, 'box_folder_created',         'Box Folder Created'),
-  (100000020, 'box_file_request_copied',    'Box File Request Copied'),
-  (100000021, 'box_upload_received',        'Box Upload Received'),
+  (100000019, 'box_folder_created',         'Archive Folder Created'),
+  (100000020, 'box_file_request_copied',    'Image Upload Link Created'),
+  (100000021, 'box_upload_received',        'Archive Upload Received'),
   (100000022, 'location_assist_confirmed',  'Location Assist Confirmed'),
   (100000023, 'chaser_sent',                'Chaser Sent'),
   (100000024, 'inbound_classified',         'Inbound Classified'),
@@ -153,7 +153,7 @@ INSERT INTO choice_case_status (code, name, label) VALUES
   (100000006, 'linked_to_instruction',   'Linked to Instruction'),
   (100000007, 'ready_for_eva',           'Ready for EVA'),
   (100000008, 'eva_submitted',           'EVA Submitted'),
-  (100000009, 'box_synced',              'Box Synced'),
+  (100000009, 'box_synced',              'Archive Synced'),
   (100000010, 'error',                   'Error'),
   -- TERMINAL. Superuser soft-remove (work-todo-spike: ui-changes/delete-case): the case
   -- row + audit trail survive; PII is anonymised and the status is locked here so the
@@ -336,7 +336,8 @@ INSERT INTO choice_inbound_subtype (code, name, label) VALUES
   (100000002, 'new_client_work',               'New Client Work'),
   (100000003, 'query_existing_work',           'Query: Existing Work'),
   (100000004, 'query_new_enquiry',             'Query: New Enquiry'),
-  (100000005, 'other',                         'Other');
+  (100000005, 'other',                         'Other'),
+  (100000006, 'existing_provider_diminution',  'Existing Provider Diminution');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inspectiondecisionmode  (inspection-decision-mode.json)

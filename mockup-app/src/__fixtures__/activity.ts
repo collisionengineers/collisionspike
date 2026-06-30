@@ -65,7 +65,7 @@ export const activity: ActivityEvent[] = [
     kind: 'box_sync',
     actor: 'System',
     timestamp: '30/04/2026 10:05',
-    description: 'Archived to Box folder TEST26012.',
+    description: 'Archived to archive folder TEST26012.',
   },
 ];
 

@@ -222,7 +222,7 @@ describe('rest-client — removeCase (soft-remove, Superuser)', () => {
     };
     const fetchMock = vi.fn().mockResolvedValue(okJson(result));
     const da = clientWith(fetchMock);
-    const input = { acknowledgeBoxFolderHandled: true, reason: 'duplicate of CCPY26050' };
+	    const input = { acknowledgeArchiveFolderHandled: true, reason: 'duplicate of CCPY26050' };
     const res = await da.removeCase('c-9', input);
     expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/c-9');
     const init = lastInit(fetchMock);

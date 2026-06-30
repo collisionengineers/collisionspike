@@ -13,12 +13,12 @@ import { useMsal } from '@azure/msal-react';
    showing an action the operator can't actually perform.
    ============================================================ */
 
-const SUPERUSER_ROLE = 'CollisionSpike.Superuser';
+const SUPERUSER_ROLES = new Set(['CollisionSpike.Superuser', 'CollisionSpike.Admin']);
 
 /** True when the active account holds the Superuser app role. */
 export function useIsSuperuser(): boolean {
   const { instance, accounts } = useMsal();
   const account = instance.getActiveAccount() ?? accounts[0];
   const roles = (account?.idTokenClaims as { roles?: string[] } | undefined)?.roles;
-  return Array.isArray(roles) && roles.includes(SUPERUSER_ROLE);
+  return Array.isArray(roles) && roles.some((role) => SUPERUSER_ROLES.has(role));
 }

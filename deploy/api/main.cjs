@@ -5665,7 +5665,7 @@ var case_status_default = {
     { value: 100000006, name: "linked_to_instruction", label: "Linked to Instruction" },
     { value: 100000007, name: "ready_for_eva", label: "Ready for EVA" },
     { value: 100000008, name: "eva_submitted", label: "EVA Submitted" },
-    { value: 100000009, name: "box_synced", label: "Box Synced" },
+    { value: 100000009, name: "box_synced", label: "Archive Synced" },
     { value: 100000010, name: "error", label: "Error" },
     { value: 100000011, name: "removed", label: "Removed" }
   ],
@@ -5861,12 +5861,12 @@ var audit_event_default = {
         { value: 100000013, name: "status_changed", label: "Status Changed" },
         { value: 100000014, name: "jobsheet_imported", label: "Job Sheet Imported" },
         { value: 100000015, name: "eva_submitted", label: "EVA Submitted" },
-        { value: 100000016, name: "box_synced", label: "Box Synced" },
+        { value: 100000016, name: "box_synced", label: "Archive Synced" },
         { value: 100000017, name: "corpus_record_changed", label: "Corpus Record Changed" },
         { value: 100000018, name: "inspection_override", label: "Inspection Override" },
-        { value: 100000019, name: "box_folder_created", label: "Box Folder Created" },
-        { value: 100000020, name: "box_file_request_copied", label: "Box File Request Copied" },
-        { value: 100000021, name: "box_upload_received", label: "Box Upload Received" },
+        { value: 100000019, name: "box_folder_created", label: "Archive Folder Created" },
+        { value: 100000020, name: "box_file_request_copied", label: "Image Upload Link Created" },
+        { value: 100000021, name: "box_upload_received", label: "Archive Upload Received" },
         { value: 100000022, name: "location_assist_confirmed", label: "Location Assist Confirmed" },
         { value: 100000023, name: "chaser_sent", label: "Chaser Sent" },
         { value: 100000024, name: "inbound_classified", label: "Inbound Classified" },
@@ -5876,7 +5876,10 @@ var audit_event_default = {
         { value: 100000028, name: "inbound_actioned", label: "Inbound Actioned" },
         { value: 100000029, name: "inbound_reopened", label: "Inbound Reopened" },
         { value: 100000030, name: "case_removed", label: "Case Removed" },
-        { value: 100000031, name: "inbound_reclassified", label: "Inbound Reclassified" }
+        { value: 100000031, name: "inbound_reclassified", label: "Inbound Reclassified" },
+        { value: 100000032, name: "ai_suggestion_created", label: "AI Suggestion Created" },
+        { value: 100000033, name: "ai_suggestion_accepted", label: "AI Suggestion Accepted" },
+        { value: 100000034, name: "ai_suggestion_rejected", label: "AI Suggestion Rejected" }
       ]
     },
     {
@@ -8363,7 +8366,7 @@ import_functions.app.http("createCase", {
       statusToInt(status),
       intakeChannelKindCodec.toInt("email") ?? null,
       true,
-      input.sourceLabel ?? "Manual intake (Data API)"
+      input.sourceLabel ?? "Manual intake"
     ];
     const add = (col, value) => {
       cols.push(col);
@@ -8374,8 +8377,11 @@ import_functions.app.http("createCase", {
       const wp = await query("SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1", [pcode]);
       if (wp[0]?.id) add("work_provider_id", wp[0].id);
     }
-    const casePo = (input.casePo ?? "").trim().toUpperCase();
-    if (casePo) add("case_po", casePo);
+    const suppliedCasePo = (input.casePo ?? "").trim().toUpperCase();
+    const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : "";
+    if (principalForAutoMint && !/^[A-Z][A-Z0-9]{0,7}$/.test(principalForAutoMint)) {
+      return { status: 400, jsonBody: { error: "invalid principal code" } };
+    }
     if (input.onHold) add("on_hold", true);
     if (input.insuredName) add("ov_insured_name", input.insuredName);
     if (input.providerReference) add("ov_claim_number", input.providerReference);
@@ -8385,12 +8391,33 @@ import_functions.app.http("createCase", {
     for (const desc of EVA_FIELD_ORDER) {
       add(EVA_COLUMN_BY_KEY[desc.key], input.evaFields[desc.key]?.value ?? "");
     }
-    const placeholders = vals.map((_v, i) => `$${i + 1}`).join(", ");
-    const rows = await query(
-      `INSERT INTO case_ (${cols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
-      vals
-    );
-    const newId = rows[0]?.id;
+    const newId = await tx(async (q) => {
+      const insertCols = [...cols];
+      const insertVals = [...vals];
+      let casePo = suppliedCasePo;
+      if (!casePo && principalForAutoMint) {
+        const yy = casePoYear();
+        const prefix = `${principalForAutoMint}${yy}`;
+        await q("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [`casepo:${prefix}`]);
+        const seqRows = await q(
+          `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) + 1 AS next_seq
+             FROM case_
+            WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
+          [`${prefix}%`, casePoSequenceRegex(principalForAutoMint, yy), prefix]
+        );
+        casePo = formatCasePo(principalForAutoMint, yy, Number(seqRows[0]?.next_seq ?? 1));
+      }
+      if (casePo) {
+        insertCols.push("case_po");
+        insertVals.push(casePo);
+      }
+      const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(", ");
+      const rows = await q(
+        `INSERT INTO case_ (${insertCols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
+        insertVals
+      );
+      return rows[0]?.id;
+    });
     if (!newId) return { status: 500, jsonBody: { error: "case create returned no id" } };
     if (input.writeProvenance) {
       await Promise.all(
@@ -8424,8 +8451,8 @@ import_functions.app.http("createCase", {
           [
             "Inspection decision",
             newId,
-            "Manual intake (Data API)",
-            `Inspection decision: image-based \u2014 ${input.inspectionDecisionReason.trim()}`
+            "Manual intake",
+            `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`
           ]
         );
       } catch {
@@ -8616,6 +8643,42 @@ import_functions.app.http("removeCase", {
         WHERE id = $1`,
       [id, statusToInt("removed")]
     );
+    await query(
+      `UPDATE note
+          SET author = '[removed]', text = '[removed]', updated_at = now()
+        WHERE case_id = $1`,
+      [id]
+    );
+    await query(
+      `UPDATE evidence
+          SET file_name = '[removed]',
+              content_type = NULL,
+              storage_path = NULL,
+              box_file_id = NULL,
+              box_file_url = NULL,
+              source_message_id = NULL,
+              source_label = 'removed',
+              sha256 = NULL,
+              exclusion_reason = NULL,
+              accepted_for_eva = false,
+              excluded = true,
+              updated_at = now()
+        WHERE case_id = $1`,
+      [id]
+    );
+    await query(
+      `UPDATE inbound_email
+          SET subject = '[removed]',
+              from_address = '[removed]',
+              sender_domain = NULL,
+              body_preview = '',
+              body_vrm = NULL,
+              body_caseref = NULL,
+              signals = '[]'::jsonb,
+              updated_at = now()
+        WHERE case_id = $1`,
+      [id]
+    );
     await writeAudit({
       action: AUDIT_ACTION.case_removed,
       caseId: id,
@@ -8625,7 +8688,7 @@ import_functions.app.http("removeCase", {
       after: {
         status: "removed",
         // The "also remove Box folder" tickbox is an INTENT FLAG only — no automated deletion.
-        boxFolderAcknowledged: body.acknowledgeBoxFolderHandled === true,
+        archiveFolderAcknowledged: body.acknowledgeArchiveFolderHandled === true || body.acknowledgeBoxFolderHandled === true,
         boxFolderId: existing.boxFolderId ?? null,
         boxFolderUrl: existing.boxFolderUrl ?? null,
         ...typeof body.reason === "string" && body.reason.trim() ? { reason: body.reason.trim() } : {}
@@ -8705,7 +8768,7 @@ import_functions.app.http("caseBoxSharedLink", {
   route: "cases/{id}/box/shared-link",
   handler: withRole("CollisionSpike.User", async (req) => {
     if (!gates.boxApi()) {
-      return { status: 200, jsonBody: { status: "gated_off", message: "Box is not enabled." } };
+      return { status: 200, jsonBody: { status: "gated_off", message: "The archive is not available yet." } };
     }
     const caseId = (req.params.id ?? "").trim();
     if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
@@ -8713,7 +8776,7 @@ import_functions.app.http("caseBoxSharedLink", {
     if (!boxFolderId) {
       return {
         status: 200,
-        jsonBody: { status: "folder_not_ready", message: "This case has no Box folder yet." }
+        jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." }
       };
     }
     const folderUrl = boxFolderUrl && boxFolderUrl.trim() || `https://app.box.com/folder/${encodeURIComponent(boxFolderId)}`;
@@ -8726,23 +8789,23 @@ import_functions.app.http("caseBoxCopyFileRequest", {
   route: "cases/{id}/box/copy-file-request",
   handler: withRole("CollisionSpike.User", async (req) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) {
-      return { status: 200, jsonBody: { status: "gated_off", message: "Image-upload links are not enabled." } };
+      return { status: 200, jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." } };
     }
     const caseId = (req.params.id ?? "").trim();
     if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
     if (!gates.boxFileRequestTemplateId()) {
       return {
         status: 200,
-        jsonBody: { status: "gated_off", message: "The image-upload template isn\u2019t set up yet." }
+        jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." }
       };
     }
     const { boxFolderId } = await readCaseBoxFolder(caseId);
     if (!boxFolderId) {
-      return { status: 200, jsonBody: { status: "folder_not_ready", message: "This case has no Box folder yet." } };
+      return { status: 200, jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." } };
     }
     return {
       status: 200,
-      jsonBody: { status: "gated_off", message: "Image-upload links aren\u2019t wired up yet." }
+      jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." }
     };
   })
 });
@@ -8755,7 +8818,7 @@ import_functions.app.http("caseBoxFinalize", {
     if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
     return {
       status: 200,
-      jsonBody: { status: "gated_off", message: "Direct submit isn\u2019t enabled \u2014 use \u201CExport for EVA\u201D." }
+      jsonBody: { status: "gated_off", message: 'Direct submit is not available yet. Use "Export for EVA".' }
     };
   })
 });
@@ -10126,6 +10189,7 @@ async function applyEvidenceMetadata(ctx, whereClause, whereVals, row, computed)
   };
   if (row.imageRoleCode != null || row.imageRole != null) push("image_role_code", computed.imageRoleCode);
   if (typeof row.registrationVisible === "boolean") push("registration_visible", computed.registrationVisible);
+  if (typeof row.acceptedForEva === "boolean") push("accepted_for_eva", row.acceptedForEva);
   if (row.excluded != null) {
     push("excluded", computed.excluded);
     push("exclusion_reason", computed.exclusionReason);
@@ -10214,11 +10278,13 @@ import_functions9.app.http("internalCasesEvidence", {
           );
         }
       } else {
+        const acceptedForEva = row.acceptedForEva ?? true;
         const result = await query(
           `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
+                accepted_for_eva,
                 image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12
+             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13
              WHERE NOT EXISTS (
                SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
@@ -10230,6 +10296,7 @@ import_functions9.app.http("internalCasesEvidence", {
             row.contentType || null,
             row.size ?? null,
             row.blobPath ?? null,
+            acceptedForEva,
             imageRoleCode,
             registrationVisible,
             excluded,
@@ -10252,6 +10319,29 @@ import_functions9.app.http("internalCasesEvidence", {
       if (inserted) persisted++;
     }
     return { status: 200, jsonBody: { persisted, updated } };
+  })
+});
+import_functions9.app.http("internalCasesArchiveEvidence", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/archive-evidence",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    if (!caseId) return { status: 400, jsonBody: { error: "caseId required" } };
+    const rows = await query(
+      `SELECT
+           id,
+           file_name AS filename,
+           content_type AS "contentType",
+           storage_path AS "blobPath"
+         FROM evidence
+         WHERE case_id = $1
+           AND storage_path IS NOT NULL
+           AND blob_purged_at IS NULL
+         ORDER BY created_at ASC, file_name ASC`,
+      [caseId]
+    );
+    return { status: 200, jsonBody: { rows } };
   })
 });
 import_functions9.app.http("internalCasesStatusEvaluate", {
@@ -10440,7 +10530,7 @@ import_functions9.app.http("internalCaseBoxFolderStamp", {
       await writeAudit({
         action: AUDIT_ACTION.box_folder_created,
         caseId,
-        summary: `Box folder ${boxFolderId} linked to case`,
+        summary: `Archive folder ${boxFolderId} linked to case`,
         after: { boxFolderId, boxFolderUrl }
       });
       return { status: 200, jsonBody: { applied: true, boxFolderId } };

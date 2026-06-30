@@ -51,10 +51,10 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
     (other agents consume the fixtures), indexed from the tickets README, **not** authoritative on live state.
 
 ## Operator & status
-- [TODOS.md](./TODOS.md) — signpost: there is **no flat TODO list**; this routes each kind of work item to where it actually lives (per-phase checklists, `gated.md`, review follow-ups, ROADMAP).
+- [../ROADMAP.md](../ROADMAP.md) — the forward worklist; tickets carry the atomic work items beneath it.
 - [gated.md](./gated.md) — the consolidated **hard/soft blocker** registry (everything that needs the operator).
 - [roles-and-permissions.md](./roles-and-permissions.md) — **gap analysis**: the roles `digital@` does NOT have but NEEDS (Box Business+admin, Exchange Admin, Key Vault Secrets Officer, Power Platform Admin, License Admin) — vs. what Owner + Dataverse System Admin already cover.
-- [review-followups-2026-06-19.md](./review-followups-2026-06-19.md) — verified architecture-review follow-ups.
+- [reviews/README.md](./reviews/README.md) — binding manual-review workflow and follow-ups.
 
 ## Operator handoff
 - [handoff/README.md](./handoff/README.md) — the 2026-06-27 operator handoff pack. Start with

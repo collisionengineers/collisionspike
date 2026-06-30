@@ -45,7 +45,7 @@ import {
   statusToInt,
 } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
-import { query } from '../lib/db.js';
+import { query, tx } from '../lib/db.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
@@ -378,7 +378,7 @@ app.http('createCase', {
       statusToInt(status),
       intakeChannelKindCodec.toInt('email') ?? null,
       true,
-      input.sourceLabel ?? 'Manual intake (Data API)',
+      input.sourceLabel ?? 'Manual intake',
     ];
     const add = (col: string, value: unknown): void => {
       cols.push(col);
@@ -391,10 +391,14 @@ app.http('createCase', {
       const wp = await query<Row>('SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1', [pcode]);
       if (wp[0]?.id) add('work_provider_id', wp[0].id);
     }
-    // Normalise to canonical UPPER (+ trim) so a manual 'ccpy26050' is stored the same as the
-    // automated mint's 'CCPY26050' and collides on the case-insensitive uq_case_case_po (#82).
-    const casePo = (input.casePo ?? '').trim().toUpperCase();
-    if (casePo) add('case_po', casePo);
+    // Normalise explicit references to canonical UPPER (+ trim). If the client omits
+    // casePo but supplies a valid principal, the API allocates under the same
+    // per-(principal,year) advisory lock used by automated intake.
+    const suppliedCasePo = (input.casePo ?? '').trim().toUpperCase();
+    const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : '';
+    if (principalForAutoMint && !/^[A-Z][A-Z0-9]{0,7}$/.test(principalForAutoMint)) {
+      return { status: 400, jsonBody: { error: 'invalid principal code' } };
+    }
     if (input.onHold) add('on_hold', true);
     if (input.insuredName) add('ov_insured_name', input.insuredName);
     if (input.providerReference) add('ov_claim_number', input.providerReference);
@@ -405,12 +409,34 @@ app.http('createCase', {
       add(EVA_COLUMN_BY_KEY[desc.key], input.evaFields[desc.key]?.value ?? '');
     }
 
-    const placeholders = vals.map((_v, i) => `$${i + 1}`).join(', ');
-    const rows = await query<Row>(
-      `INSERT INTO case_ (${cols.join(', ')}) VALUES (${placeholders}) RETURNING id`,
-      vals,
-    );
-    const newId = rows[0]?.id as string | undefined;
+    const newId = await tx(async (q) => {
+      const insertCols = [...cols];
+      const insertVals = [...vals];
+      let casePo = suppliedCasePo;
+      if (!casePo && principalForAutoMint) {
+        const yy = casePoYear();
+        const prefix = `${principalForAutoMint}${yy}`;
+        await q('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [`casepo:${prefix}`]);
+        const seqRows = await q<{ next_seq: string | number }>(
+          `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) + 1 AS next_seq
+             FROM case_
+            WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
+          [`${prefix}%`, casePoSequenceRegex(principalForAutoMint, yy), prefix],
+        );
+        casePo = formatCasePo(principalForAutoMint, yy, Number(seqRows[0]?.next_seq ?? 1));
+      }
+      if (casePo) {
+        insertCols.push('case_po');
+        insertVals.push(casePo);
+      }
+
+      const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(', ');
+      const rows = await q<Row>(
+        `INSERT INTO case_ (${insertCols.join(', ')}) VALUES (${placeholders}) RETURNING id`,
+        insertVals,
+      );
+      return rows[0]?.id as string | undefined;
+    });
     if (!newId) return { status: 500, jsonBody: { error: 'case create returned no id' } };
 
     // Best-effort: one FieldLevelProvenance row per EVA field.
@@ -449,8 +475,8 @@ app.http('createCase', {
           [
             'Inspection decision',
             newId,
-            'Manual intake (Data API)',
-            `Inspection decision: image-based — ${input.inspectionDecisionReason.trim()}`,
+            'Manual intake',
+            `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`,
           ],
         );
       } catch {
@@ -671,6 +697,7 @@ app.http('removeCase', {
   handler: withRole('CollisionSpike.Superuser', async (req, _ctx, claims) => {
     const id = req.params.id;
     const body = (await req.json().catch(() => ({}))) as {
+      acknowledgeArchiveFolderHandled?: boolean;
       acknowledgeBoxFolderHandled?: boolean;
       reason?: string;
     };
@@ -716,6 +743,42 @@ app.http('removeCase', {
         WHERE id = $1`,
       [id, statusToInt('removed')],
     );
+    await query(
+      `UPDATE note
+          SET author = '[removed]', text = '[removed]', updated_at = now()
+        WHERE case_id = $1`,
+      [id],
+    );
+    await query(
+      `UPDATE evidence
+          SET file_name = '[removed]',
+              content_type = NULL,
+              storage_path = NULL,
+              box_file_id = NULL,
+              box_file_url = NULL,
+              source_message_id = NULL,
+              source_label = 'removed',
+              sha256 = NULL,
+              exclusion_reason = NULL,
+              accepted_for_eva = false,
+              excluded = true,
+              updated_at = now()
+        WHERE case_id = $1`,
+      [id],
+    );
+    await query(
+      `UPDATE inbound_email
+          SET subject = '[removed]',
+              from_address = '[removed]',
+              sender_domain = NULL,
+              body_preview = '',
+              body_vrm = NULL,
+              body_caseref = NULL,
+              signals = '[]'::jsonb,
+              updated_at = now()
+        WHERE case_id = $1`,
+      [id],
+    );
 
     await writeAudit({
       action: AUDIT_ACTION.case_removed,
@@ -726,7 +789,8 @@ app.http('removeCase', {
       after: {
         status: 'removed',
         // The "also remove Box folder" tickbox is an INTENT FLAG only — no automated deletion.
-        boxFolderAcknowledged: body.acknowledgeBoxFolderHandled === true,
+        archiveFolderAcknowledged:
+          body.acknowledgeArchiveFolderHandled === true || body.acknowledgeBoxFolderHandled === true,
         boxFolderId: existing.boxFolderId ?? null,
         boxFolderUrl: existing.boxFolderUrl ?? null,
         ...(typeof body.reason === 'string' && body.reason.trim() ? { reason: body.reason.trim() } : {}),
@@ -849,7 +913,7 @@ app.http('caseBoxSharedLink', {
   route: 'cases/{id}/box/shared-link',
   handler: withRole('CollisionSpike.User', async (req) => {
     if (!gates.boxApi()) {
-      return { status: 200, jsonBody: { status: 'gated_off', message: 'Box is not enabled.' } };
+      return { status: 200, jsonBody: { status: 'gated_off', message: 'The archive is not available yet.' } };
     }
     const caseId = (req.params.id ?? '').trim();
     if (!caseId) return { status: 400, jsonBody: { status: 'error', message: 'caseId is required' } };
@@ -857,7 +921,7 @@ app.http('caseBoxSharedLink', {
     if (!boxFolderId) {
       return {
         status: 200,
-        jsonBody: { status: 'folder_not_ready', message: 'This case has no Box folder yet.' },
+        jsonBody: { status: 'folder_not_ready', message: 'This case has no archive folder yet.' },
       };
     }
     const folderUrl =
@@ -879,25 +943,25 @@ app.http('caseBoxCopyFileRequest', {
   route: 'cases/{id}/box/copy-file-request',
   handler: withRole('CollisionSpike.User', async (req) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) {
-      return { status: 200, jsonBody: { status: 'gated_off', message: 'Image-upload links are not enabled.' } };
+      return { status: 200, jsonBody: { status: 'gated_off', message: "Image-upload links aren't available yet." } };
     }
     const caseId = (req.params.id ?? '').trim();
     if (!caseId) return { status: 400, jsonBody: { status: 'error', message: 'caseId is required' } };
     if (!gates.boxFileRequestTemplateId()) {
       return {
         status: 200,
-        jsonBody: { status: 'gated_off', message: 'The image-upload template isn’t set up yet.' },
+        jsonBody: { status: 'gated_off', message: "Image-upload links aren't available yet." },
       };
     }
     const { boxFolderId } = await readCaseBoxFolder(caseId);
     if (!boxFolderId) {
-      return { status: 200, jsonBody: { status: 'folder_not_ready', message: 'This case has no Box folder yet.' } };
+      return { status: 200, jsonBody: { status: 'folder_not_ready', message: 'This case has no archive folder yet.' } };
     }
     // Template id present (operator provisioned it) but the box-fn copy bridge is not
     // yet wired — honest gated_off rather than a fabricated link. Follow-up ticket.
     return {
       status: 200,
-      jsonBody: { status: 'gated_off', message: 'Image-upload links aren’t wired up yet.' },
+      jsonBody: { status: 'gated_off', message: "Image-upload links aren't available yet." },
     };
   }),
 });
@@ -915,7 +979,7 @@ app.http('caseBoxFinalize', {
     if (!caseId) return { status: 400, jsonBody: { status: 'error', message: 'caseId is required' } };
     return {
       status: 200,
-      jsonBody: { status: 'gated_off', message: 'Direct submit isn’t enabled — use “Export for EVA”.' },
+      jsonBody: { status: 'gated_off', message: 'Direct submit is not available yet. Use "Export for EVA".' },
     };
   }),
 });

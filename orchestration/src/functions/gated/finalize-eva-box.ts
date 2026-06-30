@@ -62,9 +62,9 @@ df.app.activity('boxFolderAugment', {
     if (!gates.boxApi()) return { skipped: true };
     // Folder-augment delta via the box-webhook facade (never re-mints CCG tokens — plan 22 §C).
     const folder = await box.createFolder(input.caseId, gates.boxFolderRootId());
-    const link = await box.folderSharedLink(folder.id);
-    await dataApi.recordAudit({ action: 'box_synced', caseId: input.caseId, summary: `Box folder ${folder.id} augmented` });
+    const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
+    await dataApi.recordAudit({ action: 'box_synced', caseId: input.caseId, summary: `Archive folder ${folder.id} augmented` });
     ctx.log(JSON.stringify({ evt: 'boxFolderAugment', caseId: input.caseId, folderId: folder.id }));
-    return { folderId: folder.id, sharedLink: link.shared_link?.url };
+    return { folderId: folder.id, folderUrl };
   },
 });

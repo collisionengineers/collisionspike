@@ -116,10 +116,12 @@ const REVIEWED_LABEL: Record<string, string> = {
 export interface AiAssistPanelProps {
   /** The case whose AI suggestions to show. */
   caseId: string;
+  /** Called after an accepted suggestion is promoted into the case record. */
+  onPromoted?: () => void;
 }
 
 /** The gated AI "Assistant" panel for a case (TKT-015). Renders nothing when the gate is off. */
-export function AiAssistPanel({ caseId }: AiAssistPanelProps) {
+export function AiAssistPanel({ caseId, onPromoted }: AiAssistPanelProps) {
   const styles = useStyles();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
   const { data: gate } = useAiAssistGate();
@@ -140,6 +142,7 @@ export function AiAssistPanel({ caseId }: AiAssistPanelProps) {
     try {
       const result = await review(s.id, { decision });
       suggestionsQuery.refetch();
+      if (result.promoted) onPromoted?.();
       dispatchToast(
         <Toast>
           <ToastTitle>{decision === 'accepted' ? 'Suggestion accepted' : 'Suggestion dismissed'}</ToastTitle>
