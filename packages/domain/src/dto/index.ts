@@ -106,7 +106,9 @@ export interface CaseUpdateInput {
    NEVER auto-deleted: `acknowledgeBoxFolderHandled` records the operator's intent in
    the audit `after` only (the human follows the archive runbook separately). */
 export interface RemoveCaseInput {
-  /** The operator ticked "I have handled the archive folder separately" (audit-only flag). */
+  /** The archive folder has been handled separately (audit-only flag). */
+  acknowledgeArchiveFolderHandled?: boolean;
+  /** Legacy request field accepted for older clients. */
   acknowledgeBoxFolderHandled?: boolean;
   /** Free-text reason captured in the audit trail. */
   reason?: string;

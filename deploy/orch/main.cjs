@@ -1709,18 +1709,6 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
     caseId: resolved.caseId,
     inbound
   });
-  if (resolved.casePo) {
-    try {
-      yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry, {
-        caseId: resolved.caseId,
-        inbound
-      });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
-      }
-    }
-  }
   try {
     yield ctx.df.callActivityWithRetry("extractImages", retry, {
       caseId: resolved.caseId,
@@ -1731,6 +1719,15 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
   } catch (e) {
     if (!ctx.df.isReplaying) {
       ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
+  try {
+    yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry, {
+      caseId: resolved.caseId
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
     }
   }
   const status = yield ctx.df.callActivityWithRetry("statusEvaluate", retry, {
@@ -41704,6 +41701,10 @@ var dataApi = {
   persistImageEvidence(caseId, rows) {
     return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
   },
+  /** Persisted blob-backed evidence rows ready for archive mirroring. */
+  archiveEvidenceRows(caseId) {
+    return request("GET", `/api/internal/cases/${caseId}/archive-evidence`);
+  },
   /** Recompute EVA-readiness + status machine and persist (internal route). */
   evaluateStatus(caseId) {
     return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
@@ -41876,9 +41877,6 @@ var box = {
   },
   listFolderItems(folderId) {
     return callFunction(BOX, "GET", `box/folders/${folderId}/items`);
-  },
-  folderSharedLink(folderId) {
-    return callFunction(BOX, "PUT", `box/folders/${folderId}/shared-link`, {});
   }
 };
 async function safeText3(res) {
@@ -42294,7 +42292,7 @@ df14.app.activity("boxArchiveEvidence", {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       return { uploaded: 0, total: 0, skipped: "gated_off" };
     }
-    const { caseId, inbound } = input11;
+    const { caseId } = input11;
     let folderId = null;
     try {
       const cf = await dataApi.getCaseBoxFolder(caseId);
@@ -42304,23 +42302,21 @@ df14.app.activity("boxArchiveEvidence", {
       return { uploaded: 0, total: 0, skipped: "folder_unreadable" };
     }
     if (!folderId) {
-      ctx.log(`[boxArchive] case ${caseId} has no Box folder yet; nothing to archive`);
+      ctx.log(`[boxArchive] case ${caseId} has no archive folder yet; nothing to archive`);
       return { uploaded: 0, total: 0, skipped: "no_folder" };
     }
-    const items = [
-      ...inbound.attachments.map((a) => ({
-        filename: a.filename,
-        blobPath: a.blobPath,
-        contentType: a.contentType
-      })),
-      ...inbound.rawEml ? [
-        {
-          filename: inbound.rawEml.filename,
-          blobPath: inbound.rawEml.blobPath,
-          contentType: inbound.rawEml.contentType
-        }
-      ] : []
-    ];
+    let items;
+    try {
+      const persisted = await dataApi.archiveEvidenceRows(caseId);
+      items = persisted.rows.map((row) => ({
+        filename: row.filename,
+        blobPath: row.blobPath,
+        contentType: row.contentType || "application/octet-stream"
+      }));
+    } catch (e) {
+      ctx.warn(`[boxArchive] could not read evidence rows for ${caseId}: ${String(e)}`);
+      return { uploaded: 0, total: 0, skipped: "evidence_unreadable" };
+    }
     const seen = /* @__PURE__ */ new Set();
     let uploaded = 0;
     const fileIds = [];
@@ -42344,7 +42340,7 @@ df14.app.activity("boxArchiveEvidence", {
       await dataApi.recordAudit({
         action: "box_synced",
         caseId,
-        summary: `archived ${uploaded}/${total} evidence file(s) to Box folder ${folderId}`,
+        summary: `archived ${uploaded}/${total} evidence file(s) to archive folder ${folderId}`,
         after: { folderId, uploaded, fileIds }
       });
     } catch {
@@ -42502,10 +42498,10 @@ df16.app.activity("boxFolderAugment", {
   handler: async (input11, ctx) => {
     if (!gates.boxApi()) return { skipped: true };
     const folder = await box.createFolder(input11.caseId, gates.boxFolderRootId());
-    const link = await box.folderSharedLink(folder.id);
-    await dataApi.recordAudit({ action: "box_synced", caseId: input11.caseId, summary: `Box folder ${folder.id} augmented` });
+    const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
+    await dataApi.recordAudit({ action: "box_synced", caseId: input11.caseId, summary: `Archive folder ${folder.id} augmented` });
     ctx.log(JSON.stringify({ evt: "boxFolderAugment", caseId: input11.caseId, folderId: folder.id }));
-    return { folderId: folder.id, sharedLink: link.shared_link?.url };
+    return { folderId: folder.id, folderUrl };
   }
 });
 
@@ -42621,16 +42617,16 @@ df19.app.activity("boxFolderCreate", {
     const existing = await dataApi.getCaseBoxFolder(input11.caseId);
     if (existing.boxFolderId) {
       ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input11.caseId, skipped: "already_linked", folderId: existing.boxFolderId }));
-      return { skipped: true, reason: "already_linked", folderId: existing.boxFolderId, sharedLink: existing.boxFolderUrl ?? void 0 };
+      return { skipped: true, reason: "already_linked", folderId: existing.boxFolderId, folderUrl: existing.boxFolderUrl ?? void 0 };
     }
     const folder = await box.createFolder(input11.folderName, gates.boxFolderRootId());
-    const link = await box.folderSharedLink(folder.id);
+    const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
     const stamp = await dataApi.stampCaseBoxFolder(input11.caseId, {
       boxFolderId: folder.id,
-      boxFolderUrl: link.shared_link?.url
+      boxFolderUrl: folderUrl
     });
     ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input11.caseId, folderId: folder.id, applied: stamp.applied }));
-    return { folderId: folder.id, sharedLink: link.shared_link?.url, applied: stamp.applied };
+    return { folderId: folder.id, folderUrl, applied: stamp.applied };
   }
 });
 

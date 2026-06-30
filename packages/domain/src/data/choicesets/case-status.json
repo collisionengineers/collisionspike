@@ -16,7 +16,7 @@
     { "value": 100000006, "name": "linked_to_instruction",    "label": "Linked to Instruction" },
     { "value": 100000007, "name": "ready_for_eva",            "label": "Ready for EVA" },
     { "value": 100000008, "name": "eva_submitted",            "label": "EVA Submitted" },
-    { "value": 100000009, "name": "box_synced",               "label": "Box Synced" },
+    { "value": 100000009, "name": "box_synced",               "label": "Archive Synced" },
     { "value": 100000010, "name": "error",                    "label": "Error" },
     { "value": 100000011, "name": "removed",                  "label": "Removed" }
   ],

@@ -1,9 +1,8 @@
 /**
  * orchestration/src/functions/activities/boxArchive.ts  (archive mirror)
  *
- * Durable activity: archive the case's already-landed evidence bytes (the email
- * attachments + the raw `.eml`) from Blob INTO the case's Box folder — the one-way
- * Blob -> Box mirror (ADR-0012; box-sync ticket).
+ * Durable activity: archive the case's persisted evidence bytes from Blob INTO the
+ * case's Box folder — the one-way Blob -> Box mirror (ADR-0012; box-sync ticket).
  *
  * THE BUG it fixes: intake created the per-case Box folder but the `.eml`, images,
  * and instruction docs never made it INTO it. fetchMessage (A0) lands every byte in
@@ -26,11 +25,9 @@ import { gates } from '@cs/domain/gates';
 import { box } from '../../lib/functions-client.js';
 import { dataApi } from '../../lib/data-api.js';
 import { downloadEvidenceBytes } from '../../lib/blob.js';
-import type { InboundEnvelope } from './fetchMessage.js';
 
 interface BoxArchiveInput {
   caseId: string;
-  inbound: InboundEnvelope;
 }
 
 interface ArchiveItem {
@@ -47,7 +44,7 @@ df.app.activity('boxArchiveEvidence', {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       return { uploaded: 0, total: 0, skipped: 'gated_off' };
     }
-    const { caseId, inbound } = input;
+    const { caseId } = input;
 
     // The folder must already be stamped (intake creates it at step 2.5, before this
     // step). A new-client Held case has no Case/PO -> no folder -> nothing to archive
@@ -62,28 +59,24 @@ df.app.activity('boxArchiveEvidence', {
       return { uploaded: 0, total: 0, skipped: 'folder_unreadable' };
     }
     if (!folderId) {
-      ctx.log(`[boxArchive] case ${caseId} has no Box folder yet; nothing to archive`);
+      ctx.log(`[boxArchive] case ${caseId} has no archive folder yet; nothing to archive`);
       return { uploaded: 0, total: 0, skipped: 'no_folder' };
     }
 
-    // Archive set = the landed attachments + the raw `.eml`. De-dupe by blobPath so a
-    // file referenced twice is uploaded once.
-    const items: ArchiveItem[] = [
-      ...inbound.attachments.map((a) => ({
-        filename: a.filename,
-        blobPath: a.blobPath,
-        contentType: a.contentType,
-      })),
-      ...(inbound.rawEml
-        ? [
-            {
-              filename: inbound.rawEml.filename,
-              blobPath: inbound.rawEml.blobPath,
-              contentType: inbound.rawEml.contentType,
-            },
-          ]
-        : []),
-    ];
+    let items: ArchiveItem[];
+    try {
+      const persisted = await dataApi.archiveEvidenceRows(caseId);
+      items = persisted.rows.map((row) => ({
+        filename: row.filename,
+        blobPath: row.blobPath,
+        contentType: row.contentType || 'application/octet-stream',
+      }));
+    } catch (e) {
+      ctx.warn(`[boxArchive] could not read evidence rows for ${caseId}: ${String(e)}`);
+      return { uploaded: 0, total: 0, skipped: 'evidence_unreadable' };
+    }
+
+    // De-dupe by blobPath so a file referenced twice is uploaded once.
     const seen = new Set<string>();
 
     let uploaded = 0;
@@ -111,7 +104,7 @@ df.app.activity('boxArchiveEvidence', {
       await dataApi.recordAudit({
         action: 'box_synced',
         caseId,
-        summary: `archived ${uploaded}/${total} evidence file(s) to Box folder ${folderId}`,
+        summary: `archived ${uploaded}/${total} evidence file(s) to archive folder ${folderId}`,
         after: { folderId, uploaded, fileIds },
       });
     } catch {

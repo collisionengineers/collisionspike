@@ -563,7 +563,9 @@ function ProviderEditor({ provider, onSaved }: { provider: Provider; onSaved: ()
   // Re-seed when the underlying corpus row changes (e.g. after refetch).
   useEffect(() => setDraft(provider), [provider]);
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(provider);
+  const dirty =
+    draft.providerAutomationMode !== provider.providerAutomationMode ||
+    JSON.stringify(draft.knownEmailDomains) !== JSON.stringify(provider.knownEmailDomains);
 
   const addDomain = () => {
     const d = newDomain.trim().toLowerCase();
@@ -587,9 +589,7 @@ function ProviderEditor({ provider, onSaved }: { provider: Provider; onSaved: ()
       dispatchToast(
         <Toast>
           <ToastTitle>Provider saved</ToastTitle>
-          <ToastBody>
-            {draft.displayName} ({draft.principalCode}) — changes are live.
-          </ToastBody>
+          <ToastBody>Sender domains and handling mode were saved.</ToastBody>
         </Toast>,
         { intent: 'success' },
       );
@@ -607,12 +607,13 @@ function ProviderEditor({ provider, onSaved }: { provider: Provider; onSaved: ()
     }
   };
 
-  return (
-    <>
+    return (
+      <>
       <Field label="Display name">
         <Input
           value={draft.displayName}
-          onChange={(_, d) => setDraft((p) => ({ ...p, displayName: d.value }))}
+          readOnly
+          disabled
         />
       </Field>
 
@@ -627,7 +628,8 @@ function ProviderEditor({ provider, onSaved }: { provider: Provider; onSaved: ()
         <Input
           contentBefore={<Mail size={14} />}
           value={draft.defaultMailbox}
-          onChange={(_, d) => setDraft((p) => ({ ...p, defaultMailbox: d.value }))}
+          readOnly
+          disabled
         />
       </Field>
 
@@ -673,13 +675,7 @@ function ProviderEditor({ provider, onSaved }: { provider: Provider; onSaved: ()
         <Dropdown
           value={POLICY_LABEL[draft.inspectionLocationPolicy]}
           selectedOptions={[draft.inspectionLocationPolicy]}
-          onOptionSelect={(_, d) =>
-            d.optionValue &&
-            setDraft((p) => ({
-              ...p,
-              inspectionLocationPolicy: d.optionValue as InspectionLocationPolicy,
-            }))
-          }
+          disabled
         >
           {POLICY_OPTIONS.map((o) => (
             <Option key={o.value} value={o.value} text={o.label}>
@@ -692,8 +688,8 @@ function ProviderEditor({ provider, onSaved }: { provider: Provider; onSaved: ()
         {POLICY_OPTIONS.find((o) => o.value === draft.inspectionLocationPolicy)?.hint}
       </Caption1>
 
-      <Field label="Automation mode">
-        <Dropdown
+        <Field label="Handling mode">
+          <Dropdown
           value={AUTOMATION_LABEL[draft.providerAutomationMode]}
           selectedOptions={[draft.providerAutomationMode]}
           onOptionSelect={(_, d) =>
@@ -715,11 +711,11 @@ function ProviderEditor({ provider, onSaved }: { provider: Provider; onSaved: ()
         {AUTOMATION_OPTIONS.find((o) => o.value === draft.providerAutomationMode)?.hint}
       </Caption1>
 
-      <Switch
-        checked={draft.active}
-        label="Active (eligible for domain matching)"
-        onChange={(_, d) => setDraft((p) => ({ ...p, active: !!d.checked }))}
-      />
+        <Switch
+          checked={draft.active}
+          label="Active (eligible for domain matching)"
+          disabled
+        />
 
       <div className={styles.cardActions}>
         <Button

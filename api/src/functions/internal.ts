@@ -16,6 +16,7 @@
  *  GET  /api/internal/dedup-context                  → DedupContext
  *  POST /api/internal/cases/resolve                  → { outcome, caseId }
  *  POST /api/internal/cases/{id}/evidence            → { persisted: number }
+ *  GET  /api/internal/cases/{id}/archive-evidence    → blob-backed evidence rows for archive mirroring
  *  POST /api/internal/cases/{id}/status-evaluate     → { value: string }
  *  POST /api/internal/audit                          → 204
  *  GET  /api/internal/principals                     → [{ principalCode }]
@@ -969,6 +970,7 @@ async function applyEvidenceMetadata(
     imageRole?: string;
     imageRoleCode?: number;
     registrationVisible?: boolean;
+    acceptedForEva?: boolean;
     excluded?: boolean;
     exclusionReason?: string;
     sha256?: string;
@@ -992,6 +994,7 @@ async function applyEvidenceMetadata(
 
   if (row.imageRoleCode != null || row.imageRole != null) push('image_role_code', computed.imageRoleCode);
   if (typeof row.registrationVisible === 'boolean') push('registration_visible', computed.registrationVisible);
+  if (typeof row.acceptedForEva === 'boolean') push('accepted_for_eva', row.acceptedForEva);
   if (row.excluded != null) {
     push('excluded', computed.excluded);
     push('exclusion_reason', computed.exclusionReason); // CHECK-safe: non-empty when excluded
@@ -1150,11 +1153,13 @@ app.http('internalCasesEvidence', {
           }
         } else {
           // Email/orchestration: idempotent on (case_id, storage_path).
+          const acceptedForEva = row.acceptedForEva ?? true;
           const result = await query<{ id: string }>(
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
+                accepted_for_eva,
                 image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12
+             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13
              WHERE NOT EXISTS (
                SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
@@ -1166,6 +1171,7 @@ app.http('internalCasesEvidence', {
               row.contentType || null,
               row.size ?? null,
               row.blobPath ?? null,
+              acceptedForEva,
               imageRoleCode,
               registrationVisible,
               excluded,
@@ -1195,7 +1201,45 @@ app.http('internalCasesEvidence', {
 });
 
 /* ============================================================
-   5 — POST /api/internal/cases/{id}/status-evaluate
+   5 — GET /api/internal/cases/{id}/archive-evidence
+   Called by: orchestration boxArchiveEvidence activity.
+   Returns persisted blob-backed evidence rows only, so archive mirroring follows
+   the Data API's evidence truth instead of a stale in-memory intake envelope.
+   ============================================================ */
+app.http('internalCasesArchiveEvidence', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/{id}/archive-evidence',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = req.params.id;
+      if (!caseId) return { status: 400, jsonBody: { error: 'caseId required' } };
+
+      const rows = await query<{
+        id: string;
+        filename: string;
+        contentType: string | null;
+        blobPath: string;
+      }>(
+        `SELECT
+           id,
+           file_name AS filename,
+           content_type AS "contentType",
+           storage_path AS "blobPath"
+         FROM evidence
+         WHERE case_id = $1
+           AND storage_path IS NOT NULL
+           AND blob_purged_at IS NULL
+         ORDER BY created_at ASC, file_name ASC`,
+        [caseId],
+      );
+
+      return { status: 200, jsonBody: { rows } };
+    }),
+});
+
+/* ============================================================
+   6 — POST /api/internal/cases/{id}/status-evaluate
    Called by: orchestration statusEvaluate activity (plan 22 §B §A5).
    Recomputes EVA-readiness + status machine and persists when changed.
    ============================================================ */
@@ -1489,7 +1533,7 @@ app.http('internalCaseBoxFolderStamp', {
         await writeAudit({
           action: AUDIT_ACTION.box_folder_created,
           caseId,
-          summary: `Box folder ${boxFolderId} linked to case`,
+          summary: `Archive folder ${boxFolderId} linked to case`,
           after: { boxFolderId, boxFolderUrl },
         });
         return { status: 200, jsonBody: { applied: true, boxFolderId } };

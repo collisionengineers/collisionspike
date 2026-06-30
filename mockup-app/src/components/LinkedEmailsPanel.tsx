@@ -26,7 +26,7 @@ import { useInbox, type InboundCategory, type InboundEmail } from '../data';
 
    Self-contained: it reads the existing inbound-triage feed (useInbox, no new
    API) and shows the rows whose `caseId` matches this case. Each row opens a
-   "View full email" Dialog rendering the stored email body, with an "Open in
+   "View email preview" dialog rendering the stored email body, with an "Open in
    Outlook" link when the row carries a web link. Mounted lazily by CaseDetail
    (only when the Emails tab is open) so the feed isn't fetched on every case view.
    ============================================================ */
@@ -78,7 +78,7 @@ export interface LinkedEmailsPanelProps {
   emails?: InboundEmail[];
 }
 
-/** Linked inbound emails for a case + a "View full email" dialog. */
+/** Linked inbound emails for a case + a "View email preview" dialog. */
 export function LinkedEmailsPanel({ caseId, emails }: LinkedEmailsPanelProps) {
   const styles = useStyles();
   // Fall back to the inbound feed only when the case payload didn't carry emails.
@@ -138,7 +138,7 @@ export function LinkedEmailsPanel({ caseId, emails }: LinkedEmailsPanelProps) {
               </span>
             </span>
             <Button appearance="secondary" size="small" onClick={() => setOpen(e)}>
-              View full email
+              View email preview
             </Button>
           </div>
         ))}
@@ -168,6 +168,9 @@ export function LinkedEmailsPanel({ caseId, emails }: LinkedEmailsPanelProps) {
                       ? open.bodyPreview
                       : 'No message body was stored for this email.'}
                   </Text>
+                  <Caption1 className={styles.hint}>
+                    This is the saved preview. Use the mailbox reference if you need the original message.
+                  </Caption1>
                 </>
               )}
             </DialogContent>

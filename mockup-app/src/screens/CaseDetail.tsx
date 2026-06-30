@@ -662,13 +662,14 @@ export function CaseDetail() {
   }
 
   return (
-    <CaseDetailView
-      key={caseQuery.data.id}
-      caseData={caseQuery.data}
-      images={imagesQuery.data ?? []}
-      imagesLoading={imagesQuery.loading && imagesQuery.data === undefined}
-    />
-  );
+      <CaseDetailView
+        key={caseQuery.data.id}
+        caseData={caseQuery.data}
+        images={imagesQuery.data ?? []}
+        imagesLoading={imagesQuery.loading && imagesQuery.data === undefined}
+        onRefreshImages={imagesQuery.refetch}
+      />
+    );
 }
 
 interface CaseDetailViewProps {
@@ -676,18 +677,25 @@ interface CaseDetailViewProps {
   images: Evidence[];
   /** True while the image set is still being fetched (evidence tab shows a skeleton). */
   imagesLoading: boolean;
+  onRefreshImages: () => void;
 }
 
 /* The editing workspace. Receives the loaded Case + images; all edits live in
    local React state (mock only — never persisted). Visually identical to the
    pre-seam screen once data has loaded. */
-function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps) {
+function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: CaseDetailViewProps) {
   const styles = useStyles();
   const navigate = useNavigate();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
   // Local working copy so mock edits feel live (never persisted).
   const [c, setC] = useState<Case>(caseData);
+
+  const refreshAfterAiPromotion = async () => {
+    onRefreshImages();
+    const updated = await data.caseById(c.id);
+    if (updated) setC(updated);
+  };
 
   // Editable VRM (issue #12) — the human-correction safety net for a mis-extracted
   // registration. View mode shows the plate; edit mode swaps in a validated field.
@@ -859,8 +867,8 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
   const [removeAckBox, setRemoveAckBox] = useState(false);
   const [removeReason, setRemoveReason] = useState('');
   const [removing, setRemoving] = useState(false);
-  // What the operator must type to confirm — the Case/PO, or the VRM if there's none yet.
-  const removeMatch = (c.casePo || c.vrm || '').trim();
+  // What the operator must type to confirm — the Case/PO, or the VRM/id if there's none yet.
+  const removeMatch = (c.casePo || c.vrm || c.id).trim();
   const removeConfirmed =
     removeMatch.length > 0 && removeConfirmText.trim().toUpperCase() === removeMatch.toUpperCase();
 
@@ -876,7 +884,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
     setRemoving(true);
     try {
       const result = await (data as DataAccessExt).removeCase(c.id, {
-        acknowledgeBoxFolderHandled: removeAckBox,
+        acknowledgeArchiveFolderHandled: removeAckBox,
         ...(removeReason.trim() ? { reason: removeReason.trim() } : {}),
       });
       setRemoveOpen(false);
@@ -888,7 +896,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
           <ToastBody>
             {result.boxFolderUrl ? (
               <Link href={result.boxFolderUrl} target="_blank" rel="noopener noreferrer">
-                Open in Box to handle the archive folder
+                Open archive folder
               </Link>
             ) : (
               'Remember to handle the archive folder separately.'
@@ -1869,7 +1877,7 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
           {/* Gated AI "Assistant" (TKT-015) — renders NOTHING unless AI_ASSIST_ENABLED.
               Observation-first: suggestions with Accept/Reject; nothing mutates the case
               on its own (the API promotes an accepted value FILL-IF-EMPTY). */}
-          <AiAssistPanel caseId={c.id} />
+          <AiAssistPanel caseId={c.id} onPromoted={() => void refreshAfterAiPromotion()} />
         </div>
       </div>
 
@@ -1922,10 +1930,10 @@ function CaseDetailView({ caseData, images, imagesLoading }: CaseDetailViewProps
               <Checkbox
                 checked={removeAckBox}
                 onChange={(_, d) => setRemoveAckBox(d.checked === true)}
-                label="I’ve handled the Box archive folder separately"
+                label="I’ve handled the archive folder separately"
               />
               <Caption1 className={styles.hint}>
-                The archive folder is never deleted automatically — handle it in Box yourself.
+                The archive folder is never removed automatically. Handle it separately.
               </Caption1>
 
               <Field label="Reason (optional)">

@@ -235,6 +235,13 @@ export const dataApi = {
     return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
   },
 
+  /** Persisted blob-backed evidence rows ready for archive mirroring. */
+  archiveEvidenceRows(
+    caseId: string,
+  ): Promise<{ rows: Array<{ id: string; filename: string; contentType: string | null; blobPath: string }> }> {
+    return request('GET', `/api/internal/cases/${caseId}/archive-evidence`);
+  },
+
   /** Recompute EVA-readiness + status machine and persist (internal route). */
   evaluateStatus(caseId: string): Promise<{ value: string }> {
     return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {});

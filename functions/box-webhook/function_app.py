@@ -209,7 +209,9 @@ def get_shared_link_file(req: func.HttpRequest) -> func.HttpResponse:
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
         return _gated_off()
     file_id = req.route_params.get("fileId", "")
-    body = _body(req) or {"shared_link": {"access": "open"}}
+    body = _body(req) or {}
+    if (body.get("shared_link") or {}).get("access") == "open":
+        return _json_response({"error": "Open shared links are not allowed.", "status": 400}, status=400)
     if not file_id:
         return _json_response({"error": "fileId is required.", "status": 400}, status=400)
     return _run_box_op(lambda c: c.get_shared_link("files", file_id, body))
@@ -220,7 +222,9 @@ def get_shared_link_folder(req: func.HttpRequest) -> func.HttpResponse:
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
         return _gated_off()
     folder_id = req.route_params.get("folderId", "")
-    body = _body(req) or {"shared_link": {"access": "open"}}
+    body = _body(req) or {}
+    if (body.get("shared_link") or {}).get("access") == "open":
+        return _json_response({"error": "Open shared links are not allowed.", "status": 400}, status=400)
     if not folder_id:
         return _json_response({"error": "folderId is required.", "status": 400}, status=400)
     return _run_box_op(lambda c: c.get_shared_link("folders", folder_id, body))

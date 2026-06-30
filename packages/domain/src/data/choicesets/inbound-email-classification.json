@@ -27,7 +27,8 @@
         { "value": 100000002, "name": "new_client_work",               "label": "New Client Work" },
         { "value": 100000003, "name": "query_existing_work",           "label": "Query: Existing Work" },
         { "value": 100000004, "name": "query_new_enquiry",             "label": "Query: New Enquiry" },
-        { "value": 100000005, "name": "other",                         "label": "Other" }
+        { "value": 100000005, "name": "other",                         "label": "Other" },
+        { "value": 100000006, "name": "existing_provider_diminution",  "label": "Existing Provider Diminution" }
       ]
     }
   ]

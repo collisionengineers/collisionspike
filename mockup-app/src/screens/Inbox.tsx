@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Badge,
   Button,
@@ -93,7 +93,7 @@ import type {
      staff can override it (Change classification… → reclassifyInbound) and an overridden
      row is visibly flagged. App-side suggestion only — this does NOT move Outlook folders.
    - CLICKABLE ROWS: a linked email's subject opens its Case; an unlinked subject opens the
-     stored email body. "View full email" is available on every row; unlinked rows keep the
+     stored email preview is available on every row; unlinked rows keep the
      mailbox pointer affordance. CSP-safe: no external navigation, no iframe, no raw fetch. */
 
 const CATEGORY_ORDER: InboundCategory[] = ['receiving_work', 'query', 'other'];
@@ -169,6 +169,14 @@ const VIEW_LABEL: Record<InboundView, string> = {
   handled: 'Handled',
   all: 'All',
 };
+
+function parseInboxCategory(value: string | null): InboundCategory {
+  return CATEGORY_ORDER.includes(value as InboundCategory) ? (value as InboundCategory) : 'receiving_work';
+}
+
+function parseInboxView(value: string | null): InboundView {
+  return value === 'handled' || value === 'all' ? value : 'active';
+}
 
 const EMPTY_HINT: Record<InboundCategory, string> = {
   receiving_work:
@@ -395,12 +403,15 @@ function TriageBadge({ state }: { state: TriageState }) {
 export function Inbox() {
   const styles = useStyles();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
-  const [category, setCategory] = useState<InboundCategory>('receiving_work');
+  const [category, setCategory] = useState<InboundCategory>(() =>
+    parseInboxCategory(searchParams.get('category')),
+  );
   const [search, setSearch] = useState('');
   const [subtypeFilter, setSubtypeFilter] = useState<InboundSubtype | typeof ANY>(ANY);
-  const [view, setView] = useState<InboundView>('active'); // active-first
+  const [view, setView] = useState<InboundView>(() => parseInboxView(searchParams.get('view'))); // active-first
   // Dialog targets: the email-body view, the mailbox pointer (unlinked), the reclassify form.
   const [emailRow, setEmailRow] = useState<InboundEmail | null>(null);
   const [pointerRow, setPointerRow] = useState<InboundEmail | null>(null);
@@ -416,6 +427,17 @@ export function Inbox() {
   });
   const counts = useInboundCounts();
   const rows = useMemo(() => inbox.data ?? [], [inbox.data]);
+
+  useEffect(() => {
+    const nextCategory = parseInboxCategory(searchParams.get('category'));
+    const nextView = parseInboxView(searchParams.get('view'));
+    setCategory((prev) => {
+      if (prev === nextCategory) return prev;
+      setSubtypeFilter(ANY);
+      return nextCategory;
+    });
+    setView(nextView);
+  }, [searchParams]);
 
   // Fresh data resolved → the server slice is authoritative again; drop optimistic hides.
   useEffect(() => {
@@ -449,8 +471,20 @@ export function Inbox() {
   }, [rows, search, pendingHidden]);
 
   const onTabSelect = (_e: SelectTabEvent, d: SelectTabData) => {
-    setCategory(d.value as InboundCategory);
+    const nextCategory = d.value as InboundCategory;
+    setCategory(nextCategory);
     setSubtypeFilter(ANY);
+    const next = new URLSearchParams(searchParams);
+    next.set('category', nextCategory);
+    setSearchParams(next, { replace: true });
+  };
+
+  const onViewSelect = (_e: SelectTabEvent, d: SelectTabData) => {
+    const nextView = d.value as InboundView;
+    setView(nextView);
+    const next = new URLSearchParams(searchParams);
+    next.set('view', nextView);
+    setSearchParams(next, { replace: true });
   };
 
   const refresh = () => {
@@ -655,7 +689,7 @@ export function Inbox() {
                     </MenuItem>
                   )}
                   <MenuItem icon={<FileText size={16} />} onClick={() => setEmailRow(e)}>
-                    View full email
+                    View email preview
                   </MenuItem>
                   {!e.caseId && (
                     <MenuItem icon={<Mail size={16} />} onClick={() => setPointerRow(e)}>
@@ -774,12 +808,12 @@ export function Inbox() {
           <span className={styles.filterLabel} id="filter-view">
             Show
           </span>
-          <TabList
-            aria-labelledby="filter-view"
-            selectedValue={view}
-            onTabSelect={(_e, d) => setView(d.value as InboundView)}
-            size="small"
-          >
+            <TabList
+              aria-labelledby="filter-view"
+              selectedValue={view}
+              onTabSelect={onViewSelect}
+              size="small"
+            >
             {(Object.keys(VIEW_LABEL) as InboundView[]).map((v) => (
               <Tab key={v} value={v}>
                 {VIEW_LABEL[v]}
@@ -857,7 +891,7 @@ export function Inbox() {
         </div>
       )}
 
-      {/* View full email — renders the stored body the app already holds. Self-contained:
+      {/* View email preview — renders the stored body the app already holds. Self-contained:
           no API call, no iframe, no external navigation (CSP-safe). */}
       <ViewEmailDialog
         row={emailRow}
@@ -921,7 +955,7 @@ export function Inbox() {
   );
 }
 
-/* ----------  View full email (stored body)  ---------- */
+/* ----------  View email preview (stored body)  ---------- */
 
 function ViewEmailDialog({
   row,
@@ -961,14 +995,17 @@ function ViewEmailDialog({
                   </span>
                 </div>
                 <div className={styles.metaRow}>
-                  <span className={styles.metaLabel}>Email</span>
-                  <div className={styles.emailBody}>
-                    {row.bodyPreview?.trim()
-                      ? row.bodyPreview
-                      : 'No message text was captured for this email. Use “Open in mailbox” to find the original.'}
+                    <span className={styles.metaLabel}>Preview</span>
+                    <div className={styles.emailBody}>
+                      {row.bodyPreview?.trim()
+                        ? row.bodyPreview
+                        : 'No message text was captured for this email. Use “Open in mailbox” to find the original.'}
+                    </div>
                   </div>
+                  <Text className={styles.dialogNote}>
+                    This is the saved preview. Use the mailbox reference if you need the original message.
+                  </Text>
                 </div>
-              </div>
             )}
           </DialogContent>
           <DialogActions>

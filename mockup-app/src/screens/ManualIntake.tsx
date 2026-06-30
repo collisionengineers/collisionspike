@@ -343,7 +343,6 @@ export function ManualIntake() {
   const [vrm, setVrm] = useState('');
   const [provider, setProvider] = useState(''); // Work provider display name
   const [providerCode, setProviderCode] = useState(''); // 4-char Principal code
-  const [casePo, setCasePo] = useState(''); // our internal reference
   // Live Case/PO allocator preview for the entered Principal (TKT-004).
   const [casePoPreview, setCasePoPreview] = useState<NextCasePoResult | undefined>();
   const [providerReference, setProviderReference] = useState(''); // provider's Claim No
@@ -535,13 +534,6 @@ export function ManualIntake() {
     };
   }, [providerCode]);
 
-  /* Pre-fill the Case/PO with the previewed next value, but only while the
-     operator hasn't typed one (never clobber a manual entry). */
-  useEffect(() => {
-    if (casePoPreview && !casePo.trim()) setCasePo(casePoPreview.boxUpper);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [casePoPreview]);
-
   const onFieldChange = (key: EvaFieldKey, value: string) => {
     setFields((prev) => {
       if (!prev) return prev;
@@ -599,7 +591,6 @@ export function ManualIntake() {
     const missing: string[] = [];
     if (!vrm.trim()) missing.push('Vehicle Registration');
     if (!providerCode.trim()) missing.push('Principal');
-    if (!casePo.trim()) missing.push('Case/PO');
     if (!insuredName.trim()) missing.push('Insured Name');
     if (!providerReference.trim()) missing.push('Claim No');
     if (!inspectOn.trim()) missing.push('Inspect on');
@@ -613,7 +604,7 @@ export function ManualIntake() {
       if (CONTRACT_REQUIRED.has(d.key) && !fields[d.key].value.trim()) missing.push(d.label);
     }
     return missing;
-  }, [fields, vrm, provider, providerCode, casePo, insuredName, providerReference, inspectOn]);
+  }, [fields, vrm, provider, providerCode, insuredName, providerReference, inspectOn]);
 
   const canCreate = phase === 'review' && missingRequired.length === 0;
 
@@ -634,10 +625,9 @@ export function ManualIntake() {
       const { id } = await getDataAccess().createCase({
         evaFields: evaForCreate,
         vrm: vrm.trim(),
-        ...(provider.trim() ? { provider: provider.trim() } : {}),
-        ...(providerCode.trim() ? { providerCode: providerCode.trim() } : {}),
-        ...(casePo.trim() ? { casePo: casePo.trim() } : {}),
-        ...(insuredName.trim() ? { insuredName: insuredName.trim() } : {}),
+          ...(provider.trim() ? { provider: provider.trim() } : {}),
+          ...(providerCode.trim() ? { providerCode: providerCode.trim() } : {}),
+          ...(insuredName.trim() ? { insuredName: insuredName.trim() } : {}),
         ...(providerReference.trim() ? { providerReference: providerReference.trim() } : {}),
         status,
         sourceLabel: instructionFile
@@ -673,8 +663,7 @@ export function ManualIntake() {
     setVrm('');
     setProvider('');
     setProviderCode('');
-    setCasePo('');
-    setProviderReference('');
+      setProviderReference('');
     setInsuredName('');
     setMake('');
     setInspectOn(todayDdMmYyyy());
@@ -877,27 +866,19 @@ export function ManualIntake() {
               </Field>
             </div>
 
-            {/* Case/PO — our internal reference (separate from the provider's).
-                Pre-filled from the live next-Case/PO preview for the Principal. */}
-            <div className={styles.fieldRow}>
-              <div className={styles.fieldWithAction}>
-                <Field
-                  className={styles.fieldGrow}
-                  label="Case/PO"
-                  required
-                  hint="Our internal reference for the case."
-                  {...(!casePo.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
-                >
-                  <Input value={casePo} onChange={(_, d) => setCasePo(d.value)} />
-                </Field>
-                {casePoPreview && casePoPreview.boxUpper !== casePo.trim().toUpperCase() && (
-                  <Button onClick={() => setCasePo(casePoPreview.boxUpper)}>
-                    Use {casePoPreview.boxUpper}
-                  </Button>
-                )}
+              {/* Case/PO preview — server allocates the real value when the case is created. */}
+              <div className={styles.fieldRow}>
+                <div className={styles.fieldWithAction}>
+                  <Field
+                    className={styles.fieldGrow}
+                    label="Case/PO"
+                    hint="Assigned when the case is created."
+                  >
+                    <Input value={casePoPreview?.boxUpper ?? ''} placeholder="Assigned on create" readOnly disabled />
+                  </Field>
+                </div>
+                <div />
               </div>
-              <div />
-            </div>
             {casePoPreview && (
               <Caption1 className={styles.inlineNote}>
                 Suggested next for {casePoPreview.principal}: {casePoPreview.boxUpper} —{' '}

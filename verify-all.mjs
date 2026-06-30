@@ -27,6 +27,11 @@ import { dirname, join } from 'node:path';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const isWin = process.platform === 'win32';
 const results = [];
+const NODE = JSON.stringify(process.execPath);
+const nodeScript = (...parts) => `${NODE} ${JSON.stringify(join(ROOT, ...parts))}`;
+const TSC = nodeScript('node_modules', 'typescript', 'bin', 'tsc');
+const VITEST = nodeScript('node_modules', 'vitest', 'vitest.mjs');
+const MOCKUP_VITE = nodeScript('mockup-app', 'node_modules', 'vite', 'bin', 'vite.js');
 
 function run(label, cmd, opts = {}) {
   process.stdout.write(`\n=== ${label} ===\n`);
@@ -62,21 +67,21 @@ function gate(label, fn) {
 }
 
 // 1-2. Code App (React/Vite) — type-check + build, then the contract/domain/adapter unit tests.
-run('Code App — tsc + vite build', 'npm run build', { cwd: join(ROOT, 'mockup-app'), tail: 1 });
-run('Code App — vitest', 'npm run test', { cwd: join(ROOT, 'mockup-app'), tail: 3 });
+run('Code App — tsc + vite build', `${TSC} -b && ${MOCKUP_VITE} build`, { cwd: join(ROOT, 'mockup-app'), tail: 1 });
+run('Code App — vitest', `${VITEST} run`, { cwd: join(ROOT, 'mockup-app'), tail: 3 });
 
 // 2b. Live Data API (api/, Node/TS Functions v4 on cespk-api-dev) — tsc build then the
 //     vitest auth suite (Entra JWT validation + app-role authz). `npm run build:api` also
 //     builds its @cs/domain project reference, so this is the live Data API's offline gate.
-run('Data API — tsc build', 'npm run build:api', { tail: 1 });
-run('Data API — vitest (auth)', 'npm run test --workspace @cs/api', { tail: 3 });
+run('Data API — tsc build', `${TSC} -b api`, { tail: 1 });
+run('Data API — vitest (auth)', `${VITEST} run`, { cwd: join(ROOT, 'api'), tail: 3 });
 
 // 2c. @cs/domain — the shared contract/codec/domain package the SPA + Data API both
 //     import. Runs its vitest (incl. the choiceset<->TS-contract parity: case-status
 //     option/terminal parity, EVA export field-order, codec bijection). This RE-ESTABLISHES
 //     the parity coverage the retired Dataverse schema-parity gate (gate 3) used to give —
 //     without it, an inconsistent edit to a relocated choiceset JSON would pass `verify-all`.
-run('Domain — vitest (contract/codec/parity)', 'npm run test --workspace @cs/domain', { tail: 3 });
+run('Domain — vitest (contract/codec/parity)', `${VITEST} run`, { cwd: join(ROOT, 'packages', 'domain'), tail: 3 });
 
 // 3. Dataverse schema-as-code — RETIRED. The Power Platform footprint (Dataverse +
 //    Power Automate flows + Code App + connectors) was deprovisioned 2026-06-27 and

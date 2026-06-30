@@ -224,25 +224,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     inbound,
   });
 
-  // 3.5 — Box ARCHIVE (#box-sync): copy the landed evidence bytes (attachments + the
-  // raw .eml) from Blob INTO the case Box folder — the fix for "folder created but
-  // files never stored". Gated + scope-locked INSIDE the activity; best-effort here so
-  // a Box failure never sinks intake. Runs regardless of mode (record-keeping). After the folder
-  // exists (2.5) and after evidence persist (3) so the case row + folder are both set.
-  if (resolved.casePo) {
-    try {
-      yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, {
-        caseId: resolved.caseId,
-        inbound,
-      });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
-      }
-    }
-  }
-
-  // 3.6 — extract embedded images from instruction PDFs/EML into image evidence
+  // 3.5 — extract embedded images from instruction PDFs/EML into image evidence
   // (#pdf-image-extraction). RECORD-KEEPING — runs regardless of automation mode
   // (work-todo-spike "Both"); the BOX/image gates + best-effort handling live INSIDE the
   // activity. Persists each image as an evidence row + flags an unsuitable set (no viewable
@@ -257,6 +239,20 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   } catch (e) {
     if (!ctx.df.isReplaying) {
       ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
+
+  // 3.6 — Box ARCHIVE (#box-sync): copy persisted blob-backed evidence rows INTO the
+  // case Box folder. Runs after all evidence generation so raw email, body text,
+  // attachments, and extracted images are covered. The activity skips cleanly when
+  // an attached/replied case has no archive folder yet.
+  try {
+    yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, {
+      caseId: resolved.caseId,
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
     }
   }
 
