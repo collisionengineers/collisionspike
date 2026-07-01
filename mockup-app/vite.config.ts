@@ -14,7 +14,20 @@ const domainSrc = (rel: string): string => resolve(here, '..', 'packages/domain/
 // Static Web Apps via `@azure/static-web-apps-cli`).
 export default defineConfig({
   plugins: [react()],
-  server: { port: 5173, open: false },
+  server: {
+    port: 5173,
+    open: false,
+    // Local dev: forward /api to the live dev Data API server-side, so the browser
+    // stays same-origin (no Function-App CORS change needed). Pairs with
+    // mockup-app/.env.local (VITE_API_BASE_URL=http://localhost:5173) and the
+    // localhost:5173 spa redirectUri on the CollisionSpike SPA app registration.
+    proxy: {
+      '/api': {
+        target: 'https://cespk-api-dev.azurewebsites.net',
+        changeOrigin: true,
+      },
+    },
+  },
   // Pure, deterministic contract tests — node env, no jsdom required.
   test: {
     environment: 'node',
