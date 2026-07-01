@@ -131,6 +131,16 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   `.eml`, instructions, and images into the case Box folder on every intake ([TKT-003](./docs/tickets/TKT-003-box-sync/TKT-003-box-sync.md),
   **VERIFIED-LIVE**). Granular UI/platform tickets from the work-todo-spike wave: [docs/tickets/BOARD.md](./docs/tickets/BOARD.md).
 
+- **✅ UI/UX reforge — DONE (2026-07-01).** Full in-place reforge of the SPA by the design agent team,
+  recorded as the **binding decision register [docs/reviews/010726/](./docs/reviews/010726/)**: semantic
+  colour system + red budget (red = brand chrome + critical only), dashboard declutter (grouped
+  needs-action, clickable stat affordance), dense-table typography + per-queue columns (fact-driven
+  "Why held"), bulk operations (hold/release/log-chase), durable chase log (**new `logChase` API
+  function — the chase data-loss fix**), quick-peek case drawer (`?peek=`), and empty-state quick
+  actions. Follow-ups owned in the register's "Known deferrals": responsive/tablet pass, twin-count
+  server-side batch, sr-only consolidation, rail-pill refresh after bulk moves, focus-halo contrast,
+  `/case/:id` renderer-freeze investigation.
+
 **Next:**
 - **Durable API hardening** — durable auth error-handling + token **audience-form** hardening (v2 tokens
   carry `aud` = the API client-id GUID `fa2fb28c…`); in progress.

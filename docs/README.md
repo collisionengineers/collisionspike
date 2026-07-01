@@ -79,6 +79,7 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
 ## Reviews — binding manual reviews
 - [reviews/README.md](./reviews/README.md) — the binding-review convention (dated `reviews/<DDMMYY>/` folders are authoritative, superseded only by a later review).
 - [reviews/190626/](./reviews/190626/) — the 2026-06-19 UI/UX review (8 tasks, actioned).
+- [reviews/010726/](./reviews/010726/) — the 2026-07-01 UI/UX **reforge decision register** (red budget, semantic colours, queues/bulk/drawer rulings; shipped same day).
 
 ## Design
 > Index: [design/README.md](./design/README.md).
