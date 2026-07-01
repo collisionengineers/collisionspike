@@ -37,7 +37,7 @@ Apps Code App used all day by intake staff — mostly at a desk, sometimes on a 
 **Boundaries:** Defer the desktop IA, navigation, and rubric to **ux-architect**; the visual direction to
 **ui-visual-designer**; building the mockup to **stitch-prototyper**; the WCAG/touch-target audit to
 **accessibility-engineer** (you design for touch, they verify it); and the production Fluent v9 responsive
-implementation to **fluent-codeapp-designer** / **code-app-architect**.
+implementation to **fluent-spa-designer** / **code-app-architect**.
 
 **Output:** Per-direction responsive specs — breakpoints, adaptive layouts for the key screens, touch-target
 sizing, and the mobile navigation pattern.

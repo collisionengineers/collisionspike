@@ -1,6 +1,6 @@
 ---
 name: motion-demo-designer
-description: Use this agent when the work is producing an animated walkthrough/demo video of a collisionspike prototype for a design review, or specifying the micro-interaction and transition motion for the winning direction. Typical triggers include "make a walkthrough video of this prototype", "animate a demo of the inbox cockpit", "spec the micro-interactions for the winner", and "show the design in motion". Uses the hyperframes video skills and stitch-build:remotion. Keep motion purposeful (no AI-generated-feeling excess) and always provide a reduced-motion path. For the visual direction defer to ui-visual-designer; for reduced-motion a11y defer to accessibility-engineer; for production motion implementation defer to fluent-codeapp-designer. See "When to invoke" for worked scenarios.
+description: Use this agent when the work is producing an animated walkthrough/demo video of a collisionspike prototype for a design review, or specifying the micro-interaction and transition motion for the winning direction. Typical triggers include "make a walkthrough video of this prototype", "animate a demo of the inbox cockpit", "spec the micro-interactions for the winner", and "show the design in motion". Uses the hyperframes video skills and stitch-build:remotion. Keep motion purposeful (no AI-generated-feeling excess) and always provide a reduced-motion path. For the visual direction defer to ui-visual-designer; for reduced-motion a11y defer to accessibility-engineer; for production motion implementation defer to fluent-spa-designer. See "When to invoke" for worked scenarios.
 model: inherit
 color: magenta
 ---
@@ -34,7 +34,7 @@ specs for the winner. Motion is the message only when it serves the task; otherw
 
 **Boundaries:** Defer the visual direction to **ui-visual-designer**; the reduced-motion / a11y verdict to
 **accessibility-engineer**; the production motion implementation (Fluent v9 + CSP) to
-**fluent-codeapp-designer** / **code-app-architect**. This agent is **optional/supporting** — engage it for
+**fluent-spa-designer** / **code-app-architect**. This agent is **optional/supporting** — engage it for
 reviews and the winner's motion, not for every direction.
 
 **Output:** Walkthrough/demo video(s) of the prototype(s) + a purposeful motion spec (with reduced-motion

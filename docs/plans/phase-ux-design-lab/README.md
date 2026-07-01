@@ -32,7 +32,7 @@ Code App shell / routes / connector wiring / `pac code` deploy to `code-app-arch
 `canvas-app-*` / `genpage-*` / `mcp-apps:*`.
 
 `ux-architect` · `ui-ux-pro-max-specialist` · `ui-visual-designer` · `stitch-prototyper` · `mobile-ux-designer`
-· `accessibility-engineer` · `design-critic` · `fluent-codeapp-designer` · `motion-demo-designer` *(optional)*.
+· `accessibility-engineer` · `design-critic` · `fluent-spa-designer` · `motion-demo-designer` *(optional)*.
 
 ## The dynamic ultracode workflow (divergence → judge → converge → port)
 
@@ -44,7 +44,7 @@ Code App shell / routes / connector wiring / `pac code` deploy to `code-app-arch
 | **D — Audit + Judge** *(advisory)* | a11y-audit each prototype; score each vs the rubric across lenses → an **advisory** ranked `leaderboard.md` (decision-support, **not** a verdict) + per-direction scorecards + a completeness-gap list. | `chrome-devtools` a11y, `taste-design`, `frontend-design` | accessibility-engineer, design-critic |
 | **— Operator vetting & selection** | The **workflow stops here.** The operator opens the gallery, reviews the prototypes + advisory scorecards, and **picks the winner**. No auto-pick. | — | **the operator** |
 | **E — Converge** *(after the operator picks)* | The **operator-chosen** winner → a refined prototype (main page + queues + key flows), grafting the best ideas from runners-up; a focused mobile-ux pass + optional walkthrough video. | `frontend-design`, `hyperframes`/`remotion` | ui-visual-designer, ux-architect, mobile-ux-designer, (motion-demo-designer) |
-| **F — Port spec** | Map the winner → Fluent v9 + CE brand + CSP + the existing component library → `port-spec.md` (an ordered PR breakdown). Hand to **code-app-architect** to build. | `collision-engineers-design`, Fluent v9 (MS Learn) | fluent-codeapp-designer → code-app-architect |
+| **F — Port spec** | Map the winner → Fluent v9 + CE brand + CSP + the existing component library → `port-spec.md` (an ordered PR breakdown). Hand to **code-app-architect** to build. | `collision-engineers-design`, Fluent v9 (MS Learn) | fluent-spa-designer (builds directly in the SWA SPA — the code-app-architect handoff is the decommissioned Power Apps era) |
 
 **Dynamic** = the direction count scales (8+), the judge can loop-until-converged, and the completeness
 critic flags missing feature coverage before convergence. The `Workflow` uses `parallel`/`pipeline` fan-out
@@ -97,7 +97,7 @@ docs/plans/phase-ux-design-lab/
 ## Risks
 
 - **Throwaway→port is lossy** — open/off-brand ideas may port as *spirit, not pixel*; the rubric weights
-  shippability and `fluent-codeapp-designer` re-anchors (and may propose documented `THEME-MAPPING.md`
+  shippability and `fluent-spa-designer` re-anchors (and may propose documented `THEME-MAPPING.md`
   updates rather than silently diverging).
 - **Prototypes use fake data** — the port wires through the existing data seam (CSP: connectors only).
 - **Cost** — 8+ directions × build × judge is a large ultracode run; the dynamic workflow scales.

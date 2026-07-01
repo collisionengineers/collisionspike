@@ -202,7 +202,9 @@ build/deploy/wire → **azure-integration-engineer**.
 > **Roster delta (2026-06-27):** added **azure-diagnostician** (read-only Azure triage). The
 > **`dataverse-data-architect`**, **`document-parser-engineer`**, and **`fluent-codeapp-designer`** agent
 > files were **deleted** — their domain guidance survives in the docs + the `cedocumentmapper_v2.0`
-> sibling, but the agents are no longer dispatchable. All Azure work routes through
+> sibling, but the agents are no longer dispatchable. **(2026-07-01:** the production-UI-builder role was
+> **re-created as `fluent-spa-designer`** — it builds the **Azure SWA Fluent v9 SPA**, *not* a Power Apps
+> Code App; older design-lab docs that say `fluent-codeapp-designer` mean this role.) All Azure work routes through
 > **[docs/azure/](./docs/azure/README.md)**.
 - **azure-integration-engineer** — *(live, expanded)* Azure Functions (parser + DVSA/DVLA enrichment
   **direct via Entra client_credentials**, no Google gateway; plus the box-webhook receiver), Key Vault,
@@ -250,8 +252,9 @@ Fluent v9 Code App**. Each owns one slice and **defers the Code App shell / rout
   gates convergence.
 - **design-critic** — the adversarial **judge**: scores directions vs the rubric, ranks the gallery, runs the
   completeness critique.
-- **fluent-codeapp-designer** — ports the winner to Fluent v9 + CE brand + CSP, reusing the `mockup-app/`
-  component library; writes `port-spec.md` for **code-app-architect** to build.
+- **fluent-spa-designer** *(re-created 2026-07-01; named `fluent-codeapp-designer` in older design-lab
+  docs)* — implements production UI in the **Azure SWA** Fluent v9 SPA (`mockup-app/`), including porting a
+  design-lab winner to Fluent v9 + CE brand + CSP. No Power Apps — the Code App era is decommissioned.
 - **motion-demo-designer** *(optional)* — walkthrough/demo videos (`hyperframes` / `stitch-build:remotion`) +
   the winner's micro-interaction motion.
 

@@ -1,6 +1,6 @@
 ---
 name: ui-ux-pro-max-specialist
-description: Use this agent when the work is generating genuinely DISTINCT design-system seeds for the collisionspike design lab — driving the ui-ux-pro-max skill (its 67 styles, 96 palettes, 57 font pairings, 25 charts, 13 stacks) to produce one different style/palette/type/layout system per exploration direction. Typical triggers include "seed 8 distinct design directions", "give me varied palette + font-pairing options", "pick a style system for this direction", and "make sure no two directions look alike". This is the variety engine for the divergence stage. For bespoke refinement of a seed into a coherent identity defer to ui-visual-designer; for the IA/rubric defer to ux-architect; for building the mockups defer to stitch-prototyper; for the production brand re-anchor defer to fluent-codeapp-designer. See "When to invoke" for worked scenarios.
+description: Use this agent when the work is generating genuinely DISTINCT design-system seeds for the collisionspike design lab — driving the ui-ux-pro-max skill (its 67 styles, 96 palettes, 57 font pairings, 25 charts, 13 stacks) to produce one different style/palette/type/layout system per exploration direction. Typical triggers include "seed 8 distinct design directions", "give me varied palette + font-pairing options", "pick a style system for this direction", and "make sure no two directions look alike". This is the variety engine for the divergence stage. For bespoke refinement of a seed into a coherent identity defer to ui-visual-designer; for the IA/rubric defer to ux-architect; for building the mockups defer to stitch-prototyper; for the production brand re-anchor defer to fluent-spa-designer. See "When to invoke" for worked scenarios.
 model: inherit
 color: orange
 ---
@@ -42,7 +42,7 @@ direction so the 8+ directions genuinely differ instead of clustering on the sam
 **ui-visual-designer** (you supply the system; they make it sing); the IA, navigation, and rubric to
 **ux-architect**; building the mockups to **stitch-prototyper**; responsive treatment to
 **mobile-ux-designer**; and the production CE-brand re-anchor + Fluent v9 mapping to
-**fluent-codeapp-designer**. You generate systems; you do not judge them (that is **design-critic**).
+**fluent-spa-designer**. You generate systems; you do not judge them (that is **design-critic**).
 
 **Output:** N named, distinct design-system seeds (color / type / layout / chart tokens + rationale), one
 per direction, persisted into `docs/plans/phase-ux-design-lab/directions/<name>/`.
