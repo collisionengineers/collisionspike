@@ -97,6 +97,45 @@
   --ce-amber-line: #e0a92a; /* border */
   --ce-amber-ink: #3a2e08; /* text on amber */
 
+  /* ----------  Semantic severity triads (reforge 2026-07-01)  ----------
+     Every family = tint (surface wash) / line (1px borders) / ink (text on
+     tint/white) / accent (fills, 3px rails, icons). All ink-on-tint pairs
+     clear WCAG 4.5:1 — asserted by src/theme/contrast.test.ts. */
+
+  /* INFO — slate. Cool/steel callouts ONLY (guidance banner, avatar circle,
+     info messages); grid chips/tags stay neutral charcoal (fork #1). */
+  --ce-info-tint: #edf2f7;
+  --ce-info-line: #c5d3e0;
+  --ce-info-ink: #2e4a66;
+  --ce-info-accent: #476d92;
+
+  /* SUCCESS — formalized around --ce-success (terminal, windowed states). */
+  --ce-success-tint: #e9f4ec;
+  --ce-success-line: #b5d9c1;
+  --ce-success-ink: #0e5f2b;
+  --ce-success-accent: var(--ce-success);
+
+  /* WARNING — aliases the amber set (values unchanged), plus:
+     -text  = amber-looking text/icons on white (formalizes dueSoonText);
+     -wash  = large-surface wash (pipeline segment; -tint too heavy at panel
+              scale). Never white-on-amber. */
+  --ce-warning-tint: var(--ce-amber-tint);
+  --ce-warning-line: var(--ce-amber-line);
+  --ce-warning-ink: var(--ce-amber-ink);
+  --ce-warning-accent: var(--ce-amber);
+  --ce-warning-text: #8a5a00;
+  --ce-warning-wash: #fdf6e1;
+
+  /* CRITICAL — aliases the red family. The accent (#db0816) is strokes/icons/
+     CTA only, never a text-carrying fill; white-text chips fill with the ink. */
+  --ce-critical-tint: #fceeef; /* flat-hex of rgba(219,8,22,.07) over white */
+  --ce-critical-line: var(--ce-red);
+  --ce-critical-ink: var(--ce-red-dark);
+  --ce-critical-accent: var(--ce-red);
+
+  /* Eyebrow demotion (red budget: brand chrome + critical only). */
+  --ce-eyebrow-color: var(--ce-charcoal);
+
   --ce-font-display: 'Futura PT', 'Tw Cen MT Std', 'Helvetica Neue', Arial, sans-serif;
   --ce-font-brand: 'Tw Cen MT Std', 'Futura PT', 'Century Gothic', sans-serif;
   --ce-font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, monospace;
@@ -124,29 +163,23 @@ body,
   color: var(--ce-ink);
 }
 
-/* Uppercase eyebrow — CE red, tracked. */
+/* Uppercase eyebrow — charcoal, tracked (reforge 2026-07-01: red demoted out
+   of eyebrows; the tracking/caps carry the section moment). */
 .ce-eyebrow {
   font-family: var(--ce-font-display);
-  color: var(--ce-red);
+  color: var(--ce-eyebrow-color);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 
-/* Section heading lockup: eyebrow + a 2px red hairline rule. Pair with
-   <SectionHeading/>; this class styles the hairline element. */
+/* Section heading lockup container. Pair with <SectionHeading/>. (The old
+   .ce-hairline 2px red rule was dead CSS — removed, reforge 2026-07-01.) */
 .ce-section-heading {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-.ce-section-heading .ce-hairline {
-  height: 2px;
-  width: 40px;
-  background: var(--ce-red);
-  border: 0;
-  border-radius: 2px;
 }
 
 /* KPI number — Futura PT, large, ink. */

@@ -1,4 +1,4 @@
-import { Badge, makeStyles, mergeClasses, tokens, type BadgeProps } from '@fluentui/react-components';
+import { Badge, type BadgeProps } from '@fluentui/react-components';
 import {
   AlertOctagon,
   AlertTriangle,
@@ -15,16 +15,23 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { CaseStatus } from '@cs/domain';
+import { severityClassName, useSeverityChipStyles, type ChipSeverity } from './severityStyles';
 
 /* ============================================================
    StatusBadge — severity ramp, never colour-only.
 
+   Colours come from the shared severity chip recipes (severityStyles.ts),
+   keyed on the semantic triads in theme.css (reforge 2026-07-01).
+
    Severities, each ALWAYS paired with a Lucide icon:
-     - blocker   → CE red (#db0816). White-on-red text uses #8f1422 (--ce-red-dark)
-                   at semibold to clear AA on the badge fill.
-     - attention → amber, charcoal text.
-     - info      → charcoal outline (no fill).
-     - done      → success green (terminal, windowed states).
+     - blocker   → critical: --ce-critical-ink (#8f1422) fill + white text at
+                   semibold to clear AA on the badge fill.
+     - attention → warning: amber fill, amber-ink text.
+     - info      → neutral charcoal outline, no fill (fork #1: grids stay
+                   quiet — slate is for callouts only).
+     - done      → success tint idiom: --ce-success-tint fill, --ce-success-ink
+                   text + icon, 1px --ce-success-line border (terminal,
+                   windowed states).
      - muted     → low-key grey outline (the terminal 'removed' soft-delete — a
                    case that is out of the workflow, never an action item).
    ============================================================ */
@@ -54,40 +61,13 @@ const STATUS_STYLES: Record<CaseStatus, StatusStyle> = {
   removed: { label: 'Removed', severity: 'muted', icon: Trash2 },
 };
 
-const useStyles = makeStyles({
-  base: { fontWeight: tokens.fontWeightSemibold },
-  // Blocker: solid CE-red-dark fill (#8f1422) + white text → AA-safe.
-  blocker: {
-    backgroundColor: 'var(--ce-red-dark)',
-    color: '#ffffff',
-    border: '1px solid var(--ce-red-dark)',
-  },
-  // Attention: amber fill, charcoal text.
-  attention: {
-    backgroundColor: 'var(--ce-amber)',
-    color: 'var(--ce-amber-ink)',
-    border: '1px solid var(--ce-amber-line)',
-  },
-  // Info: charcoal outline, no fill.
-  info: {
-    backgroundColor: 'transparent',
-    color: tokens.colorNeutralForeground2,
-    border: `1px solid ${tokens.colorNeutralStroke1}`,
-  },
-  // Muted: low-contrast grey outline — the terminal 'removed' soft-delete.
-  muted: {
-    backgroundColor: 'transparent',
-    color: tokens.colorNeutralForeground3,
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-  },
-});
-
-const SEVERITY_CLASS: Record<Severity, keyof ReturnType<typeof useStyles> | undefined> = {
-  blocker: 'blocker',
-  attention: 'attention',
+/* StatusBadge severity → shared chip-recipe severity (severityStyles.ts). */
+const SEVERITY_CHIP: Record<Severity, ChipSeverity> = {
+  blocker: 'critical',
+  attention: 'warning',
   info: 'info',
+  done: 'success',
   muted: 'muted',
-  done: undefined, // uses Fluent success color
 };
 
 export interface StatusBadgeProps {
@@ -98,30 +78,14 @@ export interface StatusBadgeProps {
 
 /** Renders a Case status as an icon + label severity Badge (never colour-only). */
 export function StatusBadge({ status, size = 'medium' }: StatusBadgeProps) {
-  const styles = useStyles();
+  const chips = useSeverityChipStyles();
   const s = STATUS_STYLES[status];
   const Icon = s.icon;
   const iconSize = size === 'small' ? 12 : 14;
-  const cls = SEVERITY_CLASS[s.severity];
-
-  if (s.severity === 'done') {
-    return (
-      <Badge
-        className={styles.base}
-        appearance="filled"
-        color="success"
-        size={size}
-        shape="rounded"
-        icon={<Icon size={iconSize} strokeWidth={2} />}
-      >
-        {s.label}
-      </Badge>
-    );
-  }
 
   return (
     <Badge
-      className={mergeClasses(styles.base, cls && styles[cls])}
+      className={chips[severityClassName(SEVERITY_CHIP[s.severity])]}
       appearance="filled"
       size={size}
       shape="rounded"

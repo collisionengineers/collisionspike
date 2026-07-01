@@ -12,13 +12,17 @@
 
 The CE design system ships **two** reds. This is a **screen UI**, so:
 
-- **`#db0816` (WEB red)** is the only red used on screen — brand primary (`brand[80]`), eyebrows,
-  hairlines, active rail bar, hover borders, the `PipelineStrip` chasing stage, past-due/blocker affordances.
+- **`#db0816` (WEB red)** is the only red used on screen — brand primary (`brand[80]`), active rail bar,
+  primary CTAs, focus rings, and true-blocker/critical affordances.
 - **`#c80a32` (PRINT red)** belongs to the A4 letterhead/report system and **must never appear in the app.**
-  If you see `c80a32` anywhere under `mockup-app/src`, it is a bug.
-- **Red is budgeted to two roles**: (1) the **primary CTA** and (2) **true blockers/urgency** (past-due,
-  submit-blocked, the chasing stage, the Needs-action rail pill). Non-actionable badges are demoted to
-  charcoal/muted so red keeps its meaning.
+  If you see `c80a32` anywhere under `mockup-app/src`, it is a bug (guarded by `src/theme/contrast.test.ts`).
+- **Red budget (reforge 2026-07-01) = brand chrome + critical only**: the logo, the rail active-nav
+  marker, active tab underlines, primary CTAs, focus rings, destructive actions and **true blockers**
+  (past-due, submit-blocked, the Held exception surfaces, error states). Red was **removed from
+  eyebrows** (now `--ce-eyebrow-color` = charcoal), **neutral badges/tags**, **stat accents**, subject-link
+  hovers and the untriaged/chasing accents (now warning amber) so red keeps its meaning.
+  <br>~~Superseded (pre-reforge): red also carried eyebrows, hairlines, hover borders and the
+  `PipelineStrip` chasing stage.~~ _(Formal dated review lands at `docs/reviews/010726/` — M-H.)_
 
 ### The rail is *system chrome*
 
@@ -95,12 +99,28 @@ non-Fluent surfaces (charcoal rail, eyebrows, KPI numbers):
 
 | CSS var | Value | Use |
 |---|---|---|
-| `--ce-red` | `#db0816` | eyebrows, hairlines, active rail bar, hover borders |
-| `--ce-red-dark` | `#8f1422` | pressed |
-| `--ce-charcoal` | `#2c2a27` | left rail / dark ground |
+| `--ce-red` | `#db0816` | active rail bar, primary CTA, critical strokes/icons, focus ring. ~~eyebrows, hairlines, hover borders~~ (demoted — reforge 2026-07-01) |
+| `--ce-red-dark` | `#8f1422` | pressed; the white-text critical chip fill (= `--ce-critical-ink`) |
+| `--ce-charcoal` | `#2c2a27` | left rail / dark ground; eyebrows (via `--ce-eyebrow-color`) |
 | `--ce-ink` | `#16191d` | display text |
-| `--ce-success` | `#16833b` | success affordances / readiness ✔ |
+| `--ce-success` | `#16833b` | success affordances / readiness ✔ (= `--ce-success-accent`) |
 | `--ce-whatsapp` | `#25d366` | WhatsApp channel accent |
+| `--ce-eyebrow-color` | `var(--ce-charcoal)` | section eyebrows (`.ce-eyebrow`, `SectionHeading`) — the red-budget demotion (reforge 2026-07-01) |
+
+### 2.1 Semantic severity triads (reforge 2026-07-01)
+
+Four families in `theme.css :root`; every family = **tint** (surface wash) / **line** (1px borders) /
+**ink** (text on tint/white) / **accent** (fills, 3px rails, icons). All ink-on-tint pairs clear WCAG
+**4.5:1** — asserted by `mockup-app/src/theme/contrast.test.ts`. The shared chip recipes live in
+`src/components/severityStyles.ts` (critical/warning/info/success/muted) and back `StatusBadge`, the Inbox
+`TriageBadge` and the dashboard/queue facet chips.
+
+| Family | tint | line | ink | accent | Notes |
+|---|---|---|---|---|---|
+| **INFO** (slate) | `#edf2f7` | `#c5d3e0` | `#2e4a66` | `#476d92` | callouts ONLY (guidance banner, avatar circle, info messages); grid chips/tags stay neutral charcoal outline ("quiet grids") |
+| **SUCCESS** | `#e9f4ec` | `#b5d9c1` | `#0e5f2b` | `#16833b` (= `--ce-success`) | terminal/windowed states; the `StatusBadge` `done` idiom |
+| **WARNING** | `#f7e2a6` (= `--ce-amber-tint`) | `#e0a92a` (= `--ce-amber-line`) | `#3a2e08` (= `--ce-amber-ink`) | `#f5c244` (= `--ce-amber`) | plus `--ce-warning-text #8a5a00` (amber-looking text/icons on white) and `--ce-warning-wash #fdf6e1` (large-surface wash). Never white-on-amber |
+| **CRITICAL** | `#fceeef` | `#db0816` (= `--ce-red`) | `#8f1422` (= `--ce-red-dark`; also the white-text chip fill) | `#db0816` — strokes/icons/CTA only, never a text-carrying fill | the red family, budget-gated |
 
 ---
 
@@ -145,6 +165,14 @@ Centralised in `StatusBadge.tsx`. **Colour is never the sole signal** — every 
 
 All badges use `shape="rounded"`. `statusLabel(status)` exposes the label string without rendering.
 
+> **Superseded (reforge 2026-07-01).** The table above predates the severity remap. `StatusBadge` now
+> renders every status through the **shared severity chip recipes** (`severityStyles.ts`), not per-status
+> Fluent `color` props: **blocker** → critical (`--ce-critical-ink` fill + white text), **attention** →
+> warning (amber fill), **info** → neutral charcoal outline (unchanged), **done** → the **success-tint
+> idiom** (`--ce-success-tint` fill, `--ce-success-ink` text+icon, 1px `--ce-success-line` border — no
+> longer the Fluent `color="success"` solid green fill), **muted** → grey outline. Labels come from
+> `STATUS_STYLES` in `StatusBadge.tsx`.
+
 > Fluent v9 `Badge` `color` is a semantic enum (`brand | danger | important | informative | severe | subtle |
 > success | warning | …`). Success maps to Fluent's green palette (≈`#16833b`), danger to the CE-red brand
 > palette via the ramp — so "danger" reads as CE red, matching the brief.
@@ -179,7 +207,7 @@ with an icon and text — never colour alone.**
 |---|---|---|---|
 | `VrmPlate` plate | plate-yellow | `#FFDD00` | black-ish text `#16191d`, charcoal border `#2c2a27` |
 | `VrmPlate` GB band | GB blue | `#0a3aa0` | white "GB", left band, optional |
-| `PipelineStrip` stuck stage | `--ce-red` + `--ce-red-tint` | `#db0816` top rule, red wash ground, red count | the one red stage (chasing) |
+| `PipelineStrip` stuck stage | `--ce-warning-*` | `--ce-warning-wash` ground, `--ce-warning-line` rules, `--ce-warning-text` count, `--ce-warning-ink` label | ~~`#db0816` top rule, red wash ground, red count~~ demoted to warning amber (reforge 2026-07-01 — a stuck stage is "needs sorting", not a blocker) |
 
 ---
 
