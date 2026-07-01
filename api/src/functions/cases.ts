@@ -367,8 +367,9 @@ app.http('createCase', {
     };
     const status = statusForReviewCase(evalInput);
 
-    const name =
-      [input.vrm, input.provider].filter((v) => v && v.trim()).join(' · ') || 'Manual case';
+    const name = (
+      [input.vrm, input.provider].filter((v) => v && v.trim()).join(' · ') || 'Manual case'
+    ).slice(0, 100);
 
     // Build the INSERT column/value lists.
     const cols: string[] = ['name', 'vrm', 'status_code', 'intake_channel_kind_code', 'intake_channel_manual', 'source_mailbox'];

@@ -8379,7 +8379,7 @@ import_functions.app.http("createCase", {
       hasIdentity: (input.vrm ?? "").trim().length > 0 || (input.providerCode ?? "").trim().length > 0 || input.evaFields.claimantName.value.trim().length > 0
     };
     const status = statusForReviewCase(evalInput);
-    const name = [input.vrm, input.provider].filter((v) => v && v.trim()).join(" \xB7 ") || "Manual case";
+    const name = ([input.vrm, input.provider].filter((v) => v && v.trim()).join(" \xB7 ") || "Manual case").slice(0, 100);
     const cols = ["name", "vrm", "status_code", "intake_channel_kind_code", "intake_channel_manual", "source_mailbox"];
     const vals = [
       name,
@@ -9866,7 +9866,7 @@ import_functions9.app.http("internalCasesResolve", {
     const statusCode = caseStatusCodec.toInt(rawStatus) ?? statusToInt("new_email");
     const caseRef = (inbound.candidateRef ?? "").trim();
     const subject = (inbound.subject ?? "").trim();
-    const name = [vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Email intake";
+    const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Email intake").slice(0, 100);
     const emailKindCode = intakeChannelKindCodec.toInt("email") ?? null;
     let created;
     try {
