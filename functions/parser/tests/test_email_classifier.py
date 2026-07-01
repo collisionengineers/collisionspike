@@ -32,6 +32,11 @@ import function_app
 from cedocumentmapper_v2.rules.email_classifier import (
     CONTRACT_VERSION,
     classify_email,
+    _job_reference,
+    _has_report_attachment,
+    _is_reply,
+    _is_bare_acknowledgement,
+    _sender_written_text,
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -970,11 +975,11 @@ def test_re_inspection_without_colon_is_not_a_reply():
     assert result["subtype"] == "existing_provider_audit"
 
 
-def test_reply_with_no_reference_and_no_query_keyword_abstains_to_other():
-    """Conservative bound: a bare reply (RE: subject) with NO Case/PO, NO registration,
-    NO query keyword and NO work phrase has nothing to propose a link on, so it abstains
-    to ``other`` (safe for a human) rather than guessing query_existing_work. It still
-    must NOT be receiving_work."""
+def test_bare_acknowledgement_reply_is_non_actionable():
+    """TKT-038: a reply whose sender-written text is only a short pleasantry ("Thanks,
+    noted.") asks nothing and instructs nothing — it is no-action. It must NOT be
+    receiving_work, and is now recognised as ``non_actionable`` / ``acknowledgement``
+    rather than the generic ``other`` (more informative for the inbox)."""
     result = classify_email(
         subject="RE: your email",
         body="Thanks, noted.",
@@ -982,7 +987,8 @@ def test_reply_with_no_reference_and_no_query_keyword_abstains_to_other():
         attachment_kinds=["image"],
         has_attachments=True,
     )
-    assert result["category"] == "other"
+    assert result["category"] == "non_actionable"
+    assert result["subtype"] == "acknowledgement"
     assert result["is_reply"] is True
 
 
@@ -1001,8 +1007,11 @@ def test_reply_inherited_subject_work_phrase_does_not_defeat_suppression():
         attachment_kinds=["instruction"],
         has_attachments=True,
     )
-    assert result["category"] == "query"
-    assert result["subtype"] == "query_existing_work"
+    # The inherited-subject work phrase must NOT promote to receiving_work. The body is
+    # a bare pleasantry, so it lands non_actionable/acknowledgement (TKT-038) — NOT a
+    # duplicate Case. The Case/PO is still surfaced (for the orchestrator).
+    assert result["category"] == "non_actionable"
+    assert result["subtype"] == "acknowledgement"
     assert result["is_reply"] is True
     assert result["body_caseref"] == "CCPY26050"
 
@@ -1018,6 +1027,241 @@ def test_reply_inherited_subject_work_phrase_does_not_defeat_suppression():
     )
     assert promotes["category"] == "receiving_work"
     assert promotes["subtype"] == "existing_provider_instruction"
+
+
+# --------------------------------------------------------------------------- #
+# Hardening helpers (collisionspike TKT-021..040)                             #
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Our Ref: SAB/46286/1 please advise", "SAB/46286/1"),
+        ("Our Ref: HMA/46428/1, Vehicle: WN14XPZ", "HMA/46428/1"),
+        ("Your Ref: 45391/1", "45391/1"),
+        ("Our Ref: 206848.001 - new matter", "206848.001"),
+        ("ref kbs26067 enclosed", "KBS26067"),
+        ("the claim SAB_46286_1 is open", "SAB_46286_1"),  # structured, no label
+        ("just a normal sentence with no reference", ""),
+        ("ref: see attached", ""),  # labelled but no digit -> not a ref
+    ],
+)
+def test_job_reference_extractor(text, expected):
+    assert _job_reference(text) == expected
+
+
+@pytest.mark.parametrize(
+    "filename,is_report",
+    [
+        ("Engineer Report.pdf", True),
+        ("EngineersReport-V1.pdf", True),
+        ("engineers report v2.docx", True),
+        ("TL Report.pdf", True),
+        ("Final Report.pdf", True),
+        ("To Engineer with instructions.DOC", False),
+        ("Credit_Repair_Engineer_Instruction_46203.pdf", False),
+        ("claim form.pdf", False),
+        ("photo.jpg", False),
+    ],
+)
+def test_has_report_attachment(filename, is_report):
+    assert _has_report_attachment([filename]) is is_report
+
+
+@pytest.mark.parametrize(
+    "subject,is_reply_expected",
+    [
+        ("RE: 30143 - Mussie Belay - BX67OEY", True),   # no colon-space form is real Outlook
+        ("RE 30143 - Mussie Belay", True),               # no colon at all
+        ("Re: your report", True),
+        ("Re-inspection request", False),                # glued hyphen, NOT a reply
+        ("Review of costs", False),                      # 'Re' glued to a letter
+        ("FW: new instruction", False),                  # forward, not reply
+        ("FWD: please inspect", False),
+    ],
+)
+def test_relaxed_reply_detection(subject, is_reply_expected):
+    assert _is_reply(subject, "", "") is is_reply_expected
+
+
+def test_bare_acknowledgement_keys_on_first_line_despite_signature():
+    """TKT-038: 'Thanks Ed' followed by a long email signature is still a bare ack."""
+    assert _is_bare_acknowledgement("Thanks Ed\n\nLouise Pullan\nRecoveries Manager\n0800 093 0982\n...") is True
+    assert _is_bare_acknowledgement("Thanks, noted.") is True
+    # A substantive first line is NOT a bare ack (stays a linkable query).
+    assert _is_bare_acknowledgement("Thank you, I have shared this with my client.") is False
+    # A pleasantry that also asks is NOT a bare ack.
+    assert _is_bare_acknowledgement("Thanks. Where is the report?") is False
+
+
+def test_outlook_quoted_header_is_stripped_from_sender_text():
+    """The Outlook 'From:/Sent:/To:/Subject:' quote header (the common provider reply
+    convention, not '-----Original Message-----') must be stripped so the quoted original
+    instruction below it does not contaminate the sender-written scope (TKT-030/038)."""
+    body = (
+        "Thanks Ed\n\nKind regards\nLouise\n"
+        "From: Desk \nSent: Tuesday, June 30, 2026 9:59 AM\nTo: Louise\n"
+        "Subject: RE: Our Ref 45391/1\n\nPlease inspect the vehicle and prepare a report.\n"
+    )
+    sender = _sender_written_text(body)
+    assert "please inspect" not in sender.lower()
+    assert "thanks ed" in sender.lower()
+
+
+def test_invoice_request_routes_to_billing():
+    """TKT-037: 'please provide the invoice' with our report attached is a billing
+    request, never a new Case."""
+    result = classify_email(
+        subject="Your Ref: kbs26067 // Our Ref: 303671",
+        body="Good Afternoon, Please provide the invoice for the attached report.",
+        provider_match_state="one",
+        attachment_kinds=["image", "instruction"],
+        attachment_filenames=["image001.png", "Engineer Report.pdf"],
+        has_attachments=True,
+    )
+    assert result["category"] == "billing"
+    assert result["subtype"] == "billing_request"
+    assert "report_attachment" in result["signals"]
+
+
+def test_remittance_advice_is_not_billing():
+    """Guard: an inbound payment advice ('remittance advice', 'payment will reach your
+    account') is NOT a billing request — it abstains rather than mis-route to billing."""
+    result = classify_email(
+        subject="Remittance advice - June",
+        body="Please find our remittance advice for June. The payment will reach your account shortly.",
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert result["category"] != "billing"
+
+
+def test_case_summary_digest_routes_to_non_actionable():
+    """TKT-029: a recap of instructions already sent (an instruction-kind PDF attached,
+    a plural 'inspection requests' subject) must NOT mint a Case — it is non_actionable."""
+    result = classify_email(
+        subject="New inspection requests",
+        body="Please find attached a summary of the instructions sent yesterday showing the status of the inspections.",
+        provider_match_state="one",
+        attachment_kinds=["image", "instruction"],
+        attachment_filenames=["0.png", "Credit_Repair_Engineer_Instruction_46203.pdf"],
+        has_attachments=True,
+    )
+    assert result["category"] == "non_actionable"
+    assert result["subtype"] == "case_summary"
+
+
+def test_informal_work_with_photos_and_identifier_promotes():
+    """TKT-040: an informal triage request (no formal 'please inspect') with damage photos
+    AND a job identifier is genuine work; the same wording with NO identifier abstains."""
+    promoted = classify_email(
+        subject="(EREF5) RTA on 27/06/2026 : Mr Ahmed (Our Ref: HMA/46428/1, Vehicle: WN14XPZ)",
+        body="Triage Only Request. Please provide an initial assessment to confirm if this vehicle is roadworthy and repairable.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        attachment_filenames=["CLVDamage5-V1.jpg"],
+        has_attachments=True,
+    )
+    assert promoted["category"] == "receiving_work"
+
+    bare = classify_email(
+        subject="quick one",
+        body="Can you confirm if this vehicle is roadworthy?",  # informal, but no id and no images
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert bare["category"] != "receiving_work"
+
+
+def test_report_chaser_reply_is_query_not_new_work():
+    """TKT-030/033: a chase reply ('please provide engineers report') whose quoted history
+    below holds the original multi-phrase instruction must be a query, not new work — the
+    promotion signals are sender-scoped and the chase phrase suppresses."""
+    result = classify_email(
+        subject="RE: 30143 - Mussie Belay - BX67OEY",
+        body=(
+            "Good morning\nPlease provide engineers report.\n\n"
+            "From: Info\nSent: Wednesday, June 24, 2026 3:44 PM\nTo: Engineers\n"
+            "Subject: 30143\n\nWe instruct you to inspect the vehicle and prepare a report. Please inspect.\n"
+        ),
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        attachment_filenames=["image003.jpg"],
+        has_attachments=True,
+        in_reply_to="<orig@mail>",
+    )
+    assert result["category"] == "query"
+    assert result["subtype"] == "query_existing_work"
+
+
+# --------------------------------------------------------------------------- #
+# Golden ticket corpus — the real misclassified emails (collisionspike)       #
+# --------------------------------------------------------------------------- #
+# Each ticket's actual .eml under docs/tickets/<id>/**/ is run through the classifier
+# with its real attachments + threading headers. A regression that re-breaks any ticket
+# flips its row red. (These are the live failures TKT-029..040 document.)
+_TICKETS_DIR = os.path.join(_REPO_ROOT, "docs", "tickets")
+_EXT_TO_KIND = {
+    "jpg": "image", "jpeg": "image", "png": "image",
+    "pdf": "instruction", "docx": "instruction", "doc": "instruction", "eml": "email",
+}
+# (ticket-id glob, sender-domain provider-match state, expected category)
+_TICKET_EXPECT = [
+    ("TKT-029", "one", "non_actionable"),
+    ("TKT-030", "one", "query"),
+    ("TKT-031", "one", "query"),
+    ("TKT-033", "one", "query"),
+    ("TKT-036", "one", "receiving_work"),
+    ("TKT-037", "one", "billing"),
+    ("TKT-038", "one", "non_actionable"),
+    ("TKT-039", "one", "query"),
+    ("TKT-040", "one", "receiving_work"),
+]
+
+
+def _kind_of(filename: str) -> str:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return _EXT_TO_KIND.get(ext, "other")
+
+
+def _load_ticket_eml(ticket_id: str):
+    import glob
+    matches = sorted(glob.glob(os.path.join(_TICKETS_DIR, f"{ticket_id}*", "**", "*.eml"), recursive=True))
+    if not matches:
+        return None
+    with open(matches[0], "rb") as fh:
+        msg = email.message_from_bytes(fh.read(), policy=email.policy.default)
+    filenames, body = [], ""
+    for part in msg.walk():
+        fn = part.get_filename()
+        if fn:
+            filenames.append(fn)
+        elif part.get_content_type() == "text/plain":
+            body += part.get_content()
+        elif part.get_content_type() == "text/html" and not body:
+            body += part.get_content()
+    return msg, filenames, function_app._strip_html(body)
+
+
+@pytest.mark.parametrize("ticket_id,match_state,expected_category", _TICKET_EXPECT)
+def test_ticket_email_classifies_into_expected_category(ticket_id, match_state, expected_category):
+    loaded = _load_ticket_eml(ticket_id)
+    if loaded is None:
+        pytest.skip(f"{ticket_id}: no .eml present in docs/tickets")
+    msg, filenames, plain_body = loaded
+    result = classify_email(
+        subject=msg["subject"] or "",
+        body=plain_body,
+        sender_domain=(msg["from"] or "").split("@")[-1].strip("> ").lower(),
+        provider_match_state=match_state,
+        attachment_kinds=sorted({_kind_of(f) for f in filenames}),
+        attachment_filenames=filenames,
+        has_attachments=bool(filenames),
+        in_reply_to=msg["in-reply-to"] or "",
+        references=msg["references"] or "",
+    )
+    assert result["category"] == expected_category, (
+        f"{ticket_id}: got {result['category']}/{result['subtype']} — {result['signals']}"
+    )
 
 
 # --------------------------------------------------------------------------- #

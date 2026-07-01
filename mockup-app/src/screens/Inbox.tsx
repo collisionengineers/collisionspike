@@ -96,11 +96,19 @@ import type {
      stored email preview is available on every row; unlinked rows keep the
      mailbox pointer affordance. CSP-safe: no external navigation, no iframe, no raw fetch. */
 
-const CATEGORY_ORDER: InboundCategory[] = ['receiving_work', 'query', 'other'];
+const CATEGORY_ORDER: InboundCategory[] = [
+  'receiving_work',
+  'query',
+  'billing',
+  'non_actionable',
+  'other',
+];
 
 const CATEGORY_LABEL: Record<InboundCategory, string> = {
   receiving_work: 'Receiving work',
   query: 'Queries',
+  billing: 'Billing',
+  non_actionable: 'No action',
   other: 'Other',
 };
 
@@ -109,8 +117,11 @@ const SUBTYPE_LABEL: Record<InboundSubtype, string> = {
   existing_provider_audit: 'Audit re-inspection',
   existing_provider_diminution: 'Diminution',
   new_client_work: 'New client work',
-  query_existing_work: 'Query — existing work',
+  query_existing_work: 'Case query',
   query_new_enquiry: 'New enquiry',
+  billing_request: 'Invoice request',
+  case_summary: 'Case summary',
+  acknowledgement: 'Acknowledgement',
   other: 'Unidentified',
 };
 
@@ -122,7 +133,10 @@ const SUBTYPES_BY_CATEGORY: Record<InboundCategory, InboundSubtype[]> = {
     'existing_provider_diminution',
     'new_client_work',
   ],
+  // The Enquiries-vs-Case-Queries split (TKT-034) lives here, as the two query subtypes.
   query: ['query_existing_work', 'query_new_enquiry'],
+  billing: ['billing_request'],
+  non_actionable: ['case_summary', 'acknowledgement'],
   other: ['other'],
 };
 
@@ -136,6 +150,8 @@ const TRIAGE_LABEL: Record<TriageState, string> = {
 const TAB_ICON: Record<InboundCategory, typeof Briefcase> = {
   receiving_work: Briefcase,
   query: MailQuestion,
+  billing: Mail,
+  non_actionable: Mail,
   other: Mail,
 };
 
@@ -183,6 +199,9 @@ const EMPTY_HINT: Record<InboundCategory, string> = {
   receiving_work:
     'Nothing to action — instruction and audit emails that became (or will become) Cases land in this tab.',
   query: 'No queries to action — chasers and enquiries about work land here.',
+  billing: 'No billing requests — emails asking for an invoice/fee for completed work land here.',
+  non_actionable:
+    'Nothing here — case-summary digests and bare acknowledgements ("Thanks") that need no action land here.',
   other:
     'Nothing unidentified to action — auto-replies, bounces and newsletters fall through to this catch-all.',
 };

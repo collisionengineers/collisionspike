@@ -319,7 +319,11 @@ CREATE TABLE choice_inbound_category (
 INSERT INTO choice_inbound_category (code, name, label) VALUES
   (100000000, 'receiving_work', 'Receiving Work'),
   (100000001, 'query',          'Query'),
-  (100000002, 'other',          'Other');
+  (100000002, 'other',          'Other'),
+  -- append-only (collisionspike TKT-029/037/038): billing (an invoice/fee request) and
+  -- non_actionable (a case-summary digest or bare acknowledgement) join the originals.
+  (100000003, 'billing',         'Billing'),
+  (100000004, 'non_actionable',  'Non-actionable');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inboundsubtype  (inbound-email-classification.json bundle)
@@ -337,7 +341,12 @@ INSERT INTO choice_inbound_subtype (code, name, label) VALUES
   (100000003, 'query_existing_work',           'Query: Existing Work'),
   (100000004, 'query_new_enquiry',             'Query: New Enquiry'),
   (100000005, 'other',                         'Other'),
-  (100000006, 'existing_provider_diminution',  'Existing Provider Diminution');
+  (100000006, 'existing_provider_diminution',  'Existing Provider Diminution'),
+  -- append-only (collisionspike TKT-029/037/038): subtypes for the billing /
+  -- non_actionable categories above.
+  (100000007, 'billing_request',               'Billing Request'),
+  (100000008, 'case_summary',                  'Case Summary'),
+  (100000009, 'acknowledgement',               'Acknowledgement');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inspectiondecisionmode  (inspection-decision-mode.json)

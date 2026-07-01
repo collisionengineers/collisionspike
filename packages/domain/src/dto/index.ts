@@ -376,13 +376,24 @@ export const AI_ASSIST_GATE_ALL_OFF: AiAssistGate = {
    Phase 8 — Inbox / Triage domain types (cr1bd_inboundemail).
    ============================================================ */
 
-/** cr1bd_inboundcategory option names. */
-export type InboundCategory = 'receiving_work' | 'query' | 'other';
+/** cr1bd_inboundcategory option names. APPEND-ONLY (collisionspike TKT-029/037/038):
+ *  the original receiving_work | query | other are joined by `billing` (an invoice/fee
+ *  request — TKT-037) and `non_actionable` (a case-summary digest or bare acknowledgement
+ *  — TKT-029/038; distinct from `other`, which is genuinely unidentified). The
+ *  Enquiries-vs-Case-Queries split (TKT-034) is carried by the two `query` subtypes. */
+export type InboundCategory =
+  | 'receiving_work'
+  | 'query'
+  | 'billing'
+  | 'non_actionable'
+  | 'other';
 
 /** cr1bd_inboundsubtype option names. `existing_provider_diminution` (append-only,
  *  work-todo-spike: suggested-tags-and-folders) is the staff-applicable Diminution tag
  *  in the richer Inspection/Audit/Diminution/Query taxonomy; the deterministic classifier
- *  may not emit it yet (staff set it via the reclassify route). */
+ *  may not emit it yet (staff set it via the reclassify route). `billing_request`,
+ *  `case_summary` and `acknowledgement` are the deterministic subtypes for the new
+ *  top-level categories above (TKT-029/037/038). */
 export type InboundSubtype =
   | 'existing_provider_instruction'
   | 'existing_provider_audit'
@@ -390,6 +401,9 @@ export type InboundSubtype =
   | 'new_client_work'
   | 'query_existing_work'
   | 'query_new_enquiry'
+  | 'billing_request'
+  | 'case_summary'
+  | 'acknowledgement'
   | 'other';
 
 /** cr1bd_triagestate: the row's lifecycle in the triage queue. */
@@ -454,6 +468,8 @@ export interface ReclassifyInboundInput {
 export interface InboundCounts {
   receiving_work: number;
   query: number;
+  billing: number;
+  non_actionable: number;
   other: number;
   untriaged: number;
 }
@@ -462,6 +478,8 @@ export interface InboundCounts {
 export const INBOUND_COUNTS_ZERO: InboundCounts = {
   receiving_work: 0,
   query: 0,
+  billing: 0,
+  non_actionable: 0,
   other: 0,
   untriaged: 0,
 };
