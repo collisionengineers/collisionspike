@@ -18,6 +18,7 @@ import {
 } from '@fluentui/react-components';
 import { Check, Sparkles, X } from 'lucide-react';
 import { Panel } from './Panel';
+import { useSeverityChipStyles } from './severityStyles';
 import { GLOBAL_TOASTER_ID } from './toaster';
 import {
   useAiAssistGate,
@@ -123,6 +124,7 @@ export interface AiAssistPanelProps {
 /** The gated AI "Assistant" panel for a case (TKT-015). Renders nothing when the gate is off. */
 export function AiAssistPanel({ caseId, onPromoted }: AiAssistPanelProps) {
   const styles = useStyles();
+  const chips = useSeverityChipStyles();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
   const { data: gate } = useAiAssistGate();
   const suggestionsQuery = useAiSuggestions(caseId);
@@ -253,7 +255,9 @@ export function AiAssistPanel({ caseId, onPromoted }: AiAssistPanelProps) {
                     role="listitem"
                   >
                     <div className={styles.rowTop}>
-                      <Badge appearance="tint" color="brand" size="small" shape="rounded">
+                      {/* Slate info-tint callout tag — a suggestion type is
+                          metadata, not brand/severity (pigment ruling). */}
+                      <Badge appearance="tint" className={chips.chipInfoTint} size="small" shape="rounded">
                         {TYPE_LABEL[s.suggestionType] ?? s.suggestionType}
                       </Badge>
                       {typeof s.confidence === 'number' && (

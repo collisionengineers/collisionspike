@@ -51,8 +51,9 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground1,
     cursor: 'pointer',
     textAlign: 'left',
+    // Quiet hover — ink + underline, never red (reforge 2026-07-01).
     ':hover': {
-      color: 'var(--ce-red)',
+      color: 'var(--ce-ink)',
       textDecoration: 'underline',
       textUnderlineOffset: '2px',
     },
@@ -203,7 +204,9 @@ export function LinkedEmailsPanel({ caseId, emails }: LinkedEmailsPanelProps) {
                   </Caption1>
 
                   {webLink && (
-                    <Link href={webLink} target="_blank" rel="noopener noreferrer">
+                    // `inline` = rest-state underline: with links demoted to
+                    // ink, a text-adjacent link needs it to read as a link.
+                    <Link inline href={webLink} target="_blank" rel="noopener noreferrer">
                       <span className={styles.inlineIconText}>
                         Open in Outlook <ArrowUpRight size={14} />
                         <span className={styles.srOnly}> (opens in a new window)</span>

@@ -67,13 +67,16 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase200,
     color: 'var(--ce-muted)',
   },
+  // Warning rail — a merge candidate is a duplicate to RESOLVE, not a blocker
+  // (duplicates read warning post-reforge). --ce-warning-text, not -line: the
+  // line amber fails the 3:1 non-text graphics floor on white.
   candidate: {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalS,
     padding: tokens.spacingVerticalM,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderLeft: '3px solid var(--ce-red)',
+    borderLeft: '3px solid var(--ce-warning-text)',
     borderRadius: tokens.borderRadiusMedium,
     backgroundColor: tokens.colorNeutralBackground1,
   },

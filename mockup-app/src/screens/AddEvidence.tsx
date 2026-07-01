@@ -60,9 +60,12 @@ const useStyles = makeStyles({
     textAlign: 'left',
     ':hover': { backgroundColor: tokens.colorNeutralBackground1Hover },
   },
+  // Charcoal-selected (reforge 2026-07-01): a picked case row is a selection,
+  // not a severity — matches the CaseList active facet chip idiom. The red
+  // keyboard focus ring is separate and stays red.
   caseRowActive: {
-    border: '1px solid var(--ce-red)',
-    boxShadow: 'inset 0 0 0 1px var(--ce-red)',
+    border: '1px solid var(--ce-charcoal)',
+    boxShadow: 'inset 0 0 0 1px var(--ce-charcoal)',
   },
   caseMeta: { display: 'flex', flexDirection: 'column', minWidth: 0, flexGrow: 1 },
   po: { fontFamily: 'var(--ce-font-mono)', textTransform: 'uppercase', color: tokens.colorNeutralForeground3 },

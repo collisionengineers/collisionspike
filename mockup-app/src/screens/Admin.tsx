@@ -192,12 +192,15 @@ const useStyles = makeStyles({
     minWidth: '92px',
     justifyContent: 'flex-end',
   },
+  // "No domain" marker — a data-quality warning, not a blocker. Uses
+  // --ce-warning-text (#8a5a00), NOT --ce-warning-line, which fails the 3:1
+  // non-text graphics contrast floor on white (pigment ruling).
   noDomainDot: {
     display: 'inline-block',
     width: '8px',
     height: '8px',
     borderRadius: '50%',
-    backgroundColor: 'var(--ce-red)',
+    backgroundColor: 'var(--ce-warning-text)',
     flexShrink: 0,
   },
   panelInner: {

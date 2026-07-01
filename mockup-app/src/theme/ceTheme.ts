@@ -34,6 +34,15 @@ export const ceTheme: Theme = {
   // Input, etc.); a fuller alpha keeps it clearly visible against AA.
   colorStrokeFocus2: '#db0816',
 
+  // Links are quiet ink, not brand red (reforge 2026-07-01): with the CE ramp,
+  // Fluent's <Link> defaults render red text, which falsely signals severity in
+  // a red-budgeted UI. Rest = charcoal; hover/pressed/selected darken to ink
+  // (Fluent's own hover underline carries the affordance).
+  colorBrandForegroundLink: '#2c2a27',
+  colorBrandForegroundLinkHover: '#16191d',
+  colorBrandForegroundLinkPressed: '#16191d',
+  colorBrandForegroundLinkSelected: '#16191d',
+
   // 2px radii everywhere (keep circular)
   borderRadiusSmall: '2px',
   borderRadiusMedium: '2px',

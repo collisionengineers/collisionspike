@@ -177,9 +177,11 @@ const useStyles = makeStyles({
     backgroundColor: 'rgba(255,255,255,0.14)',
     color: 'rgba(255,255,255,0.82)',
   },
-  // the red pill — the human-action queues. #8f1422 fill so white text passes AA.
+  // the critical pill — the HELD queue only (reforge 2026-07-01: red = a case
+  // can't pass through; a full review queue is normal work, so Review reads
+  // muted). --ce-critical-ink fill so white text passes AA.
   countBlocker: {
-    backgroundColor: '#8f1422',
+    backgroundColor: 'var(--ce-critical-ink)',
     color: '#fff',
   },
 
@@ -359,7 +361,9 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
   const renderQueuesGroup = () => {
     if (collapsed) {
       // No room to expand — show the four queue icons directly with tooltips.
-      return <>{QUEUES.map((q) => renderQueue(q.name, q.label, q.tone === 'blocker', false))}</>;
+      // Critical pill keyed on the QUEUE NAME (held only), NOT QueueDef.tone:
+      // review shares tone 'blocker' but is normal work, not an exception.
+      return <>{QUEUES.map((q) => renderQueue(q.name, q.label, q.name === 'held', false))}</>;
     }
     return (
       <>
@@ -377,7 +381,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
             {queuesOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </span>
         </button>
-        {queuesOpen && QUEUES.map((q) => renderQueue(q.name, q.label, q.tone === 'blocker', true))}
+        {queuesOpen && QUEUES.map((q) => renderQueue(q.name, q.label, q.name === 'held', true))}
       </>
     );
   };

@@ -28,7 +28,15 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { SectionHeading, PipelineStrip, VrmPlate, EmptyState, ErrorState, DashboardSkeleton } from '../components';
+import {
+  SectionHeading,
+  PipelineStrip,
+  VrmPlate,
+  EmptyState,
+  ErrorState,
+  DashboardSkeleton,
+  useSeverityChipStyles,
+} from '../components';
 import { useDashboard } from '../data';
 import type { ActionReason, AgingRow, PipelineStageKey } from '../data';
 
@@ -138,7 +146,12 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
     fontSize: '12px',
     fontWeight: tokens.fontWeightSemibold,
-    ':hover': { color: 'var(--ce-red)' },
+    // Quiet hover — red-on-hover falsely signals severity (reforge 2026-07-01).
+    ':hover': {
+      color: 'var(--ce-ink)',
+      textDecoration: 'underline',
+      textUnderlineOffset: '2px',
+    },
   },
 
   /* exceptions bar — surfaces the can't-pass-through queue (queues #3) */
@@ -190,8 +203,10 @@ const useStyles = makeStyles({
       border: `1px solid ${tokens.colorNeutralStroke1}`,
     },
   },
-  liveBtnBlocker: {
-    ':hover': { border: '1px solid var(--ce-red)' },
+  // "Needs sorting" (untriaged) tile — warning amber, not red (reforge fork #3:
+  // untriaged email needs sorting; it is not a blocker).
+  liveBtnAttention: {
+    ':hover': { border: '1px solid var(--ce-warning-line)' },
   },
   liveIcon: {
     display: 'inline-flex',
@@ -204,11 +219,13 @@ const useStyles = makeStyles({
     color: 'var(--ce-charcoal)',
     flexShrink: 0,
   },
-  liveIconBlocker: {
-    backgroundColor: 'var(--ce-red-tint)',
-    color: 'var(--ce-red)',
+  liveIconAttention: {
+    backgroundColor: 'var(--ce-warning-tint)',
+    color: 'var(--ce-warning-text)',
   },
   liveText: { display: 'flex', flexDirection: 'column', gap: 0, minWidth: 0 },
+  // The tile number stays ink at every severity (the icon chip + hover border
+  // carry the "needs sorting" signal).
   liveNumber: {
     fontFamily: 'var(--ce-font-display)',
     fontWeight: 700,
@@ -216,7 +233,6 @@ const useStyles = makeStyles({
     lineHeight: 1,
     color: 'var(--ce-ink)',
   },
-  liveNumberBlocker: { color: 'var(--ce-red)' },
   liveLabel: {
     fontSize: '13px',
     fontWeight: tokens.fontWeightSemibold,
@@ -244,6 +260,8 @@ const useStyles = makeStyles({
   },
   // Lifetime "Sent to EVA" — its own bordered tile, captioned "All time", set apart
   // from the windowed strip so the metric is honest (work-todo-spike: dashboard-logic).
+  // Charcoal identity rail (not severity) + flat/static — no shadow, no chevron:
+  // this tile is not clickable (reforge 2026-07-01 §4 static surfaces).
   allTimeTile: {
     display: 'flex',
     flexDirection: 'column',
@@ -252,10 +270,9 @@ const useStyles = makeStyles({
     minWidth: '180px',
     padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderLeft: '4px solid var(--ce-red)',
+    borderLeft: '3px solid var(--ce-charcoal)',
     borderRadius: '2px',
     backgroundColor: tokens.colorNeutralBackground1,
-    boxShadow: 'var(--ce-shadow-sm)',
   },
   allTimeHead: {
     display: 'inline-flex',
@@ -303,6 +320,9 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalS,
     alignItems: 'center',
   },
+  // Facet chip geometry — severity colours come from the shared chip recipes
+  // (severityStyles.ts: chipCritical for past-due, chipWarning for
+  // duplicate/conflict), merged after this shape class.
   facetChip: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -314,16 +334,6 @@ const useStyles = makeStyles({
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     color: tokens.colorNeutralForeground2,
     backgroundColor: tokens.colorNeutralBackground1,
-  },
-  facetBlocker: {
-    color: '#ffffff',
-    backgroundColor: 'var(--ce-red-dark)',
-    border: '1px solid var(--ce-red-dark)',
-  },
-  facetAttention: {
-    color: 'var(--ce-amber-ink)',
-    backgroundColor: 'var(--ce-amber)',
-    border: '1px solid var(--ce-amber-line)',
   },
 
   list: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
@@ -390,15 +400,12 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground3,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
   },
+  // Attention pill uses the LIGHTER warning tint (the accent fill is too loud
+  // for a per-row pill); the blocker pill comes from chipCritical.
   ageAttention: {
-    color: 'var(--ce-amber-ink)',
-    backgroundColor: 'var(--ce-amber-tint)',
-    border: '1px solid var(--ce-amber-line)',
-  },
-  ageBlocker: {
-    color: '#ffffff',
-    backgroundColor: 'var(--ce-red-dark)',
-    border: '1px solid var(--ce-red-dark)',
+    color: 'var(--ce-warning-ink)',
+    backgroundColor: 'var(--ce-warning-tint)',
+    border: '1px solid var(--ce-warning-line)',
   },
 
   chev: { color: tokens.colorNeutralForeground4, flexShrink: 0 },
@@ -485,6 +492,8 @@ export function Dashboard() {
   useEffect(() => {
     if (dash) setStamp(new Date());
   }, [dash]);
+
+  const chips = useSeverityChipStyles();
 
   // First-load (no data yet) — content-shaped skeleton; hard failure — error panel.
   if (!dash) {
@@ -577,19 +586,19 @@ export function Dashboard() {
             {aging.rows.length > 0 && (
               <div className={styles.facets}>
                 {aging.pastDueCount > 0 && (
-                  <span className={mergeClasses(styles.facetChip, styles.facetBlocker)}>
+                  <span className={mergeClasses(styles.facetChip, chips.chipCritical)}>
                     <AlertTriangle size={12} strokeWidth={2.25} aria-hidden />
                     {aging.pastDueCount} past due
                   </span>
                 )}
                 {aging.duplicateCount > 0 && (
-                  <span className={mergeClasses(styles.facetChip, styles.facetAttention)}>
+                  <span className={mergeClasses(styles.facetChip, chips.chipWarning)}>
                     <Copy size={12} strokeWidth={2.25} aria-hidden />
                     {aging.duplicateCount} duplicate
                   </span>
                 )}
                 {aging.conflictCount > 0 && (
-                  <span className={mergeClasses(styles.facetChip, styles.facetAttention)}>
+                  <span className={mergeClasses(styles.facetChip, chips.chipWarning)}>
                     <GitFork size={12} strokeWidth={2.25} aria-hidden />
                     {aging.conflictCount} conflict
                   </span>
@@ -644,7 +653,7 @@ export function Dashboard() {
                 icon={AlertCircle}
                 value={inbound.untriaged}
                 label="Needs sorting"
-                blocker={inbound.untriaged > 0}
+                attention={inbound.untriaged > 0}
                 onOpen={() => navigate('/inbox?view=active&triageState=new')}
               />
             </div>
@@ -702,30 +711,29 @@ function InboxTile({
   icon: Icon,
   value,
   label,
-  blocker,
+  attention,
   onOpen,
 }: {
   icon: LucideIcon;
   value: number;
   label: string;
-  blocker?: boolean;
+  /** Warning-amber treatment ("Needs sorting" with a backlog) — never red. */
+  attention?: boolean;
   onOpen: () => void;
 }) {
   const styles = useStyles();
   return (
     <button
       type="button"
-      className={mergeClasses('ce-focusable', styles.liveBtn, blocker && styles.liveBtnBlocker)}
+      className={mergeClasses('ce-focusable', styles.liveBtn, attention && styles.liveBtnAttention)}
       onClick={onOpen}
       aria-label={`${label}: ${value}. Open inbox.`}
     >
-      <span className={mergeClasses(styles.liveIcon, blocker && styles.liveIconBlocker)} aria-hidden>
+      <span className={mergeClasses(styles.liveIcon, attention && styles.liveIconAttention)} aria-hidden>
         <Icon size={18} strokeWidth={1.85} />
       </span>
       <span className={styles.liveText}>
-        <span className={mergeClasses(styles.liveNumber, blocker && styles.liveNumberBlocker)}>
-          {value}
-        </span>
+        <span className={styles.liveNumber}>{value}</span>
         <span className={styles.liveLabel}>{label}</span>
       </span>
     </button>
@@ -736,13 +744,14 @@ function InboxTile({
 
 function AgingRowItem({ row, onOpen }: { row: AgingRow; onOpen: () => void }) {
   const styles = useStyles();
+  const chips = useSeverityChipStyles();
   const c = row.case;
   const reason = row.reason;
   const Icon = reason ? REASON_ICON[reason] : AlertTriangle;
   const verb = reason ? REASON_VERB[reason] : 'Review case';
   const sev = ageSeverity(row);
   const ageCls =
-    sev === 'blocker' ? styles.ageBlocker : sev === 'attention' ? styles.ageAttention : styles.ageInfo;
+    sev === 'blocker' ? chips.chipCritical : sev === 'attention' ? styles.ageAttention : styles.ageInfo;
 
   return (
     <button

@@ -23,8 +23,8 @@ import { Panel } from './Panel';
    ============================================================ */
 
 const useStyles = makeStyles({
-  /* Layout only — border / radius / background / the CE-red accent rail come
-     from the shared <Panel accent>. */
+  /* Layout only — border / radius / background / the critical accent rail come
+     from the shared <Panel accent="critical"> (a render fault is a true error). */
   panel: {
     display: 'flex',
     flexDirection: 'column',
@@ -51,7 +51,7 @@ interface ErrorFallbackProps {
 function ErrorFallback({ error, onReset }: ErrorFallbackProps) {
   const styles = useStyles();
   return (
-    <Panel accent role="alert" className={styles.panel}>
+    <Panel accent="critical" role="alert" className={styles.panel}>
       <AlertOctagon size={28} strokeWidth={1.75} className={styles.icon} aria-hidden />
       <Text className={styles.title}>This screen hit an unexpected error</Text>
       <Caption1 className={styles.detail}>

@@ -87,11 +87,13 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
     ':hover': { backgroundColor: tokens.colorNeutralBackground1Hover },
   },
+  // Charcoal-selected (reforge 2026-07-01): a toggled filter is a selection,
+  // not a severity — white-on-charcoal clears AA at 14.31:1.
   facetChipActive: {
-    backgroundColor: 'var(--ce-red-dark)',
-    border: '1px solid var(--ce-red-dark)',
+    backgroundColor: 'var(--ce-charcoal)',
+    border: '1px solid var(--ce-charcoal)',
     color: '#ffffff',
-    ':hover': { backgroundColor: 'var(--ce-red-dark)' },
+    ':hover': { backgroundColor: 'var(--ce-charcoal)' },
   },
 
   toolbar: {
@@ -153,13 +155,14 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
   },
 
-  // Aging / Due — stacked, severity-aware.
+  // Aging / Due — stacked, severity-aware. Past-due keeps the red budget:
+  // icon stays --ce-red, the TEXT reads in --ce-critical-ink (9.17:1 on white).
   dueCell: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS, lineHeight: 1.2 },
   dueStack: { display: 'flex', flexDirection: 'column', lineHeight: 1.15 },
   duePastIcon: { color: 'var(--ce-red)', flexShrink: 0 },
   dueSoonIcon: { color: '#b07a00', flexShrink: 0 },
-  duePastText: { color: 'var(--ce-red)', fontWeight: tokens.fontWeightSemibold },
-  dueSoonText: { color: '#8a5a00', fontWeight: tokens.fontWeightSemibold },
+  duePastText: { color: 'var(--ce-critical-ink)', fontWeight: tokens.fontWeightSemibold },
+  dueSoonText: { color: 'var(--ce-warning-text)', fontWeight: tokens.fontWeightSemibold },
 
   dup: { display: 'inline-flex', color: tokens.colorStatusDangerForeground1, flexShrink: 0 },
 });
