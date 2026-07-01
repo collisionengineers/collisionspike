@@ -24,6 +24,10 @@ Both are a **single esbuild bundle** (`deploy/api/main.cjs`, `deploy/orch/main.c
 ## Procedure — SPA (Static Web App)
 `npm run build` in `mockup-app/` (with the `VITE_*` env baked in) → deploy `dist/` to `cespk-spa-dev`
 (`swa deploy` / `az staticwebapp`). **Build before deploy, then hard-refresh** (the SWA edge caches).
+**Copy `mockup-app/staticwebapp.config.json` into `dist/` before deploying** — the strict CSP + SPA
+navigation fallback live there, NOT in the Vite output; a bare-`dist/` upload silently ships the app
+**without its CSP** (verified 2026-07-01 — the SWA CLI only picks the config up when it sits in/next to
+the deployed folder). Smoke-check the CSP header on the live URL after every deploy.
 
 ## Gotchas (load-bearing — caused real outages)
 - **esbuild ESM→CJS `import.meta.url` → 0 functions.** Omitting the `build-{api,orch}.cjs` banner
