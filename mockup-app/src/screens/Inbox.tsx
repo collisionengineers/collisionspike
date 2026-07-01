@@ -75,6 +75,9 @@ import {
   ErrorState,
   DataGridSkeleton,
   GLOBAL_TOASTER_ID,
+  useSeverityChipStyles,
+  severityClassName,
+  type ChipSeverity,
 } from '../components';
 import { data, useInbox, useInboundCounts } from '../data';
 import type {
@@ -361,6 +364,8 @@ const useStyles = makeStyles({
     borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
     backgroundColor: tokens.colorNeutralBackground1,
   },
+  // Sender initial — info slate callout (reforge 2026-07-01: red is budget-
+  // gated to critical; an avatar is identity, not severity).
   avatarCircle: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -368,8 +373,8 @@ const useStyles = makeStyles({
     width: '36px',
     height: '36px',
     borderRadius: '50%',
-    backgroundColor: 'var(--ce-red-tint)',
-    color: 'var(--ce-red)',
+    backgroundColor: 'var(--ce-info-tint)',
+    color: 'var(--ce-info-ink)',
     fontWeight: 700,
     fontSize: '14px',
     flexShrink: 0,
@@ -393,8 +398,10 @@ const useStyles = makeStyles({
     letterSpacing: '0.04em',
   },
 
+  // Selected subject — semibold ink + underline (the base is already semibold;
+  // red-on-selection falsely signals severity in a red-budgeted grid).
   subjLinkSelected: {
-    color: 'var(--ce-red)',
+    color: 'var(--ce-ink)',
     textDecoration: 'underline',
     textUnderlineOffset: '2px',
   },
@@ -416,7 +423,7 @@ const useStyles = makeStyles({
     maxWidth: '100%',
     cursor: 'pointer',
     ':hover': {
-      color: 'var(--ce-red)',
+      color: 'var(--ce-ink)',
       textDecoration: 'underline',
       textUnderlineOffset: '2px',
     },
@@ -441,24 +448,6 @@ const useStyles = makeStyles({
     backgroundColor: 'var(--ce-amber-tint)',
     color: 'var(--ce-amber-ink)',
     border: '1px solid var(--ce-amber-line)',
-  },
-
-  // Triage-state badges — same severity idiom as StatusBadge (never colour-only).
-  badgeBase: { fontWeight: tokens.fontWeightSemibold },
-  badgeNew: {
-    backgroundColor: 'var(--ce-amber)',
-    color: 'var(--ce-amber-ink)',
-    border: '1px solid var(--ce-amber-line)',
-  },
-  badgeInfo: {
-    backgroundColor: 'transparent',
-    color: tokens.colorNeutralForeground2,
-    border: `1px solid ${tokens.colorNeutralStroke1}`,
-  },
-  badgeMuted: {
-    backgroundColor: 'transparent',
-    color: tokens.colorNeutralForeground3,
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
   },
 
   actionsCell: {
@@ -547,31 +536,22 @@ function formatReceived(iso: string): string {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+/* Triage-state badges — the shared severity chip recipes (severityStyles.ts),
+   same idiom as StatusBadge (never colour-only). 'new' is warning amber
+   (needs sorting, not a blocker); 'actioned' uses the success-tint idiom. */
+const TRIAGE_CHIP: Record<TriageState, { severity: ChipSeverity; Icon: typeof Circle }> = {
+  new: { severity: 'warning', Icon: AlertCircle },
+  routed: { severity: 'info', Icon: Link2 },
+  actioned: { severity: 'success', Icon: CheckCircle2 },
+  dismissed: { severity: 'muted', Icon: XCircle },
+};
+
 function TriageBadge({ state }: { state: TriageState }) {
-  const styles = useStyles();
-  if (state === 'actioned') {
-    return (
-      <Badge
-        className={styles.badgeBase}
-        appearance="filled"
-        color="success"
-        size="small"
-        shape="rounded"
-        icon={<CheckCircle2 size={12} strokeWidth={2} />}
-      >
-        {TRIAGE_LABEL.actioned}
-      </Badge>
-    );
-  }
-  const map: Record<Exclude<TriageState, 'actioned'>, { cls: string; Icon: typeof Circle }> = {
-    new: { cls: styles.badgeNew, Icon: AlertCircle },
-    routed: { cls: styles.badgeInfo, Icon: Link2 },
-    dismissed: { cls: styles.badgeMuted, Icon: XCircle },
-  };
-  const { cls, Icon } = map[state];
+  const chips = useSeverityChipStyles();
+  const { severity, Icon } = TRIAGE_CHIP[state];
   return (
     <Badge
-      className={mergeClasses(styles.badgeBase, cls)}
+      className={chips[severityClassName(severity)]}
       appearance="filled"
       size="small"
       shape="rounded"
@@ -849,7 +829,15 @@ export function Inbox() {
               : CATEGORY_LABEL[e.category];
           return (
             <div className={styles.classStack}>
-              <Badge appearance="outline" shape="rounded" size="small" className={styles.subtypeBadge}>
+              {/* Neutral outline (fork #1 "quiet grids") — the outline Badge
+                  default color="brand" renders red, which reads as severity. */}
+              <Badge
+                appearance="outline"
+                color="informative"
+                shape="rounded"
+                size="small"
+                className={styles.subtypeBadge}
+              >
                 {SUBTYPE_LABEL[e.subtype]}
               </Badge>
               <span className={styles.folderLine}>
@@ -1438,7 +1426,7 @@ function ReclassifyDialog({
             <div className={styles.dialogGrid}>
               <span className={styles.suggestLine}>
                 <Text className={styles.dialogNote}>Suggested by the classifier:</Text>
-                <Badge appearance="outline" shape="rounded" size="small">
+                <Badge appearance="outline" color="informative" shape="rounded" size="small">
                   {suggestedLabel || '—'}
                 </Badge>
               </span>

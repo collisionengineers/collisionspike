@@ -19,6 +19,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Badge, makeStyles, tokens, Text } from '@fluentui/react-components';
 import { GripVertical, ImageIcon, ChevronUp, ChevronDown } from 'lucide-react';
 import type { Evidence } from '@cs/domain';
+import { useSeverityChipStyles } from './severityStyles';
 
 /* Keyboard-reorderable EVA photo-order list (@dnd-kit/sortable).
 
@@ -140,6 +141,7 @@ interface SortableRowProps {
 
 function SortableRow({ entry, index, total, onMove }: SortableRowProps) {
   const styles = useStyles();
+  const chips = useSeverityChipStyles();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entry.key });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -200,7 +202,9 @@ function SortableRow({ entry, index, total, onMove }: SortableRowProps) {
       </span>
       <Text className={styles.name}>{entry.evidence.fileName}</Text>
       {entry.isPreview && (
-        <Badge appearance="tint" color="brand" size="small" shape="rounded">
+        // Slate info-tint callout tag — "Preview" marks EVA photo order
+        // metadata, not brand/severity (pigment ruling).
+        <Badge appearance="tint" className={chips.chipInfoTint} size="small" shape="rounded">
           Preview · {entry.previewLabel}
         </Badge>
       )}

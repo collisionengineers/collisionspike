@@ -84,6 +84,7 @@ import {
   CaseDetailSkeleton,
   ThumbGridSkeleton,
   computeReadiness,
+  useSeverityChipStyles,
   type ChecklistItem,
 } from '../components';
 import {
@@ -244,15 +245,17 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
     paddingBottom: tokens.spacingVerticalXS,
     marginTop: tokens.spacingVerticalM,
-    borderBottom: `2px solid var(--ce-red)`,
+    // Charcoal group underline (reforge 2026-07-01: a field-cluster head is
+    // structure, not severity).
+    borderBottom: `2px solid var(--ce-charcoal)`,
     width: 'fit-content',
   },
   clusterBody: { paddingTop: tokens.spacingVerticalM },
 
-  /* Evidence tab */
+  /* Evidence tab — guidance is an INFO callout (slate rail), not an alarm. */
   guidanceBanner: {
     border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderLeft: `3px solid var(--ce-red)`,
+    borderLeft: `3px solid var(--ce-info-accent)`,
     borderRadius: tokens.borderRadiusMedium,
     backgroundColor: tokens.colorNeutralBackground2,
     padding: tokens.spacingVerticalS + ' ' + tokens.spacingHorizontalM,
@@ -384,7 +387,9 @@ const useStyles = makeStyles({
   readyText: { display: 'flex', flexDirection: 'column', minWidth: 0 },
   readyLabel: { fontSize: tokens.fontSizeBase300, color: tokens.colorNeutralForeground1 },
   readyDetail: { fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3 },
-  /* the deep-link button styled as a left-aligned link with a chevron affordance */
+  /* the deep-link button styled as a left-aligned link with a chevron affordance.
+     Stays in the red family (it fixes a true blocker) but as --ce-critical-ink
+     (9.17:1 on white); hover darkens to ink. */
   fixLink: {
     appearance: 'none',
     background: 'none',
@@ -394,11 +399,11 @@ const useStyles = makeStyles({
     textAlign: 'left',
     fontSize: tokens.fontSizeBase300,
     fontWeight: tokens.fontWeightSemibold,
-    color: 'var(--ce-red)',
+    color: 'var(--ce-critical-ink)',
     cursor: 'pointer',
     textDecoration: 'underline',
     textUnderlineOffset: '2px',
-    ':hover': { color: 'var(--ce-red-dark)' },
+    ':hover': { color: 'var(--ce-ink)' },
     ':focus-visible': {
       outline: 'none',
       boxShadow: '0 0 0 3px rgba(219, 8, 22, 0.55)',
@@ -534,7 +539,9 @@ function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
           onChange={(_, d) => onExclude(ev.id, d.checked)}
         />
         {ev.boxFileUrl && (
-          <Link href={ev.boxFileUrl} target="_blank" rel="noopener noreferrer">
+          // `inline` = rest-state underline: with links demoted to ink, a
+          // text-adjacent link needs the underline to read as a link at rest.
+          <Link inline href={ev.boxFileUrl} target="_blank" rel="noopener noreferrer">
             <span className={styles.inlineIconText}>Open in Archive <ArrowUpRight size={12} /></span>
           </Link>
         )}
@@ -653,7 +660,7 @@ export function CaseDetail() {
     return (
       <div className={styles.page}>
         <SectionHeading eyebrow="Case" heading="Case not found" />
-        <Link as="button" onClick={() => navigate('/')}>
+        <Link inline as="button" onClick={() => navigate('/')}>
           Back to dashboard
         </Link>
         <Outlet />
@@ -685,6 +692,7 @@ interface CaseDetailViewProps {
    pre-seam screen once data has loaded. */
 function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: CaseDetailViewProps) {
   const styles = useStyles();
+  const chips = useSeverityChipStyles();
   const navigate = useNavigate();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
@@ -895,7 +903,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
           <ToastTitle>{result.alreadyRemoved ? 'Case already removed' : 'Case removed'}</ToastTitle>
           <ToastBody>
             {result.boxFolderUrl ? (
-              <Link href={result.boxFolderUrl} target="_blank" rel="noopener noreferrer">
+              <Link inline href={result.boxFolderUrl} target="_blank" rel="noopener noreferrer">
                 Open archive folder
               </Link>
             ) : (
@@ -1513,7 +1521,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                         </span>
                       </Caption1>
                       {c.boxFolderUrl ? (
-                        <Link href={c.boxFolderUrl} target="_blank" rel="noopener noreferrer">
+                        <Link inline href={c.boxFolderUrl} target="_blank" rel="noopener noreferrer">
                           <span className={styles.inlineIconText}>
                             Open case archive <ArrowUpRight size={14} />
                           </span>
@@ -1546,7 +1554,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                               <Caption1 className={styles.hint}>{EVIDENCE_KIND_LABEL[d.kind] ?? 'Document'}</Caption1>
                             </span>
                             {d.boxFileUrl ? (
-                              <Link href={d.boxFileUrl} target="_blank" rel="noopener noreferrer">
+                              <Link inline href={d.boxFileUrl} target="_blank" rel="noopener noreferrer">
                                 <span className={styles.inlineIconText}>
                                   Open in Archive <ArrowUpRight size={14} />
                                 </span>
@@ -1626,7 +1634,9 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   </div>
 
                   <div className={styles.thumbRowBetween}>
-                    <Badge appearance="tint" color="brand" shape="rounded">
+                    {/* Slate info-tint callout tag — a decision label is
+                        metadata, not brand/severity (pigment ruling). */}
+                    <Badge appearance="tint" className={chips.chipInfoTint} shape="rounded">
                       Decision: {POLICY_LABEL[decisionMode]}
                     </Badge>
                     <ProvenanceBadge

@@ -44,7 +44,9 @@ const HERO_STAGE_KEYS: ReadonlySet<PipelineStageKey> = new Set(
    The dashboard hero (variant="hero") shows the live-depth backlog
    New → Not ready → Review; reused as a slim progress spine atop CaseDetail
    (variant="spine") which also carries the terminal Submitted stage for the
-   per-case "you are here". The not-ready/stuck stage lights CE red.
+   per-case "you are here". The not-ready/stuck stage lights WARNING AMBER
+   (reforge 2026-07-01 fork #3: a stuck stage needs sorting — it is not a
+   blocker; red is budget-gated to brand chrome + critical).
    ============================================================ */
 
 const useStyles = makeStyles({
@@ -91,10 +93,11 @@ const useStyles = makeStyles({
 
   /* a stage carrying work */
   segActive: { backgroundColor: tokens.colorNeutralBackground2 },
-  /* the chasing/stuck stage — CE red accent (top rule + left bar + red count) */
+  /* the chasing/stuck stage — warning amber (wash ground + amber rules;
+     the count/label carry --ce-warning-text / --ce-warning-ink below) */
   segStuck: {
-    backgroundColor: 'var(--ce-red-tint)',
-    borderLeft: '4px solid var(--ce-red)',
+    backgroundColor: 'var(--ce-warning-wash)',
+    borderLeft: '4px solid var(--ce-warning-line)',
     '::before': {
       content: '""',
       position: 'absolute',
@@ -102,7 +105,7 @@ const useStyles = makeStyles({
       left: 0,
       right: 0,
       height: '3px',
-      backgroundColor: 'var(--ce-red)',
+      backgroundColor: 'var(--ce-warning-line)',
     },
   },
   /* "you are here" — the CURRENT case's stage on the spine. Deliberately
@@ -155,7 +158,8 @@ const useStyles = makeStyles({
     color: 'var(--ce-ink)',
   },
   countSpine: { fontSize: '15px' },
-  countStuck: { color: 'var(--ce-red)' },
+  countStuck: { color: 'var(--ce-warning-text)' },
+  labelStuck: { color: 'var(--ce-warning-ink)' },
   countZero: { color: tokens.colorNeutralForeground3 },
 
   // interactive (dashboard) — the segment is a real <button> that navigates to
@@ -187,7 +191,7 @@ export interface PipelineStripProps {
   variant?: 'hero' | 'spine';
   /** Force a particular stage to read as the active (work-here) stage. */
   active?: PipelineStageKey;
-  /** Force a particular stage to light red (overrides the stage's own tone). */
+  /** Force a particular stage to light warning-amber (overrides the stage's own tone). */
   stuck?: PipelineStageKey;
   /** When provided, each stage becomes a button that navigates (dashboard hero). */
   onStageSelect?: (key: PipelineStageKey) => void;
@@ -261,7 +265,15 @@ export function PipelineStrip({
         };
         const body = (
           <>
-            <span className={mergeClasses(styles.label, isHere && styles.labelHere)}>{s.label}</span>
+            <span
+              className={mergeClasses(
+                styles.label,
+                stuckHere && styles.labelStuck,
+                isHere && styles.labelHere,
+              )}
+            >
+              {s.label}
+            </span>
             <span
               className={mergeClasses(
                 styles.count,

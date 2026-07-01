@@ -126,11 +126,13 @@ const useStyles = makeStyles({
     textAlign: 'center',
     transition: 'border-color 120ms ease, background-color 120ms ease',
   },
+  // Drag-active KEEPS the red dashed border (CTA-adjacent "drop here now");
+  // the rest-state icon is quiet charcoal (reforge fix round 2026-07-01).
   dropzoneActive: {
     border: `2px dashed var(--ce-red)`,
     backgroundColor: tokens.colorNeutralBackground1Selected,
   },
-  dropIcon: { color: 'var(--ce-red)' },
+  dropIcon: { color: 'var(--ce-charcoal)' },
   pickActions: {
     display: 'flex',
     alignItems: 'center',
@@ -204,7 +206,8 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
     paddingBottom: tokens.spacingVerticalXS,
     marginTop: tokens.spacingVerticalM,
-    borderBottom: `2px solid var(--ce-red)`,
+    // Charcoal group underline — mirrors CaseDetail clusterHead (reforge 2026-07-01).
+    borderBottom: `2px solid var(--ce-charcoal)`,
     width: 'fit-content',
   },
   clusterBody: { paddingTop: tokens.spacingVerticalM },
@@ -824,7 +827,9 @@ export function ManualIntake() {
               <Text size={200} className={styles.hint}>
                 Case type
               </Text>
-              <Badge appearance="outline" color="brand">
+              {/* Neutral outline — a derived case type is metadata, not
+                  brand/severity (pigment ruling). */}
+              <Badge appearance="outline" color="informative">
                 {CASE_TYPE_LABELS[caseType]}
               </Badge>
             </div>

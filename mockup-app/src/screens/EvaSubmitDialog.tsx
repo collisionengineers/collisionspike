@@ -95,14 +95,15 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
   },
 
-  /* Case/PO hero card. */
+  /* Case/PO hero card — charcoal top rule (reforge 2026-07-01 fork #2: the
+     primary CTA carries the red; the hero rule is structure, not severity). */
   hero: {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalM,
     padding: tokens.spacingVerticalL,
     border: `1px solid ${tokens.colorNeutralStroke1}`,
-    borderTop: `2px solid var(--ce-red)`,
+    borderTop: `2px solid var(--ce-charcoal)`,
     borderRadius: tokens.borderRadiusMedium,
     backgroundColor: tokens.colorNeutralBackground2,
   },

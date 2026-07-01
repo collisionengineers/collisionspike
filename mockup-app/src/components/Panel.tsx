@@ -9,7 +9,10 @@ import { makeStyles, mergeClasses, tokens } from '@fluentui/react-components';
    panels, read-only summaries and skeletons — previously each screen hand-rolled
    the same border/radius/background block in its own makeStyles.
 
-   `accent` adds the 3px CE-red left rail used by the error/empty surfaces.
+   `accent` adds a 3px left rail, split by meaning (reforge 2026-07-01):
+     - 'critical' → CE-red rail, ERRORS ONLY (red budget = brand chrome + critical)
+     - 'neutral'  → charcoal rail, quiet emphasis (empty/summary surfaces are
+       never red)
 
    Layout (flex direction, gap) and any background/padding override stay with the
    caller via `className`, which is merged AFTER the base so it always wins. The
@@ -23,16 +26,20 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground1,
     padding: tokens.spacingVerticalL,
   },
-  /* 3px CE-red left rail — the error / empty / attention accent. */
-  accent: {
-    borderLeft: '3px solid var(--ce-red)',
+  /* 3px critical-red left rail — error surfaces ONLY. */
+  accentCritical: {
+    borderLeft: '3px solid var(--ce-critical-accent)',
+  },
+  /* 3px charcoal left rail — quiet, non-severity emphasis. */
+  accentNeutral: {
+    borderLeft: '3px solid var(--ce-charcoal)',
   },
 });
 
 export interface PanelProps {
   children: ReactNode;
-  /** Add the 3px CE-red left rail (error / empty / attention surfaces). */
-  accent?: boolean;
+  /** 3px left rail: 'critical' (errors only) or 'neutral' (quiet emphasis). */
+  accent?: 'critical' | 'neutral';
   /** Extra class — merged after the base so caller layout/overrides win. */
   className?: string;
   /** Optional inline style passthrough. */
@@ -41,12 +48,17 @@ export interface PanelProps {
   role?: string;
 }
 
-/** The shared bordered-surface card. `accent` adds the CE-red left rail. */
+/** The shared bordered-surface card. `accent` adds a 3px left rail by meaning. */
 export function Panel({ children, accent, className, style, role }: PanelProps) {
   const styles = useStyles();
   return (
     <div
-      className={mergeClasses(styles.base, accent && styles.accent, className)}
+      className={mergeClasses(
+        styles.base,
+        accent === 'critical' && styles.accentCritical,
+        accent === 'neutral' && styles.accentNeutral,
+        className,
+      )}
       style={style}
       role={role}
     >
