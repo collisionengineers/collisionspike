@@ -1,0 +1,144 @@
+Received: from LO8P123MB8473.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:47c::11)
+ by CWLP123MB1970.GBRP123.PROD.OUTLOOK.COM with HTTPS; Sat, 6 Jun 2026
+ 17:16:25 +0000
+Received: from LO4P123CA0390.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:18f::17)
+ by LO8P123MB8473.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:47c::11) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.92.11; Sat, 6 Jun 2026
+ 17:16:24 +0000
+Received: from LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:18f:cafe::4c) by LO4P123CA0390.outlook.office365.com
+ (2603:10a6:600:18f::17) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.92.11 via Frontend Transport; Sat, 6
+ Jun 2026 17:16:24 +0000
+Authentication-Results: spf=pass (sender IP is 185.58.86.168)
+ smtp.mailfrom=ax-uk.com; dkim=pass (signature was verified)
+ header.d=ax-uk.com;dmarc=pass action=none header.from=ax-uk.com;compauth=pass
+ reason=100
+Received-SPF: Pass (protection.outlook.com: domain of ax-uk.com designates
+ 185.58.86.168 as permitted sender) receiver=protection.outlook.com;
+ client-ip=185.58.86.168; helo=eu-smtp-delivery-168.mimecast.com; pr=C
+Received: from eu-smtp-delivery-168.mimecast.com (185.58.86.168) by
+ LO1PEPF000022FE.mail.protection.outlook.com (10.167.240.22) with Microsoft
+ SMTP Server (version=TLS1_3, cipher=TLS_AES_256_GCM_SHA384) id 15.21.113.7
+ via Frontend Transport; Sat, 6 Jun 2026 17:16:24 +0000
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=ax-uk.com;
+	s=mimecast20190314; t=1780766183;
+	h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
+	 to:to:cc:mime-version:mime-version:content-type:content-type:
+	 content-transfer-encoding:content-transfer-encoding;
+	bh=hE1zjggyp81XG3rlUHyylcVURUPOlqEmOlvRfbFXYJk=;
+	b=Ix5OcoHwBqbBDC4JvoypQNW2Uybx2b86j0Oie4D+/GA4HHes4RYrMvNdoL7oze41O88YaV
+	B8i87WvXsQePcupId0vkoffGdaj6fFY4f3yPQ/QcWJl9HJbZstvX31FoJRzp1s6HLBU3j1
+	rWnovsqW0wCSR+7MiyhuJWBUckp5qmg=
+Received: from AXAZHERMES01.accidentexchange.localnet (85.255.17.16
+ [85.255.17.16]) by relay.mimecast.com with ESMTP with both STARTTLS and
+ AUTH (version=TLSv1.2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
+ uk-mta-251-QW2CIsvyN46hWTF6y8DC4A-1; Sat, 06 Jun 2026 18:16:20 +0100
+X-MC-Unique: QW2CIsvyN46hWTF6y8DC4A-1
+X-Mimecast-MFC-AGG-ID: QW2CIsvyN46hWTF6y8DC4A_1780766180
+Received: from AXAZHERMES01 ([127.0.0.1]) by AXAZHERMES01.accidentexchange.localnet with Microsoft SMTPSVC(10.0.20348.1);
+	 Sat, 6 Jun 2026 18:16:19 +0100
+From: noreply@ax-uk.com
+To: info@CollisionEngineers.co.uk
+Date: 6 Jun 2026 18:16:19 +0100
+Subject: Claim closed notification  AX REF - 1062608
+Return-Path: noreply@ax-uk.com
+Message-ID: <AXAZHERMES01iBUSki000004100@AXAZHERMES01.accidentexchange.localnet>
+X-OriginalArrivalTime: 06 Jun 2026 17:16:19.0022 (UTC) FILETIME=[3087CEE0:01DCF5D8]
+X-Mimecast-Spam-Score: 0
+X-Mimecast-MFC-PROC-ID: 8dVHRb1sS_LnEtrOA18GGqXSs8oTxeoeW_Cz-l6Vgr4_1780766180
+X-Mimecast-Originator: ax-uk.com
+Content-Type: text/html; charset=WINDOWS-1252
+Content-Transfer-Encoding: quoted-printable
+X-MS-Exchange-Organization-ExpirationStartTime: 06 Jun 2026 17:16:24.1868
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: 53387639-e95a-4ff7-e564-08dec3ef5612
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: LO1PEPF000022FE:EE_|LO8P123MB8473:EE_|CWLP123MB1970:EE_
+X-MS-Exchange-Organization-AuthSource: LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id: 53387639-e95a-4ff7-e564-08dec3ef5612
+X-MS-Exchange-Organization-SCL: 1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|31092699021|12012899012|2092899012|16102099003|19002099003|57112099003|6143699003|18003699003|3023799007|5063699009|8096899003;
+X-Forefront-Antispam-Report: CIP:185.58.86.168;CTRY:GB;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:eu-smtp-delivery-168.mimecast.com;PTR:eu-smtp-delivery-168.mimecast.com;CAT:NONE;SFS:(13230040)(31092699021)(12012899012)(2092899012)(16102099003)(19002099003)(57112099003)(6143699003)(18003699003)(3023799007)(5063699009)(8096899003);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 06 Jun 2026 17:16:24.0249
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: 53387639-e95a-4ff7-e564-08dec3ef5612
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO8P123MB8473
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:01.7511046
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0092.005
+X-Microsoft-Antispam-Mailbox-Delivery:
+	ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?Windows-1252?Q?No/CZkXgfQ1mGSpjWuzFGk9abo8inSoPheNufbSzlvM7NxQ3u5dzVzNW?=
+ =?Windows-1252?Q?jFmUFeq1o6qAP/PGnBegEfypuNgEVYHk3X5HetQffjTnMzePGFGZeYC1?=
+ =?Windows-1252?Q?V/v39w7/IxIpsejkJ4y2QcLycDcGV1r+xHqgwWEkSd1gT1vdhX7avMTJ?=
+ =?Windows-1252?Q?JRk2dYMpqVKuCkWuLLdx1ttpXzz+HXg3LFrpx84rJ8veMODVl7WORm2C?=
+ =?Windows-1252?Q?nPxfkvOz4j97qyLEau+EBHzDLFMJlzJHMTYxC1tQJgufNkt+joO0jR5r?=
+ =?Windows-1252?Q?/NOy2x2ezxf0xa+e8Nhhv0T+hyPR2shFf3OlJ///wOQT88LG9al12uhv?=
+ =?Windows-1252?Q?VR/BUgcaKpV+TAC1OG8hhGJXsc0j/APjMlCOMFjxNmIB4LZ0iolufSJm?=
+ =?Windows-1252?Q?XhgGXWA3B/Yw1FT3gW4Vt7sfAlVaTK6dEG/ocyyDkEVtR2pMKS1nxWWV?=
+ =?Windows-1252?Q?DfNX/D8jead8Ur+OZYL7hclbDrEq0d0eC08LdAlkkIQHliWrFSWI1i67?=
+ =?Windows-1252?Q?fd5hRuz8pfFT5N0hVLTscniZOMzT6d85yAQjikPfZfPdxTOVb0/GBizC?=
+ =?Windows-1252?Q?YPffyeXaldmKGGO4HVTdCly8g1E59VmBGWfXCKgS2NSMc95zima1WqRl?=
+ =?Windows-1252?Q?zlJYrFRM/6wn0dpTndVqN0jGGVT9mIBPte6fUXwckD54dQL7FBiS3RWY?=
+ =?Windows-1252?Q?s2uqOgHfikM73V7gVlOb/RShqMk6byRchTpDQaGbXEL57+FQ6ONnftTZ?=
+ =?Windows-1252?Q?O3LL/fBjOvhgLjAE4N30UUgNtqZdiUXtKGAxtdpdXHBL97Wa0oCTYsz5?=
+ =?Windows-1252?Q?aEkJPuRYFGHf9mHpZt2qE5rlzqufrQD+WITSlRhFY47cVuEJ3TnPkb1k?=
+ =?Windows-1252?Q?ERPcJETThjAbMdy9PzRGBb/dkJxRTWq6oymSYauUoL1n1Iat3jHMGL2E?=
+ =?Windows-1252?Q?UGpnNGcEuii9/+7CDBdLORpdwW+HJFYqlWD0DsIhlDoQLxqWcM4U9IzJ?=
+ =?Windows-1252?Q?YlF3c7lIYMrL4amKim4rVtC9Nln4beqR5jmVvbmnnaE8db37ghGN7JrI?=
+ =?Windows-1252?Q?fur7MdSM7d6l1ZviAj1mxegc92j0t6dNqXLDSLCazSgZsSLxEtDkCQYp?=
+ =?Windows-1252?Q?N8vYQQvNIfCSD9znZ/Z5S5bEX8ZN8iZMyLv+jWUKefL3prUX/+WjKpQv?=
+ =?Windows-1252?Q?lY5G2OsiO9anQM2TQ4vxhJPVHm+0+vM/orYigsuJnKHJyXHw6wQNXN9H?=
+ =?Windows-1252?Q?4+lVW0lyskIqMrOTuDy/rLcsejNc8XWEsJPP0Keh9wobDBvGdN9cJGRz?=
+ =?Windows-1252?Q?ljqlTp6A3RQ+qfN6JQQjdVGehl9DR+C3QcnoCF1wwBF103VsAERC49pW?=
+ =?Windows-1252?Q?1uoTKsvJAx3HI8kPWipK7rS4wKCH5sSG6inddPXIjypFlwoQff61ZQlH?=
+ =?Windows-1252?Q?5MsSp3kxC2o+BJzNTw+eRDDMoLt9S+tC2qXPnTbA5Xg0gVq+Nrgx+7Ds?=
+ =?Windows-1252?Q?bw7xuOEYIHOGadg4B3jLc3/hMVzv+URukYxupNpphy0fkuiWDG09aIgj?=
+ =?Windows-1252?Q?EuOMv9a+kpg8sNFqoBHQRggjmapEWquzPMYgHI5qqtwvIXCS97oJSnzH?=
+ =?Windows-1252?Q?qwPrAFh6gjnetJRbrNAnMJjk0zwuxpxR0NiDeBPYl1xapjMqMhSi/51y?=
+ =?Windows-1252?Q?zmUvgcX6AxRjvBS2bWOpMpvmAW9/oUUSMj2BAsnPIO3qeNYxt11WCHXV?=
+ =?Windows-1252?Q?h5hP+50+hu7uUYHC0Wkb3kBvoV4ugWCi3/RP5b/DrmY6KFXDysbdbD7F?=
+ =?Windows-1252?Q?lgl4vO8HnFQyMVAI9/YaUmQ5bxfIydZ9iAAzCjKjykF6YayJo18Fgc0Z?=
+ =?Windows-1252?Q?OscxOzkLruBuhQKACo1X03dZWmeLWpoC5P6+DbToBzDO+pjlmYY374UL?=
+ =?Windows-1252?Q?B2jJxboKIPQWjgJGFBKcBgLf5JidMAskmOhgpQkI/ZxFL1Sn0+t4wi6r?=
+ =?Windows-1252?Q?GBZN4qoEOj7N0v/o09K74SpclhuMje7MnqVuXinYBAHTIgTwFh/2DTip?=
+ =?Windows-1252?Q?5APweor/BtuKebnhc3tRm3jGzFAJdcRWP7XE2EVWbG6g+GqbwCkalq/k?=
+ =?Windows-1252?Q?7Iv3tpYJtZ8bcXSAkyvUe72tGRQNTtuBsNm82EaGfYPJQeYi5KnTjMOR?=
+ =?Windows-1252?Q?tGCtlVpWxsln+BBlETS376ycAfbufPPfdRcKyUpR6e7NPJ6rhUcDGVGV?=
+ =?Windows-1252?Q?GAwMxwUo2B3MIY7a7tx1if253s85VjH6oCEKPGs74APiulK9iH/M6BOg?=
+ =?Windows-1252?Q?rmZj/bJtIkPibZdst+eV7Oli/kx8DExFqAPwVYseG0zlEYCkbsu2LayG?=
+ =?Windows-1252?Q?yIv/opEbm4BAC5Kf6kN6XdQ1ngUDWYqmUxI80qUFTSMKgLlffw7NS+U6?=
+ =?Windows-1252?Q?Xhc0SnWBg/xrXpWmV9UIdu3cmyhAHxv7oFAYrqveyPTy3I97IW7OicKB?=
+ =?Windows-1252?Q?DIiC+hf+zyVF0kNeCfOhQiEp3Ak2DJG09v+tbbkSDQnTyUWI9/NaPQJy?=
+ =?Windows-1252?Q?zmHNCsmudvMtnfEIU7OVcjYNW1CGJpfQ8GkTzN8g9Eqlu5wh6qDg2Xbs?=
+ =?Windows-1252?Q?+Ye3QO4U3URXXeICG42wk2V6LhFkOpSFt3rhFS61c6kik7aS2/wk/v2X?=
+ =?Windows-1252?Q?R9NjQbqH6fEqb+N/LACgMPgXckSOeGtp0km0lRsR5gV4kwiF1l4hckny?=
+ =?Windows-1252?Q?JBppydU2NwR8/kJV9TUAzLdwzkGtbha0vjXIP6viKx8QIEhrV72NmcXr?=
+ =?Windows-1252?Q?W55Hvp9Qkd8pxbvDfkliMGnX8Dr51whbP2DIf/ujZRhLE7ZamVytWQwp?=
+ =?Windows-1252?Q?EkBezXe95680fqtlPhLLupGo7ygWjPpa/Xs=3D?=
+MIME-Version: 1.0
+
+<?xml version=3D"1.0" encoding=3D"utf-8"?><html>
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3DWindows-1=
+252"></head>
+<body><table><tr><td><td></td></tr><tr><td colspan=3D"2" class=3D"paragraph=
+">
+  				    Please cancel any previous instructions sent to you for vehicle V=
+RN KY21 XGU  as the repair is cancelled. Thank you
+  			   	</td></tr><tr><td colspan=3D"2" height=3D"20"></tr><tr><td colspan=
+=3D"2" height=3D"20"></tr></table></body></html>
+
