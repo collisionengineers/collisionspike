@@ -13,6 +13,11 @@ export {
 export { VrmPlate, type VrmPlateProps } from './VrmPlate';
 export { PipelineStrip, type PipelineStripProps } from './PipelineStrip';
 export { StatusBadge, statusLabel, statusSeverity, type StatusBadgeProps } from './StatusBadge';
+export {
+  useSeverityChipStyles,
+  severityClassName,
+  type ChipSeverity,
+} from './severityStyles';
 export { ProvenanceBadge, type ProvenanceBadgeProps } from './ProvenanceBadge';
 export {
   ReadinessChecklist,

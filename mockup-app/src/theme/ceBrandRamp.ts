@@ -13,7 +13,9 @@ import type { BrandVariants } from '@fluentui/react-components';
  * / tinted surfaces read as a soft CE-red blush rather than Fluent's default
  * blue-violet. The dark end deepens toward near-black maroon.
  *
- * NOTE: these are screen tokens. The print red (#c80a32) is deliberately NOT used.
+ * NOTE: these are screen tokens. The PRINT brand red is deliberately NOT used
+ * anywhere under mockup-app/src (guarded by theme/contrast.test.ts; the hex
+ * itself lives only in docs/design/THEME-MAPPING.md).
  */
 export const ceBrandRamp: BrandVariants = {
   10: '#1f0204',
