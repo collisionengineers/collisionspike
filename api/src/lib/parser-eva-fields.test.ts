@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { selectParserEvaCandidates, type ParserEvaFields } from './parser-eva-fields.js';
+import {
+  corpusWorkProviderCandidate,
+  isUnknownWorkProviderSentinel,
+  selectParserEvaCandidates,
+  type ParserEvaFields,
+} from './parser-eva-fields.js';
 
 /**
  * selectParserEvaCandidates is the constraint guard between the parser's 12-field extraction
@@ -20,6 +25,7 @@ describe('selectParserEvaCandidates', () => {
 
   it('maps every parser-owned field to its column + camelCase provenance key, in contract order', () => {
     const input: ParserEvaFields = {
+      work_provider: 'Knightsbridge Solicitors',
       vehicle_model: 'Toyota Prius',
       claimant_name: 'Mazhar Hussain Butt',
       claimant_telephone: '07700 900123',
@@ -31,6 +37,7 @@ describe('selectParserEvaCandidates', () => {
     };
     const out = selectParserEvaCandidates(input);
     expect(out.map((c) => [c.column, c.provenanceField, c.value])).toEqual([
+      ['eva_work_provider', 'workProvider', 'Knightsbridge Solicitors'],
       ['eva_vehicle_model', 'vehicleModel', 'Toyota Prius'],
       ['eva_claimant_name', 'claimantName', 'Mazhar Hussain Butt'],
       ['eva_claimant_telephone', 'claimantTelephone', '07700 900123'],
@@ -44,6 +51,15 @@ describe('selectParserEvaCandidates', () => {
       ],
       ['eva_vat_status', 'vatStatus', 'No'],
     ]);
+  });
+
+  it('SKIPS the UNKNOWN work_provider sentinel (manual-intake / parser-client parity)', () => {
+    expect(selectParserEvaCandidates({ work_provider: 'UNKNOWN' })).toEqual([]);
+    expect(selectParserEvaCandidates({ work_provider: 'unknown' })).toEqual([]);
+    expect(selectParserEvaCandidates({ work_provider: '  Unknown  ' })).toEqual([]);
+    expect(
+      selectParserEvaCandidates({ work_provider: 'UNKNOWN', vehicle_model: 'Ford Focus' }),
+    ).toEqual([{ column: 'eva_vehicle_model', provenanceField: 'vehicleModel', value: 'Ford Focus' }]);
   });
 
   it('trims surrounding whitespace before persisting', () => {
@@ -83,5 +99,35 @@ describe('selectParserEvaCandidates', () => {
     const byCol = Object.fromEntries(out.map((c) => [c.column, c.value]));
     expect(byCol['eva_vehicle_model']).toHaveLength(200);
     expect(byCol['eva_accident_circumstances']).toHaveLength(4000);
+  });
+});
+
+describe('isUnknownWorkProviderSentinel', () => {
+  it('detects UNKNOWN case-insensitively', () => {
+    expect(isUnknownWorkProviderSentinel('UNKNOWN')).toBe(true);
+    expect(isUnknownWorkProviderSentinel('unknown')).toBe(true);
+    expect(isUnknownWorkProviderSentinel('  Unknown ')).toBe(true);
+    expect(isUnknownWorkProviderSentinel('ALS')).toBe(false);
+  });
+});
+
+describe('corpusWorkProviderCandidate', () => {
+  it('returns null for absent/blank display names', () => {
+    expect(corpusWorkProviderCandidate(undefined)).toBeNull();
+    expect(corpusWorkProviderCandidate('')).toBeNull();
+    expect(corpusWorkProviderCandidate('   ')).toBeNull();
+  });
+
+  it('maps corpus display_name to eva_work_provider candidate', () => {
+    expect(corpusWorkProviderCandidate('Acuity Loss Adjusters')).toEqual({
+      column: 'eva_work_provider',
+      provenanceField: 'workProvider',
+      value: 'Acuity Loss Adjusters',
+    });
+  });
+
+  it('length-caps display_name to 200 chars', () => {
+    const long = 'P'.repeat(300);
+    expect(corpusWorkProviderCandidate(long)?.value).toHaveLength(200);
   });
 });

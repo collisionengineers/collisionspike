@@ -1,0 +1,14 @@
+---
+description: Parser engine sibling workflow and vendoring (ADR-0018)
+globs: functions/**/cedocumentmapper/**,../cedocumentmapper_v2.0/**
+alwaysApply: false
+---
+
+# Parser sibling (cedocumentmapper_v2.0)
+
+- **Authoring source of truth:** `../cedocumentmapper_v2.0` — edit there first, then re-vendor into the parser Function.
+- **Do not** re-derive parsing logic in `api/`, `orchestration/`, or `mockup-app/`.
+- **Default path:** `RuleEngine` directly; extraction orchestrator/LLM assist are opt-in and desktop-only — not on the vendored cloud path.
+- **Regression rule:** any fix for a real document needs a fixture under `tests/fixtures/` in the sibling repo.
+- **Deploy:** **azure-integration-engineer** owns Function deploy; **document-parser-engineer** owns engine + contract.
+- **Internal-only fields** (`is_audit`, `case_type`, `audit_signals`) must never reach EVA JSON export.

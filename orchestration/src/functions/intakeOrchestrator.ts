@@ -179,13 +179,15 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? '').trim();
 
   // The parser extracts ALL 12 EVA fields; intake historically forwarded only VRM/ref/mileage,
-  // so an email-minted case showed just its registration + Case/PO. Forward the other parser-
-  // owned EVA fields too (caseResolve → resolve-persist fills them fill-if-empty + constraint-
-  // guarded). work_provider + inspection_address are omitted on purpose (provider-match / the
-  // corpus picker own them — ADR-0013). Empty when parse was skipped/failed → Data API no-op.
+  // so an email-minted case showed just its registration + Case/PO. Forward parser-owned EVA
+  // fields (caseResolve → resolve-persist fills them fill-if-empty + constraint-guarded).
+  // inspection_address is omitted (corpus picker — ADR-0013). work_provider is forwarded
+  // when present; UNKNOWN is treated as empty and the Data API falls back to corpus display_name.
   const ex = parseResult.extraction ?? {};
   const exVal = (k: string): string => (ex[k]?.value ?? '').trim();
+  const exWorkProvider = exVal('work_provider');
   const parserEvaFields = {
+    work_provider: exWorkProvider.toUpperCase() === 'UNKNOWN' ? '' : exWorkProvider,
     vehicle_model: exVal('vehicle_model'),
     claimant_name: exVal('claimant_name'),
     claimant_telephone: exVal('claimant_telephone'),

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/cursor-box-scope-guard.mjs",
+        "failClosed": true
+      },
+      {
+        "command": ".cursor/hooks/cursor-azure-route-guard.mjs",
+        "matcher": "az\\s|func\\s+azure|psql|graph\\.microsoft"
+      },
+      {
+        "command": ".cursor/hooks/spa-deploy-guard.mjs",
+        "matcher": "swa\\s+deploy|az\\s+staticwebapp"
+      }
+    ],
+    "afterShellExecution": [
+      {
+        "command": ".cursor/hooks/cursor-box-scope-postcreate.mjs"
+      },
+      {
+        "command": ".cursor/hooks/cursor-azure-churn-guard.mjs",
+        "matcher": "az\\s|func\\s+azure|psql|graph\\.microsoft"
+      }
+    ]
+  }
+}

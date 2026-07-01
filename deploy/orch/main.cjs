@@ -1702,7 +1702,9 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
   const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? "").trim();
   const ex = parseResult.extraction ?? {};
   const exVal = (k) => (ex[k]?.value ?? "").trim();
+  const exWorkProvider = exVal("work_provider");
   const parserEvaFields = {
+    work_provider: exWorkProvider.toUpperCase() === "UNKNOWN" ? "" : exWorkProvider,
     vehicle_model: exVal("vehicle_model"),
     claimant_name: exVal("claimant_name"),
     claimant_telephone: exVal("claimant_telephone"),

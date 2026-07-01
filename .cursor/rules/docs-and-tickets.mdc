@@ -1,0 +1,13 @@
+---
+description: Documentation freshness, tickets, and binding reviews
+globs: docs/**,LIVE_FACTS.json,docs/tickets/**
+alwaysApply: false
+---
+
+# Docs and tickets
+
+- **Registry protocol:** [docs/MAINTENANCE.md](docs/MAINTENANCE.md). After live Azure changes: update `LIVE_FACTS.json` (bump `lastVerified`) + mirror in `docs/architecture/live-environment.md` together.
+- **Gates:** `node scripts/check-doc-links.mjs` (broken links, orphans, live-number leakage); `node scripts/check-tickets.mjs` (ticket frontmatter).
+- **Binding reviews** (`docs/reviews/<DDMMYY>/`) outrank older docs/plans/ADRs — reconcile drift to the review.
+- **Tickets:** YAML frontmatter `id`, `title`, `status`, `priority`, `area`, `tickets-it-relates-to`, `research-link` per [docs/tickets/README.md](docs/tickets/README.md).
+- **Git pre-commit:** `git config core.hooksPath scripts/hooks` (once per clone).

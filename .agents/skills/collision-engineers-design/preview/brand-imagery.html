@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="preview.css">
+<style>
+  .imgs { display:flex; gap:10px; }
+  .imgs figure { margin:0; flex:1; }
+  .imgs img { width:100%; height:120px; object-fit:cover; border-radius:4px; display:block; }
+  .gray { filter:grayscale(1) contrast(1.05); }
+  figcaption { font-size:11px; color:var(--web-muted); margin-top:6px; }
+</style></head>
+<body>
+  <div class="col" style="gap:10px;">
+    <div class="cap">Imagery — automotive, grayscale, high-contrast</div>
+    <div class="imgs">
+      <figure><img class="gray" src="../assets/web_bg_garage.jpg" alt=""><figcaption>Workshop / garage — desaturated</figcaption></figure>
+      <figure><img class="gray" src="../assets/web_hero_image.png" alt=""><figcaption>Inspection hero (grayscale)</figcaption></figure>
+      <figure><img src="../assets/vehicle_assessment.png" alt="" style="background:#2c2a27;"><figcaption>Component / part diagram</figcaption></figure>
+    </div>
+  </div>
+</body></html>

@@ -1,0 +1,168 @@
+/* Collision Engineers — Documents / print kit (A4 reports, valuations, fee notes).
+   Faithful to the firm's letterhead template: logo + ref block, centred underlined
+   uppercase title, red intro lines, UPPERCASE section headings, red-bordered data
+   table, address/website footer. Body face matches the rendered PDFs (system sans). */
+
+:root {
+  --doc-red: #c80a32;        /* AUTHORITATIVE documents brand red (house-style skill) */
+  --doc-ink: #222222;
+  --doc-grey: #f2f2f2;       /* value-box / key label cell fill */
+  --doc-zebra: #f5f5f5;      /* striped table even rows */
+  --doc-line: #bebebe;       /* thin table grid */
+  --doc-muted: #555555;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #5a5e63;       /* desk grey behind the sheets */
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  color: var(--doc-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Toolbar (screen only) ---- */
+.doc-toolbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 18px;
+  background: #2c2a27; color: #fff;
+  border-bottom: 3px solid var(--doc-red);
+}
+.doc-toolbar .ttl { font-weight: 700; font-size: 14px; letter-spacing: .02em; margin-right: 8px; }
+.doc-toolbar .spacer { flex: 1; }
+.doc-tab {
+  border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff;
+  border-radius: 2px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all .15s;
+}
+.doc-tab:hover { background: rgba(255,255,255,.1); }
+.doc-tab[aria-current="page"] { background: var(--doc-red); border-color: var(--doc-red); }
+.doc-hint { color: rgba(255,255,255,.55); font-size: 12px; }
+
+/* ---- A4 sheet ---- */
+.doc-scroll { padding: 28px 16px 60px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.sheet {
+  width: 794px;            /* A4 @ 96dpi */
+  min-height: 1123px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  padding: 54px 60px 70px;
+  position: relative;
+  display: flex; flex-direction: column;
+}
+.sheet-body { flex: 1; }
+
+/* ---- Letterhead ---- */
+.letterhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.letterhead img { height: 86px; width: auto; }
+.ref-block { display: grid; grid-template-columns: auto auto; gap: 4px 14px; font-size: 13px; align-content: start; }
+.ref-block .lab { font-weight: 700; text-align: right; white-space: nowrap; }
+.ref-block .val { color: var(--doc-ink); min-width: 130px; }
+
+.fao { font-size: 13px; margin: 20px 0 0; line-height: 1.5; }
+.fao .addr { color: var(--doc-ink); }
+
+/* ---- Title (centred, uppercase) + optional subtitle ---- */
+.doc-title {
+  text-align: center; font-size: 19px; font-weight: 700; text-transform: uppercase;
+  color: #111; letter-spacing: 0; margin: 26px 0 4px;
+}
+.doc-title.underlined { text-decoration: underline; text-underline-offset: 4px; }
+.doc-title.red { color: var(--doc-red); }
+.doc-subtitle { text-align: center; font-size: 13px; font-weight: 700; color: #111; margin: 0 0 18px; }
+.salutation { font-weight: 700; font-size: 13.5px; margin: 0 0 10px; }
+.re-line { font-weight: 700; font-size: 13.5px; margin: 0 0 14px; }
+.re-line .rest { font-weight: 400; }
+.re-line.red, .salutation.red { color: var(--doc-red); }
+.re-line.red .rest { color: var(--doc-ink); }
+
+.doc-p { font-size: 13.5px; line-height: 1.6; margin: 0 0 14px; text-align: justify; }
+
+/* ---- Section heading: UPPERCASE bold + red rule underneath (house style) ---- */
+.sec-h {
+  font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0;
+  color: var(--doc-ink); margin: 18px 0 9px;
+  border-bottom: 2px solid var(--doc-red); padding-bottom: 4px;
+}
+
+/* ---- Red-bordered summary data table (the report "vehicle summary" block) ---- */
+.data-table { width: 100%; border-collapse: collapse; border: 2px solid var(--doc-red); font-size: 13px; margin: 6px 0 18px; }
+.data-table td { border: 1px solid var(--doc-red); padding: 8px 10px; vertical-align: middle; }
+.data-table td.k { background: var(--doc-grey); font-weight: 400; width: 17%; }
+.data-table td.v { width: 33%; font-weight: 700; }
+
+/* ---- Plain key/value grid (subject vehicle details) ---- */
+.kv-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0 16px; }
+.kv-table td { border: 1px solid var(--doc-line); padding: 7px 10px; }
+.kv-table td.k { background: #fff; font-weight: 400; width: 18%; }
+
+/* ---- Comparables / evidence table (red header, zebra) ---- */
+.evi-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0 16px; }
+.evi-table th { background: var(--doc-red); color: #fff; text-align: left; padding: 7px 9px; font-weight: 700; font-size: 12px; }
+.evi-table td { border: 1px solid var(--doc-line); padding: 7px 9px; vertical-align: top; }
+.evi-table tr:nth-child(even) td { background: var(--doc-zebra); }
+.evi-table .num { text-align: right; white-space: nowrap; }
+
+/* ---- Value box: bordered, label cell grey, figure large in brand red ---- */
+.value-box { width: 100%; border-collapse: collapse; border: 1px solid var(--doc-line); margin: 6px 0 16px; }
+.value-box td { border: 1px solid var(--doc-line); padding: 12px 16px; font-weight: 700; font-size: 13.5px; vertical-align: middle; }
+.value-box td.l { background: var(--doc-grey); width: 62%; }
+.value-box td.n { color: var(--doc-red); font-size: 19px; text-align: center; white-space: nowrap; }
+
+/* ---- Bullet list ---- */
+.doc-ul { font-size: 13.5px; line-height: 1.6; margin: 0 0 14px; padding-left: 20px; }
+.doc-ul li { margin-bottom: 7px; }
+
+/* ---- Impact area / photo placeholders ---- */
+.media-row { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin: 14px 0 18px; align-items: start; }
+.media-col h4 { text-align: center; font-size: 13px; font-weight: 700; margin: 0 0 8px; }
+.media-ph {
+  border: 1px solid var(--doc-line); background: #f4f4f3; border-radius: 2px;
+  height: 168px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; color: #9aa0a6; text-align: center; padding: 12px;
+}
+.media-ph svg { color: #b4bac0; }
+.media-ph small { font-size: 11px; color: #9aa0a6; max-width: 200px; line-height: 1.4; }
+
+/* ---- Fee note specifics ---- */
+.fee-org { text-align: right; font-size: 12.5px; line-height: 1.5; color: var(--doc-ink); }
+.fee-org strong { display: block; font-size: 14px; }
+.fee-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 18px 0; font-size: 13px; }
+.fee-meta .billto { line-height: 1.55; }
+.fee-meta .lab { color: var(--doc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; margin-bottom: 4px; }
+.fee-meta .rows { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
+.fee-meta .rows .k { font-weight: 700; white-space: nowrap; }
+.fee-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0 0; }
+.fee-table th { background: var(--doc-red); color: #fff; text-align: left; padding: 9px 10px; font-size: 12px; }
+.fee-table th.amt, .fee-table td.amt { text-align: right; white-space: nowrap; }
+.fee-table td { border-bottom: 1px solid var(--doc-line); padding: 10px; vertical-align: top; line-height: 1.5; }
+.fee-totals { width: 280px; margin-left: auto; font-size: 13px; }
+.fee-totals .r { display: flex; justify-content: space-between; padding: 6px 0; }
+.fee-totals .r.total { border-top: 2px solid var(--doc-red); margin-top: 4px; padding-top: 10px; font-weight: 700; font-size: 15px; background: var(--doc-grey); padding: 10px 8px; }
+.pay-grid { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; font-size: 13px; margin: 6px 0 0; }
+.pay-grid .k { font-weight: 700; }
+
+/* ---- Signature block ---- */
+.sig-block { margin: 18px 0 6px; }
+.sig-closing { font-size: 13.5px; margin: 0 0 4px; }
+.sig-img { display: block; height: 52px; width: auto; max-width: 240px; object-fit: contain; margin: 2px 0 2px; }
+.sig-name { font-size: 13.5px; font-weight: 700; margin: 0; }
+.sig-role { font-size: 12.5px; color: var(--doc-muted); margin: 1px 0 0; }
+.sig-org { font-size: 12.5px; font-weight: 700; margin: 1px 0 0; }
+
+/* ---- Footer (standard CE strapline above a thin red rule) ---- */
+.doc-footer {
+  border-top: 0.8px solid var(--doc-red); margin-top: 26px; padding-top: 8px;
+  display: flex; justify-content: center; align-items: center; gap: 12px;
+  font-size: 11px; color: var(--doc-muted); text-align: center; position: relative;
+}
+.doc-footer .page { position: absolute; right: 0; white-space: nowrap; }
+.running-head { display: flex; justify-content: flex-end; font-size: 11px; color: var(--doc-muted); margin-bottom: 8px; gap: 4px 12px; }
+
+@media print {
+  body { background: #fff; }
+  .doc-toolbar { display: none; }
+  .doc-scroll { padding: 0; gap: 0; }
+  .sheet { box-shadow: none; margin: 0; }
+}

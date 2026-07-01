@@ -59,7 +59,7 @@ import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
-import { selectParserEvaCandidates, type ParserEvaFields } from '../lib/parser-eva-fields.js';
+import { corpusWorkProviderCandidate, selectParserEvaCandidates, type ParserEvaFields } from '../lib/parser-eva-fields.js';
 import {
   CASE_SELECT,
   EVA_COLUMN_BY_KEY,
@@ -168,17 +168,15 @@ async function recomputeStatus(caseId: string): Promise<CaseStatus> {
  * enrichment fill-if-empty pattern below).
  *  - case_ref            ← parserRef            (only when the case has no case_ref yet)
  *  - eva_mileage (+unit)  ← parserMileage/Unit   (only when the case has no mileage yet)
- *  - the parser-owned EVA columns (vehicle_model, claimant_name/telephone/email, date_of_loss,
- *    date_of_instruction, accident_circumstances, vat_status) ← parserEva — each fill-if-empty
- *    and CONSTRAINT-GUARDED (selectParserEvaCandidates drops a bad date / non-Yes-No VAT so a
- *    malformed parser value can never break the intake UPDATE). This closes the "email-minted
- *    case shows only its registration + Case/PO" gap: the parser extracts all 12 EVA fields but
- *    intake historically forwarded only ref/mileage, leaving the rest NULL.
- *    (work_provider is owned by provider-match, inspection_address by the corpus picker /
- *    ADR-0013 — both intentionally excluded from the document auto-fill.)
- *  Each field actually filled this run gets a field_level_provenance row (pdf_extraction /
- *  "From instructions"). A no-op when every input is absent, so callers can pass them
- *  unconditionally (the orchestration caseResolve activity only populates what the parser found).
+ *  - the parser-owned EVA columns (work_provider, vehicle_model, claimant_name/telephone/email,
+ *    date_of_loss, date_of_instruction, accident_circumstances, vat_status) ← parserEva — each
+ *    fill-if-empty and CONSTRAINT-GUARDED (selectParserEvaCandidates drops a bad date / non-Yes-No
+ *    VAT / UNKNOWN work_provider so a malformed parser value can never break the intake UPDATE).
+ *    When the parser did not yield work_provider, the matched corpus display_name fills
+ *    eva_work_provider (fill-if-empty, provenance corpus / "Matched provider").
+ *    (inspection_address is owned by the corpus picker / ADR-0013 — excluded from auto-fill.)
+ *  Each field actually filled this run gets a field_level_provenance row. A no-op when every
+ *  input is absent, so callers can pass them unconditionally.
  */
 async function applyParserFields(
   caseId: string,
@@ -186,16 +184,26 @@ async function applyParserFields(
   parserMileage?: string,
   parserMileageUnit?: string,
   parserEva?: ParserEvaFields,
+  workProviderId?: string | null,
 ): Promise<void> {
   const ref = (parserRef ?? '').trim();
   const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, '') : '';
   const unitRaw = (parserMileageUnit ?? '').trim();
   const unit = unitRaw === 'Miles' || unitRaw === 'Km' ? unitRaw : '';
   const evaCandidates = selectParserEvaCandidates(parserEva);
-  if (!ref && !mileage && evaCandidates.length === 0) return; // backward-compatible no-op
+  const matchedProviderId = (workProviderId ?? '').trim();
+  const mightFillWorkProviderFromCorpus =
+    Boolean(matchedProviderId) &&
+    !evaCandidates.some((c) => c.column === 'eva_work_provider');
+  if (!ref && !mileage && evaCandidates.length === 0 && !mightFillWorkProviderFromCorpus) return;
 
   // Read every column we might fill so each write is strictly fill-if-empty.
-  const readCols = ['case_ref', 'eva_mileage', ...evaCandidates.map((c) => c.column)];
+  const readCols = [
+    'case_ref',
+    'eva_mileage',
+    'eva_work_provider',
+    ...evaCandidates.map((c) => c.column),
+  ];
   const cur = await query<Row>(`SELECT ${readCols.join(', ')} FROM case_ WHERE id = $1`, [caseId]);
   if (!cur[0]) return;
   const isEmpty = (v: unknown): boolean => !String(v ?? '').trim();
@@ -203,8 +211,13 @@ async function applyParserFields(
   const sets: string[] = [];
   const vals: unknown[] = [];
   let mileageFilled = false;
-  // The (camelCase) fields actually filled this run → one provenance row each.
-  const provenance: Array<{ field: string; value: string }> = [];
+  // Fields filled this run → provenance row each (source type varies by origin).
+  const provenance: Array<{
+    field: string;
+    value: string;
+    sourceType: 'pdf_extraction' | 'corpus';
+    sourceLabel: string;
+  }> = [];
 
   if (ref && isEmpty(cur[0].case_ref)) {
     sets.push(`case_ref = $${sets.length + 1}`);
@@ -223,7 +236,32 @@ async function applyParserFields(
     if (isEmpty(cur[0][cand.column])) {
       sets.push(`${cand.column} = $${sets.length + 1}`);
       vals.push(cand.value);
-      provenance.push({ field: cand.provenanceField, value: cand.value });
+      provenance.push({
+        field: cand.provenanceField,
+        value: cand.value,
+        sourceType: 'pdf_extraction',
+        sourceLabel: 'From instructions',
+      });
+    }
+  }
+
+  if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {
+    const wpRows = await query<Row>(
+      'SELECT display_name FROM work_provider WHERE id = $1',
+      [matchedProviderId],
+    );
+    const corpusCandidate = corpusWorkProviderCandidate(
+      wpRows[0]?.display_name as string | undefined,
+    );
+    if (corpusCandidate) {
+      sets.push(`eva_work_provider = $${sets.length + 1}`);
+      vals.push(corpusCandidate.value);
+      provenance.push({
+        field: corpusCandidate.provenanceField,
+        value: corpusCandidate.value,
+        sourceType: 'corpus',
+        sourceLabel: 'Matched provider',
+      });
     }
   }
 
@@ -235,17 +273,25 @@ async function applyParserFields(
     vals,
   );
 
-  // Provenance (mirror the manual-create field_level_provenance shape): pdf_extraction source /
-  // "From instructions" label. Supplementary — must never block intake. Written only for fields
-  // actually filled this run, so an idempotent replay (column already set) writes no duplicate.
-  if (mileageFilled) provenance.unshift({ field: 'mileage', value: mileage.slice(0, 20) });
-  const sourceTypeCode = sourceTypeCodec.toInt('pdf_extraction') ?? 100000000;
+  // Provenance (mirror the manual-create field_level_provenance shape). Supplementary — must
+  // never block intake. Written only for fields actually filled this run.
+  if (mileageFilled) {
+    provenance.unshift({
+      field: 'mileage',
+      value: mileage.slice(0, 20),
+      sourceType: 'pdf_extraction',
+      sourceLabel: 'From instructions',
+    });
+  }
+  const pdfSourceTypeCode = sourceTypeCodec.toInt('pdf_extraction') ?? 100000001;
+  const corpusSourceTypeCode = sourceTypeCodec.toInt('corpus') ?? 100000003;
   for (const p of provenance) {
+    const sourceTypeCode = p.sourceType === 'corpus' ? corpusSourceTypeCode : pdfSourceTypeCode;
     await query(
       `INSERT INTO field_level_provenance
          (name, case_id, field_name, value, source_type_code, source_label)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [`${caseId}:${p.field}`, caseId, p.field, p.value, sourceTypeCode, 'From instructions'],
+      [`${caseId}:${p.field}`, caseId, p.field, p.value, sourceTypeCode, p.sourceLabel],
     ).catch(() => { /* provenance is supplementary */ });
   }
 }
@@ -474,7 +520,14 @@ app.http('internalCasesResolve', {
         await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId, undefined, body.parserVrm);
         // Fill-if-empty parser fields onto the EXISTING case (it may lack a ref/mileage the
         // parser found on this email); never clobbers a value already there.
-        await applyParserFields(decision.targetCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit, body.parserEva);
+        await applyParserFields(
+          decision.targetCaseId,
+          body.parserRef,
+          body.parserMileage,
+          body.parserMileageUnit,
+          body.parserEva,
+          workProviderId,
+        );
         await writeAudit({
           action: AUDIT_ACTION.case_attached,
           caseId: decision.targetCaseId,
@@ -587,7 +640,14 @@ app.http('internalCasesResolve', {
       await upsertInboundEmail(inbound, workProviderId, newCaseId, undefined, body.parserVrm);
       // Fill-if-empty parser fields onto the new case (case_ref takes the inbound candidateRef
       // first, so parserRef only fills when that was blank; mileage gets provenance).
-      await applyParserFields(newCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit, body.parserEva);
+      await applyParserFields(
+        newCaseId,
+        body.parserRef,
+        body.parserMileage,
+        body.parserMileageUnit,
+        body.parserEva,
+        workProviderId,
+      );
 
       const auditAction =
         AUDIT_ACTION[decision.auditAction as keyof typeof AUDIT_ACTION] ??
