@@ -29,6 +29,7 @@ import {
   formatCasePo,
   statusForReviewCase,
   type Case,
+  type Chaser,
   type CreateCaseInput,
   type EvaFieldKey,
   type MergeCasesResult,
@@ -76,6 +77,24 @@ function chaserTargetType(code: number | null | undefined): Case['chasers'][numb
   return 'work_provider';
 }
 
+/** Map one chaser row to the domain Chaser — the EXACT shape the case-detail read
+ *  (loadCaseFull) returns, and therefore the shape POST /cases/{id}/chase echoes back
+ *  (M-E2) so the SPA can append the created row to its in-memory list verbatim. */
+export function rowToChaser(ch: Row): Chaser {
+  return {
+    id: ch.id ?? '',
+    targetType: chaserTargetType(ch.target_type_code),
+    targetName: ch.target_name ?? '',
+    channel: ch.channel_code === 100000001 ? 'whatsapp' : 'email',
+    templateUsed: ch.template_used ?? '',
+    status: 'drafted',
+    summary: ch.name ?? '',
+    createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
+    ...(ch.sent_by ? { sentBy: ch.sent_by } : {}),
+    ...(ch.sent_at ? { sentAt: fmtTimestamp(ch.sent_at) } : {}),
+  };
+}
+
 /** Load ALL case rows (provider-display joined), newest-first, adapted to Case[]. */
 async function loadAllCases(now: Date): Promise<Case[]> {
   const rows = await query<Row>(`${CASE_SELECT} ORDER BY c.created_at DESC`);
@@ -103,18 +122,7 @@ async function loadCaseFull(id: string, now: Date): Promise<Case | undefined> {
       timestamp: fmtTimestamp(n.occurred_at ?? n.created_at),
       text: n.text ?? '',
     })),
-    chasers: chasers.map((ch) => ({
-      id: ch.id ?? '',
-      targetType: chaserTargetType(ch.target_type_code),
-      targetName: ch.target_name ?? '',
-      channel: ch.channel_code === 100000001 ? 'whatsapp' : 'email',
-      templateUsed: ch.template_used ?? '',
-      status: 'drafted',
-      summary: ch.name ?? '',
-      createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
-      ...(ch.sent_by ? { sentBy: ch.sent_by } : {}),
-      ...(ch.sent_at ? { sentAt: fmtTimestamp(ch.sent_at) } : {}),
-    })),
+    chasers: chasers.map(rowToChaser),
   });
 }
 
@@ -550,6 +558,109 @@ app.http('setOnHold', {
       ...(actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}),
     });
     return { status: 204 };
+  }),
+});
+
+/* ============================================================
+   5b — POST /api/cases/{id}/chase   (M-E2: durable chaser log)
+   The SPA chaser log was CLIENT-STATE ONLY — the case-detail read pulls from the
+   chaser table but no write endpoint existed, so every "log as chased" evaporated
+   on reload (real data loss). This persists the drafted chaser to the SAME
+   table/columns the read queries and echoes the created row back in EXACTLY the
+   read shape (rowToChaser) so the client appends server truth. Draft-only in M1 —
+   a chase is LOGGED, never sent (send stays gated, ADR-0003), so status_code
+   keeps the DB default 'drafted'. Authz mirrors setOnHold (CollisionSpike.User).
+   ============================================================ */
+app.http('logChase', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/chase',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body = (await req.json().catch(() => ({}))) as {
+      channel?: unknown;
+      templateLabel?: unknown;
+      note?: unknown;
+    };
+
+    // --- validation: all 400s decided BEFORE any DB write ---
+    const channel = body.channel;
+    if (channel !== 'email' && channel !== 'whatsapp') {
+      return { status: 400, jsonBody: { error: "channel must be 'email' or 'whatsapp'" } };
+    }
+    if (typeof body.templateLabel !== 'string' || !body.templateLabel.trim()) {
+      return { status: 400, jsonBody: { error: 'templateLabel is required' } };
+    }
+    const templateLabel = body.templateLabel.trim();
+    if (templateLabel.length > 200) {
+      return { status: 400, jsonBody: { error: 'templateLabel must be 200 characters or fewer' } };
+    }
+    if (body.note !== undefined && typeof body.note !== 'string') {
+      return { status: 400, jsonBody: { error: 'note must be a string' } };
+    }
+    if (typeof body.note === 'string' && body.note.length > 2000) {
+      return { status: 400, jsonBody: { error: 'note must be 2000 characters or fewer' } };
+    }
+    const note = typeof body.note === 'string' ? body.note.trim() : '';
+
+    const existing = await loadCaseLite(id);
+    if (!existing) return { status: 404, jsonBody: { error: 'not found' } };
+
+    const actor = actorFromClaims(claims);
+    const channelLabel = channel === 'whatsapp' ? 'WhatsApp' : 'email';
+    // chaser.name = the queue summary (varchar(400)); mirrors the SPA's "Chased via …"
+    // wording so the persisted summary reads identically to the old client-state note.
+    const summary = `Chased via ${channelLabel} — ${templateLabel}.`.slice(0, 400);
+    // The chase target: the work provider (the party chased for missing items) — the
+    // read's default targetType. target_name = the provider display name (varchar(200)).
+    const targetName = existing.provider.slice(0, 200);
+
+    const rows = await query<Row>(
+      `INSERT INTO chaser
+         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now())
+       RETURNING *`,
+      [
+        summary,
+        id,
+        100000002, // choice_chaser_target_type: work_provider
+        targetName,
+        channel === 'whatsapp' ? 100000001 : 100000000, // choice_chaser_channel
+        templateLabel,
+      ],
+    );
+    const created = rows[0];
+    if (!created) return { status: 500, jsonBody: { error: 'chaser insert returned no row' } };
+
+    // Optional free-text note -> a durable case note (best-effort, same pattern as
+    // createCase's inspection-decision note; a note failure must not sink the chase log).
+    if (note) {
+      try {
+        await query(
+          'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
+          ['Chase note', id, actor ?? 'Staff', note],
+        );
+      } catch {
+        /* best-effort */
+      }
+    }
+
+    // chaser_sent (100000023) is the controlled chaser-family audit action (one of the
+    // original seeded codes); the summary keeps the wording honest — LOGGED, not sent.
+    await writeAudit({
+      action: AUDIT_ACTION.chaser_sent,
+      caseId: id,
+      summary: `Chase logged (${channel} · ${templateLabel})`,
+      after: {
+        chaserId: created.id,
+        channel,
+        templateLabel,
+        ...(note ? { note } : {}),
+      },
+      ...(actor ? { actor } : {}),
+    });
+
+    return { status: 201, jsonBody: rowToChaser(created) };
   }),
 });
 
