@@ -16,7 +16,7 @@ This folder is the **Cursor-native entry point** for the repo. Deeper context li
 
 Domain skills live in [.agents/skills/](../.agents/skills/) — not duplicated here:
 
-- `box-rest-api`, `eva-sentry-api`, `collision-engineers-design`, `grill-with-docs`, `ui-ux-pro-max`
+- `box-rest-api`, `eva-sentry-api`, `collision-engineers-design`, `grill-with-docs`, `ui-ux-pro-max`, `ticket-implement`, `ticket-distill`
 
 ## Parallel tooling
 

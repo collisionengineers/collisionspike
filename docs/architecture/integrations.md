@@ -107,23 +107,24 @@ change** → chasers are drafted for staff to send manually; **no free automated
 ## Box (Phase-7 additive intake pivot — ADR-0012)
 
 > **Binding decision:** [docs/adr/0012-box-centric-intake-additive-hybrid.md](../adr/0012-box-centric-intake-additive-hybrid.md).
-> **Status (2026-06-26):** the Box columns + gates live on the **Postgres** schema (`box_folder_id`,
-> `box_file_request_id`, `box_synced_at`, etc.; see [data-model.md](./data-model.md)). The **`box-webhook`
-> Function is retained and deployed** (`cespkbox-fn-v76a47`, 9 functions: `box_webhook`, `create_folder`,
-> `copy_file_request`, `file_request_lifecycle`, `create_webhook`, `webhook_lifecycle`,
-> `get_shared_link_file`, `get_shared_link_folder`, `list_folder`) but **gated OFF** (`BOX_API_ENABLED=false`)
-> and **secret-free** (its Key Vault `cespkboxkvv76a47` holds no secrets yet). **Migrated off Dataverse
-> (2026-06-27):** the Function was the **one** retained Function still writing to Dataverse + calling a Power
-> Automate flow (`STATUS_EVALUATE_FLOW_URL`); its `dataverse_client.py` is **deleted** in favour of
-> `data_api_client.py`, which mints a **managed-identity token** for the Data API audience (`DATA_API_URL` +
-> `DATA_API_AUDIENCE` app-settings) and calls `/api/internal/*` — including the new
-> `GET /api/internal/box/case-by-folder/{folderId}` — so **Postgres (via the Data API) is the system of
-> record**. In the Azure stack the **orchestration calls the `box-webhook` Function directly** (function key
-> / MI). The always-on
-> BUSINESS-account integration (CCG token mint, `FILE.UPLOADED` webhook, template File Request) is the
-> deferred long pole, operator-blocked on CCG authorization + a Box Business plan. *(Historical: the
-> Power Platform delivery used a custom `cr1bd_box_rest` connector + offline Box flows — decommissioned with
-> the rest of the PP layer.)* Phase docs: [docs/plans/phase-7-box-integration/](../plans/phase-7-box-integration/).
+> **Status:** Box is **LIVE** on the Azure stack (**JWT Server Authentication**, not CCG). Gate values,
+> function route counts, and the allowed root id live **only** in the registry
+> [live-environment.md](./live-environment.md) / [`LIVE_FACTS.json`](../../LIVE_FACTS.json) — do not
+> restate them here. Postgres holds `box_folder_id`, `box_file_request_id`, `box_synced_at`,
+> `evidence.box_file_id`, etc. (see [data-model.md](./data-model.md)). The **`box-webhook`** Function
+> (`cespkbox-fn-v76a47`) is deployed with folder/File-Request/webhook routes plus **`upload_file`**
+> `POST /api/box/folders/{id}/files` (Blob→Box byte mirror, scope-locked to `BOX_ALLOWED_ROOT_ID`).
+> **Intake-time evidence archive** — `boxArchiveEvidence` on `cespk-orch-dev` — copies the source `.eml`,
+> instruction documents, and images into the case Box folder on **every** intake, decoupled from provider
+> automation mode ([TKT-003](../tickets/TKT-003-box-sync/TKT-003-box-sync.md), **VERIFIED-LIVE
+> 2026-07-01**). **Migrated off Dataverse (2026-06-27):** `data_api_client.py` mints a managed-identity
+> token for the Data API and calls `/api/internal/*` (including
+> `GET /api/internal/box/case-by-folder/{folderId}`) — **Postgres is the system of record**. The
+> orchestration tier calls the `box-webhook` Function directly (function key / MI). Remaining operator
+> items: template File Request id, `FILE.UPLOADED` webhook subscription — see
+> [box-activation.md](../azure/box-activation.md). *(Historical: Power Platform used a custom
+> `cr1bd_box_rest` connector — decommissioned 2026-06-27.)* Phase docs:
+> [docs/plans/phase-7-box-integration/](../plans/phase-7-box-integration/).
 
 Box is an **additive, one-way archival + intake mirror** — **the system of record (Postgres) is
 authoritative; Box is written one-way (system of record → Box)**. Box Metadata has no joins, so dedup (ADR-0010), the status machine,
@@ -138,11 +139,10 @@ intake). It does not replace the M1 `finalize-eva-box` archival; it precedes and
   Platform this Function was fronted by a mandatory custom connector `cr1bd_box_rest` because connectors
   can't run the client-credentials grant; in the Azure stack the orchestration calls the Function directly,
   so the connector is gone — but the Function-side pillars below are unchanged.)*
-- **The CCG service token is minted inside the Azure Function.** The Box **CCG** token
-  (`POST /oauth2/token`, `grant_type=client_credentials`, `box_subject_type=enterprise`, App Access Only,
-  scopes `root_readwrite` + `manage_webhook`) is exchanged **inside `functions/box-webhook/`** from the Key
-  Vault secret `box-client-secret` — the proven EVA-Sentry / parser facade. No Box client secret ever
-  leaves the Function / Key Vault.
+- **JWT Server Authentication** mints inside `functions/box-webhook/` from the whole Box `Config.JSON`
+  (`BOX_CONFIG_JSON` → Key Vault `box-config-json`) — the **live** path since 2026-06-28. No Box client
+  secret leaves the Function / Key Vault. *(Historical/deferred: the prior design used **CCG**
+  client-credentials (`box-client-secret`); CCG is not the live auth mechanism.)*
 - **File Request is copy-from-template only** — no create-from-scratch API. Hand-build **one** template
   File Request once; per case `POST /file_requests/{templateId}/copy` onto the Case/PO folder. Any
   capture-form field is baked into the template.
@@ -163,14 +163,15 @@ intake). It does not replace the M1 `finalize-eva-box` archival; it precedes and
   chaser note below.)*
 
 **Box access is server-side, via the `box-webhook` Function.** Folder-create, File-Request copy,
-shared-link, and webhook-lifecycle ops are all CCG-authenticated calls made **inside the Function**; byte
-upload to a Case/PO folder (`finalize`) likewise goes through the Function / Box REST. *(Historical: under
-Power Platform two Box connections coexisted — a custom `cr1bd_box_rest` for the metadata ops and the
-first-party `cr1bd_box` for the byte `CreateFile` path; both are decommissioned.)*
+shared-link, webhook-lifecycle, and **`upload_file`** (byte mirror from Blob evidence) are JWT-authenticated
+calls made **inside the Function**. *(Historical: under Power Platform two Box connections coexisted — both
+decommissioned.)*
 
-**Box operations** (orchestration activities; folder/sequence behaviour unchanged from ADR-0012):
+**Box operations** (orchestration activities; folder/sequence behaviour per ADR-0012):
 the folder-create op mints the **UPPERCASE** Case/PO folder at parse-confirm (e.g. EVA `test26001` → Box
-`TEST26001`) and stamps `box_folder_id`; the **finalize** step **augments** the pre-existing folder (reads
+`TEST26001`) and stamps `box_folder_id`; **`boxArchiveEvidence`** (intake, every case) uploads the `.eml`,
+instruction document(s), and images via `upload_file` and stamps `evidence.box_file_id` /
+`case_.box_synced_at`; the **finalize** step **augments** the pre-existing folder (reads
 `BOX_FOLDER_ROOT_ID`) and stamps `box_synced_at` at `box_synced`; a blob-purge step deletes only
 **archived (accepted, non-excluded) image** Blob evidence once `box_synced` + grace (non-image transient
 bytes are retained — a deferred follow-up).

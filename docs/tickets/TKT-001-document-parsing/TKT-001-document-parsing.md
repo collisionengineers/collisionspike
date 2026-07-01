@@ -1,7 +1,7 @@
 ---
 id: TKT-001
 title: Fix multi-format document extraction regression
-status: done
+status: now
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-002, TKT-017]
@@ -36,3 +36,4 @@ A representative instruction in each of PDF / DOC / DOCX / EML / MSG returns the
 ## Artifacts
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
+- [Follow-up regression 2026-07-01](./changes-regression-01-07-26.md)

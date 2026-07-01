@@ -53,6 +53,13 @@ class DocumentMapperService:
         self.rule_engine = RuleEngine()
 
     def load_provider_catalog(self) -> dict[str, Any]:
+        # Pinned seed (parser Function): always migrate from the vendored providers.json
+        # so a stale app-data cache cannot hide seed updates between deploys.
+        if not self.merge_seed_on_load:
+            fresh = self._load_seed_catalog()
+            if fresh is not None:
+                return cast(dict[str, Any], fresh)
+
         if not self.config_path.exists():
             self._seed_providers_file()
         with open(self.config_path, "r", encoding="utf-8") as fh:

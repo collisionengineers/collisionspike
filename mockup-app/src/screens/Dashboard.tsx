@@ -70,7 +70,49 @@ const useStyles = makeStyles({
   root: {
     display: 'flex',
     flexDirection: 'column',
-    gap: tokens.spacingVerticalXXL,
+    gap: tokens.spacingVerticalL,
+  },
+
+  /* Split-pane cockpit: exceptions left, telemetry right (desktop). */
+  cockpitGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: tokens.spacingVerticalL,
+    alignItems: 'start',
+    '@media (min-width: 992px)': {
+      gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)',
+    },
+  },
+  cockpitMain: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalL,
+    minWidth: 0,
+  },
+  cockpitSide: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalL,
+    minWidth: 0,
+  },
+
+  regionHeading: {
+    margin: 0,
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
+    fontWeight: 'inherit',
+  },
+
+  srOnly: {
+    position: 'absolute',
+    width: '1px',
+    height: '1px',
+    padding: 0,
+    margin: '-1px',
+    overflow: 'hidden',
+    clip: 'rect(0 0 0 0)',
+    whiteSpace: 'nowrap',
+    border: 0,
   },
 
   /* "Updated HH:MM · Refresh" affordance (quiet) */
@@ -89,7 +131,8 @@ const useStyles = makeStyles({
     background: 'none',
     border: 'none',
     margin: 0,
-    padding: '2px 4px',
+    padding: '6px 10px',
+    minHeight: '32px',
     borderRadius: '2px',
     cursor: 'pointer',
     color: tokens.colorNeutralForeground2,
@@ -209,8 +252,10 @@ const useStyles = makeStyles({
     minWidth: '180px',
     padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderLeft: '4px solid var(--ce-red)',
     borderRadius: '2px',
-    backgroundColor: tokens.colorNeutralBackground3,
+    backgroundColor: tokens.colorNeutralBackground1,
+    boxShadow: 'var(--ce-shadow-sm)',
   },
   allTimeHead: {
     display: 'inline-flex',
@@ -488,11 +533,15 @@ export function Dashboard() {
         }
       />
 
-      {/* SECTION 1 — INTAKE PIPELINE: the live-depth backlog funnel (New → Not ready →
-          Review), clickable into its queue, plus the Held bar. The cumulative terminal
-          total lives in the all-time tile below, so the funnel is purely open-cases depth. */}
-      <section className={styles.region} aria-label="Intake pipeline">
-        <span className="ce-overline">Intake pipeline</span>
+      <div className={styles.srOnly} aria-live="polite">
+        {loading ? 'Refreshing dashboard…' : `Dashboard updated at ${fmtTime(stamp)}`}
+      </div>
+
+      {/* INTAKE PIPELINE — full-width funnel + held bar */}
+      <section className={styles.region} aria-labelledby="heading-pipeline">
+        <h2 className={mergeClasses('ce-overline', styles.regionHeading)} id="heading-pipeline">
+          Intake pipeline
+        </h2>
         <PipelineStrip
           stages={stages}
           variant="hero"
@@ -501,7 +550,6 @@ export function Dashboard() {
             if (to) navigate(to);
           }}
         />
-        {/* Held — can't pass through automatically, a possible duplicate, or on hold */}
         {live.held > 0 && (
           <button
             type="button"
@@ -518,100 +566,111 @@ export function Dashboard() {
         )}
       </section>
 
-      {/* SECTION 2 — INBOX: incoming-mail pressure, summarised. Each tile drills into the
-          triage queue; "Needs sorting" lights when email is still untriaged. Detail
-          (search, per-email actions) lives on /inbox — the cockpit stays scannable. */}
-      <section className={styles.region} aria-label="Inbox">
-        <span className="ce-overline">Inbox</span>
-        <div className={styles.liveStrip}>
-          <InboxTile
-              icon={Briefcase}
-              value={inbound.receiving_work}
-              label="Receiving work"
-              onOpen={() => navigate('/inbox?category=receiving_work&view=active')}
-            />
-            <InboxTile
-              icon={MailQuestion}
-              value={inbound.query}
-              label="Queries"
-              onOpen={() => navigate('/inbox?category=query&view=active')}
-            />
-            <InboxTile icon={Mail} value={inbound.other} label="Other" onOpen={() => navigate('/inbox?category=other&view=active')} />
-            <InboxTile
-              icon={AlertCircle}
-              value={inbound.untriaged}
-              label="Needs sorting"
-              blocker={inbound.untriaged > 0}
-              onOpen={() => navigate('/inbox?view=active')}
-            />
-        </div>
-      </section>
+      {/* Split cockpit: exceptions left · inbox + throughput right */}
+      <div className={styles.cockpitGrid}>
+        <div className={styles.cockpitMain}>
+          <section className={styles.region} aria-labelledby="heading-needs-action">
+            <h2 className={mergeClasses('ce-overline', styles.regionHeading)} id="heading-needs-action">
+              Needs action — oldest first
+            </h2>
 
-      {/* SECTION 3 — THROUGHPUT: windowed metrics (today / this week) kept SEPARATE from
-          the lifetime "Sent to EVA" tile, so a running total is never read as a window. */}
-      <section className={styles.region} aria-label="Throughput">
-        <span className="ce-overline">Today / this week</span>
-        <div className={styles.thruRow}>
-          <div className={styles.thruStrip}>
-            <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
-            <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
-            <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
-          </div>
-          <div className={styles.allTimeTile}>
-            <span className={styles.allTimeHead}>
-              <CheckCheck size={12} strokeWidth={2} aria-hidden /> All time
-            </span>
-            <span className="ce-stat">{sentToEvaTotal}</span>
-            <span className={styles.thruLabel}>Sent to EVA</span>
-          </div>
-        </div>
-      </section>
-
-      {/* REGION C — NEEDS ACTION (the hero list) */}
-      <section className={styles.region} aria-label="Needs action">
-        <span className="ce-overline">Needs action — oldest first</span>
-
-        {/* exception chips */}
-        {aging.rows.length > 0 && (
-          <div className={styles.facets}>
-            {aging.pastDueCount > 0 && (
-              <span className={mergeClasses(styles.facetChip, styles.facetBlocker)}>
-                <AlertTriangle size={12} strokeWidth={2.25} aria-hidden />
-                {aging.pastDueCount} past due
-              </span>
+            {aging.rows.length > 0 && (
+              <div className={styles.facets}>
+                {aging.pastDueCount > 0 && (
+                  <span className={mergeClasses(styles.facetChip, styles.facetBlocker)}>
+                    <AlertTriangle size={12} strokeWidth={2.25} aria-hidden />
+                    {aging.pastDueCount} past due
+                  </span>
+                )}
+                {aging.duplicateCount > 0 && (
+                  <span className={mergeClasses(styles.facetChip, styles.facetAttention)}>
+                    <Copy size={12} strokeWidth={2.25} aria-hidden />
+                    {aging.duplicateCount} duplicate
+                  </span>
+                )}
+                {aging.conflictCount > 0 && (
+                  <span className={mergeClasses(styles.facetChip, styles.facetAttention)}>
+                    <GitFork size={12} strokeWidth={2.25} aria-hidden />
+                    {aging.conflictCount} conflict
+                  </span>
+                )}
+              </div>
             )}
-            {aging.duplicateCount > 0 && (
-              <span className={mergeClasses(styles.facetChip, styles.facetAttention)}>
-                <Copy size={12} strokeWidth={2.25} aria-hidden />
-                {aging.duplicateCount} duplicate
-              </span>
-            )}
-            {aging.conflictCount > 0 && (
-              <span className={mergeClasses(styles.facetChip, styles.facetAttention)}>
-                <GitFork size={12} strokeWidth={2.25} aria-hidden />
-                {aging.conflictCount} conflict
-              </span>
-            )}
-          </div>
-        )}
 
-        {aging.rows.length === 0 ? (
-          <EmptyState
-            icon={<CircleCheck size={32} strokeWidth={1.75} aria-hidden />}
-            title={`Nothing waiting. New cases land here as email arrives — last checked ${fmtTime(stamp)}.`}
-          />
-        ) : (
-          <div className={styles.list}>
-            {aging.rows.map((row) => (
-              <AgingRowItem
-                key={row.case.id}
-                row={row}
-                onOpen={() => navigate(`/case/${row.case.id}`)}
+            {aging.rows.length === 0 ? (
+              <EmptyState
+                icon={<CircleCheck size={32} strokeWidth={1.75} aria-hidden />}
+                title={`Nothing waiting. New cases land here as email arrives — last checked ${fmtTime(stamp)}.`}
               />
-            ))}
-          </div>
-        )}
-      </section>
+            ) : (
+              <div className={styles.list}>
+                {aging.rows.map((row) => (
+                  <AgingRowItem
+                    key={row.case.id}
+                    row={row}
+                    onOpen={() => navigate(`/case/${row.case.id}`)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className={styles.cockpitSide}>
+          <section className={styles.region} aria-labelledby="heading-inbox">
+            <h2 className={mergeClasses('ce-overline', styles.regionHeading)} id="heading-inbox">
+              Inbox
+            </h2>
+            <div className={styles.liveStrip}>
+              <InboxTile
+                icon={Briefcase}
+                value={inbound.receiving_work}
+                label="Receiving work"
+                onOpen={() => navigate('/inbox?category=receiving_work&view=active')}
+              />
+              <InboxTile
+                icon={MailQuestion}
+                value={inbound.query}
+                label="Queries"
+                onOpen={() => navigate('/inbox?category=query&view=active')}
+              />
+              <InboxTile
+                icon={Mail}
+                value={inbound.other}
+                label="Other"
+                onOpen={() => navigate('/inbox?category=other&view=active')}
+              />
+              <InboxTile
+                icon={AlertCircle}
+                value={inbound.untriaged}
+                label="Needs sorting"
+                blocker={inbound.untriaged > 0}
+                onOpen={() => navigate('/inbox?view=active&triageState=new')}
+              />
+            </div>
+          </section>
+
+          <section className={styles.region} aria-labelledby="heading-throughput">
+            <h2 className={mergeClasses('ce-overline', styles.regionHeading)} id="heading-throughput">
+              Today / this week
+            </h2>
+            <div className={styles.thruRow}>
+              <div className={styles.thruStrip}>
+                <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
+                <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
+                <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
+              </div>
+              <div className={styles.allTimeTile}>
+                <span className={styles.allTimeHead}>
+                  <CheckCheck size={12} strokeWidth={2} aria-hidden /> All time
+                </span>
+                <span className="ce-stat">{sentToEvaTotal}</span>
+                <span className={styles.thruLabel}>Sent to EVA</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

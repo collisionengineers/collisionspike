@@ -26,11 +26,14 @@ Controls whether populated data requires human review before EVA:
 
 **Unknown providers default to `Review auto`** (and `prefer_address` policy).
 
-> **Spike scope (decided):** only **`Review auto`** is active initially — every populated field is
-> staff-reviewed before EVA. `AI Auto` / `Full auto` are modelled but **deferred** until accuracy/
-> trust data exists. Implement the **global** kill switches now (AI / EVA-submit / enrichment /
-> outbound); per-provider toggles and the **Improvement-Review queue** are modelled but deferred.
-> Keep field-level **provenance markers** from day one (cheap, and hard to backfill).
+> **Live enforcement (2026-06-30, [TKT-013](../../tickets/TKT-013-automation-mode/TKT-013-automation-mode.md)):**
+> modes are stored on `work_provider.provider_automation_mode_code` (`manual` · `review_auto` ·
+> `full_auto` deferred in the choiceset) and **honoured by the orchestration pipeline**. Record-keeping
+> (Box folder create, evidence archive, image extract) runs on **every** intake regardless of mode;
+> **enrichment** is deferred when the matched provider is `manual`. Active providers in the live corpus are
+> set to `review_auto` — see the registry
+> [live-environment.md](../architecture/live-environment.md). `AI Auto` / `Full auto` remain modelled but
+> **deferred** until accuracy/trust data exists.
 
 ## Two-tier control (global kill switch → per-provider)
 Every automated capability is checked twice: the **global kill switch** first, then the

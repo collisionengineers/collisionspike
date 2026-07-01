@@ -6,9 +6,9 @@ Node/TypeScript) + an **orchestration Function App** (`cespk-orch-dev`) + a **Po
 system of record (`cespk-pg-dev`) + the **retained Python Functions** (parser / enrichment / evasentry /
 evavalidation / ocr / box-webhook). The original **Power Platform implementation** (Power Apps Code App +
 Dataverse + ~16 Power Automate flows + custom connectors) has been **migrated to Azure (deployed) and the
-Power Platform footprint deprovisioned 2026-06-27** (Dev sandbox deleted via `pac admin delete`). Last updated **2026-06-27**._
+Power Platform footprint deprovisioned 2026-06-27** (Dev sandbox deleted via `pac admin delete`). Last updated **2026-07-01**._
 
-_Companion docs: [README.md](./README.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [docs/gated.md](./docs/gated.md) · live deploy playbooks [docs/azure/](./docs/azure/README.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md) · migration record [docs/HISTORICAL/migration/](./docs/HISTORICAL/migration/) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
+_Companion docs: [README.md](./README.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [docs/gated.md](./docs/gated.md) · **[docs/tickets/BOARD.md](./docs/tickets/BOARD.md)** (granular work-todo-spike / ticket delivery state) · live deploy playbooks [docs/azure/](./docs/azure/README.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md) · migration record [docs/HISTORICAL/migration/](./docs/HISTORICAL/migration/) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
 
 > **Platform migration (2026-06-27).** This repo was first built as a **Power Platform** spike and has
 > since been **migrated to an Azure PaaS stack** (the reversible code/data migration in [docs/HISTORICAL/migration/](./docs/HISTORICAL/migration/)
@@ -127,6 +127,9 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   but doesn't yet delete a sub for a mailbox removed from `GRAPH_INTAKE_MAILBOXES` — why digital@ had to be
   deleted by hand). Some residual `graph-webhook` `499`/cold-start aborts remain (Graph retries absorb them).
   Live subscription state: the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
+- **✅ Box intake evidence archive — DONE (2026-07-01).** `boxArchiveEvidence` on `cespk-orch-dev` copies
+  `.eml`, instructions, and images into the case Box folder on every intake ([TKT-003](./docs/tickets/TKT-003-box-sync/TKT-003-box-sync.md),
+  **VERIFIED-LIVE**). Granular UI/platform tickets from the work-todo-spike wave: [docs/tickets/BOARD.md](./docs/tickets/BOARD.md).
 
 **Next:**
 - **Durable API hardening** — durable auth error-handling + token **audience-form** hardening (v2 tokens
@@ -145,6 +148,12 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   Entra) carries over from the prior build; promote its verified path on the Azure stack.
 
 **Later:**
+- **Parser custom container (LibreOffice for legacy `.doc`)** — Flex Consumption (`cespike-parser-dev`) cannot
+  install system packages (`libreoffice-writer-nogui`, `antiword`) without a **custom container** migration;
+  table-heavy legacy `.doc` files lose table-cell text on the binary-scrape path. Triage QDOS is bridged by the
+  orchestration email-body supplement ([TKT-001 follow-up](./docs/tickets/TKT-001-document-parsing/changes-regression-01-07-26.md));
+  full `.doc` fidelity needs a container image with LibreOffice baked in
+  ([Microsoft Q&A — FC1 system packages](https://learn.microsoft.com/en-ca/answers/questions/5911523/unable-to-use-linux-packages-in-flexi-function-app)).
 - **Box business-account live-test** — CCG + File Request + the `FILE.UPLOADED` live-test against the
   **retained** `box-webhook` Function; the deferred Business-Plus metadata tier.
 - **OCR for scanned PDFs** calibration (retained `ocr` Function); **chaser automation** (draft-only);

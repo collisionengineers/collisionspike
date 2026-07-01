@@ -88,7 +88,10 @@ Governed corpus record. Job-sheet columns map directly:
 | Images location | `imagesSourceNotes` |
 | Image based or address | seeds `inspectionLocationPolicy` + known addresses |
 | Sending Report | `reportReturnNotes` |
-Plus governance fields: `knownEmailDomains[]` (matching key — see below), `providerAutomationMode`,
+Plus governance fields: `knownEmailDomains[]` (matching key — see below),
+`providerAutomationMode` (`work_provider.provider_automation_mode_code` → `manual` /
+`review_auto` / `full_auto`; orchestration branches on this — Box/archive always runs; enrichment defers
+in `manual`; see [provider-corpus.md](../requirements/provider-corpus.md)),
 per-provider toggles (AI/EVA/enrichment/outbound allowed), `inspectionLocationPolicy`,
 `active|archived`, deterministic EVA-readiness overrides, audit history.
 
