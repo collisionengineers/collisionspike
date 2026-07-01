@@ -50,3 +50,32 @@ export function formatDdmmyyyy(d?: Date | null): string {
 export function isValidDdmmyyyy(s?: string | null): boolean {
   return parseDdmmyyyy(s) !== null;
 }
+
+/* ----------  Compact received-timestamp (reforge M-D, spec IA §6)  ---------- */
+
+/** Fixed short names — deliberately NOT locale-derived, so grids render (and
+    tests assert) identically on every machine. */
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+/**
+ * Compact timestamp for GRID cells only (spec IA §6). Never relative:
+ *   - same local day as `now`      → `14:32`
+ *   - within the last 6 days       → `Mon 09:12`
+ *   - older (or future-dated)      → `12/06/25`
+ * The full `DD/MM/YYYY HH:mm` form stays in tooltips, aria-labels and case
+ * detail (the screens' formatReceived). Empty input → '—'; unparseable input
+ * is returned verbatim (never invent a date). EVA date fields are untouched —
+ * they keep the DD/MM/YYYY contract helpers above.
+ */
+export function formatReceivedCompact(iso: string, now: Date = new Date()): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const p = (n: number) => String(n).padStart(2, '0');
+  const hm = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dayDiff = Math.round((startOfDay(now) - startOfDay(d)) / 86_400_000);
+  if (dayDiff === 0) return hm;
+  if (dayDiff > 0 && dayDiff <= 6) return `${WEEKDAY_SHORT[d.getDay()]} ${hm}`;
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${String(d.getFullYear()).slice(-2)}`;
+}

@@ -18,6 +18,8 @@ export {
   severityClassName,
   type ChipSeverity,
 } from './severityStyles';
+export { useTableTypography } from './tableStyles';
+export { BulkActionBar, type BulkActionBarProps, type BulkVerb } from './BulkActionBar';
 export { ProvenanceBadge, type ProvenanceBadgeProps } from './ProvenanceBadge';
 export {
   ReadinessChecklist,
