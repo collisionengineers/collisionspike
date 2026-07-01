@@ -1,5 +1,5 @@
 import { makeStyles, mergeClasses, tokens } from '@fluentui/react-components';
-import { MapPin } from 'lucide-react';
+import { AlertTriangle, ChevronRight, MapPin } from 'lucide-react';
 import type { PipelineStage, PipelineStageKey } from '../data';
 
 /* The pipeline stages, in order, as a count-less skeleton. Re-cut per review
@@ -160,10 +160,20 @@ const useStyles = makeStyles({
   countSpine: { fontSize: '15px' },
   countStuck: { color: 'var(--ce-warning-text)' },
   labelStuck: { color: 'var(--ce-warning-ink)' },
+  // Non-colour cue beside the stuck label — the stage must never be
+  // colour-only (shape carries the warning for colour-blind users).
+  stuckIcon: {
+    color: 'var(--ce-warning-text)',
+    flexShrink: 0,
+    verticalAlign: 'text-bottom',
+    marginRight: '4px',
+  },
   countZero: { color: tokens.colorNeutralForeground3 },
 
   // interactive (dashboard) — the segment is a real <button> that navigates to
   // its queue on click; reset the native button chrome to keep the seg look.
+  // Affordance discriminator (spec §4): always-visible chevron + hover lift;
+  // pressed settles back; reduced motion is gated globally in theme.css.
   segClickable: {
     cursor: 'pointer',
     margin: 0,
@@ -172,15 +182,31 @@ const useStyles = makeStyles({
     font: 'inherit',
     color: 'inherit',
     textAlign: 'left',
+    // Keep the label/count clear of the top-right chevron inset.
+    paddingRight: '24px',
     transitionProperty: 'background-color, box-shadow, transform',
     transitionDuration: '150ms',
     transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
     ':hover': {
       backgroundColor: tokens.colorNeutralBackground1Hover,
-      boxShadow: 'var(--ce-shadow-md)',
+      boxShadow: 'var(--ce-shadow-hover)',
       transform: 'translateY(-1px)',
     },
+    ':active': {
+      transform: 'translateY(0)',
+      boxShadow: 'var(--ce-shadow-sm)',
+    },
+    '&:hover [data-seg-chevron]': { color: tokens.colorNeutralForeground2 },
     ':focus-visible': { outline: 'none', boxShadow: 'inset 0 0 0 2px var(--ce-red)', zIndex: 1 },
+  },
+  // Always-visible clickability cue — top-right 8px inset (spec §4).
+  segChevron: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    display: 'inline-flex',
+    color: tokens.colorNeutralForeground3,
+    pointerEvents: 'none',
   },
 });
 
@@ -272,6 +298,9 @@ export function PipelineStrip({
                 isHere && styles.labelHere,
               )}
             >
+              {stuckHere && (
+                <AlertTriangle size={14} strokeWidth={2.25} className={styles.stuckIcon} aria-hidden />
+              )}
               {s.label}
             </span>
             <span
@@ -293,16 +322,20 @@ export function PipelineStrip({
           </>
         );
         if (interactive) {
-          // Native <button> = implicit button role; a name that says what it does.
+          // Native <button> = implicit button role; a name that says what it
+          // does (the stuck cue is announced too — never colour/shape-only).
           return (
             <button
               key={s.key}
               type="button"
-              aria-label={`${s.label}: ${s.count} ${plural}, open queue`}
+              aria-label={`${s.label}: ${s.count} ${plural}${stuckHere ? ', needs attention' : ''}, open queue`}
               onClick={() => onStageSelect?.(s.key)}
               {...commonProps}
             >
               {body}
+              <span className={styles.segChevron} data-seg-chevron aria-hidden>
+                <ChevronRight size={14} strokeWidth={2} />
+              </span>
             </button>
           );
         }
@@ -310,7 +343,7 @@ export function PipelineStrip({
           <div
             key={s.key}
             role="listitem"
-            aria-label={`${s.label}: ${s.count} ${plural}${isHere ? ' (current stage)' : ''}`}
+            aria-label={`${s.label}: ${s.count} ${plural}${stuckHere ? ', needs attention' : ''}${isHere ? ' (current stage)' : ''}`}
             aria-current={isHere ? 'step' : undefined}
             {...commonProps}
           >
