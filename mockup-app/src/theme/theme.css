@@ -278,6 +278,25 @@ body,
   color: var(--ce-ink);
 }
 
+/* ----------  Screen-reader-only text  ----------
+   Visually hidden, still real DOM text every SR reads (browse mode included).
+   Used for full-form timestamps behind compact grid cells and other sr-only
+   supplements. (Three components still carry a local makeStyles copy of this
+   recipe — ProvenanceBadge / ImageOrderList / LinkedEmailsPanel — noted for
+   the M-H cleanup.) */
+.ce-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ----------  CE focus ring  ----------
    3px CE-red halo. Apply `.ce-focusable` to any custom interactive surface
    that doesn't already inherit a Fluent focus indicator. */

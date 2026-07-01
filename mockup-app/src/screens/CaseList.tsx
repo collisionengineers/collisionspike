@@ -1,9 +1,10 @@
 import type { KeyboardEvent } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Badge,
   Caption1,
+  Checkbox,
   DataGrid,
   DataGridBody,
   DataGridCell,
@@ -11,17 +12,23 @@ import {
   DataGridHeaderCell,
   DataGridRow,
   Dropdown,
+  Link,
   Option,
   SearchBox,
   Tab,
   TabList,
   TableCellLayout,
   Text,
+  Toast,
+  ToastBody,
+  ToastTitle,
+  ToastTrigger,
   Tooltip,
   createTableColumn,
   makeStyles,
   mergeClasses,
   tokens,
+  useToastController,
   type SelectTabData,
   type SelectTabEvent,
   type TableColumnDefinition,
@@ -35,7 +42,25 @@ import {
   Mail,
   MessageCircle,
 } from 'lucide-react';
-import { SectionHeading, StatusBadge, statusLabel, VrmPlate, EmptyState, ErrorState, DataGridSkeleton } from '../components';
+import {
+  SectionHeading,
+  StatusBadge,
+  statusLabel,
+  VrmPlate,
+  EmptyState,
+  ErrorState,
+  DataGridSkeleton,
+  useTableTypography,
+  BulkActionBar,
+  GLOBAL_TOASTER_ID,
+} from '../components';
+import { runBatch, summarizeBatch } from '../data/batch';
+import {
+  columnsForQueue,
+  heldReleaseEligible,
+  whyHeldText,
+  type CaseColumnId,
+} from './case-list-columns';
 import {
   QUEUES,
   REASON_LABELS,
@@ -51,15 +76,22 @@ import {
   type ReasonFacet,
 } from '../data';
 
-/* Case list at /queue/:name (review 190626 queue IA).
-   - TabList across Instructions (awaiting images) / Images only / Ready for review /
-     Exceptions — the case's natural state (review nav-bar #4 + queues #3).
-   - Reason facet chips (Missing images · Duplicate · Conflict …) from reasonCounts()
-     on the review queue, toggling to filter the grid.
+/* Case list at /queue/:name (review 190626 queue IA + reforge M-D).
+   - TabList across the three queues — the case's natural state.
+   - PER-QUEUE COLUMN SETS from the pure columnsForQueue() (spec IA §2):
+     not-ready keeps the full set; review swaps Outstanding/Status/Channel for
+     Claimant + Vehicle; held drops Case/PO + Status for the "Why held"
+     decision verb (whyHeldText, twin-count enriched via data.openVrmTwins).
+   - Cell typography from the shared useTableTypography() hierarchy (spec §3):
+     primary (claimant, outstanding, why-held) / secondary (provider, vehicle,
+     ages, timestamps) / mono (Case/PO).
+   - Reason facet chips (Missing images · Duplicate · Conflict …) from
+     reasonCounts() on the not-ready queue, toggling to filter the grid.
    - Toolbar: SearchBox (VRM / Case-PO / claimant) + Provider (only providers WITH a
-     case in this queue) / Status (only where statuses vary) / Channel / Age.
-   - Fluent v9 declarative DataGrid with FIXED column sizing so Outstanding (verb-led,
-     ellipsised + tooltip) and the icon-only Channel column never collide.
+     case in this queue) / Status (only where statuses vary — the held Status
+     FILTER stays even though its column dropped) / Channel / Age.
+   - Fluent v9 declarative DataGrid with FIXED column sizing so the verb-led
+     ellipsised cells and the icon-only Channel column never collide.
    - Row click → /case/:id. duplicate_risk rows keep the ⚠ + tinted background. */
 
 const useStyles = makeStyles({
@@ -135,10 +167,14 @@ const useStyles = makeStyles({
   rowDuplicate: { backgroundColor: tokens.colorStatusDangerBackground1 },
 
   vrmCell: { display: 'inline-flex', alignItems: 'center', gap: tokens.spacingHorizontalXS },
-  po: { fontFamily: 'var(--ce-font-mono)', textTransform: 'uppercase' },
   muted: { color: tokens.colorNeutralForeground3 },
 
-  // Outstanding — verb-led, single line, ellipsised. Width bounded by the column.
+  // Checkbox cell wrapper — swallows click/keydown so toggling a selection
+  // never triggers the row's open-case navigation.
+  selectCell: { display: 'inline-flex', alignItems: 'center' },
+
+  // Verb-led cells (Outstanding / Why held) — single line, ellipsised.
+  // Typography comes from useTableTypography().cellPrimary.
   outstanding: {
     display: 'block',
     maxWidth: '100%',
@@ -155,12 +191,15 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground2,
   },
 
-  // Aging / Due — stacked, severity-aware. Past-due keeps the red budget:
-  // icon stays --ce-red, the TEXT reads in --ce-critical-ink (9.17:1 on white).
+  // Aging / Due — stacked, severity-aware (spec §3 aging-cell demotion): the
+  // non-urgent age is plain cellSecondary text (no pill in grid cells); due
+  // ≤2d gets --ce-warning-text semibold + 14px CalendarClock; past-due gets
+  // --ce-critical-ink semibold text with the 14px icon keeping --ce-red.
+  // Never colour-only — the icons carry the shape cue.
   dueCell: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS, lineHeight: 1.2 },
   dueStack: { display: 'flex', flexDirection: 'column', lineHeight: 1.15 },
   duePastIcon: { color: 'var(--ce-red)', flexShrink: 0 },
-  dueSoonIcon: { color: '#b07a00', flexShrink: 0 },
+  dueSoonIcon: { color: 'var(--ce-warning-text)', flexShrink: 0 },
   duePastText: { color: 'var(--ce-critical-ink)', fontWeight: tokens.fontWeightSemibold },
   dueSoonText: { color: 'var(--ce-warning-text)', fontWeight: tokens.fontWeightSemibold },
 
@@ -189,6 +228,11 @@ const EMPTY_HINT: Record<QueueName, string> = {
   held: 'Nothing held — cases that can’t go through (missing the basics) or are on hold would show here.',
 };
 
+/** "Today" / "3 days" — plain case-age wording (due cell + the held Age column). */
+function caseAgeText(c: Case): string {
+  return c.ageDays === 0 ? 'Today' : `${c.ageDays} day${c.ageDays === 1 ? '' : 's'}`;
+}
+
 function ageInBucket(ageDays: number, bucket: AgeBucket): boolean {
   switch (bucket) {
     case 'today':
@@ -206,6 +250,7 @@ function ageInBucket(ageDays: number, bucket: AgeBucket): boolean {
 
 export function CaseList() {
   const styles = useStyles();
+  const tt = useTableTypography();
   const navigate = useNavigate();
   const { name } = useParams<{ name: string }>();
 
@@ -256,12 +301,28 @@ export function CaseList() {
     // Re-fetch the badge counts when the active queue changes (cases may move).
   }, [activeName]);
 
+  /* ----------  bulk selection (spec IA §4)  ---------- */
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  // Rows optimistically hidden after a successful hold/release (they've moved
+  // queue server-side) — cleared when fresh queue data resolves below.
+  const [pendingHidden, setPendingHidden] = useState<Set<string>>(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
+
+  // Fresh server data is authoritative again — drop the optimistic hides.
+  useEffect(() => {
+    setPendingHidden((prev) => (prev.size === 0 ? prev : new Set()));
+  }, [queueQuery.data]);
+
   // Reset the queue-derived provider filter on ANY queue change — tab click OR a
   // URL/dashboard-strip navigation (which doesn't fire onTabSelect). The provider
   // options come from the active queue's rows, so a code selected on the previous
   // queue won't exist here and would silently filter the grid to zero (queues #6).
+  // Bulk selection clears on queue change too (spec IA §4).
   useEffect(() => {
     setProviderFilter(ANY);
+    setSelected(new Set());
+    setPendingHidden(new Set());
   }, [activeName]);
 
   useEffect(() => {
@@ -278,9 +339,46 @@ export function CaseList() {
     };
   }, [showFacets, activeName]);
 
+  // Held "Why held" twin counts — NOT on the row itself; fetched live via the
+  // seam (the enrichment outstandingText was designed for). Fetched for ALL
+  // held rows (M-D review: live held data rarely carries duplicate_risk — the
+  // twin count itself is the duplicate FACT), capped at 50 until M-E2's batch
+  // endpoint absorbs the fan-out server-side. Counts are only cleared when
+  // LEAVING the held queue, so a refetch never flashes the numbered wording
+  // back to generic. A failed fetch just leaves the generic wording.
+  const TWIN_FETCH_CAP = 50;
+  const [twinCounts, setTwinCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (activeName !== 'held') {
+      setTwinCounts((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+      return;
+    }
+    const rows = queueCases.filter((c) => c.vrm?.trim()).slice(0, TWIN_FETCH_CAP);
+    if (rows.length === 0) return;
+    let cancelled = false;
+    void Promise.all(
+      rows.map((c) =>
+        data.openVrmTwins(c.vrm, c.id).then(
+          (twins) => [c.id, twins.length] as const,
+          () => null, // fetch failure → keep "Possible duplicate"/current verb
+        ),
+      ),
+    ).then((entries) => {
+      if (cancelled) return;
+      setTwinCounts(
+        Object.fromEntries(entries.filter((e): e is readonly [string, number] => e !== null)),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeName, queueCases]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return queueCases.filter((c) => {
+      if (pendingHidden.has(c.id)) return false;
       if (showFacets && reasonFilter && c.actionReason !== reasonFilter) return false;
       if (q) {
         const hay = [
@@ -310,7 +408,19 @@ export function CaseList() {
     ageFilter,
     reasonFilter,
     showFacets,
+    pendingHidden,
   ]);
+
+  // Filter changes INTERSECT the selection with the still-visible rows —
+  // hidden rows silently deselect so a verb never acts on unseen cases.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(filtered.map((c) => c.id));
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [filtered]);
 
   const onTabSelect = (_e: SelectTabEvent, data: SelectTabData) => {
     setReasonFilter(null);
@@ -318,9 +428,79 @@ export function CaseList() {
     navigate(`/queue/${data.value as QueueName}`);
   };
 
-  /* Fixed sizing so Channel (icon-only) and Outstanding never overlap. */
+  /* ----------  bulk verbs + batch mutation (spec IA §4)  ---------- */
+  const selectedRows = useMemo(
+    () => filtered.filter((c) => selected.has(c.id)),
+    [filtered, selected],
+  );
+  const isHeld = activeName === 'held';
+  // Release excludes the per-case-decision rows (heldReleaseEligible derives
+  // from the SAME heldReason classification whyHeldText renders — twin count
+  // included); Hold acts on everything picked.
+  const eligibleRows = useMemo(
+    () => (isHeld ? selectedRows.filter((c) => heldReleaseEligible(c, twinCounts[c.id])) : selectedRows),
+    [isHeld, selectedRows, twinCounts],
+  );
+  const ineligibleCount = selectedRows.length - eligibleRows.length;
+
+  const runBulk = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+      const nextOnHold = !isHeld; // Hold on not-ready/review; Release on held.
+      setBulkBusy(true);
+      const result = await runBatch(ids, (id) => data.setOnHold(id, nextOnHold), {
+        concurrency: 4,
+      });
+      setBulkBusy(false);
+
+      // Succeeded rows have moved queue server-side: hide them optimistically
+      // and deselect; FAILED rows stay selected for the retry. Never fake
+      // success — the summary counts only what actually resolved.
+      if (result.ok.length > 0) {
+        setPendingHidden((prev) => new Set([...prev, ...result.ok]));
+      }
+      setSelected(new Set(result.failed.map((f) => f.id)));
+
+      const summary = summarizeBatch(nextOnHold ? 'Held' : 'Released', result);
+      if (summary.ok) {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>{summary.title}</ToastTitle>
+          </Toast>,
+          { intent: 'success' },
+        );
+      } else {
+        const failedIds = result.failed.map((f) => f.id);
+        dispatchToast(
+          <Toast>
+            <ToastTitle
+              action={
+                <ToastTrigger>
+                  <Link onClick={() => void runBulk(failedIds)}>Retry</Link>
+                </ToastTrigger>
+              }
+            >
+              {summary.title}
+            </ToastTitle>
+            <ToastBody>{summary.detail}</ToastBody>
+          </Toast>,
+          { intent: 'error' },
+        );
+      }
+
+      // Rows moved between queues — refresh this queue AND the tab counts.
+      queueQuery.refetch();
+      void data.queueCounts().then((c) => setQueueTabCounts(c));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isHeld, dispatchToast, queueQuery.refetch],
+  );
+
+  /* Fixed sizing so the icon-only Channel and the verb-led ellipsised cells
+     never overlap. Superset over all queues — unused ids are ignored. */
   const columnSizing: TableColumnSizingOptions = useMemo(
     () => ({
+      select: { minWidth: 44, idealWidth: 48, defaultWidth: 48 },
       vrm: { minWidth: 150, idealWidth: 170, defaultWidth: 170 },
       casePo: { minWidth: 110, idealWidth: 120, defaultWidth: 120 },
       provider: { minWidth: 130, idealWidth: 150, defaultWidth: 150 },
@@ -328,13 +508,19 @@ export function CaseList() {
       outstanding: { minWidth: 180, idealWidth: 240, defaultWidth: 240 },
       channel: { minWidth: 64, idealWidth: 64, defaultWidth: 64, padding: 0 },
       due: { minWidth: 120, idealWidth: 140, defaultWidth: 140 },
+      claimant: { minWidth: 140, idealWidth: 180, defaultWidth: 180 },
+      vehicle: { minWidth: 130, idealWidth: 160, defaultWidth: 160 },
+      whyHeld: { minWidth: 200, idealWidth: 280, defaultWidth: 280 },
+      age: { minWidth: 70, idealWidth: 90, defaultWidth: 90 },
     }),
     [],
   );
 
-  const columns: TableColumnDefinition<Case>[] = useMemo(
-    () => [
-      createTableColumn<Case>({
+  /* Every column renderer, keyed by id; the visible ORDERED set per queue
+     comes from the pure columnsForQueue() (spec IA §2). */
+  const allColumns: Record<CaseColumnId, TableColumnDefinition<Case>> = useMemo(
+    () => ({
+      vrm: createTableColumn<Case>({
         columnId: 'vrm',
         renderHeaderCell: () => 'VRM',
         renderCell: (c) => (
@@ -350,45 +536,45 @@ export function CaseList() {
           </span>
         ),
       }),
-      createTableColumn<Case>({
+      casePo: createTableColumn<Case>({
         columnId: 'casePo',
         renderHeaderCell: () => 'Case / PO',
         renderCell: (c) =>
           c.casePo ? (
-            <span className={styles.po}>{c.casePo}</span>
+            <span className={tt.cellMono}>{c.casePo}</span>
           ) : (
-            <span className={mergeClasses(styles.po, styles.muted)}>—</span>
+            <span className={mergeClasses(tt.cellMono, styles.muted)}>—</span>
           ),
       }),
-      createTableColumn<Case>({
+      provider: createTableColumn<Case>({
         columnId: 'provider',
         renderHeaderCell: () => 'Provider',
         renderCell: (c) => (
           <TableCellLayout description={c.providerCode} truncate>
-            {c.provider}
+            <span className={tt.cellSecondary}>{c.provider}</span>
           </TableCellLayout>
         ),
       }),
-      createTableColumn<Case>({
+      status: createTableColumn<Case>({
         columnId: 'status',
         renderHeaderCell: () => 'Status',
         renderCell: (c) => <StatusBadge status={c.status} size="small" />,
       }),
-      createTableColumn<Case>({
+      outstanding: createTableColumn<Case>({
         columnId: 'outstanding',
         renderHeaderCell: () => 'Outstanding',
         renderCell: (c) => {
           const full = outstandingText(c);
           return (
             <Tooltip content={full} relationship="label">
-              <span className={styles.outstanding} title={full}>
+              <span className={mergeClasses(tt.cellPrimary, styles.outstanding)} title={full}>
                 {full}
               </span>
             </Tooltip>
           );
         },
       }),
-      createTableColumn<Case>({
+      channel: createTableColumn<Case>({
         columnId: 'channel',
         renderHeaderCell: () => 'Ch.',
         renderCell: (c) => {
@@ -408,37 +594,126 @@ export function CaseList() {
           );
         },
       }),
-      createTableColumn<Case>({
+      due: createTableColumn<Case>({
         columnId: 'due',
         renderHeaderCell: () => 'Aging / Due',
         renderCell: (c) => {
           const due = dueInfo(c);
-          const ageText = c.ageDays === 0 ? 'Today' : `${c.ageDays} day${c.ageDays === 1 ? '' : 's'}`;
           return (
             <span className={styles.dueCell}>
               {due.tone === 'pastdue' && (
-                <AlertTriangle size={15} className={styles.duePastIcon} aria-label="Past due" />
+                <AlertTriangle size={14} className={styles.duePastIcon} aria-label="Past due" />
               )}
               {due.tone === 'soon' && (
-                <CalendarClock size={15} className={styles.dueSoonIcon} aria-label="Due soon" />
+                <CalendarClock size={14} className={styles.dueSoonIcon} aria-label="Due soon" />
               )}
               <span className={styles.dueStack}>
                 <span
                   className={mergeClasses(
+                    due.tone === 'normal' && tt.cellSecondary,
                     due.tone === 'pastdue' && styles.duePastText,
                     due.tone === 'soon' && styles.dueSoonText,
                   )}
                 >
-                  {ageText}
+                  {caseAgeText(c)}
                 </span>
-                {c.dateDue && <Caption1 className={styles.muted}>{due.dueText}</Caption1>}
+                {c.dateDue && <Caption1 className={tt.cellSecondary}>{due.dueText}</Caption1>}
               </span>
             </span>
           );
         },
       }),
-    ],
-    [styles],
+      claimant: createTableColumn<Case>({
+        columnId: 'claimant',
+        renderHeaderCell: () => 'Claimant',
+        renderCell: (c) =>
+          c.evaFields.claimantName.value ? (
+            <TableCellLayout truncate>
+              <span className={tt.cellPrimary}>{c.evaFields.claimantName.value}</span>
+            </TableCellLayout>
+          ) : (
+            <span className={tt.cellSecondary}>—</span>
+          ),
+      }),
+      vehicle: createTableColumn<Case>({
+        columnId: 'vehicle',
+        renderHeaderCell: () => 'Vehicle',
+        renderCell: (c) => (
+          <TableCellLayout truncate>
+            <span className={tt.cellSecondary}>{c.vehicleModel || '—'}</span>
+          </TableCellLayout>
+        ),
+      }),
+      whyHeld: createTableColumn<Case>({
+        columnId: 'whyHeld',
+        renderHeaderCell: () => 'Why held',
+        renderCell: (c) => {
+          const text = whyHeldText(c, twinCounts[c.id]);
+          return (
+            <Tooltip content={text} relationship="label">
+              <span className={mergeClasses(tt.cellPrimary, styles.outstanding)} title={text}>
+                {text}
+              </span>
+            </Tooltip>
+          );
+        },
+      }),
+      age: createTableColumn<Case>({
+        columnId: 'age',
+        renderHeaderCell: () => 'Age',
+        renderCell: (c) => <span className={tt.cellSecondary}>{caseAgeText(c)}</span>,
+      }),
+    }),
+    [styles, tt, twinCounts],
+  );
+
+  /* Explicit checkbox column, self-managed selection Set — deliberately NOT
+     DataGrid selectionMode, which conflicts with the row-click navigation.
+     The header checkbox is tri-state select-all-FILTERED. */
+  const allFilteredSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id));
+  const selectColumn: TableColumnDefinition<Case> = useMemo(
+    () =>
+      createTableColumn<Case>({
+        columnId: 'select',
+        renderHeaderCell: () => (
+          <Checkbox
+            checked={allFilteredSelected ? true : selected.size > 0 ? 'mixed' : false}
+            onChange={(_e, d) =>
+              setSelected(d.checked === true ? new Set(filtered.map((c) => c.id)) : new Set())
+            }
+            aria-label={`Select all ${filtered.length} cases in the current view`}
+          />
+        ),
+        renderCell: (c) => (
+          <span
+            className={styles.selectCell}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <Checkbox
+              checked={selected.has(c.id)}
+              onChange={(_e, d) =>
+                setSelected((prev) => {
+                  const next = new Set(prev);
+                  if (d.checked === true) {
+                    next.add(c.id);
+                  } else {
+                    next.delete(c.id);
+                  }
+                  return next;
+                })
+              }
+              aria-label={`Select case ${c.vrm}`}
+            />
+          </span>
+        ),
+      }),
+    [filtered, selected, allFilteredSelected, styles],
+  );
+
+  const columns: TableColumnDefinition<Case>[] = useMemo(
+    () => [selectColumn, ...columnsForQueue(activeName).map((id) => allColumns[id])],
+    [selectColumn, activeName, allColumns],
   );
 
   const filtersActive =
@@ -650,11 +925,14 @@ export function CaseList() {
         )
       ) : (
         <div className={styles.grid}>
+          {/* focusMode="composite" (was row_unstable): rows stay focusable
+              (Enter opens the case) and arrow keys reach the in-cell
+              checkboxes — row_unstable left them keyboard-unreachable. */}
           <DataGrid
             items={filtered}
             columns={columns}
             getRowId={(c) => c.id}
-            focusMode="row_unstable"
+            focusMode="composite"
             resizableColumns
             columnSizingOptions={columnSizing}
             aria-label={`Cases in ${queue?.label ?? activeName}`}
@@ -687,6 +965,28 @@ export function CaseList() {
           </DataGrid>
         </div>
       )}
+
+      {/* Bulk-selection toolbar — sticky to the bottom of the content pane;
+          renders nothing until a row is selected. Verb counts are the
+          ELIGIBLE subset (honest "(n)"); disabled only at eligible 0. */}
+      <BulkActionBar
+        count={selected.size}
+        busy={bulkBusy}
+        verbs={[
+          {
+            key: isHeld ? 'release' : 'hold',
+            label: `${isHeld ? 'Release' : 'Hold'} (${eligibleRows.length})`,
+            onClick: () => void runBulk(eligibleRows.map((c) => c.id)),
+            disabled: eligibleRows.length === 0,
+          },
+        ]}
+        caption={
+          isHeld && ineligibleCount > 0
+            ? `${ineligibleCount} selected need their duplicate decision made per case`
+            : undefined
+        }
+        onClear={() => setSelected(new Set())}
+      />
     </div>
   );
 }

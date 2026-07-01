@@ -77,8 +77,10 @@ import {
   GLOBAL_TOASTER_ID,
   useSeverityChipStyles,
   severityClassName,
+  useTableTypography,
   type ChipSeverity,
 } from '../components';
+import { formatReceivedCompact } from '../components/date-format';
 import { data, useInbox, useInboundCounts } from '../data';
 import type {
   InboundCategory,
@@ -406,16 +408,23 @@ const useStyles = makeStyles({
     textUnderlineOffset: '2px',
   },
 
-  fromCell: { display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.25 },
-  fromAddr: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  // From — ONE cellSecondary line (spec IA §2); the sender domain is demoted
+  // to the cell tooltip. Typography from useTableTypography().
+  fromLine: {
+    display: 'block',
+    minWidth: 0,
+    maxWidth: '100%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
   muted: { color: tokens.colorNeutralForeground3 },
-  mono: { fontFamily: 'var(--ce-font-mono)', textTransform: 'uppercase' },
 
   subjCell: { display: 'flex', flexDirection: 'column', minWidth: 0, gap: '2px', lineHeight: 1.25 },
   subjLine: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS, minWidth: 0 },
-  // Subject as a link/button — opens the Case (linked) or the stored email (unlinked).
+  // Subject as a link/button — opens the Case (linked) or the stored email
+  // (unlinked). Weight/size come from cellPrimary; this adds the link chrome.
   subjLink: {
-    fontWeight: tokens.fontWeightSemibold,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -428,8 +437,8 @@ const useStyles = makeStyles({
       textUnderlineOffset: '2px',
     },
   },
+  // Preview line — colour/size from cellSecondary; this adds the ellipsis.
   preview: {
-    color: tokens.colorNeutralForeground3,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -564,6 +573,7 @@ function TriageBadge({ state }: { state: TriageState }) {
 
 export function Inbox() {
   const styles = useStyles();
+  const tt = useTableTypography();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
@@ -755,13 +765,15 @@ export function Inbox() {
     }
   };
 
+  // Rebalanced for the M-D hierarchy: the one-line From and compact Received
+  // give their slack to the primary Subject column.
   const columnSizing: TableColumnSizingOptions = useMemo(
     () => ({
-      from: { minWidth: 170, idealWidth: 190, defaultWidth: 190 },
-      subject: { minWidth: 220, idealWidth: 320, defaultWidth: 320 },
+      from: { minWidth: 140, idealWidth: 160, defaultWidth: 160 },
+      subject: { minWidth: 260, idealWidth: 380, defaultWidth: 380 },
       classification: { minWidth: 170, idealWidth: 190, defaultWidth: 190 },
       ref: { minWidth: 120, idealWidth: 140, defaultWidth: 140 },
-      received: { minWidth: 120, idealWidth: 145, defaultWidth: 145 },
+      received: { minWidth: 96, idealWidth: 110, defaultWidth: 110 },
       state: { minWidth: 110, idealWidth: 120, defaultWidth: 120 },
       actions: { minWidth: 120, idealWidth: 130, defaultWidth: 130, padding: 0 },
     }),
@@ -773,13 +785,18 @@ export function Inbox() {
       createTableColumn<InboundEmail>({
         columnId: 'from',
         renderHeaderCell: () => 'From',
+        // ONE secondary line; the domain is demoted to the tooltip (IA §2).
         renderCell: (e) => (
-          <span className={styles.fromCell}>
-            <span className={styles.fromAddr} title={e.fromAddress}>
+          <Tooltip
+            content={
+              e.senderDomain ? `${e.fromAddress || '—'} · ${e.senderDomain}` : e.fromAddress || '—'
+            }
+            relationship="description"
+          >
+            <span className={mergeClasses(tt.cellSecondary, styles.fromLine)}>
               {e.fromAddress || '—'}
             </span>
-            {e.senderDomain && <Caption1 className={styles.muted}>{e.senderDomain}</Caption1>}
-          </span>
+          </Tooltip>
         ),
       }),
       createTableColumn<InboundEmail>({
@@ -800,6 +817,7 @@ export function Inbox() {
               <Link
                 as="button"
                 className={mergeClasses(
+                  tt.cellPrimary,
                   styles.subjLink,
                   selectedEmail?.id === e.id && styles.subjLinkSelected,
                 )}
@@ -811,7 +829,9 @@ export function Inbox() {
             </span>
             {e.bodyPreview && (
               <Tooltip content={e.bodyPreview} relationship="label">
-                <span className={styles.preview}>{e.bodyPreview}</span>
+                <span className={mergeClasses(tt.cellSecondary, styles.preview)}>
+                  {e.bodyPreview}
+                </span>
               </Tooltip>
             )}
           </span>
@@ -869,17 +889,30 @@ export function Inbox() {
           e.bodyVrm ? (
             <VrmPlate vrm={e.bodyVrm} size="small" />
           ) : e.bodyCaseref ? (
-            <span className={styles.mono}>{e.bodyCaseref}</span>
+            <span className={tt.cellMono}>{e.bodyCaseref}</span>
           ) : (
-            <span className={mergeClasses(styles.mono, styles.muted)}>—</span>
+            <span className={mergeClasses(tt.cellMono, styles.muted)}>—</span>
           ),
       }),
       createTableColumn<InboundEmail>({
         columnId: 'received',
         renderHeaderCell: () => 'Received',
-        renderCell: (e) => (
-          <Caption1 className={styles.muted}>{formatReceived(e.receivedOn)}</Caption1>
-        ),
+        // Compact in the cell (spec IA §6); the FULL DD/MM/YYYY HH:mm form is
+        // an sr-only text sibling (gatekeeper ruling: no aria-label on a
+        // generic span — ARIA naming-prohibited role; real hidden DOM text is
+        // what every SR reads). aria-hidden on the compact form kills the
+        // duplicate; the tooltip is visual-only.
+        renderCell: (e) => {
+          const full = formatReceived(e.receivedOn);
+          return (
+            <Tooltip content={full} relationship="inaccessible">
+              <span className={tt.cellSecondary}>
+                <span aria-hidden="true">{formatReceivedCompact(e.receivedOn)}</span>
+                <span className="ce-sr-only">{full}</span>
+              </span>
+            </Tooltip>
+          );
+        },
       }),
       createTableColumn<InboundEmail>({
         columnId: 'state',

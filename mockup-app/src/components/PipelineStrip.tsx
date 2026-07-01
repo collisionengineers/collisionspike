@@ -348,6 +348,9 @@ export function PipelineStrip({
             {...commonProps}
           >
             {body}
+            {/* Browse-mode SRs read CONTENT, not listitem labels — mirror the
+                stuck cue as real (visually hidden) text too. */}
+            {stuckHere && <span className="ce-sr-only"> needs attention</span>}
           </div>
         );
       })}

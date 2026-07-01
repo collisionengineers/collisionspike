@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { parseDdmmyyyy, formatDdmmyyyy, isValidDdmmyyyy } from './date-format';
+import {
+  parseDdmmyyyy,
+  formatDdmmyyyy,
+  isValidDdmmyyyy,
+  formatReceivedCompact,
+} from './date-format';
 
 /* ============================================================
    date-format — the DD/MM/YYYY <-> Date bridge under the calendar pickers
@@ -68,5 +73,38 @@ describe('isValidDdmmyyyy', () => {
     expect(isValidDdmmyyyy('12/06/2026')).toBe(true);
     expect(isValidDdmmyyyy('')).toBe(false);
     expect(isValidDdmmyyyy('31/02/2026')).toBe(false);
+  });
+});
+
+describe('formatReceivedCompact', () => {
+  // Fixed "now": Wednesday 17 June 2026, 14:00 local. TZ-suffix-less ISO
+  // strings parse as LOCAL time, so the assertions hold on any machine.
+  const NOW = new Date(2026, 5, 17, 14, 0);
+
+  it('same local day → 24h time only', () => {
+    expect(formatReceivedCompact('2026-06-17T09:12', NOW)).toBe('09:12');
+    expect(formatReceivedCompact('2026-06-17T00:05', NOW)).toBe('00:05');
+    // Later the same day still counts as today (never relative).
+    expect(formatReceivedCompact('2026-06-17T23:30', NOW)).toBe('23:30');
+  });
+
+  it('within the last 6 days → short weekday + time', () => {
+    expect(formatReceivedCompact('2026-06-16T23:59', NOW)).toBe('Tue 23:59'); // yesterday
+    expect(formatReceivedCompact('2026-06-15T09:12', NOW)).toBe('Mon 09:12');
+    expect(formatReceivedCompact('2026-06-11T08:30', NOW)).toBe('Thu 08:30'); // 6 days back
+  });
+
+  it('7+ days back → DD/MM/YY date', () => {
+    expect(formatReceivedCompact('2026-06-10T10:00', NOW)).toBe('10/06/26'); // 7 days: boundary
+    expect(formatReceivedCompact('2025-12-25T10:00', NOW)).toBe('25/12/25');
+  });
+
+  it('future-dated timestamps fall through to the date form (never relative)', () => {
+    expect(formatReceivedCompact('2026-06-20T10:00', NOW)).toBe('20/06/26');
+  });
+
+  it('empty input → em dash; unparseable input returned verbatim', () => {
+    expect(formatReceivedCompact('', NOW)).toBe('—');
+    expect(formatReceivedCompact('not-a-date', NOW)).toBe('not-a-date');
   });
 });
