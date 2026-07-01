@@ -1,10 +1,11 @@
 # Changes — TKT-050: AX PDF accident circumstances extraction too deep
 
 ## Status
-now — code + offline tests complete; parser redeploy pending for live proof.
+done — parser fix deployed + live-verified 2026-07-01.
 
 ## Commits
-- (uncommitted) — parsing: stop AX circumstances at Pre Existing row; harden between_labels EOF guard.
+- (prior session) — parsing: stop AX circumstances at Pre Existing row; harden between_labels EOF guard.
+- Deploy: `az functionapp deployment source config-zip` → `cespike-parser-dev-x7xt3d5ovhi7y` (2026-07-01).
 
 ## Files touched
 - `cedocumentmapper_v2.0/src/cedocumentmapper_v2/rules/engine.py` — `_extract_between_label_pair` requires end marker on line path.

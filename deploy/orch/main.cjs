@@ -2757,6 +2757,7 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
   if (resolved.outcome === "already_ingested") {
     return { skipped: true, caseId: resolved.caseId };
   }
+  yield ctx.df.callActivityWithRetry("setIngested", retry, { caseId: resolved.caseId });
   const automationMode = resolved.providerAutomationMode ?? "review_auto";
   const autoEnrich = automationMode !== "manual";
   if (!autoEnrich && !ctx.df.isReplaying) {
@@ -42787,6 +42788,10 @@ var dataApi = {
   evaluateStatus(caseId) {
     return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
   },
+  /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
+  setIngested(caseId) {
+    return request("POST", `/api/internal/cases/${caseId}/set-ingested`, {});
+  },
   /**
    * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
    * Fill-if-empty on the API side; returns the fields it actually filled.
@@ -43111,10 +43116,20 @@ df9.app.activity("caseResolve", {
   }
 });
 
-// orchestration/src/functions/activities/classifyPersist.ts
+// orchestration/src/functions/activities/setIngested.ts
 var df10 = __toESM(require("durable-functions"), 1);
+df10.app.activity("setIngested", {
+  handler: async (input12, ctx) => {
+    const result = await dataApi.setIngested(input12.caseId);
+    ctx.log(JSON.stringify({ evt: "setIngested", caseId: input12.caseId, updated: result.updated }));
+    return result;
+  }
+});
+
+// orchestration/src/functions/activities/classifyPersist.ts
+var df11 = __toESM(require("durable-functions"), 1);
 var MIN_BODY_INSTRUCTION_CHARS = 40;
-df10.app.activity("classifyPersist", {
+df11.app.activity("classifyPersist", {
   handler: async (input12, ctx) => {
     const { caseId, inbound } = input12;
     const rows = inbound.attachments.map((a) => ({
@@ -43162,7 +43177,7 @@ df10.app.activity("classifyPersist", {
 });
 
 // orchestration/src/functions/activities/parse.ts
-var df11 = __toESM(require("durable-functions"), 1);
+var df12 = __toESM(require("durable-functions"), 1);
 
 // packages/domain/dist/gates.js
 var gates = {
@@ -43258,7 +43273,7 @@ function pickInstructionDoc(atts) {
   const pool = nonEmail.length ? nonEmail : docs;
   return pool.find((a) => /pdf/i.test(a.contentType ?? "") || /\.pdf$/i.test(a.filename ?? "")) ?? pool[0];
 }
-df11.app.activity("parse", {
+df12.app.activity("parse", {
   handler: async (input12, ctx) => {
     const corr = input12.caseId || input12.messageId || "(pre-resolve)";
     if (!gates.pdfMapper()) {
@@ -43313,8 +43328,8 @@ df11.app.activity("parse", {
 });
 
 // orchestration/src/functions/activities/statusEvaluate.ts
-var df12 = __toESM(require("durable-functions"), 1);
-df12.app.activity("statusEvaluate", {
+var df13 = __toESM(require("durable-functions"), 1);
+df13.app.activity("statusEvaluate", {
   handler: async (input12, ctx) => {
     const result = await dataApi.evaluateStatus(input12.caseId);
     ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input12.caseId, status: result.value }));
@@ -43323,8 +43338,8 @@ df12.app.activity("statusEvaluate", {
 });
 
 // orchestration/src/functions/activities/enrich.ts
-var df13 = __toESM(require("durable-functions"), 1);
-df13.app.activity("enrich", {
+var df14 = __toESM(require("durable-functions"), 1);
+df14.app.activity("enrich", {
   handler: async (input12, ctx) => {
     if (!gates.enrichment()) {
       ctx.log("[enrich] skipped \u2014 ENRICHMENT_ENABLED=false");
@@ -43371,31 +43386,31 @@ df13.app.activity("enrich", {
 
 // orchestration/src/functions/activities/boxArchive.ts
 var import_functions6 = require("@azure/functions");
-var df14 = __toESM(require("durable-functions"), 1);
+var df15 = __toESM(require("durable-functions"), 1);
 import_functions6.app.http("box-archive-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "box-archive",
-  extraInputs: [df14.input.durableClient()],
+  extraInputs: [df15.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-archive] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input12 = await req.json();
-    const client2 = df14.getClient(ctx);
+    const client2 = df15.getClient(ctx);
     const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var manualRetry = new df14.RetryOptions(5e3, 3);
+var manualRetry = new df15.RetryOptions(5e3, 3);
 manualRetry.backoffCoefficient = 2;
-df14.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
+df15.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
   const input12 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input12);
   return result;
 });
-df14.app.activity("boxArchiveEvidence", {
+df15.app.activity("boxArchiveEvidence", {
   handler: async (input12, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       return { uploaded: 0, total: 0, skipped: "gated_off" };
@@ -43484,11 +43499,11 @@ df14.app.activity("boxArchiveEvidence", {
 });
 
 // orchestration/src/functions/activities/extractImages.ts
-var df15 = __toESM(require("durable-functions"), 1);
+var df16 = __toESM(require("durable-functions"), 1);
 var IMG_SOURCE_EXT = /\.(pdf|docx?)$/i;
 var IMG_SOURCE_CTYPE = /pdf|msword|officedocument/i;
 var OCR_OK_EXT = /\.(jpe?g|png|bmp|tiff?|webp|heic|heif)$/i;
-df15.app.activity("extractImages", {
+df16.app.activity("extractImages", {
   handler: async (input12, ctx) => {
     if (!gates.pdfMapper()) return { extracted: 0, registrationVisible: false, skipped: "gate_off" };
     const docs = (input12.attachments ?? []).filter(
@@ -43592,33 +43607,33 @@ function stripExt(name) {
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
 var import_functions7 = require("@azure/functions");
-var df16 = __toESM(require("durable-functions"), 1);
+var df17 = __toESM(require("durable-functions"), 1);
 import_functions7.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
-  extraInputs: [df16.input.durableClient()],
+  extraInputs: [df17.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.evaApi() || !gates.boxApi()) {
       ctx.log("[finalize-eva-box] skipped \u2014 EVA_API_ENABLED and/or BOX_API_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const { caseId } = await req.json();
-    const client2 = df16.getClient(ctx);
+    const client2 = df17.getClient(ctx);
     const instanceId = await client2.startNew("finalizeEvaBoxOrchestrator", { input: { caseId } });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry2 = new df16.RetryOptions(5e3, 3);
+var retry2 = new df17.RetryOptions(5e3, 3);
 retry2.backoffCoefficient = 2;
 retry2.maxRetryIntervalInMilliseconds = 6e4;
-df16.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
+df17.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
   const { caseId } = ctx.df.getInput();
   const eva = yield ctx.df.callActivityWithRetry("evaSubmit", retry2, { caseId });
   const boxResult = yield ctx.df.callActivityWithRetry("boxFolderAugment", retry2, { caseId });
   return { caseId, eva, box: boxResult };
 });
-df16.app.activity("evaSubmit", {
+df17.app.activity("evaSubmit", {
   handler: async (input12, ctx) => {
     if (!gates.evaApi()) return { skipped: true };
     const res = await callEvaSubmit(input12.caseId);
@@ -43627,7 +43642,7 @@ df16.app.activity("evaSubmit", {
     return res;
   }
 });
-df16.app.activity("boxFolderAugment", {
+df17.app.activity("boxFolderAugment", {
   handler: async (input12, ctx) => {
     if (!gates.boxApi()) return { skipped: true };
     const folder = await box.createFolder(input12.caseId, gates.boxFolderRootId());
@@ -43640,34 +43655,34 @@ df16.app.activity("boxFolderAugment", {
 
 // orchestration/src/functions/gated/chaser.ts
 var import_functions8 = require("@azure/functions");
-var df17 = __toESM(require("durable-functions"), 1);
+var df18 = __toESM(require("durable-functions"), 1);
 import_functions8.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
-  extraInputs: [df17.input.durableClient()],
+  extraInputs: [df18.input.durableClient()],
   handler: async (req, ctx) => {
     const input12 = await req.json();
-    const client2 = df17.getClient(ctx);
+    const client2 = df18.getClient(ctx);
     const instanceId = await client2.startNew("chaserOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry3 = new df17.RetryOptions(5e3, 3);
+var retry3 = new df18.RetryOptions(5e3, 3);
 retry3.backoffCoefficient = 2;
-df17.app.orchestration("chaserOrchestrator", function* (ctx) {
+df18.app.orchestration("chaserOrchestrator", function* (ctx) {
   const input12 = ctx.df.getInput();
   const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry3, input12);
   const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry3, { caseId: input12.caseId, draft });
   return { caseId: input12.caseId, draft, sent };
 });
-df17.app.activity("chaserDraft", {
+df18.app.activity("chaserDraft", {
   handler: async (input12, ctx) => {
     ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input12.caseId, targetType: input12.targetType }));
     return { drafted: true, targetType: input12.targetType };
   }
 });
-df17.app.activity("chaserSend", {
+df18.app.activity("chaserSend", {
   handler: async (input12, ctx) => {
     if (!gates.chaserSend()) {
       ctx.log("[chaserSend] skipped \u2014 CHASER_SEND_ENABLED=false (draft-only)");
@@ -43681,27 +43696,27 @@ df17.app.activity("chaserSend", {
 
 // orchestration/src/functions/gated/triage-classify.ts
 var import_functions9 = require("@azure/functions");
-var df18 = __toESM(require("durable-functions"), 1);
+var df19 = __toESM(require("durable-functions"), 1);
 import_functions9.app.http("triage-classify-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "triage-classify",
-  extraInputs: [df18.input.durableClient()],
+  extraInputs: [df19.input.durableClient()],
   handler: async (req, ctx) => {
     const input12 = await req.json();
-    const client2 = df18.getClient(ctx);
+    const client2 = df19.getClient(ctx);
     const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry4 = new df18.RetryOptions(5e3, 3);
+var retry4 = new df19.RetryOptions(5e3, 3);
 retry4.backoffCoefficient = 2;
-df18.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
+df19.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
   const input12 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("triageClassify", retry4, input12);
   return result;
 });
-df18.app.activity("triageClassify", {
+df19.app.activity("triageClassify", {
   handler: async (input12, ctx) => {
     if (!gates.emailAi()) {
       ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED=false");
@@ -43720,31 +43735,31 @@ df18.app.activity("triageClassify", {
 
 // orchestration/src/functions/gated/box-folder-create.ts
 var import_functions10 = require("@azure/functions");
-var df19 = __toESM(require("durable-functions"), 1);
+var df20 = __toESM(require("durable-functions"), 1);
 import_functions10.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
-  extraInputs: [df19.input.durableClient()],
+  extraInputs: [df20.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-folder-create] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input12 = await req.json();
-    const client2 = df19.getClient(ctx);
+    const client2 = df20.getClient(ctx);
     const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry5 = new df19.RetryOptions(5e3, 3);
+var retry5 = new df20.RetryOptions(5e3, 3);
 retry5.backoffCoefficient = 2;
-df19.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
+df20.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
   const input12 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry5, input12);
   return result;
 });
-df19.app.activity("boxFolderCreate", {
+df20.app.activity("boxFolderCreate", {
   handler: async (input12, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) return { skipped: true, reason: "gated off" };
     const existing = await dataApi.getCaseBoxFolder(input12.caseId);
@@ -43765,31 +43780,31 @@ df19.app.activity("boxFolderCreate", {
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
 var import_functions11 = require("@azure/functions");
-var df20 = __toESM(require("durable-functions"), 1);
+var df21 = __toESM(require("durable-functions"), 1);
 import_functions11.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
-  extraInputs: [df20.input.durableClient()],
+  extraInputs: [df21.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) {
       ctx.log("[box-file-request-copy] skipped \u2014 BOX_API_ENABLED and/or BOX_FILEREQUEST_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input12 = await req.json();
-    const client2 = df20.getClient(ctx);
+    const client2 = df21.getClient(ctx);
     const instanceId = await client2.startNew("boxFileRequestCopyOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry6 = new df20.RetryOptions(5e3, 3);
+var retry6 = new df21.RetryOptions(5e3, 3);
 retry6.backoffCoefficient = 2;
-df20.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
+df21.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
   const input12 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxFileRequestCopy", retry6, input12);
   return result;
 });
-df20.app.activity("boxFileRequestCopy", {
+df21.app.activity("boxFileRequestCopy", {
   handler: async (input12, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) return { skipped: true };
     const templateId = gates.boxFileRequestTemplateId();
@@ -43806,35 +43821,35 @@ df20.app.activity("boxFileRequestCopy", {
 
 // orchestration/src/functions/gated/box-blob-purge.ts
 var import_functions12 = require("@azure/functions");
-var df21 = __toESM(require("durable-functions"), 1);
+var df22 = __toESM(require("durable-functions"), 1);
 import_functions12.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
-  extraInputs: [df21.input.durableClient()],
+  extraInputs: [df22.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.boxApi()) {
       ctx.log("[box-blob-purge] skipped \u2014 BOX_API_ENABLED=false");
       return;
     }
-    const client2 = df21.getClient(ctx);
+    const client2 = df22.getClient(ctx);
     await client2.startNew("boxBlobPurgeOrchestrator", {});
     ctx.log("[box-blob-purge] started orchestration");
   }
 });
-var retry7 = new df21.RetryOptions(5e3, 3);
+var retry7 = new df22.RetryOptions(5e3, 3);
 retry7.backoffCoefficient = 2;
-df21.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
+df22.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
   const candidates = yield ctx.df.callActivityWithRetry("boxPurgeList", retry7, {});
   const tasks = candidates.map((c) => ctx.df.callActivityWithRetry("boxPurgeOne", retry7, c));
   const results = yield ctx.df.Task.all(tasks);
   return { purged: results.length };
 });
-df21.app.activity("boxPurgeList", {
+df22.app.activity("boxPurgeList", {
   handler: async () => {
     if (!gates.boxApi()) return [];
     return dataApi.blobsForPurge();
   }
 });
-df21.app.activity("boxPurgeOne", {
+df22.app.activity("boxPurgeOne", {
   handler: async (input12, ctx) => {
     if (!gates.boxApi()) return { purged: false };
     const purged = await deleteEvidenceBytes(input12.blobPath);
@@ -43846,35 +43861,35 @@ df21.app.activity("boxPurgeOne", {
 
 // orchestration/src/functions/gated/case-disposition.ts
 var import_functions13 = require("@azure/functions");
-var df22 = __toESM(require("durable-functions"), 1);
+var df23 = __toESM(require("durable-functions"), 1);
 import_functions13.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
-  extraInputs: [df22.input.durableClient()],
+  extraInputs: [df23.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.caseDisposition()) {
       ctx.log("[case-disposition] skipped \u2014 CASE_DISPOSITION_ENABLED=false");
       return;
     }
-    const client2 = df22.getClient(ctx);
+    const client2 = df23.getClient(ctx);
     await client2.startNew("caseDispositionOrchestrator", {});
     ctx.log("[case-disposition] started orchestration");
   }
 });
-var retry8 = new df22.RetryOptions(5e3, 3);
+var retry8 = new df23.RetryOptions(5e3, 3);
 retry8.backoffCoefficient = 2;
-df22.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
+df23.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
   const due = yield ctx.df.callActivityWithRetry("dispositionList", retry8, {});
   const tasks = due.map((c) => ctx.df.callActivityWithRetry("dispositionOne", retry8, c));
   const results = yield ctx.df.Task.all(tasks);
   return { disposed: results.length };
 });
-df22.app.activity("dispositionList", {
+df23.app.activity("dispositionList", {
   handler: async () => {
     if (!gates.caseDisposition()) return [];
     return dataApi.casesForDisposition();
   }
 });
-df22.app.activity("dispositionOne", {
+df23.app.activity("dispositionOne", {
   handler: async (input12, ctx) => {
     if (!gates.caseDisposition()) return { disposed: false };
     await dataApi.disposeCase(input12.caseId);
@@ -43886,31 +43901,31 @@ df22.app.activity("dispositionOne", {
 
 // orchestration/src/functions/gated/jobsheet-import.ts
 var import_functions14 = require("@azure/functions");
-var df23 = __toESM(require("durable-functions"), 1);
+var df24 = __toESM(require("durable-functions"), 1);
 import_functions14.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
-  extraInputs: [df23.input.durableClient()],
+  extraInputs: [df24.input.durableClient()],
   handler: async (req, ctx) => {
-    const client2 = df23.getClient(ctx);
+    const client2 = df24.getClient(ctx);
     const instanceId = await client2.startNew("jobsheetImportOrchestrator", {});
     ctx.log(`[jobsheet-import] started ${instanceId}`);
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry9 = new df23.RetryOptions(5e3, 3);
+var retry9 = new df24.RetryOptions(5e3, 3);
 retry9.backoffCoefficient = 2;
-df23.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
+df24.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
   const principals = yield ctx.df.callActivityWithRetry("jobsheetPrincipals", retry9, {});
   const tasks = principals.map((p) => ctx.df.callActivityWithRetry("jobsheetImportOne", retry9, p));
   const results = yield ctx.df.Task.all(tasks);
   return { principals: principals.length, results };
 });
-df23.app.activity("jobsheetPrincipals", {
+df24.app.activity("jobsheetPrincipals", {
   handler: async () => dataApi.principals()
 });
-df23.app.activity("jobsheetImportOne", {
+df24.app.activity("jobsheetImportOne", {
   handler: async (input12, ctx) => {
     await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input12.principalCode}` });
     ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input12.principalCode }));

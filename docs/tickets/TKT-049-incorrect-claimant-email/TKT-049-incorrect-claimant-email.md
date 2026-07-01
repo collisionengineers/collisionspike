@@ -1,7 +1,7 @@
 ---
 id: TKT-049
 title: Claimant email wrongly set to AX team inbox
-status: now
+status: done
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-001]

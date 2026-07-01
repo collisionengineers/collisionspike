@@ -1,7 +1,7 @@
 ---
 id: TKT-050
 title: AX PDF accident circumstances extraction too deep
-status: now
+status: done
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-001]
@@ -16,7 +16,7 @@ AX PDF accident circumstances extraction runs too far down the form, picking up 
 occurs on most AX PDFs. Targeting extraction better is preferred over post-hoc filtering.
 
 ## Evidence
-- Sample intake email: [New inspection request - AX Ref1074398.eml](./New%20inspection%20request%20-%20AX%20Ref1074398.eml)
+- Sample intake email: [New inspection request - AX Ref1074398.eml](./evidence/New%20inspection%20request%20-%20AX%20Ref1074398.eml)
 - AX audit texts show the layout: `Circumstances` → narrative → `Pre Existing` / `Damage` → `Bodyshop Details`
   (`cedocumentmapper_v2.0/docs/testing/cli_audit_current/texts/AX_01.txt` et al.)
 
@@ -36,4 +36,4 @@ Operator drop-note in [evidence/operator-note.md](./evidence/operator-note.md).
 ## Artifacts
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
-- [Sample email](./New%20inspection%20request%20-%20AX%20Ref1074398.eml)
+- [Sample email](./evidence/New%20inspection%20request%20-%20AX%20Ref1074398.eml)

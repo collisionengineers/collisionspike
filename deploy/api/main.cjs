@@ -10494,6 +10494,31 @@ import_functions9.app.http("internalCasesStatusEvaluate", {
     return { status: 200, jsonBody: { value } };
   })
 });
+import_functions9.app.http("internalCasesSetIngested", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/set-ingested",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    const ingestedCode = statusToInt("ingested");
+    const newEmailCode = statusToInt("new_email");
+    const updated = await query(
+      `UPDATE case_ SET status_code = $1
+         WHERE id = $2 AND status_code = $3
+         RETURNING id`,
+      [ingestedCode, caseId, newEmailCode]
+    );
+    if (updated.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId,
+        summary: "Status set to ingested (intake pipeline picked up)",
+        after: { status: "ingested" }
+      });
+    }
+    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+  })
+});
 import_functions9.app.http("internalAudit", {
   methods: ["POST"],
   authLevel: "anonymous",
