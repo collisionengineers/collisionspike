@@ -19,6 +19,7 @@
  *  GET  /api/internal/cases/{id}/archive-evidence    → blob-backed evidence rows for archive mirroring
  *  POST /api/internal/cases/{id}/archive-evidence/stamp → stamp archive file id/link
  *  POST /api/internal/cases/{id}/status-evaluate     → { value: string }
+ *  POST /api/internal/cases/{id}/set-ingested        → { updated: boolean }
  *  POST /api/internal/audit                          → 204
  *  GET  /api/internal/principals                     → [{ principalCode }]
  *  GET  /api/internal/disposition/due                → [{ caseId }]
@@ -1372,6 +1373,39 @@ app.http('internalCasesStatusEvaluate', {
       const caseId = req.params.id;
       const value = await recomputeStatus(caseId);
       return { status: 200, jsonBody: { value } };
+    }),
+});
+
+/* ============================================================
+   6b — POST /api/internal/cases/{id}/set-ingested
+   Called by: orchestration setIngested activity (TKT-027).
+   Transitions new_email → ingested when the intake pipeline picks up a case.
+   Idempotent: no-op when status is already past new_email.
+   ============================================================ */
+app.http('internalCasesSetIngested', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/{id}/set-ingested',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = req.params.id;
+      const ingestedCode = statusToInt('ingested');
+      const newEmailCode = statusToInt('new_email');
+      const updated = await query<{ id: string }>(
+        `UPDATE case_ SET status_code = $1
+         WHERE id = $2 AND status_code = $3
+         RETURNING id`,
+        [ingestedCode, caseId, newEmailCode],
+      );
+      if (updated.length > 0) {
+        await writeAudit({
+          action: AUDIT_ACTION.status_changed,
+          caseId,
+          summary: 'Status set to ingested (intake pipeline picked up)',
+          after: { status: 'ingested' },
+        });
+      }
+      return { status: 200, jsonBody: { updated: updated.length > 0 } };
     }),
 });
 

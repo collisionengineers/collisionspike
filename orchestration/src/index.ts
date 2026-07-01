@@ -22,6 +22,7 @@ import './functions/activities/providerMatch.js';
 import './functions/activities/classifyInbound.js';
 import './functions/activities/linkReply.js';
 import './functions/activities/caseResolve.js';
+import './functions/activities/setIngested.js';
 import './functions/activities/classifyPersist.js';
 import './functions/activities/parse.js';
 import './functions/activities/statusEvaluate.js';

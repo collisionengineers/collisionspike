@@ -265,6 +265,11 @@ export const dataApi = {
     return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {});
   },
 
+  /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
+  setIngested(caseId: string): Promise<{ updated: boolean }> {
+    return request('POST', `/api/internal/cases/${caseId}/set-ingested`, {});
+  },
+
   /**
    * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
    * Fill-if-empty on the API side; returns the fields it actually filled.

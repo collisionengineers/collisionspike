@@ -13,8 +13,7 @@
 > `verification.md`, with no known gap. Code that is written/merged but **not confirmed working in the live
 > app** stays `now` — "code-correct" is not "done".
 >
-> **Last reconciled 2026-07-01** — TKT-003 **VERIFIED-LIVE** (operator re-test post-regression fix).
-> Prior pass: TKT-007/008/013/014/019 closed; TKT-001/002/006/009 verified 2026-06-30.
+> **Last reconciled 2026-07-01** — TKT-049/050 **VERIFIED-LIVE** (AX claimant-email blank + circumstances boundary fix, parser redeployed). Prior: TKT-003 **VERIFIED-LIVE** (operator re-test post-regression fix).
 
 ## Now — in flight / not yet confirmed live
 
@@ -22,8 +21,7 @@
 |---|---|---|
 | [TKT-001](./TKT-001-document-parsing/TKT-001-document-parsing.md) | Multi-format extraction + field-drop fix | Follow-up deployed 2026-07-01 (parser live-proven on triage `.eml`; body supplement deployed). Pending: e2e re-intake Postgres proof on triage `.doc` path. See [changes-regression-01-07-26](./TKT-001-document-parsing/changes-regression-01-07-26.md). |
 | [TKT-005](./TKT-005-email-actions/TKT-005-email-actions.md) | Make the inbox actionable (dismiss removes from view) | CODE-COMPLETE, not confirmed live — shipped in the SPA bundle but the e2e pass exercised the data pipeline, not the UI. Needs a live SPA click-through (inbound_email rows now exist post-reset). See [verification](./TKT-005-email-actions/verification.md). |
-| [TKT-049](./TKT-049-incorrect-claimant-email/TKT-049-incorrect-claimant-email.md) | Claimant email wrongly set to AX team inbox | TESTED (offline) — parser fix coded; redeploy parser Function for live proof. See [verification](./TKT-049-incorrect-claimant-email/verification.md). |
-| [TKT-050](./TKT-050-ax-pdf-extract/TKT-050-ax-pdf-extract.md) | AX PDF accident circumstances extraction too deep | TESTED (offline) — label-pair + EOF guard coded; redeploy parser Function for live proof. See [verification](./TKT-050-ax-pdf-extract/verification.md). |
+| [TKT-027](./TKT-027-intake-triage-status/TKT-027-intake-triage-status.md) | Intermediate intake status beyond "new" | DEPLOYED — api+orch live; intake `ingested` audit proof pending next email. See [verification](./TKT-027-intake-triage-status/verification.md). |
 
 ## Done — live & verified
 
@@ -41,6 +39,8 @@
 | [TKT-014](./TKT-014-acme-placeholder/TKT-014-acme-placeholder.md) | Remove the `acme.co.uk` placeholder | TESTED (offline)/audit — zero `acme` in source. |
 | [TKT-019](./TKT-019-ticket-system/TKT-019-ticket-system.md) | Markdown ticket system + board + validator | TESTED (offline) — `check-tickets.mjs` 0 errors (now 40 tickets in per-ticket folders). |
 | [TKT-020](./TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | Stale-plan cleanup + root-doc reconciliation | TESTED (offline) — `check-doc-links.mjs` PASS. |
+| [TKT-049](./TKT-049-incorrect-claimant-email/TKT-049-incorrect-claimant-email.md) | Claimant email wrongly set to AX team inbox | **VERIFIED-LIVE** (2026-07-01) — live `/api/parse` on AX sample: `claimant_email` blank (team inbox rejected). |
+| [TKT-050](./TKT-050-ax-pdf-extract/TKT-050-ax-pdf-extract.md) | AX PDF accident circumstances extraction too deep | **VERIFIED-LIVE** (2026-07-01) — live `/api/parse` on AX sample: circumstances narrative only, no Pre Existing tail. |
 
 ## Next — queued / MVP
 
@@ -61,7 +61,6 @@
 | [TKT-024](./TKT-024-image-based-new-case/TKT-024-image-based-new-case.md) | Image-only new-case form | Drop-note: drop instruction-only fields. |
 | [TKT-025](./TKT-025-inbox-source-filter/TKT-025-inbox-source-filter.md) | Mark + filter inbox by source mailbox | Drop-note: info/engineers/desk marker + filter. |
 | [TKT-026](./TKT-026-queue-tracking/TKT-026-queue-tracking.md) | Queue counts don't match the actual queues | Drop-note. |
-| [TKT-027](./TKT-027-intake-triage-status/TKT-027-intake-triage-status.md) | Intermediate intake status beyond "new" | Drop-note. |
 | [TKT-028](./TKT-028-work-provider-not-populating/TKT-028-work-provider-not-populating.md) | `work_provider` not populating on intake | Drop-note (P1) — MAY already be fixed; verify the exact example (QDOS populated live). |
 | [TKT-029](./TKT-029-misclass-case-summary/TKT-029-misclass-case-summary.md) | Case-summary email misclassified as new case | Misclass cluster (→ TKT-006). |
 | [TKT-030](./TKT-030-misclass-chasing-report/TKT-030-misclass-chasing-report.md) | Report-chaser misclassified as new work | Misclass cluster (P1) — scan the received email, not the thread. |

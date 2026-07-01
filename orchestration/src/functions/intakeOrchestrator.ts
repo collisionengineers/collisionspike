@@ -12,6 +12,7 @@
  *   4.   parse           → parser Python Function (gated PDF_MAPPER_ENABLED) — runs BEFORE
  *                          caseResolve so its PDF VRM/mileage feed case-create + enrichment (#7/#1)
  *   2.   caseResolve     → Data API: ADR-0010 dedup ladder + Case/PO mint / new-client→Held (#11)
+ *   2.1  setIngested     → Data API: new_email → ingested (TKT-027 — intake picked up)
  *   2.5  boxFolder (#6)  → callSubOrchestrator boxFolderCreateOrchestrator for a known-provider
  *                          case (case_po present) — Box folder named with the Case/PO (ADR-0012).
  *                          Gated + idempotent INSIDE the activity; best-effort (never blocks intake).
@@ -223,6 +224,11 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   if (resolved.outcome === 'already_ingested') {
     return { skipped: true, caseId: resolved.caseId };
   }
+
+  // 2.1 — mark the case as ingested (picked up by the intake pipeline); sets status
+  // new_email → ingested so staff see "Logged" instead of "New email" during processing.
+  // statusEvaluate (step 5) will compute the final review state.
+  yield ctx.df.callActivityWithRetry('setIngested', retry, { caseId: resolved.caseId });
 
   // Automation-mode branch (am ticket). RECONCILED (work-todo-spike "Both", 2026-06-30):
   // Box folder-create + evidence-archive + image-extraction are RECORD-KEEPING and now run
