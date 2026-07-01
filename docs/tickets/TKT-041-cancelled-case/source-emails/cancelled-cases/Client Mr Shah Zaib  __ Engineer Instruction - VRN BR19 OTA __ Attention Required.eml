@@ -1,0 +1,216 @@
+Received: from LO2P123MB5861.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:250::13)
+ by LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM with HTTPS; Tue, 30 Jun 2026
+ 16:49:01 +0000
+Received: from LO4P123CA0240.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:1a7::11)
+ by LO2P123MB5861.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:250::13) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.159.19; Tue, 30 Jun
+ 2026 16:49:00 +0000
+Received: from LN2PEPF000100CB.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:1a7:cafe::46) by LO4P123CA0240.outlook.office365.com
+ (2603:10a6:600:1a7::11) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.181.8 via Frontend Transport; Tue, 30
+ Jun 2026 16:49:00 +0000
+Authentication-Results: spf=pass (sender IP is 146.20.161.72)
+ smtp.mailfrom=complexreports.com; dkim=pass (signature was verified)
+ header.d=complexreports.com;dmarc=pass action=none
+ header.from=complexreports.com;compauth=pass reason=100
+Received-SPF: Pass (protection.outlook.com: domain of complexreports.com
+ designates 146.20.161.72 as permitted sender)
+ receiver=protection.outlook.com; client-ip=146.20.161.72;
+ helo=smtp72.iad3b.emailsrvr.com; pr=C
+Received: from smtp72.iad3b.emailsrvr.com (146.20.161.72) by
+ LN2PEPF000100CB.mail.protection.outlook.com (10.167.240.5) with Microsoft
+ SMTP Server (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
+ 15.21.181.6 via Frontend Transport; Tue, 30 Jun 2026 16:48:59 +0000
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=complexreports.com;
+	s=20230928-ftblm975; t=1782838139;
+	bh=lFyxh0I8tSD8iiqtHHZCKt9bhAliCSiZoUUi9DDneMU=;
+	h=From:To:Subject:Date:From;
+	b=HvRPNC4pzHYWWd7SPOGSLtUb9WxfWjwyOWEVfbZ/hfqWeTr43dcOGoeTYqClT3cdw
+	 Avs5dTzAeyHexVNJoJT3kPbjgW1mOpYwcF1TeRN1P/BLFvIC58hlg6wGexBJ79HTAU
+	 yuVxo8NFeaVYvm6v+dTNuRqCYL5Pm/pzBQ1+bODk=
+X-Auth-ID: vd@complexreports.com
+Received: by smtp10.relay.iad3b.emailsrvr.com (Authenticated sender: vd-AT-complexreports.com) with ESMTPSA id 4D3D7E0476
+	for <engineers@collisionengineers.co.uk>; Tue, 30 Jun 2026 12:48:58 -0400 (EDT)
+From: <vd@complexreports.com>
+To: "'Engineers'" <engineers@collisionengineers.co.uk>
+Subject: Client: Mr Shah Zaib  // Engineer Instruction - VRN: BR19 OTA // Attention Required
+Date: Tue, 30 Jun 2026 21:48:54 +0500
+Message-ID: <058b01dd08b0$5849c9c0$08dd5d40$@complexreports.com>
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_000_058C_01DD08DA.41201FE0"
+X-Mailer: Microsoft Outlook 16.0
+Thread-Index: Ad0IsDhbUO1WAohsTjONSIZxz9lNrA==
+Content-Language: en-pk
+X-Classification-ID: a3c3d034-2b61-4be7-b031-0194b80ee659-1-1
+Return-Path: vd@complexreports.com
+X-MS-Exchange-Organization-ExpirationStartTime: 30 Jun 2026 16:48:59.9661
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: 6eb19ae5-6d14-485e-ba72-08ded6c77bf4
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: LN2PEPF000100CB:EE_|LO2P123MB5861:EE_|LNXP123MB2123:EE_
+X-MS-Exchange-Organization-AuthSource: LN2PEPF000100CB.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id: 6eb19ae5-6d14-485e-ba72-08ded6c77bf4
+X-MS-Exchange-Organization-SCL: -1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|41022699024|3023799007|5063699009|16102099003|19002099009|8096899003|57112099003|18003699003;
+X-Forefront-Antispam-Report: CIP:146.20.161.72;CTRY:US;LANG:en;SCL:-1;SRV:;IPV:NLI;SFV:SFE;H:smtp72.iad3b.emailsrvr.com;PTR:smtp72.iad3b.emailsrvr.com;CAT:NONE;SFS:(13230040)(41022699024)(3023799007)(5063699009)(16102099003)(19002099009)(8096899003)(57112099003)(18003699003);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 30 Jun 2026 16:48:59.7764
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: 6eb19ae5-6d14-485e-ba72-08ded6c77bf4
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: LN2PEPF000100CB.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO2P123MB5861
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:01.9431062
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0181.008
+Importance: high
+X-Priority: 1
+X-Microsoft-Antispam-Mailbox-Delivery:
+	wl:1;pcwl:1;ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(811242)(255002)(410001)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?us-ascii?Q?H5lTqMaZmlqt4eHyhwj8QSxw4uQfM1Z8OAzMjPOWjdZJhJkEWQFJpADFcwZx?=
+ =?us-ascii?Q?xzBc9y8VrJ9ZXXEkbZATrrWN7ZswVjF28X/5h5iL1OVyWts9K6LkUX7Hg43c?=
+ =?us-ascii?Q?TateQWDUtWGqG2/R0MwkcnHBO4xgbz0vH5Q3aEqp4757sc7Flig86q1UrubO?=
+ =?us-ascii?Q?TjTXrvlc1Sk/+6jRUBPvVNSym7rGKuQw9h/1qaAhEPUh30yXZiMsxFrghZ8u?=
+ =?us-ascii?Q?fbxXfw6nCdRZoCRCe3JsqnE/kMT+IXIBpcTeWsqt0yRtL/L/juBiTZ5f0Abk?=
+ =?us-ascii?Q?XSZTCcbKVZlkpm4PeNgQf05+pB0Lh1KO5r0FxymuF0/QmgQRWva2X6lQLNpr?=
+ =?us-ascii?Q?LQfU8xqa/rZnPu+4Z5wuVz/et6SHTUmILZddyIjAQwqjGjr08efZahLwDhXR?=
+ =?us-ascii?Q?r1DpI2BsA71e16B+FnDJ0ehRo3tFOANegfMJOYO3bigxRh/RI+5bOfwTyTWk?=
+ =?us-ascii?Q?+qevd2e6HAMwHdZwDh1HLNl9tY4MSngiyYO+qoe8DXQHLSEpzGA80abrmBJk?=
+ =?us-ascii?Q?QpkUa2c/WckAyxXfoQKPRWQsXxnZSD/HDdU+J4Cw9RAcy3km1Pdx0/5/lExL?=
+ =?us-ascii?Q?UxlKE0RkIlL5IB0+2AnIhI7j3XTd1XtDS8rXPFLShu11vtPc7dXBZ6/NLp50?=
+ =?us-ascii?Q?wQB+4/GtFWHaRxLPGpLzqYd/Z6tcnZZADzoTrZDVwRilvbKFzs2gj4hiWlH/?=
+ =?us-ascii?Q?kwQKmEzu6ubcmNHORb5ECucKiqxFgPnsSpnZOhH8SXtEd8du+hGabRACK6Mb?=
+ =?us-ascii?Q?+I2dH3ZC66l0SVvGAFrLlt2EyKIevMBPnY640KFepn4zWObFUkK1cdo5PKFa?=
+ =?us-ascii?Q?OMG641Z76trYInK6dOZ75tgOo66wv+4cT6MEVrKGruDj41LMS3VF8Q1QiIzw?=
+ =?us-ascii?Q?mN+dB5ZLeqn1i+VY84kwpkq7hLO/6K7pFP05N6Id43hmDPG8fBu5Pym64VKB?=
+ =?us-ascii?Q?SJY1pdqEzJ2SsYsiwSt4DMvygWWfGrha5c/4+isKsEAeNymOCdx2jT+mMBzl?=
+ =?us-ascii?Q?b+rXdnCjOouFhteZSqIwLVm57ftskCNCgjEzzxcJ4v17hdqmrm2VdDhEJ0ix?=
+ =?us-ascii?Q?mLom3hrjfMY+prKGm8u3RyqpAhPE6c1YkOxI/bIz9ZwXG7slWzN22fz0cmLc?=
+ =?us-ascii?Q?wLm/G6wwXFQOKQkdP5fpuEjDTK36AVkWdLrgWVpVg0slCr5iTZDnTxPegbgI?=
+ =?us-ascii?Q?2LgAnF787J7t9CXDNUtQyy0FBL3d8If2dxjTzZGYZfHyyzzkfykvIC6WgVpW?=
+ =?us-ascii?Q?HJTTcDwkl69fHhQbiy74GzLJ3mKJVCUZckiAMPMBXxEDRcjnbPuz1T3Ot/Ur?=
+ =?us-ascii?Q?yWmt4pErlkK2tqfeB3jA6yk9SwvHIJh/Q7Qb2ot/w3o7XhibMxmpFrkD6AH5?=
+ =?us-ascii?Q?QEVMilSfFMIytMMOMaBml+a5Y3Jc0DnSxzpavUQOnc/32dEZIMUGMTYVWS9S?=
+ =?us-ascii?Q?+OQY65avY75IVt1/lUXDIpuPvYXeHqaZabOyOHv7QGrzN5qGjzadI3tyNcwo?=
+ =?us-ascii?Q?hkWk2exBYVc99UZm7pPNphqapoddD7n8sM13/jFufbz8cO3oQf0Auv9eAOpn?=
+ =?us-ascii?Q?TkPufble7Iug+ykQvGtV0uYyEP1olRbEtByjGinMS07DqgnUEP9WxUD8v2by?=
+ =?us-ascii?Q?e16HJVFwptfFDiCsJ0smTaNJ5O8wcJ7LExhKypvyOlHVJMKpql+wdtu3eYW7?=
+ =?us-ascii?Q?z+vYsJ5Qf4raqcapVGynYid3Zgy0WzWG4F0JiuFb3YLHgpOdCQT8GQjwK0dB?=
+ =?us-ascii?Q?bLAExquk/WwWylBiQur6g9GKqnzo+3ghbwytiKdKETLiOtMGqjXE9l9jAEjc?=
+ =?us-ascii?Q?DsaKm8m64Rgby/cZp2OUp7GZ/WG0N72+/JnwnKFwLkJ5ElKMQZ50ohiDM8Mk?=
+ =?us-ascii?Q?xpnpQ/q1b4sNgyyIlaeZLQM+ycd90Hzf8qzuXCi2D3EofRtw70RKIthjAh3A?=
+ =?us-ascii?Q?M7/NZd5dzr7W+Dtkwq82IDc7kZf/OYHC/a7ZHniDfOxeKHxJgNXHvGOsnZHu?=
+ =?us-ascii?Q?rV4hPa7via0t4Qd4dX5fnrz+ZJlR/VLiXZhl9SZpt6/6UoR9ZSfoaYueDFV5?=
+ =?us-ascii?Q?3loJlKHKicglAQgrhqHu2/CqUDRYijkIbcmOBlcUK1dsNW/BRgwnIMeH0x/+?=
+ =?us-ascii?Q?XVu5qZEzc29vC/TMMsxmWNqEZoAZAUQxrqETeVgNbTEMPu+pnzjA4f6YQRtU?=
+ =?us-ascii?Q?TWz8UwdnqJUaUO8iBYtKUViRMa699iRvKJWtCdDIYyT3cSm7UcJvEPJO2KaD?=
+ =?us-ascii?Q?lT74D8IOLqLX0bZZOqr8MkHHOieBXdfdQuiQEH/fmK15CpQSKInTdsXI4mCV?=
+ =?us-ascii?Q?Vxa1p2BJiUcCkQqDFUhtaoKx5gwYYXGaMG88BSfuMO3+tg=3D=3D?=
+MIME-Version: 1.0
+
+------=_NextPart_000_058C_01DD08DA.41201FE0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+
+Dear Sirs,
+
+ 
+
+With reference to the above-mentioned client, we kindly request that you
+place this file on hold and do not take any further action until you receive
+further instructions from our side.
+
+ 
+
+Thank you for your understanding and cooperation.
+
+ 
+
+We look forward to receiving your confirmation.
+
+ 
+
+Kind Regards,
+
+Complex Reports.
+
+ 
+
+ 
+
+ 
+
+
+------=_NextPart_000_058C_01DD08DA.41201FE0
+Content-Type: text/html; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:v=3D"urn:schemas-microsoft-com:vml" xmlns:o=3D"urn:schemas-micr=
+osoft-com:office:office" xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
+xmlns:m=3D"http://schemas.microsoft.com/office/2004/12/omml" xmlns=3D"http:=
+//www.w3.org/TR/REC-html40"><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dus-ascii"=
+><meta name=3D"Generator" content=3D"Microsoft Word 15 (filtered medium)"><=
+style><!--
+/* Font Definitions */
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+/* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0cm;
+	font-size:11.0pt;
+	font-family:"Calibri",sans-serif;
+	mso-ligatures:standardcontextual;
+	mso-fareast-language:EN-US;}
+span.EmailStyle17
+	{mso-style-type:personal-compose;
+	font-family:"Calibri",sans-serif;
+	color:windowtext;}
+.MsoChpDefault
+	{mso-style-type:export-only;
+	font-size:11.0pt;
+	mso-fareast-language:EN-US;}
+@page WordSection1
+	{size:612.0pt 792.0pt;
+	margin:72.0pt 72.0pt 72.0pt 72.0pt;}
+div.WordSection1
+	{page:WordSection1;}
+--></style><!--[if gte mso 9]><xml>
+<o:shapedefaults v:ext=3D"edit" spidmax=3D"1026" />
+</xml><![endif]--><!--[if gte mso 9]><xml>
+<o:shapelayout v:ext=3D"edit">
+<o:idmap v:ext=3D"edit" data=3D"1" />
+</o:shapelayout></xml><![endif]--></head><body lang=3D"EN-GB" link=3D"#0563=
+C1" vlink=3D"#954F72" style=3D"word-wrap:break-word"><div class=3D"WordSect=
+ion1"><p class=3D"MsoNormal">Dear Sirs,<o:p></o:p></p><p class=3D"MsoNormal=
+"><o:p>&nbsp;</o:p></p><p class=3D"MsoNormal">With reference to the above-m=
+entioned client, <b>we kindly request that you place this file on hold</b> =
+and do not take any further action until you receive further instructions f=
+rom our side.<o:p></o:p></p><p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p><p =
+class=3D"MsoNormal">Thank you for your understanding and cooperation.<o:p><=
+/o:p></p><p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p><p class=3D"MsoNormal"=
+>We look forward to receiving your confirmation.<o:p></o:p></p><p class=3D"=
+MsoNormal"><b><span lang=3D"EN-US" style=3D"font-size:12.0pt;mso-fareast-la=
+nguage:EN-GB"><o:p>&nbsp;</o:p></span></b></p><p class=3D"MsoNormal"><b><sp=
+an lang=3D"EN-US" style=3D"font-size:12.0pt;mso-fareast-language:EN-GB">Kin=
+d Regards,<o:p></o:p></span></b></p><p class=3D"MsoNormal"><b><span lang=3D=
+"EN-US" style=3D"font-size:12.0pt;mso-fareast-language:EN-GB">Complex Repor=
+ts.<o:p></o:p></span></b></p><p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p><p=
+ class=3D"MsoNormal"><o:p>&nbsp;</o:p></p><p class=3D"MsoNormal"><o:p>&nbsp=
+;</o:p></p></div></body></html>=
+
+------=_NextPart_000_058C_01DD08DA.41201FE0--

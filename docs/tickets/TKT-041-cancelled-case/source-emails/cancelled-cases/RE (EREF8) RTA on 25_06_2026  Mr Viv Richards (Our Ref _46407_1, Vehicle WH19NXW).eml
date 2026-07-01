@@ -1,0 +1,524 @@
+Received: from LO0P123MB3977.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:181::8)
+ by LOYP123MB2815.GBRP123.PROD.OUTLOOK.COM with HTTPS; Wed, 1 Jul 2026
+ 08:00:22 +0000
+ARC-Seal: i=2; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=pass;
+ b=roz0RrKTRk2xQoSaJQVKO7ynVW85We+5CTM5H2Hh1d2GOtEEYRSsQTDkSVCAlPSPQ5jFr5/vafUABtmTB2zycqSWo3zzYO6VRpv/pkcdw6VoQ5YIhjbp2FsBhqIFly+Ma7AZO/AMQdnx7oYJom2GzSYOfBAAKwCETwOQq2/ZbpzQJBOsOeK5/7wv7eOFKooyH/wJZeATl4HiGl2JtUe/uP3GZqRbO6fDMSf4qxnixdR4/MGYGz1B2fQSmk0sAx3FP/5vzOGWVXBnqWCjlxTsNouEe7ydovll0nHPvea48kdUDy5+QGlOhGRYBRC7OVNtHWD9QiiFTvapLvEFWBTrAg==
+ARC-Message-Signature: i=2; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=lo0Bg1fvPCEQFn59M1G8uKgFnP0ULAZqFIau+qK42t4=;
+ b=lhAJIH/w0ohtncrGet4sOIcB5dH/u/kgDnfDSavXAgu+UVD8GWaZ5Qt6SrLIObl8kS1z7xfmZAt2YKKUV9vj+9mLywzr19x7Wr7cNgPNuMbQTrkmCyvFtoVoyhPh6bqpeVxl7nT4oD3HiQgoTLSBsahEh2c99f0cKxbQodGL9xUlGM6Oft/cyUPIAVk5cH3QFNapvZPO7gUt1gGCqi2X3yMg+RVt7VUHENdl/wpirgTEsXham276ZQu9JIYRcAhwr/H9xjafs7QlkR34Fn5ETSvlMcsTplFgY5jMCJ8e932QWe8+7OZPc2v0gp6ueEKTvjCxZkS/PYVxVLa8Dnj7tA==
+ARC-Authentication-Results: i=2; mx.microsoft.com 1; spf=pass (sender ip is
+ 2a01:111:f403:c205::3) smtp.rcpttodomain=collisionengineers.co.uk
+ smtp.mailfrom=qdosassist.co.uk; dmarc=pass (p=quarantine sp=quarantine
+ pct=100) action=none header.from=qdosassist.co.uk; dkim=pass (signature was
+ verified) header.d=qdosassist.co.uk; arc=pass (0 oda=0 ltdi=1)
+Received: from LO4P123CA0214.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:1a5::21)
+ by LO0P123MB3977.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:181::8) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.159.15; Wed, 1 Jul
+ 2026 08:00:17 +0000
+Received: from LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:1a5:cafe::3e) by LO4P123CA0214.outlook.office365.com
+ (2603:10a6:600:1a5::21) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.181.8 via Frontend Transport; Wed, 1
+ Jul 2026 08:00:17 +0000
+Authentication-Results: spf=pass (sender IP is 2a01:111:f403:c205::3)
+ smtp.mailfrom=qdosassist.co.uk; dkim=pass (signature was verified)
+ header.d=qdosassist.co.uk;dmarc=pass action=none
+ header.from=qdosassist.co.uk;compauth=pass reason=100
+Received-SPF: Pass (protection.outlook.com: domain of qdosassist.co.uk
+ designates 2a01:111:f403:c205::3 as permitted sender)
+ receiver=protection.outlook.com; client-ip=2a01:111:f403:c205::3;
+ helo=LO2P265CU024.outbound.protection.outlook.com; pr=C
+Received: from LO2P265CU024.outbound.protection.outlook.com
+ (2a01:111:f403:c205::3) by LO1PEPF000022FE.mail.protection.outlook.com
+ (2603:10a6:608:1::16) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.181.6 via Frontend Transport; Wed, 1
+ Jul 2026 08:00:17 +0000
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=none;
+ b=YXveKQd3SKadeqvo4CGSX1lWsDbVQ6dYVZZCIJJKNdEqmJ959VMuZBupZ7D+GL15U9L+vSBBy05wjidZOHBJ1lPDBpvev815biXm13/E+9j1lAz26Yv6k6xbjnYvAhsDVNWfUymeZEDUeK7TkNWcw2gAdjCBGscSPyeqTwaHO0POX4xiWmY/gM5uE3BbTuIvdKw7qRCnxJZahw1sK6W87z5EjYve9I8Z/GXcbRQubvFymEUy7Pet7pTbrnMdift8pCfjL3LImkm4D0I0muoytg65uRFUqN/6Pjon6bstKYhCpHks45tN78NZ0s22rn5VV/oExXQO3S6oEacFsBk7nQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=lo0Bg1fvPCEQFn59M1G8uKgFnP0ULAZqFIau+qK42t4=;
+ b=l0FyrNrvnZg0hA6Sm/VFYJrmb7pHPTrfjZKvQOvbAlhgh1TbkD0Tc4bq5qwTJwElq1a4YGbzEEEXJWXm7WdtSdsSe8i4nbtJ/QP6QbDAyHt0QxyhJhzGn/6hL0xUqssvUgwNNt//fCz9gcLKWWo7PC5gnUbDn2cNaaEcOBSzHoO32hKzjtVNqtEotJo4JRGdhtuZ50QXhzRcxY2KwrZuXoRuBLUcRf++iq3W67uRm4PRwFGEQd+vkyoXxVht5OXwwDA/+Kf1CuOdpa2N8ZoXGQEgzXkc9RQ7GHL++XkOIOtaEAmuTD/w8xkUzpGvHtUK5hMFXYiZP5kJqMvM/Jn6wg==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=fail (sender ip is
+ 51.140.37.132) smtp.rcpttodomain=collisionengineers.co.uk
+ smtp.mailfrom=qdosassist.co.uk; dmarc=fail (p=quarantine sp=quarantine
+ pct=100) action=quarantine header.from=qdosassist.co.uk; dkim=none (message
+ not signed); arc=none (0)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=qdosassist.co.uk;
+ s=selector1;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=lo0Bg1fvPCEQFn59M1G8uKgFnP0ULAZqFIau+qK42t4=;
+ b=hVMc9oQKfTM0PhDX68rum8R3bYpLxcuZyyMUu5nIHIlA/1IRhKco4Ej8GuQ+1yZcrVZ1MjHDB4sDf2iBQ1F0zf4U9bJjyiB0R+UtJmxAGJpxKk+MAWfcWiCohM4qCl5r2GfVB6AtRtCRgmhXdHWu3Fz5WPzPuInzh2FqCKJ3IFI=
+Received: from LO4P265CA0039.GBRP265.PROD.OUTLOOK.COM (2603:10a6:600:2ac::18)
+ by LO0P302MB1662.GBRP302.PROD.OUTLOOK.COM (2603:10a6:600:408::17) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.181.9; Wed, 1 Jul 2026
+ 08:00:15 +0000
+Received: from CW2PEPF000056B9.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:2ac:cafe::9d) by LO4P265CA0039.outlook.office365.com
+ (2603:10a6:600:2ac::18) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.181.8 via Frontend Transport; Wed, 1
+ Jul 2026 08:00:15 +0000
+X-MS-Exchange-Authentication-Results: spf=fail (sender IP is 51.140.37.132)
+ smtp.mailfrom=qdosassist.co.uk; dkim=none (message not signed)
+ header.d=none;dmarc=fail action=quarantine header.from=qdosassist.co.uk;
+Received-SPF: Fail (protection.outlook.com: domain of qdosassist.co.uk does
+ not designate 51.140.37.132 as permitted sender)
+ receiver=protection.outlook.com; client-ip=51.140.37.132;
+ helo=uk1.smtp.exclaimer.net;
+Received: from uk1.smtp.exclaimer.net (51.140.37.132) by
+ CW2PEPF000056B9.mail.protection.outlook.com (10.167.240.4) with Microsoft
+ SMTP Server (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
+ 15.21.181.6 via Frontend Transport; Wed, 1 Jul 2026 08:00:14 +0000
+Received: from LO3P265CU004.outbound.protection.outlook.com (40.93.67.23) by
+	 uk1.smtp.exclaimer.net (51.140.37.132) with Exclaimer Signature Manager
+	 ESMTP Proxy uk1.smtp.exclaimer.net (tlsversion=TLS12,
+	 tlscipher=TLS_DIFFIEHELLMAN_WITH_AES256_NONE); Wed, 1 Jul 2026 08:00:15
+	 +0000
+X-ExclaimerHostedSignatures-MessageProcessed: true
+X-ExclaimerProxyLatency: 4083233
+X-ExclaimerImprintLatency: 2071545
+X-ExclaimerImprintAction: 7c1bf9c1f60748bfa5a6537d6073ff50
+Received: from CWLP302MB0352.GBRP302.PROD.OUTLOOK.COM (2603:10a6:400:229::10)
+ by LO0P302MB0073.GBRP302.PROD.OUTLOOK.COM (2603:10a6:600:369::16) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.181.9; Wed, 1 Jul 2026
+ 08:00:12 +0000
+Received: from CWLP302MB0352.GBRP302.PROD.OUTLOOK.COM
+ ([fe80::3796:6c34:7f2:f3d0]) by CWLP302MB0352.GBRP302.PROD.OUTLOOK.COM
+ ([fe80::3796:6c34:7f2:f3d0%5]) with mapi id 15.21.0181.008; Wed, 1 Jul 2026
+ 08:00:12 +0000
+From: Hannah O'Brien <hobrien@qdosassist.co.uk>
+To: "desk@collisionengineers.co.uk" <desk@collisionengineers.co.uk>
+Subject: RE: (EREF8) RTA on 25/06/2026 : Mr Viv Richards (Our Ref: /46407/1,
+ Vehicle: WH19NXW)
+Thread-Topic: (EREF8) RTA on 25/06/2026 : Mr Viv Richards (Our Ref: /46407/1,
+ Vehicle: WH19NXW)
+Thread-Index: Ad0JLxXQlVPnmOPRQiavYM3qKqaNFQAAHekA
+Date: Wed, 1 Jul 2026 08:00:12 +0000
+Message-ID: <CWLP302MB0352EC655F57045FBBCC8E339BF62@CWLP302MB0352.GBRP302.PROD.OUTLOOK.COM>
+References: <CWLP302MB03521F9450596F5630D81F949BF62@CWLP302MB0352.GBRP302.PROD.OUTLOOK.COM>
+In-Reply-To: <CWLP302MB03521F9450596F5630D81F949BF62@CWLP302MB0352.GBRP302.PROD.OUTLOOK.COM>
+Accept-Language: en-US
+Content-Language: en-US
+X-MS-Has-Attach:
+X-MS-TNEF-Correlator:
+Authentication-Results-Original: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=qdosassist.co.uk;
+x-ms-traffictypediagnostic: CWLP302MB0352:EE_|LO0P302MB0073:EE_|CW2PEPF000056B9:EE_|LO0P302MB1662:EE_|LO1PEPF000022FE:EE_|LO0P123MB3977:EE_|LOYP123MB2815:EE_
+X-MS-Office365-Filtering-Correlation-Id: 2d58745f-00b7-48b3-9ec6-08ded746ca32
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam-Untrusted: BCL:0;ARA:13230040|23010399003|376014|1800799024|366016|22082099003|18002099003|38070700021|3023799007|8096899003|56012099006;
+X-Microsoft-Antispam-Message-Info-Original: yIFMtSBzuMqrp6OQ9pYNGGlYdXDYboSbZh5JJd2izp7jaQfJX1DGJLW9PcS9n6gtwYuKpf4mUvH2lM5zfnySDzZKZ7EXe/S7AVLse5JWPIO0EOMQoxnGrgTRC5wpxY3CnDTrff/eMEtIguDQmgGB+2cJo5sYIcynOPe4WajUbDczoC89hErSyBT4X5L29KC54gNz6pkiqNi5sfX7/igpdQ3o5IgVs91CMPZ1p8GKKPGQi3nXGTbqQybAS1caQ7hjJ+NVlougRWAdVlJJrKpZ2QOS65MZMdg82qqaraPoXkRQKVqO7cb3V/MGUkfWnLCGSRJOMJv0JV+FnW+fE8cae/s2slN+juL9xeQrwKGNVD+KgvX1Zf4nRL8PVPn/MYIqNU+90/oy1Mbcga5/rcFbCZGFyNN817dKcrUfoSbdUTOb41andgLD4cBfvs5c7mbwsGuup4cxt3ozHlxPUkQbbG/fFz5KVseDiUhNK/Js14q1f5ROu6UJ7bV4KWZm4LXyDM9P6CJgygqjNPar4kSsWYLS4JCZxSbfsrvY4zXNYa9AbsJs07tS7cFJQ8TVzwJkAG2BQgOAzfZ21MEt2sskkD2W7Ag3h+Srk6oqMoKd4B1/0Plq6Ay5i6x9Jqi9ioHAI02dHe5cGfckHIXKCyPeByEbLQ6kVo0y4OHpp3fKY8dfgpN7ZOv60ASwyks0zUXF4nmvF8pOr9jVGZq4UVivrwHyJfqE00MLpxXC8YpQKLg=
+X-Forefront-Antispam-Report-Untrusted: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:CWLP302MB0352.GBRP302.PROD.OUTLOOK.COM;PTR:;CAT:NONE;SFS:(13230040)(23010399003)(376014)(1800799024)(366016)(22082099003)(18002099003)(38070700021)(3023799007)(8096899003)(56012099006);DIR:OUT;SFP:1102;
+Content-Type: multipart/alternative;
+	boundary="_000_CWLP302MB0352EC655F57045FBBCC8E339BF62CWLP302MB0352GBRP_"
+X-Exchange-RoutingPolicyChecked: hrE6iATQIh3yBeJLcfY3KwGzlbpKvvEUY49ptdBu5t8NJjmOXLhyGnVFR1TIwslZFfjrO65+fbESMIbotM1TKfiiWhWbOlnWDjx+/JRY/4XCz4650SYL41S/tqLvW906SHmI0l8AYcz/QLC7sWq8+ryifWHgQtMKzZSCbqVIiWY03y89jPtdjZbZaDX1kY+dKrFL9H979I3ptwL6CJ5IukVMTDMMhamCEs1206OuX+BuPThvAXnVOJ/j1xc3eS4y5VbMsLHDBh0JqPFGAu15+242GVmIBrnDC/mfMxo21z0+9+rZ5g6qH1JE3kx76w3awEoYzqAW2IoTeL2sQDo2TQ==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO0P302MB0073
+Return-Path: hobrien@qdosassist.co.uk
+X-EOPAttributedMessage: 1
+X-MS-Exchange-Transport-CrossTenantHeadersStripped: CW2PEPF000056B9.GBRP265.PROD.OUTLOOK.COM
+X-MS-Office365-Filtering-Correlation-Id-Prvs: 32f5fdb7-5b5b-4224-001f-08ded746c778
+X-Microsoft-Antispam-Untrusted: BCL:0;ARA:13230040|69100299015|14060799003|35042699022|36860700016|1800799024|82310400026|23010399003|7149299003|3109299003|6049299003|7049299003|376014|3023799007|6133799003|22082099003|18002099003|56012099006|8096899003|4076899003|13003099007|4013099003|4053099003;
+X-Microsoft-Antispam-Message-Info-Original: ZQuIVxUu8Kx0moUHIh+MvnrSke+b/qjcyq0nNotdVUTt/uEMNaJI8fmv3yBVAhL2B3DtK+OZlACnglNEAIsYVuMmF51x5eWK4TSwtRqmrZbCbjEZQW0X2I3G3GeP5PsyOJ0ug8NalcymnTlDoWzntW/TLrY2Ac1RjXYXe/FUH9B8jN6Q/TFmVeu+85EEDBeddr8WmMt3ZhtayLekKButCbDii0XMBK+GDiIeHQX2bO1r1qwd9c7hO8Bl0nfficAAHk94X6F15AhCo+E3bdLlRAFXQklhnEEaQR4qSRrQeyrNgAueazP41xfrjptfw9MRZgIwlOyjYQmS0vmiUZaSvwh/+upKu/0Rbwi6bM2mxgznsIMSWo/Kh9O1EzjFIoh8Rb4iEfkfC053oATL+nacikxtoqs6bxqVTSgr5w5qE5AyD4MBmtbIhZK8f1AAhJQsXi1ibE7XUDMrReI/z1k17IdazYY5rmQjXr4hUoU7igatWRN/NElvWhIEJCcfjfCDGKcCEdPBSheEr47/xXGHHiTdi1E/2Q3Zm9TEvhw960PWLlZAAaNPiRJm9FCz6phMTKacK8mcSZKkraYRtaVZCadV7gqPY6/M6En4fBIRsWW8lAj2dRebcaQNozBCasx2OeOBuuZPypw0NOWDlyldKA==
+X-Forefront-Antispam-Report-Untrusted: CIP:51.140.37.132;CTRY:GB;LANG:en;SCL:1;SRV:;IPV:CAL;SFV:NSPM;H:uk1.smtp.exclaimer.net;PTR:uk1.smtp.exclaimer.net;CAT:NONE;SFS:(13230040)(69100299015)(14060799003)(35042699022)(36860700016)(1800799024)(82310400026)(23010399003)(7149299003)(3109299003)(6049299003)(7049299003)(376014)(3023799007)(6133799003)(22082099003)(18002099003)(56012099006)(8096899003)(4076899003)(13003099007)(4013099003)(4053099003);DIR:OUT;SFP:1102;
+X-MS-Exchange-AntiSpam-MessageData-Original-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-Original-0: kaQqWRvge/Ell0hpIwwPYongmZH5Oq1WEQcVGAQnsOX4XlY9M1l4TsTad2wi2bIpoPTch9x+BilosFLzUFVb2ldUSrt0FedR3Cxu6G3Id/PJjD8KQn8+XUKny3rD8lViouQQa/L0OVdgAjngEzGBJNVS8GzT2b30+CT4erqZo34naNRB7pJtRcnB9vTGtpQWBWbco+TsD06/CSk3KT5VF5RNRjcelDwnIHiEuSWDjCtlu2/DN2Xc+Cyb701wwV2u1qfCioY86cpKzZiYpwC02j71N76mQRcTS9VeIRZGXo0qhBl9YlCzZ+Ii0YXMF6iFQ4M/Fg/L/rf24aM5a8u5G+YdHBIqS1wRt1v7LHTs6LkNXj2PpzbXB7VIPqsgx0G57X732j2xdmvFzXruk+D4na3Id/Cb8quwjBNReAAeLXmAoXgqxFca0FSID6SYw/Ix
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO0P302MB1662
+X-MS-Exchange-Organization-ExpirationStartTime: 01 Jul 2026 08:00:17.3186
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: 2d58745f-00b7-48b3-9ec6-08ded746ca32
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-Exchange-Transport-CrossTenantHeadersStripped: LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Transport-CrossTenantHeadersPromoted: LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+X-MS-PublicTrafficType: Email
+X-MS-Exchange-Organization-AuthSource: LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id-Prvs: 697bba45-c45d-48cd-1796-08ded746c8e6
+X-MS-Exchange-Organization-SCL: -1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|704162311799003|6049299003|7049299003|35042699022|6073799003|69100299015|3109299003|7149299003|4013099003|22082099003|18002099003|57112099003|16102099003|5063699009|4053099003|19002099009|8096899003|4076899003|6133799003|3023799007|13003099007;
+X-Forefront-Antispam-Report: CIP:2a01:111:f403:c205::3;CTRY:;LANG:en;SCL:-1;SRV:;IPV:NLI;SFV:SFE;H:LO2P265CU024.outbound.protection.outlook.com;PTR:mail-uksouthazlp170110003.outbound.protection.outlook.com;CAT:NONE;SFS:(13230040)(704162311799003)(6049299003)(7049299003)(35042699022)(6073799003)(69100299015)(3109299003)(7149299003)(4013099003)(22082099003)(18002099003)(57112099003)(16102099003)(5063699009)(4053099003)(19002099009)(8096899003)(4076899003)(6133799003)(3023799007)(13003099007);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 01 Jul 2026 08:00:17.3027
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: 2d58745f-00b7-48b3-9ec6-08ded746ca32
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-OriginalAttributedTenantConnectingIp: TenantId=b02f9cb7-0561-49d8-a8b5-84a281920de9;Ip=[51.140.37.132];Helo=[uk1.smtp.exclaimer.net]
+X-MS-Exchange-CrossTenant-AuthSource: LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO0P123MB3977
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:05.3063568
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0159.018
+X-Microsoft-Antispam-Mailbox-Delivery:
+	wl:1;pcwl:1;ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(811242)(255002)(410001)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?utf-8?B?WEtyTDkrMUxncUJ6UGd0YUNrWlplQ2o3UGFLY0FaSW8rekFyM0RvQWtKcHlO?=
+ =?utf-8?B?RVAvYXpnRUVpbm5HV2kzNjR2K0tNenJzSU1RTXV5RmFDblNKczBSaTN5NWt3?=
+ =?utf-8?B?QmJSYU96ODVaWTV1ekk4cVJBME8zWTVDTGxvaW14d0VrVlk1TmxjdDY5aHJM?=
+ =?utf-8?B?ek80c2U2MkkvL1J4eUNZdDBlVE8xMGJVdUM4U2RKaHZ2ai9qa2tNTkhEOEVC?=
+ =?utf-8?B?UUozWEx6Q2c0aXU0cWNPUDM3TDNWb21ldlBhMmI3VVpaMHFMbFJVM0EwM0hx?=
+ =?utf-8?B?TUlBTlpWRFYvQTFEVERNbWNjTVVrSkhHTkRMWlR4blpRb1RyMjVqZVNrMWV0?=
+ =?utf-8?B?d0VoMTcyU1FodDE2LzFxd2I4Sk5MNzdsNENwWjIvK3dURDJQQk93cEFHZXN5?=
+ =?utf-8?B?bjhueDV3WkVuMVJ0R2UwYnpjajNvVllVa1l6ZGtXNzRNM2ovYk9JSzRtL2Zm?=
+ =?utf-8?B?N0hoZS9uSU1CR1hjekFMeE54OVFNQnYxd29TMmtQMURKWlJ1QS9vaFZoZW5q?=
+ =?utf-8?B?SlBEd1d3RFNEQUhWbFhVa2ErWW9VQ3dTN29LNEN4STB2WFZuZXpDallpR3Nj?=
+ =?utf-8?B?N3NrYTBZL0JxLzFtV1Vid2xHZ3lBNDljNTQ0ZWxacjNwNWwvV2N6d0tHVUVr?=
+ =?utf-8?B?bGNjenpDTHFyS3VpRHFyRjJNMCttV3BwaUNLUERhU1M3dWRmNVFqT2tGNFhp?=
+ =?utf-8?B?WVFLUTdBakhmQTVhTERJWkIwV1JkTmNMVDdYcUtRdHZJQlRPSkdlSWhXeEtx?=
+ =?utf-8?B?dS93RnpoaWx3MW54aUt6UktOZ2ZGY2MvNDNpa3RBeXQzdlBKNTlGOTFCeTdR?=
+ =?utf-8?B?L3l6eEpacVRaN2IxcWhxeGJaQ1BoaFZsRUFldW9Od2pqY3pJWjV3Wkp1WkpR?=
+ =?utf-8?B?cnYwaTBoYkNGSU9DTy9iTEorNmFCWkM2Ymk5Z1hpMlF3ZU9sZk9tWmh5S2U2?=
+ =?utf-8?B?M0E0OG9Pa3ZWMVQ3K1VwOWR1RHR2QkVLNldNbXlBYVNWUFpVZExWZTl2NnJG?=
+ =?utf-8?B?eUZoZTZUNlQrdWkxdDNZNkJwZWFTdklGNjNaeVFlb0NMRFFVb0tqZzFkZWFk?=
+ =?utf-8?B?MDZ0ZHp5NVlqR0pzajhIenZFQTNIYnpPYnhGZ1g4Wkp0bXJPdndFLzFwNVcy?=
+ =?utf-8?B?U0FDRHBxaUlJREowSk1OQ2dqWENKTlpHWFFDLzNoTS9PR3MxdW9weUpRNThn?=
+ =?utf-8?B?WERPS1Z4UkZPY0xjN1cyRHFsNDYvb3ZqNUhKOHhkSVUxRWIwYXJQYVgzdS9r?=
+ =?utf-8?B?SFkwbW9Ta1h3OUVCZVhNQlZEREN1LzIweVB2dUlUYWtyOWViNVFTdzRQKzA0?=
+ =?utf-8?B?cXIrYXR5N2J4bUw0WENkRlBtTVVRMVZEYkRGOW9SdE5JRGFJTUt3NGJQMVcv?=
+ =?utf-8?B?cDdyaTh6VmQ0Q29lTTZta04rWmkvTHFRRzdiUGltZTdyV1lVQ2xxRHk4ci9i?=
+ =?utf-8?B?Y1hxSXJjNldrVTgwS0tKV2lRMUJFSWFTNk9XUmxqS1k3K2c3VUppQUZLbzE5?=
+ =?utf-8?B?RUxzcjVnSFRBZjdpNVBOVGRESTNPcC94Um45aGw3Uk9TeUdPVjR2bmFjVGpr?=
+ =?utf-8?B?Nndsa0RuZ3ZzZnUxWVo4OVRSMGRwQ2dpTk11MmZycnNUU3lOZTZGcm5idjVU?=
+ =?utf-8?B?VEdMUUNaeXB1KzJrOWswM3BMSlhoeGVCL0xKQ01yTmlwVDlCTTBzczM0TlMx?=
+ =?utf-8?B?VkJCK1RHajJCSllkQy9EOGswRGdUbXFscjBaZW9raU5mMEx3c01DTUlidi9p?=
+ =?utf-8?B?RUpnRkVZd2VyYVR3MTdQOVI3cFdBQWxtUE9GM2lYMDA2d1d3WTJ6ZUI5U3lY?=
+ =?utf-8?B?NlZPRmIwL2JFN2dFSFJDOXZXd1grS1RLNmNrNExlYWs5SDRXcW80cG11L3JC?=
+ =?utf-8?B?TjM0U2k4ODBOUThaOXRpNWVLSjlMcUVQSm9NcUJjWEVEZE9lQmRaMXhRVERh?=
+ =?utf-8?B?ZmxUOVRmK3Y3OUdtOWlSQUdYZjNFc3V6V3MxdVE2TGo2bnNjTUNZbHZaUDJq?=
+ =?utf-8?B?cDRLNGNqNjRsOU5hc0pOUElWTkNuWVNLUGVlcWkxcTVGVHpHYmwxS1NScHBL?=
+ =?utf-8?B?MHRhYVlXblZNbHR3alJDOG8vSi9sN0dnV0dQcktidEgrdXRDOGhUSytuc1lT?=
+ =?utf-8?B?cVlmMFJtNldqU3orNmFrRFQ2NENCVUxrWDNsRWNyL2dhaEhMOSsxYWZnTnh3?=
+ =?utf-8?B?eTZ0MFlhV1dYSU5IL1BKazhwSElaMS9ta0p3MGFxT0R2amNFU293WFJSM3Zk?=
+ =?utf-8?B?d1hCQ1h4S2xVQ3JZOWY4eERoR0FRMHNobUh1N2J0MSt6b2JydWRuenhuQ3ZI?=
+ =?utf-8?B?Z2tDSDdPT08zQW14ODAzUCtseUhoTGtydGRNbTFFSkdzbXR0aVorZ2FkV2tx?=
+ =?utf-8?B?cUkwYlU5RmpzVCtLZ2NFZm43OG5XU2k5VVB0ZUgxYnJJcDhlWjBWcHVWYzdC?=
+ =?utf-8?B?RUZ6UWtiOEFNSmV3UjFyZHY5MXlTL2ZSd1lobmw1MG13MmdyMFF4TmdGM3hn?=
+ =?utf-8?B?L0NYS2tlcWhVNTNhR3VGamZtaFBQVUpyZ2YveTRmN0dXZ0l5cjlrREJzZzJq?=
+ =?utf-8?B?VEV5VXk3Q0E3aEdiS3MvcG44MUpjZWl1cU5CQVJpaUxpcUFsSVd6UWVYcnpB?=
+ =?utf-8?B?Mk5rL0ppeDBhSExhWm5nYU9LRDZoZmMxRjNHaVFtc1RtaVFKWTR4aitwWjhF?=
+ =?utf-8?B?enErajB6dnJTVEtiOExaUUdRTlZYdUFnd0FTQ2t3Nm1raHYvT2dpVlBvOUlW?=
+ =?utf-8?B?MWZaNDdHSTVkNmpLN1JRa2dJb0tBTlp6UjNoRkwrZ2FjdU1VNlRoVzFiOGQ3?=
+ =?utf-8?B?WXYwTTliYlg5cFhIa0RYOUhza0tjM1RqbDJvRUtYUEpKbFhzZkZnMis1VVZy?=
+ =?utf-8?B?SG9uQUwzSUFuMlUyQjZlclk5dW9jVWdkSUdTZ2FQUFh0NXEyQkQ5OExPNEtU?=
+ =?utf-8?B?ZjVub3pJUXBCMXNvdVc4Mm53Q1N3bXNPZXZLTTlMM0tlaDUxVWNlNC9JN0lp?=
+ =?utf-8?B?NEJFVWpZR09CR2JkcVJMREZVeVVjbnkwa3pxM0tPei9aK3R2dkJWU2gyNEM5?=
+ =?utf-8?B?MHVId1lxeHlJVW9HeStSZnNpWFFXSWc0RjVGblBlUGZJK1FVd2NFRWd6azd3?=
+ =?utf-8?B?UlRFSWlzbFFjUEpmOW5acHRGTWQzeDBUckI5VkgxN3A5eEpTOGlvZzVacThr?=
+ =?utf-8?B?YkNTV2dVeHREekdLbml0YUZPSmkrYUQ3dUNVdU1tYUFMMjVVdlY4SnJDbFRS?=
+ =?utf-8?Q?naINfgnbmsFjszf5NBmyyCFb+3NeErulpLsadJ+YD8Cfppo?=
+MIME-Version: 1.0
+
+--_000_CWLP302MB0352EC655F57045FBBCC8E339BF62CWLP302MB0352GBRP_
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Good morning,
+
+Apologies, please cancel this instruction it's a hire only claim.
+
+Thank you,
+
+
+Hannah O'Brien
+Claims Advisor
+0800 093 0982
+hobrien@qdosassist.co.uk
+www.qdosassist.co.uk
+3rd Floor, Crown House, Manchester Road, Wilmslow, Cheshire. SK9 1BH
+Proud members of:      =20
+    =20
+
+You are dealing with QDOS Accident Assistance Limited, 3rd Floor, Crown Hou=
+se, Manchester Road, Wilmslow, Cheshire. SK9 1BH, registered in England and=
+ Wales, registration number 5179995. www.qdosassist.co.uk. Telephone: 01625=
+ 526961.
+ =20
+ The registered office is C/O Higsons Chartered Accountants, Offices 1 and =
+2, 1A King Street, Farnworth, Bolton. BL4 7AB.
+ =20
+ This email and any attachments are for the exclusive use of the intended r=
+ecipient and may contain legally privileged information. If you have receiv=
+ed it in error please contact us on 01625 526961 and delete it immediately =
+together with any attachments. Any unauthorised copying and/or distribution=
+ of this email and/or its attachments is strictly prohibited. Qdos Accident=
+ Assistance Limited reserves copyright on the contents of this and any atta=
+chment. Qdos Accident Assistance Limited does not consent to any expressed =
+or implied contract or contractual terms whatsoever with any party by way o=
+f communicating with them or whosoever else either directly or indirectly t=
+hrough this email.
+From: Hannah O'Brien
+Sent: Wednesday, July 1, 2026 8:57 AM
+To: 'desk@collisionengineers.co.uk' <desk@collisionengineers.co.uk>
+Subject: (EREF8) RTA on 25/06/2026 : Mr Viv Richards (Our Ref: /46407/1, Ve=
+hicle: WH19NXW)
+
+
+
+
+
+--_000_CWLP302MB0352EC655F57045FBBCC8E339BF62CWLP302MB0352GBRP_
+Content-Type: multipart/related; boundary="=-4tDFd0uJqlPA7Rj07VhoRQ=="
+
+--=-4tDFd0uJqlPA7Rj07VhoRQ==
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:v=3D"urn:schemas-microsoft-com:vml" xmlns:o=3D"urn:schemas-micr=
+osoft-com:office:office" xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
+xmlns:m=3D"http://schemas.microsoft.com/office/2004/12/omml" xmlns=3D"http:=
+//www.w3.org/TR/REC-html40"><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8">
+<meta name=3D"Generator" content=3D"Microsoft Word 15 (filtered medium)">
+<style><!--
+/* Font Definitions */
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+@font-face
+	{font-family:Aptos;}
+/* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0cm;
+	font-size:12.0pt;
+	font-family:"Aptos",sans-serif;
+	mso-ligatures:standardcontextual;
+	mso-fareast-language:EN-US;}
+span.EmailStyle19
+	{mso-style-type:personal-reply;
+	font-family:"Aptos",sans-serif;
+	color:windowtext;}
+.MsoChpDefault
+	{mso-style-type:export-only;
+	font-size:10.0pt;
+	mso-ligatures:none;}
+@page WordSection1
+	{size:612.0pt 792.0pt;
+	margin:72.0pt 72.0pt 72.0pt 72.0pt;}
+div.WordSection1
+	{page:WordSection1;}
+--></style><!--[if gte mso 9]><xml>
+<o:shapedefaults v:ext=3D"edit" spidmax=3D"1026" />
+</xml><![endif]--><!--[if gte mso 9]><xml>
+<o:shapelayout v:ext=3D"edit">
+<o:idmap v:ext=3D"edit" data=3D"1" />
+</o:shapelayout></xml><![endif]-->
+</head>
+<body lang=3D"EN-GB" link=3D"#467886" vlink=3D"#96607D" style=3D"word-wrap:=
+break-word">
+<div class=3D"WordSection1">
+<p class=3D"MsoNormal">Good morning, <o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Apologies, please cancel this instruction it=E2=80=
+=99s a hire only claim.
+<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Thank you, <o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<div>
+<div dir=3D"ltr" style=3D"mso-line-height-rule:exactly;-webkit-text-size-ad=
+just:100%;font-size:1px;direction:ltr;"><table dir=3D"ltr" role=3D"presenta=
+tion" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"width:100%;=
+direction:ltr;border-collapse:collapse;font-size:1px;"><tr style=3D"font-si=
+ze:0;"><td align=3D"left" style=3D"vertical-align:top;"><table role=3D"pres=
+entation" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"border-=
+collapse:collapse;font-size:0;"><tr style=3D"font-size:18.67px;color:#00000=
+1;font-style:normal;font-weight:700;white-space:nowrap;"><td align=3D"left"=
+ style=3D"padding:0;vertical-align:top;font-family:Calibri,Arial,sans-serif=
+;">Hannah&nbsp;O'Brien</td></tr><tr style=3D"font-size:16px;color:#000001;f=
+ont-style:normal;font-weight:400;white-space:nowrap;"><td align=3D"left" st=
+yle=3D"padding:0;vertical-align:top;font-family:Calibri,Arial,sans-serif;">=
+Claims&nbsp;Advisor</td></tr><tr style=3D"font-size:0;line-height:normal;">=
+<td align=3D"left" style=3D"padding:13px 0 0;vertical-align:top;"><img src=
+=3D"https://www.qdosassist.co.uk/ASSIST-EMAIL-SIGNATURES/QAA%20Logo%2050.pn=
+g" border=3D"0" alt=3D"" style=3D"font-size:0;"></td></tr><tr style=3D"font=
+-size:0;"><td align=3D"left" style=3D"padding:13px 0 0;vertical-align:top;"=
+><table role=3D"presentation" cellpadding=3D"0" cellspacing=3D"0" border=3D=
+"0" style=3D"border-collapse:collapse;font-size:0;color:#000001;font-style:=
+normal;font-weight:400;line-height:normal;white-space:nowrap;"><tr style=3D=
+"font-size:0;"><td align=3D"left" style=3D"padding:0 5px 0 0;vertical-align=
+:middle;"><img src=3D"https://www.qdosassist.co.uk/ASSIST-EMAIL-SIGNATURES/=
+Phone%2050.png" border=3D"0" alt=3D"" style=3D"font-size:0;"></td><td align=
+=3D"left" style=3D"padding:0;vertical-align:top;"><table role=3D"presentati=
+on" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"border-collap=
+se:collapse;font-size:0;color:#000001;font-style:normal;font-weight:400;whi=
+te-space:nowrap;"><tr style=3D"font-size:16px;"><td align=3D"left" style=3D=
+"vertical-align:top;font-family:Calibri,Arial,sans-serif;"><a href=3D"tel:0=
+800%20093%200982" target=3D"_blank" id=3D"LPlnk689713" style=3D"text-decora=
+tion:none;color:#000001;">0800&nbsp;093&nbsp;0982</a></td><td style=3D"font=
+-size:0;"><span style=3D"font-family:remialcxesans;font-size:1px;color:#FFF=
+FFF;line-height:1px;">=E2=80=8B<span style=3D"font-family:'template-Qvvjh6G=
+tEeqbBQAD_wDF7A';">=E2=80=8B</span><span style=3D"font-family:'zone-1';">=
+=E2=80=8B</span><span style=3D"font-family:'zones-AQ';">=E2=80=8B</span></s=
+pan></td></tr></table></td></tr><tr style=3D"font-size:16px;"><td align=3D"=
+left" style=3D"padding:0 5px 0 0;vertical-align:middle;font-size:0;"><img s=
+rc=3D"https://www.qdosassist.co.uk/ASSIST-EMAIL-SIGNATURES/Email%2050.png" =
+border=3D"0" alt=3D"" style=3D"font-size:0;"></td><td align=3D"left" style=
+=3D"padding:0;vertical-align:top;font-family:Calibri,Arial,sans-serif;"><a =
+href=3D"mailto:hobrien@qdosassist.co.uk" target=3D"_blank" id=3D"LPlnk68971=
+3" style=3D"text-decoration:none;color:#000001;">hobrien@qdosassist.co.uk</=
+a></td></tr><tr style=3D"font-size:16px;"><td align=3D"left" style=3D"paddi=
+ng:0 5px 0 0;vertical-align:middle;font-size:0;"><img src=3D"https://www.qd=
+osassist.co.uk/ASSIST-EMAIL-SIGNATURES/Web%2050.png" border=3D"0" alt=3D"" =
+style=3D"font-size:0;"></td><td align=3D"left" style=3D"padding:0;vertical-=
+align:top;font-family:Calibri,Arial,sans-serif;"><a href=3D"http://www.qdos=
+assist.co.uk/" target=3D"_blank" id=3D"LPlnk689713" style=3D"text-decoratio=
+n:none;color:#000001;">www.qdosassist.co.uk</a></td></tr><tr style=3D"font-=
+size:16px;"><td align=3D"left" style=3D"padding:0 5px 0 0;vertical-align:mi=
+ddle;font-size:0;"><img src=3D"https://www.qdosassist.co.uk/ASSIST-EMAIL-SI=
+GNATURES/Address%2050.png" border=3D"0" alt=3D"" style=3D"font-size:0;"></t=
+d><td align=3D"left" style=3D"padding:0;vertical-align:top;font-family:Cali=
+bri,Arial,sans-serif;">3rd&nbsp;Floor,&nbsp;Crown&nbsp;House,&nbsp;Manchest=
+er&nbsp;Road,&nbsp;Wilmslow,&nbsp;Cheshire.&nbsp;SK9&nbsp;1BH<br></td></tr>=
+</table></td></tr><tr style=3D"font-size:0;"><td align=3D"left" style=3D"pa=
+dding:13px 0 0;vertical-align:top;"><table role=3D"presentation" cellpaddin=
+g=3D"0" cellspacing=3D"0" border=3D"0" style=3D"border-collapse:collapse;fo=
+nt-size:0;color:#7D7D7D;font-style:normal;font-weight:400;white-space:norma=
+l;"><tr style=3D"font-size:0;"><td align=3D"left" style=3D"vertical-align:t=
+op;"><table role=3D"presentation" cellpadding=3D"0" cellspacing=3D"0" borde=
+r=3D"0" style=3D"border-collapse:collapse;font-size:0;color:#7D7D7D;font-st=
+yle:normal;font-weight:400;white-space:nowrap;"><tr style=3D"font-size:10.6=
+7px;"><td align=3D"left" style=3D"vertical-align:top;font-size:0;"><table r=
+ole=3D"presentation" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=
+=3D"border-collapse:collapse;font-size:0;"><tr style=3D"font-size:0;"><td a=
+lign=3D"center" style=3D"vertical-align:middle;"><table role=3D"presentatio=
+n" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"white-space:no=
+wrap;color:#7D7D7D;font-size:10.67px;font-family:Calibri,Arial,sans-serif;f=
+ont-weight:400;font-style:normal;text-align:left;border-collapse:collapse;"=
+><tr style=3D"font-size:10.67px;"><td style=3D"font-family:Calibri,Arial,sa=
+ns-serif;">Proud&nbsp;members&nbsp;of:&nbsp;&nbsp;</td></tr></table></td><t=
+d align=3D"left" style=3D"vertical-align:top;font-size:10.67px;color:#7D7D7=
+D;font-family:Calibri,Arial,sans-serif;font-style:normal;font-weight:400;wh=
+ite-space:nowrap;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br></td><td align=3D"left=
+" style=3D"vertical-align:top;line-height:normal;"><a href=3D"https://www.m=
+gaa.co.uk/" target=3D"_blank" id=3D"LPlnk689713" style=3D"text-decoration:n=
+one;"><img src=3D"cid:image046158.png@72648E81.F8EA27F8" width=3D"42" heigh=
+t=3D"42" border=3D"0" title=3D"The Managing General Agents=E2=80=99 Associa=
+tion Website" alt=3D"The Managing General Agents=E2=80=99 Association Websi=
+te" style=3D"width:42px;min-width:42px;max-width:42px;height:42px;min-heigh=
+t:42px;max-height:42px;font-size:12px;"></a></td></tr></table></td><td alig=
+n=3D"left" style=3D"vertical-align:top;font-family:Calibri,Arial,sans-serif=
+;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br></td></tr></table></td></tr><tr style=
+=3D"font-size:10.67px;"><td align=3D"left" style=3D"vertical-align:top;font=
+-family:Calibri,sans-serif;"><br>You are dealing with QDOS Accident Assista=
+nce Limited, 3rd Floor, Crown House, Manchester Road, Wilmslow, Cheshire. S=
+K9 1BH, registered in England and Wales, registration number 5179995.&nbsp;=
+www.qdosassist.co.uk.&nbsp;Telephone: 01625 526961.<br> &nbsp;<br> The regi=
+stered office is C/O Higsons Chartered Accountants, Offices 1 and 2, 1A Kin=
+g Street, Farnworth, Bolton. BL4 7AB.<br> &nbsp;<br> This email and any att=
+achments are for the exclusive use of the intended recipient and may contai=
+n legally privileged information. If you have received it in error please c=
+ontact us on 01625 526961 and delete it immediately together with any attac=
+hments. Any unauthorised copying and/or distribution of this email and/or i=
+ts attachments is strictly prohibited. Qdos Accident Assistance Limited res=
+erves copyright on the contents of this and any attachment. Qdos Accident A=
+ssistance Limited does not consent to any expressed or implied contract or =
+contractual terms whatsoever with any party by way of communicating with th=
+em or whosoever else either directly or indirectly through this email.<br><=
+/td></tr></table></td></tr></table></td></tr></table></div><div style=3D"bo=
+rder:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0cm 0cm 0cm">
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US" style=3D"font-size:11.0pt;fo=
+nt-family:&quot;Calibri&quot;,sans-serif;mso-ligatures:none;mso-fareast-lan=
+guage:EN-GB">From:</span></b><span lang=3D"EN-US" style=3D"font-size:11.0pt=
+;font-family:&quot;Calibri&quot;,sans-serif;mso-ligatures:none;mso-fareast-=
+language:EN-GB">
+ Hannah O'Brien <br>
+<b>Sent:</b> Wednesday, July 1, 2026 8:57 AM<br>
+<b>To:</b> 'desk@collisionengineers.co.uk' &lt;desk@collisionengineers.co.u=
+k&gt;<br>
+<b>Subject:</b> (EREF8) RTA on 25/06/2026 : Mr Viv Richards (Our Ref: /4640=
+7/1, Vehicle: WH19NXW)<o:p></o:p></span></p>
+</div>
+</div>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+</div>
+</body>
+</html>
+
+--=-4tDFd0uJqlPA7Rj07VhoRQ==
+Content-Type: image/png; name=image046158.png
+Content-Transfer-Encoding: base64
+Content-ID: <image046158.png@72648E81.F8EA27F8>
+Content-Description: image046158.png
+Content-Disposition: inline; filename="image046158.png"; size=3455;
+	creation-date="Wed, 01 Jul 2026 08:00:15 +0000";
+	modification-date="Wed, 01 Jul 2026 08:00:15 +0000"
+
+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
+
+--=-4tDFd0uJqlPA7Rj07VhoRQ==--
+
+--_000_CWLP302MB0352EC655F57045FBBCC8E339BF62CWLP302MB0352GBRP_--

@@ -1,0 +1,301 @@
+Received: from LNXP123MB3802.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:130::7)
+ by CWLP123MB1970.GBRP123.PROD.OUTLOOK.COM with HTTPS; Wed, 1 Jul 2026
+ 07:29:27 +0000
+ARC-Seal: i=2; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=pass;
+ b=q8tDaYY9WzD4RF+idDRGcNLasDxyxi+Vwuann1pw8oe6LPQikBD9h8avYLFxtObZfnuzqn4wbcJleqU4+8AQk7wU1Amqzkdj/38uTqD8uY4Ot0M9R7FGeE0KzQXmQ+IeidokTpOpp/uMVUBo+fY4m05geb5XpjyiExNQGV3qBLyIjG1QRTj83LwQYuC2sM/FqsGBwfMySzKEfxas+46DA0hXmiL9c388dxnw0pZASJTqIHi+RUD+U9hWHMSOXH+r8svShgwiWwNTQ5diwZR0P05EkzsLbnSCCWObEKdFVZUEEPIEMpnoGTdfF21a3z/N+TN+DnM6A3Vtn7kCH+e9DQ==
+ARC-Message-Signature: i=2; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=G7JVkjIUwQ4SiboJcT20zjx7p/MgxpnQwwEgG7sm1Cw=;
+ b=d+Iy5Ljx+pPIdrJemS/PeqPJSLQ5GFhd6oKnIih2t3W1KzBr/ytEbpEDZI/sntTwiN9iFl7aBFKWTjZezaQ1hrjYywdF27QfzDGVAlSsI97cwsDuDu6IUp+pln5ZF8hX1A0TxIf7uplKu8RPuyTrUPgqnyiaBuM8IaQA6TMRPi8WbisrBuOHvRJZ+uQJFeIp7tluCYV8Pgdz5j7utTf2e2hGqQCO//HLun6up7sVGpavZdksRx8YpddR1UlWJNNukM03bJDMs1eYce4ihh5wW9n25++bkN/AN+Y9QsXhBVsP1Rrx+eCav7GzA1qXw94jgbrvBtxwvjHYiMPZU4vYaQ==
+ARC-Authentication-Results: i=2; mx.microsoft.com 1; spf=pass (sender ip is
+ 2a01:111:f403:c206::1) smtp.rcpttodomain=collisionengineers.co.uk
+ smtp.mailfrom=smartbusinesslink.com; dmarc=pass (p=reject sp=reject pct=100)
+ action=none header.from=smartbusinesslink.com; dkim=pass (signature was
+ verified) header.d=smartbusinesslink.com; arc=pass (0 oda=1 ltdi=1
+ spf=[1,1,smtp.mailfrom=smartbusinesslink.com]
+ dkim=[1,1,header.d=smartbusinesslink.com]
+ dmarc=[1,1,header.from=smartbusinesslink.com])
+Received: from CW1P123CA0026.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:292::19)
+ by LNXP123MB3802.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:130::7) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.181.8; Wed, 1 Jul 2026
+ 07:29:25 +0000
+Received: from CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:400:292:cafe::7f) by CW1P123CA0026.outlook.office365.com
+ (2603:10a6:400:292::19) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.92.11 via Frontend Transport; Wed, 1
+ Jul 2026 07:29:25 +0000
+Authentication-Results: spf=pass (sender IP is 2a01:111:f403:c206::1)
+ smtp.mailfrom=smartbusinesslink.com; dkim=pass (signature was verified)
+ header.d=smartbusinesslink.com;dmarc=pass action=none
+ header.from=smartbusinesslink.com;compauth=pass reason=100
+Received-SPF: Pass (protection.outlook.com: domain of smartbusinesslink.com
+ designates 2a01:111:f403:c206::1 as permitted sender)
+ receiver=protection.outlook.com; client-ip=2a01:111:f403:c206::1;
+ helo=CWXP265CU008.outbound.protection.outlook.com; pr=C
+Received: from CWXP265CU008.outbound.protection.outlook.com
+ (2a01:111:f403:c206::1) by CW2PEPF000056BB.mail.protection.outlook.com
+ (2603:10a6:408:1::6) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.181.6 via Frontend Transport; Wed, 1
+ Jul 2026 07:29:25 +0000
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=none;
+ b=oS1Ge/yBmhcPmbtxDWGUQN/vYfS6jZPgMlvRQl0xVDKOLYN6gxfYflwq6T2X2+WCsXGHa0i7f8kMid5NwTT+xlAYfcGREjFB2KOxE0x/EYBTbWbXLdO/Yw5VnL6Lb6hwm5qW1msDo4/Fa0GI53szPh0bc3pRBKD7zx2ilxM5fms1p6Mbr1oQYysBfhpUs7HM3wtivl+XWm7+HMhplLOalENswdcxvqFN0G/xYRcAgIkoovQa7tkuadLmNoPJMfQ8dy7R6NuboKDbOi+Wl767UtupMkZSwhwm2iiYiITf9D0cUUvvk85ln9uLhSrE3ms/ZJtGUDshInZKVMERL0AJew==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=G7JVkjIUwQ4SiboJcT20zjx7p/MgxpnQwwEgG7sm1Cw=;
+ b=GtVToHdDfxWGerTsdVP84j7j7DbwdtxjWnOMerotd/ILKUgbvFe0CesXYwK0R+nE77pkQqJ0rLJSQDS2O/0kTIMOKd1GmMpOoeBPqG3Jw6E9oZIIIsn5bMZD9d4mExLoWCQV8VUKaBnUZKSdVWtuExDwMN5TSYbeMJ2tEssyBLgm4N40oHVef4WEekHbZ/1emJPH5BYD3FFJLl7sTbunI0Phvts8ndgy46/Ctm+b+2SgUmP6JHc4qWFPPR+rP6uNqtxuDPF7wNQnlYKbmFjBEACcik00OvyV7fj/YUJggH+rskLGB581vQ18hkSSG9PzZGth7LwpndfrPOr+upA8mQ==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=smartbusinesslink.com; dmarc=pass action=none
+ header.from=smartbusinesslink.com; dkim=pass header.d=smartbusinesslink.com;
+ arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=smartbusinesslink.com;
+ s=selector1;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=G7JVkjIUwQ4SiboJcT20zjx7p/MgxpnQwwEgG7sm1Cw=;
+ b=hHVkk32+xHg4oErD3YFtGG8WlB2pXT+E+YIUcZhWzn7dig9zXZK+bnbncH392q2QjSx4+uV7Pc84zvlwyzUu5hWEBX1ZLSJUs0j49XeoWzfp5dsFZq41J2LJDFuLUw/7fiZrEFvMTRk86N0Ge9uUWRc6ODl6bFdid9ZVEfFSMvd4dsXFjb7c2swGNDauFDk2cAEEhqb6Ue9NpV+tPr34ibHOCcKV7bAYgcenQIG+XcPj1i3lQq5e0OLuCObenTT79oIE/iimDJqia3wDfW9GT7UfjFPGzwcs4IWYLSI9r5YLdUdmVXXvuE7cyMtlbD4kibrL5JuOPVuz12j3+ZkN+Q==
+Received: from LO0P123MB5752.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:22b::11)
+ by CWXP123MB3207.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:3b::11) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.181.9; Wed, 1 Jul 2026
+ 07:29:18 +0000
+Received: from LO0P123MB5752.GBRP123.PROD.OUTLOOK.COM
+ ([fe80::9f0a:f7b2:62c1:eb1c]) by LO0P123MB5752.GBRP123.PROD.OUTLOOK.COM
+ ([fe80::9f0a:f7b2:62c1:eb1c%2]) with mapi id 15.21.0181.008; Wed, 1 Jul 2026
+ 07:29:18 +0000
+From: Claims <Claims@smartbusinesslink.com>
+To: "info@collisionengineers.co.uk" <info@collisionengineers.co.uk>
+Subject: Claim Cancelled - SBL-B0649696
+Thread-Topic: Claim Cancelled - SBL-B0649696
+Thread-Index: AQHdCStToWc1cJEkGUq1K6jZAAk2LQ==
+Date: Wed, 1 Jul 2026 07:29:17 +0000
+Message-ID: <LO0P123MB575244F5DA344E3DC1A6C2FAD3F62@LO0P123MB5752.GBRP123.PROD.OUTLOOK.COM>
+Accept-Language: en-US
+Content-Language: en-US
+X-MS-Has-Attach:
+X-MS-TNEF-Correlator:
+Authentication-Results-Original: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=smartbusinesslink.com;
+x-ms-traffictypediagnostic: LO0P123MB5752:EE_|CWXP123MB3207:EE_|CW2PEPF000056BB:EE_|LNXP123MB3802:EE_|CWLP123MB1970:EE_
+X-MS-Office365-Filtering-Correlation-Id: 20feddf2-4b2a-402e-1b4f-08ded7427a62
+x-ms-exchange-senderadcheck: 1
+x-ms-exchange-antispam-relay: 0
+X-Microsoft-Antispam-Untrusted: BCL:0;ARA:13230040|1800799024|3109299003|69100299015|366016|376014|23010399003|18002099003|38070700021|56012099006|8096899003|3023799007;
+X-Microsoft-Antispam-Message-Info-Original: BRZYCdd/iaaAUN7XyLoBADJD13pPN+f5AYysqJ6E9X2el2w1VnW9Iit4uCjKQGsZ1TQ5sxGAF4VHrK5SA+SEZgApg4O8Ea6ocWGIvDf52s14B2ed2NJZHm+W7ScFyreieIf9X3LAA74m3lYFvPLya9mM4g296HgIEMqeirBoJ5fUYdVm/c8WnrYsAgUMjpFkKKmTzbOSUckgoy2xbzwV4Has7fHzHNcnlt9EQUhTgakvK6OiMghGHHQi+hP3qp2zcKHFEDbHohpHAtkgaPpgNd8xGYkk/b6JiueDHEpRtFdYSnQQQafbIK0Q5A911StK9FWjwZAp/C4x684wgpT6UFSb0SkI7vAYQGcc4sZ0vG1/Ng1b5pbSU4SPbdA5fTnucbPE1UlDTPrxh3k8mI+NFrWsi8ds1ITKDFYwqM+08bQdY/h3gz8JjBkUxgCqwmyJX4SX/oOpMbbsYr8VPWkXz66ruHzSEgpThFsJo8pzOTHMK9Lb5Lcb+AB1Sv0e5G7gGdRzhtYe+1Tm1WYPNZPK3E/lZ3iYrjop8b8vEOfzJv0rk4OZUHH2yoATVUQsVvIaRVsUc8MiQSlZNZd2v2HBh+6RcbXciyjJF21Y5rhsAk2D6H4unylF6W/U7ApDaVaTitkDll6QDvFiGpdi6ZkK60km7si0vL3pZp4cY76xIN4=
+X-Forefront-Antispam-Report-Untrusted: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:LO0P123MB5752.GBRP123.PROD.OUTLOOK.COM;PTR:;CAT:NONE;SFS:(13230040)(1800799024)(3109299003)(69100299015)(366016)(376014)(23010399003)(18002099003)(38070700021)(56012099006)(8096899003)(3023799007);DIR:OUT;SFP:1102;
+X-MS-Exchange-AntiSpam-MessageData-Original-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-Original-0: =?iso-8859-1?Q?KzS7XoV+Qd77S2Jjm3Z57D2vAjOmdJmdqCCoGrIN4DCeuKVMcSyU6zGoOy?=
+ =?iso-8859-1?Q?7FxCKayJhqPEBBl0QxRSXaj8KfxJQnWEyVUkLVSDZk9oMMktoxAxxg0g0Y?=
+ =?iso-8859-1?Q?xh5sdkfc5Fq629DTyBPjGnMvhUJp3RH84RJHwRiL82o5GZW2uh1j3e6l5D?=
+ =?iso-8859-1?Q?zJJS2ThPQ6UdsKkR2CdqdBXEaoGOWIjFAD9fAL70Bgf42ILqRJf7Yal3Ve?=
+ =?iso-8859-1?Q?ej+NPqFuAMkwJo+TrbHsISCdvmRLPlMsj2IA7ShPqgvzc/cIHiIrQBDvpa?=
+ =?iso-8859-1?Q?mSFwNdQ3fgXAl8Fff+LebutgRxNbdlRI/DirIjzHM46x46H9XQ1eDAQKPl?=
+ =?iso-8859-1?Q?DcSanzl7fQQRiC2bB290vHV8Z9nlyXeIGk0iRNU7TjtxvsdFPP2YrGZPlA?=
+ =?iso-8859-1?Q?B/JHWU5aP8GULYDUOq9RRcH9kTxwAVmAehDI4UTqksg6NLG9N0Y3VH7v4o?=
+ =?iso-8859-1?Q?qJyzUPBlI3zAshbL66q6pP9texbehCdwFOTIow78Yo/8l0m8Ve0y8VFh3G?=
+ =?iso-8859-1?Q?7jw0TA/8Pq9gPEv+mZIGespWGYZ+sHrIetrd3g8/uUQevmpLcY2GTPysXr?=
+ =?iso-8859-1?Q?uJUjNo224jk38uwJ1ossEWxS6/30ar8+bGul04ALkwOPxD/pIlmxqTKc6Z?=
+ =?iso-8859-1?Q?IBWXLKInXXtOzGvE79c7ZoycTdPCE/C5lrtXpSh1eks0d7qgRP6QTGP1rR?=
+ =?iso-8859-1?Q?gMG1fubKHxaMwqFc/2LKSI7buhp5p3ivX9Jc8vVwSdvKw6yJQPl75zmrsg?=
+ =?iso-8859-1?Q?P1xXJW/wEsm7hHq1ooRTYc1eWiCXGzoYbHhLsxMPZW5n9FFQptIVrGvLbb?=
+ =?iso-8859-1?Q?dZ60gNBON6YYrslciXrKYe5c14hZTJluLnthdRHKV7jgR2tRJJSpcjt6fo?=
+ =?iso-8859-1?Q?l9DVfgWxi/18zRFUpzwHvC6Kc0XfiGrD3bMM7ULQljgpSYErIrxv3m67t8?=
+ =?iso-8859-1?Q?pHWMCjHMOpWAK9JcjtDUJlXTgpp0l8xRrccbdRRIIA/xzTWiJrp6aQTdj1?=
+ =?iso-8859-1?Q?kuOKazkirFQvaBCD5PGPHnMZXfHxj9pbo3caz74omVxJktoixMYSy1w3gS?=
+ =?iso-8859-1?Q?+IXhrDGPPH/20bFOP7ezY2fug18ps5kHb/5xCZZf1Iq1vXr9y6zdK8TkPS?=
+ =?iso-8859-1?Q?3WbkJJJpi0i0S8Jc+asOjr0erPzdGF92y04PdgX4wKuekaCrMFk+QbA6WE?=
+ =?iso-8859-1?Q?XXeRg7MqxSYUMt1DRJ38S3wlOvbCAL/JP4KPQx8hvW0eYXILhPeZoZJG1G?=
+ =?iso-8859-1?Q?O4K+znJAD70n2/C8prsSQJVDikn6AV7lsLgYStWDeUkXcBN9vLrR9M8FPE?=
+ =?iso-8859-1?Q?6jsqoE64jvWZnJ7HSTANyDKsgFksm2XKaEOEejHEz/4Z3xisom7YeIrTOn?=
+ =?iso-8859-1?Q?VU0dRFRES+Y7Rl6as9ito0brrZqLC+8xJZavzZs25iuQWV2vZz5MSbp8sh?=
+ =?iso-8859-1?Q?hc5X2aDN4fypkNYN7ye5WgqG2Elm1i5pxpkcHZGlZMbr8es6lnJT1cUL55?=
+ =?iso-8859-1?Q?yweuOwXhX0sjljasEySgEs4FYSw1gkByDjYiEBWUGt/jWedfcBDLOILO82?=
+ =?iso-8859-1?Q?+bM5KGhyQLWg8rKHN1Ptu0x8rlF9gsgBoQmGPfaIgB9EDmQ1NW+xnJ/ulI?=
+ =?iso-8859-1?Q?v4nzH3uZ05rCOOR/rCtKfpR1dvc7VUnfPP3gTirZGr7PMrlJPVralL/Sgg?=
+ =?iso-8859-1?Q?ANE7f8KhOggw9lkBCkiF5QdSN5336EG785YUDSCCOutsiwYA0vS+Q1iFWJ?=
+ =?iso-8859-1?Q?faPCHgkJ4Ypykw2oa2cyeNsnuC5EKE5JD905uxzJaMlYulYjPOcnzS+/SZ?=
+ =?iso-8859-1?Q?ZlBqqU2S/GHNc6mqXwu1B7CRSwtSkIQ=3D?=
+Content-Type: multipart/alternative;
+	boundary="_000_LO0P123MB575244F5DA344E3DC1A6C2FAD3F62LO0P123MB5752GBRP_"
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: CWXP123MB3207
+Return-Path: Claims@smartbusinesslink.com
+X-MS-Exchange-Organization-ExpirationStartTime: 01 Jul 2026 07:29:25.4252
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: 20feddf2-4b2a-402e-1b4f-08ded7427a62
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-Exchange-Transport-CrossTenantHeadersStripped: CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Transport-CrossTenantHeadersPromoted: CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+X-MS-PublicTrafficType: Email
+X-MS-Exchange-Organization-AuthSource: CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id-Prvs: 890e4540-82ed-4767-2371-08ded7427612
+X-MS-Exchange-Organization-SCL: -1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|704162011799003|6113799003|7149299003|3109299003|6073799003|35042699022|69100299015|12012899012|16102099003|18002099003|5063699009|19002099009|4076899003|8096899003|57112099003|3023799007;
+X-Forefront-Antispam-Report: CIP:2a01:111:f403:c206::1;CTRY:;LANG:en;SCL:-1;SRV:;IPV:NLI;SFV:SFE;H:CWXP265CU008.outbound.protection.outlook.com;PTR:mail-ukwestazlp170100001.outbound.protection.outlook.com;CAT:NONE;SFS:(13230040)(704162011799003)(6113799003)(7149299003)(3109299003)(6073799003)(35042699022)(69100299015)(12012899012)(16102099003)(18002099003)(5063699009)(19002099009)(4076899003)(8096899003)(57112099003)(3023799007);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 01 Jul 2026 07:29:25.2287
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: 20feddf2-4b2a-402e-1b4f-08ded7427a62
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LNXP123MB3802
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:02.4767123
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0181.008
+X-Microsoft-Antispam-Mailbox-Delivery:
+	wl:1;pcwl:1;ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(811242)(255002)(410001)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?iso-8859-1?Q?9aOOEaQALZQC100K3VFkvlhUX3626+9yy88BUD6mWi/3A7W2k/t6eeD7uY?=
+ =?iso-8859-1?Q?CT6N+9pTxZNmfezryCGQP/aLGxAdoE6j5h+Fj8kHtLu3+E2heyHSR3M5BC?=
+ =?iso-8859-1?Q?YKSEchk4eHFV+MO+yQqCgJcr8M1wKfN7RPaXqgECnAx/0AFzejHMxCTFFD?=
+ =?iso-8859-1?Q?wC7WuhEEKrUlRw2a6eNrNmWy9rx48rTAq6TMNukPbHG9pmXi26a8CKoCAD?=
+ =?iso-8859-1?Q?P3yk3w95hRjTtLf5PtcBveiBZA8yo6DL3Svy6WD5y0zTiVJvFUqgLCH25G?=
+ =?iso-8859-1?Q?FAO7pIsvL3kio/HkdEuxAFmXqxcKHaOd3sOLgTuo26ZTUjR54PsjWcX7TN?=
+ =?iso-8859-1?Q?Z7JWZM7/JB9YSrqorpaeZfBzLuv6A5puD1Yut7ppy6xWnJR1B8MWblIzXg?=
+ =?iso-8859-1?Q?Vq5xFhGgVtWMgDQVPysn7L20ZYFxBslrvQH+WEynxySuuGm3QMPIbOiHSE?=
+ =?iso-8859-1?Q?tjKPWZiBX5h2p9BlPHXDtQIG8ZgarpsINAoPy3VTPrLR6IpvIRUX7UFxsd?=
+ =?iso-8859-1?Q?k1e//6gaPfYwRR3IdmHBmwJwCs0HcgZL0y4ZqhW7gsn4ju4wr2CbAZbyN0?=
+ =?iso-8859-1?Q?oS5Kl/R0y2CO/UZiDkFodYE6E4LWdFUGffTn2wqCAoUV4RrgJpEcTidD2l?=
+ =?iso-8859-1?Q?lPOQVmys62UXOueys9f6nM6KwPNrxj69nCUfJYxJnI/EIZ2/xON5alTwbq?=
+ =?iso-8859-1?Q?5Vg+l2ul8mPAksjWId4iP63DHOiLn7vNWUUAGOCrMSDpdKNRczcu169pmd?=
+ =?iso-8859-1?Q?HTcgUVq+QpS0xbEUuU/AfAKFnzmWQ02DYtWa9k65lcCYT2XJlHCfcGPe78?=
+ =?iso-8859-1?Q?sWriqSPVJhBp278Qhh+bZzDZ/wQbYYoe+luVz9Dijh5Pqd30Z+0MUlkfwc?=
+ =?iso-8859-1?Q?daQz+67ErXCjrqDWM2UTOW74j2E/FzAO1r1N2x6U/OmvWsekHfhe4WaX7r?=
+ =?iso-8859-1?Q?LHEH8eyFeWuJ/YSbzbUy5QiojuewCYPu6A+hmJGFpUELPVtRcx/6XVorHN?=
+ =?iso-8859-1?Q?uQtLHkAbL5Ce8NWD8AM9RuHU9v7gzGQj8rUipf6ScUsJtqBpTqxxS6/B/7?=
+ =?iso-8859-1?Q?fCmJDjyLgAPosB5p8F3No5hbjz5LkCe7NWbtZmAwta7w/HIOhLc+96nlbW?=
+ =?iso-8859-1?Q?8GlLEkNKyk+TLhdoCe6GVOipWjnUtkDQfb2NVDft0TEpIz3B+JBZ1wrnzY?=
+ =?iso-8859-1?Q?hHRuOjzU+gRbt6MML46WlBYatUJ2190Ih6ZFrdfQ7JeECenWCcBCu9pHs6?=
+ =?iso-8859-1?Q?cTyH4z8WTnyCIYQchO+YxX+NEgVPR9pauBzSVL58DmsOPpYlI2PPYGYu9L?=
+ =?iso-8859-1?Q?cLeMslFzqAIRvOe5/U1tgEek3nKupv6aKAY8BIM56hZ63IdqUb5ZPmZKT3?=
+ =?iso-8859-1?Q?HXr5BZlCrli9oQtZjwWf8rEEqjeRFaQ81sBIHDRajCw4/LpG+MMP4xvusp?=
+ =?iso-8859-1?Q?m0IMH6rAjcmsLvqP2L0d2mYsOEqxNrn2CcJLwBOE6PD/4AhiKDTOqAMcUK?=
+ =?iso-8859-1?Q?PZQRw2+q0a04KKtSQxU13XJh8EYwOAhWUyTcX3bvR0BmJaKn9zfClnRKVB?=
+ =?iso-8859-1?Q?w0A8OyfoPRe9MhxXl8mgg0IMu6WZukLAoMbbIL+hhl7Xm5zFnkR3kBpUqc?=
+ =?iso-8859-1?Q?lpFEG5RUQ3/EwR9RVNACg2EgVzAkvbIAKqvHuc9GOue+tBf72mjH7LrCYs?=
+ =?iso-8859-1?Q?ToV/sbXS1GDQp2JZpIGXLVN2kkPSD3gfjqouvgO1q8shX60WYuyo8565pN?=
+ =?iso-8859-1?Q?LuY+EDDuXBmeqUeyc50U3jk3j6oltNe4Rl500QPJ1wIax9Iko8BfNZxHns?=
+ =?iso-8859-1?Q?ewXqMmgnIPa8vj2VfEMMS+43IOuuN8BumvaDyHnJQQn6aUjgDTJ9Tfmtqr?=
+ =?iso-8859-1?Q?xjT1HnhbGA+cbX0IUSgeWvT0AfvWbelYtA8YOCPk0KlO3W8NLBg9iOsuvE?=
+ =?iso-8859-1?Q?u94qcnOfeQryRNMykJcasxjEqCl2JUa39SbuPLtsxjJgZOWApqehcP+oKc?=
+ =?iso-8859-1?Q?P4NhtODAxPtZaGoyjyNJXrcfJfcDZzeScwkJr1D2wB83eLBc+0vdwkUSiS?=
+ =?iso-8859-1?Q?jO//hq1Aue0L1wc78DjcmkCUQGTaKGAxi4Bd8gpWNnHrw5cOIqbf7WUeEu?=
+ =?iso-8859-1?Q?BEmsxFs+7i5odpyZKHzdNlLKahwlhZIOVmE+PEX4M1h6Nl0R90jocKhqxk?=
+ =?iso-8859-1?Q?jn9EHQ6ZPrdkDuybb6cuiN5AAmY37bU/O+UHH3Q+t/sRkcTG2NHJ9rdvR8?=
+ =?iso-8859-1?Q?/k+zYIgWu+SvUYW2uVsBMqwXwkId5EqYJRPGSZU+ouAwRcSD2bBOA3yvQD?=
+ =?iso-8859-1?Q?ZveecrqQVjcNCoEOykHfDVRiEqW7x6u06Z0dIXw4wcc7GQ5X9XpOVsPM0w?=
+ =?iso-8859-1?Q?=3D=3D?=
+MIME-Version: 1.0
+
+--_000_LO0P123MB575244F5DA344E3DC1A6C2FAD3F62LO0P123MB5752GBRP_
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+[Smart Business Link]
+Dear Collision Engineers,
+Please be advised that claim SBL-B0649696 has been cancelled. No further ac=
+tion is required on this claim and any outstanding instructions can be disr=
+egarded.
+Claim Number SBL-B0649696
+Vehicle Registration BP70UAC
+Kind Regards,
+Smart Business Link
+This email and any attachments are confidential and intended solely for the=
+ use of the individual or entity to whom they are addressed. If you have re=
+ceived this email in error, please notify the sender and delete it from you=
+r system.
+
+=A9 2026 Smart Business Link. All rights reserved.
+
+--_000_LO0P123MB575244F5DA344E3DC1A6C2FAD3F62LO0P123MB5752GBRP_
+Content-Type: text/html; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html><html><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Diso-8859-=
+1">
+</head>
+<body style=3D"margin:0; padding:0; background-color:#f1f2f4;">
+<table width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" bgco=
+lor=3D"#f1f2f4" style=3D"font-family: 'Segoe UI', Helvetica, Arial, sans-se=
+rif;">
+<tbody>
+<tr>
+<td align=3D"center" style=3D"padding:32px 16px;">
+<table width=3D"600" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" bgcol=
+or=3D"#ffffff" style=3D"border-radius:12px; overflow:hidden; box-shadow:0 1=
+px 3px rgba(0,0,0,0.08);">
+<tbody>
+<tr>
+<td align=3D"left" style=3D"background-color:#0A0E1A; padding:24px 40px;"><=
+img alt=3D"Smart Business Link" width=3D"250" style=3D"display:block; borde=
+r:0;" src=3D"https://www.smartbusinesslink.com/logos/Smart%20Logo%20White.s=
+vg">
+</td>
+</tr>
+<tr>
+<td style=3D"padding:20px 40px 0 40px; font-size:16px; line-height:24px; co=
+lor:#1f2933;">
+Dear Collision Engineers, </td>
+</tr>
+<tr>
+<td style=3D"padding:12px 40px 0 40px; font-size:15px; line-height:24px; co=
+lor:#52606d;">
+Please be advised that claim <strong style=3D"color:#1f2933;">SBL-B0649696<=
+/strong> has been cancelled. No further action is required on this claim an=
+d any outstanding instructions can be disregarded.
+</td>
+</tr>
+<tr>
+<td style=3D"padding:20px 40px 0 40px;">
+<table cellpadding=3D"0" cellspacing=3D"0" border=3D"0" width=3D"100%" styl=
+e=3D"border:1px solid #e4e7eb; border-radius:8px;">
+<tbody>
+<tr>
+<td style=3D"padding:10px 14px; font-size:15px; color:#1f2933;"><span style=
+=3D"display:block; font-size:12px; color:#9aa5b1; margin-bottom:2px;">Claim=
+ Number</span>
+<strong>SBL-B0649696</strong> </td>
+</tr>
+<tr>
+<td style=3D"padding:10px 14px; font-size:15px; color:#1f2933; border-top:1=
+px solid #eef0f2;">
+<span style=3D"display:block; font-size:12px; color:#9aa5b1; margin-bottom:=
+2px;">Vehicle Registration</span>
+<strong>BP70UAC</strong> </td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+<tr>
+<td style=3D"padding:28px 40px 32px 40px; font-size:15px; line-height:22px;=
+ color:#1f2933;">
+Kind Regards,<br>
+<strong>Smart Business Link</strong> </td>
+</tr>
+<tr>
+<td style=3D"border-top:1px solid #eef0f2; padding:20px 40px; font-size:12p=
+x; line-height:18px; color:#9aa5b1; text-align:center;">
+This email and any attachments are confidential and intended solely for the=
+ use of the individual or entity to whom they are addressed. If you have re=
+ceived this email in error, please notify the sender and delete it from you=
+r system.
+<br>
+<br>
+=A9 2026 Smart Business Link. All rights reserved. </td>
+</tr>
+</tbody>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
+
+--_000_LO0P123MB575244F5DA344E3DC1A6C2FAD3F62LO0P123MB5752GBRP_--
