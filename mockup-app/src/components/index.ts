@@ -20,6 +20,7 @@ export {
 } from './severityStyles';
 export { useTableTypography } from './tableStyles';
 export { BulkActionBar, type BulkActionBarProps, type BulkVerb } from './BulkActionBar';
+export { CasePeekDrawer, type CasePeekDrawerProps } from './CasePeekDrawer';
 export { ProvenanceBadge, type ProvenanceBadgeProps } from './ProvenanceBadge';
 export {
   ReadinessChecklist,

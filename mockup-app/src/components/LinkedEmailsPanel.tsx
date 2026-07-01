@@ -87,17 +87,6 @@ const useStyles = makeStyles({
   metaKey: { color: tokens.colorNeutralForeground3 },
   metaVal: { color: tokens.colorNeutralForeground2 },
   inlineIconText: { display: 'inline-flex', alignItems: 'center', gap: tokens.spacingHorizontalXS },
-  srOnly: {
-    position: 'absolute',
-    width: '1px',
-    height: '1px',
-    padding: 0,
-    margin: '-1px',
-    overflow: 'hidden',
-    clip: 'rect(0 0 0 0)',
-    whiteSpace: 'nowrap',
-    border: 0,
-  },
 });
 
 export interface LinkedEmailsPanelProps {
@@ -209,7 +198,7 @@ export function LinkedEmailsPanel({ caseId, emails }: LinkedEmailsPanelProps) {
                     <Link inline href={webLink} target="_blank" rel="noopener noreferrer">
                       <span className={styles.inlineIconText}>
                         Open in Outlook <ArrowUpRight size={14} />
-                        <span className={styles.srOnly}> (opens in a new window)</span>
+                        <span className="ce-sr-only"> (opens in a new window)</span>
                       </span>
                     </Link>
                   )}

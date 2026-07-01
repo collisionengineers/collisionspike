@@ -77,7 +77,7 @@ import {
        proposed from the Principals / Garages sheets for management to review.
        Importing isn't wired yet; the sample diff is illustrative.
 
-   Brand: --ce-red (#db0816) is the only red; never the print brand red.
+   Brand: var(--ce-red) is the only red; never the print brand red.
    ============================================================ */
 
 const POLICY_OPTIONS: { value: InspectionLocationPolicy; label: string; hint: string }[] = [

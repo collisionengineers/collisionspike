@@ -47,7 +47,7 @@ import type {
   GenerateAiSuggestionsResult,
   AiAssistGate,
 } from '@cs/domain';
-import type { Case, Evidence, Provider, ActivityEvent } from '@cs/domain';
+import type { Case, Chaser, Evidence, Provider, ActivityEvent } from '@cs/domain';
 import type {
   QueueName,
   LiveCounts,
@@ -88,6 +88,15 @@ export type ApiCall = <T>(method: string, path: string, body?: unknown) => Promi
    are unchanged; the widening is in the DTOs they already accept
    (`CaseUpdateInput.evaFields`, `InboundFacet.view`).
    ============================================================ */
+/** Input for recording a chase against a case (M-E2). The chase is RECORDED,
+ *  never sent — sending stays a person action (review #10), so there is no
+ *  send flag here, only what was chased and how. */
+export interface LogChaseInput {
+  channel: 'email' | 'whatsapp';
+  templateLabel: string;
+  note?: string;
+}
+
 export interface DataAccessExt extends DataAccess {
   /** ONE-call amalgamated dashboard (case pipeline + inbound). `now` windows
    *  server aggregates against the CLIENT clock. NOT safe()-wrapped — a failure
@@ -107,6 +116,10 @@ export interface DataAccessExt extends DataAccess {
   /** Staff reclassify/override of an inbound email -> the updated row (so the UI
    *  can re-render the chosen vs. suggested category/subtype). Throws on non-2xx. */
   reclassifyInbound(id: string, input: ReclassifyInboundInput): Promise<InboundEmail>;
+  /** Record a chase against a case (M-E2). POST → 201 returning the created
+   *  chaser row in the SAME shape the case-detail read returns. Throws on
+   *  non-2xx — a chase that didn't persist must never look logged. */
+  logChase(caseId: string, input: LogChaseInput): Promise<Chaser>;
 
   /* ----- AI suggestion layer (TKT-015) — observation-first, GATED ----- */
   /** Pending + recently-reviewed AI suggestions for a case. safe()-empty on failure
@@ -186,6 +199,9 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
         `/api/cases?vrm=${enc(vrm)}&open=true${exclude ? `&exclude=${enc(exclude)}` : ''}`,
       ),
     setOnHold: (id, onHold) => post<void>(`/api/cases/${enc(id)}/hold`, { onHold }),
+    // Record a chase (M-E2) — 201 + the created chaser row. NOT safe()-wrapped:
+    // a chase that failed to persist must surface (never a fake "logged").
+    logChase: (caseId, input) => post<Chaser>(`/api/cases/${enc(caseId)}/chase`, input),
     mergeCandidates: (id) => get<Case[]>(`/api/cases/${enc(id)}/merge-candidates`),
     mergeCases: (src, tgt) =>
       post<MergeCasesResult>(`/api/cases/${enc(tgt)}/merge`, { sourceCaseId: src }),

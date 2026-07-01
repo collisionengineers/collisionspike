@@ -74,44 +74,54 @@ export function BulkActionBar({ count, verbs, caption, onClear, busy }: BulkActi
   const styles = useStyles();
 
   // Esc clears the selection. Skip events a component already handled
-  // (Fluent dropdowns/dialogs preventDefault their own Esc) — and the M-F
-  // peek drawer will take priority the same way (see header note).
+  // (Fluent dropdowns/dialogs preventDefault their own Esc; the M-F peek
+  // drawer takes priority the same way — see header note) and NEVER clear
+  // mid-batch: batch completion re-selects the failed ids, which would
+  // silently overwrite the user's clear (critic).
   useEffect(() => {
-    if (count === 0) return;
+    if (count === 0 || busy) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !e.defaultPrevented) onClear();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [count, onClear]);
-
-  if (count === 0) return null;
+  }, [count, busy, onClear]);
 
   return (
-    <div
-      className={mergeClasses('ce-enter', styles.bar)}
-      role="toolbar"
-      aria-label="Bulk actions"
-    >
-      <Text className={styles.count} role="status">
-        {count} selected
-      </Text>
-      {verbs.map((v) => (
-        <Button
-          key={v.key}
-          appearance="secondary"
-          disabled={busy || v.disabled}
-          onClick={v.onClick}
+    <>
+      {/* PRE-MOUNTED live region — live regions announce CHANGES, not
+          appearances, so the node must exist before the first selection
+          for "1 selected" to be heard (gatekeeper nit). */}
+      <span className="ce-sr-only" role="status">
+        {count > 0 ? `${count} selected` : ''}
+      </span>
+      {count > 0 && (
+        <div
+          className={mergeClasses('ce-enter', styles.bar)}
+          role="toolbar"
+          aria-label="Bulk actions"
         >
-          {v.label}
-        </Button>
-      ))}
-      {caption && <span className={styles.caption}>{caption}</span>}
-      <span className={styles.spacer} aria-hidden />
-      <Button appearance="subtle" icon={<X size={16} />} onClick={onClear} disabled={busy}>
-        Clear
-      </Button>
-    </div>
+          <Text className={styles.count} aria-hidden>
+            {count} selected
+          </Text>
+          {verbs.map((v) => (
+            <Button
+              key={v.key}
+              appearance="secondary"
+              disabled={busy || v.disabled}
+              onClick={v.onClick}
+            >
+              {v.label}
+            </Button>
+          ))}
+          {caption && <span className={styles.caption}>{caption}</span>}
+          <span className={styles.spacer} aria-hidden />
+          <Button appearance="subtle" icon={<X size={16} />} onClick={onClear} disabled={busy}>
+            Clear
+          </Button>
+        </div>
+      )}
+    </>
   );
 }
 

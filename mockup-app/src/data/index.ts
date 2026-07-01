@@ -142,7 +142,7 @@ export type {
 } from '@cs/domain';
 // The seam's EXTENDED DataAccess (frozen @cs/domain DataAccess + the work-todo-spike
 // methods). `getDataAccess()` returns this; screens that type-annotate use it.
-export type { DataAccessExt } from './rest-client';
+export type { DataAccessExt, LogChaseInput } from './rest-client';
 // The all-false Box-gate baseline + the all-off location-assist baseline (values).
 export {
   BOX_GATES_ALL_FALSE,
@@ -315,6 +315,7 @@ export {
   // work-todo-spike mutation hooks (triage, reclassify, soft-remove, provider PATCH).
   useTriage,
   useReclassifyInbound,
+  useLogChase,
   useCaseRemove,
   useProviderUpdate,
   // AI suggestion layer hooks (TKT-015) — gate, list, review, generate.
@@ -326,6 +327,7 @@ export {
   type CaseUpdateState,
   type TriageMutationState,
   type ReclassifyInboundState,
+  type LogChaseState,
   type CaseRemoveState,
   type ProviderUpdateState,
   type ReviewAiSuggestionState,

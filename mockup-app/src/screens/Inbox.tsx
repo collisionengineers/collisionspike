@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Badge,
@@ -50,10 +50,12 @@ import {
 } from '@fluentui/react-components';
 import {
   AlertCircle,
+  AlertTriangle,
   Briefcase,
   CheckCircle2,
   Circle,
   Copy,
+  Eye,
   FileText,
   Folder,
   Inbox as InboxIcon,
@@ -74,6 +76,7 @@ import {
   EmptyState,
   ErrorState,
   DataGridSkeleton,
+  CasePeekDrawer,
   GLOBAL_TOASTER_ID,
   useSeverityChipStyles,
   severityClassName,
@@ -81,6 +84,7 @@ import {
   type ChipSeverity,
 } from '../components';
 import { formatReceivedCompact } from '../components/date-format';
+import { nextPeekId, parsePeek, withPeek, withoutPeek } from './peek';
 import { data, useInbox, useInboundCounts } from '../data';
 import type {
   InboundCategory,
@@ -454,9 +458,20 @@ const useStyles = makeStyles({
     alignItems: 'center',
     gap: '4px',
     fontWeight: tokens.fontWeightSemibold,
-    backgroundColor: 'var(--ce-amber-tint)',
-    color: 'var(--ce-amber-ink)',
-    border: '1px solid var(--ce-amber-line)',
+    backgroundColor: 'var(--ce-warning-tint)',
+    color: 'var(--ce-warning-ink)',
+    border: '1px solid var(--ce-warning-line)',
+  },
+  // Weak/Abstain confidence — amber TINT idiom + icon (never colour-only;
+  // per-row inline chips use the tint weight, not the accent fill).
+  confidenceWeak: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontWeight: tokens.fontWeightSemibold,
+    backgroundColor: 'var(--ce-warning-tint)',
+    color: 'var(--ce-warning-ink)',
+    border: '1px solid var(--ce-warning-line)',
   },
 
   actionsCell: {
@@ -476,18 +491,6 @@ const useStyles = makeStyles({
     minHeight: '32px',
   },
 
-  // Visually-hidden text that still names the icon-only Actions column for AT.
-  srOnly: {
-    position: 'absolute',
-    width: '1px',
-    height: '1px',
-    padding: 0,
-    margin: '-1px',
-    overflow: 'hidden',
-    clip: 'rect(0 0 0 0)',
-    whiteSpace: 'nowrap',
-    border: 0,
-  },
 
   // Shared dialog scaffolding (full-email view, mailbox pointer, reclassify).
   dialogGrid: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM },
@@ -648,6 +651,40 @@ export function Inbox() {
       return true;
     });
   }, [rows, search, pendingHidden, triageStateFilter]);
+
+  /* ----------  quick-peek drawer — LINKED rows only (spec IA §3)  ---------- */
+  const peekId = parsePeek(searchParams.toString());
+  const [peekList, setPeekList] = useState<string[]>([]);
+  // Snapshot source read through a ref so openPeek stays stable for the
+  // columns memo (Prev/Next walk the linked rows' CASE ids in current order).
+  const linkedIdsRef = useRef<string[]>([]);
+  linkedIdsRef.current = filtered.filter((e) => e.caseId).map((e) => e.caseId as string);
+  useEffect(() => {
+    if (!peekId) setPeekList([]);
+  }, [peekId]);
+  useEffect(() => {
+    // Deep link (?peek= arrived from outside): snapshot once rows load.
+    if (peekId && peekList.length === 0 && linkedIdsRef.current.length > 0) {
+      setPeekList(linkedIdsRef.current);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [peekId, filtered]);
+  const openPeek = useCallback(
+    (caseId: string) => {
+      setSelectedEmail(null); // never two panels — peek closes the email preview
+      setPeekList(linkedIdsRef.current); // snapshot at open
+      setSearchParams((prev) => withPeek(prev.toString(), caseId)); // PUSH — Back closes
+    },
+    [setSearchParams],
+  );
+  const closePeek = useCallback(
+    () => setSearchParams((prev) => withoutPeek(prev.toString()), { replace: true }),
+    [setSearchParams],
+  );
+  const pagePeek = useCallback(
+    (id: string) => setSearchParams((prev) => withPeek(prev.toString(), id), { replace: true }),
+    [setSearchParams],
+  );
 
   // Restore keyboard focus after a triage action removes a row from the active view.
   useEffect(() => {
@@ -840,6 +877,10 @@ export function Inbox() {
       createTableColumn<InboundEmail>({
         columnId: 'classification',
         renderHeaderCell: () => 'Classification',
+        // Max TWO lines (spec §5b, atlas ruling): tag + (confidence caption OR
+        // Overridden chip). The suggested folder demotes to the cell tooltip;
+        // Weak/Abstain confidence gets the amber icon+tint idiom — never
+        // colour-only.
         renderCell: (e) => {
           const overridden = isOverridden(e);
           const suggestedText = e.suggestedSubtype
@@ -847,38 +888,53 @@ export function Inbox() {
             : e.suggestedCategory
               ? CATEGORY_LABEL[e.suggestedCategory]
               : CATEGORY_LABEL[e.category];
+          const weak = e.confidence < 0.8;
           return (
-            <div className={styles.classStack}>
-              {/* Neutral outline (fork #1 "quiet grids") — the outline Badge
-                  default color="brand" renders red, which reads as severity. */}
-              <Badge
-                appearance="outline"
-                color="informative"
-                shape="rounded"
-                size="small"
-                className={styles.subtypeBadge}
-              >
-                {SUBTYPE_LABEL[e.subtype]}
-              </Badge>
-              <span className={styles.folderLine}>
-                <Folder size={11} aria-hidden />
-                <span className={styles.folderName}>{suggestedFolderLabel(e)}</span>
-              </span>
-              {overridden ? (
+            <Tooltip
+              content={`Suggested folder: ${suggestedFolderLabel(e)}`}
+              relationship="description"
+            >
+              <div className={styles.classStack}>
+                {/* Neutral outline (fork #1 "quiet grids") — the outline Badge
+                    default color="brand" renders red, which reads as severity. */}
                 <Badge
-                  appearance="tint"
+                  appearance="outline"
+                  color="informative"
                   shape="rounded"
                   size="small"
-                  className={styles.overrideChip}
-                  icon={<PencilLine size={11} strokeWidth={2} />}
+                  className={styles.subtypeBadge}
                 >
-                  Overridden
-                  <span className={styles.srOnly}>{` (Classifier suggested: ${suggestedText})`}</span>
+                  {SUBTYPE_LABEL[e.subtype]}
                 </Badge>
-              ) : (
-                <Caption1 className={styles.muted}>{confidenceLabel(e.confidence)}</Caption1>
-              )}
-            </div>
+                {/* The folder tooltip hangs on a non-focusable div — mirror it
+                    as real hidden text so SRs get it too (gatekeeper). */}
+                <span className="ce-sr-only">{`Suggested folder: ${suggestedFolderLabel(e)}`}</span>
+                {overridden ? (
+                  <Badge
+                    appearance="tint"
+                    shape="rounded"
+                    size="small"
+                    className={styles.overrideChip}
+                    icon={<PencilLine size={11} strokeWidth={2} />}
+                  >
+                    Overridden
+                    <span className="ce-sr-only">{` (Classifier suggested: ${suggestedText})`}</span>
+                  </Badge>
+                ) : weak ? (
+                  <Badge
+                    appearance="tint"
+                    shape="rounded"
+                    size="small"
+                    className={styles.confidenceWeak}
+                    icon={<AlertTriangle size={11} strokeWidth={2.25} />}
+                  >
+                    {confidenceLabel(e.confidence)}
+                  </Badge>
+                ) : (
+                  <Caption1 className={styles.muted}>{confidenceLabel(e.confidence)}</Caption1>
+                )}
+              </div>
+            </Tooltip>
           );
         },
       }),
@@ -921,13 +977,26 @@ export function Inbox() {
       }),
       createTableColumn<InboundEmail>({
         columnId: 'actions',
-        renderHeaderCell: () => <span className={styles.srOnly}>Actions</span>,
+        renderHeaderCell: () => <span className="ce-sr-only">Actions</span>,
         renderCell: (e) => {
           const showQuick = hoveredRowId === e.id || selectedEmail?.id === e.id;
           return (
             <span className={styles.actionsCell}>
               {showQuick && (
                 <span className={styles.quickActions}>
+                  {e.caseId && (
+                    <Tooltip content="Peek case" relationship="label">
+                      <Button
+                        appearance="subtle"
+                        size="small"
+                        className={styles.quickActionBtn}
+                        icon={<Eye size={16} />}
+                        aria-label={`Preview case for “${e.subject || e.fromAddress}”`}
+                        data-row-id={e.id}
+                        onClick={() => openPeek(e.caseId!)}
+                      />
+                    </Tooltip>
+                  )}
                   {e.triageState !== 'actioned' && (
                     <Tooltip content="Mark actioned" relationship="label">
                       <Button
@@ -974,6 +1043,11 @@ export function Inbox() {
                         View case
                       </MenuItem>
                     )}
+                    {e.caseId && (
+                      <MenuItem icon={<Eye size={16} />} onClick={() => openPeek(e.caseId!)}>
+                        Peek case
+                      </MenuItem>
+                    )}
                     <MenuItem icon={<FileText size={16} />} onClick={() => selectEmail(e)}>
                       View email preview
                     </MenuItem>
@@ -1017,16 +1091,46 @@ export function Inbox() {
 
   const filtersActive =
     search.trim() !== '' || subtypeFilter !== ANY || triageStateFilter !== ANY;
+
+  /** Switch the Active/Handled/All view (mirrors onViewSelect, for the
+   *  empty-state quick actions). */
+  const switchView = (v: InboundView) => {
+    setView(v);
+    const next = new URLSearchParams(searchParams);
+    next.set('view', v);
+    setSearchParams(next, { replace: true });
+  };
+
+  // Spec IA §5 empty-state copy + the ONE quick action per surface (active
+  // view only — the handled/all views keep their existing explanatory titles).
   const emptyTitle =
     view === 'handled'
       ? `No handled “${CATEGORY_LABEL[category]}” email.`
       : view === 'all'
         ? `No “${CATEGORY_LABEL[category]}” email yet.`
-        : `Nothing to action in “${CATEGORY_LABEL[category]}”.`;
+        : category === 'receiving_work'
+          ? 'Nothing to action in Receiving work.'
+          : category === 'query'
+            ? 'No queries waiting.'
+            : `Nothing to action in “${CATEGORY_LABEL[category]}”.`;
   const emptyHint =
     view === 'handled'
       ? 'Email you dismiss or mark as actioned shows here — reopen it to put it back in the queue.'
       : EMPTY_HINT[category];
+  const emptyAction =
+    view !== 'active' ? undefined : category === 'receiving_work' ? (
+      <Button appearance="secondary" onClick={() => navigate('/intake')}>
+        Start a case manually
+      </Button>
+    ) : category === 'query' ? (
+      <Button appearance="secondary" onClick={() => switchView('handled')}>
+        Show handled queries
+      </Button>
+    ) : (
+      <Button appearance="secondary" onClick={() => switchView('all')}>
+        Show all
+      </Button>
+    );
 
   return (
     <div className={mergeClasses('ce-enter', styles.root)}>
@@ -1164,6 +1268,7 @@ export function Inbox() {
             icon={<InboxIcon size={32} strokeWidth={1.5} aria-hidden />}
             title={emptyTitle}
             hint={emptyHint}
+            action={emptyAction}
           />
         ) : (
           <EmptyState
@@ -1195,6 +1300,8 @@ export function Inbox() {
                   {({ item, rowId }) => (
                     <DataGridRow<InboundEmail>
                       key={rowId}
+                      // Focus-restore target for the peek drawer (linked rows only).
+                      data-case-row={item.caseId ?? undefined}
                       onMouseEnter={() => setHoveredRowId(item.id)}
                       onMouseLeave={() => setHoveredRowId(null)}
                     >
@@ -1269,6 +1376,17 @@ export function Inbox() {
           refresh();
         }}
         dispatchToast={dispatchToast}
+      />
+
+      {/* Quick-peek drawer — LINKED rows only; unlinked rows never peek.
+          Prev/Next walk the linked rows' case ids snapshotted at open. */}
+      <CasePeekDrawer
+        caseId={peekId}
+        prevId={peekId ? nextPeekId(peekList, peekId, -1) : null}
+        nextId={peekId ? nextPeekId(peekList, peekId, 1) : null}
+        onPeek={pagePeek}
+        onClose={closePeek}
+        onOpenCase={(id) => navigate(`/case/${id}`, { replace: true })}
       />
     </div>
   );

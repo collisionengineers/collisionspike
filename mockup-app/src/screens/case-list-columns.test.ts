@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import type { ActionReason, Case, CaseStatus } from '../data';
-import { columnsForQueue, heldReleaseEligible, whyHeldText } from './case-list-columns';
+import {
+  caseDisplayName,
+  columnsForQueue,
+  heldReleaseEligible,
+  whyHeldText,
+} from './case-list-columns';
 
 /* ============================================================
    case-list-columns — per-queue column sets + the FACT-driven held
@@ -122,6 +127,19 @@ describe('whyHeldText', () => {
 
   it('person-parked rows with nothing else wrong read "On hold"', () => {
     expect(whyHeldText(heldCase({ status: 'needs_review', onHold: true }))).toBe('On hold');
+  });
+});
+
+describe('caseDisplayName', () => {
+  it('falls through vrm → claimant → Case/PO → "untitled case"', () => {
+    expect(caseDisplayName(heldCase({ status: 'needs_review' }))).toBe('AB12CDE');
+    expect(caseDisplayName(heldCase({ status: 'needs_review', vrm: ' ' }))).toBe('Jane Doe');
+    const noBasics = heldCase({ status: 'needs_review', vrm: '', claimant: '' });
+    (noBasics as unknown as { casePo?: string }).casePo = 'CCPY26050';
+    expect(caseDisplayName(noBasics)).toBe('CCPY26050');
+    expect(caseDisplayName(heldCase({ status: 'needs_review', vrm: '', claimant: '' }))).toBe(
+      'untitled case',
+    );
   });
 });
 

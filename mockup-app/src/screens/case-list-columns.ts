@@ -28,6 +28,15 @@ export type CaseColumnId =
   | 'whyHeld'
   | 'age';
 
+/** Person-facing case name for control labels ("Select case <x>", "Preview
+    <x>") — falls through vrm → claimant → Case/PO so a VRM-less row never
+    yields a degenerate name like "Select case " (gatekeeper F3). */
+export function caseDisplayName(c: Case): string {
+  return (
+    c.vrm?.trim() || c.evaFields.claimantName.value?.trim() || c.casePo || 'untitled case'
+  );
+}
+
 /** Ordered column ids for a queue (spec IA §2). */
 export function columnsForQueue(name: QueueName): CaseColumnId[] {
   switch (name) {

@@ -26,8 +26,9 @@ The CE design system ships **two** reds. This is a **screen UI**, so:
 
 ### The rail is *system chrome*
 
-The charcoal rail (`#2c2a27`) is styled as system chrome, not content: **white reverse logo**
-(`web_logo_white.png`), **white active label** + 3px CE-red left accent bar + slightly darker fill, and
+The charcoal rail (`#2c2a27`) is styled as system chrome, not content: a **clean white brand header
+carrying the single full-colour CE logo** (the red gear + wordmark — the review-190626 "choose red"
+resolution; the earlier white-reverse-logo pairing is gone), **white active label** + 3px CE-red left accent bar + slightly darker fill, and
 **inline right-aligned counts**. Only **Needs action** uses the red `CounterBadge` pill; the other three
 queues use a **muted charcoal count pill** (`rgba(255,255,255,0.14)` ground, ~82% white text). The disabled
 `Corpus`/`Audit` items were **removed** for M1.

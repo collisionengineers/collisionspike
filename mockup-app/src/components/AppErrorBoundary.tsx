@@ -19,7 +19,7 @@ import { Panel } from './Panel';
    error + componentStack to the console, which is where the offending component
    name surfaces for diagnosis.
 
-   Brand: the only red is --ce-red (#db0816); never the print brand red.
+   Brand: the only red is var(--ce-red); never the print brand red (see theme.css).
    ============================================================ */
 
 const useStyles = makeStyles({

@@ -1,7 +1,8 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Spinner } from '@fluentui/react-components';
 import {
+  Button,
   Caption1,
   makeStyles,
   mergeClasses,
@@ -14,6 +15,7 @@ import {
   ChevronRight,
   CircleCheck,
   CheckCheck,
+  Eye,
   Inbox,
   Send,
   CalendarRange,
@@ -36,6 +38,7 @@ import {
   EmptyState,
   ErrorState,
   DashboardSkeleton,
+  CasePeekDrawer,
   useSeverityChipStyles,
 } from '../components';
 import { useDashboard } from '../data';
@@ -47,6 +50,8 @@ import {
   groupAgingRows,
   type NeedsActionGroup,
 } from './dashboard-needs-action';
+import { caseDisplayName } from './case-list-columns';
+import { nextPeekId, parsePeek, withPeek, withoutPeek } from './peek';
 
 /* ============================================================
    Dashboard — the CHASE COCKPIT.
@@ -411,16 +416,16 @@ const useStyles = makeStyles({
   },
 
   list: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
+  /* Row = a WRAPPER (hover/border chrome) around the main open-case button +
+     the sibling peek icon-button — a button can't nest a button (M-F). */
   row: {
     display: 'flex',
     alignItems: 'center',
-    gap: tokens.spacingHorizontalM,
+    gap: tokens.spacingHorizontalS,
     padding: `${tokens.spacingVerticalSNudge} ${tokens.spacingHorizontalL}`,
     borderRadius: '2px',
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     backgroundColor: tokens.colorNeutralBackground1,
-    cursor: 'pointer',
-    textAlign: 'left',
     width: '100%',
     transitionProperty: 'background-color, border-color',
     transitionDuration: tokens.durationFaster,
@@ -428,10 +433,37 @@ const useStyles = makeStyles({
       backgroundColor: tokens.colorNeutralBackground1Hover,
       border: `1px solid ${tokens.colorNeutralStroke1}`,
     },
+    // Reveal the peek icon-button on row hover (it reveals itself on focus).
+    '&:hover [data-peek-btn]': { opacity: 1 },
   },
   rowPastDue: {
     borderLeft: '3px solid var(--ce-red)',
     ':hover': { borderLeft: '3px solid var(--ce-red)' },
+  },
+  // The main open-case hit area — chrome-less button filling the row.
+  rowMainBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    flexGrow: 1,
+    minWidth: 0,
+    margin: 0,
+    padding: 0,
+    border: 0,
+    background: 'none',
+    font: 'inherit',
+    color: 'inherit',
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+  // Peek icon-button — ALWAYS tabbable, revealed on row hover / own focus.
+  peekBtn: {
+    opacity: 0,
+    flexShrink: 0,
+    transitionProperty: 'opacity',
+    transitionDuration: tokens.durationFaster,
+    ':focus': { opacity: 1 },
+    ':focus-visible': { opacity: 1 },
   },
   rowSub: {
     color: tokens.colorNeutralForeground3,
@@ -543,6 +575,35 @@ export function Dashboard() {
   const groups = useMemo(() => groupAgingRows(dash?.agingExceptions.rows ?? []), [dash]);
   const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({});
   const [showAllGroups, setShowAllGroups] = useState<Record<string, boolean>>({});
+
+  /* ----------  quick-peek drawer (spec IA §3) — flattened group order  ---------- */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const peekId = parsePeek(searchParams.toString());
+  const [peekList, setPeekList] = useState<string[]>([]);
+  const flatIds = useMemo(() => groups.flatMap((g) => g.rows.map((r) => r.case.id)), [groups]);
+  useEffect(() => {
+    if (!peekId) setPeekList([]);
+  }, [peekId]);
+  useEffect(() => {
+    // Deep link (?peek= arrived from outside): snapshot once rows load.
+    if (peekId && peekList.length === 0 && flatIds.length > 0) setPeekList(flatIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [peekId, flatIds]);
+  const openPeek = useCallback(
+    (id: string) => {
+      setPeekList(flatIds); // snapshot at open — flattened group order
+      setSearchParams(withPeek(searchParams.toString(), id)); // PUSH — Back closes
+    },
+    [flatIds, searchParams, setSearchParams],
+  );
+  const closePeek = useCallback(
+    () => setSearchParams(withoutPeek(searchParams.toString()), { replace: true }),
+    [searchParams, setSearchParams],
+  );
+  const pagePeek = useCallback(
+    (id: string) => setSearchParams(withPeek(searchParams.toString(), id), { replace: true }),
+    [searchParams, setSearchParams],
+  );
 
   // First-load (no data yet) — content-shaped skeleton; hard failure — error panel.
   if (!dash) {
@@ -659,6 +720,22 @@ export function Dashboard() {
               <EmptyState
                 icon={<CircleCheck size={32} strokeWidth={1.75} aria-hidden />}
                 title={`Nothing waiting. New cases land here as email arrives — last checked ${fmtTime(stamp)}.`}
+                // Conditional quick action (spec IA §5): untriaged email first,
+                // else the review queue, else nothing to point at.
+                action={
+                  inbound.untriaged > 0 ? (
+                    <Button
+                      appearance="secondary"
+                      onClick={() => navigate('/inbox?view=active&triageState=new')}
+                    >
+                      Sort new email ({inbound.untriaged})
+                    </Button>
+                  ) : live.review > 0 ? (
+                    <Button appearance="secondary" onClick={() => navigate('/queue/review')}>
+                      Review cases ready to send ({live.review})
+                    </Button>
+                  ) : undefined
+                }
               />
             ) : (
               <div className={styles.groups}>
@@ -675,6 +752,7 @@ export function Dashboard() {
                       onToggleOpen={() => setOpenOverrides((prev) => ({ ...prev, [key]: !open }))}
                       onShowAll={() => setShowAllGroups((prev) => ({ ...prev, [key]: true }))}
                       onOpenCase={(id) => navigate(`/case/${id}`)}
+                      onPeekCase={openPeek}
                     />
                   );
                 })}
@@ -738,6 +816,17 @@ export function Dashboard() {
           </section>
         </div>
       </div>
+
+      {/* Quick-peek drawer — ?peek=<caseId> on the dashboard route; Prev/Next
+          walk the FLATTENED group order snapshotted at open (spec IA §3). */}
+      <CasePeekDrawer
+        caseId={peekId}
+        prevId={peekId ? nextPeekId(peekList, peekId, -1) : null}
+        nextId={peekId ? nextPeekId(peekList, peekId, 1) : null}
+        onPeek={pagePeek}
+        onClose={closePeek}
+        onOpenCase={(id) => navigate(`/case/${id}`, { replace: true })}
+      />
     </div>
   );
 }
@@ -811,6 +900,7 @@ function NeedsActionGroupSection({
   onToggleOpen,
   onShowAll,
   onOpenCase,
+  onPeekCase,
 }: {
   group: NeedsActionGroup;
   /** 4th+ groups collapse to their header (chevron toggle, not persisted). */
@@ -820,6 +910,7 @@ function NeedsActionGroupSection({
   onToggleOpen: () => void;
   onShowAll: () => void;
   onOpenCase: (caseId: string) => void;
+  onPeekCase: (caseId: string) => void;
 }) {
   const styles = useStyles();
   const Icon = groupIcon(group.reason);
@@ -872,6 +963,7 @@ function NeedsActionGroupSection({
               row={row}
               verb={group.verb}
               onOpen={() => onOpenCase(row.case.id)}
+              onPeek={() => onPeekCase(row.case.id)}
             />
           ))}
           {!showAll && count > MAX_GROUP_ROWS && (
@@ -890,14 +982,16 @@ function NeedsActionGroupSection({
 }
 
 /** Dense (~40px) needs-action row: VRM plate → vehicle · provider → due pill
-    (only when a due date exists — absence is the signal) → chevron. The verb
-    lives on the group header; no per-row reason icon. forwardRef so the
-    group's "Show all" expander can move keyboard focus onto the first
-    newly-revealed row. */
+    (only when a due date exists — absence is the signal) → peek icon-button →
+    chevron. The verb lives on the group header; no per-row reason icon.
+    STRUCTURE (M-F): a wrapper div carries the row chrome; the open-case hit
+    area is a chrome-less button (a button can't nest the peek button); the
+    peek icon-button is its sibling. forwardRef targets the MAIN button (the
+    "Show all" focus move + the drawer's focus restore both want it). */
 const AgingRowItem = forwardRef<
   HTMLButtonElement,
-  { row: AgingRow; verb: string; onOpen: () => void }
->(function AgingRowItem({ row, verb, onOpen }, ref) {
+  { row: AgingRow; verb: string; onOpen: () => void; onPeek: () => void }
+>(function AgingRowItem({ row, verb, onOpen, onPeek }, ref) {
   const styles = useStyles();
   const chips = useSeverityChipStyles();
   const c = row.case;
@@ -909,21 +1003,36 @@ const AgingRowItem = forwardRef<
   // provider (or model) is missing.
   const subText = [c.vehicleModel || 'Vehicle TBC', c.provider].filter(Boolean).join(' · ');
   const subAria = [c.vehicleModel || 'vehicle TBC', c.provider].filter(Boolean).join(' · ');
+  // VRM-less rows never yield degenerate names (gatekeeper F3) — the ONE
+  // fallback chain, shared with the queue grids so they can't drift.
+  const rowName = caseDisplayName(c);
 
   return (
-    <button
-      ref={ref}
-      type="button"
-      className={mergeClasses('ce-focusable', styles.row, row.pastDue && styles.rowPastDue)}
-      onClick={onOpen}
-      aria-label={`${verb}. ${c.vrm}, ${subAria}. ${dueText(row)}. Open case.`}
-    >
-      <VrmPlate vrm={c.vrm} size="small" />
-      <Caption1 className={styles.rowSub}>{subText}</Caption1>
-      <span className={styles.rowSpacer} aria-hidden />
-      {pill && <span className={mergeClasses(styles.agePill, ageCls)}>{pill}</span>}
+    <div className={mergeClasses(styles.row, row.pastDue && styles.rowPastDue)}>
+      <button
+        ref={ref}
+        type="button"
+        data-case-row={c.id}
+        className={mergeClasses('ce-focusable', styles.rowMainBtn)}
+        onClick={onOpen}
+        aria-label={`${verb}. ${rowName}, ${subAria}. ${dueText(row)}. Open case.`}
+      >
+        <VrmPlate vrm={c.vrm} size="small" />
+        <Caption1 className={styles.rowSub}>{subText}</Caption1>
+        <span className={styles.rowSpacer} aria-hidden />
+        {pill && <span className={mergeClasses(styles.agePill, ageCls)}>{pill}</span>}
+      </button>
+      <Button
+        appearance="subtle"
+        size="small"
+        data-peek-btn
+        className={styles.peekBtn}
+        icon={<Eye size={16} />}
+        aria-label={`Preview ${rowName}`}
+        onClick={onPeek}
+      />
       <ChevronRight size={16} className={styles.chev} aria-hidden />
-    </button>
+    </div>
   );
 });
 

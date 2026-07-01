@@ -16,7 +16,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getDataAccess } from './index';
-import type { ActivityEvent, Case, CaseUpdateInput, Evidence, Provider } from '@cs/domain';
+import type { LogChaseInput } from './rest-client';
+import type { ActivityEvent, Case, CaseUpdateInput, Chaser, Evidence, Provider } from '@cs/domain';
 import type {
   DashboardSummary,
   RemoveCaseInput,
@@ -363,6 +364,22 @@ export function useReclassifyInbound(): ReclassifyInboundState {
     getDataAccess().reclassifyInbound(id, input),
   );
   return { reclassify: m.run, saving: m.pending, error: m.error };
+}
+
+/** What `useLogChase` hands the screen. `logChase` resolves the created Chaser
+ *  row (same shape as the case-detail read) and REJECTS on failure — a chase
+ *  that didn't persist must never look logged. */
+export interface LogChaseState {
+  logChase: (caseId: string, input: LogChaseInput) => Promise<Chaser>;
+  saving: boolean;
+  error: Error | undefined;
+}
+/** Record a chase against a case (M-E2 — records, never sends). */
+export function useLogChase(): LogChaseState {
+  const m = useMutationFn((caseId: string, input: LogChaseInput) =>
+    getDataAccess().logChase(caseId, input),
+  );
+  return { logChase: m.run, saving: m.pending, error: m.error };
 }
 
 /** What `useCaseRemove` hands the screen. `remove` resolves the RemoveCaseResult

@@ -127,17 +127,6 @@ const useStyles = makeStyles({
 
   ttBody: { display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '240px' },
   ttLine: { fontSize: tokens.fontSizeBase200 },
-  srOnly: {
-    position: 'absolute',
-    width: '1px',
-    height: '1px',
-    padding: 0,
-    margin: '-1px',
-    overflow: 'hidden',
-    clip: 'rect(0 0 0 0)',
-    whiteSpace: 'nowrap',
-    border: 0,
-  },
 });
 
 export interface ProvenanceBadgeProps {
@@ -209,7 +198,7 @@ export function ProvenanceBadge({ provenance, reviewState, fieldKey, variant = '
         <span className={styles.swatch} style={{ backgroundColor: SOURCE_COLOR[key] }} />
         {!compact && <span className={styles.label}>{pillLabel}</span>}
         {glyph}
-        <span className={styles.srOnly}>{reviewLabel}</span>
+        <span className="ce-sr-only">{reviewLabel}</span>
       </span>
     </Tooltip>
   );

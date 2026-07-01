@@ -119,17 +119,6 @@ const useStyles = makeStyles({
   },
   idx: { width: '20px', textAlign: 'right', color: tokens.colorNeutralForeground3, fontVariantNumeric: 'tabular-nums' },
   name: { flex: 1, fontSize: tokens.fontSizeBase300, color: tokens.colorNeutralForeground1 },
-  srOnly: {
-    position: 'absolute',
-    width: '1px',
-    height: '1px',
-    padding: 0,
-    margin: '-1px',
-    overflow: 'hidden',
-    clip: 'rect(0 0 0 0)',
-    whiteSpace: 'nowrap',
-    border: 0,
-  },
 });
 
 interface SortableRowProps {
@@ -269,7 +258,7 @@ export function ImageOrderList({ images, onOrderChange }: ImageOrderListProps) {
           ))}
         </ol>
       </SortableContext>
-      <div aria-live="polite" className={styles.srOnly}>
+      <div aria-live="polite" className="ce-sr-only">
         {announcement}
       </div>
     </DndContext>

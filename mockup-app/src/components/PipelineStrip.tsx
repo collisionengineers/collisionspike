@@ -15,9 +15,10 @@ import type { PipelineStage, PipelineStageKey } from '../data';
    The SPINE (atop CaseDetail) keeps the terminal stage so a per-case "you are
    here" can still light on eva_submitted / box_synced — so it carries all four.
    The Dashboard passes live counts via the `stages` prop (from useDashboard());
-   the spine only needs the labels + the highlight, so it falls back to this
-   skeleton — no data fetcher is imported here (keeps the seam the single I/O
-   boundary). */
+   the spine is COUNT-LESS by design (M-H, 190626 carry-over: queue depths are
+   meaningless on a single case's page — all-zero counts were misleading), so
+   it needs only the labels + the highlight and falls back to this skeleton —
+   no data fetcher is imported here (keeps the seam the single I/O boundary). */
 const BACKLOG_STAGES: readonly { key: PipelineStageKey; label: string }[] = [
   { key: 'new', label: 'New' },
   { key: 'not_ready', label: 'Not ready' },
@@ -157,7 +158,6 @@ const useStyles = makeStyles({
     lineHeight: 1,
     color: 'var(--ce-ink)',
   },
-  countSpine: { fontSize: '15px' },
   countStuck: { color: 'var(--ce-warning-text)' },
   labelStuck: { color: 'var(--ce-warning-ink)' },
   // Non-colour cue beside the stuck label — the stage must never be
@@ -303,17 +303,20 @@ export function PipelineStrip({
               )}
               {s.label}
             </span>
-            <span
-              className={mergeClasses(
-                styles.count,
-                isSpine && styles.countSpine,
-                stuckHere && styles.countStuck,
-                isHere && styles.countHere,
-                s.count === 0 && !isHere && styles.countZero,
-              )}
-            >
-              {s.count}
-            </span>
+            {/* Counts are a HERO concern (live queue depths). The spine is a
+                per-case "you are here" — counts there were all-zero noise. */}
+            {!isSpine && (
+              <span
+                className={mergeClasses(
+                  styles.count,
+                  stuckHere && styles.countStuck,
+                  isHere && styles.countHere,
+                  s.count === 0 && !isHere && styles.countZero,
+                )}
+              >
+                {s.count}
+              </span>
+            )}
             {isHere && (
               <span className={styles.hereTag}>
                 <MapPin size={10} strokeWidth={2.5} /> You are here
@@ -343,7 +346,12 @@ export function PipelineStrip({
           <div
             key={s.key}
             role="listitem"
-            aria-label={`${s.label}: ${s.count} ${plural}${stuckHere ? ', needs attention' : ''}${isHere ? ' (current stage)' : ''}`}
+            // The count-less spine never announces counts either.
+            aria-label={
+              isSpine
+                ? `${s.label}${stuckHere ? ', needs attention' : ''}${isHere ? ' (current stage)' : ''}`
+                : `${s.label}: ${s.count} ${plural}${stuckHere ? ', needs attention' : ''}${isHere ? ' (current stage)' : ''}`
+            }
             aria-current={isHere ? 'step' : undefined}
             {...commonProps}
           >
