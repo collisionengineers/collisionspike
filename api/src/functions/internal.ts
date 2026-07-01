@@ -495,7 +495,7 @@ app.http('internalCasesResolve', {
       const statusCode = caseStatusCodec.toInt(rawStatus) ?? statusToInt('new_email');
       const caseRef = (inbound.candidateRef ?? '').trim();
       const subject = (inbound.subject ?? '').trim();
-      const name = [vrm || null, subject || null].filter(Boolean).join(' · ') || 'Email intake';
+      const name = ([vrm || null, subject || null].filter(Boolean).join(' · ') || 'Email intake').slice(0, 100);
       const emailKindCode = intakeChannelKindCodec.toInt('email') ?? null;
 
       // The create + (for a known provider) the Case/PO mint run in ONE transaction so the
