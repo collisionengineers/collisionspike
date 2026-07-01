@@ -183,6 +183,83 @@ _WORK_KEYWORDS: tuple[str, ...] = (
     "carry out an inspection",
     "pre-accident value",
     "pre accident value",
+    # collisionspike TKT-036 — instruction subject/attachment cues. Real provider
+    # instructions arrive with these in the subject ("New eng ins") or the
+    # attachment filename ("To Engineer with instructions"), not always a
+    # "please inspect" verb in the body. Same precision discipline: these are
+    # instruction-specific phrases, not bare words.
+    "new eng ins",
+    "engineer instruction",
+    "engineer's instruction",
+    "instructions attached",
+    "with instructions",
+    "instruction to engineer",
+)
+
+
+# Phrases (case-insensitive) that signal an INVOICE / BILLING request — the sender
+# is asking US to send (or chasing) the invoice/fee for work ALREADY carried out.
+# This is NOT new work and NOT a generic query: an email asking for the invoice,
+# typically with our own engineer's report attached, must route to the billing
+# bucket, never mint a new Case (collisionspike TKT-037). Consulted only after the
+# work rules, like _QUERY_KEYWORDS, so an email that both bills and instructs reads
+# as work first.
+# DELIBERATELY REQUEST-SHAPED: a remittance advice ("payment is on its way") or a
+# statement that merely mentions "invoice" is NOT a billing request — only an
+# imperative asking US to send/provide our invoice or fee note is. Anchored to the
+# request verbs so an inbound payment advice abstains to other, not billing.
+_BILLING_KEYWORDS: tuple[str, ...] = (
+    "provide the invoice",
+    "provide your invoice",
+    "provide us with the invoice",
+    "send the invoice",
+    "send us the invoice",
+    "send your invoice",
+    "send us your invoice",
+    "send us a copy of the invoice",
+    "copy of your invoice",
+    "raise an invoice",
+    "raise your invoice",
+    "issue the invoice",
+    "issue your invoice",
+    "let us have your invoice",
+    "let us have your fee",
+    "your fee note",
+    "fee note please",
+)
+
+
+# Phrases (case-insensitive) that signal an INFORMAL work request — a sender who
+# wants us to look at / report on a vehicle but does not use the formal instruction
+# wording in _WORK_KEYWORDS (collisionspike TKT-040). DELIBERATELY WEAKER than
+# _WORK_KEYWORDS: an informal phrase only promotes when it is corroborated by a real
+# job identifier (a Case/PO, job ref, or VRM) AND images — informal wording alone
+# must still abstain, to preserve the abstain-to-other bias.
+_INFORMAL_WORK_KEYWORDS: tuple[str, ...] = (
+    "can you look at",
+    "could you look at",
+    "have a look at the damage",
+    "look at the damage",
+    "can you sort",
+    "deal with this one",
+    "need a report on",
+    "need you to look",
+    "here is a new one",
+    "another one for you",
+    "new job",
+    "new claim",
+    "quote for the repairs",
+    # collisionspike TKT-040 — informal triage / initial-assessment work requests
+    # (a provider sends damage photos and asks for a roadworthiness/repairability view
+    # before the formal instruction). Promotes ONLY with images + a job identifier.
+    "initial assessment",
+    "provide an initial assessment",
+    "confirm if this vehicle is roadworthy",
+    "roadworthy and repairable",
+    "roadworthy",
+    "triage only",
+    "triage request",
+    "triage only request",
 )
 
 
@@ -234,6 +311,65 @@ _QUERY_KEYWORDS: tuple[str, ...] = (
     "general enquiry",
     "enquiring about",
     "querying",
+    # collisionspike TKT-039 — report-support / dispute queries (a client asking us to
+    # justify a report we already produced). These are questions about EXISTING work.
+    "your arguments",
+    "are disputing",
+    "is disputing",
+    "disputing the",
+    "dispute the cost",
+    "supporting evidence",
+    "support our report",
+    "support your report",
+)
+
+
+# High-precision CHASE phrases (collisionspike TKT-030/031/033): the sender is asking
+# us to SEND a report we already owe, or noting they have heard nothing. These recap
+# the original instruction ("...we instructed you to inspect and prepare a report,
+# but heard nothing — please send your report"), so the email carries strong work
+# language yet is NOT new work. A genuine NEW instruction never asks us to "provide
+# your report" / says it "heard nothing" — so a chase phrase SUPPRESSES the work rules
+# (handled in the classifier) and routes the email to the query side. Anchored to
+# send-me-the-existing-report wording; deliberately excludes "provide a report"
+# (that is an instruction TO produce one).
+_CHASE_PHRASES: tuple[str, ...] = (
+    "provide the report",
+    "provide your report",
+    "provide engineers report",
+    "provide engineer's report",
+    "provide the engineers report",
+    "provide us with a copy of your report",
+    "provide a copy of your report",
+    "copy of your report",
+    "copy of the report",
+    "provide report based",
+    "send us your report",
+    "send your report",
+    "send the report",
+    "forward your report",
+    "chase the report",
+    "heard nothing further",
+    "heard nothing from you",
+    "not heard anything",
+    "still awaiting your report",
+    "outstanding report",
+)
+
+
+# Case-summary / digest markers (collisionspike TKT-029): an email that is a RECAP of
+# instructions already sent (the per-case detail is in an attached summary, not a fresh
+# instruction). High-precision recap wording so a genuine instruction is not suppressed.
+_SUMMARY_MARKERS: tuple[str, ...] = (
+    "summary of the instructions",
+    "summary of instructions",
+    "summary of the cases",
+    "summary of cases",
+    "summary of the inspections",
+    "instructions sent yesterday",
+    "instructions sent over yesterday",
+    "showing the status of the inspections",
+    "list of instructions sent",
 )
 
 
