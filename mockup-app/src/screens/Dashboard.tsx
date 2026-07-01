@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Spinner } from '@fluentui/react-components';
 import {
@@ -10,6 +10,7 @@ import {
 import {
   RefreshCw,
   AlertOctagon,
+  ChevronDown,
   ChevronRight,
   CircleCheck,
   CheckCheck,
@@ -39,6 +40,13 @@ import {
 } from '../components';
 import { useDashboard } from '../data';
 import type { ActionReason, AgingRow, PipelineStageKey } from '../data';
+import {
+  ageSeverity,
+  dueText,
+  duePillText,
+  groupAgingRows,
+  type NeedsActionGroup,
+} from './dashboard-needs-action';
 
 /* ============================================================
    Dashboard — the CHASE COCKPIT.
@@ -186,6 +194,10 @@ const useStyles = makeStyles({
     flexWrap: 'wrap',
     gap: tokens.spacingHorizontalM,
   },
+  // Clickable stat tile (spec §4): the affordance discriminator is an
+  // always-visible chevron + a hover response (lift + --ce-shadow-hover);
+  // static surfaces (thruStrip cells, allTimeTile) get neither. Reduced
+  // motion is gated globally in theme.css.
   liveBtn: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -196,12 +208,20 @@ const useStyles = makeStyles({
     padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalL}`,
     cursor: 'pointer',
     textAlign: 'left',
-    transitionProperty: 'background-color, border-color',
-    transitionDuration: tokens.durationFaster,
+    transitionProperty: 'background-color, border-color, box-shadow, transform',
+    transitionDuration: '150ms',
+    transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
     ':hover': {
       backgroundColor: tokens.colorNeutralBackground1Hover,
       border: `1px solid ${tokens.colorNeutralStroke1}`,
+      boxShadow: 'var(--ce-shadow-hover)',
+      transform: 'translateY(-1px)',
     },
+    ':active': {
+      transform: 'translateY(0)',
+      boxShadow: 'var(--ce-shadow-sm)',
+    },
+    '&:hover [data-tile-chevron]': { color: tokens.colorNeutralForeground2 },
   },
   // "Needs sorting" (untriaged) tile — warning amber, not red (reforge fork #3:
   // untriaged email needs sorting; it is not a blocker).
@@ -237,6 +257,13 @@ const useStyles = makeStyles({
     fontSize: '13px',
     fontWeight: tokens.fontWeightSemibold,
     color: tokens.colorNeutralForeground2,
+  },
+  // Right-centred, always-visible clickability cue (spec §4).
+  tileChevron: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    color: tokens.colorNeutralForeground3,
+    flexShrink: 0,
   },
 
   /* ----- Region B: throughput — windowed figures + a SEPARATE all-time tile ----- */
@@ -336,12 +363,59 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground1,
   },
 
+  /* Needs-action groups (spec IA §1): verb-led h3 headers carry the reason
+     (icon + "<verb> — <count>"); rows are DENSE (~40px, no per-row reason
+     icon — the header says why). */
+  groups: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM },
+  group: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
+  groupHead: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+    margin: 0,
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+    color: 'var(--ce-ink)',
+  },
+  groupIcon: { display: 'inline-flex', color: tokens.colorNeutralForeground2, flexShrink: 0 },
+  // Disclosure chevron for the 4th+ groups — the header text itself is NOT
+  // clickable (it is a heading, not a nav affordance). 6px padding around the
+  // 16px glyph = 28px hit target (headroom over the WCAG 2.5.8 24px floor).
+  groupToggle: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    border: 0,
+    background: 'none',
+    margin: 0,
+    padding: '6px',
+    borderRadius: '2px',
+    cursor: 'pointer',
+    color: tokens.colorNeutralForeground3,
+    ':hover': { color: tokens.colorNeutralForeground2, backgroundColor: tokens.colorNeutralBackground2 },
+  },
+  // "Show all <n>" in-place expander — the count is always visible, so a
+  // capped group never reads as the whole list (no silent caps).
+  showAllBtn: {
+    alignSelf: 'flex-start',
+    border: 0,
+    background: 'none',
+    margin: 0,
+    padding: '4px 8px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground2,
+    textDecoration: 'underline',
+    textUnderlineOffset: '2px',
+    ':hover': { color: 'var(--ce-ink)' },
+  },
+
   list: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
   row: {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
-    padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
+    padding: `${tokens.spacingVerticalSNudge} ${tokens.spacingHorizontalL}`,
     borderRadius: '2px',
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     backgroundColor: tokens.colorNeutralBackground1,
@@ -359,29 +433,14 @@ const useStyles = makeStyles({
     borderLeft: '3px solid var(--ce-red)',
     ':hover': { borderLeft: '3px solid var(--ce-red)' },
   },
-  rowIcon: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '32px',
-    height: '32px',
-    borderRadius: '2px',
-    flexShrink: 0,
-    backgroundColor: tokens.colorNeutralBackground3,
-    color: 'var(--ce-charcoal)',
-  },
-  rowIconBlocker: { backgroundColor: 'var(--ce-red-tint)', color: 'var(--ce-red)' },
-  rowMain: { display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, flexGrow: 1 },
-  rowVerb: {
-    fontSize: '15px',
-    fontWeight: tokens.fontWeightSemibold,
-    color: 'var(--ce-ink)',
+  rowSub: {
+    color: tokens.colorNeutralForeground3,
+    minWidth: 0,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
-  rowMeta: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS, flexWrap: 'wrap' },
-  rowSub: { color: tokens.colorNeutralForeground3 },
+  rowSpacer: { flexGrow: 1 },
 
   /* age/due pill — severity ramp grey → amber → red */
   agePill: {
@@ -411,15 +470,7 @@ const useStyles = makeStyles({
   chev: { color: tokens.colorNeutralForeground4, flexShrink: 0 },
 });
 
-/* ----------  verb + icon per action reason  ---------- */
-
-const REASON_VERB: Record<ActionReason, string> = {
-  missing_images: 'Chase garage for images',
-  missing_instructions: 'Chase provider for instructions',
-  duplicate: 'Resolve duplicate',
-  conflict: 'Resolve claimant-name conflict before submit',
-  needs_review: 'Review the details',
-};
+/* ----------  icon per action reason (verbs live in dashboard-needs-action)  ---------- */
 
 const REASON_ICON: Record<ActionReason, LucideIcon> = {
   missing_images: ImageOff,
@@ -429,28 +480,20 @@ const REASON_ICON: Record<ActionReason, LucideIcon> = {
   needs_review: AlertTriangle,
 };
 
-/* ----------  time + due formatting  ---------- */
+/** Header icon for a group — the trailing no-reason group reuses the review glyph. */
+function groupIcon(reason: ActionReason | null): LucideIcon {
+  return reason ? REASON_ICON[reason] : AlertTriangle;
+}
+
+/** First N rows shown per group before the "Show all <n>" expander. */
+const MAX_GROUP_ROWS = 5;
+/** Groups expanded by default; 4th+ collapse to their header. */
+const DEFAULT_OPEN_GROUPS = 3;
+
+/* ----------  time formatting  ---------- */
 
 function fmtTime(d: Date): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-/** Severity for an aging row: greys (future/ample) → amber (≤2d) → red (past-due). */
-function ageSeverity(row: AgingRow): 'info' | 'attention' | 'blocker' {
-  if (row.pastDue) return 'blocker';
-  if (Number.isFinite(row.daysToDue) && row.daysToDue <= 2) return 'attention';
-  return 'info';
-}
-
-/** "3d past due · 12/06" / "Due today · 17/06" / "Due in 4d · 21/06". */
-function dueText(row: AgingRow): string {
-  const due = row.case.dateDue;
-  const tail = due ? ` · ${due.slice(0, 5)}` : '';
-  if (!Number.isFinite(row.daysToDue)) return 'No due date';
-  const n = row.daysToDue;
-  if (n < 0) return `${Math.abs(n)}d past due${tail}`;
-  if (n === 0) return `Due today${tail}`;
-  return `Due in ${n}d${tail}`;
 }
 
 /* ----------  screen  ---------- */
@@ -494,6 +537,12 @@ export function Dashboard() {
   }, [dash]);
 
   const chips = useSeverityChipStyles();
+
+  // Needs-action grouping (pure layer). Disclosure state is per-reason, NOT
+  // persisted: 4th+ groups default collapsed; "Show all" is per-group in place.
+  const groups = useMemo(() => groupAgingRows(dash?.agingExceptions.rows ?? []), [dash]);
+  const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({});
+  const [showAllGroups, setShowAllGroups] = useState<Record<string, boolean>>({});
 
   // First-load (no data yet) — content-shaped skeleton; hard failure — error panel.
   if (!dash) {
@@ -612,14 +661,23 @@ export function Dashboard() {
                 title={`Nothing waiting. New cases land here as email arrives — last checked ${fmtTime(stamp)}.`}
               />
             ) : (
-              <div className={styles.list}>
-                {aging.rows.map((row) => (
-                  <AgingRowItem
-                    key={row.case.id}
-                    row={row}
-                    onOpen={() => navigate(`/case/${row.case.id}`)}
-                  />
-                ))}
+              <div className={styles.groups}>
+                {groups.map((group, index) => {
+                  const key = group.reason ?? 'review-case';
+                  const open = openOverrides[key] ?? index < DEFAULT_OPEN_GROUPS;
+                  return (
+                    <NeedsActionGroupSection
+                      key={key}
+                      group={group}
+                      collapsible={index >= DEFAULT_OPEN_GROUPS}
+                      open={open}
+                      showAll={showAllGroups[key] ?? false}
+                      onToggleOpen={() => setOpenOverrides((prev) => ({ ...prev, [key]: !open }))}
+                      onShowAll={() => setShowAllGroups((prev) => ({ ...prev, [key]: true }))}
+                      onOpenCase={(id) => navigate(`/case/${id}`)}
+                    />
+                  );
+                })}
               </div>
             )}
           </section>
@@ -736,51 +794,137 @@ function InboxTile({
         <span className={styles.liveNumber}>{value}</span>
         <span className={styles.liveLabel}>{label}</span>
       </span>
+      <span className={styles.tileChevron} data-tile-chevron aria-hidden>
+        <ChevronRight size={14} strokeWidth={2} />
+      </span>
     </button>
   );
 }
 
-/* ----------  Region C row  ---------- */
+/* ----------  Region C: needs-action group + dense row (spec IA §1)  ---------- */
 
-function AgingRowItem({ row, onOpen }: { row: AgingRow; onOpen: () => void }) {
+function NeedsActionGroupSection({
+  group,
+  collapsible,
+  open,
+  showAll,
+  onToggleOpen,
+  onShowAll,
+  onOpenCase,
+}: {
+  group: NeedsActionGroup;
+  /** 4th+ groups collapse to their header (chevron toggle, not persisted). */
+  collapsible: boolean;
+  open: boolean;
+  showAll: boolean;
+  onToggleOpen: () => void;
+  onShowAll: () => void;
+  onOpenCase: (caseId: string) => void;
+}) {
+  const styles = useStyles();
+  const Icon = groupIcon(group.reason);
+  const count = group.rows.length;
+  const bodyId = `needs-action-rows-${group.reason ?? 'review-case'}`;
+  const visible = showAll ? group.rows : group.rows.slice(0, MAX_GROUP_ROWS);
+
+  // "Show all" unmounts its own button — move keyboard focus to the FIRST
+  // newly-revealed row on a genuine expand (not on a mount that already has
+  // showAll set), so focus never drops to <body>.
+  const firstRevealedRef = useRef<HTMLButtonElement | null>(null);
+  const prevShowAll = useRef(showAll);
+  useEffect(() => {
+    if (showAll && !prevShowAll.current) firstRevealedRef.current?.focus();
+    prevShowAll.current = showAll;
+  }, [showAll]);
+
+  return (
+    <div className={styles.group}>
+      {/* h3, NOT clickable — the disclosure chevron (4th+ groups) is its own
+          small button; the count is always visible even when collapsed. */}
+      <h3 className={styles.groupHead}>
+        <span className={styles.groupIcon} aria-hidden>
+          <Icon size={16} strokeWidth={1.85} />
+        </span>
+        <span>
+          {group.verb} — {count}
+        </span>
+        {collapsible && (
+          <button
+            type="button"
+            className={mergeClasses('ce-focusable', styles.groupToggle)}
+            aria-expanded={open}
+            // Only reference the body while it is actually rendered.
+            aria-controls={open ? bodyId : undefined}
+            aria-label={open ? `Collapse “${group.verb}”` : `Expand “${group.verb}” (${count})`}
+            onClick={onToggleOpen}
+          >
+            {open ? <ChevronDown size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
+          </button>
+        )}
+      </h3>
+
+      {open && (
+        <div className={styles.list} id={bodyId}>
+          {visible.map((row, index) => (
+            <AgingRowItem
+              key={row.case.id}
+              ref={index === MAX_GROUP_ROWS ? firstRevealedRef : undefined}
+              row={row}
+              verb={group.verb}
+              onOpen={() => onOpenCase(row.case.id)}
+            />
+          ))}
+          {!showAll && count > MAX_GROUP_ROWS && (
+            <button
+              type="button"
+              className={mergeClasses('ce-focusable', styles.showAllBtn)}
+              onClick={onShowAll}
+            >
+              Show all {count}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Dense (~40px) needs-action row: VRM plate → vehicle · provider → due pill
+    (only when a due date exists — absence is the signal) → chevron. The verb
+    lives on the group header; no per-row reason icon. forwardRef so the
+    group's "Show all" expander can move keyboard focus onto the first
+    newly-revealed row. */
+const AgingRowItem = forwardRef<
+  HTMLButtonElement,
+  { row: AgingRow; verb: string; onOpen: () => void }
+>(function AgingRowItem({ row, verb, onOpen }, ref) {
   const styles = useStyles();
   const chips = useSeverityChipStyles();
   const c = row.case;
-  const reason = row.reason;
-  const Icon = reason ? REASON_ICON[reason] : AlertTriangle;
-  const verb = reason ? REASON_VERB[reason] : 'Review case';
   const sev = ageSeverity(row);
+  const pill = duePillText(row);
   const ageCls =
     sev === 'blocker' ? chips.chipCritical : sev === 'attention' ? styles.ageAttention : styles.ageInfo;
+  // Join with "·" only when both sides exist — no dangling separator when the
+  // provider (or model) is missing.
+  const subText = [c.vehicleModel || 'Vehicle TBC', c.provider].filter(Boolean).join(' · ');
+  const subAria = [c.vehicleModel || 'vehicle TBC', c.provider].filter(Boolean).join(' · ');
 
   return (
     <button
+      ref={ref}
       type="button"
       className={mergeClasses('ce-focusable', styles.row, row.pastDue && styles.rowPastDue)}
       onClick={onOpen}
-      aria-label={`${verb}. ${c.vrm}, ${c.vehicleModel || 'vehicle TBC'}. ${dueText(row)}. Open case.`}
+      aria-label={`${verb}. ${c.vrm}, ${subAria}. ${dueText(row)}. Open case.`}
     >
-      <span
-        className={mergeClasses(styles.rowIcon, row.pastDue && styles.rowIconBlocker)}
-        aria-hidden
-      >
-        <Icon size={17} strokeWidth={1.85} />
-      </span>
-
-      <span className={styles.rowMain}>
-        <span className={styles.rowVerb}>{verb}</span>
-        <span className={styles.rowMeta}>
-          <VrmPlate vrm={c.vrm} size="small" />
-          <Caption1 className={styles.rowSub}>
-            {c.vehicleModel || 'Vehicle TBC'} · {c.provider}
-          </Caption1>
-        </span>
-      </span>
-
-      <span className={mergeClasses(styles.agePill, ageCls)}>{dueText(row)}</span>
-      <ChevronRight size={18} className={styles.chev} aria-hidden />
+      <VrmPlate vrm={c.vrm} size="small" />
+      <Caption1 className={styles.rowSub}>{subText}</Caption1>
+      <span className={styles.rowSpacer} aria-hidden />
+      {pill && <span className={mergeClasses(styles.agePill, ageCls)}>{pill}</span>}
+      <ChevronRight size={16} className={styles.chev} aria-hidden />
     </button>
   );
-}
+});
 
 export default Dashboard;
