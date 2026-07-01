@@ -1,7 +1,7 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-06-29**._
-_Companion docs: [README.md](./README.md) · [ROADMAP.md](./ROADMAP.md) (forward worklist) · [docs/gated.md](./docs/gated.md) · live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md)._
+_Single source of truth for "where are we now." Last updated **2026-07-01**._
+_Companion docs: [README.md](./README.md) · [ROADMAP.md](./ROADMAP.md) (forward worklist) · **[docs/tickets/BOARD.md](./docs/tickets/BOARD.md)** (granular ticket delivery) · [docs/gated.md](./docs/gated.md) · live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
 > [ROADMAP.md](./ROADMAP.md) is the forward phased checklist; [docs/gated.md](./docs/gated.md) is
@@ -25,6 +25,20 @@ subscriptions over the **production mailbox set info@ + engineers@ + desk@** (ma
 case-create remains available alongside. Subscription/mailbox state: the registry
 [docs/architecture/live-environment.md](./docs/architecture/live-environment.md). **Principle: no
 mock/seed case data in the app — it shows real rows only.**
+
+> **🔔 2026-07-01 — work-todo-spike delivery wave + Box archive re-verified.**
+> Granular ticket state (Done / Now / Backlog): **[docs/tickets/BOARD.md](./docs/tickets/BOARD.md)** — do not
+> duplicate here. Highlights this pass:
+> - **Box evidence archive** — **VERIFIED-LIVE** ([TKT-003](./docs/tickets/TKT-003-box-sync/TKT-003-box-sync.md)):
+>   intake copies `.eml`, instructions, and images into the case Box folder via `boxArchiveEvidence`
+>   (post-2026-07-01 regression fix).
+> - **Provider automation modes** enforced in orchestration ([TKT-013](./docs/tickets/TKT-013-automation-mode/TKT-013-automation-mode.md)).
+> - **SPA** — amalgamated dashboard, calendar date fields, acme placeholder removed
+>   ([TKT-007](./docs/tickets/TKT-007-amalgamated-dashboard/TKT-007-amalgamated-dashboard.md) /
+>   [TKT-008](./docs/tickets/TKT-008-calendar-date-fields/TKT-008-calendar-date-fields.md) /
+>   [TKT-014](./docs/tickets/TKT-014-acme-placeholder/TKT-014-acme-placeholder.md)) — offline-tested;
+>   live SPA click-through still open where noted on the board.
+> - **Ticket system** live ([TKT-019](./docs/tickets/TKT-019-ticket-system/TKT-019-ticket-system.md)).
 
 > **🔔 2026-06-28 — Box is now LIVE (JWT Server Auth); auth + gates reconciled.**
 > The single forward worklist is **[ROADMAP.md § Now / Next / Later](./ROADMAP.md)** (start there). This session:

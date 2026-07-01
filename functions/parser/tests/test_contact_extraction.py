@@ -178,3 +178,18 @@ def test_ambiguous_multiple_numbers_without_context_stay_empty():
         "Vehicle Registration: AB12 CDE",
     )
     assert fields[FieldKey.CLAIMANT_TELEPHONE].value == ""
+
+
+def test_ax_credit_repair_team_inbox_is_not_claimant_email():
+    """AX instruction PDFs carry a provider team inbox — blank beats wrong."""
+    fields = _extract(
+        "AX Reference",
+        ": 1074398",
+        "Verbal authority to be provided on the day of inspection. If this",
+        "cannot be done for any reason, please contact the Credit Repair",
+        "team on 01675 432266 or by email on",
+        "CreditRepair_TeamInbox@ax-uk.com",
+        "Name: Mr Sample Claimant",
+        "VRM: AB12 CDE",
+    )
+    assert fields[FieldKey.CLAIMANT_EMAIL].value == ""

@@ -24,6 +24,7 @@
  */
 
 import * as df from 'durable-functions';
+import { supplementAccidentCircumstancesFromBody } from '../lib/supplement-parse.js';
 
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
 retry.backoffCoefficient = 2;
@@ -194,7 +195,9 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     claimant_email: exVal('claimant_email'),
     date_of_loss: exVal('date_of_loss'),
     date_of_instruction: exVal('date_of_instruction'),
-    accident_circumstances: exVal('accident_circumstances'),
+    accident_circumstances:
+      exVal('accident_circumstances') ||
+      supplementAccidentCircumstancesFromBody(String((inbound as { body?: string }).body ?? '')),
     vat_status: exVal('vat_status'),
   };
 

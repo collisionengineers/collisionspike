@@ -48,7 +48,8 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
   [plans/m2-umbrella-enrichment-to-scale.md](./plans/m2-umbrella-enrichment-to-scale.md).
   - **Ticket-source drop-zone:** [plans/work-todo-spike/](./plans/work-todo-spike/) holds the operator
     stubs, fan-out **research packs**, and sample data behind the [tickets/](./tickets/README.md) — retained
-    (other agents consume the fixtures), indexed from the tickets README, **not** authoritative on live state.
+    (other agents consume the fixtures); index + done map in
+    [plans/work-todo-spike/README.md](./plans/work-todo-spike/README.md), **not** authoritative on live state.
 
 ## Operator & status
 - [../ROADMAP.md](../ROADMAP.md) — the forward worklist; tickets carry the atomic work items beneath it.

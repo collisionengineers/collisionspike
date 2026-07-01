@@ -4,6 +4,11 @@
 gates reconciled. The activation record (before/after, exact commands) is
 **[docs/handoff/02-box-activation.md](../handoff/02-box-activation.md)**.
 
+> **Intake evidence archive — VERIFIED-LIVE (2026-07-01, [TKT-003](../tickets/TKT-003-box-sync/TKT-003-box-sync.md)).**
+> After folder-at-intake, `cespk-orch-dev` runs the `boxArchiveEvidence` durable activity: reads persisted
+> evidence via the Data API internal route and uploads bytes through box-fn `upload_file`. A fresh intake's
+> case folder holds the `.eml`, instruction document(s), and images.
+
 The Box app uses **JWT "Server Authentication"** (not CCG). On 2026-06-28 the operator generated a
 fresh signing keypair and dropped the complete Box `Config.JSON` into the repo root
 (`941197_re7d6t50_config.json`, **gitignored**). It was verified end-to-end against `api.box.com`:

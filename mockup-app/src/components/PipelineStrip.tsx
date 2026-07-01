@@ -91,9 +91,10 @@ const useStyles = makeStyles({
 
   /* a stage carrying work */
   segActive: { backgroundColor: tokens.colorNeutralBackground2 },
-  /* the chasing/stuck stage — CE red accent (top rule + red count) */
+  /* the chasing/stuck stage — CE red accent (top rule + left bar + red count) */
   segStuck: {
     backgroundColor: 'var(--ce-red-tint)',
+    borderLeft: '4px solid var(--ce-red)',
     '::before': {
       content: '""',
       position: 'absolute',
@@ -155,7 +156,7 @@ const useStyles = makeStyles({
   },
   countSpine: { fontSize: '15px' },
   countStuck: { color: 'var(--ce-red)' },
-  countZero: { color: tokens.colorNeutralForeground4 },
+  countZero: { color: tokens.colorNeutralForeground3 },
 
   // interactive (dashboard) — the segment is a real <button> that navigates to
   // its queue on click; reset the native button chrome to keep the seg look.
@@ -167,7 +168,14 @@ const useStyles = makeStyles({
     font: 'inherit',
     color: 'inherit',
     textAlign: 'left',
-    ':hover': { backgroundColor: tokens.colorNeutralBackground1Hover },
+    transitionProperty: 'background-color, box-shadow, transform',
+    transitionDuration: '150ms',
+    transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+    ':hover': {
+      backgroundColor: tokens.colorNeutralBackground1Hover,
+      boxShadow: 'var(--ce-shadow-md)',
+      transform: 'translateY(-1px)',
+    },
     ':focus-visible': { outline: 'none', boxShadow: 'inset 0 0 0 2px var(--ce-red)', zIndex: 1 },
   },
 });

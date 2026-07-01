@@ -17,3 +17,8 @@ done — multi-format extraction + the field-drop fix are implemented and verifi
 
 ## Summary
 The regression was that the parser output was not being persisted into the case's EVA columns, so only the registration survived. The fix re-establishes the parse.ts→parser contract and maps each extracted field into its EVA column plus a provenance row. Extraction now spans PDF/.doc/.docx/.eml/.msg via the vendored cedocumentmapper engine. Live cases confirm multiple EVA fields and provenance rows populating from real instructions.
+
+## Follow-up (2026-07-01)
+QDOS triage letter class (`QDOS26010` / VN64WNG): `accident_circumstances` empty despite narrative in email body.
+See [changes-regression-01-07-26.md](./changes-regression-01-07-26.md) — alternate QDOS label pairs, DOC scrape
+quality gate, email-body supplement on intake, re-vendor + deploy parser + orchestration.

@@ -71,6 +71,11 @@ docs/plans/
 > `inspection-address-revamp/README.md`) have been removed now that they are distilled; consolidated decisions
 > live in [../open-questions.md](../open-questions.md).
 
+> **`work-todo-spike/` — distilled into tickets (retained).** Operator stubs + research packs behind
+> [../tickets/](../tickets/README.md) (TKT-001…040). Delivery state: [../tickets/BOARD.md](../tickets/BOARD.md);
+> stub→ticket map: [work-todo-spike/README.md](./work-todo-spike/README.md). Research packs stay; stubs get a
+> done-pointer when closed (research packs remain advisory).
+
 > **Phase 7 — Box-centric intake pivot (ADR-0012).** Added 2026-06-22 as a later **additive** phase
 > (folder at parse-confirm, File-Request image chasers, webhook intake; **Dataverse-authoritative,
 > one-way Box mirror**). Its **authoritative build order + cross-section reconciliations** live in

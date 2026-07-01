@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Badge,
@@ -55,6 +55,7 @@ import {
   Circle,
   Copy,
   FileText,
+  Folder,
   Inbox as InboxIcon,
   Link2,
   Mail,
@@ -64,6 +65,7 @@ import {
   PencilLine,
   RotateCcw,
   Tags,
+  X,
   XCircle,
 } from 'lucide-react';
 import {
@@ -195,6 +197,38 @@ function parseInboxView(value: string | null): InboundView {
   return value === 'handled' || value === 'all' ? value : 'active';
 }
 
+function parseTriageStateFilter(value: string | null): TriageState | typeof ANY {
+  if (value === 'new' || value === 'routed' || value === 'actioned' || value === 'dismissed') {
+    return value;
+  }
+  return ANY;
+}
+
+/** Suggested Outlook sub-folder for display (suggestion only — not auto-applied). */
+function suggestedFolderLabel(e: InboundEmail): string {
+  switch (e.suggestedSubtype ?? e.subtype) {
+    case 'existing_provider_instruction':
+      return 'Inbox/Instructions';
+    case 'existing_provider_audit':
+      return 'Inbox/Audits';
+    case 'existing_provider_diminution':
+      return 'Inbox/Diminution';
+    case 'new_client_work':
+      return 'Inbox/New clients';
+    case 'query_existing_work':
+      return 'Inbox/Queries/Case queries';
+    case 'query_new_enquiry':
+      return 'Inbox/Queries/Enquiries';
+    case 'billing_request':
+      return 'Inbox/Billing';
+    case 'case_summary':
+    case 'acknowledgement':
+      return 'Inbox/No action';
+    default:
+      return 'Inbox/Other';
+  }
+}
+
 const EMPTY_HINT: Record<InboundCategory, string> = {
   receiving_work:
     'Nothing to action — instruction and audit emails that became (or will become) Cases land in this tab.',
@@ -261,6 +295,108 @@ const useStyles = makeStyles({
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     borderRadius: tokens.borderRadiusMedium,
     overflow: 'hidden',
+    flex: '1 1 auto',
+    minWidth: 0,
+  },
+
+  workspace: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: tokens.spacingHorizontalM,
+    minHeight: '420px',
+  },
+  gridPane: {
+    flex: '1 1 60%',
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  gridPaneWithSidebar: {
+    flex: '1 1 55%',
+  },
+
+  previewSidebar: {
+    flex: '0 0 40%',
+    maxWidth: '480px',
+    minWidth: '280px',
+    display: 'flex',
+    flexDirection: 'column',
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground1,
+    overflow: 'hidden',
+  },
+  previewHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: tokens.spacingHorizontalS,
+    padding: tokens.spacingVerticalM + ' ' + tokens.spacingHorizontalM,
+    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+    backgroundColor: tokens.colorNeutralBackground2,
+  },
+  previewTitle: {
+    fontWeight: tokens.fontWeightSemibold,
+    fontSize: tokens.fontSizeBase400,
+    color: tokens.colorNeutralForeground1,
+    lineHeight: 1.3,
+    minWidth: 0,
+    wordBreak: 'break-word',
+  },
+  previewBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+    padding: tokens.spacingVerticalM,
+    overflowY: 'auto',
+    flex: 1,
+    minHeight: 0,
+  },
+  previewActions: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: tokens.spacingHorizontalS,
+    padding: tokens.spacingVerticalM,
+    borderTop: `1px solid ${tokens.colorNeutralStroke2}`,
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  avatarCircle: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    backgroundColor: 'var(--ce-red-tint)',
+    color: 'var(--ce-red)',
+    fontWeight: 700,
+    fontSize: '14px',
+    flexShrink: 0,
+  },
+  fromRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+  },
+  folderLine: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    color: tokens.colorNeutralForeground3,
+    fontSize: '11px',
+  },
+  folderName: {
+    fontFamily: 'var(--ce-font-mono)',
+    fontSize: '10px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  },
+
+  subjLinkSelected: {
+    color: 'var(--ce-red)',
+    textDecoration: 'underline',
+    textUnderlineOffset: '2px',
   },
 
   fromCell: { display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.25 },
@@ -278,6 +414,12 @@ const useStyles = makeStyles({
     whiteSpace: 'nowrap',
     textAlign: 'left',
     maxWidth: '100%',
+    cursor: 'pointer',
+    ':hover': {
+      color: 'var(--ce-red)',
+      textDecoration: 'underline',
+      textUnderlineOffset: '2px',
+    },
   },
   preview: {
     color: tokens.colorNeutralForeground3,
@@ -319,7 +461,22 @@ const useStyles = makeStyles({
     border: `1px solid ${tokens.colorNeutralStroke2}`,
   },
 
-  actionsCell: { display: 'inline-flex', justifyContent: 'center', width: '100%' },
+  actionsCell: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: '2px',
+    width: '100%',
+  },
+  quickActions: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '2px',
+  },
+  quickActionBtn: {
+    minWidth: '32px',
+    minHeight: '32px',
+  },
 
   // Visually-hidden text that still names the icon-only Actions column for AT.
   srOnly: {
@@ -358,10 +515,15 @@ const useStyles = makeStyles({
     padding: tokens.spacingVerticalM,
     borderRadius: '2px',
     border: `1px solid ${tokens.colorNeutralStroke2}`,
-    backgroundColor: tokens.colorNeutralBackground2,
+    backgroundColor: tokens.colorNeutralBackground1,
     color: tokens.colorNeutralForeground1,
     fontSize: tokens.fontSizeBase300,
-    lineHeight: 1.5,
+    lineHeight: 1.6,
+    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.02)',
+    ':focus-visible': {
+      outline: '2px solid var(--ce-red)',
+      outlineOffset: '2px',
+    },
   },
   dialogNote: { color: tokens.colorNeutralForeground3 },
   suggestLine: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS, flexWrap: 'wrap' },
@@ -431,11 +593,15 @@ export function Inbox() {
   );
   const [search, setSearch] = useState('');
   const [subtypeFilter, setSubtypeFilter] = useState<InboundSubtype | typeof ANY>(ANY);
+  const [triageStateFilter, setTriageStateFilter] = useState<TriageState | typeof ANY>(() =>
+    parseTriageStateFilter(searchParams.get('triageState')),
+  );
   const [view, setView] = useState<InboundView>(() => parseInboxView(searchParams.get('view'))); // active-first
-  // Dialog targets: the email-body view, the mailbox pointer (unlinked), the reclassify form.
-  const [emailRow, setEmailRow] = useState<InboundEmail | null>(null);
+  const [selectedEmail, setSelectedEmail] = useState<InboundEmail | null>(null);
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
   const [pointerRow, setPointerRow] = useState<InboundEmail | null>(null);
   const [reclassifyRow, setReclassifyRow] = useState<InboundEmail | null>(null);
+  const focusAfterTriageRef = useRef<string | null>(null);
   // Ids optimistically hidden after a triage change that moves the row OUT of the
   // current view — cleared when fresh server data resolves (which already excludes them).
   const [pendingHidden, setPendingHidden] = useState<Set<string>>(() => new Set());
@@ -451,12 +617,14 @@ export function Inbox() {
   useEffect(() => {
     const nextCategory = parseInboxCategory(searchParams.get('category'));
     const nextView = parseInboxView(searchParams.get('view'));
+    const nextTriageState = parseTriageStateFilter(searchParams.get('triageState'));
     setCategory((prev) => {
       if (prev === nextCategory) return prev;
       setSubtypeFilter(ANY);
       return nextCategory;
     });
     setView(nextView);
+    setTriageStateFilter(nextTriageState);
   }, [searchParams]);
 
   // Fresh data resolved → the server slice is authoritative again; drop optimistic hides.
@@ -472,6 +640,7 @@ export function Inbox() {
     const q = search.trim().toLowerCase();
     return rows.filter((e) => {
       if (pendingHidden.has(e.id)) return false;
+      if (triageStateFilter !== ANY && e.triageState !== triageStateFilter) return false;
       if (q) {
         const hay = [
           e.subject,
@@ -488,7 +657,21 @@ export function Inbox() {
       }
       return true;
     });
-  }, [rows, search, pendingHidden]);
+  }, [rows, search, pendingHidden, triageStateFilter]);
+
+  // Restore keyboard focus after a triage action removes a row from the active view.
+  useEffect(() => {
+    const target = focusAfterTriageRef.current;
+    if (!target) return;
+    focusAfterTriageRef.current = null;
+    requestAnimationFrame(() => {
+      if (target === 'search-box') {
+        document.querySelector<HTMLElement>('[aria-label="Search inbound email"]')?.focus();
+      } else {
+        document.querySelector<HTMLElement>(`[data-row-id="${target}"]`)?.focus();
+      }
+    });
+  }, [filtered]);
 
   const onTabSelect = (_e: SelectTabEvent, d: SelectTabData) => {
     const nextCategory = d.value as InboundCategory;
@@ -507,6 +690,22 @@ export function Inbox() {
     setSearchParams(next, { replace: true });
   };
 
+  const onTriageStateSelect = (_e: SelectTabEvent, d: SelectTabData) => {
+    const next = (d.value as TriageState | typeof ANY) ?? ANY;
+    setTriageStateFilter(next);
+    const nextParams = new URLSearchParams(searchParams);
+    if (next === ANY) {
+      nextParams.delete('triageState');
+    } else {
+      nextParams.set('triageState', next);
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const selectEmail = (row: InboundEmail) => {
+    setSelectedEmail(row);
+  };
+
   const refresh = () => {
     inbox.refetch();
     counts.refetch();
@@ -516,13 +715,19 @@ export function Inbox() {
    *  success (and optimistically hide the row when it leaves the view) after it
    *  resolves — never a fake success. */
   const setTriage = async (row: InboundEmail, next: TriageState) => {
+    const currentIndex = filtered.findIndex((r) => r.id === row.id);
+    const nextRow = filtered[currentIndex + 1] ?? filtered[currentIndex - 1];
+    const leavesView =
+      (view === 'active' && isHandledState(next)) ||
+      (view === 'handled' && !isHandledState(next));
+    if (leavesView) {
+      focusAfterTriageRef.current = nextRow?.id ?? 'search-box';
+      if (selectedEmail?.id === row.id) {
+        setSelectedEmail(nextRow ?? null);
+      }
+    }
     try {
       await data.setTriageState(row.id, next);
-      // Optimistically drop the row when the change moves it out of the active /
-      // handled view (so Dismiss / Mark actioned visibly removes it now).
-      const leavesView =
-        (view === 'active' && isHandledState(next)) ||
-        (view === 'handled' && !isHandledState(next));
       if (leavesView) {
         setPendingHidden((prev) => {
           const nextSet = new Set(prev);
@@ -578,7 +783,7 @@ export function Inbox() {
       ref: { minWidth: 120, idealWidth: 140, defaultWidth: 140 },
       received: { minWidth: 120, idealWidth: 145, defaultWidth: 145 },
       state: { minWidth: 110, idealWidth: 120, defaultWidth: 120 },
-      actions: { minWidth: 56, idealWidth: 56, defaultWidth: 56, padding: 0 },
+      actions: { minWidth: 120, idealWidth: 130, defaultWidth: 130, padding: 0 },
     }),
     [],
   );
@@ -614,9 +819,12 @@ export function Inbox() {
                   stored email body — every subject is a clickable affordance. */}
               <Link
                 as="button"
-                className={styles.subjLink}
-                title={e.caseId ? `Open case · ${e.subject}` : `View email · ${e.subject}`}
-                onClick={() => (e.caseId ? navigate(`/case/${e.caseId}`) : setEmailRow(e))}
+                className={mergeClasses(
+                  styles.subjLink,
+                  selectedEmail?.id === e.id && styles.subjLinkSelected,
+                )}
+                title={`View email · ${e.subject}`}
+                onClick={() => selectEmail(e)}
               >
                 {e.subject || '(no subject)'}
               </Link>
@@ -634,28 +842,31 @@ export function Inbox() {
         renderHeaderCell: () => 'Classification',
         renderCell: (e) => {
           const overridden = isOverridden(e);
+          const suggestedText = e.suggestedSubtype
+            ? SUBTYPE_LABEL[e.suggestedSubtype]
+            : e.suggestedCategory
+              ? CATEGORY_LABEL[e.suggestedCategory]
+              : CATEGORY_LABEL[e.category];
           return (
             <div className={styles.classStack}>
               <Badge appearance="outline" shape="rounded" size="small" className={styles.subtypeBadge}>
                 {SUBTYPE_LABEL[e.subtype]}
               </Badge>
+              <span className={styles.folderLine}>
+                <Folder size={11} aria-hidden />
+                <span className={styles.folderName}>{suggestedFolderLabel(e)}</span>
+              </span>
               {overridden ? (
-                <Tooltip
-                  content={`Classifier suggested: ${
-                    e.suggestedSubtype ? SUBTYPE_LABEL[e.suggestedSubtype] : CATEGORY_LABEL[e.suggestedCategory ?? e.category]
-                  }`}
-                  relationship="label"
+                <Badge
+                  appearance="tint"
+                  shape="rounded"
+                  size="small"
+                  className={styles.overrideChip}
+                  icon={<PencilLine size={11} strokeWidth={2} />}
                 >
-                  <Badge
-                    appearance="tint"
-                    shape="rounded"
-                    size="small"
-                    className={styles.overrideChip}
-                    icon={<PencilLine size={11} strokeWidth={2} />}
-                  >
-                    Overridden
-                  </Badge>
-                </Tooltip>
+                  Overridden
+                  <span className={styles.srOnly}>{` (Classifier suggested: ${suggestedText})`}</span>
+                </Badge>
               ) : (
                 <Caption1 className={styles.muted}>{confidenceLabel(e.confidence)}</Caption1>
               )}
@@ -690,65 +901,101 @@ export function Inbox() {
       createTableColumn<InboundEmail>({
         columnId: 'actions',
         renderHeaderCell: () => <span className={styles.srOnly}>Actions</span>,
-        renderCell: (e) => (
-          <span className={styles.actionsCell}>
-            <Menu>
-              <MenuTrigger disableButtonEnhancement>
-                <Button
-                  appearance="subtle"
-                  size="small"
-                  icon={<MoreHorizontal size={16} />}
-                  aria-label={`Actions for “${e.subject || e.fromAddress}”`}
-                />
-              </MenuTrigger>
-              <MenuPopover>
-                <MenuList>
-                  {e.caseId && (
-                    <MenuItem icon={<Briefcase size={16} />} onClick={() => navigate(`/case/${e.caseId}`)}>
-                      View case
-                    </MenuItem>
-                  )}
-                  <MenuItem icon={<FileText size={16} />} onClick={() => setEmailRow(e)}>
-                    View email preview
-                  </MenuItem>
-                  {!e.caseId && (
-                    <MenuItem icon={<Mail size={16} />} onClick={() => setPointerRow(e)}>
-                      Open in mailbox…
-                    </MenuItem>
-                  )}
-                  <MenuDivider />
-                  <MenuItem icon={<Tags size={16} />} onClick={() => setReclassifyRow(e)}>
-                    Change classification…
-                  </MenuItem>
-                  <MenuDivider />
+        renderCell: (e) => {
+          const showQuick = hoveredRowId === e.id || selectedEmail?.id === e.id;
+          return (
+            <span className={styles.actionsCell}>
+              {showQuick && (
+                <span className={styles.quickActions}>
                   {e.triageState !== 'actioned' && (
-                    <MenuItem icon={<CheckCircle2 size={16} />} onClick={() => void setTriage(e, 'actioned')}>
-                      Mark as actioned
-                    </MenuItem>
+                    <Tooltip content="Mark actioned" relationship="label">
+                      <Button
+                        appearance="subtle"
+                        size="small"
+                        className={styles.quickActionBtn}
+                        icon={<CheckCircle2 size={16} />}
+                        aria-label={`Mark “${e.subject || e.fromAddress}” as actioned`}
+                        data-row-id={e.id}
+                        onClick={() => void setTriage(e, 'actioned')}
+                      />
+                    </Tooltip>
                   )}
                   {e.triageState !== 'dismissed' && (
-                    <MenuItem icon={<XCircle size={16} />} onClick={() => void setTriage(e, 'dismissed')}>
-                      Dismiss
-                    </MenuItem>
+                    <Tooltip content="Dismiss" relationship="label">
+                      <Button
+                        appearance="subtle"
+                        size="small"
+                        className={styles.quickActionBtn}
+                        icon={<XCircle size={16} />}
+                        aria-label={`Dismiss “${e.subject || e.fromAddress}”`}
+                        data-row-id={e.id}
+                        onClick={() => void setTriage(e, 'dismissed')}
+                      />
+                    </Tooltip>
                   )}
-                  {isHandledState(e.triageState) && (
-                    <MenuItem icon={<RotateCcw size={16} />} onClick={() => void setTriage(e, 'new')}>
-                      Reopen
+                </span>
+              )}
+              <Menu>
+                <MenuTrigger disableButtonEnhancement>
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    className={styles.quickActionBtn}
+                    icon={<MoreHorizontal size={16} />}
+                    aria-label={`Actions for “${e.subject || e.fromAddress}”`}
+                    data-row-id={e.id}
+                  />
+                </MenuTrigger>
+                <MenuPopover>
+                  <MenuList>
+                    {e.caseId && (
+                      <MenuItem icon={<Briefcase size={16} />} onClick={() => navigate(`/case/${e.caseId}`)}>
+                        View case
+                      </MenuItem>
+                    )}
+                    <MenuItem icon={<FileText size={16} />} onClick={() => selectEmail(e)}>
+                      View email preview
                     </MenuItem>
-                  )}
-                </MenuList>
-              </MenuPopover>
-            </Menu>
-          </span>
-        ),
+                    {!e.caseId && (
+                      <MenuItem icon={<Mail size={16} />} onClick={() => setPointerRow(e)}>
+                        Open in mailbox…
+                      </MenuItem>
+                    )}
+                    <MenuDivider />
+                    <MenuItem icon={<Tags size={16} />} onClick={() => setReclassifyRow(e)}>
+                      Change classification…
+                    </MenuItem>
+                    <MenuDivider />
+                    {e.triageState !== 'actioned' && (
+                      <MenuItem icon={<CheckCircle2 size={16} />} onClick={() => void setTriage(e, 'actioned')}>
+                        Mark as actioned
+                      </MenuItem>
+                    )}
+                    {e.triageState !== 'dismissed' && (
+                      <MenuItem icon={<XCircle size={16} />} onClick={() => void setTriage(e, 'dismissed')}>
+                        Dismiss
+                      </MenuItem>
+                    )}
+                    {isHandledState(e.triageState) && (
+                      <MenuItem icon={<RotateCcw size={16} />} onClick={() => void setTriage(e, 'new')}>
+                        Reopen
+                      </MenuItem>
+                    )}
+                  </MenuList>
+                </MenuPopover>
+              </Menu>
+            </span>
+          );
+        },
       }),
     ],
     // styles/navigate/setTriage are stable across renders for the grid's purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [styles, view],
+    [styles, view, selectedEmail?.id, hoveredRowId],
   );
 
-  const filtersActive = search.trim() !== '' || subtypeFilter !== ANY;
+  const filtersActive =
+    search.trim() !== '' || subtypeFilter !== ANY || triageStateFilter !== ANY;
   const emptyTitle =
     view === 'handled'
       ? `No handled “${CATEGORY_LABEL[category]}” email.`
@@ -821,6 +1068,25 @@ export function Inbox() {
           </div>
         )}
 
+        <div className={styles.filter}>
+          <span className={styles.filterLabel} id="filter-triage">
+            Triage status
+          </span>
+          <TabList
+            aria-labelledby="filter-triage"
+            selectedValue={triageStateFilter}
+            onTabSelect={onTriageStateSelect}
+            size="small"
+          >
+            <Tab value={ANY}>All</Tab>
+            {(Object.keys(TRIAGE_LABEL) as TriageState[]).map((s) => (
+              <Tab key={s} value={s}>
+                {TRIAGE_LABEL[s]}
+              </Tab>
+            ))}
+          </TabList>
+        </div>
+
         <div className={styles.spacer} />
 
         {/* Active-first view toggle — Active hides handled rows; Handled / All reopen them. */}
@@ -886,42 +1152,54 @@ export function Inbox() {
           />
         )
       ) : (
-        <div className={styles.grid}>
-          <DataGrid
-            items={filtered}
-            columns={columns}
-            getRowId={(e) => e.id}
-            resizableColumns
-            columnSizingOptions={columnSizing}
-            aria-label={`Inbound email — ${CATEGORY_LABEL[category]} (${VIEW_LABEL[view]})`}
-          >
-            <DataGridHeader>
-              <DataGridRow>
-                {({ renderHeaderCell }) => <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>}
-              </DataGridRow>
-            </DataGridHeader>
-            <DataGridBody<InboundEmail>>
-              {({ item, rowId }) => (
-                <DataGridRow<InboundEmail> key={rowId}>
-                  {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
-                </DataGridRow>
-              )}
-            </DataGridBody>
-          </DataGrid>
+        <div className={styles.workspace}>
+          <div className={mergeClasses(styles.gridPane, selectedEmail != null && styles.gridPaneWithSidebar)}>
+            <div className={styles.grid}>
+              <DataGrid
+                items={filtered}
+                columns={columns}
+                getRowId={(e) => e.id}
+                resizableColumns
+                columnSizingOptions={columnSizing}
+                aria-label={`Inbound email — ${CATEGORY_LABEL[category]} (${VIEW_LABEL[view]})`}
+              >
+                <DataGridHeader>
+                  <DataGridRow>
+                    {({ renderHeaderCell }) => (
+                      <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>
+                    )}
+                  </DataGridRow>
+                </DataGridHeader>
+                <DataGridBody<InboundEmail>>
+                  {({ item, rowId }) => (
+                    <DataGridRow<InboundEmail>
+                      key={rowId}
+                      onMouseEnter={() => setHoveredRowId(item.id)}
+                      onMouseLeave={() => setHoveredRowId(null)}
+                    >
+                      {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
+                    </DataGridRow>
+                  )}
+                </DataGridBody>
+              </DataGrid>
+            </div>
+          </div>
+
+          {selectedEmail && (
+            <EmailPreviewPanel
+              row={selectedEmail}
+              onClose={() => setSelectedEmail(null)}
+              onOpenCase={(id) => {
+                setSelectedEmail(null);
+                navigate(`/case/${id}`);
+              }}
+              onCopyReference={copyPointer}
+              onTriage={(next) => void setTriage(selectedEmail, next)}
+              onReclassify={() => setReclassifyRow(selectedEmail)}
+            />
+          )}
         </div>
       )}
-
-      {/* View email preview — renders the stored body the app already holds. Self-contained:
-          no API call, no iframe, no external navigation (CSP-safe). */}
-      <ViewEmailDialog
-        row={emailRow}
-        onClose={() => setEmailRow(null)}
-        onOpenCase={(id) => {
-          setEmailRow(null);
-          navigate(`/case/${id}`);
-        }}
-        onCopyReference={copyPointer}
-      />
 
       {/* Mailbox POINTER dialog — unlinked rows hold no .eml; surface the source
           mailbox + Message-ID for the operator to find the mail by hand. */}
@@ -975,78 +1253,123 @@ export function Inbox() {
   );
 }
 
-/* ----------  View email preview (stored body)  ---------- */
+/* ----------  Email preview sidebar (stored body)  ---------- */
 
-function ViewEmailDialog({
+function EmailPreviewPanel({
   row,
   onClose,
   onOpenCase,
   onCopyReference,
+  onTriage,
+  onReclassify,
 }: {
-  row: InboundEmail | null;
+  row: InboundEmail;
   onClose: () => void;
   onOpenCase: (caseId: string) => void;
   onCopyReference: (row: InboundEmail) => void;
+  onTriage: (next: TriageState) => void;
+  onReclassify: () => void;
 }) {
   const styles = useStyles();
+  const fromInitial = (row.fromAddress?.[0] ?? '?').toUpperCase();
+  const overridden = isOverridden(row);
+  const suggestedText = row.suggestedSubtype
+    ? SUBTYPE_LABEL[row.suggestedSubtype]
+    : row.suggestedCategory
+      ? CATEGORY_LABEL[row.suggestedCategory]
+      : CATEGORY_LABEL[row.category];
+
   return (
-    <Dialog open={row !== null} onOpenChange={(_e, d) => !d.open && onClose()}>
-      <DialogSurface>
-        <DialogBody>
-          <DialogTitle>{row?.subject || '(no subject)'}</DialogTitle>
-          <DialogContent>
-            {row && (
-              <div className={styles.dialogGrid}>
-                <div className={styles.metaRow}>
-                  <span className={styles.metaLabel}>From</span>
-                  <span className={styles.metaValue}>
-                    {row.fromAddress || '—'}
-                    {row.senderDomain ? ` · ${row.senderDomain}` : ''}
-                  </span>
-                </div>
-                <div className={styles.metaRow}>
-                  <span className={styles.metaLabel}>Received</span>
-                  <span className={styles.metaValue}>{formatReceived(row.receivedOn)}</span>
-                </div>
-                <div className={styles.metaRow}>
-                  <span className={styles.metaLabel}>Classification</span>
-                  <span className={styles.metaValue}>
-                    {CATEGORY_LABEL[row.category]} · {SUBTYPE_LABEL[row.subtype]}
-                  </span>
-                </div>
-                <div className={styles.metaRow}>
-                    <span className={styles.metaLabel}>Preview</span>
-                    <div className={styles.emailBody}>
-                      {row.bodyPreview?.trim()
-                        ? row.bodyPreview
-                        : 'No message text was captured for this email. Use “Open in mailbox” to find the original.'}
-                    </div>
-                  </div>
-                  <Text className={styles.dialogNote}>
-                    This is the saved preview. Use the mailbox reference if you need the original message.
-                  </Text>
-                </div>
-            )}
-          </DialogContent>
-          <DialogActions>
-            {row?.caseId ? (
-              <Button appearance="primary" icon={<Briefcase size={16} />} onClick={() => onOpenCase(row.caseId!)}>
-                View case
-              </Button>
-            ) : (
-              row && (
-                <Button appearance="secondary" icon={<Copy size={16} />} onClick={() => onCopyReference(row)}>
-                  Copy reference
-                </Button>
-              )
-            )}
-            <Button appearance="secondary" onClick={onClose}>
-              Close
-            </Button>
-          </DialogActions>
-        </DialogBody>
-      </DialogSurface>
-    </Dialog>
+    <aside className={styles.previewSidebar} aria-label="Email preview">
+      <div className={styles.previewHeader}>
+        <span className={styles.previewTitle}>{row.subject || '(no subject)'}</span>
+        <Button
+          appearance="subtle"
+          size="small"
+          className={styles.quickActionBtn}
+          icon={<X size={16} />}
+          aria-label="Close email preview"
+          onClick={onClose}
+        />
+      </div>
+
+      <div className={styles.previewBody}>
+        <div className={styles.fromRow}>
+          <span className={styles.avatarCircle} aria-hidden>
+            {fromInitial}
+          </span>
+          <div>
+            <Text weight="semibold">{row.fromAddress || '—'}</Text>
+            {row.senderDomain && <Caption1 className={styles.muted}>{row.senderDomain}</Caption1>}
+            <Caption1 className={styles.muted}>
+              Received {formatReceived(row.receivedOn)} · {row.sourceMailbox}
+            </Caption1>
+          </div>
+        </div>
+
+        <div className={styles.metaRow}>
+          <span className={styles.metaLabel}>Classification</span>
+          <span className={styles.metaValue}>
+            {CATEGORY_LABEL[row.category]} · {SUBTYPE_LABEL[row.subtype]}
+          </span>
+        </div>
+
+        <div className={styles.metaRow}>
+          <span className={styles.metaLabel}>Suggested folder</span>
+          <span className={styles.folderLine}>
+            <Folder size={12} aria-hidden />
+            <span className={styles.folderName}>{suggestedFolderLabel(row)}</span>
+          </span>
+        </div>
+
+        {overridden && (
+          <Caption1 className={styles.muted}>Classifier suggested: {suggestedText}</Caption1>
+        )}
+
+        <div className={styles.metaRow}>
+          <span className={styles.metaLabel}>Preview</span>
+          <div
+            className={styles.emailBody}
+            tabIndex={0}
+            role="region"
+            aria-label="Email body preview"
+          >
+            {row.bodyPreview?.trim()
+              ? row.bodyPreview
+              : 'No message text was captured for this email. Use “Open in mailbox” to find the original.'}
+          </div>
+        </div>
+
+        <Caption1 className={styles.dialogNote}>
+          This is the saved preview. Use the mailbox reference if you need the original message.
+        </Caption1>
+      </div>
+
+      <div className={styles.previewActions}>
+        {row.caseId ? (
+          <Button appearance="primary" icon={<Briefcase size={16} />} onClick={() => onOpenCase(row.caseId!)}>
+            View case
+          </Button>
+        ) : (
+          <Button appearance="secondary" icon={<Copy size={16} />} onClick={() => onCopyReference(row)}>
+            Copy reference
+          </Button>
+        )}
+        {row.triageState !== 'actioned' && (
+          <Button appearance="secondary" icon={<CheckCircle2 size={16} />} onClick={() => onTriage('actioned')}>
+            Mark actioned
+          </Button>
+        )}
+        {row.triageState !== 'dismissed' && (
+          <Button appearance="secondary" icon={<XCircle size={16} />} onClick={() => onTriage('dismissed')}>
+            Dismiss
+          </Button>
+        )}
+        <Button appearance="secondary" icon={<Tags size={16} />} onClick={onReclassify}>
+          Change classification
+        </Button>
+      </div>
+    </aside>
   );
 }
 

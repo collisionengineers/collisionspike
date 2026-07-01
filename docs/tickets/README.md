@@ -112,7 +112,9 @@ node scripts/check-tickets.mjs
 It verifies every ticket has complete frontmatter, that `status` / `priority` use the allowed enums,
 that `research-link` resolves to a real file, and that ids are unique. Wire it into your pre-commit
 sweep alongside [`scripts/check-doc-links.mjs`](../../scripts/check-doc-links.mjs) (see
-[docs/MAINTENANCE.md](../MAINTENANCE.md)).
+[docs/MAINTENANCE.md](../MAINTENANCE.md)). Agent skills:
+[`.agents/skills/ticket-implement`](../../.agents/skills/ticket-implement/SKILL.md) (pick up / close out),
+[`.agents/skills/ticket-distill`](../../.agents/skills/ticket-distill/SKILL.md) (create from operator notes).
 
 ## Index — every ticket
 
