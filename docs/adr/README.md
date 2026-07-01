@@ -1,6 +1,6 @@
 # Architecture Decision Records (ADRs)
 
-One decision per file, numbered. **0015 & 0017 are _Proposed_; the rest are _Accepted_.**
+One decision per file, numbered. **0015, 0016, 0017, 0018 & 0019 are _Proposed_; the rest are _Accepted_.**
 
 - [`0001`](./0001-repairer-first-class-entity.md) — repairer as a first-class entity
 - [`0002`](./0002-vrm-open-case-correlation.md) — VRM ↔ open-case correlation
@@ -19,4 +19,5 @@ One decision per file, numbered. **0015 & 0017 are _Proposed_; the rest are _Acc
 - [`0015`](./0015-email-triage-inbox-management.md) — email-triage inbox management _(Proposed)_
 - [`0016`](./0016-inspection-address-corpus-eva-export.md) — inspection-address corpus (EVA export)
 - [`0017`](./0017-data-retention-erasure-pii-lifecycle.md) — data retention / erasure / PII lifecycle _(Proposed)_
-- [`0018`](./0018-cedocumentmapper-dual-target-vendored-engine.md) — cedocumentmapper dual-target vendored engine
+- [`0018`](./0018-cedocumentmapper-dual-target-vendored-engine.md) — cedocumentmapper dual-target vendored engine _(Proposed)_
+- [`0019`](./0019-triage-policy-stage-split.md) — triage stage split: engine signals / domain policy / gated AI suggestions _(Proposed)_

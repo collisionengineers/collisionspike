@@ -9,7 +9,7 @@
 - The live stack is the Azure SPA + Data API + orchestration tier. The SPA calls the Data API over REST with Entra/MSAL auth (`docs/architecture/live-environment.md:40-42`).
 - Live Azure inventory was checked read-only through Azure MCP and Azure CLI. The resource group contains the expected SPA, API Function App, orchestration Function App, Postgres, evidence storage, retained parser/enrichment/OCR/Box functions, Document Intelligence, and an AI Services resource.
 - The Data API currently has 49 registered functions and orchestration has 46 registered functions, based on `az functionapp function list` read-only checks run during this research.
-- The live AI/Foundry-looking resource is `digital-3339-resource` (`AIServices`, S0, UK South). `az cognitiveservices account deployment list` returned no deployments, matching `docs/architecture/live-environment.md:50-52`.
+- The live AI/Foundry-looking resource is `digital-3339-resource` (`AIServices`, S0, UK South). At research time `az cognitiveservices account deployment list` returned no deployments. **STALE (superseded 2026-07-01):** the operator has since created model deployments on this account — current state lives in the registry (`LIVE_FACTS.json` `foundry` / live-environment.md).
 
 ## Where the assistant fits
 

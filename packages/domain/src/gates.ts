@@ -52,9 +52,10 @@ export const gates = {
   boxFileRequestTemplateId: (): string => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? '',// #28
 
   // AI model endpoint config (TKT-015). The server-side model call path is built but
-  // dormant: digital-3339-resource has ZERO model deployments, so these are ABSENT in
-  // live app-settings and the generate route stays an honest no-op until a model is
-  // deployed + wired. Prefer managed-identity/keyless — no API key gate by design.
+  // dormant: these settings are ABSENT in live app-settings, so the generate route stays
+  // an honest no-op until the wiring lands (model deployments now exist on the Foundry
+  // account — live state in LIVE_FACTS.json `foundry`; rules-engine-v2 Phase 4 wires
+  // them). Prefer managed-identity/keyless — no API key gate by design.
   aiModelEndpoint: (): string => process.env.AI_MODEL_ENDPOINT ?? '',
   aiModelDeployment: (): string => process.env.AI_MODEL_DEPLOYMENT ?? '',
 

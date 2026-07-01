@@ -46,10 +46,11 @@
 | **Evidence Blob** | `cespkevidstdev01` — evidence bytes (off-row; cases reference by `storage_path`). | **LIVE** |
 | **Observability** | **App Insights is per-app, NOT shared:** **`cespk-api-dev`** (Data API, appId `95e70d0f…`) and **`cespk-orch-dev`** (orchestration, appId `7c7ea68a…`) EACH have their OWN component; the **parser + retained Python fns** log to `cespike-parser-ai-dev` (appId `da68d9aa…`) + **Log Analytics** `cespike-parser-law-dev`; **OCR** keeps its own `cespkocr-ai-dev` / `cespkocr-law-dev` pair. | **LIVE** |
 | **Container Registry** | `cespkocracraeee76` (Basic) — holds `ce-ocr:latest`, pulled by the OCR ACA host via UAMI AcrPull. | **LIVE** |
+| **AI Foundry** | **`digital-3339-resource`** (AIServices S0, uksouth; project `digital-3339` + its own App Insights / Log Analytics) — **model deployments EXIST since 2026-07-01T14:41Z (operator-created)**: **`gpt-5`** (2025-08-07, **GlobalStandard** — inference may process outside the UK; at-rest stays uksouth; no UK data zone exists) and **`text-embedding-3-large`** (**regional Standard** — processed in uksouth). Capacities/quota/RAI policy/version-upgrade detail: [`LIVE_FACTS.json`](../../LIVE_FACTS.json) `foundry`. **NOT wired**: no `EMAIL_AI_ENABLED`/`AI_MODEL_*` app-settings, no managed-identity grants for api/orch (operator user-principal only), `disableLocalAuth=false` (keyless flip is operator-gated — [gated.md](../gated.md)). This is the gated Stage-C target of the [rules-engine-v2 plan](../plans/rules_engine_v2_plan_9ba034c4.plan.md). | **LIVE (deployed, unwired, gated)** |
 
 ### Orphans & deprovisioned (cost / cleanup tracking)
 - **`valuationbot-mcp`** (Container App) — **DEPROVISIONED 2026-06-27** (was public-internet; deleted, its image kept in ACR). It belongs to a **separate suite project**, not this stack.
-- **`digital-3339-resource`** (an AI Foundry account + project with its own App Insights / Log Analytics) — **ORPHAN: present, undocumented, with no model deployments** (≈no cost). **Flagged for an operator keep/delete decision.**
+- ~~`digital-3339-resource` orphan~~ — **RESOLVED 2026-07-01: no longer an orphan.** The operator created model deployments on it (14:41Z, after that day's earlier snapshots) and it is now a documented live component (see the **AI Foundry** row above + `LIVE_FACTS.json` `foundry`). The former "no model deployments / keep-or-delete" flag is superseded.
 
 ## Auth & identity (Entra workforce)
 - **Sign-in:** Microsoft **Entra ID workforce** via **MSAL** in the SPA (`mockup-app/src/auth/`). The SPA
