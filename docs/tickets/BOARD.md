@@ -30,7 +30,7 @@
 |---|---|---|
 | [TKT-001](./TKT-001-document-parsing/TKT-001-document-parsing.md) | Multi-format extraction + field-drop fix | **VERIFIED-LIVE** — `dc307411` 8 EVA cols + 7 provenance rows, `QDOS26001` 6 cols + 5; parse/caseResolve 6×/0-fail; `parser-eva-fields.test.ts`. |
 | [TKT-002](./TKT-002-pdf-image-extraction/TKT-002-pdf-image-extraction.md) | Auto-extract vehicle images + flag unsuitable | **VERIFIED-LIVE** (extraction) — 63 image rows = telemetry `extracted:63`. Unsuitable-flag half awaits `PLATE_OCR_ENABLED`. |
-| [TKT-003](./TKT-003-box-sync/TKT-003-box-sync.md) | Get `.eml` / images / instructions into the Box folder | **VERIFIED-LIVE** — `QDOS26001` Box folder holds `message.eml`+PDF; `uploaded:2`. Non-blocking: `box_file_id`/`box_synced_at` write-back missing. |
+| [TKT-003](./TKT-003-box-sync/TKT-003-box-sync.md) | Get `.eml` / images / instructions into the Box folder | Regressed 2026-06-30 (dead `blob_purged_at` predicate 500ed every archive call) + a co-discovered decorative-image bug; both fixed + deployed 2026-07-01, live confirmation pending next intake. |
 | [TKT-006](./TKT-006-suggested-tags-and-folders/TKT-006-suggested-tags-and-folders.md) | Suggest email categories/tags | **VERIFIED-LIVE** (tags) — `suggested_category/subtype` populated on both live cases. Outlook-folder-sort half deferred (Phase 2). |
 | [TKT-007](./TKT-007-amalgamated-dashboard/TKT-007-amalgamated-dashboard.md) | Combine email + intake overviews into one dashboard | TESTED (offline) — `dashboard.test.ts` 10/10. |
 | [TKT-008](./TKT-008-calendar-date-fields/TKT-008-calendar-date-fields.md) | Calendar picker on the date fields | TESTED (offline) — `date-format.test.ts` 12/12; SPA build PASS. |

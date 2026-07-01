@@ -5642,6 +5642,8 @@ var AI_ASSIST_GATE_ALL_OFF = {
 var INBOUND_COUNTS_ZERO = {
   receiving_work: 0,
   query: 0,
+  billing: 0,
+  non_actionable: 0,
   other: 0,
   untriaged: 0
 };
@@ -7920,12 +7922,16 @@ function rowToActivityEvent(rec) {
 var INBOUND_CATEGORY_BY_INT = {
   1e8: "receiving_work",
   100000001: "query",
-  100000002: "other"
+  100000002: "other",
+  100000003: "billing",
+  100000004: "non_actionable"
 };
 var INBOUND_CATEGORY_TO_INT = {
   receiving_work: 1e8,
   query: 100000001,
-  other: 100000002
+  other: 100000002,
+  billing: 100000003,
+  non_actionable: 100000004
 };
 var INBOUND_SUBTYPE_BY_INT = {
   1e8: "existing_provider_instruction",
@@ -7934,7 +7940,10 @@ var INBOUND_SUBTYPE_BY_INT = {
   100000003: "query_existing_work",
   100000004: "query_new_enquiry",
   100000005: "other",
-  100000006: "existing_provider_diminution"
+  100000006: "existing_provider_diminution",
+  100000007: "billing_request",
+  100000008: "case_summary",
+  100000009: "acknowledgement"
 };
 var INBOUND_SUBTYPE_TO_INT = {
   existing_provider_instruction: 1e8,
@@ -7943,7 +7952,10 @@ var INBOUND_SUBTYPE_TO_INT = {
   query_existing_work: 100000003,
   query_new_enquiry: 100000004,
   other: 100000005,
-  existing_provider_diminution: 100000006
+  existing_provider_diminution: 100000006,
+  billing_request: 100000007,
+  case_summary: 100000008,
+  acknowledgement: 100000009
 };
 var TRIAGE_STATES = ["new", "routed", "actioned", "dismissed"];
 var CLASSIFIER_MODES = ["deterministic", "llm", "human"];
@@ -8054,7 +8066,14 @@ function inboundViewWhere(view) {
   }
 }
 function tallyActiveInboundCounts(rows) {
-  const counts = { receiving_work: 0, query: 0, other: 0, untriaged: 0 };
+  const counts = {
+    receiving_work: 0,
+    query: 0,
+    billing: 0,
+    non_actionable: 0,
+    other: 0,
+    untriaged: 0
+  };
   for (const r of rows) {
     if (isHandledTriageState(r.triage_state)) continue;
     const cat = inboundCategoryFromInt(r.category_code ?? void 0);
@@ -10356,7 +10375,6 @@ import_functions9.app.http("internalCasesArchiveEvidence", {
          WHERE case_id = $1
            AND storage_path IS NOT NULL
            AND box_file_id IS NULL
-           AND blob_purged_at IS NULL
          ORDER BY created_at ASC, file_name ASC`,
       [caseId]
     );

@@ -136,3 +136,42 @@ def test_text_only_pdf_yields_zero_images_not_error():
 def test_unsupported_suffix_yields_zero():
     res = parser_adapter.run_image_extraction(b"hello world", "note.txt")
     assert res["count"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# Decorative-image filter (letterhead logos etc. must not become evidence)    #
+# --------------------------------------------------------------------------- #
+def _make_pdf_with_image(width: int, height: int) -> bytes:
+    """A single-page PDF with one embedded raster of the given pixel size."""
+    import fitz
+
+    doc = fitz.open()
+    page = doc.new_page()
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, width, height))
+    pix.set_rect(pix.irect, (200, 30, 30))
+    png_bytes = pix.tobytes("png")
+    page.insert_image(fitz.Rect(10, 10, 10 + min(width, 200), 10 + min(height, 200)), stream=png_bytes)
+    try:
+        return doc.tobytes()
+    finally:
+        doc.close()
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_small_decorative_image_is_filtered_out():
+    """A letterhead-logo-sized embedded raster (e.g. 80x40, well under the 200x200
+    area floor) must NOT become case-image evidence — this is the QDOS26004 bug:
+    an instruction letter's logo was extracted and stored as
+    ``LtrtoEngineerIn__RJS_UnknownVRM_img_1_3``."""
+    pdf_bytes = _make_pdf_with_image(80, 40)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "LtrtoEngineerIn.pdf")
+    assert res["count"] == 0, "a small decorative raster must be filtered, not stored as evidence"
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_large_embedded_image_is_kept():
+    """A photo-sized embedded raster (400x300, well over the floor) must still be
+    extracted — the filter must not reject genuine vehicle photos."""
+    pdf_bytes = _make_pdf_with_image(400, 300)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "photos.pdf")
+    assert res["count"] == 1, "a photo-sized embedded raster must still be extracted"

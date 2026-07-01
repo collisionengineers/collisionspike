@@ -34,6 +34,12 @@ from cedocumentmapper_v2.ui.paths import (
     unique_output_path,
 )
 
+# Embedded-image extraction (extract_images): a raster below this pixel area is
+# treated as decorative (letterhead logo, signature stamp, divider) and skipped --
+# a genuine vehicle photo is reliably much larger. 200x200 chosen as a floor well
+# below any real photo but above typical letterhead art.
+_MIN_EXTRACTED_IMAGE_AREA = 200 * 200
+
 
 class DocumentMapperService:
     """Shared use-case layer for document reading, extraction, export, and image work."""
@@ -355,6 +361,16 @@ class DocumentMapperService:
         saved: list[Path] = []
         notes: list[str] = []
 
+        def is_decorative(width: int | None, height: int | None) -> bool:
+            """Embedded rasters below this pixel AREA are letterhead logos, signature
+            stamps, or dividers, not vehicle photos -- a real photo is reliably much
+            larger. Area (not a per-axis check) survives a wide-but-short banner logo
+            while still rejecting it; unknown dimensions are kept rather than risk
+            dropping a real photo."""
+            if not width or not height:
+                return False
+            return width * height < _MIN_EXTRACTED_IMAGE_AREA
+
         def save_bytes(stem: str, suffix: str, content: bytes) -> None:
             path = unique_output_path(output_dir, stem, suffix)
             path.write_bytes(content)
@@ -377,7 +393,7 @@ class DocumentMapperService:
                     for page_num, page in enumerate(doc, start=1):
                         for img_info in page.get_images() or []:
                             base_image = doc.extract_image(img_info[0])
-                            if base_image:
+                            if base_image and not is_decorative(base_image.get("width"), base_image.get("height")):
                                 save_bytes(f"{base_name}_img_{page_num}_{idx}", "." + base_image["ext"], base_image["image"])
                                 idx += 1
                 finally:
@@ -390,6 +406,15 @@ class DocumentMapperService:
                     idx = 1
                     for page_num, page in enumerate(reader.pages, start=1):
                         for image in getattr(page, "images", []) or []:
+                            width = height = None
+                            try:
+                                pil_image = getattr(image, "image", None)
+                                if pil_image is not None:
+                                    width, height = pil_image.size
+                            except Exception:
+                                pass
+                            if is_decorative(width, height):
+                                continue
                             suffix = Path(getattr(image, "name", "")).suffix or ".bin"
                             save_bytes(f"{base_name}_img_{page_num}_{idx}", suffix, image.data)
                             idx += 1

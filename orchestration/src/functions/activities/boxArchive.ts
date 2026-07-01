@@ -18,8 +18,22 @@
  * caught — per-file, so one bad upload does not abort the rest — and the activity
  * returns a summary the orchestrator ignores. Idempotent: a Box 409 name-conflict is
  * reused server-side, so a replayed/at-least-once archive never duplicates a file.
+ *
+ * Manual lever: `box-archive-start` (POST /api/box-archive, {caseId}) lets an operator
+ * re-run the archive for one case on demand — needed to backfill any case whose archive
+ * silently no-op'd (e.g. a since-fixed bug in the Data API route this activity calls),
+ * without a full re-intake (mirrors the `box-folder-create-start` lever).
+ *
+ * AUTH: FUNCTION-level (a function key is required) — unlike the other manual gated
+ * starters in this app (all `authLevel: 'anonymous'`, a pre-existing gap out of scope
+ * here), this one is deliberately keyed: it triggers a real Box upload + Postgres write
+ * for a caller-supplied caseId, so it must not be open to anyone who finds the URL. The
+ * underlying Box client still hard-scope-locks every op to BOX_ALLOWED_ROOT_ID regardless
+ * (box_client.py `_assert_in_scope`) — this key is defence-in-depth on top of that, same
+ * posture as the parser Function's `/parse` route (see functions/parser/function_app.py).
  */
 
+import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import * as df from 'durable-functions';
 import { gates } from '@cs/domain/gates';
 import { box } from '../../lib/functions-client.js';
@@ -29,6 +43,32 @@ import { downloadEvidenceBytes } from '../../lib/blob.js';
 interface BoxArchiveInput {
   caseId: string;
 }
+
+app.http('box-archive-start', {
+  methods: ['POST'],
+  authLevel: 'function',
+  route: 'box-archive',
+  extraInputs: [df.input.durableClient()],
+  handler: async (req: HttpRequest, ctx: InvocationContext): Promise<HttpResponseInit> => {
+    if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
+      ctx.log('[box-archive] skipped — BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off');
+      return { status: 200, jsonBody: { skipped: true, reason: 'gated off' } };
+    }
+    const input = (await req.json()) as BoxArchiveInput;
+    const client = df.getClient(ctx);
+    const instanceId = await client.startNew('boxArchiveEvidenceOrchestrator', { input });
+    return client.createCheckStatusResponse(req, instanceId);
+  },
+});
+
+const manualRetry = new df.RetryOptions(5_000, 3);
+manualRetry.backoffCoefficient = 2;
+
+df.app.orchestration('boxArchiveEvidenceOrchestrator', function* (ctx) {
+  const input = ctx.df.getInput() as BoxArchiveInput;
+  const result = yield ctx.df.callActivityWithRetry('boxArchiveEvidence', manualRetry, input);
+  return result;
+});
 
 interface ArchiveItem {
   id: string;
