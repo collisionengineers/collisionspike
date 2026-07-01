@@ -262,6 +262,109 @@ def test_mp_branded_vs_simple_disambiguation():
     assert simple == "MP (Simple)"
 
 
+# --------------------------------------------------------------------------- #
+# QDOS triage-letter accident circumstances (TKT-001 follow-up)
+# --------------------------------------------------------------------------- #
+
+QDOS_TRIAGE_DOC = FIXTURES_DIR / "instructions" / "QDOS_TRIAGE_01.doc"
+QDOS_TRIAGE_EXPECTED = FIXTURES_DIR / "expected" / "QDOS_TRIAGE_01.expected.json"
+QDOS_TRIAGE_NARRATIVE = (
+    "Our client, in their vehicle was proceeding in the left lane on the Redbridge Flyover, "
+    "Southampton and became stationary at a set of traffic lights. This portion of the road "
+    "has two lanes for each direction of travel. Your insured, in their vehicle has failed to "
+    "apply their brakes in time and has collided into the rear of our client's vehicle."
+)
+
+
+def test_qdos_triage_between_labels_extracts_accident_circumstances():
+    """QDOS triage letters use Accident Circumstances -> Damage Description, not Damage Area."""
+    doc = _doc_from_lines(
+        [
+            "Our Client: Miss Nicola Granger",
+            "Registration: VN64WNG",
+            "Accident Circumstances:",
+            QDOS_TRIAGE_NARRATIVE,
+            "Damage Description:",
+            "Rear: Moderate",
+        ]
+    )
+    provider = next(p for p in _migrated_providers() if p["id"] == "qdos")
+    record = RuleEngine().extract_record(doc, provider)
+    assert record.fields[FieldKey.ACCIDENT_CIRCUMSTANCES].value == QDOS_TRIAGE_NARRATIVE
+
+
+def _soffice_available() -> bool:
+    import shutil
+
+    return bool(shutil.which("soffice") or shutil.which("libreoffice"))
+
+
+@pytest.mark.skipif(not QDOS_TRIAGE_DOC.exists(), reason="QDOS triage DOC fixture not present")
+@pytest.mark.skipif(not _soffice_available(), reason="LibreOffice not installed")
+def test_qdos_triage_doc_fixture_accident_circumstances_with_provider_hint():
+    """Legacy QDOS triage .doc tables need LibreOffice; provider hint supplies QDOS rules."""
+    with open(QDOS_TRIAGE_EXPECTED, "r", encoding="utf-8") as f:
+        expected = json.load(f)
+
+    provider = next(p for p in _migrated_providers() if p["id"] == expected["expected_provider"])
+    reader = get_reader_for_path(QDOS_TRIAGE_DOC)
+    doc = reader.read(QDOS_TRIAGE_DOC)
+    record = RuleEngine().extract_record(doc, provider)
+
+    assert (
+        record.fields[FieldKey.ACCIDENT_CIRCUMSTANCES].value
+        == expected["expected_values"]["accident_circumstances"]
+    )
+
+
+AX_CIRCUMSTANCES_WITH_PRE_EXISTING = (
+    "Client stationary in a queue of traffic and the tp behind our client failed to\n"
+    "stop and shunted our client in the rear. Details exchanged."
+)
+AX_CIRCUMSTANCES_WITHOUT_PRE_EXISTING = (
+    "Our client was Parked Attended and was returning back to his vehicle -\n"
+    "Third Party has reversed and collided into the Offside of our clients vehicle.\n"
+    "Our client witnessed the accident and Details were Exchanged."
+)
+
+
+def test_ax_accident_circumstances_stops_before_pre_existing_damage():
+    """AX PDF tables place Pre Existing / Damage between Circumstances and Bodyshop."""
+    doc = _doc_from_lines(
+        [
+            "AX Reference",
+            ": 1063506",
+            "Circumstances:",
+            *AX_CIRCUMSTANCES_WITH_PRE_EXISTING.split("\n"),
+            "Pre Existing",
+            "n/a",
+            "Damage:",
+            "Bodyshop Details",
+            "Name: Ultimate Car Body Repairs Ltd",
+        ]
+    )
+    provider = next(p for p in _migrated_providers() if p["id"] == "ax")
+    record = RuleEngine().extract_record(doc, provider)
+    assert record.fields[FieldKey.ACCIDENT_CIRCUMSTANCES].value == AX_CIRCUMSTANCES_WITH_PRE_EXISTING
+
+
+def test_ax_accident_circumstances_falls_back_to_bodyshop_when_no_pre_existing():
+    """AX PDFs without a Pre Existing row still extract up to Bodyshop Details."""
+    doc = _doc_from_lines(
+        [
+            "AX Reference",
+            ": 1061903",
+            "Circumstances:",
+            *AX_CIRCUMSTANCES_WITHOUT_PRE_EXISTING.split("\n"),
+            "Bodyshop Details",
+            "Name: RTA Storage & Recovery",
+        ]
+    )
+    provider = next(p for p in _migrated_providers() if p["id"] == "ax")
+    record = RuleEngine().extract_record(doc, provider)
+    assert record.fields[FieldKey.ACCIDENT_CIRCUMSTANCES].value == AX_CIRCUMSTANCES_WITHOUT_PRE_EXISTING
+
+
 def test_required_phrase_count_tie_break_directly():
     """The detector's tie-break prefers the larger required-phrase fingerprint."""
     detector = ProviderDetector()

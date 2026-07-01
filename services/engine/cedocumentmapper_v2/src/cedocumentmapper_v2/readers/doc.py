@@ -30,6 +30,8 @@ class DocDocumentReader(DocumentReader):
         # Word for every legacy DOC when the corpus already contains usable text.
         try:
             text = self._read_via_binary_text_scrape(path)
+            if self._scrape_text_is_incomplete(text):
+                raise ReaderError("Embedded text scrape produced incomplete DOC text.")
             notes.append("Read DOC using embedded text scrape fallback.")
             return self._build_model_from_text(path, text, notes)
         except Exception as scrape_exc:
@@ -265,10 +267,39 @@ class DocDocumentReader(DocumentReader):
         text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
 
+    def _scrape_text_is_incomplete(self, text: str) -> bool:
+        """Return True when scraped text looks truncated or polluted."""
+        if not text.strip():
+            return True
+
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
+            return True
+
+        binary_markers = ("ihdr", "idat", "png", "bjbj")
+        marker_hits = sum(
+            1 for line in lines if any(marker in line.lower() for marker in binary_markers)
+        )
+        if marker_hits >= 3:
+            return True
+
+        if re.search(
+            r"(?is)\baccident circumstances\s*:?\s*(?:\r?\n\s*)+damage description\s*:?",
+            text,
+        ):
+            return True
+
+        return False
+
     def _looks_like_human_text(self, value: str) -> bool:
         if len(value) < 2 or len(value) > 220:
             return False
-        if "bjbj" in value.lower() or "\\" in value:
+        lowered = value.lower()
+        if "bjbj" in lowered or "\\" in value:
+            return False
+        if lowered in {"ihdr", "idat", "idatx", "png", "putt"}:
+            return False
+        if re.fullmatch(r"[A-Za-z0-9+/=]{4,8}", value):
             return False
         if any(c in value for c in "?!%*"):
             return False

@@ -233,7 +233,7 @@
         },
         "accident_circumstances": {
           "method": "two_labels",
-          "config": "Circumstances || Bodyshop Details"
+          "config": "Circumstances || Pre Existing; Circumstances || Bodyshop Details"
         },
         "vat_status": {
           "method": "single_label",
@@ -1369,7 +1369,7 @@
         },
         "accident_circumstances": {
           "method": "two_labels",
-          "config": "Damage Area || TP Vehicle"
+          "config": "Damage Area || TP Vehicle ; Accident Circumstances || Damage Description"
         },
         "vat_status": {
           "method": "single_label",

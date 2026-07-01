@@ -145,6 +145,57 @@ def test_rule_between_labels():
     assert extracted.value == "Inner content to extract"
 
 
+def test_rule_between_labels_alternate_pairs():
+    doc = DocumentModel(
+        source_path=Path("dummy.pdf"),
+        source_type="pdf",
+        pages=(),
+        plain_text=(
+            "Damage Area – Rear Offside: Moderate backdoor\n"
+            "TP Vehicle:\n"
+            "NISSAN X-TRAIL\n"
+            "Accident Circumstances:\n"
+            "Our client was stationary at traffic lights.\n"
+            "Damage Description:\n"
+            "Rear: Moderate"
+        ),
+    )
+
+    engine = RuleEngine()
+    rule = {
+        "id": "between_rule",
+        "kind": "between_labels",
+        "label_pairs": [
+            {"start_label": "Damage Area", "end_label": "TP Vehicle"},
+            {"start_label": "Accident Circumstances", "end_label": "Damage Description"},
+        ],
+    }
+    extracted = engine.extract_field(doc, FieldKey.ACCIDENT_CIRCUMSTANCES, rule)
+    assert extracted.value.startswith("– Rear Offside")
+
+
+def test_rule_between_labels_strips_table_pipe_prefix():
+    doc = DocumentModel(
+        source_path=Path("dummy.pdf"),
+        source_type="pdf",
+        pages=(),
+        plain_text=(
+            "Accident Circumstances: | Our client was stationary at traffic lights.\n"
+            "Damage Description: | Rear: Moderate"
+        ),
+    )
+
+    engine = RuleEngine()
+    rule = {
+        "id": "between_rule",
+        "kind": "between_labels",
+        "start_label": "Accident Circumstances",
+        "end_label": "Damage Description",
+    }
+    extracted = engine.extract_field(doc, FieldKey.ACCIDENT_CIRCUMSTANCES, rule)
+    assert extracted.value == "Our client was stationary at traffic lights."
+
+
 def test_rule_fixed_line():
     lines = [
         DocumentLine(text="Line 1", page_index=0, line_index=0),

@@ -33,6 +33,20 @@ def parse_two_label_config(config_value: str) -> tuple[str, str]:
     return "", ""
 
 
+def parse_alternate_two_label_configs(config_value: str) -> list[tuple[str, str]]:
+    """Parse one or more start/end label pairs from a v1 two_labels config."""
+    raw = (config_value or "").strip()
+    if not raw:
+        return []
+    segments = [segment.strip() for segment in raw.split(";") if segment.strip()]
+    pairs: list[tuple[str, str]] = []
+    for segment in segments:
+        start, end = parse_two_label_config(segment)
+        if start and end:
+            pairs.append((start, end))
+    return pairs
+
+
 def _new_provider_report(safe_id: str, name: str) -> dict[str, Any]:
     return {
         "id": safe_id,
@@ -125,9 +139,19 @@ def migrate_provider(
                 rule_data["labels"] = split_tokens(config)
             elif method == "two_labels":
                 kind = "between_labels"
-                start, end = parse_two_label_config(config)
-                rule_data["start_label"] = start
-                rule_data["end_label"] = end
+                pairs = parse_alternate_two_label_configs(config)
+                if len(pairs) > 1:
+                    rule_data["label_pairs"] = [
+                        {"start_label": start, "end_label": end} for start, end in pairs
+                    ]
+                elif pairs:
+                    start, end = pairs[0]
+                    rule_data["start_label"] = start
+                    rule_data["end_label"] = end
+                else:
+                    start, end = parse_two_label_config(config)
+                    rule_data["start_label"] = start
+                    rule_data["end_label"] = end
             elif method == "fixed_position":
                 kind = "fixed_line"
                 raw_pos = config.strip()

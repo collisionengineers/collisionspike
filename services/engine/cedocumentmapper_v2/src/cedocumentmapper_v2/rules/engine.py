@@ -31,6 +31,7 @@ def clean_val(value: str) -> str:
     """Clean a value matching v1 clean_value."""
     value = value.replace("\xa0", " ").replace("\u00a0", " ")
     value = value.replace("\r", " ").replace("\t", " ")
+    value = re.sub(r"^\|\s*", "", value)
     value = re.sub(r"[ ]{2,}", " ", value)
     value = re.sub(r"\n{3,}", "\n\n", value)
     return value.strip(" :\n")
@@ -735,11 +736,36 @@ class RuleEngine:
         return self._extract_label_next_line(lines, cfg, rule_id)
 
     def _extract_between_labels(self, lines: list[DocumentLine], plain_text: str, cfg: dict[str, Any], rule_id: str) -> FieldExtraction:
+        label_pairs: list[tuple[str, str]] = []
+        for pair in cfg.get("label_pairs", []):
+            if isinstance(pair, dict):
+                start = str(pair.get("start_label", "")).strip()
+                end = str(pair.get("end_label", "")).strip()
+                if start and end:
+                    label_pairs.append((start, end))
+
         start_label = cfg.get("start_label", "")
         end_label = cfg.get("end_label", "")
-        if not start_label or not end_label:
+        if start_label and end_label:
+            label_pairs.append((str(start_label).strip(), str(end_label).strip()))
+
+        if not label_pairs:
             return FieldExtraction(value="", rule_id=rule_id)
 
+        for start, end in label_pairs:
+            ext = self._extract_between_label_pair(lines, plain_text, start, end, rule_id)
+            if ext.value:
+                return ext
+        return FieldExtraction(value="", rule_id=rule_id)
+
+    def _extract_between_label_pair(
+        self,
+        lines: list[DocumentLine],
+        plain_text: str,
+        start_label: str,
+        end_label: str,
+        rule_id: str,
+    ) -> FieldExtraction:
         # Regex search first
         pattern = re.compile(rf"(?is){re.escape(start_label)}\s*:?\s*(.*?)\s*(?={re.escape(end_label)})")
         match = pattern.search(plain_text)
@@ -748,10 +774,13 @@ class RuleEngine:
             if val:
                 return FieldExtraction(value=val, raw_value=val, rule_id=rule_id, confidence=1.0)
 
-        # Iterate lines fallback
+        # Iterate lines fallback — require the end label; otherwise the next
+        # label pair (or caller) can try. Without this, a missing end marker
+        # would capture through EOF (e.g. AX PDFs without a "Pre Existing" row).
         capture = False
         collected = []
         source_span = None
+        end_found = False
         for line in lines:
             line_txt = line.text
             lower = line_txt.lower().strip()
@@ -764,8 +793,12 @@ class RuleEngine:
                     source_span = SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox)
             else:
                 if lower.startswith(end_label.lower()):
+                    end_found = True
                     break
                 collected.append(clean_val(line_txt))
+
+        if not capture or not end_found:
+            return FieldExtraction(value="", rule_id=rule_id)
 
         val = clean_val("\n".join(c for c in collected if c))
         return FieldExtraction(
