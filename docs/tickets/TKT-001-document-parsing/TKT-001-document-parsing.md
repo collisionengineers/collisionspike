@@ -37,3 +37,4 @@ A representative instruction in each of PDF / DOC / DOCX / EML / MSG returns the
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Follow-up regression 2026-07-01](./changes-regression-01-07-26.md)
+- [Follow-up notes](./followup/followup.md)

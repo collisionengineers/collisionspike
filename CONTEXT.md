@@ -88,3 +88,23 @@ _Avoid_: Reminder, Follow-up (as the entity)
 A free-text entry a staff member adds to a Case (observations, chase activity, address clues). Always
 available and first-class, alongside structured Chasers.
 _Avoid_: Comment, Memo
+
+**Triage Policy** _(planned — rules-engine-v2 / ADR-0019)_:
+The deterministic routing layer that turns a classified inbound email plus live context (open-case
+refs, thread history, the Image-Source intermediary map, automation modes) into an action — mint,
+suggest-attach, query lane, or a cancellation proposal. Distinct from the pure text **classifier**
+(the vendored engine's signal extraction), which sees only the email text.
+_Avoid_: Rules engine (collides with the parser's extraction rules), Router
+
+**Case Update** _(planned taxonomy v2 — ADR-0015 amendment pending)_:
+An inbound email that belongs to an existing open Case — follow-up documents, images, or information
+matched by Case/PO / provider ref / job ref (VRM only as a suggest-level fallback). Routed to
+attach-to-case (suggest-first), never a new Case and not a general query. Boundary: ref-match **plus
+new evidence** is a Case Update; ref-match with a question only stays a Query.
+_Avoid_: Update (bare), Follow-up (as a category name)
+
+**Cancellation** _(planned taxonomy v2 — ADR-0015 amendment pending)_:
+An inbound email reporting a claim/case cancelled or closed. Matched to its Case it yields a
+**staff-confirmed** close/hold proposal — never an automatic close (the terminal case status is
+`removed`).
+_Avoid_: Closure, Cancelled (as a case status name)

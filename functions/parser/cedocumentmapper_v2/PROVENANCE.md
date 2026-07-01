@@ -10,7 +10,26 @@ ALL engine edits land in the sibling first, then this copy is re-cut by the
 documented command below — it is **never hand-edited** except for the two
 intentional, recorded reconciliations described here.
 
-> ## ⚠ OPEN — vendored copy is BEHIND the sibling (re-vendor pending)
+> ## ✅ STATUS UPDATE (2026-07-01, rules-engine-v2 review) — direction VERIFIED REVERSED: vendored is AHEAD, not behind
+>
+> A byte-level comparison against the sibling's open PRs found the true fork state is the
+> **opposite** of the note below: this vendored copy is **AHEAD of sibling `main`** —
+> `readers/email.py`, `readers/doc.py`, `application/service.py` (decorative filter + seed
+> reload) and `providers.json` are **byte-identical to the sibling PR #4 tip**, and
+> `rules/engine.py` = PR #4 **plus** the B2 reconciliation. Sibling **PR #4 upstreams this
+> vendored work** (its `email_classifier.py` is byte-identical to this copy — the 2026-06-29
+> divergence note's re-sync, delivered); **PR #5 is a strict subset of PR #4** (the identical
+> decorative hunk) and should be **closed as superseded**, not merged after it. The `504c3a3`
+> pin below is therefore **materially stale** (the content here post-dates it).
+>
+> **Closure = rules-engine-v2 Phase 0** ([plan](../../../docs/plans/rules_engine_v2_plan_9ba034c4.plan.md)):
+> merge PR #4 → close PR #5 → tag the engine release (the sibling's **first tag**) → re-cut
+> verbatim (expected a **content no-op** for this copy — diff-verify) → re-apply the B2
+> reconciliation → update the Source pin to the tag → `tests/test_engine_vendored_in_sync.py`
+> GREEN with the sibling checked out. Note the sibling **is** checked out in this workspace
+> (`../cedocumentmapper_v2.0`) — the "not currently checked out" caveat below is stale too.
+>
+> ## ⚠ SUPERSEDED by the 2026-07-01 status above — original "vendored is BEHIND" note (kept for history)
 >
 > A parser fix has landed in the `cedocumentmapper_v2.0` engine-core upstream that
 > has **not yet been re-vendored** into this copy, so the two have **diverged**. This
@@ -30,6 +49,9 @@ intentional, recorded reconciliations described here.
 > vendored copy until the re-vendor lands.
 
 > ## ⚠ VENDORED-ONLY DIVERGENCE (2026-06-29) — over-promotion corroboration gate (re-sync sibling pending)
+>
+> _UPDATE (2026-07-01): sibling **PR #4** now carries `rules/email_classifier.py` **byte-identical**
+> to this copy (verified) — merging PR #4 **is** the re-sync described below; see the status note above._
 >
 > `rules/email_classifier.py` was edited **in this vendored copy only** to add (and then,
 > after an xhigh code review, recalibrate) the **attachment-corroboration gate**

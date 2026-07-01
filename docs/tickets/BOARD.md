@@ -13,7 +13,12 @@
 > `verification.md`, with no known gap. Code that is written/merged but **not confirmed working in the live
 > app** stays `now` — "code-correct" is not "done".
 >
-> **Last reconciled 2026-07-01** — TKT-049/050 **VERIFIED-LIVE** (AX claimant-email blank + circumstances boundary fix, parser redeployed). Prior: TKT-003 **VERIFIED-LIVE** (operator re-test post-regression fix).
+> **Last reconciled 2026-07-02** — rules-engine-v2 review pass: authored + boarded the previously
+> frontmatter-less drop-notes **TKT-041/043/044/046/047/051** and split **TKT-052** (merge provider-loss)
+> out of the old `TKT-041-merge-fix` folder; refreshed the stale TKT-015 note (Foundry model
+> deployments now exist — registry). Prior: 2026-07-01 — TKT-049/050 **VERIFIED-LIVE** (AX
+> claimant-email blank + circumstances boundary fix, parser redeployed); TKT-003 **VERIFIED-LIVE**
+> (operator re-test post-regression fix).
 
 ## Now — in flight / not yet confirmed live
 
@@ -46,7 +51,7 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-015](./TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (gated) | Coherent foundation, correctly gated-OFF; NOT a working feature (no model deployed). |
+| [TKT-015](./TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (gated) | Coherent foundation, correctly gated-OFF; NOT a working feature (unwired — Foundry model deployments now EXIST, see the [registry](../architecture/live-environment.md); [rules-engine-v2](../plans/rules_engine_v2_plan_9ba034c4.plan.md) Phase 4 wires them). |
 | [TKT-016](./TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md) | Image-analysis VLM sequence | Research-only; pipeline unbuilt. |
 | [TKT-017](./TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model bench | Research-only; no benchmark run. |
 
@@ -73,6 +78,13 @@
 | [TKT-038](./TKT-038-misclass-query-ack/TKT-038-misclass-query-ack.md) | Bare acknowledgement ('Thanks Ed') misclassified as query | Misclass cluster. |
 | [TKT-039](./TKT-039-misclass-query-report-support/TKT-039-misclass-query-report-support.md) | Report-support request misclassified as new case | Misclass cluster. |
 | [TKT-040](./TKT-040-misclass-roadworthy-request/TKT-040-misclass-roadworthy-request.md) | Informal roadworthy work-request misrouted to 'Other' | Misclass cluster. |
+| [TKT-041](./TKT-041-cancelled-case/TKT-041-cancelled-case.md) | Cancelled/closed-case emails have no home (no cancellation concept) | Drop-note (authored 2026-07-02); 13 real samples in-folder → rules-engine-v2 Phase 2. |
+| [TKT-043](./TKT-043-misclass-images-received/TKT-043-misclass-images-received.md) | Images-received / report-chaser email misrouted (scope to confirm) | Raw evidence only — scope confirmed with the operator at Phase-2 kickoff. |
+| [TKT-044](./TKT-044-mileage-calc-check/TKT-044-mileage-calc-check.md) | Mileage calculations look ~10,000 over expected values | Drop-note (authored 2026-07-02); enrichment MOT-estimate check — not part of rules-engine-v2. |
+| [TKT-046](./TKT-046-seperate-case-updates/TKT-046-seperate-case-updates.md) | Separate case updates from general queries (own lane + attach-to-case) | Drop-note → `case_update` taxonomy, rules-engine-v2 Phase 2. |
+| [TKT-047](./TKT-047-email-sigs-box/TKT-047-email-sigs-box.md) | Email signature images archived to Box in error | Drop-note → non-inline raster floor at fetch, rules-engine-v2 Phase 2. |
+| [TKT-051](./TKT-051-pch-connexus/TKT-051-pch-connexus.md) | PCH not identified (doc-content name + @pch-ltd.com senders) | Drop-note → identification upgrade, rules-engine-v2 Phase 3. |
+| [TKT-052](./TKT-052-merge-provider-loss/TKT-052-merge-provider-loss.md) | Merged image-only case loses the provider (merge logic) | Split from the old TKT-041-merge-fix folder (2026-07-02); TKT-028 territory. |
 
 ## Blocked — needs operator
 

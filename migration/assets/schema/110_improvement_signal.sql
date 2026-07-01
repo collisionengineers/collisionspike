@@ -1,7 +1,10 @@
 -- =============================================================================
--- 110_improvement_signal.sql  --  cr1bd_improvementsignal  (staged; deferred, no M1 writers)
+-- 110_improvement_signal.sql  --  cr1bd_improvementsignal
 -- Staff corrections feeding a Management triage queue. Both lookups are nullable and
 -- use ON DELETE SET NULL (RemoveLink) in 900.
+-- LIVE WRITER since the suggested-tags work: the Data API writes a row on every staff
+-- reclassification (api/src/functions/inbound.ts writeImprovementSignal, PATCH
+-- /api/inbound/{id}/classification) — the earlier "deferred, no M1 writers" note is stale.
 -- =============================================================================
 BEGIN;
 

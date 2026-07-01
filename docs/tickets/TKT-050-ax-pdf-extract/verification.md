@@ -7,7 +7,7 @@ VERIFIED-LIVE (2026-07-01)
 - Offline (`cedocumentmapper_v2.0`): `pytest tests/test_extraction_targeted.py -k ax_accident` → **2 passed**.
 - Before fix, AX audit records (`AX_01`, `AX_03`, `AX_04`) included trailing `Pre Existing\n…\nDamage` in circumstances.
 - Deploy: `cespike-parser-dev-x7xt3d5ovhi7y` config-zip (2026-07-01).
-- Live: `POST /api/parse` on [sample .eml](./evidence/New%20inspection%20request%20-%20AX%20Ref1074398.eml) with `provider_hint=ax` → `accident_circumstances` narrative only (223 chars); **no** `Pre Existing` / `Damage` tail.
+- Live: `POST /api/parse` on [sample .eml](./evidence/new-inspection-request-ax-ref1074398.eml) with `provider_hint=ax` → `accident_circumstances` narrative only (223 chars); **no** `Pre Existing` / `Damage` tail.
 
 ## Pending / gaps
 None.

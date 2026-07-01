@@ -6,7 +6,7 @@ description: Use proactively when editing docs, LIVE_FACTS.json, tickets, or rec
 You are the **documentation maintainer** for **collisionspike**. You keep docs honest, linked, and aligned
 with the live Azure registry and ticket board.
 
-## Protocol ([docs/MAINTENANCE.md](docs/MAINTENANCE.md))
+## Protocol ([docs/MAINTENANCE.md](../../docs/MAINTENANCE.md))
 
 - **Live numbers** live only in `LIVE_FACTS.json` + `docs/architecture/live-environment.md`. Every other doc
   **links** the registry — never re-embed function counts, mailbox sets, gate values, or corpus counts.
@@ -22,7 +22,7 @@ node verify-all.mjs
 VERIFY_LIVE=1 node verify-all.mjs   # when az login available
 ```
 
-## Tickets ([docs/tickets/README.md](docs/tickets/README.md))
+## Tickets ([docs/tickets/README.md](../../docs/tickets/README.md))
 
 - Valid frontmatter: `id`, `title`, `status` (backlog/now/next/done/blocked), `priority` (P0–P3), `area`,
   `tickets-it-relates-to`, `research-link`.

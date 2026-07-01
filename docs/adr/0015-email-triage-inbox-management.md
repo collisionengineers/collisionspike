@@ -140,3 +140,17 @@ Inbox→Other with manual-create available, rather than auto-creating a Case —
 redeployed; orch/api untouched). The sibling engine was absent at fix time, so the change landed in the
 **vendored copy only** — the vendored copy is authoritative; see `cedocumentmapper_v2/PROVENANCE.md` for
 the re-vendor/reconciliation contract.
+
+## Update (2026-07-02) — taxonomy v2 planned (amendment pending with the Phase-2 build)
+
+The approved [rules-engine-v2 plan](../plans/rules_engine_v2_plan_9ba034c4.plan.md) extends this
+ADR's decided three-bucket taxonomy with two **new top-level categories** — **`case_update`** (an
+inbound that belongs to an existing open Case: attach-to-case, suggest-first) and **`cancellation`**
+(claim cancelled/closed: a staff-confirmed close/hold proposal) — plus an `images_received` subtype.
+Because new top-level categories change the taxonomy *shape* this ADR decided (not just append
+choiceset values), the full amendment is written **when Phase 2 builds it**, honouring: append-only
+never-renumber codes; a strict **deploy order** (DDL/choicesets before any engine tag that emits v2
+categories); the §5 link discipline unchanged (ref-first, VRM fallback, never auto-link on
+ambiguity — the ref-gate ships **suggest-first**). The Stage-A/B/C architecture that carries these
+categories is **ADR-0019**. Canonical term entries: `CONTEXT.md` (Triage Policy / Case Update /
+Cancellation).

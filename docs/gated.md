@@ -341,6 +341,31 @@ corrections, garage↔provider links, address lists, etc.).
 
 **Steps:** gather whatever you have (partial is fine) and send it over to be loaded into Postgres.
 
+#### D6. Rules Engine v2 — queued operator gates  ·  *plan approved 2026-07-02; phases not started*
+
+**What:** the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md) (email
+categorisation/triage upgrade — ROADMAP Phase 8's Azure-era realization) carries five operator gates.
+None is due until its phase starts; listed here so nothing lands as a surprise:
+
+1. **Sibling PR merge + first engine tag** (Phase 0; ADR-0018 prereq): merge `cedocumentmapper_v2.0`
+   **PR #4**, close **PR #5** as superseded (strict subset), tag the engine release (the sibling's
+   first tag) so the vendored copy can be re-cut against a committed ref.
+2. **Phase-2 DDL delta apply** (live Postgres): append-only taxonomy rows (`case_update`,
+   `cancellation`, `images_received`) + `inbound_email.body_jobref` / `conversation_id` columns —
+   idempotent additive script, same discipline as the 2026-06-30 migration.
+3. **`EMAIL_AI_ENABLED` production flip** (Phase 4): covered by the **E2 per-AI-gate sign-off** below,
+   with one fact named plainly — the chat model is a **Global deployment** (inference may process
+   outside the UK; data-at-rest stays in-region; no UK data zone exists). Testing on repo data is
+   already authorised (G5); the **production** flip is yours.
+4. **Live `inbound_email` PII export** for the eval corpus (Phase 1): an E2-governed export of real
+   email rows + staff overrides into the gitignored corpus path.
+5. **Foundry keyless flip** (Phase 4): after the orchestration MI is granted access, disabling
+   key-based auth on `digital-3339-resource` needs your confirmation — **you created that account**
+   (2026-07-01) and may have key-based uses for it outside this repo. Current state: the registry
+   ([live-environment.md](./architecture/live-environment.md)).
+
+All five also depend on the standing **A0** (`az login`) and **A1** (Free-Trial→PAYG) items above.
+
 #### D5. Rotate the parser Function key  ·  *soft security item*
 
 **What:** a parser **function key** value was once committed in source + a doc (both removed/scrubbed), but

@@ -1,6 +1,6 @@
 {
-  "lastVerified": "2026-07-01T22:30:00Z",
-  "verifiedBy": "agent (2026-07-01 TKT-027 deploy): config-zip-deployed api+orch carrying setIngested intake step (new_email→ingested). VERIFY: api 64 functions (+internalCasesSetIngested, anon POST …/set-ingested→401); orch 51 functions (+setIngested; banner held, NOT 0). Intake ingested transition not yet e2e-proven on a live case — await next email audit trail.",
+  "lastVerified": "2026-07-01T23:14:18Z",
+  "verifiedBy": "agent (2026-07-01 rules-engine-v2 review pass, READ-ONLY): added the NEW `foundry` block — digital-3339-resource now HAS model deployments (gpt-5 GlobalStandard + text-embedding-3-large regional Standard, operator-created 2026-07-01T14:41Z, i.e. AFTER the earlier same-day snapshots) — the prior 'orphan / no deployments' records were stale, not wrong. No live mutation. Prior entry (TKT-027/M-E2 deploys): api 65 functions (+logChase), orch 51; intake ingested transition not yet e2e-proven on a live case — await next email audit trail.",
   "subscription": "e6076573-23a5-46a8-acef-7e22d264e5db",
   "resourceGroup": "rg-collisionspike-dev",
   "region": "uksouth",
@@ -177,6 +177,53 @@
     "verifiedAt": "2026-06-28T23:55:15Z (BOX/ENRICHMENT gates); 2026-06-29T15:14Z (GRAPH_INTAKE_MAILBOXES); 2026-06-30T07:50Z (added OCR_FN_* on orch + BOX_FN_* on api -- work-todo-spike wiring)",
     "verified": true,
     "docDrift": "2026-06-30 work-todo-spike NEW wiring app-settings (tracked here so verify-live diffs them): orch OCR_FN_URL (plain host cespkocr-fn-dev-glju3v) + OCR_FN_KEY (KV ref cespk-pg-kv-dev/ocr-fn-key) for registration-visible plate OCR; api BOX_FN_URL (plain host cespkbox-fn-v76a47) + BOX_FN_KEY (KV ref cespk-pg-kv-dev/boxwebhook-fn-key, reused) for the Case/PO allocator new-provider Box fallback -- both follow the established *_FN_URL=plain / *_FN_KEY=KV-ref convention. Feature gates UNCHANGED: BOX_API_ENABLED, BOX_FOLDER_AT_INTAKE_ENABLED, BOX_FILEREQUEST_ENABLED are all 'true' on BOTH api and orch — Box is ACTIVATED, not off. ENRICHMENT_ENABLED and PDF_MAPPER_ENABLED are 'true' on both. EVA_API_ENABLED, VALUATION_ENABLED, BOX_EMBED_ENABLED, BOX_METADATA_ENABLED are not set (effectively off/reserved). GRAPH_INTAKE_MAILBOXES = info@ + engineers@ + desk@ (the production target; test mailbox digital@ removed in the 2026-06-29 mailbox cutover; info@/desk@ minIntakeDate 2026-06-29, engineers@ 2026-06-27). NOTE: PDF_MAPPER_ENABLED=true was unrecorded before the 2026-06-29 re-verification; CLAUDE.md's gate list describes default-off SEMANTICS, not current live values."
+  },
+  "foundry": {
+    "value": {
+      "account": "digital-3339-resource",
+      "kind": "AIServices",
+      "sku": "S0",
+      "location": "uksouth",
+      "project": "digital-3339",
+      "disableLocalAuth": false,
+      "publicNetworkAccess": "Enabled",
+      "deployments": [
+        {
+          "name": "gpt-5",
+          "model": "gpt-5",
+          "modelVersion": "2025-08-07",
+          "sku": "GlobalStandard",
+          "capacityKTPM": 50,
+          "rateLimits": "50K TPM / 500 RPM",
+          "raiPolicy": "Microsoft.DefaultV2",
+          "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
+          "createdBy": "digital@collisionengineers.co.uk (User)",
+          "createdAt": "2026-07-01T14:41:12Z",
+          "dataProcessing": "GlobalStandard = inference may process in ANY Azure region (data at rest stays uksouth); no UK data zone exists (DataZone is US/EU only) and uksouth has no regional-Standard gpt-5 quota — Global is the only gpt-5 option here"
+        },
+        {
+          "name": "text-embedding-3-large",
+          "model": "text-embedding-3-large",
+          "modelVersion": "1",
+          "sku": "Standard",
+          "capacityKTPM": 120,
+          "raiPolicy": "Microsoft.DefaultV2",
+          "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
+          "dataProcessing": "regional Standard — processed in uksouth"
+        }
+      ],
+      "quotaHeadroomUksouth": {
+        "OpenAI.GlobalStandard.gpt-5": "50 used / 1000 limit (K TPM)",
+        "OpenAI.GlobalStandard.gpt-5-mini": "0 used / 1000 limit",
+        "OpenAI.Standard.text-embedding-3-large": "120 used / 350 limit"
+      },
+      "miGrants": "NONE for cespk-api-dev / cespk-orch-dev on this scope — only the operator user principal holds roles (Owner at subscription + Azure AI User etc.). Rules-engine-v2 Phase 4 wires the orch MI (Cognitive Services OpenAI User) + keyless; the disableLocalAuth flip is operator-gated (docs/gated.md).",
+      "wiring": "NOT wired into any app: EMAIL_AI_ENABLED / AI_MODEL_ENDPOINT / AI_MODEL_DEPLOYMENT absent from api+orch app-settings; orchestration triage-classify remains a dormant deterministic stub."
+    },
+    "sourceCommand": "az cognitiveservices account deployment list -n digital-3339-resource -g rg-collisionspike-dev; az cognitiveservices account show (disableLocalAuth/publicNetworkAccess); az cognitiveservices usage list -l uksouth; ARM roleAssignments list at the account scope",
+    "verifiedAt": "2026-07-01T23:14:18Z",
+    "verified": true,
+    "docDrift": "NEW block (2026-07-01 rules-engine-v2 review): the deployments were created by the operator at 2026-07-01T14:41Z — AFTER the 14:20Z snapshot and the earlier ai-assistant research — so live-environment.md's 'ORPHAN, no model deployments' line, gates.ts's ZERO-deployments comment, and BOARD's TKT-015 'no model deployed' note were all stale (each now corrected to point here). The account is no longer an orphan: it is the Stage-C target of docs/plans/rules_engine_v2_plan_9ba034c4.plan.md (gated, unwired)."
   },
   "resourceInventory": {
     "value": {

@@ -26,7 +26,7 @@ Controls whether populated data requires human review before EVA:
 
 **Unknown providers default to `Review auto`** (and `prefer_address` policy).
 
-> **Live enforcement (2026-06-30, [TKT-013](../../tickets/TKT-013-automation-mode/TKT-013-automation-mode.md)):**
+> **Live enforcement (2026-06-30, [TKT-013](../tickets/TKT-013-automation-mode/TKT-013-automation-mode.md)):**
 > modes are stored on `work_provider.provider_automation_mode_code` (`manual` · `review_auto` ·
 > `full_auto` deferred in the choiceset) and **honoured by the orchestration pipeline**. Record-keeping
 > (Box folder create, evidence archive, image extract) runs on **every** intake regardless of mode;
