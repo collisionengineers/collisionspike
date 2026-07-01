@@ -1609,8 +1609,8 @@ var retry = new df4.RetryOptions(
 retry.backoffCoefficient = 2;
 retry.maxRetryIntervalInMilliseconds = 6e4;
 df4.app.orchestration("intakeOrchestrator", function* (ctx) {
-  const input11 = ctx.df.getInput();
-  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry, input11);
+  const input12 = ctx.df.getInput();
+  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry, input12);
   const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry, inbound);
   const workProviderId = provider.workProviderId;
   const matchState = provider.matchState;
@@ -2375,8 +2375,8 @@ function createEmptyPipeline() {
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/object.js
-function isObject(input11) {
-  return typeof input11 === "object" && input11 !== null && !Array.isArray(input11) && !(input11 instanceof RegExp) && !(input11 instanceof Date);
+function isObject(input12) {
+  return typeof input12 === "object" && input12 !== null && !Array.isArray(input12) && !(input12 instanceof RegExp) && !(input12 instanceof Date);
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/error.js
@@ -5857,8 +5857,8 @@ function getRequestUrl(baseUri, operationSpec, operationArguments, fallbackObjec
   requestUrl = appendQueryParams(requestUrl, queryParams, sequenceParams, isAbsolutePath);
   return requestUrl;
 }
-function replaceAll(input11, replacements) {
-  let result = input11;
+function replaceAll(input12, replacements) {
+  let result = input12;
   for (const [searchValue, replaceValue] of replacements) {
     result = result.split(searchValue).join(replaceValue);
   }
@@ -15330,19 +15330,19 @@ var StructuredMessageEncoding = class {
     signalStreamEnd(this.pushData);
     this.state = SMRegion.Completed;
   }
-  fillInt64(buffer2, offset, input11) {
+  fillInt64(buffer2, offset, input12) {
     if (buffer2.length < offset + 8) {
       throw new Error("Uint8Array length is not expected.");
     }
     const view = new DataView(buffer2.buffer, buffer2.byteOffset + offset, 8);
-    view.setBigUint64(0, BigInt(input11), true);
+    view.setBigUint64(0, BigInt(input12), true);
   }
-  fillInt16(buffer2, offset, input11) {
+  fillInt16(buffer2, offset, input12) {
     if (buffer2.length < offset + 2) {
       throw new Error("Uint8Array length is not expected.");
     }
     const view = new DataView(buffer2.buffer, buffer2.byteOffset + offset, 2);
-    view.setUint16(0, input11, true);
+    view.setUint16(0, input12, true);
   }
 };
 
@@ -15657,18 +15657,18 @@ var StructuredMessageDecoding = class {
       this.pushData(null);
     }
   }
-  toInt64(input11, offset) {
-    if (input11.length < offset + 8) {
+  toInt64(input12, offset) {
+    if (input12.length < offset + 8) {
       throw new Error("CRC64 buffer error, something wrong with crc64 calculator");
     }
-    const view = new DataView(input11.buffer, input11.byteOffset + offset, 8);
+    const view = new DataView(input12.buffer, input12.byteOffset + offset, 8);
     return Number(view.getBigUint64(0, true));
   }
-  toInt16(input11) {
-    if (input11.length !== 2) {
+  toInt16(input12) {
+    if (input12.length !== 2) {
       throw new Error("CRC64 buffer error, something wrong with crc64 calculator");
     }
-    return input11[0] + input11[1] * 256;
+    return input12[0] + input12[1] * 256;
   }
   checkCrc64CheckSum(first, second) {
     if (first.length !== 8 || second.length !== 8) {
@@ -41253,9 +41253,9 @@ function refEquals(a, b) {
     return false;
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
-function eligibleCases(input11) {
-  return input11.openProviderCases.filter((c) => {
-    if (c.workProviderId !== void 0 && c.workProviderId !== input11.workProviderId) {
+function eligibleCases(input12) {
+  return input12.openProviderCases.filter((c) => {
+    if (c.workProviderId !== void 0 && c.workProviderId !== input12.workProviderId) {
       return false;
     }
     if (isTerminalStatus(c.status))
@@ -41263,8 +41263,8 @@ function eligibleCases(input11) {
     return true;
   });
 }
-function resolveCase(input11) {
-  if (input11.seenMessageIds.includes(input11.messageId) || input11.seenPayloadHashes.includes(input11.payloadHash)) {
+function resolveCase(input12) {
+  if (input12.seenMessageIds.includes(input12.messageId) || input12.seenPayloadHashes.includes(input12.payloadHash)) {
     return {
       resolution: "drop",
       setDuplicateRisk: false,
@@ -41272,9 +41272,9 @@ function resolveCase(input11) {
       auditAction: "duplicate_dropped"
     };
   }
-  const candidates = eligibleCases(input11);
-  if (hasRef(input11.candidateRef)) {
-    const matched = candidates.find((c) => refEquals(c.caseRef, input11.candidateRef));
+  const candidates = eligibleCases(input12);
+  if (hasRef(input12.candidateRef)) {
+    const matched = candidates.find((c) => refEquals(c.caseRef, input12.candidateRef));
     if (matched) {
       return {
         resolution: "attach",
@@ -41295,7 +41295,7 @@ function resolveCase(input11) {
       };
     }
   }
-  if (!hasRef(input11.candidateRef) && candidates.length > 0) {
+  if (!hasRef(input12.candidateRef) && candidates.length > 0) {
     return {
       resolution: "propose_attach",
       targetCaseId: candidates[0].caseId,
@@ -41578,21 +41578,21 @@ function extractVrm(text) {
 var BODY_CAP = 2e4;
 var BODY_PREVIEW_CAP = 3500;
 df5.app.activity("fetchMessage", {
-  handler: async (input11, ctx) => {
-    const mailbox = mailboxOfResource(input11.resource ?? "");
-    if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input11.resource}"`);
-    const { message, attachments } = await getMessageWithAttachments(mailbox, input11.messageId);
-    const headers = await getMessageHeaders(mailbox, input11.messageId);
+  handler: async (input12, ctx) => {
+    const mailbox = mailboxOfResource(input12.resource ?? "");
+    if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input12.resource}"`);
+    const { message, attachments } = await getMessageWithAttachments(mailbox, input12.messageId);
+    const headers = await getMessageHeaders(mailbox, input12.messageId);
     const landed = [];
     for (const a of attachments) {
       const bytes = Buffer.from(a.contentBytes ?? "", "base64");
-      const up = await uploadEvidenceBytes(input11.messageId, a.name, bytes, a.contentType);
+      const up = await uploadEvidenceBytes(input12.messageId, a.name, bytes, a.contentType);
       landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size });
     }
     let rawEml;
     try {
-      const mime = await getMessageRawMime(mailbox, input11.messageId);
-      const emlUp = await uploadEvidenceBytes(input11.messageId, "message.eml", mime, "message/rfc822");
+      const mime = await getMessageRawMime(mailbox, input12.messageId);
+      const emlUp = await uploadEvidenceBytes(input12.messageId, "message.eml", mime, "message/rfc822");
       rawEml = {
         filename: "message.eml",
         contentType: "message/rfc822",
@@ -41600,7 +41600,7 @@ df5.app.activity("fetchMessage", {
         size: emlUp.size
       };
     } catch (e) {
-      ctx.warn(`[fetchMessage] raw .eml capture failed for ${input11.messageId}: ${e instanceof Error ? e.message : String(e)}`);
+      ctx.warn(`[fetchMessage] raw .eml capture failed for ${input12.messageId}: ${e instanceof Error ? e.message : String(e)}`);
     }
     const subject = message.subject ?? "";
     const senderAddress = message.from?.emailAddress?.address ?? "";
@@ -41610,11 +41610,11 @@ df5.app.activity("fetchMessage", {
     const candidateVrm = extractVrm(`${subject}
 ${body2}`);
     const envelope = {
-      messageId: input11.messageId,
-      internetMessageId: message.internetMessageId ?? input11.messageId,
+      messageId: input12.messageId,
+      internetMessageId: message.internetMessageId ?? input12.messageId,
       subject,
       senderAddress,
-      receivedAt: message.receivedDateTime ?? input11.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
+      receivedAt: message.receivedDateTime ?? input12.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
       sourceMailbox: mailbox,
       payloadHash,
       candidateVrm,
@@ -41627,7 +41627,7 @@ ${body2}`);
       attachments: landed,
       ...rawEml ? { rawEml } : {}
     };
-    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input11.messageId, mailbox, attachments: landed.length, eml: Boolean(rawEml) }));
+    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input12.messageId, mailbox, attachments: landed.length, eml: Boolean(rawEml) }));
     return envelope;
   }
 });
@@ -41701,8 +41701,8 @@ var dataApi = {
     return request("GET", `/api/internal/dedup-context?${q.toString()}`);
   },
   /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
-  createCase(input11) {
-    return request("POST", "/api/cases", input11);
+  createCase(input12) {
+    return request("POST", "/api/cases", input12);
   },
   /**
    * Persist the result of the in-activity dedup decision (internal route). The orchestration
@@ -41868,30 +41868,30 @@ async function callFunction(target, method, route, body2) {
   if (res.status === 204) return void 0;
   return await res.json();
 }
-function callClassifyEmail(input11) {
+function callClassifyEmail(input12) {
   return callFunction(PARSER, "POST", "classify-email", {
-    subject: input11.subject ?? "",
-    body: input11.body ?? "",
-    from: input11.from ?? "",
-    sender_domain: input11.senderDomain ?? "",
-    provider_match_state: input11.providerMatchState ?? "",
-    attachment_kinds: input11.attachmentKinds ?? [],
-    has_attachments: input11.hasAttachments ?? false,
-    in_reply_to: input11.inReplyTo ?? "",
-    references: input11.references ?? ""
+    subject: input12.subject ?? "",
+    body: input12.body ?? "",
+    from: input12.from ?? "",
+    sender_domain: input12.senderDomain ?? "",
+    provider_match_state: input12.providerMatchState ?? "",
+    attachment_kinds: input12.attachmentKinds ?? [],
+    has_attachments: input12.hasAttachments ?? false,
+    in_reply_to: input12.inReplyTo ?? "",
+    references: input12.references ?? ""
   });
 }
-function callExtractImages(input11) {
+function callExtractImages(input12) {
   return callFunction(PARSER, "POST", "extract-images", {
-    document: input11.documentBase64,
-    filename: input11.filename
+    document: input12.documentBase64,
+    filename: input12.filename
   });
 }
-function callPlateOcr(input11) {
+function callPlateOcr(input12) {
   return callFunction(OCR, "POST", "plate-ocr", {
-    image: input11.imageBase64,
-    filename: input11.filename,
-    ...input11.caseVrm ? { case_vrm: input11.caseVrm } : {}
+    image: input12.imageBase64,
+    filename: input12.filename,
+    ...input12.caseVrm ? { case_vrm: input12.caseVrm } : {}
   });
 }
 function callEvaSubmit(caseId) {
@@ -41939,14 +41939,20 @@ var MATCH_STATE_TO_CLASSIFIER = {
   unmatched: "none",
   ambiguous: "ambiguous"
 };
-var KNOWN_CATEGORIES = /* @__PURE__ */ new Set(["receiving_work", "query", "other"]);
+var KNOWN_CATEGORIES = /* @__PURE__ */ new Set([
+  "receiving_work",
+  "query",
+  "billing",
+  "non_actionable",
+  "other"
+]);
 function domainOf2(address) {
   const at = address.lastIndexOf("@");
   return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : "";
 }
 df7.app.activity("classifyInbound", {
-  handler: async (input11, ctx) => {
-    const { inbound, workProviderId, matchState } = input11;
+  handler: async (input12, ctx) => {
+    const { inbound, workProviderId, matchState } = input12;
     const attachmentKinds = inbound.attachments.map(
       (a) => describeEvidence(a.filename, a.contentType).evidenceClass
     );
@@ -41991,17 +41997,17 @@ df7.app.activity("classifyInbound", {
 // orchestration/src/functions/activities/linkReply.ts
 var df8 = __toESM(require("durable-functions"), 1);
 df8.app.activity("linkReply", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     const result = await dataApi.linkReplyToOpenCase({
-      inbound: input11.inbound,
-      providerId: input11.providerId,
-      ref: input11.ref,
-      vrm: input11.vrm
+      inbound: input12.inbound,
+      providerId: input12.providerId,
+      ref: input12.ref,
+      vrm: input12.vrm
     });
     ctx.log(
       JSON.stringify({
         evt: "linkReply",
-        messageId: input11.inbound.messageId,
+        messageId: input12.inbound.messageId,
         outcome: result.outcome,
         candidateCount: result.candidateCount
       })
@@ -42013,9 +42019,9 @@ df8.app.activity("linkReply", {
 // orchestration/src/functions/activities/caseResolve.ts
 var df9 = __toESM(require("durable-functions"), 1);
 df9.app.activity("caseResolve", {
-  handler: async (input11, ctx) => {
-    const { inbound, providerId, matchState } = input11;
-    const bestVrm = ((input11.parserVrm || inbound.candidateVrm) ?? "").trim();
+  handler: async (input12, ctx) => {
+    const { inbound, providerId, matchState } = input12;
+    const bestVrm = ((input12.parserVrm || inbound.candidateVrm) ?? "").trim();
     try {
       const context3 = await dataApi.dedupContext({
         workProviderId: providerId ?? "",
@@ -42028,7 +42034,7 @@ df9.app.activity("caseResolve", {
         candidateVrm: bestVrm,
         // #100 — fall back to the parser-confirmed reference for dedup when the email
         // subject/body did not yield a Case/PO (a ref that lives only in the PDF).
-        candidateRef: inbound.candidateRef || input11.parserRef || "",
+        candidateRef: inbound.candidateRef || input12.parserRef || "",
         workProviderId: providerId ?? "",
         openProviderCases: context3.openProviderCases,
         seenMessageIds: context3.seenMessageIds,
@@ -42042,11 +42048,11 @@ df9.app.activity("caseResolve", {
         inbound,
         providerId,
         matchState,
-        parserVrm: input11.parserVrm,
-        parserRef: input11.parserRef,
-        parserMileage: input11.parserMileage,
-        parserMileageUnit: input11.parserMileageUnit,
-        parserEva: input11.parserEvaFields,
+        parserVrm: input12.parserVrm,
+        parserRef: input12.parserRef,
+        parserMileage: input12.parserMileage,
+        parserMileageUnit: input12.parserMileageUnit,
+        parserEva: input12.parserEvaFields,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
@@ -42077,8 +42083,8 @@ df9.app.activity("caseResolve", {
 var df10 = __toESM(require("durable-functions"), 1);
 var MIN_BODY_INSTRUCTION_CHARS = 40;
 df10.app.activity("classifyPersist", {
-  handler: async (input11, ctx) => {
-    const { caseId, inbound } = input11;
+  handler: async (input12, ctx) => {
+    const { caseId, inbound } = input12;
     const rows = inbound.attachments.map((a) => ({
       ...describeEvidence(a.filename, a.contentType),
       blobPath: a.blobPath,
@@ -42221,13 +42227,13 @@ function pickInstructionDoc(atts) {
   return pool.find((a) => /pdf/i.test(a.contentType ?? "") || /\.pdf$/i.test(a.filename ?? "")) ?? pool[0];
 }
 df11.app.activity("parse", {
-  handler: async (input11, ctx) => {
-    const corr = input11.caseId || input11.messageId || "(pre-resolve)";
+  handler: async (input12, ctx) => {
+    const corr = input12.caseId || input12.messageId || "(pre-resolve)";
     if (!gates.pdfMapper()) {
       ctx.log("[parse] skipped \u2014 PDF_MAPPER_ENABLED=false");
       return { skipped: true, reason: "gate_off" };
     }
-    const doc = pickInstructionDoc(input11.attachments ?? []);
+    const doc = pickInstructionDoc(input12.attachments ?? []);
     if (!doc) {
       ctx.log(`[parse] no instruction document attachment for ${corr}; skipping`);
       return { skipped: true, reason: "no_document" };
@@ -42251,7 +42257,7 @@ df11.app.activity("parse", {
       body: JSON.stringify({
         document: documentB64,
         filename: doc.filename,
-        ...input11.providerHint ? { provider_hint: input11.providerHint } : {}
+        ...input12.providerHint ? { provider_hint: input12.providerHint } : {}
       })
     });
     if (!res.ok) {
@@ -42277,9 +42283,9 @@ df11.app.activity("parse", {
 // orchestration/src/functions/activities/statusEvaluate.ts
 var df12 = __toESM(require("durable-functions"), 1);
 df12.app.activity("statusEvaluate", {
-  handler: async (input11, ctx) => {
-    const result = await dataApi.evaluateStatus(input11.caseId);
-    ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input11.caseId, status: result.value }));
+  handler: async (input12, ctx) => {
+    const result = await dataApi.evaluateStatus(input12.caseId);
+    ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input12.caseId, status: result.value }));
     return result;
   }
 });
@@ -42287,14 +42293,14 @@ df12.app.activity("statusEvaluate", {
 // orchestration/src/functions/activities/enrich.ts
 var df13 = __toESM(require("durable-functions"), 1);
 df13.app.activity("enrich", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.enrichment()) {
       ctx.log("[enrich] skipped \u2014 ENRICHMENT_ENABLED=false");
       return { skipped: true, reason: "gate_off" };
     }
-    const vrm = (input11.vrm ?? "").trim();
+    const vrm = (input12.vrm ?? "").trim();
     if (!vrm) {
-      ctx.log(`[enrich] no VRM resolved for case ${input11.caseId}; nothing to enrich \u2014 skipping`);
+      ctx.log(`[enrich] no VRM resolved for case ${input12.caseId}; nothing to enrich \u2014 skipping`);
       return { skipped: true, reason: "no_vrm" };
     }
     const res = await fetch(`${process.env.ENRICH_FN_URL}/api/dvsa-mot/enrich`, {
@@ -42303,16 +42309,16 @@ df13.app.activity("enrich", {
         "Content-Type": "application/json",
         "x-functions-key": process.env.ENRICH_FN_KEY
       },
-      body: JSON.stringify({ vrm, document_has_mileage: input11.documentHasMileage ?? true })
+      body: JSON.stringify({ vrm, document_has_mileage: input12.documentHasMileage ?? true })
     });
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
         ctx.error(
-          `[enrich] auth/config error ${res.status} calling enrichment for case ${input11.caseId} \u2014 check ENRICH_FN_KEY`
+          `[enrich] auth/config error ${res.status} calling enrichment for case ${input12.caseId} \u2014 check ENRICH_FN_KEY`
         );
         await dataApi.recordAudit({
           action: "enrichment_failed",
-          caseId: input11.caseId,
+          caseId: input12.caseId,
           severity: "error",
           summary: `enrichment auth/config error ${res.status}`
         });
@@ -42321,24 +42327,48 @@ df13.app.activity("enrich", {
       if (res.status >= 500) {
         throw new Error(`[enrich] enrichment Function responded ${res.status}`);
       }
-      ctx.log(`[enrich] enrichment returned ${res.status} for case ${input11.caseId}; skipping`);
+      ctx.log(`[enrich] enrichment returned ${res.status} for case ${input12.caseId}; skipping`);
       return { skipped: true, status: res.status };
     }
     const result = await res.json();
-    const persisted = await dataApi.persistEnrichment(input11.caseId, result);
-    ctx.log(JSON.stringify({ evt: "enrich", caseId: input11.caseId, applied: persisted.applied }));
+    const persisted = await dataApi.persistEnrichment(input12.caseId, result);
+    ctx.log(JSON.stringify({ evt: "enrich", caseId: input12.caseId, applied: persisted.applied }));
     return { enriched: true, applied: persisted.applied, warnings: result.warnings ?? [] };
   }
 });
 
 // orchestration/src/functions/activities/boxArchive.ts
+var import_functions6 = require("@azure/functions");
 var df14 = __toESM(require("durable-functions"), 1);
+import_functions6.app.http("box-archive-start", {
+  methods: ["POST"],
+  authLevel: "function",
+  route: "box-archive",
+  extraInputs: [df14.input.durableClient()],
+  handler: async (req, ctx) => {
+    if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
+      ctx.log("[box-archive] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
+      return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
+    }
+    const input12 = await req.json();
+    const client2 = df14.getClient(ctx);
+    const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input12 });
+    return client2.createCheckStatusResponse(req, instanceId);
+  }
+});
+var manualRetry = new df14.RetryOptions(5e3, 3);
+manualRetry.backoffCoefficient = 2;
+df14.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
+  const input12 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input12);
+  return result;
+});
 df14.app.activity("boxArchiveEvidence", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       return { uploaded: 0, total: 0, skipped: "gated_off" };
     }
-    const { caseId } = input11;
+    const { caseId } = input12;
     let folderId = null;
     try {
       const cf = await dataApi.getCaseBoxFolder(caseId);
@@ -42427,13 +42457,13 @@ var IMG_SOURCE_EXT = /\.(pdf|docx?)$/i;
 var IMG_SOURCE_CTYPE = /pdf|msword|officedocument/i;
 var OCR_OK_EXT = /\.(jpe?g|png|bmp|tiff?|webp|heic|heif)$/i;
 df15.app.activity("extractImages", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.pdfMapper()) return { extracted: 0, registrationVisible: false, skipped: "gate_off" };
-    const docs = (input11.attachments ?? []).filter(
+    const docs = (input12.attachments ?? []).filter(
       (a) => IMG_SOURCE_EXT.test(a.filename ?? "") || IMG_SOURCE_CTYPE.test(a.contentType ?? "")
     );
     if (!docs.length) return { extracted: 0, registrationVisible: false, skipped: "no_source" };
-    const messageId = input11.messageId || input11.caseId;
+    const messageId = input12.messageId || input12.caseId;
     let totalExtracted = 0;
     let anyRegVisible = false;
     for (const doc of docs) {
@@ -42476,7 +42506,7 @@ df15.app.activity("extractImages", {
             const ocr = await callPlateOcr({
               imageBase64: img.content_base64,
               filename: img.filename,
-              caseVrm: input11.caseVrm
+              caseVrm: input12.caseVrm
             });
             registrationVisible = Boolean(ocr.registration_visible);
             if (registrationVisible) anyRegVisible = true;
@@ -42502,7 +42532,7 @@ df15.app.activity("extractImages", {
       }
       if (rows.length) {
         try {
-          const res = await dataApi.persistImageEvidence(input11.caseId, rows);
+          const res = await dataApi.persistImageEvidence(input12.caseId, rows);
           totalExtracted += res.persisted;
         } catch (e) {
           ctx.warn(`[extractImages] persist failed for ${doc.filename}: ${e instanceof Error ? e.message : String(e)}`);
@@ -42513,14 +42543,14 @@ df15.app.activity("extractImages", {
       try {
         await dataApi.recordAudit({
           action: "attachment_classified",
-          caseId: input11.caseId,
+          caseId: input12.caseId,
           severity: anyRegVisible ? "info" : "warning",
           summary: anyRegVisible ? `extracted ${totalExtracted} image(s) from instruction docs; at least one shows the registration` : `extracted ${totalExtracted} image(s) from instruction docs, but a photo showing the registration is still needed`
         });
       } catch {
       }
     }
-    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input11.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible }));
+    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input12.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible }));
     return { extracted: totalExtracted, registrationVisible: anyRegVisible };
   }
 });
@@ -42529,9 +42559,9 @@ function stripExt(name) {
 }
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
-var import_functions6 = require("@azure/functions");
+var import_functions7 = require("@azure/functions");
 var df16 = __toESM(require("durable-functions"), 1);
-import_functions6.app.http("finalize-eva-box-start", {
+import_functions7.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
@@ -42557,109 +42587,109 @@ df16.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
   return { caseId, eva, box: boxResult };
 });
 df16.app.activity("evaSubmit", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.evaApi()) return { skipped: true };
-    const res = await callEvaSubmit(input11.caseId);
-    await dataApi.recordAudit({ action: "eva_submitted", caseId: input11.caseId, summary: "EVA Sentry submit" });
-    ctx.log(JSON.stringify({ evt: "evaSubmit", caseId: input11.caseId }));
+    const res = await callEvaSubmit(input12.caseId);
+    await dataApi.recordAudit({ action: "eva_submitted", caseId: input12.caseId, summary: "EVA Sentry submit" });
+    ctx.log(JSON.stringify({ evt: "evaSubmit", caseId: input12.caseId }));
     return res;
   }
 });
 df16.app.activity("boxFolderAugment", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.boxApi()) return { skipped: true };
-    const folder = await box.createFolder(input11.caseId, gates.boxFolderRootId());
+    const folder = await box.createFolder(input12.caseId, gates.boxFolderRootId());
     const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
-    await dataApi.recordAudit({ action: "box_synced", caseId: input11.caseId, summary: `Archive folder ${folder.id} augmented` });
-    ctx.log(JSON.stringify({ evt: "boxFolderAugment", caseId: input11.caseId, folderId: folder.id }));
+    await dataApi.recordAudit({ action: "box_synced", caseId: input12.caseId, summary: `Archive folder ${folder.id} augmented` });
+    ctx.log(JSON.stringify({ evt: "boxFolderAugment", caseId: input12.caseId, folderId: folder.id }));
     return { folderId: folder.id, folderUrl };
   }
 });
 
 // orchestration/src/functions/gated/chaser.ts
-var import_functions7 = require("@azure/functions");
+var import_functions8 = require("@azure/functions");
 var df17 = __toESM(require("durable-functions"), 1);
-import_functions7.app.http("chaser-start", {
+import_functions8.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
   extraInputs: [df17.input.durableClient()],
   handler: async (req, ctx) => {
-    const input11 = await req.json();
+    const input12 = await req.json();
     const client2 = df17.getClient(ctx);
-    const instanceId = await client2.startNew("chaserOrchestrator", { input: input11 });
+    const instanceId = await client2.startNew("chaserOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 var retry3 = new df17.RetryOptions(5e3, 3);
 retry3.backoffCoefficient = 2;
 df17.app.orchestration("chaserOrchestrator", function* (ctx) {
-  const input11 = ctx.df.getInput();
-  const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry3, input11);
-  const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry3, { caseId: input11.caseId, draft });
-  return { caseId: input11.caseId, draft, sent };
+  const input12 = ctx.df.getInput();
+  const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry3, input12);
+  const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry3, { caseId: input12.caseId, draft });
+  return { caseId: input12.caseId, draft, sent };
 });
 df17.app.activity("chaserDraft", {
-  handler: async (input11, ctx) => {
-    ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input11.caseId, targetType: input11.targetType }));
-    return { drafted: true, targetType: input11.targetType };
+  handler: async (input12, ctx) => {
+    ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input12.caseId, targetType: input12.targetType }));
+    return { drafted: true, targetType: input12.targetType };
   }
 });
 df17.app.activity("chaserSend", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.chaserSend()) {
       ctx.log("[chaserSend] skipped \u2014 CHASER_SEND_ENABLED=false (draft-only)");
       return { sent: false };
     }
-    await dataApi.recordAudit({ action: "chaser_sent", caseId: input11.caseId, summary: "chaser sent" });
-    ctx.log(JSON.stringify({ evt: "chaserSend", caseId: input11.caseId }));
+    await dataApi.recordAudit({ action: "chaser_sent", caseId: input12.caseId, summary: "chaser sent" });
+    ctx.log(JSON.stringify({ evt: "chaserSend", caseId: input12.caseId }));
     return { sent: true };
   }
 });
 
 // orchestration/src/functions/gated/triage-classify.ts
-var import_functions8 = require("@azure/functions");
+var import_functions9 = require("@azure/functions");
 var df18 = __toESM(require("durable-functions"), 1);
-import_functions8.app.http("triage-classify-start", {
+import_functions9.app.http("triage-classify-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "triage-classify",
   extraInputs: [df18.input.durableClient()],
   handler: async (req, ctx) => {
-    const input11 = await req.json();
+    const input12 = await req.json();
     const client2 = df18.getClient(ctx);
-    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input11 });
+    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 var retry4 = new df18.RetryOptions(5e3, 3);
 retry4.backoffCoefficient = 2;
 df18.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
-  const input11 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry4, input11);
+  const input12 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry4, input12);
   return result;
 });
 df18.app.activity("triageClassify", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.emailAi()) {
       ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED=false");
       return { skipped: true };
     }
     const res = await callClassifyEmail({
-      subject: input11.subject,
-      body: input11.body,
-      from: input11.senderAddress
+      subject: input12.subject,
+      body: input12.body,
+      from: input12.senderAddress
     });
     await dataApi.recordAudit({ action: "inbound_classified", summary: `triage ${res.category}/${res.subtype}` });
-    ctx.log(JSON.stringify({ evt: "triageClassify", inboundEmailId: input11.inboundEmailId, category: res.category, subtype: res.subtype }));
+    ctx.log(JSON.stringify({ evt: "triageClassify", inboundEmailId: input12.inboundEmailId, category: res.category, subtype: res.subtype }));
     return res;
   }
 });
 
 // orchestration/src/functions/gated/box-folder-create.ts
-var import_functions9 = require("@azure/functions");
+var import_functions10 = require("@azure/functions");
 var df19 = __toESM(require("durable-functions"), 1);
-import_functions9.app.http("box-folder-create-start", {
+import_functions10.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
@@ -42669,42 +42699,42 @@ import_functions9.app.http("box-folder-create-start", {
       ctx.log("[box-folder-create] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
-    const input11 = await req.json();
+    const input12 = await req.json();
     const client2 = df19.getClient(ctx);
-    const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input11 });
+    const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 var retry5 = new df19.RetryOptions(5e3, 3);
 retry5.backoffCoefficient = 2;
 df19.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
-  const input11 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry5, input11);
+  const input12 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry5, input12);
   return result;
 });
 df19.app.activity("boxFolderCreate", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) return { skipped: true, reason: "gated off" };
-    const existing = await dataApi.getCaseBoxFolder(input11.caseId);
+    const existing = await dataApi.getCaseBoxFolder(input12.caseId);
     if (existing.boxFolderId) {
-      ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input11.caseId, skipped: "already_linked", folderId: existing.boxFolderId }));
+      ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input12.caseId, skipped: "already_linked", folderId: existing.boxFolderId }));
       return { skipped: true, reason: "already_linked", folderId: existing.boxFolderId, folderUrl: existing.boxFolderUrl ?? void 0 };
     }
-    const folder = await box.createFolder(input11.folderName, gates.boxFolderRootId());
+    const folder = await box.createFolder(input12.folderName, gates.boxFolderRootId());
     const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
-    const stamp = await dataApi.stampCaseBoxFolder(input11.caseId, {
+    const stamp = await dataApi.stampCaseBoxFolder(input12.caseId, {
       boxFolderId: folder.id,
       boxFolderUrl: folderUrl
     });
-    ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input11.caseId, folderId: folder.id, applied: stamp.applied }));
+    ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input12.caseId, folderId: folder.id, applied: stamp.applied }));
     return { folderId: folder.id, folderUrl, applied: stamp.applied };
   }
 });
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
-var import_functions10 = require("@azure/functions");
+var import_functions11 = require("@azure/functions");
 var df20 = __toESM(require("durable-functions"), 1);
-import_functions10.app.http("box-file-request-copy-start", {
+import_functions11.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
@@ -42714,38 +42744,38 @@ import_functions10.app.http("box-file-request-copy-start", {
       ctx.log("[box-file-request-copy] skipped \u2014 BOX_API_ENABLED and/or BOX_FILEREQUEST_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
-    const input11 = await req.json();
+    const input12 = await req.json();
     const client2 = df20.getClient(ctx);
-    const instanceId = await client2.startNew("boxFileRequestCopyOrchestrator", { input: input11 });
+    const instanceId = await client2.startNew("boxFileRequestCopyOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 var retry6 = new df20.RetryOptions(5e3, 3);
 retry6.backoffCoefficient = 2;
 df20.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
-  const input11 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("boxFileRequestCopy", retry6, input11);
+  const input12 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("boxFileRequestCopy", retry6, input12);
   return result;
 });
 df20.app.activity("boxFileRequestCopy", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) return { skipped: true };
     const templateId = gates.boxFileRequestTemplateId();
     if (!templateId) {
       ctx.warn("[boxFileRequestCopy] BOX_FILE_REQUEST_TEMPLATE_ID empty \u2014 nothing to copy");
       return { skipped: true, reason: "no template" };
     }
-    const res = await box.copyFileRequest(templateId, input11.folderId);
-    await dataApi.recordAudit({ action: "box_file_request_copied", caseId: input11.caseId, summary: `File-Request copied to folder ${input11.folderId}` });
-    ctx.log(JSON.stringify({ evt: "boxFileRequestCopy", caseId: input11.caseId, folderId: input11.folderId }));
+    const res = await box.copyFileRequest(templateId, input12.folderId);
+    await dataApi.recordAudit({ action: "box_file_request_copied", caseId: input12.caseId, summary: `File-Request copied to folder ${input12.folderId}` });
+    ctx.log(JSON.stringify({ evt: "boxFileRequestCopy", caseId: input12.caseId, folderId: input12.folderId }));
     return res;
   }
 });
 
 // orchestration/src/functions/gated/box-blob-purge.ts
-var import_functions11 = require("@azure/functions");
+var import_functions12 = require("@azure/functions");
 var df21 = __toESM(require("durable-functions"), 1);
-import_functions11.app.timer("box-blob-purge-timer", {
+import_functions12.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
   extraInputs: [df21.input.durableClient()],
   handler: async (_t, ctx) => {
@@ -42773,19 +42803,19 @@ df21.app.activity("boxPurgeList", {
   }
 });
 df21.app.activity("boxPurgeOne", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.boxApi()) return { purged: false };
-    const purged = await deleteEvidenceBytes(input11.blobPath);
-    await dataApi.markBlobPurged({ caseId: input11.caseId, blobPath: input11.blobPath });
-    ctx.log(JSON.stringify({ evt: "boxPurgeOne", caseId: input11.caseId, blobPath: input11.blobPath, purged }));
+    const purged = await deleteEvidenceBytes(input12.blobPath);
+    await dataApi.markBlobPurged({ caseId: input12.caseId, blobPath: input12.blobPath });
+    ctx.log(JSON.stringify({ evt: "boxPurgeOne", caseId: input12.caseId, blobPath: input12.blobPath, purged }));
     return { purged };
   }
 });
 
 // orchestration/src/functions/gated/case-disposition.ts
-var import_functions12 = require("@azure/functions");
+var import_functions13 = require("@azure/functions");
 var df22 = __toESM(require("durable-functions"), 1);
-import_functions12.app.timer("case-disposition-timer", {
+import_functions13.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
   extraInputs: [df22.input.durableClient()],
   handler: async (_t, ctx) => {
@@ -42813,19 +42843,19 @@ df22.app.activity("dispositionList", {
   }
 });
 df22.app.activity("dispositionOne", {
-  handler: async (input11, ctx) => {
+  handler: async (input12, ctx) => {
     if (!gates.caseDisposition()) return { disposed: false };
-    await dataApi.disposeCase(input11.caseId);
-    await dataApi.recordAudit({ action: "case_disposed", caseId: input11.caseId, summary: "retention disposition", severity: "warning" });
-    ctx.log(JSON.stringify({ evt: "dispositionOne", caseId: input11.caseId }));
+    await dataApi.disposeCase(input12.caseId);
+    await dataApi.recordAudit({ action: "case_disposed", caseId: input12.caseId, summary: "retention disposition", severity: "warning" });
+    ctx.log(JSON.stringify({ evt: "dispositionOne", caseId: input12.caseId }));
     return { disposed: true };
   }
 });
 
 // orchestration/src/functions/gated/jobsheet-import.ts
-var import_functions13 = require("@azure/functions");
+var import_functions14 = require("@azure/functions");
 var df23 = __toESM(require("durable-functions"), 1);
-import_functions13.app.http("jobsheet-import-start", {
+import_functions14.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
@@ -42849,9 +42879,9 @@ df23.app.activity("jobsheetPrincipals", {
   handler: async () => dataApi.principals()
 });
 df23.app.activity("jobsheetImportOne", {
-  handler: async (input11, ctx) => {
-    await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input11.principalCode}` });
-    ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input11.principalCode }));
-    return { principalCode: input11.principalCode, imported: true };
+  handler: async (input12, ctx) => {
+    await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input12.principalCode}` });
+    ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input12.principalCode }));
+    return { principalCode: input12.principalCode, imported: true };
   }
 });

@@ -35,4 +35,5 @@ images; re-running does not duplicate.
 
 ## Artifacts
 - [Changes made](./changes.md)
+- [2026-07-01 regression fix + junk-image co-discovery](./changes-regression-01-07-26.md)
 - [Verification](./verification.md)
