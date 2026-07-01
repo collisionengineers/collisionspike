@@ -88,6 +88,10 @@ from cedocumentmapper_v2.rules.engine import (
     _match_keywords,
     _WORK_KEYWORDS,
     _QUERY_KEYWORDS,
+    _BILLING_KEYWORDS,
+    _INFORMAL_WORK_KEYWORDS,
+    _CHASE_PHRASES,
+    _SUMMARY_MARKERS,
 )
 
 # Contract tag for the classifier response. Kept distinct from the parser's EVA
@@ -95,9 +99,19 @@ from cedocumentmapper_v2.rules.engine import (
 # /parse envelope.
 CONTRACT_VERSION = "cedocumentmapper_v2.0_email_triage"
 
-# Category constants.
+# Category constants. The original three (receiving_work | query | other) are
+# joined by two ADDITIVE top-level categories (collisionspike TKT-029/037/038):
+#   * billing         — a request for / chase of an invoice or fee for work we did
+#   * non_actionable  — a case-summary digest, a bare acknowledgement ("Thanks Ed"),
+#                       nothing to action (distinct from `other`, which is genuinely
+#                       unidentified). Auto-reply/bounce still abstains to `other`.
+# The Enquiries-vs-Case-Queries split (TKT-034) is carried by the two query subtypes
+# (query_new_enquiry = Enquiries, query_existing_work = Case Queries), surfaced in the
+# inbox; `query` stays the umbrella category so existing rows/contracts hold.
 CATEGORY_RECEIVING_WORK = "receiving_work"
 CATEGORY_QUERY = "query"
+CATEGORY_BILLING = "billing"
+CATEGORY_NON_ACTIONABLE = "non_actionable"
 CATEGORY_OTHER = "other"
 
 # Subtype constants.
@@ -106,6 +120,9 @@ SUBTYPE_EXISTING_PROVIDER_AUDIT = "existing_provider_audit"
 SUBTYPE_NEW_CLIENT_WORK = "new_client_work"
 SUBTYPE_QUERY_EXISTING_WORK = "query_existing_work"
 SUBTYPE_QUERY_NEW_ENQUIRY = "query_new_enquiry"
+SUBTYPE_BILLING_REQUEST = "billing_request"
+SUBTYPE_CASE_SUMMARY = "case_summary"
+SUBTYPE_ACKNOWLEDGEMENT = "acknowledgement"
 SUBTYPE_OTHER = "other"
 
 # Provider-match states the flow passes in (mirrors the intake flow's domain
@@ -142,6 +159,108 @@ CASEREF_RE = re.compile(
     r"\b(?:A\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})\b",
     re.IGNORECASE,
 )
+
+# --- Existing-job reference extractor (collisionspike TKT-031/037/039/040) --- #
+# Real existing-job references do NOT all match the strict Case/PO shape above:
+# providers quote "Our Ref 575689", "your ref 45391_1", "SAB_46286_1", "206848.001".
+# These are too loose to MINT a new Case (a phone number or quote number is the same
+# shape), so they are surfaced as an ABOUT-EXISTING signal + a linkReply hint ONLY —
+# never as new-client promotion corroboration (Rule 1/2/3 still require body_caseref).
+#
+#  (1) Labelled: an explicit "our/your ref" / "ref" / "claim" label immediately
+#      followed by an alphanumeric token (the LABEL is what makes a bare number safe).
+#      The token may use '/', '_', '.' or '-' separators ("SAB/46286/1", "206848.001").
+_LABELLED_REF_RE = re.compile(
+    r"\b(?:our\s+ref(?:erence)?|your\s+ref(?:erence)?|ref(?:erence)?|claim(?:\s+no)?)"
+    r"\s*[:.\-#]?\s*"
+    r"([A-Z0-9][A-Z0-9_./-]{2,})",
+    re.IGNORECASE,
+)
+#  (2) Structured client ref: an alphanumeric token with a '/', '_' or '.' separator
+#      and a digit run — "SAB/46286/1", "45391_1", "206848.001". Anchored to >=2
+#      segments so a normal word or a plain number is excluded.
+_STRUCTURED_REF_RE = re.compile(
+    r"\b([A-Z]{0,5}\d{3,}(?:[_./]\d{1,4}){1,3}|[A-Z]{2,5}[_/]\d{3,}(?:[_/]\d{1,4})*)\b",
+    re.IGNORECASE,
+)
+
+
+def _job_reference(text: str) -> str:
+    """First existing-job reference (labelled "our ref N" or structured "SAB/46286/1"),
+    uppercased / whitespace-stripped, or "". Distinct from CASEREF_RE: an ABOUT-EXISTING
+    signal + linkReply hint only — too loose to mint a new Case, so it never feeds the
+    new-client promotion arms. A labelled token must contain a digit (so "ref: see below"
+    is not mistaken for a reference)."""
+    if not text:
+        return ""
+    m = _LABELLED_REF_RE.search(text)
+    if m and re.search(r"\d", m.group(1)):
+        return re.sub(r"\s+", "", m.group(1)).upper()
+    m = _STRUCTURED_REF_RE.search(text)
+    if m:
+        return re.sub(r"\s+", "", m.group(1)).upper()
+    return ""
+
+
+# --- Report-attachment heuristic (collisionspike TKT-037/039) ---------------- #
+# A Collision Engineers REPORT pdf is an EXISTING-work artefact (our own report sent
+# back, or a third-party report sent for support/justification) — NOT an inbound
+# instruction. But classification.ts maps every .pdf/.doc/.docx -> 'instruction', so
+# the only reliable discriminator is the FILENAME. Matched against each filename after
+# stripping spaces/_/- so "Engineer Report.pdf", "EngineersReport-V1.pdf", "report-v3"
+# and "...Report.pdf" all hit. Anchored to "report" with an engineer/version/qualifier
+# so a generic "report" word in prose is not enough.
+_REPORT_FILENAME_RE = re.compile(
+    r"(engineer'?s?report"          # engineerreport / engineersreport / engineer'sreport
+    r"|reportv\d"                   # report-v2 / report v3 / reportv1
+    r"|report\.(?:pdf|docx?)$"      # ...report.pdf / ...report.doc(x)  (report at end of stem)
+    r"|finalreport|draftreport|auditreport)",
+    re.IGNORECASE,
+)
+
+
+def _has_report_attachment(filenames: Any) -> bool:
+    """True when any attachment filename looks like an engineer's REPORT (existing-work
+    artefact), so it must not trip the Rule 1 new-case promotion (TKT-037/039)."""
+    for fn in filenames or []:
+        compact = re.sub(r"[\s_\-]+", "", str(fn)).lower()
+        if _REPORT_FILENAME_RE.search(compact):
+            return True
+    return False
+
+
+# --- Bare-acknowledgement detector (collisionspike TKT-038) ------------------ #
+# A reply whose SENDER-written text is only a short pleasantry ("Thanks Ed", "Noted,
+# cheers") asks nothing and instructs nothing. It must NOT propose a query off an
+# inherited-subject VRM/ref — it is no-action (-> non_actionable). Guarded by length
+# so "Thanks — and please also inspect AB12 CDE" (a real request) does NOT match.
+_ACK_ONLY_RE = re.compile(
+    r"^(?:thanks?|thank\s+you|many\s+thanks|thanks\s+very\s+much|cheers|noted|"
+    r"received(?:\s+with\s+thanks)?|great|perfect|brilliant|lovely|ok(?:ay)?|"
+    r"got\s+it|much\s+appreciated|appreciated|understood)\b",
+    re.IGNORECASE,
+)
+# A bare ack is SHORT — "Thanks Ed", "Noted, cheers". Bounded tight so a courtesy that
+# carries a substantive statement ("Thank you, I have shared this with my client.") is
+# NOT swallowed (it stays a query the orchestrator can link). TKT-038.
+_ACK_MAX_LEN = 40
+
+
+def _is_bare_acknowledgement(sender_text: str) -> bool:
+    """True when the sender's FIRST written line is only a short pleasantry — a reply that
+    asks nothing and instructs nothing ("Thanks Ed", "Noted, cheers"). Keyed on the first
+    meaningful line so a trailing email SIGNATURE does not defeat it (TKT-038); a question
+    mark or a longer first line (a substantive statement, e.g. "Thank you, I have shared
+    this with my client.") disqualifies it. The query/chase rules run BEFORE the
+    acknowledgement rule, so a reply that thanks AND asks still routes to the query."""
+    for line in (sender_text or "").splitlines():
+        first = line.strip()
+        if not first:
+            continue
+        if len(first) > _ACK_MAX_LEN or "?" in first:
+            return False
+        return bool(_ACK_ONLY_RE.match(first))
+    return False
 
 # --- Canonical body_vrm matcher (collisionspike #7) -------------------------- #
 # The inbox VRM chip is fed by ``body_vrm``. The engine's ``VRM_RE`` is
@@ -311,8 +430,13 @@ def _is_auto_reply(text: str) -> tuple[str, ...]:
 # onward-send of someone else's mail). Anchored to the LEADING token with a required
 # colon, so "Re-inspection" (no colon) is NOT a reply and a body that merely mentions
 # "re:" cannot trip it. Only a reply trips the about-existing suppression below.
-_REPLY_SUBJECT_RE = re.compile(r"^\s*re\s*:", re.IGNORECASE)
-_FORWARD_SUBJECT_RE = re.compile(r"^\s*fw(?:d)?\s*:", re.IGNORECASE)
+# A reply prefix is "RE"/"AW"/"SV" (intl) followed by EITHER a colon OR whitespace
+# (real Outlook subjects do "RE 30143 - ..." with no colon, TKT-030/031). The
+# separator is REQUIRED and immediate, so "Re-inspection" (glued hyphen) and "Review"
+# (next char a letter) are NOT replies. Forward longest-first ("fwd" before "fw") so
+# "FWD:" is not mis-split. (collisionspike #3 / TKT-031)
+_REPLY_SUBJECT_RE = re.compile(r"^\s*(?:re|aw|sv)(?::|\s)", re.IGNORECASE)
+_FORWARD_SUBJECT_RE = re.compile(r"^\s*(?:fwd|fw)(?::|\s)", re.IGNORECASE)
 
 
 def _is_reply(subject: str, in_reply_to: str, references: str) -> bool:
@@ -352,6 +476,16 @@ _QUOTED_THREAD_MARKERS: tuple[str, ...] = (
 )
 # Gmail-style attribution line ("On <date>, <name> wrote:") that introduces a quote.
 _GMAIL_QUOTE_RE = re.compile(r"^\s*On\b.*\bwrote:\s*$", re.IGNORECASE | re.MULTILINE)
+# Outlook-style quoted-header block — a "From:" line followed by one or more of
+# Sent/To/Cc/Subject/Date header lines. This is the MOST COMMON reply-quote convention
+# in the corpus (Outlook on the provider side) and is NOT introduced by an
+# "-----Original Message-----" divider, so it must be stripped explicitly or the quoted
+# original instruction below it contaminates the sender-written scope (TKT-030/038).
+# The follow-up header requirement keeps it precise (a sender writing "From: our notes"
+# in prose won't match without the Sent/To/Subject cascade).
+_OUTLOOK_HEADER_RE = re.compile(
+    r"(?im)^[ \t]*from:[ \t]*\S.*(?:\r?\n[ \t]*(?:sent|to|cc|subject|date):[ \t]*.*){1,5}",
+)
 
 
 def _sender_written_text(text: str) -> str:
@@ -374,6 +508,9 @@ def _sender_written_text(text: str) -> str:
     gmail = _GMAIL_QUOTE_RE.search(text)
     if gmail:
         cut = min(cut, gmail.start())
+    outlook = _OUTLOOK_HEADER_RE.search(text)
+    if outlook:
+        cut = min(cut, outlook.start())
     head = text[:cut]
     return "\n".join(line for line in head.splitlines() if not line.lstrip().startswith(">"))
 
@@ -388,6 +525,7 @@ def classify_email(
     has_attachments: Any = False,
     in_reply_to: Any = "",
     references: Any = "",
+    attachment_filenames: Any = None,
 ) -> dict[str, Any]:
     """Classify one inbound email into the triage taxonomy. PURE — no I/O.
 
@@ -440,28 +578,65 @@ def classify_email(
     domain_s = _normalise(sender_domain).strip().lower()
     state = _normalise(provider_match_state).strip().lower()
     kinds = {str(k).strip().lower() for k in (attachment_kinds or []) if str(k).strip()}
+    filenames = [str(f) for f in (attachment_filenames or []) if str(f).strip()]
     has_atts = bool(has_attachments) or bool(kinds)
     is_reply = _is_reply(subject_s, _normalise(in_reply_to), _normalise(references))
 
     haystack = f"{subject_s}\n{body_s}"
+    # Thread-scoping (collisionspike TKT-030/033). Two distinct jobs:
+    #   * PROMOTION signals (work / query / audit) drive Rule 1/2/3 — they must read
+    #     only what THIS sender wrote, never the quoted reply chain (a chase reply with
+    #     the original multi-phrase instruction quoted below must not promote). On a
+    #     reply the SUBJECT is inherited too (F467), so the scope is the sender-written
+    #     BODY only; on fresh mail the subject is legitimately the sender's text (and
+    #     carries instruction cues like "New eng ins", TKT-036), so it is included.
+    #   * REFERENCE surfacing (vrm / caseref / jobref) reads the FULL haystack — a ref
+    #     quoted out of the thread is exactly what the orchestrator's open-Case lookup
+    #     wants (linkReply).
+    sender_text = _sender_written_text(body_s)
+    work_scope = sender_text if is_reply else f"{subject_s}\n{sender_text}"
 
-    # Signals are accumulated for explainability regardless of which rule wins.
-    work_phrases = _match_keywords(haystack, _WORK_KEYWORDS)
-    query_phrases = _match_keywords(haystack, _QUERY_KEYWORDS)
-    is_audit, audit_phrases = detect_audit_signals(haystack)
+    # PROMOTION signals — sender-scoped.
+    work_phrases = _match_keywords(work_scope, _WORK_KEYWORDS)
+    query_phrases = _match_keywords(work_scope, _QUERY_KEYWORDS)
+    billing_phrases = _match_keywords(work_scope, _BILLING_KEYWORDS)
+    informal_phrases = _match_keywords(work_scope, _INFORMAL_WORK_KEYWORDS)
+    chase_phrases = _match_keywords(work_scope, _CHASE_PHRASES)
+    is_audit, audit_phrases = detect_audit_signals(work_scope)
+    # REFERENCE surfacing + auto-reply + recap markers — full haystack.
     auto_reply_markers = _is_auto_reply(haystack)
+    summary_markers = _match_keywords(haystack, _SUMMARY_MARKERS)
     body_vrm = _canonical_body_vrm(haystack)
     body_caseref = _first_match(CASEREF_RE, haystack)
+    body_jobref = _job_reference(haystack)
+    # A chase / query trigger (a question OR a send-me-the-report chase).
+    query_or_chase = bool(query_phrases) or bool(chase_phrases)
 
     provider_known = state == PROVIDER_ONE
     has_instruction_doc = bool(kinds & _INSTRUCTION_KINDS)
     has_images = bool(kinds & _IMAGE_KINDS)
+    has_report_attachment = _has_report_attachment(filenames)
+    has_existing_ref = bool(body_caseref or body_jobref)
+    # A case-summary DIGEST enumerates many Case/POs (a recap of work already accepted,
+    # TKT-029) — never a single fresh instruction. Counted over the full haystack.
+    distinct_caserefs = {
+        re.sub(r"\s+", "", m.group(0)).upper() for m in CASEREF_RE.finditer(haystack)
+    }
+    digest = len(distinct_caserefs) >= 3
 
     signals: list[str] = []
     if work_phrases:
         signals.append("work_keywords:" + ",".join(work_phrases))
     if query_phrases:
         signals.append("query_keywords:" + ",".join(query_phrases))
+    if billing_phrases:
+        signals.append("billing_keywords:" + ",".join(billing_phrases))
+    if informal_phrases:
+        signals.append("informal_keywords:" + ",".join(informal_phrases))
+    if chase_phrases:
+        signals.append("chase_keywords:" + ",".join(chase_phrases))
+    if summary_markers:
+        signals.append("summary_markers:" + ",".join(summary_markers))
     if audit_phrases:
         signals.append("audit_phrases:" + ",".join(audit_phrases))
     if auto_reply_markers:
@@ -470,8 +645,14 @@ def classify_email(
         signals.append("reply")
     if body_caseref:
         signals.append(f"body_caseref:{body_caseref}")
+    if body_jobref:
+        signals.append(f"body_jobref:{body_jobref}")
     if body_vrm:
         signals.append(f"body_vrm:{body_vrm}")
+    if has_report_attachment:
+        signals.append("report_attachment")
+    if digest:
+        signals.append("digest_multiple_refs:" + ",".join(sorted(distinct_caserefs)))
     if state in {PROVIDER_ONE, PROVIDER_NONE, PROVIDER_AMBIGUOUS}:
         signals.append(f"provider_match_state:{state}")
     if kinds:
@@ -486,6 +667,7 @@ def classify_email(
             "is_reply": is_reply,
             "body_vrm": body_vrm,
             "body_caseref": body_caseref,
+            "body_jobref": body_jobref,
             "contract_version": CONTRACT_VERSION,
         }
 
@@ -505,15 +687,28 @@ def classify_email(
     #     freshly-minted Case/PO from one quoted out of the reply thread (that novelty
     #     check is the orchestrator's DB lookup), so fresh work LANGUAGE is the sole
     #     discriminator.
-    # F467: a reply's SUBJECT is inherited from the original thread, not freshly
-    # written, so the "new work phrase" discriminator is derived from the sender-
-    # written BODY only (``body_s``) — never the carried-over subject. Otherwise a
-    # reply whose sole work phrase rode in on the inherited subject (e.g. "RE: New
-    # instruction CCPY26050 - please inspect") would dodge the suppression and mint a
-    # duplicate Case. The quoted thread is still stripped (``_sender_written_text``).
-    new_work_phrases = _match_keywords(_sender_written_text(body_s), _WORK_KEYWORDS)
-    suppress_as_query = (bool(query_phrases) and not work_phrases) or (
-        is_reply and not new_work_phrases
+    # F467: ``work_phrases`` is already sender-scoped (``work_scope`` above), so the
+    # "no NEW work phrase" discriminator reads neither the quoted thread nor a reply's
+    # inherited subject. Four ways an email is suppressed out of the receiving-work
+    # rules into the query/billing rules, all keyed on the absence of NEW work language
+    # so a genuine "and here's the next job" reply still promotes:
+    #   * query branch       : a query phrase + no work phrase;
+    #   * reply branch (#3)  : a reply whose sender added no work phrase;
+    #   * report branch      : an attached engineer's REPORT (existing-work artefact,
+    #                          TKT-037/039) + no work phrase — a report passed back for
+    #                          billing/support must not mint a new Case on the .pdf kind;
+    #   * digest branch      : a multi-Case/PO summary (TKT-029) + no work phrase.
+    suppress_as_query = (
+        (bool(query_phrases) and not work_phrases)
+        or (is_reply and not work_phrases)
+        or (has_report_attachment and not work_phrases)
+        or (digest and not work_phrases)
+        # A high-precision CHASE phrase ("provide your report", "heard nothing further")
+        # suppresses UNCONDITIONALLY — even alongside recapped work language — because a
+        # chaser recaps the original instruction ("we instructed you to inspect ... but
+        # heard nothing — please send your report"). A genuine new instruction never
+        # contains a send-me-the-existing-report phrase (TKT-030/031/033).
+        or bool(chase_phrases)
     )
 
     # --- Rule 0: an auto-reply / bounce marker forces ``other`` -----------------
@@ -537,6 +732,20 @@ def classify_email(
             SUBTYPE_OTHER,
             _CONFIDENCE_ABSTAIN,
             "auto_reply_marker",
+        )
+
+    # --- Rule 0b: an explicit case-summary / digest is never a fresh instruction ----
+    # A recap of work already accepted (TKT-029) — "a summary of the instructions sent
+    # yesterday" — carries an instruction-kind PDF (the per-case list) and even trips a
+    # work keyword via a plural subject ("New inspection requests"), so it must be caught
+    # BEFORE Rule 1. Routed to non_actionable/case_summary (the operator: "we would
+    # already have accepted these"). Distinct from `other` — it is recognised, not junk.
+    if summary_markers:
+        return _result(
+            CATEGORY_NON_ACTIONABLE,
+            SUBTYPE_CASE_SUMMARY,
+            _CONFIDENCE_WEAK,
+            "case_summary",
         )
 
     # --- Rule 1: an instruction document is necessary but NOT sufficient --------
@@ -601,9 +810,17 @@ def classify_email(
     # a reply (``is_reply``), no work phrase (shared ``suppress_as_query``) — falls
     # through to the query rules (abstain bias; ADR-0015; collisionspike #3). An
     # instruction doc was already handled at Rule 1.
+    # TKT-040: an INFORMAL work request (no formal "please inspect" verb) that arrives
+    # with damage PHOTOS and a real job identifier (Case/PO, job ref, or VRM) is genuine
+    # work — but informal wording ALONE (no identifier) must still abstain, to preserve
+    # the abstain-to-other bias. The identifier is the corroboration the informal phrase
+    # lacks.
+    informal_corroborated = bool(
+        informal_phrases and (body_caseref or body_jobref or body_vrm)
+    )
     if (
         has_images
-        and (work_phrases or body_caseref or (is_audit and provider_known))
+        and (work_phrases or body_caseref or (is_audit and provider_known) or informal_corroborated)
         and not suppress_as_query
     ):
         if provider_known and is_audit:
@@ -627,8 +844,16 @@ def classify_email(
     # --- Rule 3: no attachment, but a body instruction (>=2 work phrases + id) --
     # The two-phrase floor + a real Case/PO or VRM is what lets a typed-in-body
     # instruction through WITHOUT risking a single stray phrase in a signature
-    # tipping a query into work (abstain-to-other bias).
-    if not has_atts and len(work_phrases) >= 2 and (body_caseref or body_vrm):
+    # tipping a query into work (abstain-to-other bias). Guarded by ``suppress_as_query``
+    # (TKT-030/033): a chase reply quoting the original instruction below must not
+    # promote — the work phrases are already sender-scoped, and the guard is the
+    # explicit backstop.
+    if (
+        not has_atts
+        and len(work_phrases) >= 2
+        and (body_caseref or body_vrm)
+        and not suppress_as_query
+    ):
         subtype = (
             SUBTYPE_EXISTING_PROVIDER_INSTRUCTION
             if provider_known
@@ -641,13 +866,23 @@ def classify_email(
             "body_only_instruction",
         )
 
-    # --- Rule 4: a question OR a reply that names a Case/PO or VRM — about work we did
-    # The classifier proposes query_existing_work; the flow confirms the open-Case
-    # link by Case/PO first, VRM as fallback (it never auto-links on ambiguity). A reply
-    # (``is_reply``) naming a Case/PO or registration but carrying no NEW work phrase is
-    # about work we did too — it reaches here after the suppression above, so it proposes
-    # query_existing_work rather than abstaining to ``other`` (collisionspike #3).
-    if (query_phrases or is_reply) and (body_caseref or body_vrm):
+    # --- Rule 4 (billing): an invoice / fee request is about a job we did -------
+    # TKT-037: "please provide the invoice", typically with our own report attached.
+    # Not new work, not a generic query — its own billing bucket. Consulted after the
+    # work rules (an email that both bills and instructs read as work above).
+    if billing_phrases:
+        return _result(
+            CATEGORY_BILLING,
+            SUBTYPE_BILLING_REQUEST,
+            _CONFIDENCE_GOOD,
+            "billing_request",
+        )
+
+    # --- Rule 4a: a question/chase naming a Case/PO, job ref or VRM — about work we did
+    # The classifier proposes query_existing_work; the flow confirms the open-Case link
+    # (Case/PO first, then job ref, then VRM; it never auto-links on ambiguity). A chase
+    # for a report we owe (TKT-030/031/033) reaches here via ``query_or_chase``.
+    if query_or_chase and (has_existing_ref or body_vrm):
         return _result(
             CATEGORY_QUERY,
             SUBTYPE_QUERY_EXISTING_WORK,
@@ -655,8 +890,33 @@ def classify_email(
             "query_with_reference",
         )
 
-    # --- Rule 5: a question with no reference — existing if known, else enquiry -
-    if query_phrases:
+    # --- Rule 4b: a reply (not a bare acknowledgement) naming a reference -------
+    # A reply carrying no NEW work phrase but naming a Case/PO, job ref or VRM is about
+    # work we did (collisionspike #3). EXCEPT a bare acknowledgement ("Thanks Ed", whose
+    # only reference rode in on the inherited subject) asks nothing — it must NOT propose
+    # a query off that inherited ref (TKT-038); it falls through to the no-action rule.
+    if is_reply and not _is_bare_acknowledgement(sender_text) and (has_existing_ref or body_vrm):
+        return _result(
+            CATEGORY_QUERY,
+            SUBTYPE_QUERY_EXISTING_WORK,
+            _CONFIDENCE_GOOD,
+            "reply_with_reference",
+        )
+
+    # --- Rule 4c: an engineer's REPORT attached + a reference — about work we did
+    # A report sent back for support/justification (TKT-039) names an existing ref/VRM
+    # and carries our report. Not new work (Rule 1 suppressed it), not generic noise —
+    # a query about an existing report.
+    if has_report_attachment and (has_existing_ref or body_vrm):
+        return _result(
+            CATEGORY_QUERY,
+            SUBTYPE_QUERY_EXISTING_WORK,
+            _CONFIDENCE_GOOD,
+            "report_with_reference",
+        )
+
+    # --- Rule 5: a question/chase with no reference — existing if known, else enquiry -
+    if query_or_chase:
         subtype = (
             SUBTYPE_QUERY_EXISTING_WORK if provider_known else SUBTYPE_QUERY_NEW_ENQUIRY
         )
@@ -665,6 +925,29 @@ def classify_email(
             subtype,
             _CONFIDENCE_WEAK,
             "query_keyword_only",
+        )
+
+    # --- Rule 5b: a bare acknowledgement reply — no action -----------------------
+    # "Thanks Ed" / "Noted, cheers": a reply that asks nothing and instructs nothing
+    # (TKT-038). Distinct from ``other`` (genuinely unidentified) — it is recognised,
+    # just non-actionable.
+    if is_reply and _is_bare_acknowledgement(sender_text):
+        return _result(
+            CATEGORY_NON_ACTIONABLE,
+            SUBTYPE_ACKNOWLEDGEMENT,
+            _CONFIDENCE_WEAK,
+            "acknowledgement",
+        )
+
+    # --- Rule 5c: a multi-Case/PO case-summary digest — no action ----------------
+    # A recap of work already accepted (TKT-029) enumerating several Case/POs — not a
+    # fresh instruction. Reaches here only when suppressed above (no work phrase).
+    if digest:
+        return _result(
+            CATEGORY_NON_ACTIONABLE,
+            SUBTYPE_CASE_SUMMARY,
+            _CONFIDENCE_WEAK,
+            "case_digest",
         )
 
     # --- Rule 6: abstain — unidentified email lands in the catch-all bucket -----

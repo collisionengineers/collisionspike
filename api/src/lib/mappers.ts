@@ -411,11 +411,15 @@ const INBOUND_CATEGORY_BY_INT: Record<number, InboundCategory> = {
   100000000: 'receiving_work',
   100000001: 'query',
   100000002: 'other',
+  100000003: 'billing',
+  100000004: 'non_actionable',
 };
 export const INBOUND_CATEGORY_TO_INT: Record<InboundCategory, number> = {
   receiving_work: 100000000,
   query: 100000001,
   other: 100000002,
+  billing: 100000003,
+  non_actionable: 100000004,
 };
 const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000000: 'existing_provider_instruction',
@@ -425,6 +429,9 @@ const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000004: 'query_new_enquiry',
   100000005: 'other',
   100000006: 'existing_provider_diminution',
+  100000007: 'billing_request',
+  100000008: 'case_summary',
+  100000009: 'acknowledgement',
 };
 export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   existing_provider_instruction: 100000000,
@@ -434,6 +441,9 @@ export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   query_new_enquiry: 100000004,
   other: 100000005,
   existing_provider_diminution: 100000006,
+  billing_request: 100000007,
+  case_summary: 100000008,
+  acknowledgement: 100000009,
 };
 export const TRIAGE_STATES: readonly TriageState[] = ['new', 'routed', 'actioned', 'dismissed'];
 const CLASSIFIER_MODES: readonly ClassifierMode[] = ['deterministic', 'llm', 'human'];
@@ -599,7 +609,14 @@ export function inboundViewWhere(view: string | null | undefined): string {
 export function tallyActiveInboundCounts(
   rows: ReadonlyArray<{ category_code?: number | null; triage_state?: string | null }>,
 ): InboundCounts {
-  const counts: InboundCounts = { receiving_work: 0, query: 0, other: 0, untriaged: 0 };
+  const counts: InboundCounts = {
+    receiving_work: 0,
+    query: 0,
+    billing: 0,
+    non_actionable: 0,
+    other: 0,
+    untriaged: 0,
+  };
   for (const r of rows) {
     if (isHandledTriageState(r.triage_state)) continue; // handled = not active work
     const cat = inboundCategoryFromInt(r.category_code ?? undefined);

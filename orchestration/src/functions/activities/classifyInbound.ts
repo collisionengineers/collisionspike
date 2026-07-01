@@ -26,7 +26,12 @@ interface ClassifyInboundInput {
   matchState?: 'matched' | 'unmatched' | 'ambiguous';
 }
 
-export type InboundCategory = 'receiving_work' | 'query' | 'other';
+export type InboundCategory =
+  | 'receiving_work'
+  | 'query'
+  | 'billing'
+  | 'non_actionable'
+  | 'other';
 
 export interface InboundClassification {
   category: InboundCategory;
@@ -46,7 +51,13 @@ const MATCH_STATE_TO_CLASSIFIER: Record<string, string> = {
   ambiguous: 'ambiguous',
 };
 
-const KNOWN_CATEGORIES = new Set<InboundCategory>(['receiving_work', 'query', 'other']);
+const KNOWN_CATEGORIES = new Set<InboundCategory>([
+  'receiving_work',
+  'query',
+  'billing',
+  'non_actionable',
+  'other',
+]);
 
 function domainOf(address: string): string {
   const at = address.lastIndexOf('@');

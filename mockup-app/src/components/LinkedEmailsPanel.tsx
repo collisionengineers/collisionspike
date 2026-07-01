@@ -34,6 +34,8 @@ import { useInbox, type InboundCategory, type InboundEmail } from '../data';
 const CATEGORY_LABEL: Record<InboundCategory, string> = {
   receiving_work: 'New work',
   query: 'Query',
+  billing: 'Billing',
+  non_actionable: 'No action',
   other: 'Other',
 };
 

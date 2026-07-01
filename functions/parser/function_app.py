@@ -349,6 +349,9 @@ def classify_email_route(req: func.HttpRequest) -> func.HttpResponse:
         sender_domain         str   sender domain (optional)
         provider_match_state  str   one | none | ambiguous (the flow's match result)
         attachment_kinds      [str] e.g. ["instruction", "image"] (optional)
+        attachment_filenames  [str] original attachment filenames (optional) — lets the
+                                    classifier spot an engineer's REPORT (existing-work
+                                    artefact, TKT-037/039) that the kind alone can't
         has_attachments       bool  (optional)
         in_reply_to           str   RFC-5322 In-Reply-To header (optional) — authoritative
                                     reply signal; strengthens reply/query-on-existing
@@ -380,6 +383,7 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
     sender_domain = body.get("sender_domain", "")
     provider_match_state = body.get("provider_match_state", "")
     attachment_kinds = body.get("attachment_kinds")
+    attachment_filenames = body.get("attachment_filenames")
     has_attachments = body.get("has_attachments", False)
     in_reply_to = body.get("in_reply_to", "")
     references = body.get("references", "")
@@ -397,6 +401,8 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
             return _classify_error(400, "bad_field", f"'{name}' must be a string when provided.")
     if attachment_kinds is not None and not isinstance(attachment_kinds, list):
         return _classify_error(400, "bad_field", "'attachment_kinds' must be a list when provided.")
+    if attachment_filenames is not None and not isinstance(attachment_filenames, list):
+        return _classify_error(400, "bad_field", "'attachment_filenames' must be a list when provided.")
 
     plain_body = _strip_html(raw_body)
 
@@ -410,6 +416,7 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
         has_attachments=has_attachments,
         in_reply_to=in_reply_to,
         references=references,
+        attachment_filenames=attachment_filenames,
     )
     return _json(200, result)
 
