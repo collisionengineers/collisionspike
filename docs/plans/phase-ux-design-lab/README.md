@@ -1,3 +1,11 @@
+> **⚠ PLATFORM NOTE (2026-07-01).** This plan was written in the **Power Platform era** — references to
+> the "Code App", `pac code` deploys, `code-app-architect`, connector seams, and CSP `connect-src 'none'`
+> describe the **decommissioned** stack. The live port target is the **Azure SWA SPA** (`mockup-app/` on
+> `cespk-spa-dev`, REST + MSAL — see [CLAUDE.md](../../../CLAUDE.md)), and the production-UI builder is
+> **`fluent-spa-designer`**. The design-lab *method* (stages A–F, operator-picks-winner) remains current.
+> Also note: an **in-place UI reforge shipped 2026-07-01** ([docs/reviews/010726/](../../reviews/010726/))
+> — any future design-lab convergence must reconcile to that decision register.
+
 > **UX Design Lab** — a cross-cutting design phase: explore many **throwaway HTML/React** UI directions for
 > the *whole* product, judge them, converge on a winner, then **port the winner to the Fluent v9 Code App**.
 > **Status: SCAFFOLDED (2026-06-25) — runs after agent reload.** The nine UI/UX subagents are created in

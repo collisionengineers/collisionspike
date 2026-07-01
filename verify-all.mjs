@@ -20,9 +20,9 @@
  * Exit code 0 = all gates passed (skips allowed); nonzero = a gate failed.
  */
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const isWin = process.platform === 'win32';
@@ -166,6 +166,38 @@ skip(
   'Code App — no raw external calls outside the connector seam',
   'superseded by the REST+MSAL architecture: the Power Platform connector seam was decommissioned 2026-06-27; the live SPA fetches the Data API directly (AGENTS.md runtime-truth #1, banded HISTORICAL). The live boundary is CORS + MSAL on cespk-api-dev, not a static fetch-ban.',
 );
+
+// 8b. Red-budget gate (reforge decision register docs/reviews/010726/ D1). Red is
+//     budgeted to brand chrome + critical only, and colour must flow through the
+//     semantic tokens in theme.css — so: (a) the PRINT red #c80a32 must never appear
+//     anywhere under mockup-app/src; (b) raw #db0816 / #8f1422 hex literals may only
+//     appear in the token/allowlisted files — everything else must use var(--ce-*).
+//     Keeps future edits from re-scattering reds the 2026-07-01 sweep demoted.
+gate('Code App — red budget (010726 D1: tokens only, no print red)', () => {
+  const SRC = join(ROOT, 'mockup-app', 'src');
+  const ALLOW_RAW_RED = new Set([
+    'theme/theme.css',          // the token definitions themselves
+    'theme/ceBrandRamp.ts',     // the Fluent brand ramp (the hexes' canonical home)
+    'theme/ceTheme.ts',         // Fluent theme overrides pinned to the ramp
+    'theme/contrast.test.ts',   // asserts the anchors — must name the hexes
+  ]);
+  const offenders = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (!/\.(ts|tsx|css)$/.test(e.name)) continue;
+      const rel = relative(SRC, p).replace(/\\/g, '/');
+      const text = readFileSync(p, 'utf8').toLowerCase();
+      if (text.includes('c80a32')) offenders.push(`${rel}: PRINT red c80a32 (never in app)`);
+      if (!ALLOW_RAW_RED.has(rel) && (text.includes('#db0816') || text.includes('#8f1422')))
+        offenders.push(`${rel}: raw red hex literal (use var(--ce-red)/var(--ce-critical-*))`);
+    }
+  };
+  walk(SRC);
+  if (offenders.length) throw new Error(`FAIL — red-budget violations:\n  ${offenders.join('\n  ')}`);
+  return 'no print red; raw brand-red hexes confined to theme/ (everything else via tokens)';
+});
 
 // 9. ====================  VERIFY-LIVE GATE  ====================================
 //
