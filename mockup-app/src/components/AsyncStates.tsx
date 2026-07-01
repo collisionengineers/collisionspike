@@ -23,7 +23,7 @@ import { AlertOctagon, Inbox, RefreshCw } from 'lucide-react';
                      to the hook's `refetch`.
    - QueryBoundary : convenience switch over a QueryState<T>.
 
-   Brand: the only red is `--ce-red` (#db0816, via the error accent);
+   Brand: the only red is `var(--ce-red)` (via the error accent);
    never the print brand red.
    ============================================================ */
 
@@ -50,6 +50,7 @@ const useStyles = makeStyles({
     borderRadius: '2px',
     border: `1px dashed ${tokens.colorNeutralStroke2}`,
   },
+  emptyAction: { marginTop: tokens.spacingVerticalS },
 
   error: {
     display: 'flex',
@@ -78,15 +79,19 @@ export function LoadingState({ label = 'Loading…' }: { label?: string }) {
   );
 }
 
-/** Dashed empty panel — no rows came back (not an error). */
+/** Dashed empty panel — no rows came back (not an error). `action` is the ONE
+ *  priority-ordered quick action per empty state (spec IA §5) — pass a Fluent
+ *  Button/Link (they inherit the CE focus ring); never more than one. */
 export function EmptyState({
   icon,
   title,
   hint,
+  action,
 }: {
   icon?: ReactNode;
   title: ReactNode;
   hint?: ReactNode;
+  action?: ReactNode;
 }) {
   const styles = useStyles();
   return (
@@ -94,6 +99,7 @@ export function EmptyState({
       {icon ?? <Inbox size={32} strokeWidth={1.5} aria-hidden />}
       <Text>{title}</Text>
       {hint && <Caption1>{hint}</Caption1>}
+      {action && <div className={styles.emptyAction}>{action}</div>}
     </div>
   );
 }

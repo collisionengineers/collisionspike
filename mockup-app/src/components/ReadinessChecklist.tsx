@@ -10,7 +10,7 @@ const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalXS },
   item: { display: 'flex', alignItems: 'flex-start', gap: tokens.spacingHorizontalS, padding: '2px 0' },
   iconOk: { color: '#16833b', flexShrink: 0, marginTop: '1px' },
-  iconBad: { color: '#db0816', flexShrink: 0, marginTop: '1px' },
+  iconBad: { color: 'var(--ce-red)', flexShrink: 0, marginTop: '1px' },
   label: { fontSize: tokens.fontSizeBase300, color: tokens.colorNeutralForeground1 },
   detail: { fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3 },
   text: { display: 'flex', flexDirection: 'column' },

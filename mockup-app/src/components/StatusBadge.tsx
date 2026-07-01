@@ -24,7 +24,7 @@ import { severityClassName, useSeverityChipStyles, type ChipSeverity } from './s
    keyed on the semantic triads in theme.css (reforge 2026-07-01).
 
    Severities, each ALWAYS paired with a Lucide icon:
-     - blocker   → critical: --ce-critical-ink (#8f1422) fill + white text at
+     - blocker   → critical: --ce-critical-ink fill + white text at
                    semibold to clear AA on the badge fill.
      - attention → warning: amber fill, amber-ink text.
      - info      → neutral charcoal outline, no fill (fork #1: grids stay

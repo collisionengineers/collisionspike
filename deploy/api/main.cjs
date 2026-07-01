@@ -8166,6 +8166,20 @@ function chaserTargetType(code) {
   if (code === 100000001) return "repairer";
   return "work_provider";
 }
+function rowToChaser(ch) {
+  return {
+    id: ch.id ?? "",
+    targetType: chaserTargetType(ch.target_type_code),
+    targetName: ch.target_name ?? "",
+    channel: ch.channel_code === 100000001 ? "whatsapp" : "email",
+    templateUsed: ch.template_used ?? "",
+    status: "drafted",
+    summary: ch.name ?? "",
+    createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
+    ...ch.sent_by ? { sentBy: ch.sent_by } : {},
+    ...ch.sent_at ? { sentAt: fmtTimestamp(ch.sent_at) } : {}
+  };
+}
 async function loadAllCases(now) {
   const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
   return rows.map((r) => rowToCase(r, { now }));
@@ -8190,18 +8204,7 @@ async function loadCaseFull(id, now) {
       timestamp: fmtTimestamp(n.occurred_at ?? n.created_at),
       text: n.text ?? ""
     })),
-    chasers: chasers.map((ch) => ({
-      id: ch.id ?? "",
-      targetType: chaserTargetType(ch.target_type_code),
-      targetName: ch.target_name ?? "",
-      channel: ch.channel_code === 100000001 ? "whatsapp" : "email",
-      templateUsed: ch.template_used ?? "",
-      status: "drafted",
-      summary: ch.name ?? "",
-      createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
-      ...ch.sent_by ? { sentBy: ch.sent_by } : {},
-      ...ch.sent_at ? { sentAt: fmtTimestamp(ch.sent_at) } : {}
-    }))
+    chasers: chasers.map(rowToChaser)
   });
 }
 async function loadCaseLite(id) {
@@ -8529,6 +8532,79 @@ import_functions.app.http("setOnHold", {
       ...actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}
     });
     return { status: 204 };
+  })
+});
+import_functions.app.http("logChase", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/chase",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body = await req.json().catch(() => ({}));
+    const channel = body.channel;
+    if (channel !== "email" && channel !== "whatsapp") {
+      return { status: 400, jsonBody: { error: "channel must be 'email' or 'whatsapp'" } };
+    }
+    if (typeof body.templateLabel !== "string" || !body.templateLabel.trim()) {
+      return { status: 400, jsonBody: { error: "templateLabel is required" } };
+    }
+    const templateLabel = body.templateLabel.trim();
+    if (templateLabel.length > 200) {
+      return { status: 400, jsonBody: { error: "templateLabel must be 200 characters or fewer" } };
+    }
+    if (body.note !== void 0 && typeof body.note !== "string") {
+      return { status: 400, jsonBody: { error: "note must be a string" } };
+    }
+    if (typeof body.note === "string" && body.note.length > 2e3) {
+      return { status: 400, jsonBody: { error: "note must be 2000 characters or fewer" } };
+    }
+    const note = typeof body.note === "string" ? body.note.trim() : "";
+    const existing = await loadCaseLite(id);
+    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    const channelLabel = channel === "whatsapp" ? "WhatsApp" : "email";
+    const summary = `Chased via ${channelLabel} \u2014 ${templateLabel}.`.slice(0, 400);
+    const targetName = existing.provider.slice(0, 200);
+    const rows = await query(
+      `INSERT INTO chaser
+         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now())
+       RETURNING *`,
+      [
+        summary,
+        id,
+        100000002,
+        // choice_chaser_target_type: work_provider
+        targetName,
+        channel === "whatsapp" ? 100000001 : 1e8,
+        // choice_chaser_channel
+        templateLabel
+      ]
+    );
+    const created = rows[0];
+    if (!created) return { status: 500, jsonBody: { error: "chaser insert returned no row" } };
+    if (note) {
+      try {
+        await query(
+          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+          ["Chase note", id, actor ?? "Staff", note]
+        );
+      } catch {
+      }
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.chaser_sent,
+      caseId: id,
+      summary: `Chase logged (${channel} \xB7 ${templateLabel})`,
+      after: {
+        chaserId: created.id,
+        channel,
+        templateLabel,
+        ...note ? { note } : {}
+      },
+      ...actor ? { actor } : {}
+    });
+    return { status: 201, jsonBody: rowToChaser(created) };
   })
 });
 import_functions.app.http("mergeCandidates", {

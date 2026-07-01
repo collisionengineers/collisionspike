@@ -100,6 +100,7 @@ import {
   useCaseQuery,
   useCaseUpdate,
   useImages,
+  useLogChase,
   useInspectionAddressSuggestions,
   useLocationAssistGate,
   activeCopyFileRequestTransport,
@@ -383,7 +384,7 @@ const useStyles = makeStyles({
   readyList: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalXS, marginTop: tokens.spacingVerticalS },
   readyRow: { display: 'flex', alignItems: 'flex-start', gap: tokens.spacingHorizontalS, padding: '2px 0' },
   iconOk: { color: '#16833b', flexShrink: 0, marginTop: '1px' },
-  iconBad: { color: '#db0816', flexShrink: 0, marginTop: '1px' },
+  iconBad: { color: 'var(--ce-red)', flexShrink: 0, marginTop: '1px' },
   readyText: { display: 'flex', flexDirection: 'column', minWidth: 0 },
   readyLabel: { fontSize: tokens.fontSizeBase300, color: tokens.colorNeutralForeground1 },
   readyDetail: { fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3 },
@@ -693,6 +694,7 @@ interface CaseDetailViewProps {
 function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: CaseDetailViewProps) {
   const styles = useStyles();
   const chips = useSeverityChipStyles();
+  const { logChase } = useLogChase();
   const navigate = useNavigate();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
@@ -1795,6 +1797,9 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   fileRequestEnabled={uploadLinkEnabled}
                   onRequestUploadLink={activeCopyFileRequestTransport}
                   onLogChased={({ channel, templateLabel }) => {
+                    // Optimistic note (the visible artifact) rolled back if the
+                    // POST fails; the durable chaser row PERSISTS through the
+                    // seam (M-E2) and reconciles into c.chasers on response.
                     const note: Note = {
                       id: `note-${Date.now()}`,
                       author: 'J. Mercer',
@@ -1802,7 +1807,30 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                       text: `Chased via ${channel === 'whatsapp' ? 'WhatsApp' : 'email'} — ${templateLabel}.`,
                     };
                     setC((prev) => (prev ? { ...prev, notes: [note, ...prev.notes] } : prev));
-                    toast('Logged as chased — note added');
+                    void logChase(c.id, { channel, templateLabel })
+                      .then((chaser) => {
+                        setC((prev) =>
+                          prev ? { ...prev, chasers: [chaser, ...prev.chasers] } : prev,
+                        );
+                        toast('Chase logged');
+                      })
+                      .catch((err: unknown) => {
+                        // Roll the optimistic note back — never a fake success.
+                        setC((prev) =>
+                          prev
+                            ? { ...prev, notes: prev.notes.filter((n) => n.id !== note.id) }
+                            : prev,
+                        );
+                        dispatchToast(
+                          <Toast>
+                            <ToastTitle>Couldn’t log the chase — try again</ToastTitle>
+                            <ToastBody>
+                              {err instanceof Error ? err.message : 'Please try again.'}
+                            </ToastBody>
+                          </Toast>,
+                          { intent: 'error' },
+                        );
+                      });
                   }}
                 />
               )}

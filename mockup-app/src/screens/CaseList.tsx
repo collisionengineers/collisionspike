@@ -1,8 +1,9 @@
 import type { KeyboardEvent } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Badge,
+  Button,
   Caption1,
   Checkbox,
   DataGrid,
@@ -38,6 +39,7 @@ import {
   AlertTriangle,
   CalendarClock,
   CheckCircle2,
+  Eye,
   Inbox,
   Mail,
   MessageCircle,
@@ -52,15 +54,18 @@ import {
   DataGridSkeleton,
   useTableTypography,
   BulkActionBar,
+  CasePeekDrawer,
   GLOBAL_TOASTER_ID,
 } from '../components';
 import { runBatch, summarizeBatch } from '../data/batch';
 import {
+  caseDisplayName,
   columnsForQueue,
   heldReleaseEligible,
   whyHeldText,
   type CaseColumnId,
 } from './case-list-columns';
+import { nextPeekId, parsePeek, withPeek, withoutPeek } from './peek';
 import {
   QUEUES,
   REASON_LABELS,
@@ -163,6 +168,8 @@ const useStyles = makeStyles({
       position: 'relative',
       zIndex: 1,
     },
+    // Reveal the row's peek icon-button on hover (it reveals itself on focus).
+    '&:hover [data-peek-btn]': { opacity: 1 },
   },
   rowDuplicate: { backgroundColor: tokens.colorStatusDangerBackground1 },
 
@@ -172,6 +179,16 @@ const useStyles = makeStyles({
   // Checkbox cell wrapper — swallows click/keydown so toggling a selection
   // never triggers the row's open-case navigation.
   selectCell: { display: 'inline-flex', alignItems: 'center' },
+
+  // Peek icon-button — ALWAYS tabbable, visually revealed on row hover or
+  // its own focus (spec IA §3).
+  peekBtn: {
+    opacity: 0,
+    transitionProperty: 'opacity',
+    transitionDuration: tokens.durationFaster,
+    ':focus': { opacity: 1 },
+    ':focus-visible': { opacity: 1 },
+  },
 
   // Verb-led cells (Outstanding / Why held) — single line, ellipsised.
   // Typography comes from useTableTypography().cellPrimary.
@@ -221,11 +238,30 @@ const AGE_OPTIONS: { value: AgeBucket; label: string }[] = [
 
 const ANY = '__any__';
 
-/* Per-tab empty-state guidance (no filters applied). */
-const EMPTY_HINT: Record<QueueName, string> = {
-  'not-ready': 'Nothing here right now — cases waiting on images, instructions or other details land here.',
-  review: 'Nothing to review — cases arrive here once everything’s in and they’re ready to send.',
-  held: 'Nothing held — cases that can’t go through (missing the basics) or are on hold would show here.',
+/* Per-tab empty state (no filters applied): spec IA §5 title + the ONE
+   priority-ordered quick action (active voice) + the explanatory hint. */
+const EMPTY_STATE: Record<
+  QueueName,
+  { title: string; hint: string; actionLabel: string; to: string }
+> = {
+  'not-ready': {
+    title: 'Nothing waiting on details.',
+    hint: 'Cases waiting on images, instructions or other details land here.',
+    actionLabel: 'Sort new email',
+    to: '/inbox?view=active&triageState=new',
+  },
+  review: {
+    title: 'Nothing to review.',
+    hint: 'Cases arrive here once everything’s in and they’re ready to send.',
+    actionLabel: 'Check what’s not ready',
+    to: '/queue/not-ready',
+  },
+  held: {
+    title: 'Nothing held.',
+    hint: 'Cases that can’t go through (missing the basics) or are on hold would show here.',
+    actionLabel: 'Review cases ready to send',
+    to: '/queue/review',
+  },
 };
 
 /** "Today" / "3 days" — plain case-age wording (due cell + the held Age column). */
@@ -303,6 +339,15 @@ export function CaseList() {
 
   /* ----------  bulk selection (spec IA §4)  ---------- */
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  // Focus home when the BulkActionBar unmounts while holding focus
+  // (gatekeeper F4): the header select-all checkbox.
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
+  const restoreFocusFromBar = useCallback(() => {
+    const active = document.activeElement as HTMLElement | null;
+    if (active?.closest('[aria-label="Bulk actions"]')) {
+      requestAnimationFrame(() => selectAllRef.current?.focus());
+    }
+  }, []);
   // Rows optimistically hidden after a successful hold/release (they've moved
   // queue server-side) — cleared when fresh queue data resolves below.
   const [pendingHidden, setPendingHidden] = useState<Set<string>>(() => new Set());
@@ -459,6 +504,8 @@ export function CaseList() {
       if (result.ok.length > 0) {
         setPendingHidden((prev) => new Set([...prev, ...result.ok]));
       }
+      // Full success is about to unmount the bar — send focus home first (F4).
+      if (result.failed.length === 0) restoreFocusFromBar();
       setSelected(new Set(result.failed.map((f) => f.id)));
 
       const summary = summarizeBatch(nextOnHold ? 'Held' : 'Released', result);
@@ -493,7 +540,90 @@ export function CaseList() {
       void data.queueCounts().then((c) => setQueueTabCounts(c));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isHeld, dispatchToast, queueQuery.refetch],
+    [isHeld, dispatchToast, queueQuery.refetch, restoreFocusFromBar],
+  );
+
+  /** Bulk "Log chase" (M-E2, not-ready queue only). RECORDS a chase per case —
+   *  never sends. Chased rows stay in the queue (no hide, no refetch); failed
+   *  ids stay selected with a Retry, identical semantics to Hold. */
+  const runBulkChase = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+      setBulkBusy(true);
+      const result = await runBatch(
+        ids,
+        // Default bulk template: the not-ready queue IS the weekly chase
+        // cadence (its subtitle says so); ChaserPanel's templates are all
+        // case-type-specific, so none is an honest bulk default.
+        (id) => data.logChase(id, { channel: 'email', templateLabel: 'Weekly chase' }),
+        { concurrency: 4 },
+      );
+      setBulkBusy(false);
+      // Full success is about to unmount the bar — send focus home first (F4).
+      if (result.failed.length === 0) restoreFocusFromBar();
+      setSelected(new Set(result.failed.map((f) => f.id)));
+      const summary = summarizeBatch('Logged a chase for', result);
+      if (summary.ok) {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>{summary.title}</ToastTitle>
+          </Toast>,
+          { intent: 'success' },
+        );
+      } else {
+        const failedIds = result.failed.map((f) => f.id);
+        dispatchToast(
+          <Toast>
+            <ToastTitle
+              action={
+                <ToastTrigger>
+                  <Link onClick={() => void runBulkChase(failedIds)}>Retry</Link>
+                </ToastTrigger>
+              }
+            >
+              {summary.title}
+            </ToastTitle>
+            <ToastBody>{summary.detail}</ToastBody>
+          </Toast>,
+          { intent: 'error' },
+        );
+      }
+    },
+    [dispatchToast, restoreFocusFromBar],
+  );
+
+  /* ----------  quick-peek drawer (spec IA §3)  ---------- */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const peekId = parsePeek(searchParams.toString());
+  // Prev/Next snapshot — captured when the drawer OPENS (or on deep-link once
+  // rows load); paging never re-derives it, so filter churn can't reshuffle
+  // the deck mid-peek.
+  const [peekList, setPeekList] = useState<string[]>([]);
+  useEffect(() => {
+    if (!peekId) setPeekList([]);
+  }, [peekId]);
+  useEffect(() => {
+    // Deep link (?peek= arrived from outside): snapshot once rows load.
+    if (peekId && peekList.length === 0 && filtered.length > 0) {
+      setPeekList(filtered.map((c) => c.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [peekId, filtered]);
+
+  const openPeek = useCallback(
+    (id: string) => {
+      setPeekList(filtered.map((c) => c.id)); // snapshot at open
+      setSearchParams(withPeek(searchParams.toString(), id)); // PUSH — Back closes
+    },
+    [filtered, searchParams, setSearchParams],
+  );
+  const closePeek = useCallback(
+    () => setSearchParams(withoutPeek(searchParams.toString()), { replace: true }),
+    [searchParams, setSearchParams],
+  );
+  const pagePeek = useCallback(
+    (id: string) => setSearchParams(withPeek(searchParams.toString(), id), { replace: true }),
+    [searchParams, setSearchParams],
   );
 
   /* Fixed sizing so the icon-only Channel and the verb-led ellipsised cells
@@ -501,6 +631,7 @@ export function CaseList() {
   const columnSizing: TableColumnSizingOptions = useMemo(
     () => ({
       select: { minWidth: 44, idealWidth: 48, defaultWidth: 48 },
+      peek: { minWidth: 44, idealWidth: 48, defaultWidth: 48 },
       vrm: { minWidth: 150, idealWidth: 170, defaultWidth: 170 },
       casePo: { minWidth: 110, idealWidth: 120, defaultWidth: 120 },
       provider: { minWidth: 130, idealWidth: 150, defaultWidth: 150 },
@@ -580,7 +711,12 @@ export function CaseList() {
         renderCell: (c) => {
           const isWhatsapp = c.channel.kind === 'whatsapp';
           const label = isWhatsapp ? 'WhatsApp' : 'Email';
-          const desc = `${label}${c.channel.mode === 'manual' ? ' (manual)' : ''} — ${c.channel.sourceMailbox}`;
+          // Same guard as the peek drawer: the seam sometimes carries an
+          // internal mailbox ID here — internal ids never render (CONTEXT.md).
+          const mailbox = c.channel.sourceMailbox?.includes('@')
+            ? ` — ${c.channel.sourceMailbox}`
+            : '';
+          const desc = `${label}${c.channel.mode === 'manual' ? ' (manual)' : ''}${mailbox}`;
           return (
             <Tooltip content={desc} relationship="label">
               <span className={styles.channelCell}>
@@ -677,6 +813,7 @@ export function CaseList() {
         columnId: 'select',
         renderHeaderCell: () => (
           <Checkbox
+            ref={selectAllRef}
             checked={allFilteredSelected ? true : selected.size > 0 ? 'mixed' : false}
             onChange={(_e, d) =>
               setSelected(d.checked === true ? new Set(filtered.map((c) => c.id)) : new Set())
@@ -688,7 +825,11 @@ export function CaseList() {
           <span
             className={styles.selectCell}
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
+            // Keep row navigation keys out, but let ESCAPE bubble — the
+            // clear-selection / close-peek listeners live on window (F1).
+            onKeyDown={(e) => {
+              if (e.key !== 'Escape') e.stopPropagation();
+            }}
           >
             <Checkbox
               checked={selected.has(c.id)}
@@ -703,7 +844,7 @@ export function CaseList() {
                   return next;
                 })
               }
-              aria-label={`Select case ${c.vrm}`}
+              aria-label={`Select case ${caseDisplayName(c)}`}
             />
           </span>
         ),
@@ -711,9 +852,34 @@ export function CaseList() {
     [filtered, selected, allFilteredSelected, styles],
   );
 
+  /* Trailing peek column — the quick-peek affordance on every queue row
+     (always tabbable; revealed on row hover / its own focus). */
+  const peekColumn: TableColumnDefinition<Case> = useMemo(
+    () =>
+      createTableColumn<Case>({
+        columnId: 'peek',
+        renderHeaderCell: () => <span className="ce-sr-only">Preview</span>,
+        renderCell: (c) => (
+          <Button
+            appearance="subtle"
+            size="small"
+            data-peek-btn
+            className={styles.peekBtn}
+            icon={<Eye size={16} />}
+            aria-label={`Preview ${caseDisplayName(c)}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              openPeek(c.id);
+            }}
+          />
+        ),
+      }),
+    [styles, openPeek],
+  );
+
   const columns: TableColumnDefinition<Case>[] = useMemo(
-    () => [selectColumn, ...columnsForQueue(activeName).map((id) => allColumns[id])],
-    [selectColumn, activeName, allColumns],
+    () => [selectColumn, ...columnsForQueue(activeName).map((id) => allColumns[id]), peekColumn],
+    [selectColumn, activeName, allColumns, peekColumn],
   );
 
   const filtersActive =
@@ -909,8 +1075,16 @@ export function CaseList() {
         queueCases.length === 0 ? (
           <EmptyState
             icon={<CheckCircle2 size={32} strokeWidth={1.5} aria-hidden />}
-            title={`No cases in “${queue?.label ?? activeName}” right now.`}
-            hint={EMPTY_HINT[activeName]}
+            title={EMPTY_STATE[activeName].title}
+            hint={EMPTY_STATE[activeName].hint}
+            action={
+              <Button
+                appearance="secondary"
+                onClick={() => navigate(EMPTY_STATE[activeName].to)}
+              >
+                {EMPTY_STATE[activeName].actionLabel}
+              </Button>
+            }
           />
         ) : (
           <EmptyState
@@ -948,6 +1122,7 @@ export function CaseList() {
               {({ item, rowId }) => (
                 <DataGridRow<Case>
                   key={rowId}
+                  data-case-row={item.id}
                   className={mergeClasses(
                     styles.row,
                     item.status === 'duplicate_risk' && styles.rowDuplicate,
@@ -956,7 +1131,9 @@ export function CaseList() {
                   onKeyDown={(e: KeyboardEvent) => {
                     if (e.key === 'Enter') navigate(`/case/${item.id}`);
                   }}
-                  aria-label={`Open case ${item.vrm}`}
+                  // NO aria-label (gatekeeper F2): it would REPLACE the
+                  // name-from-content and hide claimant/provider/why-held
+                  // from SR row focus; Enter-to-open is grid idiom.
                 >
                   {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
                 </DataGridRow>
@@ -979,13 +1156,40 @@ export function CaseList() {
             onClick: () => void runBulk(eligibleRows.map((c) => c.id)),
             disabled: eligibleRows.length === 0,
           },
+          // Log chase — the NOT-READY queue only (spec IA §4); records, never sends.
+          ...(activeName === 'not-ready'
+            ? [
+                {
+                  key: 'chase',
+                  label: `Log chase (${eligibleRows.length})`,
+                  onClick: () => void runBulkChase(eligibleRows.map((c) => c.id)),
+                  disabled: eligibleRows.length === 0,
+                },
+              ]
+            : []),
         ]}
         caption={
           isHeld && ineligibleCount > 0
-            ? `${ineligibleCount} selected need their duplicate decision made per case`
+            ? // "decision", not "duplicate decision" — the ineligible set
+              // includes failed-processing rows too (critic).
+              `${ineligibleCount} selected need their decision made per case`
             : undefined
         }
-        onClear={() => setSelected(new Set())}
+        onClear={() => {
+          restoreFocusFromBar(); // the bar is about to unmount (F4)
+          setSelected(new Set());
+        }}
+      />
+
+      {/* Quick-peek drawer — ?peek=<caseId> on this route (spec IA §3).
+          "Open case" REPLACES the peeked entry with the canonical /case/:id. */}
+      <CasePeekDrawer
+        caseId={peekId}
+        prevId={peekId ? nextPeekId(peekList, peekId, -1) : null}
+        nextId={peekId ? nextPeekId(peekList, peekId, 1) : null}
+        onPeek={pagePeek}
+        onClose={closePeek}
+        onOpenCase={(id) => navigate(`/case/${id}`, { replace: true })}
       />
     </div>
   );

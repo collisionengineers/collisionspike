@@ -280,10 +280,10 @@ body,
 
 /* ----------  Screen-reader-only text  ----------
    Visually hidden, still real DOM text every SR reads (browse mode included).
-   Used for full-form timestamps behind compact grid cells and other sr-only
-   supplements. (Three components still carry a local makeStyles copy of this
-   recipe — ProvenanceBadge / ImageOrderList / LinkedEmailsPanel — noted for
-   the M-H cleanup.) */
+   THE one sr-only recipe (the former local makeStyles copies in
+   ProvenanceBadge / ImageOrderList / LinkedEmailsPanel were consolidated
+   here at M-H). Used for full-form timestamps behind compact grid cells and
+   other sr-only supplements. */
 .ce-sr-only {
   position: absolute;
   width: 1px;
