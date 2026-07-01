@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="preview.css">
+<style>
+  .eyebrow-row { display:flex; align-items:center; gap:12px; }
+  .eyebrow-row .line { height:1px; width:34px; background:var(--ce-red); }
+  .frame { position:relative; width:220px; height:96px; background:#f5f4f2; border-radius:2px; }
+  .frame .tl, .frame .br { position:absolute; width:34px; height:34px; }
+  .frame .tl { top:-5px; left:-5px; border-left:2px solid var(--ce-red); border-top:2px solid var(--ce-red); }
+  .frame .br { bottom:-5px; right:-5px; border-right:2px solid var(--ce-red); border-bottom:2px solid var(--ce-red); }
+</style></head>
+<body>
+  <div class="col" style="gap:20px;">
+    <div class="col" style="gap:10px;">
+      <div class="cap">Eyebrow + hairline divider</div>
+      <div class="eyebrow-row"><span class="line"></span><span class="ce-eyebrow">Our Expertise</span></div>
+      <div class="eyebrow-row"><span class="line"></span><span class="ce-eyebrow">Why Instruct Us</span><span class="line"></span></div>
+    </div>
+    <div class="col" style="gap:10px;">
+      <div class="cap">Geometric corner accents (image frame)</div>
+      <div class="frame"><span class="tl"></span><span class="br"></span></div>
+    </div>
+  </div>
+</body></html>

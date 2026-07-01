@@ -1,0 +1,17 @@
+---
+description: Ban engineering and meta language in user-facing SPA strings
+globs: mockup-app/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# UI user language (binding)
+
+The SPA is for **non-technical case handlers**. Never put implementation, cloud, or spec language in **rendered strings** (labels, headings, buttons, toasts, tooltips, placeholders, validation messages, badges, empty states).
+
+**Banned examples:** Azure, Postgres, MSAL, Entra, JWT, Function, API, webhook, Key Vault, Dataverse, Power Automate, flow, connector, OCR, JSON (say "file"/"export"), operator-gated, deploy, mock, seed, schema, payload, provenance (→ "source"), ADR, milestone, Box (→ **"Archive"**).
+
+**Keep domain words handlers use:** EVA, VRM/registration, Case/PO, Principal, work provider, claimant, inspection, chaser, photo, evidence, queue.
+
+Gated features: plain user terms ("Vehicle lookup isn't available yet.") — never env-var or gate names.
+
+Code comments may use engineering terms freely. When delegating UI work, pass this rule.

@@ -9613,7 +9613,11 @@ function combineMakeModel(make, model) {
 
 // api/src/lib/parser-eva-fields.ts
 var DDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/;
+function isUnknownWorkProviderSentinel(raw) {
+  return raw.trim().toUpperCase() === "UNKNOWN";
+}
 var SPEC = {
+  work_provider: { column: "eva_work_provider", provenanceField: "workProvider", normalize: (v) => isUnknownWorkProviderSentinel(v) ? "" : v.slice(0, 200) },
   vehicle_model: { column: "eva_vehicle_model", provenanceField: "vehicleModel", normalize: (v) => v.slice(0, 200) },
   claimant_name: { column: "eva_claimant_name", provenanceField: "claimantName", normalize: (v) => v.slice(0, 200) },
   claimant_telephone: { column: "eva_claimant_telephone", provenanceField: "claimantTelephone", normalize: (v) => v.slice(0, 60) },
@@ -9625,10 +9629,26 @@ var SPEC = {
   // CHECK ck_case_eva_vat_status: IN ('', 'Yes', 'No') — the parser normalizes to Yes/No; skip anything else.
   vat_status: { column: "eva_vat_status", provenanceField: "vatStatus", normalize: (v) => v === "Yes" || v === "No" ? v : "" }
 };
+var PARSER_EVA_FIELD_ORDER = [
+  "work_provider",
+  "vehicle_model",
+  "claimant_name",
+  "claimant_telephone",
+  "claimant_email",
+  "date_of_loss",
+  "date_of_instruction",
+  "accident_circumstances",
+  "vat_status"
+];
+function corpusWorkProviderCandidate(displayName) {
+  const value = (displayName ?? "").trim().slice(0, 200);
+  if (!value) return null;
+  return { column: "eva_work_provider", provenanceField: "workProvider", value };
+}
 function selectParserEvaCandidates(parserEva) {
   if (!parserEva) return [];
   const out = [];
-  for (const key of Object.keys(SPEC)) {
+  for (const key of PARSER_EVA_FIELD_ORDER) {
     const raw = (parserEva[key] ?? "").toString().trim();
     if (!raw) continue;
     const spec = SPEC[key];
@@ -9692,14 +9712,21 @@ async function recomputeStatus2(caseId) {
   }
   return next;
 }
-async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva) {
+async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId) {
   const ref = (parserRef ?? "").trim();
   const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, "") : "";
   const unitRaw = (parserMileageUnit ?? "").trim();
   const unit = unitRaw === "Miles" || unitRaw === "Km" ? unitRaw : "";
   const evaCandidates = selectParserEvaCandidates(parserEva);
-  if (!ref && !mileage && evaCandidates.length === 0) return;
-  const readCols = ["case_ref", "eva_mileage", ...evaCandidates.map((c) => c.column)];
+  const matchedProviderId = (workProviderId ?? "").trim();
+  const mightFillWorkProviderFromCorpus = Boolean(matchedProviderId) && !evaCandidates.some((c) => c.column === "eva_work_provider");
+  if (!ref && !mileage && evaCandidates.length === 0 && !mightFillWorkProviderFromCorpus) return;
+  const readCols = [
+    "case_ref",
+    "eva_mileage",
+    "eva_work_provider",
+    ...evaCandidates.map((c) => c.column)
+  ];
   const cur = await query(`SELECT ${readCols.join(", ")} FROM case_ WHERE id = $1`, [caseId]);
   if (!cur[0]) return;
   const isEmpty = (v) => !String(v ?? "").trim();
@@ -9724,7 +9751,31 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
     if (isEmpty(cur[0][cand.column])) {
       sets.push(`${cand.column} = $${sets.length + 1}`);
       vals.push(cand.value);
-      provenance.push({ field: cand.provenanceField, value: cand.value });
+      provenance.push({
+        field: cand.provenanceField,
+        value: cand.value,
+        sourceType: "pdf_extraction",
+        sourceLabel: "From instructions"
+      });
+    }
+  }
+  if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {
+    const wpRows = await query(
+      "SELECT display_name FROM work_provider WHERE id = $1",
+      [matchedProviderId]
+    );
+    const corpusCandidate = corpusWorkProviderCandidate(
+      wpRows[0]?.display_name
+    );
+    if (corpusCandidate) {
+      sets.push(`eva_work_provider = $${sets.length + 1}`);
+      vals.push(corpusCandidate.value);
+      provenance.push({
+        field: corpusCandidate.provenanceField,
+        value: corpusCandidate.value,
+        sourceType: "corpus",
+        sourceLabel: "Matched provider"
+      });
     }
   }
   if (sets.length === 0) return;
@@ -9733,14 +9784,23 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
     `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
     vals
   );
-  if (mileageFilled) provenance.unshift({ field: "mileage", value: mileage.slice(0, 20) });
-  const sourceTypeCode = sourceTypeCodec.toInt("pdf_extraction") ?? 1e8;
+  if (mileageFilled) {
+    provenance.unshift({
+      field: "mileage",
+      value: mileage.slice(0, 20),
+      sourceType: "pdf_extraction",
+      sourceLabel: "From instructions"
+    });
+  }
+  const pdfSourceTypeCode = sourceTypeCodec.toInt("pdf_extraction") ?? 100000001;
+  const corpusSourceTypeCode = sourceTypeCodec.toInt("corpus") ?? 100000003;
   for (const p of provenance) {
+    const sourceTypeCode = p.sourceType === "corpus" ? corpusSourceTypeCode : pdfSourceTypeCode;
     await query(
       `INSERT INTO field_level_provenance
          (name, case_id, field_name, value, source_type_code, source_label)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [`${caseId}:${p.field}`, caseId, p.field, p.value, sourceTypeCode, "From instructions"]
+      [`${caseId}:${p.field}`, caseId, p.field, p.value, sourceTypeCode, p.sourceLabel]
     ).catch(() => {
     });
   }
@@ -9850,7 +9910,14 @@ import_functions9.app.http("internalCasesResolve", {
     }
     if (decision.resolution === "attach" && decision.targetCaseId) {
       await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId, void 0, body.parserVrm);
-      await applyParserFields(decision.targetCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit, body.parserEva);
+      await applyParserFields(
+        decision.targetCaseId,
+        body.parserRef,
+        body.parserMileage,
+        body.parserMileageUnit,
+        body.parserEva,
+        workProviderId
+      );
       await writeAudit({
         action: AUDIT_ACTION.case_attached,
         caseId: decision.targetCaseId,
@@ -9949,7 +10016,14 @@ import_functions9.app.http("internalCasesResolve", {
     }
     const newCaseId = created.caseId;
     await upsertInboundEmail(inbound, workProviderId, newCaseId, void 0, body.parserVrm);
-    await applyParserFields(newCaseId, body.parserRef, body.parserMileage, body.parserMileageUnit, body.parserEva);
+    await applyParserFields(
+      newCaseId,
+      body.parserRef,
+      body.parserMileage,
+      body.parserMileageUnit,
+      body.parserEva,
+      workProviderId
+    );
     const auditAction = AUDIT_ACTION[decision.auditAction] ?? AUDIT_ACTION.case_created;
     await writeAudit({
       action: auditAction,

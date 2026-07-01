@@ -1,0 +1,15 @@
+---
+description: Core collisionspike context — live Azure stack, doc precedence, verification gates
+alwaysApply: true
+---
+
+# collisionspike core
+
+- **Live platform:** Azure PaaS only. Power Platform (Code App, Dataverse, flows) is **decommissioned** — historical reference only.
+- **Start here:** [ROADMAP.md](ROADMAP.md) (forward work), [CURRENT_STATUS.md](CURRENT_STATUS.md) (live now), [docs/gated.md](docs/gated.md) (operator blockers).
+- **Live numbers** (function counts, mailbox set, gates, corpus counts) live **only** in [LIVE_FACTS.json](LIVE_FACTS.json) + [docs/architecture/live-environment.md](docs/architecture/live-environment.md). Link the registry; never re-embed volatile counts in other docs.
+- **Verify offline:** `node verify-all.mjs`. **Verify live:** `VERIFY_LIVE=1 node verify-all.mjs` (needs `az login`).
+- **Azure ops:** match task → skill/playbook in [docs/azure/README.md](docs/azure/README.md) first. **Two-strikes rule:** same failing Azure op twice → stop, use `azure:azure-diagnostics` / `microsoft-docs`, or dispatch **azure-diagnostician** (read-only).
+- **Parser engine:** authored in sibling `cedocumentmapper_v2.0`, vendored into the parser Function (ADR-0018). Do not re-derive parsing in API/SPA.
+- **No mock case data** in the app — real Postgres rows only.
+- **Doc precedence:** binding review (`docs/reviews/<DDMMYY>/`) > ADRs > architecture/requirements > plans.

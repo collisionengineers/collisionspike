@@ -1,0 +1,32 @@
+{
+  "files.associations": {
+    "*.mdc": "markdown"
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/deploy": true,
+    "**/.vite": true,
+    "**/coverage": true,
+    "**/__pycache__": true,
+    "**/.playwright-mcp": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/deploy/**": true,
+    "**/.vite/**": true,
+    "**/coverage/**": true,
+    "**/__pycache__/**": true,
+    "**/.playwright-mcp/**": true
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.formatOnSave": false,
+  "[python]": {
+    "editor.tabSize": 4
+  },
+  "terminal.integrated.defaultProfile.linux": "bash"
+}

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="preview.css">
+<style>
+  .el { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .el .box { width:140px; height:62px; border-radius:2px; display:flex; align-items:center; justify-content:center; }
+</style></head>
+<body>
+  <div class="col">
+    <div class="cap">Elevation — border-first, shadows rare &amp; soft</div>
+    <div class="spread" style="gap:26px; padding:6px 2px 14px;">
+      <div class="el"><div class="box" style="background:#fff;border:1px solid var(--web-border)"></div><span class="mono">flat · 1px hairline (default)</span></div>
+      <div class="el"><div class="box" style="background:#fff;border:1px solid var(--web-border);box-shadow:var(--shadow-soft)"></div><span class="mono">soft · contact-row hover</span></div>
+      <div class="el"><div class="box" style="background:var(--ce-red);box-shadow:var(--shadow-cta)"></div><span class="mono">CTA hover lift (red)</span></div>
+    </div>
+  </div>
+</body></html>

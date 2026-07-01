@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/home/alex/projects/collisionsuite/active/collisionspike/.codex/hooks/box-scope-guard.mjs'"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/home/alex/projects/collisionsuite/active/collisionspike/.codex/hooks/azure-route-guard.mjs'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/home/alex/projects/collisionsuite/active/collisionspike/.codex/hooks/box-scope-postcreate.mjs'"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/home/alex/projects/collisionsuite/active/collisionspike/.codex/hooks/azure-churn-guard.mjs'"
+          }
+        ]
+      }
+    ]
+  }
+}

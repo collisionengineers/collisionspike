@@ -29,10 +29,12 @@ import type { EvidenceDescriptor } from '@cs/domain';
 /**
  * Parser-owned EVA fields (value-only) forwarded from the orchestration `parse` activity to
  * the Data API resolve-persist, where they fill the case_ eva_* columns fill-if-empty. Keyed
- * by EVA contract key. work_provider + inspection_address are intentionally excluded (owned by
- * provider-match / the corpus picker — ADR-0013); mileage rides its own parserMileage field.
+ * by EVA contract key. inspection_address is excluded (corpus picker — ADR-0013); mileage rides
+ * its own parserMileage field. When work_provider is absent/UNKNOWN, resolve-persist may still
+ * fill eva_work_provider from the matched corpus display_name.
  */
 export interface ParserEvaFields {
+  work_provider?: string;
   vehicle_model?: string;
   claimant_name?: string;
   claimant_telephone?: string;

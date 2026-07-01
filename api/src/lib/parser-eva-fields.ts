@@ -11,11 +11,14 @@
  * UPDATE (a bad date / non-Yes/No VAT is silently skipped, not persisted).
  *
  * EXCLUDED on purpose (owned elsewhere — never overwritten from the document here):
- *   - work_provider      — owned by provider-match (sender domain → work_provider).
  *   - inspection_address — owned by the offline corpus picker (ADR-0013: staff pick/edit;
  *                          there is no runtime address auto-fill).
  *   - mileage / mileage_unit — carried + persisted separately (parserMileage/Unit) with
  *                          their own unit normalization and provenance.
+ *
+ * `work_provider` is forwarded from the parser when present; when absent/UNKNOWN the Data
+ * API may still fill `eva_work_provider` from the matched corpus `display_name` (see
+ * applyParserFields in internal.ts).
  *
  * `provenanceField` is the camelCase EVA_FIELD_ORDER key the field_level_provenance table
  * uses for field_name (see migration/assets/schema/070_field_level_provenance.sql).
@@ -23,6 +26,7 @@
 
 /** The parser-owned EVA fields forwarded from the orchestration parse activity (value-only). */
 export interface ParserEvaFields {
+  work_provider?: string;
   vehicle_model?: string;
   claimant_name?: string;
   claimant_telephone?: string;
@@ -45,6 +49,11 @@ export interface ParserEvaCandidate {
 
 const DDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/;
 
+/** Parser sentinel when provider detection did not resolve a name — treat as empty. */
+export function isUnknownWorkProviderSentinel(raw: string): boolean {
+  return raw.trim().toUpperCase() === 'UNKNOWN';
+}
+
 /**
  * EVA contract key → column + provenance field + a normalizer that returns the value to
  * persist or '' to SKIP (failed a column CHECK constraint). Order is the EVA contract order.
@@ -53,6 +62,7 @@ const SPEC: Record<
   keyof ParserEvaFields,
   { column: string; provenanceField: string; normalize: (raw: string) => string }
 > = {
+  work_provider:          { column: 'eva_work_provider',          provenanceField: 'workProvider',          normalize: (v) => (isUnknownWorkProviderSentinel(v) ? '' : v.slice(0, 200)) },
   vehicle_model:          { column: 'eva_vehicle_model',          provenanceField: 'vehicleModel',          normalize: (v) => v.slice(0, 200) },
   claimant_name:          { column: 'eva_claimant_name',          provenanceField: 'claimantName',          normalize: (v) => v.slice(0, 200) },
   claimant_telephone:     { column: 'eva_claimant_telephone',     provenanceField: 'claimantTelephone',     normalize: (v) => v.slice(0, 60) },
@@ -65,6 +75,31 @@ const SPEC: Record<
   vat_status:             { column: 'eva_vat_status',             provenanceField: 'vatStatus',              normalize: (v) => (v === 'Yes' || v === 'No' ? v : '') },
 };
 
+/** EVA contract order for deterministic candidate ordering. */
+const PARSER_EVA_FIELD_ORDER: (keyof ParserEvaFields)[] = [
+  'work_provider',
+  'vehicle_model',
+  'claimant_name',
+  'claimant_telephone',
+  'claimant_email',
+  'date_of_loss',
+  'date_of_instruction',
+  'accident_circumstances',
+  'vat_status',
+];
+
+/**
+ * Corpus `display_name` fallback when the parser did not supply a work-provider name.
+ * Pure helper — applyParserFields uses this after parser candidates are applied.
+ */
+export function corpusWorkProviderCandidate(
+  displayName: string | null | undefined,
+): ParserEvaCandidate | null {
+  const value = (displayName ?? '').trim().slice(0, 200);
+  if (!value) return null;
+  return { column: 'eva_work_provider', provenanceField: 'workProvider', value };
+}
+
 /**
  * Select the parser-owned EVA fields that carry a constraint-valid value, in EVA contract
  * order. Empty / whitespace / constraint-failing values are dropped. The caller applies
@@ -75,7 +110,7 @@ export function selectParserEvaCandidates(
 ): ParserEvaCandidate[] {
   if (!parserEva) return [];
   const out: ParserEvaCandidate[] = [];
-  for (const key of Object.keys(SPEC) as (keyof ParserEvaFields)[]) {
+  for (const key of PARSER_EVA_FIELD_ORDER) {
     const raw = (parserEva[key] ?? '').toString().trim();
     if (!raw) continue;
     const spec = SPEC[key];
