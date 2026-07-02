@@ -5543,6 +5543,37 @@ function scrubPii(input, opts = {}) {
   return { text, redactions, totalRedactions };
 }
 
+// packages/domain/dist/domain/outlook-folder.js
+function suggestedOutlookFolder(subtype) {
+  switch (subtype) {
+    case "existing_provider_instruction":
+      return "Inbox/Instructions";
+    case "existing_provider_audit":
+      return "Inbox/Audits";
+    case "existing_provider_diminution":
+      return "Inbox/Diminution";
+    case "new_client_work":
+      return "Inbox/New clients";
+    case "query_existing_work":
+      return "Inbox/Queries/Case queries";
+    case "query_new_enquiry":
+      return "Inbox/Queries/Enquiries";
+    case "billing_request":
+      return "Inbox/Billing";
+    case "case_summary":
+    case "acknowledgement":
+      return "Inbox/No action";
+    case "images_received":
+      return "Inbox/Images";
+    case "cancellation_notice":
+      return "Inbox/Cancellations";
+    case "update_general":
+      return "Inbox/Case updates";
+    default:
+      return "Inbox/Other";
+  }
+}
+
 // packages/domain/dist/model/queues.js
 var QUEUES = [
   {
@@ -5639,6 +5670,10 @@ var AI_ASSIST_GATE_ALL_OFF = {
   enabled: false,
   modelConfigured: false
 };
+var OUTLOOK_MOVE_GATE_ALL_OFF = {
+  enabled: false
+};
+var OUTLOOK_MOVE_STATES = ["queued", "moved", "failed"];
 var INBOUND_COUNTS_ZERO = {
   receiving_work: 0,
   query: 0,
@@ -7569,7 +7604,12 @@ var AUDIT_ACTION = {
   inbound_link_suggested: 100000035,
   inbound_linked: 100000036,
   inbound_detached: 100000037,
-  cancellation_proposed: 100000038
+  cancellation_proposed: 100000038,
+  // Outlook filing lifecycle (TKT-054 / 020726 E6; gated by OUTLOOK_MOVE_ENABLED).
+  // Minted in deltas/2026-07-02-tkt054-outlook-move.sql — same pre-DDL degrade as above.
+  outlook_move_requested: 100000039,
+  outlook_moved: 100000040,
+  outlook_move_failed: 100000041
 };
 var SEVERITY_CODE = {
   info: 1e8,
@@ -7647,6 +7687,11 @@ var gates = {
   // #25
   boxMetadata: () => process.env.BOX_METADATA_ENABLED === "true",
   // #26
+  // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
+  // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
+  // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
+  // (docs/gated.md).
+  outlookMove: () => process.env.OUTLOOK_MOVE_ENABLED === "true",
   // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
   // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
   // is pure and never reads process.env — the caller (an orchestration Durable activity)
@@ -7677,6 +7722,10 @@ var gates = {
   // them). Prefer managed-identity/keyless — no API key gate by design.
   aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
   aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
+  // Outlook-move queue config (TKT-054): the orchestration app's queue-service endpoint,
+  // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
+  // move jobs there with its managed identity (Storage Queue Data Message Sender).
+  outlookMoveQueueServiceUrl: () => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? "",
   /**
    * Derived: location assist is only enabled when all three conditions are met.
    * Used by GET /api/gates/location-assist (plan 21 §21.2).
@@ -7688,7 +7737,13 @@ var gates = {
    * UNCONFIGURED is still an honest no-op (the live state today). Used by
    * GET /api/gates/ai-assist + the generate route's disabled-reason.
    */
-  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== ""
+  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
+   * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
+   * honest refusal (TKT-054 / 020726 E6).
+   */
+  outlookMoveEnabled: () => gates.outlookMove() && gates.outlookMoveQueueServiceUrl() !== ""
 };
 
 // api/src/lib/functions-client.ts
@@ -8092,13 +8147,23 @@ function rowToInboundEmail(rec) {
     triageState,
     bodyVrm: rec.body_vrm ?? "",
     bodyCaseref: rec.body_caseref ?? "",
+    // Stored by the Phase-2 DDL but only surfaced from TKT-054 (columns/keys absent on
+    // older rows or unjoined queries — the conditional spread tolerates both).
+    ...rec.body_jobref ? { bodyJobref: rec.body_jobref } : {},
+    ...rec.conversation_id ? { conversationId: rec.conversation_id } : {},
     bodyPreview: rec.body_preview ?? "",
     ...rec.case_id ? { caseId: rec.case_id } : {},
+    // The linked case's Case/PO — present only when the query LEFT JOINs case_ (inbox list).
+    ...rec.case_po ? { casePo: rec.case_po } : {},
     ...rec.work_provider_id ? { workProviderId: rec.work_provider_id } : {},
     // The classifier's original suggestion (columns may be absent on a not-yet-migrated DB
     // — SELECT * simply omits them, so these stay undefined). work-todo-spike: suggested-tags.
     ...rec.suggested_category_code != null && INBOUND_CATEGORY_BY_INT[rec.suggested_category_code] ? { suggestedCategory: INBOUND_CATEGORY_BY_INT[rec.suggested_category_code] } : {},
-    ...rec.suggested_subtype_code != null && INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code] ? { suggestedSubtype: INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code] } : {}
+    ...rec.suggested_subtype_code != null && INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code] ? { suggestedSubtype: INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code] } : {},
+    // Outlook filing lifecycle (TKT-054; columns absent pre-delta — spreads tolerate).
+    ...rec.outlook_move_state && OUTLOOK_MOVE_STATES.includes(rec.outlook_move_state) ? { outlookMoveState: rec.outlook_move_state } : {},
+    ...rec.outlook_moved_folder ? { outlookMovedFolder: rec.outlook_moved_folder } : {},
+    ...rec.outlook_moved_at ? { outlookMovedAt: toIso(rec.outlook_moved_at) } : {}
   };
 }
 var AI_REVIEW_STATES = [
@@ -9498,6 +9563,19 @@ import_functions5.app.http("getAiAssistGate", {
     }
   })
 });
+import_functions5.app.http("getOutlookMoveGate", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/outlook-move",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = { enabled: gates.outlookMoveEnabled() };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...OUTLOOK_MOVE_GATE_ALL_OFF } };
+    }
+  })
+});
 
 // api/src/functions/settings.ts
 var import_functions6 = require("@azure/functions");
@@ -9545,6 +9623,54 @@ import_functions6.app.http("setHoldNewCasesDefault", {
 
 // api/src/functions/inbound.ts
 var import_functions7 = require("@azure/functions");
+
+// api/src/lib/outlook-queue.ts
+var OUTLOOK_MOVE_QUEUE_NAME = "outlook-move";
+var STORAGE_RESOURCE = "https://storage.azure.com";
+var STORAGE_API_VERSION = "2021-12-02";
+var cachedToken = null;
+async function getStorageToken() {
+  const now = Date.now();
+  if (cachedToken && cachedToken.expiresAt > now + 6e4) return cachedToken.value;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (!idEndpoint || !idHeader) {
+    throw new Error("missing IDENTITY_ENDPOINT/IDENTITY_HEADER for storage-queue auth (no managed identity off-Azure)");
+  }
+  const url = `${idEndpoint}?resource=${encodeURIComponent(STORAGE_RESOURCE)}&api-version=2019-08-01`;
+  const res = await fetch(url, { headers: { "X-IDENTITY-HEADER": idHeader } });
+  if (!res.ok) throw new Error(`MSI token (storage) ${res.status}`);
+  const json = await res.json();
+  cachedToken = {
+    value: json.access_token,
+    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+  };
+  return cachedToken.value;
+}
+function xmlEscape(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+async function enqueueOutlookMove(job) {
+  const serviceUrl = gates.outlookMoveQueueServiceUrl().replace(/\/$/, "");
+  if (!serviceUrl) throw new Error("OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured");
+  const token = await getStorageToken();
+  const messageText = Buffer.from(JSON.stringify(job), "utf8").toString("base64");
+  const res = await fetch(`${serviceUrl}/${OUTLOOK_MOVE_QUEUE_NAME}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "x-ms-version": STORAGE_API_VERSION,
+      "Content-Type": "application/xml"
+    },
+    body: `<QueueMessage><MessageText>${xmlEscape(messageText)}</MessageText></QueueMessage>`
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`outlook-move enqueue \u2192 ${res.status}: ${detail.slice(0, 300)}`);
+  }
+}
+
+// api/src/functions/inbound.ts
 var TRIAGE_AUDIT_ACTION = {
   dismissed: AUDIT_ACTION.inbound_dismissed,
   actioned: AUDIT_ACTION.inbound_actioned,
@@ -9564,13 +9690,16 @@ import_functions7.app.http("inboundEmails", {
       const params = [];
       if (category && category in INBOUND_CATEGORY_TO_INT) {
         params.push(INBOUND_CATEGORY_TO_INT[category]);
-        clauses.push(`category_code = $${params.length}`);
+        clauses.push(`inbound_email.category_code = $${params.length}`);
       }
       const viewClause = inboundViewWhere(view);
       if (viewClause) clauses.push(viewClause);
       const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
       const rows = await query(
-        `SELECT * FROM inbound_email ${where} ORDER BY received_on DESC`,
+        `SELECT inbound_email.*, c.case_po AS case_po
+           FROM inbound_email
+           LEFT JOIN case_ c ON c.id = inbound_email.case_id
+           ${where} ORDER BY inbound_email.received_on DESC`,
         params
       );
       let result = rows.map(rowToInboundEmail);
@@ -9631,6 +9760,72 @@ import_functions7.app.http("setTriageState", {
       ...actor ? { actor } : {}
     });
     return { status: 204 };
+  })
+});
+import_functions7.app.http("moveInboundToOutlook", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/outlook-move",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    if (!gates.outlookMoveEnabled()) {
+      return { status: 409, jsonBody: { error: "outlook filing is not enabled" } };
+    }
+    const id = req.params.id;
+    const existing = await query(
+      `SELECT id, source_message_id, source_mailbox, subtype_code, suggested_subtype_code,
+              case_id, outlook_move_state
+         FROM inbound_email WHERE id = $1`,
+      [id]
+    );
+    const row = existing[0];
+    if (!row) return { status: 404, jsonBody: { error: "not found" } };
+    if (row.outlook_move_state === "moved") {
+      return { status: 409, jsonBody: { error: "already filed" } };
+    }
+    if (!row.source_message_id || !row.source_mailbox) {
+      return { status: 409, jsonBody: { error: "no mailbox provenance to act on" } };
+    }
+    const subtype = inboundSubtypeFromInt(row.subtype_code) ?? inboundSubtypeFromInt(row.suggested_subtype_code) ?? "other";
+    const folder = suggestedOutlookFolder(subtype);
+    await query(
+      `UPDATE inbound_email
+          SET outlook_move_state = 'queued', outlook_moved_folder = $2, updated_at = now()
+        WHERE id = $1`,
+      [id, folder]
+    );
+    const actor = actorFromClaims(claims);
+    try {
+      await enqueueOutlookMove({
+        inboundEmailId: id,
+        sourceMailbox: String(row.source_mailbox),
+        sourceMessageId: String(row.source_message_id),
+        targetFolderPath: folder
+      });
+    } catch (e) {
+      await query(
+        `UPDATE inbound_email
+            SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
+          WHERE id = $1`,
+        [id]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.outlook_move_failed,
+        ...row.case_id ? { caseId: row.case_id } : {},
+        summary: `Outlook filing could not be queued (${folder})`,
+        severity: "warning",
+        after: { inboundEmailId: id, folder, detail: e instanceof Error ? e.message.slice(0, 300) : String(e) },
+        ...actor ? { actor } : {}
+      });
+      return { status: 503, jsonBody: { error: "filing queue unavailable" } };
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.outlook_move_requested,
+      ...row.case_id ? { caseId: row.case_id } : {},
+      summary: `Outlook filing requested -> ${folder}`,
+      after: { inboundEmailId: id, folder, sourceMessageId: row.source_message_id },
+      ...actor ? { actor } : {}
+    });
+    return { status: 202, jsonBody: { queued: true, folder } };
   })
 });
 import_functions7.app.http("reclassifyInbound", {
@@ -10885,6 +11080,58 @@ import_functions9.app.http("internalTriageSuggestLink", {
     }
     ctx.log(JSON.stringify({ evt: "triageSuggestLink", suggestionType, suggestionId, targetCaseId }));
     return { status: 200, jsonBody: { suggestionId, created: true } };
+  })
+});
+import_functions9.app.http("internalInboundOutlookMoved", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/{id}/outlook-moved",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const id = req.params.id;
+    const body = await req.json().catch(() => ({}));
+    const outcome = body.outcome;
+    if (outcome !== "moved" && outcome !== "failed") {
+      return { status: 400, jsonBody: { error: "outcome must be 'moved' or 'failed'" } };
+    }
+    const existing = await query(
+      "SELECT id, case_id FROM inbound_email WHERE id = $1",
+      [id]
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const folder = typeof body.folder === "string" && body.folder ? body.folder : null;
+    const detail = typeof body.detail === "string" ? body.detail.slice(0, 300) : null;
+    if (outcome === "moved") {
+      await query(
+        `UPDATE inbound_email
+              SET outlook_move_state = 'moved',
+                  outlook_moved_folder = COALESCE($2, outlook_moved_folder),
+                  outlook_moved_at = now(),
+                  triage_state = CASE
+                                   WHEN triage_state IS NULL OR triage_state = 'new' THEN 'actioned'
+                                   ELSE triage_state
+                                 END,
+                  updated_at = now()
+            WHERE id = $1`,
+        [id, folder]
+      );
+    } else {
+      await query(
+        `UPDATE inbound_email
+              SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
+            WHERE id = $1`,
+        [id]
+      );
+    }
+    await writeAudit({
+      action: outcome === "moved" ? AUDIT_ACTION.outlook_moved : AUDIT_ACTION.outlook_move_failed,
+      ...existing[0].case_id ? { caseId: existing[0].case_id } : {},
+      summary: outcome === "moved" ? `Outlook filing completed${folder ? ` -> ${folder}` : ""}` : "Outlook filing failed",
+      severity: outcome === "moved" ? "info" : "warning",
+      after: { inboundEmailId: id, ...folder ? { folder } : {}, ...detail ? { detail } : {} },
+      actor: "orchestration"
+    });
+    ctx.log(JSON.stringify({ evt: "outlookMoved", inboundEmailId: id, outcome, folder }));
+    return { status: 204 };
   })
 });
 async function applyEvidenceMetadata(ctx, whereClause, whereVals, row, computed) {

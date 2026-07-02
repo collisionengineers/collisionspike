@@ -2352,6 +2352,42 @@ async function listMessageIdsSince(mailbox, watermarkIso) {
   const newWatermark = rows.length ? rows[rows.length - 1].receivedDateTime : watermarkIso;
   return { ids: rows.map((r) => r.id), newWatermark };
 }
+function odataQuote(value) {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+async function findMessageByInternetMessageId(mailbox, internetMessageId) {
+  const filter = encodeURIComponent(`internetMessageId eq ${odataQuote(internetMessageId)}`);
+  const path = `/users/${encodeURIComponent(mailbox)}/messages?$filter=${filter}&$select=id,parentFolderId&$top=2`;
+  const res = await graphFetch(path);
+  return res.value?.[0] ?? null;
+}
+async function ensureInboxChildFolder(mailbox, segments) {
+  const user = encodeURIComponent(mailbox);
+  let parentId = "inbox";
+  for (const name of segments) {
+    const filter = encodeURIComponent(`displayName eq ${odataQuote(name)}`);
+    const found = await graphFetch(
+      `/users/${user}/mailFolders/${encodeURIComponent(parentId)}/childFolders?$filter=${filter}&$select=id&$top=1`
+    );
+    if (found.value?.[0]) {
+      parentId = found.value[0].id;
+      continue;
+    }
+    const created = await graphFetch(
+      `/users/${user}/mailFolders/${encodeURIComponent(parentId)}/childFolders`,
+      { method: "POST", body: JSON.stringify({ displayName: name }) }
+    );
+    parentId = created.id;
+  }
+  return parentId;
+}
+async function moveMessage(mailbox, messageId, destinationFolderId) {
+  const res = await graphFetch(
+    `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}/move`,
+    { method: "POST", body: JSON.stringify({ destinationId: destinationFolderId }) }
+  );
+  return res.id;
+}
 function requireEnv(key) {
   const v = process.env[key];
   if (!v) throw new Error(`missing app-setting ${key}`);
@@ -2470,6 +2506,24 @@ function mailboxOfResource(resource) {
   const m = /^users\/([^/]+)\//i.exec(resource ?? "");
   return m ? m[1] : "";
 }
+function looksLikeMailboxAddress(value) {
+  return /^[^@\s]+@[^@\s]+$/.test(value ?? "");
+}
+var subscriptionMailboxCache = /* @__PURE__ */ new Map();
+async function resolveSubscriptionMailbox(subscriptionId) {
+  if (!subscriptionId) return "";
+  const hit = subscriptionMailboxCache.get(subscriptionId);
+  if (hit) return hit;
+  try {
+    const sub = await graphFetch(`${SUBSCRIPTIONS_PATH}/${subscriptionId}`);
+    const mailbox = mailboxOfResource(sub.resource ?? "");
+    if (!looksLikeMailboxAddress(mailbox)) return "";
+    subscriptionMailboxCache.set(subscriptionId, mailbox);
+    return mailbox;
+  } catch {
+    return "";
+  }
+}
 function requireClientState() {
   const cs = process.env.GRAPH_CLIENT_STATE;
   if (!cs) throw new Error("missing GRAPH_CLIENT_STATE");
@@ -2515,7 +2569,11 @@ import_functions2.app.http("graph-lifecycle", {
         ctx.warn("[graph-lifecycle] clientState mismatch \u2014 dropping");
         continue;
       }
-      const mailbox = mailboxOfResource(n.resource ?? "");
+      let mailbox = mailboxOfResource(n.resource ?? "");
+      if (!looksLikeMailboxAddress(mailbox) && n.subscriptionId) {
+        const resolved = await resolveSubscriptionMailbox(n.subscriptionId);
+        if (resolved) mailbox = resolved;
+      }
       ctx.log(JSON.stringify({ evt: "graph-lifecycle", lifecycleEvent: n.lifecycleEvent, subscriptionId: n.subscriptionId, mailbox }));
       try {
         switch (n.lifecycleEvent) {
@@ -2523,8 +2581,11 @@ import_functions2.app.http("graph-lifecycle", {
             if (n.subscriptionId) await renewSubscription(n.subscriptionId);
             break;
           case "subscriptionRemoved": {
-            if (mailbox) {
+            if (looksLikeMailboxAddress(mailbox)) {
               await createSubscription(mailbox);
+              await enqueueResync(mailbox, resync, ctx);
+            } else if (mailbox) {
+              ctx.warn(`[graph-lifecycle] subscriptionRemoved for unresolvable mailbox "${mailbox}" \u2014 recreation left to subscription maintenance`);
               await enqueueResync(mailbox, resync, ctx);
             }
             break;
@@ -2681,41 +2742,8 @@ import_functions5.app.storageQueue("intake-starter", {
   }
 });
 
-// orchestration/src/functions/intakeOrchestrator.ts
-var df5 = __toESM(require("durable-functions"), 1);
-
-// orchestration/src/lib/supplement-parse.ts
-var ACCIDENT_START_RE = /accident circumstances\s*:?/i;
-var ACCIDENT_END_RES = [
-  /\bdamage description\s*:?/i,
-  /\bdriveable\s*:?/i,
-  /\byours faithfully\b/i
-];
-function supplementAccidentCircumstancesFromBody(body2) {
-  const text = (body2 ?? "").replace(/\r\n/g, "\n").trim();
-  if (!text || !ACCIDENT_START_RE.test(text)) {
-    return "";
-  }
-  const startMatch = ACCIDENT_START_RE.exec(text);
-  if (!startMatch) {
-    return "";
-  }
-  let remainder = text.slice(startMatch.index + startMatch[0].length).trim();
-  remainder = remainder.replace(/^[|:\s]+/, "");
-  let endIdx = remainder.length;
-  for (const endRe of ACCIDENT_END_RES) {
-    const match = endRe.exec(remainder);
-    if (match && match.index < endIdx) {
-      endIdx = match.index;
-    }
-  }
-  const value = remainder.slice(0, endIdx).replace(/\s+/g, " ").trim();
-  return value.length > 10 ? value : "";
-}
-
-// orchestration/src/functions/gated/triage-classify.ts
+// orchestration/src/functions/outlook-move.ts
 var import_functions6 = require("@azure/functions");
-var df4 = __toESM(require("durable-functions"), 1);
 
 // packages/domain/dist/gates.js
 var gates = {
@@ -2763,6 +2791,11 @@ var gates = {
   // #25
   boxMetadata: () => process.env.BOX_METADATA_ENABLED === "true",
   // #26
+  // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
+  // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
+  // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
+  // (docs/gated.md).
+  outlookMove: () => process.env.OUTLOOK_MOVE_ENABLED === "true",
   // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
   // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
   // is pure and never reads process.env — the caller (an orchestration Durable activity)
@@ -2793,6 +2826,10 @@ var gates = {
   // them). Prefer managed-identity/keyless — no API key gate by design.
   aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
   aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
+  // Outlook-move queue config (TKT-054): the orchestration app's queue-service endpoint,
+  // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
+  // move jobs there with its managed identity (Storage Queue Data Message Sender).
+  outlookMoveQueueServiceUrl: () => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? "",
   /**
    * Derived: location assist is only enabled when all three conditions are met.
    * Used by GET /api/gates/location-assist (plan 21 §21.2).
@@ -2804,7 +2841,13 @@ var gates = {
    * UNCONFIGURED is still an honest no-op (the live state today). Used by
    * GET /api/gates/ai-assist + the generate route's disabled-reason.
    */
-  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== ""
+  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
+   * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
+   * honest refusal (TKT-054 / 020726 E6).
+   */
+  outlookMoveEnabled: () => gates.outlookMove() && gates.outlookMoveQueueServiceUrl() !== ""
 };
 
 // packages/domain/dist/contracts/eva-export.js
@@ -3432,6 +3475,12 @@ function decideTriage(classification, context3, gates2) {
   };
 }
 
+// packages/domain/dist/domain/outlook-folder.js
+function outlookFolderSegments(path) {
+  const parts = path.split("/").map((p) => p.trim()).filter(Boolean);
+  return parts[0]?.toLowerCase() === "inbox" ? parts.slice(1) : parts;
+}
+
 // packages/domain/dist/dto/index.js
 var INBOUND_CATEGORIES = [
   "receiving_work",
@@ -3458,15 +3507,361 @@ var INBOUND_SUBTYPES = [
   "update_general"
 ];
 
+// orchestration/src/lib/data-api.ts
+var cachedToken2 = null;
+async function getDataApiToken() {
+  const local = process.env.DATA_API_TOKEN;
+  if (local) return local;
+  const now = Date.now();
+  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
+  const audience = process.env.DATA_API_AUDIENCE;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (!audience || !idEndpoint || !idHeader) {
+    throw new Error("missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth");
+  }
+  const url2 = `${idEndpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`;
+  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+  if (!res.ok) throw new Error(`MSI token ${res.status}`);
+  const json = await res.json();
+  cachedToken2 = {
+    value: json.access_token,
+    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+  };
+  return cachedToken2.value;
+}
+async function request(method, path, body2) {
+  const baseUrl2 = (process.env.DATA_API_URL ?? "").replace(/\/$/, "");
+  if (!baseUrl2) throw new Error("missing DATA_API_URL");
+  const token = await getDataApiToken();
+  const res = await fetch(`${baseUrl2}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      ...body2 !== void 0 ? { "Content-Type": "application/json" } : {}
+    },
+    body: body2 !== void 0 ? JSON.stringify(body2) : void 0
+  });
+  if (res.status === 409) {
+    throw new ConflictError(`${method} ${path} \u2192 409`);
+  }
+  if (!res.ok) {
+    throw new Error(`data-api ${method} ${path} \u2192 ${res.status}: ${await safeText2(res)}`);
+  }
+  if (res.status === 204) return void 0;
+  return await res.json();
+}
+var ConflictError = class extends Error {
+};
+var dataApi = {
+  /**
+   * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
+   * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).
+   */
+  providerMatchRecords() {
+    return request("GET", "/api/internal/provider-match-records");
+  },
+  /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
+  dedupContext(params) {
+    const q = new URLSearchParams({
+      workProviderId: params.workProviderId,
+      vrm: params.vrm,
+      messageId: params.messageId
+    });
+    return request("GET", `/api/internal/dedup-context?${q.toString()}`);
+  },
+  /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
+  createCase(input12) {
+    return request("POST", "/api/cases", input12);
+  },
+  /**
+   * Persist the result of the in-activity dedup decision (internal route). The orchestration
+   * owns the ADR-0010 *decision* (shared `resolveCase`); the API owns the *persist* — it
+   * constructs the Case row (default EvaFields, status machine) on create, reparents evidence
+   * on attach, stamps duplicate-risk / case-link flags, and maps a UNIQUE(sourcemessageid)
+   * collision to `already_ingested`. Keeps EvaFields construction + status machine in the API.
+   */
+  resolvePersist(payload) {
+    return request("POST", "/api/internal/cases/resolve", payload);
+  },
+  /**
+   * Record a classified inbound_email triage row with NO case (ADR-0015). Used for
+   * query/other AND as the always-on first write for receiving_work (caseResolve later
+   * stamps case_id onto the same row). Idempotent upsert on source_message_id.
+   *
+   * `inbound` is the FULL InboundEnvelope and already carries `conversationId` as-is (one
+   * of the rules-engine-v2 Phase 2 DDL's two new inbound_email columns —
+   * `inbound_email.conversation_id`); `classification.bodyJobref` is the other
+   * (`inbound_email.body_jobref`). Both are sent unconditionally — schema-tolerant
+   * server-side: the API persists them once its upsert is wired to the (already-landed)
+   * columns, and simply ignores the extra fields until then.
+   */
+  recordInboundEmail(payload) {
+    return request("POST", "/api/internal/inbound-email", payload);
+  },
+  /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
+  persistEvidence(caseId, rows) {
+    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+  /**
+   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
+   * ticket). Same internal evidence route (idempotent on storage_path), but carries
+   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
+   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
+   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
+   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
+   * idempotently on the child blob path, so this is forward-compatible.
+   */
+  persistImageEvidence(caseId, rows) {
+    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+  /** Persisted blob-backed evidence rows ready for archive mirroring. */
+  archiveEvidenceRows(caseId) {
+    return request("GET", `/api/internal/cases/${caseId}/archive-evidence`);
+  },
+  /** Stamp one evidence row after its bytes were mirrored into the archive. */
+  stampArchivedEvidence(payload) {
+    return request("POST", `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
+      evidenceId: payload.evidenceId,
+      blobPath: payload.blobPath,
+      boxFileId: payload.boxFileId,
+      ...payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}
+    });
+  },
+  /** Recompute EVA-readiness + status machine and persist (internal route). */
+  evaluateStatus(caseId) {
+    return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
+  },
+  /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
+  setIngested(caseId) {
+    return request("POST", `/api/internal/cases/${caseId}/set-ingested`, {});
+  },
+  /**
+   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
+   * Fill-if-empty on the API side; returns the fields it actually filled.
+   */
+  persistEnrichment(caseId, result) {
+    return request("POST", `/api/internal/cases/${caseId}/enrichment`, result);
+  },
+  /**
+   * Resolve a REPLY about existing work against OPEN cases (Case-ref first, then VRM) and
+   * link the triage row to the single match — or, when ambiguous (>1), leave it for a human
+   * (ADR-0010: never auto-link). The DB lookup + ADR-0010 decision run server-side (#3).
+   */
+  linkReplyToOpenCase(payload) {
+    return request("POST", "/api/internal/inbound/link-reply", payload);
+  },
+  /**
+   * Resolve the LIVE context the pure `@cs/domain` `decideTriage` (Stage B, ADR-0019 /
+   * rules-engine-v2 Phase 2) needs: open-case Case/PO + job-ref + VRM matches,
+   * cross-mailbox duplicate delivery (the SAME Internet-Message-Id already ingested), and
+   * local conversation-thread siblings (internal route; a pure read, no mutation — safe
+   * to call on every Durable replay).
+   */
+  triageContext(payload) {
+    return request("POST", "/api/internal/triage/context", payload);
+  },
+  /**
+   * Write ONE `ai_suggestion` row for a triage-policy proposal (case-link or
+   * cancellation) — the ONLY call that persists a triage-policy decision. A `shadow`
+   * (all-gates-forced-on) decision NEVER calls this (ADR-0019 §5 / the Phase-2 plan: "no
+   * shadow rows in ai_suggestion while its gate is off"). Idempotent server-side: returns
+   * `created: false` (never a duplicate row) when an equivalent PENDING suggestion
+   * already exists, so an at-least-once Durable retry is safe.
+   */
+  triageSuggestLink(payload) {
+    return request("POST", "/api/internal/triage/suggest-link", payload);
+  },
+  /**
+   * Write ONE `ai_suggestion` row for a Stage-C (gated LLM) triage-category proposal
+   * (rules-engine-v2 Phase 4, ADR-0019 §3) — the ONLY call `triage-classify.ts`'s
+   * activity makes on a non-abstain model result. Never a case mutation: a human accepts
+   * it via the existing `ai_suggestion` review lifecycle
+   * (`api/src/functions/ai-suggestions.ts`'s `promoteAcceptedSuggestion`), which applies
+   * category_code/subtype_code the same way a staff reclassify does. Idempotent
+   * server-side (same subject-key + suggestionType mechanism as `triageSuggestLink`).
+   */
+  triageSuggestClassification(payload) {
+    return request("POST", "/api/internal/triage/suggest-link", {
+      ...payload.sourceMessageId ? { sourceMessageId: payload.sourceMessageId } : {},
+      ...payload.inboundEmailId ? { inboundEmailId: payload.inboundEmailId } : {},
+      suggestionType: "triage_category",
+      category: payload.category,
+      subtype: payload.subtype,
+      rationale: payload.rationale,
+      confidence: payload.confidence,
+      modelVersion: payload.modelVersion
+    });
+  },
+  /**
+   * Report the terminal outcome of a gated Outlook filing (TKT-054 / 020726 E6) — the
+   * `outlook-move` queue function's write-back. `moved` also marks a still-new row
+   * actioned on the API side; `failed` leaves the row retryable.
+   */
+  reportOutlookMove(inboundEmailId, payload) {
+    return request("POST", `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
+  },
+  /** Append one audit_event row (internal route; the API enforces append-only). */
+  recordAudit(payload) {
+    return request("POST", "/api/internal/audit", payload);
+  },
+  /** Per-principal job rows for the jobsheet-import fan-out (internal route). */
+  principals() {
+    return request("GET", "/api/internal/principals");
+  },
+  /** Cases due for retention disposition (internal route; case-disposition job). */
+  casesForDisposition() {
+    return request("GET", "/api/internal/disposition/due");
+  },
+  /** Run the retention/erasure for one case (internal route; job identity only). */
+  disposeCase(caseId) {
+    return request("POST", `/api/internal/disposition/${caseId}`, {});
+  },
+  /** Evidence blob paths eligible for the post-mirror purge (internal route). */
+  blobsForPurge() {
+    return request("GET", "/api/internal/box/purge-candidates");
+  },
+  /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
+  markBlobPurged(payload) {
+    return request("POST", "/api/internal/box/mark-purged", payload);
+  },
+  /**
+   * Read a case's current Box folder linkage (internal route; idempotency source for
+   * box-folder-create). `boxFolderId` is null when the case has no folder yet.
+   */
+  getCaseBoxFolder(caseId) {
+    return request("GET", `/api/internal/cases/${caseId}/box-folder`);
+  },
+  /**
+   * First-wins stamp of the Box folder id/url onto a case (internal route). Idempotent:
+   * a re-run / concurrent create returns { applied: false } and the API audits
+   * box_folder_created ONLY on the stamping call. The activity reads back first, so this
+   * is the durable backstop, not the primary dedup.
+   */
+  stampCaseBoxFolder(caseId, payload) {
+    return request("POST", `/api/internal/cases/${caseId}/box-folder`, payload);
+  }
+};
+async function safeText2(res) {
+  try {
+    return (await res.text()).slice(0, 500);
+  } catch {
+    return "<no body>";
+  }
+}
+
+// orchestration/src/functions/outlook-move.ts
+function isRetryableGraphError(message) {
+  return /→ (429|5\d\d)\b/.test(message) || /fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN/i.test(message);
+}
+var MAX_DEQUEUE = 5;
+import_functions6.app.storageQueue("outlook-move", {
+  queueName: "outlook-move",
+  connection: "AzureWebJobsStorage",
+  handler: async (item, ctx) => {
+    const job = typeof item === "string" ? JSON.parse(item) : item;
+    const dequeueCount = Number(ctx.triggerMetadata?.dequeueCount ?? 1);
+    const lastAttempt = dequeueCount >= MAX_DEQUEUE;
+    const fail = async (detail) => {
+      ctx.warn(`[outlook-move] ${job.inboundEmailId}: ${detail}`);
+      await dataApi.reportOutlookMove(job.inboundEmailId, {
+        outcome: "failed",
+        folder: job.targetFolderPath,
+        detail
+      });
+    };
+    try {
+      if (!job.inboundEmailId || !job.sourceMailbox || !job.sourceMessageId) {
+        ctx.error(`[outlook-move] malformed job dropped: ${JSON.stringify(job).slice(0, 300)}`);
+        return;
+      }
+      if (!gates.outlookMove()) {
+        await fail("outlook filing was switched off before the move ran");
+        return;
+      }
+      const found = await findMessageByInternetMessageId(job.sourceMailbox, job.sourceMessageId);
+      if (!found) {
+        await fail("message not found in the mailbox (deleted or already moved elsewhere?)");
+        return;
+      }
+      const segments = outlookFolderSegments(job.targetFolderPath);
+      const destinationId = segments.length ? await ensureInboxChildFolder(job.sourceMailbox, segments) : "inbox";
+      await moveMessage(job.sourceMailbox, found.id, destinationId);
+      await dataApi.reportOutlookMove(job.inboundEmailId, {
+        outcome: "moved",
+        folder: job.targetFolderPath
+      });
+      ctx.log(
+        JSON.stringify({
+          evt: "outlook-move",
+          inboundEmailId: job.inboundEmailId,
+          mailbox: job.sourceMailbox,
+          folder: job.targetFolderPath
+        })
+      );
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      if (!lastAttempt && isRetryableGraphError(detail)) {
+        ctx.warn(`[outlook-move] transient failure (attempt ${dequeueCount}/${MAX_DEQUEUE}) \u2014 retrying: ${detail}`);
+        throw e;
+      }
+      try {
+        await fail(detail.slice(0, 300));
+      } catch (reportErr) {
+        ctx.error(
+          `[outlook-move] terminal failure AND outcome report failed for ${job.inboundEmailId}: ${reportErr instanceof Error ? reportErr.message : String(reportErr)}`
+        );
+      }
+    }
+  }
+});
+
+// orchestration/src/functions/intakeOrchestrator.ts
+var df5 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/supplement-parse.ts
+var ACCIDENT_START_RE = /accident circumstances\s*:?/i;
+var ACCIDENT_END_RES = [
+  /\bdamage description\s*:?/i,
+  /\bdriveable\s*:?/i,
+  /\byours faithfully\b/i
+];
+function supplementAccidentCircumstancesFromBody(body2) {
+  const text = (body2 ?? "").replace(/\r\n/g, "\n").trim();
+  if (!text || !ACCIDENT_START_RE.test(text)) {
+    return "";
+  }
+  const startMatch = ACCIDENT_START_RE.exec(text);
+  if (!startMatch) {
+    return "";
+  }
+  let remainder = text.slice(startMatch.index + startMatch[0].length).trim();
+  remainder = remainder.replace(/^[|:\s]+/, "");
+  let endIdx = remainder.length;
+  for (const endRe of ACCIDENT_END_RES) {
+    const match = endRe.exec(remainder);
+    if (match && match.index < endIdx) {
+      endIdx = match.index;
+    }
+  }
+  const value = remainder.slice(0, endIdx).replace(/\s+/g, " ").trim();
+  return value.length > 10 ? value : "";
+}
+
+// orchestration/src/functions/gated/triage-classify.ts
+var import_functions7 = require("@azure/functions");
+var df4 = __toESM(require("durable-functions"), 1);
+
 // orchestration/src/lib/aoai.ts
 var COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default";
-var cachedToken2 = null;
+var cachedToken3 = null;
 function resourceFromScope(scope) {
   return scope.endsWith("/.default") ? scope.slice(0, -"/.default".length) : scope;
 }
 async function mintCognitiveToken() {
   const now = Date.now();
-  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
+  if (cachedToken3 && cachedToken3.expiresAt > now + 6e4) return cachedToken3.value;
   const idEndpoint = process.env.IDENTITY_ENDPOINT;
   const idHeader = process.env.IDENTITY_HEADER;
   if (idEndpoint && idHeader) {
@@ -3475,11 +3870,11 @@ async function mintCognitiveToken() {
     const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
     if (!res.ok) throw new Error(`MSI token (cognitiveservices) ${res.status}`);
     const json = await res.json();
-    cachedToken2 = {
+    cachedToken3 = {
       value: json.access_token,
       expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
     };
-    return cachedToken2.value;
+    return cachedToken3.value;
   }
   if (process.env.AOAI_DEV_TOKEN === "1") {
     const { execFile } = await import("node:child_process");
@@ -3494,7 +3889,7 @@ async function mintCognitiveToken() {
       );
     });
     if (!token) throw new Error("az account get-access-token returned no token");
-    cachedToken2 = { value: token, expiresAt: now + 3e6 };
+    cachedToken3 = { value: token, expiresAt: now + 3e6 };
     return token;
   }
   throw new Error(
@@ -3670,242 +4065,6 @@ async function callTriageModel(input12) {
   }
 }
 
-// orchestration/src/lib/data-api.ts
-var cachedToken3 = null;
-async function getDataApiToken() {
-  const local = process.env.DATA_API_TOKEN;
-  if (local) return local;
-  const now = Date.now();
-  if (cachedToken3 && cachedToken3.expiresAt > now + 6e4) return cachedToken3.value;
-  const audience = process.env.DATA_API_AUDIENCE;
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (!audience || !idEndpoint || !idHeader) {
-    throw new Error("missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth");
-  }
-  const url2 = `${idEndpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`;
-  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
-  if (!res.ok) throw new Error(`MSI token ${res.status}`);
-  const json = await res.json();
-  cachedToken3 = {
-    value: json.access_token,
-    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
-  };
-  return cachedToken3.value;
-}
-async function request(method, path, body2) {
-  const baseUrl2 = (process.env.DATA_API_URL ?? "").replace(/\/$/, "");
-  if (!baseUrl2) throw new Error("missing DATA_API_URL");
-  const token = await getDataApiToken();
-  const res = await fetch(`${baseUrl2}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      ...body2 !== void 0 ? { "Content-Type": "application/json" } : {}
-    },
-    body: body2 !== void 0 ? JSON.stringify(body2) : void 0
-  });
-  if (res.status === 409) {
-    throw new ConflictError(`${method} ${path} \u2192 409`);
-  }
-  if (!res.ok) {
-    throw new Error(`data-api ${method} ${path} \u2192 ${res.status}: ${await safeText2(res)}`);
-  }
-  if (res.status === 204) return void 0;
-  return await res.json();
-}
-var ConflictError = class extends Error {
-};
-var dataApi = {
-  /**
-   * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
-   * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).
-   */
-  providerMatchRecords() {
-    return request("GET", "/api/internal/provider-match-records");
-  },
-  /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
-  dedupContext(params) {
-    const q = new URLSearchParams({
-      workProviderId: params.workProviderId,
-      vrm: params.vrm,
-      messageId: params.messageId
-    });
-    return request("GET", `/api/internal/dedup-context?${q.toString()}`);
-  },
-  /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
-  createCase(input12) {
-    return request("POST", "/api/cases", input12);
-  },
-  /**
-   * Persist the result of the in-activity dedup decision (internal route). The orchestration
-   * owns the ADR-0010 *decision* (shared `resolveCase`); the API owns the *persist* — it
-   * constructs the Case row (default EvaFields, status machine) on create, reparents evidence
-   * on attach, stamps duplicate-risk / case-link flags, and maps a UNIQUE(sourcemessageid)
-   * collision to `already_ingested`. Keeps EvaFields construction + status machine in the API.
-   */
-  resolvePersist(payload) {
-    return request("POST", "/api/internal/cases/resolve", payload);
-  },
-  /**
-   * Record a classified inbound_email triage row with NO case (ADR-0015). Used for
-   * query/other AND as the always-on first write for receiving_work (caseResolve later
-   * stamps case_id onto the same row). Idempotent upsert on source_message_id.
-   *
-   * `inbound` is the FULL InboundEnvelope and already carries `conversationId` as-is (one
-   * of the rules-engine-v2 Phase 2 DDL's two new inbound_email columns —
-   * `inbound_email.conversation_id`); `classification.bodyJobref` is the other
-   * (`inbound_email.body_jobref`). Both are sent unconditionally — schema-tolerant
-   * server-side: the API persists them once its upsert is wired to the (already-landed)
-   * columns, and simply ignores the extra fields until then.
-   */
-  recordInboundEmail(payload) {
-    return request("POST", "/api/internal/inbound-email", payload);
-  },
-  /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
-  persistEvidence(caseId, rows) {
-    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-  /**
-   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
-   * ticket). Same internal evidence route (idempotent on storage_path), but carries
-   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
-   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
-   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
-   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
-   * idempotently on the child blob path, so this is forward-compatible.
-   */
-  persistImageEvidence(caseId, rows) {
-    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-  /** Persisted blob-backed evidence rows ready for archive mirroring. */
-  archiveEvidenceRows(caseId) {
-    return request("GET", `/api/internal/cases/${caseId}/archive-evidence`);
-  },
-  /** Stamp one evidence row after its bytes were mirrored into the archive. */
-  stampArchivedEvidence(payload) {
-    return request("POST", `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
-      evidenceId: payload.evidenceId,
-      blobPath: payload.blobPath,
-      boxFileId: payload.boxFileId,
-      ...payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}
-    });
-  },
-  /** Recompute EVA-readiness + status machine and persist (internal route). */
-  evaluateStatus(caseId) {
-    return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
-  },
-  /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
-  setIngested(caseId) {
-    return request("POST", `/api/internal/cases/${caseId}/set-ingested`, {});
-  },
-  /**
-   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
-   * Fill-if-empty on the API side; returns the fields it actually filled.
-   */
-  persistEnrichment(caseId, result) {
-    return request("POST", `/api/internal/cases/${caseId}/enrichment`, result);
-  },
-  /**
-   * Resolve a REPLY about existing work against OPEN cases (Case-ref first, then VRM) and
-   * link the triage row to the single match — or, when ambiguous (>1), leave it for a human
-   * (ADR-0010: never auto-link). The DB lookup + ADR-0010 decision run server-side (#3).
-   */
-  linkReplyToOpenCase(payload) {
-    return request("POST", "/api/internal/inbound/link-reply", payload);
-  },
-  /**
-   * Resolve the LIVE context the pure `@cs/domain` `decideTriage` (Stage B, ADR-0019 /
-   * rules-engine-v2 Phase 2) needs: open-case Case/PO + job-ref + VRM matches,
-   * cross-mailbox duplicate delivery (the SAME Internet-Message-Id already ingested), and
-   * local conversation-thread siblings (internal route; a pure read, no mutation — safe
-   * to call on every Durable replay).
-   */
-  triageContext(payload) {
-    return request("POST", "/api/internal/triage/context", payload);
-  },
-  /**
-   * Write ONE `ai_suggestion` row for a triage-policy proposal (case-link or
-   * cancellation) — the ONLY call that persists a triage-policy decision. A `shadow`
-   * (all-gates-forced-on) decision NEVER calls this (ADR-0019 §5 / the Phase-2 plan: "no
-   * shadow rows in ai_suggestion while its gate is off"). Idempotent server-side: returns
-   * `created: false` (never a duplicate row) when an equivalent PENDING suggestion
-   * already exists, so an at-least-once Durable retry is safe.
-   */
-  triageSuggestLink(payload) {
-    return request("POST", "/api/internal/triage/suggest-link", payload);
-  },
-  /**
-   * Write ONE `ai_suggestion` row for a Stage-C (gated LLM) triage-category proposal
-   * (rules-engine-v2 Phase 4, ADR-0019 §3) — the ONLY call `triage-classify.ts`'s
-   * activity makes on a non-abstain model result. Never a case mutation: a human accepts
-   * it via the existing `ai_suggestion` review lifecycle
-   * (`api/src/functions/ai-suggestions.ts`'s `promoteAcceptedSuggestion`), which applies
-   * category_code/subtype_code the same way a staff reclassify does. Idempotent
-   * server-side (same subject-key + suggestionType mechanism as `triageSuggestLink`).
-   */
-  triageSuggestClassification(payload) {
-    return request("POST", "/api/internal/triage/suggest-link", {
-      ...payload.sourceMessageId ? { sourceMessageId: payload.sourceMessageId } : {},
-      ...payload.inboundEmailId ? { inboundEmailId: payload.inboundEmailId } : {},
-      suggestionType: "triage_category",
-      category: payload.category,
-      subtype: payload.subtype,
-      rationale: payload.rationale,
-      confidence: payload.confidence,
-      modelVersion: payload.modelVersion
-    });
-  },
-  /** Append one audit_event row (internal route; the API enforces append-only). */
-  recordAudit(payload) {
-    return request("POST", "/api/internal/audit", payload);
-  },
-  /** Per-principal job rows for the jobsheet-import fan-out (internal route). */
-  principals() {
-    return request("GET", "/api/internal/principals");
-  },
-  /** Cases due for retention disposition (internal route; case-disposition job). */
-  casesForDisposition() {
-    return request("GET", "/api/internal/disposition/due");
-  },
-  /** Run the retention/erasure for one case (internal route; job identity only). */
-  disposeCase(caseId) {
-    return request("POST", `/api/internal/disposition/${caseId}`, {});
-  },
-  /** Evidence blob paths eligible for the post-mirror purge (internal route). */
-  blobsForPurge() {
-    return request("GET", "/api/internal/box/purge-candidates");
-  },
-  /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
-  markBlobPurged(payload) {
-    return request("POST", "/api/internal/box/mark-purged", payload);
-  },
-  /**
-   * Read a case's current Box folder linkage (internal route; idempotency source for
-   * box-folder-create). `boxFolderId` is null when the case has no folder yet.
-   */
-  getCaseBoxFolder(caseId) {
-    return request("GET", `/api/internal/cases/${caseId}/box-folder`);
-  },
-  /**
-   * First-wins stamp of the Box folder id/url onto a case (internal route). Idempotent:
-   * a re-run / concurrent create returns { applied: false } and the API audits
-   * box_folder_created ONLY on the stamping call. The activity reads back first, so this
-   * is the durable backstop, not the primary dedup.
-   */
-  stampCaseBoxFolder(caseId, payload) {
-    return request("POST", `/api/internal/cases/${caseId}/box-folder`, payload);
-  }
-};
-async function safeText2(res) {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return "<no body>";
-  }
-}
-
 // orchestration/src/lib/telemetry.ts
 var DEFAULT_INGESTION_ENDPOINT = "https://dc.services.visualstudio.com";
 var TRACK_TIMEOUT_MS = 2e3;
@@ -3979,7 +4138,7 @@ function domainOf2(address) {
   const at = address.lastIndexOf("@");
   return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : "";
 }
-import_functions6.app.http("triage-classify-start", {
+import_functions7.app.http("triage-classify-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "triage-classify",
@@ -43656,7 +43815,16 @@ var BODY_CAP = 2e4;
 var BODY_PREVIEW_CAP = 3500;
 df6.app.activity("fetchMessage", {
   handler: async (input12, ctx) => {
-    const mailbox = mailboxOfResource(input12.resource ?? "");
+    const parsedMailbox = mailboxOfResource(input12.resource ?? "");
+    let mailbox = parsedMailbox;
+    let mailboxVia = "resource";
+    if (!looksLikeMailboxAddress(parsedMailbox) && input12.subscriptionId) {
+      const resolved = await resolveSubscriptionMailbox(input12.subscriptionId);
+      if (resolved) {
+        mailbox = resolved;
+        mailboxVia = "subscription";
+      }
+    }
     if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input12.resource}"`);
     const { message, attachments } = await getMessageWithAttachments(mailbox, input12.messageId);
     const headers = await getMessageHeaders(mailbox, input12.messageId);
@@ -43705,7 +43873,7 @@ ${body2}`);
       attachments: landed,
       ...rawEml ? { rawEml } : {}
     };
-    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input12.messageId, mailbox, attachments: landed.length, eml: Boolean(rawEml) }));
+    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input12.messageId, mailbox, mailboxVia, attachments: landed.length, eml: Boolean(rawEml) }));
     return envelope;
   }
 });
@@ -44318,9 +44486,9 @@ df16.app.activity("enrich", {
 });
 
 // orchestration/src/functions/activities/boxArchive.ts
-var import_functions7 = require("@azure/functions");
+var import_functions8 = require("@azure/functions");
 var df17 = __toESM(require("durable-functions"), 1);
-import_functions7.app.http("box-archive-start", {
+import_functions8.app.http("box-archive-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "box-archive",
@@ -44539,9 +44707,9 @@ function stripExt(name) {
 }
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
-var import_functions8 = require("@azure/functions");
+var import_functions9 = require("@azure/functions");
 var df19 = __toESM(require("durable-functions"), 1);
-import_functions8.app.http("finalize-eva-box-start", {
+import_functions9.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
@@ -44587,9 +44755,9 @@ df19.app.activity("boxFolderAugment", {
 });
 
 // orchestration/src/functions/gated/chaser.ts
-var import_functions9 = require("@azure/functions");
+var import_functions10 = require("@azure/functions");
 var df20 = __toESM(require("durable-functions"), 1);
-import_functions9.app.http("chaser-start", {
+import_functions10.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
@@ -44628,9 +44796,9 @@ df20.app.activity("chaserSend", {
 });
 
 // orchestration/src/functions/gated/box-folder-create.ts
-var import_functions10 = require("@azure/functions");
+var import_functions11 = require("@azure/functions");
 var df21 = __toESM(require("durable-functions"), 1);
-import_functions10.app.http("box-folder-create-start", {
+import_functions11.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
@@ -44673,9 +44841,9 @@ df21.app.activity("boxFolderCreate", {
 });
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
-var import_functions11 = require("@azure/functions");
+var import_functions12 = require("@azure/functions");
 var df22 = __toESM(require("durable-functions"), 1);
-import_functions11.app.http("box-file-request-copy-start", {
+import_functions12.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
@@ -44714,9 +44882,9 @@ df22.app.activity("boxFileRequestCopy", {
 });
 
 // orchestration/src/functions/gated/box-blob-purge.ts
-var import_functions12 = require("@azure/functions");
+var import_functions13 = require("@azure/functions");
 var df23 = __toESM(require("durable-functions"), 1);
-import_functions12.app.timer("box-blob-purge-timer", {
+import_functions13.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
   extraInputs: [df23.input.durableClient()],
   handler: async (_t, ctx) => {
@@ -44754,9 +44922,9 @@ df23.app.activity("boxPurgeOne", {
 });
 
 // orchestration/src/functions/gated/case-disposition.ts
-var import_functions13 = require("@azure/functions");
+var import_functions14 = require("@azure/functions");
 var df24 = __toESM(require("durable-functions"), 1);
-import_functions13.app.timer("case-disposition-timer", {
+import_functions14.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
   extraInputs: [df24.input.durableClient()],
   handler: async (_t, ctx) => {
@@ -44794,9 +44962,9 @@ df24.app.activity("dispositionOne", {
 });
 
 // orchestration/src/functions/gated/jobsheet-import.ts
-var import_functions14 = require("@azure/functions");
+var import_functions15 = require("@azure/functions");
 var df25 = __toESM(require("durable-functions"), 1);
-import_functions14.app.http("jobsheet-import-start", {
+import_functions15.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
