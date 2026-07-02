@@ -583,7 +583,7 @@ def check_regression(baseline_path: Path, aggregate: dict[str, Any]) -> list[str
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--taxonomy", choices=["v1", "v2"], default="v1", help="score against expected_v1 or expected_v2 (v2 falls back to v1 per item when absent)")
+    parser.add_argument("--taxonomy", choices=["v1", "v2"], default="v2", help="score against expected_v1 or expected_v2 (v2 falls back to v1 per item when absent). Default v2 — tracks the in-tree engine, which emits taxonomy v2 since engine-v2.3; use --taxonomy v1 only to reproduce the historical baseline-v1.json against a v1-era engine.")
     parser.add_argument("--manifest", type=Path, default=SCRIPT_DIR / "manifest.json", help="path to the tracked manifest.json (default: alongside this script)")
     parser.add_argument("--json-out", type=Path, default=None, help="write the FULL per-item report (incl. signals) here — NOT for committing; see README.md PII rules")
     parser.add_argument("--baseline-out", type=Path, default=None, help="write the redacted baseline-shaped report here (safe to commit)")
