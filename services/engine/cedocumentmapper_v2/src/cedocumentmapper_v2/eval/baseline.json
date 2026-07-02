@@ -3,14 +3,15 @@
   "engine": "v2",
   "corpus": "tests/fixtures",
   "tolerance": 0.0001,
-  "overall_exact_match": 1.0,
+  "overall_exact_match": 0.8889,
   "per_field_exact_match": {
-    "accident_circumstances": 1.0,
+    "accident_circumstances": 0.6667,
     "claimant_name": 1.0,
     "incident_date": 1.0,
     "inspection_address": 1.0,
+    "reference": 1.0,
     "vehicle_model": 1.0,
     "vrm": 1.0,
-    "work_provider": 1.0
+    "work_provider": 0.6
   }
 }

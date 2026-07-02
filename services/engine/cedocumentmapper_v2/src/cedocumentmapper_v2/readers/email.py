@@ -76,6 +76,43 @@ class EmailDocumentReader(DocumentReader):
             },
         )
 
+    def _attachment_text(self, name: str, data: object) -> str:
+        """Extract the plain text of a nested instruction attachment (PDF/DOCX/DOC).
+
+        A forwarded/attached instruction inside an .eml/.msg used to be NAMED only —
+        its fields (provider, claimant, dates, model, circumstances) were never read.
+        This reads the attachment bytes through the matching reader so those fields are
+        extracted too. Best-effort: unsupported types and ANY failure return "" — an
+        unreadable nested file must never fail the surrounding email parse. Only one
+        level deep (no .eml/.msg recursion)."""
+        if not isinstance(data, (bytes, bytearray)) or not data:
+            return ""
+        suffix = Path(name).suffix.lower()
+        if suffix not in (".pdf", ".docx", ".doc"):
+            return ""
+        import os
+        import tempfile
+
+        # Lazy import avoids the readers/__init__ <-> email circular import at module load.
+        from cedocumentmapper_v2.readers import get_reader_for_path
+
+        tmp_path: str | None = None
+        try:
+            fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(bytes(data))
+            reader = get_reader_for_path(Path(tmp_path))
+            model = reader.read(Path(tmp_path))
+            return (model.plain_text or "").strip()
+        except Exception:
+            return ""
+        finally:
+            if tmp_path:
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+
     def _read_eml(self, path: Path) -> tuple[str, list[str]]:
         notes = ["Read EML using email standard parser."]
         with open(path, "rb") as fh:
@@ -92,14 +129,21 @@ class EmailDocumentReader(DocumentReader):
         body_parts = []
         html_parts = []
         attachment_names: list[str] = []
+        attachment_texts: list[tuple[str, str]] = []
         if msg.is_multipart():
             for part in msg.walk():
                 disposition = str(part.get_content_disposition() or "").lower()
                 if disposition == "attachment":
-                    # Preserve attachment names for parity with the MSG path.
+                    # Preserve attachment names for parity with the MSG path, AND read
+                    # the bytes of a nested instruction document so its fields are
+                    # extracted, not just the filename (best-effort).
                     name = part.get_filename()
                     if name:
-                        attachment_names.append(str(name).strip())
+                        name = str(name).strip()
+                        attachment_names.append(name)
+                        nested = self._attachment_text(name, part.get_payload(decode=True))
+                        if nested:
+                            attachment_texts.append((name, nested))
                     continue
                 ctype = part.get_content_type()
                 try:
@@ -135,6 +179,13 @@ class EmailDocumentReader(DocumentReader):
         if attachment_names:
             parts.append("")
             parts.append("Attachments: " + ", ".join(attachment_names))
+
+        # Append the extracted text of nested instruction documents so the rule engine
+        # sees the full instruction content (forwarded/attached instruction case).
+        for att_name, att_text in attachment_texts:
+            parts.append("")
+            parts.append(f"--- Attachment content: {att_name} ---")
+            parts.append(att_text)
 
         text = "\n".join(parts)
         text = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -217,6 +268,7 @@ class EmailDocumentReader(DocumentReader):
 
             # Attachments
             attachment_names = []
+            attachment_texts: list[tuple[str, str]] = []
             try:
                 attachments = list(getattr(msg, "attachments", []) or [])
                 for att in attachments:
@@ -232,12 +284,26 @@ class EmailDocumentReader(DocumentReader):
                                 break
                     if name:
                         attachment_names.append(name)
+                        # Read a nested instruction document's bytes so its fields are
+                        # extracted too, not just its name (best-effort).
+                        try:
+                            att_data = getattr(att, "data", None)
+                        except Exception:
+                            att_data = None
+                        nested = self._attachment_text(name, att_data)
+                        if nested:
+                            attachment_texts.append((name, nested))
             except Exception:
                 pass
 
             if attachment_names:
                 parts.append("")
                 parts.append("Attachments: " + ", ".join(attachment_names))
+
+            for att_name, att_text in attachment_texts:
+                parts.append("")
+                parts.append(f"--- Attachment content: {att_name} ---")
+                parts.append(att_text)
 
             text = "\n".join(parts)
             text = text.replace("\r\n", "\n").replace("\r", "\n")

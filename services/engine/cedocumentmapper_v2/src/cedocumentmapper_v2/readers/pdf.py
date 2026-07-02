@@ -317,6 +317,7 @@ class PDFDocumentReader(DocumentReader):
                 ocr_lines_list = []
                 ocr_start = time.monotonic()
                 ocr_timed_out = False
+                ocr_page_failed = False
 
                 for page_idx, page in enumerate(doc):
                     if time.monotonic() - ocr_start > ocr_time_limit_seconds:
@@ -331,11 +332,11 @@ class PDFDocumentReader(DocumentReader):
                         pix = page.get_pixmap(matrix=fitz.Matrix(300 / 72, 300 / 72))
                         img_data = pix.tobytes("png")
                         img = PILImage.open(io.BytesIO(img_data))
-                        
+
                         # Perform OCR
                         page_ocr = pytesseract.image_to_string(img, lang="eng") or ""
                         page_ocr_lines = [l.strip() for l in page_ocr.splitlines() if l.strip()]
-                        
+
                         page_lines = []
                         for line_idx, line_text in enumerate(page_ocr_lines):
                             page_lines.append(
@@ -346,14 +347,23 @@ class PDFDocumentReader(DocumentReader):
                                     confidence=0.7,
                                 )
                             )
-                        
+
                         ocr_lines_list.append(page_lines)
                         ocr_pages.append("\n".join(page_ocr_lines))
                     except Exception as ocr_exc:
+                        ocr_page_failed = True
                         notes.append(f"OCR failed on page {page_idx + 1}: {ocr_exc}")
                         break
-                else:
-                    # If all pages OCR'd successfully, override pages_list and combined_text.
+
+                # Salvage whatever OCR produced. A wall-clock timeout or a per-page
+                # failure breaks out of the loop above; the historical for/else only
+                # combined the pages when NO break happened, so a timeout silently
+                # discarded every page OCR'd before the cap and left combined_text
+                # empty. Instead, combine all pages that DID OCR (``ocr_lines_list``
+                # only ever holds the successful ones), so a partial pass still
+                # returns its text. ``ocr_timed_out`` / ``ocr_page_failed`` are read
+                # here to record whether the result is full or truncated.
+                if ocr_lines_list:
                     # Preserve any tables already discovered during the text pass.
                     prior_tables = {p.page_index: p.tables for p in pages_list}
                     pages_list = []
@@ -368,7 +378,14 @@ class PDFDocumentReader(DocumentReader):
                             )
                         )
                     combined_text = "\n\n".join(ocr_pages).strip()
-                    notes.append("Read PDF using OCR fallback.")
+                    if ocr_timed_out or ocr_page_failed:
+                        notes.append(
+                            f"Read PDF using OCR fallback (PARTIAL — "
+                            f"{len(ocr_lines_list)} of {len(per_page_image_counts)} "
+                            f"page(s) OCR'd before OCR stopped)."
+                        )
+                    else:
+                        notes.append("Read PDF using OCR fallback.")
 
         finally:
             doc.close()

@@ -31,6 +31,7 @@ def clean_val(value: str) -> str:
     """Clean a value matching v1 clean_value."""
     value = value.replace("\xa0", " ").replace("\u00a0", " ")
     value = value.replace("\r", " ").replace("\t", " ")
+    value = re.sub(r"^\|\s*", "", value)
     value = re.sub(r"[ ]{2,}", " ", value)
     value = re.sub(r"\n{3,}", "\n\n", value)
     return value.strip(" :\n")
@@ -91,6 +92,28 @@ VRM_RE = re.compile(
     re.IGNORECASE,
 )
 
+
+def vrm_candidate_is_bad(candidate: str, context: str) -> bool:
+    """True when a VRM-shaped ``candidate`` should be REJECTED.
+
+    Shared guard for BOTH the loose /parse fallback VRM extraction (RuleEngine)
+    and the email classifier's canonical ``body_vrm`` sniff (collisionspike #7),
+    so the two never drift. Rejects: a too-short compact that is not a full
+    letter-digit-letter plate; a candidate that is actually the OUTWARD half of a
+    UK postcode (immediately followed by an inward ``\\d[A-Z]{2}`` code, e.g.
+    ``LS8 2AB``); and bare label words. ``RuleEngine._vrm_candidate_is_bad``
+    delegates here.
+    """
+    compact = normalize_vrm(candidate)
+    if len(compact) < 5 and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}[A-Z]{1,3}", compact):
+        return True
+    if re.search(rf"\b{re.escape(candidate)}\s*\d[ABD-HJLNP-UW-Z]{{2}}\b", context, re.IGNORECASE):
+        return True
+    if compact in {"CLIENT", "VEHICLE", "REG", "MODEL"}:
+        return True
+    return False
+
+
 # Canonical value emitted for the inspection address when the document states the
 # vehicle will be assessed from images / on a desktop basis rather than at a
 # physical location. Matches the EVA contract convention (see docs/testing
@@ -128,6 +151,240 @@ _AUDIT_PHRASES: tuple[str, ...] = (
     "original report",
     "engineers 2",
 )
+
+
+# Phrases (case-insensitive) that signal an email is INSTRUCTING new work — the
+# sender is asking Collision Engineers to carry out an inspection / produce a
+# report. Mirrors the high-precision _AUDIT_PHRASES discipline: anchored to
+# instruction language ("please inspect", "instructed to") rather than any bare
+# word that could appear in a question about past work. Used by the email
+# classifier alongside attachment/provider signals; a body that fires several of
+# these (plus a Case/PO or VRM) is treated as a typed-in-body instruction even
+# with no attachment. Kept deliberately conservative so an ambiguous email
+# abstains to the "other" bucket rather than getting a wrong receiving-work label.
+_WORK_KEYWORDS: tuple[str, ...] = (
+    "please inspect",
+    "please carry out",
+    "please attend",
+    "please arrange an inspection",
+    "arrange an inspection",
+    "instructed to",
+    "we instruct",
+    "we are instructing",
+    "new instruction",
+    "inspection request",
+    "instruction to inspect",
+    "engineer's report",
+    "engineers report",
+    "provide a report",
+    "prepare a report",
+    "vehicle for inspection",
+    "assess the damage",
+    "assess the vehicle",
+    "carry out an inspection",
+    "pre-accident value",
+    "pre accident value",
+    # collisionspike TKT-036 — instruction subject/attachment cues. Real provider
+    # instructions arrive with these in the subject ("New eng ins") or the
+    # attachment filename ("To Engineer with instructions"), not always a
+    # "please inspect" verb in the body. Same precision discipline: these are
+    # instruction-specific phrases, not bare words.
+    "new eng ins",
+    "engineer instruction",
+    "engineer's instruction",
+    "instructions attached",
+    "with instructions",
+    "instruction to engineer",
+)
+
+
+# Phrases (case-insensitive) that signal an INVOICE / BILLING request — the sender
+# is asking US to send (or chasing) the invoice/fee for work ALREADY carried out.
+# This is NOT new work and NOT a generic query: an email asking for the invoice,
+# typically with our own engineer's report attached, must route to the billing
+# bucket, never mint a new Case (collisionspike TKT-037). Consulted only after the
+# work rules, like _QUERY_KEYWORDS, so an email that both bills and instructs reads
+# as work first.
+# DELIBERATELY REQUEST-SHAPED: a remittance advice ("payment is on its way") or a
+# statement that merely mentions "invoice" is NOT a billing request — only an
+# imperative asking US to send/provide our invoice or fee note is. Anchored to the
+# request verbs so an inbound payment advice abstains to other, not billing.
+_BILLING_KEYWORDS: tuple[str, ...] = (
+    "provide the invoice",
+    "provide your invoice",
+    "provide us with the invoice",
+    "send the invoice",
+    "send us the invoice",
+    "send your invoice",
+    "send us your invoice",
+    "send us a copy of the invoice",
+    "copy of your invoice",
+    "raise an invoice",
+    "raise your invoice",
+    "issue the invoice",
+    "issue your invoice",
+    "let us have your invoice",
+    "let us have your fee",
+    "your fee note",
+    "fee note please",
+)
+
+
+# Phrases (case-insensitive) that signal an INFORMAL work request — a sender who
+# wants us to look at / report on a vehicle but does not use the formal instruction
+# wording in _WORK_KEYWORDS (collisionspike TKT-040). DELIBERATELY WEAKER than
+# _WORK_KEYWORDS: an informal phrase only promotes when it is corroborated by a real
+# job identifier (a Case/PO, job ref, or VRM) AND images — informal wording alone
+# must still abstain, to preserve the abstain-to-other bias.
+_INFORMAL_WORK_KEYWORDS: tuple[str, ...] = (
+    "can you look at",
+    "could you look at",
+    "have a look at the damage",
+    "look at the damage",
+    "can you sort",
+    "deal with this one",
+    "need a report on",
+    "need you to look",
+    "here is a new one",
+    "another one for you",
+    "new job",
+    "new claim",
+    "quote for the repairs",
+    # collisionspike TKT-040 — informal triage / initial-assessment work requests
+    # (a provider sends damage photos and asks for a roadworthiness/repairability view
+    # before the formal instruction). Promotes ONLY with images + a job identifier.
+    "initial assessment",
+    "provide an initial assessment",
+    "confirm if this vehicle is roadworthy",
+    "roadworthy and repairable",
+    "roadworthy",
+    "triage only",
+    "triage request",
+    "triage only request",
+)
+
+
+# Phrases (case-insensitive) that signal an email is ASKING A QUESTION rather than
+# instructing work — a chase for a report we owe, a status question, or a cold
+# enquiry / request for a quote. Same precision discipline as _WORK_KEYWORDS.
+# The classifier uses these only after the work rules have failed, so an email
+# that both instructs and asks a question still reads as work first.
+_QUERY_KEYWORDS: tuple[str, ...] = (
+    "where is my report",
+    "where is the report",
+    "chasing the report",
+    "chase the report",
+    "any update",
+    "any progress",
+    "status of",
+    "could you confirm",
+    "can you confirm",
+    "please confirm",
+    "please update",
+    # collisionspike #8 — broader chase / status / advice wording. Real provider
+    # chases ("can we please have an update on our client") matched NO keyword and
+    # fell through to 'other'. These are deliberately NOT instruction wording (no
+    # inspect/report/attend verbs), so the work rules still win an email that both
+    # instructs and asks; the classifier only reaches these after the work rules.
+    "update on",
+    "an update",
+    "please advise",
+    "can you advise",
+    "could you advise",
+    "information regarding",
+    "any news",
+    "where are we with",
+    "when will",
+    "please chase",
+    "just chasing",
+    "awaiting your",
+    "how much would",
+    "how much do you charge",
+    "what do you charge",
+    "would you be able to quote",
+    "can you quote",
+    "request a quote",
+    "for a quote",
+    "fee for",
+    "cost to inspect",
+    "would you be able to",
+    "is it possible to",
+    "general enquiry",
+    "enquiring about",
+    "querying",
+    # collisionspike TKT-039 — report-support / dispute queries (a client asking us to
+    # justify a report we already produced). These are questions about EXISTING work.
+    "your arguments",
+    "are disputing",
+    "is disputing",
+    "disputing the",
+    "dispute the cost",
+    "supporting evidence",
+    "support our report",
+    "support your report",
+)
+
+
+# High-precision CHASE phrases (collisionspike TKT-030/031/033): the sender is asking
+# us to SEND a report we already owe, or noting they have heard nothing. These recap
+# the original instruction ("...we instructed you to inspect and prepare a report,
+# but heard nothing — please send your report"), so the email carries strong work
+# language yet is NOT new work. A genuine NEW instruction never asks us to "provide
+# your report" / says it "heard nothing" — so a chase phrase SUPPRESSES the work rules
+# (handled in the classifier) and routes the email to the query side. Anchored to
+# send-me-the-existing-report wording; deliberately excludes "provide a report"
+# (that is an instruction TO produce one).
+_CHASE_PHRASES: tuple[str, ...] = (
+    "provide the report",
+    "provide your report",
+    "provide engineers report",
+    "provide engineer's report",
+    "provide the engineers report",
+    "provide us with a copy of your report",
+    "provide a copy of your report",
+    "copy of your report",
+    "copy of the report",
+    "provide report based",
+    "send us your report",
+    "send your report",
+    "send the report",
+    "forward your report",
+    "chase the report",
+    "heard nothing further",
+    "heard nothing from you",
+    "not heard anything",
+    "still awaiting your report",
+    "outstanding report",
+)
+
+
+# Case-summary / digest markers (collisionspike TKT-029): an email that is a RECAP of
+# instructions already sent (the per-case detail is in an attached summary, not a fresh
+# instruction). High-precision recap wording so a genuine instruction is not suppressed.
+_SUMMARY_MARKERS: tuple[str, ...] = (
+    "summary of the instructions",
+    "summary of instructions",
+    "summary of the cases",
+    "summary of cases",
+    "summary of the inspections",
+    "instructions sent yesterday",
+    "instructions sent over yesterday",
+    "showing the status of the inspections",
+    "list of instructions sent",
+)
+
+
+def _match_keywords(text: str, phrases: tuple[str, ...]) -> tuple[str, ...]:
+    """Return the subset of ``phrases`` present (case-insensitive) in ``text``.
+
+    Shared helper for the keyword tuples above, mirroring the matching done in
+    :func:`detect_audit_signals` so every classifier decision can list exactly
+    which phrases fired (explainability). Empty/None text -> no matches.
+    """
+    if not text:
+        return ()
+    haystack = text.lower()
+    return tuple(phrase for phrase in phrases if phrase in haystack)
 
 
 def detect_audit_signals(text: str) -> tuple[bool, tuple[str, ...]]:
@@ -479,11 +736,36 @@ class RuleEngine:
         return self._extract_label_next_line(lines, cfg, rule_id)
 
     def _extract_between_labels(self, lines: list[DocumentLine], plain_text: str, cfg: dict[str, Any], rule_id: str) -> FieldExtraction:
+        label_pairs: list[tuple[str, str]] = []
+        for pair in cfg.get("label_pairs", []):
+            if isinstance(pair, dict):
+                start = str(pair.get("start_label", "")).strip()
+                end = str(pair.get("end_label", "")).strip()
+                if start and end:
+                    label_pairs.append((start, end))
+
         start_label = cfg.get("start_label", "")
         end_label = cfg.get("end_label", "")
-        if not start_label or not end_label:
+        if start_label and end_label:
+            label_pairs.append((str(start_label).strip(), str(end_label).strip()))
+
+        if not label_pairs:
             return FieldExtraction(value="", rule_id=rule_id)
 
+        for start, end in label_pairs:
+            ext = self._extract_between_label_pair(lines, plain_text, start, end, rule_id)
+            if ext.value:
+                return ext
+        return FieldExtraction(value="", rule_id=rule_id)
+
+    def _extract_between_label_pair(
+        self,
+        lines: list[DocumentLine],
+        plain_text: str,
+        start_label: str,
+        end_label: str,
+        rule_id: str,
+    ) -> FieldExtraction:
         # Regex search first
         pattern = re.compile(rf"(?is){re.escape(start_label)}\s*:?\s*(.*?)\s*(?={re.escape(end_label)})")
         match = pattern.search(plain_text)
@@ -492,10 +774,13 @@ class RuleEngine:
             if val:
                 return FieldExtraction(value=val, raw_value=val, rule_id=rule_id, confidence=1.0)
 
-        # Iterate lines fallback
+        # Iterate lines fallback — require the end label; otherwise the next
+        # label pair (or caller) can try. Without this, a missing end marker
+        # would capture through EOF (e.g. AX PDFs without a "Pre Existing" row).
         capture = False
         collected = []
         source_span = None
+        end_found = False
         for line in lines:
             line_txt = line.text
             lower = line_txt.lower().strip()
@@ -508,8 +793,12 @@ class RuleEngine:
                     source_span = SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox)
             else:
                 if lower.startswith(end_label.lower()):
+                    end_found = True
                     break
                 collected.append(clean_val(line_txt))
+
+        if not capture or not end_found:
+            return FieldExtraction(value="", rule_id=rule_id)
 
         val = clean_val("\n".join(c for c in collected if c))
         return FieldExtraction(
@@ -1411,14 +1700,7 @@ class RuleEngine:
         return FieldExtraction(value="", rule_id="fallback_vrm_label", confidence=0.0)
 
     def _vrm_candidate_is_bad(self, candidate: str, context: str) -> bool:
-        compact = normalize_vrm(candidate)
-        if len(compact) < 5 and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}[A-Z]{1,3}", compact):
-            return True
-        if re.search(rf"\b{re.escape(candidate)}\s*\d[ABD-HJLNP-UW-Z]{{2}}\b", context, re.IGNORECASE):
-            return True
-        if compact in {"CLIENT", "VEHICLE", "REG", "MODEL"}:
-            return True
-        return False
+        return vrm_candidate_is_bad(candidate, context)
 
     def _fallback_reference(self, lines: list[DocumentLine]) -> FieldExtraction:
         labels = ("reference", "ref", "claim no", "claim number", "case number", "our ref", "your ref")

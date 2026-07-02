@@ -34,19 +34,51 @@ from cedocumentmapper_v2.ui.paths import (
     unique_output_path,
 )
 
+# Embedded-image extraction (extract_images): a raster below this pixel area is
+# treated as decorative (letterhead logo, signature stamp, divider) and skipped --
+# a genuine vehicle photo is reliably much larger. 200x200 chosen as a floor well
+# below any real photo but above typical letterhead art.
+_MIN_EXTRACTED_IMAGE_AREA = 200 * 200
+
 
 class DocumentMapperService:
     """Shared use-case layer for document reading, extraction, export, and image work."""
 
-    def __init__(self, app_data_dir: Path | None = None, seed_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        app_data_dir: Path | None = None,
+        seed_path: Path | None = None,
+        *,
+        always_reload_seed: bool | None = None,
+    ) -> None:
         self.app_data_dir = app_data_dir or APP_DATA_DIR
         self.merge_seed_on_load = app_data_dir is None
+        # Two callers share the "explicit app_data_dir" shape but want opposite
+        # catalog semantics: the parser Function always wants the vendored seed
+        # reloaded fresh (a long-lived warm worker must never keep serving an
+        # on-disk cache that predates the last deploy), while the CLI's
+        # --app-data-dir override (and any test harness pointed at a scratch dir
+        # it seeded itself) wants that directory's own persisted catalog
+        # respected -- seeded only if missing, exactly like the desktop default
+        # dir. Default to "reload fresh" only when app_data_dir was explicit
+        # (the parser Function's shape); callers that want the on-disk catalog
+        # respected instead opt out with always_reload_seed=False.
+        self.always_reload_seed = (
+            (app_data_dir is not None) if always_reload_seed is None else always_reload_seed
+        )
         self.seed_path = seed_path or Path("providers.json")
         self.config_path = self.app_data_dir / "providers.json"
         self.detector = ProviderDetector()
         self.rule_engine = RuleEngine()
 
     def load_provider_catalog(self) -> dict[str, Any]:
+        # Pinned seed (parser Function): always migrate from the vendored providers.json
+        # so a stale app-data cache cannot hide seed updates between deploys.
+        if self.always_reload_seed:
+            fresh = self._load_seed_catalog()
+            if fresh is not None:
+                return cast(dict[str, Any], fresh)
+
         if not self.config_path.exists():
             self._seed_providers_file()
         with open(self.config_path, "r", encoding="utf-8") as fh:
@@ -355,6 +387,16 @@ class DocumentMapperService:
         saved: list[Path] = []
         notes: list[str] = []
 
+        def is_decorative(width: int | None, height: int | None) -> bool:
+            """Embedded rasters below this pixel AREA are letterhead logos, signature
+            stamps, or dividers, not vehicle photos -- a real photo is reliably much
+            larger. Area (not a per-axis check) survives a wide-but-short banner logo
+            while still rejecting it; unknown dimensions are kept rather than risk
+            dropping a real photo."""
+            if not width or not height:
+                return False
+            return width * height < _MIN_EXTRACTED_IMAGE_AREA
+
         def save_bytes(stem: str, suffix: str, content: bytes) -> None:
             path = unique_output_path(output_dir, stem, suffix)
             path.write_bytes(content)
@@ -377,7 +419,7 @@ class DocumentMapperService:
                     for page_num, page in enumerate(doc, start=1):
                         for img_info in page.get_images() or []:
                             base_image = doc.extract_image(img_info[0])
-                            if base_image:
+                            if base_image and not is_decorative(base_image.get("width"), base_image.get("height")):
                                 save_bytes(f"{base_name}_img_{page_num}_{idx}", "." + base_image["ext"], base_image["image"])
                                 idx += 1
                 finally:
@@ -390,6 +432,15 @@ class DocumentMapperService:
                     idx = 1
                     for page_num, page in enumerate(reader.pages, start=1):
                         for image in getattr(page, "images", []) or []:
+                            width = height = None
+                            try:
+                                pil_image = getattr(image, "image", None)
+                                if pil_image is not None:
+                                    width, height = pil_image.size
+                            except Exception:
+                                pass
+                            if is_decorative(width, height):
+                                continue
                             suffix = Path(getattr(image, "name", "")).suffix or ".bin"
                             save_bytes(f"{base_name}_img_{page_num}_{idx}", suffix, image.data)
                             idx += 1
