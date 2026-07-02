@@ -73,6 +73,13 @@ from typing import Any
 from cedocumentmapper_v2.detection.detector import ProviderDetector
 from cedocumentmapper_v2.domain.models import DocumentModel
 from cedocumentmapper_v2.rules.engine import _WORK_KEYWORDS, _match_keywords
+from cedocumentmapper_v2.rules.triage_rules import load_triage_rules
+
+# Externalized phrase data (collisionspike rules-engine-v2 plan, Phase 5) -- see
+# the matching comment in rules/engine.py. This module's own three phrase
+# collections (below) are sourced from the same schema-validated
+# resources/triage-rules.json.
+_RULES = load_triage_rules()
 
 # doc_type constants -- mirrors the CATEGORY_*/SUBTYPE_* constant convention in
 # rules/email_classifier.py.
@@ -91,14 +98,7 @@ DOC_TYPE_UNKNOWN = "unknown"
 # overlap with two ``_WORK_KEYWORDS`` entries ("engineer's report" /
 # "engineers report") -- see the module docstring for why REPORT is checked
 # before INSTRUCTION; this is not a bug, it is the tie-break.
-_REPORT_TITLE_PHRASES: tuple[str, ...] = (
-    "engineer's report",
-    "engineers report",
-    "engineer's inspection report",
-    "vehicle inspection report",
-    "inspection report",
-    "audit report",
-)
+_REPORT_TITLE_PHRASES: tuple[str, ...] = _RULES.report_title_phrases
 
 # --- Report structure phrases (Rule 1b) --------------------------------------
 # Weaker, body-of-report wording -- plausible in a report's findings/opinion
@@ -108,13 +108,7 @@ _REPORT_TITLE_PHRASES: tuple[str, ...] = (
 # also marks it an ``engineer_report`` source (CNX / EVA in the live
 # providers.json corpus) -- exactly the "provider detect_phrases /
 # engineer_report markers" pairing the Phase-3 plan calls for. Kept small.
-_REPORT_STRUCTURE_PHRASES: tuple[str, ...] = (
-    "findings and opinion",
-    "engineer's opinion",
-    "summary of findings",
-    "basis of this report",
-    "scope of inspection",
-)
+_REPORT_STRUCTURE_PHRASES: tuple[str, ...] = _RULES.report_structure_phrases
 
 # --- Junk / marketing markers (Rule 3) ---------------------------------------
 # Kept TINY and conservative per the Phase-3 plan -- a false 'junk' call on
@@ -123,16 +117,7 @@ _REPORT_STRUCTURE_PHRASES: tuple[str, ...] = (
 # from ``email_classifier._AUTO_REPLY_MARKERS`` (out-of-office / bounce
 # wording, a different signal for a different rule) -- this is
 # marketing/newsletter FOOTER boilerplate.
-_JUNK_PHRASES: tuple[str, ...] = (
-    "unsubscribe",
-    "click here to unsubscribe",
-    "manage your email preferences",
-    "manage your subscription",
-    "this is an automated message",
-    "this email was sent automatically",
-    "you are receiving this email because",
-    "view this email in your browser",
-)
+_JUNK_PHRASES: tuple[str, ...] = _RULES.junk_phrases
 
 
 def type_document_text(text: str, catalog: Any) -> dict[str, Any]:
