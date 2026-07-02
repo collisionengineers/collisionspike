@@ -45,6 +45,14 @@
    open the case; Suggested-action column display-only while gated; legacy
    `/inbox?category=…&view=…` deep links rewrite to `?type=…`; dashboard tiles
    2×2-aligned.
+   **⚠ 2026-07-03 correction:** the first pass claimed the dashboard panel
+   fixed when only the inbox tiles were re-gridded — the "Today / this week"
+   block still wrapped like the "before" screenshot (operator caught it).
+   Round 2 re-gridded the throughput block to the same 2×2 and verified it by
+   rendering the real Dashboard in a local harness (headless-Chromium
+   screenshots at 1920×1080 + 1280×900: both regions on shared tracks, no
+   wrap, all-time cell railed + captioned). New bundle `index-B-vxJJzr.js`
+   confirmed live. Operator re-check requested.
 7. ⏳ **Operator (gated.md B4)**: Mail.ReadWrite Exchange-RBAC re-consent →
    `OUTLOOK_MOVE_ENABLED=true` on both apps → **live-test the move yourself**
    (no automated live move was or will be run) → record here.
