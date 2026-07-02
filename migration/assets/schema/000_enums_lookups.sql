@@ -105,7 +105,16 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   -- created = a model produced a suggestion; accepted/rejected = a human reviewed it.
   (100000032, 'ai_suggestion_created',      'AI Suggestion Created'),
   (100000033, 'ai_suggestion_accepted',     'AI Suggestion Accepted'),
-  (100000034, 'ai_suggestion_rejected',     'AI Suggestion Rejected');
+  (100000034, 'ai_suggestion_rejected',     'AI Suggestion Rejected'),
+  -- Rules-engine-v2 Phase 2 ref-gate + cancellation lifecycle (2026-07-02 delta -- see
+  -- deltas/2026-07-02-rules-engine-v2-taxonomy.sql). Distinct from
+  -- ai_suggestion_created/accepted/rejected above (which audit review of the
+  -- classifier's category/subtype SUGGESTION): these four audit the ref-gate's
+  -- case-LINK decision -- suggest a link, accept it (attach), or detach later.
+  (100000035, 'inbound_link_suggested',     'Inbound Link Suggested'),
+  (100000036, 'inbound_linked',             'Inbound Linked'),
+  (100000037, 'inbound_detached',           'Inbound Detached'),
+  (100000038, 'cancellation_proposed',      'Cancellation Proposed');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code
@@ -323,7 +332,14 @@ INSERT INTO choice_inbound_category (code, name, label) VALUES
   -- append-only (collisionspike TKT-029/037/038): billing (an invoice/fee request) and
   -- non_actionable (a case-summary digest or bare acknowledgement) join the originals.
   (100000003, 'billing',         'Billing'),
-  (100000004, 'non_actionable',  'Non-actionable');
+  (100000004, 'non_actionable',  'Non-actionable'),
+  -- append-only (rules-engine-v2 Phase 2, 2026-07-02 delta -- see
+  -- deltas/2026-07-02-rules-engine-v2-taxonomy.sql and
+  -- docs/plans/rules_engine_v2_plan_9ba034c4.plan.md): case_update (a ref-matched case
+  -- with new evidence, vs a bare query) and cancellation (cancellation phrases) join the
+  -- set. Emitted only once the taxonomy-v2 engine tag ships (Phase-0's tag emits v1 only).
+  (100000005, 'case_update',  'Case update'),
+  (100000006, 'cancellation', 'Cancellation');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inboundsubtype  (inbound-email-classification.json bundle)
@@ -346,7 +362,17 @@ INSERT INTO choice_inbound_subtype (code, name, label) VALUES
   -- non_actionable categories above.
   (100000007, 'billing_request',               'Billing Request'),
   (100000008, 'case_summary',                  'Case Summary'),
-  (100000009, 'acknowledgement',               'Acknowledgement');
+  (100000009, 'acknowledgement',               'Acknowledgement'),
+  -- append-only (rules-engine-v2 Phase 2, 2026-07-02 delta -- see
+  -- deltas/2026-07-02-rules-engine-v2-taxonomy.sql): images_received is the ONLY
+  -- subtype actually named in the plan text (Phase 2 "Images-received routing",
+  -- TKT-034/043). cancellation_notice and update_general are NOT plan-named -- they are
+  -- minimal completions so the case_update/cancellation categories above each have a
+  -- subtype to land on; flagged for operator review when Phase 2's build supplies the
+  -- real subtype set.
+  (100000010, 'images_received',     'Images received'),
+  (100000011, 'cancellation_notice', 'Cancellation notice'),
+  (100000012, 'update_general',      'Case update — general');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inspectiondecisionmode  (inspection-decision-mode.json)
