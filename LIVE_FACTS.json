@@ -1,6 +1,6 @@
 {
-  "lastVerified": "2026-07-01T23:14:18Z",
-  "verifiedBy": "agent (2026-07-01 rules-engine-v2 review pass, READ-ONLY): added the NEW `foundry` block — digital-3339-resource now HAS model deployments (gpt-5 GlobalStandard + text-embedding-3-large regional Standard, operator-created 2026-07-01T14:41Z, i.e. AFTER the earlier same-day snapshots) — the prior 'orphan / no deployments' records were stale, not wrong. No live mutation. Prior entry (TKT-027/M-E2 deploys): api 65 functions (+logChase), orch 51; intake ingested transition not yet e2e-proven on a live case — await next email audit trail.",
+  "lastVerified": "2026-07-02T10:55:00Z",
+  "verifiedBy": "agent (2026-07-02 rules-engine-v2 Phase-0 deploy): redeployed cespk-orch-dev (classify contract pass-through — attachment_filenames out, body_jobref + conversationId captured) and cespike-parser-dev (vendored engine re-cut at sibling tag engine-v2.1; cloud-path behaviour-preserving). Counts UNCHANGED and re-verified post-deploy: orch 51, parser 3 (api untouched at 65). Live probe: POST /classify-email returned body_jobref=576299 + report_attachment signal from attachment_filenames on a TKT-023-shaped payload. No gate/subscription/RBAC changes. Prior entry (2026-07-01 rules-engine-v2 review pass, READ-ONLY): added the NEW `foundry` block — digital-3339-resource now HAS model deployments (gpt-5 GlobalStandard + text-embedding-3-large regional Standard, operator-created 2026-07-01T14:41Z, i.e. AFTER the earlier same-day snapshots) — the prior 'orphan / no deployments' records were stale, not wrong. No live mutation. Prior entry (TKT-027/M-E2 deploys): api 65 functions (+logChase), orch 51; intake ingested transition not yet e2e-proven on a live case — await next email audit trail.",
   "subscription": "e6076573-23a5-46a8-acef-7e22d264e5db",
   "resourceGroup": "rg-collisionspike-dev",
   "region": "uksouth",
@@ -13,9 +13,9 @@
       "parser": 3
     },
     "sourceCommand": "az functionapp function list -g rg-collisionspike-dev -n <app> --query '[].name' -o tsv | wc -l",
-    "verifiedAt": "2026-07-01T22:30:00Z",
+    "verifiedAt": "2026-07-02T10:55:00Z",
     "verified": true,
-    "docDrift": "2026-07-01 M-E2 deploy (UI reforge): api 64->65 (+logChase POST /api/cases/{id}/chase — durable chase log; az functionapp function list confirmed 65 incl. logChase, smoke 401-gated). 2026-07-01 TKT-027 deploy: api 63->64 (+internalCasesSetIngested POST …/set-ingested); orch 50->51 (+setIngested activity). Prior 2026-07-01 TKT-003 regression deploy had orch at 50 (box-archive-start). Prior 2026-06-30: api 63, orch 48."
+    "docDrift": "2026-07-02 rules-engine-v2 Phase-0 deploy: orch + parser redeployed (contract pass-through + engine-v2.1 re-cut), counts unchanged (orch 51, parser 3; api 65 untouched) — re-verified via az functionapp function list post-deploy. Prior: 2026-07-01 M-E2 deploy (UI reforge): api 64->65 (+logChase POST /api/cases/{id}/chase — durable chase log; az functionapp function list confirmed 65 incl. logChase, smoke 401-gated). 2026-07-01 TKT-027 deploy: api 63->64 (+internalCasesSetIngested POST …/set-ingested); orch 50->51 (+setIngested activity). Prior 2026-07-01 TKT-003 regression deploy had orch at 50 (box-archive-start). Prior 2026-06-30: api 63, orch 48."
   },
   "graphSubscriptions": {
     "value": [
