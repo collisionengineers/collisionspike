@@ -174,8 +174,12 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   names, File-Request URLs, and Outlook category strings — the PII-adjacent identifiers outside the DB), and a
   DPIA / controller-processor map. **No automated deletion from Box, ever.** Retention period + lawful basis
   remain operator/legal input.
-- **[BUILD] PII pre-scrub helper** — a unit-tested helper the gated AI paths (Phase-8 LLM classifier,
-  Phase-4a vision/geocode) reuse before any external model call.
+- **✅ PII pre-scrub helper — SHIPPED.** The unit-tested helper (`packages/domain/src/domain/pii-scrub.ts`)
+  is now actually reused by a gated AI path, not just built for one: the rules-engine-v2 Stage-C AOAI
+  triage assist (`orchestration/src/functions/gated/triage-classify.ts`, 2026-07-02) scrubs subject/body
+  through it before every model call. Deployed gated-OFF alongside that feature (`EMAIL_AI_ENABLED`
+  unset) — see [docs/tickets/BOARD.md](./docs/tickets/BOARD.md) TKT-015. The Phase-4a vision/geocode
+  consumer remains unbuilt.
 - The inspection-address model stays **offline-derived suggestions + manual confirm** — **ADR-0013 remains
   binding, no runtime matcher** ([docs/architecture/inspection-address-corpus.md](./docs/architecture/inspection-address-corpus.md)).
 - **API intake channel (deferred research)** — let providers/principals POST work directly to an HTTP
@@ -474,6 +478,8 @@ ceiling. Same additive pattern as Phase 7. Full plan:
 > decommissioned) design; the live build is tracked by the
 > [rules-engine-v2 plan](./docs/plans/rules_engine_v2_plan_9ba034c4.plan.md) and its distilled
 > [build checklist](./docs/plans/phase-8-inbox-management/rules-engine-v2-build.md) (ADR-0019).
+> **Build complete 2026-07-02** (all six phases) — activation is operator-gated, see
+> [docs/gated.md](./docs/gated.md).
 
 > **`.eml` retention rule (A7).** A raw `.eml` is persisted to Blob **only when a Case is extracted**. For
 > query/other email **no `.eml` is persisted** — the mailbox keeps the mail and the triage row holds the

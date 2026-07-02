@@ -378,6 +378,11 @@ None is due until its phase starts; listed here so nothing lands as a surprise:
      `foundry.miGrants`). Keyless by design — no key app-setting exists to set. Nothing RBAC-side
      blocks the `EMAIL_AI_ENABLED` flip any more; the remaining gates are the app-settings above +
      the G5/E2 sign-off below.
+   - **⚠️ Known spec gap before flipping:** the plan's "honour `work_provider.ai_allowed`" check is
+     **not implemented** in the AOAI activity yet (the PII scrub, content-filter→abstain, model-version
+     stamping and suggestion-only posture all are). Add the per-provider `ai_allowed` check to
+     `orchestration/src/functions/gated/triage-classify.ts` before any production flip — the flag
+     already exists on `work_provider`.
    - **Foundry keyless flip** (disable local/key auth on the account) is **not required** to flip
      `EMAIL_AI_ENABLED` itself (the managed-identity token works regardless of whether key auth is
      ALSO still enabled) — it is the separate, natural follow-on once the grant lands; tracked as

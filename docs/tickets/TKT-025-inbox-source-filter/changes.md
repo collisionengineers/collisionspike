@@ -13,3 +13,13 @@ Captures the operator's ask for a per-source-mailbox visual marker and an inbox
 filter across the info/engineers/desk mailboxes. Related to TKT-005 (inbox / email
 intake surfacing). Delivered as a toolbar-level chip filter (not a per-row badge) — see
 [verification.md](./verification.md) for the exact scope and the live-SPA runbook.
+
+## 2026-07-02 — verification caveat (review 020726 E7)
+
+The chip filter is deployed, but the operator's inbox-simplification review
+([020726 E7](../../reviews/020726/decisions.md)) identified a data bug underneath it:
+intake currently stores the subscribed mailbox's object-id GUID in `source_mailbox`
+rather than the address, so every chip renders the "Other source" fallback. The
+intake-side UPN fix + historical backfill are being handled under
+[TKT-054](../TKT-054-ui-work/TKT-054-ui-work.md); re-run this ticket's verification
+runbook after that lands — the chips should then name info@/engineers@/desk@.
