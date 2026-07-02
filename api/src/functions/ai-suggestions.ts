@@ -79,8 +79,11 @@ app.http('reviewAiSuggestion', {
     }
 
     // Load the row first: clean 404 for an unknown id + the before-state for the audit.
+    // inbound_email_id is read too (rules-engine-v2 Phase 2) — the 'case_link'/'cancellation'
+    // promotion branches in promoteAcceptedSuggestion need it; every other suggestion_type
+    // simply ignores the extra column.
     const existing = await query<Row>(
-      `SELECT id, case_id, evidence_id, suggestion_type, suggested_value, review_state
+      `SELECT id, case_id, evidence_id, inbound_email_id, suggestion_type, suggested_value, review_state
          FROM ai_suggestion WHERE id = $1`,
       [id],
     );
@@ -119,7 +122,7 @@ app.http('reviewAiSuggestion', {
     // On ACCEPT, optionally promote the value into its target field FILL-IF-EMPTY.
     let promotion: { promoted: boolean; promotedField?: string } = { promoted: false };
     if (decision === 'accepted') {
-      promotion = await promoteAcceptedSuggestion(row);
+      promotion = await promoteAcceptedSuggestion(row, actor);
     }
 
     await writeAudit({
@@ -152,17 +155,21 @@ app.http('reviewAiSuggestion', {
 });
 
 /**
- * Promote an accepted suggestion into its target column FILL-IF-EMPTY. Only the two
- * concrete evidence-column kinds are auto-promoted today (image_role, registration);
- * every promote is guarded so it NEVER overwrites a value a human already set. Other
- * kinds (inspection_address, triage_category) are accepted WITHOUT auto-promotion —
- * a follow-up reviewer applies them (kept deliberately conservative for the MVP).
- * Best-effort: a promote failure must not undo the recorded acceptance.
+ * Promote an accepted suggestion into its target column FILL-IF-EMPTY. Every promote is
+ * guarded so it NEVER overwrites a value already set (by a human OR another path). Kinds
+ * without a promotion branch here (inspection_address, triage_category) are accepted
+ * WITHOUT auto-promotion — a follow-up reviewer applies them (kept deliberately
+ * conservative for the MVP). Best-effort: a promote failure must not undo the recorded
+ * acceptance. `actor` (Entra oid/upn) is threaded through so the DEDICATED audit rows this
+ * function writes (rules-engine-v2 Phase 2's 'case_link' branch) carry the same identity as
+ * the outer ai_suggestion_accepted/rejected audit in reviewAiSuggestion.
  */
 async function promoteAcceptedSuggestion(
   row: Row,
+  actor?: string,
 ): Promise<{ promoted: boolean; promotedField?: string }> {
   const evidenceId = row.evidence_id as string | null;
+  const inboundEmailId = row.inbound_email_id as string | null;
   const value = coerceJsonValue(row.suggested_value);
   try {
     if (row.suggestion_type === 'image_role' && evidenceId) {
@@ -188,6 +195,46 @@ async function promoteAcceptedSuggestion(
         );
         if (upd[0]) return { promoted: true, promotedField: 'evidence.registration_visible' };
       }
+    } else if (row.suggestion_type === 'case_link' && inboundEmailId) {
+      // rules-engine-v2 Phase 2 (ADR-0019 suggest-first ladder): accept is the ONLY moment a
+      // case_link suggestion actually attaches an inbound email to a case — the suggest-link
+      // write itself (POST /api/internal/triage/suggest-link) never mutates inbound_email.
+      // FILL-IF-EMPTY ONLY: never overwrite a link a person (or another path) already made.
+      const targetCaseId = (value as { targetCaseId?: string } | null)?.targetCaseId?.trim();
+      if (targetCaseId) {
+        const upd = await query<Row>(
+          `UPDATE inbound_email SET case_id = $2, updated_at = now()
+             WHERE id = $1 AND case_id IS NULL RETURNING id`,
+          [inboundEmailId, targetCaseId],
+        );
+        if (upd[0]) {
+          // Dedicated audit (distinct from the generic ai_suggestion_accepted the caller
+          // already writes) — this is the one that shows the attach on the CASE's own
+          // activity feed (ai_suggestion.case_id is deliberately left unset for triage
+          // suggestions, so the caller's generic audit above is not case-scoped).
+          await writeAudit({
+            action: AUDIT_ACTION.inbound_linked,
+            caseId: targetCaseId,
+            summary: 'Inbound email linked to case (suggestion accepted)',
+            before: { caseId: null },
+            after: { caseId: targetCaseId, inboundEmailId },
+            ...(actor ? { actor } : {}),
+          });
+          return { promoted: true, promotedField: 'inbound_email.case_id' };
+        }
+      }
+    } else if (row.suggestion_type === 'cancellation') {
+      // NEVER mutates case_.status_code on accept. Cancellation is ALWAYS a
+      // staff-confirmed close/hold a person applies manually — rules-engine-v2 Phase 2:
+      // "Cancellation action: matched case -> propose close/hold with note + audit
+      // (staff-confirmed, never automatic)"; ADR-0019 §4's no-silent-mutation rule ("never
+      // auto-attach, NEVER auto-cancel"). Accepting this suggestion only records that a
+      // person has seen and agreed with the report — the outer reviewAiSuggestion call
+      // already writes the generic ai_suggestion_accepted audit for that ("writeAudit
+      // only"); no dedicated mutation or extra audit action is minted for this transition
+      // (there is no "cancellation confirmed" audit code — only cancellation_proposed,
+      // 100000038, which suggest-link already used once at PROPOSE time; re-using it again
+      // here on ACCEPT would misrepresent this as a fresh proposal). promoted stays false.
     }
   } catch {
     /* promotion is supplementary — the acceptance already stands */

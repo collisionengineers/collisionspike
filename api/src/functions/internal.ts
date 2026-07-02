@@ -29,6 +29,8 @@
  *  POST /api/internal/box/mark-purged                → 204
  *  GET  /api/internal/cases/{id}/box-folder          → { boxFolderId, boxFolderUrl, casePo }
  *  POST /api/internal/cases/{id}/box-folder          → { applied, boxFolderId } (first-wins stamp)
+ *  POST /api/internal/triage/context                 → { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds } (rules-engine-v2 Phase 2)
+ *  POST /api/internal/triage/suggest-link             → { suggestionId, created } (rules-engine-v2 Phase 2)
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
@@ -66,10 +68,13 @@ import {
   EVA_COLUMN_BY_KEY,
   INBOUND_CATEGORY_TO_INT,
   INBOUND_SUBTYPE_TO_INT,
+  deriveSuggestionIdempotencyKey,
   rowToCase,
   rowToEvidence,
   type Row,
 } from '../lib/mappers.js';
+import { hasColumn, planOptionalColumns, tableColumns } from '../lib/schema-introspect.js';
+import { acquireTriageLocks } from '../lib/triage-locks.js';
 
 /* ============================================================
    Service auth — validate the JWT (sig + iss + aud + exp) without
@@ -313,6 +318,12 @@ interface InboundEnvelope {
   candidateRef: string;
   body?: string;
   bodyPreview?: string;
+  /** Graph conversationId (orchestration/src/functions/activities/fetchMessage.ts's
+   *  InboundEnvelope carries the same field name) — rules-engine-v2 Phase 2 LOCAL thread
+   *  correlation only. Optional: absent on any caller still on the pre-Phase-2 envelope
+   *  shape. Persisted SCHEMA-TOLERANTLY by upsertInboundEmail (see schema-introspect.ts) —
+   *  a no-op until the 2026-07-02 DDL delta adds inbound_email.conversation_id. */
+  conversationId?: string;
   attachments: Array<{ filename: string; contentType: string; blobPath: string; size: number }>;
 }
 
@@ -324,6 +335,11 @@ interface InboundClassificationDto {
   signals: string[];
   bodyVrm: string;
   bodyCaseref: string;
+  /** Provider job/claim reference (email_classifier.py's `_job_reference` pass-through;
+   *  orchestration/src/functions/activities/classifyInbound.ts's InboundClassification
+   *  carries the same field name). Optional for the same reason as conversationId above.
+   *  Persisted SCHEMA-TOLERANTLY (inbound_email.body_jobref, same DDL delta). */
+  bodyJobref?: string;
 }
 
 /* ============================================================
@@ -559,6 +575,15 @@ app.http('internalCasesResolve', {
       let created: { caseId: string; casePo: string | null; newClient: boolean; principalCode: string };
       try {
         created = await tx(async (q) => {
+          // rules-engine-v2 Phase 2 (ADR-0019 "mint race"): serialise this mint against a
+          // concurrent /api/internal/triage/context read or /api/internal/inbound/link-reply
+          // for the SAME ref/VRM — same key derivation as those two call sites
+          // (api/src/lib/triage-locks.ts), so a reader that starts after this transaction
+          // commits (or rolls back) always sees its result. No job-ref is available on this
+          // payload (cases/resolve carries candidateRef/candidateVrm only), so only the
+          // ref/vrm locks are taken here.
+          await acquireTriageLocks(q, { caseref: caseRef, vrm });
+
           // Resolve the provider's principal code (the PO prefix + the known/new-client test).
           let principalCode = '';
           if (workProviderId) {
@@ -723,6 +748,13 @@ app.http('internalInboundEmail', {
  * The COALESCE upsert makes the two writers order-robust: a later case_id-only stamp
  * (caseResolve) preserves an earlier classification, and a later classification preserves
  * an earlier case_id. Returns the row id, or null on a (swallowed) failure.
+ *
+ * rules-engine-v2 Phase 2 SCHEMA TOLERANCE: `body_jobref` (from `classification.bodyJobref`)
+ * and `conversation_id` (from `inbound.conversationId`) exist only once the 2026-07-02 DDL
+ * delta lands live. Orchestration sends both regardless of migration state, so this probes
+ * which of the two columns actually exist (api/src/lib/schema-introspect.ts, cached — one
+ * real query per Function-App cold start) and appends ONLY the present ones to the base
+ * (always-present-column) INSERT/ON CONFLICT below — never a failed statement.
  */
 async function upsertInboundEmail(
   inbound: InboundEnvelope,
@@ -749,14 +781,36 @@ async function upsertInboundEmail(
   const bodyPreview = (inbound.bodyPreview ?? '') || null;
   const confidence = classification ? classification.confidence : null;
   const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
+  const bodyJobref = (classification?.bodyJobref ?? '').trim() || null;
+  const conversationId = (inbound.conversationId ?? '').trim() || null;
   try {
+    // Base statement occupies $1..$18 below (unchanged from before Phase 2) — optional
+    // columns, if present live, are appended starting at $19.
+    const presentCols = await tableColumns('inbound_email');
+    const optional = planOptionalColumns(
+      'inbound_email',
+      [
+        { column: 'body_jobref', value: bodyJobref },
+        { column: 'conversation_id', value: conversationId },
+      ],
+      presentCols,
+      19,
+    );
+    const optionalColsFragment = optional.cols.length ? `, ${optional.cols.join(', ')}` : '';
+    const optionalValsFragment = optional.placeholders.length
+      ? `, ${optional.placeholders.join(', ')}`
+      : '';
+    const optionalUpdateFragment = optional.updateSets.length
+      ? `${optional.updateSets.join(',\n         ')},\n         `
+      : '';
+
     const rows = await query<{ id: string }>(
       `INSERT INTO inbound_email
          (name, source_message_id, subject, from_address, sender_domain,
           source_mailbox, received_on, has_attachments, category_code, subtype_code,
           confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
-          body_preview, case_id, work_provider_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17)
+          body_preview, case_id, work_provider_id${optionalColsFragment})
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17${optionalValsFragment})
        ON CONFLICT (source_message_id) DO UPDATE SET
          case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
          category_code    = CASE
@@ -783,10 +837,7 @@ async function upsertInboundEmail(
          body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
          body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
          work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
-         -- Re-ingest / link MUST NOT reset a staff-set durable handled state (work-todo-spike
-         -- email-management d): once a person actioned/dismissed a row, an automated replay
-         -- (classify / caseResolve / link-reply 'routed') leaves it handled.
-         triage_state     = CASE
+         ${optionalUpdateFragment}triage_state     = CASE
                               WHEN inbound_email.triage_state IN ('actioned','dismissed')
                                 THEN inbound_email.triage_state
                               ELSE COALESCE($18, inbound_email.triage_state)
@@ -812,6 +863,7 @@ async function upsertInboundEmail(
         caseId,
         workProviderId,
         triageState ?? null,
+        ...optional.values,
       ],
     );
     const inboundEmailId = rows[0]?.id ?? null;
@@ -970,25 +1022,38 @@ app.http('internalInboundLinkReply', {
       // Cross-provider is allowed here ON PURPOSE: a reply can arrive from the claimant/
       // repairer on a different domain than the instructing provider, so we match on the
       // case identifiers, not the sender's provider.
-      let candidates: Row[] = [];
-      if (ref) {
-        candidates = await query<Row>(
-          `SELECT id, case_ref, case_po, vrm FROM case_
-            WHERE (case_ref = $1 OR case_po = $1)
-              AND status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
-            ORDER BY created_at`,
-          [ref],
-        );
-      }
-      if (candidates.length === 0 && vrm) {
-        candidates = await query<Row>(
-          `SELECT id, case_ref, case_po, vrm FROM case_
-            WHERE vrm = $1
-              AND status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
-            ORDER BY created_at`,
-          [vrm],
-        );
-      }
+      //
+      // rules-engine-v2 Phase 2 (ADR-0019 "mint race"): the read runs inside a tx() that
+      // takes the SAME advisory locks (api/src/lib/triage-locks.ts) internalCasesResolve's
+      // mint transaction and /api/internal/triage/context now also take, keyed on this same
+      // ref/vrm — so a concurrent mint for the SAME reference commits (or rolls back) before
+      // this candidate read runs, instead of racing it. The payload's optional job-ref is
+      // deliberately NOT a match key here: this lane AUTO-attaches on an unambiguous hit,
+      // and the looser job-ref only ever drives the suggest-first ref-gate (triage/context).
+      const candidates: Row[] = await tx(async (q) => {
+        await acquireTriageLocks(q, { caseref: ref, vrm });
+
+        let rows: Row[] = [];
+        if (ref) {
+          rows = await q<Row>(
+            `SELECT id, case_ref, case_po, vrm FROM case_
+              WHERE (upper(case_ref) = upper($1) OR upper(case_po) = upper($1))
+                AND status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
+              ORDER BY created_at`,
+            [ref],
+          );
+        }
+        if (rows.length === 0 && vrm) {
+          rows = await q<Row>(
+            `SELECT id, case_ref, case_po, vrm FROM case_
+              WHERE vrm = $1
+                AND status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
+              ORDER BY created_at`,
+            [vrm],
+          );
+        }
+        return rows;
+      });
 
       // Stamp the triage row with the matched case only on an UNAMBIGUOUS single hit, and mark
       // it 'routed' so a successfully-linked reply no longer counts as untriaged in
@@ -1029,6 +1094,272 @@ app.http('internalInboundLinkReply', {
 
       ctx.log(JSON.stringify({ evt: 'linkReply', outcome: 'no_match' }));
       return { status: 200, jsonBody: { outcome: 'no_match', candidateCount: 0 } };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/triage/context
+   Called by: a NEW orchestration triage-context activity (rules-engine-v2 Phase 2,
+   ADR-0019/the rules_engine_v2_plan). Resolves the LIVE context `decideTriage`
+   (packages/domain/src/domain/triage-policy.ts) needs before routing an inbound: open-case
+   ref/job-ref/VRM matches, a cross-mailbox duplicate-delivery check, and (schema-tolerant)
+   conversation siblings. READ-ONLY over case_/inbound_email — never mutates a case.
+
+   OPEN CASE = mirrors internalInboundLinkReply's own definition just above: status_code NOT
+   IN the TERMINAL_STATUSES set (eva_submitted / box_synced / error / removed). NOTE:
+   linkReply's own ref match is a case-SENSITIVE `=` on case_ref/case_po; this endpoint's
+   pinned contract calls for case-INSENSITIVE matching (upper(...) both sides, mirroring
+   cases/resolve's own upper(case_po) convention elsewhere in this file) — a pre-existing
+   inconsistency in linkReply, found but intentionally NOT changed here (out of scope for
+   this slice; only the OPEN-CASE status-membership definition is mirrored verbatim).
+
+   matchedOn priority: a case_po/caseref match beats a job_ref match beats a vrm match. The
+   single SELECT below computes each returned case's OWN best matchedOn via a CASE WHEN
+   ladder in the same priority order, so every case_ row appears at most once — "dedupe by
+   caseId keeping the strongest matchedOn" falls out of the query shape, no separate JS pass
+   needed.
+
+   SERIALIZATION (ADR-0019 "mint race"): takes the SAME advisory locks
+   (api/src/lib/triage-locks.ts) that internalCasesResolve's mint transaction and
+   internalInboundLinkReply also take, keyed on the normalized ref/job-ref/VRM, so a
+   concurrent mint for the same reference commits (or rolls back) before this read proceeds.
+
+   PRE-DDL SAFE: case_/inbound_email.source_message_id and case_.case_po/case_ref/vrm all
+   exist today. conversationSiblingCaseIds alone is schema-tolerant (hasColumn) — it is
+   honestly [] until the 2026-07-02 DDL delta adds inbound_email.conversation_id.
+   ============================================================ */
+app.http('internalTriageContext', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/triage/context',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        caseref?: string;
+        jobref?: string;
+        vrm?: string;
+        internetMessageId?: string;
+        conversationId?: string;
+      };
+      const caseref = (body.caseref ?? '').trim();
+      const jobref = (body.jobref ?? '').trim();
+      const vrm = (body.vrm ?? '').trim();
+      const internetMessageId = (body.internetMessageId ?? '').trim();
+      const conversationId = (body.conversationId ?? '').trim();
+
+      // Cached catalog read (not business state) — safe outside the tx below.
+      const hasConversationCol = await hasColumn('inbound_email', 'conversation_id');
+
+      const result = await tx(async (q) => {
+        await acquireTriageLocks(q, { caseref, jobref, vrm });
+
+        let openCaseMatches: Array<{
+          caseId: string;
+          casePo: string;
+          matchedOn: 'case_po' | 'job_ref' | 'vrm';
+          status: string;
+        }> = [];
+        if (caseref || jobref || vrm) {
+          const rows = await q<Row>(
+            `SELECT id, case_po, status_code,
+                    CASE
+                      WHEN $1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) THEN 'case_po'
+                      WHEN $2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)) THEN 'job_ref'
+                      WHEN $3 <> '' AND upper(vrm) = upper($3) THEN 'vrm'
+                    END AS matched_on
+               FROM case_
+              WHERE status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
+                AND (
+                  ($1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)))
+                  OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
+                  OR ($3 <> '' AND upper(vrm) = upper($3))
+                )
+              ORDER BY created_at`,
+            [caseref, jobref, vrm],
+          );
+          openCaseMatches = rows.map((r) => ({
+            caseId: r.id as string,
+            casePo: (r.case_po as string | null) ?? '',
+            matchedOn: r.matched_on as 'case_po' | 'job_ref' | 'vrm',
+            status: caseStatusCodec.toName(r.status_code as number) ?? 'error',
+          }));
+        }
+
+        let duplicateInternetMessageId = false;
+        if (internetMessageId) {
+          const dupRows = await q<{ found: boolean }>(
+            `SELECT EXISTS (
+                SELECT 1 FROM case_ WHERE source_message_id = $1
+                UNION ALL
+                SELECT 1 FROM inbound_email WHERE source_message_id = $1
+              ) AS found`,
+            [internetMessageId],
+          );
+          duplicateInternetMessageId = Boolean(dupRows[0]?.found);
+        }
+
+        let conversationSiblingCaseIds: string[] = [];
+        if (hasConversationCol && conversationId) {
+          const sibRows = await q<{ case_id: string }>(
+            `SELECT DISTINCT case_id FROM inbound_email
+              WHERE conversation_id = $1 AND case_id IS NOT NULL`,
+            [conversationId],
+          );
+          conversationSiblingCaseIds = sibRows.map((r) => r.case_id);
+        }
+
+        return { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds };
+      });
+
+      return { status: 200, jsonBody: result };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/triage/suggest-link
+   Called by: a NEW orchestration triage-policy activity (rules-engine-v2 Phase 2,
+   ADR-0019) when `decideTriage` returns 'suggest_attach' (suggestionType 'case_link') or
+   'propose_cancellation' (suggestionType 'cancellation'). NEVER mutates a case — writes a
+   PENDING ai_suggestion a human accepts/rejects; reviewAiSuggestion's promoteAcceptedSuggestion
+   (ai-suggestions.ts) does the actual attach/no-op on accept.
+
+   inboundEmailId resolution: this activity can run PRE-classifyPersist (the triage row may
+   not exist yet), so when `inboundEmailId` is not given it is resolved from
+   `sourceMessageId`; when that lookup also comes up empty, the suggestion is written with
+   inbound_email_id NULL and sourceMessageId stashed inside suggested_value so a LATER pass
+   could reconcile it onto the row once classifyPersist writes it (no such reconciliation
+   pass exists yet — this is the documented gap, not a bug).
+
+   IDEMPOTENCY (api/src/lib/mappers.ts's deriveSuggestionIdempotencyKey): a Durable
+   at-least-once retry must not duplicate a suggestion the reviewer hasn't acted on — a
+   PENDING row of the same suggestionType + the same subject (inbound_email_id once resolved,
+   else the stashed sourceMessageId) + the same targetCaseId short-circuits to created:false.
+
+   PRE-DDL: the ai_suggestion table/columns are ALL already live (no dependency on the
+   2026-07-02 DDL delta) — the suggestion write itself always succeeds. Only the AUDIT rows
+   (inbound_link_suggested / cancellation_proposed, codes 100000035/100000038) depend on that
+   delta; writeAudit's catch-all swallow degrades a pre-DDL FK violation to "no audit row",
+   never a blocked caller (see audit.ts's AUDIT_ACTION comment).
+   ============================================================ */
+app.http('internalTriageSuggestLink', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/triage/suggest-link',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        sourceMessageId?: string;
+        inboundEmailId?: string;
+        targetCaseId?: string;
+        suggestionType?: string;
+        rationale?: string;
+        confidence?: number;
+        decisionInputs?: unknown;
+      };
+      const suggestionType = body.suggestionType;
+      if (suggestionType !== 'case_link' && suggestionType !== 'cancellation') {
+        return {
+          status: 400,
+          jsonBody: { error: "suggestionType must be 'case_link' or 'cancellation'" },
+        };
+      }
+      const sourceMessageId = (body.sourceMessageId ?? '').trim() || null;
+      const targetCaseId = (body.targetCaseId ?? '').trim() || null;
+      // rationale/decisionInputs are payload/telemetry fields, not identity — accepted
+      // leniently (coerced, never 400) so a minor caller-side omission cannot block a
+      // suggestion the ref-gate/cancellation rung already decided to raise.
+      const rationale = (body.rationale ?? '').trim() || null;
+      const confidence = typeof body.confidence === 'number' ? body.confidence : null;
+      const decisionInputs = body.decisionInputs ?? {};
+
+      // Resolve inbound_email_id from sourceMessageId when not given directly (see the
+      // module doc above — this activity may run pre-classifyPersist).
+      let inboundEmailId = (body.inboundEmailId ?? '').trim() || null;
+      if (!inboundEmailId && sourceMessageId) {
+        const rows = await query<Row>(
+          'SELECT id FROM inbound_email WHERE source_message_id = $1',
+          [sourceMessageId],
+        );
+        inboundEmailId = (rows[0]?.id as string | undefined) ?? null;
+      }
+
+      // Idempotency: a PENDING suggestion for the SAME (type, subject, targetCaseId) already
+      // exists -> return it unchanged, created:false.
+      const idemKey = deriveSuggestionIdempotencyKey({
+        suggestionType,
+        inboundEmailId,
+        sourceMessageId,
+        targetCaseId,
+      });
+      let existing: Row[] = [];
+      if (idemKey) {
+        existing =
+          idemKey.subjectKind === 'inbound_email_id'
+            ? await query<Row>(
+                `SELECT id FROM ai_suggestion
+                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id = $2
+                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
+                  LIMIT 1`,
+                [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId],
+              )
+            : await query<Row>(
+                `SELECT id FROM ai_suggestion
+                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id IS NULL
+                    AND (suggested_value->>'sourceMessageId') IS NOT DISTINCT FROM $2
+                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
+                  LIMIT 1`,
+                [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId],
+              );
+      }
+      if (existing[0]) {
+        return { status: 200, jsonBody: { suggestionId: existing[0].id, created: false } };
+      }
+
+      // Best-effort enrichment: the target case's own Case/PO, so the suggestion can render
+      // a human-readable reference without a second lookup. Absent when the target case has
+      // no case_po yet (e.g. a Held new-client case) or no target was resolved at all.
+      let casePo: string | null = null;
+      if (targetCaseId) {
+        const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [targetCaseId]);
+        casePo = (caseRows[0]?.case_po as string | null) ?? null;
+      }
+
+      const suggestedValue = {
+        ...(targetCaseId ? { targetCaseId } : {}),
+        ...(casePo ? { casePo } : {}),
+        ...(sourceMessageId ? { sourceMessageId } : {}),
+        decisionInputs,
+      };
+      const inserted = await query<Row>(
+        `INSERT INTO ai_suggestion
+           (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)
+         VALUES ($1, $2, $3::jsonb, $4, $5, 'triage-policy-v1')
+         RETURNING id`,
+        [inboundEmailId, suggestionType, JSON.stringify(suggestedValue), rationale, confidence],
+      );
+      const suggestionId = inserted[0]?.id as string | undefined;
+      if (!suggestionId) {
+        return { status: 500, jsonBody: { error: 'suggestion insert returned no id' } };
+      }
+
+      if (suggestionType === 'case_link') {
+        await writeAudit({
+          action: AUDIT_ACTION.inbound_link_suggested,
+          ...(targetCaseId ? { caseId: targetCaseId } : {}),
+          summary: 'A message was suggested for linking to an existing case',
+          after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId },
+        });
+      } else {
+        await writeAudit({
+          action: AUDIT_ACTION.cancellation_proposed,
+          ...(targetCaseId ? { caseId: targetCaseId } : {}),
+          summary: 'A message reported a case cancelled or closed — flagged for review',
+          after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId },
+        });
+      }
+
+      ctx.log(JSON.stringify({ evt: 'triageSuggestLink', suggestionType, suggestionId, targetCaseId }));
+      return { status: 200, jsonBody: { suggestionId, created: true } };
     }),
 });
 

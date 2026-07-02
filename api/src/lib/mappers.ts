@@ -594,6 +594,54 @@ export function rowToAiSuggestion(rec: Row): AiSuggestion {
 }
 
 /* ============================================================
+   Suggestion idempotency (rules-engine-v2 Phase 2 — POST /api/internal/triage/suggest-link).
+   ============================================================ */
+
+/** The resolved identity a suggest-link write's Durable at-least-once retry guard keys on. */
+export interface SuggestionIdempotencyKey {
+  suggestionType: 'case_link' | 'cancellation';
+  /** Which subject column the duplicate-check filters on. */
+  subjectKind: 'inbound_email_id' | 'source_message_id';
+  subject: string;
+  /** null when the request carried no target (e.g. an ambiguous ref-gate match). */
+  targetCaseId: string | null;
+}
+
+/**
+ * Pure: derive the idempotency identity for a `POST /api/internal/triage/suggest-link`
+ * write — "the same suggestion" is the same suggestionType + the same subject (preferring
+ * the resolved `inbound_email_id`; falling back to the pre-resolve `sourceMessageId` when the
+ * triage row doesn't exist yet, matching the pinned contract's "it may legitimately not
+ * exist yet" case) + the same targetCaseId. Returns null when NEITHER subject anchor is
+ * available — such a request is never treated as a duplicate of anything (there is nothing
+ * to key a WHERE clause on).
+ */
+export function deriveSuggestionIdempotencyKey(input: {
+  suggestionType: 'case_link' | 'cancellation';
+  inboundEmailId: string | null;
+  sourceMessageId: string | null;
+  targetCaseId: string | null;
+}): SuggestionIdempotencyKey | null {
+  if (input.inboundEmailId) {
+    return {
+      suggestionType: input.suggestionType,
+      subjectKind: 'inbound_email_id',
+      subject: input.inboundEmailId,
+      targetCaseId: input.targetCaseId,
+    };
+  }
+  if (input.sourceMessageId) {
+    return {
+      suggestionType: input.suggestionType,
+      subjectKind: 'source_message_id',
+      subject: input.sourceMessageId,
+      targetCaseId: input.targetCaseId,
+    };
+  }
+  return null;
+}
+
+/* ============================================================
    Pure helpers for the work-todo-spike features (testable; no DB).
    ============================================================ */
 

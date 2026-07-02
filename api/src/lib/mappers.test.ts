@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   casePoSeqOfName,
+  deriveSuggestionIdempotencyKey,
   inboundCategoryFromInt,
   inboundSubtypeFromInt,
   inboundViewWhere,
@@ -185,5 +186,58 @@ describe('rowToAiSuggestion — row -> domain mapping', () => {
     expect(s.suggestedValue).toEqual({ visible: true });
     expect(s.reviewState).toBe('pending');
     expect(s.confidence).toBeUndefined();
+  });
+});
+
+describe('deriveSuggestionIdempotencyKey — triage suggest-link duplicate-write guard', () => {
+  it('prefers inbound_email_id once the triage row is resolved', () => {
+    expect(
+      deriveSuggestionIdempotencyKey({
+        suggestionType: 'case_link',
+        inboundEmailId: 'ie-1',
+        sourceMessageId: 'msg-1',
+        targetCaseId: 'case-1',
+      }),
+    ).toEqual({
+      suggestionType: 'case_link',
+      subjectKind: 'inbound_email_id',
+      subject: 'ie-1',
+      targetCaseId: 'case-1',
+    });
+  });
+  it('falls back to sourceMessageId when inboundEmailId is not yet resolved (pre-classifyPersist)', () => {
+    expect(
+      deriveSuggestionIdempotencyKey({
+        suggestionType: 'cancellation',
+        inboundEmailId: null,
+        sourceMessageId: 'msg-1',
+        targetCaseId: null,
+      }),
+    ).toEqual({
+      suggestionType: 'cancellation',
+      subjectKind: 'source_message_id',
+      subject: 'msg-1',
+      targetCaseId: null,
+    });
+  });
+  it('returns null when neither subject anchor is available', () => {
+    expect(
+      deriveSuggestionIdempotencyKey({
+        suggestionType: 'case_link',
+        inboundEmailId: null,
+        sourceMessageId: null,
+        targetCaseId: 'case-1',
+      }),
+    ).toBeNull();
+  });
+  it('carries a null targetCaseId through unchanged (an ambiguous ref-gate match)', () => {
+    expect(
+      deriveSuggestionIdempotencyKey({
+        suggestionType: 'case_link',
+        inboundEmailId: 'ie-2',
+        sourceMessageId: null,
+        targetCaseId: null,
+      })?.targetCaseId,
+    ).toBeNull();
   });
 });
