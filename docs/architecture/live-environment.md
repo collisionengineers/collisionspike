@@ -169,9 +169,9 @@ az resource list -g rg-collisionspike-dev -o table
 # Static Web App (SPA) hostname + status
 az staticwebapp show -g rg-collisionspike-dev -n cespk-spa-dev --query "defaultHostname" -o tsv
 
-# Function Apps — which functions are actually deployed (verified 2026-07-01T22:30Z: orch 51, api 65, parser 3)
-az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 65 functions
-az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 51 functions (live in testing — 3 push subs)
+# Function Apps — which functions are actually deployed (verified 2026-07-02T12:45Z: orch 52, api 69, parser 3)
+az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 69 functions
+az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 52 functions (live in testing — 3 push subs)
 
 # Postgres — table count + seeded corpus counts (psql via the admin connection string)
 #   SELECT count(*) FROM information_schema.tables WHERE table_schema='public';      -- expect 36
