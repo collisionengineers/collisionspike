@@ -251,6 +251,35 @@ actions.
 3. Confirm a push notification fires (graph-webhook) and a test email lands as a **Case** (status `new_email → ingested`), provider
    matched by sender domain, and the EVA fields pre-fill with provenance.
 
+#### B4. Activate Outlook filing ("Suggested action" → real move)  ·  *~15 min + the RBAC cache wait*  ·  **NEW (TKT-054 / 020726 E6)**
+
+**What:** the inbox's "Suggested action" column can genuinely FILE an email into the suggested
+Outlook folder (e.g. `Inbox/Instructions`) inside the shared mailbox. The whole path is built and
+deployed **dark** behind `OUTLOOK_MOVE_ENABLED` (default off): SPA button → Data API
+`POST /api/inbound/{id}/outlook-move` → `outlook-move` storage queue → orchestration mover (Graph
+`/move`, creating the destination folder when missing) → outcome stamped back on the row + audit.
+While the gate is off the column shows the suggestion as display-only text.
+
+**Why you:** the mover needs **`Application Mail.ReadWrite`** via **Exchange RBAC for Applications**
+on the intake mailboxes — a permission grant only you can make (today's grant is `Mail.Read` only,
+so a move would 403), plus the gate flip. **You also asked to live-test this yourself — no automated
+live move test will be run.**
+
+**Steps:**
+1. Exchange admin: add a **second role assignment** for the intake app's service principal —
+   role **`Application Mail.ReadWrite`**, same management scope as the existing read grant
+   (`CollisionSpike-Intake-Prod` over info@ + engineers@ + desk@). Keep the `Mail.Read` assignment.
+2. **Wait for the Exchange-RBAC permission cache** (~30 min–2 h, same as the B1 cutover; leave the
+   app idle rather than polling).
+3. Flip the gate: set **`OUTLOOK_MOVE_ENABLED=true`** on **both** `cespk-api-dev` and
+   `cespk-orch-dev`. (The API also needs `OUTLOOK_MOVE_QUEUE_SERVICE_URL` + its MI holding
+   `Storage Queue Data Message Sender` on the orch storage account — wired at deploy time; see the
+   registry.)
+4. **Live-test yourself:** click "File to …" on a test row in the inbox; the email should move in
+   Outlook, the row should read "Filed to …" and flip to Handled, and `audit_event` should carry
+   `outlook_move_requested` → `outlook_moved`. Record the result in
+   [tickets/TKT-054-ui-work/verification.md](./tickets/TKT-054-ui-work/verification.md).
+
 ---
 
 ### C. Staff access

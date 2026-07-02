@@ -288,6 +288,72 @@ export async function listMessageIdsSince(
   return { ids: rows.map((r) => r.id), newWatermark };
 }
 
+/* ---------- Outlook filing (TKT-054 / 020726 E6 — gated by OUTLOOK_MOVE_ENABLED) ---------- */
+
+/** Escape a value for a Graph OData $filter string literal (single quotes double up). */
+export function odataQuote(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+/**
+ * Resolve the CURRENT Graph message id from the RFC Internet-Message-Id. The stored
+ * dedup key is the internetMessageId (not the Graph id), and a Graph id changes when a
+ * message moves folder — so the mover always re-resolves. Searches the whole mailbox
+ * (not just Inbox) so a retry after a partial move still finds the message. Returns
+ * null when no match (deleted / different mailbox).
+ */
+export async function findMessageByInternetMessageId(
+  mailbox: string,
+  internetMessageId: string,
+): Promise<{ id: string; parentFolderId: string } | null> {
+  const filter = encodeURIComponent(`internetMessageId eq ${odataQuote(internetMessageId)}`);
+  const path =
+    `/users/${encodeURIComponent(mailbox)}/messages` +
+    `?$filter=${filter}&$select=id,parentFolderId&$top=2`;
+  const res = await graphFetch<{ value: Array<{ id: string; parentFolderId: string }> }>(path);
+  return res.value?.[0] ?? null;
+}
+
+/**
+ * Walk (and create as needed) a child-folder chain under the well-known Inbox:
+ * segments ['Queries','Case queries'] -> Inbox/Queries/Case queries. Returns the
+ * final folder id. Folder create needs Mail.ReadWrite (the same Exchange-RBAC
+ * re-consent the whole move path is gated on — docs/gated.md).
+ */
+export async function ensureInboxChildFolder(mailbox: string, segments: string[]): Promise<string> {
+  const user = encodeURIComponent(mailbox);
+  let parentId = 'inbox'; // the well-known folder name is valid in the id segment
+  for (const name of segments) {
+    const filter = encodeURIComponent(`displayName eq ${odataQuote(name)}`);
+    const found = await graphFetch<{ value: Array<{ id: string }> }>(
+      `/users/${user}/mailFolders/${encodeURIComponent(parentId)}/childFolders?$filter=${filter}&$select=id&$top=1`,
+    );
+    if (found.value?.[0]) {
+      parentId = found.value[0].id;
+      continue;
+    }
+    const created = await graphFetch<{ id: string }>(
+      `/users/${user}/mailFolders/${encodeURIComponent(parentId)}/childFolders`,
+      { method: 'POST', body: JSON.stringify({ displayName: name }) },
+    );
+    parentId = created.id;
+  }
+  return parentId;
+}
+
+/** Move a message to a destination folder (Mail.ReadWrite). Returns the new message id. */
+export async function moveMessage(
+  mailbox: string,
+  messageId: string,
+  destinationFolderId: string,
+): Promise<string> {
+  const res = await graphFetch<{ id: string }>(
+    `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}/move`,
+    { method: 'POST', body: JSON.stringify({ destinationId: destinationFolderId }) },
+  );
+  return res.id;
+}
+
 /* ---------- helpers ---------- */
 
 function requireEnv(key: string): string {

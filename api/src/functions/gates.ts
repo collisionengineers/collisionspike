@@ -19,9 +19,11 @@ import {
   AI_ASSIST_GATE_ALL_OFF,
   BOX_GATES_ALL_FALSE,
   LOCATION_ASSIST_GATE_ALL_OFF,
+  OUTLOOK_MOVE_GATE_ALL_OFF,
   type AiAssistGate,
   type BoxGates,
   type LocationAssistGate,
+  type OutlookMoveGate,
 } from '@cs/domain';
 import { withRole } from '../lib/auth.js';
 import { gates } from '../lib/gates.js';
@@ -99,6 +101,23 @@ app.http('getAiAssistGate', {
       return { status: 200, jsonBody: result };
     } catch {
       return { status: 200, jsonBody: { ...AI_ASSIST_GATE_ALL_OFF } };
+    }
+  }),
+});
+
+// GET /api/gates/outlook-move — the Outlook filing gate (TKT-054 / 020726 E6). `enabled`
+// is the actionable state the SPA "Suggested action" button keys on: OUTLOOK_MOVE_ENABLED
+// AND a configured move queue. Honest all-off on failure.
+app.http('getOutlookMoveGate', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'gates/outlook-move',
+  handler: withRole('CollisionSpike.User', async () => {
+    try {
+      const result: OutlookMoveGate = { enabled: gates.outlookMoveEnabled() };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...OUTLOOK_MOVE_GATE_ALL_OFF } };
     }
   }),
 });

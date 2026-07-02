@@ -114,7 +114,13 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   (100000035, 'inbound_link_suggested',     'Inbound Link Suggested'),
   (100000036, 'inbound_linked',             'Inbound Linked'),
   (100000037, 'inbound_detached',           'Inbound Detached'),
-  (100000038, 'cancellation_proposed',      'Cancellation Proposed');
+  (100000038, 'cancellation_proposed',      'Cancellation Proposed'),
+  -- Outlook filing lifecycle (TKT-054 / 020726 E6, 2026-07-02 delta -- see
+  -- deltas/2026-07-02-tkt054-outlook-move.sql; gated by OUTLOOK_MOVE_ENABLED):
+  -- requested = staff clicked File-to; moved/failed = the mover's terminal outcome.
+  (100000039, 'outlook_move_requested',     'Outlook Move Requested'),
+  (100000040, 'outlook_moved',              'Outlook Moved'),
+  (100000041, 'outlook_move_failed',        'Outlook Move Failed');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code

@@ -9,6 +9,7 @@
  *   --  PATCH /api/inbound/{id}/classification       reclassifyInbound (override capture)
  *   --  GET   /api/inbound/{id}/suggestions          AiSuggestion[] for this inbound (honest [])
  *   --  POST  /api/inbound/{id}/detach               unlink from its case (idempotent; audited)
+ *   --  POST  /api/inbound/{id}/outlook-move         gated Outlook filing enqueue (TKT-054; 409 while off)
  *
  * Read endpoints 27 + 28 (+ the new suggestions list) stay "honest-empty" on ANY read
  * failure (table not wired / read error) so the SPA never hard-fails. The WRITE endpoints
@@ -21,6 +22,7 @@
 import { app } from '@azure/functions';
 import {
   INBOUND_COUNTS_ZERO,
+  suggestedOutlookFolder,
   type AiSuggestion,
   type InboundCategory,
   type InboundCounts,
@@ -30,6 +32,8 @@ import {
 } from '@cs/domain';
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
+import { gates } from '../lib/gates.js';
+import { enqueueOutlookMove } from '../lib/outlook-queue.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit, type AuditAction } from '../lib/audit.js';
 import {
   INBOUND_CATEGORY_TO_INT,
@@ -153,6 +157,84 @@ app.http('setTriageState', {
     });
 
     return { status: 204 };
+  }),
+});
+
+// POST /api/inbound/{id}/outlook-move   (TKT-054 / 020726 E6 — gated Outlook filing)
+// Honest 409 while OUTLOOK_MOVE_ENABLED is off / queue unconfigured. The destination
+// folder is SERVER-derived from the row's own e-mail type (never client-supplied);
+// the actual Graph move runs in the orchestration app off the `outlook-move` queue,
+// which reports back via POST /api/internal/inbound/{id}/outlook-moved.
+app.http('moveInboundToOutlook', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'inbound/{id}/outlook-move',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    if (!gates.outlookMoveEnabled()) {
+      return { status: 409, jsonBody: { error: 'outlook filing is not enabled' } };
+    }
+    const id = req.params.id;
+    const existing = await query<Row>(
+      `SELECT id, source_message_id, source_mailbox, subtype_code, suggested_subtype_code,
+              case_id, outlook_move_state
+         FROM inbound_email WHERE id = $1`,
+      [id],
+    );
+    const row = existing[0];
+    if (!row) return { status: 404, jsonBody: { error: 'not found' } };
+    if (row.outlook_move_state === 'moved') {
+      return { status: 409, jsonBody: { error: 'already filed' } };
+    }
+    if (!row.source_message_id || !row.source_mailbox) {
+      return { status: 409, jsonBody: { error: 'no mailbox provenance to act on' } };
+    }
+
+    // File per the CURRENT (staff-chosen) type; the classifier's original only as fallback.
+    const subtype: InboundSubtype =
+      inboundSubtypeFromInt(row.subtype_code) ?? inboundSubtypeFromInt(row.suggested_subtype_code) ?? 'other';
+    const folder = suggestedOutlookFolder(subtype);
+
+    // Mark queued BEFORE enqueueing (a delivered job must never race an unmarked row);
+    // revert to failed if the enqueue itself cannot be placed.
+    await query(
+      `UPDATE inbound_email
+          SET outlook_move_state = 'queued', outlook_moved_folder = $2, updated_at = now()
+        WHERE id = $1`,
+      [id, folder],
+    );
+    const actor = actorFromClaims(claims);
+    try {
+      await enqueueOutlookMove({
+        inboundEmailId: id,
+        sourceMailbox: String(row.source_mailbox),
+        sourceMessageId: String(row.source_message_id),
+        targetFolderPath: folder,
+      });
+    } catch (e) {
+      await query(
+        `UPDATE inbound_email
+            SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
+          WHERE id = $1`,
+        [id],
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.outlook_move_failed,
+        ...(row.case_id ? { caseId: row.case_id as string } : {}),
+        summary: `Outlook filing could not be queued (${folder})`,
+        severity: 'warning',
+        after: { inboundEmailId: id, folder, detail: e instanceof Error ? e.message.slice(0, 300) : String(e) },
+        ...(actor ? { actor } : {}),
+      });
+      return { status: 503, jsonBody: { error: 'filing queue unavailable' } };
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.outlook_move_requested,
+      ...(row.case_id ? { caseId: row.case_id as string } : {}),
+      summary: `Outlook filing requested -> ${folder}`,
+      after: { inboundEmailId: id, folder, sourceMessageId: row.source_message_id },
+      ...(actor ? { actor } : {}),
+    });
+    return { status: 202, jsonBody: { queued: true, folder } };
   }),
 });
 

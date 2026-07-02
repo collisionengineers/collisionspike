@@ -447,6 +447,18 @@ export const dataApi = {
     });
   },
 
+  /**
+   * Report the terminal outcome of a gated Outlook filing (TKT-054 / 020726 E6) — the
+   * `outlook-move` queue function's write-back. `moved` also marks a still-new row
+   * actioned on the API side; `failed` leaves the row retryable.
+   */
+  reportOutlookMove(
+    inboundEmailId: string,
+    payload: { outcome: 'moved' | 'failed'; folder?: string; detail?: string },
+  ): Promise<void> {
+    return request('POST', `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
+  },
+
   /** Append one audit_event row (internal route; the API enforces append-only). */
   recordAudit(payload: {
     action: string;
