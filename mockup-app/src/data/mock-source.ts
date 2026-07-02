@@ -47,7 +47,7 @@ import {
   LOCATION_ASSIST_GATE_ALL_OFF,
   AI_ASSIST_GATE_ALL_OFF,
 } from '@cs/domain';
-import type { DataAccessExt, DetachInboundResult } from './rest-client';
+import type { DataAccessExt, DetachInboundResult, OutlookMoveResult } from './rest-client';
 
 const NOT_CONFIGURED =
   'Data source not configured — call configureDataAccess(restClient) in main.tsx before writes.';
@@ -490,6 +490,11 @@ export const mockDataAccess: DataAccessExt = {
   inboundSuggestions: (_id): Promise<AiSuggestion[]> => Promise.resolve([]),
   // Write — rejects until the live source is injected (never a fake unlink).
   detachInbound: (_id): Promise<DetachInboundResult> => Promise.reject(new Error(NOT_CONFIGURED)),
+
+  /* ----- Outlook filing (TKT-054 / 020726 E6) — honest-off on the mock source ----- */
+  getOutlookMoveGate: () => Promise.resolve({ enabled: false }),
+  moveInboundToOutlook: (_id): Promise<OutlookMoveResult> =>
+    Promise.reject(new Error(NOT_CONFIGURED)),
 };
 
 /** Factory form, for symmetry with `createDataverseDataAccess`. */

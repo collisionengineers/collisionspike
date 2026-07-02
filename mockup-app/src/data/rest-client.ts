@@ -46,6 +46,7 @@ import type {
   AiSuggestionReviewResult,
   GenerateAiSuggestionsResult,
   AiAssistGate,
+  OutlookMoveGate,
 } from '@cs/domain';
 import type { Case, Chaser, Evidence, Provider, ActivityEvent } from '@cs/domain';
 import type {
@@ -61,6 +62,7 @@ import {
   LOCATION_ASSIST_GATE_ALL_OFF,
   INBOUND_COUNTS_ZERO,
   AI_ASSIST_GATE_ALL_OFF,
+  OUTLOOK_MOVE_GATE_ALL_OFF,
 } from '@cs/domain';
 
 export interface RestClientOptions {
@@ -101,6 +103,13 @@ export interface LogChaseInput {
  *  inbound email from its case). */
 export interface DetachInboundResult {
   ok: boolean;
+}
+
+/** Result of `POST /api/inbound/{id}/outlook-move` (TKT-054 / 020726 E6). */
+export interface OutlookMoveResult {
+  queued: boolean;
+  /** The server-derived destination, e.g. "Inbox/Instructions". */
+  folder: string;
 }
 
 export interface DataAccessExt extends DataAccess {
@@ -153,6 +162,15 @@ export interface DataAccessExt extends DataAccess {
    *  copy is untouched (Box stays a one-way additive mirror — ADR-0012/0017; flagged
    *  for manual tidy-up, never auto-removed). Throws on non-2xx — never a fake unlink. */
   detachInbound(id: string): Promise<DetachInboundResult>;
+
+  /* ----- Outlook filing (TKT-054 / 020726 E6) — GATED ----- */
+  /** The Outlook-move gate (honest all-off on failure) — the "Suggested action"
+   *  column renders an actionable button only when `enabled`. */
+  getOutlookMoveGate(): Promise<OutlookMoveGate>;
+  /** Queue the REAL Outlook filing of one inbound email into its suggested folder
+   *  (server-derived — no folder is sent). Throws on non-2xx (409 while the gate is
+   *  off / already filed; 503 when the queue is unreachable) — never a fake "Filing…". */
+  moveInboundToOutlook(id: string): Promise<OutlookMoveResult>;
 }
 
 export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
@@ -378,5 +396,12 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     // Mutation — NOT safe()-wrapped: a failed unlink must reach the operator (never a
     // fake success); throws on non-2xx like every other write in this client.
     detachInbound: (id) => post<DetachInboundResult>(`/api/inbound/${enc(id)}/detach`),
+
+    /* ----- Outlook filing (TKT-054 / 020726 E6) ----- */
+    getOutlookMoveGate: () =>
+      safe(() => get<OutlookMoveGate>('/api/gates/outlook-move'), { ...OUTLOOK_MOVE_GATE_ALL_OFF }),
+    // Mutation — NOT safe()-wrapped: a 409/503 must reach the operator as a toast,
+    // never a phantom "Filing…" on a row the server refused.
+    moveInboundToOutlook: (id) => post<OutlookMoveResult>(`/api/inbound/${enc(id)}/outlook-move`),
   };
 }
