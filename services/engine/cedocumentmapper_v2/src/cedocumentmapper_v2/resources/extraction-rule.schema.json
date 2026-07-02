@@ -27,6 +27,17 @@
     "labels": { "type": "array", "items": { "type": "string" } },
     "start_label": { "type": "string" },
     "end_label": { "type": "string" },
+    "label_pairs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "start_label": { "type": "string" },
+          "end_label": { "type": "string" }
+        }
+      }
+    },
     "line_number": { "type": "integer", "minimum": 1 },
     "line_start": { "type": "integer", "minimum": 1 },
     "line_end": { "type": "integer", "minimum": 1 },
