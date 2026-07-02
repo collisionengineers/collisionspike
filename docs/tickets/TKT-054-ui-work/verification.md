@@ -53,6 +53,14 @@
    screenshots at 1920×1080 + 1280×900: both regions on shared tracks, no
    wrap, all-time cell railed + captioned). New bundle `index-B-vxJJzr.js`
    confirmed live. Operator re-check requested.
+   **⚠ 2026-07-03 round 3:** operator screenshot (restored-down ~1280 window)
+   showed labels ellipsized mid-word ("Receiving …", "Needs sort…") — the
+   round-2 ellipsis traded wrapping for truncation. Now: labels wrap ≤2 lines,
+   equal-height cells, All-time caption as a sub-line, and the two-column
+   cockpit breakpoint raised 992→1200px (below it the panels stack). Harness
+   re-verified at 1024 / 1210 / 1280 / 1920 with the operator's own counts;
+   bundle `index-_PzfPvQC.js` live (sha256-matched). Operator re-check
+   requested at their normal window size.
 7. ⏳ **Operator (gated.md B4)**: Mail.ReadWrite Exchange-RBAC re-consent →
    `OUTLOOK_MOVE_ENABLED=true` on both apps → **live-test the move yourself**
    (no automated live move was or will be run) → record here.
