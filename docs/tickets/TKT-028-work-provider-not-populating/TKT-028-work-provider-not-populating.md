@@ -1,7 +1,7 @@
 ---
 id: TKT-028
 title: work_provider not populating on intake
-status: backlog
+status: now
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-001, TKT-021]

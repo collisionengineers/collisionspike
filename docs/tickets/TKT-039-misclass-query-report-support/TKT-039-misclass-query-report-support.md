@@ -1,7 +1,7 @@
 ---
 id: TKT-039
 title: Report-support request misclassified as new case
-status: backlog
+status: now
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006]

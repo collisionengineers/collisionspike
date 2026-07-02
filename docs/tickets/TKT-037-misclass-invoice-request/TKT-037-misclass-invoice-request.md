@@ -1,7 +1,7 @@
 ---
 id: TKT-037
 title: Invoice request misclassified as new case
-status: backlog
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006]

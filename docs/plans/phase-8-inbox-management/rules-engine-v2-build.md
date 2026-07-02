@@ -9,7 +9,16 @@
 > build** of Phase 8; this file describes the live, Azure-stack continuation. See the banner near the
 > top of [README.md](./README.md).
 >
-> **Status (2026-07-02):** plan approved; **no phase has started**. Binding architecture decision:
+> **Build complete (2026-07-02).** All six phases below are built and tested; the Data API, orchestration,
+> and SPA are deployed live. What remains is the **operator activation path**, in order: **D7** (apply the
+> taxonomy-v2 DDL delta) → **the taxonomy-v2 parser deploy** → **D8** (apply the identification seed delta)
+> → the per-behaviour `TRIAGE_*` gate flips → **D6 + G5** (the `EMAIL_AI_ENABLED` production flip, once the
+> AI sign-off lands). See [docs/gated.md](../../gated.md) for the full detail behind each step, and
+> [docs/tickets/BOARD.md](../../tickets/BOARD.md) for the per-ticket disposition this build produced.
+>
+> **Status (2026-07-02):** plan approved and **built** (see "Build complete" above — this line
+> previously read "no phase has started"; the checkboxes below now reflect the built state). Binding
+> architecture decision:
 > [ADR-0019](../../adr/0019-triage-policy-stage-split.md) (Proposed) — Stage A (text signals, stay in
 > the vendored engine), Stage B (a deterministic triage-policy module in `packages/domain`), Stage C (a
 > gated LLM/embeddings suggestion writer, never an actor). ADR-0019 extends
@@ -21,13 +30,16 @@
 > link the registry [docs/architecture/live-environment.md](../../architecture/live-environment.md) /
 > [LIVE_FACTS.json](../../../LIVE_FACTS.json) instead.
 >
-> **Operator gates.** Five gates are queued — none due until its phase starts. Each is tagged 🔒 inline
-> below and tracked in full at [docs/gated.md](../../gated.md) §D6: (1) the sibling PR-4 merge + first
-> engine tag (Phase 0), (2) the Phase-2 DDL delta apply (live Postgres), (3) the `EMAIL_AI_ENABLED`
-> production flip (Phase 4; the G5/residency sign-off + E2), (4) the live `inbound_email` PII export
-> for the eval corpus (Phase 1; E2), (5) the Foundry local-auth (keyless) flip (Phase 4; ownership
-> confirmation). All five also depend on the standing A0 (`az login`) and A1 (Free-Trial→PAYG) items in
-> `gated.md`.
+> **Operator gates.** Five gates were queued at authoring time; the build is now complete, so most are
+> **now due** rather than pending a phase start. Each is tagged 🔒 inline below and tracked in full at
+> [docs/gated.md](../../gated.md): (1) the sibling PR-4 merge + first engine tag (Phase 0) — **done**,
+> see the Phase 0 checkboxes below; (2) the Phase-2 DDL delta apply (live Postgres) — authored and
+> ready, now tracked as **§D7** (taxonomy) + **§D8** (identification seeds); (3) the `EMAIL_AI_ENABLED`
+> production flip (Phase 4; the G5/residency sign-off + E2) — code built gated-off, **§D6**; (4) the live
+> `inbound_email` PII export for the eval corpus (Phase 1; E2) — still outstanding, not required for the
+> other gates; (5) the Foundry local-auth (keyless) flip (Phase 4; ownership confirmation) — still
+> outstanding, **§D6** item 5. All depend on the standing A0 (`az login`) and A1 (Free-Trial→PAYG) items
+> in `gated.md`.
 
 ## Deploy order (binding — read before starting Phase 0 or Phase 2)
 
@@ -51,29 +63,34 @@ compatibility boundary"):
   exit criterion. **Done** — [ADR-0019](../../adr/0019-triage-policy-stage-split.md) already exists
   (Status: Proposed, 2026-07-02). Do not re-author it or flip its status; later evidence lands as a
   dated update section, the way ADR-0015 carries its 2026-06-29 / 2026-07-02 updates.
-- [ ] Capture the sibling **field-extraction eval baseline before merging** (`src/cedocumentmapper_v2/eval/`
+- [x] Capture the sibling **field-extraction eval baseline before merging** (`src/cedocumentmapper_v2/eval/`
   comparator + a committed baseline) — PR 4 changes `/parse` behaviour for sibling-main consumers.
-- [ ] 🔒 **Merge sibling PR 4; close PR 5 as superseded** (a strict subset — sequential merge risks an
+  **Done** — the sibling's `eval/baseline.json` was refreshed (sibling commit `3321655`) before PR 4's
+  merge commit (`8445028`).
+- [x] 🔒 **Merge sibling PR 4; close PR 5 as superseded** (a strict subset — sequential merge risks an
   add/add conflict on the identical decorative hunk). Neither PR has CI: local `pytest` must be green
   first (including the two known-failing parser tests). Add PR 4's `label_pairs` key to
   `extraction-rule.schema.json`; confirm nothing needed is stranded on `feat/audit-case-type-detection`.
   *(Cross-repo/sibling action — cannot be done from collisionspike; see ADR-0018's "Operator /
-  cross-repo prerequisites".)*
-- [ ] 🔒 **Tag the engine release** (the sibling's first tag, e.g. `engine-v2.1`), then re-cut into
+  cross-repo prerequisites".)* **Done (2026-07-02)** — PR 4 merged, PR 5 closed.
+- [x] 🔒 **Tag the engine release** (the sibling's first tag, e.g. `engine-v2.1`), then re-cut into
   `functions/parser/cedocumentmapper_v2/` per ADR-0018. The re-cut must be a **content no-op for the
   cloud path** (the vendored copy is already ≡ PR 4 + B2) — diff-verify before deploy, re-apply the B2
   reconciliation, update the PROVENANCE pin and close its stale divergence notes, confirm
   `test_engine_vendored_in_sync` green with the sibling checked out. Verify the two PR-4 worker
   side-effects on the deployed Function (tempfile writes; `.doc` LibreOffice-fallback behaviour when
-  `soffice` is absent). **This tag emits the v1 taxonomy only** — see Deploy order above.
-- [ ] **Contract pass-through:** send `attachment_filenames` from orchestration (`classifyInbound.ts` /
+  `soffice` is absent). **This tag emits the v1 taxonomy only** — see Deploy order above. **Done** — the
+  sibling progressed through tags `engine-v2.1`→`engine-v2.5` across this build (each later phase's tag
+  re-cut byte-mirror verified); B2 upstreamed to the sibling.
+- [x] **Contract pass-through:** send `attachment_filenames` from orchestration (`classifyInbound.ts` /
   `functions-client.ts`); surface the engine's existing `body_jobref` through the OpenAPI schema → the
   TS client → `InboundClassification`; **capture** `conversationId` (add it to the Graph `$select` in
-  `graph.ts` and carry it in the envelope — the column itself lands with Phase 2's DDL).
-- [ ] Fix OpenAPI drift: the `ClassifyEmailResponse` category enum (add `billing`, `non_actionable`) +
-  the three missing subtypes + the `body_jobref` property.
-- [ ] Redeploy the parser + orchestration apps; verify with live probes (`/classify-email` plus the
-  ticket-email replay set).
+  `graph.ts` and carry it in the envelope — the column itself lands with Phase 2's DDL). **Done** —
+  `b8c679e`; deployed live and probed.
+- [x] Fix OpenAPI drift: the `ClassifyEmailResponse` category enum (add `billing`, `non_actionable`) +
+  the three missing subtypes + the `body_jobref` property. **Done** — same commit `b8c679e`.
+- [x] Redeploy the parser + orchestration apps; verify with live probes (`/classify-email` plus the
+  ticket-email replay set). **Done** — orch + parser redeployed, contract probe green (registry updated).
 - [ ] Doc hygiene rides along with Phase 0 (tracked separately from the code work above):
   - [x] Registry `foundry` block — done.
   - [x] `packages/domain/src/gates.ts` AI comment — done.

@@ -4,22 +4,22 @@ overview: "A staged upgrade of email categorisation & identification: keep pure 
 todos:
   - id: phase0-consolidate
     content: "Capture field-extraction eval baseline; merge sibling PR 4, close PR 5 (subset); first engine tag; re-cut (diff-verified content no-op) + re-apply B2; fix PROVENANCE pin; pass attachment_filenames + body_jobref + conversationId (capture-only) through the contract; fix OpenAPI enums; ADR-0019 authored = exit criterion; redeploy + live probes"
-    status: pending
+    status: completed
   - id: phase1-eval
     content: "Tier-3 real-email corpus (31 .eml + 12 .msg + gated live export) with taxonomy-version labels + confusion-matrix eval runner (net-new scorer) + verify-all opt-in gate; record baseline before any rule change"
-    status: pending
+    status: completed
   - id: phase2-taxonomy-policy
     content: "DDL delta FIRST (case_update/cancellation/images_received + body_jobref + conversation_id), then taxonomy-v2 engine tag; triage-policy module in @cs/domain; ref-gate suggest-first via ai_suggestion lifecycle (exact-ref promotes later; VRM-only stays suggest); internetMessageId dedup rung + advisory-lock serialization; decision telemetry (customEvents); per-behavior kill-switches; raster floor for non-inline signature images"
-    status: pending
+    status: completed
   - id: phase3-identification
     content: "ADR-0011 as written: image_source kind=intermediary + N:N to work_provider + de-collide knownEmailDomains; parser work_provider string → work_provider_id at caseResolve (verify TKT-028 example first); content-based attachment typing via provider detect_phrases (net-new)"
-    status: pending
+    status: completed
   - id: phase4-ai-assist
     content: "Replace the dormant triageClassify stub body with the AOAI structured-output call (MI/keyless; pii-scrub; content_filter→abstain; version pinned; ai_allowed honoured); wire post-classify for abstain/uncorroborated rows into the existing ai_suggestion lifecycle; embedding prior on plain float8[] columns; A/B gpt-5 vs gpt-5-mini on the corpus; gated off until the G5/residency sign-off"
-    status: pending
+    status: completed
   - id: phase5-ruleset
     content: "Externalize the phrase data (not the whole ruleset) to schema-validated triage-rules.json incl. the desktop/PyInstaller consumer; SPA handler-language why-classified + source-mailbox chip/filter (TKT-025) + TKT-005 finish, under review 010726 D14/D15/D16"
-    status: pending
+    status: completed
 isProject: false
 ---
 
