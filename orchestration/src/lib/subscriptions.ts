@@ -187,6 +187,46 @@ export function mailboxOfResource(resource: string): string {
   return m ? m[1] : '';
 }
 
+/**
+ * True when a parsed mailbox reads as a real address (local@domain). Graph change
+ * notifications canonicalise `resource` to `Users/<object-id-GUID>/Messages/<id>`, so
+ * `mailboxOfResource` on a NOTIFICATION yields the mailbox GUID — which must not be
+ * persisted as source_mailbox provenance (TKT-054: every inbox chip read "Other source").
+ */
+export function looksLikeMailboxAddress(value: string): boolean {
+  return /^[^@\s]+@[^@\s]+$/.test(value ?? '');
+}
+
+/** subscriptionId → mailbox UPN, memoised for the process lifetime (subs live < 7 days). */
+const subscriptionMailboxCache = new Map<string, string>();
+
+/**
+ * Resolve the mailbox a notification belongs to via its subscription: the subscription we
+ * CREATED carries the UPN in `resource` (unlike the notification's canonicalised GUID form),
+ * and GET /subscriptions/{id} is readable with the app's own token (same grant that lists
+ * them for renewal). Never throws — intake must never block on provenance; returns '' on
+ * any failure (callers fall back to the parsed notification value, backfillable later).
+ */
+export async function resolveSubscriptionMailbox(subscriptionId: string): Promise<string> {
+  if (!subscriptionId) return '';
+  const hit = subscriptionMailboxCache.get(subscriptionId);
+  if (hit) return hit;
+  try {
+    const sub = await graphFetch<GraphSubscription>(`${SUBSCRIPTIONS_PATH}/${subscriptionId}`);
+    const mailbox = mailboxOfResource(sub.resource ?? '');
+    if (!looksLikeMailboxAddress(mailbox)) return '';
+    subscriptionMailboxCache.set(subscriptionId, mailbox);
+    return mailbox;
+  } catch {
+    return '';
+  }
+}
+
+/** Test seam: drop memoised subscription→mailbox entries. */
+export function clearSubscriptionMailboxCache(): void {
+  subscriptionMailboxCache.clear();
+}
+
 function requireClientState(): string {
   const cs = process.env.GRAPH_CLIENT_STATE;
   if (!cs) throw new Error('missing GRAPH_CLIENT_STATE');
