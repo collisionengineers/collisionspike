@@ -25,9 +25,23 @@ Response envelope:
       "vrm":              {value, confidence, source, warnings?} | null,
       "reference":        {value, confidence, source, warnings?} | null,
       "audit":            {value: bool, signals: [...], source} | null,
+      "content_typing":   {doc_type, provider_name, markers} | null,
       "issues":           [ {field, severity?, code, message} ],
       "contract_version": "cedocumentparser_v2.0_eva_json"
     }
+
+``content_typing`` (rules-engine-v2 Phase 3, net-new): the vendored engine's
+``detection.attachment_typing.type_document_text`` run over the parsed
+document's own extracted text, typing it ``instruction`` / ``report`` /
+``junk`` / ``unknown`` BY CONTENT — never by filename/extension. Additive and
+unconditional (no gate; always computed, cheap + pure). This is deliberately
+just a RESPONSE field today, not a classifier input: the email-intake
+pipeline classifies the EMAIL (orchestration step 1.5) BEFORE this route ever
+runs (step 4), so this typing cannot yet feed back into the email
+classifier's Rule 1 corroboration gate without a pipeline reorder — that is
+tracked as a follow-up, not solved here. What IS live: a downstream
+resolve/identification layer or telemetry pipeline can consume this field
+today, straight off the /parse response.
 
 Status codes:
     200  parsed + schema-valid (or schema-invalid surfaced in issues, see below)
@@ -238,6 +252,7 @@ def _parse(req: func.HttpRequest) -> func.HttpResponse:
         "vrm": mapped.get("vrm"),
         "reference": mapped.get("reference"),
         "audit": mapped.get("audit"),
+        "content_typing": mapped.get("content_typing"),
         "issues": issues,
         "contract_version": CONTRACT_VERSION,
     }
@@ -459,6 +474,7 @@ def _error(status: int, code: str, message: str) -> func.HttpResponse:
             "vrm": None,
             "reference": None,
             "audit": None,
+            "content_typing": None,
             "issues": [{"field": "(request)", "severity": "error", "code": code, "message": message}],
             "contract_version": CONTRACT_VERSION,
         },

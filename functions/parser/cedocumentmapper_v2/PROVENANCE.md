@@ -1,6 +1,6 @@
 # Vendored engine provenance — `cedocumentmapper_v2`
 
-> ## ⚠ DEPLOY-ORDER WARNING (as of the `engine-v2.3` pin, 2026-07-02)
+> ## ⚠ DEPLOY-ORDER WARNING (as of the `engine-v2.3` pin, 2026-07-02; still true at `engine-v2.4`)
 >
 > **This vendored tree now emits taxonomy v2** — `classify_email` can return the
 > new `case_update` / `cancellation` categories (subtypes `images_received` /
@@ -28,6 +28,34 @@ hand-edited** — every shared file, including the bundled JSON resources, is a
 byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
+
+**2026-07-02 (rules-engine-v2 Phase 3 — content-based attachment typing):** the
+sibling added `detection/attachment_typing.py` — a pure `type_document_text(text,
+catalog)` that types a document's already-extracted text as
+`instruction`/`report`/`junk`/`unknown` BY CONTENT (never filename/extension),
+reusing `ProviderDetector` (provider `detect_phrases`) and
+`rules.engine._WORK_KEYWORDS` rather than duplicating either — see that module's
+own docstring for the full precedence rules (report checked before instruction;
+a corroboration gate mirroring `classify_email` Rule 1's discipline). Re-exported
+from `detection/__init__.py` alongside the package's existing exports — the one
+non-additive line this re-cut touches. Tagged **`engine-v2.4`**; this copy is cut
+from it, diff-verified against the prior `engine-v2.3` pin to touch only that
+export line plus the new module, nothing else. The parser's `/parse` route now
+surfaces the result as an additive, unconditional `content_typing` response
+field (no feature gate — see `parser_adapter.py` / `function_app.py` and
+`openapi/parser-connector.json`'s new `ContentTyping` definition).
+
+Known limitation, NOT solved here (tracked as a rules-engine-v2 Phase-3
+follow-up, not this slice): the collisionspike email-intake pipeline classifies
+the EMAIL (orchestration step 1.5, `classifyInbound.ts`) *before* it parses any
+attached document (`/parse` runs at step 4), so `content_typing` cannot yet feed
+`classify_email`'s Rule 1 instruction-doc corroboration gate pre-classify — that
+would need a pipeline reorder (e.g. parse-before-classify, or a second
+post-parse classify pass) which is out of scope for this Phase-3 slice. Today
+`content_typing` is a `/parse`-time RESPONSE field only, ready for a downstream
+resolve/identification layer or telemetry pipeline to consume — see
+[`docs/plans/rules_engine_v2_plan_9ba034c4.plan.md`](../../../docs/plans/rules_engine_v2_plan_9ba034c4.plan.md)
+Phase 3.
 
 **2026-07-02 (rules-engine-v2 Phase 2 — taxonomy v2):** the sibling added two
 additive top-level categories to the email classifier — `case_update`
@@ -86,18 +114,20 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.3`** on `main`, commit
-  **`accddc57580723e8d2387633b8a30672d7d2a4ca`** (2026-07-02) — taxonomy v2
-  (`case_update` + `cancellation`), corrected (see History above; supersedes the
-  short-lived `engine-v2.2`, commit `6e3cb183a46169f45f4ef2a4507535322c673e7c`,
-  which carried the TKT-038 regression). Prior pins: `engine-v2.1` (commit
-  `a9f788715eb27e56a63c8b8bda66b2b04bdf9aef`, the sibling's first tagged engine
-  release), and the working-branch pins it superseded (`4824136`, `af98383`,
-  `e256760`, `504c3a3`).
+- **Cut from:** annotated tag **`engine-v2.4`** on `main`, commit
+  **`fbf6ddbea5b14a678de71af0a4fcd4e09fc6f1a6`** (2026-07-02) — content-based
+  attachment typing (`detection/attachment_typing.py`; rules-engine-v2 Phase 3;
+  see History above). Prior pins: `engine-v2.3` (commit
+  `accddc57580723e8d2387633b8a30672d7d2a4ca`, taxonomy v2 — `case_update` +
+  `cancellation`, corrected; supersedes the short-lived `engine-v2.2`, commit
+  `6e3cb183a46169f45f4ef2a4507535322c673e7c`, which carried the TKT-038
+  regression), `engine-v2.1` (commit `a9f788715eb27e56a63c8b8bda66b2b04bdf9aef`,
+  the sibling's first tagged engine release), and the working-branch pins it
+  superseded (`4824136`, `af98383`, `e256760`, `504c3a3`).
 
 ## Reconciliations: none outstanding
 
-As of `engine-v2.1` (and unchanged through `engine-v2.3`) this copy is a **pure
+As of `engine-v2.1` (and unchanged through `engine-v2.4`) this copy is a **pure
 mirror** — no vendored-only or sibling-only divergence remains. `RECONCILED_MODULES` in
 `tests/test_engine_vendored_in_sync.py` is empty, and every shared file
 (all `.py` modules plus `resources/*.json`) is byte-compared with no
@@ -172,7 +202,7 @@ must stay off the cloud path (see "Omitted modules" above).
 Run from the repo root (`collisionspike/`), Git Bash / bash:
 
 ```bash
-REF=engine-v2.3   # the committed, tagged sibling ref you are cutting from
+REF=engine-v2.4   # the committed, tagged sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 
@@ -182,6 +212,7 @@ for f in __init__.py \
          application/__init__.py application/service.py \
          config/__init__.py config/migration.py \
          detection/__init__.py detection/case_type.py detection/detector.py \
+         detection/attachment_typing.py \
          domain/__init__.py domain/models.py \
          exporters/__init__.py exporters/base.py exporters/eva_json.py exporters/rjs_docx.py \
          normalization/__init__.py normalization/normalizers.py \
