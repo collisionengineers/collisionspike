@@ -14,8 +14,8 @@
  * Power-Automate flow-linter, and connector-seam gates are RETIRED to SKIP — their
  * targets were deleted in migration purge 5eac80e and the live SPA uses plain
  * REST+MSAL (see each gate below). The live Data API (api/) is now covered (tsc
- * build + vitest auth suite, gate 2b below); the orchestration/ TypeScript app is
- * not yet covered here — add it to extend live-stack coverage.
+ * build + vitest auth suite, gate 2b below); the orchestration/ TypeScript app
+ * (Durable + Graph intake) is now covered too (gate 2d below).
  *
  * Exit code 0 = all gates passed (skips allowed); nonzero = a gate failed.
  */
@@ -88,6 +88,14 @@ run('Data API — vitest (auth)', `${VITEST} run`, { cwd: join(ROOT, 'api'), tai
 //     without it, an inconsistent edit to a relocated choiceset JSON would pass `verify-all`.
 run('Domain — vitest (contract/codec/parity)', `${VITEST} run`, { cwd: join(ROOT, 'packages', 'domain'), tail: 3 });
 
+// 2d. Live orchestration Function App (orchestration/, Durable Functions + Graph PUSH
+//     intake on cespk-orch-dev) — tsc build then vitest, same pattern as the Data API
+//     gate 2b above (unconditional; both are offline-safe, no Azure/tenant contact —
+//     the Durable/Graph tests mock the SDK seam). Closes the "not yet covered here"
+//     gap this file's header used to flag.
+run('Orchestration — tsc build', `${TSC} -b orchestration`, { tail: 1 });
+run('Orchestration — vitest', `${VITEST} run`, { cwd: join(ROOT, 'orchestration'), tail: 3 });
+
 // 3. Dataverse schema-as-code — RETIRED. The Power Platform footprint (Dataverse +
 //    Power Automate flows + Code App + connectors) was deprovisioned 2026-06-27 and
 //    its in-repo artifacts (incl. dataverse/verify-parity.mjs) were deleted in the
@@ -137,6 +145,45 @@ for (const [name, dir, rel] of PY_SUITES) {
     );
   } else {
     skip(`Function ${name} — pytest`, `no .venv. Setup: cd ${rel} && python -m venv .venv && (.venv/Scripts or .venv/bin)/pip install -r requirements.txt -r requirements-dev.txt`);
+  }
+}
+
+// 6b. Email classifier eval — real-email corpus scorer (scripts/eval-email/run_eval.py,
+//     Phase 1 of the rules-engine-v2 plan). OPT-IN like the VERIFY-LIVE gate below (a
+//     slower, corpus-driven smoke test over 44 real emails, not a fast unit gate) —
+//     SKIPS by default; set EVAL_EMAILS=1 to run it. Reuses the parser Function's venv
+//     (has extract-msg + the vendored engine's runtime deps reachable via
+//     functions/parser/ on sys.path), so it also SKIPs cleanly — never FAILs — when
+//     that venv or extract_msg isn't set up yet (same existsSync-guard discipline as
+//     the retired Power-Platform gates above). A plain run always exits 0 (classifier
+//     mismatches are expected, documented findings, not failures — see
+//     scripts/eval-email/README.md "Ground truth, not a pass/fail gate"); only a hard
+//     operational error (missing manifest, engine import failure) would FAIL this gate.
+if (process.env.EVAL_EMAILS !== '1') {
+  skip('Email classifier eval — real-email corpus', 'set EVAL_EMAILS=1 to run scripts/eval-email/run_eval.py against the 44-item real-email corpus (see scripts/eval-email/README.md).');
+} else {
+  const parserDir = join(ROOT, 'functions', 'parser');
+  const winPy = join(parserDir, '.venv', 'Scripts', 'python.exe');
+  const nixPy = join(parserDir, '.venv', 'bin', 'python');
+  const evalPy = isWin && existsSync(winPy) ? winPy : existsSync(nixPy) ? nixPy : null;
+  const hasExtractMsg = evalPy && (() => {
+    try {
+      execSync(`${JSON.stringify(evalPy)} -c "import extract_msg"`, { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  if (!evalPy) {
+    skip('Email classifier eval — real-email corpus', 'EVAL_EMAILS=1 but no functions/parser/.venv. Setup: cd functions/parser && python -m venv .venv && (.venv/Scripts or .venv/bin)/pip install -r requirements.txt -r requirements-dev.txt extract-msg');
+  } else if (!hasExtractMsg) {
+    skip('Email classifier eval — real-email corpus', 'EVAL_EMAILS=1 but extract_msg is not installed in functions/parser/.venv. Run: (.venv/Scripts or .venv/bin)/pip install extract-msg');
+  } else {
+    run(
+      'Email classifier eval — real-email corpus',
+      `${JSON.stringify(evalPy)} ${JSON.stringify(join(ROOT, 'scripts', 'eval-email', 'run_eval.py'))} --taxonomy v1`,
+      { tail: 1 },
+    );
   }
 }
 
