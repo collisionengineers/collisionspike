@@ -7,17 +7,26 @@ AUTHORING source of truth — all engine edits land there first, then this copy 
 re-cut by the command in ``cedocumentmapper_v2/PROVENANCE.md``. This test fails
 when the two drift apart so a change in one place is never silently lost.
 
-The vendored copy is a deliberate SUPERSET, not a byte-mirror. Three things are
-expected to differ and are tolerated here:
+As of the ``engine-v2.1`` tag (2026-07-02) the vendored copy is a TRUE MIRROR of
+the sibling for every shared file (ADR-0018 Decision 3): both the ROADMAP-B2
+claimant-contact extraction (previously vendored-only, hand-re-applied after
+every re-cut) and the earlier audit-case-type / engineer-report overlay
+(previously sibling-only) are now upstreamed and converged on both sides.
+``RECONCILED_MODULES`` is therefore empty and every shared module — including
+the bundled JSON resources, closing a prior blind spot — is byte-compared with
+no exceptions. Two things are still expected to differ and are tolerated here:
 
-  * Two OMITTED modules (``cli.py``, ``ui/host.py``) — pulled off the FC1 path.
-  * The pinned ``providers.json`` seed (authoritative in the vendored copy).
-  * The recorded RECONCILIATIONS — the vendored-only ROADMAP-B2 contact
-    extraction and the sibling-only engineer-report overlay/notes (see
-    PROVENANCE.md). For those files we don't byte-compare; we assert the
-    reconciliation markers are present on BOTH sides as appropriate.
+  * Two OMITTED modules (``cli.py``, ``ui/host.py``) — pulled off the FC1 path
+    (desktop/CLI-only, never imported by the deployed Function).
+  * The pinned ``providers.json`` seed (authoritative in the vendored copy —
+    it may intentionally lag or lead the sibling's own seed).
 
-Every other shared module must be byte-identical (ignoring line endings).
+The marker-based reconciliation mechanism (``_VENDORED_MARKERS`` /
+``_SIBLING_MARKERS`` and their two test functions) is kept available, empty,
+for the next time a reconciliation becomes unavoidable (e.g. a future
+vendored-only hotfix pending upstream) — populate the dicts and add the file
+to ``RECONCILED_MODULES`` to exclude it from the plain byte-compare while
+still pinning the pieces that must survive on both sides.
 
 The sibling repo is checked out one directory up from the collisionspike repo on
 a dev box; in CI it is usually absent. Like ``test_schema_vendored_in_sync``,
@@ -42,82 +51,25 @@ SIBLING_ROOT = _REPO_ROOT.parent / "cedocumentmapper_v2.0" / "src" / "cedocument
 # Modules intentionally NOT vendored (off the FC1 worker path).
 OMITTED_MODULES = {"cli.py", "ui/host.py"}
 
-# Files that carry a recorded reconciliation; excluded from the byte-compare and
-# checked by marker instead (see _RECONCILIATION_MARKERS).
-RECONCILED_MODULES = {
-    "domain/models.py",
-    "application/service.py",
-    "rules/engine.py",
-    "normalization/normalizers.py",
-    "normalization/__init__.py",
-}
+# Files carrying an ACTIVE, unreconciled divergence, excluded from the plain
+# byte-compare and checked by marker instead (see _VENDORED_MARKERS /
+# _SIBLING_MARKERS below). Empty as of engine-v2.1 -- both prior
+# reconciliations (ROADMAP-B2 claimant-contact extraction, and the
+# audit-case-type / engineer-report overlay) are now fully converged and
+# covered by the plain byte-compare like everything else.
+RECONCILED_MODULES: set[str] = set()
 
 # Non-source files we never byte-compare (the seed pin + this guard's own docs).
 NON_COMPARED = {"providers.json", "PROVENANCE.md"}
 
-# Markers that prove the reconciliations are intact in the VENDORED copy. Keyed by
-# vendored-relative path; each entry is (must-contain markers). These pin both the
-# vendored-only B2 contact extraction AND the sibling-only overlay/notes.
-_VENDORED_MARKERS: dict[str, tuple[str, ...]] = {
-    # B2 (vendored-only) + notes (sibling-only) both live here.
-    "domain/models.py": (
-        "CLAIMANT_TELEPHONE",
-        "CLAIMANT_EMAIL",
-        "notes: tuple[str, ...] = ()",
-        "is_audit: bool = False",
-    ),
-    # Overlay (sibling-only) lives here; no B2 here.
-    "application/service.py": (
-        "overlay_records_with_overrides",
-        "detect_engineer_provider",
-        '"notes": list(record.notes)',
-        '"is_audit": record.is_audit',
-    ),
-    # B2 (vendored-only) lives here; image-based (converged) too; the Phase-8
-    # email-classifier keyword tuples are CONVERGED (added identically to both
-    # copies, exported for rules/email_classifier.py).
-    "rules/engine.py": (
-        "_fallback_telephone",
-        "_fallback_email",
-        "_CLAIMANT_CONTEXT_WORDS",
-        "IMAGE_BASED_ASSESSMENT",
-        "detect_audit_signals",
-        "_WORK_KEYWORDS",
-        "_QUERY_KEYWORDS",
-        "_match_keywords",
-    ),
-    "normalization/normalizers.py": (
-        "TELEPHONE_RE",
-        "EMAIL_RE",
-        "def normalize_telephone",
-        "def normalize_email",
-    ),
-    "normalization/__init__.py": (
-        "normalize_telephone",
-        "normalize_email",
-    ),
-}
+# Markers proving a reconciliation is intact in the VENDORED copy, keyed by
+# vendored-relative path. Populate alongside RECONCILED_MODULES the next time a
+# file must carry an intentional, tracked divergence.
+_VENDORED_MARKERS: dict[str, tuple[str, ...]] = {}
 
-# Markers that prove the SIBLING source still carries the pieces we expect to
-# bring in (the overlay/notes). If the sibling drops these, the re-vendor command
-# would silently lose them — so we flag it.
-_SIBLING_MARKERS: dict[str, tuple[str, ...]] = {
-    "domain/models.py": ("notes: tuple[str, ...] = ()", "is_audit: bool = False"),
-    "application/service.py": (
-        "overlay_records_with_overrides",
-        "detect_engineer_provider",
-        '"is_audit": record.is_audit',
-    ),
-    # Image-based (converged) + audit-detection + the Phase-8 email-classifier
-    # keyword tuples must exist on both sides (else a re-cut loses them).
-    "rules/engine.py": (
-        "IMAGE_BASED_ASSESSMENT",
-        "detect_audit_signals",
-        "_WORK_KEYWORDS",
-        "_QUERY_KEYWORDS",
-        "_match_keywords",
-    ),
-}
+# Markers proving the SIBLING source still carries the pieces a reconciliation
+# depends on bringing in. Populate alongside _VENDORED_MARKERS.
+_SIBLING_MARKERS: dict[str, tuple[str, ...]] = {}
 
 
 def _sibling_available() -> bool:
@@ -138,6 +90,22 @@ def _vendored_py_files() -> list[str]:
             continue
         files.append(path.relative_to(VENDORED_ROOT).as_posix())
     return sorted(files)
+
+
+def _vendored_resource_json_files() -> list[str]:
+    """Vendored ``resources/*.json`` files (relative to VENDORED_ROOT).
+
+    Scoped to ``resources/`` only -- NOT the whole tree -- so the pinned
+    top-level ``providers.json`` seed (deliberately excluded; see
+    NON_COMPARED) is never swept in here.
+    """
+    resources_dir = VENDORED_ROOT / "resources"
+    if not resources_dir.is_dir():
+        return []
+    return sorted(
+        path.relative_to(VENDORED_ROOT).as_posix()
+        for path in resources_dir.glob("*.json")
+    )
 
 
 pytestmark = pytest.mark.skipif(
@@ -182,9 +150,34 @@ def test_shared_unreconciled_modules_are_byte_identical() -> None:
     )
 
 
+def test_vendored_resource_schemas_are_byte_identical() -> None:
+    """Bundled JSON schema resources (e.g. eva-json.schema.json) must match the
+    sibling source too -- previously a blind spot (only *.py was walked), closed
+    when the ROADMAP-B2 claimant-contact schema properties were upstreamed."""
+    drifted: list[str] = []
+    missing: list[str] = []
+    for rel in _vendored_resource_json_files():
+        sibling = SIBLING_ROOT / rel
+        if not sibling.exists():
+            missing.append(rel)
+            continue
+        vend_text = _norm((VENDORED_ROOT / rel).read_text(encoding="utf-8"))
+        sib_text = _norm(sibling.read_text(encoding="utf-8"))
+        if vend_text != sib_text:
+            drifted.append(rel)
+    assert not missing, f"vendored resource JSON has no sibling source: {missing}"
+    assert not drifted, (
+        "vendored resource JSON drifted from sibling source: "
+        f"{drifted}. Re-cut per cedocumentmapper_v2/PROVENANCE.md."
+    )
+
+
 def test_vendored_reconciliation_markers_present() -> None:
-    """The recorded reconciliations (B2 contact extraction + overlay/notes) must
-    survive in the vendored copy."""
+    """Any recorded reconciliation must survive in the vendored copy.
+
+    Currently a no-op (_VENDORED_MARKERS is empty as of engine-v2.1 -- see
+    module docstring); kept so the pattern is ready to reuse.
+    """
     missing: list[str] = []
     for rel, markers in _VENDORED_MARKERS.items():
         text = (VENDORED_ROOT / rel).read_text(encoding="utf-8")
@@ -192,14 +185,18 @@ def test_vendored_reconciliation_markers_present() -> None:
             if marker not in text:
                 missing.append(f"{rel}: {marker!r}")
     assert not missing, (
-        "vendored reconciliation markers missing (a re-cut dropped a B2/overlay "
+        "vendored reconciliation markers missing (a re-cut dropped a tracked "
         f"reconciliation): {missing}"
     )
 
 
 def test_sibling_still_carries_brought_in_pieces() -> None:
-    """The sibling source must still carry the overlay/notes we vendor in (and the
-    converged image-based normalisation), else a re-cut would silently lose them."""
+    """The sibling source must still carry any piece the vendored copy depends
+    on bringing in.
+
+    Currently a no-op (_SIBLING_MARKERS is empty as of engine-v2.1 -- see
+    module docstring); kept so the pattern is ready to reuse.
+    """
     missing: list[str] = []
     for rel, markers in _SIBLING_MARKERS.items():
         sibling = SIBLING_ROOT / rel
