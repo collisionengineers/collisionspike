@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -98,6 +99,8 @@ import {
   CASE_LINK_SUGGESTION_TYPE,
   CANCELLATION_SUGGESTION_TYPE,
 } from './inbox-suggestions';
+import { whyClassifiedReasons } from './why-classified';
+import { mailboxFacets, matchesMailboxFilter } from './inbox-mailbox-filter';
 import {
   data,
   useInbox,
@@ -304,6 +307,36 @@ const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL },
   tabs: { marginTop: `-${tokens.spacingVerticalS}` },
 
+  // Source-mailbox facet chips (TKT-025) — the SAME pattern as CaseList's
+  // reason-facet chips: charcoal-selected (selection ≠ severity), never red.
+  facets: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+  },
+  facetLabel: {
+    fontFamily: 'var(--ce-font-display)',
+    fontSize: '11px',
+    letterSpacing: '0.16em',
+    textTransform: 'uppercase',
+    color: tokens.colorNeutralForeground3,
+    marginRight: tokens.spacingHorizontalXS,
+  },
+  facetChip: {
+    cursor: 'pointer',
+    border: `1px solid ${tokens.colorNeutralStroke1}`,
+    backgroundColor: tokens.colorNeutralBackground1,
+    color: tokens.colorNeutralForeground2,
+    ':hover': { backgroundColor: tokens.colorNeutralBackground1Hover },
+  },
+  facetChipActive: {
+    backgroundColor: 'var(--ce-charcoal)',
+    border: '1px solid var(--ce-charcoal)',
+    color: '#ffffff',
+    ':hover': { backgroundColor: 'var(--ce-charcoal)' },
+  },
+
   toolbar: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -493,6 +526,23 @@ const useStyles = makeStyles({
 
   classStack: { display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'flex-start' },
   subtypeBadge: { maxWidth: '100%' },
+  // "Why this label?" — the reasons list inside the classification cell's
+  // tooltip AND the preview panel's compact caption list (same recipe, two
+  // render sites: D16 keeps the CELL itself at two lines; only the tooltip
+  // content and the preview panel grow richer).
+  whyTooltip: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalXS,
+    maxWidth: '260px',
+  },
+  whyList: {
+    margin: 0,
+    paddingLeft: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
   // "Overridden" flag — staff changed the classifier's suggestion (info idiom + icon).
   overrideChip: {
     display: 'inline-flex',
@@ -639,6 +689,12 @@ export function Inbox() {
   // Ids optimistically hidden after a triage change that moves the row OUT of the
   // current view — cleared when fresh server data resolves (which already excludes them).
   const [pendingHidden, setPendingHidden] = useState<Set<string>>(() => new Set());
+  // Source-mailbox facet filter (TKT-025) — CLIENT-SIDE over the rows already
+  // loaded for this category/view; empty = "all sources" (multi-select-none =
+  // all). Not URL-persisted (mirrors CaseList's reason-facet chip, which is
+  // plain state too); reset whenever the category tab changes, since the
+  // mailbox set a chip names can change completely with it.
+  const [mailboxFilter, setMailboxFilter] = useState<Set<string>>(() => new Set());
 
   const inbox = useInbox({
     category,
@@ -655,6 +711,7 @@ export function Inbox() {
     setCategory((prev) => {
       if (prev === nextCategory) return prev;
       setSubtypeFilter(ANY);
+      setMailboxFilter(new Set());
       return nextCategory;
     });
     setView(nextView);
@@ -670,7 +727,11 @@ export function Inbox() {
   // Hide the Subtype filter where the category has a single subtype (e.g. Other).
   const showSubtypeFilter = subtypeOptions.length > 1;
 
-  const filtered = useMemo(() => {
+  // Every filter EXCEPT the mailbox facet — the base the mailbox chips' own
+  // "live" counts are drawn from (so a chip's count reflects "how many would
+  // show with this source picked", the standard faceted-filter contract, and
+  // toggling a chip can never make its own count include/exclude itself).
+  const preMailboxFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((e) => {
       if (pendingHidden.has(e.id)) return false;
@@ -692,6 +753,28 @@ export function Inbox() {
       return true;
     });
   }, [rows, search, pendingHidden, triageStateFilter]);
+
+  // Source-mailbox facet chips (TKT-025) — derived from the loaded rows only;
+  // no server-side facet param yet (the scale follow-up once the inbox
+  // routinely holds more rows than a single page comfortably loads).
+  const mailboxChips = useMemo(() => mailboxFacets(preMailboxFiltered), [preMailboxFiltered]);
+
+  const toggleMailboxFilter = useCallback((mailbox: string) => {
+    setMailboxFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(mailbox)) {
+        next.delete(mailbox);
+      } else {
+        next.add(mailbox);
+      }
+      return next;
+    });
+  }, []);
+
+  const filtered = useMemo(
+    () => preMailboxFiltered.filter((e) => matchesMailboxFilter(e, mailboxFilter)),
+    [preMailboxFiltered, mailboxFilter],
+  );
 
   /* ----------  quick-peek drawer — LINKED rows only (spec IA §3)  ---------- */
   const peekId = parsePeek(searchParams.toString());
@@ -745,6 +828,7 @@ export function Inbox() {
     const nextCategory = d.value as InboundCategory;
     setCategory(nextCategory);
     setSubtypeFilter(ANY);
+    setMailboxFilter(new Set());
     const next = new URLSearchParams(searchParams);
     next.set('category', nextCategory);
     setSearchParams(next, { replace: true });
@@ -930,9 +1014,26 @@ export function Inbox() {
               ? CATEGORY_LABEL[e.suggestedCategory]
               : CATEGORY_LABEL[e.category];
           const weak = e.confidence < 0.8;
+          // "Why this label?" (rules-engine-v2 Phase 5) — up to 4 plain-English
+          // reasons derived from the row's raw signal tokens; [] when there is
+          // nothing to explain. D16: the CELL itself stays two lines — only the
+          // tooltip content (and, separately, the preview panel) grow richer.
+          const whyReasons = whyClassifiedReasons(e.signals);
+          const folderLabel = suggestedFolderLabel(e);
           return (
             <Tooltip
-              content={`Suggested folder: ${suggestedFolderLabel(e)}`}
+              content={
+                <div className={styles.whyTooltip}>
+                  {whyReasons.length > 0 && (
+                    <ul className={styles.whyList}>
+                      {whyReasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <span>{`Suggested folder: ${folderLabel}`}</span>
+                </div>
+              }
               relationship="description"
             >
               <div className={styles.classStack}>
@@ -947,9 +1048,12 @@ export function Inbox() {
                 >
                   {SUBTYPE_LABEL[e.subtype]}
                 </Badge>
-                {/* The folder tooltip hangs on a non-focusable div — mirror it
+                {/* The tooltip hangs on a non-focusable div — mirror its content
                     as real hidden text so SRs get it too (gatekeeper). */}
-                <span className="ce-sr-only">{`Suggested folder: ${suggestedFolderLabel(e)}`}</span>
+                <span className="ce-sr-only">
+                  {whyReasons.length > 0 ? `${whyReasons.join('. ')}. ` : ''}
+                  {`Suggested folder: ${folderLabel}`}
+                </span>
                 {overridden ? (
                   <Badge
                     appearance="tint"
@@ -959,7 +1063,7 @@ export function Inbox() {
                     icon={<PencilLine size={11} strokeWidth={2} />}
                   >
                     Overridden
-                    <span className="ce-sr-only">{` (Classifier suggested: ${suggestedText})`}</span>
+                    <span className="ce-sr-only">{` (Suggested when it arrived: ${suggestedText})`}</span>
                   </Badge>
                 ) : weak ? (
                   <Badge
@@ -1131,7 +1235,10 @@ export function Inbox() {
   );
 
   const filtersActive =
-    search.trim() !== '' || subtypeFilter !== ANY || triageStateFilter !== ANY;
+    search.trim() !== '' ||
+    subtypeFilter !== ANY ||
+    triageStateFilter !== ANY ||
+    mailboxFilter.size > 0;
 
   /** Switch the Active/Handled/All view (mirrors onViewSelect, for the
    *  empty-state quick actions). */
@@ -1198,6 +1305,38 @@ export function Inbox() {
           );
         })}
       </TabList>
+
+      {/* Source-mailbox facet chips (TKT-025) — client-side over the loaded
+          rows; multi-select, none selected = all sources. */}
+      {mailboxChips.length > 0 && (
+        <div className={styles.facets} role="group" aria-label="Filter by mailbox">
+          <span className={styles.facetLabel}>Mailbox</span>
+          {mailboxChips.map((chip) => {
+            const active = mailboxFilter.has(chip.mailbox);
+            return (
+              <Badge
+                key={chip.mailbox}
+                appearance="outline"
+                shape="rounded"
+                size="large"
+                className={mergeClasses('ce-focusable', styles.facetChip, active && styles.facetChipActive)}
+                role="button"
+                tabIndex={0}
+                aria-pressed={active}
+                onClick={() => toggleMailboxFilter(chip.mailbox)}
+                onKeyDown={(e: KeyboardEvent) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleMailboxFilter(chip.mailbox);
+                  }
+                }}
+              >
+                {chip.label} ({chip.count})
+              </Badge>
+            );
+          })}
+        </div>
+      )}
 
       <div className={styles.toolbar} role="search">
         <SearchBox
@@ -1315,7 +1454,11 @@ export function Inbox() {
           <EmptyState
             icon={<InboxIcon size={32} strokeWidth={1.5} aria-hidden />}
             title="No email matches the current filters."
-            hint={filtersActive ? 'Clear the search box or dropdowns to widen the results.' : undefined}
+            hint={
+              filtersActive
+                ? 'Clear the mailbox chip, search box or dropdowns to widen the results.'
+                : undefined
+            }
           />
         )
       ) : (
@@ -1473,6 +1616,9 @@ function EmailPreviewPanel({
     : row.suggestedCategory
       ? CATEGORY_LABEL[row.suggestedCategory]
       : CATEGORY_LABEL[row.category];
+  // "Why this label?" (rules-engine-v2 Phase 5) — same mapping as the grid
+  // cell's tooltip, rendered here as a compact caption list instead.
+  const whyReasons = whyClassifiedReasons(row.signals);
 
   /* ----- Suggested-match banner (rules-engine-v2 Phase 2 ref-gate) -----
      Pending case_link / cancellation suggestions for THIS email — suggest-first;
@@ -1664,6 +1810,19 @@ function EmailPreviewPanel({
           </span>
         </div>
 
+        {whyReasons.length > 0 && (
+          <div className={styles.metaRow}>
+            <span className={styles.metaLabel}>Why this label</span>
+            <ul className={styles.whyList}>
+              {whyReasons.map((reason) => (
+                <li key={reason}>
+                  <Caption1 className={styles.metaValue}>{reason}</Caption1>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className={styles.metaRow}>
           <span className={styles.metaLabel}>Suggested folder</span>
           <span className={styles.folderLine}>
@@ -1673,7 +1832,7 @@ function EmailPreviewPanel({
         </div>
 
         {overridden && (
-          <Caption1 className={styles.muted}>Classifier suggested: {suggestedText}</Caption1>
+          <Caption1 className={styles.muted}>Suggested when it arrived: {suggestedText}</Caption1>
         )}
 
         <div className={styles.metaRow}>
@@ -1838,7 +1997,7 @@ function ReclassifyDialog({
           <DialogContent>
             <div className={styles.dialogGrid}>
               <span className={styles.suggestLine}>
-                <Text className={styles.dialogNote}>Suggested by the classifier:</Text>
+                <Text className={styles.dialogNote}>Suggested when it arrived:</Text>
                 <Badge appearance="outline" color="informative" shape="rounded" size="small">
                   {suggestedLabel || '—'}
                 </Badge>
@@ -1850,7 +2009,7 @@ function ReclassifyDialog({
                   ))}
                 </RadioGroup>
               </Field>
-              <Field label="Reason (optional)" hint="Recorded so the classifier can learn from overrides.">
+              <Field label="Reason (optional)" hint="Recorded to help sort similar email correctly in future.">
                 <Textarea
                   value={reason}
                   onChange={(_e, d) => setReason(d.value)}
