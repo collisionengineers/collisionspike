@@ -62,7 +62,14 @@ import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
-import { corpusWorkProviderCandidate, selectParserEvaCandidates, type ParserEvaFields } from '../lib/parser-eva-fields.js';
+import {
+  corpusWorkProviderCandidate,
+  isUnknownWorkProviderSentinel,
+  matchWorkProviderByContentString,
+  selectParserEvaCandidates,
+  type ParserEvaFields,
+  type WorkProviderContentMatchRecord,
+} from '../lib/parser-eva-fields.js';
 import {
   CASE_SELECT,
   EVA_COLUMN_BY_KEY,
@@ -181,6 +188,16 @@ async function recomputeStatus(caseId: string): Promise<CaseStatus> {
  *    When the parser did not yield work_provider, the matched corpus display_name fills
  *    eva_work_provider (fill-if-empty, provenance corpus / "Matched provider").
  *    (inspection_address is owned by the corpus picker / ADR-0013 — excluded from auto-fill.)
+ *  - work_provider_id (the Case-IDENTITY FK — NOT the same column as eva_work_provider above)
+ *    ← parserEva.work_provider, mapped to a real corpus row via matchWorkProviderByContentString
+ *    (rules-engine-v2 Phase 3, ADR-0011 "as written"). Fill-if-empty; NEVER overwrites an
+ *    existing work_provider_id — content is the PRIMARY provider signal but this function is
+ *    an advisory correction, not an override authority. A disagreement between the content
+ *    match and an already-set work_provider_id is audited (never auto-flipped) so staff can
+ *    see it. When `intermediary` is supplied (the sender matched an Image-Source
+ *    intermediary — providerMatch activity, Phase 3) and the content-matched provider is
+ *    among its N:N candidates, that agreement is CORROBORATION — recorded in both the
+ *    provenance row's source_label and a dedicated audit_event.
  *  Each field actually filled this run gets a field_level_provenance row. A no-op when every
  *  input is absent, so callers can pass them unconditionally.
  */
@@ -191,6 +208,10 @@ async function applyParserFields(
   parserMileageUnit?: string,
   parserEva?: ParserEvaFields,
   workProviderId?: string | null,
+  /** rules-engine-v2 Phase 3 — set when the SENDER matched an Image-Source intermediary
+   *  (orchestration providerMatch activity); its N:N candidate work providers let a
+   *  content-detected match be recorded as CORROBORATED rather than a bare guess. */
+  intermediary?: { imageSourceId: string; candidateProviderIds: readonly string[] } | null,
 ): Promise<void> {
   const ref = (parserRef ?? '').trim();
   const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, '') : '';
@@ -201,13 +222,25 @@ async function applyParserFields(
   const mightFillWorkProviderFromCorpus =
     Boolean(matchedProviderId) &&
     !evaCandidates.some((c) => c.column === 'eva_work_provider');
-  if (!ref && !mileage && evaCandidates.length === 0 && !mightFillWorkProviderFromCorpus) return;
+  const rawContentProvider = (parserEva?.work_provider ?? '').toString().trim();
+  const mightMatchWorkProviderIdFromContent =
+    Boolean(rawContentProvider) && !isUnknownWorkProviderSentinel(rawContentProvider);
+  if (
+    !ref &&
+    !mileage &&
+    evaCandidates.length === 0 &&
+    !mightFillWorkProviderFromCorpus &&
+    !mightMatchWorkProviderIdFromContent
+  ) {
+    return;
+  }
 
   // Read every column we might fill so each write is strictly fill-if-empty.
   const readCols = [
     'case_ref',
     'eva_mileage',
     'eva_work_provider',
+    'work_provider_id',
     ...evaCandidates.map((c) => c.column),
   ];
   const cur = await query<Row>(`SELECT ${readCols.join(', ')} FROM case_ WHERE id = $1`, [caseId]);
@@ -249,6 +282,93 @@ async function applyParserFields(
         sourceLabel: 'From instructions',
       });
     }
+  }
+
+  // rules-engine-v2 Phase 3 (ADR-0011) — map the parser's content-detected work_provider
+  // STRING to a real work_provider_id. Doc content is the PRIMARY provider signal
+  // (ADR-0011); the sender's own domain (workProviderId, resolved earlier by
+  // matchProviderByDomain) is the SECONDARY/confirmatory one for a direct provider and is
+  // what already fills work_provider_id at case-create (cases/resolve below) — this block
+  // is the fill for when THAT signal was absent or wrong (an intermediary sender like
+  // Connexus, a not-yet-known direct domain, …) but the document content still names a
+  // real, known provider (TKT-021/TKT-051). Evaluated whenever the parser supplied a
+  // (non-UNKNOWN) string, regardless of whether work_provider_id is currently empty — a
+  // MISMATCH must also surface even when it is already set (never auto-flip).
+  //
+  // HELD/on_hold FINDING (verified 2026-07-02 — do not assume this fill un-holds a case):
+  // a "new client" case (no provider matched at case-create — cases/resolve above) is
+  // parked with `on_hold = true` PLUS a Held-queue-only status; `on_hold` is a SEPARATE
+  // boolean column that `recomputeStatus`/statusForReviewCase (packages/domain
+  // case-status.ts) NEVER reads or writes — it only ever recomputes `status_code`. The
+  // ONLY existing writers of `on_hold = false` are the explicit staff "take off hold"
+  // PATCH (cases.ts), the dedup ATTACH path, and case-close/removal — none of which this
+  // fill triggers. So filling work_provider_id here does NOT retroactively unhold the case
+  // or mint a Case/PO (that mint is a one-time, advisory-locked decision taken inside the
+  // cases/resolve transaction, before this function ever runs) — it fills the identity
+  // field (+ provenance) so the correct provider is visible on an otherwise still-Held
+  // case, but a person still confirms/unholds it. Deliberately NOT "fixed" here: doing so
+  // would mean either silently un-holding a case with no Case/PO (worse than leaving it
+  // Held — nothing else in this codebase, including the staff-facing case-edit PATCH,
+  // mints a Case/PO for an already-created case today), or reimplementing the advisory-
+  // locked mint outside its transaction and changing this route's response contract
+  // (Box-folder-creation in intakeOrchestrator.ts keys off THIS request's own casePo) —
+  // both are a genuinely new capability beyond a fill-if-empty field mapping.
+  if (mightMatchWorkProviderIdFromContent) {
+    const providerRows = await query<Row>(
+      'SELECT id, principal_code, display_name FROM work_provider WHERE active = true',
+    );
+    const contentCandidates: WorkProviderContentMatchRecord[] = providerRows.map((r) => ({
+      workProviderId: r.id as string,
+      principalCode: (r.principal_code as string | null) ?? '',
+      displayName: (r.display_name as string | null) ?? '',
+    }));
+    const contentMatch = matchWorkProviderByContentString(rawContentProvider, contentCandidates);
+
+    if (contentMatch.outcome === 'matched') {
+      const existingWorkProviderId = (cur[0].work_provider_id as string | null) ?? null;
+      const corroborated = Boolean(
+        intermediary?.candidateProviderIds?.includes(contentMatch.workProviderId),
+      );
+      if (isEmpty(existingWorkProviderId)) {
+        sets.push(`work_provider_id = $${sets.length + 1}`);
+        vals.push(contentMatch.workProviderId);
+        provenance.push({
+          field: 'workProviderId',
+          value: contentMatch.workProviderId,
+          sourceType: 'pdf_extraction',
+          sourceLabel: corroborated
+            ? 'From instructions — provider identified (confirmed by intermediary sender)'
+            : 'From instructions — provider identified',
+        });
+        if (corroborated) {
+          await writeAudit({
+            action: AUDIT_ACTION.provider_matched,
+            caseId,
+            summary: 'Instruction content confirms the work provider the intermediary sender routes for',
+            after: {
+              workProviderId: contentMatch.workProviderId,
+              viaIntermediaryImageSourceId: intermediary?.imageSourceId,
+            },
+          });
+        }
+      } else if (existingWorkProviderId !== contentMatch.workProviderId) {
+        // NEVER overwrite an existing work_provider_id — content is the primary SIGNAL,
+        // not an override authority (ADR-0011). A disagreement is surfaced to the audit
+        // trail only; staff resolve it — it never auto-flips.
+        await writeAudit({
+          action: AUDIT_ACTION.provider_matched,
+          caseId,
+          severity: 'warning',
+          summary:
+            'Instruction content names a different work provider than the one already on the case — kept the existing provider',
+          before: { workProviderId: existingWorkProviderId },
+          after: { contentDetectedWorkProviderId: contentMatch.workProviderId },
+        });
+      }
+      // else: content agrees with the existing FK already — nothing to change or flag.
+    }
+    // 'ambiguous' / 'unmatched' — never guess; the free-text eva_work_provider candidate
+    // above (or the corpus fallback below) still carries the human-readable string either way.
   }
 
   if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {
@@ -345,8 +465,15 @@ interface InboundClassificationDto {
 /* ============================================================
    1 — GET /api/internal/provider-match-records
    Called by: orchestration providerMatch activity (plan 22 §B §A1).
-   Returns: ProviderMatchRecord[] — the minimum corpus the shared
-   matchProviderByDomain needs (id, principalCode, knownEmailDomains, active).
+   Returns: { providers: ProviderMatchRecord[], imageSources: ImageSourceMatchRecord[] }.
+   `providers` is the minimum corpus the shared matchProviderByDomain needs
+   (id, principalCode, knownEmailDomains, active). `imageSources` (rules-engine-v2
+   Phase 3, ADR-0011) is the Image-Source INTERMEDIARY corpus — image_source rows with
+   kind=intermediary, joined through imagesource_workprovider to their candidate work
+   providers — the minimum @cs/domain's matchSenderIdentity needs. Empty-N:N tolerant:
+   an intermediary with no linked providers yet returns candidateProviderIds: []. This
+   is an ADDITIVE response-shape change (was a bare array); providerMatch.ts (the sole
+   caller) is updated in the same change.
    ============================================================ */
 app.http('internalProviderMatchRecords', {
   methods: ['GET'],
@@ -357,7 +484,7 @@ app.http('internalProviderMatchRecords', {
       const rows = await query<Row>(
         'SELECT id, principal_code, known_email_domains, known_email_addresses, active, provider_automation_mode_code FROM work_provider ORDER BY display_name',
       );
-      const records = rows.map((r) => ({
+      const providers = rows.map((r) => ({
         workProviderId: r.id as string,
         principalCode: r.principal_code as string,
         knownEmailDomains: parseDomains(r.known_email_domains),
@@ -368,7 +495,30 @@ app.http('internalProviderMatchRecords', {
         providerAutomationMode:
           automationModeCodec.toName(r.provider_automation_mode_code) ?? 'review_auto',
       }));
-      return { status: 200, jsonBody: records };
+
+      // image_source(kind=intermediary) LEFT JOINed through imagesource_workprovider so an
+      // intermediary with zero linked providers still returns a row (candidateProviderIds:
+      // []), never silently dropped. kind_code 100000002 = 'intermediary'
+      // (000_enums_lookups.sql choice_image_source_kind) — hardcoded here because this
+      // route only ever surfaces that one kind (no codec needed for a single literal).
+      const imageSourceRows = await query<Row>(
+        `SELECT img.id, img.name, img.email_domain,
+                COALESCE(array_agg(iw.work_provider_id) FILTER (WHERE iw.work_provider_id IS NOT NULL), '{}') AS candidate_provider_ids
+           FROM image_source img
+           LEFT JOIN imagesource_workprovider iw ON iw.image_source_id = img.id
+          WHERE img.kind_code = 100000002
+          GROUP BY img.id, img.name, img.email_domain
+          ORDER BY img.name`,
+      );
+      const imageSources = imageSourceRows.map((r) => ({
+        imageSourceId: r.id as string,
+        name: r.name as string,
+        emailDomain: (r.email_domain as string | null) ?? '',
+        kind: 'intermediary',
+        candidateProviderIds: (r.candidate_provider_ids as string[] | null) ?? [],
+      }));
+
+      return { status: 200, jsonBody: { providers, imageSources } };
     }),
 });
 
@@ -502,6 +652,14 @@ app.http('internalCasesResolve', {
         /** Parser-owned EVA fields (claimant, dates, vehicle, circumstances, VAT) — persisted
          *  fill-if-empty + constraint-guarded. Absent → no-op (backward-compatible). */
         parserEva?: ParserEvaFields;
+        /** rules-engine-v2 Phase 3 (ADR-0011) — set when the SENDER matched an Image-Source
+         *  intermediary (orchestration providerMatch activity) rather than a direct work
+         *  provider. Forwarded to applyParserFields so a content-detected provider found
+         *  among the intermediary's N:N candidates is recorded as CORROBORATED, not a bare
+         *  guess. Absent when the sender matched a direct provider or nothing at all
+         *  (backward-compatible no-op). */
+        intermediaryImageSourceId?: string;
+        intermediaryCandidateProviderIds?: string[];
         decision: {
           resolution: string;
           targetCaseId?: string;
@@ -514,6 +672,12 @@ app.http('internalCasesResolve', {
 
       const { inbound, providerId, decision } = body;
       const workProviderId = providerId ?? null;
+      const intermediary = body.intermediaryImageSourceId
+        ? {
+            imageSourceId: body.intermediaryImageSourceId,
+            candidateProviderIds: body.intermediaryCandidateProviderIds ?? [],
+          }
+        : null;
       // #7 — prefer the parser-extracted PDF VRM over the email-body sniff. Both have
       // already run through the canonical postcode/junk filter (extractVrm / Python sniff).
       const vrm = ((body.parserVrm || inbound.candidateVrm) ?? '').trim();
@@ -544,6 +708,7 @@ app.http('internalCasesResolve', {
           body.parserMileageUnit,
           body.parserEva,
           workProviderId,
+          intermediary,
         );
         await writeAudit({
           action: AUDIT_ACTION.case_attached,
@@ -673,6 +838,7 @@ app.http('internalCasesResolve', {
         body.parserMileageUnit,
         body.parserEva,
         workProviderId,
+        intermediary,
       );
 
       const auditAction =

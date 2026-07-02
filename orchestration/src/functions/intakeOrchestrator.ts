@@ -51,6 +51,12 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   const workProviderId = (provider as { workProviderId?: string }).workProviderId;
   const matchState = (provider as { matchState?: string }).matchState;
   const principalCode = (provider as { principalCode?: string }).principalCode;
+  // rules-engine-v2 Phase 3 (ADR-0011) — set only when providerMatch resolved the sender to
+  // an Image-Source intermediary (e.g. Connexus). Threaded into triagePolicy (decisionInputs
+  // telemetry) and caseResolve (resolve-persist corroboration) below.
+  const intermediaryImageSourceId = (provider as { imageSourceId?: string }).imageSourceId;
+  const intermediaryCandidateProviderIds = (provider as { candidateProviderIds?: string[] })
+    .candidateProviderIds;
 
   // 1.5 — triage classify (ADR-0015): records the classified inbound_email row and decides
   // whether this email is RECEIVING WORK (→ a Case) or a QUERY / OTHER (→ no Case), and flags
@@ -77,6 +83,9 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     inbound,
     classification,
     matchState,
+    ...(intermediaryImageSourceId
+      ? { intermediaryImageSourceId, intermediaryCandidateProviderIds }
+      : {}),
   })) as TriagePolicyDecision;
 
   if (triage.action !== 'proceed_default' && !ctx.df.isReplaying) {
@@ -278,6 +287,11 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     parserMileage,
     parserMileageUnit,
     parserEvaFields,
+    // rules-engine-v2 Phase 3 (ADR-0011) — forwarded so the API's applyParserFields can
+    // corroborate a content-detected provider against the intermediary's N:N candidates.
+    ...(intermediaryImageSourceId
+      ? { intermediaryImageSourceId, intermediaryCandidateProviderIds }
+      : {}),
   })) as {
     outcome: string;
     caseId: string;

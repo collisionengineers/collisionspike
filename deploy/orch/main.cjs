@@ -2645,6 +2645,8 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
   const workProviderId = provider.workProviderId;
   const matchState = provider.matchState;
   const principalCode = provider.principalCode;
+  const intermediaryImageSourceId = provider.imageSourceId;
+  const intermediaryCandidateProviderIds = provider.candidateProviderIds;
   const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry, {
     inbound,
     workProviderId,
@@ -2653,7 +2655,8 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
   const triage = yield ctx.df.callActivityWithRetry("triagePolicy", retry, {
     inbound,
     classification,
-    matchState
+    matchState,
+    ...intermediaryImageSourceId ? { intermediaryImageSourceId, intermediaryCandidateProviderIds } : {}
   });
   if (triage.action !== "proceed_default" && !ctx.df.isReplaying) {
     ctx.log(
@@ -2767,7 +2770,10 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
     parserRef,
     parserMileage,
     parserMileageUnit,
-    parserEvaFields
+    parserEvaFields,
+    // rules-engine-v2 Phase 3 (ADR-0011) — forwarded so the API's applyParserFields can
+    // corroborate a content-detected provider against the intermediary's N:N candidates.
+    ...intermediaryImageSourceId ? { intermediaryImageSourceId, intermediaryCandidateProviderIds } : {}
   });
   if (resolved.outcome === "already_ingested") {
     return { skipped: true, caseId: resolved.caseId };
@@ -42434,6 +42440,31 @@ function matchProviderByDomain(senderAddress, providers) {
   };
 }
 
+// packages/domain/dist/domain/sender-identity-match.js
+function matchSenderIdentity(senderAddress, providers, imageSources) {
+  const domain = domainOf(senderAddress);
+  const providerResult = matchProviderByDomain(senderAddress, providers);
+  if (providerResult.matchedBy === "address") {
+    return { kind: "provider", result: providerResult };
+  }
+  if (domain) {
+    const hit = imageSources.find((s) => s.kind === "intermediary" && s.emailDomain.trim().toLowerCase() === domain);
+    if (hit) {
+      return {
+        kind: "intermediary",
+        imageSourceId: hit.imageSourceId,
+        name: hit.name,
+        candidateProviderIds: hit.candidateProviderIds,
+        matchedDomain: domain
+      };
+    }
+  }
+  if (providerResult.outcome === "matched" || providerResult.outcome === "ambiguous") {
+    return { kind: "provider", result: providerResult };
+  }
+  return { kind: "none", matchedDomain: domain };
+}
+
 // packages/domain/dist/domain/vrm-filter.js
 var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
 var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
@@ -42878,7 +42909,10 @@ async function request(method, path, body2) {
 var ConflictError = class extends Error {
 };
 var dataApi = {
-  /** ProviderMatchRecord[] for the in-activity `matchProviderByDomain` (internal route). */
+  /**
+   * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
+   * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).
+   */
   providerMatchRecords() {
     return request("GET", "/api/internal/provider-match-records");
   },
@@ -43045,8 +43079,33 @@ async function safeText2(res) {
 // orchestration/src/functions/activities/providerMatch.ts
 df6.app.activity("providerMatch", {
   handler: async (inbound, ctx) => {
-    const records = await dataApi.providerMatchRecords();
-    const result = matchProviderByDomain(inbound.senderAddress, records);
+    const { providers, imageSources } = await dataApi.providerMatchRecords();
+    const identity = matchSenderIdentity(inbound.senderAddress, providers, imageSources);
+    if (identity.kind === "intermediary") {
+      await dataApi.recordAudit({
+        action: "provider_matched",
+        summary: `provider-match intermediary (${identity.name}) for ${identity.matchedDomain}`,
+        severity: "info"
+      });
+      ctx.log(
+        JSON.stringify({
+          evt: "providerMatch",
+          outcome: "intermediary",
+          domain: identity.matchedDomain,
+          imageSourceId: identity.imageSourceId,
+          candidateCount: identity.candidateProviderIds.length
+        })
+      );
+      return {
+        outcome: "intermediary",
+        matchedDomain: identity.matchedDomain,
+        matchState: "unmatched",
+        imageSourceId: identity.imageSourceId,
+        imageSourceName: identity.name,
+        candidateProviderIds: [...identity.candidateProviderIds]
+      };
+    }
+    const result = identity.kind === "provider" ? identity.result : { outcome: "unmatched", matchedDomain: identity.matchedDomain };
     await dataApi.recordAudit({
       action: result.outcome === "matched" ? "provider_matched" : "provider_unmatched",
       summary: `provider-match ${result.outcome} for ${result.matchedDomain || "<no domain>"}`,
@@ -43452,6 +43511,10 @@ df8.app.activity("triagePolicy", {
     const actingGateValues = actingGates();
     const shadow = decideTriage(policyClassification, policyContext, GATES_ALL_ON);
     const acting = decideTriage(policyClassification, policyContext, actingGateValues);
+    const intermediaryDecisionInputs = input12.intermediaryImageSourceId ? {
+      intermediaryImageSourceId: input12.intermediaryImageSourceId,
+      intermediaryCandidateProviderIds: input12.intermediaryCandidateProviderIds ?? []
+    } : {};
     await trackEvent("triage_decision", {
       actingAction: acting.action,
       shadowAction: shadow.action,
@@ -43463,7 +43526,7 @@ df8.app.activity("triagePolicy", {
       gatesSnapshot: actingGateValues,
       messageId: inbound.messageId,
       sourceMailbox: inbound.sourceMailbox,
-      decisionInputs: shadow.decisionInputs,
+      decisionInputs: { ...shadow.decisionInputs, ...intermediaryDecisionInputs },
       taxonomyVersion: classification.taxonomyVersion ?? 1
     });
     if (acting.action === "suggest_attach" || acting.action === "propose_cancellation") {
@@ -43474,7 +43537,7 @@ df8.app.activity("triagePolicy", {
           suggestionType: acting.suggestionType ?? (acting.action === "propose_cancellation" ? "cancellation" : "case_link"),
           rationale: acting.rationale,
           ...policyClassification.confidence !== void 0 ? { confidence: policyClassification.confidence } : {},
-          decisionInputs: acting.decisionInputs
+          decisionInputs: { ...acting.decisionInputs, ...intermediaryDecisionInputs }
         });
       } catch (e) {
         ctx.warn(
@@ -43554,6 +43617,8 @@ df10.app.activity("caseResolve", {
         parserMileage: input12.parserMileage,
         parserMileageUnit: input12.parserMileageUnit,
         parserEva: input12.parserEvaFields,
+        intermediaryImageSourceId: input12.intermediaryImageSourceId,
+        intermediaryCandidateProviderIds: input12.intermediaryCandidateProviderIds,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,

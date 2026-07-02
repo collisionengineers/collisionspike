@@ -24,7 +24,20 @@
 
 import type { CreateCaseInput, CreateCaseResult } from '@cs/domain';
 import type { ProviderMatchRecord, OpenProviderCase } from '@cs/domain';
+import type { ImageSourceMatchRecord } from '@cs/domain';
 import type { EvidenceDescriptor } from '@cs/domain';
+
+/**
+ * GET /api/internal/provider-match-records response (rules-engine-v2 Phase 3, ADR-0011).
+ * `providers` is the existing matchProviderByDomain corpus (unchanged shape); `imageSources`
+ * is the NEW Image-Source intermediary corpus `@cs/domain`'s `matchSenderIdentity` needs
+ * (image_source WHERE kind=intermediary, joined through imagesource_workprovider — empty
+ * candidateProviderIds when an intermediary has no linked providers yet, never omitted).
+ */
+export interface ProviderMatchRecordsResult {
+  providers: ProviderMatchRecord[];
+  imageSources: ImageSourceMatchRecord[];
+}
 
 /**
  * Parser-owned EVA fields (value-only) forwarded from the orchestration `parse` activity to
@@ -157,8 +170,11 @@ export interface TriageSuggestLinkResult {
 }
 
 export const dataApi = {
-  /** ProviderMatchRecord[] for the in-activity `matchProviderByDomain` (internal route). */
-  providerMatchRecords(): Promise<ProviderMatchRecord[]> {
+  /**
+   * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
+   * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).
+   */
+  providerMatchRecords(): Promise<ProviderMatchRecordsResult> {
     return request('GET', '/api/internal/provider-match-records');
   },
 
@@ -203,6 +219,12 @@ export const dataApi = {
      *  fill-if-empty by the API (constraint-guarded). The fix for "email case shows only its
      *  registration + Case/PO": the parser extracts all 12 fields; this carries the other 8. */
     parserEva?: ParserEvaFields;
+    /** rules-engine-v2 Phase 3 (ADR-0011) — set when the SENDER matched an Image-Source
+     *  intermediary rather than a direct work provider; its N:N candidate work providers
+     *  let the API's applyParserFields treat a content-detected provider among them as
+     *  CORROBORATED. Absent when the sender matched a direct provider or nothing at all. */
+    intermediaryImageSourceId?: string;
+    intermediaryCandidateProviderIds?: string[];
     decision: {
       resolution: string;
       targetCaseId?: string;
