@@ -203,7 +203,7 @@ const useStyles = makeStyles({
   },
   // Clickable stat tile (spec §4): the affordance discriminator is an
   // always-visible chevron + a hover response (lift + --ce-shadow-hover);
-  // static surfaces (thruStrip cells, allTimeTile) get neither. Reduced
+  // static surfaces (thruCell figures, allTimeTile) get neither. Reduced
   // motion is gated globally in theme.css.
   liveBtn: {
     display: 'inline-flex',
@@ -280,61 +280,42 @@ const useStyles = makeStyles({
     marginLeft: 'auto',
   },
 
-  /* ----- Region B: throughput — windowed figures + a SEPARATE all-time tile ----- */
-  // The windowed strip and the lifetime "Sent to EVA" tile sit side-by-side but are
-  // visually distinct surfaces, so a lifetime total is never read as a windowed one.
+  /* ----- Region B: throughput — the SAME 2×2 equal grid as the inbox tiles
+     above (TKT-054 regressions, round 2: the flex-wrap strip + floating
+     all-time box wrapped unevenly at side-column widths and never lined up
+     with the tile grid — equal tracks kill the wrap at any width). ----- */
   thruRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'stretch',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: tokens.spacingHorizontalM,
   },
-  thruStrip: {
+  thruCell: {
     display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'stretch',
-    gap: 0,
-    flex: '1 1 320px',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    minWidth: 0,
+    padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalL}`,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderRadius: '2px',
-    overflow: 'hidden',
-  },
-  // Lifetime "Sent to EVA" — its own bordered tile, captioned "All time", set apart
-  // from the windowed strip so the metric is honest (work-todo-spike: dashboard-logic).
-  // Charcoal identity rail (not severity) + flat/static — no shadow, no chevron:
-  // this tile is not clickable (reforge 2026-07-01 §4 static surfaces).
-  allTimeTile: {
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    gap: '4px',
-    minWidth: '180px',
-    padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderLeft: '3px solid var(--ce-charcoal)',
     borderRadius: '2px',
     backgroundColor: tokens.colorNeutralBackground1,
   },
+  // Lifetime "Sent to EVA" — same cell anatomy, set apart by the charcoal
+  // identity rail (not severity) + an "All time" caption in the slot where
+  // clickable tiles carry their chevron, so a lifetime total is never read
+  // as a windowed one (work-todo-spike: dashboard-logic). Flat/static — no
+  // shadow, no chevron: not clickable (reforge 2026-07-01 §4 static surfaces).
+  allTimeTile: {
+    borderLeft: '3px solid var(--ce-charcoal)',
+  },
   allTimeHead: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalXS,
+    marginLeft: 'auto',
+    flexShrink: 0,
     fontFamily: 'var(--ce-font-display)',
     fontSize: '11px',
     fontWeight: 700,
     letterSpacing: '0.18em',
     textTransform: 'uppercase',
     color: tokens.colorNeutralForeground3,
-  },
-  thruCell: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalM,
-    padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
-    flex: '1 1 0',
-    minWidth: '180px',
-    borderRight: `1px solid ${tokens.colorNeutralStroke2}`,
-    ':last-child': { borderRight: 0 },
   },
   thruIcon: {
     display: 'inline-flex',
@@ -352,6 +333,8 @@ const useStyles = makeStyles({
     fontSize: '12px',
     color: tokens.colorNeutralForeground3,
     whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
 
   /* ----- Region C: needs-action hero list ----- */
@@ -811,17 +794,18 @@ export function Dashboard() {
               Today / this week
             </h2>
             <div className={styles.thruRow}>
-              <div className={styles.thruStrip}>
-                <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
-                <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
-                <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
-              </div>
-              <div className={styles.allTimeTile}>
-                <span className={styles.allTimeHead}>
-                  <CheckCheck size={12} strokeWidth={2} aria-hidden /> All time
+              <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
+              <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
+              <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
+              <div className={mergeClasses(styles.thruCell, styles.allTimeTile)}>
+                <span className={styles.thruIcon} aria-hidden>
+                  <CheckCheck size={16} strokeWidth={1.75} />
                 </span>
-                <span className="ce-stat">{sentToEvaTotal}</span>
-                <span className={styles.thruLabel}>Sent to EVA</span>
+                <span className={styles.thruText}>
+                  <span className="ce-stat">{sentToEvaTotal}</span>
+                  <span className={styles.thruLabel}>Sent to EVA</span>
+                </span>
+                <span className={styles.allTimeHead}>All time</span>
               </div>
             </div>
           </section>

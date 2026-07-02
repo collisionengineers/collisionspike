@@ -30,6 +30,23 @@
 - `653d54c` Dashboard inbox panel: 2×2 equal tiles, flush-right chevrons; deep
   links moved to `?type=` (legacy URLs still migrate).
 
+**2026-07-03 — regressions round 2 (operator flagged: panel still looked broken)**
+- The first pass re-gridded only the four inbox tiles — but the regression
+  screenshot's red circle covered the **whole right column**, and the
+  "Today / this week" block below was left on the old `flex-wrap` strip
+  (3 min-180px cells + a floating min-180px all-time box), which still wrapped
+  unevenly at side-column widths — visually identical to the "before" shot.
+- Fix: the throughput block is now the **same 2×2 equal grid** as the inbox
+  tiles (In today / Submitted today / Cleared this week / Sent to EVA), all
+  four cells one anatomy; the lifetime cell keeps its charcoal identity rail
+  + an "All time" caption in the chevron slot so a lifetime total is never
+  read as windowed. Labels ellipsize instead of wrapping.
+- Verified by **rendering, not inspection**: a throwaway local harness mounted
+  the real Dashboard with screenshot-matching counts (85/41/50/171, thru
+  6/0/0) and headless-Chromium screenshots at 1920×1080 and 1280×900 showed
+  both regions aligned on shared tracks with no wrap. SPA redeployed
+  (bundle `index-B-vxJJzr.js` live).
+
 **Live (2026-07-02 ~16:00Z)**
 - DDL delta `2026-07-02-tkt054-outlook-move.sql` APPLIED; backfill
   `2026-07-02-tkt054-source-mailbox-backfill.sql` RUN — 264 `inbound_email` +
