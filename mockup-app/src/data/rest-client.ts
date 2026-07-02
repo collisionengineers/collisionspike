@@ -97,6 +97,12 @@ export interface LogChaseInput {
   note?: string;
 }
 
+/** Result of `POST /api/inbound/{id}/detach` (rules-engine-v2 Phase 2 — unlink an
+ *  inbound email from its case). */
+export interface DetachInboundResult {
+  ok: boolean;
+}
+
 export interface DataAccessExt extends DataAccess {
   /** ONE-call amalgamated dashboard (case pipeline + inbound). `now` windows
    *  server aggregates against the CLIENT clock. NOT safe()-wrapped — a failure
@@ -133,6 +139,20 @@ export interface DataAccessExt extends DataAccess {
   generateAiSuggestions(caseId: string): Promise<GenerateAiSuggestionsResult>;
   /** The AI-assist feature gate (honest all-off on failure) — the SPA panel keys on `enabled`. */
   getAiAssistGate(): Promise<AiAssistGate>;
+
+  /* ----- Inbound suggestion affordance — ref-gate (rules-engine-v2 Phase 2) -----
+     Distinct from `aiSuggestions` above (case-scoped): keyed by the INBOUND EMAIL
+     id, this backs the inbox preview panel's "looks like an open case" / "may be a
+     cancellation" banner. Accept/reject reuses `reviewAiSuggestion` above — there is
+     no separate inbound-scoped review endpoint. */
+  /** Pending (+ recently-reviewed) AI suggestions for ONE inbound email, pending
+   *  first. safe()-empty on failure — a secondary, suggestion-only surface, so a
+   *  soft failure just means the banner doesn't render, never a crash. */
+  inboundSuggestions(id: string): Promise<AiSuggestion[]>;
+  /** Unlink a linked inbound email from its case. The case's already-filed archive
+   *  copy is untouched (Box stays a one-way additive mirror — ADR-0012/0017; flagged
+   *  for manual tidy-up, never auto-removed). Throws on non-2xx — never a fake unlink. */
+  detachInbound(id: string): Promise<DetachInboundResult>;
 }
 
 export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
@@ -351,5 +371,12 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       post<GenerateAiSuggestionsResult>(`/api/cases/${enc(id)}/ai-suggestions/generate`),
     getAiAssistGate: () =>
       safe(() => get<AiAssistGate>('/api/gates/ai-assist'), { ...AI_ASSIST_GATE_ALL_OFF }),
+
+    /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */
+    inboundSuggestions: (id) =>
+      safe(() => get<AiSuggestion[]>(`/api/inbound/${enc(id)}/suggestions`), []),
+    // Mutation — NOT safe()-wrapped: a failed unlink must reach the operator (never a
+    // fake success); throws on non-2xx like every other write in this client.
+    detachInbound: (id) => post<DetachInboundResult>(`/api/inbound/${enc(id)}/detach`),
   };
 }

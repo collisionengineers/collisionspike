@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getDataAccess } from './index';
-import type { LogChaseInput } from './rest-client';
+import type { LogChaseInput, DetachInboundResult } from './rest-client';
 import type { ActivityEvent, Case, CaseUpdateInput, Chaser, Evidence, Provider } from '@cs/domain';
 import type {
   DashboardSummary,
@@ -196,6 +196,19 @@ export function useAiSuggestions(caseId: string | undefined): QueryState<AiSugge
     [caseId],
   );
   return useAsync(run, [caseId]);
+}
+
+/** Pending + recently-reviewed AI suggestions for ONE inbound email (rules-engine-v2
+ *  Phase 2 ref-gate) — backs the inbox preview panel's "looks like an open case" /
+ *  "may be a cancellation" banner. Distinct from `useAiSuggestions` above, which is
+ *  case-scoped. Honest-empty (`[]`) on any failure (safe()-wrapped). Re-runs on
+ *  inbound email id change. */
+export function useInboundSuggestions(id: string | undefined): QueryState<AiSuggestion[]> {
+  const run = useCallback(
+    () => (id ? getDataAccess().inboundSuggestions(id) : Promise.resolve([])),
+    [id],
+  );
+  return useAsync(run, [id]);
 }
 
 /** The 'hold new cases by default' intake preference (env-var). Loading/undefined
@@ -438,4 +451,20 @@ export interface GenerateAiSuggestionsState {
 export function useGenerateAiSuggestions(): GenerateAiSuggestionsState {
   const m = useMutationFn((caseId: string) => getDataAccess().generateAiSuggestions(caseId));
   return { generate: m.run, generating: m.pending, error: m.error };
+}
+
+/** What `useDetachInbound` hands the screen (rules-engine-v2 Phase 2 — "Detach").
+ *  `detach` resolves the DetachInboundResult and REJECTS on failure — a failed
+ *  unlink must never look like it worked. */
+export interface DetachInboundState {
+  detach: (id: string) => Promise<DetachInboundResult>;
+  detaching: boolean;
+  error: Error | undefined;
+}
+/** Unlink an inbound email from its case. The case's already-filed archive copy is
+ *  untouched — the preview panel's confirm dialog says so; this only records the
+ *  unlink. */
+export function useDetachInbound(): DetachInboundState {
+  const m = useMutationFn((id: string) => getDataAccess().detachInbound(id));
+  return { detach: m.run, detaching: m.pending, error: m.error };
 }

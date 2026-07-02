@@ -47,7 +47,7 @@ import {
   LOCATION_ASSIST_GATE_ALL_OFF,
   AI_ASSIST_GATE_ALL_OFF,
 } from '@cs/domain';
-import type { DataAccessExt } from './rest-client';
+import type { DataAccessExt, DetachInboundResult } from './rest-client';
 
 const NOT_CONFIGURED =
   'Data source not configured — call configureDataAccess(restClient) in main.tsx before writes.';
@@ -451,6 +451,13 @@ export const mockDataAccess: DataAccessExt = {
     Promise.resolve({ generated: 0, reason: 'disabled' }),
   reviewAiSuggestion: (_id, _input: AiSuggestionReviewInput): Promise<AiSuggestionReviewResult> =>
     Promise.reject(new Error(NOT_CONFIGURED)),
+
+  /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) -----
+     Same honest-empty default as aiSuggestions above: no fabricated rows, so the
+     inbox preview panel's suggested-match banner never renders on the mock source. */
+  inboundSuggestions: (_id): Promise<AiSuggestion[]> => Promise.resolve([]),
+  // Write — rejects until the live source is injected (never a fake unlink).
+  detachInbound: (_id): Promise<DetachInboundResult> => Promise.reject(new Error(NOT_CONFIGURED)),
 };
 
 /** Factory form, for symmetry with `createDataverseDataAccess`. */
