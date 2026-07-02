@@ -642,14 +642,15 @@ def classify_email(
          proposes it — a reply naming a Case/PO or registration is about work we did).
       4d. (taxonomy v2) An existing-job reference (body_caseref/body_jobref, full
           haystack) + new evidence (a non-report attachment, or an image attachment
-          kind) + NO query phrase in sender scope -> case_update ·
-          images_received/update_general. TEXT-LEVEL PROPOSAL ONLY (see the
-          category docstring above). Checked AFTER Rules 4a/4b/4c so today's
-          chaser/report/reply-with-reference handling keeps winning — in practice
-          this rule is narrower than it first looks, since Rule 4b alone already
-          claims almost every REPLY that names a reference; it is mostly reached by
-          a FRESH (non-reply) mention of an existing ref, or a bare-acknowledgement
-          reply ("Thanks, see attached.") that would otherwise fall to Rule 5b.
+          kind) + NO query phrase in sender scope + NOT a bare-acknowledgement reply
+          -> case_update · images_received/update_general. TEXT-LEVEL PROPOSAL ONLY
+          (see the category docstring above). Checked AFTER Rules 4a/4b/4c so
+          today's chaser/report/reply-with-reference handling keeps winning — in
+          practice this rule is narrower than it first looks, since Rule 4b alone
+          already claims almost every non-bare-ack REPLY that names a reference; it
+          is mostly reached by a FRESH (non-reply) mention of an existing ref. The
+          bare-acknowledgement exclusion mirrors Rule 4b/5b (TKT-038: "Thanks Ed" +
+          embedded signature images must stay acknowledgement, not case_update).
       5. A query keyword, no Case/PO or VRM  -> query
          (query_existing_work if the sender is a known provider, else
          query_new_enquiry).
@@ -1048,7 +1049,20 @@ def classify_email(
     # handling keeps winning (the confusion-matrix targets say those currently-correct
     # behaviours must not regress) — in particular a report-shaped attachment is
     # excluded from "new evidence" below AND, paired with a reference, is already
-    # claimed by Rule 4c before this rule is ever reached.
+    # claimed by Rule 4c before this rule is ever reached. Rule 4b (any SUBSTANTIVE
+    # reply naming a reference, regardless of attachments) also already claims almost
+    # every non-bare-ack reply before this point, so in practice this rule is mostly
+    # reached by a FRESH (non-reply) mention of a reference.
+    #
+    # BARE-ACKNOWLEDGEMENT GUARD (TKT-038 regression): a reply whose sender-written
+    # text is ONLY a pleasantry ("Thanks Ed") must stay non_actionable/acknowledgement
+    # even when it carries an attachment — the real TKT-038 email is exactly this: a
+    # "Thanks Ed" reply naming a job ref, with several embedded SIGNATURE/logo images
+    # attached (the classifier cannot yet distinguish a signature logo from a genuine
+    # damage photo attachment — that raster-floor typing is TKT-047, out of scope
+    # here). Treating a bare "thanks" as delivered evidence would misread a courtesy
+    # reply as an actionable case update, so bare acknowledgements are excluded here
+    # exactly as Rule 4b already excludes them.
     #
     # "New evidence" is an attachment that is not just our own report coming back: an
     # image attachment kind, or any other attachment that a filename check does not
@@ -1056,7 +1070,13 @@ def classify_email(
     # instead (an email that both asks a question AND attaches something is still a
     # query first).
     new_evidence = (has_atts and not has_report_attachment) or has_images
-    if (body_caseref or body_jobref) and new_evidence and not query_phrases:
+    is_bare_ack_reply = is_reply and _is_bare_acknowledgement(sender_text)
+    if (
+        (body_caseref or body_jobref)
+        and new_evidence
+        and not query_phrases
+        and not is_bare_ack_reply
+    ):
         images_only = bool(kinds) and kinds.issubset(_IMAGE_KINDS)
         case_update_subtype = SUBTYPE_IMAGES_RECEIVED if images_only else SUBTYPE_UPDATE_GENERAL
         case_update_confidence = _CONFIDENCE_GOOD if body_caseref else _CONFIDENCE_WEAK

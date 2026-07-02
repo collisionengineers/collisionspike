@@ -268,48 +268,65 @@ def test_cancellation_does_not_fire_on_a_quoted_older_cancellation():
 # --------------------------------------------------------------------------- #
 # Taxonomy v2 -- case_update (collisionspike TKT-034/043)                    #
 # --------------------------------------------------------------------------- #
-def test_case_update_ref_and_images_is_images_received():
+# NOTE on scenario shape: Rule 4b alone (unchanged, "any REPLY naming a reference
+# that is not a bare acknowledgement" -> query_existing_work) already claims almost
+# every reply that names a reference, regardless of attachments. And a FRESH
+# (non-reply) email carrying a formal body_caseref is, by the EXISTING/unchanged
+# Rule 1 or Rule 2, already promoted to receiving_work the moment it also carries an
+# instruction- or image-kind attachment (both rules treat body_caseref as sufficient
+# corroboration on their own). So case_update is -- deliberately, as a structural
+# consequence of "insert after 4c, don't touch Rule 1/Rule 2/4b" -- mostly reached
+# via a FRESH email whose only hint is the LOOSER body_jobref (Rule 1/Rule 2 do not
+# treat body_jobref as corroboration), or via a fresh email whose attachment kind is
+# outside both the instruction and image vocabularies (so neither Rule 1 nor Rule 2
+# even considers it). These fixtures use exactly those reachable shapes rather than
+# a contrived one.
+def test_case_update_jobref_and_images_is_images_received_weak_confidence():
     result = classify_email(
-        subject="RE: CCPY26050",
-        body="Thanks, further photos attached.",
-        provider_match_state="one",
+        subject="Our ref 45391/1",
+        body="Further photos attached for our ref 45391/1.",
+        provider_match_state="none",
         attachment_kinds=["image"],
         attachment_filenames=["further-photo-1.jpg"],
         has_attachments=True,
     )
     assert result["category"] == "case_update"
     assert result["subtype"] == "images_received"
-    assert result["confidence"] == 0.8
-    assert result["body_caseref"] == "CCPY26050"
+    assert result["confidence"] == 0.6
+    assert result["body_caseref"] == ""
+    assert result["body_jobref"] != ""
+    assert result["is_reply"] is False
 
 
-def test_case_update_ref_and_non_image_attachment_is_update_general():
+def test_case_update_caseref_and_other_attachment_is_update_general_good_confidence():
+    """A formal Case/PO reference + a NEW, non-report, non-instruction, non-image
+    attachment (a kind neither Rule 1 nor Rule 2 considers, e.g. a forwarded email
+    or a spreadsheet) reaches case_update at the GOOD band."""
     result = classify_email(
-        subject="RE: CCPY26050",
-        body="Thanks, updated paperwork attached.",
+        subject="Further paperwork - CCPY26050",
+        body="Please find further paperwork attached for CCPY26050.",
         provider_match_state="one",
-        attachment_kinds=["instruction"],
-        attachment_filenames=["updated-schedule.pdf"],
+        attachment_kinds=["other"],
+        attachment_filenames=["claim-notes.xlsx"],
         has_attachments=True,
     )
     assert result["category"] == "case_update"
     assert result["subtype"] == "update_general"
     assert result["confidence"] == 0.8
+    assert result["body_caseref"] == "CCPY26050"
 
 
-def test_case_update_jobref_only_is_weak_confidence():
-    """A looser existing-job reference (no formal Case/PO) still qualifies, at the
-    WEAK band -- mirrors the cancellation confidence banding."""
+def test_case_update_jobref_and_other_attachment_is_update_general_weak_confidence():
     result = classify_email(
-        subject="RE: our ref 46407261",
-        body="Thanks, further photos attached.",
-        provider_match_state="one",
-        attachment_kinds=["image"],
-        attachment_filenames=["further-photo-1.jpg"],
+        subject="Further paperwork - our ref 45391/1",
+        body="Please find further paperwork attached for our ref 45391/1.",
+        provider_match_state="none",
+        attachment_kinds=["other"],
+        attachment_filenames=["claim-notes.xlsx"],
         has_attachments=True,
     )
     assert result["category"] == "case_update"
-    assert result["subtype"] == "images_received"
+    assert result["subtype"] == "update_general"
     assert result["confidence"] == 0.6
     assert result["body_caseref"] == ""
     assert result["body_jobref"] != ""
@@ -361,16 +378,37 @@ def test_case_update_requires_new_evidence_not_just_a_reference():
     assert result["subtype"] == "acknowledgement"
 
 
+def test_case_update_does_not_fire_on_a_bare_acknowledgement_reply():
+    """TKT-038 regression: the real TKT-038 email is a reply whose sender-written
+    text is ONLY "Thanks Ed" -- but it also carries several embedded SIGNATURE
+    images and names a job ref in the (inherited) subject. The classifier cannot
+    yet tell a signature logo from a genuine damage photo (that raster-floor typing
+    is TKT-047), so a bare acknowledgement must stay non_actionable/acknowledgement
+    -- not be misread as case_update -- exactly as Rule 4b already excludes bare
+    acknowledgements from query_existing_work."""
+    result = classify_email(
+        subject="RE: Our Ref: 45391/1",
+        body="Thanks Ed",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        attachment_filenames=["image001.png", "image002.png"],
+        has_attachments=True,
+    )
+    assert result["category"] == "non_actionable"
+    assert result["subtype"] == "acknowledgement"
+    assert result["is_reply"] is True
+
+
 def test_case_update_is_a_text_level_proposal_only_never_auto_links():
     """The classifier is pure -- it cannot know whether CCPY26050 is actually an
     OPEN case. It only reports category/subtype/references; the open-case lookup
     is the triage-policy layer's job (ADR-0019)."""
     result = classify_email(
-        subject="RE: CCPY26050",
-        body="Thanks, further photos attached.",
+        subject="Further paperwork - CCPY26050",
+        body="Please find further paperwork attached for CCPY26050.",
         provider_match_state="one",
-        attachment_kinds=["image"],
-        attachment_filenames=["further-photo-1.jpg"],
+        attachment_kinds=["other"],
+        attachment_filenames=["claim-notes.xlsx"],
         has_attachments=True,
     )
     assert result["category"] == "case_update"
