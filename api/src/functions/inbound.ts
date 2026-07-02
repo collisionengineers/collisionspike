@@ -67,14 +67,19 @@ app.http('inboundEmails', {
       const params: unknown[] = [];
       if (category && category in INBOUND_CATEGORY_TO_INT) {
         params.push(INBOUND_CATEGORY_TO_INT[category]);
-        clauses.push(`category_code = $${params.length}`);
+        clauses.push(`inbound_email.category_code = $${params.length}`);
       }
       // Active-first: default hides handled (actioned/dismissed) rows; view= switches the slice.
       const viewClause = inboundViewWhere(view);
       if (viewClause) clauses.push(viewClause);
       const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+      // LEFT JOIN pulls the linked case's Case/PO onto the row (TKT-054 status cell).
+      // inbound_email.* keeps the shared column names (id/name/source_mailbox/…) unambiguous.
       const rows = await query<Row>(
-        `SELECT * FROM inbound_email ${where} ORDER BY received_on DESC`,
+        `SELECT inbound_email.*, c.case_po AS case_po
+           FROM inbound_email
+           LEFT JOIN case_ c ON c.id = inbound_email.case_id
+           ${where} ORDER BY inbound_email.received_on DESC`,
         params,
       );
       let result: InboundEmail[] = rows.map(rowToInboundEmail);

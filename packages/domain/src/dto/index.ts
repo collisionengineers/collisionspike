@@ -497,6 +497,10 @@ export interface InboundEmail {
   conversationId?: string;
   bodyPreview: string;
   caseId?: string;
+  /** The linked case's human-readable Case/PO (e.g. CCPY26050). Present only when the
+   *  row is case-linked AND the serving query joined `case_` (the inbox list does —
+   *  TKT-054 status cell "Case created / Linked to case · <Case/PO>"). */
+  casePo?: string;
   workProviderId?: string;
   /** The classifier's ORIGINAL suggestion, kept distinct from category/subtype (the
    *  chosen value) so a staff override is visible (work-todo-spike: suggested-tags). */

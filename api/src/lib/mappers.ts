@@ -528,8 +528,14 @@ export function rowToInboundEmail(rec: Row): InboundEmail {
     triageState,
     bodyVrm: rec.body_vrm ?? '',
     bodyCaseref: rec.body_caseref ?? '',
+    // Stored by the Phase-2 DDL but only surfaced from TKT-054 (columns/keys absent on
+    // older rows or unjoined queries — the conditional spread tolerates both).
+    ...(rec.body_jobref ? { bodyJobref: rec.body_jobref } : {}),
+    ...(rec.conversation_id ? { conversationId: rec.conversation_id } : {}),
     bodyPreview: rec.body_preview ?? '',
     ...(rec.case_id ? { caseId: rec.case_id } : {}),
+    // The linked case's Case/PO — present only when the query LEFT JOINs case_ (inbox list).
+    ...(rec.case_po ? { casePo: rec.case_po } : {}),
     ...(rec.work_provider_id ? { workProviderId: rec.work_provider_id } : {}),
     // The classifier's original suggestion (columns may be absent on a not-yet-migrated DB
     // — SELECT * simply omits them, so these stay undefined). work-todo-spike: suggested-tags.
