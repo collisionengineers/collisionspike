@@ -15,23 +15,20 @@
  */
 
 import * as df from 'durable-functions';
-import { describeEvidence } from '@cs/domain';
+import { describeEvidence, INBOUND_CATEGORIES, type InboundCategory } from '@cs/domain';
 import { callClassifyEmail } from '../../lib/functions-client.js';
 import { dataApi } from '../../lib/data-api.js';
 import type { InboundEnvelope } from './fetchMessage.js';
+
+/** Re-exported for callers that import it from this module (unchanged import site) —
+ *  single-sourced from `@cs/domain`'s DTO union (see KNOWN_CATEGORIES below for why). */
+export type { InboundCategory };
 
 interface ClassifyInboundInput {
   inbound: InboundEnvelope;
   workProviderId?: string;
   matchState?: 'matched' | 'unmatched' | 'ambiguous';
 }
-
-export type InboundCategory =
-  | 'receiving_work'
-  | 'query'
-  | 'billing'
-  | 'non_actionable'
-  | 'other';
 
 export interface InboundClassification {
   category: InboundCategory;
@@ -40,11 +37,16 @@ export interface InboundClassification {
   signals: string[];
   bodyVrm: string;
   bodyCaseref: string;
-  /** Provider job/claim reference the engine surfaced (Phase-0 pass-through; not yet
-   *  used for ref-gate routing — that lands in Phase 2). */
+  /** Provider job/claim reference the engine surfaces — the triage-policy ref-gate's
+   *  job-ref signal (rules-engine-v2 Phase 2 / ADR-0019, activity 1.55: closes TKT-023). */
   bodyJobref?: string;
   /** Reply about existing work (#3) — drives the open-case link path. Default false. */
   isReply: boolean;
+  /** Which taxonomy vintage produced this row (v1 today; v2 once the DDL-gated engine tag
+   *  ships — adds case_update/cancellation). Absent = v1 (today's live parser). Carried
+   *  through to the triage-policy activity (1.55) for decision telemetry only —
+   *  classification/routing never branches on it. */
+  taxonomyVersion?: number;
 }
 
 /** providerMatch outcome -> the classifier's provider_match_state vocab (one|none|ambiguous). */
@@ -54,17 +56,26 @@ const MATCH_STATE_TO_CLASSIFIER: Record<string, string> = {
   ambiguous: 'ambiguous',
 };
 
-const KNOWN_CATEGORIES = new Set<InboundCategory>([
-  'receiving_work',
-  'query',
-  'billing',
-  'non_actionable',
-  'other',
-]);
+/** Every category Stage A may emit, v1 + v2 (taxonomy-v2 additions: case_update,
+ *  cancellation — rules-engine-v2 Phase 2 / ADR-0019). Single-sourced from
+ *  `@cs/domain`'s `INBOUND_CATEGORIES` DTO list rather than a hand-duplicated array, so
+ *  this activity can never again silently coerce a real v2 category down to 'other' —
+ *  which, before this fix, would have quietly defeated `decideTriage`'s cancellation rung
+ *  (rung 2 only fires on `classification.category === 'cancellation'`) the moment the
+ *  taxonomy-v2 engine tag ships. */
+const KNOWN_CATEGORIES = new Set<InboundCategory>(INBOUND_CATEGORIES);
 
 function domainOf(address: string): string {
   const at = address.lastIndexOf('@');
   return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : '';
+}
+
+/** Attachment evidence-class list for an envelope (D10 — the SAME `describeEvidence` rule
+ *  classifyPersist uses to persist evidence), exported so the triage-policy activity
+ *  (1.55) can derive `imagesOnly`/`attachmentKinds` without re-deriving the mapping —
+ *  classification and triage policy must never disagree about what an attachment IS. */
+export function attachmentKindsOf(inbound: Pick<InboundEnvelope, 'attachments'>): string[] {
+  return inbound.attachments.map((a) => describeEvidence(a.filename, a.contentType).evidenceClass);
 }
 
 /**
@@ -79,9 +90,7 @@ export function buildClassifyRequest(
   inbound: InboundEnvelope,
   matchState?: 'matched' | 'unmatched' | 'ambiguous',
 ): Parameters<typeof callClassifyEmail>[0] {
-  const attachmentKinds = inbound.attachments.map(
-    (a) => describeEvidence(a.filename, a.contentType).evidenceClass,
-  );
+  const attachmentKinds = attachmentKindsOf(inbound);
   const attachmentFilenames = inbound.attachments.map((a) => a.filename);
 
   return {
@@ -117,6 +126,7 @@ df.app.activity('classifyInbound', {
       bodyCaseref: res.body_caseref ?? '',
       bodyJobref: res.body_jobref ?? '',
       isReply: res.is_reply ?? false,
+      taxonomyVersion: res.taxonomy_version,
     };
 
     // Record the classified triage row (no case yet). Idempotent upsert on source_message_id.

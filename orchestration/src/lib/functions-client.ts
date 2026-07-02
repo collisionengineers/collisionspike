@@ -69,6 +69,11 @@ export interface ClassifyEmailResult {
   /** True when the email is a reply about existing work (#3). Default false; the route
    *  derives it from in_reply_to/references when supplied, else a RE:-subject heuristic. */
   is_reply?: boolean;
+  /** The taxonomy generation this row was labelled at (rules-engine-v2 Phase 2 /
+   *  ADR-0019): absent/undefined on TODAY's live v1 parser; 2 once the DDL-gated
+   *  taxonomy-v2 engine tag ships (adds case_update/cancellation). Carried through to the
+   *  triage-policy activity (1.55) for decision telemetry only — never branched on here. */
+  taxonomy_version?: number;
 }
 
 /**
