@@ -190,6 +190,34 @@
         }
       }
     },
+    "ContentTyping": {
+      "type": "object",
+      "description": "Content-based attachment typing (rules-engine-v2 Phase 3) — surfaced SEPARATELY (like vrm/reference/audit), NEVER part of the EVA payload. Computed by the vendored engine's detection.attachment_typing.type_document_text over the parsed document's OWN extracted text (never the filename). Additive and unconditional: no feature gate, always present. This is a /parse RESPONSE field only today, not yet a classify-email input — the email-intake pipeline classifies the email (step 1.5) before this document parse ever runs (step 4), so a pipeline reorder would be needed before this can feed the email classifier's corroboration gate; see PROVENANCE.md.",
+      "properties": {
+        "doc_type": {
+          "type": "string",
+          "description": "The document's type BY CONTENT alone (never filename/extension).",
+          "enum": [
+            "instruction",
+            "report",
+            "junk",
+            "unknown"
+          ]
+        },
+        "provider_name": {
+          "type": "string",
+          "x-nullable": true,
+          "description": "The provider whose detect_phrases matched the text, or null when no provider was recognised."
+        },
+        "markers": {
+          "type": "array",
+          "description": "The exact phrase(s) / provider match that fired, for explainability (mirrors ClassifyEmailResponse.signals).",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "Issue": {
       "type": "object",
       "properties": {
@@ -224,6 +252,10 @@
         "audit": {
           "$ref": "#/definitions/Audit",
           "description": "Audit case-type signal. NOT part of the EVA payload."
+        },
+        "content_typing": {
+          "$ref": "#/definitions/ContentTyping",
+          "description": "Content-based attachment typing (rules-engine-v2 Phase 3). NOT part of the EVA payload."
         },
         "issues": {
           "type": "array",

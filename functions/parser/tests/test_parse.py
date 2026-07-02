@@ -378,3 +378,62 @@ def test_non_audit_request_has_false_audit_cell(monkeypatch):
     data = json.loads(resp.get_body())
     assert data["audit"]["value"] is False
     assert data["audit"]["signals"] == []
+
+
+# --------------------------------------------------------------------------- #
+# content_typing (rules-engine-v2 Phase 3) — surfaced separately, NEVER in    #
+# the EVA payload, mirroring the audit envelope field above                  #
+# --------------------------------------------------------------------------- #
+def test_content_typing_surfaced_separately_not_in_payload(monkeypatch):
+    """``run_parser``'s ``content_typing`` rides in the top-level ``content_typing``
+    envelope field — never inside the 12-field EVA extraction."""
+    record = _load_fixture("parser_record_complete.json")
+    record = {
+        **record,
+        "content_typing": {
+            "doc_type": "instruction",
+            "provider_name": "Demo Provider",
+            "markers": ["provider_detect_phrase:Demo Provider"],
+        },
+    }
+    monkeypatch.setattr(parser_adapter, "run_parser", lambda *a, **k: record)
+
+    resp = function_app.parse(_make_request(_valid_request_body()))
+    assert resp.status_code == 200
+    data = json.loads(resp.get_body())
+
+    assert data["content_typing"] == {
+        "doc_type": "instruction",
+        "provider_name": "Demo Provider",
+        "markers": ["provider_detect_phrase:Demo Provider"],
+    }
+    # Never leaks into the EVA payload / 12-field shape.
+    assert list(data["extraction"].keys()) == list(EVA_FIELD_ORDER)
+    assert "content_typing" not in data["extraction"]
+    assert "doc_type" not in data["extraction"]
+
+
+def test_missing_content_typing_defaults_to_unknown_not_absent(monkeypatch):
+    """A record predating this field (no ``content_typing`` key — every existing
+    fixture in this suite) must still yield a PRESENT, well-shaped envelope cell
+    (never ``None``/missing) so callers can rely on the key always existing."""
+    record = _load_fixture("parser_record_complete.json")
+    assert "content_typing" not in record  # sanity: this fixture predates Phase 3
+    monkeypatch.setattr(parser_adapter, "run_parser", lambda *a, **k: record)
+
+    resp = function_app.parse(_make_request(_valid_request_body()))
+    data = json.loads(resp.get_body())
+    assert data["content_typing"] == {
+        "doc_type": "unknown",
+        "provider_name": None,
+        "markers": [],
+    }
+
+
+def test_error_envelope_carries_null_content_typing():
+    """The error envelope mirrors the success shape (one schema for callers) —
+    ``content_typing`` sits alongside the other null'd fields on a 4xx/5xx."""
+    resp = function_app.parse(_make_request({"filename": "instruction.pdf"}))
+    assert resp.status_code == 400
+    data = json.loads(resp.get_body())
+    assert data["content_typing"] is None
