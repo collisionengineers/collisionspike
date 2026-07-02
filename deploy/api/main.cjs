@@ -10780,17 +10780,31 @@ import_functions9.app.http("internalTriageSuggestLink", {
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const body = await req.json().catch(() => ({}));
     const suggestionType = body.suggestionType;
-    if (suggestionType !== "case_link" && suggestionType !== "cancellation") {
+    if (suggestionType !== "case_link" && suggestionType !== "cancellation" && suggestionType !== "triage_category") {
       return {
         status: 400,
-        jsonBody: { error: "suggestionType must be 'case_link' or 'cancellation'" }
+        jsonBody: { error: "suggestionType must be 'case_link', 'cancellation' or 'triage_category'" }
       };
     }
     const sourceMessageId = (body.sourceMessageId ?? "").trim() || null;
-    const targetCaseId = (body.targetCaseId ?? "").trim() || null;
+    const targetCaseId = suggestionType === "triage_category" ? null : (body.targetCaseId ?? "").trim() || null;
     const rationale = (body.rationale ?? "").trim() || null;
     const confidence = typeof body.confidence === "number" ? body.confidence : null;
     const decisionInputs = body.decisionInputs ?? {};
+    let triageCategory = null;
+    let triageSubtype = null;
+    if (suggestionType === "triage_category") {
+      const cat = (body.category ?? "").trim();
+      const sub = (body.subtype ?? "").trim();
+      if (!cat || !(cat in INBOUND_CATEGORY_TO_INT)) {
+        return { status: 400, jsonBody: { error: "category must be a known inbound category" } };
+      }
+      if (!sub || !(sub in INBOUND_SUBTYPE_TO_INT)) {
+        return { status: 400, jsonBody: { error: "subtype must be a known inbound subtype" } };
+      }
+      triageCategory = cat;
+      triageSubtype = sub;
+    }
     let inboundEmailId = (body.inboundEmailId ?? "").trim() || null;
     if (!inboundEmailId && sourceMessageId) {
       const rows = await query(
@@ -10830,18 +10844,19 @@ import_functions9.app.http("internalTriageSuggestLink", {
       const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [targetCaseId]);
       casePo = caseRows[0]?.case_po ?? null;
     }
-    const suggestedValue = {
+    const suggestedValue = suggestionType === "triage_category" ? { category: triageCategory, subtype: triageSubtype } : {
       ...targetCaseId ? { targetCaseId } : {},
       ...casePo ? { casePo } : {},
       ...sourceMessageId ? { sourceMessageId } : {},
       decisionInputs
     };
+    const modelVersion = suggestionType === "triage_category" ? (body.modelVersion ?? "").trim() || "unknown" : "triage-policy-v1";
     const inserted = await query(
       `INSERT INTO ai_suggestion
            (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)
-         VALUES ($1, $2, $3::jsonb, $4, $5, 'triage-policy-v1')
+         VALUES ($1, $2, $3::jsonb, $4, $5, $6)
          RETURNING id`,
-      [inboundEmailId, suggestionType, JSON.stringify(suggestedValue), rationale, confidence]
+      [inboundEmailId, suggestionType, JSON.stringify(suggestedValue), rationale, confidence, modelVersion]
     );
     const suggestionId = inserted[0]?.id;
     if (!suggestionId) {
@@ -10854,12 +10869,18 @@ import_functions9.app.http("internalTriageSuggestLink", {
         summary: "A message was suggested for linking to an existing case",
         after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId }
       });
-    } else {
+    } else if (suggestionType === "cancellation") {
       await writeAudit({
         action: AUDIT_ACTION.cancellation_proposed,
         ...targetCaseId ? { caseId: targetCaseId } : {},
         summary: "A message reported a case cancelled or closed \u2014 flagged for review",
         after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId }
+      });
+    } else {
+      await writeAudit({
+        action: AUDIT_ACTION.ai_suggestion_created,
+        summary: "An AI-suggested category was proposed for a message",
+        after: { suggestionId, sourceMessageId, inboundEmailId, category: triageCategory, subtype: triageSubtype }
       });
     }
     ctx.log(JSON.stringify({ evt: "triageSuggestLink", suggestionType, suggestionId, targetCaseId }));
@@ -11421,6 +11442,72 @@ async function promoteAcceptedSuggestion(row, actor) {
         }
       }
     } else if (row.suggestion_type === "cancellation") {
+    } else if (row.suggestion_type === "triage_category" && inboundEmailId) {
+      const proposed = value ?? {};
+      const category = typeof proposed.category === "string" ? proposed.category : void 0;
+      const subtype = typeof proposed.subtype === "string" ? proposed.subtype : void 0;
+      const categoryCode = category ? INBOUND_CATEGORY_TO_INT[category] : void 0;
+      const subtypeCode = subtype ? INBOUND_SUBTYPE_TO_INT[subtype] : void 0;
+      if (category && subtype && categoryCode != null && subtypeCode != null) {
+        const cur = await query(
+          `SELECT id, category_code, subtype_code, suggested_category_code, suggested_subtype_code,
+                  case_id, source_message_id, work_provider_id, classifier_mode
+             FROM inbound_email WHERE id = $1`,
+          [inboundEmailId]
+        );
+        const curRow = cur[0];
+        if (curRow) {
+          const upd = await query(
+            `UPDATE inbound_email
+                SET category_code = $2, subtype_code = $3, classifier_mode = 'llm', updated_at = now()
+              WHERE id = $1 AND classifier_mode IS DISTINCT FROM 'human'
+            RETURNING id`,
+            [inboundEmailId, categoryCode, subtypeCode]
+          );
+          if (upd[0]) {
+            const suggestedCatName = inboundCategoryFromInt(
+              curRow.suggested_category_code ?? curRow.category_code
+            );
+            const suggestedSubName = inboundSubtypeFromInt(
+              curRow.suggested_subtype_code ?? curRow.subtype_code
+            );
+            if (category !== suggestedCatName) {
+              await writeImprovementSignal(
+                curRow,
+                "category",
+                suggestedCatName ?? "(none)",
+                category,
+                actor,
+                "AI suggestion accepted"
+              );
+            }
+            if (subtype !== suggestedSubName) {
+              await writeImprovementSignal(
+                curRow,
+                "subtype",
+                suggestedSubName ?? "(none)",
+                subtype,
+                actor,
+                "AI suggestion accepted"
+              );
+            }
+            await writeAudit({
+              action: AUDIT_ACTION.inbound_reclassified,
+              ...curRow.case_id ? { caseId: curRow.case_id } : {},
+              summary: `Inbound reclassified by an accepted AI suggestion (category=${category} subtype=${subtype})`,
+              before: { category: suggestedCatName ?? null, subtype: suggestedSubName ?? null },
+              after: {
+                category,
+                subtype,
+                inboundEmailId,
+                sourceMessageId: curRow.source_message_id ?? null
+              },
+              ...actor ? { actor } : {}
+            });
+            return { promoted: true, promotedField: "inbound_email.category_code/subtype_code" };
+          }
+        }
+      }
     }
   } catch {
   }
