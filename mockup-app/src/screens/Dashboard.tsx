@@ -193,10 +193,12 @@ const useStyles = makeStyles({
     gap: tokens.spacingVerticalM,
   },
 
-  /* ----- Region A: live depth — thin strip of two buttons ----- */
+  /* ----- Region A: live depth — a 2×2 grid of EQUAL tiles (TKT-054 / 020726
+     E8: content-sized flex tiles wrapped unevenly and the chevrons never
+     lined up; equal tracks + flush-right chevrons fix the alignment). ----- */
   liveStrip: {
-    display: 'flex',
-    flexWrap: 'wrap',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: tokens.spacingHorizontalM,
   },
   // Clickable stat tile (spec §4): the affordance discriminator is an
@@ -207,6 +209,8 @@ const useStyles = makeStyles({
     display: 'inline-flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
+    width: '100%',
+    minWidth: 0,
     backgroundColor: tokens.colorNeutralBackground1,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     borderRadius: '2px',
@@ -262,13 +266,18 @@ const useStyles = makeStyles({
     fontSize: '13px',
     fontWeight: tokens.fontWeightSemibold,
     color: tokens.colorNeutralForeground2,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
-  // Right-centred, always-visible clickability cue (spec §4).
+  // Right-centred, always-visible clickability cue (spec §4) — flush right in
+  // the equal-width tile so the four chevrons read as one column (020726 E8).
   tileChevron: {
     display: 'inline-flex',
     alignItems: 'center',
     color: tokens.colorNeutralForeground3,
     flexShrink: 0,
+    marginLeft: 'auto',
   },
 
   /* ----- Region B: throughput — windowed figures + a SEPARATE all-time tile ----- */
@@ -726,7 +735,7 @@ export function Dashboard() {
                   inbound.untriaged > 0 ? (
                     <Button
                       appearance="secondary"
-                      onClick={() => navigate('/inbox?view=active&triageState=new')}
+                      onClick={() => navigate('/inbox')}
                     >
                       Sort new email ({inbound.untriaged})
                     </Button>
@@ -767,30 +776,32 @@ export function Dashboard() {
               Inbox
             </h2>
             <div className={styles.liveStrip}>
+              {/* TKT-054: the inbox is one condensed list — tiles deep-link the
+                  new ?type= scheme (legacy ?category/?view URLs still migrate). */}
               <InboxTile
                 icon={Briefcase}
                 value={inbound.receiving_work}
                 label="Receiving work"
-                onOpen={() => navigate('/inbox?category=receiving_work&view=active')}
+                onOpen={() => navigate('/inbox?type=receiving_work')}
               />
               <InboxTile
                 icon={MailQuestion}
                 value={inbound.query}
                 label="Queries"
-                onOpen={() => navigate('/inbox?category=query&view=active')}
+                onOpen={() => navigate('/inbox?type=query')}
               />
               <InboxTile
                 icon={Mail}
                 value={inbound.other}
                 label="Other"
-                onOpen={() => navigate('/inbox?category=other&view=active')}
+                onOpen={() => navigate('/inbox?type=other')}
               />
               <InboxTile
                 icon={AlertCircle}
                 value={inbound.untriaged}
                 label="Needs sorting"
                 attention={inbound.untriaged > 0}
-                onOpen={() => navigate('/inbox?view=active&triageState=new')}
+                onOpen={() => navigate('/inbox')}
               />
             </div>
           </section>
