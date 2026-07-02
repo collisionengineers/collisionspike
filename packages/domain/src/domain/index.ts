@@ -17,3 +17,4 @@ export * from './case-po';
 export * from './address-policy';
 export * from './pii-scrub';
 export * from './triage-policy';
+export * from './outlook-folder';

@@ -16,6 +16,7 @@
 
 import {
   EVA_FIELD_ORDER,
+  OUTLOOK_MOVE_STATES,
   QUEUES,
   queueByName,
   statusToQueue,
@@ -35,6 +36,7 @@ import {
   type InboundEmail,
   type InboundSubtype,
   type MileageUnit,
+  type OutlookMoveState,
   type OverviewFacts,
   type Provider,
   type QueueName,
@@ -545,6 +547,12 @@ export function rowToInboundEmail(rec: Row): InboundEmail {
     ...(rec.suggested_subtype_code != null && INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code]
       ? { suggestedSubtype: INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code] }
       : {}),
+    // Outlook filing lifecycle (TKT-054; columns absent pre-delta — spreads tolerate).
+    ...(rec.outlook_move_state && OUTLOOK_MOVE_STATES.includes(rec.outlook_move_state as OutlookMoveState)
+      ? { outlookMoveState: rec.outlook_move_state as OutlookMoveState }
+      : {}),
+    ...(rec.outlook_moved_folder ? { outlookMovedFolder: rec.outlook_moved_folder } : {}),
+    ...(rec.outlook_moved_at ? { outlookMovedAt: toIso(rec.outlook_moved_at) } : {}),
   };
 }
 

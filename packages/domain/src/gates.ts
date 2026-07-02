@@ -43,6 +43,12 @@ export const gates = {
   boxEmbed: (): boolean => process.env.BOX_EMBED_ENABLED === 'true',           // #25
   boxMetadata: (): boolean => process.env.BOX_METADATA_ENABLED === 'true',     // #26
 
+  // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
+  // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
+  // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
+  // (docs/gated.md).
+  outlookMove: (): boolean => process.env.OUTLOOK_MOVE_ENABLED === 'true',
+
   // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
   // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
   // is pure and never reads process.env — the caller (an orchestration Durable activity)
@@ -70,6 +76,11 @@ export const gates = {
   aiModelEndpoint: (): string => process.env.AI_MODEL_ENDPOINT ?? '',
   aiModelDeployment: (): string => process.env.AI_MODEL_DEPLOYMENT ?? '',
 
+  // Outlook-move queue config (TKT-054): the orchestration app's queue-service endpoint,
+  // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
+  // move jobs there with its managed identity (Storage Queue Data Message Sender).
+  outlookMoveQueueServiceUrl: (): string => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? '',
+
   /**
    * Derived: location assist is only enabled when all three conditions are met.
    * Used by GET /api/gates/location-assist (plan 21 §21.2).
@@ -87,4 +98,12 @@ export const gates = {
    */
   aiAssistConfigured: (): boolean =>
     gates.aiModelEndpoint() !== '' && gates.aiModelDeployment() !== '',
+
+  /**
+   * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
+   * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
+   * honest refusal (TKT-054 / 020726 E6).
+   */
+  outlookMoveEnabled: (): boolean =>
+    gates.outlookMove() && gates.outlookMoveQueueServiceUrl() !== '',
 };

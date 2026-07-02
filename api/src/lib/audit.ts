@@ -71,6 +71,11 @@ export const AUDIT_ACTION = {
   inbound_linked: 100000036,
   inbound_detached: 100000037,
   cancellation_proposed: 100000038,
+  // Outlook filing lifecycle (TKT-054 / 020726 E6; gated by OUTLOOK_MOVE_ENABLED).
+  // Minted in deltas/2026-07-02-tkt054-outlook-move.sql — same pre-DDL degrade as above.
+  outlook_move_requested: 100000039,
+  outlook_moved: 100000040,
+  outlook_move_failed: 100000041,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

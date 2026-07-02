@@ -32,6 +32,7 @@
  *  POST /api/internal/triage/context                 → { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds } (rules-engine-v2 Phase 2)
  *  POST /api/internal/triage/suggest-link             → { suggestionId, created } (rules-engine-v2 Phase 2;
  *                                                         suggestionType 'triage_category' added Phase 4)
+ *  POST /api/internal/inbound/{id}/outlook-moved      → 204 (TKT-054 Outlook-filing outcome report)
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
@@ -1591,6 +1592,75 @@ app.http('internalTriageSuggestLink', {
 
       ctx.log(JSON.stringify({ evt: 'triageSuggestLink', suggestionType, suggestionId, targetCaseId }));
       return { status: 200, jsonBody: { suggestionId, created: true } };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/inbound/{id}/outlook-moved  (TKT-054 / 020726 E6)
+   Called by: the orchestration `outlook-move` queue function reporting the
+   terminal outcome of a gated Outlook filing. `moved` stamps the lifecycle AND
+   marks a still-new row actioned (a filed email is handled email); `failed`
+   stamps failed (the SPA offers a retry). Audited with the TKT-054 codes.
+   ============================================================ */
+app.http('internalInboundOutlookMoved', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/inbound/{id}/outlook-moved',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const id = req.params.id;
+      const body = (await req.json().catch(() => ({}))) as {
+        outcome?: unknown;
+        folder?: unknown;
+        detail?: unknown;
+      };
+      const outcome = body.outcome;
+      if (outcome !== 'moved' && outcome !== 'failed') {
+        return { status: 400, jsonBody: { error: "outcome must be 'moved' or 'failed'" } };
+      }
+      const existing = await query<Row>(
+        'SELECT id, case_id FROM inbound_email WHERE id = $1',
+        [id],
+      );
+      if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
+      const folder = typeof body.folder === 'string' && body.folder ? body.folder : null;
+      const detail = typeof body.detail === 'string' ? body.detail.slice(0, 300) : null;
+
+      if (outcome === 'moved') {
+        await query(
+          `UPDATE inbound_email
+              SET outlook_move_state = 'moved',
+                  outlook_moved_folder = COALESCE($2, outlook_moved_folder),
+                  outlook_moved_at = now(),
+                  triage_state = CASE
+                                   WHEN triage_state IS NULL OR triage_state = 'new' THEN 'actioned'
+                                   ELSE triage_state
+                                 END,
+                  updated_at = now()
+            WHERE id = $1`,
+          [id, folder],
+        );
+      } else {
+        await query(
+          `UPDATE inbound_email
+              SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
+            WHERE id = $1`,
+          [id],
+        );
+      }
+      await writeAudit({
+        action: outcome === 'moved' ? AUDIT_ACTION.outlook_moved : AUDIT_ACTION.outlook_move_failed,
+        ...(existing[0].case_id ? { caseId: existing[0].case_id as string } : {}),
+        summary:
+          outcome === 'moved'
+            ? `Outlook filing completed${folder ? ` -> ${folder}` : ''}`
+            : 'Outlook filing failed',
+        severity: outcome === 'moved' ? 'info' : 'warning',
+        after: { inboundEmailId: id, ...(folder ? { folder } : {}), ...(detail ? { detail } : {}) },
+        actor: 'orchestration',
+      });
+      ctx.log(JSON.stringify({ evt: 'outlookMoved', inboundEmailId: id, outcome, folder }));
+      return { status: 204 };
     }),
 });
 

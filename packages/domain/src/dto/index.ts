@@ -372,6 +372,19 @@ export const AI_ASSIST_GATE_ALL_OFF: AiAssistGate = {
   modelConfigured: false,
 };
 
+/** The Outlook-move gate, read by the SPA via GET /api/gates/outlook-move (TKT-054 /
+ *  020726 E6). `enabled` is the actionable state the "Suggested action" button keys on:
+ *  OUTLOOK_MOVE_ENABLED is on AND the move queue is configured. While false the SPA
+ *  renders the suggestion as display-only text. */
+export interface OutlookMoveGate {
+  enabled: boolean;
+}
+
+/** All-off default — the honest "Outlook filing not switched on / unreadable" baseline. */
+export const OUTLOOK_MOVE_GATE_ALL_OFF: OutlookMoveGate = {
+  enabled: false,
+};
+
 /* ============================================================
    Phase 8 — Inbox / Triage domain types (cr1bd_inboundemail).
    ============================================================ */
@@ -506,7 +519,19 @@ export interface InboundEmail {
    *  chosen value) so a staff override is visible (work-todo-spike: suggested-tags). */
   suggestedCategory?: InboundCategory;
   suggestedSubtype?: InboundSubtype;
+  /** Outlook filing lifecycle (TKT-054 / 020726 E6, gated by OUTLOOK_MOVE_ENABLED):
+   *  absent = never attempted; queued = staff clicked, mover pending; moved = filed in
+   *  the shared mailbox; failed = the mover gave up (retryable). */
+  outlookMoveState?: OutlookMoveState;
+  /** The Outlook folder path involved: the queued/actual destination. */
+  outlookMovedFolder?: string;
+  /** When the terminal moved/failed outcome was recorded (ISO). */
+  outlookMovedAt?: string;
 }
+
+/** Outlook filing lifecycle states (inbound_email.outlook_move_state). */
+export type OutlookMoveState = 'queued' | 'moved' | 'failed';
+export const OUTLOOK_MOVE_STATES: readonly OutlookMoveState[] = ['queued', 'moved', 'failed'];
 
 /** Which slice of the triage queue to load. `active` (default) hides handled rows
  *  (actioned/dismissed); `handled` shows only those; `all` shows everything. */

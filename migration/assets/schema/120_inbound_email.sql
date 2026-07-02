@@ -51,6 +51,12 @@ CREATE TABLE inbound_email (
   body_preview      text,                        -- html-stripped preview (Memo 4000)
   case_id           uuid,                        -- -> case_ (nullable, SET NULL); FK in 900
   work_provider_id  uuid,                        -- -> work_provider (nullable, SET NULL); FK in 900
+  -- Outlook filing lifecycle (TKT-054 / 020726 E6, 2026-07-02 delta -- see
+  -- deltas/2026-07-02-tkt054-outlook-move.sql). NULL = never attempted;
+  -- queued -> moved|failed via the gated orchestration mover (OUTLOOK_MOVE_ENABLED).
+  outlook_move_state   varchar(20) CHECK (outlook_move_state IS NULL OR outlook_move_state IN ('queued','moved','failed')),
+  outlook_moved_folder varchar(128),             -- destination path, e.g. Inbox/Instructions
+  outlook_moved_at     timestamptz,              -- when the terminal moved/failed outcome landed
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
