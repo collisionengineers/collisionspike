@@ -1,6 +1,6 @@
 # Vendored engine provenance — `cedocumentmapper_v2`
 
-> ## ⚠ DEPLOY-ORDER WARNING (as of the `engine-v2.3` pin, 2026-07-02; still true at `engine-v2.4`)
+> ## ⚠ DEPLOY-ORDER WARNING (as of the `engine-v2.3` pin, 2026-07-02; still true at `engine-v2.4` / `engine-v2.5`)
 >
 > **This vendored tree now emits taxonomy v2** — `classify_email` can return the
 > new `case_update` / `cancellation` categories (subtypes `images_received` /
@@ -28,6 +28,34 @@ hand-edited** — every shared file, including the bundled JSON resources, is a
 byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
+
+**2026-07-02 (rules-engine-v2 Phase 5 — externalized triage phrase data):** the
+sibling moved the 13 flat keyword/phrase string collections used by the email
+classifier (`rules/engine.py`'s `_AUDIT_PHRASES` / `_WORK_KEYWORDS` /
+`_BILLING_KEYWORDS` / `_INFORMAL_WORK_KEYWORDS` / `_QUERY_KEYWORDS` /
+`_CHASE_PHRASES` / `_SUMMARY_MARKERS` / `_CANCELLATION_PHRASES`;
+`rules/email_classifier.py`'s `_AUTO_REPLY_MARKERS` / `_VRM_STOPWORD_TRIGRAMS`)
+and content-based attachment typing (`detection/attachment_typing.py`'s
+`_REPORT_TITLE_PHRASES` / `_REPORT_STRUCTURE_PHRASES` / `_JUNK_PHRASES`) out of
+Python literals into a new schema-validated bundled resource,
+`resources/triage-rules.json` (schema: `resources/triage-rules.schema.json`,
+pattern: `provider-config.schema.json`), loaded by a new
+`rules/triage_rules.py` (`importlib.resources` + `jsonschema.validate` on
+every load, module-level cached). The three consumer modules now assign their
+existing constant NAMES from the loader (e.g. `_WORK_KEYWORDS =
+_RULES.work_keywords`) instead of defining tuple/frozenset literals, so every
+import-site elsewhere is untouched. Regexes, rule ordering, confidence bands
+and suppression logic are all unchanged, still Python — this is a pure,
+zero-classification-behaviour-change data move (the sibling's + this repo's
+classifier/attachment-typing test suites are unchanged and stayed green
+throughout, proving parity). Runtime schema validation now runs on THIS
+(the cloud/FC1) path too, not just desktop/test tooling — a typo'd or emptied
+phrase collection fails loud at import time instead of silently degrading a
+rule. Tagged **`engine-v2.5`**; this copy adds `rules/triage_rules.py` and the
+two new `resources/*.json` files to the vendored set (both already covered by
+the drift guard's dynamic `rglob("*.py")` / `resources/*.json` globs — no test
+changes needed) and re-cuts the three modified modules verbatim; diff-verified
+to touch only these six files, nothing else.
 
 **2026-07-02 (rules-engine-v2 Phase 3 — content-based attachment typing):** the
 sibling added `detection/attachment_typing.py` — a pure `type_document_text(text,
@@ -114,10 +142,12 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.4`** on `main`, commit
-  **`fbf6ddbea5b14a678de71af0a4fcd4e09fc6f1a6`** (2026-07-02) — content-based
-  attachment typing (`detection/attachment_typing.py`; rules-engine-v2 Phase 3;
-  see History above). Prior pins: `engine-v2.3` (commit
+- **Cut from:** annotated tag **`engine-v2.5`** on `main`, commit
+  **`af1737f5c1084a96b4c72d3a914d10290a23d2d7`** (2026-07-02) — externalized
+  triage phrase data (`resources/triage-rules.json` + `.schema.json`,
+  `rules/triage_rules.py`; rules-engine-v2 Phase 5; see History above). Prior
+  pins: `engine-v2.4` (commit `fbf6ddbea5b14a678de71af0a4fcd4e09fc6f1a6`,
+  content-based attachment typing), `engine-v2.3` (commit
   `accddc57580723e8d2387633b8a30672d7d2a4ca`, taxonomy v2 — `case_update` +
   `cancellation`, corrected; supersedes the short-lived `engine-v2.2`, commit
   `6e3cb183a46169f45f4ef2a4507535322c673e7c`, which carried the TKT-038
@@ -127,11 +157,15 @@ nothing further to do here.
 
 ## Reconciliations: none outstanding
 
-As of `engine-v2.1` (and unchanged through `engine-v2.4`) this copy is a **pure
+As of `engine-v2.1` (and unchanged through `engine-v2.5`) this copy is a **pure
 mirror** — no vendored-only or sibling-only divergence remains. `RECONCILED_MODULES` in
 `tests/test_engine_vendored_in_sync.py` is empty, and every shared file
 (all `.py` modules plus `resources/*.json`) is byte-compared with no
-exceptions.
+exceptions. The `engine-v2.5` re-cut added three new shared files
+(`rules/triage_rules.py`, `resources/triage-rules.json`,
+`resources/triage-rules.schema.json`) — the drift guard's file lists are
+dynamic (`VENDORED_ROOT.rglob("*.py")` / `resources/*.json`), so all three
+were covered automatically with no test-file changes needed.
 
 The test file keeps its marker-based mechanism (`_VENDORED_MARKERS` /
 `_SIBLING_MARKERS`, currently empty dicts) ready for reuse: the next time an
@@ -202,7 +236,7 @@ must stay off the cloud path (see "Omitted modules" above).
 Run from the repo root (`collisionspike/`), Git Bash / bash:
 
 ```bash
-REF=engine-v2.4   # the committed, tagged sibling ref you are cutting from
+REF=engine-v2.5   # the committed, tagged sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 
@@ -219,14 +253,19 @@ for f in __init__.py \
          readers/__init__.py readers/base.py readers/doc.py readers/docx.py \
          readers/email.py readers/errors.py readers/pdf.py \
          rules/__init__.py rules/base.py rules/email_classifier.py rules/engine.py \
+         rules/triage_rules.py \
          ui/__init__.py ui/paths.py; do
   ( cd "$S" && git show "$REF:src/cedocumentmapper_v2/$f" ) > "$V/$f"
 done
 
 # 2. Re-cut the bundled JSON resources verbatim (closes the prior "only *.py
-#    is byte-compared" blind spot -- the drift guard now checks these too):
+#    is byte-compared" blind spot -- the drift guard now checks these too).
+#    triage-rules.json/.schema.json (rules-engine-v2 Phase 5, engine-v2.5+)
+#    are the data + schema rules/triage_rules.py (above) loads:
 ( cd "$S" && git show "$REF:src/cedocumentmapper_v2/resources/__init__.py" ) > "$V/resources/__init__.py"
 ( cd "$S" && git show "$REF:src/cedocumentmapper_v2/resources/eva-json.schema.json" ) > "$V/resources/eva-json.schema.json"
+( cd "$S" && git show "$REF:src/cedocumentmapper_v2/resources/triage-rules.json" ) > "$V/resources/triage-rules.json"
+( cd "$S" && git show "$REF:src/cedocumentmapper_v2/resources/triage-rules.schema.json" ) > "$V/resources/triage-rules.schema.json"
 
 # 3. Do NOT clobber providers.json (the pinned seed -- see above). Note it
 #    lives at the SIBLING REPO ROOT, not under src/cedocumentmapper_v2/:
