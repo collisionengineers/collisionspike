@@ -61,6 +61,13 @@ interface TriagePolicyInput {
    *  receives it — populates `TriagePolicyContext.providerMatchState` (carried for
    *  telemetry/future rungs only; `decideTriage` does not branch on it today). */
   matchState?: 'matched' | 'unmatched' | 'ambiguous';
+  /** rules-engine-v2 Phase 3 (ADR-0011) — set when providerMatch resolved the sender to
+   *  an Image-Source intermediary. `TriagePolicyContext.providerMatchState` stays exactly
+   *  as today (this phase does not teach `decideTriage` the intermediary concept); the
+   *  candidates are instead merged into the outgoing `decisionInputs` bag below, purely
+   *  for telemetry/future rungs. */
+  intermediaryImageSourceId?: string;
+  intermediaryCandidateProviderIds?: string[];
 }
 
 /** ALL gates forced on — the `shadow` decision (would-be action, telemetry only; see the
@@ -189,6 +196,17 @@ df.app.activity('triagePolicy', {
     const shadow = decideTriage(policyClassification, policyContext, GATES_ALL_ON);
     const acting = decideTriage(policyClassification, policyContext, actingGateValues);
 
+    // rules-engine-v2 Phase 3 (ADR-0011) — the intermediary's N:N candidates, merged into
+    // the OUTGOING decisionInputs bag only (never into TriagePolicyContext/decideTriage
+    // itself — providerMatchState stays exactly as today; see the module doc + the
+    // TriagePolicyInput doc above). Telemetry/future-rungs only this phase.
+    const intermediaryDecisionInputs = input.intermediaryImageSourceId
+      ? {
+          intermediaryImageSourceId: input.intermediaryImageSourceId,
+          intermediaryCandidateProviderIds: input.intermediaryCandidateProviderIds ?? [],
+        }
+      : {};
+
     await trackEvent('triage_decision', {
       actingAction: acting.action,
       shadowAction: shadow.action,
@@ -200,7 +218,7 @@ df.app.activity('triagePolicy', {
       gatesSnapshot: actingGateValues,
       messageId: inbound.messageId,
       sourceMailbox: inbound.sourceMailbox,
-      decisionInputs: shadow.decisionInputs,
+      decisionInputs: { ...shadow.decisionInputs, ...intermediaryDecisionInputs },
       taxonomyVersion: classification.taxonomyVersion ?? 1,
     });
 
@@ -215,7 +233,7 @@ df.app.activity('triagePolicy', {
           suggestionType: acting.suggestionType ?? (acting.action === 'propose_cancellation' ? 'cancellation' : 'case_link'),
           rationale: acting.rationale,
           ...(policyClassification.confidence !== undefined ? { confidence: policyClassification.confidence } : {}),
-          decisionInputs: acting.decisionInputs,
+          decisionInputs: { ...acting.decisionInputs, ...intermediaryDecisionInputs },
         });
       } catch (e) {
         ctx.warn(

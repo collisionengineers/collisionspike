@@ -5645,6 +5645,8 @@ var INBOUND_COUNTS_ZERO = {
   billing: 0,
   non_actionable: 0,
   other: 0,
+  case_update: 0,
+  cancellation: 0,
   untriaged: 0
 };
 
@@ -5898,6 +5900,53 @@ var audit_event_default = {
   ]
 };
 
+// packages/domain/dist/data/choicesets/inbound-email-classification.json
+var inbound_email_classification_default = {
+  $schema: "../schema/_choiceset.schema.json",
+  kind: "global-choice-set-bundle",
+  description: "Phase-8 inbound-email triage taxonomy (ADR-0015). Two stable, append-only global choice sets bound by cr1bd_inboundemail.cr1bd_category / cr1bd_subtype. Members mirror the deterministic classifier's returned string values 1:1 -- the `name` of each option EQUALS a CATEGORY_* / SUBTYPE_* constant in functions/parser/cedocumentmapper_v2/rules/email_classifier.py. NEVER renumber (same discipline as case-status.json / audit-event.json); add new members append-only at the next free integer. This file had drifted behind the live Postgres codes (billing/non_actionable + their subtypes were already live in migration/assets/schema/000_enums_lookups.sql but missing here) -- both are caught up append-only below, then extended with the Phase-2 (rules-engine-v2, ADR-0019) case_update/cancellation category members and images_received/cancellation_notice/update_general subtype members, appended at the next free integer per set.",
+  choiceSets: [
+    {
+      logicalName: "cr1bd_inboundcategory",
+      displayName: "Inbound Category",
+      isGlobal: true,
+      parityKey: "name",
+      description: "Triage CATEGORY. Members EQUAL email_classifier.py CATEGORY_RECEIVING_WORK / CATEGORY_QUERY / CATEGORY_OTHER (plus the append-only CATEGORY_BILLING / CATEGORY_NON_ACTIONABLE, TKT-029/037/038). receiving_work routes to the existing Case chain; query logs against an open Case (or none) and stops; other is the catch-all (spam/auto-replies/newsletters fall through here -- never silently dropped). case_update and cancellation (taxonomy v2, rules-engine-v2 Phase 2 / ADR-0019) are routed by the triage-policy module (packages/domain/src/domain/triage-policy.ts): case_update is an inbound belonging to an existing open Case (attach-to-case, suggest-first); cancellation is a claim/case reported cancelled or closed (a staff-confirmed close/hold proposal, never automatic).",
+      options: [
+        { value: 1e8, name: "receiving_work", label: "Receiving Work" },
+        { value: 100000001, name: "query", label: "Query" },
+        { value: 100000002, name: "other", label: "Other" },
+        { value: 100000003, name: "billing", label: "Billing" },
+        { value: 100000004, name: "non_actionable", label: "Non-actionable" },
+        { value: 100000005, name: "case_update", label: "Case Update" },
+        { value: 100000006, name: "cancellation", label: "Cancellation" }
+      ]
+    },
+    {
+      logicalName: "cr1bd_inboundsubtype",
+      displayName: "Inbound Subtype",
+      isGlobal: true,
+      parityKey: "name",
+      description: "Triage SUBTYPE. Members EQUAL email_classifier.py SUBTYPE_EXISTING_PROVIDER_INSTRUCTION / SUBTYPE_EXISTING_PROVIDER_AUDIT / SUBTYPE_NEW_CLIENT_WORK / SUBTYPE_QUERY_EXISTING_WORK / SUBTYPE_QUERY_NEW_ENQUIRY / SUBTYPE_OTHER, mapping the operator's 4-quadrant taxonomy + the Other catch-all. existing_provider_audit is the inbound subtype for an audit re-inspection instruction (distinct from the cr1bd_auditevent action LOG and the ADR-0014 case-TYPE 'audit'). billing_request, case_summary and acknowledgement (TKT-029/037/038) are the deterministic subtypes for the billing / non_actionable categories. images_received, cancellation_notice and update_general (taxonomy v2, rules-engine-v2 Phase 2 / ADR-0019) are: images_received -- photos with no other new information (paired with case_update when the images matched an open case, or standalone under the unmatched-images routing lane, ADR-0015 \xA75); cancellation_notice -- cancellation's default subtype; update_general -- case_update's default subtype when the new evidence is not images-only.",
+      options: [
+        { value: 1e8, name: "existing_provider_instruction", label: "Existing Provider Instruction" },
+        { value: 100000001, name: "existing_provider_audit", label: "Existing Provider Audit" },
+        { value: 100000002, name: "new_client_work", label: "New Client Work" },
+        { value: 100000003, name: "query_existing_work", label: "Query: Existing Work" },
+        { value: 100000004, name: "query_new_enquiry", label: "Query: New Enquiry" },
+        { value: 100000005, name: "other", label: "Other" },
+        { value: 100000006, name: "existing_provider_diminution", label: "Existing Provider Diminution" },
+        { value: 100000007, name: "billing_request", label: "Billing Request" },
+        { value: 100000008, name: "case_summary", label: "Case Summary" },
+        { value: 100000009, name: "acknowledgement", label: "Acknowledgement" },
+        { value: 100000010, name: "images_received", label: "Images Received" },
+        { value: 100000011, name: "cancellation_notice", label: "Cancellation Notice" },
+        { value: 100000012, name: "update_general", label: "General Update" }
+      ]
+    }
+  ]
+};
+
 // packages/domain/dist/codecs/index.js
 function makeChoiceCodec(cs) {
   const byValue = /* @__PURE__ */ new Map();
@@ -5962,6 +6011,10 @@ function auditActionToActivityKind(action) {
       return "status_change";
   }
 }
+var inboundCategorySet = inbound_email_classification_default.choiceSets.find((s) => s.logicalName === "cr1bd_inboundcategory");
+var inboundCategoryCodec = makeChoiceCodec(inboundCategorySet);
+var inboundSubtypeSet = inbound_email_classification_default.choiceSets.find((s) => s.logicalName === "cr1bd_inboundsubtype");
+var inboundSubtypeCodec = makeChoiceCodec(inboundSubtypeSet);
 function statusToInt(status) {
   const value = caseStatusCodec.toInt(status);
   if (value == null)
@@ -7506,7 +7559,17 @@ var AUDIT_ACTION = {
   // created = a model produced a suggestion; accepted/rejected = a human reviewed it.
   ai_suggestion_created: 100000032,
   ai_suggestion_accepted: 100000033,
-  ai_suggestion_rejected: 100000034
+  ai_suggestion_rejected: 100000034,
+  // rules-engine-v2 Phase 2 (ADR-0019) — the ref-gate suggest/link/detach lifecycle +
+  // the cancellation-propose action. Minted in the DDL delta
+  // migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql, NOT YET applied
+  // live: writing one of these four codes before that delta lands will FK-fail on
+  // choice_audit_action — writeAudit's catch-all below swallows that (never throws), so a
+  // pre-DDL write degrades to "no audit row", never a blocked caller.
+  inbound_link_suggested: 100000035,
+  inbound_linked: 100000036,
+  inbound_detached: 100000037,
+  cancellation_proposed: 100000038
 };
 var SEVERITY_CODE = {
   info: 1e8,
@@ -7584,6 +7647,16 @@ var gates = {
   // #25
   boxMetadata: () => process.env.BOX_METADATA_ENABLED === "true",
   // #26
+  // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
+  // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
+  // is pure and never reads process.env — the caller (an orchestration Durable activity)
+  // reads these accessors and passes the values in as a plain TriagePolicyGates object.
+  // With all four off, decideTriage always falls through to 'proceed_default' (the
+  // kill-switch invariant) — gates-off output is indistinguishable from today.
+  triageRefGate: () => process.env.TRIAGE_REF_GATE_ENABLED === "true",
+  triageCancellation: () => process.env.TRIAGE_CANCELLATION_ENABLED === "true",
+  triageImagesRouting: () => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === "true",
+  triageCaseUpdate: () => process.env.TRIAGE_CASE_UPDATE_ENABLED === "true",
   // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
   enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
   // #3
@@ -7598,9 +7671,10 @@ var gates = {
   boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
   // #28
   // AI model endpoint config (TKT-015). The server-side model call path is built but
-  // dormant: digital-3339-resource has ZERO model deployments, so these are ABSENT in
-  // live app-settings and the generate route stays an honest no-op until a model is
-  // deployed + wired. Prefer managed-identity/keyless — no API key gate by design.
+  // dormant: these settings are ABSENT in live app-settings, so the generate route stays
+  // an honest no-op until the wiring lands (model deployments now exist on the Foundry
+  // account — live state in LIVE_FACTS.json `foundry`; rules-engine-v2 Phase 4 wires
+  // them). Prefer managed-identity/keyless — no API key gate by design.
   aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
   aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
   /**
@@ -7924,14 +7998,18 @@ var INBOUND_CATEGORY_BY_INT = {
   100000001: "query",
   100000002: "other",
   100000003: "billing",
-  100000004: "non_actionable"
+  100000004: "non_actionable",
+  100000005: "case_update",
+  100000006: "cancellation"
 };
 var INBOUND_CATEGORY_TO_INT = {
   receiving_work: 1e8,
   query: 100000001,
   other: 100000002,
   billing: 100000003,
-  non_actionable: 100000004
+  non_actionable: 100000004,
+  case_update: 100000005,
+  cancellation: 100000006
 };
 var INBOUND_SUBTYPE_BY_INT = {
   1e8: "existing_provider_instruction",
@@ -7943,7 +8021,10 @@ var INBOUND_SUBTYPE_BY_INT = {
   100000006: "existing_provider_diminution",
   100000007: "billing_request",
   100000008: "case_summary",
-  100000009: "acknowledgement"
+  100000009: "acknowledgement",
+  100000010: "images_received",
+  100000011: "cancellation_notice",
+  100000012: "update_general"
 };
 var INBOUND_SUBTYPE_TO_INT = {
   existing_provider_instruction: 1e8,
@@ -7955,7 +8036,10 @@ var INBOUND_SUBTYPE_TO_INT = {
   existing_provider_diminution: 100000006,
   billing_request: 100000007,
   case_summary: 100000008,
-  acknowledgement: 100000009
+  acknowledgement: 100000009,
+  images_received: 100000010,
+  cancellation_notice: 100000011,
+  update_general: 100000012
 };
 var TRIAGE_STATES = ["new", "routed", "actioned", "dismissed"];
 var CLASSIFIER_MODES = ["deterministic", "llm", "human"];
@@ -8054,6 +8138,25 @@ function rowToAiSuggestion(rec) {
     ...rec.reviewed_at ? { reviewedAt: toIso(rec.reviewed_at) } : {}
   };
 }
+function deriveSuggestionIdempotencyKey(input) {
+  if (input.inboundEmailId) {
+    return {
+      suggestionType: input.suggestionType,
+      subjectKind: "inbound_email_id",
+      subject: input.inboundEmailId,
+      targetCaseId: input.targetCaseId
+    };
+  }
+  if (input.sourceMessageId) {
+    return {
+      suggestionType: input.suggestionType,
+      subjectKind: "source_message_id",
+      subject: input.sourceMessageId,
+      targetCaseId: input.targetCaseId
+    };
+  }
+  return null;
+}
 function inboundViewWhere(view) {
   switch (view) {
     case "handled":
@@ -8071,6 +8174,8 @@ function tallyActiveInboundCounts(rows) {
     query: 0,
     billing: 0,
     non_actionable: 0,
+    case_update: 0,
+    cancellation: 0,
     other: 0,
     untriaged: 0
   };
@@ -9615,6 +9720,64 @@ import_functions7.app.http("reclassifyInbound", {
     return { status: 200, jsonBody: rowToInboundEmail(updated[0]) };
   })
 });
+import_functions7.app.http("inboundEmailSuggestions", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/suggestions",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    try {
+      const id = req.params.id;
+      const rows = await query(
+        `SELECT * FROM ai_suggestion
+          WHERE inbound_email_id = $1
+          ORDER BY (review_state = 'pending') DESC, created_at DESC
+          LIMIT 100`,
+        [id]
+      );
+      const result = rows.map(rowToAiSuggestion);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions7.app.http("detachInboundEmail", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/detach",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const existing = await query("SELECT id, case_id FROM inbound_email WHERE id = $1", [id]);
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const oldCaseId = existing[0].case_id ?? null;
+    if (!oldCaseId) {
+      return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
+    }
+    const updated = await query(
+      `UPDATE inbound_email SET case_id = NULL, updated_at = now()
+         WHERE id = $1 AND case_id IS NOT NULL
+       RETURNING id`,
+      [id]
+    );
+    if (!updated[0]) {
+      return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
+    }
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.inbound_detached,
+      caseId: oldCaseId,
+      summary: "Inbound email unlinked from case",
+      before: { caseId: oldCaseId },
+      after: {
+        caseId: null,
+        inboundEmailId: id,
+        note: "Archive folder is a one-way mirror \u2014 any archive cleanup for this email is manual (ADR-0012/0017)."
+      },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: { ok: true } };
+  })
+});
 async function writeImprovementSignal(row, fieldName, originalValue, correctedValue, actor, reason) {
   try {
     await query(
@@ -9734,6 +9897,90 @@ function selectParserEvaCandidates(parserEva) {
   }
   return out;
 }
+function normalizeProviderMatchKey(raw) {
+  return raw.trim().toUpperCase().replace(/[.,'&]/g, "").replace(/\s+/g, " ").trim();
+}
+function matchWorkProviderByContentString(raw, providers) {
+  const trimmed = (raw ?? "").toString().trim();
+  if (!trimmed || isUnknownWorkProviderSentinel(trimmed)) return { outcome: "unmatched" };
+  const key = normalizeProviderMatchKey(trimmed);
+  if (!key) return { outcome: "unmatched" };
+  const hits = /* @__PURE__ */ new Set();
+  for (const p of providers) {
+    if (p.principalCode && normalizeProviderMatchKey(p.principalCode) === key || p.displayName && normalizeProviderMatchKey(p.displayName) === key) {
+      hits.add(p.workProviderId);
+    }
+  }
+  if (hits.size === 1) {
+    const [workProviderId] = hits;
+    return { outcome: "matched", workProviderId };
+  }
+  if (hits.size > 1) return { outcome: "ambiguous" };
+  return { outcome: "unmatched" };
+}
+
+// api/src/lib/schema-introspect.ts
+var columnCache = /* @__PURE__ */ new Map();
+async function loadColumns(table) {
+  try {
+    const rows = await query(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1`,
+      [table]
+    );
+    return new Set(rows.map((r) => r.column_name));
+  } catch {
+    return /* @__PURE__ */ new Set();
+  }
+}
+function tableColumns(table) {
+  let cached = columnCache.get(table);
+  if (!cached) {
+    cached = loadColumns(table);
+    columnCache.set(table, cached);
+  }
+  return cached;
+}
+async function hasColumn(table, column) {
+  const cols = await tableColumns(table);
+  return cols.has(column);
+}
+function planOptionalColumns(table, candidates, presentColumns, startIndex) {
+  const cols = [];
+  const placeholders = [];
+  const updateSets = [];
+  const values = [];
+  let i = startIndex;
+  for (const { column, value } of candidates) {
+    if (!presentColumns.has(column)) continue;
+    cols.push(column);
+    placeholders.push(`$${i}`);
+    updateSets.push(`${column} = COALESCE(EXCLUDED.${column}, ${table}.${column})`);
+    values.push(value);
+    i += 1;
+  }
+  return { cols, placeholders, updateSets, values };
+}
+
+// api/src/lib/triage-locks.ts
+function normalize2(v) {
+  const t = (v ?? "").trim().toUpperCase();
+  return t.length > 0 ? t : void 0;
+}
+function deriveTriageLockKeys(input) {
+  const keys = [];
+  const ref = normalize2(input.caseref);
+  const jobref = normalize2(input.jobref);
+  const vrm = normalize2(input.vrm);
+  if (ref) keys.push(`triage:ref:${ref}`);
+  if (jobref) keys.push(`triage:jobref:${jobref}`);
+  if (vrm) keys.push(`triage:vrm:${vrm}`);
+  return keys;
+}
+async function acquireTriageLocks(q, input) {
+  for (const key of deriveTriageLockKeys(input)) {
+    await q("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [key]);
+  }
+}
 
 // api/src/functions/internal.ts
 async function withServiceAuth(req, ctx, fn) {
@@ -9788,7 +10035,7 @@ async function recomputeStatus2(caseId) {
   }
   return next;
 }
-async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId) {
+async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId, intermediary) {
   const ref = (parserRef ?? "").trim();
   const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, "") : "";
   const unitRaw = (parserMileageUnit ?? "").trim();
@@ -9796,11 +10043,16 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
   const evaCandidates = selectParserEvaCandidates(parserEva);
   const matchedProviderId = (workProviderId ?? "").trim();
   const mightFillWorkProviderFromCorpus = Boolean(matchedProviderId) && !evaCandidates.some((c) => c.column === "eva_work_provider");
-  if (!ref && !mileage && evaCandidates.length === 0 && !mightFillWorkProviderFromCorpus) return;
+  const rawContentProvider = (parserEva?.work_provider ?? "").toString().trim();
+  const mightMatchWorkProviderIdFromContent = Boolean(rawContentProvider) && !isUnknownWorkProviderSentinel(rawContentProvider);
+  if (!ref && !mileage && evaCandidates.length === 0 && !mightFillWorkProviderFromCorpus && !mightMatchWorkProviderIdFromContent) {
+    return;
+  }
   const readCols = [
     "case_ref",
     "eva_mileage",
     "eva_work_provider",
+    "work_provider_id",
     ...evaCandidates.map((c) => c.column)
   ];
   const cur = await query(`SELECT ${readCols.join(", ")} FROM case_ WHERE id = $1`, [caseId]);
@@ -9833,6 +10085,53 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
         sourceType: "pdf_extraction",
         sourceLabel: "From instructions"
       });
+    }
+  }
+  if (mightMatchWorkProviderIdFromContent) {
+    const providerRows = await query(
+      "SELECT id, principal_code, display_name FROM work_provider WHERE active = true"
+    );
+    const contentCandidates = providerRows.map((r) => ({
+      workProviderId: r.id,
+      principalCode: r.principal_code ?? "",
+      displayName: r.display_name ?? ""
+    }));
+    const contentMatch = matchWorkProviderByContentString(rawContentProvider, contentCandidates);
+    if (contentMatch.outcome === "matched") {
+      const existingWorkProviderId = cur[0].work_provider_id ?? null;
+      const corroborated = Boolean(
+        intermediary?.candidateProviderIds?.includes(contentMatch.workProviderId)
+      );
+      if (isEmpty(existingWorkProviderId)) {
+        sets.push(`work_provider_id = $${sets.length + 1}`);
+        vals.push(contentMatch.workProviderId);
+        provenance.push({
+          field: "workProviderId",
+          value: contentMatch.workProviderId,
+          sourceType: "pdf_extraction",
+          sourceLabel: corroborated ? "From instructions \u2014 provider identified (confirmed by intermediary sender)" : "From instructions \u2014 provider identified"
+        });
+        if (corroborated) {
+          await writeAudit({
+            action: AUDIT_ACTION.provider_matched,
+            caseId,
+            summary: "Instruction content confirms the work provider the intermediary sender routes for",
+            after: {
+              workProviderId: contentMatch.workProviderId,
+              viaIntermediaryImageSourceId: intermediary?.imageSourceId
+            }
+          });
+        }
+      } else if (existingWorkProviderId !== contentMatch.workProviderId) {
+        await writeAudit({
+          action: AUDIT_ACTION.provider_matched,
+          caseId,
+          severity: "warning",
+          summary: "Instruction content names a different work provider than the one already on the case \u2014 kept the existing provider",
+          before: { workProviderId: existingWorkProviderId },
+          after: { contentDetectedWorkProviderId: contentMatch.workProviderId }
+        });
+      }
     }
   }
   if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {
@@ -9889,7 +10188,7 @@ import_functions9.app.http("internalProviderMatchRecords", {
     const rows = await query(
       "SELECT id, principal_code, known_email_domains, known_email_addresses, active, provider_automation_mode_code FROM work_provider ORDER BY display_name"
     );
-    const records = rows.map((r) => ({
+    const providers = rows.map((r) => ({
       workProviderId: r.id,
       principalCode: r.principal_code,
       knownEmailDomains: parseDomains2(r.known_email_domains),
@@ -9899,7 +10198,23 @@ import_functions9.app.http("internalProviderMatchRecords", {
       // (work-todo-spike: automation-mode). Default review_auto (the live default).
       providerAutomationMode: automationModeCodec.toName(r.provider_automation_mode_code) ?? "review_auto"
     }));
-    return { status: 200, jsonBody: records };
+    const imageSourceRows = await query(
+      `SELECT img.id, img.name, img.email_domain,
+                COALESCE(array_agg(iw.work_provider_id) FILTER (WHERE iw.work_provider_id IS NOT NULL), '{}') AS candidate_provider_ids
+           FROM image_source img
+           LEFT JOIN imagesource_workprovider iw ON iw.image_source_id = img.id
+          WHERE img.kind_code = 100000002
+          GROUP BY img.id, img.name, img.email_domain
+          ORDER BY img.name`
+    );
+    const imageSources = imageSourceRows.map((r) => ({
+      imageSourceId: r.id,
+      name: r.name,
+      emailDomain: r.email_domain ?? "",
+      kind: "intermediary",
+      candidateProviderIds: r.candidate_provider_ids ?? []
+    }));
+    return { status: 200, jsonBody: { providers, imageSources } };
   })
 });
 function parseDomains2(raw) {
@@ -9975,6 +10290,10 @@ import_functions9.app.http("internalCasesResolve", {
     const body = await req.json();
     const { inbound, providerId, decision } = body;
     const workProviderId = providerId ?? null;
+    const intermediary = body.intermediaryImageSourceId ? {
+      imageSourceId: body.intermediaryImageSourceId,
+      candidateProviderIds: body.intermediaryCandidateProviderIds ?? []
+    } : null;
     const vrm = ((body.parserVrm || inbound.candidateVrm) ?? "").trim();
     let providerAutomationMode = "manual";
     if (workProviderId) {
@@ -9992,7 +10311,8 @@ import_functions9.app.http("internalCasesResolve", {
         body.parserMileage,
         body.parserMileageUnit,
         body.parserEva,
-        workProviderId
+        workProviderId,
+        intermediary
       );
       await writeAudit({
         action: AUDIT_ACTION.case_attached,
@@ -10014,6 +10334,7 @@ import_functions9.app.http("internalCasesResolve", {
     let created;
     try {
       created = await tx(async (q) => {
+        await acquireTriageLocks(q, { caseref: caseRef, vrm });
         let principalCode = "";
         if (workProviderId) {
           const wp = await q("SELECT principal_code FROM work_provider WHERE id = $1", [workProviderId]);
@@ -10098,7 +10419,8 @@ import_functions9.app.http("internalCasesResolve", {
       body.parserMileage,
       body.parserMileageUnit,
       body.parserEva,
-      workProviderId
+      workProviderId,
+      intermediary
     );
     const auditAction = AUDIT_ACTION[decision.auditAction] ?? AUDIT_ACTION.case_created;
     await writeAudit({
@@ -10158,14 +10480,30 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
   const bodyPreview = (inbound.bodyPreview ?? "") || null;
   const confidence = classification ? classification.confidence : null;
   const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
+  const bodyJobref = (classification?.bodyJobref ?? "").trim() || null;
+  const conversationId = (inbound.conversationId ?? "").trim() || null;
   try {
+    const presentCols = await tableColumns("inbound_email");
+    const optional = planOptionalColumns(
+      "inbound_email",
+      [
+        { column: "body_jobref", value: bodyJobref },
+        { column: "conversation_id", value: conversationId }
+      ],
+      presentCols,
+      19
+    );
+    const optionalColsFragment = optional.cols.length ? `, ${optional.cols.join(", ")}` : "";
+    const optionalValsFragment = optional.placeholders.length ? `, ${optional.placeholders.join(", ")}` : "";
+    const optionalUpdateFragment = optional.updateSets.length ? `${optional.updateSets.join(",\n         ")},
+         ` : "";
     const rows = await query(
       `INSERT INTO inbound_email
          (name, source_message_id, subject, from_address, sender_domain,
           source_mailbox, received_on, has_attachments, category_code, subtype_code,
           confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
-          body_preview, case_id, work_provider_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17)
+          body_preview, case_id, work_provider_id${optionalColsFragment})
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17${optionalValsFragment})
        ON CONFLICT (source_message_id) DO UPDATE SET
          case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
          category_code    = CASE
@@ -10192,10 +10530,7 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
          body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
          body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
          work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
-         -- Re-ingest / link MUST NOT reset a staff-set durable handled state (work-todo-spike
-         -- email-management d): once a person actioned/dismissed a row, an automated replay
-         -- (classify / caseResolve / link-reply 'routed') leaves it handled.
-         triage_state     = CASE
+         ${optionalUpdateFragment}triage_state     = CASE
                               WHEN inbound_email.triage_state IN ('actioned','dismissed')
                                 THEN inbound_email.triage_state
                               ELSE COALESCE($18, inbound_email.triage_state)
@@ -10220,7 +10555,8 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
         bodyPreview,
         caseId,
         workProviderId,
-        triageState ?? null
+        triageState ?? null,
+        ...optional.values
       ]
     );
     const inboundEmailId = rows[0]?.id ?? null;
@@ -10315,25 +10651,29 @@ import_functions9.app.http("internalInboundLinkReply", {
     const workProviderId = body.providerId ?? null;
     const ref = (body.ref ?? "").trim();
     const vrm = (body.vrm ?? "").trim();
-    let candidates = [];
-    if (ref) {
-      candidates = await query(
-        `SELECT id, case_ref, case_po, vrm FROM case_
-            WHERE (case_ref = $1 OR case_po = $1)
-              AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
-            ORDER BY created_at`,
-        [ref]
-      );
-    }
-    if (candidates.length === 0 && vrm) {
-      candidates = await query(
-        `SELECT id, case_ref, case_po, vrm FROM case_
-            WHERE vrm = $1
-              AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
-            ORDER BY created_at`,
-        [vrm]
-      );
-    }
+    const candidates = await tx(async (q) => {
+      await acquireTriageLocks(q, { caseref: ref, vrm });
+      let rows = [];
+      if (ref) {
+        rows = await q(
+          `SELECT id, case_ref, case_po, vrm FROM case_
+              WHERE (upper(case_ref) = upper($1) OR upper(case_po) = upper($1))
+                AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
+              ORDER BY created_at`,
+          [ref]
+        );
+      }
+      if (rows.length === 0 && vrm) {
+        rows = await q(
+          `SELECT id, case_ref, case_po, vrm FROM case_
+              WHERE vrm = $1
+                AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
+              ORDER BY created_at`,
+          [vrm]
+        );
+      }
+      return rows;
+    });
     const linkCaseId = candidates.length === 1 ? candidates[0].id : null;
     await upsertInboundEmail(
       inbound,
@@ -10365,6 +10705,165 @@ import_functions9.app.http("internalInboundLinkReply", {
     }
     ctx.log(JSON.stringify({ evt: "linkReply", outcome: "no_match" }));
     return { status: 200, jsonBody: { outcome: "no_match", candidateCount: 0 } };
+  })
+});
+import_functions9.app.http("internalTriageContext", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/triage/context",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body = await req.json().catch(() => ({}));
+    const caseref = (body.caseref ?? "").trim();
+    const jobref = (body.jobref ?? "").trim();
+    const vrm = (body.vrm ?? "").trim();
+    const internetMessageId = (body.internetMessageId ?? "").trim();
+    const conversationId = (body.conversationId ?? "").trim();
+    const hasConversationCol = await hasColumn("inbound_email", "conversation_id");
+    const result = await tx(async (q) => {
+      await acquireTriageLocks(q, { caseref, jobref, vrm });
+      let openCaseMatches = [];
+      if (caseref || jobref || vrm) {
+        const rows = await q(
+          `SELECT id, case_po, status_code,
+                    CASE
+                      WHEN $1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) THEN 'case_po'
+                      WHEN $2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)) THEN 'job_ref'
+                      WHEN $3 <> '' AND upper(vrm) = upper($3) THEN 'vrm'
+                    END AS matched_on
+               FROM case_
+              WHERE status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
+                AND (
+                  ($1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)))
+                  OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
+                  OR ($3 <> '' AND upper(vrm) = upper($3))
+                )
+              ORDER BY created_at`,
+          [caseref, jobref, vrm]
+        );
+        openCaseMatches = rows.map((r) => ({
+          caseId: r.id,
+          casePo: r.case_po ?? "",
+          matchedOn: r.matched_on,
+          status: caseStatusCodec.toName(r.status_code) ?? "error"
+        }));
+      }
+      let duplicateInternetMessageId = false;
+      if (internetMessageId) {
+        const dupRows = await q(
+          `SELECT EXISTS (
+                SELECT 1 FROM case_ WHERE source_message_id = $1
+                UNION ALL
+                SELECT 1 FROM inbound_email WHERE source_message_id = $1
+              ) AS found`,
+          [internetMessageId]
+        );
+        duplicateInternetMessageId = Boolean(dupRows[0]?.found);
+      }
+      let conversationSiblingCaseIds = [];
+      if (hasConversationCol && conversationId) {
+        const sibRows = await q(
+          `SELECT DISTINCT case_id FROM inbound_email
+              WHERE conversation_id = $1 AND case_id IS NOT NULL`,
+          [conversationId]
+        );
+        conversationSiblingCaseIds = sibRows.map((r) => r.case_id);
+      }
+      return { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds };
+    });
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions9.app.http("internalTriageSuggestLink", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/triage/suggest-link",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body = await req.json().catch(() => ({}));
+    const suggestionType = body.suggestionType;
+    if (suggestionType !== "case_link" && suggestionType !== "cancellation") {
+      return {
+        status: 400,
+        jsonBody: { error: "suggestionType must be 'case_link' or 'cancellation'" }
+      };
+    }
+    const sourceMessageId = (body.sourceMessageId ?? "").trim() || null;
+    const targetCaseId = (body.targetCaseId ?? "").trim() || null;
+    const rationale = (body.rationale ?? "").trim() || null;
+    const confidence = typeof body.confidence === "number" ? body.confidence : null;
+    const decisionInputs = body.decisionInputs ?? {};
+    let inboundEmailId = (body.inboundEmailId ?? "").trim() || null;
+    if (!inboundEmailId && sourceMessageId) {
+      const rows = await query(
+        "SELECT id FROM inbound_email WHERE source_message_id = $1",
+        [sourceMessageId]
+      );
+      inboundEmailId = rows[0]?.id ?? null;
+    }
+    const idemKey = deriveSuggestionIdempotencyKey({
+      suggestionType,
+      inboundEmailId,
+      sourceMessageId,
+      targetCaseId
+    });
+    let existing = [];
+    if (idemKey) {
+      existing = idemKey.subjectKind === "inbound_email_id" ? await query(
+        `SELECT id FROM ai_suggestion
+                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id = $2
+                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
+                  LIMIT 1`,
+        [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId]
+      ) : await query(
+        `SELECT id FROM ai_suggestion
+                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id IS NULL
+                    AND (suggested_value->>'sourceMessageId') IS NOT DISTINCT FROM $2
+                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
+                  LIMIT 1`,
+        [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId]
+      );
+    }
+    if (existing[0]) {
+      return { status: 200, jsonBody: { suggestionId: existing[0].id, created: false } };
+    }
+    let casePo = null;
+    if (targetCaseId) {
+      const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [targetCaseId]);
+      casePo = caseRows[0]?.case_po ?? null;
+    }
+    const suggestedValue = {
+      ...targetCaseId ? { targetCaseId } : {},
+      ...casePo ? { casePo } : {},
+      ...sourceMessageId ? { sourceMessageId } : {},
+      decisionInputs
+    };
+    const inserted = await query(
+      `INSERT INTO ai_suggestion
+           (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)
+         VALUES ($1, $2, $3::jsonb, $4, $5, 'triage-policy-v1')
+         RETURNING id`,
+      [inboundEmailId, suggestionType, JSON.stringify(suggestedValue), rationale, confidence]
+    );
+    const suggestionId = inserted[0]?.id;
+    if (!suggestionId) {
+      return { status: 500, jsonBody: { error: "suggestion insert returned no id" } };
+    }
+    if (suggestionType === "case_link") {
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_link_suggested,
+        ...targetCaseId ? { caseId: targetCaseId } : {},
+        summary: "A message was suggested for linking to an existing case",
+        after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId }
+      });
+    } else {
+      await writeAudit({
+        action: AUDIT_ACTION.cancellation_proposed,
+        ...targetCaseId ? { caseId: targetCaseId } : {},
+        summary: "A message reported a case cancelled or closed \u2014 flagged for review",
+        after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId }
+      });
+    }
+    ctx.log(JSON.stringify({ evt: "triageSuggestLink", suggestionType, suggestionId, targetCaseId }));
+    return { status: 200, jsonBody: { suggestionId, created: true } };
   })
 });
 async function applyEvidenceMetadata(ctx, whereClause, whereVals, row, computed) {
@@ -10820,7 +11319,7 @@ import_functions10.app.http("reviewAiSuggestion", {
       return { status: 400, jsonBody: { error: "decision must be 'accepted' or 'rejected'" } };
     }
     const existing = await query(
-      `SELECT id, case_id, evidence_id, suggestion_type, suggested_value, review_state
+      `SELECT id, case_id, evidence_id, inbound_email_id, suggestion_type, suggested_value, review_state
          FROM ai_suggestion WHERE id = $1`,
       [id]
     );
@@ -10851,7 +11350,7 @@ import_functions10.app.http("reviewAiSuggestion", {
     }
     let promotion = { promoted: false };
     if (decision === "accepted") {
-      promotion = await promoteAcceptedSuggestion(row);
+      promotion = await promoteAcceptedSuggestion(row, actor);
     }
     await writeAudit({
       action: decision === "accepted" ? AUDIT_ACTION.ai_suggestion_accepted : AUDIT_ACTION.ai_suggestion_rejected,
@@ -10875,8 +11374,9 @@ import_functions10.app.http("reviewAiSuggestion", {
     return { status: 200, jsonBody: result };
   })
 });
-async function promoteAcceptedSuggestion(row) {
+async function promoteAcceptedSuggestion(row, actor) {
   const evidenceId = row.evidence_id;
+  const inboundEmailId = row.inbound_email_id;
   const value = coerceJsonValue(row.suggested_value);
   try {
     if (row.suggestion_type === "image_role" && evidenceId) {
@@ -10900,6 +11400,27 @@ async function promoteAcceptedSuggestion(row) {
         );
         if (upd[0]) return { promoted: true, promotedField: "evidence.registration_visible" };
       }
+    } else if (row.suggestion_type === "case_link" && inboundEmailId) {
+      const targetCaseId = value?.targetCaseId?.trim();
+      if (targetCaseId) {
+        const upd = await query(
+          `UPDATE inbound_email SET case_id = $2, updated_at = now()
+             WHERE id = $1 AND case_id IS NULL RETURNING id`,
+          [inboundEmailId, targetCaseId]
+        );
+        if (upd[0]) {
+          await writeAudit({
+            action: AUDIT_ACTION.inbound_linked,
+            caseId: targetCaseId,
+            summary: "Inbound email linked to case (suggestion accepted)",
+            before: { caseId: null },
+            after: { caseId: targetCaseId, inboundEmailId },
+            ...actor ? { actor } : {}
+          });
+          return { promoted: true, promotedField: "inbound_email.case_id" };
+        }
+      }
+    } else if (row.suggestion_type === "cancellation") {
     }
   } catch {
   }

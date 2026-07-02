@@ -11,6 +11,7 @@
 export * from './classification';
 export * from './dedup';
 export * from './provider-match';
+export * from './sender-identity-match';
 export * from './vrm-filter';
 export * from './case-po';
 export * from './address-policy';

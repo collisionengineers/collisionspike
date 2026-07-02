@@ -120,3 +120,90 @@ export function selectParserEvaCandidates(
   }
   return out;
 }
+
+/* ============================================================
+   Content-string → work_provider_id matching (rules-engine-v2 Phase 3, ADR-0011).
+
+   ADR-0011's second decision: "the work provider is resolved primarily from the document
+   content" (the parser's `work_provider` field). Until now that string only ever landed
+   in the free-text `eva_work_provider` column (above) — `work_provider_id` (the Case
+   identity FK; drives Case/PO minting, dedup scoping, and the provider corpus joins) was
+   NEVER written from it. This section maps the string to a real corpus row so
+   applyParserFields (internal.ts) can fill `case_.work_provider_id` fill-if-empty.
+
+   VERIFY-FIRST (2026-07-02): the vendored parser was run locally over real instruction
+   documents (TKT-051 evidence + adjacent real corpus samples in
+   test-cases-and-data/test-cases/, gitignored). Every provider probed (PCH, SBL, QDOS)
+   came back with `work_provider.value` as a SHORT code matching its `principal_code`
+   verbatim ("PCH", "SBL", "QDOS" — confidence 1.0). The EXISTING parser-eva-fields.test.ts
+   fixture ("Knightsbridge Solicitors") shows the same field can also carry a full
+   display-name-shaped string for other providers' catalog entries. So the match key below
+   is deliberately tolerant of BOTH shapes: it compares against EITHER `principal_code` OR
+   `display_name`, case/punctuation-insensitively (a provider is more likely to be written
+   "PCH Ltd" or "P.C.H." in free text than a code to collide with an unrelated name).
+   ============================================================ */
+
+/** A work_provider row's two content-matchable columns + its id — the minimum
+ *  applyParserFields needs to resolve a parser-detected work_provider STRING to a real
+ *  `work_provider_id`. */
+export interface WorkProviderContentMatchRecord {
+  workProviderId: string;
+  principalCode: string;
+  displayName: string;
+}
+
+export type ContentProviderMatchOutcome =
+  | { outcome: 'matched'; workProviderId: string }
+  | { outcome: 'ambiguous' }
+  | { outcome: 'unmatched' };
+
+/**
+ * Normalize a provider name/code for CONTENT-STRING matching: trim, uppercase, strip the
+ * light punctuation both the parser's catalogue and the corpus are inconsistent about
+ * (periods, commas, apostrophes, ampersands), collapse whitespace. Exported so the exact
+ * normalization rule is independently testable/documented (not just an internal detail of
+ * the matcher below).
+ */
+export function normalizeProviderMatchKey(raw: string): string {
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/[.,'&]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Map a parser-detected work_provider STRING to a work_provider_id, matching
+ * case/punctuation-insensitively against EITHER `principal_code` OR `display_name` (see
+ * the VERIFY-FIRST note above for why both). The UNKNOWN sentinel and blank input are
+ * 'unmatched' — never guessed. Two DIFFERENT providers normalizing to the SAME key is
+ * 'ambiguous' — mirrors `matchProviderByDomain`'s own never-auto-pick-on-collision
+ * discipline (packages/domain/src/domain/provider-match.ts): a wrong auto-pick here would
+ * mint the wrong Case/PO prefix, which is worse than leaving it for a human.
+ */
+export function matchWorkProviderByContentString(
+  raw: string | undefined | null,
+  providers: readonly WorkProviderContentMatchRecord[],
+): ContentProviderMatchOutcome {
+  const trimmed = (raw ?? '').toString().trim();
+  if (!trimmed || isUnknownWorkProviderSentinel(trimmed)) return { outcome: 'unmatched' };
+  const key = normalizeProviderMatchKey(trimmed);
+  if (!key) return { outcome: 'unmatched' };
+
+  const hits = new Set<string>();
+  for (const p of providers) {
+    if (
+      (p.principalCode && normalizeProviderMatchKey(p.principalCode) === key) ||
+      (p.displayName && normalizeProviderMatchKey(p.displayName) === key)
+    ) {
+      hits.add(p.workProviderId);
+    }
+  }
+  if (hits.size === 1) {
+    const [workProviderId] = hits;
+    return { outcome: 'matched', workProviderId };
+  }
+  if (hits.size > 1) return { outcome: 'ambiguous' };
+  return { outcome: 'unmatched' };
+}

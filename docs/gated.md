@@ -420,6 +420,41 @@ in the delta file's own header comment):
 > flip any `TRIAGE_*` app-setting gate (`TRIAGE_REF_GATE_ENABLED`, `TRIAGE_CANCELLATION_ENABLED`, …)
 > until this delta is confirmed live — see the DEPLOY-ORDER WARNING in the delta file itself.
 
+#### D8. Apply the rules-engine-v2 identification seed delta  ·  *authored 2026-07-02 — unblocks live PCH/Connexus routing (Phase 3)*
+
+**What:** the Phase-3 identification seed delta for the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md)
+(ADR-0011, implemented as written) is authored and checked in at
+[`migration/assets/schema/deltas/2026-07-02-rules-engine-v2-identification.sql`](../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-identification.sql).
+Unlike **D7** this is **pure data** — no new columns/tables/choice codes (`image_source`,
+`imagesource_workprovider`, and `work_provider.known_email_domains` are all already live), so there is
+**no deploy-order coupling** to any engine tag or app-setting gate. It:
+- Inserts one `image_source` row for **Connexus** (`kind=intermediary`, domain `connexus.co.uk`).
+- Links it N:N to **PCH** and **SBL** in `imagesource_workprovider` (resolved by `principal_code`; skips
+  silently if a code turns out to be missing from the live corpus — verify with the delta's own header
+  queries).
+- Appends `pch-ltd.com` to **PCH**'s own `known_email_domains` (TKT-051: PCH's direct senders were
+  unrecognised).
+- Defensively removes `connexus.co.uk` from any `work_provider.known_email_domains` it might already
+  carry (ADR-0011: an intermediary domain must never direct-match a single provider) — a no-op unless it
+  is actually present; this could **not** be verified offline (the seed CSVs `910_seed_corpus.sql`
+  `\copy`'s from are not checked into this repo), so the statement is written to be safe either way.
+
+**Why you:** same reason as D7 — a live data change on the system of record (Postgres `cespk-pg-dev`)
+needs the table owner (`csadmin`) and an RLS bypass (`image_source` / `imagesource_workprovider` /
+`work_provider` all carry `FORCE ROW LEVEL SECURITY`) that an agent session does not carry.
+
+**Steps:** identical connection/runbook to D7 (`az login` → transient firewall rule → connect as the
+Postgres Entra admin → `SET ROLE csadmin` → `\i` the file → run its header's verification queries → drop
+the firewall rule). See the delta file's own header for the exact commands.
+
+**Unblocks (not blocks):** TKT-021 (Connexus no longer resolves as a bare "new enquiry" when its content
+names PCH/SBL), TKT-051 (PCH doc-content **and** `@pch-ltd.com` senders both recognised), and TKT-028's
+residual (a content-detected provider now resolves a real `work_provider_id`, not just the free-text EVA
+field). The API/orchestration code that reads this corpus (the extended
+`GET /api/internal/provider-match-records`, `@cs/domain`'s `matchSenderIdentity`, and
+`applyParserFields`'s content-string mapping) is already deployed-safe without this delta applied — it
+degrades to today's behaviour (an empty intermediary/candidate list) until this lands.
+
 #### D5. Rotate the parser Function key  ·  *soft security item*
 
 **What:** a parser **function key** value was once committed in source + a doc (both removed/scrubbed), but
