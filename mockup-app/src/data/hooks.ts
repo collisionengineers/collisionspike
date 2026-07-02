@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getDataAccess } from './index';
-import type { LogChaseInput, DetachInboundResult } from './rest-client';
+import type { LogChaseInput, DetachInboundResult, OutlookMoveResult } from './rest-client';
 import type { ActivityEvent, Case, CaseUpdateInput, Chaser, Evidence, Provider } from '@cs/domain';
 import type {
   DashboardSummary,
@@ -31,6 +31,7 @@ import type {
   AiSuggestionReviewResult,
   GenerateAiSuggestionsResult,
   AiAssistGate,
+  OutlookMoveGate,
 } from '@cs/domain';
 import type { QueueName } from '@cs/domain';
 import type {
@@ -467,4 +468,27 @@ export interface DetachInboundState {
 export function useDetachInbound(): DetachInboundState {
   const m = useMutationFn((id: string) => getDataAccess().detachInbound(id));
   return { detach: m.run, detaching: m.pending, error: m.error };
+}
+
+/**
+ * The Outlook-move gate (TKT-054 / 020726 E6). The "Suggested action" column reads
+ * `const { data: moveGate } = useOutlookMoveGate()` and treats undefined/loading as
+ * OFF (the suggestion renders as display-only text). Defaults all-off on failure.
+ */
+export function useOutlookMoveGate(): QueryState<OutlookMoveGate> {
+  const run = useCallback(() => getDataAccess().getOutlookMoveGate(), []);
+  return useAsync(run, []);
+}
+
+/** What `useOutlookMove` hands the screen. `move` resolves the queued/folder result
+ *  and REJECTS on failure (409 gated / 503 queue down) — never a phantom "Filing…". */
+export interface OutlookMoveState {
+  move: (id: string) => Promise<OutlookMoveResult>;
+  filing: boolean;
+  error: Error | undefined;
+}
+/** Queue the REAL Outlook filing of one inbound email (TKT-054 / 020726 E6). */
+export function useOutlookMove(): OutlookMoveState {
+  const m = useMutationFn((id: string) => getDataAccess().moveInboundToOutlook(id));
+  return { move: m.run, filing: m.pending, error: m.error };
 }
