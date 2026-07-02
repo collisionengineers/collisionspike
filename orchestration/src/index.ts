@@ -20,6 +20,7 @@ import './functions/intakeOrchestrator.js';
 import './functions/activities/fetchMessage.js';
 import './functions/activities/providerMatch.js';
 import './functions/activities/classifyInbound.js';
+import './functions/activities/triagePolicy.js'; // Stage B triage policy (ADR-0019 / rules-engine-v2 Phase 2)
 import './functions/activities/linkReply.js';
 import './functions/activities/caseResolve.js';
 import './functions/activities/setIngested.js';
