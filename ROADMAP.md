@@ -470,6 +470,11 @@ Cost is negligible: the deterministic classifier is **$0** (within the Power Aut
 ceiling. Same additive pattern as Phase 7. Full plan:
 [docs/plans/phase-8-inbox-management/README.md](./docs/plans/phase-8-inbox-management/README.md).
 
+> **Azure-era realization tracked separately.** The section below is the original (Power-Platform-era,
+> decommissioned) design; the live build is tracked by the
+> [rules-engine-v2 plan](./docs/plans/rules_engine_v2_plan_9ba034c4.plan.md) and its distilled
+> [build checklist](./docs/plans/phase-8-inbox-management/rules-engine-v2-build.md) (ADR-0019).
+
 > **`.eml` retention rule (A7).** A raw `.eml` is persisted to Blob **only when a Case is extracted**. For
 > query/other email **no `.eml` is persisted** — the mailbox keeps the mail and the triage row holds the
 > metadata + a pointer.
