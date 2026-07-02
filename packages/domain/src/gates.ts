@@ -43,6 +43,17 @@ export const gates = {
   boxEmbed: (): boolean => process.env.BOX_EMBED_ENABLED === 'true',           // #25
   boxMetadata: (): boolean => process.env.BOX_METADATA_ENABLED === 'true',     // #26
 
+  // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
+  // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
+  // is pure and never reads process.env — the caller (an orchestration Durable activity)
+  // reads these accessors and passes the values in as a plain TriagePolicyGates object.
+  // With all four off, decideTriage always falls through to 'proceed_default' (the
+  // kill-switch invariant) — gates-off output is indistinguishable from today.
+  triageRefGate: (): boolean => process.env.TRIAGE_REF_GATE_ENABLED === 'true',
+  triageCancellation: (): boolean => process.env.TRIAGE_CANCELLATION_ENABLED === 'true',
+  triageImagesRouting: (): boolean => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === 'true',
+  triageCaseUpdate: (): boolean => process.env.TRIAGE_CASE_UPDATE_ENABLED === 'true',
+
   // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
   enrichmentApiBase: (): string => process.env.ENRICHMENT_API_BASE ?? '',      // #3
   evaBaseUrl: (): string => process.env.EVA_BASE_URL ?? '',                    // #5

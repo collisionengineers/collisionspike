@@ -413,6 +413,8 @@ const INBOUND_CATEGORY_BY_INT: Record<number, InboundCategory> = {
   100000002: 'other',
   100000003: 'billing',
   100000004: 'non_actionable',
+  100000005: 'case_update',
+  100000006: 'cancellation',
 };
 export const INBOUND_CATEGORY_TO_INT: Record<InboundCategory, number> = {
   receiving_work: 100000000,
@@ -420,6 +422,8 @@ export const INBOUND_CATEGORY_TO_INT: Record<InboundCategory, number> = {
   other: 100000002,
   billing: 100000003,
   non_actionable: 100000004,
+  case_update: 100000005,
+  cancellation: 100000006,
 };
 const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000000: 'existing_provider_instruction',
@@ -432,6 +436,9 @@ const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000007: 'billing_request',
   100000008: 'case_summary',
   100000009: 'acknowledgement',
+  100000010: 'images_received',
+  100000011: 'cancellation_notice',
+  100000012: 'update_general',
 };
 export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   existing_provider_instruction: 100000000,
@@ -444,6 +451,9 @@ export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   billing_request: 100000007,
   case_summary: 100000008,
   acknowledgement: 100000009,
+  images_received: 100000010,
+  cancellation_notice: 100000011,
+  update_general: 100000012,
 };
 export const TRIAGE_STATES: readonly TriageState[] = ['new', 'routed', 'actioned', 'dismissed'];
 const CLASSIFIER_MODES: readonly ClassifierMode[] = ['deterministic', 'llm', 'human'];
@@ -614,6 +624,8 @@ export function tallyActiveInboundCounts(
     query: 0,
     billing: 0,
     non_actionable: 0,
+    case_update: 0,
+    cancellation: 0,
     other: 0,
     untriaged: 0,
   };
