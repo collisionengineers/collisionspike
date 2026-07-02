@@ -73,9 +73,14 @@ access**, then the **retained integrations and data**, then **policy/legal**.
 
 ### A. Time-critical & security
 
-#### A0. Re-authenticate the Azure CLI session (`az login`)  ·  *unblocks everything below*
+#### A0. Re-authenticate the Azure CLI session (`az login`)  ·  *✅ RESOLVED (recurring — re-check when Azure calls 401)*
 
-**What:** the Azure CLI session token expired (during the 2026-06-28 work). `az` **and** the agent's MCP
+**✅ Resolved 2026-07-02:** the session is authenticated again (`az account show` → subscription enabled;
+the rules-engine-v2 deploys, RBAC grant and live probes all ran on it). Kept as a standing item because
+CLI tokens expire periodically — when `az`/MCP Azure calls start failing with token errors, re-run the
+steps below.
+
+**What (historical):** the Azure CLI session token expired (during the 2026-06-28 work). `az` **and** the agent's MCP
 Azure tools both fail with *"An attempt was made to reference a token that does not exist"* / 401 — so **no
 live Azure change can be made** (no Key Vault writes, app-setting changes, deploys, or RBAC grants) until the
 session is re-authenticated. (Offline/local work and the Box-credential proof did not need it.)
@@ -367,14 +372,12 @@ None is due until its phase starts; listed here so nothing lands as a surprise:
      registry for the current value before using it), `AI_MODEL_DEPLOYMENT=gpt-5`. All three are read
      via the shared `@cs/domain/gates` (`emailAi()` / `aiModelEndpoint()` / `aiModelDeployment()`) —
      set them on `cespk-orch-dev` (the app that makes the model call).
-   - **RBAC grant** — the orch app's managed identity needs **Cognitive Services OpenAI User** on
-     `digital-3339-resource` (keyless call by design — no key app-setting exists to set). *Status at
-     this build: `LIVE_FACTS.json`'s `foundry.miGrants` last read "NONE for cespk-api-dev /
-     cespk-orch-dev on this scope"; this Phase-4 build session applies the grant in a separate step
-     from the code change above — confirm the CURRENT state in the registry
-     ([live-environment.md](./architecture/live-environment.md)) before flipping `EMAIL_AI_ENABLED`.
-     Flipping it while the grant is still missing just yields a 401/403 on every call (the activity
-     abstains honestly either way — it never blocks intake — but the suggestion would never fire).*
+   - **RBAC grant — ✅ APPLIED (2026-07-02):** the orch app's managed identity holds
+     **Cognitive Services OpenAI User** on `digital-3339-resource` (role assignment
+     `d695d697-ba96-42c4-a958-3cd61d868bb0`, applied via ARM and verified — see the registry's
+     `foundry.miGrants`). Keyless by design — no key app-setting exists to set. Nothing RBAC-side
+     blocks the `EMAIL_AI_ENABLED` flip any more; the remaining gates are the app-settings above +
+     the G5/E2 sign-off below.
    - **Foundry keyless flip** (disable local/key auth on the account) is **not required** to flip
      `EMAIL_AI_ENABLED` itself (the managed-identity token works regardless of whether key auth is
      ALSO still enabled) — it is the separate, natural follow-on once the grant lands; tracked as

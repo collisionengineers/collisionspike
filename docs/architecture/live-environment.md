@@ -2,12 +2,18 @@
 
 > **Canonical registry of what is actually deployed.** This file + [`LIVE_FACTS.json`](../../LIVE_FACTS.json)
 > (root) are the **single source for literal live numbers** — every other doc links here rather than
-> re-embedding a count. Last live change: **2026-07-02T12:45Z** — rules-engine-v2 **Phase-2 deploy**: api +
-> orch + SPA redeployed with the Stage-B triage policy — orch **51→52** (+`triagePolicy`, shadow+acting
-> decisions with always-on `triage_decision` customEvents), api **65→69** (+triage context/suggest-link +
-> inbound suggestions/detach routes), SPA rebuilt (new tabs + suggestion/unlink affordances; CSP verified).
-> All `TRIAGE_*` gates absent (off) — intake behaviour unchanged; **parser NOT redeployed** (engine-v2.3
-> emits taxonomy v2 — blocked on the gated.md **D7** DDL apply). Prior change **2026-07-02T10:55Z** —
+> re-embedding a count. Last live change: **2026-07-02T14:45Z** — rules-engine-v2 **Phase-3/4/5 final
+> deploy**: api + orch redeployed (Image-Source **intermediary resolution** + parser-string →
+> `work_provider_id` mapping; the **gated AOAI triage assist** — dead until `EMAIL_AI_ENABLED`; the
+> TKT-047 **signature-image raster floor**), counts unchanged (orch 52 / api 69); the orch MI now holds
+> **Cognitive Services OpenAI User** on `digital-3339-resource` (see `LIVE_FACTS.json` `foundry.miGrants`).
+> SPA note: a 12:45Z env-less build shipped `undefined` `VITE_*` and blanked the app — root-caused and
+> fixed ~13:55Z (`mockup-app/.env.production` now committed; live bundle re-verified). Earlier same day —
+> **Phase-2 deploy**: orch **51→52** (+`triagePolicy`, shadow+acting decisions with always-on
+> `triage_decision` customEvents), api **65→69** (+triage context/suggest-link + inbound
+> suggestions/detach routes), SPA rebuilt (new tabs + suggestion/unlink affordances; CSP verified).
+> All `TRIAGE_*` gates absent (off) — intake behaviour unchanged; **parser NOT redeployed** (engine-v2.5
+> in-repo emits taxonomy v2 — blocked on the gated.md **D7** DDL apply). Prior change **2026-07-02T10:55Z** —
 > **Phase-0 deploy**: orch + parser redeployed (classify contract pass-through; engine re-cut at
 > `engine-v2.1`), counts unchanged; live `/classify-email` probe returned `body_jobref` + the
 > `report_attachment` signal. Prior change **2026-06-29T15:39Z** — Graph intake mailbox cutover finished
