@@ -30,7 +30,8 @@
  *  GET  /api/internal/cases/{id}/box-folder          → { boxFolderId, boxFolderUrl, casePo }
  *  POST /api/internal/cases/{id}/box-folder          → { applied, boxFolderId } (first-wins stamp)
  *  POST /api/internal/triage/context                 → { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds } (rules-engine-v2 Phase 2)
- *  POST /api/internal/triage/suggest-link             → { suggestionId, created } (rules-engine-v2 Phase 2)
+ *  POST /api/internal/triage/suggest-link             → { suggestionId, created } (rules-engine-v2 Phase 2;
+ *                                                         suggestionType 'triage_category' added Phase 4)
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
@@ -1385,27 +1386,46 @@ app.http('internalTriageContext', {
    POST /api/internal/triage/suggest-link
    Called by: a NEW orchestration triage-policy activity (rules-engine-v2 Phase 2,
    ADR-0019) when `decideTriage` returns 'suggest_attach' (suggestionType 'case_link') or
-   'propose_cancellation' (suggestionType 'cancellation'). NEVER mutates a case — writes a
-   PENDING ai_suggestion a human accepts/rejects; reviewAiSuggestion's promoteAcceptedSuggestion
-   (ai-suggestions.ts) does the actual attach/no-op on accept.
+   'propose_cancellation' (suggestionType 'cancellation'); AND (rules-engine-v2 Phase 4,
+   ADR-0019 Stage C) the gated `triage-classify.ts` activity on a non-abstain model result
+   (suggestionType 'triage_category'). NEVER mutates a case or the inbound_email row —
+   writes a PENDING ai_suggestion a human accepts/rejects; reviewAiSuggestion's
+   promoteAcceptedSuggestion (ai-suggestions.ts) does the actual attach/relabel/no-op on
+   accept.
 
-   inboundEmailId resolution: this activity can run PRE-classifyPersist (the triage row may
-   not exist yet), so when `inboundEmailId` is not given it is resolved from
-   `sourceMessageId`; when that lookup also comes up empty, the suggestion is written with
-   inbound_email_id NULL and sourceMessageId stashed inside suggested_value so a LATER pass
-   could reconcile it onto the row once classifyPersist writes it (no such reconciliation
-   pass exists yet — this is the documented gap, not a bug).
+   THREE suggestionType shapes share this one endpoint:
+     - 'case_link' / 'cancellation' — suggested_value {targetCaseId?, casePo?,
+       sourceMessageId?, decisionInputs} (the Stage-B ref-gate/cancellation shape, unchanged).
+     - 'triage_category' — suggested_value {category, subtype} (the Stage-C LLM shape,
+       rules-engine-v2 Phase 4). targetCaseId is ALWAYS absent/ignored for this type: it
+       proposes a RELABEL of the message, never a case link. category/subtype are validated
+       against the SAME name<->code maps `upsertInboundEmail` (above) and `reclassifyInbound`
+       (inbound.ts) use (INBOUND_CATEGORY_TO_INT / INBOUND_SUBTYPE_TO_INT) — an unknown name
+       is a 400, never silently written. model_version is CALLER-supplied for this type
+       ('<deployment>:<modelVersion-from-response>', stamped by triage-classify.ts) rather
+       than the hardcoded 'triage-policy-v1' the other two types carry (they are this
+       endpoint's OWN deterministic policy output, not a separate model's).
+
+   inboundEmailId resolution: a caller can run PRE-classifyPersist (the triage row may not
+   exist yet), so when `inboundEmailId` is not given it is resolved from `sourceMessageId`;
+   when that lookup also comes up empty, the suggestion is written with inbound_email_id
+   NULL and sourceMessageId stashed inside suggested_value so a LATER pass could reconcile
+   it onto the row once classifyPersist writes it (no such reconciliation pass exists yet —
+   this is the documented gap, not a bug).
 
    IDEMPOTENCY (api/src/lib/mappers.ts's deriveSuggestionIdempotencyKey): a Durable
    at-least-once retry must not duplicate a suggestion the reviewer hasn't acted on — a
    PENDING row of the same suggestionType + the same subject (inbound_email_id once resolved,
    else the stashed sourceMessageId) + the same targetCaseId short-circuits to created:false.
+   For 'triage_category' this collapses to "same subject" (targetCaseId is always null for
+   that type), so a Durable retry of the SAME triage-classify call reuses the one PENDING row.
 
    PRE-DDL: the ai_suggestion table/columns are ALL already live (no dependency on the
    2026-07-02 DDL delta) — the suggestion write itself always succeeds. Only the AUDIT rows
    (inbound_link_suggested / cancellation_proposed, codes 100000035/100000038) depend on that
    delta; writeAudit's catch-all swallow degrades a pre-DDL FK violation to "no audit row",
-   never a blocked caller (see audit.ts's AUDIT_ACTION comment).
+   never a blocked caller (see audit.ts's AUDIT_ACTION comment). 'triage_category' audits via
+   the pre-existing ai_suggestion_created code (100000032) — no new audit code minted.
    ============================================================ */
 app.http('internalTriageSuggestLink', {
   methods: ['POST'],
@@ -1421,22 +1441,47 @@ app.http('internalTriageSuggestLink', {
         rationale?: string;
         confidence?: number;
         decisionInputs?: unknown;
+        // rules-engine-v2 Phase 4 (ADR-0019 Stage C) — 'triage_category' only.
+        category?: string;
+        subtype?: string;
+        modelVersion?: string;
       };
       const suggestionType = body.suggestionType;
-      if (suggestionType !== 'case_link' && suggestionType !== 'cancellation') {
+      if (suggestionType !== 'case_link' && suggestionType !== 'cancellation' && suggestionType !== 'triage_category') {
         return {
           status: 400,
-          jsonBody: { error: "suggestionType must be 'case_link' or 'cancellation'" },
+          jsonBody: { error: "suggestionType must be 'case_link', 'cancellation' or 'triage_category'" },
         };
       }
       const sourceMessageId = (body.sourceMessageId ?? '').trim() || null;
-      const targetCaseId = (body.targetCaseId ?? '').trim() || null;
+      // 'triage_category' never carries a target case — it relabels the message, it does
+      // not link it (see the module doc above); force null regardless of what a caller sent.
+      const targetCaseId =
+        suggestionType === 'triage_category' ? null : (body.targetCaseId ?? '').trim() || null;
       // rationale/decisionInputs are payload/telemetry fields, not identity — accepted
       // leniently (coerced, never 400) so a minor caller-side omission cannot block a
       // suggestion the ref-gate/cancellation rung already decided to raise.
       const rationale = (body.rationale ?? '').trim() || null;
       const confidence = typeof body.confidence === 'number' ? body.confidence : null;
       const decisionInputs = body.decisionInputs ?? {};
+
+      // 'triage_category' ONLY: validate category/subtype against the SAME name<->code maps
+      // upsertInboundEmail (this file) and reclassifyInbound (inbound.ts) use — an unknown
+      // name is a 400, never a silently-dropped/garbage suggested_value.
+      let triageCategory: string | null = null;
+      let triageSubtype: string | null = null;
+      if (suggestionType === 'triage_category') {
+        const cat = (body.category ?? '').trim();
+        const sub = (body.subtype ?? '').trim();
+        if (!cat || !(cat in INBOUND_CATEGORY_TO_INT)) {
+          return { status: 400, jsonBody: { error: 'category must be a known inbound category' } };
+        }
+        if (!sub || !(sub in INBOUND_SUBTYPE_TO_INT)) {
+          return { status: 400, jsonBody: { error: 'subtype must be a known inbound subtype' } };
+        }
+        triageCategory = cat;
+        triageSubtype = sub;
+      }
 
       // Resolve inbound_email_id from sourceMessageId when not given directly (see the
       // module doc above — this activity may run pre-classifyPersist).
@@ -1483,25 +1528,34 @@ app.http('internalTriageSuggestLink', {
 
       // Best-effort enrichment: the target case's own Case/PO, so the suggestion can render
       // a human-readable reference without a second lookup. Absent when the target case has
-      // no case_po yet (e.g. a Held new-client case) or no target was resolved at all.
+      // no case_po yet (e.g. a Held new-client case) or no target was resolved at all
+      // (always the case for 'triage_category' — targetCaseId is forced null above).
       let casePo: string | null = null;
       if (targetCaseId) {
         const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [targetCaseId]);
         casePo = (caseRows[0]?.case_po as string | null) ?? null;
       }
 
-      const suggestedValue = {
-        ...(targetCaseId ? { targetCaseId } : {}),
-        ...(casePo ? { casePo } : {}),
-        ...(sourceMessageId ? { sourceMessageId } : {}),
-        decisionInputs,
-      };
+      const suggestedValue =
+        suggestionType === 'triage_category'
+          ? { category: triageCategory, subtype: triageSubtype }
+          : {
+              ...(targetCaseId ? { targetCaseId } : {}),
+              ...(casePo ? { casePo } : {}),
+              ...(sourceMessageId ? { sourceMessageId } : {}),
+              decisionInputs,
+            };
+      // 'triage_category' stamps the CALLER's model_version ('<deployment>:<modelVersion>',
+      // triage-classify.ts); the other two types are this endpoint's own deterministic
+      // policy output, unchanged at 'triage-policy-v1'.
+      const modelVersion =
+        suggestionType === 'triage_category' ? (body.modelVersion ?? '').trim() || 'unknown' : 'triage-policy-v1';
       const inserted = await query<Row>(
         `INSERT INTO ai_suggestion
            (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)
-         VALUES ($1, $2, $3::jsonb, $4, $5, 'triage-policy-v1')
+         VALUES ($1, $2, $3::jsonb, $4, $5, $6)
          RETURNING id`,
-        [inboundEmailId, suggestionType, JSON.stringify(suggestedValue), rationale, confidence],
+        [inboundEmailId, suggestionType, JSON.stringify(suggestedValue), rationale, confidence, modelVersion],
       );
       const suggestionId = inserted[0]?.id as string | undefined;
       if (!suggestionId) {
@@ -1515,12 +1569,23 @@ app.http('internalTriageSuggestLink', {
           summary: 'A message was suggested for linking to an existing case',
           after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId },
         });
-      } else {
+      } else if (suggestionType === 'cancellation') {
         await writeAudit({
           action: AUDIT_ACTION.cancellation_proposed,
           ...(targetCaseId ? { caseId: targetCaseId } : {}),
           summary: 'A message reported a case cancelled or closed — flagged for review',
           after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId },
+        });
+      } else {
+        // 'triage_category' (rules-engine-v2 Phase 4, Stage C) — the GENERIC "an AI
+        // producer created a suggestion" audit (the same code generateAiSuggestions writes
+        // for every other AI-produced suggestion kind, ai-suggestions.ts). Distinct from
+        // inbound_link_suggested/cancellation_proposed, which name the Stage-B ref-gate/
+        // cancellation actions specifically — no new audit code minted for this one.
+        await writeAudit({
+          action: AUDIT_ACTION.ai_suggestion_created,
+          summary: 'An AI-suggested category was proposed for a message',
+          after: { suggestionId, sourceMessageId, inboundEmailId, category: triageCategory, subtype: triageSubtype },
         });
       }
 

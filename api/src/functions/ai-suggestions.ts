@@ -26,13 +26,26 @@ import {
   type AiSuggestionReviewResult,
   type GenerateAiSuggestionsResult,
   type ImageRole,
+  type InboundCategory,
+  type InboundSubtype,
 } from '@cs/domain';
 import { imageRoleCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { gates } from '../lib/gates.js';
 import { query } from '../lib/db.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
-import { isAiReviewState, rowToAiSuggestion, type Row } from '../lib/mappers.js';
+import {
+  inboundCategoryFromInt,
+  inboundSubtypeFromInt,
+  isAiReviewState,
+  rowToAiSuggestion,
+  INBOUND_CATEGORY_TO_INT,
+  INBOUND_SUBTYPE_TO_INT,
+  type Row,
+} from '../lib/mappers.js';
+// rules-engine-v2 Phase 4 (ADR-0019 Stage C) — reused, not duplicated: writeImprovementSignal
+// is the SAME feedback-provenance writer a staff reclassify uses (inbound.ts).
+import { writeImprovementSignal } from './inbound.js';
 
 /** image_role 'unknown' code — the FILL-IF-EMPTY sentinel for evidence.image_role_code. */
 const IMAGE_ROLE_UNKNOWN = 100000003;
@@ -157,12 +170,13 @@ app.http('reviewAiSuggestion', {
 /**
  * Promote an accepted suggestion into its target column FILL-IF-EMPTY. Every promote is
  * guarded so it NEVER overwrites a value already set (by a human OR another path). Kinds
- * without a promotion branch here (inspection_address, triage_category) are accepted
- * WITHOUT auto-promotion — a follow-up reviewer applies them (kept deliberately
- * conservative for the MVP). Best-effort: a promote failure must not undo the recorded
- * acceptance. `actor` (Entra oid/upn) is threaded through so the DEDICATED audit rows this
- * function writes (rules-engine-v2 Phase 2's 'case_link' branch) carry the same identity as
- * the outer ai_suggestion_accepted/rejected audit in reviewAiSuggestion.
+ * without a promotion branch here (inspection_address) are accepted WITHOUT
+ * auto-promotion — a follow-up reviewer applies them (kept deliberately conservative for
+ * the MVP). Best-effort: a promote failure must not undo the recorded acceptance. `actor`
+ * (Entra oid/upn) is threaded through so the DEDICATED audit rows this function writes
+ * (rules-engine-v2 Phase 2's 'case_link' branch; Phase 4's 'triage_category' branch) carry
+ * the same identity as the outer ai_suggestion_accepted/rejected audit in
+ * reviewAiSuggestion.
  */
 async function promoteAcceptedSuggestion(
   row: Row,
@@ -235,6 +249,87 @@ async function promoteAcceptedSuggestion(
       // (there is no "cancellation confirmed" audit code — only cancellation_proposed,
       // 100000038, which suggest-link already used once at PROPOSE time; re-using it again
       // here on ACCEPT would misrepresent this as a fresh proposal). promoted stays false.
+    } else if (row.suggestion_type === 'triage_category' && inboundEmailId) {
+      // rules-engine-v2 Phase 4 (ADR-0019 Stage C): accept applies the model's category/
+      // subtype via the SAME name<->code mapping reclassifyInbound (inbound.ts) uses
+      // (INBOUND_CATEGORY_TO_INT / INBOUND_SUBTYPE_TO_INT) — the same way a staff override
+      // does. "FILL-IF-EMPTY" here means "never overwrite a HUMAN decision"
+      // (classifier_mode <> 'human'), NOT "only when NULL": category_code/subtype_code are
+      // NEVER null once classifyInbound has run (even an abstain still sets 'other'), so a
+      // literal NULL guard would make this promotion permanently unreachable. Mirrors
+      // upsertInboundEmail's own COALESCE-unless-human guard (internal.ts) — a deterministic
+      // OR a previously-accepted LLM label may be upgraded; a staff reclassify never is.
+      const proposed = (value as { category?: string; subtype?: string } | null) ?? {};
+      const category = typeof proposed.category === 'string' ? proposed.category : undefined;
+      const subtype = typeof proposed.subtype === 'string' ? proposed.subtype : undefined;
+      const categoryCode = category ? INBOUND_CATEGORY_TO_INT[category as InboundCategory] : undefined;
+      const subtypeCode = subtype ? INBOUND_SUBTYPE_TO_INT[subtype as InboundSubtype] : undefined;
+      if (category && subtype && categoryCode != null && subtypeCode != null) {
+        const cur = await query<Row>(
+          `SELECT id, category_code, subtype_code, suggested_category_code, suggested_subtype_code,
+                  case_id, source_message_id, work_provider_id, classifier_mode
+             FROM inbound_email WHERE id = $1`,
+          [inboundEmailId],
+        );
+        const curRow = cur[0];
+        if (curRow) {
+          const upd = await query<Row>(
+            `UPDATE inbound_email
+                SET category_code = $2, subtype_code = $3, classifier_mode = 'llm', updated_at = now()
+              WHERE id = $1 AND classifier_mode IS DISTINCT FROM 'human'
+            RETURNING id`,
+            [inboundEmailId, categoryCode, subtypeCode],
+          );
+          if (upd[0]) {
+            // Override capture — SAME shape as reclassifyInbound's own (compare the
+            // ACCEPTED value to the classifier's suggestion, by NAME, and write an
+            // improvement_signal on a genuine change). Reused, not duplicated (inbound.ts).
+            const suggestedCatName = inboundCategoryFromInt(
+              (curRow.suggested_category_code ?? curRow.category_code) as number | null | undefined,
+            );
+            const suggestedSubName = inboundSubtypeFromInt(
+              (curRow.suggested_subtype_code ?? curRow.subtype_code) as number | null | undefined,
+            );
+            if (category !== suggestedCatName) {
+              await writeImprovementSignal(
+                curRow,
+                'category',
+                suggestedCatName ?? '(none)',
+                category,
+                actor,
+                'AI suggestion accepted',
+              );
+            }
+            if (subtype !== suggestedSubName) {
+              await writeImprovementSignal(
+                curRow,
+                'subtype',
+                suggestedSubName ?? '(none)',
+                subtype,
+                actor,
+                'AI suggestion accepted',
+              );
+            }
+            await writeAudit({
+              action: AUDIT_ACTION.inbound_reclassified,
+              ...(curRow.case_id ? { caseId: curRow.case_id as string } : {}),
+              summary: `Inbound reclassified by an accepted AI suggestion (category=${category} subtype=${subtype})`,
+              before: { category: suggestedCatName ?? null, subtype: suggestedSubName ?? null },
+              after: {
+                category,
+                subtype,
+                inboundEmailId,
+                sourceMessageId: curRow.source_message_id ?? null,
+              },
+              ...(actor ? { actor } : {}),
+            });
+            return { promoted: true, promotedField: 'inbound_email.category_code/subtype_code' };
+          }
+        }
+      }
+      // else: unknown category/subtype name (should be unreachable — internalTriageSuggestLink
+      // already validated them at write time), the row vanished, or classifier_mode is
+      // already 'human' — never overwrite a human decision. promoted stays false either way.
     }
   } catch {
     /* promotion is supplementary — the acceptance already stands */

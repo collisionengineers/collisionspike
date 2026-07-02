@@ -14,6 +14,12 @@
  *                          (suggest_attach/propose_cancellation only) writes a best-effort
  *                          ai_suggestion row. Returns ONE action the orchestrator routes on
  *                          below (§ "1.55 routing") — never recomputed inline.
+ *   1.55b triageClassify  → gated/triage-classify.ts (Stage C, ADR-0019 / rules-engine-v2
+ *          (gated)         Phase 4): scheduled only for abstain/uncorroborated_* rows
+ *                          (shouldAttemptTriageAssist — pure, classification-shape only,
+ *                          replay-safe); EMAIL_AI_ENABLED + model-configured gate live
+ *                          INSIDE the activity, never read here. Suggestion-only; never
+ *                          changes routing below.
  *   1.6  linkReply (#3)  → Data API: a REPLY about existing work links to its OPEN case (no mint)
  *   4.   parse           → parser Python Function (gated PDF_MAPPER_ENABLED) — runs BEFORE
  *                          caseResolve so its PDF VRM/mileage feed case-create + enrichment (#7/#1)
@@ -33,6 +39,7 @@
 import * as df from 'durable-functions';
 import { supplementAccidentCircumstancesFromBody } from '../lib/supplement-parse.js';
 import type { InboundClassification } from './activities/classifyInbound.js';
+import { shouldAttemptTriageAssist } from './gated/triage-classify.js';
 import type { TriagePolicyDecision } from '@cs/domain';
 
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
@@ -106,6 +113,52 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // below (a plain descriptive result, no further activity calls).
   if (triage.action === 'drop_duplicate') {
     return { triaged: classification.category, subtype: classification.subtype, triage: triage.action };
+  }
+
+  // 1.55b — gated LLM triage-assist (Stage C, ADR-0019 / rules-engine-v2 Phase 4): a
+  // best-effort SECOND OPINION for rows Stage A could not confidently place (abstain, or
+  // carrying an uncorroborated_* signal flag — see shouldAttemptTriageAssist's own doc for
+  // why that is checked independently of category/action, not just "category === other").
+  // Writes a SUGGESTION only (triage-classify.ts's activity), never changes routing below
+  // — the branches that follow keep deciding purely on Stage A/B's classification/action,
+  // exactly as before this block existed.
+  //
+  // DURABLE DETERMINISM: shouldAttemptTriageAssist reads ONLY the checkpointed
+  // `classification` value (Stage A's result from step 1.5, already replay-safe) — it
+  // NEVER reads process.env, so this `if` is safe to re-evaluate identically on every
+  // replay. The real EMAIL_AI_ENABLED/model-configured gate is NOT checked here (an
+  // orchestrator body must never branch on process.env — Azure can replay this generator
+  // on a different worker/at a different time, and env state is not guaranteed identical);
+  // it lives INSIDE the triageClassify ACTIVITY instead, which already returns
+  // `{ skipped: true }` immediately when off. Net effect: with the gate off, this branch
+  // still SCHEDULES an activity call for the qualifying subset of rows (abstain/
+  // uncorroborated only — not "every email"), but that call is a cheap no-op round trip,
+  // never a model call. Placed AFTER the drop_duplicate return so a cross-mailbox repeat
+  // delivery is never sent for a second opinion it will just be discarded alongside.
+  if (shouldAttemptTriageAssist(classification)) {
+    try {
+      const env = inbound as {
+        internetMessageId?: string;
+        subject?: string;
+        body?: string;
+        senderAddress?: string;
+        attachments?: Array<{ filename: string }>;
+      };
+      yield ctx.df.callActivityWithRetry('triageClassify', retry, {
+        sourceMessageId: env.internetMessageId,
+        subject: env.subject,
+        body: env.body,
+        senderAddress: env.senderAddress,
+        attachmentFilenames: (env.attachments ?? []).map((a) => a.filename),
+        deterministicCategory: classification.category,
+        deterministicSubtype: classification.subtype,
+        deterministicSignals: classification.signals,
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] triage LLM assist failed (additive, suggestion-only, non-blocking): ${String(e)}`);
+      }
+    }
   }
 
   // suggest_attach / propose_cancellation / route_images_unmatched: the DECISION (and, for

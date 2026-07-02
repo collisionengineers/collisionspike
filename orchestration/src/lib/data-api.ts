@@ -169,6 +169,25 @@ export interface TriageSuggestLinkResult {
   created: boolean;
 }
 
+/**
+ * POST /api/internal/triage/suggest-link request body, `suggestionType: 'triage_category'`
+ * shape (rules-engine-v2 Phase 4, ADR-0019 Stage C) — a DIFFERENT `suggested_value` shape
+ * than `TriageSuggestLinkRequest` above (`{category, subtype}`, never a `targetCaseId`: a
+ * triage-category suggestion proposes a RELABEL of the inbound email, not a case link).
+ * Same endpoint, same idempotency mechanism (subject-key + suggestionType), distinct
+ * client method so the two request shapes never get confused at a call site.
+ */
+export interface TriageSuggestClassificationRequest {
+  sourceMessageId?: string;
+  inboundEmailId?: string;
+  category: string;
+  subtype: string;
+  rationale: string;
+  confidence: number;
+  /** '<deployment>:<modelVersion-from-response>' — see triage-classify.ts's own stamp. */
+  modelVersion: string;
+}
+
 export const dataApi = {
   /**
    * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
@@ -404,6 +423,28 @@ export const dataApi = {
    */
   triageSuggestLink(payload: TriageSuggestLinkRequest): Promise<TriageSuggestLinkResult> {
     return request('POST', '/api/internal/triage/suggest-link', payload);
+  },
+
+  /**
+   * Write ONE `ai_suggestion` row for a Stage-C (gated LLM) triage-category proposal
+   * (rules-engine-v2 Phase 4, ADR-0019 §3) — the ONLY call `triage-classify.ts`'s
+   * activity makes on a non-abstain model result. Never a case mutation: a human accepts
+   * it via the existing `ai_suggestion` review lifecycle
+   * (`api/src/functions/ai-suggestions.ts`'s `promoteAcceptedSuggestion`), which applies
+   * category_code/subtype_code the same way a staff reclassify does. Idempotent
+   * server-side (same subject-key + suggestionType mechanism as `triageSuggestLink`).
+   */
+  triageSuggestClassification(payload: TriageSuggestClassificationRequest): Promise<TriageSuggestLinkResult> {
+    return request('POST', '/api/internal/triage/suggest-link', {
+      ...(payload.sourceMessageId ? { sourceMessageId: payload.sourceMessageId } : {}),
+      ...(payload.inboundEmailId ? { inboundEmailId: payload.inboundEmailId } : {}),
+      suggestionType: 'triage_category',
+      category: payload.category,
+      subtype: payload.subtype,
+      rationale: payload.rationale,
+      confidence: payload.confidence,
+      modelVersion: payload.modelVersion,
+    });
   },
 
   /** Append one audit_event row (internal route; the API enforces append-only). */

@@ -341,8 +341,14 @@ app.http('detachInboundEmail', {
  * Best-effort append of an improvement_signal row capturing a suggested-vs-chosen override.
  * Classification = parser_rule_candidate (the classifier picked the wrong label — a candidate
  * for a rule fix). Never throws — a feedback-write failure must not sink the reclassify.
+ *
+ * Exported for reuse by ai-suggestions.ts's promoteAcceptedSuggestion (rules-engine-v2
+ * Phase 4): an ACCEPTED 'triage_category' AI suggestion applies category_code/subtype_code
+ * the same way a staff reclassify does, and should feed the SAME feedback-provenance trail
+ * — reused here rather than re-implemented, per this repo's own "read it; reuse/extract
+ * rather than duplicate" convention.
  */
-async function writeImprovementSignal(
+export async function writeImprovementSignal(
   row: Row,
   fieldName: string,
   originalValue: string,

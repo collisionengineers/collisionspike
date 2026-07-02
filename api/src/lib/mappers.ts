@@ -597,13 +597,17 @@ export function rowToAiSuggestion(rec: Row): AiSuggestion {
    Suggestion idempotency (rules-engine-v2 Phase 2 — POST /api/internal/triage/suggest-link).
    ============================================================ */
 
-/** The resolved identity a suggest-link write's Durable at-least-once retry guard keys on. */
+/** The resolved identity a suggest-link write's Durable at-least-once retry guard keys on.
+ *  `'triage_category'` (rules-engine-v2 Phase 4, ADR-0019 Stage C) always carries
+ *  `targetCaseId: null` — it proposes a category/subtype RELABEL of the inbound email
+ *  itself, never a case link, so "the same suggestion" collapses to "the same subject". */
 export interface SuggestionIdempotencyKey {
-  suggestionType: 'case_link' | 'cancellation';
+  suggestionType: 'case_link' | 'cancellation' | 'triage_category';
   /** Which subject column the duplicate-check filters on. */
   subjectKind: 'inbound_email_id' | 'source_message_id';
   subject: string;
-  /** null when the request carried no target (e.g. an ambiguous ref-gate match). */
+  /** null when the request carried no target (e.g. an ambiguous ref-gate match, or any
+   *  'triage_category' suggestion — that type never carries one). */
   targetCaseId: string | null;
 }
 
@@ -617,7 +621,7 @@ export interface SuggestionIdempotencyKey {
  * to key a WHERE clause on).
  */
 export function deriveSuggestionIdempotencyKey(input: {
-  suggestionType: 'case_link' | 'cancellation';
+  suggestionType: 'case_link' | 'cancellation' | 'triage_category';
   inboundEmailId: string | null;
   sourceMessageId: string | null;
   targetCaseId: string | null;
