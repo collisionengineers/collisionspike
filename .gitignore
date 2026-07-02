@@ -69,10 +69,6 @@ venv/
 # distilled into docs/, but NOT committed. Keep PII out of git history.
 raw/
 
-# Email-examination test material (real claimant PII: emails, attachments,
-# screenshots). Examined for triage development, but NEVER committed.
-test-cases-and-data/e-mail-examinations/
-
 # Dataverse corpus snapshots (16a-backup-inspectionaddress.ps1) — live cr1bd_inspectionaddress
 # row dumps contain real PII (claimant/site addresses). Local restore points only; NOT committed.
 dataverse/.build/backups/
