@@ -118,6 +118,8 @@ const CATEGORY_ORDER: InboundCategory[] = [
 const CATEGORY_LABEL: Record<InboundCategory, string> = {
   receiving_work: 'Receiving work',
   query: 'Queries',
+  case_update: 'Case updates',
+  cancellation: 'Cancellations',
   billing: 'Billing',
   non_actionable: 'No action',
   other: 'Other',
@@ -133,6 +135,9 @@ const SUBTYPE_LABEL: Record<InboundSubtype, string> = {
   billing_request: 'Invoice request',
   case_summary: 'Case summary',
   acknowledgement: 'Acknowledgement',
+  images_received: 'Images received',
+  cancellation_notice: 'Cancellation notice',
+  update_general: 'Case update',
   other: 'Unidentified',
 };
 
@@ -146,6 +151,8 @@ const SUBTYPES_BY_CATEGORY: Record<InboundCategory, InboundSubtype[]> = {
   ],
   // The Enquiries-vs-Case-Queries split (TKT-034) lives here, as the two query subtypes.
   query: ['query_existing_work', 'query_new_enquiry'],
+  case_update: ['images_received', 'update_general'],
+  cancellation: ['cancellation_notice'],
   billing: ['billing_request'],
   non_actionable: ['case_summary', 'acknowledgement'],
   other: ['other'],
@@ -161,6 +168,8 @@ const TRIAGE_LABEL: Record<TriageState, string> = {
 const TAB_ICON: Record<InboundCategory, typeof Briefcase> = {
   receiving_work: Briefcase,
   query: MailQuestion,
+  case_update: Mail,
+  cancellation: Mail,
   billing: Mail,
   non_actionable: Mail,
   other: Mail,
@@ -242,6 +251,10 @@ const EMPTY_HINT: Record<InboundCategory, string> = {
   receiving_work:
     'Nothing to action — instruction and audit emails that became (or will become) Cases land in this tab.',
   query: 'No queries to action — chasers and enquiries about work land here.',
+  case_update:
+    'No case updates — new documents or photos arriving for a case already underway land here.',
+  cancellation:
+    'No cancellations — emails telling us a claim is cancelled or a file can be closed land here.',
   billing: 'No billing requests — emails asking for an invoice/fee for completed work land here.',
   non_actionable:
     'Nothing here — case-summary digests and bare acknowledgements ("Thanks") that need no action land here.',
