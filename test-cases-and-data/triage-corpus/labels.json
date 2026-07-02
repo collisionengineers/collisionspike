@@ -14,6 +14,18 @@
     "  for the gaps Tier 1 has none of (queries, enquiries, body-only instruction, auto-reply,",
     "  bounce). The test parses each .eml (subject/body/from), supplies provider_match_state",
     "  here (domain matching is the flow's job), and HTML-strips the body the way the route does.",
+    "  An entry may optionally carry attachment_filenames (wired through alongside",
+    "  attachment_kinds) for fixtures that depend on filename-based report detection.",
+    "",
+    "Taxonomy v2 (rules-engine-v2 Phase 2, collisionspike TKT-041/034/043): the cancellation/",
+    "  and case_update/ buckets exercise the two new additive categories. case_update's",
+    "  fixtures deliberately use the reachable shapes only (a fresh, non-reply email whose",
+    "  hint is the looser body_jobref, or whose attachment kind sits outside both the",
+    "  instruction and image vocabularies) -- Rule 4b already claims almost every non-bare-ack",
+    "  REPLY naming a reference, and Rule 1/Rule 2 already claim a fresh email carrying a",
+    "  formal Case/PO the moment it also carries an instruction- or image-kind attachment; see",
+    "  functions/parser/cedocumentmapper_v2/rules/email_classifier.py Rule 4d for the full",
+    "  reachability note, including the TKT-038 bare-acknowledgement exclusion.",
     "",
     "Tier 3 (real, PII-scrubbed sample mail) is operator-gated [RESERVED-FOR-USER]: the operator",
     "  drops real samples into this folder and the suite consumes them. Not fabricated here."
@@ -274,6 +286,54 @@
       "attachment_kinds": ["instruction"],
       "has_attachments": true,
       "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-041): a claim-system 'claim cancelled' notice naming a Case/PO in the subject. No attachment, no reply — the phrase alone is enough to fire; the Case/PO raises the confidence band to GOOD.",
+      "eml": "cancellation/claim-cancelled-with-ref.eml",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "cancellation", "subtype": "cancellation_notice" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-041): a short 'please cancel this inspection' request naming only a VRM (no Case/PO, no job ref, not a reply) — fires at the WEAK confidence band.",
+      "eml": "cancellation/cancel-instruction-vrm-only.eml",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "cancellation", "subtype": "cancellation_notice" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-041), real eval item tkt041-07: a FORWARDED 'please close this one off' email with the ORIGINAL instructions quoted below it (an attached instruction doc, a known provider — which would otherwise promote strongly at Rule 1) must classify cancellation, never receiving_work. Cancellation is checked before the instruction-doc promotion for exactly this reason.",
+      "eml": "cancellation/cancellation-trumps-instruction-doc.eml",
+      "provider_match_state": "one",
+      "attachment_kinds": ["instruction"],
+      "attachment_filenames": ["instruction-form.pdf"],
+      "has_attachments": true,
+      "expected": { "category": "cancellation", "subtype": "cancellation_notice" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-034/043): a fresh (non-reply) email naming only a looser job reference (not a formal Case/PO — Rule 1/Rule 2 do not treat body_jobref as corroboration) plus a NEW image attachment and no query phrase — case_update/images_received at the WEAK confidence band.",
+      "eml": "case_update/jobref-images-received.eml",
+      "provider_match_state": "none",
+      "attachment_kinds": ["image"],
+      "has_attachments": true,
+      "expected": { "category": "case_update", "subtype": "images_received" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-034/043): a fresh (non-reply) email naming a formal Case/PO plus a NEW attachment whose kind sits outside both the instruction and image vocabularies (so neither Rule 1 nor Rule 2 considers it) — case_update/update_general at the GOOD confidence band (a Case/PO corroborates).",
+      "eml": "case_update/caseref-other-attachment-update-general.eml",
+      "provider_match_state": "one",
+      "attachment_kinds": ["other"],
+      "has_attachments": true,
+      "expected": { "category": "case_update", "subtype": "update_general" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-034/043) regression guard: Rule 4c must keep winning — a report-shaped attachment (filename-detected) plus a reference is a query about existing work, never case_update, even with no query phrase in the body.",
+      "eml": "case_update/report-attachment-stays-query.eml",
+      "provider_match_state": "one",
+      "attachment_kinds": ["instruction"],
+      "attachment_filenames": ["Engineer Report.pdf"],
+      "has_attachments": true,
+      "expected": { "category": "query", "subtype": "query_existing_work" }
     }
   ]
 }

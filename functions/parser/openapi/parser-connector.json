@@ -299,18 +299,20 @@
       "properties": {
         "category": {
           "type": "string",
-          "description": "The top-level triage category: 'receiving_work' | 'query' | 'billing' | 'non_actionable' | 'other'.",
+          "description": "The top-level triage category: 'receiving_work' | 'query' | 'billing' | 'non_actionable' | 'other' | 'case_update' | 'cancellation'. The last two are taxonomy v2 (additive; see taxonomy_version).",
           "enum": [
             "receiving_work",
             "query",
             "billing",
             "non_actionable",
-            "other"
+            "other",
+            "case_update",
+            "cancellation"
           ]
         },
         "subtype": {
           "type": "string",
-          "description": "The triage subtype: 'existing_provider_instruction' | 'existing_provider_audit' | 'new_client_work' | 'query_existing_work' | 'query_new_enquiry' | 'billing_request' | 'case_summary' | 'acknowledgement' | 'other'.",
+          "description": "The triage subtype: 'existing_provider_instruction' | 'existing_provider_audit' | 'new_client_work' | 'query_existing_work' | 'query_new_enquiry' | 'billing_request' | 'case_summary' | 'acknowledgement' | 'other' | 'images_received' | 'update_general' | 'cancellation_notice'. The last three are taxonomy v2 (additive; see taxonomy_version).",
           "enum": [
             "existing_provider_instruction",
             "existing_provider_audit",
@@ -320,7 +322,10 @@
             "billing_request",
             "case_summary",
             "acknowledgement",
-            "other"
+            "other",
+            "images_received",
+            "update_general",
+            "cancellation_notice"
           ]
         },
         "confidence": {
@@ -353,7 +358,11 @@
         },
         "contract_version": {
           "type": "string",
-          "description": "The classifier contract tag (distinct from the /parse EVA contract tag so a consumer can tell the two envelopes apart)."
+          "description": "The classifier contract tag (distinct from the /parse EVA contract tag so a consumer can tell the two envelopes apart). Unchanged by the taxonomy v2 bump — see taxonomy_version for that."
+        },
+        "taxonomy_version": {
+          "type": "integer",
+          "description": "The taxonomy generation this row was labelled at (currently 2: adds the case_update/cancellation categories and their subtypes on top of v1's receiving_work/query/billing/non_actionable/other). A consumer uses this to tell which category/subtype codes a row may carry — existing rows keep their original-generation codes; there is no backfill on a taxonomy bump."
         }
       }
     }

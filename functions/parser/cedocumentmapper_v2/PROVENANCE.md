@@ -1,5 +1,21 @@
 # Vendored engine provenance — `cedocumentmapper_v2`
 
+> ## ⚠ DEPLOY-ORDER WARNING (as of the `engine-v2.3` pin, 2026-07-02)
+>
+> **This vendored tree now emits taxonomy v2** — `classify_email` can return the
+> new `case_update` / `cancellation` categories (subtypes `images_received` /
+> `update_general` / `cancellation_notice`) and a `taxonomy_version` field on every
+> response. **Do NOT deploy the parser Function from this tree until the operator
+> has applied the additive DDL delta**
+> `migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql`
+> (see [`docs/gated.md`](../../../docs/gated.md)) — the Data API / Postgres side
+> must accept the new choiceset codes *before* the parser can legally emit them.
+> Deploying the parser first risks the Data API rejecting (or silently
+> mis-storing) a row it does not yet recognise. Deploy order: **DDL delta first,
+> parser re-deploy second** — this mirrors the rules-engine-v2 plan's Phase 2
+> "deploy order is part of the design" discipline.
+> ([`docs/plans/rules_engine_v2_plan_9ba034c4.plan.md`](../../../docs/plans/rules_engine_v2_plan_9ba034c4.plan.md))
+
 This directory is a **pinned vendored copy** of the Collision Engineers document
 parser engine. It is the package the FC1 parser Function imports as
 `import cedocumentmapper_v2` (the Function root `functions/parser/` is on the
@@ -12,6 +28,21 @@ hand-edited** — every shared file, including the bundled JSON resources, is a
 byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
+
+**2026-07-02 (rules-engine-v2 Phase 2 — taxonomy v2):** the sibling added two
+additive top-level categories to the email classifier — `case_update`
+(`images_received` / `update_general` subtypes; TKT-034/043) and `cancellation`
+(`cancellation_notice` subtype; TKT-041, highest precedence — checked before the
+instruction-doc promotion) — plus a `taxonomy_version` response field. First
+tagged `engine-v2.2`; the vendored consumer's own ticket-eval test caught a real
+regression before this reached anywhere downstream (the real TKT-038 "Thanks Ed"
+email, whose embedded signature images were being read as `case_update` evidence
+instead of staying `non_actionable/acknowledgement`), fixed on the sibling by
+excluding bare-acknowledgement replies from `case_update`, and re-tagged
+**`engine-v2.3`** (`engine-v2.2` is left in the sibling's history as a real
+point-in-time snapshot but must not be re-cut from). This copy is cut from
+`engine-v2.3`. See the DEPLOY-ORDER WARNING at the top of this file before
+redeploying the parser Function from this tree.
 
 Earlier cuts (2026-06-23 through 2026-07-01) went through several rounds of
 drift and reconciliation, pinned in turn to `4824136`, `af98383`, `e256760`,
@@ -55,15 +86,19 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.1`** on `main`, commit
-  **`a9f788715eb27e56a63c8b8bda66b2b04bdf9aef`** (2026-07-02) — the sibling's
-  **first tagged engine release**. Supersedes all prior working-branch pins
-  (`4824136`, `af98383`, `e256760`, `504c3a3`).
+- **Cut from:** annotated tag **`engine-v2.3`** on `main`, commit
+  **`accddc57580723e8d2387633b8a30672d7d2a4ca`** (2026-07-02) — taxonomy v2
+  (`case_update` + `cancellation`), corrected (see History above; supersedes the
+  short-lived `engine-v2.2`, commit `6e3cb183a46169f45f4ef2a4507535322c673e7c`,
+  which carried the TKT-038 regression). Prior pins: `engine-v2.1` (commit
+  `a9f788715eb27e56a63c8b8bda66b2b04bdf9aef`, the sibling's first tagged engine
+  release), and the working-branch pins it superseded (`4824136`, `af98383`,
+  `e256760`, `504c3a3`).
 
 ## Reconciliations: none outstanding
 
-As of `engine-v2.1` this copy is a **pure mirror** — no vendored-only or
-sibling-only divergence remains. `RECONCILED_MODULES` in
+As of `engine-v2.1` (and unchanged through `engine-v2.3`) this copy is a **pure
+mirror** — no vendored-only or sibling-only divergence remains. `RECONCILED_MODULES` in
 `tests/test_engine_vendored_in_sync.py` is empty, and every shared file
 (all `.py` modules plus `resources/*.json`) is byte-compared with no
 exceptions.
@@ -137,7 +172,7 @@ must stay off the cloud path (see "Omitted modules" above).
 Run from the repo root (`collisionspike/`), Git Bash / bash:
 
 ```bash
-REF=engine-v2.1   # the committed, tagged sibling ref you are cutting from
+REF=engine-v2.3   # the committed, tagged sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 

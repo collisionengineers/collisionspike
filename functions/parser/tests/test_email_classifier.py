@@ -108,6 +108,11 @@ def _tier2_cases() -> list:
         # Rule 0 / Rule 2 supply it explicitly.
         if "attachment_kinds" in entry:
             request["attachment_kinds"] = entry["attachment_kinds"]
+        # attachment_filenames is likewise optional -- only the taxonomy-v2
+        # case_update fixtures that depend on filename-based report detection
+        # (Rule 4c: has_report_attachment) supply it.
+        if "attachment_filenames" in entry:
+            request["attachment_filenames"] = entry["attachment_filenames"]
         cases.append(
             pytest.param(request, entry["expected"], id=f"tier2-{entry['eml']}")
         )
@@ -137,10 +142,11 @@ def test_other_fixtures_have_no_work_or_query_label(request_fields, expected):
     assert result["subtype"] == "other"
 
 
-def test_corpus_covers_all_six_subtypes():
+def test_corpus_covers_all_subtypes():
     """The corpus must exercise every subtype so a regression in any one rule is
     visible (Tier 1 covers the two receiving-work provider subtypes; Tier 2 the
-    rest)."""
+    rest, including the taxonomy-v2 additions: images_received/update_general/
+    cancellation_notice)."""
     seen = {e["expected"]["subtype"] for e in _MANIFEST["tier_1_existing_cases"]}
     seen |= {e["expected"]["subtype"] for e in _MANIFEST["tier_2_synthetic"]}
     assert seen == {
@@ -150,6 +156,9 @@ def test_corpus_covers_all_six_subtypes():
         "query_existing_work",
         "query_new_enquiry",
         "other",
+        "images_received",
+        "update_general",
+        "cancellation_notice",
     }
 
 
