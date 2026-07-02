@@ -42645,6 +42645,7 @@ ${body2}`);
     const envelope = {
       messageId: input12.messageId,
       internetMessageId: message.internetMessageId ?? input12.messageId,
+      conversationId: message.conversationId ?? "",
       subject,
       senderAddress,
       receivedAt: message.receivedDateTime ?? input12.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
@@ -42913,6 +42914,7 @@ function callClassifyEmail(input12) {
     sender_domain: input12.senderDomain ?? "",
     provider_match_state: input12.providerMatchState ?? "",
     attachment_kinds: input12.attachmentKinds ?? [],
+    attachment_filenames: input12.attachmentFilenames ?? [],
     has_attachments: input12.hasAttachments ?? false,
     in_reply_to: input12.inReplyTo ?? "",
     references: input12.references ?? ""
@@ -42987,23 +42989,28 @@ function domainOf2(address) {
   const at = address.lastIndexOf("@");
   return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : "";
 }
+function buildClassifyRequest(inbound, matchState) {
+  const attachmentKinds = inbound.attachments.map(
+    (a) => describeEvidence(a.filename, a.contentType).evidenceClass
+  );
+  const attachmentFilenames = inbound.attachments.map((a) => a.filename);
+  return {
+    subject: inbound.subject,
+    body: inbound.body,
+    from: inbound.senderAddress,
+    senderDomain: domainOf2(inbound.senderAddress),
+    providerMatchState: MATCH_STATE_TO_CLASSIFIER[matchState ?? "unmatched"] ?? "none",
+    attachmentKinds,
+    attachmentFilenames,
+    hasAttachments: inbound.attachments.length > 0,
+    inReplyTo: inbound.inReplyTo,
+    references: inbound.references
+  };
+}
 df7.app.activity("classifyInbound", {
   handler: async (input12, ctx) => {
     const { inbound, workProviderId, matchState } = input12;
-    const attachmentKinds = inbound.attachments.map(
-      (a) => describeEvidence(a.filename, a.contentType).evidenceClass
-    );
-    const res = await callClassifyEmail({
-      subject: inbound.subject,
-      body: inbound.body,
-      from: inbound.senderAddress,
-      senderDomain: domainOf2(inbound.senderAddress),
-      providerMatchState: MATCH_STATE_TO_CLASSIFIER[matchState ?? "unmatched"] ?? "none",
-      attachmentKinds,
-      hasAttachments: inbound.attachments.length > 0,
-      inReplyTo: inbound.inReplyTo,
-      references: inbound.references
-    });
+    const res = await callClassifyEmail(buildClassifyRequest(inbound, matchState));
     const category = KNOWN_CATEGORIES.has(res.category) ? res.category : "other";
     const classification = {
       category,
@@ -43012,6 +43019,7 @@ df7.app.activity("classifyInbound", {
       signals: res.signals ?? [],
       bodyVrm: res.body_vrm ?? "",
       bodyCaseref: res.body_caseref ?? "",
+      bodyJobref: res.body_jobref ?? "",
       isReply: res.is_reply ?? false
     };
     await dataApi.recordInboundEmail({ inbound, providerId: workProviderId, classification });
@@ -43239,9 +43247,10 @@ var gates = {
   boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
   // #28
   // AI model endpoint config (TKT-015). The server-side model call path is built but
-  // dormant: digital-3339-resource has ZERO model deployments, so these are ABSENT in
-  // live app-settings and the generate route stays an honest no-op until a model is
-  // deployed + wired. Prefer managed-identity/keyless — no API key gate by design.
+  // dormant: these settings are ABSENT in live app-settings, so the generate route stays
+  // an honest no-op until the wiring lands (model deployments now exist on the Foundry
+  // account — live state in LIVE_FACTS.json `foundry`; rules-engine-v2 Phase 4 wires
+  // them). Prefer managed-identity/keyless — no API key gate by design.
   aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
   aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
   /**

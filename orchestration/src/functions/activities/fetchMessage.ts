@@ -31,6 +31,9 @@ interface FetchMessageInput {
 export interface InboundEnvelope {
   messageId: string;
   internetMessageId: string;
+  /** Graph's thread-correlation id (default property set — capture-only; persisted
+   *  from Phase 2's DDL, which adds inbound_email.conversation_id). */
+  conversationId?: string;
   subject: string;
   senderAddress: string;
   receivedAt: string;
@@ -122,6 +125,7 @@ df.app.activity('fetchMessage', {
     const envelope: InboundEnvelope = {
       messageId: input.messageId,
       internetMessageId: message.internetMessageId ?? input.messageId,
+      conversationId: message.conversationId ?? '',
       subject,
       senderAddress,
       receivedAt: message.receivedDateTime ?? input.receivedAt ?? new Date().toISOString(),

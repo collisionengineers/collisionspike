@@ -272,6 +272,13 @@
             "type": "string"
           }
         },
+        "attachment_filenames": {
+          "type": "array",
+          "description": "The filenames of the email's attachments, e.g. [\"engineer-report.pdf\"]. Used for content-agnostic, filename-regex report detection (has_report_attachment) alongside attachment_kinds. Optional — must be a list when provided; an empty list / absent means no attachments.",
+          "items": {
+            "type": "string"
+          }
+        },
         "has_attachments": {
           "type": "boolean",
           "description": "Whether the email carried any attachment."
@@ -292,22 +299,27 @@
       "properties": {
         "category": {
           "type": "string",
-          "description": "The top-level triage category: 'receiving_work' | 'query' | 'other'.",
+          "description": "The top-level triage category: 'receiving_work' | 'query' | 'billing' | 'non_actionable' | 'other'.",
           "enum": [
             "receiving_work",
             "query",
+            "billing",
+            "non_actionable",
             "other"
           ]
         },
         "subtype": {
           "type": "string",
-          "description": "The triage subtype: 'existing_provider_instruction' | 'existing_provider_audit' | 'new_client_work' | 'query_existing_work' | 'query_new_enquiry' | 'other'.",
+          "description": "The triage subtype: 'existing_provider_instruction' | 'existing_provider_audit' | 'new_client_work' | 'query_existing_work' | 'query_new_enquiry' | 'billing_request' | 'case_summary' | 'acknowledgement' | 'other'.",
           "enum": [
             "existing_provider_instruction",
             "existing_provider_audit",
             "new_client_work",
             "query_existing_work",
             "query_new_enquiry",
+            "billing_request",
+            "case_summary",
+            "acknowledgement",
             "other"
           ]
         },
@@ -334,6 +346,10 @@
         "body_caseref": {
           "type": "string",
           "description": "The first Case/PO found in subject+body, or empty. The caller links by Case/PO first, registration only as a fallback; the classifier never auto-links."
+        },
+        "body_jobref": {
+          "type": "string",
+          "description": "The first provider job/claim reference found in subject+body (distinct from the Case/PO format), or empty. Surfaced for the caller's open-Case ref-gate lookup; the classifier never auto-links."
         },
         "contract_version": {
           "type": "string",

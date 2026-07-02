@@ -102,6 +102,9 @@ export interface GraphMessage {
   bodyPreview?: string;
   body?: { contentType?: string; content?: string };
   hasAttachments?: boolean;
+  /** In Graph's default property set — no $select needed. Capture-only for now; the
+   *  column lands with Phase 2's DDL (local thread correlation). */
+  conversationId?: string;
 }
 
 export interface FetchedMessage {

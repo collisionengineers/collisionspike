@@ -65,6 +65,7 @@ export interface ClassifyEmailResult {
   signals?: string[];
   body_vrm?: string;
   body_caseref?: string;
+  body_jobref?: string;
   /** True when the email is a reply about existing work (#3). Default false; the route
    *  derives it from in_reply_to/references when supplied, else a RE:-subject heuristic. */
   is_reply?: boolean;
@@ -84,6 +85,7 @@ export function callClassifyEmail(input: {
   senderDomain?: string;
   providerMatchState?: string;
   attachmentKinds?: string[];
+  attachmentFilenames?: string[];
   hasAttachments?: boolean;
   /** RFC In-Reply-To / References headers — make is_reply detection reliable (#3). */
   inReplyTo?: string;
@@ -96,6 +98,7 @@ export function callClassifyEmail(input: {
     sender_domain: input.senderDomain ?? '',
     provider_match_state: input.providerMatchState ?? '',
     attachment_kinds: input.attachmentKinds ?? [],
+    attachment_filenames: input.attachmentFilenames ?? [],
     has_attachments: input.hasAttachments ?? false,
     in_reply_to: input.inReplyTo ?? '',
     references: input.references ?? '',
