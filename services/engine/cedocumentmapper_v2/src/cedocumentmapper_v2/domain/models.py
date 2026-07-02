@@ -17,6 +17,12 @@ class FieldKey(StrEnum):
     VRM = "vrm"
     VEHICLE_MODEL = "vehicle_model"
     CLAIMANT_NAME = "claimant_name"
+    # claimant_telephone / claimant_email are the parser's NATIVE keys feeding the
+    # settled EVA fields of the same name (ROADMAP B2). They are OPTIONAL: derived
+    # from document text near claimant/insured context when present, left empty
+    # (for staff to fill) when absent. Deliberately NOT in REQUIRED_FIELDS.
+    CLAIMANT_TELEPHONE = "claimant_telephone"
+    CLAIMANT_EMAIL = "claimant_email"
     REFERENCE = "reference"
     INCIDENT_DATE = "incident_date"
     INSTRUCTION_DATE = "instruction_date"
@@ -33,6 +39,8 @@ FIELD_ORDER: tuple[FieldKey, ...] = (
     FieldKey.VRM,
     FieldKey.VEHICLE_MODEL,
     FieldKey.CLAIMANT_NAME,
+    FieldKey.CLAIMANT_TELEPHONE,
+    FieldKey.CLAIMANT_EMAIL,
     FieldKey.REFERENCE,
     FieldKey.INCIDENT_DATE,
     FieldKey.INSTRUCTION_DATE,
@@ -49,6 +57,8 @@ FIELD_LABELS: dict[FieldKey, str] = {
     FieldKey.VRM: "VRM",
     FieldKey.VEHICLE_MODEL: "Vehicle Model",
     FieldKey.CLAIMANT_NAME: "Claimant Name",
+    FieldKey.CLAIMANT_TELEPHONE: "Claimant Telephone",
+    FieldKey.CLAIMANT_EMAIL: "Claimant Email",
     FieldKey.REFERENCE: "Reference",
     FieldKey.INCIDENT_DATE: "Incident Date",
     FieldKey.INSTRUCTION_DATE: "Instruction Date",

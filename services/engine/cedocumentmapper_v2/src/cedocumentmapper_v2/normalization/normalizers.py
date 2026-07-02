@@ -97,6 +97,86 @@ def normalize_mileage_unit(value: str) -> str:
     return value.strip()
 
 
+# A pragmatic UK telephone matcher for instruction-document text. Accepts the
+# common WRITTEN forms — 0xxxx xxxxxx landline/mobile, +44 / 0044 international,
+# optional (0) after the country code, and spaces/dots/hyphens/parentheses as
+# separators — without swallowing dates or references. After stripping
+# separators a UK number is 10-11 digits with a leading 0, or +44 followed by
+# 9-10 national digits. We DELIBERATELY do not try to be a full libphonenumber.
+TELEPHONE_RE = re.compile(
+    r"""
+    (?<![\w.])                         # not mid-word / mid-number
+    (
+        (?:\+44\s?|0044\s?)\(?0?\)?[\s.\-]?\d(?:[\s.\-]?\d){8,9}  # +44 / 0044 forms
+        |
+        \(?0\d{1,4}\)?[\s.\-]?\d(?:[\s.\-]?\d){5,8}              # national 0xxxx form
+    )
+    (?![\w])
+    """,
+    re.VERBOSE,
+)
+
+# Standard, conservative email matcher. Anchored on word boundaries so it does
+# not consume surrounding punctuation; the local part allows the usual RFC-ish
+# atom characters and the domain requires at least one dot.
+EMAIL_RE = re.compile(
+    r"(?<![\w.+\-])([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})(?![\w@\-])"
+)
+
+
+def normalize_telephone(value: str) -> str:
+    """Normalise an extracted UK telephone string.
+
+    Returns a tidy form: a single leading ``+44`` (preserved when present) or a
+    leading ``0``, followed by the national digits with all separators removed.
+    Anything that does not contain a plausible UK number (10-11 national digits)
+    returns ``""`` so the field stays empty rather than holding junk.
+    """
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+
+    match = TELEPHONE_RE.search(raw)
+    candidate = match.group(1) if match else raw
+
+    stripped = candidate.lstrip()
+    international = stripped.startswith("+44") or stripped.startswith("0044")
+    digits = re.sub(r"\D", "", candidate)
+
+    if international:
+        # Drop the 0044 / 44 country code, then any trunk 0 written as +44 (0)...
+        if digits.startswith("0044"):
+            digits = digits[4:]
+        elif digits.startswith("44"):
+            digits = digits[2:]
+        digits = digits.lstrip("0")
+        if not (9 <= len(digits) <= 10):
+            return ""
+        return "+44" + digits
+
+    # National form: must be a leading-zero number of 10 or 11 digits total.
+    if not digits.startswith("0"):
+        return ""
+    if not (10 <= len(digits) <= 11):
+        return ""
+    return digits
+
+
+def normalize_email(value: str) -> str:
+    """Normalise an extracted email address: trim, lowercase, strip punctuation.
+
+    Returns ``""`` when no well-formed address is present, so the field is left
+    empty for staff to complete rather than holding a partial token.
+    """
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    match = EMAIL_RE.search(raw)
+    if not match:
+        return ""
+    return match.group(1).strip().strip(".,;:").lower()
+
+
 def normalize_address(value: str, force_postcode: bool = False) -> str:
     """Normalise the inspection address to a 6-line canonical form."""
     text = (value or "").strip()

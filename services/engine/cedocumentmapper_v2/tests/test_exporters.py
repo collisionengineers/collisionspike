@@ -1,6 +1,13 @@
 import json
 import pytest
-from cedocumentmapper_v2.domain.models import ExtractedRecord, ProviderMatch, FieldKey, FieldExtraction
+from cedocumentmapper_v2.domain.models import (
+    ExtractedRecord,
+    ProviderMatch,
+    FieldKey,
+    FieldExtraction,
+    FIELD_ORDER,
+    FIELD_LABELS,
+)
 from cedocumentmapper_v2.exporters import EVAJsonExporter, RJSDocxExporter
 
 
@@ -40,7 +47,60 @@ def test_eva_json_exporter():
     keys = list(data.keys())
     assert keys[0] == "Work Provider"
     assert keys[1] == "VRM"
-    assert keys[12] == "Mileage Unit"
+    # Mileage Unit is always last in FIELD_ORDER; index shifts when fields are
+    # inserted earlier (e.g. ROADMAP-B2's Claimant Telephone / Claimant Email
+    # after Claimant Name), so pin it relative to length rather than a bare
+    # literal.
+    assert keys[-1] == "Mileage Unit"
+    assert len(keys) == len(FIELD_ORDER)
+
+
+def test_eva_json_exporter_accepts_every_field_in_field_order():
+    """``export()`` ALWAYS validates the FIELD_ORDER-built dict against the bundled
+    ``resources/eva-json.schema.json`` (``additionalProperties: false``). If a key
+    is ever added to ``FIELD_ORDER`` without a matching schema property, the bundled
+    schema rejects it and ``export()`` raises a ValidationError on every call. This
+    test populates EVERY FIELD_ORDER key and asserts ``export()`` round-trips, so the
+    schema can never silently fall out of sync with the field set again.
+
+    (Recovered from the stranded ``feat/audit-case-type-detection`` branch
+    (504c3a3) as part of upstreaming ROADMAP-B2 claimant-contact extraction --
+    FIELD_ORDER now carries the Claimant Telephone / Claimant Email keys natively,
+    so the parenthetical below is no longer a "vendored cloud copy" special case.)
+    """
+    fields = {
+        key: FieldExtraction(
+            value="Work Provider X" if key is FieldKey.WORK_PROVIDER else _sample_value(key)
+        )
+        for key in FIELD_ORDER
+    }
+    record = ExtractedRecord(
+        provider=ProviderMatch(provider_id="x", provider_name="X", confidence=1.0),
+        fields=fields,
+    )
+
+    exported = EVAJsonExporter().export(record)  # must not raise
+    data = json.loads(exported)
+
+    # Every FIELD_ORDER label appears, in order, and nothing extra leaks in.
+    expected_labels = [FIELD_LABELS[key] for key in FIELD_ORDER]
+    assert list(data.keys()) == expected_labels
+
+
+def _sample_value(key: FieldKey) -> str:
+    """A schema-valid sample value for each field (dates DD/MM/YYYY, mileage digits,
+    enums from their allowed set, the 6-line inspection address)."""
+    if key in {FieldKey.INCIDENT_DATE, FieldKey.INSTRUCTION_DATE, FieldKey.INSPECTION_DATE}:
+        return "14/04/2026"
+    if key is FieldKey.INSPECTION_ADDRESS:
+        return "123 Street\n\n\n\n\nB5 6JX"  # exactly 6 lines
+    if key is FieldKey.VAT_STATUS:
+        return "No"
+    if key is FieldKey.MILEAGE:
+        return "53600"
+    if key is FieldKey.MILEAGE_UNIT:
+        return "Km"
+    return "sample"
 
 
 def test_eva_json_exporter_blocks_blank_work_provider():

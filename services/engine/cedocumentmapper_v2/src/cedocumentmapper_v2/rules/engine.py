@@ -23,8 +23,11 @@ from cedocumentmapper_v2.normalization import (
     normalize_vat_status,
     normalize_mileage_unit,
     normalize_address,
+    normalize_telephone,
+    normalize_email,
     validate_fields,
 )
+from cedocumentmapper_v2.normalization.normalizers import TELEPHONE_RE, EMAIL_RE
 
 
 def clean_val(value: str) -> str:
@@ -455,9 +458,13 @@ class RuleEngine:
                         fallback_norm = normalize_address(fallback_norm, force_postcode=force_postcode)
                     elif field_key == FieldKey.CLAIMANT_NAME:
                         fallback_norm = self._clean_claimant_name(fallback_norm)
+                    elif field_key == FieldKey.CLAIMANT_TELEPHONE:
+                        fallback_norm = normalize_telephone(fallback_norm)
+                    elif field_key == FieldKey.CLAIMANT_EMAIL:
+                        fallback_norm = normalize_email(fallback_norm)
                     if not fallback_norm.strip():
                         fallback_norm = ""
-                    
+
                     if fallback_norm and not self._is_suspicious_value(field_key, fallback_norm, document):
                         ext = fallback
             
@@ -483,6 +490,10 @@ class RuleEngine:
                     norm_val = normalize_address(norm_val, force_postcode=force_postcode)
             elif field_key == FieldKey.CLAIMANT_NAME:
                 norm_val = self._clean_claimant_name(norm_val)
+            elif field_key == FieldKey.CLAIMANT_TELEPHONE:
+                norm_val = normalize_telephone(norm_val)
+            elif field_key == FieldKey.CLAIMANT_EMAIL:
+                norm_val = normalize_email(norm_val)
 
             if not norm_val.strip():
                 ext = replace(ext, value="", raw_value=ext.raw_value)
@@ -1475,6 +1486,10 @@ class RuleEngine:
                 field_key,
                 reject_labels={"name", "claimant", "client", "claimant name"},
             )
+        if field_key == FieldKey.CLAIMANT_TELEPHONE:
+            return self._fallback_telephone(lines, text)
+        if field_key == FieldKey.CLAIMANT_EMAIL:
+            return self._fallback_email(lines, text)
         if field_key == FieldKey.VEHICLE_MODEL:
             model = self._fallback_vehicle_model(lines)
             if model.value:
@@ -1821,6 +1836,220 @@ class RuleEngine:
                     source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox),
                 )
         return FieldExtraction(value="", rule_id=f"fallback_{field_key.value}", confidence=0.0)
+
+    # Words that mark the line (or a nearby anchor line) as being about the
+    # CLAIMANT / INSURED / CLIENT, used to scope telephone & email extraction so
+    # we prefer the claimant's contact details over a solicitor's switchboard.
+    _CLAIMANT_CONTEXT_WORDS: tuple[str, ...] = (
+        "claimant",
+        "our client",
+        "our insured",
+        "insured",
+        "client",
+        "policyholder",
+        "driver",
+        "owner",
+    )
+
+    # Labels that explicitly introduce the claimant's own contact details.
+    _CLAIMANT_CONTACT_LABELS: tuple[str, ...] = (
+        "claimant tel",
+        "claimant telephone",
+        "claimant mobile",
+        "claimant contact",
+        "claimant email",
+        "client tel",
+        "client telephone",
+        "client mobile",
+        "client email",
+        "insured tel",
+        "insured telephone",
+        "insured mobile",
+        "insured email",
+    )
+
+    def _line_has_claimant_context(self, line_text: str) -> bool:
+        lower = line_text.lower()
+        return any(word in lower for word in self._CLAIMANT_CONTEXT_WORDS)
+
+    def _is_non_claimant_email(self, email: str, lines: list[DocumentLine]) -> bool:
+        """Reject provider / team inbox addresses that are not the claimant's."""
+        lower_email = email.lower()
+        if re.search(
+            r"(?:team[_-]?inbox|[_-]inbox@|noreply@|no-reply@|servicedesk@|engineersinspections@)",
+            lower_email,
+        ):
+            return True
+        for idx, line in enumerate(lines):
+            if email.lower() not in line.text.lower():
+                continue
+            context = " ".join(l.text.lower() for l in lines[max(0, idx - 3): idx + 1])
+            if any(
+                phrase in context
+                for phrase in (
+                    "credit repair",
+                    "contact the",
+                    "by email on",
+                    "team on",
+                    "report suspicious",
+                    "servicedesk",
+                )
+            ):
+                return True
+        return False
+
+    def _fallback_telephone(self, lines: list[DocumentLine], text: str) -> FieldExtraction:
+        """Derive the claimant telephone from document text, scoped to context.
+
+        Preference order (all provenanced via rule_id):
+          1. an explicit claimant/client/insured telephone LABEL with a number;
+          2. a phone number on / just after a line that mentions the claimant;
+          3. (only if exactly one phone exists in the whole document) that number.
+        Returns empty when nothing plausible is found — staff fill it in.
+        """
+        # 1. Explicit claimant/client/insured contact label on the same line.
+        contact_label_re = re.compile(
+            r"(?:claimant|client|insured)\s*(?:tel(?:ephone)?|mobile|phone|contact)\s*(?:no\.?|number)?\s*[:\-]?\s*(.+)",
+            re.IGNORECASE,
+        )
+        for line in lines:
+            match = contact_label_re.search(line.text)
+            if not match:
+                continue
+            number = normalize_telephone(match.group(1))
+            if number:
+                return FieldExtraction(
+                    value=number,
+                    raw_value=clean_val(match.group(1)),
+                    rule_id="fallback_telephone_claimant_label",
+                    confidence=0.85,
+                    source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox),
+                )
+
+        # 2. A phone number on, or within two lines of, a claimant-context line.
+        for idx, line in enumerate(lines):
+            if not self._line_has_claimant_context(line.text):
+                continue
+            for candidate_line in [line] + lines[idx + 1:idx + 3]:
+                tel_match = TELEPHONE_RE.search(candidate_line.text)
+                if not tel_match:
+                    continue
+                number = normalize_telephone(tel_match.group(1))
+                if number:
+                    return FieldExtraction(
+                        value=number,
+                        raw_value=clean_val(tel_match.group(1)),
+                        rule_id="fallback_telephone_context",
+                        confidence=0.68,
+                        source_span=SourceSpan(
+                            page_index=candidate_line.page_index,
+                            line_index=candidate_line.line_index,
+                            bbox=candidate_line.bbox,
+                        ),
+                    )
+
+        # 3. Unambiguous fallback: exactly one phone number in the whole document.
+        unique = self._unique_normalized_matches(text, TELEPHONE_RE, normalize_telephone)
+        if len(unique) == 1:
+            value, raw, line = unique[0](lines)
+            return FieldExtraction(
+                value=value,
+                raw_value=raw,
+                rule_id="fallback_telephone_sole",
+                confidence=0.5,
+                source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox) if line else None,
+            )
+        return FieldExtraction(value="", rule_id="fallback_claimant_telephone", confidence=0.0)
+
+    def _fallback_email(self, lines: list[DocumentLine], text: str) -> FieldExtraction:
+        """Derive the claimant email from document text, scoped to context.
+
+        Preference order (all provenanced via rule_id):
+          1. an explicit claimant/client/insured email LABEL with an address;
+          2. an address on / just after a line that mentions the claimant;
+          3. (only if exactly one address exists in the whole document) that one.
+        Returns empty when nothing plausible is found — staff fill it in.
+        """
+        # 1. Explicit claimant/client/insured email label on the same line.
+        email_label_re = re.compile(
+            r"(?:claimant|client|insured)\s*(?:e-?mail)\s*(?:address)?\s*[:\-]?\s*(.+)",
+            re.IGNORECASE,
+        )
+        for line in lines:
+            match = email_label_re.search(line.text)
+            if not match:
+                continue
+            email = normalize_email(match.group(1))
+            if email and not self._is_non_claimant_email(email, lines):
+                return FieldExtraction(
+                    value=email,
+                    raw_value=clean_val(match.group(1)),
+                    rule_id="fallback_email_claimant_label",
+                    confidence=0.85,
+                    source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox),
+                )
+
+        # 2. An email on, or within two lines of, a claimant-context line.
+        for idx, line in enumerate(lines):
+            if not self._line_has_claimant_context(line.text):
+                continue
+            for candidate_line in [line] + lines[idx + 1:idx + 3]:
+                email_match = EMAIL_RE.search(candidate_line.text)
+                if not email_match:
+                    continue
+                email = normalize_email(email_match.group(1))
+                if email and not self._is_non_claimant_email(email, lines):
+                    return FieldExtraction(
+                        value=email,
+                        raw_value=clean_val(email_match.group(1)),
+                        rule_id="fallback_email_context",
+                        confidence=0.68,
+                        source_span=SourceSpan(
+                            page_index=candidate_line.page_index,
+                            line_index=candidate_line.line_index,
+                            bbox=candidate_line.bbox,
+                        ),
+                    )
+
+        # 3. Unambiguous fallback: exactly one email address in the whole document.
+        unique = self._unique_normalized_matches(text, EMAIL_RE, normalize_email)
+        if len(unique) == 1:
+            value, raw, line = unique[0](lines)
+            if not self._is_non_claimant_email(value, lines):
+                return FieldExtraction(
+                    value=value,
+                    raw_value=raw,
+                    rule_id="fallback_email_sole",
+                    confidence=0.5,
+                    source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox) if line else None,
+                )
+        return FieldExtraction(value="", rule_id="fallback_claimant_email", confidence=0.0)
+
+    def _unique_normalized_matches(self, text: str, pattern: re.Pattern[str], normalizer) -> list:
+        """Return one resolver per DISTINCT normalised match of ``pattern`` in ``text``.
+
+        Each entry is a callable ``lines -> (value, raw, DocumentLine|None)`` so
+        the caller can attach a source span only when a single match remains
+        (keeps the "sole occurrence" fallback cheap and side-effect free).
+        """
+        seen: dict[str, str] = {}
+        for match in pattern.finditer(text):
+            raw = match.group(1) if match.groups() else match.group(0)
+            norm = normalizer(raw)
+            if norm and norm not in seen:
+                seen[norm] = clean_val(raw)
+
+        resolvers = []
+        for norm_value, raw_value in seen.items():
+            def make(norm_value=norm_value, raw_value=raw_value):
+                def resolve(lines: list[DocumentLine]):
+                    for line in lines:
+                        if raw_value and raw_value.split()[0] in line.text:
+                            return norm_value, raw_value, line
+                    return norm_value, raw_value, None
+                return resolve
+            resolvers.append(make())
+        return resolvers
 
     def _fallback_address(self, lines: list[DocumentLine]) -> FieldExtraction:
         labels = ("inspection address", "address", "location", "repairer", "garage", "bodyshop")

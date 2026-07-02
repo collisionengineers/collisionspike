@@ -267,3 +267,61 @@ def test_pdf_force_ocr_executes_when_binary_present(tmp_path: Path) -> None:
     assert any(
         "OCR" in n for n in model.reader_notes
     ), model.reader_notes
+
+
+def test_pdf_ocr_timeout_salvages_pages_done_before_the_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: a wall-clock OCR timeout must NOT discard the pages already
+    OCR'd before the cap.
+
+    The historical ``for ... else`` only combined the OCR'd pages when the loop
+    ran to completion; a ``break`` on timeout skipped the salvage block entirely,
+    so ``combined_text`` came back empty even though the first page(s) had been
+    read. This test fakes the OCR (no Tesseract binary) and forces the clock past
+    the cap on the second page, then asserts the first page's text survives.
+
+    Recovered from the stranded ``feat/audit-case-type-detection`` branch
+    (504c3a3) -- the pdf.py OCR-salvage fix itself already landed via PR 4; only
+    this regression test was stranded.
+    """
+    fitz = pytest.importorskip("fitz")
+    from cedocumentmapper_v2.readers import pdf as pdf_mod
+
+    # Two blank pages -> force_ocr drives both through the OCR tier.
+    doc = fitz.open()
+    doc.new_page()
+    doc.new_page()
+    pdf = tmp_path / "two_blank.pdf"
+    doc.save(str(pdf))
+    doc.close()
+
+    # Fake the OCR engine so the test needs no external binary: page 0 yields
+    # text, page 1 would too — but it never runs because the clock trips first.
+    monkeypatch.setattr(
+        pdf_mod.pytesseract,
+        "image_to_string",
+        lambda *a, **k: "SALVAGED OCR LINE FROM PAGE ONE",
+    )
+
+    # Drive the wall clock: the reader calls monotonic() once to set ocr_start
+    # (page 0 under the cap), then again at the top of page 1 (now over the cap).
+    ticks = iter([0.0, 0.0, 999.0, 999.0, 999.0])
+    monkeypatch.setattr(
+        pdf_mod.time, "monotonic", lambda: next(ticks, 999.0)
+    )
+
+    model = PDFDocumentReader().read(
+        pdf, force_ocr=True, ocr_time_limit_seconds=10.0
+    )
+
+    # The page OCR'd before the cap must survive (the bug returned "").
+    assert "SALVAGED OCR LINE FROM PAGE ONE" in model.plain_text
+    assert model.plain_text.strip() != ""
+    # The timeout is recorded, and the salvage is flagged as a PARTIAL pass.
+    assert any("time cap" in n for n in model.reader_notes), model.reader_notes
+    assert any(
+        "OCR fallback (PARTIAL" in n for n in model.reader_notes
+    ), model.reader_notes
+    # Only the page that actually OCR'd is materialised.
+    assert len(model.pages) == 1
