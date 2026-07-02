@@ -22,7 +22,10 @@ Both are a **single esbuild bundle** (`deploy/api/main.cjs`, `deploy/orch/main.c
 6. App-settings via `az functionapp config appsettings set` (gates default-off; secrets as KV refs).
 
 ## Procedure — SPA (Static Web App)
-`npm run build` in `mockup-app/` (with the `VITE_*` env baked in) → deploy `dist/` to `cespk-spa-dev`
+`npm run build` in `mockup-app/` — the four public `VITE_*` values are **committed in
+`mockup-app/.env.production`** (Vite loads it automatically for `build`; a build without them bakes
+`undefined` into rest-client/MSAL and the deployed app **crashes blank at first paint** — the
+2026-07-02 outage) → deploy `dist/` to `cespk-spa-dev`
 (`swa deploy` / `az staticwebapp`). **Build before deploy, then hard-refresh** (the SWA edge caches).
 **Copy `mockup-app/staticwebapp.config.json` into `dist/` before deploying** — the strict CSP + SPA
 navigation fallback live there, NOT in the Vite output; a bare-`dist/` upload silently ships the app
