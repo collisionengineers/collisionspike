@@ -61,6 +61,16 @@ export const AUDIT_ACTION = {
   ai_suggestion_created: 100000032,
   ai_suggestion_accepted: 100000033,
   ai_suggestion_rejected: 100000034,
+  // rules-engine-v2 Phase 2 (ADR-0019) — the ref-gate suggest/link/detach lifecycle +
+  // the cancellation-propose action. Minted in the DDL delta
+  // migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql, NOT YET applied
+  // live: writing one of these four codes before that delta lands will FK-fail on
+  // choice_audit_action — writeAudit's catch-all below swallows that (never throws), so a
+  // pre-DDL write degrades to "no audit row", never a blocked caller.
+  inbound_link_suggested: 100000035,
+  inbound_linked: 100000036,
+  inbound_detached: 100000037,
+  cancellation_proposed: 100000038,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

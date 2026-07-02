@@ -1,21 +1,27 @@
 /**
  * api/src/functions/inbound.ts — inbox / triage HTTP routes (Phase 8 + work-todo-spike).
  *
- * DataAccess methods 27–29 (plan 21 §21.1) + the work-todo-spike email-management work:
+ * DataAccess methods 27–29 (plan 21 §21.1) + the work-todo-spike email-management work +
+ * the rules-engine-v2 Phase 2 ref-gate surface (ADR-0019):
  *   27 GET   /api/inbound?category=&subtype=&view=  inboundEmails (ACTIVE-FIRST; honest [])
  *   28 GET   /api/inbound/counts                    inboundEmailCounts (active-first; honest zero)
  *   29 POST  /api/inbound/{id}/triage               setTriageState (validated; 404/400/500; audited)
  *   --  PATCH /api/inbound/{id}/classification       reclassifyInbound (override capture)
+ *   --  GET   /api/inbound/{id}/suggestions          AiSuggestion[] for this inbound (honest [])
+ *   --  POST  /api/inbound/{id}/detach               unlink from its case (idempotent; audited)
  *
- * Read endpoints 27 + 28 stay "honest-empty" on ANY read failure (table not wired / read
- * error) so the SPA never hard-fails. The WRITE endpoints are now trustworthy: 29 validates
- * the state, uses RETURNING (404 on unknown id), surfaces real DB errors (500), and writes a
- * staff-action audit row; reclassify captures the suggested-vs-chosen override.
+ * Read endpoints 27 + 28 (+ the new suggestions list) stay "honest-empty" on ANY read
+ * failure (table not wired / read error) so the SPA never hard-fails. The WRITE endpoints
+ * are trustworthy: 29 validates the state, uses RETURNING (404 on unknown id), surfaces real
+ * DB errors (500), and writes a staff-action audit row; reclassify captures the
+ * suggested-vs-chosen override; detach is idempotent (ok:false, not an error, when already
+ * unlinked) and never touches Box (ADR-0012/0017: one-way archive — see its own doc comment).
  */
 
 import { app } from '@azure/functions';
 import {
   INBOUND_COUNTS_ZERO,
+  type AiSuggestion,
   type InboundCategory,
   type InboundCounts,
   type InboundEmail,
@@ -33,6 +39,7 @@ import {
   inboundViewWhere,
   isValidTriageState,
   richTagToClassification,
+  rowToAiSuggestion,
   rowToInboundEmail,
   tallyActiveInboundCounts,
   type Row,
@@ -248,6 +255,85 @@ app.http('reclassifyInbound', {
     });
 
     return { status: 200, jsonBody: rowToInboundEmail(updated[0]) };
+  }),
+});
+
+// GET /api/inbound/{id}/suggestions — AI suggestions for ONE inbound email, pending first
+// (rules-engine-v2 Phase 2, ADR-0019: the ref-gate/cancellation suggestions suggest-link
+// writes land here too, alongside any other producer). Mirrors caseAiSuggestions's
+// mapping/honest-[] style (ai-suggestions.ts) — the ai_suggestion table may be unwired on an
+// older DB, so any read failure degrades to an empty list rather than a hard failure.
+app.http('inboundEmailSuggestions', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'inbound/{id}/suggestions',
+  handler: withRole('CollisionSpike.User', async (req) => {
+    try {
+      const id = req.params.id;
+      const rows = await query<Row>(
+        `SELECT * FROM ai_suggestion
+          WHERE inbound_email_id = $1
+          ORDER BY (review_state = 'pending') DESC, created_at DESC
+          LIMIT 100`,
+        [id],
+      );
+      const result: AiSuggestion[] = rows.map(rowToAiSuggestion);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] }; // honest-empty on any read failure
+    }
+  }),
+});
+
+// POST /api/inbound/{id}/detach — unlink an inbound email from its case (e.g. a ref-gate
+// suggestion or a linked reply attached it to the wrong case). Sets case_id NULL only when
+// currently set; 404 on an unknown row; idempotent {ok:false} (not an error) when the row is
+// already unlinked — matches the repo's {applied:false}/{promoted:false} idiom for a benign
+// no-op rather than inventing a 409 for "there was nothing to do". ADR-0012/0017: the
+// archive (Box) mirror is ONE-WAY — detaching here does NOT un-archive or move anything in
+// Box; the audit after-state carries a note so a person can follow the manual-cleanup
+// runbook separately.
+app.http('detachInboundEmail', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'inbound/{id}/detach',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const existing = await query<Row>('SELECT id, case_id FROM inbound_email WHERE id = $1', [id]);
+    if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
+
+    const oldCaseId = (existing[0].case_id as string | null) ?? null;
+    if (!oldCaseId) {
+      return { status: 200, jsonBody: { ok: false, reason: 'not_linked' } };
+    }
+
+    // Conditional UPDATE — only a currently-linked row is affected, so a concurrent detach
+    // race resolves to the same honest {ok:false} rather than a double-audit.
+    const updated = await query<Row>(
+      `UPDATE inbound_email SET case_id = NULL, updated_at = now()
+         WHERE id = $1 AND case_id IS NOT NULL
+       RETURNING id`,
+      [id],
+    );
+    if (!updated[0]) {
+      return { status: 200, jsonBody: { ok: false, reason: 'not_linked' } };
+    }
+
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.inbound_detached,
+      caseId: oldCaseId,
+      summary: 'Inbound email unlinked from case',
+      before: { caseId: oldCaseId },
+      after: {
+        caseId: null,
+        inboundEmailId: id,
+        note: 'Archive folder is a one-way mirror — any archive cleanup for this email is manual (ADR-0012/0017).',
+      },
+      ...(actor ? { actor } : {}),
+    });
+
+    return { status: 200, jsonBody: { ok: true } };
   }),
 });
 
