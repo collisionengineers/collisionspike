@@ -377,6 +377,60 @@ _SUMMARY_MARKERS: tuple[str, ...] = (
 )
 
 
+# Phrases (case-insensitive) that signal the sender is CANCELLING / withdrawing an
+# existing instruction, claim or inspection outright — collisionspike TKT-041 /
+# taxonomy-v2. Mined from the 13 real TKT-041 cancellation emails: roughly half are
+# auto-generated claim-system notices ("Please be advised that claim ... has been
+# cancelled ... any outstanding instructions can be disregarded"; "Please cancel any
+# previous instructions ... as the repair is cancelled"; subject "Claim closed
+# notification"), the other half are a person typing a short cancel request ("please
+# cancel this instruction", "close this one off - client has cancelled instructions",
+# "SB20 CMY IS TO BE CANCELLED PLEASE", "please cancel the instructions ... for the
+# mentioned client"). One real example ("place this file on hold ... until you receive
+# further instructions") used HOLD wording with no "cancel" word at all — deliberately
+# NOT mined in here, since a hold/pause is not the same claim as an outright
+# cancellation; it would need its own signal if it becomes worth distinguishing.
+# Deliberately includes the bare words "cancelled" / "cancellation" (several of the
+# real emails say only that, with no other wording) — precision is instead carried by
+# the SENDER-WRITTEN-only scope the classifier applies (a cancellation phrase quoted
+# out of an OLDER message must not cancel a DIFFERENT, currently-live thread) plus a
+# cheap negation guard for "not cancelled" (see ``_CANCELLATION_NEGATION_RE`` in
+# email_classifier.py). NOT exhaustive — a cancellation phrased without any of these
+# words (e.g. a bare "please stop work") will still abstain; extend this tuple as real
+# misses turn up.
+_CANCELLATION_PHRASES: tuple[str, ...] = (
+    "claim cancelled",
+    "claim has been cancelled",
+    "has been cancelled",
+    "is cancelled",
+    "is to be cancelled",
+    "cancelled",
+    "cancellation",
+    "claim closed",
+    "claim has been closed",
+    "repair is cancelled",
+    "please cancel",
+    "cancel this instruction",
+    "cancel the instruction",
+    "cancel this inspection",
+    "cancel the inspection",
+    "cancel the instructions",
+    "cancel any previous instructions",
+    "cancel your instruction",
+    "close this one off",
+    "close this off",
+    "close your file",
+    "close this file",
+    "no longer required",
+    "no longer needed",
+    "no longer proceeding",
+    "no further action is required",
+    "no further action required",
+    "can be disregarded",
+    "withdrawn",
+)
+
+
 def _match_keywords(text: str, phrases: tuple[str, ...]) -> tuple[str, ...]:
     """Return the subset of ``phrases`` present (case-insensitive) in ``text``.
 
