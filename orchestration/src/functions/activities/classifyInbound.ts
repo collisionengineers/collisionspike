@@ -40,6 +40,9 @@ export interface InboundClassification {
   signals: string[];
   bodyVrm: string;
   bodyCaseref: string;
+  /** Provider job/claim reference the engine surfaced (Phase-0 pass-through; not yet
+   *  used for ref-gate routing — that lands in Phase 2). */
+  bodyJobref?: string;
   /** Reply about existing work (#3) — drives the open-case link path. Default false. */
   isReply: boolean;
 }
@@ -64,25 +67,42 @@ function domainOf(address: string): string {
   return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : '';
 }
 
+/**
+ * Pure construction of the `/classify-email` request from the inbound envelope +
+ * provider-match outcome — split out from the activity handler so it is
+ * unit-testable without the Durable activity harness. `attachmentFilenames`
+ * mirrors `attachmentKinds`: the engine treats an absent/empty list as "no
+ * attachments" (classify_email's list-when-provided contract), so sending `[]`
+ * for a bare email is equivalent to omitting the field.
+ */
+export function buildClassifyRequest(
+  inbound: InboundEnvelope,
+  matchState?: 'matched' | 'unmatched' | 'ambiguous',
+): Parameters<typeof callClassifyEmail>[0] {
+  const attachmentKinds = inbound.attachments.map(
+    (a) => describeEvidence(a.filename, a.contentType).evidenceClass,
+  );
+  const attachmentFilenames = inbound.attachments.map((a) => a.filename);
+
+  return {
+    subject: inbound.subject,
+    body: inbound.body,
+    from: inbound.senderAddress,
+    senderDomain: domainOf(inbound.senderAddress),
+    providerMatchState: MATCH_STATE_TO_CLASSIFIER[matchState ?? 'unmatched'] ?? 'none',
+    attachmentKinds,
+    attachmentFilenames,
+    hasAttachments: inbound.attachments.length > 0,
+    inReplyTo: inbound.inReplyTo,
+    references: inbound.references,
+  };
+}
+
 df.app.activity('classifyInbound', {
   handler: async (input: ClassifyInboundInput, ctx): Promise<InboundClassification> => {
     const { inbound, workProviderId, matchState } = input;
 
-    const attachmentKinds = inbound.attachments.map(
-      (a) => describeEvidence(a.filename, a.contentType).evidenceClass,
-    );
-
-    const res = await callClassifyEmail({
-      subject: inbound.subject,
-      body: inbound.body,
-      from: inbound.senderAddress,
-      senderDomain: domainOf(inbound.senderAddress),
-      providerMatchState: MATCH_STATE_TO_CLASSIFIER[matchState ?? 'unmatched'] ?? 'none',
-      attachmentKinds,
-      hasAttachments: inbound.attachments.length > 0,
-      inReplyTo: inbound.inReplyTo,
-      references: inbound.references,
-    });
+    const res = await callClassifyEmail(buildClassifyRequest(inbound, matchState));
 
     const category: InboundCategory = KNOWN_CATEGORIES.has(res.category as InboundCategory)
       ? (res.category as InboundCategory)
@@ -95,6 +115,7 @@ df.app.activity('classifyInbound', {
       signals: res.signals ?? [],
       bodyVrm: res.body_vrm ?? '',
       bodyCaseref: res.body_caseref ?? '',
+      bodyJobref: res.body_jobref ?? '',
       isReply: res.is_reply ?? false,
     };
 
