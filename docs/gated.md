@@ -341,7 +341,7 @@ corrections, garage↔provider links, address lists, etc.).
 
 **Steps:** gather whatever you have (partial is fine) and send it over to be loaded into Postgres.
 
-#### D6. Rules Engine v2 — queued operator gates  ·  *plan approved 2026-07-02; phases not started*
+#### D6. Rules Engine v2 — queued operator gates  ·  *plan approved 2026-07-02; Phase 4 code built 2026-07-02 (gated OFF, not deployed)*
 
 **What:** the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md) (email
 categorisation/triage upgrade — ROADMAP Phase 8's Azure-era realization) carries five operator gates.
@@ -353,13 +353,51 @@ None is due until its phase starts; listed here so nothing lands as a surprise:
 2. **Phase-2 DDL delta apply** (live Postgres): append-only taxonomy rows (`case_update`,
    `cancellation`, `images_received`) + `inbound_email.body_jobref` / `conversation_id` columns —
    idempotent additive script, same discipline as the 2026-06-30 migration. **Now authored** — see
-   **D7** below for the concrete file + apply steps.
-3. **`EMAIL_AI_ENABLED` production flip** (Phase 4): covered by the **E2 per-AI-gate sign-off** below,
-   with one fact named plainly — the chat model is a **Global deployment** (inference may process
-   outside the UK; data-at-rest stays in-region; no UK data zone exists). Testing on repo data is
-   already authorised (G5); the **production** flip is yours.
+   **D7** below for the concrete file + apply steps. A **third**, unrelated delta — the Phase-4
+   `ai_suggestion.embedding` column (DDL only, no live wiring) — now rides the **same apply session**;
+   see D7's own note below.
+3. **`EMAIL_AI_ENABLED` production flip** (Phase 4 — **code built 2026-07-02**: the AOAI
+   structured-output client (`orchestration/src/lib/aoai.ts`), the rewritten `triageClassify`
+   activity, the post-classify orchestrator wiring (abstain/`uncorroborated_*` rows only), and the
+   extended `ai_suggestion` `'triage_category'` suggest/accept lifecycle are all in the repo,
+   unit-tested, and gated OFF by default — nothing above is live until you do the following):
+   - **App settings to flip it on** — `EMAIL_AI_ENABLED=true`,
+     `AI_MODEL_ENDPOINT=https://digital-3339-resource.cognitiveservices.azure.com` (verified
+     2026-07-02 via `az cognitiveservices account show --query properties.endpoint`; re-check the
+     registry for the current value before using it), `AI_MODEL_DEPLOYMENT=gpt-5`. All three are read
+     via the shared `@cs/domain/gates` (`emailAi()` / `aiModelEndpoint()` / `aiModelDeployment()`) —
+     set them on `cespk-orch-dev` (the app that makes the model call).
+   - **RBAC grant** — the orch app's managed identity needs **Cognitive Services OpenAI User** on
+     `digital-3339-resource` (keyless call by design — no key app-setting exists to set). *Status at
+     this build: `LIVE_FACTS.json`'s `foundry.miGrants` last read "NONE for cespk-api-dev /
+     cespk-orch-dev on this scope"; this Phase-4 build session applies the grant in a separate step
+     from the code change above — confirm the CURRENT state in the registry
+     ([live-environment.md](./architecture/live-environment.md)) before flipping `EMAIL_AI_ENABLED`.
+     Flipping it while the grant is still missing just yields a 401/403 on every call (the activity
+     abstains honestly either way — it never blocks intake — but the suggestion would never fire).*
+   - **Foundry keyless flip** (disable local/key auth on the account) is **not required** to flip
+     `EMAIL_AI_ENABLED` itself (the managed-identity token works regardless of whether key auth is
+     ALSO still enabled) — it is the separate, natural follow-on once the grant lands; tracked as
+     item 5 below, your confirmation either way.
+   - **Data residency, named plainly** (unchanged fact, restated per-gate as the plan requires): the
+     chat model is a **Global deployment** (inference may process outside the UK; data-at-rest stays
+     in-region; no UK data zone exists for gpt-5 in this region).
+   - **The gate itself, verbatim from the plan**: "the `EMAIL_AI_ENABLED` **production** flip is gated
+     on the **G5 per-AI-gate sign-off** (testing on repo data is pre-authorised)" — i.e. **G5** already
+     lets an agent/operator test this on real repo data (see the 2026-07-02 A/B smoke below); only the
+     **production** flip needs your sign-off, tracked at **E2** ("the per-AI-gate production sign-off
+     (AI **testing** on repo data is already authorised; only production use awaits sign-off)").
+   - **A/B evidence available before you decide**: `scripts/eval-email/run_ab.py` (new, Phase 4) ran a
+     live 3-item smoke test against `gpt-5` on 2026-07-02 (`--with-llm --deployment gpt-5 --limit 3`)
+     — 0 abstains, every response matched the strict-JSON contract. Run it over more of the corpus
+     (`--limit` raised, or omitted for the full 44-item corpus) for a fuller A/B picture before
+     deciding; `--deployment gpt-5-mini` correctly fails honestly (`http_404_DeploymentNotFound`) —
+     that model is not deployed on `digital-3339-resource` (only `gpt-5` and
+     `text-embedding-3-large` are; see the registry).
 4. **Live `inbound_email` PII export** for the eval corpus (Phase 1): an E2-governed export of real
-   email rows + staff overrides into the gitignored corpus path.
+   email rows + staff overrides into the gitignored corpus path. This also unblocks the Phase-4
+   embedding prior (`ai_suggestion.embedding`, DDL-only as of this build — see D7's note): that column
+   stays unpopulated until this export exists, per the plan.
 5. **Foundry keyless flip** (Phase 4): after the orchestration MI is granted access, disabling
    key-based auth on `digital-3339-resource` needs your confirmation — **you created that account**
    (2026-07-01) and may have key-based uses for it outside this repo. Current state: the registry
@@ -419,6 +457,16 @@ in the delta file's own header comment):
 > **Blocks:** do not deploy the taxonomy-v2 parser/orchestration engine (tag `engine-v2.2`) and do not
 > flip any `TRIAGE_*` app-setting gate (`TRIAGE_REF_GATE_ENABLED`, `TRIAGE_CANCELLATION_ENABLED`, …)
 > until this delta is confirmed live — see the DEPLOY-ORDER WARNING in the delta file itself.
+
+> **A third delta now rides this same apply session** (Phase 4, authored 2026-07-02):
+> [`2026-07-02-rules-engine-v2-embedding.sql`](../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-embedding.sql)
+> adds `ai_suggestion.embedding double precision[]` — DDL only, no deploy-order coupling to anything
+> (unlike this delta, it gates no engine tag or app-setting: nothing in the repo reads or writes the
+> column yet). If you are already connected as `csadmin` for D7/D8, just also run `\i
+> migration/assets/schema/deltas/2026-07-02-rules-engine-v2-embedding.sql` before dropping the
+> transient firewall rule — see that file's own header for the one-line verification query. The
+> column stays unpopulated until the D6 #4 live `inbound_email` PII export exists (the plan's stated
+> precondition for the embedding prior).
 
 #### D8. Apply the rules-engine-v2 identification seed delta  ·  *authored 2026-07-02 — unblocks live PCH/Connexus routing (Phase 3)*
 

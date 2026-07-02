@@ -1,0 +1,103 @@
+-- =============================================================================
+-- 2026-07-02-rules-engine-v2-embedding.sql
+-- Rules Engine v2, Phase 4 -- embedding-prior column delta (idempotent, DDL ONLY)
+-- -----------------------------------------------------------------------------
+-- PURPOSE. Adds the Phase-4 "embedding prior" column for the rules-engine-v2 plan:
+--   docs/plans/rules_engine_v2_plan_9ba034c4.plan.md  (Phase 4 "Embedding prior")
+--   docs/adr/0019-triage-policy-stage-split.md  (Stage C: suggestion writer, never an actor)
+--   docs/gated.md  item D6/D7 (this delta rides the SAME apply session as D7/D8 -- see below)
+-- Concretely:
+--   - ai_suggestion  : +1 column  (embedding double precision[])
+--
+-- HONEST SCOPE -- DDL ONLY, NO LIVE WIRING. This delta adds a column; nothing writes to it
+-- yet and nothing reads it yet. The Phase-4 plan text is explicit that the embedding prior
+-- ("nearest-neighbours against the labelled corpus as a cheap re-rank signal") needs a
+-- LABELLED corpus to embed against, and that corpus is the operator-gated LIVE
+-- `inbound_email` PII export (Phase 1's E2-governed export -- docs/gated.md item D6 #4,
+-- scripts/eval-email/export-live-labels.md) which has NOT landed. Populating this column
+-- (or embedding anything into it) is explicitly OUT OF SCOPE until that export exists --
+-- adding the column now is purely additive/idempotent groundwork, same discipline as
+-- 000_enums_lookups.sql's "append-only, ahead of use" pattern for choice codes.
+--
+-- WHY plain float8[] AND NOT pgvector. The plan (Phase 4 "Embedding prior") states
+-- explicitly: "Start with plain float8[]/jsonb columns + app-side cosine (tiny corpus);
+-- pgvector (vector, allowlisted but not enabled) is the documented scale path." At the
+-- current live corpus size (dozens, not thousands, of rows -- see the registry
+-- docs/architecture/live-environment.md for the live count) an app-side cosine loop over a
+-- `double precision[]` column is simple, dependency-free, and fast enough; pgvector adds an
+-- extension dependency (CREATE EXTENSION vector) this delta deliberately does not take on
+-- pending a real need. A future delta can ALTER the column type / add a `vector` column and
+-- backfill once the corpus and query volume justify it -- this column is not a commitment
+-- to the float8[] shape forever, just the honest choice for today's scale.
+--
+-- UNLIKE D7 (choice codes + inbound_email columns with FK/deploy-order coupling to the
+-- taxonomy-v2 engine tag) and D8 (pure data), this delta is DDL-only on a table
+-- (ai_suggestion) with NO consumer yet -- there is no deploy-order coupling to anything: no
+-- engine tag, no app-setting gate, and no code in this repo reads or writes the new column
+-- (grep-verified: `embedding` does not appear in api/src/**, orchestration/src/**, or
+-- packages/domain/src/** outside this delta and its companion canonical-file edit,
+-- 160_ai_suggestion.sql). Applying it is pure groundwork; NOT applying it blocks nothing
+-- else in this plan (EMAIL_AI_ENABLED / the Stage-C triage_category suggestion flow, wired
+-- by this same phase, do not touch this column at all).
+--
+-- IDEMPOTENT + ADDITIVE + TRANSACTIONAL. `ADD COLUMN IF NOT EXISTS`, one BEGIN...COMMIT.
+-- Safe to run more than once against the same database. Safe to run against a FRESH
+-- rebuild that already applied the canonical files in lexical order (../160_ai_suggestion.sql
+-- carries the same column as of this delta's date -- see the companion edit there) -- the
+-- statement below simply no-ops in that case. See ../README.md for the canonical-vs-delta
+-- relationship.
+--
+-- APPLY RUNBOOK -- RIDES THE SAME SESSION AS D7/D8 (identical connection pattern; see
+-- docs/azure/postgres.md for the general pattern and docs/gated.md item D6/D7 for the full
+-- operator checklist). If you are already connected and have just applied
+-- 2026-07-02-rules-engine-v2-taxonomy.sql (D7) and/or
+-- 2026-07-02-rules-engine-v2-identification.sql (D8) in the SAME psql session, simply run
+-- step 4 below next -- steps 1-3 and 6 need not be repeated:
+--   1. az login
+--        Interactive sign-in as the Entra principal that is cespk-pg-dev's Microsoft
+--        Entra admin -- live as digital@collisionengineers.co.uk, mapped to the
+--        server's azure_pg_admin role.
+--   2. Add a transient firewall rule for the operator workstation's public IP
+--      (delete it again in step 6 -- only AllowAzureServices should persist):
+--        az postgres flexible-server firewall-rule create -g rg-collisionspike-dev \
+--          -n cespk-pg-dev --rule-name OperatorBuildHost \
+--          --start-ip-address <your-ip> --end-ip-address <your-ip>
+--   3. Get an Entra access token and connect, then become the table owner. The
+--      application login cespk_app does NOT own these tables and cannot run DDL
+--      against them (by design -- see A2 in docs/gated.md); csadmin owns every table
+--      and BYPASSES RLS, which is required here since this is schema DDL, not a
+--      staff/admin app-role data write:
+--        PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --query accessToken -o tsv) \
+--        psql "host=cespk-pg-dev.postgres.database.azure.com port=5432 dbname=collisionspike sslmode=require user=digital@collisionengineers.co.uk" \
+--          -v ON_ERROR_STOP=1
+--        collisionspike=> SET ROLE csadmin;
+--   4. Apply this file:
+--        collisionspike=> \i migration/assets/schema/deltas/2026-07-02-rules-engine-v2-embedding.sql
+--   5. Verify (read-only; run as any role):
+--        \d ai_suggestion
+--          -- expect an `embedding` column, type double precision[]
+--   6. Remove the transient firewall rule from step 2 (only once, after the LAST delta of
+--      the session -- do not repeat if D7/D8 already removed it this session):
+--        az postgres flexible-server firewall-rule delete -g rg-collisionspike-dev \
+--          -n cespk-pg-dev --rule-name OperatorBuildHost --yes
+--
+-- ROLLBACK STANCE. Additive-only, same doctrine as D7/D8/../000_enums_lookups.sql. There is
+-- no destructive rollback script. If the float8[] shape is later superseded by pgvector,
+-- author a NEW forward delta (this file is frozen once applied live) -- do not DROP this
+-- column (a later suggestion row may already carry a value in it).
+-- =============================================================================
+
+BEGIN;
+
+-- ---------------------------------------------------------------------------
+-- ai_suggestion.embedding -- the Phase-4 "embedding prior" column (plan: "nearest-
+-- neighbours against the labelled corpus as a cheap re-rank signal, stored in
+-- ai_suggestion"). Plain double precision[] (see the header's "WHY plain float8[]" note);
+-- nullable -- unpopulated until the E2-governed live corpus export exists (see header).
+-- ---------------------------------------------------------------------------
+ALTER TABLE ai_suggestion ADD COLUMN IF NOT EXISTS embedding double precision[];
+
+COMMENT ON COLUMN ai_suggestion.embedding IS
+  'rules-engine-v2 Phase 4 embedding prior (nearest-neighbours re-rank signal). Plain float8[] at current corpus scale (app-side cosine); pgvector is the documented, allowlisted-but-not-enabled scale path. DDL-only as of this delta -- no writer/reader exists yet; populated only once the E2-governed live inbound_email export (labelled corpus) lands (docs/gated.md D6 #4). NEVER populate from local/PII test data outside that governed export.';
+
+COMMIT;
