@@ -25,6 +25,10 @@ import {
   MenuList,
   MenuPopover,
   MenuTrigger,
+  MessageBar,
+  MessageBarActions,
+  MessageBarBody,
+  MessageBarTitle,
   Option,
   Radio,
   RadioGroup,
@@ -67,6 +71,7 @@ import {
   PencilLine,
   RotateCcw,
   Tags,
+  Unlink,
   X,
   XCircle,
 } from 'lucide-react';
@@ -85,8 +90,24 @@ import {
 } from '../components';
 import { formatReceivedCompact } from '../components/date-format';
 import { nextPeekId, parsePeek, withPeek, withoutPeek } from './peek';
-import { data, useInbox, useInboundCounts } from '../data';
+import {
+  caseLinkHeadline,
+  cancellationHeadline,
+  pendingRefGateSuggestion,
+  refGateValue,
+  CASE_LINK_SUGGESTION_TYPE,
+  CANCELLATION_SUGGESTION_TYPE,
+} from './inbox-suggestions';
+import {
+  data,
+  useInbox,
+  useInboundCounts,
+  useInboundSuggestions,
+  useReviewAiSuggestion,
+  useDetachInbound,
+} from '../data';
 import type {
+  AiSuggestion,
   InboundCategory,
   InboundEmail,
   InboundSubtype,
@@ -107,9 +128,16 @@ import type {
      stored email preview is available on every row; unlinked rows keep the
      mailbox pointer affordance. CSP-safe: no external navigation, no iframe, no raw fetch. */
 
+// case_update/cancellation are taxonomy-v2 additions (rules-engine-v2 Phase 2): only
+// email classified AFTER the upgrade ever carries one of these two categories —
+// existing rows keep whatever v1 category/subtype they were already given (no
+// backfill). That needs no special-casing below: every row, old or new, renders its
+// own category/subtype through the same CATEGORY_LABEL/SUBTYPE_LABEL lookups.
 const CATEGORY_ORDER: InboundCategory[] = [
   'receiving_work',
   'query',
+  'case_update',
+  'cancellation',
   'billing',
   'non_actionable',
   'other',
@@ -1337,6 +1365,14 @@ export function Inbox() {
               onCopyReference={copyPointer}
               onTriage={(next) => void setTriage(selectedEmail, next)}
               onReclassify={() => setReclassifyRow(selectedEmail)}
+              // After a suggestion accept links the email, or a detach unlinks it —
+              // patch the sidebar's row in place (never wait a full refetch to show
+              // it) AND refresh the grid so the DataGrid row agrees.
+              onCaseLinkChanged={(emailId, caseId) => {
+                setSelectedEmail((prev) => (prev && prev.id === emailId ? { ...prev, caseId } : prev));
+                refresh();
+              }}
+              dispatchToast={dispatchToast}
             />
           )}
         </div>
@@ -1414,6 +1450,8 @@ function EmailPreviewPanel({
   onCopyReference,
   onTriage,
   onReclassify,
+  onCaseLinkChanged,
+  dispatchToast,
 }: {
   row: InboundEmail;
   onClose: () => void;
@@ -1421,6 +1459,11 @@ function EmailPreviewPanel({
   onCopyReference: (row: InboundEmail) => void;
   onTriage: (next: TriageState) => void;
   onReclassify: () => void;
+  /** A suggestion accept just linked this email, or a detach just unlinked it —
+   *  lets the sidebar (and the grid, via the parent's own refresh) show the new
+   *  caseId without waiting on a full refetch. */
+  onCaseLinkChanged: (emailId: string, caseId: string | undefined) => void;
+  dispatchToast: ReturnType<typeof useToastController>['dispatchToast'];
 }) {
   const styles = useStyles();
   const fromInitial = (row.fromAddress?.[0] ?? '?').toUpperCase();
@@ -1430,6 +1473,104 @@ function EmailPreviewPanel({
     : row.suggestedCategory
       ? CATEGORY_LABEL[row.suggestedCategory]
       : CATEGORY_LABEL[row.category];
+
+  /* ----- Suggested-match banner (rules-engine-v2 Phase 2 ref-gate) -----
+     Pending case_link / cancellation suggestions for THIS email — suggest-first;
+     staff accept/reject (review 010726 D14/D15/D16). Honest-empty on a failed read
+     (safe()-wrapped): the banner just doesn't render. Reset when the previewed
+     email changes so a stale spinner/dialog never carries over to the next row. */
+  const suggestionsQuery = useInboundSuggestions(row.id);
+  const suggestions: AiSuggestion[] = suggestionsQuery.data ?? [];
+  const caseLinkSuggestion = pendingRefGateSuggestion(suggestions, CASE_LINK_SUGGESTION_TYPE);
+  const cancellationSuggestion = pendingRefGateSuggestion(suggestions, CANCELLATION_SUGGESTION_TYPE);
+  const caseLinkTargetId = caseLinkSuggestion && refGateValue(caseLinkSuggestion).targetCaseId;
+  const cancellationTargetId = cancellationSuggestion && refGateValue(cancellationSuggestion).targetCaseId;
+  const { review, saving: reviewSaving } = useReviewAiSuggestion();
+  const [reviewingId, setReviewingId] = useState<string | undefined>(undefined);
+  const { detach, detaching } = useDetachInbound();
+  const [detachConfirmOpen, setDetachConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    setReviewingId(undefined);
+    setDetachConfirmOpen(false);
+  }, [row.id]);
+
+  const onAcceptCaseLink = async () => {
+    if (!caseLinkSuggestion || !caseLinkTargetId) return;
+    setReviewingId(caseLinkSuggestion.id);
+    try {
+      await review(caseLinkSuggestion.id, { decision: 'accepted' });
+      suggestionsQuery.refetch();
+      onCaseLinkChanged(row.id, caseLinkTargetId);
+      const { casePo } = refGateValue(caseLinkSuggestion);
+      dispatchToast(
+        <Toast>
+          <ToastTitle>{casePo ? `Attached to ${casePo}` : 'Attached to the case'}</ToastTitle>
+          <ToastBody>{row.subject}</ToastBody>
+        </Toast>,
+        { intent: 'success' },
+      );
+    } catch (err) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t attach this email. Please try again.</ToastTitle>
+          <ToastBody>{err instanceof Error ? err.message : 'Please try again.'}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setReviewingId(undefined);
+    }
+  };
+
+  const onRejectCaseLink = async () => {
+    if (!caseLinkSuggestion) return;
+    setReviewingId(caseLinkSuggestion.id);
+    try {
+      await review(caseLinkSuggestion.id, { decision: 'rejected' });
+      suggestionsQuery.refetch();
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Marked “Not a match”</ToastTitle>
+        </Toast>,
+        { intent: 'success' },
+      );
+    } catch (err) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t save that. Please try again.</ToastTitle>
+          <ToastBody>{err instanceof Error ? err.message : 'Please try again.'}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setReviewingId(undefined);
+    }
+  };
+
+  /* ----- Detach (unlink) — preview panel only, never the grid row ----- */
+  const doDetach = async () => {
+    try {
+      await detach(row.id);
+      setDetachConfirmOpen(false);
+      onCaseLinkChanged(row.id, undefined);
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Unlinked from the case</ToastTitle>
+          <ToastBody>{row.subject}</ToastBody>
+        </Toast>,
+        { intent: 'success' },
+      );
+    } catch (err) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t unlink this email. Please try again.</ToastTitle>
+          <ToastBody>{err instanceof Error ? err.message : 'Please try again.'}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    }
+  };
 
   return (
     <aside className={styles.previewSidebar} aria-label="Email preview">
@@ -1458,6 +1599,63 @@ function EmailPreviewPanel({
             </Caption1>
           </div>
         </div>
+
+        {/* Suggested-match banners — amber attention idiom (D4: amber, never red),
+            passive until acted on. At most one of each ever shows (both are keyed
+            off the FIRST pending suggestion of their type). */}
+        {caseLinkSuggestion && caseLinkTargetId && (
+          <MessageBar intent="warning">
+            <MessageBarBody>
+              <MessageBarTitle>{caseLinkHeadline(caseLinkSuggestion)}</MessageBarTitle>
+              {caseLinkSuggestion.rationale}
+            </MessageBarBody>
+            <MessageBarActions>
+              <Button
+                appearance="primary"
+                size="small"
+                icon={
+                  reviewingId === caseLinkSuggestion.id && reviewSaving ? (
+                    <Spinner size="tiny" />
+                  ) : (
+                    <Link2 size={14} />
+                  )
+                }
+                disabled={reviewingId === caseLinkSuggestion.id && reviewSaving}
+                onClick={() => void onAcceptCaseLink()}
+              >
+                Attach to case
+              </Button>
+              <Button
+                appearance="secondary"
+                size="small"
+                icon={<X size={14} />}
+                disabled={reviewingId === caseLinkSuggestion.id && reviewSaving}
+                onClick={() => void onRejectCaseLink()}
+              >
+                Not a match
+              </Button>
+            </MessageBarActions>
+          </MessageBar>
+        )}
+
+        {cancellationSuggestion && cancellationTargetId && (
+          <MessageBar intent="warning">
+            <MessageBarBody>
+              <MessageBarTitle>{cancellationHeadline(cancellationSuggestion)}</MessageBarTitle>
+              {cancellationSuggestion.rationale}
+            </MessageBarBody>
+            <MessageBarActions>
+              <Button
+                appearance="primary"
+                size="small"
+                icon={<Briefcase size={14} />}
+                onClick={() => onOpenCase(cancellationTargetId)}
+              >
+                Open case
+              </Button>
+            </MessageBarActions>
+          </MessageBar>
+        )}
 
         <div className={styles.metaRow}>
           <span className={styles.metaLabel}>Classification</span>
@@ -1520,7 +1718,58 @@ function EmailPreviewPanel({
         <Button appearance="secondary" icon={<Tags size={16} />} onClick={onReclassify}>
           Change classification
         </Button>
+        {/* Quiet secondary action — linked rows only; kept out of the DataGrid row
+            entirely (preview panel only). Deliberately de-emphasised (subtle +
+            small) next to the other preview actions above. */}
+        {row.caseId && (
+          <Button
+            appearance="subtle"
+            size="small"
+            icon={<Unlink size={14} />}
+            onClick={() => setDetachConfirmOpen(true)}
+          >
+            Unlink from case…
+          </Button>
+        )}
       </div>
+
+      <Dialog
+        open={detachConfirmOpen}
+        onOpenChange={(_e, d) => {
+          if (!d.open && !detaching) setDetachConfirmOpen(false);
+        }}
+      >
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Unlink from case</DialogTitle>
+            <DialogContent>
+              <div className={styles.dialogGrid}>
+                <MessageBar intent="warning">
+                  <MessageBarBody>
+                    <MessageBarTitle>The archive copy isn’t removed</MessageBarTitle>
+                    Unlinking removes the connection between this email and the case. Any copy
+                    already filed in the case’s archive folder stays there — you’ll need to tidy it
+                    up by hand.
+                  </MessageBarBody>
+                </MessageBar>
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                appearance="primary"
+                icon={detaching ? <Spinner size="tiny" /> : <Unlink size={16} />}
+                disabled={detaching}
+                onClick={() => void doDetach()}
+              >
+                {detaching ? 'Unlinking…' : 'Unlink from case'}
+              </Button>
+              <Button appearance="secondary" onClick={() => setDetachConfirmOpen(false)} disabled={detaching}>
+                Cancel
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </aside>
   );
 }

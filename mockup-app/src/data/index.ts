@@ -142,7 +142,7 @@ export type {
 } from '@cs/domain';
 // The seam's EXTENDED DataAccess (frozen @cs/domain DataAccess + the work-todo-spike
 // methods). `getDataAccess()` returns this; screens that type-annotate use it.
-export type { DataAccessExt, LogChaseInput } from './rest-client';
+export type { DataAccessExt, LogChaseInput, DetachInboundResult } from './rest-client';
 // The all-false Box-gate baseline + the all-off location-assist baseline (values).
 export {
   BOX_GATES_ALL_FALSE,
@@ -323,6 +323,9 @@ export {
   useAiSuggestions,
   useReviewAiSuggestion,
   useGenerateAiSuggestions,
+  // Inbound suggestion affordance + detach (rules-engine-v2 Phase 2 ref-gate).
+  useInboundSuggestions,
+  useDetachInbound,
   type QueryState,
   type CaseUpdateState,
   type TriageMutationState,
@@ -332,6 +335,7 @@ export {
   type ProviderUpdateState,
   type ReviewAiSuggestionState,
   type GenerateAiSuggestionsState,
+  type DetachInboundState,
 } from './hooks';
 
 /* ============================================================
