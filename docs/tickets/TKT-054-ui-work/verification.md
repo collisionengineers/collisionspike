@@ -22,6 +22,29 @@
 7. Operator: Mail.ReadWrite re-consent → `OUTLOOK_MOVE_ENABLED=true` → live move
    test → mark E6 verified here.
 
-## Results
+## Results — 2026-07-02 deploy pass
 
-_(pending)_
+1. ✅ Function counts post-deploy: orch **53** (incl. `outlook-move`), api **72**
+   (incl. the 3 outlook routes) — non-zero, no bundle crash.
+2. ⏳ Fresh-email UPN check: awaiting the next live email (the code path is
+   deployed; one pre-fix `desk@` row already reads as an address). App Insights
+   `evt:fetchMessage` now logs `mailboxVia`.
+3. ✅ Backfill: 264 `inbound_email` + 113 `case_` rows GUID→UPN; **0**
+   non-address values remain in either table (psql verified).
+4. ✅ API posture: `/api/inbound` + `/api/gates/outlook-move` → 401 unauth;
+   outlook-move POST route registered (GET → 404 as expected, POST-only).
+   Authenticated `casePo`/gate reads: verify in the SPA click-through (5/6).
+5. ✅ `npm test` suites green (1439 across workspaces incl. the new
+   inbox-status / inbox-email-type / inbox-suggested-action + banned-word
+   sweeps); `verify-all.mjs` red-budget gate PASS; `VERIFY_LIVE=1` registry
+   drift PASS @ 2026-07-02T16:05Z. (Known unrelated: 2 pre-existing parser
+   pytest failures — multiformat `.doc`/`.eml` fixtures, predates TKT-054.)
+6. ⏳ **Operator click-through** (SPA was redeployed + CSP verified; visual
+   pass needs a signed-in staff session): mailbox chips read info@/engineers@/
+   desk@; single condensed list; VRM|Ref columns; no strength UI; status links
+   open the case; Suggested-action column display-only while gated; legacy
+   `/inbox?category=…&view=…` deep links rewrite to `?type=…`; dashboard tiles
+   2×2-aligned.
+7. ⏳ **Operator (gated.md B4)**: Mail.ReadWrite Exchange-RBAC re-consent →
+   `OUTLOOK_MOVE_ENABLED=true` on both apps → **live-test the move yourself**
+   (no automated live move was or will be run) → record here.
