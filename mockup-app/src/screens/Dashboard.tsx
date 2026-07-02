@@ -100,7 +100,9 @@ const useStyles = makeStyles({
     gridTemplateColumns: '1fr',
     gap: tokens.spacingVerticalL,
     alignItems: 'start',
-    '@media (min-width: 992px)': {
+    // 1200 (was 992): below this the side column squeezes past what full tile
+    // labels can survive — stack instead (round-3 operator regression report).
+    '@media (min-width: 1200px)': {
       gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)',
     },
   },
@@ -199,6 +201,7 @@ const useStyles = makeStyles({
   liveStrip: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gridAutoRows: '1fr',
     gap: tokens.spacingHorizontalM,
   },
   // Clickable stat tile (spec §4): the affordance discriminator is an
@@ -262,13 +265,17 @@ const useStyles = makeStyles({
     lineHeight: 1,
     color: 'var(--ce-ink)',
   },
+  // Labels WRAP (max 2 lines) rather than truncate — a chopped "Needs sort…"
+  // at restored-down window widths was the round-3 operator regression report.
   liveLabel: {
     fontSize: '13px',
     fontWeight: tokens.fontWeightSemibold,
     color: tokens.colorNeutralForeground2,
-    whiteSpace: 'nowrap',
+    lineHeight: 1.25,
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 2,
     overflow: 'hidden',
-    textOverflow: 'ellipsis',
   },
   // Right-centred, always-visible clickability cue (spec §4) — flush right in
   // the equal-width tile so the four chevrons read as one column (020726 E8).
@@ -287,6 +294,7 @@ const useStyles = makeStyles({
   thruRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gridAutoRows: '1fr',
     gap: tokens.spacingHorizontalM,
   },
   thruCell: {
@@ -307,13 +315,13 @@ const useStyles = makeStyles({
   allTimeTile: {
     borderLeft: '3px solid var(--ce-charcoal)',
   },
+  // Sub-line under the label (not a right-aligned caption — it crowded the
+  // cell and forced label truncation at restored-down window widths).
   allTimeHead: {
-    marginLeft: 'auto',
-    flexShrink: 0,
     fontFamily: 'var(--ce-font-display)',
-    fontSize: '11px',
+    fontSize: '10px',
     fontWeight: 700,
-    letterSpacing: '0.18em',
+    letterSpacing: '0.14em',
     textTransform: 'uppercase',
     color: tokens.colorNeutralForeground3,
   },
@@ -332,9 +340,11 @@ const useStyles = makeStyles({
   thruLabel: {
     fontSize: '12px',
     color: tokens.colorNeutralForeground3,
-    whiteSpace: 'nowrap',
+    lineHeight: 1.25,
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 2,
     overflow: 'hidden',
-    textOverflow: 'ellipsis',
   },
 
   /* ----- Region C: needs-action hero list ----- */
@@ -804,8 +814,8 @@ export function Dashboard() {
                 <span className={styles.thruText}>
                   <span className="ce-stat">{sentToEvaTotal}</span>
                   <span className={styles.thruLabel}>Sent to EVA</span>
+                  <span className={styles.allTimeHead}>All time</span>
                 </span>
-                <span className={styles.allTimeHead}>All time</span>
               </div>
             </div>
           </section>

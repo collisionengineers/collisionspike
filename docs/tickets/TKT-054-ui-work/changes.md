@@ -47,6 +47,22 @@
   both regions aligned on shared tracks with no wrap. SPA redeployed
   (bundle `index-B-vxJJzr.js` live).
 
+**2026-07-03 — regressions round 3 (operator screenshot: labels chopped at a
+restored-down ~1280 window)**
+- Round 2 verified the grid but chose `text-overflow: ellipsis` for tile
+  labels — at the operator's real (non-maximised) window width that rendered
+  "Receiving …" / "Needs sort…": the label-doesn't-fit bug in a new outfit.
+- Fixes: tile + throughput labels now **wrap up to 2 lines** (line-clamp)
+  instead of truncating; `gridAutoRows: 1fr` keeps cells equal when one
+  wraps; the "All time" caption moved from the chevron slot to a sub-line
+  under "Sent to EVA" (it crowded the cell when narrow); and the cockpit's
+  two-column breakpoint moved **992 → 1200px** — below that the side column
+  is too narrow for any label treatment, so the panels stack full-width.
+- Verified in the harness with the operator's own screenshot counts
+  (142/65/68/265, 58 in today) at 1024 (stacks, full labels), 1210 + 1280
+  (two columns, whole-word wraps), 1920 (single-line labels). Deployed
+  bundle `index-_PzfPvQC.js` confirmed live byte-identical (sha256).
+
 **Live (2026-07-02 ~16:00Z)**
 - DDL delta `2026-07-02-tkt054-outlook-move.sql` APPLIED; backfill
   `2026-07-02-tkt054-source-mailbox-backfill.sql` RUN — 264 `inbound_email` +
