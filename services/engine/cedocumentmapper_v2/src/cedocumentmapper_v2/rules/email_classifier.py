@@ -109,6 +109,14 @@ from cedocumentmapper_v2.rules.engine import (
     _SUMMARY_MARKERS,
     _CANCELLATION_PHRASES,
 )
+from cedocumentmapper_v2.rules.triage_rules import load_triage_rules
+
+# Externalized phrase data (collisionspike rules-engine-v2 plan, Phase 5) -- see
+# the matching comment in rules/engine.py. This module's OWN two collections
+# (_AUTO_REPLY_MARKERS, _VRM_STOPWORD_TRIGRAMS below) are also sourced from the
+# same schema-validated resources/triage-rules.json; the rest of this module's
+# constants above were imported already loader-derived from engine.py.
+_RULES = load_triage_rules()
 
 # Contract tag for the classifier response. Kept distinct from the parser's EVA
 # contract tag so a consumer can tell a /classify-email envelope apart from a
@@ -350,11 +358,7 @@ _VRM_CONTEXT_WINDOW = 30
 # ("reg AB12 NEW") still passes on the context anchor (collisionspike #7 / F162).
 # Deliberately small + conservative so real plates (AP70 WAA, MX17 PNL, A123 BCD,
 # ABC 123D) are never dropped.
-_VRM_STOPWORD_TRIGRAMS: frozenset[str] = frozenset({
-    "NOW", "NEW", "OUT", "OFF", "AND", "THE", "FOR", "ALL", "ANY", "ONE",
-    "TWO", "WAS", "ARE", "HAS", "HAD", "YOU", "OUR", "NOT", "BUT", "WHO",
-    "WHY", "HOW", "CAN", "GET", "GOT", "SEE", "DUE", "PER", "VAT", "TAX",
-})
+_VRM_STOPWORD_TRIGRAMS: frozenset[str] = _RULES.vrm_stopword_trigrams
 
 
 def _wellformed_trigram_is_stopword(candidate: str) -> bool:
@@ -424,25 +428,7 @@ def _canonical_body_vrm(text: str) -> str:
 # (everything is categorised) — they bias an otherwise weak email firmly to
 # ``other`` so an auto-reply that happens to quote a work phrase in its history is
 # not mistaken for a fresh instruction.
-_AUTO_REPLY_MARKERS: tuple[str, ...] = (
-    "out of office",
-    "out-of-office",
-    "automatic reply",
-    "auto-reply",
-    "autoreply",
-    "i am currently away",
-    "i am out of the office",
-    "on annual leave",
-    "away from my desk",
-    "delivery has failed",
-    "delivery status notification",
-    "undeliverable",
-    "mail delivery failed",
-    "message could not be delivered",
-    "returned to sender",
-    "do not reply",
-    "do-not-reply",
-)
+_AUTO_REPLY_MARKERS: tuple[str, ...] = _RULES.auto_reply_markers
 
 
 def _normalise(value: Any) -> str:
