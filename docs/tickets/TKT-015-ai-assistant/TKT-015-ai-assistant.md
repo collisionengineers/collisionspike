@@ -85,6 +85,41 @@ operator steps below are done. What shipped:
    grant the API managed identity the **Cognitive Services OpenAI User** role (keyless), and implement
    the model call in `callModelForSuggestions` (`api/src/functions/ai-suggestions.ts`).
 
+## Status update — 2026-07-02 (Phase 4 of rules-engine-v2 — one concrete lane wired, still gated OFF)
+
+The rules-engine-v2 plan's Phase 4 built the **first real consumer** of this ticket's suggestion-layer
+scaffold: **email-triage categorisation**, not the case/damage-assessment or image/reg-OCR sub-tools
+(TKT-016/017/018 remain unbuilt as noted below). `b62b0df` replaced the dormant stub body of
+`orchestration/src/functions/gated/triage-classify.ts` with a real Azure OpenAI structured-output call
+(GA v1 surface, `json_schema` strict-mode locked to the live taxonomy, `reasoning_effort: low`,
+`content_filter` responses treated as abstain, keyless via the orchestration app's managed identity — no
+key app-setting). It is wired **post-classify, for abstain/`uncorroborated_*` rows only**; results ride
+this ticket's own `ai_suggestion` lifecycle as `suggestion_type: 'triage_category'`, and accepting one
+promotes `inbound_email.category_code`/`subtype_code` with `classifier_mode: 'llm'` plus an
+`inbound_reclassified` audit row (`api/src/functions/ai-suggestions.ts`) — reusing, not duplicating, the
+same feedback-provenance writer a staff reclassify uses.
+
+**MI grant applied:** the orchestration app's managed identity holds **Cognitive Services OpenAI User** on
+the Foundry account `digital-3339-resource` — applied and verified 2026-07-02 (role assignment
+`d695d697-…`; see [docs/gated.md](../../gated.md) §D6 item 3 and the registry
+[live-environment.md](../../architecture/live-environment.md)). Item 1 of the "Operator / next steps"
+list below (deploy a model) is therefore **done** — `gpt-5` is deployed on that resource (`gpt-5-mini` is
+not).
+
+**A/B evidence:** `scripts/eval-email/run_ab.py` (new, Phase 4) ran a live 3-item smoke test against
+`gpt-5` on 2026-07-02 — 0 abstains, every response matched the strict-JSON contract; `gpt-5-mini`
+correctly 404s (not deployed).
+
+**Still gated OFF — nothing above is live-acting:** `EMAIL_AI_ENABLED` (the orch LLM call) and
+`AI_ASSIST_ENABLED` (the API suggestion surface used by both this lane and the CaseDetail
+`AiAssistPanel`) are both absent from app settings, so the whole path is dead by default. Flipping
+`EMAIL_AI_ENABLED` to production needs the **G5 per-AI-gate sign-off** (AI *testing* on repo data is
+already authorised — the A/B smoke above used that authorisation) — tracked at
+[docs/gated.md](../../gated.md) §D6 item 3 / §E2. The **case/damage-assessment and image/reg-OCR
+consumers** (TKT-016/017/018) and the generic `POST /api/cases/{id}/ai-suggestions/generate` /
+`callModelForSuggestions` path are **unchanged** — still an honest no-op; only the email-triage lane
+described above got a real model call this pass.
+
 ## Artifacts
 - [Changes made](./changes.md)
 - [Verification](./verification.md)

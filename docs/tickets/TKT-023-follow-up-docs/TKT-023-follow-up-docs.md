@@ -1,7 +1,7 @@
 ---
 id: TKT-023
 title: Link follow-up documents/emails to the existing case + Box
-status: backlog
+status: next
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-003, TKT-004, TKT-009]

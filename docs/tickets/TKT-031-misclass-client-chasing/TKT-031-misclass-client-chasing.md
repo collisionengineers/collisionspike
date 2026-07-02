@@ -1,7 +1,7 @@
 ---
 id: TKT-031
 title: Client report-chaser misrouted to 'Other'
-status: backlog
+status: now
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006]

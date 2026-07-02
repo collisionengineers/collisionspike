@@ -1,7 +1,7 @@
 ---
 id: TKT-021
 title: Resolve Connexus claims-manager to the real provider (PCH/SBL)
-status: backlog
+status: now
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-001]

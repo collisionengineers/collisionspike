@@ -1,7 +1,7 @@
 ---
 id: TKT-036
 title: Work-instructions email misclassified as query
-status: backlog
+status: done
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-006]

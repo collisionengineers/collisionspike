@@ -1,7 +1,7 @@
 ---
 id: TKT-030
 title: Report-chaser misclassified as new work
-status: backlog
+status: done
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-006, TKT-033]
