@@ -6,6 +6,14 @@
 -- UNIQUE(source_message_id) is added in 900_constraints.sql.
 -- triage_state + classifier_mode are deliberately short String tokens (not choicesets):
 -- low-churn workflow/provenance flags, matching the Dataverse schema.
+--
+-- body_jobref + conversation_id (rules-engine-v2 Phase 2, 2026-07-02 delta -- see
+-- deltas/2026-07-02-rules-engine-v2-taxonomy.sql): captured by orchestration since the
+-- Phase-0 deploy but persisted from this delta on. body_jobref feeds the Phase-2
+-- pre-mint ref-gate; conversation_id is the Graph conversationId used for LOCAL thread
+-- correlation only. The two idx_inbound_email_* indexes intentionally keep the "idx_"
+-- prefix (not this file's usual "ix_") so their names match byte-for-byte what the delta
+-- created on the already-live database -- see the delta file for why.
 -- =============================================================================
 BEGIN;
 
@@ -13,6 +21,10 @@ CREATE TABLE inbound_email (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name              varchar(200) NOT NULL,       -- primaryColumn cr1bd_name (triage label)
   source_message_id varchar(400),                -- DEDUP KEY (alt key); UNIQUE in 900
+  -- Graph conversationId (rules-engine-v2 Phase 2): LOCAL thread correlation only, NOT
+  -- a dedup key -- many messages share one conversation_id (source_message_id above is
+  -- the actual dedup key).
+  conversation_id   varchar(512),
   subject           varchar(400),
   from_address      varchar(320),                -- format:Email (RFC max)
   sender_domain     varchar(256),                -- provider-match key (domain only)
@@ -32,6 +44,10 @@ CREATE TABLE inbound_email (
   triage_state      varchar(20),                 -- new | routed | actioned | dismissed
   body_vrm          varchar(16),
   body_caseref      varchar(32),
+  -- Engine-extracted existing-job reference (email_classifier.py _job_reference),
+  -- distinct from body_caseref; feeds the Phase-2 pre-mint ref-gate (rules-engine-v2
+  -- Phase 2 -- closes the TKT-023 leak: a job-ref-only reply currently mints a new case).
+  body_jobref       varchar(64),
   body_preview      text,                        -- html-stripped preview (Memo 4000)
   case_id           uuid,                        -- -> case_ (nullable, SET NULL); FK in 900
   work_provider_id  uuid,                        -- -> work_provider (nullable, SET NULL); FK in 900
@@ -43,5 +59,9 @@ COMMENT ON TABLE inbound_email IS 'cr1bd_inboundemail -- Phase-8 triage audit-of
 
 CREATE INDEX ix_inbound_email_received_on ON inbound_email (received_on);
 CREATE INDEX ix_inbound_email_category    ON inbound_email (category_code);
+-- rules-engine-v2 Phase 2 (2026-07-02 delta): both columns are sparse (historical rows
+-- predate capture; not every message carries a job ref), so index only populated rows.
+CREATE INDEX IF NOT EXISTS idx_inbound_email_conversation ON inbound_email (conversation_id) WHERE conversation_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_inbound_email_body_jobref   ON inbound_email (body_jobref)     WHERE body_jobref IS NOT NULL;
 
 COMMIT;

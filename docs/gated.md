@@ -352,7 +352,8 @@ None is due until its phase starts; listed here so nothing lands as a surprise:
    first tag) so the vendored copy can be re-cut against a committed ref.
 2. **Phase-2 DDL delta apply** (live Postgres): append-only taxonomy rows (`case_update`,
    `cancellation`, `images_received`) + `inbound_email.body_jobref` / `conversation_id` columns —
-   idempotent additive script, same discipline as the 2026-06-30 migration.
+   idempotent additive script, same discipline as the 2026-06-30 migration. **Now authored** — see
+   **D7** below for the concrete file + apply steps.
 3. **`EMAIL_AI_ENABLED` production flip** (Phase 4): covered by the **E2 per-AI-gate sign-off** below,
    with one fact named plainly — the chat model is a **Global deployment** (inference may process
    outside the UK; data-at-rest stays in-region; no UK data zone exists). Testing on repo data is
@@ -365,6 +366,59 @@ None is due until its phase starts; listed here so nothing lands as a surprise:
    ([live-environment.md](./architecture/live-environment.md)).
 
 All five also depend on the standing **A0** (`az login`) and **A1** (Free-Trial→PAYG) items above.
+
+#### D7. Apply the rules-engine-v2 taxonomy DDL delta  ·  *DDL authored 2026-07-02 — blocks the taxonomy-v2 engine deploy*
+
+**What:** the Phase-2 additive taxonomy DDL for the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md)
+is authored and checked in at
+[`migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql`](../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql)
+(see [`deltas/README.md`](../migration/assets/schema/deltas/README.md) for the canonical-vs-delta
+convention). It adds, all idempotent/additive (`ON CONFLICT DO NOTHING` / `IF NOT EXISTS`
+throughout, one `BEGIN…COMMIT`):
+- **`choice_inbound_category`** +2 rows — `case_update` (100000005), `cancellation` (100000006).
+- **`choice_inbound_subtype`** +3 rows — `images_received` (100000010, plan-named), plus two
+  minimal completions `cancellation_notice` (100000011) and `update_general` (100000012) so the two
+  new categories each have a subtype to land on (flagged in the file for your review at apply time).
+- **`choice_audit_action`** +4 rows — `inbound_link_suggested`/`inbound_linked`/`inbound_detached`
+  (100000035–37) and `cancellation_proposed` (100000038).
+- **`inbound_email`** +2 columns (`body_jobref`, `conversation_id`) + 2 partial indexes.
+
+The companion canonical files (`migration/assets/schema/000_enums_lookups.sql` and
+`120_inbound_email.sql`) already carry the same rows/columns, so a fresh rebuild lands at the same
+state — this item is only about applying the delta to the **already-live** database.
+
+**Why you:** this is a live schema change on the system of record (Postgres `cespk-pg-dev`) — an agent
+authors DDL but does not run it against a live database. The [plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md)
+marks the Phase-2 DDL apply as operator-gated, same discipline as the 2026-06-30 `ai_suggestion`
+migration. It is also a **deploy-order gate**: `inbound_email.category_code` / `subtype_code` (and their
+`suggested_*` twins) carry FK `REFERENCES` to the two choice tables, so deploying the taxonomy-v2
+parser/orchestration engine (tag `engine-v2.2`) **before** this delta lands would make its
+classify-persist writes fail closed the moment the new engine emits `case_update`/`cancellation` or
+one of the three new subtypes.
+
+**Steps** (mirrors the 2026-06-30 `ai_suggestion` delta apply — full detail + verification queries are
+in the delta file's own header comment):
+1. `az login` — sign in as the Entra principal that is `cespk-pg-dev`'s Microsoft Entra admin (live as
+   `digital@collisionengineers.co.uk`, mapped to the server's `azure_pg_admin` role).
+2. Add a transient firewall rule for your workstation IP:
+   `az postgres flexible-server firewall-rule create -g rg-collisionspike-dev -n cespk-pg-dev
+   --rule-name OperatorBuildHost --start-ip-address <your-ip> --end-ip-address <your-ip>`.
+3. Connect with an Entra token and become the table owner (the app login `cespk_app` doesn't own the
+   tables and can't run DDL; `csadmin` does and bypasses RLS):
+   `PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --query accessToken -o tsv)
+   psql "host=cespk-pg-dev.postgres.database.azure.com port=5432 dbname=collisionspike sslmode=require
+   user=digital@collisionengineers.co.uk" -v ON_ERROR_STOP=1`, then at the prompt `SET ROLE csadmin;`.
+4. Apply it: `\i migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql` (safe to
+   re-run — every statement no-ops if it has already landed).
+5. Run the verification queries from the delta file's header (row checks on the three choice tables,
+   `\d inbound_email` for the two new columns + their indexes).
+6. Remove the transient firewall rule: `az postgres flexible-server firewall-rule delete -g
+   rg-collisionspike-dev -n cespk-pg-dev --rule-name OperatorBuildHost --yes` (only
+   `AllowAzureServices` should remain).
+
+> **Blocks:** do not deploy the taxonomy-v2 parser/orchestration engine (tag `engine-v2.2`) and do not
+> flip any `TRIAGE_*` app-setting gate (`TRIAGE_REF_GATE_ENABLED`, `TRIAGE_CANCELLATION_ENABLED`, …)
+> until this delta is confirmed live — see the DEPLOY-ORDER WARNING in the delta file itself.
 
 #### D5. Rotate the parser Function key  ·  *soft security item*
 
