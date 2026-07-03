@@ -22,11 +22,10 @@
 > | Document parse · enrichment · OCR · EVA · Box | Azure Functions behind connectors | **same 6 Python Functions, retained**, called directly by API / orchestration |
 > | Subscription | Power Platform licensing | **Azure Free Trial** `e6076573-…` — **must upgrade to PAYG within ~30 days or the whole stack is disabled** |
 
-> **⚠️ Pricing update (2026-06-18) — see [docs/research/](../research/) for current figures.** Two
-> licensing facts changed since this was first costed: **(1) AI Builder credits retire 2026-11-01**
+> **⚠️ Pricing update (2026-06-18) — see [docs/research/](../research/) for current figures.** One
+> licensing fact changed since this was first costed: **AI Builder credits retire 2026-11-01**
 > (seeded Premium credits removed, add-on purchase closed, usage shifts to Copilot Credits) — so
-> "AI Builder ≈ $0" no longer holds; and **(2) Copilot Studio is now Copilot-Credit metered**
-> ($200/mo ≈ 25k credits, or $0.01/credit). Both are M2/M3+ and gated off, so neither affects the
+> "AI Builder ≈ $0" no longer holds. This is M2/M3+ and gated off, so it doesn't affect the
 > M1 ≈£0-idle posture — but the figures below predate the change. The address-matching and OCR paths
 > stay free (postcode.io; Document Intelligence Read at 500 free pages/mo).
 
@@ -55,7 +54,6 @@
 | Image AI | **AI Builder** (classify overview vs damage) → **Azure AI Vision** (people/reflection + plate OCR) | 2 / 4 |
 | Enrichment | **Azure Function** (`cespkenrich-fn-gi62sd`) → DVSA + DVLA directly via Entra `client_credentials` + X-API-Key → **custom connector** (no gateway; M1) | 1 |
 | General AI assist | **AI Builder prompts** / **Azure OpenAI** (Azure AI Foundry) | 3–4 |
-| Conversational copilot | **Copilot Studio** agent over Dataverse | 4 (optional) |
 | Address normalisation | **postcode.io** now → **Azure Maps** later | 1 / later |
 | Identity | **Microsoft Entra ID** (built into Power Platform) | 0 |
 | Integration/gating | **Custom connectors** + **Dataverse environment variables** | 0+ |
@@ -74,7 +72,6 @@
 | Mileage + vehicle details | **Azure Function** (`cespkenrich-fn-gi62sd`) → DVSA + DVLA directly via Entra `client_credentials` + X-API-Key, exposed as a custom connector (M1; no `collisionplugin` gateway) |
 | Valuation evidence | `collisionplugin` `valuationbot` (prior-art, deferred — M3 / `VALUATION_ENABLED`, gated off) |
 | Address normalisation | postcode.io (→ Azure Maps) |
-| Conversational assistant | Copilot Studio |
 | Submit to EVA + Box folder | EVA custom connector (gated) + **custom Box REST connector** `cr1bd_box_rest` (CCG service identity; ADR-0012, gated off) |
 | Audit + dedup | Dataverse auditing + dedup keys (Message-ID / payload hash) |
 
@@ -157,15 +154,7 @@ Keep **postcode.io** (free, UK) for the spike. Move to **Azure Maps Search** onl
 geocoding, autocomplete, or non-UK coverage is needed (~$5 / 1,000 geocodes).
 Docs: <https://learn.microsoft.com/azure/azure-maps/how-to-search-for-address>
 
-### 9. Conversational copilot — Copilot Studio
-A **Collision Engineers copilot** over Dataverse knowledge for staff Q&A / guided intake. **Not a
-requirement carried from `collisioncc`** — it is a spike addition; treat as optional Phase 4 and
-gate it (`COPILOT_ENABLED`). **Billing is credit-based** (Sept 2025 model): prepaid **$200/mo =
-25,000 Copilot Credits**, or **pay-as-you-go $0.01/credit**; a generative message = 2 credits. Light
-internal use (≈2,000 interactions/mo) ≈ **$30/mo PAYG**.
-Docs: <https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing>
-
-### 10. ALM & identity
+### 9. ALM & identity
 Package everything (Code App, flows, connectors, tables, env vars) in a **solution**; promote
 Dev→Test→Prod with **Power Platform Pipelines**; **Entra ID** handles auth throughout.
 Docs: <https://learn.microsoft.com/power-platform/alm/overview-alm> ·
@@ -185,7 +174,6 @@ pipelines <https://learn.microsoft.com/power-platform/alm/pipelines>
 | Azure AI Vision (Phase 4) | ~$1 / 1,000 transactions (≈8,000 images) | ~$8 |
 | AI Builder | credits included with Premium (overage rare) | ~$0 |
 | Azure OpenAI / AI prompts | token-based, light | $10–50 |
-| Copilot Studio (optional) | PAYG light use | $0–30 |
 | postcode.io | free | $0 |
 | **Platform + AI subtotal** | | **≈ $190–440** |
 
@@ -206,9 +194,7 @@ org's existing **Microsoft 365** footprint may partly offset.
    [integrations.md](./integrations.md#enrichment-connectors).
 3. **PyMuPDF AGPL** in `cedocumentmapper_v2.0` — ~~resolve before any closed-source distribution~~
    **Resolved:** licensed (AGPL concern closed); no blocker.
-4. **Copilot Studio inclusion** — confirm it's wanted for the spike vs deferred; it is not a
-   `collisioncc` requirement.
-5. **Environment & Azure subscription** — needs a Power Platform environment with Dataverse +
+4. **Environment & Azure subscription** — needs a Power Platform environment with Dataverse +
    AI Builder capacity, and an Azure subscription for Document Intelligence / Vision / Functions.
 
 ## Primary Microsoft Learn references
@@ -222,6 +208,5 @@ org's existing **Microsoft 365** footprint may partly offset.
 - AI Builder — <https://learn.microsoft.com/ai-builder/overview>
 - Azure AI Vision — <https://learn.microsoft.com/azure/ai-services/computer-vision/overview>
 - Azure AI Document Intelligence — <https://learn.microsoft.com/azure/ai-services/document-intelligence/overview>
-- Copilot Studio billing — <https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing>
 - Azure Maps Search — <https://learn.microsoft.com/azure/azure-maps/how-to-search-for-address>
 - Power Platform licensing FAQ — <https://learn.microsoft.com/power-platform/admin/powerapps-flow-licensing-faq>

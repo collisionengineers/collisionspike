@@ -47,6 +47,9 @@ import type {
   GenerateAiSuggestionsResult,
   AiAssistGate,
   OutlookMoveGate,
+  ProviderApiKey,
+  CreateProviderApiKeyInput,
+  CreateProviderApiKeyResult,
 } from '@cs/domain';
 import type { Case, Chaser, Evidence, Provider, ActivityEvent } from '@cs/domain';
 import type {
@@ -171,6 +174,19 @@ export interface DataAccessExt extends DataAccess {
    *  (server-derived — no folder is sent). Throws on non-2xx (409 while the gate is
    *  off / already filed; 503 when the queue is unreachable) — never a fake "Filing…". */
   moveInboundToOutlook(id: string): Promise<OutlookMoveResult>;
+
+  /* ----- Provider API keys (TKT-055 / ADR-0020) — Superuser, provider intake channel -----
+     OPTIONAL on the seam: the REST client implements them; the empty/unconfigured
+     mock source (mock-source.ts) omits them (the provider-API-key channel has no mock),
+     so callers optional-chain and treat an absent method as "channel unavailable". */
+  /** List a provider's API keys (never the plaintext). `idOrCode` = provider id GUID or
+   *  principal code. Throws on non-2xx (403 for a non-Superuser). */
+  listProviderApiKeys?(idOrCode: string): Promise<ProviderApiKey[]>;
+  /** Mint a new key — the plaintext secret is returned ONCE and never recoverable.
+   *  Throws on non-2xx; the UI must warn the operator to copy it before dismissing. */
+  createProviderApiKey?(idOrCode: string, input: CreateProviderApiKeyInput): Promise<CreateProviderApiKeyResult>;
+  /** Soft-revoke a key (revoked_at := now()). Returns the updated row; throws on non-2xx. */
+  revokeProviderApiKey?(idOrCode: string, keyId: string): Promise<ProviderApiKey>;
 }
 
 export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
@@ -403,5 +419,18 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     // Mutation — NOT safe()-wrapped: a 409/503 must reach the operator as a toast,
     // never a phantom "Filing…" on a row the server refused.
     moveInboundToOutlook: (id) => post<OutlookMoveResult>(`/api/inbound/${enc(id)}/outlook-move`),
+
+    /* ----- Provider API keys (TKT-055 / ADR-0020) — Superuser ----- */
+    // List a provider's keys (never the plaintext). NOT safe()-wrapped — a failed read in
+    // the Admin API-keys panel must surface (a 403 for a non-Superuser is meaningful).
+    listProviderApiKeys: (idOrCode) =>
+      get<ProviderApiKey[]>(`/api/providers/${enc(idOrCode)}/api-keys`),
+    // Mint a key — returns the plaintext ONCE. NOT safe()-wrapped: a failed mint must reach
+    // the operator, and a fake success would strand them without the (unrecoverable) secret.
+    createProviderApiKey: (idOrCode, input: CreateProviderApiKeyInput) =>
+      post<CreateProviderApiKeyResult>(`/api/providers/${enc(idOrCode)}/api-keys`, input),
+    // Soft-revoke a key. DELETE — throws on non-2xx; returns the updated (revoked) row.
+    revokeProviderApiKey: (idOrCode, keyId) =>
+      call<ProviderApiKey>('DELETE', `/api/providers/${enc(idOrCode)}/api-keys/${enc(keyId)}`),
   };
 }

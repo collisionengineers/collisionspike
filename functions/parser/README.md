@@ -84,9 +84,9 @@ without a valid key returns **401**.
 ## Gating (`PDF_MAPPER_ENABLED`)
 
 `PDF_MAPPER_ENABLED` gates the parser, but the gate is enforced **upstream** in
-the Power Automate flow branch (it reads the Dataverse environment variable and
-only calls `/parse` when enabled). **This Function does not read the gate — it
-just works when called.**
+the orchestration Function App (it reads the Azure app-setting and only calls
+`/parse` when enabled). **This Function does not read the gate — it just works
+when called.**
 
 ## Engine packaging — VENDORED for Flex Consumption (FC1)
 

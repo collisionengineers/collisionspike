@@ -131,6 +131,16 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   `.eml`, instructions, and images into the case Box folder on every intake ([TKT-003](./docs/tickets/TKT-003-box-sync/TKT-003-box-sync.md),
   **VERIFIED-LIVE**). Granular UI/platform tickets from the work-todo-spike wave: [docs/tickets/BOARD.md](./docs/tickets/BOARD.md).
 
+- **✅ Nine-task activation — DONE (2026-07-03, user-instructed).** Provider API intake channel
+  (TKT-055/ADR-0020) shipped — DDL delta applied, routes live, 401 fail-closed smoke passed; first-key
+  mint + an e2e submit remain for the operator. `OUTLOOK_MOVE_ENABLED` flipped `true` on both apps (the
+  SPA "File to …" buttons are live; Graph moves still 403 pending the Exchange `Mail.ReadWrite` grant —
+  [gated.md B4](./docs/gated.md)). `PLATE_OCR_ENABLED` + `OCR_SCANNED_PDF_ENABLED` flipped live on
+  orchestration (Phase 5a). `EMAIL_AI_ENABLED` flipped live on orchestration (rules-engine-v2 Phase 4 —
+  this session's instruction serves as the G5/E2 production sign-off; the `work_provider.ai_allowed`
+  opt-out gap was closed and deployed first). Azure Maps / location-assist is live (text-clue geocoding
+  proven; photo-clue seam still stubbed). Details: the registry
+  [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 - **✅ UI/UX reforge — DONE (2026-07-01).** Full in-place reforge of the SPA by the design agent team,
   recorded as the **binding decision register [docs/reviews/010726/](./docs/reviews/010726/)**: semantic
   colour system + red budget (red = brand chrome + critical only), dashboard declutter (grouped
@@ -174,18 +184,20 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   names, File-Request URLs, and Outlook category strings — the PII-adjacent identifiers outside the DB), and a
   DPIA / controller-processor map. **No automated deletion from Box, ever.** Retention period + lawful basis
   remain operator/legal input.
-- **✅ PII pre-scrub helper — SHIPPED.** The unit-tested helper (`packages/domain/src/domain/pii-scrub.ts`)
-  is now actually reused by a gated AI path, not just built for one: the rules-engine-v2 Stage-C AOAI
-  triage assist (`orchestration/src/functions/gated/triage-classify.ts`, 2026-07-02) scrubs subject/body
-  through it before every model call. Deployed gated-OFF alongside that feature (`EMAIL_AI_ENABLED`
-  unset) — see [docs/tickets/BOARD.md](./docs/tickets/BOARD.md) TKT-015. The Phase-4a vision/geocode
-  consumer remains unbuilt.
+- **✅ PII pre-scrub helper — SHIPPED, and now ACTING LIVE.** The unit-tested helper
+  (`packages/domain/src/domain/pii-scrub.ts`) is reused by a gated AI path: the rules-engine-v2 Stage-C
+  AOAI triage assist (`orchestration/src/functions/gated/triage-classify.ts`, built 2026-07-02) scrubs
+  subject/body through it before every model call. `EMAIL_AI_ENABLED` was **flipped live 2026-07-03**
+  (user-instructed) — see [docs/tickets/BOARD.md](./docs/tickets/BOARD.md) TKT-015 and
+  [docs/gated.md D6](./docs/gated.md). The Phase-4a vision/geocode consumer remains unbuilt.
 - The inspection-address model stays **offline-derived suggestions + manual confirm** — **ADR-0013 remains
   binding, no runtime matcher** ([docs/architecture/inspection-address-corpus.md](./docs/architecture/inspection-address-corpus.md)).
-- **API intake channel (deferred research)** — let providers/principals POST work directly to an HTTP
-  endpoint (now naturally a route on the `cespk-api-dev` data API), bypassing email; needs an auth model,
-  payload contract, and provider onboarding scoped with the operator before a phase plan is authored
-  (see [docs/architecture/integrations.md](./docs/architecture/integrations.md)).
+- **✅ API intake channel — SHIPPED (2026-07-03, TKT-055/ADR-0020).** Providers/principals can now
+  `POST` work directly to `cespk-api-dev` (`POST /api/provider-intake/cases`, per-provider `X-Api-Key`
+  minted by a Superuser in Admin), bypassing email. DDL applied, routes live, 401 fail-closed smoke
+  passed; remaining is operator-side: mint the first real provider key and run an end-to-end submit.
+  Contract: [docs/reference/provider-api-intake-spec.md](./docs/reference/provider-api-intake-spec.md);
+  integration context: [docs/architecture/integrations.md](./docs/architecture/integrations.md).
 
 > **Why JSON drag-drop is the EVA path today (not merely an "M1 fallback").** The EVA **test environment exists** (credentials held in the secrets store); the blocker is a **vendor limitation** — Minotaur Software's Sentry API currently accepts only **one principal code** per API submission, so it cannot route different work-provider codes and would force every case under a single work provider. Minotaur is patching this (no ETA); EVA REST therefore stays **gated** pending that patch **+ a parity test**. Note that **enrichment (DVSA/DVLA) is separate from EVA** — it runs at intake, pre-EVA, on the retained enrichment Function; EVA stays **OFF**.
 
@@ -364,7 +376,11 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   - **Proximity ranking is implemented now** as a suggestion-**ordering** signal (never an auto-select, so ADR-0013 is not reopened): rank by accident location/postcode **when present** in the instruction (formats vary — opportunistic), else fall back to **claimant home-address** proximity (a soft signal, not a guarantee — they may have been travelling). Needs two best-effort parser extractions + gated geocoding (B5).
   - **Frequency + recency ranking is implemented now** and surfaced in the Code App now (not deferred to M2) (B6).
   - Plan: [docs/plans/phase-4-address-and-chaser/inspection-address-revamp.md](./docs/plans/phase-4-address-and-chaser/inspection-address-revamp.md).
-- [ ] **Azure Maps (gated)** — only if needed (later); geocoding stays **offline corpus-mining** if ever used.
+- [x] **Azure Maps / location-assist — LIVE (2026-07-03).** `AZURE_MAPS_ENABLED`/`LOCATION_ASSIST_ENABLED`
+  are `true`; a dedicated location-suggest Function ranks candidates from text clues in the instruction
+  (live smoke returned ranked candidates). **Photo-clue seam still pending** — photo-derived candidates
+  use a stub pending the Box byte-fetch wiring (cross-app work, not yet built). Details: the registry
+  [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 
 ### 4b. Chaser automation (channel-aware — ADR-0003)
 
@@ -381,7 +397,10 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 - [x] **Scope decided** — FC1 can't run Tesseract; OCR deferred to **Azure Container Apps**.
 - [x] **B-full — OCR host built** (`ocr/`, no longer deferred) — scanned/image-PDF fallback; Dockerfile + Azure Container Apps Bicep + plate/pdf adapters.
 - [x] **OCR image built + pushed to ACR** (2026-06-19) — `ce-ocr:latest` in `cespkocracraeee76` (built via **WSL-root docker**, working around the subscription's ACR-Tasks block + no local Docker). _(the hard part — the image carrying `tesseract` + `fast-alpr` is ready.)_
-- [x] **OCR ACA host deploy** — **DONE 2026-06-19** (PR #7). The prior 3× "provision revision expired" was the **AcrPull RBAC-propagation race** (role created in the same deployment as the app). Fix: a **pre-granted user-assigned identity** for AcrPull via a separate ARM deploy + `siteConfig.acrUserManagedIdentityID`. Function App `cespkocr-fn-dev-glju3v` (Functions-on-ACA, scale-to-zero 0..5) is **Running**. Connector wiring + `OCR_SCANNED_PDF_ENABLED`/`PLATE_OCR_ENABLED` flip remain.
+- [x] **OCR ACA host deploy** — **DONE 2026-06-19** (PR #7). The prior 3× "provision revision expired" was the **AcrPull RBAC-propagation race** (role created in the same deployment as the app). Fix: a **pre-granted user-assigned identity** for AcrPull via a separate ARM deploy + `siteConfig.acrUserManagedIdentityID`. Function App `cespkocr-fn-dev-glju3v` (Functions-on-ACA, scale-to-zero 0..5) is **Running**.
+- [x] **`OCR_SCANNED_PDF_ENABLED` / `PLATE_OCR_ENABLED` flipped live — DONE (2026-07-03, user-instructed).**
+  Plate OCR runs on registration-visible images; a new parse-activity fallback calls OCR when a PDF
+  instruction yields an empty extraction, then coalesces the result.
 
 ### 5b. Image classification AI (ADR-0009 — M2+)
 
@@ -390,10 +409,9 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 - [ ] **Image-ordering UI** — drag to set the 2 preview images.
 - [ ] **WhatsApp media bulk import (ADR-0007)** — OCR each for the registration, auto-match to the open Case by VRM.
 
-### 5c. Valuation & Copilot (M3)
+### 5c. Valuation (M3)
 
 - [ ] **Valuation (`valuationbot`, gated `VALUATION_ENABLED`)** — staff-triggered; evidence PDF attached.
-- [ ] **Copilot Studio agent (gated `COPILOT_ENABLED`)** — staff assistant over Dataverse.
 
 ---
 
@@ -415,8 +433,8 @@ mirror**. `[BUILD]` complete in the tree; the **Dataverse schema + env-vars are 
 `BOX_*` gates OFF)** and the **`box-webhook` Function is deployed gated-OFF** (`cespkbox-fn-v76a47`,
 secret-free); the connector + flows are authored offline, and **everything live beyond that is
 `[RESERVED-FOR-USER]`**. Floor is **base Box Business** (metadata = Business Plus, out of scope now); **EVA
-stays gated OFF**; **evidence is linked not embedded** (`BOX_EMBED_ENABLED` reserved/off — no `frame-src`
-edit). Binding decision [ADR-0012](./docs/adr/0012-box-centric-intake-additive-hybrid.md); ordered build
+stays gated OFF**; **evidence is linked not embedded** — no iframe, no `frame-src`
+edit. Binding decision [ADR-0012](./docs/adr/0012-box-centric-intake-additive-hybrid.md); ordered build
 [docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md](./docs/HISTORICAL/box-integration-pivot/plans/00-BUILD-PLAN.md); phase docs
 [docs/plans/phase-7-box-integration/](./docs/plans/phase-7-box-integration/). _(Live deploy narrative lives in CURRENT_STATUS; Phase≠Milestone map in milestone-model.md.)_
 
@@ -446,18 +464,17 @@ edit). Binding decision [ADR-0012](./docs/adr/0012-box-centric-intake-additive-h
 
 - [ ] 🔒 One permanent File Request per repeat sender under `/DropBoxes/`; webhook reg-merges (ADR-0010) to an open case or routes to **Held**. (On base Business the reg signal is filename-VRM / emailed reg / triage; the metadata field is the deferred Business-Plus upgrade.)
 
-### B4 — Surface Box in the Code App (gate `BOX_API_ENABLED`; `BOX_EMBED_ENABLED` reserved)
+### B4 — Surface Box in the Code App (gate `BOX_API_ENABLED`)
 
 - [x] **`getBoxGates()`** reads the same env-var-definition rows the flows read (default all-false on failure); **vitest 256 passed, `tsc -b` clean**.
 - [x] **Submit dialog → real `finalize-eva-box`** via the Dataverse submit-signal (never writes status locally; drag-drop JSON export stays the permanent fallback).
 - [x] **Chaser → `copy_file_request` → clipboard** (calls the Box REST connector op **directly** — `CopyFileRequest`/`GetFolderSharedLink`, no flow in the path under CSP `connect-src 'none'`; reads `fileRequestUrl`; honest `not_connected`/`folder_not_ready`/`error`, never a fake link. At activation the direct transport must also persist `cr1bd_boxfilerequestid`/`url` on the case. `box-file-request-copy` is an authored standby child flow, not currently invoked).
-- [x] **Evidence → server-minted "Open in Box" deep link** (`GetSharedLink`, no CSP change). The iframe is **not built**; `BOX_EMBED_ENABLED` reserved/off.
+- [x] **Evidence → server-minted "Open in Box" deep link** (`GetSharedLink`, no CSP change). The iframe is **not built** — evidence is linked, never embedded.
 - [ ] 🔒 Bind the Box connection(s) + flip the gates so the affordances light up; **no `frame-src` edit** (link-not-embed).
 
 ### Phase C — deferred, tier-gated (placeholders only)
 
 - [x] **`box-blob-purge`** flow (`state=off`) — scheduled, status-driven (`box_synced` + grace, default 7d); only purges archived (accepted, non-excluded) **image** evidence (non-image transient bytes are retained — a deferred follow-up); never deletes the Box copy.
-- [ ] **(deferred)** Box Metadata-Query (`BOX_METADATA_ENABLED`, Business Plus tier), Box Governance retention, Box AI Units — each independently gated, each its own decision.
 
 **Two-phase live testing.** Phase A (done) — a throwaway **FREE** Box account proved **8/9 raw-REST ops** via a dev token (folder created + recursively deleted; no secret printed), and a free-account demo (case **SBL26001**) proved the folder + upload + shared-link pattern **manually**; the lone REST failure `CreateWebhook` 403 `insufficient_scope` is expected on a free plan. Phase B (pending, operator) — the live **Business-account** tenant lights up the always-on service-identity path (CCG + File Requests + the BLOCKING `FILE.UPLOADED` live-test; metadata is the optional later Business Plus tier). **Phase B is the long pole.**
 
@@ -514,7 +531,7 @@ lawful basis** are operator/legal input (gated.md).
 - [ ] **(deferred — pending operator, G4)** **DSAR / right-to-erasure cross-store runbook** — Dataverse (FetchXML) + Blob (prefix list) + **Box folder by Case/PO**. **DSAR blind spot:** PII-adjacent identifiers also live in **Box folder names, File-Request URLs, and Outlook category strings** outside Dataverse — the path must cover them.
 - [ ] **(deferred — pending operator/legal, G3)** **Privacy notice / DPIA / controller-processor map** — `docs/architecture/data-protection.md` (Box = processor under the one-way mirror; EVA / DVSA / DVLA recipients); **ICO registration** + **DVLA data-use terms** named explicitly.
 - [ ] **Lawful basis** recorded for DVSA/DVLA enrichment (legitimate interest; VRM-only outbound) and valuation (before `VALUATION_ENABLED`).
-- [ ] **AI-data-protection sign-off (deferred, G5)** (gates `EMAIL_AI` / Box-AI / Copilot / vision) — PII pre-scrub, prefer **in-tenant Azure OpenAI** (no external retain/train). The data-protection **production** sign-off is deferred per gate, **but the operator has FULL AUTHORITY for AI testing on all repo data** — so the Phase-8 LLM classifier and the Phase-4a vision/geocode testing are **unblocked now**.
+- [ ] **AI-data-protection sign-off (deferred, G5)** (gates `EMAIL_AI` / Box-AI / vision) — PII pre-scrub, prefer **in-tenant Azure OpenAI** (no external retain/train). The data-protection **production** sign-off is deferred per gate, **but the operator has FULL AUTHORITY for AI testing on all repo data** — so the Phase-8 LLM classifier and the Phase-4a vision/geocode testing are **unblocked now**.
 - [ ] **Audit-trail integrity** — enable native Dataverse auditing on case/evidence/auditevent; define the cascade-delete rule (what happens to `cr1bd_auditevent` when a Case is hard-deleted).
 - [ ] **(deferred — pending operator)** **Store hardening before prod** (G6) — define **KV purge-protection** (blocks permanent secret deletion during the soft-delete window) on the enrichment/EVA/Box vaults; **Azure Blob `evidence` container soft-delete + versioning** (recoverable deletes — the hard pre-step before arming `box-blob-purge`).
 - [ ] **No automated deletion from Box, ever (principle).** `box-blob-purge` only deletes **transient Azure Blob image bytes that are already archived to Box** — it never deletes the Box copy itself. There is **no automated deletion path into Box**.

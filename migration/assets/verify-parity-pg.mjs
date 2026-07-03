@@ -191,7 +191,6 @@ const expectedDefaults = {
   "cr1bd_EVA_BASE_URL":                  "",
   "cr1bd_AZURE_MAPS_ENABLED":            "false",
   "cr1bd_VALUATION_ENABLED":             "false",
-  "cr1bd_COPILOT_ENABLED":               "false",
   "cr1bd_AZURE_VISION_ENABLED":          "false",
   "cr1bd_OCR_SCANNED_PDF_ENABLED":       "false",
   "cr1bd_PLATE_OCR_ENABLED":             "false",
@@ -206,8 +205,6 @@ const expectedDefaults = {
   "cr1bd_BOX_API_ENABLED":               "false",
   "cr1bd_BOX_FOLDER_AT_INTAKE_ENABLED":  "false",
   "cr1bd_BOX_FILEREQUEST_ENABLED":       "false",
-  "cr1bd_BOX_EMBED_ENABLED":             "false",
-  "cr1bd_BOX_METADATA_ENABLED":          "false",
   "cr1bd_BOX_FOLDER_ROOT_ID":            "",
   "cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID":  "",
 };

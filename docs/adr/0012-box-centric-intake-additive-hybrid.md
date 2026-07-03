@@ -162,3 +162,9 @@ linked-not-embedded mirror; no case logic ever runs off Box) is **unchanged**:
   **deprovisioned 2026-06-27**; Box REST is now called by the **retained `box-webhook` Function +
   orchestration app** directly. The Code-App / `connect-src 'none'` constraints no longer apply — the SPA
   calls the Data API over REST, and the "Open in Box" deep link is server-minted by the Data API.
+
+## Amendment (2026-07-03)
+
+The reserved Box-embed and deferred Box-metadata options are formally dropped; the
+`BOX_EMBED_ENABLED` / `BOX_METADATA_ENABLED` gates were removed from code. Evidence
+remains linked, never embedded.

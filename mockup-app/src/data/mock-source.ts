@@ -1,15 +1,15 @@
 /* ============================================================
-   Collision Engineers — Code App DATA SEAM: empty default source.
+   Collision Engineers — SPA DATA SEAM: empty default source.
 
-   The seam's DEFAULT DataAccess, used until `configureDataAccess(generated
-   Services)` injects the live Dataverse source at startup (src/main.tsx). It
-   carries NO fabricated case data — the app renders only real Dataverse rows.
+   The seam's DEFAULT DataAccess, used until `configureDataAccess(restClient)`
+   injects the live Data API (REST) source at startup (src/main.tsx). It
+   carries NO fabricated case data — the app renders only real API rows.
    Every method resolves to an empty/zero result (or rejects, for writes) so:
 
-     - the offline build + unit tests stay green and SDK-free (no
-       '@microsoft/power-apps' import here), and
-     - if the Dataverse injection is ever reverted or races, screens fall back
-       to honest EMPTY states (not fabricated claimant data, and not a crash).
+     - the offline build + unit tests stay green and network-free (no
+       fetch calls here), and
+     - if the REST-client injection is ever reverted or races, screens fall
+       back to honest EMPTY states (not fabricated claimant data, and not a crash).
 
    The fabricated rows that used to back this source were removed from the
    shipped app (moved to src/__fixtures__, test-only). createCase rejects with a
@@ -86,9 +86,9 @@ function emptyPipelineStages(): PipelineStage[] {
    shipped source — the Inbox screen is a NEW, dark-gated surface, and a small
    realistic seed makes the faceted triage queue demonstrable in dev / tests /
    storybook. This is SAFE for the deployed app: main.tsx always injects the
-   Dataverse source, whose `inboundEmails*` methods return HONEST-EMPTY while the
-   `cr1bd_inboundemail` table is unwired (services.inboundEmails undefined, G4) —
-   so these rows surface ONLY when the mock source is active, never in production
+   REST (Data API / Postgres) source, whose `inboundEmails*` methods return
+   HONEST-EMPTY if the inbound-email route is ever unwired — so these rows
+   surface ONLY when the mock source is active, never in production
    data. Field shapes mirror the camelCase `InboundEmail` domain type 1:1; the
    `category`/`subtype` strings equal the choiceset option names (§2.3). The array
    is mutable so `setTriageState` flips a row in place for the demo.
@@ -407,9 +407,9 @@ export const mockDataAccess: DataAccessExt = {
   /* ----- Inspection-address suggestions (corpus; empty default) ----- */
   inspectionAddressSuggestions: (_caseId) => Promise.resolve([]),
   inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
-  // Honest no-op: the empty default writes nothing (the live source is injected at
-  // startup). The CaseDetail confirm still updates the local working copy; only the
-  // durable corpus write is deferred until the Dataverse source + table are wired.
+  // Honest no-op: the empty default writes nothing (the live REST source, backed by
+  // the Postgres `inspection_address` table, is injected at startup). The CaseDetail
+  // confirm still updates the local working copy when this default source is active.
   saveInspectionDecision: (_caseId, _decision) => Promise.resolve({ persisted: false }),
 
   /* ----- Dashboard / queue aggregates ----- */
@@ -497,7 +497,7 @@ export const mockDataAccess: DataAccessExt = {
     Promise.reject(new Error(NOT_CONFIGURED)),
 };
 
-/** Factory form, for symmetry with `createDataverseDataAccess`. */
+/** Factory form, for symmetry with `createRestDataAccess`. */
 export function createMockDataAccess(): DataAccessExt {
   return mockDataAccess;
 }

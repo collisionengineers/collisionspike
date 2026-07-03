@@ -95,8 +95,9 @@ Both `cespk-api-dev` and `cespk-orch-dev` now carry:
 | `BOX_FILEREQUEST_ENABLED` | `true` |
 | `BOX_FOLDER_ROOT_ID` | `392761581105` |
 
-`BOX_EMBED_ENABLED` and `BOX_METADATA_ENABLED` deliberately **left unset/off** (evidence is *linked* not
-embedded — ADR-0012; metadata needs Box Business Plus).
+`BOX_EMBED_ENABLED` and `BOX_METADATA_ENABLED` were never flipped on and have since been **removed from
+code (2026-07-03)** — the embed and metadata options are formally dropped (evidence is *linked* not
+embedded — ADR-0012).
 
 > ⚠️ **Known fail-soft:** `BOX_FILEREQUEST_ENABLED=true` is set **without** `BOX_FILE_REQUEST_TEMPLATE_ID`.
 > File-Request *copy* (`copy_file_request`) will therefore **no-op / fail-soft** until the operator supplies

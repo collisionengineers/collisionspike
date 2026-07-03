@@ -1,15 +1,15 @@
 /* ============================================================
-   Collision Engineers — Code App DATA SEAM: React hooks.
+   Collision Engineers — SPA DATA SEAM: React hooks.
 
    Thin hooks over the async DataAccess fetchers, each returning
    { data, loading, error, refetch }. The mock source resolves synchronously
    behind them, so the first render still flips to loaded immediately; the
-   Dataverse source awaits real Web API calls. Loading/empty/error states are the
-   screen's to render (Phase-1 §5.10 Surface A).
+   REST (Data API) source awaits real HTTP calls. Loading/empty/error states are
+   the screen's to render (Phase-1 §5.10 Surface A).
 
    Dependency-correctness: each effect's deps are the PRIMITIVE query inputs only
    (id / queue name). The fetcher is read from the live seam at call time, not
-   captured as a dep, so swapping mock<->Dataverse never re-triggers loops, and a
+   captured as a dep, so swapping mock<->REST never re-triggers loops, and a
    stable `refetch` (a bumpable nonce) is the explicit re-run lever. An
    `ignore`/`cancelled` guard drops stale resolutions on unmount or input change.
    ============================================================ */

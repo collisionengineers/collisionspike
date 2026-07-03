@@ -34,6 +34,7 @@ from cedocumentmapper_v2.rules.email_classifier import (
     classify_email,
     _job_reference,
     _has_report_attachment,
+    _has_new_image_evidence,
     _is_reply,
     _is_bare_acknowledgement,
     _sender_written_text,
@@ -1086,10 +1087,228 @@ def test_has_report_attachment(filename, is_report):
         ("Review of costs", False),                      # 'Re' glued to a letter
         ("FW: new instruction", False),                  # forward, not reply
         ("FWD: please inspect", False),
+        # collisionspike P0-2: the Robert James "Re:NNNNNN.NNN" reference-scheme is
+        # glued straight onto a bare colon with NO space -> NOT a reply (a fresh
+        # instruction, no threading header behind it).
+        ("Re:128086.001/Mr I Saleem", False),
+        ("Re:100875.003/Mr J Siranseevi", False),
+        ("Re:127774.001/Mr H Saleem", False),
+        # ... but an OUTER "RE: " (with space) onto that same scheme IS a reply.
+        ("RE: Re:127581.001/Mr E Taullaj", True),
+        # A header-less Case/PO reply with real words after it stays a reply.
+        ("RE: CCPY26050 - your report", True),
     ],
 )
 def test_relaxed_reply_detection(subject, is_reply_expected):
     assert _is_reply(subject, "", "") is is_reply_expected
+
+
+# --------------------------------------------------------------------------- #
+# Email-classifier hardening — verified 29-email analysis (collisionspike)     #
+# --------------------------------------------------------------------------- #
+def test_p0_1_instruction_boilerplate_not_demoted_by_copy_of_report():
+    """P0-1: the standard solicitor instruction boilerplate ('arrange to inspect our
+    client's vehicle and thereafter forward a copy of the report to ourselves') used to
+    trip the bare 'copy of the/your report' chase phrase, which suppressed the genuine
+    NEW instruction into query_existing_work. The bare phrases were removed from
+    chase_phrases; a real chase asking us to SEND our report ('provide us with a copy of
+    your report') still suppresses (see test_p0_1_genuine_chaser_still_query)."""
+    result = classify_email(
+        subject="Our Ref: AM.8540.PI  Client: Mr Muhammad Nawazish",
+        body=(
+            "Our Ref: AM.8540.PI Vehicle Reg: ND14 BFX. We act on behalf of the above "
+            "named client and would be grateful if you would kindly arrange to inspect "
+            "our client's vehicle and thereafter forward a copy of the report to "
+            "ourselves in duplicate."
+        ),
+        sender_domain="tenlegal.co.uk",
+        provider_match_state="one",
+        has_attachments=False,
+    )
+    assert result["category"] == "receiving_work", result["signals"]
+    assert result["subtype"] == "existing_provider_instruction"
+    assert result["body_vrm"] == "ND14BFX"
+
+
+def test_p0_1_genuine_chaser_still_query():
+    """P0-1 guard: a genuine chase that asks us to SEND our report must STILL suppress to
+    a query (the removal targeted only the ambiguous BARE 'copy of the/your report'; the
+    verb-led chasers stay)."""
+    for chase in (
+        "Please provide us with a copy of your report by return.",
+        "Please send us a copy of your report.",
+        "We are still awaiting your report.",
+    ):
+        result = classify_email(
+            subject="RE: 30143 - our client",
+            body=chase,
+            provider_match_state="one",
+            attachment_kinds=["image"],
+            attachment_filenames=["image001.png"],
+            has_attachments=True,
+            in_reply_to="<orig@mail>",
+        )
+        assert result["category"] == "query", (chase, result["signals"])
+
+
+@pytest.mark.parametrize(
+    "subject,body",
+    [
+        # Robert James "Re:128086.001" scheme + an instruction doc, no threading header.
+        ("Re:128086.001/Mr I Saleem", "Good afternoon, Please find vetting attached."),
+        # Ten Legal-style body instruction, no colon-scheme.
+        ("Our Ref: NV.8541.VD  Client: Mr Belal Hussain",
+         "Vehicle Reg: KW20 VEH. We would be grateful if you would kindly arrange to "
+         "inspect our client's vehicle and forward a copy of the report to ourselves."),
+    ],
+)
+def test_p0_2_false_reply_scheme_reaches_work(subject, body):
+    """P0-2: a fresh instruction whose subject carries the Robert James 'Re:NNNNNN.NNN'
+    reference-scheme (or a Ten Legal-style body instruction) must NOT be suppressed to a
+    query by a spurious is_reply — with the false-reply fix it reaches receiving_work."""
+    result = classify_email(
+        subject=subject,
+        body=body,
+        provider_match_state="one",
+        attachment_kinds=["instruction"] if "vetting" in body else None,
+        has_attachments="vetting" in body,
+    )
+    assert result["is_reply"] is False, result["signals"]
+    assert result["category"] == "receiving_work", result["signals"]
+
+
+@pytest.mark.parametrize(
+    "phrase,anchor",
+    [
+        ("Please arrange to inspect our client's vehicle.", "arrange to inspect"),
+        ("Please see attached letter of instructions.", "letter of instructions"),
+        ("Please complete a private report on this one.", "complete a private report"),
+        ("Please complete a report on the attached.", "complete a report"),
+        ("This is a new private instruction.", "private instruction"),
+    ],
+)
+def test_p0_3_work_anchor_phrases_are_recognised(phrase, anchor):
+    """P0-3: each high-precision anchor phrase is now recognised as work language (it
+    fires the work_keywords signal). These are the phrases that rescue Ten Legal / Baker
+    Coleman / Accident Specialist samples — corroboration into receiving_work is exercised
+    end-to-end by test_p0_1_instruction_boilerplate_not_demoted_by_copy_of_report."""
+    result = classify_email(
+        subject="Instruction",
+        body=phrase,
+        provider_match_state="one",
+        has_attachments=False,
+    )
+    assert any(
+        s.startswith("work_keywords:") and anchor in s for s in result["signals"]
+    ), result["signals"]
+
+
+def test_p0_3_two_anchor_phrases_promote_body_instruction():
+    """P0-3 promotion: two anchor phrases + a body VRM (no attachment) clears Rule 3's
+    two-phrase floor and promotes — the exact shape of the Ten Legal samples."""
+    result = classify_email(
+        subject="Our Ref: NV.8541.VD",
+        body="We would arrange to inspect our client's vehicle. Vehicle reg KW20 VEH.",
+        provider_match_state="one",
+        has_attachments=False,
+    )
+    assert result["category"] == "receiving_work", result["signals"]
+
+
+def test_p1_4a_solicitor_rta_ref_not_a_caseref():
+    """P1-4a: an 'RTA135983.001' solicitor ref must NOT be mis-read as a CE Case/PO by
+    truncating its '.001' — it routes to body_jobref (the whole dotted ref) instead, and
+    a genuine CE Case/PO is unaffected."""
+    result = classify_email(
+        subject="RE: RTA135983.001 - Mr L Safdar",
+        body="Please find attached.",
+        provider_match_state="one",
+        references="<thread@mail>",
+    )
+    assert result["body_caseref"] == ""
+    assert result["body_jobref"] == "RTA135983.001"
+
+    ce = classify_email(subject="New instruction CCPY26050", body="Please inspect.")
+    assert ce["body_caseref"] == "CCPY26050"
+
+
+@pytest.mark.parametrize(
+    "text,expected_jobref",
+    [
+        ("New claim Instructions PHA 5013 - YH08 MWS", "PHA5013"),   # P1-4b space form
+        ("Fw: Scott Gibson Bodyshop ID: 55837 / Christie", "55837"),  # P1-4c 'id' label
+        ("Suite 303A The Pentagon Centre", ""),   # title-case address must NOT capture
+    ],
+)
+def test_p1_4bc_reference_extraction(text, expected_jobref):
+    assert _job_reference(text) == expected_jobref
+
+
+def test_p1_5_reply_delivering_images_is_case_update():
+    """P1-5: a reply that DELIVERS damage photos on an existing job (genuine non-signature
+    image attachments, no question asked) is case_update/images_received — it must be
+    caught BEFORE Rule 4b would label it query_existing_work."""
+    result = classify_email(
+        subject="RE: Ref: 506115",
+        body="Dear Sirs, Please find attached correspondence herewith for your attention.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        attachment_filenames=["image001.png", "IMG_9108.jpeg", "IMG_9109.jpeg"],
+        has_attachments=True,
+        references="<thread@mail>",
+    )
+    assert result["category"] == "case_update", result["signals"]
+    assert result["subtype"] == "images_received"
+    assert result["is_reply"] is True
+
+
+def test_p1_5_reply_asking_for_images_stays_query():
+    """P1-5 guard: a reply that ASKS for further images (a chase, no delivered photo) must
+    NOT be promoted to case_update — it stays a query."""
+    result = classify_email(
+        subject="RE: MX17 PNL",
+        body="Please can you provide further assessment images for MX17 PNL.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        attachment_filenames=["image001.png"],  # signature logo only
+        has_attachments=True,
+        references="<thread@mail>",
+    )
+    assert result["category"] == "query"
+    assert result["subtype"] == "query_existing_work"
+
+
+def test_p1_5_reply_with_only_signature_logos_not_case_update():
+    """P1-5 precision: a bare 'Thanks' reply carrying only inline signature logos
+    ('imageNNN.png') must NOT be read as delivered evidence (that raster typing is
+    TKT-047) — it stays a bare acknowledgement."""
+    assert _has_new_image_evidence(["image001.png", "image002.png"]) is False
+    result = classify_email(
+        subject="RE: 45391/1",
+        body="Thanks, noted.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        attachment_filenames=["image001.png", "image002.png"],
+        has_attachments=True,
+        references="<thread@mail>",
+    )
+    assert result["category"] == "non_actionable"
+    assert result["subtype"] == "acknowledgement"
+
+
+def test_p2_6_soft_confirmation_is_query():
+    """P2-6: a soft confirmation ('Can I confirm has everything needed for the report been
+    sent') matched no keyword pre-fix and fell to 'other'. It must now land 'query'."""
+    result = classify_email(
+        subject="RE: Oakwood Scotland Solicitors- Instructions",
+        body="Can I confirm has everything needed for the report been sent.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        attachment_filenames=["image001.png"],
+        has_attachments=True,
+        references="<thread@mail>",
+    )
+    assert result["category"] == "query", result["signals"]
 
 
 def test_bare_acknowledgement_keys_on_first_line_despite_signature():

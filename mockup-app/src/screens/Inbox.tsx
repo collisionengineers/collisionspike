@@ -101,7 +101,7 @@ import {
   CANCELLATION_SUGGESTION_TYPE,
 } from './inbox-suggestions';
 import { whyClassifiedReasons } from './why-classified';
-import { mailboxFacets, matchesMailboxFilter } from './inbox-mailbox-filter';
+import { mailboxFacets, matchesMailboxFilter, type MailboxFilter } from './inbox-mailbox-filter';
 import {
   CATEGORY_LABEL,
   CATEGORY_ORDER,
@@ -645,8 +645,9 @@ export function Inbox() {
   // from the single list) — cleared when fresh server data resolves.
   const [pendingHidden, setPendingHidden] = useState<Set<string>>(() => new Set());
   // Source-mailbox facet filter (TKT-025) — CLIENT-SIDE over the loaded rows;
-  // empty = "all sources" (multi-select-none = all). Not URL-persisted.
-  const [mailboxFilter, setMailboxFilter] = useState<Set<string>>(() => new Set());
+  // SINGLE-select, exactly one of All/mailbox active at a time; null = "All"
+  // (the explicit default). Not URL-persisted.
+  const [mailboxFilter, setMailboxFilter] = useState<MailboxFilter>(null);
 
   // ONE load: the whole queue, filtered client-side (dismissed hidden by default).
   const inbox = useInbox({ view: 'all' });
@@ -722,16 +723,10 @@ export function Inbox() {
   // routinely holds more rows than a single page comfortably loads).
   const mailboxChips = useMemo(() => mailboxFacets(preMailboxFiltered), [preMailboxFiltered]);
 
-  const toggleMailboxFilter = useCallback((mailbox: string) => {
-    setMailboxFilter((prev) => {
-      const next = new Set(prev);
-      if (next.has(mailbox)) {
-        next.delete(mailbox);
-      } else {
-        next.add(mailbox);
-      }
-      return next;
-    });
+  // Plain setter — SINGLE-select, so choosing a mailbox (or "All") always
+  // replaces the current selection outright, never toggle-accumulates.
+  const selectMailboxFilter = useCallback((mailbox: MailboxFilter) => {
+    setMailboxFilter(mailbox);
   }, []);
 
   const filtered = useMemo(
@@ -1279,12 +1274,12 @@ export function Inbox() {
   );
 
   const filtersActive =
-    search.trim() !== '' || emailType.kind !== 'all' || mailboxFilter.size > 0;
+    search.trim() !== '' || emailType.kind !== 'all' || mailboxFilter !== null;
 
   /** Reset every client-side filter (the filter-miss empty state's ONE action). */
   const clearFilters = () => {
     setSearch('');
-    setMailboxFilter(new Set());
+    setMailboxFilter(null);
     applyEmailType(EMAIL_TYPE_ALL);
   };
 
@@ -1318,12 +1313,36 @@ export function Inbox() {
         />
 
         {/* Source-mailbox facet chips (TKT-025) — client-side over the loaded
-            rows; multi-select, none selected = all sources. */}
+            rows; SINGLE-select, "All" is the explicit default and exactly one
+            chip is active at a time. */}
         {mailboxChips.length > 0 && (
-          <div className={styles.facets} role="group" aria-label="Filter by mailbox">
+          <div className={styles.facets} role="radiogroup" aria-label="Filter by mailbox">
             <span className={styles.facetLabel}>Mailbox</span>
+            {(() => {
+              const allActive = mailboxFilter === null;
+              return (
+                <Badge
+                  appearance="outline"
+                  shape="rounded"
+                  size="large"
+                  className={mergeClasses('ce-focusable', styles.facetChip, allActive && styles.facetChipActive)}
+                  role="radio"
+                  tabIndex={0}
+                  aria-checked={allActive}
+                  onClick={() => selectMailboxFilter(null)}
+                  onKeyDown={(e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      selectMailboxFilter(null);
+                    }
+                  }}
+                >
+                  All ({preMailboxFiltered.length})
+                </Badge>
+              );
+            })()}
             {mailboxChips.map((chip) => {
-              const active = mailboxFilter.has(chip.mailbox);
+              const active = mailboxFilter === chip.mailbox;
               return (
                 <Badge
                   key={chip.mailbox}
@@ -1331,14 +1350,14 @@ export function Inbox() {
                   shape="rounded"
                   size="large"
                   className={mergeClasses('ce-focusable', styles.facetChip, active && styles.facetChipActive)}
-                  role="button"
+                  role="radio"
                   tabIndex={0}
-                  aria-pressed={active}
-                  onClick={() => toggleMailboxFilter(chip.mailbox)}
+                  aria-checked={active}
+                  onClick={() => selectMailboxFilter(chip.mailbox)}
                   onKeyDown={(e: KeyboardEvent) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      toggleMailboxFilter(chip.mailbox);
+                      selectMailboxFilter(chip.mailbox);
                     }
                   }}
                 >

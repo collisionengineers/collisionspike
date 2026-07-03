@@ -13,7 +13,11 @@
 > `verification.md`, with no known gap. Code that is written/merged but **not confirmed working in the live
 > app** stays `now` — "code-correct" is not "done".
 >
-> **Last reconciled 2026-07-02** — rules-engine-v2 **build** pass (the six-phase build completed this
+> **Reconciled 2026-07-03** — the nine-task activation deploy: TKT-055 moved from "built, not deployed"
+> to **deployed live** (delta applied, routes live, 401 smoke passed; first-key mint + e2e submit still
+> pending the operator — row updated, stays `now`); TKT-054's row updated to reflect the
+> `OUTLOOK_MOVE_ENABLED` gate flip (Exchange grant + operator live test still pending, gated.md B4). No
+> ticket changed column. Prior: **2026-07-02** — rules-engine-v2 **build** pass (the six-phase build completed this
 > session; see [the build checklist](../plans/phase-8-inbox-management/rules-engine-v2-build.md)): moved
 > **7** misclassification-cluster tickets to **done** (TKT-029/030/033/036/037/038/040 — live-probed
 > against the deployed classifier and locked by an eval-corpus regression pin); moved **7** tickets to
@@ -34,7 +38,7 @@
 
 | ID | Title | Why not done (evidence) |
 |---|---|---|
-| [TKT-054](./TKT-054-ui-work/TKT-054-ui-work.md) | Inbox simplification + VRM/Ref split + dashboard inbox-panel regressions | DEPLOYED 2026-07-02 (orch 53 / api 72 / SPA; mailbox chips live-verified reading info@/engineers@/desk@ post-backfill; legacy deep-links rewrite; dashboard tiles aligned). Remaining: operator click-through + the gated Outlook move ([gated.md B4](../gated.md) — Mail.ReadWrite re-consent, gate flip, operator live test). Rulings: [020726 review](../reviews/020726/decisions.md) (supersedes 010726 D16). See [verification](./TKT-054-ui-work/verification.md). |
+| [TKT-054](./TKT-054-ui-work/TKT-054-ui-work.md) | Inbox simplification + VRM/Ref split + dashboard inbox-panel regressions | DEPLOYED 2026-07-02 (orch / api / SPA; mailbox chips live-verified reading info@/engineers@/desk@ post-backfill; legacy deep-links rewrite; dashboard tiles aligned). `OUTLOOK_MOVE_ENABLED` **flipped true 2026-07-03** (user-instructed) — the SPA "File to …" buttons are live, but Graph moves still 403 pending the operator's Exchange `Mail.ReadWrite` grant ([gated.md B4](../gated.md), steps 1–2). Remaining: operator click-through + that grant + the operator's own live move test. Rulings: [020726 review](../reviews/020726/decisions.md) (supersedes 010726 D16). See [verification](./TKT-054-ui-work/verification.md). |
 | [TKT-001](./TKT-001-document-parsing/TKT-001-document-parsing.md) | Multi-format extraction + field-drop fix | Follow-up deployed 2026-07-01 (parser live-proven on triage `.eml`; body supplement deployed). Pending: e2e re-intake Postgres proof on triage `.doc` path. See [changes-regression-01-07-26](./TKT-001-document-parsing/changes-regression-01-07-26.md). |
 | [TKT-005](./TKT-005-email-actions/TKT-005-email-actions.md) | Make the inbox actionable (dismiss removes from view) | CODE-COMPLETE, not confirmed live — shipped in the SPA bundle but the e2e pass exercised the data pipeline, not the UI. Needs a live SPA click-through (inbound_email rows now exist post-reset). See [verification](./TKT-005-email-actions/verification.md). |
 | [TKT-027](./TKT-027-intake-triage-status/TKT-027-intake-triage-status.md) | Intermediate intake status beyond "new" | DEPLOYED — api+orch live; intake `ingested` audit proof pending next email. See [verification](./TKT-027-intake-triage-status/verification.md). |
@@ -45,6 +49,7 @@
 | [TKT-039](./TKT-039-misclass-query-report-support/TKT-039-misclass-query-report-support.md) | Report-support request misclassified as new case | Eval-passing on the deployed engine (committed corpus, 2026-07-02); awaiting a live occurrence/probe to close. See [verification](./TKT-039-misclass-query-report-support/verification.md). |
 | [TKT-047](./TKT-047-email-sigs-box/TKT-047-email-sigs-box.md) | Email signature images archived to Box in error | Non-inline raster floor DEPLOYED live on orch 2026-07-02; awaiting live proof on a real signature-bearing email. |
 | [TKT-051](./TKT-051-pch-connexus/TKT-051-pch-connexus.md) | PCH not identified (doc-content name + @pch-ltd.com senders) | Identification-mapping code DEPLOYED live 2026-07-02 (doc-content "PCH" now maps to a `work_provider_id`); the `@pch-ltd.com` domain addition activates once the D8 seed delta is applied. |
+| [TKT-055](./TKT-055-provider-api-intake/TKT-055-provider-api-intake.md) | Provider API intake channel (machine-to-machine case lodging) | DEPLOYED live 2026-07-03 (nine-task activation): the `2026-07-03-provider-api-intake` delta is applied (`provider_api_key` table, RLS + policies, audit codes, `choice_intake_channel_kind`), the api routes (`createProviderApiKey`/`listProviderApiKeys`/`revokeProviderApiKey`, `providerIntakeCase`) are live, and the no-key/bad-key **401** fail-closed smoke passed. Still pending (operator): a Superuser mints the first key in Admin + an end-to-end `POST /api/provider-intake/cases` submit smoke. Design [ADR-0020](../adr/0020-provider-api-intake-channel.md); contract [spec](../reference/provider-api-intake-spec.md). See [verification](./TKT-055-provider-api-intake/verification.md). |
 
 ## Done — live & verified
 
@@ -76,7 +81,7 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-015](./TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (gated) | Phase 4 of [rules-engine-v2](../plans/rules_engine_v2_plan_9ba034c4.plan.md) wired ONE concrete lane (email-triage categorisation) to a real, keyless AOAI call 2026-07-02 — still gated OFF (`EMAIL_AI_ENABLED`/`AI_ASSIST_ENABLED` both absent); the case/damage-assessment + image/reg-OCR consumers remain unbuilt. See [verification](./TKT-015-ai-assistant/verification.md). |
+| [TKT-015](./TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (gated) | Phase 4 of [rules-engine-v2](../plans/rules_engine_v2_plan_9ba034c4.plan.md) wired ONE concrete lane (email-triage categorisation) to a real, keyless AOAI call 2026-07-02 — `EMAIL_AI_ENABLED` **flipped live 2026-07-03** (user-instructed; `AI_ASSIST_ENABLED` still absent); the case/damage-assessment + image/reg-OCR consumers remain unbuilt. See [verification](./TKT-015-ai-assistant/verification.md). |
 | [TKT-016](./TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md) | Image-analysis VLM sequence | Research-only; pipeline unbuilt. |
 | [TKT-017](./TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model bench | Research-only; no benchmark run. |
 | [TKT-023](./TKT-023-follow-up-docs/TKT-023-follow-up-docs.md) | Link follow-up docs/emails to the existing case + Box | Generalised ref-gate DEPLOYED gated-OFF 2026-07-02 (`TRIAGE_REF_GATE_ENABLED` unset); needs D7 (DDL) + that gate flip. See [verification](./TKT-023-follow-up-docs/verification.md). |

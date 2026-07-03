@@ -61,7 +61,7 @@ Evidence-existence check on the `box:file:<id>` tag in `cr1bd_sourcemessageid`. 
 3. **`connect-src 'none'` → server-mint shared links.** The Code App calls Box only via the
    connector/flows, never `fetch()`. Evidence is surfaced as a **server-minted "Open in Box" deep link**
    (the operator decision is **link, not embed**). An iframe embed would need a `frame-src` (NOT
-   `frame-ancestors`) edit — **not pursued**; `BOX_EMBED_ENABLED` stays reserved/off.
+   `frame-ancestors`) edit — the embed option has been formally dropped.
 
 ## VERIFIED vs UNVERIFIED (carry honestly)
 - **CONFIRMED:** 10-min replay; HMAC-SHA256 dual-key; retries up to ~12×/2h; folder-scoped

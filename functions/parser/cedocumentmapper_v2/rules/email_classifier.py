@@ -207,8 +207,17 @@ _CONFIDENCE_ABSTAIN = 0.3   # fell through to other
 # 6-digit refs (which all have >=3 letters). NOT a bare alphanumeric run, so a phone
 # number, postcode, or VAT number in the body cannot masquerade as a Case/PO.
 # Case-insensitive; tolerates an optional space after the "A.".
+#
+# The trailing ``(?!\.\d)`` guard (collisionspike P1-4a) stops a SOLICITOR reference
+# whose head happens to be Case/PO-shaped but which carries a dotted sequence suffix
+# ("RTA135983.001", "RTA135600.001") from being mis-read as a CE-minted Case/PO by
+# truncating its ".001" — inbound mail essentially NEVER contains a CE Case/PO, so a
+# token immediately followed by ".<digit>" is routed to ``_job_reference`` (the
+# about-existing signal) instead, which captures the whole dotted ref. A genuine CE
+# Case/PO ("CCPY26050", "A.PCH261269") is never followed by a dotted digit, so it is
+# unaffected.
 CASEREF_RE = re.compile(
-    r"\b(?:A\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})\b",
+    r"\b(?:A\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})\b(?!\.\d)",
     re.IGNORECASE,
 )
 
@@ -219,20 +228,29 @@ CASEREF_RE = re.compile(
 # shape), so they are surfaced as an ABOUT-EXISTING signal + a linkReply hint ONLY —
 # never as new-client promotion corroboration (Rule 1/2/3 still require body_caseref).
 #
-#  (1) Labelled: an explicit "our/your ref" / "ref" / "claim" label immediately
+#  (1) Labelled: an explicit "our/your ref" / "ref" / "claim" / "id" label immediately
 #      followed by an alphanumeric token (the LABEL is what makes a bare number safe).
 #      The token may use '/', '_', '.' or '-' separators ("SAB/46286/1", "206848.001").
+#      "id" is included (collisionspike P1-4c) so "Bodyshop ID: 55837" captures — the
+#      leading \b keeps it from firing mid-word ("valid", "considered"), and the
+#      digit-required guard in _job_reference drops any non-numeric catch.
 _LABELLED_REF_RE = re.compile(
-    r"\b(?:our\s+ref(?:erence)?|your\s+ref(?:erence)?|ref(?:erence)?|claim(?:\s+no)?)"
+    r"\b(?:our\s+ref(?:erence)?|your\s+ref(?:erence)?|ref(?:erence)?|claim(?:\s+no)?|id(?:\s+no)?)"
     r"\s*[:.\-#]?\s*"
     r"([A-Z0-9][A-Z0-9_./-]{2,})",
     re.IGNORECASE,
 )
 #  (2) Structured client ref: an alphanumeric token with a '/', '_' or '.' separator
 #      and a digit run — "SAB/46286/1", "45391_1", "206848.001". Anchored to >=2
-#      segments so a normal word or a plain number is excluded.
+#      segments so a normal word or a plain number is excluded. The third alternative
+#      (collisionspike P1-4b) allows ONE space between an ALL-CAPS principal code and a
+#      3-4 digit sequence so a space-separated ref ("PHA 5013") captures; the
+#      case-sensitive ``(?-i:...)`` group keeps title-case address words ("Suite 303",
+#      "Unit 189") out while the outer flag stays case-insensitive for the rest.
 _STRUCTURED_REF_RE = re.compile(
-    r"\b([A-Z]{0,5}\d{3,}(?:[_./]\d{1,4}){1,3}|[A-Z]{2,5}[_/]\d{3,}(?:[_/]\d{1,4})*)\b",
+    r"\b([A-Z]{0,5}\d{3,}(?:[_./]\d{1,4}){1,3}"
+    r"|[A-Z]{2,5}[_/]\d{3,}(?:[_/]\d{1,4})*"
+    r"|(?-i:[A-Z]{2,5})\s\d{3,4})\b",
     re.IGNORECASE,
 )
 
@@ -277,6 +295,40 @@ def _has_report_attachment(filenames: Any) -> bool:
     for fn in filenames or []:
         compact = re.sub(r"[\s_\-]+", "", str(fn)).lower()
         if _REPORT_FILENAME_RE.search(compact):
+            return True
+    return False
+
+
+# --- New-image-evidence detector (collisionspike P1-5) ----------------------- #
+# An inline signature/logo image rides in the HTML body as a cid: attachment and is
+# almost always named "imageNNN.ext" (image001.png, image002.jpg ...). A GENUINE
+# damage photo carries a real camera/app name (IMG_9108.jpeg, "WhatsApp Image ...",
+# PHOTO-..., a GUID.jpg) or a filename that literally advertises images ("VD IMAGES
+# pdf.pdf"). Distinguishing a signature logo from a damage photo by raster content is
+# TKT-047 (out of scope); the filename is the most honest signal the classifier has
+# today. Used ONLY to promote an image-delivering REPLY to case_update (Rule 4a2).
+_SIGNATURE_IMAGE_RE = re.compile(r"^image0*\d{1,4}\.(?:png|jpe?g|gif|bmp)$", re.IGNORECASE)
+_IMAGE_EXTENSIONS = frozenset({"jpg", "jpeg", "png", "gif", "bmp", "heic", "webp", "tif", "tiff"})
+_IMAGE_EVIDENCE_HINT_RE = re.compile(
+    r"(?:images?|photos?|damage|\bimg[\W_]|vd\s*image)", re.IGNORECASE
+)
+
+
+def _has_new_image_evidence(filenames: Any) -> bool:
+    """True when at least one attachment looks like GENUINE new image evidence — a
+    damage photo delivered on a reply, as opposed to an inline signature/logo. A
+    filename matching the ``imageNNN.ext`` inline-signature pattern never counts; an
+    engineer's REPORT never counts (it is existing-work, handled by the report rules);
+    a real image extension (not the signature pattern), or a filename that literally
+    advertises images ("VD IMAGES pdf.pdf"), does."""
+    for fn in filenames or []:
+        base = str(fn).strip()
+        if not base or _SIGNATURE_IMAGE_RE.match(base) or _has_report_attachment([base]):
+            continue
+        ext = base.rsplit(".", 1)[-1].lower() if "." in base else ""
+        if ext in _IMAGE_EXTENSIONS:
+            return True
+        if _IMAGE_EVIDENCE_HINT_RE.search(base):
             return True
     return False
 
@@ -460,34 +512,58 @@ def _is_auto_reply(text: str) -> tuple[str, ...]:
 # onward-send of someone else's mail). Anchored to the LEADING token with a required
 # colon, so "Re-inspection" (no colon) is NOT a reply and a body that merely mentions
 # "re:" cannot trip it. Only a reply trips the about-existing suppression below.
-# A reply prefix is "RE"/"AW"/"SV" (intl) followed by EITHER a colon OR whitespace
-# (real Outlook subjects do "RE 30143 - ..." with no colon, TKT-030/031). The
-# separator is REQUIRED and immediate, so "Re-inspection" (glued hyphen) and "Review"
-# (next char a letter) are NOT replies. Forward longest-first ("fwd" before "fw") so
-# "FWD:" is not mis-split. (collisionspike #3 / TKT-031)
-_REPLY_SUBJECT_RE = re.compile(r"^\s*(?:re|aw|sv)(?::|\s)", re.IGNORECASE)
+# A reply prefix is "RE"/"AW"/"SV" (intl), an OPTIONAL colon, then REQUIRED
+# whitespace — real Outlook subjects do "RE: 30143 - ..." and "RE 30143 - ..." (no
+# colon), TKT-030/031. Requiring whitespace after the prefix is the key discriminator
+# (collisionspike P0-2): a provider CASE-SCHEME glued straight onto a bare colon with
+# NO space ("Re:128086.001", "Re:127774.001", "Re:100875.003" — Robert James) is a
+# structured reference in the subject, NOT a reply, and misreading it as one demoted a
+# genuine fresh instruction to query_existing_work. "Re-inspection" (glued hyphen) and
+# "Review" (next char a letter) still fail the whitespace requirement, so they are not
+# replies. The remainder is captured so the structured-ref guard below can screen it.
+# Forward longest-first ("fwd" before "fw") so "FWD:" is not mis-split. (#3 / TKT-031)
+_REPLY_SUBJECT_RE = re.compile(r"^\s*(?:re|aw|sv):?\s+(\S.*)$", re.IGNORECASE)
 _FORWARD_SUBJECT_RE = re.compile(r"^\s*(?:fwd|fw)(?::|\s)", re.IGNORECASE)
+# A subject remainder that is NOTHING BUT a dotted structured reference — a bare
+# "digits.digits" scheme or an "alpha-principal+digits.digits" token, with no real
+# words after it — is a reference line, not a reply ("Re: 128086.001"). A genuine
+# reply whose subject merely STARTS with a Case/PO but carries real words after it
+# ("RE: CCPY26050 - your report") is UNAFFECTED (the trailing words fail the ``$``
+# anchor), so header-less Case/PO replies still register. Only the dotted solicitor
+# form is screened, so a bare CE Case/PO is never mistaken for a non-reply.
+_SUBJECT_ONLY_REFERENCE_RE = re.compile(
+    r"^(?:\d{3,}\.\d+|[A-Z]{2,5}\d{2,}\.\d+)$",
+    re.IGNORECASE,
+)
 
 
 def _is_reply(subject: str, in_reply_to: str, references: str) -> bool:
     """Return True when the email is a REPLY in an existing thread (not a forward).
 
-    Precedence (collisionspike #3):
+    Precedence (collisionspike #3, P0-2):
       * A forward (``FW:`` / ``FWD:`` subject) is NEVER a reply — it is an onward-send
         that may carry a genuinely NEW instruction, so it must not trip the
         about-existing suppression. Checked FIRST so a threading header riding on a
         forwarded chain is not misread as a reply.
       * The RFC-5322 threading headers ``In-Reply-To`` / ``References`` are the
         authoritative reply signal when the caller passes them (a well-behaved client
-        sets them only on a reply). Stronger than the subject, so checked next.
-      * Otherwise fall back to a leading ``RE:`` subject prefix — the signal available
-        today, before the orchestrator wires the headers through.
+        sets them only on a reply). Stronger than the subject, so checked next — a
+        genuine "RE: Ref: 506115" / "RE: RTA135983.001" reply that carries these
+        headers stays a reply regardless of its subject shape.
+      * Otherwise fall back to a leading ``RE:`` subject prefix — but ONLY when it is
+        followed by whitespace AND the remainder is not just a dotted structured
+        reference (the Robert James "Re:128086.001" case-scheme has neither: no space,
+        a bare dotted ref). This is the signal available before the orchestrator wires
+        the threading headers through.
     """
     if _FORWARD_SUBJECT_RE.match(subject):
         return False
     if in_reply_to.strip() or references.strip():
         return True
-    return bool(_REPLY_SUBJECT_RE.match(subject))
+    match = _REPLY_SUBJECT_RE.match(subject)
+    if not match:
+        return False
+    return not _SUBJECT_ONLY_REFERENCE_RE.match(match.group(1).strip())
 
 
 # Markers that begin a QUOTED reply chain. Everything from such a marker onward (and
@@ -997,6 +1073,37 @@ def classify_email(
             SUBTYPE_QUERY_EXISTING_WORK,
             _CONFIDENCE_GOOD,
             "query_with_reference",
+        )
+
+    # --- Rule 4a2 (case_update, taxonomy v2, collisionspike P1-5): a REPLY that
+    # DELIVERS new image evidence (damage photos) on an existing job, asking nothing,
+    # is a case UPDATE — not merely a query about work we did. It must be caught BEFORE
+    # Rule 4b (which would label any referenced reply query_existing_work), so a
+    # provider replying "here are the images you asked for" surfaces as
+    # case_update/images_received rather than a generic query. Gated tightly to avoid
+    # stealing genuine queries: it needs GENUINE image evidence (a non-signature photo
+    # attachment, not an inline logo — ``_has_new_image_evidence``), NO query/chase
+    # phrase in the sender-written scope (an email that ALSO asks a question is a query
+    # first, so a chase reply that re-attaches the original photo still routes to the
+    # query rules), NOT a bare acknowledgement (TKT-038: "Thanks Ed" + signature logos
+    # must stay acknowledgement), and an existing-job reference or VRM to anchor it.
+    if (
+        is_reply
+        and _has_new_image_evidence(filenames)
+        and not query_or_chase
+        and not _is_bare_acknowledgement(sender_text)
+        and (has_existing_ref or body_vrm)
+    ):
+        images_only = bool(kinds) and kinds.issubset(_IMAGE_KINDS)
+        reply_update_subtype = (
+            SUBTYPE_IMAGES_RECEIVED if images_only else SUBTYPE_UPDATE_GENERAL
+        )
+        reply_update_confidence = _CONFIDENCE_GOOD if body_caseref else _CONFIDENCE_WEAK
+        return _result(
+            CATEGORY_CASE_UPDATE,
+            reply_update_subtype,
+            reply_update_confidence,
+            "reply_with_new_images",
         )
 
     # --- Rule 4b: a reply (not a bare acknowledgement) naming a reference -------

@@ -147,7 +147,7 @@
     "/box/folders/{folderId}/shared-link": {
       "put": {
         "summary": "Get or create a shared link on a folder",
-        "description": "PUT /2.0/folders/{id}?fields=shared_link. The FOLDER variant — this is the one 'Open in Box' uses, and the one an iframe embed (not pursued; BOX_EMBED_ENABLED stays off) would need. Server-minted only.",
+        "description": "PUT /2.0/folders/{id}?fields=shared_link. The FOLDER variant — this is the one 'Open in Box' uses (evidence is always linked, never embedded — no iframe). Server-minted only.",
         "operationId": "GetFolderSharedLink",
         "parameters": [
           {

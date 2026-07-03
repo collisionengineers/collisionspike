@@ -13,6 +13,7 @@
  *
  * Routes (plan 21 §21.3 + orchestration/src/lib/data-api.ts + box-webhook surface):
  *  GET  /api/internal/provider-match-records         → ProviderMatchRecord[]
+ *  GET  /api/internal/work-provider/{id}/ai-allowed  → { aiAllowed: boolean | null } (per-provider AI opt-out, docs/gated.md D6)
  *  GET  /api/internal/dedup-context                  → DedupContext
  *  POST /api/internal/cases/resolve                  → { outcome, caseId }
  *  POST /api/internal/cases/{id}/evidence            → { persisted: number }
@@ -39,9 +40,6 @@ import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } 
 import {
   EVA_FIELD_ORDER,
   TERMINAL_STATUSES,
-  casePoSequenceRegex,
-  casePoYear,
-  formatCasePo,
   statusForReviewCase,
   type CaseStatus,
   type EvidenceDescriptor,
@@ -62,6 +60,7 @@ import {
 } from '@cs/domain/codecs';
 import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
+import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
 import {
@@ -537,6 +536,37 @@ function parseDomains(raw: string | null | undefined): string[] {
 }
 
 /* ============================================================
+   1b — GET /api/internal/work-provider/{id}/ai-allowed
+   Called by: orchestration triageClassify activity (gated LLM triage second-opinion —
+   docs/gated.md D6). Returns the work provider's per-provider AI opt-out flag so the
+   activity can skip the model call for a provider that opted out.
+
+   `ai_allowed` is a NULLABLE boolean: null/true = AI allowed, ONLY explicit false opts out
+   (the caller enforces that semantics — providerAiOptedOut). SCHEMA-TOLERANT: the column is
+   modeled but "deferred in M1" (migration/assets/schema/010_work_provider.sql), so a
+   pre-migration DB returns { aiAllowed: null } (allowed) rather than erroring. An unknown id
+   also returns null (nothing to opt out of).
+   ============================================================ */
+app.http('internalWorkProviderAiAllowed', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'internal/work-provider/{id}/ai-allowed',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const workProviderId = req.params.id;
+      if (!(await hasColumn('work_provider', 'ai_allowed'))) {
+        return { status: 200, jsonBody: { aiAllowed: null } };
+      }
+      const rows = await query<Row>('SELECT ai_allowed FROM work_provider WHERE id = $1', [
+        workProviderId,
+      ]);
+      const raw = rows[0]?.ai_allowed;
+      const aiAllowed = raw == null ? null : Boolean(raw);
+      return { status: 200, jsonBody: { aiAllowed } };
+    }),
+});
+
+/* ============================================================
    2 — GET /api/internal/dedup-context
    Called by: orchestration caseResolve activity (plan 22 §B §A2).
    Returns: { openProviderCases, seenMessageIds, seenPayloadHashes }
@@ -760,26 +790,11 @@ app.http('internalCasesResolve', {
           const newClient = !workProviderId || !principalCode;
 
           // Known provider → mint Case/PO = principal + YY + 3-digit per-(principal,year) seq.
+          // Shared advisory-locked mint (api/src/lib/case-po.ts) — identical logic to the
+          // manual-intake and provider-API paths; the lock lives on this transaction's `q`.
           let casePo: string | null = null;
           if (!newClient) {
-            const principal = principalCode.toUpperCase();
-            const yy = casePoYear();
-            const prefix = `${principal}${yy}`; // e.g. "CCPY26"
-            // Serialise concurrent mints for this (principal, year); released at COMMIT/ROLLBACK.
-            await q('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [`casepo:${prefix}`]);
-            // The sequence is the digits AFTER the principal+year prefix — strip the prefix by
-            // length ($3) so the contiguous year digits are NOT swept into the number (a trailing
-            // [0-9]{3,}$ regex would read "CCPY26050" as 26050, not 050). The ~ filter guarantees
-            // everything after the prefix is digits, so the cast is safe. Probe on upper(case_po)
-            // (prefix + regex are already upper-cased) so a manual lowercase row like 'ccpy26050'
-            // is counted — matching the case-insensitive uq_case_case_po index (#82).
-            const seqRows = await q<{ next_seq: string | number }>(
-              `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) + 1 AS next_seq
-                 FROM case_
-                WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
-              [`${prefix}%`, casePoSequenceRegex(principal, yy), prefix],
-            );
-            casePo = formatCasePo(principal, yy, Number(seqRows[0]?.next_seq ?? 1));
+            casePo = await mintCasePo(q, principalCode);
           }
 
           const cols = [

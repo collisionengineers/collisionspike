@@ -197,6 +197,17 @@ export const dataApi = {
     return request('GET', '/api/internal/provider-match-records');
   },
 
+  /**
+   * Read a work provider's per-provider AI opt-out flag (docs/gated.md D6; internal route).
+   * `aiAllowed` is NULLABLE: null/true = AI allowed, ONLY explicit `false` opts the provider
+   * out of the gated LLM triage second-opinion (triage-classify.ts). Schema-tolerant
+   * server-side — the `ai_allowed` column is modeled but may be pre-migration, in which case
+   * the API returns `{ aiAllowed: null }` (i.e. allowed).
+   */
+  workProviderAiAllowed(workProviderId: string): Promise<{ aiAllowed: boolean | null }> {
+    return request('GET', `/api/internal/work-provider/${encodeURIComponent(workProviderId)}/ai-allowed`);
+  },
+
   /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
   dedupContext(params: {
     workProviderId: string;

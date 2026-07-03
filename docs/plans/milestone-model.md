@@ -92,8 +92,6 @@ DEPLOY-RUNBOOK order.
 | **5b** — Image **classification** + reflection | overview-vs-`damage_closeup` (AI Builder / Foundry vision) + person-reflection exclusion | **M2** | `[ ]` planned | [ADR-0009](../adr/0009-image-ai-ocr-m1-classification-m2.md) ("M2 — classification + reflection") |
 | **5b** — WhatsApp bulk-media import | Bulk-import WhatsApp media, OCR each for VRM, auto-match to the open Case | **M3** | `[ ]` planned | [ADR-0007](../adr/0007-whatsapp-intake-manual-bulk-ocr-match.md); off the EVA/Box critical path |
 | **5c** — **Valuation** (`valuationbot`) | Staff-on-demand Companion Report PDF as `Evidence(kind=valuation)`, gated `VALUATION_ENABLED` | **M3** 🔒 *(LOCKED — see §4)* | `[ ]` planned | [ADR-0006](../adr/0006-enrichment-rest-wrapper-dvsa-m1.md) ("Valuation … follows in **M3**") |
-| **5c** — Copilot Studio agent | Staff assistant grounded over Dataverse, gated `COPILOT_ENABLED` | **M3** | `[ ]` planned, gated-OFF | ROADMAP 5c; `docs/architecture/microsoft-stack.md` |
-| **(5c)** — Dataverse-MCP-in-Copilot | Dataverse Model Context Protocol surfaced inside the Copilot agent | **M3** | `[ ]` planned, gated-OFF | `docs/architecture/microsoft-stack.md` |
 | **6** — Boundary evidence & handoff | Offline gates green; connection inventory; deploy log; **§7 live-validation across all three mailboxes** | **M1** *(evidence)* | `[x]` offline gates; `[ ]` 🔒 live evidence | ROADMAP Phase 6 — the §7 checklist is the M1 "done" evidence |
 | **7** — Box-centric intake pivot (ADR-0012) | Folder at parse-confirm + File-Request image chasers + webhook intake; **one-way Box mirror, Dataverse authoritative** | **M2-class** *(extends M2.D)* | `[x]` authored + offline-verified + free-account REST-tested; **Box Dataverse schema + `cr1bd_BOX_*` env-vars APPLIED LIVE in Dev (all `BOX_*` gates OFF)**; the **`box-webhook` Function is deployed + Gate-C-verified** (`cespkbox-fn-v76a47` Running, all `BOX_*` gates OFF, KV secret-free); connector (`cr1bd_box_rest`) + Box flows still authored offline (`state=off`); CCG auth + KV secrets + bind/flip + the BUSINESS `FILE.UPLOADED` live-test 🔒 | [ADR-0012](../adr/0012-box-centric-intake-additive-hybrid.md); the broader successor to **3d**/M2.D; build order in `box-integration-pivot/plans/00-BUILD-PLAN.md` |
 
@@ -103,9 +101,9 @@ DEPLOY-RUNBOOK order.
 > stays off the **M1** critical path (M1 ships on EVA JSON drag-drop with Box archival; Phase 7 is not an
 > M1 gate), and EVA itself stays gated OFF throughout the pivot.
 
-**Why some Phase 4a/5c rows appear more than once:** a few phase sub-letters bundle *more than one
+**Why some Phase 4a rows appear more than once:** a few phase sub-letters bundle *more than one
 capability* under one ROADMAP letter (e.g. 4a holds the policy gate **and** the offline-corpus
-suggestions **and** Azure Maps; 5c holds valuation **and** Copilot). Each *capability* still maps to exactly one milestone —
+suggestions **and** Azure Maps). Each *capability* still maps to exactly one milestone —
 the sub-letter is just a build-folder label, not a milestone. This is itself a worked example of
 "Phase ≠ Milestone".
 
@@ -120,8 +118,8 @@ the sub-letter is just a build-folder label, not a milestone. This is itself a w
   Function** + **3d** Box archival activation + **4b** chaser-send +
   **5b** image classification / reflection.
 - **M3 — Assistive + optional** (all gated-OFF, none on the EVA/Box critical path) = **5c** valuation
-  (LOCKED, [ADR-0006](../adr/0006-enrichment-rest-wrapper-dvsa-m1.md)) + **5c** Copilot Studio + **4a**
-  Azure Maps + **5b** WhatsApp bulk-media import + Dataverse-MCP-in-Copilot.
+  (LOCKED, [ADR-0006](../adr/0006-enrichment-rest-wrapper-dvsa-m1.md)) + **4a**
+  Azure Maps + **5b** WhatsApp bulk-media import.
 
 ---
 
@@ -153,7 +151,7 @@ path** ([ADR-0008](../adr/0008-tool-boundary-ends-at-eva-handoff.md)), the lowes
 umbrella's own framing, and ADR-0006 (higher precedence than a plan) states valuation "**follows in M3**".
 The m2-umbrella's "M2.G" label is reconciled **up** to this doc and re-tagged **M3.A (tracked for
 dependency context only)**; ROADMAP 5c and the phase-5 README are reconciled to "M3". The build still
-lives in the Phase 5c folder and in [valuation-and-copilot](./phase-5-ocr-and-scale/valuation-and-copilot.md)
+lives in the Phase 5c folder and in [valuation](./phase-5-ocr-and-scale/valuation.md)
 — **Phase ≠ Milestone**, again.
 
 ---
@@ -196,9 +194,8 @@ These are the **capability gates** — what must be demonstrably true to *enter*
 
 ### M3 — Assistive + optional
 - **Entry:** M2 stable in **test**.
-- **Exit:** **valuation** attaches a Companion Report PDF as `Evidence(kind=valuation)` **on demand**,
-  and/or the **Copilot Studio** agent answers grounded Dataverse questions — **each behind its own gate**
-  (`VALUATION_ENABLED`, `COPILOT_ENABLED`, `AZURE_MAPS_ENABLED`), with **no extension past the EVA/Box
+- **Exit:** **valuation** attaches a Companion Report PDF as `Evidence(kind=valuation)` **on demand** —
+  behind its own gate (`VALUATION_ENABLED`, `AZURE_MAPS_ENABLED`), with **no extension past the EVA/Box
   handoff** ([ADR-0008](../adr/0008-tool-boundary-ends-at-eva-handoff.md)). M3 features are optional and never on
   the pipeline critical path.
 
@@ -257,5 +254,5 @@ sub-letters are M1 vs M2 vs M3, and links back to this doc as the authority:
 - **phase-4-address-and-chaser** → **4a policy gate + offline full-address suggestions corpus = M1** ([ADR-0013](../adr/0013-loc-export-artifact-no-runtime-address-matching.md), no runtime matcher); **4b chaser-send = M2**; **4a Azure
   Maps = M3**.
 - **phase-5-ocr-and-scale** → **5a plate-OCR = M1**; **5b classification/reflection = M2**; **5b WhatsApp
-  import + 5c valuation + 5c Copilot = M3**.
+  import + 5c valuation = M3**.
 - **phase-6-handoff** → **M1 evidence** (the §7 live-validation across all three mailboxes).

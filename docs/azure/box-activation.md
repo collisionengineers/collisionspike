@@ -148,11 +148,10 @@ foreach ($app in 'cespk-api-dev','cespk-orch-dev') {
 }
 ```
 
-Leave **`BOX_EMBED_ENABLED` off** (evidence is *linked*, not embedded — ADR-0012) and
-**`BOX_METADATA_ENABLED` off** (needs Box Business Plus). _(Gate names verified 2026-06-28 against
-`packages/domain`, the single source of truth: `BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`,
-`BOX_FILEREQUEST_ENABLED`, `BOX_FOLDER_ROOT_ID`, `BOX_FILE_REQUEST_TEMPLATE_ID`, `BOX_EMBED_ENABLED`,
-`BOX_METADATA_ENABLED`.)_
+Evidence is *linked*, not embedded (ADR-0012) — the embed and metadata options were dropped, and
+their gates removed from code (2026-07-03). _(Gate names verified against `packages/domain`, the
+single source of truth: `BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`, `BOX_FILEREQUEST_ENABLED`,
+`BOX_FOLDER_ROOT_ID`, `BOX_FILE_REQUEST_TEMPLATE_ID`.)_
 
 ## Step 7 — Follow-ups (REMAINING — operator / Box-side only)
 

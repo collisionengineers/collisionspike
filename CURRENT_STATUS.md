@@ -26,6 +26,33 @@ case-create remains available alongside. Subscription/mailbox state: the registr
 [docs/architecture/live-environment.md](./docs/architecture/live-environment.md). **Principle: no
 mock/seed case data in the app — it shows real rows only.**
 
+> **🔔 2026-07-03 — Nine-task activation: provider API intake channel shipped; Outlook-move,
+> plate/scanned-PDF OCR, and email-AI gates flipped live; Azure Maps / location-assist live.**
+> All user-instructed. Live counts/gate values stay in the registry
+> [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) — not repeated here.
+> - **Provider API intake channel (TKT-055, ADR-0020)** — api + SPA deployed: a Superuser mints
+>   per-provider keys in Admin's Provider settings; providers `POST` cases + Base64
+>   instructions/images to a new `X-Api-Key`-authed route. The DDL delta is applied (new
+>   `provider_api_key` table, RLS + policies); the no-key/bad-key **401** fail-closed smoke passed.
+>   Still pending: the first key mint + an end-to-end submit. Spec:
+>   [docs/reference/provider-api-intake-spec.md](./docs/reference/provider-api-intake-spec.md).
+> - **`OUTLOOK_MOVE_ENABLED` flipped `true`** on both apps — the SPA's "File to …" buttons are now
+>   live, but a click will **403** until the operator adds the Exchange-RBAC `Mail.ReadWrite` grant
+>   (the gate flip is step 3 of 4; steps 1–2 + the operator's own live test remain —
+>   [docs/gated.md B4](./docs/gated.md)).
+> - **Plate OCR + scanned-PDF OCR flipped live** on orchestration (`PLATE_OCR_ENABLED`,
+>   `OCR_SCANNED_PDF_ENABLED` — a new parse-activity fallback: PDF instruction + empty extraction →
+>   OCR → coalesce).
+> - **`EMAIL_AI_ENABLED` flipped live** on orchestration (Phase 4 of rules-engine-v2, this session's
+>   instruction serving as the G5/E2 production sign-off) — the known spec gap (honouring
+>   `work_provider.ai_allowed`) was closed and deployed **first**: an explicit `false` now skips the
+>   model call with reason `provider_ai_opt_out`. Keyless via the orch managed identity.
+> - **Azure Maps / location-assist is live** — new Maps + Vision + a location-suggest Function App
+>   resource set; a live smoke returned ranked candidates from text clues. Photo-based candidates
+>   still use a stub (the Box byte-fetch wiring is unbuilt cross-app work).
+> - `BOX_EMBED_ENABLED` / `BOX_METADATA_ENABLED` / `COPILOT_ENABLED` retired from code (scrapped
+>   ideas — were never live-set).
+
 > **🔔 2026-07-02 — Rules Engine v2 build complete (all six phases); api/orch/SPA deployed live;
 > deploy + data + gate flips are the remaining operator activation path.**
 > Full build checklist: [rules-engine-v2-build.md](./docs/plans/phase-8-inbox-management/rules-engine-v2-build.md);

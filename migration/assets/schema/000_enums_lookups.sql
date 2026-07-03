@@ -120,7 +120,15 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   -- requested = staff clicked File-to; moved/failed = the mover's terminal outcome.
   (100000039, 'outlook_move_requested',     'Outlook Move Requested'),
   (100000040, 'outlook_moved',              'Outlook Moved'),
-  (100000041, 'outlook_move_failed',        'Outlook Move Failed');
+  (100000041, 'outlook_move_failed',        'Outlook Move Failed'),
+  -- Provider API intake channel (TKT-055 / ADR-0020, 2026-07-03 delta -- see
+  -- deltas/2026-07-03-provider-api-intake.sql). Key lifecycle (mint/revoke) +
+  -- the submission outcome (a case was created, or the submission was rejected
+  -- on validation) for the machine-to-machine intake channel.
+  (100000042, 'api_key_created',            'API Key Created'),
+  (100000043, 'api_key_revoked',            'API Key Revoked'),
+  (100000044, 'provider_api_case_created',  'Provider API Case Created'),
+  (100000045, 'provider_api_case_rejected', 'Provider API Case Rejected');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code
@@ -418,8 +426,10 @@ CREATE TABLE choice_intake_channel_kind (
   label text NOT NULL
 );
 INSERT INTO choice_intake_channel_kind (code, name, label) VALUES
-  (100000000, 'email',    'Email'),
-  (100000001, 'whatsapp', 'WhatsApp');
+  (100000000, 'email',        'Email'),
+  (100000001, 'whatsapp',     'WhatsApp'),
+  -- Machine-to-machine provider API intake channel (TKT-055 / ADR-0020, 2026-07-03 delta).
+  (100000002, 'provider_api', 'Provider API');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_providerautomationmode  (provider-automation-mode.json)

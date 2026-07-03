@@ -193,12 +193,11 @@ fan-out **on the request path** and returns 200 when settled (or a non-2xx so Bo
 the idempotent status-evaluate step; case **logic** is never queried off Box. The Box columns above are the
 mirror's footprint on the Case table.
 
-- **Gates (owned here as schema; read everywhere else):** 5 Boolean `BOX_*` gates
-  (`BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`, `BOX_FILEREQUEST_ENABLED`, `BOX_EMBED_ENABLED`
-  reserved, `BOX_METADATA_ENABLED` deferred) + 2 String config vars (`BOX_FOLDER_ROOT_ID`,
-  `BOX_FILE_REQUEST_TEMPLATE_ID`) — all default OFF/empty. **Now Function-App / API app-settings** the Data
-  API + orchestration **read** (they were `cr1bd_BOX_*` Dataverse environment variables in the prior
-  build); none re-defines them.
+- **Gates (owned here as schema; read everywhere else):** 3 Boolean `BOX_*` gates
+  (`BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`, `BOX_FILEREQUEST_ENABLED`) + 2 String config vars
+  (`BOX_FOLDER_ROOT_ID`, `BOX_FILE_REQUEST_TEMPLATE_ID`) — all default OFF/empty. **Now Function-App /
+  API app-settings** the Data API + orchestration **read** (they were `cr1bd_BOX_*` Dataverse environment
+  variables in the prior build); none re-defines them.
 - **Audit:** 3 append-only `cr1bd_auditaction` options — `box_folder_created` (100000019),
   `box_file_request_copied` (100000020), `box_upload_received` (100000021).
 - **Status:** unchanged — `box_synced` (100000009) already exists in `case-status`; Phase 7 adds no new

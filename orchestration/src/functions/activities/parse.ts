@@ -22,12 +22,72 @@
 import * as df from 'durable-functions';
 import { gates } from '@cs/domain/gates';
 import { downloadEvidenceBytes } from '../../lib/blob.js';
+import { callOcrPdf, type OcrPdfResult } from '../../lib/functions-client.js';
 
 interface ParseAttachment {
   filename: string;
   contentType: string;
   blobPath: string;
   size: number;
+}
+
+/** Per-field cell of the parser/OCR envelope ({value, confidence, source, warnings?}). */
+type FieldCell = { value?: string } | null | undefined;
+
+/**
+ * The subset of the parser `/api/parse` (and `/ocr-pdf`) envelope this activity reads to
+ * decide + apply the scanned-PDF OCR fallback. `extraction` is the 12-EVA-key map; `vrm`
+ * and `reference` are the Case-identity cells. Everything else on the envelope is passed
+ * through untouched.
+ */
+interface ParseEnvelope {
+  extraction?: Record<string, FieldCell>;
+  vrm?: FieldCell;
+  reference?: FieldCell;
+  skipped?: boolean;
+  [k: string]: unknown;
+}
+
+const hasValue = (cell: FieldCell): boolean => (cell?.value ?? '').trim() !== '';
+
+/**
+ * Decide whether a successful text-parse warrants the scanned-PDF OCR fallback.
+ *
+ * HEURISTIC (honest-signal note): the `/api/parse` envelope carries NO `ocr_text`/page
+ * text-length to threshold on (see functions/parser/function_app.py's response shape), so
+ * "scanned/image-only" is inferred from the ONLY signal it does carry — a PDF that parsed
+ * with EVERY one of the 12 EVA fields empty AND no vrm/reference. The FC1 parser lacks the
+ * `tesseract` binary, so an image-only PDF returns 200 with an empty extraction rather than
+ * throwing; that empty yield on a `.pdf` is the scanned tell. Non-PDF docs never qualify
+ * (the OCR host only accepts `.pdf`). A partial extraction (any field filled) is NOT re-OCR'd
+ * — the text layer was readable.
+ */
+export function shouldAttemptScannedPdfOcr(parsed: ParseEnvelope, filename: string): boolean {
+  if (parsed.skipped) return false;
+  if (!/\.pdf$/i.test(filename)) return false;
+  const cells = Object.values(parsed.extraction ?? {});
+  const anyFieldFilled = cells.some(hasValue);
+  return !anyFieldFilled && !hasValue(parsed.vrm) && !hasValue(parsed.reference);
+}
+
+/**
+ * Coalesce an OCR result onto a text-parse result: the OCR text fills ONLY the fields the
+ * parser left empty (parser wins wherever it extracted a value; OCR never overwrites). Pure
+ * — returns a NEW envelope, mutates neither input. Applies to the 12 extraction fields and
+ * to vrm/reference independently.
+ */
+export function coalesceOcrIntoParse(parsed: ParseEnvelope, ocr: OcrPdfResult): ParseEnvelope {
+  const mergedExtraction: Record<string, FieldCell> = { ...(parsed.extraction ?? {}) };
+  const ocrExtraction = ocr.extraction ?? {};
+  for (const [key, ocrCell] of Object.entries(ocrExtraction)) {
+    if (!hasValue(mergedExtraction[key]) && hasValue(ocrCell)) {
+      mergedExtraction[key] = ocrCell;
+    }
+  }
+  const merged: ParseEnvelope = { ...parsed, extraction: mergedExtraction };
+  if (!hasValue(parsed.vrm) && hasValue(ocr.vrm)) merged.vrm = ocr.vrm;
+  if (!hasValue(parsed.reference) && hasValue(ocr.reference)) merged.reference = ocr.reference;
+  return merged;
 }
 
 interface ParseInput {
@@ -131,7 +191,48 @@ df.app.activity('parse', {
       throw new Error(`[parse] parser Function responded ${res.status}`);
     }
 
+    const parsed = (await res.json()) as ParseEnvelope;
     ctx.log(JSON.stringify({ evt: 'parse-ok', corr, filename: doc.filename }));
-    return res.json();
+
+    // Scanned-PDF OCR fallback (OCR_SCANNED_PDF_ENABLED). When the text parse yielded ~nothing
+    // for a PDF (image-only/scanned — see shouldAttemptScannedPdfOcr) AND the gate + OCR_FN_URL
+    // are configured, re-run the SAME bytes through the OCR Function and coalesce its text into
+    // the empty fields. Failure-tolerant exactly like plate-OCR (catch + warn, never block
+    // intake): a scanned doc that also fails OCR still lands as an empty parse for staff review.
+    if (gates.ocrScannedPdf() && shouldAttemptScannedPdfOcr(parsed, doc.filename)) {
+      if (!process.env.OCR_FN_URL) {
+        ctx.log(`[parse] scanned PDF for ${corr} (${doc.filename}) but OCR_FN_URL unconfigured; skipping OCR fallback`);
+        return parsed;
+      }
+      ctx.log(JSON.stringify({ evt: 'parse-ocr-fallback', corr, filename: doc.filename, reason: 'empty_text_extraction' }));
+      try {
+        const ocr = await callOcrPdf({
+          documentBase64: documentB64,
+          filename: doc.filename,
+          ...(input.providerHint ? { providerHint: input.providerHint } : {}),
+        });
+        const merged = coalesceOcrIntoParse(parsed, ocr);
+        const filled = Object.keys(merged.extraction ?? {}).filter(
+          (k) => (merged.extraction?.[k]?.value ?? '').trim() && !(parsed.extraction?.[k]?.value ?? '').trim(),
+        );
+        ctx.log(
+          JSON.stringify({
+            evt: 'parse-ocr-fallback-ok',
+            corr,
+            provider: ocr.ocr_provider,
+            pageCount: ocr.page_count,
+            fieldsFilled: filled.length,
+          }),
+        );
+        return merged;
+      } catch (e) {
+        ctx.warn(
+          `[parse] OCR fallback failed for ${corr} (${doc.filename}) (best-effort, continuing with text parse): ${e instanceof Error ? e.message : String(e)}`,
+        );
+        return parsed;
+      }
+    }
+
+    return parsed;
   },
 });

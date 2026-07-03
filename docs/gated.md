@@ -6,7 +6,11 @@ business/legal decision. Everything else has been built and deployed.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
-_Last updated **2026-06-29** — the production mailbox cutover is **done** (intake now live on info@ +
+_Last updated **2026-07-03** — the nine-task activation flipped `OUTLOOK_MOVE_ENABLED` (SPA "File to …"
+live, Graph moves still 403 pending the Exchange `Mail.ReadWrite` grant — B4), `PLATE_OCR_ENABLED` +
+`OCR_SCANNED_PDF_ENABLED` + `EMAIL_AI_ENABLED` (D6 item 3, this session's sign-off) on production, and
+brought Azure Maps / location-assist live; the provider API intake channel (TKT-055) shipped awaiting a
+first-key mint + e2e smoke. Prior: the **2026-06-29** production mailbox cutover (intake live on info@ +
 engineers@ + desk@; test/dev mailbox digital@ removed). Reframed to the **live Azure PaaS stack**. The Power Platform
 implementation (Power Apps Code App, Dataverse, the ~16 Power Automate flows, the custom connectors) has
 been **migrated off to Azure** and its footprint **deprovisioned 2026-06-27** (the Dev sandbox deleted via
@@ -251,33 +255,37 @@ actions.
 3. Confirm a push notification fires (graph-webhook) and a test email lands as a **Case** (status `new_email → ingested`), provider
    matched by sender domain, and the EVA fields pre-fill with provenance.
 
-#### B4. Activate Outlook filing ("Suggested action" → real move)  ·  *~15 min + the RBAC cache wait*  ·  **NEW (TKT-054 / 020726 E6)**
+#### B4. Activate Outlook filing ("Suggested action" → real move)  ·  *the RBAC cache wait + your live test*  ·  **gate flip DONE 2026-07-03 — Exchange grant + live test still pending**
 
 **What:** the inbox's "Suggested action" column can genuinely FILE an email into the suggested
-Outlook folder (e.g. `Inbox/Instructions`) inside the shared mailbox. The whole path is built and
-deployed **dark** behind `OUTLOOK_MOVE_ENABLED` (default off): SPA button → Data API
+Outlook folder (e.g. `Inbox/Instructions`) inside the shared mailbox. SPA button → Data API
 `POST /api/inbound/{id}/outlook-move` → `outlook-move` storage queue → orchestration mover (Graph
 `/move`, creating the destination folder when missing) → outcome stamped back on the row + audit.
-While the gate is off the column shows the suggestion as display-only text.
+
+**✅ Step 3 (the gate flip) is DONE (2026-07-03, user-instructed):** `OUTLOOK_MOVE_ENABLED=true` is
+now set on **both** `cespk-api-dev` and `cespk-orch-dev` — the SPA's "File to …" buttons are live
+and clickable. **Steps 1–2 (the Exchange-RBAC grant + its cache wait) and step 4 (your live test)
+are STILL PENDING.** Until the grant lands, a clicked move will **403** and the row will report
+`failed` (today's grant is `Mail.Read` only — a move needs `Mail.ReadWrite`).
 
 **Why you:** the mover needs **`Application Mail.ReadWrite`** via **Exchange RBAC for Applications**
-on the intake mailboxes — a permission grant only you can make (today's grant is `Mail.Read` only,
-so a move would 403), plus the gate flip. **You also asked to live-test this yourself — no automated
-live move test will be run.**
+on the intake mailboxes — a permission grant only you can make. **You also asked to live-test this
+yourself — no automated live move test will be run.**
 
 **Steps:**
-1. Exchange admin: add a **second role assignment** for the intake app's service principal —
-   role **`Application Mail.ReadWrite`**, same management scope as the existing read grant
-   (`CollisionSpike-Intake-Prod` over info@ + engineers@ + desk@). Keep the `Mail.Read` assignment.
-2. **Wait for the Exchange-RBAC permission cache** (~30 min–2 h, same as the B1 cutover; leave the
-   app idle rather than polling).
-3. Flip the gate: set **`OUTLOOK_MOVE_ENABLED=true`** on **both** `cespk-api-dev` and
-   `cespk-orch-dev`. (The API also needs `OUTLOOK_MOVE_QUEUE_SERVICE_URL` + its MI holding
+1. ⏳ **PENDING** — Exchange admin: add a **second role assignment** for the intake app's service
+   principal — role **`Application Mail.ReadWrite`**, same management scope as the existing read
+   grant (`CollisionSpike-Intake-Prod` over info@ + engineers@ + desk@). Keep the `Mail.Read`
+   assignment.
+2. ⏳ **PENDING** — **wait for the Exchange-RBAC permission cache** (~30 min–2 h, same as the B1
+   cutover; leave the app idle rather than polling).
+3. ✅ **DONE (2026-07-03)** — gate flipped: `OUTLOOK_MOVE_ENABLED=true` on **both** `cespk-api-dev`
+   and `cespk-orch-dev`. (The API also needs `OUTLOOK_MOVE_QUEUE_SERVICE_URL` + its MI holding
    `Storage Queue Data Message Sender` on the orch storage account — wired at deploy time; see the
    registry.)
-4. **Live-test yourself:** click "File to …" on a test row in the inbox; the email should move in
-   Outlook, the row should read "Filed to …" and flip to Handled, and `audit_event` should carry
-   `outlook_move_requested` → `outlook_moved`. Record the result in
+4. ⏳ **PENDING — live-test yourself** once steps 1–2 land: click "File to …" on a test row in the
+   inbox; the email should move in Outlook, the row should read "Filed to …" and flip to Handled,
+   and `audit_event` should carry `outlook_move_requested` → `outlook_moved`. Record the result in
    [tickets/TKT-054-ui-work/verification.md](./tickets/TKT-054-ui-work/verification.md).
 
 ---
@@ -375,11 +383,11 @@ corrections, garage↔provider links, address lists, etc.).
 
 **Steps:** gather whatever you have (partial is fine) and send it over to be loaded into Postgres.
 
-#### D6. Rules Engine v2 — queued operator gates  ·  *plan approved 2026-07-02; Phase 4 code built 2026-07-02 (gated OFF, not deployed)*
+#### D6. Rules Engine v2 — queued operator gates  ·  *item 3 (`EMAIL_AI_ENABLED`) flipped live 2026-07-03; items 1, 2, 4, 5 remain open*
 
 **What:** the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md) (email
 categorisation/triage upgrade — ROADMAP Phase 8's Azure-era realization) carries five operator gates.
-None is due until its phase starts; listed here so nothing lands as a surprise:
+Item 3 is now done; the rest are listed here so nothing lands as a surprise:
 
 1. **Sibling PR merge + first engine tag** (Phase 0; ADR-0018 prereq): merge `cedocumentmapper_v2.0`
    **PR #4**, close **PR #5** as superseded (strict subset), tag the engine release (the sibling's
@@ -390,47 +398,42 @@ None is due until its phase starts; listed here so nothing lands as a surprise:
    **D7** below for the concrete file + apply steps. A **third**, unrelated delta — the Phase-4
    `ai_suggestion.embedding` column (DDL only, no live wiring) — now rides the **same apply session**;
    see D7's own note below.
-3. **`EMAIL_AI_ENABLED` production flip** (Phase 4 — **code built 2026-07-02**: the AOAI
-   structured-output client (`orchestration/src/lib/aoai.ts`), the rewritten `triageClassify`
-   activity, the post-classify orchestrator wiring (abstain/`uncorroborated_*` rows only), and the
-   extended `ai_suggestion` `'triage_category'` suggest/accept lifecycle are all in the repo,
-   unit-tested, and gated OFF by default — nothing above is live until you do the following):
-   - **App settings to flip it on** — `EMAIL_AI_ENABLED=true`,
-     `AI_MODEL_ENDPOINT=https://digital-3339-resource.cognitiveservices.azure.com` (verified
-     2026-07-02 via `az cognitiveservices account show --query properties.endpoint`; re-check the
-     registry for the current value before using it), `AI_MODEL_DEPLOYMENT=gpt-5`. All three are read
-     via the shared `@cs/domain/gates` (`emailAi()` / `aiModelEndpoint()` / `aiModelDeployment()`) —
-     set them on `cespk-orch-dev` (the app that makes the model call).
+3. **`EMAIL_AI_ENABLED` production flip** · ✅ **DONE (2026-07-03, user-instructed) — this session's
+   user message is the sign-off.** The app settings are now live on `cespk-orch-dev`:
+   `EMAIL_AI_ENABLED=true`, `AI_MODEL_ENDPOINT=https://digital-3339-resource.cognitiveservices.azure.com`,
+   `AI_MODEL_DEPLOYMENT=gpt-5`. The AOAI structured-output client (`orchestration/src/lib/aoai.ts`),
+   the `triageClassify` activity, the post-classify orchestrator wiring (abstain/`uncorroborated_*`
+   rows only), and the extended `ai_suggestion` `'triage_category'` suggest/accept lifecycle are all
+   **acting live**. The known spec gap below was **closed and deployed first**, before the flip.
+   - **App settings — ✅ SET (2026-07-03).** All three are read via the shared `@cs/domain/gates`
+     (`emailAi()` / `aiModelEndpoint()` / `aiModelDeployment()`) on `cespk-orch-dev` (the app that
+     makes the model call).
    - **RBAC grant — ✅ APPLIED (2026-07-02):** the orch app's managed identity holds
      **Cognitive Services OpenAI User** on `digital-3339-resource` (role assignment
      `d695d697-ba96-42c4-a958-3cd61d868bb0`, applied via ARM and verified — see the registry's
-     `foundry.miGrants`). Keyless by design — no key app-setting exists to set. Nothing RBAC-side
-     blocks the `EMAIL_AI_ENABLED` flip any more; the remaining gates are the app-settings above +
-     the G5/E2 sign-off below.
-   - **⚠️ Known spec gap before flipping:** the plan's "honour `work_provider.ai_allowed`" check is
-     **not implemented** in the AOAI activity yet (the PII scrub, content-filter→abstain, model-version
-     stamping and suggestion-only posture all are). Add the per-provider `ai_allowed` check to
-     `orchestration/src/functions/gated/triage-classify.ts` before any production flip — the flag
-     already exists on `work_provider`.
-   - **Foundry keyless flip** (disable local/key auth on the account) is **not required** to flip
-     `EMAIL_AI_ENABLED` itself (the managed-identity token works regardless of whether key auth is
-     ALSO still enabled) — it is the separate, natural follow-on once the grant lands; tracked as
-     item 5 below, your confirmation either way.
+     `foundry.miGrants`). Keyless by design — no key app-setting exists to set.
+   - **⚠️ Known spec gap — ✅ CLOSED (2026-07-03, deployed before the flip):** the plan's "honour
+     `work_provider.ai_allowed`" check is now **implemented** in the AOAI activity (alongside the PII
+     scrub, content-filter→abstain, model-version stamping and suggestion-only posture that were
+     already there) — an explicit `false` on `work_provider.ai_allowed` skips the model call with
+     reason `provider_ai_opt_out`; the column was confirmed present live before the flip.
+   - **Foundry keyless flip** (disable local/key auth on the account) is **not required** for
+     `EMAIL_AI_ENABLED` to work (the managed-identity token works regardless of whether key auth is
+     ALSO still enabled) — it remains a separate, still-open item; tracked as item 5 below, your
+     confirmation either way.
    - **Data residency, named plainly** (unchanged fact, restated per-gate as the plan requires): the
      chat model is a **Global deployment** (inference may process outside the UK; data-at-rest stays
      in-region; no UK data zone exists for gpt-5 in this region).
    - **The gate itself, verbatim from the plan**: "the `EMAIL_AI_ENABLED` **production** flip is gated
-     on the **G5 per-AI-gate sign-off** (testing on repo data is pre-authorised)" — i.e. **G5** already
-     lets an agent/operator test this on real repo data (see the 2026-07-02 A/B smoke below); only the
-     **production** flip needs your sign-off, tracked at **E2** ("the per-AI-gate production sign-off
-     (AI **testing** on repo data is already authorised; only production use awaits sign-off)").
-   - **A/B evidence available before you decide**: `scripts/eval-email/run_ab.py` (new, Phase 4) ran a
+     on the **G5 per-AI-gate sign-off**" — **satisfied 2026-07-03**: your explicit instruction in this
+     session to flip `EMAIL_AI_ENABLED` on production is the **E2** per-AI-gate production sign-off
+     (the general E2 policy/legal inputs below remain open for the *other*, non-AI items — retention,
+     lawful basis, litigation-hold, ICO/DVLA).
+   - **A/B evidence that informed the decision**: `scripts/eval-email/run_ab.py` (Phase 4) ran a
      live 3-item smoke test against `gpt-5` on 2026-07-02 (`--with-llm --deployment gpt-5 --limit 3`)
-     — 0 abstains, every response matched the strict-JSON contract. Run it over more of the corpus
-     (`--limit` raised, or omitted for the full 44-item corpus) for a fuller A/B picture before
-     deciding; `--deployment gpt-5-mini` correctly fails honestly (`http_404_DeploymentNotFound`) —
-     that model is not deployed on `digital-3339-resource` (only `gpt-5` and
-     `text-embedding-3-large` are; see the registry).
+     — 0 abstains, every response matched the strict-JSON contract; `--deployment gpt-5-mini`
+     correctly fails honestly (`http_404_DeploymentNotFound`) — that model is not deployed on
+     `digital-3339-resource` (only `gpt-5` and `text-embedding-3-large` are; see the registry).
 4. **Live `inbound_email` PII export** for the eval corpus (Phase 1): an E2-governed export of real
    email rows + staff overrides into the gitignored corpus path. This also unblocks the Phase-4
    embedding prior (`ai_suggestion.embedding`, DDL-only as of this build — see D7's note): that column

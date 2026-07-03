@@ -36,7 +36,7 @@ below marks each.
 5. **(G3 — DEFERRED, pending operator / legal)** A **recorded lawful basis** for DVSA / DVLA enrichment
    (legitimate interest, **VRM-only outbound**) and for valuation.
 6. **(G5 — data-protection sign-off DEFERRED; AI-test authority GRANTED now)** An
-   **AI-data-protection prerequisite** gating EMAIL_AI / Box-AI / Copilot / vision for **production**
+   **AI-data-protection prerequisite** gating EMAIL_AI / Box-AI / vision for **production**
    (PII pre-scrub; prefer **in-tenant Azure OpenAI**, no external retain / train) is deferred. **BUT the
    operator holds FULL AUTHORITY to run AI testing on all repo data now** — an explicit enabler for the
    Phase-8 LLM classifier and the Phase-4a vision / geocode work. The deferral is on the production

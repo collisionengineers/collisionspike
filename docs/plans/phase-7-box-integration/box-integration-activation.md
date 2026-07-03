@@ -72,8 +72,9 @@ The gate **schema names + defaults** are owned by the Dataverse schema work; you
 | 1 | `BOX_API_ENABLED` | the custom connector + webhook receiver at all | §1 done; connection bound |
 | 2 | `BOX_FOLDER_AT_INTAKE_ENABLED` | folder-create at parse-confirm + finalize augment | archive root designated (§3) |
 | 3 | `BOX_FILEREQUEST_ENABLED` | the per-case File-Request copy + drop-boxes | template built (§4); **B2 live-test passed (§5)** |
-| — | `BOX_EMBED_ENABLED` | **reserved/OFF** — evidence is **linked, not embedded**; no iframe, **no `frame-src` edit** | not flipped this phase |
-| — | `BOX_METADATA_ENABLED`, `BOX_AI_ENABLED` | deferred Phase-C; each its own tier decision | not flipped this phase |
+
+Evidence is **linked, not embedded** — no iframe, no `frame-src` edit (the Box-embed option was formally
+dropped, along with `BOX_AI_ENABLED`, which remains deferred Phase-C, its own tier decision).
 
 ## 3. Designate the archive root + drop-box parent (B1) 🔒
 
@@ -144,14 +145,12 @@ Manage renewal/deactivation via `GET`/`DELETE /webhooks/{id}`.
 ## 7. Evidence in the Code App — linked, not embedded (B4)
 
 The Code App shows a **server-minted "Open in Box" deep link** (the folder shared link) — it works
-**without any CSP change** and is the operator decision. **Do not** make a `frame-src` edit and **do not**
-flip `BOX_EMBED_ENABLED`; the in-app Box Embed iframe is **not** built this phase. _(If a framed preview
-is ever wanted later, it would need `https://*.app.box.com` added to `frame-src` — who *this app* may
-embed, **not** `frame-ancestors` — via PPAC → Privacy + Security → App tab; reserved, not now.)_
+**without any CSP change** and is the operator decision. **Do not** make a `frame-src` edit; the
+in-app Box Embed iframe is **not built** — the embed option has been formally dropped.
 
 ## 8. Phase C — deferred, tier-gated (not now)
 
-Box Metadata instances + cascade + Metadata-Query (`BOX_METADATA_ENABLED`, Business Plus); Box Governance
+Box Metadata instances + cascade + Metadata-Query (Business Plus) — formally dropped, not pursued. Box Governance
 **retention + legal hold** (Admin Console → Governance; Enterprise add-on + `manage_data_retention`
 [+ `manage_legal_hold`] scopes → re-authorize); Box AI extract/ask (metered AI Units, scope
 `ai.readwrite`; Business/Business Plus include **zero**). Each is independently gated and its own decision,
@@ -173,7 +172,7 @@ insurer later mandates UK residency. **Box Automate watch item:** it is **on-by-
 6. 🔒 Designate the archive root (+ `/DropBoxes/` parent); record `BOX_FOLDER_ROOT_ID`.
 7. 🔒 Hand-build the ONE template File Request; record `BOX_FILE_REQUEST_TEMPLATE_ID`.
 8. 🔒 Flip the `BOX_*` gates per phase, test env first (`BOX_API_ENABLED` → `BOX_FOLDER_AT_INTAKE_ENABLED`
-   → `BOX_FILEREQUEST_ENABLED`; `BOX_EMBED_ENABLED` stays reserved). ~1h publish latency.
+   → `BOX_FILEREQUEST_ENABLED`). ~1h publish latency.
 9. 🔒 Run the live confirms: B1 UPPERCASE casing + photo order + reflection exclusion; and the
    **BLOCKING** B2 File-Request → `FILE.UPLOADED` live-test (on a transient miss, Box's own retry on the
    receiver's 503 is the primary recovery; the `ListFolder` reconciliation sweep is a deferred,

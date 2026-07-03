@@ -100,7 +100,7 @@ There is **no runtime flow to `collisioncc`** (reference build only) and **no fl
 | **Enrichment** — DVSA MOT + DVLA vehicle lookup | `ENRICHMENT_ENABLED` (live) | **Legitimate interest** | **VRM-only outbound** — no claimant identity leaves the tenant ([§5](#5-outbound-data-minimisation-dvsadvla)) | **[RESERVED-FOR-USER]** |
 | **EVA submission** — submit the completed case to the work-provider's case system | `EVA_API_ENABLED` (REST gated); drag-drop live | Performance of contract / legitimate interest (the case is **instructed** work) | Only the 12 contract fields submitted | **[RESERVED-FOR-USER]** |
 | **Valuation** — on-demand valuation evidence (comparables / advert capture) | `VALUATION_ENABLED` (off) | To be recorded **before the gate is ever flipped** — likely legitimate interest | Staff-triggered (total-loss / disputed only); records the basis at activation | **[RESERVED-FOR-USER]** ([§5a](#5a-valuation-record-before-valuation_enabled)) |
-| **AI assist** — LLM email triage / vision / geocode / Copilot | `EMAIL_AI` / `COPILOT_ENABLED` / vision gates (off) | Legitimate interest, conditional on the AI prerequisite | PII **pre-scrub** before any model call; in-tenant Azure OpenAI ([§6](#6-ai-data-protection)) | **production [DEFERRED]; testing authorised now (G5)** |
+| **AI assist** — LLM email triage / vision / geocode | `EMAIL_AI` / vision gates (off) | Legitimate interest, conditional on the AI prerequisite | PII **pre-scrub** before any model call; in-tenant Azure OpenAI ([§6](#6-ai-data-protection)) | **production [DEFERRED]; testing authorised now (G5)** |
 
 ---
 
@@ -140,7 +140,7 @@ this is a precondition, not a live gap.
 > development-time testing. This unblocks the Phase-8 LLM email classifier and the Phase-4a
 > vision/geocode work for **build + test now (dev), gated off**.
 
-The **production** preconditions before `EMAIL_AI` (Phase 8c), Box-AI, `COPILOT_ENABLED`, or vision
+The **production** preconditions before `EMAIL_AI` (Phase 8c), Box-AI, or vision
 (Phase 5b / 4a v2) may flip on **live**, per gate:
 
 1. **PII pre-scrub** of any text/image sent to a model — send only the minimum needed (e.g. ≤3–4

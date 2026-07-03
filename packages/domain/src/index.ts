@@ -20,3 +20,7 @@ export * from './model/index.js';
 
 // dto — DataAccess interface + all input/result types from data/types.ts (NO cr1bd_* shapes)
 export * from './dto/index.js';
+
+// dto/provider-api — the provider API-intake channel DTOs (TKT-055, ADR-0020). Kept a
+// SEPARATE module from dto/index.ts (the frozen DataAccess contract) — additive, channel-specific.
+export * from './dto/provider-api.js';

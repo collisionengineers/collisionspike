@@ -149,6 +149,10 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
         subject: env.subject,
         body: env.body,
         senderAddress: env.senderAddress,
+        // The provider matched in step 1 — lets the activity honour a per-provider AI opt-out
+        // (work_provider.ai_allowed, docs/gated.md D6) without re-resolving. Undefined when the
+        // sender matched no provider (nothing to opt out of).
+        ...(workProviderId ? { workProviderId } : {}),
         attachmentFilenames: (env.attachments ?? []).map((a) => a.filename),
         deterministicCategory: classification.category,
         deterministicSubtype: classification.subtype,

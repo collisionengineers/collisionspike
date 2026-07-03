@@ -158,7 +158,7 @@ intake). It does not replace the M1 `finalize-eva-box` archival; it precedes and
   — a deferred secondary backstop; the primary recovery is **Box's own retry on the non-2xx**.
 - **The SPA never calls Box directly** — Box ops go through the **Data API → `box-webhook` Function**
   (server-side, holding the service identity). **Evidence is linked, not embedded:** a **server-minted
-  "Open in Box" deep link**. No iframe is built; `BOX_EMBED_ENABLED` stays **reserved/off**. *(Historical:
+  "Open in Box" deep link**. No iframe is built. *(Historical:
   under `connect-src 'none'` the Code App invoked the Box connector op directly — see the File-Request
   chaser note below.)*
 
@@ -184,9 +184,9 @@ flow URL — the 2026-06-21 build-plan decision; superseded by the BFF.)*
 
 **Plan floor = base Box Business** (~$15/user/mo). Base Business covers per-Case/PO folders, File Requests,
 webhooks **and CCG** — the whole live intake path. **Metadata (the Business Plus tier, ~$25-33/user/mo) is
-OUT OF SCOPE now** — a later optional reliability upgrade for the orphaned image-only path only
-(`BOX_METADATA_ENABLED`, reserved). Box Governance retention + Box AI (metered AI Units; Business/Business
-Plus include zero) are deferred Phase-C decisions.
+OUT OF SCOPE** — the Box-metadata option has been formally dropped (a reliability upgrade for the
+orphaned image-only path that was never pursued). Box Governance retention + Box AI (metered AI Units;
+Business/Business Plus include zero) are deferred Phase-C decisions.
 
 **M1 finalization (unchanged baseline, for reference):** the M1 `finalize-eva-box` step still fires in
 unison with EVA submission (drag-drop JSON export *or* API submit), copying evidence (images, `.eml`, PDFs,
@@ -211,12 +211,9 @@ EVA JSON) into the Case/PO folder in EVA photo order. The Phase-7 pivot moves th
 | `ENRICHMENT_ENABLED` / `ENRICHMENT_API_BASE` | `false` / — | DVSA/valuation enrichment |
 | `AZURE_MAPS_ENABLED` | `false` | Azure Maps vs postcode.io |
 | `VALUATION_ENABLED` | `false` | on-demand valuationbot valuation (M2) |
-| `COPILOT_ENABLED` | `false` | expose the Copilot Studio agent |
 | `BOX_API_ENABLED` | `false` | **Phase 7** — the unlock: the custom Box REST connector + webhook receiver |
 | `BOX_FOLDER_AT_INTAKE_ENABLED` | `false` | **Phase 7 B1** — mint the Case/PO folder at parse-confirm |
 | `BOX_FILEREQUEST_ENABLED` | `false` | **Phase 7 B2/B3** — File-Request image chaser + webhook intake |
-| `BOX_EMBED_ENABLED` | `false` | **Phase 7 B4 — RESERVED** (link-not-embed; flipping also needs the operator `frame-src` edit) |
-| `BOX_METADATA_ENABLED` | `false` | **Phase 7 Wave-2/Phase-C** — Box Metadata-Query (Business Plus; out of scope now) |
 | `BOX_FOLDER_ROOT_ID` / `BOX_FILE_REQUEST_TEMPLATE_ID` | `""` | **Phase 7** per-environment config (archive root id · template File-Request id; set at activation) |
 
 > Box secrets are **not** Dataverse env-vars: the Box CCG `client_secret` + the webhook primary/secondary

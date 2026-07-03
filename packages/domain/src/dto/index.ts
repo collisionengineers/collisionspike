@@ -246,8 +246,6 @@ export interface BoxGates {
   apiEnabled: boolean;
   folderAtIntakeEnabled: boolean;
   fileRequestEnabled: boolean;
-  embedEnabled: boolean;
-  metadataEnabled: boolean;
   fileRequestTemplateConfigured: boolean;
 }
 
@@ -256,8 +254,6 @@ export const BOX_GATES_ALL_FALSE: BoxGates = {
   apiEnabled: false,
   folderAtIntakeEnabled: false,
   fileRequestEnabled: false,
-  embedEnabled: false,
-  metadataEnabled: false,
   fileRequestTemplateConfigured: false,
 };
 

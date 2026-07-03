@@ -38,8 +38,9 @@ import { GLOBAL_TOASTER_ID, StatusBadge, VrmPlate, statusLabel } from '../compon
 
    The chosen target is the SURVIVOR (keeps its Case/PO). This case's evidence is
    reparented onto it and this case becomes 'merged' (linked_to_instruction). The
-   write is data.mergeCases — real against Dataverse; the empty default source
-   rejects until injected, so the dialog surfaces a clear error if used offline.
+   write is data.mergeCases — real against the Data API / Postgres; the empty
+   default source rejects until the live REST source is injected, so the dialog
+   surfaces a clear error if used offline.
 
    ADR-0010 guardrail honoured: same provider only (the candidate list + the
    data-layer both enforce it); cases are never merged across providers.

@@ -18,10 +18,10 @@ import { useActivity, type ActivityKind } from '../data';
 
 /* Action logs (review nav-bar #2: "Audit → Action Logs").
    Was a disabled "Soon" rail stub; now a real read over the audit-event seam
-   (data.recentActivity → cr1bd_auditevents), through the shared useActivity hook
-   so it shows the same loading / error / empty surfaces as the other screens.
+   (data.recentActivity → Postgres `audit_event`), through the shared useActivity
+   hook so it shows the same loading / error / empty surfaces as the other screens.
    Newest first. The empty default data source returns [] honestly until
-   Dataverse is injected. */
+   the live REST source is injected. */
 
 const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL },

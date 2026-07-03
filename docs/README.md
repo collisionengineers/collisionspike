@@ -54,6 +54,7 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
 ## Operator & status
 - [../ROADMAP.md](../ROADMAP.md) — the forward worklist; tickets carry the atomic work items beneath it.
 - [gated.md](./gated.md) — the consolidated **hard/soft blocker** registry (everything that needs the operator).
+- [not-yet-live-inventory.md](./not-yet-live-inventory.md) — the full map of what's not fully live: operator-blocked (indexes gated.md), feature-gated-off, on-but-stubbed code, planned-not-implemented, Proposed ADRs, and deliberately-deferred-by-design items.
 - [roles-and-permissions.md](./roles-and-permissions.md) — **gap analysis**: the roles `digital@` does NOT have but NEEDS (Box Business+admin, Exchange Admin, Key Vault Secrets Officer, Power Platform Admin, License Admin) — vs. what Owner + Dataverse System Admin already cover.
 - [reviews/README.md](./reviews/README.md) — binding manual-review workflow and follow-ups.
 

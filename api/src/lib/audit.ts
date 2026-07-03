@@ -76,6 +76,14 @@ export const AUDIT_ACTION = {
   outlook_move_requested: 100000039,
   outlook_moved: 100000040,
   outlook_move_failed: 100000041,
+  // Provider API intake channel (TKT-055 / ADR-0020; gated by the presence of at least one
+  // minted key). Minted in deltas/2026-07-03-provider-api-intake.sql — same pre-DDL degrade
+  // as the codes above (writeAudit's catch-all swallows an FK failure before the delta lands).
+  // api_key_* audit the Superuser key lifecycle; provider_api_case_* audit the intake outcome.
+  api_key_created: 100000042,
+  api_key_revoked: 100000043,
+  provider_api_case_created: 100000044,
+  provider_api_case_rejected: 100000045,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

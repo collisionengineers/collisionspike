@@ -39,8 +39,6 @@ app.http('getBoxGates', {
         apiEnabled: gates.boxApi(),
         folderAtIntakeEnabled: gates.boxFolderAtIntake(),
         fileRequestEnabled: gates.boxFileRequest(),
-        embedEnabled: gates.boxEmbed(),
-        metadataEnabled: gates.boxMetadata(),
         fileRequestTemplateConfigured: gates.boxFileRequestTemplateId() !== '',
       };
       return { status: 200, jsonBody: result };

@@ -132,7 +132,8 @@ rule in the brief. (Origin: review 190626 R2 — brief/spec text was leaking ont
    diagnose deployed-app fetch failures as "missing host.json CORS".
 5. **Build before push, then hard-refresh.** `npm run build` → `pac code push` deploys `dist/`. The
    player caches aggressively — a stale logo/parse is usually an old cached build; **Ctrl+Shift+R**.
-6. **No mock/seed case data in the app, ever.** It renders real Dataverse rows only.
+6. **No mock/seed case data in the app, ever.** It renders real rows from the live source only (the
+   REST/Data-API source backed by Postgres; was Dataverse in the prior build).
 7. **The CE Parser connector re-encodes the base64 `document` a SECOND time** (a `format:byte`-class
    gateway behaviour). Keep `ParseRequest.document` a plain `{type: string}` — **NEVER** add `format:
    byte` / `x-ms-media-kind: File` (that guarantees the double-encode and broke live intake once);

@@ -241,20 +241,20 @@ app-settings** that the Data API + orchestration apps read (they were **Datavers
 in the prior Power Platform build); the names and **default-off** *semantics* are unchanged (but the **live
 values** live in the registry, not here — **`ENRICHMENT_ENABLED` and `PDF_MAPPER_ENABLED` are currently
 `true`** on the live stack, as are the three live `BOX_*` gates below):
-`EVA_API_ENABLED`, `PDF_MAPPER_ENABLED`, `ENRICHMENT_ENABLED`, `AZURE_MAPS_ENABLED`, `COPILOT_ENABLED`,
+`EVA_API_ENABLED`, `PDF_MAPPER_ENABLED`, `ENRICHMENT_ENABLED`, `AZURE_MAPS_ENABLED`,
 and the **Phase-7 `BOX_*` set** — `BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`,
-`BOX_FILEREQUEST_ENABLED`, `BOX_EMBED_ENABLED` (reserved), `BOX_METADATA_ENABLED` (deferred). **EVA** has
+`BOX_FILEREQUEST_ENABLED`. **EVA** has
 two paths: JSON drag-drop export now; **Sentry REST API later** (gated). The drag-drop path is current
 because Minotaur Software's Sentry API supports only **one principal code** per API submission (it cannot
 route different work-provider codes); REST stays gated pending Minotaur's patch.
 **Box (Phase 7, ADR-0012)** is an **additive, one-way mirror** (**Postgres** is now the system of record —
 Dataverse was, in the prior build): **evidence is linked, not embedded** — a server-minted "Open in Box"
-deep link, so there is **no iframe and no `frame-src` edit** (`BOX_EMBED_ENABLED` stays reserved/off).
+deep link, so there is **no iframe and no `frame-src` edit**.
 **Box auth is JWT "Server Authentication"** (the whole app `Config.JSON` in one Key Vault secret —
 `cespkboxkvv76a47/box-config-json`), **not CCG.** As of **2026-06-28 Box is LIVE**: the `Config.JSON` is wired
 into Key Vault, the `BOX_*` gates **`BOX_API_ENABLED` / `BOX_FOLDER_AT_INTAKE_ENABLED` / `BOX_FILEREQUEST_ENABLED`
-are `true`** on both `cespk-api-dev` + `cespk-orch-dev` (`BOX_FOLDER_ROOT_ID=392761581105`; `BOX_EMBED` /
-`BOX_METADATA` stay reserved/off), and an authenticated smoke call to the allowed root returned **200** (folder
+are `true`** on both `cespk-api-dev` + `cespk-orch-dev` (`BOX_FOLDER_ROOT_ID=392761581105`), and an
+authenticated smoke call to the allowed root returned **200** (folder
 `CCPY26050`). Remaining Box-side items (operator): the template File Request id + the `FILE.UPLOADED` webhook
 subscription. Gate states: the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 Step-by-step: [docs/azure/box-activation.md](./docs/azure/box-activation.md).

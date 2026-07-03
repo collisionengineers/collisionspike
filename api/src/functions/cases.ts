@@ -47,6 +47,7 @@ import {
 } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
+import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
@@ -423,16 +424,9 @@ app.http('createCase', {
       const insertVals = [...vals];
       let casePo = suppliedCasePo;
       if (!casePo && principalForAutoMint) {
-        const yy = casePoYear();
-        const prefix = `${principalForAutoMint}${yy}`;
-        await q('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [`casepo:${prefix}`]);
-        const seqRows = await q<{ next_seq: string | number }>(
-          `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) + 1 AS next_seq
-             FROM case_
-            WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
-          [`${prefix}%`, casePoSequenceRegex(principalForAutoMint, yy), prefix],
-        );
-        casePo = formatCasePo(principalForAutoMint, yy, Number(seqRows[0]?.next_seq ?? 1));
+        // Shared advisory-locked mint (api/src/lib/case-po.ts) — identical logic to the
+        // automated-intake and provider-API paths; the lock lives on this transaction's `q`.
+        casePo = await mintCasePo(q, principalForAutoMint);
       }
       if (casePo) {
         insertCols.push('case_po');
@@ -1018,7 +1012,7 @@ async function readCaseBoxFolder(
    The "Open in Box" deep link for evidence viewing. DB-only + privacy-safe: returns
    the folder's stamped URL, else constructs the AUTHENTICATED app deep link from the
    folder id. NO public shared link is minted — staff open it under their own Box auth
-   (BOX_EMBED_ENABLED stays reserved/off: link, never iframe). */
+   (evidence is always linked, never embedded — no iframe, no frame-src edit). */
 app.http('caseBoxSharedLink', {
   methods: ['GET'],
   authLevel: 'anonymous',

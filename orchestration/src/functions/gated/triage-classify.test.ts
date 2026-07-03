@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldAttemptTriageAssist } from './triage-classify.js';
+import { providerAiOptedOut, shouldAttemptTriageAssist } from './triage-classify.js';
 
 describe('shouldAttemptTriageAssist', () => {
   it('is true for an abstain row (category other, confidence at the abstain band)', () => {
@@ -60,5 +60,23 @@ describe('shouldAttemptTriageAssist', () => {
 
   it('treats a missing signals array as empty (no throw)', () => {
     expect(shouldAttemptTriageAssist({ category: 'other', confidence: 0.3 })).toBe(true);
+  });
+});
+
+describe('providerAiOptedOut (per-provider ai_allowed, docs/gated.md D6)', () => {
+  it('opts out (→ activity skips) ONLY on an explicit ai_allowed === false', () => {
+    expect(providerAiOptedOut(false)).toBe(true);
+  });
+
+  it('proceeds when ai_allowed is true', () => {
+    expect(providerAiOptedOut(true)).toBe(false);
+  });
+
+  it('proceeds when ai_allowed is null (column unset — the nullable default)', () => {
+    expect(providerAiOptedOut(null)).toBe(false);
+  });
+
+  it('proceeds when ai_allowed is undefined (provider unresolved / column absent = no opt-out)', () => {
+    expect(providerAiOptedOut(undefined)).toBe(false);
   });
 });

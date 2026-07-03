@@ -64,18 +64,13 @@ describe('mailboxFacets', () => {
 describe('matchesMailboxFilter', () => {
   const row = { sourceMailbox: 'info@collisionengineers.co.uk' };
 
-  it('an empty selection matches every row ("all sources")', () => {
-    expect(matchesMailboxFilter(row, new Set())).toBe(true);
+  it('null (the "All" selection) matches every row', () => {
+    expect(matchesMailboxFilter(row, null)).toBe(true);
   });
 
-  it('a non-empty selection matches only rows whose mailbox is selected', () => {
-    expect(matchesMailboxFilter(row, new Set(['info@collisionengineers.co.uk']))).toBe(true);
-    expect(matchesMailboxFilter(row, new Set(['engineers@collisionengineers.co.uk']))).toBe(false);
-  });
-
-  it('multi-select: matches when the row is in ANY of several selected mailboxes', () => {
-    const selected = new Set(['engineers@collisionengineers.co.uk', 'info@collisionengineers.co.uk']);
-    expect(matchesMailboxFilter(row, selected)).toBe(true);
+  it('a selected mailbox matches only rows whose mailbox is that one', () => {
+    expect(matchesMailboxFilter(row, 'info@collisionengineers.co.uk')).toBe(true);
+    expect(matchesMailboxFilter(row, 'engineers@collisionengineers.co.uk')).toBe(false);
   });
 
   it('trims the row value to match its own facet chip (whitespace parity with mailboxFacets)', () => {
@@ -84,6 +79,6 @@ describe('matchesMailboxFilter', () => {
     // that trimmed chip, not the raw padded value — otherwise selecting the chip empties the list.
     const padded = { sourceMailbox: '  info@collisionengineers.co.uk  ' };
     const chip = mailboxFacets([padded])[0].mailbox; // 'info@collisionengineers.co.uk'
-    expect(matchesMailboxFilter(padded, new Set([chip]))).toBe(true);
+    expect(matchesMailboxFilter(padded, chip)).toBe(true);
   });
 });

@@ -59,8 +59,8 @@
 
 > **Shared-link policy:** mint **server-side** only (the Code App is under `connect-src 'none'`).
 > Evidence is surfaced as the **"Open in Box" deep link** (the folder shared link) — **linked, not
-> embedded**. No iframe is built; `BOX_EMBED_ENABLED` stays reserved/off; **no `frame-src` edit** is part
-> of this build.
+> embedded**. No iframe is built — the embed option has been formally dropped; **no `frame-src` edit**
+> is part of this build.
 
 ### Connection reference
 

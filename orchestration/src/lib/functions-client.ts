@@ -167,6 +167,45 @@ export function callPlateOcr(input: {
   });
 }
 
+/* ---------- scanned-PDF OCR fallback (OCR_SCANNED_PDF_ENABLED, ROADMAP 5a) ---------- */
+
+/**
+ * OCR Function `/ocr-pdf` response envelope (`cespkocr-fn-dev`; ocr/function_app.py
+ * `ocr_pdf`). Deliberately mirrors the parser `/api/parse` envelope so the parse activity
+ * can coalesce one shape: `extraction` is the same 12-EVA-key map (or null when the engine
+ * produced only raw text), `vrm`/`reference` are the same Case-identity cells, plus
+ * `ocr_text`/`page_count`/`ocr_provider` the parser envelope does not carry.
+ */
+export interface OcrPdfResult {
+  extraction: Record<string, { value?: string } | null> | null;
+  vrm: { value?: string } | null;
+  reference: { value?: string } | null;
+  ocr_text: string;
+  page_count: number;
+  ocr_provider: string;
+  issues: unknown[];
+  contract_version: string;
+}
+
+/**
+ * OCR an image-only / scanned instruction PDF via the OCR Function `/ocr-pdf` route
+ * (a SEPARATE container host from the FC1 parser — it carries the `tesseract` binary FC1
+ * cannot). Mirrors `callPlateOcr`: `filename` MUST end `.pdf` (the host rejects anything
+ * else 400). Throws on a non-2xx so the caller (the parse activity, best-effort) can
+ * fall back to the text-only parse result and never block intake.
+ */
+export function callOcrPdf(input: {
+  documentBase64: string;
+  filename: string;
+  providerHint?: string;
+}): Promise<OcrPdfResult> {
+  return callFunction(OCR, 'POST', 'ocr-pdf', {
+    document: input.documentBase64,
+    filename: input.filename,
+    ...(input.providerHint ? { provider_hint: input.providerHint } : {}),
+  });
+}
+
 /* ---------- enrichment ---------- */
 
 export function callEnrichment(caseId: string): Promise<unknown> {

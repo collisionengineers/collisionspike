@@ -7,6 +7,12 @@ import {
   Badge,
   Button,
   Caption1,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
   Divider,
   Dropdown,
   Field,
@@ -38,15 +44,20 @@ import {
   Building2,
   CheckCircle2,
   Clock,
+  Copy,
   Database,
   FileDiff,
+  KeyRound,
   Mail,
   MapPin,
+  Plus,
   Settings,
   ShieldCheck,
+  Trash2,
   Wrench,
 } from 'lucide-react';
 import { Panel, SectionHeading, ErrorState, GLOBAL_TOASTER_ID } from '../components';
+import { useIsSuperuser } from '../components/useIsSuperuser';
 import { ProviderListSkeleton } from '../components/Skeletons';
 import {
   useProviders,
@@ -57,6 +68,9 @@ import {
   type Provider,
   type ProviderAutomationMode,
 } from '../data';
+// ProviderApiKey (TKT-055/ADR-0020) is not in the data barrel's explicit re-export list —
+// take it straight from the shared contract package (same source the data barrel re-exports).
+import type { ProviderApiKey } from '@cs/domain';
 
 /* ============================================================
    Provider settings (nav label "Provider settings", route /admin).
@@ -65,9 +79,10 @@ import {
    Active/Archived/All filter, and inline editing of each provider's
    email-domain list (drives provider matching), inspection-location policy
    (drives the address gate), and automation mode (only review-auto honored in
-   M1). Edits live in local React state — saving to Dataverse is an
-   operator-gated step (a deploy-with-login write), which is the intended M1
-   boundary, not a missing feature.
+   M1), plus the provider API-intake keys (TKT-055/ADR-0020). Saving a provider
+   PATCHes the live Postgres corpus through the Data API (Superuser only); there
+   is no Dataverse in the live Azure stack — the prior Power Platform build was
+   decommissioned (see CLAUDE.md).
 
    Two supporting tabs are honest, intentional product states:
      • Reference data — read-only summaries (with seeded counts) of the
@@ -229,6 +244,40 @@ const useStyles = makeStyles({
   },
   domains: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalXS },
   domainAdd: { display: 'flex', gap: tokens.spacingHorizontalXS, alignItems: 'flex-end' },
+
+  /* ----- Provider API keys (TKT-055 / ADR-0020) ----- */
+  keySection: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
+  keyList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalXS,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+    overflow: 'hidden',
+  },
+  keyRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalM,
+    padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalM}`,
+    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+  },
+  keyPrefixMono: {
+    fontFamily: 'var(--ce-font-mono)',
+    color: tokens.colorNeutralForeground2,
+    whiteSpace: 'nowrap',
+  },
+  keyMeta: { color: tokens.colorNeutralForeground3, fontSize: tokens.fontSizeBase200, whiteSpace: 'nowrap' },
+  keyRowSpacer: { flex: 1 },
+  /* One-time plaintext reveal — a distinct, attention-drawing surface. */
+  plaintextValue: {
+    fontFamily: 'var(--ce-font-mono)',
+    wordBreak: 'break-all',
+    padding: tokens.spacingVerticalS,
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground3,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+  },
   fieldHint: { color: tokens.colorNeutralForeground3 },
   cardActions: { display: 'flex', gap: tokens.spacingHorizontalS, alignItems: 'center', marginTop: 'auto' },
   spacer: { flex: 1 },
@@ -674,6 +723,8 @@ function ProviderEditor({ provider, onSaved }: { provider: Provider; onSaved: ()
         </div>
       </Field>
 
+      <ProviderApiKeys provider={provider} />
+
       <Field label="Inspection-location policy">
         <Dropdown
           value={POLICY_LABEL[draft.inspectionLocationPolicy]}
@@ -746,6 +797,243 @@ function ProviderEditor({ provider, onSaved }: { provider: Provider; onSaved: ()
         )}
       </div>
     </>
+  );
+}
+
+/* ----------  Provider API-intake keys (TKT-055 / ADR-0020)  ----------
+   The Superuser surface for the machine-to-machine intake channel: list a provider's
+   keys, mint a new one (the plaintext secret is shown ONCE — never stored, never
+   recoverable), and revoke. Superuser-gated (useIsSuperuser) exactly like the delete-case
+   flow; the server is the real authority (the routes 403 a non-Superuser regardless). */
+
+function fmtKeyDate(iso?: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+}
+
+function ProviderApiKeys({ provider }: { provider: Provider }) {
+  const styles = useStyles();
+  const isSuperuser = useIsSuperuser();
+  const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
+
+  const [keys, setKeys] = useState<ProviderApiKey[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [label, setLabel] = useState('');
+  const [minting, setMinting] = useState(false);
+  const [plaintext, setPlaintext] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState<string | null>(null);
+
+  const refresh = async () => {
+    const api = getDataAccess();
+    if (!api.listProviderApiKeys) return;
+    setLoading(true);
+    try {
+      setKeys(await api.listProviderApiKeys(provider.id));
+    } catch {
+      /* a failed read leaves the (possibly stale) list; the mint/revoke toasts carry errors */
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load only for a Superuser — the GET is Superuser-only server-side, so a non-Superuser
+  // read would 403; a plain reviewer sees the "Superuser only" hint instead.
+  useEffect(() => {
+    if (isSuperuser) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider.id, isSuperuser]);
+
+  const openMint = () => {
+    setLabel('');
+    setPlaintext(null);
+    setDialogOpen(true);
+  };
+
+  const mint = async () => {
+    const api = getDataAccess();
+    if (!api.createProviderApiKey || !label.trim()) return;
+    setMinting(true);
+    try {
+      const res = await api.createProviderApiKey(provider.id, { label: label.trim() });
+      setPlaintext(res.plaintextKey); // shown ONCE — the dialog stays open on this reveal
+      void refresh();
+    } catch (e) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t create the key — you may not have permission</ToastTitle>
+          <ToastBody>{e instanceof Error ? e.message : String(e)}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setMinting(false);
+    }
+  };
+
+  const copyPlaintext = async () => {
+    if (!plaintext) return;
+    try {
+      await navigator.clipboard.writeText(plaintext);
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Key copied to the clipboard</ToastTitle>
+        </Toast>,
+        { intent: 'success' },
+      );
+    } catch {
+      /* clipboard may be blocked — the value is still visible for a manual copy */
+    }
+  };
+
+  const revoke = async (keyId: string) => {
+    const api = getDataAccess();
+    if (!api.revokeProviderApiKey) return;
+    setRevoking(keyId);
+    try {
+      await api.revokeProviderApiKey(provider.id, keyId);
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Key revoked</ToastTitle>
+        </Toast>,
+        { intent: 'success' },
+      );
+      void refresh();
+    } catch (e) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t revoke the key</ToastTitle>
+          <ToastBody>{e instanceof Error ? e.message : String(e)}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setRevoking(null);
+    }
+  };
+
+  return (
+    <Field
+      label="API keys"
+      hint="Keys let this provider’s own system lodge cases directly over the API (instead of email). The secret is shown once at creation and can’t be retrieved later."
+    >
+      <div className={styles.keySection}>
+        {!isSuperuser ? (
+          <Caption1 className={styles.fieldHint}>
+            <KeyRound size={13} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: 4 }} />
+            Superuser only — sign in with a Superuser account to manage API keys.
+          </Caption1>
+        ) : (
+          <>
+            {loading && keys.length === 0 ? (
+              <Caption1 className={styles.fieldHint}>Loading keys…</Caption1>
+            ) : keys.length === 0 ? (
+              <Caption1 className={styles.fieldHint}>No API keys yet.</Caption1>
+            ) : (
+              <div className={styles.keyList}>
+                {keys.map((k) => (
+                  <div key={k.id} className={styles.keyRow}>
+                    <Text weight="semibold">{k.label || 'Unnamed key'}</Text>
+                    <span className={styles.keyPrefixMono}>{k.keyPrefix}…</span>
+                    {k.revokedAt ? (
+                      <Badge appearance="tint" color="danger" shape="rounded" size="small">
+                        Revoked
+                      </Badge>
+                    ) : (
+                      <Badge appearance="filled" color="success" shape="rounded" size="small">
+                        Active
+                      </Badge>
+                    )}
+                    <span className={styles.keyRowSpacer} />
+                    <Caption1 className={styles.keyMeta}>
+                      created {fmtKeyDate(k.createdAt)} · last used {fmtKeyDate(k.lastUsedAt)}
+                    </Caption1>
+                    {!k.revokedAt && (
+                      <Tooltip content="Revoke this key" relationship="label">
+                        <Button
+                          appearance="subtle"
+                          size="small"
+                          icon={revoking === k.id ? <Spinner size="tiny" /> : <Trash2 size={14} />}
+                          disabled={revoking === k.id}
+                          onClick={() => void revoke(k.id)}
+                          aria-label={`Revoke ${k.label || 'key'}`}
+                        />
+                      </Tooltip>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <Button appearance="secondary" icon={<Plus size={16} />} onClick={openMint}>
+              Generate new key
+            </Button>
+          </>
+        )}
+      </div>
+
+      <Dialog open={dialogOpen} onOpenChange={(_, d) => setDialogOpen(d.open)}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>
+              {plaintext ? 'Copy your new API key now' : 'Generate a new API key'}
+            </DialogTitle>
+            <DialogContent>
+              {plaintext ? (
+                <div className={styles.keySection}>
+                  <MessageBar intent="warning">
+                    <MessageBarBody>
+                      <MessageBarTitle>This is the only time the key is shown</MessageBarTitle>
+                      Copy it now and store it securely. It cannot be retrieved again — if it’s
+                      lost, revoke it and generate a new one.
+                    </MessageBarBody>
+                  </MessageBar>
+                  <div className={styles.plaintextValue}>{plaintext}</div>
+                  <Button appearance="primary" icon={<Copy size={16} />} onClick={() => void copyPlaintext()}>
+                    Copy key
+                  </Button>
+                </div>
+              ) : (
+                <Field label="Label" hint="A name to recognise this key by (e.g. ‘Production integration’).">
+                  <Input
+                    value={label}
+                    onChange={(_, d) => setLabel(d.value)}
+                    placeholder="Production integration"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && label.trim() && !minting) {
+                        e.preventDefault();
+                        void mint();
+                      }
+                    }}
+                  />
+                </Field>
+              )}
+            </DialogContent>
+            <DialogActions>
+              {plaintext ? (
+                <Button appearance="primary" onClick={() => setDialogOpen(false)}>
+                  Done
+                </Button>
+              ) : (
+                <>
+                  <Button appearance="secondary" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    appearance="primary"
+                    icon={minting ? <Spinner size="tiny" /> : <KeyRound size={16} />}
+                    disabled={!label.trim() || minting}
+                    onClick={() => void mint()}
+                  >
+                    {minting ? 'Generating…' : 'Generate'}
+                  </Button>
+                </>
+              )}
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+    </Field>
   );
 }
 

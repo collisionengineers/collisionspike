@@ -31,7 +31,7 @@ on its root-cause rather than thrashing inline.
   Key Vault references + rotation ([secrets-keyvault](../../docs/azure/secrets-keyvault.md)); **never hard-code
   or echo a secret**. Entra app registration + JWT/MSAL ([entra-graph](../../docs/azure/entra-graph.md)).
 - **Feature gates** — they are **Function app-settings** now (not Dataverse env-vars): `PDF_MAPPER_ENABLED`,
-  `ENRICHMENT_ENABLED`, `EVA_API_ENABLED`, `AZURE_MAPS_ENABLED`, `COPILOT_ENABLED`, and the `BOX_*` set —
+  `ENRICHMENT_ENABLED`, `EVA_API_ENABLED`, `AZURE_MAPS_ENABLED`, and the `BOX_*` set —
   default-off; a change recycles the app.
 - **Parser & enrichment Functions** — the parser runs the **vendored `cedocumentmapper` engine-core**
   (ADR-0004/0018; the Python engine is authored in the `cedocumentmapper_v2.0` sibling — edit-in-sibling,

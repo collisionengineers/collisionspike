@@ -493,133 +493,6 @@ var require_browser = __commonJS({
   }
 });
 
-// node_modules/has-flag/index.js
-var require_has_flag = __commonJS({
-  "node_modules/has-flag/index.js"(exports2, module2) {
-    "use strict";
-    module2.exports = (flag, argv = process.argv) => {
-      const prefix2 = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
-      const position = argv.indexOf(prefix2 + flag);
-      const terminatorPosition = argv.indexOf("--");
-      return position !== -1 && (terminatorPosition === -1 || position < terminatorPosition);
-    };
-  }
-});
-
-// node_modules/supports-color/index.js
-var require_supports_color = __commonJS({
-  "node_modules/supports-color/index.js"(exports2, module2) {
-    "use strict";
-    var os2 = require("os");
-    var tty = require("tty");
-    var hasFlag = require_has_flag();
-    var { env } = process;
-    var flagForceColor;
-    if (hasFlag("no-color") || hasFlag("no-colors") || hasFlag("color=false") || hasFlag("color=never")) {
-      flagForceColor = 0;
-    } else if (hasFlag("color") || hasFlag("colors") || hasFlag("color=true") || hasFlag("color=always")) {
-      flagForceColor = 1;
-    }
-    function envForceColor() {
-      if ("FORCE_COLOR" in env) {
-        if (env.FORCE_COLOR === "true") {
-          return 1;
-        }
-        if (env.FORCE_COLOR === "false") {
-          return 0;
-        }
-        return env.FORCE_COLOR.length === 0 ? 1 : Math.min(Number.parseInt(env.FORCE_COLOR, 10), 3);
-      }
-    }
-    function translateLevel(level) {
-      if (level === 0) {
-        return false;
-      }
-      return {
-        level,
-        hasBasic: true,
-        has256: level >= 2,
-        has16m: level >= 3
-      };
-    }
-    function supportsColor(haveStream, { streamIsTTY, sniffFlags = true } = {}) {
-      const noFlagForceColor = envForceColor();
-      if (noFlagForceColor !== void 0) {
-        flagForceColor = noFlagForceColor;
-      }
-      const forceColor = sniffFlags ? flagForceColor : noFlagForceColor;
-      if (forceColor === 0) {
-        return 0;
-      }
-      if (sniffFlags) {
-        if (hasFlag("color=16m") || hasFlag("color=full") || hasFlag("color=truecolor")) {
-          return 3;
-        }
-        if (hasFlag("color=256")) {
-          return 2;
-        }
-      }
-      if (haveStream && !streamIsTTY && forceColor === void 0) {
-        return 0;
-      }
-      const min = forceColor || 0;
-      if (env.TERM === "dumb") {
-        return min;
-      }
-      if (process.platform === "win32") {
-        const osRelease = os2.release().split(".");
-        if (Number(osRelease[0]) >= 10 && Number(osRelease[2]) >= 10586) {
-          return Number(osRelease[2]) >= 14931 ? 3 : 2;
-        }
-        return 1;
-      }
-      if ("CI" in env) {
-        if (["TRAVIS", "CIRCLECI", "APPVEYOR", "GITLAB_CI", "GITHUB_ACTIONS", "BUILDKITE", "DRONE"].some((sign) => sign in env) || env.CI_NAME === "codeship") {
-          return 1;
-        }
-        return min;
-      }
-      if ("TEAMCITY_VERSION" in env) {
-        return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env.TEAMCITY_VERSION) ? 1 : 0;
-      }
-      if (env.COLORTERM === "truecolor") {
-        return 3;
-      }
-      if ("TERM_PROGRAM" in env) {
-        const version2 = Number.parseInt((env.TERM_PROGRAM_VERSION || "").split(".")[0], 10);
-        switch (env.TERM_PROGRAM) {
-          case "iTerm.app":
-            return version2 >= 3 ? 3 : 2;
-          case "Apple_Terminal":
-            return 2;
-        }
-      }
-      if (/-256(color)?$/i.test(env.TERM)) {
-        return 2;
-      }
-      if (/^screen|^xterm|^vt100|^vt220|^rxvt|color|ansi|cygwin|linux/i.test(env.TERM)) {
-        return 1;
-      }
-      if ("COLORTERM" in env) {
-        return 1;
-      }
-      return min;
-    }
-    function getSupportLevel(stream, options = {}) {
-      const level = supportsColor(stream, {
-        streamIsTTY: stream && stream.isTTY,
-        ...options
-      });
-      return translateLevel(level);
-    }
-    module2.exports = {
-      supportsColor: getSupportLevel,
-      stdout: getSupportLevel({ isTTY: tty.isatty(1) }),
-      stderr: getSupportLevel({ isTTY: tty.isatty(2) })
-    };
-  }
-});
-
 // node_modules/https-proxy-agent/node_modules/debug/src/node.js
 var require_node = __commonJS({
   "node_modules/https-proxy-agent/node_modules/debug/src/node.js"(exports2, module2) {
@@ -638,7 +511,7 @@ var require_node = __commonJS({
     );
     exports2.colors = [6, 2, 3, 4, 5, 1];
     try {
-      const supportsColor = require_supports_color();
+      const supportsColor = require("supports-color");
       if (supportsColor && (supportsColor.stderr || supportsColor).level >= 2) {
         exports2.colors = [
           20,
@@ -1758,7 +1631,7 @@ var require_node2 = __commonJS({
     );
     exports2.colors = [6, 2, 3, 4, 5, 1];
     try {
-      const supportsColor = require_supports_color();
+      const supportsColor = require("supports-color");
       if (supportsColor && (supportsColor.stderr || supportsColor).level >= 2) {
         exports2.colors = [
           20,
@@ -2758,8 +2631,6 @@ var gates = {
   // #8
   valuation: () => process.env.VALUATION_ENABLED === "true",
   // #9
-  copilot: () => process.env.COPILOT_ENABLED === "true",
-  // #10
   azureVision: () => process.env.AZURE_VISION_ENABLED === "true",
   // #11
   ocrScannedPdf: () => process.env.OCR_SCANNED_PDF_ENABLED === "true",
@@ -2787,10 +2658,6 @@ var gates = {
   // #23
   boxFileRequest: () => process.env.BOX_FILEREQUEST_ENABLED === "true",
   // #24
-  boxEmbed: () => process.env.BOX_EMBED_ENABLED === "true",
-  // #25
-  boxMetadata: () => process.env.BOX_METADATA_ENABLED === "true",
-  // #26
   // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
   // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
   // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
@@ -3562,6 +3429,16 @@ var dataApi = {
   providerMatchRecords() {
     return request("GET", "/api/internal/provider-match-records");
   },
+  /**
+   * Read a work provider's per-provider AI opt-out flag (docs/gated.md D6; internal route).
+   * `aiAllowed` is NULLABLE: null/true = AI allowed, ONLY explicit `false` opts the provider
+   * out of the gated LLM triage second-opinion (triage-classify.ts). Schema-tolerant
+   * server-side — the `ai_allowed` column is modeled but may be pre-migration, in which case
+   * the API returns `{ aiAllowed: null }` (i.e. allowed).
+   */
+  workProviderAiAllowed(workProviderId) {
+    return request("GET", `/api/internal/work-provider/${encodeURIComponent(workProviderId)}/ai-allowed`);
+  },
   /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
   dedupContext(params) {
     const q = new URLSearchParams({
@@ -4138,6 +4015,9 @@ function domainOf2(address) {
   const at = address.lastIndexOf("@");
   return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : "";
 }
+function providerAiOptedOut(aiAllowed) {
+  return aiAllowed === false;
+}
 import_functions7.app.http("triage-classify-start", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -4162,6 +4042,19 @@ df4.app.activity("triageClassify", {
     if (!gates.emailAi() || !gates.aiAssistConfigured()) {
       ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED off or model endpoint/deployment not configured");
       return { skipped: true };
+    }
+    if (input12.workProviderId) {
+      try {
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input12.workProviderId);
+        if (providerAiOptedOut(aiAllowed)) {
+          ctx.log("[triageClassify] skipped \u2014 work provider opted out of AI (ai_allowed=false)");
+          return { skipped: true, reason: "provider_ai_opt_out" };
+        }
+      } catch (e) {
+        ctx.warn(
+          `[triageClassify] ai_allowed lookup failed (proceeding, fail-open): ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
     }
     const subjectScrub = scrubPii(input12.subject ?? "");
     const bodyScrub = scrubPii(input12.body ?? "");
@@ -4252,6 +4145,10 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
         subject: env.subject,
         body: env.body,
         senderAddress: env.senderAddress,
+        // The provider matched in step 1 — lets the activity honour a per-provider AI opt-out
+        // (work_provider.ai_allowed, docs/gated.md D6) without re-resolving. Undefined when the
+        // sender matched no provider (nothing to opt out of).
+        ...workProviderId ? { workProviderId } : {},
         attachmentFilenames: (env.attachments ?? []).map((a) => a.filename),
         deterministicCategory: classification.category,
         deterministicSubtype: classification.subtype,
@@ -43984,6 +43881,13 @@ function callPlateOcr(input12) {
     ...input12.caseVrm ? { case_vrm: input12.caseVrm } : {}
   });
 }
+function callOcrPdf(input12) {
+  return callFunction(OCR, "POST", "ocr-pdf", {
+    document: input12.documentBase64,
+    filename: input12.filename,
+    ...input12.providerHint ? { provider_hint: input12.providerHint } : {}
+  });
+}
 function callEvaSubmit(caseId) {
   return callFunction(EVA, "POST", "submit", { caseId });
 }
@@ -44360,6 +44264,27 @@ df13.app.activity("classifyPersist", {
 
 // orchestration/src/functions/activities/parse.ts
 var df14 = __toESM(require("durable-functions"), 1);
+var hasValue = (cell) => (cell?.value ?? "").trim() !== "";
+function shouldAttemptScannedPdfOcr(parsed, filename) {
+  if (parsed.skipped) return false;
+  if (!/\.pdf$/i.test(filename)) return false;
+  const cells = Object.values(parsed.extraction ?? {});
+  const anyFieldFilled = cells.some(hasValue);
+  return !anyFieldFilled && !hasValue(parsed.vrm) && !hasValue(parsed.reference);
+}
+function coalesceOcrIntoParse(parsed, ocr) {
+  const mergedExtraction = { ...parsed.extraction ?? {} };
+  const ocrExtraction = ocr.extraction ?? {};
+  for (const [key, ocrCell] of Object.entries(ocrExtraction)) {
+    if (!hasValue(mergedExtraction[key]) && hasValue(ocrCell)) {
+      mergedExtraction[key] = ocrCell;
+    }
+  }
+  const merged = { ...parsed, extraction: mergedExtraction };
+  if (!hasValue(parsed.vrm) && hasValue(ocr.vrm)) merged.vrm = ocr.vrm;
+  if (!hasValue(parsed.reference) && hasValue(ocr.reference)) merged.reference = ocr.reference;
+  return merged;
+}
 var DOC_EXT = /\.(pdf|docx?|rtf|eml|msg)$/i;
 var DOC_CTYPE = /pdf|msword|officedocument|rtf|rfc822|ms-outlook/i;
 var EMAIL_EXT = /\.(eml|msg)$/i;
@@ -44423,8 +44348,42 @@ df14.app.activity("parse", {
       }
       throw new Error(`[parse] parser Function responded ${res.status}`);
     }
+    const parsed = await res.json();
     ctx.log(JSON.stringify({ evt: "parse-ok", corr, filename: doc.filename }));
-    return res.json();
+    if (gates.ocrScannedPdf() && shouldAttemptScannedPdfOcr(parsed, doc.filename)) {
+      if (!process.env.OCR_FN_URL) {
+        ctx.log(`[parse] scanned PDF for ${corr} (${doc.filename}) but OCR_FN_URL unconfigured; skipping OCR fallback`);
+        return parsed;
+      }
+      ctx.log(JSON.stringify({ evt: "parse-ocr-fallback", corr, filename: doc.filename, reason: "empty_text_extraction" }));
+      try {
+        const ocr = await callOcrPdf({
+          documentBase64: documentB64,
+          filename: doc.filename,
+          ...input12.providerHint ? { providerHint: input12.providerHint } : {}
+        });
+        const merged = coalesceOcrIntoParse(parsed, ocr);
+        const filled = Object.keys(merged.extraction ?? {}).filter(
+          (k) => (merged.extraction?.[k]?.value ?? "").trim() && !(parsed.extraction?.[k]?.value ?? "").trim()
+        );
+        ctx.log(
+          JSON.stringify({
+            evt: "parse-ocr-fallback-ok",
+            corr,
+            provider: ocr.ocr_provider,
+            pageCount: ocr.page_count,
+            fieldsFilled: filled.length
+          })
+        );
+        return merged;
+      } catch (e) {
+        ctx.warn(
+          `[parse] OCR fallback failed for ${corr} (${doc.filename}) (best-effort, continuing with text parse): ${e instanceof Error ? e.message : String(e)}`
+        );
+        return parsed;
+      }
+    }
+    return parsed;
   }
 });
 

@@ -1,14 +1,14 @@
 # Phase 5 — OCR & Scale
 
 **Goal:** OCR for scanned/image PDFs + plate OCR (M1 half); image-classification AI (**M2**); valuation +
-Copilot + WhatsApp import (**M3**).
+WhatsApp import (**M3**).
 
 > **Milestones in this phase** ([milestone-model](../milestone-model.md)): **5a** plate-OCR-for-registration
-> = **M1**; **5b** image classification/reflection = **M2**; **5b** WhatsApp bulk-import + **5c** valuation +
-> **5c** Copilot Studio = **M3**.
+> = **M1**; **5b** image classification/reflection = **M2**; **5b** WhatsApp bulk-import + **5c** valuation
+> = **M3**.
 
 **Status:** OCR host **deployed 2026-06-19** (`cespkocr-fn-dev-glju3v`, Functions-on-ACA, scale-to-zero); image-AI and
-valuation/Copilot are **plan-only**. See [../../../ROADMAP.md](../../../ROADMAP.md) Phase 5.
+valuation are **plan-only**. See [../../../ROADMAP.md](../../../ROADMAP.md) Phase 5.
 
 ## Implementation checklist (by feature)
 
@@ -23,13 +23,12 @@ valuation/Copilot are **plan-only**. See [../../../ROADMAP.md](../../../ROADMAP.
 6. [ ] person / reflection detection (Custom Vision explicitly **not** used — retires 2028)
 7. [x] **Image-ordering UI** (`ImageOrderList.tsx` + test, wired into CaseDetail — drag to set the 2 preview images); [ ] WhatsApp media bulk import (ADR-0007)
 
-**5c · Valuation & Copilot (M2/M3+)** — [valuation-and-copilot.md](./valuation-and-copilot.md)
+**5c · Valuation (M3)** — [valuation.md](./valuation.md)
 8. [ ] Valuation (`valuationbot`, gated `VALUATION_ENABLED`) — staff-triggered; evidence PDF attached
-9. [ ] Copilot Studio agent (gated `COPILOT_ENABLED`) — staff assistant over Dataverse
 
 ## Plans in this phase
 
-- [ocr-strategy.md](./ocr-strategy.md) (5a) · [image-classification-ai.md](./image-classification-ai.md) (5b) · [valuation-and-copilot.md](./valuation-and-copilot.md) (5c)
+- [ocr-strategy.md](./ocr-strategy.md) (5a) · [image-classification-ai.md](./image-classification-ai.md) (5b) · [valuation.md](./valuation.md) (5c)
 
 ## Needs the operator
 

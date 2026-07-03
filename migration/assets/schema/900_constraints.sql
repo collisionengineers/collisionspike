@@ -67,6 +67,11 @@ ALTER TABLE ai_suggestion ADD CONSTRAINT fk_ai_suggestion_evidence
 ALTER TABLE ai_suggestion ADD CONSTRAINT fk_ai_suggestion_inbound_email
   FOREIGN KEY (inbound_email_id) REFERENCES inbound_email(id) ON DELETE SET NULL;
 
+-- Provider API-intake keys (TKT-055/ADR-0020) -> work_provider (CASCADE: a key is
+-- owned by its provider -- a purged provider takes its keys with it).
+ALTER TABLE provider_api_key ADD CONSTRAINT fk_provider_api_key_work_provider
+  FOREIGN KEY (work_provider_id) REFERENCES work_provider(id) ON DELETE CASCADE;
+
 -- ---- N:N intersect FKs (2 junction tables; CASCADE from either side) --------
 ALTER TABLE repairer_workprovider ADD CONSTRAINT fk_rwp_repairer
   FOREIGN KEY (repairer_id)      REFERENCES repairer(id)      ON DELETE CASCADE;
@@ -145,7 +150,7 @@ BEGIN
     'case_','evidence','field_level_provenance','chaser','note',
     'work_provider','repairer','image_source','inspection_address',
     'improvement_signal','inbound_email','repairer_workprovider','imagesource_workprovider',
-    'ai_suggestion'
+    'ai_suggestion','provider_api_key'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE  ROW LEVEL SECURITY;', t);

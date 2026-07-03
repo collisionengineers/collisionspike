@@ -1,31 +1,28 @@
 /* ============================================================
-   Collision Engineers — Code App: Box transports (CSP-safe, GATED).
+   Collision Engineers — SWA-hosted SPA: Box transports (GATED, injectable).
 
-   The deployed Code App runs under CSP `connect-src 'none'`, so NO `fetch()` to
-   Box ever works — every Box call goes through the Power Apps connector layer
-   same-origin (the proven `parser-connector-transport.ts` precedent), or through
-   a Dataverse write. This module is the seam for the Wave-4 Box affordances, in
-   the gated-transport shape of `enrichment-client.ts`:
+   The SPA (`cespk-spa-dev`) fetches the Data API origin directly (CORS-allowed
+   under the SWA's CSP) — see `box-rest-transport.ts` for the live REST
+   transports wired at startup in `main.tsx`. This module is the transport
+   SEAM for the Box affordances, in the gated-transport shape of
+   `enrichment-client.ts`:
 
-     - copyFileRequest     -> DIRECT connector op `CopyFileRequest`  (the chaser link)
-     - getSharedLink       -> DIRECT connector op `GetFolderSharedLink`    ("Open in Box")
-     - requestFinalize     -> a DATAVERSE submit-signal WRITE (NOT a SAS flow POST)
+     - copyFileRequest     -> POST /api/cases/{id}/box/copy-file-request (the chaser link)
+     - getSharedLink       -> GET  /api/cases/{id}/box/shared-link           ("Open in Box")
+     - requestFinalize     -> POST /api/cases/{id}/box/finalize (a Data API / Postgres write)
 
-   Reconciliations honoured (00-BUILD-PLAN.md table):
-     * Code App invokes copy/shared-link via DIRECT connector ops (no flow in the
-       path); finalize is a Dataverse submit-signal the app PATCHes, consumed by a
-       Dataverse-triggered flow — the app NEVER POSTs to a flow SAS URL.
+   Contract preserved:
      * copy response is `{ fileRequestUrl, expiresAt, outcome }` (the app binds to
        `fileRequestUrl`, never `uploadUrl`), `outcome ∈ sent|gated_off|folder_not_ready`.
      * Evidence is a server-minted "Open in Box" DEEP LINK only — no iframe, no
-       BOX_EMBED path, no frame-src; so the shared-link transport surfaces a
-       `folderUrl` and deliberately exposes no embed URL.
+       frame-src edit; the shared-link transport surfaces a `folderUrl` and
+       deliberately exposes no embed URL.
 
    Each transport is INJECTABLE. The default is an honest `not_connected` (the
-   connection is unbound / the gate is off) — the UI shows the message, never a
-   fabricated link. The live transports bind the generated connector services at
-   deploy time (kept out of this module so the offline build stays SDK-free; they
-   live in box-connector-transport.ts alongside parser-connector-transport.ts).
+   transport is unbound / the gate is off) — the UI shows the message, never a
+   fabricated link. The live transports bind the REST implementations at
+   startup (kept out of this module so the offline build stays fetch-free; they
+   live in `box-rest-transport.ts`).
    ============================================================ */
 
 import type { CaseStatus } from '@cs/domain';
@@ -33,10 +30,11 @@ import type { CaseStatus } from '@cs/domain';
 /* ----------  Shared status vocabulary  ---------- */
 
 /**
- * The outcome of a Box transport call. `not_connected` = the connector/connection
- * is unbound (operator hasn't wired it); `folder_not_ready` = the case has no Box
- * folder yet (`cr1bd_boxfolderid` null — never call Box with a null `folder.id`);
- * `gated_off` = the BOX_* gate is false server-side; `error` = a live failure.
+ * The outcome of a Box transport call. `not_connected` = the REST transport
+ * is unbound (not yet configured in `main.tsx`); `folder_not_ready` = the case
+ * has no Box folder yet (Postgres `box_folder_id` null — never call Box with a
+ * null `folder.id`); `gated_off` = the BOX_* gate is false server-side;
+ * `error` = a live failure.
  */
 export type BoxTransportStatus =
   | 'ok'
@@ -74,9 +72,9 @@ export type CopyFileRequestTransport = (
 
 /**
  * A server-minted shared link for the case's Box folder. `folderUrl` is the
- * "Open in Box" deep link (opened in a new tab — an external navigation, NOT a
- * `fetch`, so `connect-src 'none'` is irrelevant). NO embed URL is exposed: the
- * operator decision is LINK, not iframe (`BOX_EMBED_ENABLED` stays reserved/off).
+ * "Open in Box" deep link (opened in a new tab — an external navigation, not a
+ * `fetch` call). NO embed URL is exposed: evidence is always linked, never
+ * embedded — no iframe, no `frame-src` edit.
  */
 export interface SharedFolderLink {
   folderUrl: string;
@@ -87,23 +85,23 @@ export type GetSharedLinkTransport = (
   caseId: string,
 ) => Promise<BoxResult<SharedFolderLink>>;
 
-/* ----------  finalize -> Dataverse submit-signal (NOT a flow POST)  ---------- */
+/* ----------  finalize -> POST /api/cases/{id}/box/finalize (a Data API write)  ---------- */
 
-/** The submit-signal the app writes; the Dataverse-triggered flow consumes it. */
+/** The submit-signal the SPA writes; the Data API validates + persists it. */
 export interface FinalizeRequest {
   caseId: string;
   /** The byte-identical payload hash (built by the shared eva-export serializer). */
   payloadHash: string;
-  /** The 12-field EVA JSON string (the same serializer the flow validates). */
+  /** The 12-field EVA JSON string (the same serializer the API validates). */
   evaPayload12: string;
 }
 
 /**
  * The result of REQUESTING finalize. `accepted` means the submit-signal was
- * written — NOT that archival finished. The status transition
- * (`… -> box_synced`) is STRICTLY flow-driven (the flow stamps
- * `cr1bd_status=100000009` LAST); the UI awaits then re-reads the case. We
- * therefore return the case's CURRENT status, never a locally-invented terminal.
+ * written — NOT that archival finished. Direct submit is currently an honest
+ * `gated_off` (EVA submission is the JSON drag-drop path today — see
+ * "Export for EVA"); the UI awaits then re-reads the case rather than
+ * inventing a terminal status locally.
  */
 export interface FinalizeAck {
   accepted: boolean;
@@ -111,7 +109,7 @@ export interface FinalizeAck {
   status?: CaseStatus;
 }
 
-/** Write the submit-signal that triggers `finalize-eva-box` (gated). */
+/** Write the finalize submit-signal (gated; currently honest gated_off). */
 export type RequestFinalizeTransport = (
   req: FinalizeRequest,
 ) => Promise<BoxResult<FinalizeAck>>;
@@ -174,18 +172,17 @@ export async function requestFinalize(
 }
 
 /* ----------  Deploy-wired transport registry  ----------
-   The live connector/Dataverse transports are bound at startup in main.tsx AFTER
-   `pac code add-data-source` (they cannot be statically imported — the generated
-   services don't exist in the repo). Screens read the ACTIVE transport via the
-   getters below; until configured, every one is the honest `not_connected`
-   default, so the offline build + an unbound connection both degrade honestly.
+   The live REST transports (box-rest-transport.ts) are bound at startup in
+   main.tsx via configureBoxTransports(). Screens read the ACTIVE transport via
+   the getters below; until configured, every one is the honest `not_connected`
+   default, so the offline build + an unbound transport both degrade honestly.
    This mirrors the `configureDataAccess` selector in index.ts. */
 
 let activeCopyFileRequest: CopyFileRequestTransport = notConnectedCopyFileRequestTransport;
 let activeGetSharedLink: GetSharedLinkTransport = notConnectedGetSharedLinkTransport;
 let activeRequestFinalize: RequestFinalizeTransport = notConnectedRequestFinalizeTransport;
 
-/** Bind the live Box transports at startup (main.tsx, post add-data-source). */
+/** Bind the live Box transports at startup (main.tsx). */
 export function configureBoxTransports(transports: {
   copyFileRequest?: CopyFileRequestTransport;
   getSharedLink?: GetSharedLinkTransport;

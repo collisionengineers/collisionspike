@@ -22,7 +22,6 @@ export const gates = {
   evaApi: (): boolean => process.env.EVA_API_ENABLED === 'true',               // #4
   azureMaps: (): boolean => process.env.AZURE_MAPS_ENABLED === 'true',         // #8
   valuation: (): boolean => process.env.VALUATION_ENABLED === 'true',          // #9
-  copilot: (): boolean => process.env.COPILOT_ENABLED === 'true',              // #10
   azureVision: (): boolean => process.env.AZURE_VISION_ENABLED === 'true',     // #11
   ocrScannedPdf: (): boolean => process.env.OCR_SCANNED_PDF_ENABLED === 'true',// #12
   plateOcr: (): boolean => process.env.PLATE_OCR_ENABLED === 'true',           // #13
@@ -40,8 +39,6 @@ export const gates = {
   boxApi: (): boolean => process.env.BOX_API_ENABLED === 'true',               // #22
   boxFolderAtIntake: (): boolean => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === 'true',// #23
   boxFileRequest: (): boolean => process.env.BOX_FILEREQUEST_ENABLED === 'true',// #24
-  boxEmbed: (): boolean => process.env.BOX_EMBED_ENABLED === 'true',           // #25
-  boxMetadata: (): boolean => process.env.BOX_METADATA_ENABLED === 'true',     // #26
 
   // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
   // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:

@@ -25,10 +25,11 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { QUEUES, data, type QueueName } from '../data';
-// Brand logos as base64 data: URIs (generated). `pac code push` corrupts binary image
-// assets on upload (valid PNG → ~75% larger, undecodable) and Vite `?inline` is overridden
-// by the power-apps plugin, so we embed the logos as TEXT. CSP `img-src 'self' data:`
-// permits data URIs. (Fonts can't use this — CSP is `font-src 'self'`.)
+// Brand logos as base64 data: URIs (generated). Kept as TEXT-embedded data URIs
+// (a decision inherited from the prior Power Apps Code App build, where `pac code
+// push` corrupted binary image assets on upload — see the historical finding below);
+// the SWA CSP `img-src 'self' data:` still permits data URIs. (Fonts can't use this
+// — CSP is `font-src 'self'`.)
 // Regenerate: `node scripts/gen-logo-data-uris.mjs`. See docs/plans/phase-1-intake-and-case-tracking/code-app/logo-fix-findings.md.
 import { logoMark } from '../assets/logos.generated';
 import { AppErrorBoundary } from './AppErrorBoundary';

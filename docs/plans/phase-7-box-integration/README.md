@@ -44,10 +44,10 @@ the **operator `[O]` step** that completes each line; the `[C]` build of each is
 - **In scope (base Box Business):** per-Case/PO folders, the template File Request + per-case copies,
   webhook-driven upload intake, the status-driven Blob purge, and the Code App **"Open in Box" deep
   link**. Base Business covers all of this.
-- **Out of scope now:** the **metadata field** on the File-Request form (the Business Plus tier) — a
-  later **Wave-2 reliability upgrade** for the orphaned image-only path only; the **Box Embed iframe**
-  (`BOX_EMBED_ENABLED` stays reserved/off — evidence is **linked, not embedded**, no `frame-src` edit);
-  Box Governance retention, Box AI Units, and Metadata-Query (Phase C, tier-gated). EVA stays gated OFF
+- **Out of scope:** the **metadata field** on the File-Request form (the Business Plus tier) — this
+  reliability upgrade for the orphaned image-only path has been formally dropped; the **Box Embed
+  iframe** — also dropped (evidence is **linked, not embedded**, no `frame-src` edit);
+  Box Governance retention and Box AI Units (Phase C, tier-gated). EVA stays gated OFF
   throughout; Box never gates EVA and EVA never gates Box.
 
 ## Implementation checklist (B0–B4 waves)
@@ -158,7 +158,7 @@ case. (The `ListFolder` reconciliation sweep is a deferred, not-yet-built second
 **B3 exit:** an image-only sender drags photos into their permanent drop-box; they route to the right
 open case's folder (or Held if no match); no anonymous upload is silently lost.
 
-### B4 — Surface Box in the Code App (gates `BOX_API_ENABLED`; `BOX_EMBED_ENABLED` reserved)
+### B4 — Surface Box in the Code App (gates `BOX_API_ENABLED`)
 
 Most of B4 can proceed in parallel from B1 (the gate-read + deep-link parts). **Evidence is linked, not
 embedded** — there is no iframe and no `frame-src` edit.
@@ -178,7 +178,7 @@ embedded** — there is no iframe and no `frame-src` edit.
     authored **standby** child flow for FUTURE operator activation — **not** currently invoked by the Code App.
 21. [ ] **[C]** **Evidence as a server-minted "Open in Box" deep link** via the connector's
     `GetFolderSharedLink` op (called directly under CSP, no flow) — available whenever `apiEnabled`, **no
-    CSP change**. The Box Embed iframe is **not built**; `BOX_EMBED_ENABLED` stays reserved/off (no
+    CSP change**. The Box Embed iframe is **not built** — evidence is linked, never embedded (no
     `frame-src` edit).
 22. [ ] **[C]** Webhook-driven advance reflected via existing `refetch` (+ optional light poll); no push
     channel — never promise instant arrival. `box_synced` label/badge surfacing (label-only).
@@ -196,10 +196,10 @@ everything degrades to honest `not_connected` when unbound; the offline build st
 24. [ ] **[C]** `box-blob-purge` — scheduled `Recurrence` (with `startTime`), `PurgeGraceDays` default 7,
     gate `BOX_API_ENABLED`; delete Blob evidence where `box_synced AND boxsyncedat < now-grace` via
     `DeleteFile_V2`; **never** the Box copy.
-25. [ ] **(deferred)** Box Metadata instances + cascade + Metadata-Query (`BOX_METADATA_ENABLED`,
-    Business Plus); Box Governance retention + legal hold (Enterprise add-on); Box AI extract/ask
-    (metered AI Units — Business/Business Plus include zero). Each independently gated; each its own
-    decision, possibly tier-changing.
+25. [ ] **(dropped)** Box Metadata instances + cascade + Metadata-Query (Business Plus) — formally
+    dropped, not pursued. Box Governance retention + legal hold (Enterprise add-on); Box AI extract/ask
+    (metered AI Units — Business/Business Plus include zero) remain deferred, each independently gated,
+    each its own decision, possibly tier-changing.
 
 ## Two-phase live testing (the free vs Business account split)
 

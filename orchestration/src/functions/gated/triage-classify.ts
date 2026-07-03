@@ -44,6 +44,11 @@ interface TriageInput {
   /** Sender domain, when the caller already derived it (falls back to deriving it from
    *  `senderAddress` inside the activity when absent — e.g. a manual HTTP-starter call). */
   senderDomain?: string;
+  /** The work provider the orchestrator already matched for this email (providerMatch,
+   *  intake step 1), threaded through so the activity can honour a per-provider AI opt-out
+   *  (work_provider.ai_allowed — docs/gated.md D6) WITHOUT re-resolving the provider here.
+   *  Absent when the sender matched no provider (nothing to opt out of → AI proceeds). */
+  workProviderId?: string;
   attachmentFilenames?: string[];
   /** Stage A's own category/subtype/signals — passed through as CONTEXT for the model
    *  (never re-derived here; Stage A stays single-sourced in the vendored engine). */
@@ -53,8 +58,12 @@ interface TriageInput {
 }
 
 interface TriageClassifyResult {
-  /** True when the activity no-op'd because EMAIL_AI_ENABLED/the model are off/unconfigured. */
+  /** True when the activity no-op'd because EMAIL_AI_ENABLED/the model are off/unconfigured,
+   *  OR the matched work provider opted out of AI (see `reason`). */
   skipped?: boolean;
+  /** Why the activity skipped, when the skip is a per-provider opt-out ('provider_ai_opt_out')
+   *  rather than the plain gate-off no-op (which carries no reason). */
+  reason?: string;
   /** True when the model call ran but abstained (no suggestion written). */
   abstained?: boolean;
   category?: string;
@@ -105,6 +114,17 @@ function domainOf(address: string): string {
   return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : '';
 }
 
+/**
+ * Per-provider AI opt-out predicate (docs/gated.md D6). `work_provider.ai_allowed` is a
+ * NULLABLE boolean — the column exists but is modeled/deferred, so a provider that has never
+ * had it set reads `null`. Semantics: ONLY an explicit `false` opts the provider out of the
+ * gated LLM triage second-opinion; `null` / `true` / `undefined` (unset / absent / provider
+ * unresolved) all mean ALLOWED. Pure + replay-safe (reads no env, no I/O).
+ */
+export function providerAiOptedOut(aiAllowed: boolean | null | undefined): boolean {
+  return aiAllowed === false;
+}
+
 app.http('triage-classify-start', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -137,6 +157,28 @@ df.app.activity('triageClassify', {
     if (!gates.emailAi() || !gates.aiAssistConfigured()) {
       ctx.log('[triageClassify] skipped — EMAIL_AI_ENABLED off or model endpoint/deployment not configured');
       return { skipped: true };
+    }
+
+    // Per-provider AI opt-out (docs/gated.md D6 — the spec gap this closes). The orchestrator
+    // already matched the work provider (providerMatch, step 1) and threads its id in, so we
+    // resolve ONLY `ai_allowed` for that id rather than re-matching the sender here. An absent
+    // id means the sender matched no provider — nothing to opt out of, so AI proceeds. ONLY an
+    // explicit ai_allowed === false skips (null/true/absent = allowed — the column is nullable;
+    // see providerAiOptedOut). Best-effort/fail-OPEN: a lookup blip proceeds (a transient Data
+    // API fault must never silently disable the whole gated path); the model call is the
+    // expensive part, so this cheap read runs only AFTER the gate check above.
+    if (input.workProviderId) {
+      try {
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input.workProviderId);
+        if (providerAiOptedOut(aiAllowed)) {
+          ctx.log('[triageClassify] skipped — work provider opted out of AI (ai_allowed=false)');
+          return { skipped: true, reason: 'provider_ai_opt_out' };
+        }
+      } catch (e) {
+        ctx.warn(
+          `[triageClassify] ai_allowed lookup failed (proceeding, fail-open): ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
     }
 
     // PII pre-scrub BEFORE anything leaves this process (ADR-0019 §3 / Phase 4 "PII +

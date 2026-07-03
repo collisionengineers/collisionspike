@@ -56,17 +56,20 @@ export function mailboxFacets<T extends MailboxFacetSource>(rows: readonly T[]):
     .sort((a, b) => a.mailbox.localeCompare(b.mailbox));
 }
 
-/** True when `row` passes the mailbox facet filter. An EMPTY selection means
- *  "all sources" (TKT-025: multi-select-none = all) — the filter is inert
- *  until at least one chip is picked, mirroring the reason-chip precedent
- *  (CaseList) of a facet that does nothing until toggled on. */
+/** The mailbox facet selection: a single mailbox value, or `null` for "All"
+ *  — SINGLE-select (the user's 4-button requirement: All + one per mailbox,
+ *  exactly one active at a time), not the earlier multi-select Set. */
+export type MailboxFilter = string | null;
+
+/** True when `row` passes the mailbox facet filter. `null` means "All
+ *  sources" — the explicit default, not an inert empty selection. */
 export function matchesMailboxFilter<T extends MailboxFacetSource>(
   row: T,
-  selected: ReadonlySet<string>,
+  selected: MailboxFilter,
 ): boolean {
   // Key on the TRIMMED value — the SAME normalization mailboxFacets applies when it builds the
   // chip's `mailbox` value (line ~50). Without this, a row whose sourceMailbox carries surrounding
   // whitespace produces a trimmed chip it can never match against, so selecting that chip empties
   // the list.
-  return selected.size === 0 || selected.has((row.sourceMailbox ?? '').trim());
+  return selected === null || (row.sourceMailbox ?? '').trim() === selected;
 }
