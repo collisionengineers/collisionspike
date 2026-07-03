@@ -1292,9 +1292,10 @@ app.http('internalInboundLinkReply', {
    internalInboundLinkReply also take, keyed on the normalized ref/job-ref/VRM, so a
    concurrent mint for the same reference commits (or rolls back) before this read proceeds.
 
-   PRE-DDL SAFE: case_/inbound_email.source_message_id and case_.case_po/case_ref/vrm all
-   exist today. conversationSiblingCaseIds alone is schema-tolerant (hasColumn) — it is
-   honestly [] until the 2026-07-02 DDL delta adds inbound_email.conversation_id.
+   PRE-DDL SAFE: case_.source_message_id and case_.case_po/case_ref/vrm all exist today (the
+   duplicate probe reads case_ ONLY — see the note at the dup check). conversationSiblingCaseIds
+   alone is schema-tolerant (hasColumn) — it is honestly [] until the 2026-07-02 DDL delta adds
+   inbound_email.conversation_id.
    ============================================================ */
 app.http('internalTriageContext', {
   methods: ['POST'],
@@ -1355,11 +1356,19 @@ app.http('internalTriageContext', {
 
         let duplicateInternetMessageId = false;
         if (internetMessageId) {
+          // A genuine "already received and processed" duplicate is one where a CASE was already
+          // minted from this exact Internet-Message-Id. Probe ONLY case_ here — NOT inbound_email:
+          // classifyInbound (intake step 1.5) upserts THIS message's own inbound_email row (keyed
+          // on source_message_id) BEFORE this endpoint runs (step 1.55), and inbound_email is
+          // unique per message-id (uq_inbound_email_source_message_id), so an inbound_email EXISTS
+          // would self-match every arrival — making duplicateInternetMessageId true for ~100% of
+          // messages (poisoning the always-on triage_decision shadow telemetry now, and dropping
+          // every email as a self-duplicate the moment TRIAGE_REF_GATE_ENABLED is on). caseResolve
+          // writes case_.source_message_id LATER in the same orchestration, so the case_ probe
+          // cannot self-match at triage time.
           const dupRows = await q<{ found: boolean }>(
             `SELECT EXISTS (
                 SELECT 1 FROM case_ WHERE source_message_id = $1
-                UNION ALL
-                SELECT 1 FROM inbound_email WHERE source_message_id = $1
               ) AS found`,
             [internetMessageId],
           );
@@ -1539,7 +1548,16 @@ app.http('internalTriageSuggestLink', {
 
       const suggestedValue =
         suggestionType === 'triage_category'
-          ? { category: triageCategory, subtype: triageSubtype }
+          ? {
+              category: triageCategory,
+              subtype: triageSubtype,
+              // Carry sourceMessageId so the source_message_id-subject idempotency SELECT (used
+              // when the inbound_email row isn't resolvable yet — inboundEmailId null) can match a
+              // prior PENDING copy on a Durable at-least-once retry. Without it the dedup filters
+              // on `suggested_value->>'sourceMessageId'`, a field this branch never wrote, so it
+              // never matches and inserts a duplicate 'AI suggested category' banner.
+              ...(sourceMessageId ? { sourceMessageId } : {}),
+            }
           : {
               ...(targetCaseId ? { targetCaseId } : {}),
               ...(casePo ? { casePo } : {}),

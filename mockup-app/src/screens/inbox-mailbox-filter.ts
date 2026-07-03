@@ -64,5 +64,9 @@ export function matchesMailboxFilter<T extends MailboxFacetSource>(
   row: T,
   selected: ReadonlySet<string>,
 ): boolean {
-  return selected.size === 0 || selected.has(row.sourceMailbox);
+  // Key on the TRIMMED value — the SAME normalization mailboxFacets applies when it builds the
+  // chip's `mailbox` value (line ~50). Without this, a row whose sourceMailbox carries surrounding
+  // whitespace produces a trimmed chip it can never match against, so selecting that chip empties
+  // the list.
+  return selected.size === 0 || selected.has((row.sourceMailbox ?? '').trim());
 }

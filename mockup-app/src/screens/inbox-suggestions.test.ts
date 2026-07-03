@@ -69,9 +69,18 @@ describe('pendingRefGateSuggestion', () => {
     expect(pendingRefGateSuggestion(rows, CASE_LINK_SUGGESTION_TYPE)).toBeUndefined();
   });
 
-  it('ignores a pending suggestion with no targetCaseId — nothing to act on', () => {
+  it('ignores a case_link suggestion with no targetCaseId — nothing to attach to', () => {
     const rows = [suggestion({ suggestedValue: { casePo: 'CCPY26050' } })];
     expect(pendingRefGateSuggestion(rows, CASE_LINK_SUGGESTION_TYPE)).toBeUndefined();
+  });
+
+  it('surfaces a target-less CANCELLATION — a "find the right case" proposal still needs a person', () => {
+    // triagePolicy writes a cancellation with no targetCaseId when the match is ambiguous /
+    // VRM-only / absent. It must still render (its headline degrades) so the operator can act.
+    const rows = [
+      suggestion({ suggestionType: CANCELLATION_SUGGESTION_TYPE, suggestedValue: {} }),
+    ];
+    expect(pendingRefGateSuggestion(rows, CANCELLATION_SUGGESTION_TYPE)?.id).toBe('s-1');
   });
 
   it('returns undefined when nothing matches the requested type', () => {

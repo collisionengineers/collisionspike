@@ -216,8 +216,12 @@ async function promoteAcceptedSuggestion(
       // FILL-IF-EMPTY ONLY: never overwrite a link a person (or another path) already made.
       const targetCaseId = (value as { targetCaseId?: string } | null)?.targetCaseId?.trim();
       if (targetCaseId) {
+        // Also stamp triage_state='routed' — the SAME thing the auto-link reply lane does
+        // (internalInboundLinkReply, #753) so a now-linked email stops counting as untriaged in
+        // /api/inbound/counts. Accepting the suggestion IS a routing decision; without this the
+        // row shows 'Linked to case' yet keeps inflating the 'needs sorting' badge.
         const upd = await query<Row>(
-          `UPDATE inbound_email SET case_id = $2, updated_at = now()
+          `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
              WHERE id = $1 AND case_id IS NULL RETURNING id`,
           [inboundEmailId, targetCaseId],
         );
