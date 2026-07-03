@@ -64,9 +64,46 @@ import { nextPeekId, parsePeek, withPeek, withoutPeek } from './peek';
    Refresh model (shape only, mock data): recompute on mount + on window
    focus + a focus-gated ~75s poll. A quiet "Updated HH:MM · Refresh"
    affordance restamps the time. Nothing here is a lifetime counter.
+
+   ── LAYOUT (TKT-054 from-scratch redesign, 030726) ────────────────────────
+   The five prior patch rounds chased a moving overlap between the needs-action
+   list and the right rail with fr-vs-fr grid tracks, breakpoint moves, label
+   wrapping and finally position:sticky. All shared one fragile premise: the two
+   columns competed for width (fr vs fr) and for height (a list that grew to
+   ~6500px once "Show all" expanded, beside a ~640px rail → a huge void, and on
+   some machines an actual paint overlap). This redesign removes the whole
+   problem class deterministically:
+
+     1. FIXED right rail. The cockpit grid is `minmax(0, 1fr) <RAIL_W>px`, not
+        fr-vs-fr. A fixed track cannot be pushed by the left column, and the
+        left `minmax(0, 1fr)` track can never overflow its cell. The left column
+        carries minWidth:0 + overflowX:hidden and every long string ellipsizes,
+        so content can never paint over the rail. Below RAIL_STACK_BP the grid
+        collapses to one column (rail below the list) — a SINGLE media query on
+        the SINGLE grid container, so Griffel's non-guaranteed media-rule
+        ordering can never matter (no child carries a competing media block).
+     2. BOUNDED needs-action list. The groups render inside ONE internally
+        scrollable panel (maxHeight ~viewport, overflowY:auto, thin scrollbar).
+        "Show all 118" now expands INSIDE the panel, so the column stays roughly
+        viewport-height and no void ever opens beside the rail — regardless of
+        list length. No sticky, no alignSelf, no top-offset hacks.
+     3. Whole cockpit capped (COCKPIT_MAX) so ultra-wide doesn't stretch to
+        sparseness.
    ============================================================ */
 
 const POLL_MS = 75_000;
+
+/* Fixed right-rail width (px). A fixed track — not an fr — so the left column
+   can never push it and it can never be pushed. ~400px comfortably holds the
+   2×2 inbox tiles + the throughput grid + the queues stack. */
+const RAIL_W = 400;
+/* Below this viewport width the two columns stack (rail below the list). One
+   media query, on the grid container only. */
+const RAIL_STACK_BP = 1100;
+/* Cap the cockpit content so ultra-wide (rail collapsed at ~1920) stops
+   stretching into sparseness; left-aligned, not centred (a dashboard reads
+   left-anchored). */
+const COCKPIT_MAX = 1680;
 
 /* Re-cut funnel stage → the queue/view it drills into (clickable strip).
    Each stage lands on a destination that CONTAINS the statuses it counts, so the
@@ -92,45 +129,46 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalL,
+    // Cap the cockpit content width so it stops stretching on ultra-wide (e.g.
+    // rail collapsed at 1920). Left-aligned within the padded content area — the
+    // heading, pipeline and cockpit all share the same left edge and right cap.
+    maxWidth: `${COCKPIT_MAX}px`,
+    width: '100%',
   },
 
-  /* Split-pane cockpit: exceptions left, telemetry right (desktop). */
+  /* Split-pane cockpit: exceptions left, telemetry right (desktop).
+     DETERMINISTIC two-column grid — a FIXED right rail (not fr-vs-fr), so the
+     left column can never push the rail and the rail can never be pushed. The
+     left `minmax(0, 1fr)` track can never overflow its cell. Below the stack
+     breakpoint it collapses to one column (rail below the list). This is the
+     ONLY media query in the cockpit — no child carries a competing media block,
+     so Griffel media-rule ordering can't change the outcome. */
   cockpitGrid: {
     display: 'grid',
     gridTemplateColumns: '1fr',
-    gap: tokens.spacingVerticalL,
+    columnGap: tokens.spacingHorizontalXXL,
+    rowGap: tokens.spacingVerticalL,
     alignItems: 'start',
-    // 1200 (was 992): below this the side column squeezes past what full tile
-    // labels can survive — stack instead (round-3 operator regression report).
-    '@media (min-width: 1200px)': {
-      gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)',
+    [`@media (min-width: ${RAIL_STACK_BP}px)`]: {
+      gridTemplateColumns: `minmax(0, 1fr) ${RAIL_W}px`,
     },
   },
+  // Left column — MUST carry minWidth:0 (so the grid track can shrink) and
+  // overflowX:hidden (belt-and-braces: even a mis-sized child is clipped, never
+  // painted over the rail).
   cockpitMain: {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalL,
     minWidth: 0,
+    overflowX: 'hidden',
   },
+  // Right rail — fixed-width track. minWidth:0 keeps its own children honest.
   cockpitSide: {
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalL,
     minWidth: 0,
-    // Sticky telemetry (TKT-054 round 5 — the REAL fix for the maximized-width void).
-    // The left work-list runs thousands of px once the operator expands "Show all" (105+
-    // cases → ~6500px), while this column is ~630px. With the columns independent-height
-    // (grid align-items:start), that left a ~5800px dead void beside the list — the exact
-    // regressions/1.png defect. Round 4 only balanced the COLLAPSED default; the void
-    // returned the instant the list was expanded. Sticking the column makes it travel with
-    // the scroll so it stays glanceable and NO void ever opens, independent of list length.
-    // Scoped to the 2-col breakpoint (below it the layout stacks); align-self:start gives
-    // it room to travel within the grid track; top clears the 57px sticky app header.
-    '@media (min-width: 1200px)': {
-      position: 'sticky',
-      alignSelf: 'start',
-      top: '73px',
-    },
   },
 
   regionHeading: {
@@ -207,11 +245,12 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacingVerticalM,
+    minWidth: 0,
   },
 
-  /* ----- Region A: live depth — a 2×2 grid of EQUAL tiles (TKT-054 / 020726
-     E8: content-sized flex tiles wrapped unevenly and the chevrons never
-     lined up; equal tracks + flush-right chevrons fix the alignment). ----- */
+  /* ----- Region A: live depth — a 2×2 grid of EQUAL tiles. Equal tracks +
+     flush-right chevrons keep the four tiles aligned at any width. The tracks
+     are minmax(0, 1fr) so they shrink inside the fixed rail without overflow. */
   liveStrip: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -292,7 +331,7 @@ const useStyles = makeStyles({
     overflow: 'hidden',
   },
   // Right-centred, always-visible clickability cue (spec §4) — flush right in
-  // the equal-width tile so the four chevrons read as one column (020726 E8).
+  // the equal-width tile so the four chevrons read as one column.
   tileChevron: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -301,13 +340,9 @@ const useStyles = makeStyles({
     marginLeft: 'auto',
   },
 
-  /* ----- Queues snapshot: a single-column stack of the three live queues
-     (TKT-054 regressions, round 4: at the operator's MAXIMIZED width the right
-     column ended after Today/this-week and left a tall empty void beside the
-     long needs-action list — round 2/3 had chased label truncation in the
-     narrow ~1280 band, the wrong condition). Reuses the inbox tile anatomy; a
-     vertical stack (not the 2×2 grid) both fills the vertical void and suits an
-     odd count of three. ----- */
+  /* ----- Queues snapshot: a single-column stack of the three live queues.
+     Reuses the inbox tile anatomy; a vertical stack (not the 2×2 grid) suits an
+     odd count of three and reads as a compact rail block. ----- */
   queueList: {
     display: 'flex',
     flexDirection: 'column',
@@ -315,9 +350,7 @@ const useStyles = makeStyles({
   },
 
   /* ----- Region B: throughput — the SAME 2×2 equal grid as the inbox tiles
-     above (TKT-054 regressions, round 2: the flex-wrap strip + floating
-     all-time box wrapped unevenly at side-column widths and never lined up
-     with the tile grid — equal tracks kill the wrap at any width). ----- */
+     above. Equal tracks kill the flex-wrap misalignment at any rail width. */
   thruRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -337,8 +370,7 @@ const useStyles = makeStyles({
   // Lifetime "Sent to EVA" — same cell anatomy, set apart by the charcoal
   // identity rail (not severity) + an "All time" caption in the slot where
   // clickable tiles carry their chevron, so a lifetime total is never read
-  // as a windowed one (work-todo-spike: dashboard-logic). Flat/static — no
-  // shadow, no chevron: not clickable (reforge 2026-07-01 §4 static surfaces).
+  // as a windowed one. Flat/static — no shadow, no chevron: not clickable.
   allTimeTile: {
     borderLeft: '3px solid var(--ce-charcoal)',
   },
@@ -397,10 +429,38 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground1,
   },
 
+  /* The BOUNDED needs-action scroll panel (TKT-054 redesign §2). The groups
+     live inside one internally scrollable region so "Show all" expands INSIDE
+     it — the list stays ~viewport-height and never grows the page to ~6500px
+     (which was what left a tall void beside the rail). maxHeight is viewport-
+     relative (vh is viewport-, not container-, relative, so this is stable
+     inside the app's <main> scroll container). overflowX:hidden is the final
+     guarantee that no row can paint sideways over the rail. */
+  needsActionScroll: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    // 320px ≈ topbar + page heading + pipeline region + gaps; leaves the panel
+    // to fill the remaining viewport. Page scroll (not a 6500px column) absorbs
+    // any overshoot at short viewports.
+    maxHeight: 'calc(100vh - 320px)',
+    paddingRight: tokens.spacingHorizontalXS,
+    // Thin scrollbar, both engines.
+    scrollbarWidth: 'thin',
+    scrollbarColor: `${tokens.colorNeutralStroke1} transparent`,
+    '::-webkit-scrollbar': { width: '8px' },
+    '::-webkit-scrollbar-thumb': {
+      backgroundColor: tokens.colorNeutralStroke1,
+      borderRadius: '4px',
+    },
+    '::-webkit-scrollbar-track': { backgroundColor: 'transparent' },
+  },
+
   /* Needs-action groups (spec IA §1): verb-led h3 headers carry the reason
      (icon + "<verb> — <count>"); rows are DENSE (~40px, no per-row reason
      icon — the header says why). */
-  groups: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM },
   group: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
   groupHead: {
     display: 'flex',
@@ -428,7 +488,8 @@ const useStyles = makeStyles({
     ':hover': { color: tokens.colorNeutralForeground2, backgroundColor: tokens.colorNeutralBackground2 },
   },
   // "Show all <n>" in-place expander — the count is always visible, so a
-  // capped group never reads as the whole list (no silent caps).
+  // capped group never reads as the whole list (no silent caps). Expansion now
+  // grows the row set INSIDE the bounded scroll panel above.
   showAllBtn: {
     alignSelf: 'flex-start',
     border: 0,
@@ -456,6 +517,7 @@ const useStyles = makeStyles({
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     backgroundColor: tokens.colorNeutralBackground1,
     width: '100%',
+    minWidth: 0,
     transitionProperty: 'background-color, border-color',
     transitionDuration: tokens.durationFaster,
     ':hover': {
@@ -767,7 +829,11 @@ export function Dashboard() {
                 }
               />
             ) : (
-              <div className={styles.groups}>
+              // BOUNDED scroll panel (TKT-054 redesign §2): all groups live in one
+              // internally scrollable region so "Show all" expands INSIDE it — the
+              // column stays ~viewport-height, never ~6500px, so no void ever opens
+              // beside the rail.
+              <div className={styles.needsActionScroll}>
                 {groups.map((group, index) => {
                   const key = group.reason ?? 'review-case';
                   const open = openOverrides[key] ?? index < DEFAULT_OPEN_GROUPS;
@@ -847,9 +913,8 @@ export function Dashboard() {
             </div>
           </section>
 
-          {/* Queues snapshot (TKT-054 round 4) — fills the tall right-column
-              void at maximized width with the three live queue depths; each row
-              deep-links its queue (same routes as the funnel + held bar). */}
+          {/* Queues snapshot — the three live queue depths; each row deep-links
+              its queue (same routes as the funnel + held bar). */}
           <section className={styles.region} aria-labelledby="heading-queues">
             <h2 className={mergeClasses('ce-overline', styles.regionHeading)} id="heading-queues">
               Queues
@@ -894,10 +959,6 @@ export function Dashboard() {
     </div>
   );
 }
-
-/* (Region A "drainable now" tiles removed — review dashboard Area 1: they
-   overlapped the funnel above and the wording was poor. The re-cut clickable
-   PipelineStrip carries the live depth + navigation now.) */
 
 /* ----------  Region B cell  ---------- */
 
@@ -1048,7 +1109,7 @@ function NeedsActionGroupSection({
   );
 }
 
-/** Dense (~40px) needs-action row: VRM plate → vehicle · provider → due pill
+/* Dense (~40px) needs-action row: VRM plate → vehicle · provider → due pill
     (only when a due date exists — absence is the signal) → peek icon-button →
     chevron. The verb lives on the group header; no per-row reason icon.
     STRUCTURE (M-F): a wrapper div carries the row chrome; the open-case hit
