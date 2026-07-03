@@ -705,6 +705,150 @@
       },
       "expected_v2": null,
       "rationale": "Smart Business Link (SBL) instruction PDF attached, body explicitly frames it as an attached instruction for a named claim. Mirrors labels.json's tier_1 entry."
+    },
+    {
+      "id": "sample-p0-1-tenlegal-instruction-am",
+      "file": "emails/Our Ref AM.8540.PI  Client Mr Muhammad Nawazish  .eml",
+      "source": "sample:29-email-analysis#P0-1",
+      "tracked": false,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "A genuine NEW solicitor instruction (Ten Legal) with a body VRM and no attachment; the standard 'arrange to inspect ... forward a copy of the report to ourselves' boilerplate previously tripped a bare copy-of-report chase phrase and demoted it to a query. P0-1 (drop the bare chase phrases) + P0-3 (add 'arrange to inspect'/'inspect our client' anchors) now let the two-phrase body instruction promote."
+    },
+    {
+      "id": "sample-p0-1-tenlegal-instruction-nv",
+      "file": "emails/Our Ref NV.8541.VD  Client Mr Belal Hussain  .eml",
+      "source": "sample:29-email-analysis#P0-1",
+      "tracked": false,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "Second Ten Legal instruction of the same shape as sample-p0-1-tenlegal-instruction-am."
+    },
+    {
+      "id": "sample-p0-2-robertjames-fresh-instruction",
+      "file": "emails/Re128086.001_Mr I Saleem.eml",
+      "source": "sample:29-email-analysis#P0-2",
+      "tracked": false,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "A fresh instruction (an attached instruction DOC) from an established provider whose subject carries the Robert James 'Re:NNNNNN.NNN' reference-scheme glued onto a bare colon. That scheme was misread as a reply (no threading header) and the fresh instruction was suppressed to a query; P0-2 requires whitespace after the reply prefix so the glued scheme is no longer a reply."
+    },
+    {
+      "id": "sample-p0-2-robertjames-instruction-images",
+      "file": "emails/Re100875.003_Mr J Siranseevi.eml",
+      "source": "sample:29-email-analysis#P0-2",
+      "tracked": false,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "Same Robert James 'Re:NNNNNN.NNN' scheme, with an instruction DOC plus a photo; a fresh instruction that must reach receiving_work, not query."
+    },
+    {
+      "id": "sample-p1-5-knightsbridge-images-reply",
+      "file": "emails/RE Ref 506115 .eml",
+      "source": "sample:29-email-analysis#P1-5",
+      "tracked": false,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "case_update",
+        "subtype": "images_received"
+      },
+      "rationale": "A reply (threading headers present) delivering genuine damage photos (non-signature IMG_* attachments) on a labelled existing ref, asking nothing. v1 has no case_update concept so query_existing_work is its best label; P1-5 routes it to case_update/images_received before Rule 4b under v2."
+    },
+    {
+      "id": "sample-p1-5-robertjames-images-reply",
+      "file": "emails/RE Re127581.001_Mr E Taullaj.eml",
+      "source": "sample:29-email-analysis#P1-5",
+      "tracked": false,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "case_update",
+        "subtype": "images_received"
+      },
+      "rationale": "A reply (outer 'RE: ' onto the Robert James scheme) delivering WhatsApp/damage photos on an existing ref, asking nothing -> case_update/images_received under v2."
+    },
+    {
+      "id": "sample-p1-5-bakercoleman-images-reply",
+      "file": "emails/RE RTA135983.001  -  Mr L Safdar- Urgent.eml",
+      "source": "sample:29-email-analysis#P1-5",
+      "tracked": false,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "case_update",
+        "subtype": "update_general"
+      },
+      "rationale": "A reply delivering vehicle-damage evidence as a PDF ('VD IMAGES pdf.pdf') alongside signature logos, on a solicitor ref; P1-4a keeps the RTA...001 ref whole (jobref, not a truncated Case/PO) and P1-5 routes it to case_update. update_general (not images_received) because the delivered evidence is a PDF, so the attachment set is not images-only."
+    },
+    {
+      "id": "sample-p1-4-parkhouse-new-instruction",
+      "file": "emails/New claim Instructions PHA 5013 - YH08 MWS.eml",
+      "source": "sample:29-email-analysis#P1-4",
+      "tracked": false,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "new_client_work"
+      },
+      "expected_v2": null,
+      "rationale": "Parkhouse (PHA) NEW instruction: an instruction PDF + an inline image + an informal 'new claim' body, with a space-separated 'PHA 5013' ref and a subject VRM. Correct business label is receiving_work/new_client_work (PHA is a NEW provider, its seed row is OPERATOR-CONFIRM, so provider_match_state=none). This is an EXPECTED BASELINE MISS: under the honest disposition-based attachment derivation only the instruction PDF is an attachment (the image is inline), so with no known provider and no formal work phrase the pure classifier cannot tell 'PHA 5013' is a NEW ref rather than an existing one and lands case_update/update_general -- the same text-signal-invisible gap as tkt023/tkt043 that Phase-2 ref-linking resolves. P1-4b (capture the space-separated 'PHA 5013' as a jobref) is verified by the unit suite; this fixture records the honest end-to-end gap."
+    },
+    {
+      "id": "sample-p2-6-oakwood-soft-confirmation",
+      "file": "emails/RE Oakwood Scotland Solicitors- Instructions.eml",
+      "source": "sample:29-email-analysis#P2-6",
+      "tracked": false,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "A soft-confirmation reply ('can I confirm ... has everything ... been sent') from a known provider that matched NO keyword pre-fix and fell to other. P2-6 adds the soft-confirmation query phrases so it lands query_existing_work."
     }
   ]
 }
