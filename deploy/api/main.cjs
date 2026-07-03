@@ -9949,7 +9949,7 @@ import_functions7.app.http("detachInboundEmail", {
       return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
     }
     const updated = await query(
-      `UPDATE inbound_email SET case_id = NULL, updated_at = now()
+      `UPDATE inbound_email SET case_id = NULL, triage_state = 'new', updated_at = now()
          WHERE id = $1 AND case_id IS NOT NULL
        RETURNING id`,
       [id]
@@ -10947,8 +10947,6 @@ import_functions9.app.http("internalTriageContext", {
         const dupRows = await q(
           `SELECT EXISTS (
                 SELECT 1 FROM case_ WHERE source_message_id = $1
-                UNION ALL
-                SELECT 1 FROM inbound_email WHERE source_message_id = $1
               ) AS found`,
           [internetMessageId]
         );
@@ -11039,7 +11037,16 @@ import_functions9.app.http("internalTriageSuggestLink", {
       const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [targetCaseId]);
       casePo = caseRows[0]?.case_po ?? null;
     }
-    const suggestedValue = suggestionType === "triage_category" ? { category: triageCategory, subtype: triageSubtype } : {
+    const suggestedValue = suggestionType === "triage_category" ? {
+      category: triageCategory,
+      subtype: triageSubtype,
+      // Carry sourceMessageId so the source_message_id-subject idempotency SELECT (used
+      // when the inbound_email row isn't resolvable yet — inboundEmailId null) can match a
+      // prior PENDING copy on a Durable at-least-once retry. Without it the dedup filters
+      // on `suggested_value->>'sourceMessageId'`, a field this branch never wrote, so it
+      // never matches and inserts a duplicate 'AI suggested category' banner.
+      ...sourceMessageId ? { sourceMessageId } : {}
+    } : {
       ...targetCaseId ? { targetCaseId } : {},
       ...casePo ? { casePo } : {},
       ...sourceMessageId ? { sourceMessageId } : {},
@@ -11672,7 +11679,7 @@ async function promoteAcceptedSuggestion(row, actor) {
       const targetCaseId = value?.targetCaseId?.trim();
       if (targetCaseId) {
         const upd = await query(
-          `UPDATE inbound_email SET case_id = $2, updated_at = now()
+          `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
              WHERE id = $1 AND case_id IS NULL RETURNING id`,
           [inboundEmailId, targetCaseId]
         );

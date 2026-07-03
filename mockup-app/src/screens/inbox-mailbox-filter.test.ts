@@ -77,4 +77,13 @@ describe('matchesMailboxFilter', () => {
     const selected = new Set(['engineers@collisionengineers.co.uk', 'info@collisionengineers.co.uk']);
     expect(matchesMailboxFilter(row, selected)).toBe(true);
   });
+
+  it('trims the row value to match its own facet chip (whitespace parity with mailboxFacets)', () => {
+    // A row whose sourceMailbox carries surrounding whitespace still produces the chip
+    // 'info@collisionengineers.co.uk' (mailboxFacets trims). The filter must match it against
+    // that trimmed chip, not the raw padded value — otherwise selecting the chip empties the list.
+    const padded = { sourceMailbox: '  info@collisionengineers.co.uk  ' };
+    const chip = mailboxFacets([padded])[0].mailbox; // 'info@collisionengineers.co.uk'
+    expect(matchesMailboxFilter(padded, new Set([chip]))).toBe(true);
+  });
 });

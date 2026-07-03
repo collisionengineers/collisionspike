@@ -35,16 +35,26 @@ export function refGateValue(s: AiSuggestion): RefGateSuggestionValue {
 
 /**
  * The first PENDING suggestion of `type` in `suggestions` — the presence check
- * that decides whether the preview banner renders at all. Only a suggestion that
- * also carries a `targetCaseId` counts: there is nothing to attach/open without
- * one, so a malformed row degrades to "no banner" rather than a dead-end action.
+ * that decides whether the preview banner renders at all. A `case_link` must carry
+ * a `targetCaseId` (there is nothing to attach/open without one, so a malformed row
+ * degrades to "no banner" rather than a dead-end action). A `cancellation` is valid
+ * WITHOUT a target — the domain explicitly supports a target-less cancellation
+ * ("this may be telling us to close a case — please find the right one"), which is
+ * exactly the case a person most needs to see; its headline degrades gracefully.
  */
 export function pendingRefGateSuggestion(
   suggestions: readonly AiSuggestion[],
   type: string,
 ): AiSuggestion | undefined {
+  // Computed on the un-narrowed `type` param: inside the predicate, `s.suggestionType === type`
+  // narrows `type` to the DTO's suggestionType union (which does not list 'cancellation'), so the
+  // comparison must live out here to stay a plain string check.
+  const targetOptional = type === CANCELLATION_SUGGESTION_TYPE;
   return suggestions.find(
-    (s) => s.reviewState === 'pending' && s.suggestionType === type && !!refGateValue(s).targetCaseId,
+    (s) =>
+      s.reviewState === 'pending' &&
+      s.suggestionType === type &&
+      (targetOptional || !!refGateValue(s).targetCaseId),
   );
 }
 

@@ -395,9 +395,13 @@ app.http('detachInboundEmail', {
     }
 
     // Conditional UPDATE — only a currently-linked row is affected, so a concurrent detach
-    // race resolves to the same honest {ok:false} rather than a double-audit.
+    // race resolves to the same honest {ok:false} rather than a double-audit. Reset triage_state
+    // to 'new' as well: a row auto-linked via the reply lane carries triage_state='routed', which
+    // (with case_id now NULL) would otherwise still render as 'Linked' (inbox-status.ts's
+    // linked-unresolved) and stay OUT of the untriaged count — an unlinked email must read as
+    // 'New' and re-enter the sort queue.
     const updated = await query<Row>(
-      `UPDATE inbound_email SET case_id = NULL, updated_at = now()
+      `UPDATE inbound_email SET case_id = NULL, triage_state = 'new', updated_at = now()
          WHERE id = $1 AND case_id IS NOT NULL
        RETURNING id`,
       [id],
