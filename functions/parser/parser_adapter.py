@@ -198,8 +198,16 @@ def run_parser(document_bytes: bytes, filename: str, provider_hint: str | None =
 
     Persists ``document_bytes`` to a temp file whose suffix is taken from
     ``filename`` (the sibling dispatches its reader by suffix), runs
-    ``process_document``, and returns the ``record_to_dict`` mapping. ``filename``
-    must carry a supported extension.
+    ``process_document``, and returns the ``record_to_dict`` mapping PLUS a
+    ``content_typing`` key (rules-engine-v2 Phase 3): the vendored engine's
+    ``detection.attachment_typing.type_document_text`` run over the SAME
+    ``document.plain_text`` ``process_document`` just extracted, typing the
+    attachment as instruction/report/junk/unknown BY CONTENT — independent of
+    (and a second opinion alongside) the record's own field-extraction
+    provider match. Additive and unconditional: no feature gate, no filename
+    input, no extra I/O — see ``detection/attachment_typing.py``'s module
+    docstring for the full precedence rules and the corroboration-gate design.
+    ``filename`` must carry a supported extension.
     """
     suffix = _suffix_for(filename)
 
@@ -210,6 +218,7 @@ def run_parser(document_bytes: bytes, filename: str, provider_hint: str | None =
     # (server 502). A missing reader dependency is a server fault and stays 502.
     try:
         from cedocumentmapper_v2.application import DocumentMapperService
+        from cedocumentmapper_v2.detection.attachment_typing import type_document_text
         from cedocumentmapper_v2.readers.errors import (
             DependencyMissingError,
             ReaderError,
@@ -233,8 +242,19 @@ def run_parser(document_bytes: bytes, filename: str, provider_hint: str | None =
             seed_path=_VENDORED_PROVIDERS_JSON,
         )
         # provider_hint maps onto the sibling's provider_selector (id or name).
-        _document, record = service.process_document(tmp_path, provider_selector=provider_hint)
-        return service.record_to_dict(record)
+        document, record = service.process_document(tmp_path, provider_selector=provider_hint)
+        result = service.record_to_dict(record)
+        # content_typing (Phase 3): a second, content-based pass over the SAME
+        # plain_text process_document already extracted. load_provider_catalog()
+        # is called again here (process_document already loaded+migrated it
+        # internally for field-extraction provider resolution) -- a small,
+        # deliberate duplication of a cheap in-memory JSON load/migrate, traded
+        # for type_document_text's standalone (text, catalog) contract, which
+        # keeps it independently testable/reusable outside this one call site.
+        result["content_typing"] = type_document_text(
+            document.plain_text, service.load_provider_catalog()
+        )
+        return result
     except ParserError:
         raise
     except DependencyMissingError as exc:
@@ -342,12 +362,14 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
 
     Returns:
         {
-          "extraction": { <12 EVA keys in order>: {value, confidence, source,
-                          warnings?}, ... },
-          "vrm":       {value, confidence, source, warnings?} | None,
-          "reference": {value, confidence, source, warnings?} | None,
-          "audit":     {value: bool, signals: [...], source} (audit case-type),
-          "issues":    [ {field, severity, code, message}, ... ],
+          "extraction":     { <12 EVA keys in order>: {value, confidence, source,
+                              warnings?}, ... },
+          "vrm":            {value, confidence, source, warnings?} | None,
+          "reference":      {value, confidence, source, warnings?} | None,
+          "audit":          {value: bool, signals: [...], source} (audit case-type),
+          "content_typing": {doc_type, provider_name, markers} (Phase 3 —
+                             instruction/report/junk/unknown, content-derived),
+          "issues":         [ {field, severity, code, message}, ... ],
         }
 
     The ``extraction`` dict is built by iterating EVA_FIELD_ORDER so the 12 keys
@@ -378,6 +400,19 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
     audit_signals = list((parser_result or {}).get("audit_signals", []) or [])
     audit = {"value": is_audit, "signals": audit_signals, "source": "instruction_text"}
 
+    # content_typing (Phase 3) — surfaced SEPARATELY (like audit/vrm/reference),
+    # NEVER in the 12-field EVA payload. run_parser() always sets this key on
+    # the LIVE path; the default here only matters for a hand-built
+    # ``parser_result`` fixture (tests predating this field, or a future caller)
+    # that omits it — falls back to the same shape an all-abstain
+    # type_document_text call would return, so the envelope is always present
+    # and never None.
+    content_typing = (parser_result or {}).get("content_typing") or {
+        "doc_type": "unknown",
+        "provider_name": None,
+        "markers": [],
+    }
+
     issues = list((parser_result or {}).get("issues", []) or [])
 
     return {
@@ -385,6 +420,7 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
         "vrm": vrm,
         "reference": reference,
         "audit": audit,
+        "content_typing": content_typing,
         "issues": issues,
     }
 

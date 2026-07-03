@@ -16,10 +16,13 @@ import './functions/subscriptionMonitor.js';
 
 // Queue intake starter → Durable orchestrator + activities
 import './functions/intake-starter.js';
+// Gated Outlook filing mover (TKT-054 / 020726 E6; OUTLOOK_MOVE_ENABLED)
+import './functions/outlook-move.js';
 import './functions/intakeOrchestrator.js';
 import './functions/activities/fetchMessage.js';
 import './functions/activities/providerMatch.js';
 import './functions/activities/classifyInbound.js';
+import './functions/activities/triagePolicy.js'; // Stage B triage policy (ADR-0019 / rules-engine-v2 Phase 2)
 import './functions/activities/linkReply.js';
 import './functions/activities/caseResolve.js';
 import './functions/activities/setIngested.js';

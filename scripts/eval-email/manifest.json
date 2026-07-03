@@ -1,0 +1,710 @@
+{
+  "$comment": [
+    "Phase-1 (Rules Engine v2 plan) real-email eval corpus for the deterministic email classifier (functions/parser/cedocumentmapper_v2/rules/email_classifier.py). NET-NEW scorer corpus -- distinct from the engine's own regression suite at test-cases-and-data/triage-corpus/labels.json (Tier 1/2, synthetic + re-typed fixtures) and functions/parser/tests/. See scripts/eval-email/README.md.",
+    "",
+    "Schema per item: id (unique slug) - file (repo-relative path to the real .eml/.msg) - source (ticket:TKT-NNN or msg-case:CODE) - tracked (bool; false means 'may be locally absent', e.g. an untracked/PII-path file -- the scorer skips gracefully) - context (overrides/augments the fields derived from the real file; provider_match_state has NO derivable default and is always a labeler judgment call here) - expected_v1 ({category, subtype}, ALWAYS present) - expected_v2 ({category, subtype} or null; null falls back to expected_v1 when scoring --taxonomy v2, per the Phase-1 plan spec 'v2 items without a v2 expectation fall back to v1') - rationale (one-line-or-more judgment note; PII-safe -- describes the SHAPE of a signal, e.g. 'a labelled ref in the subject' or 'a chase phrase asking for the report', and NEVER quotes exact subject/body sentences, vehicle registrations, claim numbers, or personal names verbatim).",
+    "",
+    "Ground truth = the CORRECT label per each ticket's stated intent (or, where a ticket documents a misclassification, what it SHOULD be) -- NOT necessarily what the current classifier outputs. Several items are expected BASELINE MISSES by design (see each rationale); this is the point of Phase 1 (record the honest gap before any rule change). v2 category/subtype names (case_update, cancellation, cancellation_notice, images_received) are the plan's own literal strings where stated, or a clearly-flagged PROPOSED placeholder where the plan names a category but not yet a subtype -- see README.md and the final build report for what is confirmed vs proposed."
+  ],
+  "items": [
+    {
+      "id": "tkt001-followup-triage",
+      "file": "docs/tickets/TKT-001-document-parsing/followup/(EREF12) RTA on 30_06_2026  Miss Nicola Granger (Our Ref REB_46487_1, Vehicle VN64WNG).eml",
+      "source": "ticket:TKT-001",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "An informal roadworthy/triage-assessment request (no formal inspect-and-report verb) from a known provider (QDOS), with an attached formal instruction letter and multiple image attachments. Rule 1's instruction-doc + known-provider path should promote directly regardless of the informal body wording."
+    },
+    {
+      "id": "tkt023-original-reply",
+      "file": "docs/tickets/TKT-023-follow-up-docs/evidence/original/Our ref 576299.eml",
+      "source": "ticket:TKT-023",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "PCH (pch-ltd.com) follow-up naming an existing claim reference via a labelled 'our reference' line, with two supplementary PDF attachments and no new-work instruction language. TKT-023's own point is this should attach to the EXISTING case, not mint a new one. Label reflects correct business intent; Rule 1 (instruction-kind PDF attachments + known-provider match) may still promote this to receiving_work today, which IS the documented bug (needs Phase 2's ref-gate -- a pure text classifier can't distinguish 'new instruction PDF' from 'supplementary PDF on an open case' without case-linking context). provider_match_state=one reflects PCH as a genuine established provider -- TKT-051 notes pch-ltd.com specifically isn't yet wired into the live domain corpus, a data-completeness gap distinct from this classifier-logic question."
+    },
+    {
+      "id": "tkt023-outbound-request",
+      "file": "docs/tickets/TKT-023-follow-up-docs/evidence/sent/RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   575985.eml",
+      "source": "ticket:TKT-023",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": null,
+      "rationale": "JUDGMENT CALL: this is OUR OWN outgoing message (from info@collisionengineers.co.uk) asking a provider contact for a document -- not a genuine inbound triage candidate. Included for corpus completeness per TKT-023's evidence set (the outgoing request that the reply in tkt023-original-reply responds to). Low-confidence label -- flagged for review; classify_email is designed for INBOUND triage and this item exercises an edge case outside its intended domain."
+    },
+    {
+      "id": "tkt029-case-summary",
+      "file": "docs/tickets/TKT-029-misclass-case-summary/evidence/New inspection requests.eml",
+      "source": "ticket:TKT-029",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "non_actionable",
+        "subtype": "case_summary"
+      },
+      "expected_v2": null,
+      "rationale": "AX digest email enumerating many previously-instructed cases -- not a fresh instruction. Plan evidence base confirms this is already correctly handled live (digest -> case_summary)."
+    },
+    {
+      "id": "tkt030-chaser",
+      "file": "docs/tickets/TKT-030-misclass-chasing-report/evidence/RE 30143 - Mussie Belay  -  BX67OEY  .eml",
+      "source": "ticket:TKT-030",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "Fairway Legal (FW) reply chasing our engineer's report on an existing case. Plan evidence base confirms this is already correctly handled live (chaser -> query_existing_work); shares the thread-scoping fix with TKT-033 (same underlying file, different ticket framing)."
+    },
+    {
+      "id": "tkt031-client-chaser",
+      "file": "docs/tickets/TKT-031-misclass-client-chasing/evidence/(EREF12) RTA on 15_06_2026  Mr Daniel James Page (Our Ref SAB_46286_1, Vehicle HN13XMO).eml",
+      "source": "ticket:TKT-031",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "QDOS chase (a 'no response yet' complaint plus a request for the report) naming an existing labelled ref. The engine's own _job_reference docstring cites TKT-031 directly as informing the current rule design, so this is expected to already pass."
+    },
+    {
+      "id": "tkt032-audatex-request",
+      "file": "docs/tickets/TKT-032-misclass-defer-routing/evidence/audatex-request/Our ref 575689.eml",
+      "source": "ticket:TKT-032",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "JUDGMENT CALL, LOW CONFIDENCE: TKT-032 is explicitly operator-BLOCKED/deferred ('best routing... not yet clear'). Connexus (intermediary, not itself a work provider -- ADR-0011/TKT-021/TKT-051) asks us to supply a valuation/estimate document on an existing labelled ref. Best-effort placeholder pending the operator's routing decision; provider_match_state=none reflects Connexus as an unresolved intermediary domain pre-Phase-3."
+    },
+    {
+      "id": "tkt032-pcd-diminution",
+      "file": "docs/tickets/TKT-032-misclass-defer-routing/evidence/pcd-diminution/Our ref 576299.eml",
+      "source": "ticket:TKT-032",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "JUDGMENT CALL, LOW CONFIDENCE: identical content to tkt023-original-reply (same PCH claim, duplicated into both ticket evidence folders) but TKT-032 frames it as operator-BLOCKED/deferred rather than TKT-023's clearer 'should link to existing case' framing. Label mirrors tkt023-original-reply for consistency; flagged for operator review given TKT-032's blocked status."
+    },
+    {
+      "id": "tkt033-reply-existing-query",
+      "file": "docs/tickets/TKT-033-misclass-email-reply/evidence/RE 30143 - Mussie Belay  -  BX67OEY  .eml",
+      "source": "ticket:TKT-033",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "Same underlying file as tkt030-chaser (Fairway Legal, case thread) but a different reply-in-thread instance (a further chase for the report). Plan evidence base confirms already correctly handled live."
+    },
+    {
+      "id": "tkt034-images-no-match",
+      "file": "docs/tickets/TKT-034-images-received-routing/evidence/RE Re127581.001_Mr E Taullaj.eml",
+      "source": "ticket:TKT-034",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "Robert James Solicitors (RJS) reply attaching damage images, referencing a structured job ref in the subject, no viewable registration, case not yet on our system (worst-case fallback per the ticket). is_reply + an extractable ref -> query_existing_work is the closest v1 taxonomy fit. TKT-034's DEEPER ask (a 3-step match->reg-keyed-Box->flag fallback chain, and an Enquiries/Case-Queries split) is a v2/Phase-2 policy concept the v1 category taxonomy cannot express -- a v1 PASS here would not mean the ticket is 'done', only that the category-level text signal is reasonable."
+    },
+    {
+      "id": "tkt036-instructions-misclass",
+      "file": "docs/tickets/TKT-036-misclass-instructions/evidence/Our Ref 206848.001 - Kassar Saeed - New eng ins.eml",
+      "source": "ticket:TKT-036",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "new_client_work"
+      },
+      "expected_v2": null,
+      "rationale": "A firm not in the current provider corpus / providers.json sends a subject cueing new engineer instructions, with an attached formal instructions document plus photos. TKT-036's acceptance criterion is explicit: should classify as instructions/new-case work, not a query. provider_match_state=none (sender not recognised) so the correct subtype is new_client_work."
+    },
+    {
+      "id": "tkt037-invoice-request",
+      "file": "docs/tickets/TKT-037-misclass-invoice-request/evidence/Your Ref kbs26067 __ Our Ref 303671 .eml",
+      "source": "ticket:TKT-037",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "billing",
+        "subtype": "billing_request"
+      },
+      "expected_v2": null,
+      "rationale": "Knightsbridge Solicitors (KBS) asks us to invoice for previously-completed work, with our own engineer's report re-attached. Plan evidence base confirms already correctly handled live (invoice request -> billing)."
+    },
+    {
+      "id": "tkt038-bare-ack",
+      "file": "docs/tickets/TKT-038-misclass-query-ack/evidence/RE Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
+      "source": "ticket:TKT-038",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "non_actionable",
+        "subtype": "acknowledgement"
+      },
+      "expected_v2": null,
+      "rationale": "QDOS reply whose entire body is a bare two-word pleasantry (per the ticket's own title). Plan evidence base confirms already correctly handled live (bare ack -> acknowledgement)."
+    },
+    {
+      "id": "tkt039-report-support",
+      "file": "docs/tickets/TKT-039-misclass-query-report-support/evidence/Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
+      "source": "ticket:TKT-039",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "QDOS asks for supporting arguments on an existing (cost-disputed) report, our own engineer's report re-attached, labelled ref in subject. The engine's Rule 4c docstring cites TKT-039 directly as the scenario it targets (report attachment + reference -> query_existing_work), so expected to already pass."
+    },
+    {
+      "id": "tkt040-roadworthy-informal",
+      "file": "docs/tickets/TKT-040-misclass-roadworthy-request/evidence/(EREF5) RTA on 27_06_2026  Mr Mohammed Osman Ahmed (Our Ref HMA_46428_1, Vehicle WN14XPZ).eml",
+      "source": "ticket:TKT-040",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "QDOS informal roadworthy-assessment request (no formal inspect-and-report verb) with damage photos + labelled ref. Plan live-probe evidence confirms already correctly handled (roadworthy+photos -> receiving_work)."
+    },
+    {
+      "id": "tkt041-01-cancel-notice-sbl",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim Cancelled - SBL-B0521876.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "SBL blunt cancellation broadcast (a standard 'claim has been cancelled, disregard outstanding instructions' template), not a reply, no question/chase language. Same template as a sibling cancellation email the plan's live-probe confirmed lands at other/other today. v2 subtype name 'cancellation_notice' is a PROPOSED placeholder -- the plan names the cancellation CATEGORY but not a subtype; not yet a confirmed design decision."
+    },
+    {
+      "id": "tkt041-02-cancel-notice-sbl",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim Cancelled - SBL-B0649696.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "The exact email the plan's evidence base live-probed and confirmed lands at other/other at abstain confidence today (TKT-041 -- no cancellation concept). This is a CONFIRMED-by-live-probe v1 label, not just a judgment call."
+    },
+    {
+      "id": "tkt041-03-closure-notice-ax",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1062608.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "AX blunt closure broadcast (a short 'please cancel previous instructions, the repair is cancelled' template), not a reply, no question/chase language -- same consistent test as the SBL notices above."
+    },
+    {
+      "id": "tkt041-04-closure-notice-ax",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1069305.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "AX blunt closure broadcast, identical template to tkt041-03-closure-notice-ax for a different vehicle/claim."
+    },
+    {
+      "id": "tkt041-05-closure-notice-ax",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1070680.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "AX blunt closure broadcast, identical template to tkt041-03/04 for a different vehicle/claim."
+    },
+    {
+      "id": "tkt041-06-hold-request",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Client Mr Shah Zaib  __ Engineer Instruction - VRN BR19 OTA __ Attention Required.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "JUDGMENT CALL: a firm not in the recognised provider corpus asks us to pause work on a specific file until further notice -- a HOLD, distinct from cancellation (the case explicitly stays open, work resumes later). Not a reply, but names a specific vehicle reg in the subject. v1: closest fit is query_existing_work (about a specific existing job, needs staff attention). v2: the plan does NOT define a 'hold' category/subtype distinct from cancellation -- this is a genuine taxonomy gap worth flagging to the operator, not something this eval invents an answer for (expected_v2 left null / falls back to v1)."
+    },
+    {
+      "id": "tkt041-07-forward-cancel-instructions",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/FW New Instruction - Lisa McKinney - RJP_81547.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "DFD forwards (FW:, so is_reply=False by the engine's own forward-is-never-a-reply rule) an original new-instruction email, but the FORWARDER's own new text asks us to close the file because the client has cancelled instructions. Good near-miss-negative: the quoted original carries a genuine instruction-kind attachment from a known provider, so Rule 1 (instruction doc + known provider, not is_reply-suppressed since this is a forward not a reply) may well promote this to receiving_work today -- a plausible, informative false positive this corpus item is designed to surface."
+    },
+    {
+      "id": "tkt041-08-reply-cancel-conditional",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE (EREF10) RTA on 08_09_2025  Mr Benjamin Fernando Hannington (Our Ref _39569_1, Vehicle BW21WOD).eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "QDOS reply (RE:, in-reply-to header present) -- a conditional cancellation request (cancel if the report is not already done) tied to a change in the client's claim status. Names a vehicle reg in the subject; is_reply + reference is the engine's existing query_existing_work trigger (Rule 4b) for a reply-with-reference, independent of the cancellation wording."
+    },
+    {
+      "id": "tkt041-09-reply-cancel-hireonly",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE (EREF8) RTA on 25_06_2026  Mr Viv Richards (Our Ref _46407_1, Vehicle WH19NXW).eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "QDOS reply asking us to cancel the instruction because the claim has turned out to be hire-only. Same shape as tkt041-08 (is_reply + vehicle reg in subject)."
+    },
+    {
+      "id": "tkt041-10-reply-cancel-instructions",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Client Mr Bilal Hafeez  __ Engineer Instruction - VRN T3L JN.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "A firm not in the recognised provider corpus replies asking us to cancel the instructions on their side. Names a vehicle reg in the subject in an UNUSUAL spacing/format that may not cleanly match the engine's well-formed VRM regex -- flagged as a possible extraction-gap diagnostic (label reflects business intent: a reply about a specific existing instruction)."
+    },
+    {
+      "id": "tkt041-11-reply-cancel-claim",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Engineer Instruction - SBL-A1216630.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "SBL reply confirming a claim has been cancelled on their end. is_reply is True; the claim number rides only in the subject in a hyphenated shape the engine's ref regexes may not extract cleanly (no 'our ref'/'claim' label word immediately precedes it) -- another possible extraction-gap diagnostic; label reflects business intent."
+    },
+    {
+      "id": "tkt041-12-reply-cancel-multi-ref",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Estimate please.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "AX reply -- the sender's new text is a terse instruction to cancel ONE specific vehicle, with a quoted status-update history mentioning three other unrelated vehicles (not a digest -- those are VRM-shaped tokens, not Case/PO-shaped refs, so the digest-detector's Case/PO count does not trip). is_reply + a well-formed vehicle reg in the sender's own new text -> query_existing_work."
+    },
+    {
+      "id": "tkt041-13-reply-cancel-inspection",
+      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Inspection Request Fax Sent - Claim ID 1069534.eml",
+      "source": "ticket:TKT-041",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "AX reply asking us to cancel an inspection. is_reply is True, but the only reference is a 'Claim ID <number>' phrasing in the subject that the engine's labelled-ref regex likely does not recognise (the label alternatives are 'our ref/your ref/ref/claim(no)?', not 'claim ID') and the bare number alone does not match the structured-ref pattern either -- a plausible v1 MISS (falls through to other/other) despite the clear business intent; kept consistent with the other reply-cancellations in this ticket rather than carved out as a special case."
+    },
+    {
+      "id": "tkt043-images-existing-case",
+      "file": "docs/tickets/TKT-043-misclass-images-received/RE Ref160404_GN14GBE_Nissan Qashqai Tekna_Mr Louis Cannell - Chaser for engineers report.eml",
+      "source": "ticket:TKT-043",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "case_update",
+        "subtype": "images_received"
+      },
+      "rationale": "Auto Logistic Solutions (ALS) chaser for our engineer's report on a named existing case (labelled ref + vehicle reg in subject), carrying an images PDF. Same shape as the confirmed TKT-030/033 chaser pattern -- is_reply + reference -> query_existing_work. v2: this sample DOES resolve to a specific existing case (unlike TKT-034's genuinely-unmatched worst case), matching the plan's 'images-received, matched -> suggest-attach + Box' branch -- proposed as case_update/images_received."
+    },
+    {
+      "id": "tkt050-ax-instruction",
+      "file": "docs/tickets/TKT-050-ax-pdf-extract/evidence/new-inspection-request-ax-ref1074398.eml",
+      "source": "ticket:TKT-050",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "AX standard credit-repair inspection instruction with an attached instruction PDF -- a clean positive/sanity-check item (TKT-050 itself is about PDF field-extraction depth, not classification)."
+    },
+    {
+      "id": "tkt051-pch-connexus",
+      "file": "docs/tickets/TKT-051-pch-connexus/Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)  577349.eml",
+      "source": "ticket:TKT-051",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "new_client_work"
+      },
+      "expected_v2": null,
+      "rationale": "PCH inspection/audit request routed via Connexus (intermediary domain, provider_match_state=none pre-Phase-3 -- ADR-0011). The doc-content genuinely identifies the provider by name, but classify_email cannot see attachment CONTENT, only filenames/kinds -- that's exactly TKT-051/Phase-3's point. Note: one attachment filename itself contains the word 'audit' (an audit-report-titled DOC), which trips the has_report_attachment filename heuristic even though this is a NEW request, not a completed report being returned -- a plausible false-suppression worth flagging as a real corpus find."
+    },
+    {
+      "id": "tkt053-accident-date-triage",
+      "file": "docs/tickets/TKT-053-accident-date/(EREF8) RTA on 21_06_2026  Mr David Hooper (Our Ref SAB_46492_1, Vehicle RJ08LDE).eml",
+      "source": "ticket:TKT-053",
+      "tracked": false,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "UNTRACKED file (docs/tickets/TKT-053-accident-date/ is new/uncommitted at authoring time). QDOS informal roadworthy-assessment template, same shape as tkt040-roadworthy-informal (informal work request + damage photos + labelled ref) -- a regression sanity-check instance of the TKT-040 fix pattern. TKT-053 itself is about accident-date field extraction, not classification."
+    },
+    {
+      "id": "A.PCH261269",
+      "file": "test-cases-and-data/test-cases/A.PCH261269/A.PCH261269/Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd) 576402.msg",
+      "source": "msg-case:A.PCH261269",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_audit"
+      },
+      "expected_v2": null,
+      "rationale": "Audit case (Case/PO 'A.' prefix) arriving via Connexus for PCH. Mirrors test-cases-and-data/triage-corpus/labels.json's tier_1 entry for this exact case code (also expected existing_provider_audit). NOTE: neither the subject nor body of the REAL email contains the word 'audit' anywhere -- only the attached DOC's filename does, and classify_email's audit-phrase detector reads body text only, not filenames. The synthetic labels.json fixture deliberately included an audit phrase in its body text; this real email does not. A subtype MISS (existing_provider_instruction instead of _audit) is plausible and is a genuine, informative real-vs-synthetic corpus gap -- category-level (receiving_work) should still match."
+    },
+    {
+      "id": "A.PCH261272",
+      "file": "test-cases-and-data/test-cases/A.PCH261272/A.PCH261272/Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd).msg",
+      "source": "msg-case:A.PCH261272",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_audit"
+      },
+      "expected_v2": null,
+      "rationale": "Second PCH-via-Connexus audit case; same 'audit only in the attachment filename, not the body text' note as A.PCH261269."
+    },
+    {
+      "id": "ALS26066",
+      "file": "test-cases-and-data/test-cases/ALS26066/ALS26066/New Inspection Instruction.msg",
+      "source": "msg-case:ALS26066",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "Auto Logistic Solutions (ALS) new inspection instruction, instruction DOC + image PDFs attached. Mirrors labels.json's tier_1 entry for this case code."
+    },
+    {
+      "id": "AX26353",
+      "file": "test-cases-and-data/test-cases/AX26353/AX26353/New inspection request - AX Ref_1070571.msg",
+      "source": "msg-case:AX26353",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "AX standard credit-repair inspection instruction, instruction PDF attached. Mirrors labels.json's tier_1 entry for this case code."
+    },
+    {
+      "id": "BLACK26112",
+      "file": "test-cases-and-data/test-cases/BLACK26112/BLACK26112/Our Client - Mohammad Ishaq Khattak  _  Our Reference - 261569SA.msg",
+      "source": "msg-case:BLACK26112",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "Blackstone Legal new-instruction letter, instruction PDF attached. Mirrors labels.json's tier_1 entry for this case code."
+    },
+    {
+      "id": "DFD26088",
+      "file": "test-cases-and-data/test-cases/DFD26088/DFD26088/New Instruction - Samantha Wilson - Our Ref_ RJP_81517.msg",
+      "source": "msg-case:DFD26088",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "Davison Flynn Duke (DFD) instruction request form attached; the email body itself is thin (a one-line note about photos following separately) -- Rule 1's known-provider + instruction-doc path does not require body work-language, so this should still promote cleanly. Mirrors labels.json's tier_1 entry."
+    },
+    {
+      "id": "FW26251",
+      "file": "test-cases-and-data/test-cases/FW26251/FW26251/INSPECTION REQUEST_ 30061 Tesse Rochester PJ18OGD.msg",
+      "source": "msg-case:FW26251",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "Fairway Legal (FW) new-instructions email -- work phrase (an inspect-the-vehicle request) + labelled ref + vehicle reg in body, photos attached (no formal instruction doc) -- Rule 2 (images + work signal) path. Mirrors labels.json's tier_1 entry."
+    },
+    {
+      "id": "KERR26028",
+      "file": "test-cases-and-data/test-cases/KERR26028/KERR26028/NEW INSTRUCTIONS - Kirkcaldy - Megan Randall -  Our ref_ SR_VRL_1_5334.msg",
+      "source": "msg-case:KERR26028",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "Kerr Brown (KERR) inspection request -- work phrase + vehicle reg + labelled ref in body, but UNLIKE labels.json's synthetic fixture (which assumed an instruction attachment) this REAL email has NO attachment at all -- a genuine body-only-instruction (Rule 3, >=2 work phrases + ref/VRM) test. Flagged as a plausible miss if the two-phrase floor isn't met by the real prose."
+    },
+    {
+      "id": "MP26071",
+      "file": "test-cases-and-data/test-cases/MP26071/MP26071/New Instruction - RA6458887.msg",
+      "source": "msg-case:MP26071",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "Montreal Prestige (MP) new-instruction PDF + photos attached; body itself is just a sign-off (the instruction content lives in the attached PDF) -- Rule 1's known-provider path does not require body work-language. Mirrors labels.json's tier_1 entry."
+    },
+    {
+      "id": "QDOS261253",
+      "file": "test-cases-and-data/test-cases/QDOS261253/QDOS261253/(EREF9) RTA on 25_04_2026 _ Mrs Karin Solomons (Our Ref_ JF_SBU_45190_1_ Vehicle_ LD71OGY).msg",
+      "source": "msg-case:QDOS261253",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "QDOS instruction-letter PDF attached; thin body (signature only). Mirrors labels.json's tier_1 entry."
+    },
+    {
+      "id": "QDOS261530",
+      "file": "test-cases-and-data/test-cases/QDOS261530/QDOS261530/(EREF7) RTA on 19_06_2026 _ Mr Rocco Dixon (Our Ref_ LR_JMO_46227_1_ Vehicle_ FN14NWO).msg",
+      "source": "msg-case:QDOS261530",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "QDOS instruction-letter PDF + damage photos attached; thin body. Mirrors labels.json's tier_1 entry."
+    },
+    {
+      "id": "SBL26149",
+      "file": "test-cases-and-data/test-cases/SBL26149/SBL26149/Engineer Instruction - SBL-B0687738.msg",
+      "source": "msg-case:SBL26149",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "Smart Business Link (SBL) instruction PDF attached, body explicitly frames it as an attached instruction for a named claim. Mirrors labels.json's tier_1 entry."
+    }
+  ]
+}

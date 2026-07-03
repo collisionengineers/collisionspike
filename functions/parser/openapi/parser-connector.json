@@ -190,6 +190,34 @@
         }
       }
     },
+    "ContentTyping": {
+      "type": "object",
+      "description": "Content-based attachment typing (rules-engine-v2 Phase 3) — surfaced SEPARATELY (like vrm/reference/audit), NEVER part of the EVA payload. Computed by the vendored engine's detection.attachment_typing.type_document_text over the parsed document's OWN extracted text (never the filename). Additive and unconditional: no feature gate, always present. This is a /parse RESPONSE field only today, not yet a classify-email input — the email-intake pipeline classifies the email (step 1.5) before this document parse ever runs (step 4), so a pipeline reorder would be needed before this can feed the email classifier's corroboration gate; see PROVENANCE.md.",
+      "properties": {
+        "doc_type": {
+          "type": "string",
+          "description": "The document's type BY CONTENT alone (never filename/extension).",
+          "enum": [
+            "instruction",
+            "report",
+            "junk",
+            "unknown"
+          ]
+        },
+        "provider_name": {
+          "type": "string",
+          "x-nullable": true,
+          "description": "The provider whose detect_phrases matched the text, or null when no provider was recognised."
+        },
+        "markers": {
+          "type": "array",
+          "description": "The exact phrase(s) / provider match that fired, for explainability (mirrors ClassifyEmailResponse.signals).",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "Issue": {
       "type": "object",
       "properties": {
@@ -224,6 +252,10 @@
         "audit": {
           "$ref": "#/definitions/Audit",
           "description": "Audit case-type signal. NOT part of the EVA payload."
+        },
+        "content_typing": {
+          "$ref": "#/definitions/ContentTyping",
+          "description": "Content-based attachment typing (rules-engine-v2 Phase 3). NOT part of the EVA payload."
         },
         "issues": {
           "type": "array",
@@ -272,6 +304,13 @@
             "type": "string"
           }
         },
+        "attachment_filenames": {
+          "type": "array",
+          "description": "The filenames of the email's attachments, e.g. [\"engineer-report.pdf\"]. Used for content-agnostic, filename-regex report detection (has_report_attachment) alongside attachment_kinds. Optional — must be a list when provided; an empty list / absent means no attachments.",
+          "items": {
+            "type": "string"
+          }
+        },
         "has_attachments": {
           "type": "boolean",
           "description": "Whether the email carried any attachment."
@@ -292,23 +331,33 @@
       "properties": {
         "category": {
           "type": "string",
-          "description": "The top-level triage category: 'receiving_work' | 'query' | 'other'.",
+          "description": "The top-level triage category: 'receiving_work' | 'query' | 'billing' | 'non_actionable' | 'other' | 'case_update' | 'cancellation'. The last two are taxonomy v2 (additive; see taxonomy_version).",
           "enum": [
             "receiving_work",
             "query",
-            "other"
+            "billing",
+            "non_actionable",
+            "other",
+            "case_update",
+            "cancellation"
           ]
         },
         "subtype": {
           "type": "string",
-          "description": "The triage subtype: 'existing_provider_instruction' | 'existing_provider_audit' | 'new_client_work' | 'query_existing_work' | 'query_new_enquiry' | 'other'.",
+          "description": "The triage subtype: 'existing_provider_instruction' | 'existing_provider_audit' | 'new_client_work' | 'query_existing_work' | 'query_new_enquiry' | 'billing_request' | 'case_summary' | 'acknowledgement' | 'other' | 'images_received' | 'update_general' | 'cancellation_notice'. The last three are taxonomy v2 (additive; see taxonomy_version).",
           "enum": [
             "existing_provider_instruction",
             "existing_provider_audit",
             "new_client_work",
             "query_existing_work",
             "query_new_enquiry",
-            "other"
+            "billing_request",
+            "case_summary",
+            "acknowledgement",
+            "other",
+            "images_received",
+            "update_general",
+            "cancellation_notice"
           ]
         },
         "confidence": {
@@ -335,9 +384,17 @@
           "type": "string",
           "description": "The first Case/PO found in subject+body, or empty. The caller links by Case/PO first, registration only as a fallback; the classifier never auto-links."
         },
+        "body_jobref": {
+          "type": "string",
+          "description": "The first provider job/claim reference found in subject+body (distinct from the Case/PO format), or empty. Surfaced for the caller's open-Case ref-gate lookup; the classifier never auto-links."
+        },
         "contract_version": {
           "type": "string",
-          "description": "The classifier contract tag (distinct from the /parse EVA contract tag so a consumer can tell the two envelopes apart)."
+          "description": "The classifier contract tag (distinct from the /parse EVA contract tag so a consumer can tell the two envelopes apart). Unchanged by the taxonomy v2 bump — see taxonomy_version for that."
+        },
+        "taxonomy_version": {
+          "type": "integer",
+          "description": "The taxonomy generation this row was labelled at (currently 2: adds the case_update/cancellation categories and their subtypes on top of v1's receiving_work/query/billing/non_actionable/other). A consumer uses this to tell which category/subtype codes a row may carry — existing rows keep their original-generation codes; there is no backfill on a taxonomy bump."
         }
       }
     }

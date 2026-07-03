@@ -1,21 +1,29 @@
 /**
  * api/src/functions/inbound.ts — inbox / triage HTTP routes (Phase 8 + work-todo-spike).
  *
- * DataAccess methods 27–29 (plan 21 §21.1) + the work-todo-spike email-management work:
+ * DataAccess methods 27–29 (plan 21 §21.1) + the work-todo-spike email-management work +
+ * the rules-engine-v2 Phase 2 ref-gate surface (ADR-0019):
  *   27 GET   /api/inbound?category=&subtype=&view=  inboundEmails (ACTIVE-FIRST; honest [])
  *   28 GET   /api/inbound/counts                    inboundEmailCounts (active-first; honest zero)
  *   29 POST  /api/inbound/{id}/triage               setTriageState (validated; 404/400/500; audited)
  *   --  PATCH /api/inbound/{id}/classification       reclassifyInbound (override capture)
+ *   --  GET   /api/inbound/{id}/suggestions          AiSuggestion[] for this inbound (honest [])
+ *   --  POST  /api/inbound/{id}/detach               unlink from its case (idempotent; audited)
+ *   --  POST  /api/inbound/{id}/outlook-move         gated Outlook filing enqueue (TKT-054; 409 while off)
  *
- * Read endpoints 27 + 28 stay "honest-empty" on ANY read failure (table not wired / read
- * error) so the SPA never hard-fails. The WRITE endpoints are now trustworthy: 29 validates
- * the state, uses RETURNING (404 on unknown id), surfaces real DB errors (500), and writes a
- * staff-action audit row; reclassify captures the suggested-vs-chosen override.
+ * Read endpoints 27 + 28 (+ the new suggestions list) stay "honest-empty" on ANY read
+ * failure (table not wired / read error) so the SPA never hard-fails. The WRITE endpoints
+ * are trustworthy: 29 validates the state, uses RETURNING (404 on unknown id), surfaces real
+ * DB errors (500), and writes a staff-action audit row; reclassify captures the
+ * suggested-vs-chosen override; detach is idempotent (ok:false, not an error, when already
+ * unlinked) and never touches Box (ADR-0012/0017: one-way archive — see its own doc comment).
  */
 
 import { app } from '@azure/functions';
 import {
   INBOUND_COUNTS_ZERO,
+  suggestedOutlookFolder,
+  type AiSuggestion,
   type InboundCategory,
   type InboundCounts,
   type InboundEmail,
@@ -24,6 +32,8 @@ import {
 } from '@cs/domain';
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
+import { gates } from '../lib/gates.js';
+import { enqueueOutlookMove } from '../lib/outlook-queue.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit, type AuditAction } from '../lib/audit.js';
 import {
   INBOUND_CATEGORY_TO_INT,
@@ -33,6 +43,7 @@ import {
   inboundViewWhere,
   isValidTriageState,
   richTagToClassification,
+  rowToAiSuggestion,
   rowToInboundEmail,
   tallyActiveInboundCounts,
   type Row,
@@ -60,14 +71,19 @@ app.http('inboundEmails', {
       const params: unknown[] = [];
       if (category && category in INBOUND_CATEGORY_TO_INT) {
         params.push(INBOUND_CATEGORY_TO_INT[category]);
-        clauses.push(`category_code = $${params.length}`);
+        clauses.push(`inbound_email.category_code = $${params.length}`);
       }
       // Active-first: default hides handled (actioned/dismissed) rows; view= switches the slice.
       const viewClause = inboundViewWhere(view);
       if (viewClause) clauses.push(viewClause);
       const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+      // LEFT JOIN pulls the linked case's Case/PO onto the row (TKT-054 status cell).
+      // inbound_email.* keeps the shared column names (id/name/source_mailbox/…) unambiguous.
       const rows = await query<Row>(
-        `SELECT * FROM inbound_email ${where} ORDER BY received_on DESC`,
+        `SELECT inbound_email.*, c.case_po AS case_po
+           FROM inbound_email
+           LEFT JOIN case_ c ON c.id = inbound_email.case_id
+           ${where} ORDER BY inbound_email.received_on DESC`,
         params,
       );
       let result: InboundEmail[] = rows.map(rowToInboundEmail);
@@ -141,6 +157,84 @@ app.http('setTriageState', {
     });
 
     return { status: 204 };
+  }),
+});
+
+// POST /api/inbound/{id}/outlook-move   (TKT-054 / 020726 E6 — gated Outlook filing)
+// Honest 409 while OUTLOOK_MOVE_ENABLED is off / queue unconfigured. The destination
+// folder is SERVER-derived from the row's own e-mail type (never client-supplied);
+// the actual Graph move runs in the orchestration app off the `outlook-move` queue,
+// which reports back via POST /api/internal/inbound/{id}/outlook-moved.
+app.http('moveInboundToOutlook', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'inbound/{id}/outlook-move',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    if (!gates.outlookMoveEnabled()) {
+      return { status: 409, jsonBody: { error: 'outlook filing is not enabled' } };
+    }
+    const id = req.params.id;
+    const existing = await query<Row>(
+      `SELECT id, source_message_id, source_mailbox, subtype_code, suggested_subtype_code,
+              case_id, outlook_move_state
+         FROM inbound_email WHERE id = $1`,
+      [id],
+    );
+    const row = existing[0];
+    if (!row) return { status: 404, jsonBody: { error: 'not found' } };
+    if (row.outlook_move_state === 'moved') {
+      return { status: 409, jsonBody: { error: 'already filed' } };
+    }
+    if (!row.source_message_id || !row.source_mailbox) {
+      return { status: 409, jsonBody: { error: 'no mailbox provenance to act on' } };
+    }
+
+    // File per the CURRENT (staff-chosen) type; the classifier's original only as fallback.
+    const subtype: InboundSubtype =
+      inboundSubtypeFromInt(row.subtype_code) ?? inboundSubtypeFromInt(row.suggested_subtype_code) ?? 'other';
+    const folder = suggestedOutlookFolder(subtype);
+
+    // Mark queued BEFORE enqueueing (a delivered job must never race an unmarked row);
+    // revert to failed if the enqueue itself cannot be placed.
+    await query(
+      `UPDATE inbound_email
+          SET outlook_move_state = 'queued', outlook_moved_folder = $2, updated_at = now()
+        WHERE id = $1`,
+      [id, folder],
+    );
+    const actor = actorFromClaims(claims);
+    try {
+      await enqueueOutlookMove({
+        inboundEmailId: id,
+        sourceMailbox: String(row.source_mailbox),
+        sourceMessageId: String(row.source_message_id),
+        targetFolderPath: folder,
+      });
+    } catch (e) {
+      await query(
+        `UPDATE inbound_email
+            SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
+          WHERE id = $1`,
+        [id],
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.outlook_move_failed,
+        ...(row.case_id ? { caseId: row.case_id as string } : {}),
+        summary: `Outlook filing could not be queued (${folder})`,
+        severity: 'warning',
+        after: { inboundEmailId: id, folder, detail: e instanceof Error ? e.message.slice(0, 300) : String(e) },
+        ...(actor ? { actor } : {}),
+      });
+      return { status: 503, jsonBody: { error: 'filing queue unavailable' } };
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.outlook_move_requested,
+      ...(row.case_id ? { caseId: row.case_id as string } : {}),
+      summary: `Outlook filing requested -> ${folder}`,
+      after: { inboundEmailId: id, folder, sourceMessageId: row.source_message_id },
+      ...(actor ? { actor } : {}),
+    });
+    return { status: 202, jsonBody: { queued: true, folder } };
   }),
 });
 
@@ -251,12 +345,101 @@ app.http('reclassifyInbound', {
   }),
 });
 
+// GET /api/inbound/{id}/suggestions — AI suggestions for ONE inbound email, pending first
+// (rules-engine-v2 Phase 2, ADR-0019: the ref-gate/cancellation suggestions suggest-link
+// writes land here too, alongside any other producer). Mirrors caseAiSuggestions's
+// mapping/honest-[] style (ai-suggestions.ts) — the ai_suggestion table may be unwired on an
+// older DB, so any read failure degrades to an empty list rather than a hard failure.
+app.http('inboundEmailSuggestions', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'inbound/{id}/suggestions',
+  handler: withRole('CollisionSpike.User', async (req) => {
+    try {
+      const id = req.params.id;
+      const rows = await query<Row>(
+        `SELECT * FROM ai_suggestion
+          WHERE inbound_email_id = $1
+          ORDER BY (review_state = 'pending') DESC, created_at DESC
+          LIMIT 100`,
+        [id],
+      );
+      const result: AiSuggestion[] = rows.map(rowToAiSuggestion);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] }; // honest-empty on any read failure
+    }
+  }),
+});
+
+// POST /api/inbound/{id}/detach — unlink an inbound email from its case (e.g. a ref-gate
+// suggestion or a linked reply attached it to the wrong case). Sets case_id NULL only when
+// currently set; 404 on an unknown row; idempotent {ok:false} (not an error) when the row is
+// already unlinked — matches the repo's {applied:false}/{promoted:false} idiom for a benign
+// no-op rather than inventing a 409 for "there was nothing to do". ADR-0012/0017: the
+// archive (Box) mirror is ONE-WAY — detaching here does NOT un-archive or move anything in
+// Box; the audit after-state carries a note so a person can follow the manual-cleanup
+// runbook separately.
+app.http('detachInboundEmail', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'inbound/{id}/detach',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const existing = await query<Row>('SELECT id, case_id FROM inbound_email WHERE id = $1', [id]);
+    if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
+
+    const oldCaseId = (existing[0].case_id as string | null) ?? null;
+    if (!oldCaseId) {
+      return { status: 200, jsonBody: { ok: false, reason: 'not_linked' } };
+    }
+
+    // Conditional UPDATE — only a currently-linked row is affected, so a concurrent detach
+    // race resolves to the same honest {ok:false} rather than a double-audit. Reset triage_state
+    // to 'new' as well: a row auto-linked via the reply lane carries triage_state='routed', which
+    // (with case_id now NULL) would otherwise still render as 'Linked' (inbox-status.ts's
+    // linked-unresolved) and stay OUT of the untriaged count — an unlinked email must read as
+    // 'New' and re-enter the sort queue.
+    const updated = await query<Row>(
+      `UPDATE inbound_email SET case_id = NULL, triage_state = 'new', updated_at = now()
+         WHERE id = $1 AND case_id IS NOT NULL
+       RETURNING id`,
+      [id],
+    );
+    if (!updated[0]) {
+      return { status: 200, jsonBody: { ok: false, reason: 'not_linked' } };
+    }
+
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.inbound_detached,
+      caseId: oldCaseId,
+      summary: 'Inbound email unlinked from case',
+      before: { caseId: oldCaseId },
+      after: {
+        caseId: null,
+        inboundEmailId: id,
+        note: 'Archive folder is a one-way mirror — any archive cleanup for this email is manual (ADR-0012/0017).',
+      },
+      ...(actor ? { actor } : {}),
+    });
+
+    return { status: 200, jsonBody: { ok: true } };
+  }),
+});
+
 /**
  * Best-effort append of an improvement_signal row capturing a suggested-vs-chosen override.
  * Classification = parser_rule_candidate (the classifier picked the wrong label — a candidate
  * for a rule fix). Never throws — a feedback-write failure must not sink the reclassify.
+ *
+ * Exported for reuse by ai-suggestions.ts's promoteAcceptedSuggestion (rules-engine-v2
+ * Phase 4): an ACCEPTED 'triage_category' AI suggestion applies category_code/subtype_code
+ * the same way a staff reclassify does, and should feed the SAME feedback-provenance trail
+ * — reused here rather than re-implemented, per this repo's own "read it; reuse/extract
+ * rather than duplicate" convention.
  */
-async function writeImprovementSignal(
+export async function writeImprovementSignal(
   row: Row,
   fieldName: string,
   originalValue: string,

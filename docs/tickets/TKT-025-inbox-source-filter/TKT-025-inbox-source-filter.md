@@ -1,7 +1,7 @@
 ---
 id: TKT-025
 title: Mark + filter inbox by source mailbox (info/engineers/desk)
-status: backlog
+status: now
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-005]

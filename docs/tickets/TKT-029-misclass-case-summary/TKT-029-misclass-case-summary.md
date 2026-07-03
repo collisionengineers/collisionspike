@@ -1,7 +1,7 @@
 ---
 id: TKT-029
 title: Case-summary email misclassified as new case
-status: backlog
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006]

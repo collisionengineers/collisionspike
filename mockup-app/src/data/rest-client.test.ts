@@ -299,6 +299,54 @@ describe('rest-client — updateProvider (Superuser)', () => {
   });
 });
 
+describe('rest-client — inboundSuggestions (ref-gate affordance, rules-engine-v2 Phase 2)', () => {
+  it('GETs /api/inbound/{id}/suggestions and returns the rows', async () => {
+    const rows = [{ id: 'sg-1', suggestionType: 'case_link', reviewState: 'pending' }];
+    const fetchMock = vi.fn().mockResolvedValue(okJson(rows));
+    const da = clientWith(fetchMock);
+    const res = await da.inboundSuggestions('ibe-1');
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/inbound/ibe-1/suggestions');
+    expect(res).toEqual(rows);
+  });
+
+  it('STAYS safe() — degrades to [] on a 5xx (a secondary, suggestion-only surface)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(500));
+    const da = clientWith(fetchMock);
+    await expect(da.inboundSuggestions('ibe-1')).resolves.toEqual([]);
+  });
+
+  it('URL-encodes the inbound email id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson([]));
+    const da = clientWith(fetchMock);
+    await da.inboundSuggestions('a/b c');
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/inbound/a%2Fb%20c/suggestions');
+  });
+});
+
+describe('rest-client — detachInbound (unlink from case, rules-engine-v2 Phase 2)', () => {
+  it('POSTs /api/inbound/{id}/detach and returns the result', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({ ok: true }));
+    const da = clientWith(fetchMock);
+    const res = await da.detachInbound('ibe-1');
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/inbound/ibe-1/detach');
+    expect(lastInit(fetchMock).method).toBe('POST');
+    expect(res).toEqual({ ok: true });
+  });
+
+  it('REJECTS on a non-ok status — never a fake unlink', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(404));
+    const da = clientWith(fetchMock);
+    await expect(da.detachInbound('nope')).rejects.toThrow(/404/);
+  });
+
+  it('URL-encodes the inbound email id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({ ok: true }));
+    const da = clientWith(fetchMock);
+    await da.detachInbound('a/b c');
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/inbound/a%2Fb%20c/detach');
+  });
+});
+
 describe('rest-client — reclassifyInbound (staff override)', () => {
   it('PATCHes /api/inbound/{id}/classification with the body and returns the row', async () => {
     const row = { id: 'ibe-1', category: 'receiving_work', subtype: 'existing_provider_diminution' };

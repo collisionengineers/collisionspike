@@ -1,7 +1,7 @@
 ---
 id: TKT-040
 title: Informal roadworthy work-request misrouted to 'Other'
-status: backlog
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006]

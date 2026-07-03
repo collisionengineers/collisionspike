@@ -34,6 +34,12 @@ interface CaseResolveInput {
    *  instruction document — forwarded to resolve-persist for fill-if-empty so an email-minted
    *  case carries the full extraction, not just its registration + Case/PO. */
   parserEvaFields?: ParserEvaFields;
+  /** rules-engine-v2 Phase 3 (ADR-0011) — set when the providerMatch activity resolved the
+   *  sender to an Image-Source intermediary (e.g. Connexus) rather than a direct provider.
+   *  Forwarded to resolve-persist so the API's applyParserFields can treat a content-detected
+   *  provider found among the intermediary's N:N candidates as CORROBORATED. */
+  intermediaryImageSourceId?: string;
+  intermediaryCandidateProviderIds?: string[];
 }
 
 df.app.activity('caseResolve', {
@@ -87,6 +93,8 @@ df.app.activity('caseResolve', {
         parserMileage: input.parserMileage,
         parserMileageUnit: input.parserMileageUnit,
         parserEva: input.parserEvaFields,
+        intermediaryImageSourceId: input.intermediaryImageSourceId,
+        intermediaryCandidateProviderIds: input.intermediaryCandidateProviderIds,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,

@@ -16,14 +16,36 @@
 > ~1–3k emails/mo) and the later optional LLM pass is **~$0.21–1.50/mo**; treat run volume as a **monitor**
 > on the `concurrency=1` queue, not a cost ceiling. Dataverse build step = `26-inbound-email.ps1`.
 > **As-built (2026-06-24):** the Phase-8 inbound actions are minted — `inbound_classified=100000024` and
-> `inbound_routed=100000025`; `case_disposed=100000026` (Phase 9) is the highest, so the **next free
-> audit-action value is `100000027`**. (The earlier "next free = 100000022" is stale — 100000022 is
-> `location_assist_confirmed`, 100000023 is `chaser_sent`.) Name any further actions `inbound_*`.
+> `inbound_routed=100000025`; `case_disposed=100000026` (Phase 9) was the highest **at that point**. (The
+> earlier "next free = 100000022" was stale even then — 100000022 is `location_assist_confirmed`,
+> 100000023 is `chaser_sent`.) **Correction (2026-07-02):** audit actions have kept being minted live
+> since (most recently the `ai_suggestion` review lifecycle), so this note's old "next free = 100000027"
+> claim is itself now stale — any such number cached in prose will drift again. Treat
+> `migration/assets/schema/000_enums_lookups.sql`'s `choice_audit_action` table (append-only,
+> never-renumber) as the **sole** authoritative source for the next free code. Name any further actions
+> `inbound_*`.
 >
 > **Live trigger evidence (2026-06-25):** `digital@` (the team's working inbox) running the live trigger on
 > `fetchOnlyWithAttachment=false` produced a backlog of **50 blank junk Cases** (GitHub/vendor/2FA noise). See
 > [junk-backlog-and-activation-evidence.md](./junk-backlog-and-activation-evidence.md) for the findings, the
 > blank-guarded cleanup runbook, and why **content-based** triage keeps test extraction working.
+
+> ## Azure-era continuation (2026-07-02) — Rules Engine v2
+>
+> Everything below this banner (and the rest of this folder — `IMPLEMENTATION-PLAN.md`,
+> `intake-restructure-notes.md`, `junk-backlog-and-activation-evidence.md`) describes the **prior,
+> decommissioned Power-Platform mechanism**: Code App + Dataverse (`cr1bd_inboundemail`, the two
+> choicesets, the `26-inbound-email.ps1` build step) + Power Automate (the `triage-classify` child, the
+> intake restructure). It is retained for its **domain rationale** (the taxonomy, the
+> never-silently-drop discipline, the deterministic-first decision, ADR-0015) — not as a live build
+> target; the Power Platform footprint itself is deprovisioned (see `CLAUDE.md`).
+>
+> **The initiative continues on the live Azure stack as Rules Engine v2.** Read, in order: the
+> [Rules Engine v2 plan](../rules_engine_v2_plan_9ba034c4.plan.md) (the evidence base + the six-phase
+> design), its distilled [build checklist](./rules-engine-v2-build.md) (the ordered, checkbox build
+> steps + operator gates), and [ADR-0019](../../adr/0019-triage-policy-stage-split.md) (the binding
+> Stage A text-signals / Stage B triage-policy / Stage C gated-AI-suggestion architecture split). Do
+> not build new Phase-8 work against the Dataverse/Power-Automate mechanics described below.
 
 # Email Tag/ID + Inbox-Management System — Plan
 

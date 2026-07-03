@@ -28,6 +28,8 @@ import {
   renewSubscription,
   createSubscription,
   mailboxOfResource,
+  looksLikeMailboxAddress,
+  resolveSubscriptionMailbox,
 } from '../lib/subscriptions.js';
 import { listMessageIdsSince } from '../lib/graph.js';
 
@@ -82,7 +84,15 @@ app.http('graph-lifecycle', {
         ctx.warn('[graph-lifecycle] clientState mismatch — dropping');
         continue;
       }
-      const mailbox = mailboxOfResource(n.resource ?? '');
+      // Lifecycle notifications can echo the canonicalised Users/<GUID>/… resource form.
+      // Resolve the UPN via the subscription BEFORE enqueueing resyncs — resync queue
+      // messages carry no subscriptionId, so a GUID here would persist as source_mailbox
+      // provenance downstream (TKT-054).
+      let mailbox = mailboxOfResource(n.resource ?? '');
+      if (!looksLikeMailboxAddress(mailbox) && n.subscriptionId) {
+        const resolved = await resolveSubscriptionMailbox(n.subscriptionId);
+        if (resolved) mailbox = resolved;
+      }
       ctx.log(JSON.stringify({ evt: 'graph-lifecycle', lifecycleEvent: n.lifecycleEvent, subscriptionId: n.subscriptionId, mailbox }));
 
       try {
@@ -91,13 +101,21 @@ app.http('graph-lifecycle', {
             if (n.subscriptionId) await renewSubscription(n.subscriptionId);
             break;
           case 'subscriptionRemoved': {
-            if (mailbox) {
+            // Never create a subscription keyed on a non-address mailbox — the maintenance
+            // bootstrap dedups by configured UPN, so a GUID-resourced subscription would
+            // double-subscribe. Unresolvable here (sub already deleted, GET 404s) → leave
+            // recreation to runSubscriptionMaintenance's next tick.
+            if (looksLikeMailboxAddress(mailbox)) {
               await createSubscription(mailbox);
+              await enqueueResync(mailbox, resync, ctx);
+            } else if (mailbox) {
+              ctx.warn(`[graph-lifecycle] subscriptionRemoved for unresolvable mailbox "${mailbox}" — recreation left to subscription maintenance`);
               await enqueueResync(mailbox, resync, ctx);
             }
             break;
           }
           case 'missed':
+            // Resync even with an unresolved GUID — intake beats provenance (backfillable).
             if (mailbox) await enqueueResync(mailbox, resync, ctx);
             break;
           default:

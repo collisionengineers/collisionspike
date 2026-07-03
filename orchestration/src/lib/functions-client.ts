@@ -65,9 +65,15 @@ export interface ClassifyEmailResult {
   signals?: string[];
   body_vrm?: string;
   body_caseref?: string;
+  body_jobref?: string;
   /** True when the email is a reply about existing work (#3). Default false; the route
    *  derives it from in_reply_to/references when supplied, else a RE:-subject heuristic. */
   is_reply?: boolean;
+  /** The taxonomy generation this row was labelled at (rules-engine-v2 Phase 2 /
+   *  ADR-0019): absent/undefined on TODAY's live v1 parser; 2 once the DDL-gated
+   *  taxonomy-v2 engine tag ships (adds case_update/cancellation). Carried through to the
+   *  triage-policy activity (1.55) for decision telemetry only — never branched on here. */
+  taxonomy_version?: number;
 }
 
 /**
@@ -84,6 +90,7 @@ export function callClassifyEmail(input: {
   senderDomain?: string;
   providerMatchState?: string;
   attachmentKinds?: string[];
+  attachmentFilenames?: string[];
   hasAttachments?: boolean;
   /** RFC In-Reply-To / References headers — make is_reply detection reliable (#3). */
   inReplyTo?: string;
@@ -96,6 +103,7 @@ export function callClassifyEmail(input: {
     sender_domain: input.senderDomain ?? '',
     provider_match_state: input.providerMatchState ?? '',
     attachment_kinds: input.attachmentKinds ?? [],
+    attachment_filenames: input.attachmentFilenames ?? [],
     has_attachments: input.hasAttachments ?? false,
     in_reply_to: input.inReplyTo ?? '',
     references: input.references ?? '',

@@ -16,6 +16,7 @@
 
 import {
   EVA_FIELD_ORDER,
+  OUTLOOK_MOVE_STATES,
   QUEUES,
   queueByName,
   statusToQueue,
@@ -35,6 +36,7 @@ import {
   type InboundEmail,
   type InboundSubtype,
   type MileageUnit,
+  type OutlookMoveState,
   type OverviewFacts,
   type Provider,
   type QueueName,
@@ -413,6 +415,8 @@ const INBOUND_CATEGORY_BY_INT: Record<number, InboundCategory> = {
   100000002: 'other',
   100000003: 'billing',
   100000004: 'non_actionable',
+  100000005: 'case_update',
+  100000006: 'cancellation',
 };
 export const INBOUND_CATEGORY_TO_INT: Record<InboundCategory, number> = {
   receiving_work: 100000000,
@@ -420,6 +424,8 @@ export const INBOUND_CATEGORY_TO_INT: Record<InboundCategory, number> = {
   other: 100000002,
   billing: 100000003,
   non_actionable: 100000004,
+  case_update: 100000005,
+  cancellation: 100000006,
 };
 const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000000: 'existing_provider_instruction',
@@ -432,6 +438,9 @@ const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000007: 'billing_request',
   100000008: 'case_summary',
   100000009: 'acknowledgement',
+  100000010: 'images_received',
+  100000011: 'cancellation_notice',
+  100000012: 'update_general',
 };
 export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   existing_provider_instruction: 100000000,
@@ -444,6 +453,9 @@ export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   billing_request: 100000007,
   case_summary: 100000008,
   acknowledgement: 100000009,
+  images_received: 100000010,
+  cancellation_notice: 100000011,
+  update_general: 100000012,
 };
 export const TRIAGE_STATES: readonly TriageState[] = ['new', 'routed', 'actioned', 'dismissed'];
 const CLASSIFIER_MODES: readonly ClassifierMode[] = ['deterministic', 'llm', 'human'];
@@ -518,8 +530,14 @@ export function rowToInboundEmail(rec: Row): InboundEmail {
     triageState,
     bodyVrm: rec.body_vrm ?? '',
     bodyCaseref: rec.body_caseref ?? '',
+    // Stored by the Phase-2 DDL but only surfaced from TKT-054 (columns/keys absent on
+    // older rows or unjoined queries — the conditional spread tolerates both).
+    ...(rec.body_jobref ? { bodyJobref: rec.body_jobref } : {}),
+    ...(rec.conversation_id ? { conversationId: rec.conversation_id } : {}),
     bodyPreview: rec.body_preview ?? '',
     ...(rec.case_id ? { caseId: rec.case_id } : {}),
+    // The linked case's Case/PO — present only when the query LEFT JOINs case_ (inbox list).
+    ...(rec.case_po ? { casePo: rec.case_po } : {}),
     ...(rec.work_provider_id ? { workProviderId: rec.work_provider_id } : {}),
     // The classifier's original suggestion (columns may be absent on a not-yet-migrated DB
     // — SELECT * simply omits them, so these stay undefined). work-todo-spike: suggested-tags.
@@ -529,6 +547,12 @@ export function rowToInboundEmail(rec: Row): InboundEmail {
     ...(rec.suggested_subtype_code != null && INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code]
       ? { suggestedSubtype: INBOUND_SUBTYPE_BY_INT[rec.suggested_subtype_code] }
       : {}),
+    // Outlook filing lifecycle (TKT-054; columns absent pre-delta — spreads tolerate).
+    ...(rec.outlook_move_state && OUTLOOK_MOVE_STATES.includes(rec.outlook_move_state as OutlookMoveState)
+      ? { outlookMoveState: rec.outlook_move_state as OutlookMoveState }
+      : {}),
+    ...(rec.outlook_moved_folder ? { outlookMovedFolder: rec.outlook_moved_folder } : {}),
+    ...(rec.outlook_moved_at ? { outlookMovedAt: toIso(rec.outlook_moved_at) } : {}),
   };
 }
 
@@ -584,6 +608,58 @@ export function rowToAiSuggestion(rec: Row): AiSuggestion {
 }
 
 /* ============================================================
+   Suggestion idempotency (rules-engine-v2 Phase 2 — POST /api/internal/triage/suggest-link).
+   ============================================================ */
+
+/** The resolved identity a suggest-link write's Durable at-least-once retry guard keys on.
+ *  `'triage_category'` (rules-engine-v2 Phase 4, ADR-0019 Stage C) always carries
+ *  `targetCaseId: null` — it proposes a category/subtype RELABEL of the inbound email
+ *  itself, never a case link, so "the same suggestion" collapses to "the same subject". */
+export interface SuggestionIdempotencyKey {
+  suggestionType: 'case_link' | 'cancellation' | 'triage_category';
+  /** Which subject column the duplicate-check filters on. */
+  subjectKind: 'inbound_email_id' | 'source_message_id';
+  subject: string;
+  /** null when the request carried no target (e.g. an ambiguous ref-gate match, or any
+   *  'triage_category' suggestion — that type never carries one). */
+  targetCaseId: string | null;
+}
+
+/**
+ * Pure: derive the idempotency identity for a `POST /api/internal/triage/suggest-link`
+ * write — "the same suggestion" is the same suggestionType + the same subject (preferring
+ * the resolved `inbound_email_id`; falling back to the pre-resolve `sourceMessageId` when the
+ * triage row doesn't exist yet, matching the pinned contract's "it may legitimately not
+ * exist yet" case) + the same targetCaseId. Returns null when NEITHER subject anchor is
+ * available — such a request is never treated as a duplicate of anything (there is nothing
+ * to key a WHERE clause on).
+ */
+export function deriveSuggestionIdempotencyKey(input: {
+  suggestionType: 'case_link' | 'cancellation' | 'triage_category';
+  inboundEmailId: string | null;
+  sourceMessageId: string | null;
+  targetCaseId: string | null;
+}): SuggestionIdempotencyKey | null {
+  if (input.inboundEmailId) {
+    return {
+      suggestionType: input.suggestionType,
+      subjectKind: 'inbound_email_id',
+      subject: input.inboundEmailId,
+      targetCaseId: input.targetCaseId,
+    };
+  }
+  if (input.sourceMessageId) {
+    return {
+      suggestionType: input.suggestionType,
+      subjectKind: 'source_message_id',
+      subject: input.sourceMessageId,
+      targetCaseId: input.targetCaseId,
+    };
+  }
+  return null;
+}
+
+/* ============================================================
    Pure helpers for the work-todo-spike features (testable; no DB).
    ============================================================ */
 
@@ -614,6 +690,8 @@ export function tallyActiveInboundCounts(
     query: 0,
     billing: 0,
     non_actionable: 0,
+    case_update: 0,
+    cancellation: 0,
     other: 0,
     untriaged: 0,
   };

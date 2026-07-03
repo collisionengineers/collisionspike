@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   casePoSeqOfName,
+  deriveSuggestionIdempotencyKey,
   inboundCategoryFromInt,
   inboundSubtypeFromInt,
   inboundViewWhere,
@@ -15,6 +16,7 @@ import {
   maxCasePoSeqFromNames,
   richTagToClassification,
   rowToAiSuggestion,
+  rowToInboundEmail,
   tallyActiveInboundCounts,
 } from './mappers';
 
@@ -143,6 +145,46 @@ describe('isAiReviewState — review-state token validation', () => {
   });
 });
 
+describe('rowToInboundEmail — linked-case Case/PO + Phase-2 pass-throughs (TKT-054)', () => {
+  const base = {
+    id: 'ie-1',
+    name: 'Triage — CCPY26050',
+    source_message_id: '<msg-1@example.net>',
+    subject: 'RTA instruction',
+    from_address: 'claims@provider.example',
+    sender_domain: 'provider.example',
+    source_mailbox: 'info@collisionengineers.co.uk',
+    received_on: '2026-07-02T10:00:00Z',
+    has_attachments: true,
+    category_code: 100000000,
+    subtype_code: 100000000,
+    confidence: '0.95',
+    classifier_mode: 'deterministic',
+    signals: 'provider_domain',
+    triage_state: 'routed',
+  };
+
+  it('maps case_po from the joined column (and case_id) when linked', () => {
+    const e = rowToInboundEmail({ ...base, case_id: 'case-1', case_po: 'CCPY26050' });
+    expect(e.caseId).toBe('case-1');
+    expect(e.casePo).toBe('CCPY26050');
+  });
+
+  it('omits casePo when the row has no join key (RETURNING * paths) or no linked case', () => {
+    expect(rowToInboundEmail({ ...base, case_id: 'case-1' }).casePo).toBeUndefined();
+    expect(rowToInboundEmail({ ...base, case_po: null }).casePo).toBeUndefined();
+  });
+
+  it('passes through body_jobref and conversation_id when present, omits when absent', () => {
+    const e = rowToInboundEmail({ ...base, body_jobref: 'AX-1074398', conversation_id: 'cnv-1' });
+    expect(e.bodyJobref).toBe('AX-1074398');
+    expect(e.conversationId).toBe('cnv-1');
+    const bare = rowToInboundEmail(base);
+    expect(bare.bodyJobref).toBeUndefined();
+    expect(bare.conversationId).toBeUndefined();
+  });
+});
+
 describe('rowToAiSuggestion — row -> domain mapping', () => {
   it('maps a full pending suggestion row (jsonb already parsed)', () => {
     const s = rowToAiSuggestion({
@@ -185,5 +227,58 @@ describe('rowToAiSuggestion — row -> domain mapping', () => {
     expect(s.suggestedValue).toEqual({ visible: true });
     expect(s.reviewState).toBe('pending');
     expect(s.confidence).toBeUndefined();
+  });
+});
+
+describe('deriveSuggestionIdempotencyKey — triage suggest-link duplicate-write guard', () => {
+  it('prefers inbound_email_id once the triage row is resolved', () => {
+    expect(
+      deriveSuggestionIdempotencyKey({
+        suggestionType: 'case_link',
+        inboundEmailId: 'ie-1',
+        sourceMessageId: 'msg-1',
+        targetCaseId: 'case-1',
+      }),
+    ).toEqual({
+      suggestionType: 'case_link',
+      subjectKind: 'inbound_email_id',
+      subject: 'ie-1',
+      targetCaseId: 'case-1',
+    });
+  });
+  it('falls back to sourceMessageId when inboundEmailId is not yet resolved (pre-classifyPersist)', () => {
+    expect(
+      deriveSuggestionIdempotencyKey({
+        suggestionType: 'cancellation',
+        inboundEmailId: null,
+        sourceMessageId: 'msg-1',
+        targetCaseId: null,
+      }),
+    ).toEqual({
+      suggestionType: 'cancellation',
+      subjectKind: 'source_message_id',
+      subject: 'msg-1',
+      targetCaseId: null,
+    });
+  });
+  it('returns null when neither subject anchor is available', () => {
+    expect(
+      deriveSuggestionIdempotencyKey({
+        suggestionType: 'case_link',
+        inboundEmailId: null,
+        sourceMessageId: null,
+        targetCaseId: 'case-1',
+      }),
+    ).toBeNull();
+  });
+  it('carries a null targetCaseId through unchanged (an ambiguous ref-gate match)', () => {
+    expect(
+      deriveSuggestionIdempotencyKey({
+        suggestionType: 'case_link',
+        inboundEmailId: 'ie-2',
+        sourceMessageId: null,
+        targetCaseId: null,
+      })?.targetCaseId,
+    ).toBeNull();
   });
 });

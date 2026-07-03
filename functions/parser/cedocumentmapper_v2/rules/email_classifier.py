@@ -8,15 +8,28 @@ them in Power Fx would duplicate and drift). No Dataverse, no network, no LLM �
 just the same keyword / phrase / regex matching the rest of the engine uses, so
 it is trivially unit-testable.
 
-Taxonomy (two stable, append-only choicesets; see collisionspike ADR-0015):
+Taxonomy (two stable, append-only choicesets; see collisionspike ADR-0015 + the
+Phase-2 rules-engine-v2 plan). This block documents the CURRENT taxonomy — v1
+(receiving_work/query/other, six subtypes) plus the ADDITIVE categories layered on
+since: billing + non_actionable (three more subtypes), and now case_update +
+cancellation (v2, three more subtypes). ``taxonomy_version`` in every response tells
+a consumer which generation of codes a row was labelled at (existing rows keep their
+v1/v1.1 codes — no backfill on a taxonomy bump):
 
-    category  : receiving_work | query | other
+    category  : receiving_work | query | billing | non_actionable | other
+                | case_update | cancellation                        (v2, additive)
     subtype   : existing_provider_instruction   (RECEIVING WORK · base instruction)
                 existing_provider_audit          (RECEIVING WORK · audit re-inspection)
                 new_client_work                  (RECEIVING WORK · new client)
                 query_existing_work              (QUERIES · about work we did)
                 query_new_enquiry                (QUERIES · new enquiry / quote)
-                other                            (unidentified — the catch-all)
+                billing_request                  (BILLING · invoice / fee chase)
+                case_summary                      (NON_ACTIONABLE · recap digest)
+                acknowledgement                    (NON_ACTIONABLE · bare "thanks")
+                other                             (unidentified — the catch-all)
+                images_received                    (CASE_UPDATE · v2 · images-only new evidence)
+                update_general                      (CASE_UPDATE · v2 · other new evidence)
+                cancellation_notice                (CANCELLATION · v2 · claim/instruction called off)
 
 Guiding bias — **abstain to ``other``.** A forwarded chain, a signature, an
 out-of-office reply or a bounce can throw a stray keyword or registration-shaped
@@ -67,14 +80,16 @@ Request fields (all optional; missing ones are treated as empty/absent):
 
 Response (a plain dict, JSON-serialisable):
 
-    category          str   one of the three categories
-    subtype           str   one of the six subtypes
+    category          str   one of the categories above
+    subtype           str   one of the subtypes above
     confidence        float 0.0–1.0, coarse banding (see _CONFIDENCE_*)
     signals           list  the exact rule ids / phrases that fired (explainable)
     is_reply          bool  the email is a reply in an existing thread (not a forward)
     body_vrm          str   first VRM found in subject+body, or ""
     body_caseref      str   first Case/PO found in subject+body, or ""
-    contract_version  str   the engine contract tag
+    body_jobref       str   first existing-job reference found in subject+body, or ""
+    contract_version  str   the engine contract tag (unchanged by the taxonomy bump)
+    taxonomy_version  int   the taxonomy generation this row was labelled at (2)
 """
 
 from __future__ import annotations
@@ -92,7 +107,16 @@ from cedocumentmapper_v2.rules.engine import (
     _INFORMAL_WORK_KEYWORDS,
     _CHASE_PHRASES,
     _SUMMARY_MARKERS,
+    _CANCELLATION_PHRASES,
 )
+from cedocumentmapper_v2.rules.triage_rules import load_triage_rules
+
+# Externalized phrase data (collisionspike rules-engine-v2 plan, Phase 5) -- see
+# the matching comment in rules/engine.py. This module's OWN two collections
+# (_AUTO_REPLY_MARKERS, _VRM_STOPWORD_TRIGRAMS below) are also sourced from the
+# same schema-validated resources/triage-rules.json; the rest of this module's
+# constants above were imported already loader-derived from engine.py.
+_RULES = load_triage_rules()
 
 # Contract tag for the classifier response. Kept distinct from the parser's EVA
 # contract tag so a consumer can tell a /classify-email envelope apart from a
@@ -113,6 +137,24 @@ CATEGORY_QUERY = "query"
 CATEGORY_BILLING = "billing"
 CATEGORY_NON_ACTIONABLE = "non_actionable"
 CATEGORY_OTHER = "other"
+# Taxonomy v2 (collisionspike rules-engine-v2 plan, Phase 2) — two more ADDITIVE
+# top-level categories:
+#   * case_update   — new evidence (typically images, or another non-report
+#                     attachment) arriving against a job the sender's text already
+#                     names (a Case/PO or a looser job ref). TEXT-LEVEL PROPOSAL
+#                     ONLY: the classifier cannot see whether that ref matches an
+#                     OPEN case — the context-aware triage-policy layer (@cs/domain)
+#                     makes the real call; this is just what the text + attachments
+#                     show.
+#   * cancellation  — the sender is calling off an existing instruction, claim or
+#                     inspection outright (collisionspike TKT-041). Highest
+#                     precedence of every rule in this module: it is checked before
+#                     the instruction-doc promotion (Rule 1), so a forwarded
+#                     "please close this off" with the original instructions
+#                     quoted/attached below it still classifies cancellation, not
+#                     receiving_work.
+CATEGORY_CASE_UPDATE = "case_update"
+CATEGORY_CANCELLATION = "cancellation"
 
 # Subtype constants.
 SUBTYPE_EXISTING_PROVIDER_INSTRUCTION = "existing_provider_instruction"
@@ -124,6 +166,16 @@ SUBTYPE_BILLING_REQUEST = "billing_request"
 SUBTYPE_CASE_SUMMARY = "case_summary"
 SUBTYPE_ACKNOWLEDGEMENT = "acknowledgement"
 SUBTYPE_OTHER = "other"
+# Taxonomy v2 subtypes.
+SUBTYPE_IMAGES_RECEIVED = "images_received"      # CASE_UPDATE · attachments are images-only
+SUBTYPE_UPDATE_GENERAL = "update_general"        # CASE_UPDATE · any other new evidence
+SUBTYPE_CANCELLATION_NOTICE = "cancellation_notice"  # CANCELLATION · the only subtype today
+
+# Response envelope taxonomy generation. Bumped only when a category/subtype is
+# ADDED (never on a wording/confidence tweak) so a consumer (SPA filters, the
+# eval-corpus scorer, the DDL choicesets) can tell which codes a row may carry.
+# Existing rows keep their old-generation codes — no backfill.
+TAXONOMY_VERSION = 2
 
 # Provider-match states the flow passes in (mirrors the intake flow's domain
 # match: a known provider domain matched exactly one / none / more than one row).
@@ -306,11 +358,7 @@ _VRM_CONTEXT_WINDOW = 30
 # ("reg AB12 NEW") still passes on the context anchor (collisionspike #7 / F162).
 # Deliberately small + conservative so real plates (AP70 WAA, MX17 PNL, A123 BCD,
 # ABC 123D) are never dropped.
-_VRM_STOPWORD_TRIGRAMS: frozenset[str] = frozenset({
-    "NOW", "NEW", "OUT", "OFF", "AND", "THE", "FOR", "ALL", "ANY", "ONE",
-    "TWO", "WAS", "ARE", "HAS", "HAD", "YOU", "OUR", "NOT", "BUT", "WHO",
-    "WHY", "HOW", "CAN", "GET", "GOT", "SEE", "DUE", "PER", "VAT", "TAX",
-})
+_VRM_STOPWORD_TRIGRAMS: frozenset[str] = _RULES.vrm_stopword_trigrams
 
 
 def _wellformed_trigram_is_stopword(candidate: str) -> bool:
@@ -380,25 +428,7 @@ def _canonical_body_vrm(text: str) -> str:
 # (everything is categorised) — they bias an otherwise weak email firmly to
 # ``other`` so an auto-reply that happens to quote a work phrase in its history is
 # not mistaken for a fresh instruction.
-_AUTO_REPLY_MARKERS: tuple[str, ...] = (
-    "out of office",
-    "out-of-office",
-    "automatic reply",
-    "auto-reply",
-    "autoreply",
-    "i am currently away",
-    "i am out of the office",
-    "on annual leave",
-    "away from my desk",
-    "delivery has failed",
-    "delivery status notification",
-    "undeliverable",
-    "mail delivery failed",
-    "message could not be delivered",
-    "returned to sender",
-    "do not reply",
-    "do-not-reply",
-)
+_AUTO_REPLY_MARKERS: tuple[str, ...] = _RULES.auto_reply_markers
 
 
 def _normalise(value: Any) -> str:
@@ -515,6 +545,23 @@ def _sender_written_text(text: str) -> str:
     return "\n".join(line for line in head.splitlines() if not line.lstrip().startswith(">"))
 
 
+# --- Cancellation negation guard (collisionspike TKT-041) -------------------- #
+# Cheap and DELIBERATELY simple, per the taxonomy-v2 plan: reject a cancellation
+# phrase hit when a negation word sits shortly (<=2 words) before a "cancel" stem in
+# the SENDER-WRITTEN text — "this has NOT been cancelled", "we do not wish to
+# cancel". Documented limits, not solved: it only guards the "cancel" /
+# "cancelled" / "cancellation" stem — a negated NON-"cancel" phrase ("we are NOT
+# closing this file", "it is NOT withdrawn") is not caught; a negation more than a
+# couple of words before "cancel" is not caught either ("Please note that, contrary
+# to what you may have heard elsewhere, this has not been cancelled" would slip
+# through). Extend if real misses turn up.
+_CANCELLATION_NEGATION_RE = re.compile(
+    r"\b(?:not|never|n't|isn't|wasn't|won't|hasn't|hadn't|don't|doesn't|didn't)\b"
+    r"(?:\s+\S+){0,2}\s+cancel",
+    re.IGNORECASE,
+)
+
+
 def classify_email(
     subject: Any = "",
     body: Any = "",
@@ -529,7 +576,8 @@ def classify_email(
 ) -> dict[str, Any]:
     """Classify one inbound email into the triage taxonomy. PURE — no I/O.
 
-    First-match-wins decision tree (see ADR-0015 / the Phase-8 plan):
+    First-match-wins decision tree (see ADR-0015 / the Phase-8 plan; taxonomy v2 —
+    cancellation + case_update — is the collisionspike rules-engine-v2 Phase-2 plan):
 
       0. Auto-reply / bounce marker present, AND no instruction doc -> other
          (abstain-to-other; a quoted OOO chain or a bounce must not read as
@@ -537,6 +585,16 @@ def classify_email(
          instruction doc is the module's strongest positive signal and overrides
          the abstain, so a real provider instruction whose footer says
          "do not reply" still reaches Rule 1).
+      0c. A cancellation phrase (SENDER-WRITTEN scope, not negated) -> cancellation ·
+          cancellation_notice. HIGHEST PRECEDENCE of every rule below this point —
+          checked before the instruction-doc promotion (Rule 1) so a forwarded
+          "please close this off" with the original instructions quoted/attached
+          below it still classifies cancellation, never receiving_work (TKT-041,
+          eval item tkt041-07). Fires on the phrase alone — a case-existence hint
+          (body_caseref / body_jobref / body_vrm / is_reply) only raises the
+          confidence band, it is not a gate: a cancellation with no ref at all is
+          still a cancellation (the context-aware triage-policy layer decides the
+          action).
       1. Instruction doc attached (necessary but NOT sufficient — the kind is
          extension-derived), UNLESS the email is about EXISTING work — query-phrased
          OR a reply (``is_reply``) — with no NEW work language (suppressed -> falls
@@ -568,6 +626,17 @@ def classify_email(
       4. A query keyword OR a reply (``is_reply``) + a body Case/PO or VRM -> query /
          query_existing_work (the flow confirms the open-Case link; the classifier
          proposes it — a reply naming a Case/PO or registration is about work we did).
+      4d. (taxonomy v2) An existing-job reference (body_caseref/body_jobref, full
+          haystack) + new evidence (a non-report attachment, or an image attachment
+          kind) + NO query phrase in sender scope + NOT a bare-acknowledgement reply
+          -> case_update · images_received/update_general. TEXT-LEVEL PROPOSAL ONLY
+          (see the category docstring above). Checked AFTER Rules 4a/4b/4c so
+          today's chaser/report/reply-with-reference handling keeps winning — in
+          practice this rule is narrower than it first looks, since Rule 4b alone
+          already claims almost every non-bare-ack REPLY that names a reference; it
+          is mostly reached by a FRESH (non-reply) mention of an existing ref. The
+          bare-acknowledgement exclusion mirrors Rule 4b/5b (TKT-038: "Thanks Ed" +
+          embedded signature images must stay acknowledgement, not case_update).
       5. A query keyword, no Case/PO or VRM  -> query
          (query_existing_work if the sender is a known provider, else
          query_new_enquiry).
@@ -602,6 +671,13 @@ def classify_email(
     billing_phrases = _match_keywords(work_scope, _BILLING_KEYWORDS)
     informal_phrases = _match_keywords(work_scope, _INFORMAL_WORK_KEYWORDS)
     chase_phrases = _match_keywords(work_scope, _CHASE_PHRASES)
+    # Taxonomy v2 (TKT-041): a cancellation phrase is ALSO sender-scoped — a
+    # cancellation quoted out of an OLDER message in the thread must not cancel a
+    # DIFFERENT, currently-live one. ``cancellation_negated`` is the cheap "not
+    # cancelled" guard (see _CANCELLATION_NEGATION_RE); it suppresses the whole
+    # cancellation signal rather than trying to un-match individual phrases.
+    cancellation_phrases = _match_keywords(work_scope, _CANCELLATION_PHRASES)
+    cancellation_negated = bool(_CANCELLATION_NEGATION_RE.search(work_scope))
     is_audit, audit_phrases = detect_audit_signals(work_scope)
     # REFERENCE surfacing + auto-reply + recap markers — full haystack.
     auto_reply_markers = _is_auto_reply(haystack)
@@ -635,6 +711,10 @@ def classify_email(
         signals.append("informal_keywords:" + ",".join(informal_phrases))
     if chase_phrases:
         signals.append("chase_keywords:" + ",".join(chase_phrases))
+    if cancellation_phrases:
+        signals.append("cancellation_keywords:" + ",".join(cancellation_phrases))
+        if cancellation_negated:
+            signals.append("cancellation_negated")
     if summary_markers:
         signals.append("summary_markers:" + ",".join(summary_markers))
     if audit_phrases:
@@ -669,6 +749,7 @@ def classify_email(
             "body_caseref": body_caseref,
             "body_jobref": body_jobref,
             "contract_version": CONTRACT_VERSION,
+            "taxonomy_version": TAXONOMY_VERSION,
         }
 
     # Shared about-existing suppression (used by Rule 1 AND Rule 2). An email that is
@@ -746,6 +827,34 @@ def classify_email(
             SUBTYPE_CASE_SUMMARY,
             _CONFIDENCE_WEAK,
             "case_summary",
+        )
+
+    # --- Rule 0c: a cancellation phrase trumps everything below (TKT-041, taxonomy v2)
+    # The sender is calling off an existing instruction, claim or inspection outright.
+    # HIGHEST PRECEDENCE of every rule in this module — checked before the
+    # instruction-doc promotion (Rule 1) so a forwarded "please close this one off"
+    # email with the ORIGINAL instructions quoted/attached below it still classifies
+    # cancellation, not receiving_work (real eval item tkt041-07: a known provider's
+    # instruction doc would otherwise promote strongly at Rule 1). Guarded by the
+    # cheap negation check ("this has NOT been cancelled") and scanned in the
+    # SENDER-WRITTEN scope only, so a cancellation phrase sitting in a QUOTED older
+    # message cannot cancel a different, currently-live thread.
+    #
+    # A case-existence hint (body_caseref / body_jobref / body_vrm / is_reply) is NOT
+    # a gate — the phrase alone is enough to fire. It only bands the confidence: a
+    # named Case/PO or job ref is GOOD (0.8), anything weaker (a bare VRM, a reply
+    # with no other hint, or no hint at all) is WEAK (0.6) — a cancellation with no
+    # reference in it is still a cancellation; the context-aware triage-policy layer
+    # (open-case lookup, ADR-0019) decides what action that implies.
+    if cancellation_phrases and not cancellation_negated:
+        cancellation_confidence = (
+            _CONFIDENCE_GOOD if (body_caseref or body_jobref) else _CONFIDENCE_WEAK
+        )
+        return _result(
+            CATEGORY_CANCELLATION,
+            SUBTYPE_CANCELLATION_NOTICE,
+            cancellation_confidence,
+            "cancellation_notice",
         )
 
     # --- Rule 1: an instruction document is necessary but NOT sufficient --------
@@ -913,6 +1022,55 @@ def classify_email(
             SUBTYPE_QUERY_EXISTING_WORK,
             _CONFIDENCE_GOOD,
             "report_with_reference",
+        )
+
+    # --- Rule 4d (case_update, taxonomy v2, TKT-034/043): an existing-job reference
+    # PLUS new evidence reads as work arriving on a case already open — not a query,
+    # not a fresh instruction. TEXT-LEVEL PROPOSAL ONLY: the classifier cannot see
+    # whether the reference actually matches an OPEN case (that lookup is the
+    # context-aware triage-policy layer's job, per the Phase-2 plan / ADR-0019) — it
+    # only reports what the text + attachments show.
+    #
+    # Inserted AFTER Rules 4a/4b/4c so today's chaser/report/reply-with-reference
+    # handling keeps winning (the confusion-matrix targets say those currently-correct
+    # behaviours must not regress) — in particular a report-shaped attachment is
+    # excluded from "new evidence" below AND, paired with a reference, is already
+    # claimed by Rule 4c before this rule is ever reached. Rule 4b (any SUBSTANTIVE
+    # reply naming a reference, regardless of attachments) also already claims almost
+    # every non-bare-ack reply before this point, so in practice this rule is mostly
+    # reached by a FRESH (non-reply) mention of a reference.
+    #
+    # BARE-ACKNOWLEDGEMENT GUARD (TKT-038 regression): a reply whose sender-written
+    # text is ONLY a pleasantry ("Thanks Ed") must stay non_actionable/acknowledgement
+    # even when it carries an attachment — the real TKT-038 email is exactly this: a
+    # "Thanks Ed" reply naming a job ref, with several embedded SIGNATURE/logo images
+    # attached (the classifier cannot yet distinguish a signature logo from a genuine
+    # damage photo attachment — that raster-floor typing is TKT-047, out of scope
+    # here). Treating a bare "thanks" as delivered evidence would misread a courtesy
+    # reply as an actionable case update, so bare acknowledgements are excluded here
+    # exactly as Rule 4b already excludes them.
+    #
+    # "New evidence" is an attachment that is not just our own report coming back: an
+    # image attachment kind, or any other attachment that a filename check does not
+    # recognise as a report. A query phrase in sender scope defers to the query rules
+    # instead (an email that both asks a question AND attaches something is still a
+    # query first).
+    new_evidence = (has_atts and not has_report_attachment) or has_images
+    is_bare_ack_reply = is_reply and _is_bare_acknowledgement(sender_text)
+    if (
+        (body_caseref or body_jobref)
+        and new_evidence
+        and not query_phrases
+        and not is_bare_ack_reply
+    ):
+        images_only = bool(kinds) and kinds.issubset(_IMAGE_KINDS)
+        case_update_subtype = SUBTYPE_IMAGES_RECEIVED if images_only else SUBTYPE_UPDATE_GENERAL
+        case_update_confidence = _CONFIDENCE_GOOD if body_caseref else _CONFIDENCE_WEAK
+        return _result(
+            CATEGORY_CASE_UPDATE,
+            case_update_subtype,
+            case_update_confidence,
+            "case_update_new_evidence",
         )
 
     # --- Rule 5: a question/chase with no reference — existing if known, else enquiry -

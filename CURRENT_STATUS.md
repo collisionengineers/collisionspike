@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-07-01**._
+_Single source of truth for "where are we now." Last updated **2026-07-02**._
 _Companion docs: [README.md](./README.md) · [ROADMAP.md](./ROADMAP.md) (forward worklist) · **[docs/tickets/BOARD.md](./docs/tickets/BOARD.md)** (granular ticket delivery) · [docs/gated.md](./docs/gated.md) · live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -25,6 +25,47 @@ subscriptions over the **production mailbox set info@ + engineers@ + desk@** (ma
 case-create remains available alongside. Subscription/mailbox state: the registry
 [docs/architecture/live-environment.md](./docs/architecture/live-environment.md). **Principle: no
 mock/seed case data in the app — it shows real rows only.**
+
+> **🔔 2026-07-02 — Rules Engine v2 build complete (all six phases); api/orch/SPA deployed live;
+> deploy + data + gate flips are the remaining operator activation path.**
+> Full build checklist: [rules-engine-v2-build.md](./docs/plans/phase-8-inbox-management/rules-engine-v2-build.md);
+> plan: [rules_engine_v2_plan_9ba034c4.plan.md](./docs/plans/rules_engine_v2_plan_9ba034c4.plan.md);
+> per-ticket disposition: **[docs/tickets/BOARD.md](./docs/tickets/BOARD.md)**. Live counts/gate values
+> stay in the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md)
+> — not repeated here.
+>
+> **LIVE now (acting, not just deployed):**
+> - The `/classify-email` **contract pass-through** (`attachment_filenames`, `body_jobref`,
+>   `conversationId`) — deployed and live-probed.
+> - The Stage-B triage-policy's **shadow-decision telemetry** — every arrival logs a `triage_decision`
+>   App Insights `customEvent` (would-be action with all gates forced on) regardless of gate state; the
+>   **acting** path stays `proceed_default` (today's routing, byte-for-byte) because all four
+>   `TRIAGE_*` gates are absent.
+> - The **suggestion + detach surfaces**: `ai_suggestion`'s `case_link`/`cancellation` lifecycle,
+>   `POST /api/inbound/{id}/detach`, and the SPA accept/reject + unlink affordances — live, but a
+>   suggestion can only ever be *created* once a `TRIAGE_*` gate is on, so this surface is currently
+>   honest-empty in production.
+> - The non-inline **signature-image raster floor** (TKT-047) — live on `cespk-orch-dev`.
+> - **Identification mapping** — the parser's content-detected provider string now maps to a real
+>   `work_provider_id` at `caseResolve` (TKT-051's headline example fixed); the Connexus→PCH/SBL
+>   intermediary *data* still needs an operator seed apply (see BUILT-GATED).
+> - SPA **"why this label?"** handler-language reasons + the **source-mailbox chip filter** (TKT-025).
+>
+> **BUILT — GATED OFF (code/data authored and, where noted, deployed, but not yet acting live):**
+> - **Taxonomy v2** (`case_update` + `cancellation` categories, `images_received` subtype,
+>   `body_jobref`/`conversation_id` columns) — DDL delta authored, not applied.
+> - The **taxonomy-v2 parser engine** (cancellation/case_update rules, content-based attachment
+>   typing, the externalised `triage-rules.json`) — built and vendored, not yet deployed to the live
+>   parser Function (blocked on the DDL above, by design — see the build checklist's Deploy order).
+> - The **ref-gate / cancellation-action / images-routing** behaviours inside the Stage-B triage
+>   policy — code deployed, but each waits on its own default-off `TRIAGE_*` app-setting.
+> - The **Stage-C AOAI triage assist** (a real, keyless Azure OpenAI structured-output call replacing
+>   the dormant stub) — deployed gated off; `EMAIL_AI_ENABLED` is unset.
+>
+> **Activation order** (see [docs/gated.md](./docs/gated.md) for the full detail behind each step):
+> the DDL delta apply → the taxonomy-v2 parser deploy → the identification seed-data apply → the
+> per-behaviour `TRIAGE_*` gate flips → the `EMAIL_AI_ENABLED` production flip (needs the AI
+> per-gate sign-off). Nothing above changes case-minting/routing behaviour until that sequence runs.
 
 > **🔔 2026-07-01 — work-todo-spike delivery wave + Box archive re-verified.**
 > Granular ticket state (Done / Now / Backlog): **[docs/tickets/BOARD.md](./docs/tickets/BOARD.md)** — do not

@@ -73,9 +73,14 @@ access**, then the **retained integrations and data**, then **policy/legal**.
 
 ### A. Time-critical & security
 
-#### A0. Re-authenticate the Azure CLI session (`az login`)  ·  *unblocks everything below*
+#### A0. Re-authenticate the Azure CLI session (`az login`)  ·  *✅ RESOLVED (recurring — re-check when Azure calls 401)*
 
-**What:** the Azure CLI session token expired (during the 2026-06-28 work). `az` **and** the agent's MCP
+**✅ Resolved 2026-07-02:** the session is authenticated again (`az account show` → subscription enabled;
+the rules-engine-v2 deploys, RBAC grant and live probes all ran on it). Kept as a standing item because
+CLI tokens expire periodically — when `az`/MCP Azure calls start failing with token errors, re-run the
+steps below.
+
+**What (historical):** the Azure CLI session token expired (during the 2026-06-28 work). `az` **and** the agent's MCP
 Azure tools both fail with *"An attempt was made to reference a token that does not exist"* / 401 — so **no
 live Azure change can be made** (no Key Vault writes, app-setting changes, deploys, or RBAC grants) until the
 session is re-authenticated. (Offline/local work and the Box-credential proof did not need it.)
@@ -246,6 +251,35 @@ actions.
 3. Confirm a push notification fires (graph-webhook) and a test email lands as a **Case** (status `new_email → ingested`), provider
    matched by sender domain, and the EVA fields pre-fill with provenance.
 
+#### B4. Activate Outlook filing ("Suggested action" → real move)  ·  *~15 min + the RBAC cache wait*  ·  **NEW (TKT-054 / 020726 E6)**
+
+**What:** the inbox's "Suggested action" column can genuinely FILE an email into the suggested
+Outlook folder (e.g. `Inbox/Instructions`) inside the shared mailbox. The whole path is built and
+deployed **dark** behind `OUTLOOK_MOVE_ENABLED` (default off): SPA button → Data API
+`POST /api/inbound/{id}/outlook-move` → `outlook-move` storage queue → orchestration mover (Graph
+`/move`, creating the destination folder when missing) → outcome stamped back on the row + audit.
+While the gate is off the column shows the suggestion as display-only text.
+
+**Why you:** the mover needs **`Application Mail.ReadWrite`** via **Exchange RBAC for Applications**
+on the intake mailboxes — a permission grant only you can make (today's grant is `Mail.Read` only,
+so a move would 403), plus the gate flip. **You also asked to live-test this yourself — no automated
+live move test will be run.**
+
+**Steps:**
+1. Exchange admin: add a **second role assignment** for the intake app's service principal —
+   role **`Application Mail.ReadWrite`**, same management scope as the existing read grant
+   (`CollisionSpike-Intake-Prod` over info@ + engineers@ + desk@). Keep the `Mail.Read` assignment.
+2. **Wait for the Exchange-RBAC permission cache** (~30 min–2 h, same as the B1 cutover; leave the
+   app idle rather than polling).
+3. Flip the gate: set **`OUTLOOK_MOVE_ENABLED=true`** on **both** `cespk-api-dev` and
+   `cespk-orch-dev`. (The API also needs `OUTLOOK_MOVE_QUEUE_SERVICE_URL` + its MI holding
+   `Storage Queue Data Message Sender` on the orch storage account — wired at deploy time; see the
+   registry.)
+4. **Live-test yourself:** click "File to …" on a test row in the inbox; the email should move in
+   Outlook, the row should read "Filed to …" and flip to Handled, and `audit_event` should carry
+   `outlook_move_requested` → `outlook_moved`. Record the result in
+   [tickets/TKT-054-ui-work/verification.md](./tickets/TKT-054-ui-work/verification.md).
+
 ---
 
 ### C. Staff access
@@ -341,7 +375,7 @@ corrections, garage↔provider links, address lists, etc.).
 
 **Steps:** gather whatever you have (partial is fine) and send it over to be loaded into Postgres.
 
-#### D6. Rules Engine v2 — queued operator gates  ·  *plan approved 2026-07-02; phases not started*
+#### D6. Rules Engine v2 — queued operator gates  ·  *plan approved 2026-07-02; Phase 4 code built 2026-07-02 (gated OFF, not deployed)*
 
 **What:** the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md) (email
 categorisation/triage upgrade — ROADMAP Phase 8's Azure-era realization) carries five operator gates.
@@ -352,19 +386,159 @@ None is due until its phase starts; listed here so nothing lands as a surprise:
    first tag) so the vendored copy can be re-cut against a committed ref.
 2. **Phase-2 DDL delta apply** (live Postgres): append-only taxonomy rows (`case_update`,
    `cancellation`, `images_received`) + `inbound_email.body_jobref` / `conversation_id` columns —
-   idempotent additive script, same discipline as the 2026-06-30 migration.
-3. **`EMAIL_AI_ENABLED` production flip** (Phase 4): covered by the **E2 per-AI-gate sign-off** below,
-   with one fact named plainly — the chat model is a **Global deployment** (inference may process
-   outside the UK; data-at-rest stays in-region; no UK data zone exists). Testing on repo data is
-   already authorised (G5); the **production** flip is yours.
+   idempotent additive script, same discipline as the 2026-06-30 migration. **Now authored** — see
+   **D7** below for the concrete file + apply steps. A **third**, unrelated delta — the Phase-4
+   `ai_suggestion.embedding` column (DDL only, no live wiring) — now rides the **same apply session**;
+   see D7's own note below.
+3. **`EMAIL_AI_ENABLED` production flip** (Phase 4 — **code built 2026-07-02**: the AOAI
+   structured-output client (`orchestration/src/lib/aoai.ts`), the rewritten `triageClassify`
+   activity, the post-classify orchestrator wiring (abstain/`uncorroborated_*` rows only), and the
+   extended `ai_suggestion` `'triage_category'` suggest/accept lifecycle are all in the repo,
+   unit-tested, and gated OFF by default — nothing above is live until you do the following):
+   - **App settings to flip it on** — `EMAIL_AI_ENABLED=true`,
+     `AI_MODEL_ENDPOINT=https://digital-3339-resource.cognitiveservices.azure.com` (verified
+     2026-07-02 via `az cognitiveservices account show --query properties.endpoint`; re-check the
+     registry for the current value before using it), `AI_MODEL_DEPLOYMENT=gpt-5`. All three are read
+     via the shared `@cs/domain/gates` (`emailAi()` / `aiModelEndpoint()` / `aiModelDeployment()`) —
+     set them on `cespk-orch-dev` (the app that makes the model call).
+   - **RBAC grant — ✅ APPLIED (2026-07-02):** the orch app's managed identity holds
+     **Cognitive Services OpenAI User** on `digital-3339-resource` (role assignment
+     `d695d697-ba96-42c4-a958-3cd61d868bb0`, applied via ARM and verified — see the registry's
+     `foundry.miGrants`). Keyless by design — no key app-setting exists to set. Nothing RBAC-side
+     blocks the `EMAIL_AI_ENABLED` flip any more; the remaining gates are the app-settings above +
+     the G5/E2 sign-off below.
+   - **⚠️ Known spec gap before flipping:** the plan's "honour `work_provider.ai_allowed`" check is
+     **not implemented** in the AOAI activity yet (the PII scrub, content-filter→abstain, model-version
+     stamping and suggestion-only posture all are). Add the per-provider `ai_allowed` check to
+     `orchestration/src/functions/gated/triage-classify.ts` before any production flip — the flag
+     already exists on `work_provider`.
+   - **Foundry keyless flip** (disable local/key auth on the account) is **not required** to flip
+     `EMAIL_AI_ENABLED` itself (the managed-identity token works regardless of whether key auth is
+     ALSO still enabled) — it is the separate, natural follow-on once the grant lands; tracked as
+     item 5 below, your confirmation either way.
+   - **Data residency, named plainly** (unchanged fact, restated per-gate as the plan requires): the
+     chat model is a **Global deployment** (inference may process outside the UK; data-at-rest stays
+     in-region; no UK data zone exists for gpt-5 in this region).
+   - **The gate itself, verbatim from the plan**: "the `EMAIL_AI_ENABLED` **production** flip is gated
+     on the **G5 per-AI-gate sign-off** (testing on repo data is pre-authorised)" — i.e. **G5** already
+     lets an agent/operator test this on real repo data (see the 2026-07-02 A/B smoke below); only the
+     **production** flip needs your sign-off, tracked at **E2** ("the per-AI-gate production sign-off
+     (AI **testing** on repo data is already authorised; only production use awaits sign-off)").
+   - **A/B evidence available before you decide**: `scripts/eval-email/run_ab.py` (new, Phase 4) ran a
+     live 3-item smoke test against `gpt-5` on 2026-07-02 (`--with-llm --deployment gpt-5 --limit 3`)
+     — 0 abstains, every response matched the strict-JSON contract. Run it over more of the corpus
+     (`--limit` raised, or omitted for the full 44-item corpus) for a fuller A/B picture before
+     deciding; `--deployment gpt-5-mini` correctly fails honestly (`http_404_DeploymentNotFound`) —
+     that model is not deployed on `digital-3339-resource` (only `gpt-5` and
+     `text-embedding-3-large` are; see the registry).
 4. **Live `inbound_email` PII export** for the eval corpus (Phase 1): an E2-governed export of real
-   email rows + staff overrides into the gitignored corpus path.
+   email rows + staff overrides into the gitignored corpus path. This also unblocks the Phase-4
+   embedding prior (`ai_suggestion.embedding`, DDL-only as of this build — see D7's note): that column
+   stays unpopulated until this export exists, per the plan.
 5. **Foundry keyless flip** (Phase 4): after the orchestration MI is granted access, disabling
    key-based auth on `digital-3339-resource` needs your confirmation — **you created that account**
    (2026-07-01) and may have key-based uses for it outside this repo. Current state: the registry
    ([live-environment.md](./architecture/live-environment.md)).
 
 All five also depend on the standing **A0** (`az login`) and **A1** (Free-Trial→PAYG) items above.
+
+#### D7. Apply the rules-engine-v2 taxonomy DDL delta  ·  *DDL authored 2026-07-02 — blocks the taxonomy-v2 engine deploy*
+
+**What:** the Phase-2 additive taxonomy DDL for the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md)
+is authored and checked in at
+[`migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql`](../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql)
+(see [`deltas/README.md`](../migration/assets/schema/deltas/README.md) for the canonical-vs-delta
+convention). It adds, all idempotent/additive (`ON CONFLICT DO NOTHING` / `IF NOT EXISTS`
+throughout, one `BEGIN…COMMIT`):
+- **`choice_inbound_category`** +2 rows — `case_update` (100000005), `cancellation` (100000006).
+- **`choice_inbound_subtype`** +3 rows — `images_received` (100000010, plan-named), plus two
+  minimal completions `cancellation_notice` (100000011) and `update_general` (100000012) so the two
+  new categories each have a subtype to land on (flagged in the file for your review at apply time).
+- **`choice_audit_action`** +4 rows — `inbound_link_suggested`/`inbound_linked`/`inbound_detached`
+  (100000035–37) and `cancellation_proposed` (100000038).
+- **`inbound_email`** +2 columns (`body_jobref`, `conversation_id`) + 2 partial indexes.
+
+The companion canonical files (`migration/assets/schema/000_enums_lookups.sql` and
+`120_inbound_email.sql`) already carry the same rows/columns, so a fresh rebuild lands at the same
+state — this item is only about applying the delta to the **already-live** database.
+
+**Why you:** this is a live schema change on the system of record (Postgres `cespk-pg-dev`) — an agent
+authors DDL but does not run it against a live database. The [plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md)
+marks the Phase-2 DDL apply as operator-gated, same discipline as the 2026-06-30 `ai_suggestion`
+migration. It is also a **deploy-order gate**: `inbound_email.category_code` / `subtype_code` (and their
+`suggested_*` twins) carry FK `REFERENCES` to the two choice tables, so deploying the taxonomy-v2
+parser/orchestration engine (tag `engine-v2.2`) **before** this delta lands would make its
+classify-persist writes fail closed the moment the new engine emits `case_update`/`cancellation` or
+one of the three new subtypes.
+
+**Steps** (mirrors the 2026-06-30 `ai_suggestion` delta apply — full detail + verification queries are
+in the delta file's own header comment):
+1. `az login` — sign in as the Entra principal that is `cespk-pg-dev`'s Microsoft Entra admin (live as
+   `digital@collisionengineers.co.uk`, mapped to the server's `azure_pg_admin` role).
+2. Add a transient firewall rule for your workstation IP:
+   `az postgres flexible-server firewall-rule create -g rg-collisionspike-dev -n cespk-pg-dev
+   --rule-name OperatorBuildHost --start-ip-address <your-ip> --end-ip-address <your-ip>`.
+3. Connect with an Entra token and become the table owner (the app login `cespk_app` doesn't own the
+   tables and can't run DDL; `csadmin` does and bypasses RLS):
+   `PGPASSWORD=$(az account get-access-token --resource-type oss-rdbms --query accessToken -o tsv)
+   psql "host=cespk-pg-dev.postgres.database.azure.com port=5432 dbname=collisionspike sslmode=require
+   user=digital@collisionengineers.co.uk" -v ON_ERROR_STOP=1`, then at the prompt `SET ROLE csadmin;`.
+4. Apply it: `\i migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql` (safe to
+   re-run — every statement no-ops if it has already landed).
+5. Run the verification queries from the delta file's header (row checks on the three choice tables,
+   `\d inbound_email` for the two new columns + their indexes).
+6. Remove the transient firewall rule: `az postgres flexible-server firewall-rule delete -g
+   rg-collisionspike-dev -n cespk-pg-dev --rule-name OperatorBuildHost --yes` (only
+   `AllowAzureServices` should remain).
+
+> **Blocks:** do not deploy the taxonomy-v2 parser/orchestration engine (tag `engine-v2.2`) and do not
+> flip any `TRIAGE_*` app-setting gate (`TRIAGE_REF_GATE_ENABLED`, `TRIAGE_CANCELLATION_ENABLED`, …)
+> until this delta is confirmed live — see the DEPLOY-ORDER WARNING in the delta file itself.
+
+> **A third delta now rides this same apply session** (Phase 4, authored 2026-07-02):
+> [`2026-07-02-rules-engine-v2-embedding.sql`](../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-embedding.sql)
+> adds `ai_suggestion.embedding double precision[]` — DDL only, no deploy-order coupling to anything
+> (unlike this delta, it gates no engine tag or app-setting: nothing in the repo reads or writes the
+> column yet). If you are already connected as `csadmin` for D7/D8, just also run `\i
+> migration/assets/schema/deltas/2026-07-02-rules-engine-v2-embedding.sql` before dropping the
+> transient firewall rule — see that file's own header for the one-line verification query. The
+> column stays unpopulated until the D6 #4 live `inbound_email` PII export exists (the plan's stated
+> precondition for the embedding prior).
+
+#### D8. Apply the rules-engine-v2 identification seed delta  ·  *authored 2026-07-02 — unblocks live PCH/Connexus routing (Phase 3)*
+
+**What:** the Phase-3 identification seed delta for the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md)
+(ADR-0011, implemented as written) is authored and checked in at
+[`migration/assets/schema/deltas/2026-07-02-rules-engine-v2-identification.sql`](../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-identification.sql).
+Unlike **D7** this is **pure data** — no new columns/tables/choice codes (`image_source`,
+`imagesource_workprovider`, and `work_provider.known_email_domains` are all already live), so there is
+**no deploy-order coupling** to any engine tag or app-setting gate. It:
+- Inserts one `image_source` row for **Connexus** (`kind=intermediary`, domain `connexus.co.uk`).
+- Links it N:N to **PCH** and **SBL** in `imagesource_workprovider` (resolved by `principal_code`; skips
+  silently if a code turns out to be missing from the live corpus — verify with the delta's own header
+  queries).
+- Appends `pch-ltd.com` to **PCH**'s own `known_email_domains` (TKT-051: PCH's direct senders were
+  unrecognised).
+- Defensively removes `connexus.co.uk` from any `work_provider.known_email_domains` it might already
+  carry (ADR-0011: an intermediary domain must never direct-match a single provider) — a no-op unless it
+  is actually present; this could **not** be verified offline (the seed CSVs `910_seed_corpus.sql`
+  `\copy`'s from are not checked into this repo), so the statement is written to be safe either way.
+
+**Why you:** same reason as D7 — a live data change on the system of record (Postgres `cespk-pg-dev`)
+needs the table owner (`csadmin`) and an RLS bypass (`image_source` / `imagesource_workprovider` /
+`work_provider` all carry `FORCE ROW LEVEL SECURITY`) that an agent session does not carry.
+
+**Steps:** identical connection/runbook to D7 (`az login` → transient firewall rule → connect as the
+Postgres Entra admin → `SET ROLE csadmin` → `\i` the file → run its header's verification queries → drop
+the firewall rule). See the delta file's own header for the exact commands.
+
+**Unblocks (not blocks):** TKT-021 (Connexus no longer resolves as a bare "new enquiry" when its content
+names PCH/SBL), TKT-051 (PCH doc-content **and** `@pch-ltd.com` senders both recognised), and TKT-028's
+residual (a content-detected provider now resolves a real `work_provider_id`, not just the free-text EVA
+field). The API/orchestration code that reads this corpus (the extended
+`GET /api/internal/provider-match-records`, `@cs/domain`'s `matchSenderIdentity`, and
+`applyParserFields`'s content-string mapping) is already deployed-safe without this delta applied — it
+degrades to today's behaviour (an empty intermediary/candidate list) until this lands.
 
 #### D5. Rotate the parser Function key  ·  *soft security item*
 

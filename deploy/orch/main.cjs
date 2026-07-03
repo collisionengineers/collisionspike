@@ -2141,6 +2141,78 @@ import_functions.app.http("graph-webhook", {
 // orchestration/src/functions/graph-lifecycle.ts
 var import_functions2 = require("@azure/functions");
 
+// orchestration/src/lib/image-sniff.ts
+var AREA_FLOOR = 200 * 200;
+var BYTE_FLOOR_FOR_UNKNOWN = 8 * 1024;
+var IMAGE_EXTENSION_RE = /\.(png|jpe?g|gif|bmp)$/i;
+var PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
+function sniffImageDimensions(bytes) {
+  if (!bytes || bytes.length === 0) return void 0;
+  if (isPng(bytes)) return sniffPngDimensions(bytes);
+  if (isJpeg(bytes)) return sniffJpegDimensions(bytes);
+  return void 0;
+}
+function isPng(bytes) {
+  if (bytes.length < PNG_SIGNATURE.length) return false;
+  for (let i = 0; i < PNG_SIGNATURE.length; i++) {
+    if (bytes[i] !== PNG_SIGNATURE[i]) return false;
+  }
+  return true;
+}
+function sniffPngDimensions(bytes) {
+  if (bytes.length < 24) return void 0;
+  const chunkType = bytes.toString("ascii", 12, 16);
+  if (chunkType !== "IHDR") return void 0;
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  if (!width || !height) return void 0;
+  return { width, height };
+}
+function isJpeg(bytes) {
+  return bytes.length >= 2 && bytes[0] === 255 && bytes[1] === 216;
+}
+var JPEG_SOF_MARKERS = /* @__PURE__ */ new Set([192, 193, 194]);
+var JPEG_NO_PAYLOAD_MARKERS = /* @__PURE__ */ new Set([216, 217, 208, 209, 210, 211, 212, 213, 214, 215]);
+function sniffJpegDimensions(bytes) {
+  const len = bytes.length;
+  let pos = 2;
+  while (pos < len) {
+    if (bytes[pos] !== 255) return void 0;
+    pos++;
+    while (pos < len && bytes[pos] === 255) pos++;
+    if (pos >= len) return void 0;
+    const marker2 = bytes[pos];
+    pos++;
+    if (JPEG_NO_PAYLOAD_MARKERS.has(marker2)) continue;
+    if (pos + 2 > len) return void 0;
+    const segmentLength = bytes.readUInt16BE(pos);
+    if (segmentLength < 2) return void 0;
+    if (JPEG_SOF_MARKERS.has(marker2)) {
+      if (pos + 7 > len) return void 0;
+      const height = bytes.readUInt16BE(pos + 3);
+      const width = bytes.readUInt16BE(pos + 5);
+      if (!width || !height) return void 0;
+      return { width, height };
+    }
+    pos += segmentLength;
+  }
+  return void 0;
+}
+function isImageAttachment(filename, contentType2) {
+  if (contentType2 && contentType2.toLowerCase().startsWith("image/")) return true;
+  return IMAGE_EXTENSION_RE.test(filename ?? "");
+}
+function isLikelySignatureImage(filename, contentType2, bytes, opts = {}) {
+  if (!isImageAttachment(filename, contentType2)) return false;
+  const areaFloor = opts.areaFloor ?? AREA_FLOOR;
+  const byteFloor = opts.byteFloorForUnknown ?? BYTE_FLOOR_FOR_UNKNOWN;
+  const dims = sniffImageDimensions(bytes);
+  if (dims) {
+    return dims.width * dims.height < areaFloor;
+  }
+  return bytes.length < byteFloor;
+}
+
 // orchestration/src/lib/graph.ts
 var GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 var cachedToken = null;
@@ -2203,6 +2275,9 @@ async function getMessageWithAttachments(mailbox, messageId) {
       if (a.isInline === true) continue;
       const otype = (a["@odata.type"] ?? "").toLowerCase();
       if (a.contentBytes !== void 0) {
+        if (skipAsSignatureImage(a.name, a.contentType, Buffer.from(a.contentBytes, "base64"))) {
+          continue;
+        }
         attachments.push(a);
         continue;
       }
@@ -2217,6 +2292,7 @@ async function getMessageWithAttachments(mailbox, messageId) {
             contentBytes: raw.toString("base64")
           });
         } else {
+          if (skipAsSignatureImage(a.name, a.contentType, raw)) continue;
           attachments.push({ ...a, size: raw.length, contentBytes: raw.toString("base64") });
         }
       } catch {
@@ -2228,6 +2304,14 @@ async function getMessageWithAttachments(mailbox, messageId) {
 function ensureEmlName(name) {
   const n = (name ?? "").trim() || "forwarded-message";
   return /\.eml$/i.test(n) ? n : `${n}.eml`;
+}
+function skipAsSignatureImage(name, contentType2, bytes) {
+  if (process.env.GRAPH_IMAGE_FLOOR_DISABLED === "true") return false;
+  if (!isLikelySignatureImage(name, contentType2, bytes)) return false;
+  const dims = sniffImageDimensions(bytes);
+  const reason = dims ? `dimensions ${dims.width}x${dims.height}` : `byte-size ${bytes.length}b`;
+  console.log(`[graph] skipped attachment "${name}" \u2014 likely signature/logo image (${reason})`);
+  return true;
 }
 async function getMessageRawMime(mailbox, messageId) {
   const token = await getGraphToken();
@@ -2267,6 +2351,42 @@ async function listMessageIdsSince(mailbox, watermarkIso) {
   const rows = res.value ?? [];
   const newWatermark = rows.length ? rows[rows.length - 1].receivedDateTime : watermarkIso;
   return { ids: rows.map((r) => r.id), newWatermark };
+}
+function odataQuote(value) {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+async function findMessageByInternetMessageId(mailbox, internetMessageId) {
+  const filter = encodeURIComponent(`internetMessageId eq ${odataQuote(internetMessageId)}`);
+  const path = `/users/${encodeURIComponent(mailbox)}/messages?$filter=${filter}&$select=id,parentFolderId&$top=2`;
+  const res = await graphFetch(path);
+  return res.value?.[0] ?? null;
+}
+async function ensureInboxChildFolder(mailbox, segments) {
+  const user = encodeURIComponent(mailbox);
+  let parentId = "inbox";
+  for (const name of segments) {
+    const filter = encodeURIComponent(`displayName eq ${odataQuote(name)}`);
+    const found = await graphFetch(
+      `/users/${user}/mailFolders/${encodeURIComponent(parentId)}/childFolders?$filter=${filter}&$select=id&$top=1`
+    );
+    if (found.value?.[0]) {
+      parentId = found.value[0].id;
+      continue;
+    }
+    const created = await graphFetch(
+      `/users/${user}/mailFolders/${encodeURIComponent(parentId)}/childFolders`,
+      { method: "POST", body: JSON.stringify({ displayName: name }) }
+    );
+    parentId = created.id;
+  }
+  return parentId;
+}
+async function moveMessage(mailbox, messageId, destinationFolderId) {
+  const res = await graphFetch(
+    `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}/move`,
+    { method: "POST", body: JSON.stringify({ destinationId: destinationFolderId }) }
+  );
+  return res.id;
 }
 function requireEnv(key) {
   const v = process.env[key];
@@ -2386,6 +2506,24 @@ function mailboxOfResource(resource) {
   const m = /^users\/([^/]+)\//i.exec(resource ?? "");
   return m ? m[1] : "";
 }
+function looksLikeMailboxAddress(value) {
+  return /^[^@\s]+@[^@\s]+$/.test(value ?? "");
+}
+var subscriptionMailboxCache = /* @__PURE__ */ new Map();
+async function resolveSubscriptionMailbox(subscriptionId) {
+  if (!subscriptionId) return "";
+  const hit = subscriptionMailboxCache.get(subscriptionId);
+  if (hit) return hit;
+  try {
+    const sub = await graphFetch(`${SUBSCRIPTIONS_PATH}/${subscriptionId}`);
+    const mailbox = mailboxOfResource(sub.resource ?? "");
+    if (!looksLikeMailboxAddress(mailbox)) return "";
+    subscriptionMailboxCache.set(subscriptionId, mailbox);
+    return mailbox;
+  } catch {
+    return "";
+  }
+}
 function requireClientState() {
   const cs = process.env.GRAPH_CLIENT_STATE;
   if (!cs) throw new Error("missing GRAPH_CLIENT_STATE");
@@ -2431,7 +2569,11 @@ import_functions2.app.http("graph-lifecycle", {
         ctx.warn("[graph-lifecycle] clientState mismatch \u2014 dropping");
         continue;
       }
-      const mailbox = mailboxOfResource(n.resource ?? "");
+      let mailbox = mailboxOfResource(n.resource ?? "");
+      if (!looksLikeMailboxAddress(mailbox) && n.subscriptionId) {
+        const resolved = await resolveSubscriptionMailbox(n.subscriptionId);
+        if (resolved) mailbox = resolved;
+      }
       ctx.log(JSON.stringify({ evt: "graph-lifecycle", lifecycleEvent: n.lifecycleEvent, subscriptionId: n.subscriptionId, mailbox }));
       try {
         switch (n.lifecycleEvent) {
@@ -2439,8 +2581,11 @@ import_functions2.app.http("graph-lifecycle", {
             if (n.subscriptionId) await renewSubscription(n.subscriptionId);
             break;
           case "subscriptionRemoved": {
-            if (mailbox) {
+            if (looksLikeMailboxAddress(mailbox)) {
               await createSubscription(mailbox);
+              await enqueueResync(mailbox, resync, ctx);
+            } else if (mailbox) {
+              ctx.warn(`[graph-lifecycle] subscriptionRemoved for unresolvable mailbox "${mailbox}" \u2014 recreation left to subscription maintenance`);
               await enqueueResync(mailbox, resync, ctx);
             }
             break;
@@ -2597,8 +2742,1083 @@ import_functions5.app.storageQueue("intake-starter", {
   }
 });
 
+// orchestration/src/functions/outlook-move.ts
+var import_functions6 = require("@azure/functions");
+
+// packages/domain/dist/gates.js
+var gates = {
+  // Core feature gates (plan 10 §1.1, #1–#21 boolean set)
+  pdfMapper: () => process.env.PDF_MAPPER_ENABLED === "true",
+  // #1
+  enrichment: () => process.env.ENRICHMENT_ENABLED === "true",
+  // #2
+  evaApi: () => process.env.EVA_API_ENABLED === "true",
+  // #4
+  azureMaps: () => process.env.AZURE_MAPS_ENABLED === "true",
+  // #8
+  valuation: () => process.env.VALUATION_ENABLED === "true",
+  // #9
+  copilot: () => process.env.COPILOT_ENABLED === "true",
+  // #10
+  azureVision: () => process.env.AZURE_VISION_ENABLED === "true",
+  // #11
+  ocrScannedPdf: () => process.env.OCR_SCANNED_PDF_ENABLED === "true",
+  // #12
+  plateOcr: () => process.env.PLATE_OCR_ENABLED === "true",
+  // #13
+  auditCases: () => process.env.AUDIT_CASES_ENABLED === "true",
+  // #15
+  locationAssist: () => process.env.LOCATION_ASSIST_ENABLED === "true",
+  // #17
+  chaserSend: () => process.env.CHASER_SEND_ENABLED === "true",
+  // #19
+  caseDisposition: () => process.env.CASE_DISPOSITION_ENABLED === "true",
+  // #20
+  emailAi: () => process.env.EMAIL_AI_ENABLED === "true",
+  // #21
+  // AI assistant suggestion layer (TKT-015) — default OFF. Gates the embedded AI
+  // suggestion surface + the server-side model call path; honest no-op while off
+  // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
+  aiAssist: () => process.env.AI_ASSIST_ENABLED === "true",
+  // Box gates (Phase 7, ADR-0012) — all default off
+  boxApi: () => process.env.BOX_API_ENABLED === "true",
+  // #22
+  boxFolderAtIntake: () => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === "true",
+  // #23
+  boxFileRequest: () => process.env.BOX_FILEREQUEST_ENABLED === "true",
+  // #24
+  boxEmbed: () => process.env.BOX_EMBED_ENABLED === "true",
+  // #25
+  boxMetadata: () => process.env.BOX_METADATA_ENABLED === "true",
+  // #26
+  // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
+  // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
+  // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
+  // (docs/gated.md).
+  outlookMove: () => process.env.OUTLOOK_MOVE_ENABLED === "true",
+  // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
+  // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
+  // is pure and never reads process.env — the caller (an orchestration Durable activity)
+  // reads these accessors and passes the values in as a plain TriagePolicyGates object.
+  // With all four off, decideTriage always falls through to 'proceed_default' (the
+  // kill-switch invariant) — gates-off output is indistinguishable from today.
+  triageRefGate: () => process.env.TRIAGE_REF_GATE_ENABLED === "true",
+  triageCancellation: () => process.env.TRIAGE_CANCELLATION_ENABLED === "true",
+  triageImagesRouting: () => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === "true",
+  triageCaseUpdate: () => process.env.TRIAGE_CASE_UPDATE_ENABLED === "true",
+  // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
+  enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
+  // #3
+  evaBaseUrl: () => process.env.EVA_BASE_URL ?? "",
+  // #5
+  valuationApiBase: () => process.env.VALUATION_API_BASE ?? "",
+  // #14
+  locationAssistApiBase: () => process.env.LOCATION_ASSIST_API_BASE ?? "",
+  // #18
+  boxFolderRootId: () => process.env.BOX_FOLDER_ROOT_ID ?? "",
+  // #27
+  boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
+  // #28
+  // AI model endpoint config (TKT-015). The server-side model call path is built but
+  // dormant: these settings are ABSENT in live app-settings, so the generate route stays
+  // an honest no-op until the wiring lands (model deployments now exist on the Foundry
+  // account — live state in LIVE_FACTS.json `foundry`; rules-engine-v2 Phase 4 wires
+  // them). Prefer managed-identity/keyless — no API key gate by design.
+  aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
+  aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
+  // Outlook-move queue config (TKT-054): the orchestration app's queue-service endpoint,
+  // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
+  // move jobs there with its managed identity (Storage Queue Data Message Sender).
+  outlookMoveQueueServiceUrl: () => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? "",
+  /**
+   * Derived: location assist is only enabled when all three conditions are met.
+   * Used by GET /api/gates/location-assist (plan 21 §21.2).
+   */
+  locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== "",
+  /**
+   * Derived: a model endpoint AND deployment are both configured. The AI generate
+   * route requires this in ADDITION to the aiAssist() switch — gate ON but model
+   * UNCONFIGURED is still an honest no-op (the live state today). Used by
+   * GET /api/gates/ai-assist + the generate route's disabled-reason.
+   */
+  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
+   * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
+   * honest refusal (TKT-054 / 020726 E6).
+   */
+  outlookMoveEnabled: () => gates.outlookMove() && gates.outlookMoveQueueServiceUrl() !== ""
+};
+
+// packages/domain/dist/contracts/eva-export.js
+var EVA_FIELD_ORDER = [
+  { key: "workProvider", payloadKey: "work_provider", label: "Work Provider", required: true },
+  { key: "vehicleModel", payloadKey: "vehicle_model", label: "Vehicle Model", required: true },
+  { key: "claimantName", payloadKey: "claimant_name", label: "Claimant Name", required: true },
+  { key: "claimantTelephone", payloadKey: "claimant_telephone", label: "Claimant Telephone", required: false },
+  { key: "claimantEmail", payloadKey: "claimant_email", label: "Claimant Email Address", required: false },
+  { key: "dateOfLoss", payloadKey: "date_of_loss", label: "Date of Incident", required: true },
+  { key: "dateOfInstruction", payloadKey: "date_of_instruction", label: "Date of Instruction", required: true },
+  { key: "accidentCircumstances", payloadKey: "accident_circumstances", label: "Accident Circumstances", required: true },
+  { key: "inspectionAddress", payloadKey: "inspection_address", label: "Inspection Address", required: true },
+  { key: "vatStatus", payloadKey: "vat_status", label: "VAT Status", required: false },
+  { key: "mileage", payloadKey: "mileage", label: "Mileage", required: false },
+  { key: "mileageUnit", payloadKey: "mileage_unit", label: "Mileage Unit", required: false }
+];
+var EVA_PAYLOAD_KEYS = EVA_FIELD_ORDER.map((d) => d.payloadKey);
+
+// packages/domain/dist/contracts/case-status.js
+var TERMINAL_STATUSES = [
+  "eva_submitted",
+  "box_synced",
+  "error",
+  "removed"
+];
+var TERMINAL_SET = new Set(TERMINAL_STATUSES);
+function isTerminalStatus(status) {
+  return TERMINAL_SET.has(status);
+}
+var REQUIRED_FIELD_KEYS = EVA_FIELD_ORDER.filter((d) => d.required).map((d) => d.key);
+
+// packages/domain/dist/domain/classification.js
+var EXTENSION_TABLE = {
+  jpg: "image",
+  jpeg: "image",
+  png: "image",
+  pdf: "instruction",
+  docx: "instruction",
+  doc: "instruction",
+  eml: "email"
+};
+var MIME_TABLE = {
+  "image/jpeg": "image",
+  "image/jpg": "image",
+  "image/png": "image",
+  "application/pdf": "instruction",
+  "application/msword": "instruction",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "instruction",
+  "message/rfc822": "email"
+};
+function extensionOf(filename) {
+  const name = filename.trim();
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0 || dot === name.length - 1)
+    return "";
+  return name.slice(dot + 1).toLowerCase();
+}
+function normaliseMime(contentType2) {
+  if (!contentType2)
+    return "";
+  const semi = contentType2.indexOf(";");
+  const base = semi >= 0 ? contentType2.slice(0, semi) : contentType2;
+  return base.trim().toLowerCase();
+}
+function classifyAttachment(filename, contentType2) {
+  const ext = extensionOf(filename);
+  const byExt = EXTENSION_TABLE[ext];
+  if (byExt)
+    return byExt;
+  const byMime = MIME_TABLE[normaliseMime(contentType2)];
+  if (byMime)
+    return byMime;
+  return "other";
+}
+function describeEvidence(filename, contentType2, isEmlMessage = false) {
+  const evidenceClass = isEmlMessage ? "email" : classifyAttachment(filename, contentType2);
+  return {
+    filename,
+    contentType: normaliseMime(contentType2),
+    extension: extensionOf(filename),
+    evidenceClass,
+    isImage: evidenceClass === "image",
+    isInstruction: evidenceClass === "instruction"
+  };
+}
+
+// packages/domain/dist/domain/dedup.js
+function hasRef(ref) {
+  return typeof ref === "string" && ref.trim().length > 0;
+}
+function refEquals(a, b) {
+  if (!hasRef(a) || !hasRef(b))
+    return false;
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+function eligibleCases(input12) {
+  return input12.openProviderCases.filter((c) => {
+    if (c.workProviderId !== void 0 && c.workProviderId !== input12.workProviderId) {
+      return false;
+    }
+    if (isTerminalStatus(c.status))
+      return false;
+    return true;
+  });
+}
+function resolveCase(input12) {
+  if (input12.seenMessageIds.includes(input12.messageId) || input12.seenPayloadHashes.includes(input12.payloadHash)) {
+    return {
+      resolution: "drop",
+      setDuplicateRisk: false,
+      statusEffect: "keep_target",
+      auditAction: "duplicate_dropped"
+    };
+  }
+  const candidates = eligibleCases(input12);
+  if (hasRef(input12.candidateRef)) {
+    const matched = candidates.find((c) => refEquals(c.caseRef, input12.candidateRef));
+    if (matched) {
+      return {
+        resolution: "attach",
+        targetCaseId: matched.caseId,
+        setDuplicateRisk: false,
+        caseLinkState: "none",
+        statusEffect: "keep_target",
+        auditAction: "case_attached"
+      };
+    }
+    if (candidates.length > 0) {
+      return {
+        resolution: "new_due_to_reference",
+        setDuplicateRisk: true,
+        caseLinkState: "none",
+        statusEffect: "new_email",
+        auditAction: "duplicate_flagged"
+      };
+    }
+  }
+  if (!hasRef(input12.candidateRef) && candidates.length > 0) {
+    return {
+      resolution: "propose_attach",
+      targetCaseId: candidates[0].caseId,
+      setDuplicateRisk: true,
+      caseLinkState: "pending",
+      statusEffect: "duplicate_risk",
+      auditAction: "duplicate_flagged"
+    };
+  }
+  return {
+    resolution: "create",
+    setDuplicateRisk: false,
+    caseLinkState: "none",
+    statusEffect: "new_email",
+    auditAction: "case_created"
+  };
+}
+
+// packages/domain/dist/domain/provider-match.js
+function domainOf(senderAddress) {
+  const raw = senderAddress.trim().toLowerCase();
+  const lt = raw.lastIndexOf("<");
+  const gt = raw.lastIndexOf(">");
+  const addr = lt >= 0 && gt > lt ? raw.slice(lt + 1, gt).trim() : raw;
+  const at = addr.lastIndexOf("@");
+  if (at < 0 || at === addr.length - 1)
+    return "";
+  const domain = addr.slice(at + 1).trim();
+  if (!domain.includes(".") || /\s/.test(domain))
+    return "";
+  return domain;
+}
+function addressOf(senderAddress) {
+  const raw = senderAddress.trim().toLowerCase();
+  const lt = raw.lastIndexOf("<");
+  const gt = raw.lastIndexOf(">");
+  const addr = lt >= 0 && gt > lt ? raw.slice(lt + 1, gt).trim() : raw;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr))
+    return "";
+  return addr;
+}
+function matchProviderByDomain(senderAddress, providers) {
+  const address = addressOf(senderAddress);
+  const domain = domainOf(senderAddress);
+  if (address) {
+    const addrHits = providers.filter((p) => p.active && (p.knownEmailAddresses ?? []).some((a) => a.trim().toLowerCase() === address));
+    if (addrHits.length === 1) {
+      return {
+        outcome: "matched",
+        matchedDomain: domain,
+        matchedAddress: address,
+        matchedBy: "address",
+        workProviderId: addrHits[0].workProviderId,
+        principalCode: addrHits[0].principalCode
+      };
+    }
+    if (addrHits.length > 1) {
+      return {
+        outcome: "ambiguous",
+        matchedDomain: domain,
+        matchedAddress: address,
+        matchedBy: "address",
+        ambiguousProviderIds: addrHits.map((p) => p.workProviderId)
+      };
+    }
+  }
+  if (!domain) {
+    return { outcome: "unmatched", matchedDomain: "" };
+  }
+  const hits = providers.filter((p) => p.active && p.knownEmailDomains.some((d) => d.trim().toLowerCase() === domain));
+  if (hits.length === 0) {
+    return { outcome: "unmatched", matchedDomain: domain };
+  }
+  if (hits.length > 1) {
+    return {
+      outcome: "ambiguous",
+      matchedDomain: domain,
+      matchedBy: "domain",
+      ambiguousProviderIds: hits.map((p) => p.workProviderId)
+    };
+  }
+  return {
+    outcome: "matched",
+    matchedDomain: domain,
+    matchedBy: "domain",
+    workProviderId: hits[0].workProviderId,
+    principalCode: hits[0].principalCode
+  };
+}
+
+// packages/domain/dist/domain/sender-identity-match.js
+function matchSenderIdentity(senderAddress, providers, imageSources) {
+  const domain = domainOf(senderAddress);
+  const providerResult = matchProviderByDomain(senderAddress, providers);
+  if (providerResult.matchedBy === "address") {
+    return { kind: "provider", result: providerResult };
+  }
+  if (domain) {
+    const hit = imageSources.find((s) => s.kind === "intermediary" && s.emailDomain.trim().toLowerCase() === domain);
+    if (hit) {
+      return {
+        kind: "intermediary",
+        imageSourceId: hit.imageSourceId,
+        name: hit.name,
+        candidateProviderIds: hit.candidateProviderIds,
+        matchedDomain: domain
+      };
+    }
+  }
+  if (providerResult.outcome === "matched" || providerResult.outcome === "ambiguous") {
+    return { kind: "provider", result: providerResult };
+  }
+  return { kind: "none", matchedDomain: domain };
+}
+
+// packages/domain/dist/domain/vrm-filter.js
+var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
+var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
+var ANCHOR = /\b(?:registration|reg|vrm|vehicle|plate|number\s?plate)\b/i;
+var EXCLUDE_WORDS = /* @__PURE__ */ new Set([
+  "VAT",
+  "TEL",
+  "REF",
+  "REFERENCE",
+  "INVOICE",
+  "INV",
+  "PHONE",
+  "FAX",
+  "FAO",
+  "PO",
+  "ORDER",
+  "ACCOUNT",
+  "ACC"
+]);
+var EXCLUDE_LABEL = new RegExp(`\\b(?:${[...EXCLUDE_WORDS].join("|")})[:.#\\-\\s]*$`);
+function isPostcodeOutward(upper, idx, cand) {
+  const after = upper.slice(idx + cand.length);
+  return /^\s?[0-9][A-Z]{2}\b/.test(after);
+}
+var POSTCODE_AREAS = /* @__PURE__ */ new Set([
+  "AB",
+  "AL",
+  "B",
+  "BA",
+  "BB",
+  "BD",
+  "BH",
+  "BL",
+  "BN",
+  "BR",
+  "BS",
+  "BT",
+  "CA",
+  "CB",
+  "CF",
+  "CH",
+  "CM",
+  "CO",
+  "CR",
+  "CT",
+  "CV",
+  "CW",
+  "DA",
+  "DD",
+  "DE",
+  "DG",
+  "DH",
+  "DL",
+  "DN",
+  "DT",
+  "DY",
+  "E",
+  "EC",
+  "EH",
+  "EN",
+  "EX",
+  "FK",
+  "FY",
+  "G",
+  "GL",
+  "GU",
+  "GY",
+  "HA",
+  "HD",
+  "HG",
+  "HP",
+  "HR",
+  "HS",
+  "HU",
+  "HX",
+  "IG",
+  "IM",
+  "IP",
+  "IV",
+  "JE",
+  "KA",
+  "KT",
+  "KW",
+  "KY",
+  "L",
+  "LA",
+  "LD",
+  "LE",
+  "LL",
+  "LN",
+  "LS",
+  "LU",
+  "M",
+  "ME",
+  "MK",
+  "ML",
+  "N",
+  "NE",
+  "NG",
+  "NN",
+  "NP",
+  "NR",
+  "NW",
+  "OL",
+  "OX",
+  "PA",
+  "PE",
+  "PH",
+  "PL",
+  "PO",
+  "PR",
+  "RG",
+  "RH",
+  "RM",
+  "S",
+  "SA",
+  "SE",
+  "SG",
+  "SK",
+  "SL",
+  "SM",
+  "SN",
+  "SO",
+  "SP",
+  "SR",
+  "SS",
+  "ST",
+  "SW",
+  "SY",
+  "TA",
+  "TD",
+  "TF",
+  "TN",
+  "TQ",
+  "TR",
+  "TS",
+  "TW",
+  "UB",
+  "W",
+  "WA",
+  "WC",
+  "WD",
+  "WF",
+  "WN",
+  "WR",
+  "WS",
+  "WV",
+  "YO",
+  "ZE"
+]);
+function isPostcodeOutwardCode(compact) {
+  const m = /^([A-Z]{1,2})[0-9]{1,2}$/.exec(compact);
+  return m !== null && POSTCODE_AREAS.has(m[1]);
+}
+function precededByExcludeLabel(upper, idx) {
+  const before = upper.slice(Math.max(0, idx - 16), idx);
+  return EXCLUDE_LABEL.test(before);
+}
+function extractVrm(text) {
+  if (!text)
+    return "";
+  const upper = text.toUpperCase();
+  for (const m of upper.matchAll(STRICT)) {
+    const cand = m[0];
+    if (isPostcodeOutward(upper, m.index ?? 0, cand))
+      continue;
+    return cand.replace(/\s+/g, "");
+  }
+  if (ANCHOR.test(text)) {
+    for (const m of upper.matchAll(LOOSE)) {
+      const cand = m[0];
+      const idx = m.index ?? 0;
+      const compact = cand.replace(/\s+/g, "");
+      if (isPostcodeOutward(upper, idx, cand))
+        continue;
+      if (isPostcodeOutwardCode(compact))
+        continue;
+      const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
+      if (EXCLUDE_WORDS.has(alpha))
+        continue;
+      if (precededByExcludeLabel(upper, idx))
+        continue;
+      return compact;
+    }
+  }
+  return "";
+}
+
+// packages/domain/dist/domain/pii-scrub.js
+var DEFAULT_PLACEHOLDERS = {
+  email: "[EMAIL]",
+  phone: "[PHONE]",
+  postcode: "[POSTCODE]",
+  address: "[ADDRESS]",
+  nino: "[NINO]",
+  name: "[NAME]",
+  vrm: "[VRM]"
+};
+var EMAIL_RE = /(?<![\w])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w])/g;
+var NINO_RE = /(?<![\w])[ABCEGHJ-PRSTW-Z][ABCEGHJ-NPRSTW-Z][\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?[A-D](?![\w])/gi;
+var ADDRESS_RE = /(?<![\w])\d{1,4}[A-Za-z]?[\s,]+(?:[A-Z][A-Za-z'-]+[\s,]+){1,4}(?:Road|Rd|Street|St|Avenue|Ave|Lane|Ln|Drive|Dr|Close|Cl|Way|Court|Ct|Crescent|Cres|Place|Pl|Terrace|Gardens|Grove|Grv|Walk|Row|Hill|Park)\b\.?/g;
+var POSTCODE_RE = /(?<![\w])(?:[A-Z]{1,2}\d[A-Z\d]?|GIR)[\s-]?\d[A-Z]{2}(?![\w])/gi;
+var PHONE_RE = /(?<![\w])(?:\+44[\s-]?\(?0?\)?|\(?0)(?:[\s\-()]{0,2}\d){9,10}(?![\w])/g;
+var NAME_RE = /(?<![\w])(?:Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+[A-Z](?:[A-Za-z'-]+|\.)?(?:\s+[A-Z](?:[A-Za-z'-]+|\.)?){0,2}/g;
+var VRM_RE = /(?<![\w])(?:[A-Z]{2}\d{2}[\s-]?[A-Z]{3}|[A-Z]\d{1,3}[\s-]?[A-Z]{3}|[A-Z]{3}[\s-]?\d{1,3}[A-Z])(?![\w])/gi;
+var RULES = [
+  { kind: "email", re: EMAIL_RE, enabled: () => true },
+  { kind: "nino", re: NINO_RE, enabled: () => true },
+  { kind: "address", re: ADDRESS_RE, enabled: () => true },
+  { kind: "postcode", re: POSTCODE_RE, enabled: () => true },
+  { kind: "phone", re: PHONE_RE, enabled: () => true },
+  { kind: "name", re: NAME_RE, enabled: (o) => o.redactNames },
+  { kind: "vrm", re: VRM_RE, enabled: (o) => o.redactVrm }
+];
+function scrubPii(input12, opts = {}) {
+  const cfg = {
+    redactVrm: opts.redactVrm ?? false,
+    redactNames: opts.redactNames ?? true
+  };
+  const placeholderFor = (kind) => opts.placeholders?.[kind] ?? DEFAULT_PLACEHOLDERS[kind];
+  if (typeof input12 !== "string" || input12.length === 0) {
+    return { text: typeof input12 === "string" ? input12 : "", redactions: [], totalRedactions: 0 };
+  }
+  let text = input12;
+  const redactions = [];
+  for (const rule of RULES) {
+    if (!rule.enabled(cfg))
+      continue;
+    let count = 0;
+    const placeholder = placeholderFor(rule.kind);
+    rule.re.lastIndex = 0;
+    text = text.replace(rule.re, () => {
+      count += 1;
+      return placeholder;
+    });
+    if (count > 0)
+      redactions.push({ kind: rule.kind, count });
+  }
+  const totalRedactions = redactions.reduce((sum, r) => sum + r.count, 0);
+  return { text, redactions, totalRedactions };
+}
+
+// packages/domain/dist/domain/triage-policy.js
+var POLICY_VERSION = "triage-policy-v1";
+var REF_MATCH_PRIORITY = {
+  case_po: 0,
+  job_ref: 1,
+  vrm: 2
+};
+function matchLabel(matchedOn) {
+  switch (matchedOn) {
+    case "case_po":
+      return "Case/PO";
+    case "job_ref":
+      return "job reference";
+    case "vrm":
+      return "registration";
+  }
+}
+function distinctByCaseId(matches) {
+  const seen = /* @__PURE__ */ new Map();
+  for (const m of matches) {
+    if (!seen.has(m.caseId))
+      seen.set(m.caseId, m);
+  }
+  return [...seen.values()];
+}
+function bestMatchTier(matches) {
+  if (matches.length === 0)
+    return [];
+  const bestPriority = Math.min(...matches.map((m) => REF_MATCH_PRIORITY[m.matchedOn]));
+  const tier2 = matches.filter((m) => REF_MATCH_PRIORITY[m.matchedOn] === bestPriority);
+  return distinctByCaseId(tier2);
+}
+function cancellationEligibleMatches(matches) {
+  return distinctByCaseId(matches.filter((m) => m.matchedOn !== "vrm"));
+}
+function hasRefSignal(c) {
+  return Boolean(c.bodyCaseref && c.bodyCaseref.trim() || c.bodyJobref && c.bodyJobref.trim() || c.bodyVrm && c.bodyVrm.trim());
+}
+function decideTriage(classification, context3, gates2) {
+  if (context3.duplicateInternetMessageId && gates2.refGate) {
+    return {
+      action: "drop_duplicate",
+      finalCategory: classification.category,
+      finalSubtype: classification.subtype,
+      rationale: "This message has already been received and processed once \u2014 the repeat copy is not actioned again.",
+      decisionInputs: {
+        rung: "duplicate_internet_message_id",
+        duplicateInternetMessageId: context3.duplicateInternetMessageId
+      },
+      policyVersion: POLICY_VERSION
+    };
+  }
+  if (gates2.cancellation && classification.category === "cancellation") {
+    const eligible = cancellationEligibleMatches(context3.openCaseMatches);
+    const target = eligible.length === 1 ? eligible[0] : void 0;
+    return {
+      action: "propose_cancellation",
+      finalCategory: classification.category,
+      finalSubtype: classification.subtype,
+      ...target ? { targetCaseId: target.caseId } : {},
+      suggestionType: "cancellation",
+      rationale: target ? `This message reports case ${target.casePo} as cancelled or closed \u2014 flagged for a person to confirm before it is closed or put on hold.` : "This message reports a case cancelled or closed, but no single open case could be matched to it \u2014 flagged for a person to find the right one.",
+      decisionInputs: {
+        rung: "cancellation",
+        engineCategory: classification.category,
+        eligibleMatchCount: eligible.length,
+        openCaseMatches: context3.openCaseMatches
+      },
+      policyVersion: POLICY_VERSION
+    };
+  }
+  if (gates2.refGate && hasRefSignal(classification) && context3.openCaseMatches.length > 0) {
+    const tier2 = bestMatchTier(context3.openCaseMatches);
+    const target = tier2.length === 1 ? tier2[0] : void 0;
+    let finalCategory = classification.category;
+    let finalSubtype = classification.subtype;
+    let caseUpdateApplied = false;
+    if (gates2.caseUpdate && context3.hasAttachments) {
+      finalCategory = "case_update";
+      finalSubtype = context3.imagesOnly ? "images_received" : "update_general";
+      caseUpdateApplied = true;
+    }
+    return {
+      action: "suggest_attach",
+      finalCategory,
+      finalSubtype,
+      ...target ? { targetCaseId: target.caseId } : {},
+      suggestionType: "case_link",
+      rationale: target ? `Matches open case ${target.casePo} by its ${matchLabel(target.matchedOn)} \u2014 suggested attaching this email to it.` : `Matches ${tier2.length} open cases by ${matchLabel(tier2[0].matchedOn)} \u2014 needs a person to pick the right one.`,
+      decisionInputs: {
+        rung: "ref_gate",
+        matchTier: tier2[0]?.matchedOn,
+        matchCount: tier2.length,
+        openCaseMatches: context3.openCaseMatches,
+        conversationSiblingCaseIds: context3.conversationSiblingCaseIds,
+        caseUpdateApplied,
+        hasAttachments: context3.hasAttachments,
+        imagesOnly: context3.imagesOnly
+      },
+      policyVersion: POLICY_VERSION
+    };
+  }
+  if (gates2.imagesRouting && context3.imagesOnly && context3.openCaseMatches.length === 0 && classification.bodyVrm && classification.bodyVrm.trim()) {
+    return {
+      action: "route_images_unmatched",
+      finalCategory: classification.category,
+      finalSubtype: "images_received",
+      rationale: `These photos show a registration (${classification.bodyVrm.trim()}) but do not yet match an open case \u2014 routed to the unmatched-photos folder for a person to place.`,
+      decisionInputs: {
+        rung: "images_routing",
+        bodyVrm: classification.bodyVrm,
+        openCaseMatchCount: context3.openCaseMatches.length
+      },
+      policyVersion: POLICY_VERSION
+    };
+  }
+  return {
+    action: "proceed_default",
+    finalCategory: classification.category,
+    finalSubtype: classification.subtype,
+    rationale: "No case-matching or cancellation action applies here \u2014 this message proceeds through the ordinary intake process unchanged.",
+    decisionInputs: {
+      rung: "default",
+      gates: gates2,
+      openCaseMatchCount: context3.openCaseMatches.length,
+      duplicateInternetMessageId: context3.duplicateInternetMessageId
+    },
+    policyVersion: POLICY_VERSION
+  };
+}
+
+// packages/domain/dist/domain/outlook-folder.js
+function outlookFolderSegments(path) {
+  const parts = path.split("/").map((p) => p.trim()).filter(Boolean);
+  return parts[0]?.toLowerCase() === "inbox" ? parts.slice(1) : parts;
+}
+
+// packages/domain/dist/dto/index.js
+var INBOUND_CATEGORIES = [
+  "receiving_work",
+  "query",
+  "billing",
+  "non_actionable",
+  "other",
+  "case_update",
+  "cancellation"
+];
+var INBOUND_SUBTYPES = [
+  "existing_provider_instruction",
+  "existing_provider_audit",
+  "existing_provider_diminution",
+  "new_client_work",
+  "query_existing_work",
+  "query_new_enquiry",
+  "billing_request",
+  "case_summary",
+  "acknowledgement",
+  "other",
+  "images_received",
+  "cancellation_notice",
+  "update_general"
+];
+
+// orchestration/src/lib/data-api.ts
+var cachedToken2 = null;
+async function getDataApiToken() {
+  const local = process.env.DATA_API_TOKEN;
+  if (local) return local;
+  const now = Date.now();
+  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
+  const audience = process.env.DATA_API_AUDIENCE;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (!audience || !idEndpoint || !idHeader) {
+    throw new Error("missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth");
+  }
+  const url2 = `${idEndpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`;
+  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+  if (!res.ok) throw new Error(`MSI token ${res.status}`);
+  const json = await res.json();
+  cachedToken2 = {
+    value: json.access_token,
+    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+  };
+  return cachedToken2.value;
+}
+async function request(method, path, body2) {
+  const baseUrl2 = (process.env.DATA_API_URL ?? "").replace(/\/$/, "");
+  if (!baseUrl2) throw new Error("missing DATA_API_URL");
+  const token = await getDataApiToken();
+  const res = await fetch(`${baseUrl2}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      ...body2 !== void 0 ? { "Content-Type": "application/json" } : {}
+    },
+    body: body2 !== void 0 ? JSON.stringify(body2) : void 0
+  });
+  if (res.status === 409) {
+    throw new ConflictError(`${method} ${path} \u2192 409`);
+  }
+  if (!res.ok) {
+    throw new Error(`data-api ${method} ${path} \u2192 ${res.status}: ${await safeText2(res)}`);
+  }
+  if (res.status === 204) return void 0;
+  return await res.json();
+}
+var ConflictError = class extends Error {
+};
+var dataApi = {
+  /**
+   * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
+   * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).
+   */
+  providerMatchRecords() {
+    return request("GET", "/api/internal/provider-match-records");
+  },
+  /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
+  dedupContext(params) {
+    const q = new URLSearchParams({
+      workProviderId: params.workProviderId,
+      vrm: params.vrm,
+      messageId: params.messageId
+    });
+    return request("GET", `/api/internal/dedup-context?${q.toString()}`);
+  },
+  /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
+  createCase(input12) {
+    return request("POST", "/api/cases", input12);
+  },
+  /**
+   * Persist the result of the in-activity dedup decision (internal route). The orchestration
+   * owns the ADR-0010 *decision* (shared `resolveCase`); the API owns the *persist* — it
+   * constructs the Case row (default EvaFields, status machine) on create, reparents evidence
+   * on attach, stamps duplicate-risk / case-link flags, and maps a UNIQUE(sourcemessageid)
+   * collision to `already_ingested`. Keeps EvaFields construction + status machine in the API.
+   */
+  resolvePersist(payload) {
+    return request("POST", "/api/internal/cases/resolve", payload);
+  },
+  /**
+   * Record a classified inbound_email triage row with NO case (ADR-0015). Used for
+   * query/other AND as the always-on first write for receiving_work (caseResolve later
+   * stamps case_id onto the same row). Idempotent upsert on source_message_id.
+   *
+   * `inbound` is the FULL InboundEnvelope and already carries `conversationId` as-is (one
+   * of the rules-engine-v2 Phase 2 DDL's two new inbound_email columns —
+   * `inbound_email.conversation_id`); `classification.bodyJobref` is the other
+   * (`inbound_email.body_jobref`). Both are sent unconditionally — schema-tolerant
+   * server-side: the API persists them once its upsert is wired to the (already-landed)
+   * columns, and simply ignores the extra fields until then.
+   */
+  recordInboundEmail(payload) {
+    return request("POST", "/api/internal/inbound-email", payload);
+  },
+  /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
+  persistEvidence(caseId, rows) {
+    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+  /**
+   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
+   * ticket). Same internal evidence route (idempotent on storage_path), but carries
+   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
+   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
+   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
+   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
+   * idempotently on the child blob path, so this is forward-compatible.
+   */
+  persistImageEvidence(caseId, rows) {
+    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+  /** Persisted blob-backed evidence rows ready for archive mirroring. */
+  archiveEvidenceRows(caseId) {
+    return request("GET", `/api/internal/cases/${caseId}/archive-evidence`);
+  },
+  /** Stamp one evidence row after its bytes were mirrored into the archive. */
+  stampArchivedEvidence(payload) {
+    return request("POST", `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
+      evidenceId: payload.evidenceId,
+      blobPath: payload.blobPath,
+      boxFileId: payload.boxFileId,
+      ...payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}
+    });
+  },
+  /** Recompute EVA-readiness + status machine and persist (internal route). */
+  evaluateStatus(caseId) {
+    return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
+  },
+  /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
+  setIngested(caseId) {
+    return request("POST", `/api/internal/cases/${caseId}/set-ingested`, {});
+  },
+  /**
+   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
+   * Fill-if-empty on the API side; returns the fields it actually filled.
+   */
+  persistEnrichment(caseId, result) {
+    return request("POST", `/api/internal/cases/${caseId}/enrichment`, result);
+  },
+  /**
+   * Resolve a REPLY about existing work against OPEN cases (Case-ref first, then VRM) and
+   * link the triage row to the single match — or, when ambiguous (>1), leave it for a human
+   * (ADR-0010: never auto-link). The DB lookup + ADR-0010 decision run server-side (#3).
+   */
+  linkReplyToOpenCase(payload) {
+    return request("POST", "/api/internal/inbound/link-reply", payload);
+  },
+  /**
+   * Resolve the LIVE context the pure `@cs/domain` `decideTriage` (Stage B, ADR-0019 /
+   * rules-engine-v2 Phase 2) needs: open-case Case/PO + job-ref + VRM matches,
+   * cross-mailbox duplicate delivery (the SAME Internet-Message-Id already ingested), and
+   * local conversation-thread siblings (internal route; a pure read, no mutation — safe
+   * to call on every Durable replay).
+   */
+  triageContext(payload) {
+    return request("POST", "/api/internal/triage/context", payload);
+  },
+  /**
+   * Write ONE `ai_suggestion` row for a triage-policy proposal (case-link or
+   * cancellation) — the ONLY call that persists a triage-policy decision. A `shadow`
+   * (all-gates-forced-on) decision NEVER calls this (ADR-0019 §5 / the Phase-2 plan: "no
+   * shadow rows in ai_suggestion while its gate is off"). Idempotent server-side: returns
+   * `created: false` (never a duplicate row) when an equivalent PENDING suggestion
+   * already exists, so an at-least-once Durable retry is safe.
+   */
+  triageSuggestLink(payload) {
+    return request("POST", "/api/internal/triage/suggest-link", payload);
+  },
+  /**
+   * Write ONE `ai_suggestion` row for a Stage-C (gated LLM) triage-category proposal
+   * (rules-engine-v2 Phase 4, ADR-0019 §3) — the ONLY call `triage-classify.ts`'s
+   * activity makes on a non-abstain model result. Never a case mutation: a human accepts
+   * it via the existing `ai_suggestion` review lifecycle
+   * (`api/src/functions/ai-suggestions.ts`'s `promoteAcceptedSuggestion`), which applies
+   * category_code/subtype_code the same way a staff reclassify does. Idempotent
+   * server-side (same subject-key + suggestionType mechanism as `triageSuggestLink`).
+   */
+  triageSuggestClassification(payload) {
+    return request("POST", "/api/internal/triage/suggest-link", {
+      ...payload.sourceMessageId ? { sourceMessageId: payload.sourceMessageId } : {},
+      ...payload.inboundEmailId ? { inboundEmailId: payload.inboundEmailId } : {},
+      suggestionType: "triage_category",
+      category: payload.category,
+      subtype: payload.subtype,
+      rationale: payload.rationale,
+      confidence: payload.confidence,
+      modelVersion: payload.modelVersion
+    });
+  },
+  /**
+   * Report the terminal outcome of a gated Outlook filing (TKT-054 / 020726 E6) — the
+   * `outlook-move` queue function's write-back. `moved` also marks a still-new row
+   * actioned on the API side; `failed` leaves the row retryable.
+   */
+  reportOutlookMove(inboundEmailId, payload) {
+    return request("POST", `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
+  },
+  /** Append one audit_event row (internal route; the API enforces append-only). */
+  recordAudit(payload) {
+    return request("POST", "/api/internal/audit", payload);
+  },
+  /** Per-principal job rows for the jobsheet-import fan-out (internal route). */
+  principals() {
+    return request("GET", "/api/internal/principals");
+  },
+  /** Cases due for retention disposition (internal route; case-disposition job). */
+  casesForDisposition() {
+    return request("GET", "/api/internal/disposition/due");
+  },
+  /** Run the retention/erasure for one case (internal route; job identity only). */
+  disposeCase(caseId) {
+    return request("POST", `/api/internal/disposition/${caseId}`, {});
+  },
+  /** Evidence blob paths eligible for the post-mirror purge (internal route). */
+  blobsForPurge() {
+    return request("GET", "/api/internal/box/purge-candidates");
+  },
+  /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
+  markBlobPurged(payload) {
+    return request("POST", "/api/internal/box/mark-purged", payload);
+  },
+  /**
+   * Read a case's current Box folder linkage (internal route; idempotency source for
+   * box-folder-create). `boxFolderId` is null when the case has no folder yet.
+   */
+  getCaseBoxFolder(caseId) {
+    return request("GET", `/api/internal/cases/${caseId}/box-folder`);
+  },
+  /**
+   * First-wins stamp of the Box folder id/url onto a case (internal route). Idempotent:
+   * a re-run / concurrent create returns { applied: false } and the API audits
+   * box_folder_created ONLY on the stamping call. The activity reads back first, so this
+   * is the durable backstop, not the primary dedup.
+   */
+  stampCaseBoxFolder(caseId, payload) {
+    return request("POST", `/api/internal/cases/${caseId}/box-folder`, payload);
+  }
+};
+async function safeText2(res) {
+  try {
+    return (await res.text()).slice(0, 500);
+  } catch {
+    return "<no body>";
+  }
+}
+
+// orchestration/src/functions/outlook-move.ts
+function isRetryableGraphError(message) {
+  return /→ (429|5\d\d)\b/.test(message) || /fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN/i.test(message);
+}
+var MAX_DEQUEUE = 5;
+import_functions6.app.storageQueue("outlook-move", {
+  queueName: "outlook-move",
+  connection: "AzureWebJobsStorage",
+  handler: async (item, ctx) => {
+    const job = typeof item === "string" ? JSON.parse(item) : item;
+    const dequeueCount = Number(ctx.triggerMetadata?.dequeueCount ?? 1);
+    const lastAttempt = dequeueCount >= MAX_DEQUEUE;
+    const fail = async (detail) => {
+      ctx.warn(`[outlook-move] ${job.inboundEmailId}: ${detail}`);
+      await dataApi.reportOutlookMove(job.inboundEmailId, {
+        outcome: "failed",
+        folder: job.targetFolderPath,
+        detail
+      });
+    };
+    try {
+      if (!job.inboundEmailId || !job.sourceMailbox || !job.sourceMessageId) {
+        ctx.error(`[outlook-move] malformed job dropped: ${JSON.stringify(job).slice(0, 300)}`);
+        return;
+      }
+      if (!gates.outlookMove()) {
+        await fail("outlook filing was switched off before the move ran");
+        return;
+      }
+      const found = await findMessageByInternetMessageId(job.sourceMailbox, job.sourceMessageId);
+      if (!found) {
+        await fail("message not found in the mailbox (deleted or already moved elsewhere?)");
+        return;
+      }
+      const segments = outlookFolderSegments(job.targetFolderPath);
+      const destinationId = segments.length ? await ensureInboxChildFolder(job.sourceMailbox, segments) : "inbox";
+      await moveMessage(job.sourceMailbox, found.id, destinationId);
+      await dataApi.reportOutlookMove(job.inboundEmailId, {
+        outcome: "moved",
+        folder: job.targetFolderPath
+      });
+      ctx.log(
+        JSON.stringify({
+          evt: "outlook-move",
+          inboundEmailId: job.inboundEmailId,
+          mailbox: job.sourceMailbox,
+          folder: job.targetFolderPath
+        })
+      );
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      if (!lastAttempt && isRetryableGraphError(detail)) {
+        ctx.warn(`[outlook-move] transient failure (attempt ${dequeueCount}/${MAX_DEQUEUE}) \u2014 retrying: ${detail}`);
+        throw e;
+      }
+      try {
+        await fail(detail.slice(0, 300));
+      } catch (reportErr) {
+        ctx.error(
+          `[outlook-move] terminal failure AND outcome report failed for ${job.inboundEmailId}: ${reportErr instanceof Error ? reportErr.message : String(reportErr)}`
+        );
+      }
+    }
+  }
+});
+
 // orchestration/src/functions/intakeOrchestrator.ts
-var df4 = __toESM(require("durable-functions"), 1);
+var df5 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/supplement-parse.ts
 var ACCIDENT_START_RE = /accident circumstances\s*:?/i;
@@ -2629,45 +3849,440 @@ function supplementAccidentCircumstancesFromBody(body2) {
   return value.length > 10 ? value : "";
 }
 
+// orchestration/src/functions/gated/triage-classify.ts
+var import_functions7 = require("@azure/functions");
+var df4 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/aoai.ts
+var COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default";
+var cachedToken3 = null;
+function resourceFromScope(scope) {
+  return scope.endsWith("/.default") ? scope.slice(0, -"/.default".length) : scope;
+}
+async function mintCognitiveToken() {
+  const now = Date.now();
+  if (cachedToken3 && cachedToken3.expiresAt > now + 6e4) return cachedToken3.value;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (idEndpoint && idHeader) {
+    const resource = resourceFromScope(COGNITIVE_SERVICES_SCOPE);
+    const url2 = `${idEndpoint}?resource=${encodeURIComponent(resource)}&api-version=2019-08-01`;
+    const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+    if (!res.ok) throw new Error(`MSI token (cognitiveservices) ${res.status}`);
+    const json = await res.json();
+    cachedToken3 = {
+      value: json.access_token,
+      expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+    };
+    return cachedToken3.value;
+  }
+  if (process.env.AOAI_DEV_TOKEN === "1") {
+    const { execFile } = await import("node:child_process");
+    const token = await new Promise((resolve, reject) => {
+      execFile(
+        "az",
+        ["account", "get-access-token", "--resource", "https://cognitiveservices.azure.com", "--query", "accessToken", "-o", "tsv"],
+        (err, stdout) => {
+          if (err) reject(err);
+          else resolve(stdout.trim());
+        }
+      );
+    });
+    if (!token) throw new Error("az account get-access-token returned no token");
+    cachedToken3 = { value: token, expiresAt: now + 3e6 };
+    return token;
+  }
+  throw new Error(
+    "missing IDENTITY_ENDPOINT/IDENTITY_HEADER for Cognitive Services auth (set AOAI_DEV_TOKEN=1 to use the operator az-cli session for local dev)"
+  );
+}
+var CATEGORY_DEFINITIONS = {
+  receiving_work: "An instruction or audit request that should become a case, for a new or an existing client.",
+  query: "A question about work already in progress, or a new enquiry \u2014 no new work to log yet.",
+  other: "Anything that is not a work item, a query, billing, or a cancellation report \u2014 the catch-all.",
+  billing: "An invoice, fee query, or payment matter about work already carried out.",
+  non_actionable: 'A short receipt/acknowledgement/no-action-needed message (e.g. "thanks", an auto-reply).',
+  case_update: "New information \u2014 evidence, photographs, or an answer \u2014 for a case already open.",
+  cancellation: "A claim or case reported cancelled, closed, or withdrawn."
+};
+var SUBTYPE_DEFINITIONS = {
+  existing_provider_instruction: "An instruction from a sender who is a known work provider.",
+  existing_provider_audit: "An audit / re-inspection instruction from a known work provider.",
+  existing_provider_diminution: "A diminution-in-value instruction from a known work provider.",
+  new_client_work: "An instruction from a sender who is not a known work provider.",
+  query_existing_work: "A question referring to a case already in progress.",
+  query_new_enquiry: "A question from someone with no case in progress yet.",
+  billing_request: "An invoice or payment request tied to work already carried out.",
+  case_summary: "A status digest or summary covering one or more cases.",
+  acknowledgement: 'A short "received / thanks / noted" reply that needs no action.',
+  other: "None of the other subtypes apply.",
+  images_received: "Photographs with no other new instruction content.",
+  cancellation_notice: "The usual subtype for a cancellation report.",
+  update_general: "New information on an existing case that is not photographs alone."
+};
+function categoryLine(name) {
+  return `- ${name}: ${CATEGORY_DEFINITIONS[name] ?? "A taxonomy category (no further description on file)."}`;
+}
+function subtypeLine(name) {
+  return `- ${name}: ${SUBTYPE_DEFINITIONS[name] ?? "A taxonomy subtype (no further description on file)."}`;
+}
+function buildSystemPrompt() {
+  return [
+    "You triage inbound emails for a vehicle-collision engineering business. A fast, deterministic rule pass already ran on this message and could not confidently place it \u2014 you are a second opinion for that one message, not a first pass and not a replacement for the rules.",
+    'Choose the single best category and subtype from the lists below. Give a confidence from 0 to 1 (your honest belief the label is right, not a fixed value). Write a rationale of one plain sentence, in everyday English, for a non-technical case handler: describe what the message is about, never how you decided. Never use the words "classifier", "signals", "model", "confidence", "rule", "category", "subtype", "JSON", or any similar technical term in the rationale. Never invent a case number, reference, or vehicle registration that is not present in the message text you were given.',
+    `Categories:
+${INBOUND_CATEGORIES.map(categoryLine).join("\n")}`,
+    `Subtypes:
+${INBOUND_SUBTYPES.map(subtypeLine).join("\n")}`,
+    `Pick the subtype that belongs with your chosen category; if none fits well, use that category's "other" or general subtype.`
+  ].join("\n\n");
+}
+function buildUserPrompt(input12) {
+  const attachments = input12.attachmentFilenames.length ? input12.attachmentFilenames.join(", ") : "(none)";
+  const signals = input12.deterministicSignals.length ? input12.deterministicSignals.join(", ") : "(none)";
+  return [
+    `Sender domain: ${input12.senderDomain || "(unknown)"}`,
+    `Attachment filenames: ${attachments}`,
+    `Subject: ${input12.subjectScrubbed || "(none)"}`,
+    `Body:
+${input12.bodyScrubbed || "(none)"}`,
+    "---",
+    "The deterministic rule pass proposed (but did not confidently commit to):",
+    `category=${input12.deterministicCategory || "(none)"} subtype=${input12.deterministicSubtype || "(none)"} signals=${signals}`
+  ].join("\n");
+}
+var MAX_COMPLETION_TOKENS = 2e3;
+var REQUEST_TIMEOUT_MS = 15e3;
+var SCHEMA_NAME = "triage_classification";
+function buildTriageResponseSchema() {
+  return {
+    type: "object",
+    properties: {
+      category: { type: "string", enum: [...INBOUND_CATEGORIES] },
+      subtype: { type: "string", enum: [...INBOUND_SUBTYPES] },
+      confidence: { type: "number", minimum: 0, maximum: 1 },
+      rationale: { type: "string" }
+    },
+    required: ["category", "subtype", "confidence", "rationale"],
+    additionalProperties: false
+  };
+}
+function buildTriageRequestBody(input12, deployment) {
+  return {
+    model: deployment,
+    messages: [
+      { role: "system", content: buildSystemPrompt() },
+      { role: "user", content: buildUserPrompt(input12) }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: SCHEMA_NAME,
+        strict: true,
+        schema: buildTriageResponseSchema()
+      }
+    },
+    max_completion_tokens: MAX_COMPLETION_TOKENS,
+    reasoning_effort: "low"
+  };
+}
+var KNOWN_CATEGORIES = new Set(INBOUND_CATEGORIES);
+var KNOWN_SUBTYPES = new Set(INBOUND_SUBTYPES);
+function abstainForErrorResponse(status, body2) {
+  const code = body2?.error?.code;
+  if (code === "content_filter") return { abstain: true, reason: "content_filter" };
+  return { abstain: true, reason: code ? `http_${status}_${code}` : `http_${status}` };
+}
+function parseTriageModelResponse(json) {
+  const body2 = json;
+  const choice = body2?.choices?.[0];
+  if (!choice) return { abstain: true, reason: "empty_response" };
+  if (choice.finish_reason === "content_filter") {
+    return { abstain: true, reason: "content_filter" };
+  }
+  const content = choice.message?.content;
+  if (typeof content !== "string" || content.trim() === "") {
+    return { abstain: true, reason: "empty_response" };
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return { abstain: true, reason: "parse_error" };
+  }
+  if (typeof parsed !== "object" || parsed === null) {
+    return { abstain: true, reason: "parse_error" };
+  }
+  const candidate = parsed;
+  const category = typeof candidate.category === "string" ? candidate.category : "";
+  const subtype = typeof candidate.subtype === "string" ? candidate.subtype : "";
+  if (!KNOWN_CATEGORIES.has(category) || !KNOWN_SUBTYPES.has(subtype)) {
+    return { abstain: true, reason: "invalid_taxonomy" };
+  }
+  const rationale = typeof candidate.rationale === "string" ? candidate.rationale.trim() : "";
+  if (!rationale) return { abstain: true, reason: "empty_rationale" };
+  const rawConfidence = typeof candidate.confidence === "number" ? candidate.confidence : 0;
+  const confidence = Math.min(1, Math.max(0, rawConfidence));
+  return {
+    category,
+    subtype,
+    confidence,
+    rationale,
+    ...typeof body2?.model === "string" ? { responseModel: body2.model } : {},
+    ...typeof body2?.system_fingerprint === "string" ? { systemFingerprint: body2.system_fingerprint } : {}
+  };
+}
+async function callTriageModel(input12) {
+  const endpoint = gates.aiModelEndpoint();
+  const deployment = gates.aiModelDeployment();
+  if (!endpoint || !deployment) {
+    return { abstain: true, reason: "model_not_configured" };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const token = await mintCognitiveToken();
+    const url2 = `${endpoint.replace(/\/$/, "")}/openai/v1/chat/completions`;
+    const res = await fetch(url2, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(buildTriageRequestBody(input12, deployment)),
+      signal: controller.signal
+    });
+    const json = await res.json().catch(() => void 0);
+    if (!res.ok) {
+      return abstainForErrorResponse(res.status, json);
+    }
+    return parseTriageModelResponse(json);
+  } catch (e) {
+    const isAbort = e instanceof Error && e.name === "AbortError";
+    return { abstain: true, reason: isAbort ? "timeout" : "request_failed" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// orchestration/src/lib/telemetry.ts
+var DEFAULT_INGESTION_ENDPOINT = "https://dc.services.visualstudio.com";
+var TRACK_TIMEOUT_MS = 2e3;
+function parseConnectionString(raw) {
+  const value = (raw ?? "").trim();
+  if (!value) return void 0;
+  const parts = {};
+  for (const segment of value.split(";")) {
+    const eq = segment.indexOf("=");
+    if (eq <= 0) continue;
+    const key = segment.slice(0, eq).trim().toLowerCase();
+    const val = segment.slice(eq + 1).trim();
+    if (key && val) parts[key] = val;
+  }
+  const instrumentationKey = parts["instrumentationkey"];
+  if (!instrumentationKey) return void 0;
+  const ingestionEndpoint = (parts["ingestionendpoint"] || DEFAULT_INGESTION_ENDPOINT).replace(/\/+$/, "");
+  return { instrumentationKey, ingestionEndpoint };
+}
+function stringifyProperties(properties) {
+  const out = {};
+  for (const [key, value] of Object.entries(properties)) {
+    if (value === void 0) continue;
+    out[key] = typeof value === "string" ? value : JSON.stringify(value);
+  }
+  return out;
+}
+async function trackEvent(name, properties) {
+  try {
+    const parsed = parseConnectionString(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING);
+    if (!parsed) return;
+    const envelope = [
+      {
+        name: "Microsoft.ApplicationInsights.Event",
+        time: (/* @__PURE__ */ new Date()).toISOString(),
+        iKey: parsed.instrumentationKey,
+        data: {
+          baseType: "EventData",
+          baseData: {
+            ver: 2,
+            name,
+            properties: stringifyProperties(properties)
+          }
+        }
+      }
+    ];
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TRACK_TIMEOUT_MS);
+    try {
+      await fetch(`${parsed.ingestionEndpoint}/v2/track`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(envelope),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+  }
+}
+
+// orchestration/src/functions/gated/triage-classify.ts
+function shouldAttemptTriageAssist(classification) {
+  const ABSTAIN_CONFIDENCE_CEILING = 0.35;
+  const isAbstain = classification.category === "other" && (classification.confidence ?? 1) <= ABSTAIN_CONFIDENCE_CEILING;
+  const isUncorroborated = (classification.signals ?? []).some((s) => s.startsWith("uncorroborated_"));
+  return isAbstain || isUncorroborated;
+}
+function domainOf2(address) {
+  const at = address.lastIndexOf("@");
+  return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : "";
+}
+import_functions7.app.http("triage-classify-start", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "triage-classify",
+  extraInputs: [df4.input.durableClient()],
+  handler: async (req, ctx) => {
+    const input12 = await req.json();
+    const client2 = df4.getClient(ctx);
+    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input12 });
+    return client2.createCheckStatusResponse(req, instanceId);
+  }
+});
+var retry = new df4.RetryOptions(5e3, 3);
+retry.backoffCoefficient = 2;
+df4.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
+  const input12 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry, input12);
+  return result;
+});
+df4.app.activity("triageClassify", {
+  handler: async (input12, ctx) => {
+    if (!gates.emailAi() || !gates.aiAssistConfigured()) {
+      ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED off or model endpoint/deployment not configured");
+      return { skipped: true };
+    }
+    const subjectScrub = scrubPii(input12.subject ?? "");
+    const bodyScrub = scrubPii(input12.body ?? "");
+    const result = await callTriageModel({
+      subjectScrubbed: subjectScrub.text,
+      bodyScrubbed: bodyScrub.text,
+      senderDomain: input12.senderDomain || domainOf2(input12.senderAddress ?? ""),
+      attachmentFilenames: input12.attachmentFilenames ?? [],
+      deterministicCategory: input12.deterministicCategory ?? "",
+      deterministicSubtype: input12.deterministicSubtype ?? "",
+      deterministicSignals: input12.deterministicSignals ?? []
+    });
+    await trackEvent("triage_llm_assist", {
+      abstain: "abstain" in result,
+      reason: "abstain" in result ? result.reason : void 0,
+      subjectRedactions: subjectScrub.totalRedactions,
+      bodyRedactions: bodyScrub.totalRedactions,
+      deterministicCategory: input12.deterministicCategory,
+      deterministicSubtype: input12.deterministicSubtype
+    });
+    if ("abstain" in result) {
+      ctx.log(JSON.stringify({ evt: "triageClassify", abstain: true, reason: result.reason }));
+      return { skipped: false, abstained: true };
+    }
+    const modelVersion = `${gates.aiModelDeployment()}:${result.responseModel ?? result.systemFingerprint ?? "unknown"}`;
+    try {
+      await dataApi.triageSuggestClassification({
+        ...input12.sourceMessageId ? { sourceMessageId: input12.sourceMessageId } : {},
+        ...input12.inboundEmailId ? { inboundEmailId: input12.inboundEmailId } : {},
+        category: result.category,
+        subtype: result.subtype,
+        rationale: result.rationale,
+        confidence: result.confidence,
+        modelVersion
+      });
+    } catch (e) {
+      ctx.warn(
+        `[triageClassify] suggestion write failed (best-effort, continuing): ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+    ctx.log(JSON.stringify({ evt: "triageClassify", category: result.category, subtype: result.subtype }));
+    return { skipped: false, abstained: false, category: result.category, subtype: result.subtype };
+  }
+});
+
 // orchestration/src/functions/intakeOrchestrator.ts
-var retry = new df4.RetryOptions(
+var retry2 = new df5.RetryOptions(
   /*firstRetryIntervalInMilliseconds*/
   5e3,
   /*maxNumberOfAttempts*/
   3
 );
-retry.backoffCoefficient = 2;
-retry.maxRetryIntervalInMilliseconds = 6e4;
-df4.app.orchestration("intakeOrchestrator", function* (ctx) {
+retry2.backoffCoefficient = 2;
+retry2.maxRetryIntervalInMilliseconds = 6e4;
+df5.app.orchestration("intakeOrchestrator", function* (ctx) {
   const input12 = ctx.df.getInput();
-  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry, input12);
-  const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry, inbound);
+  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry2, input12);
+  const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry2, inbound);
   const workProviderId = provider.workProviderId;
   const matchState = provider.matchState;
   const principalCode = provider.principalCode;
-  const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry, {
+  const intermediaryImageSourceId = provider.imageSourceId;
+  const intermediaryCandidateProviderIds = provider.candidateProviderIds;
+  const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry2, {
     inbound,
     workProviderId,
     matchState
   });
+  const triage = yield ctx.df.callActivityWithRetry("triagePolicy", retry2, {
+    inbound,
+    classification,
+    matchState,
+    ...intermediaryImageSourceId ? { intermediaryImageSourceId, intermediaryCandidateProviderIds } : {}
+  });
+  if (triage.action !== "proceed_default" && !ctx.df.isReplaying) {
+    ctx.log(
+      `[intake] triage policy: ${triage.action} on ${classification.category}/${classification.subtype}` + (triage.targetCaseId ? ` -> case ${triage.targetCaseId}` : "")
+    );
+  }
+  if (triage.action === "drop_duplicate") {
+    return { triaged: classification.category, subtype: classification.subtype, triage: triage.action };
+  }
+  if (shouldAttemptTriageAssist(classification)) {
+    try {
+      const env = inbound;
+      yield ctx.df.callActivityWithRetry("triageClassify", retry2, {
+        sourceMessageId: env.internetMessageId,
+        subject: env.subject,
+        body: env.body,
+        senderAddress: env.senderAddress,
+        attachmentFilenames: (env.attachments ?? []).map((a) => a.filename),
+        deterministicCategory: classification.category,
+        deterministicSubtype: classification.subtype,
+        deterministicSignals: classification.signals
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] triage LLM assist failed (additive, suggestion-only, non-blocking): ${String(e)}`);
+      }
+    }
+  }
   if (classification.category !== "receiving_work") {
     if (classification.isReply) {
       const inb = inbound;
       const ref = ((inb.candidateRef || classification.bodyCaseref) ?? "").trim();
       const vrm = ((inb.candidateVrm || classification.bodyVrm) ?? "").trim();
-      const link = yield ctx.df.callActivityWithRetry("linkReply", retry, {
+      const jobref = (classification.bodyJobref ?? "").trim();
+      const link = yield ctx.df.callActivityWithRetry("linkReply", retry2, {
         inbound,
         providerId: workProviderId,
         ref,
-        vrm
+        vrm,
+        jobref
       });
       if (link.outcome === "linked" && link.caseId) {
-        yield ctx.df.callActivityWithRetry("classifyPersist", retry, {
+        yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
           caseId: link.caseId,
           inbound
         });
         try {
-          yield ctx.df.callActivityWithRetry("extractImages", retry, {
+          yield ctx.df.callActivityWithRetry("extractImages", retry2, {
             caseId: link.caseId,
             messageId: inbound.messageId,
             attachments: inbound.attachments,
@@ -2679,7 +4294,7 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
           }
         }
         try {
-          yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry, {
+          yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, {
             caseId: link.caseId
           });
         } catch (e) {
@@ -2687,7 +4302,7 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
             ctx.log(`[intake] archive failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
           }
         }
-        const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry, {
+        const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, {
           caseId: link.caseId
         });
         return {
@@ -2713,7 +4328,7 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
   };
   let parseResult = {};
   try {
-    parseResult = yield ctx.df.callActivityWithRetry("parse", retry, {
+    parseResult = yield ctx.df.callActivityWithRetry("parse", retry2, {
       messageId: inbound.messageId,
       attachments: inbound.attachments,
       providerHint: principalCode
@@ -2744,7 +4359,7 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
     accident_circumstances: exVal("accident_circumstances") || supplementAccidentCircumstancesFromBody(String(inbound.body ?? "")),
     vat_status: exVal("vat_status")
   };
-  const resolved = yield ctx.df.callActivityWithRetry("caseResolve", retry, {
+  const resolved = yield ctx.df.callActivityWithRetry("caseResolve", retry2, {
     inbound: inboundForCase,
     providerId: workProviderId,
     matchState,
@@ -2752,12 +4367,15 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
     parserRef,
     parserMileage,
     parserMileageUnit,
-    parserEvaFields
+    parserEvaFields,
+    // rules-engine-v2 Phase 3 (ADR-0011) — forwarded so the API's applyParserFields can
+    // corroborate a content-detected provider against the intermediary's N:N candidates.
+    ...intermediaryImageSourceId ? { intermediaryImageSourceId, intermediaryCandidateProviderIds } : {}
   });
   if (resolved.outcome === "already_ingested") {
     return { skipped: true, caseId: resolved.caseId };
   }
-  yield ctx.df.callActivityWithRetry("setIngested", retry, { caseId: resolved.caseId });
+  yield ctx.df.callActivityWithRetry("setIngested", retry2, { caseId: resolved.caseId });
   const automationMode = resolved.providerAutomationMode ?? "review_auto";
   const autoEnrich = automationMode !== "manual";
   if (!autoEnrich && !ctx.df.isReplaying) {
@@ -2765,7 +4383,7 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
   }
   if (resolved.casePo) {
     try {
-      yield ctx.df.callSubOrchestratorWithRetry("boxFolderCreateOrchestrator", retry, {
+      yield ctx.df.callSubOrchestratorWithRetry("boxFolderCreateOrchestrator", retry2, {
         caseId: resolved.caseId,
         folderName: resolved.casePo.toUpperCase()
       });
@@ -2775,12 +4393,12 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
       }
     }
   }
-  yield ctx.df.callActivityWithRetry("classifyPersist", retry, {
+  yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
     caseId: resolved.caseId,
     inbound
   });
   try {
-    yield ctx.df.callActivityWithRetry("extractImages", retry, {
+    yield ctx.df.callActivityWithRetry("extractImages", retry2, {
       caseId: resolved.caseId,
       messageId: inbound.messageId,
       attachments: inbound.attachments,
@@ -2792,7 +4410,7 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
     }
   }
   try {
-    yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry, {
+    yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, {
       caseId: resolved.caseId
     });
   } catch (e) {
@@ -2800,11 +4418,11 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
       ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
     }
   }
-  const status = yield ctx.df.callActivityWithRetry("statusEvaluate", retry, {
+  const status = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, {
     caseId: resolved.caseId
   });
   if (autoEnrich) {
-    yield ctx.df.callActivityWithRetry("enrich", retry, {
+    yield ctx.df.callActivityWithRetry("enrich", retry2, {
       caseId: resolved.caseId,
       vrm: parserVrm || inbound.candidateVrm,
       documentHasMileage
@@ -2815,7 +4433,7 @@ df4.app.orchestration("intakeOrchestrator", function* (ctx) {
 
 // orchestration/src/functions/activities/fetchMessage.ts
 var import_node_crypto4 = require("node:crypto");
-var df5 = __toESM(require("durable-functions"), 1);
+var df6 = __toESM(require("durable-functions"), 1);
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/abort-controller/AbortError.js
 var AbortError = class extends Error {
@@ -42192,427 +43810,21 @@ function sanitize(seg) {
   return seg.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 200) || "file";
 }
 
-// packages/domain/dist/contracts/eva-export.js
-var EVA_FIELD_ORDER = [
-  { key: "workProvider", payloadKey: "work_provider", label: "Work Provider", required: true },
-  { key: "vehicleModel", payloadKey: "vehicle_model", label: "Vehicle Model", required: true },
-  { key: "claimantName", payloadKey: "claimant_name", label: "Claimant Name", required: true },
-  { key: "claimantTelephone", payloadKey: "claimant_telephone", label: "Claimant Telephone", required: false },
-  { key: "claimantEmail", payloadKey: "claimant_email", label: "Claimant Email Address", required: false },
-  { key: "dateOfLoss", payloadKey: "date_of_loss", label: "Date of Incident", required: true },
-  { key: "dateOfInstruction", payloadKey: "date_of_instruction", label: "Date of Instruction", required: true },
-  { key: "accidentCircumstances", payloadKey: "accident_circumstances", label: "Accident Circumstances", required: true },
-  { key: "inspectionAddress", payloadKey: "inspection_address", label: "Inspection Address", required: true },
-  { key: "vatStatus", payloadKey: "vat_status", label: "VAT Status", required: false },
-  { key: "mileage", payloadKey: "mileage", label: "Mileage", required: false },
-  { key: "mileageUnit", payloadKey: "mileage_unit", label: "Mileage Unit", required: false }
-];
-var EVA_PAYLOAD_KEYS = EVA_FIELD_ORDER.map((d) => d.payloadKey);
-
-// packages/domain/dist/contracts/case-status.js
-var TERMINAL_STATUSES = [
-  "eva_submitted",
-  "box_synced",
-  "error",
-  "removed"
-];
-var TERMINAL_SET = new Set(TERMINAL_STATUSES);
-function isTerminalStatus(status) {
-  return TERMINAL_SET.has(status);
-}
-var REQUIRED_FIELD_KEYS = EVA_FIELD_ORDER.filter((d) => d.required).map((d) => d.key);
-
-// packages/domain/dist/domain/classification.js
-var EXTENSION_TABLE = {
-  jpg: "image",
-  jpeg: "image",
-  png: "image",
-  pdf: "instruction",
-  docx: "instruction",
-  doc: "instruction",
-  eml: "email"
-};
-var MIME_TABLE = {
-  "image/jpeg": "image",
-  "image/jpg": "image",
-  "image/png": "image",
-  "application/pdf": "instruction",
-  "application/msword": "instruction",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "instruction",
-  "message/rfc822": "email"
-};
-function extensionOf(filename) {
-  const name = filename.trim();
-  const dot = name.lastIndexOf(".");
-  if (dot <= 0 || dot === name.length - 1)
-    return "";
-  return name.slice(dot + 1).toLowerCase();
-}
-function normaliseMime(contentType2) {
-  if (!contentType2)
-    return "";
-  const semi = contentType2.indexOf(";");
-  const base = semi >= 0 ? contentType2.slice(0, semi) : contentType2;
-  return base.trim().toLowerCase();
-}
-function classifyAttachment(filename, contentType2) {
-  const ext = extensionOf(filename);
-  const byExt = EXTENSION_TABLE[ext];
-  if (byExt)
-    return byExt;
-  const byMime = MIME_TABLE[normaliseMime(contentType2)];
-  if (byMime)
-    return byMime;
-  return "other";
-}
-function describeEvidence(filename, contentType2, isEmlMessage = false) {
-  const evidenceClass = isEmlMessage ? "email" : classifyAttachment(filename, contentType2);
-  return {
-    filename,
-    contentType: normaliseMime(contentType2),
-    extension: extensionOf(filename),
-    evidenceClass,
-    isImage: evidenceClass === "image",
-    isInstruction: evidenceClass === "instruction"
-  };
-}
-
-// packages/domain/dist/domain/dedup.js
-function hasRef(ref) {
-  return typeof ref === "string" && ref.trim().length > 0;
-}
-function refEquals(a, b) {
-  if (!hasRef(a) || !hasRef(b))
-    return false;
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
-}
-function eligibleCases(input12) {
-  return input12.openProviderCases.filter((c) => {
-    if (c.workProviderId !== void 0 && c.workProviderId !== input12.workProviderId) {
-      return false;
-    }
-    if (isTerminalStatus(c.status))
-      return false;
-    return true;
-  });
-}
-function resolveCase(input12) {
-  if (input12.seenMessageIds.includes(input12.messageId) || input12.seenPayloadHashes.includes(input12.payloadHash)) {
-    return {
-      resolution: "drop",
-      setDuplicateRisk: false,
-      statusEffect: "keep_target",
-      auditAction: "duplicate_dropped"
-    };
-  }
-  const candidates = eligibleCases(input12);
-  if (hasRef(input12.candidateRef)) {
-    const matched = candidates.find((c) => refEquals(c.caseRef, input12.candidateRef));
-    if (matched) {
-      return {
-        resolution: "attach",
-        targetCaseId: matched.caseId,
-        setDuplicateRisk: false,
-        caseLinkState: "none",
-        statusEffect: "keep_target",
-        auditAction: "case_attached"
-      };
-    }
-    if (candidates.length > 0) {
-      return {
-        resolution: "new_due_to_reference",
-        setDuplicateRisk: true,
-        caseLinkState: "none",
-        statusEffect: "new_email",
-        auditAction: "duplicate_flagged"
-      };
-    }
-  }
-  if (!hasRef(input12.candidateRef) && candidates.length > 0) {
-    return {
-      resolution: "propose_attach",
-      targetCaseId: candidates[0].caseId,
-      setDuplicateRisk: true,
-      caseLinkState: "pending",
-      statusEffect: "duplicate_risk",
-      auditAction: "duplicate_flagged"
-    };
-  }
-  return {
-    resolution: "create",
-    setDuplicateRisk: false,
-    caseLinkState: "none",
-    statusEffect: "new_email",
-    auditAction: "case_created"
-  };
-}
-
-// packages/domain/dist/domain/provider-match.js
-function domainOf(senderAddress) {
-  const raw = senderAddress.trim().toLowerCase();
-  const lt = raw.lastIndexOf("<");
-  const gt = raw.lastIndexOf(">");
-  const addr = lt >= 0 && gt > lt ? raw.slice(lt + 1, gt).trim() : raw;
-  const at = addr.lastIndexOf("@");
-  if (at < 0 || at === addr.length - 1)
-    return "";
-  const domain = addr.slice(at + 1).trim();
-  if (!domain.includes(".") || /\s/.test(domain))
-    return "";
-  return domain;
-}
-function addressOf(senderAddress) {
-  const raw = senderAddress.trim().toLowerCase();
-  const lt = raw.lastIndexOf("<");
-  const gt = raw.lastIndexOf(">");
-  const addr = lt >= 0 && gt > lt ? raw.slice(lt + 1, gt).trim() : raw;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr))
-    return "";
-  return addr;
-}
-function matchProviderByDomain(senderAddress, providers) {
-  const address = addressOf(senderAddress);
-  const domain = domainOf(senderAddress);
-  if (address) {
-    const addrHits = providers.filter((p) => p.active && (p.knownEmailAddresses ?? []).some((a) => a.trim().toLowerCase() === address));
-    if (addrHits.length === 1) {
-      return {
-        outcome: "matched",
-        matchedDomain: domain,
-        matchedAddress: address,
-        matchedBy: "address",
-        workProviderId: addrHits[0].workProviderId,
-        principalCode: addrHits[0].principalCode
-      };
-    }
-    if (addrHits.length > 1) {
-      return {
-        outcome: "ambiguous",
-        matchedDomain: domain,
-        matchedAddress: address,
-        matchedBy: "address",
-        ambiguousProviderIds: addrHits.map((p) => p.workProviderId)
-      };
-    }
-  }
-  if (!domain) {
-    return { outcome: "unmatched", matchedDomain: "" };
-  }
-  const hits = providers.filter((p) => p.active && p.knownEmailDomains.some((d) => d.trim().toLowerCase() === domain));
-  if (hits.length === 0) {
-    return { outcome: "unmatched", matchedDomain: domain };
-  }
-  if (hits.length > 1) {
-    return {
-      outcome: "ambiguous",
-      matchedDomain: domain,
-      matchedBy: "domain",
-      ambiguousProviderIds: hits.map((p) => p.workProviderId)
-    };
-  }
-  return {
-    outcome: "matched",
-    matchedDomain: domain,
-    matchedBy: "domain",
-    workProviderId: hits[0].workProviderId,
-    principalCode: hits[0].principalCode
-  };
-}
-
-// packages/domain/dist/domain/vrm-filter.js
-var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
-var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
-var ANCHOR = /\b(?:registration|reg|vrm|vehicle|plate|number\s?plate)\b/i;
-var EXCLUDE_WORDS = /* @__PURE__ */ new Set([
-  "VAT",
-  "TEL",
-  "REF",
-  "REFERENCE",
-  "INVOICE",
-  "INV",
-  "PHONE",
-  "FAX",
-  "FAO",
-  "PO",
-  "ORDER",
-  "ACCOUNT",
-  "ACC"
-]);
-var EXCLUDE_LABEL = new RegExp(`\\b(?:${[...EXCLUDE_WORDS].join("|")})[:.#\\-\\s]*$`);
-function isPostcodeOutward(upper, idx, cand) {
-  const after = upper.slice(idx + cand.length);
-  return /^\s?[0-9][A-Z]{2}\b/.test(after);
-}
-var POSTCODE_AREAS = /* @__PURE__ */ new Set([
-  "AB",
-  "AL",
-  "B",
-  "BA",
-  "BB",
-  "BD",
-  "BH",
-  "BL",
-  "BN",
-  "BR",
-  "BS",
-  "BT",
-  "CA",
-  "CB",
-  "CF",
-  "CH",
-  "CM",
-  "CO",
-  "CR",
-  "CT",
-  "CV",
-  "CW",
-  "DA",
-  "DD",
-  "DE",
-  "DG",
-  "DH",
-  "DL",
-  "DN",
-  "DT",
-  "DY",
-  "E",
-  "EC",
-  "EH",
-  "EN",
-  "EX",
-  "FK",
-  "FY",
-  "G",
-  "GL",
-  "GU",
-  "GY",
-  "HA",
-  "HD",
-  "HG",
-  "HP",
-  "HR",
-  "HS",
-  "HU",
-  "HX",
-  "IG",
-  "IM",
-  "IP",
-  "IV",
-  "JE",
-  "KA",
-  "KT",
-  "KW",
-  "KY",
-  "L",
-  "LA",
-  "LD",
-  "LE",
-  "LL",
-  "LN",
-  "LS",
-  "LU",
-  "M",
-  "ME",
-  "MK",
-  "ML",
-  "N",
-  "NE",
-  "NG",
-  "NN",
-  "NP",
-  "NR",
-  "NW",
-  "OL",
-  "OX",
-  "PA",
-  "PE",
-  "PH",
-  "PL",
-  "PO",
-  "PR",
-  "RG",
-  "RH",
-  "RM",
-  "S",
-  "SA",
-  "SE",
-  "SG",
-  "SK",
-  "SL",
-  "SM",
-  "SN",
-  "SO",
-  "SP",
-  "SR",
-  "SS",
-  "ST",
-  "SW",
-  "SY",
-  "TA",
-  "TD",
-  "TF",
-  "TN",
-  "TQ",
-  "TR",
-  "TS",
-  "TW",
-  "UB",
-  "W",
-  "WA",
-  "WC",
-  "WD",
-  "WF",
-  "WN",
-  "WR",
-  "WS",
-  "WV",
-  "YO",
-  "ZE"
-]);
-function isPostcodeOutwardCode(compact) {
-  const m = /^([A-Z]{1,2})[0-9]{1,2}$/.exec(compact);
-  return m !== null && POSTCODE_AREAS.has(m[1]);
-}
-function precededByExcludeLabel(upper, idx) {
-  const before = upper.slice(Math.max(0, idx - 16), idx);
-  return EXCLUDE_LABEL.test(before);
-}
-function extractVrm(text) {
-  if (!text)
-    return "";
-  const upper = text.toUpperCase();
-  for (const m of upper.matchAll(STRICT)) {
-    const cand = m[0];
-    if (isPostcodeOutward(upper, m.index ?? 0, cand))
-      continue;
-    return cand.replace(/\s+/g, "");
-  }
-  if (ANCHOR.test(text)) {
-    for (const m of upper.matchAll(LOOSE)) {
-      const cand = m[0];
-      const idx = m.index ?? 0;
-      const compact = cand.replace(/\s+/g, "");
-      if (isPostcodeOutward(upper, idx, cand))
-        continue;
-      if (isPostcodeOutwardCode(compact))
-        continue;
-      const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
-      if (EXCLUDE_WORDS.has(alpha))
-        continue;
-      if (precededByExcludeLabel(upper, idx))
-        continue;
-      return compact;
-    }
-  }
-  return "";
-}
-
 // orchestration/src/functions/activities/fetchMessage.ts
 var BODY_CAP = 2e4;
 var BODY_PREVIEW_CAP = 3500;
-df5.app.activity("fetchMessage", {
+df6.app.activity("fetchMessage", {
   handler: async (input12, ctx) => {
-    const mailbox = mailboxOfResource(input12.resource ?? "");
+    const parsedMailbox = mailboxOfResource(input12.resource ?? "");
+    let mailbox = parsedMailbox;
+    let mailboxVia = "resource";
+    if (!looksLikeMailboxAddress(parsedMailbox) && input12.subscriptionId) {
+      const resolved = await resolveSubscriptionMailbox(input12.subscriptionId);
+      if (resolved) {
+        mailbox = resolved;
+        mailboxVia = "subscription";
+      }
+    }
     if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input12.resource}"`);
     const { message, attachments } = await getMessageWithAttachments(mailbox, input12.messageId);
     const headers = await getMessageHeaders(mailbox, input12.messageId);
@@ -42645,6 +43857,7 @@ ${body2}`);
     const envelope = {
       messageId: input12.messageId,
       internetMessageId: message.internetMessageId ?? input12.messageId,
+      conversationId: message.conversationId ?? "",
       subject,
       senderAddress,
       receivedAt: message.receivedDateTime ?? input12.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
@@ -42660,7 +43873,7 @@ ${body2}`);
       attachments: landed,
       ...rawEml ? { rawEml } : {}
     };
-    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input12.messageId, mailbox, attachments: landed.length, eml: Boolean(rawEml) }));
+    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input12.messageId, mailbox, mailboxVia, attachments: landed.length, eml: Boolean(rawEml) }));
     return envelope;
   }
 });
@@ -42670,197 +43883,36 @@ function hashPayload(subject, from, attachments) {
 }
 
 // orchestration/src/functions/activities/providerMatch.ts
-var df6 = __toESM(require("durable-functions"), 1);
-
-// orchestration/src/lib/data-api.ts
-var cachedToken2 = null;
-async function getDataApiToken() {
-  const local = process.env.DATA_API_TOKEN;
-  if (local) return local;
-  const now = Date.now();
-  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
-  const audience = process.env.DATA_API_AUDIENCE;
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (!audience || !idEndpoint || !idHeader) {
-    throw new Error("missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth");
-  }
-  const url2 = `${idEndpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`;
-  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
-  if (!res.ok) throw new Error(`MSI token ${res.status}`);
-  const json = await res.json();
-  cachedToken2 = {
-    value: json.access_token,
-    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
-  };
-  return cachedToken2.value;
-}
-async function request(method, path, body2) {
-  const baseUrl2 = (process.env.DATA_API_URL ?? "").replace(/\/$/, "");
-  if (!baseUrl2) throw new Error("missing DATA_API_URL");
-  const token = await getDataApiToken();
-  const res = await fetch(`${baseUrl2}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      ...body2 !== void 0 ? { "Content-Type": "application/json" } : {}
-    },
-    body: body2 !== void 0 ? JSON.stringify(body2) : void 0
-  });
-  if (res.status === 409) {
-    throw new ConflictError(`${method} ${path} \u2192 409`);
-  }
-  if (!res.ok) {
-    throw new Error(`data-api ${method} ${path} \u2192 ${res.status}: ${await safeText2(res)}`);
-  }
-  if (res.status === 204) return void 0;
-  return await res.json();
-}
-var ConflictError = class extends Error {
-};
-var dataApi = {
-  /** ProviderMatchRecord[] for the in-activity `matchProviderByDomain` (internal route). */
-  providerMatchRecords() {
-    return request("GET", "/api/internal/provider-match-records");
-  },
-  /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
-  dedupContext(params) {
-    const q = new URLSearchParams({
-      workProviderId: params.workProviderId,
-      vrm: params.vrm,
-      messageId: params.messageId
-    });
-    return request("GET", `/api/internal/dedup-context?${q.toString()}`);
-  },
-  /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
-  createCase(input12) {
-    return request("POST", "/api/cases", input12);
-  },
-  /**
-   * Persist the result of the in-activity dedup decision (internal route). The orchestration
-   * owns the ADR-0010 *decision* (shared `resolveCase`); the API owns the *persist* — it
-   * constructs the Case row (default EvaFields, status machine) on create, reparents evidence
-   * on attach, stamps duplicate-risk / case-link flags, and maps a UNIQUE(sourcemessageid)
-   * collision to `already_ingested`. Keeps EvaFields construction + status machine in the API.
-   */
-  resolvePersist(payload) {
-    return request("POST", "/api/internal/cases/resolve", payload);
-  },
-  /**
-   * Record a classified inbound_email triage row with NO case (ADR-0015). Used for
-   * query/other AND as the always-on first write for receiving_work (caseResolve later
-   * stamps case_id onto the same row). Idempotent upsert on source_message_id.
-   */
-  recordInboundEmail(payload) {
-    return request("POST", "/api/internal/inbound-email", payload);
-  },
-  /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
-  persistEvidence(caseId, rows) {
-    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-  /**
-   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
-   * ticket). Same internal evidence route (idempotent on storage_path), but carries
-   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
-   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
-   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
-   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
-   * idempotently on the child blob path, so this is forward-compatible.
-   */
-  persistImageEvidence(caseId, rows) {
-    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-  /** Persisted blob-backed evidence rows ready for archive mirroring. */
-  archiveEvidenceRows(caseId) {
-    return request("GET", `/api/internal/cases/${caseId}/archive-evidence`);
-  },
-  /** Stamp one evidence row after its bytes were mirrored into the archive. */
-  stampArchivedEvidence(payload) {
-    return request("POST", `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
-      evidenceId: payload.evidenceId,
-      blobPath: payload.blobPath,
-      boxFileId: payload.boxFileId,
-      ...payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}
-    });
-  },
-  /** Recompute EVA-readiness + status machine and persist (internal route). */
-  evaluateStatus(caseId) {
-    return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
-  },
-  /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
-  setIngested(caseId) {
-    return request("POST", `/api/internal/cases/${caseId}/set-ingested`, {});
-  },
-  /**
-   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
-   * Fill-if-empty on the API side; returns the fields it actually filled.
-   */
-  persistEnrichment(caseId, result) {
-    return request("POST", `/api/internal/cases/${caseId}/enrichment`, result);
-  },
-  /**
-   * Resolve a REPLY about existing work against OPEN cases (Case-ref first, then VRM) and
-   * link the triage row to the single match — or, when ambiguous (>1), leave it for a human
-   * (ADR-0010: never auto-link). The DB lookup + ADR-0010 decision run server-side (#3).
-   */
-  linkReplyToOpenCase(payload) {
-    return request("POST", "/api/internal/inbound/link-reply", payload);
-  },
-  /** Append one audit_event row (internal route; the API enforces append-only). */
-  recordAudit(payload) {
-    return request("POST", "/api/internal/audit", payload);
-  },
-  /** Per-principal job rows for the jobsheet-import fan-out (internal route). */
-  principals() {
-    return request("GET", "/api/internal/principals");
-  },
-  /** Cases due for retention disposition (internal route; case-disposition job). */
-  casesForDisposition() {
-    return request("GET", "/api/internal/disposition/due");
-  },
-  /** Run the retention/erasure for one case (internal route; job identity only). */
-  disposeCase(caseId) {
-    return request("POST", `/api/internal/disposition/${caseId}`, {});
-  },
-  /** Evidence blob paths eligible for the post-mirror purge (internal route). */
-  blobsForPurge() {
-    return request("GET", "/api/internal/box/purge-candidates");
-  },
-  /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
-  markBlobPurged(payload) {
-    return request("POST", "/api/internal/box/mark-purged", payload);
-  },
-  /**
-   * Read a case's current Box folder linkage (internal route; idempotency source for
-   * box-folder-create). `boxFolderId` is null when the case has no folder yet.
-   */
-  getCaseBoxFolder(caseId) {
-    return request("GET", `/api/internal/cases/${caseId}/box-folder`);
-  },
-  /**
-   * First-wins stamp of the Box folder id/url onto a case (internal route). Idempotent:
-   * a re-run / concurrent create returns { applied: false } and the API audits
-   * box_folder_created ONLY on the stamping call. The activity reads back first, so this
-   * is the durable backstop, not the primary dedup.
-   */
-  stampCaseBoxFolder(caseId, payload) {
-    return request("POST", `/api/internal/cases/${caseId}/box-folder`, payload);
-  }
-};
-async function safeText2(res) {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return "<no body>";
-  }
-}
-
-// orchestration/src/functions/activities/providerMatch.ts
-df6.app.activity("providerMatch", {
+var df7 = __toESM(require("durable-functions"), 1);
+df7.app.activity("providerMatch", {
   handler: async (inbound, ctx) => {
-    const records = await dataApi.providerMatchRecords();
-    const result = matchProviderByDomain(inbound.senderAddress, records);
+    const { providers, imageSources } = await dataApi.providerMatchRecords();
+    const identity = matchSenderIdentity(inbound.senderAddress, providers, imageSources);
+    if (identity.kind === "intermediary") {
+      await dataApi.recordAudit({
+        action: "provider_matched",
+        summary: `provider-match intermediary (${identity.name}) for ${identity.matchedDomain}`,
+        severity: "info"
+      });
+      ctx.log(
+        JSON.stringify({
+          evt: "providerMatch",
+          outcome: "intermediary",
+          domain: identity.matchedDomain,
+          imageSourceId: identity.imageSourceId,
+          candidateCount: identity.candidateProviderIds.length
+        })
+      );
+      return {
+        outcome: "intermediary",
+        matchedDomain: identity.matchedDomain,
+        matchState: "unmatched",
+        imageSourceId: identity.imageSourceId,
+        imageSourceName: identity.name,
+        candidateProviderIds: [...identity.candidateProviderIds]
+      };
+    }
+    const result = identity.kind === "provider" ? identity.result : { outcome: "unmatched", matchedDomain: identity.matchedDomain };
     await dataApi.recordAudit({
       action: result.outcome === "matched" ? "provider_matched" : "provider_unmatched",
       summary: `provider-match ${result.outcome} for ${result.matchedDomain || "<no domain>"}`,
@@ -42879,7 +43931,7 @@ df6.app.activity("providerMatch", {
 });
 
 // orchestration/src/functions/activities/classifyInbound.ts
-var df7 = __toESM(require("durable-functions"), 1);
+var df8 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/functions-client.ts
 var PARSER = { urlEnv: "PARSER_FN_URL", keyEnv: "PARSER_FN_KEY" };
@@ -42913,6 +43965,7 @@ function callClassifyEmail(input12) {
     sender_domain: input12.senderDomain ?? "",
     provider_match_state: input12.providerMatchState ?? "",
     attachment_kinds: input12.attachmentKinds ?? [],
+    attachment_filenames: input12.attachmentFilenames ?? [],
     has_attachments: input12.hasAttachments ?? false,
     in_reply_to: input12.inReplyTo ?? "",
     references: input12.references ?? ""
@@ -42976,35 +44029,35 @@ var MATCH_STATE_TO_CLASSIFIER = {
   unmatched: "none",
   ambiguous: "ambiguous"
 };
-var KNOWN_CATEGORIES = /* @__PURE__ */ new Set([
-  "receiving_work",
-  "query",
-  "billing",
-  "non_actionable",
-  "other"
-]);
-function domainOf2(address) {
+var KNOWN_CATEGORIES2 = new Set(INBOUND_CATEGORIES);
+function domainOf3(address) {
   const at = address.lastIndexOf("@");
   return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : "";
 }
-df7.app.activity("classifyInbound", {
+function attachmentKindsOf(inbound) {
+  return inbound.attachments.map((a) => describeEvidence(a.filename, a.contentType).evidenceClass);
+}
+function buildClassifyRequest(inbound, matchState) {
+  const attachmentKinds = attachmentKindsOf(inbound);
+  const attachmentFilenames = inbound.attachments.map((a) => a.filename);
+  return {
+    subject: inbound.subject,
+    body: inbound.body,
+    from: inbound.senderAddress,
+    senderDomain: domainOf3(inbound.senderAddress),
+    providerMatchState: MATCH_STATE_TO_CLASSIFIER[matchState ?? "unmatched"] ?? "none",
+    attachmentKinds,
+    attachmentFilenames,
+    hasAttachments: inbound.attachments.length > 0,
+    inReplyTo: inbound.inReplyTo,
+    references: inbound.references
+  };
+}
+df8.app.activity("classifyInbound", {
   handler: async (input12, ctx) => {
     const { inbound, workProviderId, matchState } = input12;
-    const attachmentKinds = inbound.attachments.map(
-      (a) => describeEvidence(a.filename, a.contentType).evidenceClass
-    );
-    const res = await callClassifyEmail({
-      subject: inbound.subject,
-      body: inbound.body,
-      from: inbound.senderAddress,
-      senderDomain: domainOf2(inbound.senderAddress),
-      providerMatchState: MATCH_STATE_TO_CLASSIFIER[matchState ?? "unmatched"] ?? "none",
-      attachmentKinds,
-      hasAttachments: inbound.attachments.length > 0,
-      inReplyTo: inbound.inReplyTo,
-      references: inbound.references
-    });
-    const category = KNOWN_CATEGORIES.has(res.category) ? res.category : "other";
+    const res = await callClassifyEmail(buildClassifyRequest(inbound, matchState));
+    const category = KNOWN_CATEGORIES2.has(res.category) ? res.category : "other";
     const classification = {
       category,
       subtype: res.subtype || "other",
@@ -43012,7 +44065,9 @@ df7.app.activity("classifyInbound", {
       signals: res.signals ?? [],
       bodyVrm: res.body_vrm ?? "",
       bodyCaseref: res.body_caseref ?? "",
-      isReply: res.is_reply ?? false
+      bodyJobref: res.body_jobref ?? "",
+      isReply: res.is_reply ?? false,
+      taxonomyVersion: res.taxonomy_version
     };
     await dataApi.recordInboundEmail({ inbound, providerId: workProviderId, classification });
     await dataApi.recordAudit({
@@ -43031,15 +44086,140 @@ df7.app.activity("classifyInbound", {
   }
 });
 
+// orchestration/src/functions/activities/triagePolicy.ts
+var df9 = __toESM(require("durable-functions"), 1);
+var GATES_ALL_ON = {
+  refGate: true,
+  cancellation: true,
+  imagesRouting: true,
+  caseUpdate: true
+};
+var EMPTY_CONTEXT = {
+  openCaseMatches: [],
+  duplicateInternetMessageId: false,
+  conversationSiblingCaseIds: []
+};
+function actingGates() {
+  return {
+    refGate: gates.triageRefGate(),
+    cancellation: gates.triageCancellation(),
+    imagesRouting: gates.triageImagesRouting(),
+    caseUpdate: gates.triageCaseUpdate()
+  };
+}
+function normaliseMatchState(value) {
+  return value === "matched" || value === "unmatched" || value === "ambiguous" ? value : "none";
+}
+function buildTriageContextRequest(inbound, classification) {
+  return {
+    caseref: (inbound.candidateRef || classification.bodyCaseref || "").trim(),
+    jobref: (classification.bodyJobref || "").trim(),
+    vrm: (inbound.candidateVrm || classification.bodyVrm || "").trim(),
+    internetMessageId: (inbound.internetMessageId || "").trim(),
+    conversationId: (inbound.conversationId || "").trim()
+  };
+}
+function deriveAttachmentSignals(inbound) {
+  const attachmentKinds = attachmentKindsOf(inbound);
+  const hasAttachments = inbound.attachments.length > 0;
+  const imagesOnly = hasAttachments && attachmentKinds.every((kind) => kind === "image");
+  return { hasAttachments, attachmentKinds, imagesOnly };
+}
+function toPolicyClassification(classification) {
+  return {
+    category: classification.category,
+    subtype: classification.subtype,
+    confidence: classification.confidence,
+    signals: classification.signals,
+    bodyVrm: classification.bodyVrm,
+    bodyCaseref: classification.bodyCaseref,
+    bodyJobref: classification.bodyJobref,
+    isReply: classification.isReply,
+    taxonomyVersion: classification.taxonomyVersion
+  };
+}
+df9.app.activity("triagePolicy", {
+  handler: async (input12, ctx) => {
+    const { inbound, classification } = input12;
+    let resolvedContext;
+    try {
+      resolvedContext = await dataApi.triageContext(buildTriageContextRequest(inbound, classification));
+    } catch (e) {
+      ctx.warn(
+        `[triagePolicy] context lookup failed for ${inbound.internetMessageId} \u2014 degrading to an empty context (best-effort, additive feature; never blocks intake): ${e instanceof Error ? e.message : String(e)}`
+      );
+      resolvedContext = EMPTY_CONTEXT;
+    }
+    const { hasAttachments, attachmentKinds, imagesOnly } = deriveAttachmentSignals(inbound);
+    const policyClassification = toPolicyClassification(classification);
+    const policyContext = {
+      openCaseMatches: resolvedContext.openCaseMatches,
+      duplicateInternetMessageId: resolvedContext.duplicateInternetMessageId,
+      conversationSiblingCaseIds: resolvedContext.conversationSiblingCaseIds,
+      providerMatchState: normaliseMatchState(input12.matchState),
+      hasAttachments,
+      attachmentKinds,
+      imagesOnly
+    };
+    const actingGateValues = actingGates();
+    const shadow = decideTriage(policyClassification, policyContext, GATES_ALL_ON);
+    const acting = decideTriage(policyClassification, policyContext, actingGateValues);
+    const intermediaryDecisionInputs = input12.intermediaryImageSourceId ? {
+      intermediaryImageSourceId: input12.intermediaryImageSourceId,
+      intermediaryCandidateProviderIds: input12.intermediaryCandidateProviderIds ?? []
+    } : {};
+    await trackEvent("triage_decision", {
+      actingAction: acting.action,
+      shadowAction: shadow.action,
+      actingFinalCategory: acting.finalCategory,
+      actingFinalSubtype: acting.finalSubtype,
+      shadowFinalCategory: shadow.finalCategory,
+      shadowFinalSubtype: shadow.finalSubtype,
+      policyVersion: acting.policyVersion,
+      gatesSnapshot: actingGateValues,
+      messageId: inbound.messageId,
+      sourceMailbox: inbound.sourceMailbox,
+      decisionInputs: { ...shadow.decisionInputs, ...intermediaryDecisionInputs },
+      taxonomyVersion: classification.taxonomyVersion ?? 1
+    });
+    if (acting.action === "suggest_attach" || acting.action === "propose_cancellation") {
+      try {
+        await dataApi.triageSuggestLink({
+          sourceMessageId: inbound.internetMessageId,
+          ...acting.targetCaseId ? { targetCaseId: acting.targetCaseId } : {},
+          suggestionType: acting.suggestionType ?? (acting.action === "propose_cancellation" ? "cancellation" : "case_link"),
+          rationale: acting.rationale,
+          ...policyClassification.confidence !== void 0 ? { confidence: policyClassification.confidence } : {},
+          decisionInputs: { ...acting.decisionInputs, ...intermediaryDecisionInputs }
+        });
+      } catch (e) {
+        ctx.warn(
+          `[triagePolicy] suggestion write failed for ${inbound.internetMessageId} (best-effort, continuing): ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+    ctx.log(
+      JSON.stringify({
+        evt: "triagePolicy",
+        messageId: inbound.messageId,
+        actingAction: acting.action,
+        shadowAction: shadow.action
+      })
+    );
+    return acting;
+  }
+});
+
 // orchestration/src/functions/activities/linkReply.ts
-var df8 = __toESM(require("durable-functions"), 1);
-df8.app.activity("linkReply", {
+var df10 = __toESM(require("durable-functions"), 1);
+df10.app.activity("linkReply", {
   handler: async (input12, ctx) => {
     const result = await dataApi.linkReplyToOpenCase({
       inbound: input12.inbound,
       providerId: input12.providerId,
       ref: input12.ref,
-      vrm: input12.vrm
+      vrm: input12.vrm,
+      jobref: input12.jobref
     });
     ctx.log(
       JSON.stringify({
@@ -43054,8 +44234,8 @@ df8.app.activity("linkReply", {
 });
 
 // orchestration/src/functions/activities/caseResolve.ts
-var df9 = __toESM(require("durable-functions"), 1);
-df9.app.activity("caseResolve", {
+var df11 = __toESM(require("durable-functions"), 1);
+df11.app.activity("caseResolve", {
   handler: async (input12, ctx) => {
     const { inbound, providerId, matchState } = input12;
     const bestVrm = ((input12.parserVrm || inbound.candidateVrm) ?? "").trim();
@@ -43090,6 +44270,8 @@ df9.app.activity("caseResolve", {
         parserMileage: input12.parserMileage,
         parserMileageUnit: input12.parserMileageUnit,
         parserEva: input12.parserEvaFields,
+        intermediaryImageSourceId: input12.intermediaryImageSourceId,
+        intermediaryCandidateProviderIds: input12.intermediaryCandidateProviderIds,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
@@ -43117,8 +44299,8 @@ df9.app.activity("caseResolve", {
 });
 
 // orchestration/src/functions/activities/setIngested.ts
-var df10 = __toESM(require("durable-functions"), 1);
-df10.app.activity("setIngested", {
+var df12 = __toESM(require("durable-functions"), 1);
+df12.app.activity("setIngested", {
   handler: async (input12, ctx) => {
     const result = await dataApi.setIngested(input12.caseId);
     ctx.log(JSON.stringify({ evt: "setIngested", caseId: input12.caseId, updated: result.updated }));
@@ -43127,9 +44309,9 @@ df10.app.activity("setIngested", {
 });
 
 // orchestration/src/functions/activities/classifyPersist.ts
-var df11 = __toESM(require("durable-functions"), 1);
+var df13 = __toESM(require("durable-functions"), 1);
 var MIN_BODY_INSTRUCTION_CHARS = 40;
-df11.app.activity("classifyPersist", {
+df13.app.activity("classifyPersist", {
   handler: async (input12, ctx) => {
     const { caseId, inbound } = input12;
     const rows = inbound.attachments.map((a) => ({
@@ -43177,88 +44359,7 @@ df11.app.activity("classifyPersist", {
 });
 
 // orchestration/src/functions/activities/parse.ts
-var df12 = __toESM(require("durable-functions"), 1);
-
-// packages/domain/dist/gates.js
-var gates = {
-  // Core feature gates (plan 10 §1.1, #1–#21 boolean set)
-  pdfMapper: () => process.env.PDF_MAPPER_ENABLED === "true",
-  // #1
-  enrichment: () => process.env.ENRICHMENT_ENABLED === "true",
-  // #2
-  evaApi: () => process.env.EVA_API_ENABLED === "true",
-  // #4
-  azureMaps: () => process.env.AZURE_MAPS_ENABLED === "true",
-  // #8
-  valuation: () => process.env.VALUATION_ENABLED === "true",
-  // #9
-  copilot: () => process.env.COPILOT_ENABLED === "true",
-  // #10
-  azureVision: () => process.env.AZURE_VISION_ENABLED === "true",
-  // #11
-  ocrScannedPdf: () => process.env.OCR_SCANNED_PDF_ENABLED === "true",
-  // #12
-  plateOcr: () => process.env.PLATE_OCR_ENABLED === "true",
-  // #13
-  auditCases: () => process.env.AUDIT_CASES_ENABLED === "true",
-  // #15
-  locationAssist: () => process.env.LOCATION_ASSIST_ENABLED === "true",
-  // #17
-  chaserSend: () => process.env.CHASER_SEND_ENABLED === "true",
-  // #19
-  caseDisposition: () => process.env.CASE_DISPOSITION_ENABLED === "true",
-  // #20
-  emailAi: () => process.env.EMAIL_AI_ENABLED === "true",
-  // #21
-  // AI assistant suggestion layer (TKT-015) — default OFF. Gates the embedded AI
-  // suggestion surface + the server-side model call path; honest no-op while off
-  // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
-  aiAssist: () => process.env.AI_ASSIST_ENABLED === "true",
-  // Box gates (Phase 7, ADR-0012) — all default off
-  boxApi: () => process.env.BOX_API_ENABLED === "true",
-  // #22
-  boxFolderAtIntake: () => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === "true",
-  // #23
-  boxFileRequest: () => process.env.BOX_FILEREQUEST_ENABLED === "true",
-  // #24
-  boxEmbed: () => process.env.BOX_EMBED_ENABLED === "true",
-  // #25
-  boxMetadata: () => process.env.BOX_METADATA_ENABLED === "true",
-  // #26
-  // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
-  enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
-  // #3
-  evaBaseUrl: () => process.env.EVA_BASE_URL ?? "",
-  // #5
-  valuationApiBase: () => process.env.VALUATION_API_BASE ?? "",
-  // #14
-  locationAssistApiBase: () => process.env.LOCATION_ASSIST_API_BASE ?? "",
-  // #18
-  boxFolderRootId: () => process.env.BOX_FOLDER_ROOT_ID ?? "",
-  // #27
-  boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
-  // #28
-  // AI model endpoint config (TKT-015). The server-side model call path is built but
-  // dormant: digital-3339-resource has ZERO model deployments, so these are ABSENT in
-  // live app-settings and the generate route stays an honest no-op until a model is
-  // deployed + wired. Prefer managed-identity/keyless — no API key gate by design.
-  aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
-  aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
-  /**
-   * Derived: location assist is only enabled when all three conditions are met.
-   * Used by GET /api/gates/location-assist (plan 21 §21.2).
-   */
-  locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== "",
-  /**
-   * Derived: a model endpoint AND deployment are both configured. The AI generate
-   * route requires this in ADDITION to the aiAssist() switch — gate ON but model
-   * UNCONFIGURED is still an honest no-op (the live state today). Used by
-   * GET /api/gates/ai-assist + the generate route's disabled-reason.
-   */
-  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== ""
-};
-
-// orchestration/src/functions/activities/parse.ts
+var df14 = __toESM(require("durable-functions"), 1);
 var DOC_EXT = /\.(pdf|docx?|rtf|eml|msg)$/i;
 var DOC_CTYPE = /pdf|msword|officedocument|rtf|rfc822|ms-outlook/i;
 var EMAIL_EXT = /\.(eml|msg)$/i;
@@ -43273,7 +44374,7 @@ function pickInstructionDoc(atts) {
   const pool = nonEmail.length ? nonEmail : docs;
   return pool.find((a) => /pdf/i.test(a.contentType ?? "") || /\.pdf$/i.test(a.filename ?? "")) ?? pool[0];
 }
-df12.app.activity("parse", {
+df14.app.activity("parse", {
   handler: async (input12, ctx) => {
     const corr = input12.caseId || input12.messageId || "(pre-resolve)";
     if (!gates.pdfMapper()) {
@@ -43328,8 +44429,8 @@ df12.app.activity("parse", {
 });
 
 // orchestration/src/functions/activities/statusEvaluate.ts
-var df13 = __toESM(require("durable-functions"), 1);
-df13.app.activity("statusEvaluate", {
+var df15 = __toESM(require("durable-functions"), 1);
+df15.app.activity("statusEvaluate", {
   handler: async (input12, ctx) => {
     const result = await dataApi.evaluateStatus(input12.caseId);
     ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input12.caseId, status: result.value }));
@@ -43338,8 +44439,8 @@ df13.app.activity("statusEvaluate", {
 });
 
 // orchestration/src/functions/activities/enrich.ts
-var df14 = __toESM(require("durable-functions"), 1);
-df14.app.activity("enrich", {
+var df16 = __toESM(require("durable-functions"), 1);
+df16.app.activity("enrich", {
   handler: async (input12, ctx) => {
     if (!gates.enrichment()) {
       ctx.log("[enrich] skipped \u2014 ENRICHMENT_ENABLED=false");
@@ -43385,32 +44486,32 @@ df14.app.activity("enrich", {
 });
 
 // orchestration/src/functions/activities/boxArchive.ts
-var import_functions6 = require("@azure/functions");
-var df15 = __toESM(require("durable-functions"), 1);
-import_functions6.app.http("box-archive-start", {
+var import_functions8 = require("@azure/functions");
+var df17 = __toESM(require("durable-functions"), 1);
+import_functions8.app.http("box-archive-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "box-archive",
-  extraInputs: [df15.input.durableClient()],
+  extraInputs: [df17.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-archive] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input12 = await req.json();
-    const client2 = df15.getClient(ctx);
+    const client2 = df17.getClient(ctx);
     const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var manualRetry = new df15.RetryOptions(5e3, 3);
+var manualRetry = new df17.RetryOptions(5e3, 3);
 manualRetry.backoffCoefficient = 2;
-df15.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
+df17.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
   const input12 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input12);
   return result;
 });
-df15.app.activity("boxArchiveEvidence", {
+df17.app.activity("boxArchiveEvidence", {
   handler: async (input12, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       return { uploaded: 0, total: 0, skipped: "gated_off" };
@@ -43499,11 +44600,11 @@ df15.app.activity("boxArchiveEvidence", {
 });
 
 // orchestration/src/functions/activities/extractImages.ts
-var df16 = __toESM(require("durable-functions"), 1);
+var df18 = __toESM(require("durable-functions"), 1);
 var IMG_SOURCE_EXT = /\.(pdf|docx?)$/i;
 var IMG_SOURCE_CTYPE = /pdf|msword|officedocument/i;
 var OCR_OK_EXT = /\.(jpe?g|png|bmp|tiff?|webp|heic|heif)$/i;
-df16.app.activity("extractImages", {
+df18.app.activity("extractImages", {
   handler: async (input12, ctx) => {
     if (!gates.pdfMapper()) return { extracted: 0, registrationVisible: false, skipped: "gate_off" };
     const docs = (input12.attachments ?? []).filter(
@@ -43606,34 +44707,34 @@ function stripExt(name) {
 }
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
-var import_functions7 = require("@azure/functions");
-var df17 = __toESM(require("durable-functions"), 1);
-import_functions7.app.http("finalize-eva-box-start", {
+var import_functions9 = require("@azure/functions");
+var df19 = __toESM(require("durable-functions"), 1);
+import_functions9.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
-  extraInputs: [df17.input.durableClient()],
+  extraInputs: [df19.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.evaApi() || !gates.boxApi()) {
       ctx.log("[finalize-eva-box] skipped \u2014 EVA_API_ENABLED and/or BOX_API_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const { caseId } = await req.json();
-    const client2 = df17.getClient(ctx);
+    const client2 = df19.getClient(ctx);
     const instanceId = await client2.startNew("finalizeEvaBoxOrchestrator", { input: { caseId } });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry2 = new df17.RetryOptions(5e3, 3);
-retry2.backoffCoefficient = 2;
-retry2.maxRetryIntervalInMilliseconds = 6e4;
-df17.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
+var retry3 = new df19.RetryOptions(5e3, 3);
+retry3.backoffCoefficient = 2;
+retry3.maxRetryIntervalInMilliseconds = 6e4;
+df19.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
   const { caseId } = ctx.df.getInput();
-  const eva = yield ctx.df.callActivityWithRetry("evaSubmit", retry2, { caseId });
-  const boxResult = yield ctx.df.callActivityWithRetry("boxFolderAugment", retry2, { caseId });
+  const eva = yield ctx.df.callActivityWithRetry("evaSubmit", retry3, { caseId });
+  const boxResult = yield ctx.df.callActivityWithRetry("boxFolderAugment", retry3, { caseId });
   return { caseId, eva, box: boxResult };
 });
-df17.app.activity("evaSubmit", {
+df19.app.activity("evaSubmit", {
   handler: async (input12, ctx) => {
     if (!gates.evaApi()) return { skipped: true };
     const res = await callEvaSubmit(input12.caseId);
@@ -43642,7 +44743,7 @@ df17.app.activity("evaSubmit", {
     return res;
   }
 });
-df17.app.activity("boxFolderAugment", {
+df19.app.activity("boxFolderAugment", {
   handler: async (input12, ctx) => {
     if (!gates.boxApi()) return { skipped: true };
     const folder = await box.createFolder(input12.caseId, gates.boxFolderRootId());
@@ -43654,35 +44755,35 @@ df17.app.activity("boxFolderAugment", {
 });
 
 // orchestration/src/functions/gated/chaser.ts
-var import_functions8 = require("@azure/functions");
-var df18 = __toESM(require("durable-functions"), 1);
-import_functions8.app.http("chaser-start", {
+var import_functions10 = require("@azure/functions");
+var df20 = __toESM(require("durable-functions"), 1);
+import_functions10.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
-  extraInputs: [df18.input.durableClient()],
+  extraInputs: [df20.input.durableClient()],
   handler: async (req, ctx) => {
     const input12 = await req.json();
-    const client2 = df18.getClient(ctx);
+    const client2 = df20.getClient(ctx);
     const instanceId = await client2.startNew("chaserOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry3 = new df18.RetryOptions(5e3, 3);
-retry3.backoffCoefficient = 2;
-df18.app.orchestration("chaserOrchestrator", function* (ctx) {
+var retry4 = new df20.RetryOptions(5e3, 3);
+retry4.backoffCoefficient = 2;
+df20.app.orchestration("chaserOrchestrator", function* (ctx) {
   const input12 = ctx.df.getInput();
-  const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry3, input12);
-  const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry3, { caseId: input12.caseId, draft });
+  const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry4, input12);
+  const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry4, { caseId: input12.caseId, draft });
   return { caseId: input12.caseId, draft, sent };
 });
-df18.app.activity("chaserDraft", {
+df20.app.activity("chaserDraft", {
   handler: async (input12, ctx) => {
     ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input12.caseId, targetType: input12.targetType }));
     return { drafted: true, targetType: input12.targetType };
   }
 });
-df18.app.activity("chaserSend", {
+df20.app.activity("chaserSend", {
   handler: async (input12, ctx) => {
     if (!gates.chaserSend()) {
       ctx.log("[chaserSend] skipped \u2014 CHASER_SEND_ENABLED=false (draft-only)");
@@ -43694,72 +44795,33 @@ df18.app.activity("chaserSend", {
   }
 });
 
-// orchestration/src/functions/gated/triage-classify.ts
-var import_functions9 = require("@azure/functions");
-var df19 = __toESM(require("durable-functions"), 1);
-import_functions9.app.http("triage-classify-start", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "triage-classify",
-  extraInputs: [df19.input.durableClient()],
-  handler: async (req, ctx) => {
-    const input12 = await req.json();
-    const client2 = df19.getClient(ctx);
-    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input12 });
-    return client2.createCheckStatusResponse(req, instanceId);
-  }
-});
-var retry4 = new df19.RetryOptions(5e3, 3);
-retry4.backoffCoefficient = 2;
-df19.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
-  const input12 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry4, input12);
-  return result;
-});
-df19.app.activity("triageClassify", {
-  handler: async (input12, ctx) => {
-    if (!gates.emailAi()) {
-      ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED=false");
-      return { skipped: true };
-    }
-    const res = await callClassifyEmail({
-      subject: input12.subject,
-      body: input12.body,
-      from: input12.senderAddress
-    });
-    await dataApi.recordAudit({ action: "inbound_classified", summary: `triage ${res.category}/${res.subtype}` });
-    ctx.log(JSON.stringify({ evt: "triageClassify", inboundEmailId: input12.inboundEmailId, category: res.category, subtype: res.subtype }));
-    return res;
-  }
-});
-
 // orchestration/src/functions/gated/box-folder-create.ts
-var import_functions10 = require("@azure/functions");
-var df20 = __toESM(require("durable-functions"), 1);
-import_functions10.app.http("box-folder-create-start", {
+var import_functions11 = require("@azure/functions");
+var df21 = __toESM(require("durable-functions"), 1);
+import_functions11.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
-  extraInputs: [df20.input.durableClient()],
+  extraInputs: [df21.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-folder-create] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input12 = await req.json();
-    const client2 = df20.getClient(ctx);
+    const client2 = df21.getClient(ctx);
     const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry5 = new df20.RetryOptions(5e3, 3);
+var retry5 = new df21.RetryOptions(5e3, 3);
 retry5.backoffCoefficient = 2;
-df20.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
+df21.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
   const input12 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry5, input12);
   return result;
 });
-df20.app.activity("boxFolderCreate", {
+df21.app.activity("boxFolderCreate", {
   handler: async (input12, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) return { skipped: true, reason: "gated off" };
     const existing = await dataApi.getCaseBoxFolder(input12.caseId);
@@ -43779,32 +44841,32 @@ df20.app.activity("boxFolderCreate", {
 });
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
-var import_functions11 = require("@azure/functions");
-var df21 = __toESM(require("durable-functions"), 1);
-import_functions11.app.http("box-file-request-copy-start", {
+var import_functions12 = require("@azure/functions");
+var df22 = __toESM(require("durable-functions"), 1);
+import_functions12.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
-  extraInputs: [df21.input.durableClient()],
+  extraInputs: [df22.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) {
       ctx.log("[box-file-request-copy] skipped \u2014 BOX_API_ENABLED and/or BOX_FILEREQUEST_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input12 = await req.json();
-    const client2 = df21.getClient(ctx);
+    const client2 = df22.getClient(ctx);
     const instanceId = await client2.startNew("boxFileRequestCopyOrchestrator", { input: input12 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry6 = new df21.RetryOptions(5e3, 3);
+var retry6 = new df22.RetryOptions(5e3, 3);
 retry6.backoffCoefficient = 2;
-df21.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
+df22.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
   const input12 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxFileRequestCopy", retry6, input12);
   return result;
 });
-df21.app.activity("boxFileRequestCopy", {
+df22.app.activity("boxFileRequestCopy", {
   handler: async (input12, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) return { skipped: true };
     const templateId = gates.boxFileRequestTemplateId();
@@ -43820,36 +44882,36 @@ df21.app.activity("boxFileRequestCopy", {
 });
 
 // orchestration/src/functions/gated/box-blob-purge.ts
-var import_functions12 = require("@azure/functions");
-var df22 = __toESM(require("durable-functions"), 1);
-import_functions12.app.timer("box-blob-purge-timer", {
+var import_functions13 = require("@azure/functions");
+var df23 = __toESM(require("durable-functions"), 1);
+import_functions13.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
-  extraInputs: [df22.input.durableClient()],
+  extraInputs: [df23.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.boxApi()) {
       ctx.log("[box-blob-purge] skipped \u2014 BOX_API_ENABLED=false");
       return;
     }
-    const client2 = df22.getClient(ctx);
+    const client2 = df23.getClient(ctx);
     await client2.startNew("boxBlobPurgeOrchestrator", {});
     ctx.log("[box-blob-purge] started orchestration");
   }
 });
-var retry7 = new df22.RetryOptions(5e3, 3);
+var retry7 = new df23.RetryOptions(5e3, 3);
 retry7.backoffCoefficient = 2;
-df22.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
+df23.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
   const candidates = yield ctx.df.callActivityWithRetry("boxPurgeList", retry7, {});
   const tasks = candidates.map((c) => ctx.df.callActivityWithRetry("boxPurgeOne", retry7, c));
   const results = yield ctx.df.Task.all(tasks);
   return { purged: results.length };
 });
-df22.app.activity("boxPurgeList", {
+df23.app.activity("boxPurgeList", {
   handler: async () => {
     if (!gates.boxApi()) return [];
     return dataApi.blobsForPurge();
   }
 });
-df22.app.activity("boxPurgeOne", {
+df23.app.activity("boxPurgeOne", {
   handler: async (input12, ctx) => {
     if (!gates.boxApi()) return { purged: false };
     const purged = await deleteEvidenceBytes(input12.blobPath);
@@ -43860,36 +44922,36 @@ df22.app.activity("boxPurgeOne", {
 });
 
 // orchestration/src/functions/gated/case-disposition.ts
-var import_functions13 = require("@azure/functions");
-var df23 = __toESM(require("durable-functions"), 1);
-import_functions13.app.timer("case-disposition-timer", {
+var import_functions14 = require("@azure/functions");
+var df24 = __toESM(require("durable-functions"), 1);
+import_functions14.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
-  extraInputs: [df23.input.durableClient()],
+  extraInputs: [df24.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.caseDisposition()) {
       ctx.log("[case-disposition] skipped \u2014 CASE_DISPOSITION_ENABLED=false");
       return;
     }
-    const client2 = df23.getClient(ctx);
+    const client2 = df24.getClient(ctx);
     await client2.startNew("caseDispositionOrchestrator", {});
     ctx.log("[case-disposition] started orchestration");
   }
 });
-var retry8 = new df23.RetryOptions(5e3, 3);
+var retry8 = new df24.RetryOptions(5e3, 3);
 retry8.backoffCoefficient = 2;
-df23.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
+df24.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
   const due = yield ctx.df.callActivityWithRetry("dispositionList", retry8, {});
   const tasks = due.map((c) => ctx.df.callActivityWithRetry("dispositionOne", retry8, c));
   const results = yield ctx.df.Task.all(tasks);
   return { disposed: results.length };
 });
-df23.app.activity("dispositionList", {
+df24.app.activity("dispositionList", {
   handler: async () => {
     if (!gates.caseDisposition()) return [];
     return dataApi.casesForDisposition();
   }
 });
-df23.app.activity("dispositionOne", {
+df24.app.activity("dispositionOne", {
   handler: async (input12, ctx) => {
     if (!gates.caseDisposition()) return { disposed: false };
     await dataApi.disposeCase(input12.caseId);
@@ -43900,32 +44962,32 @@ df23.app.activity("dispositionOne", {
 });
 
 // orchestration/src/functions/gated/jobsheet-import.ts
-var import_functions14 = require("@azure/functions");
-var df24 = __toESM(require("durable-functions"), 1);
-import_functions14.app.http("jobsheet-import-start", {
+var import_functions15 = require("@azure/functions");
+var df25 = __toESM(require("durable-functions"), 1);
+import_functions15.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
-  extraInputs: [df24.input.durableClient()],
+  extraInputs: [df25.input.durableClient()],
   handler: async (req, ctx) => {
-    const client2 = df24.getClient(ctx);
+    const client2 = df25.getClient(ctx);
     const instanceId = await client2.startNew("jobsheetImportOrchestrator", {});
     ctx.log(`[jobsheet-import] started ${instanceId}`);
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry9 = new df24.RetryOptions(5e3, 3);
+var retry9 = new df25.RetryOptions(5e3, 3);
 retry9.backoffCoefficient = 2;
-df24.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
+df25.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
   const principals = yield ctx.df.callActivityWithRetry("jobsheetPrincipals", retry9, {});
   const tasks = principals.map((p) => ctx.df.callActivityWithRetry("jobsheetImportOne", retry9, p));
   const results = yield ctx.df.Task.all(tasks);
   return { principals: principals.length, results };
 });
-df24.app.activity("jobsheetPrincipals", {
+df25.app.activity("jobsheetPrincipals", {
   handler: async () => dataApi.principals()
 });
-df24.app.activity("jobsheetImportOne", {
+df25.app.activity("jobsheetImportOne", {
   handler: async (input12, ctx) => {
     await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input12.principalCode}` });
     ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input12.principalCode }));

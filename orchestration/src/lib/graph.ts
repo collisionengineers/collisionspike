@@ -13,7 +13,12 @@
  * durable-functions + @azure/storage-blob.
  *
  * App-settings required: GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET.
+ * Optional: GRAPH_IMAGE_FLOOR_DISABLED (TKT-047 kill switch — see skipAsSignatureImage below).
  */
+
+// Intra-package import only (still zero external npm deps, per "Dependency-free" above) —
+// TKT-047's signature/logo-image raster floor (rules-engine-v2 Phase 2 "Signature filter").
+import { isLikelySignatureImage, sniffImageDimensions } from './image-sniff.js';
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 
@@ -102,6 +107,9 @@ export interface GraphMessage {
   bodyPreview?: string;
   body?: { contentType?: string; content?: string };
   hasAttachments?: boolean;
+  /** In Graph's default property set — no $select needed. Capture-only for now; the
+   *  column lands with Phase 2's DDL (local thread correlation). */
+  conversationId?: string;
 }
 
 export interface FetchedMessage {
@@ -132,6 +140,12 @@ export async function getMessageWithAttachments(
       const otype = (a['@odata.type'] ?? '').toLowerCase();
       if (a.contentBytes !== undefined) {
         // A normal fileAttachment with inline base64 bytes — the common case.
+        // TKT-047: the isInline check above only catches signature/logo images when the
+        // sender's client flagged them inline — many arrive as ordinary attachments instead,
+        // so sniff + drop those too before they land in the evidence set.
+        if (skipAsSignatureImage(a.name, a.contentType, Buffer.from(a.contentBytes, 'base64'))) {
+          continue;
+        }
         attachments.push(a);
         continue;
       }
@@ -152,6 +166,8 @@ export async function getMessageWithAttachments(
             contentBytes: raw.toString('base64'),
           });
         } else {
+          // TKT-047: same signature/logo sniff as the inline-bytes branch above.
+          if (skipAsSignatureImage(a.name, a.contentType, raw)) continue;
           attachments.push({ ...a, size: raw.length, contentBytes: raw.toString('base64') });
         }
       } catch {
@@ -166,6 +182,32 @@ export async function getMessageWithAttachments(
 function ensureEmlName(name: string | undefined): string {
   const n = (name ?? '').trim() || 'forwarded-message';
   return /\.eml$/i.test(n) ? n : `${n}.eml`;
+}
+
+/**
+ * TKT-047 / rules-engine-v2 Phase 2 "Signature filter": Outlook's `isInline` flag (checked
+ * above) only catches the sender clients that flag embedded signature/logo images correctly —
+ * many arrive as ordinary non-inline attachments and would otherwise be archived to Box as if
+ * they were case evidence. Delegates the actual decision to `isLikelySignatureImage`
+ * (image-sniff.ts), which mirrors the vendored cedocumentmapper engine's decorative-raster
+ * filter (`_MIN_EXTRACTED_IMAGE_AREA` / `is_decorative` in
+ * functions/parser/cedocumentmapper_v2/application/service.py): a pixel-area floor, with a
+ * conservative byte-size fallback for images Graph's bytes-only payload can't be dimension-
+ * sniffed from (see that module for the full rationale).
+ *
+ * Logs the filename + why (dimensions vs byte-size) on every skip — a filtered attachment must
+ * stay observable in App Insights traces, never a silent gap in the evidence set.
+ * `GRAPH_IMAGE_FLOOR_DISABLED=true` is the kill switch (default off ⇒ filter active); read
+ * directly off `process.env` rather than via `@cs/domain/gates` because this file is
+ * deliberately kept free of the domain package (see the file header's "Dependency-free").
+ */
+function skipAsSignatureImage(name: string, contentType: string | undefined, bytes: Buffer): boolean {
+  if (process.env.GRAPH_IMAGE_FLOOR_DISABLED === 'true') return false;
+  if (!isLikelySignatureImage(name, contentType, bytes)) return false;
+  const dims = sniffImageDimensions(bytes);
+  const reason = dims ? `dimensions ${dims.width}x${dims.height}` : `byte-size ${bytes.length}b`;
+  console.log(`[graph] skipped attachment "${name}" — likely signature/logo image (${reason})`);
+  return true;
 }
 
 /**
@@ -244,6 +286,72 @@ export async function listMessageIdsSince(
   const rows = res.value ?? [];
   const newWatermark = rows.length ? rows[rows.length - 1].receivedDateTime : watermarkIso;
   return { ids: rows.map((r) => r.id), newWatermark };
+}
+
+/* ---------- Outlook filing (TKT-054 / 020726 E6 — gated by OUTLOOK_MOVE_ENABLED) ---------- */
+
+/** Escape a value for a Graph OData $filter string literal (single quotes double up). */
+export function odataQuote(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+/**
+ * Resolve the CURRENT Graph message id from the RFC Internet-Message-Id. The stored
+ * dedup key is the internetMessageId (not the Graph id), and a Graph id changes when a
+ * message moves folder — so the mover always re-resolves. Searches the whole mailbox
+ * (not just Inbox) so a retry after a partial move still finds the message. Returns
+ * null when no match (deleted / different mailbox).
+ */
+export async function findMessageByInternetMessageId(
+  mailbox: string,
+  internetMessageId: string,
+): Promise<{ id: string; parentFolderId: string } | null> {
+  const filter = encodeURIComponent(`internetMessageId eq ${odataQuote(internetMessageId)}`);
+  const path =
+    `/users/${encodeURIComponent(mailbox)}/messages` +
+    `?$filter=${filter}&$select=id,parentFolderId&$top=2`;
+  const res = await graphFetch<{ value: Array<{ id: string; parentFolderId: string }> }>(path);
+  return res.value?.[0] ?? null;
+}
+
+/**
+ * Walk (and create as needed) a child-folder chain under the well-known Inbox:
+ * segments ['Queries','Case queries'] -> Inbox/Queries/Case queries. Returns the
+ * final folder id. Folder create needs Mail.ReadWrite (the same Exchange-RBAC
+ * re-consent the whole move path is gated on — docs/gated.md).
+ */
+export async function ensureInboxChildFolder(mailbox: string, segments: string[]): Promise<string> {
+  const user = encodeURIComponent(mailbox);
+  let parentId = 'inbox'; // the well-known folder name is valid in the id segment
+  for (const name of segments) {
+    const filter = encodeURIComponent(`displayName eq ${odataQuote(name)}`);
+    const found = await graphFetch<{ value: Array<{ id: string }> }>(
+      `/users/${user}/mailFolders/${encodeURIComponent(parentId)}/childFolders?$filter=${filter}&$select=id&$top=1`,
+    );
+    if (found.value?.[0]) {
+      parentId = found.value[0].id;
+      continue;
+    }
+    const created = await graphFetch<{ id: string }>(
+      `/users/${user}/mailFolders/${encodeURIComponent(parentId)}/childFolders`,
+      { method: 'POST', body: JSON.stringify({ displayName: name }) },
+    );
+    parentId = created.id;
+  }
+  return parentId;
+}
+
+/** Move a message to a destination folder (Mail.ReadWrite). Returns the new message id. */
+export async function moveMessage(
+  mailbox: string,
+  messageId: string,
+  destinationFolderId: string,
+): Promise<string> {
+  const res = await graphFetch<{ id: string }>(
+    `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}/move`,
+    { method: 'POST', body: JSON.stringify({ destinationId: destinationFolderId }) },
+  );
+  return res.id;
 }
 
 /* ---------- helpers ---------- */

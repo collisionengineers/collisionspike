@@ -372,6 +372,19 @@ export const AI_ASSIST_GATE_ALL_OFF: AiAssistGate = {
   modelConfigured: false,
 };
 
+/** The Outlook-move gate, read by the SPA via GET /api/gates/outlook-move (TKT-054 /
+ *  020726 E6). `enabled` is the actionable state the "Suggested action" button keys on:
+ *  OUTLOOK_MOVE_ENABLED is on AND the move queue is configured. While false the SPA
+ *  renders the suggestion as display-only text. */
+export interface OutlookMoveGate {
+  enabled: boolean;
+}
+
+/** All-off default — the honest "Outlook filing not switched on / unreadable" baseline. */
+export const OUTLOOK_MOVE_GATE_ALL_OFF: OutlookMoveGate = {
+  enabled: false,
+};
+
 /* ============================================================
    Phase 8 — Inbox / Triage domain types (cr1bd_inboundemail).
    ============================================================ */
@@ -380,20 +393,51 @@ export const AI_ASSIST_GATE_ALL_OFF: AiAssistGate = {
  *  the original receiving_work | query | other are joined by `billing` (an invoice/fee
  *  request — TKT-037) and `non_actionable` (a case-summary digest or bare acknowledgement
  *  — TKT-029/038; distinct from `other`, which is genuinely unidentified). The
- *  Enquiries-vs-Case-Queries split (TKT-034) is carried by the two `query` subtypes. */
+ *  Enquiries-vs-Case-Queries split (TKT-034) is carried by the two `query` subtypes.
+ *
+ *  `case_update` and `cancellation` (append-only, taxonomy v2 — rules-engine-v2 Phase 2,
+ *  ADR-0019/ADR-0015's 2026-07-02 amendment) are the two NEW top-level categories the
+ *  triage-policy module (`domain/triage-policy.ts`) can route an inbound to: `case_update`
+ *  is an inbound belonging to an existing open Case (attach-to-case, suggest-first —
+ *  CONTEXT.md "Case Update"); `cancellation` is a claim/case reported cancelled or closed
+ *  (a staff-confirmed close/hold proposal, never automatic — CONTEXT.md "Cancellation").
+ *  Per the Phase-2 deploy order, the DDL/choicesets land before the engine tag that emits
+ *  these live — existing rows keep their v1 codes (no backfill). */
 export type InboundCategory =
   | 'receiving_work'
   | 'query'
   | 'billing'
   | 'non_actionable'
-  | 'other';
+  | 'other'
+  | 'case_update'
+  | 'cancellation';
+
+/** Every {@link InboundCategory} name, in declaration/choice-set order — the runtime
+ *  companion to the type union (mirrors `CASE_STATUSES` in contracts/case-status.ts),
+ *  used by the codec parity test + anywhere a caller needs to enumerate/validate. */
+export const INBOUND_CATEGORIES: readonly InboundCategory[] = [
+  'receiving_work',
+  'query',
+  'billing',
+  'non_actionable',
+  'other',
+  'case_update',
+  'cancellation',
+];
 
 /** cr1bd_inboundsubtype option names. `existing_provider_diminution` (append-only,
  *  work-todo-spike: suggested-tags-and-folders) is the staff-applicable Diminution tag
  *  in the richer Inspection/Audit/Diminution/Query taxonomy; the deterministic classifier
  *  may not emit it yet (staff set it via the reclassify route). `billing_request`,
  *  `case_summary` and `acknowledgement` are the deterministic subtypes for the new
- *  top-level categories above (TKT-029/037/038). */
+ *  top-level categories above (TKT-029/037/038).
+ *
+ *  `images_received`, `cancellation_notice` and `update_general` (append-only, taxonomy
+ *  v2 — rules-engine-v2 Phase 2) are the subtypes for the two new categories above:
+ *  `images_received` is photos with no other new information (paired with `case_update`
+ *  when matched, or standalone under the unmatched-images routing lane — ADR-0015 §5);
+ *  `cancellation_notice` and `update_general` are `cancellation`'s and `case_update`'s
+ *  default subtypes respectively. */
 export type InboundSubtype =
   | 'existing_provider_instruction'
   | 'existing_provider_audit'
@@ -404,7 +448,28 @@ export type InboundSubtype =
   | 'billing_request'
   | 'case_summary'
   | 'acknowledgement'
-  | 'other';
+  | 'other'
+  | 'images_received'
+  | 'cancellation_notice'
+  | 'update_general';
+
+/** Every {@link InboundSubtype} name, in declaration/choice-set order — see
+ *  {@link INBOUND_CATEGORIES}. */
+export const INBOUND_SUBTYPES: readonly InboundSubtype[] = [
+  'existing_provider_instruction',
+  'existing_provider_audit',
+  'existing_provider_diminution',
+  'new_client_work',
+  'query_existing_work',
+  'query_new_enquiry',
+  'billing_request',
+  'case_summary',
+  'acknowledgement',
+  'other',
+  'images_received',
+  'cancellation_notice',
+  'update_general',
+];
 
 /** cr1bd_triagestate: the row's lifecycle in the triage queue. */
 export type TriageState = 'new' | 'routed' | 'actioned' | 'dismissed';
@@ -431,14 +496,42 @@ export interface InboundEmail {
   triageState: TriageState;
   bodyVrm: string;
   bodyCaseref: string;
+  /** Provider job/claim reference the engine surfaces (rules-engine-v2 Phase 0 pass-
+   *  through of the vendored engine's existing `_job_reference` detector). Persisted
+   *  from the Phase-2 DDL on (`inbound_email.body_jobref`); absent on rows ingested
+   *  before that column existed — never backfilled. Feeds the triage-policy ref-gate
+   *  (case_po match beats job_ref beats vrm) alongside bodyCaseref/bodyVrm. */
+  bodyJobref?: string;
+  /** Graph conversationId, captured for LOCAL thread correlation only (Postgres-side;
+   *  Graph's own `$filter=conversationId` is not contractually documented — ADR-0019 /
+   *  rules-engine-v2 Phase 2). Persisted from the Phase-2 DDL on
+   *  (`inbound_email.conversation_id`); absent on older rows. A SECONDARY signal only —
+   *  it never creates a case match by itself (see triage-policy.ts). */
+  conversationId?: string;
   bodyPreview: string;
   caseId?: string;
+  /** The linked case's human-readable Case/PO (e.g. CCPY26050). Present only when the
+   *  row is case-linked AND the serving query joined `case_` (the inbox list does —
+   *  TKT-054 status cell "Case created / Linked to case · <Case/PO>"). */
+  casePo?: string;
   workProviderId?: string;
   /** The classifier's ORIGINAL suggestion, kept distinct from category/subtype (the
    *  chosen value) so a staff override is visible (work-todo-spike: suggested-tags). */
   suggestedCategory?: InboundCategory;
   suggestedSubtype?: InboundSubtype;
+  /** Outlook filing lifecycle (TKT-054 / 020726 E6, gated by OUTLOOK_MOVE_ENABLED):
+   *  absent = never attempted; queued = staff clicked, mover pending; moved = filed in
+   *  the shared mailbox; failed = the mover gave up (retryable). */
+  outlookMoveState?: OutlookMoveState;
+  /** The Outlook folder path involved: the queued/actual destination. */
+  outlookMovedFolder?: string;
+  /** When the terminal moved/failed outcome was recorded (ISO). */
+  outlookMovedAt?: string;
 }
+
+/** Outlook filing lifecycle states (inbound_email.outlook_move_state). */
+export type OutlookMoveState = 'queued' | 'moved' | 'failed';
+export const OUTLOOK_MOVE_STATES: readonly OutlookMoveState[] = ['queued', 'moved', 'failed'];
 
 /** Which slice of the triage queue to load. `active` (default) hides handled rows
  *  (actioned/dismissed); `handled` shows only those; `all` shows everything. */
@@ -464,13 +557,20 @@ export interface ReclassifyInboundInput {
   reason?: string;
 }
 
-/** Per-category triage counts. */
+/** Per-category triage counts. `case_update`/`cancellation` (taxonomy v2, rules-engine-v2
+ *  Phase 2) join the set — added here so this stays an EXHAUSTIVE map over
+ *  {@link InboundCategory} (a missing key is a compile error, not a silent gap); a
+ *  consumer that only tallies the v1 five buckets today may ignore the two new fields
+ *  until it is ready to surface them (Phase 5: "SPA filters/metrics must state how
+ *  mixed-vintage rows display"). */
 export interface InboundCounts {
   receiving_work: number;
   query: number;
   billing: number;
   non_actionable: number;
   other: number;
+  case_update: number;
+  cancellation: number;
   untriaged: number;
 }
 
@@ -481,6 +581,8 @@ export const INBOUND_COUNTS_ZERO: InboundCounts = {
   billing: 0,
   non_actionable: 0,
   other: 0,
+  case_update: 0,
+  cancellation: 0,
   untriaged: 0,
 };
 
