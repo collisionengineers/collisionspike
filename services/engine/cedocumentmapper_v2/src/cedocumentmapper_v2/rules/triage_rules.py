@@ -66,6 +66,8 @@ class TriageRules:
     """
 
     audit_phrases: tuple[str, ...]
+    dual_report_audit_phrases: tuple[str, ...]
+    diminution_phrases: tuple[str, ...]
     work_keywords: tuple[str, ...]
     billing_keywords: tuple[str, ...]
     informal_work_keywords: tuple[str, ...]
@@ -109,6 +111,8 @@ def load_triage_rules() -> TriageRules:
     rules = document["rules"]
     return TriageRules(
         audit_phrases=tuple(rules["audit_phrases"]),
+        dual_report_audit_phrases=tuple(rules["dual_report_audit_phrases"]),
+        diminution_phrases=tuple(rules["diminution_phrases"]),
         work_keywords=tuple(rules["work_keywords"]),
         billing_keywords=tuple(rules["billing_keywords"]),
         informal_work_keywords=tuple(rules["informal_work_keywords"]),

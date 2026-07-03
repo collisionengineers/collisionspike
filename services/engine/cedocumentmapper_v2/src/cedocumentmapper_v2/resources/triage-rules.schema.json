@@ -16,6 +16,8 @@
       "additionalProperties": false,
       "required": [
         "audit_phrases",
+        "dual_report_audit_phrases",
+        "diminution_phrases",
         "work_keywords",
         "billing_keywords",
         "informal_work_keywords",
@@ -33,6 +35,14 @@
         "audit_phrases": {
           "$ref": "#/$defs/phrase_list",
           "description": "Signal an AUDIT re-inspection instruction (rules/engine.py detect_audit_signals)."
+        },
+        "dual_report_audit_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal a DUAL 'report + audit report' instruction -- one letter commissioning both a standard report AND an audit (the QDOS template; rules/engine.py detect_case_type_signals). The dual form changes downstream Case/PO numbering (collisionspike ADR-0021)."
+        },
+        "diminution_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal a Diminution in Value engagement (distinct case-type, 'D.' Case/PO marker; rules/engine.py detect_case_type_signals). Review-first downstream until grounded on a real inbound instruction."
         },
         "work_keywords": {
           "$ref": "#/$defs/phrase_list",

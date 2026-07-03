@@ -166,6 +166,32 @@ _RULES = load_triage_rules()
 _AUDIT_PHRASES: tuple[str, ...] = _RULES.audit_phrases
 
 
+# Phrases (case-insensitive) that signal a DUAL "report + audit report"
+# instruction -- one letter commissioning BOTH a standard engineer's report AND
+# an audit of the client/bodyshop report (the QDOS "ENGINEER NOTIFICATION
+# (REPORT + AUDIT REPORT)" template; verified identical across the real
+# QDOS261253/261530/261572/261608 letters, whether the audit later resolved
+# repairable or total-loss). The dual form matters downstream: a dual letter
+# mints ONE case from the provider's NORMAL sequence (the audit deliverable's
+# A./AP. ID is DERIVED from that same number at review), whereas a standalone
+# audit instruction mints from the marker's own sequence (collisionspike
+# ADR-0021). Same high-precision discipline as _AUDIT_PHRASES.
+_DUAL_REPORT_AUDIT_PHRASES: tuple[str, ...] = _RULES.dual_report_audit_phrases
+
+
+# Phrases (case-insensitive) that signal a DIMINUTION in Value engagement -- a
+# distinct case-type (D. Case/PO marker, e.g. D.PCH26190), NOT an audit
+# subtype. Anchored two-word phrases, never the bare word "diminution",
+# mirroring the _AUDIT_PHRASES discipline. Grounded so far only in CE-side
+# artefacts (the D.PCH26190 case folder's own documents; docs/requirements/
+# company-background.md's "Diminution in Value Report") -- NO real inbound
+# diminution instruction email has been captured yet, so downstream treats a
+# diminution hit as REVIEW-FIRST (case-type surfaced for a person; no D.
+# Case/PO is minted from content alone until detection is grounded on a real
+# example). Extend when the operator supplies one.
+_DIMINUTION_PHRASES: tuple[str, ...] = _RULES.diminution_phrases
+
+
 # Phrases (case-insensitive) that signal an email is INSTRUCTING new work — the
 # sender is asking Collision Engineers to carry out an inspection / produce a
 # report. Mirrors the high-precision _AUDIT_PHRASES discipline: anchored to
@@ -294,6 +320,48 @@ def detect_audit_signals(text: str) -> tuple[bool, tuple[str, ...]]:
     haystack = text.lower()
     signals = tuple(phrase for phrase in _AUDIT_PHRASES if phrase in haystack)
     return bool(signals), signals
+
+
+def detect_case_type_signals(text: str) -> tuple[str | None, bool, tuple[str, ...]]:
+    """Return ``(case_type, dual, signals)`` for an instruction's plain text.
+
+    The content-derived case-type decision (collisionspike ADR-0021), layered on
+    :func:`detect_audit_signals`:
+
+    * a dual "report + audit report" phrase -> ``("audit", True, ...)`` -- one
+      letter commissioning both deliverables (the QDOS template);
+    * audit phrases alone -> ``("audit", False, ...)`` -- a standalone audit
+      instruction (the PCH pattern);
+    * a diminution phrase (and no audit signal) -> ``("diminution", False, ...)``;
+    * nothing -> ``(None, False, ())``.
+
+    ``audit_total_loss`` is NEVER emitted here -- the repairable vs total-loss
+    split is not knowable from the instruction (the real QDOS letters are
+    byte-identical either way); it is a review-time decision read back from an
+    ``AP.``-marked reference only (see detection/case_type.py). Precedence when
+    signals collide: dual > audit > diminution -- the audit phrase set is
+    grounded in real corpus; diminution is conservative (see
+    ``_DIMINUTION_PHRASES``) so an ambiguous letter lands as audit for a person
+    to correct rather than guessing the rarer type. Signals list exactly which
+    phrases fired (explainable / Action-Logged). Empty/None text -> no type.
+    """
+    if not text:
+        return None, False, ()
+    haystack = text.lower()
+    audit_hits = tuple(p for p in _AUDIT_PHRASES if p in haystack)
+    dual_hits = tuple(p for p in _DUAL_REPORT_AUDIT_PHRASES if p in haystack)
+    diminution_hits = tuple(p for p in _DIMINUTION_PHRASES if p in haystack)
+    if dual_hits:
+        # De-dupe while preserving order: a dual phrase ("report + audit
+        # report") textually contains an audit phrase ("audit report"), so both
+        # sets usually fire together.
+        merged = dual_hits + tuple(p for p in audit_hits if p not in dual_hits)
+        return "audit", True, merged
+    if audit_hits:
+        return "audit", False, audit_hits
+    if diminution_hits:
+        return "diminution", False, diminution_hits
+    return None, False, ()
 
 
 class RuleEngine:
@@ -431,7 +499,16 @@ class RuleEngine:
             
             # Apply conditional/fallback rules
             if field_key == FieldKey.WORK_PROVIDER and not norm_val:
-                norm_val = provider.get("work_provider", "").strip() or provider.get("name", "").strip()
+                # An ``engineer_report: true`` layout (CNX/EVA -- an engineering
+                # FIRM's report, not an instructing work provider) must NEVER
+                # supply the work provider: on an audit case the attached
+                # third-party report would otherwise leak its layout name (e.g.
+                # "EVA (Engineers)") as the case's work provider (collisionspike
+                # TKT-051). Left empty, the caller's UNKNOWN/blank path applies
+                # and the real provider comes from the instruction document /
+                # sender identity instead.
+                if not provider.get("engineer_report"):
+                    norm_val = provider.get("work_provider", "").strip() or provider.get("name", "").strip()
             
             if field_key == FieldKey.INSPECTION_DATE and use_current_date:
                 norm_val = datetime.now().strftime("%d/%m/%Y")
@@ -476,14 +553,18 @@ class RuleEngine:
             rejected_terms=()
         )
         
-        is_audit, audit_signals = detect_audit_signals(document.plain_text)
+        case_type, case_type_dual, case_type_signals = detect_case_type_signals(
+            document.plain_text
+        )
 
         return ExtractedRecord(
             provider=provider_match,
             fields=fields,
             issues=tuple(record_issues),
-            is_audit=is_audit,
-            audit_signals=audit_signals,
+            is_audit=case_type == "audit",
+            audit_signals=case_type_signals,
+            case_type=case_type,
+            case_type_dual=case_type_dual,
         )
 
     def extract_field(
