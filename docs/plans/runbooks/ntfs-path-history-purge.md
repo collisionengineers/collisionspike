@@ -1,10 +1,16 @@
 # Runbook — NTFS colon-path history purge (fix Windows `git pull`)
 
-> **Not yet executed.** Written 2026-07-03 after a Windows clone of this repo could not run
-> `git pull`/`git checkout` on `main` at all. Requires a Linux/WSL2 shell (see step 2) — the rewrite
-> itself cannot run on native Windows. PII/retention policy for the affected files is an operator
-> decision, out of scope for this runbook — this only covers the mechanical fix for the git-history
-> block.
+> **Executed 2026-07-03.** `main` was rewritten via `git-filter-repo` and force-pushed; the 3 colon
+> paths are gone from `main`'s history (verified: fresh-clone scan of `main` alone is empty).
+> `feat/work-todo-spike-impl` was deleted from origin per the scope decision below.
+> `backup/pre-rewrite-main-20260703` (pre-rewrite `main`, tip `c72b504b71448ae775a6e7fc0a38a1ad53b47f48`)
+> was pushed to origin as a safety net and **still contains the 3 colon paths by design** — do not
+> fetch/checkout that branch from Windows; it is not needed for normal work and can be deleted after a
+> few weeks per the Rollback section. `.gitignore` and `scripts/hooks/pre-commit` were hardened
+> (steps 6–7) to block any future colon-bearing path before it's committed. Recovery (step 5) was run
+> on this machine's clone; other clones (the Windows machine, `merceralex397-collab`) still need it —
+> see that section. GitHub's independently-retained `refs/pull/*/head` refs (see the "Known
+> limitation" note below) are unaffected and expected.
 
 ## Context
 
@@ -45,6 +51,13 @@ git bundle create collisionspike-pre-rewrite-backup-20260703.bundle --all
 Record: `origin/main` tip `3a7e65a9812a3101f129f7cc308daedfcbf858ca`; known-good post-fix tree hash
 `190f66beec4db48fe876bc0993df7b54ae0e75a1` (independently computed twice from the local workaround
 commit).
+
+> **Execution note (2026-07-03):** by the time this ran, `origin/main` had advanced 2 commits past the
+> tip recorded above (this runbook's own commit `644d758`, then `c72b504`), so the tip/tree-hash
+> values above were stale before step 1 started. Used the *current* tip
+> (`c72b504b71448ae775a6e7fc0a38a1ad53b47f48`) for the backup ref and `--force-with-lease` instead, and
+> relied on the diff-based check in step 3 (diff vs. the backup ref shows exactly the 3 deletions)
+> rather than the now-inapplicable fixed tree hash. Actual post-rewrite `main` tip: `3d73dde611d2181aa6916fd904c6a1d81f49d6bc`.
 
 ### 2. On Linux/WSL2: fresh clone + full-history discovery
 
@@ -173,9 +186,15 @@ un-does the Windows-pull fix (would need a local-only plumbing workaround again 
 
 ## Verification checklist
 
-- [ ] All three grep-for-colon scans (diff-based, tree-walk, on the fresh post-push clone) return empty.
-- [ ] `git rev-parse main^{tree}` on the rewritten `main` equals `190f66beec4db48fe876bc0993df7b54ae0e75a1`.
-- [ ] `git diff` between the rewritten tip and the `backup/pre-rewrite-main-20260703` ref shows
-      exactly the 3 file deletions and nothing else.
-- [ ] `docs.yml` CI goes green on the post-push run.
-- [ ] Windows clone: `git pull` on `main` succeeds with no errors, `git status` is clean.
+- [x] All three grep-for-colon scans (diff-based, tree-walk, on the fresh post-push clone **scoped to
+      `main`**) return empty. (Scanning `--all` on a fresh clone also pulls in the retained
+      `backup/pre-rewrite-main-20260703` branch, which still contains the 3 paths by design — scope
+      the check to `main` specifically, not `--all`.)
+- [ ] ~~`git rev-parse main^{tree}` equals `190f66beec4db48fe876bc0993df7b54ae0e75a1`~~ — inapplicable,
+      see the step-1 execution note (main had moved on before the rewrite ran).
+- [x] `git diff` between the rewritten tip and the `backup/pre-rewrite-main-20260703` ref shows
+      exactly the 3 file deletions and nothing else. Confirmed.
+- [x] `docs.yml` CI goes green on the post-push run. Confirmed (run 28656425926, headSha `3d73dde6`).
+- [ ] Windows clone: `git pull` on `main` succeeds with no errors, `git status` is clean. **Still
+      pending — needs the operator to run step 5 on the Windows machine and
+      `merceralex397-collab`'s clone.**

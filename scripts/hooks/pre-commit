@@ -6,9 +6,11 @@
 # See docs/MAINTENANCE.md → "Activate the hook".
 #
 # What it does:
-#   1. BLOCKS the commit if `node scripts/check-doc-links.mjs` fails
+#   1. BLOCKS the commit if a staged path contains a ':' — NTFS-invalid on Windows
+#      (see docs/plans/runbooks/ntfs-path-history-purge.md for why this is a hard block).
+#   2. BLOCKS the commit if `node scripts/check-doc-links.mjs` fails
 #      (broken relative links, orphaned docs, or live-number leakage).
-#   2. WARNS (does NOT block) if docs/architecture/live-environment.md is staged
+#   3. WARNS (does NOT block) if docs/architecture/live-environment.md is staged
 #      but LIVE_FACTS.json is not — a possible un-mirrored live edit. The registry
 #      mirror and LIVE_FACTS.json should move together.
 #
@@ -18,7 +20,19 @@
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT" || exit 1
 
-# --- 1. Link / orphan / leakage gate (BLOCKING) ---
+STAGED="$(git diff --cached --name-only)"
+
+# --- 1. Windows/NTFS-invalid path gate (BLOCKING) ---
+BAD_PATHS="$(printf '%s\n' "$STAGED" | grep ':' || true)"
+if [ -n "$BAD_PATHS" ]; then
+  echo ""
+  echo "pre-commit: BLOCKED — staged path(s) contain a ':' (NTFS-invalid on Windows):"
+  printf '%s\n' "$BAD_PATHS" | sed 's/^/  /'
+  echo "  Rename the file (no colon) before committing, or bypass once with: git commit --no-verify"
+  exit 1
+fi
+
+# --- 2. Link / orphan / leakage gate (BLOCKING) ---
 if command -v node >/dev/null 2>&1; then
   if ! node scripts/check-doc-links.mjs --quiet; then
     echo ""
@@ -30,8 +44,7 @@ else
   echo "pre-commit: node not found — skipping doc-links check (install Node to enable)."
 fi
 
-# --- 2. Registry-mirror co-staging WARNING (non-blocking) ---
-STAGED="$(git diff --cached --name-only)"
+# --- 3. Registry-mirror co-staging WARNING (non-blocking) ---
 echo "$STAGED" | grep -qx "docs/architecture/live-environment.md"
 MIRROR_STAGED=$?
 echo "$STAGED" | grep -qx "LIVE_FACTS.json"

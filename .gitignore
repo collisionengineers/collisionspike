@@ -87,3 +87,12 @@ boxconfig.json
 # WSL/Windows download marker streams (e.g. <file>:Zone.Identifier) — never useful in-repo.
 *:Zone.Identifier
 *:OECustomProperty
+
+# Defense-in-depth: NTFS interprets ':' in a filename as an Alternate-Data-Stream separator;
+# core.protectNTFS then refuses such a path in ANY index or working tree on Windows — not just
+# checkout, but even via plumbing (git read-tree, update-index --cacheinfo). No config toggle
+# around this. A colon-bearing path reaching a shared branch permanently blocks every Windows
+# clone (hit 2026-07-03: 3 Outlook .eml:OECustomProperty exports on main, fixed via a full
+# git-filter-repo history rewrite — see docs/plans/runbooks/ntfs-path-history-purge.md).
+# Block all colon-bearing filenames, not just known suffixes.
+*:*
