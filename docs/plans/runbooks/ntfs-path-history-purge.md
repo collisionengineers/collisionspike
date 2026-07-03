@@ -195,6 +195,6 @@ un-does the Windows-pull fix (would need a local-only plumbing workaround again 
 - [x] `git diff` between the rewritten tip and the `backup/pre-rewrite-main-20260703` ref shows
       exactly the 3 file deletions and nothing else. Confirmed.
 - [x] `docs.yml` CI goes green on the post-push run. Confirmed (run 28656425926, headSha `3d73dde6`).
-- [ ] Windows clone: `git pull` on `main` succeeds with no errors, `git status` is clean. **Still
-      pending — needs the operator to run step 5 on the Windows machine and
-      `merceralex397-collab`'s clone.**
+- [x] Windows clone: confirmed 2026-07-03 — `git fetch origin --prune` then `git checkout -B main
+      origin/main` completed with **no `protectNTFS` errors**, `git status` clean, `core.hooksPath`
+      set. `merceralex397-collab`'s clone still needs the same recovery.
