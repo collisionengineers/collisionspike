@@ -63,6 +63,27 @@ restored-down ~1280 window)**
   (two columns, whole-word wraps), 1920 (single-line labels). Deployed
   bundle `index-_PzfPvQC.js` confirmed live byte-identical (sha256).
 
+**2026-07-03 — regressions round 4 (operator: STILL a UI error — at MAXIMIZED 1920,
+not 1280)**
+- Rounds 2–3 chased label truncation in the narrow ~1280 two-column band — the
+  **wrong condition**. The operator runs Chrome **maximized (1920)**; live
+  inspection of the round-3 build at that width showed the real defect: the right
+  column ended after "Today / this week" and left a tall empty **void** down the
+  rest of the page beside the long needs-action list — exactly what
+  `regressions/1.png` circles. Labels already fit at 1920; the void was the bug.
+- Fix (operator-chosen, direction A): a third right-column `<section>` — a
+  **Queues snapshot** (Not ready / Review / Held, from the existing `useDashboard`
+  `liveCounts`; each row deep-links its queue via the funnel/held routes) —
+  reusing the `InboxTile` anatomy in a single-column stack (`queueList`). Fills
+  the void; the column now reads intentional and balances the left list. The
+  `cockpitGrid` 1200px breakpoint + 3fr/2fr ratio are **unchanged** (purely additive).
+- Verified by rendering at the operator's REAL condition: deployed bundle
+  `index-BbQFemVH.js` at **maximized 1920 on live data** — the right column now
+  runs INBOX → TODAY/THIS WEEK → QUEUES (Held row bottom ≈ the left "Show all 100"),
+  void gone. `npm run build` + SPA vitest green; live CSP header verified. (Narrow
+  band reasoned, not re-rendered — live width-control unavailable this session;
+  additive change + short queue labels.)
+
 **Live (2026-07-02 ~16:00Z)**
 - DDL delta `2026-07-02-tkt054-outlook-move.sql` APPLIED; backfill
   `2026-07-02-tkt054-source-mailbox-backfill.sql` RUN — 264 `inbound_email` +

@@ -287,6 +287,19 @@ const useStyles = makeStyles({
     marginLeft: 'auto',
   },
 
+  /* ----- Queues snapshot: a single-column stack of the three live queues
+     (TKT-054 regressions, round 4: at the operator's MAXIMIZED width the right
+     column ended after Today/this-week and left a tall empty void beside the
+     long needs-action list — round 2/3 had chased label truncation in the
+     narrow ~1280 band, the wrong condition). Reuses the inbox tile anatomy; a
+     vertical stack (not the 2×2 grid) both fills the vertical void and suits an
+     odd count of three. ----- */
+  queueList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+  },
+
   /* ----- Region B: throughput — the SAME 2×2 equal grid as the inbox tiles
      above (TKT-054 regressions, round 2: the flex-wrap strip + floating
      all-time box wrapped unevenly at side-column widths and never lined up
@@ -819,6 +832,38 @@ export function Dashboard() {
               </div>
             </div>
           </section>
+
+          {/* Queues snapshot (TKT-054 round 4) — fills the tall right-column
+              void at maximized width with the three live queue depths; each row
+              deep-links its queue (same routes as the funnel + held bar). */}
+          <section className={styles.region} aria-labelledby="heading-queues">
+            <h2 className={mergeClasses('ce-overline', styles.regionHeading)} id="heading-queues">
+              Queues
+            </h2>
+            <div className={styles.queueList}>
+              <InboxTile
+                icon={FileWarning}
+                value={live.notReady}
+                label="Not ready"
+                hint="Open queue."
+                onOpen={() => navigate('/queue/not-ready')}
+              />
+              <InboxTile
+                icon={Eye}
+                value={live.review}
+                label="Review"
+                hint="Open queue."
+                onOpen={() => navigate('/queue/review')}
+              />
+              <InboxTile
+                icon={AlertOctagon}
+                value={live.held}
+                label="Held"
+                hint="Open queue."
+                onOpen={() => navigate('/queue/held')}
+              />
+            </div>
+          </section>
         </div>
       </div>
 
@@ -864,6 +909,7 @@ function InboxTile({
   value,
   label,
   attention,
+  hint = 'Open inbox.',
   onOpen,
 }: {
   icon: LucideIcon;
@@ -871,6 +917,8 @@ function InboxTile({
   label: string;
   /** Warning-amber treatment ("Needs sorting" with a backlog) — never red. */
   attention?: boolean;
+  /** Trailing sentence of the aria-label — the Queues snapshot passes "Open queue." */
+  hint?: string;
   onOpen: () => void;
 }) {
   const styles = useStyles();
@@ -879,7 +927,7 @@ function InboxTile({
       type="button"
       className={mergeClasses('ce-focusable', styles.liveBtn, attention && styles.liveBtnAttention)}
       onClick={onOpen}
-      aria-label={`${label}: ${value}. Open inbox.`}
+      aria-label={`${label}: ${value}. ${hint}`}
     >
       <span className={mergeClasses(styles.liveIcon, attention && styles.liveIconAttention)} aria-hidden>
         <Icon size={18} strokeWidth={1.85} />
