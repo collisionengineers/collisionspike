@@ -261,28 +261,30 @@ actions.
 3. Confirm a push notification fires (graph-webhook) and a test email lands as a **Case** (status `new_email → ingested`), provider
    matched by sender domain, and the EVA fields pre-fill with provenance.
 
-#### B4. Activate Outlook filing ("Suggested action" → real move)  ·  *the RBAC cache wait + your live test*  ·  **gate flip DONE 2026-07-03 — Exchange grant IN PROGRESS 2026-07-03; operator live-test next**
+#### B4. Activate Outlook filing ("Suggested action" → real move)  ·  *the RBAC cache wait + your live test*  ·  **gate flip DONE + Exchange grant DONE 2026-07-03; operator live-test next**
 
 **What:** the inbox's "Suggested action" column can genuinely FILE an email into the suggested
 Outlook folder (e.g. `Inbox/Instructions`) inside the shared mailbox. SPA button → Data API
 `POST /api/inbound/{id}/outlook-move` → `outlook-move` storage queue → orchestration mover (Graph
 `/move`, creating the destination folder when missing) → outcome stamped back on the row + audit.
 
-**✅ Step 3 (the gate flip) is DONE (2026-07-03, user-instructed):** `OUTLOOK_MOVE_ENABLED=true` is
-now set on **both** `cespk-api-dev` and `cespk-orch-dev` — the SPA's "File to …" buttons are live
-and clickable. **Steps 1–2 (the Exchange-RBAC grant + its cache wait) and step 4 (your live test)
-are STILL PENDING.** Until the grant lands, a clicked move will **403** and the row will report
-`failed` (today's grant is `Mail.Read` only — a move needs `Mail.ReadWrite`).
+**✅ Steps 1 + 3 are DONE (2026-07-03, user-instructed):** `OUTLOOK_MOVE_ENABLED=true` is set on
+**both** `cespk-api-dev` and `cespk-orch-dev` (the SPA's "File to …" buttons are live), and the
+**`Application Mail.ReadWrite` Exchange-RBAC grant landed** the same day. **Only the cache wait
+(step 2) and your live test (step 4) remain.** A move clicked before the ~30 min–2 h Exchange
+permission cache clears may still **403** and report `failed` — retry after the wait.
 
 **Why you:** the mover needs **`Application Mail.ReadWrite`** via **Exchange RBAC for Applications**
 on the intake mailboxes — a permission grant only you can make. **You also asked to live-test this
 yourself — no automated live move test will be run.**
 
 **Steps:**
-1. 🔄 **IN PROGRESS (2026-07-03)** — Exchange admin: add a **second role assignment** for the intake
-   app's service principal — role **`Application Mail.ReadWrite`**, same management scope as the
-   existing read grant (`CollisionSpike-Intake-Prod` over info@ + engineers@ + desk@). Keep the
-   `Mail.Read` assignment. The operator is completing this via a **device-code sign-in** right now.
+1. ✅ **DONE (2026-07-03)** — `Application Mail.ReadWrite` assigned on **both** read scopes
+   (`CollisionSpike-Intake-Prod-MailReadWrite` covering info@ + desk@ [+ engineers@], plus
+   `CS-Intake-EngDigital-MailReadWrite` twinning the legacy scope), via
+   `C:\Users\Alex\grant-exo-rbac-readwrite.ps1` (device-code sign-in). Verified:
+   `Test-ServicePrincipalAuthorization` shows **Mail.ReadWrite InScope=True** for all three
+   production mailboxes. The `Mail.Read` assignments were kept.
 2. ⏳ **PENDING** — **wait for the Exchange-RBAC permission cache** (~30 min–2 h, same as the B1
    cutover; leave the app idle rather than polling).
 3. ✅ **DONE (2026-07-03)** — gate flipped: `OUTLOOK_MOVE_ENABLED=true` on **both** `cespk-api-dev`
