@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-07-02**._
+_Single source of truth for "where are we now." Last updated **2026-07-03**._
 _Companion docs: [README.md](./README.md) · [ROADMAP.md](./ROADMAP.md) (forward worklist) · **[docs/tickets/BOARD.md](./docs/tickets/BOARD.md)** (granular ticket delivery) · [docs/gated.md](./docs/gated.md) · live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -25,6 +25,28 @@ subscriptions over the **production mailbox set info@ + engineers@ + desk@** (ma
 case-create remains available alongside. Subscription/mailbox state: the registry
 [docs/architecture/live-environment.md](./docs/architecture/live-environment.md). **Principle: no
 mock/seed case data in the app — it shows real rows only.**
+
+> **🔔 2026-07-03 (second wave) — Rules-engine-v2 fully ACTING: D7/D8 DDL applied, parser redeployed on
+> taxonomy-v2, all four `TRIAGE_*` gates live.**
+> User-instructed ("switch on anything not on yet"). Live counts/gate values stay in the registry
+> [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) — not repeated here.
+> - **D7 (taxonomy DDL) + D8 (identification seed) + the Phase-4 `ai_suggestion.embedding` delta — all
+>   APPLIED LIVE.** Verified: the new choice codes, the two `inbound_email` columns, the Connexus
+>   intermediary row + its PCH/SBL links, and PCH's `pch-ltd.com` domain. See
+>   [docs/gated.md](./docs/gated.md) D7 / D8.
+> - **Parser REDEPLOYED** (3 functions re-verified) — now runs the **taxonomy-v2 engine** plus the
+>   2026-07-03 email-classifier hardening (chase-phrase narrowing, `Re:`-reference false-reply guard,
+>   ref-extraction fixes, an `images_received`-before-reply-query rung).
+> - **All four `TRIAGE_*` gates flipped `true`** on `cespk-orch-dev`
+>   (`TRIAGE_REF_GATE_ENABLED`/`TRIAGE_CANCELLATION_ENABLED`/`TRIAGE_IMAGES_ROUTING_ENABLED`/`TRIAGE_CASE_UPDATE_ENABLED`)
+>   — the triage policy is now **ACTING**, not shadow-only. Tickets TKT-023/041/043/046 move from
+>   "built, gated off" to **active** (TKT-041's hold-language edge case still needs an operator taxonomy
+>   decision — [docs/tickets/BOARD.md](./docs/tickets/BOARD.md)).
+> - **Provider-domain corrections** — seed `916_provider_domain_corrections.sql` Section A applied
+>   (FW/TEN/AX/BC/DFD/BLACK `known_email_domains` corrected; PHA/Parkhouse insert stays operator-confirm
+>   — [docs/gated.md](./docs/gated.md) D3).
+> - **Exchange `Mail.ReadWrite` grant IN PROGRESS** (device-code sign-in with the operator under way) —
+>   the operator's live Outlook-move test is next once it lands ([docs/gated.md](./docs/gated.md) B4).
 
 > **🔔 2026-07-03 — Nine-task activation: provider API intake channel shipped; Outlook-move,
 > plate/scanned-PDF OCR, and email-AI gates flipped live; Azure Maps / location-assist live.**
@@ -78,7 +100,11 @@ mock/seed case data in the app — it shows real rows only.**
 >   intermediary *data* still needs an operator seed apply (see BUILT-GATED).
 > - SPA **"why this label?"** handler-language reasons + the **source-mailbox chip filter** (TKT-025).
 >
-> **BUILT — GATED OFF (code/data authored and, where noted, deployed, but not yet acting live):**
+> **Superseded 2026-07-03 (second wave) — every item in this "BUILT — GATED OFF" list below is now
+> applied/deployed and ACTING live** (see the newer banner above); kept verbatim as the build-vs-activate
+> historical record.
+>
+> **BUILT — GATED OFF (code/data authored and, where noted, deployed, but not yet acting live) — as of 2026-07-02:**
 > - **Taxonomy v2** (`case_update` + `cancellation` categories, `images_received` subtype,
 >   `body_jobref`/`conversation_id` columns) — DDL delta authored, not applied.
 > - The **taxonomy-v2 parser engine** (cancellation/case_update rules, content-based attachment
@@ -92,7 +118,7 @@ mock/seed case data in the app — it shows real rows only.**
 > **Activation order** (see [docs/gated.md](./docs/gated.md) for the full detail behind each step):
 > the DDL delta apply → the taxonomy-v2 parser deploy → the identification seed-data apply → the
 > per-behaviour `TRIAGE_*` gate flips → the `EMAIL_AI_ENABLED` production flip (needs the AI
-> per-gate sign-off). Nothing above changes case-minting/routing behaviour until that sequence runs.
+> per-gate sign-off). **✅ This entire sequence completed 2026-07-03** — see the second-wave banner above.
 
 > **🔔 2026-07-01 — work-todo-spike delivery wave + Box archive re-verified.**
 > Granular ticket state (Done / Now / Backlog): **[docs/tickets/BOARD.md](./docs/tickets/BOARD.md)** — do not

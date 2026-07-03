@@ -13,7 +13,18 @@
 > `verification.md`, with no known gap. Code that is written/merged but **not confirmed working in the live
 > app** stays `now` — "code-correct" is not "done".
 >
-> **Reconciled 2026-07-03** — the nine-task activation deploy: TKT-055 moved from "built, not deployed"
+> **Reconciled 2026-07-03 (second wave)** — the rules-engine-v2 activation: D7 (taxonomy DDL) + D8
+> (identification seed) + the Phase-4 `ai_suggestion.embedding` delta are **all applied live**; the parser
+> is **redeployed** (3 functions, taxonomy-v2 engine + the 2026-07-03 classifier hardening); all four
+> `TRIAGE_*` gates are **`true`** on `cespk-orch-dev` — the triage policy is **ACTING**, not shadow-only.
+> Moved **TKT-023/041/043/046** from `next` to `now` (their taxonomy-v2 gated behaviours are now live and
+> acting — TKT-041's hold-language edge case still needs an operator taxonomy decision, kept as a note).
+> Updated **TKT-021/051** (Connexus/PCH intermediary) to reflect the D8 seed data now landed — both stay
+> `now`, awaiting a live-occurrence probe. Activation order `docs/gated.md` **§D7 → parser deploy → §D8 →
+> TRIAGE_\* flips** is now **complete**; only **§D6 items 4/5** (PII export, Foundry keyless flip) remain
+> open.
+>
+> Prior: **2026-07-03 (nine-task activation)** — TKT-055 moved from "built, not deployed"
 > to **deployed live** (delta applied, routes live, 401 smoke passed; first-key mint + e2e submit still
 > pending the operator — row updated, stays `now`); TKT-054's row updated to reflect the
 > `OUTLOOK_MOVE_ENABLED` gate flip (Exchange grant + operator live test still pending, gated.md B4). No
@@ -42,14 +53,18 @@
 | [TKT-001](./TKT-001-document-parsing/TKT-001-document-parsing.md) | Multi-format extraction + field-drop fix | Follow-up deployed 2026-07-01 (parser live-proven on triage `.eml`; body supplement deployed). Pending: e2e re-intake Postgres proof on triage `.doc` path. See [changes-regression-01-07-26](./TKT-001-document-parsing/changes-regression-01-07-26.md). |
 | [TKT-005](./TKT-005-email-actions/TKT-005-email-actions.md) | Make the inbox actionable (dismiss removes from view) | CODE-COMPLETE, not confirmed live — shipped in the SPA bundle but the e2e pass exercised the data pipeline, not the UI. Needs a live SPA click-through (inbound_email rows now exist post-reset). See [verification](./TKT-005-email-actions/verification.md). |
 | [TKT-027](./TKT-027-intake-triage-status/TKT-027-intake-triage-status.md) | Intermediate intake status beyond "new" | DEPLOYED — api+orch live; intake `ingested` audit proof pending next email. See [verification](./TKT-027-intake-triage-status/verification.md). |
-| [TKT-021](./TKT-021-connexus-intermediary/TKT-021-connexus-intermediary.md) | Resolve Connexus → real provider (PCH/SBL) | Image-Source intermediary resolution code DEPLOYED live 2026-07-02; activates once the D8 seed delta (Connexus → PCH/SBL) is applied. See [verification](./TKT-021-connexus-intermediary/verification.md). |
+| [TKT-021](./TKT-021-connexus-intermediary/TKT-021-connexus-intermediary.md) | Resolve Connexus → real provider (PCH/SBL) | Image-Source intermediary resolution code DEPLOYED live 2026-07-02; the D8 seed delta (Connexus → PCH/SBL) is **applied live 2026-07-03** — the data is now live. Awaiting a live-occurrence probe to close. See [verification](./TKT-021-connexus-intermediary/verification.md). |
 | [TKT-025](./TKT-025-inbox-source-filter/TKT-025-inbox-source-filter.md) | Mark + filter inbox by source mailbox | DEPLOYED live in the SPA bundle 2026-07-02 (toolbar mailbox-chip filter). Needs a live click-through. See [verification](./TKT-025-inbox-source-filter/verification.md). |
 | [TKT-028](./TKT-028-work-provider-not-populating/TKT-028-work-provider-not-populating.md) | `work_provider` not populating on intake | The operator's own example already worked via domain match (confirmed 2026-06-30); a content-string mapping DEPLOYED 2026-07-02 as a second signal, awaiting live proof. See [verification](./TKT-028-work-provider-not-populating/verification.md). |
 | [TKT-031](./TKT-031-misclass-client-chasing/TKT-031-misclass-client-chasing.md) | Client report-chaser misrouted to 'Other' | Eval-passing on the deployed engine (committed corpus, 2026-07-02); awaiting a live occurrence/probe to close. See [verification](./TKT-031-misclass-client-chasing/verification.md). |
 | [TKT-039](./TKT-039-misclass-query-report-support/TKT-039-misclass-query-report-support.md) | Report-support request misclassified as new case | Eval-passing on the deployed engine (committed corpus, 2026-07-02); awaiting a live occurrence/probe to close. See [verification](./TKT-039-misclass-query-report-support/verification.md). |
 | [TKT-047](./TKT-047-email-sigs-box/TKT-047-email-sigs-box.md) | Email signature images archived to Box in error | Non-inline raster floor DEPLOYED live on orch 2026-07-02; awaiting live proof on a real signature-bearing email. |
-| [TKT-051](./TKT-051-pch-connexus/TKT-051-pch-connexus.md) | PCH not identified (doc-content name + @pch-ltd.com senders) | Identification-mapping code DEPLOYED live 2026-07-02 (doc-content "PCH" now maps to a `work_provider_id`); the `@pch-ltd.com` domain addition activates once the D8 seed delta is applied. |
+| [TKT-051](./TKT-051-pch-connexus/TKT-051-pch-connexus.md) | PCH not identified (doc-content name + @pch-ltd.com senders) | Identification-mapping code DEPLOYED live 2026-07-02 (doc-content "PCH" now maps to a `work_provider_id`); the `@pch-ltd.com` domain addition (D8 seed delta) is **applied live 2026-07-03** — both signals now live. Awaiting a live-occurrence probe to close. |
 | [TKT-055](./TKT-055-provider-api-intake/TKT-055-provider-api-intake.md) | Provider API intake channel (machine-to-machine case lodging) | DEPLOYED live 2026-07-03 (nine-task activation): the `2026-07-03-provider-api-intake` delta is applied (`provider_api_key` table, RLS + policies, audit codes, `choice_intake_channel_kind`), the api routes (`createProviderApiKey`/`listProviderApiKeys`/`revokeProviderApiKey`, `providerIntakeCase`) are live, and the no-key/bad-key **401** fail-closed smoke passed. Still pending (operator): a Superuser mints the first key in Admin + an end-to-end `POST /api/provider-intake/cases` submit smoke. Design [ADR-0020](../adr/0020-provider-api-intake-channel.md); contract [spec](../reference/provider-api-intake-spec.md). See [verification](./TKT-055-provider-api-intake/verification.md). |
+| [TKT-023](./TKT-023-follow-up-docs/TKT-023-follow-up-docs.md) | Link follow-up docs/emails to the existing case + Box | Generalised ref-gate **ACTING live 2026-07-03** (`TRIAGE_REF_GATE_ENABLED=true` on `cespk-orch-dev`, D7 DDL applied) — awaiting a live-occurrence probe to close. See [verification](./TKT-023-follow-up-docs/verification.md). |
+| [TKT-041](./TKT-041-cancelled-case/TKT-041-cancelled-case.md) | Cancelled/closed-case emails have no home (no cancellation concept) | `cancellation` taxonomy + engine **ACTING live 2026-07-03** (`TRIAGE_CANCELLATION_ENABLED=true`, D7 DDL applied; eval-proven 12/13 recall) — awaiting a live-occurrence probe. The 13th case is a flagged **hold-language taxonomy gap that still needs an operator decision**. |
+| [TKT-043](./TKT-043-misclass-images-received/TKT-043-misclass-images-received.md) | Images-received / report-chaser email misrouted (scope to confirm) | `case_update`/`images_received` taxonomy + policy **ACTING live 2026-07-03** (`TRIAGE_IMAGES_ROUTING_ENABLED=true`, D7 DDL applied) — this ticket's own sample still misses even in the eval corpus, so it needs a follow-up fix pass, not just the gate flip. |
+| [TKT-046](./TKT-046-seperate-case-updates/TKT-046-seperate-case-updates.md) | Separate case updates from general queries (own lane + attach-to-case) | `case_update` vs `query_existing_work` precedence **ACTING live 2026-07-03** (`TRIAGE_CASE_UPDATE_ENABLED=true`, D7 DDL applied) — awaiting a live-occurrence probe to close. |
 
 ## Done — live & verified
 
@@ -84,11 +99,6 @@
 | [TKT-015](./TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (gated) | Phase 4 of [rules-engine-v2](../plans/rules_engine_v2_plan_9ba034c4.plan.md) wired ONE concrete lane (email-triage categorisation) to a real, keyless AOAI call 2026-07-02 — `EMAIL_AI_ENABLED` **flipped live 2026-07-03** (user-instructed; `AI_ASSIST_ENABLED` still absent); the case/damage-assessment + image/reg-OCR consumers remain unbuilt. See [verification](./TKT-015-ai-assistant/verification.md). |
 | [TKT-016](./TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md) | Image-analysis VLM sequence | Research-only; pipeline unbuilt. |
 | [TKT-017](./TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model bench | Research-only; no benchmark run. |
-| [TKT-023](./TKT-023-follow-up-docs/TKT-023-follow-up-docs.md) | Link follow-up docs/emails to the existing case + Box | Generalised ref-gate DEPLOYED gated-OFF 2026-07-02 (`TRIAGE_REF_GATE_ENABLED` unset); needs D7 (DDL) + that gate flip. See [verification](./TKT-023-follow-up-docs/verification.md). |
-| [TKT-041](./TKT-041-cancelled-case/TKT-041-cancelled-case.md) | Cancelled/closed-case emails have no home (no cancellation concept) | `cancellation` taxonomy + engine built and eval-proven (12/13 recall; the 13th is a flagged hold-language taxonomy gap needing an operator decision); needs D7 + the parser deploy. |
-| [TKT-043](./TKT-043-misclass-images-received/TKT-043-misclass-images-received.md) | Images-received / report-chaser email misrouted (scope to confirm) | `case_update`/`images_received` taxonomy + policy built; this ticket's own sample still misses even in the eval corpus (needs the ref-gate/context policy, gated OFF) — needs D7 + gates. |
-| [TKT-046](./TKT-046-seperate-case-updates/TKT-046-seperate-case-updates.md) | Separate case updates from general queries (own lane + attach-to-case) | `case_update` vs `query_existing_work` precedence encoded as eval targets + built; needs D7 + gates. |
-
 ## Backlog — not started
 
 | ID | Title | Source / note |

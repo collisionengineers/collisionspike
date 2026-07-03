@@ -6,8 +6,14 @@ business/legal decision. Everything else has been built and deployed.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
-_Last updated **2026-07-03** — the nine-task activation flipped `OUTLOOK_MOVE_ENABLED` (SPA "File to …"
-live, Graph moves still 403 pending the Exchange `Mail.ReadWrite` grant — B4), `PLATE_OCR_ENABLED` +
+_Last updated **2026-07-03 (second wave)** — **D7 (taxonomy DDL) + D8 (identification seed) + the Phase-4
+`ai_suggestion.embedding` delta are now APPLIED LIVE**; the parser is **redeployed** (3 functions,
+taxonomy-v2 engine + the 2026-07-03 classifier hardening); all four `TRIAGE_*` gates are now `true` on
+`cespk-orch-dev` (the triage policy is **ACTING**, not shadow-only — see D7/D8 below). Six provider
+`known_email_domains` corrected (seed `916_provider_domain_corrections.sql` Section A — see D3). The
+Exchange `Mail.ReadWrite` grant (B4) is **in progress** (device-code sign-in with the operator under way).
+Earlier the same day, the nine-task activation flipped `OUTLOOK_MOVE_ENABLED` (SPA "File to …"
+live, Graph moves still 403 pending that same Exchange `Mail.ReadWrite` grant — B4), `PLATE_OCR_ENABLED` +
 `OCR_SCANNED_PDF_ENABLED` + `EMAIL_AI_ENABLED` (D6 item 3, this session's sign-off) on production, and
 brought Azure Maps / location-assist live; the provider API intake channel (TKT-055) shipped awaiting a
 first-key mint + e2e smoke. Prior: the **2026-06-29** production mailbox cutover (intake live on info@ +
@@ -255,7 +261,7 @@ actions.
 3. Confirm a push notification fires (graph-webhook) and a test email lands as a **Case** (status `new_email → ingested`), provider
    matched by sender domain, and the EVA fields pre-fill with provenance.
 
-#### B4. Activate Outlook filing ("Suggested action" → real move)  ·  *the RBAC cache wait + your live test*  ·  **gate flip DONE 2026-07-03 — Exchange grant + live test still pending**
+#### B4. Activate Outlook filing ("Suggested action" → real move)  ·  *the RBAC cache wait + your live test*  ·  **gate flip DONE 2026-07-03 — Exchange grant IN PROGRESS 2026-07-03; operator live-test next**
 
 **What:** the inbox's "Suggested action" column can genuinely FILE an email into the suggested
 Outlook folder (e.g. `Inbox/Instructions`) inside the shared mailbox. SPA button → Data API
@@ -273,10 +279,10 @@ on the intake mailboxes — a permission grant only you can make. **You also ask
 yourself — no automated live move test will be run.**
 
 **Steps:**
-1. ⏳ **PENDING** — Exchange admin: add a **second role assignment** for the intake app's service
-   principal — role **`Application Mail.ReadWrite`**, same management scope as the existing read
-   grant (`CollisionSpike-Intake-Prod` over info@ + engineers@ + desk@). Keep the `Mail.Read`
-   assignment.
+1. 🔄 **IN PROGRESS (2026-07-03)** — Exchange admin: add a **second role assignment** for the intake
+   app's service principal — role **`Application Mail.ReadWrite`**, same management scope as the
+   existing read grant (`CollisionSpike-Intake-Prod` over info@ + engineers@ + desk@). Keep the
+   `Mail.Read` assignment. The operator is completing this via a **device-code sign-in** right now.
 2. ⏳ **PENDING** — **wait for the Exchange-RBAC permission cache** (~30 min–2 h, same as the B1
    cutover; leave the app idle rather than polling).
 3. ✅ **DONE (2026-07-03)** — gate flipped: `OUTLOOK_MOVE_ENABLED=true` on **both** `cespk-api-dev`
@@ -368,11 +374,18 @@ corpus is seeded into Postgres (`work_provider` = 390). Verified domains for **3
 previously (ambiguity-guarded — a domain serving >1 active provider is never used as a match key; it goes
 through the intermediary path).
 
-**What's left for you:** the handful with **no** usable match domain — either none was exposed in the
-sampled mailbox (**DFD, Fairway, Regent, Castle, Stallion, Relay**) or the only address is a **public**
-domain unsafe as a key (**NETWORK HD UK / YM Law → `gmail.com`**). Send the real business domain for each
-(or confirm there isn't one) and it gets added to the provider's domain field in Postgres. *(In the
-decommissioned stack this was the Dataverse `cr1bd_knownemaildomains` column.)*
+**✅ Six domains corrected (2026-07-03, user-approved).** Seed `916_provider_domain_corrections.sql`
+Section A is applied live: **FW** → `fairwaylegal.co.uk`, **TEN** → `tenlegal.co.uk`, **AX** → `ax-uk.com`,
+**BC** → `bakercoleman.co.uk`, **DFD** → `dfd-solicitors.co.uk`, **BLACK** → `blackstone-legal.co.uk`. A
+**PHA (Parkhouse) insert stays commented out** in the same seed — it needs your confirmation of the correct
+**principal code** before it can land.
+
+**What's left for you:** the remaining domainless providers — **Fairway, Regent, Castle, Stallion, Relay**,
+etc., minus whichever of these the six corrections above already cover — plus the public-domain case
+(**NETWORK HD UK / YM Law → `gmail.com`**) still need your data. Send the real business domain for each (or
+confirm there isn't one) and it gets added to the provider's domain field in Postgres, and confirm the
+**PHA/Parkhouse principal code** so its insert can land too. *(In the decommissioned stack this was the
+Dataverse `cr1bd_knownemaildomains` column.)*
 
 #### D4. Add extra reference info  ·  *you supply the data*
 
@@ -383,21 +396,20 @@ corrections, garage↔provider links, address lists, etc.).
 
 **Steps:** gather whatever you have (partial is fine) and send it over to be loaded into Postgres.
 
-#### D6. Rules Engine v2 — queued operator gates  ·  *item 3 (`EMAIL_AI_ENABLED`) flipped live 2026-07-03; items 1, 2, 4, 5 remain open*
+#### D6. Rules Engine v2 — queued operator gates  ·  *items 2 and 3 done; items 1, 4, 5 remain open*
 
 **What:** the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md) (email
 categorisation/triage upgrade — ROADMAP Phase 8's Azure-era realization) carries five operator gates.
-Item 3 is now done; the rest are listed here so nothing lands as a surprise:
+Items 2 and 3 are now done; the rest are listed here so nothing lands as a surprise:
 
 1. **Sibling PR merge + first engine tag** (Phase 0; ADR-0018 prereq): merge `cedocumentmapper_v2.0`
    **PR #4**, close **PR #5** as superseded (strict subset), tag the engine release (the sibling's
    first tag) so the vendored copy can be re-cut against a committed ref.
-2. **Phase-2 DDL delta apply** (live Postgres): append-only taxonomy rows (`case_update`,
-   `cancellation`, `images_received`) + `inbound_email.body_jobref` / `conversation_id` columns —
-   idempotent additive script, same discipline as the 2026-06-30 migration. **Now authored** — see
-   **D7** below for the concrete file + apply steps. A **third**, unrelated delta — the Phase-4
-   `ai_suggestion.embedding` column (DDL only, no live wiring) — now rides the **same apply session**;
-   see D7's own note below.
+2. **Phase-2 DDL delta apply** (live Postgres) · ✅ **DONE (2026-07-03).** The append-only taxonomy rows
+   (`case_update`, `cancellation`, `images_received`) + `inbound_email.body_jobref` / `conversation_id`
+   columns are **applied live** — see **D7** below for the verification detail. The **third**, unrelated
+   delta — the Phase-4 `ai_suggestion.embedding` column (DDL only, no live wiring yet) — rode the **same
+   apply session** and is also applied; see D7's own note below.
 3. **`EMAIL_AI_ENABLED` production flip** · ✅ **DONE (2026-07-03, user-instructed) — this session's
    user message is the sign-off.** The app settings are now live on `cespk-orch-dev`:
    `EMAIL_AI_ENABLED=true`, `AI_MODEL_ENDPOINT=https://digital-3339-resource.cognitiveservices.azure.com`,
@@ -445,9 +457,18 @@ Item 3 is now done; the rest are listed here so nothing lands as a surprise:
 
 All five also depend on the standing **A0** (`az login`) and **A1** (Free-Trial→PAYG) items above.
 
-#### D7. Apply the rules-engine-v2 taxonomy DDL delta  ·  *DDL authored 2026-07-02 — blocks the taxonomy-v2 engine deploy*
+#### D7. Apply the rules-engine-v2 taxonomy DDL delta  ·  ✅ **APPLIED LIVE (2026-07-03)** — nothing for you to do
 
-**What:** the Phase-2 additive taxonomy DDL for the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md)
+**Done:** applied live via Entra `digital@` → `SET ROLE csadmin` and verified: `choice_inbound_category`
+100000005 (`case_update`) / 100000006 (`cancellation`); `choice_inbound_subtype` 100000010–12
+(`images_received` / `cancellation_notice` / `update_general`); `inbound_email.body_jobref` /
+`conversation_id` columns present. This **unblocked** the taxonomy-v2 parser/orchestration engine deploy
+(now redeployed — see below) and the `TRIAGE_*` gate flips (now all `true` on `cespk-orch-dev`). The
+Phase-4 `ai_suggestion.embedding` DDL-only delta (see the note at the foot of this item) rode the same
+apply session. Full verification detail: `LIVE_FACTS.json` `verifiedBy` (2026-07-03 second-wave entry).
+_(Original operator steps retained below for reference / re-run safety — every statement is idempotent.)_
+
+**What (for reference):** the Phase-2 additive taxonomy DDL for the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md)
 is authored and checked in at
 [`migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql`](../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql)
 (see [`deltas/README.md`](../migration/assets/schema/deltas/README.md) for the canonical-vs-delta
@@ -494,9 +515,12 @@ in the delta file's own header comment):
    rg-collisionspike-dev -n cespk-pg-dev --rule-name OperatorBuildHost --yes` (only
    `AllowAzureServices` should remain).
 
-> **Blocks:** do not deploy the taxonomy-v2 parser/orchestration engine (tag `engine-v2.2`) and do not
-> flip any `TRIAGE_*` app-setting gate (`TRIAGE_REF_GATE_ENABLED`, `TRIAGE_CANCELLATION_ENABLED`, …)
-> until this delta is confirmed live — see the DEPLOY-ORDER WARNING in the delta file itself.
+> **Blocks — ✅ CLEARED (2026-07-03).** This delta is now confirmed live, in the correct order: the
+> taxonomy-v2 parser/orchestration engine was redeployed (3 parser functions re-verified) **after** this
+> delta landed, and all four `TRIAGE_*` app-setting gates (`TRIAGE_REF_GATE_ENABLED`,
+> `TRIAGE_CANCELLATION_ENABLED`, `TRIAGE_IMAGES_ROUTING_ENABLED`, `TRIAGE_CASE_UPDATE_ENABLED`) are now
+> `true` on `cespk-orch-dev` — see the DEPLOY-ORDER WARNING in the delta file itself for why the sequence
+> mattered.
 
 > **A third delta now rides this same apply session** (Phase 4, authored 2026-07-02):
 > [`2026-07-02-rules-engine-v2-embedding.sql`](../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-embedding.sql)
@@ -508,9 +532,16 @@ in the delta file's own header comment):
 > column stays unpopulated until the D6 #4 live `inbound_email` PII export exists (the plan's stated
 > precondition for the embedding prior).
 
-#### D8. Apply the rules-engine-v2 identification seed delta  ·  *authored 2026-07-02 — unblocks live PCH/Connexus routing (Phase 3)*
+#### D8. Apply the rules-engine-v2 identification seed delta  ·  ✅ **APPLIED LIVE (2026-07-03)** — nothing for you to do
 
-**What:** the Phase-3 identification seed delta for the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md)
+**Done:** applied live via Entra `digital@` → `SET ROLE csadmin` and verified: the Connexus `image_source`
+intermediary row + its `imagesource_workprovider` links to PCH/SBL, and PCH's `known_email_domains` now
+carries `pch-ltd.com`. This **unblocks** live routing for TKT-021 (Connexus → PCH/SBL) and TKT-051 (PCH
+doc-content + `@pch-ltd.com` senders) — both now just await a live-occurrence probe (see
+[docs/tickets/BOARD.md](./tickets/BOARD.md)). Full verification detail: `LIVE_FACTS.json` `verifiedBy`
+(2026-07-03 second-wave entry). _(Original operator steps retained below for reference.)_
+
+**What (for reference):** the Phase-3 identification seed delta for the [rules-engine-v2 plan](./plans/rules_engine_v2_plan_9ba034c4.plan.md)
 (ADR-0011, implemented as written) is authored and checked in at
 [`migration/assets/schema/deltas/2026-07-02-rules-engine-v2-identification.sql`](../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-identification.sql).
 Unlike **D7** this is **pure data** — no new columns/tables/choice codes (`image_source`,
@@ -535,13 +566,13 @@ needs the table owner (`csadmin`) and an RLS bypass (`image_source` / `imagesour
 Postgres Entra admin → `SET ROLE csadmin` → `\i` the file → run its header's verification queries → drop
 the firewall rule). See the delta file's own header for the exact commands.
 
-**Unblocks (not blocks):** TKT-021 (Connexus no longer resolves as a bare "new enquiry" when its content
-names PCH/SBL), TKT-051 (PCH doc-content **and** `@pch-ltd.com` senders both recognised), and TKT-028's
-residual (a content-detected provider now resolves a real `work_provider_id`, not just the free-text EVA
-field). The API/orchestration code that reads this corpus (the extended
-`GET /api/internal/provider-match-records`, `@cs/domain`'s `matchSenderIdentity`, and
-`applyParserFields`'s content-string mapping) is already deployed-safe without this delta applied — it
-degrades to today's behaviour (an empty intermediary/candidate list) until this lands.
+**Unblocked (not merely "unblocks" — now live):** TKT-021 (Connexus no longer resolves as a bare "new
+enquiry" when its content names PCH/SBL), TKT-051 (PCH doc-content **and** `@pch-ltd.com` senders both
+recognised), and TKT-028's residual (a content-detected provider now resolves a real `work_provider_id`,
+not just the free-text EVA field) are all live as of this delta's 2026-07-03 apply. The API/orchestration
+code that reads this corpus (the extended `GET /api/internal/provider-match-records`, `@cs/domain`'s
+`matchSenderIdentity`, and `applyParserFields`'s content-string mapping) was already deployed-safe before
+this delta landed — it degraded to today's behaviour (an empty intermediary/candidate list) until then.
 
 #### D5. Rotate the parser Function key  ·  *soft security item*
 

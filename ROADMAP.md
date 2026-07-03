@@ -6,7 +6,7 @@ Node/TypeScript) + an **orchestration Function App** (`cespk-orch-dev`) + a **Po
 system of record (`cespk-pg-dev`) + the **retained Python Functions** (parser / enrichment / evasentry /
 evavalidation / ocr / box-webhook). The original **Power Platform implementation** (Power Apps Code App +
 Dataverse + ~16 Power Automate flows + custom connectors) has been **migrated to Azure (deployed) and the
-Power Platform footprint deprovisioned 2026-06-27** (Dev sandbox deleted via `pac admin delete`). Last updated **2026-07-01**._
+Power Platform footprint deprovisioned 2026-06-27** (Dev sandbox deleted via `pac admin delete`). Last updated **2026-07-03**._
 
 _Companion docs: [README.md](./README.md) · [CURRENT_STATUS.md](./CURRENT_STATUS.md) · [docs/gated.md](./docs/gated.md) · **[docs/tickets/BOARD.md](./docs/tickets/BOARD.md)** (granular work-todo-spike / ticket delivery state) · live deploy playbooks [docs/azure/](./docs/azure/README.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md) · migration record [docs/HISTORICAL/migration/](./docs/HISTORICAL/migration/) · milestone map [docs/plans/milestone-model.md](./docs/plans/milestone-model.md) · plans under [docs/plans/](./docs/plans/) · ADRs in [docs/adr/](./docs/adr/)._
 
@@ -141,6 +141,17 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   opt-out gap was closed and deployed first). Azure Maps / location-assist is live (text-clue geocoding
   proven; photo-clue seam still stubbed). Details: the registry
   [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
+- **✅ Rules-engine-v2 second-wave activation — DONE (2026-07-03, user-instructed "switch on anything not
+  on yet").** The D7 taxonomy DDL, the D8 identification seed, and the Phase-4 `ai_suggestion.embedding`
+  delta are all applied live; the parser is redeployed (3 functions, taxonomy-v2 engine + the 2026-07-03
+  email-classifier hardening); all four `TRIAGE_*` gates are `true` on `cespk-orch-dev` — the triage
+  policy is now acting, not shadow-only (tickets TKT-023/041/043/046 move from built-gated-off to active,
+  TKT-041's hold-language edge case still needs an operator taxonomy decision). Six provider
+  `known_email_domains` were corrected via seed `916_provider_domain_corrections.sql` Section A
+  (FW/TEN/AX/BC/DFD/BLACK; PHA/Parkhouse stays operator-confirm). The Exchange `Mail.ReadWrite` grant for
+  Outlook filing (B4) is in progress via device-code sign-in. Details: the registry
+  [docs/architecture/live-environment.md](./docs/architecture/live-environment.md); tickets:
+  [docs/tickets/BOARD.md](./docs/tickets/BOARD.md).
 - **✅ UI/UX reforge — DONE (2026-07-01).** Full in-place reforge of the SPA by the design agent team,
   recorded as the **binding decision register [docs/reviews/010726/](./docs/reviews/010726/)**: semantic
   colour system + red budget (red = brand chrome + critical only), dashboard declutter (grouped
