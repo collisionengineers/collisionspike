@@ -52,4 +52,5 @@ Area subfolders seen so far: `broad-review`, `dashboard`, `nav-bar`, `new-case`,
 | Date | Folder | Scope | Status |
 |---|---|---|---|
 | 2026-06-19 | [`190626/`](./190626/) | Dashboard, nav bar, new case, queues, case view, provider/corpus admin, EVA fields, enrichment status | actioned — see `190626/checklist.md` |
-| 2026-07-01 | [`010726/`](./010726/) | UI/UX reforge **decision register** (red budget, semantic colours, dashboard, tables, bulk ops, peek drawer, empty states, a11y patterns) | shipped same day — decisions live, deferrals listed |
+| 2026-07-01 | [`010726/`](./010726/) | UI/UX reforge **decision register** (red budget, semantic colours, dashboard, tables, bulk ops, peek drawer, empty states, a11y patterns) | shipped same day — decisions live, deferrals listed; **D16 superseded by 020726** |
+| 2026-07-02 | [`020726/`](./020726/) | Inbox simplification **decision register** (TKT-054: single condensed list, "E-mail type", strength UI backend-only — supersedes 010726 D16, status case-links, VRM/Ref split, gated Outlook move, mailbox naming, dashboard inbox tiles) | in build — TKT-054 |

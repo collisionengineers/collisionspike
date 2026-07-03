@@ -23,6 +23,10 @@ interface LinkReplyInput {
   ref?: string;
   /** VRM to match as the fallback. */
   vrm?: string;
+  /** Provider job/claim reference (rules-engine-v2 Phase 2 / TKT-023) — widens the match
+   *  beyond Case/PO+VRM so a follow-up bearing only e.g. "Our ref: 576299" still attaches
+   *  to its open case instead of falling through unrouted. */
+  jobref?: string;
 }
 
 df.app.activity('linkReply', {
@@ -35,6 +39,7 @@ df.app.activity('linkReply', {
       providerId: input.providerId,
       ref: input.ref,
       vrm: input.vrm,
+      jobref: input.jobref,
     });
     ctx.log(
       JSON.stringify({

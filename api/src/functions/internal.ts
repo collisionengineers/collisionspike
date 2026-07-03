@@ -29,6 +29,10 @@
  *  POST /api/internal/box/mark-purged                → 204
  *  GET  /api/internal/cases/{id}/box-folder          → { boxFolderId, boxFolderUrl, casePo }
  *  POST /api/internal/cases/{id}/box-folder          → { applied, boxFolderId } (first-wins stamp)
+ *  POST /api/internal/triage/context                 → { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds } (rules-engine-v2 Phase 2)
+ *  POST /api/internal/triage/suggest-link             → { suggestionId, created } (rules-engine-v2 Phase 2;
+ *                                                         suggestionType 'triage_category' added Phase 4)
+ *  POST /api/internal/inbound/{id}/outlook-moved      → 204 (TKT-054 Outlook-filing outcome report)
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
@@ -60,16 +64,26 @@ import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
-import { corpusWorkProviderCandidate, selectParserEvaCandidates, type ParserEvaFields } from '../lib/parser-eva-fields.js';
+import {
+  corpusWorkProviderCandidate,
+  isUnknownWorkProviderSentinel,
+  matchWorkProviderByContentString,
+  selectParserEvaCandidates,
+  type ParserEvaFields,
+  type WorkProviderContentMatchRecord,
+} from '../lib/parser-eva-fields.js';
 import {
   CASE_SELECT,
   EVA_COLUMN_BY_KEY,
   INBOUND_CATEGORY_TO_INT,
   INBOUND_SUBTYPE_TO_INT,
+  deriveSuggestionIdempotencyKey,
   rowToCase,
   rowToEvidence,
   type Row,
 } from '../lib/mappers.js';
+import { hasColumn, planOptionalColumns, tableColumns } from '../lib/schema-introspect.js';
+import { acquireTriageLocks } from '../lib/triage-locks.js';
 
 /* ============================================================
    Service auth — validate the JWT (sig + iss + aud + exp) without
@@ -176,6 +190,16 @@ async function recomputeStatus(caseId: string): Promise<CaseStatus> {
  *    When the parser did not yield work_provider, the matched corpus display_name fills
  *    eva_work_provider (fill-if-empty, provenance corpus / "Matched provider").
  *    (inspection_address is owned by the corpus picker / ADR-0013 — excluded from auto-fill.)
+ *  - work_provider_id (the Case-IDENTITY FK — NOT the same column as eva_work_provider above)
+ *    ← parserEva.work_provider, mapped to a real corpus row via matchWorkProviderByContentString
+ *    (rules-engine-v2 Phase 3, ADR-0011 "as written"). Fill-if-empty; NEVER overwrites an
+ *    existing work_provider_id — content is the PRIMARY provider signal but this function is
+ *    an advisory correction, not an override authority. A disagreement between the content
+ *    match and an already-set work_provider_id is audited (never auto-flipped) so staff can
+ *    see it. When `intermediary` is supplied (the sender matched an Image-Source
+ *    intermediary — providerMatch activity, Phase 3) and the content-matched provider is
+ *    among its N:N candidates, that agreement is CORROBORATION — recorded in both the
+ *    provenance row's source_label and a dedicated audit_event.
  *  Each field actually filled this run gets a field_level_provenance row. A no-op when every
  *  input is absent, so callers can pass them unconditionally.
  */
@@ -186,6 +210,10 @@ async function applyParserFields(
   parserMileageUnit?: string,
   parserEva?: ParserEvaFields,
   workProviderId?: string | null,
+  /** rules-engine-v2 Phase 3 — set when the SENDER matched an Image-Source intermediary
+   *  (orchestration providerMatch activity); its N:N candidate work providers let a
+   *  content-detected match be recorded as CORROBORATED rather than a bare guess. */
+  intermediary?: { imageSourceId: string; candidateProviderIds: readonly string[] } | null,
 ): Promise<void> {
   const ref = (parserRef ?? '').trim();
   const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, '') : '';
@@ -196,13 +224,25 @@ async function applyParserFields(
   const mightFillWorkProviderFromCorpus =
     Boolean(matchedProviderId) &&
     !evaCandidates.some((c) => c.column === 'eva_work_provider');
-  if (!ref && !mileage && evaCandidates.length === 0 && !mightFillWorkProviderFromCorpus) return;
+  const rawContentProvider = (parserEva?.work_provider ?? '').toString().trim();
+  const mightMatchWorkProviderIdFromContent =
+    Boolean(rawContentProvider) && !isUnknownWorkProviderSentinel(rawContentProvider);
+  if (
+    !ref &&
+    !mileage &&
+    evaCandidates.length === 0 &&
+    !mightFillWorkProviderFromCorpus &&
+    !mightMatchWorkProviderIdFromContent
+  ) {
+    return;
+  }
 
   // Read every column we might fill so each write is strictly fill-if-empty.
   const readCols = [
     'case_ref',
     'eva_mileage',
     'eva_work_provider',
+    'work_provider_id',
     ...evaCandidates.map((c) => c.column),
   ];
   const cur = await query<Row>(`SELECT ${readCols.join(', ')} FROM case_ WHERE id = $1`, [caseId]);
@@ -244,6 +284,93 @@ async function applyParserFields(
         sourceLabel: 'From instructions',
       });
     }
+  }
+
+  // rules-engine-v2 Phase 3 (ADR-0011) — map the parser's content-detected work_provider
+  // STRING to a real work_provider_id. Doc content is the PRIMARY provider signal
+  // (ADR-0011); the sender's own domain (workProviderId, resolved earlier by
+  // matchProviderByDomain) is the SECONDARY/confirmatory one for a direct provider and is
+  // what already fills work_provider_id at case-create (cases/resolve below) — this block
+  // is the fill for when THAT signal was absent or wrong (an intermediary sender like
+  // Connexus, a not-yet-known direct domain, …) but the document content still names a
+  // real, known provider (TKT-021/TKT-051). Evaluated whenever the parser supplied a
+  // (non-UNKNOWN) string, regardless of whether work_provider_id is currently empty — a
+  // MISMATCH must also surface even when it is already set (never auto-flip).
+  //
+  // HELD/on_hold FINDING (verified 2026-07-02 — do not assume this fill un-holds a case):
+  // a "new client" case (no provider matched at case-create — cases/resolve above) is
+  // parked with `on_hold = true` PLUS a Held-queue-only status; `on_hold` is a SEPARATE
+  // boolean column that `recomputeStatus`/statusForReviewCase (packages/domain
+  // case-status.ts) NEVER reads or writes — it only ever recomputes `status_code`. The
+  // ONLY existing writers of `on_hold = false` are the explicit staff "take off hold"
+  // PATCH (cases.ts), the dedup ATTACH path, and case-close/removal — none of which this
+  // fill triggers. So filling work_provider_id here does NOT retroactively unhold the case
+  // or mint a Case/PO (that mint is a one-time, advisory-locked decision taken inside the
+  // cases/resolve transaction, before this function ever runs) — it fills the identity
+  // field (+ provenance) so the correct provider is visible on an otherwise still-Held
+  // case, but a person still confirms/unholds it. Deliberately NOT "fixed" here: doing so
+  // would mean either silently un-holding a case with no Case/PO (worse than leaving it
+  // Held — nothing else in this codebase, including the staff-facing case-edit PATCH,
+  // mints a Case/PO for an already-created case today), or reimplementing the advisory-
+  // locked mint outside its transaction and changing this route's response contract
+  // (Box-folder-creation in intakeOrchestrator.ts keys off THIS request's own casePo) —
+  // both are a genuinely new capability beyond a fill-if-empty field mapping.
+  if (mightMatchWorkProviderIdFromContent) {
+    const providerRows = await query<Row>(
+      'SELECT id, principal_code, display_name FROM work_provider WHERE active = true',
+    );
+    const contentCandidates: WorkProviderContentMatchRecord[] = providerRows.map((r) => ({
+      workProviderId: r.id as string,
+      principalCode: (r.principal_code as string | null) ?? '',
+      displayName: (r.display_name as string | null) ?? '',
+    }));
+    const contentMatch = matchWorkProviderByContentString(rawContentProvider, contentCandidates);
+
+    if (contentMatch.outcome === 'matched') {
+      const existingWorkProviderId = (cur[0].work_provider_id as string | null) ?? null;
+      const corroborated = Boolean(
+        intermediary?.candidateProviderIds?.includes(contentMatch.workProviderId),
+      );
+      if (isEmpty(existingWorkProviderId)) {
+        sets.push(`work_provider_id = $${sets.length + 1}`);
+        vals.push(contentMatch.workProviderId);
+        provenance.push({
+          field: 'workProviderId',
+          value: contentMatch.workProviderId,
+          sourceType: 'pdf_extraction',
+          sourceLabel: corroborated
+            ? 'From instructions — provider identified (confirmed by intermediary sender)'
+            : 'From instructions — provider identified',
+        });
+        if (corroborated) {
+          await writeAudit({
+            action: AUDIT_ACTION.provider_matched,
+            caseId,
+            summary: 'Instruction content confirms the work provider the intermediary sender routes for',
+            after: {
+              workProviderId: contentMatch.workProviderId,
+              viaIntermediaryImageSourceId: intermediary?.imageSourceId,
+            },
+          });
+        }
+      } else if (existingWorkProviderId !== contentMatch.workProviderId) {
+        // NEVER overwrite an existing work_provider_id — content is the primary SIGNAL,
+        // not an override authority (ADR-0011). A disagreement is surfaced to the audit
+        // trail only; staff resolve it — it never auto-flips.
+        await writeAudit({
+          action: AUDIT_ACTION.provider_matched,
+          caseId,
+          severity: 'warning',
+          summary:
+            'Instruction content names a different work provider than the one already on the case — kept the existing provider',
+          before: { workProviderId: existingWorkProviderId },
+          after: { contentDetectedWorkProviderId: contentMatch.workProviderId },
+        });
+      }
+      // else: content agrees with the existing FK already — nothing to change or flag.
+    }
+    // 'ambiguous' / 'unmatched' — never guess; the free-text eva_work_provider candidate
+    // above (or the corpus fallback below) still carries the human-readable string either way.
   }
 
   if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {
@@ -313,6 +440,12 @@ interface InboundEnvelope {
   candidateRef: string;
   body?: string;
   bodyPreview?: string;
+  /** Graph conversationId (orchestration/src/functions/activities/fetchMessage.ts's
+   *  InboundEnvelope carries the same field name) — rules-engine-v2 Phase 2 LOCAL thread
+   *  correlation only. Optional: absent on any caller still on the pre-Phase-2 envelope
+   *  shape. Persisted SCHEMA-TOLERANTLY by upsertInboundEmail (see schema-introspect.ts) —
+   *  a no-op until the 2026-07-02 DDL delta adds inbound_email.conversation_id. */
+  conversationId?: string;
   attachments: Array<{ filename: string; contentType: string; blobPath: string; size: number }>;
 }
 
@@ -324,13 +457,25 @@ interface InboundClassificationDto {
   signals: string[];
   bodyVrm: string;
   bodyCaseref: string;
+  /** Provider job/claim reference (email_classifier.py's `_job_reference` pass-through;
+   *  orchestration/src/functions/activities/classifyInbound.ts's InboundClassification
+   *  carries the same field name). Optional for the same reason as conversationId above.
+   *  Persisted SCHEMA-TOLERANTLY (inbound_email.body_jobref, same DDL delta). */
+  bodyJobref?: string;
 }
 
 /* ============================================================
    1 — GET /api/internal/provider-match-records
    Called by: orchestration providerMatch activity (plan 22 §B §A1).
-   Returns: ProviderMatchRecord[] — the minimum corpus the shared
-   matchProviderByDomain needs (id, principalCode, knownEmailDomains, active).
+   Returns: { providers: ProviderMatchRecord[], imageSources: ImageSourceMatchRecord[] }.
+   `providers` is the minimum corpus the shared matchProviderByDomain needs
+   (id, principalCode, knownEmailDomains, active). `imageSources` (rules-engine-v2
+   Phase 3, ADR-0011) is the Image-Source INTERMEDIARY corpus — image_source rows with
+   kind=intermediary, joined through imagesource_workprovider to their candidate work
+   providers — the minimum @cs/domain's matchSenderIdentity needs. Empty-N:N tolerant:
+   an intermediary with no linked providers yet returns candidateProviderIds: []. This
+   is an ADDITIVE response-shape change (was a bare array); providerMatch.ts (the sole
+   caller) is updated in the same change.
    ============================================================ */
 app.http('internalProviderMatchRecords', {
   methods: ['GET'],
@@ -341,7 +486,7 @@ app.http('internalProviderMatchRecords', {
       const rows = await query<Row>(
         'SELECT id, principal_code, known_email_domains, known_email_addresses, active, provider_automation_mode_code FROM work_provider ORDER BY display_name',
       );
-      const records = rows.map((r) => ({
+      const providers = rows.map((r) => ({
         workProviderId: r.id as string,
         principalCode: r.principal_code as string,
         knownEmailDomains: parseDomains(r.known_email_domains),
@@ -352,7 +497,30 @@ app.http('internalProviderMatchRecords', {
         providerAutomationMode:
           automationModeCodec.toName(r.provider_automation_mode_code) ?? 'review_auto',
       }));
-      return { status: 200, jsonBody: records };
+
+      // image_source(kind=intermediary) LEFT JOINed through imagesource_workprovider so an
+      // intermediary with zero linked providers still returns a row (candidateProviderIds:
+      // []), never silently dropped. kind_code 100000002 = 'intermediary'
+      // (000_enums_lookups.sql choice_image_source_kind) — hardcoded here because this
+      // route only ever surfaces that one kind (no codec needed for a single literal).
+      const imageSourceRows = await query<Row>(
+        `SELECT img.id, img.name, img.email_domain,
+                COALESCE(array_agg(iw.work_provider_id) FILTER (WHERE iw.work_provider_id IS NOT NULL), '{}') AS candidate_provider_ids
+           FROM image_source img
+           LEFT JOIN imagesource_workprovider iw ON iw.image_source_id = img.id
+          WHERE img.kind_code = 100000002
+          GROUP BY img.id, img.name, img.email_domain
+          ORDER BY img.name`,
+      );
+      const imageSources = imageSourceRows.map((r) => ({
+        imageSourceId: r.id as string,
+        name: r.name as string,
+        emailDomain: (r.email_domain as string | null) ?? '',
+        kind: 'intermediary',
+        candidateProviderIds: (r.candidate_provider_ids as string[] | null) ?? [],
+      }));
+
+      return { status: 200, jsonBody: { providers, imageSources } };
     }),
 });
 
@@ -486,6 +654,14 @@ app.http('internalCasesResolve', {
         /** Parser-owned EVA fields (claimant, dates, vehicle, circumstances, VAT) — persisted
          *  fill-if-empty + constraint-guarded. Absent → no-op (backward-compatible). */
         parserEva?: ParserEvaFields;
+        /** rules-engine-v2 Phase 3 (ADR-0011) — set when the SENDER matched an Image-Source
+         *  intermediary (orchestration providerMatch activity) rather than a direct work
+         *  provider. Forwarded to applyParserFields so a content-detected provider found
+         *  among the intermediary's N:N candidates is recorded as CORROBORATED, not a bare
+         *  guess. Absent when the sender matched a direct provider or nothing at all
+         *  (backward-compatible no-op). */
+        intermediaryImageSourceId?: string;
+        intermediaryCandidateProviderIds?: string[];
         decision: {
           resolution: string;
           targetCaseId?: string;
@@ -498,6 +674,12 @@ app.http('internalCasesResolve', {
 
       const { inbound, providerId, decision } = body;
       const workProviderId = providerId ?? null;
+      const intermediary = body.intermediaryImageSourceId
+        ? {
+            imageSourceId: body.intermediaryImageSourceId,
+            candidateProviderIds: body.intermediaryCandidateProviderIds ?? [],
+          }
+        : null;
       // #7 — prefer the parser-extracted PDF VRM over the email-body sniff. Both have
       // already run through the canonical postcode/junk filter (extractVrm / Python sniff).
       const vrm = ((body.parserVrm || inbound.candidateVrm) ?? '').trim();
@@ -528,6 +710,7 @@ app.http('internalCasesResolve', {
           body.parserMileageUnit,
           body.parserEva,
           workProviderId,
+          intermediary,
         );
         await writeAudit({
           action: AUDIT_ACTION.case_attached,
@@ -559,6 +742,15 @@ app.http('internalCasesResolve', {
       let created: { caseId: string; casePo: string | null; newClient: boolean; principalCode: string };
       try {
         created = await tx(async (q) => {
+          // rules-engine-v2 Phase 2 (ADR-0019 "mint race"): serialise this mint against a
+          // concurrent /api/internal/triage/context read or /api/internal/inbound/link-reply
+          // for the SAME ref/VRM — same key derivation as those two call sites
+          // (api/src/lib/triage-locks.ts), so a reader that starts after this transaction
+          // commits (or rolls back) always sees its result. No job-ref is available on this
+          // payload (cases/resolve carries candidateRef/candidateVrm only), so only the
+          // ref/vrm locks are taken here.
+          await acquireTriageLocks(q, { caseref: caseRef, vrm });
+
           // Resolve the provider's principal code (the PO prefix + the known/new-client test).
           let principalCode = '';
           if (workProviderId) {
@@ -648,6 +840,7 @@ app.http('internalCasesResolve', {
         body.parserMileageUnit,
         body.parserEva,
         workProviderId,
+        intermediary,
       );
 
       const auditAction =
@@ -723,6 +916,13 @@ app.http('internalInboundEmail', {
  * The COALESCE upsert makes the two writers order-robust: a later case_id-only stamp
  * (caseResolve) preserves an earlier classification, and a later classification preserves
  * an earlier case_id. Returns the row id, or null on a (swallowed) failure.
+ *
+ * rules-engine-v2 Phase 2 SCHEMA TOLERANCE: `body_jobref` (from `classification.bodyJobref`)
+ * and `conversation_id` (from `inbound.conversationId`) exist only once the 2026-07-02 DDL
+ * delta lands live. Orchestration sends both regardless of migration state, so this probes
+ * which of the two columns actually exist (api/src/lib/schema-introspect.ts, cached — one
+ * real query per Function-App cold start) and appends ONLY the present ones to the base
+ * (always-present-column) INSERT/ON CONFLICT below — never a failed statement.
  */
 async function upsertInboundEmail(
   inbound: InboundEnvelope,
@@ -749,14 +949,36 @@ async function upsertInboundEmail(
   const bodyPreview = (inbound.bodyPreview ?? '') || null;
   const confidence = classification ? classification.confidence : null;
   const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
+  const bodyJobref = (classification?.bodyJobref ?? '').trim() || null;
+  const conversationId = (inbound.conversationId ?? '').trim() || null;
   try {
+    // Base statement occupies $1..$18 below (unchanged from before Phase 2) — optional
+    // columns, if present live, are appended starting at $19.
+    const presentCols = await tableColumns('inbound_email');
+    const optional = planOptionalColumns(
+      'inbound_email',
+      [
+        { column: 'body_jobref', value: bodyJobref },
+        { column: 'conversation_id', value: conversationId },
+      ],
+      presentCols,
+      19,
+    );
+    const optionalColsFragment = optional.cols.length ? `, ${optional.cols.join(', ')}` : '';
+    const optionalValsFragment = optional.placeholders.length
+      ? `, ${optional.placeholders.join(', ')}`
+      : '';
+    const optionalUpdateFragment = optional.updateSets.length
+      ? `${optional.updateSets.join(',\n         ')},\n         `
+      : '';
+
     const rows = await query<{ id: string }>(
       `INSERT INTO inbound_email
          (name, source_message_id, subject, from_address, sender_domain,
           source_mailbox, received_on, has_attachments, category_code, subtype_code,
           confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
-          body_preview, case_id, work_provider_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17)
+          body_preview, case_id, work_provider_id${optionalColsFragment})
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17${optionalValsFragment})
        ON CONFLICT (source_message_id) DO UPDATE SET
          case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
          category_code    = CASE
@@ -783,10 +1005,7 @@ async function upsertInboundEmail(
          body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
          body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
          work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
-         -- Re-ingest / link MUST NOT reset a staff-set durable handled state (work-todo-spike
-         -- email-management d): once a person actioned/dismissed a row, an automated replay
-         -- (classify / caseResolve / link-reply 'routed') leaves it handled.
-         triage_state     = CASE
+         ${optionalUpdateFragment}triage_state     = CASE
                               WHEN inbound_email.triage_state IN ('actioned','dismissed')
                                 THEN inbound_email.triage_state
                               ELSE COALESCE($18, inbound_email.triage_state)
@@ -812,6 +1031,7 @@ async function upsertInboundEmail(
         caseId,
         workProviderId,
         triageState ?? null,
+        ...optional.values,
       ],
     );
     const inboundEmailId = rows[0]?.id ?? null;
@@ -970,25 +1190,38 @@ app.http('internalInboundLinkReply', {
       // Cross-provider is allowed here ON PURPOSE: a reply can arrive from the claimant/
       // repairer on a different domain than the instructing provider, so we match on the
       // case identifiers, not the sender's provider.
-      let candidates: Row[] = [];
-      if (ref) {
-        candidates = await query<Row>(
-          `SELECT id, case_ref, case_po, vrm FROM case_
-            WHERE (case_ref = $1 OR case_po = $1)
-              AND status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
-            ORDER BY created_at`,
-          [ref],
-        );
-      }
-      if (candidates.length === 0 && vrm) {
-        candidates = await query<Row>(
-          `SELECT id, case_ref, case_po, vrm FROM case_
-            WHERE vrm = $1
-              AND status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
-            ORDER BY created_at`,
-          [vrm],
-        );
-      }
+      //
+      // rules-engine-v2 Phase 2 (ADR-0019 "mint race"): the read runs inside a tx() that
+      // takes the SAME advisory locks (api/src/lib/triage-locks.ts) internalCasesResolve's
+      // mint transaction and /api/internal/triage/context now also take, keyed on this same
+      // ref/vrm — so a concurrent mint for the SAME reference commits (or rolls back) before
+      // this candidate read runs, instead of racing it. The payload's optional job-ref is
+      // deliberately NOT a match key here: this lane AUTO-attaches on an unambiguous hit,
+      // and the looser job-ref only ever drives the suggest-first ref-gate (triage/context).
+      const candidates: Row[] = await tx(async (q) => {
+        await acquireTriageLocks(q, { caseref: ref, vrm });
+
+        let rows: Row[] = [];
+        if (ref) {
+          rows = await q<Row>(
+            `SELECT id, case_ref, case_po, vrm FROM case_
+              WHERE (upper(case_ref) = upper($1) OR upper(case_po) = upper($1))
+                AND status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
+              ORDER BY created_at`,
+            [ref],
+          );
+        }
+        if (rows.length === 0 && vrm) {
+          rows = await q<Row>(
+            `SELECT id, case_ref, case_po, vrm FROM case_
+              WHERE vrm = $1
+                AND status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
+              ORDER BY created_at`,
+            [vrm],
+          );
+        }
+        return rows;
+      });
 
       // Stamp the triage row with the matched case only on an UNAMBIGUOUS single hit, and mark
       // it 'routed' so a successfully-linked reply no longer counts as untriaged in
@@ -1029,6 +1262,423 @@ app.http('internalInboundLinkReply', {
 
       ctx.log(JSON.stringify({ evt: 'linkReply', outcome: 'no_match' }));
       return { status: 200, jsonBody: { outcome: 'no_match', candidateCount: 0 } };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/triage/context
+   Called by: a NEW orchestration triage-context activity (rules-engine-v2 Phase 2,
+   ADR-0019/the rules_engine_v2_plan). Resolves the LIVE context `decideTriage`
+   (packages/domain/src/domain/triage-policy.ts) needs before routing an inbound: open-case
+   ref/job-ref/VRM matches, a cross-mailbox duplicate-delivery check, and (schema-tolerant)
+   conversation siblings. READ-ONLY over case_/inbound_email — never mutates a case.
+
+   OPEN CASE = mirrors internalInboundLinkReply's own definition just above: status_code NOT
+   IN the TERMINAL_STATUSES set (eva_submitted / box_synced / error / removed). NOTE:
+   linkReply's own ref match is a case-SENSITIVE `=` on case_ref/case_po; this endpoint's
+   pinned contract calls for case-INSENSITIVE matching (upper(...) both sides, mirroring
+   cases/resolve's own upper(case_po) convention elsewhere in this file) — a pre-existing
+   inconsistency in linkReply, found but intentionally NOT changed here (out of scope for
+   this slice; only the OPEN-CASE status-membership definition is mirrored verbatim).
+
+   matchedOn priority: a case_po/caseref match beats a job_ref match beats a vrm match. The
+   single SELECT below computes each returned case's OWN best matchedOn via a CASE WHEN
+   ladder in the same priority order, so every case_ row appears at most once — "dedupe by
+   caseId keeping the strongest matchedOn" falls out of the query shape, no separate JS pass
+   needed.
+
+   SERIALIZATION (ADR-0019 "mint race"): takes the SAME advisory locks
+   (api/src/lib/triage-locks.ts) that internalCasesResolve's mint transaction and
+   internalInboundLinkReply also take, keyed on the normalized ref/job-ref/VRM, so a
+   concurrent mint for the same reference commits (or rolls back) before this read proceeds.
+
+   PRE-DDL SAFE: case_.source_message_id and case_.case_po/case_ref/vrm all exist today (the
+   duplicate probe reads case_ ONLY — see the note at the dup check). conversationSiblingCaseIds
+   alone is schema-tolerant (hasColumn) — it is honestly [] until the 2026-07-02 DDL delta adds
+   inbound_email.conversation_id.
+   ============================================================ */
+app.http('internalTriageContext', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/triage/context',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        caseref?: string;
+        jobref?: string;
+        vrm?: string;
+        internetMessageId?: string;
+        conversationId?: string;
+      };
+      const caseref = (body.caseref ?? '').trim();
+      const jobref = (body.jobref ?? '').trim();
+      const vrm = (body.vrm ?? '').trim();
+      const internetMessageId = (body.internetMessageId ?? '').trim();
+      const conversationId = (body.conversationId ?? '').trim();
+
+      // Cached catalog read (not business state) — safe outside the tx below.
+      const hasConversationCol = await hasColumn('inbound_email', 'conversation_id');
+
+      const result = await tx(async (q) => {
+        await acquireTriageLocks(q, { caseref, jobref, vrm });
+
+        let openCaseMatches: Array<{
+          caseId: string;
+          casePo: string;
+          matchedOn: 'case_po' | 'job_ref' | 'vrm';
+          status: string;
+        }> = [];
+        if (caseref || jobref || vrm) {
+          const rows = await q<Row>(
+            `SELECT id, case_po, status_code,
+                    CASE
+                      WHEN $1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) THEN 'case_po'
+                      WHEN $2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)) THEN 'job_ref'
+                      WHEN $3 <> '' AND upper(vrm) = upper($3) THEN 'vrm'
+                    END AS matched_on
+               FROM case_
+              WHERE status_code NOT IN (${TERMINAL_INT_CODES.join(',')})
+                AND (
+                  ($1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)))
+                  OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
+                  OR ($3 <> '' AND upper(vrm) = upper($3))
+                )
+              ORDER BY created_at`,
+            [caseref, jobref, vrm],
+          );
+          openCaseMatches = rows.map((r) => ({
+            caseId: r.id as string,
+            casePo: (r.case_po as string | null) ?? '',
+            matchedOn: r.matched_on as 'case_po' | 'job_ref' | 'vrm',
+            status: caseStatusCodec.toName(r.status_code as number) ?? 'error',
+          }));
+        }
+
+        let duplicateInternetMessageId = false;
+        if (internetMessageId) {
+          // A genuine "already received and processed" duplicate is one where a CASE was already
+          // minted from this exact Internet-Message-Id. Probe ONLY case_ here — NOT inbound_email:
+          // classifyInbound (intake step 1.5) upserts THIS message's own inbound_email row (keyed
+          // on source_message_id) BEFORE this endpoint runs (step 1.55), and inbound_email is
+          // unique per message-id (uq_inbound_email_source_message_id), so an inbound_email EXISTS
+          // would self-match every arrival — making duplicateInternetMessageId true for ~100% of
+          // messages (poisoning the always-on triage_decision shadow telemetry now, and dropping
+          // every email as a self-duplicate the moment TRIAGE_REF_GATE_ENABLED is on). caseResolve
+          // writes case_.source_message_id LATER in the same orchestration, so the case_ probe
+          // cannot self-match at triage time.
+          const dupRows = await q<{ found: boolean }>(
+            `SELECT EXISTS (
+                SELECT 1 FROM case_ WHERE source_message_id = $1
+              ) AS found`,
+            [internetMessageId],
+          );
+          duplicateInternetMessageId = Boolean(dupRows[0]?.found);
+        }
+
+        let conversationSiblingCaseIds: string[] = [];
+        if (hasConversationCol && conversationId) {
+          const sibRows = await q<{ case_id: string }>(
+            `SELECT DISTINCT case_id FROM inbound_email
+              WHERE conversation_id = $1 AND case_id IS NOT NULL`,
+            [conversationId],
+          );
+          conversationSiblingCaseIds = sibRows.map((r) => r.case_id);
+        }
+
+        return { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds };
+      });
+
+      return { status: 200, jsonBody: result };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/triage/suggest-link
+   Called by: a NEW orchestration triage-policy activity (rules-engine-v2 Phase 2,
+   ADR-0019) when `decideTriage` returns 'suggest_attach' (suggestionType 'case_link') or
+   'propose_cancellation' (suggestionType 'cancellation'); AND (rules-engine-v2 Phase 4,
+   ADR-0019 Stage C) the gated `triage-classify.ts` activity on a non-abstain model result
+   (suggestionType 'triage_category'). NEVER mutates a case or the inbound_email row —
+   writes a PENDING ai_suggestion a human accepts/rejects; reviewAiSuggestion's
+   promoteAcceptedSuggestion (ai-suggestions.ts) does the actual attach/relabel/no-op on
+   accept.
+
+   THREE suggestionType shapes share this one endpoint:
+     - 'case_link' / 'cancellation' — suggested_value {targetCaseId?, casePo?,
+       sourceMessageId?, decisionInputs} (the Stage-B ref-gate/cancellation shape, unchanged).
+     - 'triage_category' — suggested_value {category, subtype} (the Stage-C LLM shape,
+       rules-engine-v2 Phase 4). targetCaseId is ALWAYS absent/ignored for this type: it
+       proposes a RELABEL of the message, never a case link. category/subtype are validated
+       against the SAME name<->code maps `upsertInboundEmail` (above) and `reclassifyInbound`
+       (inbound.ts) use (INBOUND_CATEGORY_TO_INT / INBOUND_SUBTYPE_TO_INT) — an unknown name
+       is a 400, never silently written. model_version is CALLER-supplied for this type
+       ('<deployment>:<modelVersion-from-response>', stamped by triage-classify.ts) rather
+       than the hardcoded 'triage-policy-v1' the other two types carry (they are this
+       endpoint's OWN deterministic policy output, not a separate model's).
+
+   inboundEmailId resolution: a caller can run PRE-classifyPersist (the triage row may not
+   exist yet), so when `inboundEmailId` is not given it is resolved from `sourceMessageId`;
+   when that lookup also comes up empty, the suggestion is written with inbound_email_id
+   NULL and sourceMessageId stashed inside suggested_value so a LATER pass could reconcile
+   it onto the row once classifyPersist writes it (no such reconciliation pass exists yet —
+   this is the documented gap, not a bug).
+
+   IDEMPOTENCY (api/src/lib/mappers.ts's deriveSuggestionIdempotencyKey): a Durable
+   at-least-once retry must not duplicate a suggestion the reviewer hasn't acted on — a
+   PENDING row of the same suggestionType + the same subject (inbound_email_id once resolved,
+   else the stashed sourceMessageId) + the same targetCaseId short-circuits to created:false.
+   For 'triage_category' this collapses to "same subject" (targetCaseId is always null for
+   that type), so a Durable retry of the SAME triage-classify call reuses the one PENDING row.
+
+   PRE-DDL: the ai_suggestion table/columns are ALL already live (no dependency on the
+   2026-07-02 DDL delta) — the suggestion write itself always succeeds. Only the AUDIT rows
+   (inbound_link_suggested / cancellation_proposed, codes 100000035/100000038) depend on that
+   delta; writeAudit's catch-all swallow degrades a pre-DDL FK violation to "no audit row",
+   never a blocked caller (see audit.ts's AUDIT_ACTION comment). 'triage_category' audits via
+   the pre-existing ai_suggestion_created code (100000032) — no new audit code minted.
+   ============================================================ */
+app.http('internalTriageSuggestLink', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/triage/suggest-link',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        sourceMessageId?: string;
+        inboundEmailId?: string;
+        targetCaseId?: string;
+        suggestionType?: string;
+        rationale?: string;
+        confidence?: number;
+        decisionInputs?: unknown;
+        // rules-engine-v2 Phase 4 (ADR-0019 Stage C) — 'triage_category' only.
+        category?: string;
+        subtype?: string;
+        modelVersion?: string;
+      };
+      const suggestionType = body.suggestionType;
+      if (suggestionType !== 'case_link' && suggestionType !== 'cancellation' && suggestionType !== 'triage_category') {
+        return {
+          status: 400,
+          jsonBody: { error: "suggestionType must be 'case_link', 'cancellation' or 'triage_category'" },
+        };
+      }
+      const sourceMessageId = (body.sourceMessageId ?? '').trim() || null;
+      // 'triage_category' never carries a target case — it relabels the message, it does
+      // not link it (see the module doc above); force null regardless of what a caller sent.
+      const targetCaseId =
+        suggestionType === 'triage_category' ? null : (body.targetCaseId ?? '').trim() || null;
+      // rationale/decisionInputs are payload/telemetry fields, not identity — accepted
+      // leniently (coerced, never 400) so a minor caller-side omission cannot block a
+      // suggestion the ref-gate/cancellation rung already decided to raise.
+      const rationale = (body.rationale ?? '').trim() || null;
+      const confidence = typeof body.confidence === 'number' ? body.confidence : null;
+      const decisionInputs = body.decisionInputs ?? {};
+
+      // 'triage_category' ONLY: validate category/subtype against the SAME name<->code maps
+      // upsertInboundEmail (this file) and reclassifyInbound (inbound.ts) use — an unknown
+      // name is a 400, never a silently-dropped/garbage suggested_value.
+      let triageCategory: string | null = null;
+      let triageSubtype: string | null = null;
+      if (suggestionType === 'triage_category') {
+        const cat = (body.category ?? '').trim();
+        const sub = (body.subtype ?? '').trim();
+        if (!cat || !(cat in INBOUND_CATEGORY_TO_INT)) {
+          return { status: 400, jsonBody: { error: 'category must be a known inbound category' } };
+        }
+        if (!sub || !(sub in INBOUND_SUBTYPE_TO_INT)) {
+          return { status: 400, jsonBody: { error: 'subtype must be a known inbound subtype' } };
+        }
+        triageCategory = cat;
+        triageSubtype = sub;
+      }
+
+      // Resolve inbound_email_id from sourceMessageId when not given directly (see the
+      // module doc above — this activity may run pre-classifyPersist).
+      let inboundEmailId = (body.inboundEmailId ?? '').trim() || null;
+      if (!inboundEmailId && sourceMessageId) {
+        const rows = await query<Row>(
+          'SELECT id FROM inbound_email WHERE source_message_id = $1',
+          [sourceMessageId],
+        );
+        inboundEmailId = (rows[0]?.id as string | undefined) ?? null;
+      }
+
+      // Idempotency: a PENDING suggestion for the SAME (type, subject, targetCaseId) already
+      // exists -> return it unchanged, created:false.
+      const idemKey = deriveSuggestionIdempotencyKey({
+        suggestionType,
+        inboundEmailId,
+        sourceMessageId,
+        targetCaseId,
+      });
+      let existing: Row[] = [];
+      if (idemKey) {
+        existing =
+          idemKey.subjectKind === 'inbound_email_id'
+            ? await query<Row>(
+                `SELECT id FROM ai_suggestion
+                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id = $2
+                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
+                  LIMIT 1`,
+                [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId],
+              )
+            : await query<Row>(
+                `SELECT id FROM ai_suggestion
+                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id IS NULL
+                    AND (suggested_value->>'sourceMessageId') IS NOT DISTINCT FROM $2
+                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
+                  LIMIT 1`,
+                [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId],
+              );
+      }
+      if (existing[0]) {
+        return { status: 200, jsonBody: { suggestionId: existing[0].id, created: false } };
+      }
+
+      // Best-effort enrichment: the target case's own Case/PO, so the suggestion can render
+      // a human-readable reference without a second lookup. Absent when the target case has
+      // no case_po yet (e.g. a Held new-client case) or no target was resolved at all
+      // (always the case for 'triage_category' — targetCaseId is forced null above).
+      let casePo: string | null = null;
+      if (targetCaseId) {
+        const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [targetCaseId]);
+        casePo = (caseRows[0]?.case_po as string | null) ?? null;
+      }
+
+      const suggestedValue =
+        suggestionType === 'triage_category'
+          ? {
+              category: triageCategory,
+              subtype: triageSubtype,
+              // Carry sourceMessageId so the source_message_id-subject idempotency SELECT (used
+              // when the inbound_email row isn't resolvable yet — inboundEmailId null) can match a
+              // prior PENDING copy on a Durable at-least-once retry. Without it the dedup filters
+              // on `suggested_value->>'sourceMessageId'`, a field this branch never wrote, so it
+              // never matches and inserts a duplicate 'AI suggested category' banner.
+              ...(sourceMessageId ? { sourceMessageId } : {}),
+            }
+          : {
+              ...(targetCaseId ? { targetCaseId } : {}),
+              ...(casePo ? { casePo } : {}),
+              ...(sourceMessageId ? { sourceMessageId } : {}),
+              decisionInputs,
+            };
+      // 'triage_category' stamps the CALLER's model_version ('<deployment>:<modelVersion>',
+      // triage-classify.ts); the other two types are this endpoint's own deterministic
+      // policy output, unchanged at 'triage-policy-v1'.
+      const modelVersion =
+        suggestionType === 'triage_category' ? (body.modelVersion ?? '').trim() || 'unknown' : 'triage-policy-v1';
+      const inserted = await query<Row>(
+        `INSERT INTO ai_suggestion
+           (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)
+         VALUES ($1, $2, $3::jsonb, $4, $5, $6)
+         RETURNING id`,
+        [inboundEmailId, suggestionType, JSON.stringify(suggestedValue), rationale, confidence, modelVersion],
+      );
+      const suggestionId = inserted[0]?.id as string | undefined;
+      if (!suggestionId) {
+        return { status: 500, jsonBody: { error: 'suggestion insert returned no id' } };
+      }
+
+      if (suggestionType === 'case_link') {
+        await writeAudit({
+          action: AUDIT_ACTION.inbound_link_suggested,
+          ...(targetCaseId ? { caseId: targetCaseId } : {}),
+          summary: 'A message was suggested for linking to an existing case',
+          after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId },
+        });
+      } else if (suggestionType === 'cancellation') {
+        await writeAudit({
+          action: AUDIT_ACTION.cancellation_proposed,
+          ...(targetCaseId ? { caseId: targetCaseId } : {}),
+          summary: 'A message reported a case cancelled or closed — flagged for review',
+          after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId },
+        });
+      } else {
+        // 'triage_category' (rules-engine-v2 Phase 4, Stage C) — the GENERIC "an AI
+        // producer created a suggestion" audit (the same code generateAiSuggestions writes
+        // for every other AI-produced suggestion kind, ai-suggestions.ts). Distinct from
+        // inbound_link_suggested/cancellation_proposed, which name the Stage-B ref-gate/
+        // cancellation actions specifically — no new audit code minted for this one.
+        await writeAudit({
+          action: AUDIT_ACTION.ai_suggestion_created,
+          summary: 'An AI-suggested category was proposed for a message',
+          after: { suggestionId, sourceMessageId, inboundEmailId, category: triageCategory, subtype: triageSubtype },
+        });
+      }
+
+      ctx.log(JSON.stringify({ evt: 'triageSuggestLink', suggestionType, suggestionId, targetCaseId }));
+      return { status: 200, jsonBody: { suggestionId, created: true } };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/inbound/{id}/outlook-moved  (TKT-054 / 020726 E6)
+   Called by: the orchestration `outlook-move` queue function reporting the
+   terminal outcome of a gated Outlook filing. `moved` stamps the lifecycle AND
+   marks a still-new row actioned (a filed email is handled email); `failed`
+   stamps failed (the SPA offers a retry). Audited with the TKT-054 codes.
+   ============================================================ */
+app.http('internalInboundOutlookMoved', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/inbound/{id}/outlook-moved',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const id = req.params.id;
+      const body = (await req.json().catch(() => ({}))) as {
+        outcome?: unknown;
+        folder?: unknown;
+        detail?: unknown;
+      };
+      const outcome = body.outcome;
+      if (outcome !== 'moved' && outcome !== 'failed') {
+        return { status: 400, jsonBody: { error: "outcome must be 'moved' or 'failed'" } };
+      }
+      const existing = await query<Row>(
+        'SELECT id, case_id FROM inbound_email WHERE id = $1',
+        [id],
+      );
+      if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
+      const folder = typeof body.folder === 'string' && body.folder ? body.folder : null;
+      const detail = typeof body.detail === 'string' ? body.detail.slice(0, 300) : null;
+
+      if (outcome === 'moved') {
+        await query(
+          `UPDATE inbound_email
+              SET outlook_move_state = 'moved',
+                  outlook_moved_folder = COALESCE($2, outlook_moved_folder),
+                  outlook_moved_at = now(),
+                  triage_state = CASE
+                                   WHEN triage_state IS NULL OR triage_state = 'new' THEN 'actioned'
+                                   ELSE triage_state
+                                 END,
+                  updated_at = now()
+            WHERE id = $1`,
+          [id, folder],
+        );
+      } else {
+        await query(
+          `UPDATE inbound_email
+              SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
+            WHERE id = $1`,
+          [id],
+        );
+      }
+      await writeAudit({
+        action: outcome === 'moved' ? AUDIT_ACTION.outlook_moved : AUDIT_ACTION.outlook_move_failed,
+        ...(existing[0].case_id ? { caseId: existing[0].case_id as string } : {}),
+        summary:
+          outcome === 'moved'
+            ? `Outlook filing completed${folder ? ` -> ${folder}` : ''}`
+            : 'Outlook filing failed',
+        severity: outcome === 'moved' ? 'info' : 'warning',
+        after: { inboundEmailId: id, ...(folder ? { folder } : {}), ...(detail ? { detail } : {}) },
+        actor: 'orchestration',
+      });
+      ctx.log(JSON.stringify({ evt: 'outlookMoved', inboundEmailId: id, outcome, folder }));
+      return { status: 204 };
     }),
 });
 

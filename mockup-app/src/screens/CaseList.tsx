@@ -248,7 +248,7 @@ const EMPTY_STATE: Record<
     title: 'Nothing waiting on details.',
     hint: 'Cases waiting on images, instructions or other details land here.',
     actionLabel: 'Sort new email',
-    to: '/inbox?view=active&triageState=new',
+    to: '/inbox',
   },
   review: {
     title: 'Nothing to review.',

@@ -46,6 +46,7 @@ import type {
   AiSuggestionReviewResult,
   GenerateAiSuggestionsResult,
   AiAssistGate,
+  OutlookMoveGate,
 } from '@cs/domain';
 import type { Case, Chaser, Evidence, Provider, ActivityEvent } from '@cs/domain';
 import type {
@@ -61,6 +62,7 @@ import {
   LOCATION_ASSIST_GATE_ALL_OFF,
   INBOUND_COUNTS_ZERO,
   AI_ASSIST_GATE_ALL_OFF,
+  OUTLOOK_MOVE_GATE_ALL_OFF,
 } from '@cs/domain';
 
 export interface RestClientOptions {
@@ -95,6 +97,19 @@ export interface LogChaseInput {
   channel: 'email' | 'whatsapp';
   templateLabel: string;
   note?: string;
+}
+
+/** Result of `POST /api/inbound/{id}/detach` (rules-engine-v2 Phase 2 — unlink an
+ *  inbound email from its case). */
+export interface DetachInboundResult {
+  ok: boolean;
+}
+
+/** Result of `POST /api/inbound/{id}/outlook-move` (TKT-054 / 020726 E6). */
+export interface OutlookMoveResult {
+  queued: boolean;
+  /** The server-derived destination, e.g. "Inbox/Instructions". */
+  folder: string;
 }
 
 export interface DataAccessExt extends DataAccess {
@@ -133,6 +148,29 @@ export interface DataAccessExt extends DataAccess {
   generateAiSuggestions(caseId: string): Promise<GenerateAiSuggestionsResult>;
   /** The AI-assist feature gate (honest all-off on failure) — the SPA panel keys on `enabled`. */
   getAiAssistGate(): Promise<AiAssistGate>;
+
+  /* ----- Inbound suggestion affordance — ref-gate (rules-engine-v2 Phase 2) -----
+     Distinct from `aiSuggestions` above (case-scoped): keyed by the INBOUND EMAIL
+     id, this backs the inbox preview panel's "looks like an open case" / "may be a
+     cancellation" banner. Accept/reject reuses `reviewAiSuggestion` above — there is
+     no separate inbound-scoped review endpoint. */
+  /** Pending (+ recently-reviewed) AI suggestions for ONE inbound email, pending
+   *  first. safe()-empty on failure — a secondary, suggestion-only surface, so a
+   *  soft failure just means the banner doesn't render, never a crash. */
+  inboundSuggestions(id: string): Promise<AiSuggestion[]>;
+  /** Unlink a linked inbound email from its case. The case's already-filed archive
+   *  copy is untouched (Box stays a one-way additive mirror — ADR-0012/0017; flagged
+   *  for manual tidy-up, never auto-removed). Throws on non-2xx — never a fake unlink. */
+  detachInbound(id: string): Promise<DetachInboundResult>;
+
+  /* ----- Outlook filing (TKT-054 / 020726 E6) — GATED ----- */
+  /** The Outlook-move gate (honest all-off on failure) — the "Suggested action"
+   *  column renders an actionable button only when `enabled`. */
+  getOutlookMoveGate(): Promise<OutlookMoveGate>;
+  /** Queue the REAL Outlook filing of one inbound email into its suggested folder
+   *  (server-derived — no folder is sent). Throws on non-2xx (409 while the gate is
+   *  off / already filed; 503 when the queue is unreachable) — never a fake "Filing…". */
+  moveInboundToOutlook(id: string): Promise<OutlookMoveResult>;
 }
 
 export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
@@ -351,5 +389,19 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       post<GenerateAiSuggestionsResult>(`/api/cases/${enc(id)}/ai-suggestions/generate`),
     getAiAssistGate: () =>
       safe(() => get<AiAssistGate>('/api/gates/ai-assist'), { ...AI_ASSIST_GATE_ALL_OFF }),
+
+    /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */
+    inboundSuggestions: (id) =>
+      safe(() => get<AiSuggestion[]>(`/api/inbound/${enc(id)}/suggestions`), []),
+    // Mutation — NOT safe()-wrapped: a failed unlink must reach the operator (never a
+    // fake success); throws on non-2xx like every other write in this client.
+    detachInbound: (id) => post<DetachInboundResult>(`/api/inbound/${enc(id)}/detach`),
+
+    /* ----- Outlook filing (TKT-054 / 020726 E6) ----- */
+    getOutlookMoveGate: () =>
+      safe(() => get<OutlookMoveGate>('/api/gates/outlook-move'), { ...OUTLOOK_MOVE_GATE_ALL_OFF }),
+    // Mutation — NOT safe()-wrapped: a 409/503 must reach the operator as a toast,
+    // never a phantom "Filing…" on a row the server refused.
+    moveInboundToOutlook: (id) => post<OutlookMoveResult>(`/api/inbound/${enc(id)}/outlook-move`),
   };
 }

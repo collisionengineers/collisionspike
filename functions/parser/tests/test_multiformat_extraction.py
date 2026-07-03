@@ -84,6 +84,35 @@ def test_multiformat_extracts_more_than_vrm(fid: str, fname: str, provider: str,
     )
 
 
+# --------------------------------------------------------------------------- #
+# content_typing (rules-engine-v2 Phase 3) — content-based attachment typing  #
+# --------------------------------------------------------------------------- #
+def test_known_instruction_fixture_gets_content_typing_instruction() -> None:
+    """A real provider instruction document must come back typed 'instruction'
+    through the PRODUCTION seam (``run_parser`` -> ``to_eva_extraction`` —
+    exactly what ``/parse`` calls), proving ``content_typing`` (rules-engine-v2
+    Phase 3) is actually wired end-to-end and not just unit-tested in isolation
+    on the sibling. Pinned to the KBS PDF fixture specifically (unlike the
+    ``ALS``/eml cases elsewhere in this module, it is not one of the two known
+    pre-existing multiformat field-extraction failures, so this stays a clean
+    signal for the NEW typing behaviour)."""
+    fname = "KBS INSTRUCT 01.pdf"
+    src = INSTRUCTIONS / fname
+    if not src.exists():
+        pytest.skip(f"fixture {fname!r} not present")
+    if not _fitz_available():
+        pytest.skip("PyMuPDF (licensed/approved) not installed; PDF fixture skipped")
+
+    result = parser_adapter.run_parser(src.read_bytes(), fname, None)
+    mapped = parser_adapter.to_eva_extraction(result)
+
+    content_typing = mapped.get("content_typing")
+    assert content_typing is not None
+    assert content_typing["doc_type"] == "instruction"
+    assert content_typing["provider_name"] == "KBS"
+    assert content_typing["markers"], "expected at least one explaining marker"
+
+
 # A real .eml sample (provider instruction in the email itself). Referenced in-place
 # (large binary) and skipped when absent, like the engine drift guard.
 _ALS_EML = (

@@ -142,13 +142,14 @@ export type {
 } from '@cs/domain';
 // The seam's EXTENDED DataAccess (frozen @cs/domain DataAccess + the work-todo-spike
 // methods). `getDataAccess()` returns this; screens that type-annotate use it.
-export type { DataAccessExt, LogChaseInput } from './rest-client';
+export type { DataAccessExt, LogChaseInput, DetachInboundResult, OutlookMoveResult } from './rest-client';
 // The all-false Box-gate baseline + the all-off location-assist baseline (values).
 export {
   BOX_GATES_ALL_FALSE,
   LOCATION_ASSIST_GATE_ALL_OFF,
   INBOUND_COUNTS_ZERO,
   AI_ASSIST_GATE_ALL_OFF,
+  OUTLOOK_MOVE_GATE_ALL_OFF,
 } from '@cs/domain';
 
 /* ----------  Box affordances: gates + gated transports  ----------
@@ -323,6 +324,12 @@ export {
   useAiSuggestions,
   useReviewAiSuggestion,
   useGenerateAiSuggestions,
+  // Inbound suggestion affordance + detach (rules-engine-v2 Phase 2 ref-gate).
+  useInboundSuggestions,
+  useDetachInbound,
+  // Outlook filing (TKT-054 / 020726 E6) — gate + queue-move mutation.
+  useOutlookMoveGate,
+  useOutlookMove,
   type QueryState,
   type CaseUpdateState,
   type TriageMutationState,
@@ -332,6 +339,8 @@ export {
   type ProviderUpdateState,
   type ReviewAiSuggestionState,
   type GenerateAiSuggestionsState,
+  type DetachInboundState,
+  type OutlookMoveState,
 } from './hooks';
 
 /* ============================================================

@@ -32,6 +32,7 @@ import type {
   ProviderAutomationMode,
   ActivityKind,
 } from '../model/types';
+import type { InboundCategory, InboundSubtype } from '../dto';
 
 /* The REAL choice-set artifacts, co-located in this package (src/data/choicesets/). */
 import caseStatusChoiceSet from '../data/choicesets/case-status.json';
@@ -45,6 +46,7 @@ import sourceTypeChoiceSet from '../data/choicesets/field-provenance-source-type
 import inspectionPolicyChoiceSet from '../data/choicesets/inspection-location-policy.json';
 import automationModeChoiceSet from '../data/choicesets/provider-automation-mode.json';
 import auditEventChoiceSet from '../data/choicesets/audit-event.json';
+import inboundEmailClassificationChoiceSet from '../data/choicesets/inbound-email-classification.json';
 
 /* ============================================================
    Choice-set <-> integer bijection helper.
@@ -168,6 +170,25 @@ export function auditActionToActivityKind(action: string | undefined): ActivityK
       return 'status_change';
   }
 }
+
+/* ----------  Inbound-email triage: category / subtype  ----------
+   inbound-email-classification.json is a BUNDLE (category + subtype sets), same shape
+   as audit-event.json above -- indexed by logicalName rather than imported as a single
+   set. Built from the canonical choiceset (never renumbered; append-only — see the
+   JSON's own header) so this can never drift from the deployed option values, and typed
+   over the SAME InboundCategory/InboundSubtype unions the DTO exposes (dto/index.ts) so
+   an unmapped name is a compile error here, not a silent runtime gap. Covers the
+   taxonomy-v2 additions (rules-engine-v2 Phase 2 / ADR-0019): case_update, cancellation,
+   images_received, cancellation_notice, update_general. */
+const inboundCategorySet = (
+  inboundEmailClassificationChoiceSet as { choiceSets: ChoiceSet[] }
+).choiceSets.find((s) => s.logicalName === 'cr1bd_inboundcategory') as ChoiceSet;
+export const inboundCategoryCodec = makeChoiceCodec<InboundCategory>(inboundCategorySet);
+
+const inboundSubtypeSet = (
+  inboundEmailClassificationChoiceSet as { choiceSets: ChoiceSet[] }
+).choiceSets.find((s) => s.logicalName === 'cr1bd_inboundsubtype') as ChoiceSet;
+export const inboundSubtypeCodec = makeChoiceCodec<InboundSubtype>(inboundSubtypeSet);
 
 /* ============================================================
    statuscode <-> CaseStatus (the headline mapping the task calls out).

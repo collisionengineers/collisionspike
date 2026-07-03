@@ -2,8 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   corpusWorkProviderCandidate,
   isUnknownWorkProviderSentinel,
+  matchWorkProviderByContentString,
+  normalizeProviderMatchKey,
   selectParserEvaCandidates,
   type ParserEvaFields,
+  type WorkProviderContentMatchRecord,
 } from './parser-eva-fields.js';
 
 /**
@@ -129,5 +132,83 @@ describe('corpusWorkProviderCandidate', () => {
   it('length-caps display_name to 200 chars', () => {
     const long = 'P'.repeat(300);
     expect(corpusWorkProviderCandidate(long)?.value).toHaveLength(200);
+  });
+});
+
+/**
+ * matchWorkProviderByContentString is the rules-engine-v2 Phase 3 (ADR-0011) mapping from
+ * a parser-detected work_provider STRING to a real work_provider_id. The normalization
+ * rules are pinned by the 2026-07-02 verify-first probe (see the module doc): the engine
+ * emits a SHORT code verbatim for the providers actually probed (PCH/SBL/QDOS), so this
+ * must match principal_code exactly (case/light-punctuation-insensitive); the EXISTING
+ * "Knightsbridge Solicitors" fixture above shows a full display-name-shaped string is also
+ * a real possibility, so display_name is matched too.
+ */
+describe('normalizeProviderMatchKey', () => {
+  it('trims, uppercases, and collapses whitespace', () => {
+    expect(normalizeProviderMatchKey('  pch  ')).toBe('PCH');
+    expect(normalizeProviderMatchKey('Knightsbridge   Solicitors')).toBe('KNIGHTSBRIDGE SOLICITORS');
+  });
+
+  it('strips light punctuation the parser/corpus are inconsistent about', () => {
+    expect(normalizeProviderMatchKey('P.C.H.')).toBe('PCH');
+    expect(normalizeProviderMatchKey("O'Brien & Sons")).toBe('OBRIEN SONS');
+    expect(normalizeProviderMatchKey('Smith, Jones Ltd')).toBe('SMITH JONES LTD');
+  });
+});
+
+describe('matchWorkProviderByContentString', () => {
+  const PROVIDERS: WorkProviderContentMatchRecord[] = [
+    { workProviderId: 'wp-pch', principalCode: 'PCH', displayName: 'PCH (Performance Car Hire)' },
+    { workProviderId: 'wp-sbl', principalCode: 'SBL', displayName: 'SBL' },
+    { workProviderId: 'wp-qdos', principalCode: 'QDOS', displayName: 'Qdos Broker & Underwriting' },
+    { workProviderId: 'wp-ks', principalCode: 'KBS', displayName: 'Knightsbridge Solicitors' },
+  ];
+
+  it('matches the OBSERVED short-code strings verbatim against principal_code (PCH/SBL/QDOS)', () => {
+    expect(matchWorkProviderByContentString('PCH', PROVIDERS)).toEqual({ outcome: 'matched', workProviderId: 'wp-pch' });
+    expect(matchWorkProviderByContentString('SBL', PROVIDERS)).toEqual({ outcome: 'matched', workProviderId: 'wp-sbl' });
+    expect(matchWorkProviderByContentString('QDOS', PROVIDERS)).toEqual({ outcome: 'matched', workProviderId: 'wp-qdos' });
+  });
+
+  it('matches a full display-name-shaped string against display_name (the corpus fallback shape)', () => {
+    expect(matchWorkProviderByContentString('Knightsbridge Solicitors', PROVIDERS)).toEqual({
+      outcome: 'matched',
+      workProviderId: 'wp-ks',
+    });
+  });
+
+  it('is case- and light-punctuation-insensitive', () => {
+    expect(matchWorkProviderByContentString('pch', PROVIDERS)).toEqual({ outcome: 'matched', workProviderId: 'wp-pch' });
+    expect(matchWorkProviderByContentString('P.C.H.', PROVIDERS)).toEqual({ outcome: 'matched', workProviderId: 'wp-pch' });
+    expect(matchWorkProviderByContentString('  sbl  ', PROVIDERS)).toEqual({ outcome: 'matched', workProviderId: 'wp-sbl' });
+  });
+
+  it('treats the UNKNOWN sentinel and blank/whitespace input as unmatched, never a guess', () => {
+    expect(matchWorkProviderByContentString('UNKNOWN', PROVIDERS)).toEqual({ outcome: 'unmatched' });
+    expect(matchWorkProviderByContentString('  Unknown ', PROVIDERS)).toEqual({ outcome: 'unmatched' });
+    expect(matchWorkProviderByContentString('', PROVIDERS)).toEqual({ outcome: 'unmatched' });
+    expect(matchWorkProviderByContentString('   ', PROVIDERS)).toEqual({ outcome: 'unmatched' });
+    expect(matchWorkProviderByContentString(undefined, PROVIDERS)).toEqual({ outcome: 'unmatched' });
+    expect(matchWorkProviderByContentString(null, PROVIDERS)).toEqual({ outcome: 'unmatched' });
+  });
+
+  it('a string matching no provider is unmatched (never invents a row)', () => {
+    expect(matchWorkProviderByContentString('Totally Unrelated Company', PROVIDERS)).toEqual({ outcome: 'unmatched' });
+  });
+
+  it('never auto-picks when two DIFFERENT providers normalize to the same key (ambiguous)', () => {
+    const collidingProviders: WorkProviderContentMatchRecord[] = [
+      { workProviderId: 'wp-a', principalCode: 'DUP', displayName: 'Dup Co' },
+      { workProviderId: 'wp-b', principalCode: 'XYZ', displayName: 'DUP CO' },
+    ];
+    expect(matchWorkProviderByContentString('Dup Co', collidingProviders)).toEqual({ outcome: 'ambiguous' });
+  });
+
+  it('the SAME provider matching on both principal_code and display_name is still one match, not ambiguous', () => {
+    // "PCH" matches wp-pch's principal_code; it happens to also be a substring of its
+    // display_name, but only an EXACT normalized-key match counts, so this stays a clean
+    // single hit — the Set dedupe on workProviderId is what keeps this from double-counting.
+    expect(matchWorkProviderByContentString('PCH', PROVIDERS)).toEqual({ outcome: 'matched', workProviderId: 'wp-pch' });
   });
 });

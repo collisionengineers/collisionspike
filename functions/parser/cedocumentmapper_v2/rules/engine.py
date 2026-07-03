@@ -28,6 +28,7 @@ from cedocumentmapper_v2.normalization import (
     validate_fields,
 )
 from cedocumentmapper_v2.normalization.normalizers import TELEPHONE_RE, EMAIL_RE
+from cedocumentmapper_v2.rules.triage_rules import load_triage_rules
 
 
 def clean_val(value: str) -> str:
@@ -139,6 +140,20 @@ _IMAGE_BASED_PHRASES = (
 )
 
 
+# --- Externalized phrase data (collisionspike rules-engine-v2 plan, Phase 5) ---
+# Every flat keyword/phrase collection from here down is now data, not code: it
+# lives in the schema-validated resources/triage-rules.json (loader + schema:
+# rules/triage_rules.py / resources/triage-rules.schema.json), loaded ONCE per
+# process and validated on that load. The comment above each constant is
+# RETAINED verbatim -- it records the WHY (mined real-email provenance, the
+# precision discipline, deliberate omissions) that the JSON alone cannot
+# carry. To add/remove/reorder a phrase, edit the JSON; the tuple literal that
+# used to live at each assignment below is gone, so editing IT would do
+# nothing. Regexes, rule ordering, confidence bands and suppression logic are
+# all still Python, unchanged, below/around these constants.
+_RULES = load_triage_rules()
+
+
 # Phrases (case-insensitive) that signal an AUDIT instruction — CE is asked to
 # perform a SECOND, independent inspection that audits a THIRD-PARTY engineer's
 # ORIGINAL report (a distinct case-type, marked by an "A." Case/PO prefix; see
@@ -148,12 +163,7 @@ _IMAGE_BASED_PHRASES = (
 # purpose: a false positive would mis-mark a standard case as an audit and
 # corrupt its Case/PO numbering, so we anchor to specific phrases, never the
 # bare word "audit".
-_AUDIT_PHRASES: tuple[str, ...] = (
-    "audit report",
-    "original engineer",
-    "original report",
-    "engineers 2",
-)
+_AUDIT_PHRASES: tuple[str, ...] = _RULES.audit_phrases
 
 
 # Phrases (case-insensitive) that signal an email is INSTRUCTING new work — the
@@ -165,40 +175,13 @@ _AUDIT_PHRASES: tuple[str, ...] = (
 # these (plus a Case/PO or VRM) is treated as a typed-in-body instruction even
 # with no attachment. Kept deliberately conservative so an ambiguous email
 # abstains to the "other" bucket rather than getting a wrong receiving-work label.
-_WORK_KEYWORDS: tuple[str, ...] = (
-    "please inspect",
-    "please carry out",
-    "please attend",
-    "please arrange an inspection",
-    "arrange an inspection",
-    "instructed to",
-    "we instruct",
-    "we are instructing",
-    "new instruction",
-    "inspection request",
-    "instruction to inspect",
-    "engineer's report",
-    "engineers report",
-    "provide a report",
-    "prepare a report",
-    "vehicle for inspection",
-    "assess the damage",
-    "assess the vehicle",
-    "carry out an inspection",
-    "pre-accident value",
-    "pre accident value",
-    # collisionspike TKT-036 — instruction subject/attachment cues. Real provider
-    # instructions arrive with these in the subject ("New eng ins") or the
-    # attachment filename ("To Engineer with instructions"), not always a
-    # "please inspect" verb in the body. Same precision discipline: these are
-    # instruction-specific phrases, not bare words.
-    "new eng ins",
-    "engineer instruction",
-    "engineer's instruction",
-    "instructions attached",
-    "with instructions",
-    "instruction to engineer",
-)
+# Also carries the collisionspike TKT-036 instruction subject/attachment cues:
+# real provider instructions arrive with these in the subject ("New eng ins") or
+# the attachment filename ("To Engineer with instructions"), not always a
+# "please inspect" verb in the body. Same precision discipline: these are
+# instruction-specific phrases, not bare words. (See resources/triage-rules.json
+# -> work_keywords for the phrase list itself.)
+_WORK_KEYWORDS: tuple[str, ...] = _RULES.work_keywords
 
 
 # Phrases (case-insensitive) that signal an INVOICE / BILLING request — the sender
@@ -212,25 +195,7 @@ _WORK_KEYWORDS: tuple[str, ...] = (
 # statement that merely mentions "invoice" is NOT a billing request — only an
 # imperative asking US to send/provide our invoice or fee note is. Anchored to the
 # request verbs so an inbound payment advice abstains to other, not billing.
-_BILLING_KEYWORDS: tuple[str, ...] = (
-    "provide the invoice",
-    "provide your invoice",
-    "provide us with the invoice",
-    "send the invoice",
-    "send us the invoice",
-    "send your invoice",
-    "send us your invoice",
-    "send us a copy of the invoice",
-    "copy of your invoice",
-    "raise an invoice",
-    "raise your invoice",
-    "issue the invoice",
-    "issue your invoice",
-    "let us have your invoice",
-    "let us have your fee",
-    "your fee note",
-    "fee note please",
-)
+_BILLING_KEYWORDS: tuple[str, ...] = _RULES.billing_keywords
 
 
 # Phrases (case-insensitive) that signal an INFORMAL work request — a sender who
@@ -239,32 +204,11 @@ _BILLING_KEYWORDS: tuple[str, ...] = (
 # _WORK_KEYWORDS: an informal phrase only promotes when it is corroborated by a real
 # job identifier (a Case/PO, job ref, or VRM) AND images — informal wording alone
 # must still abstain, to preserve the abstain-to-other bias.
-_INFORMAL_WORK_KEYWORDS: tuple[str, ...] = (
-    "can you look at",
-    "could you look at",
-    "have a look at the damage",
-    "look at the damage",
-    "can you sort",
-    "deal with this one",
-    "need a report on",
-    "need you to look",
-    "here is a new one",
-    "another one for you",
-    "new job",
-    "new claim",
-    "quote for the repairs",
-    # collisionspike TKT-040 — informal triage / initial-assessment work requests
-    # (a provider sends damage photos and asks for a roadworthiness/repairability view
-    # before the formal instruction). Promotes ONLY with images + a job identifier.
-    "initial assessment",
-    "provide an initial assessment",
-    "confirm if this vehicle is roadworthy",
-    "roadworthy and repairable",
-    "roadworthy",
-    "triage only",
-    "triage request",
-    "triage only request",
-)
+# Also carries the collisionspike TKT-040 informal triage / initial-assessment
+# work requests (a provider sends damage photos and asks for a
+# roadworthiness/repairability view before the formal instruction) — those
+# promote ONLY with images + a job identifier, same as every other entry here.
+_INFORMAL_WORK_KEYWORDS: tuple[str, ...] = _RULES.informal_work_keywords
 
 
 # Phrases (case-insensitive) that signal an email is ASKING A QUESTION rather than
@@ -272,60 +216,14 @@ _INFORMAL_WORK_KEYWORDS: tuple[str, ...] = (
 # enquiry / request for a quote. Same precision discipline as _WORK_KEYWORDS.
 # The classifier uses these only after the work rules have failed, so an email
 # that both instructs and asks a question still reads as work first.
-_QUERY_KEYWORDS: tuple[str, ...] = (
-    "where is my report",
-    "where is the report",
-    "chasing the report",
-    "chase the report",
-    "any update",
-    "any progress",
-    "status of",
-    "could you confirm",
-    "can you confirm",
-    "please confirm",
-    "please update",
-    # collisionspike #8 — broader chase / status / advice wording. Real provider
-    # chases ("can we please have an update on our client") matched NO keyword and
-    # fell through to 'other'. These are deliberately NOT instruction wording (no
-    # inspect/report/attend verbs), so the work rules still win an email that both
-    # instructs and asks; the classifier only reaches these after the work rules.
-    "update on",
-    "an update",
-    "please advise",
-    "can you advise",
-    "could you advise",
-    "information regarding",
-    "any news",
-    "where are we with",
-    "when will",
-    "please chase",
-    "just chasing",
-    "awaiting your",
-    "how much would",
-    "how much do you charge",
-    "what do you charge",
-    "would you be able to quote",
-    "can you quote",
-    "request a quote",
-    "for a quote",
-    "fee for",
-    "cost to inspect",
-    "would you be able to",
-    "is it possible to",
-    "general enquiry",
-    "enquiring about",
-    "querying",
-    # collisionspike TKT-039 — report-support / dispute queries (a client asking us to
-    # justify a report we already produced). These are questions about EXISTING work.
-    "your arguments",
-    "are disputing",
-    "is disputing",
-    "disputing the",
-    "dispute the cost",
-    "supporting evidence",
-    "support our report",
-    "support your report",
-)
+# Also carries: collisionspike #8's broader chase / status / advice wording
+# (real provider chases like "can we please have an update on our client"
+# matched NO keyword and fell through to 'other'; these are deliberately NOT
+# instruction wording, so the work rules still win an email that both instructs
+# and asks); and collisionspike TKT-039's report-support / dispute queries (a
+# client asking us to justify a report we already produced — questions about
+# EXISTING work).
+_QUERY_KEYWORDS: tuple[str, ...] = _RULES.query_keywords
 
 
 # High-precision CHASE phrases (collisionspike TKT-030/031/033): the sender is asking
@@ -337,44 +235,37 @@ _QUERY_KEYWORDS: tuple[str, ...] = (
 # (handled in the classifier) and routes the email to the query side. Anchored to
 # send-me-the-existing-report wording; deliberately excludes "provide a report"
 # (that is an instruction TO produce one).
-_CHASE_PHRASES: tuple[str, ...] = (
-    "provide the report",
-    "provide your report",
-    "provide engineers report",
-    "provide engineer's report",
-    "provide the engineers report",
-    "provide us with a copy of your report",
-    "provide a copy of your report",
-    "copy of your report",
-    "copy of the report",
-    "provide report based",
-    "send us your report",
-    "send your report",
-    "send the report",
-    "forward your report",
-    "chase the report",
-    "heard nothing further",
-    "heard nothing from you",
-    "not heard anything",
-    "still awaiting your report",
-    "outstanding report",
-)
+_CHASE_PHRASES: tuple[str, ...] = _RULES.chase_phrases
 
 
 # Case-summary / digest markers (collisionspike TKT-029): an email that is a RECAP of
 # instructions already sent (the per-case detail is in an attached summary, not a fresh
 # instruction). High-precision recap wording so a genuine instruction is not suppressed.
-_SUMMARY_MARKERS: tuple[str, ...] = (
-    "summary of the instructions",
-    "summary of instructions",
-    "summary of the cases",
-    "summary of cases",
-    "summary of the inspections",
-    "instructions sent yesterday",
-    "instructions sent over yesterday",
-    "showing the status of the inspections",
-    "list of instructions sent",
-)
+_SUMMARY_MARKERS: tuple[str, ...] = _RULES.summary_markers
+
+
+# Phrases (case-insensitive) that signal the sender is CANCELLING / withdrawing an
+# existing instruction, claim or inspection outright — collisionspike TKT-041 /
+# taxonomy-v2. Mined from the 13 real TKT-041 cancellation emails: roughly half are
+# auto-generated claim-system notices ("Please be advised that claim ... has been
+# cancelled ... any outstanding instructions can be disregarded"; "Please cancel any
+# previous instructions ... as the repair is cancelled"; subject "Claim closed
+# notification"), the other half are a person typing a short cancel request ("please
+# cancel this instruction", "close this one off - client has cancelled instructions",
+# "SB20 CMY IS TO BE CANCELLED PLEASE", "please cancel the instructions ... for the
+# mentioned client"). One real example ("place this file on hold ... until you receive
+# further instructions") used HOLD wording with no "cancel" word at all — deliberately
+# NOT mined in here, since a hold/pause is not the same claim as an outright
+# cancellation; it would need its own signal if it becomes worth distinguishing.
+# Deliberately includes the bare words "cancelled" / "cancellation" (several of the
+# real emails say only that, with no other wording) — precision is instead carried by
+# the SENDER-WRITTEN-only scope the classifier applies (a cancellation phrase quoted
+# out of an OLDER message must not cancel a DIFFERENT, currently-live thread) plus a
+# cheap negation guard for "not cancelled" (see ``_CANCELLATION_NEGATION_RE`` in
+# email_classifier.py). NOT exhaustive — a cancellation phrased without any of these
+# words (e.g. a bare "please stop work") will still abstain; extend this tuple as real
+# misses turn up.
+_CANCELLATION_PHRASES: tuple[str, ...] = _RULES.cancellation_phrases
 
 
 def _match_keywords(text: str, phrases: tuple[str, ...]) -> tuple[str, ...]:

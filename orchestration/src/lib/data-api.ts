@@ -24,7 +24,20 @@
 
 import type { CreateCaseInput, CreateCaseResult } from '@cs/domain';
 import type { ProviderMatchRecord, OpenProviderCase } from '@cs/domain';
+import type { ImageSourceMatchRecord } from '@cs/domain';
 import type { EvidenceDescriptor } from '@cs/domain';
+
+/**
+ * GET /api/internal/provider-match-records response (rules-engine-v2 Phase 3, ADR-0011).
+ * `providers` is the existing matchProviderByDomain corpus (unchanged shape); `imageSources`
+ * is the NEW Image-Source intermediary corpus `@cs/domain`'s `matchSenderIdentity` needs
+ * (image_source WHERE kind=intermediary, joined through imagesource_workprovider — empty
+ * candidateProviderIds when an intermediary has no linked providers yet, never omitted).
+ */
+export interface ProviderMatchRecordsResult {
+  providers: ProviderMatchRecord[];
+  imageSources: ImageSourceMatchRecord[];
+}
 
 /**
  * Parser-owned EVA fields (value-only) forwarded from the orchestration `parse` activity to
@@ -111,9 +124,76 @@ export interface DedupContext {
   seenPayloadHashes: string[];
 }
 
+/**
+ * POST /api/internal/triage/context request body (ADR-0019 pinned contract). Every field
+ * is a plain (possibly empty) string — the caller (triagePolicy.ts) never omits a key, it
+ * sends '' for "nothing to match on" so the API always parses one shape.
+ */
+export interface TriageContextRequest {
+  caseref?: string;
+  jobref?: string;
+  vrm?: string;
+  internetMessageId?: string;
+  conversationId?: string;
+}
+
+/** POST /api/internal/triage/context response body (ADR-0019 pinned contract) — maps
+ *  1:1 onto `@cs/domain`'s `TriagePolicyContext` open-case-match fields. */
+export interface TriageContextResult {
+  openCaseMatches: Array<{
+    caseId: string;
+    casePo: string;
+    matchedOn: 'case_po' | 'job_ref' | 'vrm';
+    status: string;
+  }>;
+  duplicateInternetMessageId: boolean;
+  conversationSiblingCaseIds: string[];
+}
+
+/** POST /api/internal/triage/suggest-link request body (ADR-0019 pinned contract). */
+export interface TriageSuggestLinkRequest {
+  sourceMessageId?: string;
+  inboundEmailId?: string;
+  targetCaseId?: string;
+  suggestionType: 'case_link' | 'cancellation';
+  rationale: string;
+  confidence?: number;
+  decisionInputs: Record<string, unknown>;
+}
+
+/** POST /api/internal/triage/suggest-link response body (ADR-0019 pinned contract).
+ *  `created: false` means an equivalent PENDING suggestion already existed — idempotent
+ *  under Durable at-least-once retries, never a duplicate row. */
+export interface TriageSuggestLinkResult {
+  suggestionId: string;
+  created: boolean;
+}
+
+/**
+ * POST /api/internal/triage/suggest-link request body, `suggestionType: 'triage_category'`
+ * shape (rules-engine-v2 Phase 4, ADR-0019 Stage C) — a DIFFERENT `suggested_value` shape
+ * than `TriageSuggestLinkRequest` above (`{category, subtype}`, never a `targetCaseId`: a
+ * triage-category suggestion proposes a RELABEL of the inbound email, not a case link).
+ * Same endpoint, same idempotency mechanism (subject-key + suggestionType), distinct
+ * client method so the two request shapes never get confused at a call site.
+ */
+export interface TriageSuggestClassificationRequest {
+  sourceMessageId?: string;
+  inboundEmailId?: string;
+  category: string;
+  subtype: string;
+  rationale: string;
+  confidence: number;
+  /** '<deployment>:<modelVersion-from-response>' — see triage-classify.ts's own stamp. */
+  modelVersion: string;
+}
+
 export const dataApi = {
-  /** ProviderMatchRecord[] for the in-activity `matchProviderByDomain` (internal route). */
-  providerMatchRecords(): Promise<ProviderMatchRecord[]> {
+  /**
+   * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
+   * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).
+   */
+  providerMatchRecords(): Promise<ProviderMatchRecordsResult> {
     return request('GET', '/api/internal/provider-match-records');
   },
 
@@ -158,6 +238,12 @@ export const dataApi = {
      *  fill-if-empty by the API (constraint-guarded). The fix for "email case shows only its
      *  registration + Case/PO": the parser extracts all 12 fields; this carries the other 8. */
     parserEva?: ParserEvaFields;
+    /** rules-engine-v2 Phase 3 (ADR-0011) — set when the SENDER matched an Image-Source
+     *  intermediary rather than a direct work provider; its N:N candidate work providers
+     *  let the API's applyParserFields treat a content-detected provider among them as
+     *  CORROBORATED. Absent when the sender matched a direct provider or nothing at all. */
+    intermediaryImageSourceId?: string;
+    intermediaryCandidateProviderIds?: string[];
     decision: {
       resolution: string;
       targetCaseId?: string;
@@ -185,6 +271,13 @@ export const dataApi = {
    * Record a classified inbound_email triage row with NO case (ADR-0015). Used for
    * query/other AND as the always-on first write for receiving_work (caseResolve later
    * stamps case_id onto the same row). Idempotent upsert on source_message_id.
+   *
+   * `inbound` is the FULL InboundEnvelope and already carries `conversationId` as-is (one
+   * of the rules-engine-v2 Phase 2 DDL's two new inbound_email columns —
+   * `inbound_email.conversation_id`); `classification.bodyJobref` is the other
+   * (`inbound_email.body_jobref`). Both are sent unconditionally — schema-tolerant
+   * server-side: the API persists them once its upsert is wired to the (already-landed)
+   * columns, and simply ignores the extra fields until then.
    */
   recordInboundEmail(payload: {
     inbound: unknown;
@@ -196,6 +289,9 @@ export const dataApi = {
       signals: string[];
       bodyVrm: string;
       bodyCaseref: string;
+      /** rules-engine-v2 Phase 2 DDL target: inbound_email.body_jobref (capture-only
+       *  until the API's upsert reads it — see the note above). */
+      bodyJobref?: string;
     };
   }): Promise<{ inboundEmailId: string | null }> {
     return request('POST', '/api/internal/inbound-email', payload);
@@ -297,8 +393,70 @@ export const dataApi = {
     providerId?: string;
     ref?: string;
     vrm?: string;
+    /** Provider job/claim reference (rules-engine-v2 Phase 2 / TKT-023 — capture-only
+     *  field #2 alongside recordInboundEmail's bodyJobref/conversationId): widens the
+     *  match beyond Case/PO+VRM so a follow-up bearing only e.g. "Our ref: 576299" can
+     *  still attach to its open case. */
+    jobref?: string;
   }): Promise<{ outcome: 'linked' | 'ambiguous' | 'no_match'; caseId?: string; candidateCount: number }> {
     return request('POST', '/api/internal/inbound/link-reply', payload);
+  },
+
+  /**
+   * Resolve the LIVE context the pure `@cs/domain` `decideTriage` (Stage B, ADR-0019 /
+   * rules-engine-v2 Phase 2) needs: open-case Case/PO + job-ref + VRM matches,
+   * cross-mailbox duplicate delivery (the SAME Internet-Message-Id already ingested), and
+   * local conversation-thread siblings (internal route; a pure read, no mutation — safe
+   * to call on every Durable replay).
+   */
+  triageContext(payload: TriageContextRequest): Promise<TriageContextResult> {
+    return request('POST', '/api/internal/triage/context', payload);
+  },
+
+  /**
+   * Write ONE `ai_suggestion` row for a triage-policy proposal (case-link or
+   * cancellation) — the ONLY call that persists a triage-policy decision. A `shadow`
+   * (all-gates-forced-on) decision NEVER calls this (ADR-0019 §5 / the Phase-2 plan: "no
+   * shadow rows in ai_suggestion while its gate is off"). Idempotent server-side: returns
+   * `created: false` (never a duplicate row) when an equivalent PENDING suggestion
+   * already exists, so an at-least-once Durable retry is safe.
+   */
+  triageSuggestLink(payload: TriageSuggestLinkRequest): Promise<TriageSuggestLinkResult> {
+    return request('POST', '/api/internal/triage/suggest-link', payload);
+  },
+
+  /**
+   * Write ONE `ai_suggestion` row for a Stage-C (gated LLM) triage-category proposal
+   * (rules-engine-v2 Phase 4, ADR-0019 §3) — the ONLY call `triage-classify.ts`'s
+   * activity makes on a non-abstain model result. Never a case mutation: a human accepts
+   * it via the existing `ai_suggestion` review lifecycle
+   * (`api/src/functions/ai-suggestions.ts`'s `promoteAcceptedSuggestion`), which applies
+   * category_code/subtype_code the same way a staff reclassify does. Idempotent
+   * server-side (same subject-key + suggestionType mechanism as `triageSuggestLink`).
+   */
+  triageSuggestClassification(payload: TriageSuggestClassificationRequest): Promise<TriageSuggestLinkResult> {
+    return request('POST', '/api/internal/triage/suggest-link', {
+      ...(payload.sourceMessageId ? { sourceMessageId: payload.sourceMessageId } : {}),
+      ...(payload.inboundEmailId ? { inboundEmailId: payload.inboundEmailId } : {}),
+      suggestionType: 'triage_category',
+      category: payload.category,
+      subtype: payload.subtype,
+      rationale: payload.rationale,
+      confidence: payload.confidence,
+      modelVersion: payload.modelVersion,
+    });
+  },
+
+  /**
+   * Report the terminal outcome of a gated Outlook filing (TKT-054 / 020726 E6) — the
+   * `outlook-move` queue function's write-back. `moved` also marks a still-new row
+   * actioned on the API side; `failed` leaves the row retryable.
+   */
+  reportOutlookMove(
+    inboundEmailId: string,
+    payload: { outcome: 'moved' | 'failed'; folder?: string; detail?: string },
+  ): Promise<void> {
+    return request('POST', `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
   },
 
   /** Append one audit_event row (internal route; the API enforces append-only). */

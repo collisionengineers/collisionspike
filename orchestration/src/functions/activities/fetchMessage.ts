@@ -15,7 +15,11 @@
 import { createHash } from 'node:crypto';
 import * as df from 'durable-functions';
 import { getMessageWithAttachments, getMessageHeaders, getMessageRawMime } from '../../lib/graph.js';
-import { mailboxOfResource } from '../../lib/subscriptions.js';
+import {
+  mailboxOfResource,
+  looksLikeMailboxAddress,
+  resolveSubscriptionMailbox,
+} from '../../lib/subscriptions.js';
 import { uploadEvidenceBytes } from '../../lib/blob.js';
 import { extractVrm } from '@cs/domain';
 
@@ -31,6 +35,9 @@ interface FetchMessageInput {
 export interface InboundEnvelope {
   messageId: string;
   internetMessageId: string;
+  /** Graph's thread-correlation id (default property set — capture-only; persisted
+   *  from Phase 2's DDL, which adds inbound_email.conversation_id). */
+  conversationId?: string;
   subject: string;
   senderAddress: string;
   receivedAt: string;
@@ -77,7 +84,20 @@ const BODY_PREVIEW_CAP = 3_500;
 
 df.app.activity('fetchMessage', {
   handler: async (input: FetchMessageInput, ctx): Promise<InboundEnvelope> => {
-    const mailbox = mailboxOfResource(input.resource ?? '');
+    // Notifications canonicalise `resource` to Users/<object-id-GUID>/… — the GUID works for
+    // the Graph fetches below but is useless provenance (TKT-054: every mailbox chip read
+    // "Other source"). Prefer the address; else resolve the UPN via the subscription; else
+    // fall back to the GUID (intake never blocks on provenance — old rows are backfillable).
+    const parsedMailbox = mailboxOfResource(input.resource ?? '');
+    let mailbox = parsedMailbox;
+    let mailboxVia: 'resource' | 'subscription' = 'resource';
+    if (!looksLikeMailboxAddress(parsedMailbox) && input.subscriptionId) {
+      const resolved = await resolveSubscriptionMailbox(input.subscriptionId);
+      if (resolved) {
+        mailbox = resolved;
+        mailboxVia = 'subscription';
+      }
+    }
     if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input.resource}"`);
 
     const { message, attachments } = await getMessageWithAttachments(mailbox, input.messageId);
@@ -122,6 +142,7 @@ df.app.activity('fetchMessage', {
     const envelope: InboundEnvelope = {
       messageId: input.messageId,
       internetMessageId: message.internetMessageId ?? input.messageId,
+      conversationId: message.conversationId ?? '',
       subject,
       senderAddress,
       receivedAt: message.receivedDateTime ?? input.receivedAt ?? new Date().toISOString(),
@@ -136,7 +157,7 @@ df.app.activity('fetchMessage', {
       attachments: landed,
       ...(rawEml ? { rawEml } : {}),
     };
-    ctx.log(JSON.stringify({ evt: 'fetchMessage', messageId: input.messageId, mailbox, attachments: landed.length, eml: Boolean(rawEml) }));
+    ctx.log(JSON.stringify({ evt: 'fetchMessage', messageId: input.messageId, mailbox, mailboxVia, attachments: landed.length, eml: Boolean(rawEml) }));
     return envelope;
   },
 });

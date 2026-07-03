@@ -100,7 +100,9 @@ const useStyles = makeStyles({
     gridTemplateColumns: '1fr',
     gap: tokens.spacingVerticalL,
     alignItems: 'start',
-    '@media (min-width: 992px)': {
+    // 1200 (was 992): below this the side column squeezes past what full tile
+    // labels can survive — stack instead (round-3 operator regression report).
+    '@media (min-width: 1200px)': {
       gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)',
     },
   },
@@ -193,20 +195,25 @@ const useStyles = makeStyles({
     gap: tokens.spacingVerticalM,
   },
 
-  /* ----- Region A: live depth — thin strip of two buttons ----- */
+  /* ----- Region A: live depth — a 2×2 grid of EQUAL tiles (TKT-054 / 020726
+     E8: content-sized flex tiles wrapped unevenly and the chevrons never
+     lined up; equal tracks + flush-right chevrons fix the alignment). ----- */
   liveStrip: {
-    display: 'flex',
-    flexWrap: 'wrap',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gridAutoRows: '1fr',
     gap: tokens.spacingHorizontalM,
   },
   // Clickable stat tile (spec §4): the affordance discriminator is an
   // always-visible chevron + a hover response (lift + --ce-shadow-hover);
-  // static surfaces (thruStrip cells, allTimeTile) get neither. Reduced
+  // static surfaces (thruCell figures, allTimeTile) get neither. Reduced
   // motion is gated globally in theme.css.
   liveBtn: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
+    width: '100%',
+    minWidth: 0,
     backgroundColor: tokens.colorNeutralBackground1,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     borderRadius: '2px',
@@ -258,74 +265,78 @@ const useStyles = makeStyles({
     lineHeight: 1,
     color: 'var(--ce-ink)',
   },
+  // Labels WRAP (max 2 lines) rather than truncate — a chopped "Needs sort…"
+  // at restored-down window widths was the round-3 operator regression report.
   liveLabel: {
     fontSize: '13px',
     fontWeight: tokens.fontWeightSemibold,
     color: tokens.colorNeutralForeground2,
+    lineHeight: 1.25,
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 2,
+    overflow: 'hidden',
   },
-  // Right-centred, always-visible clickability cue (spec §4).
+  // Right-centred, always-visible clickability cue (spec §4) — flush right in
+  // the equal-width tile so the four chevrons read as one column (020726 E8).
   tileChevron: {
     display: 'inline-flex',
     alignItems: 'center',
     color: tokens.colorNeutralForeground3,
     flexShrink: 0,
+    marginLeft: 'auto',
   },
 
-  /* ----- Region B: throughput — windowed figures + a SEPARATE all-time tile ----- */
-  // The windowed strip and the lifetime "Sent to EVA" tile sit side-by-side but are
-  // visually distinct surfaces, so a lifetime total is never read as a windowed one.
-  thruRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'stretch',
-    gap: tokens.spacingHorizontalM,
-  },
-  thruStrip: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'stretch',
-    gap: 0,
-    flex: '1 1 320px',
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderRadius: '2px',
-    overflow: 'hidden',
-  },
-  // Lifetime "Sent to EVA" — its own bordered tile, captioned "All time", set apart
-  // from the windowed strip so the metric is honest (work-todo-spike: dashboard-logic).
-  // Charcoal identity rail (not severity) + flat/static — no shadow, no chevron:
-  // this tile is not clickable (reforge 2026-07-01 §4 static surfaces).
-  allTimeTile: {
+  /* ----- Queues snapshot: a single-column stack of the three live queues
+     (TKT-054 regressions, round 4: at the operator's MAXIMIZED width the right
+     column ended after Today/this-week and left a tall empty void beside the
+     long needs-action list — round 2/3 had chased label truncation in the
+     narrow ~1280 band, the wrong condition). Reuses the inbox tile anatomy; a
+     vertical stack (not the 2×2 grid) both fills the vertical void and suits an
+     odd count of three. ----- */
+  queueList: {
     display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'center',
-    gap: '4px',
-    minWidth: '180px',
-    padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    borderLeft: '3px solid var(--ce-charcoal)',
-    borderRadius: '2px',
-    backgroundColor: tokens.colorNeutralBackground1,
+    gap: tokens.spacingVerticalM,
   },
-  allTimeHead: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalXS,
-    fontFamily: 'var(--ce-font-display)',
-    fontSize: '11px',
-    fontWeight: 700,
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
-    color: tokens.colorNeutralForeground3,
+
+  /* ----- Region B: throughput — the SAME 2×2 equal grid as the inbox tiles
+     above (TKT-054 regressions, round 2: the flex-wrap strip + floating
+     all-time box wrapped unevenly at side-column widths and never lined up
+     with the tile grid — equal tracks kill the wrap at any width). ----- */
+  thruRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gridAutoRows: '1fr',
+    gap: tokens.spacingHorizontalM,
   },
   thruCell: {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalM,
-    padding: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalL}`,
-    flex: '1 1 0',
-    minWidth: '180px',
-    borderRight: `1px solid ${tokens.colorNeutralStroke2}`,
-    ':last-child': { borderRight: 0 },
+    minWidth: 0,
+    padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalL}`,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: '2px',
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  // Lifetime "Sent to EVA" — same cell anatomy, set apart by the charcoal
+  // identity rail (not severity) + an "All time" caption in the slot where
+  // clickable tiles carry their chevron, so a lifetime total is never read
+  // as a windowed one (work-todo-spike: dashboard-logic). Flat/static — no
+  // shadow, no chevron: not clickable (reforge 2026-07-01 §4 static surfaces).
+  allTimeTile: {
+    borderLeft: '3px solid var(--ce-charcoal)',
+  },
+  // Sub-line under the label (not a right-aligned caption — it crowded the
+  // cell and forced label truncation at restored-down window widths).
+  allTimeHead: {
+    fontFamily: 'var(--ce-font-display)',
+    fontSize: '10px',
+    fontWeight: 700,
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+    color: tokens.colorNeutralForeground3,
   },
   thruIcon: {
     display: 'inline-flex',
@@ -342,7 +353,11 @@ const useStyles = makeStyles({
   thruLabel: {
     fontSize: '12px',
     color: tokens.colorNeutralForeground3,
-    whiteSpace: 'nowrap',
+    lineHeight: 1.25,
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 2,
+    overflow: 'hidden',
   },
 
   /* ----- Region C: needs-action hero list ----- */
@@ -726,7 +741,7 @@ export function Dashboard() {
                   inbound.untriaged > 0 ? (
                     <Button
                       appearance="secondary"
-                      onClick={() => navigate('/inbox?view=active&triageState=new')}
+                      onClick={() => navigate('/inbox')}
                     >
                       Sort new email ({inbound.untriaged})
                     </Button>
@@ -767,30 +782,32 @@ export function Dashboard() {
               Inbox
             </h2>
             <div className={styles.liveStrip}>
+              {/* TKT-054: the inbox is one condensed list — tiles deep-link the
+                  new ?type= scheme (legacy ?category/?view URLs still migrate). */}
               <InboxTile
                 icon={Briefcase}
                 value={inbound.receiving_work}
                 label="Receiving work"
-                onOpen={() => navigate('/inbox?category=receiving_work&view=active')}
+                onOpen={() => navigate('/inbox?type=receiving_work')}
               />
               <InboxTile
                 icon={MailQuestion}
                 value={inbound.query}
                 label="Queries"
-                onOpen={() => navigate('/inbox?category=query&view=active')}
+                onOpen={() => navigate('/inbox?type=query')}
               />
               <InboxTile
                 icon={Mail}
                 value={inbound.other}
                 label="Other"
-                onOpen={() => navigate('/inbox?category=other&view=active')}
+                onOpen={() => navigate('/inbox?type=other')}
               />
               <InboxTile
                 icon={AlertCircle}
                 value={inbound.untriaged}
                 label="Needs sorting"
                 attention={inbound.untriaged > 0}
-                onOpen={() => navigate('/inbox?view=active&triageState=new')}
+                onOpen={() => navigate('/inbox')}
               />
             </div>
           </section>
@@ -800,18 +817,51 @@ export function Dashboard() {
               Today / this week
             </h2>
             <div className={styles.thruRow}>
-              <div className={styles.thruStrip}>
-                <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
-                <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
-                <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
-              </div>
-              <div className={styles.allTimeTile}>
-                <span className={styles.allTimeHead}>
-                  <CheckCheck size={12} strokeWidth={2} aria-hidden /> All time
+              <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
+              <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
+              <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
+              <div className={mergeClasses(styles.thruCell, styles.allTimeTile)}>
+                <span className={styles.thruIcon} aria-hidden>
+                  <CheckCheck size={16} strokeWidth={1.75} />
                 </span>
-                <span className="ce-stat">{sentToEvaTotal}</span>
-                <span className={styles.thruLabel}>Sent to EVA</span>
+                <span className={styles.thruText}>
+                  <span className="ce-stat">{sentToEvaTotal}</span>
+                  <span className={styles.thruLabel}>Sent to EVA</span>
+                  <span className={styles.allTimeHead}>All time</span>
+                </span>
               </div>
+            </div>
+          </section>
+
+          {/* Queues snapshot (TKT-054 round 4) — fills the tall right-column
+              void at maximized width with the three live queue depths; each row
+              deep-links its queue (same routes as the funnel + held bar). */}
+          <section className={styles.region} aria-labelledby="heading-queues">
+            <h2 className={mergeClasses('ce-overline', styles.regionHeading)} id="heading-queues">
+              Queues
+            </h2>
+            <div className={styles.queueList}>
+              <InboxTile
+                icon={FileWarning}
+                value={live.notReady}
+                label="Not ready"
+                hint="Open queue."
+                onOpen={() => navigate('/queue/not-ready')}
+              />
+              <InboxTile
+                icon={Eye}
+                value={live.review}
+                label="Review"
+                hint="Open queue."
+                onOpen={() => navigate('/queue/review')}
+              />
+              <InboxTile
+                icon={AlertOctagon}
+                value={live.held}
+                label="Held"
+                hint="Open queue."
+                onOpen={() => navigate('/queue/held')}
+              />
             </div>
           </section>
         </div>
@@ -859,6 +909,7 @@ function InboxTile({
   value,
   label,
   attention,
+  hint = 'Open inbox.',
   onOpen,
 }: {
   icon: LucideIcon;
@@ -866,6 +917,8 @@ function InboxTile({
   label: string;
   /** Warning-amber treatment ("Needs sorting" with a backlog) — never red. */
   attention?: boolean;
+  /** Trailing sentence of the aria-label — the Queues snapshot passes "Open queue." */
+  hint?: string;
   onOpen: () => void;
 }) {
   const styles = useStyles();
@@ -874,7 +927,7 @@ function InboxTile({
       type="button"
       className={mergeClasses('ce-focusable', styles.liveBtn, attention && styles.liveBtnAttention)}
       onClick={onOpen}
-      aria-label={`${label}: ${value}. Open inbox.`}
+      aria-label={`${label}: ${value}. ${hint}`}
     >
       <span className={mergeClasses(styles.liveIcon, attention && styles.liveIconAttention)} aria-hidden>
         <Icon size={18} strokeWidth={1.85} />

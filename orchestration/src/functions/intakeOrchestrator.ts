@@ -8,6 +8,18 @@
  *   A0.  fetchMessage    → Graph: GET message + attachments + reply headers; land bytes → Blob
  *   1.   providerMatch   → Data API: match sender domain → work-provider
  *   1.5  classifyInbound → parser /classify-email: receiving_work vs query/other (+ is_reply)
+ *   1.55 triagePolicy    → Data API (context read) + @cs/domain decideTriage (Stage B,
+ *                          ADR-0019 / rules-engine-v2 Phase 2): resolves open-case/duplicate/
+ *                          thread context, logs an always-on decision-telemetry event, and
+ *                          (suggest_attach/propose_cancellation only) writes a best-effort
+ *                          ai_suggestion row. Returns ONE action the orchestrator routes on
+ *                          below (§ "1.55 routing") — never recomputed inline.
+ *   1.55b triageClassify  → gated/triage-classify.ts (Stage C, ADR-0019 / rules-engine-v2
+ *          (gated)         Phase 4): scheduled only for abstain/uncorroborated_* rows
+ *                          (shouldAttemptTriageAssist — pure, classification-shape only,
+ *                          replay-safe); EMAIL_AI_ENABLED + model-configured gate live
+ *                          INSIDE the activity, never read here. Suggestion-only; never
+ *                          changes routing below.
  *   1.6  linkReply (#3)  → Data API: a REPLY about existing work links to its OPEN case (no mint)
  *   4.   parse           → parser Python Function (gated PDF_MAPPER_ENABLED) — runs BEFORE
  *                          caseResolve so its PDF VRM/mileage feed case-create + enrichment (#7/#1)
@@ -26,6 +38,9 @@
 
 import * as df from 'durable-functions';
 import { supplementAccidentCircumstancesFromBody } from '../lib/supplement-parse.js';
+import type { InboundClassification } from './activities/classifyInbound.js';
+import { shouldAttemptTriageAssist } from './gated/triage-classify.js';
+import type { TriagePolicyDecision } from '@cs/domain';
 
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
 retry.backoffCoefficient = 2;
@@ -43,6 +58,12 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   const workProviderId = (provider as { workProviderId?: string }).workProviderId;
   const matchState = (provider as { matchState?: string }).matchState;
   const principalCode = (provider as { principalCode?: string }).principalCode;
+  // rules-engine-v2 Phase 3 (ADR-0011) — set only when providerMatch resolved the sender to
+  // an Image-Source intermediary (e.g. Connexus). Threaded into triagePolicy (decisionInputs
+  // telemetry) and caseResolve (resolve-persist corroboration) below.
+  const intermediaryImageSourceId = (provider as { imageSourceId?: string }).imageSourceId;
+  const intermediaryCandidateProviderIds = (provider as { candidateProviderIds?: string[] })
+    .candidateProviderIds;
 
   // 1.5 — triage classify (ADR-0015): records the classified inbound_email row and decides
   // whether this email is RECEIVING WORK (→ a Case) or a QUERY / OTHER (→ no Case), and flags
@@ -51,13 +72,112 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     inbound,
     workProviderId,
     matchState,
-  })) as {
-    category: string;
-    subtype: string;
-    bodyCaseref: string;
-    bodyVrm: string;
-    isReply: boolean;
-  };
+  })) as InboundClassification;
+
+  // 1.55 — triage policy (Stage B, ADR-0019 / rules-engine-v2 Phase 2): resolve the LIVE
+  // open-case/duplicate/thread context `decideTriage` needs and turn (classification x
+  // context) into ONE triage action. The activity ALWAYS runs (the context read + the
+  // always-on decision-telemetry event are both explicitly in-scope additions — see the
+  // activity's own module doc), computing a `shadow` decision (all four TRIAGE_* gates
+  // forced on — would-be decision, telemetry only) alongside the `acting` decision (the
+  // real gates) it returns.
+  //
+  // KILL-SWITCH INVARIANT: with every TRIAGE_*_ENABLED gate absent, `acting` is ALWAYS
+  // 'proceed_default' (decideTriage's own construction — not special-cased here), so with
+  // all four gates off the routing below is a no-op and the chain from here down is
+  // byte-for-byte identical to pre-Phase-2 behaviour.
+  const triage = (yield ctx.df.callActivityWithRetry('triagePolicy', retry, {
+    inbound,
+    classification,
+    matchState,
+    ...(intermediaryImageSourceId
+      ? { intermediaryImageSourceId, intermediaryCandidateProviderIds }
+      : {}),
+  })) as TriagePolicyDecision;
+
+  if (triage.action !== 'proceed_default' && !ctx.df.isReplaying) {
+    ctx.log(
+      `[intake] triage policy: ${triage.action} on ${classification.category}/${classification.subtype}` +
+        (triage.targetCaseId ? ` -> case ${triage.targetCaseId}` : ''),
+    );
+  }
+
+  // drop_duplicate (TRIAGE_REF_GATE_ENABLED only) — this exact Internet-Message-Id was
+  // already ingested, typically the SAME email delivered to two subscribed mailboxes
+  // (ADR-0019's "mint race"). The inbound_email triage row is already recorded
+  // (step 1.5, unconditional) and classifyInbound's own audit call already covers this
+  // arrival, so there is nothing left to persist for a message that will never own a
+  // case — skip linkReply/parse/caseResolve/boxFolder AND classifyPersist/extractImages/
+  // boxArchive/statusEvaluate (evidence.case_id is NOT NULL: there is no case to attach
+  // it to), mirroring the existing linked-reply lane's "no new case minted" return shape
+  // below (a plain descriptive result, no further activity calls).
+  if (triage.action === 'drop_duplicate') {
+    return { triaged: classification.category, subtype: classification.subtype, triage: triage.action };
+  }
+
+  // 1.55b — gated LLM triage-assist (Stage C, ADR-0019 / rules-engine-v2 Phase 4): a
+  // best-effort SECOND OPINION for rows Stage A could not confidently place (abstain, or
+  // carrying an uncorroborated_* signal flag — see shouldAttemptTriageAssist's own doc for
+  // why that is checked independently of category/action, not just "category === other").
+  // Writes a SUGGESTION only (triage-classify.ts's activity), never changes routing below
+  // — the branches that follow keep deciding purely on Stage A/B's classification/action,
+  // exactly as before this block existed.
+  //
+  // DURABLE DETERMINISM: shouldAttemptTriageAssist reads ONLY the checkpointed
+  // `classification` value (Stage A's result from step 1.5, already replay-safe) — it
+  // NEVER reads process.env, so this `if` is safe to re-evaluate identically on every
+  // replay. The real EMAIL_AI_ENABLED/model-configured gate is NOT checked here (an
+  // orchestrator body must never branch on process.env — Azure can replay this generator
+  // on a different worker/at a different time, and env state is not guaranteed identical);
+  // it lives INSIDE the triageClassify ACTIVITY instead, which already returns
+  // `{ skipped: true }` immediately when off. Net effect: with the gate off, this branch
+  // still SCHEDULES an activity call for the qualifying subset of rows (abstain/
+  // uncorroborated only — not "every email"), but that call is a cheap no-op round trip,
+  // never a model call. Placed AFTER the drop_duplicate return so a cross-mailbox repeat
+  // delivery is never sent for a second opinion it will just be discarded alongside.
+  if (shouldAttemptTriageAssist(classification)) {
+    try {
+      const env = inbound as {
+        internetMessageId?: string;
+        subject?: string;
+        body?: string;
+        senderAddress?: string;
+        attachments?: Array<{ filename: string }>;
+      };
+      yield ctx.df.callActivityWithRetry('triageClassify', retry, {
+        sourceMessageId: env.internetMessageId,
+        subject: env.subject,
+        body: env.body,
+        senderAddress: env.senderAddress,
+        attachmentFilenames: (env.attachments ?? []).map((a) => a.filename),
+        deterministicCategory: classification.category,
+        deterministicSubtype: classification.subtype,
+        deterministicSignals: classification.signals,
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] triage LLM assist failed (additive, suggestion-only, non-blocking): ${String(e)}`);
+      }
+    }
+  }
+
+  // suggest_attach / propose_cancellation / route_images_unmatched: the DECISION (and, for
+  // the first two, the best-effort ai_suggestion write) already happened INSIDE the
+  // triagePolicy activity. NONE of the three change ROUTING this release (ADR-0019 §4's
+  // suggest-first promotion ladder — promoting a decision to an automatic action is a
+  // DOCUMENTED FUTURE SEAM, not built here):
+  //   - suggest_attach: a receiving_work email still mints its own case exactly as today
+  //     (the flow below branches on classification.category, Stage A's own label — NEVER
+  //     on triage.finalCategory); staff act on the suggestion from the inbox. VRM-only
+  //     matches NEVER promote past suggestion (ADR-0010) — permanently, not a release-1
+  //     caveat.
+  //   - propose_cancellation: category 'cancellation' is already !== 'receiving_work', so
+  //     the branch below already routes it via the linkReply/query lane unchanged; this
+  //     action never auto-closes or auto-holds a case.
+  //   - route_images_unmatched: TODO(ADR-0015 §5) — the reg-keyed Box dumping-folder lane
+  //     for images with no case match is a FOLLOW-UP, not built here. The decision is
+  //     still logged (above) and telemetered (inside the activity) so it stays visible
+  //     ahead of that build, but no side-effect fires for it in this release.
 
   // QUERY / OTHER never mint a Case — the inbound_email triage row IS the record. BUT a REPLY
   // about existing work (#3) links/appends to its OPEN case (Case-ref first, then VRM; >1 →
@@ -69,11 +189,17 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       const inb = inbound as { candidateRef?: string; candidateVrm?: string };
       const ref = ((inb.candidateRef || classification.bodyCaseref) ?? '').trim();
       const vrm = ((inb.candidateVrm || classification.bodyVrm) ?? '').trim();
+      // rules-engine-v2 Phase 2 / TKT-023 — widen the match beyond Case/PO+VRM with the
+      // engine's job-ref signal (capture-only field #2 alongside recordInboundEmail's
+      // bodyJobref/conversationId — see data-api.ts): a follow-up bearing only e.g. "Our
+      // ref: 576299" can now attach via THIS existing (ungated) reply-link lane too.
+      const jobref = (classification.bodyJobref ?? '').trim();
       const link = (yield ctx.df.callActivityWithRetry('linkReply', retry, {
         inbound,
         providerId: workProviderId,
         ref,
         vrm,
+        jobref,
       })) as { outcome: string; caseId?: string };
       if (link.outcome === 'linked' && link.caseId) {
         yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
@@ -214,6 +340,11 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     parserMileage,
     parserMileageUnit,
     parserEvaFields,
+    // rules-engine-v2 Phase 3 (ADR-0011) — forwarded so the API's applyParserFields can
+    // corroborate a content-detected provider against the intermediary's N:N candidates.
+    ...(intermediaryImageSourceId
+      ? { intermediaryImageSourceId, intermediaryCandidateProviderIds }
+      : {}),
   })) as {
     outcome: string;
     caseId: string;
