@@ -152,6 +152,7 @@ Loose / cross-cutting plans and runbooks under this tree:
 - [user-accounts-and-permissions.md](./user-accounts-and-permissions.md) — plan for staff user accounts & permission levels (personas).
 - [runbooks/box-business-test.md](./runbooks/box-business-test.md) — runbook for the Box Business-account test against the test folder.
 - [runbooks/live-email-linking.md](./runbooks/live-email-linking.md) — runbook for live email linking (`digital@` → all three shared inboxes).
+- [runbooks/ntfs-path-history-purge.md](./runbooks/ntfs-path-history-purge.md) — not-yet-executed runbook to purge 3 NTFS-invalid colon-path files from `main`'s git history (blocks Windows clones) via `git-filter-repo` on Linux, plus `.gitignore`/pre-commit hardening.
 
 ## ROADMAP coverage check (every phase/feature has a plan)
 
