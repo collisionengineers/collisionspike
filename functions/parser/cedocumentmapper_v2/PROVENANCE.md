@@ -29,6 +29,31 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-03 (ADR-0021 case-type marker taxonomy + TKT-051 work-provider guard):**
+two sibling commits, re-cut together. First, a **reconvergence**: the 2026-07-02/03
+collisionspike classifier hardening (P1-4a/b/c ref-extraction fixes, the P1-5
+new-image-evidence detector, and the 29-email-corpus phrase additions to
+`triage-rules.json`) had been applied to THIS vendored copy without landing in
+the sibling first — upstreamed verbatim as sibling commit `6fc03cb`, restoring
+the byte-mirror. Second, the **engine-v2.6 feature work** (sibling `f474ea0`,
+tagged **`engine-v2.6`**): (1) `rules/engine.py` — the layout-name
+`work_provider` fallback is suppressed for `engineer_report: true` layouts, so
+an attached third-party EVA/CNX report can no longer leak "EVA (Engineers)" as
+the case's work provider (TKT-051); (2) the case-type marker taxonomy —
+`detection/case_type.py` now reads the full marker set (`A.` audit / `AP.`
+audit_total_loss / `D.` diminution), `_apply_case_type` maps all three,
+`rules/email_classifier.py`'s `CASEREF_RE` accepts the widened prefix, and a
+new `rules/engine.py detect_case_type_signals` derives `(case_type, dual,
+signals)` from instruction text — `dual` marks the QDOS "REPORT + AUDIT
+REPORT" one-letter-both-deliverables template (new `dual_report_audit_phrases`
++ review-first `diminution_phrases` collections in `triage-rules.json` +
+schema + loader; `audit_total_loss` is NEVER content-inferred);
+(3) `domain/models.py ExtractedRecord` gains `case_type_dual`, round-tripped by
+`record_to_dict`/`record_from_dict`. Deploy-order note: the `case_type`
+envelope additions are additive and the Data API consumes them behind
+`AUDIT_CASES_ENABLED` (default off), so parser-first deploy is safe; the
+`choice_case_type` DDL delta must be applied before the gate is flipped.
+
 **2026-07-02 (rules-engine-v2 Phase 5 — externalized triage phrase data):** the
 sibling moved the 13 flat keyword/phrase string collections used by the email
 classifier (`rules/engine.py`'s `_AUDIT_PHRASES` / `_WORK_KEYWORDS` /

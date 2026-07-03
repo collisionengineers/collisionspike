@@ -196,7 +196,9 @@ _CONFIDENCE_WEAK = 0.6      # typed-in-body work, enquiry-only
 _CONFIDENCE_ABSTAIN = 0.3   # fell through to other
 
 # Case/PO matcher. The Case/PO is a Principal code (2-5 letters) + 2-digit year +
-# a 3-to-4-digit provider case number, optionally carrying the "A." audit prefix.
+# a 3-to-4-digit provider case number, optionally carrying a case-type marker
+# prefix -- "A." audit / "AP." total-loss audit / "D." diminution (ADR-0021;
+# the alternation is longest-first so "AP." is never half-read as "A.").
 # The real corpus splits two ways and the pattern mirrors it exactly:
 #   * a 2-letter Principal always carries a 3-digit sequence  -> 5 trailing digits
 #     ("MP26071", "AX26353", "FW26251");
@@ -206,7 +208,7 @@ _CONFIDENCE_ABSTAIN = 0.3   # fell through to other
 # token like "AB123456" (2 letters + 6 digits) while still admitting the genuine
 # 6-digit refs (which all have >=3 letters). NOT a bare alphanumeric run, so a phone
 # number, postcode, or VAT number in the body cannot masquerade as a Case/PO.
-# Case-insensitive; tolerates an optional space after the "A.".
+# Case-insensitive; tolerates an optional space after the marker dot.
 #
 # The trailing ``(?!\.\d)`` guard (collisionspike P1-4a) stops a SOLICITOR reference
 # whose head happens to be Case/PO-shaped but which carries a dotted sequence suffix
@@ -217,7 +219,7 @@ _CONFIDENCE_ABSTAIN = 0.3   # fell through to other
 # Case/PO ("CCPY26050", "A.PCH261269") is never followed by a dotted digit, so it is
 # unaffected.
 CASEREF_RE = re.compile(
-    r"\b(?:A\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})\b(?!\.\d)",
+    r"\b(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})\b(?!\.\d)",
     re.IGNORECASE,
 )
 

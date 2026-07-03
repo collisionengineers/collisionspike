@@ -23,13 +23,21 @@ export const CASE_PO_SEQ_WIDTH = 3;
 /**
  * Format a Case/PO from its parts. `principalCode` is upper-cased + trimmed; `year2`
  * is normalised to its last two digits; `seq` is clamped to a non-negative integer and
- * left-padded to {@link CASE_PO_SEQ_WIDTH}. Pure: same inputs -> same output.
+ * left-padded to {@link CASE_PO_SEQ_WIDTH}. `marker` is the optional case-type prefix
+ * (ADR-0021: '' standard / 'A.' audit / 'AP.' total-loss audit / 'D.' diminution) —
+ * each marker runs its OWN per-(marker,principal,year) sequence, so the marker is part
+ * of the identity, not decoration. Pure: same inputs -> same output.
  */
-export function formatCasePo(principalCode: string, year2: string | number, seq: number): string {
+export function formatCasePo(
+  principalCode: string,
+  year2: string | number,
+  seq: number,
+  marker: '' | 'A.' | 'AP.' | 'D.' = '',
+): string {
   const principal = String(principalCode).trim().toUpperCase();
   const yy = String(year2).trim().padStart(2, '0').slice(-2);
   const n = Math.max(0, Math.trunc(Number(seq) || 0));
-  return `${principal}${yy}${String(n).padStart(CASE_PO_SEQ_WIDTH, '0')}`;
+  return `${marker.toUpperCase()}${principal}${yy}${String(n).padStart(CASE_PO_SEQ_WIDTH, '0')}`;
 }
 
 /** The 2-digit year token for a Date (defaults to now). e.g. 2026 -> "26". */
@@ -38,12 +46,20 @@ export function casePoYear(d: Date = new Date()): string {
 }
 
 /**
- * The anchored regex that matches a Case/PO for a given (principal, year) EXACTLY —
- * principal + yy + the sequence digits. Used by the API's MAX+1 allocator to scope the
- * sequence probe to this provider+year. `principal` is assumed alphanumeric (the work
- * provider principal code is a leading-alpha code), so it is safe in a regex unescaped;
- * callers pass an already-validated code.
+ * The anchored regex that matches a Case/PO for a given (marker, principal, year)
+ * EXACTLY — marker + principal + yy + the sequence digits. Used by the API's MAX+1
+ * allocator to scope the sequence probe to this marker+provider+year: the `^` anchor
+ * plus the ESCAPED marker dot keep the sequences naturally independent (`^PCH26…`
+ * never matches "A.PCH26050", and `^A\.PCH26…` never matches "PCH26050" or
+ * "AP.PCH26050"). `principal` is assumed alphanumeric (the work provider principal
+ * code is a leading-alpha code), so it is safe in a regex unescaped; callers pass an
+ * already-validated code.
  */
-export function casePoSequenceRegex(principal: string, yy: string): string {
-  return `^${principal.toUpperCase()}${yy}[0-9]{${CASE_PO_SEQ_WIDTH},}$`;
+export function casePoSequenceRegex(
+  principal: string,
+  yy: string,
+  marker: '' | 'A.' | 'AP.' | 'D.' = '',
+): string {
+  const markerPattern = marker ? `${marker.toUpperCase().slice(0, -1)}\\.` : '';
+  return `^${markerPattern}${principal.toUpperCase()}${yy}[0-9]{${CASE_PO_SEQ_WIDTH},}$`;
 }

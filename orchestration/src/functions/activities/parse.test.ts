@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { coalesceOcrIntoParse, shouldAttemptScannedPdfOcr } from './parse.js';
+import {
+  MAX_PARSE_DOCS,
+  coalesceOcrIntoParse,
+  orderParseCandidates,
+  selectInstructionIndex,
+  shouldAttemptScannedPdfOcr,
+} from './parse.js';
 import type { OcrPdfResult } from '../../lib/functions-client.js';
 
 /** A parse envelope with the 12 EVA keys all empty (the image-only/scanned tell). */
@@ -108,5 +114,118 @@ describe('coalesceOcrIntoParse', () => {
     expect(merged.contract_version).toBe('cedocumentparser_v2.0_eva_json');
     expect(merged.issues).toEqual([{ code: 'x' }]);
     expect(merged.extraction?.work_provider?.value).toBe('Y');
+  });
+});
+
+/* ----------  Multi-doc candidate ordering + instruction selection (TKT-051/ADR-0021) ---------- */
+
+function att(filename: string, contentType = ''): { filename: string; contentType: string; blobPath: string; size: number } {
+  return { filename, contentType, blobPath: `msg-1/${filename}`, size: 100 };
+}
+
+describe('orderParseCandidates', () => {
+  it('returns [] when nothing document-shaped attached (images only)', () => {
+    expect(orderParseCandidates([att('IMG_0421.jpg', 'image/jpeg'), att('photo.png')])).toEqual([]);
+  });
+
+  it('puts Word/RTF documents BEFORE PDFs (the real audit corpus: instruction .DOC + report PDFs)', () => {
+    const ordered = orderParseCandidates([
+      att('_EHR102814_Plus_Report_.pdf', 'application/pdf'),
+      att('Inspection Request - Audit Report.DOC', 'application/msword'),
+      att('_EHR102814_Plus_.pdf', 'application/pdf'),
+    ]);
+    expect(ordered.map((a) => a.filename)).toEqual([
+      'Inspection Request - Audit Report.DOC',
+      '_EHR102814_Plus_Report_.pdf',
+      '_EHR102814_Plus_.pdf',
+    ]);
+  });
+
+  it('keeps the original attachment order within each tier (stable)', () => {
+    const ordered = orderParseCandidates([
+      att('b.pdf'), att('a.docx'), att('c.pdf'), att('d.doc'),
+    ]);
+    expect(ordered.map((a) => a.filename)).toEqual(['a.docx', 'd.doc', 'b.pdf', 'c.pdf']);
+  });
+
+  it('email FILES (.eml/.msg) are a pool of last resort — excluded when any real doc exists', () => {
+    const withDoc = orderParseCandidates([att('forwarded.eml', 'message/rfc822'), att('instruction.pdf')]);
+    expect(withDoc.map((a) => a.filename)).toEqual(['instruction.pdf']);
+    const onlyEmail = orderParseCandidates([att('forwarded.eml', 'message/rfc822')]);
+    expect(onlyEmail.map((a) => a.filename)).toEqual(['forwarded.eml']);
+  });
+
+  it('single-doc email yields exactly one candidate (behaviour unchanged vs the old picker)', () => {
+    expect(orderParseCandidates([att('instruction.pdf'), att('IMG_1.jpg', 'image/jpeg')]).length).toBe(1);
+  });
+});
+
+describe('selectInstructionIndex', () => {
+  const envelope = (docType?: string, providerName: string | null = null, workProvider = '') => ({
+    ...(workProvider ? { extraction: { work_provider: { value: workProvider } } } : {}),
+    ...(docType === undefined
+      ? {}
+      : { content_typing: { doc_type: docType, provider_name: providerName, markers: [] } }),
+  });
+
+  it('REAL CORPUS (TKT-051): the audit .DOC wins on its extracted work_provider even though it content-types as report and the EVA PDF types as instruction', () => {
+    // Probed 2026-07-03: the PCH audit instruction .DOC types `report` (title: "Audit
+    // Report"); the attached EVA report PDF types `instruction`. The honest signal is the
+    // extraction: the .DOC yields work_provider 'PCH'; the EVA layout yields '' by design.
+    const parsed = [
+      { att: att('Inspection Request - Audit Report.DOC'), envelope: envelope('report', 'PCH (Performance)', 'PCH') },
+      { att: att('_EHR102814_Plus_Report_.pdf'), envelope: envelope('instruction', 'EVA (Engineers)') },
+    ];
+    expect(selectInstructionIndex(parsed)).toBe(0);
+  });
+
+  it('a doc typed instruction by an ENGINEER-REPORT layout (EVA/CNX) never wins rule 2', () => {
+    const parsed = [
+      { att: att('_EHR102814_Plus_Report_.pdf'), envelope: envelope('instruction', 'EVA (Engineers)') },
+      { att: att('letter.docx'), envelope: envelope('instruction', null) },
+    ];
+    expect(selectInstructionIndex(parsed)).toBe(1);
+  });
+
+  it('an UNKNOWN work_provider does not win rule 1 (falls through to the typing)', () => {
+    const parsed = [
+      { att: att('mystery.pdf'), envelope: envelope('unknown', null, 'UNKNOWN') },
+      { att: att('instruction.docx'), envelope: envelope('instruction', null) },
+    ];
+    expect(selectInstructionIndex(parsed)).toBe(1);
+  });
+
+  it('picks the first envelope content-typed as instruction when no extraction signal exists', () => {
+    const parsed = [
+      { att: att('report.pdf'), envelope: envelope('report') },
+      { att: att('Inspection Request - Audit Report.DOC'), envelope: envelope('instruction') },
+    ];
+    expect(selectInstructionIndex(parsed)).toBe(1);
+  });
+
+  it('falls back to the OLD preference (PDF first) when nothing types as instruction', () => {
+    const parsed = [
+      { att: att('letter.docx'), envelope: envelope('unknown') },
+      { att: att('scan.pdf'), envelope: envelope('unknown') },
+    ];
+    expect(selectInstructionIndex(parsed)).toBe(1);
+  });
+
+  it('falls back to index 0 when nothing types as instruction and no PDF parsed', () => {
+    const parsed = [
+      { att: att('letter.docx'), envelope: envelope('junk') },
+      { att: att('note.rtf'), envelope: envelope() },
+    ];
+    expect(selectInstructionIndex(parsed)).toBe(0);
+  });
+
+  it('a lone document is always chosen regardless of its typing', () => {
+    expect(selectInstructionIndex([{ att: att('anything.pdf'), envelope: envelope('report') }])).toBe(0);
+  });
+});
+
+describe('MAX_PARSE_DOCS', () => {
+  it('bounds the per-email parser cost at 3 documents', () => {
+    expect(MAX_PARSE_DOCS).toBe(3);
   });
 });

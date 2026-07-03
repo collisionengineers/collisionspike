@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   corpusWorkProviderCandidate,
+  isEngineerReportLayoutSentinel,
   isUnknownWorkProviderSentinel,
   matchWorkProviderByContentString,
   normalizeProviderMatchKey,
@@ -210,5 +211,47 @@ describe('matchWorkProviderByContentString', () => {
     // display_name, but only an EXACT normalized-key match counts, so this stays a clean
     // single hit — the Set dedupe on workProviderId is what keeps this from double-counting.
     expect(matchWorkProviderByContentString('PCH', PROVIDERS)).toEqual({ outcome: 'matched', workProviderId: 'wp-pch' });
+  });
+
+  it('TKT-051: an engineer-report layout name never matches, even against a matching corpus row', () => {
+    // A stale "EVA" work_provider row in the live corpus must not be reachable from the
+    // parser's engineer-report layout name — the audited firm is never the instructing provider.
+    const withEvaRow: WorkProviderContentMatchRecord[] = [
+      ...PROVIDERS,
+      { workProviderId: 'wp-eva', principalCode: 'EVA', displayName: 'EVA (Engineers)' },
+    ];
+    expect(matchWorkProviderByContentString('EVA (Engineers)', withEvaRow)).toEqual({ outcome: 'unmatched' });
+    expect(matchWorkProviderByContentString('eva (engineers)', withEvaRow)).toEqual({ outcome: 'unmatched' });
+    expect(matchWorkProviderByContentString('Exclusive Vehicle Assessors', withEvaRow)).toEqual({ outcome: 'unmatched' });
+    expect(matchWorkProviderByContentString('CNX (Engineers)', withEvaRow)).toEqual({ outcome: 'unmatched' });
+  });
+});
+
+/**
+ * TKT-051 — the engineer-report layout denylist. "EVA (Engineers)" / "CNX (Engineers)"
+ * are the parser's LAYOUTS for an engineering firm's report; on an audit case that
+ * report's issuer is the firm CE audits, never the instructing work provider.
+ */
+describe('isEngineerReportLayoutSentinel', () => {
+  it('flags the engineer-report layout names, case/paren/whitespace-insensitively', () => {
+    expect(isEngineerReportLayoutSentinel('EVA (Engineers)')).toBe(true);
+    expect(isEngineerReportLayoutSentinel('  eva (engineers)  ')).toBe(true);
+    expect(isEngineerReportLayoutSentinel('EVA Engineers')).toBe(true);
+    expect(isEngineerReportLayoutSentinel('CNX (Engineers)')).toBe(true);
+    expect(isEngineerReportLayoutSentinel('Exclusive Vehicle Assessors')).toBe(true);
+    expect(isEngineerReportLayoutSentinel('Connexus Vehicle Assessors')).toBe(true);
+  });
+
+  it('never flags real providers or near-miss names', () => {
+    expect(isEngineerReportLayoutSentinel('PCH')).toBe(false);
+    expect(isEngineerReportLayoutSentinel('QDOS')).toBe(false);
+    expect(isEngineerReportLayoutSentinel('Knightsbridge Solicitors')).toBe(false);
+    expect(isEngineerReportLayoutSentinel('EVA')).toBe(false); // bare code is NOT denylisted — corpus decides
+    expect(isEngineerReportLayoutSentinel('')).toBe(false);
+  });
+
+  it('blanks the eva_work_provider fill via selectParserEvaCandidates', () => {
+    expect(selectParserEvaCandidates({ work_provider: 'EVA (Engineers)' })).toEqual([]);
+    expect(selectParserEvaCandidates({ work_provider: 'CNX (Engineers)' })).toEqual([]);
   });
 });

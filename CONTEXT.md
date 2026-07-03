@@ -108,3 +108,36 @@ An inbound email reporting a claim/case cancelled or closed. Matched to its Case
 **staff-confirmed** close/hold proposal — never an automatic close (the terminal case status is
 `removed`).
 _Avoid_: Closure, Cancelled (as a case status name)
+
+**Case Type** _(ADR-0014 / ADR-0021)_:
+The kind of work a Case is, orthogonal to its status: `standard`, `audit`, `audit total loss`, or
+`diminution`. Carried on the Case/PO as a **marker** prefix. NOT the same thing as a case's
+instructions/images evidence composition (the queues model).
+_Avoid_: Job type, Work type (as entity names); conflating with case status
+
+**Audit (case type)**:
+A second, independent CE inspection **auditing a third-party engineer's original report** (often an
+EVA — Exclusive Vehicle Assessors — or CNX report attached to the instruction). The audited firm is
+**never the Work Provider**; the instructing provider (e.g. PCH, QDOS) is. The third-party report is
+stored as `engineer_report` evidence for comparison — never overlaid, never parsed as the instruction.
+_Avoid_: treating the attached engineer's report as the instruction or its firm as the provider
+
+**Audit Total Loss**:
+The audit case type where the audited vehicle is a write-off (the deliverable includes a Pre-Accident
+Valuation). **A review-time refinement of Audit** — the QDOS instruction letters are identical for
+repairable vs total-loss, so it is never detected at intake.
+_Avoid_: PAV case (the PAV is the deliverable, not the type)
+
+**Diminution**:
+A Diminution in Value engagement — its own case type (`D.` marker), not an audit subtype. Detection is
+review-first until grounded on a real inbound diminution instruction.
+_Avoid_: DIV, folding into audit
+
+**Case/PO Marker**:
+The case-type prefix on the Case/PO: none (standard), `A.` (audit), `AP.` (audit total loss), `D.`
+(diminution) — lowercase in EVA (`a.pch26001`), UPPERCASE in Box (`A.PCH26001`), same characters.
+**Each marker runs its own per-(provider, year) sequence** (`A.PCH26001…` independent of `PCH26…`);
+exception: a QDOS **dual "report + audit report"** letter mints ONE standard-sequence case and the
+audit deliverable's marker ID is **derived from that same number at review** (`QDOS261608` →
+`A.QDOS261608`). Markers currently apply to **PCH (A., D.) and QDOS (A., AP., D.) only**.
+_Avoid_: Audit prefix (the marker set is wider than audits)

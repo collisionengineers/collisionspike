@@ -94,7 +94,10 @@ export type EvidenceKind =
   | 'instruction'
   | 'email'
   | 'valuation'
-  | 'eva_payload';
+  | 'eva_payload'
+  // ADR-0014/ADR-0021: a THIRD-PARTY engineer's ORIGINAL report on an audit case,
+  // stored for comparison — never overlaid (choice_evidence_kind 100000007).
+  | 'engineer_report';
 
 // CANONICAL ImageRole lives in '../contracts/image-rules'; re-export for one
 // source, and import it locally so the Evidence interface can reference it.

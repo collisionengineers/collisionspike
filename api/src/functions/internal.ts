@@ -40,8 +40,11 @@ import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } 
 import {
   EVA_FIELD_ORDER,
   TERMINAL_STATUSES,
+  allowedCaseTypes,
+  markerForMint,
   statusForReviewCase,
   type CaseStatus,
+  type CaseWorkType,
   type EvidenceDescriptor,
   type ImageRole,
   type InboundCategory,
@@ -52,12 +55,14 @@ import {
   actionReasonCodec,
   automationModeCodec,
   caseStatusCodec,
+  caseTypeCodec,
   evidenceKindCodec,
   imageRoleCodec,
   intakeChannelKindCodec,
   sourceTypeCodec,
   statusToInt,
 } from '@cs/domain/codecs';
+import { gates } from '../lib/gates.js';
 import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
 import { mintCasePo } from '../lib/case-po.js';
@@ -65,6 +70,7 @@ import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
 import {
   corpusWorkProviderCandidate,
+  isEngineerReportLayoutSentinel,
   isUnknownWorkProviderSentinel,
   matchWorkProviderByContentString,
   selectParserEvaCandidates,
@@ -225,7 +231,11 @@ async function applyParserFields(
     !evaCandidates.some((c) => c.column === 'eva_work_provider');
   const rawContentProvider = (parserEva?.work_provider ?? '').toString().trim();
   const mightMatchWorkProviderIdFromContent =
-    Boolean(rawContentProvider) && !isUnknownWorkProviderSentinel(rawContentProvider);
+    Boolean(rawContentProvider) &&
+    !isUnknownWorkProviderSentinel(rawContentProvider) &&
+    // TKT-051: an engineer-report layout name ("EVA (Engineers)") is the audited
+    // firm's report, never the instructing provider — skip the corpus match entirely.
+    !isEngineerReportLayoutSentinel(rawContentProvider);
   if (
     !ref &&
     !mileage &&
@@ -692,6 +702,14 @@ app.http('internalCasesResolve', {
          *  (backward-compatible no-op). */
         intermediaryImageSourceId?: string;
         intermediaryCandidateProviderIds?: string[];
+        /** ADR-0021 — the orchestrator's intake case-type decision (decideCaseType over the
+         *  parser case_type envelope + classifier subtype). APPLIED (case_type_code + marker
+         *  mint) only behind AUDIT_CASES_ENABLED; with the gate off, fired signals are
+         *  recorded as an observe-only audit_event (shadow rollout). Absent → standard
+         *  (backward-compatible no-op). */
+        caseType?: string;
+        caseTypeDual?: boolean;
+        caseTypeSignals?: string[];
         decision: {
           resolution: string;
           targetCaseId?: string;
@@ -765,11 +783,26 @@ app.http('internalCasesResolve', {
       const name = ([vrm || null, subject || null].filter(Boolean).join(' · ') || 'Email intake').slice(0, 100);
       const emailKindCode = intakeChannelKindCodec.toInt('email') ?? null;
 
+      // Case-type decision (ADR-0021). Validate the wire value against the codec's names so
+      // a malformed/unknown string degrades to 'standard' rather than breaking the INSERT.
+      const caseType: CaseWorkType = caseTypeCodec.toInt(body.caseType as CaseWorkType) != null
+        ? (body.caseType as CaseWorkType)
+        : 'standard';
+      const caseTypeDual = body.caseTypeDual === true;
+      const caseTypeSignals = Array.isArray(body.caseTypeSignals) ? body.caseTypeSignals : [];
+      const auditGateOn = gates.auditCases();
+
       // The create + (for a known provider) the Case/PO mint run in ONE transaction so the
-      // advisory lock that serialises the per-(principal,year) sequence spans both the
+      // advisory lock that serialises the per-(marker,principal,year) sequence spans both the
       // MAX+1 probe and the INSERT — no duplicate POs under concurrency (#11). A new client
       // with no matched provider mints NO PO and is routed to Held for operator setup.
-      let created: { caseId: string; casePo: string | null; newClient: boolean; principalCode: string };
+      let created: {
+        caseId: string;
+        casePo: string | null;
+        newClient: boolean;
+        principalCode: string;
+        mintedMarker: '' | 'A.' | 'AP.' | 'D.';
+      };
       try {
         created = await tx(async (q) => {
           // rules-engine-v2 Phase 2 (ADR-0019 "mint race"): serialise this mint against a
@@ -789,12 +822,19 @@ app.http('internalCasesResolve', {
           }
           const newClient = !workProviderId || !principalCode;
 
-          // Known provider → mint Case/PO = principal + YY + 3-digit per-(principal,year) seq.
+          // Known provider → mint Case/PO = [marker] + principal + YY + 3-digit sequence.
           // Shared advisory-locked mint (api/src/lib/case-po.ts) — identical logic to the
           // manual-intake and provider-API paths; the lock lives on this transaction's `q`.
+          // The MARKER (ADR-0021) applies only when AUDIT_CASES_ENABLED: a STANDALONE
+          // audit for an allowlisted principal mints from the marker's own sequence
+          // (A.PCH26001…); a DUAL report+audit letter (QDOS) keeps the standard sequence
+          // (its audit ID is derived at review); everything else mints exactly as today.
+          const mintedMarker = auditGateOn && !newClient
+            ? markerForMint(caseType, principalCode, caseTypeDual)
+            : '';
           let casePo: string | null = null;
           if (!newClient) {
-            casePo = await mintCasePo(q, principalCode);
+            casePo = await mintCasePo(q, principalCode, undefined, mintedMarker);
           }
 
           const cols = [
@@ -811,6 +851,13 @@ app.http('internalCasesResolve', {
           ];
           if (caseRef) { cols.push('case_ref'); vals.push(caseRef); }
           if (casePo) { cols.push('case_po'); vals.push(casePo); }
+          // case_type_code (ADR-0014/ADR-0021) — written only behind the gate (the live
+          // choice_case_type rows for the new types land via the operator's DDL delta;
+          // writing earlier would risk an FK violation). standard stays NULL (=standard).
+          if (auditGateOn && caseType !== 'standard') {
+            cols.push('case_type_code');
+            vals.push(caseTypeCodec.toInt(caseType) ?? null);
+          }
           // New client → Held: park on the operator safety net with a structured reason
           // (ADR-0010; never silent). on_hold routes to the Held queue; needs_review is the
           // actionReason the SPA surfaces; a note (written after commit) carries the specifics.
@@ -826,7 +873,7 @@ app.http('internalCasesResolve', {
           );
           const caseId = rows[0]?.id as string;
           if (!caseId) throw new Error('case insert returned no id');
-          return { caseId, casePo, newClient, principalCode };
+          return { caseId, casePo, newClient, principalCode, mintedMarker };
         });
       } catch (e: unknown) {
         if (isUniqueViolation(e)) {
@@ -867,6 +914,63 @@ app.http('internalCasesResolve', {
         summary: `Case ${decision.resolution}: ${name}`,
         after: { resolution: decision.resolution, status: rawStatus, vrm, casePo: created.casePo },
       });
+
+      // Case-type decision trail (ADR-0021 — every decision is Action-Logged, ADR-0014).
+      // Three shapes: (a) gate ON + applied → info record of what was set/minted;
+      // (b) gate OFF but signals fired → OBSERVE-ONLY record (the shadow-rollout evidence
+      // the operator reviews before flipping AUDIT_CASES_ENABLED); (c) gate ON but the
+      // provider is not allowlisted for the detected type → warning + best-effort review
+      // note (mint stayed standard by design — PCH/QDOS-only for now).
+      if (caseType !== 'standard') {
+        const allowlisted = allowedCaseTypes(created.principalCode).includes(caseType);
+        if (!auditGateOn) {
+          await writeAudit({
+            action: AUDIT_ACTION.case_created,
+            caseId: newCaseId,
+            summary: `Case-type '${caseType}' detected (observe-only — AUDIT_CASES_ENABLED off; minted standard)`,
+            after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false },
+          });
+        } else if (!allowlisted && !created.newClient) {
+          await writeAudit({
+            action: AUDIT_ACTION.case_created,
+            caseId: newCaseId,
+            severity: 'warning',
+            summary: `Case-type '${caseType}' detected for non-allowlisted provider ${created.principalCode} — minted standard; review case type`,
+            after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false },
+          });
+          await query(
+            `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
+            [
+              'Case-type review',
+              newCaseId,
+              'Email intake (auto)',
+              `${caseType === 'diminution' ? 'Diminution' : 'Audit'} signals detected (${caseTypeSignals.join('; ') || 'see audit log'}) ` +
+                `but ${created.principalCode || 'this provider'} is not in the case-type marker allowlist — ` +
+                `case minted as standard. Confirm the case type.`,
+            ],
+          ).catch(() => { /* note is supplementary */ });
+        } else {
+          await writeAudit({
+            action: AUDIT_ACTION.case_created,
+            caseId: newCaseId,
+            summary:
+              `Case-type '${caseType}' applied` +
+              (created.mintedMarker
+                ? ` — minted ${created.casePo} from the ${created.mintedMarker} sequence`
+                : caseTypeDual
+                  ? ` — dual report+audit letter, standard number kept (audit ID derived at review)`
+                  : ''),
+            after: {
+              caseType,
+              dual: caseTypeDual,
+              signals: caseTypeSignals,
+              applied: true,
+              marker: created.mintedMarker,
+              casePo: created.casePo,
+            },
+          });
+        }
+      }
 
       if (created.newClient) {
         const domain = senderDomain(inbound.senderAddress ?? '');
@@ -1812,7 +1916,8 @@ app.http('internalCasesEvidence', {
       for (const row of body.rows ?? []) {
         const kindCode =
           evidenceKindCodec.toInt(
-            (row.evidenceClass as 'image' | 'instruction' | 'email' | 'other') ?? 'other',
+            (row.evidenceClass as 'image' | 'instruction' | 'email' | 'other' | 'engineer_report') ??
+              'other',
           ) ?? null;
 
         // ---- image metadata (defaults match the schema: image_role_code NOT NULL DEFAULT

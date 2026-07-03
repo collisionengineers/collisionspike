@@ -24,6 +24,8 @@
  * uses for field_name (see migration/assets/schema/070_field_level_provenance.sql).
  */
 
+import { isEngineerReportLayoutName } from '@cs/domain';
+
 /** The parser-owned EVA fields forwarded from the orchestration parse activity (value-only). */
 export interface ParserEvaFields {
   work_provider?: string;
@@ -55,6 +57,23 @@ export function isUnknownWorkProviderSentinel(raw: string): boolean {
 }
 
 /**
+ * Defense-in-depth (TKT-051): the parser's engineer-report LAYOUT names must never be
+ * treated as a work provider. "EVA (Engineers)" / "CNX (Engineers)" are the parser's
+ * layouts for an engineering FIRM'S report document — on an audit case that report is
+ * the THIRD-PARTY original being audited, and its issuer (e.g. Exclusive Vehicle
+ * Assessors) is a firm CE audits, never an instructing provider. The engine itself no
+ * longer emits these (engine-v2.6 suppresses the layout-name fallback for
+ * `engineer_report: true` layouts), but a stale deployed parser — or an operator hand-fix
+ * that types one of these names — must not fill `eva_work_provider` or match a
+ * `work_provider_id`, so the same names are denylisted here too. The name check itself
+ * is the shared `@cs/domain` `isEngineerReportLayoutName` (also used by the
+ * orchestration classifyPersist engineer_report override) — one list, one normalizer.
+ */
+export function isEngineerReportLayoutSentinel(raw: string): boolean {
+  return isEngineerReportLayoutName(raw);
+}
+
+/**
  * EVA contract key → column + provenance field + a normalizer that returns the value to
  * persist or '' to SKIP (failed a column CHECK constraint). Order is the EVA contract order.
  */
@@ -62,7 +81,7 @@ const SPEC: Record<
   keyof ParserEvaFields,
   { column: string; provenanceField: string; normalize: (raw: string) => string }
 > = {
-  work_provider:          { column: 'eva_work_provider',          provenanceField: 'workProvider',          normalize: (v) => (isUnknownWorkProviderSentinel(v) ? '' : v.slice(0, 200)) },
+  work_provider:          { column: 'eva_work_provider',          provenanceField: 'workProvider',          normalize: (v) => (isUnknownWorkProviderSentinel(v) || isEngineerReportLayoutSentinel(v) ? '' : v.slice(0, 200)) },
   vehicle_model:          { column: 'eva_vehicle_model',          provenanceField: 'vehicleModel',          normalize: (v) => v.slice(0, 200) },
   claimant_name:          { column: 'eva_claimant_name',          provenanceField: 'claimantName',          normalize: (v) => v.slice(0, 200) },
   claimant_telephone:     { column: 'eva_claimant_telephone',     provenanceField: 'claimantTelephone',     normalize: (v) => v.slice(0, 60) },
@@ -188,6 +207,9 @@ export function matchWorkProviderByContentString(
 ): ContentProviderMatchOutcome {
   const trimmed = (raw ?? '').toString().trim();
   if (!trimmed || isUnknownWorkProviderSentinel(trimmed)) return { outcome: 'unmatched' };
+  // TKT-051 defense-in-depth: an engineer-report layout name ("EVA (Engineers)") must
+  // never resolve to a work_provider row, even if a matching row exists in the corpus.
+  if (isEngineerReportLayoutSentinel(trimmed)) return { outcome: 'unmatched' };
   const key = normalizeProviderMatchKey(trimmed);
   if (!key) return { outcome: 'unmatched' };
 

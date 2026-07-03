@@ -7,6 +7,14 @@
       "original report",
       "engineers 2"
     ],
+    "dual_report_audit_phrases": [
+      "report + audit report",
+      "report and audit report"
+    ],
+    "diminution_phrases": [
+      "diminution in value",
+      "diminution report"
+    ],
     "work_keywords": [
       "please inspect",
       "please carry out",

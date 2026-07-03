@@ -367,6 +367,9 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
           "vrm":            {value, confidence, source, warnings?} | None,
           "reference":      {value, confidence, source, warnings?} | None,
           "audit":          {value: bool, signals: [...], source} (audit case-type),
+          "case_type":      {value: str|None, dual: bool, signals, source}
+                             (ADR-0021 — audit/audit_total_loss/diminution;
+                             dual = the QDOS report+audit one-letter template),
           "content_typing": {doc_type, provider_name, markers} (Phase 3 —
                              instruction/report/junk/unknown, content-derived),
           "issues":         [ {field, severity, code, message}, ... ],
@@ -400,6 +403,21 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
     audit_signals = list((parser_result or {}).get("audit_signals", []) or [])
     audit = {"value": is_audit, "signals": audit_signals, "source": "instruction_text"}
 
+    # case_type (ADR-0021) — the full case-type decision, superset of ``audit``
+    # (which is retained verbatim for envelope compatibility). ``value`` is
+    # 'audit' | 'diminution' | None from content, or additionally
+    # 'audit_total_loss' when read back from an explicitly AP.-marked reference
+    # (never content-inferred). ``dual`` marks the QDOS "REPORT + AUDIT REPORT"
+    # one-letter-both-deliverables template — downstream it mints ONE case from
+    # the provider's NORMAL sequence (the audit ID is derived at review),
+    # whereas a standalone audit mints from the marker's own sequence.
+    case_type = {
+        "value": (parser_result or {}).get("case_type"),
+        "dual": bool((parser_result or {}).get("case_type_dual")),
+        "signals": audit_signals,
+        "source": "instruction_text",
+    }
+
     # content_typing (Phase 3) — surfaced SEPARATELY (like audit/vrm/reference),
     # NEVER in the 12-field EVA payload. run_parser() always sets this key on
     # the LIVE path; the default here only matters for a hand-built
@@ -420,6 +438,7 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
         "vrm": vrm,
         "reference": reference,
         "audit": audit,
+        "case_type": case_type,
         "content_typing": content_typing,
         "issues": issues,
     }

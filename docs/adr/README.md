@@ -21,3 +21,5 @@ One decision per file, numbered. **0015, 0016, 0017, 0018 & 0019 are _Proposed_;
 - [`0017`](./0017-data-retention-erasure-pii-lifecycle.md) — data retention / erasure / PII lifecycle _(Proposed)_
 - [`0018`](./0018-cedocumentmapper-dual-target-vendored-engine.md) — cedocumentmapper dual-target vendored engine _(Proposed)_
 - [`0019`](./0019-triage-policy-stage-split.md) — triage stage split: engine signals / domain policy / gated AI suggestions _(Proposed)_
+- [`0020`](./0020-provider-api-intake-channel.md) — provider API intake channel (machine-to-machine case lodging)
+- [`0021`](./0021-case-po-marker-taxonomy.md) — Case/PO marker taxonomy (A./AP./D., per-marker sequences, dual report+audit rule)

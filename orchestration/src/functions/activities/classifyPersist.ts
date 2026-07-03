@@ -10,14 +10,20 @@
  */
 
 import * as df from 'durable-functions';
-import { describeEvidence } from '@cs/domain';
+import { describeEvidence, isEngineerReportLayoutName } from '@cs/domain';
+import { gates } from '@cs/domain/gates';
 import { dataApi } from '../../lib/data-api.js';
 import { uploadEvidenceBytes } from '../../lib/blob.js';
 import type { InboundEnvelope } from './fetchMessage.js';
+import type { AttachmentTyping } from './parse.js';
 
 interface ClassifyPersistInput {
   caseId: string;
   inbound: InboundEnvelope;
+  /** Per-document content typings from the parse activity (ADR-0014/ADR-0021): lets a
+   *  report-typed attachment be stored as `engineer_report` evidence instead of
+   *  `instruction`. Absent → no override (backward-compatible). */
+  typings?: AttachmentTyping[];
 }
 
 /** Minimum body length to treat as a genuine in-body instruction (skip one-liners/footers). */
@@ -32,6 +38,51 @@ df.app.activity('classifyPersist', {
       blobPath: a.blobPath,
       size: a.size,
     }));
+
+    // engineer_report override (ADR-0014 "store BOTH, never overlay" / ADR-0021): an
+    // attachment whose detected LAYOUT is an engineer-report firm's (EVA/CNX) is a
+    // third-party engineer's report — persist it as evidence kind engineer_report, not
+    // instruction, so it is stored for comparison and never treated as the parse source.
+    // Keyed on WHO ISSUED the document (the typing's provider/layout name), NOT its
+    // content doc_type: probed against the real corpus, the audit instruction .DOC
+    // content-types as `report` (its title says "Audit Report") while the EVA report
+    // types as `instruction` — doc_type would reclassify exactly backwards. Guards:
+    // (1) gated by AUDIT_CASES_ENABLED so the kind_code 100000007 write is impossible
+    // until the operator applies the choice-row delta + flips the gate; (2) never strips
+    // the LAST instruction row — if reclassifying would leave no instruction-classed
+    // attachment, the override is skipped entirely (the body-text fallback below must
+    // keep firing only for genuinely instruction-less emails).
+    if (gates.auditCases() && (input.typings?.length ?? 0) > 0) {
+      const reportBlobPaths = new Set(
+        (input.typings ?? [])
+          .filter((t) => isEngineerReportLayoutName(t.providerName))
+          .map((t) => t.blobPath),
+      );
+      if (reportBlobPaths.size > 0) {
+        const wouldRemain = rows.some(
+          (r) => r.evidenceClass === 'instruction' && !reportBlobPaths.has(r.blobPath),
+        );
+        if (wouldRemain) {
+          let overridden = 0;
+          for (const r of rows) {
+            if (r.evidenceClass === 'instruction' && reportBlobPaths.has(r.blobPath)) {
+              r.evidenceClass = 'engineer_report';
+              r.isInstruction = false;
+              overridden += 1;
+            }
+          }
+          if (overridden > 0) {
+            ctx.log(
+              JSON.stringify({ evt: 'classifyPersist.engineerReportOverride', caseId, overridden }),
+            );
+          }
+        } else {
+          ctx.log(
+            JSON.stringify({ evt: 'classifyPersist.engineerReportOverrideSkipped', caseId, reason: 'would_strip_only_instruction' }),
+          );
+        }
+      }
+    }
 
     // The original message captured as raw `.eml` (box-sync ticket) becomes its own
     // email-class evidence row so the archive holds the email itself. Idempotent on

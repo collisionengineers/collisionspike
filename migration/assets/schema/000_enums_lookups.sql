@@ -192,8 +192,10 @@ CREATE TABLE choice_case_type (
   label text NOT NULL
 );
 INSERT INTO choice_case_type (code, name, label) VALUES
-  (100000000, 'standard', 'Standard'),
-  (100000001, 'audit',    'Audit');
+  (100000000, 'standard',         'Standard'),
+  (100000001, 'audit',            'Audit'),
+  (100000002, 'audit_total_loss', 'Audit (Total Loss)'),   -- ADR-0021: AP. marker (review-time refinement)
+  (100000003, 'diminution',       'Diminution');           -- ADR-0021: D. marker
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_chasertargettype  (chaser.json bundle)  -- Chaser.target_type_code

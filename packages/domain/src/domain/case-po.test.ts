@@ -48,3 +48,34 @@ describe('casePoSequenceRegex — scopes the MAX+1 probe to one provider+year', 
     expect(re.test('CCPY26ABC')).toBe(false); // non-numeric suffix
   });
 });
+
+describe('case-type markers (ADR-0021) — formatCasePo + casePoSequenceRegex', () => {
+  it('prepends the marker to the formatted Case/PO', () => {
+    expect(formatCasePo('PCH', '26', 1, 'A.')).toBe('A.PCH26001');
+    expect(formatCasePo('QDOS', '26', 12, 'AP.')).toBe('AP.QDOS26012');
+    expect(formatCasePo('PCH', '26', 190, 'D.')).toBe('D.PCH26190');
+    expect(formatCasePo('PCH', '26', 50)).toBe('PCH26050'); // default '' unchanged
+  });
+
+  it('escapes the marker dot in the sequence regex (a real dot, not any-char)', () => {
+    const re = new RegExp(casePoSequenceRegex('PCH', '26', 'A.'));
+    expect(re.test('A.PCH26001')).toBe(true);
+    expect(re.test('AXPCH26001')).toBe(false); // unescaped '.' would match the X
+  });
+
+  it('keeps the per-marker sequences independent — no cross-matching', () => {
+    const standard = new RegExp(casePoSequenceRegex('PCH', '26'));
+    const audit = new RegExp(casePoSequenceRegex('PCH', '26', 'A.'));
+    const totalLoss = new RegExp(casePoSequenceRegex('QDOS', '26', 'AP.'));
+    const auditQdos = new RegExp(casePoSequenceRegex('QDOS', '26', 'A.'));
+
+    expect(standard.test('PCH26123')).toBe(true);
+    expect(standard.test('A.PCH26123')).toBe(false); // audit rows never feed the standard MAX+1
+    expect(audit.test('A.PCH26001')).toBe(true);
+    expect(audit.test('PCH26001')).toBe(false); // standard rows never feed the audit MAX+1
+    expect(audit.test('AP.PCH26001')).toBe(false); // AP. is not A.
+    expect(totalLoss.test('AP.QDOS26012')).toBe(true);
+    expect(totalLoss.test('A.QDOS26012')).toBe(false);
+    expect(auditQdos.test('AP.QDOS26012')).toBe(false); // anchored ^A\.Q — the P breaks it
+  });
+});

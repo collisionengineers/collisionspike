@@ -40,6 +40,12 @@ interface CaseResolveInput {
    *  provider found among the intermediary's N:N candidates as CORROBORATED. */
   intermediaryImageSourceId?: string;
   intermediaryCandidateProviderIds?: string[];
+  /** ADR-0021 — the intake case-type decision (orchestrator decideCaseType). The API applies
+   *  it (case_type_code + marker mint) only behind AUDIT_CASES_ENABLED; otherwise it records
+   *  an observe-only audit_event (shadow rollout). */
+  caseType?: 'standard' | 'audit' | 'audit_total_loss' | 'diminution';
+  caseTypeDual?: boolean;
+  caseTypeSignals?: string[];
 }
 
 df.app.activity('caseResolve', {
@@ -95,6 +101,9 @@ df.app.activity('caseResolve', {
         parserEva: input.parserEvaFields,
         intermediaryImageSourceId: input.intermediaryImageSourceId,
         intermediaryCandidateProviderIds: input.intermediaryCandidateProviderIds,
+        caseType: input.caseType,
+        caseTypeDual: input.caseTypeDual,
+        caseTypeSignals: input.caseTypeSignals,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,

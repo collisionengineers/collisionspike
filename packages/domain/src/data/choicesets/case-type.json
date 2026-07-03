@@ -3,10 +3,12 @@
   "kind": "global-choice-set",
   "logicalName": "cr1bd_casetype",
   "displayName": "Case Type",
-  "description": "Case.caseType — the work TYPE, ORTHOGONAL to status (cr1bd_casestatus). standard = a normal instruction case; audit = a SECOND, independent CE inspection auditing a THIRD-PARTY engineer's ORIGINAL report (ADR-0014), numbered with an `A.` Case/PO prefix and carrying an `engineer_report` Evidence. Set from the parser's `audit` envelope signal (detect_audit_signals); NOT the engineer-report overlay (which merges CE's OWN CNX/EVA report). Default standard.",
+  "description": "Case.caseType — the work TYPE, ORTHOGONAL to status (cr1bd_casestatus). standard = a normal instruction case; audit = a SECOND, independent CE inspection auditing a THIRD-PARTY engineer's ORIGINAL report on a REPAIRABLE vehicle (ADR-0014), `A.` Case/PO marker + an `engineer_report` Evidence; audit_total_loss = the same audit work where the vehicle is a total loss (`AP.` marker — a REVIEW-TIME refinement of audit, never detected at intake: the real QDOS letters are identical either way, ADR-0021); diminution = a Diminution in Value engagement (`D.` marker, review-first until detection is grounded). Set from the parser's `case_type` envelope (detect_case_type_signals) or staff review; NOT the engineer-report overlay (which merges CE's OWN CNX/EVA report). Default standard.",
   "isGlobal": true,
   "options": [
-    { "value": 100000000, "name": "standard", "label": "Standard" },
-    { "value": 100000001, "name": "audit",    "label": "Audit" }
+    { "value": 100000000, "name": "standard",         "label": "Standard" },
+    { "value": 100000001, "name": "audit",            "label": "Audit" },
+    { "value": 100000002, "name": "audit_total_loss", "label": "Audit (Total Loss)" },
+    { "value": 100000003, "name": "diminution",       "label": "Diminution" }
   ]
 }

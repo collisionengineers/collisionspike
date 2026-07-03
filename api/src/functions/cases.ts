@@ -39,6 +39,7 @@ import {
   type StatusEvaluationInput,
 } from '@cs/domain';
 import {
+  caseTypeCodec,
   inspectionDecisionCodec,
   intakeChannelKindCodec,
   reviewStateCodec,
@@ -272,6 +273,10 @@ app.http('patchCase', {
     const body = (await req.json().catch(() => ({}))) as {
       vrm?: string;
       evaFields?: Partial<Record<EvaFieldKey, string>>;
+      /** ADR-0021 review-time case-type correction — notably the repairable-vs-total-loss
+       *  refinement of a QDOS audit ('audit' → 'audit_total_loss'), which is NEVER
+       *  determinable at intake. 'standard' (or '') clears back to the default. */
+      caseType?: string;
     };
     const actor = actorFromClaims(claims);
 
@@ -315,6 +320,35 @@ app.http('patchCase', {
         before[key] = oldVal;
         after[key] = norm.value;
         changedEvaFields.push({ key, value: norm.value });
+      }
+    }
+
+    // --- case type (ADR-0021 review-time correction) ---
+    if (body.caseType !== undefined) {
+      const rawType = String(body.caseType ?? '').trim();
+      const validName = rawType === '' || caseTypeCodec.toInt(rawType as never) != null;
+      if (!validName) {
+        return {
+          status: 400,
+          jsonBody: {
+            error: `caseType must be one of ${caseTypeCodec.names().map((n) => `'${n}'`).join(', ')} (or '' to clear)`,
+          },
+        };
+      }
+      // 'standard' is stored as NULL (the column default semantics: null = standard), so
+      // clearing and setting-standard are the same write.
+      const newCode =
+        rawType === '' || rawType === 'standard' ? null : caseTypeCodec.toInt(rawType as never)!;
+      const curRows = await query<{ case_type_code: number | null }>(
+        'SELECT case_type_code FROM case_ WHERE id = $1',
+        [id],
+      );
+      const oldCode = curRows[0]?.case_type_code ?? null;
+      if (newCode !== oldCode) {
+        sets.push(`case_type_code = $${sets.length + 1}`);
+        vals.push(newCode);
+        before.caseType = caseTypeCodec.toName(oldCode) ?? 'standard';
+        after.caseType = rawType || 'standard';
       }
     }
 

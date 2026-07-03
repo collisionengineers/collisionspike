@@ -129,3 +129,17 @@ Layers 2–4 were written for the Power Platform stack, **deprovisioned 2026-06-
 kind, not `cr1bd_*`); **Layer 3 → the Data API / orchestration** (Case/PO `A.` prefix, audit Action-Log,
 evidence write), not a Power Automate flow; **Layer 4 → the SPA** (`cespk-spa-dev`), not the Code App.
 The `A.`-prefix and case-typed-chaser decisions are unchanged.
+
+## Update (2026-07-03) — implemented end-to-end; numbering detail superseded by ADR-0021
+
+Layers 2–3 are now **built** (gated `AUDIT_CASES_ENABLED`, shadow-then-flip — docs/gated.md §D10):
+the parser's case-type envelope is consumed at case-resolve, `case_type_code` is written, the
+third-party report persists as `engineer_report` evidence, and the marker is minted at Case/PO
+generation. Two details evolved with the fuller corpus and are now owned by
+[**ADR-0021**](./0021-case-po-marker-taxonomy.md), which **supersedes this ADR's numbering
+implication** (prepend `A.` onto the same number stream): (1) each marker runs its **own
+per-(marker, principal, year) sequence** (`A.PCH26001…` independent of `PCH26…`), and (2) the
+marker set is `A.` / `AP.` (total-loss audit, review-time only) / `D.` (diminution), with a QDOS
+**dual "report + audit report"** letter keeping the standard number and deriving its audit ID at
+review. Everything else here — the definition, content-based detection, store-both-never-overlay,
+high-precision phrases — stands unchanged.

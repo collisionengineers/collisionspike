@@ -34,6 +34,17 @@ TKT-021) resolves through the Image-Source intermediary map.
 Phase 3 of the [Rules Engine v2 plan](../../plans/rules_engine_v2_plan_9ba034c4.plan.md)
 (identification upgrade).
 
+## Status update — 2026-07-03 (the "EVA (Engineers)" mislabel root-caused → TKT-056)
+
+The operator reported these same PCH audit emails surfacing with work provider **"EVA (Engineers)"**.
+Root cause chain (verified): the parse activity picked ONE attachment and preferred PDF → on an audit
+email it parsed the attached third-party **EVA report** instead of the `.DOC` instruction; the engine's
+layout-name fallback then emitted `"EVA (Engineers)"` as `work_provider`, which filled the case's
+free-text `eva_work_provider`. Fixed in code (engine-v2.6 fallback guard + multi-doc content-typed
+parse pick + a Data-API denylist) plus an operator delta deactivating any stale EVA corpus row —
+all under **[TKT-056](../TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md)**
+/ [ADR-0021](../../adr/0021-case-po-marker-taxonomy.md) / [gated.md §D9](../../gated.md).
+
 ## Status update — 2026-07-02 (now — code deployed, activation pending D8 seeds)
 
 `3a772d1` (feat(identification): Image-Source intermediary resolution + parser-string →

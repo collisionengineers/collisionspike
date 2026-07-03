@@ -40,6 +40,7 @@ import * as df from 'durable-functions';
 import { supplementAccidentCircumstancesFromBody } from '../lib/supplement-parse.js';
 import type { InboundClassification } from './activities/classifyInbound.js';
 import { shouldAttemptTriageAssist } from './gated/triage-classify.js';
+import { decideCaseType } from '@cs/domain';
 import type { TriagePolicyDecision } from '@cs/domain';
 
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
@@ -332,6 +333,21 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     vat_status: exVal('vat_status'),
   };
 
+  // Case-type decision (ADR-0021) — pure + deterministic over the two CHECKPOINTED
+  // activity results (parse envelope + Stage-A classification), so it is replay-safe
+  // in the orchestrator body. The parser's doc-text case_type is primary; the legacy
+  // audit envelope and the classifier subtype are fallback/corroboration. APPLYING the
+  // decision (case_type_code write + marker mint) is gated by AUDIT_CASES_ENABLED
+  // INSIDE the Data API — forwarding is unconditional (shadow rollout: gate off, the
+  // API records an observe-only audit_event and mints/types exactly as today).
+  const caseTypeDecision = decideCaseType({
+    parserCaseType: (parseResult as {
+      case_type?: { value?: string | null; dual?: boolean; signals?: string[] };
+    }).case_type,
+    parserAudit: (parseResult as { audit?: { value?: boolean; signals?: string[] } }).audit,
+    classifierSubtype: classification.subtype,
+  });
+
   // 2 — case-resolve (UNIQUE(sourcemessageid) backstop makes upsert idempotent). The parser
   // VRM is preferred over the email sniff for dedup scoping AND the persisted case VRM (#7);
   // a known provider mints the Case/PO, a new client (no provider) routes to Held (#11).
@@ -344,6 +360,9 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     parserMileage,
     parserMileageUnit,
     parserEvaFields,
+    caseType: caseTypeDecision.caseType,
+    caseTypeDual: caseTypeDecision.dual,
+    caseTypeSignals: [...caseTypeDecision.signals],
     // rules-engine-v2 Phase 3 (ADR-0011) — forwarded so the API's applyParserFields can
     // corroborate a content-detected provider against the intermediary's N:N candidates.
     ...(intermediaryImageSourceId
@@ -406,10 +425,14 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     }
   }
 
-  // 3 — classify + persist evidence rows (always — recording evidence is not "advancing")
+  // 3 — classify + persist evidence rows (always — recording evidence is not "advancing").
+  // attachmentTypings (parse activity, ADR-0014/ADR-0021) lets a report-typed attachment
+  // persist as engineer_report evidence; the AUDIT_CASES_ENABLED gate lives INSIDE the
+  // activity (orchestrator determinism), so forwarding is unconditional.
   yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
     caseId: resolved.caseId,
     inbound,
+    typings: (parseResult as { attachmentTypings?: unknown }).attachmentTypings,
   });
 
   // 3.5 — extract embedded images from instruction PDFs/EML into image evidence

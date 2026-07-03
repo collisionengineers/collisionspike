@@ -576,6 +576,54 @@ code that reads this corpus (the extended `GET /api/internal/provider-match-reco
 `matchSenderIdentity`, and `applyParserFields`'s content-string mapping) was already deployed-safe before
 this delta landed — it degraded to today's behaviour (an empty intermediary/candidate list) until then.
 
+#### D9. Deactivate the EVA work-provider row  ·  *you confirm the pre-check, then one delta*
+
+**What:** EVA (Exclusive Vehicle Assessors) is **not a work provider** — it is an engineering firm whose
+reports CE **audits** (the third-party original on a PCH/QDOS audit case). It was logged in the provider
+corpus anyway (a legacy Dataverse-era row), which is one leg of the TKT-051 "cases arriving as EVA
+(Engineers)" mislabel. The code legs are fixed in the repo (parser `engine-v2.6` no longer emits an
+engineer-report layout name as `work_provider`; the Data API denylists those names in
+`api/src/lib/parser-eva-fields.ts`); this item closes the **data** leg. Delta:
+[`migration/assets/schema/deltas/2026-07-03-deactivate-eva-work-provider.sql`](../migration/assets/schema/deltas/2026-07-03-deactivate-eva-work-provider.sql)
+— **deactivates** (never deletes) any active row whose `display_name` matches
+`%exclusive vehicle assessors%` / `%eva (engineers)%`, and empties its match domains.
+
+**Why you:** (1) the same owner/RLS runbook as D7/D8 (a live Postgres data change needs `SET ROLE csadmin`);
+(2) a **judgment pre-check** — run the delta header's SELECT first and eyeball the hits: the WHERE is
+deliberately keyed on the full firm names, not the bare code `EVA`, so an innocent provider whose code
+merely collides is untouched; if the SELECT surfaces something surprising, adjust before applying.
+
+**Steps:** identical connection/runbook to D7/D8 (`az login` → transient firewall rule → connect as the
+Postgres Entra admin → `SET ROLE csadmin` → run the header pre-check SELECT → `\i` the file → run its
+POST-CHECK → drop the firewall rule). Pure data, idempotent, no deploy-order coupling.
+
+#### D10. Audit/case-type activation — delta first, gate flip later  ·  *two-step*
+
+**What:** the ADR-0021 case-type work (audit `A.` / total-loss audit `AP.` / diminution `D.` Case/PO
+markers, PCH+QDOS allowlist, `engineer_report` evidence) is code-complete and **shadow-safe**: with
+`AUDIT_CASES_ENABLED` unset/false (today), intake behaves exactly as before and merely records an
+**observe-only audit_event** whenever audit/diminution signals fire. Activation is two separate steps:
+
+1. **Apply the choice-row delta** (any time — safe while the gate is off):
+   [`migration/assets/schema/deltas/2026-07-04-audit-case-type-taxonomy.sql`](../migration/assets/schema/deltas/2026-07-04-audit-case-type-taxonomy.sql)
+   — adds `choice_case_type` rows `audit_total_loss` + `diminution` and reasserts
+   `choice_evidence_kind engineer_report` (100000007). Same D7/D8 runbook (`SET ROLE csadmin`,
+   idempotent, `ON CONFLICT DO NOTHING`).
+2. **Flip the gate — ONLY after (a) the delta is applied and (b) you have reviewed the shadow
+   audit_events** (a few days of `Case-type '…' detected (observe-only…)` rows looking right):
+   `az functionapp config appsettings set -g rg-collisionspike-dev -n cespk-api-dev --settings AUDIT_CASES_ENABLED=true`
+   and the same on `cespk-orch-dev`. From then on: detected audits set `case_type_code`, standalone
+   PCH/QDOS audits mint from the marker's own sequence (`A.PCH26001`…), QDOS dual "report + audit
+   report" letters keep the standard number with case-type `audit`, and report-typed attachments
+   persist as `engineer_report` evidence.
+
+**Why you:** the delta needs the D7/D8 owner runbook; the gate flip is a business go-live decision
+that should follow your review of the shadow events (flipping first + delta-missing would FK-fail
+case creation for audit emails — the deploy-order note is in the delta header).
+
+**Order with the parser deploy:** parser-first is safe (the new `case_type` envelope is additive and
+ignored until the gate is on); the delta is only mandatory **before the gate flip**.
+
 #### D5. Rotate the parser Function key  ·  *soft security item*
 
 **What:** a parser **function key** value was once committed in source + a doc (both removed/scrubbed), but

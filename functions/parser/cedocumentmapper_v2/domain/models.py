@@ -181,4 +181,11 @@ class ExtractedRecord:
     is_audit: bool = False
     audit_signals: tuple[str, ...] = ()
     case_type: str | None = None
+    # True when the case-type came from a DUAL "report + audit report"
+    # instruction (one letter commissioning both deliverables -- the QDOS
+    # template). Downstream numbering differs: a dual letter mints ONE case
+    # from the provider's NORMAL sequence and DERIVES the audit ID from it,
+    # whereas a standalone audit mints from the marker's own sequence
+    # (collisionspike ADR-0021). INTERNAL state, never in the EVA export.
+    case_type_dual: bool = False
 

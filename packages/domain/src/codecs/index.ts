@@ -17,6 +17,7 @@
    ============================================================ */
 
 import type { CaseStatus } from '../contracts/case-status';
+import type { CaseWorkType } from '../domain/case-type';
 import type {
   MileageUnit,
   VatStatus,
@@ -36,6 +37,7 @@ import type { InboundCategory, InboundSubtype } from '../dto';
 
 /* The REAL choice-set artifacts, co-located in this package (src/data/choicesets/). */
 import caseStatusChoiceSet from '../data/choicesets/case-status.json';
+import caseTypeChoiceSet from '../data/choicesets/case-type.json';
 import actionReasonChoiceSet from '../data/choicesets/action-reason.json';
 import inspectionDecisionChoiceSet from '../data/choicesets/inspection-decision-mode.json';
 import intakeChannelChoiceSet from '../data/choicesets/intake-channel.json';
@@ -95,6 +97,7 @@ export function makeChoiceCodec<TName extends string>(cs: ChoiceSet): ChoiceCode
 
 /* ----------  One codec per choice set the M1 binding touches  ---------- */
 export const caseStatusCodec = makeChoiceCodec<CaseStatus>(caseStatusChoiceSet as ChoiceSet);
+export const caseTypeCodec = makeChoiceCodec<CaseWorkType>(caseTypeChoiceSet as ChoiceSet);
 export const actionReasonCodec = makeChoiceCodec<ActionReason>(actionReasonChoiceSet as ChoiceSet);
 export const inspectionDecisionCodec = makeChoiceCodec<Case['inspectionDecision']>(
   inspectionDecisionChoiceSet as ChoiceSet,

@@ -21,8 +21,16 @@
    PURE + DETERMINISTIC + FRAMEWORK-FREE. No React, no I/O, no live calls.
    ============================================================ */
 
-/** The four evidence classes the intake pipeline distinguishes at attachment time. */
-export type EvidenceClass = 'image' | 'instruction' | 'email' | 'other';
+/**
+ * The evidence classes the intake pipeline distinguishes at attachment time.
+ *
+ * `engineer_report` (ADR-0014/ADR-0021) is NEVER produced by the filename tables
+ * below — `describeEvidence` stays filename-pure. It is assigned only by the
+ * orchestration classifyPersist override when the parser's CONTENT typing
+ * identified an attachment as a third-party engineer's report on an audit case
+ * (stored for comparison, never overlaid; maps to evidence kind 100000007).
+ */
+export type EvidenceClass = 'image' | 'instruction' | 'email' | 'other' | 'engineer_report';
 
 /* ----------  Extension table (primary signal)  ---------- */
 
@@ -68,6 +76,41 @@ function normaliseMime(contentType: string | undefined): string {
   const semi = contentType.indexOf(';');
   const base = semi >= 0 ? contentType.slice(0, semi) : contentType;
   return base.trim().toLowerCase();
+}
+
+/* ----------  Engineer-report layout names (TKT-051 / ADR-0021)  ----------
+   The parser's engineer-report LAYOUTS — "EVA (Engineers)" / "CNX (Engineers)"
+   (`engineer_report: true` in the vendored providers.json) — identify an
+   engineering FIRM'S report document. On an audit case that firm is the party
+   CE AUDITS, never the instructing work provider, so these names must never be
+   treated as a provider (api parser-eva-fields denylist) and an attachment the
+   parser typed to one of them is the third-party report to store as
+   `engineer_report` evidence (orchestration classifyPersist override). */
+
+const ENGINEER_REPORT_LAYOUT_KEYS: ReadonlySet<string> = new Set(
+  [
+    'EVA (Engineers)',
+    'CNX (Engineers)',
+    'Exclusive Vehicle Assessors',
+    'Connexus Vehicle Assessors',
+  ].map((n) => normaliseLayoutName(n)),
+);
+
+/** Normalise a layout/provider name for the engineer-report check: trim, uppercase,
+ *  strip parens + light punctuation, collapse whitespace. */
+function normaliseLayoutName(raw: string): string {
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/[().,'&]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** True when a parser layout/provider NAME is one of the engineer-report layouts. */
+export function isEngineerReportLayoutName(raw: string | null | undefined): boolean {
+  const key = normaliseLayoutName((raw ?? '').toString());
+  return key !== '' && ENGINEER_REPORT_LAYOUT_KEYS.has(key);
 }
 
 /**

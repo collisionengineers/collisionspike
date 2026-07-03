@@ -255,6 +255,11 @@ export const dataApi = {
      *  CORROBORATED. Absent when the sender matched a direct provider or nothing at all. */
     intermediaryImageSourceId?: string;
     intermediaryCandidateProviderIds?: string[];
+    /** ADR-0021 — the intake case-type decision. Applied by the API (case_type_code +
+     *  marker mint) only behind AUDIT_CASES_ENABLED; observe-only audit_event otherwise. */
+    caseType?: 'standard' | 'audit' | 'audit_total_loss' | 'diminution';
+    caseTypeDual?: boolean;
+    caseTypeSignals?: string[];
     decision: {
       resolution: string;
       targetCaseId?: string;

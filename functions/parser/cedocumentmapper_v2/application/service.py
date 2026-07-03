@@ -14,7 +14,11 @@ from typing import Any, Literal, cast
 from dataclasses import replace
 
 from cedocumentmapper_v2.config import LLMAssistSettings, migrate_providers_config
-from cedocumentmapper_v2.detection import ProviderDetector, audit_signal_for_reference
+from cedocumentmapper_v2.detection import (
+    ProviderDetector,
+    case_type_for_reference,
+    case_type_signal_for_reference,
+)
 from cedocumentmapper_v2.domain.models import (
     DocumentLine,
     DocumentModel,
@@ -170,20 +174,27 @@ class DocumentMapperService:
     def _apply_case_type(self, record: ExtractedRecord) -> ExtractedRecord:
         """Finalize the internal case-type flags on a freshly extracted record.
 
-        Detects the *audit* case-type from the ``A.`` prefix on the Case/PO value
-        (``FieldKey.REFERENCE``) and sets ``is_audit`` / ``audit_signals`` /
-        ``case_type``. Runs on the finalized record so both the CLI and GUI paths
-        get it. These are INTERNAL flags and never reach the EVA JSON export.
+        Reads the case-type MARKER on the Case/PO value (``FieldKey.REFERENCE``)
+        -- ``A.`` audit / ``AP.`` audit_total_loss / ``D.`` diminution
+        (collisionspike ADR-0021) -- and sets ``is_audit`` / ``audit_signals`` /
+        ``case_type``. An explicit marker OVERRIDES any content-derived
+        case-type already on the record (the engine's
+        ``detect_case_type_signals``): the reference is CE-assigned, so it is
+        the more authoritative signal. An unmarked reference leaves the record
+        (and its content-derived flags) untouched. Runs on the finalized record
+        so both the CLI and GUI paths get it. These are INTERNAL flags and never
+        reach the EVA JSON export.
         """
         reference = record.fields.get(FieldKey.REFERENCE, FieldExtraction("")).value
-        signal = audit_signal_for_reference(reference)
-        if signal is None:
+        case_type = case_type_for_reference(reference)
+        if case_type is None:
             return record
+        signal = case_type_signal_for_reference(reference)
         return replace(
             record,
-            is_audit=True,
-            audit_signals=record.audit_signals + (signal,),
-            case_type="audit",
+            is_audit=case_type in ("audit", "audit_total_loss"),
+            audit_signals=record.audit_signals + ((signal,) if signal else ()),
+            case_type=case_type,
         )
 
     def _resolve_provider_cfg(
@@ -565,6 +576,7 @@ class DocumentMapperService:
             is_audit=bool(data.get("is_audit", False)),
             audit_signals=tuple(data.get("audit_signals") or ()),
             case_type=data.get("case_type"),
+            case_type_dual=bool(data.get("case_type_dual", False)),
         )
 
     def document_to_dict(self, doc: DocumentModel) -> dict[str, Any]:
@@ -674,6 +686,7 @@ class DocumentMapperService:
             "is_audit": record.is_audit,
             "audit_signals": list(record.audit_signals),
             "case_type": record.case_type,
+            "case_type_dual": record.case_type_dual,
         }
 
     def orchestration_to_dict(self, result: Any) -> dict[str, Any]:
