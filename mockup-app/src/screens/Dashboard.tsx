@@ -117,6 +117,20 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     gap: tokens.spacingVerticalL,
     minWidth: 0,
+    // Sticky telemetry (TKT-054 round 5 — the REAL fix for the maximized-width void).
+    // The left work-list runs thousands of px once the operator expands "Show all" (105+
+    // cases → ~6500px), while this column is ~630px. With the columns independent-height
+    // (grid align-items:start), that left a ~5800px dead void beside the list — the exact
+    // regressions/1.png defect. Round 4 only balanced the COLLAPSED default; the void
+    // returned the instant the list was expanded. Sticking the column makes it travel with
+    // the scroll so it stays glanceable and NO void ever opens, independent of list length.
+    // Scoped to the 2-col breakpoint (below it the layout stacks); align-self:start gives
+    // it room to travel within the grid track; top clears the 57px sticky app header.
+    '@media (min-width: 1200px)': {
+      position: 'sticky',
+      alignSelf: 'start',
+      top: '73px',
+    },
   },
 
   regionHeading: {
