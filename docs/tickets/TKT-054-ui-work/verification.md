@@ -61,6 +61,14 @@
    re-verified at 1024 / 1210 / 1280 / 1920 with the operator's own counts;
    bundle `index-_PzfPvQC.js` live (sha256-matched). Operator re-check
    requested at their normal window size.
+   **✅ 2026-07-03 round 4:** operator re-checked and reported the UI error
+   **persists at MAXIMIZED 1920** (not ~1280) — rounds 2–3 had chased the wrong
+   condition (label truncation in the narrow band). The true defect, seen live at
+   1920 on real data, was the right-column **dead-space void** below Today/this-week
+   (regressions/1.png). Fixed by a new **Queues snapshot** section (Not ready /
+   Review / Held) filling the column. Deployed bundle `index-BbQFemVH.js`; verified
+   live at maximized 1920 (void gone, columns balanced); build + SPA vitest + live
+   CSP green. Memory corrected: operator runs **maximized 1920**, verify there first.
 7. ⏳ **Operator (gated.md B4)**: Mail.ReadWrite Exchange-RBAC re-consent →
    `OUTLOOK_MOVE_ENABLED=true` on both apps → **live-test the move yourself**
    (no automated live move was or will be run) → record here.
