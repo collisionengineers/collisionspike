@@ -53,10 +53,10 @@ from cedocumentmapper_v2.rules.triage_rules import (
 # test even though the schema's `minItems: 1` alone would not catch it.
 _EXPECTED_COUNTS: dict[str, int] = {
     "audit_phrases": 4,
-    "work_keywords": 27,
+    "work_keywords": 35,
     "billing_keywords": 17,
     "informal_work_keywords": 21,
-    "query_keywords": 45,
+    "query_keywords": 50,
     "chase_phrases": 20,
     "summary_markers": 9,
     "cancellation_phrases": 29,
@@ -146,7 +146,7 @@ def test_parity_snapshot_total():
     """Belt-and-braces: the grand total across all 13 collections."""
     rules = load_triage_rules()
     total = sum(len(getattr(rules, name)) for name in _EXPECTED_COUNTS)
-    assert total == sum(_EXPECTED_COUNTS.values()) == 238
+    assert total == sum(_EXPECTED_COUNTS.values()) == 251
 
 
 # --- Golden phrase pins -------------------------------------------------------
