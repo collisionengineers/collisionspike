@@ -367,6 +367,28 @@ export const dataApi = {
     return request('POST', '/api/internal/retro/create', payload);
   },
 
+  /**
+   * ADR-0022 R2 — register archive files as BYTE-LESS Box evidence rows (id + link
+   * only; the existing internal evidence route dedups them on box_file_id, storage_path
+   * stays NULL). `acceptedForEva: false` keeps a retro backfill out of the EVA image
+   * rules until staff review.
+   */
+  registerBoxEvidence(
+    caseId: string,
+    rows: Array<{
+      filename: string;
+      boxFileId: string;
+      boxFileUrl?: string;
+      size?: number;
+      contentType?: string;
+      evidenceClass?: 'image' | 'email' | 'other';
+      acceptedForEva?: boolean;
+      sourceLabel?: string;
+    }>,
+  ): Promise<{ persisted: number }> {
+    return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+
   /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
   persistEvidence(
     caseId: string,

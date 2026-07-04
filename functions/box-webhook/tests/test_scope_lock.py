@@ -35,8 +35,10 @@ ROOT = "392761581105"
 @pytest.fixture(autouse=True)
 def _clear_scope_cache():
     bc._SCOPE_VERIFIED.clear()
+    bc._SCOPE_VERIFIED_RO.clear()
     yield
     bc._SCOPE_VERIFIED.clear()
+    bc._SCOPE_VERIFIED_RO.clear()
 
 
 def _client(allowed_root: str = ROOT) -> BoxClient:
@@ -180,3 +182,136 @@ def test_upload_base_must_be_https_box_host(upload_base):
     with pytest.raises(BoxConfigError):
         _client_with_upload_base(upload_base).upload_file(ROOT, "a.pdf", b"bytes")
     assert not up.called
+
+
+# --- READ-ONLY archive roots (ADR-0022 R2): reads pass, writes REFUSE ---------------
+
+RO_ROOT = "777000111222"
+
+
+def _ro_client() -> BoxClient:
+    return BoxClient(config=jwt_box_config(allowed_root_id=ROOT, readonly_root_ids=(RO_ROOT,)))
+
+
+def _mock_scope_probe(item_type: str, item_id: str, ancestor_id: str) -> None:
+    respx.get(f"{API_BASE}/2.0/{item_type}/{item_id}").mock(
+        return_value=httpx.Response(
+            200,
+            json={"id": item_id, "path_collection": {"entries": [{"id": "0"}, {"id": ancestor_id}]}},
+        )
+    )
+
+
+@respx.mock
+def test_ro_root_itself_is_listable():
+    _mock_token()
+    listing = respx.get(f"{API_BASE}/2.0/folders/{RO_ROOT}/items").mock(
+        return_value=httpx.Response(200, json={"entries": []})
+    )
+    _ro_client().list_folder(RO_ROOT)  # an RO root short-circuits the readable guard
+    assert listing.called
+
+
+@respx.mock
+def test_ro_descendant_read_passes_but_write_refuses():
+    """THE load-bearing matrix: the same RO-rooted folder id may be listed but never
+    uploaded into — and the RO verification must not poison the write cache."""
+    _mock_token()
+    _mock_scope_probe("folders", "555", RO_ROOT)
+    respx.get(f"{API_BASE}/2.0/folders/555/items").mock(
+        return_value=httpx.Response(200, json={"entries": []})
+    )
+    up = respx.post(UPLOAD_URL).mock(
+        return_value=httpx.Response(201, json={"entries": [{"id": "f"}]})
+    )
+    c = _ro_client()
+    c.list_folder("555")  # read: allowed (verified under the RO root)
+    assert "555" in bc._SCOPE_VERIFIED_RO
+    assert "555" not in bc._SCOPE_VERIFIED  # the split — RO never enters the RW cache
+    with pytest.raises(BoxScopeError):
+        c.upload_file("555", "a.pdf", b"bytes")  # write: refused
+    assert not up.called
+
+
+@respx.mock
+def test_rw_descendant_read_populates_rw_cache():
+    _mock_token()
+    _mock_scope_probe("folders", "556", ROOT)
+    respx.get(f"{API_BASE}/2.0/folders/556/items").mock(
+        return_value=httpx.Response(200, json={"entries": []})
+    )
+    _ro_client().list_folder("556")
+    assert "556" in bc._SCOPE_VERIFIED  # genuinely RW-rooted — writes may reuse it
+
+
+@respx.mock
+def test_read_outside_every_root_refuses():
+    _mock_token()
+    _mock_scope_probe("folders", "999", "313131")  # under neither root
+    with pytest.raises(BoxScopeError):
+        _ro_client().list_folder("999")
+
+
+@respx.mock
+def test_search_roots_must_be_configured_roots():
+    _mock_token()
+    c = _ro_client()
+    with pytest.raises(BoxScopeError):
+        c.search_content("CCPY26050", ["313131"])  # a root we never configured
+    with pytest.raises(BoxScopeError):
+        c.search_content("CCPY26050", [])
+
+
+@respx.mock
+def test_search_post_filters_out_of_root_hits():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/search").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "total_count": 2,
+                "entries": [
+                    {
+                        "id": "f1", "name": "instruction.eml", "type": "file",
+                        "path_collection": {"entries": [{"id": "0"}, {"id": RO_ROOT}, {"id": "case1", "name": "CCPY26050"}]},
+                    },
+                    {
+                        "id": "f2", "name": "leak.eml", "type": "file",
+                        # ancestor_folder_ids treated as ADVISORY — this hit claims no root ancestry
+                        "path_collection": {"entries": [{"id": "0"}, {"id": "424242"}]},
+                    },
+                ],
+            },
+        )
+    )
+    out = _ro_client().search_content("CCPY26050", [RO_ROOT])
+    assert [e["id"] for e in out["entries"]] == ["f1"]
+    assert out["filtered_out"] == 1
+
+
+@respx.mock
+def test_download_of_ro_file_passes_write_of_same_refuses():
+    _mock_token()
+    # One mock serves BOTH the scope probe (fields=id,path_collection) and the
+    # metadata pre-fetch (fields=id,name,size,sha1) — a superset body.
+    respx.get(f"{API_BASE}/2.0/files/f9").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "f9", "name": "orig.eml", "size": 5, "sha1": "abc",
+                "path_collection": {"entries": [{"id": "0"}, {"id": RO_ROOT}]},
+            },
+        )
+    )
+    respx.get(f"{API_BASE}/2.0/files/f9/content").mock(
+        return_value=httpx.Response(
+            302, headers={"Location": "https://dl.boxcloud.com/d/1/f9"}
+        )
+    )
+    respx.get("https://dl.boxcloud.com/d/1/f9").mock(
+        return_value=httpx.Response(200, content=b"bytes")
+    )
+    out = _ro_client().download_file("f9")
+    assert out["content"] == b"bytes"
+    assert out["name"] == "orig.eml"
+    assert "f9" in bc._SCOPE_VERIFIED_RO and "f9" not in bc._SCOPE_VERIFIED

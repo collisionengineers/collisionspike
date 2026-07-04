@@ -140,11 +140,19 @@ def _parse_http_date(date_str: str | None) -> float | None:
     except (TypeError, ValueError):
         return None
 
-# Layer-2 scope lock cache: folder/file ids already confirmed to sit under
-# BOX_ALLOWED_ROOT_ID. Module-level so it survives across warm-worker requests (the
-# facade builds a fresh BoxClient per request). The root itself never needs caching
-# (it short-circuits). Bounded in practice by the number of in-scope case folders.
+# Layer-2 scope lock caches: folder/file ids already confirmed to sit under a root.
+# Module-level so they survive across warm-worker requests (the facade builds a fresh
+# BoxClient per request). The roots themselves never need caching (they short-circuit).
+# Bounded in practice by the number of in-scope case folders.
+#
+# SPLIT ON PURPOSE (ADR-0022 R2 — load-bearing): `_SCOPE_VERIFIED` holds ids proven
+# under the READ-WRITE root (BOX_ALLOWED_ROOT_ID) and is the ONLY cache the write-path
+# `_assert_in_scope` consults; `_SCOPE_VERIFIED_RO` holds ids proven under a READ-ONLY
+# archive root (BOX_READONLY_ROOT_IDS) and is consulted ONLY by `_assert_readable_scope`.
+# A single shared cache would let an id verified for reading under the archive pass a
+# later WRITE assertion — exactly the containment the one-way-mirror doctrine forbids.
 _SCOPE_VERIFIED: set[str] = set()
+_SCOPE_VERIFIED_RO: set[str] = set()
 
 
 class BoxError(RuntimeError):
@@ -203,6 +211,11 @@ class BoxConfig:
     # Layer-2 scope lock. When set, every op must target this folder or a descendant
     # (verified via path_collection). Empty = lock lifted (production).
     allowed_root_id: str = ""
+    # READ-ONLY archive roots (ADR-0022 R2 retro reconstruction): list/search/download
+    # may additionally target these folders or descendants; create/upload/delete NEVER
+    # may (the write path ignores this list entirely — one-way mirror, nothing is ever
+    # written into or deleted from the archive). Comma-separated BOX_READONLY_ROOT_IDS.
+    readonly_root_ids: tuple[str, ...] = ()
 
     @classmethod
     def from_env(cls) -> "BoxConfig":
@@ -251,6 +264,11 @@ class BoxConfig:
 
         algorithm = os.environ.get("BOX_JWT_ALGORITHM", "").strip() or _DEFAULT_JWT_ALGORITHM
         allowed_root_id = os.environ.get("BOX_ALLOWED_ROOT_ID", "").strip()
+        readonly_root_ids = tuple(
+            part.strip()
+            for part in os.environ.get("BOX_READONLY_ROOT_IDS", "").split(",")
+            if part.strip()
+        )
         api_base = (os.environ.get("BOX_API_BASE", "").strip() or DEFAULT_BOX_API_BASE).rstrip("/")
         upload_base = (
             os.environ.get("BOX_UPLOAD_BASE", "").strip() or DEFAULT_BOX_UPLOAD_BASE
@@ -267,6 +285,7 @@ class BoxConfig:
             api_base=api_base,
             upload_base=upload_base,
             allowed_root_id=allowed_root_id,
+            readonly_root_ids=readonly_root_ids,
         )
 
     @property
@@ -555,6 +574,50 @@ class BoxClient:
             f"{item_type}/{sid} is outside the allowed Box root (BOX_ALLOWED_ROOT_ID lock)"
         )
 
+    def _readable_roots(self) -> tuple[str, ...]:
+        """Every root a READ may target: the RW root plus the RO archive roots."""
+        cfg = self.config
+        roots = [cfg.allowed_root_id, *cfg.readonly_root_ids]
+        return tuple(r for r in roots if r)
+
+    def _assert_readable_scope(self, item_type: str, item_id: str) -> None:
+        """The READ-side scope guard (ADR-0022 R2): list/search/download may target the
+        RW root OR any READ-ONLY archive root (``BOX_READONLY_ROOT_IDS``) or descendant.
+        Write ops keep using ``_assert_in_scope`` (RW root only) — the RO roots never
+        satisfy a write. Mirrors ``_assert_in_scope``'s posture when the RW lock is
+        lifted (``BOX_ALLOWED_ROOT_ID`` unset = production): reads are then
+        unrestricted too. An id proven under an RO root is cached in
+        ``_SCOPE_VERIFIED_RO`` ONLY — never the RW cache (the load-bearing split)."""
+        cfg = self.config
+        if not cfg.allowed_root_id:
+            return  # lock lifted (production posture) — same no-op as the write guard
+        sid = str(item_id or "")
+        roots = self._readable_roots()
+        if not sid or sid in roots or sid in _SCOPE_VERIFIED or sid in _SCOPE_VERIFIED_RO:
+            return
+        if item_type not in ("folders", "files"):
+            raise BoxScopeError(f"scope check: unsupported item_type {item_type!r}")
+        resp = self.request("GET", f"/2.0/{item_type}/{sid}", params={"fields": "id,path_collection"})
+        if resp.status_code >= 400:
+            raise BoxScopeError(
+                f"scope check could not resolve {item_type}/{sid} (HTTP {resp.status_code})",
+                status=resp.status_code,
+            )
+        try:
+            entries = (resp.json().get("path_collection") or {}).get("entries") or []
+        except ValueError:
+            entries = []
+        ancestor_ids = {str(e.get("id")) for e in entries}
+        if cfg.allowed_root_id in ancestor_ids:
+            _SCOPE_VERIFIED.add(sid)  # genuinely RW-rooted — writes may reuse it
+            return
+        if any(r in ancestor_ids for r in cfg.readonly_root_ids):
+            _SCOPE_VERIFIED_RO.add(sid)  # READ-ONLY — must never enter the RW cache
+            return
+        raise BoxScopeError(
+            f"{item_type}/{sid} is outside the allowed/read-only Box roots (scope lock)"
+        )
+
     # -- typed operations (back the connector ops) -------------------------
 
     def create_folder(self, name: str, parent_id: str) -> dict[str, Any]:
@@ -639,14 +702,115 @@ class BoxClient:
         return _json_or_raise(resp, "GetSharedLink")
 
     def list_folder(self, folder_id: str, *, limit: int | None = None, offset: int | None = None) -> dict[str, Any]:
-        self._assert_in_scope("folders", folder_id)
-        params: dict[str, Any] = {"fields": "id,name,sha1,created_at,modified_at"}
+        # READ op: an RO archive folder may be listed (ADR-0022 R2) — write ops still
+        # refuse it via _assert_in_scope. Fields widened additively for the retro
+        # instruction pick (type/size distinguish files from subfolders).
+        self._assert_readable_scope("folders", folder_id)
+        params: dict[str, Any] = {"fields": "id,name,type,sha1,size,created_at,modified_at"}
         if limit is not None:
             params["limit"] = limit
         if offset is not None:
             params["offset"] = offset
         resp = self.request("GET", f"/2.0/folders/{folder_id}/items", params=params)
         return _json_or_raise(resp, "ListFolder")
+
+    def search_content(
+        self,
+        query: str,
+        root_ids: list[str] | tuple[str, ...],
+        *,
+        item_type: str | None = None,
+        content_types: list[str] | None = None,
+        limit: int = 30,
+    ) -> dict[str, Any]:
+        """GET /2.0/search scoped to the given ancestor roots (ADR-0022 R2 — the retro
+        reconstruction's find-the-case-folder primitive). Box full-text search covers
+        file NAMES and CONTENTS, so a claim reference or registration inside an archived
+        instruction PDF/.eml hits even when nothing is named after it.
+
+        READ-ONLY + double-guarded: every requested root must be one of the configured
+        readable roots (RW + RO — defence in depth over the facade route's own check),
+        and every returned entry is POST-FILTERED to sit under one of the requested
+        roots via its path_collection (`ancestor_folder_ids` is treated as advisory,
+        not trusted). `filtered_out` reports how many hits the post-filter dropped."""
+        roots = tuple(str(r).strip() for r in root_ids if str(r).strip())
+        if not roots:
+            raise BoxScopeError("search requires at least one ancestor root id")
+        readable = self._readable_roots()
+        if readable and not all(r in readable for r in roots):
+            raise BoxScopeError(
+                "search root outside the configured allowed/read-only Box roots (scope lock)"
+            )
+        params: dict[str, Any] = {
+            "query": query,
+            "ancestor_folder_ids": ",".join(roots),
+            "fields": "id,name,type,size,created_at,parent,path_collection",
+            "limit": limit,
+        }
+        if item_type:
+            params["type"] = item_type
+        if content_types:
+            params["content_types"] = ",".join(content_types)
+        resp = self.request("GET", "/2.0/search", params=params)
+        body = _json_or_raise(resp, "Search")
+        entries = body.get("entries") or []
+        kept = [e for e in entries if _entry_under_roots(e, roots)]
+        return {
+            "entries": kept,
+            "total_count": body.get("total_count", len(kept)),
+            "filtered_out": len(entries) - len(kept),
+        }
+
+    def download_file(self, file_id: str, *, max_bytes: int | None = None) -> dict[str, Any]:
+        """GET /2.0/files/{id}/content (ADR-0022 R2 — fetch the archived original
+        instruction `.eml`/document for reconstruction). READ op: an RO archive file is
+        allowed. Box replies 302 to a time-limited dl host URL; that redirect is
+        followed for THIS call only (the pre-signed URL carries its own auth — the
+        bearer header is NOT forwarded) after a host pin (box.com / boxcloud.com).
+        Size-capped BEFORE the bytes move (metadata probe) and after (belt-and-braces)
+        because the facade rides base64-in-JSON."""
+        self._assert_readable_scope("files", file_id)
+        cap = max_bytes if max_bytes is not None else _download_cap_bytes()
+        meta = _json_or_raise(
+            self.request("GET", f"/2.0/files/{file_id}", params={"fields": "id,name,size,sha1"}),
+            "GetFileInfo",
+        )
+        declared = int(meta.get("size") or 0)
+        if declared > cap:
+            raise BoxError(
+                f"file exceeds the facade download cap ({declared} > {cap} bytes)", status=413
+            )
+        resp = self.request("GET", f"/2.0/files/{file_id}/content")
+        if resp.status_code == 302:
+            location = resp.headers.get("Location") or resp.headers.get("location") or ""
+            _validate_box_download_host(location)
+            dl = self.http.get(location, follow_redirects=True)
+            if dl.status_code != 200:
+                raise BoxError(
+                    f"Box download URL returned HTTP {dl.status_code}", status=dl.status_code
+                )
+            content = dl.content
+        elif resp.status_code == 200:
+            content = resp.content
+        elif resp.status_code == 202:
+            # File not yet available (Box still processing) — transient; the Durable
+            # activity retry policy absorbs it.
+            raise BoxError("Box file is not yet available for download (202)", status=202)
+        else:
+            raise BoxError(
+                f"Box DownloadFile returned HTTP {resp.status_code}", status=resp.status_code
+            )
+        if len(content) > cap:
+            raise BoxError(
+                f"downloaded bytes exceed the facade cap ({len(content)} > {cap})", status=413
+            )
+        return {
+            "id": str(meta.get("id") or file_id),
+            "name": str(meta.get("name") or ""),
+            "size": len(content),
+            "sha1": str(meta.get("sha1") or ""),
+            "content": content,
+        }
 
     def create_webhook(self, target: dict[str, Any], address: str, triggers: list[str]) -> dict[str, Any]:
         t_type = str(target.get("type") or "folder")
@@ -680,6 +844,65 @@ class BoxClient:
         if resp.status_code in (200, 204):
             return {"deleted": True, "id": file_request_id}
         raise BoxError(f"Box DeleteFileRequest returned HTTP {resp.status_code}", status=resp.status_code)
+
+
+def _download_cap_bytes() -> int:
+    """The facade download cap (base64-in-JSON transport). Overridable per app via
+    BOX_DOWNLOAD_MAX_BYTES; default 25 MiB. Read per call so tests can vary it."""
+    raw = os.environ.get("BOX_DOWNLOAD_MAX_BYTES", "").strip()
+    try:
+        value = int(raw) if raw else 0
+    except ValueError:
+        value = 0
+    return value if value > 0 else 26_214_400
+
+
+def _validate_box_download_host(location: str) -> None:
+    """Pin the 302 download redirect to a Box-owned host (box.com / boxcloud.com —
+    Box serves file bytes from dl.boxcloud.com) over https, BEFORE following it."""
+    parts = urlsplit(location)
+    host = (parts.hostname or "").lower()
+    ok = parts.scheme == "https" and (
+        host == "box.com"
+        or host.endswith(".box.com")
+        or host == "boxcloud.com"
+        or host.endswith(".boxcloud.com")
+    )
+    if not ok:
+        raise BoxError("Refusing Box download redirect: not an https box.com/boxcloud.com host")
+
+
+def _entry_under_roots(entry: dict[str, Any], root_ids: tuple[str, ...]) -> bool:
+    """True when a search hit provably sits under one of the requested roots — the
+    entry IS a root, or its path_collection names one. Entries with no resolvable
+    ancestry are DROPPED (never trusted into a reconstruction)."""
+    if str(entry.get("id") or "") in root_ids:
+        return True
+    path = (entry.get("path_collection") or {}).get("entries") or []
+    return any(str(e.get("id")) in root_ids for e in path)
+
+
+def resolve_case_folder(
+    entry: dict[str, Any], root_ids: list[str] | tuple[str, ...]
+) -> dict[str, str] | None:
+    """From a search hit, the CASE FOLDER = the ancestor DIRECTLY under the first
+    matching archive root in the hit's path_collection (archive layout: one folder per
+    case, named the Case/PO, directly under a root — nesting deeper inside the case
+    folder is fine, the direct-child ancestor is still the case folder). A FOLDER hit
+    that is itself the direct child IS the case folder; a FILE loose at root level has
+    no case folder (None). Pure — unit-testable without a client."""
+    roots = {str(r).strip() for r in root_ids if str(r).strip()}
+    path = (entry.get("path_collection") or {}).get("entries") or []
+    for i, ancestor in enumerate(path):
+        if str(ancestor.get("id")) not in roots:
+            continue
+        if i + 1 < len(path):
+            nxt = path[i + 1]
+            return {"id": str(nxt.get("id") or ""), "name": str(nxt.get("name") or "")}
+        if str(entry.get("type") or "") == "folder":
+            return {"id": str(entry.get("id") or ""), "name": str(entry.get("name") or "")}
+        return None
+    return None
 
 
 def _json_or_raise(resp: httpx.Response, op: str) -> dict[str, Any]:

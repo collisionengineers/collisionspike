@@ -473,3 +473,70 @@ def test_token_mint_host_pin_message_has_no_secret():
         c.get_token()
     assert FAKE_SECRET not in str(ei.value)
     c.close()
+
+
+# --- download_file hardening (ADR-0022 R2: cap + redirect host pin) -----------------
+
+API_BASE_DL = "https://api.box.com"
+
+
+def _dl_client() -> BoxClient:
+    # RW lock lifted (unset) so the readable guard is a no-op — these tests pin the
+    # download mechanics, not the scope matrix (test_scope_lock.py owns that).
+    return BoxClient(config=jwt_box_config(allowed_root_id=""))
+
+
+def _mock_dl_token() -> None:
+    respx.post(f"{API_BASE_DL}/oauth2/token").mock(
+        return_value=httpx.Response(200, json={"access_token": "T", "expires_in": 3599})
+    )
+
+
+@respx.mock
+def test_download_rejects_oversized_file_before_bytes_move():
+    _mock_dl_token()
+    respx.get(f"{API_BASE_DL}/2.0/files/big").mock(
+        return_value=httpx.Response(
+            200, json={"id": "big", "name": "huge.pdf", "size": 999_999_999, "sha1": "s"}
+        )
+    )
+    content = respx.get(f"{API_BASE_DL}/2.0/files/big/content").mock(
+        return_value=httpx.Response(302, headers={"Location": "https://dl.boxcloud.com/x"})
+    )
+    with pytest.raises(BoxError) as ei:
+        _dl_client().download_file("big")
+    assert ei.value.status == 413
+    assert not content.called  # refused on the metadata probe — no byte transfer started
+
+
+@respx.mock
+def test_download_refuses_non_box_redirect_host():
+    _mock_dl_token()
+    respx.get(f"{API_BASE_DL}/2.0/files/f1").mock(
+        return_value=httpx.Response(200, json={"id": "f1", "name": "a.eml", "size": 5, "sha1": "s"})
+    )
+    respx.get(f"{API_BASE_DL}/2.0/files/f1/content").mock(
+        return_value=httpx.Response(302, headers={"Location": "https://evil.example.com/steal"})
+    )
+    evil = respx.get("https://evil.example.com/steal").mock(
+        return_value=httpx.Response(200, content=b"x")
+    )
+    with pytest.raises(BoxError):
+        _dl_client().download_file("f1")
+    assert not evil.called  # pinned BEFORE following
+
+
+@respx.mock
+def test_download_follows_boxcloud_redirect_and_returns_bytes():
+    _mock_dl_token()
+    respx.get(f"{API_BASE_DL}/2.0/files/f2").mock(
+        return_value=httpx.Response(200, json={"id": "f2", "name": "orig.eml", "size": 9, "sha1": "s"})
+    )
+    respx.get(f"{API_BASE_DL}/2.0/files/f2/content").mock(
+        return_value=httpx.Response(302, headers={"Location": "https://dl.boxcloud.com/d/f2"})
+    )
+    respx.get("https://dl.boxcloud.com/d/f2").mock(
+        return_value=httpx.Response(200, content=b"eml bytes")
+    )
+    out = _dl_client().download_file("f2")
+    assert out == {"id": "f2", "name": "orig.eml", "size": 9, "sha1": "s", "content": b"eml bytes"}

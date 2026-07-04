@@ -8,20 +8,23 @@
  * the reconstruction ladder:
  *
  *   rung 1  retroResolveExisting — ANY-status existence check (incl. terminals)
- *           via the Data API; a hit LINKS the trigger email and stops.  [R1 — live]
- *   rung 2  Box archive — content-search the read-only archive root(s) by the
- *           email's keys, discover the Case/PO from the folder name, download +
- *           parse the original instruction.                    [R2 — not built yet]
+ *           via the Data API; a hit LINKS the trigger email and stops.  [R1]
+ *   rung 2  Box archive — content-search the READ-ONLY archive root(s) by the
+ *           email's keys, consolidate hits to ONE case folder (never guess),
+ *           discover the Case/PO from the folder name, download + explode the
+ *           original instruction `.eml` (or document), land the bytes in Blob,
+ *           and run the SAME parse → create chain as live intake.        [R2]
  *   rung 3  Outlook $search — find the original instruction in the 3 scoped
- *           mailboxes.                                         [R3 — not built yet]
- *   bottom  nothing found → audit retro_reconstruction_failed; the triage row is
- *           left exactly as today.
+ *           mailboxes.                                          [R3 — not built]
+ *   bottom  minimal Held anchor when the folder exists but nothing parseable;
+ *           nothing at all → audit retro_reconstruction_failed; the triage row
+ *           is left exactly as today.
  *
- * Gates: RETRO_CASE_ENABLED — read INSIDE the activities (never the orchestrator
- * body; the parse/enrich/boxFolderCreate convention) so the decision is recorded
- * in Durable history and stays replay-safe. Gate off → every activity returns an
- * honest { skipped } and the chain is a cheap no-op. The Data API enforces the
- * same gate server-side (set it on BOTH apps).
+ * Gates: RETRO_CASE_ENABLED (+ BOX_API_ENABLED + RETRO_BOX_ARCHIVE_ROOT_IDS for
+ * the Box rung) — read INSIDE the activities (never the orchestrator body; the
+ * parse/enrich/boxFolderCreate convention) so decisions are recorded in Durable
+ * history and stay replay-safe. Gate off → honest { skipped } no-ops. The Data
+ * API enforces RETRO_CASE_ENABLED server-side too (set it on BOTH apps).
  *
  * Triggers: (1) the intake orchestrator (the two unmatched non-receiving_work
  * returns) via callSubOrchestratorWithRetry; (2) the keyed manual HTTP starter —
@@ -31,14 +34,42 @@
  *
  * Never blocks or reorders the primary intake: invoked AFTER every existing
  * activity in its lane, try/catch-wrapped at the call site, additive result key.
+ * The archive is READ-ONLY throughout (list/search/download; the scope lock in
+ * the box-webhook Function refuses writes under the RO roots).
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import * as df from 'durable-functions';
 import { gates } from '@cs/domain/gates';
-import { decideRetro, type InboundCategory, type RetroKeys } from '@cs/domain';
-import { dataApi } from '../../lib/data-api.js';
+import {
+  CASE_PO_SHAPE_RE,
+  decideCaseType,
+  decideRetro,
+  decideRetroStatus,
+  markerToCaseType,
+  matchPrincipalByCasePo,
+  normalizeCasePo,
+  selectBoxInstructionCandidate,
+  type BoxFolderEntry,
+  type InboundCategory,
+  type RetroKeys,
+  type RetroReconstructionSource,
+} from '@cs/domain';
+import { dataApi, type ParserEvaFields } from '../../lib/data-api.js';
 import { findMessageByInternetMessageId } from '../../lib/graph.js';
+import { box, callExplodeEml, type ExplodedEml } from '../../lib/functions-client.js';
+import { uploadEvidenceBytes } from '../../lib/blob.js';
+import { supplementAccidentCircumstancesFromBody } from '../../lib/supplement-parse.js';
+import {
+  buildMinimalAnchorEnvelope,
+  buildRetroEnvelopeFromDoc,
+  buildRetroEnvelopeFromEml,
+  classifyArchiveFile,
+  pickCaseFolder,
+  type LandedAttachment,
+  type RetroSearchHit,
+} from '../../lib/retro-envelope.js';
+import type { InboundEnvelope } from '../activities/fetchMessage.js';
 import type { InboundClassification } from '../activities/classifyInbound.js';
 
 export interface RetroCaseInput {
@@ -48,6 +79,9 @@ export interface RetroCaseInput {
   subtype?: string;
   keys?: RetroKeys;
   providerId?: string;
+  /** The sender-matched provider's principal code (providerMatch) — the VRM-only
+   *  Box-pick corroboration key (folder principal must agree; never cross providers). */
+  providerPrincipal?: string;
   /** Manual-starter form (operator drain): locate the message, then re-derive the rest.
    *  `internetMessageId` + `mailbox` = inbound_email.source_message_id + source_mailbox. */
   internetMessageId?: string;
@@ -108,6 +142,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
   let category = input.category;
   let keys = input.keys;
   let providerId = input.providerId;
+  let providerPrincipal = input.providerPrincipal;
 
   // Manual-drain form: locate + fetch + classify the trigger so the run is identical to a
   // live arrival (same activities, same triage-row upsert, same decideRetro eligibility).
@@ -129,8 +164,10 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
     const provider = (yield ctx.df.callActivityWithRetry('providerMatch', retry, trigger)) as {
       workProviderId?: string;
       matchState?: string;
+      principalCode?: string;
     };
     providerId = provider.workProviderId;
+    providerPrincipal = provider.principalCode;
     const classification = (yield ctx.df.callActivityWithRetry('classifyInbound', retry, {
       inbound: trigger,
       workProviderId: providerId,
@@ -175,16 +212,221 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
     return { outcome: 'ambiguous', candidateCount: resolved.candidateCount };
   }
 
-  // Rungs 2 (Box archive) + 3 (Outlook $search) land in R2/R3 — see the module doc.
+  const rungsTried: string[] = ['resolve_existing'];
+
+  // Rung 2 — Box archive reconstruction (R2). Best-effort throughout: any rung failure
+  // falls through to the failure audit; the primary intake already returned.
+  let boxAmbiguity: number | undefined;
+  try {
+    const located = (yield ctx.df.callActivityWithRetry('retroBoxLocate', retry, {
+      keys,
+      providerPrincipal,
+    })) as {
+      skipped?: string;
+      found?: boolean;
+      reason?: string;
+      folder?: { id: string; name: string };
+      discoveredPo?: string;
+      principalCode?: string;
+      marker?: '' | 'A.' | 'AP.' | 'D.';
+      basis?: string;
+      candidateCount?: number;
+    };
+    if (!located.skipped) rungsTried.push('box_archive');
+    boxAmbiguity = located.candidateCount && located.candidateCount > 1 ? located.candidateCount : undefined;
+
+    if (!located.skipped && located.found && located.folder && located.discoveredPo) {
+      const fetched = (yield ctx.df.callActivityWithRetry('retroBoxFetchInstruction', retry, {
+        folderId: located.folder.id,
+        folderName: located.folder.name,
+        discoveredPo: located.discoveredPo,
+        triggerReceivedAt: (trigger as { receivedAt?: string }).receivedAt,
+      })) as {
+        skipped?: string;
+        envelope?: InboundEnvelope;
+        instructionSource?: RetroReconstructionSource;
+        otherFiles?: Array<{ boxFileId: string; filename: string; size?: number }>;
+        subfolderCount?: number;
+      };
+
+      if (!fetched.skipped && fetched.envelope) {
+        const original = fetched.envelope;
+        let reconstructionSource: RetroReconstructionSource = fetched.instructionSource ?? 'minimal';
+
+        // parse — the EXISTING activity, same best-effort doctrine as intake step 4 (a
+        // total parser outage still creates the case; fields backfillable by staff).
+        let parseResult: {
+          vrm?: { value?: string };
+          reference?: { value?: string };
+          extraction?: Record<string, { value?: string } | undefined>;
+          skipped?: boolean;
+        } = {};
+        if (reconstructionSource !== 'minimal') {
+          try {
+            const parseAttachments =
+              original.attachments.length > 0
+                ? original.attachments
+                : original.rawEml
+                  ? [original.rawEml]
+                  : [];
+            parseResult = (yield ctx.df.callActivityWithRetry('parse', retry, {
+              messageId: original.messageId,
+              attachments: parseAttachments,
+              providerHint: located.principalCode,
+            })) as typeof parseResult;
+          } catch (e) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[retro] parse failed (best-effort, case still created): ${String(e)}`);
+            }
+            parseResult = {};
+          }
+        }
+
+        // Pure mappings over checkpointed results — mirrors intake's parser forwarding.
+        const ex = parseResult.extraction ?? {};
+        const exVal = (k: string): string => (ex[k]?.value ?? '').trim();
+        const exWorkProvider = exVal('work_provider');
+        const parserEva: ParserEvaFields = {
+          work_provider: exWorkProvider.toUpperCase() === 'UNKNOWN' ? '' : exWorkProvider,
+          vehicle_model: exVal('vehicle_model'),
+          claimant_name: exVal('claimant_name'),
+          claimant_telephone: exVal('claimant_telephone'),
+          claimant_email: exVal('claimant_email'),
+          date_of_loss: exVal('date_of_loss'),
+          date_of_instruction: exVal('date_of_instruction'),
+          accident_circumstances:
+            exVal('accident_circumstances') ||
+            supplementAccidentCircumstancesFromBody(String(original.body ?? '')),
+          vat_status: exVal('vat_status'),
+        };
+        const parserVrm = (parseResult.vrm?.value ?? '').trim();
+        const parserRef = (parseResult.reference?.value ?? '').trim();
+
+        // Corroboration (pure, logged): with BOTH trigger keys present AND both parsed,
+        // a double disagreement means the picked folder is suspect — demote to a Held
+        // minimal anchor (never terminal on a contradicted match). A ref content-hit is
+        // otherwise self-corroborating (the key came from INSIDE this folder's files).
+        const normToken = (v: string): string => v.trim().toUpperCase().replace(/\s+/g, '');
+        const refContradicts = Boolean(
+          keys.externalRef && parserRef && normToken(parserRef) !== normToken(keys.externalRef),
+        );
+        const vrmContradicts = Boolean(
+          keys.vrm &&
+            (parserVrm || original.candidateVrm) &&
+            normToken(parserVrm || original.candidateVrm) !== normToken(keys.vrm),
+        );
+        const contradicted = refContradicts && vrmContradicts;
+        const effectiveSource: RetroReconstructionSource = contradicted
+          ? 'minimal'
+          : reconstructionSource;
+        if (contradicted && !ctx.df.isReplaying) {
+          ctx.log(
+            `[retro] corroboration failed (parsed ref+VRM both disagree with the trigger keys) — demoting to Held anchor`,
+          );
+        }
+
+        // Case type: the archive marker is ground truth (ADR-0021/0022); content
+        // detection is the fallback. Pure over checkpointed values.
+        const contentType = decideCaseType({
+          parserCaseType: (parseResult as {
+            case_type?: { value?: string | null; dual?: boolean; signals?: string[] };
+          }).case_type,
+          parserAudit: (parseResult as { audit?: { value?: boolean; signals?: string[] } }).audit,
+          classifierSubtype: input.subtype,
+        });
+        const caseType = located.marker ? markerToCaseType(located.marker) : contentType.caseType;
+        const caseTypeSignals = located.marker
+          ? [`archive_marker:${located.marker}`, ...contentType.signals]
+          : [...contentType.signals];
+
+        const statusDecision = decideRetroStatus({
+          triggerCategory: category ?? 'other',
+          reconstruction: effectiveSource,
+          principalResolved: Boolean(located.principalCode),
+          casePoKnown: true,
+        });
+
+        const persisted = (yield ctx.df.callActivityWithRetry('retroCreatePersist', retry, {
+          original,
+          trigger,
+          keys,
+          casePo: located.discoveredPo,
+          vrm: parserVrm || original.candidateVrm || keys.vrm || '',
+          statusName: statusDecision.status,
+          onHold: statusDecision.onHold,
+          actionReason: statusDecision.actionReason,
+          reconstructionSource: effectiveSource,
+          providerId,
+          parserVrm,
+          parserRef,
+          parserMileage: exVal('mileage'),
+          parserMileageUnit: exVal('mileage_unit'),
+          parserEva,
+          caseType,
+          caseTypeSignals: [...caseTypeSignals, ...statusDecision.signals, ...(contradicted ? ['retro_corroboration_failed'] : [])],
+          boxFolder: { id: located.folder.id, url: `https://app.box.com/folder/${encodeURIComponent(located.folder.id)}` },
+          triggerCategory: category,
+          otherFiles: fetched.otherFiles ?? [],
+        })) as { skipped?: string; outcome?: string; caseId?: string; casePo?: string | null };
+
+        if (persisted.skipped) return { outcome: 'skipped', reason: persisted.skipped };
+        if (persisted.outcome === 'gated_off') return { outcome: 'skipped', reason: 'api_gate_off' };
+
+        if (persisted.outcome === 'created' && persisted.caseId) {
+          // Record-keeping parity with a linked live arrival: evidence rows for the
+          // reconstructed original + status alignment. Best-effort — never unwinds
+          // the created case. NO enrich (historical vehicle data adds nothing), NO
+          // boxFolderCreate (the ARCHIVE folder was stamped in the create), NO
+          // boxArchiveEvidence (uploads into the RO archive are refused by design).
+          if (effectiveSource !== 'minimal') {
+            try {
+              yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
+                caseId: persisted.caseId,
+                inbound: original,
+                typings: (parseResult as { attachmentTypings?: unknown }).attachmentTypings,
+              });
+            } catch (e) {
+              if (!ctx.df.isReplaying) {
+                ctx.log(`[retro] classifyPersist failed (additive, non-blocking): ${String(e)}`);
+              }
+            }
+          }
+          try {
+            yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId: persisted.caseId });
+          } catch (e) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
+            }
+          }
+        }
+
+        return {
+          outcome: persisted.outcome,
+          caseId: persisted.caseId,
+          casePo: persisted.casePo,
+          source: effectiveSource,
+          ...(contradicted ? { corroboration: 'contradicted' } : {}),
+        };
+      }
+    }
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[retro] Box rung failed (best-effort, falling through): ${String(e)}`);
+    }
+  }
+
+  // Rung 3 — Outlook $search lands in R3 (RETRO_OUTLOOK_SEARCH_ENABLED).
+
   // Bottom of the ladder: record the attempt so ops can see it; the triage row is left
   // exactly as today (case_id NULL, staff triage).
   yield ctx.df.callActivityWithRetry('retroRecordFailure', retry, {
     trigger,
     keys,
     triggerCategory: category,
-    rungsTried: ['resolve_existing'],
+    rungsTried,
+    ...(boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {}),
   });
-  return { outcome: 'no_source' };
+  return { outcome: 'no_source', ...(boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {}) };
 });
 
 /* ============================================================
@@ -232,6 +474,295 @@ df.app.activity('retroResolveExisting', {
   },
 });
 
+/** The archive roots the Box rung may search — RETRO_BOX_ARCHIVE_ROOT_IDS (orch side;
+ *  the box-webhook Function enforces the same ids via its own BOX_READONLY_ROOT_IDS). */
+function archiveRootIds(): string[] {
+  return gates
+    .retroBoxArchiveRootIds()
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+df.app.activity('retroBoxLocate', {
+  handler: async (
+    input: { keys: RetroKeys; providerPrincipal?: string },
+    ctx,
+  ): Promise<unknown> => {
+    if (!gates.retroCase()) return { skipped: 'gate_off' };
+    if (!gates.boxApi()) return { skipped: 'box_gate_off' };
+    const rootIds = archiveRootIds();
+    if (rootIds.length === 0) return { skipped: 'no_archive_roots' };
+
+    // Key ladder, strongest first. The Case/PO (when quoted) is a FOLDER-NAME search;
+    // the external ref + VRM are CONTENT searches (the claim ref / registration lives
+    // INSIDE the archived instruction files, not in any name).
+    const refHits: RetroSearchHit[] = [];
+    const vrmHits: RetroSearchHit[] = [];
+    if (input.keys.casePo) {
+      const r = await box.searchContent({ query: input.keys.casePo, rootIds, type: 'folder' });
+      refHits.push(...r.entries);
+    }
+    if (input.keys.externalRef) {
+      const r = await box.searchContent({ query: input.keys.externalRef, rootIds });
+      refHits.push(...r.entries);
+    }
+    // Skip the noisy VRM sweep when the reference tier is already decisive.
+    let needVrm = Boolean(input.keys.vrm);
+    if (needVrm && refHits.length > 0 && pickCaseFolder(refHits, []).folder) needVrm = false;
+    if (needVrm && input.keys.vrm) {
+      const r = await box.searchContent({ query: input.keys.vrm, rootIds });
+      vrmHits.push(...r.entries);
+    }
+
+    const pick = pickCaseFolder(refHits, vrmHits);
+    if (!pick.folder) {
+      ctx.log(JSON.stringify({ evt: 'retroBoxLocate', found: false, candidates: pick.candidateCount }));
+      return { found: false, reason: pick.candidateCount > 1 ? 'ambiguous_folders' : 'no_hits', candidateCount: pick.candidateCount };
+    }
+
+    // The folder name must BE a Case/PO (a hit in a non-case subtree is not a case).
+    const discoveredPo = normalizeCasePo(pick.folder.name);
+    if (!CASE_PO_SHAPE_RE.test(discoveredPo)) {
+      ctx.log(JSON.stringify({ evt: 'retroBoxLocate', found: false, reason: 'folder_not_po_shaped', name: pick.folder.name }));
+      return { found: false, reason: 'folder_not_po_shaped', candidateCount: pick.candidateCount };
+    }
+
+    const principals = await dataApi.principals();
+    const match = matchPrincipalByCasePo(
+      discoveredPo,
+      principals.map((p) => p.principalCode),
+    );
+
+    // A VRM-only pick (weakest key) additionally requires the folder's principal to
+    // agree with the sender-matched provider — never link across providers on a
+    // registration alone (ADR-0010 applied to the archive).
+    const vrmOnly = !input.keys.casePo && !input.keys.externalRef;
+    if (vrmOnly) {
+      const sender = (input.providerPrincipal ?? '').trim().toUpperCase();
+      if (!match || !sender || match.principal !== sender) {
+        ctx.log(JSON.stringify({ evt: 'retroBoxLocate', found: false, reason: 'vrm_only_uncorroborated' }));
+        return { found: false, reason: 'vrm_only_uncorroborated', candidateCount: pick.candidateCount };
+      }
+    }
+
+    ctx.log(JSON.stringify({
+      evt: 'retroBoxLocate', found: true, folderId: pick.folder.id, discoveredPo,
+      principal: match?.principal ?? '', marker: match?.marker ?? '', basis: pick.basis,
+    }));
+    return {
+      found: true,
+      folder: pick.folder,
+      discoveredPo,
+      principalCode: match?.principal ?? '',
+      marker: match?.marker ?? '',
+      basis: pick.basis,
+      candidateCount: pick.candidateCount,
+    };
+  },
+});
+
+df.app.activity('retroBoxFetchInstruction', {
+  handler: async (
+    input: { folderId: string; folderName: string; discoveredPo: string; triggerReceivedAt?: string },
+    ctx,
+  ): Promise<unknown> => {
+    if (!gates.retroCase()) return { skipped: 'gate_off' };
+    if (!gates.boxApi()) return { skipped: 'box_gate_off' };
+
+    const listing = await box.listFolderItems(input.folderId);
+    const entries: BoxFolderEntry[] = (listing.entries ?? []).map((e) => ({
+      id: e.id,
+      name: e.name,
+      type: e.type,
+      size: e.size,
+      createdAt: e.created_at,
+    }));
+    const files = entries.filter((e) => (e.type ?? 'file') === 'file');
+    const subfolderCount = entries.length - files.length;
+    const fallbackReceivedAt = input.triggerReceivedAt ?? new Date().toISOString();
+
+    let envelope: InboundEnvelope | undefined;
+    let instructionSource: RetroReconstructionSource = 'minimal';
+    const consumed = new Set<string>();
+
+    // Preference ladder: the archived original .eml → a parseable instruction document
+    // → minimal anchor. Each arm degrades on failure instead of sinking the rung.
+    const candidate = selectBoxInstructionCandidate(entries);
+    if (candidate?.kind === 'eml') {
+      try {
+        const dl = await box.downloadFile(candidate.entry.id);
+        const rawBytes = Buffer.from(dl.contentBase64, 'base64');
+        const prefix = `retro-box-${candidate.entry.id}`;
+        const emlName = dl.filename || candidate.entry.name || 'original.eml';
+        const emlUp = await uploadEvidenceBytes(prefix, emlName, rawBytes, 'message/rfc822');
+        const rawEmlRef: LandedAttachment = {
+          filename: emlName,
+          contentType: 'message/rfc822',
+          blobPath: emlUp.blobPath,
+          size: emlUp.size,
+        };
+        let exploded: ExplodedEml | undefined;
+        try {
+          exploded = await callExplodeEml({ documentBase64: dl.contentBase64, filename: emlName });
+        } catch (e) {
+          ctx.warn(`[retroBoxFetchInstruction] explode-eml failed (degrading to raw .eml): ${String(e)}`);
+        }
+        if (exploded) {
+          const landed: LandedAttachment[] = [];
+          for (const a of exploded.attachments) {
+            const bytes = Buffer.from(a.content_base64, 'base64');
+            const up = await uploadEvidenceBytes(prefix, a.filename, bytes, a.content_type);
+            landed.push({ filename: a.filename, contentType: a.content_type, blobPath: up.blobPath, size: up.size });
+          }
+          envelope = buildRetroEnvelopeFromEml(exploded, landed, rawEmlRef, {
+            boxFileId: candidate.entry.id,
+            discoveredPo: input.discoveredPo,
+            fallbackReceivedAt,
+          });
+        } else {
+          // Explode unavailable — the parser ENGINE reads .eml itself; hand it the raw file.
+          envelope = buildRetroEnvelopeFromDoc(rawEmlRef, {
+            boxFileId: candidate.entry.id,
+            discoveredPo: input.discoveredPo,
+            fallbackReceivedAt,
+            folderName: input.folderName,
+          });
+        }
+        instructionSource = 'box_eml';
+        consumed.add(candidate.entry.id);
+      } catch (e) {
+        ctx.warn(`[retroBoxFetchInstruction] .eml download failed (trying document arm): ${String(e)}`);
+      }
+    }
+    if (!envelope) {
+      const docCandidate = selectBoxInstructionCandidate(
+        entries.filter((e) => !/\.(eml|msg)$/i.test(e.name)),
+      );
+      if (docCandidate?.kind === 'doc') {
+        try {
+          const dl = await box.downloadFile(docCandidate.entry.id);
+          const bytes = Buffer.from(dl.contentBase64, 'base64');
+          const prefix = `retro-box-${docCandidate.entry.id}`;
+          const docName = dl.filename || docCandidate.entry.name;
+          const up = await uploadEvidenceBytes(prefix, docName, bytes, 'application/octet-stream');
+          envelope = buildRetroEnvelopeFromDoc(
+            { filename: docName, contentType: 'application/octet-stream', blobPath: up.blobPath, size: up.size },
+            {
+              boxFileId: docCandidate.entry.id,
+              discoveredPo: input.discoveredPo,
+              fallbackReceivedAt,
+              folderName: input.folderName,
+            },
+          );
+          instructionSource = 'box_doc';
+          consumed.add(docCandidate.entry.id);
+        } catch (e) {
+          ctx.warn(`[retroBoxFetchInstruction] document download failed (minimal anchor): ${String(e)}`);
+        }
+      }
+    }
+    if (!envelope) {
+      envelope = buildMinimalAnchorEnvelope(
+        { receivedAt: input.triggerReceivedAt },
+        input.discoveredPo,
+        input.folderId,
+      );
+      instructionSource = 'minimal';
+    }
+
+    // Every other archive file registers as byte-less Box evidence (id + link — the
+    // one-way mirror stays one-way; nothing is copied out except the instruction).
+    const otherFiles = files
+      .filter((f) => !consumed.has(f.id))
+      .map((f) => ({ boxFileId: f.id, filename: f.name, size: f.size }));
+
+    ctx.log(JSON.stringify({
+      evt: 'retroBoxFetchInstruction', folderId: input.folderId, source: instructionSource,
+      attachments: envelope.attachments.length, otherFiles: otherFiles.length, subfolderCount,
+    }));
+    return { envelope, instructionSource, otherFiles, subfolderCount };
+  },
+});
+
+df.app.activity('retroCreatePersist', {
+  handler: async (
+    input: {
+      original: InboundEnvelope;
+      trigger: unknown;
+      keys: RetroKeys;
+      casePo?: string;
+      vrm?: string;
+      statusName: 'eva_submitted' | 'needs_review';
+      onHold: boolean;
+      actionReason?: 'needs_review';
+      reconstructionSource: RetroReconstructionSource;
+      providerId?: string;
+      parserVrm?: string;
+      parserRef?: string;
+      parserMileage?: string;
+      parserMileageUnit?: string;
+      parserEva?: ParserEvaFields;
+      caseType?: string;
+      caseTypeSignals?: string[];
+      boxFolder?: { id: string; url?: string };
+      triggerCategory?: InboundCategory;
+      otherFiles?: Array<{ boxFileId: string; filename: string; size?: number }>;
+    },
+    ctx,
+  ): Promise<unknown> => {
+    if (!gates.retroCase()) return { skipped: 'gate_off' };
+    const result = await dataApi.retroCreate({
+      original: input.original,
+      trigger: input.trigger,
+      keys: input.keys,
+      casePo: input.casePo,
+      vrm: input.vrm,
+      statusName: input.statusName,
+      onHold: input.onHold,
+      actionReason: input.actionReason,
+      reconstructionSource: input.reconstructionSource,
+      providerId: input.providerId,
+      parserVrm: input.parserVrm,
+      parserRef: input.parserRef,
+      parserMileage: input.parserMileage,
+      parserMileageUnit: input.parserMileageUnit,
+      parserEva: input.parserEva,
+      caseType: input.caseType as 'standard' | 'audit' | 'audit_total_loss' | 'diminution' | undefined,
+      caseTypeSignals: input.caseTypeSignals,
+      boxFolder: input.boxFolder,
+      triggerCategory: input.triggerCategory,
+    });
+
+    // Register the archive folder's OTHER files as byte-less Box evidence (link-only;
+    // acceptedForEva=false so a retro backfill never pollutes the EVA image rules).
+    // Best-effort: an evidence hiccup never unwinds the created/linked case.
+    const caseId = result.caseId;
+    if (caseId && (result.outcome === 'created' || result.outcome === 'already_exists_linked')) {
+      const rows = (input.otherFiles ?? []).map((f) => ({
+        filename: f.filename,
+        boxFileId: f.boxFileId,
+        boxFileUrl: `https://app.box.com/file/${encodeURIComponent(f.boxFileId)}`,
+        size: f.size,
+        evidenceClass: classifyArchiveFile(f.filename),
+        acceptedForEva: false,
+        sourceLabel: 'retro_box_archive',
+      }));
+      if (rows.length > 0) {
+        try {
+          const persisted = await dataApi.registerBoxEvidence(caseId, rows);
+          ctx.log(JSON.stringify({ evt: 'retroCreatePersist', evidenceRows: persisted.persisted }));
+        } catch (e) {
+          ctx.warn(`[retroCreatePersist] archive evidence registration failed (best-effort): ${String(e)}`);
+        }
+      }
+    }
+
+    ctx.log(JSON.stringify({ evt: 'retroCreatePersist', outcome: result.outcome, caseId: result.caseId, casePo: result.casePo }));
+    return result;
+  },
+});
+
 df.app.activity('retroRecordFailure', {
   handler: async (
     input: {
@@ -239,6 +770,7 @@ df.app.activity('retroRecordFailure', {
       keys: RetroKeys;
       triggerCategory?: InboundCategory;
       rungsTried: string[];
+      ambiguousFolders?: number;
     },
     ctx,
   ): Promise<unknown> => {
@@ -253,6 +785,7 @@ df.app.activity('retroRecordFailure', {
       after: {
         keys: input.keys,
         rungsTried: input.rungsTried,
+        ...(input.ambiguousFolders ? { ambiguousFolders: input.ambiguousFolders } : {}),
         messageId: env.internetMessageId,
         subject: env.subject,
       },

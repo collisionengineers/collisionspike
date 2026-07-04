@@ -271,6 +271,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
             subtype: classification.subtype,
             keys: retroReply.keys,
             providerId: workProviderId,
+            providerPrincipal: principalCode,
           })) as { outcome?: string };
           retroReplyOutcome = retro?.outcome;
         } catch (e) {
@@ -311,6 +312,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
           subtype: classification.subtype,
           keys: retroNonReply.keys,
           providerId: workProviderId,
+          providerPrincipal: principalCode,
         })) as { outcome?: string };
         retroOutcome = retro?.outcome;
       } catch (e) {

@@ -3182,6 +3182,12 @@ function extractVrm(text) {
 }
 
 // packages/domain/dist/domain/case-type.js
+var CASE_PO_MARKER = {
+  standard: "",
+  audit: "A.",
+  audit_total_loss: "AP.",
+  diminution: "D."
+};
 function decideCaseType(signals) {
   const parserValue = (signals.parserCaseType?.value ?? "").toString().trim();
   const parserSignals = [
@@ -3446,6 +3452,86 @@ function decideRetro(input13) {
   }
   return { attempt: true, keys, reasons };
 }
+function decideRetroStatus(input13) {
+  if (!input13.principalResolved || !input13.casePoKnown) {
+    return {
+      status: "needs_review",
+      onHold: true,
+      actionReason: "needs_review",
+      signals: [
+        input13.casePoKnown ? "retro_principal_unresolved" : "retro_case_po_unknown",
+        `retro_source:${input13.reconstruction}`
+      ]
+    };
+  }
+  if (input13.triggerCategory === "billing" && input13.reconstruction !== "minimal") {
+    return {
+      status: "eva_submitted",
+      onHold: false,
+      signals: ["retro_billing_implies_submitted", `retro_source:${input13.reconstruction}`]
+    };
+  }
+  return {
+    status: "needs_review",
+    onHold: true,
+    actionReason: "needs_review",
+    signals: [`retro_trigger:${input13.triggerCategory}`, `retro_source:${input13.reconstruction}`]
+  };
+}
+function parseCasePoMarker(po) {
+  const token = normalizeCasePo(po);
+  for (const marker2 of ["AP.", "A.", "D."]) {
+    if (token.startsWith(marker2))
+      return { marker: marker2, body: token.slice(marker2.length) };
+  }
+  return { marker: "", body: token };
+}
+function matchPrincipalByCasePo(po, principals) {
+  const { marker: marker2, body: body2 } = parseCasePoMarker(po);
+  if (!body2)
+    return null;
+  let best = null;
+  for (const raw of principals) {
+    const code = (raw ?? "").trim().toUpperCase();
+    if (!code || !body2.startsWith(code))
+      continue;
+    if (!/^\d{5,6}$/.test(body2.slice(code.length)))
+      continue;
+    if (!best || code.length > best.length)
+      best = code;
+  }
+  return best ? { principal: best, marker: marker2 } : null;
+}
+function markerToCaseType(marker2) {
+  const token = (marker2 ?? "").trim().toUpperCase();
+  const entry = Object.entries(CASE_PO_MARKER).find(([, m]) => m === token);
+  return entry ? entry[0] : "standard";
+}
+var EML_EXT_RE = /\.(eml|msg)$/i;
+var DOC_EXT_RE = /\.(pdf|docx?|rtf)$/i;
+var NON_INSTRUCTION_NAME_RE = /report|invoice|fee/i;
+var INSTRUCTION_NAME_RE = /instruction|new\s?case|message/i;
+function byOldestThenName(a, b) {
+  const at = a.createdAt ?? "9999";
+  const bt = b.createdAt ?? "9999";
+  if (at !== bt)
+    return at < bt ? -1 : 1;
+  return a.name.localeCompare(b.name);
+}
+function selectBoxInstructionCandidate(entries) {
+  const files = entries.filter((e) => (e.type ?? "file") === "file");
+  const emls = files.filter((e) => EML_EXT_RE.test(e.name)).sort(byOldestThenName);
+  if (emls.length > 0) {
+    const advertised = emls.filter((e) => INSTRUCTION_NAME_RE.test(e.name));
+    return { entry: advertised[0] ?? emls[0], kind: "eml" };
+  }
+  const docs = files.filter((e) => DOC_EXT_RE.test(e.name) && !NON_INSTRUCTION_NAME_RE.test(e.name)).sort(byOldestThenName);
+  if (docs.length > 0) {
+    const advertised = docs.filter((e) => INSTRUCTION_NAME_RE.test(e.name));
+    return { entry: advertised[0] ?? docs[0], kind: "doc" };
+  }
+  return null;
+}
 
 // packages/domain/dist/dto/index.js
 var INBOUND_CATEGORIES = [
@@ -3592,6 +3678,15 @@ var dataApi = {
    */
   retroCreate(payload) {
     return request("POST", "/api/internal/retro/create", payload);
+  },
+  /**
+   * ADR-0022 R2 — register archive files as BYTE-LESS Box evidence rows (id + link
+   * only; the existing internal evidence route dedups them on box_file_id, storage_path
+   * stays NULL). `acceptedForEva: false` keeps a retro backfill out of the EVA image
+   * rules until staff review.
+   */
+  registerBoxEvidence(caseId, rows) {
+    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
   },
   /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
   persistEvidence(caseId, rows) {
@@ -4344,7 +4439,8 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
             category: classification.category,
             subtype: classification.subtype,
             keys: retroReply.keys,
-            providerId: workProviderId
+            providerId: workProviderId,
+            providerPrincipal: principalCode
           });
           retroReplyOutcome = retro?.outcome;
         } catch (e) {
@@ -4380,7 +4476,8 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
           category: classification.category,
           subtype: classification.subtype,
           keys: retroNonReply.keys,
-          providerId: workProviderId
+          providerId: workProviderId,
+          providerPrincipal: principalCode
         });
         retroOutcome = retro?.outcome;
       } catch (e) {
@@ -44074,6 +44171,12 @@ function callOcrPdf(input13) {
     ...input13.providerHint ? { provider_hint: input13.providerHint } : {}
   });
 }
+function callExplodeEml(input13) {
+  return callFunction(PARSER, "POST", "explode-eml", {
+    document: input13.documentBase64,
+    ...input13.filename ? { filename: input13.filename } : {}
+  });
+}
 function callEvaSubmit(caseId) {
   return callFunction(EVA, "POST", "submit", { caseId });
 }
@@ -44103,6 +44206,30 @@ var box = {
   },
   listFolderItems(folderId) {
     return callFunction(BOX, "GET", `box/folders/${folderId}/items`);
+  },
+  /**
+   * READ-ONLY content/name search under the configured archive roots (ADR-0022 R2 —
+   * the retro reconstruction's find-the-case-folder primitive). The facade validates
+   * the roots server-side (RW root + BOX_READONLY_ROOT_IDS only) and post-filters
+   * every hit to provable root ancestry; each hit carries its resolved caseFolder
+   * (the ancestor directly under the matched root).
+   */
+  searchContent(input13) {
+    return callFunction(BOX, "POST", "box/search", {
+      query: input13.query,
+      ...input13.rootIds && input13.rootIds.length ? { rootIds: input13.rootIds } : {},
+      ...input13.type ? { type: input13.type } : {},
+      ...input13.contentTypes ? { contentTypes: input13.contentTypes } : {},
+      ...input13.limit != null ? { limit: input13.limit } : {}
+    });
+  },
+  /**
+   * READ-ONLY byte fetch of one archive file (ADR-0022 R2 — the original instruction
+   * `.eml`/document). Size-capped server-side (base64-in-JSON transport); RO archive
+   * files are allowed, writes into them never are.
+   */
+  downloadFile(fileId) {
+    return callFunction(BOX, "GET", `box/files/${fileId}/content`);
   }
 };
 async function safeText3(res) {
@@ -45233,6 +45360,104 @@ df25.app.activity("jobsheetImportOne", {
 // orchestration/src/functions/gated/retro-case.ts
 var import_functions16 = require("@azure/functions");
 var df26 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/retro-envelope.ts
+function firstAddress(header) {
+  const m = (header ?? "").match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+  return m ? m[0].toLowerCase() : "";
+}
+function buildRetroEnvelopeFromEml(exploded, landed, rawEml, meta) {
+  const subject = (exploded.subject ?? "").trim();
+  const senderAddress = firstAddress(exploded.from);
+  const body2 = (exploded.body_text ?? "").slice(0, 2e4);
+  const bodyPreview = body2.replace(/\s+/g, " ").trim().slice(0, 3500);
+  return {
+    messageId: `retro-box-${meta.boxFileId}`,
+    internetMessageId: (exploded.message_id ?? "").trim() || `retro:box:${meta.boxFileId}`,
+    conversationId: "",
+    subject,
+    senderAddress,
+    receivedAt: (exploded.date_iso ?? "").trim() || meta.fallbackReceivedAt,
+    sourceMailbox: firstAddress(exploded.to) || "box-archive",
+    payloadHash: hashPayload(subject, senderAddress, landed),
+    candidateVrm: extractVrm(`${subject}
+${body2}`),
+    candidateRef: meta.discoveredPo,
+    body: body2,
+    bodyPreview,
+    inReplyTo: (exploded.in_reply_to ?? "").trim(),
+    references: (exploded.references ?? "").trim(),
+    attachments: landed,
+    ...rawEml ? { rawEml } : {}
+  };
+}
+function buildRetroEnvelopeFromDoc(doc, meta) {
+  const subject = `Retro reconstruction: ${meta.folderName} \u2014 ${doc.filename}`;
+  return {
+    messageId: `retro-box-${meta.boxFileId}`,
+    internetMessageId: `retro:box:${meta.boxFileId}`,
+    conversationId: "",
+    subject,
+    senderAddress: "",
+    receivedAt: meta.fallbackReceivedAt,
+    sourceMailbox: "box-archive",
+    payloadHash: hashPayload(subject, "", [doc]),
+    candidateVrm: "",
+    candidateRef: meta.discoveredPo,
+    body: "",
+    bodyPreview: "",
+    inReplyTo: "",
+    references: "",
+    attachments: [doc]
+  };
+}
+function buildMinimalAnchorEnvelope(trigger, discoveredPo, folderId) {
+  const subject = `Retro anchor: ${discoveredPo}`;
+  return {
+    messageId: `retro-box-folder-${folderId}`,
+    internetMessageId: `retro:box:folder:${folderId}`,
+    conversationId: "",
+    subject,
+    senderAddress: "",
+    receivedAt: trigger.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
+    sourceMailbox: "box-archive",
+    payloadHash: hashPayload(subject, "", []),
+    candidateVrm: "",
+    candidateRef: discoveredPo,
+    body: "",
+    bodyPreview: "",
+    inReplyTo: "",
+    references: "",
+    attachments: []
+  };
+}
+function classifyArchiveFile(filename) {
+  if (/\.(jpe?g|png|gif|bmp|webp|heic|tiff?)$/i.test(filename)) return "image";
+  if (/\.(eml|msg)$/i.test(filename)) return "email";
+  return "other";
+}
+function pickCaseFolder(refHits, vrmHits) {
+  const foldersOf = (hits) => {
+    const map = /* @__PURE__ */ new Map();
+    for (const h of hits) {
+      if (h.caseFolder?.id) map.set(h.caseFolder.id, h.caseFolder);
+    }
+    return map;
+  };
+  const refFolders = foldersOf(refHits);
+  const allFolders = foldersOf([...refHits, ...vrmHits]);
+  if (refFolders.size === 1) {
+    const folder = [...refFolders.values()][0];
+    return { folder, basis: "ref_tier", candidateCount: allFolders.size };
+  }
+  if (refFolders.size === 0 && allFolders.size === 1) {
+    const folder = [...allFolders.values()][0];
+    return { folder, basis: "unanimous", candidateCount: 1 };
+  }
+  return { folder: null, candidateCount: allFolders.size };
+}
+
+// orchestration/src/functions/gated/retro-case.ts
 var retry10 = new df26.RetryOptions(5e3, 3);
 retry10.backoffCoefficient = 2;
 retry10.maxRetryIntervalInMilliseconds = 6e4;
@@ -45274,6 +45499,7 @@ df26.app.orchestration("retroCaseOrchestrator", function* (ctx) {
   let category = input13.category;
   let keys = input13.keys;
   let providerId = input13.providerId;
+  let providerPrincipal = input13.providerPrincipal;
   if (!trigger) {
     if (!input13.internetMessageId || !input13.mailbox) {
       return { outcome: "bad_input", reason: "trigger envelope or internetMessageId+mailbox required" };
@@ -45290,6 +45516,7 @@ df26.app.orchestration("retroCaseOrchestrator", function* (ctx) {
     });
     const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry10, trigger);
     providerId = provider.workProviderId;
+    providerPrincipal = provider.principalCode;
     const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry10, {
       inbound: trigger,
       workProviderId: providerId,
@@ -45326,13 +45553,152 @@ df26.app.orchestration("retroCaseOrchestrator", function* (ctx) {
   if (resolved.outcome === "ambiguous") {
     return { outcome: "ambiguous", candidateCount: resolved.candidateCount };
   }
+  const rungsTried = ["resolve_existing"];
+  let boxAmbiguity;
+  try {
+    const located = yield ctx.df.callActivityWithRetry("retroBoxLocate", retry10, {
+      keys,
+      providerPrincipal
+    });
+    if (!located.skipped) rungsTried.push("box_archive");
+    boxAmbiguity = located.candidateCount && located.candidateCount > 1 ? located.candidateCount : void 0;
+    if (!located.skipped && located.found && located.folder && located.discoveredPo) {
+      const fetched = yield ctx.df.callActivityWithRetry("retroBoxFetchInstruction", retry10, {
+        folderId: located.folder.id,
+        folderName: located.folder.name,
+        discoveredPo: located.discoveredPo,
+        triggerReceivedAt: trigger.receivedAt
+      });
+      if (!fetched.skipped && fetched.envelope) {
+        const original = fetched.envelope;
+        let reconstructionSource = fetched.instructionSource ?? "minimal";
+        let parseResult = {};
+        if (reconstructionSource !== "minimal") {
+          try {
+            const parseAttachments = original.attachments.length > 0 ? original.attachments : original.rawEml ? [original.rawEml] : [];
+            parseResult = yield ctx.df.callActivityWithRetry("parse", retry10, {
+              messageId: original.messageId,
+              attachments: parseAttachments,
+              providerHint: located.principalCode
+            });
+          } catch (e) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[retro] parse failed (best-effort, case still created): ${String(e)}`);
+            }
+            parseResult = {};
+          }
+        }
+        const ex = parseResult.extraction ?? {};
+        const exVal = (k) => (ex[k]?.value ?? "").trim();
+        const exWorkProvider = exVal("work_provider");
+        const parserEva = {
+          work_provider: exWorkProvider.toUpperCase() === "UNKNOWN" ? "" : exWorkProvider,
+          vehicle_model: exVal("vehicle_model"),
+          claimant_name: exVal("claimant_name"),
+          claimant_telephone: exVal("claimant_telephone"),
+          claimant_email: exVal("claimant_email"),
+          date_of_loss: exVal("date_of_loss"),
+          date_of_instruction: exVal("date_of_instruction"),
+          accident_circumstances: exVal("accident_circumstances") || supplementAccidentCircumstancesFromBody(String(original.body ?? "")),
+          vat_status: exVal("vat_status")
+        };
+        const parserVrm = (parseResult.vrm?.value ?? "").trim();
+        const parserRef = (parseResult.reference?.value ?? "").trim();
+        const normToken = (v) => v.trim().toUpperCase().replace(/\s+/g, "");
+        const refContradicts = Boolean(
+          keys.externalRef && parserRef && normToken(parserRef) !== normToken(keys.externalRef)
+        );
+        const vrmContradicts = Boolean(
+          keys.vrm && (parserVrm || original.candidateVrm) && normToken(parserVrm || original.candidateVrm) !== normToken(keys.vrm)
+        );
+        const contradicted = refContradicts && vrmContradicts;
+        const effectiveSource = contradicted ? "minimal" : reconstructionSource;
+        if (contradicted && !ctx.df.isReplaying) {
+          ctx.log(
+            `[retro] corroboration failed (parsed ref+VRM both disagree with the trigger keys) \u2014 demoting to Held anchor`
+          );
+        }
+        const contentType2 = decideCaseType({
+          parserCaseType: parseResult.case_type,
+          parserAudit: parseResult.audit,
+          classifierSubtype: input13.subtype
+        });
+        const caseType = located.marker ? markerToCaseType(located.marker) : contentType2.caseType;
+        const caseTypeSignals = located.marker ? [`archive_marker:${located.marker}`, ...contentType2.signals] : [...contentType2.signals];
+        const statusDecision = decideRetroStatus({
+          triggerCategory: category ?? "other",
+          reconstruction: effectiveSource,
+          principalResolved: Boolean(located.principalCode),
+          casePoKnown: true
+        });
+        const persisted = yield ctx.df.callActivityWithRetry("retroCreatePersist", retry10, {
+          original,
+          trigger,
+          keys,
+          casePo: located.discoveredPo,
+          vrm: parserVrm || original.candidateVrm || keys.vrm || "",
+          statusName: statusDecision.status,
+          onHold: statusDecision.onHold,
+          actionReason: statusDecision.actionReason,
+          reconstructionSource: effectiveSource,
+          providerId,
+          parserVrm,
+          parserRef,
+          parserMileage: exVal("mileage"),
+          parserMileageUnit: exVal("mileage_unit"),
+          parserEva,
+          caseType,
+          caseTypeSignals: [...caseTypeSignals, ...statusDecision.signals, ...contradicted ? ["retro_corroboration_failed"] : []],
+          boxFolder: { id: located.folder.id, url: `https://app.box.com/folder/${encodeURIComponent(located.folder.id)}` },
+          triggerCategory: category,
+          otherFiles: fetched.otherFiles ?? []
+        });
+        if (persisted.skipped) return { outcome: "skipped", reason: persisted.skipped };
+        if (persisted.outcome === "gated_off") return { outcome: "skipped", reason: "api_gate_off" };
+        if (persisted.outcome === "created" && persisted.caseId) {
+          if (effectiveSource !== "minimal") {
+            try {
+              yield ctx.df.callActivityWithRetry("classifyPersist", retry10, {
+                caseId: persisted.caseId,
+                inbound: original,
+                typings: parseResult.attachmentTypings
+              });
+            } catch (e) {
+              if (!ctx.df.isReplaying) {
+                ctx.log(`[retro] classifyPersist failed (additive, non-blocking): ${String(e)}`);
+              }
+            }
+          }
+          try {
+            yield ctx.df.callActivityWithRetry("statusEvaluate", retry10, { caseId: persisted.caseId });
+          } catch (e) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
+            }
+          }
+        }
+        return {
+          outcome: persisted.outcome,
+          caseId: persisted.caseId,
+          casePo: persisted.casePo,
+          source: effectiveSource,
+          ...contradicted ? { corroboration: "contradicted" } : {}
+        };
+      }
+    }
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[retro] Box rung failed (best-effort, falling through): ${String(e)}`);
+    }
+  }
   yield ctx.df.callActivityWithRetry("retroRecordFailure", retry10, {
     trigger,
     keys,
     triggerCategory: category,
-    rungsTried: ["resolve_existing"]
+    rungsTried,
+    ...boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {}
   });
-  return { outcome: "no_source" };
+  return { outcome: "no_source", ...boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {} };
 });
 df26.app.activity("retroFindTrigger", {
   handler: async (input13, ctx) => {
@@ -45362,6 +45728,233 @@ df26.app.activity("retroResolveExisting", {
     return result;
   }
 });
+function archiveRootIds() {
+  return gates.retroBoxArchiveRootIds().split(",").map((s) => s.trim()).filter(Boolean);
+}
+df26.app.activity("retroBoxLocate", {
+  handler: async (input13, ctx) => {
+    if (!gates.retroCase()) return { skipped: "gate_off" };
+    if (!gates.boxApi()) return { skipped: "box_gate_off" };
+    const rootIds = archiveRootIds();
+    if (rootIds.length === 0) return { skipped: "no_archive_roots" };
+    const refHits = [];
+    const vrmHits = [];
+    if (input13.keys.casePo) {
+      const r = await box.searchContent({ query: input13.keys.casePo, rootIds, type: "folder" });
+      refHits.push(...r.entries);
+    }
+    if (input13.keys.externalRef) {
+      const r = await box.searchContent({ query: input13.keys.externalRef, rootIds });
+      refHits.push(...r.entries);
+    }
+    let needVrm = Boolean(input13.keys.vrm);
+    if (needVrm && refHits.length > 0 && pickCaseFolder(refHits, []).folder) needVrm = false;
+    if (needVrm && input13.keys.vrm) {
+      const r = await box.searchContent({ query: input13.keys.vrm, rootIds });
+      vrmHits.push(...r.entries);
+    }
+    const pick = pickCaseFolder(refHits, vrmHits);
+    if (!pick.folder) {
+      ctx.log(JSON.stringify({ evt: "retroBoxLocate", found: false, candidates: pick.candidateCount }));
+      return { found: false, reason: pick.candidateCount > 1 ? "ambiguous_folders" : "no_hits", candidateCount: pick.candidateCount };
+    }
+    const discoveredPo = normalizeCasePo(pick.folder.name);
+    if (!CASE_PO_SHAPE_RE.test(discoveredPo)) {
+      ctx.log(JSON.stringify({ evt: "retroBoxLocate", found: false, reason: "folder_not_po_shaped", name: pick.folder.name }));
+      return { found: false, reason: "folder_not_po_shaped", candidateCount: pick.candidateCount };
+    }
+    const principals = await dataApi.principals();
+    const match = matchPrincipalByCasePo(
+      discoveredPo,
+      principals.map((p) => p.principalCode)
+    );
+    const vrmOnly = !input13.keys.casePo && !input13.keys.externalRef;
+    if (vrmOnly) {
+      const sender = (input13.providerPrincipal ?? "").trim().toUpperCase();
+      if (!match || !sender || match.principal !== sender) {
+        ctx.log(JSON.stringify({ evt: "retroBoxLocate", found: false, reason: "vrm_only_uncorroborated" }));
+        return { found: false, reason: "vrm_only_uncorroborated", candidateCount: pick.candidateCount };
+      }
+    }
+    ctx.log(JSON.stringify({
+      evt: "retroBoxLocate",
+      found: true,
+      folderId: pick.folder.id,
+      discoveredPo,
+      principal: match?.principal ?? "",
+      marker: match?.marker ?? "",
+      basis: pick.basis
+    }));
+    return {
+      found: true,
+      folder: pick.folder,
+      discoveredPo,
+      principalCode: match?.principal ?? "",
+      marker: match?.marker ?? "",
+      basis: pick.basis,
+      candidateCount: pick.candidateCount
+    };
+  }
+});
+df26.app.activity("retroBoxFetchInstruction", {
+  handler: async (input13, ctx) => {
+    if (!gates.retroCase()) return { skipped: "gate_off" };
+    if (!gates.boxApi()) return { skipped: "box_gate_off" };
+    const listing = await box.listFolderItems(input13.folderId);
+    const entries = (listing.entries ?? []).map((e) => ({
+      id: e.id,
+      name: e.name,
+      type: e.type,
+      size: e.size,
+      createdAt: e.created_at
+    }));
+    const files = entries.filter((e) => (e.type ?? "file") === "file");
+    const subfolderCount = entries.length - files.length;
+    const fallbackReceivedAt = input13.triggerReceivedAt ?? (/* @__PURE__ */ new Date()).toISOString();
+    let envelope;
+    let instructionSource = "minimal";
+    const consumed = /* @__PURE__ */ new Set();
+    const candidate = selectBoxInstructionCandidate(entries);
+    if (candidate?.kind === "eml") {
+      try {
+        const dl = await box.downloadFile(candidate.entry.id);
+        const rawBytes = Buffer.from(dl.contentBase64, "base64");
+        const prefix2 = `retro-box-${candidate.entry.id}`;
+        const emlName = dl.filename || candidate.entry.name || "original.eml";
+        const emlUp = await uploadEvidenceBytes(prefix2, emlName, rawBytes, "message/rfc822");
+        const rawEmlRef = {
+          filename: emlName,
+          contentType: "message/rfc822",
+          blobPath: emlUp.blobPath,
+          size: emlUp.size
+        };
+        let exploded;
+        try {
+          exploded = await callExplodeEml({ documentBase64: dl.contentBase64, filename: emlName });
+        } catch (e) {
+          ctx.warn(`[retroBoxFetchInstruction] explode-eml failed (degrading to raw .eml): ${String(e)}`);
+        }
+        if (exploded) {
+          const landed = [];
+          for (const a of exploded.attachments) {
+            const bytes = Buffer.from(a.content_base64, "base64");
+            const up = await uploadEvidenceBytes(prefix2, a.filename, bytes, a.content_type);
+            landed.push({ filename: a.filename, contentType: a.content_type, blobPath: up.blobPath, size: up.size });
+          }
+          envelope = buildRetroEnvelopeFromEml(exploded, landed, rawEmlRef, {
+            boxFileId: candidate.entry.id,
+            discoveredPo: input13.discoveredPo,
+            fallbackReceivedAt
+          });
+        } else {
+          envelope = buildRetroEnvelopeFromDoc(rawEmlRef, {
+            boxFileId: candidate.entry.id,
+            discoveredPo: input13.discoveredPo,
+            fallbackReceivedAt,
+            folderName: input13.folderName
+          });
+        }
+        instructionSource = "box_eml";
+        consumed.add(candidate.entry.id);
+      } catch (e) {
+        ctx.warn(`[retroBoxFetchInstruction] .eml download failed (trying document arm): ${String(e)}`);
+      }
+    }
+    if (!envelope) {
+      const docCandidate = selectBoxInstructionCandidate(
+        entries.filter((e) => !/\.(eml|msg)$/i.test(e.name))
+      );
+      if (docCandidate?.kind === "doc") {
+        try {
+          const dl = await box.downloadFile(docCandidate.entry.id);
+          const bytes = Buffer.from(dl.contentBase64, "base64");
+          const prefix2 = `retro-box-${docCandidate.entry.id}`;
+          const docName = dl.filename || docCandidate.entry.name;
+          const up = await uploadEvidenceBytes(prefix2, docName, bytes, "application/octet-stream");
+          envelope = buildRetroEnvelopeFromDoc(
+            { filename: docName, contentType: "application/octet-stream", blobPath: up.blobPath, size: up.size },
+            {
+              boxFileId: docCandidate.entry.id,
+              discoveredPo: input13.discoveredPo,
+              fallbackReceivedAt,
+              folderName: input13.folderName
+            }
+          );
+          instructionSource = "box_doc";
+          consumed.add(docCandidate.entry.id);
+        } catch (e) {
+          ctx.warn(`[retroBoxFetchInstruction] document download failed (minimal anchor): ${String(e)}`);
+        }
+      }
+    }
+    if (!envelope) {
+      envelope = buildMinimalAnchorEnvelope(
+        { receivedAt: input13.triggerReceivedAt },
+        input13.discoveredPo,
+        input13.folderId
+      );
+      instructionSource = "minimal";
+    }
+    const otherFiles = files.filter((f) => !consumed.has(f.id)).map((f) => ({ boxFileId: f.id, filename: f.name, size: f.size }));
+    ctx.log(JSON.stringify({
+      evt: "retroBoxFetchInstruction",
+      folderId: input13.folderId,
+      source: instructionSource,
+      attachments: envelope.attachments.length,
+      otherFiles: otherFiles.length,
+      subfolderCount
+    }));
+    return { envelope, instructionSource, otherFiles, subfolderCount };
+  }
+});
+df26.app.activity("retroCreatePersist", {
+  handler: async (input13, ctx) => {
+    if (!gates.retroCase()) return { skipped: "gate_off" };
+    const result = await dataApi.retroCreate({
+      original: input13.original,
+      trigger: input13.trigger,
+      keys: input13.keys,
+      casePo: input13.casePo,
+      vrm: input13.vrm,
+      statusName: input13.statusName,
+      onHold: input13.onHold,
+      actionReason: input13.actionReason,
+      reconstructionSource: input13.reconstructionSource,
+      providerId: input13.providerId,
+      parserVrm: input13.parserVrm,
+      parserRef: input13.parserRef,
+      parserMileage: input13.parserMileage,
+      parserMileageUnit: input13.parserMileageUnit,
+      parserEva: input13.parserEva,
+      caseType: input13.caseType,
+      caseTypeSignals: input13.caseTypeSignals,
+      boxFolder: input13.boxFolder,
+      triggerCategory: input13.triggerCategory
+    });
+    const caseId = result.caseId;
+    if (caseId && (result.outcome === "created" || result.outcome === "already_exists_linked")) {
+      const rows = (input13.otherFiles ?? []).map((f) => ({
+        filename: f.filename,
+        boxFileId: f.boxFileId,
+        boxFileUrl: `https://app.box.com/file/${encodeURIComponent(f.boxFileId)}`,
+        size: f.size,
+        evidenceClass: classifyArchiveFile(f.filename),
+        acceptedForEva: false,
+        sourceLabel: "retro_box_archive"
+      }));
+      if (rows.length > 0) {
+        try {
+          const persisted = await dataApi.registerBoxEvidence(caseId, rows);
+          ctx.log(JSON.stringify({ evt: "retroCreatePersist", evidenceRows: persisted.persisted }));
+        } catch (e) {
+          ctx.warn(`[retroCreatePersist] archive evidence registration failed (best-effort): ${String(e)}`);
+        }
+      }
+    }
+    ctx.log(JSON.stringify({ evt: "retroCreatePersist", outcome: result.outcome, caseId: result.caseId, casePo: result.casePo }));
+    return result;
+  }
+});
 df26.app.activity("retroRecordFailure", {
   handler: async (input13, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
@@ -45373,6 +45966,7 @@ df26.app.activity("retroRecordFailure", {
       after: {
         keys: input13.keys,
         rungsTried: input13.rungsTried,
+        ...input13.ambiguousFolders ? { ambiguousFolders: input13.ambiguousFolders } : {},
         messageId: env.internetMessageId,
         subject: env.subject
       }

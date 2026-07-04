@@ -162,7 +162,10 @@ df.app.activity('fetchMessage', {
   },
 });
 
-function hashPayload(
+/** Exported for the retro reconstruction envelope builders (ADR-0022 R2 —
+ *  lib/retro-envelope.ts): a reconstructed original must hash EXACTLY like a live
+ *  arrival so dedup rung-1 keys stay comparable. */
+export function hashPayload(
   subject: string,
   from: string,
   attachments: Array<{ filename: string; size: number }>,

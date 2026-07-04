@@ -206,6 +206,48 @@ export function callOcrPdf(input: {
   });
 }
 
+/* ---------- parser .eml explode (ADR-0022 R2 retro reconstruction) ---------- */
+
+export interface ExplodedEmlAttachment {
+  filename: string;
+  content_type: string;
+  size: number;
+  sha256: string;
+  content_base64: string;
+}
+
+/** The parser `/explode-eml` contract (explode_eml_v1) — an archived original
+ *  instruction `.eml` unpacked into headers/body/attachments. */
+export interface ExplodedEml {
+  subject: string;
+  from: string;
+  to: string;
+  date_iso: string;
+  message_id: string;
+  in_reply_to: string;
+  references: string;
+  body_text: string;
+  attachments: ExplodedEmlAttachment[];
+  skipped: Array<{ filename: string; reason: string }>;
+  contract_version: string;
+}
+
+/**
+ * Unpack a Box-archive `.eml` via the parser wrapper route (Python stdlib email —
+ * no engine involvement). Signature-sized rasters are dropped server-side
+ * (TKT-047 doctrine); nested message/rfc822 parts come back re-emitted as `.eml`
+ * attachments (the forwarded-instruction case).
+ */
+export function callExplodeEml(input: {
+  documentBase64: string;
+  filename?: string;
+}): Promise<ExplodedEml> {
+  return callFunction(PARSER, 'POST', 'explode-eml', {
+    document: input.documentBase64,
+    ...(input.filename ? { filename: input.filename } : {}),
+  });
+}
+
 /* ---------- enrichment ---------- */
 
 export function callEnrichment(caseId: string): Promise<unknown> {
@@ -255,8 +297,69 @@ export const box = {
 	      folder: { id: folderId },
 	    });
 	  },
-  listFolderItems(folderId: string): Promise<{ entries: Array<{ id: string; name: string }> }> {
+  listFolderItems(
+    folderId: string,
+  ): Promise<{
+    entries: Array<{
+      id: string;
+      name: string;
+      /** Box item type — 'file' | 'folder' | 'web_link' (widened for the retro
+       *  instruction pick, ADR-0022 R2; absent on a pre-R2 facade deploy). */
+      type?: string;
+      sha1?: string;
+      size?: number;
+      created_at?: string;
+      modified_at?: string;
+    }>;
+  }> {
     return callFunction(BOX, 'GET', `box/folders/${folderId}/items`);
+  },
+  /**
+   * READ-ONLY content/name search under the configured archive roots (ADR-0022 R2 —
+   * the retro reconstruction's find-the-case-folder primitive). The facade validates
+   * the roots server-side (RW root + BOX_READONLY_ROOT_IDS only) and post-filters
+   * every hit to provable root ancestry; each hit carries its resolved caseFolder
+   * (the ancestor directly under the matched root).
+   */
+  searchContent(input: {
+    query: string;
+    rootIds?: string[];
+    type?: 'file' | 'folder' | 'web_link';
+    contentTypes?: string[];
+    limit?: number;
+  }): Promise<{
+    entries: Array<{
+      id: string;
+      name: string;
+      type: string;
+      size?: number;
+      createdAt?: string;
+      caseFolder: { id: string; name: string } | null;
+    }>;
+    totalCount: number;
+    filteredOut: number;
+  }> {
+    return callFunction(BOX, 'POST', 'box/search', {
+      query: input.query,
+      ...(input.rootIds && input.rootIds.length ? { rootIds: input.rootIds } : {}),
+      ...(input.type ? { type: input.type } : {}),
+      ...(input.contentTypes ? { contentTypes: input.contentTypes } : {}),
+      ...(input.limit != null ? { limit: input.limit } : {}),
+    });
+  },
+  /**
+   * READ-ONLY byte fetch of one archive file (ADR-0022 R2 — the original instruction
+   * `.eml`/document). Size-capped server-side (base64-in-JSON transport); RO archive
+   * files are allowed, writes into them never are.
+   */
+  downloadFile(fileId: string): Promise<{
+    id: string;
+    filename: string;
+    size: number;
+    sha1: string;
+    contentBase64: string;
+  }> {
+    return callFunction(BOX, 'GET', `box/files/${fileId}/content`);
   },
 };
 

@@ -42,7 +42,14 @@ from typing import Any, Callable
 
 import azure.functions as func
 
-from box_client import BoxAuthError, BoxClient, BoxConfigError, BoxError, BoxScopeError
+from box_client import (
+    BoxAuthError,
+    BoxClient,
+    BoxConfigError,
+    BoxError,
+    BoxScopeError,
+    resolve_case_folder,
+)
 from data_api_client import (
     AUDIT_BOX_UPLOAD_RECEIVED,
     DataApiClient,
@@ -240,6 +247,96 @@ def list_folder(req: func.HttpRequest) -> func.HttpResponse:
     limit = _int_param(req.params.get("limit"))
     offset = _int_param(req.params.get("offset"))
     return _run_box_op(lambda c: c.list_folder(folder_id, limit=limit, offset=offset))
+
+
+@app.route(route="box/search", methods=["POST"])
+def search(req: func.HttpRequest) -> func.HttpResponse:
+    """READ-ONLY content/name search under the configured roots (ADR-0022 R2 — the
+    retro reconstruction's find-the-case-folder primitive). Body:
+    { query, rootIds?: string[], type?: 'file'|'folder'|'web_link',
+      contentTypes?: string[], limit?: number }.
+    rootIds default to the READ-ONLY archive roots (BOX_READONLY_ROOT_IDS); every
+    requested id is validated server-side against the configured readable roots
+    (BoxClient.search_content re-asserts — the caller can never point this elsewhere).
+    Each hit is returned with its resolved caseFolder (the ancestor directly under the
+    matched root) so the orchestration never has to walk path_collections itself."""
+    if not _truthy(os.environ.get("BOX_API_ENABLED")):
+        return _gated_off()
+    body = _body(req)
+    if not body or not isinstance(body.get("query"), str) or not body["query"].strip():
+        return _json_response({"error": "Body must be { query, rootIds?, ... }.", "status": 400}, status=400)
+    query = body["query"].strip()
+    raw_roots = body.get("rootIds")
+    if raw_roots is not None and not isinstance(raw_roots, list):
+        return _json_response({"error": "rootIds must be a list of folder ids.", "status": 400}, status=400)
+    root_ids = [str(r).strip() for r in (raw_roots or []) if str(r).strip()]
+    if not root_ids:
+        root_ids = [
+            part.strip()
+            for part in os.environ.get("BOX_READONLY_ROOT_IDS", "").split(",")
+            if part.strip()
+        ]
+    if not root_ids:
+        return _json_response(
+            {"error": "No search roots: supply rootIds or set BOX_READONLY_ROOT_IDS.", "status": 400},
+            status=400,
+        )
+    item_type = body.get("type") if isinstance(body.get("type"), str) else None
+    content_types = (
+        [str(c) for c in body["contentTypes"]]
+        if isinstance(body.get("contentTypes"), list)
+        else None
+    )
+    limit = _int_param(str(body.get("limit"))) if body.get("limit") is not None else None
+
+    def run(c: BoxClient) -> dict[str, Any]:
+        result = c.search_content(
+            query, root_ids, item_type=item_type, content_types=content_types,
+            limit=limit if limit is not None else 30,
+        )
+        entries = []
+        for e in result["entries"]:
+            entries.append(
+                {
+                    "id": str(e.get("id") or ""),
+                    "name": str(e.get("name") or ""),
+                    "type": str(e.get("type") or ""),
+                    "size": e.get("size"),
+                    "createdAt": e.get("created_at"),
+                    "caseFolder": resolve_case_folder(e, root_ids),
+                }
+            )
+        return {
+            "entries": entries,
+            "totalCount": result.get("total_count", len(entries)),
+            "filteredOut": result.get("filtered_out", 0),
+        }
+
+    return _run_box_op(run)
+
+
+@app.route(route="box/files/{fileId}/content", methods=["GET"])
+def download_file(req: func.HttpRequest) -> func.HttpResponse:
+    """READ-ONLY byte fetch (ADR-0022 R2 — pull the archived original instruction
+    `.eml`/document for reconstruction). Scope: RW root OR the READ-ONLY archive
+    roots. Size-capped inside the client (base64-in-JSON transport)."""
+    if not _truthy(os.environ.get("BOX_API_ENABLED")):
+        return _gated_off()
+    file_id = req.route_params.get("fileId", "")
+    if not file_id:
+        return _json_response({"error": "fileId is required.", "status": 400}, status=400)
+
+    def run(c: BoxClient) -> dict[str, Any]:
+        result = c.download_file(file_id)
+        return {
+            "id": result["id"],
+            "filename": result["name"],
+            "size": result["size"],
+            "sha1": result["sha1"],
+            "contentBase64": base64.b64encode(result["content"]).decode("ascii"),
+        }
+
+    return _run_box_op(run)
 
 
 @app.route(route="box/webhooks", methods=["POST"])

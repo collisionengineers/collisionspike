@@ -457,6 +457,186 @@ def _classify_error(status: int, code: str, message: str) -> func.HttpResponse:
     )
 
 
+# ===========================================================================
+# /explode-eml — unpack an archived .eml into headers/body/attachments
+# (ADR-0022 R2 retro reconstruction). WRAPPER-ONLY: Python stdlib `email`, no
+# cedocumentmapper_v2 engine involvement (ADR-0018 — the vendored tree is not
+# edited for this route). The orchestration downloads the original instruction
+# .eml from the READ-ONLY Box archive, explodes it here, blob-lands the parts,
+# and feeds the instruction attachment to /parse exactly like live intake.
+# ===========================================================================
+
+EML_CONTRACT_VERSION = "explode_eml_v1"
+# Mirror of the intake body cap (classify path) — the reconstruction only needs
+# enough body for circumstances supplement + key corroboration.
+_EML_BODY_CAP = 20_000
+# TKT-047 doctrine (signature/logo rasters are not evidence): drop images below
+# this byte floor — a genuine damage photo is far larger than an email-footer logo.
+_EML_IMAGE_MIN_BYTES = 15_000
+# The facade rides base64-in-JSON: cap each attachment + the whole response.
+_EML_ATTACHMENT_MAX_BYTES = 26_214_400  # 25 MiB
+_EML_TOTAL_MAX_BYTES = 78_643_200  # 75 MiB across all attachments
+
+
+@app.function_name(name="explode_eml")
+@app.route(route="explode-eml", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+def explode_eml(req: func.HttpRequest) -> func.HttpResponse:
+    """POST /explode-eml — { document: base64(.eml bytes), filename? } ->
+    { subject, from, date_iso, message_id, in_reply_to, references, body_text,
+      attachments: [{ filename, content_type, size, sha256, content_base64 }],
+      skipped: [{ filename, reason }] }.
+    Same defensive guard as /parse: nothing escapes as a 502."""
+    try:
+        return _explode_eml(req)
+    except Exception:  # noqa: BLE001 - last line of defence; never let a 502 escape
+        _LOG.exception("unhandled error in explode-eml handler")
+        return _eml_error(500, "internal_error", "Unexpected internal error while unpacking the email.")
+
+
+def _explode_eml(req: func.HttpRequest) -> func.HttpResponse:
+    import email as _email
+    from email import policy as _email_policy
+    from email.utils import parsedate_to_datetime as _parsedate
+
+    try:
+        body = req.get_json()
+    except ValueError:
+        return _eml_error(400, "invalid_json", "Request body must be JSON.")
+    if not isinstance(body, dict):
+        return _eml_error(400, "invalid_json", "Request body must be a JSON object.")
+    document_b64 = body.get("document")
+    if not isinstance(document_b64, str) or not document_b64.strip():
+        return _eml_error(400, "missing_document", "Field 'document' (base64 .eml bytes) is required.")
+    try:
+        raw = base64.b64decode(document_b64, validate=True)
+    except (binascii.Error, ValueError):
+        return _eml_error(400, "bad_base64", "Field 'document' is not valid base64.")
+    if not raw.strip():
+        return _eml_error(422, "eml_unreadable", "Decoded email is empty.")
+
+    msg = _email.message_from_bytes(raw, policy=_email_policy.default)
+
+    def _hdr(name: str) -> str:
+        try:
+            return str(msg.get(name, "") or "").strip()
+        except Exception:  # noqa: BLE001 - a single mangled header must not sink the explode
+            return ""
+
+    date_iso = ""
+    raw_date = _hdr("Date")
+    if raw_date:
+        try:
+            parsed = _parsedate(raw_date)
+            date_iso = parsed.isoformat() if parsed is not None else ""
+        except (TypeError, ValueError):
+            date_iso = ""
+
+    # Body: prefer the text/plain part; fall back to stripped HTML. get_body()
+    # honours multipart/alternative preference order for us.
+    body_text = ""
+    try:
+        plain = msg.get_body(preferencelist=("plain",))
+        if plain is not None:
+            body_text = str(plain.get_content() or "")
+        else:
+            html = msg.get_body(preferencelist=("html",))
+            if html is not None:
+                body_text = _strip_html(str(html.get_content() or ""))
+    except Exception:  # noqa: BLE001 - mangled MIME: degrade to no body, keep attachments
+        body_text = ""
+    body_text = body_text[:_EML_BODY_CAP]
+
+    attachments: list[dict[str, Any]] = []
+    skipped: list[dict[str, str]] = []
+    total = 0
+    for index, part in enumerate(msg.iter_attachments()):
+        try:
+            content_type = str(part.get_content_type() or "application/octet-stream")
+            filename = str(part.get_filename() or "")
+            if content_type == "message/rfc822" or filename.lower().endswith(".eml"):
+                # A forwarded original — re-emit the nested message as .eml bytes so the
+                # caller can recurse or parse it as the instruction email itself.
+                payload = part.get_payload()
+                if isinstance(payload, list) and payload:
+                    content = payload[0].as_bytes()
+                elif isinstance(payload, (bytes, bytearray)):
+                    content = bytes(payload)
+                else:
+                    content = part.get_payload(decode=True) or b""
+                filename = filename or f"forwarded-{index + 1}.eml"
+                content_type = "message/rfc822"
+            else:
+                content = part.get_payload(decode=True) or b""
+                filename = filename or f"attachment-{index + 1}"
+        except Exception:  # noqa: BLE001 - one mangled part must not sink the rest
+            skipped.append({"filename": f"part-{index + 1}", "reason": "unreadable_part"})
+            continue
+        size = len(content)
+        if size == 0:
+            skipped.append({"filename": filename, "reason": "empty"})
+            continue
+        if content_type.startswith("image/") and size < _EML_IMAGE_MIN_BYTES:
+            # Signature/footer raster (TKT-047 doctrine) — never evidence.
+            skipped.append({"filename": filename, "reason": "signature_image"})
+            continue
+        if size > _EML_ATTACHMENT_MAX_BYTES:
+            skipped.append({"filename": filename, "reason": "too_large"})
+            continue
+        if total + size > _EML_TOTAL_MAX_BYTES:
+            skipped.append({"filename": filename, "reason": "total_cap"})
+            continue
+        total += size
+        import hashlib as _hashlib
+
+        attachments.append(
+            {
+                "filename": filename,
+                "content_type": content_type,
+                "size": size,
+                "sha256": _hashlib.sha256(content).hexdigest(),
+                "content_base64": base64.b64encode(content).decode("ascii"),
+            }
+        )
+
+    return _json(
+        200,
+        {
+            "subject": _hdr("Subject"),
+            "from": _hdr("From"),
+            "to": _hdr("To"),
+            "date_iso": date_iso,
+            "message_id": _hdr("Message-ID"),
+            "in_reply_to": _hdr("In-Reply-To"),
+            "references": _hdr("References"),
+            "body_text": body_text,
+            "attachments": attachments,
+            "skipped": skipped,
+            "contract_version": EML_CONTRACT_VERSION,
+        },
+    )
+
+
+def _eml_error(status: int, code: str, message: str) -> func.HttpResponse:
+    """Structured error envelope for /explode-eml — mirrors the success shape."""
+    return _json(
+        status,
+        {
+            "subject": "",
+            "from": "",
+            "to": "",
+            "date_iso": "",
+            "message_id": "",
+            "in_reply_to": "",
+            "references": "",
+            "body_text": "",
+            "attachments": [],
+            "skipped": [],
+            "issues": [{"field": "(request)", "severity": "error", "code": code, "message": message}],
+            "contract_version": EML_CONTRACT_VERSION,
+        },
+    )
+
+
 def _json(status: int, payload: dict[str, Any]) -> func.HttpResponse:
     return func.HttpResponse(
         body=json.dumps(payload, ensure_ascii=False),

@@ -46,7 +46,8 @@ wrapped, gates default-off on BOTH apps (`RETRO_CASE_ENABLED`; R3 additionally
   (`api/src/functions/internal-retro.ts`, validator `api/src/lib/retro-validate.ts` + tests);
   orchestration `retroCaseOrchestrator` + keyed drain starter `POST /api/retro-case`
   (`orchestration/src/functions/gated/retro-case.ts`); the two intake hooks.
-- [ ] **R2 — Box archive reconstruction (primary source)**: dual RW/RO Box scope lock
+- [x] **R2 — Box archive reconstruction (primary source)** *(built 2026-07-04, ships dark —
+  live activation is the D11 operator item)*: dual RW/RO Box scope lock
   (`BOX_READONLY_ROOT_IDS`, split verification caches), `search_content`/`download_file` +
   routes, parser `/explode-eml` wrapper route, `retroBoxLocate`/`retroBoxFetchInstruction`/
   `retroCreatePersist` activities, corroboration + unanimity rules, evidence registration.
