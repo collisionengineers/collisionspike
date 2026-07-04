@@ -7208,6 +7208,21 @@ function statusForReviewCase(input) {
   return hasIdentityOf(input) ? "needs_review" : "error";
 }
 
+// packages/domain/dist/domain/classification.js
+var ENGINEER_REPORT_LAYOUT_KEYS = new Set([
+  "EVA (Engineers)",
+  "CNX (Engineers)",
+  "Exclusive Vehicle Assessors",
+  "Connexus Vehicle Assessors"
+].map((n) => normaliseLayoutName(n)));
+function normaliseLayoutName(raw) {
+  return raw.trim().toUpperCase().replace(/[().,'&]/g, "").replace(/\s+/g, " ").trim();
+}
+function isEngineerReportLayoutName(raw) {
+  const key = normaliseLayoutName((raw ?? "").toString());
+  return key !== "" && ENGINEER_REPORT_LAYOUT_KEYS.has(key);
+}
+
 // packages/domain/dist/domain/vrm-filter.js
 var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
 var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
@@ -7398,17 +7413,45 @@ function extractVrm(text) {
 
 // packages/domain/dist/domain/case-po.js
 var CASE_PO_SEQ_WIDTH = 3;
-function formatCasePo(principalCode, year2, seq) {
+function formatCasePo(principalCode, year2, seq, marker2 = "") {
   const principal = String(principalCode).trim().toUpperCase();
   const yy = String(year2).trim().padStart(2, "0").slice(-2);
   const n = Math.max(0, Math.trunc(Number(seq) || 0));
-  return `${principal}${yy}${String(n).padStart(CASE_PO_SEQ_WIDTH, "0")}`;
+  return `${marker2.toUpperCase()}${principal}${yy}${String(n).padStart(CASE_PO_SEQ_WIDTH, "0")}`;
 }
 function casePoYear(d = /* @__PURE__ */ new Date()) {
   return String(d.getFullYear() % 100).padStart(2, "0");
 }
-function casePoSequenceRegex(principal, yy) {
-  return `^${principal.toUpperCase()}${yy}[0-9]{${CASE_PO_SEQ_WIDTH},}$`;
+function casePoSequenceRegex(principal, yy, marker2 = "") {
+  const markerPattern = marker2 ? `${marker2.toUpperCase().slice(0, -1)}\\.` : "";
+  return `^${markerPattern}${principal.toUpperCase()}${yy}[0-9]{${CASE_PO_SEQ_WIDTH},}$`;
+}
+
+// packages/domain/dist/domain/case-type.js
+var CASE_PO_MARKER = {
+  standard: "",
+  audit: "A.",
+  audit_total_loss: "AP.",
+  diminution: "D."
+};
+var MARKERED_PRINCIPALS = {
+  PCH: ["audit", "diminution"],
+  QDOS: ["audit", "audit_total_loss", "diminution"]
+};
+function allowedCaseTypes(principalCode) {
+  const code = (principalCode ?? "").trim().toUpperCase();
+  return MARKERED_PRINCIPALS[code] ?? [];
+}
+function markerForMint(caseType, principalCode, dual) {
+  if (caseType === "standard")
+    return "";
+  if (dual)
+    return "";
+  if (caseType === "diminution")
+    return "";
+  if (!allowedCaseTypes(principalCode).includes(caseType))
+    return "";
+  return CASE_PO_MARKER[caseType];
 }
 
 // packages/domain/dist/domain/pii-scrub.js
@@ -7633,6 +7676,22 @@ var case_status_default = {
     branches: ["missing_required_fields", "missing_images", "duplicate_risk", "linked_to_instruction"],
     terminals: ["eva_submitted", "box_synced", "error", "removed"]
   }
+};
+
+// packages/domain/dist/data/choicesets/case-type.json
+var case_type_default = {
+  $schema: "../schema/_choiceset.schema.json",
+  kind: "global-choice-set",
+  logicalName: "cr1bd_casetype",
+  displayName: "Case Type",
+  description: "Case.caseType \u2014 the work TYPE, ORTHOGONAL to status (cr1bd_casestatus). standard = a normal instruction case; audit = a SECOND, independent CE inspection auditing a THIRD-PARTY engineer's ORIGINAL report on a REPAIRABLE vehicle (ADR-0014), `A.` Case/PO marker + an `engineer_report` Evidence; audit_total_loss = the same audit work where the vehicle is a total loss (`AP.` marker \u2014 a REVIEW-TIME refinement of audit, never detected at intake: the real QDOS letters are identical either way, ADR-0021); diminution = a Diminution in Value engagement (`D.` marker, review-first until detection is grounded). Set from the parser's `case_type` envelope (detect_case_type_signals) or staff review; NOT the engineer-report overlay (which merges CE's OWN CNX/EVA report). Default standard.",
+  isGlobal: true,
+  options: [
+    { value: 1e8, name: "standard", label: "Standard" },
+    { value: 100000001, name: "audit", label: "Audit" },
+    { value: 100000002, name: "audit_total_loss", label: "Audit (Total Loss)" },
+    { value: 100000003, name: "diminution", label: "Diminution" }
+  ]
 };
 
 // packages/domain/dist/data/choicesets/action-reason.json
@@ -7919,6 +7978,7 @@ function makeChoiceCodec(cs) {
   };
 }
 var caseStatusCodec = makeChoiceCodec(case_status_default);
+var caseTypeCodec = makeChoiceCodec(case_type_default);
 var actionReasonCodec = makeChoiceCodec(action_reason_default);
 var inspectionDecisionCodec = makeChoiceCodec(inspection_decision_mode_default);
 var intakeChannelKindCodec = makeChoiceCodec(intake_channel_default);
@@ -9474,17 +9534,17 @@ async function tx(fn) {
 }
 
 // api/src/lib/case-po.ts
-async function mintCasePo(q, principal, yy = casePoYear()) {
+async function mintCasePo(q, principal, yy = casePoYear(), marker2 = "") {
   const p = principal.toUpperCase();
-  const prefix2 = `${p}${yy}`;
+  const prefix2 = `${marker2.toUpperCase()}${p}${yy}`;
   await q("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [`casepo:${prefix2}`]);
   const seqRows = await q(
     `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) + 1 AS next_seq
        FROM case_
       WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
-    [`${prefix2}%`, casePoSequenceRegex(p, yy), prefix2]
+    [`${prefix2}%`, casePoSequenceRegex(p, yy, marker2), prefix2]
   );
-  return formatCasePo(p, yy, Number(seqRows[0]?.next_seq ?? 1));
+  return formatCasePo(p, yy, Number(seqRows[0]?.next_seq ?? 1), marker2);
 }
 
 // api/src/lib/audit.ts
@@ -10448,6 +10508,30 @@ import_functions.app.http("patchCase", {
         before[key] = oldVal;
         after[key] = norm.value;
         changedEvaFields.push({ key, value: norm.value });
+      }
+    }
+    if (body2.caseType !== void 0) {
+      const rawType = String(body2.caseType ?? "").trim();
+      const validName = rawType === "" || caseTypeCodec.toInt(rawType) != null;
+      if (!validName) {
+        return {
+          status: 400,
+          jsonBody: {
+            error: `caseType must be one of ${caseTypeCodec.names().map((n) => `'${n}'`).join(", ")} (or '' to clear)`
+          }
+        };
+      }
+      const newCode = rawType === "" || rawType === "standard" ? null : caseTypeCodec.toInt(rawType);
+      const curRows = await query(
+        "SELECT case_type_code FROM case_ WHERE id = $1",
+        [id]
+      );
+      const oldCode = curRows[0]?.case_type_code ?? null;
+      if (newCode !== oldCode) {
+        sets.push(`case_type_code = $${sets.length + 1}`);
+        vals.push(newCode);
+        before.caseType = caseTypeCodec.toName(oldCode) ?? "standard";
+        after.caseType = rawType || "standard";
       }
     }
     if (sets.length === 0) {
@@ -11975,8 +12059,11 @@ var DDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/;
 function isUnknownWorkProviderSentinel(raw) {
   return raw.trim().toUpperCase() === "UNKNOWN";
 }
+function isEngineerReportLayoutSentinel(raw) {
+  return isEngineerReportLayoutName(raw);
+}
 var SPEC = {
-  work_provider: { column: "eva_work_provider", provenanceField: "workProvider", normalize: (v) => isUnknownWorkProviderSentinel(v) ? "" : v.slice(0, 200) },
+  work_provider: { column: "eva_work_provider", provenanceField: "workProvider", normalize: (v) => isUnknownWorkProviderSentinel(v) || isEngineerReportLayoutSentinel(v) ? "" : v.slice(0, 200) },
   vehicle_model: { column: "eva_vehicle_model", provenanceField: "vehicleModel", normalize: (v) => v.slice(0, 200) },
   claimant_name: { column: "eva_claimant_name", provenanceField: "claimantName", normalize: (v) => v.slice(0, 200) },
   claimant_telephone: { column: "eva_claimant_telephone", provenanceField: "claimantTelephone", normalize: (v) => v.slice(0, 60) },
@@ -12023,6 +12110,7 @@ function normalizeProviderMatchKey(raw) {
 function matchWorkProviderByContentString(raw, providers) {
   const trimmed = (raw ?? "").toString().trim();
   if (!trimmed || isUnknownWorkProviderSentinel(trimmed)) return { outcome: "unmatched" };
+  if (isEngineerReportLayoutSentinel(trimmed)) return { outcome: "unmatched" };
   const key = normalizeProviderMatchKey(trimmed);
   if (!key) return { outcome: "unmatched" };
   const hits = /* @__PURE__ */ new Set();
@@ -12164,7 +12252,9 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
   const matchedProviderId = (workProviderId ?? "").trim();
   const mightFillWorkProviderFromCorpus = Boolean(matchedProviderId) && !evaCandidates.some((c) => c.column === "eva_work_provider");
   const rawContentProvider = (parserEva?.work_provider ?? "").toString().trim();
-  const mightMatchWorkProviderIdFromContent = Boolean(rawContentProvider) && !isUnknownWorkProviderSentinel(rawContentProvider);
+  const mightMatchWorkProviderIdFromContent = Boolean(rawContentProvider) && !isUnknownWorkProviderSentinel(rawContentProvider) && // TKT-051: an engineer-report layout name ("EVA (Engineers)") is the audited
+  // firm's report, never the instructing provider — skip the corpus match entirely.
+  !isEngineerReportLayoutSentinel(rawContentProvider);
   if (!ref && !mileage && evaCandidates.length === 0 && !mightFillWorkProviderFromCorpus && !mightMatchWorkProviderIdFromContent) {
     return;
   }
@@ -12468,6 +12558,10 @@ import_functions9.app.http("internalCasesResolve", {
     const subject = (inbound.subject ?? "").trim();
     const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Email intake").slice(0, 100);
     const emailKindCode = intakeChannelKindCodec.toInt("email") ?? null;
+    const caseType = caseTypeCodec.toInt(body2.caseType) != null ? body2.caseType : "standard";
+    const caseTypeDual = body2.caseTypeDual === true;
+    const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
+    const auditGateOn = gates.auditCases();
     let created;
     try {
       created = await tx(async (q) => {
@@ -12478,9 +12572,10 @@ import_functions9.app.http("internalCasesResolve", {
           principalCode = String(wp[0]?.principal_code ?? "").trim();
         }
         const newClient = !workProviderId || !principalCode;
+        const mintedMarker = auditGateOn && !newClient ? markerForMint(caseType, principalCode, caseTypeDual) : "";
         let casePo = null;
         if (!newClient) {
-          casePo = await mintCasePo(q, principalCode);
+          casePo = await mintCasePo(q, principalCode, void 0, mintedMarker);
         }
         const cols = [
           "name",
@@ -12512,6 +12607,10 @@ import_functions9.app.http("internalCasesResolve", {
           cols.push("case_po");
           vals.push(casePo);
         }
+        if (auditGateOn && caseType !== "standard") {
+          cols.push("case_type_code");
+          vals.push(caseTypeCodec.toInt(caseType) ?? null);
+        }
         if (newClient) {
           cols.push("on_hold");
           vals.push(true);
@@ -12525,7 +12624,7 @@ import_functions9.app.http("internalCasesResolve", {
         );
         const caseId = rows[0]?.id;
         if (!caseId) throw new Error("case insert returned no id");
-        return { caseId, casePo, newClient, principalCode };
+        return { caseId, casePo, newClient, principalCode, mintedMarker };
       });
     } catch (e) {
       if (isUniqueViolation(e)) {
@@ -12556,6 +12655,49 @@ import_functions9.app.http("internalCasesResolve", {
       summary: `Case ${decision.resolution}: ${name}`,
       after: { resolution: decision.resolution, status: rawStatus, vrm, casePo: created.casePo }
     });
+    if (caseType !== "standard") {
+      const allowlisted = allowedCaseTypes(created.principalCode).includes(caseType);
+      if (!auditGateOn) {
+        await writeAudit({
+          action: AUDIT_ACTION.case_created,
+          caseId: newCaseId,
+          summary: `Case-type '${caseType}' detected (observe-only \u2014 AUDIT_CASES_ENABLED off; minted standard)`,
+          after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false }
+        });
+      } else if (!allowlisted && !created.newClient) {
+        await writeAudit({
+          action: AUDIT_ACTION.case_created,
+          caseId: newCaseId,
+          severity: "warning",
+          summary: `Case-type '${caseType}' detected for non-allowlisted provider ${created.principalCode} \u2014 minted standard; review case type`,
+          after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false }
+        });
+        await query(
+          `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
+          [
+            "Case-type review",
+            newCaseId,
+            "Email intake (auto)",
+            `${caseType === "diminution" ? "Diminution" : "Audit"} signals detected (${caseTypeSignals.join("; ") || "see audit log"}) but ${created.principalCode || "this provider"} is not in the case-type marker allowlist \u2014 case minted as standard. Confirm the case type.`
+          ]
+        ).catch(() => {
+        });
+      } else {
+        await writeAudit({
+          action: AUDIT_ACTION.case_created,
+          caseId: newCaseId,
+          summary: `Case-type '${caseType}' applied` + (created.mintedMarker ? ` \u2014 minted ${created.casePo} from the ${created.mintedMarker} sequence` : caseTypeDual ? ` \u2014 dual report+audit letter, standard number kept (audit ID derived at review)` : ""),
+          after: {
+            caseType,
+            dual: caseTypeDual,
+            signals: caseTypeSignals,
+            applied: true,
+            marker: created.mintedMarker,
+            casePo: created.casePo
+          }
+        });
+      }
+    }
     if (created.newClient) {
       const domain = senderDomain(inbound.senderAddress ?? "");
       await query(

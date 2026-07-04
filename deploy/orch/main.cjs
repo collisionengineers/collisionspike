@@ -2780,6 +2780,19 @@ function normaliseMime(contentType2) {
   const base = semi >= 0 ? contentType2.slice(0, semi) : contentType2;
   return base.trim().toLowerCase();
 }
+var ENGINEER_REPORT_LAYOUT_KEYS = new Set([
+  "EVA (Engineers)",
+  "CNX (Engineers)",
+  "Exclusive Vehicle Assessors",
+  "Connexus Vehicle Assessors"
+].map((n) => normaliseLayoutName(n)));
+function normaliseLayoutName(raw) {
+  return raw.trim().toUpperCase().replace(/[().,'&]/g, "").replace(/\s+/g, " ").trim();
+}
+function isEngineerReportLayoutName(raw) {
+  const key = normaliseLayoutName((raw ?? "").toString());
+  return key !== "" && ENGINEER_REPORT_LAYOUT_KEYS.has(key);
+}
 function classifyAttachment(filename, contentType2) {
   const ext = extensionOf(filename);
   const byExt = EXTENSION_TABLE[ext];
@@ -3155,6 +3168,28 @@ function extractVrm(text) {
     }
   }
   return "";
+}
+
+// packages/domain/dist/domain/case-type.js
+function decideCaseType(signals) {
+  const parserValue = (signals.parserCaseType?.value ?? "").toString().trim();
+  const parserSignals = [
+    ...signals.parserCaseType?.signals ?? signals.parserAudit?.signals ?? []
+  ];
+  if (parserValue === "audit" || parserValue === "audit_total_loss" || parserValue === "diminution") {
+    return {
+      caseType: parserValue,
+      dual: signals.parserCaseType?.dual === true,
+      signals: parserSignals
+    };
+  }
+  if (signals.parserAudit?.value === true) {
+    return { caseType: "audit", dual: false, signals: parserSignals };
+  }
+  if ((signals.classifierSubtype ?? "") === "existing_provider_audit") {
+    return { caseType: "audit", dual: false, signals: ["classifier:existing_provider_audit"] };
+  }
+  return { caseType: "standard", dual: false, signals: [] };
 }
 
 // packages/domain/dist/domain/pii-scrub.js
@@ -4256,6 +4291,11 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
     accident_circumstances: exVal("accident_circumstances") || supplementAccidentCircumstancesFromBody(String(inbound.body ?? "")),
     vat_status: exVal("vat_status")
   };
+  const caseTypeDecision = decideCaseType({
+    parserCaseType: parseResult.case_type,
+    parserAudit: parseResult.audit,
+    classifierSubtype: classification.subtype
+  });
   const resolved = yield ctx.df.callActivityWithRetry("caseResolve", retry2, {
     inbound: inboundForCase,
     providerId: workProviderId,
@@ -4265,6 +4305,9 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
     parserMileage,
     parserMileageUnit,
     parserEvaFields,
+    caseType: caseTypeDecision.caseType,
+    caseTypeDual: caseTypeDecision.dual,
+    caseTypeSignals: [...caseTypeDecision.signals],
     // rules-engine-v2 Phase 3 (ADR-0011) — forwarded so the API's applyParserFields can
     // corroborate a content-detected provider against the intermediary's N:N candidates.
     ...intermediaryImageSourceId ? { intermediaryImageSourceId, intermediaryCandidateProviderIds } : {}
@@ -4292,7 +4335,8 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
   }
   yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
     caseId: resolved.caseId,
-    inbound
+    inbound,
+    typings: parseResult.attachmentTypings
   });
   try {
     yield ctx.df.callActivityWithRetry("extractImages", retry2, {
@@ -44176,6 +44220,9 @@ df11.app.activity("caseResolve", {
         parserEva: input12.parserEvaFields,
         intermediaryImageSourceId: input12.intermediaryImageSourceId,
         intermediaryCandidateProviderIds: input12.intermediaryCandidateProviderIds,
+        caseType: input12.caseType,
+        caseTypeDual: input12.caseTypeDual,
+        caseTypeSignals: input12.caseTypeSignals,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
@@ -44223,6 +44270,35 @@ df13.app.activity("classifyPersist", {
       blobPath: a.blobPath,
       size: a.size
     }));
+    if (gates.auditCases() && (input12.typings?.length ?? 0) > 0) {
+      const reportBlobPaths = new Set(
+        (input12.typings ?? []).filter((t) => isEngineerReportLayoutName(t.providerName)).map((t) => t.blobPath)
+      );
+      if (reportBlobPaths.size > 0) {
+        const wouldRemain = rows.some(
+          (r) => r.evidenceClass === "instruction" && !reportBlobPaths.has(r.blobPath)
+        );
+        if (wouldRemain) {
+          let overridden = 0;
+          for (const r of rows) {
+            if (r.evidenceClass === "instruction" && reportBlobPaths.has(r.blobPath)) {
+              r.evidenceClass = "engineer_report";
+              r.isInstruction = false;
+              overridden += 1;
+            }
+          }
+          if (overridden > 0) {
+            ctx.log(
+              JSON.stringify({ evt: "classifyPersist.engineerReportOverride", caseId, overridden })
+            );
+          }
+        } else {
+          ctx.log(
+            JSON.stringify({ evt: "classifyPersist.engineerReportOverrideSkipped", caseId, reason: "would_strip_only_instruction" })
+          );
+        }
+      }
+    }
     if (inbound.rawEml) {
       rows.push({
         ...describeEvidence(inbound.rawEml.filename, inbound.rawEml.contentType),
@@ -44292,12 +44368,27 @@ var EMAIL_CTYPE = /rfc822|ms-outlook/i;
 function isEmailFile(a) {
   return EMAIL_EXT.test(a.filename ?? "") || EMAIL_CTYPE.test(a.contentType ?? "");
 }
-function pickInstructionDoc(atts) {
+var MAX_PARSE_DOCS = 3;
+var isPdf = (a) => /pdf/i.test(a.contentType ?? "") || /\.pdf$/i.test(a.filename ?? "");
+function orderParseCandidates(atts) {
   const docs = atts.filter((a) => DOC_CTYPE.test(a.contentType ?? "") || DOC_EXT.test(a.filename ?? ""));
-  if (!docs.length) return void 0;
+  if (!docs.length) return [];
   const nonEmail = docs.filter((a) => !isEmailFile(a));
-  const pool = nonEmail.length ? nonEmail : docs;
-  return pool.find((a) => /pdf/i.test(a.contentType ?? "") || /\.pdf$/i.test(a.filename ?? "")) ?? pool[0];
+  const pool = nonEmail.length ? nonEmail : docs.filter(isEmailFile);
+  return [...pool.filter((a) => !isPdf(a)), ...pool.filter(isPdf)];
+}
+function selectInstructionIndex(parsed) {
+  const byProvider = parsed.findIndex((p) => {
+    const wp = (p.envelope.extraction?.work_provider?.value ?? "").trim();
+    return wp !== "" && wp.toUpperCase() !== "UNKNOWN";
+  });
+  if (byProvider >= 0) return byProvider;
+  const typed = parsed.findIndex(
+    (p) => (p.envelope.content_typing?.doc_type ?? "") === "instruction" && !isEngineerReportLayoutName(p.envelope.content_typing?.provider_name)
+  );
+  if (typed >= 0) return typed;
+  const pdf = parsed.findIndex((p) => isPdf(p.att));
+  return pdf >= 0 ? pdf : 0;
 }
 df14.app.activity("parse", {
   handler: async (input12, ctx) => {
@@ -44306,50 +44397,93 @@ df14.app.activity("parse", {
       ctx.log("[parse] skipped \u2014 PDF_MAPPER_ENABLED=false");
       return { skipped: true, reason: "gate_off" };
     }
-    const doc = pickInstructionDoc(input12.attachments ?? []);
-    if (!doc) {
+    const candidates = orderParseCandidates(input12.attachments ?? []);
+    if (!candidates.length) {
       ctx.log(`[parse] no instruction document attachment for ${corr}; skipping`);
       return { skipped: true, reason: "no_document" };
     }
-    let documentB64;
-    try {
-      const bytes = await downloadEvidenceBytes(doc.blobPath);
-      documentB64 = bytes.toString("base64");
-    } catch (e) {
-      ctx.warn(
-        `[parse] could not read evidence blob ${doc.blobPath} for ${corr}: ${e instanceof Error ? e.message : String(e)}; skipping`
+    if (candidates.length > MAX_PARSE_DOCS) {
+      ctx.log(
+        JSON.stringify({
+          evt: "parse-candidates-capped",
+          corr,
+          parsed: candidates.slice(0, MAX_PARSE_DOCS).map((a) => a.filename),
+          dropped: candidates.slice(MAX_PARSE_DOCS).map((a) => a.filename)
+        })
       );
-      return { skipped: true, reason: "blob_unreadable" };
     }
-    const res = await fetch(`${process.env.PARSER_FN_URL}/api/parse`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-functions-key": process.env.PARSER_FN_KEY
-      },
-      body: JSON.stringify({
-        document: documentB64,
-        filename: doc.filename,
-        ...input12.providerHint ? { provider_hint: input12.providerHint } : {}
-      })
-    });
-    if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
-        ctx.error(
-          `[parse] parser auth/config error ${res.status} for ${corr} (${doc.filename}) \u2014 check PARSER_FN_KEY`
+    const parseOneCandidate = async (att) => {
+      let documentB642;
+      try {
+        const bytes = await downloadEvidenceBytes(att.blobPath);
+        documentB642 = bytes.toString("base64");
+      } catch (e) {
+        ctx.warn(
+          `[parse] could not read evidence blob ${att.blobPath} for ${corr}: ${e instanceof Error ? e.message : String(e)}; skipping candidate`
         );
-        return { skipped: true, error: "auth", status: res.status };
+        return { outcome: "skip" };
       }
-      if (res.status >= 400 && res.status < 500) {
-        ctx.log(
-          `[parse] parser returned ${res.status} for ${corr} (${doc.filename}); skipping`
-        );
-        return { skipped: true, status: res.status };
+      const res = await fetch(`${process.env.PARSER_FN_URL}/api/parse`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-functions-key": process.env.PARSER_FN_KEY
+        },
+        body: JSON.stringify({
+          document: documentB642,
+          filename: att.filename,
+          ...input12.providerHint ? { provider_hint: input12.providerHint } : {}
+        })
+      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          ctx.error(
+            `[parse] parser auth/config error ${res.status} for ${corr} (${att.filename}) \u2014 check PARSER_FN_KEY`
+          );
+          return { outcome: "auth", status: res.status };
+        }
+        if (res.status >= 400 && res.status < 500) {
+          ctx.log(`[parse] parser returned ${res.status} for ${corr} (${att.filename}); skipping candidate`);
+          return { outcome: "skip" };
+        }
+        throw new Error(`[parse] parser Function responded ${res.status}`);
       }
-      throw new Error(`[parse] parser Function responded ${res.status}`);
+      const envelope = await res.json();
+      ctx.log(JSON.stringify({ evt: "parse-ok", corr, filename: att.filename }));
+      return { outcome: "ok", envelope, documentB64: documentB642 };
+    };
+    const parsedDocs = [];
+    for (const att of candidates.slice(0, MAX_PARSE_DOCS)) {
+      const result = await parseOneCandidate(att);
+      if (result.outcome === "auth") return { skipped: true, error: "auth", status: result.status };
+      if (result.outcome === "ok") {
+        parsedDocs.push({ att, envelope: result.envelope, documentB64: result.documentB64 });
+      }
     }
-    const parsed = await res.json();
-    ctx.log(JSON.stringify({ evt: "parse-ok", corr, filename: doc.filename }));
+    if (!parsedDocs.length) {
+      return { skipped: true, reason: "no_parseable_document" };
+    }
+    const attachmentTypings = parsedDocs.map((p) => ({
+      blobPath: p.att.blobPath,
+      filename: p.att.filename,
+      docType: (p.envelope.content_typing?.doc_type ?? "unknown").toString(),
+      providerName: p.envelope.content_typing?.provider_name ?? null,
+      markers: p.envelope.content_typing?.markers ?? []
+    }));
+    const chosenIndex = selectInstructionIndex(parsedDocs);
+    const doc = parsedDocs[chosenIndex].att;
+    const documentB64 = parsedDocs[chosenIndex].documentB64;
+    const parsed = { ...parsedDocs[chosenIndex].envelope, attachmentTypings };
+    if (parsedDocs.length > 1) {
+      ctx.log(
+        JSON.stringify({
+          evt: "parse-instruction-selected",
+          corr,
+          chosen: doc.filename,
+          docTypes: attachmentTypings.map((t) => `${t.filename}:${t.docType}`)
+        })
+      );
+    }
     if (gates.ocrScannedPdf() && shouldAttemptScannedPdfOcr(parsed, doc.filename)) {
       if (!process.env.OCR_FN_URL) {
         ctx.log(`[parse] scanned PDF for ${corr} (${doc.filename}) but OCR_FN_URL unconfigured; skipping OCR fallback`);
