@@ -78,12 +78,14 @@ one email at a time; a bulk sweep is a follow-up once trusted.
 
 ## Out of scope (documented follow-ups)
 
-- **Case/PO sequence alignment (operator-raised 2026-07-04 — the NAMED NEXT BUILD; blocks the Box
-  rung):** the live mint restarted ~001 after the DB reset while the real archive numbering is far
-  ahead — seed a per-(marker, principal, year) floor (archive scan or operator-supplied
-  next-numbers; `mintCasePo` → `GREATEST(db_max, floor)+1`) and review the small post-reset case
-  set for numbers that collide with real historical ones. Detail: ADR-0022 §Consequences addendum +
-  [gated.md D11](../../gated.md) step 1.
+- **Case/PO sequence alignment — MECHANISM BUILT 2026-07-04 (same session, operator-raised; still
+  blocks the Box rung until SEEDED):** `case_po_floor` table (delta applied live, empty = dark),
+  `mintCasePo` + the next-po preview allocate `GREATEST(db max, floor)+1`, the **Set-Case/PO staff
+  edit** (PATCH `casePo`, 409 `case_po_in_use` w/ conflicting case, SPA title editor) bridges the
+  trial period (old process mints at EVA-add by staff; pre-EVA cases legitimately have no number),
+  and `scripts/cutover/case-po-floor-from-folders.mjs` seeds floors from an archive listing.
+  Cutover procedure: [docs/plans/case-po-sequence-cutover.md](../../plans/case-po-sequence-cutover.md).
+  Remaining: the operator's archive listing / per-principal next-numbers + the cutover run itself.
 - Claimant-name search keys (no extraction exists; classifier change = sibling-repo edit).
 - Bulk backfill sweep over `inbound_email WHERE case_id IS NULL`.
 - `boxArchiveEvidence` skip-when-RO-rooted (future replies to retro cases can't archive-mirror

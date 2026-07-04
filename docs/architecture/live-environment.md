@@ -2,7 +2,17 @@
 
 > **Canonical registry of what is actually deployed.** This file + [`LIVE_FACTS.json`](../../LIVE_FACTS.json)
 > (root) are the **single source for literal live numbers** — every other doc links here rather than
-> re-embedding a count. Last live change: **2026-07-04T17:55Z** — the **retro-reconstruction activation**
+> re-embedding a count. Last live change: **2026-07-04T18:40Z** — the **Case/PO cutover tooling**
+> (same-session follow-on; the operator surfaced that the OLD process mints the number **at EVA-add,
+> by a staff member** — pre-EVA cases have no Case/PO — while the new system mints at intake, which
+> stays the go-live behaviour): the **`case_po_floor` delta is APPLIED LIVE** (0 rows = **dark**;
+> public base tables **39→40**), the **api republished** (79 re-confirmed — `mintCasePo` + the
+> `next-po` preview allocate `GREATEST(db max, floor)+1`; `PATCH /api/cases/{id}` accepts `casePo`,
+> shape-validated, 409 `case_po_in_use` on conflict, audited), and the **SPA redeployed** (the
+> case-page **Set-Case/PO editor** — staff stamp the REAL number at EVA-add during the trial; CSP
+> re-verified). Trial + cutover procedure:
+> [docs/plans/case-po-sequence-cutover.md](../plans/case-po-sequence-cutover.md); operator inputs:
+> [gated.md D11](../gated.md). Prior change: **2026-07-04T17:55Z** — the **retro-reconstruction activation**
 > (ADR-0022 / [TKT-058](../tickets/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md);
 > user-instructed "apply this delta — deploy anything necessary"): the **`2026-07-04-retro-case` DDL
 > delta is APPLIED LIVE** (audit actions 100000046–48 `retro_case_created`/`retro_case_linked`/
@@ -279,7 +289,7 @@ az functionapp function list -g rg-collisionspike-dev -n cespkbox-fn-v76a47 -o t
 az functionapp function list -g rg-collisionspike-dev -n cespike-parser-dev-x7xt3d5ovhi7y -o table # expect: 4
 
 # Postgres — table count + seeded corpus counts (psql via the admin connection string)
-#   SELECT count(*) FROM information_schema.tables WHERE table_schema='public';      -- expect 39
+#   SELECT count(*) FROM information_schema.tables WHERE table_schema='public';      -- expect 40 (case_po_floor added 2026-07-04)
 #   SELECT count(*) FROM work_provider; SELECT count(*) FROM inspection_address;     -- 390 / 2209
 #   SELECT count(*) FROM case_;                                                       -- 20 (read as csadmin/owner; bypasses RLS)
 

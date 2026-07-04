@@ -22,11 +22,13 @@
 
 import { app, type HttpRequest } from '@azure/functions';
 import {
+  CASE_PO_SHAPE_RE,
   EVA_FIELD_ORDER,
   casePoSequenceRegex,
   casePoYear,
   extractVrm,
   formatCasePo,
+  normalizeCasePo,
   statusForReviewCase,
   type Case,
   type Chaser,
@@ -48,7 +50,8 @@ import {
 } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
-import { mintCasePo } from '../lib/case-po.js';
+import { casePoFloor, mintCasePo } from '../lib/case-po.js';
+import { isUniqueViolation } from './internal.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
@@ -277,6 +280,10 @@ app.http('patchCase', {
        *  refinement of a QDOS audit ('audit' → 'audit_total_loss'), which is NEVER
        *  determinable at intake. 'standard' (or '') clears back to the default. */
       caseType?: string;
+      /** ADR-0022 transition seam — staff stamp the REAL Case/PO over a placeholder (or
+       *  onto an un-numbered case) at EVA-add time during the parallel-run, and the
+       *  cutover renumber uses the same write. Shape-validated; '' clears. */
+      casePo?: string;
     };
     const actor = actorFromClaims(claims);
 
@@ -323,6 +330,27 @@ app.http('patchCase', {
       }
     }
 
+    // --- casePo (ADR-0022 transition seam: stamp the REAL number; '' clears) ---
+    if (body.casePo !== undefined) {
+      const raw = String(body.casePo ?? '').trim();
+      const normalized = raw ? normalizeCasePo(raw) : '';
+      if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
+        return {
+          status: 400,
+          jsonBody: {
+            error: `casePo '${raw}' is not Case/PO-shaped (marker? + principal + YY + sequence, e.g. CCPY26050 or A.PCH261269)`,
+          },
+        };
+      }
+      const oldPo = (existing.casePo ?? '').toUpperCase();
+      if (normalized !== oldPo) {
+        sets.push(`case_po = $${sets.length + 1}`);
+        vals.push(normalized || null);
+        before.casePo = oldPo || '(none)';
+        after.casePo = normalized || '(cleared)';
+      }
+    }
+
     // --- case type (ADR-0021 review-time correction) ---
     if (body.caseType !== undefined) {
       const rawType = String(body.caseType ?? '').trim();
@@ -359,10 +387,31 @@ app.http('patchCase', {
     }
 
     vals.push(id);
-    await query(
-      `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
-      vals,
-    );
+    try {
+      await query(
+        `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
+        vals,
+      );
+    } catch (e) {
+      // uq_case_case_po: the stamped number is already held by another case — a REAL
+      // conflict the staff member must see (which case owns it), never a bare 500.
+      if (isUniqueViolation(e) && after.casePo) {
+        const holder = await query<{ id: string; vrm: string | null }>(
+          'SELECT id, vrm FROM case_ WHERE upper(case_po) = $1 AND id <> $2',
+          [String(after.casePo).toUpperCase(), id],
+        );
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'case_po_in_use',
+            message: `Case/PO ${after.casePo} is already assigned to another case.`,
+            conflictCaseId: holder[0]?.id ?? null,
+            conflictVrm: holder[0]?.vrm ?? null,
+          },
+        };
+      }
+      throw e;
+    }
 
     // One 'staff' (manual edit) provenance row per changed EVA field (best-effort upsert).
     for (const f of changedEvaFields) await upsertManualProvenance(id, f.key, f.value);
@@ -987,7 +1036,7 @@ app.http('nextCasePo', {
       [`${prefix}%`, casePoSequenceRegex(principal, yy), prefix],
     );
     let maxSeq = Number(seqRows[0]?.max_seq ?? 0);
-    let source: 'db' | 'box' = 'db';
+    let source: 'db' | 'box' | 'floor' = 'db';
 
     // 2) Box fallback — ONLY when the DB has no history for this (principal, year) AND Box is on.
     if (maxSeq === 0 && gates.boxApi() && gates.boxFolderRootId() && process.env.BOX_FN_URL) {
@@ -1001,6 +1050,14 @@ app.http('nextCasePo', {
       } catch (e) {
         ctx.error(`[next-po] Box fallback failed: ${String(e)}`); // best-effort; fall back to seq 1
       }
+    }
+
+    // 3) ADR-0022 cutover floor — the seeded real-world maximum outranks both baselines, so
+    //    the PREVIEW matches what mintCasePo will actually allocate.
+    const floor = await casePoFloor(query, prefix);
+    if (floor > maxSeq) {
+      maxSeq = floor;
+      source = 'floor';
     }
 
     const nextSeq = maxSeq + 1;

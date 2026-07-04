@@ -115,7 +115,13 @@ import {
   type PipelineStageKey,
   type SuggestedAddress,
 } from '../data';
-import { resolveInspectionDecision, buildEvaJson, INTAKE_CHANNEL_LABELS } from '@cs/domain';
+import {
+  resolveInspectionDecision,
+  buildEvaJson,
+  CASE_PO_SHAPE_RE,
+  INTAKE_CHANNEL_LABELS,
+  normalizeCasePo,
+} from '@cs/domain';
 import { GLOBAL_TOASTER_ID } from '../components';
 import { LinkedEmailsPanel } from '../components/LinkedEmailsPanel';
 // Gated AI "Assistant" surface (TKT-015). Self-contained: renders NOTHING unless
@@ -712,6 +718,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const { update: updateCaseVrm, saving: savingVrm } = useCaseUpdate();
   const [editingVrm, setEditingVrm] = useState(false);
   const [vrmDraft, setVrmDraft] = useState(caseData.vrm);
+  // ADR-0022 transition seam — staff stamp the REAL Case/PO at EVA-add (own hook
+  // instance so its saving flag never crosses with the VRM editor's).
+  const { update: updateCasePo, saving: savingPo } = useCaseUpdate();
+  const [editingPo, setEditingPo] = useState(false);
+  const [poDraft, setPoDraft] = useState(caseData.casePo ?? '');
   const vrmInputRef = useRef<HTMLInputElement>(null);
   const vrmEditBtnRef = useRef<HTMLButtonElement>(null);
   const [tab, setTab] = useState<TabName>('fields');
@@ -966,6 +977,43 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       dispatchToast(
         <Toast>
           <ToastTitle>Couldn’t update registration — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    }
+  };
+
+  /* --- editable Case/PO (ADR-0022 transition: stamp the REAL number at EVA-add) --- */
+  const poNormalized = normalizeCasePo(poDraft);
+  const poShapeOk = poNormalized !== '' && CASE_PO_SHAPE_RE.test(poNormalized);
+  const beginEditPo = () => {
+    setPoDraft(c.casePo ?? '');
+    setEditingPo(true);
+  };
+  const cancelEditPo = () => {
+    setEditingPo(false);
+    setPoDraft(c.casePo ?? '');
+  };
+  const savePo = async () => {
+    if (!poShapeOk) return; // Save is disabled anyway
+    if (poNormalized === (c.casePo ?? '').toUpperCase()) {
+      setEditingPo(false);
+      return;
+    }
+    try {
+      const updated = await updateCasePo(c.id, { casePo: poNormalized });
+      setC((prev) => ({ ...prev, ...updated }));
+      setEditingPo(false);
+      toast('Case/PO updated');
+    } catch (e) {
+      const inUse = String(e).includes('case_po_in_use') || String(e).includes(' 409 ');
+      dispatchToast(
+        <Toast>
+          <ToastTitle>
+            {inUse
+              ? `Couldn’t set ${poNormalized} — that number already belongs to another case`
+              : 'Couldn’t update the Case/PO — try again'}
+          </ToastTitle>
         </Toast>,
         { intent: 'error' },
       );
@@ -1329,7 +1377,65 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   </Tooltip>
                 </span>
               )}
-              <span className={mergeClasses('ce-display', styles.titleText)}>{titleText}</span>
+              {editingPo ? (
+                <span className={styles.vrmEditRow}>
+                  <Field
+                    validationState={poDraft && !poShapeOk ? 'error' : 'none'}
+                    validationMessage={
+                      poDraft && !poShapeOk
+                        ? 'Not a Case/PO shape (e.g. CCPY26050 or A.PCH261269).'
+                        : undefined
+                    }
+                  >
+                    <Input
+                      aria-label="Case/PO"
+                      value={poDraft}
+                      maxLength={16}
+                      placeholder="e.g. CCPY26050"
+                      onChange={(_, d) => setPoDraft(d.value.toUpperCase())}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void savePo();
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          cancelEditPo();
+                        }
+                      }}
+                    />
+                  </Field>
+                  <Button
+                    appearance="primary"
+                    icon={savingPo ? <Spinner size="tiny" /> : <Check size={16} />}
+                    disabled={savingPo || !poShapeOk}
+                    onClick={() => void savePo()}
+                  >
+                    Save
+                  </Button>
+                  <Button appearance="subtle" icon={<X size={16} />} disabled={savingPo} onClick={cancelEditPo}>
+                    Cancel
+                  </Button>
+                </span>
+              ) : (
+                <span className={styles.vrmViewRow}>
+                  <span className={mergeClasses('ce-display', styles.titleText)}>
+                    {titleText || 'No Case/PO yet'}
+                  </span>
+                  <Tooltip
+                    content={c.casePo ? 'Correct the Case/PO' : 'Set the Case/PO (assigned at EVA-add)'}
+                    relationship="label"
+                  >
+                    <Button
+                      className="ce-vrm-edit-affordance"
+                      appearance="subtle"
+                      size="small"
+                      icon={<Pencil size={14} />}
+                      aria-label={c.casePo ? 'Correct the Case/PO' : 'Set the Case/PO'}
+                      onClick={beginEditPo}
+                    />
+                  </Tooltip>
+                </span>
+              )}
             </span>
           }
           subtitle={subtitle || undefined}

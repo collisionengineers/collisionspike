@@ -97,6 +97,16 @@ export interface CaseUpdateInput {
    * mileageUnit ∈ {'',Miles,Km} — invalid values are rejected (400), not coerced.
    */
   evaFields?: Partial<Record<EvaFieldKey, string>>;
+  /** ADR-0021 review-time case-type correction ('standard'/'' clears). */
+  caseType?: string;
+  /**
+   * ADR-0022 transition seam — stamp the REAL Case/PO onto the case (the staff member
+   * assigns the official number at EVA-add during the parallel-run; the cutover
+   * renumber uses the same write). Shape-validated server-side; a number held by
+   * another case returns 409 `case_po_in_use` (with the conflicting case id); ''
+   * clears. Stored UPPER verbatim — never re-minted.
+   */
+  casePo?: string;
 }
 
 /* ----------  Superuser case soft-remove (work-todo-spike: ui-changes/delete-case)  ----------
@@ -147,8 +157,10 @@ export interface NextCasePoResult {
   evaLower: string;
   /** Box folder / Case-PO (UPPERCASE) form, e.g. "CCPY26051". */
   boxUpper: string;
-  /** Where the baseline came from: 'db' (DB history or empty), or 'box' (Box fallback). */
-  source: 'db' | 'box';
+  /** Where the baseline came from: 'db' (DB history or empty), 'box' (Box fallback), or
+   *  'floor' (the ADR-0022 cutover sequence floor outranked both — the real-world
+   *  numbering continues past anything the post-reset DB has seen). */
+  source: 'db' | 'box' | 'floor';
 }
 
 /* ----------  Amalgamated dashboard summary (work-todo-spike: amalgamated-dashboard)  ----------

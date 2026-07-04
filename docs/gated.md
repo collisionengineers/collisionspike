@@ -664,21 +664,22 @@ existing un-linked pile drains one email at a time via the keyed starter — see
 **Remaining (the Box reconstruction rung — R2 stays dark until ALL of these):**
 
 1. **⚠️ Case/PO sequence alignment (operator-raised 2026-07-04 — REQUIRED before the Box rung
-   flips).** The live mint (`mintCasePo` = MAX+1 over the DB's `case_po` rows per
-   marker+principal+year) restarted from ~001 after the 2026-06-30 clean-slate reset, and the live
-   mirror root's folders start at 001 — while the REAL archive numbering is **far ahead**. Two
-   consequences: (a) live intake is **re-issuing numbers the business already used historically**;
-   (b) once the archive is searchable, a reconstruction that discovers such a number will find it
-   already occupied by an unrelated spike-minted case (`uq_case_case_po`) and would **link the
-   historical mail to the wrong case**. The fix is a one-time **per-(marker, principal, year)
-   sequence floor**: scan the archive folder names (or supply your known next-numbers per active
-   principal) → seed the floors → the mint becomes `GREATEST(db_max, floor)+1` (a small delta +
-   `mintCasePo` change — **build item, not yet built**; agent does it as soon as you supply the
-   archive root or the per-principal numbers). Also review the handful of already-minted spike POs
-   for collisions with real historical numbers (the post-reset `case_` set is small — renumber or
-   remove any squatters). *R1 risk while unaligned is LOW*: trigger emails cite external refs/VRMs
-   (matched on `case_ref`/`vrm`, unaffected by the numbering overlap), and a quoted Case/PO in a
-   reply thread refers to the spike case that genuinely owns that thread.
+   flips). Mechanism BUILT + LIVE-DARK same day; only YOUR numbers are missing.** Background: the
+   live mint restarted from ~001 after the 2026-06-30 reset while the REAL archive numbering is far
+   ahead — and the deeper process change is that the old system minted **at EVA-add, by a staff
+   member** (pre-EVA cases have NO number), while the new system mints **at intake** (confirmed as
+   the go-live behaviour). Until cutover there are two allocators, so reconciliation is per-case
+   during the trial + one scripted sequence take-over at cutover — full procedure:
+   [docs/plans/case-po-sequence-cutover.md](./plans/case-po-sequence-cutover.md). Built + live:
+   the **`case_po_floor` delta is APPLIED** (empty = dark; mint + next-po preview already allocate
+   `GREATEST(db max, floor)+1`), the **Set-Case/PO staff edit is LIVE** on the case page (stamp the
+   real number whenever you EVA-add a trial case the old way; conflicts are refused with a pointer
+   to the holding case), and the **floor seeder script** turns an archive folder listing into
+   reviewable seed SQL. **You:** supply the archive folder-name listing (or per-principal
+   next-numbers from EVA) at cutover, and stamp real numbers on trial cases as you EVA-add them.
+   *R1 risk while unaligned is LOW*: trigger emails cite external refs/VRMs (matched on
+   `case_ref`/`vrm`, unaffected by the numbering overlap), and a quoted Case/PO in a reply thread
+   refers to the spike case that genuinely owns that thread.
 2. **Supply the Box archive root folder id(s)** (the REAL historical archive, NOT the live mirror
    root): open the archive folder in the Box web app and read the id from the URL
    (`https://app.box.com/folder/<id>`). Multiple roots (per-year/per-provider) are fine — it is a

@@ -24,6 +24,46 @@
 import { casePoSequenceRegex, casePoYear, formatCasePo } from '@cs/domain';
 import type { TxQuery } from './db.js';
 
+/** Any `(text, params) -> rows` runner — both db.js `query` and a tx-bound `TxQuery` fit. */
+type SqlRunner = <R extends Record<string, unknown>>(
+  text: string,
+  params?: unknown[],
+) => Promise<R[]>;
+
+/** Cached to_regclass probe: null = unknown, false = table absent (pre-delta), true = present.
+ *  Reset to unknown on any read error so a transient fault never wedges the floor off. */
+let floorTableKnown: boolean | null = null;
+
+/**
+ * The Case/PO sequence FLOOR for a prefix (ADR-0022 cutover — the transition from
+ * staff-minted-at-EVA-add numbering to system-minted-at-intake): `case_po_floor`
+ * carries the real-world per-(marker, principal, year) maxima seeded at cutover, so
+ * the mint continues the business's actual sequence instead of restarting after a DB
+ * reset. Schema-tolerant (0 before the delta lands) and never throws — a floor-read
+ * fault must not sink a mint (the DB max still applies; worst case is the pre-floor
+ * behaviour).
+ */
+export async function casePoFloor(run: SqlRunner, prefix: string): Promise<number> {
+  if (floorTableKnown === false) return 0;
+  try {
+    if (floorTableKnown === null) {
+      const reg = await run<{ ok: string | null }>(
+        `SELECT to_regclass('public.case_po_floor')::text AS ok`,
+      );
+      floorTableKnown = Boolean(reg[0]?.ok);
+      if (!floorTableKnown) return 0;
+    }
+    const rows = await run<{ floor_seq: number | string | null }>(
+      'SELECT floor_seq FROM case_po_floor WHERE prefix = $1',
+      [prefix],
+    );
+    return Number(rows[0]?.floor_seq ?? 0) || 0;
+  } catch {
+    floorTableKnown = null; // re-probe next time; never block the mint
+    return 0;
+  }
+}
+
 /**
  * Mint the next Case/PO for a (marker, principal, year) under the advisory lock.
  *
@@ -50,11 +90,15 @@ export async function mintCasePo(
   const prefix = `${marker.toUpperCase()}${p}${yy}`; // e.g. "CCPY26" / "A.PCH26"
   // Serialise concurrent mints for this (marker, principal, year); released at COMMIT/ROLLBACK.
   await q('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [`casepo:${prefix}`]);
-  const seqRows = await q<{ next_seq: string | number }>(
-    `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) + 1 AS next_seq
+  const seqRows = await q<{ max_seq: string | number }>(
+    `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) AS max_seq
        FROM case_
       WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
     [`${prefix}%`, casePoSequenceRegex(p, yy, marker), prefix],
   );
-  return formatCasePo(p, yy, Number(seqRows[0]?.next_seq ?? 1), marker);
+  const dbMax = Number(seqRows[0]?.max_seq ?? 0);
+  // ADR-0022 cutover: never allocate below the seeded real-world floor for this prefix
+  // (the sequence continues the business's numbering, not the post-reset DB's).
+  const floor = await casePoFloor(q as SqlRunner, prefix);
+  return formatCasePo(p, yy, Math.max(dbMax, floor) + 1, marker);
 }

@@ -7097,7 +7097,7 @@ var require_state_cjs = __commonJS({
 });
 
 // api/src/functions/cases.ts
-var import_functions = require("@azure/functions");
+var import_functions2 = require("@azure/functions");
 
 // packages/domain/dist/contracts/eva-export.js
 var EVA_FIELD_ORDER = [
@@ -7773,7 +7773,9 @@ var intake_channel_default = {
   isGlobal: true,
   options: [
     { value: 1e8, name: "email", label: "Email" },
-    { value: 100000001, name: "whatsapp", label: "WhatsApp" }
+    { value: 100000001, name: "whatsapp", label: "WhatsApp" },
+    { value: 100000002, name: "provider_api", label: "Provider API" },
+    { value: 100000003, name: "retro", label: "Retro (reconstructed)" }
   ]
 };
 
@@ -9569,121 +9571,44 @@ async function tx(fn) {
 }
 
 // api/src/lib/case-po.ts
+var floorTableKnown = null;
+async function casePoFloor(run, prefix2) {
+  if (floorTableKnown === false) return 0;
+  try {
+    if (floorTableKnown === null) {
+      const reg = await run(
+        `SELECT to_regclass('public.case_po_floor')::text AS ok`
+      );
+      floorTableKnown = Boolean(reg[0]?.ok);
+      if (!floorTableKnown) return 0;
+    }
+    const rows = await run(
+      "SELECT floor_seq FROM case_po_floor WHERE prefix = $1",
+      [prefix2]
+    );
+    return Number(rows[0]?.floor_seq ?? 0) || 0;
+  } catch {
+    floorTableKnown = null;
+    return 0;
+  }
+}
 async function mintCasePo(q, principal, yy = casePoYear(), marker2 = "") {
   const p = principal.toUpperCase();
   const prefix2 = `${marker2.toUpperCase()}${p}${yy}`;
   await q("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [`casepo:${prefix2}`]);
   const seqRows = await q(
-    `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) + 1 AS next_seq
+    `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) AS max_seq
        FROM case_
       WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
     [`${prefix2}%`, casePoSequenceRegex(p, yy, marker2), prefix2]
   );
-  return formatCasePo(p, yy, Number(seqRows[0]?.next_seq ?? 1), marker2);
+  const dbMax = Number(seqRows[0]?.max_seq ?? 0);
+  const floor = await casePoFloor(q, prefix2);
+  return formatCasePo(p, yy, Math.max(dbMax, floor) + 1, marker2);
 }
 
-// api/src/lib/audit.ts
-var AUDIT_ACTION = {
-  graph_message_ingested: 1e8,
-  graph_message_ingest_failed: 100000001,
-  attachment_classified: 100000002,
-  case_created: 100000003,
-  case_attached: 100000004,
-  duplicate_dropped: 100000005,
-  duplicate_flagged: 100000006,
-  provider_matched: 100000007,
-  provider_unmatched: 100000008,
-  parser_called: 100000009,
-  parser_failed: 100000010,
-  enrichment_called: 100000011,
-  enrichment_failed: 100000012,
-  status_changed: 100000013,
-  jobsheet_imported: 100000014,
-  eva_submitted: 100000015,
-  box_synced: 100000016,
-  corpus_record_changed: 100000017,
-  inspection_override: 100000018,
-  box_folder_created: 100000019,
-  box_file_request_copied: 100000020,
-  box_upload_received: 100000021,
-  location_assist_confirmed: 100000022,
-  chaser_sent: 100000023,
-  inbound_classified: 100000024,
-  inbound_routed: 100000025,
-  case_disposed: 100000026,
-  // Phase-8 staff triage state-change actions (work-todo-spike: email-management).
-  inbound_dismissed: 100000027,
-  inbound_actioned: 100000028,
-  inbound_reopened: 100000029,
-  // Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
-  case_removed: 100000030,
-  // Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
-  inbound_reclassified: 100000031,
-  // AI suggestion lifecycle (TKT-015 AI suggestion layer; gated by AI_ASSIST_ENABLED).
-  // created = a model produced a suggestion; accepted/rejected = a human reviewed it.
-  ai_suggestion_created: 100000032,
-  ai_suggestion_accepted: 100000033,
-  ai_suggestion_rejected: 100000034,
-  // rules-engine-v2 Phase 2 (ADR-0019) — the ref-gate suggest/link/detach lifecycle +
-  // the cancellation-propose action. Minted in the DDL delta
-  // migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql, NOT YET applied
-  // live: writing one of these four codes before that delta lands will FK-fail on
-  // choice_audit_action — writeAudit's catch-all below swallows that (never throws), so a
-  // pre-DDL write degrades to "no audit row", never a blocked caller.
-  inbound_link_suggested: 100000035,
-  inbound_linked: 100000036,
-  inbound_detached: 100000037,
-  cancellation_proposed: 100000038,
-  // Outlook filing lifecycle (TKT-054 / 020726 E6; gated by OUTLOOK_MOVE_ENABLED).
-  // Minted in deltas/2026-07-02-tkt054-outlook-move.sql — same pre-DDL degrade as above.
-  outlook_move_requested: 100000039,
-  outlook_moved: 100000040,
-  outlook_move_failed: 100000041,
-  // Provider API intake channel (TKT-055 / ADR-0020; gated by the presence of at least one
-  // minted key). Minted in deltas/2026-07-03-provider-api-intake.sql — same pre-DDL degrade
-  // as the codes above (writeAudit's catch-all swallows an FK failure before the delta lands).
-  // api_key_* audit the Superuser key lifecycle; provider_api_case_* audit the intake outcome.
-  api_key_created: 100000042,
-  api_key_revoked: 100000043,
-  provider_api_case_created: 100000044,
-  provider_api_case_rejected: 100000045,
-  // Retroactive case reconstruction (TKT-058 / ADR-0022; gated by RETRO_CASE_ENABLED).
-  // Minted in deltas/2026-07-04-retro-case.sql — same pre-DDL degrade as the codes above.
-  // created = a case was reconstructed; linked = the trigger email matched an EXISTING
-  // case (any status, incl. terminal); failed = the ladder found no source to rebuild from.
-  retro_case_created: 100000046,
-  retro_case_linked: 100000047,
-  retro_reconstruction_failed: 100000048
-};
-var SEVERITY_CODE = {
-  info: 1e8,
-  warning: 100000001,
-  error: 100000002
-};
-async function writeAudit(opts) {
-  try {
-    await query(
-      `INSERT INTO audit_event
-         (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
-      [
-        opts.summary,
-        opts.caseId ?? null,
-        opts.actor ?? null,
-        opts.action,
-        SEVERITY_CODE[opts.severity ?? "info"],
-        opts.before !== void 0 ? JSON.stringify(opts.before) : null,
-        opts.after !== void 0 ? JSON.stringify(opts.after) : null
-      ]
-    );
-  } catch (err2) {
-    console.error("[audit] write failed", err2);
-  }
-}
-function actorFromClaims(claims) {
-  const pick = (v) => typeof v === "string" && v.length > 0 ? v : void 0;
-  return pick(claims.oid) ?? pick(claims.preferred_username) ?? pick(claims.name) ?? pick(claims.sub);
-}
+// api/src/functions/internal.ts
+var import_functions = require("@azure/functions");
 
 // packages/domain/dist/gates.js
 var gates = {
@@ -9795,62 +9720,190 @@ var gates = {
   outlookMoveEnabled: () => gates.outlookMove() && gates.outlookMoveQueueServiceUrl() !== ""
 };
 
-// api/src/lib/functions-client.ts
-async function callFn(baseUrl, fnKey, method, path, body2) {
-  const res = await fetch(`${baseUrl}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "x-functions-key": fnKey
-    },
-    ...body2 !== void 0 ? { body: JSON.stringify(body2) } : {}
-  });
-  if (!res.ok) {
-    throw new Error(`[functions-client] ${method} ${path} \u2192 ${res.status} ${await res.text().catch(() => "")}`);
+// api/src/lib/audit.ts
+var AUDIT_ACTION = {
+  graph_message_ingested: 1e8,
+  graph_message_ingest_failed: 100000001,
+  attachment_classified: 100000002,
+  case_created: 100000003,
+  case_attached: 100000004,
+  duplicate_dropped: 100000005,
+  duplicate_flagged: 100000006,
+  provider_matched: 100000007,
+  provider_unmatched: 100000008,
+  parser_called: 100000009,
+  parser_failed: 100000010,
+  enrichment_called: 100000011,
+  enrichment_failed: 100000012,
+  status_changed: 100000013,
+  jobsheet_imported: 100000014,
+  eva_submitted: 100000015,
+  box_synced: 100000016,
+  corpus_record_changed: 100000017,
+  inspection_override: 100000018,
+  box_folder_created: 100000019,
+  box_file_request_copied: 100000020,
+  box_upload_received: 100000021,
+  location_assist_confirmed: 100000022,
+  chaser_sent: 100000023,
+  inbound_classified: 100000024,
+  inbound_routed: 100000025,
+  case_disposed: 100000026,
+  // Phase-8 staff triage state-change actions (work-todo-spike: email-management).
+  inbound_dismissed: 100000027,
+  inbound_actioned: 100000028,
+  inbound_reopened: 100000029,
+  // Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
+  case_removed: 100000030,
+  // Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
+  inbound_reclassified: 100000031,
+  // AI suggestion lifecycle (TKT-015 AI suggestion layer; gated by AI_ASSIST_ENABLED).
+  // created = a model produced a suggestion; accepted/rejected = a human reviewed it.
+  ai_suggestion_created: 100000032,
+  ai_suggestion_accepted: 100000033,
+  ai_suggestion_rejected: 100000034,
+  // rules-engine-v2 Phase 2 (ADR-0019) — the ref-gate suggest/link/detach lifecycle +
+  // the cancellation-propose action. Minted in the DDL delta
+  // migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql, NOT YET applied
+  // live: writing one of these four codes before that delta lands will FK-fail on
+  // choice_audit_action — writeAudit's catch-all below swallows that (never throws), so a
+  // pre-DDL write degrades to "no audit row", never a blocked caller.
+  inbound_link_suggested: 100000035,
+  inbound_linked: 100000036,
+  inbound_detached: 100000037,
+  cancellation_proposed: 100000038,
+  // Outlook filing lifecycle (TKT-054 / 020726 E6; gated by OUTLOOK_MOVE_ENABLED).
+  // Minted in deltas/2026-07-02-tkt054-outlook-move.sql — same pre-DDL degrade as above.
+  outlook_move_requested: 100000039,
+  outlook_moved: 100000040,
+  outlook_move_failed: 100000041,
+  // Provider API intake channel (TKT-055 / ADR-0020; gated by the presence of at least one
+  // minted key). Minted in deltas/2026-07-03-provider-api-intake.sql — same pre-DDL degrade
+  // as the codes above (writeAudit's catch-all swallows an FK failure before the delta lands).
+  // api_key_* audit the Superuser key lifecycle; provider_api_case_* audit the intake outcome.
+  api_key_created: 100000042,
+  api_key_revoked: 100000043,
+  provider_api_case_created: 100000044,
+  provider_api_case_rejected: 100000045,
+  // Retroactive case reconstruction (TKT-058 / ADR-0022; gated by RETRO_CASE_ENABLED).
+  // Minted in deltas/2026-07-04-retro-case.sql — same pre-DDL degrade as the codes above.
+  // created = a case was reconstructed; linked = the trigger email matched an EXISTING
+  // case (any status, incl. terminal); failed = the ladder found no source to rebuild from.
+  retro_case_created: 100000046,
+  retro_case_linked: 100000047,
+  retro_reconstruction_failed: 100000048
+};
+var SEVERITY_CODE = {
+  info: 1e8,
+  warning: 100000001,
+  error: 100000002
+};
+async function writeAudit(opts) {
+  try {
+    await query(
+      `INSERT INTO audit_event
+         (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
+      [
+        opts.summary,
+        opts.caseId ?? null,
+        opts.actor ?? null,
+        opts.action,
+        SEVERITY_CODE[opts.severity ?? "info"],
+        opts.before !== void 0 ? JSON.stringify(opts.before) : null,
+        opts.after !== void 0 ? JSON.stringify(opts.after) : null
+      ]
+    );
+  } catch (err2) {
+    console.error("[audit] write failed", err2);
   }
-  return res.json();
 }
-async function callParser(body2) {
-  return callFn(
-    process.env.PARSER_FN_URL,
-    process.env.PARSER_FN_KEY,
-    "POST",
-    "/api/parse",
-    body2
-  );
+function actorFromClaims(claims) {
+  const pick = (v) => typeof v === "string" && v.length > 0 ? v : void 0;
+  return pick(claims.oid) ?? pick(claims.preferred_username) ?? pick(claims.name) ?? pick(claims.sub);
 }
-async function callLocationSuggest(body2) {
-  return callFn(
-    process.env.LOCATION_SUGGEST_FN_URL,
-    process.env.LOCATION_SUGGEST_FN_KEY,
-    "POST",
-    "/api/location-suggest",
-    body2
-  );
-}
-async function callBoxListFolder(folderId, limit = 1e3, offset = 0) {
-  const base = process.env.BOX_FN_URL;
-  const key = process.env.BOX_FN_KEY;
-  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
-  return callFn(
-    base,
-    key,
-    "GET",
-    `/api/box/folders/${encodeURIComponent(folderId)}/items?limit=${limit}&offset=${offset}`
-  );
-}
-async function listBoxFolderNames(folderId) {
-  const names = [];
-  const limit = 1e3;
-  let offset = 0;
-  for (let page = 0; page < 20; page++) {
-    const res = await callBoxListFolder(folderId, limit, offset);
-    const entries = res.entries ?? [];
-    for (const e of entries) if (e?.name) names.push(String(e.name));
-    if (entries.length < limit) break;
-    offset += limit;
+
+// api/src/lib/enrichment-map.ts
+function combineMakeModel(make, model) {
+  const mk = (make ?? "").trim();
+  const md = (model ?? "").trim();
+  if (mk && md) {
+    return md.toUpperCase().startsWith(mk.toUpperCase()) ? md : `${mk} ${md}`;
   }
-  return names;
+  return md || mk || "";
+}
+
+// api/src/lib/parser-eva-fields.ts
+var DDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/;
+function isUnknownWorkProviderSentinel(raw) {
+  return raw.trim().toUpperCase() === "UNKNOWN";
+}
+function isEngineerReportLayoutSentinel(raw) {
+  return isEngineerReportLayoutName(raw);
+}
+var SPEC = {
+  work_provider: { column: "eva_work_provider", provenanceField: "workProvider", normalize: (v) => isUnknownWorkProviderSentinel(v) || isEngineerReportLayoutSentinel(v) ? "" : v.slice(0, 200) },
+  vehicle_model: { column: "eva_vehicle_model", provenanceField: "vehicleModel", normalize: (v) => v.slice(0, 200) },
+  claimant_name: { column: "eva_claimant_name", provenanceField: "claimantName", normalize: (v) => v.slice(0, 200) },
+  claimant_telephone: { column: "eva_claimant_telephone", provenanceField: "claimantTelephone", normalize: (v) => v.slice(0, 60) },
+  claimant_email: { column: "eva_claimant_email", provenanceField: "claimantEmail", normalize: (v) => v.slice(0, 320) },
+  // CHECK ck_case_eva_date_of_loss / _instruction: must match DD/MM/YYYY (or empty) — skip junk.
+  date_of_loss: { column: "eva_date_of_loss", provenanceField: "dateOfLoss", normalize: (v) => DDMMYYYY.test(v) ? v : "" },
+  date_of_instruction: { column: "eva_date_of_instruction", provenanceField: "dateOfInstruction", normalize: (v) => DDMMYYYY.test(v) ? v : "" },
+  accident_circumstances: { column: "eva_accident_circumstances", provenanceField: "accidentCircumstances", normalize: (v) => v.slice(0, 4e3) },
+  // CHECK ck_case_eva_vat_status: IN ('', 'Yes', 'No') — the parser normalizes to Yes/No; skip anything else.
+  vat_status: { column: "eva_vat_status", provenanceField: "vatStatus", normalize: (v) => v === "Yes" || v === "No" ? v : "" }
+};
+var PARSER_EVA_FIELD_ORDER = [
+  "work_provider",
+  "vehicle_model",
+  "claimant_name",
+  "claimant_telephone",
+  "claimant_email",
+  "date_of_loss",
+  "date_of_instruction",
+  "accident_circumstances",
+  "vat_status"
+];
+function corpusWorkProviderCandidate(displayName) {
+  const value = (displayName ?? "").trim().slice(0, 200);
+  if (!value) return null;
+  return { column: "eva_work_provider", provenanceField: "workProvider", value };
+}
+function selectParserEvaCandidates(parserEva) {
+  if (!parserEva) return [];
+  const out = [];
+  for (const key of PARSER_EVA_FIELD_ORDER) {
+    const raw = (parserEva[key] ?? "").toString().trim();
+    if (!raw) continue;
+    const spec = SPEC[key];
+    const value = spec.normalize(raw);
+    if (!value) continue;
+    out.push({ column: spec.column, provenanceField: spec.provenanceField, value });
+  }
+  return out;
+}
+function normalizeProviderMatchKey(raw) {
+  return raw.trim().toUpperCase().replace(/[.,'&]/g, "").replace(/\s+/g, " ").trim();
+}
+function matchWorkProviderByContentString(raw, providers) {
+  const trimmed = (raw ?? "").toString().trim();
+  if (!trimmed || isUnknownWorkProviderSentinel(trimmed)) return { outcome: "unmatched" };
+  if (isEngineerReportLayoutSentinel(trimmed)) return { outcome: "unmatched" };
+  const key = normalizeProviderMatchKey(trimmed);
+  if (!key) return { outcome: "unmatched" };
+  const hits = /* @__PURE__ */ new Set();
+  for (const p of providers) {
+    if (p.principalCode && normalizeProviderMatchKey(p.principalCode) === key || p.displayName && normalizeProviderMatchKey(p.displayName) === key) {
+      hits.add(p.workProviderId);
+    }
+  }
+  if (hits.size === 1) {
+    const [workProviderId] = hits;
+    return { outcome: "matched", workProviderId };
+  }
+  if (hits.size > 1) return { outcome: "ambiguous" };
+  return { outcome: "unmatched" };
 }
 
 // api/src/lib/mappers.ts
@@ -10372,1814 +10425,6 @@ var TWIN_TERMINAL = /* @__PURE__ */ new Set([
   "removed"
 ]);
 
-// api/src/functions/cases.ts
-var pad2 = (n) => String(n).padStart(2, "0");
-function fmtTimestamp(v) {
-  if (v == null || v === "") return "";
-  const d = v instanceof Date ? v : new Date(String(v));
-  if (Number.isNaN(d.getTime())) return String(v);
-  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-function chaserTargetType(code) {
-  if (code === 1e8) return "image_source";
-  if (code === 100000001) return "repairer";
-  return "work_provider";
-}
-function rowToChaser(ch) {
-  return {
-    id: ch.id ?? "",
-    targetType: chaserTargetType(ch.target_type_code),
-    targetName: ch.target_name ?? "",
-    channel: ch.channel_code === 100000001 ? "whatsapp" : "email",
-    templateUsed: ch.template_used ?? "",
-    status: "drafted",
-    summary: ch.name ?? "",
-    createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
-    ...ch.sent_by ? { sentBy: ch.sent_by } : {},
-    ...ch.sent_at ? { sentAt: fmtTimestamp(ch.sent_at) } : {}
-  };
-}
-async function loadAllCases(now) {
-  const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
-  return rows.map((r) => rowToCase(r, { now }));
-}
-async function loadCaseFull(id, now) {
-  const rows = await query(`${CASE_SELECT} WHERE c.id = $1`, [id]);
-  const rec = rows[0];
-  if (!rec) return void 0;
-  const [prov, ev, notes, chasers] = await Promise.all([
-    query("SELECT * FROM field_level_provenance WHERE case_id = $1", [id]),
-    query("SELECT * FROM evidence WHERE case_id = $1 ORDER BY sequence_index NULLS LAST, created_at", [id]),
-    query("SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at", [id]),
-    query("SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at", [id])
-  ]);
-  return rowToCase(rec, {
-    now,
-    provenanceRows: prov,
-    evidence: ev.map(rowToEvidence),
-    notes: notes.map((n) => ({
-      id: n.id ?? "",
-      author: n.author ?? "",
-      timestamp: fmtTimestamp(n.occurred_at ?? n.created_at),
-      text: n.text ?? ""
-    })),
-    chasers: chasers.map(rowToChaser)
-  });
-}
-async function loadCaseLite(id) {
-  const rows = await query(`${CASE_SELECT} WHERE c.id = $1`, [id]);
-  return rows[0] ? rowToCase(rows[0]) : void 0;
-}
-async function recomputeStatus(caseId, actor) {
-  const full = await loadCaseFull(caseId, /* @__PURE__ */ new Date());
-  if (!full) return;
-  const input = {
-    status: full.status,
-    evaFields: full.evaFields,
-    evidence: full.evidence,
-    instructionCount: full.evidence.filter((e) => e.kind === "instruction").length,
-    hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0
-  };
-  const next = statusForReviewCase(input);
-  if (next === full.status) return;
-  await query("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
-    caseId,
-    statusToInt(next)
-  ]);
-  await writeAudit({
-    action: AUDIT_ACTION.status_changed,
-    caseId,
-    summary: `Status ${full.status} -> ${next}`,
-    before: { status: full.status },
-    after: { status: next },
-    ...actor ? { actor } : {}
-  });
-}
-var EVA_MAXLEN = {
-  workProvider: 200,
-  vehicleModel: 200,
-  claimantName: 200,
-  claimantTelephone: 60,
-  claimantEmail: 320,
-  dateOfLoss: 10,
-  dateOfInstruction: 10,
-  accidentCircumstances: 4e3,
-  inspectionAddress: 2e3,
-  vatStatus: 3,
-  mileage: 20,
-  mileageUnit: 6
-};
-var isDmyOrEmpty = (v) => v === "" || /^\d{2}\/\d{2}\/\d{4}$/.test(v);
-var VAT_VALUES = /* @__PURE__ */ new Set(["", "Yes", "No"]);
-var MILEAGE_UNITS = /* @__PURE__ */ new Set(["", "Miles", "Km"]);
-function normaliseEvaEdit(key, raw) {
-  const trimmed = raw.trim();
-  if (key === "dateOfLoss" || key === "dateOfInstruction") {
-    if (!isDmyOrEmpty(trimmed)) return { error: `${key} must be DD/MM/YYYY or empty` };
-    return { value: trimmed };
-  }
-  if (key === "vatStatus") {
-    if (!VAT_VALUES.has(trimmed)) return { error: "vatStatus must be '', 'Yes' or 'No'" };
-    return { value: trimmed };
-  }
-  if (key === "mileageUnit") {
-    if (!MILEAGE_UNITS.has(trimmed)) return { error: "mileageUnit must be '', 'Miles' or 'Km'" };
-    return { value: trimmed };
-  }
-  return { value: raw.slice(0, EVA_MAXLEN[key]) };
-}
-async function upsertManualProvenance(caseId, fieldName, value) {
-  try {
-    const staff = sourceTypeCodec.toInt("staff") ?? 1e8;
-    const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
-    const upd = await query(
-      `UPDATE field_level_provenance
-          SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
-              review_state_code = $5, updated_at = now()
-        WHERE case_id = $1 AND field_name = $2
-        RETURNING id`,
-      [caseId, fieldName, value, staff, reviewed]
-    );
-    if (upd.length === 0) {
-      await query(
-        `INSERT INTO field_level_provenance
-           (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
-         VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
-        [`${caseId}:${fieldName}`, caseId, fieldName, value, staff, reviewed]
-      );
-    }
-  } catch {
-  }
-}
-import_functions.app.http("caseById", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const id = req.params.id;
-    const c = await loadCaseFull(id, /* @__PURE__ */ new Date());
-    if (!c) return { status: 404, jsonBody: { error: "not found" } };
-    return { status: 200, jsonBody: c };
-  })
-});
-import_functions.app.http("patchCase", {
-  methods: ["PATCH"],
-  authLevel: "anonymous",
-  route: "cases/{id}",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const actor = actorFromClaims(claims);
-    const existing = await loadCaseLite(id);
-    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
-    const sets = [];
-    const vals = [];
-    const before = {};
-    const after = {};
-    const changedEvaFields = [];
-    if (body2.vrm !== void 0) {
-      const raw = String(body2.vrm ?? "").trim();
-      const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
-      const newVrm = raw ? extractVrm(raw) || cleaned : "";
-      if (newVrm !== existing.vrm) {
-        sets.push(`vrm = $${sets.length + 1}`);
-        vals.push(newVrm);
-        before.vrm = existing.vrm;
-        after.vrm = newVrm;
-      }
-    }
-    if (body2.evaFields && typeof body2.evaFields === "object") {
-      for (const [k, rawVal] of Object.entries(body2.evaFields)) {
-        if (rawVal === void 0 || !(k in EVA_COLUMN_BY_KEY)) continue;
-        const key = k;
-        const norm = normaliseEvaEdit(key, String(rawVal ?? ""));
-        if ("error" in norm) return { status: 400, jsonBody: { error: norm.error } };
-        const oldVal = existing.evaFields[key]?.value ?? "";
-        if (norm.value === oldVal) continue;
-        sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${sets.length + 1}`);
-        vals.push(norm.value);
-        before[key] = oldVal;
-        after[key] = norm.value;
-        changedEvaFields.push({ key, value: norm.value });
-      }
-    }
-    if (body2.caseType !== void 0) {
-      const rawType = String(body2.caseType ?? "").trim();
-      const validName = rawType === "" || caseTypeCodec.toInt(rawType) != null;
-      if (!validName) {
-        return {
-          status: 400,
-          jsonBody: {
-            error: `caseType must be one of ${caseTypeCodec.names().map((n) => `'${n}'`).join(", ")} (or '' to clear)`
-          }
-        };
-      }
-      const newCode = rawType === "" || rawType === "standard" ? null : caseTypeCodec.toInt(rawType);
-      const curRows = await query(
-        "SELECT case_type_code FROM case_ WHERE id = $1",
-        [id]
-      );
-      const oldCode = curRows[0]?.case_type_code ?? null;
-      if (newCode !== oldCode) {
-        sets.push(`case_type_code = $${sets.length + 1}`);
-        vals.push(newCode);
-        before.caseType = caseTypeCodec.toName(oldCode) ?? "standard";
-        after.caseType = rawType || "standard";
-      }
-    }
-    if (sets.length === 0) {
-      const cur = await loadCaseFull(id, /* @__PURE__ */ new Date());
-      return { status: 200, jsonBody: cur };
-    }
-    vals.push(id);
-    await query(
-      `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
-      vals
-    );
-    for (const f of changedEvaFields) await upsertManualProvenance(id, f.key, f.value);
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId: id,
-      summary: `Case edited: ${Object.keys(after).join(", ")}`,
-      before,
-      after,
-      ...actor ? { actor } : {}
-    });
-    await recomputeStatus(id, actor);
-    const updated = await loadCaseFull(id, /* @__PURE__ */ new Date());
-    return { status: 200, jsonBody: updated };
-  })
-});
-import_functions.app.http("createCase", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const input = await req.json();
-    const actor = actorFromClaims(claims);
-    const evalInput = {
-      status: input.status,
-      evaFields: input.evaFields,
-      evidence: [],
-      instructionCount: 0,
-      hasIdentity: (input.vrm ?? "").trim().length > 0 || (input.providerCode ?? "").trim().length > 0 || input.evaFields.claimantName.value.trim().length > 0
-    };
-    const status = statusForReviewCase(evalInput);
-    const name = ([input.vrm, input.provider].filter((v) => v && v.trim()).join(" \xB7 ") || "Manual case").slice(0, 100);
-    const cols = ["name", "vrm", "status_code", "intake_channel_kind_code", "intake_channel_manual", "source_mailbox"];
-    const vals = [
-      name,
-      input.vrm ?? "",
-      statusToInt(status),
-      intakeChannelKindCodec.toInt("email") ?? null,
-      true,
-      input.sourceLabel ?? "Manual intake"
-    ];
-    const add = (col, value) => {
-      cols.push(col);
-      vals.push(value);
-    };
-    const pcode = (input.providerCode ?? "").trim();
-    if (pcode) {
-      const wp = await query("SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1", [pcode]);
-      if (wp[0]?.id) add("work_provider_id", wp[0].id);
-    }
-    const suppliedCasePo = (input.casePo ?? "").trim().toUpperCase();
-    const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : "";
-    if (principalForAutoMint && !/^[A-Z][A-Z0-9]{0,7}$/.test(principalForAutoMint)) {
-      return { status: 400, jsonBody: { error: "invalid principal code" } };
-    }
-    if (input.onHold) add("on_hold", true);
-    if (input.insuredName) add("ov_insured_name", input.insuredName);
-    if (input.providerReference) add("ov_claim_number", input.providerReference);
-    if (input.inspectionDecision && input.inspectionDecision !== "unknown") {
-      add("inspection_decision_code", inspectionDecisionCodec.toInt(input.inspectionDecision) ?? null);
-    }
-    for (const desc of EVA_FIELD_ORDER) {
-      add(EVA_COLUMN_BY_KEY[desc.key], input.evaFields[desc.key]?.value ?? "");
-    }
-    const newId = await tx(async (q) => {
-      const insertCols = [...cols];
-      const insertVals = [...vals];
-      let casePo = suppliedCasePo;
-      if (!casePo && principalForAutoMint) {
-        casePo = await mintCasePo(q, principalForAutoMint);
-      }
-      if (casePo) {
-        insertCols.push("case_po");
-        insertVals.push(casePo);
-      }
-      const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(", ");
-      const rows = await q(
-        `INSERT INTO case_ (${insertCols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
-        insertVals
-      );
-      return rows[0]?.id;
-    });
-    if (!newId) return { status: 500, jsonBody: { error: "case create returned no id" } };
-    if (input.writeProvenance) {
-      await Promise.all(
-        EVA_FIELD_ORDER.map(async (desc) => {
-          const field = input.evaFields[desc.key];
-          try {
-            await query(
-              `INSERT INTO field_level_provenance
-                 (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-              [
-                `${newId}:${desc.key}`,
-                newId,
-                desc.key,
-                field.value,
-                sourceTypeCodec.toInt(field.provenance.sourceType) ?? 1e8,
-                field.provenance.sourceLabel,
-                field.provenance.confidence ?? null,
-                reviewStateCodec.toInt(field.reviewState) ?? 100000001
-              ]
-            );
-          } catch {
-          }
-        })
-      );
-    }
-    if (input.inspectionDecisionReason?.trim()) {
-      try {
-        await query(
-          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
-          [
-            "Inspection decision",
-            newId,
-            "Manual intake",
-            `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`
-          ]
-        );
-      } catch {
-      }
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.case_created,
-      caseId: newId,
-      summary: `Case created (${name})`,
-      after: { status, vrm: input.vrm },
-      ...actor ? { actor } : {}
-    });
-    return { status: 201, jsonBody: { id: newId } };
-  })
-});
-import_functions.app.http("casesForQueue", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "queues/{name}/cases",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const name = req.params.name;
-    const now = nowParam(req);
-    const all = await loadAllCases(now);
-    return { status: 200, jsonBody: filterQueue(all, name) };
-  })
-});
-import_functions.app.http("openVrmTwins", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const vrm = req.query.get("vrm") ?? "";
-    const exclude = req.query.get("exclude") ?? void 0;
-    if (!vrm) return { status: 200, jsonBody: [] };
-    const rows = await query(`${CASE_SELECT} WHERE c.vrm = $1`, [vrm]);
-    const twins = rows.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);
-    return { status: 200, jsonBody: twins };
-  })
-});
-import_functions.app.http("setOnHold", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/hold",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json();
-    await query("UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1", [id, body2.onHold]);
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId: id,
-      summary: body2.onHold ? "Case put on hold" : "Case taken off hold",
-      after: { onHold: body2.onHold },
-      ...actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}
-    });
-    return { status: 204 };
-  })
-});
-import_functions.app.http("logChase", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/chase",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const channel = body2.channel;
-    if (channel !== "email" && channel !== "whatsapp") {
-      return { status: 400, jsonBody: { error: "channel must be 'email' or 'whatsapp'" } };
-    }
-    if (typeof body2.templateLabel !== "string" || !body2.templateLabel.trim()) {
-      return { status: 400, jsonBody: { error: "templateLabel is required" } };
-    }
-    const templateLabel = body2.templateLabel.trim();
-    if (templateLabel.length > 200) {
-      return { status: 400, jsonBody: { error: "templateLabel must be 200 characters or fewer" } };
-    }
-    if (body2.note !== void 0 && typeof body2.note !== "string") {
-      return { status: 400, jsonBody: { error: "note must be a string" } };
-    }
-    if (typeof body2.note === "string" && body2.note.length > 2e3) {
-      return { status: 400, jsonBody: { error: "note must be 2000 characters or fewer" } };
-    }
-    const note = typeof body2.note === "string" ? body2.note.trim() : "";
-    const existing = await loadCaseLite(id);
-    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
-    const actor = actorFromClaims(claims);
-    const channelLabel = channel === "whatsapp" ? "WhatsApp" : "email";
-    const summary = `Chased via ${channelLabel} \u2014 ${templateLabel}.`.slice(0, 400);
-    const targetName = existing.provider.slice(0, 200);
-    const rows = await query(
-      `INSERT INTO chaser
-         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
-       VALUES ($1, $2, $3, $4, $5, $6, now())
-       RETURNING *`,
-      [
-        summary,
-        id,
-        100000002,
-        // choice_chaser_target_type: work_provider
-        targetName,
-        channel === "whatsapp" ? 100000001 : 1e8,
-        // choice_chaser_channel
-        templateLabel
-      ]
-    );
-    const created = rows[0];
-    if (!created) return { status: 500, jsonBody: { error: "chaser insert returned no row" } };
-    if (note) {
-      try {
-        await query(
-          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
-          ["Chase note", id, actor ?? "Staff", note]
-        );
-      } catch {
-      }
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.chaser_sent,
-      caseId: id,
-      summary: `Chase logged (${channel} \xB7 ${templateLabel})`,
-      after: {
-        chaserId: created.id,
-        channel,
-        templateLabel,
-        ...note ? { note } : {}
-      },
-      ...actor ? { actor } : {}
-    });
-    return { status: 201, jsonBody: rowToChaser(created) };
-  })
-});
-import_functions.app.http("mergeCandidates", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/merge-candidates",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const id = req.params.id;
-    const self2 = await loadCaseLite(id);
-    if (!self2) return { status: 200, jsonBody: [] };
-    const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
-    const candidates = rows.map((r) => rowToCase(r)).filter(
-      (cc) => cc.id !== id && !TWIN_TERMINAL.has(cc.status) && cc.status !== "linked_to_instruction" && cc.providerCode === self2.providerCode
-    );
-    return { status: 200, jsonBody: candidates };
-  })
-});
-import_functions.app.http("mergeCases", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{tgt}/merge",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const targetCaseId = req.params.tgt;
-    const body2 = await req.json();
-    const sourceCaseId = body2.sourceCaseId;
-    const actor = actorFromClaims(claims);
-    if (!sourceCaseId || sourceCaseId === targetCaseId) {
-      return { status: 400, jsonBody: { error: "Cannot merge a case into itself." } };
-    }
-    const [src, tgt] = await Promise.all([loadCaseLite(sourceCaseId), loadCaseLite(targetCaseId)]);
-    if (!src || !tgt) return { status: 404, jsonBody: { error: "Source or target case not found." } };
-    if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
-      return { status: 400, jsonBody: { error: "Refusing to merge across different work providers." } };
-    }
-    if (TWIN_TERMINAL.has(tgt.status)) {
-      return { status: 400, jsonBody: { error: "Cannot merge into a finalised (terminal) case." } };
-    }
-    const moved = await query(
-      "UPDATE evidence SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id",
-      [sourceCaseId, targetCaseId]
-    );
-    const movedEvidence = moved.length;
-    await query(
-      `UPDATE case_
-         SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
-       WHERE id = $1`,
-      [sourceCaseId, statusToInt("linked_to_instruction"), JSON.stringify({ mergedInto: targetCaseId })]
-    );
-    await writeAudit({
-      action: AUDIT_ACTION.case_attached,
-      caseId: targetCaseId,
-      summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence)`,
-      after: { sourceCaseId, targetCaseId, movedEvidence },
-      ...actor ? { actor } : {}
-    });
-    await recomputeStatus(targetCaseId, actor);
-    const result = { targetCaseId, movedEvidence };
-    return { status: 200, jsonBody: result };
-  })
-});
-import_functions.app.http("imagesForCase", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/images",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const id = req.params.id;
-    const rows = await query(
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND excluded <> true ORDER BY sequence_index NULLS LAST, created_at",
-      [id]
-    );
-    return { status: 200, jsonBody: rows.map(rowToEvidence) };
-  })
-});
-import_functions.app.http("recentActivity", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "activity",
-  handler: withRole("CollisionSpike.User", async () => {
-    const rows = await query("SELECT * FROM audit_event ORDER BY occurred_at DESC LIMIT 200");
-    return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
-  })
-});
-import_functions.app.http("activityForCase", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/activity",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const id = req.params.id;
-    const rows = await query(
-      "SELECT * FROM audit_event WHERE case_id = $1 ORDER BY occurred_at DESC",
-      [id]
-    );
-    return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
-  })
-});
-import_functions.app.http("removeCase", {
-  methods: ["DELETE"],
-  authLevel: "anonymous",
-  route: "cases/{id}",
-  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const actor = actorFromClaims(claims);
-    const existing = await loadCaseLite(id);
-    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
-    if (existing.status === "removed") {
-      const done = {
-        id,
-        status: "removed",
-        alreadyRemoved: true,
-        ...existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}
-      };
-      return { status: 200, jsonBody: done };
-    }
-    const before = {
-      status: existing.status,
-      vrm: existing.vrm,
-      casePo: existing.casePo ?? null,
-      provider: existing.provider,
-      claimantName: existing.evaFields.claimantName.value
-    };
-    const evaCols = EVA_FIELD_ORDER.map((d) => `${EVA_COLUMN_BY_KEY[d.key]} = ''`).join(", ");
-    await query(
-      `UPDATE case_
-          SET status_code = $2, ${evaCols},
-              vrm = '', case_ref = '', name = '[removed]',
-              ov_insured_name = NULL, ov_claimant_name = NULL,
-              ov_third_party_name = NULL, ov_claim_number = NULL,
-              ov_policy_reference = NULL, ov_incident_date = NULL,
-              ov_insurer_name = NULL, ov_repairer_name = NULL,
-              eva_claimant_address = NULL,
-              on_hold = false, closed_at = now(), updated_at = now()
-        WHERE id = $1`,
-      [id, statusToInt("removed")]
-    );
-    await query(
-      `UPDATE note
-          SET author = '[removed]', text = '[removed]', updated_at = now()
-        WHERE case_id = $1`,
-      [id]
-    );
-    await query(
-      `UPDATE evidence
-          SET file_name = '[removed]',
-              content_type = NULL,
-              storage_path = NULL,
-              box_file_id = NULL,
-              box_file_url = NULL,
-              source_message_id = NULL,
-              source_label = 'removed',
-              sha256 = NULL,
-              exclusion_reason = 'removed',
-              accepted_for_eva = false,
-              excluded = true,
-              updated_at = now()
-        WHERE case_id = $1`,
-      [id]
-    );
-    await query(
-      `UPDATE inbound_email
-          SET subject = '[removed]',
-              from_address = '[removed]',
-              sender_domain = NULL,
-              body_preview = '',
-              body_vrm = NULL,
-              body_caseref = NULL,
-              signals = '[]'::jsonb,
-              updated_at = now()
-        WHERE case_id = $1`,
-      [id]
-    );
-    await writeAudit({
-      action: AUDIT_ACTION.case_removed,
-      caseId: id,
-      severity: "warning",
-      summary: `Case removed (soft): ${before.vrm || before.casePo || id}`,
-      before,
-      after: {
-        status: "removed",
-        // The "also remove Box folder" tickbox is an INTENT FLAG only — no automated deletion.
-        archiveFolderAcknowledged: body2.acknowledgeArchiveFolderHandled === true || body2.acknowledgeBoxFolderHandled === true,
-        boxFolderId: existing.boxFolderId ?? null,
-        boxFolderUrl: existing.boxFolderUrl ?? null,
-        ...typeof body2.reason === "string" && body2.reason.trim() ? { reason: body2.reason.trim() } : {}
-      },
-      ...actor ? { actor } : {}
-    });
-    const result = {
-      id,
-      status: "removed",
-      alreadyRemoved: false,
-      ...existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}
-    };
-    return { status: 200, jsonBody: result };
-  })
-});
-import_functions.app.http("nextCasePo", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/next-po",
-  handler: withRole("CollisionSpike.User", async (req, ctx) => {
-    const principalRaw = (req.query.get("principal") ?? "").trim();
-    if (!principalRaw) return { status: 400, jsonBody: { error: "principal is required" } };
-    const principal = principalRaw.toUpperCase();
-    if (!/^[A-Z][A-Z0-9]{0,7}$/.test(principal)) {
-      return { status: 400, jsonBody: { error: "invalid principal code" } };
-    }
-    const yearParam = (req.query.get("year") ?? "").trim();
-    const yy = /^\d{2}$/.test(yearParam) ? yearParam : /^\d{4}$/.test(yearParam) ? yearParam.slice(-2) : casePoYear();
-    const prefix2 = `${principal}${yy}`;
-    const seqRows = await query(
-      `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) AS max_seq
-         FROM case_
-        WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
-      [`${prefix2}%`, casePoSequenceRegex(principal, yy), prefix2]
-    );
-    let maxSeq = Number(seqRows[0]?.max_seq ?? 0);
-    let source = "db";
-    if (maxSeq === 0 && gates.boxApi() && gates.boxFolderRootId() && process.env.BOX_FN_URL) {
-      try {
-        const names = await listBoxFolderNames(gates.boxFolderRootId());
-        const boxMax = maxCasePoSeqFromNames(names, principal, yy);
-        if (boxMax > 0) {
-          maxSeq = boxMax;
-          source = "box";
-        }
-      } catch (e) {
-        ctx.error(`[next-po] Box fallback failed: ${String(e)}`);
-      }
-    }
-    const nextSeq = maxSeq + 1;
-    const casePo = formatCasePo(principal, yy, nextSeq);
-    const result = {
-      principal,
-      yy,
-      seq: String(nextSeq).padStart(3, "0"),
-      nextSeq,
-      evaLower: casePo.toLowerCase(),
-      boxUpper: casePo,
-      source
-    };
-    return { status: 200, jsonBody: result };
-  })
-});
-async function readCaseBoxFolder(caseId) {
-  const rows = await query(
-    "SELECT box_folder_id, box_folder_url FROM case_ WHERE id = $1",
-    [caseId]
-  );
-  return {
-    boxFolderId: rows[0]?.box_folder_id ?? null,
-    boxFolderUrl: rows[0]?.box_folder_url ?? null
-  };
-}
-import_functions.app.http("caseBoxSharedLink", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/box/shared-link",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    if (!gates.boxApi()) {
-      return { status: 200, jsonBody: { status: "gated_off", message: "The archive is not available yet." } };
-    }
-    const caseId = (req.params.id ?? "").trim();
-    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
-    const { boxFolderId, boxFolderUrl } = await readCaseBoxFolder(caseId);
-    if (!boxFolderId) {
-      return {
-        status: 200,
-        jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." }
-      };
-    }
-    const folderUrl = boxFolderUrl && boxFolderUrl.trim() || `https://app.box.com/folder/${encodeURIComponent(boxFolderId)}`;
-    return { status: 200, jsonBody: { status: "ok", data: { folderUrl } } };
-  })
-});
-import_functions.app.http("caseBoxCopyFileRequest", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/box/copy-file-request",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    if (!gates.boxApi() || !gates.boxFileRequest()) {
-      return { status: 200, jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." } };
-    }
-    const caseId = (req.params.id ?? "").trim();
-    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
-    if (!gates.boxFileRequestTemplateId()) {
-      return {
-        status: 200,
-        jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." }
-      };
-    }
-    const { boxFolderId } = await readCaseBoxFolder(caseId);
-    if (!boxFolderId) {
-      return { status: 200, jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." } };
-    }
-    return {
-      status: 200,
-      jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." }
-    };
-  })
-});
-import_functions.app.http("caseBoxFinalize", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/box/finalize",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const caseId = (req.params.id ?? "").trim();
-    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
-    return {
-      status: 200,
-      jsonBody: { status: "gated_off", message: 'Direct submit is not available yet. Use "Export for EVA".' }
-    };
-  })
-});
-function nowParam(req) {
-  const raw = req.query.get("now");
-  if (!raw) return /* @__PURE__ */ new Date();
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? /* @__PURE__ */ new Date() : d;
-}
-
-// api/src/functions/providers.ts
-var import_functions2 = require("@azure/functions");
-import_functions2.app.http("providers", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "providers",
-  handler: withRole("CollisionSpike.User", async () => {
-    const rows = await query("SELECT * FROM work_provider ORDER BY display_name");
-    return { status: 200, jsonBody: rows.map(rowToProvider) };
-  })
-});
-import_functions2.app.http("providerByCode", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "providers/{code}",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const code = req.params.code;
-    const rows = await query("SELECT * FROM work_provider WHERE principal_code = $1 LIMIT 1", [
-      code
-    ]);
-    if (!rows[0]) return { status: 404, jsonBody: { error: "not found" } };
-    return { status: 200, jsonBody: rowToProvider(rows[0]) };
-  })
-});
-var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function normaliseDomains(input) {
-  if (!Array.isArray(input)) return void 0;
-  const seen = /* @__PURE__ */ new Set();
-  const out = [];
-  for (const d of input) {
-    const v = String(d ?? "").trim().toLowerCase();
-    if (v && !seen.has(v)) {
-      seen.add(v);
-      out.push(v);
-    }
-  }
-  return out;
-}
-import_functions2.app.http("updateProvider", {
-  methods: ["PATCH"],
-  authLevel: "anonymous",
-  route: "providers/{id}",
-  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
-    const idOrCode = (req.params.id ?? "").trim();
-    if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
-    const body2 = await req.json().catch(() => ({}));
-    let modeCode;
-    if (body2.providerAutomationMode !== void 0) {
-      const mode = String(body2.providerAutomationMode);
-      const code = automationModeCodec.toInt(mode);
-      if (code == null) return { status: 400, jsonBody: { error: "invalid providerAutomationMode" } };
-      modeCode = code;
-    }
-    let domains;
-    if (body2.knownEmailDomains !== void 0) {
-      domains = normaliseDomains(body2.knownEmailDomains);
-      if (domains === void 0) {
-        return { status: 400, jsonBody: { error: "knownEmailDomains must be an array of strings" } };
-      }
-    }
-    if (modeCode === void 0 && domains === void 0) {
-      return { status: 400, jsonBody: { error: "nothing to update" } };
-    }
-    const where2 = UUID_RE.test(idOrCode) ? "id = $1" : "principal_code = $1";
-    const existing = await query(`SELECT * FROM work_provider WHERE ${where2} LIMIT 1`, [idOrCode]);
-    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const beforeRow = existing[0];
-    const sets = [];
-    const vals = [];
-    const before = {};
-    const after = {};
-    if (modeCode !== void 0) {
-      vals.push(modeCode);
-      sets.push(`provider_automation_mode_code = $${vals.length}`);
-      before.providerAutomationMode = automationModeCodec.toName(beforeRow.provider_automation_mode_code) ?? null;
-      after.providerAutomationMode = automationModeCodec.toName(modeCode);
-    }
-    if (domains !== void 0) {
-      vals.push(domains.join("\n"));
-      sets.push(`known_email_domains = $${vals.length}`);
-      before.knownEmailDomains = beforeRow.known_email_domains ?? null;
-      after.knownEmailDomains = domains;
-    }
-    vals.push(beforeRow.id);
-    const updated = await query(
-      `UPDATE work_provider SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}
-       RETURNING *`,
-      vals
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const actor = actorFromClaims(claims);
-    await writeAudit({
-      action: AUDIT_ACTION.corpus_record_changed,
-      summary: `Provider ${beforeRow.principal_code ?? beforeRow.id} updated: ${Object.keys(after).join(", ")}`,
-      before,
-      after: { ...after, principalCode: beforeRow.principal_code ?? null },
-      ...actor ? { actor } : {}
-    });
-    return { status: 200, jsonBody: rowToProvider(updated[0]) };
-  })
-});
-
-// api/src/functions/inspection.ts
-var import_functions3 = require("@azure/functions");
-var CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt("confirmed_physical");
-var IMAGE_BASED = inspectionDecisionCodec.toInt("image_based");
-import_functions3.app.http("inspectionAddressSuggestions", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/inspection-suggestions",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    try {
-      const id = req.params.id;
-      const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [id]);
-      const providerCode = ((caseRows[0]?.case_po ?? "").trim().match(/^[A-Za-z]+/)?.[0] ?? "").toUpperCase();
-      const rows = await query(
-        "SELECT * FROM inspection_address WHERE source_label LIKE 'suggested%'"
-      );
-      const all = rows.filter(isSuggestedAddressRow).map(rowToSuggestedAddress);
-      if (!providerCode) return { status: 200, jsonBody: sortSuggestions(all) };
-      const scoped = all.filter(
-        (s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode
-      );
-      return { status: 200, jsonBody: sortSuggestions(scoped.length > 0 ? scoped : all) };
-    } catch {
-      return { status: 200, jsonBody: [] };
-    }
-  })
-});
-import_functions3.app.http("inspectionAddressCounts", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "inspection-addresses/counts",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const rows = await query(
-        "SELECT source_label, decision_mode_code FROM inspection_address"
-      );
-      let confirmed = 0;
-      let suggested = 0;
-      for (const r of rows) {
-        if (isSuggestedAddressRow(r)) suggested += 1;
-        else if (r.decision_mode_code === CONFIRMED_PHYSICAL) confirmed += 1;
-      }
-      const counts = { confirmed, suggested };
-      return { status: 200, jsonBody: counts };
-    } catch {
-      return { status: 200, jsonBody: { confirmed: 0, suggested: 0 } };
-    }
-  })
-});
-import_functions3.app.http("saveInspectionDecision", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/inspection-decision",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const caseId = req.params.id;
-    const decision = await req.json();
-    try {
-      const lines = (decision.addressLines ?? []).map((l) => (l ?? "").trim()).filter(Boolean);
-      const isImageBased = decision.decisionMode === "image_based";
-      const label = (isImageBased ? "Image Based Assessment" : [lines[0], decision.postcode?.trim()].filter(Boolean).join(", ") || "Inspection address").slice(0, 200);
-      let providerCode = "";
-      try {
-        const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [caseId]);
-        providerCode = ((caseRows[0]?.case_po ?? "").trim().match(/^[A-Za-z]+/)?.[0] ?? "").toUpperCase();
-      } catch {
-      }
-      const sourceNote = [
-        `case=${caseId}`,
-        ...providerCode ? [`provider=${providerCode}`] : [],
-        decision.sourceNote
-      ].join(" ").trim();
-      const decisionModeCode = decision.decisionMode && decision.decisionMode !== "unknown" ? inspectionDecisionCodec.toInt(decision.decisionMode) : void 0;
-      const decisionReason = decisionModeCode === IMAGE_BASED ? decision.sourceNote.trim() || "Image based assessment" : null;
-      const rows = await query(
-        `INSERT INTO inspection_address
-           (label, decision_mode_code, decision_reason, source_label, source_note,
-            address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
-         VALUES ($1, COALESCE($2, 100000003), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-         ON CONFLICT (label) DO UPDATE SET
-           decision_mode_code = EXCLUDED.decision_mode_code,
-           decision_reason    = EXCLUDED.decision_reason,
-           source_label       = EXCLUDED.source_label,
-           source_note        = EXCLUDED.source_note,
-           address_line1      = EXCLUDED.address_line1,
-           address_line2      = EXCLUDED.address_line2,
-           address_line3      = EXCLUDED.address_line3,
-           address_line4      = EXCLUDED.address_line4,
-           address_line5      = EXCLUDED.address_line5,
-           address_line6      = EXCLUDED.address_line6,
-           postcode           = EXCLUDED.postcode
-         RETURNING id`,
-        [
-          label,
-          decisionModeCode ?? null,
-          decisionReason,
-          decision.sourceLabel,
-          sourceNote,
-          lines[0] ?? null,
-          lines[1] ?? null,
-          lines[2] ?? null,
-          lines[3] ?? null,
-          lines[4] ?? null,
-          lines[5] ?? null,
-          isImageBased ? null : decision.postcode?.trim() ?? null
-        ]
-      );
-      const id = rows[0]?.id;
-      await writeAudit({
-        action: AUDIT_ACTION.inspection_override,
-        caseId,
-        summary: `Inspection decision confirmed (${decision.decisionMode})`,
-        after: { decisionMode: decision.decisionMode, label },
-        ...actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}
-      });
-      const result = { persisted: true, ...id ? { id } : {} };
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { persisted: false } };
-    }
-  })
-});
-
-// api/src/functions/dashboard.ts
-var import_functions4 = require("@azure/functions");
-function nowParam2(req) {
-  const raw = req.query.get("now");
-  if (!raw) return /* @__PURE__ */ new Date();
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? /* @__PURE__ */ new Date() : d;
-}
-async function loadAllCases2(now) {
-  const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
-  return rows.map((r) => rowToCase(r, { now }));
-}
-function computeLiveCounts(all) {
-  return {
-    notReady: filterQueue(all, "not-ready").length,
-    review: filterQueue(all, "review").length,
-    held: filterQueue(all, "held").length
-  };
-}
-function computeThroughput(all, now) {
-  const today = startOfDay(now);
-  const weekStart = startOfWeek(now);
-  let inToday = 0;
-  let submittedToday = 0;
-  let clearedThisWeek = 0;
-  let submittedTotal = 0;
-  for (const c of all) {
-    if (isSameDay(parseDmy(c.createdAt), today)) inToday += 1;
-    if (statusToStage(c.status) === "submitted") submittedTotal += 1;
-    const sub = parseDmy(c.submittedAt);
-    if (sub) {
-      if (isSameDay(sub, today)) submittedToday += 1;
-      if (startOfDay(sub).getTime() >= weekStart.getTime()) clearedThisWeek += 1;
-    }
-  }
-  return { inToday, submittedToday, clearedThisWeek, submittedTotal };
-}
-function computeAgingExceptions(all, now) {
-  const today = startOfDay(now);
-  const rows = actionableCases(all).map((c) => {
-    const due = parseDmy(c.dateDue);
-    const daysToDue = due ? daysBetween(today, due) : Number.POSITIVE_INFINITY;
-    return {
-      case: c,
-      daysToDue,
-      pastDue: due ? daysToDue < 0 : false,
-      ...c.actionReason ? { reason: c.actionReason } : {}
-    };
-  }).sort((a, b) => a.daysToDue - b.daysToDue);
-  return {
-    rows,
-    pastDueCount: rows.filter((r) => r.pastDue).length,
-    duplicateCount: rows.filter((r) => r.reason === "duplicate").length,
-    conflictCount: rows.filter((r) => r.reason === "conflict").length
-  };
-}
-function computeQueueCounts(all) {
-  return {
-    "not-ready": filterQueue(all, "not-ready").length,
-    review: filterQueue(all, "review").length,
-    held: filterQueue(all, "held").length
-  };
-}
-function computeReasonFacets(all) {
-  const tally = /* @__PURE__ */ new Map();
-  for (const c of actionableCases(all)) {
-    if (!c.actionReason) continue;
-    tally.set(c.actionReason, (tally.get(c.actionReason) ?? 0) + 1);
-  }
-  return Object.keys(REASON_LABELS).map((reason) => ({ reason, label: REASON_LABELS[reason], count: tally.get(reason) ?? 0 })).filter((f) => f.count > 0);
-}
-function computePipelineStages(all) {
-  const defs = [
-    { key: "new", label: "New" },
-    { key: "not_ready", label: "Not ready" },
-    { key: "review", label: "Review" },
-    { key: "submitted", label: "Submitted" }
-  ];
-  const counts = new Map(defs.map((d) => [d.key, 0]));
-  for (const c of all) {
-    if (c.onHold) continue;
-    const k = statusToStage(c.status);
-    if (k === void 0) continue;
-    counts.set(k, (counts.get(k) ?? 0) + 1);
-  }
-  return defs.map((d) => ({
-    key: d.key,
-    label: d.label,
-    count: counts.get(d.key) ?? 0,
-    tone: d.key === "not_ready" ? "stuck" : "normal"
-  }));
-}
-import_functions4.app.http("liveCounts", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/live-counts",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const all = await loadAllCases2(nowParam2(req));
-    return { status: 200, jsonBody: computeLiveCounts(all) };
-  })
-});
-import_functions4.app.http("throughput", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/throughput",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const now = nowParam2(req);
-    const all = await loadAllCases2(now);
-    return { status: 200, jsonBody: computeThroughput(all, now) };
-  })
-});
-import_functions4.app.http("agingExceptions", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/aging-exceptions",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const now = nowParam2(req);
-    const all = await loadAllCases2(now);
-    return { status: 200, jsonBody: computeAgingExceptions(all, now) };
-  })
-});
-import_functions4.app.http("queueCounts", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/queue-counts",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const all = await loadAllCases2(nowParam2(req));
-    return { status: 200, jsonBody: computeQueueCounts(all) };
-  })
-});
-import_functions4.app.http("reasonCounts", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/reason-counts",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const all = await loadAllCases2(nowParam2(req));
-    return { status: 200, jsonBody: computeReasonFacets(all) };
-  })
-});
-import_functions4.app.http("pipelineStages", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/pipeline-stages",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const all = await loadAllCases2(nowParam2(req));
-    return { status: 200, jsonBody: computePipelineStages(all) };
-  })
-});
-import_functions4.app.http("dashboardSummary", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const now = nowParam2(req);
-    const all = await loadAllCases2(now);
-    let inbound = { ...INBOUND_COUNTS_ZERO };
-    try {
-      const inboundRows = await query("SELECT category_code, triage_state FROM inbound_email");
-      inbound = tallyActiveInboundCounts(inboundRows);
-    } catch {
-    }
-    const summary = {
-      liveCounts: computeLiveCounts(all),
-      throughput: computeThroughput(all, now),
-      queueCounts: computeQueueCounts(all),
-      pipelineStages: computePipelineStages(all),
-      reasonFacets: computeReasonFacets(all),
-      agingExceptions: computeAgingExceptions(all, now),
-      inbound
-    };
-    return { status: 200, jsonBody: summary };
-  })
-});
-
-// api/src/functions/gates.ts
-var import_functions5 = require("@azure/functions");
-import_functions5.app.http("getBoxGates", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/box",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const result = {
-        apiEnabled: gates.boxApi(),
-        folderAtIntakeEnabled: gates.boxFolderAtIntake(),
-        fileRequestEnabled: gates.boxFileRequest(),
-        fileRequestTemplateConfigured: gates.boxFileRequestTemplateId() !== ""
-      };
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { ...BOX_GATES_ALL_FALSE } };
-    }
-  })
-});
-import_functions5.app.http("getBoxFileRequestTemplateId", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/box/file-request-template",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const id = gates.boxFileRequestTemplateId();
-      return { status: 200, jsonBody: { templateId: id !== "" ? id : null } };
-    } catch {
-      return { status: 200, jsonBody: { templateId: null } };
-    }
-  })
-});
-import_functions5.app.http("getLocationAssistGate", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/location-assist",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const result = {
-        assistEnabled: gates.locationAssist(),
-        mapsEnabled: gates.azureMaps(),
-        apiBaseConfigured: gates.locationAssistApiBase() !== "",
-        enabled: gates.locationAssistEnabled()
-      };
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { ...LOCATION_ASSIST_GATE_ALL_OFF } };
-    }
-  })
-});
-import_functions5.app.http("getAiAssistGate", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/ai-assist",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const result = {
-        enabled: gates.aiAssist(),
-        modelConfigured: gates.aiAssistConfigured()
-      };
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { ...AI_ASSIST_GATE_ALL_OFF } };
-    }
-  })
-});
-import_functions5.app.http("getOutlookMoveGate", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/outlook-move",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const result = { enabled: gates.outlookMoveEnabled() };
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { ...OUTLOOK_MOVE_GATE_ALL_OFF } };
-    }
-  })
-});
-
-// api/src/functions/settings.ts
-var import_functions6 = require("@azure/functions");
-var HOLD_KEY = "hold_new_cases_by_default";
-import_functions6.app.http("getHoldNewCasesDefault", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "settings/hold-new-cases",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const rows = await query("SELECT value FROM app_setting WHERE key = $1", [HOLD_KEY]);
-      return { status: 200, jsonBody: { value: (rows[0]?.value ?? "false") === "true" } };
-    } catch {
-      return { status: 200, jsonBody: { value: false } };
-    }
-  })
-});
-import_functions6.app.http("setHoldNewCasesDefault", {
-  methods: ["PUT"],
-  authLevel: "anonymous",
-  route: "settings/hold-new-cases",
-  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
-    const body2 = await req.json();
-    const actor = actorFromClaims(claims);
-    const valueStr = body2.value ? "true" : "false";
-    try {
-      await query(
-        `INSERT INTO app_setting (key, value, updated_at, updated_by)
-         VALUES ($1, $2, now(), $3)
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
-        [HOLD_KEY, valueStr, actor ?? null]
-      );
-    } catch {
-      return { status: 503, jsonBody: { error: "settings store unavailable" } };
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.corpus_record_changed,
-      summary: `Set hold-new-cases-by-default = ${valueStr}`,
-      after: { key: HOLD_KEY, value: valueStr },
-      ...actor ? { actor } : {}
-    });
-    return { status: 204 };
-  })
-});
-
-// api/src/functions/inbound.ts
-var import_functions7 = require("@azure/functions");
-
-// api/src/lib/outlook-queue.ts
-var OUTLOOK_MOVE_QUEUE_NAME = "outlook-move";
-var STORAGE_RESOURCE = "https://storage.azure.com";
-var STORAGE_API_VERSION = "2021-12-02";
-var cachedToken = null;
-async function getStorageToken() {
-  const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 6e4) return cachedToken.value;
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (!idEndpoint || !idHeader) {
-    throw new Error("missing IDENTITY_ENDPOINT/IDENTITY_HEADER for storage-queue auth (no managed identity off-Azure)");
-  }
-  const url2 = `${idEndpoint}?resource=${encodeURIComponent(STORAGE_RESOURCE)}&api-version=2019-08-01`;
-  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
-  if (!res.ok) throw new Error(`MSI token (storage) ${res.status}`);
-  const json = await res.json();
-  cachedToken = {
-    value: json.access_token,
-    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
-  };
-  return cachedToken.value;
-}
-function xmlEscape(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-async function enqueueOutlookMove(job) {
-  const serviceUrl = gates.outlookMoveQueueServiceUrl().replace(/\/$/, "");
-  if (!serviceUrl) throw new Error("OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured");
-  const token = await getStorageToken();
-  const messageText = Buffer.from(JSON.stringify(job), "utf8").toString("base64");
-  const res = await fetch(`${serviceUrl}/${OUTLOOK_MOVE_QUEUE_NAME}/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "x-ms-version": STORAGE_API_VERSION,
-      "Content-Type": "application/xml"
-    },
-    body: `<QueueMessage><MessageText>${xmlEscape(messageText)}</MessageText></QueueMessage>`
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`outlook-move enqueue \u2192 ${res.status}: ${detail.slice(0, 300)}`);
-  }
-}
-
-// api/src/functions/inbound.ts
-var TRIAGE_AUDIT_ACTION = {
-  dismissed: AUDIT_ACTION.inbound_dismissed,
-  actioned: AUDIT_ACTION.inbound_actioned,
-  new: AUDIT_ACTION.inbound_reopened,
-  routed: AUDIT_ACTION.inbound_routed
-};
-import_functions7.app.http("inboundEmails", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "inbound",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    try {
-      const category = req.query.get("category");
-      const subtype = req.query.get("subtype");
-      const view = req.query.get("view");
-      const clauses = [];
-      const params = [];
-      if (category && category in INBOUND_CATEGORY_TO_INT) {
-        params.push(INBOUND_CATEGORY_TO_INT[category]);
-        clauses.push(`inbound_email.category_code = $${params.length}`);
-      }
-      const viewClause = inboundViewWhere(view);
-      if (viewClause) clauses.push(viewClause);
-      const where2 = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-      const rows = await query(
-        `SELECT inbound_email.*, c.case_po AS case_po
-           FROM inbound_email
-           LEFT JOIN case_ c ON c.id = inbound_email.case_id
-           ${where2} ORDER BY inbound_email.received_on DESC`,
-        params
-      );
-      let result = rows.map(rowToInboundEmail);
-      if (subtype) result = result.filter((r) => r.subtype === subtype);
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: [] };
-    }
-  })
-});
-import_functions7.app.http("inboundEmailCounts", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "inbound/counts",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const rows = await query("SELECT category_code, triage_state FROM inbound_email");
-      const counts = tallyActiveInboundCounts(rows);
-      return { status: 200, jsonBody: counts };
-    } catch {
-      return { status: 200, jsonBody: { ...INBOUND_COUNTS_ZERO } };
-    }
-  })
-});
-import_functions7.app.http("setTriageState", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "inbound/{id}/triage",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const state3 = body2.state;
-    if (!isValidTriageState(state3)) {
-      return { status: 400, jsonBody: { error: "invalid triage state" } };
-    }
-    const existing = await query(
-      "SELECT id, triage_state, case_id, source_message_id FROM inbound_email WHERE id = $1",
-      [id]
-    );
-    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const before = existing[0].triage_state ?? "new";
-    const updated = await query(
-      "UPDATE inbound_email SET triage_state = $2, updated_at = now() WHERE id = $1 RETURNING id",
-      [id, state3]
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const actor = actorFromClaims(claims);
-    await writeAudit({
-      action: TRIAGE_AUDIT_ACTION[state3],
-      ...existing[0].case_id ? { caseId: existing[0].case_id } : {},
-      summary: `Inbound email ${before} -> ${state3}`,
-      before: { triageState: before },
-      after: {
-        triageState: state3,
-        inboundEmailId: id,
-        sourceMessageId: existing[0].source_message_id ?? null
-      },
-      ...actor ? { actor } : {}
-    });
-    return { status: 204 };
-  })
-});
-import_functions7.app.http("moveInboundToOutlook", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "inbound/{id}/outlook-move",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    if (!gates.outlookMoveEnabled()) {
-      return { status: 409, jsonBody: { error: "outlook filing is not enabled" } };
-    }
-    const id = req.params.id;
-    const existing = await query(
-      `SELECT id, source_message_id, source_mailbox, subtype_code, suggested_subtype_code,
-              case_id, outlook_move_state
-         FROM inbound_email WHERE id = $1`,
-      [id]
-    );
-    const row = existing[0];
-    if (!row) return { status: 404, jsonBody: { error: "not found" } };
-    if (row.outlook_move_state === "moved") {
-      return { status: 409, jsonBody: { error: "already filed" } };
-    }
-    if (!row.source_message_id || !row.source_mailbox) {
-      return { status: 409, jsonBody: { error: "no mailbox provenance to act on" } };
-    }
-    const subtype = inboundSubtypeFromInt(row.subtype_code) ?? inboundSubtypeFromInt(row.suggested_subtype_code) ?? "other";
-    const folder = suggestedOutlookFolder(subtype);
-    await query(
-      `UPDATE inbound_email
-          SET outlook_move_state = 'queued', outlook_moved_folder = $2, updated_at = now()
-        WHERE id = $1`,
-      [id, folder]
-    );
-    const actor = actorFromClaims(claims);
-    try {
-      await enqueueOutlookMove({
-        inboundEmailId: id,
-        sourceMailbox: String(row.source_mailbox),
-        sourceMessageId: String(row.source_message_id),
-        targetFolderPath: folder
-      });
-    } catch (e) {
-      await query(
-        `UPDATE inbound_email
-            SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
-          WHERE id = $1`,
-        [id]
-      );
-      await writeAudit({
-        action: AUDIT_ACTION.outlook_move_failed,
-        ...row.case_id ? { caseId: row.case_id } : {},
-        summary: `Outlook filing could not be queued (${folder})`,
-        severity: "warning",
-        after: { inboundEmailId: id, folder, detail: e instanceof Error ? e.message.slice(0, 300) : String(e) },
-        ...actor ? { actor } : {}
-      });
-      return { status: 503, jsonBody: { error: "filing queue unavailable" } };
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.outlook_move_requested,
-      ...row.case_id ? { caseId: row.case_id } : {},
-      summary: `Outlook filing requested -> ${folder}`,
-      after: { inboundEmailId: id, folder, sourceMessageId: row.source_message_id },
-      ...actor ? { actor } : {}
-    });
-    return { status: 202, jsonBody: { queued: true, folder } };
-  })
-});
-import_functions7.app.http("reclassifyInbound", {
-  methods: ["PATCH"],
-  authLevel: "anonymous",
-  route: "inbound/{id}/classification",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    let category;
-    let subtype;
-    if (typeof body2.tag === "string") {
-      const mapped = richTagToClassification(body2.tag);
-      if (!mapped) return { status: 400, jsonBody: { error: "unknown tag" } };
-      category = mapped.category;
-      subtype = mapped.subtype;
-    } else {
-      if (typeof body2.category === "string") {
-        if (!(body2.category in INBOUND_CATEGORY_TO_INT)) {
-          return { status: 400, jsonBody: { error: "invalid category" } };
-        }
-        category = body2.category;
-      }
-      if (typeof body2.subtype === "string") {
-        if (!(body2.subtype in INBOUND_SUBTYPE_TO_INT)) {
-          return { status: 400, jsonBody: { error: "invalid subtype" } };
-        }
-        subtype = body2.subtype;
-      }
-    }
-    if (!category && !subtype) {
-      return { status: 400, jsonBody: { error: "category, subtype or tag required" } };
-    }
-    const existing = await query(
-      `SELECT id, category_code, subtype_code, suggested_category_code, suggested_subtype_code,
-              case_id, work_provider_id, source_message_id
-         FROM inbound_email WHERE id = $1`,
-      [id]
-    );
-    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const cur = existing[0];
-    const sets = ["classifier_mode = 'human'"];
-    const vals = [];
-    if (category) {
-      vals.push(INBOUND_CATEGORY_TO_INT[category]);
-      sets.push(`category_code = $${vals.length}`);
-    }
-    if (subtype) {
-      vals.push(INBOUND_SUBTYPE_TO_INT[subtype]);
-      sets.push(`subtype_code = $${vals.length}`);
-    }
-    vals.push(id);
-    const updated = await query(
-      `UPDATE inbound_email SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}
-       RETURNING *`,
-      vals
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const actor = actorFromClaims(claims);
-    const suggestedCat = inboundCategoryFromInt(
-      cur.suggested_category_code ?? cur.category_code
-    );
-    const suggestedSub = inboundSubtypeFromInt(
-      cur.suggested_subtype_code ?? cur.subtype_code
-    );
-    const reason = typeof body2.reason === "string" ? body2.reason.trim() : "";
-    if (category && category !== suggestedCat) {
-      await writeImprovementSignal(cur, "category", suggestedCat ?? "(none)", category, actor, reason);
-    }
-    if (subtype && subtype !== suggestedSub) {
-      await writeImprovementSignal(cur, "subtype", suggestedSub ?? "(none)", subtype, actor, reason);
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.inbound_reclassified,
-      ...cur.case_id ? { caseId: cur.case_id } : {},
-      summary: `Inbound reclassified${category ? ` category=${category}` : ""}${subtype ? ` subtype=${subtype}` : ""}`,
-      before: { category: suggestedCat ?? null, subtype: suggestedSub ?? null },
-      after: {
-        category: category ?? null,
-        subtype: subtype ?? null,
-        inboundEmailId: id,
-        sourceMessageId: cur.source_message_id ?? null,
-        ...reason ? { reason } : {}
-      },
-      ...actor ? { actor } : {}
-    });
-    return { status: 200, jsonBody: rowToInboundEmail(updated[0]) };
-  })
-});
-import_functions7.app.http("inboundEmailSuggestions", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "inbound/{id}/suggestions",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    try {
-      const id = req.params.id;
-      const rows = await query(
-        `SELECT * FROM ai_suggestion
-          WHERE inbound_email_id = $1
-          ORDER BY (review_state = 'pending') DESC, created_at DESC
-          LIMIT 100`,
-        [id]
-      );
-      const result = rows.map(rowToAiSuggestion);
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: [] };
-    }
-  })
-});
-import_functions7.app.http("detachInboundEmail", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "inbound/{id}/detach",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const existing = await query("SELECT id, case_id FROM inbound_email WHERE id = $1", [id]);
-    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const oldCaseId = existing[0].case_id ?? null;
-    if (!oldCaseId) {
-      return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
-    }
-    const updated = await query(
-      `UPDATE inbound_email SET case_id = NULL, triage_state = 'new', updated_at = now()
-         WHERE id = $1 AND case_id IS NOT NULL
-       RETURNING id`,
-      [id]
-    );
-    if (!updated[0]) {
-      return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
-    }
-    const actor = actorFromClaims(claims);
-    await writeAudit({
-      action: AUDIT_ACTION.inbound_detached,
-      caseId: oldCaseId,
-      summary: "Inbound email unlinked from case",
-      before: { caseId: oldCaseId },
-      after: {
-        caseId: null,
-        inboundEmailId: id,
-        note: "Archive folder is a one-way mirror \u2014 any archive cleanup for this email is manual (ADR-0012/0017)."
-      },
-      ...actor ? { actor } : {}
-    });
-    return { status: 200, jsonBody: { ok: true } };
-  })
-});
-async function writeImprovementSignal(row, fieldName, originalValue, correctedValue, actor, reason) {
-  try {
-    await query(
-      `INSERT INTO improvement_signal
-         (name, case_id, work_provider_id, field_name, original_value, corrected_value,
-          original_provenance, actor, occurred_at, affects_eva_readiness, classification_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), false, 100000000)`,
-      [
-        `Inbound ${fieldName} override: ${originalValue || "(none)"} -> ${correctedValue}`,
-        row.case_id ?? null,
-        row.work_provider_id ?? null,
-        `inbound.${fieldName}`,
-        originalValue || null,
-        correctedValue,
-        reason || "classifier suggestion",
-        actor ?? null
-      ]
-    );
-  } catch {
-  }
-}
-
-// api/src/functions/proxy.ts
-var import_functions8 = require("@azure/functions");
-import_functions8.app.http("locationAssistSuggest", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "location-assist/suggest",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    if (!gates.locationAssistEnabled()) {
-      return { status: 200, jsonBody: [] };
-    }
-    try {
-      const body2 = await req.json();
-      const result = await callLocationSuggest(body2);
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: [] };
-    }
-  })
-});
-import_functions8.app.http("parserParse", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "parser/parse",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    if (!gates.pdfMapper()) {
-      return { status: 200, jsonBody: { skipped: true } };
-    }
-    try {
-      const body2 = await req.json();
-      const result = await callParser(body2);
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { skipped: true, error: true } };
-    }
-  })
-});
-
-// api/src/functions/internal.ts
-var import_functions9 = require("@azure/functions");
-
-// api/src/lib/enrichment-map.ts
-function combineMakeModel(make, model) {
-  const mk = (make ?? "").trim();
-  const md = (model ?? "").trim();
-  if (mk && md) {
-    return md.toUpperCase().startsWith(mk.toUpperCase()) ? md : `${mk} ${md}`;
-  }
-  return md || mk || "";
-}
-
-// api/src/lib/parser-eva-fields.ts
-var DDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/;
-function isUnknownWorkProviderSentinel(raw) {
-  return raw.trim().toUpperCase() === "UNKNOWN";
-}
-function isEngineerReportLayoutSentinel(raw) {
-  return isEngineerReportLayoutName(raw);
-}
-var SPEC = {
-  work_provider: { column: "eva_work_provider", provenanceField: "workProvider", normalize: (v) => isUnknownWorkProviderSentinel(v) || isEngineerReportLayoutSentinel(v) ? "" : v.slice(0, 200) },
-  vehicle_model: { column: "eva_vehicle_model", provenanceField: "vehicleModel", normalize: (v) => v.slice(0, 200) },
-  claimant_name: { column: "eva_claimant_name", provenanceField: "claimantName", normalize: (v) => v.slice(0, 200) },
-  claimant_telephone: { column: "eva_claimant_telephone", provenanceField: "claimantTelephone", normalize: (v) => v.slice(0, 60) },
-  claimant_email: { column: "eva_claimant_email", provenanceField: "claimantEmail", normalize: (v) => v.slice(0, 320) },
-  // CHECK ck_case_eva_date_of_loss / _instruction: must match DD/MM/YYYY (or empty) — skip junk.
-  date_of_loss: { column: "eva_date_of_loss", provenanceField: "dateOfLoss", normalize: (v) => DDMMYYYY.test(v) ? v : "" },
-  date_of_instruction: { column: "eva_date_of_instruction", provenanceField: "dateOfInstruction", normalize: (v) => DDMMYYYY.test(v) ? v : "" },
-  accident_circumstances: { column: "eva_accident_circumstances", provenanceField: "accidentCircumstances", normalize: (v) => v.slice(0, 4e3) },
-  // CHECK ck_case_eva_vat_status: IN ('', 'Yes', 'No') — the parser normalizes to Yes/No; skip anything else.
-  vat_status: { column: "eva_vat_status", provenanceField: "vatStatus", normalize: (v) => v === "Yes" || v === "No" ? v : "" }
-};
-var PARSER_EVA_FIELD_ORDER = [
-  "work_provider",
-  "vehicle_model",
-  "claimant_name",
-  "claimant_telephone",
-  "claimant_email",
-  "date_of_loss",
-  "date_of_instruction",
-  "accident_circumstances",
-  "vat_status"
-];
-function corpusWorkProviderCandidate(displayName) {
-  const value = (displayName ?? "").trim().slice(0, 200);
-  if (!value) return null;
-  return { column: "eva_work_provider", provenanceField: "workProvider", value };
-}
-function selectParserEvaCandidates(parserEva) {
-  if (!parserEva) return [];
-  const out = [];
-  for (const key of PARSER_EVA_FIELD_ORDER) {
-    const raw = (parserEva[key] ?? "").toString().trim();
-    if (!raw) continue;
-    const spec = SPEC[key];
-    const value = spec.normalize(raw);
-    if (!value) continue;
-    out.push({ column: spec.column, provenanceField: spec.provenanceField, value });
-  }
-  return out;
-}
-function normalizeProviderMatchKey(raw) {
-  return raw.trim().toUpperCase().replace(/[.,'&]/g, "").replace(/\s+/g, " ").trim();
-}
-function matchWorkProviderByContentString(raw, providers) {
-  const trimmed = (raw ?? "").toString().trim();
-  if (!trimmed || isUnknownWorkProviderSentinel(trimmed)) return { outcome: "unmatched" };
-  if (isEngineerReportLayoutSentinel(trimmed)) return { outcome: "unmatched" };
-  const key = normalizeProviderMatchKey(trimmed);
-  if (!key) return { outcome: "unmatched" };
-  const hits = /* @__PURE__ */ new Set();
-  for (const p of providers) {
-    if (p.principalCode && normalizeProviderMatchKey(p.principalCode) === key || p.displayName && normalizeProviderMatchKey(p.displayName) === key) {
-      hits.add(p.workProviderId);
-    }
-  }
-  if (hits.size === 1) {
-    const [workProviderId] = hits;
-    return { outcome: "matched", workProviderId };
-  }
-  if (hits.size > 1) return { outcome: "ambiguous" };
-  return { outcome: "unmatched" };
-}
-
 // api/src/lib/schema-introspect.ts
 var columnCache = /* @__PURE__ */ new Map();
 async function loadColumns(table) {
@@ -12266,7 +10511,7 @@ function senderDomain(address) {
   if (at < 0 || at === address.length - 1) return "";
   return address.slice(at + 1).toLowerCase().trim();
 }
-async function recomputeStatus2(caseId) {
+async function recomputeStatus(caseId) {
   const rows = await query(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
   const rec = rows[0];
   if (!rec) return "error";
@@ -12443,7 +10688,7 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
     });
   }
 }
-import_functions9.app.http("internalProviderMatchRecords", {
+import_functions.app.http("internalProviderMatchRecords", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/provider-match-records",
@@ -12492,7 +10737,7 @@ function parseDomains2(raw) {
   }
   return s.split(/[\r\n,]+/).map((d) => d.trim()).filter(Boolean);
 }
-import_functions9.app.http("internalWorkProviderAiAllowed", {
+import_functions.app.http("internalWorkProviderAiAllowed", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/work-provider/{id}/ai-allowed",
@@ -12509,7 +10754,7 @@ import_functions9.app.http("internalWorkProviderAiAllowed", {
     return { status: 200, jsonBody: { aiAllowed } };
   })
 });
-import_functions9.app.http("internalDedupContext", {
+import_functions.app.http("internalDedupContext", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/dedup-context",
@@ -12562,7 +10807,7 @@ import_functions9.app.http("internalDedupContext", {
     };
   })
 });
-import_functions9.app.http("internalCasesResolve", {
+import_functions.app.http("internalCasesResolve", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/cases/resolve",
@@ -12777,7 +11022,7 @@ import_functions9.app.http("internalCasesResolve", {
     };
   })
 });
-import_functions9.app.http("internalInboundEmail", {
+import_functions.app.http("internalInboundEmail", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/inbound-email",
@@ -12907,7 +11152,7 @@ function uniqueConstraintName(e) {
   }
   return void 0;
 }
-import_functions9.app.http("internalCasesEnrichment", {
+import_functions.app.http("internalCasesEnrichment", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/cases/{id}/enrichment",
@@ -12951,7 +11196,7 @@ import_functions9.app.http("internalCasesEnrichment", {
         `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
         vals
       );
-      await recomputeStatus2(caseId);
+      await recomputeStatus(caseId);
     }
     await writeAudit({
       action: AUDIT_ACTION.enrichment_called,
@@ -12963,7 +11208,7 @@ import_functions9.app.http("internalCasesEnrichment", {
     return { status: 200, jsonBody: { applied } };
   })
 });
-import_functions9.app.http("internalInboundLinkReply", {
+import_functions.app.http("internalInboundLinkReply", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/inbound/link-reply",
@@ -13029,7 +11274,7 @@ import_functions9.app.http("internalInboundLinkReply", {
     return { status: 200, jsonBody: { outcome: "no_match", candidateCount: 0 } };
   })
 });
-import_functions9.app.http("internalTriageContext", {
+import_functions.app.http("internalTriageContext", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/triage/context",
@@ -13093,7 +11338,7 @@ import_functions9.app.http("internalTriageContext", {
     return { status: 200, jsonBody: result };
   })
 });
-import_functions9.app.http("internalTriageSuggestLink", {
+import_functions.app.http("internalTriageSuggestLink", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/triage/suggest-link",
@@ -13216,7 +11461,7 @@ import_functions9.app.http("internalTriageSuggestLink", {
     return { status: 200, jsonBody: { suggestionId, created: true } };
   })
 });
-import_functions9.app.http("internalInboundOutlookMoved", {
+import_functions.app.http("internalInboundOutlookMoved", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/inbound/{id}/outlook-moved",
@@ -13298,7 +11543,7 @@ async function applyEvidenceMetadata(ctx, whereClause, whereVals, row, computed)
     return 0;
   }
 }
-import_functions9.app.http("internalCasesEvidence", {
+import_functions.app.http("internalCasesEvidence", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/cases/{id}/evidence",
@@ -13409,7 +11654,7 @@ import_functions9.app.http("internalCasesEvidence", {
     return { status: 200, jsonBody: { persisted, updated } };
   })
 });
-import_functions9.app.http("internalCasesArchiveEvidence", {
+import_functions.app.http("internalCasesArchiveEvidence", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/cases/{id}/archive-evidence",
@@ -13432,7 +11677,7 @@ import_functions9.app.http("internalCasesArchiveEvidence", {
     return { status: 200, jsonBody: { rows } };
   })
 });
-import_functions9.app.http("internalCasesArchiveEvidenceStamp", {
+import_functions.app.http("internalCasesArchiveEvidenceStamp", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/cases/{id}/archive-evidence/stamp",
@@ -13461,17 +11706,17 @@ import_functions9.app.http("internalCasesArchiveEvidenceStamp", {
     return { status: 200, jsonBody: { updated: updated.length > 0 } };
   })
 });
-import_functions9.app.http("internalCasesStatusEvaluate", {
+import_functions.app.http("internalCasesStatusEvaluate", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/cases/{id}/status-evaluate",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = req.params.id;
-    const value = await recomputeStatus2(caseId);
+    const value = await recomputeStatus(caseId);
     return { status: 200, jsonBody: { value } };
   })
 });
-import_functions9.app.http("internalCasesSetIngested", {
+import_functions.app.http("internalCasesSetIngested", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/cases/{id}/set-ingested",
@@ -13496,7 +11741,7 @@ import_functions9.app.http("internalCasesSetIngested", {
     return { status: 200, jsonBody: { updated: updated.length > 0 } };
   })
 });
-import_functions9.app.http("internalAudit", {
+import_functions.app.http("internalAudit", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/audit",
@@ -13514,7 +11759,7 @@ import_functions9.app.http("internalAudit", {
     return { status: 204 };
   })
 });
-import_functions9.app.http("internalPrincipals", {
+import_functions.app.http("internalPrincipals", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/principals",
@@ -13528,7 +11773,7 @@ import_functions9.app.http("internalPrincipals", {
     };
   })
 });
-import_functions9.app.http("internalDispositionDue", {
+import_functions.app.http("internalDispositionDue", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/disposition/due",
@@ -13547,7 +11792,7 @@ import_functions9.app.http("internalDispositionDue", {
     };
   })
 });
-import_functions9.app.http("internalDispositionCase", {
+import_functions.app.http("internalDispositionCase", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/disposition/{id}",
@@ -13575,7 +11820,7 @@ import_functions9.app.http("internalDispositionCase", {
     return { status: 204 };
   })
 });
-import_functions9.app.http("internalBoxCaseByFolder", {
+import_functions.app.http("internalBoxCaseByFolder", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/box/case-by-folder/{folderId}",
@@ -13590,7 +11835,7 @@ import_functions9.app.http("internalBoxCaseByFolder", {
     return { status: 200, jsonBody: { caseId } };
   })
 });
-import_functions9.app.http("internalBoxPurgeCandidates", {
+import_functions.app.http("internalBoxPurgeCandidates", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/box/purge-candidates",
@@ -13612,7 +11857,7 @@ import_functions9.app.http("internalBoxPurgeCandidates", {
     };
   })
 });
-import_functions9.app.http("internalBoxMarkPurged", {
+import_functions.app.http("internalBoxMarkPurged", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/box/mark-purged",
@@ -13627,7 +11872,7 @@ import_functions9.app.http("internalBoxMarkPurged", {
     return { status: 204 };
   })
 });
-import_functions9.app.http("internalCaseBoxFolderGet", {
+import_functions.app.http("internalCaseBoxFolderGet", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/cases/{id}/box-folder",
@@ -13649,7 +11894,7 @@ import_functions9.app.http("internalCaseBoxFolderGet", {
     };
   })
 });
-import_functions9.app.http("internalCaseBoxFolderStamp", {
+import_functions.app.http("internalCaseBoxFolderStamp", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/cases/{id}/box-folder",
@@ -13682,6 +11927,1829 @@ import_functions9.app.http("internalCaseBoxFolderStamp", {
       status: 200,
       jsonBody: { applied: false, boxFolderId: cur[0]?.box_folder_id ?? null }
     };
+  })
+});
+
+// api/src/lib/functions-client.ts
+async function callFn(baseUrl, fnKey, method, path, body2) {
+  const res = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "x-functions-key": fnKey
+    },
+    ...body2 !== void 0 ? { body: JSON.stringify(body2) } : {}
+  });
+  if (!res.ok) {
+    throw new Error(`[functions-client] ${method} ${path} \u2192 ${res.status} ${await res.text().catch(() => "")}`);
+  }
+  return res.json();
+}
+async function callParser(body2) {
+  return callFn(
+    process.env.PARSER_FN_URL,
+    process.env.PARSER_FN_KEY,
+    "POST",
+    "/api/parse",
+    body2
+  );
+}
+async function callLocationSuggest(body2) {
+  return callFn(
+    process.env.LOCATION_SUGGEST_FN_URL,
+    process.env.LOCATION_SUGGEST_FN_KEY,
+    "POST",
+    "/api/location-suggest",
+    body2
+  );
+}
+async function callBoxListFolder(folderId, limit = 1e3, offset = 0) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "GET",
+    `/api/box/folders/${encodeURIComponent(folderId)}/items?limit=${limit}&offset=${offset}`
+  );
+}
+async function listBoxFolderNames(folderId) {
+  const names = [];
+  const limit = 1e3;
+  let offset = 0;
+  for (let page = 0; page < 20; page++) {
+    const res = await callBoxListFolder(folderId, limit, offset);
+    const entries = res.entries ?? [];
+    for (const e of entries) if (e?.name) names.push(String(e.name));
+    if (entries.length < limit) break;
+    offset += limit;
+  }
+  return names;
+}
+
+// api/src/functions/cases.ts
+var pad2 = (n) => String(n).padStart(2, "0");
+function fmtTimestamp(v) {
+  if (v == null || v === "") return "";
+  const d = v instanceof Date ? v : new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function chaserTargetType(code) {
+  if (code === 1e8) return "image_source";
+  if (code === 100000001) return "repairer";
+  return "work_provider";
+}
+function rowToChaser(ch) {
+  return {
+    id: ch.id ?? "",
+    targetType: chaserTargetType(ch.target_type_code),
+    targetName: ch.target_name ?? "",
+    channel: ch.channel_code === 100000001 ? "whatsapp" : "email",
+    templateUsed: ch.template_used ?? "",
+    status: "drafted",
+    summary: ch.name ?? "",
+    createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
+    ...ch.sent_by ? { sentBy: ch.sent_by } : {},
+    ...ch.sent_at ? { sentAt: fmtTimestamp(ch.sent_at) } : {}
+  };
+}
+async function loadAllCases(now) {
+  const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
+  return rows.map((r) => rowToCase(r, { now }));
+}
+async function loadCaseFull(id, now) {
+  const rows = await query(`${CASE_SELECT} WHERE c.id = $1`, [id]);
+  const rec = rows[0];
+  if (!rec) return void 0;
+  const [prov, ev, notes, chasers] = await Promise.all([
+    query("SELECT * FROM field_level_provenance WHERE case_id = $1", [id]),
+    query("SELECT * FROM evidence WHERE case_id = $1 ORDER BY sequence_index NULLS LAST, created_at", [id]),
+    query("SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at", [id]),
+    query("SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at", [id])
+  ]);
+  return rowToCase(rec, {
+    now,
+    provenanceRows: prov,
+    evidence: ev.map(rowToEvidence),
+    notes: notes.map((n) => ({
+      id: n.id ?? "",
+      author: n.author ?? "",
+      timestamp: fmtTimestamp(n.occurred_at ?? n.created_at),
+      text: n.text ?? ""
+    })),
+    chasers: chasers.map(rowToChaser)
+  });
+}
+async function loadCaseLite(id) {
+  const rows = await query(`${CASE_SELECT} WHERE c.id = $1`, [id]);
+  return rows[0] ? rowToCase(rows[0]) : void 0;
+}
+async function recomputeStatus2(caseId, actor) {
+  const full = await loadCaseFull(caseId, /* @__PURE__ */ new Date());
+  if (!full) return;
+  const input = {
+    status: full.status,
+    evaFields: full.evaFields,
+    evidence: full.evidence,
+    instructionCount: full.evidence.filter((e) => e.kind === "instruction").length,
+    hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0
+  };
+  const next = statusForReviewCase(input);
+  if (next === full.status) return;
+  await query("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
+    caseId,
+    statusToInt(next)
+  ]);
+  await writeAudit({
+    action: AUDIT_ACTION.status_changed,
+    caseId,
+    summary: `Status ${full.status} -> ${next}`,
+    before: { status: full.status },
+    after: { status: next },
+    ...actor ? { actor } : {}
+  });
+}
+var EVA_MAXLEN = {
+  workProvider: 200,
+  vehicleModel: 200,
+  claimantName: 200,
+  claimantTelephone: 60,
+  claimantEmail: 320,
+  dateOfLoss: 10,
+  dateOfInstruction: 10,
+  accidentCircumstances: 4e3,
+  inspectionAddress: 2e3,
+  vatStatus: 3,
+  mileage: 20,
+  mileageUnit: 6
+};
+var isDmyOrEmpty = (v) => v === "" || /^\d{2}\/\d{2}\/\d{4}$/.test(v);
+var VAT_VALUES = /* @__PURE__ */ new Set(["", "Yes", "No"]);
+var MILEAGE_UNITS = /* @__PURE__ */ new Set(["", "Miles", "Km"]);
+function normaliseEvaEdit(key, raw) {
+  const trimmed = raw.trim();
+  if (key === "dateOfLoss" || key === "dateOfInstruction") {
+    if (!isDmyOrEmpty(trimmed)) return { error: `${key} must be DD/MM/YYYY or empty` };
+    return { value: trimmed };
+  }
+  if (key === "vatStatus") {
+    if (!VAT_VALUES.has(trimmed)) return { error: "vatStatus must be '', 'Yes' or 'No'" };
+    return { value: trimmed };
+  }
+  if (key === "mileageUnit") {
+    if (!MILEAGE_UNITS.has(trimmed)) return { error: "mileageUnit must be '', 'Miles' or 'Km'" };
+    return { value: trimmed };
+  }
+  return { value: raw.slice(0, EVA_MAXLEN[key]) };
+}
+async function upsertManualProvenance(caseId, fieldName, value) {
+  try {
+    const staff = sourceTypeCodec.toInt("staff") ?? 1e8;
+    const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
+    const upd = await query(
+      `UPDATE field_level_provenance
+          SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
+              review_state_code = $5, updated_at = now()
+        WHERE case_id = $1 AND field_name = $2
+        RETURNING id`,
+      [caseId, fieldName, value, staff, reviewed]
+    );
+    if (upd.length === 0) {
+      await query(
+        `INSERT INTO field_level_provenance
+           (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
+         VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
+        [`${caseId}:${fieldName}`, caseId, fieldName, value, staff, reviewed]
+      );
+    }
+  } catch {
+  }
+}
+import_functions2.app.http("caseById", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    const c = await loadCaseFull(id, /* @__PURE__ */ new Date());
+    if (!c) return { status: 404, jsonBody: { error: "not found" } };
+    return { status: 200, jsonBody: c };
+  })
+});
+import_functions2.app.http("patchCase", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "cases/{id}",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const actor = actorFromClaims(claims);
+    const existing = await loadCaseLite(id);
+    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
+    const sets = [];
+    const vals = [];
+    const before = {};
+    const after = {};
+    const changedEvaFields = [];
+    if (body2.vrm !== void 0) {
+      const raw = String(body2.vrm ?? "").trim();
+      const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
+      const newVrm = raw ? extractVrm(raw) || cleaned : "";
+      if (newVrm !== existing.vrm) {
+        sets.push(`vrm = $${sets.length + 1}`);
+        vals.push(newVrm);
+        before.vrm = existing.vrm;
+        after.vrm = newVrm;
+      }
+    }
+    if (body2.evaFields && typeof body2.evaFields === "object") {
+      for (const [k, rawVal] of Object.entries(body2.evaFields)) {
+        if (rawVal === void 0 || !(k in EVA_COLUMN_BY_KEY)) continue;
+        const key = k;
+        const norm = normaliseEvaEdit(key, String(rawVal ?? ""));
+        if ("error" in norm) return { status: 400, jsonBody: { error: norm.error } };
+        const oldVal = existing.evaFields[key]?.value ?? "";
+        if (norm.value === oldVal) continue;
+        sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${sets.length + 1}`);
+        vals.push(norm.value);
+        before[key] = oldVal;
+        after[key] = norm.value;
+        changedEvaFields.push({ key, value: norm.value });
+      }
+    }
+    if (body2.casePo !== void 0) {
+      const raw = String(body2.casePo ?? "").trim();
+      const normalized = raw ? normalizeCasePo(raw) : "";
+      if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
+        return {
+          status: 400,
+          jsonBody: {
+            error: `casePo '${raw}' is not Case/PO-shaped (marker? + principal + YY + sequence, e.g. CCPY26050 or A.PCH261269)`
+          }
+        };
+      }
+      const oldPo = (existing.casePo ?? "").toUpperCase();
+      if (normalized !== oldPo) {
+        sets.push(`case_po = $${sets.length + 1}`);
+        vals.push(normalized || null);
+        before.casePo = oldPo || "(none)";
+        after.casePo = normalized || "(cleared)";
+      }
+    }
+    if (body2.caseType !== void 0) {
+      const rawType = String(body2.caseType ?? "").trim();
+      const validName = rawType === "" || caseTypeCodec.toInt(rawType) != null;
+      if (!validName) {
+        return {
+          status: 400,
+          jsonBody: {
+            error: `caseType must be one of ${caseTypeCodec.names().map((n) => `'${n}'`).join(", ")} (or '' to clear)`
+          }
+        };
+      }
+      const newCode = rawType === "" || rawType === "standard" ? null : caseTypeCodec.toInt(rawType);
+      const curRows = await query(
+        "SELECT case_type_code FROM case_ WHERE id = $1",
+        [id]
+      );
+      const oldCode = curRows[0]?.case_type_code ?? null;
+      if (newCode !== oldCode) {
+        sets.push(`case_type_code = $${sets.length + 1}`);
+        vals.push(newCode);
+        before.caseType = caseTypeCodec.toName(oldCode) ?? "standard";
+        after.caseType = rawType || "standard";
+      }
+    }
+    if (sets.length === 0) {
+      const cur = await loadCaseFull(id, /* @__PURE__ */ new Date());
+      return { status: 200, jsonBody: cur };
+    }
+    vals.push(id);
+    try {
+      await query(
+        `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
+        vals
+      );
+    } catch (e) {
+      if (isUniqueViolation(e) && after.casePo) {
+        const holder = await query(
+          "SELECT id, vrm FROM case_ WHERE upper(case_po) = $1 AND id <> $2",
+          [String(after.casePo).toUpperCase(), id]
+        );
+        return {
+          status: 409,
+          jsonBody: {
+            error: "case_po_in_use",
+            message: `Case/PO ${after.casePo} is already assigned to another case.`,
+            conflictCaseId: holder[0]?.id ?? null,
+            conflictVrm: holder[0]?.vrm ?? null
+          }
+        };
+      }
+      throw e;
+    }
+    for (const f of changedEvaFields) await upsertManualProvenance(id, f.key, f.value);
+    await writeAudit({
+      action: AUDIT_ACTION.status_changed,
+      caseId: id,
+      summary: `Case edited: ${Object.keys(after).join(", ")}`,
+      before,
+      after,
+      ...actor ? { actor } : {}
+    });
+    await recomputeStatus2(id, actor);
+    const updated = await loadCaseFull(id, /* @__PURE__ */ new Date());
+    return { status: 200, jsonBody: updated };
+  })
+});
+import_functions2.app.http("createCase", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const input = await req.json();
+    const actor = actorFromClaims(claims);
+    const evalInput = {
+      status: input.status,
+      evaFields: input.evaFields,
+      evidence: [],
+      instructionCount: 0,
+      hasIdentity: (input.vrm ?? "").trim().length > 0 || (input.providerCode ?? "").trim().length > 0 || input.evaFields.claimantName.value.trim().length > 0
+    };
+    const status = statusForReviewCase(evalInput);
+    const name = ([input.vrm, input.provider].filter((v) => v && v.trim()).join(" \xB7 ") || "Manual case").slice(0, 100);
+    const cols = ["name", "vrm", "status_code", "intake_channel_kind_code", "intake_channel_manual", "source_mailbox"];
+    const vals = [
+      name,
+      input.vrm ?? "",
+      statusToInt(status),
+      intakeChannelKindCodec.toInt("email") ?? null,
+      true,
+      input.sourceLabel ?? "Manual intake"
+    ];
+    const add = (col, value) => {
+      cols.push(col);
+      vals.push(value);
+    };
+    const pcode = (input.providerCode ?? "").trim();
+    if (pcode) {
+      const wp = await query("SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1", [pcode]);
+      if (wp[0]?.id) add("work_provider_id", wp[0].id);
+    }
+    const suppliedCasePo = (input.casePo ?? "").trim().toUpperCase();
+    const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : "";
+    if (principalForAutoMint && !/^[A-Z][A-Z0-9]{0,7}$/.test(principalForAutoMint)) {
+      return { status: 400, jsonBody: { error: "invalid principal code" } };
+    }
+    if (input.onHold) add("on_hold", true);
+    if (input.insuredName) add("ov_insured_name", input.insuredName);
+    if (input.providerReference) add("ov_claim_number", input.providerReference);
+    if (input.inspectionDecision && input.inspectionDecision !== "unknown") {
+      add("inspection_decision_code", inspectionDecisionCodec.toInt(input.inspectionDecision) ?? null);
+    }
+    for (const desc of EVA_FIELD_ORDER) {
+      add(EVA_COLUMN_BY_KEY[desc.key], input.evaFields[desc.key]?.value ?? "");
+    }
+    const newId = await tx(async (q) => {
+      const insertCols = [...cols];
+      const insertVals = [...vals];
+      let casePo = suppliedCasePo;
+      if (!casePo && principalForAutoMint) {
+        casePo = await mintCasePo(q, principalForAutoMint);
+      }
+      if (casePo) {
+        insertCols.push("case_po");
+        insertVals.push(casePo);
+      }
+      const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(", ");
+      const rows = await q(
+        `INSERT INTO case_ (${insertCols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
+        insertVals
+      );
+      return rows[0]?.id;
+    });
+    if (!newId) return { status: 500, jsonBody: { error: "case create returned no id" } };
+    if (input.writeProvenance) {
+      await Promise.all(
+        EVA_FIELD_ORDER.map(async (desc) => {
+          const field = input.evaFields[desc.key];
+          try {
+            await query(
+              `INSERT INTO field_level_provenance
+                 (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              [
+                `${newId}:${desc.key}`,
+                newId,
+                desc.key,
+                field.value,
+                sourceTypeCodec.toInt(field.provenance.sourceType) ?? 1e8,
+                field.provenance.sourceLabel,
+                field.provenance.confidence ?? null,
+                reviewStateCodec.toInt(field.reviewState) ?? 100000001
+              ]
+            );
+          } catch {
+          }
+        })
+      );
+    }
+    if (input.inspectionDecisionReason?.trim()) {
+      try {
+        await query(
+          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+          [
+            "Inspection decision",
+            newId,
+            "Manual intake",
+            `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`
+          ]
+        );
+      } catch {
+      }
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.case_created,
+      caseId: newId,
+      summary: `Case created (${name})`,
+      after: { status, vrm: input.vrm },
+      ...actor ? { actor } : {}
+    });
+    return { status: 201, jsonBody: { id: newId } };
+  })
+});
+import_functions2.app.http("casesForQueue", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "queues/{name}/cases",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const name = req.params.name;
+    const now = nowParam(req);
+    const all = await loadAllCases(now);
+    return { status: 200, jsonBody: filterQueue(all, name) };
+  })
+});
+import_functions2.app.http("openVrmTwins", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const vrm = req.query.get("vrm") ?? "";
+    const exclude = req.query.get("exclude") ?? void 0;
+    if (!vrm) return { status: 200, jsonBody: [] };
+    const rows = await query(`${CASE_SELECT} WHERE c.vrm = $1`, [vrm]);
+    const twins = rows.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);
+    return { status: 200, jsonBody: twins };
+  })
+});
+import_functions2.app.http("setOnHold", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/hold",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json();
+    await query("UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1", [id, body2.onHold]);
+    await writeAudit({
+      action: AUDIT_ACTION.status_changed,
+      caseId: id,
+      summary: body2.onHold ? "Case put on hold" : "Case taken off hold",
+      after: { onHold: body2.onHold },
+      ...actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}
+    });
+    return { status: 204 };
+  })
+});
+import_functions2.app.http("logChase", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/chase",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const channel = body2.channel;
+    if (channel !== "email" && channel !== "whatsapp") {
+      return { status: 400, jsonBody: { error: "channel must be 'email' or 'whatsapp'" } };
+    }
+    if (typeof body2.templateLabel !== "string" || !body2.templateLabel.trim()) {
+      return { status: 400, jsonBody: { error: "templateLabel is required" } };
+    }
+    const templateLabel = body2.templateLabel.trim();
+    if (templateLabel.length > 200) {
+      return { status: 400, jsonBody: { error: "templateLabel must be 200 characters or fewer" } };
+    }
+    if (body2.note !== void 0 && typeof body2.note !== "string") {
+      return { status: 400, jsonBody: { error: "note must be a string" } };
+    }
+    if (typeof body2.note === "string" && body2.note.length > 2e3) {
+      return { status: 400, jsonBody: { error: "note must be 2000 characters or fewer" } };
+    }
+    const note = typeof body2.note === "string" ? body2.note.trim() : "";
+    const existing = await loadCaseLite(id);
+    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    const channelLabel = channel === "whatsapp" ? "WhatsApp" : "email";
+    const summary = `Chased via ${channelLabel} \u2014 ${templateLabel}.`.slice(0, 400);
+    const targetName = existing.provider.slice(0, 200);
+    const rows = await query(
+      `INSERT INTO chaser
+         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now())
+       RETURNING *`,
+      [
+        summary,
+        id,
+        100000002,
+        // choice_chaser_target_type: work_provider
+        targetName,
+        channel === "whatsapp" ? 100000001 : 1e8,
+        // choice_chaser_channel
+        templateLabel
+      ]
+    );
+    const created = rows[0];
+    if (!created) return { status: 500, jsonBody: { error: "chaser insert returned no row" } };
+    if (note) {
+      try {
+        await query(
+          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+          ["Chase note", id, actor ?? "Staff", note]
+        );
+      } catch {
+      }
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.chaser_sent,
+      caseId: id,
+      summary: `Chase logged (${channel} \xB7 ${templateLabel})`,
+      after: {
+        chaserId: created.id,
+        channel,
+        templateLabel,
+        ...note ? { note } : {}
+      },
+      ...actor ? { actor } : {}
+    });
+    return { status: 201, jsonBody: rowToChaser(created) };
+  })
+});
+import_functions2.app.http("mergeCandidates", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/merge-candidates",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    const self2 = await loadCaseLite(id);
+    if (!self2) return { status: 200, jsonBody: [] };
+    const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
+    const candidates = rows.map((r) => rowToCase(r)).filter(
+      (cc) => cc.id !== id && !TWIN_TERMINAL.has(cc.status) && cc.status !== "linked_to_instruction" && cc.providerCode === self2.providerCode
+    );
+    return { status: 200, jsonBody: candidates };
+  })
+});
+import_functions2.app.http("mergeCases", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{tgt}/merge",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const targetCaseId = req.params.tgt;
+    const body2 = await req.json();
+    const sourceCaseId = body2.sourceCaseId;
+    const actor = actorFromClaims(claims);
+    if (!sourceCaseId || sourceCaseId === targetCaseId) {
+      return { status: 400, jsonBody: { error: "Cannot merge a case into itself." } };
+    }
+    const [src, tgt] = await Promise.all([loadCaseLite(sourceCaseId), loadCaseLite(targetCaseId)]);
+    if (!src || !tgt) return { status: 404, jsonBody: { error: "Source or target case not found." } };
+    if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
+      return { status: 400, jsonBody: { error: "Refusing to merge across different work providers." } };
+    }
+    if (TWIN_TERMINAL.has(tgt.status)) {
+      return { status: 400, jsonBody: { error: "Cannot merge into a finalised (terminal) case." } };
+    }
+    const moved = await query(
+      "UPDATE evidence SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id",
+      [sourceCaseId, targetCaseId]
+    );
+    const movedEvidence = moved.length;
+    await query(
+      `UPDATE case_
+         SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
+       WHERE id = $1`,
+      [sourceCaseId, statusToInt("linked_to_instruction"), JSON.stringify({ mergedInto: targetCaseId })]
+    );
+    await writeAudit({
+      action: AUDIT_ACTION.case_attached,
+      caseId: targetCaseId,
+      summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence)`,
+      after: { sourceCaseId, targetCaseId, movedEvidence },
+      ...actor ? { actor } : {}
+    });
+    await recomputeStatus2(targetCaseId, actor);
+    const result = { targetCaseId, movedEvidence };
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions2.app.http("imagesForCase", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/images",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    const rows = await query(
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND excluded <> true ORDER BY sequence_index NULLS LAST, created_at",
+      [id]
+    );
+    return { status: 200, jsonBody: rows.map(rowToEvidence) };
+  })
+});
+import_functions2.app.http("recentActivity", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "activity",
+  handler: withRole("CollisionSpike.User", async () => {
+    const rows = await query("SELECT * FROM audit_event ORDER BY occurred_at DESC LIMIT 200");
+    return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
+  })
+});
+import_functions2.app.http("activityForCase", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/activity",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    const rows = await query(
+      "SELECT * FROM audit_event WHERE case_id = $1 ORDER BY occurred_at DESC",
+      [id]
+    );
+    return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
+  })
+});
+import_functions2.app.http("removeCase", {
+  methods: ["DELETE"],
+  authLevel: "anonymous",
+  route: "cases/{id}",
+  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const actor = actorFromClaims(claims);
+    const existing = await loadCaseLite(id);
+    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
+    if (existing.status === "removed") {
+      const done = {
+        id,
+        status: "removed",
+        alreadyRemoved: true,
+        ...existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}
+      };
+      return { status: 200, jsonBody: done };
+    }
+    const before = {
+      status: existing.status,
+      vrm: existing.vrm,
+      casePo: existing.casePo ?? null,
+      provider: existing.provider,
+      claimantName: existing.evaFields.claimantName.value
+    };
+    const evaCols = EVA_FIELD_ORDER.map((d) => `${EVA_COLUMN_BY_KEY[d.key]} = ''`).join(", ");
+    await query(
+      `UPDATE case_
+          SET status_code = $2, ${evaCols},
+              vrm = '', case_ref = '', name = '[removed]',
+              ov_insured_name = NULL, ov_claimant_name = NULL,
+              ov_third_party_name = NULL, ov_claim_number = NULL,
+              ov_policy_reference = NULL, ov_incident_date = NULL,
+              ov_insurer_name = NULL, ov_repairer_name = NULL,
+              eva_claimant_address = NULL,
+              on_hold = false, closed_at = now(), updated_at = now()
+        WHERE id = $1`,
+      [id, statusToInt("removed")]
+    );
+    await query(
+      `UPDATE note
+          SET author = '[removed]', text = '[removed]', updated_at = now()
+        WHERE case_id = $1`,
+      [id]
+    );
+    await query(
+      `UPDATE evidence
+          SET file_name = '[removed]',
+              content_type = NULL,
+              storage_path = NULL,
+              box_file_id = NULL,
+              box_file_url = NULL,
+              source_message_id = NULL,
+              source_label = 'removed',
+              sha256 = NULL,
+              exclusion_reason = 'removed',
+              accepted_for_eva = false,
+              excluded = true,
+              updated_at = now()
+        WHERE case_id = $1`,
+      [id]
+    );
+    await query(
+      `UPDATE inbound_email
+          SET subject = '[removed]',
+              from_address = '[removed]',
+              sender_domain = NULL,
+              body_preview = '',
+              body_vrm = NULL,
+              body_caseref = NULL,
+              signals = '[]'::jsonb,
+              updated_at = now()
+        WHERE case_id = $1`,
+      [id]
+    );
+    await writeAudit({
+      action: AUDIT_ACTION.case_removed,
+      caseId: id,
+      severity: "warning",
+      summary: `Case removed (soft): ${before.vrm || before.casePo || id}`,
+      before,
+      after: {
+        status: "removed",
+        // The "also remove Box folder" tickbox is an INTENT FLAG only — no automated deletion.
+        archiveFolderAcknowledged: body2.acknowledgeArchiveFolderHandled === true || body2.acknowledgeBoxFolderHandled === true,
+        boxFolderId: existing.boxFolderId ?? null,
+        boxFolderUrl: existing.boxFolderUrl ?? null,
+        ...typeof body2.reason === "string" && body2.reason.trim() ? { reason: body2.reason.trim() } : {}
+      },
+      ...actor ? { actor } : {}
+    });
+    const result = {
+      id,
+      status: "removed",
+      alreadyRemoved: false,
+      ...existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}
+    };
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions2.app.http("nextCasePo", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/next-po",
+  handler: withRole("CollisionSpike.User", async (req, ctx) => {
+    const principalRaw = (req.query.get("principal") ?? "").trim();
+    if (!principalRaw) return { status: 400, jsonBody: { error: "principal is required" } };
+    const principal = principalRaw.toUpperCase();
+    if (!/^[A-Z][A-Z0-9]{0,7}$/.test(principal)) {
+      return { status: 400, jsonBody: { error: "invalid principal code" } };
+    }
+    const yearParam = (req.query.get("year") ?? "").trim();
+    const yy = /^\d{2}$/.test(yearParam) ? yearParam : /^\d{4}$/.test(yearParam) ? yearParam.slice(-2) : casePoYear();
+    const prefix2 = `${principal}${yy}`;
+    const seqRows = await query(
+      `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) AS max_seq
+         FROM case_
+        WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
+      [`${prefix2}%`, casePoSequenceRegex(principal, yy), prefix2]
+    );
+    let maxSeq = Number(seqRows[0]?.max_seq ?? 0);
+    let source = "db";
+    if (maxSeq === 0 && gates.boxApi() && gates.boxFolderRootId() && process.env.BOX_FN_URL) {
+      try {
+        const names = await listBoxFolderNames(gates.boxFolderRootId());
+        const boxMax = maxCasePoSeqFromNames(names, principal, yy);
+        if (boxMax > 0) {
+          maxSeq = boxMax;
+          source = "box";
+        }
+      } catch (e) {
+        ctx.error(`[next-po] Box fallback failed: ${String(e)}`);
+      }
+    }
+    const floor = await casePoFloor(query, prefix2);
+    if (floor > maxSeq) {
+      maxSeq = floor;
+      source = "floor";
+    }
+    const nextSeq = maxSeq + 1;
+    const casePo = formatCasePo(principal, yy, nextSeq);
+    const result = {
+      principal,
+      yy,
+      seq: String(nextSeq).padStart(3, "0"),
+      nextSeq,
+      evaLower: casePo.toLowerCase(),
+      boxUpper: casePo,
+      source
+    };
+    return { status: 200, jsonBody: result };
+  })
+});
+async function readCaseBoxFolder(caseId) {
+  const rows = await query(
+    "SELECT box_folder_id, box_folder_url FROM case_ WHERE id = $1",
+    [caseId]
+  );
+  return {
+    boxFolderId: rows[0]?.box_folder_id ?? null,
+    boxFolderUrl: rows[0]?.box_folder_url ?? null
+  };
+}
+import_functions2.app.http("caseBoxSharedLink", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/box/shared-link",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    if (!gates.boxApi()) {
+      return { status: 200, jsonBody: { status: "gated_off", message: "The archive is not available yet." } };
+    }
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
+    const { boxFolderId, boxFolderUrl } = await readCaseBoxFolder(caseId);
+    if (!boxFolderId) {
+      return {
+        status: 200,
+        jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." }
+      };
+    }
+    const folderUrl = boxFolderUrl && boxFolderUrl.trim() || `https://app.box.com/folder/${encodeURIComponent(boxFolderId)}`;
+    return { status: 200, jsonBody: { status: "ok", data: { folderUrl } } };
+  })
+});
+import_functions2.app.http("caseBoxCopyFileRequest", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/box/copy-file-request",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    if (!gates.boxApi() || !gates.boxFileRequest()) {
+      return { status: 200, jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." } };
+    }
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
+    if (!gates.boxFileRequestTemplateId()) {
+      return {
+        status: 200,
+        jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." }
+      };
+    }
+    const { boxFolderId } = await readCaseBoxFolder(caseId);
+    if (!boxFolderId) {
+      return { status: 200, jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." } };
+    }
+    return {
+      status: 200,
+      jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." }
+    };
+  })
+});
+import_functions2.app.http("caseBoxFinalize", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/box/finalize",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
+    return {
+      status: 200,
+      jsonBody: { status: "gated_off", message: 'Direct submit is not available yet. Use "Export for EVA".' }
+    };
+  })
+});
+function nowParam(req) {
+  const raw = req.query.get("now");
+  if (!raw) return /* @__PURE__ */ new Date();
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? /* @__PURE__ */ new Date() : d;
+}
+
+// api/src/functions/providers.ts
+var import_functions3 = require("@azure/functions");
+import_functions3.app.http("providers", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "providers",
+  handler: withRole("CollisionSpike.User", async () => {
+    const rows = await query("SELECT * FROM work_provider ORDER BY display_name");
+    return { status: 200, jsonBody: rows.map(rowToProvider) };
+  })
+});
+import_functions3.app.http("providerByCode", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "providers/{code}",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const code = req.params.code;
+    const rows = await query("SELECT * FROM work_provider WHERE principal_code = $1 LIMIT 1", [
+      code
+    ]);
+    if (!rows[0]) return { status: 404, jsonBody: { error: "not found" } };
+    return { status: 200, jsonBody: rowToProvider(rows[0]) };
+  })
+});
+var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function normaliseDomains(input) {
+  if (!Array.isArray(input)) return void 0;
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const d of input) {
+    const v = String(d ?? "").trim().toLowerCase();
+    if (v && !seen.has(v)) {
+      seen.add(v);
+      out.push(v);
+    }
+  }
+  return out;
+}
+import_functions3.app.http("updateProvider", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "providers/{id}",
+  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
+    const idOrCode = (req.params.id ?? "").trim();
+    if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
+    const body2 = await req.json().catch(() => ({}));
+    let modeCode;
+    if (body2.providerAutomationMode !== void 0) {
+      const mode = String(body2.providerAutomationMode);
+      const code = automationModeCodec.toInt(mode);
+      if (code == null) return { status: 400, jsonBody: { error: "invalid providerAutomationMode" } };
+      modeCode = code;
+    }
+    let domains;
+    if (body2.knownEmailDomains !== void 0) {
+      domains = normaliseDomains(body2.knownEmailDomains);
+      if (domains === void 0) {
+        return { status: 400, jsonBody: { error: "knownEmailDomains must be an array of strings" } };
+      }
+    }
+    if (modeCode === void 0 && domains === void 0) {
+      return { status: 400, jsonBody: { error: "nothing to update" } };
+    }
+    const where2 = UUID_RE.test(idOrCode) ? "id = $1" : "principal_code = $1";
+    const existing = await query(`SELECT * FROM work_provider WHERE ${where2} LIMIT 1`, [idOrCode]);
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const beforeRow = existing[0];
+    const sets = [];
+    const vals = [];
+    const before = {};
+    const after = {};
+    if (modeCode !== void 0) {
+      vals.push(modeCode);
+      sets.push(`provider_automation_mode_code = $${vals.length}`);
+      before.providerAutomationMode = automationModeCodec.toName(beforeRow.provider_automation_mode_code) ?? null;
+      after.providerAutomationMode = automationModeCodec.toName(modeCode);
+    }
+    if (domains !== void 0) {
+      vals.push(domains.join("\n"));
+      sets.push(`known_email_domains = $${vals.length}`);
+      before.knownEmailDomains = beforeRow.known_email_domains ?? null;
+      after.knownEmailDomains = domains;
+    }
+    vals.push(beforeRow.id);
+    const updated = await query(
+      `UPDATE work_provider SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}
+       RETURNING *`,
+      vals
+    );
+    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.corpus_record_changed,
+      summary: `Provider ${beforeRow.principal_code ?? beforeRow.id} updated: ${Object.keys(after).join(", ")}`,
+      before,
+      after: { ...after, principalCode: beforeRow.principal_code ?? null },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: rowToProvider(updated[0]) };
+  })
+});
+
+// api/src/functions/inspection.ts
+var import_functions4 = require("@azure/functions");
+var CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt("confirmed_physical");
+var IMAGE_BASED = inspectionDecisionCodec.toInt("image_based");
+import_functions4.app.http("inspectionAddressSuggestions", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/inspection-suggestions",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    try {
+      const id = req.params.id;
+      const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [id]);
+      const providerCode = ((caseRows[0]?.case_po ?? "").trim().match(/^[A-Za-z]+/)?.[0] ?? "").toUpperCase();
+      const rows = await query(
+        "SELECT * FROM inspection_address WHERE source_label LIKE 'suggested%'"
+      );
+      const all = rows.filter(isSuggestedAddressRow).map(rowToSuggestedAddress);
+      if (!providerCode) return { status: 200, jsonBody: sortSuggestions(all) };
+      const scoped = all.filter(
+        (s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode
+      );
+      return { status: 200, jsonBody: sortSuggestions(scoped.length > 0 ? scoped : all) };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions4.app.http("inspectionAddressCounts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inspection-addresses/counts",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const rows = await query(
+        "SELECT source_label, decision_mode_code FROM inspection_address"
+      );
+      let confirmed = 0;
+      let suggested = 0;
+      for (const r of rows) {
+        if (isSuggestedAddressRow(r)) suggested += 1;
+        else if (r.decision_mode_code === CONFIRMED_PHYSICAL) confirmed += 1;
+      }
+      const counts = { confirmed, suggested };
+      return { status: 200, jsonBody: counts };
+    } catch {
+      return { status: 200, jsonBody: { confirmed: 0, suggested: 0 } };
+    }
+  })
+});
+import_functions4.app.http("saveInspectionDecision", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/inspection-decision",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const caseId = req.params.id;
+    const decision = await req.json();
+    try {
+      const lines = (decision.addressLines ?? []).map((l) => (l ?? "").trim()).filter(Boolean);
+      const isImageBased = decision.decisionMode === "image_based";
+      const label = (isImageBased ? "Image Based Assessment" : [lines[0], decision.postcode?.trim()].filter(Boolean).join(", ") || "Inspection address").slice(0, 200);
+      let providerCode = "";
+      try {
+        const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [caseId]);
+        providerCode = ((caseRows[0]?.case_po ?? "").trim().match(/^[A-Za-z]+/)?.[0] ?? "").toUpperCase();
+      } catch {
+      }
+      const sourceNote = [
+        `case=${caseId}`,
+        ...providerCode ? [`provider=${providerCode}`] : [],
+        decision.sourceNote
+      ].join(" ").trim();
+      const decisionModeCode = decision.decisionMode && decision.decisionMode !== "unknown" ? inspectionDecisionCodec.toInt(decision.decisionMode) : void 0;
+      const decisionReason = decisionModeCode === IMAGE_BASED ? decision.sourceNote.trim() || "Image based assessment" : null;
+      const rows = await query(
+        `INSERT INTO inspection_address
+           (label, decision_mode_code, decision_reason, source_label, source_note,
+            address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
+         VALUES ($1, COALESCE($2, 100000003), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         ON CONFLICT (label) DO UPDATE SET
+           decision_mode_code = EXCLUDED.decision_mode_code,
+           decision_reason    = EXCLUDED.decision_reason,
+           source_label       = EXCLUDED.source_label,
+           source_note        = EXCLUDED.source_note,
+           address_line1      = EXCLUDED.address_line1,
+           address_line2      = EXCLUDED.address_line2,
+           address_line3      = EXCLUDED.address_line3,
+           address_line4      = EXCLUDED.address_line4,
+           address_line5      = EXCLUDED.address_line5,
+           address_line6      = EXCLUDED.address_line6,
+           postcode           = EXCLUDED.postcode
+         RETURNING id`,
+        [
+          label,
+          decisionModeCode ?? null,
+          decisionReason,
+          decision.sourceLabel,
+          sourceNote,
+          lines[0] ?? null,
+          lines[1] ?? null,
+          lines[2] ?? null,
+          lines[3] ?? null,
+          lines[4] ?? null,
+          lines[5] ?? null,
+          isImageBased ? null : decision.postcode?.trim() ?? null
+        ]
+      );
+      const id = rows[0]?.id;
+      await writeAudit({
+        action: AUDIT_ACTION.inspection_override,
+        caseId,
+        summary: `Inspection decision confirmed (${decision.decisionMode})`,
+        after: { decisionMode: decision.decisionMode, label },
+        ...actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}
+      });
+      const result = { persisted: true, ...id ? { id } : {} };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { persisted: false } };
+    }
+  })
+});
+
+// api/src/functions/dashboard.ts
+var import_functions5 = require("@azure/functions");
+function nowParam2(req) {
+  const raw = req.query.get("now");
+  if (!raw) return /* @__PURE__ */ new Date();
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? /* @__PURE__ */ new Date() : d;
+}
+async function loadAllCases2(now) {
+  const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
+  return rows.map((r) => rowToCase(r, { now }));
+}
+function computeLiveCounts(all) {
+  return {
+    notReady: filterQueue(all, "not-ready").length,
+    review: filterQueue(all, "review").length,
+    held: filterQueue(all, "held").length
+  };
+}
+function computeThroughput(all, now) {
+  const today = startOfDay(now);
+  const weekStart = startOfWeek(now);
+  let inToday = 0;
+  let submittedToday = 0;
+  let clearedThisWeek = 0;
+  let submittedTotal = 0;
+  for (const c of all) {
+    if (isSameDay(parseDmy(c.createdAt), today)) inToday += 1;
+    if (statusToStage(c.status) === "submitted") submittedTotal += 1;
+    const sub = parseDmy(c.submittedAt);
+    if (sub) {
+      if (isSameDay(sub, today)) submittedToday += 1;
+      if (startOfDay(sub).getTime() >= weekStart.getTime()) clearedThisWeek += 1;
+    }
+  }
+  return { inToday, submittedToday, clearedThisWeek, submittedTotal };
+}
+function computeAgingExceptions(all, now) {
+  const today = startOfDay(now);
+  const rows = actionableCases(all).map((c) => {
+    const due = parseDmy(c.dateDue);
+    const daysToDue = due ? daysBetween(today, due) : Number.POSITIVE_INFINITY;
+    return {
+      case: c,
+      daysToDue,
+      pastDue: due ? daysToDue < 0 : false,
+      ...c.actionReason ? { reason: c.actionReason } : {}
+    };
+  }).sort((a, b) => a.daysToDue - b.daysToDue);
+  return {
+    rows,
+    pastDueCount: rows.filter((r) => r.pastDue).length,
+    duplicateCount: rows.filter((r) => r.reason === "duplicate").length,
+    conflictCount: rows.filter((r) => r.reason === "conflict").length
+  };
+}
+function computeQueueCounts(all) {
+  return {
+    "not-ready": filterQueue(all, "not-ready").length,
+    review: filterQueue(all, "review").length,
+    held: filterQueue(all, "held").length
+  };
+}
+function computeReasonFacets(all) {
+  const tally = /* @__PURE__ */ new Map();
+  for (const c of actionableCases(all)) {
+    if (!c.actionReason) continue;
+    tally.set(c.actionReason, (tally.get(c.actionReason) ?? 0) + 1);
+  }
+  return Object.keys(REASON_LABELS).map((reason) => ({ reason, label: REASON_LABELS[reason], count: tally.get(reason) ?? 0 })).filter((f) => f.count > 0);
+}
+function computePipelineStages(all) {
+  const defs = [
+    { key: "new", label: "New" },
+    { key: "not_ready", label: "Not ready" },
+    { key: "review", label: "Review" },
+    { key: "submitted", label: "Submitted" }
+  ];
+  const counts = new Map(defs.map((d) => [d.key, 0]));
+  for (const c of all) {
+    if (c.onHold) continue;
+    const k = statusToStage(c.status);
+    if (k === void 0) continue;
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return defs.map((d) => ({
+    key: d.key,
+    label: d.label,
+    count: counts.get(d.key) ?? 0,
+    tone: d.key === "not_ready" ? "stuck" : "normal"
+  }));
+}
+import_functions5.app.http("liveCounts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/live-counts",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computeLiveCounts(all) };
+  })
+});
+import_functions5.app.http("throughput", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/throughput",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const now = nowParam2(req);
+    const all = await loadAllCases2(now);
+    return { status: 200, jsonBody: computeThroughput(all, now) };
+  })
+});
+import_functions5.app.http("agingExceptions", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/aging-exceptions",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const now = nowParam2(req);
+    const all = await loadAllCases2(now);
+    return { status: 200, jsonBody: computeAgingExceptions(all, now) };
+  })
+});
+import_functions5.app.http("queueCounts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/queue-counts",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computeQueueCounts(all) };
+  })
+});
+import_functions5.app.http("reasonCounts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/reason-counts",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computeReasonFacets(all) };
+  })
+});
+import_functions5.app.http("pipelineStages", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/pipeline-stages",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computePipelineStages(all) };
+  })
+});
+import_functions5.app.http("dashboardSummary", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const now = nowParam2(req);
+    const all = await loadAllCases2(now);
+    let inbound = { ...INBOUND_COUNTS_ZERO };
+    try {
+      const inboundRows = await query("SELECT category_code, triage_state FROM inbound_email");
+      inbound = tallyActiveInboundCounts(inboundRows);
+    } catch {
+    }
+    const summary = {
+      liveCounts: computeLiveCounts(all),
+      throughput: computeThroughput(all, now),
+      queueCounts: computeQueueCounts(all),
+      pipelineStages: computePipelineStages(all),
+      reasonFacets: computeReasonFacets(all),
+      agingExceptions: computeAgingExceptions(all, now),
+      inbound
+    };
+    return { status: 200, jsonBody: summary };
+  })
+});
+
+// api/src/functions/gates.ts
+var import_functions6 = require("@azure/functions");
+import_functions6.app.http("getBoxGates", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/box",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = {
+        apiEnabled: gates.boxApi(),
+        folderAtIntakeEnabled: gates.boxFolderAtIntake(),
+        fileRequestEnabled: gates.boxFileRequest(),
+        fileRequestTemplateConfigured: gates.boxFileRequestTemplateId() !== ""
+      };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...BOX_GATES_ALL_FALSE } };
+    }
+  })
+});
+import_functions6.app.http("getBoxFileRequestTemplateId", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/box/file-request-template",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const id = gates.boxFileRequestTemplateId();
+      return { status: 200, jsonBody: { templateId: id !== "" ? id : null } };
+    } catch {
+      return { status: 200, jsonBody: { templateId: null } };
+    }
+  })
+});
+import_functions6.app.http("getLocationAssistGate", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/location-assist",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = {
+        assistEnabled: gates.locationAssist(),
+        mapsEnabled: gates.azureMaps(),
+        apiBaseConfigured: gates.locationAssistApiBase() !== "",
+        enabled: gates.locationAssistEnabled()
+      };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...LOCATION_ASSIST_GATE_ALL_OFF } };
+    }
+  })
+});
+import_functions6.app.http("getAiAssistGate", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/ai-assist",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = {
+        enabled: gates.aiAssist(),
+        modelConfigured: gates.aiAssistConfigured()
+      };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...AI_ASSIST_GATE_ALL_OFF } };
+    }
+  })
+});
+import_functions6.app.http("getOutlookMoveGate", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/outlook-move",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = { enabled: gates.outlookMoveEnabled() };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...OUTLOOK_MOVE_GATE_ALL_OFF } };
+    }
+  })
+});
+
+// api/src/functions/settings.ts
+var import_functions7 = require("@azure/functions");
+var HOLD_KEY = "hold_new_cases_by_default";
+import_functions7.app.http("getHoldNewCasesDefault", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "settings/hold-new-cases",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const rows = await query("SELECT value FROM app_setting WHERE key = $1", [HOLD_KEY]);
+      return { status: 200, jsonBody: { value: (rows[0]?.value ?? "false") === "true" } };
+    } catch {
+      return { status: 200, jsonBody: { value: false } };
+    }
+  })
+});
+import_functions7.app.http("setHoldNewCasesDefault", {
+  methods: ["PUT"],
+  authLevel: "anonymous",
+  route: "settings/hold-new-cases",
+  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
+    const body2 = await req.json();
+    const actor = actorFromClaims(claims);
+    const valueStr = body2.value ? "true" : "false";
+    try {
+      await query(
+        `INSERT INTO app_setting (key, value, updated_at, updated_by)
+         VALUES ($1, $2, now(), $3)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
+        [HOLD_KEY, valueStr, actor ?? null]
+      );
+    } catch {
+      return { status: 503, jsonBody: { error: "settings store unavailable" } };
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.corpus_record_changed,
+      summary: `Set hold-new-cases-by-default = ${valueStr}`,
+      after: { key: HOLD_KEY, value: valueStr },
+      ...actor ? { actor } : {}
+    });
+    return { status: 204 };
+  })
+});
+
+// api/src/functions/inbound.ts
+var import_functions8 = require("@azure/functions");
+
+// api/src/lib/outlook-queue.ts
+var OUTLOOK_MOVE_QUEUE_NAME = "outlook-move";
+var STORAGE_RESOURCE = "https://storage.azure.com";
+var STORAGE_API_VERSION = "2021-12-02";
+var cachedToken = null;
+async function getStorageToken() {
+  const now = Date.now();
+  if (cachedToken && cachedToken.expiresAt > now + 6e4) return cachedToken.value;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (!idEndpoint || !idHeader) {
+    throw new Error("missing IDENTITY_ENDPOINT/IDENTITY_HEADER for storage-queue auth (no managed identity off-Azure)");
+  }
+  const url2 = `${idEndpoint}?resource=${encodeURIComponent(STORAGE_RESOURCE)}&api-version=2019-08-01`;
+  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+  if (!res.ok) throw new Error(`MSI token (storage) ${res.status}`);
+  const json = await res.json();
+  cachedToken = {
+    value: json.access_token,
+    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+  };
+  return cachedToken.value;
+}
+function xmlEscape(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+async function enqueueOutlookMove(job) {
+  const serviceUrl = gates.outlookMoveQueueServiceUrl().replace(/\/$/, "");
+  if (!serviceUrl) throw new Error("OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured");
+  const token = await getStorageToken();
+  const messageText = Buffer.from(JSON.stringify(job), "utf8").toString("base64");
+  const res = await fetch(`${serviceUrl}/${OUTLOOK_MOVE_QUEUE_NAME}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "x-ms-version": STORAGE_API_VERSION,
+      "Content-Type": "application/xml"
+    },
+    body: `<QueueMessage><MessageText>${xmlEscape(messageText)}</MessageText></QueueMessage>`
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`outlook-move enqueue \u2192 ${res.status}: ${detail.slice(0, 300)}`);
+  }
+}
+
+// api/src/functions/inbound.ts
+var TRIAGE_AUDIT_ACTION = {
+  dismissed: AUDIT_ACTION.inbound_dismissed,
+  actioned: AUDIT_ACTION.inbound_actioned,
+  new: AUDIT_ACTION.inbound_reopened,
+  routed: AUDIT_ACTION.inbound_routed
+};
+import_functions8.app.http("inboundEmails", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inbound",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    try {
+      const category = req.query.get("category");
+      const subtype = req.query.get("subtype");
+      const view = req.query.get("view");
+      const clauses = [];
+      const params = [];
+      if (category && category in INBOUND_CATEGORY_TO_INT) {
+        params.push(INBOUND_CATEGORY_TO_INT[category]);
+        clauses.push(`inbound_email.category_code = $${params.length}`);
+      }
+      const viewClause = inboundViewWhere(view);
+      if (viewClause) clauses.push(viewClause);
+      const where2 = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+      const rows = await query(
+        `SELECT inbound_email.*, c.case_po AS case_po
+           FROM inbound_email
+           LEFT JOIN case_ c ON c.id = inbound_email.case_id
+           ${where2} ORDER BY inbound_email.received_on DESC`,
+        params
+      );
+      let result = rows.map(rowToInboundEmail);
+      if (subtype) result = result.filter((r) => r.subtype === subtype);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions8.app.http("inboundEmailCounts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inbound/counts",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const rows = await query("SELECT category_code, triage_state FROM inbound_email");
+      const counts = tallyActiveInboundCounts(rows);
+      return { status: 200, jsonBody: counts };
+    } catch {
+      return { status: 200, jsonBody: { ...INBOUND_COUNTS_ZERO } };
+    }
+  })
+});
+import_functions8.app.http("setTriageState", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/triage",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const state3 = body2.state;
+    if (!isValidTriageState(state3)) {
+      return { status: 400, jsonBody: { error: "invalid triage state" } };
+    }
+    const existing = await query(
+      "SELECT id, triage_state, case_id, source_message_id FROM inbound_email WHERE id = $1",
+      [id]
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const before = existing[0].triage_state ?? "new";
+    const updated = await query(
+      "UPDATE inbound_email SET triage_state = $2, updated_at = now() WHERE id = $1 RETURNING id",
+      [id, state3]
+    );
+    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: TRIAGE_AUDIT_ACTION[state3],
+      ...existing[0].case_id ? { caseId: existing[0].case_id } : {},
+      summary: `Inbound email ${before} -> ${state3}`,
+      before: { triageState: before },
+      after: {
+        triageState: state3,
+        inboundEmailId: id,
+        sourceMessageId: existing[0].source_message_id ?? null
+      },
+      ...actor ? { actor } : {}
+    });
+    return { status: 204 };
+  })
+});
+import_functions8.app.http("moveInboundToOutlook", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/outlook-move",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    if (!gates.outlookMoveEnabled()) {
+      return { status: 409, jsonBody: { error: "outlook filing is not enabled" } };
+    }
+    const id = req.params.id;
+    const existing = await query(
+      `SELECT id, source_message_id, source_mailbox, subtype_code, suggested_subtype_code,
+              case_id, outlook_move_state
+         FROM inbound_email WHERE id = $1`,
+      [id]
+    );
+    const row = existing[0];
+    if (!row) return { status: 404, jsonBody: { error: "not found" } };
+    if (row.outlook_move_state === "moved") {
+      return { status: 409, jsonBody: { error: "already filed" } };
+    }
+    if (!row.source_message_id || !row.source_mailbox) {
+      return { status: 409, jsonBody: { error: "no mailbox provenance to act on" } };
+    }
+    const subtype = inboundSubtypeFromInt(row.subtype_code) ?? inboundSubtypeFromInt(row.suggested_subtype_code) ?? "other";
+    const folder = suggestedOutlookFolder(subtype);
+    await query(
+      `UPDATE inbound_email
+          SET outlook_move_state = 'queued', outlook_moved_folder = $2, updated_at = now()
+        WHERE id = $1`,
+      [id, folder]
+    );
+    const actor = actorFromClaims(claims);
+    try {
+      await enqueueOutlookMove({
+        inboundEmailId: id,
+        sourceMailbox: String(row.source_mailbox),
+        sourceMessageId: String(row.source_message_id),
+        targetFolderPath: folder
+      });
+    } catch (e) {
+      await query(
+        `UPDATE inbound_email
+            SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
+          WHERE id = $1`,
+        [id]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.outlook_move_failed,
+        ...row.case_id ? { caseId: row.case_id } : {},
+        summary: `Outlook filing could not be queued (${folder})`,
+        severity: "warning",
+        after: { inboundEmailId: id, folder, detail: e instanceof Error ? e.message.slice(0, 300) : String(e) },
+        ...actor ? { actor } : {}
+      });
+      return { status: 503, jsonBody: { error: "filing queue unavailable" } };
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.outlook_move_requested,
+      ...row.case_id ? { caseId: row.case_id } : {},
+      summary: `Outlook filing requested -> ${folder}`,
+      after: { inboundEmailId: id, folder, sourceMessageId: row.source_message_id },
+      ...actor ? { actor } : {}
+    });
+    return { status: 202, jsonBody: { queued: true, folder } };
+  })
+});
+import_functions8.app.http("reclassifyInbound", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/classification",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    let category;
+    let subtype;
+    if (typeof body2.tag === "string") {
+      const mapped = richTagToClassification(body2.tag);
+      if (!mapped) return { status: 400, jsonBody: { error: "unknown tag" } };
+      category = mapped.category;
+      subtype = mapped.subtype;
+    } else {
+      if (typeof body2.category === "string") {
+        if (!(body2.category in INBOUND_CATEGORY_TO_INT)) {
+          return { status: 400, jsonBody: { error: "invalid category" } };
+        }
+        category = body2.category;
+      }
+      if (typeof body2.subtype === "string") {
+        if (!(body2.subtype in INBOUND_SUBTYPE_TO_INT)) {
+          return { status: 400, jsonBody: { error: "invalid subtype" } };
+        }
+        subtype = body2.subtype;
+      }
+    }
+    if (!category && !subtype) {
+      return { status: 400, jsonBody: { error: "category, subtype or tag required" } };
+    }
+    const existing = await query(
+      `SELECT id, category_code, subtype_code, suggested_category_code, suggested_subtype_code,
+              case_id, work_provider_id, source_message_id
+         FROM inbound_email WHERE id = $1`,
+      [id]
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const cur = existing[0];
+    const sets = ["classifier_mode = 'human'"];
+    const vals = [];
+    if (category) {
+      vals.push(INBOUND_CATEGORY_TO_INT[category]);
+      sets.push(`category_code = $${vals.length}`);
+    }
+    if (subtype) {
+      vals.push(INBOUND_SUBTYPE_TO_INT[subtype]);
+      sets.push(`subtype_code = $${vals.length}`);
+    }
+    vals.push(id);
+    const updated = await query(
+      `UPDATE inbound_email SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}
+       RETURNING *`,
+      vals
+    );
+    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    const suggestedCat = inboundCategoryFromInt(
+      cur.suggested_category_code ?? cur.category_code
+    );
+    const suggestedSub = inboundSubtypeFromInt(
+      cur.suggested_subtype_code ?? cur.subtype_code
+    );
+    const reason = typeof body2.reason === "string" ? body2.reason.trim() : "";
+    if (category && category !== suggestedCat) {
+      await writeImprovementSignal(cur, "category", suggestedCat ?? "(none)", category, actor, reason);
+    }
+    if (subtype && subtype !== suggestedSub) {
+      await writeImprovementSignal(cur, "subtype", suggestedSub ?? "(none)", subtype, actor, reason);
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.inbound_reclassified,
+      ...cur.case_id ? { caseId: cur.case_id } : {},
+      summary: `Inbound reclassified${category ? ` category=${category}` : ""}${subtype ? ` subtype=${subtype}` : ""}`,
+      before: { category: suggestedCat ?? null, subtype: suggestedSub ?? null },
+      after: {
+        category: category ?? null,
+        subtype: subtype ?? null,
+        inboundEmailId: id,
+        sourceMessageId: cur.source_message_id ?? null,
+        ...reason ? { reason } : {}
+      },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: rowToInboundEmail(updated[0]) };
+  })
+});
+import_functions8.app.http("inboundEmailSuggestions", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/suggestions",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    try {
+      const id = req.params.id;
+      const rows = await query(
+        `SELECT * FROM ai_suggestion
+          WHERE inbound_email_id = $1
+          ORDER BY (review_state = 'pending') DESC, created_at DESC
+          LIMIT 100`,
+        [id]
+      );
+      const result = rows.map(rowToAiSuggestion);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions8.app.http("detachInboundEmail", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/detach",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const existing = await query("SELECT id, case_id FROM inbound_email WHERE id = $1", [id]);
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const oldCaseId = existing[0].case_id ?? null;
+    if (!oldCaseId) {
+      return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
+    }
+    const updated = await query(
+      `UPDATE inbound_email SET case_id = NULL, triage_state = 'new', updated_at = now()
+         WHERE id = $1 AND case_id IS NOT NULL
+       RETURNING id`,
+      [id]
+    );
+    if (!updated[0]) {
+      return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
+    }
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.inbound_detached,
+      caseId: oldCaseId,
+      summary: "Inbound email unlinked from case",
+      before: { caseId: oldCaseId },
+      after: {
+        caseId: null,
+        inboundEmailId: id,
+        note: "Archive folder is a one-way mirror \u2014 any archive cleanup for this email is manual (ADR-0012/0017)."
+      },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: { ok: true } };
+  })
+});
+async function writeImprovementSignal(row, fieldName, originalValue, correctedValue, actor, reason) {
+  try {
+    await query(
+      `INSERT INTO improvement_signal
+         (name, case_id, work_provider_id, field_name, original_value, corrected_value,
+          original_provenance, actor, occurred_at, affects_eva_readiness, classification_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), false, 100000000)`,
+      [
+        `Inbound ${fieldName} override: ${originalValue || "(none)"} -> ${correctedValue}`,
+        row.case_id ?? null,
+        row.work_provider_id ?? null,
+        `inbound.${fieldName}`,
+        originalValue || null,
+        correctedValue,
+        reason || "classifier suggestion",
+        actor ?? null
+      ]
+    );
+  } catch {
+  }
+}
+
+// api/src/functions/proxy.ts
+var import_functions9 = require("@azure/functions");
+import_functions9.app.http("locationAssistSuggest", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "location-assist/suggest",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    if (!gates.locationAssistEnabled()) {
+      return { status: 200, jsonBody: [] };
+    }
+    try {
+      const body2 = await req.json();
+      const result = await callLocationSuggest(body2);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions9.app.http("parserParse", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "parser/parse",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    if (!gates.pdfMapper()) {
+      return { status: 200, jsonBody: { skipped: true } };
+    }
+    try {
+      const body2 = await req.json();
+      const result = await callParser(body2);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { skipped: true, error: true } };
+    }
   })
 });
 
