@@ -6,7 +6,10 @@ business/legal decision. Everything else has been built and deployed.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
-_Last updated **2026-07-03 (second wave)** — **D7 (taxonomy DDL) + D8 (identification seed) + the Phase-4
+_Last updated **2026-07-04** — **D9 (EVA deactivation — a verified no-op: the corpus never held an EVA
+row) + D10 (case-type choice rows) are APPLIED LIVE and `AUDIT_CASES_ENABLED=true` on both apps**
+(user-instructed go-live, shadow-review step waived; api/orch/parser/SPA all redeployed at `aafeba1` —
+see D9/D10 below). Prior update **2026-07-03 (second wave)** — **D7 (taxonomy DDL) + D8 (identification seed) + the Phase-4
 `ai_suggestion.embedding` delta are now APPLIED LIVE**; the parser is **redeployed** (3 functions,
 taxonomy-v2 engine + the 2026-07-03 classifier hardening); all four `TRIAGE_*` gates are now `true` on
 `cespk-orch-dev` (the triage policy is **ACTING**, not shadow-only — see D7/D8 below). Six provider
@@ -576,9 +579,16 @@ code that reads this corpus (the extended `GET /api/internal/provider-match-reco
 `matchSenderIdentity`, and `applyParserFields`'s content-string mapping) was already deployed-safe before
 this delta landed — it degraded to today's behaviour (an empty intermediary/candidate list) until then.
 
-#### D9. Deactivate the EVA work-provider row  ·  *you confirm the pre-check, then one delta*
+#### D9. Deactivate the EVA work-provider row  ·  ✅ **APPLIED LIVE (2026-07-04) — a verified NO-OP** — nothing for you to do
 
-**What:** EVA (Exclusive Vehicle Assessors) is **not a work provider** — it is an engineering firm whose
+**Done (2026-07-04, user-instructed):** applied via Entra `digital@` → `SET ROLE csadmin`. The header
+pre-check **and** a broader `ILIKE '%eva%'` sweep over `display_name`/`principal_code` both returned
+**zero rows** — the live `work_provider` corpus **never held an EVA row** (the "EVA (Engineers)"
+mislabels came entirely from the parser layout-name fallback, killed in engine-v2.6 + the Data API
+denylist, both deployed the same day). The delta ran as `UPDATE 0` / `UPDATE 0` and stays in the repo
+as a guard should such a row ever be seeded. _(Original item retained below for reference.)_
+
+**What (for reference):** EVA (Exclusive Vehicle Assessors) is **not a work provider** — it is an engineering firm whose
 reports CE **audits** (the third-party original on a PCH/QDOS audit case). It was logged in the provider
 corpus anyway (a legacy Dataverse-era row), which is one leg of the TKT-051 "cases arriving as EVA
 (Engineers)" mislabel. The code legs are fixed in the repo (parser `engine-v2.6` no longer emits an
@@ -597,9 +607,23 @@ merely collides is untouched; if the SELECT surfaces something surprising, adjus
 Postgres Entra admin → `SET ROLE csadmin` → run the header pre-check SELECT → `\i` the file → run its
 POST-CHECK → drop the firewall rule). Pure data, idempotent, no deploy-order coupling.
 
-#### D10. Audit/case-type activation — delta first, gate flip later  ·  *two-step*
+#### D10. Audit/case-type activation — delta first, gate flip later  ·  ✅ **BOTH STEPS DONE (2026-07-04)** — only the live probe remains
 
-**What:** the ADR-0021 case-type work (audit `A.` / total-loss audit `AP.` / diminution `D.` Case/PO
+**Done (2026-07-04, user-instructed go-live):** step 1's delta is **applied live** (`choice_case_type`
+4 rows — `audit_total_loss` 100000002 + `diminution` 100000003 added; `choice_evidence_kind` 100000007
+`engineer_report` confirmed), api + orch + parser + SPA were **redeployed at `aafeba1`** (counts
+re-verified 77/53/3), and **`AUDIT_CASES_ENABLED=true` is set on both `cespk-api-dev` and
+`cespk-orch-dev`** — the user explicitly waived the step-2 shadow-review window and instructed the
+immediate flip. The case-type pipeline is **acting**: detected audits write `case_type_code`,
+standalone PCH/QDOS audits mint from the marker's own sequence (`A.PCH26xxx`…), QDOS dual
+"report + audit report" letters keep the standard number with case-type `audit`, and report-typed
+attachments persist as `engineer_report` evidence. **Remaining:** the
+[TKT-056](./tickets/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) step-6
+**live probe** — watch the next real pch-ltd.com / QDOS audit email land correctly (work provider =
+PCH/QDOS, marker Case/PO, `engineer_report` evidence). _(Original two-step item retained below for
+reference.)_
+
+**What (for reference):** the ADR-0021 case-type work (audit `A.` / total-loss audit `AP.` / diminution `D.` Case/PO
 markers, PCH+QDOS allowlist, `engineer_report` evidence) is code-complete and **shadow-safe**: with
 `AUDIT_CASES_ENABLED` unset/false (today), intake behaves exactly as before and merely records an
 **observe-only audit_event** whenever audit/diminution signals fire. Activation is two separate steps:

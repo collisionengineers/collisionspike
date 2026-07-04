@@ -31,16 +31,22 @@ markers, no `engineer_report` evidence.
   allowlist; staff PATCH `caseType` correction seam. All behind `AUDIT_CASES_ENABLED` (observe-only
   audit_events while off).
 
-## Remaining to close (the activation ladder — [gated.md §D9/§D10](../../gated.md))
+## Activation ladder — steps 1–5 ✅ DONE (2026-07-04, user-instructed go-live); only step 6 remains
 
-1. Operator applies the **D9** EVA-deactivation delta (pre-check SELECT first).
-2. Deploy api + orch + parser (parser-first safe; delta only mandatory before the gate flip).
-3. Operator applies the **D10** choice-row delta (`2026-07-04-audit-case-type-taxonomy.sql`).
-4. Shadow review: a few days of observe-only `Case-type … detected` audit_events look right.
-5. Operator flips `AUDIT_CASES_ENABLED=true` on `cespk-api-dev` + `cespk-orch-dev`.
-6. Live probe: replay/receive a real pch-ltd.com audit email → expect work provider = PCH,
-   `case_po = A.PCH26xxx` (fresh sequence), `case_type_code = audit`, EVA report stored as
-   `engineer_report` evidence; and a QDOS dual letter → standard `QDOS26xxx` + case-type audit.
+1. ✅ **D9** applied (2026-07-04) — a **verified no-op**: pre-check + a broad `ILIKE '%eva%'` sweep
+   found ZERO matching `work_provider` rows (the corpus never held an EVA row; the mislabel was
+   entirely the parser layout-name fallback).
+2. ✅ api + orch + parser (**and the SPA**) redeployed at `aafeba1` — counts re-verified 77/53/3,
+   SPA CSP re-verified live.
+3. ✅ **D10** delta applied (2026-07-04) — `choice_case_type` 4 rows, `engineer_report` 100000007
+   confirmed.
+4. ⏭️ Shadow review **waived** — the user explicitly instructed an immediate flip ("flip things to
+   true now"), skipping the observe-only window.
+5. ✅ `AUDIT_CASES_ENABLED=true` set + list-verified on **both** `cespk-api-dev` + `cespk-orch-dev`.
+6. ⏳ **Live probe (the only remaining item):** on the next real pch-ltd.com audit email → expect
+   work provider = PCH, `case_po = A.PCH26xxx` (fresh sequence), `case_type_code = audit`, EVA
+   report stored as `engineer_report` evidence; and a QDOS dual letter → standard `QDOS26xxx` +
+   case-type audit. Record the outcome in [verification.md](./verification.md).
 
 ## Evidence corpus
 

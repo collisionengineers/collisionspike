@@ -1,6 +1,6 @@
 # CURRENT_STATUS — collisionspike
 
-_Single source of truth for "where are we now." Last updated **2026-07-03**._
+_Single source of truth for "where are we now." Last updated **2026-07-04**._
 _Companion docs: [README.md](./README.md) · [ROADMAP.md](./ROADMAP.md) (forward worklist) · **[docs/tickets/BOARD.md](./docs/tickets/BOARD.md)** (granular ticket delivery) · [docs/gated.md](./docs/gated.md) · live registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) · _(historical)_ [PLAN.md](./docs/HISTORICAL/PLAN.md) · [DEPLOY-RUNBOOK.md](./docs/HISTORICAL/DEPLOY-RUNBOOK.md)._
 
 > **Role split.** This **CURRENT_STATUS** is the snapshot of what is live *now*.
@@ -25,6 +25,30 @@ subscriptions over the **production mailbox set info@ + engineers@ + desk@** (ma
 case-create remains available alongside. Subscription/mailbox state: the registry
 [docs/architecture/live-environment.md](./docs/architecture/live-environment.md). **Principle: no
 mock/seed case data in the app — it shows real rows only.**
+
+> **🔔 2026-07-04 — Audit case-type ACTIVATED LIVE: D9/D10 applied, all four surfaces redeployed at
+> `aafeba1`, `AUDIT_CASES_ENABLED=true` on both apps (TKT-056 / ADR-0021).**
+> User-instructed full go-live ("flip things to true now" — the shadow-review window was explicitly
+> waived). Live counts/gate values stay in the registry
+> [docs/architecture/live-environment.md](./docs/architecture/live-environment.md) — not repeated here.
+> - **The "EVA (Engineers)" provider leak is dead in production**: parser **engine-v2.6** suppresses the
+>   engineer-report layout-name fallback, the Data API denylists those names, and the **D9** delta apply
+>   proved the live corpus **never held an EVA `work_provider` row** (a verified no-op — the mislabel
+>   was code-only, not data). [docs/gated.md](./docs/gated.md) D9.
+> - **D10 applied**: `choice_case_type` now carries all 4 rows (`standard`/`audit`/`audit_total_loss`/
+>   `diminution`); `choice_evidence_kind` `engineer_report` confirmed. Applied **before** the flip, per
+>   the delta's deploy-order warning. [docs/gated.md](./docs/gated.md) D10.
+> - **Deployed at `aafeba1`**: parser (engine-v2.6 + the `case_type` envelope + `AP.`/`D.` marker refs),
+>   api (marker-aware per-marker Case/PO mints, `case_type_code` writes, staff `PATCH caseType`), orch
+>   (`MAX_PARSE_DOCS=3` multi-doc parse with extraction-first instruction selection, `engineer_report`
+>   evidence typing), and the SPA (also carries the `16e152c` dashboard cockpit fix; CSP re-verified).
+> - **Acting behaviour now**: PCH/QDOS standalone audit instructions mint from the marker's own
+>   sequence (`A.PCH26xxx`…); QDOS dual "report + audit report" letters keep the standard number with
+>   case-type `audit` (A./AP. ID derived at review); the attached EVA/CNX report persists as
+>   `engineer_report` evidence, never as the instruction.
+> - **Remaining**: the TKT-056 step-6 **live probe** on the next real audit email; TKT-057 still wants a
+>   real inbound **diminution instruction email** (+ a standalone a.qdos email if one exists) from the
+>   user — `D.` detection stays review-first until grounded.
 
 > **🔔 2026-07-03 (second wave) — Rules-engine-v2 fully ACTING: D7/D8 DDL applied, parser redeployed on
 > taxonomy-v2, all four `TRIAGE_*` gates live.**

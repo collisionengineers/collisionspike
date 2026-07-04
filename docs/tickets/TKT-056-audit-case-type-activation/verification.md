@@ -1,7 +1,24 @@
 # TKT-056 — verification
 
-> `done` means **live and proven**. This ticket is **built + offline-tested**; NOT yet deployed,
-> deltas NOT yet applied, gate NOT yet flipped — see the activation ladder in the ticket.
+> `done` means **live and proven**. **ACTIVATED 2026-07-04** (user-instructed go-live): deltas
+> applied, all four surfaces deployed, `AUDIT_CASES_ENABLED=true` on both apps — see "Activation
+> record" below. Only the step-6 live probe (a real inbound audit email) remains before `done`.
+
+## Activation record (2026-07-04)
+
+- **D9 applied — verified NO-OP.** Pre-check + broad `ILIKE '%eva%'` sweep: **0 rows** — the live
+  `work_provider` corpus never held an EVA row (the "EVA (Engineers)" mislabel was entirely the
+  parser layout-name fallback + free-text `eva_work_provider`, both code-fixed). `UPDATE 0`×2.
+- **D10 applied.** `choice_case_type` → 4 rows (`standard`/`audit`/`audit_total_loss`/`diminution`);
+  `choice_evidence_kind` 100000007 `engineer_report` present. Applied BEFORE the gate flip, per the
+  delta's deploy-order warning.
+- **Deploys (commit `aafeba1`):** parser `cespike-parser-dev-x7xt3d5ovhi7y` (`--build remote`,
+  3 functions re-verified — engine-v2.6); api `cespk-api-dev` (77 re-verified); orch `cespk-orch-dev`
+  (53 re-verified); SPA `cespk-spa-dev` (carries the `16e152c` dashboard fix; CSP header re-verified
+  live). Both bundles smoke-loaded locally before publish (no `import.meta.url` 0-function crash).
+- **Gate:** `AUDIT_CASES_ENABLED=true` set and re-read `true` on **both** apps. The shadow-review
+  window was **explicitly waived by the user** ("flip things to true now").
+- Transient PG firewall rule added + removed (only `AllowAzureServices` remains).
 
 ## Proven offline (2026-07-03 session)
 
