@@ -4,6 +4,12 @@
 validation, Microsoft Graph mailbox access, Graph change-notification subscriptions or delta-poll, and the
 Exchange-RBAC-for-Applications mailbox grant.
 
+**Platform ([routing table](./README.md)):** SPLIT. The **Exchange-RBAC half is Windows PowerShell
+only** — `ExchangeOnlineManagement` cmdlets (`Connect-ExchangeOnline`, `New-ManagementScope`,
+`New-ServicePrincipal`, `Test-ServicePrincipalAuthorization`) have no bash/WSL equivalent; advise the
+operator accordingly. The **Entra/Graph half** (`az ad …`, `az rest --uri https://graph.microsoft.com/…`,
+subscription CRUD smoke calls) runs from **WSL**, where az is installed and logged in.
+
 ## Invoke first
 1. **`azure:entra-app-registration`** — app registrations, OAuth, MSAL, API permissions.
 2. **`microsoft-docs:microsoft-docs`** — authoritative Graph/Exchange behavior **before** retrying (this

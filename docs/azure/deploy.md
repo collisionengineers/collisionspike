@@ -3,6 +3,11 @@
 **When to use.** Ship a code change to `cespk-api-dev` (Data API), `cespk-orch-dev` (orchestration), or
 `cespk-spa-dev` (SPA).
 
+**Platform ([routing table](./README.md)):** BUILD on **Windows** (npm/tsc/esbuild against the native
+`C:\` checkout — steps 1–4), PUBLISH from **WSL** (`func`/`az` live there, logged in; run step 5 as
+`wsl -e bash -lc 'cd /mnt/c/…/deploy/api && func azure functionapp publish …'`). The Python Functions
+(box-webhook/parser/…) publish the same way with `--build remote --python`.
+
 ## Invoke first
 1. **`mcp__azure__get_azure_bestpractices`** (`resource=azurefunctions`, `action=deployment` — or
    `static-web-app` for the SPA) **before** generating/deploying. Mandatory per the Azure MCP rules.
@@ -42,7 +47,9 @@ the deployed folder). Smoke-check the CSP header on the live URL after every dep
   `aud` = client-id. The wrong form rejected every token as a generic **500**. Ref [azure-api-deploy-and-auth](../../memory/azure-api-deploy-and-auth.md).
 - **An app-setting change recycles the app** (brief restart) — expected; flip gates off-hours.
 - **Counting functions:** `--query "[].name"` then count — **never `length(@)`** (Windows az.cmd parens).
-- Use **PowerShell, not Git Bash**, for `az` with resource-id/URL args.
+- **az runs in WSL** (see the [platform routing](./README.md)) — mind the double quoting layer inside
+  `wsl -e bash -lc '…'`. The old "PowerShell, not Git Bash, for resource-id/URL args" rule applies only
+  to a WINDOWS az (none installed as of 2026-07-04).
 
 ## Best-practice refs (Microsoft Learn)
 - Reliable Functions: <https://learn.microsoft.com/azure/azure-functions/functions-best-practices>

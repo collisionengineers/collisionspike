@@ -39,6 +39,29 @@ hooks (`.claude/hooks/azure-route-guard.mjs` PreToolUse + `azure-churn-guard.mjs
 | Understand any Microsoft behavior/limit/error | `microsoft-docs:microsoft-docs` **before** retrying | — |
 | What's deployed / inventory | `azure:azure-resource-lookup` → `mcp__azure__group_resource_list` | — |
 
+## Platform routing — Windows vs WSL/Linux (pick BEFORE you type)
+
+This is a **dual-platform workstation**: Windows 11 (PowerShell / Git Bash) **and** WSL2
+Ubuntu-24.04. The toolchains are SPLIT, so the first move on any task is choosing the platform —
+an agent should **state which platform it is using and why** when the choice isn't obvious, and
+every playbook below carries a *Platform* line. Verified 2026-07-04 (the retro activation session
+re-installed the WSL toolchain after it was found missing):
+
+| Task | Platform | Why / what lives there |
+|---|---|---|
+| `az` / `func` / `psql` — deploys, Postgres DDL, Graph subs, gate flips | **WSL** | az 2.87 + Functions Core Tools 4.12 + psql 16 are installed **only in WSL** (`wsl -e bash -lc '…'`), with az logged in as the operator. The Windows side has none of them. |
+| node / npm / vitest / esbuild bundle builds / `verify-all.mjs` (offline) | **Windows** | The checkout, Node, and node_modules are Windows-native on `C:\` — build here, then publish the built artefact from WSL via `/mnt/c/...`. Don't run npm installs through `/mnt/c` (slow, and WSL's `npm` resolves to the WINDOWS binary anyway). |
+| Exchange Online admin — RBAC-for-Applications (`New-ManagementScope`, `Test-ServicePrincipalAuthorization`, Mail.Read/ReadWrite scoping) | **Windows PowerShell** | The `ExchangeOnlineManagement` module is PowerShell-only; WSL/bash cannot run these cmdlets. See [entra-graph.md](./entra-graph.md). |
+| Docker / anything needing a Linux daemon or Linux-only binaries | **WSL/Linux** | No Windows-side docker; Linux tooling belongs in WSL. |
+| `VERIFY_LIVE=1 node verify-all.mjs` (live drift diff) | ⚠️ split | Node is Windows-side but the script shells out to `az`, which is WSL-only — the live diff can't run as-is. Until az is installed on Windows (or the script learns to call `wsl az`), run the offline gate on Windows and verify live facts from WSL by hand (the registry's `sourceCommand`s). Known gap, noted 2026-07-04. |
+| Git / file edits / doc gates (`check-doc-links`, `check-tickets`) | **Windows** | Windows-native checkout; Git Bash or PowerShell both fine. |
+
+Cross-platform gotchas: WSL sees the repo at `/mnt/c/Users/PC/Documents/GitHub/…` (slower I/O — fine
+for `func publish`, wrong for npm installs); commands inside `wsl -e bash -lc '…'` carry **two quoting
+layers** — build az `--query` strings carefully; `wsl -u root` is passwordless here (how the toolchain
+was reinstalled). The older "use PowerShell, not Git Bash, for az URL args" note applies only to a
+WINDOWS az (MSYS path-mangling) — with az in WSL, normal bash quoting rules apply instead.
+
 ## Toolbox map (the full palette)
 
 - **Skills (`azure:*`, 28):** diagnose `azure-diagnostics`; logs `azure-kusto`; deploy `azure-prepare`
@@ -51,8 +74,9 @@ hooks (`.claude/hooks/azure-route-guard.mjs` PreToolUse + `azure-churn-guard.mjs
   `resourcehealth`, `monitor`, `applicationinsights`, `kusto`, `storage`, `group_resource_list`, `arm`,
   `get_azure_bestpractices` (`resource=general|azurefunctions|static-web-app` × `action=all|code-generation|deployment`),
   `documentation`. **Call `get_azure_bestpractices` before generating Azure code or deploying.**
-- **CLIs:** `az`, `func`, `psql`, `swa`. **Use PowerShell, not Git Bash, for `az` with URL/resource-id
-  args** (MSYS mangles leading-slash args) — see [AGENTS.md](../../AGENTS.md) §Stack-specific tooling.
+- **CLIs:** `az`, `func`, `psql`, `swa` — **all WSL-side** (see §Platform routing above). The
+  legacy "use PowerShell, not Git Bash, for `az` URL/resource-id args" rule (MSYS mangling — see
+  [AGENTS.md](../../AGENTS.md) §Stack-specific tooling) applies only if a Windows az is ever installed.
 - **Agents:** `azure-integration-engineer` (build/deploy/wire the live Azure stack),
   `azure-diagnostician` (read-only triage — dispatch live investigations here).
 

@@ -1,7 +1,9 @@
 # ADR-0022 — Retroactive case reconstruction (the missing-case fallback)
 
-**Status:** Proposed (2026-07-04). Phase R1 (any-status link + the ladder scaffold) is built;
-Phases R2 (Box archive reconstruction) and R3 (Outlook `$search`) extend the same ladder.
+**Status:** Accepted (2026-07-04 — R1–R4 built; delta applied live; deployed at `d91c185`;
+`RETRO_CASE_ENABLED=true` on both apps, rung-1 any-status linking ACTING. The Box rung stays dark
+pending the archive roots **and the Case/PO sequence alignment** — see the Consequences addendum
+and [gated.md D11](../gated.md)).
 Realised by ticket [TKT-058](../tickets/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md).
 Gates: `RETRO_CASE_ENABLED` (master, BOTH apps), `RETRO_OUTLOOK_SEARCH_ENABLED` (the R3 rung's
 own kill switch), `RETRO_BOX_ARCHIVE_ROOT_IDS` / `BOX_READONLY_ROOT_IDS` (the R2 rung's
@@ -130,6 +132,16 @@ bottom  minimal anchor (Box folder found but nothing parseable) → Held case;
   trusted.
 - With the master gate on but the Box/Outlook rungs unbuilt or gated off, the ladder degrades
   to rung-1 linking — already the live pain fix.
+- **Case/PO sequence overlap (operator-raised 2026-07-04, addendum).** The live mint's MAX+1
+  baseline restarted near 001 after the 2026-06-30 DB reset while the real archive's numbering is
+  far ahead — so live intake re-issues historical numbers, and once the archive is searchable a
+  discovered PO can collide with an unrelated spike-minted squatter (`uq_case_case_po` would then
+  force a WRONG link instead of a create). **The Box rung must not activate until a one-time
+  per-(marker, principal, year) sequence floor is seeded** (archive-scan or operator-supplied
+  next-numbers; mint becomes `GREATEST(db_max, floor)+1`) and the small post-reset case set is
+  reviewed for squatters. Rung-1 risk while unaligned is low (external-ref/VRM keys are unaffected;
+  a quoted Case/PO refers to the thread's own spike case). Tracked as the named next build in
+  [gated.md D11](../gated.md) / TKT-058.
 
 ## Alternatives considered
 

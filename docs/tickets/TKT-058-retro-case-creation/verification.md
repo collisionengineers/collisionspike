@@ -1,5 +1,26 @@
 # TKT-058 — verification
 
+## Live activation record (2026-07-04 — user-instructed "apply this delta — deploy anything necessary")
+
+- **Delta applied live**: `2026-07-04-retro-case.sql` via transient FW rule → Entra
+  `digital@` psql → `SET ROLE csadmin` → `\i` → VERIFY footer returned the 3
+  `retro_*` audit actions + `choice_intake_channel_kind` 100000003 `retro`; rule deleted
+  (only AllowAzureServices remains).
+- **All four surfaces deployed at `d91c185`** (`func azure functionapp publish` from the
+  restored WSL toolchain): api **79** fns (+2 retro routes), orch **62** (+starter,
+  orchestrator, 7 activities — all visible in the publish listing), box-webhook **12**
+  (+`box/search`, +`box/files/{id}/content`), parser **4** (+`explode_eml`). Counts
+  re-verified via `az functionapp function list`.
+- **Gate flipped**: `RETRO_CASE_ENABLED=true` on BOTH apps (readback `true`/`true`).
+  `RETRO_BOX_ARCHIVE_ROOT_IDS` / `BOX_READONLY_ROOT_IDS` / `RETRO_OUTLOOK_SEARCH_ENABLED`
+  deliberately unset — Box + Outlook rungs honest-skip (gated.md D11).
+- **Smoke**: `POST /api/internal/retro/resolve-existing` (no auth) → **401**;
+  `POST /api/retro-case` (no key) → **401**. Both fail closed.
+- **Still pending**: a live-occurrence probe (the next real billing/update email citing an
+  existing case should produce `retro_case_linked` or, unmatched, a
+  `retro_reconstruction_failed` audit); the drain of the existing un-linked pile (step 4
+  below); the D11 Box-rung inputs incl. the **Case/PO sequence-alignment fix**.
+
 ## Offline (every phase — done for R1, 2026-07-04)
 
 - `node verify-all.mjs` green (domain/api/orch tsc + vitest incl. `retro-case.test.ts`

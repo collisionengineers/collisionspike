@@ -301,10 +301,13 @@ run it a third time; invoke the matching skill or `microsoft-docs` to learn *why
   export-for-reference and teardown (`pac admin delete`). Likewise the `code-apps-preview:*` skills.
 - Relevant skills: `azure:*` (Document Intelligence, Functions, Postgres, Static Web Apps),
   `microsoft-docs:*` (Learn lookups).
-- **Cross-platform:** **Linux/WSL2 (bash)** is this session's environment (after the Linux-onboarding
-  commit); **PowerShell on Windows** is also supported — some playbooks note `(Win:)` variants. Git
-  initialised on `main` — commit as work progresses (the predecessor tool's lack of version control was a
-  known problem).
+- **Cross-platform — pick the platform BEFORE the tool** (dual-platform workstation; full table:
+  [docs/azure/README.md §Platform routing](./docs/azure/README.md)): the **az/func/psql toolchain lives
+  in WSL2 Ubuntu** (`wsl -e bash -lc '…'`; az logged in there) — deploys, Postgres DDL, Graph calls run
+  from WSL; **node/npm/esbuild builds + git + offline gates run on Windows** (native `C:\` checkout);
+  **Exchange-RBAC admin is Windows PowerShell only** (`ExchangeOnlineManagement`); docker/Linux-daemon
+  work → WSL. Agents should state the platform choice when it isn't obvious. Git initialised on `main` —
+  commit as work progresses (the predecessor tool's lack of version control was a known problem).
 
 ## Quick commands
 

@@ -78,6 +78,12 @@ one email at a time; a bulk sweep is a follow-up once trusted.
 
 ## Out of scope (documented follow-ups)
 
+- **Case/PO sequence alignment (operator-raised 2026-07-04 — the NAMED NEXT BUILD; blocks the Box
+  rung):** the live mint restarted ~001 after the DB reset while the real archive numbering is far
+  ahead — seed a per-(marker, principal, year) floor (archive scan or operator-supplied
+  next-numbers; `mintCasePo` → `GREATEST(db_max, floor)+1`) and review the small post-reset case
+  set for numbers that collide with real historical ones. Detail: ADR-0022 §Consequences addendum +
+  [gated.md D11](../../gated.md) step 1.
 - Claimant-name search keys (no extraction exists; classifier change = sibling-repo edit).
 - Bulk backfill sweep over `inbound_email WHERE case_id IS NULL`.
 - `boxArchiveEvidence` skip-when-RO-rooted (future replies to retro cases can't archive-mirror

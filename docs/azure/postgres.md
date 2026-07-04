@@ -3,6 +3,11 @@
 **When to use.** Query or change `cespk-pg-dev` / db `collisionspike` (the system of record), apply schema,
 inspect RLS, or debug a DB-auth failure.
 
+**Platform ([routing table](./README.md)):** **WSL** — `psql` 16 and the logged-in `az` (token mint +
+the transient firewall-rule dance) live there; delta files are reachable at `/mnt/c/…/migration/assets/
+schema/deltas/`. Wrap the whole rule-create → psql → rule-delete sequence in one `wsl -e bash -lc` script
+with a `trap cleanup EXIT` so the firewall rule can never be left behind.
+
 ## Invoke first
 1. **`mcp__azure__postgres`** — server/database/query operations against the Flexible Server.
 2. **`psql`** for DDL/seed (`migration/assets/schema/*.sql`).
