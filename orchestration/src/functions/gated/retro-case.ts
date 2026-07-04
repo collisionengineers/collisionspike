@@ -56,7 +56,8 @@ import {
   type RetroReconstructionSource,
 } from '@cs/domain';
 import { dataApi, type ParserEvaFields } from '../../lib/data-api.js';
-import { findMessageByInternetMessageId } from '../../lib/graph.js';
+import { findMessageByInternetMessageId, kqlPhrase, searchMessages } from '../../lib/graph.js';
+import { intakeMailboxes } from '../../lib/subscriptions.js';
 import { box, callExplodeEml, type ExplodedEml } from '../../lib/functions-client.js';
 import { uploadEvidenceBytes } from '../../lib/blob.js';
 import { supplementAccidentCircumstancesFromBody } from '../../lib/supplement-parse.js';
@@ -66,11 +67,62 @@ import {
   buildRetroEnvelopeFromEml,
   classifyArchiveFile,
   pickCaseFolder,
+  selectOutlookOriginal,
   type LandedAttachment,
+  type OutlookSearchCandidate,
   type RetroSearchHit,
 } from '../../lib/retro-envelope.js';
 import type { InboundEnvelope } from '../activities/fetchMessage.js';
 import type { InboundClassification } from '../activities/classifyInbound.js';
+
+/** The parse activity's envelope shape as the retro rungs consume it. */
+interface RetroParseResult {
+  vrm?: { value?: string };
+  reference?: { value?: string };
+  extraction?: Record<string, { value?: string } | undefined>;
+  skipped?: boolean;
+}
+
+/** Pure mapping of a parse envelope onto the create payload's parser fields —
+ *  mirrors intakeOrchestrator's forwarding block exactly (fill-if-empty semantics
+ *  live in the API). Replay-safe: pure over checkpointed activity results. */
+function mapRetroParse(
+  parseResult: RetroParseResult,
+  bodyText: string,
+): {
+  parserEva: ParserEvaFields;
+  parserVrm: string;
+  parserRef: string;
+  parserMileage: string;
+  parserMileageUnit: string;
+} {
+  const ex = parseResult.extraction ?? {};
+  const exVal = (k: string): string => (ex[k]?.value ?? '').trim();
+  const exWorkProvider = exVal('work_provider');
+  return {
+    parserEva: {
+      work_provider: exWorkProvider.toUpperCase() === 'UNKNOWN' ? '' : exWorkProvider,
+      vehicle_model: exVal('vehicle_model'),
+      claimant_name: exVal('claimant_name'),
+      claimant_telephone: exVal('claimant_telephone'),
+      claimant_email: exVal('claimant_email'),
+      date_of_loss: exVal('date_of_loss'),
+      date_of_instruction: exVal('date_of_instruction'),
+      accident_circumstances:
+        exVal('accident_circumstances') || supplementAccidentCircumstancesFromBody(bodyText),
+      vat_status: exVal('vat_status'),
+    },
+    parserVrm: (parseResult.vrm?.value ?? '').trim(),
+    parserRef: (parseResult.reference?.value ?? '').trim(),
+    parserMileage: exVal('mileage'),
+    parserMileageUnit: exVal('mileage_unit'),
+  };
+}
+
+/** Case-insensitive whitespace-collapsed token normalisation for corroboration. */
+function normToken(v: string): string {
+  return v.trim().toUpperCase().replace(/\s+/g, '');
+}
 
 export interface RetroCaseInput {
   /** Sub-orchestrator form (intake path): the checkpointed envelope + routing facts. */
@@ -283,30 +335,13 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
         }
 
         // Pure mappings over checkpointed results — mirrors intake's parser forwarding.
-        const ex = parseResult.extraction ?? {};
-        const exVal = (k: string): string => (ex[k]?.value ?? '').trim();
-        const exWorkProvider = exVal('work_provider');
-        const parserEva: ParserEvaFields = {
-          work_provider: exWorkProvider.toUpperCase() === 'UNKNOWN' ? '' : exWorkProvider,
-          vehicle_model: exVal('vehicle_model'),
-          claimant_name: exVal('claimant_name'),
-          claimant_telephone: exVal('claimant_telephone'),
-          claimant_email: exVal('claimant_email'),
-          date_of_loss: exVal('date_of_loss'),
-          date_of_instruction: exVal('date_of_instruction'),
-          accident_circumstances:
-            exVal('accident_circumstances') ||
-            supplementAccidentCircumstancesFromBody(String(original.body ?? '')),
-          vat_status: exVal('vat_status'),
-        };
-        const parserVrm = (parseResult.vrm?.value ?? '').trim();
-        const parserRef = (parseResult.reference?.value ?? '').trim();
+        const { parserEva, parserVrm, parserRef, parserMileage, parserMileageUnit } =
+          mapRetroParse(parseResult, String(original.body ?? ''));
 
         // Corroboration (pure, logged): with BOTH trigger keys present AND both parsed,
         // a double disagreement means the picked folder is suspect — demote to a Held
         // minimal anchor (never terminal on a contradicted match). A ref content-hit is
         // otherwise self-corroborating (the key came from INSIDE this folder's files).
-        const normToken = (v: string): string => v.trim().toUpperCase().replace(/\s+/g, '');
         const refContradicts = Boolean(
           keys.externalRef && parserRef && normToken(parserRef) !== normToken(keys.externalRef),
         );
@@ -359,8 +394,8 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
           providerId,
           parserVrm,
           parserRef,
-          parserMileage: exVal('mileage'),
-          parserMileageUnit: exVal('mileage_unit'),
+          parserMileage,
+          parserMileageUnit,
           parserEva,
           caseType,
           caseTypeSignals: [...caseTypeSignals, ...statusDecision.signals, ...(contradicted ? ['retro_corroboration_failed'] : [])],
@@ -415,7 +450,146 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
     }
   }
 
-  // Rung 3 — Outlook $search lands in R3 (RETRO_OUTLOOK_SEARCH_ENABLED).
+  // Rung 3 — Outlook $search (R3; own kill switch RETRO_OUTLOOK_SEARCH_ENABLED). Fires
+  // only when the archive had NO folder for this case. An Outlook-only reconstruction
+  // never discovers a Case/PO → decideRetroStatus lands it Held (casePoKnown=false) and
+  // the create route keeps the PO namespace untouched (case_ref = the external ref).
+  try {
+    const outlook = (yield ctx.df.callActivityWithRetry('retroOutlookLocate', retry, {
+      keys,
+    })) as {
+      skipped?: string;
+      found?: boolean;
+      messageId?: string;
+      resource?: string;
+      mailbox?: string;
+      matchedKey?: string;
+    };
+    if (!outlook.skipped) rungsTried.push('outlook_search');
+
+    if (!outlook.skipped && outlook.found && outlook.messageId && outlook.resource) {
+      const original = (yield ctx.df.callActivityWithRetry('fetchMessage', retry, {
+        messageId: outlook.messageId,
+        resource: outlook.resource,
+      })) as InboundEnvelope;
+
+      // parse — same best-effort doctrine as the Box rung.
+      let parseResult: RetroParseResult = {};
+      try {
+        const parseAttachments =
+          original.attachments.length > 0
+            ? original.attachments
+            : original.rawEml
+              ? [original.rawEml]
+              : [];
+        parseResult = (yield ctx.df.callActivityWithRetry('parse', retry, {
+          messageId: original.messageId,
+          attachments: parseAttachments,
+          providerHint: providerPrincipal,
+        })) as RetroParseResult;
+      } catch (e) {
+        if (!ctx.df.isReplaying) {
+          ctx.log(`[retro] outlook parse failed (best-effort): ${String(e)}`);
+        }
+        parseResult = {};
+      }
+      const { parserEva, parserVrm, parserRef, parserMileage, parserMileageUnit } =
+        mapRetroParse(parseResult, String(original.body ?? ''));
+
+      // Corroboration is REQUIRED on this rung ($search relevance can surface thread
+      // noise): the trigger's key must literally appear in the found message's
+      // subject/body, or the parsed reference / VRM must agree. Uncorroborated →
+      // NOTHING (no anchor without an archive folder — the ladder's bottom rule).
+      const haystack = normToken(`${original.subject}\n${original.body ?? ''}`);
+      const keyInText = [keys.casePo, keys.externalRef, keys.vrm]
+        .filter((k): k is string => Boolean(k))
+        .some((k) => haystack.includes(normToken(k)));
+      const refAgrees = Boolean(
+        keys.externalRef && parserRef && normToken(parserRef) === normToken(keys.externalRef),
+      );
+      const vrmAgrees = Boolean(
+        keys.vrm &&
+          (parserVrm || original.candidateVrm) &&
+          normToken(parserVrm || original.candidateVrm) === normToken(keys.vrm),
+      );
+      if (keyInText || refAgrees || vrmAgrees) {
+        const contentType = decideCaseType({
+          parserCaseType: (parseResult as {
+            case_type?: { value?: string | null; dual?: boolean; signals?: string[] };
+          }).case_type,
+          parserAudit: (parseResult as { audit?: { value?: boolean; signals?: string[] } }).audit,
+          classifierSubtype: input.subtype,
+        });
+        const statusDecision = decideRetroStatus({
+          triggerCategory: category ?? 'other',
+          reconstruction: 'outlook',
+          principalResolved: false,
+          casePoKnown: false,
+        });
+        const persisted = (yield ctx.df.callActivityWithRetry('retroCreatePersist', retry, {
+          original,
+          trigger,
+          keys,
+          vrm: parserVrm || original.candidateVrm || keys.vrm || '',
+          statusName: statusDecision.status,
+          onHold: statusDecision.onHold,
+          actionReason: statusDecision.actionReason,
+          reconstructionSource: 'outlook',
+          providerId,
+          parserVrm,
+          parserRef,
+          parserMileage,
+          parserMileageUnit,
+          parserEva,
+          caseType: contentType.caseType,
+          caseTypeSignals: [
+            ...contentType.signals,
+            ...statusDecision.signals,
+            `outlook_match:${outlook.matchedKey ?? 'unknown'}`,
+          ],
+          triggerCategory: category,
+          otherFiles: [],
+        })) as { skipped?: string; outcome?: string; caseId?: string; casePo?: string | null };
+
+        if (persisted.skipped) return { outcome: 'skipped', reason: persisted.skipped };
+        if (persisted.outcome === 'gated_off') return { outcome: 'skipped', reason: 'api_gate_off' };
+        if (persisted.outcome === 'created' && persisted.caseId) {
+          try {
+            yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
+              caseId: persisted.caseId,
+              inbound: original,
+              typings: (parseResult as { attachmentTypings?: unknown }).attachmentTypings,
+            });
+          } catch (e) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[retro] classifyPersist failed (additive, non-blocking): ${String(e)}`);
+            }
+          }
+          try {
+            yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId: persisted.caseId });
+          } catch (e) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
+            }
+          }
+        }
+        return {
+          outcome: persisted.outcome,
+          caseId: persisted.caseId,
+          casePo: persisted.casePo,
+          source: 'outlook',
+        };
+      }
+      if (!ctx.df.isReplaying) {
+        ctx.log('[retro] outlook hit uncorroborated (key not in message; parse disagrees) — not created');
+      }
+      rungsTried.push('outlook_uncorroborated');
+    }
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[retro] Outlook rung failed (best-effort, falling through): ${String(e)}`);
+    }
+  }
 
   // Bottom of the ladder: record the attempt so ops can see it; the triage row is left
   // exactly as today (case_id NULL, staff triage).
@@ -760,6 +934,51 @@ df.app.activity('retroCreatePersist', {
 
     ctx.log(JSON.stringify({ evt: 'retroCreatePersist', outcome: result.outcome, caseId: result.caseId, casePo: result.casePo }));
     return result;
+  },
+});
+
+df.app.activity('retroOutlookLocate', {
+  handler: async (input: { keys: RetroKeys }, ctx): Promise<unknown> => {
+    if (!gates.retroCase()) return { skipped: 'gate_off' };
+    if (!gates.retroOutlookSearch()) return { skipped: 'outlook_gate_off' };
+    const mailboxes = intakeMailboxes().map((m) => m.mailbox);
+    if (mailboxes.length === 0) return { skipped: 'no_intake_mailboxes' };
+
+    // Key ladder, strongest-first; a decisive earlier key skips the noisier later
+    // sweeps. Each mailbox searched independently — one failing mailbox (throttle,
+    // RBAC cache) must not sink the rung.
+    const ladder: Array<{ key: string; matchedKey: string }> = [];
+    if (input.keys.externalRef) ladder.push({ key: input.keys.externalRef, matchedKey: 'external_ref' });
+    if (input.keys.casePo) ladder.push({ key: input.keys.casePo, matchedKey: 'case_po' });
+    if (input.keys.vrm) ladder.push({ key: input.keys.vrm, matchedKey: 'vrm' });
+
+    for (const rung of ladder) {
+      const candidates: OutlookSearchCandidate[] = [];
+      for (const mailbox of mailboxes) {
+        try {
+          const hits = await searchMessages(mailbox, kqlPhrase(rung.key), 25);
+          candidates.push(...hits.map((h) => ({ ...h, mailbox })));
+        } catch (e) {
+          ctx.warn(`[retroOutlookLocate] $search failed on ${mailbox} (continuing): ${String(e)}`);
+        }
+      }
+      const pick = selectOutlookOriginal(candidates, { intakeMailboxes: mailboxes });
+      if (pick) {
+        ctx.log(JSON.stringify({
+          evt: 'retroOutlookLocate', found: true, mailbox: pick.mailbox,
+          matchedKey: rung.matchedKey, candidates: candidates.length,
+        }));
+        return {
+          found: true,
+          messageId: pick.id,
+          mailbox: pick.mailbox,
+          resource: `users/${pick.mailbox}/messages/${pick.id}`,
+          matchedKey: rung.matchedKey,
+        };
+      }
+    }
+    ctx.log(JSON.stringify({ evt: 'retroOutlookLocate', found: false }));
+    return { found: false };
   },
 });
 

@@ -2225,6 +2225,21 @@ async function listMessageIdsSince(mailbox, watermarkIso) {
   const newWatermark = rows.length ? rows[rows.length - 1].receivedDateTime : watermarkIso;
   return { ids: rows.map((r) => r.id), newWatermark };
 }
+function kqlPhrase(value) {
+  const cleaned = String(value ?? "").replace(/["\\]/g, " ").replace(/\s+/g, " ").trim();
+  return `"${cleaned}"`;
+}
+async function searchMessages(mailbox, phrase, top = 25) {
+  const path = `/users/${encodeURIComponent(mailbox)}/messages?$search=${encodeURIComponent(phrase)}&$select=id,subject,receivedDateTime,from,hasAttachments&$top=${top}`;
+  const res = await graphFetch(path);
+  return (res.value ?? []).map((m) => ({
+    id: m.id,
+    subject: m.subject ?? "",
+    receivedDateTime: m.receivedDateTime ?? "",
+    from: (m.from?.emailAddress?.address ?? "").toLowerCase(),
+    hasAttachments: m.hasAttachments === true
+  }));
+}
 function odataQuote(value) {
   return `'${value.replace(/'/g, "''")}'`;
 }
@@ -45431,6 +45446,25 @@ function buildMinimalAnchorEnvelope(trigger, discoveredPo, folderId) {
     attachments: []
   };
 }
+var REPLY_PREFIX_RE = /^\s*(re|fw|fwd)\s*:/i;
+function selectOutlookOriginal(candidates, opts) {
+  const own = new Set(opts.intakeMailboxes.map((m) => m.trim().toLowerCase()).filter(Boolean));
+  const external = candidates.filter((c) => c.from && !own.has(c.from));
+  if (external.length === 0) return null;
+  const ranked = [...external].sort((a, b) => {
+    const aAtt = a.hasAttachments ? 0 : 1;
+    const bAtt = b.hasAttachments ? 0 : 1;
+    if (aAtt !== bAtt) return aAtt - bAtt;
+    const aRe = REPLY_PREFIX_RE.test(a.subject) ? 1 : 0;
+    const bRe = REPLY_PREFIX_RE.test(b.subject) ? 1 : 0;
+    if (aRe !== bRe) return aRe - bRe;
+    const at = a.receivedDateTime || "9999";
+    const bt = b.receivedDateTime || "9999";
+    if (at !== bt) return at < bt ? -1 : 1;
+    return a.id.localeCompare(b.id);
+  });
+  return ranked[0] ?? null;
+}
 function classifyArchiveFile(filename) {
   if (/\.(jpe?g|png|gif|bmp|webp|heic|tiff?)$/i.test(filename)) return "image";
   if (/\.(eml|msg)$/i.test(filename)) return "email";
@@ -45458,6 +45492,31 @@ function pickCaseFolder(refHits, vrmHits) {
 }
 
 // orchestration/src/functions/gated/retro-case.ts
+function mapRetroParse(parseResult, bodyText) {
+  const ex = parseResult.extraction ?? {};
+  const exVal = (k) => (ex[k]?.value ?? "").trim();
+  const exWorkProvider = exVal("work_provider");
+  return {
+    parserEva: {
+      work_provider: exWorkProvider.toUpperCase() === "UNKNOWN" ? "" : exWorkProvider,
+      vehicle_model: exVal("vehicle_model"),
+      claimant_name: exVal("claimant_name"),
+      claimant_telephone: exVal("claimant_telephone"),
+      claimant_email: exVal("claimant_email"),
+      date_of_loss: exVal("date_of_loss"),
+      date_of_instruction: exVal("date_of_instruction"),
+      accident_circumstances: exVal("accident_circumstances") || supplementAccidentCircumstancesFromBody(bodyText),
+      vat_status: exVal("vat_status")
+    },
+    parserVrm: (parseResult.vrm?.value ?? "").trim(),
+    parserRef: (parseResult.reference?.value ?? "").trim(),
+    parserMileage: exVal("mileage"),
+    parserMileageUnit: exVal("mileage_unit")
+  };
+}
+function normToken(v) {
+  return v.trim().toUpperCase().replace(/\s+/g, "");
+}
 var retry10 = new df26.RetryOptions(5e3, 3);
 retry10.backoffCoefficient = 2;
 retry10.maxRetryIntervalInMilliseconds = 6e4;
@@ -45588,23 +45647,7 @@ df26.app.orchestration("retroCaseOrchestrator", function* (ctx) {
             parseResult = {};
           }
         }
-        const ex = parseResult.extraction ?? {};
-        const exVal = (k) => (ex[k]?.value ?? "").trim();
-        const exWorkProvider = exVal("work_provider");
-        const parserEva = {
-          work_provider: exWorkProvider.toUpperCase() === "UNKNOWN" ? "" : exWorkProvider,
-          vehicle_model: exVal("vehicle_model"),
-          claimant_name: exVal("claimant_name"),
-          claimant_telephone: exVal("claimant_telephone"),
-          claimant_email: exVal("claimant_email"),
-          date_of_loss: exVal("date_of_loss"),
-          date_of_instruction: exVal("date_of_instruction"),
-          accident_circumstances: exVal("accident_circumstances") || supplementAccidentCircumstancesFromBody(String(original.body ?? "")),
-          vat_status: exVal("vat_status")
-        };
-        const parserVrm = (parseResult.vrm?.value ?? "").trim();
-        const parserRef = (parseResult.reference?.value ?? "").trim();
-        const normToken = (v) => v.trim().toUpperCase().replace(/\s+/g, "");
+        const { parserEva, parserVrm, parserRef, parserMileage, parserMileageUnit } = mapRetroParse(parseResult, String(original.body ?? ""));
         const refContradicts = Boolean(
           keys.externalRef && parserRef && normToken(parserRef) !== normToken(keys.externalRef)
         );
@@ -45644,8 +45687,8 @@ df26.app.orchestration("retroCaseOrchestrator", function* (ctx) {
           providerId,
           parserVrm,
           parserRef,
-          parserMileage: exVal("mileage"),
-          parserMileageUnit: exVal("mileage_unit"),
+          parserMileage,
+          parserMileageUnit,
           parserEva,
           caseType,
           caseTypeSignals: [...caseTypeSignals, ...statusDecision.signals, ...contradicted ? ["retro_corroboration_failed"] : []],
@@ -45689,6 +45732,115 @@ df26.app.orchestration("retroCaseOrchestrator", function* (ctx) {
   } catch (e) {
     if (!ctx.df.isReplaying) {
       ctx.log(`[retro] Box rung failed (best-effort, falling through): ${String(e)}`);
+    }
+  }
+  try {
+    const outlook = yield ctx.df.callActivityWithRetry("retroOutlookLocate", retry10, {
+      keys
+    });
+    if (!outlook.skipped) rungsTried.push("outlook_search");
+    if (!outlook.skipped && outlook.found && outlook.messageId && outlook.resource) {
+      const original = yield ctx.df.callActivityWithRetry("fetchMessage", retry10, {
+        messageId: outlook.messageId,
+        resource: outlook.resource
+      });
+      let parseResult = {};
+      try {
+        const parseAttachments = original.attachments.length > 0 ? original.attachments : original.rawEml ? [original.rawEml] : [];
+        parseResult = yield ctx.df.callActivityWithRetry("parse", retry10, {
+          messageId: original.messageId,
+          attachments: parseAttachments,
+          providerHint: providerPrincipal
+        });
+      } catch (e) {
+        if (!ctx.df.isReplaying) {
+          ctx.log(`[retro] outlook parse failed (best-effort): ${String(e)}`);
+        }
+        parseResult = {};
+      }
+      const { parserEva, parserVrm, parserRef, parserMileage, parserMileageUnit } = mapRetroParse(parseResult, String(original.body ?? ""));
+      const haystack = normToken(`${original.subject}
+${original.body ?? ""}`);
+      const keyInText = [keys.casePo, keys.externalRef, keys.vrm].filter((k) => Boolean(k)).some((k) => haystack.includes(normToken(k)));
+      const refAgrees = Boolean(
+        keys.externalRef && parserRef && normToken(parserRef) === normToken(keys.externalRef)
+      );
+      const vrmAgrees = Boolean(
+        keys.vrm && (parserVrm || original.candidateVrm) && normToken(parserVrm || original.candidateVrm) === normToken(keys.vrm)
+      );
+      if (keyInText || refAgrees || vrmAgrees) {
+        const contentType2 = decideCaseType({
+          parserCaseType: parseResult.case_type,
+          parserAudit: parseResult.audit,
+          classifierSubtype: input13.subtype
+        });
+        const statusDecision = decideRetroStatus({
+          triggerCategory: category ?? "other",
+          reconstruction: "outlook",
+          principalResolved: false,
+          casePoKnown: false
+        });
+        const persisted = yield ctx.df.callActivityWithRetry("retroCreatePersist", retry10, {
+          original,
+          trigger,
+          keys,
+          vrm: parserVrm || original.candidateVrm || keys.vrm || "",
+          statusName: statusDecision.status,
+          onHold: statusDecision.onHold,
+          actionReason: statusDecision.actionReason,
+          reconstructionSource: "outlook",
+          providerId,
+          parserVrm,
+          parserRef,
+          parserMileage,
+          parserMileageUnit,
+          parserEva,
+          caseType: contentType2.caseType,
+          caseTypeSignals: [
+            ...contentType2.signals,
+            ...statusDecision.signals,
+            `outlook_match:${outlook.matchedKey ?? "unknown"}`
+          ],
+          triggerCategory: category,
+          otherFiles: []
+        });
+        if (persisted.skipped) return { outcome: "skipped", reason: persisted.skipped };
+        if (persisted.outcome === "gated_off") return { outcome: "skipped", reason: "api_gate_off" };
+        if (persisted.outcome === "created" && persisted.caseId) {
+          try {
+            yield ctx.df.callActivityWithRetry("classifyPersist", retry10, {
+              caseId: persisted.caseId,
+              inbound: original,
+              typings: parseResult.attachmentTypings
+            });
+          } catch (e) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[retro] classifyPersist failed (additive, non-blocking): ${String(e)}`);
+            }
+          }
+          try {
+            yield ctx.df.callActivityWithRetry("statusEvaluate", retry10, { caseId: persisted.caseId });
+          } catch (e) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
+            }
+          }
+        }
+        return {
+          outcome: persisted.outcome,
+          caseId: persisted.caseId,
+          casePo: persisted.casePo,
+          source: "outlook"
+        };
+      }
+      if (!ctx.df.isReplaying) {
+        ctx.log("[retro] outlook hit uncorroborated (key not in message; parse disagrees) \u2014 not created");
+      }
+      rungsTried.push("outlook_uncorroborated");
+    }
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[retro] Outlook rung failed (best-effort, falling through): ${String(e)}`);
     }
   }
   yield ctx.df.callActivityWithRetry("retroRecordFailure", retry10, {
@@ -45953,6 +46105,48 @@ df26.app.activity("retroCreatePersist", {
     }
     ctx.log(JSON.stringify({ evt: "retroCreatePersist", outcome: result.outcome, caseId: result.caseId, casePo: result.casePo }));
     return result;
+  }
+});
+df26.app.activity("retroOutlookLocate", {
+  handler: async (input13, ctx) => {
+    if (!gates.retroCase()) return { skipped: "gate_off" };
+    if (!gates.retroOutlookSearch()) return { skipped: "outlook_gate_off" };
+    const mailboxes = intakeMailboxes().map((m) => m.mailbox);
+    if (mailboxes.length === 0) return { skipped: "no_intake_mailboxes" };
+    const ladder = [];
+    if (input13.keys.externalRef) ladder.push({ key: input13.keys.externalRef, matchedKey: "external_ref" });
+    if (input13.keys.casePo) ladder.push({ key: input13.keys.casePo, matchedKey: "case_po" });
+    if (input13.keys.vrm) ladder.push({ key: input13.keys.vrm, matchedKey: "vrm" });
+    for (const rung of ladder) {
+      const candidates = [];
+      for (const mailbox of mailboxes) {
+        try {
+          const hits = await searchMessages(mailbox, kqlPhrase(rung.key), 25);
+          candidates.push(...hits.map((h) => ({ ...h, mailbox })));
+        } catch (e) {
+          ctx.warn(`[retroOutlookLocate] $search failed on ${mailbox} (continuing): ${String(e)}`);
+        }
+      }
+      const pick = selectOutlookOriginal(candidates, { intakeMailboxes: mailboxes });
+      if (pick) {
+        ctx.log(JSON.stringify({
+          evt: "retroOutlookLocate",
+          found: true,
+          mailbox: pick.mailbox,
+          matchedKey: rung.matchedKey,
+          candidates: candidates.length
+        }));
+        return {
+          found: true,
+          messageId: pick.id,
+          mailbox: pick.mailbox,
+          resource: `users/${pick.mailbox}/messages/${pick.id}`,
+          matchedKey: rung.matchedKey
+        };
+      }
+    }
+    ctx.log(JSON.stringify({ evt: "retroOutlookLocate", found: false }));
+    return { found: false };
   }
 });
 df26.app.activity("retroRecordFailure", {

@@ -1,5 +1,27 @@
 # TKT-058 — changes log
 
+## 2026-07-04 — R3 built (Outlook `$search` fallback rung; ships dark)
+
+- `orchestration/src/lib/graph.ts`: `kqlPhrase` + `searchMessages` — Graph messages
+  `$search` per Microsoft Learn (verified this session, pinned in the function header):
+  from/subject/body default targeting, sent-date ordering (client re-ranks), double-quoted
+  clause, NO `$filter`/`$orderby` combining on messages (silent-failure risk), no
+  ConsistencyLevel header (directory-only), whole-mailbox surface incl. Sent Items; rides
+  the existing Exchange-RBAC `Mail.Read` scope — no new grant.
+- `lib/retro-envelope.ts`: `selectOutlookOriginal` (drop own-mailbox senders, prefer
+  attachments, prefer non-RE:/FW:, earliest wins, deterministic tiebreak) + tests.
+- `gated/retro-case.ts`: `retroOutlookLocate` activity (gated `RETRO_CASE_ENABLED` +
+  `RETRO_OUTLOOK_SEARCH_ENABLED`; per-mailbox fan-out over `intakeMailboxes()`, key ladder
+  externalRef → casePo → vrm, one mailbox failing never sinks the rung); orchestrator rung
+  3 wiring — fires only when the archive had NO folder; corroboration REQUIRED (trigger key
+  literally in the found message's subject/body, or parsed reference/VRM agreement) else
+  NOTHING is created (no anchor without an archive folder); corroborated → EXISTING
+  fetchMessage → parse → create Held with NO Case/PO (`casePoKnown=false`; the PO namespace
+  stays untouched, `case_ref` = the external ref); shared `mapRetroParse` helper extracted
+  (Box rung refactored onto it).
+- **Verification**: tsc green; orchestration vitest 136 (kqlPhrase + selectOutlookOriginal
+  suites added). Gates still dark.
+
 ## 2026-07-04 — R2 built (Box archive reconstruction — the primary source; ships dark)
 
 - **Box client** (`functions/box-webhook/box_client.py`): dual RW/RO scope model —

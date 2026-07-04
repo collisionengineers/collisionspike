@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { hashPayload } from '../functions/activities/fetchMessage';
+import { kqlPhrase } from './graph';
 import {
   buildMinimalAnchorEnvelope,
   buildRetroEnvelopeFromDoc,
   buildRetroEnvelopeFromEml,
   firstAddress,
   pickCaseFolder,
+  selectOutlookOriginal,
+  type OutlookSearchCandidate,
   type RetroSearchHit,
 } from './retro-envelope';
 import type { ExplodedEml } from './functions-client';
@@ -123,5 +126,49 @@ describe('pickCaseFolder', () => {
   it('hits without a resolvable case folder are ignored', () => {
     expect(pickCaseFolder([hit('a', null)], []).folder).toBeNull();
     expect(pickCaseFolder([hit('a', null)], [hit('b', F1)]).folder).toEqual(F1);
+  });
+});
+
+describe('kqlPhrase (Graph messages $search clause)', () => {
+  it('wraps in the REQUIRED double quotes and strips clause-reserved characters', () => {
+    expect(kqlPhrase('575689')).toBe('"575689"');
+    expect(kqlPhrase(' Our "Ref" \\ 575689 ')).toBe('"Our Ref 575689"');
+    expect(kqlPhrase('')).toBe('""');
+  });
+});
+
+describe('selectOutlookOriginal', () => {
+  const INTAKE = ['info@collisionengineers.co.uk', 'desk@collisionengineers.co.uk'];
+  const cand = (over: Partial<OutlookSearchCandidate>): OutlookSearchCandidate => ({
+    id: over.id ?? 'm1',
+    subject: over.subject ?? 'New Instruction KA08XTR',
+    receivedDateTime: over.receivedDateTime ?? '2026-03-01T09:00:00Z',
+    from: over.from ?? 'claims@pch-ltd.com',
+    hasAttachments: over.hasAttachments ?? true,
+    mailbox: over.mailbox ?? 'info@collisionengineers.co.uk',
+  });
+
+  it('drops our own senders ($search spans Sent Items) and sender-less hits', () => {
+    expect(
+      selectOutlookOriginal(
+        [cand({ from: 'info@collisionengineers.co.uk' }), cand({ from: '' })],
+        { intakeMailboxes: INTAKE },
+      ),
+    ).toBeNull();
+  });
+
+  it('prefers attachments, then non-RE: subjects, then the EARLIEST message', () => {
+    const bare = cand({ id: 'bare', hasAttachments: false, receivedDateTime: '2026-01-01T00:00:00Z' });
+    const reply = cand({ id: 'reply', subject: 'RE: New Instruction', receivedDateTime: '2026-01-02T00:00:00Z' });
+    const later = cand({ id: 'later', receivedDateTime: '2026-03-05T00:00:00Z' });
+    const original = cand({ id: 'orig', receivedDateTime: '2026-03-01T00:00:00Z' });
+    expect(selectOutlookOriginal([bare, reply, later, original], { intakeMailboxes: INTAKE })?.id).toBe(
+      'orig',
+    );
+  });
+
+  it('falls back to a reply-prefixed hit when nothing else survives', () => {
+    const reply = cand({ id: 'reply', subject: 'FW: instruction', hasAttachments: true });
+    expect(selectOutlookOriginal([reply], { intakeMailboxes: INTAKE })?.id).toBe('reply');
   });
 });

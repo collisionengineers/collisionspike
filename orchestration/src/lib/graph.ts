@@ -288,6 +288,70 @@ export async function listMessageIdsSince(
   return { ids: rows.map((r) => r.id), newWatermark };
 }
 
+/* ---------- Retro reconstruction mailbox search (ADR-0022 R3) ---------- */
+
+/** KQL free-text phrase for a Graph messages `$search` clause: strip the two
+ *  characters the clause syntax reserves (double quote + backslash), wrap in the
+ *  REQUIRED double quotes. The caller URL-encodes the whole clause. */
+export function kqlPhrase(value: string): string {
+  const cleaned = String(value ?? '').replace(/["\\]/g, ' ').replace(/\s+/g, ' ').trim();
+  return `"${cleaned}"`;
+}
+
+/**
+ * Full-text `$search` over one mailbox's messages (ADR-0022 R3 — find the archived
+ * original instruction for a retro reconstruction).
+ *
+ * Semantics VERIFIED against Microsoft Learn (graph/search-query-parameter +
+ * graph/known-issues, checked 2026-07-04 — the anti-churn doctrine):
+ *  - messages `$search` without a property targets **from, subject, body**; KQL
+ *    property syntax (subject:/body:/attachment:) is supported inside the quotes;
+ *  - results come back sorted by SENT date-time; up to 1,000 results exist and
+ *    `$top` page-sizes them (we take one page and rank client-side);
+ *  - the whole clause MUST be double-quoted ({@link kqlPhrase});
+ *  - do NOT combine `$search` with `$filter`/`$orderby` on messages — unsupported
+ *    parameter combos "might fail silently" (known-issues §9);
+ *  - `ConsistencyLevel: eventual` is a DIRECTORY-object requirement, not needed here;
+ *  - `/users/{mbx}/messages` spans the mailbox's mail folders (Sent Items included —
+ *    callers must drop own-mailbox senders), the same surface
+ *    {@link findMessageByInternetMessageId} uses. Rides the existing Exchange-RBAC
+ *    `Mail.Read` scope on the three intake mailboxes — no new grant.
+ */
+export async function searchMessages(
+  mailbox: string,
+  phrase: string,
+  top = 25,
+): Promise<
+  Array<{
+    id: string;
+    subject: string;
+    receivedDateTime: string;
+    from: string;
+    hasAttachments: boolean;
+  }>
+> {
+  const path =
+    `/users/${encodeURIComponent(mailbox)}/messages` +
+    `?$search=${encodeURIComponent(phrase)}` +
+    `&$select=id,subject,receivedDateTime,from,hasAttachments&$top=${top}`;
+  const res = await graphFetch<{
+    value: Array<{
+      id: string;
+      subject?: string;
+      receivedDateTime?: string;
+      from?: { emailAddress?: { address?: string } };
+      hasAttachments?: boolean;
+    }>;
+  }>(path);
+  return (res.value ?? []).map((m) => ({
+    id: m.id,
+    subject: m.subject ?? '',
+    receivedDateTime: m.receivedDateTime ?? '',
+    from: (m.from?.emailAddress?.address ?? '').toLowerCase(),
+    hasAttachments: m.hasAttachments === true,
+  }));
+}
+
 /* ---------- Outlook filing (TKT-054 / 020726 E6 — gated by OUTLOOK_MOVE_ENABLED) ---------- */
 
 /** Escape a value for a Graph OData $filter string literal (single quotes double up). */

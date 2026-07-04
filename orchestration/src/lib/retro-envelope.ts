@@ -141,6 +141,52 @@ export function buildMinimalAnchorEnvelope(
   };
 }
 
+/* ----------  Outlook original-instruction pick (R3)  ---------- */
+
+export interface OutlookSearchCandidate {
+  id: string;
+  subject: string;
+  receivedDateTime: string;
+  /** Sender SMTP address, lowercased ('' when Graph omitted it). */
+  from: string;
+  hasAttachments: boolean;
+  /** Which intake mailbox the hit came from (needed to build the fetch resource). */
+  mailbox: string;
+}
+
+const REPLY_PREFIX_RE = /^\s*(re|fw|fwd)\s*:/i;
+
+/**
+ * Pick the ORIGINAL instruction out of mailbox `$search` hits:
+ *   1. drop messages FROM our own intake mailboxes ($search spans Sent Items —
+ *      our replies/chasers must never be "the original") and sender-less hits;
+ *   2. prefer messages WITH attachments (instructions carry documents);
+ *   3. prefer non-`RE:`/`FW:` subjects (the original predates the thread);
+ *   4. earliest receivedDateTime wins; id tiebreak for determinism.
+ * Null when nothing survives.
+ */
+export function selectOutlookOriginal(
+  candidates: readonly OutlookSearchCandidate[],
+  opts: { intakeMailboxes: readonly string[] },
+): OutlookSearchCandidate | null {
+  const own = new Set(opts.intakeMailboxes.map((m) => m.trim().toLowerCase()).filter(Boolean));
+  const external = candidates.filter((c) => c.from && !own.has(c.from));
+  if (external.length === 0) return null;
+  const ranked = [...external].sort((a, b) => {
+    const aAtt = a.hasAttachments ? 0 : 1;
+    const bAtt = b.hasAttachments ? 0 : 1;
+    if (aAtt !== bAtt) return aAtt - bAtt;
+    const aRe = REPLY_PREFIX_RE.test(a.subject) ? 1 : 0;
+    const bRe = REPLY_PREFIX_RE.test(b.subject) ? 1 : 0;
+    if (aRe !== bRe) return aRe - bRe;
+    const at = a.receivedDateTime || '9999';
+    const bt = b.receivedDateTime || '9999';
+    if (at !== bt) return at < bt ? -1 : 1;
+    return a.id.localeCompare(b.id);
+  });
+  return ranked[0] ?? null;
+}
+
 /** Evidence class for a byte-less archive-file registration (link-only rows).
  *  Deliberately NEVER 'instruction' — the actual instruction is blob-landed and
  *  classified by classifyPersist; loose archive files must not inflate the

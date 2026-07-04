@@ -51,9 +51,15 @@ wrapped, gates default-off on BOTH apps (`RETRO_CASE_ENABLED`; R3 additionally
   (`BOX_READONLY_ROOT_IDS`, split verification caches), `search_content`/`download_file` +
   routes, parser `/explode-eml` wrapper route, `retroBoxLocate`/`retroBoxFetchInstruction`/
   `retroCreatePersist` activities, corroboration + unanimity rules, evidence registration.
-- [ ] **R3 — Outlook `$search` fallback**: `graph.ts` `searchMessages` (verify Graph `$search`
-  semantics against Microsoft Learn first — anti-churn doctrine), `selectOutlookOriginal`,
-  `retroOutlookLocate`; Outlook-only reconstructions land Held with NO Case/PO (never mint).
+- [x] **R3 — Outlook `$search` fallback** *(built 2026-07-04, ships dark — needs
+  `RETRO_OUTLOOK_SEARCH_ENABLED` on top of the master gate)*: `graph.ts` `searchMessages`
+  (Graph `$search` semantics VERIFIED against Microsoft Learn and pinned in the function
+  header — from/subject/body default targeting, double-quoted clause, no `$filter`/
+  `$orderby` combining on messages, no ConsistencyLevel needed), `selectOutlookOriginal`
+  (own-sender drop / attachments / non-RE: / earliest), `retroOutlookLocate` (per-mailbox
+  fan-out, key ladder); corroboration REQUIRED (key in message text, or parsed ref/VRM
+  agreement) — uncorroborated hits create NOTHING; Outlook-only reconstructions land Held
+  with NO Case/PO (never mint).
 - [ ] **R4 — provenance display + docs closure**: widen `intakeChannelKindCodec` +
   `intake-channel.json` (provider_api + retro), SPA channel chip, CONTEXT.md glossary,
   LIVE_FACTS gate registration at deploy.
