@@ -17,6 +17,7 @@ import './functions/settings.js';
 import './functions/inbound.js';
 import './functions/proxy.js';
 import './functions/internal.js';
+import './functions/internal-retro.js';
 import './functions/ai-suggestions.js';
 import './functions/provider-keys.js';
 import './functions/provider-intake.js';

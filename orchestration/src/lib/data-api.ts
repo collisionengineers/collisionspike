@@ -313,6 +313,60 @@ export const dataApi = {
     return request('POST', '/api/internal/inbound-email', payload);
   },
 
+  /**
+   * ADR-0022 retro reconstruction — the ANY-STATUS existence check + link (internal route).
+   * Unlike linkReply this matches terminal cases too (a billing email about an
+   * eva_submitted case must link, not strand); 'gated_off' while RETRO_CASE_ENABLED is
+   * not 'true' on the API app (honest refusal — the gate lives on BOTH apps).
+   */
+  retroResolveExisting(payload: {
+    trigger: unknown;
+    keys: { casePo?: string; externalRef?: string; vrm?: string };
+    providerId?: string;
+    triggerCategory?: string;
+  }): Promise<{
+    outcome: 'linked' | 'ambiguous' | 'none' | 'gated_off';
+    caseId?: string;
+    candidateCount: number;
+  }> {
+    return request('POST', '/api/internal/retro/resolve-existing', payload);
+  },
+
+  /**
+   * ADR-0022 retro reconstruction — get-or-create persist of a reconstructed case.
+   * `casePo` is the DISCOVERED archive folder name (verbatim — the API never mints on
+   * this path); concurrent duplicates come back as 'already_exists_linked', never 409/500.
+   */
+  retroCreate(payload: {
+    original: unknown;
+    trigger: unknown;
+    keys: { casePo?: string; externalRef?: string; vrm?: string };
+    casePo?: string;
+    vrm?: string;
+    statusName: 'eva_submitted' | 'needs_review';
+    onHold: boolean;
+    actionReason?: 'needs_review';
+    reconstructionSource: 'box_eml' | 'box_doc' | 'outlook' | 'minimal';
+    providerId?: string;
+    parserVrm?: string;
+    parserRef?: string;
+    parserMileage?: string;
+    parserMileageUnit?: string;
+    parserEva?: ParserEvaFields;
+    caseType?: 'standard' | 'audit' | 'audit_total_loss' | 'diminution';
+    caseTypeSignals?: string[];
+    boxFolder?: { id: string; url?: string };
+    triggerCategory?: string;
+  }): Promise<{
+    outcome: 'created' | 'already_exists_linked' | 'ambiguous' | 'gated_off';
+    caseId?: string;
+    casePo?: string | null;
+    newClient?: boolean;
+    candidateCount?: number;
+  }> {
+    return request('POST', '/api/internal/retro/create', payload);
+  },
+
   /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
   persistEvidence(
     caseId: string,

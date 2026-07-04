@@ -163,6 +163,13 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   `/case/:id` renderer-freeze investigation.
 
 **Next:**
+- **Retroactive case reconstruction** ([ADR-0022](./docs/adr/0022-retroactive-case-reconstruction.md),
+  [TKT-058](./docs/tickets/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md)) — the gated
+  SECONDARY fallback for update/billing email citing a case the system has never seen: any-status
+  link (incl. terminals — the billing-email fix) → Box-archive reconstruction (folder name = the
+  Case/PO; the archived original `.eml` runs the normal parse/create pipeline) → Outlook `$search`.
+  **R1 built 2026-07-04, ships dark** (`RETRO_CASE_ENABLED` unset); activation + archive-root config =
+  [gated.md D11](./docs/gated.md). R2 (Box, read-only scope widening) + R3 (Outlook) follow.
 - **Durable API hardening** — durable auth error-handling + token **audience-form** hardening (v2 tokens
   carry `aud` = the API client-id GUID `fa2fb28c…`); in progress.
 - **Staff app-role assignment** — only **one** staff principal is app-role-assigned today

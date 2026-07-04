@@ -42,3 +42,4 @@ import './functions/gated/box-file-request-copy.js';
 import './functions/gated/box-blob-purge.js';
 import './functions/gated/case-disposition.js';
 import './functions/gated/jobsheet-import.js';
+import './functions/gated/retro-case.js'; // retro case reconstruction (ADR-0022; RETRO_CASE_ENABLED)

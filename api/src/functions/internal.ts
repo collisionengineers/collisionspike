@@ -97,7 +97,7 @@ import { acquireTriageLocks } from '../lib/triage-locks.js';
    token with app roles assigned.
    ============================================================ */
 
-async function withServiceAuth(
+export async function withServiceAuth(
   req: HttpRequest,
   ctx: InvocationContext,
   fn: (req: HttpRequest, ctx: InvocationContext) => Promise<HttpResponseInit>,
@@ -208,7 +208,7 @@ async function recomputeStatus(caseId: string): Promise<CaseStatus> {
  *  Each field actually filled this run gets a field_level_provenance row. A no-op when every
  *  input is absent, so callers can pass them unconditionally.
  */
-async function applyParserFields(
+export async function applyParserFields(
   caseId: string,
   parserRef?: string,
   parserMileage?: string,
@@ -436,8 +436,10 @@ async function applyParserFields(
 /* ============================================================
    The InboundEnvelope shape received in resolvePersist.
    Mirrors orchestration/src/functions/activities/fetchMessage.ts InboundEnvelope.
+   Exported: the retro reconstruction routes (internal-retro.ts, ADR-0022) receive
+   the same envelope shape.
    ============================================================ */
-interface InboundEnvelope {
+export interface InboundEnvelope {
   messageId: string;
   internetMessageId: string;
   subject: string;
@@ -459,7 +461,7 @@ interface InboundEnvelope {
 }
 
 /** Triage classification carried from the orchestration classifyInbound activity (ADR-0015). */
-interface InboundClassificationDto {
+export interface InboundClassificationDto {
   category: string;
   subtype: string;
   confidence: number;
@@ -1043,7 +1045,7 @@ app.http('internalInboundEmail', {
  * real query per Function-App cold start) and appends ONLY the present ones to the base
  * (always-present-column) INSERT/ON CONFLICT below — never a failed statement.
  */
-async function upsertInboundEmail(
+export async function upsertInboundEmail(
   inbound: InboundEnvelope,
   workProviderId: string | null,
   caseId: string | null,
@@ -1174,7 +1176,7 @@ async function upsertInboundEmail(
 }
 
 /** True when the error is a PostgreSQL UNIQUE violation (code 23505). */
-function isUniqueViolation(e: unknown): boolean {
+export function isUniqueViolation(e: unknown): boolean {
   return (
     e != null &&
     typeof e === 'object' &&

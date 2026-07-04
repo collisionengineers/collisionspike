@@ -128,7 +128,15 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   (100000042, 'api_key_created',            'API Key Created'),
   (100000043, 'api_key_revoked',            'API Key Revoked'),
   (100000044, 'provider_api_case_created',  'Provider API Case Created'),
-  (100000045, 'provider_api_case_rejected', 'Provider API Case Rejected');
+  (100000045, 'provider_api_case_rejected', 'Provider API Case Rejected'),
+  -- Retroactive case reconstruction (TKT-058 / ADR-0022, 2026-07-04 delta -- see
+  -- deltas/2026-07-04-retro-case.sql). created = a case was reconstructed from the
+  -- Box archive / Outlook search; linked = the trigger email matched an EXISTING
+  -- case (any status, incl. terminal); failed = the ladder found no source (the
+  -- attempt stays visible even though nothing was minted).
+  (100000046, 'retro_case_created',          'Retro Case Created'),
+  (100000047, 'retro_case_linked',           'Retro Case Linked'),
+  (100000048, 'retro_reconstruction_failed', 'Retro Reconstruction Failed');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code
@@ -431,7 +439,10 @@ INSERT INTO choice_intake_channel_kind (code, name, label) VALUES
   (100000000, 'email',        'Email'),
   (100000001, 'whatsapp',     'WhatsApp'),
   -- Machine-to-machine provider API intake channel (TKT-055 / ADR-0020, 2026-07-03 delta).
-  (100000002, 'provider_api', 'Provider API');
+  (100000002, 'provider_api', 'Provider API'),
+  -- Case reconstructed after the fact from the Box archive / Outlook search
+  -- (TKT-058 / ADR-0022, 2026-07-04 delta) -- the retro fallback's provenance.
+  (100000003, 'retro',        'Retro (reconstructed)');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_providerautomationmode  (provider-automation-mode.json)

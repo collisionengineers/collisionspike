@@ -23,3 +23,4 @@ One decision per file, numbered. **0015, 0016, 0017, 0018 & 0019 are _Proposed_;
 - [`0019`](./0019-triage-policy-stage-split.md) — triage stage split: engine signals / domain policy / gated AI suggestions _(Proposed)_
 - [`0020`](./0020-provider-api-intake-channel.md) — provider API intake channel (machine-to-machine case lodging)
 - [`0021`](./0021-case-po-marker-taxonomy.md) — Case/PO marker taxonomy (A./AP./D., per-marker sequences, dual report+audit rule)
+- [`0022`](./0022-retroactive-case-reconstruction.md) — retroactive case reconstruction (missing-case fallback: any-status link → Box archive → Outlook search) _(Proposed)_

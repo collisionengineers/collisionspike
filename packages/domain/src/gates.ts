@@ -46,6 +46,18 @@ export const gates = {
   // (docs/gated.md).
   outlookMove: (): boolean => process.env.OUTLOOK_MOVE_ENABLED === 'true',
 
+  // Retroactive case reconstruction (ADR-0022 / TKT-058) — all default off. retroCase is
+  // the master switch (read by the orchestration retro activities AND the Data API's
+  // /api/internal/retro/* routes — set it on BOTH apps); retroOutlookSearch is the
+  // independent kill switch for the Outlook $search rung (Graph-search behaviour must be
+  // revocable without losing the Box rung). retroBoxArchiveRootIds is the comma-separated
+  // READ-ONLY Box archive root folder id(s) the reconstruction may search — empty means
+  // the Box rung honestly skips (the box-webhook app enforces the same roots via its own
+  // BOX_READONLY_ROOT_IDS scope lock).
+  retroCase: (): boolean => process.env.RETRO_CASE_ENABLED === 'true',
+  retroOutlookSearch: (): boolean => process.env.RETRO_OUTLOOK_SEARCH_ENABLED === 'true',
+  retroBoxArchiveRootIds: (): string => process.env.RETRO_BOX_ARCHIVE_ROOT_IDS ?? '',
+
   // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
   // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
   // is pure and never reads process.env — the caller (an orchestration Durable activity)

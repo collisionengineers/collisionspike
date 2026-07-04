@@ -40,7 +40,7 @@ import * as df from 'durable-functions';
 import { supplementAccidentCircumstancesFromBody } from '../lib/supplement-parse.js';
 import type { InboundClassification } from './activities/classifyInbound.js';
 import { shouldAttemptTriageAssist } from './gated/triage-classify.js';
-import { decideCaseType } from '@cs/domain';
+import { decideCaseType, decideRetro } from '@cs/domain';
 import type { TriagePolicyDecision } from '@cs/domain';
 
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
@@ -246,14 +246,85 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
           status: status.value,
         };
       }
+      // Retro fallback (ADR-0022, ADDITIVE + LAST in this lane): an unmatched reply about a
+      // case the system has never seen may be linkable/reconstructable from the archive.
+      // decideRetro is pure over checkpointed values (the decideCaseType convention —
+      // replay-safe, no env reads); `ambiguous` never fires it (≥2 open cases already
+      // match). The sub-orchestration is try/catch-wrapped + gated inside its activities,
+      // so the primary return below is never blocked or changed — `retro` is an added key.
+      const retroReply = decideRetro({
+        category: classification.category,
+        bodyCaseref: classification.bodyCaseref,
+        bodyJobref: classification.bodyJobref,
+        bodyVrm: classification.bodyVrm,
+        candidateRef: inb.candidateRef,
+        candidateVrm: inb.candidateVrm,
+        isReply: true,
+        linkReplyOutcome: link.outcome as 'linked' | 'ambiguous' | 'no_match',
+      });
+      let retroReplyOutcome: string | undefined;
+      if (retroReply.attempt) {
+        try {
+          const retro = (yield ctx.df.callSubOrchestratorWithRetry('retroCaseOrchestrator', retry, {
+            trigger: inbound,
+            category: classification.category,
+            subtype: classification.subtype,
+            keys: retroReply.keys,
+            providerId: workProviderId,
+          })) as { outcome?: string };
+          retroReplyOutcome = retro?.outcome;
+        } catch (e) {
+          retroReplyOutcome = 'error';
+          if (!ctx.df.isReplaying) {
+            ctx.log(`[intake] retro fallback failed (additive, non-blocking): ${String(e)}`);
+          }
+        }
+      }
       return {
         triaged: classification.category,
         subtype: classification.subtype,
         replyLink: link.outcome,
         ...(link.caseId ? { caseId: link.caseId } : {}),
+        ...(retroReplyOutcome ? { retro: retroReplyOutcome } : {}),
       };
     }
-    return { triaged: classification.category, subtype: classification.subtype };
+
+    // Retro fallback (ADR-0022) for the NON-reply lane — today these return without any
+    // linking attempt at all, which is exactly the billing-email gap. Same conventions as
+    // the reply-lane block above (pure decideRetro, gated activities, additive, last).
+    const inbNonReply = inbound as { candidateRef?: string; candidateVrm?: string };
+    const retroNonReply = decideRetro({
+      category: classification.category,
+      bodyCaseref: classification.bodyCaseref,
+      bodyJobref: classification.bodyJobref,
+      bodyVrm: classification.bodyVrm,
+      candidateRef: inbNonReply.candidateRef,
+      candidateVrm: inbNonReply.candidateVrm,
+      isReply: false,
+    });
+    let retroOutcome: string | undefined;
+    if (retroNonReply.attempt) {
+      try {
+        const retro = (yield ctx.df.callSubOrchestratorWithRetry('retroCaseOrchestrator', retry, {
+          trigger: inbound,
+          category: classification.category,
+          subtype: classification.subtype,
+          keys: retroNonReply.keys,
+          providerId: workProviderId,
+        })) as { outcome?: string };
+        retroOutcome = retro?.outcome;
+      } catch (e) {
+        retroOutcome = 'error';
+        if (!ctx.df.isReplaying) {
+          ctx.log(`[intake] retro fallback failed (additive, non-blocking): ${String(e)}`);
+        }
+      }
+    }
+    return {
+      triaged: classification.category,
+      subtype: classification.subtype,
+      ...(retroOutcome ? { retro: retroOutcome } : {}),
+    };
   }
 
   // RECEIVING WORK → carry the body-derived Case/PO into the dedup ladder (Case/PO-first,

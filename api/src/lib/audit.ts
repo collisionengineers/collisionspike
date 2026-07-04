@@ -84,6 +84,13 @@ export const AUDIT_ACTION = {
   api_key_revoked: 100000043,
   provider_api_case_created: 100000044,
   provider_api_case_rejected: 100000045,
+  // Retroactive case reconstruction (TKT-058 / ADR-0022; gated by RETRO_CASE_ENABLED).
+  // Minted in deltas/2026-07-04-retro-case.sql — same pre-DDL degrade as the codes above.
+  // created = a case was reconstructed; linked = the trigger email matched an EXISTING
+  // case (any status, incl. terminal); failed = the ladder found no source to rebuild from.
+  retro_case_created: 100000046,
+  retro_case_linked: 100000047,
+  retro_reconstruction_failed: 100000048,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

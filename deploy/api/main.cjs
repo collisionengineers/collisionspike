@@ -7539,6 +7539,41 @@ function suggestedOutlookFolder(subtype) {
   }
 }
 
+// packages/domain/dist/domain/retro-case.js
+var CASE_PO_SHAPE_RE = /^(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})$/i;
+function normalizeCasePo(raw) {
+  return (raw ?? "").trim().toUpperCase().replace(/^((?:AP|A|D)\.)\s+/, "$1");
+}
+function parseCasePoMarker(po) {
+  const token = normalizeCasePo(po);
+  for (const marker2 of ["AP.", "A.", "D."]) {
+    if (token.startsWith(marker2))
+      return { marker: marker2, body: token.slice(marker2.length) };
+  }
+  return { marker: "", body: token };
+}
+function matchPrincipalByCasePo(po, principals) {
+  const { marker: marker2, body: body2 } = parseCasePoMarker(po);
+  if (!body2)
+    return null;
+  let best = null;
+  for (const raw of principals) {
+    const code = (raw ?? "").trim().toUpperCase();
+    if (!code || !body2.startsWith(code))
+      continue;
+    if (!/^\d{5,6}$/.test(body2.slice(code.length)))
+      continue;
+    if (!best || code.length > best.length)
+      best = code;
+  }
+  return best ? { principal: best, marker: marker2 } : null;
+}
+function markerToCaseType(marker2) {
+  const token = (marker2 ?? "").trim().toUpperCase();
+  const entry = Object.entries(CASE_PO_MARKER).find(([, m]) => m === token);
+  return entry ? entry[0] : "standard";
+}
+
 // packages/domain/dist/model/queues.js
 var QUEUES = [
   {
@@ -9611,7 +9646,14 @@ var AUDIT_ACTION = {
   api_key_created: 100000042,
   api_key_revoked: 100000043,
   provider_api_case_created: 100000044,
-  provider_api_case_rejected: 100000045
+  provider_api_case_rejected: 100000045,
+  // Retroactive case reconstruction (TKT-058 / ADR-0022; gated by RETRO_CASE_ENABLED).
+  // Minted in deltas/2026-07-04-retro-case.sql — same pre-DDL degrade as the codes above.
+  // created = a case was reconstructed; linked = the trigger email matched an EXISTING
+  // case (any status, incl. terminal); failed = the ladder found no source to rebuild from.
+  retro_case_created: 100000046,
+  retro_case_linked: 100000047,
+  retro_reconstruction_failed: 100000048
 };
 var SEVERITY_CODE = {
   info: 1e8,
@@ -9688,6 +9730,17 @@ var gates = {
   // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
   // (docs/gated.md).
   outlookMove: () => process.env.OUTLOOK_MOVE_ENABLED === "true",
+  // Retroactive case reconstruction (ADR-0022 / TKT-058) — all default off. retroCase is
+  // the master switch (read by the orchestration retro activities AND the Data API's
+  // /api/internal/retro/* routes — set it on BOTH apps); retroOutlookSearch is the
+  // independent kill switch for the Outlook $search rung (Graph-search behaviour must be
+  // revocable without losing the Box rung). retroBoxArchiveRootIds is the comma-separated
+  // READ-ONLY Box archive root folder id(s) the reconstruction may search — empty means
+  // the Box rung honestly skips (the box-webhook app enforces the same roots via its own
+  // BOX_READONLY_ROOT_IDS scope lock).
+  retroCase: () => process.env.RETRO_CASE_ENABLED === "true",
+  retroOutlookSearch: () => process.env.RETRO_OUTLOOK_SEARCH_ENABLED === "true",
+  retroBoxArchiveRootIds: () => process.env.RETRO_BOX_ARCHIVE_ROOT_IDS ?? "",
   // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
   // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
   // is pure and never reads process.env — the caller (an orchestration Durable activity)
@@ -13632,10 +13685,458 @@ import_functions9.app.http("internalCaseBoxFolderStamp", {
   })
 });
 
-// api/src/functions/ai-suggestions.ts
+// api/src/functions/internal-retro.ts
 var import_functions10 = require("@azure/functions");
+
+// api/src/lib/retro-validate.ts
+var RETRO_ALLOWED_STATUSES = ["eva_submitted", "needs_review"];
+var RETRO_RECONSTRUCTION_SOURCES = ["box_eml", "box_doc", "outlook", "minimal"];
+function hasEnvelopeIdentity(v) {
+  return v != null && typeof v === "object" && typeof v.internetMessageId === "string" && (v.internetMessageId ?? "").trim().length > 0;
+}
+function normalizeRetroKeys(keys) {
+  const out = {};
+  const rawPo = (keys?.casePo ?? "").trim();
+  if (rawPo) {
+    const po = normalizeCasePo(rawPo);
+    if (!CASE_PO_SHAPE_RE.test(po)) {
+      return {
+        ok: false,
+        code: "invalid_case_po",
+        message: `keys.casePo '${rawPo}' is not Case/PO-shaped`
+      };
+    }
+    out.casePo = po;
+  }
+  const ref = (keys?.externalRef ?? "").trim().toUpperCase();
+  if (ref) out.externalRef = ref;
+  const vrm = (keys?.vrm ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  if (vrm) out.vrm = vrm;
+  return out;
+}
+function validateRetroResolveExisting(body2) {
+  if (body2 == null || typeof body2 !== "object") {
+    return { ok: false, code: "invalid_body", message: "body must be a JSON object" };
+  }
+  const b = body2;
+  if (!hasEnvelopeIdentity(b.trigger)) {
+    return { ok: false, code: "missing_trigger", message: "trigger envelope (internetMessageId) required" };
+  }
+  const keys = normalizeRetroKeys(b.keys);
+  if ("ok" in keys) return keys;
+  if (!keys.casePo && !keys.externalRef && !keys.vrm) {
+    return { ok: false, code: "missing_keys", message: "at least one of keys.casePo/externalRef/vrm required" };
+  }
+  return { ok: true, value: { keys } };
+}
+function validateRetroCreate(body2) {
+  if (body2 == null || typeof body2 !== "object") {
+    return { ok: false, code: "invalid_body", message: "body must be a JSON object" };
+  }
+  const b = body2;
+  if (!hasEnvelopeIdentity(b.original)) {
+    return { ok: false, code: "missing_original", message: "original envelope (internetMessageId) required" };
+  }
+  if (!hasEnvelopeIdentity(b.trigger)) {
+    return { ok: false, code: "missing_trigger", message: "trigger envelope (internetMessageId) required" };
+  }
+  const keys = normalizeRetroKeys(b.keys);
+  if ("ok" in keys) return keys;
+  let casePo;
+  const rawPo = (b.casePo ?? "").trim();
+  if (rawPo) {
+    const po = normalizeCasePo(rawPo);
+    if (!CASE_PO_SHAPE_RE.test(po)) {
+      return { ok: false, code: "invalid_case_po", message: `casePo '${rawPo}' is not Case/PO-shaped` };
+    }
+    casePo = po;
+  }
+  const status = (b.statusName ?? "").trim();
+  if (!RETRO_ALLOWED_STATUSES.includes(status)) {
+    return {
+      ok: false,
+      code: "invalid_status",
+      message: `statusName must be one of ${RETRO_ALLOWED_STATUSES.join("/")}`
+    };
+  }
+  const source = (b.reconstructionSource ?? "").trim();
+  if (!RETRO_RECONSTRUCTION_SOURCES.includes(source)) {
+    return {
+      ok: false,
+      code: "invalid_reconstruction_source",
+      message: `reconstructionSource must be one of ${RETRO_RECONSTRUCTION_SOURCES.join("/")}`
+    };
+  }
+  const actionReasonRaw = (b.actionReason ?? "").trim();
+  if (actionReasonRaw && actionReasonRaw !== "needs_review") {
+    return { ok: false, code: "invalid_action_reason", message: "actionReason must be 'needs_review' when present" };
+  }
+  return {
+    ok: true,
+    value: {
+      keys,
+      ...casePo ? { casePo } : {},
+      status,
+      onHold: b.onHold === true,
+      ...actionReasonRaw ? { actionReason: "needs_review" } : {},
+      reconstructionSource: source
+    }
+  };
+}
+
+// api/src/functions/internal-retro.ts
+var RETRO_CHANNEL_CODE = 100000003;
+function retroOriginalClassification(keys, casePo) {
+  return {
+    category: "receiving_work",
+    subtype: "existing_provider_instruction",
+    confidence: 0,
+    signals: ["retro_reconstructed"],
+    bodyVrm: keys.vrm ?? "",
+    bodyCaseref: casePo ?? keys.casePo ?? "",
+    bodyJobref: keys.externalRef ?? ""
+  };
+}
+async function findExistingCases(q, keys, providerId) {
+  const SELECT = "SELECT id, case_po, case_ref, vrm, status_code FROM case_";
+  for (const [token, matchedBy] of [
+    [keys.casePo, "case_po"],
+    [keys.externalRef, "external_ref"]
+  ]) {
+    if (!token) continue;
+    const rows = await q(
+      `${SELECT} WHERE (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) ORDER BY created_at`,
+      [token]
+    );
+    if (rows.length > 0) return { rows, matchedBy };
+  }
+  if (keys.vrm) {
+    const rows = providerId ? await q(`${SELECT} WHERE vrm = $1 AND work_provider_id = $2 ORDER BY created_at`, [
+      keys.vrm,
+      providerId
+    ]) : await q(`${SELECT} WHERE vrm = $1 ORDER BY created_at`, [keys.vrm]);
+    if (rows.length > 0) return { rows, matchedBy: "vrm" };
+  }
+  return { rows: [], matchedBy: null };
+}
+async function currentInboundCaseId(internetMessageId) {
+  const rows = await query(`SELECT case_id FROM inbound_email WHERE source_message_id = $1`, [
+    internetMessageId
+  ]);
+  return rows[0]?.case_id ?? null;
+}
+async function linkEnvelopeRow(envelope, providerId, caseId, classification) {
+  const existing = await currentInboundCaseId(envelope.internetMessageId);
+  if (existing) return existing === caseId;
+  await upsertInboundEmail(envelope, providerId, caseId, classification, void 0, "routed");
+  return true;
+}
+import_functions10.app.http("internalRetroResolveExisting", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/retro/resolve-existing",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    if (!gates.retroCase()) {
+      return { status: 200, jsonBody: { outcome: "gated_off", candidateCount: 0 } };
+    }
+    const body2 = await req.json();
+    const v = validateRetroResolveExisting(body2);
+    if (!v.ok) return { status: 400, jsonBody: { error: v.code, message: v.message } };
+    const { keys } = v.value;
+    const providerId = body2.providerId ?? null;
+    const already = await currentInboundCaseId(body2.trigger.internetMessageId);
+    if (already) {
+      return { status: 200, jsonBody: { outcome: "linked", caseId: already, candidateCount: 1 } };
+    }
+    const { rows, matchedBy } = await tx(async (q) => {
+      await acquireTriageLocks(q, {
+        caseref: keys.casePo ?? keys.externalRef,
+        jobref: keys.casePo ? keys.externalRef : void 0,
+        vrm: keys.vrm
+      });
+      return findExistingCases(q, keys, providerId);
+    });
+    if (rows.length === 1) {
+      const hit = rows[0];
+      const statusName = caseStatusCodec.toName(hit.status_code) ?? String(hit.status_code);
+      await upsertInboundEmail(body2.trigger, providerId, hit.id, void 0, void 0, "routed");
+      await writeAudit({
+        action: AUDIT_ACTION.retro_case_linked,
+        caseId: hit.id,
+        // 'removed' is matched ON PURPOSE (a soft-removed case must still swallow its
+        // mail rather than let a duplicate be reconstructed) but staff should see it.
+        severity: statusName === "removed" ? "warning" : "info",
+        summary: `Retro: ${body2.triggerCategory ?? "update"} email linked to existing ${statusName} case (${matchedBy})`,
+        after: {
+          matchedBy,
+          keys,
+          status: statusName,
+          messageId: body2.trigger.internetMessageId
+        }
+      });
+      ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "linked", caseId: hit.id, matchedBy }));
+      return { status: 200, jsonBody: { outcome: "linked", caseId: hit.id, candidateCount: 1 } };
+    }
+    if (rows.length > 1) {
+      await writeAudit({
+        action: AUDIT_ACTION.duplicate_flagged,
+        severity: "warning",
+        summary: `Retro: ${body2.triggerCategory ?? "update"} email matched ${rows.length} cases (${matchedBy}); held for manual linking`,
+        after: { candidateCount: rows.length, matchedBy, keys, candidateIds: rows.map((r) => r.id) }
+      });
+      ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "ambiguous", count: rows.length }));
+      return { status: 200, jsonBody: { outcome: "ambiguous", candidateCount: rows.length } };
+    }
+    ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "none" }));
+    return { status: 200, jsonBody: { outcome: "none", candidateCount: 0 } };
+  })
+});
+import_functions10.app.http("internalRetroCreate", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/retro/create",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    if (!gates.retroCase()) {
+      return { status: 200, jsonBody: { outcome: "gated_off" } };
+    }
+    const body2 = await req.json();
+    const v = validateRetroCreate(body2);
+    if (!v.ok) return { status: 400, jsonBody: { error: v.code, message: v.message } };
+    const { keys, casePo, reconstructionSource } = v.value;
+    const { original, trigger } = body2;
+    const triggerProviderId = body2.providerId ?? null;
+    const vrm = ((body2.parserVrm || body2.vrm || keys.vrm || original.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
+    let poProviderId = null;
+    let principalCode = "";
+    let marker2 = "";
+    if (casePo) {
+      const wpRows = await query(
+        `SELECT id, principal_code FROM work_provider WHERE principal_code IS NOT NULL AND principal_code <> ''`
+      );
+      const match = matchPrincipalByCasePo(
+        casePo,
+        wpRows.map((r) => String(r.principal_code ?? ""))
+      );
+      if (match) {
+        principalCode = match.principal;
+        marker2 = match.marker;
+        poProviderId = wpRows.find(
+          (r) => String(r.principal_code ?? "").trim().toUpperCase() === match.principal
+        )?.id ?? null;
+      }
+    }
+    const principalResolved = Boolean(poProviderId);
+    const identityVerified = principalResolved && Boolean(casePo);
+    let status = v.value.status;
+    let onHold = v.value.onHold;
+    let actionReason = v.value.actionReason;
+    if (!identityVerified) {
+      status = "needs_review";
+      onHold = true;
+      actionReason = "needs_review";
+    }
+    const contentCaseType = caseTypeCodec.toInt(body2.caseType) != null ? body2.caseType : "standard";
+    const caseType = marker2 ? markerToCaseType(marker2) : contentCaseType;
+    const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
+    const auditGateOn = gates.auditCases();
+    const subject = (original.subject ?? "").trim();
+    const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Retro case").slice(0, 100);
+    const caseRefValue = keys.externalRef || (body2.parserRef ?? "").trim() || (!identityVerified && casePo ? casePo : "") || "";
+    const statusCode = caseStatusCodec.toInt(status) ?? statusToInt("needs_review");
+    let result;
+    try {
+      result = await tx(async (q) => {
+        await acquireTriageLocks(q, {
+          caseref: casePo ?? keys.externalRef,
+          jobref: casePo ? keys.externalRef : void 0,
+          vrm: vrm || keys.vrm
+        });
+        const existing = await findExistingCases(
+          q,
+          { ...keys, ...casePo ? { casePo } : {}, ...vrm ? { vrm } : {} },
+          poProviderId ?? triggerProviderId
+        );
+        if (existing.rows.length > 0) {
+          return { kind: "existing", rows: existing.rows, matchedBy: existing.matchedBy };
+        }
+        const cols = [
+          "name",
+          "vrm",
+          "status_code",
+          "intake_channel_kind_code",
+          "intake_channel_manual",
+          "source_mailbox",
+          "source_message_id",
+          "payload_hash",
+          "work_provider_id"
+        ];
+        const vals = [
+          name,
+          vrm || null,
+          statusCode,
+          RETRO_CHANNEL_CODE,
+          false,
+          original.sourceMailbox ?? null,
+          original.internetMessageId ?? null,
+          original.payloadHash ?? null,
+          poProviderId
+        ];
+        if (caseRefValue) {
+          cols.push("case_ref");
+          vals.push(caseRefValue);
+        }
+        if (identityVerified && casePo) {
+          cols.push("case_po");
+          vals.push(casePo);
+        }
+        if (auditGateOn && caseType !== "standard") {
+          cols.push("case_type_code");
+          vals.push(caseTypeCodec.toInt(caseType) ?? null);
+        }
+        if (onHold) {
+          cols.push("on_hold");
+          vals.push(true);
+          cols.push("action_reason_code");
+          vals.push(actionReasonCodec.toInt(actionReason ?? "needs_review") ?? null);
+        }
+        if (body2.boxFolder?.id) {
+          cols.push("box_folder_id");
+          vals.push(body2.boxFolder.id);
+          if (body2.boxFolder.url) {
+            cols.push("box_folder_url");
+            vals.push(body2.boxFolder.url);
+          }
+        }
+        const placeholders = vals.map((_, i) => `$${i + 1}`).join(", ");
+        const rows = await q(
+          `INSERT INTO case_ (${cols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
+          vals
+        );
+        const caseId2 = rows[0]?.id;
+        if (!caseId2) throw new Error("retro case insert returned no id");
+        return { kind: "created", caseId: caseId2 };
+      });
+    } catch (e) {
+      if (!isUniqueViolation(e)) throw e;
+      const rows = await query(
+        `SELECT id, case_po, case_ref, vrm, status_code FROM case_
+            WHERE ($1::text IS NOT NULL AND upper(case_po) = upper($1))
+               OR ($2::text IS NOT NULL AND source_message_id = $2)
+            ORDER BY created_at`,
+        [casePo ?? null, original.internetMessageId ?? null]
+      );
+      if (rows.length >= 1) {
+        result = { kind: "existing", rows: [rows[0]], matchedBy: "conflict_backstop" };
+      } else {
+        ctx.error("[retro/create] unique violation with no re-lookup hit");
+        return { status: 500, jsonBody: { error: "retro_conflict_unresolved" } };
+      }
+    }
+    if (result.kind === "existing") {
+      if (result.rows.length > 1) {
+        await writeAudit({
+          action: AUDIT_ACTION.duplicate_flagged,
+          severity: "warning",
+          summary: `Retro create matched ${result.rows.length} existing cases (${result.matchedBy}); held for manual linking`,
+          after: { candidateCount: result.rows.length, keys, casePo, candidateIds: result.rows.map((r) => r.id) }
+        });
+        return { status: 200, jsonBody: { outcome: "ambiguous", candidateCount: result.rows.length } };
+      }
+      const hit = result.rows[0];
+      await linkEnvelopeRow(trigger, triggerProviderId, hit.id);
+      if (reconstructionSource !== "minimal") {
+        await linkEnvelopeRow(original, poProviderId, hit.id, retroOriginalClassification(keys, casePo));
+      }
+      await writeAudit({
+        action: AUDIT_ACTION.retro_case_linked,
+        caseId: hit.id,
+        summary: `Retro: reconstruction found existing case (${result.matchedBy}); linked instead of creating`,
+        after: { matchedBy: result.matchedBy, keys, casePo, messageId: trigger.internetMessageId }
+      });
+      return {
+        status: 200,
+        jsonBody: { outcome: "already_exists_linked", caseId: hit.id, casePo: hit.case_po }
+      };
+    }
+    const caseId = result.caseId;
+    if (reconstructionSource !== "minimal") {
+      await linkEnvelopeRow(original, poProviderId, caseId, retroOriginalClassification(keys, casePo));
+    }
+    await linkEnvelopeRow(trigger, triggerProviderId, caseId);
+    await applyParserFields(
+      caseId,
+      body2.parserRef,
+      body2.parserMileage,
+      body2.parserMileageUnit,
+      body2.parserEva,
+      poProviderId,
+      null
+    );
+    await writeAudit({
+      action: AUDIT_ACTION.retro_case_created,
+      caseId,
+      summary: `Case reconstructed retroactively (${reconstructionSource}): ${name}`,
+      after: {
+        casePo: identityVerified ? casePo : null,
+        status,
+        onHold,
+        reconstructionSource,
+        boxFolderId: body2.boxFolder?.id ?? null,
+        keys,
+        triggerCategory: body2.triggerCategory ?? null,
+        triggerMessageId: trigger.internetMessageId
+      }
+    });
+    if (caseType !== "standard") {
+      await writeAudit({
+        action: AUDIT_ACTION.retro_case_created,
+        caseId,
+        summary: auditGateOn ? `Case-type '${caseType}' applied from ${marker2 ? `archive marker ${marker2}` : "content detection"}` : `Case-type '${caseType}' detected (observe-only \u2014 AUDIT_CASES_ENABLED off)`,
+        after: {
+          caseType,
+          marker: marker2,
+          signals: caseTypeSignals,
+          applied: auditGateOn,
+          allowlisted: allowedCaseTypes(principalCode).includes(caseType)
+        }
+      });
+    }
+    if (!identityVerified) {
+      await query(
+        `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
+        [
+          "Retro reconstruction",
+          caseId,
+          "Retro reconstruction (auto)",
+          (casePo ? `Reference ${casePo} is Case/PO-shaped but matches no known work-provider principal \u2014 stored as the case reference, no Case/PO set. ` : `No Case/PO could be discovered for this reconstruction. `) + `Confirm the provider and Case/PO before any further processing.`
+        ]
+      ).catch(() => {
+      });
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_routed,
+        caseId,
+        severity: "warning",
+        summary: "Retro case held \u2014 identity unverified (principal/Case-PO)",
+        after: { principalResolved, casePoKnown: Boolean(casePo), onHold: true }
+      });
+    }
+    ctx.log(JSON.stringify({ evt: "retroCreate", outcome: "created", caseId, casePo, reconstructionSource }));
+    return {
+      status: 200,
+      jsonBody: {
+        outcome: "created",
+        caseId,
+        casePo: identityVerified ? casePo : null,
+        newClient: !principalResolved
+      }
+    };
+  })
+});
+
+// api/src/functions/ai-suggestions.ts
+var import_functions11 = require("@azure/functions");
 var IMAGE_ROLE_UNKNOWN = 100000003;
-import_functions10.app.http("caseAiSuggestions", {
+import_functions11.app.http("caseAiSuggestions", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions",
@@ -13656,7 +14157,7 @@ import_functions10.app.http("caseAiSuggestions", {
     }
   })
 });
-import_functions10.app.http("reviewAiSuggestion", {
+import_functions11.app.http("reviewAiSuggestion", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "ai-suggestions/{id}/review",
@@ -13849,7 +14350,7 @@ function coerceJsonValue(v) {
     return v;
   }
 }
-import_functions10.app.http("generateAiSuggestions", {
+import_functions11.app.http("generateAiSuggestions", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions/generate",
@@ -13913,7 +14414,7 @@ async function callModelForSuggestions(_input) {
 }
 
 // api/src/functions/provider-keys.ts
-var import_functions11 = require("@azure/functions");
+var import_functions12 = require("@azure/functions");
 
 // api/src/lib/api-key-auth.ts
 var import_node_crypto6 = require("node:crypto");
@@ -13995,7 +14496,7 @@ function rowToApiKey(r) {
     lastUsedAt: iso(r.last_used_at)
   };
 }
-import_functions11.app.http("createProviderApiKey", {
+import_functions12.app.http("createProviderApiKey", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys",
@@ -14030,7 +14531,7 @@ import_functions11.app.http("createProviderApiKey", {
     return { status: 201, jsonBody: result };
   })
 });
-import_functions11.app.http("listProviderApiKeys", {
+import_functions12.app.http("listProviderApiKeys", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys",
@@ -14047,7 +14548,7 @@ import_functions11.app.http("listProviderApiKeys", {
     return { status: 200, jsonBody: rows.map(rowToApiKey) };
   })
 });
-import_functions11.app.http("revokeProviderApiKey", {
+import_functions12.app.http("revokeProviderApiKey", {
   methods: ["DELETE"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys/{keyId}",
@@ -14079,7 +14580,7 @@ import_functions11.app.http("revokeProviderApiKey", {
 });
 
 // api/src/functions/provider-intake.ts
-var import_functions12 = require("@azure/functions");
+var import_functions13 = require("@azure/functions");
 var import_node_crypto10 = require("node:crypto");
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/abort-controller/AbortError.js
@@ -53638,7 +54139,7 @@ async function persistEvidence(ctx, caseId, kind, att, sequenceIndex) {
     return false;
   }
 }
-import_functions12.app.http("providerIntakeCase", {
+import_functions13.app.http("providerIntakeCase", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "provider-intake/cases",

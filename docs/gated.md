@@ -648,6 +648,46 @@ case creation for audit emails — the deploy-order note is in the delta header)
 **Order with the parser deploy:** parser-first is safe (the new `case_type` envelope is additive and
 ignored until the gate is on); the delta is only mandatory **before the gate flip**.
 
+#### D11. Retro case reconstruction — archive roots, delta, gate flip (ADR-0022 / TKT-058)
+
+**What:** the retro fallback ([ADR-0022](./adr/0022-retroactive-case-reconstruction.md)) links or
+reconstructs cases for update/billing email that matches nothing. **R1 is built and ships dark** —
+nothing changes until you act. Activation, in order:
+
+1. **Apply the DDL delta** (any time — safe while the gate is off):
+   [`migration/assets/schema/deltas/2026-07-04-retro-case.sql`](../migration/assets/schema/deltas/2026-07-04-retro-case.sql)
+   (audit actions 100000046–48 + intake channel `retro` 100000003). Same D7/D8/D10 runbook
+   (`SET ROLE csadmin`, idempotent, `ON CONFLICT DO NOTHING`; VERIFY footer). **Mandatory before the
+   gate flip** — the retro create writes `intake_channel_kind_code = 100000003`, an FK that hard-fails
+   without the row.
+2. **Deploy** the api + orch bundles carrying the retro routes/orchestrator (`docs/azure/deploy.md`).
+3. **Flip the master gate on BOTH apps** (the API refuses honestly without it):
+   `az functionapp config appsettings set -g rg-collisionspike-dev -n cespk-api-dev --settings RETRO_CASE_ENABLED=true`
+   and the same on `cespk-orch-dev`. From then on (R1 scope): an unmatched billing/case_update/
+   cancellation/query email with a reference or registration is linked to its case **whatever the
+   case's status** (terminals included — the billing-email fix), ambiguity is flagged never guessed,
+   and un-linkable attempts are audited `retro_reconstruction_failed`. The existing un-linked pile
+   drains one email at a time via the keyed starter — see
+   [TKT-058/verification.md](./tickets/TKT-058-retro-case-creation/verification.md) step 4.
+4. **Supply the Box archive root folder id(s)** (R2 prerequisite — the REAL historical archive, NOT
+   the live mirror root): open the archive folder in the Box web app and read the id from the URL
+   (`https://app.box.com/folder/<id>`). Multiple roots (per-year/per-provider) are fine — it is a
+   comma-separated list. Also **grant the Box service account Viewer** on those roots (Box Admin
+   Console → the folder → Share → invite the service account email from the app's `Config.JSON`).
+   These become `RETRO_BOX_ARCHIVE_ROOT_IDS` (orch) + `BOX_READONLY_ROOT_IDS` (box-webhook app) at
+   the R2 deploy; the scope lock keeps them **read-only** (list/search/download — never
+   create/upload/delete).
+5. Two operator sanity checks that shape R2: eyeball 5–10 archive folders — are they named EXACTLY
+   the Case/PO (suffixed variants like `CCPY26050 - Smith` would need a flagged prefix-match arm)?
+   And do they reliably contain the original instruction **`.eml`** (if a cohort only holds PDFs,
+   the document-pick heuristic carries more weight)?
+
+**Why you:** the delta + gate flips are the D7-style owner runbook; the archive root ids + the Box
+Viewer grant + the naming/`.eml` sanity checks need your Box tenant access and knowledge of where
+the real archive lives. No new Graph grant is needed (the R3 `$search` rides the existing
+`Mail.Read` RBAC scope on info@/engineers@/desk@; the 30min–2h Exchange permission cache only
+matters if you ever widen the mailbox set).
+
 #### D5. Rotate the parser Function key  ·  *soft security item*
 
 **What:** a parser **function key** value was once committed in source + a doc (both removed/scrubbed), but
