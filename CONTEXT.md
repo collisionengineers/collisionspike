@@ -109,6 +109,27 @@ An inbound email reporting a claim/case cancelled or closed. Matched to its Case
 `removed`).
 _Avoid_: Closure, Cancelled (as a case status name)
 
+**Retro case / Retroactive reconstruction** _(ADR-0022 / TKT-058)_:
+A Case created **after the fact** for real-world work the system never saw (it predates go-live or
+was missed), triggered by an un-linkable billing / case-update / cancellation / query email. The
+gated fallback ladder links to an existing case first (ANY status, terminals included), else
+reconstructs from the **Box archive** (the folder name IS the Case/PO; the archived original
+instruction `.eml` runs the normal parse/create pipeline) or an **Outlook search**. Provenance:
+intake channel `retro` — never disguised as an email arrival. The Case/PO is **discovered, never
+minted** on this path.
+_Avoid_: Backfill (that's the not-built bulk sweep), Audit case (a different, taken term)
+
+**Archive root (read-only)** _(ADR-0022)_:
+Operator-supplied Box folder id(s) holding the REAL historical case folders — distinct from the
+live mirror root. The Box scope lock treats them as **read-only**: list/search/download only;
+nothing is ever created, uploaded, or deleted under them (the one-way-mirror doctrine).
+_Avoid_: pointing `BOX_FOLDER_ROOT_ID` at them (that's the live RW mirror root)
+
+**Reconstruction ladder** _(ADR-0022)_:
+The retro fallback's ordered rungs: link-to-existing (any status) → Box archive → Outlook `$search`
+→ minimal Held anchor (archive folder found but nothing parseable) → nothing (triage row untouched
++ a `retro_reconstruction_failed` audit). Each rung honest-skips when its gate is off.
+
 **Case Type** _(ADR-0014 / ADR-0021)_:
 The kind of work a Case is, orthogonal to its status: `standard`, `audit`, `audit total loss`, or
 `diminution`. Carried on the Case/PO as a **marker** prefix. NOT the same thing as a case's

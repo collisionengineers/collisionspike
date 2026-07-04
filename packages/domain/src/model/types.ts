@@ -167,8 +167,20 @@ export interface OverviewFacts {
 }
 
 /* ----------  Intake channel  ---------- */
-export type IntakeChannelKind = 'email' | 'whatsapp';
+/** How a Case entered the system. Append-only, mirroring choice_intake_channel_kind:
+ *  `provider_api` = the machine-to-machine channel (ADR-0020); `retro` = a case
+ *  reconstructed after the fact from the Box archive / Outlook search (ADR-0022). */
+export type IntakeChannelKind = 'email' | 'whatsapp' | 'provider_api' | 'retro';
 export type IntakeChannelMode = 'auto' | 'manual';
+
+/** Display labels for the channel chips — one source so a render site can never
+ *  silently mislabel a newer channel as 'Email' again. */
+export const INTAKE_CHANNEL_LABELS: Readonly<Record<IntakeChannelKind, string>> = {
+  email: 'Email',
+  whatsapp: 'WhatsApp',
+  provider_api: 'Provider API',
+  retro: 'Retro (reconstructed)',
+};
 export interface IntakeChannel {
   kind: IntakeChannelKind;
   mode: IntakeChannelMode;

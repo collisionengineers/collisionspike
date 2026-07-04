@@ -74,6 +74,7 @@ import {
   queueByName,
   data,
   useQueueQuery,
+  INTAKE_CHANNEL_LABELS,
   type ActionReason,
   type Case,
   type CaseStatus,
@@ -710,7 +711,7 @@ export function CaseList() {
         renderHeaderCell: () => 'Ch.',
         renderCell: (c) => {
           const isWhatsapp = c.channel.kind === 'whatsapp';
-          const label = isWhatsapp ? 'WhatsApp' : 'Email';
+          const label = INTAKE_CHANNEL_LABELS[c.channel.kind] ?? 'Email';
           // Same guard as the peek drawer: the seam sometimes carries an
           // internal mailbox ID here — internal ids never render (CONTEXT.md).
           const mailbox = c.channel.sourceMailbox?.includes('@')

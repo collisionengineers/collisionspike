@@ -60,9 +60,12 @@ wrapped, gates default-off on BOTH apps (`RETRO_CASE_ENABLED`; R3 additionally
   fan-out, key ladder); corroboration REQUIRED (key in message text, or parsed ref/VRM
   agreement) — uncorroborated hits create NOTHING; Outlook-only reconstructions land Held
   with NO Case/PO (never mint).
-- [ ] **R4 — provenance display + docs closure**: widen `intakeChannelKindCodec` +
-  `intake-channel.json` (provider_api + retro), SPA channel chip, CONTEXT.md glossary,
-  LIVE_FACTS gate registration at deploy.
+- [x] **R4 — provenance display + docs closure** *(built 2026-07-04)*: `IntakeChannelKind`
+  union + `INTAKE_CHANNEL_LABELS` widened to `provider_api`/`retro` (model +
+  `intakeChannelKindCodec` + `intake-channel.json` — fixes the pre-existing lag where a
+  provider-API case displayed as "Email"), the three SPA channel render sites moved onto
+  the shared label map, CONTEXT.md glossary (Retro case, Archive root (read-only),
+  Reconstruction ladder). LIVE_FACTS gate registration happens at the D11 deploy.
 
 Change-by-change audit trail: [changes.md](./changes.md) · smoke steps: [verification.md](./verification.md).
 

@@ -204,6 +204,9 @@ export interface CaseAssembly {
 export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
   const now = opts.now ?? new Date();
   const createdAt = toDmy(rec.created_at) ?? '';
+  // The codec union covers provider_api + retro (R4, ADR-0022), so the 'email' fallback
+  // now only masks a genuinely-NULL channel code — a real channel always maps honestly
+  // (a retro-reconstructed case must never masquerade as an email arrival).
   const channelKind = intakeChannelKindCodec.toName(rec.intake_channel_kind_code) ?? 'email';
   const actionReason = actionReasonCodec.toName(rec.action_reason_code ?? undefined);
   const dateDue = toDmy(rec.date_due);

@@ -1,5 +1,21 @@
 # TKT-058 — changes log
 
+## 2026-07-04 — R4 built (provenance display + docs closure)
+
+- `packages/domain`: `IntakeChannelKind` widened to `email|whatsapp|provider_api|retro`
+  (+ the shared `INTAKE_CHANNEL_LABELS` map); `intakeChannelKindCodec` union widened;
+  `intake-channel.json` +2 options (parity with the canonical DDL — also fixes the
+  pre-existing lag where a provider_api case decoded to the 'email' fallback).
+- `api/src/lib/mappers.ts`: fallback-semantics note (the 'email' default now only masks a
+  genuinely-NULL channel code).
+- SPA: CasePeekDrawer / CaseDetail / CaseList channel chips moved off the hardcoded
+  `whatsapp ? 'WhatsApp' : 'Email'` ternaries onto `INTAKE_CHANNEL_LABELS` (a retro or
+  provider-API case now reads honestly).
+- `CONTEXT.md`: glossary — Retro case / Retroactive reconstruction, Archive root
+  (read-only), Reconstruction ladder.
+- LIVE_FACTS/live-environment untouched on purpose: everything ships dark; the gates +
+  applied-delta get registered there at the D11 deploy.
+
 ## 2026-07-04 — R3 built (Outlook `$search` fallback rung; ships dark)
 
 - `orchestration/src/lib/graph.ts`: `kqlPhrase` + `searchMessages` — Graph messages

@@ -115,7 +115,7 @@ import {
   type PipelineStageKey,
   type SuggestedAddress,
 } from '../data';
-import { resolveInspectionDecision, buildEvaJson } from '@cs/domain';
+import { resolveInspectionDecision, buildEvaJson, INTAKE_CHANNEL_LABELS } from '@cs/domain';
 import { GLOBAL_TOASTER_ID } from '../components';
 import { LinkedEmailsPanel } from '../components/LinkedEmailsPanel';
 // Gated AI "Assistant" surface (TKT-015). Self-contained: renders NOTHING unless
@@ -1422,7 +1422,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
             </Badge>
           )}
           <Badge appearance="outline" color="informative" shape="rounded">
-            {c.channel.kind === 'whatsapp' ? 'WhatsApp' : 'Email'} · {c.channel.mode}
+            {INTAKE_CHANNEL_LABELS[c.channel.kind] ?? 'Email'} · {c.channel.mode}
           </Badge>
           <span className={styles.metaChip}>
             <Clock size={13} strokeWidth={2} /> {c.ageDays}d old

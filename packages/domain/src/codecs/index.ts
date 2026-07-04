@@ -102,9 +102,9 @@ export const actionReasonCodec = makeChoiceCodec<ActionReason>(actionReasonChoic
 export const inspectionDecisionCodec = makeChoiceCodec<Case['inspectionDecision']>(
   inspectionDecisionChoiceSet as ChoiceSet,
 );
-export const intakeChannelKindCodec = makeChoiceCodec<'email' | 'whatsapp'>(
-  intakeChannelChoiceSet as ChoiceSet,
-);
+export const intakeChannelKindCodec = makeChoiceCodec<
+  'email' | 'whatsapp' | 'provider_api' | 'retro'
+>(intakeChannelChoiceSet as ChoiceSet);
 /** The choice set carries an `other` value the domain EvidenceKind union lacks
  *  (data-model.md adds it at the data layer); type the codec over the superset. */
 export const evidenceKindCodec = makeChoiceCodec<EvidenceKind | 'other'>(

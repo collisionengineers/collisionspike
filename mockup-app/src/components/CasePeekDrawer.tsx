@@ -22,7 +22,7 @@ import {
   Play,
   X,
 } from 'lucide-react';
-import type { Case } from '@cs/domain';
+import { INTAKE_CHANNEL_LABELS, type Case } from '@cs/domain';
 import { data, dueInfo, useCaseQuery, useLogChase } from '../data';
 import { computeReadiness } from './readiness';
 import { VrmPlate } from './VrmPlate';
@@ -445,7 +445,7 @@ export function CasePeekDrawer({
               <FieldRow label="Due">{due?.dueText ?? 'No due date'}</FieldRow>
               <FieldRow label="Channel">
                 <span>
-                  {c.channel.kind === 'whatsapp' ? 'WhatsApp' : 'Email'}
+                  {INTAKE_CHANNEL_LABELS[c.channel.kind] ?? 'Email'}
                   {c.channel.mode === 'manual' ? ' (manual)' : ''}
                 </span>
                 {/* The seam sometimes carries an internal mailbox ID here, not

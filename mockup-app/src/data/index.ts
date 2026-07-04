@@ -96,6 +96,7 @@ export {
   outstandingText,
   dueInfo,
   suggestCasePo,
+  INTAKE_CHANNEL_LABELS,
   type DueTone,
   type DueInfo,
   type CasePoSuggestion,
