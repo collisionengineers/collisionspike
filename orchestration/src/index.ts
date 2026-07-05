@@ -43,3 +43,4 @@ import './functions/gated/box-blob-purge.js';
 import './functions/gated/case-disposition.js';
 import './functions/gated/jobsheet-import.js';
 import './functions/gated/retro-case.js'; // retro case reconstruction (ADR-0022; RETRO_CASE_ENABLED)
+import './functions/gated/replay-backfill.js'; // replay wipe&rebuild driver (TKT-059; REPLAY_BACKFILL_ENABLED)
