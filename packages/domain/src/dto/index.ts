@@ -622,8 +622,10 @@ export interface DataAccess {
   providers(): Promise<Provider[]>;
   providerByCode(code: string): Promise<Provider | undefined>;
 
-  /* ----- Inspection-address suggestions (corpus; ALWAYS suggestions) ----- */
-  inspectionAddressSuggestions(caseId: string): Promise<SuggestedAddress[]>;
+  /* ----- Inspection-address suggestions (corpus; ALWAYS suggestions) -----
+     No `q` → the ranked, provider-scoped SHORTLIST; `q` → a search across the whole
+     corpus (so staff can still reach any of the ~2,200 addresses). TKT-062. */
+  inspectionAddressSuggestions(caseId: string, q?: string): Promise<SuggestedAddress[]>;
   inspectionAddressCounts(): Promise<InspectionAddressCounts>;
   saveInspectionDecision(
     caseId: string,

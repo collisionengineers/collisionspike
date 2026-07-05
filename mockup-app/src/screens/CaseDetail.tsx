@@ -344,6 +344,11 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground3,
     fontStyle: 'italic',
   },
+  /* Search-the-corpus input above the suggestion shortlist (TKT-062). */
+  addrSearch: {
+    width: '100%',
+    marginBottom: tokens.spacingVerticalXS,
+  },
   suggestRow: {
     display: 'flex',
     alignItems: 'flex-start',
@@ -738,8 +743,13 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   // Low-confidence inspection-address SUGGESTIONS for this case (corpus). Always
   // surfaced strictly as suggestions; picking one copies it into the manual draft
   // and sets the decision to manual — it NEVER auto-confirms or sets image_based.
-  const suggestionsQuery = useInspectionAddressSuggestions(caseData.id);
+  // Search term for the inspection-address corpus. Empty = the ranked shortlist
+  // (≤8); ≥2 chars searches the whole ~2,200-row corpus (TKT-062 — the picker used
+  // to dump every row). The server ignores <2 chars, so typing "" restores the shortlist.
+  const [addrSearch, setAddrSearch] = useState('');
+  const suggestionsQuery = useInspectionAddressSuggestions(caseData.id, addrSearch);
   const suggestions = suggestionsQuery.data ?? [];
+  const addrSearching = addrSearch.trim().length >= 2;
 
   // Live location-assist (Phase 4a) — a reviewer-invoked action that PROPOSES
   // candidate inspection locations from the case's own photos + text clues. Gated
@@ -1798,6 +1808,25 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                           </Button>
                         )}
                       </div>
+
+                      {/* Search the full corpus — the list otherwise shows only the ranked
+                          provider shortlist (TKT-062). Typing ≥2 chars queries all ~2,200. */}
+                      <Input
+                        size="small"
+                        value={addrSearch}
+                        onChange={(_e, d) => setAddrSearch(d.value)}
+                        contentBefore={<Search size={14} />}
+                        placeholder="Search all locations…"
+                        aria-label="Search all inspection locations"
+                        className={styles.addrSearch}
+                      />
+                      {addrSearching && (
+                        <Caption1 className={styles.assistNoResult}>
+                          {suggestions.length === 0
+                            ? `No locations match “${addrSearch.trim()}”.`
+                            : `${suggestions.length} match${suggestions.length === 1 ? '' : 'es'} — showing the closest.`}
+                        </Caption1>
+                      )}
 
                       {/* Live-assist candidates render through the SAME row as the
                           corpus suggestions (identical "Suggested" badge, evidence

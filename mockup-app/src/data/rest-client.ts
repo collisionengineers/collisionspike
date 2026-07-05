@@ -293,9 +293,12 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       call<Provider>('PATCH', `/api/providers/${enc(idOrCode)}`, input),
 
     /* ----- Inspection-address suggestions (honest [] on failure) ----- */
-    inspectionAddressSuggestions: (id) =>
+    inspectionAddressSuggestions: (id, q) =>
       safe(
-        () => get<SuggestedAddress[]>(`/api/cases/${enc(id)}/inspection-suggestions`),
+        () =>
+          get<SuggestedAddress[]>(
+            `/api/cases/${enc(id)}/inspection-suggestions${q ? `?q=${enc(q)}` : ''}`,
+          ),
         [],
       ),
     inspectionAddressCounts: () =>

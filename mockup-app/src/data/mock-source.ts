@@ -405,7 +405,7 @@ export const mockDataAccess: DataAccessExt = {
     Promise.reject(new Error(NOT_CONFIGURED)),
 
   /* ----- Inspection-address suggestions (corpus; empty default) ----- */
-  inspectionAddressSuggestions: (_caseId) => Promise.resolve([]),
+  inspectionAddressSuggestions: (_caseId, _q) => Promise.resolve([]),
   inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
   // Honest no-op: the empty default writes nothing (the live REST source, backed by
   // the Postgres `inspection_address` table, is injected at startup). The CaseDetail

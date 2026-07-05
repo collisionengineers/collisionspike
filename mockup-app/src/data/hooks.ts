@@ -143,12 +143,18 @@ export function useProviders(): QueryState<Provider[]> {
 /** Low-confidence inspection-address suggestions for a case (corpus; ALWAYS suggestions). */
 export function useInspectionAddressSuggestions(
   caseId: string | undefined,
+  q?: string,
 ): QueryState<SuggestedAddress[]> {
+  // Trimmed search term; <2 chars means "shortlist" (the server ignores it too).
+  const term = (q ?? '').trim();
   const run = useCallback(
-    () => (caseId ? getDataAccess().inspectionAddressSuggestions(caseId) : Promise.resolve([])),
-    [caseId],
+    () =>
+      caseId
+        ? getDataAccess().inspectionAddressSuggestions(caseId, term.length >= 2 ? term : undefined)
+        : Promise.resolve([]),
+    [caseId, term],
   );
-  return useAsync(run, [caseId]);
+  return useAsync(run, [caseId, term]);
 }
 
 /** Confirmed-vs-suggested split of the inspection-address corpus (Admin count). */

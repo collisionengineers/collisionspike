@@ -282,7 +282,11 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground1,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     borderRadius: tokens.borderRadiusMedium,
-    overflow: 'hidden',
+    // Clip vertically (rounded corners + body scroll) but allow horizontal scroll so the
+    // right-most actions column (the "…" menu) is never clipped when the preview sidebar
+    // narrows the grid pane below the columns' total width.
+    overflowX: 'auto',
+    overflowY: 'hidden',
     flex: '1 1 auto',
     minWidth: 0,
   },
@@ -513,6 +517,8 @@ const useStyles = makeStyles({
     justifyContent: 'flex-end',
     gap: '2px',
     width: '100%',
+    // Keep the "…" trigger a few px off the clipped right edge of the column.
+    paddingRight: '6px',
   },
   quickActions: {
     display: 'inline-flex',
@@ -1179,19 +1185,10 @@ export function Inbox() {
                       />
                     </Tooltip>
                   )}
-                  {e.triageState !== 'actioned' && (
-                    <Tooltip content="Mark actioned" relationship="label">
-                      <Button
-                        appearance="subtle"
-                        size="small"
-                        className={styles.quickActionBtn}
-                        icon={<CheckCircle2 size={16} />}
-                        aria-label={`Mark “${e.subject || e.fromAddress}” as actioned`}
-                        data-row-id={e.id}
-                        onClick={() => void setTriage(e, 'actioned')}
-                      />
-                    </Tooltip>
-                  )}
+                  {/* "Mark actioned" lives in the overflow menu only — keeping the hover
+                      cluster at ≤2 quick actions + the "…" trigger means it always fits the
+                      actions column (the "…" was being clipped when a 4th button overflowed
+                      a narrowed pane). */}
                   {e.triageState !== 'dismissed' && (
                     <Tooltip content="Dismiss" relationship="label">
                       <Button

@@ -34,7 +34,20 @@ import {
 const CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt('confirmed_physical'); // 100000000
 const IMAGE_BASED = inspectionDecisionCodec.toInt('image_based'); // 100000002
 
-// 11 — GET /api/cases/{id}/inspection-suggestions   (honest [])
+/** Default shortlist size — the corpus is ~2,200 rows, so returning the whole set
+ *  buried the picker (TKT-062). Staff see a ranked shortlist; "?q=" searches the rest. */
+const SHORTLIST_LIMIT = 8;
+const SEARCH_LIMIT = 25;
+
+/** Case-insensitive substring match over an address's lines + postcode. */
+function addressMatches(a: SuggestedAddress, needle: string): boolean {
+  const hay = `${a.lines.join(' ')} ${a.postcode}`.toLowerCase();
+  return hay.includes(needle);
+}
+
+// 11 — GET /api/cases/{id}/inspection-suggestions[?q=]   (honest [])
+//   no q  → the ranked, provider-scoped SHORTLIST (≤ SHORTLIST_LIMIT)
+//   ?q=…  → a search across the WHOLE suggestion corpus (≤ SEARCH_LIMIT), still ranked
 app.http('inspectionAddressSuggestions', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -42,23 +55,32 @@ app.http('inspectionAddressSuggestions', {
   handler: withRole('CollisionSpike.User', async (req) => {
     try {
       const id = req.params.id;
-      // Scope by the leading-alpha PRINCIPAL parsed from the Case/PO (typically 4 chars; 2–5 observed).
-      const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [id]);
-      const providerCode = (
-        (caseRows[0]?.case_po ?? '').trim().match(/^[A-Za-z]+/)?.[0] ?? ''
-      ).toUpperCase();
+      const q = (req.query.get('q') ?? '').trim().toLowerCase();
 
       const rows = await query<Row>(
         "SELECT * FROM inspection_address WHERE source_label LIKE 'suggested%'",
       );
-      const all = rows
-        .filter(isSuggestedAddressRow)
-        .map(rowToSuggestedAddress) as SuggestedAddress[];
-      if (!providerCode) return { status: 200, jsonBody: sortSuggestions(all) };
-      const scoped = all.filter(
-        (s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode,
+      const all = sortSuggestions(
+        rows.filter(isSuggestedAddressRow).map(rowToSuggestedAddress) as SuggestedAddress[],
       );
-      return { status: 200, jsonBody: sortSuggestions(scoped.length > 0 ? scoped : all) };
+
+      // Search mode: substring over the full corpus, still ranked, capped.
+      if (q.length >= 2) {
+        return { status: 200, jsonBody: all.filter((a) => addressMatches(a, q)).slice(0, SEARCH_LIMIT) };
+      }
+
+      // Shortlist mode: scope by the leading-alpha PRINCIPAL parsed from the Case/PO
+      // (typically 4 chars; 2–5 observed), then cap. When the provider scope yields
+      // nothing, fall back to the global top-N (NOT the whole corpus — that was the bug).
+      const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [id]);
+      const providerCode = (
+        (caseRows[0]?.case_po ?? '').trim().match(/^[A-Za-z]+/)?.[0] ?? ''
+      ).toUpperCase();
+      const scoped = providerCode
+        ? all.filter((s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode)
+        : all;
+      const shortlist = (scoped.length > 0 ? scoped : all).slice(0, SHORTLIST_LIMIT);
+      return { status: 200, jsonBody: shortlist };
     } catch {
       return { status: 200, jsonBody: [] }; // honest-empty on any failure
     }
