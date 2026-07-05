@@ -32,6 +32,21 @@ Connected `SET ROLE csadmin` (RLS bypass — non-admin reads return false zeros,
   (209/212 still change). Conclusion: the divergence is real (data is stale) but the bare classifier
   route over-corrects, so the reprocess must run through the FULL live pipeline and be validated against
   a labelled sample (the P2 fix-wave) BEFORE any write. Reprocess is BLOCKED on P2.
+- **P2 RESOLUTION (2026-07-05) — Finding 2 was largely a DIAGNOSTIC ARTIFACT; the classifier is sound.**
+  Ran the eval harness (`scripts/eval-email/run_eval.py --taxonomy v2`) over the committed FULL `.eml`
+  samples (with attachments) that back the misclass tickets: **`receiving_work` recall = 94% (16/17)** and
+  the confusion matrix shows new-work does NOT collapse. The reprocess-diff's "62% change / 188→2
+  receiving_work" was caused by feeding the classifier **no attachment signal and a truncated body** — its
+  Rule 1 promotes new-work via the instruction-doc attachment, which the DB-field-only diff lacked. So: the
+  classifier does NOT need an emergency fix; the STORED classifications (ingested with the full email) are
+  largely CORRECT; a faithful reprocess needs full-email input (parse the stored `.eml`, available for the
+  ~212 case-linked emails) and would make only MODEST correct changes (chiefly adding taxonomy-v2
+  `case_update`/`cancellation` labels to the pre-2026-07-03 emails that predate that engine). The reprocess
+  is therefore **SAFE (not corrupting) but low-value** — no longer urgent. Genuine classifier gaps are the
+  8 documented eval mismatches (ref-gate/`images_received` cases + operator-blocked TKT-032 routing), most
+  handled at the triage-policy layer, not the base classifier. **Reprocess UN-blocked; re-scoped to
+  optional full-`.eml` reprocess of the case-linked subset — operator decision on whether the modest gain
+  is worth it.**
 
 ## P3 — wipe & rebuild
 - [ ] pg_dump taken + row counts verified against live (RLS-safe).
