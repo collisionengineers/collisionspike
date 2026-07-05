@@ -56,6 +56,13 @@ docs/plans/
 (docs/open-questions.md — consolidated decisions register, outside this tree)
 ```
 
+> **[go-live/](./go-live/README.md) — the go-live sprint's P8 deliverable.** The ordered cutover
+> [runbook](./go-live/runbook.md), the [readiness matrix](./go-live/readiness-matrix.md) (every gate ×
+> value × target × owner), [day-0 smoke](./go-live/day0-smoke.md), [rollback](./go-live/rollback.md),
+> [support playbook](./go-live/support-playbook.md), and the consolidated
+> [operator checklist](./go-live/operator-checklist.md). Cross-cutting (not a single phase); go-live
+> itself stays operator-triggered.
+
 > **`to-integrate-into-phases/` is a drop-zone — distil, then remove.** `to-integrate-into-phases/` holds
 > **shorthand operator notes** awaiting distillation into the phase structure. The standing convention: a note
 > is distilled into the relevant `plans/`, ADR, and `docs/`, then the **note stub is removed** from the
