@@ -5,21 +5,24 @@
  *
  * The SPA fetches this WITH the MSAL bearer and turns the response into a `blob:` URL for
  * an <img> (CSP `img-src 'self' data: blob:` allows blob:, and an <img> can't carry the
- * bearer, so a same-origin authenticated fetch → objectURL is the CSP-legal path). Blob is
- * the primary source (extracted/uploaded images land in cespkevidstdev01); Box-only evidence
- * (no storage_path) returns 404 and the UI keeps its "Open in Archive" deep link.
- * RLS-scoped staff like every route.
+ * bearer, so a same-origin authenticated fetch → objectURL is the CSP-legal path). Source
+ * order: the local blob (cespkevidstdev01) first, then — for the ~39% of evidence that is
+ * Box-only (archived, no local blob) — the archived copy proxied via the box-fn facade
+ * (GET box/files/{id}/content, base64-in-JSON, size-capped). Only when BOTH are unavailable
+ * does it 404 and the UI keeps its "Open in Archive" deep link. RLS-scoped staff.
  */
 
 import { app, type HttpRequest, type InvocationContext } from '@azure/functions';
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
 import { downloadEvidenceBytes } from '../lib/blob.js';
+import { downloadBoxFileContent } from '../lib/functions-client.js';
 
 interface EvidenceRow {
   storage_path: string | null;
   content_type: string | null;
   file_name: string | null;
+  box_file_id: string | null;
   [key: string]: unknown;
 }
 
@@ -33,18 +36,29 @@ app.http('evidenceContent', {
     if (!id) return { status: 400, jsonBody: { error: 'evidence id required' } };
     try {
       const rows = await query<EvidenceRow>(
-        'SELECT storage_path, content_type, file_name FROM evidence WHERE id = $1',
+        'SELECT storage_path, content_type, file_name, box_file_id FROM evidence WHERE id = $1',
         [id],
       );
       const row = rows[0];
       if (!row) return { status: 404, jsonBody: { error: 'not found' } };
-      if (!row.storage_path) {
-        // Box-only artifact (or bytes never landed) — no inline preview; UI falls back.
-        return { status: 404, jsonBody: { error: 'no inline content' } };
+
+      // Prefer the local blob; fall back to the archived Box copy when there is no blob
+      // (~39% of evidence is Box-only). Box transport is base64-in-JSON and size-capped in
+      // the box-fn, so large files return undefined here and the UI keeps its Archive link.
+      let bytes: Buffer | undefined;
+      let contentType = row.content_type || 'application/octet-stream';
+      if (row.storage_path) {
+        const blob = await downloadEvidenceBytes(row.storage_path);
+        if (blob) {
+          bytes = blob.bytes;
+          contentType = blob.contentType || contentType;
+        }
       }
-      const blob = await downloadEvidenceBytes(row.storage_path);
-      if (!blob) return { status: 404, jsonBody: { error: 'bytes unavailable' } };
-      const contentType = blob.contentType || row.content_type || 'application/octet-stream';
+      if (!bytes && row.box_file_id) {
+        const boxRes = await downloadBoxFileContent(row.box_file_id);
+        if (boxRes) bytes = boxRes.bytes; // content-type from the evidence row
+      }
+      if (!bytes) return { status: 404, jsonBody: { error: 'no inline content' } };
       return {
         status: 200,
         headers: {
@@ -53,7 +67,7 @@ app.http('evidenceContent', {
           'Cache-Control': 'private, max-age=300',
           'Content-Disposition': `inline; filename="${(row.file_name ?? 'evidence').replace(/[^A-Za-z0-9._-]+/g, '_')}"`,
         },
-        body: blob.bytes,
+        body: bytes,
       };
     } catch (e) {
       ctx.warn(`[evidence/content] ${e instanceof Error ? e.message : String(e)}`);

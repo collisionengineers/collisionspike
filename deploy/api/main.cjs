@@ -12003,6 +12003,23 @@ async function listBoxFolderNames(folderId) {
   }
   return names;
 }
+async function downloadBoxFileContent(fileId) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) return void 0;
+  try {
+    const res = await callFn(
+      base,
+      key,
+      "GET",
+      `/api/box/files/${encodeURIComponent(fileId)}/content`
+    );
+    if (!res?.contentBase64) return void 0;
+    return { bytes: Buffer.from(res.contentBase64, "base64"), filename: res.filename };
+  } catch {
+    return void 0;
+  }
+}
 
 // api/src/functions/cases.ts
 var pad2 = (n) => String(n).padStart(2, "0");
@@ -53912,17 +53929,25 @@ import_functions12.app.http("evidenceContent", {
     if (!id) return { status: 400, jsonBody: { error: "evidence id required" } };
     try {
       const rows = await query(
-        "SELECT storage_path, content_type, file_name FROM evidence WHERE id = $1",
+        "SELECT storage_path, content_type, file_name, box_file_id FROM evidence WHERE id = $1",
         [id]
       );
       const row = rows[0];
       if (!row) return { status: 404, jsonBody: { error: "not found" } };
-      if (!row.storage_path) {
-        return { status: 404, jsonBody: { error: "no inline content" } };
+      let bytes;
+      let contentType2 = row.content_type || "application/octet-stream";
+      if (row.storage_path) {
+        const blob = await downloadEvidenceBytes(row.storage_path);
+        if (blob) {
+          bytes = blob.bytes;
+          contentType2 = blob.contentType || contentType2;
+        }
       }
-      const blob = await downloadEvidenceBytes(row.storage_path);
-      if (!blob) return { status: 404, jsonBody: { error: "bytes unavailable" } };
-      const contentType2 = blob.contentType || row.content_type || "application/octet-stream";
+      if (!bytes && row.box_file_id) {
+        const boxRes = await downloadBoxFileContent(row.box_file_id);
+        if (boxRes) bytes = boxRes.bytes;
+      }
+      if (!bytes) return { status: 404, jsonBody: { error: "no inline content" } };
       return {
         status: 200,
         headers: {
@@ -53931,7 +53956,7 @@ import_functions12.app.http("evidenceContent", {
           "Cache-Control": "private, max-age=300",
           "Content-Disposition": `inline; filename="${(row.file_name ?? "evidence").replace(/[^A-Za-z0-9._-]+/g, "_")}"`
         },
-        body: blob.bytes
+        body: bytes
       };
     } catch (e) {
       ctx.warn(`[evidence/content] ${e instanceof Error ? e.message : String(e)}`);
