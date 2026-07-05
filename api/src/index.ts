@@ -18,6 +18,7 @@ import './functions/inbound.js';
 import './functions/proxy.js';
 import './functions/internal.js';
 import './functions/internal-retro.js';
+import './functions/assistant.js'; // AI chat helper (TKT-060; AI_CHAT_ENABLED)
 import './functions/ai-suggestions.js';
 import './functions/provider-keys.js';
 import './functions/provider-intake.js';

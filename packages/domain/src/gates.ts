@@ -34,6 +34,11 @@ export const gates = {
   // suggestion surface + the server-side model call path; honest no-op while off
   // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
   aiAssist: (): boolean => process.env.AI_ASSIST_ENABLED === 'true',
+  // AI chat helper (TKT-060) — default OFF. Gates the read-only assistant drawer + its
+  // POST /api/assistant/chat route. Distinct from aiAssist (the suggestion layer): this is
+  // a conversational Q&A surface with READ-ONLY tools only. Needs a model endpoint +
+  // deployment (see aiChatConfigured) in addition to this switch.
+  aiChat: (): boolean => process.env.AI_CHAT_ENABLED === 'true',
 
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: (): boolean => process.env.BOX_API_ENABLED === 'true',               // #22
@@ -113,6 +118,14 @@ export const gates = {
    */
   aiAssistConfigured: (): boolean =>
     gates.aiModelEndpoint() !== '' && gates.aiModelDeployment() !== '',
+
+  /**
+   * Derived: the AI chat helper is actionable — the gate is ON and a model endpoint +
+   * deployment are configured. Used by GET /api/gates/ai-chat + the chat route's honest
+   * refusal (TKT-060).
+   */
+  aiChatEnabled: (): boolean =>
+    gates.aiChat() && gates.aiModelEndpoint() !== '' && gates.aiModelDeployment() !== '',
 
   /**
    * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
