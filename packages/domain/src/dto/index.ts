@@ -380,6 +380,22 @@ export const AI_ASSIST_GATE_ALL_OFF: AiAssistGate = {
   modelConfigured: false,
 };
 
+/** One turn in the AI chat helper transcript (TKT-060). */
+export interface AssistantChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+/** The assistant's reply to POST /api/assistant/chat. */
+export interface AssistantReply {
+  reply: string;
+  /** Names of the read-only tools the assistant used (for a subtle "looked up …" hint). */
+  toolsUsed?: string[];
+  /** True when the gate is off (the SPA hides the drawer anyway, but be defensive). */
+  disabled?: boolean;
+  /** True when the server hit an error and returned a graceful apology. */
+  error?: boolean;
+}
+
 /** The Outlook-move gate, read by the SPA via GET /api/gates/outlook-move (TKT-054 /
  *  020726 E6). `enabled` is the actionable state the "Suggested action" button keys on:
  *  OUTLOOK_MOVE_ENABLED is on AND the move queue is configured. While false the SPA

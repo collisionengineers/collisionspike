@@ -46,6 +46,8 @@ import type {
   AiSuggestionReviewResult,
   GenerateAiSuggestionsResult,
   AiAssistGate,
+  AssistantChatTurn,
+  AssistantReply,
   OutlookMoveGate,
   ProviderApiKey,
   CreateProviderApiKeyInput,
@@ -151,6 +153,10 @@ export interface DataAccessExt extends DataAccess {
   generateAiSuggestions(caseId: string): Promise<GenerateAiSuggestionsResult>;
   /** The AI-assist feature gate (honest all-off on failure) — the SPA panel keys on `enabled`. */
   getAiAssistGate(): Promise<AiAssistGate>;
+  /** AI chat helper (TKT-060): send the turn history, get the assistant's reply. */
+  assistantChat(messages: AssistantChatTurn[]): Promise<AssistantReply>;
+  /** The AI-chat feature gate (honest { enabled:false } on failure). */
+  getAiChatGate(): Promise<{ enabled: boolean }>;
 
   /* ----- Inbound suggestion affordance — ref-gate (rules-engine-v2 Phase 2) -----
      Distinct from `aiSuggestions` above (case-scoped): keyed by the INBOUND EMAIL
@@ -408,6 +414,9 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       post<GenerateAiSuggestionsResult>(`/api/cases/${enc(id)}/ai-suggestions/generate`),
     getAiAssistGate: () =>
       safe(() => get<AiAssistGate>('/api/gates/ai-assist'), { ...AI_ASSIST_GATE_ALL_OFF }),
+    assistantChat: (messages) =>
+      call<AssistantReply>('POST', '/api/assistant/chat', { messages }),
+    getAiChatGate: () => safe(() => get<{ enabled: boolean }>('/api/gates/ai-chat'), { enabled: false }),
 
     /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */
     inboundSuggestions: (id) =>

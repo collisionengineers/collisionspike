@@ -140,6 +140,8 @@ export type {
   AiSuggestionReviewResult,
   GenerateAiSuggestionsResult,
   AiAssistGate,
+  AssistantChatTurn,
+  AssistantReply,
 } from '@cs/domain';
 // The seam's EXTENDED DataAccess (frozen @cs/domain DataAccess + the work-todo-spike
 // methods). `getDataAccess()` returns this; screens that type-annotate use it.
@@ -322,6 +324,7 @@ export {
   useProviderUpdate,
   // AI suggestion layer hooks (TKT-015) — gate, list, review, generate.
   useAiAssistGate,
+  useAiChatGate,
   useAiSuggestions,
   useReviewAiSuggestion,
   useGenerateAiSuggestions,

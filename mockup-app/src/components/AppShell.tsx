@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Avatar,
+  Button,
   SearchBox,
   Tooltip,
   makeStyles,
@@ -22,9 +23,11 @@ import {
   LayoutDashboard,
   Inbox,
   Menu,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
-import { QUEUES, data, type QueueName } from '../data';
+import { QUEUES, data, useAiChatGate, type QueueName } from '../data';
+import { AssistantDrawer } from './AssistantDrawer';
 // Brand logos as base64 data: URIs (generated). Kept as TEXT-embedded data URIs
 // (a decision inherited from the prior Power Apps Code App build, where `pac code
 // push` corrupted binary image assets on upload — see the historical finding below);
@@ -233,6 +236,8 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const { data: chatGate } = useAiChatGate();
 
   // The "Queues" group expands to its sub-queues; auto-open on a queue route.
   const onQueueRoute = location.pathname.startsWith('/queue/');
@@ -437,6 +442,14 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
               if (e.key === 'Enter') navigate('/');
             }}
           />
+          {chatGate?.enabled && (
+            <Button
+              appearance="subtle"
+              icon={<Sparkles size={20} aria-hidden />}
+              aria-label="Open the assistant"
+              onClick={() => setAssistantOpen(true)}
+            />
+          )}
           <div className={styles.user}>
             <Avatar name={userName} size={32} color="colorful" />
           </div>
@@ -448,6 +461,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
           </AppErrorBoundary>
         </main>
       </div>
+      {chatGate?.enabled && <AssistantDrawer open={assistantOpen} onOpenChange={setAssistantOpen} />}
     </div>
   );
 }

@@ -195,6 +195,13 @@ export function useAiAssistGate(): QueryState<AiAssistGate> {
   return useAsync(run, []);
 }
 
+/** The AI-chat gate (TKT-060). `{ enabled:false }` on failure/loading, so the assistant
+ *  drawer stays hidden unless the server confirms it is on. */
+export function useAiChatGate(): QueryState<{ enabled: boolean }> {
+  const run = useCallback(() => getDataAccess().getAiChatGate(), []);
+  return useAsync(run, []);
+}
+
 /** Pending + recently-reviewed AI suggestions for a case (TKT-015). Honest-empty (`[]`)
  *  on any failure (the read is safe()-wrapped). Re-runs on case id change. */
 export function useAiSuggestions(caseId: string | undefined): QueryState<AiSuggestion[]> {
