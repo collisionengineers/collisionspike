@@ -565,6 +565,22 @@ const useStyles = makeStyles({
   },
   rowSpacer: { flexGrow: 1 },
 
+  /* "N · same VRM" twin badge — a muted chip flagging that identical-looking rows are a
+     same-registration pair (not a render bug); links to the case where merge is offered. */
+  twinChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '1px 7px',
+    borderRadius: '10px',
+    fontSize: '11px',
+    fontWeight: tokens.fontWeightSemibold,
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
+    color: tokens.colorNeutralForeground2,
+    backgroundColor: tokens.colorNeutralBackground4,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+  },
+
   /* age/due pill — severity ramp grey → amber → red */
   agePill: {
     display: 'inline-flex',
@@ -664,6 +680,16 @@ export function Dashboard() {
   // Needs-action grouping (pure layer). Disclosure state is per-reason, NOT
   // persisted: 4th+ groups default collapsed; "Show all" is per-group in place.
   const groups = useMemo(() => groupAgingRows(dash?.agingExceptions.rows ?? []), [dash]);
+  // Same-VRM twins across the WHOLE needs-action set (a case can sit in one group and its
+  // twin in another) — so identical-looking rows read as a flagged pair, not a render bug.
+  const vrmCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of dash?.agingExceptions.rows ?? []) {
+      const v = (r.case.vrm ?? '').trim().toUpperCase();
+      if (v) m.set(v, (m.get(v) ?? 0) + 1);
+    }
+    return m;
+  }, [dash]);
   const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({});
   const [showAllGroups, setShowAllGroups] = useState<Record<string, boolean>>({});
 
@@ -841,6 +867,7 @@ export function Dashboard() {
                     <NeedsActionGroupSection
                       key={key}
                       group={group}
+                      vrmCounts={vrmCounts}
                       collapsible={index >= DEFAULT_OPEN_GROUPS}
                       open={open}
                       showAll={showAllGroups[key] ?? false}
@@ -1022,6 +1049,7 @@ function InboxTile({
 
 function NeedsActionGroupSection({
   group,
+  vrmCounts,
   collapsible,
   open,
   showAll,
@@ -1031,6 +1059,8 @@ function NeedsActionGroupSection({
   onPeekCase,
 }: {
   group: NeedsActionGroup;
+  /** VRM → how many needs-action rows share it (a twin badge shows when > 1). */
+  vrmCounts: Map<string, number>;
   /** 4th+ groups collapse to their header (chevron toggle, not persisted). */
   collapsible: boolean;
   open: boolean;
@@ -1090,6 +1120,7 @@ function NeedsActionGroupSection({
               ref={index === MAX_GROUP_ROWS ? firstRevealedRef : undefined}
               row={row}
               verb={group.verb}
+              twinCount={vrmCounts.get((row.case.vrm ?? '').trim().toUpperCase()) ?? 1}
               onOpen={() => onOpenCase(row.case.id)}
               onPeek={() => onPeekCase(row.case.id)}
             />
@@ -1118,8 +1149,8 @@ function NeedsActionGroupSection({
     "Show all" focus move + the drawer's focus restore both want it). */
 const AgingRowItem = forwardRef<
   HTMLButtonElement,
-  { row: AgingRow; verb: string; onOpen: () => void; onPeek: () => void }
->(function AgingRowItem({ row, verb, onOpen, onPeek }, ref) {
+  { row: AgingRow; verb: string; twinCount: number; onOpen: () => void; onPeek: () => void }
+>(function AgingRowItem({ row, verb, twinCount, onOpen, onPeek }, ref) {
   const styles = useStyles();
   const chips = useSeverityChipStyles();
   const c = row.case;
@@ -1143,9 +1174,14 @@ const AgingRowItem = forwardRef<
         data-case-row={c.id}
         className={mergeClasses('ce-focusable', styles.rowMainBtn)}
         onClick={onOpen}
-        aria-label={`${verb}. ${rowName}, ${subAria}. ${dueText(row)}. Open case.`}
+        aria-label={`${verb}. ${rowName}, ${subAria}.${twinCount > 1 ? ` ${twinCount} open cases share this registration.` : ''} ${dueText(row)}. Open case.`}
       >
         <VrmPlate vrm={c.vrm} size="small" />
+        {twinCount > 1 && (
+          <span className={styles.twinChip} title={`${twinCount} open cases share ${c.vrm}`}>
+            {twinCount} · same VRM
+          </span>
+        )}
         <Caption1 className={styles.rowSub}>{subText}</Caption1>
         <span className={styles.rowSpacer} aria-hidden />
         {pill && <span className={mergeClasses(styles.agePill, ageCls)}>{pill}</span>}

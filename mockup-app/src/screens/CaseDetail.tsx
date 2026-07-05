@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import {
   Badge,
@@ -106,6 +106,7 @@ import {
   activeCopyFileRequestTransport,
   activeGetSharedLinkTransport,
   activeLocationAssistTransport,
+  getDataAccess,
   type Case,
   type CaseStatus,
   type EvaFieldKey,
@@ -289,7 +290,10 @@ const useStyles = makeStyles({
     fontFamily: 'var(--ce-font-display)',
     fontWeight: 700,
     letterSpacing: '0.04em',
+    overflow: 'hidden',
   },
+  /* Real inline preview (TKT-048): fill the thumb, crop to fit. */
+  thumbImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
   thumbMeta: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalXS, padding: tokens.spacingVerticalS },
   thumbName: { fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3, wordBreak: 'break-all' },
   thumbRowBetween: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacingHorizontalS },
@@ -509,10 +513,46 @@ interface EvidenceCardProps {
 
 function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
   const styles = useStyles();
+  // Real inline preview (TKT-048): fetch the bytes WITH the bearer -> blob: URL for <img>
+  // (an <img src> can't carry the token, and CSP allows blob:). Falls back to the coloured
+  // placeholder while loading, or if there is no inline content (Box-only / bytes gone).
+  const [imgUrl, setImgUrl] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    let url: string | undefined;
+    void getDataAccess()
+      .evidenceContentUrl(ev.id)
+      .then((u) => {
+        if (!live) {
+          if (u) URL.revokeObjectURL(u);
+          return;
+        }
+        url = u;
+        setImgUrl(u);
+      });
+    return () => {
+      live = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [ev.id]);
   return (
     <div className={mergeClasses(styles.thumbCard, ev.excluded && styles.thumbCardExcluded)}>
       <div className={styles.thumb} style={{ backgroundColor: ev.thumbColor ?? '#5a5a64' }}>
-        {ev.excluded ? 'EXCLUDED' : ev.imageRole === 'overview' ? 'OVERVIEW' : ''}
+        {imgUrl ? (
+          <img
+            src={imgUrl}
+            alt={ev.fileName}
+            className={styles.thumbImg}
+            loading="lazy"
+            onError={() => setImgUrl(undefined)}
+          />
+        ) : ev.excluded ? (
+          'EXCLUDED'
+        ) : ev.imageRole === 'overview' ? (
+          'OVERVIEW'
+        ) : (
+          ''
+        )}
       </div>
       <div className={styles.thumbMeta}>
         <span className={styles.thumbName}>{ev.fileName}</span>

@@ -91,3 +91,19 @@ export async function uploadEvidenceBytes(
 function sanitize(seg: string): string {
   return seg.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200) || 'file';
 }
+
+export interface DownloadedBlob {
+  bytes: Buffer;
+  contentType: string;
+}
+
+/** Download an evidence blob's bytes by its container-relative path (Evidence.storage_path).
+ *  Returns undefined when the blob is absent (deleted / never landed). */
+export async function downloadEvidenceBytes(blobPath: string): Promise<DownloadedBlob | undefined> {
+  const container = client().getContainerClient(containerName());
+  const block = container.getBlockBlobClient(blobPath);
+  if (!(await block.exists())) return undefined;
+  const buf = await block.downloadToBuffer();
+  const props = await block.getProperties();
+  return { bytes: buf, contentType: props.contentType ?? 'application/octet-stream' };
+}

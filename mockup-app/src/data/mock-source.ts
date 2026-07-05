@@ -409,6 +409,7 @@ export const mockDataAccess: DataAccessExt = {
   assistantChat: (_messages) =>
     Promise.resolve({ reply: 'The assistant is not available in this preview.', disabled: true }),
   getAiChatGate: () => Promise.resolve({ enabled: false }),
+  evidenceContentUrl: (_id) => Promise.resolve(undefined),
   inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
   // Honest no-op: the empty default writes nothing (the live REST source, backed by
   // the Postgres `inspection_address` table, is injected at startup). The CaseDetail

@@ -157,6 +157,10 @@ export interface DataAccessExt extends DataAccess {
   assistantChat(messages: AssistantChatTurn[]): Promise<AssistantReply>;
   /** The AI-chat feature gate (honest { enabled:false } on failure). */
   getAiChatGate(): Promise<{ enabled: boolean }>;
+  /** Evidence inline preview (TKT-048): authenticated fetch → a `blob:` object URL for an
+   *  <img>, or undefined when there's no inline content (Box-only / bytes gone). The caller
+   *  MUST URL.revokeObjectURL it on unmount. */
+  evidenceContentUrl(id: string): Promise<string | undefined>;
 
   /* ----- Inbound suggestion affordance — ref-gate (rules-engine-v2 Phase 2) -----
      Distinct from `aiSuggestions` above (case-scoped): keyed by the INBOUND EMAIL
@@ -222,6 +226,19 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
 
   const get = <T>(p: string) => call<T>('GET', p);
   const post = <T>(p: string, b?: unknown) => call<T>('POST', p, b);
+
+  /** Authenticated GET → a `blob:` object URL (for <img>, since an <img> can't send the
+   *  bearer and the API is a different origin). Undefined on any non-2xx; caller revokes. */
+  const blobUrl = async (path: string): Promise<string | undefined> => {
+    try {
+      const token = await opts.getToken();
+      const res = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return undefined;
+      return URL.createObjectURL(await res.blob());
+    } catch {
+      return undefined;
+    }
+  };
 
   // "Honest off / honest empty" wrapper: a gate or aggregate read NEVER 5xx
   // the UI on a soft failure — it resolves to the documented all-off baseline.
@@ -417,6 +434,7 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     assistantChat: (messages) =>
       call<AssistantReply>('POST', '/api/assistant/chat', { messages }),
     getAiChatGate: () => safe(() => get<{ enabled: boolean }>('/api/gates/ai-chat'), { enabled: false }),
+    evidenceContentUrl: (id) => blobUrl(`/api/evidence/${enc(id)}/content`),
 
     /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */
     inboundSuggestions: (id) =>
