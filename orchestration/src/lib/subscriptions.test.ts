@@ -17,6 +17,7 @@ import {
   looksLikeMailboxAddress,
   resolveSubscriptionMailbox,
   clearSubscriptionMailboxCache,
+  runSubscriptionMaintenance,
 } from './subscriptions.js';
 
 const graphFetchMock = vi.mocked(graphFetch);
@@ -101,5 +102,53 @@ describe('resolveSubscriptionMailbox', () => {
   it("returns '' for a blank subscription id without calling Graph", async () => {
     await expect(resolveSubscriptionMailbox('')).resolves.toBe('');
     expect(graphFetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('runSubscriptionMaintenance — prune de-scoped mailboxes', () => {
+  const OLD_ENV = { base: process.env.ORCH_PUBLIC_BASE_URL, mbx: process.env.GRAPH_INTAKE_MAILBOXES };
+  beforeEach(() => {
+    process.env.ORCH_PUBLIC_BASE_URL = 'https://orch.example';
+    process.env.GRAPH_INTAKE_MAILBOXES = JSON.stringify([{ mailbox: 'info@x.com', minIntakeDate: '2026-01-01T00:00:00Z' }]);
+  });
+  afterEach(() => {
+    process.env.ORCH_PUBLIC_BASE_URL = OLD_ENV.base;
+    process.env.GRAPH_INTAKE_MAILBOXES = OLD_ENV.mbx;
+  });
+  const logger = { log: () => {}, warn: () => {}, error: () => {} };
+  const subs = (extra: Record<string, unknown>[] = []) => ({
+    value: [
+      { id: 'sub-info', resource: "users/info@x.com/mailFolders('Inbox')/messages", notificationUrl: 'https://orch.example/api/graph-webhook', expirationDateTime: 'e' },
+      ...extra,
+    ],
+  });
+
+  it('DELETEs a subscription whose mailbox left GRAPH_INTAKE_MAILBOXES, renews the configured one', async () => {
+    graphFetchMock.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = init?.method ?? 'GET';
+      if (path === '/subscriptions' && method === 'GET') {
+        return subs([{ id: 'sub-old', resource: "users/old@x.com/mailFolders('Inbox')/messages", notificationUrl: 'https://orch.example/api/graph-webhook', expirationDateTime: 'e' }]);
+      }
+      if (method === 'DELETE') return undefined;
+      if (method === 'PATCH') return { id: path.split('/').pop(), expirationDateTime: 'renewed' };
+      return {};
+    });
+    const summary = await runSubscriptionMaintenance(logger);
+    expect(summary.pruned).toEqual(['old@x.com']);
+    expect(summary.renewed.map((r) => r.subId)).toEqual(['sub-info']);
+    expect(graphFetchMock).toHaveBeenCalledWith('/subscriptions/sub-old', { method: 'DELETE' });
+  });
+
+  it('does NOT prune when the config is empty (guard against wiping every sub)', async () => {
+    process.env.GRAPH_INTAKE_MAILBOXES = '[]';
+    graphFetchMock.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = init?.method ?? 'GET';
+      if (path === '/subscriptions' && method === 'GET') return subs();
+      if (method === 'PATCH') return { id: path.split('/').pop(), expirationDateTime: 'renewed' };
+      return {};
+    });
+    const summary = await runSubscriptionMaintenance(logger);
+    expect(summary.pruned).toEqual([]);
+    expect(graphFetchMock).not.toHaveBeenCalledWith('/subscriptions/sub-info', { method: 'DELETE' });
   });
 });

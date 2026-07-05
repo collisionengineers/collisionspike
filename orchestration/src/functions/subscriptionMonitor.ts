@@ -43,6 +43,7 @@ df.app.activity('subscriptionMaintenance', {
         renewed: summary.renewed.length,
         created: summary.created.length,
         recreated: summary.recreated.length,
+        pruned: summary.pruned.length,
         errors: summary.errors.length,
       }),
     );

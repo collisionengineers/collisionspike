@@ -102,6 +102,12 @@ export async function listOurSubscriptions(): Promise<GraphSubscription[]> {
   return (res.value ?? []).filter((s) => (s.notificationUrl ?? '').startsWith(url));
 }
 
+/** DELETE a Graph subscription (204 → undefined). Used by the maintenance prune step to
+ *  retire a subscription for a mailbox removed from GRAPH_INTAKE_MAILBOXES. */
+export async function deleteSubscription(subscriptionId: string): Promise<void> {
+  await graphFetch(`${SUBSCRIPTIONS_PATH}/${subscriptionId}`, { method: 'DELETE' });
+}
+
 /** Minimal logger shape shared by the timer / HTTP / durable-activity callers. */
 export interface MaintenanceLog {
   log: (m: string) => void;
@@ -113,6 +119,8 @@ export interface MaintenanceSummary {
   created: string[];
   renewed: Array<{ subId: string; next?: string }>;
   recreated: string[];
+  /** Mailboxes whose subscription was DELETED because they left GRAPH_INTAKE_MAILBOXES. */
+  pruned: string[];
   errors: string[];
 }
 
@@ -125,9 +133,10 @@ export interface MaintenanceSummary {
  * failure is logged and collected, never thrown (one bad mailbox must not stop the rest).
  */
 export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promise<MaintenanceSummary> {
-  const summary: MaintenanceSummary = { created: [], renewed: [], recreated: [], errors: [] };
+  const summary: MaintenanceSummary = { created: [], renewed: [], recreated: [], pruned: [], errors: [] };
   const subs = await listOurSubscriptions();
   const configured = intakeMailboxes();
+  const configuredMailboxes = new Set(configured.map((c) => c.mailbox));
   const subbed = new Set(subs.map((s) => mailboxOfResource(s.resource)).filter(Boolean));
 
   // BOOTSTRAP — ensure every configured intake mailbox has a subscription (create if missing).
@@ -146,6 +155,23 @@ export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promis
 
   // RENEW — PATCH every existing subscription forward; 404 (gone) → recreate for the same mailbox.
   for (const sub of subs) {
+    // PRUNE — a subscription whose mailbox is no longer in GRAPH_INTAKE_MAILBOXES is retired
+    // (was previously renewed forever, so a de-scoped mailbox like digital@ had to be deleted by
+    // hand). Guarded: only prune when the config is non-empty (never wipe every sub on a config
+    // glitch) AND the mailbox parsed cleanly (never delete a subscription we cannot attribute).
+    const mbx = mailboxOfResource(sub.resource);
+    if (configured.length > 0 && mbx && !configuredMailboxes.has(mbx)) {
+      try {
+        await deleteSubscription(sub.id);
+        summary.pruned.push(mbx);
+        logger.log(JSON.stringify({ evt: 'graph-subscription-pruned', subId: sub.id, mailbox: mbx }));
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        summary.errors.push(`prune ${sub.id} (${mbx}): ${m}`);
+        logger.error(`[subscription-maintenance] prune ${sub.id} (${mbx}) failed: ${m}`);
+      }
+      continue;
+    }
     try {
       const renewed = await renewSubscription(sub.id);
       summary.renewed.push({ subId: sub.id, next: renewed.expirationDateTime });
