@@ -76,9 +76,22 @@ describe('dueText / duePillText', () => {
 });
 
 describe('groupVerb', () => {
-  it('maps each reason to its action verb and null to "Review case"', () => {
+  it('maps each reason to its action verb and null to "Progress the case"', () => {
     expect(groupVerb('missing_images')).toBe('Chase garage for images');
-    expect(groupVerb(null)).toBe('Review case');
+    expect(groupVerb('needs_review')).toBe('Check the flagged details');
+    expect(groupVerb(null)).toBe('Progress the case');
+  });
+
+  it('every group verb is a distinct string, and the "Review …" collision is gone', () => {
+    const verbs = ['missing_images', 'missing_instructions', 'duplicate', 'conflict', 'needs_review']
+      .map((r) => groupVerb(r as Parameters<typeof groupVerb>[0]))
+      .concat(groupVerb(null));
+    // all six headers are distinct
+    expect(new Set(verbs).size).toBe(verbs.length);
+    // the reported bug: needs_review + the no-reason group both read "Review …"
+    expect(groupVerb('needs_review')).not.toBe(groupVerb(null));
+    const reviewLed = [groupVerb('needs_review'), groupVerb(null)].filter((v) => /^review\b/i.test(v));
+    expect(reviewLed.length).toBeLessThanOrEqual(1);
   });
 });
 
@@ -98,14 +111,14 @@ describe('groupAgingRows', () => {
     expect(ids).toEqual(['a', 'b', 'c', 'd', 'e']);
   });
 
-  it('puts no-reason rows in a trailing "Review case" group, even when they are the worst', () => {
+  it('puts no-reason rows in a trailing "Progress the case" group, even when they are the worst', () => {
     const rows = [
       row({ id: 'past-due-no-reason', daysToDue: -9 }), // blocker but reasonless
       row({ id: 'ample-images', reason: 'missing_images', daysToDue: 10 }), // info
     ];
     const groups = groupAgingRows(rows);
     expect(groups.map((g) => g.reason)).toEqual(['missing_images', null]);
-    expect(groups[1].verb).toBe('Review case');
+    expect(groups[1].verb).toBe('Progress the case');
     expect(groups[1].rows[0].case.id).toBe('past-due-no-reason');
   });
 

@@ -28,15 +28,20 @@ const TERMINAL_STAGE: { key: PipelineStageKey; label: string } = {
   key: 'submitted',
   label: 'Submitted',
 };
-/** Hero shows the three backlog depths; the spine carries the terminal too. */
-const STAGE_SKELETON_HERO = BACKLOG_STAGES;
+/** The HERO funnel folds the just-arrived `new` stage INTO "Not ready" so its count
+ *  equals the "Not ready" QUEUE tile in the rail (the reported 123-vs-124 mismatch: the
+ *  queue bundles new_email/ingested into not-ready, the funnel used to split them out) and
+ *  matches the binding review's "one general Not Ready field" (190626). The SPINE keeps the
+ *  `new` position so a just-arrived case can still light "you are here". */
+const HERO_BACKLOG_STAGES = BACKLOG_STAGES.filter((s) => s.key !== 'new');
+const STAGE_SKELETON_HERO = HERO_BACKLOG_STAGES;
 const STAGE_SKELETON_SPINE: readonly { key: PipelineStageKey; label: string }[] = [
   ...BACKLOG_STAGES,
   TERMINAL_STAGE,
 ];
-/** Stage keys the HERO funnel renders (the live-depth backlog only). */
+/** Stage keys the HERO funnel renders (Not ready → Review; `new` folds into Not ready). */
 const HERO_STAGE_KEYS: ReadonlySet<PipelineStageKey> = new Set(
-  BACKLOG_STAGES.map((s) => s.key),
+  HERO_BACKLOG_STAGES.map((s) => s.key),
 );
 
 /* ============================================================

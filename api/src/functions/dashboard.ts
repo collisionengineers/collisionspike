@@ -141,8 +141,11 @@ export function computeReasonFacets(all: Case[]): ReasonFacet[] {
 }
 
 export function computePipelineStages(all: Case[]): PipelineStage[] {
+  // The `new` funnel stage (new_email/ingested) is FOLDED into `not_ready` here so the
+  // strip's "Not ready" equals the "Not ready" QUEUE (statusToQueue bundles them; the
+  // funnel used to split them, which read as 123 vs 124). One general Not Ready field per
+  // binding review 190626. The per-case spine still distinguishes `new` (statusToStage).
   const defs: { key: PipelineStageKey; label: string }[] = [
-    { key: 'new', label: 'New' },
     { key: 'not_ready', label: 'Not ready' },
     { key: 'review', label: 'Review' },
     { key: 'submitted', label: 'Submitted' },
@@ -150,8 +153,9 @@ export function computePipelineStages(all: Case[]): PipelineStage[] {
   const counts = new Map<PipelineStageKey, number>(defs.map((d) => [d.key, 0]));
   for (const c of all) {
     if (c.onHold) continue; // parked in Held, never a workflow-stage count
-    const k = statusToStage(c.status);
-    if (k === undefined) continue; // error/duplicate_risk/removed -> Held/none, never a funnel count
+    const stage = statusToStage(c.status);
+    if (stage === undefined) continue; // error/duplicate_risk/removed -> Held/none, never a funnel count
+    const k = stage === 'new' ? 'not_ready' : stage; // fold just-arrived into Not ready
     counts.set(k, (counts.get(k) ?? 0) + 1);
   }
   return defs.map((d) => ({

@@ -13,6 +13,7 @@ import {
   computeReasonFacets,
   computeThroughput,
 } from './dashboard';
+import { filterQueue } from '../lib/mappers.js';
 
 /** Minimal Case factory — the compute helpers read only status/onHold/dates/actionReason. */
 function mkCase(over: Partial<Case> = {}): Case {
@@ -89,9 +90,15 @@ describe('computePipelineStages — funnel excludes Held/terminal-none', () => {
     mkCase({ id: '7', status: 'removed' }), // soft-removed -> no stage
     mkCase({ id: '8', status: 'ingested', onHold: true }), // parked -> no stage
   ];
-  it('counts only the four funnel stages', () => {
+  it('folds new_email/ingested into Not ready so it matches the Not-ready queue', () => {
     const byKey = Object.fromEntries(computePipelineStages(cases).map((s) => [s.key, s.count]));
-    expect(byKey).toEqual({ new: 2, not_ready: 1, review: 1, submitted: 1 });
+    // 2 new (new_email + ingested) + 1 needs_review = 3 Not ready; onHold/error/removed excluded.
+    expect(byKey).toEqual({ not_ready: 3, review: 1, submitted: 1 });
+  });
+  it('the strip Not-ready count equals the Not-ready QUEUE (no 123-vs-124 split)', () => {
+    const stages = Object.fromEntries(computePipelineStages(cases).map((s) => [s.key, s.count]));
+    const queueNotReady = filterQueue(cases, 'not-ready').length;
+    expect(stages.not_ready).toBe(queueNotReady);
   });
 });
 

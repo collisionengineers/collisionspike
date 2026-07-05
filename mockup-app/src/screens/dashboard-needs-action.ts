@@ -8,7 +8,7 @@ import type { ActionReason, AgingRow } from '../data';
    so the grouping rules are unit-testable:
 
      - Group by ActionReason; rows with NO reason form a trailing
-       "Review case" group — never dropped.
+       "Progress the case" group — never dropped.
      - Group order: worst row severity first (blocker › attention › info
        via ageSeverity), tiebreak oldest due. The no-reason group always
        trails regardless of severity.
@@ -27,18 +27,22 @@ export function ageSeverity(row: AgingRow): AgeSeverity {
   return 'info';
 }
 
-/** The action verb per reason — the group-header wording (never engineering terms). */
+/** The action verb per reason — the group-header wording (never engineering terms).
+ *  Each verb leads with a DISTINCT word and names its own condition — no two groups may
+ *  read alike ("Review the details" vs "Review case" was the reported confusion). */
 export const REASON_VERB: Record<ActionReason, string> = {
   missing_images: 'Chase garage for images',
   missing_instructions: 'Chase provider for instructions',
   duplicate: 'Resolve duplicate',
   conflict: 'Resolve claimant-name conflict before submit',
-  needs_review: 'Review the details',
+  needs_review: 'Check the flagged details',
 };
 
-/** Group verb — `null` is the trailing no-reason group. */
+/** Group verb — `null` is the trailing no-reason group (cases with no specific blocker,
+ *  just needing to be worked forward). "Progress the case" reads distinctly from every
+ *  REASON_VERB above. */
 export function groupVerb(reason: ActionReason | null): string {
-  return reason ? REASON_VERB[reason] : 'Review case';
+  return reason ? REASON_VERB[reason] : 'Progress the case';
 }
 
 /** "3d past due · 12/06" / "Due today · 17/06" / "Due in 4d · 21/06" / "No due date". */
@@ -62,7 +66,7 @@ export function duePillText(row: AgingRow): string | null {
 }
 
 export interface NeedsActionGroup {
-  /** null = the trailing "Review case" group (rows with no reason). */
+  /** null = the trailing "Progress the case" group (rows with no reason). */
   reason: ActionReason | null;
   /** Header verb ("<verb> — <count>"). */
   verb: string;
