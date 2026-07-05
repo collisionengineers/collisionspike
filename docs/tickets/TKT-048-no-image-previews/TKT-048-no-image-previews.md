@@ -1,12 +1,25 @@
 ---
 id: TKT-048
 title: Inbox/case image previews not rendering
-status: backlog
+status: done
 priority: P2
 area: ui
-tickets-it-relates-to: [TKT-002, TKT-016]
+tickets-it-relates-to: [TKT-002, TKT-016, TKT-064]
 research-link: GO_LIVE_SPRINT_PLAN.md
 ---
+
+> **DONE — 2026-07-05 (go-live sprint P4 follow-up).** Real inline previews now render.
+> New Data-API route `GET /api/evidence/{id}/content` serves the bytes **same-origin** (RLS-scoped
+> staff): local blob (`cespkevidstdev01`) first, then — for the **~39 % of evidence that is Box-only**
+> (1176/3038 rows, no `storage_path`) — the archived copy proxied via the box-fn facade
+> (`GET box/files/{id}/content`, base64-in-JSON, size-capped). The SPA fetches it **with the MSAL
+> bearer** → `blob:` object URL for `<img>` (CSP `img-src 'self' data: blob:` allows blob:; an `<img>`
+> can't carry the bearer), revoked on unmount; the coloured placeholder remains the loading / no-inline
+> fallback. **First cut (blob-only) 404'd for Box-only evidence → the operator still saw grey boxes**
+> (case 85fedca4 / QDOS26052, all box-only); the Box fallback closed that. Verified end-to-end on the
+> operator's case: box-only image → `200 image/jpeg 277 KB` → blob → `<img>` loaded **1200×1600**.
+> `EvidenceCard` render only; `ImageOrderList` still uses the placeholder (follow-up). Auto-classification
+> of the now-visible images (role / registration) is its own gap — see **[[TKT-064]]**.
 
 # Inbox/case image previews not rendering
 
