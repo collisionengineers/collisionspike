@@ -12,6 +12,7 @@
 
 import { app, type HttpRequest, type InvocationContext } from '@azure/functions';
 import { gates } from '@cs/domain/gates';
+import { statusToQueue, type CaseStatus } from '@cs/domain';
 import { caseStatusCodec, inboundCategoryCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
@@ -57,7 +58,8 @@ const TOOLS: ToolDef[] = [
     type: 'function',
     function: {
       name: 'count_cases_by_status',
-      description: 'How many open cases sit at each status / queue right now.',
+      description:
+        'Case counts by QUEUE (Not ready / Review / Held — matching the dashboard, on-hold cases count as Held) and by raw status. For "how many in each queue" use byQueue, not byStatus.',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },
@@ -99,10 +101,30 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
     };
   }
   if (name === 'count_cases_by_status') {
-    const rows = await query<{ status_code: number; n: string }>(
-      'SELECT status_code, count(*)::int AS n FROM case_ GROUP BY status_code ORDER BY n DESC',
+    const rows = await query<{ status_code: number; on_hold: boolean; n: string }>(
+      'SELECT status_code, on_hold, count(*)::int AS n FROM case_ GROUP BY status_code, on_hold',
     );
-    return { byStatus: rows.map((r) => ({ status: statusName(r.status_code), count: Number(r.n) })) };
+    const byStatusMap = new Map<string, number>();
+    // Queue rollup — mirror the dashboard's filterQueue EXACTLY: an on-hold case counts as
+    // Held (not its raw status queue); a terminal status (statusToQueue → undefined) is closed.
+    const byQueue: Record<string, number> = { 'not-ready': 0, review: 0, held: 0, closed: 0 };
+    for (const r of rows) {
+      const status = statusName(r.status_code);
+      const n = Number(r.n);
+      byStatusMap.set(status, (byStatusMap.get(status) ?? 0) + n);
+      const q = r.on_hold ? 'held' : (statusToQueue(status as CaseStatus) ?? 'closed');
+      byQueue[q] = (byQueue[q] ?? 0) + n;
+    }
+    return {
+      byQueue: {
+        notReady: byQueue['not-ready'],
+        review: byQueue.review,
+        held: byQueue.held,
+        closedOrSubmitted: byQueue.closed,
+      },
+      byStatus: [...byStatusMap.entries()].map(([status, count]) => ({ status, count })),
+      note: 'byQueue matches the dashboard queues (on-hold cases count as Held); byStatus is the raw status breakdown.',
+    };
   }
   if (name === 'search_inbound') {
     const q = `%${String(args.query ?? '').trim().slice(0, 80)}%`;
