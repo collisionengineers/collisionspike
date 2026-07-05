@@ -15,9 +15,23 @@ Connected `SET ROLE csadmin` (RLS bypass — non-admin reads return false zeros,
 | evidence | 3003 |
 | audit_event | 2095 |
 
-## P1 — dry-run manifest
-- [ ] `POST /api/replay-backfill {dryRun:true}` walks all three mailboxes (Inbox + descendants) via `listMessagesSince` nextLink paging.
-- [ ] Manifest NDJSON reconciles with mailbox counts (per-mailbox totals match Graph).
+## P1 — dry-run manifest (RUN 2026-07-05, epoch `dry1`) — TWO PLAN-CHANGING FINDINGS
+
+- [x] `POST /api/replay-backfill {dryRun:true}` ran green over all three mailboxes (Inbox+descendants, nextLink paging). Driver validated end-to-end.
+- **Finding 1 — mailboxes do NOT retain history (wipe-and-rebuild-from-mailbox is non-viable).**
+  Dry-run collected **88** messages vs **390** `inbound_email` in the DB. Graph folder inventory: the
+  three Inboxes hold only 48/47/22 now; Deleted Items hold 7,081/9,485/7,107 — staff delete/file mail
+  out of the Inbox after processing. A mailbox-sourced rebuild would recover ~88/390 and destroy ~150
+  cases. Operator pivoted to **in-place reprocess** (2026-07-05). See [[replay-mailboxes-do-not-retain-history]].
+- **Finding 2 — a naive in-place reprocess would CORRUPT the data (do NOT auto-apply).**
+  Read-only reprocess-diff (current parser `/classify-email` over the 390 stored rows): **240/390 (62%)
+  change category** — but the changes mis-demote obvious NEW WORK ("NEW ENGINEER INSTRUCTION …" → other,
+  "New inspection request - AX Ref…" → query, "(EREF9) RTA … Enclosing Inspection Request" → case_update).
+  `receiving_work` collapses 188 → 2. Reconstructing attachment kinds from case evidence (`case_id`→
+  `evidence`; note `evidence.source_message_id` is ALWAYS NULL so no per-email join) did NOT fix it
+  (209/212 still change). Conclusion: the divergence is real (data is stale) but the bare classifier
+  route over-corrects, so the reprocess must run through the FULL live pipeline and be validated against
+  a labelled sample (the P2 fix-wave) BEFORE any write. Reprocess is BLOCKED on P2.
 
 ## P3 — wipe & rebuild
 - [ ] pg_dump taken + row counts verified against live (RLS-safe).

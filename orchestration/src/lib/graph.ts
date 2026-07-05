@@ -288,6 +288,89 @@ export async function listMessageIdsSince(
   return { ids: rows.map((r) => r.id), newWatermark };
 }
 
+/* ---------- Replay backfill pager (TKT-059 / GO_LIVE_SPRINT_PLAN P1) ---------- */
+
+/**
+ * Resolve the Inbox folder id + every descendant folder id for a mailbox.
+ *
+ * The replay pager lists the WHOLE mailbox (`/users/{mbx}/messages`) — which per
+ * Microsoft Learn (user-list-messages) also returns Deleted Items, Junk, Sent Items and
+ * Drafts — then keeps only messages whose `parentFolderId` is in the Inbox subtree. That
+ * mirrors the live intake (which only ever processed Inbox arrivals) while still capturing
+ * staff-FILED mail: with `OUTLOOK_MOVE_ENABLED` on, staff move intake mail into Inbox
+ * CHILD folders, so an Inbox-only scope would miss them.
+ */
+export async function resolveInboxSubtreeFolderIds(mailbox: string): Promise<Set<string>> {
+  const u = encodeURIComponent(mailbox);
+  const inbox = await graphFetch<{ id: string }>(`/users/${u}/mailFolders/Inbox?$select=id`);
+  const ids = new Set<string>([inbox.id]);
+  const queue: string[] = [inbox.id];
+  while (queue.length) {
+    const parent = queue.shift() as string;
+    let path: string | null =
+      `/users/${u}/mailFolders/${encodeURIComponent(parent)}/childFolders?$select=id&$top=100`;
+    while (path) {
+      const page: { value?: Array<{ id: string }>; '@odata.nextLink'?: string } =
+        await graphFetch(path);
+      for (const f of page.value ?? []) {
+        if (!ids.has(f.id)) {
+          ids.add(f.id);
+          queue.push(f.id);
+        }
+      }
+      path = page['@odata.nextLink'] ?? null;
+    }
+  }
+  return ids;
+}
+
+/** One replay-pager message projection (the `$select` set below). */
+export interface ReplayPageItem {
+  id: string;
+  internetMessageId?: string;
+  receivedDateTime: string;
+  parentFolderId?: string;
+  subject?: string;
+  from?: { emailAddress?: { name?: string; address?: string } };
+}
+
+/**
+ * One page of the replay backfill pager: messages received in `[sinceIso, untilIso)`,
+ * ordered oldest-first, plus the opaque `@odata.nextLink` to continue.
+ *
+ * Graph semantics VERIFIED against Microsoft Learn (user-list-messages, v1.0, 2026):
+ *  - `@odata.nextLink` must be applied VERBATIM (never reconstruct `$skip`); default page
+ *    size is 10, `$top` range 1–1000 — we use 50 with `$select` to stay under the 504
+ *    gateway-timeout ceiling.
+ *  - `$filter` + `$orderby` on messages requires every `$orderby` property to also appear
+ *    in `$filter`, in the same order, before any non-ordered property — else
+ *    `InefficientFilter`. We filter and order on `receivedDateTime` ALONE, so this holds;
+ *    that is also why folder scoping is done CLIENT-side (parentFolderId), not in `$filter`.
+ */
+export async function listMessagesSince(
+  mailbox: string,
+  sinceIso: string,
+  untilIso: string,
+  pageUrl?: string,
+): Promise<{ items: ReplayPageItem[]; nextLink?: string }> {
+  let path: string;
+  if (pageUrl) {
+    path = pageUrl; // opaque @odata.nextLink — apply verbatim
+  } else {
+    const filter = encodeURIComponent(
+      `receivedDateTime ge ${sinceIso} and receivedDateTime lt ${untilIso}`,
+    );
+    path =
+      `/users/${encodeURIComponent(mailbox)}/messages` +
+      `?$filter=${filter}` +
+      `&$orderby=receivedDateTime%20asc` +
+      `&$select=id,internetMessageId,receivedDateTime,parentFolderId,subject,from` +
+      `&$top=50`;
+  }
+  const res = await graphFetch<{ value?: ReplayPageItem[]; '@odata.nextLink'?: string }>(path);
+  return { items: res.value ?? [], nextLink: res['@odata.nextLink'] };
+}
+
 /* ---------- Retro reconstruction mailbox search (ADR-0022 R3) ---------- */
 
 /** KQL free-text phrase for a Graph messages `$search` clause: strip the two

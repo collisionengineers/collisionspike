@@ -69,6 +69,12 @@ export const gates = {
   triageImagesRouting: (): boolean => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === 'true',
   triageCaseUpdate: (): boolean => process.env.TRIAGE_CASE_UPDATE_ENABLED === 'true',
 
+  // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
+  // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
+  // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
+  // dry-run (read-only) and the destructive live rebuild BOTH require it on.
+  replayBackfill: (): boolean => process.env.REPLAY_BACKFILL_ENABLED === 'true',
+
   // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
   enrichmentApiBase: (): string => process.env.ENRICHMENT_API_BASE ?? '',      // #3
   evaBaseUrl: (): string => process.env.EVA_BASE_URL ?? '',                    // #5
