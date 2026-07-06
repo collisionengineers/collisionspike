@@ -28,10 +28,18 @@ But **no case reached `ready_for_eva`**: the required-field gate (dominated by e
 `inspection_address`, then `accident_circumstances`) is now the blocker. That is data-entry /
 inspection-address-corpus work, not image classification.
 
+## Live pipeline — DONE (deployed 2026-07-06)
+
+`orchestration/src/lib/image-classify.ts` (gpt-5-vision, reusing `aoai.ts`'s managed-identity
+`mintCognitiveToken`) is wired into **`extractImages`** (PDF-embedded images) and
+**`classifyPersist`** (direct email attachments) behind the new default-off
+`IMAGE_ROLE_CLASSIFY_ENABLED` gate, and the orchestration app was rebuilt + republished with the
+gate **on**. So **new** intake images now auto-classify. Never-throws — a classify failure falls
+back to role `unknown`, intake is never blocked. No API/RBAC change was needed (the evidence route
+already persists the fields; the orch MI already holds the AOAI role).
+
 ## NOT done (follow-ups)
 
-- **Live pipeline** — wiring the classifier into intake (`extractImages` / `classifyPersist` /
-  box-webhook) behind `IMAGE_ROLE_CLASSIFY_ENABLED` + the managed-identity AOAI grant + deploy, so
-  **new** images auto-classify. This backfill only covers existing evidence.
-- Retry the ~1% blob + ~6% Box images that errored (unsupported MIME / box-fetch size caps).
+- The **box-webhook** (Box-upload) live-classify path — a separate Python-function deploy.
+- Retry the ~1% blob + ~6% Box images that errored in the backfill (unsupported MIME / box-fetch size caps).
 - Human-in-the-loop role override in the review UI (TKT-064 acceptance item).

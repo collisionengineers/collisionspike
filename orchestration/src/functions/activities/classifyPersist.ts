@@ -13,7 +13,8 @@ import * as df from 'durable-functions';
 import { describeEvidence, isEngineerReportLayoutName } from '@cs/domain';
 import { gates } from '@cs/domain/gates';
 import { dataApi } from '../../lib/data-api.js';
-import { uploadEvidenceBytes } from '../../lib/blob.js';
+import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../lib/blob.js';
+import { classifyImage, classificationToEvidenceFields } from '../../lib/image-classify.js';
 import type { InboundEnvelope } from './fetchMessage.js';
 import type { AttachmentTyping } from './parse.js';
 
@@ -33,11 +34,37 @@ df.app.activity('classifyPersist', {
   handler: async (input: ClassifyPersistInput, ctx): Promise<{ persisted: number }> => {
     const { caseId, inbound } = input;
 
-    const rows = inbound.attachments.map((a) => ({
+    const rows: Parameters<typeof dataApi.persistEvidence>[1] = inbound.attachments.map((a) => ({
       ...describeEvidence(a.filename, a.contentType),
       blobPath: a.blobPath,
       size: a.size,
     }));
+
+    // TKT-064 live classifier: role/registration/person-reflection for genuine image
+    // attachments (the direct-email path — extractImages covers PDF-embedded images). Runs
+    // only when the gate + model are configured; best-effort per image (a fetch/classify
+    // failure leaves the row at the default `unknown` role = pre-classifier behaviour).
+    if (gates.imageRoleClassifyEnabled()) {
+      for (const r of rows) {
+        if (!r.isImage) continue;
+        try {
+          const bytes = await downloadEvidenceBytes(r.blobPath);
+          const cls = await classifyImage({ imageBase64: bytes.toString('base64'), contentType: r.contentType });
+          if (cls) {
+            const f = classificationToEvidenceFields(cls);
+            r.imageRole = f.imageRole;
+            r.registrationVisible = f.registrationVisible;
+            r.acceptedForEva = f.acceptedForEva;
+            if (f.excluded) {
+              r.excluded = true;
+              r.exclusionReason = f.exclusionReason;
+            }
+          }
+        } catch (e) {
+          ctx.log(JSON.stringify({ evt: 'classifyPersist.imageClassifyFailed', caseId, file: r.filename, err: e instanceof Error ? e.message : String(e) }));
+        }
+      }
+    }
 
     // engineer_report override (ADR-0014 "store BOTH, never overlay" / ADR-0021): an
     // attachment whose detected LAYOUT is an engineer-report firm's (EVA/CNX) is a

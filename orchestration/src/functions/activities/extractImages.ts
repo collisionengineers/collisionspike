@@ -22,6 +22,7 @@ import { gates } from '@cs/domain/gates';
 import { callExtractImages, callPlateOcr } from '../../lib/functions-client.js';
 import { dataApi } from '../../lib/data-api.js';
 import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../lib/blob.js';
+import { classifyImage, classificationToEvidenceFields } from '../../lib/image-classify.js';
 
 interface ExtractAttachment {
   filename: string;
@@ -99,11 +100,32 @@ df.app.activity('extractImages', {
           continue;
         }
 
-        // registration_visible: tri-state. Run plate OCR ONLY when the gate is on AND
-        // the OCR Function is configured AND the filename is a raster image; otherwise
-        // leave it undefined (NULL = OCR not run) rather than a misleading false.
+        // Image metadata. PREFER the live gpt-5 classifier (role + registration + person
+        // reflection, TKT-064) when enabled; otherwise fall back to the plate-OCR-only
+        // registration flag (role stays `unknown` = pre-classifier behaviour). Both are
+        // best-effort on a raster image — never block intake.
+        let imageRole: string | undefined;
         let registrationVisible: boolean | undefined;
-        if (gates.plateOcr() && process.env.OCR_FN_URL && OCR_OK_EXT.test(img.filename)) {
+        let acceptedForEva = false; // auto-extracted unknowns: staff tag role + accept
+        let excluded = false;
+        let exclusionReason: string | undefined;
+
+        if (gates.imageRoleClassifyEnabled() && OCR_OK_EXT.test(img.filename)) {
+          const cls = await classifyImage({
+            imageBase64: img.content_base64,
+            contentType: img.content_type,
+            caseVrm: input.caseVrm,
+          });
+          if (cls) {
+            const f = classificationToEvidenceFields(cls);
+            imageRole = f.imageRole;
+            registrationVisible = f.registrationVisible;
+            acceptedForEva = f.acceptedForEva;
+            excluded = f.excluded;
+            exclusionReason = f.exclusionReason;
+            if (f.registrationVisible) anyRegVisible = true;
+          }
+        } else if (gates.plateOcr() && process.env.OCR_FN_URL && OCR_OK_EXT.test(img.filename)) {
           try {
             const ocr = await callPlateOcr({
               imageBase64: img.content_base64,
@@ -123,9 +145,11 @@ df.app.activity('extractImages', {
           size,
           blobPath,
           evidenceClass: 'image',
-          imageRoleCode: 'unknown', // role tagging is M2 (ADR-0009); default unknown
-          acceptedForEva: false, // auto-extracted unknowns: staff tag role + accept
+          // Classifier sets the role NAME; without it, keep the M2 default `unknown`.
+          ...(imageRole ? { imageRole } : { imageRoleCode: 'unknown' }),
+          acceptedForEva,
           ...(registrationVisible !== undefined ? { registrationVisible } : {}),
+          ...(excluded ? { excluded: true, exclusionReason } : {}),
           sha256: img.sha256,
           sequenceIndex: img.sequence_index,
           sourceLabel: `extracted from ${doc.filename}`,
