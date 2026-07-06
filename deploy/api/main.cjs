@@ -12981,6 +12981,9 @@ var CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt("confirmed_physical");
 var IMAGE_BASED = inspectionDecisionCodec.toInt("image_based");
 var SHORTLIST_LIMIT = 8;
 var SEARCH_LIMIT = 25;
+function principalFromCasePo(casePo) {
+  return (casePo ?? "").trim().replace(/^(?:AP|A|D)\./i, "").match(/^[A-Za-z]+/)?.[0]?.toUpperCase() ?? "";
+}
 function addressMatches(a, needle) {
   const hay = `${a.lines.join(" ")} ${a.postcode}`.toLowerCase();
   return hay.includes(needle);
@@ -13003,7 +13006,7 @@ import_functions4.app.http("inspectionAddressSuggestions", {
         return { status: 200, jsonBody: all.filter((a) => addressMatches(a, q)).slice(0, SEARCH_LIMIT) };
       }
       const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [id]);
-      const providerCode = ((caseRows[0]?.case_po ?? "").trim().match(/^[A-Za-z]+/)?.[0] ?? "").toUpperCase();
+      const providerCode = principalFromCasePo(caseRows[0]?.case_po);
       const scoped = providerCode ? all.filter((s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode) : all;
       const shortlist = (scoped.length > 0 ? scoped : all).slice(0, SHORTLIST_LIMIT);
       return { status: 200, jsonBody: shortlist };
@@ -13048,7 +13051,7 @@ import_functions4.app.http("saveInspectionDecision", {
       let providerCode = "";
       try {
         const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [caseId]);
-        providerCode = ((caseRows[0]?.case_po ?? "").trim().match(/^[A-Za-z]+/)?.[0] ?? "").toUpperCase();
+        providerCode = principalFromCasePo(caseRows[0]?.case_po);
       } catch {
       }
       const sourceNote = [
@@ -14432,7 +14435,7 @@ async function execTool(name, args) {
   if (name === "lookup_case") {
     const q = `%${String(args.query ?? "").trim().slice(0, 80)}%`;
     const rows = await query(
-      `SELECT c.case_po, c.vrm, c.case_ref, c.status_code, c.eva_claimant_name AS claimant,
+      `SELECT c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.eva_claimant_name AS claimant,
               wp.name AS provider
          FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
         WHERE c.case_po ILIKE $1 OR c.vrm ILIKE $1 OR c.case_ref ILIKE $1 OR c.eva_claimant_name ILIKE $1
@@ -14444,7 +14447,10 @@ async function execTool(name, args) {
         casePo: r.case_po ?? null,
         vrm: r.vrm ?? null,
         ref: r.case_ref ?? null,
-        status: statusName(r.status_code),
+        // Handler-facing QUEUE (never the raw status enum — AGENTS.md UI-language rule),
+        // held-aware exactly like the dashboard / count_cases_by_status (an on-hold case is
+        // Held regardless of its raw status_code).
+        queue: queueLabel(r.status_code, r.on_hold),
         claimant: r.claimant ?? null,
         provider: r.provider ?? null
       }))
@@ -14500,6 +14506,11 @@ function statusName(code) {
     return "unknown";
   }
 }
+function queueLabel(statusCode, onHold) {
+  if (onHold) return "Held";
+  const q = statusToQueue(statusName(statusCode));
+  return q === "not-ready" ? "Not ready" : q === "review" ? "Review" : q === "held" ? "Held" : "Closed";
+}
 function categoryName(code) {
   try {
     return (typeof code === "number" ? inboundCategoryCodec.toName(code) : String(code)) ?? "unknown";
@@ -14527,7 +14538,8 @@ import_functions11.app.http("assistantChat", {
     } catch {
       return { status: 400, jsonBody: { error: "invalid JSON body" } };
     }
-    const history = (body2.messages ?? []).filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-MAX_HISTORY).map((m) => ({ role: m.role, content: (m.content ?? "").slice(0, MAX_MSG_CHARS) }));
+    const rawMessages = Array.isArray(body2?.messages) ? body2.messages : [];
+    const history = rawMessages.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-MAX_HISTORY).map((m) => ({ role: m.role, content: (m.content ?? "").slice(0, MAX_MSG_CHARS) }));
     if (!history.length || history[history.length - 1].role !== "user") {
       return { status: 400, jsonBody: { error: "messages must end with a user turn" } };
     }
