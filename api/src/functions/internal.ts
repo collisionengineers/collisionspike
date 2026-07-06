@@ -236,12 +236,23 @@ export async function applyParserFields(
     // TKT-051: an engineer-report layout name ("EVA (Engineers)") is the audited
     // firm's report, never the instructing provider — skip the corpus match entirely.
     !isEngineerReportLayoutSentinel(rawContentProvider);
+  // 1c (audit-case provider recovery, TKT-065): the sender matched an Image-Source
+  // INTERMEDIARY (e.g. Connexus) that routes for EXACTLY ONE work provider. A single
+  // candidate is unambiguous, so it can resolve work_provider_id when nothing else did —
+  // the case where content-match is unmatched/denylisted (the instruction doc was the
+  // audited engineer report) AND the sender domain resolved no provider. A >1-candidate
+  // intermediary ({PCH,SBL}) stays a human decision (left Held) — never guessed.
+  const singleIntermediaryCandidate =
+    intermediary && intermediary.candidateProviderIds.length === 1
+      ? intermediary.candidateProviderIds[0]
+      : null;
   if (
     !ref &&
     !mileage &&
     evaCandidates.length === 0 &&
     !mightFillWorkProviderFromCorpus &&
-    !mightMatchWorkProviderIdFromContent
+    !mightMatchWorkProviderIdFromContent &&
+    !singleIntermediaryCandidate
   ) {
     return;
   }
@@ -380,6 +391,35 @@ export async function applyParserFields(
     }
     // 'ambiguous' / 'unmatched' — never guess; the free-text eva_work_provider candidate
     // above (or the corpus fallback below) still carries the human-readable string either way.
+  }
+
+  // 1c (TKT-065) — single-candidate intermediary fallback for work_provider_id. Runs when the
+  // above content-match did NOT set work_provider_id this run (audit case: the parsed
+  // instruction was the audited EVA report, so content is empty/denylisted) and the FK is still
+  // empty. A single-provider intermediary link is unambiguous → fill it (fill-if-empty), with an
+  // audit trail. Like the content-match fill, this does NOT un-hold the case or mint a Case/PO
+  // (see the HELD/on_hold finding above) — it fills the identity field so the right provider is
+  // visible while a person still confirms/unholds. >1 candidate is left for a human.
+  const alreadySettingWorkProviderId = sets.some((s) => s.startsWith('work_provider_id ='));
+  if (singleIntermediaryCandidate && !alreadySettingWorkProviderId && isEmpty(cur[0].work_provider_id)) {
+    sets.push(`work_provider_id = $${sets.length + 1}`);
+    vals.push(singleIntermediaryCandidate);
+    provenance.push({
+      field: 'workProviderId',
+      value: singleIntermediaryCandidate,
+      sourceType: 'corpus',
+      sourceLabel: 'From intermediary sender — routes for a single provider',
+    });
+    await writeAudit({
+      action: AUDIT_ACTION.provider_matched,
+      caseId,
+      summary:
+        'Intermediary sender routes for exactly one work provider — provider resolved from the intermediary link',
+      after: {
+        workProviderId: singleIntermediaryCandidate,
+        viaIntermediaryImageSourceId: intermediary?.imageSourceId,
+      },
+    });
   }
 
   if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {

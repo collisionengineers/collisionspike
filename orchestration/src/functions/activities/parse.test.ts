@@ -3,6 +3,7 @@ import {
   MAX_PARSE_DOCS,
   coalesceOcrIntoParse,
   orderParseCandidates,
+  resolveWorkProviderAcrossDocs,
   selectInstructionIndex,
   shouldAttemptScannedPdfOcr,
 } from './parse.js';
@@ -211,6 +212,33 @@ describe('selectInstructionIndex', () => {
     expect(selectInstructionIndex(parsed)).toBe(1);
   });
 
+  it('1b: in the PDF-first fallback, an engineer-report PDF (EVA) is NEVER chosen over a non-engineer doc', () => {
+    // Neither doc carries a work_provider or an instruction typing, so selection reaches the
+    // fallback. The old PDF-first pick would grab the EVA report — precisely the misselection
+    // that blanks the provider. It must pick the non-engineer .docx instead.
+    const parsed = [
+      { att: att('letter.docx'), envelope: envelope('unknown', null) },
+      { att: att('_EVA_Report.pdf'), envelope: envelope('report', 'EVA (Engineers)') },
+    ];
+    expect(selectInstructionIndex(parsed)).toBe(0);
+  });
+
+  it('1b: still picks a non-engineer PDF first when the other candidate is also non-engineer', () => {
+    const parsed = [
+      { att: att('note.docx'), envelope: envelope('unknown', null) },
+      { att: att('instruction.pdf'), envelope: envelope('unknown', 'PCH (Performance)') },
+    ];
+    expect(selectInstructionIndex(parsed)).toBe(1);
+  });
+
+  it('1b: only when EVERY candidate is an engineer-report layout does it fall back to PDF-first', () => {
+    const parsed = [
+      { att: att('cnx_letter.docx'), envelope: envelope('report', 'CNX (Engineers)') },
+      { att: att('eva_report.pdf'), envelope: envelope('report', 'EVA (Engineers)') },
+    ];
+    expect(selectInstructionIndex(parsed)).toBe(1);
+  });
+
   it('falls back to index 0 when nothing types as instruction and no PDF parsed', () => {
     const parsed = [
       { att: att('letter.docx'), envelope: envelope('junk') },
@@ -221,6 +249,46 @@ describe('selectInstructionIndex', () => {
 
   it('a lone document is always chosen regardless of its typing', () => {
     expect(selectInstructionIndex([{ att: att('anything.pdf'), envelope: envelope('report') }])).toBe(0);
+  });
+});
+
+describe('resolveWorkProviderAcrossDocs', () => {
+  const doc = (workProvider = '') => ({
+    envelope: workProvider ? { extraction: { work_provider: { value: workProvider } } } : {},
+  });
+
+  it('returns the real provider from ANY candidate even when the EVA report is the selected envelope', () => {
+    // The audit shape: the EVA report (chosen for field extraction) yields '' by engine-v2.6,
+    // the PCH instruction .DOC carries the real provider. It must still be resolved.
+    const parsed = [doc('PCH'), doc('')];
+    expect(resolveWorkProviderAcrossDocs(parsed)).toBe('PCH');
+  });
+
+  it('resolves the provider regardless of candidate order (EVA report first)', () => {
+    const parsed = [doc(''), doc('QDOS')];
+    expect(resolveWorkProviderAcrossDocs(parsed)).toBe('QDOS');
+  });
+
+  it('skips UNKNOWN and empty and engineer-report layout names', () => {
+    const parsed = [
+      { envelope: { extraction: { work_provider: { value: 'UNKNOWN' } } } },
+      { envelope: { extraction: { work_provider: { value: 'EVA (Engineers)' } } } },
+      { envelope: { extraction: { work_provider: { value: '  ' } } } },
+      { envelope: { extraction: { work_provider: { value: 'SBL' } } } },
+    ];
+    expect(resolveWorkProviderAcrossDocs(parsed)).toBe('SBL');
+  });
+
+  it('returns "" when no candidate carries a usable provider (blank on a report-only audit email)', () => {
+    const parsed = [
+      { envelope: { extraction: { work_provider: { value: 'EVA (Engineers)' } } } },
+      { envelope: {} },
+    ];
+    expect(resolveWorkProviderAcrossDocs(parsed)).toBe('');
+  });
+
+  it('single-doc email: returns that doc\'s provider (behaviour unchanged)', () => {
+    expect(resolveWorkProviderAcrossDocs([doc('CCPY')])).toBe('CCPY');
   });
 });
 

@@ -185,8 +185,44 @@ export function selectInstructionIndex(
       !isEngineerReportLayoutName(p.envelope.content_typing?.provider_name),
   );
   if (typed >= 0) return typed;
-  const pdf = parsed.findIndex((p) => isPdf(p.att));
-  return pdf >= 0 ? pdf : 0;
+  // 3. Neither a work-provider nor an instruction typing placed it. Keep the OLD single-doc
+  //    preference (PDF first, else first candidate) — BUT never let an engineer-report layout
+  //    (the audited third-party report, e.g. the EVA `.pdf`) be chosen as "the instruction"
+  //    when another candidate exists: that misselection is exactly how the provider ends up
+  //    blank on an audit email. Only if EVERY candidate is an engineer-report layout do we fall
+  //    back to the unfiltered old preference.
+  const notEngineer = (p: (typeof parsed)[number]): boolean =>
+    !isEngineerReportLayoutName(p.envelope.content_typing?.provider_name);
+  const pdf = parsed.findIndex((p) => isPdf(p.att) && notEngineer(p));
+  if (pdf >= 0) return pdf;
+  const nonEngineer = parsed.findIndex(notEngineer);
+  if (nonEngineer >= 0) return nonEngineer;
+  const anyPdf = parsed.findIndex((p) => isPdf(p.att));
+  return anyPdf >= 0 ? anyPdf : 0;
+}
+
+/**
+ * Resolve the real instructing work provider across ALL parsed candidates, independent of
+ * which envelope was chosen as the field-extraction instruction (selectInstructionIndex).
+ *
+ * On an audit email the third-party EVA report may be the selected envelope, but its
+ * `work_provider` is '' by design (engine-v2.6 suppresses the engineer-report layout name).
+ * The instructing provider (PCH/QDOS) — even when it lives in a DIFFERENT parsed candidate —
+ * still carries the real value, and it must reach the Data API's content-match
+ * (applyParserFields → matchWorkProviderByContentString) or the case ends up provider-less.
+ * Returns the FIRST non-engineer-report, real (non-empty, non-UNKNOWN) `work_provider` found
+ * across the candidates, or '' if none. Order follows orderParseCandidates (Word/RTF first).
+ */
+export function resolveWorkProviderAcrossDocs(
+  parsed: ReadonlyArray<{ envelope: ParseEnvelope }>,
+): string {
+  for (const p of parsed) {
+    const wp = (p.envelope.extraction?.work_provider?.value ?? '').trim();
+    if (wp === '' || wp.toUpperCase() === 'UNKNOWN') continue;
+    if (isEngineerReportLayoutName(wp)) continue;
+    return wp;
+  }
+  return '';
 }
 
 /** Outcome of one candidate's parse attempt (see parseOneCandidate). */
@@ -303,7 +339,16 @@ df.app.activity('parse', {
     const chosenIndex = selectInstructionIndex(parsedDocs);
     const doc = parsedDocs[chosenIndex].att;
     const documentB64 = parsedDocs[chosenIndex].documentB64;
-    const parsed: ParseEnvelope = { ...parsedDocs[chosenIndex].envelope, attachmentTypings };
+    // The instructing provider resolved across ALL parsed docs (not just the chosen envelope):
+    // on an audit email the EVA report is often the selected envelope but yields work_provider ''
+    // (engine-v2.6), while the PCH/QDOS instruction — possibly a different candidate — carries the
+    // real value. Forwarded to the Data API so content-match can still resolve the provider.
+    const resolvedWorkProvider = resolveWorkProviderAcrossDocs(parsedDocs);
+    const parsed: ParseEnvelope = {
+      ...parsedDocs[chosenIndex].envelope,
+      attachmentTypings,
+      resolvedWorkProvider,
+    };
     if (parsedDocs.length > 1) {
       ctx.log(
         JSON.stringify({
