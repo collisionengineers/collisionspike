@@ -756,10 +756,15 @@ These keep the data-protection posture open until you supply them (they were tra
 
 The DSAR/erasure runbook and the DPIA/controller-processor doc are authored and wait on these inputs.
 
-> **Wiring follow-up (not policy) — inspection-address proximity (TKT-076, 2026-07-06):** the Data API's
-> nearest-first ordering needs **`AZURE_MAPS_KEY`** on `cespk-api-dev` (ideally a Key Vault reference) to
-> geocode the case postcode at runtime. Until then, proximity degrades honestly to frequency ordering
-> (provider scoping is fully live regardless). The corpus site lat/lon are already seeded.
+> **Wiring follow-up (not policy) — inspection-address proximity (TKT-076) — ✅ RESOLVED 2026-07-06:** the
+> Data API's nearest-first ordering needed **`AZURE_MAPS_KEY`** on `cespk-api-dev`. **Now wired** as a
+> versioned **Key Vault reference** (`cespk-pg-kv-dev/azure-maps-key` ← the `cespkmaps-dev` primary key; the
+> api's managed identity already reads that vault, so no new RBAC; the App Service config-reference reports
+> `Resolved` and the `appsettings set` auto-restarted the app). Runtime proximity is now live — the api
+> geocodes the case postcode via Azure Maps and orders the shortlist nearest-first, still degrading honestly
+> to frequency ordering when a case has no parseable postcode. The `cespkmaps-dev` geocode was smoke-tested
+> against two corpus postcodes (ML6 8TA, M12 4AH → real lat/lon) and the live active deployment holds the
+> consuming route. The corpus site lat/lon were already seeded; `AZURE_MAPS_ENABLED` was already on.
 
 ---
 
