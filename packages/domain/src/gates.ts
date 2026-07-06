@@ -43,6 +43,11 @@ export const gates = {
   // a conversational Q&A surface with READ-ONLY tools only. Needs a model endpoint +
   // deployment (see aiChatConfigured) in addition to this switch.
   aiChat: (): boolean => process.env.AI_CHAT_ENABLED === 'true',
+  // Live image role/registration classifier (TKT-064) — default OFF. Gates the gpt-5-vision
+  // classify call on the intake image paths (extractImages / classifyPersist). Needs a model
+  // endpoint + deployment (see imageRoleClassifyEnabled); off/unconfigured => images persist
+  // with role `unknown` exactly as before (the one-shot backfill handled existing evidence).
+  imageRoleClassify: (): boolean => process.env.IMAGE_ROLE_CLASSIFY_ENABLED === 'true',
 
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: (): boolean => process.env.BOX_API_ENABLED === 'true',               // #22
@@ -141,6 +146,14 @@ export const gates = {
    */
   aiChatEnabled: (): boolean =>
     gates.aiChat() && gates.aiModelEndpoint() !== '' && gates.aiModelDeployment() !== '',
+
+  /**
+   * Derived: the live image classifier is actionable — the gate is ON and a model endpoint +
+   * deployment are configured. The intake image paths call classifyImage only when this is
+   * true; otherwise they persist role `unknown` (pre-classifier behaviour). (TKT-064.)
+   */
+  imageRoleClassifyEnabled: (): boolean =>
+    gates.imageRoleClassify() && gates.aiModelEndpoint() !== '' && gates.aiModelDeployment() !== '',
 
   /**
    * Derived: the Outlook-move path is actionable — the gate is ON and the move queue

@@ -392,7 +392,19 @@ export const dataApi = {
   /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
   persistEvidence(
     caseId: string,
-    rows: Array<EvidenceDescriptor & { blobPath: string; size: number }>,
+    rows: Array<
+      EvidenceDescriptor & {
+        blobPath: string;
+        size: number;
+        // Optional image metadata — the live classifier (TKT-064) attaches these to image
+        // rows; the API evidence route reads them off any row (ignored on non-image rows).
+        imageRole?: string;
+        registrationVisible?: boolean;
+        acceptedForEva?: boolean;
+        excluded?: boolean;
+        exclusionReason?: string;
+      }
+    >,
   ): Promise<{ persisted: number }> {
     return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
   },
@@ -415,8 +427,14 @@ export const dataApi = {
       blobPath: string;
       evidenceClass: 'image';
       imageRoleCode?: string;
+      /** Role NAME (overview/damage_closeup/additional/other) — the API route maps it to
+       *  image_role_code; preferred over imageRoleCode for the live classifier. */
+      imageRole?: string;
       registrationVisible?: boolean;
       acceptedForEva?: boolean;
+      /** EVA exclusion (e.g. person reflection) — reason required by the schema when true. */
+      excluded?: boolean;
+      exclusionReason?: string;
       sha256?: string;
       sequenceIndex?: number;
       sourceLabel?: string;
