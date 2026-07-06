@@ -1,7 +1,7 @@
 ---
 id: TKT-074
 title: Every terminal command is blocked — the Box scope-guard hook fails closed
-status: backlog
+status: done
 priority: P0
 area: platform
 tickets-it-relates-to: [TKT-061, TKT-075, TKT-080]

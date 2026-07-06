@@ -50,9 +50,10 @@ from typing import Any
 import azure.functions as func
 
 import location_suggest
+from ai_reasoning import build_reasoner
 from location_suggest import AllPhotosUnreadable, CONTRACT_VERSION
 from maps_client import MapsClient, MapsNotConfigured
-from photo_source import PhotoRef, get_photo_source
+from photo_source import PhotoRef, select_photo_source
 from vision_client import VisionClient, VisionNotConfigured
 
 app = func.FunctionApp()
@@ -105,6 +106,7 @@ def _handle(req: func.HttpRequest) -> func.HttpResponse:
                 box_file_id=_opt_str(item.get("box_file_id")),
                 filename=_opt_str(item.get("filename")),
                 image_role=_opt_str(item.get("image_role")),
+                inline_b64=_opt_str(item.get("image_base64")),
             )
         )
 
@@ -115,12 +117,18 @@ def _handle(req: func.HttpRequest) -> func.HttpResponse:
     claimant_address = _opt_str(text_clues.get("claimant_address"))
 
     max_candidates = location_suggest.clamp_max_candidates(body.get("max_candidates"))
+    # Reviewer-invoked DEEP escalation (TKT-078). build_reasoner() returns None unless the
+    # LOCATION_ASSIST_AI_ENABLED gate + model config + a mintable MSI token are all present, so
+    # a `deep` request with the escalation off is an honest no-op.
+    deep = bool(body.get("deep"))
+    ai_reasoner = build_reasoner() if deep else None
 
-    # --- 2. Build dependencies (Box seam stubbed; Vision/Maps lazy) -----------
-    # get_photo_source() returns the StubPhotoSource while Box is dormant
-    # (BOX_API_ENABLED=false); the Vision/Maps clients read their Key Vault
-    # references lazily on first use. None of this touches the network here.
-    photo_source = get_photo_source()
+    # --- 2. Build dependencies (inline bytes preferred; Vision/Maps lazy) -----
+    # select_photo_source() uses InlinePhotoSource when the Data API enriched the
+    # photo_refs with inline bytes (TKT-077 — the live path), else the Stub/Box
+    # factory. The Vision/Maps clients read their Key Vault references lazily on
+    # first use. None of this touches the network here.
+    photo_source = select_photo_source(photo_refs)
     vision = VisionClient()
     maps = MapsClient()
 
@@ -134,6 +142,8 @@ def _handle(req: func.HttpRequest) -> func.HttpResponse:
             photo_source=photo_source,
             vision=vision,
             maps=maps,
+            deep=deep,
+            ai_reasoner=ai_reasoner,
         )
     except AllPhotosUnreadable as exc:
         # Client condition (the supplied photos cannot be read and there is no

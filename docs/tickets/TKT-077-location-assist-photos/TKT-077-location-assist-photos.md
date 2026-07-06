@@ -1,7 +1,7 @@
 ---
 id: TKT-077
 title: Location assist can't see the case photos — real photo bytes + signage business lookup
-status: backlog
+status: now
 priority: P1
 area: ai
 tickets-it-relates-to: [TKT-048, TKT-062, TKT-076, TKT-078]

@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import clue_extraction
+from ai_reasoning import AiLocationReasoner
 from maps_client import GeocodeResult, MapsClient, MapsError, MapsNotConfigured
 from photo_source import PhotoRef, PhotoSource, PhotoUnavailableError
 from vision_client import VisionClient, VisionError, VisionNotConfigured
@@ -63,6 +64,10 @@ _MAX_SIGNAGE_QUERIES = 6
 KIND_PHOTO_SIGN = "photo_sign"
 KIND_NEAR_ACCIDENT = "near_accident"
 KIND_NEAR_CLAIMANT = "near_claimant"
+KIND_AI_REASONING = "ai_reasoning"  # deeper AI vision-reasoning escalation (TKT-078)
+
+# Cap on photo bytes retained for the (expensive) AI escalation.
+_MAX_AI_PHOTOS = 4
 
 
 @dataclass
@@ -133,6 +138,8 @@ def suggest_locations(
     photo_source: PhotoSource,
     vision: VisionClient,
     maps: MapsClient,
+    deep: bool = False,
+    ai_reasoner: AiLocationReasoner | None = None,
 ) -> SuggestResult:
     """Run the full suggestion pipeline with injected dependencies.
 
@@ -158,6 +165,7 @@ def suggest_locations(
     photos_attempted = len(photo_refs)
     photos_unavailable = 0
     photos_analysed = 0
+    fetched_bytes: list[bytes] = []  # retained (capped) for the AI escalation
     for ref in photo_refs:
         try:
             image_bytes = photo_source.fetch_bytes(ref)
@@ -171,6 +179,8 @@ def suggest_locations(
                 )
             )
             continue
+        if len(fetched_bytes) < _MAX_AI_PHOTOS:
+            fetched_bytes.append(image_bytes)
 
         try:
             vresult = vision.analyze(image_bytes)
@@ -193,7 +203,9 @@ def suggest_locations(
         for query in clue_extraction.signage_queries(
             ocr_texts, max_queries=_MAX_SIGNAGE_QUERIES
         ):
-            geo = _safe_geocode(maps, query, issues, limit=2)
+            # Signage is a business name -> fuzzy/POI search resolves it far better than the
+            # address geocoder (TKT-077); addresses/postcodes still use geocode below.
+            geo = _safe_geocode(maps, query, issues, limit=2, poi=True)
             for g in geo:
                 candidates.append(
                     _candidate_from_geocode(
@@ -235,6 +247,31 @@ def suggest_locations(
                 )
             )
 
+    # --- 3b. AI vision-reasoning ESCALATION (deep, gated, TKT-078) ------------
+    # Reviewer-invoked deeper pass: the AI reasons over the case photos and returns place
+    # GUESSES, which we re-geocode via Maps (fuzzy) exactly like signage — the AI never
+    # returns a final address (ADR-0013). Off/unconfigured => ai_reasoner is None (no-op).
+    if deep and ai_reasoner is not None and fetched_bytes:
+        try:
+            guesses = ai_reasoner.suggest(
+                fetched_bytes, accident=accident_circumstances, claimant=claimant_address
+            )
+        except Exception:  # noqa: BLE001 - the escalation must never break the base result
+            logger.warning("AI reasoning escalation failed; ignoring", exc_info=True)
+            guesses = []
+        for guess in guesses:
+            for g in _safe_geocode(maps, guess.query, issues, limit=2, poi=True):
+                candidates.append(
+                    _candidate_from_geocode(
+                        g,
+                        evidence=Evidence(
+                            kind=KIND_AI_REASONING,
+                            detail=guess.reasoning or f"deeper photo analysis: {guess.query}",
+                        ),
+                        boost=_text_match_boost(guess.query, g.freeform_address),
+                    )
+                )
+
     # --- 422 condition: every photo unavailable AND no text clue --------------
     if photos_attempted > 0 and photos_unavailable == photos_attempted and not has_text_clue_supplied:
         raise AllPhotosUnreadable(
@@ -262,15 +299,16 @@ class AllPhotosUnreadable(RuntimeError):
 
 
 def _safe_geocode(
-    maps: MapsClient, query: str, issues: list[dict[str, Any]], *, limit: int
+    maps: MapsClient, query: str, issues: list[dict[str, Any]], *, limit: int, poi: bool = False
 ) -> list[GeocodeResult]:
-    """Geocode a query, degrading a transient Maps failure to a warning.
+    """Look a query up via Maps, degrading a transient failure to a warning.
 
-    A NOT-configured Maps is a server fault and is re-raised (handler -> 502); a
-    transient/per-query Maps error becomes a warning so other clues still run.
+    ``poi=True`` uses Fuzzy Search (business names off signage); otherwise Search-Address
+    (accident/claimant places). A NOT-configured Maps is a server fault and is re-raised
+    (handler -> 502); a transient/per-query Maps error becomes a warning so other clues still run.
     """
     try:
-        return maps.geocode(query, limit=limit)
+        return maps.search_poi(query, limit=limit) if poi else maps.geocode(query, limit=limit)
     except MapsNotConfigured:
         raise
     except MapsError:

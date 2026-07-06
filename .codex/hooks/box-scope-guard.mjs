@@ -1,46 +1,102 @@
 // box-scope-guard.mjs — BLOCKING PreToolUse guard for the Box integration build.
 //
-// Until tools/box-scope.json sets liveReady=true, every Box CLI/REST/SDK command must
-// stay within the test folder (allowedRoot) and its tracked descendants. Anything that
-// references Box folder 0 or an id outside the allowlist is BLOCKED (exit 2; stderr is
-// fed back to Claude as the reason). Non-Box commands are always allowed (exit 0).
-// For Box commands the guard FAILS CLOSED: if it cannot validate, it blocks.
-import { loadConfig, isBoxCommand, analyze } from './box-scope-lib.mjs';
+// Until tools/box-scope.json sets liveReady=true, every Box CLI/REST/SDK command must stay
+// within the test folder (allowedRoot) and its tracked descendants. Anything that references
+// Box folder 0 or an id outside the allowlist is BLOCKED (exit 2; stderr is fed back as the
+// reason). Non-Box commands are always allowed (exit 0). For Box commands the guard FAILS
+// CLOSED: if it cannot validate, it blocks.
+//
+// TKT-074 hardening: resolve stdin on a short timer (don't wait on 'end', which some harnesses
+// never emit), import the lib lazily, and add a watchdog that FAIL-OPENS if anything stalls —
+// the guard only needs to fail CLOSED for commands positively identified as Box-scoped.
 
 function deny(reason) {
   process.stderr.write('[box-scope-guard] BLOCKED — ' + reason + '\n');
   process.exit(2);
 }
 
-let raw = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (c) => (raw += c));
-process.stdin.on('end', () => {
+// Watchdog: never let the hook hang the shell. Well under the harness fail-closed deadline.
+// Fail-OPEN (exit 0), because if this fires we have NOT positively identified a Box command.
+let decided = false;
+const watchdog = setTimeout(() => {
+  if (!decided) {
+    decided = true;
+    process.exit(0);
+  }
+}, 1500);
+
+function readStdinEvent(timeoutMs) {
+  return new Promise((resolve) => {
+    let raw = '';
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve(raw);
+    };
+    try {
+      process.stdin.setEncoding('utf8');
+      process.stdin.on('data', (c) => (raw += c));
+      process.stdin.on('end', finish);
+      process.stdin.on('error', finish);
+    } catch {
+      finish();
+      return;
+    }
+    setTimeout(finish, timeoutMs);
+  });
+}
+
+async function main() {
+  const raw = await readStdinEvent(700);
   let cmd = '';
   try {
     const ev = JSON.parse(raw || '{}');
-    if ((ev.tool_name || '') !== 'Bash') process.exit(0);
+    if ((ev.tool_name || '') !== 'Bash') {
+      decided = true;
+      clearTimeout(watchdog);
+      process.exit(0); // not a Bash tool call — not our concern
+    }
     cmd = String((ev.tool_input || {}).command || '');
   } catch {
+    decided = true;
+    clearTimeout(watchdog);
     process.exit(0); // can't parse the event — not our concern
   }
-  if (!cmd || !isBoxCommand(cmd)) process.exit(0); // not a Box op — allow
 
-  // Box op: from here, any failure FAILS CLOSED.
+  let lib;
   try {
-    const cfg = loadConfig();
+    lib = await import('./box-scope-lib.mjs');
+  } catch {
+    decided = true;
+    clearTimeout(watchdog);
+    process.exit(0); // can't load the guard — never block a command we can't classify
+  }
+
+  if (!cmd || !lib.isBoxCommand(cmd)) {
+    decided = true;
+    clearTimeout(watchdog);
+    process.exit(0); // not a Box op — allow
+  }
+
+  // Positively identified as a Box op: from here, any failure FAILS CLOSED. Cancel the watchdog
+  // so it cannot allow this Box command behind our back.
+  decided = true;
+  clearTimeout(watchdog);
+  try {
+    const cfg = lib.loadConfig();
     if (cfg.liveReady) {
       process.stderr.write('[box-scope-guard] liveReady=true — scope guard lifted; Box op allowed.\n');
       process.exit(0);
     }
     const root = cfg.allowedRoot;
     const allowed = new Set([root, ...cfg.allowedIds]);
-    const a = analyze(cmd);
+    const a = lib.analyze(cmd);
 
     if (a.touchesFolderZero) {
       deny(
         `command references Box folder 0 (All Files root). Only the test folder ${root} ` +
-          `and its descendants are in scope.`
+          `and its descendants are in scope.`,
       );
     }
 
@@ -50,7 +106,7 @@ process.stdin.on('end', () => {
         `Box id(s) [${bad.join(', ')}] are outside the test folder ${root}.\n` +
           `  In scope: root ${root} + ${cfg.allowedIds.length} tracked descendant id(s).\n` +
           `  A child created under the root is tracked automatically right after creation.\n` +
-          `  To operate beyond the test folder, set liveReady=true in tools/box-scope.json (only when ready for live).`
+          `  To operate beyond the test folder, set liveReady=true in tools/box-scope.json (only when ready for live).`,
       );
     }
 
@@ -60,7 +116,7 @@ process.stdin.on('end', () => {
         deny(
           `a webhook may only target the test folder ${root} or a tracked descendant ` +
             `(got ${a.webhookTargets.join(', ') || 'no resolvable target'}). ` +
-            `A webhook on any other folder — or with an id the guard can't see — could fire tenant-wide.`
+            `A webhook on any other folder — or with an id the guard can't see — could fire tenant-wide.`,
         );
       }
     }
@@ -69,4 +125,6 @@ process.stdin.on('end', () => {
   } catch (e) {
     deny(`could not validate this Box command, failing closed: ${e && e.message ? e.message : e}`);
   }
-});
+}
+
+main();

@@ -1,7 +1,7 @@
 ---
 id: TKT-079
 title: Address picker polish — provider default chip, distance hints, show-more
-status: backlog
+status: now
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-062, TKT-076, TKT-011]

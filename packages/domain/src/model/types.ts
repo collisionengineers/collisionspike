@@ -270,6 +270,11 @@ export interface Case {
   casePo?: string;
   provider: string; // displayName (matches a Provider.displayName)
   providerCode: string; // principalCode
+  /** The provider's operator-designated inspection-location policy (ADR-0016), joined onto the
+   *  case. Surfaced in the address flow as an informational default (e.g. an "Image Based
+   *  Assessment (provider default)" chip) — NEVER auto-applied (ADR-0013). Omitted / unknown
+   *  provider => the picker behaves as prefer_address. */
+  providerInspectionPolicy?: InspectionLocationPolicy;
   vehicleModel: string;
   vehicleYear?: number;
 

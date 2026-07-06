@@ -7,6 +7,21 @@ revamp — regenerate the suggestion layer from the EVA full-address export; ADR
 with [`data-model.md`](./data-model.md) (the `cr1bd_inspectionaddress` table). Cross-referenced from
 [`../requirements/inspection-address.md`](../requirements/inspection-address.md).
 
+> **Update (2026-07-06, TKT-075/076/080) — reproducible in-repo + reseeded live.** The offline
+> pre-processor is now committed + reproducible: **`scripts/inspection-corpus/build_corpus.py`**
+> (stdlib xlsx read; **marker-aware** provider parse `a.qdos…`/`ap.qdos…`→`QDOS` — the old parse
+> scattered the ~4,673 dotted Case IDs; hyphen/typo-tolerant "Image Based Assessment" drop;
+> postcode-normalised dedup; per-provider frequency/recency/rank) → a **PII-free** ~2,012-site CSV +
+> a per-provider run report (operator input for `always_image_based`). **`geocode_sites.py`** adds
+> postcodes.io centroids (committed cache → offline-reproducible). The live suggested layer is reseeded
+> by **`migration/assets/schema/seed/920_replace_suggested_addresses.sql`** (backup-first; replaces only
+> `source_label LIKE 'suggested%'`; **Confirmed rows preserved**), writing `provider_code` + `latitude`/
+> `longitude` (new columns, delta `2026-07-06-inspection-address-provider-geo.sql`). The source xlsx
+> lives at **`docs/reference/fullevaexportinspectionaddresses.xlsx`** (the old
+> `to-integrate-into-phases/inspection-address-revamp/` path is retired). **Runtime** proximity ordering
+> (ADR-0016 #2b) uses **in-tenant Azure Maps**; the **offline** geocode uses postcodes.io. Live corpus
+> counts: the registry [live-environment.md](./live-environment.md).
+
 > **Live source (2026-06-24).** The suggestion layer is now regenerated from the **2-year EVA
 > full-address export** (`fullevaexportinspectionaddresses.xlsx`, ~17,737 inspection rows) via a new
 > **offline pre-processor**, replacing the prior `codexwork` master CSV as the *live* source (the

@@ -28,6 +28,8 @@ failure); the orchestrator degrades to whatever photos + text clues it has.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import os
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
@@ -55,6 +57,9 @@ class PhotoRef:
     box_file_id: str | None = None
     filename: str | None = None
     image_role: str | None = None
+    # base64 image bytes passed INLINE by the Data API (TKT-077). When present, InlinePhotoSource
+    # decodes these directly, so the Function reads the case's photos without a Box grant of its own.
+    inline_b64: str | None = None
 
 
 @runtime_checkable
@@ -119,6 +124,30 @@ class BoxPhotoSource:
         )
 
 
+class InlinePhotoSource:
+    """LIVE (Box-independent) source: decodes base64 image bytes carried INLINE on the PhotoRef.
+
+    TKT-077: the Data API resolves each photo's bytes (blob-first, Box-facade fallback) and passes
+    them as ``image_base64`` on the request's ``photo_refs``, so this Function reads the case's OWN
+    photos with NO Box grant of its own — replacing the raising ``BoxPhotoSource`` on the live path.
+    A ref with no inline bytes raises ``PhotoUnavailableError`` (a per-photo warning), so a mix of
+    enriched and un-enriched refs degrades cleanly, exactly like the stub.
+    """
+
+    def fetch_bytes(self, ref: PhotoRef) -> bytes:
+        if not ref.inline_b64:
+            raise PhotoUnavailableError(
+                f"no inline bytes for evidence_id {ref.evidence_id!r} "
+                "(the Data API did not enrich this photo_ref)"
+            )
+        try:
+            return base64.b64decode(ref.inline_b64, validate=False)
+        except (ValueError, binascii.Error) as exc:
+            raise PhotoUnavailableError(
+                f"inline bytes for evidence_id {ref.evidence_id!r} are not valid base64: {exc}"
+            ) from exc
+
+
 def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -137,3 +166,15 @@ def get_photo_source(fixtures: dict[str, bytes] | None = None) -> PhotoSource:
     if _truthy(os.environ.get("BOX_API_ENABLED")):
         return BoxPhotoSource()  # pragma: no cover - activation-only
     return StubPhotoSource(fixtures)
+
+
+def select_photo_source(
+    photo_refs: "list[PhotoRef]", fixtures: dict[str, bytes] | None = None
+) -> PhotoSource:
+    """Pick the active source for a request. When ANY ref carries inline bytes (the live
+    Data-API-enriched path, TKT-077), use ``InlinePhotoSource`` — this is preferred over Box/Stub
+    because the API has already resolved the bytes. Otherwise fall back to ``get_photo_source()``
+    (Stub while Box is dormant; Box at activation)."""
+    if any(getattr(r, "inline_b64", None) for r in photo_refs):
+        return InlinePhotoSource()
+    return get_photo_source(fixtures)

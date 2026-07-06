@@ -1,7 +1,7 @@
 ---
 id: TKT-080
 title: Reseed the live address catalogue + deploy and prove the whole inspection repair
-status: backlog
+status: now
 priority: P1
 area: platform
 tickets-it-relates-to: [TKT-075, TKT-076, TKT-077, TKT-062, TKT-074]

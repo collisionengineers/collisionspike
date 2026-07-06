@@ -75,6 +75,7 @@ app.http('getLocationAssistGate', {
         mapsEnabled: gates.azureMaps(),
         apiBaseConfigured: gates.locationAssistApiBase() !== '',
         enabled: gates.locationAssistEnabled(),
+        aiEnabled: gates.locationAssistAiEnabled(),
       };
       return { status: 200, jsonBody: result };
     } catch {

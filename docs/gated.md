@@ -750,9 +750,16 @@ These keep the data-protection posture open until you supply them (they were tra
 - the **litigation / legal-hold** rule,
 - **ICO registration** + DVLA data-use terms,
 - the **per-AI-gate production sign-off** (AI **testing** on repo data is already authorised; only
-  production use awaits sign-off).
+  production use awaits sign-off) — this now also covers **`LOCATION_ASSIST_AI_ENABLED`** (TKT-078, the
+  deeper photo-based location suggestion via AOAI gpt-5 vision; **built + deployed DARK 2026-07-06**, flip
+  awaits sign-off).
 
 The DSAR/erasure runbook and the DPIA/controller-processor doc are authored and wait on these inputs.
+
+> **Wiring follow-up (not policy) — inspection-address proximity (TKT-076, 2026-07-06):** the Data API's
+> nearest-first ordering needs **`AZURE_MAPS_KEY`** on `cespk-api-dev` (ideally a Key Vault reference) to
+> geocode the case postcode at runtime. Until then, proximity degrades honestly to frequency ordering
+> (provider scoping is fully live regardless). The corpus site lat/lon are already seeded.
 
 ---
 

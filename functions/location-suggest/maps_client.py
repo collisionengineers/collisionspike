@@ -91,6 +91,12 @@ class MapsConfig:
     def search_url(self) -> str:
         return f"{self.endpoint}/search/address/json"
 
+    @property
+    def poi_url(self) -> str:
+        # Fuzzy Search resolves POIs/business names (read off a photo sign) AND addresses,
+        # ranked by relevance — better than Search-Address for signage (TKT-077).
+        return f"{self.endpoint}/search/fuzzy/json"
+
     def __repr__(self) -> str:  # pragma: no cover - trivial redaction
         return (
             f"MapsConfig(endpoint={self.endpoint!r}, key=<redacted>, "
@@ -152,6 +158,15 @@ class MapsClient:
         Raises ``MapsError`` on any auth / transport / non-2xx failure. An empty
         result list is a normal outcome (no geocode hit), not an error.
         """
+        return self._search(self.config.search_url, query, limit)
+
+    def search_poi(self, query: str, *, limit: int = 3) -> list[GeocodeResult]:
+        """Fuzzy-search ``query`` (a business name off a photo sign, or an address) to up to
+        ``limit`` candidates (UK-biased). Better than ``geocode`` for signage business names;
+        same result shape + same error semantics (TKT-077)."""
+        return self._search(self.config.poi_url, query, limit)
+
+    def _search(self, url: str, query: str, limit: int) -> list[GeocodeResult]:
         q = (query or "").strip()
         if not q:
             return []
@@ -164,7 +179,7 @@ class MapsClient:
             "subscription-key": cfg.key,
         }
         try:
-            resp = self.http.get(cfg.search_url, params=params)
+            resp = self.http.get(url, params=params)
         except httpx.HTTPError as exc:
             raise MapsError(f"Maps transport error: {type(exc).__name__}") from exc
 

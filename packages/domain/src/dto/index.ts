@@ -243,6 +243,11 @@ export interface SuggestedAddress {
   frequency?: number;
   lastSeen?: string;
   rank?: number;
+  /* ---- Proximity ordering (ADR-0016 helper #2b; TKT-076) — ORDERING ONLY, never auto-selects. */
+  /** Great-circle miles from the case's accident/claimant postcode to this site, when both geocode. */
+  distanceMiles?: number;
+  /** True when this row is a LABELLED global fallback (no provider-specific match) — not provider-scoped. */
+  scopeFallback?: boolean;
 }
 
 /** Confirmed-vs-suggested split of the inspection-address corpus (Admin count). */
@@ -275,6 +280,9 @@ export interface LocationAssistGate {
   mapsEnabled: boolean;
   apiBaseConfigured: boolean;
   enabled: boolean;
+  /** The AI vision-reasoning ESCALATION (TKT-078) — the deeper photo-based suggestion. Distinct
+   *  from `enabled`; ships DARK (default false), operator-gated live flip (gated.md E2). */
+  aiEnabled: boolean;
 }
 
 /** All-off default — the honest "location assist not switched on / unreadable" baseline. */
@@ -283,6 +291,7 @@ export const LOCATION_ASSIST_GATE_ALL_OFF: LocationAssistGate = {
   mapsEnabled: false,
   apiBaseConfigured: false,
   enabled: false,
+  aiEnabled: false,
 };
 
 /** Result of a manual staff case merge. */
