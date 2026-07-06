@@ -1,8 +1,9 @@
 # Verification — TKT-080: Reseed the live address catalogue + deploy and prove the whole inspection repair
 
 ## Verdict
-RESEED DONE + PROVEN; API/SPA/Function DEPLOYED; data smoke PASS (2026-07-06). Operator live SPA
-click-through per provider is the remainder (API HTTP is bearer-gated for the agent).
+RESEED DONE + PROVEN; API/SPA/Function DEPLOYED; data smoke PASS (2026-07-06); the `AZURE_MAPS_KEY`
+proximity wiring is now done too (§6). Operator live SPA click-through per provider is the remainder
+(API HTTP is bearer-gated for the agent).
 
 Pre-reseed baseline (the before-side of the diff):
 [evidence/preflight-baseline-2026-07-06.md](./evidence/preflight-baseline-2026-07-06.md).
@@ -50,6 +51,19 @@ registry [live-environment.md](../../architecture/live-environment.md); new `ver
 `lastVerified` bumped) + the `live-environment.md` mirror updated. `inspection-address-corpus.md` +
 ADR-0016 note + gated.md updated (LOCATION_ASSIST_AI E2 + the AZURE_MAPS_KEY follow-up for proximity).
 
+## 6. Proximity key wired (2026-07-06, post-reseed follow-up)
+`AZURE_MAPS_KEY` is now live on `cespk-api-dev` as a **versioned Key Vault reference**
+(`cespk-pg-kv-dev/azure-maps-key` ← the `cespkmaps-dev` primary key). No new RBAC — the api's managed
+identity already resolves refs from that vault (same one PGPASSWORD/BOX_FN_KEY/LOCATION_SUGGEST_FN_KEY use).
+The App Service config-reference reports **`Resolved`** ("Reference has been successfully resolved"); the
+`appsettings set` auto-restarted the app so it is picked up. The live **active** deployment (`dbfa36db`,
+2026-07-06 15:39Z) has `inspectionAddressSuggestions` — the route that consumes the key — so the wiring is
+effective, not inert. Smoke (the exact runtime call, `atlas.microsoft.com/search/address/json`): ML6 8TA →
+`55.843,-3.946` (Airdrie), M12 4AH → `53.468,-2.217` (Manchester). `AZURE_MAPS_ENABLED` +
+`LOCATION_ASSIST_ENABLED` were already `true`; the absent key was the only missing piece — which is exactly
+why proximity had been silently degrading to frequency ordering. Nearest-first ordering is now live (still
+degrades honestly to frequency ordering when a case has no parseable accident/claimant postcode).
+
 ## Pending (operator)
 `VERIFY_LIVE=1 node verify-all.mjs` (needs an az login in the gate's environment); the per-provider live
-SPA click-through; `AZURE_MAPS_KEY` on the api app for runtime proximity ordering.
+SPA click-through.
