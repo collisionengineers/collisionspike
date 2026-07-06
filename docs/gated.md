@@ -172,11 +172,11 @@ implemented**) must run on a **separate** pool opened with `-c app.role=admin`, 
 > was de-scoped from config and its subscription deleted. ✅ **Renewal RESOLVED (2026-06-29):** subscriptions
 > are kept alive by a **Durable eternal orchestration** (`subscriptionMonitorOrchestrator`) — a durable timer
 > wakes the scale-to-zero FC1 app, which a plain NCRONTAB timer can't; the `graph-renew` timer is retained
-> only as a backstop. **Remaining (finishing items, do not block intake):** confirm an **unattended renew** at
-> the next ~6h durable-timer wake; set **`EVIDENCE_BLOB_CONNECTION`** (prefer MI); assign the **orch MI an
-> app-role on the Data API**; wire **Azure Monitor heartbeat alerts**; add a subscription-**prune** step (a
-> mailbox removed from `GRAPH_INTAKE_MAILBOXES` is not yet auto-deleted — why digital@ had to be removed by
-> hand). Residual `graph-webhook` `499`/cold-start aborts remain (Graph retries absorb the misses). The design
+> only as a backstop. ✅ **Subscription prune DONE (2026-07-05, P7):** a prune step now deletes the Graph
+> subscription for any mailbox no longer in `GRAPH_INTAKE_MAILBOXES` — the gap that forced digital@ to be
+> removed by hand is closed. **Remaining (finishing items, do not block intake):** confirm an **unattended
+> renew** at the next ~6h durable-timer wake; set **`EVIDENCE_BLOB_CONNECTION`** (prefer MI); assign the
+> **orch MI an app-role on the Data API**; wire **Azure Monitor heartbeat alerts**. Residual `graph-webhook` `499`/cold-start aborts remain (Graph retries absorb the misses). The design
 > is authorised by **Exchange RBAC for Applications** (resource-scoped, **no Global-Admin consent**) layered
 > with **Graph PUSH subscriptions**.
 
@@ -238,7 +238,8 @@ subscriptions over the production set info@ + engineers@ + desk@ (mailbox cutove
 
 **Finishing items (do not block intake):** set **`EVIDENCE_BLOB_CONNECTION`** (prefer a managed-identity
 form — currently unset to avoid a plaintext secret); assign the **orch managed identity an app-role on the
-Data API**; wire **Azure Monitor heartbeat alerts**; add a subscription-**prune** step. ✅ Graph renewal is
+Data API**; wire **Azure Monitor heartbeat alerts**. ✅ The subscription-**prune** step is DONE (2026-07-05,
+P7 — a mailbox removed from `GRAPH_INTAKE_MAILBOXES` now has its Graph subscription auto-deleted). ✅ Graph renewal is
 RESOLVED (2026-06-29): the durable `subscriptionMonitorOrchestrator` keeps the subscriptions renewed (the
 `graph-renew` timer never fired on Flex scale-to-zero — now a backstop).
 
@@ -255,8 +256,8 @@ actions.
    - **`GRAPH_INTAKE_MAILBOXES`** — the intake mailboxes as **JSON** `[{mailbox,minIntakeDate}]` (it had been
      a plain string that JSON-parse-failed to **zero** mailboxes; now fixed). **Currently set** to the
      production set `info@` + `engineers@` + `desk@collisionengineers.co.uk` (cutover finished 2026-06-29; the
-     test/dev mailbox `digital@` was removed). ⚠️ A mailbox removed here is not yet auto-pruned from Graph —
-     delete its subscription by hand until the prune step lands (see the finishing items above).
+     test/dev mailbox `digital@` was removed). ✅ A mailbox removed here is now **auto-pruned** from Graph —
+     its subscription is deleted by the prune step (DONE 2026-07-05, P7).
    - the **parser** Function base URL **+ function key** (`cespike-parser-dev`),
    - the **enrichment** Function base URL **+ function key**,
    - the Entra **tenant id / intake app client-id**, and the **Key Vault reference** to the Graph client
@@ -345,7 +346,7 @@ route different work-provider codes) — REST waits on Minotaur's patch.
    the **full registration visible** on the overview.
 4. Only after the test passes do you point it at **live** EVA.
 
-#### D2. Box filing  ·  ✅ **LIVE (2026-06-28)** — only the two Box-side artifacts remain (see #4 / OPERATOR-CHECKLIST)
+#### D2. Box filing  ·  ✅ **LIVE (2026-06-28)** — only the template File Request id remains (operator; see #4 / OPERATOR-CHECKLIST)
 
 **What:** the **`box-webhook`** Function (one of the 6 retained Python Functions; deployed) files cases to
 Box (mint the Case/PO folder, copy the upload File Request, mirror the finished case) using a **service
@@ -363,13 +364,15 @@ tenant is clearly Business-or-higher (JWT + the folder all work). **The hard par
 **Now live:** the `Config.JSON` is in Key Vault (`cespkboxkvv76a47/box-config-json`) and the `BOX_*` gates
 (`BOX_API_ENABLED` / `BOX_FOLDER_AT_INTAKE_ENABLED` / `BOX_FILEREQUEST_ENABLED`, `BOX_FOLDER_ROOT_ID=392761581105`)
 are **true** on `cespk-api-dev` + `cespk-orch-dev`; an authed smoke call returned **200** (folder `CCPY26050`).
-Runbook: **[docs/azure/box-activation.md](./azure/box-activation.md)**. The remaining *Box-side*
-follow-ups (operator, not blockers for basic filing) are the **hand-built template File Request** id and
-subscribing the **`FILE.UPLOADED` webhook** — both covered in that runbook (§5).
+The **`FILE.UPLOADED` webhook is now SUBSCRIBED** (2026-07-05, TKT-061) on root `392761581105` → the
+`box-webhook` Function, and the upload → `FILE.UPLOADED` → signature-validate → evidence-row → audit → SPA
+chain is **proven end-to-end**. Runbook: **[docs/azure/box-activation.md](./azure/box-activation.md)**. The
+one remaining *Box-side* follow-up (operator, not a blocker for basic filing) is the **hand-built template
+File Request** id (`BOX_FILE_REQUEST_TEMPLATE_ID`) — covered in that runbook (§5).
 
-> The one empirical unknown that still wants a live exercise: does a **File-Request upload fire
-> `FILE.UPLOADED`** → the Function → the case advances? On a transient miss the recovery is Box's own retry
-> (the receiver returns non-2xx so Box re-delivers). Design history:
+> The `FILE.UPLOADED` webhook chain is now proven end-to-end (TKT-061, 2026-07-05); the residual is the
+> File-Request-specific path once the template id is hand-built. On a transient miss the recovery is Box's
+> own retry (the receiver returns non-2xx so Box re-delivers). Design history:
 > [plans/phase-7-box-integration/box-integration-activation.md](./plans/phase-7-box-integration/box-integration-activation.md).
 
 #### D3. Provider auto-matching — the missing business domains  ·  *you supply the data*
@@ -710,10 +713,12 @@ that the orchestration Function App holds (B3). Low urgency (dev key), but worth
 
 ### E. Storage hardening & policy/legal (platform-agnostic — still required)
 
-#### E1. Harden the evidence store before any purge/disposition is armed
+#### E1. Harden the evidence store before any purge/disposition is armed  ·  ⏳ **PARTLY DONE (2026-07-05, P7)**
 
-**What:** the live evidence-bytes store **`cespkevidstdev01`** (the `evidence` container) needs
-**blob soft-delete + versioning + container-delete-retention**, and the **Key Vaults** need
+**✅ Done this sprint (P7):** **blob soft-delete + versioning** are enabled on the live evidence-bytes store
+**`cespkevidstdev01`** (the `evidence` container).
+
+**What's left:** the store still needs **container-delete-retention**, and the **Key Vaults** need
 **purge-protection**, *before* any deletion/retention process runs against it.
 
 **Why you:** applying data-protection settings on the live storage account / vaults is a privileged live

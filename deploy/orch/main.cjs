@@ -2225,6 +2225,40 @@ async function listMessageIdsSince(mailbox, watermarkIso) {
   const newWatermark = rows.length ? rows[rows.length - 1].receivedDateTime : watermarkIso;
   return { ids: rows.map((r) => r.id), newWatermark };
 }
+async function resolveInboxSubtreeFolderIds(mailbox) {
+  const u = encodeURIComponent(mailbox);
+  const inbox = await graphFetch(`/users/${u}/mailFolders/Inbox?$select=id`);
+  const ids = /* @__PURE__ */ new Set([inbox.id]);
+  const queue = [inbox.id];
+  while (queue.length) {
+    const parent = queue.shift();
+    let path = `/users/${u}/mailFolders/${encodeURIComponent(parent)}/childFolders?$select=id&$top=100`;
+    while (path) {
+      const page = await graphFetch(path);
+      for (const f of page.value ?? []) {
+        if (!ids.has(f.id)) {
+          ids.add(f.id);
+          queue.push(f.id);
+        }
+      }
+      path = page["@odata.nextLink"] ?? null;
+    }
+  }
+  return ids;
+}
+async function listMessagesSince(mailbox, sinceIso, untilIso, pageUrl) {
+  let path;
+  if (pageUrl) {
+    path = pageUrl;
+  } else {
+    const filter = encodeURIComponent(
+      `receivedDateTime ge ${sinceIso} and receivedDateTime lt ${untilIso}`
+    );
+    path = `/users/${encodeURIComponent(mailbox)}/messages?$filter=${filter}&$orderby=receivedDateTime%20asc&$select=id,internetMessageId,receivedDateTime,parentFolderId,subject,from&$top=50`;
+  }
+  const res = await graphFetch(path);
+  return { items: res.value ?? [], nextLink: res["@odata.nextLink"] };
+}
 function kqlPhrase(value) {
   const cleaned = String(value ?? "").replace(/["\\]/g, " ").replace(/\s+/g, " ").trim();
   return `"${cleaned}"`;
@@ -2341,10 +2375,14 @@ async function listOurSubscriptions() {
   const res = await graphFetch(SUBSCRIPTIONS_PATH);
   return (res.value ?? []).filter((s) => (s.notificationUrl ?? "").startsWith(url2));
 }
+async function deleteSubscription(subscriptionId) {
+  await graphFetch(`${SUBSCRIPTIONS_PATH}/${subscriptionId}`, { method: "DELETE" });
+}
 async function runSubscriptionMaintenance(logger7) {
-  const summary = { created: [], renewed: [], recreated: [], errors: [] };
+  const summary = { created: [], renewed: [], recreated: [], pruned: [], errors: [] };
   const subs = await listOurSubscriptions();
   const configured = intakeMailboxes();
+  const configuredMailboxes = new Set(configured.map((c) => c.mailbox));
   const subbed = new Set(subs.map((s) => mailboxOfResource(s.resource)).filter(Boolean));
   for (const cfg of configured) {
     if (subbed.has(cfg.mailbox)) continue;
@@ -2359,6 +2397,19 @@ async function runSubscriptionMaintenance(logger7) {
     }
   }
   for (const sub of subs) {
+    const mbx = mailboxOfResource(sub.resource);
+    if (configured.length > 0 && mbx && !configuredMailboxes.has(mbx)) {
+      try {
+        await deleteSubscription(sub.id);
+        summary.pruned.push(mbx);
+        logger7.log(JSON.stringify({ evt: "graph-subscription-pruned", subId: sub.id, mailbox: mbx }));
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        summary.errors.push(`prune ${sub.id} (${mbx}): ${m}`);
+        logger7.error(`[subscription-maintenance] prune ${sub.id} (${mbx}) failed: ${m}`);
+      }
+      continue;
+    }
     try {
       const renewed = await renewSubscription(sub.id);
       summary.renewed.push({ subId: sub.id, next: renewed.expirationDateTime });
@@ -2543,6 +2594,7 @@ df.app.activity("subscriptionMaintenance", {
         renewed: summary.renewed.length,
         created: summary.created.length,
         recreated: summary.recreated.length,
+        pruned: summary.pruned.length,
         errors: summary.errors.length
       })
     );
@@ -2666,6 +2718,11 @@ var gates = {
   // suggestion surface + the server-side model call path; honest no-op while off
   // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
   aiAssist: () => process.env.AI_ASSIST_ENABLED === "true",
+  // AI chat helper (TKT-060) — default OFF. Gates the read-only assistant drawer + its
+  // POST /api/assistant/chat route. Distinct from aiAssist (the suggestion layer): this is
+  // a conversational Q&A surface with READ-ONLY tools only. Needs a model endpoint +
+  // deployment (see aiChatConfigured) in addition to this switch.
+  aiChat: () => process.env.AI_CHAT_ENABLED === "true",
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: () => process.env.BOX_API_ENABLED === "true",
   // #22
@@ -2699,6 +2756,11 @@ var gates = {
   triageCancellation: () => process.env.TRIAGE_CANCELLATION_ENABLED === "true",
   triageImagesRouting: () => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === "true",
   triageCaseUpdate: () => process.env.TRIAGE_CASE_UPDATE_ENABLED === "true",
+  // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
+  // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
+  // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
+  // dry-run (read-only) and the destructive live rebuild BOTH require it on.
+  replayBackfill: () => process.env.REPLAY_BACKFILL_ENABLED === "true",
   // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
   enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
   // #3
@@ -2735,6 +2797,12 @@ var gates = {
    * GET /api/gates/ai-assist + the generate route's disabled-reason.
    */
   aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the AI chat helper is actionable — the gate is ON and a model endpoint +
+   * deployment are configured. Used by GET /api/gates/ai-chat + the chat route's honest
+   * refusal (TKT-060).
+   */
+  aiChatEnabled: () => gates.aiChat() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
   /**
    * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
    * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
@@ -2850,9 +2918,9 @@ function refEquals(a, b) {
     return false;
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
-function eligibleCases(input13) {
-  return input13.openProviderCases.filter((c) => {
-    if (c.workProviderId !== void 0 && c.workProviderId !== input13.workProviderId) {
+function eligibleCases(input14) {
+  return input14.openProviderCases.filter((c) => {
+    if (c.workProviderId !== void 0 && c.workProviderId !== input14.workProviderId) {
       return false;
     }
     if (isTerminalStatus(c.status))
@@ -2860,8 +2928,8 @@ function eligibleCases(input13) {
     return true;
   });
 }
-function resolveCase(input13) {
-  if (input13.seenMessageIds.includes(input13.messageId) || input13.seenPayloadHashes.includes(input13.payloadHash)) {
+function resolveCase(input14) {
+  if (input14.seenMessageIds.includes(input14.messageId) || input14.seenPayloadHashes.includes(input14.payloadHash)) {
     return {
       resolution: "drop",
       setDuplicateRisk: false,
@@ -2869,9 +2937,9 @@ function resolveCase(input13) {
       auditAction: "duplicate_dropped"
     };
   }
-  const candidates = eligibleCases(input13);
-  if (hasRef(input13.candidateRef)) {
-    const matched = candidates.find((c) => refEquals(c.caseRef, input13.candidateRef));
+  const candidates = eligibleCases(input14);
+  if (hasRef(input14.candidateRef)) {
+    const matched = candidates.find((c) => refEquals(c.caseRef, input14.candidateRef));
     if (matched) {
       return {
         resolution: "attach",
@@ -2892,7 +2960,7 @@ function resolveCase(input13) {
       };
     }
   }
-  if (!hasRef(input13.candidateRef) && candidates.length > 0) {
+  if (!hasRef(input14.candidateRef) && candidates.length > 0) {
     return {
       resolution: "propose_attach",
       targetCaseId: candidates[0].caseId,
@@ -3250,16 +3318,16 @@ var RULES = [
   { kind: "name", re: NAME_RE, enabled: (o) => o.redactNames },
   { kind: "vrm", re: VRM_RE, enabled: (o) => o.redactVrm }
 ];
-function scrubPii(input13, opts = {}) {
+function scrubPii(input14, opts = {}) {
   const cfg = {
     redactVrm: opts.redactVrm ?? false,
     redactNames: opts.redactNames ?? true
   };
   const placeholderFor = (kind) => opts.placeholders?.[kind] ?? DEFAULT_PLACEHOLDERS[kind];
-  if (typeof input13 !== "string" || input13.length === 0) {
-    return { text: typeof input13 === "string" ? input13 : "", redactions: [], totalRedactions: 0 };
+  if (typeof input14 !== "string" || input14.length === 0) {
+    return { text: typeof input14 === "string" ? input14 : "", redactions: [], totalRedactions: 0 };
   }
-  let text = input13;
+  let text = input14;
   const redactions = [];
   for (const rule of RULES) {
     if (!rule.enabled(cfg))
@@ -3426,13 +3494,13 @@ var CASE_PO_SHAPE_RE = /^(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{
 function normalizeCasePo(raw) {
   return (raw ?? "").trim().toUpperCase().replace(/^((?:AP|A|D)\.)\s+/, "$1");
 }
-function decideRetro(input13) {
+function decideRetro(input14) {
   const reasons = [];
   const keys = {};
-  if (!RETRO_TRIGGER_CATEGORIES.includes(input13.category)) {
-    return { attempt: false, keys, reasons: [`category_not_eligible:${input13.category}`] };
+  if (!RETRO_TRIGGER_CATEGORIES.includes(input14.category)) {
+    return { attempt: false, keys, reasons: [`category_not_eligible:${input14.category}`] };
   }
-  const refCandidates = [input13.bodyCaseref, input13.candidateRef];
+  const refCandidates = [input14.bodyCaseref, input14.candidateRef];
   for (const raw of refCandidates) {
     const token = normalizeCasePo(raw);
     if (!token)
@@ -3445,12 +3513,12 @@ function decideRetro(input13) {
       reasons.push("key:external_ref_from_subject");
     }
   }
-  const jobref = (input13.bodyJobref ?? "").trim().toUpperCase();
+  const jobref = (input14.bodyJobref ?? "").trim().toUpperCase();
   if (jobref && !keys.externalRef) {
     keys.externalRef = jobref;
     reasons.push("key:external_ref");
   }
-  const vrm = ((input13.bodyVrm || input13.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  const vrm = ((input14.bodyVrm || input14.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
   if (vrm) {
     keys.vrm = vrm;
     reasons.push("key:vrm");
@@ -3458,39 +3526,39 @@ function decideRetro(input13) {
   if (!keys.casePo && !keys.externalRef && !keys.vrm) {
     return { attempt: false, keys, reasons: [...reasons, "no_usable_key"] };
   }
-  if (input13.isReply && input13.linkReplyOutcome !== void 0 && input13.linkReplyOutcome !== "no_match") {
+  if (input14.isReply && input14.linkReplyOutcome !== void 0 && input14.linkReplyOutcome !== "no_match") {
     return {
       attempt: false,
       keys,
-      reasons: [...reasons, `reply_outcome_not_no_match:${input13.linkReplyOutcome}`]
+      reasons: [...reasons, `reply_outcome_not_no_match:${input14.linkReplyOutcome}`]
     };
   }
   return { attempt: true, keys, reasons };
 }
-function decideRetroStatus(input13) {
-  if (!input13.principalResolved || !input13.casePoKnown) {
+function decideRetroStatus(input14) {
+  if (!input14.principalResolved || !input14.casePoKnown) {
     return {
       status: "needs_review",
       onHold: true,
       actionReason: "needs_review",
       signals: [
-        input13.casePoKnown ? "retro_principal_unresolved" : "retro_case_po_unknown",
-        `retro_source:${input13.reconstruction}`
+        input14.casePoKnown ? "retro_principal_unresolved" : "retro_case_po_unknown",
+        `retro_source:${input14.reconstruction}`
       ]
     };
   }
-  if (input13.triggerCategory === "billing" && input13.reconstruction !== "minimal") {
+  if (input14.triggerCategory === "billing" && input14.reconstruction !== "minimal") {
     return {
       status: "eva_submitted",
       onHold: false,
-      signals: ["retro_billing_implies_submitted", `retro_source:${input13.reconstruction}`]
+      signals: ["retro_billing_implies_submitted", `retro_source:${input14.reconstruction}`]
     };
   }
   return {
     status: "needs_review",
     onHold: true,
     actionReason: "needs_review",
-    signals: [`retro_trigger:${input13.triggerCategory}`, `retro_source:${input13.reconstruction}`]
+    signals: [`retro_trigger:${input14.triggerCategory}`, `retro_source:${input14.reconstruction}`]
   };
 }
 function parseCasePoMarker(po) {
@@ -3649,8 +3717,8 @@ var dataApi = {
     return request("GET", `/api/internal/dedup-context?${q.toString()}`);
   },
   /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
-  createCase(input13) {
-    return request("POST", "/api/cases", input13);
+  createCase(input14) {
+    return request("POST", "/api/cases", input14);
   },
   /**
    * Persist the result of the in-activity dedup decision (internal route). The orchestration
@@ -4040,18 +4108,18 @@ ${INBOUND_SUBTYPES.map(subtypeLine).join("\n")}`,
     `Pick the subtype that belongs with your chosen category; if none fits well, use that category's "other" or general subtype.`
   ].join("\n\n");
 }
-function buildUserPrompt(input13) {
-  const attachments = input13.attachmentFilenames.length ? input13.attachmentFilenames.join(", ") : "(none)";
-  const signals = input13.deterministicSignals.length ? input13.deterministicSignals.join(", ") : "(none)";
+function buildUserPrompt(input14) {
+  const attachments = input14.attachmentFilenames.length ? input14.attachmentFilenames.join(", ") : "(none)";
+  const signals = input14.deterministicSignals.length ? input14.deterministicSignals.join(", ") : "(none)";
   return [
-    `Sender domain: ${input13.senderDomain || "(unknown)"}`,
+    `Sender domain: ${input14.senderDomain || "(unknown)"}`,
     `Attachment filenames: ${attachments}`,
-    `Subject: ${input13.subjectScrubbed || "(none)"}`,
+    `Subject: ${input14.subjectScrubbed || "(none)"}`,
     `Body:
-${input13.bodyScrubbed || "(none)"}`,
+${input14.bodyScrubbed || "(none)"}`,
     "---",
     "The deterministic rule pass proposed (but did not confidently commit to):",
-    `category=${input13.deterministicCategory || "(none)"} subtype=${input13.deterministicSubtype || "(none)"} signals=${signals}`
+    `category=${input14.deterministicCategory || "(none)"} subtype=${input14.deterministicSubtype || "(none)"} signals=${signals}`
   ].join("\n");
 }
 var MAX_COMPLETION_TOKENS = 2e3;
@@ -4070,12 +4138,12 @@ function buildTriageResponseSchema() {
     additionalProperties: false
   };
 }
-function buildTriageRequestBody(input13, deployment) {
+function buildTriageRequestBody(input14, deployment) {
   return {
     model: deployment,
     messages: [
       { role: "system", content: buildSystemPrompt() },
-      { role: "user", content: buildUserPrompt(input13) }
+      { role: "user", content: buildUserPrompt(input14) }
     ],
     response_format: {
       type: "json_schema",
@@ -4135,7 +4203,7 @@ function parseTriageModelResponse(json) {
     ...typeof body2?.system_fingerprint === "string" ? { systemFingerprint: body2.system_fingerprint } : {}
   };
 }
-async function callTriageModel(input13) {
+async function callTriageModel(input14) {
   const endpoint = gates.aiModelEndpoint();
   const deployment = gates.aiModelDeployment();
   if (!endpoint || !deployment) {
@@ -4152,7 +4220,7 @@ async function callTriageModel(input13) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(buildTriageRequestBody(input13, deployment)),
+      body: JSON.stringify(buildTriageRequestBody(input14, deployment)),
       signal: controller.signal
     });
     const json = await res.json().catch(() => void 0);
@@ -4250,28 +4318,28 @@ import_functions7.app.http("triage-classify-start", {
   route: "triage-classify",
   extraInputs: [df4.input.durableClient()],
   handler: async (req, ctx) => {
-    const input13 = await req.json();
+    const input14 = await req.json();
     const client2 = df4.getClient(ctx);
-    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input13 });
+    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 var retry = new df4.RetryOptions(5e3, 3);
 retry.backoffCoefficient = 2;
 df4.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
-  const input13 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry, input13);
+  const input14 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry, input14);
   return result;
 });
 df4.app.activity("triageClassify", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.emailAi() || !gates.aiAssistConfigured()) {
       ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED off or model endpoint/deployment not configured");
       return { skipped: true };
     }
-    if (input13.workProviderId) {
+    if (input14.workProviderId) {
       try {
-        const { aiAllowed } = await dataApi.workProviderAiAllowed(input13.workProviderId);
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input14.workProviderId);
         if (providerAiOptedOut(aiAllowed)) {
           ctx.log("[triageClassify] skipped \u2014 work provider opted out of AI (ai_allowed=false)");
           return { skipped: true, reason: "provider_ai_opt_out" };
@@ -4282,24 +4350,24 @@ df4.app.activity("triageClassify", {
         );
       }
     }
-    const subjectScrub = scrubPii(input13.subject ?? "");
-    const bodyScrub = scrubPii(input13.body ?? "");
+    const subjectScrub = scrubPii(input14.subject ?? "");
+    const bodyScrub = scrubPii(input14.body ?? "");
     const result = await callTriageModel({
       subjectScrubbed: subjectScrub.text,
       bodyScrubbed: bodyScrub.text,
-      senderDomain: input13.senderDomain || domainOf2(input13.senderAddress ?? ""),
-      attachmentFilenames: input13.attachmentFilenames ?? [],
-      deterministicCategory: input13.deterministicCategory ?? "",
-      deterministicSubtype: input13.deterministicSubtype ?? "",
-      deterministicSignals: input13.deterministicSignals ?? []
+      senderDomain: input14.senderDomain || domainOf2(input14.senderAddress ?? ""),
+      attachmentFilenames: input14.attachmentFilenames ?? [],
+      deterministicCategory: input14.deterministicCategory ?? "",
+      deterministicSubtype: input14.deterministicSubtype ?? "",
+      deterministicSignals: input14.deterministicSignals ?? []
     });
     await trackEvent("triage_llm_assist", {
       abstain: "abstain" in result,
       reason: "abstain" in result ? result.reason : void 0,
       subjectRedactions: subjectScrub.totalRedactions,
       bodyRedactions: bodyScrub.totalRedactions,
-      deterministicCategory: input13.deterministicCategory,
-      deterministicSubtype: input13.deterministicSubtype
+      deterministicCategory: input14.deterministicCategory,
+      deterministicSubtype: input14.deterministicSubtype
     });
     if ("abstain" in result) {
       ctx.log(JSON.stringify({ evt: "triageClassify", abstain: true, reason: result.reason }));
@@ -4308,8 +4376,8 @@ df4.app.activity("triageClassify", {
     const modelVersion = `${gates.aiModelDeployment()}:${result.responseModel ?? result.systemFingerprint ?? "unknown"}`;
     try {
       await dataApi.triageSuggestClassification({
-        ...input13.sourceMessageId ? { sourceMessageId: input13.sourceMessageId } : {},
-        ...input13.inboundEmailId ? { inboundEmailId: input13.inboundEmailId } : {},
+        ...input14.sourceMessageId ? { sourceMessageId: input14.sourceMessageId } : {},
+        ...input14.inboundEmailId ? { inboundEmailId: input14.inboundEmailId } : {},
         category: result.category,
         subtype: result.subtype,
         rationale: result.rationale,
@@ -4336,8 +4404,8 @@ var retry2 = new df5.RetryOptions(
 retry2.backoffCoefficient = 2;
 retry2.maxRetryIntervalInMilliseconds = 6e4;
 df5.app.orchestration("intakeOrchestrator", function* (ctx) {
-  const input13 = ctx.df.getInput();
-  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry2, input13);
+  const input14 = ctx.df.getInput();
+  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry2, input14);
   const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry2, inbound);
   const workProviderId = provider.workProviderId;
   const matchState = provider.matchState;
@@ -5221,8 +5289,8 @@ function createEmptyPipeline() {
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/object.js
-function isObject(input13) {
-  return typeof input13 === "object" && input13 !== null && !Array.isArray(input13) && !(input13 instanceof RegExp) && !(input13 instanceof Date);
+function isObject(input14) {
+  return typeof input14 === "object" && input14 !== null && !Array.isArray(input14) && !(input14 instanceof RegExp) && !(input14 instanceof Date);
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/error.js
@@ -8703,8 +8771,8 @@ function getRequestUrl(baseUri, operationSpec, operationArguments, fallbackObjec
   requestUrl = appendQueryParams(requestUrl, queryParams, sequenceParams, isAbsolutePath);
   return requestUrl;
 }
-function replaceAll(input13, replacements) {
-  let result = input13;
+function replaceAll(input14, replacements) {
+  let result = input14;
   for (const [searchValue, replaceValue] of replacements) {
     result = result.split(searchValue).join(replaceValue);
   }
@@ -18176,19 +18244,19 @@ var StructuredMessageEncoding = class {
     signalStreamEnd(this.pushData);
     this.state = SMRegion.Completed;
   }
-  fillInt64(buffer2, offset, input13) {
+  fillInt64(buffer2, offset, input14) {
     if (buffer2.length < offset + 8) {
       throw new Error("Uint8Array length is not expected.");
     }
     const view = new DataView(buffer2.buffer, buffer2.byteOffset + offset, 8);
-    view.setBigUint64(0, BigInt(input13), true);
+    view.setBigUint64(0, BigInt(input14), true);
   }
-  fillInt16(buffer2, offset, input13) {
+  fillInt16(buffer2, offset, input14) {
     if (buffer2.length < offset + 2) {
       throw new Error("Uint8Array length is not expected.");
     }
     const view = new DataView(buffer2.buffer, buffer2.byteOffset + offset, 2);
-    view.setUint16(0, input13, true);
+    view.setUint16(0, input14, true);
   }
 };
 
@@ -18503,18 +18571,18 @@ var StructuredMessageDecoding = class {
       this.pushData(null);
     }
   }
-  toInt64(input13, offset) {
-    if (input13.length < offset + 8) {
+  toInt64(input14, offset) {
+    if (input14.length < offset + 8) {
       throw new Error("CRC64 buffer error, something wrong with crc64 calculator");
     }
-    const view = new DataView(input13.buffer, input13.byteOffset + offset, 8);
+    const view = new DataView(input14.buffer, input14.byteOffset + offset, 8);
     return Number(view.getBigUint64(0, true));
   }
-  toInt16(input13) {
-    if (input13.length !== 2) {
+  toInt16(input14) {
+    if (input14.length !== 2) {
       throw new Error("CRC64 buffer error, something wrong with crc64 calculator");
     }
-    return input13[0] + input13[1] * 256;
+    return input14[0] + input14[1] * 256;
   }
   checkCrc64CheckSum(first, second) {
     if (first.length !== 8 || second.length !== 8) {
@@ -44009,30 +44077,30 @@ function sanitize(seg) {
 var BODY_CAP = 2e4;
 var BODY_PREVIEW_CAP = 3500;
 df6.app.activity("fetchMessage", {
-  handler: async (input13, ctx) => {
-    const parsedMailbox = mailboxOfResource(input13.resource ?? "");
+  handler: async (input14, ctx) => {
+    const parsedMailbox = mailboxOfResource(input14.resource ?? "");
     let mailbox = parsedMailbox;
     let mailboxVia = "resource";
-    if (!looksLikeMailboxAddress(parsedMailbox) && input13.subscriptionId) {
-      const resolved = await resolveSubscriptionMailbox(input13.subscriptionId);
+    if (!looksLikeMailboxAddress(parsedMailbox) && input14.subscriptionId) {
+      const resolved = await resolveSubscriptionMailbox(input14.subscriptionId);
       if (resolved) {
         mailbox = resolved;
         mailboxVia = "subscription";
       }
     }
-    if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input13.resource}"`);
-    const { message, attachments } = await getMessageWithAttachments(mailbox, input13.messageId);
-    const headers = await getMessageHeaders(mailbox, input13.messageId);
+    if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input14.resource}"`);
+    const { message, attachments } = await getMessageWithAttachments(mailbox, input14.messageId);
+    const headers = await getMessageHeaders(mailbox, input14.messageId);
     const landed = [];
     for (const a of attachments) {
       const bytes = Buffer.from(a.contentBytes ?? "", "base64");
-      const up = await uploadEvidenceBytes(input13.messageId, a.name, bytes, a.contentType);
+      const up = await uploadEvidenceBytes(input14.messageId, a.name, bytes, a.contentType);
       landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size });
     }
     let rawEml;
     try {
-      const mime = await getMessageRawMime(mailbox, input13.messageId);
-      const emlUp = await uploadEvidenceBytes(input13.messageId, "message.eml", mime, "message/rfc822");
+      const mime = await getMessageRawMime(mailbox, input14.messageId);
+      const emlUp = await uploadEvidenceBytes(input14.messageId, "message.eml", mime, "message/rfc822");
       rawEml = {
         filename: "message.eml",
         contentType: "message/rfc822",
@@ -44040,7 +44108,7 @@ df6.app.activity("fetchMessage", {
         size: emlUp.size
       };
     } catch (e) {
-      ctx.warn(`[fetchMessage] raw .eml capture failed for ${input13.messageId}: ${e instanceof Error ? e.message : String(e)}`);
+      ctx.warn(`[fetchMessage] raw .eml capture failed for ${input14.messageId}: ${e instanceof Error ? e.message : String(e)}`);
     }
     const subject = message.subject ?? "";
     const senderAddress = message.from?.emailAddress?.address ?? "";
@@ -44050,12 +44118,12 @@ df6.app.activity("fetchMessage", {
     const candidateVrm = extractVrm(`${subject}
 ${body2}`);
     const envelope = {
-      messageId: input13.messageId,
-      internetMessageId: message.internetMessageId ?? input13.messageId,
+      messageId: input14.messageId,
+      internetMessageId: message.internetMessageId ?? input14.messageId,
       conversationId: message.conversationId ?? "",
       subject,
       senderAddress,
-      receivedAt: message.receivedDateTime ?? input13.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
+      receivedAt: message.receivedDateTime ?? input14.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
       sourceMailbox: mailbox,
       payloadHash,
       candidateVrm,
@@ -44068,7 +44136,7 @@ ${body2}`);
       attachments: landed,
       ...rawEml ? { rawEml } : {}
     };
-    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input13.messageId, mailbox, mailboxVia, attachments: landed.length, eml: Boolean(rawEml) }));
+    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input14.messageId, mailbox, mailboxVia, attachments: landed.length, eml: Boolean(rawEml) }));
     return envelope;
   }
 });
@@ -44152,44 +44220,44 @@ async function callFunction(target, method, route, body2) {
   if (res.status === 204) return void 0;
   return await res.json();
 }
-function callClassifyEmail(input13) {
+function callClassifyEmail(input14) {
   return callFunction(PARSER, "POST", "classify-email", {
-    subject: input13.subject ?? "",
-    body: input13.body ?? "",
-    from: input13.from ?? "",
-    sender_domain: input13.senderDomain ?? "",
-    provider_match_state: input13.providerMatchState ?? "",
-    attachment_kinds: input13.attachmentKinds ?? [],
-    attachment_filenames: input13.attachmentFilenames ?? [],
-    has_attachments: input13.hasAttachments ?? false,
-    in_reply_to: input13.inReplyTo ?? "",
-    references: input13.references ?? ""
+    subject: input14.subject ?? "",
+    body: input14.body ?? "",
+    from: input14.from ?? "",
+    sender_domain: input14.senderDomain ?? "",
+    provider_match_state: input14.providerMatchState ?? "",
+    attachment_kinds: input14.attachmentKinds ?? [],
+    attachment_filenames: input14.attachmentFilenames ?? [],
+    has_attachments: input14.hasAttachments ?? false,
+    in_reply_to: input14.inReplyTo ?? "",
+    references: input14.references ?? ""
   });
 }
-function callExtractImages(input13) {
+function callExtractImages(input14) {
   return callFunction(PARSER, "POST", "extract-images", {
-    document: input13.documentBase64,
-    filename: input13.filename
+    document: input14.documentBase64,
+    filename: input14.filename
   });
 }
-function callPlateOcr(input13) {
+function callPlateOcr(input14) {
   return callFunction(OCR, "POST", "plate-ocr", {
-    image: input13.imageBase64,
-    filename: input13.filename,
-    ...input13.caseVrm ? { case_vrm: input13.caseVrm } : {}
+    image: input14.imageBase64,
+    filename: input14.filename,
+    ...input14.caseVrm ? { case_vrm: input14.caseVrm } : {}
   });
 }
-function callOcrPdf(input13) {
+function callOcrPdf(input14) {
   return callFunction(OCR, "POST", "ocr-pdf", {
-    document: input13.documentBase64,
-    filename: input13.filename,
-    ...input13.providerHint ? { provider_hint: input13.providerHint } : {}
+    document: input14.documentBase64,
+    filename: input14.filename,
+    ...input14.providerHint ? { provider_hint: input14.providerHint } : {}
   });
 }
-function callExplodeEml(input13) {
+function callExplodeEml(input14) {
   return callFunction(PARSER, "POST", "explode-eml", {
-    document: input13.documentBase64,
-    ...input13.filename ? { filename: input13.filename } : {}
+    document: input14.documentBase64,
+    ...input14.filename ? { filename: input14.filename } : {}
   });
 }
 function callEvaSubmit(caseId) {
@@ -44229,13 +44297,13 @@ var box = {
    * every hit to provable root ancestry; each hit carries its resolved caseFolder
    * (the ancestor directly under the matched root).
    */
-  searchContent(input13) {
+  searchContent(input14) {
     return callFunction(BOX, "POST", "box/search", {
-      query: input13.query,
-      ...input13.rootIds && input13.rootIds.length ? { rootIds: input13.rootIds } : {},
-      ...input13.type ? { type: input13.type } : {},
-      ...input13.contentTypes ? { contentTypes: input13.contentTypes } : {},
-      ...input13.limit != null ? { limit: input13.limit } : {}
+      query: input14.query,
+      ...input14.rootIds && input14.rootIds.length ? { rootIds: input14.rootIds } : {},
+      ...input14.type ? { type: input14.type } : {},
+      ...input14.contentTypes ? { contentTypes: input14.contentTypes } : {},
+      ...input14.limit != null ? { limit: input14.limit } : {}
     });
   },
   /**
@@ -44286,8 +44354,8 @@ function buildClassifyRequest(inbound, matchState) {
   };
 }
 df8.app.activity("classifyInbound", {
-  handler: async (input13, ctx) => {
-    const { inbound, workProviderId, matchState } = input13;
+  handler: async (input14, ctx) => {
+    const { inbound, workProviderId, matchState } = input14;
     const res = await callClassifyEmail(buildClassifyRequest(inbound, matchState));
     const category = KNOWN_CATEGORIES2.has(res.category) ? res.category : "other";
     const classification = {
@@ -44371,8 +44439,8 @@ function toPolicyClassification(classification) {
   };
 }
 df9.app.activity("triagePolicy", {
-  handler: async (input13, ctx) => {
-    const { inbound, classification } = input13;
+  handler: async (input14, ctx) => {
+    const { inbound, classification } = input14;
     let resolvedContext;
     try {
       resolvedContext = await dataApi.triageContext(buildTriageContextRequest(inbound, classification));
@@ -44388,7 +44456,7 @@ df9.app.activity("triagePolicy", {
       openCaseMatches: resolvedContext.openCaseMatches,
       duplicateInternetMessageId: resolvedContext.duplicateInternetMessageId,
       conversationSiblingCaseIds: resolvedContext.conversationSiblingCaseIds,
-      providerMatchState: normaliseMatchState(input13.matchState),
+      providerMatchState: normaliseMatchState(input14.matchState),
       hasAttachments,
       attachmentKinds,
       imagesOnly
@@ -44396,9 +44464,9 @@ df9.app.activity("triagePolicy", {
     const actingGateValues = actingGates();
     const shadow = decideTriage(policyClassification, policyContext, GATES_ALL_ON);
     const acting = decideTriage(policyClassification, policyContext, actingGateValues);
-    const intermediaryDecisionInputs = input13.intermediaryImageSourceId ? {
-      intermediaryImageSourceId: input13.intermediaryImageSourceId,
-      intermediaryCandidateProviderIds: input13.intermediaryCandidateProviderIds ?? []
+    const intermediaryDecisionInputs = input14.intermediaryImageSourceId ? {
+      intermediaryImageSourceId: input14.intermediaryImageSourceId,
+      intermediaryCandidateProviderIds: input14.intermediaryCandidateProviderIds ?? []
     } : {};
     await trackEvent("triage_decision", {
       actingAction: acting.action,
@@ -44445,18 +44513,18 @@ df9.app.activity("triagePolicy", {
 // orchestration/src/functions/activities/linkReply.ts
 var df10 = __toESM(require("durable-functions"), 1);
 df10.app.activity("linkReply", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     const result = await dataApi.linkReplyToOpenCase({
-      inbound: input13.inbound,
-      providerId: input13.providerId,
-      ref: input13.ref,
-      vrm: input13.vrm,
-      jobref: input13.jobref
+      inbound: input14.inbound,
+      providerId: input14.providerId,
+      ref: input14.ref,
+      vrm: input14.vrm,
+      jobref: input14.jobref
     });
     ctx.log(
       JSON.stringify({
         evt: "linkReply",
-        messageId: input13.inbound.messageId,
+        messageId: input14.inbound.messageId,
         outcome: result.outcome,
         candidateCount: result.candidateCount
       })
@@ -44468,9 +44536,9 @@ df10.app.activity("linkReply", {
 // orchestration/src/functions/activities/caseResolve.ts
 var df11 = __toESM(require("durable-functions"), 1);
 df11.app.activity("caseResolve", {
-  handler: async (input13, ctx) => {
-    const { inbound, providerId, matchState } = input13;
-    const bestVrm = ((input13.parserVrm || inbound.candidateVrm) ?? "").trim();
+  handler: async (input14, ctx) => {
+    const { inbound, providerId, matchState } = input14;
+    const bestVrm = ((input14.parserVrm || inbound.candidateVrm) ?? "").trim();
     try {
       const context3 = await dataApi.dedupContext({
         workProviderId: providerId ?? "",
@@ -44483,7 +44551,7 @@ df11.app.activity("caseResolve", {
         candidateVrm: bestVrm,
         // #100 — fall back to the parser-confirmed reference for dedup when the email
         // subject/body did not yield a Case/PO (a ref that lives only in the PDF).
-        candidateRef: inbound.candidateRef || input13.parserRef || "",
+        candidateRef: inbound.candidateRef || input14.parserRef || "",
         workProviderId: providerId ?? "",
         openProviderCases: context3.openProviderCases,
         seenMessageIds: context3.seenMessageIds,
@@ -44497,16 +44565,16 @@ df11.app.activity("caseResolve", {
         inbound,
         providerId,
         matchState,
-        parserVrm: input13.parserVrm,
-        parserRef: input13.parserRef,
-        parserMileage: input13.parserMileage,
-        parserMileageUnit: input13.parserMileageUnit,
-        parserEva: input13.parserEvaFields,
-        intermediaryImageSourceId: input13.intermediaryImageSourceId,
-        intermediaryCandidateProviderIds: input13.intermediaryCandidateProviderIds,
-        caseType: input13.caseType,
-        caseTypeDual: input13.caseTypeDual,
-        caseTypeSignals: input13.caseTypeSignals,
+        parserVrm: input14.parserVrm,
+        parserRef: input14.parserRef,
+        parserMileage: input14.parserMileage,
+        parserMileageUnit: input14.parserMileageUnit,
+        parserEva: input14.parserEvaFields,
+        intermediaryImageSourceId: input14.intermediaryImageSourceId,
+        intermediaryCandidateProviderIds: input14.intermediaryCandidateProviderIds,
+        caseType: input14.caseType,
+        caseTypeDual: input14.caseTypeDual,
+        caseTypeSignals: input14.caseTypeSignals,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
@@ -44536,9 +44604,9 @@ df11.app.activity("caseResolve", {
 // orchestration/src/functions/activities/setIngested.ts
 var df12 = __toESM(require("durable-functions"), 1);
 df12.app.activity("setIngested", {
-  handler: async (input13, ctx) => {
-    const result = await dataApi.setIngested(input13.caseId);
-    ctx.log(JSON.stringify({ evt: "setIngested", caseId: input13.caseId, updated: result.updated }));
+  handler: async (input14, ctx) => {
+    const result = await dataApi.setIngested(input14.caseId);
+    ctx.log(JSON.stringify({ evt: "setIngested", caseId: input14.caseId, updated: result.updated }));
     return result;
   }
 });
@@ -44547,16 +44615,16 @@ df12.app.activity("setIngested", {
 var df13 = __toESM(require("durable-functions"), 1);
 var MIN_BODY_INSTRUCTION_CHARS = 40;
 df13.app.activity("classifyPersist", {
-  handler: async (input13, ctx) => {
-    const { caseId, inbound } = input13;
+  handler: async (input14, ctx) => {
+    const { caseId, inbound } = input14;
     const rows = inbound.attachments.map((a) => ({
       ...describeEvidence(a.filename, a.contentType),
       blobPath: a.blobPath,
       size: a.size
     }));
-    if (gates.auditCases() && (input13.typings?.length ?? 0) > 0) {
+    if (gates.auditCases() && (input14.typings?.length ?? 0) > 0) {
       const reportBlobPaths = new Set(
-        (input13.typings ?? []).filter((t) => isEngineerReportLayoutName(t.providerName)).map((t) => t.blobPath)
+        (input14.typings ?? []).filter((t) => isEngineerReportLayoutName(t.providerName)).map((t) => t.blobPath)
       );
       if (reportBlobPaths.size > 0) {
         const wouldRemain = rows.some(
@@ -44675,13 +44743,13 @@ function selectInstructionIndex(parsed) {
   return pdf >= 0 ? pdf : 0;
 }
 df14.app.activity("parse", {
-  handler: async (input13, ctx) => {
-    const corr = input13.caseId || input13.messageId || "(pre-resolve)";
+  handler: async (input14, ctx) => {
+    const corr = input14.caseId || input14.messageId || "(pre-resolve)";
     if (!gates.pdfMapper()) {
       ctx.log("[parse] skipped \u2014 PDF_MAPPER_ENABLED=false");
       return { skipped: true, reason: "gate_off" };
     }
-    const candidates = orderParseCandidates(input13.attachments ?? []);
+    const candidates = orderParseCandidates(input14.attachments ?? []);
     if (!candidates.length) {
       ctx.log(`[parse] no instruction document attachment for ${corr}; skipping`);
       return { skipped: true, reason: "no_document" };
@@ -44716,7 +44784,7 @@ df14.app.activity("parse", {
         body: JSON.stringify({
           document: documentB642,
           filename: att.filename,
-          ...input13.providerHint ? { provider_hint: input13.providerHint } : {}
+          ...input14.providerHint ? { provider_hint: input14.providerHint } : {}
         })
       });
       if (!res.ok) {
@@ -44778,7 +44846,7 @@ df14.app.activity("parse", {
         const ocr = await callOcrPdf({
           documentBase64: documentB64,
           filename: doc.filename,
-          ...input13.providerHint ? { providerHint: input13.providerHint } : {}
+          ...input14.providerHint ? { providerHint: input14.providerHint } : {}
         });
         const merged = coalesceOcrIntoParse(parsed, ocr);
         const filled = Object.keys(merged.extraction ?? {}).filter(
@@ -44808,9 +44876,9 @@ df14.app.activity("parse", {
 // orchestration/src/functions/activities/statusEvaluate.ts
 var df15 = __toESM(require("durable-functions"), 1);
 df15.app.activity("statusEvaluate", {
-  handler: async (input13, ctx) => {
-    const result = await dataApi.evaluateStatus(input13.caseId);
-    ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input13.caseId, status: result.value }));
+  handler: async (input14, ctx) => {
+    const result = await dataApi.evaluateStatus(input14.caseId);
+    ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input14.caseId, status: result.value }));
     return result;
   }
 });
@@ -44818,14 +44886,14 @@ df15.app.activity("statusEvaluate", {
 // orchestration/src/functions/activities/enrich.ts
 var df16 = __toESM(require("durable-functions"), 1);
 df16.app.activity("enrich", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.enrichment()) {
       ctx.log("[enrich] skipped \u2014 ENRICHMENT_ENABLED=false");
       return { skipped: true, reason: "gate_off" };
     }
-    const vrm = (input13.vrm ?? "").trim();
+    const vrm = (input14.vrm ?? "").trim();
     if (!vrm) {
-      ctx.log(`[enrich] no VRM resolved for case ${input13.caseId}; nothing to enrich \u2014 skipping`);
+      ctx.log(`[enrich] no VRM resolved for case ${input14.caseId}; nothing to enrich \u2014 skipping`);
       return { skipped: true, reason: "no_vrm" };
     }
     const res = await fetch(`${process.env.ENRICH_FN_URL}/api/dvsa-mot/enrich`, {
@@ -44834,16 +44902,16 @@ df16.app.activity("enrich", {
         "Content-Type": "application/json",
         "x-functions-key": process.env.ENRICH_FN_KEY
       },
-      body: JSON.stringify({ vrm, document_has_mileage: input13.documentHasMileage ?? true })
+      body: JSON.stringify({ vrm, document_has_mileage: input14.documentHasMileage ?? true })
     });
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
         ctx.error(
-          `[enrich] auth/config error ${res.status} calling enrichment for case ${input13.caseId} \u2014 check ENRICH_FN_KEY`
+          `[enrich] auth/config error ${res.status} calling enrichment for case ${input14.caseId} \u2014 check ENRICH_FN_KEY`
         );
         await dataApi.recordAudit({
           action: "enrichment_failed",
-          caseId: input13.caseId,
+          caseId: input14.caseId,
           severity: "error",
           summary: `enrichment auth/config error ${res.status}`
         });
@@ -44852,12 +44920,12 @@ df16.app.activity("enrich", {
       if (res.status >= 500) {
         throw new Error(`[enrich] enrichment Function responded ${res.status}`);
       }
-      ctx.log(`[enrich] enrichment returned ${res.status} for case ${input13.caseId}; skipping`);
+      ctx.log(`[enrich] enrichment returned ${res.status} for case ${input14.caseId}; skipping`);
       return { skipped: true, status: res.status };
     }
     const result = await res.json();
-    const persisted = await dataApi.persistEnrichment(input13.caseId, result);
-    ctx.log(JSON.stringify({ evt: "enrich", caseId: input13.caseId, applied: persisted.applied }));
+    const persisted = await dataApi.persistEnrichment(input14.caseId, result);
+    ctx.log(JSON.stringify({ evt: "enrich", caseId: input14.caseId, applied: persisted.applied }));
     return { enriched: true, applied: persisted.applied, warnings: result.warnings ?? [] };
   }
 });
@@ -44875,25 +44943,25 @@ import_functions8.app.http("box-archive-start", {
       ctx.log("[box-archive] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
-    const input13 = await req.json();
+    const input14 = await req.json();
     const client2 = df17.getClient(ctx);
-    const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input13 });
+    const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 var manualRetry = new df17.RetryOptions(5e3, 3);
 manualRetry.backoffCoefficient = 2;
 df17.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
-  const input13 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input13);
+  const input14 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input14);
   return result;
 });
 df17.app.activity("boxArchiveEvidence", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       return { uploaded: 0, total: 0, skipped: "gated_off" };
     }
-    const { caseId } = input13;
+    const { caseId } = input14;
     let folderId = null;
     try {
       const cf = await dataApi.getCaseBoxFolder(caseId);
@@ -44982,13 +45050,13 @@ var IMG_SOURCE_EXT = /\.(pdf|docx?)$/i;
 var IMG_SOURCE_CTYPE = /pdf|msword|officedocument/i;
 var OCR_OK_EXT = /\.(jpe?g|png|bmp|tiff?|webp|heic|heif)$/i;
 df18.app.activity("extractImages", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.pdfMapper()) return { extracted: 0, registrationVisible: false, skipped: "gate_off" };
-    const docs = (input13.attachments ?? []).filter(
+    const docs = (input14.attachments ?? []).filter(
       (a) => IMG_SOURCE_EXT.test(a.filename ?? "") || IMG_SOURCE_CTYPE.test(a.contentType ?? "")
     );
     if (!docs.length) return { extracted: 0, registrationVisible: false, skipped: "no_source" };
-    const messageId = input13.messageId || input13.caseId;
+    const messageId = input14.messageId || input14.caseId;
     let totalExtracted = 0;
     let anyRegVisible = false;
     for (const doc of docs) {
@@ -45031,7 +45099,7 @@ df18.app.activity("extractImages", {
             const ocr = await callPlateOcr({
               imageBase64: img.content_base64,
               filename: img.filename,
-              caseVrm: input13.caseVrm
+              caseVrm: input14.caseVrm
             });
             registrationVisible = Boolean(ocr.registration_visible);
             if (registrationVisible) anyRegVisible = true;
@@ -45057,7 +45125,7 @@ df18.app.activity("extractImages", {
       }
       if (rows.length) {
         try {
-          const res = await dataApi.persistImageEvidence(input13.caseId, rows);
+          const res = await dataApi.persistImageEvidence(input14.caseId, rows);
           totalExtracted += res.persisted;
         } catch (e) {
           ctx.warn(`[extractImages] persist failed for ${doc.filename}: ${e instanceof Error ? e.message : String(e)}`);
@@ -45068,14 +45136,14 @@ df18.app.activity("extractImages", {
       try {
         await dataApi.recordAudit({
           action: "attachment_classified",
-          caseId: input13.caseId,
+          caseId: input14.caseId,
           severity: anyRegVisible ? "info" : "warning",
           summary: anyRegVisible ? `extracted ${totalExtracted} image(s) from instruction docs; at least one shows the registration` : `extracted ${totalExtracted} image(s) from instruction docs, but a photo showing the registration is still needed`
         });
       } catch {
       }
     }
-    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input13.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible }));
+    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input14.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible }));
     return { extracted: totalExtracted, registrationVisible: anyRegVisible };
   }
 });
@@ -45112,21 +45180,21 @@ df19.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
   return { caseId, eva, box: boxResult };
 });
 df19.app.activity("evaSubmit", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.evaApi()) return { skipped: true };
-    const res = await callEvaSubmit(input13.caseId);
-    await dataApi.recordAudit({ action: "eva_submitted", caseId: input13.caseId, summary: "EVA Sentry submit" });
-    ctx.log(JSON.stringify({ evt: "evaSubmit", caseId: input13.caseId }));
+    const res = await callEvaSubmit(input14.caseId);
+    await dataApi.recordAudit({ action: "eva_submitted", caseId: input14.caseId, summary: "EVA Sentry submit" });
+    ctx.log(JSON.stringify({ evt: "evaSubmit", caseId: input14.caseId }));
     return res;
   }
 });
 df19.app.activity("boxFolderAugment", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.boxApi()) return { skipped: true };
-    const folder = await box.createFolder(input13.caseId, gates.boxFolderRootId());
+    const folder = await box.createFolder(input14.caseId, gates.boxFolderRootId());
     const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
-    await dataApi.recordAudit({ action: "box_synced", caseId: input13.caseId, summary: `Archive folder ${folder.id} augmented` });
-    ctx.log(JSON.stringify({ evt: "boxFolderAugment", caseId: input13.caseId, folderId: folder.id }));
+    await dataApi.recordAudit({ action: "box_synced", caseId: input14.caseId, summary: `Archive folder ${folder.id} augmented` });
+    ctx.log(JSON.stringify({ evt: "boxFolderAugment", caseId: input14.caseId, folderId: folder.id }));
     return { folderId: folder.id, folderUrl };
   }
 });
@@ -45140,34 +45208,34 @@ import_functions10.app.http("chaser-start", {
   route: "chaser",
   extraInputs: [df20.input.durableClient()],
   handler: async (req, ctx) => {
-    const input13 = await req.json();
+    const input14 = await req.json();
     const client2 = df20.getClient(ctx);
-    const instanceId = await client2.startNew("chaserOrchestrator", { input: input13 });
+    const instanceId = await client2.startNew("chaserOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 var retry4 = new df20.RetryOptions(5e3, 3);
 retry4.backoffCoefficient = 2;
 df20.app.orchestration("chaserOrchestrator", function* (ctx) {
-  const input13 = ctx.df.getInput();
-  const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry4, input13);
-  const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry4, { caseId: input13.caseId, draft });
-  return { caseId: input13.caseId, draft, sent };
+  const input14 = ctx.df.getInput();
+  const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry4, input14);
+  const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry4, { caseId: input14.caseId, draft });
+  return { caseId: input14.caseId, draft, sent };
 });
 df20.app.activity("chaserDraft", {
-  handler: async (input13, ctx) => {
-    ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input13.caseId, targetType: input13.targetType }));
-    return { drafted: true, targetType: input13.targetType };
+  handler: async (input14, ctx) => {
+    ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input14.caseId, targetType: input14.targetType }));
+    return { drafted: true, targetType: input14.targetType };
   }
 });
 df20.app.activity("chaserSend", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.chaserSend()) {
       ctx.log("[chaserSend] skipped \u2014 CHASER_SEND_ENABLED=false (draft-only)");
       return { sent: false };
     }
-    await dataApi.recordAudit({ action: "chaser_sent", caseId: input13.caseId, summary: "chaser sent" });
-    ctx.log(JSON.stringify({ evt: "chaserSend", caseId: input13.caseId }));
+    await dataApi.recordAudit({ action: "chaser_sent", caseId: input14.caseId, summary: "chaser sent" });
+    ctx.log(JSON.stringify({ evt: "chaserSend", caseId: input14.caseId }));
     return { sent: true };
   }
 });
@@ -45185,34 +45253,34 @@ import_functions11.app.http("box-folder-create-start", {
       ctx.log("[box-folder-create] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
-    const input13 = await req.json();
+    const input14 = await req.json();
     const client2 = df21.getClient(ctx);
-    const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input13 });
+    const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 var retry5 = new df21.RetryOptions(5e3, 3);
 retry5.backoffCoefficient = 2;
 df21.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
-  const input13 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry5, input13);
+  const input14 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry5, input14);
   return result;
 });
 df21.app.activity("boxFolderCreate", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) return { skipped: true, reason: "gated off" };
-    const existing = await dataApi.getCaseBoxFolder(input13.caseId);
+    const existing = await dataApi.getCaseBoxFolder(input14.caseId);
     if (existing.boxFolderId) {
-      ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input13.caseId, skipped: "already_linked", folderId: existing.boxFolderId }));
+      ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input14.caseId, skipped: "already_linked", folderId: existing.boxFolderId }));
       return { skipped: true, reason: "already_linked", folderId: existing.boxFolderId, folderUrl: existing.boxFolderUrl ?? void 0 };
     }
-    const folder = await box.createFolder(input13.folderName, gates.boxFolderRootId());
+    const folder = await box.createFolder(input14.folderName, gates.boxFolderRootId());
     const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
-    const stamp = await dataApi.stampCaseBoxFolder(input13.caseId, {
+    const stamp = await dataApi.stampCaseBoxFolder(input14.caseId, {
       boxFolderId: folder.id,
       boxFolderUrl: folderUrl
     });
-    ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input13.caseId, folderId: folder.id, applied: stamp.applied }));
+    ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input14.caseId, folderId: folder.id, applied: stamp.applied }));
     return { folderId: folder.id, folderUrl, applied: stamp.applied };
   }
 });
@@ -45230,30 +45298,30 @@ import_functions12.app.http("box-file-request-copy-start", {
       ctx.log("[box-file-request-copy] skipped \u2014 BOX_API_ENABLED and/or BOX_FILEREQUEST_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
-    const input13 = await req.json();
+    const input14 = await req.json();
     const client2 = df22.getClient(ctx);
-    const instanceId = await client2.startNew("boxFileRequestCopyOrchestrator", { input: input13 });
+    const instanceId = await client2.startNew("boxFileRequestCopyOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 var retry6 = new df22.RetryOptions(5e3, 3);
 retry6.backoffCoefficient = 2;
 df22.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
-  const input13 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("boxFileRequestCopy", retry6, input13);
+  const input14 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("boxFileRequestCopy", retry6, input14);
   return result;
 });
 df22.app.activity("boxFileRequestCopy", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) return { skipped: true };
     const templateId = gates.boxFileRequestTemplateId();
     if (!templateId) {
       ctx.warn("[boxFileRequestCopy] BOX_FILE_REQUEST_TEMPLATE_ID empty \u2014 nothing to copy");
       return { skipped: true, reason: "no template" };
     }
-    const res = await box.copyFileRequest(templateId, input13.folderId);
-    await dataApi.recordAudit({ action: "box_file_request_copied", caseId: input13.caseId, summary: `File-Request copied to folder ${input13.folderId}` });
-    ctx.log(JSON.stringify({ evt: "boxFileRequestCopy", caseId: input13.caseId, folderId: input13.folderId }));
+    const res = await box.copyFileRequest(templateId, input14.folderId);
+    await dataApi.recordAudit({ action: "box_file_request_copied", caseId: input14.caseId, summary: `File-Request copied to folder ${input14.folderId}` });
+    ctx.log(JSON.stringify({ evt: "boxFileRequestCopy", caseId: input14.caseId, folderId: input14.folderId }));
     return res;
   }
 });
@@ -45289,11 +45357,11 @@ df23.app.activity("boxPurgeList", {
   }
 });
 df23.app.activity("boxPurgeOne", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.boxApi()) return { purged: false };
-    const purged = await deleteEvidenceBytes(input13.blobPath);
-    await dataApi.markBlobPurged({ caseId: input13.caseId, blobPath: input13.blobPath });
-    ctx.log(JSON.stringify({ evt: "boxPurgeOne", caseId: input13.caseId, blobPath: input13.blobPath, purged }));
+    const purged = await deleteEvidenceBytes(input14.blobPath);
+    await dataApi.markBlobPurged({ caseId: input14.caseId, blobPath: input14.blobPath });
+    ctx.log(JSON.stringify({ evt: "boxPurgeOne", caseId: input14.caseId, blobPath: input14.blobPath, purged }));
     return { purged };
   }
 });
@@ -45329,11 +45397,11 @@ df24.app.activity("dispositionList", {
   }
 });
 df24.app.activity("dispositionOne", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.caseDisposition()) return { disposed: false };
-    await dataApi.disposeCase(input13.caseId);
-    await dataApi.recordAudit({ action: "case_disposed", caseId: input13.caseId, summary: "retention disposition", severity: "warning" });
-    ctx.log(JSON.stringify({ evt: "dispositionOne", caseId: input13.caseId }));
+    await dataApi.disposeCase(input14.caseId);
+    await dataApi.recordAudit({ action: "case_disposed", caseId: input14.caseId, summary: "retention disposition", severity: "warning" });
+    ctx.log(JSON.stringify({ evt: "dispositionOne", caseId: input14.caseId }));
     return { disposed: true };
   }
 });
@@ -45365,10 +45433,10 @@ df25.app.activity("jobsheetPrincipals", {
   handler: async () => dataApi.principals()
 });
 df25.app.activity("jobsheetImportOne", {
-  handler: async (input13, ctx) => {
-    await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input13.principalCode}` });
-    ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input13.principalCode }));
-    return { principalCode: input13.principalCode, imported: true };
+  handler: async (input14, ctx) => {
+    await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input14.principalCode}` });
+    ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input14.principalCode }));
+    return { principalCode: input14.principalCode, imported: true };
   }
 });
 
@@ -45530,12 +45598,12 @@ import_functions16.app.http("retro-case-start", {
       ctx.log("[retro-case] skipped \u2014 RETRO_CASE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
-    const input13 = await req.json();
-    if (!input13.internetMessageId || !input13.mailbox) {
+    const input14 = await req.json();
+    if (!input14.internetMessageId || !input14.mailbox) {
       return { status: 400, jsonBody: { error: "internetMessageId and mailbox required" } };
     }
     const client2 = df26.getClient(ctx);
-    const safeId = String(input13.internetMessageId).replace(/[^A-Za-z0-9_-]/g, "");
+    const safeId = String(input14.internetMessageId).replace(/[^A-Za-z0-9_-]/g, "");
     const instanceId = `retro-${safeId}`;
     let existing;
     try {
@@ -45548,24 +45616,24 @@ import_functions16.app.http("retro-case-start", {
       ctx.log(`[retro-case] instance ${instanceId} already ${runtimeStatus} \u2014 not restarted`);
       return { status: 200, jsonBody: { instanceId, deduped: true, runtimeStatus } };
     }
-    await client2.startNew("retroCaseOrchestrator", { instanceId, input: input13 });
+    await client2.startNew("retroCaseOrchestrator", { instanceId, input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 df26.app.orchestration("retroCaseOrchestrator", function* (ctx) {
-  const input13 = ctx.df.getInput();
-  let trigger = input13.trigger;
-  let category = input13.category;
-  let keys = input13.keys;
-  let providerId = input13.providerId;
-  let providerPrincipal = input13.providerPrincipal;
+  const input14 = ctx.df.getInput();
+  let trigger = input14.trigger;
+  let category = input14.category;
+  let keys = input14.keys;
+  let providerId = input14.providerId;
+  let providerPrincipal = input14.providerPrincipal;
   if (!trigger) {
-    if (!input13.internetMessageId || !input13.mailbox) {
+    if (!input14.internetMessageId || !input14.mailbox) {
       return { outcome: "bad_input", reason: "trigger envelope or internetMessageId+mailbox required" };
     }
     const located = yield ctx.df.callActivityWithRetry("retroFindTrigger", retry10, {
-      internetMessageId: input13.internetMessageId,
-      mailbox: input13.mailbox
+      internetMessageId: input14.internetMessageId,
+      mailbox: input14.mailbox
     });
     if (located.skipped) return { outcome: "skipped", reason: located.skipped };
     if (!located.found) return { outcome: "trigger_not_found" };
@@ -45664,7 +45732,7 @@ df26.app.orchestration("retroCaseOrchestrator", function* (ctx) {
         const contentType2 = decideCaseType({
           parserCaseType: parseResult.case_type,
           parserAudit: parseResult.audit,
-          classifierSubtype: input13.subtype
+          classifierSubtype: input14.subtype
         });
         const caseType = located.marker ? markerToCaseType(located.marker) : contentType2.caseType;
         const caseTypeSignals = located.marker ? [`archive_marker:${located.marker}`, ...contentType2.signals] : [...contentType2.signals];
@@ -45772,7 +45840,7 @@ ${original.body ?? ""}`);
         const contentType2 = decideCaseType({
           parserCaseType: parseResult.case_type,
           parserAudit: parseResult.audit,
-          classifierSubtype: input13.subtype
+          classifierSubtype: input14.subtype
         });
         const statusDecision = decideRetroStatus({
           triggerCategory: category ?? "other",
@@ -45853,28 +45921,28 @@ ${original.body ?? ""}`);
   return { outcome: "no_source", ...boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {} };
 });
 df26.app.activity("retroFindTrigger", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
-    const hit = await findMessageByInternetMessageId(input13.mailbox, input13.internetMessageId);
+    const hit = await findMessageByInternetMessageId(input14.mailbox, input14.internetMessageId);
     if (!hit) {
-      ctx.log(JSON.stringify({ evt: "retroFindTrigger", found: false, mailbox: input13.mailbox }));
+      ctx.log(JSON.stringify({ evt: "retroFindTrigger", found: false, mailbox: input14.mailbox }));
       return { found: false };
     }
     return {
       found: true,
       messageId: hit.id,
-      resource: `users/${input13.mailbox}/messages/${hit.id}`
+      resource: `users/${input14.mailbox}/messages/${hit.id}`
     };
   }
 });
 df26.app.activity("retroResolveExisting", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const result = await dataApi.retroResolveExisting({
-      trigger: input13.trigger,
-      keys: input13.keys,
-      providerId: input13.providerId,
-      triggerCategory: input13.triggerCategory
+      trigger: input14.trigger,
+      keys: input14.keys,
+      providerId: input14.providerId,
+      triggerCategory: input14.triggerCategory
     });
     ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: result.outcome, caseId: result.caseId }));
     return result;
@@ -45884,25 +45952,25 @@ function archiveRootIds() {
   return gates.retroBoxArchiveRootIds().split(",").map((s) => s.trim()).filter(Boolean);
 }
 df26.app.activity("retroBoxLocate", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.boxApi()) return { skipped: "box_gate_off" };
     const rootIds = archiveRootIds();
     if (rootIds.length === 0) return { skipped: "no_archive_roots" };
     const refHits = [];
     const vrmHits = [];
-    if (input13.keys.casePo) {
-      const r = await box.searchContent({ query: input13.keys.casePo, rootIds, type: "folder" });
+    if (input14.keys.casePo) {
+      const r = await box.searchContent({ query: input14.keys.casePo, rootIds, type: "folder" });
       refHits.push(...r.entries);
     }
-    if (input13.keys.externalRef) {
-      const r = await box.searchContent({ query: input13.keys.externalRef, rootIds });
+    if (input14.keys.externalRef) {
+      const r = await box.searchContent({ query: input14.keys.externalRef, rootIds });
       refHits.push(...r.entries);
     }
-    let needVrm = Boolean(input13.keys.vrm);
+    let needVrm = Boolean(input14.keys.vrm);
     if (needVrm && refHits.length > 0 && pickCaseFolder(refHits, []).folder) needVrm = false;
-    if (needVrm && input13.keys.vrm) {
-      const r = await box.searchContent({ query: input13.keys.vrm, rootIds });
+    if (needVrm && input14.keys.vrm) {
+      const r = await box.searchContent({ query: input14.keys.vrm, rootIds });
       vrmHits.push(...r.entries);
     }
     const pick = pickCaseFolder(refHits, vrmHits);
@@ -45920,9 +45988,9 @@ df26.app.activity("retroBoxLocate", {
       discoveredPo,
       principals.map((p) => p.principalCode)
     );
-    const vrmOnly = !input13.keys.casePo && !input13.keys.externalRef;
+    const vrmOnly = !input14.keys.casePo && !input14.keys.externalRef;
     if (vrmOnly) {
-      const sender = (input13.providerPrincipal ?? "").trim().toUpperCase();
+      const sender = (input14.providerPrincipal ?? "").trim().toUpperCase();
       if (!match || !sender || match.principal !== sender) {
         ctx.log(JSON.stringify({ evt: "retroBoxLocate", found: false, reason: "vrm_only_uncorroborated" }));
         return { found: false, reason: "vrm_only_uncorroborated", candidateCount: pick.candidateCount };
@@ -45949,10 +46017,10 @@ df26.app.activity("retroBoxLocate", {
   }
 });
 df26.app.activity("retroBoxFetchInstruction", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.boxApi()) return { skipped: "box_gate_off" };
-    const listing = await box.listFolderItems(input13.folderId);
+    const listing = await box.listFolderItems(input14.folderId);
     const entries = (listing.entries ?? []).map((e) => ({
       id: e.id,
       name: e.name,
@@ -45962,7 +46030,7 @@ df26.app.activity("retroBoxFetchInstruction", {
     }));
     const files = entries.filter((e) => (e.type ?? "file") === "file");
     const subfolderCount = entries.length - files.length;
-    const fallbackReceivedAt = input13.triggerReceivedAt ?? (/* @__PURE__ */ new Date()).toISOString();
+    const fallbackReceivedAt = input14.triggerReceivedAt ?? (/* @__PURE__ */ new Date()).toISOString();
     let envelope;
     let instructionSource = "minimal";
     const consumed = /* @__PURE__ */ new Set();
@@ -45995,15 +46063,15 @@ df26.app.activity("retroBoxFetchInstruction", {
           }
           envelope = buildRetroEnvelopeFromEml(exploded, landed, rawEmlRef, {
             boxFileId: candidate.entry.id,
-            discoveredPo: input13.discoveredPo,
+            discoveredPo: input14.discoveredPo,
             fallbackReceivedAt
           });
         } else {
           envelope = buildRetroEnvelopeFromDoc(rawEmlRef, {
             boxFileId: candidate.entry.id,
-            discoveredPo: input13.discoveredPo,
+            discoveredPo: input14.discoveredPo,
             fallbackReceivedAt,
-            folderName: input13.folderName
+            folderName: input14.folderName
           });
         }
         instructionSource = "box_eml";
@@ -46027,9 +46095,9 @@ df26.app.activity("retroBoxFetchInstruction", {
             { filename: docName, contentType: "application/octet-stream", blobPath: up.blobPath, size: up.size },
             {
               boxFileId: docCandidate.entry.id,
-              discoveredPo: input13.discoveredPo,
+              discoveredPo: input14.discoveredPo,
               fallbackReceivedAt,
-              folderName: input13.folderName
+              folderName: input14.folderName
             }
           );
           instructionSource = "box_doc";
@@ -46041,16 +46109,16 @@ df26.app.activity("retroBoxFetchInstruction", {
     }
     if (!envelope) {
       envelope = buildMinimalAnchorEnvelope(
-        { receivedAt: input13.triggerReceivedAt },
-        input13.discoveredPo,
-        input13.folderId
+        { receivedAt: input14.triggerReceivedAt },
+        input14.discoveredPo,
+        input14.folderId
       );
       instructionSource = "minimal";
     }
     const otherFiles = files.filter((f) => !consumed.has(f.id)).map((f) => ({ boxFileId: f.id, filename: f.name, size: f.size }));
     ctx.log(JSON.stringify({
       evt: "retroBoxFetchInstruction",
-      folderId: input13.folderId,
+      folderId: input14.folderId,
       source: instructionSource,
       attachments: envelope.attachments.length,
       otherFiles: otherFiles.length,
@@ -46060,32 +46128,32 @@ df26.app.activity("retroBoxFetchInstruction", {
   }
 });
 df26.app.activity("retroCreatePersist", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const result = await dataApi.retroCreate({
-      original: input13.original,
-      trigger: input13.trigger,
-      keys: input13.keys,
-      casePo: input13.casePo,
-      vrm: input13.vrm,
-      statusName: input13.statusName,
-      onHold: input13.onHold,
-      actionReason: input13.actionReason,
-      reconstructionSource: input13.reconstructionSource,
-      providerId: input13.providerId,
-      parserVrm: input13.parserVrm,
-      parserRef: input13.parserRef,
-      parserMileage: input13.parserMileage,
-      parserMileageUnit: input13.parserMileageUnit,
-      parserEva: input13.parserEva,
-      caseType: input13.caseType,
-      caseTypeSignals: input13.caseTypeSignals,
-      boxFolder: input13.boxFolder,
-      triggerCategory: input13.triggerCategory
+      original: input14.original,
+      trigger: input14.trigger,
+      keys: input14.keys,
+      casePo: input14.casePo,
+      vrm: input14.vrm,
+      statusName: input14.statusName,
+      onHold: input14.onHold,
+      actionReason: input14.actionReason,
+      reconstructionSource: input14.reconstructionSource,
+      providerId: input14.providerId,
+      parserVrm: input14.parserVrm,
+      parserRef: input14.parserRef,
+      parserMileage: input14.parserMileage,
+      parserMileageUnit: input14.parserMileageUnit,
+      parserEva: input14.parserEva,
+      caseType: input14.caseType,
+      caseTypeSignals: input14.caseTypeSignals,
+      boxFolder: input14.boxFolder,
+      triggerCategory: input14.triggerCategory
     });
     const caseId = result.caseId;
     if (caseId && (result.outcome === "created" || result.outcome === "already_exists_linked")) {
-      const rows = (input13.otherFiles ?? []).map((f) => ({
+      const rows = (input14.otherFiles ?? []).map((f) => ({
         filename: f.filename,
         boxFileId: f.boxFileId,
         boxFileUrl: `https://app.box.com/file/${encodeURIComponent(f.boxFileId)}`,
@@ -46108,15 +46176,15 @@ df26.app.activity("retroCreatePersist", {
   }
 });
 df26.app.activity("retroOutlookLocate", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.retroOutlookSearch()) return { skipped: "outlook_gate_off" };
     const mailboxes = intakeMailboxes().map((m) => m.mailbox);
     if (mailboxes.length === 0) return { skipped: "no_intake_mailboxes" };
     const ladder = [];
-    if (input13.keys.externalRef) ladder.push({ key: input13.keys.externalRef, matchedKey: "external_ref" });
-    if (input13.keys.casePo) ladder.push({ key: input13.keys.casePo, matchedKey: "case_po" });
-    if (input13.keys.vrm) ladder.push({ key: input13.keys.vrm, matchedKey: "vrm" });
+    if (input14.keys.externalRef) ladder.push({ key: input14.keys.externalRef, matchedKey: "external_ref" });
+    if (input14.keys.casePo) ladder.push({ key: input14.keys.casePo, matchedKey: "case_po" });
+    if (input14.keys.vrm) ladder.push({ key: input14.keys.vrm, matchedKey: "vrm" });
     for (const rung of ladder) {
       const candidates = [];
       for (const mailbox of mailboxes) {
@@ -46150,22 +46218,253 @@ df26.app.activity("retroOutlookLocate", {
   }
 });
 df26.app.activity("retroRecordFailure", {
-  handler: async (input13, ctx) => {
+  handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
-    const env = input13.trigger;
+    const env = input14.trigger;
     await dataApi.recordAudit({
       action: "retro_reconstruction_failed",
       severity: "warning",
-      summary: `Retro: no case found or reconstructable for ${input13.triggerCategory ?? "update"} email (${input13.keys.casePo ?? input13.keys.externalRef ?? input13.keys.vrm ?? "no key"})`,
+      summary: `Retro: no case found or reconstructable for ${input14.triggerCategory ?? "update"} email (${input14.keys.casePo ?? input14.keys.externalRef ?? input14.keys.vrm ?? "no key"})`,
       after: {
-        keys: input13.keys,
-        rungsTried: input13.rungsTried,
-        ...input13.ambiguousFolders ? { ambiguousFolders: input13.ambiguousFolders } : {},
+        keys: input14.keys,
+        rungsTried: input14.rungsTried,
+        ...input14.ambiguousFolders ? { ambiguousFolders: input14.ambiguousFolders } : {},
         messageId: env.internetMessageId,
         subject: env.subject
       }
     });
-    ctx.log(JSON.stringify({ evt: "retroRecordFailure", keys: input13.keys, rungsTried: input13.rungsTried }));
+    ctx.log(JSON.stringify({ evt: "retroRecordFailure", keys: input14.keys, rungsTried: input14.rungsTried }));
     return { recorded: true };
+  }
+});
+
+// orchestration/src/functions/gated/replay-backfill.ts
+var import_functions17 = require("@azure/functions");
+var import_node_crypto5 = require("node:crypto");
+var df27 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/replay-manifest.ts
+function compareByReceived(a, b) {
+  if (a.receivedDateTime < b.receivedDateTime) return -1;
+  if (a.receivedDateTime > b.receivedDateTime) return 1;
+  if (a.internetMessageId < b.internetMessageId) return -1;
+  if (a.internetMessageId > b.internetMessageId) return 1;
+  return 0;
+}
+function mergeChronological(lists) {
+  return lists.flat().sort(compareByReceived);
+}
+function tallyByCategory(rows) {
+  const out = {};
+  for (const r of rows) {
+    const key = `${r.category}/${r.subtype}`;
+    out[key] = (out[key] ?? 0) + 1;
+  }
+  return out;
+}
+
+// orchestration/src/functions/gated/replay-backfill.ts
+var retry11 = new df27.RetryOptions(5e3, 3);
+var PROCESS_BATCH = 25;
+var DRYRUN_CHUNK = 6;
+var BODY_CAP2 = 2e4;
+import_functions17.app.http("replay-backfill-start", {
+  methods: ["POST"],
+  authLevel: "function",
+  route: "replay-backfill",
+  extraInputs: [df27.input.durableClient()],
+  handler: async (req, ctx) => {
+    if (!gates.replayBackfill()) {
+      ctx.log("[replay-backfill] skipped \u2014 REPLAY_BACKFILL_ENABLED off");
+      return { status: 200, jsonBody: { skipped: true, reason: "REPLAY_BACKFILL_ENABLED off" } };
+    }
+    const body2 = await req.json().catch(() => ({}));
+    if (!body2.epoch || !/^[A-Za-z0-9_-]{1,40}$/.test(body2.epoch)) {
+      return { status: 400, jsonBody: { error: "epoch (slug [A-Za-z0-9_-]{1,40}) required" } };
+    }
+    const cfg = intakeMailboxes();
+    const chosen = body2.mailboxes && body2.mailboxes.length ? cfg.filter((m) => body2.mailboxes.includes(m.mailbox)) : cfg;
+    if (!chosen.length) {
+      return { status: 400, jsonBody: { error: "no matching intake mailboxes configured" } };
+    }
+    const untilIso = body2.until ?? (/* @__PURE__ */ new Date()).toISOString();
+    const resolved = chosen.map((m) => ({
+      mailbox: m.mailbox,
+      sinceIso: m.minIntakeDate
+    }));
+    const client2 = df27.getClient(ctx);
+    const instanceId = `replay-drive-${body2.epoch}`;
+    let existing;
+    try {
+      existing = await client2.getStatus(instanceId);
+    } catch {
+      existing = void 0;
+    }
+    const runtimeStatus = existing?.runtimeStatus;
+    if (runtimeStatus && runtimeStatus !== "Failed" && runtimeStatus !== "Terminated") {
+      ctx.log(`[replay-backfill] instance ${instanceId} already ${runtimeStatus} \u2014 not restarted`);
+      return { status: 200, jsonBody: { instanceId, deduped: true, runtimeStatus } };
+    }
+    const input14 = {
+      epoch: body2.epoch,
+      untilIso,
+      dryRun: body2.dryRun !== false,
+      // default TRUE (safe)
+      resolved,
+      idx: 0
+    };
+    await client2.startNew("replayBackfillOrchestrator", { instanceId, input: input14 });
+    ctx.log(
+      `[replay-backfill] started ${instanceId} (dryRun=${input14.dryRun}, mailboxes=${resolved.length}, until=${untilIso})`
+    );
+    return client2.createCheckStatusResponse(req, instanceId);
+  }
+});
+df27.app.orchestration("replayBackfillOrchestrator", function* (ctx) {
+  const s = ctx.df.getInput();
+  if (!s.manifest) {
+    const lists = yield ctx.df.Task.all(
+      s.resolved.map(
+        (m) => ctx.df.callActivityWithRetry("replayCollectMailbox", retry11, {
+          mailbox: m.mailbox,
+          sinceIso: m.sinceIso,
+          untilIso: s.untilIso
+        })
+      )
+    );
+    const merged = mergeChronological(lists);
+    ctx.df.setCustomStatus({ phase: "collected", total: merged.length });
+    ctx.df.continueAsNew({ ...s, manifest: merged, idx: 0 });
+    return;
+  }
+  const total = s.manifest.length;
+  if (s.dryRun) {
+    const rows = [];
+    for (let i = 0; i < total; i += DRYRUN_CHUNK) {
+      const chunk = s.manifest.slice(i, i + DRYRUN_CHUNK);
+      const res = yield ctx.df.Task.all(
+        chunk.map((it) => ctx.df.callActivityWithRetry("replayClassifyOne", retry11, it))
+      );
+      rows.push(...res);
+      ctx.df.setCustomStatus({ phase: "dry-run", done: rows.length, total });
+    }
+    const manifestBlobPath = yield ctx.df.callActivityWithRetry("replayWriteManifest", retry11, {
+      epoch: s.epoch,
+      rows
+    });
+    return {
+      epoch: s.epoch,
+      mode: "dry-run",
+      total,
+      manifestBlobPath,
+      byCategory: tallyByCategory(rows)
+    };
+  }
+  const failures = s.failures ?? [];
+  const end = Math.min(s.idx + PROCESS_BATCH, total);
+  for (let i = s.idx; i < end; i++) {
+    const it = s.manifest[i];
+    const safeId = (0, import_node_crypto5.createHash)("sha256").update(`${it.mailbox}\0${it.internetMessageId || it.messageId}`).digest("hex").slice(0, 32);
+    const childId = `replay-${s.epoch}-${safeId}`;
+    const resource = `users/${it.mailbox}/messages/${it.messageId}`;
+    try {
+      yield ctx.df.callSubOrchestratorWithRetry(
+        "intakeOrchestrator",
+        retry11,
+        { messageId: it.messageId, resource, receivedAt: it.receivedDateTime },
+        childId
+      );
+    } catch (e) {
+      failures.push(it.internetMessageId || it.messageId);
+    }
+  }
+  const nextIdx = end;
+  ctx.df.setCustomStatus({ phase: "live", done: nextIdx, total, failures: failures.length });
+  if (nextIdx < total) {
+    ctx.df.continueAsNew({ ...s, idx: nextIdx, failures });
+    return;
+  }
+  return { epoch: s.epoch, mode: "live", total, failures, done: true };
+});
+df27.app.activity("replayCollectMailbox", {
+  handler: async (input14, ctx) => {
+    const subtree = await resolveInboxSubtreeFolderIds(input14.mailbox);
+    const out = [];
+    let pageUrl;
+    let pages = 0;
+    do {
+      const { items, nextLink } = await listMessagesSince(
+        input14.mailbox,
+        input14.sinceIso,
+        input14.untilIso,
+        pageUrl
+      );
+      for (const m of items) {
+        if (m.parentFolderId && !subtree.has(m.parentFolderId)) continue;
+        out.push({
+          mailbox: input14.mailbox,
+          messageId: m.id,
+          internetMessageId: m.internetMessageId ?? m.id,
+          receivedDateTime: m.receivedDateTime
+        });
+      }
+      pageUrl = nextLink;
+      pages++;
+    } while (pageUrl);
+    out.sort(compareByReceived);
+    ctx.log(
+      JSON.stringify({ evt: "replayCollectMailbox", mailbox: input14.mailbox, pages, collected: out.length })
+    );
+    return out;
+  }
+});
+df27.app.activity("replayClassifyOne", {
+  handler: async (it, _ctx) => {
+    const { message, attachments } = await getMessageWithAttachments(it.mailbox, it.messageId);
+    const headers = await getMessageHeaders(it.mailbox, it.messageId);
+    const from = message.from?.emailAddress?.address ?? "";
+    const senderDomain = from.includes("@") ? from.split("@")[1].toLowerCase() : "";
+    const attachmentKinds = attachments.map((a) => a.contentType);
+    const attachmentFilenames = attachments.map((a) => a.name);
+    const cls = await callClassifyEmail({
+      subject: message.subject ?? "",
+      body: (message.body?.content ?? message.bodyPreview ?? "").slice(0, BODY_CAP2),
+      from,
+      senderDomain,
+      attachmentKinds,
+      attachmentFilenames,
+      hasAttachments: attachments.length > 0,
+      inReplyTo: headers["in-reply-to"] ?? "",
+      references: headers["references"] ?? ""
+    });
+    return {
+      mailbox: it.mailbox,
+      internetMessageId: it.internetMessageId,
+      receivedDateTime: it.receivedDateTime,
+      subject: message.subject ?? "",
+      from,
+      category: cls.category,
+      subtype: cls.subtype,
+      confidence: cls.confidence,
+      signals: cls.signals,
+      bodyVrm: cls.body_vrm,
+      bodyCaseref: cls.body_caseref,
+      bodyJobref: cls.body_jobref,
+      isReply: cls.is_reply,
+      hasAttachments: attachments.length > 0,
+      attachmentKinds
+    };
+  }
+});
+df27.app.activity("replayWriteManifest", {
+  handler: async (input14, _ctx) => {
+    const ndjson = input14.rows.map((r) => JSON.stringify(r)).join("\n") + "\n";
+    const up = await uploadEvidenceBytes(
+      "replay-manifest",
+      `${input14.epoch}.ndjson`,
+      Buffer.from(ndjson, "utf8"),
+      "application/x-ndjson"
+    );
+    return up.blobPath;
   }
 });

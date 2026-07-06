@@ -120,3 +120,36 @@ export async function listBoxFolderNames(folderId: string): Promise<string[]> {
   }
   return names;
 }
+
+interface BoxFileContentResponse {
+  id?: string;
+  filename?: string;
+  size?: number;
+  contentBase64?: string;
+}
+
+/**
+ * Fetch an archived Box file's raw bytes via the facade (GET box/files/{id}/content — base64
+ * in JSON, size-capped inside the box-fn). Used to inline-preview Box-only evidence that has
+ * no local blob (~39% of rows). Returns undefined when the facade is unconfigured, the gate is
+ * off, or the file is too big / absent — the caller falls back to the "Open in Archive" link.
+ */
+export async function downloadBoxFileContent(
+  fileId: string,
+): Promise<{ bytes: Buffer; filename?: string } | undefined> {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) return undefined;
+  try {
+    const res = (await callFn(
+      base,
+      key,
+      'GET',
+      `/api/box/files/${encodeURIComponent(fileId)}/content`,
+    )) as BoxFileContentResponse;
+    if (!res?.contentBase64) return undefined;
+    return { bytes: Buffer.from(res.contentBase64, 'base64'), filename: res.filename };
+  } catch {
+    return undefined;
+  }
+}

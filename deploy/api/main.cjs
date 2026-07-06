@@ -9643,6 +9643,11 @@ var gates = {
   // suggestion surface + the server-side model call path; honest no-op while off
   // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
   aiAssist: () => process.env.AI_ASSIST_ENABLED === "true",
+  // AI chat helper (TKT-060) — default OFF. Gates the read-only assistant drawer + its
+  // POST /api/assistant/chat route. Distinct from aiAssist (the suggestion layer): this is
+  // a conversational Q&A surface with READ-ONLY tools only. Needs a model endpoint +
+  // deployment (see aiChatConfigured) in addition to this switch.
+  aiChat: () => process.env.AI_CHAT_ENABLED === "true",
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: () => process.env.BOX_API_ENABLED === "true",
   // #22
@@ -9676,6 +9681,11 @@ var gates = {
   triageCancellation: () => process.env.TRIAGE_CANCELLATION_ENABLED === "true",
   triageImagesRouting: () => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === "true",
   triageCaseUpdate: () => process.env.TRIAGE_CASE_UPDATE_ENABLED === "true",
+  // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
+  // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
+  // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
+  // dry-run (read-only) and the destructive live rebuild BOTH require it on.
+  replayBackfill: () => process.env.REPLAY_BACKFILL_ENABLED === "true",
   // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
   enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
   // #3
@@ -9712,6 +9722,12 @@ var gates = {
    * GET /api/gates/ai-assist + the generate route's disabled-reason.
    */
   aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the AI chat helper is actionable — the gate is ON and a model endpoint +
+   * deployment are configured. Used by GET /api/gates/ai-chat + the chat route's honest
+   * refusal (TKT-060).
+   */
+  aiChatEnabled: () => gates.aiChat() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
   /**
    * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
    * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
@@ -11987,6 +12003,23 @@ async function listBoxFolderNames(folderId) {
   }
   return names;
 }
+async function downloadBoxFileContent(fileId) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) return void 0;
+  try {
+    const res = await callFn(
+      base,
+      key,
+      "GET",
+      `/api/box/files/${encodeURIComponent(fileId)}/content`
+    );
+    if (!res?.contentBase64) return void 0;
+    return { bytes: Buffer.from(res.contentBase64, "base64"), filename: res.filename };
+  } catch {
+    return void 0;
+  }
+}
 
 // api/src/functions/cases.ts
 var pad2 = (n) => String(n).padStart(2, "0");
@@ -12925,6 +12958,15 @@ import_functions3.app.http("updateProvider", {
 var import_functions4 = require("@azure/functions");
 var CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt("confirmed_physical");
 var IMAGE_BASED = inspectionDecisionCodec.toInt("image_based");
+var SHORTLIST_LIMIT = 8;
+var SEARCH_LIMIT = 25;
+function principalFromCasePo(casePo) {
+  return (casePo ?? "").trim().replace(/^(?:AP|A|D)\./i, "").match(/^[A-Za-z]+/)?.[0]?.toUpperCase() ?? "";
+}
+function addressMatches(a, needle) {
+  const hay = `${a.lines.join(" ")} ${a.postcode}`.toLowerCase();
+  return hay.includes(needle);
+}
 import_functions4.app.http("inspectionAddressSuggestions", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -12932,17 +12974,21 @@ import_functions4.app.http("inspectionAddressSuggestions", {
   handler: withRole("CollisionSpike.User", async (req) => {
     try {
       const id = req.params.id;
-      const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [id]);
-      const providerCode = ((caseRows[0]?.case_po ?? "").trim().match(/^[A-Za-z]+/)?.[0] ?? "").toUpperCase();
+      const q = (req.query.get("q") ?? "").trim().toLowerCase();
       const rows = await query(
         "SELECT * FROM inspection_address WHERE source_label LIKE 'suggested%'"
       );
-      const all = rows.filter(isSuggestedAddressRow).map(rowToSuggestedAddress);
-      if (!providerCode) return { status: 200, jsonBody: sortSuggestions(all) };
-      const scoped = all.filter(
-        (s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode
+      const all = sortSuggestions(
+        rows.filter(isSuggestedAddressRow).map(rowToSuggestedAddress)
       );
-      return { status: 200, jsonBody: sortSuggestions(scoped.length > 0 ? scoped : all) };
+      if (q.length >= 2) {
+        return { status: 200, jsonBody: all.filter((a) => addressMatches(a, q)).slice(0, SEARCH_LIMIT) };
+      }
+      const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [id]);
+      const providerCode = principalFromCasePo(caseRows[0]?.case_po);
+      const scoped = providerCode ? all.filter((s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode) : all;
+      const shortlist = (scoped.length > 0 ? scoped : all).slice(0, SHORTLIST_LIMIT);
+      return { status: 200, jsonBody: shortlist };
     } catch {
       return { status: 200, jsonBody: [] };
     }
@@ -12984,7 +13030,7 @@ import_functions4.app.http("saveInspectionDecision", {
       let providerCode = "";
       try {
         const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [caseId]);
-        providerCode = ((caseRows[0]?.case_po ?? "").trim().match(/^[A-Za-z]+/)?.[0] ?? "").toUpperCase();
+        providerCode = principalFromCasePo(caseRows[0]?.case_po);
       } catch {
       }
       const sourceNote = [
@@ -13116,7 +13162,6 @@ function computeReasonFacets(all) {
 }
 function computePipelineStages(all) {
   const defs = [
-    { key: "new", label: "New" },
     { key: "not_ready", label: "Not ready" },
     { key: "review", label: "Review" },
     { key: "submitted", label: "Submitted" }
@@ -13124,8 +13169,9 @@ function computePipelineStages(all) {
   const counts = new Map(defs.map((d) => [d.key, 0]));
   for (const c of all) {
     if (c.onHold) continue;
-    const k = statusToStage(c.status);
-    if (k === void 0) continue;
+    const stage = statusToStage(c.status);
+    if (stage === void 0) continue;
+    const k = stage === "new" ? "not_ready" : stage;
     counts.set(k, (counts.get(k) ?? 0) + 1);
   }
   return defs.map((d) => ({
@@ -13926,19 +13972,19 @@ import_functions10.app.http("internalRetroResolveExisting", {
     });
     if (rows.length === 1) {
       const hit = rows[0];
-      const statusName = caseStatusCodec.toName(hit.status_code) ?? String(hit.status_code);
+      const statusName2 = caseStatusCodec.toName(hit.status_code) ?? String(hit.status_code);
       await upsertInboundEmail(body2.trigger, providerId, hit.id, void 0, void 0, "routed");
       await writeAudit({
         action: AUDIT_ACTION.retro_case_linked,
         caseId: hit.id,
         // 'removed' is matched ON PURPOSE (a soft-removed case must still swallow its
         // mail rather than let a duplicate be reconstructed) but staff should see it.
-        severity: statusName === "removed" ? "warning" : "info",
-        summary: `Retro: ${body2.triggerCategory ?? "update"} email linked to existing ${statusName} case (${matchedBy})`,
+        severity: statusName2 === "removed" ? "warning" : "info",
+        summary: `Retro: ${body2.triggerCategory ?? "update"} email linked to existing ${statusName2} case (${matchedBy})`,
         after: {
           matchedBy,
           keys,
-          status: statusName,
+          status: statusName2,
           messageId: body2.trigger.internetMessageId
         }
       });
@@ -14201,455 +14247,317 @@ import_functions10.app.http("internalRetroCreate", {
   })
 });
 
-// api/src/functions/ai-suggestions.ts
+// api/src/functions/assistant.ts
 var import_functions11 = require("@azure/functions");
-var IMAGE_ROLE_UNKNOWN = 100000003;
-import_functions11.app.http("caseAiSuggestions", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/ai-suggestions",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    try {
-      const caseId = req.params.id;
-      const rows = await query(
-        `SELECT * FROM ai_suggestion
-          WHERE case_id = $1
-          ORDER BY (review_state = 'pending') DESC, created_at DESC
-          LIMIT 100`,
-        [caseId]
+
+// api/src/lib/aoai-chat.ts
+var COGNITIVE_SERVICES_RESOURCE = "https://cognitiveservices.azure.com";
+var REQUEST_TIMEOUT_MS = 3e4;
+var MAX_COMPLETION_TOKENS = 1500;
+var cachedToken2 = null;
+async function mintCognitiveToken() {
+  const now = Date.now();
+  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (idEndpoint && idHeader) {
+    const url2 = `${idEndpoint}?resource=${encodeURIComponent(COGNITIVE_SERVICES_RESOURCE)}&api-version=2019-08-01`;
+    const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+    if (!res.ok) throw new Error(`MSI token (cognitiveservices) ${res.status}`);
+    const json = await res.json();
+    cachedToken2 = {
+      value: json.access_token,
+      expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+    };
+    return cachedToken2.value;
+  }
+  if (process.env.AOAI_DEV_TOKEN === "1") {
+    const { execFile } = await import("node:child_process");
+    const token = await new Promise((resolve, reject) => {
+      execFile(
+        "az",
+        ["account", "get-access-token", "--resource", COGNITIVE_SERVICES_RESOURCE, "--query", "accessToken", "-o", "tsv"],
+        (err2, stdout) => err2 ? reject(err2) : resolve(stdout.trim())
       );
-      const result = rows.map(rowToAiSuggestion);
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: [] };
+    });
+    if (!token) throw new Error("az account get-access-token returned no token");
+    cachedToken2 = { value: token, expiresAt: now + 3e6 };
+    return token;
+  }
+  throw new Error("missing IDENTITY_ENDPOINT/IDENTITY_HEADER for Cognitive Services auth");
+}
+async function chatCompletion(endpoint, deployment, messages, tools) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const token = await mintCognitiveToken();
+    const url2 = `${endpoint.replace(/\/$/, "")}/openai/v1/chat/completions`;
+    const body2 = {
+      model: deployment,
+      messages,
+      max_completion_tokens: MAX_COMPLETION_TOKENS,
+      reasoning_effort: "low"
+    };
+    if (tools.length) {
+      body2.tools = tools;
+      body2.tool_choice = "auto";
     }
-  })
-});
-import_functions11.app.http("reviewAiSuggestion", {
+    const res = await fetch(url2, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body2),
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`AOAI chat ${res.status}: ${errText.slice(0, 300)}`);
+    }
+    const json = await res.json();
+    const msg = json.choices?.[0]?.message;
+    if (!msg) throw new Error("AOAI chat: no message in response");
+    return msg;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function runChat(endpoint, deployment, messages, tools, executeTool, maxRounds = 4, complete = chatCompletion) {
+  const convo = [...messages];
+  const toolsUsed = [];
+  for (let round = 1; round <= maxRounds; round++) {
+    const msg = await complete(endpoint, deployment, convo, tools);
+    convo.push(msg);
+    const calls = msg.tool_calls ?? [];
+    if (!calls.length) {
+      return { reply: (msg.content ?? "").trim(), toolsUsed, rounds: round };
+    }
+    for (const call of calls) {
+      toolsUsed.push(call.function.name);
+      let args = {};
+      try {
+        args = JSON.parse(call.function.arguments || "{}");
+      } catch {
+      }
+      let result;
+      try {
+        result = await executeTool(call.function.name, args);
+      } catch (e) {
+        result = { error: e instanceof Error ? e.message : "tool failed" };
+      }
+      convo.push({
+        role: "tool",
+        tool_call_id: call.id,
+        content: JSON.stringify(result).slice(0, 8e3)
+      });
+    }
+  }
+  const finalMsg = await complete(endpoint, deployment, convo, []);
+  return { reply: (finalMsg.content ?? "").trim(), toolsUsed, rounds: maxRounds + 1 };
+}
+
+// api/src/functions/assistant.ts
+var MAX_HISTORY = 16;
+var MAX_MSG_CHARS = 4e3;
+var SYSTEM_PROMPT = [
+  "You are a helpful, concise assistant for staff at Collision Engineers, a vehicle-collision",
+  "engineering business, working inside their case-intake system. Answer questions about cases,",
+  "queues, and inbound emails using ONLY the tools provided. You are strictly READ-ONLY: you",
+  "cannot create, change, submit, or delete anything \u2014 if asked to, explain that you can only",
+  "look things up and they should use the app itself.",
+  "",
+  "Domain terms: a Case is one vehicle-damage assessment; its Case/PO is an internal reference",
+  "(a leading-alpha principal code + year + number, e.g. CCPY26050). A case moves through",
+  "statuses new_email \u2192 ingested \u2192 needs_review \u2192 ready_for_eva \u2192 eva_submitted (terminal:",
+  'removed). Queues: "Not ready" (still gathering images/instructions/details), "Review"',
+  '(ready_for_eva \u2014 the human check before EVA submission), "Held" (parked: a possible',
+  "duplicate, missing the basics like claimant/VRM, or errored). VRM = vehicle registration.",
+  "EVA is the downstream assessment platform. Answer in plain English for a non-technical case",
+  "handler; never invent a case number, reference, or registration that the tools did not return.",
+  "If a lookup returns nothing, say so plainly rather than guessing."
+].join("\n");
+var TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "lookup_case",
+      description: "Find cases by Case/PO, vehicle registration (VRM), or claimant name. Returns up to 5 matches.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string", description: "a Case/PO, VRM, or claimant name (partial ok)" } },
+        required: ["query"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "count_cases_by_status",
+      description: 'Case counts by QUEUE (Not ready / Review / Held \u2014 matching the dashboard, on-hold cases count as Held) and by raw status. For "how many in each queue" use byQueue, not byStatus.',
+      parameters: { type: "object", properties: {}, additionalProperties: false }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_inbound",
+      description: "Search recent inbound emails by subject or sender. Returns up to 5 matches.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string", description: "text to match in the subject or sender address" } },
+        required: ["query"],
+        additionalProperties: false
+      }
+    }
+  }
+];
+async function execTool(name, args) {
+  if (name === "lookup_case") {
+    const q = `%${String(args.query ?? "").trim().slice(0, 80)}%`;
+    const rows = await query(
+      `SELECT c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.eva_claimant_name AS claimant,
+              wp.name AS provider
+         FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+        WHERE c.case_po ILIKE $1 OR c.vrm ILIKE $1 OR c.case_ref ILIKE $1 OR c.eva_claimant_name ILIKE $1
+        ORDER BY c.created_at DESC LIMIT 5`,
+      [q]
+    );
+    return {
+      matches: rows.map((r) => ({
+        casePo: r.case_po ?? null,
+        vrm: r.vrm ?? null,
+        ref: r.case_ref ?? null,
+        // Handler-facing QUEUE (never the raw status enum — AGENTS.md UI-language rule),
+        // held-aware exactly like the dashboard / count_cases_by_status (an on-hold case is
+        // Held regardless of its raw status_code).
+        queue: queueLabel(r.status_code, r.on_hold),
+        claimant: r.claimant ?? null,
+        provider: r.provider ?? null
+      }))
+    };
+  }
+  if (name === "count_cases_by_status") {
+    const rows = await query(
+      "SELECT status_code, on_hold, count(*)::int AS n FROM case_ GROUP BY status_code, on_hold"
+    );
+    const byStatusMap = /* @__PURE__ */ new Map();
+    const byQueue = { "not-ready": 0, review: 0, held: 0, closed: 0 };
+    for (const r of rows) {
+      const status = statusName(r.status_code);
+      const n = Number(r.n);
+      byStatusMap.set(status, (byStatusMap.get(status) ?? 0) + n);
+      const q = r.on_hold ? "held" : statusToQueue(status) ?? "closed";
+      byQueue[q] = (byQueue[q] ?? 0) + n;
+    }
+    return {
+      byQueue: {
+        notReady: byQueue["not-ready"],
+        review: byQueue.review,
+        held: byQueue.held,
+        closedOrSubmitted: byQueue.closed
+      },
+      byStatus: [...byStatusMap.entries()].map(([status, count]) => ({ status, count })),
+      note: "byQueue matches the dashboard queues (on-hold cases count as Held); byStatus is the raw status breakdown."
+    };
+  }
+  if (name === "search_inbound") {
+    const q = `%${String(args.query ?? "").trim().slice(0, 80)}%`;
+    const rows = await query(
+      `SELECT subject, from_address, received_on, category_code
+         FROM inbound_email WHERE subject ILIKE $1 OR from_address ILIKE $1
+        ORDER BY received_on DESC LIMIT 5`,
+      [q]
+    );
+    return {
+      matches: rows.map((r) => ({
+        subject: r.subject ?? null,
+        from: r.from_address ?? null,
+        received: r.received_on ?? null,
+        category: categoryName(r.category_code)
+      }))
+    };
+  }
+  return { error: `unknown tool ${name}` };
+}
+function statusName(code) {
+  try {
+    return (typeof code === "number" ? caseStatusCodec.toName(code) : String(code)) ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+function queueLabel(statusCode, onHold) {
+  if (onHold) return "Held";
+  const q = statusToQueue(statusName(statusCode));
+  return q === "not-ready" ? "Not ready" : q === "review" ? "Review" : q === "held" ? "Held" : "Closed";
+}
+function categoryName(code) {
+  try {
+    return (typeof code === "number" ? inboundCategoryCodec.toName(code) : String(code)) ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+import_functions11.app.http("assistantChat", {
   methods: ["POST"],
   authLevel: "anonymous",
-  route: "ai-suggestions/{id}/review",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const decision = body2.decision;
-    if (!isAiReviewState(decision) || decision !== "accepted" && decision !== "rejected") {
-      return { status: 400, jsonBody: { error: "decision must be 'accepted' or 'rejected'" } };
-    }
-    const existing = await query(
-      `SELECT id, case_id, evidence_id, inbound_email_id, suggestion_type, suggested_value, review_state
-         FROM ai_suggestion WHERE id = $1`,
-      [id]
-    );
-    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const row = existing[0];
-    const actor = actorFromClaims(claims);
-    if (row.review_state !== "pending") {
-      const result2 = {
-        id,
-        reviewState: row.review_state,
-        promoted: false
-      };
-      return { status: 200, jsonBody: result2 };
-    }
-    const updated = await query(
-      `UPDATE ai_suggestion
-          SET review_state = $2, reviewed_by = $3, reviewed_at = now()
-        WHERE id = $1 AND review_state = 'pending'
-      RETURNING id, review_state`,
-      [id, decision, actor ?? null]
-    );
-    if (!updated[0]) {
-      const cur = await query("SELECT review_state FROM ai_suggestion WHERE id = $1", [id]);
+  route: "assistant/chat",
+  handler: withRole("CollisionSpike.User", async (req, ctx) => {
+    if (!gates.aiChatEnabled()) {
       return {
         status: 200,
-        jsonBody: { id, reviewState: cur[0]?.review_state ?? "pending", promoted: false }
+        jsonBody: {
+          disabled: true,
+          reply: "The assistant is switched off right now. You can still use the app as normal."
+        }
       };
     }
-    let promotion = { promoted: false };
-    if (decision === "accepted") {
-      promotion = await promoteAcceptedSuggestion(row, actor);
-    }
-    await writeAudit({
-      action: decision === "accepted" ? AUDIT_ACTION.ai_suggestion_accepted : AUDIT_ACTION.ai_suggestion_rejected,
-      ...row.case_id ? { caseId: row.case_id } : {},
-      summary: `AI suggestion ${row.suggestion_type} ${decision}${promotion.promoted ? ` (promoted -> ${promotion.promotedField})` : ""}`,
-      before: { reviewState: "pending" },
-      after: {
-        reviewState: decision,
-        suggestionId: id,
-        suggestionType: row.suggestion_type,
-        ...promotion.promoted ? { promotedField: promotion.promotedField } : {}
-      },
-      ...actor ? { actor } : {}
-    });
-    const result = {
-      id,
-      reviewState: decision,
-      promoted: promotion.promoted,
-      ...promotion.promotedField ? { promotedField: promotion.promotedField } : {}
-    };
-    return { status: 200, jsonBody: result };
-  })
-});
-async function promoteAcceptedSuggestion(row, actor) {
-  const evidenceId = row.evidence_id;
-  const inboundEmailId = row.inbound_email_id;
-  const value = coerceJsonValue(row.suggested_value);
-  try {
-    if (row.suggestion_type === "image_role" && evidenceId) {
-      const role = value?.role;
-      const code = role ? imageRoleCodec.toInt(role) : void 0;
-      if (code != null) {
-        const upd = await query(
-          `UPDATE evidence SET image_role_code = $2, updated_at = now()
-             WHERE id = $1 AND image_role_code = $3 RETURNING id`,
-          [evidenceId, code, IMAGE_ROLE_UNKNOWN]
-        );
-        if (upd[0]) return { promoted: true, promotedField: "evidence.image_role_code" };
-      }
-    } else if (row.suggestion_type === "registration" && evidenceId) {
-      const visible = value?.visible;
-      if (typeof visible === "boolean") {
-        const upd = await query(
-          `UPDATE evidence SET registration_visible = $2, updated_at = now()
-             WHERE id = $1 AND registration_visible IS NULL RETURNING id`,
-          [evidenceId, visible]
-        );
-        if (upd[0]) return { promoted: true, promotedField: "evidence.registration_visible" };
-      }
-    } else if (row.suggestion_type === "case_link" && inboundEmailId) {
-      const targetCaseId = value?.targetCaseId?.trim();
-      if (targetCaseId) {
-        const upd = await query(
-          `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
-             WHERE id = $1 AND case_id IS NULL RETURNING id`,
-          [inboundEmailId, targetCaseId]
-        );
-        if (upd[0]) {
-          await writeAudit({
-            action: AUDIT_ACTION.inbound_linked,
-            caseId: targetCaseId,
-            summary: "Inbound email linked to case (suggestion accepted)",
-            before: { caseId: null },
-            after: { caseId: targetCaseId, inboundEmailId },
-            ...actor ? { actor } : {}
-          });
-          return { promoted: true, promotedField: "inbound_email.case_id" };
-        }
-      }
-    } else if (row.suggestion_type === "cancellation") {
-    } else if (row.suggestion_type === "triage_category" && inboundEmailId) {
-      const proposed = value ?? {};
-      const category = typeof proposed.category === "string" ? proposed.category : void 0;
-      const subtype = typeof proposed.subtype === "string" ? proposed.subtype : void 0;
-      const categoryCode = category ? INBOUND_CATEGORY_TO_INT[category] : void 0;
-      const subtypeCode = subtype ? INBOUND_SUBTYPE_TO_INT[subtype] : void 0;
-      if (category && subtype && categoryCode != null && subtypeCode != null) {
-        const cur = await query(
-          `SELECT id, category_code, subtype_code, suggested_category_code, suggested_subtype_code,
-                  case_id, source_message_id, work_provider_id, classifier_mode
-             FROM inbound_email WHERE id = $1`,
-          [inboundEmailId]
-        );
-        const curRow = cur[0];
-        if (curRow) {
-          const upd = await query(
-            `UPDATE inbound_email
-                SET category_code = $2, subtype_code = $3, classifier_mode = 'llm', updated_at = now()
-              WHERE id = $1 AND classifier_mode IS DISTINCT FROM 'human'
-            RETURNING id`,
-            [inboundEmailId, categoryCode, subtypeCode]
-          );
-          if (upd[0]) {
-            const suggestedCatName = inboundCategoryFromInt(
-              curRow.suggested_category_code ?? curRow.category_code
-            );
-            const suggestedSubName = inboundSubtypeFromInt(
-              curRow.suggested_subtype_code ?? curRow.subtype_code
-            );
-            if (category !== suggestedCatName) {
-              await writeImprovementSignal(
-                curRow,
-                "category",
-                suggestedCatName ?? "(none)",
-                category,
-                actor,
-                "AI suggestion accepted"
-              );
-            }
-            if (subtype !== suggestedSubName) {
-              await writeImprovementSignal(
-                curRow,
-                "subtype",
-                suggestedSubName ?? "(none)",
-                subtype,
-                actor,
-                "AI suggestion accepted"
-              );
-            }
-            await writeAudit({
-              action: AUDIT_ACTION.inbound_reclassified,
-              ...curRow.case_id ? { caseId: curRow.case_id } : {},
-              summary: `Inbound reclassified by an accepted AI suggestion (category=${category} subtype=${subtype})`,
-              before: { category: suggestedCatName ?? null, subtype: suggestedSubName ?? null },
-              after: {
-                category,
-                subtype,
-                inboundEmailId,
-                sourceMessageId: curRow.source_message_id ?? null
-              },
-              ...actor ? { actor } : {}
-            });
-            return { promoted: true, promotedField: "inbound_email.category_code/subtype_code" };
-          }
-        }
-      }
-    }
-  } catch {
-  }
-  return { promoted: false };
-}
-function coerceJsonValue(v) {
-  if (typeof v !== "string") return v ?? null;
-  try {
-    return JSON.parse(v);
-  } catch {
-    return v;
-  }
-}
-import_functions11.app.http("generateAiSuggestions", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/ai-suggestions/generate",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    if (!gates.aiAssist() || !gates.aiAssistConfigured()) {
-      const result = { generated: 0, reason: "disabled" };
-      return { status: 200, jsonBody: result };
-    }
-    const caseId = req.params.id;
+    let body2;
     try {
-      const ctx = await query(
-        `SELECT vrm, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1`,
-        [caseId]
-      );
-      if (!ctx[0]) return { status: 404, jsonBody: { error: "not found" } };
-      const rawText = [ctx[0].eva_accident_circumstances, ctx[0].eva_claimant_address].filter((s) => typeof s === "string" && s.trim().length > 0).join("\n");
-      const scrubbed = scrubPii(rawText, { redactVrm: false });
-      const drafts = await callModelForSuggestions({
-        caseId,
-        vrm: typeof ctx[0].vrm === "string" ? ctx[0].vrm : "",
-        scrubbedText: scrubbed.text
-      });
-      let generated = 0;
-      const actor = actorFromClaims(claims);
-      for (const d of drafts) {
-        const ins = await query(
-          `INSERT INTO ai_suggestion
-             (case_id, evidence_id, suggestion_type, suggested_value, rationale, confidence, model_version)
-           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7) RETURNING id`,
-          [
-            caseId,
-            d.evidenceId ?? null,
-            d.suggestionType,
-            JSON.stringify(d.suggestedValue),
-            d.rationale ?? null,
-            d.confidence ?? null,
-            d.modelVersion ?? gates.aiModelDeployment()
-          ]
-        );
-        if (ins[0]) {
-          generated += 1;
-          await writeAudit({
-            action: AUDIT_ACTION.ai_suggestion_created,
-            caseId,
-            summary: `AI suggestion ${d.suggestionType} created`,
-            after: { suggestionId: ins[0].id, suggestionType: d.suggestionType },
-            ...actor ? { actor } : {}
-          });
-        }
-      }
-      const result = { generated };
-      return { status: 200, jsonBody: result };
+      body2 = await req.json();
     } catch {
-      const result = { generated: 0, reason: "error" };
-      return { status: 200, jsonBody: result };
+      return { status: 400, jsonBody: { error: "invalid JSON body" } };
     }
-  })
-});
-async function callModelForSuggestions(_input) {
-  return [];
-}
-
-// api/src/functions/provider-keys.ts
-var import_functions12 = require("@azure/functions");
-
-// api/src/lib/api-key-auth.ts
-var import_node_crypto6 = require("node:crypto");
-var API_KEY_PREFIX = "cspk_";
-var SECRET_RANDOM_CHARS = 32;
-var KEY_PREFIX_LEN = 12;
-function hashApiKey(secret) {
-  return (0, import_node_crypto6.createHash)("sha256").update(secret, "utf8").digest("hex");
-}
-function generateApiKey() {
-  const random = (0, import_node_crypto6.randomBytes)(24).toString("base64url");
-  const plaintext = `${API_KEY_PREFIX}${random}`;
-  return {
-    plaintext,
-    keyPrefix: plaintext.slice(0, KEY_PREFIX_LEN),
-    keyHash: hashApiKey(plaintext)
-  };
-}
-function looksLikeApiKey(presented) {
-  return presented.startsWith(API_KEY_PREFIX) && presented.length >= API_KEY_PREFIX.length + SECRET_RANDOM_CHARS;
-}
-async function verifyApiKey(presented) {
-  const GENERIC = "Invalid API key";
-  if (!presented || !looksLikeApiKey(presented)) throw new HttpError(401, GENERIC);
-  const keyPrefix = presented.slice(0, KEY_PREFIX_LEN);
-  const rows = await query(
-    "SELECT id, work_provider_id, key_hash, revoked_at FROM provider_api_key WHERE key_prefix = $1",
-    [keyPrefix]
-  );
-  const presentedHash = Buffer.from(hashApiKey(presented), "hex");
-  let matched;
-  for (const row of rows) {
-    if (row.revoked_at) continue;
-    const stored = Buffer.from(String(row.key_hash), "hex");
-    if (stored.length === presentedHash.length && (0, import_node_crypto6.timingSafeEqual)(stored, presentedHash)) {
-      matched = row;
-      break;
+    const rawMessages = Array.isArray(body2?.messages) ? body2.messages : [];
+    const history = rawMessages.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-MAX_HISTORY).map((m) => ({ role: m.role, content: (m.content ?? "").slice(0, MAX_MSG_CHARS) }));
+    if (!history.length || history[history.length - 1].role !== "user") {
+      return { status: 400, jsonBody: { error: "messages must end with a user turn" } };
     }
-  }
-  if (!matched) throw new HttpError(401, GENERIC);
-  void query("UPDATE provider_api_key SET last_used_at = now() WHERE id = $1", [matched.id]).catch(
-    () => {
-    }
-  );
-  return { workProviderId: matched.work_provider_id, keyId: matched.id };
-}
-function withApiKey(handler) {
-  return async (req, ctx) => {
+    const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...history];
     try {
-      const presented = req.headers.get("x-api-key") ?? "";
-      const apiKey = await verifyApiKey(presented);
-      return await handler(req, ctx, apiKey);
+      const result = await runChat(gates.aiModelEndpoint(), gates.aiModelDeployment(), messages, TOOLS, execTool);
+      ctx.log(
+        JSON.stringify({
+          evt: "assistant_chat",
+          turns: history.length,
+          lastQChars: history[history.length - 1].content.length,
+          toolsUsed: result.toolsUsed,
+          rounds: result.rounds,
+          replyChars: result.reply.length
+        })
+      );
+      const reply = result.reply || "Sorry \u2014 I could not find an answer to that.";
+      return { status: 200, jsonBody: { reply, toolsUsed: result.toolsUsed } };
     } catch (e) {
-      return toErrorResponse(e, ctx);
+      ctx.warn(`[assistant] ${e instanceof Error ? e.message : String(e)}`);
+      return {
+        status: 200,
+        jsonBody: { error: true, reply: "Sorry \u2014 I could not answer that right now. Please try again." }
+      };
     }
-  };
-}
-
-// api/src/functions/provider-keys.ts
-var UUID_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-async function resolveProvider(idOrCode) {
-  const where2 = UUID_RE2.test(idOrCode) ? "id = $1" : "principal_code = $1";
-  const rows = await query(`SELECT * FROM work_provider WHERE ${where2} LIMIT 1`, [idOrCode]);
-  return rows[0] ?? null;
-}
-var iso = (v) => {
-  if (v == null) return null;
-  const d = v instanceof Date ? v : new Date(String(v));
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-};
-function rowToApiKey(r) {
-  return {
-    id: String(r.id),
-    label: r.label ?? "",
-    keyPrefix: r.key_prefix ?? "",
-    createdAt: iso(r.created_at) ?? "",
-    ...r.created_by ? { createdBy: String(r.created_by) } : {},
-    revokedAt: iso(r.revoked_at),
-    lastUsedAt: iso(r.last_used_at)
-  };
-}
-import_functions12.app.http("createProviderApiKey", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "providers/{id}/api-keys",
-  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
-    const idOrCode = (req.params.id ?? "").trim();
-    if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
-    const body2 = await req.json().catch(() => ({}));
-    const label = String(body2.label ?? "").trim();
-    if (!label) return { status: 400, jsonBody: { error: "label is required" } };
-    if (label.length > 200) {
-      return { status: 400, jsonBody: { error: "label must be 200 characters or fewer" } };
-    }
-    const provider = await resolveProvider(idOrCode);
-    if (!provider) return { status: 404, jsonBody: { error: "not found" } };
-    const actor = actorFromClaims(claims);
-    const { plaintext, keyPrefix, keyHash } = generateApiKey();
-    const rows = await query(
-      `INSERT INTO provider_api_key (work_provider_id, label, key_prefix, key_hash, created_by)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
-      [provider.id, label, keyPrefix, keyHash, actor ?? null]
-    );
-    const id = rows[0]?.id;
-    if (!id) return { status: 500, jsonBody: { error: "api key insert returned no id" } };
-    await writeAudit({
-      action: AUDIT_ACTION.api_key_created,
-      summary: `Provider API key created for ${provider.principal_code ?? provider.id} (${label})`,
-      after: { keyId: id, keyPrefix, workProviderId: provider.id, principalCode: provider.principal_code ?? null },
-      ...actor ? { actor } : {}
-    });
-    const result = { id, keyPrefix, plaintextKey: plaintext };
-    return { status: 201, jsonBody: result };
   })
 });
-import_functions12.app.http("listProviderApiKeys", {
+import_functions11.app.http("aiChatGate", {
   methods: ["GET"],
   authLevel: "anonymous",
-  route: "providers/{id}/api-keys",
-  handler: withRole("CollisionSpike.Superuser", async (req) => {
-    const idOrCode = (req.params.id ?? "").trim();
-    if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
-    const provider = await resolveProvider(idOrCode);
-    if (!provider) return { status: 404, jsonBody: { error: "not found" } };
-    const rows = await query(
-      `SELECT id, label, key_prefix, created_at, created_by, revoked_at, last_used_at
-         FROM provider_api_key WHERE work_provider_id = $1 ORDER BY created_at DESC`,
-      [provider.id]
-    );
-    return { status: 200, jsonBody: rows.map(rowToApiKey) };
-  })
-});
-import_functions12.app.http("revokeProviderApiKey", {
-  methods: ["DELETE"],
-  authLevel: "anonymous",
-  route: "providers/{id}/api-keys/{keyId}",
-  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
-    const idOrCode = (req.params.id ?? "").trim();
-    const keyId = (req.params.keyId ?? "").trim();
-    if (!idOrCode || !keyId) return { status: 400, jsonBody: { error: "id and keyId are required" } };
-    if (!UUID_RE2.test(keyId)) return { status: 400, jsonBody: { error: "invalid keyId" } };
-    const provider = await resolveProvider(idOrCode);
-    if (!provider) return { status: 404, jsonBody: { error: "not found" } };
-    const rows = await query(
-      `UPDATE provider_api_key
-          SET revoked_at = COALESCE(revoked_at, now())
-        WHERE id = $1 AND work_provider_id = $2
-        RETURNING id, label, key_prefix, created_at, created_by, revoked_at, last_used_at`,
-      [keyId, provider.id]
-    );
-    if (!rows[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const actor = actorFromClaims(claims);
-    await writeAudit({
-      action: AUDIT_ACTION.api_key_revoked,
-      severity: "warning",
-      summary: `Provider API key revoked for ${provider.principal_code ?? provider.id}`,
-      after: { keyId, workProviderId: provider.id, principalCode: provider.principal_code ?? null },
-      ...actor ? { actor } : {}
-    });
-    return { status: 200, jsonBody: rowToApiKey(rows[0]) };
-  })
+  route: "gates/ai-chat",
+  handler: withRole("CollisionSpike.User", async () => ({
+    status: 200,
+    jsonBody: { enabled: gates.aiChatEnabled() }
+  }))
 });
 
-// api/src/functions/provider-intake.ts
-var import_functions13 = require("@azure/functions");
-var import_node_crypto10 = require("node:crypto");
+// api/src/functions/evidence.ts
+var import_functions12 = require("@azure/functions");
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/abort-controller/AbortError.js
 var AbortError = class extends Error {
@@ -28747,7 +28655,7 @@ var AnonymousCredential = class extends Credential {
 };
 
 // node_modules/@azure/storage-common/dist/esm/credentials/StorageSharedKeyCredential.js
-var import_node_crypto7 = require("node:crypto");
+var import_node_crypto6 = require("node:crypto");
 
 // node_modules/@azure/storage-common/dist/esm/utils/constants.js
 var URLConstants = {
@@ -29448,7 +29356,7 @@ var StorageSharedKeyCredential = class extends Credential {
    * @param stringToSign -
    */
   computeHMACSHA256(stringToSign) {
-    return (0, import_node_crypto7.createHmac)("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
+    return (0, import_node_crypto6.createHmac)("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
   }
 };
 
@@ -29814,7 +29722,7 @@ function storageRetryPolicy(options = {}) {
 }
 
 // node_modules/@azure/storage-common/dist/esm/policies/StorageSharedKeyCredentialPolicyV2.js
-var import_node_crypto8 = require("node:crypto");
+var import_node_crypto7 = require("node:crypto");
 var storageSharedKeyCredentialPolicyName = "storageSharedKeyCredentialPolicy";
 function storageSharedKeyCredentialPolicy(options) {
   function signRequest(request) {
@@ -29836,7 +29744,7 @@ function storageSharedKeyCredentialPolicy(options) {
       getHeaderValueToSign(request, HeaderConstants.IF_UNMODIFIED_SINCE),
       getHeaderValueToSign(request, HeaderConstants.RANGE)
     ].join("\n") + "\n" + getCanonicalizedHeadersString(request) + getCanonicalizedResourceString(request);
-    const signature = (0, import_node_crypto8.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
+    const signature = (0, import_node_crypto7.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
     request.headers.set(HeaderConstants.AUTHORIZATION, `SharedKey ${options.accountName}:${signature}`);
   }
   function getHeaderValueToSign(request, headerName) {
@@ -29926,7 +29834,7 @@ function storageRequestFailureDetailsParserPolicy() {
 }
 
 // node_modules/@azure/storage-common/dist/esm/credentials/UserDelegationKeyCredential.js
-var import_node_crypto9 = require("node:crypto");
+var import_node_crypto8 = require("node:crypto");
 var UserDelegationKeyCredential = class {
   /**
    * Azure Storage account name; readonly.
@@ -29956,7 +29864,7 @@ var UserDelegationKeyCredential = class {
    * @param stringToSign -
    */
   computeHMACSHA256(stringToSign) {
-    return (0, import_node_crypto9.createHmac)("sha256", this.key).update(stringToSign, "utf8").digest("base64");
+    return (0, import_node_crypto8.createHmac)("sha256", this.key).update(stringToSign, "utf8").digest("base64");
   }
 };
 
@@ -54014,6 +53922,510 @@ async function uploadEvidenceBytes(pathPrefix, filename, bytes, contentType2) {
 function sanitize(seg) {
   return seg.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 200) || "file";
 }
+async function downloadEvidenceBytes(blobPath) {
+  const container = client().getContainerClient(containerName());
+  const block = container.getBlockBlobClient(blobPath);
+  if (!await block.exists()) return void 0;
+  const buf = await block.downloadToBuffer();
+  const props = await block.getProperties();
+  return { bytes: buf, contentType: props.contentType ?? "application/octet-stream" };
+}
+
+// api/src/functions/evidence.ts
+import_functions12.app.http("evidenceContent", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "evidence/{id}/content",
+  handler: withRole("CollisionSpike.User", async (req, ctx) => {
+    const id = req.params.id;
+    if (!id) return { status: 400, jsonBody: { error: "evidence id required" } };
+    try {
+      const rows = await query(
+        "SELECT storage_path, content_type, file_name, box_file_id FROM evidence WHERE id = $1",
+        [id]
+      );
+      const row = rows[0];
+      if (!row) return { status: 404, jsonBody: { error: "not found" } };
+      let bytes;
+      let contentType2 = row.content_type || "application/octet-stream";
+      if (row.storage_path) {
+        const blob = await downloadEvidenceBytes(row.storage_path);
+        if (blob) {
+          bytes = blob.bytes;
+          contentType2 = blob.contentType || contentType2;
+        }
+      }
+      if (!bytes && row.box_file_id) {
+        const boxRes = await downloadBoxFileContent(row.box_file_id);
+        if (boxRes) bytes = boxRes.bytes;
+      }
+      if (!bytes) return { status: 404, jsonBody: { error: "no inline content" } };
+      return {
+        status: 200,
+        headers: {
+          "Content-Type": contentType2,
+          // Private (per-staff, RLS-scoped) but cacheable for the session — previews repeat.
+          "Cache-Control": "private, max-age=300",
+          "Content-Disposition": `inline; filename="${(row.file_name ?? "evidence").replace(/[^A-Za-z0-9._-]+/g, "_")}"`
+        },
+        body: bytes
+      };
+    } catch (e) {
+      ctx.warn(`[evidence/content] ${e instanceof Error ? e.message : String(e)}`);
+      return { status: 404, jsonBody: { error: "unavailable" } };
+    }
+  })
+});
+
+// api/src/functions/ai-suggestions.ts
+var import_functions13 = require("@azure/functions");
+var IMAGE_ROLE_UNKNOWN = 100000003;
+import_functions13.app.http("caseAiSuggestions", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/ai-suggestions",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    try {
+      const caseId = req.params.id;
+      const rows = await query(
+        `SELECT * FROM ai_suggestion
+          WHERE case_id = $1
+          ORDER BY (review_state = 'pending') DESC, created_at DESC
+          LIMIT 100`,
+        [caseId]
+      );
+      const result = rows.map(rowToAiSuggestion);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions13.app.http("reviewAiSuggestion", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "ai-suggestions/{id}/review",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const decision = body2.decision;
+    if (!isAiReviewState(decision) || decision !== "accepted" && decision !== "rejected") {
+      return { status: 400, jsonBody: { error: "decision must be 'accepted' or 'rejected'" } };
+    }
+    const existing = await query(
+      `SELECT id, case_id, evidence_id, inbound_email_id, suggestion_type, suggested_value, review_state
+         FROM ai_suggestion WHERE id = $1`,
+      [id]
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const row = existing[0];
+    const actor = actorFromClaims(claims);
+    if (row.review_state !== "pending") {
+      const result2 = {
+        id,
+        reviewState: row.review_state,
+        promoted: false
+      };
+      return { status: 200, jsonBody: result2 };
+    }
+    const updated = await query(
+      `UPDATE ai_suggestion
+          SET review_state = $2, reviewed_by = $3, reviewed_at = now()
+        WHERE id = $1 AND review_state = 'pending'
+      RETURNING id, review_state`,
+      [id, decision, actor ?? null]
+    );
+    if (!updated[0]) {
+      const cur = await query("SELECT review_state FROM ai_suggestion WHERE id = $1", [id]);
+      return {
+        status: 200,
+        jsonBody: { id, reviewState: cur[0]?.review_state ?? "pending", promoted: false }
+      };
+    }
+    let promotion = { promoted: false };
+    if (decision === "accepted") {
+      promotion = await promoteAcceptedSuggestion(row, actor);
+    }
+    await writeAudit({
+      action: decision === "accepted" ? AUDIT_ACTION.ai_suggestion_accepted : AUDIT_ACTION.ai_suggestion_rejected,
+      ...row.case_id ? { caseId: row.case_id } : {},
+      summary: `AI suggestion ${row.suggestion_type} ${decision}${promotion.promoted ? ` (promoted -> ${promotion.promotedField})` : ""}`,
+      before: { reviewState: "pending" },
+      after: {
+        reviewState: decision,
+        suggestionId: id,
+        suggestionType: row.suggestion_type,
+        ...promotion.promoted ? { promotedField: promotion.promotedField } : {}
+      },
+      ...actor ? { actor } : {}
+    });
+    const result = {
+      id,
+      reviewState: decision,
+      promoted: promotion.promoted,
+      ...promotion.promotedField ? { promotedField: promotion.promotedField } : {}
+    };
+    return { status: 200, jsonBody: result };
+  })
+});
+async function promoteAcceptedSuggestion(row, actor) {
+  const evidenceId = row.evidence_id;
+  const inboundEmailId = row.inbound_email_id;
+  const value = coerceJsonValue(row.suggested_value);
+  try {
+    if (row.suggestion_type === "image_role" && evidenceId) {
+      const role = value?.role;
+      const code = role ? imageRoleCodec.toInt(role) : void 0;
+      if (code != null) {
+        const upd = await query(
+          `UPDATE evidence SET image_role_code = $2, updated_at = now()
+             WHERE id = $1 AND image_role_code = $3 RETURNING id`,
+          [evidenceId, code, IMAGE_ROLE_UNKNOWN]
+        );
+        if (upd[0]) return { promoted: true, promotedField: "evidence.image_role_code" };
+      }
+    } else if (row.suggestion_type === "registration" && evidenceId) {
+      const visible = value?.visible;
+      if (typeof visible === "boolean") {
+        const upd = await query(
+          `UPDATE evidence SET registration_visible = $2, updated_at = now()
+             WHERE id = $1 AND registration_visible IS NULL RETURNING id`,
+          [evidenceId, visible]
+        );
+        if (upd[0]) return { promoted: true, promotedField: "evidence.registration_visible" };
+      }
+    } else if (row.suggestion_type === "case_link" && inboundEmailId) {
+      const targetCaseId = value?.targetCaseId?.trim();
+      if (targetCaseId) {
+        const upd = await query(
+          `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
+             WHERE id = $1 AND case_id IS NULL RETURNING id`,
+          [inboundEmailId, targetCaseId]
+        );
+        if (upd[0]) {
+          await writeAudit({
+            action: AUDIT_ACTION.inbound_linked,
+            caseId: targetCaseId,
+            summary: "Inbound email linked to case (suggestion accepted)",
+            before: { caseId: null },
+            after: { caseId: targetCaseId, inboundEmailId },
+            ...actor ? { actor } : {}
+          });
+          return { promoted: true, promotedField: "inbound_email.case_id" };
+        }
+      }
+    } else if (row.suggestion_type === "cancellation") {
+    } else if (row.suggestion_type === "triage_category" && inboundEmailId) {
+      const proposed = value ?? {};
+      const category = typeof proposed.category === "string" ? proposed.category : void 0;
+      const subtype = typeof proposed.subtype === "string" ? proposed.subtype : void 0;
+      const categoryCode = category ? INBOUND_CATEGORY_TO_INT[category] : void 0;
+      const subtypeCode = subtype ? INBOUND_SUBTYPE_TO_INT[subtype] : void 0;
+      if (category && subtype && categoryCode != null && subtypeCode != null) {
+        const cur = await query(
+          `SELECT id, category_code, subtype_code, suggested_category_code, suggested_subtype_code,
+                  case_id, source_message_id, work_provider_id, classifier_mode
+             FROM inbound_email WHERE id = $1`,
+          [inboundEmailId]
+        );
+        const curRow = cur[0];
+        if (curRow) {
+          const upd = await query(
+            `UPDATE inbound_email
+                SET category_code = $2, subtype_code = $3, classifier_mode = 'llm', updated_at = now()
+              WHERE id = $1 AND classifier_mode IS DISTINCT FROM 'human'
+            RETURNING id`,
+            [inboundEmailId, categoryCode, subtypeCode]
+          );
+          if (upd[0]) {
+            const suggestedCatName = inboundCategoryFromInt(
+              curRow.suggested_category_code ?? curRow.category_code
+            );
+            const suggestedSubName = inboundSubtypeFromInt(
+              curRow.suggested_subtype_code ?? curRow.subtype_code
+            );
+            if (category !== suggestedCatName) {
+              await writeImprovementSignal(
+                curRow,
+                "category",
+                suggestedCatName ?? "(none)",
+                category,
+                actor,
+                "AI suggestion accepted"
+              );
+            }
+            if (subtype !== suggestedSubName) {
+              await writeImprovementSignal(
+                curRow,
+                "subtype",
+                suggestedSubName ?? "(none)",
+                subtype,
+                actor,
+                "AI suggestion accepted"
+              );
+            }
+            await writeAudit({
+              action: AUDIT_ACTION.inbound_reclassified,
+              ...curRow.case_id ? { caseId: curRow.case_id } : {},
+              summary: `Inbound reclassified by an accepted AI suggestion (category=${category} subtype=${subtype})`,
+              before: { category: suggestedCatName ?? null, subtype: suggestedSubName ?? null },
+              after: {
+                category,
+                subtype,
+                inboundEmailId,
+                sourceMessageId: curRow.source_message_id ?? null
+              },
+              ...actor ? { actor } : {}
+            });
+            return { promoted: true, promotedField: "inbound_email.category_code/subtype_code" };
+          }
+        }
+      }
+    }
+  } catch {
+  }
+  return { promoted: false };
+}
+function coerceJsonValue(v) {
+  if (typeof v !== "string") return v ?? null;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return v;
+  }
+}
+import_functions13.app.http("generateAiSuggestions", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/ai-suggestions/generate",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    if (!gates.aiAssist() || !gates.aiAssistConfigured()) {
+      const result = { generated: 0, reason: "disabled" };
+      return { status: 200, jsonBody: result };
+    }
+    const caseId = req.params.id;
+    try {
+      const ctx = await query(
+        `SELECT vrm, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1`,
+        [caseId]
+      );
+      if (!ctx[0]) return { status: 404, jsonBody: { error: "not found" } };
+      const rawText = [ctx[0].eva_accident_circumstances, ctx[0].eva_claimant_address].filter((s) => typeof s === "string" && s.trim().length > 0).join("\n");
+      const scrubbed = scrubPii(rawText, { redactVrm: false });
+      const drafts = await callModelForSuggestions({
+        caseId,
+        vrm: typeof ctx[0].vrm === "string" ? ctx[0].vrm : "",
+        scrubbedText: scrubbed.text
+      });
+      let generated = 0;
+      const actor = actorFromClaims(claims);
+      for (const d of drafts) {
+        const ins = await query(
+          `INSERT INTO ai_suggestion
+             (case_id, evidence_id, suggestion_type, suggested_value, rationale, confidence, model_version)
+           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7) RETURNING id`,
+          [
+            caseId,
+            d.evidenceId ?? null,
+            d.suggestionType,
+            JSON.stringify(d.suggestedValue),
+            d.rationale ?? null,
+            d.confidence ?? null,
+            d.modelVersion ?? gates.aiModelDeployment()
+          ]
+        );
+        if (ins[0]) {
+          generated += 1;
+          await writeAudit({
+            action: AUDIT_ACTION.ai_suggestion_created,
+            caseId,
+            summary: `AI suggestion ${d.suggestionType} created`,
+            after: { suggestionId: ins[0].id, suggestionType: d.suggestionType },
+            ...actor ? { actor } : {}
+          });
+        }
+      }
+      const result = { generated };
+      return { status: 200, jsonBody: result };
+    } catch {
+      const result = { generated: 0, reason: "error" };
+      return { status: 200, jsonBody: result };
+    }
+  })
+});
+async function callModelForSuggestions(_input) {
+  return [];
+}
+
+// api/src/functions/provider-keys.ts
+var import_functions14 = require("@azure/functions");
+
+// api/src/lib/api-key-auth.ts
+var import_node_crypto9 = require("node:crypto");
+var API_KEY_PREFIX = "cspk_";
+var SECRET_RANDOM_CHARS = 32;
+var KEY_PREFIX_LEN = 12;
+function hashApiKey(secret) {
+  return (0, import_node_crypto9.createHash)("sha256").update(secret, "utf8").digest("hex");
+}
+function generateApiKey() {
+  const random = (0, import_node_crypto9.randomBytes)(24).toString("base64url");
+  const plaintext = `${API_KEY_PREFIX}${random}`;
+  return {
+    plaintext,
+    keyPrefix: plaintext.slice(0, KEY_PREFIX_LEN),
+    keyHash: hashApiKey(plaintext)
+  };
+}
+function looksLikeApiKey(presented) {
+  return presented.startsWith(API_KEY_PREFIX) && presented.length >= API_KEY_PREFIX.length + SECRET_RANDOM_CHARS;
+}
+async function verifyApiKey(presented) {
+  const GENERIC = "Invalid API key";
+  if (!presented || !looksLikeApiKey(presented)) throw new HttpError(401, GENERIC);
+  const keyPrefix = presented.slice(0, KEY_PREFIX_LEN);
+  const rows = await query(
+    "SELECT id, work_provider_id, key_hash, revoked_at FROM provider_api_key WHERE key_prefix = $1",
+    [keyPrefix]
+  );
+  const presentedHash = Buffer.from(hashApiKey(presented), "hex");
+  let matched;
+  for (const row of rows) {
+    if (row.revoked_at) continue;
+    const stored = Buffer.from(String(row.key_hash), "hex");
+    if (stored.length === presentedHash.length && (0, import_node_crypto9.timingSafeEqual)(stored, presentedHash)) {
+      matched = row;
+      break;
+    }
+  }
+  if (!matched) throw new HttpError(401, GENERIC);
+  void query("UPDATE provider_api_key SET last_used_at = now() WHERE id = $1", [matched.id]).catch(
+    () => {
+    }
+  );
+  return { workProviderId: matched.work_provider_id, keyId: matched.id };
+}
+function withApiKey(handler) {
+  return async (req, ctx) => {
+    try {
+      const presented = req.headers.get("x-api-key") ?? "";
+      const apiKey = await verifyApiKey(presented);
+      return await handler(req, ctx, apiKey);
+    } catch (e) {
+      return toErrorResponse(e, ctx);
+    }
+  };
+}
+
+// api/src/functions/provider-keys.ts
+var UUID_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function resolveProvider(idOrCode) {
+  const where2 = UUID_RE2.test(idOrCode) ? "id = $1" : "principal_code = $1";
+  const rows = await query(`SELECT * FROM work_provider WHERE ${where2} LIMIT 1`, [idOrCode]);
+  return rows[0] ?? null;
+}
+var iso = (v) => {
+  if (v == null) return null;
+  const d = v instanceof Date ? v : new Date(String(v));
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+};
+function rowToApiKey(r) {
+  return {
+    id: String(r.id),
+    label: r.label ?? "",
+    keyPrefix: r.key_prefix ?? "",
+    createdAt: iso(r.created_at) ?? "",
+    ...r.created_by ? { createdBy: String(r.created_by) } : {},
+    revokedAt: iso(r.revoked_at),
+    lastUsedAt: iso(r.last_used_at)
+  };
+}
+import_functions14.app.http("createProviderApiKey", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "providers/{id}/api-keys",
+  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
+    const idOrCode = (req.params.id ?? "").trim();
+    if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
+    const body2 = await req.json().catch(() => ({}));
+    const label = String(body2.label ?? "").trim();
+    if (!label) return { status: 400, jsonBody: { error: "label is required" } };
+    if (label.length > 200) {
+      return { status: 400, jsonBody: { error: "label must be 200 characters or fewer" } };
+    }
+    const provider = await resolveProvider(idOrCode);
+    if (!provider) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    const { plaintext, keyPrefix, keyHash } = generateApiKey();
+    const rows = await query(
+      `INSERT INTO provider_api_key (work_provider_id, label, key_prefix, key_hash, created_by)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id`,
+      [provider.id, label, keyPrefix, keyHash, actor ?? null]
+    );
+    const id = rows[0]?.id;
+    if (!id) return { status: 500, jsonBody: { error: "api key insert returned no id" } };
+    await writeAudit({
+      action: AUDIT_ACTION.api_key_created,
+      summary: `Provider API key created for ${provider.principal_code ?? provider.id} (${label})`,
+      after: { keyId: id, keyPrefix, workProviderId: provider.id, principalCode: provider.principal_code ?? null },
+      ...actor ? { actor } : {}
+    });
+    const result = { id, keyPrefix, plaintextKey: plaintext };
+    return { status: 201, jsonBody: result };
+  })
+});
+import_functions14.app.http("listProviderApiKeys", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "providers/{id}/api-keys",
+  handler: withRole("CollisionSpike.Superuser", async (req) => {
+    const idOrCode = (req.params.id ?? "").trim();
+    if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
+    const provider = await resolveProvider(idOrCode);
+    if (!provider) return { status: 404, jsonBody: { error: "not found" } };
+    const rows = await query(
+      `SELECT id, label, key_prefix, created_at, created_by, revoked_at, last_used_at
+         FROM provider_api_key WHERE work_provider_id = $1 ORDER BY created_at DESC`,
+      [provider.id]
+    );
+    return { status: 200, jsonBody: rows.map(rowToApiKey) };
+  })
+});
+import_functions14.app.http("revokeProviderApiKey", {
+  methods: ["DELETE"],
+  authLevel: "anonymous",
+  route: "providers/{id}/api-keys/{keyId}",
+  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
+    const idOrCode = (req.params.id ?? "").trim();
+    const keyId = (req.params.keyId ?? "").trim();
+    if (!idOrCode || !keyId) return { status: 400, jsonBody: { error: "id and keyId are required" } };
+    if (!UUID_RE2.test(keyId)) return { status: 400, jsonBody: { error: "invalid keyId" } };
+    const provider = await resolveProvider(idOrCode);
+    if (!provider) return { status: 404, jsonBody: { error: "not found" } };
+    const rows = await query(
+      `UPDATE provider_api_key
+          SET revoked_at = COALESCE(revoked_at, now())
+        WHERE id = $1 AND work_provider_id = $2
+        RETURNING id, label, key_prefix, created_at, created_by, revoked_at, last_used_at`,
+      [keyId, provider.id]
+    );
+    if (!rows[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.api_key_revoked,
+      severity: "warning",
+      summary: `Provider API key revoked for ${provider.principal_code ?? provider.id}`,
+      after: { keyId, workProviderId: provider.id, principalCode: provider.principal_code ?? null },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: rowToApiKey(rows[0]) };
+  })
+});
+
+// api/src/functions/provider-intake.ts
+var import_functions15 = require("@azure/functions");
+var import_node_crypto10 = require("node:crypto");
 
 // api/src/lib/provider-intake-validate.ts
 var DMY = /^\d{2}\/\d{2}\/\d{4}$/;
@@ -54207,7 +54619,7 @@ async function persistEvidence(ctx, caseId, kind, att, sequenceIndex) {
     return false;
   }
 }
-import_functions13.app.http("providerIntakeCase", {
+import_functions15.app.http("providerIntakeCase", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "provider-intake/cases",

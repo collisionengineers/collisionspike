@@ -30,6 +30,7 @@ import {
   type HttpResponseInit,
   type InvocationContext,
 } from '@azure/functions';
+import { createHash } from 'node:crypto';
 import * as df from 'durable-functions';
 import { gates } from '@cs/domain/gates';
 import { intakeMailboxes } from '../../lib/subscriptions.js';
@@ -213,7 +214,14 @@ df.app.orchestration('replayBackfillOrchestrator', function* (ctx) {
   const end = Math.min(s.idx + PROCESS_BATCH, total);
   for (let i = s.idx; i < end; i++) {
     const it = s.manifest[i];
-    const safeId = String(it.internetMessageId || it.messageId).replace(/[^A-Za-z0-9_-]/g, '');
+    // Durable instance IDs are capped at 100 chars and must be unique. A raw
+    // internetMessageId (a) blows past that cap and (b) collides once punctuation is
+    // stripped (`a.b` vs `ab`). A bounded hash of mailbox+messageId is collision-safe and
+    // fixed-width: `replay-` (7) + epoch (≤40) + `-` (1) + 32 hex = ≤80 chars.
+    const safeId = createHash('sha256')
+      .update(`${it.mailbox} ${it.internetMessageId || it.messageId}`)
+      .digest('hex')
+      .slice(0, 32);
     const childId = `replay-${s.epoch}-${safeId}`;
     const resource = `users/${it.mailbox}/messages/${it.messageId}`;
     try {
