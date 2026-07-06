@@ -2723,6 +2723,11 @@ var gates = {
   // a conversational Q&A surface with READ-ONLY tools only. Needs a model endpoint +
   // deployment (see aiChatConfigured) in addition to this switch.
   aiChat: () => process.env.AI_CHAT_ENABLED === "true",
+  // Live image role/registration classifier (TKT-064) — default OFF. Gates the gpt-5-vision
+  // classify call on the intake image paths (extractImages / classifyPersist). Needs a model
+  // endpoint + deployment (see imageRoleClassifyEnabled); off/unconfigured => images persist
+  // with role `unknown` exactly as before (the one-shot backfill handled existing evidence).
+  imageRoleClassify: () => process.env.IMAGE_ROLE_CLASSIFY_ENABLED === "true",
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: () => process.env.BOX_API_ENABLED === "true",
   // #22
@@ -2803,6 +2808,12 @@ var gates = {
    * refusal (TKT-060).
    */
   aiChatEnabled: () => gates.aiChat() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the live image classifier is actionable — the gate is ON and a model endpoint +
+   * deployment are configured. The intake image paths call classifyImage only when this is
+   * true; otherwise they persist role `unknown` (pre-classifier behaviour). (TKT-064.)
+   */
+  imageRoleClassifyEnabled: () => gates.imageRoleClassify() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
   /**
    * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
    * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
@@ -44614,6 +44625,121 @@ df12.app.activity("setIngested", {
 
 // orchestration/src/functions/activities/classifyPersist.ts
 var df13 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/image-classify.ts
+var REQUEST_TIMEOUT_MS2 = 3e4;
+var MAX_COMPLETION_TOKENS2 = 3e3;
+var SCHEMA_NAME2 = "vehicle_image_classification";
+var SYSTEM_PROMPT = 'You are an expert UK motor-claims vehicle-inspection image classifier. You are shown ONE photo from a case\u2019s evidence set. Classify it precisely.\nrole: "overview" = a WIDE shot showing most/all of the whole vehicle (used to identify the car); prefer this when the full vehicle and ideally its number plate are visible. "damage_closeup" = a close-up focused on damage (dent, scratch, crack, broken panel/light/bumper). "additional" = any other genuine vehicle photo (interior, dashboard/odometer, VIN plate, tyre, engine bay, a plate-only close-up with no damage, a partial panel with no clear damage). "other" = NOT a vehicle photo (document/letter scan, screenshot, form, logo, email, blank/corrupt).\nregistration_visible: true ONLY if a UK number plate is present AND its characters are legibly readable in THIS image; else false. plate_text: the registration (UPPERCASE, no spaces) or "" if none/illegible. person_reflection: true if a person\u2019s face or human reflection is visible (e.g. the photographer reflected in paintwork/glass/window). Judge only what is visible.';
+function buildResponseSchema() {
+  return {
+    type: "object",
+    properties: {
+      role: { type: "string", enum: ["overview", "damage_closeup", "additional", "other"] },
+      registration_visible: { type: "boolean" },
+      plate_text: { type: "string" },
+      person_reflection: { type: "boolean" },
+      confidence: { type: "number", minimum: 0, maximum: 1 }
+    },
+    required: ["role", "registration_visible", "plate_text", "person_reflection", "confidence"],
+    additionalProperties: false
+  };
+}
+function buildImageRequestBody(imageBase64, contentType2, deployment, caseVrm) {
+  const ctype = contentType2 && contentType2.startsWith("image/") ? contentType2 : "image/jpeg";
+  const dataUrl = `data:${ctype};base64,${imageBase64}`;
+  const hint = caseVrm ? ` The case vehicle registration is '${caseVrm}'.` : "";
+  return {
+    model: deployment,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Classify this vehicle inspection photo." + hint },
+          { type: "image_url", image_url: { url: dataUrl } }
+        ]
+      }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: SCHEMA_NAME2, strict: true, schema: buildResponseSchema() }
+    },
+    max_completion_tokens: MAX_COMPLETION_TOKENS2,
+    reasoning_effort: "low"
+  };
+}
+var ROLE_NAMES = /* @__PURE__ */ new Set(["overview", "damage_closeup", "additional", "other"]);
+function parseImageResponse(json) {
+  const body2 = json;
+  const choice = body2?.choices?.[0];
+  if (!choice || choice.finish_reason === "content_filter") return null;
+  const content = choice.message?.content;
+  if (typeof content !== "string" || content.trim() === "") return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const c = parsed;
+  const role = typeof c.role === "string" && ROLE_NAMES.has(c.role) ? c.role : null;
+  if (!role) return null;
+  return {
+    role,
+    registrationVisible: c.registration_visible === true,
+    plateText: typeof c.plate_text === "string" ? c.plate_text.trim().slice(0, 16) : "",
+    personReflection: c.person_reflection === true,
+    confidence: typeof c.confidence === "number" ? Math.min(1, Math.max(0, c.confidence)) : 0
+  };
+}
+async function classifyImage(input14) {
+  const endpoint = gates.aiModelEndpoint();
+  const deployment = gates.aiModelDeployment();
+  if (!endpoint || !deployment) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS2);
+  try {
+    const token = await mintCognitiveToken();
+    const url2 = `${endpoint.replace(/\/$/, "")}/openai/v1/chat/completions`;
+    const res = await fetch(url2, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(
+        buildImageRequestBody(input14.imageBase64, input14.contentType ?? "image/jpeg", deployment, input14.caseVrm)
+      ),
+      signal: controller.signal
+    });
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => void 0);
+    return parseImageResponse(json);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+function classificationToEvidenceFields(c) {
+  if (c.personReflection) {
+    return {
+      imageRole: c.role,
+      registrationVisible: c.registrationVisible,
+      acceptedForEva: false,
+      excluded: true,
+      exclusionReason: "person reflection detected (auto-classified)"
+    };
+  }
+  const accepted = c.role !== "other";
+  return {
+    imageRole: c.role,
+    registrationVisible: c.registrationVisible,
+    acceptedForEva: accepted,
+    excluded: false
+  };
+}
+
+// orchestration/src/functions/activities/classifyPersist.ts
 var MIN_BODY_INSTRUCTION_CHARS = 40;
 df13.app.activity("classifyPersist", {
   handler: async (input14, ctx) => {
@@ -44623,6 +44749,27 @@ df13.app.activity("classifyPersist", {
       blobPath: a.blobPath,
       size: a.size
     }));
+    if (gates.imageRoleClassifyEnabled()) {
+      for (const r of rows) {
+        if (!r.isImage) continue;
+        try {
+          const bytes = await downloadEvidenceBytes(r.blobPath);
+          const cls = await classifyImage({ imageBase64: bytes.toString("base64"), contentType: r.contentType });
+          if (cls) {
+            const f = classificationToEvidenceFields(cls);
+            r.imageRole = f.imageRole;
+            r.registrationVisible = f.registrationVisible;
+            r.acceptedForEva = f.acceptedForEva;
+            if (f.excluded) {
+              r.excluded = true;
+              r.exclusionReason = f.exclusionReason;
+            }
+          }
+        } catch (e) {
+          ctx.log(JSON.stringify({ evt: "classifyPersist.imageClassifyFailed", caseId, file: r.filename, err: e instanceof Error ? e.message : String(e) }));
+        }
+      }
+    }
     if (gates.auditCases() && (input14.typings?.length ?? 0) > 0) {
       const reportBlobPaths = new Set(
         (input14.typings ?? []).filter((t) => isEngineerReportLayoutName(t.providerName)).map((t) => t.blobPath)
@@ -45113,8 +45260,27 @@ df18.app.activity("extractImages", {
           ctx.warn(`[extractImages] blob upload failed for ${childName}: ${e instanceof Error ? e.message : String(e)}`);
           continue;
         }
+        let imageRole;
         let registrationVisible;
-        if (gates.plateOcr() && process.env.OCR_FN_URL && OCR_OK_EXT.test(img.filename)) {
+        let acceptedForEva = false;
+        let excluded = false;
+        let exclusionReason;
+        if (gates.imageRoleClassifyEnabled() && OCR_OK_EXT.test(img.filename)) {
+          const cls = await classifyImage({
+            imageBase64: img.content_base64,
+            contentType: img.content_type,
+            caseVrm: input14.caseVrm
+          });
+          if (cls) {
+            const f = classificationToEvidenceFields(cls);
+            imageRole = f.imageRole;
+            registrationVisible = f.registrationVisible;
+            acceptedForEva = f.acceptedForEva;
+            excluded = f.excluded;
+            exclusionReason = f.exclusionReason;
+            if (f.registrationVisible) anyRegVisible = true;
+          }
+        } else if (gates.plateOcr() && process.env.OCR_FN_URL && OCR_OK_EXT.test(img.filename)) {
           try {
             const ocr = await callPlateOcr({
               imageBase64: img.content_base64,
@@ -45133,11 +45299,11 @@ df18.app.activity("extractImages", {
           size,
           blobPath,
           evidenceClass: "image",
-          imageRoleCode: "unknown",
-          // role tagging is M2 (ADR-0009); default unknown
-          acceptedForEva: false,
-          // auto-extracted unknowns: staff tag role + accept
+          // Classifier sets the role NAME; without it, keep the M2 default `unknown`.
+          ...imageRole ? { imageRole } : { imageRoleCode: "unknown" },
+          acceptedForEva,
           ...registrationVisible !== void 0 ? { registrationVisible } : {},
+          ...excluded ? { excluded: true, exclusionReason } : {},
           sha256: img.sha256,
           sequenceIndex: img.sequence_index,
           sourceLabel: `extracted from ${doc.filename}`
