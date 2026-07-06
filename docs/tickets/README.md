@@ -169,6 +169,39 @@ sweep alongside [`scripts/check-doc-links.mjs`](../../scripts/check-doc-links.mj
 | `miscategorised-emails/query1` | [TKT-039](./TKT-039-misclass-query-report-support/TKT-039-misclass-query-report-support.md) |
 | `miscategorised-emails/roadworthy-request` | [TKT-040](./TKT-040-misclass-roadworthy-request/TKT-040-misclass-roadworthy-request.md) |
 
+**Cohort C — distilled from operator planning-session plans (2026-07-06, TKT-066…080).** Two
+root-level plan documents were distilled wholesale; each ticket's `evidence/operator-note.md`
+carries its plan section (the full plan is preserved once per cluster, in the anchor ticket's
+evidence), and each ticket defines a strict multi-class **Verification requirements** proof
+standard (offline tests + gates + live probes + data/telemetry evidence).
+
+| Source plan | Tickets |
+|---|---|
+| `PLAN-assistant-intake-search-fixes.md` (anchor: [TKT-066](./TKT-066-assistant-lookup-observability/TKT-066-assistant-lookup-observability.md) holds the full plan) | [TKT-066](./TKT-066-assistant-lookup-observability/TKT-066-assistant-lookup-observability.md) lookup+observability · [TKT-067](./TKT-067-assistant-new-chat/TKT-067-assistant-new-chat.md) new-chat · [TKT-068](./TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) attach-evidence · [TKT-069](./TKT-069-assistant-more-tools/TKT-069-assistant-more-tools.md) more tools · [TKT-070](./TKT-070-email-body-readability/TKT-070-email-body-readability.md) body readability · [TKT-071](./TKT-071-vrm-false-positive-hd4110/TKT-071-vrm-false-positive-hd4110.md) VRM false positive · [TKT-072](./TKT-072-global-search/TKT-072-global-search.md) global search · [TKT-073](./TKT-073-varchar16-overflow-clamp/TKT-073-varchar16-overflow-clamp.md) overflow clamp |
+| `PLAN-inspection-address-repair.md` (anchor: [TKT-075](./TKT-075-inspection-corpus-pipeline/TKT-075-inspection-corpus-pipeline.md) holds the full plan) | [TKT-074](./TKT-074-shell-hook-fail-closed/TKT-074-shell-hook-fail-closed.md) shell-hook P0 blocker · [TKT-075](./TKT-075-inspection-corpus-pipeline/TKT-075-inspection-corpus-pipeline.md) corpus pipeline (A) · [TKT-076](./TKT-076-inspection-provider-scope-proximity/TKT-076-inspection-provider-scope-proximity.md) scoping+proximity (B) · [TKT-077](./TKT-077-location-assist-photos/TKT-077-location-assist-photos.md) photo assist (C) · [TKT-078](./TKT-078-location-assist-ai-escalation/TKT-078-location-assist-ai-escalation.md) AI escalation (D) · [TKT-079](./TKT-079-inspection-ui-provider-policy/TKT-079-inspection-ui-provider-policy.md) UI polish (E) · [TKT-080](./TKT-080-inspection-reseed-live/TKT-080-inspection-reseed-live.md) live reseed (F) |
+
+**Cohort D — distilled from `to-distill/` operator drop-notes (2026-07-06, TKT-081…093).** Ten
+drop-note folders (notes + `.eml`/PDF/screenshot samples) were distilled and the drop-zone
+removed; each ticket's `evidence/` carries the verbatim note + samples, and each defines the
+strict multi-class **Verification requirements** proof standard. The `email-mistags/` folder
+split into four subtype tickets, extending the TKT-029…040 misclass cluster.
+
+| Source drop-note | Ticket |
+|---|---|
+| `email-mistags/acknowledgement` (4 samples) | [TKT-081](./TKT-081-misclass-ack-batch/TKT-081-misclass-ack-batch.md) |
+| `email-mistags/case-query` (2 threads) | [TKT-082](./TKT-082-misclass-query-as-new-work/TKT-082-misclass-query-as-new-work.md) |
+| `email-mistags/instructions-received` | [TKT-083](./TKT-083-misclass-instructions-unidentified/TKT-083-misclass-instructions-unidentified.md) |
+| `email-mistags/pre-instruction` | [TKT-084](./TKT-084-pre-instruction-handling/TKT-084-pre-instruction-handling.md) |
+| `A.PCH26003/` | [TKT-085](./TKT-085-vrm-false-positive-october/TKT-085-vrm-false-positive-october.md) |
+| `circumstances/` | [TKT-086](./TKT-086-circumstances-extraction-gaps/TKT-086-circumstances-extraction-gaps.md) |
+| `BOXreport/` | [TKT-087](./TKT-087-box-upload-409-conflicts/TKT-087-box-upload-409-conflicts.md) |
+| `image-sections/` | [TKT-088](./TKT-088-image-role-classification-check/TKT-088-image-role-classification-check.md) |
+| `non-vehicle-images/` | [TKT-089](./TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md) |
+| `odd-filename-bug/` | [TKT-090](./TKT-090-evidence-filename-provider-vrm/TKT-090-evidence-filename-provider-vrm.md) |
+| `outlook-move/` | [TKT-091](./TKT-091-outlook-move-fail/TKT-091-outlook-move-fail.md) |
+| `pch-duplicates/` | [TKT-092](./TKT-092-pch-duplicate-cases/TKT-092-pch-duplicate-cases.md) |
+| `suggest-attach/` | [TKT-093](./TKT-093-auto-attach-matched-emails/TKT-093-auto-attach-matched-emails.md) |
+
 See [BOARD.md](./BOARD.md) for the live status of each.
 
 ## Proposed additions (operator to vet)

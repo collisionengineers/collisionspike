@@ -13,6 +13,32 @@
 > `verification.md`, with no known gap. Code that is written/merged but **not confirmed working in the live
 > app** stays `now` — "code-correct" is not "done".
 >
+> **Distilled 2026-07-06 (second wave — `to-distill/` drop-notes → 13 tickets)** — filed
+> **TKT-081…093** from the ten operator drop-note folders under `docs/tickets/to-distill/` (folder
+> emptied + removed; all raw material moved into each ticket's `evidence/`). Four are a fresh
+> email-mistag batch (**TKT-081** acknowledgement batch incl. a blank case opened, **TKT-082**
+> existing-case query as new client work, **TKT-083** instructions left Unidentified despite
+> detected signals, **TKT-084** pre-instruction lane design); the rest: **TKT-085** VRM logged as
+> "OCTOBER" on A.PCH26003, **TKT-086** circumstances extraction gaps, **TKT-087** Box 409 upload
+> conflicts, **TKT-088** image-role classification decision (blocked — operator), **TKT-089**
+> non-vehicle images on Box, **TKT-090** RJS/UnknownVRM filename bug, **TKT-091** Outlook move
+> fail (first filed blocked on the gated.md B4 grant; re-filed **backlog** the same day when the
+> operator supplied the dev-tools evidence — the live failure is a **503** from the Data API's
+> `outlook-move` route, not the expected 403), **TKT-092** PCH duplicate cases, **TKT-093**
+> auto-attach matched emails. All carry the strict multi-class verification requirements; 12 →
+> Backlog, 1 → Blocked (TKT-088).
+>
+> **Distilled 2026-07-06 (two operator plans → 15 tickets)** — filed **TKT-066…073** from
+> `PLAN-assistant-intake-search-fixes.md` (assistant lookup normalization + tool-failure
+> observability, New-chat button, user-confirmed evidence attach, six new read-only assistant
+> tools, email-body readability, the HD4110 VRM false-positive rule + data fix, global search +
+> same-VRM view, the varchar(16) overflow clamp) and **TKT-074…080** from
+> `PLAN-inspection-address-repair.md` (the fail-closed shell-hook **P0 blocker**, the in-repo
+> corpus rebuild pipeline, provider scoping + proximity ordering, photo-capable location assist,
+> the gated AI vision escalation, address-picker polish, and the live reseed/deploy/verify
+> cutover). All start in **Backlog**; each ticket folder carries its evidence + strict multi-class
+> verification requirements (offline tests, gates, live probes, data/telemetry proof).
+>
 > **Reconciled 2026-07-05 (go-live sprint)** — P4/P5/P6/P7 landed. Moved **TKT-048/060/061/062/063** to
 > **done**: inline evidence-image previews live (same-origin `GET /api/evidence/{id}/content`); the read-only
 > AI chat helper live (`AI_CHAT_ENABLED=true`, count tool fixed to the queue numbers); the Box `FILE.UPLOADED`
@@ -132,6 +158,33 @@
 | [TKT-044](./TKT-044-mileage-calc-check/TKT-044-mileage-calc-check.md) | Mileage calculations look ~10,000 over expected values | Drop-note (authored 2026-07-02); enrichment MOT-estimate check — not part of rules-engine-v2. |
 | [TKT-052](./TKT-052-merge-provider-loss/TKT-052-merge-provider-loss.md) | Merged image-only case loses the provider (merge logic) | Split from the old TKT-041-merge-fix folder (2026-07-02); TKT-028 territory. |
 | [TKT-064](./TKT-064-image-classification/TKT-064-image-classification.md) | Auto-classify evidence images — role (overview/damage) + registration visible | P2, area pipeline (operator-raised 2026-07-05). Image role is unbuilt (deferred M2/ADR-0009, defaults `unknown`); registration OCR runs only on PDF-extracted images. Needs a vision-classifier pass + OCR-on-all-sources + backfill. |
+| [TKT-066](./TKT-066-assistant-lookup-observability/TKT-066-assistant-lookup-observability.md) | Assistant can't find a case by spaced registration + tool failures are invisible | P1 (plan 2026-07-06 §1): spaced-VRM lookup can never match compacted storage; tool exceptions fed to the model unlogged; add normalization + warn traces + one retry. |
+| [TKT-067](./TKT-067-assistant-new-chat/TKT-067-assistant-new-chat.md) | Assistant drawer needs a "New chat" button to clear the conversation | P3 (plan 2026-07-06 §2): SPA-only header button clearing `turns`/`input`, disabled while sending. |
+| [TKT-068](./TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) | Attach files in the assistant and add them to a case (user-confirmed upload) | P2 (plan 2026-07-06 §3): drawer attach + confirmation card + new staff-role `POST /api/cases/{id}/evidence/upload`; the model stays read-only (TKT-060 invariant). |
+| [TKT-069](./TKT-069-assistant-more-tools/TKT-069-assistant-more-tools.md) | Assistant answers more questions — case detail, activity, twins, queues, emails, overdue | P2 (plan 2026-07-06 §4): six new SELECT-only tools + prompt/chips refresh; builds on TKT-066. |
+| [TKT-070](./TKT-070-email-body-readability/TKT-070-email-body-readability.md) | Inbox email previews are one unreadable line — keep line breaks, cut noise | P2 (plan 2026-07-06 §5): pure `email-body-clean` domain util (newlines, URLs, quote chains, signatures) wired into fetchMessage/retro-envelope. |
+| [TKT-071](./TKT-071-vrm-false-positive-hd4110/TKT-071-vrm-false-positive-hd4110.md) | Job references like HD4110 wrongly captured as a vehicle registration | P1 (plan 2026-07-06 §6): proximity-anchor the loose dateless VRM rule (+ tight anchor for postcode-area prefixes), mirror to the Python sniff (ADR-0018), audited data fix. |
+| [TKT-072](./TKT-072-global-search/TKT-072-global-search.md) | The search box doesn't search — global search across cases, emails, providers | P1 (plan 2026-07-06 §7): new `GET /api/search?q=` + SPA results view with the same-VRM grouping header (the "3 same VRM" ask). |
+| [TKT-073](./TKT-073-varchar16-overflow-clamp/TKT-073-varchar16-overflow-clamp.md) | Intake write fails with "value too long" — clamp over-length field before insert | P2 (plan 2026-07-06 §8): identify the 03/07 `varchar(16)` overflow field from App Insights, clamp at the mapper with a warn trace. |
+| [TKT-074](./TKT-074-shell-hook-fail-closed/TKT-074-shell-hook-fail-closed.md) | Every terminal command is blocked — the Box scope-guard hook fails closed | **P0** (inspection plan precondition; re-confirmed live 2026-07-06): `.cursor/hooks/cursor-box-scope-guard.mjs` times out fail-closed and rejects ALL Shell calls — gates every build/test/deploy below. |
+| [TKT-075](./TKT-075-inspection-corpus-pipeline/TKT-075-inspection-corpus-pipeline.md) | Rebuild the inspection-address corpus in-repo — correct provider attribution + geocodes | P1 (inspection plan Phase A): reproducible `scripts/inspection-corpus/` pipeline (marker-aware provider parse, postcode-normalised dedup, site names, PII-free CSV), geocode step, DDL delta + `920` replace seed. |
+| [TKT-076](./TKT-076-inspection-provider-scope-proximity/TKT-076-inspection-provider-scope-proximity.md) | Inspection suggestions ignore the provider and distance — real scoping + nearest-first | P1 (inspection plan Phase B): server-side `provider_code` scoping, labelled fallback (no unlabelled firehose — TKT-062 residual), postcode-centroid distance-blended ordering + `distanceMiles`. |
+| [TKT-077](./TKT-077-location-assist-photos/TKT-077-location-assist-photos.md) | Location assist can't see the case photos — real photo bytes + signage business lookup | P1 (inspection plan Phase C): BlobPhotoSource + Box fallback (the shipped stub returns no bytes), Maps POI search for OCR'd business names + corpus_match, auto-run-on-corpus-miss (suggest only). |
+| [TKT-078](./TKT-078-location-assist-ai-escalation/TKT-078-location-assist-ai-escalation.md) | Deeper photo-based location suggestion — AI reasoning escalation (gated) | P2 (inspection plan Phase D): AOAI vision-reasoning branch, own `LOCATION_ASSIST_AI_ENABLED` gate + caps + spend telemetry, `ai_reasoning` provenance; operator AI sign-off (gated.md E2) before flip. |
+| [TKT-079](./TKT-079-inspection-ui-provider-policy/TKT-079-inspection-ui-provider-policy.md) | Address picker polish — provider default chip, distance hints, show-more | P2 (inspection plan Phase E): surface `inspectionLocationPolicy` (provider-default chip, never auto-applied), distance/provider hints on suggestion rows, show-more. |
+| [TKT-080](./TKT-080-inspection-reseed-live/TKT-080-inspection-reseed-live.md) | Reseed the live address catalogue + deploy and prove the whole inspection repair | P1 (inspection plan Phase F): backup-first live reseed (confirmed rows preserved + idempotency proven), API/SPA/Function deploys, per-provider smoke matrix, registry + docs reconciliation. |
+| [TKT-081](./TKT-081-misclass-ack-batch/TKT-081-misclass-ack-batch.md) | Acknowledgement emails still misclassified — tagged as query/new case, one opened a blank case | P1 drop-note (2026-07-06, 4 samples): reply-chain acks leak past the TKT-038 fix; one ack minted a blank case (guard `non_actionable` from case creation + clean it up). |
+| [TKT-082](./TKT-082-misclass-query-as-new-work/TKT-082-misclass-query-as-new-work.md) | Existing-case query misclassified as new client work | P1 drop-note (2026-07-06, 2 threads): queries on a case instructed 28/04/26 tagged `new_client_work`; open-case VRM/ref match should outvote instruction wording. |
+| [TKT-083](./TKT-083-misclass-instructions-unidentified/TKT-083-misclass-instructions-unidentified.md) | Instructions email left "Unidentified" despite detected instruction signals | P1 drop-note (2026-07-06): fairwaylegal instruction email — the engine's own "why" panel lists 4 instruction signals yet the label is Other/Unidentified (signal→label wiring bug). |
+| [TKT-084](./TKT-084-pre-instruction-handling/TKT-084-pre-instruction-handling.md) | Pre-instruction directions email unidentified — define a handling lane | P2 drop-note (2026-07-06): directions-before-official-instructions have no taxonomy home; design the lane + hold/correlate behaviour, operator sign-off before build. |
+| [TKT-085](./TKT-085-vrm-false-positive-october/TKT-085-vrm-false-positive-october.md) | Registration on case A.PCH26003 logged as "OCTOBER" (VRM false positive) | P1 drop-note (2026-07-06): month word captured as VRM — different shape from TKT-071's HD4110 (all-alpha); root-cause + month/day denylist + audited data fix. |
+| [TKT-086](./TKT-086-circumstances-extraction-gaps/TKT-086-circumstances-extraction-gaps.md) | Accident circumstances still not being 100% extracted | P1 drop-note (2026-07-06): `.DOC`+`.eml` failing sample; fix in the sibling engine + measure circumstances coverage across live cases (EVA 12-field impact). |
+| [TKT-087](./TKT-087-box-upload-409-conflicts/TKT-087-box-upload-409-conflicts.md) | Box report shows 409 upload conflicts — investigate duplicate archive attempts | P2 drop-note (2026-07-06): 18×409 on `POST upload` (2026-07-03) in the operator's Box report — benign idempotency or a double-processing fingerprint (correlate with TKT-092). |
+| [TKT-089](./TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md) | Confirm non-vehicle images (signatures/logos) no longer captured/stored on Box | P2 drop-note (2026-07-06): audit ask closing TKT-047's live proof + a new uncovered lane — PDF-extracted letterhead/logo crops landing as case evidence. |
+| [TKT-090](./TKT-090-evidence-filename-provider-vrm/TKT-090-evidence-filename-provider-vrm.md) | Evidence filenames carry a wrong "RJS" provider token and "UnknownVRM" | P2 drop-note (2026-07-06): `…__RJS_UnknownVRM_img_1_1.png` on a non-RJS case — locate + fix the naming template in the extraction path. |
+| [TKT-091](./TKT-091-outlook-move-fail/TKT-091-outlook-move-fail.md) | Outlook "File to …" move fails live with a 503 from the Data API | P1 drop-note (2026-07-06): `POST /api/inbound/{id}/outlook-move` → **503** on `cespk-api-dev` (operator dev-tools evidence) — NOT the expected B4-grant 403; diagnose via App Insights, fix error-mapping + SPA failure UX; live move test still needs the B4 grant. |
+| [TKT-092](./TKT-092-pch-duplicate-cases/TKT-092-pch-duplicate-cases.md) | PCH cases duplicating for no reason | P1 drop-note (2026-07-06): enumerate duplicate PCH case groups, trace one pair to name the vector (multi-mailbox / Graph redelivery / dedup-key miss), idempotency fix + audited merge. |
+| [TKT-093](./TKT-093-auto-attach-matched-emails/TKT-093-auto-attach-matched-emails.md) | Auto-attach matched emails to their case instead of a hidden suggest dialog | P1 drop-note (2026-07-06): high-confidence open-case matches should attach automatically (gated, audited, undoable) + the sample's Audit-reinspection-vs-case-update mistag. |
 
 ## Blocked — needs operator
 
@@ -141,3 +194,4 @@
 | [TKT-010](./TKT-010-delete-case/TKT-010-delete-case.md) | Operator to assign `CollisionSpike.Superuser` to the staff principal (access-control change). Soft-remove + dialog coded; Box delete is ACK-only per ADR-0017. |
 | [TKT-032](./TKT-032-misclass-defer-routing/TKT-032-misclass-defer-routing.md) | Operator routing decision for the deferred Audatex + PCD-diminution emails before the rule can be specified. |
 | [TKT-057](./TKT-057-ap-diminution-refinement/TKT-057-ap-diminution-refinement.md) | A real inbound diminution instruction email (grounds `D.` detection) + a standalone a.qdos inbound email if one exists; then the SPA case-type control for the review-time AP. refinement ([ADR-0021](../adr/0021-case-po-marker-taxonomy.md)). Also gated behind TKT-056's activation ladder. |
+| [TKT-088](./TKT-088-image-role-classification-check/TKT-088-image-role-classification-check.md) | Operator decision on image-role classification (determination already made: it is unbuilt — TKT-064): build the auto-classifier now, keep manual with better UX, or defer. |
