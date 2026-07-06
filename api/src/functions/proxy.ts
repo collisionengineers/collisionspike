@@ -30,17 +30,23 @@ interface AssistPhotoRef {
  * bytes are capped in resolveAssistImageBase64. Refs that don't resolve are still forwarded
  * (they degrade to a per-photo warning downstream). A malformed body is forwarded untouched.
  */
-async function enrichLocationRequest(body: unknown): Promise<unknown> {
+export async function enrichLocationRequest(body: unknown): Promise<unknown> {
   if (!body || typeof body !== 'object') return body;
   const b = body as { photo_refs?: unknown };
   if (!Array.isArray(b.photo_refs) || b.photo_refs.length === 0) return body;
   const refs = b.photo_refs as AssistPhotoRef[];
   const ids = refs.map((r) => r?.evidence_id).filter((s): s is string => typeof s === 'string');
   const bytesById = await resolveAssistImageBase64(ids);
-  if (bytesById.size === 0) return body;
+  // SECURITY: NEVER trust caller-supplied inline bytes. A caller could otherwise put an
+  // arbitrary/off-case `image_base64` on a ref — bypassing the resolver's RLS-scoped,
+  // count/size-capped byte path — and have the downstream function OCR/send it. Strip any
+  // caller `image_base64` from every ref, then set it back ONLY from bytesById (resolved
+  // from on-case `evidence` rows within the caps). Unresolved refs keep their metadata but
+  // carry no bytes (they degrade to a per-photo warning downstream).
   const enriched = refs.map((r) => {
-    const b64 = r?.evidence_id ? bytesById.get(r.evidence_id) : undefined;
-    return b64 ? { ...r, image_base64: b64 } : r;
+    const { image_base64: _dropCallerBytes, ...rest } = (r ?? {}) as Record<string, unknown>;
+    const b64 = typeof rest.evidence_id === 'string' ? bytesById.get(rest.evidence_id) : undefined;
+    return b64 ? { ...rest, image_base64: b64 } : rest;
   });
   return { ...b, photo_refs: enriched };
 }

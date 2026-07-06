@@ -53318,10 +53318,10 @@ async function enrichLocationRequest(body2) {
   const refs = b.photo_refs;
   const ids = refs.map((r) => r?.evidence_id).filter((s) => typeof s === "string");
   const bytesById = await resolveAssistImageBase64(ids);
-  if (bytesById.size === 0) return body2;
   const enriched = refs.map((r) => {
-    const b64 = r?.evidence_id ? bytesById.get(r.evidence_id) : void 0;
-    return b64 ? { ...r, image_base64: b64 } : r;
+    const { image_base64: _dropCallerBytes, ...rest } = r ?? {};
+    const b64 = typeof rest.evidence_id === "string" ? bytesById.get(rest.evidence_id) : void 0;
+    return b64 ? { ...rest, image_base64: b64 } : rest;
   });
   return { ...b, photo_refs: enriched };
 }

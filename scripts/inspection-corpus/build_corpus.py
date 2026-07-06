@@ -195,7 +195,14 @@ def build(xlsx: str):
     out = []
     for provider in sorted(by_provider):
         group = by_provider[provider]
-        group.sort(key=lambda s: (-s["frequency"], s["last_seen"] or "", label_for(s)))
+        # frequency desc, last_seen DESC (newest sighting first), label asc. Mixed sort
+        # directions => stable multi-pass, least-significant key first (Python sort is
+        # stable). A single (-freq, last_seen, label) key left last_seen ASCENDING, which
+        # ranked STALE sites above newer ones on a frequency tie (the API sorts by this rank
+        # when there is no proximity signal, and as the tiebreaker otherwise).
+        group.sort(key=label_for)                                    # tertiary: label asc
+        group.sort(key=lambda s: s["last_seen"] or "", reverse=True)  # secondary: last_seen desc
+        group.sort(key=lambda s: s["frequency"], reverse=True)        # primary: frequency desc
         for i, s in enumerate(group, start=1):
             s["rank"] = i
             out.append(s)
