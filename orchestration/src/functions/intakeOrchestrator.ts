@@ -351,6 +351,10 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     vrm?: { value?: string };
     reference?: { value?: string };
     extraction?: Record<string, { value?: string } | undefined>;
+    // The instructing provider resolved across ALL parsed docs (parse.ts
+    // resolveWorkProviderAcrossDocs) — preferred over the chosen envelope's extraction so an
+    // audit email's PCH/QDOS provider survives when the EVA report is the selected envelope.
+    resolvedWorkProvider?: string;
     skipped?: boolean;
   } = {};
   try {
@@ -362,6 +366,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       vrm?: { value?: string };
       reference?: { value?: string };
       extraction?: Record<string, { value?: string } | undefined>;
+      resolvedWorkProvider?: string;
       skipped?: boolean;
     };
   } catch (e) {
@@ -391,7 +396,15 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // when present; UNKNOWN is treated as empty and the Data API falls back to corpus display_name.
   const ex = parseResult.extraction ?? {};
   const exVal = (k: string): string => (ex[k]?.value ?? '').trim();
-  const exWorkProvider = exVal('work_provider');
+  // Prefer the provider resolved ACROSS all parsed docs (already filtered to non-empty,
+  // non-UNKNOWN, non-engineer-report in parse.ts). On an audit email the chosen envelope is
+  // the EVA report whose extraction.work_provider is '' — the real PCH/QDOS instruction lives
+  // in another candidate, so falling back to the chosen envelope's value would blank it. For a
+  // single-doc email resolvedWorkProvider == the chosen envelope's value, so behaviour is
+  // unchanged. Fall back to the chosen envelope's value if resolvedWorkProvider is absent
+  // (older parser bundle not yet redeployed).
+  const resolvedWorkProvider = (parseResult.resolvedWorkProvider ?? '').trim();
+  const exWorkProvider = resolvedWorkProvider || exVal('work_provider');
   const parserEvaFields = {
     work_provider: exWorkProvider.toUpperCase() === 'UNKNOWN' ? '' : exWorkProvider,
     vehicle_model: exVal('vehicle_model'),

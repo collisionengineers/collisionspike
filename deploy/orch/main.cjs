@@ -4601,7 +4601,8 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
   const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? "").trim();
   const ex = parseResult.extraction ?? {};
   const exVal = (k) => (ex[k]?.value ?? "").trim();
-  const exWorkProvider = exVal("work_provider");
+  const resolvedWorkProvider = (parseResult.resolvedWorkProvider ?? "").trim();
+  const exWorkProvider = resolvedWorkProvider || exVal("work_provider");
   const parserEvaFields = {
     work_provider: exWorkProvider.toUpperCase() === "UNKNOWN" ? "" : exWorkProvider,
     vehicle_model: exVal("vehicle_model"),
@@ -44739,8 +44740,22 @@ function selectInstructionIndex(parsed) {
     (p) => (p.envelope.content_typing?.doc_type ?? "") === "instruction" && !isEngineerReportLayoutName(p.envelope.content_typing?.provider_name)
   );
   if (typed >= 0) return typed;
-  const pdf = parsed.findIndex((p) => isPdf(p.att));
-  return pdf >= 0 ? pdf : 0;
+  const notEngineer = (p) => !isEngineerReportLayoutName(p.envelope.content_typing?.provider_name);
+  const pdf = parsed.findIndex((p) => isPdf(p.att) && notEngineer(p));
+  if (pdf >= 0) return pdf;
+  const nonEngineer = parsed.findIndex(notEngineer);
+  if (nonEngineer >= 0) return nonEngineer;
+  const anyPdf = parsed.findIndex((p) => isPdf(p.att));
+  return anyPdf >= 0 ? anyPdf : 0;
+}
+function resolveWorkProviderAcrossDocs(parsed) {
+  for (const p of parsed) {
+    const wp = (p.envelope.extraction?.work_provider?.value ?? "").trim();
+    if (wp === "" || wp.toUpperCase() === "UNKNOWN") continue;
+    if (isEngineerReportLayoutName(wp)) continue;
+    return wp;
+  }
+  return "";
 }
 df14.app.activity("parse", {
   handler: async (input14, ctx) => {
@@ -44825,7 +44840,12 @@ df14.app.activity("parse", {
     const chosenIndex = selectInstructionIndex(parsedDocs);
     const doc = parsedDocs[chosenIndex].att;
     const documentB64 = parsedDocs[chosenIndex].documentB64;
-    const parsed = { ...parsedDocs[chosenIndex].envelope, attachmentTypings };
+    const resolvedWorkProvider = resolveWorkProviderAcrossDocs(parsedDocs);
+    const parsed = {
+      ...parsedDocs[chosenIndex].envelope,
+      attachmentTypings,
+      resolvedWorkProvider
+    };
     if (parsedDocs.length > 1) {
       ctx.log(
         JSON.stringify({
