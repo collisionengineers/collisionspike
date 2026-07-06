@@ -46240,6 +46240,7 @@ df26.app.activity("retroRecordFailure", {
 
 // orchestration/src/functions/gated/replay-backfill.ts
 var import_functions17 = require("@azure/functions");
+var import_node_crypto5 = require("node:crypto");
 var df27 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/replay-manifest.ts
@@ -46363,7 +46364,7 @@ df27.app.orchestration("replayBackfillOrchestrator", function* (ctx) {
   const end = Math.min(s.idx + PROCESS_BATCH, total);
   for (let i = s.idx; i < end; i++) {
     const it = s.manifest[i];
-    const safeId = String(it.internetMessageId || it.messageId).replace(/[^A-Za-z0-9_-]/g, "");
+    const safeId = (0, import_node_crypto5.createHash)("sha256").update(`${it.mailbox}\0${it.internetMessageId || it.messageId}`).digest("hex").slice(0, 32);
     const childId = `replay-${s.epoch}-${safeId}`;
     const resource = `users/${it.mailbox}/messages/${it.messageId}`;
     try {

@@ -82,7 +82,7 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
   if (name === 'lookup_case') {
     const q = `%${String(args.query ?? '').trim().slice(0, 80)}%`;
     const rows = await query<Record<string, unknown>>(
-      `SELECT c.case_po, c.vrm, c.case_ref, c.status_code, c.eva_claimant_name AS claimant,
+      `SELECT c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.eva_claimant_name AS claimant,
               wp.name AS provider
          FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
         WHERE c.case_po ILIKE $1 OR c.vrm ILIKE $1 OR c.case_ref ILIKE $1 OR c.eva_claimant_name ILIKE $1
@@ -94,7 +94,10 @@ async function execTool(name: string, args: Record<string, unknown>): Promise<un
         casePo: r.case_po ?? null,
         vrm: r.vrm ?? null,
         ref: r.case_ref ?? null,
-        status: statusName(r.status_code),
+        // Handler-facing QUEUE (never the raw status enum — AGENTS.md UI-language rule),
+        // held-aware exactly like the dashboard / count_cases_by_status (an on-hold case is
+        // Held regardless of its raw status_code).
+        queue: queueLabel(r.status_code, r.on_hold),
         claimant: r.claimant ?? null,
         provider: r.provider ?? null,
       })),
@@ -153,6 +156,13 @@ function statusName(code: unknown): string {
     return 'unknown';
   }
 }
+/** Handler-facing queue label mirroring the dashboard's filterQueue (an on-hold case is Held
+ *  regardless of its raw status; a terminal status is Closed). Keeps raw enums out of the chat. */
+function queueLabel(statusCode: unknown, onHold: unknown): string {
+  if (onHold) return 'Held';
+  const q = statusToQueue(statusName(statusCode) as CaseStatus);
+  return q === 'not-ready' ? 'Not ready' : q === 'review' ? 'Review' : q === 'held' ? 'Held' : 'Closed';
+}
 function categoryName(code: unknown): string {
   try {
     return (typeof code === 'number' ? inboundCategoryCodec.toName(code) : String(code)) ?? 'unknown';
@@ -182,7 +192,10 @@ app.http('assistantChat', {
     } catch {
       return { status: 400, jsonBody: { error: 'invalid JSON body' } };
     }
-    const history = (body.messages ?? [])
+    // Malformed-but-valid JSON (null, or `messages` not an array) must fall to the route's
+    // 400 validation below, never throw a 500 on `.filter` of a non-array.
+    const rawMessages = Array.isArray(body?.messages) ? body.messages : [];
+    const history = rawMessages
       .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
       .slice(-MAX_HISTORY)
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: (m.content ?? '').slice(0, MAX_MSG_CHARS) }));

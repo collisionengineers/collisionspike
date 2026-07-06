@@ -39,6 +39,20 @@ const IMAGE_BASED = inspectionDecisionCodec.toInt('image_based'); // 100000002
 const SHORTLIST_LIMIT = 8;
 const SEARCH_LIMIT = 25;
 
+/** The provider PRINCIPAL from a Case/PO, ignoring the optional case-type MARKER prefix
+ *  (ADR-0021: 'A.' audit / 'AP.' total-loss audit / 'D.' diminution). Without stripping the
+ *  marker, "A.PCH26001" scopes to the bogus principal "A" and the shortlist mis-ranks. Plain
+ *  "CCPY26050" → "CCPY". Upper-cased; '' when there is no leading-alpha principal. */
+function principalFromCasePo(casePo: string | null | undefined): string {
+  return (
+    (casePo ?? '')
+      .trim()
+      .replace(/^(?:AP|A|D)\./i, '')
+      .match(/^[A-Za-z]+/)?.[0]
+      ?.toUpperCase() ?? ''
+  );
+}
+
 /** Case-insensitive substring match over an address's lines + postcode. */
 function addressMatches(a: SuggestedAddress, needle: string): boolean {
   const hay = `${a.lines.join(' ')} ${a.postcode}`.toLowerCase();
@@ -73,9 +87,7 @@ app.http('inspectionAddressSuggestions', {
       // (typically 4 chars; 2–5 observed), then cap. When the provider scope yields
       // nothing, fall back to the global top-N (NOT the whole corpus — that was the bug).
       const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [id]);
-      const providerCode = (
-        (caseRows[0]?.case_po ?? '').trim().match(/^[A-Za-z]+/)?.[0] ?? ''
-      ).toUpperCase();
+      const providerCode = principalFromCasePo(caseRows[0]?.case_po as string | null);
       const scoped = providerCode
         ? all.filter((s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode)
         : all;
@@ -133,9 +145,7 @@ app.http('saveInspectionDecision', {
       let providerCode = '';
       try {
         const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [caseId]);
-        providerCode = (
-          (caseRows[0]?.case_po ?? '').trim().match(/^[A-Za-z]+/)?.[0] ?? ''
-        ).toUpperCase();
+        providerCode = principalFromCasePo(caseRows[0]?.case_po as string | null);
       } catch {
         /* leave providerCode empty — the row still writes without the token */
       }
