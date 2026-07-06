@@ -316,11 +316,21 @@ until you assign them.
 
 **Why you:** assigning enterprise-app roles to users is an Entra directory operation only an admin can do.
 
-**Steps:**
+> ✅ **Verified 2026-07-06 (TKT-065):** the one existing assignment on the API service principal
+> (objectId `f5cf0eba-…`) is **`CollisionSpike.Superuser`** (app-role id
+> `5b356d4c-32ef-496a-96e4-72ee848e6710`) → **`digital@collisionengineers.co.uk`** (objectId
+> `06b65d89-…`). So **digital@ already IS a Superuser** — nothing to assign for that account. If a
+> superuser surface still 403s for you, the cause is a **stale token** (fully sign out and back in so
+> MSAL mints a fresh token carrying the `roles` claim) or you are signing into the SPA with a
+> **different** account (e.g. a personal/guest identity) than `digital@` — say which and it can be
+> assigned. This item stays open only for the **other** staff who are not yet assigned.
+
+**Steps (for any not-yet-assigned staff):**
 1. In Entra → **Enterprise applications** → the app that exposes these roles (the `cespk-api-dev` /
    `CollisionSpike` API registration; v2 tokens carry `aud` = the API client-id GUID `fa2fb28c…`).
 2. **Users and groups → Add user/group**, pick each staff member, and assign **`CollisionSpike.User`**
-   (or **`CollisionSpike.Superuser`** for full-privilege admins).
+   (or **`CollisionSpike.Superuser`** for full-privilege admins). `Superuser` is a strict superset of
+   `User` (API `withRole`), so a Superuser does **not** also need `User`.
 3. Have each person sign out/in so a fresh token carries the role, then confirm they can load the app
    without a `403`.
 
@@ -394,6 +404,12 @@ etc., minus whichever of these the six corrections above already cover — plus 
 confirm there isn't one) and it gets added to the provider's domain field in Postgres, and confirm the
 **PHA/Parkhouse principal code** so its insert can land too. *(In the decommissioned stack this was the
 Dataverse `cr1bd_knownemaildomains` column.)*
+
+> **QDOS domain — needed for audit-case resolution ([TKT-065](./tickets/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md)).**
+> **QDOS** has **no `known_email_domains`**, so a **direct QDOS audit email cannot domain-resolve** —
+> it only resolves when the instruction document content names QDOS. (PCH is already covered: D8 seeded
+> `pch-ltd.com`.) Send QDOS's real sending domain(s) and it gets seeded (idempotent `916`-style delta),
+> so direct QDOS audits resolve at intake like PCH does.
 
 #### D4. Add extra reference info  ·  *you supply the data*
 
