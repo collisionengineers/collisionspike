@@ -210,6 +210,8 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
         yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
           caseId: link.caseId,
           inbound,
+          caseVrm: vrm || (inbound as { candidateVrm?: string }).candidateVrm,
+          ...(workProviderId ? { workProviderId } : {}),
         });
 
         try {
@@ -218,6 +220,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
             messageId: (inbound as { messageId?: string }).messageId,
             attachments: (inbound as { attachments?: unknown }).attachments,
             caseVrm: vrm || (inbound as { candidateVrm?: string }).candidateVrm,
+            ...(workProviderId ? { workProviderId } : {}),
           });
         } catch (e) {
           if (!ctx.df.isReplaying) {
@@ -519,6 +522,8 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     caseId: resolved.caseId,
     inbound,
     typings: (parseResult as { attachmentTypings?: unknown }).attachmentTypings,
+    caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+    ...(workProviderId ? { workProviderId } : {}),
   });
 
   // 3.5 — extract embedded images from instruction PDFs/EML into image evidence
@@ -532,6 +537,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       messageId: (inbound as { messageId?: string }).messageId,
       attachments: (inbound as { attachments?: unknown }).attachments,
       caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+      ...(workProviderId ? { workProviderId } : {}),
     });
   } catch (e) {
     if (!ctx.df.isReplaying) {

@@ -4481,14 +4481,17 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
       if (link.outcome === "linked" && link.caseId) {
         yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
           caseId: link.caseId,
-          inbound
+          inbound,
+          caseVrm: vrm || inbound.candidateVrm,
+          ...workProviderId ? { workProviderId } : {}
         });
         try {
           yield ctx.df.callActivityWithRetry("extractImages", retry2, {
             caseId: link.caseId,
             messageId: inbound.messageId,
             attachments: inbound.attachments,
-            caseVrm: vrm || inbound.candidateVrm
+            caseVrm: vrm || inbound.candidateVrm,
+            ...workProviderId ? { workProviderId } : {}
           });
         } catch (e) {
           if (!ctx.df.isReplaying) {
@@ -4670,14 +4673,17 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
   yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
     caseId: resolved.caseId,
     inbound,
-    typings: parseResult.attachmentTypings
+    typings: parseResult.attachmentTypings,
+    caseVrm: parserVrm || inbound.candidateVrm,
+    ...workProviderId ? { workProviderId } : {}
   });
   try {
     yield ctx.df.callActivityWithRetry("extractImages", retry2, {
       caseId: resolved.caseId,
       messageId: inbound.messageId,
       attachments: inbound.attachments,
-      caseVrm: parserVrm || inbound.candidateVrm
+      caseVrm: parserVrm || inbound.candidateVrm,
+      ...workProviderId ? { workProviderId } : {}
     });
   } catch (e) {
     if (!ctx.df.isReplaying) {
@@ -44720,11 +44726,22 @@ async function classifyImage(input14) {
     clearTimeout(timer);
   }
 }
-function classificationToEvidenceFields(c) {
+function normalizeVrm(s) {
+  return s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+function caseRegistrationVisible(c, caseVrm) {
+  if (!c.registrationVisible) return false;
+  const vrm = caseVrm ? normalizeVrm(caseVrm) : "";
+  if (!vrm) return true;
+  const plate = normalizeVrm(c.plateText);
+  return plate.length > 0 && plate === vrm;
+}
+function classificationToEvidenceFields(c, caseVrm) {
+  const registrationVisible = caseRegistrationVisible(c, caseVrm);
   if (c.personReflection) {
     return {
       imageRole: c.role,
-      registrationVisible: c.registrationVisible,
+      registrationVisible,
       acceptedForEva: false,
       excluded: true,
       exclusionReason: "person reflection detected (auto-classified)"
@@ -44733,7 +44750,7 @@ function classificationToEvidenceFields(c) {
   const accepted = c.role !== "other";
   return {
     imageRole: c.role,
-    registrationVisible: c.registrationVisible,
+    registrationVisible,
     acceptedForEva: accepted,
     excluded: false
   };
@@ -44749,14 +44766,26 @@ df13.app.activity("classifyPersist", {
       blobPath: a.blobPath,
       size: a.size
     }));
-    if (gates.imageRoleClassifyEnabled()) {
+    let classifyAllowed = gates.imageRoleClassifyEnabled();
+    if (classifyAllowed && input14.workProviderId) {
+      try {
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input14.workProviderId);
+        if (aiAllowed === false) {
+          classifyAllowed = false;
+          ctx.log("[classifyPersist] image classify skipped \u2014 work provider opted out of AI (ai_allowed=false)");
+        }
+      } catch (e) {
+        ctx.log(JSON.stringify({ evt: "classifyPersist.aiAllowedLookupFailed", caseId, err: e instanceof Error ? e.message : String(e) }));
+      }
+    }
+    if (classifyAllowed) {
       for (const r of rows) {
         if (!r.isImage) continue;
         try {
           const bytes = await downloadEvidenceBytes(r.blobPath);
-          const cls = await classifyImage({ imageBase64: bytes.toString("base64"), contentType: r.contentType });
+          const cls = await classifyImage({ imageBase64: bytes.toString("base64"), contentType: r.contentType, caseVrm: input14.caseVrm });
           if (cls) {
-            const f = classificationToEvidenceFields(cls);
+            const f = classificationToEvidenceFields(cls, input14.caseVrm);
             r.imageRole = f.imageRole;
             r.registrationVisible = f.registrationVisible;
             r.acceptedForEva = f.acceptedForEva;
@@ -45226,6 +45255,18 @@ df18.app.activity("extractImages", {
     const messageId = input14.messageId || input14.caseId;
     let totalExtracted = 0;
     let anyRegVisible = false;
+    let classifyAllowed = gates.imageRoleClassifyEnabled();
+    if (classifyAllowed && input14.workProviderId) {
+      try {
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input14.workProviderId);
+        if (aiAllowed === false) {
+          classifyAllowed = false;
+          ctx.log("[extractImages] image classify skipped \u2014 work provider opted out of AI (ai_allowed=false)");
+        }
+      } catch (e) {
+        ctx.warn(`[extractImages] ai_allowed lookup failed (proceeding, fail-open): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
     for (const doc of docs) {
       let bytes;
       try {
@@ -45265,22 +45306,25 @@ df18.app.activity("extractImages", {
         let acceptedForEva = false;
         let excluded = false;
         let exclusionReason;
-        if (gates.imageRoleClassifyEnabled() && OCR_OK_EXT.test(img.filename)) {
+        let classified = false;
+        if (classifyAllowed && OCR_OK_EXT.test(img.filename)) {
           const cls = await classifyImage({
             imageBase64: img.content_base64,
             contentType: img.content_type,
             caseVrm: input14.caseVrm
           });
           if (cls) {
-            const f = classificationToEvidenceFields(cls);
+            const f = classificationToEvidenceFields(cls, input14.caseVrm);
             imageRole = f.imageRole;
             registrationVisible = f.registrationVisible;
             acceptedForEva = f.acceptedForEva;
             excluded = f.excluded;
             exclusionReason = f.exclusionReason;
             if (f.registrationVisible) anyRegVisible = true;
+            classified = true;
           }
-        } else if (gates.plateOcr() && process.env.OCR_FN_URL && OCR_OK_EXT.test(img.filename)) {
+        }
+        if (!classified && gates.plateOcr() && process.env.OCR_FN_URL && OCR_OK_EXT.test(img.filename)) {
           try {
             const ocr = await callPlateOcr({
               imageBase64: img.content_base64,

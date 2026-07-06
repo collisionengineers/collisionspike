@@ -167,22 +167,48 @@ export async function classifyImage(input: {
   }
 }
 
+/** Canonicalise a UK registration for comparison: uppercase, alnum only. */
+function normalizeVrm(s: string): string {
+  return s.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * Whether the classifier's registration read should count as the CASE vehicle's plate
+ * being visible. The domain image rule (image-rules.ts) defines `registrationVisible` as
+ * "does the image show the CASE registration?", not "any legible plate" — so when we KNOW
+ * the case VRM we only honour a match against it (a photo of a different vehicle with a
+ * readable plate, e.g. a third-party car in an audit report, must NOT clear the overview
+ * rule for the wrong vehicle). When no case VRM is known we fall back to "any legible
+ * plate" — the best signal available, matching the prior plate-OCR behaviour, with the
+ * human review as the backstop.
+ */
+export function caseRegistrationVisible(c: ImageClassification, caseVrm?: string): boolean {
+  if (!c.registrationVisible) return false;
+  const vrm = caseVrm ? normalizeVrm(caseVrm) : '';
+  if (!vrm) return true; // no known case VRM → any legible plate (prior behaviour)
+  const plate = normalizeVrm(c.plateText);
+  return plate.length > 0 && plate === vrm;
+}
+
 /**
  * Map a classification to the evidence image-metadata fields the persist seam writes.
  * Policy (mirrors the one-shot backfill): person-reflection -> excluded (domain rule);
  * non-vehicle "other" -> not accepted; overview/damage/additional -> accepted for EVA.
+ * `caseVrm` (when known) constrains `registrationVisible` to the case vehicle's plate —
+ * see `caseRegistrationVisible`.
  */
-export function classificationToEvidenceFields(c: ImageClassification): {
+export function classificationToEvidenceFields(c: ImageClassification, caseVrm?: string): {
   imageRole: ImageRoleName;
   registrationVisible: boolean;
   acceptedForEva: boolean;
   excluded: boolean;
   exclusionReason?: string;
 } {
+  const registrationVisible = caseRegistrationVisible(c, caseVrm);
   if (c.personReflection) {
     return {
       imageRole: c.role,
-      registrationVisible: c.registrationVisible,
+      registrationVisible,
       acceptedForEva: false,
       excluded: true,
       exclusionReason: 'person reflection detected (auto-classified)',
@@ -191,7 +217,7 @@ export function classificationToEvidenceFields(c: ImageClassification): {
   const accepted = c.role !== 'other';
   return {
     imageRole: c.role,
-    registrationVisible: c.registrationVisible,
+    registrationVisible,
     acceptedForEva: accepted,
     excluded: false,
   };

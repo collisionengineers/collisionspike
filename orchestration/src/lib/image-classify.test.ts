@@ -84,4 +84,25 @@ describe('classificationToEvidenceFields', () => {
   it('a genuine vehicle photo -> accepted for EVA', () => {
     expect(classificationToEvidenceFields(base)).toMatchObject({ imageRole: 'overview', registrationVisible: true, acceptedForEva: true, excluded: false });
   });
+
+  it('with NO case VRM, registrationVisible falls back to any legible plate', () => {
+    expect(classificationToEvidenceFields(base)).toMatchObject({ registrationVisible: true });
+    expect(classificationToEvidenceFields(base, undefined)).toMatchObject({ registrationVisible: true });
+  });
+
+  it('with a matching case VRM (space/case-insensitive), registrationVisible stays true', () => {
+    expect(classificationToEvidenceFields({ ...base, plateText: 'AB12CDE' }, 'ab12 cde')).toMatchObject({ registrationVisible: true });
+  });
+
+  it('with a NON-matching case VRM, registrationVisible is forced false (wrong-vehicle plate)', () => {
+    // an audit report photo of a THIRD-PARTY car with a readable plate must not clear the
+    // case's overview rule — the domain contract's registrationVisible = the CASE plate.
+    const f = classificationToEvidenceFields({ ...base, plateText: 'ZZ99ZZZ' }, 'AB12CDE');
+    expect(f).toMatchObject({ imageRole: 'overview', registrationVisible: false, acceptedForEva: true });
+  });
+
+  it('the classifier reading no plate stays false even with a case VRM', () => {
+    expect(classificationToEvidenceFields({ ...base, registrationVisible: false, plateText: '' }, 'AB12CDE'))
+      .toMatchObject({ registrationVisible: false });
+  });
 });

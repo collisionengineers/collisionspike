@@ -38,6 +38,14 @@
 --      AND on_hold AND case_po IS NULL AND work_provider_id IS NOT NULL;
 -- =============================================================================
 
+-- REPLAY-SAFETY CUTOFF. This delta captures the resolved-but-Held cases that existed at
+-- apply time (2026-07-06). Without a bound, a later rerun would ALSO un-hold + mint a
+-- Case/PO for any NEW resolved-Held case still awaiting staff confirmation — a live-data
+-- side effect the deltas/ README forbids ("repeat runs must no-op"). Bounding on
+-- created_at < the day AFTER apply keeps the applied result identical while making reruns
+-- inert against future cases. (The idempotency guard below still no-ops the original 23.)
+\set unhold_cutoff '2026-07-07 00:00:00+00'
+
 BEGIN;
 
 -- Take the live allocator's advisory-lock key for each affected standard prefix, so
@@ -51,6 +59,7 @@ SELECT pg_advisory_xact_lock(hashtext('casepo:' || prefix)::bigint)
      WHERE c.status_code NOT IN (100000008,100000009,100000010,100000011)
        AND c.on_hold AND c.case_po IS NULL
        AND c.work_provider_id IS NOT NULL
+       AND c.created_at < TIMESTAMPTZ :'unhold_cutoff'
   ) p
  ORDER BY prefix;  -- deterministic lock order (deadlock-safe)
 
@@ -64,6 +73,7 @@ WITH held AS (
    WHERE c.status_code NOT IN (100000008,100000009,100000010,100000011)
      AND c.on_hold AND c.case_po IS NULL
      AND c.work_provider_id IS NOT NULL
+     AND c.created_at < TIMESTAMPTZ :'unhold_cutoff'   -- replay-safety (see header)
 ),
 dbmax AS (  -- exact mintCasePo probe, STANDARD marker only
   SELECT h.prefix, h.principal,
