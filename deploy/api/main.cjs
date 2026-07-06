@@ -10661,23 +10661,40 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
   }
   const alreadySettingWorkProviderId = sets.some((s) => s.startsWith("work_provider_id ="));
   if (singleIntermediaryCandidate && !alreadySettingWorkProviderId && isEmpty(cur[0].work_provider_id)) {
-    sets.push(`work_provider_id = $${sets.length + 1}`);
-    vals.push(singleIntermediaryCandidate);
-    provenance.push({
-      field: "workProviderId",
-      value: singleIntermediaryCandidate,
-      sourceType: "corpus",
-      sourceLabel: "From intermediary sender \u2014 routes for a single provider"
-    });
-    await writeAudit({
-      action: AUDIT_ACTION.provider_matched,
-      caseId,
-      summary: "Intermediary sender routes for exactly one work provider \u2014 provider resolved from the intermediary link",
-      after: {
-        workProviderId: singleIntermediaryCandidate,
-        viaIntermediaryImageSourceId: intermediary?.imageSourceId
+    const wpRows = await query(
+      "SELECT display_name FROM work_provider WHERE id = $1 AND active = true",
+      [singleIntermediaryCandidate]
+    );
+    if (wpRows[0]) {
+      sets.push(`work_provider_id = $${sets.length + 1}`);
+      vals.push(singleIntermediaryCandidate);
+      provenance.push({
+        field: "workProviderId",
+        value: singleIntermediaryCandidate,
+        sourceType: "corpus",
+        sourceLabel: "From intermediary sender \u2014 routes for a single provider"
+      });
+      const corpusCandidate = corpusWorkProviderCandidate(wpRows[0].display_name);
+      if (corpusCandidate && isEmpty(cur[0].eva_work_provider) && !sets.some((s) => s.startsWith("eva_work_provider ="))) {
+        sets.push(`eva_work_provider = $${sets.length + 1}`);
+        vals.push(corpusCandidate.value);
+        provenance.push({
+          field: corpusCandidate.provenanceField,
+          value: corpusCandidate.value,
+          sourceType: "corpus",
+          sourceLabel: "From intermediary sender \u2014 routes for a single provider"
+        });
       }
-    });
+      await writeAudit({
+        action: AUDIT_ACTION.provider_matched,
+        caseId,
+        summary: "Intermediary sender routes for exactly one work provider \u2014 provider resolved from the intermediary link",
+        after: {
+          workProviderId: singleIntermediaryCandidate,
+          viaIntermediaryImageSourceId: intermediary?.imageSourceId
+        }
+      });
+    }
   }
   if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {
     const wpRows = await query(

@@ -402,24 +402,53 @@ export async function applyParserFields(
   // visible while a person still confirms/unholds. >1 candidate is left for a human.
   const alreadySettingWorkProviderId = sets.some((s) => s.startsWith('work_provider_id ='));
   if (singleIntermediaryCandidate && !alreadySettingWorkProviderId && isEmpty(cur[0].work_provider_id)) {
-    sets.push(`work_provider_id = $${sets.length + 1}`);
-    vals.push(singleIntermediaryCandidate);
-    provenance.push({
-      field: 'workProviderId',
-      value: singleIntermediaryCandidate,
-      sourceType: 'corpus',
-      sourceLabel: 'From intermediary sender — routes for a single provider',
-    });
-    await writeAudit({
-      action: AUDIT_ACTION.provider_matched,
-      caseId,
-      summary:
-        'Intermediary sender routes for exactly one work provider — provider resolved from the intermediary link',
-      after: {
-        workProviderId: singleIntermediaryCandidate,
-        viaIntermediaryImageSourceId: intermediary?.imageSourceId,
-      },
-    });
+    // Resolve the candidate's row and REQUIRE it active — the intermediary N:N
+    // (candidateProviderIds) is NOT itself active-filtered (the image_source join in the
+    // provider-match-records route), so a stale link to a deactivated provider must not
+    // resolve, exactly as the direct-domain and content-match paths only match active rows.
+    const wpRows = await query<Row>(
+      'SELECT display_name FROM work_provider WHERE id = $1 AND active = true',
+      [singleIntermediaryCandidate],
+    );
+    if (wpRows[0]) {
+      sets.push(`work_provider_id = $${sets.length + 1}`);
+      vals.push(singleIntermediaryCandidate);
+      provenance.push({
+        field: 'workProviderId',
+        value: singleIntermediaryCandidate,
+        sourceType: 'corpus',
+        sourceLabel: 'From intermediary sender — routes for a single provider',
+      });
+      // Mirror the corpus-display fallback below: also fill the free-text EVA provider column
+      // (fill-if-empty) so the REQUIRED EVA `workProvider` field isn't left blank while the FK
+      // identity is set. mightFillWorkProviderFromCorpus is false on this audit path (no
+      // sender-domain provider resolved), so the block below never fills it for these cases.
+      const corpusCandidate = corpusWorkProviderCandidate(wpRows[0].display_name as string | undefined);
+      if (
+        corpusCandidate &&
+        isEmpty(cur[0].eva_work_provider) &&
+        !sets.some((s) => s.startsWith('eva_work_provider ='))
+      ) {
+        sets.push(`eva_work_provider = $${sets.length + 1}`);
+        vals.push(corpusCandidate.value);
+        provenance.push({
+          field: corpusCandidate.provenanceField,
+          value: corpusCandidate.value,
+          sourceType: 'corpus',
+          sourceLabel: 'From intermediary sender — routes for a single provider',
+        });
+      }
+      await writeAudit({
+        action: AUDIT_ACTION.provider_matched,
+        caseId,
+        summary:
+          'Intermediary sender routes for exactly one work provider — provider resolved from the intermediary link',
+        after: {
+          workProviderId: singleIntermediaryCandidate,
+          viaIntermediaryImageSourceId: intermediary?.imageSourceId,
+        },
+      });
+    }
   }
 
   if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {

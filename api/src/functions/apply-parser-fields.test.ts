@@ -47,9 +47,16 @@ beforeEach(() => {
     { id: 'wp-pch', principal_code: 'PCH', display_name: 'Performance Car Hire' },
     { id: 'wp-sbl', principal_code: 'SBL', display_name: 'SBL' },
   ];
-  db.query.mockImplementation(async (sql: string) => {
+  db.query.mockImplementation(async (sql: string, params?: unknown[]) => {
     if (sql.includes('FROM case_ WHERE id')) return [caseRow];
     if (sql.includes('FROM work_provider WHERE active = true')) return providerRows;
+    // The 1c intermediary fallback's active-guard lookup (SELECT display_name ... WHERE id = $1
+    // AND active = true) — resolves only ids present in providerRows (all active here); an
+    // unknown/inactive id returns [] so the fallback declines to write it.
+    if (sql.includes('FROM work_provider WHERE id') && sql.includes('active = true')) {
+      const row = providerRows.find((p) => p.id === (params?.[0] as string));
+      return row ? [{ display_name: row.display_name }] : [];
+    }
     return [];
   });
 });
@@ -75,8 +82,29 @@ describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-0
     expect(upd).toBeDefined();
     expect(upd![0]).toContain('work_provider_id =');
     expect(upd![1]).toContain('wp-pch');
+    // TKT-065 follow-up: the REQUIRED free-text EVA provider field is filled too (not left
+    // blank while the FK identity is set) — mirrors the corpus-display fallback.
+    expect(upd![0]).toContain('eva_work_provider =');
+    expect(upd![1]).toContain('Performance Car Hire');
     // audit trail records the intermediary resolution
     expect(auditCall()).toBeDefined();
+  });
+
+  it('does NOT resolve a single-candidate intermediary whose provider is INACTIVE', async () => {
+    // candidateProviderIds comes from the image-source N:N, which is not active-filtered; a
+    // stale link to a deactivated provider (absent from the active corpus) must not be written.
+    await applyParserFields(
+      'case-1',
+      undefined,
+      undefined,
+      undefined,
+      { work_provider: 'EVA (Engineers)' },
+      null,
+      { imageSourceId: CONNEXUS, candidateProviderIds: ['wp-deactivated'] },
+    );
+    const upd = updateCall();
+    expect(upd?.[0].includes('work_provider_id =') ?? false).toBe(false);
+    expect(auditCall()).toBeUndefined();
   });
 
   it('fills from a single-candidate intermediary even with NO content provider at all', async () => {

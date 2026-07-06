@@ -38,6 +38,20 @@ UPDATE work_provider
  WHERE principal_code = 'PCH'
    AND display_name IS DISTINCT FROM 'Performance Car Hire';
 
+-- Denormalized copies: several create paths (provider-API intake, the parser corpus
+-- fallback) SNAPSHOT work_provider.display_name into the case_.eva_work_provider free-text
+-- column at intake, and EVA export/readiness read THAT column, not the joined row. Any PCH
+-- case minted while the corpus still said "PCH (name pending)" would keep exporting the
+-- placeholder after the rename above. Correct those too (idempotent; 0 rows on the live DB
+-- at authoring 2026-07-06 — defensive against a future reseed-then-intake ordering).
+UPDATE case_ c
+   SET eva_work_provider = 'Performance Car Hire',
+       updated_at        = now()
+  FROM work_provider w
+ WHERE c.work_provider_id = w.id
+   AND w.principal_code = 'PCH'
+   AND c.eva_work_provider ILIKE '%(name pending)%';
+
 COMMIT;
 
 -- POST-CHECK (expect 'Performance Car Hire'):

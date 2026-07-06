@@ -19,9 +19,11 @@
 --      work provider by known_email_domains (e.g. pch-ltd.com → PCH), set it. A
 --      case whose only sender is the connexus.co.uk INTERMEDIARY (routes for
 --      {PCH,SBL}) matches no work_provider domain → stays NULL/Held (never guessed).
---   2. Clear the leaked engineer-report layout name from eva_work_provider on ALL
---      mislabelled cases → the UI shows the resolved provider (via work_provider_id)
---      or blank, never "EVA (Engineers)".
+--   2. Repair the leaked engineer-report layout name in eva_work_provider: RESOLVED cases
+--      (2a) get the resolved provider's real display_name — the REQUIRED EVA workProvider
+--      field reads THIS free-text column, not the joined FK, so a blank here reads as a
+--      missing provider at readiness/export. UNRESOLVED cases (2b, connexus-only) are
+--      blanked → the UI shows blank (via work_provider_id NULL), never "EVA (Engineers)".
 --   3. Remove the stale field_level_provenance workProvider rows holding the dead value.
 --
 -- WHAT IT DELIBERATELY DOES NOT DO: it does NOT un-hold the case or mint a Case/PO
@@ -68,8 +70,12 @@ domain_matches AS (
      AND (
            -- single-domain value: exact (case-insensitive)
            lower(btrim(wp.known_email_domains)) = lower(btrim(e.sender_domain))
-           -- comma-list value: exact token match (guards against substring collisions)
-        OR (',' || replace(lower(wp.known_email_domains), ' ', '') || ',')
+           -- multi-domain value: exact token match (guards against substring collisions).
+           -- known_email_domains is stored NEWLINE-separated (providers.ts join('\n')); the
+           -- seed/admin paths also accept commas — so normalise BOTH \n and \r to commas
+           -- (after stripping spaces) before the comma-token LIKE, or a value like
+           -- "old.example\npch-ltd.com" would never match "%,pch-ltd.com,%".
+        OR (',' || translate(replace(lower(wp.known_email_domains), ' ', ''), E'\n\r', ',,') || ',')
              LIKE ('%,' || lower(btrim(e.sender_domain)) || ',%')
          )
 ),
@@ -88,14 +94,30 @@ UPDATE case_ c
  WHERE c.id = r.case_id
    AND c.work_provider_id IS NULL;
 
--- 2. Clear the leaked engineer-report layout name from the free-text provider column.
+-- 2a. RESOLVED cases (step 1 filled work_provider_id): replace the leaked engineer-report
+--     layout name with the resolved provider's REAL display_name — the EVA `workProvider`
+--     field is required and reads THIS column (not the joined FK), so leaving it blank would
+--     leave readiness/export missing a provider the migration actually found.
+UPDATE case_ c
+   SET eva_work_provider = w.display_name,
+       updated_at        = now()
+  FROM work_provider w
+ WHERE c.work_provider_id = w.id
+   AND ( c.eva_work_provider ILIKE '%eva (engineers)%'
+      OR c.eva_work_provider ILIKE '%cnx (engineers)%'
+      OR c.eva_work_provider ILIKE '%exclusive vehicle assessors%'
+      OR c.eva_work_provider ILIKE '%connexus vehicle assessors%' );
+
+-- 2b. UNRESOLVED cases (connexus-only intermediary → still no provider): clear the leaked
+--     label so the UI shows blank (never "EVA (Engineers)") while a person resolves it.
 UPDATE case_
    SET eva_work_provider = '',
        updated_at        = now()
- WHERE eva_work_provider ILIKE '%eva (engineers)%'
-    OR eva_work_provider ILIKE '%cnx (engineers)%'
-    OR eva_work_provider ILIKE '%exclusive vehicle assessors%'
-    OR eva_work_provider ILIKE '%connexus vehicle assessors%';
+ WHERE work_provider_id IS NULL
+   AND ( eva_work_provider ILIKE '%eva (engineers)%'
+      OR eva_work_provider ILIKE '%cnx (engineers)%'
+      OR eva_work_provider ILIKE '%exclusive vehicle assessors%'
+      OR eva_work_provider ILIKE '%connexus vehicle assessors%' );
 
 -- 3. Remove the stale workProvider provenance rows pointing at the dead value.
 DELETE FROM field_level_provenance
