@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import base64
+
 import pytest
 
 import photo_source as ps
 from photo_source import (
     BoxPhotoSource,
+    InlinePhotoSource,
     PhotoRef,
     PhotoUnavailableError,
     StubPhotoSource,
     get_photo_source,
+    select_photo_source,
 )
 
 
@@ -57,3 +61,34 @@ def test_truthy_helper():
     assert not ps._truthy("false")
     assert not ps._truthy("")
     assert not ps._truthy(None)
+
+
+# --- InlinePhotoSource (TKT-077) --------------------------------------------------------------
+
+def test_inline_source_decodes_base64_bytes():
+    b64 = base64.b64encode(b"\xff\xd8jpegbytes").decode("ascii")
+    src = InlinePhotoSource()
+    assert src.fetch_bytes(PhotoRef(evidence_id="ev1", inline_b64=b64)) == b"\xff\xd8jpegbytes"
+
+
+def test_inline_source_missing_bytes_raises():
+    with pytest.raises(PhotoUnavailableError):
+        InlinePhotoSource().fetch_bytes(PhotoRef(evidence_id="ev1"))
+
+
+def test_inline_source_bad_base64_raises():
+    with pytest.raises(PhotoUnavailableError):
+        InlinePhotoSource().fetch_bytes(PhotoRef(evidence_id="ev1", inline_b64="!!!not base64!!!==="))
+
+
+def test_select_prefers_inline_when_any_ref_has_bytes(monkeypatch):
+    # Box "enabled" would normally pick the raising BoxPhotoSource — inline must win.
+    monkeypatch.setenv("BOX_API_ENABLED", "true")
+    refs = [PhotoRef(evidence_id="a"), PhotoRef(evidence_id="b", inline_b64=base64.b64encode(b"x").decode())]
+    assert isinstance(select_photo_source(refs), InlinePhotoSource)
+
+
+def test_select_falls_back_to_factory_without_inline(monkeypatch):
+    monkeypatch.delenv("BOX_API_ENABLED", raising=False)
+    refs = [PhotoRef(evidence_id="a"), PhotoRef(evidence_id="b")]
+    assert isinstance(select_photo_source(refs, {"a": b"x"}), StubPhotoSource)

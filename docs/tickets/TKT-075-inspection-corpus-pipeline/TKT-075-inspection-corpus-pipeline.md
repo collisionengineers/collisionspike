@@ -1,7 +1,7 @@
 ---
 id: TKT-075
 title: Rebuild the inspection-address corpus in-repo — correct provider attribution + geocodes
-status: backlog
+status: done
 priority: P1
 area: platform
 tickets-it-relates-to: [TKT-062, TKT-076, TKT-080, TKT-074]

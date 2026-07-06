@@ -16,6 +16,7 @@ CREATE TABLE inspection_address (
   decision_reason      text,                        -- REQUIRED when decision_mode=image_based
   source_label         varchar(100),                -- repairer|storage|home|'suggested[:status]'
   source_note          text,
+  provider_code        varchar(16),                 -- ADR-0016 work-provider scoping (suggested rows; NULL on a Case)
   address_line1        varchar(200),
   address_line2        varchar(200),
   address_line3        varchar(200),
@@ -23,6 +24,8 @@ CREATE TABLE inspection_address (
   address_line5        varchar(200),
   address_line6        varchar(200),
   postcode             varchar(16),
+  latitude             double precision,            -- corpus site centroid (offline geocode; ordering only)
+  longitude            double precision,
   -- ADR-0016 offline ranking metadata (suggested rows only; NEVER carried on a Case)
   suggestion_frequency integer CHECK (suggestion_frequency IS NULL OR suggestion_frequency >= 0),
   last_seen_on         date,
@@ -40,6 +43,11 @@ COMMENT ON TABLE inspection_address IS 'cr1bd_inspectionaddress -- per-case loca
 COMMENT ON COLUMN inspection_address.source_label IS 'cr1bd_sourcelabel. ''suggested'' prefix marks low-confidence catalogue rows (decision_mode=unknown); read via source_label LIKE ''suggested%''.';
 
 CREATE INDEX ix_inspection_address_suggested ON inspection_address (source_label)
+  WHERE source_label LIKE 'suggested%';
+
+-- Server-side provider scoping of the suggestions shortlist (TKT-076): the Data API filters
+-- suggested rows by provider_code, so index it on the suggested partition.
+CREATE INDEX ix_inspection_address_provider ON inspection_address (provider_code)
   WHERE source_label LIKE 'suggested%';
 
 COMMIT;

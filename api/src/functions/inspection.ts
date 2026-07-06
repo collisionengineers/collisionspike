@@ -26,10 +26,13 @@ import { query } from '../lib/db.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import {
   isSuggestedAddressRow,
+  principalFromCasePo,
   rowToSuggestedAddress,
+  scopeSuggestions,
   sortSuggestions,
   type Row,
 } from '../lib/mappers.js';
+import { extractPostcode, geocodePostcode, haversineMiles } from '../lib/maps.js';
 
 const CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt('confirmed_physical'); // 100000000
 const IMAGE_BASED = inspectionDecisionCodec.toInt('image_based'); // 100000002
@@ -38,20 +41,6 @@ const IMAGE_BASED = inspectionDecisionCodec.toInt('image_based'); // 100000002
  *  buried the picker (TKT-062). Staff see a ranked shortlist; "?q=" searches the rest. */
 const SHORTLIST_LIMIT = 8;
 const SEARCH_LIMIT = 25;
-
-/** The provider PRINCIPAL from a Case/PO, ignoring the optional case-type MARKER prefix
- *  (ADR-0021: 'A.' audit / 'AP.' total-loss audit / 'D.' diminution). Without stripping the
- *  marker, "A.PCH26001" scopes to the bogus principal "A" and the shortlist mis-ranks. Plain
- *  "CCPY26050" → "CCPY". Upper-cased; '' when there is no leading-alpha principal. */
-function principalFromCasePo(casePo: string | null | undefined): string {
-  return (
-    (casePo ?? '')
-      .trim()
-      .replace(/^(?:AP|A|D)\./i, '')
-      .match(/^[A-Za-z]+/)?.[0]
-      ?.toUpperCase() ?? ''
-  );
-}
 
 /** Case-insensitive substring match over an address's lines + postcode. */
 function addressMatches(a: SuggestedAddress, needle: string): boolean {
@@ -74,24 +63,51 @@ app.http('inspectionAddressSuggestions', {
       const rows = await query<Row>(
         "SELECT * FROM inspection_address WHERE source_label LIKE 'suggested%'",
       );
-      const all = sortSuggestions(
-        rows.filter(isSuggestedAddressRow).map(rowToSuggestedAddress) as SuggestedAddress[],
-      );
+      const suggestedRows = rows.filter(isSuggestedAddressRow);
 
-      // Search mode: substring over the full corpus, still ranked, capped.
+      // Proximity centroid (ADR-0016 #2b, ORDERING ONLY): the case's accident postcode
+      // (preferred) or claimant postcode. Degrades to no-proximity when nothing geocodes
+      // (no AZURE_MAPS_KEY, no postcode, or the geocode fails) — never blocks the shortlist.
+      const caseRows = await query<Row>(
+        'SELECT case_po, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1',
+        [id],
+      );
+      const caseRow = caseRows[0];
+      const casePostcode =
+        extractPostcode(caseRow?.eva_accident_circumstances as string | null) ??
+        extractPostcode(caseRow?.eva_claimant_address as string | null);
+      const centroid = await geocodePostcode(casePostcode);
+
+      const withDistance = (r: Row): SuggestedAddress => {
+        const a = rowToSuggestedAddress(r);
+        if (centroid && r.latitude != null && r.longitude != null) {
+          a.distanceMiles =
+            Math.round(haversineMiles(centroid, { lat: Number(r.latitude), lon: Number(r.longitude) }) * 10) /
+            10;
+        }
+        return a;
+      };
+      const all = suggestedRows.map(withDistance);
+
+      // Search mode: substring over the full corpus, ranked (proximity-aware), capped.
       if (q.length >= 2) {
-        return { status: 200, jsonBody: all.filter((a) => addressMatches(a, q)).slice(0, SEARCH_LIMIT) };
+        return {
+          status: 200,
+          jsonBody: sortSuggestions(all.filter((a) => addressMatches(a, q)), {
+            byDistance: !!centroid,
+          }).slice(0, SEARCH_LIMIT),
+        };
       }
 
-      // Shortlist mode: scope by the leading-alpha PRINCIPAL parsed from the Case/PO
-      // (typically 4 chars; 2–5 observed), then cap. When the provider scope yields
-      // nothing, fall back to the global top-N (NOT the whole corpus — that was the bug).
-      const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [id]);
-      const providerCode = principalFromCasePo(caseRows[0]?.case_po as string | null);
-      const scoped = providerCode
-        ? all.filter((s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode)
-        : all;
-      const shortlist = (scoped.length > 0 ? scoped : all).slice(0, SHORTLIST_LIMIT);
+      // Shortlist mode: scope by the leading-alpha PRINCIPAL parsed from the Case/PO. When no
+      // provider-specific rows match (unknown provider, or corpus not yet reseeded with
+      // provider_code), return a LABELLED global top-N — never the unlabelled whole-corpus
+      // firehose (the TKT-062/076 bug: `!s.providerCode ||` kept every no-provider row).
+      const providerCode = principalFromCasePo(caseRow?.case_po as string | null);
+      const { list, usingFallback } = scopeSuggestions(all, providerCode);
+      const shortlist = sortSuggestions(list, { byDistance: !!centroid })
+        .slice(0, SHORTLIST_LIMIT)
+        .map((s) => (usingFallback ? { ...s, scopeFallback: true } : s));
       return { status: 200, jsonBody: shortlist };
     } catch {
       return { status: 200, jsonBody: [] }; // honest-empty on any failure

@@ -15,16 +15,7 @@
 import { app, type HttpRequest, type InvocationContext } from '@azure/functions';
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
-import { downloadEvidenceBytes } from '../lib/blob.js';
-import { downloadBoxFileContent } from '../lib/functions-client.js';
-
-interface EvidenceRow {
-  storage_path: string | null;
-  content_type: string | null;
-  file_name: string | null;
-  box_file_id: string | null;
-  [key: string]: unknown;
-}
+import { resolveBytesForRow, type EvidenceByteRow } from '../lib/evidence-bytes.js';
 
 // GET /api/evidence/{id}/content
 app.http('evidenceContent', {
@@ -35,39 +26,26 @@ app.http('evidenceContent', {
     const id = req.params.id;
     if (!id) return { status: 400, jsonBody: { error: 'evidence id required' } };
     try {
-      const rows = await query<EvidenceRow>(
-        'SELECT storage_path, content_type, file_name, box_file_id FROM evidence WHERE id = $1',
+      const rows = await query<EvidenceByteRow>(
+        'SELECT id, storage_path, content_type, file_name, box_file_id FROM evidence WHERE id = $1',
         [id],
       );
       const row = rows[0];
       if (!row) return { status: 404, jsonBody: { error: 'not found' } };
 
-      // Prefer the local blob; fall back to the archived Box copy when there is no blob
-      // (~39% of evidence is Box-only). Box transport is base64-in-JSON and size-capped in
-      // the box-fn, so large files return undefined here and the UI keeps its Archive link.
-      let bytes: Buffer | undefined;
-      let contentType = row.content_type || 'application/octet-stream';
-      if (row.storage_path) {
-        const blob = await downloadEvidenceBytes(row.storage_path);
-        if (blob) {
-          bytes = blob.bytes;
-          contentType = blob.contentType || contentType;
-        }
-      }
-      if (!bytes && row.box_file_id) {
-        const boxRes = await downloadBoxFileContent(row.box_file_id);
-        if (boxRes) bytes = boxRes.bytes; // content-type from the evidence row
-      }
-      if (!bytes) return { status: 404, jsonBody: { error: 'no inline content' } };
+      // Blob-first, then the archived Box copy (~39% of evidence is Box-only). Large Box files
+      // return null (the box-fn caps size), so the UI keeps its "Open in Archive" link.
+      const resolved = await resolveBytesForRow(row);
+      if (!resolved) return { status: 404, jsonBody: { error: 'no inline content' } };
       return {
         status: 200,
         headers: {
-          'Content-Type': contentType,
+          'Content-Type': resolved.contentType,
           // Private (per-staff, RLS-scoped) but cacheable for the session — previews repeat.
           'Cache-Control': 'private, max-age=300',
-          'Content-Disposition': `inline; filename="${(row.file_name ?? 'evidence').replace(/[^A-Za-z0-9._-]+/g, '_')}"`,
+          'Content-Disposition': `inline; filename="${(resolved.fileName ?? 'evidence').replace(/[^A-Za-z0-9._-]+/g, '_')}"`,
         },
-        body: bytes,
+        body: resolved.bytes,
       };
     } catch (e) {
       ctx.warn(`[evidence/content] ${e instanceof Error ? e.message : String(e)}`);

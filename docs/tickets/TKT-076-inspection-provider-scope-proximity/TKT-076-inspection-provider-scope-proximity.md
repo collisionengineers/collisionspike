@@ -1,7 +1,7 @@
 ---
 id: TKT-076
 title: Inspection suggestions ignore the provider and distance — real scoping + nearest-first
-status: backlog
+status: now
 priority: P1
 area: ui
 tickets-it-relates-to: [TKT-062, TKT-075, TKT-080]

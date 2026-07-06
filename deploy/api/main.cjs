@@ -7662,7 +7662,8 @@ var LOCATION_ASSIST_GATE_ALL_OFF = {
   assistEnabled: false,
   mapsEnabled: false,
   apiBaseConfigured: false,
-  enabled: false
+  enabled: false,
+  aiEnabled: false
 };
 var AI_ASSIST_GATE_ALL_OFF = {
   enabled: false,
@@ -9245,8 +9246,8 @@ var LocalJWKSet = class {
     return importWithAlgCache(this._cached, jwk, alg);
   }
 };
-async function importWithAlgCache(cache, jwk, alg) {
-  const cached = cache.get(jwk) || cache.set(jwk, {}).get(jwk);
+async function importWithAlgCache(cache2, jwk, alg) {
+  const cached = cache2.get(jwk) || cache2.set(jwk, {}).get(jwk);
   if (cached[alg] === void 0) {
     const key = await importJWK({ ...jwk, ext: true }, alg);
     if (key instanceof Uint8Array || key.type !== "public") {
@@ -9633,6 +9634,10 @@ var gates = {
   // #15
   locationAssist: () => process.env.LOCATION_ASSIST_ENABLED === "true",
   // #17
+  // AI vision-reasoning ESCALATION for location assist (TKT-078) — default OFF, ships DARK.
+  // A deeper photo-based location suggestion via the keyless AOAI gpt-5 vision model, gated on
+  // TOP of locationAssist. Operator-blocked for live flip (production AI sign-off, gated.md E2).
+  locationAssistAi: () => process.env.LOCATION_ASSIST_AI_ENABLED === "true",
   chaserSend: () => process.env.CHASER_SEND_ENABLED === "true",
   // #19
   caseDisposition: () => process.env.CASE_DISPOSITION_ENABLED === "true",
@@ -9715,6 +9720,12 @@ var gates = {
    * Used by GET /api/gates/location-assist (plan 21 §21.2).
    */
   locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== "",
+  /**
+   * Derived: the AI vision-reasoning escalation is actionable — the base location assist is on,
+   * its own gate is on, AND a model endpoint + deployment are configured. Off => the deeper
+   * suggestion path is an honest no-op (TKT-078). Ships DARK; operator-gated live flip (gated.md E2).
+   */
+  locationAssistAiEnabled: () => gates.locationAssistEnabled() && gates.locationAssistAi() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
   /**
    * Derived: a model endpoint AND deployment are both configured. The AI generate
    * route requires this in ADDITION to the aiAssist() switch — gate ON but model
@@ -9923,7 +9934,7 @@ function matchWorkProviderByContentString(raw, providers) {
 }
 
 // api/src/lib/mappers.ts
-var CASE_SELECT = "SELECT c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id";
+var CASE_SELECT = "SELECT c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal, wp.inspection_location_policy_code AS provider_inspection_policy FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id";
 var pad = (n) => String(n).padStart(2, "0");
 function toDmy(v) {
   if (v == null || v === "") return void 0;
@@ -10031,6 +10042,9 @@ function rowToCase(rec, opts = {}) {
     ...rec.eva_claimant_address ? { claimantAddress: rec.eva_claimant_address } : {},
     provider: rec.provider_display ?? rec.eva_work_provider ?? "",
     providerCode: rec.provider_principal ?? "",
+    // The provider's operator-designated inspection policy (ADR-0016) — surfaced in the address
+    // flow as an informational default, NEVER auto-applied (TKT-079). Omitted for an unknown provider.
+    ...inspectionPolicyCodec.toName(rec.provider_inspection_policy ?? void 0) ? { providerInspectionPolicy: inspectionPolicyCodec.toName(rec.provider_inspection_policy) } : {},
     vehicleModel: rec.eva_vehicle_model ?? "",
     evaFields: rowToEvaFields(rec, opts.provenanceRows),
     evidence: opts.evidence ?? [],
@@ -10117,11 +10131,12 @@ function rowToSuggestedAddress(rec) {
   const note = rec.source_note ?? void 0;
   const humanEvidence = note ? note.replace(/\b(?:provider|loc|status)=\S*/gi, "").replace(/\bsource=/gi, "").replace(/\s{2,}/g, " ").replace(/\s+([.,])/g, "$1").replace(/\.{2,}/g, ".").trim() : "";
   const lastSeen = toIso(rec.last_seen_on).slice(0, 10);
+  const providerCode = rec.provider_code ? String(rec.provider_code).trim() : noteToken(note, "provider");
   return {
     id: rec.id ?? "",
     lines,
     postcode: (rec.postcode ?? "").trim(),
-    ...noteToken(note, "provider") ? { providerCode: noteToken(note, "provider") } : {},
+    ...providerCode ? { providerCode } : {},
     ...noteToken(note, "loc") ? { locValue: noteToken(note, "loc") } : {},
     ...humanEvidence ? { evidenceNote: humanEvidence } : {},
     ...confidenceBand ? { confidenceBand } : {},
@@ -10130,8 +10145,14 @@ function rowToSuggestedAddress(rec) {
     ...rec.suggestion_rank != null ? { rank: Number(rec.suggestion_rank) } : {}
   };
 }
-function sortSuggestions(list) {
+function sortSuggestions(list, opts) {
+  const byDistance = opts?.byDistance ?? false;
   return list.map((s, i) => ({ s, i })).sort((a, b) => {
+    if (byDistance) {
+      const da = a.s.distanceMiles ?? Number.POSITIVE_INFINITY;
+      const db = b.s.distanceMiles ?? Number.POSITIVE_INFINITY;
+      if (da !== db) return da - db;
+    }
     const ra = a.s.rank;
     const rb = b.s.rank;
     if (ra != null && rb != null && ra !== rb) return ra - rb;
@@ -10145,6 +10166,13 @@ function sortSuggestions(list) {
     if (la !== lb) return lb < la ? -1 : 1;
     return a.i - b.i;
   }).map((x) => x.s);
+}
+function principalFromCasePo(casePo) {
+  return (casePo ?? "").trim().replace(/^(?:AP|A|D)\./i, "").match(/^[A-Za-z]+/)?.[0]?.toUpperCase() ?? "";
+}
+function scopeSuggestions(all, providerCode) {
+  const scoped = providerCode ? all.filter((s) => (s.providerCode ?? "").toUpperCase() === providerCode.toUpperCase()) : [];
+  return scoped.length > 0 ? { list: scoped, usingFallback: false } : { list: all, usingFallback: true };
 }
 function formatOccurredAt(v) {
   if (!v) return "";
@@ -12994,13 +13022,59 @@ import_functions3.app.http("updateProvider", {
 
 // api/src/functions/inspection.ts
 var import_functions4 = require("@azure/functions");
+
+// api/src/lib/maps.ts
+var MAPS_HOST = "https://atlas.microsoft.com/search/address/json";
+var UK_POSTCODE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
+var cache = /* @__PURE__ */ new Map();
+function extractPostcode(text) {
+  if (!text) return null;
+  const m = text.match(UK_POSTCODE);
+  if (!m) return null;
+  return `${m[1].toUpperCase()} ${m[2].toUpperCase()}`;
+}
+function haversineMiles(a, b) {
+  const R = 3958.7613;
+  const toRad = (d) => d * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+async function geocodePostcode(postcode) {
+  const pc = extractPostcode(postcode);
+  if (!pc) return null;
+  if (cache.has(pc)) return cache.get(pc) ?? null;
+  const key = process.env.AZURE_MAPS_KEY ?? "";
+  if (!key) {
+    cache.set(pc, null);
+    return null;
+  }
+  try {
+    const url2 = `${MAPS_HOST}?api-version=1.0&countrySet=GB&limit=1&subscription-key=${encodeURIComponent(key)}&query=${encodeURIComponent(pc)}`;
+    const res = await fetch(url2, { signal: AbortSignal.timeout(4e3) });
+    if (!res.ok) {
+      cache.set(pc, null);
+      return null;
+    }
+    const body2 = await res.json();
+    const pos = body2.results?.[0]?.position;
+    const geo = pos && typeof pos.lat === "number" && typeof pos.lon === "number" ? { lat: pos.lat, lon: pos.lon } : null;
+    cache.set(pc, geo);
+    return geo;
+  } catch {
+    cache.set(pc, null);
+    return null;
+  }
+}
+
+// api/src/functions/inspection.ts
 var CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt("confirmed_physical");
 var IMAGE_BASED = inspectionDecisionCodec.toInt("image_based");
 var SHORTLIST_LIMIT = 8;
 var SEARCH_LIMIT = 25;
-function principalFromCasePo(casePo) {
-  return (casePo ?? "").trim().replace(/^(?:AP|A|D)\./i, "").match(/^[A-Za-z]+/)?.[0]?.toUpperCase() ?? "";
-}
 function addressMatches(a, needle) {
   const hay = `${a.lines.join(" ")} ${a.postcode}`.toLowerCase();
   return hay.includes(needle);
@@ -13016,16 +13090,33 @@ import_functions4.app.http("inspectionAddressSuggestions", {
       const rows = await query(
         "SELECT * FROM inspection_address WHERE source_label LIKE 'suggested%'"
       );
-      const all = sortSuggestions(
-        rows.filter(isSuggestedAddressRow).map(rowToSuggestedAddress)
+      const suggestedRows = rows.filter(isSuggestedAddressRow);
+      const caseRows = await query(
+        "SELECT case_po, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1",
+        [id]
       );
+      const caseRow = caseRows[0];
+      const casePostcode = extractPostcode(caseRow?.eva_accident_circumstances) ?? extractPostcode(caseRow?.eva_claimant_address);
+      const centroid = await geocodePostcode(casePostcode);
+      const withDistance = (r) => {
+        const a = rowToSuggestedAddress(r);
+        if (centroid && r.latitude != null && r.longitude != null) {
+          a.distanceMiles = Math.round(haversineMiles(centroid, { lat: Number(r.latitude), lon: Number(r.longitude) }) * 10) / 10;
+        }
+        return a;
+      };
+      const all = suggestedRows.map(withDistance);
       if (q.length >= 2) {
-        return { status: 200, jsonBody: all.filter((a) => addressMatches(a, q)).slice(0, SEARCH_LIMIT) };
+        return {
+          status: 200,
+          jsonBody: sortSuggestions(all.filter((a) => addressMatches(a, q)), {
+            byDistance: !!centroid
+          }).slice(0, SEARCH_LIMIT)
+        };
       }
-      const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [id]);
-      const providerCode = principalFromCasePo(caseRows[0]?.case_po);
-      const scoped = providerCode ? all.filter((s) => !s.providerCode || s.providerCode.toUpperCase() === providerCode) : all;
-      const shortlist = (scoped.length > 0 ? scoped : all).slice(0, SHORTLIST_LIMIT);
+      const providerCode = principalFromCasePo(caseRow?.case_po);
+      const { list, usingFallback } = scopeSuggestions(all, providerCode);
+      const shortlist = sortSuggestions(list, { byDistance: !!centroid }).slice(0, SHORTLIST_LIMIT).map((s) => usingFallback ? { ...s, scopeFallback: true } : s);
       return { status: 200, jsonBody: shortlist };
     } catch {
       return { status: 200, jsonBody: [] };
@@ -13344,7 +13435,8 @@ import_functions6.app.http("getLocationAssistGate", {
         assistEnabled: gates.locationAssist(),
         mapsEnabled: gates.azureMaps(),
         apiBaseConfigured: gates.locationAssistApiBase() !== "",
-        enabled: gates.locationAssistEnabled()
+        enabled: gates.locationAssistEnabled(),
+        aiEnabled: gates.locationAssistAiEnabled()
       };
       return { status: 200, jsonBody: result };
     } catch {
@@ -13802,800 +13894,6 @@ async function writeImprovementSignal(row, fieldName, originalValue, correctedVa
 
 // api/src/functions/proxy.ts
 var import_functions9 = require("@azure/functions");
-import_functions9.app.http("locationAssistSuggest", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "location-assist/suggest",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    if (!gates.locationAssistEnabled()) {
-      return { status: 200, jsonBody: [] };
-    }
-    try {
-      const body2 = await req.json();
-      const result = await callLocationSuggest(body2);
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: [] };
-    }
-  })
-});
-import_functions9.app.http("parserParse", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "parser/parse",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    if (!gates.pdfMapper()) {
-      return { status: 200, jsonBody: { skipped: true } };
-    }
-    try {
-      const body2 = await req.json();
-      const result = await callParser(body2);
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { skipped: true, error: true } };
-    }
-  })
-});
-
-// api/src/functions/internal-retro.ts
-var import_functions10 = require("@azure/functions");
-
-// api/src/lib/retro-validate.ts
-var RETRO_ALLOWED_STATUSES = ["eva_submitted", "needs_review"];
-var RETRO_RECONSTRUCTION_SOURCES = ["box_eml", "box_doc", "outlook", "minimal"];
-function hasEnvelopeIdentity(v) {
-  return v != null && typeof v === "object" && typeof v.internetMessageId === "string" && (v.internetMessageId ?? "").trim().length > 0;
-}
-function normalizeRetroKeys(keys) {
-  const out = {};
-  const rawPo = (keys?.casePo ?? "").trim();
-  if (rawPo) {
-    const po = normalizeCasePo(rawPo);
-    if (!CASE_PO_SHAPE_RE.test(po)) {
-      return {
-        ok: false,
-        code: "invalid_case_po",
-        message: `keys.casePo '${rawPo}' is not Case/PO-shaped`
-      };
-    }
-    out.casePo = po;
-  }
-  const ref = (keys?.externalRef ?? "").trim().toUpperCase();
-  if (ref) out.externalRef = ref;
-  const vrm = (keys?.vrm ?? "").trim().toUpperCase().replace(/\s+/g, "");
-  if (vrm) out.vrm = vrm;
-  return out;
-}
-function validateRetroResolveExisting(body2) {
-  if (body2 == null || typeof body2 !== "object") {
-    return { ok: false, code: "invalid_body", message: "body must be a JSON object" };
-  }
-  const b = body2;
-  if (!hasEnvelopeIdentity(b.trigger)) {
-    return { ok: false, code: "missing_trigger", message: "trigger envelope (internetMessageId) required" };
-  }
-  const keys = normalizeRetroKeys(b.keys);
-  if ("ok" in keys) return keys;
-  if (!keys.casePo && !keys.externalRef && !keys.vrm) {
-    return { ok: false, code: "missing_keys", message: "at least one of keys.casePo/externalRef/vrm required" };
-  }
-  return { ok: true, value: { keys } };
-}
-function validateRetroCreate(body2) {
-  if (body2 == null || typeof body2 !== "object") {
-    return { ok: false, code: "invalid_body", message: "body must be a JSON object" };
-  }
-  const b = body2;
-  if (!hasEnvelopeIdentity(b.original)) {
-    return { ok: false, code: "missing_original", message: "original envelope (internetMessageId) required" };
-  }
-  if (!hasEnvelopeIdentity(b.trigger)) {
-    return { ok: false, code: "missing_trigger", message: "trigger envelope (internetMessageId) required" };
-  }
-  const keys = normalizeRetroKeys(b.keys);
-  if ("ok" in keys) return keys;
-  let casePo;
-  const rawPo = (b.casePo ?? "").trim();
-  if (rawPo) {
-    const po = normalizeCasePo(rawPo);
-    if (!CASE_PO_SHAPE_RE.test(po)) {
-      return { ok: false, code: "invalid_case_po", message: `casePo '${rawPo}' is not Case/PO-shaped` };
-    }
-    casePo = po;
-  }
-  const status = (b.statusName ?? "").trim();
-  if (!RETRO_ALLOWED_STATUSES.includes(status)) {
-    return {
-      ok: false,
-      code: "invalid_status",
-      message: `statusName must be one of ${RETRO_ALLOWED_STATUSES.join("/")}`
-    };
-  }
-  const source = (b.reconstructionSource ?? "").trim();
-  if (!RETRO_RECONSTRUCTION_SOURCES.includes(source)) {
-    return {
-      ok: false,
-      code: "invalid_reconstruction_source",
-      message: `reconstructionSource must be one of ${RETRO_RECONSTRUCTION_SOURCES.join("/")}`
-    };
-  }
-  const actionReasonRaw = (b.actionReason ?? "").trim();
-  if (actionReasonRaw && actionReasonRaw !== "needs_review") {
-    return { ok: false, code: "invalid_action_reason", message: "actionReason must be 'needs_review' when present" };
-  }
-  return {
-    ok: true,
-    value: {
-      keys,
-      ...casePo ? { casePo } : {},
-      status,
-      onHold: b.onHold === true,
-      ...actionReasonRaw ? { actionReason: "needs_review" } : {},
-      reconstructionSource: source
-    }
-  };
-}
-
-// api/src/functions/internal-retro.ts
-var RETRO_CHANNEL_CODE = 100000003;
-function retroOriginalClassification(keys, casePo) {
-  return {
-    category: "receiving_work",
-    subtype: "existing_provider_instruction",
-    confidence: 0,
-    signals: ["retro_reconstructed"],
-    bodyVrm: keys.vrm ?? "",
-    bodyCaseref: casePo ?? keys.casePo ?? "",
-    bodyJobref: keys.externalRef ?? ""
-  };
-}
-async function findExistingCases(q, keys, providerId) {
-  const SELECT = "SELECT id, case_po, case_ref, vrm, status_code FROM case_";
-  for (const [token, matchedBy] of [
-    [keys.casePo, "case_po"],
-    [keys.externalRef, "external_ref"]
-  ]) {
-    if (!token) continue;
-    const rows = await q(
-      `${SELECT} WHERE (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) ORDER BY created_at`,
-      [token]
-    );
-    if (rows.length > 0) return { rows, matchedBy };
-  }
-  if (keys.vrm) {
-    const rows = providerId ? await q(`${SELECT} WHERE vrm = $1 AND work_provider_id = $2 ORDER BY created_at`, [
-      keys.vrm,
-      providerId
-    ]) : await q(`${SELECT} WHERE vrm = $1 ORDER BY created_at`, [keys.vrm]);
-    if (rows.length > 0) return { rows, matchedBy: "vrm" };
-  }
-  return { rows: [], matchedBy: null };
-}
-async function currentInboundCaseId(internetMessageId) {
-  const rows = await query(`SELECT case_id FROM inbound_email WHERE source_message_id = $1`, [
-    internetMessageId
-  ]);
-  return rows[0]?.case_id ?? null;
-}
-async function linkEnvelopeRow(envelope, providerId, caseId, classification) {
-  const existing = await currentInboundCaseId(envelope.internetMessageId);
-  if (existing) return existing === caseId;
-  await upsertInboundEmail(envelope, providerId, caseId, classification, void 0, "routed");
-  return true;
-}
-import_functions10.app.http("internalRetroResolveExisting", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/retro/resolve-existing",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    if (!gates.retroCase()) {
-      return { status: 200, jsonBody: { outcome: "gated_off", candidateCount: 0 } };
-    }
-    const body2 = await req.json();
-    const v = validateRetroResolveExisting(body2);
-    if (!v.ok) return { status: 400, jsonBody: { error: v.code, message: v.message } };
-    const { keys } = v.value;
-    const providerId = body2.providerId ?? null;
-    const already = await currentInboundCaseId(body2.trigger.internetMessageId);
-    if (already) {
-      return { status: 200, jsonBody: { outcome: "linked", caseId: already, candidateCount: 1 } };
-    }
-    const { rows, matchedBy } = await tx(async (q) => {
-      await acquireTriageLocks(q, {
-        caseref: keys.casePo ?? keys.externalRef,
-        jobref: keys.casePo ? keys.externalRef : void 0,
-        vrm: keys.vrm
-      });
-      return findExistingCases(q, keys, providerId);
-    });
-    if (rows.length === 1) {
-      const hit = rows[0];
-      const statusName2 = caseStatusCodec.toName(hit.status_code) ?? String(hit.status_code);
-      await upsertInboundEmail(body2.trigger, providerId, hit.id, void 0, void 0, "routed");
-      await writeAudit({
-        action: AUDIT_ACTION.retro_case_linked,
-        caseId: hit.id,
-        // 'removed' is matched ON PURPOSE (a soft-removed case must still swallow its
-        // mail rather than let a duplicate be reconstructed) but staff should see it.
-        severity: statusName2 === "removed" ? "warning" : "info",
-        summary: `Retro: ${body2.triggerCategory ?? "update"} email linked to existing ${statusName2} case (${matchedBy})`,
-        after: {
-          matchedBy,
-          keys,
-          status: statusName2,
-          messageId: body2.trigger.internetMessageId
-        }
-      });
-      ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "linked", caseId: hit.id, matchedBy }));
-      return { status: 200, jsonBody: { outcome: "linked", caseId: hit.id, candidateCount: 1 } };
-    }
-    if (rows.length > 1) {
-      await writeAudit({
-        action: AUDIT_ACTION.duplicate_flagged,
-        severity: "warning",
-        summary: `Retro: ${body2.triggerCategory ?? "update"} email matched ${rows.length} cases (${matchedBy}); held for manual linking`,
-        after: { candidateCount: rows.length, matchedBy, keys, candidateIds: rows.map((r) => r.id) }
-      });
-      ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "ambiguous", count: rows.length }));
-      return { status: 200, jsonBody: { outcome: "ambiguous", candidateCount: rows.length } };
-    }
-    ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "none" }));
-    return { status: 200, jsonBody: { outcome: "none", candidateCount: 0 } };
-  })
-});
-import_functions10.app.http("internalRetroCreate", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/retro/create",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    if (!gates.retroCase()) {
-      return { status: 200, jsonBody: { outcome: "gated_off" } };
-    }
-    const body2 = await req.json();
-    const v = validateRetroCreate(body2);
-    if (!v.ok) return { status: 400, jsonBody: { error: v.code, message: v.message } };
-    const { keys, casePo, reconstructionSource } = v.value;
-    const { original, trigger } = body2;
-    const triggerProviderId = body2.providerId ?? null;
-    const vrm = ((body2.parserVrm || body2.vrm || keys.vrm || original.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
-    let poProviderId = null;
-    let principalCode = "";
-    let marker2 = "";
-    if (casePo) {
-      const wpRows = await query(
-        `SELECT id, principal_code FROM work_provider WHERE principal_code IS NOT NULL AND principal_code <> ''`
-      );
-      const match = matchPrincipalByCasePo(
-        casePo,
-        wpRows.map((r) => String(r.principal_code ?? ""))
-      );
-      if (match) {
-        principalCode = match.principal;
-        marker2 = match.marker;
-        poProviderId = wpRows.find(
-          (r) => String(r.principal_code ?? "").trim().toUpperCase() === match.principal
-        )?.id ?? null;
-      }
-    }
-    const principalResolved = Boolean(poProviderId);
-    const identityVerified = principalResolved && Boolean(casePo);
-    let status = v.value.status;
-    let onHold = v.value.onHold;
-    let actionReason = v.value.actionReason;
-    if (!identityVerified) {
-      status = "needs_review";
-      onHold = true;
-      actionReason = "needs_review";
-    }
-    const contentCaseType = caseTypeCodec.toInt(body2.caseType) != null ? body2.caseType : "standard";
-    const caseType = marker2 ? markerToCaseType(marker2) : contentCaseType;
-    const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
-    const auditGateOn = gates.auditCases();
-    const subject = (original.subject ?? "").trim();
-    const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Retro case").slice(0, 100);
-    const caseRefValue = keys.externalRef || (body2.parserRef ?? "").trim() || (!identityVerified && casePo ? casePo : "") || "";
-    const statusCode = caseStatusCodec.toInt(status) ?? statusToInt("needs_review");
-    let result;
-    try {
-      result = await tx(async (q) => {
-        await acquireTriageLocks(q, {
-          caseref: casePo ?? keys.externalRef,
-          jobref: casePo ? keys.externalRef : void 0,
-          vrm: vrm || keys.vrm
-        });
-        const existing = await findExistingCases(
-          q,
-          { ...keys, ...casePo ? { casePo } : {}, ...vrm ? { vrm } : {} },
-          poProviderId ?? triggerProviderId
-        );
-        if (existing.rows.length > 0) {
-          return { kind: "existing", rows: existing.rows, matchedBy: existing.matchedBy };
-        }
-        const cols = [
-          "name",
-          "vrm",
-          "status_code",
-          "intake_channel_kind_code",
-          "intake_channel_manual",
-          "source_mailbox",
-          "source_message_id",
-          "payload_hash",
-          "work_provider_id"
-        ];
-        const vals = [
-          name,
-          vrm || null,
-          statusCode,
-          RETRO_CHANNEL_CODE,
-          false,
-          original.sourceMailbox ?? null,
-          original.internetMessageId ?? null,
-          original.payloadHash ?? null,
-          poProviderId
-        ];
-        if (caseRefValue) {
-          cols.push("case_ref");
-          vals.push(caseRefValue);
-        }
-        if (identityVerified && casePo) {
-          cols.push("case_po");
-          vals.push(casePo);
-        }
-        if (auditGateOn && caseType !== "standard") {
-          cols.push("case_type_code");
-          vals.push(caseTypeCodec.toInt(caseType) ?? null);
-        }
-        if (onHold) {
-          cols.push("on_hold");
-          vals.push(true);
-          cols.push("action_reason_code");
-          vals.push(actionReasonCodec.toInt(actionReason ?? "needs_review") ?? null);
-        }
-        if (body2.boxFolder?.id) {
-          cols.push("box_folder_id");
-          vals.push(body2.boxFolder.id);
-          if (body2.boxFolder.url) {
-            cols.push("box_folder_url");
-            vals.push(body2.boxFolder.url);
-          }
-        }
-        const placeholders = vals.map((_, i) => `$${i + 1}`).join(", ");
-        const rows = await q(
-          `INSERT INTO case_ (${cols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
-          vals
-        );
-        const caseId2 = rows[0]?.id;
-        if (!caseId2) throw new Error("retro case insert returned no id");
-        return { kind: "created", caseId: caseId2 };
-      });
-    } catch (e) {
-      if (!isUniqueViolation(e)) throw e;
-      const rows = await query(
-        `SELECT id, case_po, case_ref, vrm, status_code FROM case_
-            WHERE ($1::text IS NOT NULL AND upper(case_po) = upper($1))
-               OR ($2::text IS NOT NULL AND source_message_id = $2)
-            ORDER BY created_at`,
-        [casePo ?? null, original.internetMessageId ?? null]
-      );
-      if (rows.length >= 1) {
-        result = { kind: "existing", rows: [rows[0]], matchedBy: "conflict_backstop" };
-      } else {
-        ctx.error("[retro/create] unique violation with no re-lookup hit");
-        return { status: 500, jsonBody: { error: "retro_conflict_unresolved" } };
-      }
-    }
-    if (result.kind === "existing") {
-      if (result.rows.length > 1) {
-        await writeAudit({
-          action: AUDIT_ACTION.duplicate_flagged,
-          severity: "warning",
-          summary: `Retro create matched ${result.rows.length} existing cases (${result.matchedBy}); held for manual linking`,
-          after: { candidateCount: result.rows.length, keys, casePo, candidateIds: result.rows.map((r) => r.id) }
-        });
-        return { status: 200, jsonBody: { outcome: "ambiguous", candidateCount: result.rows.length } };
-      }
-      const hit = result.rows[0];
-      await linkEnvelopeRow(trigger, triggerProviderId, hit.id);
-      if (reconstructionSource !== "minimal") {
-        await linkEnvelopeRow(original, poProviderId, hit.id, retroOriginalClassification(keys, casePo));
-      }
-      await writeAudit({
-        action: AUDIT_ACTION.retro_case_linked,
-        caseId: hit.id,
-        summary: `Retro: reconstruction found existing case (${result.matchedBy}); linked instead of creating`,
-        after: { matchedBy: result.matchedBy, keys, casePo, messageId: trigger.internetMessageId }
-      });
-      return {
-        status: 200,
-        jsonBody: { outcome: "already_exists_linked", caseId: hit.id, casePo: hit.case_po }
-      };
-    }
-    const caseId = result.caseId;
-    if (reconstructionSource !== "minimal") {
-      await linkEnvelopeRow(original, poProviderId, caseId, retroOriginalClassification(keys, casePo));
-    }
-    await linkEnvelopeRow(trigger, triggerProviderId, caseId);
-    await applyParserFields(
-      caseId,
-      body2.parserRef,
-      body2.parserMileage,
-      body2.parserMileageUnit,
-      body2.parserEva,
-      poProviderId,
-      null
-    );
-    await writeAudit({
-      action: AUDIT_ACTION.retro_case_created,
-      caseId,
-      summary: `Case reconstructed retroactively (${reconstructionSource}): ${name}`,
-      after: {
-        casePo: identityVerified ? casePo : null,
-        status,
-        onHold,
-        reconstructionSource,
-        boxFolderId: body2.boxFolder?.id ?? null,
-        keys,
-        triggerCategory: body2.triggerCategory ?? null,
-        triggerMessageId: trigger.internetMessageId
-      }
-    });
-    if (caseType !== "standard") {
-      await writeAudit({
-        action: AUDIT_ACTION.retro_case_created,
-        caseId,
-        summary: auditGateOn ? `Case-type '${caseType}' applied from ${marker2 ? `archive marker ${marker2}` : "content detection"}` : `Case-type '${caseType}' detected (observe-only \u2014 AUDIT_CASES_ENABLED off)`,
-        after: {
-          caseType,
-          marker: marker2,
-          signals: caseTypeSignals,
-          applied: auditGateOn,
-          allowlisted: allowedCaseTypes(principalCode).includes(caseType)
-        }
-      });
-    }
-    if (!identityVerified) {
-      await query(
-        `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
-        [
-          "Retro reconstruction",
-          caseId,
-          "Retro reconstruction (auto)",
-          (casePo ? `Reference ${casePo} is Case/PO-shaped but matches no known work-provider principal \u2014 stored as the case reference, no Case/PO set. ` : `No Case/PO could be discovered for this reconstruction. `) + `Confirm the provider and Case/PO before any further processing.`
-        ]
-      ).catch(() => {
-      });
-      await writeAudit({
-        action: AUDIT_ACTION.inbound_routed,
-        caseId,
-        severity: "warning",
-        summary: "Retro case held \u2014 identity unverified (principal/Case-PO)",
-        after: { principalResolved, casePoKnown: Boolean(casePo), onHold: true }
-      });
-    }
-    ctx.log(JSON.stringify({ evt: "retroCreate", outcome: "created", caseId, casePo, reconstructionSource }));
-    return {
-      status: 200,
-      jsonBody: {
-        outcome: "created",
-        caseId,
-        casePo: identityVerified ? casePo : null,
-        newClient: !principalResolved
-      }
-    };
-  })
-});
-
-// api/src/functions/assistant.ts
-var import_functions11 = require("@azure/functions");
-
-// api/src/lib/aoai-chat.ts
-var COGNITIVE_SERVICES_RESOURCE = "https://cognitiveservices.azure.com";
-var REQUEST_TIMEOUT_MS = 3e4;
-var MAX_COMPLETION_TOKENS = 1500;
-var cachedToken2 = null;
-async function mintCognitiveToken() {
-  const now = Date.now();
-  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (idEndpoint && idHeader) {
-    const url2 = `${idEndpoint}?resource=${encodeURIComponent(COGNITIVE_SERVICES_RESOURCE)}&api-version=2019-08-01`;
-    const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
-    if (!res.ok) throw new Error(`MSI token (cognitiveservices) ${res.status}`);
-    const json = await res.json();
-    cachedToken2 = {
-      value: json.access_token,
-      expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
-    };
-    return cachedToken2.value;
-  }
-  if (process.env.AOAI_DEV_TOKEN === "1") {
-    const { execFile } = await import("node:child_process");
-    const token = await new Promise((resolve, reject) => {
-      execFile(
-        "az",
-        ["account", "get-access-token", "--resource", COGNITIVE_SERVICES_RESOURCE, "--query", "accessToken", "-o", "tsv"],
-        (err2, stdout) => err2 ? reject(err2) : resolve(stdout.trim())
-      );
-    });
-    if (!token) throw new Error("az account get-access-token returned no token");
-    cachedToken2 = { value: token, expiresAt: now + 3e6 };
-    return token;
-  }
-  throw new Error("missing IDENTITY_ENDPOINT/IDENTITY_HEADER for Cognitive Services auth");
-}
-async function chatCompletion(endpoint, deployment, messages, tools) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const token = await mintCognitiveToken();
-    const url2 = `${endpoint.replace(/\/$/, "")}/openai/v1/chat/completions`;
-    const body2 = {
-      model: deployment,
-      messages,
-      max_completion_tokens: MAX_COMPLETION_TOKENS,
-      reasoning_effort: "low"
-    };
-    if (tools.length) {
-      body2.tools = tools;
-      body2.tool_choice = "auto";
-    }
-    const res = await fetch(url2, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body2),
-      signal: controller.signal
-    });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`AOAI chat ${res.status}: ${errText.slice(0, 300)}`);
-    }
-    const json = await res.json();
-    const msg = json.choices?.[0]?.message;
-    if (!msg) throw new Error("AOAI chat: no message in response");
-    return msg;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-async function runChat(endpoint, deployment, messages, tools, executeTool, maxRounds = 4, complete = chatCompletion) {
-  const convo = [...messages];
-  const toolsUsed = [];
-  for (let round = 1; round <= maxRounds; round++) {
-    const msg = await complete(endpoint, deployment, convo, tools);
-    convo.push(msg);
-    const calls = msg.tool_calls ?? [];
-    if (!calls.length) {
-      return { reply: (msg.content ?? "").trim(), toolsUsed, rounds: round };
-    }
-    for (const call of calls) {
-      toolsUsed.push(call.function.name);
-      let args = {};
-      try {
-        args = JSON.parse(call.function.arguments || "{}");
-      } catch {
-      }
-      let result;
-      try {
-        result = await executeTool(call.function.name, args);
-      } catch (e) {
-        result = { error: e instanceof Error ? e.message : "tool failed" };
-      }
-      convo.push({
-        role: "tool",
-        tool_call_id: call.id,
-        content: JSON.stringify(result).slice(0, 8e3)
-      });
-    }
-  }
-  const finalMsg = await complete(endpoint, deployment, convo, []);
-  return { reply: (finalMsg.content ?? "").trim(), toolsUsed, rounds: maxRounds + 1 };
-}
-
-// api/src/functions/assistant.ts
-var MAX_HISTORY = 16;
-var MAX_MSG_CHARS = 4e3;
-var SYSTEM_PROMPT = [
-  "You are a helpful, concise assistant for staff at Collision Engineers, a vehicle-collision",
-  "engineering business, working inside their case-intake system. Answer questions about cases,",
-  "queues, and inbound emails using ONLY the tools provided. You are strictly READ-ONLY: you",
-  "cannot create, change, submit, or delete anything \u2014 if asked to, explain that you can only",
-  "look things up and they should use the app itself.",
-  "",
-  "Domain terms: a Case is one vehicle-damage assessment; its Case/PO is an internal reference",
-  "(a leading-alpha principal code + year + number, e.g. CCPY26050). A case moves through",
-  "statuses new_email \u2192 ingested \u2192 needs_review \u2192 ready_for_eva \u2192 eva_submitted (terminal:",
-  'removed). Queues: "Not ready" (still gathering images/instructions/details), "Review"',
-  '(ready_for_eva \u2014 the human check before EVA submission), "Held" (parked: a possible',
-  "duplicate, missing the basics like claimant/VRM, or errored). VRM = vehicle registration.",
-  "EVA is the downstream assessment platform. Answer in plain English for a non-technical case",
-  "handler; never invent a case number, reference, or registration that the tools did not return.",
-  "If a lookup returns nothing, say so plainly rather than guessing."
-].join("\n");
-var TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "lookup_case",
-      description: "Find cases by Case/PO, vehicle registration (VRM), or claimant name. Returns up to 5 matches.",
-      parameters: {
-        type: "object",
-        properties: { query: { type: "string", description: "a Case/PO, VRM, or claimant name (partial ok)" } },
-        required: ["query"],
-        additionalProperties: false
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "count_cases_by_status",
-      description: 'Case counts by QUEUE (Not ready / Review / Held \u2014 matching the dashboard, on-hold cases count as Held) and by raw status. For "how many in each queue" use byQueue, not byStatus.',
-      parameters: { type: "object", properties: {}, additionalProperties: false }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "search_inbound",
-      description: "Search recent inbound emails by subject or sender. Returns up to 5 matches.",
-      parameters: {
-        type: "object",
-        properties: { query: { type: "string", description: "text to match in the subject or sender address" } },
-        required: ["query"],
-        additionalProperties: false
-      }
-    }
-  }
-];
-async function execTool(name, args) {
-  if (name === "lookup_case") {
-    const q = `%${String(args.query ?? "").trim().slice(0, 80)}%`;
-    const rows = await query(
-      `SELECT c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.eva_claimant_name AS claimant,
-              wp.name AS provider
-         FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
-        WHERE c.case_po ILIKE $1 OR c.vrm ILIKE $1 OR c.case_ref ILIKE $1 OR c.eva_claimant_name ILIKE $1
-        ORDER BY c.created_at DESC LIMIT 5`,
-      [q]
-    );
-    return {
-      matches: rows.map((r) => ({
-        casePo: r.case_po ?? null,
-        vrm: r.vrm ?? null,
-        ref: r.case_ref ?? null,
-        // Handler-facing QUEUE (never the raw status enum — AGENTS.md UI-language rule),
-        // held-aware exactly like the dashboard / count_cases_by_status (an on-hold case is
-        // Held regardless of its raw status_code).
-        queue: queueLabel(r.status_code, r.on_hold),
-        claimant: r.claimant ?? null,
-        provider: r.provider ?? null
-      }))
-    };
-  }
-  if (name === "count_cases_by_status") {
-    const rows = await query(
-      "SELECT status_code, on_hold, count(*)::int AS n FROM case_ GROUP BY status_code, on_hold"
-    );
-    const byStatusMap = /* @__PURE__ */ new Map();
-    const byQueue = { "not-ready": 0, review: 0, held: 0, closed: 0 };
-    for (const r of rows) {
-      const status = statusName(r.status_code);
-      const n = Number(r.n);
-      byStatusMap.set(status, (byStatusMap.get(status) ?? 0) + n);
-      const q = r.on_hold ? "held" : statusToQueue(status) ?? "closed";
-      byQueue[q] = (byQueue[q] ?? 0) + n;
-    }
-    return {
-      byQueue: {
-        notReady: byQueue["not-ready"],
-        review: byQueue.review,
-        held: byQueue.held,
-        closedOrSubmitted: byQueue.closed
-      },
-      byStatus: [...byStatusMap.entries()].map(([status, count]) => ({ status, count })),
-      note: "byQueue matches the dashboard queues (on-hold cases count as Held); byStatus is the raw status breakdown."
-    };
-  }
-  if (name === "search_inbound") {
-    const q = `%${String(args.query ?? "").trim().slice(0, 80)}%`;
-    const rows = await query(
-      `SELECT subject, from_address, received_on, category_code
-         FROM inbound_email WHERE subject ILIKE $1 OR from_address ILIKE $1
-        ORDER BY received_on DESC LIMIT 5`,
-      [q]
-    );
-    return {
-      matches: rows.map((r) => ({
-        subject: r.subject ?? null,
-        from: r.from_address ?? null,
-        received: r.received_on ?? null,
-        category: categoryName(r.category_code)
-      }))
-    };
-  }
-  return { error: `unknown tool ${name}` };
-}
-function statusName(code) {
-  try {
-    return (typeof code === "number" ? caseStatusCodec.toName(code) : String(code)) ?? "unknown";
-  } catch {
-    return "unknown";
-  }
-}
-function queueLabel(statusCode, onHold) {
-  if (onHold) return "Held";
-  const q = statusToQueue(statusName(statusCode));
-  return q === "not-ready" ? "Not ready" : q === "review" ? "Review" : q === "held" ? "Held" : "Closed";
-}
-function categoryName(code) {
-  try {
-    return (typeof code === "number" ? inboundCategoryCodec.toName(code) : String(code)) ?? "unknown";
-  } catch {
-    return "unknown";
-  }
-}
-import_functions11.app.http("assistantChat", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "assistant/chat",
-  handler: withRole("CollisionSpike.User", async (req, ctx) => {
-    if (!gates.aiChatEnabled()) {
-      return {
-        status: 200,
-        jsonBody: {
-          disabled: true,
-          reply: "The assistant is switched off right now. You can still use the app as normal."
-        }
-      };
-    }
-    let body2;
-    try {
-      body2 = await req.json();
-    } catch {
-      return { status: 400, jsonBody: { error: "invalid JSON body" } };
-    }
-    const rawMessages = Array.isArray(body2?.messages) ? body2.messages : [];
-    const history = rawMessages.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-MAX_HISTORY).map((m) => ({ role: m.role, content: (m.content ?? "").slice(0, MAX_MSG_CHARS) }));
-    if (!history.length || history[history.length - 1].role !== "user") {
-      return { status: 400, jsonBody: { error: "messages must end with a user turn" } };
-    }
-    const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...history];
-    try {
-      const result = await runChat(gates.aiModelEndpoint(), gates.aiModelDeployment(), messages, TOOLS, execTool);
-      ctx.log(
-        JSON.stringify({
-          evt: "assistant_chat",
-          turns: history.length,
-          lastQChars: history[history.length - 1].content.length,
-          toolsUsed: result.toolsUsed,
-          rounds: result.rounds,
-          replyChars: result.reply.length
-        })
-      );
-      const reply = result.reply || "Sorry \u2014 I could not find an answer to that.";
-      return { status: 200, jsonBody: { reply, toolsUsed: result.toolsUsed } };
-    } catch (e) {
-      ctx.warn(`[assistant] ${e instanceof Error ? e.message : String(e)}`);
-      return {
-        status: 200,
-        jsonBody: { error: true, reply: "Sorry \u2014 I could not answer that right now. Please try again." }
-      };
-    }
-  })
-});
-import_functions11.app.http("aiChatGate", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/ai-chat",
-  handler: withRole("CollisionSpike.User", async () => ({
-    status: 200,
-    jsonBody: { enabled: gates.aiChatEnabled() }
-  }))
-});
-
-// api/src/functions/evidence.ts
-var import_functions12 = require("@azure/functions");
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/abort-controller/AbortError.js
 var AbortError = class extends Error {
@@ -27776,12 +27074,12 @@ var NativeCRC64 = (() => {
     }
     Module["getCache"] = getCache;
     function wrapPointer(ptr, __class__) {
-      var cache = getCache(__class__);
-      var ret = cache[ptr];
+      var cache2 = getCache(__class__);
+      var ret = cache2[ptr];
       if (ret) return ret;
       ret = Object.create((__class__ || WrapperObject).prototype);
       ret.ptr = ptr;
-      return cache[ptr] = ret;
+      return cache2[ptr] = ret;
     }
     Module["wrapPointer"] = wrapPointer;
     function castObject(obj, __class__) {
@@ -53969,7 +53267,859 @@ async function downloadEvidenceBytes(blobPath) {
   return { bytes: buf, contentType: props.contentType ?? "application/octet-stream" };
 }
 
+// api/src/lib/evidence-bytes.ts
+async function resolveBytesForRow(row) {
+  let bytes;
+  let contentType2 = row.content_type || "application/octet-stream";
+  if (row.storage_path) {
+    const blob = await downloadEvidenceBytes(row.storage_path);
+    if (blob) {
+      bytes = blob.bytes;
+      contentType2 = blob.contentType || contentType2;
+    }
+  }
+  if (!bytes && row.box_file_id) {
+    const boxRes = await downloadBoxFileContent(row.box_file_id);
+    if (boxRes) bytes = boxRes.bytes;
+  }
+  if (!bytes) return null;
+  return { id: String(row.id ?? ""), bytes, contentType: contentType2, fileName: row.file_name };
+}
+var ASSIST_MAX_PHOTOS = 4;
+var ASSIST_MAX_BYTES_PER_PHOTO = 45e5;
+async function resolveAssistImageBase64(evidenceIds) {
+  const out = /* @__PURE__ */ new Map();
+  const ids = evidenceIds.filter((s) => typeof s === "string" && s.length > 0).slice(0, ASSIST_MAX_PHOTOS);
+  if (ids.length === 0) return out;
+  try {
+    const rows = await query(
+      "SELECT id, storage_path, content_type, file_name, box_file_id FROM evidence WHERE id = ANY($1)",
+      [ids]
+    );
+    const byId = new Map(rows.map((r) => [String(r.id), r]));
+    for (const id of ids) {
+      const row = byId.get(id);
+      if (!row) continue;
+      const resolved = await resolveBytesForRow(row);
+      if (resolved && resolved.bytes.length <= ASSIST_MAX_BYTES_PER_PHOTO) {
+        out.set(id, resolved.bytes.toString("base64"));
+      }
+    }
+  } catch {
+  }
+  return out;
+}
+
+// api/src/functions/proxy.ts
+async function enrichLocationRequest(body2) {
+  if (!body2 || typeof body2 !== "object") return body2;
+  const b = body2;
+  if (!Array.isArray(b.photo_refs) || b.photo_refs.length === 0) return body2;
+  const refs = b.photo_refs;
+  const ids = refs.map((r) => r?.evidence_id).filter((s) => typeof s === "string");
+  const bytesById = await resolveAssistImageBase64(ids);
+  if (bytesById.size === 0) return body2;
+  const enriched = refs.map((r) => {
+    const b64 = r?.evidence_id ? bytesById.get(r.evidence_id) : void 0;
+    return b64 ? { ...r, image_base64: b64 } : r;
+  });
+  return { ...b, photo_refs: enriched };
+}
+import_functions9.app.http("locationAssistSuggest", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "location-assist/suggest",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    if (!gates.locationAssistEnabled()) {
+      return { status: 200, jsonBody: [] };
+    }
+    try {
+      const body2 = await req.json();
+      const enriched = await enrichLocationRequest(body2);
+      const result = await callLocationSuggest(enriched);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions9.app.http("parserParse", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "parser/parse",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    if (!gates.pdfMapper()) {
+      return { status: 200, jsonBody: { skipped: true } };
+    }
+    try {
+      const body2 = await req.json();
+      const result = await callParser(body2);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { skipped: true, error: true } };
+    }
+  })
+});
+
+// api/src/functions/internal-retro.ts
+var import_functions10 = require("@azure/functions");
+
+// api/src/lib/retro-validate.ts
+var RETRO_ALLOWED_STATUSES = ["eva_submitted", "needs_review"];
+var RETRO_RECONSTRUCTION_SOURCES = ["box_eml", "box_doc", "outlook", "minimal"];
+function hasEnvelopeIdentity(v) {
+  return v != null && typeof v === "object" && typeof v.internetMessageId === "string" && (v.internetMessageId ?? "").trim().length > 0;
+}
+function normalizeRetroKeys(keys) {
+  const out = {};
+  const rawPo = (keys?.casePo ?? "").trim();
+  if (rawPo) {
+    const po = normalizeCasePo(rawPo);
+    if (!CASE_PO_SHAPE_RE.test(po)) {
+      return {
+        ok: false,
+        code: "invalid_case_po",
+        message: `keys.casePo '${rawPo}' is not Case/PO-shaped`
+      };
+    }
+    out.casePo = po;
+  }
+  const ref = (keys?.externalRef ?? "").trim().toUpperCase();
+  if (ref) out.externalRef = ref;
+  const vrm = (keys?.vrm ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  if (vrm) out.vrm = vrm;
+  return out;
+}
+function validateRetroResolveExisting(body2) {
+  if (body2 == null || typeof body2 !== "object") {
+    return { ok: false, code: "invalid_body", message: "body must be a JSON object" };
+  }
+  const b = body2;
+  if (!hasEnvelopeIdentity(b.trigger)) {
+    return { ok: false, code: "missing_trigger", message: "trigger envelope (internetMessageId) required" };
+  }
+  const keys = normalizeRetroKeys(b.keys);
+  if ("ok" in keys) return keys;
+  if (!keys.casePo && !keys.externalRef && !keys.vrm) {
+    return { ok: false, code: "missing_keys", message: "at least one of keys.casePo/externalRef/vrm required" };
+  }
+  return { ok: true, value: { keys } };
+}
+function validateRetroCreate(body2) {
+  if (body2 == null || typeof body2 !== "object") {
+    return { ok: false, code: "invalid_body", message: "body must be a JSON object" };
+  }
+  const b = body2;
+  if (!hasEnvelopeIdentity(b.original)) {
+    return { ok: false, code: "missing_original", message: "original envelope (internetMessageId) required" };
+  }
+  if (!hasEnvelopeIdentity(b.trigger)) {
+    return { ok: false, code: "missing_trigger", message: "trigger envelope (internetMessageId) required" };
+  }
+  const keys = normalizeRetroKeys(b.keys);
+  if ("ok" in keys) return keys;
+  let casePo;
+  const rawPo = (b.casePo ?? "").trim();
+  if (rawPo) {
+    const po = normalizeCasePo(rawPo);
+    if (!CASE_PO_SHAPE_RE.test(po)) {
+      return { ok: false, code: "invalid_case_po", message: `casePo '${rawPo}' is not Case/PO-shaped` };
+    }
+    casePo = po;
+  }
+  const status = (b.statusName ?? "").trim();
+  if (!RETRO_ALLOWED_STATUSES.includes(status)) {
+    return {
+      ok: false,
+      code: "invalid_status",
+      message: `statusName must be one of ${RETRO_ALLOWED_STATUSES.join("/")}`
+    };
+  }
+  const source = (b.reconstructionSource ?? "").trim();
+  if (!RETRO_RECONSTRUCTION_SOURCES.includes(source)) {
+    return {
+      ok: false,
+      code: "invalid_reconstruction_source",
+      message: `reconstructionSource must be one of ${RETRO_RECONSTRUCTION_SOURCES.join("/")}`
+    };
+  }
+  const actionReasonRaw = (b.actionReason ?? "").trim();
+  if (actionReasonRaw && actionReasonRaw !== "needs_review") {
+    return { ok: false, code: "invalid_action_reason", message: "actionReason must be 'needs_review' when present" };
+  }
+  return {
+    ok: true,
+    value: {
+      keys,
+      ...casePo ? { casePo } : {},
+      status,
+      onHold: b.onHold === true,
+      ...actionReasonRaw ? { actionReason: "needs_review" } : {},
+      reconstructionSource: source
+    }
+  };
+}
+
+// api/src/functions/internal-retro.ts
+var RETRO_CHANNEL_CODE = 100000003;
+function retroOriginalClassification(keys, casePo) {
+  return {
+    category: "receiving_work",
+    subtype: "existing_provider_instruction",
+    confidence: 0,
+    signals: ["retro_reconstructed"],
+    bodyVrm: keys.vrm ?? "",
+    bodyCaseref: casePo ?? keys.casePo ?? "",
+    bodyJobref: keys.externalRef ?? ""
+  };
+}
+async function findExistingCases(q, keys, providerId) {
+  const SELECT = "SELECT id, case_po, case_ref, vrm, status_code FROM case_";
+  for (const [token, matchedBy] of [
+    [keys.casePo, "case_po"],
+    [keys.externalRef, "external_ref"]
+  ]) {
+    if (!token) continue;
+    const rows = await q(
+      `${SELECT} WHERE (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) ORDER BY created_at`,
+      [token]
+    );
+    if (rows.length > 0) return { rows, matchedBy };
+  }
+  if (keys.vrm) {
+    const rows = providerId ? await q(`${SELECT} WHERE vrm = $1 AND work_provider_id = $2 ORDER BY created_at`, [
+      keys.vrm,
+      providerId
+    ]) : await q(`${SELECT} WHERE vrm = $1 ORDER BY created_at`, [keys.vrm]);
+    if (rows.length > 0) return { rows, matchedBy: "vrm" };
+  }
+  return { rows: [], matchedBy: null };
+}
+async function currentInboundCaseId(internetMessageId) {
+  const rows = await query(`SELECT case_id FROM inbound_email WHERE source_message_id = $1`, [
+    internetMessageId
+  ]);
+  return rows[0]?.case_id ?? null;
+}
+async function linkEnvelopeRow(envelope, providerId, caseId, classification) {
+  const existing = await currentInboundCaseId(envelope.internetMessageId);
+  if (existing) return existing === caseId;
+  await upsertInboundEmail(envelope, providerId, caseId, classification, void 0, "routed");
+  return true;
+}
+import_functions10.app.http("internalRetroResolveExisting", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/retro/resolve-existing",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    if (!gates.retroCase()) {
+      return { status: 200, jsonBody: { outcome: "gated_off", candidateCount: 0 } };
+    }
+    const body2 = await req.json();
+    const v = validateRetroResolveExisting(body2);
+    if (!v.ok) return { status: 400, jsonBody: { error: v.code, message: v.message } };
+    const { keys } = v.value;
+    const providerId = body2.providerId ?? null;
+    const already = await currentInboundCaseId(body2.trigger.internetMessageId);
+    if (already) {
+      return { status: 200, jsonBody: { outcome: "linked", caseId: already, candidateCount: 1 } };
+    }
+    const { rows, matchedBy } = await tx(async (q) => {
+      await acquireTriageLocks(q, {
+        caseref: keys.casePo ?? keys.externalRef,
+        jobref: keys.casePo ? keys.externalRef : void 0,
+        vrm: keys.vrm
+      });
+      return findExistingCases(q, keys, providerId);
+    });
+    if (rows.length === 1) {
+      const hit = rows[0];
+      const statusName2 = caseStatusCodec.toName(hit.status_code) ?? String(hit.status_code);
+      await upsertInboundEmail(body2.trigger, providerId, hit.id, void 0, void 0, "routed");
+      await writeAudit({
+        action: AUDIT_ACTION.retro_case_linked,
+        caseId: hit.id,
+        // 'removed' is matched ON PURPOSE (a soft-removed case must still swallow its
+        // mail rather than let a duplicate be reconstructed) but staff should see it.
+        severity: statusName2 === "removed" ? "warning" : "info",
+        summary: `Retro: ${body2.triggerCategory ?? "update"} email linked to existing ${statusName2} case (${matchedBy})`,
+        after: {
+          matchedBy,
+          keys,
+          status: statusName2,
+          messageId: body2.trigger.internetMessageId
+        }
+      });
+      ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "linked", caseId: hit.id, matchedBy }));
+      return { status: 200, jsonBody: { outcome: "linked", caseId: hit.id, candidateCount: 1 } };
+    }
+    if (rows.length > 1) {
+      await writeAudit({
+        action: AUDIT_ACTION.duplicate_flagged,
+        severity: "warning",
+        summary: `Retro: ${body2.triggerCategory ?? "update"} email matched ${rows.length} cases (${matchedBy}); held for manual linking`,
+        after: { candidateCount: rows.length, matchedBy, keys, candidateIds: rows.map((r) => r.id) }
+      });
+      ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "ambiguous", count: rows.length }));
+      return { status: 200, jsonBody: { outcome: "ambiguous", candidateCount: rows.length } };
+    }
+    ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "none" }));
+    return { status: 200, jsonBody: { outcome: "none", candidateCount: 0 } };
+  })
+});
+import_functions10.app.http("internalRetroCreate", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/retro/create",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    if (!gates.retroCase()) {
+      return { status: 200, jsonBody: { outcome: "gated_off" } };
+    }
+    const body2 = await req.json();
+    const v = validateRetroCreate(body2);
+    if (!v.ok) return { status: 400, jsonBody: { error: v.code, message: v.message } };
+    const { keys, casePo, reconstructionSource } = v.value;
+    const { original, trigger } = body2;
+    const triggerProviderId = body2.providerId ?? null;
+    const vrm = ((body2.parserVrm || body2.vrm || keys.vrm || original.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
+    let poProviderId = null;
+    let principalCode = "";
+    let marker2 = "";
+    if (casePo) {
+      const wpRows = await query(
+        `SELECT id, principal_code FROM work_provider WHERE principal_code IS NOT NULL AND principal_code <> ''`
+      );
+      const match = matchPrincipalByCasePo(
+        casePo,
+        wpRows.map((r) => String(r.principal_code ?? ""))
+      );
+      if (match) {
+        principalCode = match.principal;
+        marker2 = match.marker;
+        poProviderId = wpRows.find(
+          (r) => String(r.principal_code ?? "").trim().toUpperCase() === match.principal
+        )?.id ?? null;
+      }
+    }
+    const principalResolved = Boolean(poProviderId);
+    const identityVerified = principalResolved && Boolean(casePo);
+    let status = v.value.status;
+    let onHold = v.value.onHold;
+    let actionReason = v.value.actionReason;
+    if (!identityVerified) {
+      status = "needs_review";
+      onHold = true;
+      actionReason = "needs_review";
+    }
+    const contentCaseType = caseTypeCodec.toInt(body2.caseType) != null ? body2.caseType : "standard";
+    const caseType = marker2 ? markerToCaseType(marker2) : contentCaseType;
+    const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
+    const auditGateOn = gates.auditCases();
+    const subject = (original.subject ?? "").trim();
+    const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Retro case").slice(0, 100);
+    const caseRefValue = keys.externalRef || (body2.parserRef ?? "").trim() || (!identityVerified && casePo ? casePo : "") || "";
+    const statusCode = caseStatusCodec.toInt(status) ?? statusToInt("needs_review");
+    let result;
+    try {
+      result = await tx(async (q) => {
+        await acquireTriageLocks(q, {
+          caseref: casePo ?? keys.externalRef,
+          jobref: casePo ? keys.externalRef : void 0,
+          vrm: vrm || keys.vrm
+        });
+        const existing = await findExistingCases(
+          q,
+          { ...keys, ...casePo ? { casePo } : {}, ...vrm ? { vrm } : {} },
+          poProviderId ?? triggerProviderId
+        );
+        if (existing.rows.length > 0) {
+          return { kind: "existing", rows: existing.rows, matchedBy: existing.matchedBy };
+        }
+        const cols = [
+          "name",
+          "vrm",
+          "status_code",
+          "intake_channel_kind_code",
+          "intake_channel_manual",
+          "source_mailbox",
+          "source_message_id",
+          "payload_hash",
+          "work_provider_id"
+        ];
+        const vals = [
+          name,
+          vrm || null,
+          statusCode,
+          RETRO_CHANNEL_CODE,
+          false,
+          original.sourceMailbox ?? null,
+          original.internetMessageId ?? null,
+          original.payloadHash ?? null,
+          poProviderId
+        ];
+        if (caseRefValue) {
+          cols.push("case_ref");
+          vals.push(caseRefValue);
+        }
+        if (identityVerified && casePo) {
+          cols.push("case_po");
+          vals.push(casePo);
+        }
+        if (auditGateOn && caseType !== "standard") {
+          cols.push("case_type_code");
+          vals.push(caseTypeCodec.toInt(caseType) ?? null);
+        }
+        if (onHold) {
+          cols.push("on_hold");
+          vals.push(true);
+          cols.push("action_reason_code");
+          vals.push(actionReasonCodec.toInt(actionReason ?? "needs_review") ?? null);
+        }
+        if (body2.boxFolder?.id) {
+          cols.push("box_folder_id");
+          vals.push(body2.boxFolder.id);
+          if (body2.boxFolder.url) {
+            cols.push("box_folder_url");
+            vals.push(body2.boxFolder.url);
+          }
+        }
+        const placeholders = vals.map((_, i) => `$${i + 1}`).join(", ");
+        const rows = await q(
+          `INSERT INTO case_ (${cols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
+          vals
+        );
+        const caseId2 = rows[0]?.id;
+        if (!caseId2) throw new Error("retro case insert returned no id");
+        return { kind: "created", caseId: caseId2 };
+      });
+    } catch (e) {
+      if (!isUniqueViolation(e)) throw e;
+      const rows = await query(
+        `SELECT id, case_po, case_ref, vrm, status_code FROM case_
+            WHERE ($1::text IS NOT NULL AND upper(case_po) = upper($1))
+               OR ($2::text IS NOT NULL AND source_message_id = $2)
+            ORDER BY created_at`,
+        [casePo ?? null, original.internetMessageId ?? null]
+      );
+      if (rows.length >= 1) {
+        result = { kind: "existing", rows: [rows[0]], matchedBy: "conflict_backstop" };
+      } else {
+        ctx.error("[retro/create] unique violation with no re-lookup hit");
+        return { status: 500, jsonBody: { error: "retro_conflict_unresolved" } };
+      }
+    }
+    if (result.kind === "existing") {
+      if (result.rows.length > 1) {
+        await writeAudit({
+          action: AUDIT_ACTION.duplicate_flagged,
+          severity: "warning",
+          summary: `Retro create matched ${result.rows.length} existing cases (${result.matchedBy}); held for manual linking`,
+          after: { candidateCount: result.rows.length, keys, casePo, candidateIds: result.rows.map((r) => r.id) }
+        });
+        return { status: 200, jsonBody: { outcome: "ambiguous", candidateCount: result.rows.length } };
+      }
+      const hit = result.rows[0];
+      await linkEnvelopeRow(trigger, triggerProviderId, hit.id);
+      if (reconstructionSource !== "minimal") {
+        await linkEnvelopeRow(original, poProviderId, hit.id, retroOriginalClassification(keys, casePo));
+      }
+      await writeAudit({
+        action: AUDIT_ACTION.retro_case_linked,
+        caseId: hit.id,
+        summary: `Retro: reconstruction found existing case (${result.matchedBy}); linked instead of creating`,
+        after: { matchedBy: result.matchedBy, keys, casePo, messageId: trigger.internetMessageId }
+      });
+      return {
+        status: 200,
+        jsonBody: { outcome: "already_exists_linked", caseId: hit.id, casePo: hit.case_po }
+      };
+    }
+    const caseId = result.caseId;
+    if (reconstructionSource !== "minimal") {
+      await linkEnvelopeRow(original, poProviderId, caseId, retroOriginalClassification(keys, casePo));
+    }
+    await linkEnvelopeRow(trigger, triggerProviderId, caseId);
+    await applyParserFields(
+      caseId,
+      body2.parserRef,
+      body2.parserMileage,
+      body2.parserMileageUnit,
+      body2.parserEva,
+      poProviderId,
+      null
+    );
+    await writeAudit({
+      action: AUDIT_ACTION.retro_case_created,
+      caseId,
+      summary: `Case reconstructed retroactively (${reconstructionSource}): ${name}`,
+      after: {
+        casePo: identityVerified ? casePo : null,
+        status,
+        onHold,
+        reconstructionSource,
+        boxFolderId: body2.boxFolder?.id ?? null,
+        keys,
+        triggerCategory: body2.triggerCategory ?? null,
+        triggerMessageId: trigger.internetMessageId
+      }
+    });
+    if (caseType !== "standard") {
+      await writeAudit({
+        action: AUDIT_ACTION.retro_case_created,
+        caseId,
+        summary: auditGateOn ? `Case-type '${caseType}' applied from ${marker2 ? `archive marker ${marker2}` : "content detection"}` : `Case-type '${caseType}' detected (observe-only \u2014 AUDIT_CASES_ENABLED off)`,
+        after: {
+          caseType,
+          marker: marker2,
+          signals: caseTypeSignals,
+          applied: auditGateOn,
+          allowlisted: allowedCaseTypes(principalCode).includes(caseType)
+        }
+      });
+    }
+    if (!identityVerified) {
+      await query(
+        `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
+        [
+          "Retro reconstruction",
+          caseId,
+          "Retro reconstruction (auto)",
+          (casePo ? `Reference ${casePo} is Case/PO-shaped but matches no known work-provider principal \u2014 stored as the case reference, no Case/PO set. ` : `No Case/PO could be discovered for this reconstruction. `) + `Confirm the provider and Case/PO before any further processing.`
+        ]
+      ).catch(() => {
+      });
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_routed,
+        caseId,
+        severity: "warning",
+        summary: "Retro case held \u2014 identity unverified (principal/Case-PO)",
+        after: { principalResolved, casePoKnown: Boolean(casePo), onHold: true }
+      });
+    }
+    ctx.log(JSON.stringify({ evt: "retroCreate", outcome: "created", caseId, casePo, reconstructionSource }));
+    return {
+      status: 200,
+      jsonBody: {
+        outcome: "created",
+        caseId,
+        casePo: identityVerified ? casePo : null,
+        newClient: !principalResolved
+      }
+    };
+  })
+});
+
+// api/src/functions/assistant.ts
+var import_functions11 = require("@azure/functions");
+
+// api/src/lib/aoai-chat.ts
+var COGNITIVE_SERVICES_RESOURCE = "https://cognitiveservices.azure.com";
+var REQUEST_TIMEOUT_MS = 3e4;
+var MAX_COMPLETION_TOKENS = 1500;
+var cachedToken2 = null;
+async function mintCognitiveToken() {
+  const now = Date.now();
+  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (idEndpoint && idHeader) {
+    const url2 = `${idEndpoint}?resource=${encodeURIComponent(COGNITIVE_SERVICES_RESOURCE)}&api-version=2019-08-01`;
+    const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+    if (!res.ok) throw new Error(`MSI token (cognitiveservices) ${res.status}`);
+    const json = await res.json();
+    cachedToken2 = {
+      value: json.access_token,
+      expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+    };
+    return cachedToken2.value;
+  }
+  if (process.env.AOAI_DEV_TOKEN === "1") {
+    const { execFile } = await import("node:child_process");
+    const token = await new Promise((resolve, reject) => {
+      execFile(
+        "az",
+        ["account", "get-access-token", "--resource", COGNITIVE_SERVICES_RESOURCE, "--query", "accessToken", "-o", "tsv"],
+        (err2, stdout) => err2 ? reject(err2) : resolve(stdout.trim())
+      );
+    });
+    if (!token) throw new Error("az account get-access-token returned no token");
+    cachedToken2 = { value: token, expiresAt: now + 3e6 };
+    return token;
+  }
+  throw new Error("missing IDENTITY_ENDPOINT/IDENTITY_HEADER for Cognitive Services auth");
+}
+async function chatCompletion(endpoint, deployment, messages, tools) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const token = await mintCognitiveToken();
+    const url2 = `${endpoint.replace(/\/$/, "")}/openai/v1/chat/completions`;
+    const body2 = {
+      model: deployment,
+      messages,
+      max_completion_tokens: MAX_COMPLETION_TOKENS,
+      reasoning_effort: "low"
+    };
+    if (tools.length) {
+      body2.tools = tools;
+      body2.tool_choice = "auto";
+    }
+    const res = await fetch(url2, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body2),
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`AOAI chat ${res.status}: ${errText.slice(0, 300)}`);
+    }
+    const json = await res.json();
+    const msg = json.choices?.[0]?.message;
+    if (!msg) throw new Error("AOAI chat: no message in response");
+    return msg;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function runChat(endpoint, deployment, messages, tools, executeTool, maxRounds = 4, complete = chatCompletion) {
+  const convo = [...messages];
+  const toolsUsed = [];
+  for (let round = 1; round <= maxRounds; round++) {
+    const msg = await complete(endpoint, deployment, convo, tools);
+    convo.push(msg);
+    const calls = msg.tool_calls ?? [];
+    if (!calls.length) {
+      return { reply: (msg.content ?? "").trim(), toolsUsed, rounds: round };
+    }
+    for (const call of calls) {
+      toolsUsed.push(call.function.name);
+      let args = {};
+      try {
+        args = JSON.parse(call.function.arguments || "{}");
+      } catch {
+      }
+      let result;
+      try {
+        result = await executeTool(call.function.name, args);
+      } catch (e) {
+        result = { error: e instanceof Error ? e.message : "tool failed" };
+      }
+      convo.push({
+        role: "tool",
+        tool_call_id: call.id,
+        content: JSON.stringify(result).slice(0, 8e3)
+      });
+    }
+  }
+  const finalMsg = await complete(endpoint, deployment, convo, []);
+  return { reply: (finalMsg.content ?? "").trim(), toolsUsed, rounds: maxRounds + 1 };
+}
+
+// api/src/functions/assistant.ts
+var MAX_HISTORY = 16;
+var MAX_MSG_CHARS = 4e3;
+var SYSTEM_PROMPT = [
+  "You are a helpful, concise assistant for staff at Collision Engineers, a vehicle-collision",
+  "engineering business, working inside their case-intake system. Answer questions about cases,",
+  "queues, and inbound emails using ONLY the tools provided. You are strictly READ-ONLY: you",
+  "cannot create, change, submit, or delete anything \u2014 if asked to, explain that you can only",
+  "look things up and they should use the app itself.",
+  "",
+  "Domain terms: a Case is one vehicle-damage assessment; its Case/PO is an internal reference",
+  "(a leading-alpha principal code + year + number, e.g. CCPY26050). A case moves through",
+  "statuses new_email \u2192 ingested \u2192 needs_review \u2192 ready_for_eva \u2192 eva_submitted (terminal:",
+  'removed). Queues: "Not ready" (still gathering images/instructions/details), "Review"',
+  '(ready_for_eva \u2014 the human check before EVA submission), "Held" (parked: a possible',
+  "duplicate, missing the basics like claimant/VRM, or errored). VRM = vehicle registration.",
+  "EVA is the downstream assessment platform. Answer in plain English for a non-technical case",
+  "handler; never invent a case number, reference, or registration that the tools did not return.",
+  "If a lookup returns nothing, say so plainly rather than guessing."
+].join("\n");
+var TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "lookup_case",
+      description: "Find cases by Case/PO, vehicle registration (VRM), or claimant name. Returns up to 5 matches.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string", description: "a Case/PO, VRM, or claimant name (partial ok)" } },
+        required: ["query"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "count_cases_by_status",
+      description: 'Case counts by QUEUE (Not ready / Review / Held \u2014 matching the dashboard, on-hold cases count as Held) and by raw status. For "how many in each queue" use byQueue, not byStatus.',
+      parameters: { type: "object", properties: {}, additionalProperties: false }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_inbound",
+      description: "Search recent inbound emails by subject or sender. Returns up to 5 matches.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string", description: "text to match in the subject or sender address" } },
+        required: ["query"],
+        additionalProperties: false
+      }
+    }
+  }
+];
+async function execTool(name, args) {
+  if (name === "lookup_case") {
+    const q = `%${String(args.query ?? "").trim().slice(0, 80)}%`;
+    const rows = await query(
+      `SELECT c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.eva_claimant_name AS claimant,
+              wp.name AS provider
+         FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+        WHERE c.case_po ILIKE $1 OR c.vrm ILIKE $1 OR c.case_ref ILIKE $1 OR c.eva_claimant_name ILIKE $1
+        ORDER BY c.created_at DESC LIMIT 5`,
+      [q]
+    );
+    return {
+      matches: rows.map((r) => ({
+        casePo: r.case_po ?? null,
+        vrm: r.vrm ?? null,
+        ref: r.case_ref ?? null,
+        // Handler-facing QUEUE (never the raw status enum — AGENTS.md UI-language rule),
+        // held-aware exactly like the dashboard / count_cases_by_status (an on-hold case is
+        // Held regardless of its raw status_code).
+        queue: queueLabel(r.status_code, r.on_hold),
+        claimant: r.claimant ?? null,
+        provider: r.provider ?? null
+      }))
+    };
+  }
+  if (name === "count_cases_by_status") {
+    const rows = await query(
+      "SELECT status_code, on_hold, count(*)::int AS n FROM case_ GROUP BY status_code, on_hold"
+    );
+    const byStatusMap = /* @__PURE__ */ new Map();
+    const byQueue = { "not-ready": 0, review: 0, held: 0, closed: 0 };
+    for (const r of rows) {
+      const status = statusName(r.status_code);
+      const n = Number(r.n);
+      byStatusMap.set(status, (byStatusMap.get(status) ?? 0) + n);
+      const q = r.on_hold ? "held" : statusToQueue(status) ?? "closed";
+      byQueue[q] = (byQueue[q] ?? 0) + n;
+    }
+    return {
+      byQueue: {
+        notReady: byQueue["not-ready"],
+        review: byQueue.review,
+        held: byQueue.held,
+        closedOrSubmitted: byQueue.closed
+      },
+      byStatus: [...byStatusMap.entries()].map(([status, count]) => ({ status, count })),
+      note: "byQueue matches the dashboard queues (on-hold cases count as Held); byStatus is the raw status breakdown."
+    };
+  }
+  if (name === "search_inbound") {
+    const q = `%${String(args.query ?? "").trim().slice(0, 80)}%`;
+    const rows = await query(
+      `SELECT subject, from_address, received_on, category_code
+         FROM inbound_email WHERE subject ILIKE $1 OR from_address ILIKE $1
+        ORDER BY received_on DESC LIMIT 5`,
+      [q]
+    );
+    return {
+      matches: rows.map((r) => ({
+        subject: r.subject ?? null,
+        from: r.from_address ?? null,
+        received: r.received_on ?? null,
+        category: categoryName(r.category_code)
+      }))
+    };
+  }
+  return { error: `unknown tool ${name}` };
+}
+function statusName(code) {
+  try {
+    return (typeof code === "number" ? caseStatusCodec.toName(code) : String(code)) ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+function queueLabel(statusCode, onHold) {
+  if (onHold) return "Held";
+  const q = statusToQueue(statusName(statusCode));
+  return q === "not-ready" ? "Not ready" : q === "review" ? "Review" : q === "held" ? "Held" : "Closed";
+}
+function categoryName(code) {
+  try {
+    return (typeof code === "number" ? inboundCategoryCodec.toName(code) : String(code)) ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+import_functions11.app.http("assistantChat", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "assistant/chat",
+  handler: withRole("CollisionSpike.User", async (req, ctx) => {
+    if (!gates.aiChatEnabled()) {
+      return {
+        status: 200,
+        jsonBody: {
+          disabled: true,
+          reply: "The assistant is switched off right now. You can still use the app as normal."
+        }
+      };
+    }
+    let body2;
+    try {
+      body2 = await req.json();
+    } catch {
+      return { status: 400, jsonBody: { error: "invalid JSON body" } };
+    }
+    const rawMessages = Array.isArray(body2?.messages) ? body2.messages : [];
+    const history = rawMessages.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-MAX_HISTORY).map((m) => ({ role: m.role, content: (m.content ?? "").slice(0, MAX_MSG_CHARS) }));
+    if (!history.length || history[history.length - 1].role !== "user") {
+      return { status: 400, jsonBody: { error: "messages must end with a user turn" } };
+    }
+    const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...history];
+    try {
+      const result = await runChat(gates.aiModelEndpoint(), gates.aiModelDeployment(), messages, TOOLS, execTool);
+      ctx.log(
+        JSON.stringify({
+          evt: "assistant_chat",
+          turns: history.length,
+          lastQChars: history[history.length - 1].content.length,
+          toolsUsed: result.toolsUsed,
+          rounds: result.rounds,
+          replyChars: result.reply.length
+        })
+      );
+      const reply = result.reply || "Sorry \u2014 I could not find an answer to that.";
+      return { status: 200, jsonBody: { reply, toolsUsed: result.toolsUsed } };
+    } catch (e) {
+      ctx.warn(`[assistant] ${e instanceof Error ? e.message : String(e)}`);
+      return {
+        status: 200,
+        jsonBody: { error: true, reply: "Sorry \u2014 I could not answer that right now. Please try again." }
+      };
+    }
+  })
+});
+import_functions11.app.http("aiChatGate", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/ai-chat",
+  handler: withRole("CollisionSpike.User", async () => ({
+    status: 200,
+    jsonBody: { enabled: gates.aiChatEnabled() }
+  }))
+});
+
 // api/src/functions/evidence.ts
+var import_functions12 = require("@azure/functions");
 import_functions12.app.http("evidenceContent", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -53979,34 +54129,22 @@ import_functions12.app.http("evidenceContent", {
     if (!id) return { status: 400, jsonBody: { error: "evidence id required" } };
     try {
       const rows = await query(
-        "SELECT storage_path, content_type, file_name, box_file_id FROM evidence WHERE id = $1",
+        "SELECT id, storage_path, content_type, file_name, box_file_id FROM evidence WHERE id = $1",
         [id]
       );
       const row = rows[0];
       if (!row) return { status: 404, jsonBody: { error: "not found" } };
-      let bytes;
-      let contentType2 = row.content_type || "application/octet-stream";
-      if (row.storage_path) {
-        const blob = await downloadEvidenceBytes(row.storage_path);
-        if (blob) {
-          bytes = blob.bytes;
-          contentType2 = blob.contentType || contentType2;
-        }
-      }
-      if (!bytes && row.box_file_id) {
-        const boxRes = await downloadBoxFileContent(row.box_file_id);
-        if (boxRes) bytes = boxRes.bytes;
-      }
-      if (!bytes) return { status: 404, jsonBody: { error: "no inline content" } };
+      const resolved = await resolveBytesForRow(row);
+      if (!resolved) return { status: 404, jsonBody: { error: "no inline content" } };
       return {
         status: 200,
         headers: {
-          "Content-Type": contentType2,
+          "Content-Type": resolved.contentType,
           // Private (per-staff, RLS-scoped) but cacheable for the session — previews repeat.
           "Cache-Control": "private, max-age=300",
-          "Content-Disposition": `inline; filename="${(row.file_name ?? "evidence").replace(/[^A-Za-z0-9._-]+/g, "_")}"`
+          "Content-Disposition": `inline; filename="${(resolved.fileName ?? "evidence").replace(/[^A-Za-z0-9._-]+/g, "_")}"`
         },
-        body: bytes
+        body: resolved.bytes
       };
     } catch (e) {
       ctx.warn(`[evidence/content] ${e instanceof Error ? e.message : String(e)}`);

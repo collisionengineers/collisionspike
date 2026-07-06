@@ -65,6 +65,14 @@ class FakeMapsClient:
         self.queries: list[str] = []
 
     def geocode(self, query: str, *, limit: int = 3) -> list[GeocodeResult]:
+        return self._lookup(query, limit)
+
+    def search_poi(self, query: str, *, limit: int = 3) -> list[GeocodeResult]:
+        # The fake resolves POI/fuzzy the same way as geocode (TKT-077) — signage tests that
+        # key on by_query keep passing whether the core uses geocode or search_poi.
+        return self._lookup(query, limit)
+
+    def _lookup(self, query: str, limit: int) -> list[GeocodeResult]:
         self.queries.append(query)
         if self._raise is not None:
             raise self._raise

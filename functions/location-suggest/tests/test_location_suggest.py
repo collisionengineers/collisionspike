@@ -59,7 +59,8 @@ def _make_request(body: dict | None, raw_body: bytes | None = None) -> func.Http
 
 def _patch_deps(monkeypatch, *, photo_source, vision, maps) -> None:
     """Patch the handler's dependency factories to inject the fakes."""
-    monkeypatch.setattr(function_app, "get_photo_source", lambda *a, **k: photo_source)
+    # TKT-077: the handler now calls select_photo_source(photo_refs) (inline bytes preferred).
+    monkeypatch.setattr(function_app, "select_photo_source", lambda *a, **k: photo_source)
     monkeypatch.setattr(function_app, "VisionClient", lambda *a, **k: vision)
     monkeypatch.setattr(function_app, "MapsClient", lambda *a, **k: maps)
 

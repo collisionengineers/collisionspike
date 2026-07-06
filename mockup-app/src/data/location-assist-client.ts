@@ -72,6 +72,9 @@ export interface SuggestLocationRequest {
   text_clues?: TextClues;
   /** default 5; the Function clamps to 1..10. */
   max_candidates?: number;
+  /** Request the DEEP AI vision-reasoning escalation (TKT-078). Honest no-op unless the
+   *  escalation is gated on + configured server-side. */
+  deep?: boolean;
   /** echoed; the server pins its own on the response. */
   contract_version?: string;
 }
@@ -146,6 +149,8 @@ export function friendlyEvidenceKind(kind: LocationEvidenceKind | undefined): st
     case 'photo_landmark':
     case 'photo_location':
       return 'Suggested from the photos';
+    case 'ai_reasoning':
+      return 'Suggested from a deeper photo analysis';
     case 'near_accident':
       return 'Near the accident location';
     case 'near_claimant':
@@ -274,6 +279,8 @@ export interface LocationAssistInputs {
   claimantAddress?: string;
   /** default 5; the Function clamps 1..10. */
   maxCandidates?: number;
+  /** request the deeper AI vision-reasoning escalation (TKT-078). */
+  deep?: boolean;
 }
 
 /** Build a `SuggestLocationRequest` from already-loaded CaseDetail data. */
@@ -298,6 +305,7 @@ export function buildSuggestLocationRequest(
     photo_refs,
     ...(accident || claimant ? { text_clues } : {}),
     ...(inputs.maxCandidates != null ? { max_candidates: inputs.maxCandidates } : {}),
+    ...(inputs.deep ? { deep: true } : {}),
     contract_version: LOCATION_ASSIST_CONTRACT_VERSION,
   };
 }

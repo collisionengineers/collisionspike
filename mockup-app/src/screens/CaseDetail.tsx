@@ -607,6 +607,10 @@ function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
    badge + an evidence Tooltip, with a [Use this address] action. The action is
    the caller's (it copies into the manual draft + sets decision=manual). Nothing
    here writes a Case or sets the EVA field directly. */
+/** How many corpus suggestions to show before a "Show N more" toggle (TKT-079). Assist
+ *  candidates are always shown in full (they are the reviewer-invoked result). */
+const SUGGEST_VISIBLE = 4;
+
 interface SuggestedLocationRowProps {
   suggestion: SuggestedAddress;
   onUse: () => void;
@@ -642,12 +646,22 @@ function frequencyHint(suggestion: SuggestedAddress): string | undefined {
   return parts.length > 0 ? parts.join(' · ') : undefined;
 }
 
+/** A muted "~N miles away" proximity hint (TKT-076/079) from the case's accident/claimant
+ *  postcode. PRESENTATION/ORDERING ONLY — never auto-selects (ADR-0016 #2b). */
+function distanceHint(suggestion: SuggestedAddress): string | undefined {
+  const d = suggestion.distanceMiles;
+  if (typeof d !== 'number' || !isFinite(d) || d < 0) return undefined;
+  if (d < 1) return 'under a mile away';
+  return `~${Math.round(d)} ${Math.round(d) === 1 ? 'mile' : 'miles'} away`;
+}
+
 function SuggestedLocationRow({ suggestion, onUse }: SuggestedLocationRowProps) {
   const styles = useStyles();
   const lines = [...suggestion.lines, suggestion.postcode].filter(Boolean);
   const band = friendlyBand(suggestion.confidenceBand);
   const seenHint = frequencyHint(suggestion);
-  const tip = [band, seenHint, suggestion.evidenceNote, 'Suggested — low confidence; verify before use.']
+  const distHint = distanceHint(suggestion);
+  const tip = [band, distHint, seenHint, suggestion.evidenceNote, 'Suggested — low confidence; verify before use.']
     .filter(Boolean)
     .join('\n');
   return (
@@ -660,6 +674,7 @@ function SuggestedLocationRow({ suggestion, onUse }: SuggestedLocationRowProps) 
               <MapPin size={11} strokeWidth={2.25} aria-hidden /> Suggested
             </Badge>
           </Tooltip>
+          {distHint && <Caption1 className={styles.hint}>{distHint}</Caption1>}
           {suggestion.providerCode && (
             <Caption1 className={styles.hint}>Provider {suggestion.providerCode}</Caption1>
           )}
@@ -787,6 +802,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   // (≤8); ≥2 chars searches the whole ~2,200-row corpus (TKT-062 — the picker used
   // to dump every row). The server ignores <2 chars, so typing "" restores the shortlist.
   const [addrSearch, setAddrSearch] = useState('');
+  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const suggestionsQuery = useInspectionAddressSuggestions(caseData.id, addrSearch);
   const suggestions = suggestionsQuery.data ?? [];
   const addrSearching = addrSearch.trim().length >= 2;
@@ -801,6 +817,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   // out. The candidates live ONLY in this working copy until "Use this address".
   const { data: assistGate } = useLocationAssistGate();
   const locationAssistEnabled = assistGate?.enabled ?? false;
+  // The deeper AI vision-reasoning escalation (TKT-078) — ships DARK, so this is false live today.
+  const assistAiEnabled = assistGate?.aiEnabled ?? false;
   const [assistRunning, setAssistRunning] = useState(false);
   const [assistCandidates, setAssistCandidates] = useState<SuggestedAddress[]>([]);
   // null = not run yet; true/false = the last run's "no confident location" result.
@@ -1227,7 +1245,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
      transport, and stores the returned candidates in this working copy. It does
      NOT write the case, does NOT set the EVA address, and does NOT auto-select —
      each candidate is rendered as a suggestion the reviewer must confirm. */
-  const onSuggestLocation = async () => {
+  const onSuggestLocation = async (deep = false) => {
     if (assistRunning || !locationAssistEnabled) return;
     setAssistRunning(true);
     try {
@@ -1252,6 +1270,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
         // adapter carries onto the domain Case. Passed best-effort; omitted when
         // empty so the request still builds (the Function tolerates a clue-less run).
         ...(claimantAddressClue ? { claimantAddress: claimantAddressClue } : {}),
+        ...(deep ? { deep: true } : {}),
       });
       const result = await suggestLocations(req, activeLocationAssistTransport);
       setAssistCandidates(result.suggestions);
@@ -1270,6 +1289,34 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       setAssistRunning(false);
     }
   };
+
+  /* Auto-RUN the assist ONCE when the corpus shortlist is empty and the case has photos
+     (TKT-077). This is auto-SUGGEST only — it surfaces candidates the reviewer must still
+     confirm; it NEVER auto-applies a location (ADR-0013). The "Suggest location" button stays
+     available for a manual re-run. Guarded by a ref so it fires at most once per mounted case. */
+  const autoRanAssistRef = useRef(false);
+  useEffect(() => {
+    if (autoRanAssistRef.current) return;
+    if (!locationAssistEnabled) return;
+    if (addrSearching) return; // don't fire while the reviewer is searching the corpus
+    if (suggestionsQuery.loading) return; // wait for the corpus shortlist to settle
+    if (suggestions.length > 0) return; // corpus already has matches — no assist needed
+    if (assistRunning || assistCandidates.length > 0 || assistNoResult !== null) return;
+    if (!imgState.some((e) => !e.excluded)) return; // needs at least one usable photo
+    autoRanAssistRef.current = true;
+    void onSuggestLocation(false);
+    // onSuggestLocation is intentionally omitted (ref-guarded single fire).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    locationAssistEnabled,
+    addrSearching,
+    suggestionsQuery.loading,
+    suggestions.length,
+    assistRunning,
+    assistCandidates.length,
+    assistNoResult,
+    imgState,
+  ]);
 
   const onRole = (id: string, role: ImageRole) =>
     setImgState((prev) => prev.map((e) => (e.id === id ? { ...e, imageRole: role } : e)));
@@ -1841,13 +1888,36 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                             appearance="secondary"
                             size="small"
                             icon={assistRunning ? <Spinner size="tiny" /> : <Search size={14} />}
-                            onClick={onSuggestLocation}
+                            onClick={() => onSuggestLocation(false)}
                             disabled={assistRunning}
                           >
                             {assistRunning ? 'Looking…' : 'Suggest location'}
                           </Button>
                         )}
+                        {/* Deeper AI vision-reasoning escalation (TKT-078) — hidden unless the
+                            escalation gate is on (ships DARK, so not shown live today). */}
+                        {assistAiEnabled && (
+                          <Button
+                            appearance="subtle"
+                            size="small"
+                            icon={<Lightbulb size={14} />}
+                            onClick={() => onSuggestLocation(true)}
+                            disabled={assistRunning}
+                          >
+                            Try a deeper photo-based suggestion
+                          </Button>
+                        )}
                       </div>
+
+                      {/* Provider default (ADR-0016, operator-designated) — INFORMATIONAL only,
+                          never auto-applied (ADR-0013). The reviewer still records IBA with a
+                          reason via the override below. */}
+                      {c.providerInspectionPolicy === 'always_image_based' && (
+                        <Caption1 className={styles.hint}>
+                          This provider is usually recorded as Image Based Assessment — use the
+                          override below if the vehicle can’t be inspected in person.
+                        </Caption1>
+                      )}
 
                       {/* Search the full corpus — the list otherwise shows only the ranked
                           provider shortlist (TKT-062). Typing ≥2 chars queries all ~2,200. */}
@@ -1881,7 +1951,10 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                               onUse={() => useSuggestion(s)}
                             />
                           ))}
-                          {suggestions.map((s) => (
+                          {(showAllSuggestions || addrSearching
+                            ? suggestions
+                            : suggestions.slice(0, SUGGEST_VISIBLE)
+                          ).map((s) => (
                             <SuggestedLocationRow
                               key={s.id}
                               suggestion={s}
@@ -1889,6 +1962,20 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                             />
                           ))}
                         </div>
+                      )}
+
+                      {/* Show-more toggle for the capped corpus shortlist (TKT-079). Hidden while
+                          searching the full corpus (that list is already the search result). */}
+                      {!addrSearching && suggestions.length > SUGGEST_VISIBLE && (
+                        <Button
+                          appearance="transparent"
+                          size="small"
+                          onClick={() => setShowAllSuggestions((v) => !v)}
+                        >
+                          {showAllSuggestions
+                            ? 'Show fewer'
+                            : `Show ${suggestions.length - SUGGEST_VISIBLE} more`}
+                        </Button>
                       )}
 
                       {/* Muted line when the last assist run found nothing. */}

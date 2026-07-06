@@ -69,7 +69,8 @@ export type Row = Record<string, any>;
 /** Base SELECT for case_ rows, joining the provider display name (mirrors the
  *  expanded cr1bd_provider_display the Code App read). Append WHERE/ORDER as needed. */
 export const CASE_SELECT =
-  'SELECT c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal ' +
+  'SELECT c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal, ' +
+  'wp.inspection_location_policy_code AS provider_inspection_policy ' +
   'FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id';
 
 /* ============================================================
@@ -219,6 +220,11 @@ export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
     ...(rec.eva_claimant_address ? { claimantAddress: rec.eva_claimant_address } : {}),
     provider: rec.provider_display ?? rec.eva_work_provider ?? '',
     providerCode: rec.provider_principal ?? '',
+    // The provider's operator-designated inspection policy (ADR-0016) — surfaced in the address
+    // flow as an informational default, NEVER auto-applied (TKT-079). Omitted for an unknown provider.
+    ...(inspectionPolicyCodec.toName(rec.provider_inspection_policy ?? undefined)
+      ? { providerInspectionPolicy: inspectionPolicyCodec.toName(rec.provider_inspection_policy)! }
+      : {}),
     vehicleModel: rec.eva_vehicle_model ?? '',
     evaFields: rowToEvaFields(rec, opts.provenanceRows),
     evidence: opts.evidence ?? [],
@@ -345,11 +351,16 @@ export function rowToSuggestedAddress(rec: Row): SuggestedAddress {
         .trim()
     : '';
   const lastSeen = toIso(rec.last_seen_on).slice(0, 10);
+  // Provider scoping (TKT-076): prefer the real provider_code column; fall back to the legacy
+  // source_note `provider=` token for rows written before the corpus reseed.
+  const providerCode = rec.provider_code
+    ? String(rec.provider_code).trim()
+    : noteToken(note, 'provider');
   return {
     id: rec.id ?? '',
     lines,
     postcode: (rec.postcode ?? '').trim(),
-    ...(noteToken(note, 'provider') ? { providerCode: noteToken(note, 'provider') } : {}),
+    ...(providerCode ? { providerCode } : {}),
     ...(noteToken(note, 'loc') ? { locValue: noteToken(note, 'loc') } : {}),
     ...(humanEvidence ? { evidenceNote: humanEvidence } : {}),
     ...(confidenceBand ? { confidenceBand } : {}),
@@ -360,11 +371,22 @@ export function rowToSuggestedAddress(rec: Row): SuggestedAddress {
 }
 
 /** Order suggestions by the offline ranking: rank ASC, frequency DESC, lastSeen DESC.
- *  Stable; presentation ORDERING ONLY (never auto-selects — ADR-0013). */
-export function sortSuggestions(list: SuggestedAddress[]): SuggestedAddress[] {
+ *  When `byDistance` is set (a case centroid was resolved, TKT-076), nearest-first is the
+ *  PRIMARY key (proximity ordering, ADR-0016 #2b) with the offline ranking as tiebreakers;
+ *  rows with no distance sort after those with one. Stable; ORDERING ONLY (ADR-0013). */
+export function sortSuggestions(
+  list: SuggestedAddress[],
+  opts?: { byDistance?: boolean },
+): SuggestedAddress[] {
+  const byDistance = opts?.byDistance ?? false;
   return list
     .map((s, i) => ({ s, i }))
     .sort((a, b) => {
+      if (byDistance) {
+        const da = a.s.distanceMiles ?? Number.POSITIVE_INFINITY;
+        const db = b.s.distanceMiles ?? Number.POSITIVE_INFINITY;
+        if (da !== db) return da - db;
+      }
       const ra = a.s.rank;
       const rb = b.s.rank;
       if (ra != null && rb != null && ra !== rb) return ra - rb;
@@ -379,6 +401,36 @@ export function sortSuggestions(list: SuggestedAddress[]): SuggestedAddress[] {
       return a.i - b.i;
     })
     .map((x) => x.s);
+}
+
+/** The provider PRINCIPAL from a Case/PO, ignoring the optional case-type MARKER prefix
+ *  (ADR-0021: 'A.' audit / 'AP.' total-loss audit / 'D.' diminution). Without stripping the
+ *  marker, "A.PCH26001" scopes to the bogus principal "A". "CCPY26050" → "CCPY". Upper-cased;
+ *  '' when there is no leading-alpha principal. */
+export function principalFromCasePo(casePo: string | null | undefined): string {
+  return (
+    (casePo ?? '')
+      .trim()
+      .replace(/^(?:AP|A|D)\./i, '')
+      .match(/^[A-Za-z]+/)?.[0]
+      ?.toUpperCase() ?? ''
+  );
+}
+
+/** Scope a suggestion list to a provider PRINCIPAL. Returns the provider-specific rows, or —
+ *  when none match (unknown provider, or the corpus is not yet reseeded with provider_code) —
+ *  the whole list flagged as a LABELLED global fallback. NEVER the silent unlabelled firehose
+ *  the old `!s.providerCode ||` filter produced (the TKT-062/076 bug). */
+export function scopeSuggestions(
+  all: SuggestedAddress[],
+  providerCode: string,
+): { list: SuggestedAddress[]; usingFallback: boolean } {
+  const scoped = providerCode
+    ? all.filter((s) => (s.providerCode ?? '').toUpperCase() === providerCode.toUpperCase())
+    : [];
+  return scoped.length > 0
+    ? { list: scoped, usingFallback: false }
+    : { list: all, usingFallback: true };
 }
 
 /* ============================================================

@@ -1,7 +1,17 @@
 # ADR-0016 — Inspection-address suggestion corpus regenerated from the 2-year EVA full-address export
 
-**Status:** Proposed (2026-06-24). **ADR-0013 remains binding and is re-affirmed.** Relates to
-ADR-0017 (data governance). Realised in Phase 4a.
+**Status:** Proposed (2026-06-24); **Realised 2026-07-06** (TKT-075…080). **ADR-0013 remains binding and
+is re-affirmed.** Relates to ADR-0017 (data governance). Realised in Phase 4a.
+
+> **Realised 2026-07-06 (TKT-075/076/077/078/079/080).** The offline pre-processor is now the
+> reproducible in-repo `scripts/inspection-corpus/` pipeline with the corrected **marker-aware** provider
+> parse (the naive parse scattered the ~4,673 `a.`/`ap.`-marked Case IDs, e.g. `a.qdos…`→"A" instead of
+> QDOS); the suggested layer was **reseeded live**, backup-first, with Confirmed rows preserved
+> byte-identical. Helper #2b **proximity** is built as ordering-only (nearest-first via Azure Maps, never
+> auto-selects). Helper #3 **vision assist** now reads the case's real photos; its AI vision-reasoning
+> **escalation** ships DARK (`LOCATION_ASSIST_AI_ENABLED`, operator sign-off before flip). `always_image_based`
+> stays **operator-designated** — the pipeline only reports image-based % per provider, never sets policy.
+> Detail: [inspection-address-corpus.md](../architecture/inspection-address-corpus.md).
 
 ## Context
 

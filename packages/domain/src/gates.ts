@@ -27,6 +27,10 @@ export const gates = {
   plateOcr: (): boolean => process.env.PLATE_OCR_ENABLED === 'true',           // #13
   auditCases: (): boolean => process.env.AUDIT_CASES_ENABLED === 'true',       // #15
   locationAssist: (): boolean => process.env.LOCATION_ASSIST_ENABLED === 'true',// #17
+  // AI vision-reasoning ESCALATION for location assist (TKT-078) — default OFF, ships DARK.
+  // A deeper photo-based location suggestion via the keyless AOAI gpt-5 vision model, gated on
+  // TOP of locationAssist. Operator-blocked for live flip (production AI sign-off, gated.md E2).
+  locationAssistAi: (): boolean => process.env.LOCATION_ASSIST_AI_ENABLED === 'true',
   chaserSend: (): boolean => process.env.CHASER_SEND_ENABLED === 'true',       // #19
   caseDisposition: (): boolean => process.env.CASE_DISPOSITION_ENABLED === 'true',// #20
   emailAi: (): boolean => process.env.EMAIL_AI_ENABLED === 'true',             // #21
@@ -109,6 +113,17 @@ export const gates = {
     gates.locationAssist() &&
     gates.azureMaps() &&
     gates.locationAssistApiBase() !== '',
+
+  /**
+   * Derived: the AI vision-reasoning escalation is actionable — the base location assist is on,
+   * its own gate is on, AND a model endpoint + deployment are configured. Off => the deeper
+   * suggestion path is an honest no-op (TKT-078). Ships DARK; operator-gated live flip (gated.md E2).
+   */
+  locationAssistAiEnabled: (): boolean =>
+    gates.locationAssistEnabled() &&
+    gates.locationAssistAi() &&
+    gates.aiModelEndpoint() !== '' &&
+    gates.aiModelDeployment() !== '',
 
   /**
    * Derived: a model endpoint AND deployment are both configured. The AI generate

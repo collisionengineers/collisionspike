@@ -16,6 +16,34 @@ import { app } from '@azure/functions';
 import { withRole } from '../lib/auth.js';
 import { gates } from '../lib/gates.js';
 import { callLocationSuggest, callParser } from '../lib/functions-client.js';
+import { resolveAssistImageBase64 } from '../lib/evidence-bytes.js';
+
+interface AssistPhotoRef {
+  evidence_id?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Enrich the location-assist request's photo_refs with inline base64 bytes (TKT-077). The Python
+ * location function can't read Box directly; the API resolves evidence bytes (blob → Box facade)
+ * and passes them inline so the function's InlinePhotoSource can OCR them. Photo count + per-photo
+ * bytes are capped in resolveAssistImageBase64. Refs that don't resolve are still forwarded
+ * (they degrade to a per-photo warning downstream). A malformed body is forwarded untouched.
+ */
+async function enrichLocationRequest(body: unknown): Promise<unknown> {
+  if (!body || typeof body !== 'object') return body;
+  const b = body as { photo_refs?: unknown };
+  if (!Array.isArray(b.photo_refs) || b.photo_refs.length === 0) return body;
+  const refs = b.photo_refs as AssistPhotoRef[];
+  const ids = refs.map((r) => r?.evidence_id).filter((s): s is string => typeof s === 'string');
+  const bytesById = await resolveAssistImageBase64(ids);
+  if (bytesById.size === 0) return body;
+  const enriched = refs.map((r) => {
+    const b64 = r?.evidence_id ? bytesById.get(r.evidence_id) : undefined;
+    return b64 ? { ...r, image_base64: b64 } : r;
+  });
+  return { ...b, photo_refs: enriched };
+}
 
 // POST /api/location-assist/suggest
 app.http('locationAssistSuggest', {
@@ -28,7 +56,8 @@ app.http('locationAssistSuggest', {
     }
     try {
       const body = await req.json();
-      const result = await callLocationSuggest(body);
+      const enriched = await enrichLocationRequest(body);
+      const result = await callLocationSuggest(enriched);
       return { status: 200, jsonBody: result };
     } catch {
       return { status: 200, jsonBody: [] }; // proxy failure -> honest-empty

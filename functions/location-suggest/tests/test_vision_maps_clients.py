@@ -178,6 +178,31 @@ def test_maps_geocode_parses_results_and_uk_bias():
     assert "W3 7QE" not in r.address_lines
 
 
+def test_maps_search_poi_uses_fuzzy_endpoint():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "address": {"freeformAddress": "Smith Recovery, Acton", "municipality": "Acton"},
+                        "position": {"lat": 51.5, "lon": -0.27},
+                        "score": 0.88,
+                    }
+                ]
+            },
+        )
+
+    client = MapsClient(MapsConfig(key="k"), transport=httpx.MockTransport(handler))
+    results = client.search_poi("Smith Recovery", limit=2)
+    assert "/search/fuzzy/json" in captured["url"]  # POI/fuzzy, not /search/address/
+    assert "countrySet=GB" in captured["url"]
+    assert len(results) == 1 and results[0].score == 0.88
+
+
 def test_maps_geocode_empty_query_returns_empty_without_call():
     def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
         raise AssertionError("must not call Maps for an empty query")

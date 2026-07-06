@@ -1,7 +1,7 @@
 ---
 id: TKT-078
 title: Deeper photo-based location suggestion — AI reasoning escalation (gated)
-status: backlog
+status: now
 priority: P2
 area: ai
 tickets-it-relates-to: [TKT-077, TKT-015, TKT-016]
