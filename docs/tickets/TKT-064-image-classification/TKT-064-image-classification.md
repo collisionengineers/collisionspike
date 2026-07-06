@@ -1,7 +1,7 @@
 ---
 id: TKT-064
 title: Auto-classify evidence images — role (overview/damage) + registration visible
-status: backlog
+status: done
 priority: P2
 area: pipeline
 tickets-it-relates-to: [TKT-016, TKT-048, TKT-002]
@@ -70,3 +70,10 @@ Supersedes the "role tagging is M2" deferral in
       damage close-up flips its readiness `Images` check to green without manual role-setting.
 - [ ] Classification is gated (default off), audited, and cost/latency measured at intake concurrency.
 - [ ] Staff can still override any auto-assigned role / exclusion (no silent auto-accept into EVA).
+
+## Resolution (2026-07-06)
+
+Done as the image pillar of the backfill/reverify-all-active-cases pass — see [changes.md](./changes.md)
+for what was built + run and the honest limit (the classifier + one-shot backfill are done; the
+**live-pipeline wiring for new images** is the remaining follow-up). Live counts: the registry
+[LIVE_FACTS.json](../../../LIVE_FACTS.json).

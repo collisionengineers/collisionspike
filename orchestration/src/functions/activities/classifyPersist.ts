@@ -13,7 +13,8 @@ import * as df from 'durable-functions';
 import { describeEvidence, isEngineerReportLayoutName } from '@cs/domain';
 import { gates } from '@cs/domain/gates';
 import { dataApi } from '../../lib/data-api.js';
-import { uploadEvidenceBytes } from '../../lib/blob.js';
+import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../lib/blob.js';
+import { classifyImage, classificationToEvidenceFields } from '../../lib/image-classify.js';
 import type { InboundEnvelope } from './fetchMessage.js';
 import type { AttachmentTyping } from './parse.js';
 
@@ -24,6 +25,11 @@ interface ClassifyPersistInput {
    *  report-typed attachment be stored as `engineer_report` evidence instead of
    *  `instruction`. Absent → no override (backward-compatible). */
   typings?: AttachmentTyping[];
+  /** Best-known case VRM — constrains `registration_visible` to the case vehicle's plate. */
+  caseVrm?: string;
+  /** Resolved work provider (when known) — used to honour a per-provider AI opt-out
+   *  (work_provider.ai_allowed=false) before sending images to the vision model. */
+  workProviderId?: string;
 }
 
 /** Minimum body length to treat as a genuine in-body instruction (skip one-liners/footers). */
@@ -33,11 +39,52 @@ df.app.activity('classifyPersist', {
   handler: async (input: ClassifyPersistInput, ctx): Promise<{ persisted: number }> => {
     const { caseId, inbound } = input;
 
-    const rows = inbound.attachments.map((a) => ({
+    const rows: Parameters<typeof dataApi.persistEvidence>[1] = inbound.attachments.map((a) => ({
       ...describeEvidence(a.filename, a.contentType),
       blobPath: a.blobPath,
       size: a.size,
     }));
+
+    // TKT-064 live classifier: role/registration/person-reflection for genuine image
+    // attachments (the direct-email path — extractImages covers PDF-embedded images). Runs
+    // only when the gate + model are configured; best-effort per image (a fetch/classify
+    // failure leaves the row at the default `unknown` role = pre-classifier behaviour).
+    // Per-provider AI opt-out (docs/gated.md D6): skip the vision model when the resolved
+    // work provider has ai_allowed=false (mirrors triageClassify). Undefined provider
+    // (unresolved/held case) = no opt-out; fail-open on lookup error.
+    let classifyAllowed = gates.imageRoleClassifyEnabled();
+    if (classifyAllowed && input.workProviderId) {
+      try {
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input.workProviderId);
+        if (aiAllowed === false) {
+          classifyAllowed = false;
+          ctx.log('[classifyPersist] image classify skipped — work provider opted out of AI (ai_allowed=false)');
+        }
+      } catch (e) {
+        ctx.log(JSON.stringify({ evt: 'classifyPersist.aiAllowedLookupFailed', caseId, err: e instanceof Error ? e.message : String(e) }));
+      }
+    }
+    if (classifyAllowed) {
+      for (const r of rows) {
+        if (!r.isImage) continue;
+        try {
+          const bytes = await downloadEvidenceBytes(r.blobPath);
+          const cls = await classifyImage({ imageBase64: bytes.toString('base64'), contentType: r.contentType, caseVrm: input.caseVrm });
+          if (cls) {
+            const f = classificationToEvidenceFields(cls, input.caseVrm);
+            r.imageRole = f.imageRole;
+            r.registrationVisible = f.registrationVisible;
+            r.acceptedForEva = f.acceptedForEva;
+            if (f.excluded) {
+              r.excluded = true;
+              r.exclusionReason = f.exclusionReason;
+            }
+          }
+        } catch (e) {
+          ctx.log(JSON.stringify({ evt: 'classifyPersist.imageClassifyFailed', caseId, file: r.filename, err: e instanceof Error ? e.message : String(e) }));
+        }
+      }
+    }
 
     // engineer_report override (ADR-0014 "store BOTH, never overlay" / ADR-0021): an
     // attachment whose detected LAYOUT is an engineer-report firm's (EVA/CNX) is a

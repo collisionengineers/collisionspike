@@ -22,6 +22,7 @@ import { gates } from '@cs/domain/gates';
 import { callExtractImages, callPlateOcr } from '../../lib/functions-client.js';
 import { dataApi } from '../../lib/data-api.js';
 import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../lib/blob.js';
+import { classifyImage, classificationToEvidenceFields } from '../../lib/image-classify.js';
 
 interface ExtractAttachment {
   filename: string;
@@ -36,6 +37,9 @@ interface ExtractImagesInput {
   attachments?: ExtractAttachment[];
   /** Best-known case VRM — passed to plate OCR so registration_visible reflects a match. */
   caseVrm?: string;
+  /** Resolved work provider (when known) — used to honour a per-provider AI opt-out
+   *  (work_provider.ai_allowed=false) before sending images to the vision model. */
+  workProviderId?: string;
 }
 
 /** Documents whose embedded images we expand (PDF/DOCX/DOC — the engine's extractors). */
@@ -59,6 +63,24 @@ df.app.activity('extractImages', {
     const messageId = input.messageId || input.caseId;
     let totalExtracted = 0;
     let anyRegVisible = false;
+
+    // Per-provider AI opt-out (docs/gated.md D6): if the resolved work provider has
+    // ai_allowed=false, do NOT send its evidence images to the vision model — mirror the
+    // triageClassify opt-out. Undefined provider (unresolved/held case) = no opt-out.
+    // Fail-open on lookup error (matches triageClassify): a lookup blip must not silently
+    // drop classification.
+    let classifyAllowed = gates.imageRoleClassifyEnabled();
+    if (classifyAllowed && input.workProviderId) {
+      try {
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input.workProviderId);
+        if (aiAllowed === false) {
+          classifyAllowed = false;
+          ctx.log('[extractImages] image classify skipped — work provider opted out of AI (ai_allowed=false)');
+        }
+      } catch (e) {
+        ctx.warn(`[extractImages] ai_allowed lookup failed (proceeding, fail-open): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
 
     for (const doc of docs) {
       let bytes: Buffer;
@@ -99,11 +121,38 @@ df.app.activity('extractImages', {
           continue;
         }
 
-        // registration_visible: tri-state. Run plate OCR ONLY when the gate is on AND
-        // the OCR Function is configured AND the filename is a raster image; otherwise
-        // leave it undefined (NULL = OCR not run) rather than a misleading false.
+        // Image metadata. PREFER the live gpt-5 classifier (role + registration + person
+        // reflection, TKT-064) when enabled; otherwise fall back to the plate-OCR-only
+        // registration flag (role stays `unknown` = pre-classifier behaviour). Both are
+        // best-effort on a raster image — never block intake.
+        let imageRole: string | undefined;
         let registrationVisible: boolean | undefined;
-        if (gates.plateOcr() && process.env.OCR_FN_URL && OCR_OK_EXT.test(img.filename)) {
+        let acceptedForEva = false; // auto-extracted unknowns: staff tag role + accept
+        let excluded = false;
+        let exclusionReason: string | undefined;
+
+        let classified = false;
+        if (classifyAllowed && OCR_OK_EXT.test(img.filename)) {
+          const cls = await classifyImage({
+            imageBase64: img.content_base64,
+            contentType: img.content_type,
+            caseVrm: input.caseVrm,
+          });
+          if (cls) {
+            const f = classificationToEvidenceFields(cls, input.caseVrm);
+            imageRole = f.imageRole;
+            registrationVisible = f.registrationVisible;
+            acceptedForEva = f.acceptedForEva;
+            excluded = f.excluded;
+            exclusionReason = f.exclusionReason;
+            if (f.registrationVisible) anyRegVisible = true;
+            classified = true;
+          }
+        }
+        // Fall back to plate OCR when the classifier is off OR abstains/fails (null): the
+        // classifier returning no result must not cost us the registration-visible signal
+        // that OCR could still set (else a transient AOAI blip regresses readiness).
+        if (!classified && gates.plateOcr() && process.env.OCR_FN_URL && OCR_OK_EXT.test(img.filename)) {
           try {
             const ocr = await callPlateOcr({
               imageBase64: img.content_base64,
@@ -123,9 +172,11 @@ df.app.activity('extractImages', {
           size,
           blobPath,
           evidenceClass: 'image',
-          imageRoleCode: 'unknown', // role tagging is M2 (ADR-0009); default unknown
-          acceptedForEva: false, // auto-extracted unknowns: staff tag role + accept
+          // Classifier sets the role NAME; without it, keep the M2 default `unknown`.
+          ...(imageRole ? { imageRole } : { imageRoleCode: 'unknown' }),
+          acceptedForEva,
           ...(registrationVisible !== undefined ? { registrationVisible } : {}),
+          ...(excluded ? { excluded: true, exclusionReason } : {}),
           sha256: img.sha256,
           sequenceIndex: img.sequence_index,
           sourceLabel: `extracted from ${doc.filename}`,
