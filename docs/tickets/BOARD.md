@@ -233,6 +233,7 @@
 | [TKT-103](./TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) | Tractable "768.00" wrongly captured as the reference number | P2 drop-note (2026-07-07): a monetary/estimate value taken as the provider reference on the Tractable layout (false-token family, cf. TKT-071/085); anchor the ref rule + eval pin. |
 | [TKT-105](./TKT-105-remittance-payments-category/TKT-105-remittance-payments-category.md) | Remittance advice classified under payments/billing | P2 drop-note (2026-07-07): inbound remittance-advice emails have no home — route to a payments/billing category (sibling of TKT-037). Sat in the operator's `done/` area but was never ticketed. |
 | [TKT-106](./TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md) | Remove the non-viable replay-backfill driver + gate | P2 (operator-requested 2026-07-07, dark-gate audit): the wipe-and-rebuild path is abandoned (TKT-059 — mailboxes retain only ~88/390); remove the dead `replay-backfill` Durable driver + `REPLAY_BACKFILL_ENABLED` so it can't mislead a later session. Keep the TKT-059 finding. Code change → PR + orch deploy. |
+| [TKT-108](./TKT-108-completed-tickets-done-folder/TKT-108-completed-tickets-done-folder.md) | Completed tickets → a done/ folder for easier management | P3 (distilled 2026-07-07 from a to-distill drop): move `status: done` ticket folders into `docs/tickets/done/` + make check-tickets/check-doc-links/BOARD follow. Ticket-tracking housekeeping (distinct from TKT-096, the app's completed-**case** view). |
 
 ## Blocked — needs operator
 
