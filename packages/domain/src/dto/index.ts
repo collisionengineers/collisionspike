@@ -547,6 +547,12 @@ export interface InboundEmail {
    *  row is case-linked AND the serving query joined `case_` (the inbox list does —
    *  TKT-054 status cell "Case created / Linked to case · <Case/PO>"). */
   casePo?: string;
+  /** TKT-093 — the Case/PO of a PENDING "attach to this open case" suggestion for a
+   *  NOT-yet-linked email (from `ai_suggestion` case_link). Surfaces the suggest-attach
+   *  affordance in the inbox LIST (a "may belong to · <Case/PO>" hint), not only inside
+   *  the opened email. Absent when the row is already linked or has no pending suggestion.
+   *  Present only when the serving query joins the suggestion (the inbox list does). */
+  linkSuggestionCasePo?: string;
   workProviderId?: string;
   /** The classifier's ORIGINAL suggestion, kept distinct from category/subtype (the
    *  chosen value) so a staff override is visible (work-todo-spike: suggested-tags). */

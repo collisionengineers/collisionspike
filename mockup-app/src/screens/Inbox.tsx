@@ -502,6 +502,25 @@ const useStyles = makeStyles({
   },
   suggestedFailed: { color: 'var(--ce-warning-ink)' },
 
+  // TKT-093 — inbox-list suggest-attach hint (a pending "may belong to · <Case/PO>" line
+  // under the status, so the suggestion is visible from the list, not only the opened email).
+  statusCellStack: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: '2px',
+    minWidth: 0,
+  },
+  linkSuggestionHint: {
+    fontSize: tokens.fontSizeBase100,
+    color: tokens.colorNeutralForeground3,
+    maxWidth: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+
   // Handled (actioned) rows stay in the single list, muted — the Status text
   // carries the state (mute is redundant encoding); full strength returns on
   // hover/focus so the quick actions stay legible.
@@ -612,7 +631,7 @@ function StatusCell({ e, onOpenCase }: { e: InboundEmail; onOpenCase: (caseId: s
     );
   }
   const { severity, Icon } = STATUS_CHIP[m.kind];
-  return (
+  const badge = (
     <Badge
       className={chips[severityClassName(severity)]}
       appearance="filled"
@@ -623,6 +642,23 @@ function StatusCell({ e, onOpenCase }: { e: InboundEmail; onOpenCase: (caseId: s
       {inboxStatusText(m)}
     </Badge>
   );
+  // TKT-093 — a not-yet-linked email with a PENDING attach suggestion shows a "may belong
+  // to · <Case/PO>" hint here so the suggestion is visible from the LIST, not only inside
+  // the opened email. Opening the row reveals the Attach / Not-a-match card as today.
+  if (!e.caseId && e.linkSuggestionCasePo) {
+    return (
+      <span className={styles.statusCellStack}>
+        {badge}
+        <span
+          className={styles.linkSuggestionHint}
+          title={`Suggested: this email may belong to open case ${e.linkSuggestionCasePo} — open it to attach or dismiss`}
+        >
+          may belong to · {e.linkSuggestionCasePo}
+        </span>
+      </span>
+    );
+  }
+  return badge;
 }
 
 export function Inbox() {
