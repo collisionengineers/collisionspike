@@ -9,7 +9,7 @@
   "items": [
     {
       "id": "tkt001-followup-triage",
-      "file": "docs/tickets/TKT-001-document-parsing/followup/(EREF12) RTA on 30_06_2026  Miss Nicola Granger (Our Ref REB_46487_1, Vehicle VN64WNG).eml",
+      "file": "docs/tickets/verify/TKT-001-document-parsing/followup/(EREF12) RTA on 30_06_2026  Miss Nicola Granger (Our Ref REB_46487_1, Vehicle VN64WNG).eml",
       "source": "ticket:TKT-001",
       "tracked": true,
       "context": {
@@ -24,7 +24,7 @@
     },
     {
       "id": "tkt023-original-reply",
-      "file": "docs/tickets/TKT-023-follow-up-docs/evidence/original/Our ref 576299.eml",
+      "file": "docs/tickets/verify/TKT-023-follow-up-docs/evidence/original/Our ref 576299.eml",
       "source": "ticket:TKT-023",
       "tracked": true,
       "context": {
@@ -39,7 +39,7 @@
     },
     {
       "id": "tkt023-outbound-request",
-      "file": "docs/tickets/TKT-023-follow-up-docs/evidence/sent/RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   575985.eml",
+      "file": "docs/tickets/verify/TKT-023-follow-up-docs/evidence/sent/RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   575985.eml",
       "source": "ticket:TKT-023",
       "tracked": true,
       "context": {
@@ -54,7 +54,7 @@
     },
     {
       "id": "tkt029-case-summary",
-      "file": "docs/tickets/TKT-029-misclass-case-summary/evidence/New inspection requests.eml",
+      "file": "docs/tickets/done/TKT-029-misclass-case-summary/evidence/New inspection requests.eml",
       "source": "ticket:TKT-029",
       "tracked": true,
       "context": {
@@ -69,7 +69,7 @@
     },
     {
       "id": "tkt030-chaser",
-      "file": "docs/tickets/TKT-030-misclass-chasing-report/evidence/RE 30143 - Mussie Belay  -  BX67OEY  .eml",
+      "file": "docs/tickets/done/TKT-030-misclass-chasing-report/evidence/RE 30143 - Mussie Belay  -  BX67OEY  .eml",
       "source": "ticket:TKT-030",
       "tracked": true,
       "context": {
@@ -84,7 +84,7 @@
     },
     {
       "id": "tkt031-client-chaser",
-      "file": "docs/tickets/TKT-031-misclass-client-chasing/evidence/(EREF12) RTA on 15_06_2026  Mr Daniel James Page (Our Ref SAB_46286_1, Vehicle HN13XMO).eml",
+      "file": "docs/tickets/verify/TKT-031-misclass-client-chasing/evidence/(EREF12) RTA on 15_06_2026  Mr Daniel James Page (Our Ref SAB_46286_1, Vehicle HN13XMO).eml",
       "source": "ticket:TKT-031",
       "tracked": true,
       "context": {
@@ -99,7 +99,7 @@
     },
     {
       "id": "tkt032-audatex-request",
-      "file": "docs/tickets/TKT-032-misclass-defer-routing/evidence/audatex-request/Our ref 575689.eml",
+      "file": "docs/tickets/blocked/TKT-032-misclass-defer-routing/evidence/audatex-request/Our ref 575689.eml",
       "source": "ticket:TKT-032",
       "tracked": true,
       "context": {
@@ -114,7 +114,7 @@
     },
     {
       "id": "tkt032-pcd-diminution",
-      "file": "docs/tickets/TKT-032-misclass-defer-routing/evidence/pcd-diminution/Our ref 576299.eml",
+      "file": "docs/tickets/blocked/TKT-032-misclass-defer-routing/evidence/pcd-diminution/Our ref 576299.eml",
       "source": "ticket:TKT-032",
       "tracked": true,
       "context": {
@@ -129,7 +129,7 @@
     },
     {
       "id": "tkt033-reply-existing-query",
-      "file": "docs/tickets/TKT-033-misclass-email-reply/evidence/RE 30143 - Mussie Belay  -  BX67OEY  .eml",
+      "file": "docs/tickets/done/TKT-033-misclass-email-reply/evidence/RE 30143 - Mussie Belay  -  BX67OEY  .eml",
       "source": "ticket:TKT-033",
       "tracked": true,
       "context": {
@@ -144,7 +144,7 @@
     },
     {
       "id": "tkt034-images-no-match",
-      "file": "docs/tickets/TKT-034-images-received-routing/evidence/RE Re127581.001_Mr E Taullaj.eml",
+      "file": "docs/tickets/backlog/TKT-034-images-received-routing/evidence/RE Re127581.001_Mr E Taullaj.eml",
       "source": "ticket:TKT-034",
       "tracked": true,
       "context": {
@@ -159,7 +159,7 @@
     },
     {
       "id": "tkt036-instructions-misclass",
-      "file": "docs/tickets/TKT-036-misclass-instructions/evidence/Our Ref 206848.001 - Kassar Saeed - New eng ins.eml",
+      "file": "docs/tickets/done/TKT-036-misclass-instructions/evidence/Our Ref 206848.001 - Kassar Saeed - New eng ins.eml",
       "source": "ticket:TKT-036",
       "tracked": true,
       "context": {
@@ -174,7 +174,7 @@
     },
     {
       "id": "tkt037-invoice-request",
-      "file": "docs/tickets/TKT-037-misclass-invoice-request/evidence/Your Ref kbs26067 __ Our Ref 303671 .eml",
+      "file": "docs/tickets/done/TKT-037-misclass-invoice-request/evidence/Your Ref kbs26067 __ Our Ref 303671 .eml",
       "source": "ticket:TKT-037",
       "tracked": true,
       "context": {
@@ -189,7 +189,7 @@
     },
     {
       "id": "tkt038-bare-ack",
-      "file": "docs/tickets/TKT-038-misclass-query-ack/evidence/RE Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
+      "file": "docs/tickets/done/TKT-038-misclass-query-ack/evidence/RE Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
       "source": "ticket:TKT-038",
       "tracked": true,
       "context": {
@@ -204,7 +204,7 @@
     },
     {
       "id": "tkt039-report-support",
-      "file": "docs/tickets/TKT-039-misclass-query-report-support/evidence/Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
+      "file": "docs/tickets/verify/TKT-039-misclass-query-report-support/evidence/Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
       "source": "ticket:TKT-039",
       "tracked": true,
       "context": {
@@ -219,7 +219,7 @@
     },
     {
       "id": "tkt040-roadworthy-informal",
-      "file": "docs/tickets/TKT-040-misclass-roadworthy-request/evidence/(EREF5) RTA on 27_06_2026  Mr Mohammed Osman Ahmed (Our Ref HMA_46428_1, Vehicle WN14XPZ).eml",
+      "file": "docs/tickets/done/TKT-040-misclass-roadworthy-request/evidence/(EREF5) RTA on 27_06_2026  Mr Mohammed Osman Ahmed (Our Ref HMA_46428_1, Vehicle WN14XPZ).eml",
       "source": "ticket:TKT-040",
       "tracked": true,
       "context": {
@@ -234,7 +234,7 @@
     },
     {
       "id": "tkt041-01-cancel-notice-sbl",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim Cancelled - SBL-B0521876.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim Cancelled - SBL-B0521876.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -252,7 +252,7 @@
     },
     {
       "id": "tkt041-02-cancel-notice-sbl",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim Cancelled - SBL-B0649696.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim Cancelled - SBL-B0649696.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -270,7 +270,7 @@
     },
     {
       "id": "tkt041-03-closure-notice-ax",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1062608.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1062608.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -288,7 +288,7 @@
     },
     {
       "id": "tkt041-04-closure-notice-ax",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1069305.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1069305.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -306,7 +306,7 @@
     },
     {
       "id": "tkt041-05-closure-notice-ax",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1070680.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1070680.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -324,7 +324,7 @@
     },
     {
       "id": "tkt041-06-hold-request",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/Client Mr Shah Zaib  __ Engineer Instruction - VRN BR19 OTA __ Attention Required.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Client Mr Shah Zaib  __ Engineer Instruction - VRN BR19 OTA __ Attention Required.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -339,7 +339,7 @@
     },
     {
       "id": "tkt041-07-forward-cancel-instructions",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/FW New Instruction - Lisa McKinney - RJP_81547.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/FW New Instruction - Lisa McKinney - RJP_81547.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -357,7 +357,7 @@
     },
     {
       "id": "tkt041-08-reply-cancel-conditional",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE (EREF10) RTA on 08_09_2025  Mr Benjamin Fernando Hannington (Our Ref _39569_1, Vehicle BW21WOD).eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE (EREF10) RTA on 08_09_2025  Mr Benjamin Fernando Hannington (Our Ref _39569_1, Vehicle BW21WOD).eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -375,7 +375,7 @@
     },
     {
       "id": "tkt041-09-reply-cancel-hireonly",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE (EREF8) RTA on 25_06_2026  Mr Viv Richards (Our Ref _46407_1, Vehicle WH19NXW).eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE (EREF8) RTA on 25_06_2026  Mr Viv Richards (Our Ref _46407_1, Vehicle WH19NXW).eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -393,7 +393,7 @@
     },
     {
       "id": "tkt041-10-reply-cancel-instructions",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Client Mr Bilal Hafeez  __ Engineer Instruction - VRN T3L JN.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Client Mr Bilal Hafeez  __ Engineer Instruction - VRN T3L JN.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -411,7 +411,7 @@
     },
     {
       "id": "tkt041-11-reply-cancel-claim",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Engineer Instruction - SBL-A1216630.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Engineer Instruction - SBL-A1216630.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -429,7 +429,7 @@
     },
     {
       "id": "tkt041-12-reply-cancel-multi-ref",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Estimate please.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Estimate please.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -447,7 +447,7 @@
     },
     {
       "id": "tkt041-13-reply-cancel-inspection",
-      "file": "docs/tickets/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Inspection Request Fax Sent - Claim ID 1069534.eml",
+      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Inspection Request Fax Sent - Claim ID 1069534.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -465,7 +465,7 @@
     },
     {
       "id": "tkt043-images-existing-case",
-      "file": "docs/tickets/TKT-043-misclass-images-received/RE Ref160404_GN14GBE_Nissan Qashqai Tekna_Mr Louis Cannell - Chaser for engineers report.eml",
+      "file": "docs/tickets/now/TKT-043-misclass-images-received/RE Ref160404_GN14GBE_Nissan Qashqai Tekna_Mr Louis Cannell - Chaser for engineers report.eml",
       "source": "ticket:TKT-043",
       "tracked": true,
       "context": {
@@ -483,7 +483,7 @@
     },
     {
       "id": "tkt050-ax-instruction",
-      "file": "docs/tickets/TKT-050-ax-pdf-extract/evidence/new-inspection-request-ax-ref1074398.eml",
+      "file": "docs/tickets/done/TKT-050-ax-pdf-extract/evidence/new-inspection-request-ax-ref1074398.eml",
       "source": "ticket:TKT-050",
       "tracked": true,
       "context": {
@@ -498,7 +498,7 @@
     },
     {
       "id": "tkt051-pch-connexus",
-      "file": "docs/tickets/TKT-051-pch-connexus/Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)  577349.eml",
+      "file": "docs/tickets/verify/TKT-051-pch-connexus/Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)  577349.eml",
       "source": "ticket:TKT-051",
       "tracked": true,
       "context": {
@@ -510,21 +510,6 @@
       },
       "expected_v2": null,
       "rationale": "PCH inspection/audit request routed via Connexus (intermediary domain, provider_match_state=none pre-Phase-3 -- ADR-0011). The doc-content genuinely identifies the provider by name, but classify_email cannot see attachment CONTENT, only filenames/kinds -- that's exactly TKT-051/Phase-3's point. Note: one attachment filename itself contains the word 'audit' (an audit-report-titled DOC), which trips the has_report_attachment filename heuristic even though this is a NEW request, not a completed report being returned -- a plausible false-suppression worth flagging as a real corpus find."
-    },
-    {
-      "id": "tkt053-accident-date-triage",
-      "file": "docs/tickets/TKT-053-accident-date/(EREF8) RTA on 21_06_2026  Mr David Hooper (Our Ref SAB_46492_1, Vehicle RJ08LDE).eml",
-      "source": "ticket:TKT-053",
-      "tracked": false,
-      "context": {
-        "provider_match_state": "one"
-      },
-      "expected_v1": {
-        "category": "receiving_work",
-        "subtype": "existing_provider_instruction"
-      },
-      "expected_v2": null,
-      "rationale": "UNTRACKED file (docs/tickets/TKT-053-accident-date/ is new/uncommitted at authoring time). QDOS informal roadworthy-assessment template, same shape as tkt040-roadworthy-informal (informal work request + damage photos + labelled ref) -- a regression sanity-check instance of the TKT-040 fix pattern. TKT-053 itself is about accident-date field extraction, not classification."
     },
     {
       "id": "A.PCH261269",
@@ -852,7 +837,7 @@
     },
     {
       "id": "tkt081-ack-greeting-preceded",
-      "file": "docs/tickets/TKT-081-misclass-ack-batch/evidence/sample-1/RE Mr Abu Zaid Rasool - PE19UDH - 06_10_2025.eml",
+      "file": "docs/tickets/verify/TKT-081-misclass-ack-batch/evidence/sample-1/RE Mr Abu Zaid Rasool - PE19UDH - 06_10_2025.eml",
       "source": "ticket:TKT-081",
       "tracked": true,
       "context": {
@@ -867,7 +852,7 @@
     },
     {
       "id": "tkt081-ack-automated-blank-case",
-      "file": "docs/tickets/TKT-081-misclass-ack-batch/evidence/sample-2/Thank you for your email.eml",
+      "file": "docs/tickets/verify/TKT-081-misclass-ack-batch/evidence/sample-2/Thank you for your email.eml",
       "source": "ticket:TKT-081",
       "tracked": true,
       "context": {
@@ -882,7 +867,7 @@
     },
     {
       "id": "tkt081-ack-reaction-notice",
-      "file": "docs/tickets/TKT-081-misclass-ack-batch/evidence/sample-3/RE RE Re RE RTA135600.001  -  Mr G Pashapour - WG19 SFU.eml",
+      "file": "docs/tickets/verify/TKT-081-misclass-ack-batch/evidence/sample-3/RE RE Re RE RTA135600.001  -  Mr G Pashapour - WG19 SFU.eml",
       "source": "ticket:TKT-081",
       "tracked": true,
       "context": {
@@ -897,7 +882,7 @@
     },
     {
       "id": "tkt081-ack-greeting-thanks-clause",
-      "file": "docs/tickets/TKT-081-misclass-ack-batch/evidence/sample-4/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
+      "file": "docs/tickets/verify/TKT-081-misclass-ack-batch/evidence/sample-4/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
       "source": "ticket:TKT-081",
       "tracked": true,
       "context": {
@@ -912,7 +897,7 @@
     },
     {
       "id": "tkt082-query-your-report",
-      "file": "docs/tickets/TKT-082-misclass-query-as-new-work/evidence/sample-1/Client Mr Anthony Mohammed Cauchie __ Engineer Instruction - VRN GM23 KPZ.eml",
+      "file": "docs/tickets/verify/TKT-082-misclass-query-as-new-work/evidence/sample-1/Client Mr Anthony Mohammed Cauchie __ Engineer Instruction - VRN GM23 KPZ.eml",
       "source": "ticket:TKT-082",
       "tracked": true,
       "context": {
@@ -927,7 +912,7 @@
     },
     {
       "id": "tkt082-query-reply-eref1",
-      "file": "docs/tickets/TKT-082-misclass-query-as-new-work/evidence/sample-2/Re (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
+      "file": "docs/tickets/verify/TKT-082-misclass-query-as-new-work/evidence/sample-2/Re (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
       "source": "ticket:TKT-082",
       "tracked": true,
       "context": {
@@ -942,7 +927,7 @@
     },
     {
       "id": "tkt082-caseupdate-reply-images",
-      "file": "docs/tickets/TKT-082-misclass-query-as-new-work/evidence/sample-2/Re FW (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
+      "file": "docs/tickets/verify/TKT-082-misclass-query-as-new-work/evidence/sample-2/Re FW (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
       "source": "ticket:TKT-082",
       "tracked": true,
       "context": {
@@ -960,7 +945,7 @@
     },
     {
       "id": "tkt083-body-instruction-onephrase",
-      "file": "docs/tickets/TKT-083-misclass-instructions-unidentified/evidence/Our Ref 30230-01 ; Name Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number BV72YVB  .eml",
+      "file": "docs/tickets/verify/TKT-083-misclass-instructions-unidentified/evidence/Our Ref 30230-01 ; Name Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number BV72YVB  .eml",
       "source": "ticket:TKT-083",
       "tracked": true,
       "context": {
@@ -975,7 +960,7 @@
     },
     {
       "id": "tkt093-forward-audatex-caseupdate",
-      "file": "docs/tickets/TKT-093-auto-attach-matched-emails/evidence/FW RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   577298.eml",
+      "file": "docs/tickets/verify/TKT-093-auto-attach-matched-emails/evidence/FW RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   577298.eml",
       "source": "ticket:TKT-093",
       "tracked": true,
       "context": {

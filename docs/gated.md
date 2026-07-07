@@ -60,7 +60,7 @@ These domain capabilities are **deployed and functioning** on the Azure stack:
   real PDFs/DOCX/EML/MSG. **OCR** for scanned images is the separate `ocr` Function.
   **Platform limit (FC1):** legacy table-heavy `.doc` files may miss table-cell narrative on the binary-scrape
   path because LibreOffice cannot be installed on Flex Consumption without a **custom container** migration
-  ([ROADMAP Later](../ROADMAP.md) — parser container item; [TKT-001 follow-up](./tickets/TKT-001-document-parsing/changes-regression-01-07-26.md)).
+  ([ROADMAP Later](../ROADMAP.md) — parser container item; [TKT-001 follow-up](./tickets/verify/TKT-001-document-parsing/changes-regression-01-07-26.md)).
   Triage QDOS intake is bridged by the orchestration email-body supplement when the attachment parse returns
   empty `accident_circumstances`.
 - **Vehicle look-ups (DVSA/DVLA enrichment).** The enrichment Function is deployed and calls **DVSA + DVLA
@@ -298,7 +298,7 @@ yourself — no automated live move test will be run.**
 4. ⏳ **PENDING — live-test yourself** once steps 1–2 land: click "File to …" on a test row in the
    inbox; the email should move in Outlook, the row should read "Filed to …" and flip to Handled,
    and `audit_event` should carry `outlook_move_requested` → `outlook_moved`. Record the result in
-   [tickets/TKT-054-ui-work/verification.md](./tickets/TKT-054-ui-work/verification.md).
+   [tickets/TKT-054-ui-work/verification.md](./tickets/verify/TKT-054-ui-work/verification.md).
 
 ---
 
@@ -405,7 +405,7 @@ confirm there isn't one) and it gets added to the provider's domain field in Pos
 **PHA/Parkhouse principal code** so its insert can land too. *(In the decommissioned stack this was the
 Dataverse `cr1bd_knownemaildomains` column.)*
 
-> **QDOS domain — needed for audit-case resolution ([TKT-065](./tickets/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md)).**
+> **QDOS domain — needed for audit-case resolution ([TKT-065](./tickets/verify/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md)).**
 > **QDOS** has **no `known_email_domains`**, so a **direct QDOS audit email cannot domain-resolve** —
 > it only resolves when the instruction document content names QDOS. (PCH is already covered: D8 seeded
 > `pch-ltd.com`.) Send QDOS's real sending domain(s) and it gets seeded (idempotent `916`-style delta),
@@ -637,7 +637,7 @@ immediate flip. The case-type pipeline is **acting**: detected audits write `cas
 standalone PCH/QDOS audits mint from the marker's own sequence (`A.PCH26xxx`…), QDOS dual
 "report + audit report" letters keep the standard number with case-type `audit`, and report-typed
 attachments persist as `engineer_report` evidence. **Remaining:** the
-[TKT-056](./tickets/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) step-6
+[TKT-056](./tickets/verify/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) step-6
 **live probe** — watch the next real pch-ltd.com / QDOS audit email land correctly (work provider =
 PCH/QDOS, marker Case/PO, `engineer_report` evidence). _(Original two-step item retained below for
 reference.)_
@@ -678,7 +678,7 @@ an unmatched billing/case_update/cancellation/query email with a reference or re
 its case **whatever the case's status** (terminals included — the billing-email fix), ambiguity is
 flagged never guessed, and un-linkable attempts are audited `retro_reconstruction_failed`. The
 existing un-linked pile drains one email at a time via the keyed starter — see
-[TKT-058/verification.md](./tickets/TKT-058-retro-case-creation/verification.md) step 4.
+[TKT-058/verification.md](./tickets/verify/TKT-058-retro-case-creation/verification.md) step 4.
 
 **Remaining (the Box reconstruction rung — R2 stays dark until ALL of these):**
 

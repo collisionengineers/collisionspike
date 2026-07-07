@@ -1,0 +1,1 @@
+PLAN-001 Phase 4 precondition: TKT-064 already auto-writes image role/registration-visible at intake while the ai_suggestion image branches remain dead. Operator decision TKT-088 is needed before choosing one writer model.

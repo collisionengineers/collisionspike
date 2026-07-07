@@ -3,7 +3,7 @@
 **Status:** Proposed (2026-07-03). Adds a third intake channel alongside email (ADR-0015)
 and manual entry. Reuses the dedup/mint/evidence path shared by those channels (ADR-0010,
 the shared Case/PO mint) and the EVA 12-field + image contract (unchanged). Realised by
-ticket [TKT-055](../tickets/TKT-055-provider-api-intake/TKT-055-provider-api-intake.md);
+ticket [TKT-055](../tickets/verify/TKT-055-provider-api-intake/TKT-055-provider-api-intake.md);
 the publishable contract is [provider-api-intake-spec.md](../reference/provider-api-intake-spec.md).
 
 ## Context

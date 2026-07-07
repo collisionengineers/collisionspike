@@ -116,7 +116,7 @@ change** → chasers are drafted for staff to send manually; **no free automated
 > `POST /api/box/folders/{id}/files` (Blob→Box byte mirror, scope-locked to `BOX_ALLOWED_ROOT_ID`).
 > **Intake-time evidence archive** — `boxArchiveEvidence` on `cespk-orch-dev` — copies the source `.eml`,
 > instruction documents, and images into the case Box folder on **every** intake, decoupled from provider
-> automation mode ([TKT-003](../tickets/TKT-003-box-sync/TKT-003-box-sync.md), **VERIFIED-LIVE
+> automation mode ([TKT-003](../tickets/done/TKT-003-box-sync/TKT-003-box-sync.md), **VERIFIED-LIVE
 > 2026-07-01**). **Migrated off Dataverse (2026-06-27):** `data_api_client.py` mints a managed-identity
 > token for the Data API and calls `/api/internal/*` (including
 > `GET /api/internal/box/case-by-folder/{folderId}`) — **Postgres is the system of record**. The

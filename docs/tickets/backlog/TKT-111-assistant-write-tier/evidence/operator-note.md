@@ -1,0 +1,1 @@
+PLAN-001 Phase 2: in-app write tier only. The model proposes; the SPA re-fetches state, renders a structured diff, and a human confirms before existing write routes are called with optimistic concurrency.
