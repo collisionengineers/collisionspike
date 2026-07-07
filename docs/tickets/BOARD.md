@@ -13,6 +13,18 @@
 > `verification.md`, with no known gap. Code that is written/merged but **not confirmed working in the live
 > app** stays `now` — "code-correct" is not "done".
 >
+> **Backlog reconciliation 2026-07-07 (non-PLAN-001)** — reviewed `backlog/` against `main`, the live
+> deploy, and commit history for status drift. **PLAN-001 tickets excluded** (066/067/068/069/072/110/
+> 111/113 — reconciled separately in **PR #41**, already moved to `verify`). Moves: **TKT-035** →
+> `blocked` (placeholder with no repro; needs an operator sample), **TKT-084** → `blocked` (its own
+> acceptance gates the build on an operator design sign-off). **TKT-089** → `verify` (the PDF-lane
+> decorative-image floor `is_decorative()` is built + deployed on `main` via `aafeba1` and unit-tested on
+> the exact QDOS26004 `RJS_UnknownVRM` logo; audit + email-lane proof + backfill remain; size-floor
+> caveat). **Rescoped-in-place (stay backlog):** **TKT-034** (category split already shipped; image half
+> overlaps active TKT-043), **TKT-087** (idempotent-409 reuse already exists → investigation-only),
+> **TKT-022** (`.docx` reader + fixture now exist → re-check the sample). All other backlog tickets
+> spot-confirmed genuinely un-started. 2 → Blocked, 1 → Verify, 3 rescoped.
+>
 > **Distilled 2026-07-07 (third wave — `to-distill/` re-drop → 12 tickets)** — filed **TKT-094…105**
 > from the fresh `docs/tickets/to-distill/` drop. `PLAN-case-done-lifecycle.md` became a 3-ticket
 > cluster (**TKT-094** `done` status model + auto-`eva_submitted` on export [anchor — holds the full
@@ -164,6 +176,7 @@
 | [TKT-110](./verify/TKT-110-mcp-readonly-server/TKT-110-mcp-readonly-server.md) | Read-only MCP server for external agents | PLAN-001 Phase 3: read-only MCP first; Data API remains the authorization boundary. |
 | [TKT-111](./verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md) | Assistant write tier with human confirmation | PLAN-001 Phase 2: model proposes, staff confirms, existing routes execute with ETag protection. |
 | [TKT-113](./verify/TKT-113-ai-usage-ledger/TKT-113-ai-usage-ledger.md) | AI usage ledger for model capacity controls | PLAN-001 Phase 4: track aggregate model usage before wider vision rollout. |
+| [TKT-089](./verify/TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md) | Confirm non-vehicle images (signatures/logos) no longer captured/stored on Box | **Reclassified backlog → verify (2026-07-07)** — the PDF-lane fix is **BUILT + DEPLOYED on `main`**: `is_decorative()` 200×200 area floor (`functions/parser/cedocumentmapper_v2/application/service.py:401`, both PDF paths 433/453), unit-tested on this ticket's exact QDOS26004 `RJS_UnknownVRM` logo (`test_extract_images.py:161`, `count==0`), shipped via `aafeba1`. Remaining: the live audit + TKT-047 email-lane proof + backfill decision. **Caveat:** it's a *size* floor — a large logo above 200×200 still passes (audit must confirm/raise a follow-up). See [verification](./verify/TKT-089-non-vehicle-images-box/verification.md). |
 
 ## Done — live & verified
 
@@ -215,20 +228,17 @@
 | ID | Title | State |
 |---|---|---|
 | [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI total-loss vs repairable categorisation | Deferred until the pipeline is complete. |
-| [TKT-022](./backlog/TKT-022-docx-extraction-fail/TKT-022-docx-extraction-fail.md) | `.docx` claim-form extraction fails | Drop-note (P1): garbled fields on a Word claim form. |
+| [TKT-022](./backlog/TKT-022-docx-extraction-fail/TKT-022-docx-extraction-fail.md) | `.docx` claim-form extraction fails | Drop-note (P1): garbled fields on a Word claim form. **Rescoped 2026-07-07:** `.docx`/`.doc` are now first-class readers (`readers/docx.py` + `doc.py`) with a fixture (`ACSP_DOCX_01.expected.json`) — re-run the Cheema sample before assuming the mis-mapping still reproduces. Stays backlog. |
 | [TKT-024](./backlog/TKT-024-image-based-new-case/TKT-024-image-based-new-case.md) | Image-only new-case form | Drop-note: drop instruction-only fields. |
-| [TKT-034](./backlog/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Inbound images: match to case / Box / flag | Misclass cluster (→ TKT-003/004). |
-| [TKT-035](./backlog/TKT-035-misclass-information-request/TKT-035-misclass-information-request.md) | Information-request misclassification (placeholder) | Misclass cluster — **needs a sample email from the operator**. |
+| [TKT-034](./backlog/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Inbound images: match to case / Box / flag | Misclass cluster (→ TKT-003/004). **Rescoped 2026-07-07:** the Enquiries-vs-Case-Queries category split is already shipped on `main` (`query_existing_work`/`query_new_enquiry`); only the image-received fallback remains, which **overlaps active TKT-043** — narrow to that residue or fold into TKT-043. Stays backlog. |
 | [TKT-044](./backlog/TKT-044-mileage-calc-check/TKT-044-mileage-calc-check.md) | Mileage calculations look ~10,000 over expected values | Drop-note (authored 2026-07-02); enrichment MOT-estimate check — not part of rules-engine-v2. |
 | [TKT-052](./backlog/TKT-052-merge-provider-loss/TKT-052-merge-provider-loss.md) | Merged image-only case loses the provider (merge logic) | Split from the old TKT-041-merge-fix folder (2026-07-02); TKT-028 territory. |
 | [TKT-070](./backlog/TKT-070-email-body-readability/TKT-070-email-body-readability.md) | Inbox email previews are one unreadable line — keep line breaks, cut noise | P2 (plan 2026-07-06 §5): pure `email-body-clean` domain util (newlines, URLs, quote chains, signatures) wired into fetchMessage/retro-envelope. |
 | [TKT-071](./backlog/TKT-071-vrm-false-positive-hd4110/TKT-071-vrm-false-positive-hd4110.md) | Job references like HD4110 wrongly captured as a vehicle registration | P1 (plan 2026-07-06 §6): proximity-anchor the loose dateless VRM rule (+ tight anchor for postcode-area prefixes), mirror to the Python sniff (ADR-0018), audited data fix. |
 | [TKT-073](./backlog/TKT-073-varchar16-overflow-clamp/TKT-073-varchar16-overflow-clamp.md) | Intake write fails with "value too long" — clamp over-length field before insert | P2 (plan 2026-07-06 §8): identify the 03/07 `varchar(16)` overflow field from App Insights, clamp at the mapper with a warn trace. |
-| [TKT-084](./backlog/TKT-084-pre-instruction-handling/TKT-084-pre-instruction-handling.md) | Pre-instruction directions email unidentified — define a handling lane | P2 drop-note (2026-07-06): directions-before-official-instructions have no taxonomy home; design the lane + hold/correlate behaviour, operator sign-off before build. |
 | [TKT-085](./backlog/TKT-085-vrm-false-positive-october/TKT-085-vrm-false-positive-october.md) | Registration on case A.PCH26003 logged as "OCTOBER" (VRM false positive) | P1 drop-note (2026-07-06): month word captured as VRM — different shape from TKT-071's HD4110 (all-alpha); root-cause + month/day denylist + audited data fix. |
 | [TKT-086](./backlog/TKT-086-circumstances-extraction-gaps/TKT-086-circumstances-extraction-gaps.md) | Accident circumstances still not being 100% extracted | P1 drop-note (2026-07-06): `.DOC`+`.eml` failing sample; fix in the sibling engine + measure circumstances coverage across live cases (EVA 12-field impact). |
-| [TKT-087](./backlog/TKT-087-box-upload-409-conflicts/TKT-087-box-upload-409-conflicts.md) | Box report shows 409 upload conflicts — investigate duplicate archive attempts | P2 drop-note (2026-07-06): 18×409 on `POST upload` (2026-07-03) in the operator's Box report — benign idempotency or a double-processing fingerprint (correlate with TKT-092). |
-| [TKT-089](./backlog/TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md) | Confirm non-vehicle images (signatures/logos) no longer captured/stored on Box | P2 drop-note (2026-07-06): audit ask closing TKT-047's live proof + a new uncovered lane — PDF-extracted letterhead/logo crops landing as case evidence. |
+| [TKT-087](./backlog/TKT-087-box-upload-409-conflicts/TKT-087-box-upload-409-conflicts.md) | Box report shows 409 upload conflicts — investigate duplicate archive attempts | P2 drop-note (2026-07-06): 18×409 on `POST upload` (2026-07-03) in the operator's Box report — benign idempotency or a double-processing fingerprint (correlate with TKT-092). **Rescoped 2026-07-07 → investigation-only:** the idempotent-409-reuse behaviour already exists server-side (`boxArchive.ts:19`, `functions-client.ts:280`) — no fix to build, just the forensic verdict on the 18 conflicts. Stays backlog. |
 | [TKT-090](./backlog/TKT-090-evidence-filename-provider-vrm/TKT-090-evidence-filename-provider-vrm.md) | Evidence filenames carry a wrong "RJS" provider token and "UnknownVRM" | P2 drop-note (2026-07-06): `…__RJS_UnknownVRM_img_1_1.png` on a non-RJS case — locate + fix the naming template in the extraction path. |
 | [TKT-091](./backlog/TKT-091-outlook-move-fail/TKT-091-outlook-move-fail.md) | Outlook "File to …" move fails live with a 503 from the Data API | P1 drop-note (2026-07-06): `POST /api/inbound/{id}/outlook-move` → **503** on `cespk-api-dev` (operator dev-tools evidence) — NOT the expected B4-grant 403; diagnose via App Insights, fix error-mapping + SPA failure UX; live move test still needs the B4 grant. |
 | [TKT-092](./backlog/TKT-092-pch-duplicate-cases/TKT-092-pch-duplicate-cases.md) | PCH cases duplicating for no reason | P1 drop-note (2026-07-06): enumerate duplicate PCH case groups, trace one pair to name the vector (multi-mailbox / Graph redelivery / dedup-key miss), idempotency fix + audited merge. |
@@ -250,6 +260,8 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-084](./blocked/TKT-084-pre-instruction-handling/TKT-084-pre-instruction-handling.md) | Pre-instruction directions email unidentified — define a handling lane | **Reclassified backlog → blocked (2026-07-07)** — the ticket's own Acceptance (item 1) + proof standard require the operator to **sign off the proposed `pre_instruction` handling before any build**; no sign-off is recorded and no `pre_instruction` lane exists in code. Blocked-on-operator (design decision), same class as TKT-088. |
+| [TKT-035](./blocked/TKT-035-misclass-information-request/TKT-035-misclass-information-request.md) | Information-request misclassification (placeholder) | **Reclassified backlog → blocked (2026-07-07)** — placeholder with no repro: the source folder was empty at distillation and `evidence/` holds only the operator-note. No classifier rule can be specified until the operator supplies a sample `.eml` + a one-line description of the mis-routing. Blocked-on-operator (same class as TKT-032/057). |
 | [TKT-004](./blocked/TKT-004-case-po-generation/TKT-004-case-po-generation.md) | The live/production Box root id for the allocator fallback (not the test folder). DB mint works (`QDOS26001`). |
 | [TKT-010](./blocked/TKT-010-delete-case/TKT-010-delete-case.md) | Operator to assign `CollisionSpike.Superuser` to the staff principal (access-control change). Soft-remove + dialog coded; Box delete is ACK-only per ADR-0017. |
 | [TKT-032](./blocked/TKT-032-misclass-defer-routing/TKT-032-misclass-defer-routing.md) | Operator routing decision for the deferred Audatex + PCD-diminution emails before the rule can be specified. |
