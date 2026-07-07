@@ -1,7 +1,7 @@
 ---
 id: TKT-081
 title: Acknowledgement emails still misclassified — tagged as query/new case, one opened a blank case
-status: backlog
+status: now
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-038, TKT-006]

@@ -1,7 +1,7 @@
 ---
 id: TKT-082
 title: Existing-case query misclassified as new client work
-status: backlog
+status: now
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-030, TKT-033, TKT-046, TKT-023]
