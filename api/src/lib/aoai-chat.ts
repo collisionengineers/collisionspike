@@ -128,11 +128,19 @@ export async function chatCompletion(
 /** How the route supplies read-only tool execution to the loop. */
 export type ToolExecutor = (name: string, args: Record<string, unknown>) => Promise<unknown>;
 
+/** Minimal sink for observability — the route passes InvocationContext (ctx.warn). */
+export interface ChatLogger {
+  warn: (msg: string) => void;
+}
+
 export interface RunChatResult {
   reply: string;
   /** Names of tools the model invoked (for audit — never the results). */
   toolsUsed: string[];
   rounds: number;
+  /** How many tool calls ultimately failed (after the one retry). 0 on a clean run.
+   *  Surfaced as the `toolErrors` audit-lite dimension (TKT-066). */
+  toolErrors: number;
 }
 
 /**
@@ -149,19 +157,23 @@ export async function runChat(
   maxRounds = 4,
   /** Injected for unit tests; defaults to the real AOAI call. */
   complete: typeof chatCompletion = chatCompletion,
+  /** Optional observability sink — a failing tool warns here (TKT-066). */
+  logger?: ChatLogger,
 ): Promise<RunChatResult> {
   const convo = [...messages];
   const toolsUsed: string[] = [];
+  let toolErrors = 0;
   for (let round = 1; round <= maxRounds; round++) {
     const msg = await complete(endpoint, deployment, convo, tools);
     convo.push(msg);
     const calls = msg.tool_calls ?? [];
     if (!calls.length) {
-      return { reply: (msg.content ?? '').trim(), toolsUsed, rounds: round };
+      return { reply: (msg.content ?? '').trim(), toolsUsed, rounds: round, toolErrors };
     }
     // Execute each requested tool (read-only) and feed results back.
     for (const call of calls) {
-      toolsUsed.push(call.function.name);
+      const name = call.function.name;
+      toolsUsed.push(name);
       let args: Record<string, unknown> = {};
       try {
         args = JSON.parse(call.function.arguments || '{}');
@@ -170,9 +182,19 @@ export async function runChat(
       }
       let result: unknown;
       try {
-        result = await executeTool(call.function.name, args);
-      } catch (e) {
-        result = { error: e instanceof Error ? e.message : 'tool failed' };
+        result = await executeTool(name, args);
+      } catch {
+        // One retry — a transient first-attempt failure (e.g. a Postgres cold-connect
+        // inside the 5s pool timeout) usually clears on an immediate second try.
+        try {
+          result = await executeTool(name, args);
+        } catch (e2) {
+          toolErrors += 1;
+          const emsg = e2 instanceof Error ? e2.message : 'tool failed';
+          // Visible in App Insights (TKT-066) — the failure was previously swallowed unlogged.
+          logger?.warn(`[assistant] tool ${name} failed: ${emsg}`);
+          result = { error: emsg };
+        }
       }
       convo.push({
         role: 'tool',
@@ -183,5 +205,5 @@ export async function runChat(
   }
   // Ran out of rounds — one last non-tool answer attempt.
   const finalMsg = await complete(endpoint, deployment, convo, []);
-  return { reply: (finalMsg.content ?? '').trim(), toolsUsed, rounds: maxRounds + 1 };
+  return { reply: (finalMsg.content ?? '').trim(), toolsUsed, rounds: maxRounds + 1, toolErrors };
 }

@@ -110,6 +110,49 @@ export interface DetachInboundResult {
   ok: boolean;
 }
 
+/* ----- Global search (TKT-072) — GET /api/search?q= result shapes ----- */
+export interface SearchCaseHit {
+  id: string;
+  casePo: string | null;
+  vrm: string | null;
+  vrmCanonical: string | null;
+  ref: string | null;
+  queue: string;
+  claimant: string | null;
+  provider: string | null;
+}
+export interface SearchEmailHit {
+  id: string;
+  subject: string | null;
+  from: string | null;
+  received: string | null;
+  category: string;
+  caseId: string | null;
+}
+export interface SearchProviderHit {
+  id: string;
+  displayName: string | null;
+  principalCode: string | null;
+}
+export interface GlobalSearchResults {
+  query: string;
+  tooShort: boolean;
+  /** true when the server returned the gate-off honest-empty payload. */
+  disabled?: boolean;
+  cases: SearchCaseHit[];
+  emails: SearchEmailHit[];
+  providers: SearchProviderHit[];
+  truncated: { cases: boolean; emails: boolean; providers: boolean };
+}
+export const EMPTY_SEARCH: GlobalSearchResults = {
+  query: '',
+  tooShort: false,
+  cases: [],
+  emails: [],
+  providers: [],
+  truncated: { cases: false, emails: false, providers: false },
+};
+
 /** Result of `POST /api/inbound/{id}/outlook-move` (TKT-054 / 020726 E6). */
 export interface OutlookMoveResult {
   queued: boolean;
@@ -157,6 +200,9 @@ export interface DataAccessExt extends DataAccess {
   assistantChat(messages: AssistantChatTurn[]): Promise<AssistantReply>;
   /** The AI-chat feature gate (honest { enabled:false } on failure). */
   getAiChatGate(): Promise<{ enabled: boolean }>;
+  /** Global search (TKT-072): one normalised query across cases / inbound email / providers.
+   *  safe()-empty on failure; the server returns disabled+empty while GLOBAL_SEARCH_ENABLED is off. */
+  globalSearch(q: string): Promise<GlobalSearchResults>;
   /** Evidence inline preview (TKT-048): authenticated fetch → a `blob:` object URL for an
    *  <img>, or undefined when there's no inline content (Box-only / bytes gone). The caller
    *  MUST URL.revokeObjectURL it on unmount. */
@@ -434,6 +480,8 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     assistantChat: (messages) =>
       call<AssistantReply>('POST', '/api/assistant/chat', { messages }),
     getAiChatGate: () => safe(() => get<{ enabled: boolean }>('/api/gates/ai-chat'), { enabled: false }),
+    globalSearch: (q) =>
+      safe(() => get<GlobalSearchResults>(`/api/search?q=${encodeURIComponent(q)}`), { ...EMPTY_SEARCH, query: q }),
     evidenceContentUrl: (id) => blobUrl(`/api/evidence/${enc(id)}/content`),
 
     /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */

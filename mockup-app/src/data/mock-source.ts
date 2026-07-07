@@ -48,6 +48,7 @@ import {
   AI_ASSIST_GATE_ALL_OFF,
 } from '@cs/domain';
 import type { DataAccessExt, DetachInboundResult, OutlookMoveResult } from './rest-client';
+import { EMPTY_SEARCH } from './rest-client';
 
 const NOT_CONFIGURED =
   'Data source not configured — call configureDataAccess(restClient) in main.tsx before writes.';
@@ -409,6 +410,7 @@ export const mockDataAccess: DataAccessExt = {
   assistantChat: (_messages) =>
     Promise.resolve({ reply: 'The assistant is not available in this preview.', disabled: true }),
   getAiChatGate: () => Promise.resolve({ enabled: false }),
+  globalSearch: (q) => Promise.resolve({ ...EMPTY_SEARCH, query: q }),
   evidenceContentUrl: (_id) => Promise.resolve(undefined),
   inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
   // Honest no-op: the empty default writes nothing (the live REST source, backed by

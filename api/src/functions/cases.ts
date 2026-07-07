@@ -24,6 +24,7 @@ import { app, type HttpRequest } from '@azure/functions';
 import {
   CASE_PO_SHAPE_RE,
   EVA_FIELD_ORDER,
+  canonicalizeVrm,
   casePoSequenceRegex,
   casePoYear,
   extractVrm,
@@ -605,10 +606,16 @@ app.http('openVrmTwins', {
   authLevel: 'anonymous',
   route: 'cases',
   handler: withRole('CollisionSpike.User', async (req) => {
-    const vrm = req.query.get('vrm') ?? '';
+    const vrm = canonicalizeVrm(req.query.get('vrm') ?? '');
     const exclude = req.query.get('exclude') ?? undefined;
     if (!vrm) return { status: 200, jsonBody: [] };
-    const rows = await query<Row>(`${CASE_SELECT} WHERE c.vrm = $1`, [vrm]);
+    // Canonicalise BOTH sides (upper, alnum-only) so a spaced/lower-case query ("YT13 UTV")
+    // matches the compacted stored mark ("YT13UTV") — the shared canonicalizeVrm rule, mirrored
+    // in SQL. (Small dataset; an expression index on the canonical form is a later optimisation.)
+    const rows = await query<Row>(
+      `${CASE_SELECT} WHERE regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g') = $1`,
+      [vrm],
+    );
     const twins = rows
       .map((r) => rowToCase(r))
       .filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);

@@ -10,6 +10,7 @@ import ManualIntake from './screens/ManualIntake';
 import AddEvidence from './screens/AddEvidence';
 import ActionLogs from './screens/ActionLogs';
 import Inbox from './screens/Inbox';
+import SearchResults from './screens/SearchResults';
 
 /* Route map (review 190626 nav IA):
    /                      → Dashboard
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'inbox', element: <Inbox /> },
+      { path: 'search', element: <SearchResults /> },
       { path: 'intake', element: <ManualIntake /> },
       { path: 'evidence', element: <AddEvidence /> },
       { path: 'queue/:name', element: <CaseList /> },

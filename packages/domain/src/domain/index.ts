@@ -13,6 +13,7 @@ export * from './dedup';
 export * from './provider-match';
 export * from './sender-identity-match';
 export * from './vrm-filter';
+export * from './vrm-canon';
 export * from './case-po';
 export * from './case-type';
 export * from './address-policy';

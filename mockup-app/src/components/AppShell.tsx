@@ -439,7 +439,11 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
             className={styles.search}
             placeholder="Search VRM, claimant, Case/PO…"
             onKeyDown={(e) => {
-              if (e.key === 'Enter') navigate('/');
+              if (e.key === 'Enter') {
+                // TKT-072 — submit to the global-search results view (falls back home on empty).
+                const q = (e.target as HTMLInputElement).value.trim();
+                navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/');
+              }
             }}
           />
           {chatGate?.enabled && (

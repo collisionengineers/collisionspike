@@ -20,7 +20,7 @@ import {
   tokens,
   mergeClasses,
 } from '@fluentui/react-components';
-import { Sparkles, Send, X } from 'lucide-react';
+import { Sparkles, Send, X, Plus } from 'lucide-react';
 import { getDataAccess } from '../data';
 import type { AssistantChatTurn } from '../data';
 
@@ -39,7 +39,8 @@ const useStyles = makeStyles({
 
 const SUGGESTIONS = [
   'How many cases are in each queue?',
-  'What does "Held" mean?',
+  'Which cases are overdue?',
+  'Show the oldest cases in Review',
   'Find the case for reg ',
 ];
 
@@ -60,6 +61,15 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
       if (el) el.scrollTop = el.scrollHeight;
     });
   }, []);
+
+  // TKT-067 — start a fresh conversation. Cannot interleave with an in-flight reply, so it
+  // is disabled while sending. Clears both the thread and any half-typed question; the next
+  // send starts from an empty history (POST /api/assistant/chat is stateless per request).
+  const newChat = useCallback(() => {
+    if (sending) return;
+    setTurns([]);
+    setInput('');
+  }, [sending]);
 
   const send = useCallback(
     async (text: string) => {
@@ -88,7 +98,19 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
       <DrawerHeader>
         <DrawerHeaderTitle
           action={
-            <Button appearance="subtle" aria-label="Close assistant" icon={<X size={18} />} onClick={() => onOpenChange(false)} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Button
+                appearance="subtle"
+                size="small"
+                icon={<Plus size={16} />}
+                onClick={newChat}
+                disabled={sending || turns.length === 0}
+                aria-label="Start a new chat"
+              >
+                New chat
+              </Button>
+              <Button appearance="subtle" aria-label="Close assistant" icon={<X size={18} />} onClick={() => onOpenChange(false)} />
+            </span>
           }
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

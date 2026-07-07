@@ -49,6 +49,23 @@ export const gates = {
   // with role `unknown` exactly as before (the one-shot backfill handled existing evidence).
   imageRoleClassify: (): boolean => process.env.IMAGE_ROLE_CLASSIFY_ENABLED === 'true',
 
+  // ---- PLAN-001 (AI hardening + MCP) gates — ALL default OFF, ship DARK ----
+  // TKT-066/069 — the registry-driven read adapter for the assistant. When OFF the assistant
+  // uses the original hand-written `execTool` (fast rollback); when ON it derives its tool set
+  // from the shared @cs/domain capability registry. Read-only either way (TKT-060 invariant).
+  assistantToolsetV2: (): boolean => process.env.ASSISTANT_TOOLSET_V2 === 'true',
+  // TKT-072 — global search endpoint GET /api/search. Default OFF for a soak; the SPA search box
+  // falls back to its prior behaviour while off, and the route honestly 404-gates.
+  globalSearch: (): boolean => process.env.GLOBAL_SEARCH_ENABLED === 'true',
+  // TKT-111 — the in-app assistant WRITE tier (propose→confirm→execute). Default OFF; ships DARK.
+  // Live flip is operator-blocked (per-gate E2/G5 sign-off + DPIA, docs/gated.md). The model NEVER
+  // issues a write directly — a human confirms a structured diff and the SPA calls an existing route.
+  assistantWriteTier: (): boolean => process.env.ASSISTANT_WRITE_TIER_ENABLED === 'true',
+  // TKT-110 — the read-only MCP server (Streamable-HTTP) for external agents. Default OFF; ships
+  // DARK. Exposes ONLY registry read tools; needs its own Entra app-registration before a live flip
+  // (operator, docs/gated.md). Authorization is still enforced at the Data API, never the MCP layer.
+  mcpServer: (): boolean => process.env.MCP_SERVER_ENABLED === 'true',
+
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: (): boolean => process.env.BOX_API_ENABLED === 'true',               // #22
   boxFolderAtIntake: (): boolean => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === 'true',// #23
