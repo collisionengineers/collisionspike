@@ -708,10 +708,14 @@ existing un-linked pile drains one email at a time via the keyed starter — see
    the scope lock keeps them **read-only** (list/search/download — never create/upload/delete).
    ✅ **2026-07-07 (operator-supplied):** the read-only archive root `collision_engineers` = folder
    **`4077648161`** (located via `box search`); **`BOX_READONLY_ROOT_IDS=4077648161` set** on the
-   box-webhook fn. **Still needed before the R2 Box rung acts:** confirm the Box service-account
-   **Viewer** grant on `4077648161`, then set `RETRO_BOX_ARCHIVE_ROOT_IDS` — *after* the step-1
-   Case/PO sequence-alignment (setting it now would activate reconstruction before the numbering is
-   reconciled).
+   box-webhook fn, and the **Box service-account Viewer grant is CONFIRMED** (operator, 2026-07-07) —
+   so the read-only archive is now fully readable via the facade (`box/search`, `box/files/{id}/content`).
+   **The one remaining blocker for the R2 *auto-reconstruction* rung is the step-1 Case/PO
+   sequence-alignment:** `RETRO_BOX_ARCHIVE_ROOT_IDS` stays UNSET until then, because
+   `retroCreatePersist` creates the case with the archive folder's OWN Case/PO (`discoveredPo`), which
+   would inject far-ahead archive numbers beside the restarted ~001 live sequence.
+   **Read-only USES that don't mint are UNBLOCKED now** (archive-match *suggestions*, operator/assistant
+   lookup, evidence reference) — they carry no numbering risk. Captured as **TKT-107**.
 3. Two operator sanity checks that shape R2: eyeball 5–10 archive folders — are they named EXACTLY
    the Case/PO (suffixed variants like `CCPY26050 - Smith` would need a flagged prefix-match arm)?
    And do they reliably contain the original instruction **`.eml`** (if a cohort only holds PDFs,

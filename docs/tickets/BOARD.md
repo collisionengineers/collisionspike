@@ -192,6 +192,7 @@
 | [TKT-015](./TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (gated) | Phase 4 of [rules-engine-v2](../plans/rules_engine_v2_plan_9ba034c4.plan.md) wired ONE concrete lane (email-triage categorisation) to a real, keyless AOAI call 2026-07-02 — `EMAIL_AI_ENABLED` **flipped live 2026-07-03** (user-instructed; `AI_ASSIST_ENABLED` still absent); the case/damage-assessment + image/reg-OCR consumers remain unbuilt. See [verification](./TKT-015-ai-assistant/verification.md). |
 | [TKT-016](./TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md) | Image-analysis VLM sequence | Research-only; pipeline unbuilt. |
 | [TKT-017](./TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model bench | Research-only; no benchmark run. |
+| [TKT-107](./TKT-107-readonly-archive-assist/TKT-107-readonly-archive-assist.md) | Read-only Box archive assist (suggest-only) | P2 (operator-raised 2026-07-07): the `collision_engineers` archive (4077648161) is now readable (Viewer confirmed). Use it read-only — archive-match **suggestions**, assistant lookup, evidence reference — **without minting**, so it ships now despite the R2 reconstruction staying blocked on the Case/PO sequence-alignment (TKT-058/D11). No case creation, no allocator advance. |
 ## Backlog — not started
 
 | ID | Title | Source / note |
