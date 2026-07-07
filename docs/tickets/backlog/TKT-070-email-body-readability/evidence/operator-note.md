@@ -2,7 +2,7 @@
 
 > From `PLAN-assistant-intake-search-fixes.md` (planning session 2026-07-06). The full plan is
 > preserved at
-> [TKT-066 evidence](../../TKT-066-assistant-lookup-observability/evidence/operator-note.md).
+> [TKT-066 evidence](../../../verify/TKT-066-assistant-lookup-observability/evidence/operator-note.md).
 
 Diagnostic (verified 06/07): `orchestration/src/functions/activities/fetchMessage.ts` line 137
 collapses ALL whitespace into one line before storing `body_preview`; no URL/quoted-chain/

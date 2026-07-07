@@ -1,7 +1,7 @@
 # ADR-0023 — MCP server hosting + auth (read-only first; Data-API-enforced agent roles)
 
 **Status:** Proposed (2026-07-07 — read-only MCP built DARK behind `MCP_SERVER_ENABLED`; realised by
-[TKT-110](../tickets/backlog/TKT-110-mcp-readonly-server/TKT-110-mcp-readonly-server.md), under
+[TKT-110](../tickets/verify/TKT-110-mcp-readonly-server/TKT-110-mcp-readonly-server.md), under
 [PLAN-001](../tickets/plans/PLAN-001-ai-mcp-hardening.md)). All gates default off; live values belong to
 the registry ([live-environment.md](../architecture/live-environment.md)), never this file.
 

@@ -226,3 +226,29 @@ write tier dark (card + ETag) → **P3** read-only MCP on Function App + agent-a
 autonomous writes, only after agent-authz impl + signed-commit-token + ETag)* → **P4** vision program
 (TKT-064 reconcile + TKT-088 unblock + TKT-017 benchmark + capacity plan + residency sign-off).
 
+## Build status (2026-07-07)
+
+Phases 1–4 are **built dark and merged behind default-off gates** — nothing is flipped live. Branch
+`feat/plan-001-ai-mcp-hardening`, commits `7bdcb94` (P1) · `754c38a` (P2) · `3f7ffc7` (P3) · `6208361`
+(P4) · `18a9da4` (ADRs 0023/0024/0025). Offline gates green (only the pre-existing environmental parser
+pytest fails). The operator flips for every new gate are registered in
+[gated.md](../../gated.md) (§F — PLAN-001).
+
+| Ticket | State | Gate (default off) |
+|---|---|---|
+| TKT-066 assistant lookup + observability | `verify` | `ASSISTANT_TOOLSET_V2` |
+| TKT-069 six read tools | `verify` | `ASSISTANT_TOOLSET_V2` |
+| TKT-067 New-chat | `verify` | (SPA-only, no gate) |
+| TKT-072 global search | `verify` | `GLOBAL_SEARCH_ENABLED` |
+| TKT-107 read-only archive assist | `verify` | (Box read already live) |
+| TKT-111 assistant write tier | `verify` | `ASSISTANT_WRITE_TIER_ENABLED` (+ DPIA) |
+| TKT-068 attach evidence | `next` | server path only; assistant UX pending; no model upload |
+| TKT-110 read-only MCP server | `verify` | `MCP_SERVER_ENABLED` (+ MCP Entra app-reg) |
+| TKT-113 AI usage ledger | `verify` | (schema apply + deploy) |
+| TKT-064 image classifier | `done` (pre-existing, live) | — |
+| TKT-060 read-only assistant | `done` (pre-existing, live) | — |
+| TKT-088 image-role check · TKT-112 image-writer reconcile | `blocked` | operator decision |
+| TKT-016/017/018 vision · TKT-015 model call | `next`/`backlog` | deferred: DPIA + capacity + residency |
+
+The plan stays `active` until the vision family (P4 consumers) and the deferred `blocked` items land.
+

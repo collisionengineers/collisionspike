@@ -2,7 +2,7 @@
 
 > From `PLAN-assistant-intake-search-fixes.md` (planning session 2026-07-06). The full plan is
 > preserved at
-> [TKT-066 evidence](../../TKT-066-assistant-lookup-observability/evidence/operator-note.md).
+> [TKT-066 evidence](../../../verify/TKT-066-assistant-lookup-observability/evidence/operator-note.md).
 
 Bonus live finding (diagnostic summary): 03/07 API errors
 `value too long for type character varying(16)` on an internal (`withServiceAuth`) route — a

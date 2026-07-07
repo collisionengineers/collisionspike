@@ -1,7 +1,7 @@
 # ADR-0024 — Assistant write tier: propose → confirm → execute (the model never writes)
 
 **Status:** Proposed (2026-07-07 — built DARK behind `ASSISTANT_WRITE_TIER_ENABLED`; realised by
-[TKT-111](../tickets/backlog/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md), under
+[TKT-111](../tickets/verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md), under
 [PLAN-001](../tickets/plans/PLAN-001-ai-mcp-hardening.md)). Gate default off; live flip is
 operator-blocked (per-gate E2/G5 sign-off + DPIA — [gated.md](../gated.md)).
 

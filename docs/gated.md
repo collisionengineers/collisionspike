@@ -791,6 +791,44 @@ live-stack ask to extend intake to the production mailbox set is the **info@ + d
 
 ---
 
+### F. AI/MCP hardening (PLAN-001) — dark-built, awaiting your flip
+
+**What:** [PLAN-001](./tickets/plans/PLAN-001-ai-mcp-hardening.md) hardened and extended the AI features and
+added a read-only MCP server. It is **built dark on branch `feat/plan-001-ai-mcp-hardening`** — every new
+capability sits behind a **default-off** feature gate, so nothing changed in the live app. Deploy is the
+first step; each gate then flips only on your sign-off. Gate values live in the registry
+([live-environment.md](./architecture/live-environment.md) / [LIVE_FACTS.json](../LIVE_FACTS.json)), never
+here — the names below are default-off until you set them.
+
+**Why you:** each flip is a deploy + a per-gate decision (and, for the write/model paths, a **DPIA + E2/G5
+sign-off**); the MCP path also needs a new **Entra app-registration** only you can create. An agent builds
+and gates; it does not flip a live gate or create an app-registration.
+
+**Steps (in dependency order; each is independent and safe to leave off):**
+1. **Merge + deploy the branch** (`cespk-api-dev` + the SPA `cespk-spa-dev`). Until deployed, all of the
+   below are inert regardless of gate state. TKT-067 (New-chat) ships with the SPA deploy — no gate.
+2. **`ASSISTANT_TOOLSET_V2`** (TKT-066/069) — turns on the canonical-VRM read adapter + six read tools.
+   Flip after a short soak; verify a spaced-VRM lookup (`YT13 UTV`) resolves.
+3. **`GLOBAL_SEARCH_ENABLED`** (TKT-072) — the header search box. Flip after step 2 soaks.
+4. **`ASSISTANT_WRITE_TIER_ENABLED`** (TKT-111) — the propose→confirm→execute write tier. Needs a
+   **per-capability DPIA + E2/G5 sign-off** first (the `scrubPii` output is a precision-over-recall
+   pre-scrub, not "de-identified" — the DPIA must say so). The model never writes; a human confirms every
+   action.
+5. **Apply `185_ai_usage_ledger.sql`** (TKT-113) via the D7/D8 `SET ROLE csadmin` runbook, then redeploy —
+   the capacity ledger starts accruing.
+6. **MCP read-only server** (TKT-110): create the **MCP Entra app-registration** (delegated scopes for the
+   near-term Flow A; app-roles for the later Flow B), then set **`MCP_SERVER_ENABLED`**. Record it in the
+   registry (bump `lastVerified`). Autonomous agent **writes** are a separate, later rung (ADR-0023 Phase
+   3b) — not shipped.
+
+**Deliberately deferred (do not flip / not built):** the vision family (TKT-016/017/018) + the real
+`callModelForSuggestions` model call (TKT-015) — each gated behind capacity + **image-egress data
+residency** + DPIA; and the **image-writer reconcile** (TKT-112) which is blocked on your TKT-088 decision
+(keep the live auto-classifier writing, or suggestion-gate it — never both). AI-driven byte upload is not
+built by design (TKT-068: bytes come only from a human file-picker).
+
+---
+
 ---
 
 ## Historical — Power Platform operator backlog (deprovisioned 2026-06-27)
