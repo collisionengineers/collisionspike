@@ -1645,6 +1645,12 @@ app.http('internalTriageSuggestLink', {
         category?: string;
         subtype?: string;
         modelVersion?: string;
+        // TKT-093 (DARK) — case_link only: self-accept the just-written suggestion and
+        // perform the reversible attach immediately. Set by the orchestration triagePolicy
+        // activity ONLY when decideTriage returned `attach_case` (gated behind
+        // TRIAGE_AUTO_ATTACH_ENABLED + an exact single case_po/job_ref match — the gating
+        // lives entirely upstream in @cs/domain + the orchestrator). Ignored for other types.
+        autoAttach?: boolean;
       };
       const suggestionType = body.suggestionType;
       if (suggestionType !== 'case_link' && suggestionType !== 'cancellation' && suggestionType !== 'triage_category') {
@@ -1771,6 +1777,7 @@ app.http('internalTriageSuggestLink', {
         return { status: 500, jsonBody: { error: 'suggestion insert returned no id' } };
       }
 
+      let autoAttached = false;
       if (suggestionType === 'case_link') {
         await writeAudit({
           action: AUDIT_ACTION.inbound_link_suggested,
@@ -1778,6 +1785,35 @@ app.http('internalTriageSuggestLink', {
           summary: 'A message was suggested for linking to an existing case',
           after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId },
         });
+
+        // TKT-093 (DARK) — auto-attach: self-accept the suggestion and perform the SAME
+        // reversible attach as accepting it from the inbox (promoteAcceptedSuggestion's
+        // case_link branch): FILL-IF-EMPTY link + triage_state='routed' + the case-scoped
+        // inbound_linked audit (actor 'auto-attach'). Never overwrites a link a person (or
+        // another path) already made. Reversible via the existing detach action.
+        if (body.autoAttach === true && targetCaseId && inboundEmailId) {
+          const linked = await query<Row>(
+            `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
+               WHERE id = $1 AND case_id IS NULL RETURNING id`,
+            [inboundEmailId, targetCaseId],
+          );
+          if (linked[0]) {
+            await query<Row>(
+              `UPDATE ai_suggestion SET review_state = 'accepted', reviewed_by = 'auto-attach', reviewed_at = now()
+                 WHERE id = $1 AND review_state = 'pending'`,
+              [suggestionId],
+            );
+            await writeAudit({
+              action: AUDIT_ACTION.inbound_linked,
+              caseId: targetCaseId,
+              summary: 'Inbound email linked to case (auto-attach)',
+              before: { caseId: null },
+              after: { caseId: targetCaseId, inboundEmailId, suggestionId, auto: true },
+              actor: 'auto-attach',
+            });
+            autoAttached = true;
+          }
+        }
       } else if (suggestionType === 'cancellation') {
         await writeAudit({
           action: AUDIT_ACTION.cancellation_proposed,
@@ -1798,8 +1834,8 @@ app.http('internalTriageSuggestLink', {
         });
       }
 
-      ctx.log(JSON.stringify({ evt: 'triageSuggestLink', suggestionType, suggestionId, targetCaseId }));
-      return { status: 200, jsonBody: { suggestionId, created: true } };
+      ctx.log(JSON.stringify({ evt: 'triageSuggestLink', suggestionType, suggestionId, targetCaseId, autoAttached }));
+      return { status: 200, jsonBody: { suggestionId, created: true, ...(autoAttached ? { autoAttached: true } : {}) } };
     }),
 });
 

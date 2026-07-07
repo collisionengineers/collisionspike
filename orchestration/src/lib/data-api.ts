@@ -159,6 +159,11 @@ export interface TriageSuggestLinkRequest {
   rationale: string;
   confidence?: number;
   decisionInputs: Record<string, unknown>;
+  /** TKT-093 (DARK) — case_link only: self-accept the written suggestion so the Data API
+   *  performs the reversible `inbound_linked` attach immediately. Set by the orchestrator
+   *  ONLY when decideTriage returned `attach_case` (gated behind `TRIAGE_AUTO_ATTACH_ENABLED`
+   *  + an exact single case_po/job_ref match). Omitted/false = today's suggestion-only write. */
+  autoAttach?: boolean;
 }
 
 /** POST /api/internal/triage/suggest-link response body (ADR-0019 pinned contract).
