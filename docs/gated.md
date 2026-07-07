@@ -706,6 +706,12 @@ existing un-linked pile drains one email at a time via the keyed starter — see
    Console → the folder → Share → invite the service account email from the app's `Config.JSON`).
    These become `RETRO_BOX_ARCHIVE_ROOT_IDS` (orch) + `BOX_READONLY_ROOT_IDS` (box-webhook app);
    the scope lock keeps them **read-only** (list/search/download — never create/upload/delete).
+   ✅ **2026-07-07 (operator-supplied):** the read-only archive root `collision_engineers` = folder
+   **`4077648161`** (located via `box search`); **`BOX_READONLY_ROOT_IDS=4077648161` set** on the
+   box-webhook fn. **Still needed before the R2 Box rung acts:** confirm the Box service-account
+   **Viewer** grant on `4077648161`, then set `RETRO_BOX_ARCHIVE_ROOT_IDS` — *after* the step-1
+   Case/PO sequence-alignment (setting it now would activate reconstruction before the numbering is
+   reconciled).
 3. Two operator sanity checks that shape R2: eyeball 5–10 archive folders — are they named EXACTLY
    the Case/PO (suffixed variants like `CCPY26050 - Smith` would need a flagged prefix-match arm)?
    And do they reliably contain the original instruction **`.eml`** (if a cohort only holds PDFs,
@@ -750,9 +756,12 @@ These keep the data-protection posture open until you supply them (they were tra
 - the **litigation / legal-hold** rule,
 - **ICO registration** + DVLA data-use terms,
 - the **per-AI-gate production sign-off** (AI **testing** on repo data is already authorised; only
-  production use awaits sign-off) — this now also covers **`LOCATION_ASSIST_AI_ENABLED`** (TKT-078, the
-  deeper photo-based location suggestion via AOAI gpt-5 vision; **built + deployed DARK 2026-07-06**, flip
-  awaits sign-off).
+  production use awaits sign-off) — this covered **`LOCATION_ASSIST_AI_ENABLED`** (TKT-078, the
+  deeper photo-based location suggestion via AOAI gpt-5 vision; built + deployed DARK 2026-07-06). ✅
+  **FLIPPED LIVE 2026-07-07 — operator sign-off given:** gate on (`cespkloc-fn-a7tzj2`), model wired
+  (`AI_MODEL_ENDPOINT`/`gpt-5`), and the loc-fn MI granted **Cognitive Services OpenAI User** on
+  `digital-3339-resource` (ARM PUT). `EMAIL_AI_ENABLED` remains the other AI gate already live; the
+  general E2 policy/legal inputs below stay open for the non-AI items.
 
 The DSAR/erasure runbook and the DPIA/controller-processor doc are authored and wait on these inputs.
 
