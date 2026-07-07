@@ -2708,6 +2708,10 @@ var gates = {
   // #15
   locationAssist: () => process.env.LOCATION_ASSIST_ENABLED === "true",
   // #17
+  // AI vision-reasoning ESCALATION for location assist (TKT-078) — default OFF, ships DARK.
+  // A deeper photo-based location suggestion via the keyless AOAI gpt-5 vision model, gated on
+  // TOP of locationAssist. Operator-blocked for live flip (production AI sign-off, gated.md E2).
+  locationAssistAi: () => process.env.LOCATION_ASSIST_AI_ENABLED === "true",
   chaserSend: () => process.env.CHASER_SEND_ENABLED === "true",
   // #19
   caseDisposition: () => process.env.CASE_DISPOSITION_ENABLED === "true",
@@ -2761,6 +2765,12 @@ var gates = {
   triageCancellation: () => process.env.TRIAGE_CANCELLATION_ENABLED === "true",
   triageImagesRouting: () => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === "true",
   triageCaseUpdate: () => process.env.TRIAGE_CASE_UPDATE_ENABLED === "true",
+  // TKT-093 — auto-attach promotion (ADR-0019 §4 promotion seam). Default off (ships DARK;
+  // live flip is operator-blocked, docs/gated.md). MODIFIES the ref-gate rung: an EXACT
+  // SINGLE open-case match on a strong signal (case_po/job_ref — NEVER vrm-only, per the
+  // inviolable VRM rule) is attached automatically instead of merely suggested. With this
+  // off, the ref-gate rung is exactly today's suggest_attach.
+  triageAutoAttach: () => process.env.TRIAGE_AUTO_ATTACH_ENABLED === "true",
   // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
   // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
   // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
@@ -2795,6 +2805,12 @@ var gates = {
    * Used by GET /api/gates/location-assist (plan 21 §21.2).
    */
   locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== "",
+  /**
+   * Derived: the AI vision-reasoning escalation is actionable — the base location assist is on,
+   * its own gate is on, AND a model endpoint + deployment are configured. Off => the deeper
+   * suggestion path is an honest no-op (TKT-078). Ships DARK; operator-gated live flip (gated.md E2).
+   */
+  locationAssistAiEnabled: () => gates.locationAssistEnabled() && gates.locationAssistAi() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
   /**
    * Derived: a model endpoint AND deployment are both configured. The AI generate
    * route requires this in ADDITION to the aiAssist() switch — gate ON but model
@@ -3439,13 +3455,15 @@ function decideTriage(classification, context3, gates2) {
       finalSubtype = context3.imagesOnly ? "images_received" : "update_general";
       caseUpdateApplied = true;
     }
+    const autoAttachEligible = gates2.autoAttach && target !== void 0 && target.matchedOn !== "vrm";
+    const action5 = autoAttachEligible ? "attach_case" : "suggest_attach";
     return {
-      action: "suggest_attach",
+      action: action5,
       finalCategory,
       finalSubtype,
       ...target ? { targetCaseId: target.caseId } : {},
       suggestionType: "case_link",
-      rationale: target ? `Matches open case ${target.casePo} by its ${matchLabel(target.matchedOn)} \u2014 suggested attaching this email to it.` : `Matches ${tier2.length} open cases by ${matchLabel(tier2[0].matchedOn)} \u2014 needs a person to pick the right one.`,
+      rationale: autoAttachEligible ? `Matches open case ${target.casePo} by its ${matchLabel(target.matchedOn)} \u2014 attached to it automatically (a person can detach it if this is wrong).` : target ? `Matches open case ${target.casePo} by its ${matchLabel(target.matchedOn)} \u2014 suggested attaching this email to it.` : `Matches ${tier2.length} open cases by ${matchLabel(tier2[0].matchedOn)} \u2014 needs a person to pick the right one.`,
       decisionInputs: {
         rung: "ref_gate",
         matchTier: tier2[0]?.matchedOn,
@@ -3453,6 +3471,7 @@ function decideTriage(classification, context3, gates2) {
         openCaseMatches: context3.openCaseMatches,
         conversationSiblingCaseIds: context3.conversationSiblingCaseIds,
         caseUpdateApplied,
+        autoAttachApplied: autoAttachEligible,
         hasAttachments: context3.hasAttachments,
         imagesOnly: context3.imagesOnly
       },
@@ -3625,6 +3644,12 @@ function selectBoxInstructionCandidate(entries) {
     return { entry: advertised[0] ?? docs[0], kind: "doc" };
   }
   return null;
+}
+
+// packages/domain/dist/domain/intake-routing.js
+var CASE_MINTING_CATEGORIES = ["receiving_work"];
+function categoryMintsCase(category) {
+  return CASE_MINTING_CATEGORIES.includes(category);
 }
 
 // packages/domain/dist/dto/index.js
@@ -4465,7 +4490,7 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
       }
     }
   }
-  if (classification.category !== "receiving_work") {
+  if (!categoryMintsCase(classification.category)) {
     if (classification.isReply) {
       const inb = inbound;
       const ref = ((inb.candidateRef || classification.bodyCaseref) ?? "").trim();
@@ -44410,7 +44435,8 @@ var GATES_ALL_ON = {
   refGate: true,
   cancellation: true,
   imagesRouting: true,
-  caseUpdate: true
+  caseUpdate: true,
+  autoAttach: true
 };
 var EMPTY_CONTEXT = {
   openCaseMatches: [],
@@ -44422,7 +44448,8 @@ function actingGates() {
     refGate: gates.triageRefGate(),
     cancellation: gates.triageCancellation(),
     imagesRouting: gates.triageImagesRouting(),
-    caseUpdate: gates.triageCaseUpdate()
+    caseUpdate: gates.triageCaseUpdate(),
+    autoAttach: gates.triageAutoAttach()
   };
 }
 function normaliseMatchState(value) {
@@ -44500,13 +44527,14 @@ df9.app.activity("triagePolicy", {
       decisionInputs: { ...shadow.decisionInputs, ...intermediaryDecisionInputs },
       taxonomyVersion: classification.taxonomyVersion ?? 1
     });
-    if (acting.action === "suggest_attach" || acting.action === "propose_cancellation") {
+    if (acting.action === "suggest_attach" || acting.action === "attach_case" || acting.action === "propose_cancellation") {
       try {
         await dataApi.triageSuggestLink({
           sourceMessageId: inbound.internetMessageId,
           ...acting.targetCaseId ? { targetCaseId: acting.targetCaseId } : {},
           suggestionType: acting.suggestionType ?? (acting.action === "propose_cancellation" ? "cancellation" : "case_link"),
           rationale: acting.rationale,
+          ...acting.action === "attach_case" ? { autoAttach: true } : {},
           ...policyClassification.confidence !== void 0 ? { confidence: policyClassification.confidence } : {},
           decisionInputs: { ...acting.decisionInputs, ...intermediaryDecisionInputs }
         });

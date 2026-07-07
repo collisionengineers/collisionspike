@@ -9653,6 +9653,11 @@ var gates = {
   // a conversational Q&A surface with READ-ONLY tools only. Needs a model endpoint +
   // deployment (see aiChatConfigured) in addition to this switch.
   aiChat: () => process.env.AI_CHAT_ENABLED === "true",
+  // Live image role/registration classifier (TKT-064) — default OFF. Gates the gpt-5-vision
+  // classify call on the intake image paths (extractImages / classifyPersist). Needs a model
+  // endpoint + deployment (see imageRoleClassifyEnabled); off/unconfigured => images persist
+  // with role `unknown` exactly as before (the one-shot backfill handled existing evidence).
+  imageRoleClassify: () => process.env.IMAGE_ROLE_CLASSIFY_ENABLED === "true",
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: () => process.env.BOX_API_ENABLED === "true",
   // #22
@@ -9686,6 +9691,12 @@ var gates = {
   triageCancellation: () => process.env.TRIAGE_CANCELLATION_ENABLED === "true",
   triageImagesRouting: () => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === "true",
   triageCaseUpdate: () => process.env.TRIAGE_CASE_UPDATE_ENABLED === "true",
+  // TKT-093 — auto-attach promotion (ADR-0019 §4 promotion seam). Default off (ships DARK;
+  // live flip is operator-blocked, docs/gated.md). MODIFIES the ref-gate rung: an EXACT
+  // SINGLE open-case match on a strong signal (case_po/job_ref — NEVER vrm-only, per the
+  // inviolable VRM rule) is attached automatically instead of merely suggested. With this
+  // off, the ref-gate rung is exactly today's suggest_attach.
+  triageAutoAttach: () => process.env.TRIAGE_AUTO_ATTACH_ENABLED === "true",
   // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
   // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
   // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
@@ -9739,6 +9750,12 @@ var gates = {
    * refusal (TKT-060).
    */
   aiChatEnabled: () => gates.aiChat() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the live image classifier is actionable — the gate is ON and a model endpoint +
+   * deployment are configured. The intake image paths call classifyImage only when this is
+   * true; otherwise they persist role `unknown` (pre-classifier behaviour). (TKT-064.)
+   */
+  imageRoleClassifyEnabled: () => gates.imageRoleClassify() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
   /**
    * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
    * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
@@ -10301,6 +10318,9 @@ function rowToInboundEmail(rec) {
     ...rec.case_id ? { caseId: rec.case_id } : {},
     // The linked case's Case/PO — present only when the query LEFT JOINs case_ (inbox list).
     ...rec.case_po ? { casePo: rec.case_po } : {},
+    // TKT-093 — a pending "attach to this open case" suggestion's Case/PO for a not-yet-linked
+    // email (only when the inbox-list query joins the suggestion). Suppressed once linked.
+    ...!rec.case_id && rec.link_suggestion_case_po ? { linkSuggestionCasePo: rec.link_suggestion_case_po } : {},
     ...rec.work_provider_id ? { workProviderId: rec.work_provider_id } : {},
     // The classifier's original suggestion (columns may be absent on a not-yet-migrated DB
     // — SELECT * simply omits them, so these stay undefined). work-todo-spike: suggested-tags.
@@ -11518,6 +11538,7 @@ import_functions.app.http("internalTriageSuggestLink", {
     if (!suggestionId) {
       return { status: 500, jsonBody: { error: "suggestion insert returned no id" } };
     }
+    let autoAttached = false;
     if (suggestionType === "case_link") {
       await writeAudit({
         action: AUDIT_ACTION.inbound_link_suggested,
@@ -11525,6 +11546,29 @@ import_functions.app.http("internalTriageSuggestLink", {
         summary: "A message was suggested for linking to an existing case",
         after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId }
       });
+      if (body2.autoAttach === true && targetCaseId && inboundEmailId) {
+        const linked = await query(
+          `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
+               WHERE id = $1 AND case_id IS NULL RETURNING id`,
+          [inboundEmailId, targetCaseId]
+        );
+        if (linked[0]) {
+          await query(
+            `UPDATE ai_suggestion SET review_state = 'accepted', reviewed_by = 'auto-attach', reviewed_at = now()
+                 WHERE id = $1 AND review_state = 'pending'`,
+            [suggestionId]
+          );
+          await writeAudit({
+            action: AUDIT_ACTION.inbound_linked,
+            caseId: targetCaseId,
+            summary: "Inbound email linked to case (auto-attach)",
+            before: { caseId: null },
+            after: { caseId: targetCaseId, inboundEmailId, suggestionId, auto: true },
+            actor: "auto-attach"
+          });
+          autoAttached = true;
+        }
+      }
     } else if (suggestionType === "cancellation") {
       await writeAudit({
         action: AUDIT_ACTION.cancellation_proposed,
@@ -11539,8 +11583,8 @@ import_functions.app.http("internalTriageSuggestLink", {
         after: { suggestionId, sourceMessageId, inboundEmailId, category: triageCategory, subtype: triageSubtype }
       });
     }
-    ctx.log(JSON.stringify({ evt: "triageSuggestLink", suggestionType, suggestionId, targetCaseId }));
-    return { status: 200, jsonBody: { suggestionId, created: true } };
+    ctx.log(JSON.stringify({ evt: "triageSuggestLink", suggestionType, suggestionId, targetCaseId, autoAttached }));
+    return { status: 200, jsonBody: { suggestionId, created: true, ...autoAttached ? { autoAttached: true } : {} } };
   })
 });
 import_functions.app.http("internalInboundOutlookMoved", {
@@ -13593,9 +13637,19 @@ import_functions8.app.http("inboundEmails", {
       if (viewClause) clauses.push(viewClause);
       const where2 = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
       const rows = await query(
-        `SELECT inbound_email.*, c.case_po AS case_po
+        `SELECT inbound_email.*, c.case_po AS case_po, ls.case_po AS link_suggestion_case_po
            FROM inbound_email
            LEFT JOIN case_ c ON c.id = inbound_email.case_id
+           LEFT JOIN LATERAL (
+             SELECT s.suggested_value->>'casePo' AS case_po
+               FROM ai_suggestion s
+              WHERE s.inbound_email_id = inbound_email.id
+                AND s.suggestion_type = 'case_link'
+                AND s.review_state = 'pending'
+                AND s.suggested_value->>'casePo' IS NOT NULL
+              ORDER BY s.created_at DESC
+              LIMIT 1
+           ) ls ON true
            ${where2} ORDER BY inbound_email.received_on DESC`,
         params
       );
