@@ -2,7 +2,7 @@
 
 ## Verdict
 MISCLASS FIX LIVE + PROVEN; auto-attach BUILT + DEPLOYED DARK; inbox-list visibility built +
-api deployed. The **SPA deploy** and the gated live auto-attach flip remain.
+api + **SPA DEPLOYED 2026-07-07**. Only the gated live auto-attach flip (operator sign-off) remains.
 
 ## 1. Offline eval + unit tests
 - **Misclass:** real classifier run on the sample forward → **`case_update/update_general`**
@@ -34,10 +34,10 @@ only suppresses a forward with NO sender work language; `test_forward_is_not_a_r
 and the audit-subtype tests pass).
 
 ## Pending
-- **SPA deploy** (the inbox-list "may belong to" hint) — the SWA CLI deploy hit a
-  StaticSitesClient binary error this session (the live SPA is unchanged); the api backend it
-  needs is already live. Re-run the SPA deploy per docs/azure/deploy.md.
-- The gated live auto-attach flip (operator sign-off) + its live E2E probe.
+- **SPA DEPLOYED 2026-07-07** ✅ (WSL `swa deploy`, env production; live 200 + CSP header
+  re-verified — `default-src 'self'; connect-src cespk-api-dev + login.microsoftonline.com;
+  img-src 'self' data: blob:`). The inbox-list "may belong to · <Case/PO>" hint is live.
+- The gated live auto-attach flip (operator sign-off) + its live E2E probe — the only remainder.
 
 ## How to re-verify
 `npm --prefix packages/domain test` (triage-policy auto-attach) + api/orch tests + the live
