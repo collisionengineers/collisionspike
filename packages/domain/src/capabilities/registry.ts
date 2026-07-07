@@ -24,13 +24,25 @@ import { z } from 'zod';
 import {
   CaseRefLimitParams,
   CaseRefParams,
+  CreateCaseParams,
+  EditCaseFieldsParams,
   LimitParams,
+  LogChaseParams,
+  MergeCasesParams,
   NoParams,
   QueryParams,
   QueueParams,
+  ReclassifyInboundParams,
+  SaveInspectionDecisionParams,
+  SetOnHoldParams,
+  SetTriageStateParams,
   VrmParams,
   toJsonSchema,
 } from './schemas.js';
+
+/** The gate label (bare string; resolved by the surface, never read here) that governs the
+ *  whole in-app write tier (TKT-111). */
+export const WRITE_TIER_GATE_LABEL = 'ASSISTANT_WRITE_TIER_ENABLED';
 
 export type CapabilityKind = 'read' | 'write';
 export type CapabilityRole = 'CollisionSpike.User' | 'CollisionSpike.Superuser';
@@ -201,8 +213,108 @@ const OPTIONAL_READ: CapabilityDescriptor[] = [
   }),
 ];
 
-/** WRITE capabilities (Phase 2 / TKT-111). Populated when the write tier lands; empty for now. */
-const WRITE: CapabilityDescriptor[] = [];
+/** WRITE capabilities (Phase 2 / TKT-111). Each maps to an EXISTING Data API route; a confirmed
+ *  proposal POSTs the params there. The model NEVER issues the write — a human confirms a
+ *  structured diff first (in-app). Route paths use `{paramName}` placeholders the surface
+ *  substitutes from the validated params. Destructive ones are humanOnly (never proposable/agent). */
+const WRITE: CapabilityDescriptor[] = [
+  cap({
+    name: 'set_on_hold',
+    kind: 'write',
+    title: 'Hold / release a case',
+    description: 'Put a case on hold, or take it off hold.',
+    destructive: false,
+    humanOnly: false,
+    gateLabel: WRITE_TIER_GATE_LABEL,
+    minRole: 'CollisionSpike.User',
+    inputSchema: SetOnHoldParams,
+    route: { method: 'POST', path: 'cases/{caseId}/hold' },
+  }),
+  cap({
+    name: 'log_chase',
+    kind: 'write',
+    title: 'Log a chase',
+    description: 'Record that a case was chased (drafted only — nothing is sent).',
+    destructive: false,
+    humanOnly: false,
+    gateLabel: WRITE_TIER_GATE_LABEL,
+    minRole: 'CollisionSpike.User',
+    inputSchema: LogChaseParams,
+    route: { method: 'POST', path: 'cases/{caseId}/chase' },
+  }),
+  cap({
+    name: 'set_triage_state',
+    kind: 'write',
+    title: 'Set an email’s triage state',
+    description: 'Move an inbound email to new / routed / actioned / dismissed.',
+    destructive: false,
+    humanOnly: false,
+    gateLabel: WRITE_TIER_GATE_LABEL,
+    minRole: 'CollisionSpike.User',
+    inputSchema: SetTriageStateParams,
+    route: { method: 'POST', path: 'inbound/{inboundId}/triage' },
+  }),
+  cap({
+    name: 'reclassify_inbound',
+    kind: 'write',
+    title: 'Reclassify an email',
+    description: 'Correct an inbound email’s category / subtype.',
+    destructive: false,
+    humanOnly: false,
+    gateLabel: WRITE_TIER_GATE_LABEL,
+    minRole: 'CollisionSpike.User',
+    inputSchema: ReclassifyInboundParams,
+    route: { method: 'POST', path: 'inbound/{inboundId}/classification' },
+  }),
+  cap({
+    name: 'save_inspection_decision',
+    kind: 'write',
+    title: 'Save the inspection decision',
+    description: 'Set a case’s inspection address, or record an image-based assessment with a reason.',
+    destructive: false,
+    humanOnly: false,
+    gateLabel: WRITE_TIER_GATE_LABEL,
+    minRole: 'CollisionSpike.User',
+    inputSchema: SaveInspectionDecisionParams,
+    route: { method: 'POST', path: 'cases/{caseId}/inspection-decision' },
+  }),
+  cap({
+    name: 'edit_case_fields',
+    kind: 'write',
+    title: 'Edit case fields',
+    description: 'Correct a case’s registration or its editable EVA fields.',
+    destructive: false,
+    humanOnly: false,
+    gateLabel: WRITE_TIER_GATE_LABEL,
+    minRole: 'CollisionSpike.User',
+    inputSchema: EditCaseFieldsParams,
+    route: { method: 'PATCH', path: 'cases/{caseId}' },
+  }),
+  cap({
+    name: 'create_case',
+    kind: 'write',
+    title: 'Create a case',
+    description: 'Create a new case from a registration (+ optional provider / claimant).',
+    destructive: false,
+    humanOnly: false,
+    gateLabel: WRITE_TIER_GATE_LABEL,
+    minRole: 'CollisionSpike.User',
+    inputSchema: CreateCaseParams,
+    route: { method: 'POST', path: 'cases' },
+  }),
+  cap({
+    name: 'merge_cases',
+    kind: 'write',
+    title: 'Merge two cases',
+    description: 'Merge a duplicate case into a survivor. Irreversible — a person must do this.',
+    destructive: true,
+    humanOnly: true,
+    gateLabel: WRITE_TIER_GATE_LABEL,
+    minRole: 'CollisionSpike.User',
+    inputSchema: MergeCasesParams,
+    route: { method: 'POST', path: 'cases/{targetCaseId}/merge' },
+  }),
+];
 
 /** The full registry (read + optional-read + write). */
 export const CAPABILITIES: CapabilityDescriptor[] = [...READ, ...OPTIONAL_READ, ...WRITE];
@@ -228,4 +340,55 @@ export function agentCapabilities(): CapabilityDescriptor[] {
 /** Look up a capability by name (undefined if unknown). */
 export function capabilityByName(name: string): CapabilityDescriptor | undefined {
   return CAPABILITIES.find((c) => c.name === name);
+}
+
+/** Write capabilities the ASSISTANT may PROPOSE (write + not humanOnly). Destructive/humanOnly
+ *  capabilities (merge/remove) are excluded — a person performs those directly in the app. */
+export function proposableCapabilities(): CapabilityDescriptor[] {
+  return CAPABILITIES.filter((c) => c.kind === 'write' && !c.humanOnly);
+}
+
+export interface ProposalValidation {
+  ok: boolean;
+  capability?: CapabilityDescriptor;
+  /** the validated + coerced params (present when ok). */
+  params?: Record<string, unknown>;
+  error?: string;
+}
+
+/**
+ * Validate a proposed write against the registry: the capability must exist, be a write, not be
+ * humanOnly, and its params must satisfy the zod inputSchema. Returns the validated params on
+ * success. This is a VALIDATION only — it performs no write and grants no authorization (the Data
+ * API route re-authorizes + re-validates the confirmed call independently).
+ */
+export function validateProposal(name: string, params: unknown): ProposalValidation {
+  const capability = capabilityByName(name);
+  if (!capability || capability.kind !== 'write') {
+    return { ok: false, error: `unknown write capability: ${name}` };
+  }
+  if (capability.humanOnly) {
+    return { ok: false, error: `${name} must be performed by a person, not proposed` };
+  }
+  const parsed = capability.inputSchema.safeParse(params);
+  if (!parsed.success) {
+    const detail = parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ');
+    return { ok: false, error: `invalid params for ${name}: ${detail}` };
+  }
+  return { ok: true, capability, params: parsed.data as Record<string, unknown> };
+}
+
+/** Substitute `{name}` placeholders in a write capability's route path from its params. */
+export function resolveRoutePath(cap: CapabilityDescriptor, params: Record<string, unknown>): string {
+  if (!cap.route) return '';
+  return cap.route.path.replace(/\{(\w+)\}/g, (_m, k: string) => encodeURIComponent(String(params[k] ?? '')));
+}
+
+/** The request BODY for a confirmed write: params minus the keys consumed by the route path. */
+export function routeBody(cap: CapabilityDescriptor, params: Record<string, unknown>): Record<string, unknown> {
+  const pathKeys = new Set<string>();
+  if (cap.route) for (const m of cap.route.path.matchAll(/\{(\w+)\}/g)) pathKeys.add(m[1]);
+  const body: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(params)) if (!pathKeys.has(k)) body[k] = v;
+  return body;
 }

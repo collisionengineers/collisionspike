@@ -394,6 +394,24 @@ export interface AssistantChatTurn {
   role: 'user' | 'assistant';
   content: string;
 }
+/** A write the assistant PROPOSED (TKT-111). The model never performs the write — the SPA
+ *  renders a confirmation card over independently re-fetched state, and only a human confirm
+ *  issues the POST to `path`. Present only while the write tier gate is on. */
+export interface ProposedAction {
+  /** the write capability name (registry, ADR-0025), e.g. 'set_on_hold'. */
+  capability: string;
+  /** short human title for the confirm card, e.g. 'Hold / release a case'. */
+  title: string;
+  /** the existing Data API route the confirmed action hits. */
+  method: string;
+  /** the resolved route path (placeholders substituted), e.g. 'cases/abc/hold'. */
+  path: string;
+  /** the request body for the confirmed write (path params stripped). */
+  body: Record<string, unknown>;
+  /** the full validated params (path + body) — for the card to reason about the target. */
+  params: Record<string, unknown>;
+}
+
 /** The assistant's reply to POST /api/assistant/chat. */
 export interface AssistantReply {
   reply: string;
@@ -403,6 +421,9 @@ export interface AssistantReply {
   disabled?: boolean;
   /** True when the server hit an error and returned a graceful apology. */
   error?: boolean;
+  /** Actions the assistant PROPOSED this turn (TKT-111 write tier). The SPA renders a confirm
+   *  card for each; nothing is written until the user confirms. Absent while the tier is off. */
+  proposals?: ProposedAction[];
 }
 
 /** The Outlook-move gate, read by the SPA via GET /api/gates/outlook-move (TKT-054 /

@@ -411,6 +411,9 @@ export const mockDataAccess: DataAccessExt = {
     Promise.resolve({ reply: 'The assistant is not available in this preview.', disabled: true }),
   getAiChatGate: () => Promise.resolve({ enabled: false }),
   globalSearch: (q) => Promise.resolve({ ...EMPTY_SEARCH, query: q }),
+  caseWithVersion: (_id) => Promise.resolve({}),
+  executeProposal: (_action, _ifMatch) => Promise.resolve({ ok: false, status: 501 }),
+  uploadEvidence: (_caseId, _files) => Promise.resolve({ added: [], rejected: [], status: 501 }),
   evidenceContentUrl: (_id) => Promise.resolve(undefined),
   inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
   // Honest no-op: the empty default writes nothing (the live REST source, backed by

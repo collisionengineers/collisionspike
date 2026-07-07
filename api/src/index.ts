@@ -21,6 +21,7 @@ import './functions/internal-retro.js';
 import './functions/assistant.js'; // AI chat helper (TKT-060; AI_CHAT_ENABLED)
 import './functions/search.js'; // global search (TKT-072; GLOBAL_SEARCH_ENABLED)
 import './functions/evidence.js'; // evidence byte preview (TKT-048)
+import './functions/evidence-upload.js'; // staff evidence upload via assistant (TKT-068)
 import './functions/ai-suggestions.js';
 import './functions/provider-keys.js';
 import './functions/provider-intake.js';

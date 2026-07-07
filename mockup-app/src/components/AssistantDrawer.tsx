@@ -22,7 +22,8 @@ import {
 } from '@fluentui/react-components';
 import { Sparkles, Send, X, Plus } from 'lucide-react';
 import { getDataAccess } from '../data';
-import type { AssistantChatTurn } from '../data';
+import type { AssistantChatTurn, ProposedAction } from '../data';
+import { ConfirmActionCard } from './ConfirmActionCard';
 
 const useStyles = makeStyles({
   body: { display: 'flex', flexDirection: 'column', height: '100%', gap: tokens.spacingVerticalS },
@@ -46,6 +47,8 @@ const SUGGESTIONS = [
 
 interface Turn extends AssistantChatTurn {
   toolsUsed?: string[];
+  /** Write-tier proposals the assistant drafted this turn (TKT-111) — rendered as confirm cards. */
+  proposals?: ProposedAction[];
 }
 
 export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -82,7 +85,7 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
       scrollToEnd();
       try {
         const res = await getDataAccess().assistantChat(history.map((t) => ({ role: t.role, content: t.content })));
-        setTurns([...history, { role: 'assistant', content: res.reply, toolsUsed: res.toolsUsed }]);
+        setTurns([...history, { role: 'assistant', content: res.reply, toolsUsed: res.toolsUsed, proposals: res.proposals }]);
       } catch {
         setTurns([...history, { role: 'assistant', content: 'Sorry — I could not answer that right now. Please try again.' }]);
       } finally {
@@ -141,6 +144,10 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
                 {t.role === 'assistant' && t.toolsUsed && t.toolsUsed.length > 0 && (
                   <Caption1 className={styles.toolHint}>looked up {Array.from(new Set(t.toolsUsed)).join(', ').replace(/_/g, ' ')}</Caption1>
                 )}
+                {t.role === 'assistant' &&
+                  t.proposals?.map((p, pi) => (
+                    <ConfirmActionCard key={pi} action={p} onDone={() => setTurns((cur) => cur.map((x, xi) => (xi === i ? { ...x, proposals: x.proposals?.filter((_pp, ppi) => ppi !== pi) } : x)))} />
+                  ))}
               </div>
             ))}
             {sending && (

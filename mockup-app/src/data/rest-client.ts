@@ -48,6 +48,7 @@ import type {
   AiAssistGate,
   AssistantChatTurn,
   AssistantReply,
+  ProposedAction,
   OutlookMoveGate,
   ProviderApiKey,
   CreateProviderApiKeyInput,
@@ -144,6 +145,13 @@ export interface GlobalSearchResults {
   providers: SearchProviderHit[];
   truncated: { cases: boolean; emails: boolean; providers: boolean };
 }
+/** Result of POST /api/cases/{id}/evidence/upload (TKT-068). */
+export interface EvidenceUploadResult {
+  added: Array<{ fileName: string }>;
+  rejected: Array<{ fileName: string; reason: string }>;
+  status: number;
+}
+
 export const EMPTY_SEARCH: GlobalSearchResults = {
   query: '',
   tooShort: false,
@@ -203,6 +211,17 @@ export interface DataAccessExt extends DataAccess {
   /** Global search (TKT-072): one normalised query across cases / inbound email / providers.
    *  safe()-empty on failure; the server returns disabled+empty while GLOBAL_SEARCH_ENABLED is off. */
   globalSearch(q: string): Promise<GlobalSearchResults>;
+  /** Re-fetch a case plus its version ETag — the assistant write tier's independent state check
+   *  (TKT-111) before rendering a confirmation diff. {} when the case is gone. */
+  caseWithVersion(id: string): Promise<{ case?: Case; etag?: string }>;
+  /** Execute a CONFIRMED assistant proposal against its existing staff-authorized route
+   *  (TKT-111). Sends the re-fetched version as If-Match so a stale write returns 409. Returns the
+   *  HTTP status + the new ETag; never throws (the card interprets the status). */
+  executeProposal(action: ProposedAction, ifMatchToken?: string): Promise<{ ok: boolean; status: number; etag?: string }>;
+  /** Upload staff-attached evidence files to a case (TKT-068) — multipart POST. The model never
+   *  uploads; these bytes come from the user's file picker. Returns which files landed / were
+   *  rejected (with plain-language reasons) plus the HTTP status. Never throws. */
+  uploadEvidence(caseId: string, files: File[]): Promise<EvidenceUploadResult>;
   /** Evidence inline preview (TKT-048): authenticated fetch → a `blob:` object URL for an
    *  <img>, or undefined when there's no inline content (Box-only / bytes gone). The caller
    *  MUST URL.revokeObjectURL it on unmount. */
@@ -482,6 +501,46 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     getAiChatGate: () => safe(() => get<{ enabled: boolean }>('/api/gates/ai-chat'), { enabled: false }),
     globalSearch: (q) =>
       safe(() => get<GlobalSearchResults>(`/api/search?q=${encodeURIComponent(q)}`), { ...EMPTY_SEARCH, query: q }),
+    caseWithVersion: async (id) => {
+      const token = await opts.getToken();
+      const res = await fetch(`${base}/api/cases/${enc(id)}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return {};
+      const c = (await res.json()) as Case;
+      return { case: c, etag: res.headers.get('etag') ?? undefined };
+    },
+    executeProposal: async (action, ifMatchToken) => {
+      const token = await opts.getToken();
+      const res = await fetch(`${base}/api/${action.path}`, {
+        method: action.method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          ...(ifMatchToken ? { 'If-Match': ifMatchToken } : {}),
+        },
+        body: JSON.stringify(action.body),
+      });
+      return { ok: res.ok, status: res.status, etag: res.headers.get('etag') ?? undefined };
+    },
+    uploadEvidence: async (caseId, files) => {
+      try {
+        const token = await opts.getToken();
+        const fd = new FormData();
+        for (const f of files) fd.append('file', f);
+        // NB: no Content-Type header — the browser sets the multipart boundary itself.
+        const res = await fetch(`${base}/api/cases/${enc(caseId)}/evidence/upload`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        });
+        const json = (await res.json().catch(() => ({ added: [], rejected: [] }))) as {
+          added?: Array<{ fileName: string }>;
+          rejected?: Array<{ fileName: string; reason: string }>;
+        };
+        return { added: json.added ?? [], rejected: json.rejected ?? [], status: res.status };
+      } catch {
+        return { added: [], rejected: [], status: 0 };
+      }
+    },
     evidenceContentUrl: (id) => blobUrl(`/api/evidence/${enc(id)}/content`),
 
     /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */

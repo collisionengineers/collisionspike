@@ -78,3 +78,80 @@ export const LimitParams = z
     limit: z.number().int().positive().max(50).optional().describe('max rows (default 10)'),
   })
   .strict();
+
+/* ---------- write DTOs (Phase 2 / TKT-111) — the SINGLE runtime source for write params.
+   Each mirrors an EXISTING Data API route body + its path id; a confirmed proposal POSTs
+   these params to that route. The model never issues the write — a human confirms first. ---------- */
+
+/** Put a case on / off hold — POST cases/{caseId}/hold. */
+export const SetOnHoldParams = z
+  .object({
+    caseId: z.string().min(1).describe('the case id (GUID)'),
+    onHold: z.boolean().describe('true to hold, false to release'),
+  })
+  .strict();
+
+/** Record a chase against a case (drafted, never sent) — POST cases/{caseId}/chase. */
+export const LogChaseParams = z
+  .object({
+    caseId: z.string().min(1).describe('the case id (GUID)'),
+    channel: z.enum(['email', 'whatsapp']).describe('how the chase was sent'),
+    templateLabel: z.string().min(1).max(200).describe('the chaser template used'),
+    note: z.string().max(2000).optional().describe('optional free-text note'),
+  })
+  .strict();
+
+/** Set an inbound email's triage state — POST inbound/{inboundId}/triage. */
+export const SetTriageStateParams = z
+  .object({
+    inboundId: z.string().min(1).describe('the inbound email id (GUID)'),
+    state: z.enum(['new', 'routed', 'actioned', 'dismissed']).describe('the triage state to set'),
+  })
+  .strict();
+
+/** Reclassify an inbound email's category/subtype — POST inbound/{inboundId}/classification. */
+export const ReclassifyInboundParams = z
+  .object({
+    inboundId: z.string().min(1).describe('the inbound email id (GUID)'),
+    category: z.string().min(1).describe('the corrected category token'),
+    subtype: z.string().optional().describe('the corrected subtype token'),
+  })
+  .strict();
+
+/** Save a case's inspection decision — POST cases/{caseId}/inspection-decision. */
+export const SaveInspectionDecisionParams = z
+  .object({
+    caseId: z.string().min(1).describe('the case id (GUID)'),
+    decisionMode: z.string().min(1).describe("'image_based', 'address', or 'unknown'"),
+    addressLines: z.array(z.string()).max(6).optional().describe('up to 6 address lines'),
+    postcode: z.string().max(12).optional(),
+    sourceNote: z.string().max(500).describe('why this address / image-based reason'),
+  })
+  .strict();
+
+/** Edit a case's registration / editable EVA fields — PATCH cases/{caseId}. */
+export const EditCaseFieldsParams = z
+  .object({
+    caseId: z.string().min(1).describe('the case id (GUID)'),
+    vrm: z.string().max(16).optional().describe('corrected registration'),
+    caseType: z.string().max(40).optional(),
+    evaFields: z.record(z.string(), z.string()).optional().describe('EVA field key → new value'),
+  })
+  .strict();
+
+/** Create a new case — POST cases. */
+export const CreateCaseParams = z
+  .object({
+    vrm: z.string().min(1).max(16).describe('vehicle registration'),
+    providerCode: z.string().optional().describe('provider principal code'),
+    claimantName: z.string().optional(),
+  })
+  .strict();
+
+/** Merge one case into another (DESTRUCTIVE, human-only) — POST cases/{targetCaseId}/merge. */
+export const MergeCasesParams = z
+  .object({
+    targetCaseId: z.string().min(1).describe('the survivor case id'),
+    sourceCaseId: z.string().min(1).describe('the case merged away'),
+  })
+  .strict();

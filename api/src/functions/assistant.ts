@@ -20,17 +20,22 @@ import { app, type HttpRequest, type InvocationContext } from '@azure/functions'
 import { gates } from '@cs/domain/gates';
 import {
   canonicalizeVrm,
+  proposableCapabilities,
   readCapabilities,
+  resolveRoutePath,
+  routeBody,
   statusToQueue,
+  validateProposal,
   type CapabilityDescriptor,
   type Case,
   type CaseStatus,
+  type ProposedAction,
   type QueueName,
 } from '@cs/domain';
 import { caseStatusCodec, inboundCategoryCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
-import { runChat, type ChatMessage, type ToolDef } from '../lib/aoai-chat.js';
+import { runChat, type ChatMessage, type ToolDef, type ToolExecutor } from '../lib/aoai-chat.js';
 import { computeAgingExceptions } from './dashboard.js';
 import { archiveConfigured, archiveLookup } from '../lib/archive-lookup.js';
 import {
@@ -77,14 +82,51 @@ const SYSTEM_PROMPT_V2_TOOLS = [
   'their QUEUE (Not ready / Review / Held), never by a raw status code.',
 ].join('\n');
 
+const SYSTEM_PROMPT_WRITE_TIER = [
+  '',
+  'You can also PROPOSE a change with the propose_action tool — for example putting a case on',
+  'hold, logging a chase, or saving an inspection decision. You NEVER make the change yourself:',
+  'propose_action only drafts a proposal that the user must review and confirm in the app. After',
+  'proposing, tell the user plainly what you drafted and that they need to confirm it. If they ask',
+  'you to do something you have no capability for, say so — do not pretend it is done.',
+].join('\n');
+
 function systemPrompt(): string {
-  return gates.assistantToolsetV2() ? SYSTEM_PROMPT_BASE + '\n' + SYSTEM_PROMPT_V2_TOOLS : SYSTEM_PROMPT_BASE;
+  let p = gates.assistantToolsetV2() ? SYSTEM_PROMPT_BASE + '\n' + SYSTEM_PROMPT_V2_TOOLS : SYSTEM_PROMPT_BASE;
+  if (gates.assistantWriteTier()) p += '\n' + SYSTEM_PROMPT_WRITE_TIER;
+  return p;
 }
 
 /* ---------- registry → model tool definitions ---------- */
 
 function capabilityToToolDef(c: CapabilityDescriptor): ToolDef {
   return { type: 'function', function: { name: c.name, description: c.description, parameters: c.parameters } };
+}
+
+/** The single `propose_action` tool (write tier, TKT-111) — the model picks a proposable write
+ *  capability + params; the executor validates it and returns a proposal the SPA confirms. */
+function proposalToolDef(): ToolDef {
+  const caps = proposableCapabilities();
+  const menu = caps.map((c) => `- ${c.name}: ${c.description}`).join('\n');
+  return {
+    type: 'function',
+    function: {
+      name: 'propose_action',
+      description:
+        'PROPOSE a change for the user to confirm. You never make the change yourself — this only ' +
+        'drafts a proposal the user must approve in the app. Pick ONE capability and give its params:\n' +
+        menu,
+      parameters: {
+        type: 'object',
+        properties: {
+          capability: { type: 'string', enum: caps.map((c) => c.name), description: 'which action to propose' },
+          params: { type: 'object', description: 'the parameters for that action', additionalProperties: true },
+        },
+        required: ['capability', 'params'],
+        additionalProperties: false,
+      },
+    },
+  };
 }
 
 /** The tool set advertised to the model this request — registry-driven; widened by the V2 gate.
@@ -97,7 +139,35 @@ export function toolsForRequest(): ToolDef[] {
     return true;
   });
   const selected = v2 ? reads : reads.filter((c) => LEGACY_TOOL_NAMES.has(c.name));
-  return selected.map(capabilityToToolDef);
+  const tools = selected.map(capabilityToToolDef);
+  // Write tier (TKT-111): add the single propose_action tool (dark until the gate flips).
+  if (gates.assistantWriteTier()) tools.push(proposalToolDef());
+  return tools;
+}
+
+/** Build the per-request tool executor: read tools dispatch to `execTool`; `propose_action`
+ *  validates against the registry and captures a ProposedAction (a NON-write) for the SPA to
+ *  confirm. The model never issues a write — this only drafts. */
+export function buildExecutor(proposals: ProposedAction[]): ToolExecutor {
+  return async (name, args) => {
+    if (name === 'propose_action') {
+      if (!gates.assistantWriteTier()) return { proposed: false, error: 'proposing actions is switched off' };
+      const v = validateProposal(String(args.capability ?? ''), args.params ?? {});
+      if (!v.ok || !v.capability || !v.params) {
+        return { proposed: false, error: v.error ?? 'invalid proposal' };
+      }
+      proposals.push({
+        capability: v.capability.name,
+        title: v.capability.title,
+        method: v.capability.route!.method,
+        path: resolveRoutePath(v.capability, v.params),
+        body: routeBody(v.capability, v.params),
+        params: v.params,
+      });
+      return { proposed: true, summary: `Drafted: ${v.capability.title}. The user must confirm it before anything changes.` };
+    }
+    return execTool(name, args);
+  };
 }
 
 /* ---------- handler-facing labels (never a raw status enum, per AGENTS.md UI-language rule) ---------- */
@@ -410,13 +480,14 @@ app.http('assistantChat', {
     }
 
     const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt() }, ...history];
+    const proposals: ProposedAction[] = [];
     try {
       const result = await runChat(
         gates.aiModelEndpoint(),
         gates.aiModelDeployment(),
         messages,
         toolsForRequest(),
-        execTool,
+        buildExecutor(proposals),
         4,
         undefined,
         ctx, // observability sink: a failing tool warns to App Insights (TKT-066)
@@ -431,11 +502,15 @@ app.http('assistantChat', {
           toolErrors: result.toolErrors,
           rounds: result.rounds,
           toolsetV2: gates.assistantToolsetV2(),
+          proposals: proposals.length,
           replyChars: result.reply.length,
         }),
       );
       const reply = result.reply || 'Sorry — I could not find an answer to that.';
-      return { status: 200, jsonBody: { reply, toolsUsed: result.toolsUsed } };
+      return {
+        status: 200,
+        jsonBody: { reply, toolsUsed: result.toolsUsed, ...(proposals.length ? { proposals } : {}) },
+      };
     } catch (e) {
       ctx.warn(`[assistant] ${e instanceof Error ? e.message : String(e)}`);
       return {
