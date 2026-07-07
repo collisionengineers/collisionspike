@@ -20,6 +20,7 @@ import './functions/internal.js';
 import './functions/internal-retro.js';
 import './functions/assistant.js'; // AI chat helper (TKT-060; AI_CHAT_ENABLED)
 import './functions/search.js'; // global search (TKT-072; GLOBAL_SEARCH_ENABLED)
+import './functions/mcp.js'; // read-only MCP server for external agents (TKT-110; MCP_SERVER_ENABLED)
 import './functions/evidence.js'; // evidence byte preview (TKT-048)
 import './functions/evidence-upload.js'; // staff evidence upload via assistant (TKT-068)
 import './functions/ai-suggestions.js';

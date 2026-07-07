@@ -140,3 +140,60 @@ export function withRole(
     }
   };
 }
+
+/* ============================================================
+   Agent authorization DESIGN (PLAN-001 Phase 3, ADR-0023).
+
+   The read-only MCP server (TKT-110) ships wrapped in withRole('CollisionSpike.User') — an
+   interactive MCP client (Flow A: OAuth Auth-Code + PKCE, a DELEGATED staff user) uses a normal
+   staff token, so nothing below is on the shipping read path. The pieces here are the DESIGNED
+   prerequisite bar for Phase 3b (autonomous agent WRITES): they let the Data API tell an app-only
+   agent principal from a human and enforce that an agent may only ever perform non-destructive,
+   non-humanOnly READS. They are NOT yet wired to any live agent write route.
+   ============================================================ */
+
+/** The autonomous-agent app-role (Flow B, client-credentials / app-only). Recognized but granted
+ *  NO write today — an agent write route is a Phase-3b deliverable, gated on a signed-commit token. */
+export const AGENT_ROLE = 'CollisionSpike.Agent';
+
+/**
+ * True when the principal is an AUTONOMOUS agent: an app-only token (no `scp`/`preferred_username`
+ * user identity) carrying the Agent app-role. A delegated staff user driving an MCP client (Flow A)
+ * is NOT an agent — they carry a user identity.
+ */
+export function isAgentPrincipal(claims: JWTPayload): boolean {
+  const roles = (claims.roles as string[] | undefined) ?? [];
+  const hasUserIdentity =
+    typeof (claims as Record<string, unknown>).scp === 'string' ||
+    typeof (claims as Record<string, unknown>).preferred_username === 'string';
+  return roles.includes(AGENT_ROLE) && !hasUserIdentity;
+}
+
+export interface CapabilityAuthzInput {
+  kind: 'read' | 'write';
+  destructive: boolean;
+  humanOnly: boolean;
+}
+export interface CapabilityAuthzDecision {
+  allow: boolean;
+  reason?: string;
+}
+
+/**
+ * PURE agent-capability authorization (the Phase-3b write prerequisite). An autonomous agent may
+ * ONLY invoke non-destructive, non-humanOnly READ capabilities — every write and every
+ * destructive/humanOnly capability is rejected for an agent (defence in depth alongside filtering
+ * them from the agent tool surface). Human principals pass through here unchanged (their authz is
+ * withRole + the write-tier gate). C1 in the verification matrix: an agent token can reach no
+ * write/destructive capability.
+ */
+export function authorizeAgentCapability(
+  cap: CapabilityAuthzInput,
+  isAgent: boolean,
+): CapabilityAuthzDecision {
+  if (!isAgent) return { allow: true };
+  if (cap.kind !== 'read') return { allow: false, reason: 'autonomous agents may not perform writes' };
+  if (cap.destructive) return { allow: false, reason: 'destructive capabilities are human-only' };
+  if (cap.humanOnly) return { allow: false, reason: 'this capability is human-only' };
+  return { allow: true };
+}
