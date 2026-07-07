@@ -30,12 +30,14 @@
 > LIVE + PROVEN** (parser redeployed; `POST /api/classify-email` confirms acks →
 > `non_actionable/acknowledgement`, "your report" query → `query_existing_work`, body-only
 > "New INSTRUCTIONS:" → `receiving_work`, forwarded "Audatex attached" → `case_update`). Plus an
-> explicit tested `categoryMintsCase` mint guard (TKT-081), and TKT-093's **auto-attach** shipped
-> **DARK** (`TRIAGE_AUTO_ATTACH_ENABLED` off; case_po/job_ref exact-single only — VRM-only stays a
-> suggestion per ADR-0010/0019) + an inbox-list "may belong to · <Case/PO>" visibility hint.
-> api+orch redeployed; the classifier engine re-vendored to the sibling (`engine-v2.7`).
-> **Remaining:** the one-off TKT-081 blank-case data fix, the SPA deploy (SWA CLI hiccup this
-> session), and the gated auto-attach flip. All four moved Backlog → `now`.
+> explicit tested `categoryMintsCase` mint guard (TKT-081), and TKT-093's **auto-attach** — built,
+> deployed, then **FLIPPED LIVE** (`TRIAGE_AUTO_ATTACH_ENABLED=true` on `cespk-orch-dev`,
+> operator-instructed; case_po/job_ref exact-single only — VRM-only stays a suggestion per
+> ADR-0010/0019) + an inbox-list "may belong to · <Case/PO>" visibility hint. **parser + api + orch
+> + SPA all deployed**; the classifier engine re-vendored to the sibling (`engine-v2.7`); the
+> **TKT-081 blank-case was voided** (soft-remove, backup-first, audited; 0 active blank cases).
+> **Remaining:** only the redundant full-intake live-occurrence observations (the classify layer is
+> already live-proven). All four moved Backlog → `now`.
 >
 > **Inspection-address repair shipped 2026-07-06 (TKT-074…080)** — the whole 3-tier subsystem
 > rebuilt + LIVE-reseeded + deployed. **TKT-074 → done** (box-scope hook fail-open fix, all 3 adapters).
