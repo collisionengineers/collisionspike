@@ -82,14 +82,23 @@ export interface ToolDef {
 interface ChatCompletionResponse {
   choices?: Array<{ finish_reason?: string; message?: ChatMessage }>;
   model?: string;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
-/** One AOAI chat/completions round-trip. Throws on non-2xx / timeout (caller wraps). */
+/** Token usage for one round-trip (TKT-113 capacity ledger). */
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+}
+
+/** One AOAI chat/completions round-trip. Throws on non-2xx / timeout (caller wraps).
+ *  `onUsage` (optional) receives the response's token usage for the capacity ledger. */
 export async function chatCompletion(
   endpoint: string,
   deployment: string,
   messages: ChatMessage[],
   tools: ToolDef[],
+  onUsage?: (u: TokenUsage) => void,
 ): Promise<ChatMessage> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -117,6 +126,12 @@ export async function chatCompletion(
       throw new Error(`AOAI chat ${res.status}: ${errText.slice(0, 300)}`);
     }
     const json = (await res.json()) as ChatCompletionResponse;
+    if (onUsage && json.usage) {
+      onUsage({
+        promptTokens: json.usage.prompt_tokens ?? 0,
+        completionTokens: json.usage.completion_tokens ?? 0,
+      });
+    }
     const msg = json.choices?.[0]?.message;
     if (!msg) throw new Error('AOAI chat: no message in response');
     return msg;
@@ -141,6 +156,9 @@ export interface RunChatResult {
   /** How many tool calls ultimately failed (after the one retry). 0 on a clean run.
    *  Surfaced as the `toolErrors` audit-lite dimension (TKT-066). */
   toolErrors: number;
+  /** Total token usage across all rounds (TKT-113 capacity ledger). 0 when the model
+   *  response carried no usage (e.g. the injected test double). */
+  usage: TokenUsage;
 }
 
 /**
@@ -163,12 +181,17 @@ export async function runChat(
   const convo = [...messages];
   const toolsUsed: string[] = [];
   let toolErrors = 0;
+  const usage: TokenUsage = { promptTokens: 0, completionTokens: 0 };
+  const onUsage = (u: TokenUsage): void => {
+    usage.promptTokens += u.promptTokens;
+    usage.completionTokens += u.completionTokens;
+  };
   for (let round = 1; round <= maxRounds; round++) {
-    const msg = await complete(endpoint, deployment, convo, tools);
+    const msg = await complete(endpoint, deployment, convo, tools, onUsage);
     convo.push(msg);
     const calls = msg.tool_calls ?? [];
     if (!calls.length) {
-      return { reply: (msg.content ?? '').trim(), toolsUsed, rounds: round, toolErrors };
+      return { reply: (msg.content ?? '').trim(), toolsUsed, rounds: round, toolErrors, usage };
     }
     // Execute each requested tool (read-only) and feed results back.
     for (const call of calls) {
@@ -204,6 +227,6 @@ export async function runChat(
     }
   }
   // Ran out of rounds — one last non-tool answer attempt.
-  const finalMsg = await complete(endpoint, deployment, convo, []);
-  return { reply: (finalMsg.content ?? '').trim(), toolsUsed, rounds: maxRounds + 1, toolErrors };
+  const finalMsg = await complete(endpoint, deployment, convo, [], onUsage);
+  return { reply: (finalMsg.content ?? '').trim(), toolsUsed, rounds: maxRounds + 1, toolErrors, usage };
 }

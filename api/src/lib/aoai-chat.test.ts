@@ -94,4 +94,30 @@ describe('runChat tool loop', () => {
     const res = await runChat('https://ep', 'gpt-5', base, TOOLS, vi.fn(), 4, complete as never);
     expect(res.toolErrors).toBe(0);
   });
+
+  it('accumulates token usage from every round for the capacity ledger (TKT-113)', async () => {
+    // A completion double that reports usage via the onUsage callback (5th arg).
+    const complete = vi
+      .fn()
+      .mockImplementationOnce((_ep, _dep, _convo, _tools, onUsage) => {
+        onUsage?.({ promptTokens: 100, completionTokens: 20 });
+        return Promise.resolve({
+          role: 'assistant',
+          content: null,
+          tool_calls: [{ id: 'c1', type: 'function', function: { name: 'lookup_case', arguments: '{}' } }],
+        });
+      })
+      .mockImplementationOnce((_ep, _dep, _convo, _tools, onUsage) => {
+        onUsage?.({ promptTokens: 150, completionTokens: 30 });
+        return Promise.resolve({ role: 'assistant', content: 'done' });
+      });
+    const res = await runChat('https://ep', 'gpt-5', base, TOOLS, vi.fn().mockResolvedValue({}), 4, complete as never);
+    expect(res.usage).toEqual({ promptTokens: 250, completionTokens: 50 });
+  });
+
+  it('reports zero usage when the model response carries none (e.g. a test double)', async () => {
+    const complete = vi.fn().mockResolvedValue({ role: 'assistant', content: 'hi' });
+    const res = await runChat('https://ep', 'gpt-5', base, TOOLS, vi.fn(), 4, complete as never);
+    expect(res.usage).toEqual({ promptTokens: 0, completionTokens: 0 });
+  });
 });

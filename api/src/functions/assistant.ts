@@ -34,6 +34,8 @@ import {
 } from '@cs/domain';
 import { caseStatusCodec, inboundCategoryCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
+import { actorFromClaims } from '../lib/audit.js';
+import { recordAiUsage } from '../lib/ai-usage.js';
 import { query } from '../lib/db.js';
 import { runChat, type ChatMessage, type ToolDef, type ToolExecutor } from '../lib/aoai-chat.js';
 import { computeAgingExceptions } from './dashboard.js';
@@ -454,7 +456,7 @@ app.http('assistantChat', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'assistant/chat',
-  handler: withRole('CollisionSpike.User', async (req: HttpRequest, ctx: InvocationContext) => {
+  handler: withRole('CollisionSpike.User', async (req: HttpRequest, ctx: InvocationContext, claims) => {
     if (!gates.aiChatEnabled()) {
       return {
         status: 200,
@@ -504,8 +506,18 @@ app.http('assistantChat', {
           toolsetV2: gates.assistantToolsetV2(),
           proposals: proposals.length,
           replyChars: result.reply.length,
+          promptTokens: result.usage.promptTokens,
+          completionTokens: result.usage.completionTokens,
         }),
       );
+      // Capacity ledger (TKT-113) — best-effort tally by actor/day/surface (never blocks the reply).
+      await recordAiUsage({
+        actor: actorFromClaims(claims) ?? 'staff',
+        surface: 'assistant',
+        model: gates.aiModelDeployment(),
+        inputTokens: result.usage.promptTokens,
+        outputTokens: result.usage.completionTokens,
+      });
       const reply = result.reply || 'Sorry — I could not find an answer to that.';
       return {
         status: 200,
