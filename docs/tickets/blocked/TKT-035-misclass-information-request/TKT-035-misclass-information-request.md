@@ -1,11 +1,11 @@
 ---
 id: TKT-035
 title: Information-request misclassification (placeholder)
-status: backlog
+status: blocked
 priority: P3
 area: email
 tickets-it-relates-to: [TKT-006]
-research-link: docs/tickets/backlog/TKT-035-misclass-information-request/evidence/operator-note.md
+research-link: docs/tickets/blocked/TKT-035-misclass-information-request/evidence/operator-note.md
 ---
 
 # Information-request misclassification (placeholder)

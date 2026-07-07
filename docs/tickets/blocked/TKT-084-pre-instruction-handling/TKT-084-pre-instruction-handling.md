@@ -1,11 +1,11 @@
 ---
 id: TKT-084
 title: Pre-instruction directions email unidentified — define a handling lane
-status: backlog
+status: blocked
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006, TKT-023]
-research-link: docs/tickets/backlog/TKT-084-pre-instruction-handling/evidence/operator-note.md
+research-link: docs/tickets/blocked/TKT-084-pre-instruction-handling/evidence/operator-note.md
 ---
 
 # Pre-instruction directions email unidentified — define a handling lane
