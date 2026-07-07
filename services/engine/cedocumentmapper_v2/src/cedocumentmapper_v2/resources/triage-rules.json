@@ -227,7 +227,10 @@
       "message could not be delivered",
       "returned to sender",
       "do not reply",
-      "do-not-reply"
+      "do-not-reply",
+      "this is an automated email",
+      "please do not respond",
+      "do not respond directly"
     ],
     "vrm_stopword_trigrams": [
       "NOW",
