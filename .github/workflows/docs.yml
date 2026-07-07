@@ -18,7 +18,7 @@ name: docs
 on:
   pull_request:
   push:
-    branches: ['**']
+    branches: ["**"]
 
 jobs:
   doc-links:
@@ -28,9 +28,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
       - name: Check doc links, orphans, and live-fact leakage
         run: node scripts/check-doc-links.mjs
+      - name: Check ticket system
+        run: node scripts/check-tickets.mjs
+      - name: Check shared skill sync
+        run: node scripts/check-skills-sync.mjs
 
   verify-live:
     name: verify-live (gated on Azure secret)
@@ -52,7 +56,7 @@ jobs:
       - uses: actions/setup-node@v4
         if: env.HAVE_AZURE == 'true'
         with:
-          node-version: '20'
+          node-version: "20"
       - name: Install dependencies
         # verify-all.mjs runs the offline build/test gates (mockup-app build, api build +
         # vitest, @cs/domain vitest) BEFORE the live drift check, so deps must be installed

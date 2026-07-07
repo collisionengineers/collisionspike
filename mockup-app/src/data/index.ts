@@ -142,6 +142,7 @@ export type {
   AiAssistGate,
   AssistantChatTurn,
   AssistantReply,
+  ProposedAction,
 } from '@cs/domain';
 // The seam's EXTENDED DataAccess (frozen @cs/domain DataAccess + the work-todo-spike
 // methods). `getDataAccess()` returns this; screens that type-annotate use it.

@@ -4,11 +4,15 @@ This is the human protocol that keeps the docs honest. It is **enforced** by thr
 (all created in the doc-hygiene pass, 2026-06-28):
 
 - `scripts/check-doc-links.mjs` — broken-link / orphan / live-number-leakage gate (zero npm deps).
-- `scripts/check-tickets.mjs` — ticket-frontmatter validator for [`docs/tickets/`](./tickets/README.md)
-  (frontmatter present; `status`/`priority` enums valid; `research-link` resolves; ids unique). Zero npm
-  deps. Run it alongside the link checker.
+- `scripts/check-tickets.mjs` — ticket-system validator for [`docs/tickets/`](./tickets/README.md)
+  (status-folder placement, frontmatter, research links, BOARD parity, plans, and eval-manifest ticket
+  paths). Zero npm deps.
+- `scripts/check-skills-sync.mjs` — byte-compares shared skills in `.agents/skills/` and `.claude/skills/`.
+- `scripts/ticket-move.mjs` — the sanctioned way to change ticket status; it moves the folder and rewrites
+  links/BOARD/frontmatter together.
 - `verify-all.mjs` → the `verify-live` gate — re-queries live Azure/Graph and diffs vs the registry.
-- `scripts/hooks/pre-commit` + `.github/workflows/docs.yml` — run the above at commit time and in CI.
+- `scripts/hooks/pre-commit` + `.github/workflows/docs.yml` — run the docs/ticket/skill gates at commit time
+  and in CI.
 
 ---
 
@@ -68,9 +72,10 @@ records:
 git config core.hooksPath scripts/hooks
 ```
 
-After that, every `git commit` runs `node scripts/check-doc-links.mjs` and **blocks** on failure, and
-**warns** (non-blocking) if you stage `docs/architecture/live-environment.md` without `LIVE_FACTS.json`.
-Bypass for a deliberate WIP commit with `git commit --no-verify`.
+After that, every `git commit` runs `node scripts/check-doc-links.mjs`,
+`node scripts/check-tickets.mjs --quiet`, and `node scripts/check-skills-sync.mjs`; failures **block** the
+commit. The hook also **warns** (non-blocking) if you stage `docs/architecture/live-environment.md` without
+`LIVE_FACTS.json`. Bypass for a deliberate WIP commit with `git commit --no-verify`.
 
 ---
 
@@ -146,7 +151,7 @@ Orthogonal to the above, for **live numbers** the registry (`LIVE_FACTS.json` +
 | Live numbers (authoritative) | `LIVE_FACTS.json` · `docs/architecture/live-environment.md` |
 | What's live now (narrative changelog) | `CURRENT_STATUS.md` |
 | Forward work backlog | `ROADMAP.md` |
-| Atomic work items (tickets + board) | `docs/tickets/` (README + BOARD; validated by `scripts/check-tickets.mjs`) |
+| Atomic work items (status-folder tickets, plans + board) | `docs/tickets/` (README + BOARD; transitions via `scripts/ticket-move.mjs`, validated by `scripts/check-tickets.mjs`) |
 | What needs the operator | `docs/gated.md` |
 | Operator handoff pack | `docs/handoff/` (start: `OPERATOR-CHECKLIST.md`) |
 | How the system is built | `docs/architecture/` (canonical registry = `live-environment.md`) |
@@ -180,8 +185,8 @@ subscription/RBAC state, feature-gate values, and `httpsOnly` live **only** in
 
 After any live Azure change: update `LIVE_FACTS.json` (bump `lastVerified`) + the mirror, then run
 `VERIFY_LIVE=1 node verify-all.mjs` to confirm reality matches (it skips cleanly offline). The
-`scripts/check-doc-links.mjs` gate (broken links / orphans / live-number leakage) runs in the
-pre-commit hook and CI. Activate the hook once: `git config core.hooksPath scripts/hooks`.
+`check-doc-links`, `check-tickets`, and `check-skills-sync` gates run in the pre-commit hook and CI.
+Activate the hook once: `git config core.hooksPath scripts/hooks`.
 
 Full protocol + precedence hierarchy: [`docs/MAINTENANCE.md`](./docs/MAINTENANCE.md).
 ```

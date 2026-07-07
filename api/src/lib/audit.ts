@@ -91,6 +91,14 @@ export const AUDIT_ACTION = {
   retro_case_created: 100000046,
   retro_case_linked: 100000047,
   retro_reconstruction_failed: 100000048,
+  // TKT-068 — staff added evidence via the assistant's attach affordance (bytes uploaded to Blob
+  // + an evidence row created). Records the actor from the validated JWT (never the model).
+  evidence_added: 100000049,
+  // PLAN-001 Phase 3 (TKT-110/3b) — autonomous MCP-agent actions. Reserved now so the codes are
+  // stable; only WRITTEN once agent writes ship (3b). An agent action stamps the agent SP identity
+  // + autonomous:true into the actor/after (never a silent managed-identity fallback).
+  agent_read: 100000050,
+  agent_write: 100000051,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

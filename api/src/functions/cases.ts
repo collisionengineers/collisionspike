@@ -24,6 +24,7 @@ import { app, type HttpRequest } from '@azure/functions';
 import {
   CASE_PO_SHAPE_RE,
   EVA_FIELD_ORDER,
+  canonicalizeVrm,
   casePoSequenceRegex,
   casePoYear,
   extractVrm,
@@ -52,6 +53,7 @@ import { withRole } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
 import { casePoFloor, mintCasePo } from '../lib/case-po.js';
 import { isUniqueViolation } from './internal.js';
+import { ifMatch, staleVersion, versionToken } from '../lib/concurrency.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
@@ -255,7 +257,14 @@ app.http('caseById', {
     const id = req.params.id;
     const c = await loadCaseFull(id, new Date());
     if (!c) return { status: 404, jsonBody: { error: 'not found' } };
-    return { status: 200, jsonBody: c };
+    // Expose the case version as an ETag (TKT-111) so the assistant write tier can re-fetch,
+    // capture it, and send it back as If-Match on a confirmed write (optimistic concurrency).
+    const ver = await query<Row>('SELECT updated_at FROM case_ WHERE id = $1', [id]);
+    return {
+      status: 200,
+      jsonBody: c,
+      ...(ver[0] ? { headers: { ETag: versionToken(ver[0].updated_at) } } : {}),
+    };
   }),
 });
 
@@ -605,10 +614,16 @@ app.http('openVrmTwins', {
   authLevel: 'anonymous',
   route: 'cases',
   handler: withRole('CollisionSpike.User', async (req) => {
-    const vrm = req.query.get('vrm') ?? '';
+    const vrm = canonicalizeVrm(req.query.get('vrm') ?? '');
     const exclude = req.query.get('exclude') ?? undefined;
     if (!vrm) return { status: 200, jsonBody: [] };
-    const rows = await query<Row>(`${CASE_SELECT} WHERE c.vrm = $1`, [vrm]);
+    // Canonicalise BOTH sides (upper, alnum-only) so a spaced/lower-case query ("YT13 UTV")
+    // matches the compacted stored mark ("YT13UTV") — the shared canonicalizeVrm rule, mirrored
+    // in SQL. (Small dataset; an expression index on the canonical form is a later optimisation.)
+    const rows = await query<Row>(
+      `${CASE_SELECT} WHERE regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g') = $1`,
+      [vrm],
+    );
     const twins = rows
       .map((r) => rowToCase(r))
       .filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);
@@ -626,7 +641,20 @@ app.http('setOnHold', {
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = req.params.id;
     const body = (await req.json()) as { onHold: boolean };
-    await query('UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1', [id, body.onHold]);
+    // Optimistic concurrency (TKT-111): a confirmed assistant write carries If-Match; reject a
+    // stale precondition with 409. No If-Match (the normal SPA) → skip the check (back-compat).
+    if (ifMatch(req) != null) {
+      const cur = await query<Row>('SELECT updated_at FROM case_ WHERE id = $1', [id]);
+      if (!cur[0]) return { status: 404, jsonBody: { error: 'not found' } };
+      if (staleVersion(req, cur[0].updated_at)) {
+        return { status: 409, jsonBody: { error: 'stale', currentVersion: versionToken(cur[0].updated_at) } };
+      }
+    }
+    const updated = await query<Row>(
+      'UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1 RETURNING updated_at',
+      [id, body.onHold],
+    );
+    if (!updated[0]) return { status: 404, jsonBody: { error: 'not found' } };
     await writeAudit({
       action: AUDIT_ACTION.status_changed,
       caseId: id,
@@ -634,7 +662,7 @@ app.http('setOnHold', {
       after: { onHold: body.onHold },
       ...(actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}),
     });
-    return { status: 204 };
+    return { status: 204, headers: { ETag: versionToken(updated[0].updated_at) } };
   }),
 });
 

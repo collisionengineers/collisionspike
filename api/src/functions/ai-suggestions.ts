@@ -14,9 +14,13 @@
  * person already set). The generate path PII-scrubs every input BEFORE any external model
  * call (reusing @cs/domain scrubPii — the ROADMAP "[BUILD] PII pre-scrub helper").
  *
- * LIVE STATE: the AI Foundry resource digital-3339-resource has ZERO model deployments, so
- * AI_ASSIST_ENABLED is OFF and AI_MODEL_ENDPOINT/AI_MODEL_DEPLOYMENT are absent — generate is
- * a permanent honest no-op until the operator deploys a model + flips the gate (see TKT-015).
+ * LIVE STATE (2026-07-07): the Foundry account digital-3339-resource now HAS a gpt-5 deployment, and
+ * AI_MODEL_ENDPOINT/AI_MODEL_DEPLOYMENT ARE set on the live apps (the read-only assistant chat uses
+ * them — AI_CHAT_ENABLED=true; live values in the registry). BUT the suggestion-layer gate
+ * AI_ASSIST_ENABLED is still OFF, AND `callModelForSuggestions` is still a dormant `return []` stub —
+ * so the generate path stays an honest no-op. Only the live EMAIL-TRIAGE lane has a real model call.
+ * Implementing the generic `callModelForSuggestions` + flipping AI_ASSIST_ENABLED is an operator step
+ * gated behind the PLAN-001 Phase-4 capacity/residency/DPIA sign-off (see TKT-015 / docs/gated.md).
  */
 
 import { app } from '@azure/functions';

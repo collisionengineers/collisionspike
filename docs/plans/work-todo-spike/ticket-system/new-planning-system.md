@@ -1,4 +1,4 @@
-> **Distilled — DONE ([TKT-019](../../../tickets/TKT-019-ticket-system/TKT-019-ticket-system.md)).** System:
+> **Distilled — DONE ([TKT-019](../../../tickets/done/TKT-019-ticket-system/TKT-019-ticket-system.md)).** System:
 > [docs/tickets/README.md](../../../tickets/README.md) · [BOARD.md](../../../tickets/BOARD.md) ·
 > `node scripts/check-tickets.mjs`.
 

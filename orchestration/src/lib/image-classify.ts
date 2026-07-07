@@ -22,6 +22,7 @@
  */
 
 import { gates } from '@cs/domain/gates';
+import { canonicalizeVrm } from '@cs/domain';
 import { mintCognitiveToken } from './aoai.js';
 
 export type ImageRoleName = 'overview' | 'damage_closeup' | 'additional' | 'other';
@@ -167,11 +168,6 @@ export async function classifyImage(input: {
   }
 }
 
-/** Canonicalise a UK registration for comparison: uppercase, alnum only. */
-function normalizeVrm(s: string): string {
-  return s.toUpperCase().replace(/[^A-Z0-9]/g, '');
-}
-
 /**
  * Whether the classifier's registration read should count as the CASE vehicle's plate
  * being visible. The domain image rule (image-rules.ts) defines `registrationVisible` as
@@ -184,9 +180,9 @@ function normalizeVrm(s: string): string {
  */
 export function caseRegistrationVisible(c: ImageClassification, caseVrm?: string): boolean {
   if (!c.registrationVisible) return false;
-  const vrm = caseVrm ? normalizeVrm(caseVrm) : '';
+  const vrm = caseVrm ? canonicalizeVrm(caseVrm) : '';
   if (!vrm) return true; // no known case VRM → any legible plate (prior behaviour)
-  const plate = normalizeVrm(c.plateText);
+  const plate = canonicalizeVrm(c.plateText);
   return plate.length > 0 && plate === vrm;
 }
 

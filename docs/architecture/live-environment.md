@@ -13,7 +13,7 @@
 > re-verified). Trial + cutover procedure:
 > [docs/plans/case-po-sequence-cutover.md](../plans/case-po-sequence-cutover.md); operator inputs:
 > [gated.md D11](../gated.md). Prior change: **2026-07-04T17:55Z** — the **retro-reconstruction activation**
-> (ADR-0022 / [TKT-058](../tickets/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md);
+> (ADR-0022 / [TKT-058](../tickets/verify/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md);
 > user-instructed "apply this delta — deploy anything necessary"): the **`2026-07-04-retro-case` DDL
 > delta is APPLIED LIVE** (audit actions 100000046–48 `retro_case_created`/`retro_case_linked`/
 > `retro_reconstruction_failed` + `choice_intake_channel_kind` 100000003 `retro`; VERIFY selects
@@ -47,7 +47,7 @@
 > `case_type_code`; standalone PCH/QDOS audits mint from the marker's own sequence (`A.PCH26xxx`…); QDOS
 > dual "report + audit report" letters keep the standard number with case-type `audit`; report-typed
 > attachments persist as `engineer_report` evidence. Remaining: a live probe on the next real audit
-> email ([TKT-056](../tickets/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md)
+> email ([TKT-056](../tickets/verify/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md)
 > step 6). Prior change **2026-07-03T16:20Z** — the **second wave (rules-engine-v2
 > activation)**: the **D7 taxonomy delta**, the **Phase-4 `ai_suggestion.embedding` delta**, and the **D8
 > identification delta** are **ALL APPLIED LIVE** (via Entra `digital@` → `SET ROLE csadmin`; verified:

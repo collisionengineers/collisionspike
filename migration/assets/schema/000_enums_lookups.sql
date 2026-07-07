@@ -136,7 +136,12 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   -- attempt stays visible even though nothing was minted).
   (100000046, 'retro_case_created',          'Retro Case Created'),
   (100000047, 'retro_case_linked',           'Retro Case Linked'),
-  (100000048, 'retro_reconstruction_failed', 'Retro Reconstruction Failed');
+  (100000048, 'retro_reconstruction_failed', 'Retro Reconstruction Failed'),
+  -- PLAN-001 — evidence added via the assistant attach (TKT-068); autonomous MCP-agent
+  -- read/write (TKT-110/3b, reserved — written only once agent writes ship).
+  (100000049, 'evidence_added',              'Evidence Added'),
+  (100000050, 'agent_read',                  'Agent Read'),
+  (100000051, 'agent_write',                 'Agent Write');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code

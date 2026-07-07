@@ -121,6 +121,30 @@ export async function listBoxFolderNames(folderId: string): Promise<string[]> {
   return names;
 }
 
+/**
+ * Page through a Box folder and return sub-FOLDER {id,name} entries (TKT-107 archive lookup).
+ * Same pagination + safety cap as listBoxFolderNames but keeps the id so a server-minted
+ * "Open in Box" deep link can be built. Best-effort: throws on transport/config error (callers
+ * catch and degrade to "no archive result").
+ */
+export async function listBoxFolderEntries(
+  folderId: string,
+): Promise<Array<{ id: string; name: string }>> {
+  const out: Array<{ id: string; name: string }> = [];
+  const limit = 1000;
+  let offset = 0;
+  for (let page = 0; page < 20; page++) {
+    const res = await callBoxListFolder(folderId, limit, offset);
+    const entries = res.entries ?? [];
+    for (const e of entries) {
+      if (e?.type === 'folder' && e.id && e.name) out.push({ id: String(e.id), name: String(e.name) });
+    }
+    if (entries.length < limit) break;
+    offset += limit;
+  }
+  return out;
+}
+
 interface BoxFileContentResponse {
   id?: string;
   filename?: string;

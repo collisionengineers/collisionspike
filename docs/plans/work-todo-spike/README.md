@@ -13,12 +13,14 @@ pointer at the top (distillation convention — see [plans/README.md](../README.
 
 | Area | Operator stub | Ticket | Board |
 |------|---------------|--------|-------|
-| `box/box-sync` | [box-sync.md](./box/box-sync.md) | [TKT-003](../../tickets/TKT-003-box-sync/TKT-003-box-sync.md) | Done |
-| `ui-changes/amalgamated-dashboard` | [amalgamated-dashboard.md](./ui-changes/amalgamated-dashboard.md) | [TKT-007](../../tickets/TKT-007-amalgamated-dashboard/TKT-007-amalgamated-dashboard.md) | Done |
-| `ui-changes/calendar-box-on-date-fields` | [calendar-box-on-date-fields.md](./ui-changes/calendar-box-on-date-fields.md) | [TKT-008](../../tickets/TKT-008-calendar-date-fields/TKT-008-calendar-date-fields.md) | Done |
-| `automation-mode/` | [am.md](./automation-mode/am.md) | [TKT-013](../../tickets/TKT-013-automation-mode/TKT-013-automation-mode.md) | Done |
-| `ui-changes/acme/` | [acme/acme.md](./ui-changes/acme/acme.md) | [TKT-014](../../tickets/TKT-014-acme-placeholder/TKT-014-acme-placeholder.md) | Done |
-| `dashboard-logic/` | — (research only) | [TKT-012](../../tickets/TKT-012-dashboard-logic/TKT-012-dashboard-logic.md) | Done |
-| `ticket-system/` | [new-planning-system.md](./ticket-system/new-planning-system.md) | [TKT-019](../../tickets/TKT-019-ticket-system/TKT-019-ticket-system.md) | Done |
+| `box/box-sync` | [box-sync.md](./box/box-sync.md) | [TKT-003](../../tickets/done/TKT-003-box-sync/TKT-003-box-sync.md) | Done |
+| `ui-changes/amalgamated-dashboard` | [amalgamated-dashboard.md](./ui-changes/amalgamated-dashboard.md) | [TKT-007](../../tickets/done/TKT-007-amalgamated-dashboard/TKT-007-amalgamated-dashboard.md) | Done |
+| `ui-changes/calendar-box-on-date-fields` | [calendar-box-on-date-fields.md](./ui-changes/calendar-box-on-date-fields.md) | [TKT-008](../../tickets/done/TKT-008-calendar-date-fields/TKT-008-calendar-date-fields.md) | Done |
+| `automation-mode/` | [am.md](./automation-mode/am.md) | [TKT-013](../../tickets/done/TKT-013-automation-mode/TKT-013-automation-mode.md) | Done |
+| `ui-changes/acme/` | [acme/acme.md](./ui-changes/acme/acme.md) | [TKT-014](../../tickets/done/TKT-014-acme-placeholder/TKT-014-acme-placeholder.md) | Done |
+| `dashboard-logic/` | — (research only) | [TKT-012](../../tickets/done/TKT-012-dashboard-logic/TKT-012-dashboard-logic.md) | Done |
+| `ticket-system/` | [new-planning-system.md](./ticket-system/new-planning-system.md) | [TKT-019](../../tickets/done/TKT-019-ticket-system/TKT-019-ticket-system.md) | Done |
+
+Related preserved planning note: [proposed-usability-additions.md](./proposed-usability-additions.md).
 
 Full ticket index: [docs/tickets/README.md](../../tickets/README.md).

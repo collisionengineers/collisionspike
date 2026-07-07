@@ -24,3 +24,7 @@ export * from './dto/index.js';
 // dto/provider-api — the provider API-intake channel DTOs (TKT-055, ADR-0020). Kept a
 // SEPARATE module from dto/index.ts (the frozen DataAccess contract) — additive, channel-specific.
 export * from './dto/provider-api.js';
+
+// capabilities — the shared AI capability registry (PLAN-001, ADR-0025). Env-free descriptors
+// both AI surfaces (in-app assistant + read-only MCP) derive their tool set from.
+export * from './capabilities/index.js';

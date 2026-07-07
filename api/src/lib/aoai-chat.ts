@@ -82,14 +82,23 @@ export interface ToolDef {
 interface ChatCompletionResponse {
   choices?: Array<{ finish_reason?: string; message?: ChatMessage }>;
   model?: string;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
-/** One AOAI chat/completions round-trip. Throws on non-2xx / timeout (caller wraps). */
+/** Token usage for one round-trip (TKT-113 capacity ledger). */
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+}
+
+/** One AOAI chat/completions round-trip. Throws on non-2xx / timeout (caller wraps).
+ *  `onUsage` (optional) receives the response's token usage for the capacity ledger. */
 export async function chatCompletion(
   endpoint: string,
   deployment: string,
   messages: ChatMessage[],
   tools: ToolDef[],
+  onUsage?: (u: TokenUsage) => void,
 ): Promise<ChatMessage> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -117,6 +126,12 @@ export async function chatCompletion(
       throw new Error(`AOAI chat ${res.status}: ${errText.slice(0, 300)}`);
     }
     const json = (await res.json()) as ChatCompletionResponse;
+    if (onUsage && json.usage) {
+      onUsage({
+        promptTokens: json.usage.prompt_tokens ?? 0,
+        completionTokens: json.usage.completion_tokens ?? 0,
+      });
+    }
     const msg = json.choices?.[0]?.message;
     if (!msg) throw new Error('AOAI chat: no message in response');
     return msg;
@@ -128,11 +143,22 @@ export async function chatCompletion(
 /** How the route supplies read-only tool execution to the loop. */
 export type ToolExecutor = (name: string, args: Record<string, unknown>) => Promise<unknown>;
 
+/** Minimal sink for observability — the route passes InvocationContext (ctx.warn). */
+export interface ChatLogger {
+  warn: (msg: string) => void;
+}
+
 export interface RunChatResult {
   reply: string;
   /** Names of tools the model invoked (for audit — never the results). */
   toolsUsed: string[];
   rounds: number;
+  /** How many tool calls ultimately failed (after the one retry). 0 on a clean run.
+   *  Surfaced as the `toolErrors` audit-lite dimension (TKT-066). */
+  toolErrors: number;
+  /** Total token usage across all rounds (TKT-113 capacity ledger). 0 when the model
+   *  response carried no usage (e.g. the injected test double). */
+  usage: TokenUsage;
 }
 
 /**
@@ -149,19 +175,28 @@ export async function runChat(
   maxRounds = 4,
   /** Injected for unit tests; defaults to the real AOAI call. */
   complete: typeof chatCompletion = chatCompletion,
+  /** Optional observability sink — a failing tool warns here (TKT-066). */
+  logger?: ChatLogger,
 ): Promise<RunChatResult> {
   const convo = [...messages];
   const toolsUsed: string[] = [];
+  let toolErrors = 0;
+  const usage: TokenUsage = { promptTokens: 0, completionTokens: 0 };
+  const onUsage = (u: TokenUsage): void => {
+    usage.promptTokens += u.promptTokens;
+    usage.completionTokens += u.completionTokens;
+  };
   for (let round = 1; round <= maxRounds; round++) {
-    const msg = await complete(endpoint, deployment, convo, tools);
+    const msg = await complete(endpoint, deployment, convo, tools, onUsage);
     convo.push(msg);
     const calls = msg.tool_calls ?? [];
     if (!calls.length) {
-      return { reply: (msg.content ?? '').trim(), toolsUsed, rounds: round };
+      return { reply: (msg.content ?? '').trim(), toolsUsed, rounds: round, toolErrors, usage };
     }
     // Execute each requested tool (read-only) and feed results back.
     for (const call of calls) {
-      toolsUsed.push(call.function.name);
+      const name = call.function.name;
+      toolsUsed.push(name);
       let args: Record<string, unknown> = {};
       try {
         args = JSON.parse(call.function.arguments || '{}');
@@ -170,9 +205,19 @@ export async function runChat(
       }
       let result: unknown;
       try {
-        result = await executeTool(call.function.name, args);
-      } catch (e) {
-        result = { error: e instanceof Error ? e.message : 'tool failed' };
+        result = await executeTool(name, args);
+      } catch {
+        // One retry — a transient first-attempt failure (e.g. a Postgres cold-connect
+        // inside the 5s pool timeout) usually clears on an immediate second try.
+        try {
+          result = await executeTool(name, args);
+        } catch (e2) {
+          toolErrors += 1;
+          const emsg = e2 instanceof Error ? e2.message : 'tool failed';
+          // Visible in App Insights (TKT-066) — the failure was previously swallowed unlogged.
+          logger?.warn(`[assistant] tool ${name} failed: ${emsg}`);
+          result = { error: emsg };
+        }
       }
       convo.push({
         role: 'tool',
@@ -182,6 +227,6 @@ export async function runChat(
     }
   }
   // Ran out of rounds — one last non-tool answer attempt.
-  const finalMsg = await complete(endpoint, deployment, convo, []);
-  return { reply: (finalMsg.content ?? '').trim(), toolsUsed, rounds: maxRounds + 1 };
+  const finalMsg = await complete(endpoint, deployment, convo, [], onUsage);
+  return { reply: (finalMsg.content ?? '').trim(), toolsUsed, rounds: maxRounds + 1, toolErrors, usage };
 }

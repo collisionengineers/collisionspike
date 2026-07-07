@@ -24,3 +24,6 @@ One decision per file, numbered. **0015, 0016, 0017, 0018 & 0019 are _Proposed_;
 - [`0020`](./0020-provider-api-intake-channel.md) — provider API intake channel (machine-to-machine case lodging)
 - [`0021`](./0021-case-po-marker-taxonomy.md) — Case/PO marker taxonomy (A./AP./D., per-marker sequences, dual report+audit rule)
 - [`0022`](./0022-retroactive-case-reconstruction.md) — retroactive case reconstruction (missing-case fallback: any-status link → Box archive → Outlook search) _(Proposed)_
+- [`0023`](./0023-mcp-server-hosting-and-auth.md) — MCP server hosting + auth (read-only first; Function-App-hosted; Data-API-enforced agent roles) _(Proposed)_
+- [`0024`](./0024-assistant-write-tier-confirmation-protocol.md) — assistant write tier: propose → confirm → execute (the model never writes) _(Proposed)_
+- [`0025`](./0025-shared-capability-registry.md) — one shared AI capability registry (env-free descriptors + zod schemas) _(Proposed)_

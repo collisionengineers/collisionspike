@@ -93,7 +93,7 @@ active; the corpus count moves in the registry [`live-environment.md`](../../arc
 
 ---
 
-### 4. Confirm the production Box root id  ·  **[MUST]** — [TKT-004](../../tickets/TKT-004-case-po-generation/TKT-004-case-po-generation.md)
+### 4. Confirm the production Box root id  ·  **[MUST]** — [TKT-004](../../tickets/blocked/TKT-004-case-po-generation/TKT-004-case-po-generation.md)
 
 New case folders currently mint under the **dev mirror root `392761581105`**. Before go-live, confirm the
 **real production Box root folder** where live case/PO folders should be created (the Case/PO allocator
@@ -152,7 +152,7 @@ yourself — no automated live move will be run).
 
 **Verify:** the email moves in Outlook, the row reads "Filed to …" and flips to Handled, and `audit_event`
 carries `outlook_move_requested` → `outlook_moved`. Record the result in
-[TKT-054/verification.md](../../tickets/TKT-054-ui-work/verification.md).
+[TKT-054/verification.md](../../tickets/verify/TKT-054-ui-work/verification.md).
 
 ---
 
@@ -204,7 +204,7 @@ az functionapp config appsettings set -g rg-collisionspike-dev -n cespk-orch-dev
 
 **Verify:** `az functionapp config appsettings list` readback shows the ids on both apps; a facade
 `box/search` under a configured root returns 200; a known un-linked archived case reconstructs. Tracker:
-[TKT-058/verification.md](../../tickets/TKT-058-retro-case-creation/verification.md).
+[TKT-058/verification.md](../../tickets/verify/TKT-058-retro-case-creation/verification.md).
 
 ---
 

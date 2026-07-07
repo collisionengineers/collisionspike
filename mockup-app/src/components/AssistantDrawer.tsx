@@ -20,9 +20,10 @@ import {
   tokens,
   mergeClasses,
 } from '@fluentui/react-components';
-import { Sparkles, Send, X } from 'lucide-react';
+import { Sparkles, Send, X, Plus } from 'lucide-react';
 import { getDataAccess } from '../data';
-import type { AssistantChatTurn } from '../data';
+import type { AssistantChatTurn, ProposedAction } from '../data';
+import { ConfirmActionCard } from './ConfirmActionCard';
 
 const useStyles = makeStyles({
   body: { display: 'flex', flexDirection: 'column', height: '100%', gap: tokens.spacingVerticalS },
@@ -39,12 +40,15 @@ const useStyles = makeStyles({
 
 const SUGGESTIONS = [
   'How many cases are in each queue?',
-  'What does "Held" mean?',
+  'Which cases are overdue?',
+  'Show the oldest cases in Review',
   'Find the case for reg ',
 ];
 
 interface Turn extends AssistantChatTurn {
   toolsUsed?: string[];
+  /** Write-tier proposals the assistant drafted this turn (TKT-111) — rendered as confirm cards. */
+  proposals?: ProposedAction[];
 }
 
 export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -61,6 +65,15 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
     });
   }, []);
 
+  // TKT-067 — start a fresh conversation. Cannot interleave with an in-flight reply, so it
+  // is disabled while sending. Clears both the thread and any half-typed question; the next
+  // send starts from an empty history (POST /api/assistant/chat is stateless per request).
+  const newChat = useCallback(() => {
+    if (sending) return;
+    setTurns([]);
+    setInput('');
+  }, [sending]);
+
   const send = useCallback(
     async (text: string) => {
       const q = text.trim();
@@ -72,7 +85,7 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
       scrollToEnd();
       try {
         const res = await getDataAccess().assistantChat(history.map((t) => ({ role: t.role, content: t.content })));
-        setTurns([...history, { role: 'assistant', content: res.reply, toolsUsed: res.toolsUsed }]);
+        setTurns([...history, { role: 'assistant', content: res.reply, toolsUsed: res.toolsUsed, proposals: res.proposals }]);
       } catch {
         setTurns([...history, { role: 'assistant', content: 'Sorry — I could not answer that right now. Please try again.' }]);
       } finally {
@@ -88,7 +101,19 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
       <DrawerHeader>
         <DrawerHeaderTitle
           action={
-            <Button appearance="subtle" aria-label="Close assistant" icon={<X size={18} />} onClick={() => onOpenChange(false)} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Button
+                appearance="subtle"
+                size="small"
+                icon={<Plus size={16} />}
+                onClick={newChat}
+                disabled={sending || turns.length === 0}
+                aria-label="Start a new chat"
+              >
+                New chat
+              </Button>
+              <Button appearance="subtle" aria-label="Close assistant" icon={<X size={18} />} onClick={() => onOpenChange(false)} />
+            </span>
           }
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -119,6 +144,10 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
                 {t.role === 'assistant' && t.toolsUsed && t.toolsUsed.length > 0 && (
                   <Caption1 className={styles.toolHint}>looked up {Array.from(new Set(t.toolsUsed)).join(', ').replace(/_/g, ' ')}</Caption1>
                 )}
+                {t.role === 'assistant' &&
+                  t.proposals?.map((p, pi) => (
+                    <ConfirmActionCard key={pi} action={p} onDone={() => setTurns((cur) => cur.map((x, xi) => (xi === i ? { ...x, proposals: x.proposals?.filter((_pp, ppi) => ppi !== pi) } : x)))} />
+                  ))}
               </div>
             ))}
             {sending && (

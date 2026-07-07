@@ -163,19 +163,27 @@ Full protocol + precedence hierarchy: [`docs/MAINTENANCE.md`](./docs/MAINTENANCE
 
 Granular work is tracked as **atomic Markdown tickets** in [`docs/tickets/`](./docs/tickets/README.md) —
 the layer **under** ROADMAP.md (ROADMAP is the strategic Now/Next/Later; a ticket is one self-contained
-item). **One ticket = one `.md` file** with YAML frontmatter:
-`id` · `title` · `status` (`backlog`/`now`/`next`/`done`/`blocked`) · `priority` (`P0`–`P3`) · `area` ·
-`tickets-it-relates-to` (ids, or `[]`) · `research-link` (path to the backing research pack). The
-[`BOARD.md`](./docs/tickets/BOARD.md) tracker mirrors each ticket's column (Now / Next / Backlog / Done).
-**Lifecycle:** a `work-todo-spike` operator stub + fan-out research pack → distilled into a ticket
-(`backlog`) → `now`/`next` when picked up → `done` (or `blocked` on an operator/dependency).
+item). Tickets live under status folders:
+`docs/tickets/{backlog,now,next,verify,done,blocked}/TKT-NNN-<slug>/`. **One ticket = one folder** with the
+spec `.md`, `changes.md`, `verification.md`, and `evidence/`. YAML frontmatter includes `id` · `title` ·
+`status` (`backlog`/`now`/`next`/`verify`/`done`/`blocked`) · `priority` (`P0`–`P3`) · `area` ·
+`tickets-it-relates-to` · `research-link`, plus optional `plan: PLAN-NNN`.
+
+The status folder, frontmatter, and [`BOARD.md`](./docs/tickets/BOARD.md) section must match. Do not move
+folders manually; use `node scripts/ticket-move.mjs TKT-NNN <status>` so frontmatter, BOARD rows, and inbound
+links are rewritten together. **Lifecycle:** `backlog` → `now` → `verify` (deployed/code-complete, awaiting
+live proof) → `done`; `next` is queued work and `blocked` records operator/dependency waits. `done` means
+live/proven in `verification.md`, not merely code-correct.
+
+Multi-ticket programmes live under [`docs/tickets/plans/`](./docs/tickets/plans/) as `PLAN-NNN-<slug>.md` and
+list member ticket ids; member tickets may point back with `plan:`.
 
 **Research packs are advisory aids — verify, don't trust.** The packs under
-[`docs/plans/work-todo-spike/`](./docs/plans/work-todo-spike/) (linked from each ticket) are detailed
-fan-out research, but any live fact (counts, gates, mailbox set, function/route names) must be checked
-against the registry ([live-environment.md](./docs/architecture/live-environment.md) / `LIVE_FACTS.json`)
-before acting — they are point-in-time snapshots, not the source of truth. Validate the board with
-`node scripts/check-tickets.mjs` (frontmatter present, enums valid, `research-link` resolves, ids unique).
+[`docs/plans/work-todo-spike/`](./docs/plans/work-todo-spike/) (linked from tickets) are detailed fan-out
+research, but any live fact (counts, gates, mailbox set, function/route names) must be checked against the
+registry ([live-environment.md](./docs/architecture/live-environment.md) / `LIVE_FACTS.json`) before acting.
+Validate with `node scripts/check-tickets.mjs` (placement/frontmatter/BOARD/plans/manifest),
+`node scripts/check-doc-links.mjs`, and `node scripts/check-skills-sync.mjs`.
 
 ## Related repos (in the `collisionsuite/` tree — ideas/prior-art only, NONE canonical, do not modify)
 

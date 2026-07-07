@@ -128,7 +128,7 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
   deleted by hand). Some residual `graph-webhook` `499`/cold-start aborts remain (Graph retries absorb them).
   Live subscription state: the registry [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 - **✅ Box intake evidence archive — DONE (2026-07-01).** `boxArchiveEvidence` on `cespk-orch-dev` copies
-  `.eml`, instructions, and images into the case Box folder on every intake ([TKT-003](./docs/tickets/TKT-003-box-sync/TKT-003-box-sync.md),
+  `.eml`, instructions, and images into the case Box folder on every intake ([TKT-003](./docs/tickets/done/TKT-003-box-sync/TKT-003-box-sync.md),
   **VERIFIED-LIVE**). Granular UI/platform tickets from the work-todo-spike wave: [docs/tickets/BOARD.md](./docs/tickets/BOARD.md).
 
 - **✅ Nine-task activation — DONE (2026-07-03, user-instructed).** Provider API intake channel
@@ -164,7 +164,7 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 
 **Next:**
 - **Retroactive case reconstruction** ([ADR-0022](./docs/adr/0022-retroactive-case-reconstruction.md),
-  [TKT-058](./docs/tickets/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md)) — the gated
+  [TKT-058](./docs/tickets/verify/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md)) — the gated
   SECONDARY fallback for update/billing email citing a case the system has never seen: any-status
   link (incl. terminals — the billing-email fix) → Box-archive reconstruction (folder name = the
   Case/PO; the archived original `.eml` runs the normal parse/create pipeline) → Outlook `$search`.
@@ -189,7 +189,7 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 - **Parser custom container (LibreOffice for legacy `.doc`)** — Flex Consumption (`cespike-parser-dev`) cannot
   install system packages (`libreoffice-writer-nogui`, `antiword`) without a **custom container** migration;
   table-heavy legacy `.doc` files lose table-cell text on the binary-scrape path. Triage QDOS is bridged by the
-  orchestration email-body supplement ([TKT-001 follow-up](./docs/tickets/TKT-001-document-parsing/changes-regression-01-07-26.md));
+  orchestration email-body supplement ([TKT-001 follow-up](./docs/tickets/verify/TKT-001-document-parsing/changes-regression-01-07-26.md));
   full `.doc` fidelity needs a container image with LibreOffice baked in
   ([Microsoft Q&A — FC1 system packages](https://learn.microsoft.com/en-ca/answers/questions/5911523/unable-to-use-linux-packages-in-flexi-function-app)).
 - **Box business-account live-test** — CCG + File Request + the `FILE.UPLOADED` live-test against the

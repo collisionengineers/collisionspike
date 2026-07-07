@@ -8,7 +8,7 @@ Copy and fill. Match the voice of existing tickets (concise, factual, honest abo
 # Changes — TKT-NNN: <title>
 
 ## Status
-<now | done | blocked> — one-line summary of implementation state.
+<now | verify | done | blocked | next | backlog> — one-line summary of implementation state.
 
 ## Commits
 - `<hash>` — <area>: <what this commit did and why>
@@ -35,7 +35,8 @@ VERIFIED-LIVE | TESTED (offline) | PENDING
 orchestration trace, App Insights custom events, manual SPA steps performed.>
 
 ## Pending / gaps
-<Honest list. Distinguish "field absent in source" (expected) from "bug remains".>
+<Honest list. Distinguish "field absent in source" (expected) from "bug remains". If code is shipped but
+live proof is pending, the ticket belongs in `verify`.>
 
 ## How to re-verify
 <Steps an operator or agent can repeat: intake mailbox, query, test command, KQL snippet.>

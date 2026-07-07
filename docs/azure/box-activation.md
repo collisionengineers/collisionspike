@@ -4,7 +4,7 @@
 gates reconciled. The activation record (before/after, exact commands) is
 **[docs/handoff/02-box-activation.md](../handoff/02-box-activation.md)**.
 
-> **Intake evidence archive — VERIFIED-LIVE (2026-07-01, [TKT-003](../tickets/TKT-003-box-sync/TKT-003-box-sync.md)).**
+> **Intake evidence archive — VERIFIED-LIVE (2026-07-01, [TKT-003](../tickets/done/TKT-003-box-sync/TKT-003-box-sync.md)).**
 > After folder-at-intake, `cespk-orch-dev` runs the `boxArchiveEvidence` durable activity: reads persisted
 > evidence via the Data API internal route and uploads bytes through box-fn `upload_file`. A fresh intake's
 > case folder holds the `.eml`, instruction document(s), and images.

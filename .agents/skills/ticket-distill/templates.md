@@ -16,7 +16,8 @@ status: backlog
 priority: P1
 area: <parsing|evidence|box|intake|email|ui|dashboard|ai|platform|docs>
 tickets-it-relates-to: [TKT-XXX]
-research-link: docs/tickets/TKT-NNN-<slug>/evidence/operator-note.md
+research-link: docs/tickets/backlog/TKT-NNN-<slug>/evidence/operator-note.md
+plan: PLAN-NNN  # optional; omit if not in a plan
 ---
 
 # <Title>
@@ -25,7 +26,7 @@ research-link: docs/tickets/TKT-NNN-<slug>/evidence/operator-note.md
 <What is wrong or wanted — from the operator note.>
 
 ## Evidence
-- `evidence/operator-note.md` — operator drop-note.
+- [Operator note](./evidence/operator-note.md) — operator drop-note.
 - `evidence/<file>` — <what this sample shows>.
 - <Current live behaviour if known — verify against registry before stating as fact.>
 
@@ -49,16 +50,16 @@ Distilled <YYYY-MM-DD> from operator drop-note; raw material in [evidence/](./ev
 ## BOARD.md row (Backlog)
 
 ```markdown
-| [TKT-NNN](./TKT-NNN-<slug>/TKT-NNN-<slug>.md) | <title> | <one-line source note> |
+| [TKT-NNN](./backlog/TKT-NNN-<slug>/TKT-NNN-<slug>.md) | <title> | <one-line source note> |
 ```
 
 ## BOARD.md row (Blocked)
 
 ```markdown
-| [TKT-NNN](./TKT-NNN-<slug>/TKT-NNN-<slug>.md) | <what is needed from operator> |
+| [TKT-NNN](./blocked/TKT-NNN-<slug>/TKT-NNN-<slug>.md) | <title> | <what is needed from operator> |
 ```
 
-Place blocked rows under the **Blocked — needs operator** section.
+Place rows under the BOARD section that matches frontmatter `status`.
 
 ## Priority guide
 
@@ -68,6 +69,17 @@ Place blocked rows under the **Blocked — needs operator** section.
 | P1 | Wrong case routing, missing fields on live intake, user-visible regression |
 | P2 | Normal backlog, workaround exists |
 | P3 | Cosmetic, polish, deferred nice-to-have |
+
+## Status guide
+
+| Status | Use when |
+|--------|----------|
+| `backlog` | Not started |
+| `now` | Actively being worked |
+| `verify` | Code/deploy complete, awaiting live proof |
+| `done` | Proven per ticket acceptance |
+| `next` | Explicitly queued |
+| `blocked` | Needs operator/dependency |
 
 ## Slug naming
 

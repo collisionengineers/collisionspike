@@ -60,7 +60,7 @@ These domain capabilities are **deployed and functioning** on the Azure stack:
   real PDFs/DOCX/EML/MSG. **OCR** for scanned images is the separate `ocr` Function.
   **Platform limit (FC1):** legacy table-heavy `.doc` files may miss table-cell narrative on the binary-scrape
   path because LibreOffice cannot be installed on Flex Consumption without a **custom container** migration
-  ([ROADMAP Later](../ROADMAP.md) — parser container item; [TKT-001 follow-up](./tickets/TKT-001-document-parsing/changes-regression-01-07-26.md)).
+  ([ROADMAP Later](../ROADMAP.md) — parser container item; [TKT-001 follow-up](./tickets/verify/TKT-001-document-parsing/changes-regression-01-07-26.md)).
   Triage QDOS intake is bridged by the orchestration email-body supplement when the attachment parse returns
   empty `accident_circumstances`.
 - **Vehicle look-ups (DVSA/DVLA enrichment).** The enrichment Function is deployed and calls **DVSA + DVLA
@@ -298,7 +298,7 @@ yourself — no automated live move test will be run.**
 4. ⏳ **PENDING — live-test yourself** once steps 1–2 land: click "File to …" on a test row in the
    inbox; the email should move in Outlook, the row should read "Filed to …" and flip to Handled,
    and `audit_event` should carry `outlook_move_requested` → `outlook_moved`. Record the result in
-   [tickets/TKT-054-ui-work/verification.md](./tickets/TKT-054-ui-work/verification.md).
+   [tickets/TKT-054-ui-work/verification.md](./tickets/verify/TKT-054-ui-work/verification.md).
 
 ---
 
@@ -405,7 +405,7 @@ confirm there isn't one) and it gets added to the provider's domain field in Pos
 **PHA/Parkhouse principal code** so its insert can land too. *(In the decommissioned stack this was the
 Dataverse `cr1bd_knownemaildomains` column.)*
 
-> **QDOS domain — needed for audit-case resolution ([TKT-065](./tickets/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md)).**
+> **QDOS domain — needed for audit-case resolution ([TKT-065](./tickets/verify/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md)).**
 > **QDOS** has **no `known_email_domains`**, so a **direct QDOS audit email cannot domain-resolve** —
 > it only resolves when the instruction document content names QDOS. (PCH is already covered: D8 seeded
 > `pch-ltd.com`.) Send QDOS's real sending domain(s) and it gets seeded (idempotent `916`-style delta),
@@ -637,7 +637,7 @@ immediate flip. The case-type pipeline is **acting**: detected audits write `cas
 standalone PCH/QDOS audits mint from the marker's own sequence (`A.PCH26xxx`…), QDOS dual
 "report + audit report" letters keep the standard number with case-type `audit`, and report-typed
 attachments persist as `engineer_report` evidence. **Remaining:** the
-[TKT-056](./tickets/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) step-6
+[TKT-056](./tickets/verify/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) step-6
 **live probe** — watch the next real pch-ltd.com / QDOS audit email land correctly (work provider =
 PCH/QDOS, marker Case/PO, `engineer_report` evidence). _(Original two-step item retained below for
 reference.)_
@@ -678,7 +678,7 @@ an unmatched billing/case_update/cancellation/query email with a reference or re
 its case **whatever the case's status** (terminals included — the billing-email fix), ambiguity is
 flagged never guessed, and un-linkable attempts are audited `retro_reconstruction_failed`. The
 existing un-linked pile drains one email at a time via the keyed starter — see
-[TKT-058/verification.md](./tickets/TKT-058-retro-case-creation/verification.md) step 4.
+[TKT-058/verification.md](./tickets/verify/TKT-058-retro-case-creation/verification.md) step 4.
 
 **Remaining (the Box reconstruction rung — R2 stays dark until ALL of these):**
 
@@ -788,6 +788,44 @@ two Azure-side secrets (the Postgres app login from A2 and the Graph client secr
 are already in place and working; the **two Azure secrets (A2 + B2) are now both resolved** (see A2 / A3 / B2).
 **Box is live** (only the two Box-side artifacts remain — D2); **EVA** still waits on you; and the remaining
 live-stack ask to extend intake to the production mailbox set is the **info@ + desk@ mailbox grant (B1)**.
+
+---
+
+### F. AI/MCP hardening (PLAN-001) — dark-built, awaiting your flip
+
+**What:** [PLAN-001](./tickets/plans/PLAN-001-ai-mcp-hardening.md) hardened and extended the AI features and
+added a read-only MCP server. It is **built dark on branch `feat/plan-001-ai-mcp-hardening`** — every new
+capability sits behind a **default-off** feature gate, so nothing changed in the live app. Deploy is the
+first step; each gate then flips only on your sign-off. Gate values live in the registry
+([live-environment.md](./architecture/live-environment.md) / [LIVE_FACTS.json](../LIVE_FACTS.json)), never
+here — the names below are default-off until you set them.
+
+**Why you:** each flip is a deploy + a per-gate decision (and, for the write/model paths, a **DPIA + E2/G5
+sign-off**); the MCP path also needs a new **Entra app-registration** only you can create. An agent builds
+and gates; it does not flip a live gate or create an app-registration.
+
+**Steps (in dependency order; each is independent and safe to leave off):**
+1. **Merge + deploy the branch** (`cespk-api-dev` + the SPA `cespk-spa-dev`). Until deployed, all of the
+   below are inert regardless of gate state. TKT-067 (New-chat) ships with the SPA deploy — no gate.
+2. **`ASSISTANT_TOOLSET_V2`** (TKT-066/069) — turns on the canonical-VRM read adapter + six read tools.
+   Flip after a short soak; verify a spaced-VRM lookup (`YT13 UTV`) resolves.
+3. **`GLOBAL_SEARCH_ENABLED`** (TKT-072) — the header search box. Flip after step 2 soaks.
+4. **`ASSISTANT_WRITE_TIER_ENABLED`** (TKT-111) — the propose→confirm→execute write tier. Needs a
+   **per-capability DPIA + E2/G5 sign-off** first (the `scrubPii` output is a precision-over-recall
+   pre-scrub, not "de-identified" — the DPIA must say so). The model never writes; a human confirms every
+   action.
+5. **Apply `185_ai_usage_ledger.sql`** (TKT-113) via the D7/D8 `SET ROLE csadmin` runbook, then redeploy —
+   the capacity ledger starts accruing.
+6. **MCP read-only server** (TKT-110): create the **MCP Entra app-registration** (delegated scopes for the
+   near-term Flow A; app-roles for the later Flow B), then set **`MCP_SERVER_ENABLED`**. Record it in the
+   registry (bump `lastVerified`). Autonomous agent **writes** are a separate, later rung (ADR-0023 Phase
+   3b) — not shipped.
+
+**Deliberately deferred (do not flip / not built):** the vision family (TKT-016/017/018) + the real
+`callModelForSuggestions` model call (TKT-015) — each gated behind capacity + **image-egress data
+residency** + DPIA; and the **image-writer reconcile** (TKT-112) which is blocked on your TKT-088 decision
+(keep the live auto-classifier writing, or suggestion-gate it — never both). AI-driven byte upload is not
+built by design (TKT-068: bytes come only from a human file-picker).
 
 ---
 

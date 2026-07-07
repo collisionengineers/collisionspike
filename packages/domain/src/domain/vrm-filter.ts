@@ -28,6 +28,8 @@
    PURE + DETERMINISTIC + FRAMEWORK-FREE. No I/O, no live calls.
    ============================================================ */
 
+import { canonicalizeVrm } from './vrm-canon';
+
 /** Strict DVLA mark shapes — accepted unconditionally (a real mark, not junk). */
 const STRICT =
   /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
@@ -96,7 +98,7 @@ export function extractVrm(text: string | null | undefined): string {
   for (const m of upper.matchAll(STRICT)) {
     const cand = m[0];
     if (isPostcodeOutward(upper, m.index ?? 0, cand)) continue;
-    return cand.replace(/\s+/g, '');
+    return canonicalizeVrm(cand);
   }
 
   // 2) LOOSE dateless shape — ONLY with a context anchor, never a postcode, never a
@@ -115,7 +117,7 @@ export function extractVrm(text: string | null | undefined): string {
       const alpha = cand.match(/^[A-Z]+/)?.[0] ?? '';
       if (EXCLUDE_WORDS.has(alpha)) continue;
       if (precededByExcludeLabel(upper, idx)) continue;
-      return compact;
+      return canonicalizeVrm(cand);
     }
   }
 
