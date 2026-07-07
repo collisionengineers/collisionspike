@@ -202,6 +202,25 @@ split into four subtype tickets, extending the TKT-029…040 misclass cluster.
 | `pch-duplicates/` | [TKT-092](./TKT-092-pch-duplicate-cases/TKT-092-pch-duplicate-cases.md) |
 | `suggest-attach/` | [TKT-093](./TKT-093-auto-attach-matched-emails/TKT-093-auto-attach-matched-emails.md) |
 
+**Cohort E — distilled from `to-distill/` third-wave drop-notes (2026-07-07, TKT-094…105).** A fresh
+re-drop under `docs/tickets/to-distill/` mixed **already-distilled** material (disregarded — its raw
+material already lives in the Cohort A/B/C/D evidence folders and the go-live tickets TKT-059…063) with
+**new** notes. `PLAN-case-done-lifecycle.md` became a 3-ticket cluster (anchor TKT-094 holds the full
+plan); nine standalone notes filed TKT-097…105. The drop-zone was then removed.
+
+| Source drop-note | Ticket |
+|---|---|
+| `PLAN-case-done-lifecycle.md` (anchor: [TKT-094](./TKT-094-case-done-status-model/TKT-094-case-done-status-model.md) holds the full plan) | [TKT-094](./TKT-094-case-done-status-model/TKT-094-case-done-status-model.md) status model + auto-`eva_submitted` · [TKT-095](./TKT-095-case-done-detectors/TKT-095-case-done-detectors.md) `done` detectors · [TKT-096](./TKT-096-completed-archive-view/TKT-096-completed-archive-view.md) Completed view + search fold-in |
+| `cancellation-miscagetorised/` | [TKT-097](./TKT-097-cancellation-misclass-query/TKT-097-cancellation-misclass-query.md) (relates TKT-041) |
+| `e-mail-limit/` | [TKT-098](./TKT-098-inbox-pagination/TKT-098-inbox-pagination.md) |
+| `qcl/` | [TKT-099](./TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md) |
+| `qdos-error/` (false-VRM half) | [TKT-100](./TKT-100-qdos-false-vrm-and2/TKT-100-qdos-false-vrm-and2.md) |
+| `qdos-error/` (wrong-linking half) | [TKT-101](./TKT-101-qdos-cases-wrong-linking/TKT-101-qdos-cases-wrong-linking.md) |
+| `tractable-integration/` (received handling) | [TKT-102](./TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md) |
+| `tractable-integration/` (reference bug) | [TKT-103](./TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) |
+| `tractable-integration/` (deferred API) | [TKT-104](./TKT-104-tractable-api-integration/TKT-104-tractable-api-integration.md) (blocked) |
+| `done/remittance/` | [TKT-105](./TKT-105-remittance-payments-category/TKT-105-remittance-payments-category.md) |
+
 See [BOARD.md](./BOARD.md) for the live status of each.
 
 ## Proposed additions (operator to vet)

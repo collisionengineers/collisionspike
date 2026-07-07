@@ -5,7 +5,7 @@ status: now
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-058, TKT-027, TKT-012, TKT-026]
-research-link: GO_LIVE_SPRINT_PLAN.md
+research-link: docs/plans/go-live/README.md
 ---
 
 # Replay: wipe & rebuild derived data from full mailbox history
@@ -74,7 +74,7 @@ once (P3), verify once (P3V):
 
 ## Research
 
-[GO_LIVE_SPRINT_PLAN.md](../../../GO_LIVE_SPRINT_PLAN.md) — phases P0 (preflight), P1 (pager + dry-run
+[GO_LIVE_SPRINT_PLAN.md](../../plans/go-live/README.md) — phases P0 (preflight), P1 (pager + dry-run
 driver), P3 (wipe & rebuild runbook), P3V (verification + relink); §"Critical code-verified traps".
 
 ## Artifacts

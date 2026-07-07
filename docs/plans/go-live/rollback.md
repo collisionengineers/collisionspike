@@ -144,7 +144,7 @@ designed **non-destructive and idempotent**: it re-derives classification/status
 
 **Backstop (only if a re-run can't recover it):** restore from the **pre-cutover `pg_dump`** taken before
 the reprocess (the full `-Fc` dump from the runbook precondition / [P0 rehearsal in the sprint
-plan](../../../GO_LIVE_SPRINT_PLAN.md)):
+plan](./README.md)):
 
 ```bash
 # WSL — postgres.md runbook (transient firewall rule + Entra token), restore as the owner:

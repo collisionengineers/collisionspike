@@ -2,7 +2,7 @@
 
 The operator-facing cutover pack for taking `collisionspike` from its current **live-intaking but
 not-yet-production-grade** state to a signed-off go-live. This set is the **P8 deliverable** of the
-[go-live sprint](../../../GO_LIVE_SPRINT_PLAN.md); **go-live itself stays operator-triggered** — nothing
+[go-live sprint](./README.md); **go-live itself stays operator-triggered** — nothing
 here flips a production switch on its own, every cutover action names an exact command or portal path for
 **you** to run.
 
@@ -37,5 +37,5 @@ number.
 > **Azure Free Trial** and disables the whole stack at the ~30-day mark unless upgraded to Pay-As-You-Go —
 > [gated.md A1](../../gated.md). Do this before go-live day.
 
-Source sprint + phase context: [GO_LIVE_SPRINT_PLAN.md](../../../GO_LIVE_SPRINT_PLAN.md) (P8). Doc
+Source sprint + phase context: [GO_LIVE_SPRINT_PLAN.md](./README.md) (P8). Doc
 conventions + precedence: [docs/MAINTENANCE.md](../../MAINTENANCE.md).

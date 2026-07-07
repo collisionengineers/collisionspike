@@ -13,6 +13,18 @@
 > `verification.md`, with no known gap. Code that is written/merged but **not confirmed working in the live
 > app** stays `now` — "code-correct" is not "done".
 >
+> **Distilled 2026-07-07 (third wave — `to-distill/` re-drop → 12 tickets)** — filed **TKT-094…105**
+> from the fresh `docs/tickets/to-distill/` drop. `PLAN-case-done-lifecycle.md` became a 3-ticket
+> cluster (**TKT-094** `done` status model + auto-`eva_submitted` on export [anchor — holds the full
+> plan], **TKT-095** `done` detectors, **TKT-096** Completed/Archive view + terminal-scope search
+> fold-in). Standalone notes: **TKT-097** cancellation misclassified as a case query (relates TKT-041),
+> **TKT-098** inbox pagination (15/page), **TKT-099** QCL Case/PO not minting, **TKT-100** QDOS false
+> VRM "AND2", **TKT-101** QDOS two refs wrongly linked as one case, **TKT-102** Tractable received-email
+> handling, **TKT-103** Tractable "768.00" wrong-reference bug, **TKT-104** Tractable API integration
+> (blocked — vendor docs), **TKT-105** remittance advice → payments. The already-distilled re-drops were
+> disregarded (their material already lives in the TKT-021…040 / 059…063 / 066…093 evidence folders);
+> the drop-zone was removed. 11 → Backlog, 1 → Blocked (TKT-104).
+>
 > **Email misclassification batch LIVE 2026-07-07 (TKT-081/082/083/093)** — the four P1
 > email-mistag tickets from the 2026-07-06 drop-notes are fixed. The **classifier fixes are
 > LIVE + PROVEN** (parser redeployed; `POST /api/classify-email` confirms acks →
@@ -206,6 +218,17 @@
 | [TKT-090](./TKT-090-evidence-filename-provider-vrm/TKT-090-evidence-filename-provider-vrm.md) | Evidence filenames carry a wrong "RJS" provider token and "UnknownVRM" | P2 drop-note (2026-07-06): `…__RJS_UnknownVRM_img_1_1.png` on a non-RJS case — locate + fix the naming template in the extraction path. |
 | [TKT-091](./TKT-091-outlook-move-fail/TKT-091-outlook-move-fail.md) | Outlook "File to …" move fails live with a 503 from the Data API | P1 drop-note (2026-07-06): `POST /api/inbound/{id}/outlook-move` → **503** on `cespk-api-dev` (operator dev-tools evidence) — NOT the expected B4-grant 403; diagnose via App Insights, fix error-mapping + SPA failure UX; live move test still needs the B4 grant. |
 | [TKT-092](./TKT-092-pch-duplicate-cases/TKT-092-pch-duplicate-cases.md) | PCH cases duplicating for no reason | P1 drop-note (2026-07-06): enumerate duplicate PCH case groups, trace one pair to name the vector (multi-mailbox / Graph redelivery / dedup-key miss), idempotency fix + audited merge. |
+| [TKT-094](./TKT-094-case-done-status-model/TKT-094-case-done-status-model.md) | Case `done` terminal state — status model + auto-`eva_submitted` on export | P1 (3rd-wave plan 2026-07-07, anchor): nothing advances a case past `ready_for_eva`; add `done` after `eva_submitted` (parity ring 12→13) + fire `eva_submitted` on the Export-for-EVA click. Holds the full `PLAN-case-done-lifecycle.md`. |
+| [TKT-095](./TKT-095-case-done-detectors/TKT-095-case-done-detectors.md) | Case `done` detectors — manual → Box report-PDF → sent-email → EVA poll | P1 (plan 2026-07-07, Phase C): shared guarded `mark-done`; manual bridge first, then Box report-PDF / sent-email (dark) / gated EVA-poll detectors. Depends on TKT-094. |
+| [TKT-096](./TKT-096-completed-archive-view/TKT-096-completed-archive-view.md) | Completed/Archive view + dashboard drill-through + terminal-scope search fold-in | P2 (plan 2026-07-07, Phase D): `/completed` view + nav (not a 4th queue), tiles drill through, and global search must not exclude terminals. Depends on TKT-094/095; adds a scope criterion to TKT-072. |
+| [TKT-097](./TKT-097-cancellation-misclass-query/TKT-097-cancellation-misclass-query.md) | Cancellation email misclassified as a case query | P2 drop-note (2026-07-07): a real cancellation still tagged `case_query` — the live-occurrence miss TKT-041's cancellation lane was awaiting; eval pin + rule precedence. |
+| [TKT-098](./TKT-098-inbox-pagination/TKT-098-inbox-pagination.md) | Inbox pagination — cap the inbox page at 15 emails, paginate the rest | P3 drop-note (2026-07-07): SPA inbox paging (15/page) preserving the mailbox-chip filter (TKT-025) + actions (TKT-005). |
+| [TKT-099](./TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md) | QCL cases not generating Case/PO correctly | P1 drop-note (2026-07-07): QCL provider cases mint a wrong/absent Case/PO — trace the QCL principal-code path through the allocator (TKT-004 territory). No sample supplied. |
+| [TKT-100](./TKT-100-qdos-false-vrm-and2/TKT-100-qdos-false-vrm-and2.md) | QDOS false VRM "AND2" invented on emails that don't contain it | P1 drop-note (2026-07-07): every QDOS sample logs "AND2" as the reg though it's not in the email — false-positive VRM (sibling of TKT-085/071); denylist/anchor + audited data fix. |
+| [TKT-101](./TKT-101-qdos-cases-wrong-linking/TKT-101-qdos-cases-wrong-linking.md) | QDOS — two distinct refs (46671/1, 46533/1) wrongly linked as one case | P1 drop-note (2026-07-07): different people + QDOS refs collapsed into one case (inverse of TKT-092) — name the dedup-key collision vector (possibly the shared false AND2 VRM), idempotency fix + audited split. |
+| [TKT-102](./TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md) | Tractable received-email handling — categorise, match to case, parse PDF, extract images | P2 drop-note (2026-07-07): recognise the Tractable "New completed lead…" email, match it to its case, parse the PDF Vehicle Information + extract/match the submitted images. Holds the shared Tractable samples. |
+| [TKT-103](./TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) | Tractable "768.00" wrongly captured as the reference number | P2 drop-note (2026-07-07): a monetary/estimate value taken as the provider reference on the Tractable layout (false-token family, cf. TKT-071/085); anchor the ref rule + eval pin. |
+| [TKT-105](./TKT-105-remittance-payments-category/TKT-105-remittance-payments-category.md) | Remittance advice classified under payments/billing | P2 drop-note (2026-07-07): inbound remittance-advice emails have no home — route to a payments/billing category (sibling of TKT-037). Sat in the operator's `done/` area but was never ticketed. |
 
 ## Blocked — needs operator
 
@@ -216,3 +239,4 @@
 | [TKT-032](./TKT-032-misclass-defer-routing/TKT-032-misclass-defer-routing.md) | Operator routing decision for the deferred Audatex + PCD-diminution emails before the rule can be specified. |
 | [TKT-057](./TKT-057-ap-diminution-refinement/TKT-057-ap-diminution-refinement.md) | A real inbound diminution instruction email (grounds `D.` detection) + a standalone a.qdos inbound email if one exists; then the SPA case-type control for the review-time AP. refinement ([ADR-0021](../adr/0021-case-po-marker-taxonomy.md)). Also gated behind TKT-056's activation ladder. |
 | [TKT-088](./TKT-088-image-role-classification-check/TKT-088-image-role-classification-check.md) | Operator decision on image-role classification (determination already made: it is unbuilt — TKT-064): build the auto-classifier now, keep manual with better UX, or defer. |
+| [TKT-104](./TKT-104-tractable-api-integration/TKT-104-tractable-api-integration.md) | Tractable **developer docs** for the full API integration (in-app link generation + direct case ingestion). Deferred until the vendor supplies them; the received-email path (TKT-102) covers the immediate need. |

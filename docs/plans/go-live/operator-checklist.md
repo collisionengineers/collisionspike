@@ -37,7 +37,7 @@ data look right).
 
 **Do (you, reviewing):** after the agents report P2 green + the reprocess complete, spot-check the SPA
 dashboard/inbox/queues against a handful of known cases; confirm no obvious misclassification remains.
-Context: [`GO_LIVE_SPRINT_PLAN.md`](../../../GO_LIVE_SPRINT_PLAN.md) (P2 → in-place reprocess → P3V).
+Context: [`GO_LIVE_SPRINT_PLAN.md`](./README.md) (P2 → in-place reprocess → P3V).
 
 **Verify:** you are satisfied the on-screen data is correct per current logic — then, and only then, start
 step 1.
@@ -156,7 +156,7 @@ carries `outlook_move_requested` → `outlook_moved`. Record the result in
 
 ---
 
-### 7. Enable the agent UI verification sweep  ·  **[MUST]** — sprint P4 gate ([GO_LIVE_SPRINT_PLAN.md](../../../GO_LIVE_SPRINT_PLAN.md) §P4)
+### 7. Enable the agent UI verification sweep  ·  **[MUST]** — sprint P4 gate ([GO_LIVE_SPRINT_PLAN.md](./README.md) §P4)
 
 The P4 "UI is actually CLEAN" mandate runs a full browser sweep of the deployed SPA (all routes + drawers)
 via **claude-in-chrome**. The agent can drive the browser only if you **pick/connect a Chrome browser** and
@@ -221,7 +221,7 @@ az functionapp config appsettings set -g rg-collisionspike-dev -n cespk-orch-dev
 az functionapp config appsettings set -g rg-collisionspike-dev -n cespk-api-dev  --settings BOX_FILE_REQUEST_TEMPLATE_ID=<id>
 az functionapp config appsettings set -g rg-collisionspike-dev -n cespk-orch-dev --settings BOX_FILE_REQUEST_TEMPLATE_ID=<id>
 ```
-(The **`FILE.UPLOADED` webhook** subscription is created by the agent via the facade — [box-activation.md](../../azure/box-activation.md) §5 / [GO_LIVE_SPRINT_PLAN.md](../../../GO_LIVE_SPRINT_PLAN.md) P6.)
+(The **`FILE.UPLOADED` webhook** subscription is created by the agent via the facade — [box-activation.md](../../azure/box-activation.md) §5 / [GO_LIVE_SPRINT_PLAN.md](./README.md) P6.)
 
 **Verify:** a new intake case gets a File Request copied onto its Box folder; an upload into it fires
 `FILE.UPLOADED` → the webhook registers an evidence row → the case advances.

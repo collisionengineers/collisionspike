@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-002, TKT-016, TKT-064]
-research-link: GO_LIVE_SPRINT_PLAN.md
+research-link: docs/plans/go-live/README.md
 ---
 
 > **DONE — 2026-07-05 (go-live sprint P4 follow-up).** Real inline previews now render.

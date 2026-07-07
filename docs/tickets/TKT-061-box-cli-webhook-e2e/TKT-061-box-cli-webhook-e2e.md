@@ -5,7 +5,7 @@ status: next
 priority: P2
 area: integration
 tickets-it-relates-to: [TKT-003, TKT-002]
-research-link: GO_LIVE_SPRINT_PLAN.md
+research-link: docs/plans/go-live/README.md
 ---
 
 # Box CLI + FILE.UPLOADED webhook + sandboxed E2E

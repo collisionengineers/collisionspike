@@ -10,7 +10,7 @@ Companion docs in this set: **[readiness-matrix.md](./readiness-matrix.md)** (ev
 owner), **[day0-smoke.md](./day0-smoke.md)** (the post-cutover smoke), **[rollback.md](./rollback.md)**
 (back-out). The exhaustive operator inventory (with the same commands) is
 [`docs/gated.md`](../../gated.md); the sprint that produced this is
-[`GO_LIVE_SPRINT_PLAN.md`](../../../GO_LIVE_SPRINT_PLAN.md).
+[`GO_LIVE_SPRINT_PLAN.md`](./README.md).
 
 > **Platform routing.** `az` / `psql` run from **WSL2 Ubuntu** (az logged in there); Exchange-RBAC admin
 > is **Windows PowerShell**; Box CLI + git + node run on **Windows**. State the platform per command.
@@ -25,7 +25,7 @@ rows through the fixed classifier — **NOT** a mailbox wipe-and-rebuild (that w
 abandoned). This reprocess is **BLOCKED on the P2 classifier fix-wave** (a naive reprocess-diff
 mis-demotes obvious new-work because `evidence.source_message_id` is always NULL). Do **not** begin the
 cutover below until the reprocess has run green and the SPA shows correct data — see
-[`GO_LIVE_SPRINT_PLAN.md`](../../../GO_LIVE_SPRINT_PLAN.md) (P2 → P3 in-place reprocess → P3V). Until
+[`GO_LIVE_SPRINT_PLAN.md`](./README.md) (P2 → P3 in-place reprocess → P3V). Until
 then this runbook is provisional.
 
 ---
@@ -128,7 +128,7 @@ File-Request copy no-ops. Hand-build the template File Request in the Box UI (pe
 
 Also subscribe the **`FILE.UPLOADED` webhook** if not already live (facade
 `POST box/webhooks` → `.../api/box-webhook`; see [box-activation.md](../../azure/box-activation.md) and
-[`GO_LIVE_SPRINT_PLAN.md`](../../../GO_LIVE_SPRINT_PLAN.md) P6).
+[`GO_LIVE_SPRINT_PLAN.md`](./README.md) P6).
 
 **Verify:** a new intake case gets a File Request copied onto its Box folder; an upload into it fires
 `FILE.UPLOADED` → the webhook registers an evidence row → the case advances.

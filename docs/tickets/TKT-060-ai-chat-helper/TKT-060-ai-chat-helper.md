@@ -5,7 +5,7 @@ status: next
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-015]
-research-link: GO_LIVE_SPRINT_PLAN.md
+research-link: docs/plans/go-live/README.md
 ---
 
 # AI chat helper — read-only Q&A assistant drawer

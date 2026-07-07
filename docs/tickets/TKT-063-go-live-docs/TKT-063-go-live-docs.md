@@ -5,7 +5,7 @@ status: now
 priority: P1
 area: docs
 tickets-it-relates-to: [TKT-058]
-research-link: GO_LIVE_SPRINT_PLAN.md
+research-link: docs/plans/go-live/README.md
 ---
 
 # Go-live runbook, readiness matrix & operator checklist
@@ -53,7 +53,7 @@ before writing, never re-embed a live number):
   root, File Request template).
 
 Docs-only; ships no code. Verify all cited source paths/line-refs by reading them before
-writing. Backing plan: [GO_LIVE_SPRINT_PLAN.md](../../../GO_LIVE_SPRINT_PLAN.md) §P8.
+writing. Backing plan: [GO_LIVE_SPRINT_PLAN.md](../../plans/go-live/README.md) §P8.
 
 ## Acceptance
 
