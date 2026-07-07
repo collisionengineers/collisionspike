@@ -1,12 +1,12 @@
 {
   "schema": "collisionspike-eval-email-baseline-v1",
-  "generated_at": "2026-07-02T11:00:50.490051+00:00",
+  "generated_at": "2026-07-07T07:47:57.319676+00:00",
   "taxonomy": "v2",
   "aggregate": {
-    "total": 44,
-    "skipped": 0,
-    "category_accuracy": 0.8409090909090909,
-    "subtype_exact_accuracy": 0.8409090909090909,
+    "total": 52,
+    "skipped": 10,
+    "category_accuracy": 0.8461538461538461,
+    "subtype_exact_accuracy": 0.8461538461538461,
     "category_metrics": {
       "billing": {
         "support": 1,
@@ -27,17 +27,17 @@
         "f1": 1.0
       },
       "case_update": {
-        "support": 1,
-        "tp": 0,
-        "fp": 1,
+        "support": 3,
+        "tp": 2,
+        "fp": 2,
         "fn": 1,
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0
+        "precision": 0.5,
+        "recall": 0.6666666666666666,
+        "f1": 0.5714285714285715
       },
       "non_actionable": {
-        "support": 2,
-        "tp": 2,
+        "support": 6,
+        "tp": 6,
         "fp": 0,
         "fn": 0,
         "precision": 1.0,
@@ -54,13 +54,13 @@
         "f1": 0.0
       },
       "query": {
-        "support": 9,
-        "tp": 5,
+        "support": 11,
+        "tp": 6,
         "fp": 2,
-        "fn": 4,
-        "precision": 0.7142857142857143,
-        "recall": 0.5555555555555556,
-        "f1": 0.6250000000000001
+        "fn": 5,
+        "precision": 0.75,
+        "recall": 0.5454545454545454,
+        "f1": 0.631578947368421
       },
       "receiving_work": {
         "support": 18,
@@ -94,7 +94,7 @@
       "case_update": {
         "billing": 0,
         "cancellation": 0,
-        "case_update": 0,
+        "case_update": 2,
         "non_actionable": 0,
         "other": 0,
         "query": 0,
@@ -104,7 +104,7 @@
         "billing": 0,
         "cancellation": 0,
         "case_update": 0,
-        "non_actionable": 2,
+        "non_actionable": 6,
         "other": 0,
         "query": 0,
         "receiving_work": 0
@@ -121,10 +121,10 @@
       "query": {
         "billing": 0,
         "cancellation": 0,
-        "case_update": 1,
+        "case_update": 2,
         "non_actionable": 0,
         "other": 1,
-        "query": 5,
+        "query": 6,
         "receiving_work": 2
       },
       "receiving_work": {
@@ -139,14 +139,14 @@
     },
     "subtype_accuracy": {
       "receiving_work/existing_provider_instruction": {
-        "support": 14,
-        "correct": 13,
-        "accuracy": 0.9285714285714286
+        "support": 13,
+        "correct": 12,
+        "accuracy": 0.9230769230769231
       },
       "query/query_existing_work": {
-        "support": 9,
-        "correct": 5,
-        "accuracy": 0.5555555555555556
+        "support": 11,
+        "correct": 6,
+        "accuracy": 0.5454545454545454
       },
       "other/other": {
         "support": 1,
@@ -159,8 +159,8 @@
         "accuracy": 1.0
       },
       "receiving_work/new_client_work": {
-        "support": 2,
-        "correct": 2,
+        "support": 3,
+        "correct": 3,
         "accuracy": 1.0
       },
       "billing/billing_request": {
@@ -169,8 +169,8 @@
         "accuracy": 1.0
       },
       "non_actionable/acknowledgement": {
-        "support": 1,
-        "correct": 1,
+        "support": 5,
+        "correct": 5,
         "accuracy": 1.0
       },
       "cancellation/cancellation_notice": {
@@ -179,13 +179,18 @@
         "accuracy": 1.0
       },
       "case_update/images_received": {
-        "support": 1,
-        "correct": 0,
-        "accuracy": 0.0
+        "support": 2,
+        "correct": 1,
+        "accuracy": 0.5
       },
       "receiving_work/existing_provider_audit": {
         "support": 2,
         "correct": 2,
+        "accuracy": 1.0
+      },
+      "case_update/update_general": {
+        "support": 1,
+        "correct": 1,
         "accuracy": 1.0
       }
     }
@@ -305,11 +310,11 @@
       "tracked": true,
       "expected_category": "query",
       "expected_subtype": "query_existing_work",
-      "got_category": "query",
-      "got_subtype": "query_existing_work",
-      "category_correct": true,
-      "subtype_correct": true,
-      "confidence": 0.8
+      "got_category": "case_update",
+      "got_subtype": "images_received",
+      "category_correct": false,
+      "subtype_correct": false,
+      "confidence": 0.6
     },
     {
       "id": "tkt036-instructions-misclass",
@@ -525,7 +530,7 @@
       "got_subtype": "cancellation_notice",
       "category_correct": true,
       "subtype_correct": true,
-      "confidence": 0.6
+      "confidence": 0.8
     },
     {
       "id": "tkt043-images-existing-case",
@@ -559,18 +564,6 @@
       "expected_subtype": "new_client_work",
       "got_category": "receiving_work",
       "got_subtype": "new_client_work",
-      "category_correct": true,
-      "subtype_correct": true,
-      "confidence": 0.8
-    },
-    {
-      "id": "tkt053-accident-date-triage",
-      "source": "ticket:TKT-053",
-      "tracked": false,
-      "expected_category": "receiving_work",
-      "expected_subtype": "existing_provider_instruction",
-      "got_category": "receiving_work",
-      "got_subtype": "existing_provider_instruction",
       "category_correct": true,
       "subtype_correct": true,
       "confidence": 0.8
@@ -718,6 +711,114 @@
       "category_correct": true,
       "subtype_correct": true,
       "confidence": 0.95
+    },
+    {
+      "id": "tkt081-ack-greeting-preceded",
+      "source": "ticket:TKT-081",
+      "tracked": true,
+      "expected_category": "non_actionable",
+      "expected_subtype": "acknowledgement",
+      "got_category": "non_actionable",
+      "got_subtype": "acknowledgement",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "tkt081-ack-automated-blank-case",
+      "source": "ticket:TKT-081",
+      "tracked": true,
+      "expected_category": "non_actionable",
+      "expected_subtype": "acknowledgement",
+      "got_category": "non_actionable",
+      "got_subtype": "acknowledgement",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "tkt081-ack-reaction-notice",
+      "source": "ticket:TKT-081",
+      "tracked": true,
+      "expected_category": "non_actionable",
+      "expected_subtype": "acknowledgement",
+      "got_category": "non_actionable",
+      "got_subtype": "acknowledgement",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "tkt081-ack-greeting-thanks-clause",
+      "source": "ticket:TKT-081",
+      "tracked": true,
+      "expected_category": "non_actionable",
+      "expected_subtype": "acknowledgement",
+      "got_category": "non_actionable",
+      "got_subtype": "acknowledgement",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "tkt082-query-your-report",
+      "source": "ticket:TKT-082",
+      "tracked": true,
+      "expected_category": "query",
+      "expected_subtype": "query_existing_work",
+      "got_category": "query",
+      "got_subtype": "query_existing_work",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.8
+    },
+    {
+      "id": "tkt082-query-reply-eref1",
+      "source": "ticket:TKT-082",
+      "tracked": true,
+      "expected_category": "query",
+      "expected_subtype": "query_existing_work",
+      "got_category": "query",
+      "got_subtype": "query_existing_work",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.8
+    },
+    {
+      "id": "tkt082-caseupdate-reply-images",
+      "source": "ticket:TKT-082",
+      "tracked": true,
+      "expected_category": "case_update",
+      "expected_subtype": "images_received",
+      "got_category": "case_update",
+      "got_subtype": "images_received",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "tkt083-body-instruction-onephrase",
+      "source": "ticket:TKT-083",
+      "tracked": true,
+      "expected_category": "receiving_work",
+      "expected_subtype": "new_client_work",
+      "got_category": "receiving_work",
+      "got_subtype": "new_client_work",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "tkt093-forward-audatex-caseupdate",
+      "source": "ticket:TKT-093",
+      "tracked": true,
+      "expected_category": "case_update",
+      "expected_subtype": "update_general",
+      "got_category": "case_update",
+      "got_subtype": "update_general",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.6
     }
   ]
 }

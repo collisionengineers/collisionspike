@@ -849,6 +849,147 @@
       },
       "expected_v2": null,
       "rationale": "A soft-confirmation reply ('can I confirm ... has everything ... been sent') from a known provider that matched NO keyword pre-fix and fell to other. P2-6 adds the soft-confirmation query phrases so it lands query_existing_work."
+    },
+    {
+      "id": "tkt081-ack-greeting-preceded",
+      "file": "docs/tickets/TKT-081-misclass-ack-batch/evidence/sample-1/RE Mr Abu Zaid Rasool - PE19UDH - 06_10_2025.eml",
+      "source": "ticket:TKT-081",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "non_actionable",
+        "subtype": "acknowledgement"
+      },
+      "expected_v2": null,
+      "rationale": "TKT-081 s1: a reply whose sender text is a greeting line then a bare 'thank you for this' (signature below). Pre-fix the greeting defeated the first-line ack sniff and the inherited-subject VRM/ref routed it to query_existing_work; the greeting-skip lands it non_actionable/acknowledgement. No case, no query task."
+    },
+    {
+      "id": "tkt081-ack-automated-blank-case",
+      "file": "docs/tickets/TKT-081-misclass-ack-batch/evidence/sample-2/Thank you for your email.eml",
+      "source": "ticket:TKT-081",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "non_actionable",
+        "subtype": "acknowledgement"
+      },
+      "expected_v2": null,
+      "rationale": "TKT-081 s2 (the SEVERE one): an automated 'thank you for your email' auto-acknowledgement with signature images + a false VRM + boilerplate 'new claim' promoted to receiving_work and MINTED A BLANK CASE. The added auto-reply markers + Rule-0 auto-acknowledgement branch route it to non_actionable/acknowledgement — no case is created."
+    },
+    {
+      "id": "tkt081-ack-reaction-notice",
+      "file": "docs/tickets/TKT-081-misclass-ack-batch/evidence/sample-3/RE RE Re RE RTA135600.001  -  Mr G Pashapour - WG19 SFU.eml",
+      "source": "ticket:TKT-081",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "non_actionable",
+        "subtype": "acknowledgement"
+      },
+      "expected_v2": null,
+      "rationale": "TKT-081 s3: an Outlook 'reacted to your message' notification (the real ack sits in the quoted chain). The reaction-notice detector recognises it as a non-actionable acknowledgement rather than a query on the inherited ref."
+    },
+    {
+      "id": "tkt081-ack-greeting-thanks-clause",
+      "file": "docs/tickets/TKT-081-misclass-ack-batch/evidence/sample-4/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
+      "source": "ticket:TKT-081",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "non_actionable",
+        "subtype": "acknowledgement"
+      },
+      "expected_v2": null,
+      "rationale": "TKT-081 s4: a QDOS reply 'Hi Ed, thank you, we will see what they come back with.' — a greeting then a short courtesy close. The greeting-relaxed cap admits the trailing pleasantry so it lands non_actionable/acknowledgement, not a query task; a greeting-less substantive one-liner still stays a linkable query (unit-tested)."
+    },
+    {
+      "id": "tkt082-query-your-report",
+      "file": "docs/tickets/TKT-082-misclass-query-as-new-work/evidence/sample-1/Client Mr Anthony Mohammed Cauchie __ Engineer Instruction - VRN GM23 KPZ.eml",
+      "source": "ticket:TKT-082",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "TKT-082 s1: a question ABOUT our existing engineer's report ('out of the 18 hours quoted in your report, how many are for paint?') carried the 'engineers report' work keyword + an instruction-kind PDF and promoted to new_client_work. The possessive 'your report' about-existing signal suppresses the false promotion → query_existing_work (about work we already did)."
+    },
+    {
+      "id": "tkt082-query-reply-eref1",
+      "file": "docs/tickets/TKT-082-misclass-query-as-new-work/evidence/sample-2/Re (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
+      "source": "ticket:TKT-082",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": null,
+      "rationale": "TKT-082 s2 (thread reply): a Re:/EREF reply on an existing case, no new work language — must stay query_existing_work, not new client work. Regression pin confirming the reply about-existing suppression holds."
+    },
+    {
+      "id": "tkt082-caseupdate-reply-images",
+      "file": "docs/tickets/TKT-082-misclass-query-as-new-work/evidence/sample-2/Re FW (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
+      "source": "ticket:TKT-082",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "case_update",
+        "subtype": "images_received"
+      },
+      "rationale": "TKT-082 s2 (image-delivery reply): a reply delivering damage photos on the same existing case — case_update/images_received (Rule 4a2), never new client work."
+    },
+    {
+      "id": "tkt083-body-instruction-onephrase",
+      "file": "docs/tickets/TKT-083-misclass-instructions-unidentified/evidence/Our Ref 30230-01 ; Name Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number BV72YVB  .eml",
+      "source": "ticket:TKT-083",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "new_client_work"
+      },
+      "expected_v2": null,
+      "rationale": "TKT-083: a body-only 'New INSTRUCTIONS:' email with a full identifier set (job ref 30230-01 + VRM BV72YVB) but only ONE work phrase abstained to other under Rule 3's two-phrase floor. The relaxed floor (one work phrase + VRM + existing ref, fresh non-query mail) promotes it to receiving_work so a case is opened. new_client_work because fairwaylegal.co.uk is not yet live in the domain corpus (operator-reviewable add)."
+    },
+    {
+      "id": "tkt093-forward-audatex-caseupdate",
+      "file": "docs/tickets/TKT-093-auto-attach-matched-emails/evidence/FW RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   577298.eml",
+      "source": "ticket:TKT-093",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "query",
+        "subtype": "query_existing_work"
+      },
+      "expected_v2": {
+        "category": "case_update",
+        "subtype": "update_general"
+      },
+      "rationale": "TKT-093: a FORWARD ('FW: RE: Enclosing Inspection Request ... 577298') whose sender wrote only 'Audatex attached' but whose inherited subject carried an inspection-request + audit cue promoted to receiving_work/existing_provider_audit. The forward-subject suppression + case_update VRM anchor route it to case_update/update_general (additional documentation on the open case) — the auto-attach lane then links it to the matched case."
     }
   ]
 }

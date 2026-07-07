@@ -29,6 +29,24 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-07 (acknowledgement/query/case_update batch — collisionspike TKT-081/082/083/093):**
+the email-classifier fixes for four live misclassification tickets were applied to
+THIS vendored copy first this pass, then **upstreamed verbatim to the sibling**
+(branch `sync/email-misclass-081-093`, commit `ccfb473`, tagged **`engine-v2.7`**)
+and re-cut back — restoring the byte-mirror (same pattern as the 2026-07-03
+reconvergence below). Two files: `rules/email_classifier.py` — greeting- /
+auto-reply-preamble- / reaction-notice-aware acknowledgement detection with a
+greeting-relaxed length cap and a Rule-0 auto-acknowledgement branch (TKT-081, incl.
+the automated "thank you for your email" that was minting a blank Case); a possessive
+"your report" about-existing suppressor that neutralises the `engineers report` work
+keyword (TKT-082); a relaxed Rule-3 floor promoting a fresh body-only instruction with
+one work phrase + a VRM + an existing ref (TKT-083); forward-subject promotion
+suppression + a case_update body-VRM anchor for a reply/forward (TKT-093). And
+`resources/triage-rules.json` — three automated-email auto-reply markers. Pure
+classifier-logic change; the vendored + sibling classifier/eval suites stayed green.
+No NEW taxonomy codes (the `case_update` category it can emit was already live per the
+engine-v2.3 deploy-order note above), so no DDL dependency for this cut.
+
 **2026-07-03 (ADR-0021 case-type marker taxonomy + TKT-051 work-provider guard):**
 two sibling commits, re-cut together. First, a **reconvergence**: the 2026-07-02/03
 collisionspike classifier hardening (P1-4a/b/c ref-extraction fixes, the P1-5
@@ -167,11 +185,15 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.5`** on `main`, commit
-  **`af1737f5c1084a96b4c72d3a914d10290a23d2d7`** (2026-07-02) — externalized
-  triage phrase data (`resources/triage-rules.json` + `.schema.json`,
-  `rules/triage_rules.py`; rules-engine-v2 Phase 5; see History above). Prior
-  pins: `engine-v2.4` (commit `fbf6ddbea5b14a678de71af0a4fcd4e09fc6f1a6`,
+- **Cut from:** annotated tag **`engine-v2.7`** on branch
+  `sync/email-misclass-081-093`, commit **`ccfb473`** (2026-07-07) — the
+  acknowledgement/query/case_update batch (collisionspike TKT-081/082/083/093;
+  see History above), upstreamed from this vendored copy. Prior pins:
+  `engine-v2.6` (commit `f474ea0`, ADR-0021 case-type marker taxonomy + TKT-051
+  work-provider guard), `engine-v2.5` (commit
+  `af1737f5c1084a96b4c72d3a914d10290a23d2d7`, 2026-07-02, externalized triage
+  phrase data — `resources/triage-rules.json` + `.schema.json`,
+  `rules/triage_rules.py`; rules-engine-v2 Phase 5), `engine-v2.4` (commit `fbf6ddbea5b14a678de71af0a4fcd4e09fc6f1a6`,
   content-based attachment typing), `engine-v2.3` (commit
   `accddc57580723e8d2387633b8a30672d7d2a4ca`, taxonomy v2 — `case_update` +
   `cancellation`, corrected; supersedes the short-lived `engine-v2.2`, commit
