@@ -20,9 +20,11 @@ query live). No new DDL (`inbound_linked` audit already exists).
 
 ## 3. Live probe
 - Misclass: `POST /api/classify-email` (live), sample forward shape → **`case_update/update_general`**. PROVEN.
-- Auto-attach live E2E: **deferred** — operator-blocked (the gate flip is production-blocked
-  like the other TRIAGE_* activations; docs/gated.md). With the gate off, the ref-gate rung is
-  byte-for-byte today's suggest_attach (kill-switch tests).
+- Auto-attach gate **FLIPPED LIVE 2026-07-07** (operator-instructed): `TRIAGE_AUTO_ATTACH_ENABLED=true`
+  on `cespk-orch-dev` (readback `true`; the sibling `TRIAGE_REF_GATE_ENABLED` it modifies is on).
+  Auto-attach is now ACTING — an exact single `case_po`/`job_ref` match to an open case
+  auto-attaches (audited `inbound_linked`, reversible via detach); VRM-only/ambiguous stay
+  suggestions. The live E2E on the next real matching email is the remaining probe.
 
 ## 4. Counter-probe (VRM-only / ambiguous stays a suggestion)
 Unit-proven: a vrm-only or ambiguous match never yields `attach_case` (the ADR-0010/0019
@@ -35,9 +37,10 @@ and the audit-subtype tests pass).
 
 ## Pending
 - **SPA DEPLOYED 2026-07-07** ✅ (WSL `swa deploy`, env production; live 200 + CSP header
-  re-verified — `default-src 'self'; connect-src cespk-api-dev + login.microsoftonline.com;
-  img-src 'self' data: blob:`). The inbox-list "may belong to · <Case/PO>" hint is live.
-- The gated live auto-attach flip (operator sign-off) + its live E2E probe — the only remainder.
+  re-verified). The inbox-list "may belong to · <Case/PO>" hint is live.
+- **Auto-attach gate FLIPPED LIVE 2026-07-07** ✅ (`TRIAGE_AUTO_ATTACH_ENABLED=true` on
+  `cespk-orch-dev`). Only the live E2E on the next real exact-match email remains (ties the
+  general TRIAGE_* live-occurrence probes).
 
 ## How to re-verify
 `npm --prefix packages/domain test` (triage-policy auto-attach) + api/orch tests + the live
