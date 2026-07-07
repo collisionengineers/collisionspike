@@ -48,6 +48,7 @@ const GATES_ALL_OFF: TriagePolicyGates = {
   cancellation: false,
   imagesRouting: false,
   caseUpdate: false,
+  autoAttach: false,
 };
 
 const GATES_ALL_ON: TriagePolicyGates = {
@@ -55,6 +56,7 @@ const GATES_ALL_ON: TriagePolicyGates = {
   cancellation: true,
   imagesRouting: true,
   caseUpdate: true,
+  autoAttach: true,
 };
 
 function gates(over: Partial<TriagePolicyGates> = {}): TriagePolicyGates {
@@ -367,6 +369,89 @@ describe('decideTriage — ref-gate (rung 3)', () => {
 });
 
 /* ----------  VRM-only is a PERMANENT suggest-only invariant  ---------- */
+
+describe('decideTriage — auto-attach promotion (rung 3, TKT-093, gated `autoAttach`, ships DARK)', () => {
+  const casePoQuery = () =>
+    classification({ category: 'query', subtype: 'query_existing_work', bodyCaseref: 'QDOS26001' });
+
+  it('gate ON + EXACT single case_po match -> attach_case (with target + case_link suggestion)', () => {
+    const out = decideTriage(
+      casePoQuery(),
+      context({ openCaseMatches: [match({ matchedOn: 'case_po' })] }),
+      gates({ refGate: true, autoAttach: true }),
+    );
+    expect(out.action).toBe('attach_case');
+    expect(out.targetCaseId).toBe('case-100');
+    expect(out.suggestionType).toBe('case_link');
+    expect(out.decisionInputs.autoAttachApplied).toBe(true);
+    expect(out.rationale).toContain('automatically');
+  });
+
+  it('gate ON + EXACT single job_ref match -> attach_case', () => {
+    const out = decideTriage(
+      classification({ category: 'query', subtype: 'query_existing_work', bodyJobref: '576299' }),
+      context({ openCaseMatches: [match({ matchedOn: 'job_ref' })] }),
+      gates({ refGate: true, autoAttach: true }),
+    );
+    expect(out.action).toBe('attach_case');
+    expect(out.targetCaseId).toBe('case-100');
+  });
+
+  it('gate ON but VRM-ONLY match -> stays suggest_attach (the permanent inviolable rule)', () => {
+    const out = decideTriage(
+      classification({ category: 'query', subtype: 'query_existing_work', bodyVrm: 'AB12CDE' }),
+      context({ openCaseMatches: [match({ matchedOn: 'vrm' })] }),
+      gates({ refGate: true, autoAttach: true }),
+    );
+    expect(out.action).toBe('suggest_attach');
+    expect(out.decisionInputs.autoAttachApplied).toBe(false);
+  });
+
+  it('gate ON but AMBIGUOUS (>1 open case) -> stays suggest_attach (a person picks)', () => {
+    const out = decideTriage(
+      casePoQuery(),
+      context({
+        openCaseMatches: [
+          match({ caseId: 'case-A', matchedOn: 'case_po' }),
+          match({ caseId: 'case-B', casePo: 'QDOS26002', matchedOn: 'case_po' }),
+        ],
+      }),
+      gates({ refGate: true, autoAttach: true }),
+    );
+    expect(out.action).toBe('suggest_attach');
+    expect(out.targetCaseId).toBeUndefined();
+  });
+
+  it('gate OFF (default) — an exact case_po single match stays suggest_attach (DARK: today unchanged)', () => {
+    const out = decideTriage(
+      casePoQuery(),
+      context({ openCaseMatches: [match({ matchedOn: 'case_po' })] }),
+      gates({ refGate: true }), // autoAttach defaults false
+    );
+    expect(out.action).toBe('suggest_attach');
+    expect(out.decisionInputs.autoAttachApplied).toBe(false);
+  });
+
+  it('autoAttach on but refGate OFF -> no rung-3 action at all (a modifier requires refGate)', () => {
+    const out = decideTriage(
+      casePoQuery(),
+      context({ openCaseMatches: [match({ matchedOn: 'case_po' })] }),
+      gates({ autoAttach: true }), // refGate off
+    );
+    expect(out.action).toBe('proceed_default');
+  });
+
+  it('case_update refinement still applies under auto-attach (attachments -> case_update, action attach_case)', () => {
+    const out = decideTriage(
+      casePoQuery(),
+      context({ openCaseMatches: [match({ matchedOn: 'case_po' })], hasAttachments: true, imagesOnly: false }),
+      gates({ refGate: true, caseUpdate: true, autoAttach: true }),
+    );
+    expect(out.action).toBe('attach_case');
+    expect(out.finalCategory).toBe('case_update');
+    expect(out.finalSubtype).toBe('update_general');
+  });
+});
 
 describe('decideTriage — VRM-only matches are NEVER promoted past suggestion (ADR-0010 permanent invariant)', () => {
   it('a vrm-only ref-gate match is suggest_attach with a target — never an action outside the suggestion vocabulary', () => {

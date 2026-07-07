@@ -1,7 +1,7 @@
 ---
 id: TKT-083
 title: Instructions email left "Unidentified" despite detected instruction signals
-status: backlog
+status: now
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-036, TKT-006]

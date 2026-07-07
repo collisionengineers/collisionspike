@@ -1,7 +1,7 @@
 ---
 id: TKT-093
 title: Auto-attach matched emails to their case instead of a hidden suggest dialog
-status: backlog
+status: now
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-046, TKT-023, TKT-056, TKT-009]

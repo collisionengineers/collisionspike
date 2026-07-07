@@ -593,6 +593,11 @@ export function rowToInboundEmail(rec: Row): InboundEmail {
     ...(rec.case_id ? { caseId: rec.case_id } : {}),
     // The linked case's Case/PO — present only when the query LEFT JOINs case_ (inbox list).
     ...(rec.case_po ? { casePo: rec.case_po } : {}),
+    // TKT-093 — a pending "attach to this open case" suggestion's Case/PO for a not-yet-linked
+    // email (only when the inbox-list query joins the suggestion). Suppressed once linked.
+    ...(!rec.case_id && rec.link_suggestion_case_po
+      ? { linkSuggestionCasePo: rec.link_suggestion_case_po }
+      : {}),
     ...(rec.work_provider_id ? { workProviderId: rec.work_provider_id } : {}),
     // The classifier's original suggestion (columns may be absent on a not-yet-migrated DB
     // — SELECT * simply omits them, so these stay undefined). work-todo-spike: suggested-tags.

@@ -22,15 +22,19 @@
    dedup.ts ladder style):
      1. Pre-mint duplicate delivery          -> drop_duplicate        (gates.refGate)
      2. Cancellation precedence               -> propose_cancellation  (gates.cancellation)
-     3. Ref-gate (+ case_update refinement)   -> suggest_attach        (gates.refGate [+ gates.caseUpdate])
+     3. Ref-gate (+ case_update refinement,   -> suggest_attach        (gates.refGate
+        + auto-attach promotion)                 OR attach_case          [+ gates.caseUpdate]
+                                                                         [+ gates.autoAttach])
      4. Unmatched images + a registration     -> route_images_unmatched(gates.imagesRouting)
      5. Default                               -> proceed_default       (today's plain pass-through)
 
-   KILL-SWITCH INVARIANT: with all four TriagePolicyGates false, NONE of rungs 1-4 can
-   fire — every one of their conditions requires its own gate. So `decideTriage` ALWAYS
-   falls through to rung 5, returning Stage A's own category/subtype unchanged. Gates-off
-   output is therefore indistinguishable from today's plain pass-through BY CONSTRUCTION,
-   not by a special-cased "are all gates off" check (see the kill-switch tests).
+   KILL-SWITCH INVARIANT: with every TriagePolicyGate false, NONE of rungs 1-4 can fire —
+   every RUNG's condition requires its own gate. `caseUpdate` and `autoAttach` are not rung
+   TRIGGERS but rung-3 MODIFIERS (they only refine the label / promote the action of a match
+   `refGate` already found), so neither can fire anything with `refGate` off. So
+   `decideTriage` ALWAYS falls through to rung 5, returning Stage A's own category/subtype
+   unchanged. Gates-off output is therefore indistinguishable from today's plain pass-through
+   BY CONSTRUCTION, not by a special-cased "are all gates off" check (see the kill-switch tests).
 
    THE INVIOLABLE RULES this module encodes (do not relax without a corpus + a review):
      - NEVER auto-attach, NEVER auto-cancel. Every action here is a SUGGESTION a human
@@ -48,11 +52,14 @@
        `decisionInputs` for richer telemetry but is NEVER read by any branch CONDITION —
        a thread of emails about the same case never creates a match by itself.
 
-   DOCUMENTED PROMOTION SEAM (ADR-0019 §4): a future release MAY promote an EXACT SINGLE
-   open-case_po match to auto-attach once corpus results + live staff confirmations
-   justify it. That promotion belongs in a NEW action (e.g. 'attach_case') this function
-   does not emit yet — `suggest_attach` is deliberately the ONLY case-linking action this
-   release, so the seam is "add a rung above this one", not "loosen this one".
+   PROMOTION SEAM — NOW BUILT (ADR-0019 §4; TKT-093, gated `autoAttach`, ships DARK): an
+   EXACT SINGLE open-case match on a STRONG signal (case_po/job_ref) is promoted from
+   `suggest_attach` to `attach_case` when `gates.autoAttach` is on. A vrm-only or ambiguous
+   match is NEVER promoted (the permanent inviolable rule below) and stays `suggest_attach`.
+   The promotion is a NEW action added ABOVE `suggest_attach` (the seam was "add a rung/
+   action", not "loosen this one"), still writing the SAME `case_link` suggestion — the
+   caller self-accepts it and records a reversible `inbound_linked` attach. With the gate
+   off (the default), the ref-gate rung is byte-for-byte today's suggest_attach.
 
    PURE + DETERMINISTIC + FRAMEWORK-FREE. No I/O, no env reads, no live calls. Same
    inputs -> same output.
@@ -132,15 +139,24 @@ export interface TriagePolicyGates {
   cancellation: boolean;
   imagesRouting: boolean;
   caseUpdate: boolean;
+  /** TKT-093 — promote an EXACT SINGLE case_po/job_ref ref-gate match from suggest_attach
+   *  to attach_case. A MODIFIER of the ref-gate rung (requires `refGate` on to have any
+   *  effect); with it off, the ref-gate rung is exactly today's suggest_attach. */
+  autoAttach: boolean;
 }
 
-/** The five actions `decideTriage` can return. All but `proceed_default` /
- *  `drop_duplicate` are SUGGESTIONS — a human confirms via the `ai_suggestion`
- *  lifecycle; none of these mutate a case. */
+/** The actions `decideTriage` can return. All but `proceed_default` / `drop_duplicate` /
+ *  `attach_case` are SUGGESTIONS — a human confirms via the `ai_suggestion` lifecycle.
+ *  `attach_case` (TKT-093, gated `autoAttach`, ships DARK) is the ONE mutating link action:
+ *  an EXACT SINGLE open-case match on a strong signal (case_po/job_ref — never vrm-only) is
+ *  attached automatically (audited + reversible via detach); everything else stays a
+ *  suggestion. `attach_case` still writes the same `case_link` suggestion row so the accept/
+ *  detach lifecycle and the inbox surface are identical — it just also self-accepts it. */
 export type TriagePolicyAction =
   | 'proceed_default'
   | 'drop_duplicate'
   | 'suggest_attach'
+  | 'attach_case'
   | 'propose_cancellation'
   | 'route_images_unmatched';
 
@@ -328,15 +344,29 @@ export function decideTriage(
     // as Stage A proposed (typically query/query_existing_work) — case_update never
     // claims a bare question ("ref-match + question-only … stays [the] query lane").
 
+    /* Auto-attach promotion (TKT-093, gated `autoAttach`, DARK) — the ADR-0019 §4
+       promotion seam, now built (was "not emitted yet"). An EXACT SINGLE open-case match
+       on a STRONG signal (case_po or job_ref) may be attached automatically instead of
+       merely suggested. A vrm-only match NEVER promotes past suggestion (the permanent
+       inviolable rule, lines 40-46) and an ambiguous match (>1 case) always needs a
+       person — both stay `suggest_attach`. `attach_case` still writes the same case_link
+       suggestion (so accept/detach lifecycle + the inbox surface are unchanged) — the
+       caller self-accepts it and records the reversible `inbound_linked` attach. */
+    const autoAttachEligible =
+      gates.autoAttach && target !== undefined && target.matchedOn !== 'vrm';
+    const action: TriagePolicyAction = autoAttachEligible ? 'attach_case' : 'suggest_attach';
+
     return {
-      action: 'suggest_attach',
+      action,
       finalCategory,
       finalSubtype,
       ...(target ? { targetCaseId: target.caseId } : {}),
       suggestionType: 'case_link',
-      rationale: target
-        ? `Matches open case ${target.casePo} by its ${matchLabel(target.matchedOn)} — suggested attaching this email to it.`
-        : `Matches ${tier.length} open cases by ${matchLabel(tier[0].matchedOn)} — needs a person to pick the right one.`,
+      rationale: autoAttachEligible
+        ? `Matches open case ${target!.casePo} by its ${matchLabel(target!.matchedOn)} — attached to it automatically (a person can detach it if this is wrong).`
+        : target
+          ? `Matches open case ${target.casePo} by its ${matchLabel(target.matchedOn)} — suggested attaching this email to it.`
+          : `Matches ${tier.length} open cases by ${matchLabel(tier[0].matchedOn)} — needs a person to pick the right one.`,
       decisionInputs: {
         rung: 'ref_gate',
         matchTier: tier[0]?.matchedOn,
@@ -344,6 +374,7 @@ export function decideTriage(
         openCaseMatches: context.openCaseMatches,
         conversationSiblingCaseIds: context.conversationSiblingCaseIds,
         caseUpdateApplied,
+        autoAttachApplied: autoAttachEligible,
         hasAttachments: context.hasAttachments,
         imagesOnly: context.imagesOnly,
       },

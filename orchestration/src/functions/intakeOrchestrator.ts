@@ -40,7 +40,7 @@ import * as df from 'durable-functions';
 import { supplementAccidentCircumstancesFromBody } from '../lib/supplement-parse.js';
 import type { InboundClassification } from './activities/classifyInbound.js';
 import { shouldAttemptTriageAssist } from './gated/triage-classify.js';
-import { decideCaseType, decideRetro } from '@cs/domain';
+import { decideCaseType, decideRetro, categoryMintsCase } from '@cs/domain';
 import type { TriagePolicyDecision } from '@cs/domain';
 
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
@@ -184,12 +184,15 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   //     still logged (above) and telemetered (inside the activity) so it stays visible
   //     ahead of that build, but no side-effect fires for it in this release.
 
-  // QUERY / OTHER never mint a Case — the inbound_email triage row IS the record. BUT a REPLY
-  // about existing work (#3) links/appends to its OPEN case (Case-ref first, then VRM; >1 →
-  // Held, never auto-link — the DB lookup + ADR-0010 decision run in the Data API). When a
-  // reply links to a case, still run the record-keeping path so its email/attachments/images
-  // are evidence and can be mirrored into the archive.
-  if (classification.category !== 'receiving_work') {
+  // QUERY / OTHER / NON_ACTIONABLE / CANCELLATION / CASE_UPDATE never mint a Case — the
+  // inbound_email triage row IS the record. Only `receiving_work` mints (categoryMintsCase,
+  // @cs/domain — an explicit, unit-tested invariant so a non_actionable acknowledgement can
+  // never open a blank Case: TKT-081 s2). BUT a REPLY about existing work (#3) links/appends
+  // to its OPEN case (Case-ref first, then VRM; >1 → Held, never auto-link — the DB lookup +
+  // ADR-0010 decision run in the Data API). When a reply links to a case, still run the
+  // record-keeping path so its email/attachments/images are evidence and can be mirrored
+  // into the archive.
+  if (!categoryMintsCase(classification.category)) {
     if (classification.isReply) {
       const inb = inbound as { candidateRef?: string; candidateVrm?: string };
       const ref = ((inb.candidateRef || classification.bodyCaseref) ?? '').trim();

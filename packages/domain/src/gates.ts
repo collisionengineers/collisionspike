@@ -82,6 +82,12 @@ export const gates = {
   triageCancellation: (): boolean => process.env.TRIAGE_CANCELLATION_ENABLED === 'true',
   triageImagesRouting: (): boolean => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === 'true',
   triageCaseUpdate: (): boolean => process.env.TRIAGE_CASE_UPDATE_ENABLED === 'true',
+  // TKT-093 — auto-attach promotion (ADR-0019 §4 promotion seam). Default off (ships DARK;
+  // live flip is operator-blocked, docs/gated.md). MODIFIES the ref-gate rung: an EXACT
+  // SINGLE open-case match on a strong signal (case_po/job_ref — NEVER vrm-only, per the
+  // inviolable VRM rule) is attached automatically instead of merely suggested. With this
+  // off, the ref-gate rung is exactly today's suggest_attach.
+  triageAutoAttach: (): boolean => process.env.TRIAGE_AUTO_ATTACH_ENABLED === 'true',
 
   // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
   // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default

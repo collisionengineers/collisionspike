@@ -20,3 +20,4 @@ export * from './pii-scrub';
 export * from './triage-policy';
 export * from './outlook-folder';
 export * from './retro-case';
+export * from './intake-routing';

@@ -1422,6 +1422,151 @@ def test_report_chaser_reply_is_query_not_new_work():
 
 
 # --------------------------------------------------------------------------- #
+# Acknowledgement / query / case_update batch (collisionspike TKT-081/082/083/093) #
+# --------------------------------------------------------------------------- #
+def test_tkt081_greeting_then_thanks_is_acknowledgement():
+    """TKT-081 s1: a reply that opens with a GREETING line then a bare 'thank you' (with a
+    signature below) — the greeting must not defeat the ack sniff. It lands
+    non_actionable/acknowledgement, not a query off the inherited-subject ref/VRM."""
+    result = classify_email(
+        subject="RE: Mr A Client - AB12 CDE",
+        body="Good morning,\n\nThank you for this!\n\nSarah\nClaims handler\n0123 456 789",
+        provider_match_state="none",
+        has_attachments=False,
+        references="<thread@mail>",
+    )
+    assert result["category"] == "non_actionable"
+    assert result["subtype"] == "acknowledgement"
+    assert result["is_reply"] is True
+
+
+def test_tkt081_reaction_notification_is_acknowledgement():
+    """TKT-081 s3: an Outlook/Teams 'reacted to your message' notification is a
+    non-actionable acknowledgement, not a query on the quoted-thread reference."""
+    result = classify_email(
+        subject="RE: RTA claim - AB12 CDE",
+        body=(
+            "[like] Desk reacted to your message:\n"
+            "________________________________\n"
+            "From: Provider\nSubject: RE: claim\n\nNo problem and thank you for this\n"
+        ),
+        provider_match_state="one",
+        has_attachments=False,
+        references="<thread@mail>",
+    )
+    assert result["category"] == "non_actionable"
+    assert result["subtype"] == "acknowledgement"
+
+
+def test_tkt081_automated_acknowledgement_makes_no_case():
+    """TKT-081 s2 (the SEVERE one): an automated 'thank you for your email' auto-reply with
+    signature images (and boilerplate 'new claim') must NOT promote to receiving_work and
+    mint a blank Case — the auto-reply markers + Rule-0 auto-acknowledgement branch route
+    it to non_actionable/acknowledgement."""
+    result = classify_email(
+        subject="Thank you for your email",
+        body=(
+            "This is an automated email, please do not respond directly to this email\n\n"
+            "Thank you for your email. Our claims team will review this against the claim you submitted.\n\n"
+            "In the meantime you can submit new claims online.\n\nKind regards\nTheresa"
+        ),
+        provider_match_state="none",
+        attachment_kinds=["image"],
+        attachment_filenames=["image001.png"],
+        has_attachments=True,
+    )
+    assert result["category"] == "non_actionable"
+    assert result["subtype"] == "acknowledgement"
+    assert result["signals"][-1] == "rule:auto_acknowledgement"
+
+
+def test_tkt081_greeting_relaxes_ack_cap_but_terse_line_stays_query():
+    """TKT-081 s4: after a greeting is skipped, a slightly longer courtesy close ('thank
+    you, we will wait to hear back on this one') is still a bare acknowledgement — but the
+    SAME line with no greeting keeps the tight bound and stays a linkable query (preserving
+    the greeting-less substantive-reply invariant)."""
+    ack = classify_email(
+        subject="RE: (EREF) claim - AB12 CDE (Our Ref: TG/123/1)",
+        body="Hi Ed\n\nThank you, we will wait to hear back on this one.\n\nLouise\nRecoveries Manager",
+        provider_match_state="one",
+        has_attachments=False,
+        references="<thread@mail>",
+    )
+    assert ack["category"] == "non_actionable"
+    assert ack["subtype"] == "acknowledgement"
+    # Greeting-LESS, the same courtesy clause is not a bare ack (the tight 40-char bound
+    # holds), so a substantive one-liner stays a linkable query.
+    assert _is_bare_acknowledgement("Thank you, we will wait to hear back on this one.") is False
+
+
+def test_tkt082_question_about_your_report_is_query_not_new_work():
+    """TKT-082 s1: a question ABOUT our existing engineer's report carries the 'engineers
+    report' work keyword + an instruction-kind PDF, but the possessive 'your report'
+    about-existing signal suppresses the false promotion — query_existing_work, not
+    new_client_work."""
+    result = classify_email(
+        subject="Client: Mr A Client // Engineer Instruction - VRN: AB12 CDE",
+        body=(
+            "Good Morning,\n\nPlease can you assist on the matter related to your attached "
+            "Engineers Report. Out of the 18 hours quoted in your report, how many are for paint?"
+        ),
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        attachment_filenames=["AB12CDE.pdf"],
+        has_attachments=True,
+        references="<thread@mail>",
+    )
+    assert result["category"] == "query"
+    assert result["subtype"] == "query_existing_work"
+
+
+def test_tkt083_body_instruction_one_phrase_with_ref_and_vrm_promotes():
+    """TKT-083: a fresh body-only 'New INSTRUCTIONS:' email with only ONE work phrase but a
+    full identifier set (a job ref AND a VRM) promotes to receiving_work — the ref+VRM
+    corroboration substitutes for the two-phrase floor. Without both anchors it still
+    abstains."""
+    promoted = classify_email(
+        subject="Our Ref: 30230-01 ; Vehicle Registration Number: AB72 YVB",
+        body=(
+            "New INSTRUCTIONS:\n\nOur Ref: 30230-01\nVehicle Registration Number: AB72YVB\n"
+            "Accident Location: High Street\nCircumstance: our client was waiting at the lights."
+        ),
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert promoted["category"] == "receiving_work"
+    assert promoted["subtype"] == "new_client_work"
+    assert promoted["body_jobref"] == "30230-01"
+
+    # A single work phrase with NEITHER a ref nor a VRM still abstains (the floor holds).
+    weak = classify_email(
+        subject="Note",
+        body="New instruction to follow shortly.",
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert weak["category"] == "other"
+
+
+def test_tkt093_forward_delivering_document_is_case_update_not_new_work():
+    """TKT-093: a FORWARD whose inherited subject carries an inspection-request / audit cue
+    but whose SENDER wrote only a delivery note ('Audatex attached') must not promote on
+    the inherited subject — it is case_update (additional documentation on the matched open
+    case), anchored by the vehicle registration."""
+    result = classify_email(
+        subject="FW: RE: Enclosing Inspection Request to Engineers 2 - 577298",
+        body="Hi Neil\n\nAudatex attached for vehicle BE57 JDS.\n\nThanks\nColette",
+        provider_match_state="one",
+        attachment_kinds=["instruction", "image"],
+        attachment_filenames=["AJB14044.AudatexMS.pdf", "image001.png"],
+        has_attachments=True,
+    )
+    assert result["is_reply"] is False
+    assert result["category"] == "case_update"
+    assert result["subtype"] == "update_general"
+
+
+# --------------------------------------------------------------------------- #
 # Golden ticket corpus — the real misclassified emails (collisionspike)       #
 # --------------------------------------------------------------------------- #
 # Each ticket's actual .eml under docs/tickets/<id>/**/ is run through the classifier

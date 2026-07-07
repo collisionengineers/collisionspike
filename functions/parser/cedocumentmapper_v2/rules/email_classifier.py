@@ -335,38 +335,107 @@ def _has_new_image_evidence(filenames: Any) -> bool:
     return False
 
 
-# --- Bare-acknowledgement detector (collisionspike TKT-038) ------------------ #
-# A reply whose SENDER-written text is only a short pleasantry ("Thanks Ed", "Noted,
-# cheers") asks nothing and instructs nothing. It must NOT propose a query off an
-# inherited-subject VRM/ref — it is no-action (-> non_actionable). Guarded by length
-# so "Thanks — and please also inspect AB12 CDE" (a real request) does NOT match.
+# --- Bare-acknowledgement detector (collisionspike TKT-038, extended TKT-081) - #
+# A reply whose SENDER-written message is only a short courtesy / confirmation ("Thanks
+# Ed", "Good morning, thank you for this!", "Hi Ed, thank you — we'll wait to hear", an
+# automated "thank you for your email", or a Teams "reacted to your message" notice) asks
+# nothing and instructs nothing. It must NOT propose a query off an inherited-subject
+# VRM/ref, nor mint a Case — it is no-action (-> non_actionable/acknowledgement). TKT-081:
+# the live acks arrived wrapped in a greeting line, an automated-reply preamble, or a
+# reaction notification, so keying on the raw FIRST line missed them; the detector now
+# skips a leading greeting / auto-reply preamble and recognises the reaction notice. A
+# question mark, a longer substantive line, or any work / query keyword still disqualifies
+# it, so a courtesy that ALSO asks or instructs routes to the query / work rules (which
+# run first).
 _ACK_ONLY_RE = re.compile(
-    r"^(?:thanks?|thank\s+you|many\s+thanks|thanks\s+very\s+much|cheers|noted|"
-    r"received(?:\s+with\s+thanks)?|great|perfect|brilliant|lovely|ok(?:ay)?|"
-    r"got\s+it|much\s+appreciated|appreciated|understood)\b",
+    r"^(?:thanks?|thank\s+you|many\s+thanks|thanks\s+(?:very\s+much|a\s+lot|again)|"
+    r"no\s+problem|not\s+a\s+problem|no\s+worries|cheers|noted|"
+    r"received(?:\s+with\s+thanks)?|great|perfect|brilliant|lovely|superb|fab|"
+    r"ok(?:ay)?|got\s+it|much\s+appreciated|appreciated|understood|acknowledged|"
+    r"will\s+do|that'?s?\s+(?:great|fine|perfect|brilliant|all|lovely)|all\s+good)\b",
     re.IGNORECASE,
 )
-# A bare ack is SHORT — "Thanks Ed", "Noted, cheers". Bounded tight so a courtesy that
-# carries a substantive statement ("Thank you, I have shared this with my client.") is
-# NOT swallowed (it stays a query the orchestrator can link). TKT-038.
+# A greeting line ("Hi Ed", "Good morning,", "Dear Sirs") precedes the acknowledgement in
+# real replies — skip it so the ack is found on the next line (TKT-081 s1/s4).
+_GREETING_RE = re.compile(
+    r"^(?:hi|hiya|hello|hey|dear|good\s+(?:morning|afternoon|evening|day)"
+    r"|morning|afternoon|evening|greetings)\b",
+    re.IGNORECASE,
+)
+# A Teams/Outlook "reaction" notification ("<name> reacted to your message:") delivers no
+# instruction and asks nothing — a non-actionable acknowledgement (TKT-081 s3).
+_REACTION_NOTICE_RE = re.compile(r"reacted to your message", re.IGNORECASE)
+# A bare ack is SHORT. A terse greeting-LESS reply keeps the original tight bound (40) so
+# a substantive one-liner ("Thank you, I have shared this with my client.") stays a linkable
+# query. But once a GREETING or an automated-reply preamble has been skipped — the social
+# marker of a courtesy note ("Hi Ed, thank you, we'll wait to hear back") — a slightly more
+# generous bound (60) admits the trailing pleasantry clause (TKT-081 s4). The work/query
+# keyword guard keeps a real request out either way.
 _ACK_MAX_LEN = 40
+_ACK_MAX_LEN_AFTER_GREETING = 60
+_GREETING_MAX_LEN = 40
 
 
 def _is_bare_acknowledgement(sender_text: str) -> bool:
-    """True when the sender's FIRST written line is only a short pleasantry — a reply that
-    asks nothing and instructs nothing ("Thanks Ed", "Noted, cheers"). Keyed on the first
-    meaningful line so a trailing email SIGNATURE does not defeat it (TKT-038); a question
-    mark or a longer first line (a substantive statement, e.g. "Thank you, I have shared
-    this with my client.") disqualifies it. The query/chase rules run BEFORE the
-    acknowledgement rule, so a reply that thanks AND asks still routes to the query."""
-    for line in (sender_text or "").splitlines():
-        first = line.strip()
-        if not first:
+    """True when the sender's message is only a short courtesy / confirmation — a reply
+    that asks nothing and instructs nothing (TKT-038 "Thanks Ed"; TKT-081 "Good morning,
+    thank you for this!", an automated "thank you for your email", a "reacted to your
+    message" notice). A leading greeting or automated-reply preamble line is skipped so the
+    acknowledgement is found even when it is not the raw first line, and a trailing email
+    SIGNATURE never defeats it. A question mark, a longer substantive first sentence, or any
+    work / query / chase keyword disqualifies it, so a courtesy that ALSO asks or instructs
+    still routes to the query / work rules (which run before the acknowledgement rule)."""
+    skipped_preamble = False
+    for raw in (sender_text or "").splitlines():
+        line = raw.strip()
+        if not line:
             continue
-        if len(first) > _ACK_MAX_LEN or "?" in first:
+        # A reaction notification is a bare ack outright.
+        if _REACTION_NOTICE_RE.search(line):
+            return True
+        low = line.lower()
+        # Skip a leading greeting or an automated-reply preamble; judge the first
+        # substantive line the sender actually wrote (a skipped preamble relaxes the cap).
+        if _GREETING_RE.match(line) and len(line) <= _GREETING_MAX_LEN:
+            skipped_preamble = True
+            continue
+        if any(marker in low for marker in _AUTO_REPLY_MARKERS):
+            skipped_preamble = True
+            continue
+        # Judge the first SENTENCE for the opener + length (an automated "Thank you for
+        # your email. Our team will review it." leads with a short ack then boilerplate),
+        # but keep the question / keyword guards on the WHOLE line so a courtesy that also
+        # asks or instructs ("Thanks. Please inspect AB12 CDE.") is not swallowed.
+        cap = _ACK_MAX_LEN_AFTER_GREETING if skipped_preamble else _ACK_MAX_LEN
+        first_sentence = re.split(r"[.!?\n]", line, maxsplit=1)[0].strip()
+        if "?" in line or len(first_sentence) > cap:
             return False
-        return bool(_ACK_ONLY_RE.match(first))
+        if not _ACK_ONLY_RE.match(first_sentence):
+            return False
+        # A courtesy that also carries work / query language is a query or instruction,
+        # not a bare ack — let the query / work rules handle it.
+        if (
+            _match_keywords(line, _WORK_KEYWORDS)
+            or _match_keywords(line, _QUERY_KEYWORDS)
+            or _match_keywords(line, _INFORMAL_WORK_KEYWORDS)
+            or _match_keywords(line, _CHASE_PHRASES)
+        ):
+            return False
+        return True
     return False
+
+
+# --- "Your report" about-existing reference (collisionspike TKT-082) --------- #
+# A possessive reference to OUR report ("your attached Engineers Report", "the hours
+# quoted in your report") is an ABOUT-EXISTING signal — the sender is asking about work we
+# already did, NOT instructing new work. It must neutralise the "engineers report" work
+# keyword (which substring-matches "your ... Engineers Report") so a question about our
+# report is not promoted to receiving_work / new_client_work (TKT-082 s1). A fresh
+# instruction says "please provide AN engineer's report", never "YOUR report".
+_OUR_REPORT_REFERENCE_RE = re.compile(
+    r"\byour\s+(?:attached\s+)?(?:engineer'?s?\s+)?report\b",
+    re.IGNORECASE,
+)
 
 # --- Canonical body_vrm matcher (collisionspike #7) -------------------------- #
 # The inbox VRM chip is fed by ``body_vrm``. The engine's ``VRM_RE`` is
@@ -728,6 +797,12 @@ def classify_email(
     filenames = [str(f) for f in (attachment_filenames or []) if str(f).strip()]
     has_atts = bool(has_attachments) or bool(kinds)
     is_reply = _is_reply(subject_s, _normalise(in_reply_to), _normalise(references))
+    # A FORWARD ("FW:"/"FWD:") carries an INHERITED subject like a reply does, but may
+    # carry a genuinely new instruction onward (so it is not a reply). collisionspike
+    # TKT-093: a forward whose SENDER writes no new work language — just delivering a
+    # document ("Audatex attached") — must not promote on the inherited subject's work
+    # cue. ``is_forward`` gates that suppression + the case_update VRM anchor below.
+    is_forward = bool(_FORWARD_SUBJECT_RE.match(subject_s))
 
     haystack = f"{subject_s}\n{body_s}"
     # Thread-scoping (collisionspike TKT-030/033). Two distinct jobs:
@@ -745,6 +820,14 @@ def classify_email(
 
     # PROMOTION signals — sender-scoped.
     work_phrases = _match_keywords(work_scope, _WORK_KEYWORDS)
+    # Sender-written-only work phrases (never the inherited subject) — the forward
+    # suppression discriminator (TKT-093): for a reply ``work_phrases`` already excludes
+    # the subject, but for a FORWARD ``work_scope`` still includes it, so compute the
+    # sender-only set explicitly.
+    new_work_phrases = _match_keywords(sender_text, _WORK_KEYWORDS)
+    # A possessive "your report" reference (TKT-082 s1) is about OUR existing work, so it
+    # must neutralise the "engineers report" work keyword rather than promote new work.
+    references_existing_report = bool(_OUR_REPORT_REFERENCE_RE.search(sender_text))
     query_phrases = _match_keywords(work_scope, _QUERY_KEYWORDS)
     billing_phrases = _match_keywords(work_scope, _BILLING_KEYWORDS)
     informal_phrases = _match_keywords(work_scope, _INFORMAL_WORK_KEYWORDS)
@@ -868,6 +951,14 @@ def classify_email(
         # heard nothing — please send your report"). A genuine new instruction never
         # contains a send-me-the-existing-report phrase (TKT-030/031/033).
         or bool(chase_phrases)
+        # TKT-082 s1: a question ABOUT our existing report ("out of the 18 hours quoted in
+        # your report, how many are for paint?") carries the "engineers report" work
+        # keyword yet is about-existing — the possessive "your report" suppresses it.
+        or references_existing_report
+        # TKT-093: a FORWARD whose sender wrote no new work language (only "Audatex
+        # attached") is delivering a document onto an existing matter, not instructing new
+        # work — the inherited subject's work cue must not promote it.
+        or (is_forward and not new_work_phrases)
     )
 
     # --- Rule 0: an auto-reply / bounce marker forces ``other`` -----------------
@@ -886,6 +977,18 @@ def classify_email(
     # doc is present we fall through to Rule 1; the no-doc auto-reply+image path
     # still abstains here exactly as before.
     if auto_reply_markers and not has_instruction_doc:
+        # TKT-081 s2: an AUTOMATED acknowledgement ("This is an automated email … Thank
+        # you for your email, our team will review it") is a courtesy no-op — route it to
+        # non_actionable/acknowledgement, never receiving_work (the live bug minted a
+        # blank Case from one). Any OTHER auto-reply / OOO / bounce still abstains to
+        # ``other`` (an unread signature logo or bounced image must not read as work).
+        if _is_bare_acknowledgement(sender_text):
+            return _result(
+                CATEGORY_NON_ACTIONABLE,
+                SUBTYPE_ACKNOWLEDGEMENT,
+                _CONFIDENCE_WEAK,
+                "auto_acknowledgement",
+            )
         return _result(
             CATEGORY_OTHER,
             SUBTYPE_OTHER,
@@ -1035,12 +1138,23 @@ def classify_email(
     # (TKT-030/033): a chase reply quoting the original instruction below must not
     # promote — the work phrases are already sender-scoped, and the guard is the
     # explicit backstop.
-    if (
-        not has_atts
-        and len(work_phrases) >= 2
-        and (body_caseref or body_vrm)
-        and not suppress_as_query
-    ):
+    # TKT-083: the two-phrase floor abstained a clear body-only "New INSTRUCTIONS:" email
+    # that carried only ONE work phrase but a full identifier set (a job ref AND a VRM) —
+    # e.g. a solicitor's structured instruction. A SECOND arm promotes a FRESH (non-reply)
+    # instruction that has a work phrase + a body VRM + an existing job/Case reference and
+    # asks no question: the ref-plus-VRM corroboration substitutes for the second phrase.
+    # Gated to non-reply + no-query + not-suppressed so a chase/ack reply cannot slip in.
+    strong_body_instruction = (
+        (len(work_phrases) >= 2 and (body_caseref or body_vrm))
+        or (
+            not is_reply
+            and bool(work_phrases)
+            and bool(body_vrm)
+            and has_existing_ref
+            and not query_phrases
+        )
+    )
+    if not has_atts and strong_body_instruction and not suppress_as_query:
         subtype = (
             SUBTYPE_EXISTING_PROVIDER_INSTRUCTION
             if provider_known
@@ -1166,8 +1280,16 @@ def classify_email(
     # query first).
     new_evidence = (has_atts and not has_report_attachment) or has_images
     is_bare_ack_reply = is_reply and _is_bare_acknowledgement(sender_text)
+    # A reply/forward that DELIVERS new evidence onto an existing matter is anchored by a
+    # body VRM too (TKT-093: a forwarded "Audatex attached" whose only identifier is the
+    # vehicle registration). Fresh mail keeps the stricter Case/PO-or-job-ref anchor — a
+    # bare VRM is too loose to open a new case_update lane without a thread behind it.
+    case_update_anchor = (
+        bool(body_caseref or body_jobref)
+        or ((is_reply or is_forward) and bool(body_vrm))
+    )
     if (
-        (body_caseref or body_jobref)
+        case_update_anchor
         and new_evidence
         and not query_phrases
         and not is_bare_ack_reply

@@ -79,10 +79,24 @@ app.http('inboundEmails', {
       const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
       // LEFT JOIN pulls the linked case's Case/PO onto the row (TKT-054 status cell).
       // inbound_email.* keeps the shared column names (id/name/source_mailbox/…) unambiguous.
+      // TKT-093: a LATERAL join also pulls a PENDING case_link suggestion's Case/PO so the
+      // inbox LIST can show the suggest-attach affordance (not only the opened email). Reads
+      // the `casePo` the suggest-link writer already stamped into `suggested_value` — NO uuid
+      // cast (a malformed target can never error the whole list query).
       const rows = await query<Row>(
-        `SELECT inbound_email.*, c.case_po AS case_po
+        `SELECT inbound_email.*, c.case_po AS case_po, ls.case_po AS link_suggestion_case_po
            FROM inbound_email
            LEFT JOIN case_ c ON c.id = inbound_email.case_id
+           LEFT JOIN LATERAL (
+             SELECT s.suggested_value->>'casePo' AS case_po
+               FROM ai_suggestion s
+              WHERE s.inbound_email_id = inbound_email.id
+                AND s.suggestion_type = 'case_link'
+                AND s.review_state = 'pending'
+                AND s.suggested_value->>'casePo' IS NOT NULL
+              ORDER BY s.created_at DESC
+              LIMIT 1
+           ) ls ON true
            ${where} ORDER BY inbound_email.received_on DESC`,
         params,
       );

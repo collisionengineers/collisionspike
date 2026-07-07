@@ -78,6 +78,7 @@ const GATES_ALL_ON: TriagePolicyGates = {
   cancellation: true,
   imagesRouting: true,
   caseUpdate: true,
+  autoAttach: true,
 };
 
 /** No live context resolved (a failed /triage/context read) — the SAFE degrade: with no
@@ -99,6 +100,7 @@ function actingGates(): TriagePolicyGates {
     cancellation: gates.triageCancellation(),
     imagesRouting: gates.triageImagesRouting(),
     caseUpdate: gates.triageCaseUpdate(),
+    autoAttach: gates.triageAutoAttach(),
   };
 }
 
@@ -225,13 +227,21 @@ df.app.activity('triagePolicy', {
     // ai_suggestion write — ONLY the ACTING decision ever writes one (never shadow: "no
     // shadow rows in ai_suggestion while its gate is off", ADR-0019 §5). Best-effort: a
     // suggestion-write failure must never sink intake (the module doc's reliability note).
-    if (acting.action === 'suggest_attach' || acting.action === 'propose_cancellation') {
+    // `attach_case` (TKT-093, DARK) writes the SAME case_link suggestion but sets
+    // `autoAttach` so the Data API self-accepts it (the reversible `inbound_linked` attach)
+    // — the accept/detach lifecycle + inbox surface are identical to suggest_attach.
+    if (
+      acting.action === 'suggest_attach' ||
+      acting.action === 'attach_case' ||
+      acting.action === 'propose_cancellation'
+    ) {
       try {
         await dataApi.triageSuggestLink({
           sourceMessageId: inbound.internetMessageId,
           ...(acting.targetCaseId ? { targetCaseId: acting.targetCaseId } : {}),
           suggestionType: acting.suggestionType ?? (acting.action === 'propose_cancellation' ? 'cancellation' : 'case_link'),
           rationale: acting.rationale,
+          ...(acting.action === 'attach_case' ? { autoAttach: true } : {}),
           ...(policyClassification.confidence !== undefined ? { confidence: policyClassification.confidence } : {}),
           decisionInputs: { ...acting.decisionInputs, ...intermediaryDecisionInputs },
         });
