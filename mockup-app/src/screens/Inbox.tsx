@@ -91,6 +91,7 @@ import {
   type ChipSeverity,
 } from '../components';
 import { formatReceivedCompact } from '../components/date-format';
+import { Pager } from '../components/Pager';
 import { nextPeekId, parsePeek, withPeek, withoutPeek } from './peek';
 import {
   caseLinkHeadline,
@@ -102,6 +103,7 @@ import {
 } from './inbox-suggestions';
 import { whyClassifiedReasons } from './why-classified';
 import { mailboxFacets, matchesMailboxFilter, type MailboxFilter } from './inbox-mailbox-filter';
+import { pageWindow, slicePage, clampPage, pageOf } from './inbox-pagination';
 import {
   CATEGORY_LABEL,
   CATEGORY_ORDER,
@@ -690,6 +692,9 @@ export function Inbox() {
   // SINGLE-select, exactly one of All/mailbox active at a time; null = "All"
   // (the explicit default). Not URL-persisted.
   const [mailboxFilter, setMailboxFilter] = useState<MailboxFilter>(null);
+  // Inbox list pagination (TKT-098) — 1-based current page, clamped by the
+  // helpers. Like the mailbox facet, it is client-side and NOT URL-persisted.
+  const [page, setPage] = useState(1);
 
   // ONE load: the whole queue, filtered client-side (dismissed hidden by default).
   const inbox = useInbox({ view: 'all' });
@@ -775,6 +780,32 @@ export function Inbox() {
     () => preMailboxFiltered.filter((e) => matchesMailboxFilter(e, mailboxFilter)),
     [preMailboxFiltered, mailboxFilter],
   );
+  // Always-latest `filtered` for event handlers. `setTriage` is captured in the
+  // memoized `columns` (deps deliberately exclude it for perf), so its own
+  // closure over `filtered` can be stale — reading through this stable ref keeps
+  // the next-row/focus-page-hop computation correct even before a columns rebuild.
+  const filteredRef = useRef(filtered);
+  filteredRef.current = filtered;
+
+  // Inbox list pagination (TKT-098). `win` drives the pager label + controls;
+  // `pageItems` is the slice the DataGrid actually renders. Both read through
+  // pageWindow so the rows shown and the "N–M of T" label never disagree.
+  const win = useMemo(() => pageWindow(filtered.length, page), [filtered.length, page]);
+  const pageItems = useMemo(() => slicePage(filtered, page), [filtered, page]);
+
+  // Caveat 1 — reset to page 1 whenever a FILTER changes (search / e-mail type /
+  // show-dismissed / mailbox facet), so a filtered result never opens on a stale
+  // deep page. `pendingHidden` is deliberately EXCLUDED: a dismiss must not yank
+  // the operator back to page 1. The second effect clamps the page down when the
+  // list shrinks beneath the current window (e.g. dismissing the last row on the
+  // final page) so we never strand them on an empty page.
+  const filterSignature = `${search.trim()}|${emailTypeParam(emailType) ?? ''}|${showDismissed}|${mailboxFilter ?? ''}`;
+  useEffect(() => {
+    setPage(1);
+  }, [filterSignature]);
+  useEffect(() => {
+    setPage((p) => clampPage(p, filtered.length));
+  }, [filtered.length]);
 
   /* ----------  quick-peek drawer — LINKED rows only (spec IA §3)  ---------- */
   const peekId = parsePeek(searchParams.toString());
@@ -810,19 +841,47 @@ export function Inbox() {
     [setSearchParams],
   );
 
-  // Restore keyboard focus after a triage action removes a row from the active view.
+  // Restore keyboard focus after a triage action removes a row from the active
+  // view. Caveat 2 (TKT-098): the next row may sit on a DIFFERENT page slice, and
+  // its DOM node only exists once that page is rendered — so if the target isn't
+  // on the current page, turn to its page and let this effect re-run (page is a
+  // dep) to focus it there; otherwise focus it (or the search box) right away.
   useEffect(() => {
     const target = focusAfterTriageRef.current;
     if (!target) return;
+    const focusSearchBox = () => {
+      focusAfterTriageRef.current = null;
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>('[aria-label="Search inbound email"]')?.focus();
+      });
+    };
+    // Explicit sentinel → the search box (e.g. the last row of the view left).
+    if (target === 'search-box') {
+      focusSearchBox();
+      return;
+    }
+    const idx = filtered.findIndex((r) => r.id === target);
+    if (idx === -1) {
+      // The next row isn't on the current list. A dismiss kicks off a refetch, so
+      // it may only be TRANSIENTLY absent — keep the ref and wait (the effect
+      // re-runs when `filtered`/`inbox.loading` change). Only give up to the
+      // search box once the reload has settled and the row is genuinely gone.
+      if (inbox.loading) return;
+      focusSearchBox();
+      return;
+    }
+    const targetPage = pageOf(idx);
+    if (targetPage !== page) {
+      // Row lives on another slice: turn to it and KEEP the ref — the page change
+      // re-runs this effect, and the row's DOM node is now present to focus.
+      setPage(targetPage);
+      return;
+    }
     focusAfterTriageRef.current = null;
     requestAnimationFrame(() => {
-      if (target === 'search-box') {
-        document.querySelector<HTMLElement>('[aria-label="Search inbound email"]')?.focus();
-      } else {
-        document.querySelector<HTMLElement>(`[data-row-id="${target}"]`)?.focus();
-      }
+      document.querySelector<HTMLElement>(`[data-row-id="${target}"]`)?.focus();
     });
-  }, [filtered]);
+  }, [filtered, page, inbox.loading]);
 
   /** Write the E-mail type filter to state + `?type=` (omitted = all). */
   const applyEmailType = (f: EmailTypeFilter) => {
@@ -863,8 +922,11 @@ export function Inbox() {
    *  the "Show dismissed" switch off) removes it — that path keeps the
    *  optimistic hide + focus handoff. */
   const setTriage = async (row: InboundEmail, next: TriageState) => {
-    const currentIndex = filtered.findIndex((r) => r.id === row.id);
-    const nextRow = filtered[currentIndex + 1] ?? filtered[currentIndex - 1];
+    // Read the LIVE filtered list (see filteredRef) so the next-row target is
+    // correct even if this handler was captured in a stale columns memo.
+    const live = filteredRef.current;
+    const currentIndex = live.findIndex((r) => r.id === row.id);
+    const nextRow = live[currentIndex + 1] ?? live[currentIndex - 1];
     const leavesView = next === 'dismissed' && !showDismissed;
     if (leavesView) {
       focusAfterTriageRef.current = nextRow?.id ?? 'search-box';
@@ -1507,7 +1569,7 @@ export function Inbox() {
           <div className={mergeClasses(styles.gridPane, selectedEmail != null && styles.gridPaneWithSidebar)}>
             <div className={styles.grid}>
               <DataGrid
-                items={filtered}
+                items={pageItems}
                 columns={columns}
                 getRowId={(e) => e.id}
                 resizableColumns
@@ -1541,6 +1603,18 @@ export function Inbox() {
                 </DataGridBody>
               </DataGrid>
             </div>
+            {/* TKT-098 — inbox pager. Sits BELOW the grid, inside the grid branch,
+                so it never shows over the empty / skeleton / error states; the
+                Pager's own guard renders null whenever the list fits one page. */}
+            <Pager
+              page={win.page}
+              pageCount={win.pageCount}
+              from={win.from}
+              to={win.to}
+              total={win.total}
+              itemNoun="emails"
+              onPageChange={setPage}
+            />
           </div>
 
           {selectedEmail && (

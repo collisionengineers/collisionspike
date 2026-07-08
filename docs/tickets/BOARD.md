@@ -130,6 +130,7 @@
 > redeployed); TKT-003 **VERIFIED-LIVE** (operator re-test post-regression fix).
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
@@ -177,6 +178,7 @@
 | [TKT-111](./verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md) | Assistant write tier with human confirmation | PLAN-001 Phase 2: model proposes, staff confirms, existing routes execute with ETag protection. |
 | [TKT-113](./verify/TKT-113-ai-usage-ledger/TKT-113-ai-usage-ledger.md) | AI usage ledger for model capacity controls | PLAN-001 Phase 4: track aggregate model usage before wider vision rollout. |
 | [TKT-089](./verify/TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md) | Confirm non-vehicle images (signatures/logos) no longer captured/stored on Box | **Reclassified backlog → verify (2026-07-07)** — the PDF-lane fix is **BUILT + DEPLOYED on `main`**: `is_decorative()` 200×200 area floor (`functions/parser/cedocumentmapper_v2/application/service.py:401`, both PDF paths 433/453), unit-tested on this ticket's exact QDOS26004 `RJS_UnknownVRM` logo (`test_extract_images.py:161`, `count==0`), shipped via `aafeba1`. Remaining: the live audit + TKT-047 email-lane proof + backfill decision. **Caveat:** it's a *size* floor — a large logo above 200×200 still passes (audit must confirm/raise a follow-up). See [verification](./verify/TKT-089-non-vehicle-images-box/verification.md). |
+| [TKT-098](./verify/TKT-098-inbox-pagination/TKT-098-inbox-pagination.md) | Inbox pagination — cap the inbox page at 15 emails, paginate the rest | P3 drop-note (2026-07-07): SPA inbox paging (15/page) preserving the mailbox-chip filter (TKT-025) + actions (TKT-005). |
 
 ## Done — live & verified
 
@@ -246,7 +248,6 @@
 | [TKT-095](./backlog/TKT-095-case-done-detectors/TKT-095-case-done-detectors.md) | Case `done` detectors — manual → Box report-PDF → sent-email → EVA poll | P1 (plan 2026-07-07, Phase C): shared guarded `mark-done`; manual bridge first, then Box report-PDF / sent-email (dark) / gated EVA-poll detectors. Depends on TKT-094. |
 | [TKT-096](./backlog/TKT-096-completed-archive-view/TKT-096-completed-archive-view.md) | Completed/Archive view + dashboard drill-through + terminal-scope search fold-in | P2 (plan 2026-07-07, Phase D): `/completed` view + nav (not a 4th queue), tiles drill through, and global search must not exclude terminals. Depends on TKT-094/095; adds a scope criterion to TKT-072. |
 | [TKT-097](./backlog/TKT-097-cancellation-misclass-query/TKT-097-cancellation-misclass-query.md) | Cancellation email misclassified as a case query | P2 drop-note (2026-07-07): a real cancellation still tagged `case_query` — the live-occurrence miss TKT-041's cancellation lane was awaiting; eval pin + rule precedence. |
-| [TKT-098](./backlog/TKT-098-inbox-pagination/TKT-098-inbox-pagination.md) | Inbox pagination — cap the inbox page at 15 emails, paginate the rest | P3 drop-note (2026-07-07): SPA inbox paging (15/page) preserving the mailbox-chip filter (TKT-025) + actions (TKT-005). |
 | [TKT-099](./backlog/TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md) | QCL cases not generating Case/PO correctly | P1 drop-note (2026-07-07): QCL provider cases mint a wrong/absent Case/PO — trace the QCL principal-code path through the allocator (TKT-004 territory). No sample supplied. |
 | [TKT-100](./backlog/TKT-100-qdos-false-vrm-and2/TKT-100-qdos-false-vrm-and2.md) | QDOS false VRM "AND2" invented on emails that don't contain it | P1 drop-note (2026-07-07): every QDOS sample logs "AND2" as the reg though it's not in the email — false-positive VRM (sibling of TKT-085/071); denylist/anchor + audited data fix. |
 | [TKT-101](./backlog/TKT-101-qdos-cases-wrong-linking/TKT-101-qdos-cases-wrong-linking.md) | QDOS — two distinct refs (46671/1, 46533/1) wrongly linked as one case | P1 drop-note (2026-07-07): different people + QDOS refs collapsed into one case (inverse of TKT-092) — name the dedup-key collision vector (possibly the shared false AND2 VRM), idempotency fix + audited split. |
