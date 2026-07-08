@@ -143,12 +143,12 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-068](./now/TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) | Attach files in the assistant and add them to a case (user-confirmed upload) | P2 (plan 2026-07-06 §3): drawer attach + confirmation card + new staff-role `POST /api/cases/{id}/evidence/upload`; the model stays read-only (TKT-060 invariant). |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-068](./verify/TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) | Attach files in the assistant and add them to a case (user-confirmed upload) | P2 (plan 2026-07-06 §3): drawer attach + confirmation card + new staff-role `POST /api/cases/{id}/evidence/upload`; the model stays read-only (TKT-060 invariant). |
 | [TKT-015](./verify/TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (gated) | Email-triage lane wired to a real keyless AOAI call 2026-07-02 (`EMAIL_AI_ENABLED` live 2026-07-03). **Generic `callModelForSuggestions` (case/damage consumer) now WIRED DARK (now→verify, 2026-07-08, commit `4fc8580`)**: keyless MI AOAI strict-JSON → `ai_suggestion` rows behind default-off `AI_ASSIST_ENABLED`; suggestion-only (the 3 new kinds have no promote branch — no auto-write even on human accept). 18 offline tests. Image/reg-OCR consumers are TKT-016/017 (also →verify). `AI_ASSIST_ENABLED` flip DEFERRED (DPIA/capacity/residency). See [verification](./verify/TKT-015-ai-assistant/verification.md). |
 | [TKT-016](./verify/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md) | Image-analysis VLM sequence | **Staged suggestion producer BUILT DARK (now→verify, 2026-07-08).** Additive `ai_suggestion`-only route `POST /api/cases/{id}/image-analysis/generate` behind default-off `IMAGE_ANALYSIS_ENABLED`; reg-OCR via local fast-alpr (zero-egress), VLM scene stages G5-only; never auto-writes evidence/case columns (no collision with the live TKT-064 classifier). Offline-proven (10/10 tests + transcript, graceful degradation). §F.7 image-egress DPIA line-item added. Live flip DEFERRED (operator: DDL apply + DPIA + gate). Commit `0dbe31f`. Awaiting verifier (offline). |
 | [TKT-017](./verify/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model bench | **Benchmark + recommendation DELIVERED (now→verify, 2026-07-08).** Candidate comparison (fast-alpr / DI Read / gpt-5 VLM) on accuracy/cost/latency/residency + runnable harness with captured TIER A run under `evidence/`. Recommendation: reg-OCR of record = local fast-alpr primary / DI Read uksouth fallback (UK-resident, zero-egress); a vision model-egress flip is NOT justified for reg-OCR alone. Commit `ab06ee2`. Awaiting verifier (offline). |

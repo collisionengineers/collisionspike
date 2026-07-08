@@ -1,11 +1,11 @@
 ---
 id: TKT-068
 title: Attach files in the assistant and add them to a case (user-confirmed upload)
-status: now
+status: verify
 priority: P2
 area: ai
 tickets-it-relates-to: [TKT-060, TKT-066, TKT-048, TKT-003]
-research-link: docs/tickets/now/TKT-068-assistant-attach-evidence/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-068-assistant-attach-evidence/evidence/operator-note.md
 plan: PLAN-001
 ---
 
