@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "types": ["react", "react-dom", "vite/client", "node"],
+    "paths": {
+      "@collisioncapture/contracts": ["../../packages/contracts/src/index.ts"],
+      "@collisioncapture/core": ["../../packages/core/src/index.ts"]
+    }
+  },
+  "include": [
+    "src",
+    "vite.config.ts",
+    "../../packages/contracts/src",
+    "../../packages/core/src"
+  ]
+}

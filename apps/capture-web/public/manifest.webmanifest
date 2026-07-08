@@ -1,0 +1,17 @@
+{
+  "name": "CollisionCapture",
+  "short_name": "Capture",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f8f7",
+  "theme_color": "#18202a",
+  "icons": [
+    {
+      "src": "/vehicle-mask.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
+
