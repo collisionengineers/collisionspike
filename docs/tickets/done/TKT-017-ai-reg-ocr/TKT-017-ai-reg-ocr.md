@@ -1,7 +1,7 @@
 ---
 id: TKT-017
 title: Registration-recognition model research + bench
-status: verify
+status: done
 priority: P2
 area: ai
 tickets-it-relates-to: [TKT-001, TKT-016, TKT-015]
