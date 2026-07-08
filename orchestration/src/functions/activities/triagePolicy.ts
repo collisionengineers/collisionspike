@@ -164,11 +164,19 @@ function _isImageEvidenceFilename(name: string): boolean {
  *  attachment an image) OR by FILENAME (every non-signature attachment is image evidence,
  *  none a report). Mirrors the classifier's `_delivered_images_only`. */
 function deliveredImagesOnly(attachmentKinds: readonly string[], filenames: readonly string[]): boolean {
-  if (attachmentKinds.length > 0 && attachmentKinds.every((kind) => kind === 'image')) return true;
+  // Drop signature/logo images (imageNNN.png) FIRST. A reply carrying ONLY a signature logo
+  // must not read as delivered photo evidence — even though its KIND is `image`, which used to
+  // let the all-image kind fast-path short-circuit to true before the filename filter ran
+  // (PR#45 / TKT-043 review). So the fast-path is now guarded on there being ≥1 non-signature file.
   const nonSignature = filenames
     .map((f) => (f ?? '').trim())
     .filter((f) => f && !_SIGNATURE_IMAGE_RE.test(f));
-  if (nonSignature.length === 0 || nonSignature.some(_isReportFilename)) return false;
+  if (nonSignature.length === 0) return false; // nothing but signature logos delivered
+  if (nonSignature.some(_isReportFilename)) return false; // a report disqualifies images-only
+  // KIND tier — every attachment is an image kind (real .jpg/.png photos); guarded above so a
+  // set made only of signature images can no longer qualify.
+  if (attachmentKinds.length > 0 && attachmentKinds.every((kind) => kind === 'image')) return true;
+  // FILENAME tier — every non-signature attachment is image evidence (photos-in-a-PDF, TKT-043).
   return nonSignature.every(_isImageEvidenceFilename);
 }
 

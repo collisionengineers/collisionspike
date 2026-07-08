@@ -35,6 +35,7 @@ from cedocumentmapper_v2.rules.email_classifier import (
     _job_reference,
     _has_report_attachment,
     _has_new_image_evidence,
+    _delivered_images_only,
     _is_reply,
     _is_bare_acknowledgement,
     _sender_written_text,
@@ -1294,6 +1295,23 @@ def test_p1_5_reply_with_only_signature_logos_not_case_update():
     )
     assert result["category"] == "non_actionable"
     assert result["subtype"] == "acknowledgement"
+
+
+def test_delivered_images_only_signature_aware():
+    """PR#45: the all-image KIND fast-path must not short-circuit to True on a set made only
+    of signature logos (imageNNN.png). Kept in lockstep with the orchestrator's
+    deriveAttachmentSignals.deliveredImagesOnly."""
+    # signature logo(s) only -> False (was True via the kind fast-path before the fix)
+    assert _delivered_images_only(["image"], ["image001.png"]) is False
+    assert _delivered_images_only(["image", "image"], ["image001.png", "image002.png"]) is False
+    # a real photo alongside a signature -> True (the non-signature photo is genuine evidence)
+    assert _delivered_images_only(["image", "image"], ["damage-front.jpg", "image001.png"]) is True
+    # a set of real photos -> True (unchanged)
+    assert _delivered_images_only(["image", "image"], ["IMG_9108.jpeg", "IMG_9109.jpeg"]) is True
+    # photos-in-a-PDF (filename tier, TKT-043) -> True (regression guard)
+    assert _delivered_images_only(["instruction"], ["images - cvd.pdf"]) is True
+    # an engineer's report among the delivered files -> False (unchanged)
+    assert _delivered_images_only(["image", "instruction"], ["photo.jpg", "Engineer Report.pdf"]) is False
 
 
 def test_p2_6_soft_confirmation_is_query():

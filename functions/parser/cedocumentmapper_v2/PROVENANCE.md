@@ -29,6 +29,19 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-08 (signature-aware `_delivered_images_only` — collisionspike PR#45 review, Finding C):**
+this vendored copy is now re-cut from the sibling at **`engine-v2.9`** (branch
+`feat/tkt043-open-case-ref-context`, commit `130e862`). One file, `rules/email_classifier.py`:
+`_delivered_images_only` now drops signature/logo images (`imageNNN.png`) and requires ≥1
+non-signature file **before** the all-image KIND fast-path, so a reply carrying only a signature
+logo no longer short-circuits to `images_received`. A direct unit test
+(`test_delivered_images_only_signature_aware`) pins signature-only → False and real-photo+signature
+→ True; the eval `--check` shows **no** baseline movement. Kept in lockstep with the orchestrator's
+`deriveAttachmentSignals.deliveredImagesOnly` (same fix, same commit set). **The sibling branch +
+both `engine-v2.8` and `engine-v2.9` annotated tags are now PUSHED to
+`origin` (`collisionengineers/cedocumentmapper_v2.0`)** — closing PR#45 Finding D (the ref is
+reproducible from the remote). Vendored + sibling classifier suites green; byte-mirror restored.
+
 **2026-07-08 (open-case-ref context for case_update routing — collisionspike TKT-043):**
 one file, `rules/email_classifier.py`, edited on the sibling first (branch
 `feat/tkt043-open-case-ref-context`, commit `b30e382`, tagged **`engine-v2.8`**) then

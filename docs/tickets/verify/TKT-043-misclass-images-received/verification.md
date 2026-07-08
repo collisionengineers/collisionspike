@@ -68,7 +68,13 @@ Two live prerequisites the verifier should confirm hold on the target case:
 
 ## Notes for the dispatcher
 - No new gate; no DDL (the `case_update`/`images_received` codes were already live per the
-  engine-v2.3 deploy-order note). Parser Function was NOT redeployed — for THIS sample the live
-  classifier still returns `receiving_work` (it isn't fed `open_case_ref_match`), and the orch's
-  `decideTriage`+`deriveAttachmentSignals` do the relabel; the vendored engine-v2.8 change is
-  offline-effective (eval) + a dormant/forward-compatible classifier input.
+  engine-v2.3 deploy-order note). The live relabel is `decideTriage`'s (the open-case lookup is
+  flow-side, ADR-0019), so the classifier's `open_case_ref_match` stays dormant/forward-compatible;
+  Stage A still returns `receiving_work` live and Stage B relabels + attaches.
+- **PR #45 review fix (2026-07-08):** the first pass had a BLOCKING bug — the orchestrator minted on
+  `classification.category`, so an `attach_case` email attached to the matched case AND minted a
+  DUPLICATE (violating "no new case is minted"). Fixed with an `attach_case` non-minting branch in
+  `intakeOrchestrator.ts`; the images-only fast-path was also made signature-aware (orch + parser,
+  Finding C). **orch + parser REDEPLOYED** (engine-v2.9; orch 67 fns). Acceptance "no new case is
+  minted" is now met in code + deployed; the remaining PENDING item is the behavioural live proof on a
+  real open-case-ref chaser (this section's "How to re-verify"). Full detail: `changes.md` PR#45 section.

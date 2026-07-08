@@ -10103,6 +10103,44 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
   if (triage.action === "drop_duplicate") {
     return { triaged: classification.category, subtype: classification.subtype, triage: triage.action };
   }
+  if (triage.action === "attach_case" && triage.targetCaseId) {
+    const caseId = triage.targetCaseId;
+    const caseVrm = (inbound.candidateVrm || classification.bodyVrm || "").trim();
+    yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
+      caseId,
+      inbound,
+      ...caseVrm ? { caseVrm } : {},
+      ...workProviderId ? { workProviderId } : {}
+    });
+    try {
+      yield ctx.df.callActivityWithRetry("extractImages", retry2, {
+        caseId,
+        messageId: inbound.messageId,
+        attachments: inbound.attachments,
+        ...caseVrm ? { caseVrm } : {},
+        ...workProviderId ? { workProviderId } : {}
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] image extraction failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
+      }
+    }
+    try {
+      yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, { caseId });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] archive failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
+      }
+    }
+    const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, { caseId });
+    return {
+      triaged: triage.finalCategory,
+      subtype: triage.finalSubtype,
+      attach: triage.action,
+      caseId,
+      status: status2.value
+    };
+  }
   if (shouldAttemptTriageAssist(classification)) {
     try {
       const env = inbound;
@@ -50115,9 +50153,10 @@ function _isImageEvidenceFilename(name) {
   return _IMAGE_EXTENSIONS.has(ext) || _IMAGE_EVIDENCE_HINT_RE.test(base);
 }
 function deliveredImagesOnly(attachmentKinds, filenames) {
-  if (attachmentKinds.length > 0 && attachmentKinds.every((kind) => kind === "image")) return true;
   const nonSignature = filenames.map((f) => (f ?? "").trim()).filter((f) => f && !_SIGNATURE_IMAGE_RE.test(f));
-  if (nonSignature.length === 0 || nonSignature.some(_isReportFilename)) return false;
+  if (nonSignature.length === 0) return false;
+  if (nonSignature.some(_isReportFilename)) return false;
+  if (attachmentKinds.length > 0 && attachmentKinds.every((kind) => kind === "image")) return true;
   return nonSignature.every(_isImageEvidenceFilename);
 }
 function deriveAttachmentSignals(inbound) {

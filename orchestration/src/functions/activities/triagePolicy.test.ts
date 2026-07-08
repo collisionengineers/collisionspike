@@ -154,4 +154,26 @@ describe('deriveAttachmentSignals', () => {
     );
     expect(out.imagesOnly).toBe(false);
   });
+
+  it('a signature logo ONLY (image001.png) -> imagesOnly false (PR#45: the all-image KIND fast-path must not fire on signatures)', () => {
+    const out = deriveAttachmentSignals(
+      envelope({
+        attachments: [{ filename: 'image001.png', contentType: 'image/png', blobPath: 'a', size: 10 }],
+      }),
+    );
+    expect(out.attachmentKinds).toEqual(['image']); // kind IS image — but it is a signature
+    expect(out.imagesOnly).toBe(false);
+  });
+
+  it('a real photo alongside a signature logo -> imagesOnly true (the non-signature photo is genuine evidence)', () => {
+    const out = deriveAttachmentSignals(
+      envelope({
+        attachments: [
+          { filename: 'damage-front.jpg', contentType: 'image/jpeg', blobPath: 'a', size: 20 },
+          { filename: 'image001.png', contentType: 'image/png', blobPath: 'b', size: 10 },
+        ],
+      }),
+    );
+    expect(out.imagesOnly).toBe(true);
+  });
 });
