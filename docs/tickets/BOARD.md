@@ -138,10 +138,12 @@
 
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-068](./now/TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) | Attach files in the assistant and add them to a case (user-confirmed upload) | P2 (plan 2026-07-06 §3): drawer attach + confirmation card + new staff-role `POST /api/cases/{id}/evidence/upload`; the model stays read-only (TKT-060 invariant). |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
@@ -230,7 +232,6 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-068](./next/TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) | Attach files in the assistant and add them to a case (user-confirmed upload) | P2 (plan 2026-07-06 §3): drawer attach + confirmation card + new staff-role `POST /api/cases/{id}/evidence/upload`; the model stays read-only (TKT-060 invariant). |
 
 ## Backlog — not started
 
