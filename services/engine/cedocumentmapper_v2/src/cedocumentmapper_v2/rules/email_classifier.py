@@ -77,6 +77,22 @@ Request fields (all optional; missing ones are treated as empty/absent):
     has_attachments       bool
     in_reply_to           the RFC-5322 In-Reply-To header, if the caller passes it
     references            the RFC-5322 References header, if the caller passes it
+    open_case_ref_match   one | none | ambiguous  (the flow's OPEN-CASE match result —
+                          did the email's named Case/PO / job ref hit an already-open
+                          Case?). Like ``provider_match_state`` this is a FLOW-RESOLVED
+                          context signal the classifier is TOLD, never a lookup it makes
+                          itself (the open-Case query stays on the flow side, per
+                          ADR-0019). Default absent = ``none`` = "not matched / not
+                          resolved". When it is ``one``/``ambiguous`` — the ref names an
+                          OPEN case — a work-shaped delivery on that ref is an UPDATE to
+                          the existing case, not fresh work, so the fresh-work promotion
+                          (Rules 1-3) is suppressed and it routes into the case_update
+                          lane (TKT-043). The definitive open-case ACTION (attach /
+                          suggest) is still the context-aware triage-policy layer's
+                          (@cs/domain ``decideTriage``); this input lets the classifier
+                          PROPOSE the same label when the flow has already resolved the
+                          match (the eval harness feeds it exactly as it feeds
+                          ``provider_match_state``).
 
 Response (a plain dict, JSON-serialisable):
 
@@ -316,23 +332,56 @@ _IMAGE_EVIDENCE_HINT_RE = re.compile(
 )
 
 
+def _is_image_evidence_file(fn: Any) -> bool:
+    """True when ONE attachment filename looks like GENUINE image evidence — a damage
+    photo, as opposed to an inline signature/logo or an engineer's REPORT. A real image
+    extension (not the ``imageNNN.ext`` inline-signature pattern), or a filename that
+    literally advertises images ("VD IMAGES pdf.pdf", "images - cvd.pdf"), counts; a
+    signature logo or a report never does. The single-file predicate behind both
+    :func:`_has_new_image_evidence` (ANY) and :func:`_delivered_images_only` (ALL)."""
+    base = str(fn).strip()
+    if not base or _SIGNATURE_IMAGE_RE.match(base) or _has_report_attachment([base]):
+        return False
+    ext = base.rsplit(".", 1)[-1].lower() if "." in base else ""
+    return ext in _IMAGE_EXTENSIONS or bool(_IMAGE_EVIDENCE_HINT_RE.search(base))
+
+
 def _has_new_image_evidence(filenames: Any) -> bool:
-    """True when at least one attachment looks like GENUINE new image evidence — a
-    damage photo delivered on a reply, as opposed to an inline signature/logo. A
-    filename matching the ``imageNNN.ext`` inline-signature pattern never counts; an
-    engineer's REPORT never counts (it is existing-work, handled by the report rules);
-    a real image extension (not the signature pattern), or a filename that literally
-    advertises images ("VD IMAGES pdf.pdf"), does."""
-    for fn in filenames or []:
-        base = str(fn).strip()
-        if not base or _SIGNATURE_IMAGE_RE.match(base) or _has_report_attachment([base]):
-            continue
-        ext = base.rsplit(".", 1)[-1].lower() if "." in base else ""
-        if ext in _IMAGE_EXTENSIONS:
-            return True
-        if _IMAGE_EVIDENCE_HINT_RE.search(base):
-            return True
-    return False
+    """True when AT LEAST ONE attachment looks like GENUINE new image evidence — a
+    damage photo delivered on a reply, as opposed to an inline signature/logo. Gate for
+    promoting an image-delivering REPLY to case_update (Rule 4a2)."""
+    return any(_is_image_evidence_file(fn) for fn in (filenames or []))
+
+
+def _delivered_images_only(kinds: Any, filenames: Any) -> bool:
+    """True when the NEW EVIDENCE delivered is photos and NOTHING else — the
+    images_received-vs-update_general discriminator for the case_update rules (4a2/4d).
+
+    Two ways in, so a photos-in-a-PDF is not mislabelled by the extension-derived kind:
+      * by KIND — every attachment is an image kind (a set of real .jpg/.png photos); or
+      * by FILENAME — every non-signature attachment is image evidence (an image
+        extension OR a filename that advertises images, e.g. "images - cvd.pdf"), with
+        NO engineer's report among them. The extension-derived attachment kind reads a
+        photos PDF as ``instruction`` (P1-5's known filename-vs-content gap, TKT-047), so
+        a chaser that delivers its damage photos AS a single "images ….pdf" would
+        otherwise fall to ``update_general`` — the filename tier catches it (TKT-043).
+
+    A report attachment ("…Engineers Report.pdf") is existing-work, never delivered
+    evidence, so its presence disqualifies the images-only reading (mirrors Rule 4c /
+    ``_has_new_image_evidence``'s own report exclusion). Kept in lockstep with the
+    orchestrator's ``deriveAttachmentSignals`` imagesOnly so Stage A (this module) and
+    Stage B (the triage-policy activity) never disagree about what an attachment IS."""
+    kind_set = {str(k).strip().lower() for k in (kinds or []) if str(k).strip()}
+    if kind_set and kind_set.issubset(_IMAGE_KINDS):
+        return True
+    non_signature = [
+        str(fn).strip()
+        for fn in (filenames or [])
+        if str(fn).strip() and not _SIGNATURE_IMAGE_RE.match(str(fn).strip())
+    ]
+    if not non_signature or _has_report_attachment(non_signature):
+        return False
+    return all(_is_image_evidence_file(fn) for fn in non_signature)
 
 
 # --- Bare-acknowledgement detector (collisionspike TKT-038, extended TKT-081) - #
@@ -720,6 +769,7 @@ def classify_email(
     in_reply_to: Any = "",
     references: Any = "",
     attachment_filenames: Any = None,
+    open_case_ref_match: Any = "",
 ) -> dict[str, Any]:
     """Classify one inbound email into the triage taxonomy. PURE — no I/O.
 
@@ -793,6 +843,13 @@ def classify_email(
     body_s = _normalise(body)
     domain_s = _normalise(sender_domain).strip().lower()
     state = _normalise(provider_match_state).strip().lower()
+    # The flow's OPEN-CASE match result (TKT-043) — a resolved context signal, exactly
+    # like ``provider_match_state``; the classifier is TOLD, it never looks a Case up
+    # (the open-Case query stays on the flow side, per ADR-0019). ``one``/``ambiguous`` =
+    # the named ref hit an OPEN case, so a work-shaped delivery on it is an update, not
+    # fresh work. Default absent = ``none`` = "not matched / not resolved".
+    open_case_state = _normalise(open_case_ref_match).strip().lower()
+    open_case_match = open_case_state in {PROVIDER_ONE, PROVIDER_AMBIGUOUS}
     kinds = {str(k).strip().lower() for k in (attachment_kinds or []) if str(k).strip()}
     filenames = [str(f) for f in (attachment_filenames or []) if str(f).strip()]
     has_atts = bool(has_attachments) or bool(kinds)
@@ -896,6 +953,8 @@ def classify_email(
         signals.append("digest_multiple_refs:" + ",".join(sorted(distinct_caserefs)))
     if state in {PROVIDER_ONE, PROVIDER_NONE, PROVIDER_AMBIGUOUS}:
         signals.append(f"provider_match_state:{state}")
+    if open_case_state in {PROVIDER_ONE, PROVIDER_NONE, PROVIDER_AMBIGUOUS}:
+        signals.append(f"open_case_ref_match:{open_case_state}")
     if kinds:
         signals.append("attachment_kinds:" + ",".join(sorted(kinds)))
 
@@ -959,6 +1018,19 @@ def classify_email(
         # attached") is delivering a document onto an existing matter, not instructing new
         # work — the inherited subject's work cue must not promote it.
         or (is_forward and not new_work_phrases)
+        # TKT-043: the flow resolved the email's named ref to an ALREADY-OPEN case
+        # (``open_case_ref_match`` one/ambiguous). A work-shaped delivery on an open case
+        # is an UPDATE to it, not fresh work — suppress the fresh-work promotion (Rules
+        # 1-3) so it routes into the case_update lane (Rule 4a2/4d). Requires an existing
+        # ref + NEW (non-report) evidence, so a bare acknowledgement or a report coming
+        # back on an open case is untouched. This only PROPOSES the matching label; the
+        # open-case ACTION (attach vs suggest, ambiguity handling) is still the
+        # context-aware triage-policy layer's call (@cs/domain ``decideTriage``).
+        or (
+            open_case_match
+            and has_existing_ref
+            and ((has_atts and not has_report_attachment) or has_images)
+        )
     )
 
     # --- Rule 0: an auto-reply / bounce marker forces ``other`` -----------------
@@ -1210,7 +1282,7 @@ def classify_email(
         and not _is_bare_acknowledgement(sender_text)
         and (has_existing_ref or body_vrm)
     ):
-        images_only = bool(kinds) and kinds.issubset(_IMAGE_KINDS)
+        images_only = _delivered_images_only(kinds, filenames)
         reply_update_subtype = (
             SUBTYPE_IMAGES_RECEIVED if images_only else SUBTYPE_UPDATE_GENERAL
         )
@@ -1294,7 +1366,7 @@ def classify_email(
         and not query_phrases
         and not is_bare_ack_reply
     ):
-        images_only = bool(kinds) and kinds.issubset(_IMAGE_KINDS)
+        images_only = _delivered_images_only(kinds, filenames)
         case_update_subtype = SUBTYPE_IMAGES_RECEIVED if images_only else SUBTYPE_UPDATE_GENERAL
         case_update_confidence = _CONFIDENCE_GOOD if body_caseref else _CONFIDENCE_WEAK
         return _result(

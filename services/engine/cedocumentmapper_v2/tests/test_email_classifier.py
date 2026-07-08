@@ -424,3 +424,54 @@ def test_case_update_is_a_text_level_proposal_only_never_auto_links():
         "contract_version",
         "taxonomy_version",
     }
+
+
+# --------------------------------------------------------------------------- #
+# open_case_ref_match context input (collisionspike TKT-043)                   #
+# --------------------------------------------------------------------------- #
+# A work-shaped chaser that DELIVERS evidence on a ref the flow has resolved to an
+# ALREADY-OPEN case is a case UPDATE, not fresh work — but the pure text is genuinely
+# work-shaped ("Engineers report is required on the following case: ...<PO>...", an
+# instruction-kind PDF), so ONLY the flow's open-case match can tell them apart. The
+# ``open_case_ref_match`` input carries that resolved context, exactly like
+# ``provider_match_state`` (the classifier is told, never looks a Case up).
+def _tkt043_chaser(**over):
+    kw = dict(
+        subject="RE: Ref:160404/GN14GBE/Nissan Qashqai Tekna - Chaser for engineers report",
+        body=(
+            "Engineers report is required on the following case:\n\n160404\n\n"
+            "Un-Roadworthy\nGN14GBE\n"
+        ),
+        provider_match_state="one",
+        attachment_kinds=["instruction"],
+        attachment_filenames=["images - cvd.pdf"],
+        has_attachments=True,
+    )
+    kw.update(over)
+    return classify_email(**kw)
+
+
+def test_tkt043_open_case_ref_match_routes_images_pdf_to_case_update():
+    """TKT-043: with the flow's open-case match resolved (``one``), a work-shaped chaser
+    that delivers a photos-in-a-PDF ("images - cvd.pdf") on an OPEN case is
+    case_update/images_received — the filename tier of _delivered_images_only sees the
+    photos PDF the extension-derived kind reads as 'instruction'."""
+    result = _tkt043_chaser(open_case_ref_match="one")
+    assert result["category"] == "case_update", result["signals"]
+    assert result["subtype"] == "images_received"
+    assert "open_case_ref_match:one" in result["signals"]
+
+
+def test_tkt043_default_stays_fresh_work_when_no_open_case_signal():
+    """Kill-switch: absent/``none`` open_case_ref_match leaves the label EXACTLY as today
+    (the text is genuinely work-shaped) — the flip is driven only by the resolved
+    open-case context, never a hard-coded per-sample pass."""
+    assert _tkt043_chaser()["category"] == "receiving_work"
+    assert _tkt043_chaser(open_case_ref_match="none")["category"] == "receiving_work"
+
+
+def test_tkt043_open_case_ref_match_ambiguous_also_suppresses_fresh_work():
+    """An ambiguous open-case match (the ref hit >1 open case) still means "belongs to an
+    existing case, not fresh work" — suppressed into the case_update lane; the ACTION
+    (which case) is the triage-policy layer's call, never the classifier's."""
+    assert _tkt043_chaser(open_case_ref_match="ambiguous")["category"] == "case_update"
