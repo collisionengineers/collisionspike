@@ -72,3 +72,24 @@ Live (deferred, operator-gated): once `AI_ASSIST_ENABLED` + `AI_MODEL_ENDPOINT`/
 are set on `cespk-api-dev` (post DPIA/G5 sign-off, docs/gated.md §F / §D6), POST the generate route
 for a repo/sample case and confirm `ai_suggestion` rows appear with a `gpt-5:*` model_version and
 `review_state = 'pending'`, and that nothing on the case/evidence changed until a human accepts.
+
+## GO-LIVE — 2026-07-08 (operator-authorized; gate flipped, deploy done)
+
+Status: **LIVE-DEPLOYED + GATE ON**; behavioral E2E = one operator/SPA action away (stays `verify`).
+
+Operator authorized go-live with the **DPIA + UK data-residency sign-off confirmed 2026-07-08**
+([data-protection.md §6a](../../../architecture/data-protection.md#6a-per-gate-production-sign-off--log)).
+Executed (azure-integration-engineer dispatch):
+- **`AI_ASSIST_ENABLED=true`** on `cespk-api-dev` — **readback-proven**; model endpoint/deployment present
+  (`gpt-5`, keyless MI).
+- **Deployed** from `main a06d2dc` — api **86** functions; `generateAiSuggestions` / `caseAiSuggestions` /
+  `reviewAiSuggestion` / `getAiAssistGate` live.
+- **Fail-closed proven live:** `POST /api/cases/{id}/ai-suggestions/generate` → **401** without a staff token.
+  App Insights shows a **staff SPA session hitting `caseAiSuggestions` → 200** (the auth path reaches the route
+  end-to-end with a real token).
+- **DEFERRED (not fabricated):** the behavioral `{generated:N}` + pending `ai_suggestion` rows from a real
+  gpt-5 call — `az` can't mint an API-audience staff token (AADSTS65001). Closable via the CaseDetail
+  **AiAssistPanel → Generate** action on the deployed SPA (operator/staff session).
+- **Provisional:** subscription still FreeTrial (PAYG/A1). Capacity: gpt-5 shared 50K-TPM (watch 429).
+
+Registry updated: `LIVE_FACTS.json` (gate + `lastVerified`) + [live-environment.md](../../../architecture/live-environment.md).

@@ -827,13 +827,23 @@ and gates; it does not flip a live gate or create an app-registration.
    registry (bump `lastVerified`). Autonomous agent **writes** are a separate, later rung (ADR-0023 Phase
    3b) — not shipped.
 
-**Deliberately deferred (do not flip / not built):** the vision family (TKT-016/017/018) + the real
-`callModelForSuggestions` model call (TKT-015) — each gated behind capacity + **image-egress data
-residency** + DPIA; and the **image-writer reconcile** (TKT-112) which is blocked on your TKT-088 decision
-(keep the live auto-classifier writing, or suggestion-gate it — never both). AI-driven byte upload is not
-built by design (TKT-068: bytes come only from a human file-picker).
+**✅ Vision family — FLIPPED LIVE 2026-07-08 (was "deliberately deferred"):** on your instruction and with
+your **DPIA + UK data-residency sign-off confirmed 2026-07-08** (recorded in
+[data-protection.md §6a](./architecture/data-protection.md#6a-per-gate-production-sign-off--log)),
+**`AI_ASSIST_ENABLED`** (TKT-015 `callModelForSuggestions` case/damage consumer) and **`IMAGE_ANALYSIS_ENABLED`**
+(TKT-016 producer, item 7 below) are now **`true` on `cespk-api-dev`**; TKT-017 (reg-OCR benchmark) is **done**;
+**TKT-068** attach UX is **deployed live** (SPA; human-confirmed — the model still gets no upload tool). Both
+model gates are **suggestion-only** (no autonomous mutation). **Still open:** the **behavioral E2E proof** is
+one operator/SPA Generate/attach action away (`az` can't mint an API-audience staff token); **TKT-018** total-loss
+(P3) is backlog; the **image-writer reconcile (TKT-112)** stays **blocked on your TKT-088 decision** (keep the
+live auto-classifier writing, or suggestion-gate it — never both — TKT-016 is additive so it does not force
+this yet); and **PAYG (A1)** is still outstanding, so the live state is **provisional**. AI-driven byte upload
+into the assistant remains **not built by design** (TKT-068: bytes come only from a human file-picker).
 
-7. **`IMAGE_ANALYSIS_ENABLED`** (TKT-016 — the staged image-analysis suggestion producer) — **built dark**
+7. **`IMAGE_ANALYSIS_ENABLED`** (TKT-016 — the staged image-analysis suggestion producer) — ✅ **APPLIED +
+   FLIPPED LIVE 2026-07-08** (DDL delta applied via `SET ROLE csadmin`; gate `true` on `cespk-api-dev`,
+   readback-proven; deploy healthy). The item below is retained as the rationale/record.
+   Was **built dark**
    (`POST /api/cases/{id}/image-analysis/generate`), default-off, additive & observation-only (every output
    is a pending `ai_suggestion`; it never writes an evidence/case column — reconciliation with the live
    TKT-064 classifier is the TKT-088/112 decision above). **Image-egress data-residency line-item (the DPIA

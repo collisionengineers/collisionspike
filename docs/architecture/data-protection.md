@@ -157,6 +157,16 @@ plates) — see [gpt4o-reasoning-escalation.md §7](../plans/phase-4-address-and
 **No new persistent PII store** is created by AI: Box already holds the photo bytes (one-way mirror);
 AI reads them transiently.
 
+### 6a. Per-gate production sign-off — LOG
+
+| Date | Gate(s) | Sign-off | Notes / residual risk |
+|---|---|---|---|
+| **2026-07-08** | **`AI_ASSIST_ENABLED`** (TKT-015 `ai_suggestion` generate/review + CaseDetail panel) · **`IMAGE_ANALYSIS_ENABLED`** (TKT-016 staged image-analysis producer) | **Operator (digital@collisionengineers.co.uk) confirmed the DPIA + UK data-residency sign-off and authorised the production flip**, recorded via the `/ticket-orchestrate` go-live. Both flipped `true` on `cespk-api-dev` same day. | Precondition 1 (PII pre-scrub): met for the **text** path (`scrubPii` before the AOAI call); the **image** path sends vehicle photos + plates that bypass `scrubPii` (precision-over-recall, text-only) — this is the highest-sensitivity flow and is **within the operator's sign-off**. Precondition 2 (residency): the model is **`gpt-5` GlobalStandard** — inference may process **outside the UK** (at-rest stays uksouth; no UK data zone exists) — the operator **accepted this residency posture**. Precondition 3 (per-gate sign-off): satisfied by this attestation. **Suggestion-only** — no autonomous mutation; a human accepts every promotion. **[TO FILE]** the formal DPIA document reference for this attestation. |
+
+> **Standing note:** the formal DPIA **document** itself is still tracked as [DEFERRED — PENDING LEGAL] in
+> [§7](#7-dpia--ico-registration-operatorlegal); §6a records the operator's **per-gate production
+> attestation** that authorised these two flips. The operator should file the DPIA document reference above.
+
 ---
 
 ## 7. DPIA & ICO registration (operator/legal)
@@ -273,4 +283,4 @@ operator/legal call — **[RESERVED-FOR-USER]**.
 - **[DEFERRED — PENDING LEGAL]** — **DPIA sign-off** ([§7](#7-dpia--ico-registration-operatorlegal)).
 - **[DEFERRED — PENDING LEGAL]** — **EVA/Minotaur** processor-vs-independent-controller determination ([§2](#2-controller--processor-map)).
 - **[DEFERRED — PENDING LEGAL]** — special-category treatment of **incidental people/reflections** in photos ([§1](#1-what-personal-data-the-pipeline-holds)).
-- **[DEFERRED]** (production; testing authorised now) — **per-AI-gate** data-protection sign-off ([§6](#6-ai-data-protection)).
+- **[PARTIAL]** — **per-AI-gate** data-protection sign-off ([§6](#6-ai-data-protection)): `EMAIL_AI_ENABLED` (2026-07-03), **`AI_ASSIST_ENABLED` + `IMAGE_ANALYSIS_ENABLED` (operator sign-off 2026-07-08 — see [§6a](#6a-per-gate-production-sign-off--log))** are SIGNED; the formal DPIA **document** reference for the 2026-07-08 attestation is **[TO FILE]**; remaining gates (Box-AI, valuation, write-tier) still **[DEFERRED]** (testing authorised now).

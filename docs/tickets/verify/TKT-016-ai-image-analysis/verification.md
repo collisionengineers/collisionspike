@@ -55,3 +55,23 @@ match the committed transcript exactly.
 - With the gate on + DDL applied: `POST /api/cases/{id}/image-analysis/generate` on a case with images →
   `{ generated: N }`; `SELECT suggestion_type, review_state FROM ai_suggestion WHERE case_id=$1` shows the
   staged kinds all `pending`; the `image_analysis_generated` (100000052) run audit row is present.
+
+## GO-LIVE — 2026-07-08 (operator-authorized; gate flipped, deploy done)
+
+Status: **LIVE-DEPLOYED + GATE ON**; behavioral E2E = one operator/SPA action away (stays `verify`).
+
+The operator authorized go-live with the **DPIA + UK data-residency sign-off confirmed 2026-07-08**
+([data-protection.md §6a](../../../architecture/data-protection.md#6a-per-gate-production-sign-off--log)).
+Executed (azure-integration-engineer dispatch):
+- **DDL delta applied live** — `2026-07-08-image-analysis-suggestion-types.sql` (Entra-admin + `SET ROLE csadmin`);
+  `choice_audit_action` `100000052 image_analysis_generated` inserted; base tables **46** unchanged.
+- **`IMAGE_ANALYSIS_ENABLED=true`** on `cespk-api-dev` — **readback-proven**; `cespk-orch-dev` unchanged
+  (only the Data API reads it).
+- **Deployed** from `main a06d2dc` — api **86** functions live; `generateImageAnalysis` present in the function list.
+- **Fail-closed proven live:** `POST /api/cases/{id}/image-analysis/generate` → **401** without a staff token.
+- **DEFERRED (not fabricated):** the behavioral `{generated:N}` + pending `ai_suggestion` rows — `az` can't mint
+  an API-audience staff token (AADSTS65001), and there is no SPA trigger for image-analysis yet (the reviewer
+  surface is a follow-on). Close it via an authenticated call once a staff token/SPA trigger exists.
+- **Provisional:** subscription still FreeTrial (PAYG/A1 outstanding). Capacity: gpt-5 shared 50K-TPM (watch 429).
+
+Registry updated: `LIVE_FACTS.json` (gate + `lastVerified`) + [live-environment.md](../../../architecture/live-environment.md).

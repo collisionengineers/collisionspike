@@ -88,3 +88,23 @@ exercised (build + full test suite + isolated attach-validate run + both ticket 
 design this pass): the deployed SPA and live API — the slice is BUILD-DARK, no deploy recorded. Live blob
 landing, the Postgres row inserts, and the Evidence-tab render remain the only unproven surfaces, all gated
 on the operator deploy.
+
+## GO-LIVE — 2026-07-08 (deployed; one behavioral E2E class now captured)
+
+Status: **LIVE-DEPLOYED**; the attach UX is live on the SPA. Behavioral upload E2E = one operator/SPA action
+away (stays `verify`).
+
+Executed (azure-integration-engineer dispatch): the SPA (`cespk-spa-dev`) was **deployed from `main a06d2dc`**
+(200 + CSP; new bundle serving) and the Data API redeployed (86 functions incl. `uploadCaseEvidence` /
+`evidenceContent`), so the attach UX is **live**. Progress against this ticket's 5-class Verification
+requirements:
+- **✅ Class 4 (negative live probe) — CAPTURED:** live `POST /api/cases/{id}/evidence/upload` **without a
+  token → 401** (route deployed + fail-closed).
+- **✅ Class 5 (invariant audit at the deployed commit):** `uploadCaseEvidence` is a staff route; the assistant
+  `TOOLS` set carries no upload tool (`git show --stat 3f011fb -- api/` empty at the deployed commit `a06d2dc`).
+- **DEFERRED (not fabricated) — classes 1–3:** the attach→confirm→upload chain, the Postgres `evidence` +
+  `evidence_added` rows, and the Evidence-tab render need a **signed-in SPA session** driving a real upload —
+  not self-drivable here (no mintable staff token; processing a real file is the operator's action). Close by
+  attaching a file in the deployed SPA assistant, confirming the card, and capturing the API response + the
+  `evidence`/`evidence_added` rows + the Evidence-tab render.
+- **Provisional:** subscription still FreeTrial (PAYG/A1 outstanding).
