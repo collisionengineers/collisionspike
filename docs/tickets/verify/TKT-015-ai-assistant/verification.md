@@ -1,7 +1,14 @@
 # Verification — TKT-015: AI suggestion layer (observation-first, gated)
 
+Verified by: ticket-verifier dispatch, 08-07-26
+
 ## Verdict
-CODE DEPLOYED, GATED OFF (2026-07-02) — one lane (email triage) wired to a real model; not yet a live-acting feature
+TESTED (offline), GATED OFF — the two model lanes are now BOTH wired: the live email-triage lane
+(2026-07-02, `EMAIL_AI_ENABLED` since flipped true on `cespk-orch-dev`) and, as of 2026-07-08, the generic
+`callModelForSuggestions` (case/damage-assessment consumer) behind default-off `AI_ASSIST_ENABLED`. The
+generic path is offline-proven (verifier ran the 18 + 269 tests green) but never run live — its
+`AI_ASSIST_ENABLED` production flip is DPIA/capacity/residency-gated. Ticket **stays in `verify`** for that
+deferred live tail. (Historical detail on the email-triage lane is preserved below.)
 
 ## Evidence
 - Commit `eaa809e` provided the coherent, correctly gated-OFF `ai_suggestion` foundation.
@@ -12,9 +19,10 @@ CODE DEPLOYED, GATED OFF (2026-07-02) — one lane (email triage) wired to a rea
   test against `gpt-5` (`scripts/eval-email/run_ab.py`) returned 0 abstains, all strict-JSON-valid,
   2026-07-02 — this is real, working inference, run under the pre-authorised "AI testing on repo data"
   allowance (G5), not merely code that compiles.
-- `EMAIL_AI_ENABLED` and `AI_ASSIST_ENABLED` are both **absent** from live app settings (confirmed via the
-  registry), so none of the above runs against live inbound email today — deploying the code did not flip
-  the gate.
+- (At the time of writing, 2026-07-02) `EMAIL_AI_ENABLED` and `AI_ASSIST_ENABLED` were both absent from live
+  app settings. **Registry update (08-07-26, verifier-observed):** `EMAIL_AI_ENABLED` is now **`true`** on
+  `cespk-orch-dev` (the email-triage lane is live-acting); `AI_ASSIST_ENABLED` (the suggestion-layer /
+  generic-generate + CaseDetail panel gate) remains **absent** (dark). The two gates are distinct.
 
 ## Pending / gaps
 - 🔒 `EMAIL_AI_ENABLED` production flip — needs the **G5 per-AI-gate sign-off**
@@ -23,9 +31,10 @@ CODE DEPLOYED, GATED OFF (2026-07-02) — one lane (email triage) wired to a rea
 - 🔒 Foundry local-auth (keyless) flip — separate operator confirmation, not required to flip
   `EMAIL_AI_ENABLED` itself ([docs/gated.md](../../../gated.md) §D6 item 5).
 - No live probe yet against a genuine live inbound email (the gate has never been on in production).
-- The **case/damage-assessment and image/reg-OCR** consumers (TKT-016/017/018) and the generic
-  `POST /api/cases/{id}/ai-suggestions/generate` path remain unbuilt / unwired — this pass wired only the
-  email-triage lane.
+- (Superseded 08-07-26) The **case/damage-assessment** consumer (generic
+  `POST /api/cases/{id}/ai-suggestions/generate`) is now WIRED DARK — see the 2026-07-08 section below.
+  The **image/reg-OCR** consumers are TKT-016 (image-analysis producer, →verify) and TKT-017 (reg-OCR
+  benchmark, done); TKT-018 (total-loss, P3) remains backlog.
 
 ## How to re-verify
 - Confirm the gate state and model deployment in the live registry: ../../architecture/live-environment.md.
@@ -34,9 +43,9 @@ CODE DEPLOYED, GATED OFF (2026-07-02) — one lane (email triage) wired to a rea
   `GET /api/inbound/{id}/suggestions`, and that accepting it (not the model itself) is what changes
   `category_code`/`subtype_code` — i.e. it remains suggestion-only, never an autonomous mutation.
 
-## Pending — 2026-07-08: generic generate route model call wired (case/damage-assessment consumer)
+## 2026-07-08: generic generate route model call wired (case/damage-assessment consumer) — TESTED (offline), verifier-confirmed
 
-Status: **PENDING (offline-proven, build-dark; not live)**. The one remaining gap — the dormant
+Status: **TESTED (offline), build-dark; not live** (verifier ran the suites below green, 08-07-26). The one remaining gap — the dormant
 `callModelForSuggestions` stub — is now a real keyless AOAI structured-output call
 (`api/src/lib/aoai-suggestions.ts`; `api/src/functions/ai-suggestions.ts`). It stays a permanent live
 no-op because `AI_ASSIST_ENABLED` is still absent from app-settings (route front-gates on it) — no

@@ -1,8 +1,22 @@
 # Verification — TKT-016: Image-analysis VLM sequence (vehicle / reg / location)
 
+Verified by: ticket-verifier dispatch, 08-07-26
+
 ## Verdict
-PENDING — code-complete and OFFLINE-PROVEN (G5 repo-data); live verification DEFERRED to the operator
-flip (gate + DDL apply + a live model call). Nothing was flipped/applied/deployed (build-dark).
+TESTED (offline) — the offline acceptance holds and reproduces cleanly (10/10 unit suite ran green in the
+verifier's own run; the cardinal non-collision invariant confirmed); live model-path proof + the DPIA-gated
+`IMAGE_ANALYSIS_ENABLED` flip remain DEFERRED, so the ticket **stays in `verify`**. Nothing was
+flipped/applied/deployed (build-dark).
+
+**Verifier confirmation (08-07-26):** ran `npm --prefix api test -- image-analysis` → 10 passed; the
+non-collision grep across `image-analysis.ts` + `image-analysis*.ts` shows the ONLY table write is
+`INSERT INTO ai_suggestion` (every `image_role_code`/`registration_visible` hit is a `SELECT`/comment/
+prompt/parse, never a column write); `git show --stat 0dbe31f` confirms `orchestration/src/lib/image-classify.ts`
+(the live TKT-064 auto-writer) and `api/src/functions/ai-suggestions.ts` (`promoteAcceptedSuggestion`) are
+absent from the diff. `IMAGE_ANALYSIS_ENABLED` is default-off and absent from `LIVE_FACTS.json` (dark). The
+one item the verifier could not run standalone — `evidence/run-transcript.mjs` (it node-imports the domain
+`dist` ESM, a general repo build property) — is fully subsumed by the passing 10-test suite, whose figures
+match the committed transcript exactly.
 
 ## Evidence (offline)
 - **Unit suite** `api/src/lib/image-analysis.test.ts` — 10/10 green:

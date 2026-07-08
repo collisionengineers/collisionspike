@@ -393,7 +393,8 @@ app.http('generateAiSuggestions', {
         .join('\n');
       const scrubbed = scrubPii(rawText, { redactVrm: false });
 
-      // Call the model + persist suggestions. Dormant today (no deployment) -> 0 drafts.
+      // Call the model + persist suggestions. Wired to gpt-5 (keyless MI) — reached only when
+      // AI_ASSIST_ENABLED is on AND the model is configured (the front-gate above guards this).
       const drafts = await callModelForSuggestions({
         caseId,
         vrm: typeof ctx[0].vrm === 'string' ? ctx[0].vrm : '',
