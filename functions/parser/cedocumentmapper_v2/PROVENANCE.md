@@ -29,6 +29,25 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-08 (open-case-ref context for case_update routing — collisionspike TKT-043):**
+one file, `rules/email_classifier.py`, edited on the sibling first (branch
+`feat/tkt043-open-case-ref-context`, commit `b30e382`, tagged **`engine-v2.8`**) then
+re-cut here (byte-mirror restored). Two additive, default-off changes: (1) a new
+`open_case_ref_match` (one|none|ambiguous) request field — a FLOW-RESOLVED context signal
+the classifier is told exactly like `provider_match_state` (the open-Case lookup stays on
+the flow side, ADR-0019). When it is one/ambiguous + an existing ref + new non-report
+evidence, the fresh-work promotion (Rules 1-3) is suppressed so a work-shaped delivery on a
+ref the flow has resolved to an OPEN case routes into the `case_update` lane instead of
+minting fresh work (TKT-043's "Engineers report is required on the following case … <PO>"
+chaser). Absent/none = today's behaviour EXACTLY (kill-switch: zero corpus movement without
+the signal). (2) `_delivered_images_only` gains a FILENAME tier (factored `_is_image_evidence_file`)
+so a photos-in-a-PDF ("images - cvd.pdf") the extension-derived kind reads as `instruction`
+is still `images_received`; an engineer's report / a non-image PDF (Audatex) is not
+(tkt093 stays `update_general`, a real-image reply stays `images_received`). NO new taxonomy
+codes (the `case_update`/`images_received` it emits were already live per the engine-v2.3
+deploy-order note above), so no DDL dependency for this cut. Vendored + sibling classifier
+suites green; the drift guard is a byte-mirror again.
+
 **2026-07-07 (acknowledgement/query/case_update batch — collisionspike TKT-081/082/083/093):**
 the email-classifier fixes for four live misclassification tickets were applied to
 THIS vendored copy first this pass, then **upstreamed verbatim to the sibling**
@@ -185,10 +204,14 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.7`** on branch
-  `sync/email-misclass-081-093`, commit **`ccfb473`** (2026-07-07) — the
-  acknowledgement/query/case_update batch (collisionspike TKT-081/082/083/093;
-  see History above), upstreamed from this vendored copy. Prior pins:
+- **Cut from:** annotated tag **`engine-v2.8`** on branch
+  `feat/tkt043-open-case-ref-context`, commit **`b30e382`** (2026-07-08) — the
+  `open_case_ref_match` context input + the `_delivered_images_only` filename tier
+  (collisionspike TKT-043; see History above). Only `rules/email_classifier.py` changed
+  vs `engine-v2.7`; every other shared file is unchanged. (Sibling branch/tag committed
+  locally — push before relying on it in CI.) Prior pins: **`engine-v2.7`** (commit
+  `ccfb473`, 2026-07-07, the acknowledgement/query/case_update batch — collisionspike
+  TKT-081/082/083/093, upstreamed from this vendored copy). Earlier pins:
   `engine-v2.6` (commit `f474ea0`, ADR-0021 case-type marker taxonomy + TKT-051
   work-provider guard), `engine-v2.5` (commit
   `af1737f5c1084a96b4c72d3a914d10290a23d2d7`, 2026-07-02, externalized triage

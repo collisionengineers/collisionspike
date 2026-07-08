@@ -1567,6 +1567,49 @@ def test_tkt093_forward_delivering_document_is_case_update_not_new_work():
 
 
 # --------------------------------------------------------------------------- #
+# open_case_ref_match context input (collisionspike TKT-043)                   #
+# --------------------------------------------------------------------------- #
+def _tkt043_chaser(**over):
+    """A work-shaped chaser DELIVERING a photos-PDF on a named case — the real
+    TKT-043 sample shape. The pure text is genuinely work-shaped ("Engineers report
+    is required on the following case: ...<PO>..." + an instruction-kind PDF), so only
+    the flow's open-case match can tell "update on an open case" from "fresh work"."""
+    kw = dict(
+        subject="RE: Ref:160404/GN14GBE/Nissan Qashqai Tekna - Chaser for engineers report",
+        body="Engineers report is required on the following case:\n\n160404\n\nUn-Roadworthy\nGN14GBE\n",
+        provider_match_state="one",
+        attachment_kinds=["instruction"],
+        attachment_filenames=["images - cvd.pdf"],
+        has_attachments=True,
+    )
+    kw.update(over)
+    return classify_email(**kw)
+
+
+def test_tkt043_open_case_ref_match_routes_images_pdf_to_case_update():
+    """TKT-043: with the flow's open-case match resolved (``one``), the chaser routes to
+    case_update/images_received — the FILENAME tier of _delivered_images_only catches the
+    photos-in-a-PDF the extension-derived kind reads as 'instruction'."""
+    result = _tkt043_chaser(open_case_ref_match="one")
+    assert result["category"] == "case_update", result["signals"]
+    assert result["subtype"] == "images_received"
+    assert "open_case_ref_match:one" in result["signals"]
+
+
+def test_tkt043_default_stays_fresh_work_without_open_case_signal():
+    """Kill-switch: absent/``none`` open_case_ref_match leaves the label EXACTLY as today —
+    the flip is driven only by the resolved open-case context, never a per-sample hard-code."""
+    assert _tkt043_chaser()["category"] == "receiving_work"
+    assert _tkt043_chaser(open_case_ref_match="none")["category"] == "receiving_work"
+
+
+def test_tkt043_open_case_ref_match_ambiguous_suppresses_fresh_work():
+    """An ambiguous open-case match still means "belongs to an existing case, not fresh
+    work" — routed into the case_update lane; the ACTION is the triage-policy layer's call."""
+    assert _tkt043_chaser(open_case_ref_match="ambiguous")["category"] == "case_update"
+
+
+# --------------------------------------------------------------------------- #
 # Golden ticket corpus — the real misclassified emails (collisionspike)       #
 # --------------------------------------------------------------------------- #
 # Each ticket's actual .eml under docs/tickets/<id>/**/ is run through the classifier

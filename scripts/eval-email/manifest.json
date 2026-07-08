@@ -469,7 +469,8 @@
       "source": "ticket:TKT-043",
       "tracked": true,
       "context": {
-        "provider_match_state": "one"
+        "provider_match_state": "one",
+        "open_case_ref_match": "one"
       },
       "expected_v1": {
         "category": "query",
@@ -479,7 +480,7 @@
         "category": "case_update",
         "subtype": "images_received"
       },
-      "rationale": "Auto Logistic Solutions (ALS) chaser for our engineer's report on a named existing case (labelled ref + vehicle reg in subject), carrying an images PDF. Same shape as the confirmed TKT-030/033 chaser pattern -- is_reply + reference -> query_existing_work. v2: this sample DOES resolve to a specific existing case (unlike TKT-034's genuinely-unmatched worst case), matching the plan's 'images-received, matched -> suggest-attach + Box' branch -- proposed as case_update/images_received."
+      "rationale": "Auto Logistic Solutions (ALS) chaser for our engineer's report on a named existing case (a labelled ref + vehicle reg in the subject), delivering its damage photos AS a single images-advertising PDF. The pure text is genuinely WORK-shaped -- the sender-written body states an engineer's report is required 'on the following case', names the ref, and attaches an instruction-kind PDF from a known provider -- so text ALONE cannot tell this from a fresh instruction (baseline: receiving_work/existing_provider_instruction). v2: what makes it a case_update is the FLOW-RESOLVED open-case match, carried by the context field open_case_ref_match=one exactly as provider_match_state carries the domain match (the classifier is told, never looks a Case up -- ADR-0019 keeps the open-Case lookup on the flow side). With that signal the fresh-work promotion is suppressed and it routes to case_update/images_received (the plan's Phase-2 precedence rule: open-case-ref + new evidence -> case_update). images_received (not update_general) because the delivered evidence is a photos PDF -- the filename tier of _delivered_images_only sees the photos the extension-derived kind reads as 'instruction'. The definitive attach/suggest ACTION is the @cs/domain triage-policy layer's call. Contrast tkt034-images-no-match (genuinely UNMATCHED -> stays query)."
     },
     {
       "id": "tkt050-ax-instruction",
@@ -801,9 +802,9 @@
       },
       "expected_v2": {
         "category": "case_update",
-        "subtype": "update_general"
+        "subtype": "images_received"
       },
-      "rationale": "A reply delivering vehicle-damage evidence as a PDF ('VD IMAGES pdf.pdf') alongside signature logos, on a solicitor ref; P1-4a keeps the RTA...001 ref whole (jobref, not a truncated Case/PO) and P1-5 routes it to case_update. update_general (not images_received) because the delivered evidence is a PDF, so the attachment set is not images-only."
+      "rationale": "A reply delivering vehicle-damage evidence as a PDF ('VD IMAGES pdf.pdf') alongside signature logos, on a solicitor ref; P1-4a keeps the RTA...001 ref whole (jobref, not a truncated Case/PO) and P1-5 routes it to case_update. images_received: the delivered evidence is a photos PDF -- the _delivered_images_only filename tier (TKT-043) recognises 'VD IMAGES pdf.pdf' as image evidence even though its extension-derived kind is 'instruction', so it lands images_received alongside the other image-delivery replies (the signature logos are excluded). (Untracked overlay item -- file locally absent, so not scored; label kept consistent with the engine's behaviour.)"
     },
     {
       "id": "sample-p1-4-parkhouse-new-instruction",

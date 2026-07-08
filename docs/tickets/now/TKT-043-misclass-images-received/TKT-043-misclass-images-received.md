@@ -46,3 +46,45 @@ as an update on an *existing* case, because that needs the ref-gate/context poli
 not text signals alone — and the ref-gate's acting path is gated off (`TRIAGE_REF_GATE_ENABLED`) pending
 D7. Not yet deployed live either way. The scope-to-confirm question in the Problem section above is still
 open — not resolved by this pass.
+
+## Scope resolved + Acceptance — 2026-07-08 (operator-confirmed scope (a); gates now live)
+
+**Scope confirmed (ticket-orchestrate batch, 2026-07-08):** this ticket is **(a) the
+images-on-an-existing-case routing failure** — the residue TKT-034 was narrowed to on 2026-07-07. It is
+**not** the thread-scope chaser arm (that stays TKT-030). The gate state has also moved on since the
+2026-07-02 note above: per [gated.md](../../../gated.md) §D7, the taxonomy DDL is **applied live** and the
+`TRIAGE_*` gates (`TRIAGE_IMAGES_ROUTING_ENABLED`, `TRIAGE_REF_GATE_ENABLED`) are `true` on
+`cespk-orch-dev` (verify against the [registry](../../../architecture/live-environment.md) /
+`LIVE_FACTS.json`). So the ref-gate acting path is **available** — the remaining work is the follow-up
+fix pass, not a gate flip.
+
+### Acceptance
+
+- [ ] The sample (`RE Ref160404_GN14GBE_… Chaser for engineers report.eml`, eval id
+  `tkt043-images-existing-case`, `provider_match_state: one`) routes as **`case_update` /
+  `images_received`** when its ref (`Ref 160404`) matches an **open** case — driven by the
+  ref-gate / context policy (open-case ref match + new image evidence → `case_update`, the plan's
+  Phase-2 precedence rule), **not** base text signals alone (which correctly see *work* but can't tell
+  the ref is an existing case). Proven offline: the eval item flips from its current
+  `receiving_work`/`existing_provider_instruction` miss to a hit (`category_correct: true`) under a
+  genuine open-case-ref context signal (mirroring the `provider_match_state` context convention — **not**
+  a hard-coded per-sample pass), and/or a deterministic `@cs/domain` triage-policy test asserts the relabel.
+- [ ] Side effect is **suggest-first attach to the existing case** — reuse the shipped `attach_case` /
+  `ai_suggestion` → reversible `inbound_linked` machinery (TKT-093); the images PDF attaches as evidence
+  + archives on the matched case. **No new case is minted** (belt-and-braces: `case_update` is a
+  non-minting category).
+- [ ] **No regression:** the full eval corpus stays green (`baseline-v2` regenerated + `--check` clean;
+  `receiving_work` recall holds ≈94%); `@cs/domain` + parser-classifier suites pass; `node verify-all.mjs`
+  stays green.
+- [ ] Deployed live to `cespk-orch-dev` under the **existing** `TRIAGE_REF_GATE_ENABLED` /
+  `TRIAGE_IMAGES_ROUTING_ENABLED` gates (no new gate). Live proof (verify-stage): a real open-case-ref
+  chaser lands `case_update`/`images_received` + a reversible link suggestion (queryable in
+  `ai_suggestion` / `audit_event`).
+- [ ] `changes.md` drafted per the ticket-implement template; the `.eml` sample already lives in the
+  ticket folder + eval corpus — record any new fixture/telemetry under `evidence/`.
+
+## Delivery / links
+
+- [Changes made](./changes.md)
+- [Verification](./verification.md) — PENDING (live proof for the ticket-verifier)
+- [Offline eval delta + proof](./evidence/offline-eval-delta.md)
