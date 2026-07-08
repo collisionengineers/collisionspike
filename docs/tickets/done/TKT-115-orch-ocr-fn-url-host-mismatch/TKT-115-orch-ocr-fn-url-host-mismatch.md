@@ -1,11 +1,11 @@
 ---
 id: TKT-115
 title: Fix orch OCR_FN_URL host — it points at azurewebsites.net but the OCR app is Functions-on-ACA (azurecontainerapps.io)
-status: verify
+status: done
 priority: P1
 area: platform
 tickets-it-relates-to: [TKT-064, TKT-089]
-research-link: docs/tickets/verify/TKT-115-orch-ocr-fn-url-host-mismatch/evidence/diagnosis-2026-07-08.md
+research-link: docs/tickets/done/TKT-115-orch-ocr-fn-url-host-mismatch/evidence/diagnosis-2026-07-08.md
 ---
 
 # Fix orch OCR_FN_URL host — wrong domain (azurewebsites.net) for a Functions-on-ACA app

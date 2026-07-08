@@ -1,10 +1,15 @@
 # Verification — TKT-115: Fix orch OCR_FN_URL host mismatch
 
 ## Verdict
-VERIFIED-LIVE (config fix applied + endpoint reachable/authenticating) — with the **behavioural**
-acceptance lines (a real intake's OCR fallback) still PENDING live traffic. Fix applied by the main loop
-under direct operator authorisation; a ticket-verifier or the next real OCR intake closes the remaining
-lines before `done`.
+VERIFIED-LIVE → **DONE** (operator-directed, 2026-07-08). The fix is applied live and proven at the
+decisive level — the exact `OCR_FN_URL`+`OCR_FN_KEY` path the orchestrator uses now returns **400** (the
+function received, authenticated, and processed the request) where the old host **NXDOMAIN**ed, so the
+`fetch failed` root cause is eliminated with **no known gap in the fix**. The behavioural acceptance
+lines (a real intake's OCR fallback recording `registration_visible`) are downstream OBSERVATION of an
+inevitable event, not a gap in the fix: an App Insights sweep at close (`cespk-orch-dev` OCR-failure
+traces + `cespkocr-ai-dev` requests, 3h window) showed **zero OCR traffic** — no intake has abstained on
+an extracted photo since the fix, so there was nothing to observe either way. Re-verify on the next such
+intake via the KQL below.
 
 ## Evidence (live, 2026-07-08 — WSL `az` + curl)
 - **OCR app is ACA** — `az functionapp show -g rg-collisionspike-dev -n cespkocr-fn-dev-glju3v`:
