@@ -371,16 +371,22 @@ def _delivered_images_only(kinds: Any, filenames: Any) -> bool:
     ``_has_new_image_evidence``'s own report exclusion). Kept in lockstep with the
     orchestrator's ``deriveAttachmentSignals`` imagesOnly so Stage A (this module) and
     Stage B (the triage-policy activity) never disagree about what an attachment IS."""
-    kind_set = {str(k).strip().lower() for k in (kinds or []) if str(k).strip()}
-    if kind_set and kind_set.issubset(_IMAGE_KINDS):
-        return True
+    # Drop signature/logo images (imageNNN.png) FIRST, then require ≥1 non-signature file
+    # BEFORE the all-image KIND fast-path — a set made only of signature images (whose kind is
+    # `image`) must not short-circuit to True (PR#45 / TKT-043 review; kept in lockstep with the
+    # orchestrator's deriveAttachmentSignals.deliveredImagesOnly).
     non_signature = [
         str(fn).strip()
         for fn in (filenames or [])
         if str(fn).strip() and not _SIGNATURE_IMAGE_RE.match(str(fn).strip())
     ]
-    if not non_signature or _has_report_attachment(non_signature):
+    if not non_signature:
         return False
+    if _has_report_attachment(non_signature):
+        return False
+    kind_set = {str(k).strip().lower() for k in (kinds or []) if str(k).strip()}
+    if kind_set and kind_set.issubset(_IMAGE_KINDS):
+        return True
     return all(_is_image_evidence_file(fn) for fn in non_signature)
 
 
