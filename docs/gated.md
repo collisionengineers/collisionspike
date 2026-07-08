@@ -814,8 +814,14 @@ and gates; it does not flip a live gate or create an app-registration.
    **per-capability DPIA + E2/G5 sign-off** first (the `scrubPii` output is a precision-over-recall
    pre-scrub, not "de-identified" — the DPIA must say so). The model never writes; a human confirms every
    action.
-5. **Apply `185_ai_usage_ledger.sql`** (TKT-113) via the D7/D8 `SET ROLE csadmin` runbook, then redeploy —
-   the capacity ledger starts accruing.
+5. **Apply `185_ai_usage_ledger.sql`** (TKT-113) — ✅ **DDL APPLIED LIVE (2026-07-08)** via
+   [`deltas/2026-07-08-ai-usage-ledger.sql`](../migration/assets/schema/deltas/2026-07-08-ai-usage-ledger.sql)
+   (`SET ROLE csadmin` runbook): the `ai_usage_ledger` table + RLS (`p_ai_usage_ledger_rw` /
+   `p_ai_usage_ledger_no_delete`) + `cespk_app` GRANT are live (0 rows; base tables 45→46). Applied **ahead
+   of** the ungated `recordAiUsage()` writer, so the deploy-ordering gap is closed pre-emptively (App
+   Insights showed 0 `[ai-usage] ledger write failed` over the prior 72h — the live api build predates the
+   writer). **Remaining = the redeploy** (folds into step 1's `main`→`cespk-api-dev` publish); once the
+   writer ships, the capacity ledger starts accruing.
 6. **MCP read-only server** (TKT-110): create the **MCP Entra app-registration** (delegated scopes for the
    near-term Flow A; app-roles for the later Flow B), then set **`MCP_SERVER_ENABLED`**. Record it in the
    registry (bump `lastVerified`). Autonomous agent **writes** are a separate, later rung (ADR-0023 Phase

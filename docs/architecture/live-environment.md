@@ -2,7 +2,17 @@
 
 > **Canonical registry of what is actually deployed.** This file + [`LIVE_FACTS.json`](../../LIVE_FACTS.json)
 > (root) are the **single source for literal live numbers** — every other doc links here rather than
-> re-embedding a count. Last live change: **2026-07-04T18:40Z** — the **Case/PO cutover tooling**
+> re-embedding a count. Last live change: **2026-07-08T12:00Z** — the **AI usage ledger applied live**
+> (PLAN-001 Phase 4 / TKT-113):
+> [`deltas/2026-07-08-ai-usage-ledger.sql`](../../migration/assets/schema/deltas/2026-07-08-ai-usage-ledger.sql)
+> applied via `SET ROLE csadmin` — the `ai_usage_ledger` table + RLS (`p_ai_usage_ledger_rw` /
+> `p_ai_usage_ledger_no_delete`) + `cespk_app` `SELECT/INSERT/UPDATE` GRANT; **public base tables 45→46**
+> (authoritative 2026-07-08 csadmin read: 0 views, unfiltered==BASE TABLE==46 — supersedes the stale
+> 39/40, which never re-counted the intervening rules-engine-v2 tables). Applied **ahead of** the ungated
+> `recordAiUsage()` writer, closing the deploy-ordering gap: App Insights (api component) shows **0**
+> `[ai-usage] ledger write failed` traces over the prior 72h, so the live `cespk-api-dev` build predates
+> the writer — there was never a log-spam window. Remaining: the `main`→`cespk-api-dev` redeploy that ships
+> the writer (folds into [gated.md](../gated.md) step 1). Prior change: **2026-07-04T18:40Z** — the **Case/PO cutover tooling**
 > (same-session follow-on; the operator surfaced that the OLD process mints the number **at EVA-add,
 > by a staff member** — pre-EVA cases have no Case/PO — while the new system mints at intake, which
 > stays the go-live behaviour): the **`case_po_floor` delta is APPLIED LIVE** (0 rows = **dark**;
@@ -289,7 +299,7 @@ az functionapp function list -g rg-collisionspike-dev -n cespkbox-fn-v76a47 -o t
 az functionapp function list -g rg-collisionspike-dev -n cespike-parser-dev-x7xt3d5ovhi7y -o table # expect: 4
 
 # Postgres — table count + seeded corpus counts (psql via the admin connection string)
-#   SELECT count(*) FROM information_schema.tables WHERE table_schema='public';      -- expect 40 (case_po_floor added 2026-07-04)
+#   SELECT count(*) FROM information_schema.tables WHERE table_schema='public';      -- expect 46 (ai_usage_ledger added 2026-07-08; 0 views, so BASE TABLE count is identical)
 #   SELECT count(*) FROM work_provider; SELECT count(*) FROM inspection_address;     -- 390 / 2209
 #   SELECT count(*) FROM case_;                                                       -- 20 (read as csadmin/owner; bypasses RLS)
 
