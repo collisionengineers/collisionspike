@@ -24,5 +24,6 @@ import './functions/mcp.js'; // read-only MCP server for external agents (TKT-11
 import './functions/evidence.js'; // evidence byte preview (TKT-048)
 import './functions/evidence-upload.js'; // staff evidence upload via assistant (TKT-068)
 import './functions/ai-suggestions.js';
+import './functions/image-analysis.js'; // staged image-analysis suggestion producer (TKT-016; IMAGE_ANALYSIS_ENABLED)
 import './functions/provider-keys.js';
 import './functions/provider-intake.js';

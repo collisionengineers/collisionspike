@@ -319,6 +319,14 @@ export type AiSuggestionType =
   | 'registration'
   | 'inspection_address'
   | 'triage_category'
+  // TKT-016 staged image-analysis observations (all observation-only; only 'registration' and
+  // 'inspection_address' have a fill-if-empty promote target — the rest are informational and
+  // are accepted WITHOUT auto-promotion). See api/src/lib/image-analysis.ts.
+  | 'vehicle_present'
+  | 'same_vehicle'
+  | 'background_text'
+  | 'location_hint'
+  | 'address_suggestion'
   | (string & {});
 
 /** Review lifecycle of a suggestion. `superseded` = a newer suggestion replaced it. */

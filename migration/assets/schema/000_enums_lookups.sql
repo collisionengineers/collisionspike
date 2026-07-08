@@ -141,7 +141,12 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   -- read/write (TKT-110/3b, reserved — written only once agent writes ship).
   (100000049, 'evidence_added',              'Evidence Added'),
   (100000050, 'agent_read',                  'Agent Read'),
-  (100000051, 'agent_write',                 'Agent Write');
+  (100000051, 'agent_write',                 'Agent Write'),
+  -- Staged image-analysis suggestion producer run (TKT-016, 2026-07-08 delta -- see
+  -- deltas/2026-07-08-image-analysis-suggestion-types.sql). One row per RUN of
+  -- POST /api/cases/{id}/image-analysis/generate (how many observation suggestions were
+  -- minted + which stages degraded), distinct from the per-suggestion ai_suggestion_created.
+  (100000052, 'image_analysis_generated',    'Image Analysis Generated');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code

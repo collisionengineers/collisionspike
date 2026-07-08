@@ -41,7 +41,7 @@ deterministic or human-confirmed; the gate controls it.
 - Research pack: [research/ai-assistant.md](../../../plans/work-todo-spike/ai-assistant/research/ai-assistant.md)
 - Model selection: [model-selection.md](../../../plans/work-todo-spike/ai-assistant/model-selection.md) · [research/model-selection.md](../../../plans/work-todo-spike/ai-assistant/research/model-selection.md)
 - Backend-data clean-up: [backend-data/todos.md](../../../plans/work-todo-spike/ai-assistant/backend-data/todos.md) · [backend-data/research/todos.md](../../../plans/work-todo-spike/ai-assistant/backend-data/research/todos.md)
-- Sub-tools: [TKT-016](../TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md), [TKT-017](../TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md), [TKT-018](../../backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md).
+- Sub-tools: [TKT-016](../../now/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md), [TKT-017](../../verify/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md), [TKT-018](../../backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md).
 
 ## Status — MVP scaffold landed (gated OFF, honest-empty)
 

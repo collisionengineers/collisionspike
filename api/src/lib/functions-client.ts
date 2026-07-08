@@ -69,6 +69,37 @@ export async function callLocationSuggest(body: unknown): Promise<unknown> {
   );
 }
 
+// --- OCR Function: fast-alpr plate read (TKT-016 stage 4 / TKT-017) ---
+// The registration read of record is the LOCAL fast-alpr `/api/plate-ocr` route on the retained
+// OCR Function (`cespkocr-fn-dev`) — UK-resident, zero-egress; the plate detector localises the
+// plate (avoids the whole-photo-OCR false positive, TKT-017 finding F1). The orchestration app
+// already speaks this contract (orchestration/src/lib/functions-client.ts::callPlateOcr); this is
+// the Data-API-side twin so the image-analysis producer can read a plate without routing the crop
+// through the GlobalStandard VLM. Configured via OCR_FN_URL / OCR_FN_KEY (same names orch uses);
+// absent => the caller degrades to "reg-OCR not run".
+export interface PlateOcrResult {
+  plate_text: string;
+  confidence?: number | null;
+  /** True when a plate was read (and, when case_vrm was supplied, it matched). */
+  registration_visible: boolean;
+  vrm_match?: string | null;
+}
+
+export async function callPlateOcr(input: {
+  imageBase64: string;
+  filename: string;
+  caseVrm?: string;
+}): Promise<PlateOcrResult> {
+  const base = process.env.OCR_FN_URL;
+  const key = process.env.OCR_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] OCR_FN_URL/OCR_FN_KEY not configured');
+  return callFn(base, key, 'POST', '/api/plate-ocr', {
+    image: input.imageBase64,
+    filename: input.filename,
+    ...(input.caseVrm ? { case_vrm: input.caseVrm } : {}),
+  }) as Promise<PlateOcrResult>;
+}
+
 // --- Box-webhook Function: folder listing (Case/PO allocator Box fallback) ---
 // The retained box-webhook Function exposes GET box/folders/{folderId}/items (a thin proxy
 // of the Box ListFolder op). It is normally called by orchestration; the Data API calls it

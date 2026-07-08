@@ -833,6 +833,21 @@ residency** + DPIA; and the **image-writer reconcile** (TKT-112) which is blocke
 (keep the live auto-classifier writing, or suggestion-gate it — never both). AI-driven byte upload is not
 built by design (TKT-068: bytes come only from a human file-picker).
 
+7. **`IMAGE_ANALYSIS_ENABLED`** (TKT-016 — the staged image-analysis suggestion producer) — **built dark**
+   (`POST /api/cases/{id}/image-analysis/generate`), default-off, additive & observation-only (every output
+   is a pending `ai_suggestion`; it never writes an evidence/case column — reconciliation with the live
+   TKT-064 classifier is the TKT-088/112 decision above). **Image-egress data-residency line-item (the DPIA
+   precondition for THIS flip):** the scene-understanding stages (vehicle-present / same-vehicle /
+   background-text / location) send **image bytes to the GlobalStandard `gpt-5` deployment on
+   `digital-3339-resource`** — inference **may leave uksouth** and the bytes **bypass `scrubPii`** (a photo
+   is not text-redactable). This is the same egress class the DPIA must cover for TKT-064/078. **Not** in
+   that egress class: the registration read routes to the **local fast-alpr `/api/plate-ocr`** (UK-resident,
+   zero-egress — TKT-017), and the address stage rides the **existing** location-assist boundary
+   (uksouth Maps). So the DPIA scope for this gate is narrowly the **scene VLM image bytes**. Before the
+   flip: apply [`deltas/2026-07-08-image-analysis-suggestion-types.sql`](../migration/assets/schema/deltas/2026-07-08-image-analysis-suggestion-types.sql)
+   (adds the run-level `image_analysis_generated` audit code; the new `suggestion_type` values need no DDL —
+   the column is an open vocabulary), then set the gate. Reversible: gate off → the route is an honest no-op.
+
 ---
 
 ---
