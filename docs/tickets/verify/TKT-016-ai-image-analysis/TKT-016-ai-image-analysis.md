@@ -1,7 +1,7 @@
 ---
 id: TKT-016
 title: Image-analysis VLM sequence (vehicle / reg / location)
-status: now
+status: verify
 priority: P2
 area: ai
 tickets-it-relates-to: [TKT-002, TKT-017, TKT-015]
