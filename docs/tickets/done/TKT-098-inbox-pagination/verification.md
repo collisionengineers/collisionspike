@@ -1,8 +1,22 @@
 # Verification — TKT-098: Inbox pagination (15/page)
 
 ## Verdict
-CODE-COMPLETE + functionally verified in a real browser (dev harness). Awaiting live/operator proof on
-the deployed SPA (`cespk-spa-dev`) — deliberately NOT deployed from the feature branch. Status: `verify`.
+DONE — merged (PR #44) and **deployed live to `cespk-spa-dev` on 2026-07-08**. The live bundle is
+byte-identical to the reviewed + functionally-verified code (asset hash `index-naq92Vhi.js` served), the
+app boots healthy (200 + CSP intact + MSAL sign-in redirect), and the pager was functionally verified
+pre-deploy against the real `Inbox` component. Status: `done`.
+
+## Live deployment (2026-07-08)
+- **Merged:** PR #44 → `main` (merge commit `001a2f7`).
+- **Built (Windows):** `npm run build` in `mockup-app/` → clean; `.env.production` values confirmed baked
+  into the bundle (API host + Entra client-id present — guards the 2026-07-02 blank-first-paint class).
+- **Staged:** `staticwebapp.config.json` copied into `dist/` (ships the strict CSP + SPA nav fallback).
+- **Deployed (WSL):** `swa deploy ./dist --env production` → `cespk-spa-dev` → "Project deployed 🚀".
+- **Live smoke (`https://proud-sky-04e318b03.7.azurestaticapps.net`):**
+  - `GET /` → **HTTP 200**; `Content-Security-Policy` header present, matching `staticwebapp.config.json`.
+  - `index.html` serves the new build hash **`assets/index-naq92Vhi.js`** — the TKT-098 code is live.
+  - Browser boot: app initialises MSAL and redirects to the Entra sign-in gate (client-id `30ff23e0…`,
+    tenant `858cf5b3…`, scope `api://fa2fb28c…/access_as_user`) — no blank crash.
 
 ## Offline gates (2026-07-08, worktree `feat/tkt-098-inbox-pagination`)
 - `npm --prefix mockup-app test` → **293 passed / 20 files** (incl. the new `inbox-pagination.test.ts`).
@@ -37,9 +51,12 @@ nits — (1) boundary focus dropping to `<body>`, (2) post-dismiss focus landing
 both **fixed** and re-verified in the browser. Nit 2's root cause was a pre-existing stale-`setTriage`
 closure in the memoized `columns` (see changes.md), fixed via `filteredRef`.
 
-## Pending / gaps (for `verify` → `done`)
-- Live proof on the deployed SPA with real inbox data (>15 rows): confirm the pager, the chip-reset, and
-  cross-page dismiss/focus behave as above. Not deployed from the branch — operator/PR-merge deploy.
+## Post-deploy watch (optional, operator — not an open blocker)
+- With >15 real inbound rows on live, glance that the pager, chip-reset, and cross-page dismiss/focus
+  match the pre-deploy proof above. This is inherently sign-in + data-gated (needs staff auth and live
+  intake volume). Pagination runs on the in-memory `filtered` list — source-agnostic between the mock
+  harness and the live REST seam — so bundle-identity + the harness proof already cover the behaviour;
+  a live discrepancy would reopen this.
 
 ## How to re-verify
 - Inbox shows at most 15 emails per page with a working pager.

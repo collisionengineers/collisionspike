@@ -131,6 +131,7 @@
 
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
@@ -178,12 +179,12 @@
 | [TKT-111](./verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md) | Assistant write tier with human confirmation | PLAN-001 Phase 2: model proposes, staff confirms, existing routes execute with ETag protection. |
 | [TKT-113](./verify/TKT-113-ai-usage-ledger/TKT-113-ai-usage-ledger.md) | AI usage ledger for model capacity controls | PLAN-001 Phase 4: track aggregate model usage before wider vision rollout. |
 | [TKT-089](./verify/TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md) | Confirm non-vehicle images (signatures/logos) no longer captured/stored on Box | **Reclassified backlog → verify (2026-07-07)** — the PDF-lane fix is **BUILT + DEPLOYED on `main`**: `is_decorative()` 200×200 area floor (`functions/parser/cedocumentmapper_v2/application/service.py:401`, both PDF paths 433/453), unit-tested on this ticket's exact QDOS26004 `RJS_UnknownVRM` logo (`test_extract_images.py:161`, `count==0`), shipped via `aafeba1`. Remaining: the live audit + TKT-047 email-lane proof + backfill decision. **Caveat:** it's a *size* floor — a large logo above 200×200 still passes (audit must confirm/raise a follow-up). See [verification](./verify/TKT-089-non-vehicle-images-box/verification.md). |
-| [TKT-098](./verify/TKT-098-inbox-pagination/TKT-098-inbox-pagination.md) | Inbox pagination — cap the inbox page at 15 emails, paginate the rest | P3 drop-note (2026-07-07): SPA inbox paging (15/page) preserving the mailbox-chip filter (TKT-025) + actions (TKT-005). |
 
 ## Done — live & verified
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-098](./done/TKT-098-inbox-pagination/TKT-098-inbox-pagination.md) | Inbox pagination — cap the inbox page at 15 emails, paginate the rest | P3 drop-note (2026-07-07): SPA inbox paging (15/page) preserving the mailbox-chip filter (TKT-025) + actions (TKT-005). |
 | [TKT-074](./done/TKT-074-shell-hook-fail-closed/TKT-074-shell-hook-fail-closed.md) | Every terminal command is blocked — the Box scope-guard hook fails closed | **RESOLVED (2026-07-06)** — the shared box-scope guard now resolves stdin on a 700ms timer (not the never-emitted `'end'`), lazy-imports its lib, and a 1500ms watchdog fail-OPENS for non-Box; hardened across `.cursor`/`.claude`/`.codex`. Proven: ~900ms with stdin held open; out-of-scope Box (folder 0 / bad id) still DENIED. See [verification](./done/TKT-074-shell-hook-fail-closed/verification.md). |
 | [TKT-075](./done/TKT-075-inspection-corpus-pipeline/TKT-075-inspection-corpus-pipeline.md) | Rebuild the inspection-address corpus in-repo — correct provider attribution + geocodes | **BUILT + VALIDATED (2026-07-06)** — reproducible `scripts/inspection-corpus/` pipeline (marker-aware parse folds the 4673 `a.qdos…` IDs, hyphen/typo-tolerant image-based drop, PII-free 2012-site CSV + per-provider run report + geocache). Deterministic hash; DDL delta + `920` seed validated live in a rolled-back txn (live commit is TKT-080). See [verification](./done/TKT-075-inspection-corpus-pipeline/verification.md). |
 | [TKT-002](./done/TKT-002-pdf-image-extraction/TKT-002-pdf-image-extraction.md) | Auto-extract vehicle images + flag unsuitable | **VERIFIED-LIVE** (extraction) — 63 image rows = telemetry `extracted:63`. Unsuitable-flag half awaits `PLATE_OCR_ENABLED`. |

@@ -1,11 +1,11 @@
 ---
 id: TKT-098
 title: Inbox pagination — cap the inbox page at 15 emails, paginate the rest
-status: verify
+status: done
 priority: P3
 area: ui
 tickets-it-relates-to: [TKT-005, TKT-025, TKT-054]
-research-link: docs/tickets/verify/TKT-098-inbox-pagination/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-098-inbox-pagination/evidence/operator-note.md
 ---
 
 # Inbox pagination — cap the inbox page at 15 emails, paginate the rest
