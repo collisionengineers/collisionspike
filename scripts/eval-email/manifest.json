@@ -84,7 +84,7 @@
     },
     {
       "id": "tkt031-client-chaser",
-      "file": "docs/tickets/verify/TKT-031-misclass-client-chasing/evidence/(EREF12) RTA on 15_06_2026  Mr Daniel James Page (Our Ref SAB_46286_1, Vehicle HN13XMO).eml",
+      "file": "docs/tickets/done/TKT-031-misclass-client-chasing/evidence/(EREF12) RTA on 15_06_2026  Mr Daniel James Page (Our Ref SAB_46286_1, Vehicle HN13XMO).eml",
       "source": "ticket:TKT-031",
       "tracked": true,
       "context": {
@@ -204,7 +204,7 @@
     },
     {
       "id": "tkt039-report-support",
-      "file": "docs/tickets/verify/TKT-039-misclass-query-report-support/evidence/Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
+      "file": "docs/tickets/done/TKT-039-misclass-query-report-support/evidence/Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
       "source": "ticket:TKT-039",
       "tracked": true,
       "context": {
@@ -234,7 +234,7 @@
     },
     {
       "id": "tkt041-01-cancel-notice-sbl",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim Cancelled - SBL-B0521876.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim Cancelled - SBL-B0521876.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -252,7 +252,7 @@
     },
     {
       "id": "tkt041-02-cancel-notice-sbl",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim Cancelled - SBL-B0649696.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim Cancelled - SBL-B0649696.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -270,7 +270,7 @@
     },
     {
       "id": "tkt041-03-closure-notice-ax",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1062608.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1062608.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -288,7 +288,7 @@
     },
     {
       "id": "tkt041-04-closure-notice-ax",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1069305.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1069305.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -306,7 +306,7 @@
     },
     {
       "id": "tkt041-05-closure-notice-ax",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1070680.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/Claim closed notification  AX REF - 1070680.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -324,7 +324,7 @@
     },
     {
       "id": "tkt041-06-hold-request",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/Client Mr Shah Zaib  __ Engineer Instruction - VRN BR19 OTA __ Attention Required.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/Client Mr Shah Zaib  __ Engineer Instruction - VRN BR19 OTA __ Attention Required.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -339,7 +339,7 @@
     },
     {
       "id": "tkt041-07-forward-cancel-instructions",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/FW New Instruction - Lisa McKinney - RJP_81547.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/FW New Instruction - Lisa McKinney - RJP_81547.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -357,7 +357,7 @@
     },
     {
       "id": "tkt041-08-reply-cancel-conditional",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE (EREF10) RTA on 08_09_2025  Mr Benjamin Fernando Hannington (Our Ref _39569_1, Vehicle BW21WOD).eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/RE (EREF10) RTA on 08_09_2025  Mr Benjamin Fernando Hannington (Our Ref _39569_1, Vehicle BW21WOD).eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -375,7 +375,7 @@
     },
     {
       "id": "tkt041-09-reply-cancel-hireonly",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE (EREF8) RTA on 25_06_2026  Mr Viv Richards (Our Ref _46407_1, Vehicle WH19NXW).eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/RE (EREF8) RTA on 25_06_2026  Mr Viv Richards (Our Ref _46407_1, Vehicle WH19NXW).eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -393,7 +393,7 @@
     },
     {
       "id": "tkt041-10-reply-cancel-instructions",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Client Mr Bilal Hafeez  __ Engineer Instruction - VRN T3L JN.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Client Mr Bilal Hafeez  __ Engineer Instruction - VRN T3L JN.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -411,7 +411,7 @@
     },
     {
       "id": "tkt041-11-reply-cancel-claim",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Engineer Instruction - SBL-A1216630.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Engineer Instruction - SBL-A1216630.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -429,7 +429,7 @@
     },
     {
       "id": "tkt041-12-reply-cancel-multi-ref",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Estimate please.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Estimate please.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -447,7 +447,7 @@
     },
     {
       "id": "tkt041-13-reply-cancel-inspection",
-      "file": "docs/tickets/verify/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Inspection Request Fax Sent - Claim ID 1069534.eml",
+      "file": "docs/tickets/done/TKT-041-cancelled-case/source-emails/cancelled-cases/RE Inspection Request Fax Sent - Claim ID 1069534.eml",
       "source": "ticket:TKT-041",
       "tracked": true,
       "context": {
@@ -946,7 +946,7 @@
     },
     {
       "id": "tkt083-body-instruction-onephrase",
-      "file": "docs/tickets/verify/TKT-083-misclass-instructions-unidentified/evidence/Our Ref 30230-01 ; Name Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number BV72YVB  .eml",
+      "file": "docs/tickets/now/TKT-083-misclass-instructions-unidentified/evidence/Our Ref 30230-01 ; Name Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number BV72YVB  .eml",
       "source": "ticket:TKT-083",
       "tracked": true,
       "context": {

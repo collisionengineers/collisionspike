@@ -23,3 +23,9 @@ eval-corpus test but not yet a live probe/occurrence — stays `now` until one o
 (regression gate — confirms the corpus pass still holds), then re-POST
 `evidence/(EREF12) RTA on 15_06_2026  Mr Daniel James Page (Our Ref SAB_46286_1, Vehicle HN13XMO).eml` to
 the deployed `/classify-email` route to close the live-probe gap.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+VERIFIED-LIVE. The ticket's own sample .eml POSTed to the deployed parser POST /api/classify-email -> 200 query/query_existing_work at 0.8, rule:query_with_reference, signals carrying body_jobref:SAB/46286/1 + body_vrm:HN13XMO + chase_keywords. Regression pin tkt031-client-chaser green in baseline-v2; registry cross-checked (live parser engine-v2.7, taxonomy v2). This was exactly the closing condition this file's Pending section specified.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

@@ -31,3 +31,9 @@ and no query phrase, so it cannot starve the abstain lane. Full corpus green.
 
 ## How to re-verify
 Classifier pytest + the live `POST /api/classify-email` probe above.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+FAILED on Acceptance line 2 as written; lines 1 and 3 live-proven. The deployed Rule-3 second arm (email_classifier.py ~L1225) requires body_vrm AND has_existing_ref; the acceptance says "a ref OR VRM". The narrowing was deliberate and documented in changes.md to protect the abstain lane, but the acceptance-specified behaviour does not hold: a fresh single-phrase instruction with ref-only (or VRM-only) still abstains to other/other. Also: this ticket's changes.md/verification.md claim fairwaylegal.co.uk is NOT in known_email_domains, but the registry records seed 916 Section A applied 2026-07-03 (FW -> fairwaylegal.co.uk) — ticket docs stale; registry wins pending a row-level SELECT. DISPOSITION: reopened verify->now; the ref-OR-VRM widening is folded into the classifier batch (ship if the eval corpus stays green, else amend the acceptance with rationale).
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

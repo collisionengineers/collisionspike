@@ -108,10 +108,10 @@ node scripts/check-skills-sync.mjs
 | Ticket | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 | [TKT-010](./now/TKT-010-delete-case/TKT-010-delete-case.md) | Close case (renamed from delete/remove) — confirm + audit, available to all users | P2 | ui | PLAN-003 |
-| [TKT-015](./now/TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (observation-first, gated) | P2 | ai | PLAN-001 |
 | [TKT-047](./now/TKT-047-email-sigs-box/TKT-047-email-sigs-box.md) | Email signature images archived to Box in error | P2 | intake | — |
 | [TKT-057](./now/TKT-057-ap-diminution-refinement/TKT-057-ap-diminution-refinement.md) | AP. total-loss review flow + diminution (D.) detection grounding | P2 | intake | — |
 | [TKT-058](./now/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md) | Retroactive case creation (reconstruction fallback for un-linked update/billing email) | P1 | intake | — |
+| [TKT-083](./now/TKT-083-misclass-instructions-unidentified/TKT-083-misclass-instructions-unidentified.md) | Instructions email left "Unidentified" despite detected instruction signals | P1 | email | — |
 | [TKT-088](./now/TKT-088-image-role-classification-check/TKT-088-image-role-classification-check.md) | Image role auto-classification — confirm whether it works and decide the path | P2 | evidence | PLAN-001 |
 | [TKT-089](./now/TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md) | Confirm non-vehicle images (signatures/logos) are no longer captured or stored on Box | P2 | evidence | — |
 | [TKT-112](./now/TKT-112-image-writer-reconcile/TKT-112-image-writer-reconcile.md) | Reconcile the two image-classification writers | P2 | ai | PLAN-001 |
@@ -122,15 +122,13 @@ node scripts/check-skills-sync.mjs
 |---|---|---|---|---|
 | [TKT-001](./verify/TKT-001-document-parsing/TKT-001-document-parsing.md) | Fix multi-format document extraction regression | P1 | parsing | — |
 | [TKT-005](./verify/TKT-005-email-actions/TKT-005-email-actions.md) | Make the inbox actionable (dismiss removes from view) | P2 | email | — |
+| [TKT-015](./verify/TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (observation-first, gated) | P2 | ai | PLAN-001 |
 | [TKT-016](./verify/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md) | Image-analysis VLM sequence (vehicle / reg / location) | P2 | ai | PLAN-001 |
 | [TKT-021](./verify/TKT-021-connexus-intermediary/TKT-021-connexus-intermediary.md) | Resolve Connexus claims-manager to the real provider (PCH/SBL) | P2 | intake | — |
 | [TKT-023](./verify/TKT-023-follow-up-docs/TKT-023-follow-up-docs.md) | Link follow-up documents/emails to the existing case + Box | P2 | intake | — |
 | [TKT-025](./verify/TKT-025-inbox-source-filter/TKT-025-inbox-source-filter.md) | Mark + filter inbox by source mailbox (info/engineers/desk) | P2 | email | — |
 | [TKT-027](./verify/TKT-027-intake-triage-status/TKT-027-intake-triage-status.md) | Intermediate intake status beyond 'new' | P2 | intake | — |
 | [TKT-028](./verify/TKT-028-work-provider-not-populating/TKT-028-work-provider-not-populating.md) | work_provider not populating on intake | P1 | parsing | — |
-| [TKT-031](./verify/TKT-031-misclass-client-chasing/TKT-031-misclass-client-chasing.md) | Client report-chaser misrouted to 'Other' | P2 | email | — |
-| [TKT-039](./verify/TKT-039-misclass-query-report-support/TKT-039-misclass-query-report-support.md) | Report-support request misclassified as new case | P2 | email | — |
-| [TKT-041](./verify/TKT-041-cancelled-case/TKT-041-cancelled-case.md) | Cancelled/closed-case emails have no home (no cancellation concept) | P2 | email | — |
 | [TKT-043](./verify/TKT-043-misclass-images-received/TKT-043-misclass-images-received.md) | Images-received / report-chaser email misrouted (scope to confirm) | P2 | email | — |
 | [TKT-046](./verify/TKT-046-seperate-case-updates/TKT-046-seperate-case-updates.md) | Separate case updates from general queries (own lane + attach-to-case) | P2 | email | — |
 | [TKT-051](./verify/TKT-051-pch-connexus/TKT-051-pch-connexus.md) | PCH not identified — doc-content name + @pch-ltd.com senders both missed | P2 | intake | — |
@@ -150,12 +148,15 @@ node scripts/check-skills-sync.mjs
 | [TKT-080](./verify/TKT-080-inspection-reseed-live/TKT-080-inspection-reseed-live.md) | Reseed the live address catalogue + deploy and prove the whole inspection repair | P1 | platform | — |
 | [TKT-081](./verify/TKT-081-misclass-ack-batch/TKT-081-misclass-ack-batch.md) | Acknowledgement emails still misclassified — tagged as query/new case, one opened a blank case | P1 | email | — |
 | [TKT-082](./verify/TKT-082-misclass-query-as-new-work/TKT-082-misclass-query-as-new-work.md) | Existing-case query misclassified as new client work | P1 | email | — |
-| [TKT-083](./verify/TKT-083-misclass-instructions-unidentified/TKT-083-misclass-instructions-unidentified.md) | Instructions email left "Unidentified" despite detected instruction signals | P1 | email | — |
 | [TKT-093](./verify/TKT-093-auto-attach-matched-emails/TKT-093-auto-attach-matched-emails.md) | Auto-attach matched emails to their case instead of a hidden suggest dialog | P1 | email | — |
 | [TKT-107](./verify/TKT-107-readonly-archive-assist/TKT-107-readonly-archive-assist.md) | "Read-only Box archive assist (suggest-only) — decouple from the sequence-blocked reconstruction" | P2 | intake | PLAN-001 |
+| [TKT-109](./verify/TKT-109-image-based-provider-prefill/TKT-109-image-based-provider-prefill.md) | Pre-fill image-based inspections for image-led providers | P2 | intake | — |
 | [TKT-110](./verify/TKT-110-mcp-readonly-server/TKT-110-mcp-readonly-server.md) | Read-only MCP server for external agents | P2 | ai | PLAN-001 |
 | [TKT-111](./verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md) | Assistant write tier with human confirmation | P2 | ai | PLAN-001 |
 | [TKT-113](./verify/TKT-113-ai-usage-ledger/TKT-113-ai-usage-ledger.md) | AI usage ledger for model capacity controls | P3 | ai | PLAN-001 |
+| [TKT-127](./verify/TKT-127-ai-suggestions-generate-204/TKT-127-ai-suggestions-generate-204.md) | AI Assistant "Generate Suggestions" does not generate — devtools shows 204 no content | P1 | ai | PLAN-003 |
+| [TKT-129](./verify/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Image-based providers: inspection field must auto-complete as Done + fix the inverted wording | P1 | ui | PLAN-003 |
+| [TKT-130](./verify/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | needs_review cases belong in the Review queue — readiness wrongly piles everything into Not Ready | P1 | intake | PLAN-003 |
 
 ### done
 
@@ -177,11 +178,14 @@ node scripts/check-skills-sync.mjs
 | [TKT-026](./done/TKT-026-queue-tracking/TKT-026-queue-tracking.md) | Queue counts don't match the actual queues | P2 | dashboard | — |
 | [TKT-029](./done/TKT-029-misclass-case-summary/TKT-029-misclass-case-summary.md) | Case-summary email misclassified as new case | P2 | email | — |
 | [TKT-030](./done/TKT-030-misclass-chasing-report/TKT-030-misclass-chasing-report.md) | Report-chaser misclassified as new work | P1 | email | — |
+| [TKT-031](./done/TKT-031-misclass-client-chasing/TKT-031-misclass-client-chasing.md) | Client report-chaser misrouted to 'Other' | P2 | email | — |
 | [TKT-033](./done/TKT-033-misclass-email-reply/TKT-033-misclass-email-reply.md) | Simple reply to our query misclassified as new work | P1 | email | — |
 | [TKT-036](./done/TKT-036-misclass-instructions/TKT-036-misclass-instructions.md) | Work-instructions email misclassified as query | P1 | email | — |
 | [TKT-037](./done/TKT-037-misclass-invoice-request/TKT-037-misclass-invoice-request.md) | Invoice request misclassified as new case | P2 | email | — |
 | [TKT-038](./done/TKT-038-misclass-query-ack/TKT-038-misclass-query-ack.md) | Bare acknowledgement ('Thanks Ed') misclassified as query | P2 | email | — |
+| [TKT-039](./done/TKT-039-misclass-query-report-support/TKT-039-misclass-query-report-support.md) | Report-support request misclassified as new case | P2 | email | — |
 | [TKT-040](./done/TKT-040-misclass-roadworthy-request/TKT-040-misclass-roadworthy-request.md) | Informal roadworthy work-request misrouted to 'Other' | P2 | email | — |
+| [TKT-041](./done/TKT-041-cancelled-case/TKT-041-cancelled-case.md) | Cancelled/closed-case emails have no home (no cancellation concept) | P2 | email | — |
 | [TKT-048](./done/TKT-048-no-image-previews/TKT-048-no-image-previews.md) | Inbox/case image previews not rendering | P2 | ui | — |
 | [TKT-049](./done/TKT-049-incorrect-claimant-email/TKT-049-incorrect-claimant-email.md) | Claimant email wrongly set to AX team inbox | P1 | parsing | — |
 | [TKT-050](./done/TKT-050-ax-pdf-extract/TKT-050-ax-pdf-extract.md) | AX PDF accident circumstances extraction too deep | P1 | parsing | — |
@@ -232,7 +236,6 @@ node scripts/check-skills-sync.mjs
 | [TKT-103](./backlog/TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) | Tractable "768.00" wrongly captured as the reference number | P2 | parsing | — |
 | [TKT-105](./backlog/TKT-105-remittance-payments-category/TKT-105-remittance-payments-category.md) | Remittance advice classified under payments/billing | P2 | email | — |
 | [TKT-106](./backlog/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md) | "Remove the non-viable replay-backfill driver + gate" | P2 | intake | — |
-| [TKT-109](./now/TKT-109-image-based-provider-prefill/TKT-109-image-based-provider-prefill.md) | Pre-fill image-based inspections for image-led providers | P2 | intake | — |
 | [TKT-114](./backlog/TKT-114-ticket-move-transition-guard/TKT-114-ticket-move-transition-guard.md) | Enforce the ticket lifecycle transition graph in ticket-move.mjs | P2 | docs | — |
 | [TKT-116](./backlog/TKT-116-queues-pagination/TKT-116-queues-pagination.md) | Paginate the case queues at 15 per page (same as the inbox) | P2 | ui | PLAN-003 |
 | [TKT-117](./backlog/TKT-117-queues-last-update/TKT-117-queues-last-update.md) | Show a "Last update" line for each case in the queues view | P2 | ui | PLAN-003 |
@@ -245,10 +248,9 @@ node scripts/check-skills-sync.mjs
 | [TKT-124](./backlog/TKT-124-photo-orderer-images-only/TKT-124-photo-orderer-images-only.md) | Photo orderer shows .eml files — it must list images only | P2 | ui | PLAN-003 |
 | [TKT-125](./backlog/TKT-125-add-case-descriptor-removal/TKT-125-add-case-descriptor-removal.md) | Remove the field descriptors under the Add Case inputs (and the wrong "4-char" principal claim) | P3 | ui | PLAN-003 |
 | [TKT-126](./backlog/TKT-126-eva-export-zip/TKT-126-eva-export-zip.md) | Export for EVA downloads a .zip of the JSON plus all the images | P1 | ui | PLAN-003 |
-| [TKT-127](./now/TKT-127-ai-suggestions-generate-204/TKT-127-ai-suggestions-generate-204.md) | AI Assistant "Generate Suggestions" does not generate — devtools shows 204 no content | P1 | ai | PLAN-003 |
 | [TKT-128](./backlog/TKT-128-imported-details-blank/TKT-128-imported-details-blank.md) | "Imported details — from the instruction document or email" renders blank | P2 | ui | PLAN-003 |
-| [TKT-129](./now/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Image-based providers: inspection field must auto-complete as Done + fix the inverted wording | P1 | ui | PLAN-003 |
-| [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | needs_review cases belong in the Review queue — readiness wrongly piles everything into Not Ready | P1 | intake | PLAN-003 |
+| [TKT-131](./backlog/TKT-131-image-role-classify-retry/TKT-131-image-role-classify-retry.md) | Classify the role-unknown evidence images — retry the backfill residue so cases can reach Ready for EVA | P1 | evidence | PLAN-003 |
+| [TKT-132](./backlog/TKT-132-generate-suggestions-inputs/TKT-132-generate-suggestions-inputs.md) | Widen the AI-suggestion generate inputs beyond accident circumstances | P2 | ai | PLAN-003 |
 
 ### blocked
 

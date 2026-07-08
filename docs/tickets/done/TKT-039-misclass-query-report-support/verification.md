@@ -23,3 +23,9 @@ eval-corpus test but not yet a live probe/occurrence — stays `now` until one o
 (regression gate — confirms the corpus pass still holds), then re-POST `evidence/Client Mrs Ruby Wiggett,
 Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml` to the deployed `/classify-email` route
 to close the live-probe gap.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+VERIFIED-LIVE. Sample .eml (incl. EngineersReport-V1.pdf as attachment context) POSTed to the deployed classify route -> 200 query/query_existing_work, signals report_attachment + body_jobref:45391/1 + rule:query_with_reference. query is a non-minting category under the deployed categoryMintsCase guard. Pin tkt039-report-support green. Same closing standard as TKT-030/033/036-040.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

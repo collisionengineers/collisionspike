@@ -41,7 +41,7 @@ PROPOSED (not built):
 
 Distilled 2026-07-07 from operator drop-note `to-distill/cancellation-miscagetorised/`; raw material in
 [evidence/](./evidence). Extends the cancellation work in
-[TKT-041](../../verify/TKT-041-cancelled-case/TKT-041-cancelled-case.md).
+[TKT-041](../../done/TKT-041-cancelled-case/TKT-041-cancelled-case.md).
 
 ## Artifacts
 

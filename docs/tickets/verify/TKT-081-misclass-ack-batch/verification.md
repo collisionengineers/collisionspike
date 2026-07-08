@@ -51,3 +51,9 @@ etc. all pass).
 ## How to re-verify
 `functions/parser/.venv/Scripts/python -m pytest functions/parser/tests/test_email_classifier.py -q`
 + the live `POST /api/classify-email` probe above.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+PENDING (update). Ack re-probe still classifies non_actionable/acknowledgement live (200); eval pins 5/5; App Insights shows classify_email 8/8 -> 200 since 2026-07-06 and zero case-minting internal-route calls in the window. The two Postgres confirmations (voided case 160262e5 still Removed; zero new active blank cases since 2026-07-07) were firewall-blocked on the read-only dispatch — queued for the orchestrator transient-firewall data pass.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

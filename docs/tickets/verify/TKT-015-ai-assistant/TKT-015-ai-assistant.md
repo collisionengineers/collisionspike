@@ -1,7 +1,7 @@
 ---
 id: TKT-015
 title: AI suggestion layer (observation-first, gated)
-status: now
+status: verify
 priority: P2
 area: ai
 tickets-it-relates-to: [TKT-016, TKT-017, TKT-018, TKT-006]
@@ -41,7 +41,7 @@ deterministic or human-confirmed; the gate controls it.
 - Research pack: [research/ai-assistant.md](../../../plans/work-todo-spike/ai-assistant/research/ai-assistant.md)
 - Model selection: [model-selection.md](../../../plans/work-todo-spike/ai-assistant/model-selection.md) · [research/model-selection.md](../../../plans/work-todo-spike/ai-assistant/research/model-selection.md)
 - Backend-data clean-up: [backend-data/todos.md](../../../plans/work-todo-spike/ai-assistant/backend-data/todos.md) · [backend-data/research/todos.md](../../../plans/work-todo-spike/ai-assistant/backend-data/research/todos.md)
-- Sub-tools: [TKT-016](../../verify/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md), [TKT-017](../../done/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md), [TKT-018](../../backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md).
+- Sub-tools: [TKT-016](../TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md), [TKT-017](../../done/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md), [TKT-018](../../backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md).
 
 ## Status — MVP scaffold landed (gated OFF, honest-empty)
 

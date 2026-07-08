@@ -1,11 +1,11 @@
 ---
 id: TKT-031
 title: Client report-chaser misrouted to 'Other'
-status: verify
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006]
-research-link: docs/tickets/verify/TKT-031-misclass-client-chasing/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-031-misclass-client-chasing/evidence/operator-note.md
 ---
 
 # Client report-chaser misrouted to 'Other'

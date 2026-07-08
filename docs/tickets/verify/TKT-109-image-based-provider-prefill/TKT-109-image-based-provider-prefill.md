@@ -1,11 +1,11 @@
 ---
 id: TKT-109
 title: Pre-fill image-based inspections for image-led providers
-status: now
+status: verify
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-079, TKT-024]
-research-link: docs/tickets/now/TKT-109-image-based-provider-prefill/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-109-image-based-provider-prefill/evidence/operator-note.md
 ---
 
 # Pre-fill image-based inspections for image-led providers

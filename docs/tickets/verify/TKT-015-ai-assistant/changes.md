@@ -77,4 +77,4 @@ this ticket; the investigation + fix are recorded in **[TKT-127](../TKT-127-ai-s
 - **The TKT-015 acceptance is now live-proven**: SPA Generate on A.QDOS26029 → 200 `{generated:5}`;
   5 pending `ai_suggestion` rows (model version + confidence stamped) + `ai_suggestion_created`
   audit rows; suggestions render for human Accept/Reject — observation-first, no silent mutation.
-  Evidence lives under [TKT-127 evidence/](../TKT-127-ai-suggestions-generate-204/evidence/).
+  Evidence lives under [TKT-127 evidence/](../TKT-127-ai-suggestions-generate-204/evidence).

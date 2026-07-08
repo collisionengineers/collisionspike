@@ -1,11 +1,11 @@
 ---
 id: TKT-039
 title: Report-support request misclassified as new case
-status: verify
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006]
-research-link: docs/tickets/verify/TKT-039-misclass-query-report-support/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-039-misclass-query-report-support/evidence/operator-note.md
 ---
 
 # Report-support request misclassified as new case

@@ -1,7 +1,7 @@
 ---
 id: TKT-041
 title: Cancelled/closed-case emails have no home (no cancellation concept)
-status: verify
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-023, TKT-046]
@@ -55,3 +55,7 @@ the operator to decide, not something built or guessed at in this pass.
 **Not yet active:** the `cancellation` category and the engine that emits it are both gated — 🔒 D7 (DDL
 delta apply) must land before the taxonomy-v2 parser deploy, and no live probe has run yet against a real
 inbound cancellation email on the deployed (v1-only) engine.
+
+## Verification
+
+- [verification.md](./verification.md) — VERIFIED-LIVE 2026-07-09 (ticket-verifier dispatch, classify layer).
