@@ -1,7 +1,8 @@
 # Changes — TKT-113: AI usage ledger for model capacity controls
 
 ## Status
-verify — built; schema + writer code-complete + tested offline, not yet applied/deployed. Under
+verify — built; **schema APPLIED LIVE 2026-07-08**, writer code-complete + tested offline, not yet
+deployed (the `main`→`cespk-api-dev` redeploy is the remaining step; see verification.md). Under
 [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 4.
 
 ## Commits
@@ -11,6 +12,8 @@ verify — built; schema + writer code-complete + tested offline, not yet applie
 - `migration/assets/schema/185_ai_usage_ledger.sql` — `ai_usage_ledger` (`usage_day`, `actor`, `surface`,
   `model`, `calls`, `input_tokens`, `output_tokens`; `UNIQUE(usage_day, actor, surface)`) + guarded
   `cespk_app` GRANT; added to the RLS loop in `900_constraints.sql`.
+- `migration/assets/schema/deltas/2026-07-08-ai-usage-ledger.sql` — the idempotent live-apply counterpart
+  (table + RLS + policies + GRANT in one `BEGIN..COMMIT`); **applied live 2026-07-08**.
 - `api/src/lib/ai-usage.ts` (+ `ai-usage.test.ts`) — `recordAiUsage(...)`, an atomic
   `INSERT … ON CONFLICT (usage_day, actor, surface) DO UPDATE SET calls=calls+1, tokens+=…`; never throws.
 - `api/src/functions/assistant.ts` + `api/src/lib/aoai-chat.ts` — real token capture wired into the

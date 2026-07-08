@@ -9,9 +9,15 @@ TESTED (offline)
 - `node verify-all.mjs` API gate green; the schema file parses in the migration set.
 
 ## Pending / gaps
-- **Schema not applied; not deployed.** The `185_ai_usage_ledger.sql` delta must be applied to live
-  Postgres (`cespk-pg-dev`) via the operator `SET ROLE csadmin` runbook (same discipline as the other
-  deltas — see [docs/gated.md](../../../gated.md) §F), and `cespk-api-dev` redeployed, before rows accrue.
+- **Schema APPLIED LIVE (2026-07-08); writer not yet deployed.** The table is now live on `cespk-pg-dev`
+  via [`deltas/2026-07-08-ai-usage-ledger.sql`](../../../../migration/assets/schema/deltas/2026-07-08-ai-usage-ledger.sql)
+  (`SET ROLE csadmin` runbook; transient FW rule added+removed). Live-verified: `ai_usage_ledger` exists,
+  RLS `ENABLE`+`FORCE`, policies `p_ai_usage_ledger_rw` + `p_ai_usage_ledger_no_delete`, unique
+  `uq_ai_usage_ledger_day_actor_surface`, `cespk_app` = `SELECT/INSERT/UPDATE`, 0 rows. Applied **ahead of**
+  the ungated `recordAiUsage()` writer (App Insights: 0 `[ai-usage] ledger write failed` traces over the
+  prior 72h → the live api build predates the writer, so no log-spam window). **Remaining:** the
+  `main`→`cespk-api-dev` redeploy that ships the writer (folds into [docs/gated.md](../../../gated.md)
+  step 1), after which rows accrue.
 - Best-effort by design — an overshoot of one call is accepted; this is a measurement ledger, not a hard
   cap.
 
