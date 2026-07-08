@@ -1,11 +1,11 @@
 ---
 id: TKT-089
 title: Confirm non-vehicle images (signatures/logos) are no longer captured or stored on Box
-status: verify
+status: now
 priority: P2
 area: evidence
 tickets-it-relates-to: [TKT-047, TKT-002, TKT-090]
-research-link: docs/tickets/verify/TKT-089-non-vehicle-images-box/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-089-non-vehicle-images-box/evidence/operator-note.md
 ---
 
 # Confirm non-vehicle images (signatures/logos) are no longer captured or stored on Box

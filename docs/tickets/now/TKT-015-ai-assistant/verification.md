@@ -93,3 +93,9 @@ Executed (azure-integration-engineer dispatch):
 - **Provisional:** subscription still FreeTrial (PAYG/A1). Capacity: gpt-5 shared 50K-TPM (watch 429).
 
 Registry updated: `LIVE_FACTS.json` (gate + `lastVerified`) + [live-environment.md](../../../architecture/live-environment.md).
+
+## Verdict update — 2026-07-08
+
+FAILED (live) — operator-supplied evidence, 2026-07-08 workstream report: AI Assistant Generate Suggestions does not generate; devtools shows a 204/no-content response. Reopened verify->now; the fix is co-dispatched with TKT-127.
+
+Verified by: operator report transcribed by the orchestrating session, 2026-07-08.

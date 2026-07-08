@@ -1,7 +1,7 @@
 ---
 id: TKT-057
 title: AP. total-loss review flow + diminution (D.) detection grounding
-status: blocked
+status: now
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-056, TKT-032]

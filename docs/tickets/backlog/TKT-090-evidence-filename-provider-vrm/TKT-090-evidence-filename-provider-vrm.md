@@ -29,7 +29,7 @@ misleading (staff read them as case identity), and the names flow into the Box a
 
 - `evidence/operator-note.md` — verbatim drop-note ("Not an RJS case").
 - `evidence/evidence-filenames-screenshot.png` — the evidence cards showing the two filenames.
-- Same case as [TKT-089](../../verify/TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md)'s
+- Same case as [TKT-089](../../now/TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md)'s
   logo-image screenshot (shared source document) — coordinate the two fixes.
 - The naming likely originates in the PDF image-extraction path (TKT-002 lane: the vendored
   `cedocumentmapper_v2.0` engine or the parser Function's wrapper — locate exactly; ADR-0018

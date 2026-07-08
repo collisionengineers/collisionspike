@@ -59,3 +59,9 @@
    ARCHIVE folder id, **no new folder under the live root**, audit `retro_case_created`.
 7. **Race/idempotency:** send a second live email citing the same reference → expect
    `retro_case_linked` (link, not a second case).
+
+## Verdict update — 2026-07-08
+
+FAILED (live) — operator-supplied evidence, 2026-07-08 workstream report: Retro case-create not working on ref PHA5007; acknowledgement emails still ending in new cases. Reopened verify->now; the fix is co-dispatched with TKT-119 (retro root-cause + ack-mint hardening + Unable to Locate).
+
+Verified by: operator report transcribed by the orchestrating session, 2026-07-08.

@@ -1,11 +1,11 @@
 ---
 id: TKT-088
 title: Image role auto-classification — confirm whether it works and decide the path
-status: blocked
+status: now
 priority: P2
 area: evidence
 tickets-it-relates-to: [TKT-064, TKT-002, TKT-016]
-research-link: docs/tickets/blocked/TKT-088-image-role-classification-check/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-088-image-role-classification-check/evidence/operator-note.md
 plan: PLAN-001
 ---
 

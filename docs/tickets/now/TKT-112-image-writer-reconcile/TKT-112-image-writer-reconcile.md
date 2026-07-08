@@ -1,11 +1,11 @@
 ---
 id: TKT-112
 title: Reconcile the two image-classification writers
-status: blocked
+status: now
 priority: P2
 area: ai
 tickets-it-relates-to: [TKT-064, TKT-088]
-research-link: docs/tickets/blocked/TKT-112-image-writer-reconcile/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-112-image-writer-reconcile/evidence/operator-note.md
 plan: PLAN-001
 ---
 
@@ -30,7 +30,7 @@ PROPOSED (not built):
 - Vision tickets TKT-016/TKT-017/TKT-018 proceed only after this is resolved.
 
 ## Research
-Distilled 2026-07-07 from operator note / plan material; raw material in [evidence/](./evidence/).
+Distilled 2026-07-07 from operator note / plan material; raw material in [evidence/](./evidence).
 
 ## Artifacts
 - [Changes made](./changes.md)

@@ -1,7 +1,7 @@
 ---
 id: TKT-010
-title: Delete/remove case with confirm + optional Box-folder removal
-status: blocked
+title: Close case (renamed from delete/remove) — confirm + audit, available to all users
+status: now
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-003]
@@ -9,7 +9,12 @@ research-link: docs/plans/work-todo-spike/ui-changes/research/delete-case.md
 plan: PLAN-003
 ---
 
-# Delete/remove case with confirm + optional Box-folder removal
+# Close case (renamed from delete/remove) — confirm + audit, available to all users
+
+> **Re-scoped 2026-07-08 (operator, workstream item 13).** The action is a **Close case** (terminal soft state),
+> not a delete; the **Superuser gate is dropped** — available to all staff users. Box-folder removal stays
+> ACK-only per ADR-0017 (no automated Box deletion). The built soft-remove/confirm/audit plumbing is reused;
+> rename the SPA control + dialog copy and relax the API role guard to CollisionSpike.User.
 
 ## Problem
 Add an option to **delete/remove** a case. A confirmation window appears with a **tickbox to also remove
