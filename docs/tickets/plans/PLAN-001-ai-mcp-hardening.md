@@ -242,13 +242,25 @@ pytest fails). The operator flips for every new gate are registered in
 | TKT-072 global search | `verify` | `GLOBAL_SEARCH_ENABLED` |
 | TKT-107 read-only archive assist | `verify` | (Box read already live) |
 | TKT-111 assistant write tier | `verify` | `ASSISTANT_WRITE_TIER_ENABLED` (+ DPIA) |
-| TKT-068 attach evidence | `next` | server path only; assistant UX pending; no model upload |
+| TKT-068 attach evidence | `verify` (2026-07-08) | SPA attach UX now built (`3f011fb`); no model upload tool (TKT-060 intact); live E2E deferred to deploy |
 | TKT-110 read-only MCP server | `verify` | `MCP_SERVER_ENABLED` (+ MCP Entra app-reg) |
 | TKT-113 AI usage ledger | `verify` | (schema apply + deploy) |
 | TKT-064 image classifier | `done` (pre-existing, live) | — |
 | TKT-060 read-only assistant | `done` (pre-existing, live) | — |
 | TKT-088 image-role check · TKT-112 image-writer reconcile | `blocked` | operator decision |
-| TKT-016/017/018 vision · TKT-015 model call | `next`/`backlog` | deferred: DPIA + capacity + residency |
+| TKT-017 reg-OCR benchmark | `done` (2026-07-08) | research/bench deliverable; recommendation = local fast-alpr / DI Read, no VLM egress for reg |
+| TKT-016 image-analysis producer | `verify` (2026-07-08) | `IMAGE_ANALYSIS_ENABLED`; built dark/additive (suggestion-only), offline-proven; DPIA + DDL apply + flip deferred |
+| TKT-015 generic model call | `verify` (2026-07-08) | `AI_ASSIST_ENABLED`; `callModelForSuggestions` wired dark (case/damage consumer), offline-proven; DPIA/capacity/residency flip deferred |
+| TKT-018 total-loss (P3) | `backlog` | deferred |
 
-The plan stays `active` until the vision family (P4 consumers) and the deferred `blocked` items land.
+**Vision-family update (2026-07-08, branch `feat/plan-001-vision-family`):** the Phase-4 vision family was
+built **dark, gated-off, offline-proven** per the user's "build all four" instruction — commits `ab06ee2`
+(TKT-017), `0dbe31f` (TKT-016), `4fc8580` (TKT-015), `3f011fb` (TKT-068). No live flip, no deploy, no DDL
+applied. The DPIA + capacity + image-egress residency sign-offs and the `TKT-088`/`TKT-112` image-writer
+reconciliation remain the operator gates before any of these act live (gated.md §F.7 / §F). TKT-016 is
+additive/suggestion-only by design — it does **not** touch the live TKT-064 auto-writer, so it introduces no
+new collision ahead of that reconciliation.
+
+The plan stays `active` until the vision family (P4 consumers) act live (post-DPIA) and the deferred
+`blocked` items land.
 
