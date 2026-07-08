@@ -14,13 +14,14 @@
  * person already set). The generate path PII-scrubs every input BEFORE any external model
  * call (reusing @cs/domain scrubPii — the ROADMAP "[BUILD] PII pre-scrub helper").
  *
- * LIVE STATE (2026-07-07): the Foundry account digital-3339-resource now HAS a gpt-5 deployment, and
+ * LIVE STATE (2026-07-08): the Foundry account digital-3339-resource HAS a gpt-5 deployment, the API
+ * managed identity holds Cognitive Services OpenAI User on it (keyless, granted 2026-07-05), and
  * AI_MODEL_ENDPOINT/AI_MODEL_DEPLOYMENT ARE set on the live apps (the read-only assistant chat uses
- * them — AI_CHAT_ENABLED=true; live values in the registry). BUT the suggestion-layer gate
- * AI_ASSIST_ENABLED is still OFF, AND `callModelForSuggestions` is still a dormant `return []` stub —
- * so the generate path stays an honest no-op. Only the live EMAIL-TRIAGE lane has a real model call.
- * Implementing the generic `callModelForSuggestions` + flipping AI_ASSIST_ENABLED is an operator step
- * gated behind the PLAN-001 Phase-4 capacity/residency/DPIA sign-off (see TKT-015 / docs/gated.md).
+ * them — AI_CHAT_ENABLED=true; live values in the registry). `callModelForSuggestions` is now WIRED
+ * to a real keyless AOAI structured-output call (lib/aoai-suggestions.ts). It stays a permanent
+ * honest no-op ONLY because the suggestion-layer gate AI_ASSIST_ENABLED is still OFF — the generate
+ * route front-gates on it, so no model call fires until an operator flips it (a Phase-4 step gated
+ * behind the capacity/residency/DPIA sign-off — see TKT-015 / docs/gated.md §F / §D6). Build-dark.
  */
 
 import { app } from '@azure/functions';
@@ -37,6 +38,7 @@ import { imageRoleCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { gates } from '../lib/gates.js';
 import { query } from '../lib/db.js';
+import { callSuggestionModel, type DraftSuggestion } from '../lib/aoai-suggestions.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import {
   inboundCategoryFromInt,
@@ -356,11 +358,12 @@ function coerceJsonValue(v: unknown): unknown {
 }
 
 // POST /api/cases/{id}/ai-suggestions/generate — run the AI producers for a case.
-// HONEST NO-OP when the gate is off OR no model is configured (the live state):
-// returns { generated: 0, reason: 'disabled' } and touches nothing. When ON + configured,
-// it PII-scrubs the case context BEFORE the external model call, then persists any
-// suggestions. The model call path is built but dormant — no model is deployed, so a
-// configured-but-unreachable model degrades to { generated: 0, reason: 'error' }.
+// HONEST NO-OP when the gate is off OR no model is configured (the live state — AI_ASSIST_ENABLED
+// is OFF): returns { generated: 0, reason: 'disabled' } and touches nothing (no model call, no DB
+// write). When ON + configured, it PII-scrubs the case context BEFORE the external model call, then
+// persists any suggestions. The model call is now WIRED (lib/aoai-suggestions.ts, keyless MI); a
+// configured-but-unreachable/failing model degrades to { generated: 0, reason: 'error' } with no
+// partial write.
 app.http('generateAiSuggestions', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -436,34 +439,22 @@ app.http('generateAiSuggestions', {
   }),
 });
 
-/** A model-produced suggestion before it is persisted. */
-interface DraftSuggestion {
-  suggestionType: string;
-  suggestedValue: unknown;
-  evidenceId?: string;
-  rationale?: string;
-  confidence?: number;
-  modelVersion?: string;
-}
-
 /**
- * Call the configured Azure OpenAI / Foundry model and map its response to draft
- * suggestions. The PII-scrubbed text is the ONLY case content that would leave the
- * tenant. PREFER managed-identity / keyless auth (no API-key setting by design).
+ * Call the configured Azure OpenAI / Foundry model and map its response to draft suggestions
+ * (the case/damage-assessment consumer). The PII-scrubbed text is the ONLY case content that
+ * leaves the tenant. KEYLESS managed-identity auth (no API-key setting by design) — the mechanics
+ * live in lib/aoai-suggestions.ts (reusing aoai-chat.ts's `mintCognitiveToken` + the live triage
+ * lane's strict-JSON structured-output shape).
  *
- * DORMANT: digital-3339-resource has no model deployment, so this returns [] — the
- * route stays an honest no-op even if the gate + endpoint settings were flipped on
- * without a real deployment. Wiring the actual call (DefaultAzureCredential bearer ->
- * POST {AI_MODEL_ENDPOINT}/openai/deployments/{AI_MODEL_DEPLOYMENT}/chat/completions,
- * strict-JSON response -> DraftSuggestion[]) is the operator/next step in TKT-015.
+ * WIRED (TKT-015): a real keyless AOAI structured-output call. It only ever fires when the route's
+ * front gate (AI_ASSIST_ENABLED + a configured endpoint/deployment) is on — off today, so this is a
+ * permanent honest no-op live. A hard model failure THROWS here → the caller's catch degrades to
+ * { generated: 0, reason: 'error' } with no partial write; a clean-but-empty run resolves to [].
  */
-async function callModelForSuggestions(_input: {
+async function callModelForSuggestions(input: {
   caseId: string;
   vrm: string;
   scrubbedText: string;
 }): Promise<DraftSuggestion[]> {
-  // TODO(TKT-015 operator): deploy a model on digital-3339-resource, set AI_MODEL_ENDPOINT +
-  // AI_MODEL_DEPLOYMENT, grant the API managed identity the Cognitive Services OpenAI User
-  // role, then implement the keyless chat-completions call here returning strict-JSON drafts.
-  return [];
+  return callSuggestionModel(input);
 }

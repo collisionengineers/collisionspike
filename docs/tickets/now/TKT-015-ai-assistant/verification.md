@@ -33,3 +33,33 @@ CODE DEPLOYED, GATED OFF (2026-07-02) — one lane (email triage) wired to a rea
   abstain/`uncorroborated_*`, confirm a `triage_category` row appears via
   `GET /api/inbound/{id}/suggestions`, and that accepting it (not the model itself) is what changes
   `category_code`/`subtype_code` — i.e. it remains suggestion-only, never an autonomous mutation.
+
+## Pending — 2026-07-08: generic generate route model call wired (case/damage-assessment consumer)
+
+Status: **PENDING (offline-proven, build-dark; not live)**. The one remaining gap — the dormant
+`callModelForSuggestions` stub — is now a real keyless AOAI structured-output call
+(`api/src/lib/aoai-suggestions.ts`; `api/src/functions/ai-suggestions.ts`). It stays a permanent live
+no-op because `AI_ASSIST_ENABLED` is still absent from app-settings (route front-gates on it) — no
+deploy, no gate flip this pass.
+
+Offline evidence (`evidence/generate-model-call-offline-run.md`): 18 new tests + full api suite
+(269) pass; `api`/`packages/domain` typecheck clean; `verify-all.mjs` green apart from the
+pre-existing Windows-env parser-pytest FAIL (the Python parser Function is untouched). The tests pin
+acceptance (a) disabled→`{generated:0,reason:'disabled'}` (no model call, no write), (b) strict-JSON
+drafts persist as pending `ai_suggestion` rows carrying `model_version`+`confidence` and audit
+`ai_suggestion_created`, (c) a failed/malformed model response→`{generated:0,reason:'error'}` (no
+partial write), (d) the generate path issues only `INSERT ai_suggestion` — no `UPDATE` to any
+case/evidence column, so promotion stays human-review-only.
+
+Verifier — offline checks to run:
+- `cd api && npx vitest run src/lib/aoai-suggestions.test.ts src/functions/ai-suggestions.test.ts`
+  → 18 passed.
+- `cd api && npx tsc -b` and `npx tsc -b packages/domain` → exit 0.
+- Audit the no-silent-mutation invariant: grep the generate handler + `aoai-suggestions.ts` — the
+  only state write reachable from generate is `INSERT INTO ai_suggestion`; the three minted kinds
+  (`damage_area`/`damage_severity`/`accident_summary`) have no branch in `promoteAcceptedSuggestion`.
+
+Live (deferred, operator-gated): once `AI_ASSIST_ENABLED` + `AI_MODEL_ENDPOINT`/`AI_MODEL_DEPLOYMENT`
+are set on `cespk-api-dev` (post DPIA/G5 sign-off, docs/gated.md §F / §D6), POST the generate route
+for a repo/sample case and confirm `ai_suggestion` rows appear with a `gpt-5:*` model_version and
+`review_state = 'pending'`, and that nothing on the case/evidence changed until a human accepts.

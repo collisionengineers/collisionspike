@@ -327,6 +327,12 @@ export type AiSuggestionType =
   | 'background_text'
   | 'location_hint'
   | 'address_suggestion'
+  // TKT-015 case/damage-assessment consumer (the generic generate route). All observation-only —
+  // NONE has a fill-if-empty promote branch, so a human accept records/audits but never auto-writes
+  // a case/evidence column. See api/src/lib/aoai-suggestions.ts.
+  | 'damage_area'
+  | 'damage_severity'
+  | 'accident_summary'
   | (string & {});
 
 /** Review lifecycle of a suggestion. `superseded` = a newer suggestion replaced it. */
