@@ -6,6 +6,7 @@ priority: P1
 area: intake
 tickets-it-relates-to: [TKT-004, TKT-028]
 research-link: docs/tickets/backlog/TKT-099-qcl-case-po-generation/evidence/operator-note.md
+plan: PLAN-003
 ---
 
 # QCL cases not generating Case/PO correctly
@@ -18,6 +19,7 @@ leading-alpha provider (`Principal`) code + 2-digit year + 3-digit provider case
 
 ## Evidence
 
+- [evidence/operator-note-2026-07-08.md](./evidence/operator-note-2026-07-08.md) — 2026-07-08 operator re-report (workstream item 8): vd@complexreports.com marked New client work; case minted under QCL without a Case/PO so no Box folder; sender is always QCL.
 - `evidence/operator-note.md` — "QCL cases seemingly not generating case/po correctly."
 - **No sample email/case supplied** — a real QCL instruction email or a live QCL case id would let us
   reproduce and pin the acceptance test. Filing anyway because the bug is a specifiable allocator path

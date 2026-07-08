@@ -23,6 +23,7 @@ photo-selection flow.
 
 ## Evidence
 
+- [evidence/operator-failure-report-2026-07-08.md](./evidence/operator-failure-report-2026-07-08.md) — 2026-07-08 operator live-failure report: signatures still being filed to Box — FAILED-live evidence for the sweep.
 - `evidence/operator-note.md` — verbatim drop-note.
 - `evidence/letterhead-logos-as-evidence.png` — PDF-extracted letterhead/logo images shown as
   case evidence (same case as TKT-090's filename bug — the two share a source document).

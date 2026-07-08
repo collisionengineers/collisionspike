@@ -6,6 +6,7 @@ priority: P2
 area: email
 tickets-it-relates-to: [TKT-005, TKT-054]
 research-link: docs/tickets/backlog/TKT-070-email-body-readability/evidence/operator-note.md
+plan: PLAN-003
 ---
 
 # Inbox email previews are one unreadable line — keep line breaks, cut noise
@@ -22,6 +23,7 @@ multi-line preview needs no schema or SPA change.
 
 ## Evidence
 
+- [evidence/operator-note-2026-07-08.md](./evidence/operator-note-2026-07-08.md) — 2026-07-08 operator re-report (workstream item 5): QDOS signature/link garbage fills the preview — strip boilerplate, show the typed body first.
 - `evidence/operator-note.md` — plan § 5 + diagnostic (2026-07-06 planning session, verified
   live 06/07).
 - `orchestration/src/functions/activities/fetchMessage.ts` ~line 137 — the whitespace collapse

@@ -32,6 +32,13 @@ evidence or reach the archive.
 Phase 2 of the [Rules Engine v2 plan](../../../plans/rules_engine_v2_plan_9ba034c4.plan.md); the engine
 side (sibling PR #4/#5 decorative filter) covers document-embedded rasters.
 
+## Status update — 2026-07-08 (operator live-failure report)
+
+[evidence/operator-failure-report-2026-07-08.md](./evidence/operator-failure-report-2026-07-08.md) —
+"Signatures still being picked up and filed to Box from many emails." Treat the verify verdict as
+FAILED-live: the email-lane floor is provably acting (TKT-089 telemetry), so the leak points at
+signatures above the area floor and/or the PDF-extraction lane.
+
 ## Status update — 2026-07-02 (now — deployed live, awaiting live proof)
 
 `de7991d` (feat(orch): non-inline signature-image raster floor) is deployed live on `cespk-orch-dev`:

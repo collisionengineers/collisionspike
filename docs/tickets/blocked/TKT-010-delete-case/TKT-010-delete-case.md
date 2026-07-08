@@ -6,6 +6,7 @@ priority: P2
 area: ui
 tickets-it-relates-to: [TKT-003]
 research-link: docs/plans/work-todo-spike/ui-changes/research/delete-case.md
+plan: PLAN-003
 ---
 
 # Delete/remove case with confirm + optional Box-folder removal
@@ -15,6 +16,8 @@ Add an option to **delete/remove** a case. A confirmation window appears with a 
 the associated Box folder**.
 
 ## Evidence
+- [evidence/operator-note-2026-07-08.md](./evidence/operator-note-2026-07-08.md) — 2026-07-08 operator direction (workstream item 13): rename to **Close case**, available to **all** users — dissolves the Superuser-assignment block.
+
 Note the standing principle: there is **no automated deletion from Box** in the pipeline — this is an
 explicit, operator-confirmed manual action, distinct from any retention/purge job. Postgres is the
 system of record; deletion must respect the append-only audit trail. See the research pack.
