@@ -3,7 +3,7 @@
 > **Scope.** This is the reg-OCR **research/bench** deliverable for
 > [TKT-017](../TKT-017-ai-reg-ocr.md): a comparison of the candidate registration-recognition
 > approaches on **accuracy / cost / latency** (+ data-residency), and a recommendation for the
-> image-analysis sequence ([TKT-016](../../../now/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md))
+> image-analysis sequence ([TKT-016](../../TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md))
 > and the document-parser registration field ([TKT-001]). It builds **no pipeline** (that is TKT-016).
 > It is a **flip precondition** for PLAN-001 Phase 4 — the result is itself a gate on whether a vision
 > model-egress flip is justified (see [PLAN-001](../../../plans/PLAN-001-ai-mcp-hardening.md) §Phase 4).
