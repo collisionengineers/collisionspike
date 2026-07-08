@@ -34,6 +34,8 @@ side (sibling PR #4/#5 decorative filter) covers document-embedded rasters.
 
 ## Status update — 2026-07-08 (operator live-failure report)
 
+Verdict trail: [verification.md](./verification.md) (FAILED-live 2026-07-08).
+
 [evidence/operator-failure-report-2026-07-08.md](./evidence/operator-failure-report-2026-07-08.md) —
 "Signatures still being picked up and filed to Box from many emails." Treat the verify verdict as
 FAILED-live: the email-lane floor is provably acting (TKT-089 telemetry), so the leak points at
