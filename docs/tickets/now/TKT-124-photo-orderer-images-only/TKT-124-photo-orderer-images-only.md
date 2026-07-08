@@ -1,11 +1,11 @@
 ---
 id: TKT-124
 title: Photo orderer shows .eml files — it must list images only
-status: backlog
+status: now
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-126]
-research-link: docs/tickets/backlog/TKT-124-photo-orderer-images-only/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-124-photo-orderer-images-only/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-124 — Photo orderer shows .eml files — it must list images only
@@ -36,4 +36,4 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

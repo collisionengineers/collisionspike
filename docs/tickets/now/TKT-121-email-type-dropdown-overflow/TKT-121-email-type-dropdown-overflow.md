@@ -1,11 +1,11 @@
 ---
 id: TKT-121
 title: The "E-mail Type" dropdown fills the whole page — cap its height with a scrollbar
-status: backlog
+status: now
 priority: P3
 area: ui
 tickets-it-relates-to: [TKT-054]
-research-link: docs/tickets/backlog/TKT-121-email-type-dropdown-overflow/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-121-email-type-dropdown-overflow/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-121 — The "E-mail Type" dropdown fills the whole page — cap its height with a scrollbar
@@ -35,4 +35,4 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

@@ -1,11 +1,11 @@
 ---
 id: TKT-126
 title: Export for EVA downloads a .zip of the JSON plus all the images
-status: backlog
+status: now
 priority: P1
 area: ui
 tickets-it-relates-to: [TKT-124]
-research-link: docs/tickets/backlog/TKT-126-eva-export-zip/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-126-eva-export-zip/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-126 — Export for EVA downloads a .zip of the JSON plus all the images
@@ -37,4 +37,4 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

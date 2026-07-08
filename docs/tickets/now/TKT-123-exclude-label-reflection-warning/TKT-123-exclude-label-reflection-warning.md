@@ -1,11 +1,11 @@
 ---
 id: TKT-123
 title: Rename "exclude (person reflection)" to "Exclude" + dismissible vision reflection warning on images
-status: backlog
+status: now
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-016, TKT-064]
-research-link: docs/tickets/backlog/TKT-123-exclude-label-reflection-warning/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-123-exclude-label-reflection-warning/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-123 — Rename "exclude (person reflection)" to "Exclude" + dismissible vision reflection warning on images
@@ -37,4 +37,4 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

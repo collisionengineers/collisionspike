@@ -1,11 +1,11 @@
 ---
 id: TKT-125
 title: Remove the field descriptors under the Add Case inputs (and the wrong "4-char" principal claim)
-status: backlog
+status: now
 priority: P3
 area: ui
 tickets-it-relates-to: []
-research-link: docs/tickets/backlog/TKT-125-add-case-descriptor-removal/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-125-add-case-descriptor-removal/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-125 — Remove the field descriptors under the Add Case inputs (and the wrong "4-char" principal claim)
@@ -37,4 +37,4 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

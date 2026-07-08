@@ -1,11 +1,11 @@
 ---
 id: TKT-116
 title: Paginate the case queues at 15 per page (same as the inbox)
-status: backlog
+status: now
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-098]
-research-link: docs/tickets/backlog/TKT-116-queues-pagination/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-116-queues-pagination/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-116 — Paginate the case queues at 15 per page (same as the inbox)
@@ -37,4 +37,4 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

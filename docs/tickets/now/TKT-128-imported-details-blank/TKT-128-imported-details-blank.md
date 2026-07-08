@@ -1,11 +1,11 @@
 ---
 id: TKT-128
 title: "Imported details — from the instruction document or email" renders blank
-status: backlog
+status: now
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-054, TKT-028]
-research-link: docs/tickets/backlog/TKT-128-imported-details-blank/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-128-imported-details-blank/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-128 — "Imported details — from the instruction document or email" renders blank
@@ -36,4 +36,4 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)
