@@ -50,6 +50,11 @@ Workflow for **working an existing ticket** to completion. The authoritative spe
 Parser regressions need a fixture in `cedocumentmapper_v2.0/tests/fixtures/` before re-vendor. Intake/orch
 fixes need an offline test where one exists; live intake needs a re-verify path in `verification.md`.
 
+For **delegated or multi-ticket execution** use the [ticket-orchestrate](../ticket-orchestrate/SKILL.md)
+skill instead — it routes each area to a dispatchable agent and gates `verify→done` on the read-only
+`ticket-verifier`. A **dispatched** implementer never runs `ticket-move.mjs` or writes a verification
+verdict — status transitions belong to the dispatching loop.
+
 ## Implement
 
 - Scope to the ticket's **Acceptance** section — do not expand into unrelated ROADMAP items.

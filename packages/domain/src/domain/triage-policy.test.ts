@@ -542,6 +542,62 @@ describe('decideTriage — case_update vs query precedence (rung 3 refinement)',
     expect(out.finalSubtype).toBe('images_received');
   });
 
+  it('tkt043 real sample (open-case job-ref match + images-PDF, auto-attach ON) -> attach_case / case_update / images_received (the full TKT-093 attach lane)', () => {
+    // The live shape of the TKT-043 chaser: Stage A returns receiving_work/
+    // existing_provider_instruction (the body is genuinely work-shaped — "engineers
+    // report is required on the following case … 160404" + an instruction-kind PDF), the
+    // triage activity resolves the job-ref 160404 to ONE open case, and derives
+    // imagesOnly=true for the photos-in-a-PDF ("images - cvd.pdf"). With the LIVE gates
+    // (refGate + caseUpdate + autoAttach), Stage B relabels to case_update/images_received
+    // AND promotes to attach_case on the strong single job-ref match — the TKT-093
+    // self-accept -> reversible inbound_linked attach. No new case is minted (case_update
+    // is a non-minting category; belt-and-braces CASE_MINTING_CATEGORIES = [receiving_work]).
+    const out = decideTriage(
+      classification({
+        category: 'receiving_work',
+        subtype: 'existing_provider_instruction',
+        bodyJobref: '160404',
+        isReply: true,
+      }),
+      context({
+        openCaseMatches: [match({ caseId: 'case-als-160404', casePo: 'ALS26066', matchedOn: 'job_ref' })],
+        hasAttachments: true,
+        attachmentKinds: ['image'],
+        imagesOnly: true,
+      }),
+      gates({ refGate: true, caseUpdate: true, autoAttach: true }),
+    );
+    expect(out.action).toBe('attach_case');
+    expect(out.finalCategory).toBe('case_update');
+    expect(out.finalSubtype).toBe('images_received');
+    expect(out.targetCaseId).toBe('case-als-160404');
+    expect(out.suggestionType).toBe('case_link');
+    expect(out.decisionInputs.autoAttachApplied).toBe(true);
+  });
+
+  it('tkt043 with auto-attach OFF (DARK default) still relabels to case_update/images_received but stays a suggestion (suggest-first)', () => {
+    const out = decideTriage(
+      classification({
+        category: 'receiving_work',
+        subtype: 'existing_provider_instruction',
+        bodyJobref: '160404',
+        isReply: true,
+      }),
+      context({
+        openCaseMatches: [match({ caseId: 'case-als-160404', casePo: 'ALS26066', matchedOn: 'job_ref' })],
+        hasAttachments: true,
+        attachmentKinds: ['image'],
+        imagesOnly: true,
+      }),
+      gates({ refGate: true, caseUpdate: true }), // autoAttach off
+    );
+    expect(out.action).toBe('suggest_attach');
+    expect(out.finalCategory).toBe('case_update');
+    expect(out.finalSubtype).toBe('images_received');
+    expect(out.targetCaseId).toBe('case-als-160404');
+    expect(out.suggestionType).toBe('case_link');
+  });
+
   it('ref-match + question-only (no attachments) -> STAYS in the query lane, category/subtype untouched', () => {
     const out = decideTriage(
       classification({

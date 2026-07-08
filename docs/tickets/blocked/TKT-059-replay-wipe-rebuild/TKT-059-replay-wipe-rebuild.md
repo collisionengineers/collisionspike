@@ -1,7 +1,7 @@
 ---
 id: TKT-059
 title: "Replay: wipe & rebuild derived data from full mailbox history"
-status: now
+status: blocked
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-058, TKT-027, TKT-012, TKT-026]
@@ -81,3 +81,23 @@ driver), P3 (wipe & rebuild runbook), P3V (verification + relink); §"Critical c
 
 Change-by-change audit trail: [changes.md](./changes.md) · smoke/verification steps:
 [verification.md](./verification.md).
+
+## Status update — 2026-07-08 (blocked — RETIRED AS SUPERSEDED, operator decision)
+
+**Disposition: superseded, moved to `blocked`.** The wipe-&-rebuild-from-mailbox premise is
+**abandoned** — the P1 dry-run proved the live Inboxes retain only ~88 of 390 ingested emails (staff
+file/delete processed mail into Deleted Items), so a wipe would have destroyed ~150 cases it could not
+rebuild, and an eval proved the deployed classifier is sound (~94% `receiving_work` recall), so the
+existing derived data is largely correct. See [verification.md](./verification.md) Findings 1 & 2 + the
+P2 resolution, and the memory `[[replay-mailboxes-do-not-retain-history]]`.
+
+The operator was offered the one residual candidate — an **optional** full-`.eml` reprocess of the
+~212 case-linked emails (safe but low-value) — and **declined it** (ticket-orchestrate batch,
+2026-07-08). Nothing in this ticket's Acceptance is needed for go-live.
+
+**The Acceptance section above is therefore moot** (it describes the abandoned wipe path) and is not
+being pursued. The P1 driver (`listMessagesSince` pager + keyed `POST /api/replay-backfill` +
+`replay-manifest.ts`) remains **built, deployed, and shipped dark** (`REPLAY_BACKFILL_ENABLED=false`);
+its **removal is tracked by [TKT-106](../../backlog/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md)**.
+This ticket is `blocked` pending that removal — once TKT-106 lands, close both. The non-viability
+**finding is preserved** here and in TKT-106 (do not lose it with the code).

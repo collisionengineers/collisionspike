@@ -1,12 +1,12 @@
 {
   "schema": "collisionspike-eval-email-baseline-v1",
-  "generated_at": "2026-07-07T07:47:57.319676+00:00",
+  "generated_at": "2026-07-08T09:24:24.603185+00:00",
   "taxonomy": "v2",
   "aggregate": {
     "total": 52,
-    "skipped": 10,
-    "category_accuracy": 0.8461538461538461,
-    "subtype_exact_accuracy": 0.8461538461538461,
+    "skipped": 9,
+    "category_accuracy": 0.8653846153846154,
+    "subtype_exact_accuracy": 0.8653846153846154,
     "category_metrics": {
       "billing": {
         "support": 1,
@@ -28,12 +28,12 @@
       },
       "case_update": {
         "support": 3,
-        "tp": 2,
+        "tp": 3,
         "fp": 2,
-        "fn": 1,
-        "precision": 0.5,
-        "recall": 0.6666666666666666,
-        "f1": 0.5714285714285715
+        "fn": 0,
+        "precision": 0.6,
+        "recall": 1.0,
+        "f1": 0.7499999999999999
       },
       "non_actionable": {
         "support": 6,
@@ -65,11 +65,11 @@
       "receiving_work": {
         "support": 18,
         "tp": 17,
-        "fp": 3,
+        "fp": 2,
         "fn": 1,
-        "precision": 0.85,
+        "precision": 0.8947368421052632,
         "recall": 0.9444444444444444,
-        "f1": 0.8947368421052632
+        "f1": 0.918918918918919
       }
     },
     "confusion_matrix": {
@@ -94,11 +94,11 @@
       "case_update": {
         "billing": 0,
         "cancellation": 0,
-        "case_update": 2,
+        "case_update": 3,
         "non_actionable": 0,
         "other": 0,
         "query": 0,
-        "receiving_work": 1
+        "receiving_work": 0
       },
       "non_actionable": {
         "billing": 0,
@@ -180,8 +180,8 @@
       },
       "case_update/images_received": {
         "support": 2,
-        "correct": 1,
-        "accuracy": 0.5
+        "correct": 2,
+        "accuracy": 1.0
       },
       "receiving_work/existing_provider_audit": {
         "support": 2,
@@ -538,11 +538,11 @@
       "tracked": true,
       "expected_category": "case_update",
       "expected_subtype": "images_received",
-      "got_category": "receiving_work",
-      "got_subtype": "existing_provider_instruction",
-      "category_correct": false,
-      "subtype_correct": false,
-      "confidence": 0.95
+      "got_category": "case_update",
+      "got_subtype": "images_received",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.6
     },
     {
       "id": "tkt050-ax-instruction",

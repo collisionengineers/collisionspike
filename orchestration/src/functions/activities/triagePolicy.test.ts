@@ -129,4 +129,51 @@ describe('deriveAttachmentSignals', () => {
     expect(out.hasAttachments).toBe(true);
     expect(out.imagesOnly).toBe(false);
   });
+
+  it('a photos-in-a-PDF whose filename advertises images ("images - cvd.pdf") -> imagesOnly true (TKT-043 filename tier)', () => {
+    // The extension-derived kind reads this as `instruction`, but the delivered evidence
+    // is photos — the FILENAME tier recovers it so the triage policy yields
+    // images_received, in lockstep with the classifier's _delivered_images_only.
+    const out = deriveAttachmentSignals(
+      envelope({
+        attachments: [{ filename: 'images - cvd.pdf', contentType: 'application/pdf', blobPath: 'a', size: 10 }],
+      }),
+    );
+    expect(out.attachmentKinds).toEqual(['instruction']);
+    expect(out.imagesOnly).toBe(true);
+  });
+
+  it('a non-image-advertising PDF alongside a signature logo (tkt093 Audatex shape) -> imagesOnly false', () => {
+    const out = deriveAttachmentSignals(
+      envelope({
+        attachments: [
+          { filename: 'AJB14044.AudatexMS.pdf', contentType: 'application/pdf', blobPath: 'a', size: 10 },
+          { filename: 'image001.png', contentType: 'image/png', blobPath: 'b', size: 10 },
+        ],
+      }),
+    );
+    expect(out.imagesOnly).toBe(false);
+  });
+
+  it('a signature logo ONLY (image001.png) -> imagesOnly false (PR#45: the all-image KIND fast-path must not fire on signatures)', () => {
+    const out = deriveAttachmentSignals(
+      envelope({
+        attachments: [{ filename: 'image001.png', contentType: 'image/png', blobPath: 'a', size: 10 }],
+      }),
+    );
+    expect(out.attachmentKinds).toEqual(['image']); // kind IS image — but it is a signature
+    expect(out.imagesOnly).toBe(false);
+  });
+
+  it('a real photo alongside a signature logo -> imagesOnly true (the non-signature photo is genuine evidence)', () => {
+    const out = deriveAttachmentSignals(
+      envelope({
+        attachments: [
+          { filename: 'damage-front.jpg', contentType: 'image/jpeg', blobPath: 'a', size: 20 },
+          { filename: 'image001.png', contentType: 'image/png', blobPath: 'b', size: 10 },
+        ],
+      }),
+    );
+    expect(out.imagesOnly).toBe(true);
+  });
 });

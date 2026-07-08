@@ -5,7 +5,7 @@ status: backlog
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-059]
-research-link: docs/tickets/now/TKT-059-replay-wipe-rebuild/verification.md
+research-link: docs/tickets/blocked/TKT-059-replay-wipe-rebuild/verification.md
 ---
 
 # Remove the non-viable replay-backfill driver + gate
@@ -15,7 +15,7 @@ research-link: docs/tickets/now/TKT-059-replay-wipe-rebuild/verification.md
 The **wipe-and-rebuild-from-mailbox** path (TKT-059) is **non-viable and abandoned**: the dry-run
 proved the intake Inboxes retain only ~88 of 390 source emails (staff file/delete processed mail into
 Deleted Items, 7–9k each), so a wipe would destroy ~150 cases it could not rebuild from the mailbox
-(see [TKT-059 verification](../../now/TKT-059-replay-wipe-rebuild/verification.md) Finding 1). The gentler
+(see [TKT-059 verification](../../blocked/TKT-059-replay-wipe-rebuild/verification.md) Finding 1). The gentler
 in-place reprocess was shown **safe but low-value** (the stored classifications are largely correct).
 
 The **`replay-backfill` Durable driver ships DARK** (`REPLAY_BACKFILL_ENABLED=false`) and will never be

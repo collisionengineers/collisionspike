@@ -35,6 +35,7 @@ from cedocumentmapper_v2.rules.email_classifier import (
     _job_reference,
     _has_report_attachment,
     _has_new_image_evidence,
+    _delivered_images_only,
     _is_reply,
     _is_bare_acknowledgement,
     _sender_written_text,
@@ -1296,6 +1297,23 @@ def test_p1_5_reply_with_only_signature_logos_not_case_update():
     assert result["subtype"] == "acknowledgement"
 
 
+def test_delivered_images_only_signature_aware():
+    """PR#45: the all-image KIND fast-path must not short-circuit to True on a set made only
+    of signature logos (imageNNN.png). Kept in lockstep with the orchestrator's
+    deriveAttachmentSignals.deliveredImagesOnly."""
+    # signature logo(s) only -> False (was True via the kind fast-path before the fix)
+    assert _delivered_images_only(["image"], ["image001.png"]) is False
+    assert _delivered_images_only(["image", "image"], ["image001.png", "image002.png"]) is False
+    # a real photo alongside a signature -> True (the non-signature photo is genuine evidence)
+    assert _delivered_images_only(["image", "image"], ["damage-front.jpg", "image001.png"]) is True
+    # a set of real photos -> True (unchanged)
+    assert _delivered_images_only(["image", "image"], ["IMG_9108.jpeg", "IMG_9109.jpeg"]) is True
+    # photos-in-a-PDF (filename tier, TKT-043) -> True (regression guard)
+    assert _delivered_images_only(["instruction"], ["images - cvd.pdf"]) is True
+    # an engineer's report among the delivered files -> False (unchanged)
+    assert _delivered_images_only(["image", "instruction"], ["photo.jpg", "Engineer Report.pdf"]) is False
+
+
 def test_p2_6_soft_confirmation_is_query():
     """P2-6: a soft confirmation ('Can I confirm has everything needed for the report been
     sent') matched no keyword pre-fix and fell to 'other'. It must now land 'query'."""
@@ -1564,6 +1582,49 @@ def test_tkt093_forward_delivering_document_is_case_update_not_new_work():
     assert result["is_reply"] is False
     assert result["category"] == "case_update"
     assert result["subtype"] == "update_general"
+
+
+# --------------------------------------------------------------------------- #
+# open_case_ref_match context input (collisionspike TKT-043)                   #
+# --------------------------------------------------------------------------- #
+def _tkt043_chaser(**over):
+    """A work-shaped chaser DELIVERING a photos-PDF on a named case — the real
+    TKT-043 sample shape. The pure text is genuinely work-shaped ("Engineers report
+    is required on the following case: ...<PO>..." + an instruction-kind PDF), so only
+    the flow's open-case match can tell "update on an open case" from "fresh work"."""
+    kw = dict(
+        subject="RE: Ref:160404/GN14GBE/Nissan Qashqai Tekna - Chaser for engineers report",
+        body="Engineers report is required on the following case:\n\n160404\n\nUn-Roadworthy\nGN14GBE\n",
+        provider_match_state="one",
+        attachment_kinds=["instruction"],
+        attachment_filenames=["images - cvd.pdf"],
+        has_attachments=True,
+    )
+    kw.update(over)
+    return classify_email(**kw)
+
+
+def test_tkt043_open_case_ref_match_routes_images_pdf_to_case_update():
+    """TKT-043: with the flow's open-case match resolved (``one``), the chaser routes to
+    case_update/images_received — the FILENAME tier of _delivered_images_only catches the
+    photos-in-a-PDF the extension-derived kind reads as 'instruction'."""
+    result = _tkt043_chaser(open_case_ref_match="one")
+    assert result["category"] == "case_update", result["signals"]
+    assert result["subtype"] == "images_received"
+    assert "open_case_ref_match:one" in result["signals"]
+
+
+def test_tkt043_default_stays_fresh_work_without_open_case_signal():
+    """Kill-switch: absent/``none`` open_case_ref_match leaves the label EXACTLY as today —
+    the flip is driven only by the resolved open-case context, never a per-sample hard-code."""
+    assert _tkt043_chaser()["category"] == "receiving_work"
+    assert _tkt043_chaser(open_case_ref_match="none")["category"] == "receiving_work"
+
+
+def test_tkt043_open_case_ref_match_ambiguous_suppresses_fresh_work():
+    """An ambiguous open-case match still means "belongs to an existing case, not fresh
+    work" — routed into the case_update lane; the ACTION is the triage-policy layer's call."""
+    assert _tkt043_chaser(open_case_ref_match="ambiguous")["category"] == "case_update"
 
 
 # --------------------------------------------------------------------------- #

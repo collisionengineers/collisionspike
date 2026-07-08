@@ -116,6 +116,56 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     return { triaged: classification.category, subtype: classification.subtype, triage: triage.action };
   }
 
+  // attach_case (TKT-093 auto-attach, LIVE via TRIAGE_AUTO_ATTACH_ENABLED) — decideTriage
+  // resolved an EXACT single open-case match on a STRONG signal (case_po/job_ref, never VRM)
+  // and the triagePolicy activity has ALREADY self-accepted the reversible `inbound_linked`
+  // attach onto triage.targetCaseId. This email therefore BELONGS to that existing case and
+  // must NOT ALSO mint a new one: the receiving_work fall-through below routes on
+  // classification.category (Stage A's own label), NOT triage.finalCategory, so without this
+  // branch a work-shaped follow-up on an open case (the TKT-043 shape) would auto-attach AND
+  // mint a DUPLICATE — violating the ticket acceptance "no new case is minted" (PR#45 review,
+  // Finding B). Persist its email/attachments/images as evidence on the matched case + archive
+  // + re-evaluate status — the linked-reply lane's non-minting shape below — then return.
+  // Replay-safe: branches only on checkpointed triage values, never on process.env.
+  if (triage.action === 'attach_case' && triage.targetCaseId) {
+    const caseId = triage.targetCaseId;
+    const caseVrm = ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim();
+    yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
+      caseId,
+      inbound,
+      ...(caseVrm ? { caseVrm } : {}),
+      ...(workProviderId ? { workProviderId } : {}),
+    });
+    try {
+      yield ctx.df.callActivityWithRetry('extractImages', retry, {
+        caseId,
+        messageId: (inbound as { messageId?: string }).messageId,
+        attachments: (inbound as { attachments?: unknown }).attachments,
+        ...(caseVrm ? { caseVrm } : {}),
+        ...(workProviderId ? { workProviderId } : {}),
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] image extraction failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
+      }
+    }
+    try {
+      yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, { caseId });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] archive failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
+      }
+    }
+    const status = (yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId })) as { value: string };
+    return {
+      triaged: triage.finalCategory,
+      subtype: triage.finalSubtype,
+      attach: triage.action,
+      caseId,
+      status: status.value,
+    };
+  }
+
   // 1.55b — gated LLM triage-assist (Stage C, ADR-0019 / rules-engine-v2 Phase 4): a
   // best-effort SECOND OPINION for rows Stage A could not confidently place (abstain, or
   // carrying an uncorroborated_* signal flag — see shouldAttemptTriageAssist's own doc for

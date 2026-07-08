@@ -46,7 +46,7 @@ plan: PLAN-001        # optional
 | `title` | One-line plain-English summary. |
 | `status` | `backlog` not started · `now` in flight · `verify` deployed/code-complete awaiting live proof · `done` verified · `next` queued · `blocked` waiting on a dependency/operator action. |
 | `priority` | `P0`–`P3`. |
-| `area` | Subsystem: parsing, evidence, box, intake, email, ui, dashboard, ai, platform, docs. |
+| `area` | Subsystem: parsing, evidence, box, intake, email, ui, dashboard, ai, platform, docs, pipeline, integration, enrichment. |
 | `tickets-it-relates-to` | Dependency/sibling ticket ids, or `[]`. |
 | `research-link` | Repo-relative path to the backing research pack or operator note. |
 | `plan` | Optional plan id under [plans/](./plans/). |
@@ -67,6 +67,19 @@ flowchart TD
 ```
 
 **Truth standard:** `done` means live and proven in `verification.md`. Code that is written/deployed but awaiting live proof belongs in `verify`, not `done`.
+
+## How tickets get worked
+
+Two paths, one discipline:
+
+- **Inline (single ticket)** — the `ticket-implement` skill: the working session reads, implements,
+  records `changes.md`/`verification.md`, and moves status itself.
+- **Delegated / batch** — the `ticket-orchestrate` skill: the main loop routes the ticket's `area` to a
+  specialist agent (or the `ticket-implementer` fallback), enforces the lifecycle graph above (which
+  `ticket-move.mjs` does **not** enforce), and gates `verify→done` on a **read-only `ticket-verifier`
+  dispatch** — the party that implemented never self-certifies `done`. Dispatched agents **never** run
+  `ticket-move.mjs` or write a verification verdict; status moves, BOARD **State** cells, and the
+  **Index** section below stay with the dispatching loop (the mover script updates neither of the last two).
 
 ## Plans layer
 
@@ -93,13 +106,13 @@ node scripts/check-skills-sync.mjs
 
 | Ticket | Title | Priority | Area | Plan |
 |---|---|---|---|---|
-| [TKT-043](./now/TKT-043-misclass-images-received/TKT-043-misclass-images-received.md) | Images-received / report-chaser email misrouted (scope to confirm) | P2 | email | — |
-| [TKT-059](./now/TKT-059-replay-wipe-rebuild/TKT-059-replay-wipe-rebuild.md) | Replay: wipe & rebuild derived data from full mailbox history | P1 | intake | — |
 
 ### verify
 
 | Ticket | Title | Priority | Area | Plan |
 |---|---|---|---|---|
+| [TKT-043](./verify/TKT-043-misclass-images-received/TKT-043-misclass-images-received.md) | Images-received / report-chaser email misrouted (images-on-existing-case) | P2 | email | — |
+| [TKT-115](./verify/TKT-115-orch-ocr-fn-url-host-mismatch/TKT-115-orch-ocr-fn-url-host-mismatch.md) | Fix orch OCR_FN_URL host — Functions-on-ACA FQDN (OCR restored) | P1 | platform | — |
 | [TKT-001](./verify/TKT-001-document-parsing/TKT-001-document-parsing.md) | Fix multi-format document extraction regression | P1 | parsing | — |
 | [TKT-005](./verify/TKT-005-email-actions/TKT-005-email-actions.md) | Make the inbox actionable (dismiss removes from view) | P2 | email | — |
 | [TKT-021](./verify/TKT-021-connexus-intermediary/TKT-021-connexus-intermediary.md) | Resolve Connexus claims-manager to the real provider (PCH/SBL) | P2 | intake | — |
@@ -216,6 +229,7 @@ node scripts/check-skills-sync.mjs
 | [TKT-110](./verify/TKT-110-mcp-readonly-server/TKT-110-mcp-readonly-server.md) | Read-only MCP server for external agents | P2 | ai | PLAN-001 |
 | [TKT-111](./verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md) | Assistant write tier with human confirmation | P2 | ai | PLAN-001 |
 | [TKT-113](./verify/TKT-113-ai-usage-ledger/TKT-113-ai-usage-ledger.md) | AI usage ledger for model capacity controls | P3 | ai | PLAN-001 |
+| [TKT-114](./backlog/TKT-114-ticket-move-transition-guard/TKT-114-ticket-move-transition-guard.md) | Enforce the ticket lifecycle transition graph in ticket-move.mjs | P2 | docs | — |
 
 ### blocked
 
@@ -228,3 +242,4 @@ node scripts/check-skills-sync.mjs
 | [TKT-088](./blocked/TKT-088-image-role-classification-check/TKT-088-image-role-classification-check.md) | Image role auto-classification — confirm whether it works and decide the path | P2 | evidence | PLAN-001 |
 | [TKT-104](./blocked/TKT-104-tractable-api-integration/TKT-104-tractable-api-integration.md) | Tractable API integration (deferred — blocked on vendor docs) | P3 | intake | — |
 | [TKT-112](./blocked/TKT-112-image-writer-reconcile/TKT-112-image-writer-reconcile.md) | Reconcile the two image-classification writers | P2 | ai | PLAN-001 |
+| [TKT-059](./blocked/TKT-059-replay-wipe-rebuild/TKT-059-replay-wipe-rebuild.md) | Replay: wipe & rebuild derived data from full mailbox history (superseded; cleanup → TKT-106) | P1 | intake | — |

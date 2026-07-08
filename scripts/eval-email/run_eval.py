@@ -250,6 +250,12 @@ _FIELD_TO_PARAM = {
     "from_address": "from_address",
     "sender_domain": "sender_domain",
     "provider_match_state": "provider_match_state",
+    # The flow's OPEN-CASE match outcome (one|none|ambiguous) — like provider_match_state
+    # it has no file-derivable value and is a manifest-`context` labeling judgment (did the
+    # email's named ref hit an OPEN case?). Absent -> classify_email treats it as none
+    # (unmatched), so only an item that explicitly sets it exercises the case_update
+    # open-case routing (TKT-043). See README "open_case_ref_match".
+    "open_case_ref_match": "open_case_ref_match",
     "attachment_kinds": "attachment_kinds",
     "attachment_filenames": "attachment_filenames",
     "has_attachments": "has_attachments",

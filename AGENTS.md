@@ -207,6 +207,13 @@ build/deploy/wire → **azure-integration-engineer**.
 > **re-created as `fluent-spa-designer`** — it builds the **Azure SWA Fluent v9 SPA**, *not* a Power Apps
 > Code App; older design-lab docs that say `fluent-codeapp-designer` mean this role.) All Azure work routes through
 > **[docs/azure/](./docs/azure/README.md)**.
+> **Roster delta (2026-07-08):** added the **ticket-lifecycle pair** — **ticket-verifier** (read-only
+> ticket verification; enforces the `verify→done` separation of duties) and **ticket-implementer**
+> (lifecycle-disciplined fallback implementer for areas without a living specialist: parsing, docs,
+> research-`ai`). Ticket delegation and batch modes route through the **`ticket-orchestrate` skill** —
+> the orchestrator runs in the **main loop** and dispatches **one level** of agents; **agents never move
+> ticket status** (`scripts/ticket-move.mjs`, BOARD/index edits, and `verification.md` verdicts belong to
+> the dispatching loop).
 - **azure-integration-engineer** — *(live, expanded)* Azure Functions (parser + DVSA/DVLA enrichment
   **direct via Entra client_credentials**, no Google gateway; plus the box-webhook receiver), Key Vault,
   **Entra app registrations / MSAL / JWT validation**, Document Intelligence, postcode.io/Azure Maps —
@@ -216,6 +223,17 @@ build/deploy/wire → **azure-integration-engineer**.
   Insights/KQL (`cespike-parser-ai-dev`), AppLens/resource-health, function lists, and RLS/secret state,
   cross-checks Microsoft Learn, and returns a **root-cause + recommended fix**. Dispatch it for "why is X
   failing" so the main loop stops thrashing; it **applies nothing** — fixes go to azure-integration-engineer.
+- **ticket-verifier** — *(live, new)* **read-only** verification of a ticket's Acceptance against the
+  live stack: gathers one concrete evidence artifact per acceptance line (KQL, Postgres `SELECT`,
+  `az show/list`, the deployed SPA, Box reads), cross-checks the registry, and returns a
+  `VERIFIED-LIVE | TESTED (offline) | PENDING | FAILED` verdict block. It **writes nothing** — the
+  dispatching loop transcribes the verdict into `verification.md` and owns the `verify→done` move.
+  Never certifies from code-reading alone.
+- **ticket-implementer** — *(live, new)* the fallback implementer for tickets whose `area` has no living
+  specialist (`parsing` — sibling-first + fixture + re-vendor per ADR-0018; `docs`; research/bench `ai`).
+  Carries the `ticket-implement` discipline (scope to Acceptance, registry facts, `changes.md` drafting);
+  **never** runs `ticket-move.mjs`, certifies `done`, or dispatches other agents. Not dispatched when a
+  specialist matches.
 - **power-automate-flow-builder** — **[HISTORICAL / reference-only]** authored the Power Automate cloud
   flows (intake, dedup, status machine, parser/enrichment calls, EVA+Box finalize, chasers). The flows were
   **deprovisioned 2026-06-27 with the rest of the Power Platform footprint**; their **logic** (dedup ladder ADR-0010, the status machine, chaser policy) was
