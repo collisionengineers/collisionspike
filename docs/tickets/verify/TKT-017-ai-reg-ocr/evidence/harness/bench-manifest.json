@@ -1,0 +1,67 @@
+{
+  "schema": "tkt017-reg-ocr-bench/v1",
+  "description": "Labelling schema for the reg-OCR photo benchmark (TIER B). The committed manifest carries NO ground-truth registrations (PII). Ground-truth VRM labels live in a gitignored overlay keyed by item id (see overlayKey + harness/README.md). Mirrors scripts/eval-email/manifest.json + its eval-overlay split.",
+  "axes": {
+    "crop": "OCR accuracy on a clean, pre-cropped plate region",
+    "full-photo": "end-to-end accuracy on a full vehicle photo (detector must find the plate)",
+    "visibility": "visibility detection independent of a confident read (visible/unreadable/absent)"
+  },
+  "labelFields": {
+    "ground_truth_vrm": "the true registration, NORMALISED (uppercase, alnum only). PII -> overlay only.",
+    "plate_visible": "one of: visible_readable | visible_unreadable | not_visible  (the tri-state the boolean layer cannot express)",
+    "person_reflection": "bool: a person/photographer reflection present (ADR exclusion)",
+    "expected_role": "overview | damage_closeup | additional | other (for the same-vehicle / role axis)"
+  },
+  "itemSchema": {
+    "id": "unique slug",
+    "file": "repo-relative path to the image (a committed sample, or an operator-local path)",
+    "source": "ticket:TKT-NNN | case:CODE | synthetic | operator-local",
+    "tracked": "bool: false = may be locally absent (skip gracefully)",
+    "axis": "crop | full-photo | visibility",
+    "overlayKey": "key into the gitignored ground-truth overlay (never the VRM itself)",
+    "shape_note": "PII-safe description of the plate's visibility/shape (NOT the registration)"
+  },
+  "items": [
+    {
+      "id": "tkt040-clvdamage5",
+      "file": "docs/tickets/done/TKT-040-misclass-roadworthy-request/evidence/CLVDamage5-V1.jpg",
+      "source": "ticket:TKT-040",
+      "tracked": true,
+      "axis": "full-photo",
+      "overlayKey": "tkt040-clvdamage5",
+      "shape_note": "real CE evidence photo: white hatchback front-end damage close-up; a current-style UK plate is present at the bottom edge but PARTIALLY CROPPED by the frame -> a 'visible_unreadable-ish' / hard end-to-end case."
+    },
+    {
+      "id": "tkt040-clvdamage4",
+      "file": "docs/tickets/done/TKT-040-misclass-roadworthy-request/evidence/2_CLVDamage4-V1.jpg",
+      "source": "ticket:TKT-040",
+      "tracked": true,
+      "axis": "full-photo",
+      "overlayKey": "tkt040-clvdamage4",
+      "shape_note": "real CE evidence photo, same vehicle, damage close-up; verify plate presence/legibility when labelling."
+    },
+    {
+      "id": "tkt040-clvdamage3",
+      "file": "docs/tickets/done/TKT-040-misclass-roadworthy-request/evidence/3_CLVDamage3-V1.jpg",
+      "source": "ticket:TKT-040",
+      "tracked": true,
+      "axis": "full-photo",
+      "overlayKey": "tkt040-clvdamage3",
+      "shape_note": "real CE evidence photo, same vehicle, damage close-up."
+    },
+    {
+      "id": "tkt040-clvdamage2",
+      "file": "docs/tickets/done/TKT-040-misclass-roadworthy-request/evidence/4_CLVDamage2-V1.jpg",
+      "source": "ticket:TKT-040",
+      "tracked": true,
+      "axis": "full-photo",
+      "overlayKey": "tkt040-clvdamage2",
+      "shape_note": "real CE evidence photo, same vehicle, damage close-up."
+    }
+  ],
+  "corpusGaps": [
+    "No committed labelled OVERVIEW (whole-vehicle, plate-legible) photos exist in-repo; the 4 TKT-040 items are damage close-ups, not the overview shot the EVA image-rule needs.",
+    "A representative TIER B run needs ~30-50 labelled real overview photos spanning: clean plate / partial / angled / low-light / new-style 2021+ green-flash / private plates / no-plate-visible / person-reflection / another-vehicle-in-frame.",
+    "Those live in the evidence blob (cespkevidstdev01) + Box and are customer PII -> must be pulled + labelled under the G5 'AI testing on repo data' allowance with the ground-truth VRMs kept in the gitignored overlay, not committed."
+  ]
+}

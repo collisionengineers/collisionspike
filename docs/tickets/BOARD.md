@@ -136,6 +136,7 @@
 
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
@@ -145,6 +146,7 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-017](./verify/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model bench | Research-only; no benchmark run. |
 | [TKT-043](./verify/TKT-043-misclass-images-received/TKT-043-misclass-images-received.md) | Images-received / report-chaser email misrouted (images-on-existing-case) | **Fix implemented + deployed (now → verify, 2026-07-08).** Scope confirmed **(a) images-on-existing-case**. A flow-resolved `open_case_ref_match` context signal + the orch `decideTriage`/`deriveAttachmentSignals` relabel a work-shaped chaser on an open-case ref to `case_update`/`images_received` → suggest-first TKT-093 attach (`case_update` is non-minting, no new Case). Offline eval flips the sample (`--check` clean, `receiving_work` recall held ~94%); orch redeployed to `cespk-orch-dev` (67 fns, unchanged). **PR #45 open (unmerged).** Awaiting live proof on a real open-case-ref chaser (verifier) — the chaser's ref must resolve to ONE open case or the sample correctly stays a query. |
 | [TKT-054](./verify/TKT-054-ui-work/TKT-054-ui-work.md) | Inbox simplification + VRM/Ref split + dashboard inbox-panel regressions | DEPLOYED 2026-07-02 (orch / api / SPA; mailbox chips live-verified reading info@/engineers@/desk@ post-backfill; legacy deep-links rewrite; dashboard tiles aligned). `OUTLOOK_MOVE_ENABLED` **flipped true 2026-07-03** (user-instructed) — the SPA "File to …" buttons are live, but Graph moves still 403 pending the operator's Exchange `Mail.ReadWrite` grant ([gated.md B4](../gated.md), steps 1–2). Remaining: operator click-through + that grant + the operator's own live move test. Rulings: [020726 review](../reviews/020726/decisions.md) (supersedes 010726 D16). See [verification](./verify/TKT-054-ui-work/verification.md). |
 | [TKT-001](./verify/TKT-001-document-parsing/TKT-001-document-parsing.md) | Multi-format extraction + field-drop fix | Follow-up deployed 2026-07-01 (parser live-proven on triage `.eml`; body supplement deployed). Pending: e2e re-intake Postgres proof on triage `.doc` path. See [changes-regression-01-07-26](./verify/TKT-001-document-parsing/changes-regression-01-07-26.md). |
@@ -227,7 +229,6 @@
 |---|---|---|
 | [TKT-015](./next/TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (gated) | Phase 4 of [rules-engine-v2](../plans/rules_engine_v2_plan_9ba034c4.plan.md) wired ONE concrete lane (email-triage categorisation) to a real, keyless AOAI call 2026-07-02 — `EMAIL_AI_ENABLED` **flipped live 2026-07-03** (user-instructed; `AI_ASSIST_ENABLED` still absent); the case/damage-assessment + image/reg-OCR consumers remain unbuilt. See [verification](./next/TKT-015-ai-assistant/verification.md). |
 | [TKT-016](./next/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md) | Image-analysis VLM sequence | Research-only; pipeline unbuilt. |
-| [TKT-017](./next/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model bench | Research-only; no benchmark run. |
 | [TKT-068](./next/TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) | Attach files in the assistant and add them to a case (user-confirmed upload) | P2 (plan 2026-07-06 §3): drawer attach + confirmation card + new staff-role `POST /api/cases/{id}/evidence/upload`; the model stays read-only (TKT-060 invariant). |
 
 ## Backlog — not started
