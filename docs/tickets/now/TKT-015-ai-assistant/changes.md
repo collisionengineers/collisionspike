@@ -60,3 +60,21 @@ managed-identity** AOAI structured-output call.
 - **Still gated OFF / build-dark:** `AI_ASSIST_ENABLED` absent from live app-settings — no live deploy,
   no gate flip, no DDL. Flipping it is a Phase-4 operator step (DPIA/capacity/residency, docs/gated.md
   §F / §D6).
+
+## 2026-07-08 (later) — reopened live failure resolved via TKT-127 (live-proven end-to-end)
+
+The operator's post-go-live report ("Generate Suggestions doesn't generate; devtools 204") reopened
+this ticket; the investigation + fix are recorded in **[TKT-127](../TKT-127-ai-suggestions-generate-204/changes.md)**
+(this batch, branch `feat/readiness-ai-spine`). Summary for THIS ticket's history:
+
+- **Not a regression in this ticket's build**: the deployed generate path was current and working —
+  the "204" was the CORS OPTIONS preflight; the model was called (AOAI metrics: 5×200) and honestly
+  returned an empty list because the clicked cases had empty accident-circumstances.
+- **Hardening shipped** (TKT-127): explicit zero-outcome reasons (`disabled`/`no_input`/`empty`/
+  `error`) + App Insights logging on the generate route; per-reason plain-language toasts + plain
+  rendering of the case-assessment kinds in `AiAssistPanel`; a defensive body-less-2xx mapping in
+  `rest-client.ts`.
+- **The TKT-015 acceptance is now live-proven**: SPA Generate on A.QDOS26029 → 200 `{generated:5}`;
+  5 pending `ai_suggestion` rows (model version + confidence stamped) + `ai_suggestion_created`
+  audit rows; suggestions render for human Accept/Reject — observation-first, no silent mutation.
+  Evidence lives under [TKT-127 evidence/](../TKT-127-ai-suggestions-generate-204/evidence/).

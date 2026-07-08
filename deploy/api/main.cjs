@@ -7461,6 +7461,9 @@ function markerForMint(caseType, principalCode, dual) {
   return CASE_PO_MARKER[caseType];
 }
 
+// packages/domain/dist/domain/address-policy.js
+var IMAGE_BASED_LITERAL = "Image Based Assessment";
+
 // packages/domain/dist/domain/pii-scrub.js
 var DEFAULT_PLACEHOLDERS = {
   email: "[EMAIL]",
@@ -7596,7 +7599,6 @@ var QUEUES = [
       "ingested",
       "missing_images",
       "missing_required_fields",
-      "needs_review",
       "linked_to_instruction"
     ],
     tone: "muted"
@@ -7606,9 +7608,11 @@ var QUEUES = [
     routeSegment: "review",
     label: "Review",
     shortLabel: "Review",
-    // Everything required is present — the human-in-the-loop check before EVA
-    // submit. (A full-auto provider would have auto-submitted and never appear.)
-    statuses: ["ready_for_eva"],
+    // The human-in-the-loop queue: a case flagged for a person (needs_review) or
+    // complete and awaiting the final check before EVA submit (ready_for_eva).
+    // needs_review moved here from Not ready 2026-07-08 (TKT-130 operator
+    // direction: "Needs Review cases belong in the Review queue").
+    statuses: ["needs_review", "ready_for_eva"],
     tone: "blocker"
   },
   {
@@ -7637,9 +7641,9 @@ function statusToStage(status) {
       return "new";
     case "missing_images":
     case "missing_required_fields":
-    case "needs_review":
     case "linked_to_instruction":
       return "not_ready";
+    case "needs_review":
     case "ready_for_eva":
       return "review";
     case "eva_submitted":
@@ -15234,6 +15238,185 @@ async function tx(fn) {
   }
 }
 
+// api/src/lib/audit.ts
+var AUDIT_ACTION = {
+  graph_message_ingested: 1e8,
+  graph_message_ingest_failed: 100000001,
+  attachment_classified: 100000002,
+  case_created: 100000003,
+  case_attached: 100000004,
+  duplicate_dropped: 100000005,
+  duplicate_flagged: 100000006,
+  provider_matched: 100000007,
+  provider_unmatched: 100000008,
+  parser_called: 100000009,
+  parser_failed: 100000010,
+  enrichment_called: 100000011,
+  enrichment_failed: 100000012,
+  status_changed: 100000013,
+  jobsheet_imported: 100000014,
+  eva_submitted: 100000015,
+  box_synced: 100000016,
+  corpus_record_changed: 100000017,
+  inspection_override: 100000018,
+  box_folder_created: 100000019,
+  box_file_request_copied: 100000020,
+  box_upload_received: 100000021,
+  location_assist_confirmed: 100000022,
+  chaser_sent: 100000023,
+  inbound_classified: 100000024,
+  inbound_routed: 100000025,
+  case_disposed: 100000026,
+  // Phase-8 staff triage state-change actions (work-todo-spike: email-management).
+  inbound_dismissed: 100000027,
+  inbound_actioned: 100000028,
+  inbound_reopened: 100000029,
+  // Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
+  case_removed: 100000030,
+  // Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
+  inbound_reclassified: 100000031,
+  // AI suggestion lifecycle (TKT-015 AI suggestion layer; gated by AI_ASSIST_ENABLED).
+  // created = a model produced a suggestion; accepted/rejected = a human reviewed it.
+  ai_suggestion_created: 100000032,
+  ai_suggestion_accepted: 100000033,
+  ai_suggestion_rejected: 100000034,
+  // rules-engine-v2 Phase 2 (ADR-0019) — the ref-gate suggest/link/detach lifecycle +
+  // the cancellation-propose action. Minted in the DDL delta
+  // migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql, NOT YET applied
+  // live: writing one of these four codes before that delta lands will FK-fail on
+  // choice_audit_action — writeAudit's catch-all below swallows that (never throws), so a
+  // pre-DDL write degrades to "no audit row", never a blocked caller.
+  inbound_link_suggested: 100000035,
+  inbound_linked: 100000036,
+  inbound_detached: 100000037,
+  cancellation_proposed: 100000038,
+  // Outlook filing lifecycle (TKT-054 / 020726 E6; gated by OUTLOOK_MOVE_ENABLED).
+  // Minted in deltas/2026-07-02-tkt054-outlook-move.sql — same pre-DDL degrade as above.
+  outlook_move_requested: 100000039,
+  outlook_moved: 100000040,
+  outlook_move_failed: 100000041,
+  // Provider API intake channel (TKT-055 / ADR-0020; gated by the presence of at least one
+  // minted key). Minted in deltas/2026-07-03-provider-api-intake.sql — same pre-DDL degrade
+  // as the codes above (writeAudit's catch-all swallows an FK failure before the delta lands).
+  // api_key_* audit the Superuser key lifecycle; provider_api_case_* audit the intake outcome.
+  api_key_created: 100000042,
+  api_key_revoked: 100000043,
+  provider_api_case_created: 100000044,
+  provider_api_case_rejected: 100000045,
+  // Retroactive case reconstruction (TKT-058 / ADR-0022; gated by RETRO_CASE_ENABLED).
+  // Minted in deltas/2026-07-04-retro-case.sql — same pre-DDL degrade as the codes above.
+  // created = a case was reconstructed; linked = the trigger email matched an EXISTING
+  // case (any status, incl. terminal); failed = the ladder found no source to rebuild from.
+  retro_case_created: 100000046,
+  retro_case_linked: 100000047,
+  retro_reconstruction_failed: 100000048,
+  // TKT-068 — staff added evidence via the assistant's attach affordance (bytes uploaded to Blob
+  // + an evidence row created). Records the actor from the validated JWT (never the model).
+  evidence_added: 100000049,
+  // PLAN-001 Phase 3 (TKT-110/3b) — autonomous MCP-agent actions. Reserved now so the codes are
+  // stable; only WRITTEN once agent writes ship (3b). An agent action stamps the agent SP identity
+  // + autonomous:true into the actor/after (never a silent managed-identity fallback).
+  agent_read: 100000050,
+  agent_write: 100000051,
+  // TKT-016 — a run of the staged image-analysis suggestion producer (POST /api/cases/{id}/
+  // image-analysis/generate; gated IMAGE_ANALYSIS_ENABLED). Records the RUN (how many observation
+  // suggestions were minted + which stages degraded) distinct from the per-suggestion
+  // ai_suggestion_created (100000032) each draft also writes. Minted in
+  // deltas/2026-07-08-image-analysis-suggestion-types.sql — same pre-DDL degrade as the codes
+  // above (writeAudit's catch-all swallows the choice_audit_action FK failure until the delta lands).
+  image_analysis_generated: 100000052
+};
+var SEVERITY_CODE = {
+  info: 1e8,
+  warning: 100000001,
+  error: 100000002
+};
+async function writeAudit(opts) {
+  try {
+    await query(
+      `INSERT INTO audit_event
+         (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
+      [
+        opts.summary,
+        opts.caseId ?? null,
+        opts.actor ?? null,
+        opts.action,
+        SEVERITY_CODE[opts.severity ?? "info"],
+        opts.before !== void 0 ? JSON.stringify(opts.before) : null,
+        opts.after !== void 0 ? JSON.stringify(opts.after) : null
+      ]
+    );
+  } catch (err2) {
+    console.error("[audit] write failed", err2);
+  }
+}
+function actorFromClaims(claims) {
+  const pick = (v) => typeof v === "string" && v.length > 0 ? v : void 0;
+  return pick(claims.oid) ?? pick(claims.preferred_username) ?? pick(claims.name) ?? pick(claims.sub);
+}
+
+// api/src/lib/inspection-prefill.ts
+var PREFILL_REASON = "Provider policy: image-based assessment";
+var PREFILL_SOURCE_LABEL = "Provider policy (image-based)";
+var IMAGE_BASED_CODE = inspectionDecisionCodec.toInt("image_based");
+var UNKNOWN_DECISION_CODE = inspectionDecisionCodec.toInt("unknown");
+function isPrefillApplicable(c) {
+  return c.providerInspectionPolicy === "always_image_based" && !isTerminalStatus(c.status) && c.inspectionDecision === "unknown" && c.evaFields.inspectionAddress.value.trim().length === 0;
+}
+async function prefillImageBasedInspection(caseId, actor) {
+  const updated = await query(
+    `UPDATE case_
+        SET eva_inspection_address = $2,
+            inspection_decision_code = $3,
+            updated_at = now()
+      WHERE id = $1
+        AND COALESCE(eva_inspection_address, '') = ''
+        AND (inspection_decision_code IS NULL OR inspection_decision_code = $4)
+      RETURNING id`,
+    [caseId, IMAGE_BASED_LITERAL, IMAGE_BASED_CODE, UNKNOWN_DECISION_CODE]
+  );
+  if (!updated[0]) return false;
+  try {
+    const corpus = sourceTypeCodec.toInt("corpus") ?? 100000003;
+    const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
+    const existing = await query(
+      `SELECT id FROM field_level_provenance WHERE case_id = $1 AND field_name = $2`,
+      [caseId, "inspectionAddress"]
+    );
+    if (existing.length === 0) {
+      await query(
+        `INSERT INTO field_level_provenance
+           (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
+         VALUES ($1, $2, 'inspectionAddress', $3, $4, $5, $6)`,
+        [
+          `${caseId}:inspectionAddress`,
+          caseId,
+          IMAGE_BASED_LITERAL,
+          corpus,
+          PREFILL_SOURCE_LABEL,
+          reviewed
+        ]
+      );
+    }
+  } catch {
+  }
+  await writeAudit({
+    action: AUDIT_ACTION.inspection_override,
+    caseId,
+    summary: "Inspection recorded as Image Based Assessment (provider policy)",
+    before: { inspectionAddress: "", decisionMode: "unknown" },
+    after: {
+      inspectionAddress: IMAGE_BASED_LITERAL,
+      decisionMode: "image_based",
+      reason: PREFILL_REASON,
+      source: "provider_policy"
+    },
+    ...actor ? { actor } : {}
+  });
+  return true;
+}
+
 // api/src/lib/case-po.ts
 var floorTableKnown = null;
 async function casePoFloor(run, prefix2) {
@@ -15460,124 +15643,6 @@ var gates = {
    */
   outlookMoveEnabled: () => gates.outlookMove() && gates.outlookMoveQueueServiceUrl() !== ""
 };
-
-// api/src/lib/audit.ts
-var AUDIT_ACTION = {
-  graph_message_ingested: 1e8,
-  graph_message_ingest_failed: 100000001,
-  attachment_classified: 100000002,
-  case_created: 100000003,
-  case_attached: 100000004,
-  duplicate_dropped: 100000005,
-  duplicate_flagged: 100000006,
-  provider_matched: 100000007,
-  provider_unmatched: 100000008,
-  parser_called: 100000009,
-  parser_failed: 100000010,
-  enrichment_called: 100000011,
-  enrichment_failed: 100000012,
-  status_changed: 100000013,
-  jobsheet_imported: 100000014,
-  eva_submitted: 100000015,
-  box_synced: 100000016,
-  corpus_record_changed: 100000017,
-  inspection_override: 100000018,
-  box_folder_created: 100000019,
-  box_file_request_copied: 100000020,
-  box_upload_received: 100000021,
-  location_assist_confirmed: 100000022,
-  chaser_sent: 100000023,
-  inbound_classified: 100000024,
-  inbound_routed: 100000025,
-  case_disposed: 100000026,
-  // Phase-8 staff triage state-change actions (work-todo-spike: email-management).
-  inbound_dismissed: 100000027,
-  inbound_actioned: 100000028,
-  inbound_reopened: 100000029,
-  // Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
-  case_removed: 100000030,
-  // Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
-  inbound_reclassified: 100000031,
-  // AI suggestion lifecycle (TKT-015 AI suggestion layer; gated by AI_ASSIST_ENABLED).
-  // created = a model produced a suggestion; accepted/rejected = a human reviewed it.
-  ai_suggestion_created: 100000032,
-  ai_suggestion_accepted: 100000033,
-  ai_suggestion_rejected: 100000034,
-  // rules-engine-v2 Phase 2 (ADR-0019) — the ref-gate suggest/link/detach lifecycle +
-  // the cancellation-propose action. Minted in the DDL delta
-  // migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql, NOT YET applied
-  // live: writing one of these four codes before that delta lands will FK-fail on
-  // choice_audit_action — writeAudit's catch-all below swallows that (never throws), so a
-  // pre-DDL write degrades to "no audit row", never a blocked caller.
-  inbound_link_suggested: 100000035,
-  inbound_linked: 100000036,
-  inbound_detached: 100000037,
-  cancellation_proposed: 100000038,
-  // Outlook filing lifecycle (TKT-054 / 020726 E6; gated by OUTLOOK_MOVE_ENABLED).
-  // Minted in deltas/2026-07-02-tkt054-outlook-move.sql — same pre-DDL degrade as above.
-  outlook_move_requested: 100000039,
-  outlook_moved: 100000040,
-  outlook_move_failed: 100000041,
-  // Provider API intake channel (TKT-055 / ADR-0020; gated by the presence of at least one
-  // minted key). Minted in deltas/2026-07-03-provider-api-intake.sql — same pre-DDL degrade
-  // as the codes above (writeAudit's catch-all swallows an FK failure before the delta lands).
-  // api_key_* audit the Superuser key lifecycle; provider_api_case_* audit the intake outcome.
-  api_key_created: 100000042,
-  api_key_revoked: 100000043,
-  provider_api_case_created: 100000044,
-  provider_api_case_rejected: 100000045,
-  // Retroactive case reconstruction (TKT-058 / ADR-0022; gated by RETRO_CASE_ENABLED).
-  // Minted in deltas/2026-07-04-retro-case.sql — same pre-DDL degrade as the codes above.
-  // created = a case was reconstructed; linked = the trigger email matched an EXISTING
-  // case (any status, incl. terminal); failed = the ladder found no source to rebuild from.
-  retro_case_created: 100000046,
-  retro_case_linked: 100000047,
-  retro_reconstruction_failed: 100000048,
-  // TKT-068 — staff added evidence via the assistant's attach affordance (bytes uploaded to Blob
-  // + an evidence row created). Records the actor from the validated JWT (never the model).
-  evidence_added: 100000049,
-  // PLAN-001 Phase 3 (TKT-110/3b) — autonomous MCP-agent actions. Reserved now so the codes are
-  // stable; only WRITTEN once agent writes ship (3b). An agent action stamps the agent SP identity
-  // + autonomous:true into the actor/after (never a silent managed-identity fallback).
-  agent_read: 100000050,
-  agent_write: 100000051,
-  // TKT-016 — a run of the staged image-analysis suggestion producer (POST /api/cases/{id}/
-  // image-analysis/generate; gated IMAGE_ANALYSIS_ENABLED). Records the RUN (how many observation
-  // suggestions were minted + which stages degraded) distinct from the per-suggestion
-  // ai_suggestion_created (100000032) each draft also writes. Minted in
-  // deltas/2026-07-08-image-analysis-suggestion-types.sql — same pre-DDL degrade as the codes
-  // above (writeAudit's catch-all swallows the choice_audit_action FK failure until the delta lands).
-  image_analysis_generated: 100000052
-};
-var SEVERITY_CODE = {
-  info: 1e8,
-  warning: 100000001,
-  error: 100000002
-};
-async function writeAudit(opts) {
-  try {
-    await query(
-      `INSERT INTO audit_event
-         (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
-      [
-        opts.summary,
-        opts.caseId ?? null,
-        opts.actor ?? null,
-        opts.action,
-        SEVERITY_CODE[opts.severity ?? "info"],
-        opts.before !== void 0 ? JSON.stringify(opts.before) : null,
-        opts.after !== void 0 ? JSON.stringify(opts.after) : null
-      ]
-    );
-  } catch (err2) {
-    console.error("[audit] write failed", err2);
-  }
-}
-function actorFromClaims(claims) {
-  const pick = (v) => typeof v === "string" && v.length > 0 ? v : void 0;
-  return pick(claims.oid) ?? pick(claims.preferred_username) ?? pick(claims.name) ?? pick(claims.sub);
-}
 
 // api/src/lib/enrichment-map.ts
 function combineMakeModel(make, model) {
@@ -16294,6 +16359,13 @@ async function recomputeStatus(caseId) {
   const evidenceRows = await query("SELECT * FROM evidence WHERE case_id = $1", [caseId]);
   const evidence = evidenceRows.map(rowToEvidence);
   const full = rowToCase(rec, { evidence });
+  if (isPrefillApplicable(full)) {
+    const filled = await prefillImageBasedInspection(caseId);
+    if (filled) {
+      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
+      full.inspectionDecision = "image_based";
+    }
+  }
   const input = {
     status: full.status,
     evaFields: full.evaFields,
@@ -17945,6 +18017,13 @@ async function loadCaseLite(id) {
 async function recomputeStatus2(caseId, actor) {
   const full = await loadCaseFull(caseId, /* @__PURE__ */ new Date());
   if (!full) return;
+  if (isPrefillApplicable(full)) {
+    const filled = await prefillImageBasedInspection(caseId, actor);
+    if (filled) {
+      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
+      full.inspectionDecision = "image_based";
+    }
+  }
   const input = {
     status: full.status,
     evaFields: full.evaFields,
@@ -18278,6 +18357,7 @@ import_functions2.app.http("createCase", {
       after: { status, vrm: input.vrm },
       ...actor ? { actor } : {}
     });
+    await recomputeStatus2(newId, actor);
     return { status: 201, jsonBody: { id: newId } };
   })
 });
@@ -60952,12 +61032,21 @@ import_functions16.app.http("generateAiSuggestions", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions/generate",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+  handler: withRole("CollisionSpike.User", async (req, invocationCtx, claims) => {
+    const caseId = req.params.id;
     if (!gates.aiAssist() || !gates.aiAssistConfigured()) {
+      invocationCtx.log(
+        JSON.stringify({
+          evt: "aiSuggestionsGenerate",
+          caseId,
+          outcome: "disabled",
+          gateOn: gates.aiAssist(),
+          modelConfigured: gates.aiAssistConfigured()
+        })
+      );
       const result = { generated: 0, reason: "disabled" };
       return { status: 200, jsonBody: result };
     }
-    const caseId = req.params.id;
     try {
       const ctx = await query(
         `SELECT vrm, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1`,
@@ -60966,6 +61055,13 @@ import_functions16.app.http("generateAiSuggestions", {
       if (!ctx[0]) return { status: 404, jsonBody: { error: "not found" } };
       const rawText = [ctx[0].eva_accident_circumstances, ctx[0].eva_claimant_address].filter((s) => typeof s === "string" && s.trim().length > 0).join("\n");
       const scrubbed = scrubPii(rawText, { redactVrm: false });
+      if (!scrubbed.text.trim()) {
+        invocationCtx.log(
+          JSON.stringify({ evt: "aiSuggestionsGenerate", caseId, outcome: "no_input" })
+        );
+        const result2 = { generated: 0, reason: "no_input" };
+        return { status: 200, jsonBody: result2 };
+      }
       const drafts = await callModelForSuggestions({
         caseId,
         vrm: typeof ctx[0].vrm === "string" ? ctx[0].vrm : "",
@@ -60999,9 +61095,21 @@ import_functions16.app.http("generateAiSuggestions", {
           });
         }
       }
-      const result = { generated };
+      invocationCtx.log(
+        JSON.stringify({
+          evt: "aiSuggestionsGenerate",
+          caseId,
+          outcome: generated > 0 ? "generated" : "empty",
+          generated,
+          drafts: drafts.length
+        })
+      );
+      const result = generated > 0 ? { generated } : { generated: 0, reason: "empty" };
       return { status: 200, jsonBody: result };
-    } catch {
+    } catch (e) {
+      invocationCtx.error(
+        `[ai-suggestions] generate failed for case ${caseId}: ${e instanceof Error ? e.message : String(e)}`
+      );
       const result = { generated: 0, reason: "error" };
       return { status: 200, jsonBody: result };
     }

@@ -5,15 +5,17 @@ import type { ActionReason, Case, CaseStatus } from './types';
 
    The queue information architecture is the case's NATURAL state, surfaced as
    the sub-options under the first-class "Queues" nav button and as the tabs on
-   the merged queue page. THREE queues (revised 2026-06-20):
+   the merged queue page. THREE queues (revised 2026-06-20; needs_review moved
+   into Review 2026-07-08, TKT-130 operator direction):
 
      1. not-ready  — "Not ready": arrived and progressing but not complete —
                      instructions without images, images without instructions, a
                      just-arrived case, or a merged case still missing a detail
                      (e.g. the inspection address).
-     2. review     — "Review": everything required is present; the human-in-the-
-                     loop check before EVA submit (a full-auto provider would have
-                     auto-submitted and never land here).
+     2. review     — "Review": the human-in-the-loop queue — a case flagged for a
+                     person to look at (needs_review) or complete and awaiting the
+                     final check before EVA submit (ready_for_eva). (TKT-130:
+                     needs_review cases belong HERE, not in Not ready.)
      3. held       — "Held": cannot pass through automatically (missing the basics
                      — VRM / claimant — or errored), a possible duplicate awaiting
                      a decision, or put on hold by a person.
@@ -65,7 +67,6 @@ export const QUEUES: readonly QueueDef[] = [
       'ingested',
       'missing_images',
       'missing_required_fields',
-      'needs_review',
       'linked_to_instruction',
     ],
     tone: 'muted',
@@ -75,9 +76,11 @@ export const QUEUES: readonly QueueDef[] = [
     routeSegment: 'review',
     label: 'Review',
     shortLabel: 'Review',
-    // Everything required is present — the human-in-the-loop check before EVA
-    // submit. (A full-auto provider would have auto-submitted and never appear.)
-    statuses: ['ready_for_eva'],
+    // The human-in-the-loop queue: a case flagged for a person (needs_review) or
+    // complete and awaiting the final check before EVA submit (ready_for_eva).
+    // needs_review moved here from Not ready 2026-07-08 (TKT-130 operator
+    // direction: "Needs Review cases belong in the Review queue").
+    statuses: ['needs_review', 'ready_for_eva'],
     tone: 'blocker',
   },
   {
@@ -112,11 +115,12 @@ export function queueByName(name: string): QueueDef | undefined {
    has NO held stage. `error` and `duplicate_risk` are Held — surfaced via the
    Held queue + the dashboard held bar + the aging hero — never a funnel count —
    so they map to `undefined` here (callers exclude them from the strip).
-   Buckets align with the QUEUES taxonomy:
+   Buckets align with the QUEUES taxonomy (needs_review sits in Review since
+   2026-07-08 — TKT-130 — so the funnel and the queues stay in lockstep):
      - new        ← new_email, ingested            (intake/settling)
-     - not_ready  ← missing_images, missing_required_fields, needs_review,
+     - not_ready  ← missing_images, missing_required_fields,
                     linked_to_instruction
-     - review     ← ready_for_eva
+     - review     ← needs_review, ready_for_eva
      - submitted  ← eva_submitted, box_synced
      - (none)     ← error, duplicate_risk          (Held only) */
 export function statusToStage(status: CaseStatus): PipelineStageKey | undefined {
@@ -126,9 +130,9 @@ export function statusToStage(status: CaseStatus): PipelineStageKey | undefined 
       return 'new';
     case 'missing_images':
     case 'missing_required_fields':
-    case 'needs_review':
     case 'linked_to_instruction':
       return 'not_ready';
+    case 'needs_review':
     case 'ready_for_eva':
       return 'review';
     case 'eva_submitted':

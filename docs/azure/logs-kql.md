@@ -10,8 +10,12 @@ orchestration run, custom events (`graph-renewal-success`, `graph-notification-r
 3. Diagnostic framing → [diagnose.md](./diagnose.md).
 
 ## Where the telemetry lives
-- **Shared App Insights `cespike-parser-ai-dev`** / Log Analytics `cespike-parser-law-dev` — covers the
-  Data API, parser, enrichment, EVA, EVA-validation, box-webhook.
+- **The Data API + orchestration have their OWN App Insights components** (verified 2026-07-08 during
+  the TKT-127 triage — their requests are NOT in the shared parser instance): components **`cespk-api-dev`**
+  and **`cespk-orch-dev`** in workspace `DefaultWorkspace-e6076573-…-SUK` (RG `DefaultResourceGroup-SUK`).
+  Query THOSE for API/orch requests, traces, and exceptions.
+- **Shared App Insights `cespike-parser-ai-dev`** / Log Analytics `cespike-parser-law-dev` — the retained
+  Python Functions: parser, enrichment, EVA, EVA-validation, box-webhook.
 - **OCR has its own pair** `cespkocr-ai-dev` / `cespkocr-law-dev`.
 - Source of truth for names: [`live-environment.md`](../architecture/live-environment.md).
 

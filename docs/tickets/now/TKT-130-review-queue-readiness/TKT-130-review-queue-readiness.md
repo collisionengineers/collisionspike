@@ -1,11 +1,11 @@
 ---
 id: TKT-130
 title: needs_review cases belong in the Review queue — readiness wrongly piles everything into Not Ready
-status: backlog
+status: now
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-129, TKT-094, TKT-012]
-research-link: docs/tickets/backlog/TKT-130-review-queue-readiness/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-130-review-queue-readiness/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-130 — needs_review cases belong in the Review queue — readiness wrongly piles everything into Not Ready
@@ -38,4 +38,4 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

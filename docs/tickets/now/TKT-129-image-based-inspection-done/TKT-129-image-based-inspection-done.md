@@ -1,11 +1,11 @@
 ---
 id: TKT-129
 title: Image-based providers: inspection field must auto-complete as Done + fix the inverted wording
-status: backlog
+status: now
 priority: P1
 area: ui
 tickets-it-relates-to: [TKT-109, TKT-079, TKT-130]
-research-link: docs/tickets/backlog/TKT-129-image-based-inspection-done/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-129-image-based-inspection-done/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-129 — Image-based providers: inspection field must auto-complete as Done + fix the inverted wording
@@ -40,4 +40,4 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

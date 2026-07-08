@@ -253,14 +253,14 @@ const EMPTY_STATE: Record<
   },
   review: {
     title: 'Nothing to review.',
-    hint: 'Cases arrive here once everything’s in and they’re ready to send.',
+    hint: 'Cases that need a person to check — flagged for review, or complete and ready to send — land here.',
     actionLabel: 'Check what’s not ready',
     to: '/queue/not-ready',
   },
   held: {
     title: 'Nothing held.',
     hint: 'Cases that can’t go through (missing the basics) or are on hold would show here.',
-    actionLabel: 'Review cases ready to send',
+    actionLabel: 'Check the review queue',
     to: '/queue/review',
   },
 };
@@ -295,8 +295,9 @@ export function CaseList() {
   const queue = queueByName(activeName);
   // Reason facet chips help most on the Not ready queue, where reasons vary.
   const showFacets = activeName === 'not-ready';
-  // Status filter only where the queue spans multiple statuses (queues #1):
-  // single-status queues (Review) don't need it.
+  // Status filter only where the queue spans multiple statuses (queues #1).
+  // Since TKT-130 the Review queue spans needs_review + ready_for_eva, so it
+  // shows the filter too (it adapts off the queue definition automatically).
   const showStatusFilter = (queue?.statuses.length ?? 0) > 1;
 
   const [search, setSearch] = useState('');

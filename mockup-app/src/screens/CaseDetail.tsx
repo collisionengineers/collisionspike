@@ -1909,13 +1909,17 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                         )}
                       </div>
 
-                      {/* Provider default (ADR-0016, operator-designated) — INFORMATIONAL only,
-                          never auto-applied (ADR-0013). The reviewer still records IBA with a
-                          reason via the override below. */}
+                      {/* Provider default (ADR-0016, operator-designated). Since TKT-109/129
+                          (2026-07-08 operator direction, amending ADR-0013) an always_image_based
+                          provider's case is AUTO-completed as "Image Based Assessment" server-side
+                          (fill-if-empty, audited); this note explains the policy in plain English
+                          — the prior wording was inverted (TKT-129). Staff can still pick a
+                          physical address, which overrides the pre-fill. */}
                       {c.providerInspectionPolicy === 'always_image_based' && (
                         <Caption1 className={styles.hint}>
-                          This provider is usually recorded as Image Based Assessment — use the
-                          override below if the vehicle can’t be inspected in person.
+                          This provider works from photos, so the inspection is recorded as Image
+                          Based Assessment for you. Only pick an address below if this vehicle will
+                          be inspected in person.
                         </Caption1>
                       )}
 

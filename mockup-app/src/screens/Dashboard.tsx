@@ -110,9 +110,10 @@ const COCKPIT_MAX = 1680;
    strip never advertises a number then drops the user on a thinner list. The
    mapping mirrors the shared statusToStage buckets onto the three queues:
      - new (new_email/ingested) live in the Not ready queue → land there.
-     - not_ready (missing_images/missing_required_fields/needs_review/linked) →
+     - not_ready (missing_images/missing_required_fields/linked) →
        the Not ready queue.
-     - review (ready_for_eva) → the Review queue.
+     - review (needs_review/ready_for_eva) → the Review queue (TKT-130:
+       needs_review moved into Review 2026-07-08).
    `submitted` is no longer a funnel segment (its cumulative total moved to the
    throughput strip), so it carries no route here. Held (error/duplicate_risk) is
    reached via the dashboard held bar below, not the funnel. */
@@ -849,7 +850,7 @@ export function Dashboard() {
                     </Button>
                   ) : live.review > 0 ? (
                     <Button appearance="secondary" onClick={() => navigate('/queue/review')}>
-                      Review cases ready to send ({live.review})
+                      Check cases waiting for review ({live.review})
                     </Button>
                   ) : undefined
                 }

@@ -492,8 +492,16 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       safe(() => get<AiSuggestion[]>(`/api/cases/${enc(id)}/ai-suggestions`), []),
     reviewAiSuggestion: (id, input: AiSuggestionReviewInput) =>
       post<AiSuggestionReviewResult>(`/api/ai-suggestions/${enc(id)}/review`, input),
-    generateAiSuggestions: (id) =>
-      post<GenerateAiSuggestionsResult>(`/api/cases/${enc(id)}/ai-suggestions/generate`),
+    // Defensive over a body-less 2xx (TKT-127: the operator saw a "204 - no content" row):
+    // call() maps a 204 to `undefined`, which would crash `result.generated` in the panel
+    // and read as a SILENT nothing. The server contract always returns a JSON body, so an
+    // undefined here is a fault — surface it as an explicit error-shaped result the UI explains.
+    generateAiSuggestions: async (id) => {
+      const r = await post<GenerateAiSuggestionsResult>(
+        `/api/cases/${enc(id)}/ai-suggestions/generate`,
+      );
+      return r ?? { generated: 0, reason: 'error' };
+    },
     getAiAssistGate: () =>
       safe(() => get<AiAssistGate>('/api/gates/ai-assist'), { ...AI_ASSIST_GATE_ALL_OFF }),
     assistantChat: (messages) =>

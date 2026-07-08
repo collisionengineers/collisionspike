@@ -678,7 +678,7 @@ an unmatched billing/case_update/cancellation/query email with a reference or re
 its case **whatever the case's status** (terminals included — the billing-email fix), ambiguity is
 flagged never guessed, and un-linkable attempts are audited `retro_reconstruction_failed`. The
 existing un-linked pile drains one email at a time via the keyed starter — see
-[TKT-058/verification.md](./tickets/verify/TKT-058-retro-case-creation/verification.md) step 4.
+[TKT-058/verification.md](./tickets/now/TKT-058-retro-case-creation/verification.md) step 4.
 
 **Remaining (the Box reconstruction rung — R2 stays dark until ALL of these):**
 

@@ -62,7 +62,8 @@ const CASE_ROW = { vrm: 'WN14XPZ', eva_accident_circumstances: 'Struck from behi
 function req(): HttpRequest {
   return { params: { id: 'case-1' }, json: async () => ({}) } as unknown as HttpRequest;
 }
-const ctx = {} as InvocationContext;
+// The route logs every outcome (TKT-127 telemetry) — give it real log/error spies.
+const ctx = { log: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
 
 const insertSqls = (): string[] => sqls.filter((s) => /INSERT INTO ai_suggestion/i.test(s));
 
@@ -71,6 +72,8 @@ beforeEach(() => {
   params.length = 0;
   auditCalls.length = 0;
   model.callSuggestionModel.mockReset();
+  (ctx.log as unknown as ReturnType<typeof vi.fn>).mockReset();
+  (ctx.error as unknown as ReturnType<typeof vi.fn>).mockReset();
   rowsFor.mockReset();
   rowsFor.mockImplementation((sql: string) => {
     if (/FROM case_/i.test(sql)) return [CASE_ROW];
@@ -132,12 +135,48 @@ describe('generateAiSuggestions — (b) persists drafts as pending ai_suggestion
 });
 
 describe('generateAiSuggestions — (c) failed/malformed model response degrades honestly', () => {
-  it('callSuggestionModel throws → { generated: 0, reason: error }; NO ai_suggestion INSERT (no partial write)', async () => {
+  it('callSuggestionModel throws → { generated: 0, reason: error }; NO ai_suggestion INSERT (no partial write); the failure is LOGGED', async () => {
     process.env.AI_ASSIST_ENABLED = 'true';
     model.callSuggestionModel.mockRejectedValue(new Error('AOAI suggestions 500'));
     const res = await generate(req(), ctx, {});
     expect(res.jsonBody).toEqual({ generated: 0, reason: 'error' });
     expect(insertSqls()).toHaveLength(0);
+    // TKT-127: the prior catch was silent — a live failure must reach App Insights.
+    expect(ctx.error).toHaveBeenCalled();
+  });
+});
+
+describe('generateAiSuggestions — (e) TKT-127 explicit zero-outcome reasons (never a silent nothing)', () => {
+  it('a case with NO usable notes → { generated: 0, reason: no_input } WITHOUT a model call', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_/i.test(sql)) {
+        return [{ vrm: 'WN14XPZ', eva_accident_circumstances: '  ', eva_claimant_address: null }];
+      }
+      return [];
+    });
+    const res = await generate(req(), ctx, {});
+    expect(res.jsonBody).toEqual({ generated: 0, reason: 'no_input' });
+    expect(model.callSuggestionModel).not.toHaveBeenCalled();
+    expect(insertSqls()).toHaveLength(0);
+  });
+
+  it('a clean model run with nothing to suggest → { generated: 0, reason: empty } (distinct from disabled/error)', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    model.callSuggestionModel.mockResolvedValue([]);
+    const res = await generate(req(), ctx, {});
+    expect(res.jsonBody).toEqual({ generated: 0, reason: 'empty' });
+    expect(model.callSuggestionModel).toHaveBeenCalledTimes(1);
+    expect(insertSqls()).toHaveLength(0);
+  });
+
+  it('a generated > 0 outcome carries NO reason (the success shape)', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    model.callSuggestionModel.mockResolvedValue([
+      { suggestionType: 'accident_summary', suggestedValue: { summary: 'Shunt.' }, confidence: 0.9, modelVersion: 'gpt-5:x' },
+    ]);
+    const res = await generate(req(), ctx, {});
+    expect(res.jsonBody).toEqual({ generated: 1 });
   });
 });
 

@@ -24,6 +24,7 @@ import { app, type HttpRequest } from '@azure/functions';
 import {
   CASE_PO_SHAPE_RE,
   EVA_FIELD_ORDER,
+  IMAGE_BASED_LITERAL,
   canonicalizeVrm,
   casePoSequenceRegex,
   casePoYear,
@@ -51,6 +52,7 @@ import {
 } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
+import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
 import { casePoFloor, mintCasePo } from '../lib/case-po.js';
 import { isUniqueViolation } from './internal.js';
 import { ifMatch, staleVersion, versionToken } from '../lib/concurrency.js';
@@ -143,10 +145,24 @@ async function loadCaseLite(id: string): Promise<Case | undefined> {
  * Recompute a case's workflow status via the shared @cs/domain guard over its
  * current persisted fields + evidence; persist + audit only when it changes
  * (the guard self-enforces the terminal-lock). Returns the resulting status.
+ *
+ * TKT-109/129: the evaluation seam first applies the provider-policy inspection
+ * pre-fill (always_image_based providers auto-complete "Image Based Assessment",
+ * fill-if-empty, audited) so an image-led provider's case is never held Not Ready
+ * on a blank inspection field a policy already answers.
  */
 async function recomputeStatus(caseId: string, actor?: string): Promise<void> {
   const full = await loadCaseFull(caseId, new Date());
   if (!full) return;
+  if (isPrefillApplicable(full)) {
+    const filled = await prefillImageBasedInspection(caseId, actor);
+    if (filled) {
+      // Patch the in-memory copy so THIS evaluation already sees the filled field
+      // (no re-read; the guarded UPDATE is the durable source of truth).
+      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
+      full.inspectionDecision = 'image_based';
+    }
+  }
   const input: StatusEvaluationInput = {
     status: full.status,
     evaFields: full.evaFields,
@@ -586,6 +602,12 @@ app.http('createCase', {
       after: { status, vrm: input.vrm },
       ...(actor ? { actor } : {}),
     });
+
+    // TKT-109/129: a manual case for an always_image_based provider pre-fills its
+    // inspection field immediately (recomputeStatus runs the guarded pre-fill first,
+    // then re-derives the status over the now-complete field set; a no-op for every
+    // other provider — the guard persists only on an actual change).
+    await recomputeStatus(newId, actor);
 
     return { status: 201, jsonBody: { id: newId } };
   }),

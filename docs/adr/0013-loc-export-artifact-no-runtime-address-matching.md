@@ -80,3 +80,25 @@ export artifact as a live input (there is no `cr1bd_loc` Case column), and it tr
   [`docs/architecture/inspection-address-corpus.md`](../architecture/inspection-address-corpus.md).
 - This ADR is the authoritative record; the older ROADMAP-4a framing and the `190626` review line are
   superseded by it.
+
+## Amendment (2026-07-08) — provider-policy image-based pre-fill (TKT-109 / TKT-129)
+
+The 2026-07-08 operator direction ("auto populate the image based providers based on the spreadsheet
+evidence already obtained") **supersedes the no-auto-populate reading of this ADR for
+`always_image_based` providers only**. For a work provider whose operator-designated
+`inspection_location_policy` is `always_image_based` (evidenced by the TKT-075 corpus run — QDOS
+99.9% / PCH 99.6% / AX 99.2% / SBL 99.5% image-based), the case's inspection field is now
+**auto-completed as "Image Based Assessment"** at the status-evaluation seam (fill-if-empty,
+`inspection_decision_code = image_based`, provenance + `inspection_override` audit, reason
+"Provider policy: image-based assessment"), and staff can still override to a physical address.
+
+What this amendment does **not** change:
+
+- **No runtime ADDRESS matcher, still.** The pre-fill never derives or applies a *physical address*
+  — it records the policy literal for providers whose inspections are image-based by policy. The
+  removed `Loc` matcher stays dead; corpus suggestions remain manual-pick-only.
+- **Every image-based outcome still carries a reason** — here the policy reason, recorded on the
+  audit + provenance trail (the `address-policy.ts` "never silent, always a reason" invariant keeps
+  its reason half; its "explicit reviewer decision" half is what the operator direction supersedes
+  for this one policy value).
+- `prefer_address` / `required_address` providers keep the full manual decision flow unchanged.

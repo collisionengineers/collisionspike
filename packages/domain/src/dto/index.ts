@@ -382,11 +382,15 @@ export interface AiSuggestionReviewResult {
 
 /** Result of `POST /api/cases/{id}/ai-suggestions/generate`. When the gate is OFF
  *  or no model is configured this is the honest no-op `{ generated: 0, reason:
- *  'disabled' }`; when ON + configured it reports how many suggestions were minted. */
+ *  'disabled' }`; when ON + configured it reports how many suggestions were minted.
+ *  A zero-generated outcome ALWAYS carries an explicit `reason` (TKT-127: the SPA
+ *  must be able to explain an empty result — never a silent nothing). */
 export interface GenerateAiSuggestionsResult {
   generated: number;
-  /** Why nothing was generated — 'disabled' (gate/model off), 'no_input', or 'error'. */
-  reason?: 'disabled' | 'no_input' | 'error';
+  /** Why nothing was generated — 'disabled' (gate/model off), 'no_input' (the case has
+   *  no usable notes to reason over), 'empty' (the model ran cleanly and had nothing to
+   *  suggest), or 'error' (the model call / persist failed). Absent when generated > 0. */
+  reason?: 'disabled' | 'no_input' | 'empty' | 'error';
 }
 
 /** The AI-assist feature gate, read by the SPA via GET /api/gates/ai-assist. */

@@ -39,6 +39,7 @@
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import {
   EVA_FIELD_ORDER,
+  IMAGE_BASED_LITERAL,
   TERMINAL_STATUSES,
   allowedCaseTypes,
   markerForMint,
@@ -65,6 +66,7 @@ import {
 import { gates } from '../lib/gates.js';
 import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
+import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
 import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
@@ -144,6 +146,11 @@ function senderDomain(address: string): string {
  * Recompute a case's status via @cs/domain statusForReviewCase and persist when it
  * changes. Returns the resulting CaseStatus name. Safe to call in any activity that
  * may change the case state.
+ *
+ * TKT-109/129: the evaluation seam first applies the provider-policy inspection
+ * pre-fill (always_image_based providers auto-complete "Image Based Assessment",
+ * fill-if-empty, audited) — the SAME seam as the staff-facing recomputeStatus in
+ * cases.ts, so intake-driven evaluation and staff-driven evaluation agree.
  */
 async function recomputeStatus(caseId: string): Promise<CaseStatus> {
   const rows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
@@ -153,6 +160,14 @@ async function recomputeStatus(caseId: string): Promise<CaseStatus> {
   const evidenceRows = await query<Row>('SELECT * FROM evidence WHERE case_id = $1', [caseId]);
   const evidence = evidenceRows.map(rowToEvidence);
   const full = rowToCase(rec, { evidence });
+
+  if (isPrefillApplicable(full)) {
+    const filled = await prefillImageBasedInspection(caseId);
+    if (filled) {
+      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
+      full.inspectionDecision = 'image_based';
+    }
+  }
 
   const input: StatusEvaluationInput = {
     status: full.status,

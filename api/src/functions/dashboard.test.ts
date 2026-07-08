@@ -92,8 +92,9 @@ describe('computePipelineStages — funnel excludes Held/terminal-none', () => {
   ];
   it('folds new_email/ingested into Not ready so it matches the Not-ready queue', () => {
     const byKey = Object.fromEntries(computePipelineStages(cases).map((s) => [s.key, s.count]));
-    // 2 new (new_email + ingested) + 1 needs_review = 3 Not ready; onHold/error/removed excluded.
-    expect(byKey).toEqual({ not_ready: 3, review: 1, submitted: 1 });
+    // 2 new (new_email + ingested) = 2 Not ready; needs_review + ready_for_eva = 2 Review
+    // (TKT-130: needs_review sits in the Review queue/stage); onHold/error/removed excluded.
+    expect(byKey).toEqual({ not_ready: 2, review: 2, submitted: 1 });
   });
   it('the strip Not-ready count equals the Not-ready QUEUE (no 123-vs-124 split)', () => {
     const stages = Object.fromEntries(computePipelineStages(cases).map((s) => [s.key, s.count]));

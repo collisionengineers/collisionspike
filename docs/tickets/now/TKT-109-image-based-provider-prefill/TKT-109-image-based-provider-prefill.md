@@ -1,11 +1,11 @@
 ---
 id: TKT-109
 title: Pre-fill image-based inspections for image-led providers
-status: backlog
+status: now
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-079, TKT-024]
-research-link: docs/tickets/backlog/TKT-109-image-based-provider-prefill/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-109-image-based-provider-prefill/evidence/operator-note.md
 ---
 
 # Pre-fill image-based inspections for image-led providers
@@ -29,7 +29,7 @@ PROPOSED (not built):
 - Providers without the policy keep the current manual choice flow.
 
 ## Research
-Distilled 2026-07-07 from operator note / plan material; raw material in [evidence/](./evidence/).
+Distilled 2026-07-07 from operator note / plan material; raw material in [evidence/](./evidence).
 
 ## Artifacts
 - [Changes made](./changes.md)

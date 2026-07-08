@@ -16,12 +16,13 @@
  *
  * LIVE STATE (2026-07-08): the Foundry account digital-3339-resource HAS a gpt-5 deployment, the API
  * managed identity holds Cognitive Services OpenAI User on it (keyless, granted 2026-07-05), and
- * AI_MODEL_ENDPOINT/AI_MODEL_DEPLOYMENT ARE set on the live apps (the read-only assistant chat uses
- * them — AI_CHAT_ENABLED=true; live values in the registry). `callModelForSuggestions` is now WIRED
- * to a real keyless AOAI structured-output call (lib/aoai-suggestions.ts). It stays a permanent
- * honest no-op ONLY because the suggestion-layer gate AI_ASSIST_ENABLED is still OFF — the generate
- * route front-gates on it, so no model call fires until an operator flips it (a Phase-4 step gated
- * behind the capacity/residency/DPIA sign-off — see TKT-015 / docs/gated.md §F / §D6). Build-dark.
+ * AI_MODEL_ENDPOINT/AI_MODEL_DEPLOYMENT ARE set on the live apps (live values in the registry).
+ * `callModelForSuggestions` is WIRED to a real keyless AOAI structured-output call
+ * (lib/aoai-suggestions.ts) and AI_ASSIST_ENABLED was flipped TRUE at the 2026-07-08 go-live
+ * (DPIA + residency sign-off recorded) — the generate route is LIVE-ACTING. TKT-127 hardened the
+ * generate contract: every zero-generated outcome carries an explicit reason
+ * ('disabled' | 'no_input' | 'empty' | 'error') and is logged, so the SPA can explain an empty
+ * result and telemetry can explain a failure (the prior catch was silent).
  */
 
 import { app } from '@azure/functions';
@@ -358,25 +359,36 @@ function coerceJsonValue(v: unknown): unknown {
 }
 
 // POST /api/cases/{id}/ai-suggestions/generate — run the AI producers for a case.
-// HONEST NO-OP when the gate is off OR no model is configured (the live state — AI_ASSIST_ENABLED
-// is OFF): returns { generated: 0, reason: 'disabled' } and touches nothing (no model call, no DB
-// write). When ON + configured, it PII-scrubs the case context BEFORE the external model call, then
-// persists any suggestions. The model call is now WIRED (lib/aoai-suggestions.ts, keyless MI); a
-// configured-but-unreachable/failing model degrades to { generated: 0, reason: 'error' } with no
-// partial write.
+// HONEST NO-OP when the gate is off OR no model is configured: returns
+// { generated: 0, reason: 'disabled' } and touches nothing (no model call, no DB write).
+// When ON + configured, it PII-scrubs the case context BEFORE the external model call, then
+// persists any suggestions. EVERY zero-generated outcome carries an explicit reason
+// (TKT-127: 'disabled' | 'no_input' | 'empty' | 'error' — never a bodyless/unexplained
+// nothing), and every outcome is logged to App Insights so an empty generation is
+// diagnosable from telemetry. A configured-but-unreachable/failing model degrades to
+// { generated: 0, reason: 'error' } with no partial write.
 app.http('generateAiSuggestions', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'cases/{id}/ai-suggestions/generate',
-  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+  handler: withRole('CollisionSpike.User', async (req, invocationCtx, claims) => {
+    const caseId = req.params.id;
     // Two-part gate: the master switch AND a configured model endpoint+deployment. Either
-    // off -> honest no-op (no DB write, no external call). This is the permanent live path.
+    // off -> honest no-op (no DB write, no external call).
     if (!gates.aiAssist() || !gates.aiAssistConfigured()) {
+      invocationCtx.log(
+        JSON.stringify({
+          evt: 'aiSuggestionsGenerate',
+          caseId,
+          outcome: 'disabled',
+          gateOn: gates.aiAssist(),
+          modelConfigured: gates.aiAssistConfigured(),
+        }),
+      );
       const result: GenerateAiSuggestionsResult = { generated: 0, reason: 'disabled' };
       return { status: 200, jsonBody: result };
     }
 
-    const caseId = req.params.id;
     try {
       // Minimal case context for the model — never a full case dump (data-protection §6).
       const ctx = await query<Row>(
@@ -392,6 +404,16 @@ app.http('generateAiSuggestions', {
         .filter((s) => typeof s === 'string' && s.trim().length > 0)
         .join('\n');
       const scrubbed = scrubPii(rawText, { redactVrm: false });
+
+      // No usable notes at all -> tell the caller so WITHOUT a model call (TKT-127
+      // 'no_input': the honest, explainable fast path — no cost, no fabricated output).
+      if (!scrubbed.text.trim()) {
+        invocationCtx.log(
+          JSON.stringify({ evt: 'aiSuggestionsGenerate', caseId, outcome: 'no_input' }),
+        );
+        const result: GenerateAiSuggestionsResult = { generated: 0, reason: 'no_input' };
+        return { status: 200, jsonBody: result };
+      }
 
       // Call the model + persist suggestions. Wired to gpt-5 (keyless MI) — reached only when
       // AI_ASSIST_ENABLED is on AND the model is configured (the front-gate above guards this).
@@ -430,10 +452,29 @@ app.http('generateAiSuggestions', {
         }
       }
 
-      const result: GenerateAiSuggestionsResult = { generated };
+      invocationCtx.log(
+        JSON.stringify({
+          evt: 'aiSuggestionsGenerate',
+          caseId,
+          outcome: generated > 0 ? 'generated' : 'empty',
+          generated,
+          drafts: drafts.length,
+        }),
+      );
+      // A clean model run with nothing to suggest is an EXPLICIT empty ('empty'),
+      // distinct from 'disabled'/'no_input'/'error' — the SPA explains each differently.
+      const result: GenerateAiSuggestionsResult =
+        generated > 0 ? { generated } : { generated: 0, reason: 'empty' };
       return { status: 200, jsonBody: result };
-    } catch {
-      // A configured-but-unreachable model (or a transient DB error) degrades honestly.
+    } catch (e) {
+      // A configured-but-unreachable model (or a transient DB error) degrades honestly —
+      // and is LOGGED (TKT-127: the prior silent catch made a live failure look like a
+      // quiet "nothing to add", undiagnosable from telemetry).
+      invocationCtx.error(
+        `[ai-suggestions] generate failed for case ${caseId}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
       const result: GenerateAiSuggestionsResult = { generated: 0, reason: 'error' };
       return { status: 200, jsonBody: result };
     }

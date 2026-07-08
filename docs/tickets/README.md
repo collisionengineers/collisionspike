@@ -232,7 +232,7 @@ node scripts/check-skills-sync.mjs
 | [TKT-103](./backlog/TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) | Tractable "768.00" wrongly captured as the reference number | P2 | parsing | — |
 | [TKT-105](./backlog/TKT-105-remittance-payments-category/TKT-105-remittance-payments-category.md) | Remittance advice classified under payments/billing | P2 | email | — |
 | [TKT-106](./backlog/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md) | "Remove the non-viable replay-backfill driver + gate" | P2 | intake | — |
-| [TKT-109](./backlog/TKT-109-image-based-provider-prefill/TKT-109-image-based-provider-prefill.md) | Pre-fill image-based inspections for image-led providers | P2 | intake | — |
+| [TKT-109](./now/TKT-109-image-based-provider-prefill/TKT-109-image-based-provider-prefill.md) | Pre-fill image-based inspections for image-led providers | P2 | intake | — |
 | [TKT-114](./backlog/TKT-114-ticket-move-transition-guard/TKT-114-ticket-move-transition-guard.md) | Enforce the ticket lifecycle transition graph in ticket-move.mjs | P2 | docs | — |
 | [TKT-116](./backlog/TKT-116-queues-pagination/TKT-116-queues-pagination.md) | Paginate the case queues at 15 per page (same as the inbox) | P2 | ui | PLAN-003 |
 | [TKT-117](./backlog/TKT-117-queues-last-update/TKT-117-queues-last-update.md) | Show a "Last update" line for each case in the queues view | P2 | ui | PLAN-003 |
@@ -245,10 +245,10 @@ node scripts/check-skills-sync.mjs
 | [TKT-124](./backlog/TKT-124-photo-orderer-images-only/TKT-124-photo-orderer-images-only.md) | Photo orderer shows .eml files — it must list images only | P2 | ui | PLAN-003 |
 | [TKT-125](./backlog/TKT-125-add-case-descriptor-removal/TKT-125-add-case-descriptor-removal.md) | Remove the field descriptors under the Add Case inputs (and the wrong "4-char" principal claim) | P3 | ui | PLAN-003 |
 | [TKT-126](./backlog/TKT-126-eva-export-zip/TKT-126-eva-export-zip.md) | Export for EVA downloads a .zip of the JSON plus all the images | P1 | ui | PLAN-003 |
-| [TKT-127](./backlog/TKT-127-ai-suggestions-generate-204/TKT-127-ai-suggestions-generate-204.md) | AI Assistant "Generate Suggestions" does not generate — devtools shows 204 no content | P1 | ai | PLAN-003 |
+| [TKT-127](./now/TKT-127-ai-suggestions-generate-204/TKT-127-ai-suggestions-generate-204.md) | AI Assistant "Generate Suggestions" does not generate — devtools shows 204 no content | P1 | ai | PLAN-003 |
 | [TKT-128](./backlog/TKT-128-imported-details-blank/TKT-128-imported-details-blank.md) | "Imported details — from the instruction document or email" renders blank | P2 | ui | PLAN-003 |
-| [TKT-129](./backlog/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Image-based providers: inspection field must auto-complete as Done + fix the inverted wording | P1 | ui | PLAN-003 |
-| [TKT-130](./backlog/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | needs_review cases belong in the Review queue — readiness wrongly piles everything into Not Ready | P1 | intake | PLAN-003 |
+| [TKT-129](./now/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Image-based providers: inspection field must auto-complete as Done + fix the inverted wording | P1 | ui | PLAN-003 |
+| [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | needs_review cases belong in the Review queue — readiness wrongly piles everything into Not Ready | P1 | intake | PLAN-003 |
 
 ### blocked
 
