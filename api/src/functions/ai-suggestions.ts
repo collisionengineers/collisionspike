@@ -263,7 +263,7 @@ async function promoteAcceptedSuggestion(
           // (classifyPersist + extractImages) only runs on the minting/auto-attach lanes, and
           // the landed attachments are not re-driven on accept (there is no Data-API →
           // orchestration re-fetch path today). Until the full persist-on-accept feature lands
-          // (TKT-149), leave a durable, handler-safe case note so the photos/PDF are added BY
+          // (TKT-145), leave a durable, handler-safe case note so the photos/PDF are added BY
           // HAND instead of being silently dropped from evidence/EVA-readiness.
           if (upd[0].has_attachments === true) {
             try {
