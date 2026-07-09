@@ -31,6 +31,28 @@ SCHEMA_PATH = REPO_ROOT / "docs" / "contracts" / "expected-fixture.schema.json"
 # skipped), so a real extraction regression on this fixture is still caught.
 KNOWN_AUTODETECT_GAPS = {"qdos_triage_01"}
 
+# A fixture whose expected_provider is this sentinel asserts the document must
+# match NO configured provider — the /parse fallback-only path (collisionspike
+# TKT-136: the RIGERANT estimate fixture pins the fallback reference/VRM
+# guards). The placeholder mirrors application/service.extract_document's
+# "unknown_temp" synthesis (empty field_rules => every field goes through the
+# fallbacks), which is also what the eval comparator's v2_engine exercises.
+UNKNOWN_PROVIDER_SENTINEL = "unknown_temp"
+UNKNOWN_TEMP_PROVIDER = {
+    "id": "unknown_temp",
+    "name": "New Provider (Auto-Detected)",
+    "work_provider": "UNKNOWN",
+    "enabled": True,
+    "priority": 999,
+    "detect": {
+        "required_phrases": [],
+        "optional_phrases": [],
+        "negative_phrases": [],
+        "minimum_confidence": 0.0,
+    },
+    "field_rules": {},
+}
+
 def _load_validator() -> Draft202012Validator:
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
         schema = json.load(f)
@@ -99,24 +121,37 @@ def test_run_regression_fixtures():
         match = detector.detect(doc, providers)
         expected_prov_id = expected["expected_provider"]
 
-        if match.provider_id != expected_prov_id:
-            if expected["fixture_id"] in KNOWN_AUTODETECT_GAPS:
-                # Documented gap (see KNOWN_AUTODETECT_GAPS above): fall through
-                # using the expected provider so field extraction is still
-                # exercised below, instead of failing on detection alone.
-                pass
-            else:
+        if expected_prov_id == UNKNOWN_PROVIDER_SENTINEL:
+            # The fixture asserts NO configured provider claims this document
+            # (a cross-detection guard) and extraction runs FALLBACK-ONLY via
+            # the same "unknown_temp" placeholder the live /parse path uses
+            # (collisionspike TKT-136).
+            if match.provider_id is not None:
                 failures.append(
-                    f"Fixture {expected['fixture_id']}: expected provider '{expected_prov_id}', "
-                    f"but detected '{match.provider_id}'."
+                    f"Fixture {expected['fixture_id']}: expected NO provider detection "
+                    f"(unknown/unmapped), but detected '{match.provider_id}'."
                 )
                 continue
+            provider_cfg = UNKNOWN_TEMP_PROVIDER
+        else:
+            if match.provider_id != expected_prov_id:
+                if expected["fixture_id"] in KNOWN_AUTODETECT_GAPS:
+                    # Documented gap (see KNOWN_AUTODETECT_GAPS above): fall through
+                    # using the expected provider so field extraction is still
+                    # exercised below, instead of failing on detection alone.
+                    pass
+                else:
+                    failures.append(
+                        f"Fixture {expected['fixture_id']}: expected provider '{expected_prov_id}', "
+                        f"but detected '{match.provider_id}'."
+                    )
+                    continue
 
-        # Find provider config
-        provider_cfg = next((p for p in providers if p["id"] == expected_prov_id), None)
-        if not provider_cfg:
-            failures.append(f"Fixture {expected['fixture_id']}: provider config '{expected_prov_id}' not found in catalog.")
-            continue
+            # Find provider config
+            provider_cfg = next((p for p in providers if p["id"] == expected_prov_id), None)
+            if not provider_cfg:
+                failures.append(f"Fixture {expected['fixture_id']}: provider config '{expected_prov_id}' not found in catalog.")
+                continue
             
         # 3. Extract record
         record = rule_engine.extract_record(doc, provider_cfg)

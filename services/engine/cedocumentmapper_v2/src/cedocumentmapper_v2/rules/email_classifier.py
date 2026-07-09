@@ -118,8 +118,15 @@ from typing import Any
 
 from cedocumentmapper_v2.rules.engine import (
     POSTCODE_AREAS,
+    VRM_CONTEXT_WORDS,
+    VRM_CONTEXT_WINDOW,
+    VRM_TIGHT_ANCHOR_RE,
+    VRM_TIGHT_ANCHOR_WINDOW,
     detect_audit_signals,
+    loose_alpha_head_is_postcode_area,
+    reference_candidate_is_money,
     vrm_candidate_is_bad,
+    wellformed_trigram_is_stopword,
     _match_keywords,
     _WORK_KEYWORDS,
     _QUERY_KEYWORDS,
@@ -298,10 +305,9 @@ _STRUCTURED_REF_RE = re.compile(
 #      is exactly TWO decimal digits is a money value, never a ref (every real
 #      dotted ref in the corpus carries a 1- or 3-4-digit sequence suffix —
 #      "206848.001", "45391_1" — never .NN). Comma-grouped thousands included.
-_MONEY_TOKEN_RE = re.compile(r"^\d{1,3}(?:,\d{3})*\.\d{2}$")
-#      A currency marker immediately before the token ("£768.00", "GBP 768.00")
-#      also disqualifies it, whatever the decimal shape.
-_CURRENCY_BEFORE_RE = re.compile(r"(?:[£$€]|\bGBP|\bEUR|\bUSD)\s*$", re.IGNORECASE)
+#      The canonical definition now lives in rules/engine.py
+#      (``reference_candidate_is_money`` — shared with the /parse
+#      ``_fallback_reference`` tiers per TKT-136, so the two guards cannot drift).
 
 
 def _job_reference(text: str) -> str:
@@ -315,14 +321,9 @@ def _job_reference(text: str) -> str:
         return ""
 
     def _is_money(token: str, start: int) -> bool:
-        compact = re.sub(r"\s+", "", token)
-        if _MONEY_TOKEN_RE.fullmatch(compact):
-            return True
-        # A currency CODE can be captured as the token's own alpha head
-        # ("GBP 487.32" -> "GBP487" via the spaced-principal alternative).
-        if re.match(r"^(?:GBP|EUR|USD)\d", compact, re.IGNORECASE):
-            return True
-        return bool(_CURRENCY_BEFORE_RE.search(text[max(0, start - 8):start]))
+        # Shared with the /parse fallback-reference guard (engine.py, TKT-136);
+        # the ~8-char lookbehind window is unchanged TKT-103 behaviour.
+        return reference_candidate_is_money(token, text[max(0, start - 8):start])
 
     # First labelled match only (unchanged behaviour) — plus the money guard.
     m = _LABELLED_REF_RE.search(text)
@@ -568,59 +569,17 @@ _VRM_LOOSE_RE = re.compile(
     r"\b(?!VAT\b)(?!TEL\b)(?!REF\b)([A-Z]{1,3}\s?\d{1,4})\b",
     re.IGNORECASE,
 )
-# Words that must sit near a loose/dateless candidate for it to count as a VRM.
-_VRM_CONTEXT_WORDS: tuple[str, ...] = (
-    "reg",  # also covers "registration"
-    "registration",
-    "vrm",
-    "vehicle",
-    "plate",
-)
-# How far either side of a loose candidate to look for a context word / postcode.
-_VRM_CONTEXT_WINDOW = 30
-# TIGHT anchor (collisionspike TKT-071): when a loose candidate's letters are a UK
-# postcode AREA (HD4110, LS8 — see engine.POSTCODE_AREAS), an anchor word merely
-# NEARBY is not enough (a letter of instruction mentions "vehicle" everywhere and
-# quotes the provider's own job ref, which is exactly postcode-shaped: HD4110).
-# The anchor must IMMEDIATELY precede the candidate ("reg HD4110",
-# "registration: HD4110") — this many chars of lookbehind, enough for
-# "registration:  " plus separators.
-_VRM_TIGHT_ANCHOR_WINDOW = 16
-_VRM_TIGHT_ANCHOR_RE = re.compile(
-    r"(?:reg(?:istration)?|vrm|vehicle|plate)\s*(?:no|number|mark)?\s*[:.\-#]?\s*$",
-    re.IGNORECASE,
-)
-
-
-def _loose_alpha_head_is_postcode_area(candidate: str) -> bool:
-    """True when the loose candidate's letter head is a UK postcode AREA prefix
-    (HD, LS, G, ...) — the shape a postcode fragment or a provider job ref
-    (HD4110) shares, requiring the TIGHT anchor instead of the nearby one."""
-    m = re.match(r"^([A-Z]{1,3})", re.sub(r"\s+", "", candidate).upper())
-    return bool(m) and m.group(1) in POSTCODE_AREAS
-
-# Common English words a WELL-FORMED VRM's 3-letter alpha group can accidentally
-# spell out of natural-language / model text ("Model X5 now …" -> "X5 NOW";
-# "the GO12 OFF …"). A Tier-1 candidate whose trigram is one of these is rejected
-# ONLY when no VRM context word sits beside it — a genuine plate that spells a word
-# ("reg AB12 NEW") still passes on the context anchor (collisionspike #7 / F162).
-# Deliberately small + conservative so real plates (AP70 WAA, MX17 PNL, A123 BCD,
-# ABC 123D) are never dropped.
+# Context words / windows, the TKT-071 TIGHT anchor, and the #7/F162 stop-word
+# TRIGRAM guard are now defined canonically in rules/engine.py (TKT-136 ported
+# them to the /parse DOCUMENT path too — see engine.vrm_document_candidate_is_bad);
+# this module aliases them so the classifier and the engine cannot drift.
+_VRM_CONTEXT_WORDS: tuple[str, ...] = VRM_CONTEXT_WORDS
+_VRM_CONTEXT_WINDOW = VRM_CONTEXT_WINDOW
+_VRM_TIGHT_ANCHOR_WINDOW = VRM_TIGHT_ANCHOR_WINDOW
+_VRM_TIGHT_ANCHOR_RE = VRM_TIGHT_ANCHOR_RE
+_loose_alpha_head_is_postcode_area = loose_alpha_head_is_postcode_area
 _VRM_STOPWORD_TRIGRAMS: frozenset[str] = _RULES.vrm_stopword_trigrams
-
-
-def _wellformed_trigram_is_stopword(candidate: str) -> bool:
-    """True when a well-formed VRM candidate's 3-letter alpha group spells a common
-    English stop-word — a strong hint it is natural-language noise, not a plate
-    (collisionspike #7 / F162). The whitespace-stripped candidate is split into its
-    maximal letter runs; a run of exactly three letters that is a known stop-word
-    trips it (covers the trailing trigram of the current/prefix shapes AND the
-    leading trigram of the dateless-suffix shape)."""
-    compact = re.sub(r"\s+", "", candidate).upper()
-    return any(
-        len(run) == 3 and run in _VRM_STOPWORD_TRIGRAMS
-        for run in re.findall(r"[A-Z]+", compact)
-    )
+_wellformed_trigram_is_stopword = wellformed_trigram_is_stopword
 
 
 def _canonical_body_vrm(text: str) -> str:

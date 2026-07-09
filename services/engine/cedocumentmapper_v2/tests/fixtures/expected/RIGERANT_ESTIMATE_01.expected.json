@@ -1,0 +1,11 @@
+{
+  "fixture_id": "rigerant_estimate_01",
+  "source_file": "RIGERANT ESTIMATE 01.pdf",
+  "expected_provider": "unknown_temp",
+  "expected_values": {
+    "reference": "",
+    "vrm": ""
+  },
+  "allowed_blank_fields": [],
+  "notes": "collisionspike TKT-136 regression pin. Synthetic parts/estimate document with NO genuine reference: pre-fix, the fuzzy 'ref' label matched the head of 'REFRIGERANT R1234YF' and minted the live junk case_ref 'RIGERANT R1234YF', and the postcode-area-headed estimate ref 'HD4110' near the word 'vehicle' minted a junk VRM (fallback_vrm_context). The money/fragment guards + the ported TKT-071 tight anchor must keep both empty. expected_provider 'unknown_temp' = the document must match NO configured provider (fallback-only /parse path)."
+}
