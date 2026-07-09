@@ -158,9 +158,8 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-128](./verify/TKT-128-imported-details-blank/TKT-128-imported-details-blank.md) | "Imported details — from the instruction document or email" renders blank | Empty state + parserRef→ov_claim_number fill; root cause recorded (parser envelope carries no ov_* facts). → verify. |
+| [TKT-128](./verify/TKT-128-imported-details-blank/TKT-128-imported-details-blank.md) | "Imported details — from the instruction document or email" renders blank | PENDING 2026-07-09: empty state + root cause live-proven; positive path awaits the next parsed-doc-ref intake; subject-only-ref fill handed to the intake batch. |
 | [TKT-126](./verify/TKT-126-eva-export-zip/TKT-126-eva-export-zip.md) | Export for EVA downloads a .zip of the JSON plus all the images | EVA zip export shipped; live zip inspected clean after the TKT-124 fix. → verify. |
-| [TKT-125](./verify/TKT-125-add-case-descriptor-removal/TKT-125-add-case-descriptor-removal.md) | Remove the field descriptors under the Add Case inputs (and the wrong "4-char" principal claim) | Descriptors removed; live DOM scan clean. → verify. |
 | [TKT-124](./verify/TKT-124-photo-orderer-images-only/TKT-124-photo-orderer-images-only.md) | Photo orderer shows .eml files — it must list images only | Root cause: box-webhook hardcoded image kind; writer guard + 402-row re-kind delta + SPA filter. → verify. |
 | [TKT-123](./verify/TKT-123-exclude-label-reflection-warning/TKT-123-exclude-label-reflection-warning.md) | Rename "exclude (person reflection)" to "Exclude" + dismissible vision reflection warning on images | Exclude label + reflection warning shipped (delta live, PATCH evidence, dismiss persists E2E). → verify. |
 | [TKT-118](./verify/TKT-118-image-only-vrm-identity/TKT-118-image-only-vrm-identity.md) | Rename the "Image Based" case label + identify image-only cases by VRM (no Case/PO before instructions) | Label + VRM-first identity shipped; no-mint verified by construction. → verify. |
@@ -196,6 +195,7 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-125](./done/TKT-125-add-case-descriptor-removal/TKT-125-add-case-descriptor-removal.md) | Remove the field descriptors under the Add Case inputs (and the wrong "4-char" principal claim) | VERIFIED-LIVE 2026-07-09 (verifier): zero hint slots, all probes negative, bundle greps clean. → done. |
 | [TKT-117](./done/TKT-117-queues-last-update/TKT-117-queues-last-update.md) | Show a "Last update" line for each case in the queues view | VERIFIED-LIVE 2026-07-09 (verifier): 350-row sweep — plain-English descriptor + date on every row, zero jargon; Action-logs cross-check held. Side finding filed as TKT-134. → done. |
 | [TKT-116](./done/TKT-116-queues-pagination/TKT-116-queues-pagination.md) | Paginate the case queues at 15 per page (same as the inbox) | VERIFIED-LIVE 2026-07-09 (verifier): all 3 queues page at ≤15 with the inbox pager; totals reconstructed from pages match every counting surface. → done. |
 | [TKT-122](./done/TKT-122-dashboard-panel-alignment/TKT-122-dashboard-panel-alignment.md) | Align the dashboard containers — inbox and "Check the flagged details" do not line up | VERIFIED-LIVE 2026-07-09 (verifier): shared grid line 367.797/367.797 measured live; root-cause empty chip container not rendered. → done. |
