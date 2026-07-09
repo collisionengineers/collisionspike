@@ -1,11 +1,11 @@
 ---
 id: TKT-134
 title: Action-logs page renders raw engineering strings — humanize the staff-visible log lines
-status: backlog
+status: now
 priority: P3
 area: ui
 tickets-it-relates-to: [TKT-117, TKT-011]
-research-link: docs/tickets/backlog/TKT-134-action-logs-humanize/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-134-action-logs-humanize/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -43,4 +43,4 @@ Filed 2026-07-09 from the TKT-117 verifier side-finding (workflow finding, PLAN-
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

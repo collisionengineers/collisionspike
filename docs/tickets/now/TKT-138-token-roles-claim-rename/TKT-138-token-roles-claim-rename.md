@@ -1,11 +1,11 @@
 ---
 id: TKT-138
 title: Live staff tokens still carry the pre-rename "CollisionSpike.Admin" roles value — reconcile with the Superuser rename
-status: backlog
+status: now
 priority: P3
 area: platform
 tickets-it-relates-to: [TKT-010]
-research-link: docs/tickets/backlog/TKT-138-token-roles-claim-rename/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-138-token-roles-claim-rename/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -47,4 +47,4 @@ Filed 2026-07-09 from two verify-sweep side-findings (PLAN-003 workflow finding)
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

@@ -1,11 +1,11 @@
 ---
 id: TKT-141
 title: Exclude merged/retired duplicate cases from twin counts and attention lists
-status: backlog
+status: now
 priority: P2
 area: dashboard
 tickets-it-relates-to: [TKT-092, TKT-012]
-research-link: docs/tickets/backlog/TKT-141-merged-twins-exclusion/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-141-merged-twins-exclusion/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -45,4 +45,4 @@ Filed 2026-07-09 from the TKT-092 verifier residual (PLAN-003 workflow finding).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)
