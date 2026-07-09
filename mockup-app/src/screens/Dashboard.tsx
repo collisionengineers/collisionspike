@@ -811,7 +811,13 @@ export function Dashboard() {
               Needs action — oldest first
             </h2>
 
-            {aging.rows.length > 0 && (
+            {/* TKT-122: render the facet-chip row ONLY when a chip will actually
+                show. An empty container is zero-height but still eats a flex-gap
+                slot, pushing this column's first row 12px below the right rail's
+                tiles — the operator's "Inbox and 'Check the flagged details'
+                don't line up". */}
+            {aging.rows.length > 0 &&
+              (aging.pastDueCount > 0 || aging.duplicateCount > 0 || aging.conflictCount > 0) && (
               <div className={styles.facets}>
                 {aging.pastDueCount > 0 && (
                   <span className={mergeClasses(styles.facetChip, chips.chipCritical)}>

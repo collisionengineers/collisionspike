@@ -77,6 +77,13 @@ describe('classificationToEvidenceFields', () => {
     expect(f.exclusionReason).toBeTruthy();
   });
 
+  it('person reflection is ALSO stamped as the advisory flag (TKT-123 — additive to exclusion)', () => {
+    expect(
+      classificationToEvidenceFields({ ...base, personReflection: true }),
+    ).toMatchObject({ personReflection: true, excluded: true });
+    expect(classificationToEvidenceFields(base)).toMatchObject({ personReflection: false });
+  });
+
   it('non-vehicle "other" -> not accepted, not excluded', () => {
     expect(classificationToEvidenceFields({ ...base, role: 'other' })).toMatchObject({ acceptedForEva: false, excluded: false });
   });

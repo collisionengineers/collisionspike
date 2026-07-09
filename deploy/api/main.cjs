@@ -7209,6 +7209,38 @@ function statusForReviewCase(input) {
 }
 
 // packages/domain/dist/domain/classification.js
+var EXTENSION_TABLE = {
+  jpg: "image",
+  jpeg: "image",
+  png: "image",
+  pdf: "instruction",
+  docx: "instruction",
+  doc: "instruction",
+  eml: "email"
+};
+var MIME_TABLE = {
+  "image/jpeg": "image",
+  "image/jpg": "image",
+  "image/png": "image",
+  "application/pdf": "instruction",
+  "application/msword": "instruction",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "instruction",
+  "message/rfc822": "email"
+};
+function extensionOf(filename) {
+  const name = filename.trim();
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0 || dot === name.length - 1)
+    return "";
+  return name.slice(dot + 1).toLowerCase();
+}
+function normaliseMime(contentType2) {
+  if (!contentType2)
+    return "";
+  const semi = contentType2.indexOf(";");
+  const base = semi >= 0 ? contentType2.slice(0, semi) : contentType2;
+  return base.trim().toLowerCase();
+}
 var ENGINEER_REPORT_LAYOUT_KEYS = new Set([
   "EVA (Engineers)",
   "CNX (Engineers)",
@@ -7221,6 +7253,27 @@ function normaliseLayoutName(raw) {
 function isEngineerReportLayoutName(raw) {
   const key = normaliseLayoutName((raw ?? "").toString());
   return key !== "" && ENGINEER_REPORT_LAYOUT_KEYS.has(key);
+}
+function classifyAttachment(filename, contentType2) {
+  const ext = extensionOf(filename);
+  const byExt = EXTENSION_TABLE[ext];
+  if (byExt)
+    return byExt;
+  const byMime = MIME_TABLE[normaliseMime(contentType2)];
+  if (byMime)
+    return byMime;
+  return "other";
+}
+function describeEvidence(filename, contentType2, isEmlMessage = false) {
+  const evidenceClass = isEmlMessage ? "email" : classifyAttachment(filename, contentType2);
+  return {
+    filename,
+    contentType: normaliseMime(contentType2),
+    extension: extensionOf(filename),
+    evidenceClass,
+    isImage: evidenceClass === "image",
+    isInstruction: evidenceClass === "instruction"
+  };
 }
 
 // packages/domain/dist/domain/vrm-canon.js
@@ -15727,8 +15780,108 @@ function matchWorkProviderByContentString(raw, providers) {
   return { outcome: "unmatched" };
 }
 
+// api/src/lib/last-activity.ts
+var AUDIT_ACTION_LABELS = {
+  graph_message_ingested: "Email received",
+  graph_message_ingest_failed: "Email could not be read",
+  attachment_classified: "Files received",
+  case_created: "Case created",
+  case_attached: "Email attached",
+  duplicate_dropped: "Duplicate email set aside",
+  duplicate_flagged: "Possible duplicate flagged",
+  provider_matched: "Provider identified",
+  provider_unmatched: "Provider not recognised",
+  parser_called: "Instructions read",
+  parser_failed: "Instructions could not be read",
+  enrichment_called: "Vehicle details looked up",
+  enrichment_failed: "Vehicle lookup failed",
+  status_changed: "Details updated",
+  jobsheet_imported: "Job sheet imported",
+  eva_submitted: "Sent to EVA",
+  box_synced: "Archived",
+  corpus_record_changed: "Reference details updated",
+  inspection_override: "Inspection decision recorded",
+  box_folder_created: "Archive folder created",
+  box_file_request_copied: "Upload link created",
+  box_upload_received: "Images received",
+  location_assist_confirmed: "Inspection address set",
+  chaser_sent: "Chased",
+  inbound_classified: "Email sorted",
+  inbound_routed: "Email filed",
+  case_disposed: "Case closed",
+  inbound_dismissed: "Email dismissed",
+  inbound_actioned: "Email handled",
+  inbound_reopened: "Email reopened",
+  case_removed: "Case closed",
+  inbound_reclassified: "Email re-sorted",
+  ai_suggestion_created: "Suggestion added",
+  ai_suggestion_accepted: "Suggestion accepted",
+  ai_suggestion_rejected: "Suggestion declined"
+};
+var AUDIT_ACTION_CODE_LABELS = {
+  100000035: "Email match suggested",
+  // inbound_link_suggested
+  100000036: "Email attached",
+  // inbound_linked
+  100000037: "Email detached",
+  // inbound_detached
+  100000038: "Cancellation flagged",
+  // cancellation_proposed
+  100000039: "Email filing requested",
+  // outlook_move_requested
+  100000040: "Email filed",
+  // outlook_moved
+  100000041: "Email filing failed",
+  // outlook_move_failed
+  100000044: "Case received from the provider",
+  // provider_api_case_created
+  100000046: "Case reconstructed",
+  // retro_case_created
+  100000047: "Email attached",
+  // retro_case_linked
+  100000049: "Files added",
+  // evidence_added
+  100000052: "Photos analysed"
+  // image_analysis_generated
+};
+var DEFAULT_LABEL = "Updated";
+var GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function humanActorName(raw) {
+  const s = (raw ?? "").trim();
+  if (!s) return void 0;
+  if (GUID_RE.test(s)) return void 0;
+  if (s.toLowerCase() === "system") return void 0;
+  const at = s.indexOf("@");
+  if (at > 0) return s.slice(0, at);
+  return s;
+}
+function auditActionLabel(actionCode) {
+  if (actionCode == null) return DEFAULT_LABEL;
+  const code = Number(actionCode);
+  const name = auditActionCodec.toName(code);
+  if (name && AUDIT_ACTION_LABELS[name]) return AUDIT_ACTION_LABELS[name];
+  return AUDIT_ACTION_CODE_LABELS[code] ?? DEFAULT_LABEL;
+}
+function lastActivityLabel(row) {
+  switch (row.kind) {
+    case "audit":
+      return auditActionLabel(row.actionCode);
+    case "note": {
+      const who = humanActorName(row.actor);
+      return who ? `Note added by ${who}` : "Note added";
+    }
+    case "chaser":
+      return "Chased";
+    default:
+      return DEFAULT_LABEL;
+  }
+}
+
 // api/src/lib/mappers.ts
-var CASE_SELECT = "SELECT c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal, wp.inspection_location_policy_code AS provider_inspection_policy FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id";
+var CASE_SELECT_COLUMNS = "c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal, wp.inspection_location_policy_code AS provider_inspection_policy";
+var CASE_SELECT_FROM = "FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id";
+var CASE_SELECT = `SELECT ${CASE_SELECT_COLUMNS} ${CASE_SELECT_FROM}`;
+var CASE_SELECT_WITH_ACTIVITY = `SELECT ${CASE_SELECT_COLUMNS}, la.last_activity_kind, la.last_activity_at, la.last_activity_actor, la.last_activity_action_code ${CASE_SELECT_FROM} LEFT JOIN LATERAL (SELECT ev.kind AS last_activity_kind, ev.occurred_at AS last_activity_at, ev.actor AS last_activity_actor, ev.action_code AS last_activity_action_code FROM (SELECT 'audit'::text AS kind, ae.occurred_at, ae.actor, ae.action_code FROM audit_event ae WHERE ae.case_id = c.id UNION ALL SELECT 'note', COALESCE(n.occurred_at, n.created_at), n.author, NULL::integer FROM note n WHERE n.case_id = c.id UNION ALL SELECT 'chaser', COALESCE(ch.sent_at, ch.drafted_at, ch.created_at), NULL, NULL::integer FROM chaser ch WHERE ch.case_id = c.id) ev WHERE ev.occurred_at IS NOT NULL ORDER BY ev.occurred_at DESC LIMIT 1) la ON true`;
 var pad = (n) => String(n).padStart(2, "0");
 function toDmy(v) {
   if (v == null || v === "") return void 0;
@@ -15829,6 +15982,8 @@ function rowToCase(rec, opts = {}) {
   const actionReason = actionReasonCodec.toName(rec.action_reason_code ?? void 0);
   const dateDue = toDmy(rec.date_due);
   const submittedAt = toDmy(rec.submitted_at);
+  const caseType = caseTypeCodec.toName(rec.case_type_code ?? void 0);
+  const lastActivityDate = toDmy(rec.last_activity_at);
   return {
     id: rec.id ?? "",
     vrm: rec.vrm ?? "",
@@ -15860,7 +16015,18 @@ function rowToCase(rec, opts = {}) {
     ...dateDue ? { dateDue } : {},
     ...submittedAt ? { submittedAt } : {},
     ...rec.box_folder_id ? { boxFolderId: rec.box_folder_id } : {},
-    ...rec.box_folder_url ? { boxFolderUrl: rec.box_folder_url } : {}
+    ...rec.box_folder_url ? { boxFolderUrl: rec.box_folder_url } : {},
+    ...caseType && caseType !== "standard" ? { caseType } : {},
+    ...lastActivityDate ? {
+      lastActivity: {
+        label: lastActivityLabel({
+          kind: rec.last_activity_kind,
+          actionCode: rec.last_activity_action_code ?? null,
+          actor: rec.last_activity_actor ?? null
+        }),
+        date: lastActivityDate
+      }
+    } : {}
   };
 }
 function rowToEvidence(rec) {
@@ -15873,6 +16039,11 @@ function rowToEvidence(rec) {
     acceptedForEva: rec.accepted_for_eva ?? false,
     ...rec.excluded != null ? { excluded: rec.excluded } : {},
     ...rec.exclusion_reason ? { exclusionReason: rec.exclusion_reason } : {},
+    // Vision reflection flag + its reviewer dismissal (TKT-123). Columns land via
+    // the 2026-07-09 evidence-reflection delta; conditional spreads tolerate a
+    // pre-delta row/query shape.
+    ...rec.person_reflection === true ? { personReflection: true } : {},
+    ...rec.reflection_dismissed === true ? { reflectionDismissed: true } : {},
     sourceLabel: rec.source_label ?? "",
     ...rec.box_file_id ? { boxFileId: rec.box_file_id } : {},
     ...rec.box_file_url ? { boxFileUrl: rec.box_file_url } : {}
@@ -16407,6 +16578,7 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
   }
   const readCols = [
     "case_ref",
+    "ov_claim_number",
     "eva_mileage",
     "eva_work_provider",
     "work_provider_id",
@@ -16422,6 +16594,10 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
   if (ref && isEmpty(cur[0].case_ref)) {
     sets.push(`case_ref = $${sets.length + 1}`);
     vals.push(ref.slice(0, 200));
+  }
+  if (ref && isEmpty(cur[0].ov_claim_number)) {
+    sets.push(`ov_claim_number = $${sets.length + 1}`);
+    vals.push(ref.slice(0, 100));
   }
   if (mileage && isEmpty(cur[0].eva_mileage)) {
     sets.push(`eva_mileage = $${sets.length + 1}`);
@@ -17433,6 +17609,7 @@ async function applyEvidenceMetadata(ctx, whereClause, whereVals, row, computed)
   if (row.imageRoleCode != null || row.imageRole != null) push("image_role_code", computed.imageRoleCode);
   if (typeof row.registrationVisible === "boolean") push("registration_visible", computed.registrationVisible);
   if (typeof row.acceptedForEva === "boolean") push("accepted_for_eva", row.acceptedForEva);
+  if (typeof row.personReflection === "boolean") push("person_reflection", row.personReflection);
   if (row.excluded != null) {
     push("excluded", computed.excluded);
     push("exclusion_reason", computed.exclusionReason);
@@ -17463,16 +17640,21 @@ import_functions.app.http("internalCasesEvidence", {
     let persisted = 0;
     let updated = 0;
     for (const row of body2.rows ?? []) {
-      const kindCode = evidenceKindCodec.toInt(
-        row.evidenceClass ?? "other"
-      ) ?? null;
+      let suppliedClass = row.evidenceClass ?? "other";
+      if (suppliedClass === "image") {
+        const derived = describeEvidence(row.filename, row.contentType).evidenceClass;
+        const mimeIsImage = (row.contentType ?? "").toLowerCase().startsWith("image/");
+        suppliedClass = derived === "image" || mimeIsImage ? "image" : derived;
+      }
+      const kindCode = evidenceKindCodec.toInt(suppliedClass) ?? null;
       const imageRoleCode = (typeof row.imageRoleCode === "number" ? row.imageRoleCode : void 0) ?? imageRoleCodec.toInt(row.imageRole) ?? 100000003;
       const registrationVisible = typeof row.registrationVisible === "boolean" ? row.registrationVisible : null;
       const excluded = row.excluded === true;
       const exclusionReason = excluded ? (row.exclusionReason ?? "").trim() || "Excluded" : (row.exclusionReason ?? "").trim() || null;
+      const personReflection = row.personReflection === true;
       const sha256 = (row.sha256 ?? "").trim() || null;
       const sequenceIndex = Number.isInteger(row.sequenceIndex) ? row.sequenceIndex : null;
-      const hasMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || row.excluded != null || row.exclusionReason != null || row.sha256 != null || row.sequenceIndex != null;
+      const hasMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sha256 != null || row.sequenceIndex != null;
       const sourceMessageId = (row.sourceMessageId ?? "").trim() || null;
       const boxFileId = (row.boxFileId ?? "").trim() || null;
       const isBoxRow = sourceMessageId != null || boxFileId != null;
@@ -17484,10 +17666,10 @@ import_functions.app.http("internalCasesEvidence", {
           `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes,
                 source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
-                image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
              WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $17
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $18
              )
              RETURNING id`,
           [
@@ -17505,6 +17687,7 @@ import_functions.app.http("internalCasesEvidence", {
             registrationVisible,
             excluded,
             exclusionReason,
+            personReflection,
             sha256,
             sequenceIndex,
             dedupVal
@@ -17526,8 +17709,8 @@ import_functions.app.http("internalCasesEvidence", {
           `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
                 accepted_for_eva,
-                image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
+             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13, $14
              WHERE NOT EXISTS (
                SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
@@ -17544,6 +17727,7 @@ import_functions.app.http("internalCasesEvidence", {
             registrationVisible,
             excluded,
             exclusionReason,
+            personReflection,
             sha256,
             sequenceIndex
           ]
@@ -17984,7 +18168,7 @@ function rowToChaser(ch) {
   };
 }
 async function loadAllCases(now) {
-  const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
+  const rows = await query(`${CASE_SELECT_WITH_ACTIVITY} ORDER BY c.created_at DESC`);
   return rows.map((r) => rowToCase(r, { now }));
 }
 async function loadCaseFull(id, now) {
@@ -18336,6 +18520,21 @@ import_functions2.app.http("createCase", {
         })
       );
     }
+    const receivedFrom = (input.receivedFrom ?? "").trim();
+    const receivedOn = (input.receivedOn ?? "").trim();
+    if (receivedFrom || receivedOn) {
+      try {
+        const parts = [
+          receivedFrom ? `Received from ${receivedFrom}` : "Received",
+          receivedOn ? `on ${receivedOn}` : ""
+        ].filter(Boolean).join(" ");
+        await query(
+          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+          ["Images received", newId, actor ?? "Manual intake", `${parts}.`]
+        );
+      } catch {
+      }
+    }
     if (input.inspectionDecisionReason?.trim()) {
       try {
         await query(
@@ -18587,7 +18786,7 @@ import_functions2.app.http("removeCase", {
   methods: ["DELETE"],
   authLevel: "anonymous",
   route: "cases/{id}",
-  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = req.params.id;
     const body2 = await req.json().catch(() => ({}));
     const actor = actorFromClaims(claims);
@@ -18606,68 +18805,22 @@ import_functions2.app.http("removeCase", {
       status: existing.status,
       vrm: existing.vrm,
       casePo: existing.casePo ?? null,
-      provider: existing.provider,
-      claimantName: existing.evaFields.claimantName.value
+      provider: existing.provider
     };
-    const evaCols = EVA_FIELD_ORDER.map((d) => `${EVA_COLUMN_BY_KEY[d.key]} = ''`).join(", ");
     await query(
       `UPDATE case_
-          SET status_code = $2, ${evaCols},
-              vrm = '', case_ref = '', name = '[removed]',
-              ov_insured_name = NULL, ov_claimant_name = NULL,
-              ov_third_party_name = NULL, ov_claim_number = NULL,
-              ov_policy_reference = NULL, ov_incident_date = NULL,
-              ov_insurer_name = NULL, ov_repairer_name = NULL,
-              eva_claimant_address = NULL,
-              on_hold = false, closed_at = now(), updated_at = now()
+          SET status_code = $2, on_hold = false, closed_at = now(), updated_at = now()
         WHERE id = $1`,
       [id, statusToInt("removed")]
-    );
-    await query(
-      `UPDATE note
-          SET author = '[removed]', text = '[removed]', updated_at = now()
-        WHERE case_id = $1`,
-      [id]
-    );
-    await query(
-      `UPDATE evidence
-          SET file_name = '[removed]',
-              content_type = NULL,
-              storage_path = NULL,
-              box_file_id = NULL,
-              box_file_url = NULL,
-              source_message_id = NULL,
-              source_label = 'removed',
-              sha256 = NULL,
-              exclusion_reason = 'removed',
-              accepted_for_eva = false,
-              excluded = true,
-              updated_at = now()
-        WHERE case_id = $1`,
-      [id]
-    );
-    await query(
-      `UPDATE inbound_email
-          SET subject = '[removed]',
-              from_address = '[removed]',
-              sender_domain = NULL,
-              body_preview = '',
-              body_vrm = NULL,
-              body_caseref = NULL,
-              signals = '[]'::jsonb,
-              updated_at = now()
-        WHERE case_id = $1`,
-      [id]
     );
     await writeAudit({
       action: AUDIT_ACTION.case_removed,
       caseId: id,
-      severity: "warning",
-      summary: `Case removed (soft): ${before.vrm || before.casePo || id}`,
+      summary: `Case closed: ${before.vrm || before.casePo || id}`,
       before,
       after: {
         status: "removed",
-        // The "also remove Box folder" tickbox is an INTENT FLAG only — no automated deletion.
+        // The archive tickbox is an INTENT FLAG only — no automated Box deletion (ADR-0017).
         archiveFolderAcknowledged: body2.acknowledgeArchiveFolderHandled === true || body2.acknowledgeBoxFolderHandled === true,
         boxFolderId: existing.boxFolderId ?? null,
         boxFolderUrl: existing.boxFolderUrl ?? null,
@@ -60579,6 +60732,37 @@ import_functions14.app.http("evidenceContent", {
       ctx.warn(`[evidence/content] ${e instanceof Error ? e.message : String(e)}`);
       return { status: 404, jsonBody: { error: "unavailable" } };
     }
+  })
+});
+import_functions14.app.http("patchEvidence", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "evidence/{id}",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    if (!id) return { status: 400, jsonBody: { error: "evidence id required" } };
+    const body2 = await req.json().catch(() => ({}));
+    if (typeof body2.reflectionDismissed !== "boolean") {
+      return { status: 400, jsonBody: { error: "reflectionDismissed (boolean) is required" } };
+    }
+    const rows = await query(
+      `UPDATE evidence
+          SET reflection_dismissed = $2, updated_at = now()
+        WHERE id = $1
+        RETURNING *`,
+      [id, body2.reflectionDismissed]
+    );
+    const updated = rows[0];
+    if (!updated) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.attachment_classified,
+      ...updated.case_id ? { caseId: updated.case_id } : {},
+      summary: body2.reflectionDismissed ? `Reflection warning dismissed on ${updated.file_name ?? id}` : `Reflection warning restored on ${updated.file_name ?? id}`,
+      after: { evidenceId: id, reflectionDismissed: body2.reflectionDismissed },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: rowToEvidence(updated) };
   })
 });
 

@@ -162,7 +162,20 @@ export type CaseType =
 
 export const CASE_TYPE_LABELS: Record<CaseType, string> = {
   instructions_only: 'Instructions only',
-  images_only: 'Images only',
+  // TKT-118: never "Image based"/"Images only" wording that could be read as the
+  // "Image Based Assessment" inspection method — this composition label means
+  // "photos arrived, instructions haven't (yet)".
+  images_only: 'Images received — awaiting instructions',
+  both: 'Instructions + images',
+  merged: 'Merged',
+  pending: 'Pending',
+};
+
+/** Short form for tight chrome (list badges / chips) — same TKT-118 renaming rule:
+ *  unambiguous vs the "Image Based Assessment" inspection method. */
+export const CASE_TYPE_SHORT_LABELS: Record<CaseType, string> = {
+  instructions_only: 'Instructions only',
+  images_only: 'Awaiting instructions',
   both: 'Instructions + images',
   merged: 'Merged',
   pending: 'Pending',

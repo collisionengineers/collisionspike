@@ -45,7 +45,7 @@ function providerParkCase(extra: Partial<Parameters<typeof heldCase>[0]> = {}): 
 }
 
 describe('columnsForQueue', () => {
-  it('not-ready keeps the full set (status/outstanding/channel genuinely vary)', () => {
+  it('not-ready keeps the full set (status/outstanding/channel genuinely vary) + Last update (TKT-117)', () => {
     expect(columnsForQueue('not-ready')).toEqual([
       'vrm',
       'casePo',
@@ -53,13 +53,14 @@ describe('columnsForQueue', () => {
       'status',
       'outstanding',
       'channel',
+      'lastUpdate',
       'due',
     ]);
   });
 
   it('review drops Outstanding/Status/Channel and adds Claimant + Vehicle', () => {
     const cols = columnsForQueue('review');
-    expect(cols).toEqual(['vrm', 'casePo', 'provider', 'claimant', 'vehicle', 'due']);
+    expect(cols).toEqual(['vrm', 'casePo', 'provider', 'claimant', 'vehicle', 'lastUpdate', 'due']);
     expect(cols).not.toContain('status');
     expect(cols).not.toContain('outstanding');
     expect(cols).not.toContain('channel');
@@ -67,9 +68,15 @@ describe('columnsForQueue', () => {
 
   it('held drops Case/PO + Status unconditionally; carries Why held + Age', () => {
     const cols = columnsForQueue('held');
-    expect(cols).toEqual(['vrm', 'provider', 'whyHeld', 'channel', 'age']);
+    expect(cols).toEqual(['vrm', 'provider', 'whyHeld', 'channel', 'lastUpdate', 'age']);
     expect(cols).not.toContain('casePo');
     expect(cols).not.toContain('status');
+  });
+
+  it('every queue carries the Last update column (TKT-117)', () => {
+    for (const q of ['not-ready', 'review', 'held'] as const) {
+      expect(columnsForQueue(q)).toContain('lastUpdate');
+    }
   });
 });
 

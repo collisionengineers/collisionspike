@@ -42,6 +42,7 @@ import {
   IMAGE_BASED_LITERAL,
   TERMINAL_STATUSES,
   allowedCaseTypes,
+  describeEvidence,
   markerForMint,
   statusForReviewCase,
   type CaseStatus,
@@ -275,6 +276,7 @@ export async function applyParserFields(
   // Read every column we might fill so each write is strictly fill-if-empty.
   const readCols = [
     'case_ref',
+    'ov_claim_number',
     'eva_mileage',
     'eva_work_provider',
     'work_provider_id',
@@ -298,6 +300,14 @@ export async function applyParserFields(
   if (ref && isEmpty(cur[0].case_ref)) {
     sets.push(`case_ref = $${sets.length + 1}`);
     vals.push(ref.slice(0, 200));
+  }
+  // TKT-128: mirror the provider's reference into the "Imported details" overview
+  // fact (ov_claim_number — the same column manual intake's Provider's-reference
+  // field writes) so a parsed case's panel isn't blank. Fill-if-empty like
+  // everything else here; the parser envelope carries no other ov_* facts.
+  if (ref && isEmpty(cur[0].ov_claim_number)) {
+    sets.push(`ov_claim_number = $${sets.length + 1}`);
+    vals.push(ref.slice(0, 100)); // ov_claim_number varchar(100)
   }
   if (mileage && isEmpty(cur[0].eva_mileage)) {
     sets.push(`eva_mileage = $${sets.length + 1}`);
@@ -1942,6 +1952,7 @@ async function applyEvidenceMetadata(
     acceptedForEva?: boolean;
     excluded?: boolean;
     exclusionReason?: string;
+    personReflection?: boolean;
     sha256?: string;
     sequenceIndex?: number;
   },
@@ -1964,6 +1975,7 @@ async function applyEvidenceMetadata(
   if (row.imageRoleCode != null || row.imageRole != null) push('image_role_code', computed.imageRoleCode);
   if (typeof row.registrationVisible === 'boolean') push('registration_visible', computed.registrationVisible);
   if (typeof row.acceptedForEva === 'boolean') push('accepted_for_eva', row.acceptedForEva);
+  if (typeof row.personReflection === 'boolean') push('person_reflection', row.personReflection);
   if (row.excluded != null) {
     push('excluded', computed.excluded);
     push('exclusion_reason', computed.exclusionReason); // CHECK-safe: non-empty when excluded
@@ -2027,6 +2039,8 @@ app.http('internalCasesEvidence', {
             registrationVisible?: boolean;
             excluded?: boolean;
             exclusionReason?: string;
+            /** TKT-123: the vision classifier saw a person's reflection (advisory flag). */
+            personReflection?: boolean;
             sha256?: string;
             sequenceIndex?: number;
           }
@@ -2036,11 +2050,25 @@ app.http('internalCasesEvidence', {
       let persisted = 0;
       let updated = 0;
       for (const row of body.rows ?? []) {
-        const kindCode =
-          evidenceKindCodec.toInt(
-            (row.evidenceClass as 'image' | 'instruction' | 'email' | 'other' | 'engineer_report') ??
-              'other',
-          ) ?? null;
+        // TKT-124 kind guard: the box-webhook historically hardcoded
+        // evidenceClass='image' for EVERY FILE.UPLOADED row, so PDFs/.doc/.eml/
+        // .mp4 landed as image-kind and leaked into the photo orderer + EVA
+        // export. When a caller claims 'image', re-derive through the shared
+        // domain classifier (extension-primary, MIME fallback — the SAME table
+        // intake uses) and trust the derivation. Explicit non-image classes
+        // (instruction/email/engineer_report/other) are honoured as supplied.
+        let suppliedClass =
+          (row.evidenceClass as 'image' | 'instruction' | 'email' | 'other' | 'engineer_report') ??
+          'other';
+        if (suppliedClass === 'image') {
+          const derived = describeEvidence(row.filename, row.contentType).evidenceClass;
+          // An honest image/* MIME keeps the row an image even when the extension
+          // is outside the core table (e.g. image/tiff) — the guard only corrects
+          // rows whose name AND type both say "not a photo".
+          const mimeIsImage = (row.contentType ?? '').toLowerCase().startsWith('image/');
+          suppliedClass = derived === 'image' || mimeIsImage ? 'image' : derived;
+        }
+        const kindCode = evidenceKindCodec.toInt(suppliedClass) ?? null;
 
         // ---- image metadata (defaults match the schema: image_role_code NOT NULL DEFAULT
         // unknown(100000003); excluded NOT NULL DEFAULT false; exclusion_reason required when
@@ -2055,6 +2083,7 @@ app.http('internalCasesEvidence', {
         const exclusionReason = excluded
           ? (row.exclusionReason ?? '').trim() || 'Excluded' // schema CHECK: required when excluded
           : (row.exclusionReason ?? '').trim() || null;
+        const personReflection = row.personReflection === true;
         const sha256 = (row.sha256 ?? '').trim() || null;
         const sequenceIndex = Number.isInteger(row.sequenceIndex)
           ? (row.sequenceIndex as number)
@@ -2066,6 +2095,7 @@ app.http('internalCasesEvidence', {
           typeof row.registrationVisible === 'boolean' ||
           row.excluded != null ||
           row.exclusionReason != null ||
+          row.personReflection != null ||
           row.sha256 != null ||
           row.sequenceIndex != null;
 
@@ -2084,10 +2114,10 @@ app.http('internalCasesEvidence', {
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes,
                 source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
-                image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
              WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $17
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $18
              )
              RETURNING id`,
             [
@@ -2105,6 +2135,7 @@ app.http('internalCasesEvidence', {
               registrationVisible,
               excluded,
               exclusionReason,
+              personReflection,
               sha256,
               sequenceIndex,
               dedupVal,
@@ -2128,8 +2159,8 @@ app.http('internalCasesEvidence', {
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
                 accepted_for_eva,
-                image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
+             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13, $14
              WHERE NOT EXISTS (
                SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
@@ -2146,6 +2177,7 @@ app.http('internalCasesEvidence', {
               registrationVisible,
               excluded,
               exclusionReason,
+              personReflection,
               sha256,
               sequenceIndex,
             ],

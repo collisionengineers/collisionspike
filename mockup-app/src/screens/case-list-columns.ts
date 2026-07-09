@@ -7,12 +7,14 @@ import type { Case, QueueName } from '../data';
 
    | Queue     | Columns                                                  |
    |-----------|----------------------------------------------------------|
-   | not-ready | VRM · Case/PO · Provider · Status · Outstanding · Ch. · Aging/Due |
-   | review    | VRM · Case/PO · Provider · Claimant · Vehicle · Aging/Due |
+   | not-ready | VRM · Case/PO · Provider · Status · Outstanding · Ch. · Last update · Aging/Due |
+   | review    | VRM · Case/PO · Provider · Claimant · Vehicle · Last update · Aging/Due |
    |           | (Outstanding + Status uniform there → drop; Channel drops — in detail) |
-   | held      | VRM · Provider · Why held · Ch. · Age                    |
+   | held      | VRM · Provider · Why held · Ch. · Last update · Age      |
    |           | (Case/PO drops unconditionally — mostly pre-mint; Status  |
    |           |  COLUMN drops, the Status FILTER stays. "Age" = case age.)|
+   "Last update" (TKT-117) is on EVERY queue — the per-case recency descriptor
+   the server derives from the audit trail + notes + chases.
    ============================================================ */
 
 export type CaseColumnId =
@@ -26,7 +28,8 @@ export type CaseColumnId =
   | 'claimant'
   | 'vehicle'
   | 'whyHeld'
-  | 'age';
+  | 'age'
+  | 'lastUpdate';
 
 /** Person-facing case name for control labels ("Select case <x>", "Preview
     <x>") — falls through vrm → claimant → Case/PO so a VRM-less row never
@@ -37,15 +40,15 @@ export function caseDisplayName(c: Case): string {
   );
 }
 
-/** Ordered column ids for a queue (spec IA §2). */
+/** Ordered column ids for a queue (spec IA §2; lastUpdate on every queue — TKT-117). */
 export function columnsForQueue(name: QueueName): CaseColumnId[] {
   switch (name) {
     case 'review':
-      return ['vrm', 'casePo', 'provider', 'claimant', 'vehicle', 'due'];
+      return ['vrm', 'casePo', 'provider', 'claimant', 'vehicle', 'lastUpdate', 'due'];
     case 'held':
-      return ['vrm', 'provider', 'whyHeld', 'channel', 'age'];
+      return ['vrm', 'provider', 'whyHeld', 'channel', 'lastUpdate', 'age'];
     default:
-      return ['vrm', 'casePo', 'provider', 'status', 'outstanding', 'channel', 'due'];
+      return ['vrm', 'casePo', 'provider', 'status', 'outstanding', 'channel', 'lastUpdate', 'due'];
   }
 }
 

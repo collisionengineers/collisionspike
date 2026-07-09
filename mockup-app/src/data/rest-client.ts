@@ -226,6 +226,15 @@ export interface DataAccessExt extends DataAccess {
    *  <img>, or undefined when there's no inline content (Box-only / bytes gone). The caller
    *  MUST URL.revokeObjectURL it on unmount. */
   evidenceContentUrl(id: string): Promise<string | undefined>;
+  /** Evidence bytes as a Blob (TKT-126 EVA-export zip): the SAME authenticated content
+   *  route, but handing back the Blob itself (zipping needs bytes; fetching a blob: URL
+   *  would need `connect-src blob:`, which the CSP does not grant). undefined when the
+   *  artifact has no inline content. */
+  evidenceContentBlob(id: string): Promise<Blob | undefined>;
+  /** Dismiss/restore the person-reflection warning on an image (TKT-123). PATCH →
+   *  the updated Evidence row. Throws on non-2xx — a dismissal that didn't persist
+   *  must never look dismissed. */
+  setReflectionDismissed(evidenceId: string, dismissed: boolean): Promise<Evidence>;
 
   /* ----- Inbound suggestion affordance — ref-gate (rules-engine-v2 Phase 2) -----
      Distinct from `aiSuggestions` above (case-scoped): keyed by the INBOUND EMAIL
@@ -292,17 +301,23 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
   const get = <T>(p: string) => call<T>('GET', p);
   const post = <T>(p: string, b?: unknown) => call<T>('POST', p, b);
 
-  /** Authenticated GET → a `blob:` object URL (for <img>, since an <img> can't send the
-   *  bearer and the API is a different origin). Undefined on any non-2xx; caller revokes. */
-  const blobUrl = async (path: string): Promise<string | undefined> => {
+  /** Authenticated GET → the response Blob. Undefined on any non-2xx / transport failure. */
+  const blobOf = async (path: string): Promise<Blob | undefined> => {
     try {
       const token = await opts.getToken();
       const res = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) return undefined;
-      return URL.createObjectURL(await res.blob());
+      return await res.blob();
     } catch {
       return undefined;
     }
+  };
+
+  /** Authenticated GET → a `blob:` object URL (for <img>, since an <img> can't send the
+   *  bearer and the API is a different origin). Undefined on any non-2xx; caller revokes. */
+  const blobUrl = async (path: string): Promise<string | undefined> => {
+    const blob = await blobOf(path);
+    return blob ? URL.createObjectURL(blob) : undefined;
   };
 
   // "Honest off / honest empty" wrapper: a gate or aggregate read NEVER 5xx
@@ -550,6 +565,13 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       }
     },
     evidenceContentUrl: (id) => blobUrl(`/api/evidence/${enc(id)}/content`),
+    evidenceContentBlob: (id) => blobOf(`/api/evidence/${enc(id)}/content`),
+    // Mutation — NOT safe()-wrapped: a dismissal that failed to persist must surface
+    // (never a fake "dismissed" that reappears on reload).
+    setReflectionDismissed: (evidenceId, dismissed) =>
+      call<Evidence>('PATCH', `/api/evidence/${enc(evidenceId)}`, {
+        reflectionDismissed: dismissed,
+      }),
 
     /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */
     inboundSuggestions: (id) =>

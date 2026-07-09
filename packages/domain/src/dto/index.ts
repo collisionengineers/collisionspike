@@ -71,6 +71,12 @@ export interface CreateCaseInput {
   inspectionDecisionReason?: string;
   /** Park the new case in the Held queue on creation (hold-by-default / per-case). */
   onHold?: boolean;
+  /** Image-only intake (TKT-024): who the images came from. Persisted (with
+   *  receivedOn) as a durable case note — there is no dedicated column. */
+  receivedFrom?: string;
+  /** Image-only intake (TKT-024): when the images arrived, DD/MM/YYYY
+   *  (defaults to today in the form). Persisted in the same note. */
+  receivedOn?: string;
 }
 
 /** The result of a Case write — the new row's id (GUID) the UI navigates to. */

@@ -261,6 +261,16 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground3,
   },
   filterControl: { minWidth: '180px' },
+  // TKT-121 — the E-mail type popover listbox is CAPPED (~10 option rows) with its
+  // own scrollbar instead of growing taller than the viewport. `!important` because
+  // Fluent's popover positioning (autoSize) writes an INLINE viewport-height
+  // max-height on open, which would otherwise beat any class rule. Keyboard nav
+  // still reaches every option: Fluent scrolls the active option into view within
+  // the listbox as focus moves.
+  typeListbox: {
+    maxHeight: '320px !important',
+    overflowY: 'auto',
+  },
   spacer: { flex: 1 },
   dismissedSwitch: { alignSelf: 'center' },
 
@@ -1470,6 +1480,7 @@ export function Inbox() {
           </span>
           <Dropdown
             className={styles.filterControl}
+            listbox={{ className: styles.typeListbox }}
             aria-labelledby="filter-email-type"
             value={emailTypeDisplayLabel(emailType)}
             selectedOptions={[emailTypeParam(emailType) ?? TYPE_ALL_OPTION]}

@@ -19,6 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fluentui/react-components": "^9.54.0",
     "@fluentui/react-datepicker-compat": "^0.6.34",
+    "fflate": "^0.8.3",
     "lucide-react": "^0.456.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

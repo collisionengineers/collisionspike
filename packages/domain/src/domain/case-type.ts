@@ -131,3 +131,33 @@ export function markerForMint(
   if (!allowedCaseTypes(principalCode).includes(caseType)) return '';
   return CASE_PO_MARKER[caseType];
 }
+
+/** Leading case-type marker prefix on a Case/PO ("A." / "AP." / "D."), if any. */
+const LEADING_MARKER_RE = /^(AP|A|D)\./i;
+
+/**
+ * The DERIVED marker ID for a case at review time (ADR-0021 / TKT-057): the
+ * QDOS dual pattern mints ONE standard number (e.g. PCH26010) and the audit
+ * deliverable's ID is DERIVED from it — marker + the same number (AP.PCH26010).
+ *
+ * Returns:
+ *   - the Case/PO UNCHANGED when it already carries a marker (a standalone
+ *     A./D. mint IS the marker ID — never double-prefixed);
+ *   - marker + Case/PO for a markered case type on an unmarked number;
+ *   - undefined when there is no Case/PO yet, or the type carries no marker
+ *     ('standard'; markers themselves come from CASE_PO_MARKER).
+ *
+ * PURE + presentation-only: it never renames the stored case_po — the derived
+ * ID is what staff write on the EVA-side audit submission.
+ */
+export function derivedMarkerCasePo(
+  caseType: CaseWorkType | undefined,
+  casePo: string | null | undefined,
+): string | undefined {
+  const po = (casePo ?? '').trim().toUpperCase();
+  if (!po) return undefined;
+  if (LEADING_MARKER_RE.test(po)) return po; // already a marker ID (standalone mint)
+  const marker = CASE_PO_MARKER[caseType ?? 'standard'];
+  if (!marker) return undefined;
+  return `${marker}${po}`;
+}

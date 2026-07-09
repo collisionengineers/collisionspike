@@ -130,6 +130,7 @@ df.app.activity('extractImages', {
         let acceptedForEva = false; // auto-extracted unknowns: staff tag role + accept
         let excluded = false;
         let exclusionReason: string | undefined;
+        let personReflection: boolean | undefined;
 
         let classified = false;
         if (classifyAllowed && OCR_OK_EXT.test(img.filename)) {
@@ -145,6 +146,8 @@ df.app.activity('extractImages', {
             acceptedForEva = f.acceptedForEva;
             excluded = f.excluded;
             exclusionReason = f.exclusionReason;
+            // TKT-123: advisory flag → dismissible SPA warning; exclusion unchanged.
+            personReflection = f.personReflection;
             if (f.registrationVisible) anyRegVisible = true;
             classified = true;
           }
@@ -177,6 +180,7 @@ df.app.activity('extractImages', {
           acceptedForEva,
           ...(registrationVisible !== undefined ? { registrationVisible } : {}),
           ...(excluded ? { excluded: true, exclusionReason } : {}),
+          ...(personReflection !== undefined ? { personReflection } : {}),
           sha256: img.sha256,
           sequenceIndex: img.sequence_index,
           sourceLabel: `extracted from ${doc.filename}`,

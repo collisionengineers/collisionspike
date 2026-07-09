@@ -184,3 +184,29 @@ describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-0
     expect(updateCall()?.[0].includes('work_provider_id =') ?? false).toBe(false);
   });
 });
+
+describe('applyParserFields — parserRef mirrors into the Imported-details fact (TKT-128)', () => {
+  it('fills case_ref AND ov_claim_number when both are empty', async () => {
+    await applyParserFields('case-1', 'REF-123');
+    const upd = updateCall();
+    expect(upd).toBeDefined();
+    expect(upd![0]).toContain('case_ref =');
+    expect(upd![0]).toContain('ov_claim_number =');
+    // Both carry the provider reference value.
+    expect(upd![1]!.filter((v) => v === 'REF-123')).toHaveLength(2);
+  });
+
+  it('fill-if-empty: an existing ov_claim_number is never clobbered', async () => {
+    caseRow = { ...caseRow, ov_claim_number: 'KEEP-ME' };
+    await applyParserFields('case-1', 'REF-123');
+    const upd = updateCall();
+    expect(upd).toBeDefined();
+    expect(upd![0]).toContain('case_ref =');
+    expect(upd![0].includes('ov_claim_number =')).toBe(false);
+  });
+
+  it('no parserRef → neither column is written', async () => {
+    await applyParserFields('case-1', '');
+    expect(updateCall()).toBeUndefined();
+  });
+});

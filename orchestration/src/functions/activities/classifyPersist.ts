@@ -75,6 +75,9 @@ df.app.activity('classifyPersist', {
             r.imageRole = f.imageRole;
             r.registrationVisible = f.registrationVisible;
             r.acceptedForEva = f.acceptedForEva;
+            // TKT-123: stamp the advisory reflection flag (dismissible SPA warning);
+            // exclusion behaviour below is unchanged.
+            r.personReflection = f.personReflection;
             if (f.excluded) {
               r.excluded = true;
               r.exclusionReason = f.exclusionReason;

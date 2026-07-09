@@ -7,11 +7,11 @@ import {
   Clock,
   Copy,
   FileWarning,
+  FolderClosed,
   ImageOff,
   Link2,
   Send,
   Archive,
-  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 import type { CaseStatus } from '@cs/domain';
@@ -56,9 +56,11 @@ const STATUS_STYLES: Record<CaseStatus, StatusStyle> = {
   eva_submitted: { label: 'EVA submitted', severity: 'done', icon: Send },
   box_synced: { label: 'Archived', severity: 'done', icon: Archive },
   error: { label: 'Error', severity: 'blocker', icon: AlertOctagon },
-  // Terminal soft-remove (ADR-0017): PII anonymised, row + audit kept. A muted
-  // chip — out of the workflow, never a work item, never red/amber.
-  removed: { label: 'Removed', severity: 'muted', icon: Trash2 },
+  // Terminal CLOSE (TKT-010 re-scope 2026-07-08): the case left the work queues;
+  // nothing is deleted — details kept for the record. The stored status name
+  // stays 'removed'; the person-facing word is "Closed". A muted chip — out of
+  // the workflow, never a work item, never red/amber.
+  removed: { label: 'Closed', severity: 'muted', icon: FolderClosed },
 };
 
 /* StatusBadge severity → shared chip-recipe severity (severityStyles.ts). */

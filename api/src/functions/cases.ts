@@ -61,6 +61,7 @@ import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
 import {
   CASE_SELECT,
+  CASE_SELECT_WITH_ACTIVITY,
   EVA_COLUMN_BY_KEY,
   TWIN_TERMINAL,
   filterQueue,
@@ -104,9 +105,11 @@ export function rowToChaser(ch: Row): Chaser {
   };
 }
 
-/** Load ALL case rows (provider-display joined), newest-first, adapted to Case[]. */
+/** Load ALL case rows (provider-display joined), newest-first, adapted to Case[].
+ *  Uses the activity-joined SELECT so every queue row carries its "Last update"
+ *  descriptor (TKT-117) without a per-case fan-out. */
 async function loadAllCases(now: Date): Promise<Case[]> {
-  const rows = await query<Row>(`${CASE_SELECT} ORDER BY c.created_at DESC`);
+  const rows = await query<Row>(`${CASE_SELECT_WITH_ACTIVITY} ORDER BY c.created_at DESC`);
   return rows.map((r) => rowToCase(r, { now }));
 }
 
@@ -578,6 +581,28 @@ app.http('createCase', {
       );
     }
 
+    // Image-only intake (TKT-024): record who sent the images + when as a durable
+    // case note (there is no dedicated column; the note is the operator-visible
+    // artifact). Best-effort — a note failure must not sink the create.
+    const receivedFrom = (input.receivedFrom ?? '').trim();
+    const receivedOn = (input.receivedOn ?? '').trim();
+    if (receivedFrom || receivedOn) {
+      try {
+        const parts = [
+          receivedFrom ? `Received from ${receivedFrom}` : 'Received',
+          receivedOn ? `on ${receivedOn}` : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        await query(
+          'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
+          ['Images received', newId, actor ?? 'Manual intake', `${parts}.`],
+        );
+      } catch {
+        /* best-effort */
+      }
+    }
+
     // Persist the image-based reason as a case note (best-effort).
     if (input.inspectionDecisionReason?.trim()) {
       try {
@@ -921,19 +946,24 @@ app.http('activityForCase', {
 });
 
 /* ============================================================
-   DELETE /api/cases/{id}   (Superuser-only SOFT remove — work-todo-spike: delete-case)
-   Per ADR-0017 + data-protection.md: a SOFT remove only — status -> terminal 'removed',
-   PII anonymised, the case row + append-only audit trail KEPT. Runs under the least-privilege
-   staff grant (an UPDATE, never a hard DELETE — the app login has no DELETE). The Box folder is
-   NEVER auto-deleted: `acknowledgeBoxFolderHandled` is an audit-only ACK; the operator follows
-   the archive runbook by hand and the box_folder_id/url + case_po are PRESERVED for them.
-   Requires the live choice_case_status row (100000011,'removed') — see 000_enums_lookups.sql.
+   DELETE /api/cases/{id}   (CLOSE case — TKT-010, re-scoped 2026-07-08)
+   SEMANTICS CHANGE (operator workstream item 13): this is a CLOSE, not a delete —
+   a terminal soft state open to ALL staff (role relaxed Superuser → User), and it
+   is NON-DESTRUCTIVE: the prior PII anonymisation (EVA fields / VRM / overview
+   facts / notes / evidence / inbound rows all blanked) is REMOVED. The case keeps
+   every detail; only status -> terminal 'removed' (the stored enum name is
+   unchanged — the UI words it "Closed"), on_hold cleared, closed_at stamped. It
+   leaves the work queues (statusToQueue: terminal states own no queue) and is
+   reversible in principle. Data-protection erasure is a SEPARATE, deliberate
+   operator action (ADR-0017 / data-protection.md), not this button.
+   The Box folder is NEVER auto-deleted: `acknowledgeArchiveFolderHandled` is an
+   audit-only ACK (ADR-0017); box_folder_id/url + case_po stay for the operator.
    ============================================================ */
 app.http('removeCase', {
   methods: ['DELETE'],
   authLevel: 'anonymous',
   route: 'cases/{id}',
-  handler: withRole('CollisionSpike.Superuser', async (req, _ctx, claims) => {
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = req.params.id;
     const body = (await req.json().catch(() => ({}))) as {
       acknowledgeArchiveFolderHandled?: boolean;
@@ -945,7 +975,7 @@ app.http('removeCase', {
     const existing = await loadCaseLite(id);
     if (!existing) return { status: 404, jsonBody: { error: 'not found' } };
 
-    // Idempotent: a re-remove is a no-op success (never errors on an already-removed case).
+    // Idempotent: a re-close is a no-op success (never errors on an already-closed case).
     if (existing.status === 'removed') {
       const done: RemoveCaseResult = {
         id,
@@ -956,78 +986,30 @@ app.http('removeCase', {
       return { status: 200, jsonBody: done };
     }
 
-    // Snapshot identity for the audit BEFORE anonymising (the trail keeps what was removed).
     const before = {
       status: existing.status,
       vrm: existing.vrm,
       casePo: existing.casePo ?? null,
       provider: existing.provider,
-      claimantName: existing.evaFields.claimantName.value,
     };
 
-    // Soft remove: status -> 'removed' (terminal), anonymise PII (the 12 EVA fields + VRM +
-    // overview facts + claimant address). KEEP case_po + box_folder_id/url so the operator can
-    // still find + handle the archive folder. on_hold cleared; closed_at stamped.
-    const evaCols = EVA_FIELD_ORDER.map((d) => `${EVA_COLUMN_BY_KEY[d.key]} = ''`).join(', ');
+    // Close: status -> 'removed' (terminal), hold cleared, closed_at stamped.
+    // NOTHING is blanked — the record keeps its details for the file.
     await query(
       `UPDATE case_
-          SET status_code = $2, ${evaCols},
-              vrm = '', case_ref = '', name = '[removed]',
-              ov_insured_name = NULL, ov_claimant_name = NULL,
-              ov_third_party_name = NULL, ov_claim_number = NULL,
-              ov_policy_reference = NULL, ov_incident_date = NULL,
-              ov_insurer_name = NULL, ov_repairer_name = NULL,
-              eva_claimant_address = NULL,
-              on_hold = false, closed_at = now(), updated_at = now()
+          SET status_code = $2, on_hold = false, closed_at = now(), updated_at = now()
         WHERE id = $1`,
       [id, statusToInt('removed')],
-    );
-    await query(
-      `UPDATE note
-          SET author = '[removed]', text = '[removed]', updated_at = now()
-        WHERE case_id = $1`,
-      [id],
-    );
-    await query(
-      `UPDATE evidence
-          SET file_name = '[removed]',
-              content_type = NULL,
-              storage_path = NULL,
-              box_file_id = NULL,
-              box_file_url = NULL,
-              source_message_id = NULL,
-              source_label = 'removed',
-              sha256 = NULL,
-              exclusion_reason = 'removed',
-              accepted_for_eva = false,
-              excluded = true,
-              updated_at = now()
-        WHERE case_id = $1`,
-      [id],
-    );
-    await query(
-      `UPDATE inbound_email
-          SET subject = '[removed]',
-              from_address = '[removed]',
-              sender_domain = NULL,
-              body_preview = '',
-              body_vrm = NULL,
-              body_caseref = NULL,
-              signals = '[]'::jsonb,
-              updated_at = now()
-        WHERE case_id = $1`,
-      [id],
     );
 
     await writeAudit({
       action: AUDIT_ACTION.case_removed,
       caseId: id,
-      severity: 'warning',
-      summary: `Case removed (soft): ${before.vrm || before.casePo || id}`,
+      summary: `Case closed: ${before.vrm || before.casePo || id}`,
       before,
       after: {
         status: 'removed',
-        // The "also remove Box folder" tickbox is an INTENT FLAG only — no automated deletion.
+        // The archive tickbox is an INTENT FLAG only — no automated Box deletion (ADR-0017).
         archiveFolderAcknowledged:
           body.acknowledgeArchiveFolderHandled === true || body.acknowledgeBoxFolderHandled === true,
         boxFolderId: existing.boxFolderId ?? null,

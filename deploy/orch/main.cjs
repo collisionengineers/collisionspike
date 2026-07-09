@@ -50483,7 +50483,8 @@ function classificationToEvidenceFields(c, caseVrm) {
       registrationVisible,
       acceptedForEva: false,
       excluded: true,
-      exclusionReason: "person reflection detected (auto-classified)"
+      exclusionReason: "person reflection detected (auto-classified)",
+      personReflection: true
     };
   }
   const accepted = c.role !== "other";
@@ -50491,7 +50492,8 @@ function classificationToEvidenceFields(c, caseVrm) {
     imageRole: c.role,
     registrationVisible,
     acceptedForEva: accepted,
-    excluded: false
+    excluded: false,
+    personReflection: false
   };
 }
 
@@ -50528,6 +50530,7 @@ df13.app.activity("classifyPersist", {
             r.imageRole = f.imageRole;
             r.registrationVisible = f.registrationVisible;
             r.acceptedForEva = f.acceptedForEva;
+            r.personReflection = f.personReflection;
             if (f.excluded) {
               r.excluded = true;
               r.exclusionReason = f.exclusionReason;
@@ -51045,6 +51048,7 @@ df18.app.activity("extractImages", {
         let acceptedForEva = false;
         let excluded = false;
         let exclusionReason;
+        let personReflection;
         let classified = false;
         if (classifyAllowed && OCR_OK_EXT.test(img.filename)) {
           const cls = await classifyImage({
@@ -51059,6 +51063,7 @@ df18.app.activity("extractImages", {
             acceptedForEva = f.acceptedForEva;
             excluded = f.excluded;
             exclusionReason = f.exclusionReason;
+            personReflection = f.personReflection;
             if (f.registrationVisible) anyRegVisible = true;
             classified = true;
           }
@@ -51087,6 +51092,7 @@ df18.app.activity("extractImages", {
           acceptedForEva,
           ...registrationVisible !== void 0 ? { registrationVisible } : {},
           ...excluded ? { excluded: true, exclusionReason } : {},
+          ...personReflection !== void 0 ? { personReflection } : {},
           sha256: img.sha256,
           sequenceIndex: img.sequence_index,
           sourceLabel: `extracted from ${doc.filename}`

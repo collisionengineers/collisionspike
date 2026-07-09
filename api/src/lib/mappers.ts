@@ -50,6 +50,7 @@ import {
   auditActionToActivityKind,
   automationModeCodec,
   caseStatusCodec,
+  caseTypeCodec,
   evidenceKindCodec,
   imageRoleCodec,
   inspectionDecisionCodec,
@@ -58,6 +59,7 @@ import {
   reviewStateCodec,
   sourceTypeCodec,
 } from '@cs/domain/codecs';
+import { lastActivityLabel } from './last-activity.js';
 
 /** A raw pg row. Columns come back snake-cased; values are string|number|boolean|Date|null. */
 export type Row = Record<string, any>;
@@ -66,12 +68,39 @@ export type Row = Record<string, any>;
    SELECT fragment for a full Case (row + provider display join).
    ============================================================ */
 
+/** The shared case_ select-list + provider join, split so the activity-joined
+ *  variant below can extend the SELECT list without drifting from CASE_SELECT. */
+const CASE_SELECT_COLUMNS =
+  'c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal, ' +
+  'wp.inspection_location_policy_code AS provider_inspection_policy';
+const CASE_SELECT_FROM = 'FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id';
+
 /** Base SELECT for case_ rows, joining the provider display name (mirrors the
  *  expanded cr1bd_provider_display the Code App read). Append WHERE/ORDER as needed. */
-export const CASE_SELECT =
-  'SELECT c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal, ' +
-  'wp.inspection_location_policy_code AS provider_inspection_policy ' +
-  'FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id';
+export const CASE_SELECT = `SELECT ${CASE_SELECT_COLUMNS} ${CASE_SELECT_FROM}`;
+
+/**
+ * CASE_SELECT plus the case's NEWEST activity row (TKT-117 "Last update"):
+ * one LEFT JOIN LATERAL over the union of audit_event / note / chaser, newest
+ * first, LIMIT 1 — surfaced as last_activity_kind / _at / _actor / _action_code
+ * for rowToCase's `lastActivity` mapping. Used by the queue LIST route only
+ * (single-case reads don't pay the lateral); at the current corpus size the
+ * correlated scan is cheap — a server-side page/limit is the scale follow-up.
+ */
+export const CASE_SELECT_WITH_ACTIVITY =
+  `SELECT ${CASE_SELECT_COLUMNS}, ` +
+  'la.last_activity_kind, la.last_activity_at, la.last_activity_actor, la.last_activity_action_code ' +
+  `${CASE_SELECT_FROM} ` +
+  'LEFT JOIN LATERAL (' +
+  'SELECT ev.kind AS last_activity_kind, ev.occurred_at AS last_activity_at, ' +
+  'ev.actor AS last_activity_actor, ev.action_code AS last_activity_action_code FROM (' +
+  "SELECT 'audit'::text AS kind, ae.occurred_at, ae.actor, ae.action_code FROM audit_event ae WHERE ae.case_id = c.id " +
+  'UNION ALL ' +
+  "SELECT 'note', COALESCE(n.occurred_at, n.created_at), n.author, NULL::integer FROM note n WHERE n.case_id = c.id " +
+  'UNION ALL ' +
+  "SELECT 'chaser', COALESCE(ch.sent_at, ch.drafted_at, ch.created_at), NULL, NULL::integer FROM chaser ch WHERE ch.case_id = c.id" +
+  ') ev WHERE ev.occurred_at IS NOT NULL ORDER BY ev.occurred_at DESC LIMIT 1' +
+  ') la ON true';
 
 /* ============================================================
    Date helpers — Postgres date/timestamptz <-> domain DD/MM/YYYY strings.
@@ -212,6 +241,12 @@ export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
   const actionReason = actionReasonCodec.toName(rec.action_reason_code ?? undefined);
   const dateDue = toDmy(rec.date_due);
   const submittedAt = toDmy(rec.submitted_at);
+  // ADR-0021 case work type (NULL = standard, omitted from the payload).
+  const caseType = caseTypeCodec.toName(rec.case_type_code ?? undefined);
+  // "Last update" (TKT-117) — present only when the serving query LATERAL-joined
+  // the newest audit/note/chaser row (CASE_SELECT_WITH_ACTIVITY, cases.ts). The
+  // label is composed in ONE place (lib/last-activity.ts) — never a raw enum.
+  const lastActivityDate = toDmy(rec.last_activity_at);
 
   return {
     id: rec.id ?? '',
@@ -247,6 +282,19 @@ export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
     ...(submittedAt ? { submittedAt } : {}),
     ...(rec.box_folder_id ? { boxFolderId: rec.box_folder_id } : {}),
     ...(rec.box_folder_url ? { boxFolderUrl: rec.box_folder_url } : {}),
+    ...(caseType && caseType !== 'standard' ? { caseType } : {}),
+    ...(lastActivityDate
+      ? {
+          lastActivity: {
+            label: lastActivityLabel({
+              kind: rec.last_activity_kind,
+              actionCode: rec.last_activity_action_code ?? null,
+              actor: rec.last_activity_actor ?? null,
+            }),
+            date: lastActivityDate,
+          },
+        }
+      : {}),
   };
 }
 
@@ -264,6 +312,11 @@ export function rowToEvidence(rec: Row): Evidence {
     acceptedForEva: rec.accepted_for_eva ?? false,
     ...(rec.excluded != null ? { excluded: rec.excluded } : {}),
     ...(rec.exclusion_reason ? { exclusionReason: rec.exclusion_reason } : {}),
+    // Vision reflection flag + its reviewer dismissal (TKT-123). Columns land via
+    // the 2026-07-09 evidence-reflection delta; conditional spreads tolerate a
+    // pre-delta row/query shape.
+    ...(rec.person_reflection === true ? { personReflection: true } : {}),
+    ...(rec.reflection_dismissed === true ? { reflectionDismissed: true } : {}),
     sourceLabel: rec.source_label ?? '',
     ...(rec.box_file_id ? { boxFileId: rec.box_file_id } : {}),
     ...(rec.box_file_url ? { boxFileUrl: rec.box_file_url } : {}),

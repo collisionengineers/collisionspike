@@ -38,3 +38,7 @@ Two ADR-0021 refinements deliberately deferred from TKT-056:
 - Grounded `diminution_phrases` (sibling-first, `resources/triage-rules.json`) + the D. mint
   un-gated from review-first once verified against the operator's example.
 - Decide whether diminution routing interacts with TKT-032's deferred misclass-routing rules.
+
+## Artifacts
+
+- [changes.md](./changes.md) — AP.-half build record (2026-07-09 UI wave).

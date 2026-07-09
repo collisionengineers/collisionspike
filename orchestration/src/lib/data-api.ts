@@ -408,6 +408,9 @@ export const dataApi = {
         acceptedForEva?: boolean;
         excluded?: boolean;
         exclusionReason?: string;
+        /** TKT-123: the vision classifier saw a person's reflection (advisory —
+         *  drives the SPA's dismissible warning; separate from `excluded`). */
+        personReflection?: boolean;
       }
     >,
   ): Promise<{ persisted: number }> {
@@ -440,6 +443,8 @@ export const dataApi = {
       /** EVA exclusion (e.g. person reflection) — reason required by the schema when true. */
       excluded?: boolean;
       exclusionReason?: string;
+      /** TKT-123 advisory reflection flag (dismissible SPA warning). */
+      personReflection?: boolean;
       sha256?: string;
       sequenceIndex?: number;
       sourceLabel?: string;
