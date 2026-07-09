@@ -16,17 +16,21 @@
  *
  * LIVE STATE (2026-07-08): the Foundry account digital-3339-resource HAS a gpt-5 deployment, the API
  * managed identity holds Cognitive Services OpenAI User on it (keyless, granted 2026-07-05), and
- * AI_MODEL_ENDPOINT/AI_MODEL_DEPLOYMENT ARE set on the live apps (the read-only assistant chat uses
- * them — AI_CHAT_ENABLED=true; live values in the registry). `callModelForSuggestions` is now WIRED
- * to a real keyless AOAI structured-output call (lib/aoai-suggestions.ts). It stays a permanent
- * honest no-op ONLY because the suggestion-layer gate AI_ASSIST_ENABLED is still OFF — the generate
- * route front-gates on it, so no model call fires until an operator flips it (a Phase-4 step gated
- * behind the capacity/residency/DPIA sign-off — see TKT-015 / docs/gated.md §F / §D6). Build-dark.
+ * AI_MODEL_ENDPOINT/AI_MODEL_DEPLOYMENT ARE set on the live apps (live values in the registry).
+ * `callModelForSuggestions` is WIRED to a real keyless AOAI structured-output call
+ * (lib/aoai-suggestions.ts) and AI_ASSIST_ENABLED was flipped TRUE at the 2026-07-08 go-live
+ * (DPIA + residency sign-off recorded) — the generate route is LIVE-ACTING. TKT-127 hardened the
+ * generate contract: every zero-generated outcome carries an explicit reason
+ * ('disabled' | 'no_input' | 'empty' | 'error') and is logged, so the SPA can explain an empty
+ * result and telemetry can explain a failure (the prior catch was silent). TKT-132 WIDENED the
+ * generate inputs beyond circumstances + claimant address (empty on most intake cases) to the
+ * labelled sections lib/generate-inputs.ts assembles — instruction email text, case overview
+ * facts, vehicle data, photo-analysis stamps — scrubbed + size-capped; 'no_input' now honestly
+ * means NONE of the widened inputs is present.
  */
 
 import { app } from '@azure/functions';
 import {
-  scrubPii,
   type AiSuggestion,
   type AiSuggestionReviewResult,
   type GenerateAiSuggestionsResult,
@@ -34,11 +38,12 @@ import {
   type InboundCategory,
   type InboundSubtype,
 } from '@cs/domain';
-import { imageRoleCodec } from '@cs/domain/codecs';
+import { evidenceKindCodec, imageRoleCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { gates } from '../lib/gates.js';
 import { query } from '../lib/db.js';
 import { callSuggestionModel, type DraftSuggestion } from '../lib/aoai-suggestions.js';
+import { buildGenerateInputs } from '../lib/generate-inputs.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import {
   inboundCategoryFromInt,
@@ -52,6 +57,10 @@ import {
 // rules-engine-v2 Phase 4 (ADR-0019 Stage C) — reused, not duplicated: writeImprovementSignal
 // is the SAME feedback-provenance writer a staff reclassify uses (inbound.ts).
 import { writeImprovementSignal } from './inbound.js';
+// TKT-023 — reused, not duplicated: the SAME chaser-satisfaction hook every other attach
+// seam calls (auto-link reply, dedup attach, auto-attach — internal.ts). Accepting a
+// case_link suggestion IS an attach, so it must satisfy the case's outstanding chasers too.
+import { markOutstandingChasersResponded } from './internal.js';
 
 /** image_role 'unknown' code — the FILL-IF-EMPTY sentinel for evidence.image_role_code. */
 const IMAGE_ROLE_UNKNOWN = 100000003;
@@ -228,7 +237,7 @@ async function promoteAcceptedSuggestion(
         // row shows 'Linked to case' yet keeps inflating the 'needs sorting' badge.
         const upd = await query<Row>(
           `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
-             WHERE id = $1 AND case_id IS NULL RETURNING id`,
+             WHERE id = $1 AND case_id IS NULL RETURNING id, has_attachments`,
           [inboundEmailId, targetCaseId],
         );
         if (upd[0]) {
@@ -244,6 +253,33 @@ async function promoteAcceptedSuggestion(
             after: { caseId: targetCaseId, inboundEmailId },
             ...(actor ? { actor } : {}),
           });
+          // TKT-023 — the arrival satisfies any outstanding chaser on the case
+          // (drafted/sent/overdue → responded), same as every other attach seam.
+          // Best-effort inside markOutstandingChasersResponded itself: a chaser
+          // bookkeeping failure never unwinds the attach.
+          await markOutstandingChasersResponded(targetCaseId, 'suggestion accepted');
+          // PR52-F4 SAFETY: a suggest-first link (images-received PDF-VRM / ref-gate rung)
+          // attaches the EMAIL but NOT its attachments — the intake persist chain
+          // (classifyPersist + extractImages) only runs on the minting/auto-attach lanes, and
+          // the landed attachments are not re-driven on accept (there is no Data-API →
+          // orchestration re-fetch path today). Until the full persist-on-accept feature lands
+          // (TKT-149), leave a durable, handler-safe case note so the photos/PDF are added BY
+          // HAND instead of being silently dropped from evidence/EVA-readiness.
+          if (upd[0].has_attachments === true) {
+            try {
+              await query(
+                'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
+                [
+                  'Attachments to add',
+                  targetCaseId,
+                  actor ?? 'System',
+                  'The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email.',
+                ],
+              );
+            } catch {
+              /* best-effort — a note failure must never unwind the link */
+            }
+          }
           return { promoted: true, promotedField: 'inbound_email.case_id' };
         }
       }
@@ -358,52 +394,112 @@ function coerceJsonValue(v: unknown): unknown {
 }
 
 // POST /api/cases/{id}/ai-suggestions/generate — run the AI producers for a case.
-// HONEST NO-OP when the gate is off OR no model is configured (the live state — AI_ASSIST_ENABLED
-// is OFF): returns { generated: 0, reason: 'disabled' } and touches nothing (no model call, no DB
-// write). When ON + configured, it PII-scrubs the case context BEFORE the external model call, then
-// persists any suggestions. The model call is now WIRED (lib/aoai-suggestions.ts, keyless MI); a
-// configured-but-unreachable/failing model degrades to { generated: 0, reason: 'error' } with no
-// partial write.
+// HONEST NO-OP when the gate is off OR no model is configured: returns
+// { generated: 0, reason: 'disabled' } and touches nothing (no model call, no DB write).
+// When ON + configured, it PII-scrubs the case context BEFORE the external model call, then
+// persists any suggestions. EVERY zero-generated outcome carries an explicit reason
+// (TKT-127: 'disabled' | 'no_input' | 'empty' | 'error' — never a bodyless/unexplained
+// nothing), and every outcome is logged to App Insights so an empty generation is
+// diagnosable from telemetry. A configured-but-unreachable/failing model degrades to
+// { generated: 0, reason: 'error' } with no partial write.
 app.http('generateAiSuggestions', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'cases/{id}/ai-suggestions/generate',
-  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+  handler: withRole('CollisionSpike.User', async (req, invocationCtx, claims) => {
+    const caseId = req.params.id;
     // Two-part gate: the master switch AND a configured model endpoint+deployment. Either
-    // off -> honest no-op (no DB write, no external call). This is the permanent live path.
+    // off -> honest no-op (no DB write, no external call).
     if (!gates.aiAssist() || !gates.aiAssistConfigured()) {
+      invocationCtx.log(
+        JSON.stringify({
+          evt: 'aiSuggestionsGenerate',
+          caseId,
+          outcome: 'disabled',
+          gateOn: gates.aiAssist(),
+          modelConfigured: gates.aiAssistConfigured(),
+        }),
+      );
       const result: GenerateAiSuggestionsResult = { generated: 0, reason: 'disabled' };
       return { status: 200, jsonBody: result };
     }
 
-    const caseId = req.params.id;
     try {
       // Minimal case context for the model — never a full case dump (data-protection §6).
+      // TKT-132 WIDENED the selection beyond circumstances + claimant address to the labelled
+      // input classes buildGenerateInputs assembles (instruction email text, overview facts,
+      // vehicle data, photo-analysis stamps) — most intake cases have empty circumstances, so
+      // the old two-column prompt made generate a permanent 'no_input' for the live corpus.
       // The claimant address IS included (as a scrubbed geolocation clue) BY DESIGN: the operator
-      // adjudicated it "keep it — accept the DPIA posture" (PR46 review, 2026-07-09), matching the
-      // deployed feat/final-wave behaviour (TKT-132). The Codex P1 finding — that scrubPii is
-      // precision-over-recall and can miss unanchored/free-form addresses — is ACCEPTED under the
-      // 2026-07-08 DPIA/GlobalStandard sign-off, not fixed by removing the field.
+      // adjudicated it "keep it — accept the DPIA posture" (PR46 review / #53, 2026-07-09). The
+      // Codex P1 finding — that scrubPii is precision-over-recall and can miss unanchored/free-form
+      // addresses — is ACCEPTED under the 2026-07-08 DPIA/GlobalStandard sign-off, not fixed by
+      // removing the field.
       const ctx = await query<Row>(
-        `SELECT vrm, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1`,
+        `SELECT vrm, case_po, eva_accident_circumstances, eva_claimant_address,
+                eva_work_provider, eva_vehicle_model, eva_date_of_loss, eva_date_of_instruction,
+                eva_mileage, eva_mileage_unit, ov_claim_type, ov_insurer_name, ov_repairer_name
+           FROM case_ WHERE id = $1`,
         [caseId],
       );
       if (!ctx[0]) return { status: 404, jsonBody: { error: 'not found' } };
 
-      // Assemble the free text the model would reason over, then PII-SCRUB it BEFORE the
-      // external call (VRM kept — it is the domain key the model must see; names/emails/
-      // phones/addresses/postcodes/NINOs redacted). The scrub summary is counts-only.
-      const rawText = [ctx[0].eva_accident_circumstances, ctx[0].eva_claimant_address]
-        .filter((s) => typeof s === 'string' && s.trim().length > 0)
-        .join('\n');
-      const scrubbed = scrubPii(rawText, { redactVrm: false });
+      // The widened extras — each read is BEST-EFFORT (degrades to []): a missing/renamed
+      // table must reduce the prompt, never fail a generate that circumstances alone could
+      // still serve. instruction text = the case-linked inbound email(s), earliest first (the
+      // minting instruction email precedes replies); photo facts = the evidence image stamps.
+      const imageKindCode = evidenceKindCodec.toInt('image');
+      const [emailRows, imageRows] = await Promise.all([
+        query<Row>(
+          `SELECT subject, body_preview FROM inbound_email
+            WHERE case_id = $1 AND (body_preview IS NOT NULL OR subject IS NOT NULL)
+            ORDER BY received_on ASC NULLS LAST, created_at ASC
+            LIMIT 2`,
+          [caseId],
+        ).catch(() => [] as Row[]),
+        query<Row>(
+          `SELECT image_role_code, registration_visible, excluded, person_reflection
+             FROM evidence WHERE case_id = $1 AND kind_code = $2`,
+          [caseId, imageKindCode],
+        ).catch(() => [] as Row[]),
+      ]);
+
+      // Assemble the labelled sections. Every free-text value is PII-SCRUBBED inside
+      // buildGenerateInputs BEFORE the external call (@cs/domain scrubPii, VRM kept — it is
+      // the domain key the model must see; emails/phones/addresses/postcodes/NINOs/titled
+      // names redacted), and per-section + total char caps bound the prompt size.
+      const inputs = buildGenerateInputs(ctx[0], {
+        instructionEmails: emailRows.map((r) => ({
+          subject: typeof r.subject === 'string' ? r.subject : null,
+          bodyPreview: typeof r.body_preview === 'string' ? r.body_preview : null,
+        })),
+        images: imageRows.map((r) => ({
+          role: imageRoleCodec.toName(r.image_role_code as number | null) ?? null,
+          registrationVisible:
+            typeof r.registration_visible === 'boolean' ? r.registration_visible : null,
+          excluded: r.excluded === true,
+          personReflection: r.person_reflection === true,
+        })),
+      });
+
+      // NONE of the widened inputs present -> tell the caller so WITHOUT a model call
+      // (TKT-127 'no_input': the honest, explainable fast path — no cost, no fabricated
+      // output). Post-TKT-132 this genuinely means "the case file holds nothing to reason
+      // over", not merely "circumstances are empty".
+      if (!inputs.hasInput) {
+        invocationCtx.log(
+          JSON.stringify({ evt: 'aiSuggestionsGenerate', caseId, outcome: 'no_input' }),
+        );
+        const result: GenerateAiSuggestionsResult = { generated: 0, reason: 'no_input' };
+        return { status: 200, jsonBody: result };
+      }
 
       // Call the model + persist suggestions. Wired to gpt-5 (keyless MI) — reached only when
       // AI_ASSIST_ENABLED is on AND the model is configured (the front-gate above guards this).
       const drafts = await callModelForSuggestions({
         caseId,
         vrm: typeof ctx[0].vrm === 'string' ? ctx[0].vrm : '',
-        scrubbedText: scrubbed.text,
+        scrubbedText: inputs.text,
       });
 
       let generated = 0;
@@ -450,10 +546,32 @@ app.http('generateAiSuggestions', {
         }
       }
 
-      const result: GenerateAiSuggestionsResult = { generated };
+      invocationCtx.log(
+        JSON.stringify({
+          evt: 'aiSuggestionsGenerate',
+          caseId,
+          outcome: generated > 0 ? 'generated' : 'empty',
+          generated,
+          drafts: drafts.length,
+          // TKT-132: which input sections fed the prompt (value-free names — safe to log);
+          // lets telemetry explain WHY prompts differ across cases (D1 finding: constant 381).
+          sections: inputs.sections,
+        }),
+      );
+      // A clean model run with nothing to suggest is an EXPLICIT empty ('empty'),
+      // distinct from 'disabled'/'no_input'/'error' — the SPA explains each differently.
+      const result: GenerateAiSuggestionsResult =
+        generated > 0 ? { generated } : { generated: 0, reason: 'empty' };
       return { status: 200, jsonBody: result };
-    } catch {
-      // A configured-but-unreachable model (or a transient DB error) degrades honestly.
+    } catch (e) {
+      // A configured-but-unreachable model (or a transient DB error) degrades honestly —
+      // and is LOGGED (TKT-127: the prior silent catch made a live failure look like a
+      // quiet "nothing to add", undiagnosable from telemetry).
+      invocationCtx.error(
+        `[ai-suggestions] generate failed for case ${caseId}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
       const result: GenerateAiSuggestionsResult = { generated: 0, reason: 'error' };
       return { status: 200, jsonBody: result };
     }

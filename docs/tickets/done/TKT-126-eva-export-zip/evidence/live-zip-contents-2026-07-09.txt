@@ -1,0 +1,29 @@
+# TKT-126 live export — zip contents (case A.QDOS26035, 2026-07-09)
+# First export (pre TKT-124 re-kind) had PDFs/.doc/.mp4 leaking in; after the
+# re-kind delta + api kind-guard the zip is the EVA JSON + photos only:
+
+EVA-A.QDOS26035 (1).zip:
+   EVA-A.QDOS26035.json 475 bytes
+   001-FrontDamageVehicleReg-V1.jpg 362846 bytes
+   002-FrontoffsideDamage-V1.jpg 306397 bytes
+   003-FrontDamageVehicleReg-V1.jpg 362846 bytes
+   004-FrontoffsideDamage-V1.jpg 306397 bytes
+   005-FrontDamageVehicleReg-V1.jpg 362846 bytes
+   006-FrontoffsideDamage-V1.jpg 306397 bytes
+   007-LtrtoEngineerIn__RJS_UnknownVRM_img_1_1.png 10738 bytes
+   008-LtrtoEngineerIn__RJS_UnknownVRM_img_1_2.jpeg 29026 bytes
+
+EVA-A.QDOS26035.zip:
+   EVA-A.QDOS26035.json 475 bytes
+   001-FrontDamageVehicleReg-V1.jpg 362846 bytes
+   002-FrontoffsideDamage-V1.jpg 306397 bytes
+   003-FrontDamageVehicleReg-V1.jpg 362846 bytes
+   004-FrontoffsideDamage-V1.jpg 306397 bytes
+   005-LtrtoEngineerIn.pdf 101496 bytes
+   006-FrontDamageVehicleReg-V1.jpg 362846 bytes
+   007-FrontoffsideDamage-V1.jpg 306397 bytes
+   008-Walkaroudvideo-V1.mp4 7190652 bytes
+   009-LtrtoEngineerInstructionCollisionEngineersLtd-V1.doc 143360 bytes
+   010-message.eml 11109823 bytes
+   011-LtrtoEngineerIn__RJS_UnknownVRM_img_1_1.png 10738 bytes
+   012-LtrtoEngineerIn__RJS_UnknownVRM_img_1_2.jpeg 29026 bytes

@@ -86,7 +86,7 @@ export function computeReadiness(c: Case): ReadinessResult {
     id: 'address-decision',
     label:
       c.inspectionDecision === 'image_based'
-        ? 'Inspection address: Image Based Assessment (override)'
+        ? 'Inspection: Image Based Assessment'
         : 'Inspection address ready',
     ok: addrOk,
     group: 'address',

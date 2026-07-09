@@ -16,7 +16,8 @@
         { "value": 100000003, "name": "billing",         "label": "Billing" },
         { "value": 100000004, "name": "non_actionable",  "label": "Non-actionable" },
         { "value": 100000005, "name": "case_update",     "label": "Case Update" },
-        { "value": 100000006, "name": "cancellation",    "label": "Cancellation" }
+        { "value": 100000006, "name": "cancellation",    "label": "Cancellation" },
+        { "value": 100000007, "name": "pre_instruction", "label": "Pre-instruction" }
       ]
     },
     {
@@ -38,7 +39,9 @@
         { "value": 100000009, "name": "acknowledgement",                "label": "Acknowledgement" },
         { "value": 100000010, "name": "images_received",               "label": "Images Received" },
         { "value": 100000011, "name": "cancellation_notice",           "label": "Cancellation Notice" },
-        { "value": 100000012, "name": "update_general",                "label": "General Update" }
+        { "value": 100000012, "name": "update_general",                "label": "General Update" },
+        { "value": 100000013, "name": "payment_remittance",            "label": "Payment Received" },
+        { "value": 100000014, "name": "pre_instruction_directions",    "label": "Pre-instruction Directions" }
       ]
     }
   ]

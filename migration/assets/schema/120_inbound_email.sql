@@ -57,6 +57,9 @@ CREATE TABLE inbound_email (
   outlook_move_state   varchar(20) CHECK (outlook_move_state IS NULL OR outlook_move_state IN ('queued','moved','failed')),
   outlook_moved_folder varchar(128),             -- destination path, e.g. Inbox/Instructions
   outlook_moved_at     timestamptz,              -- when the terminal moved/failed outcome landed
+  -- TKT-119c/TKT-034 (2026-07-09 delta -- deltas/2026-07-09-inbound-attention-reason.sql):
+  -- a pipeline outcome needing a person, rendered as a plain-English chip while unlinked.
+  attention_reason  varchar(32) CHECK (attention_reason IS NULL OR attention_reason IN ('unable_to_locate','images_no_match')),
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );

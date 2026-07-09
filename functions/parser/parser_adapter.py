@@ -282,7 +282,12 @@ def run_parser(document_bytes: bytes, filename: str, provider_hint: str | None =
 _IMAGE_SOURCE_SUFFIXES = (".pdf", ".docx", ".doc")
 
 
-def run_image_extraction(document_bytes: bytes, filename: str) -> dict[str, Any]:
+def run_image_extraction(
+    document_bytes: bytes,
+    filename: str,
+    provider: str | None = None,
+    vrm: str | None = None,
+) -> dict[str, Any]:
     """Extract embedded images from an instruction document and return their BYTES.
 
     Wraps the vendored engine's ``DocumentMapperService.extract_images`` (PyMuPDF
@@ -291,6 +296,12 @@ def run_image_extraction(document_bytes: bytes, filename: str) -> dict[str, Any]
     at a throwaway temp dir, read each file back, compute a sha256, and return the
     bytes base64-encoded with stable metadata — so the orchestration can persist each
     image as evidence in Blob + Postgres (pdf-image-extraction ticket).
+
+    TKT-143: ``provider`` (the resolved work-provider principal, e.g. QDOS) and
+    ``vrm`` are threaded into the engine's ``fields`` so the filename stems carry
+    real identity when KNOWN (``QDOS_AB12CDE_img_1_1.png``). Unknown/blank values
+    are omitted entirely — the engine's TKT-090 omit-when-unknown rule keeps the
+    neutral ``img_<page>_<n>`` stems (never a fabricated identity).
 
     The engine is unmodified (no drift): this is a Function-layer wrapper, exactly
     like ``run_parser``. Returns ``{count, images: [{filename, ext, content_type,
@@ -307,14 +318,22 @@ def run_image_extraction(document_bytes: bytes, filename: str) -> dict[str, Any]
     except Exception as exc:  # pragma: no cover - exercised only with deps absent
         raise ParserError(f"cedocumentmapper_v2 is not importable: {exc}") from exc
 
+    # Resolved-identity stem tokens (TKT-143) — only non-blank values reach the engine.
+    fields: dict[str, str] = {}
+    if provider and str(provider).strip():
+        fields["work_provider"] = str(provider).strip()
+    if vrm and str(vrm).strip():
+        fields["vrm"] = str(vrm).strip()
+
     _SERVICE_APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
     service = DocumentMapperService(
         app_data_dir=_SERVICE_APP_DATA_DIR, seed_path=_VENDORED_PROVIDERS_JSON
     )
     with tempfile.TemporaryDirectory() as tmp:
         out_dir = Path(tmp) / "extracted"
-        # fields={} -> the engine uses generic stems; out_dir set -> NO desktop write.
-        result = service.extract_images(document_bytes, filename, fields={}, out_dir=out_dir)
+        # fields carry ONLY resolved identity (empty dict -> neutral stems, TKT-090);
+        # out_dir set -> NO desktop write.
+        result = service.extract_images(document_bytes, filename, fields=fields, out_dir=out_dir)
         images: list[dict[str, Any]] = []
         for idx, path_str in enumerate(result.get("paths", []) or [], start=1):
             p = Path(path_str)

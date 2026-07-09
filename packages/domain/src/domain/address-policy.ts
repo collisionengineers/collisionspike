@@ -10,6 +10,13 @@
                                 outcome: the reviewer must record the decision +
                                 reason (the policy supplies the default reason,
                                 but the explicit decision is still required).
+                                AMENDED 2026-07-08 (TKT-109/129, operator
+                                direction — see ADR-0013 §Amendment): the Data
+                                API's evaluation seam now PRE-FILLS this case
+                                shape server-side (fill-if-empty, audited, with
+                                the policy reason recorded); this pure resolver
+                                still governs the MANUAL decision flow, and the
+                                reason invariant below is unchanged.
      - 'prefer_address'      -> DEFAULT for unknown providers. Attempt a physical
                                 address; fall back to image-based ONLY with an
                                 explicit reviewer decision + reason.

@@ -20,6 +20,7 @@ import { app, type HttpRequest, type InvocationContext } from '@azure/functions'
 import { gates } from '@cs/domain/gates';
 import {
   canonicalizeVrm,
+  isRetiredMerged,
   proposableCapabilities,
   readCapabilities,
   resolveRoutePath,
@@ -375,7 +376,11 @@ export async function execTool(name: string, args: Record<string, unknown>): Pro
         `${CASE_SELECT} WHERE regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g') = $1`,
         [canon],
       );
-      const open = rows.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status));
+      // TKT-141: retired merged duplicates (mergedInto marker) are resolved work — the
+      // assistant's twin count must agree with the SPA badge (same predicate, one source).
+      const open = rows
+        .map((r) => rowToCase(r))
+        .filter((c) => !TWIN_TERMINAL.has(c.status) && !isRetiredMerged(c));
       return { vrm: canon, count: open.length, cases: open.map(caseCard) };
     }
 

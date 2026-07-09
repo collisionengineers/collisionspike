@@ -33,3 +33,9 @@ the Tier-1 corpus cases, and the "please provide AN engineer's report" phrasing 
 
 ## How to re-verify
 Classifier pytest + the live `POST /api/classify-email` probe above.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+PENDING (update). Both sample threads live-classify to non-minting lanes (query/query_existing_work rule:reply_with_reference; the images-bearing reply to case_update/images_received); eval pins green; recall probe still promotes genuine instructions. Outstanding: the class-3 live-occurrence Postgres proof (a real matching thread -> linked, no new case row) — cannot be manufactured read-only.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

@@ -147,8 +147,9 @@ def test_other_fixtures_have_no_work_or_query_label(request_fields, expected):
 def test_corpus_covers_all_subtypes():
     """The corpus must exercise every subtype so a regression in any one rule is
     visible (Tier 1 covers the two receiving-work provider subtypes; Tier 2 the
-    rest, including the taxonomy-v2 additions: images_received/update_general/
-    cancellation_notice)."""
+    rest, including the taxonomy-v2 additions — images_received/update_general/
+    cancellation_notice — and the taxonomy-v3 additions: payment_remittance
+    (TKT-105) + pre_instruction_directions (TKT-084))."""
     seen = {e["expected"]["subtype"] for e in _MANIFEST["tier_1_existing_cases"]}
     seen |= {e["expected"]["subtype"] for e in _MANIFEST["tier_2_synthetic"]}
     assert seen == {
@@ -161,6 +162,8 @@ def test_corpus_covers_all_subtypes():
         "images_received",
         "update_general",
         "cancellation_notice",
+        "payment_remittance",
+        "pre_instruction_directions",
     }
 
 
@@ -1369,16 +1372,19 @@ def test_invoice_request_routes_to_billing():
     assert "report_attachment" in result["signals"]
 
 
-def test_remittance_advice_is_not_billing():
-    """Guard: an inbound payment advice ('remittance advice', 'payment will reach your
-    account') is NOT a billing request — it abstains rather than mis-route to billing."""
+def test_remittance_advice_routes_to_payment_remittance():
+    """TKT-105 (taxonomy v3): an inbound payment advice ('remittance advice') routes to
+    billing · payment_remittance — the payments lane — and NEVER to billing_request
+    (this preserves the ORIGINAL guard's spirit: a remittance is not us being asked
+    for an invoice). Before the payments lane existed this deliberately abstained."""
     result = classify_email(
         subject="Remittance advice - June",
         body="Please find our remittance advice for June. The payment will reach your account shortly.",
         provider_match_state="none",
         has_attachments=False,
     )
-    assert result["category"] != "billing"
+    assert result["category"] == "billing", result["signals"]
+    assert result["subtype"] == "payment_remittance"
 
 
 def test_case_summary_digest_routes_to_non_actionable():

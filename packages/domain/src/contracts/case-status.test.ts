@@ -71,10 +71,11 @@ function caseInput(over: Partial<StatusEvaluationInput> = {}): StatusEvaluationI
 /* ----------  Union / terminal authority  ---------- */
 
 describe('CaseStatus union authority', () => {
-  it('has exactly the 12 prototype values', () => {
+  it('has exactly the 13 prototype values', () => {
     expect([...CASE_STATUSES].sort()).toEqual(
       [
         'box_synced',
+        'done',
         'duplicate_risk',
         'eva_submitted',
         'error',
@@ -88,12 +89,12 @@ describe('CaseStatus union authority', () => {
         'removed',
       ].sort(),
     );
-    expect(CASE_STATUSES).toHaveLength(12);
+    expect(CASE_STATUSES).toHaveLength(13);
   });
 
-  it('marks the four terminal statuses (incl. the soft-remove terminal)', () => {
+  it('marks the five terminal statuses (incl. soft-remove + delivery)', () => {
     expect([...TERMINAL_STATUSES].sort()).toEqual(
-      ['box_synced', 'error', 'eva_submitted', 'removed'].sort(),
+      ['box_synced', 'done', 'error', 'eva_submitted', 'removed'].sort(),
     );
     for (const s of TERMINAL_STATUSES) expect(isTerminalStatus(s)).toBe(true);
     expect(isTerminalStatus('needs_review')).toBe(false);
@@ -106,12 +107,17 @@ describe('CaseStatus union authority', () => {
     const input: StatusEvaluationInput = caseInput({ status: 'removed', evidence: [] });
     expect(statusForReviewCase(input)).toBe('removed');
   });
+
+  it('locks a done (delivered) case — the guard never re-promotes it (TKT-094)', () => {
+    const input: StatusEvaluationInput = caseInput({ status: 'done', evidence: [] });
+    expect(statusForReviewCase(input)).toBe('done');
+  });
 });
 
 /* ----------  Guard order  ---------- */
 
 describe('statusForReviewCase — terminal lock', () => {
-  it.each<CaseStatus>(['eva_submitted', 'box_synced', 'error'])(
+  it.each<CaseStatus>(['eva_submitted', 'box_synced', 'error', 'done'])(
     'returns %s unchanged even when fields/images would otherwise fail',
     (status) => {
       const input = caseInput({

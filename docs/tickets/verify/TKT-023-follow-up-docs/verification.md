@@ -27,3 +27,19 @@ Once D7 + `TRIAGE_REF_GATE_ENABLED` are live: replay the outgoing request then t
 the documents land in the case evidence and the case Box folder, and the outstanding-document chaser is
 cleared. In the meantime, the shadow-decision telemetry in App Insights `customEvents` can be inspected to
 confirm the ref-gate *would* have caught it.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+PENDING (update) — and the recorded verdict text below/above is STALE IN THE TICKET'S FAVOUR: the gates it awaits (D7 + TRIAGE_REF_GATE_ENABLED, later TRIAGE_AUTO_ATTACH_ENABLED) went live 2026-07-03/07 and the mechanism is ACTING with strong independent proof: orch triage_decision 7d = 30x attach_case + 51x suggest_attach (e.g. AX26034 job_ref exact-match auto-attach 2026-07-08T12:50:51Z); Box folder AX26034 holds the original AND the follow-up InspectionRequest_Update PDF created 12s after the attach decision; five SPA rows read "Linked to case"; VRM-tier matches NEVER auto-attached (rung-3 invariant held on every sampled event). REAL GAP: acceptance line 3 (attach marks the outstanding-document chaser satisfied) is NOT BUILT — zero chaser writes on the attach path. DISPOSITION: reopened verify->now; the chaser-satisfaction hook goes to the intake batch. DB row-level checks queued for the data pass. Classify-layer note: the ticket's two eval samples still mislabel by category, but rung-3 runs pre-mint on every category so the linking behaviour is correct — category-label refinement optional.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
+
+### Data-pass addendum — 2026-07-09
+
+Queued DB checks PASS: exactly ONE case per attached Case/PO (AX26034, A.PCH26021, AX26008, DFD26002, QDOS26047, QDOS26056 — no duplicate rows); AX26034 audit trail carries the 2026-07-08 attach sequence (action pair 100000035/36 at 12:50:51Z matching the triage_decision, evidence adds 100000021 x7 through 12:51:09Z); case_link ai_suggestion rows present via the inbound-email join (1 accepted + 1 pending). The ONLY remaining item is the unbuilt chaser-satisfaction hook (acceptance line 3) — in the intake batch.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+PENDING — with a REAL verified gap: the chaser-responded hook fires at THREE attach seams (resolve dedup, linkReply, auto-attach self-accept — 4 bundle occurrences) but NOT at promoteAcceptedSuggestion's case_link accept in ai-suggestions.ts, contradicting the implementer's "every seam" claim — a staff-accepted suggestion attach (the 51x suggest_attach lane) will not mark the chaser satisfied. One-line fix queued for the next implementer dispatch + api redeploy, then a live-firing tail (1 drafted chaser exists). Everything else stands live-proven.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

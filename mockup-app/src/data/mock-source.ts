@@ -347,6 +347,7 @@ function countInbound(rows: InboundEmail[]): InboundCounts {
     non_actionable: active.filter((r) => r.category === 'non_actionable').length,
     case_update: active.filter((r) => r.category === 'case_update').length,
     cancellation: active.filter((r) => r.category === 'cancellation').length,
+    pre_instruction: active.filter((r) => r.category === 'pre_instruction').length,
     other: active.filter((r) => r.category === 'other').length,
     untriaged: active.filter((r) => r.triageState === 'new').length,
   };
@@ -369,6 +370,11 @@ export const mockDataAccess: DataAccessExt = {
   // Write — rejects until the live source is injected (a faked chaser row would
   // let staff believe a chase was recorded when it wasn't; mirrors setOnHold).
   logChase: (_caseId, _input) => Promise.reject(new Error(NOT_CONFIGURED)),
+  // Case done lifecycle (TKT-094/095/096): the two writes reject (a faked status
+  // flip must never look recorded); the completed browse reads honest-empty.
+  markEvaSubmitted: (_caseId) => Promise.reject(new Error(NOT_CONFIGURED)),
+  markCaseDone: (_caseId) => Promise.reject(new Error(NOT_CONFIGURED)),
+  completedCases: (_status) => Promise.resolve([]),
   mergeCandidates: (_caseId) => Promise.resolve([]),
   mergeCases: (_sourceCaseId, _targetCaseId) => Promise.reject(new Error(NOT_CONFIGURED)),
   // Durable Superuser write — rejects until the live source is injected (a faked
@@ -416,6 +422,9 @@ export const mockDataAccess: DataAccessExt = {
   executeProposal: (_action, _ifMatch) => Promise.resolve({ ok: false, status: 501 }),
   uploadEvidence: (_caseId, _files) => Promise.resolve({ added: [], rejected: [], status: 501 }),
   evidenceContentUrl: (_id) => Promise.resolve(undefined),
+  evidenceContentBlob: (_id) => Promise.resolve(undefined),
+  // Durable write — rejects until the live source is injected (mirrors createCase).
+  setReflectionDismissed: (_evidenceId, _dismissed) => Promise.reject(new Error(NOT_CONFIGURED)),
   inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
   // Honest no-op: the empty default writes nothing (the live REST source, backed by
   // the Postgres `inspection_address` table, is injected at startup). The CaseDetail

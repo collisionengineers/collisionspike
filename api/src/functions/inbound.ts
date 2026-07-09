@@ -33,7 +33,7 @@ import {
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
 import { gates } from '../lib/gates.js';
-import { enqueueOutlookMove } from '../lib/outlook-queue.js';
+import { classifyEnqueueFailure, enqueueOutlookMove } from '../lib/outlook-queue.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit, type AuditAction } from '../lib/audit.js';
 import {
   INBOUND_CATEGORY_TO_INT,
@@ -183,9 +183,16 @@ app.http('moveInboundToOutlook', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'inbound/{id}/outlook-move',
-  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+  handler: withRole('CollisionSpike.User', async (req, ctx, claims) => {
     if (!gates.outlookMoveEnabled()) {
-      return { status: 409, jsonBody: { error: 'outlook filing is not enabled' } };
+      return {
+        status: 409,
+        jsonBody: {
+          error: 'outlook filing is not enabled',
+          reason: 'gated_off',
+          message: 'Outlook filing is switched off — ask the administrator to enable it.',
+        },
+      };
     }
     const id = req.params.id;
     const existing = await query<Row>(
@@ -225,6 +232,13 @@ app.http('moveInboundToOutlook', {
         targetFolderPath: folder,
       });
     } catch (e) {
+      // TKT-091: name the failure class in telemetry AND the response — the live
+      // 2026-07-06 failure (404 QueueNotFound: the outlook-move queue was never
+      // provisioned) surfaced only as a bare 503 the operator had to dev-tools.
+      const failure = classifyEnqueueFailure(e);
+      ctx.error(
+        `[outlook-move] enqueue failed (${failure.reason}) for inbound ${id}: ${e instanceof Error ? e.message : String(e)}`,
+      );
       await query(
         `UPDATE inbound_email
             SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
@@ -236,10 +250,18 @@ app.http('moveInboundToOutlook', {
         ...(row.case_id ? { caseId: row.case_id as string } : {}),
         summary: `Outlook filing could not be queued (${folder})`,
         severity: 'warning',
-        after: { inboundEmailId: id, folder, detail: e instanceof Error ? e.message.slice(0, 300) : String(e) },
+        after: {
+          inboundEmailId: id,
+          folder,
+          reason: failure.reason,
+          detail: e instanceof Error ? e.message.slice(0, 300) : String(e),
+        },
         ...(actor ? { actor } : {}),
       });
-      return { status: 503, jsonBody: { error: 'filing queue unavailable' } };
+      return {
+        status: 503,
+        jsonBody: { error: 'filing queue unavailable', reason: failure.reason, message: failure.message },
+      };
     }
     await writeAudit({
       action: AUDIT_ACTION.outlook_move_requested,

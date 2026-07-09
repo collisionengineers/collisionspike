@@ -199,6 +199,10 @@ export function classificationToEvidenceFields(c: ImageClassification, caseVrm?:
   acceptedForEva: boolean;
   excluded: boolean;
   exclusionReason?: string;
+  /** TKT-123: the reflection observation is ALSO stamped as its own advisory flag
+   *  (evidence.person_reflection) so the SPA can badge the image with a
+   *  dismissible warning — additive; the exclusion policy above is unchanged. */
+  personReflection: boolean;
 } {
   const registrationVisible = caseRegistrationVisible(c, caseVrm);
   if (c.personReflection) {
@@ -208,6 +212,7 @@ export function classificationToEvidenceFields(c: ImageClassification, caseVrm?:
       acceptedForEva: false,
       excluded: true,
       exclusionReason: 'person reflection detected (auto-classified)',
+      personReflection: true,
     };
   }
   const accepted = c.role !== 'other';
@@ -216,5 +221,6 @@ export function classificationToEvidenceFields(c: ImageClassification, caseVrm?:
     registrationVisible,
     acceptedForEva: accepted,
     excluded: false,
+    personReflection: false,
   };
 }

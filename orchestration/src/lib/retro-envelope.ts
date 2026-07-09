@@ -13,7 +13,7 @@
  * Durable harness.
  */
 
-import { extractVrm } from '@cs/domain';
+import { cleanEmailBodyForPreview, extractVrm } from '@cs/domain';
 import type { InboundEnvelope } from '../functions/activities/fetchMessage.js';
 import { hashPayload } from '../functions/activities/fetchMessage.js';
 import type { ExplodedEml } from './functions-client.js';
@@ -59,7 +59,9 @@ export function buildRetroEnvelopeFromEml(
   const subject = (exploded.subject ?? '').trim();
   const senderAddress = firstAddress(exploded.from);
   const body = (exploded.body_text ?? '').slice(0, 20_000);
-  const bodyPreview = body.replace(/\s+/g, ' ').trim().slice(0, 3_500);
+  // TKT-070: same readable-preview recipe as the live fetchMessage path (preview only —
+  // the full `body` still feeds the VRM sniff below and the parser unchanged).
+  const bodyPreview = cleanEmailBodyForPreview(body).slice(0, 3_500);
   return {
     messageId: `retro-box-${meta.boxFileId}`,
     internetMessageId: (exploded.message_id ?? '').trim() || `retro:box:${meta.boxFileId}`,
@@ -139,6 +141,35 @@ export function buildMinimalAnchorEnvelope(
     references: '',
     attachments: [],
   };
+}
+
+/* ----------  Outlook $search key variants (TKT-139)  ---------- */
+
+/**
+ * The `$search` phrase VARIANTS for one retro key (TKT-139). Graph `$search`
+ * tokenizes on whitespace, so a ref searched as one token (`PHA5007`) does NOT
+ * match messages carrying the spaced form (`PHA 5007`) and vice versa — the
+ * TKT-119 Deleted-Items feasibility memo measured exactly this miss. The retro
+ * rung therefore issues EVERY variant and unions the results:
+ *   1. the key as given (trimmed, whitespace collapsed);
+ *   2. the COMPACT form (all whitespace removed);
+ *   3. the SPACED form (a space at every alpha<->digit boundary of the compact
+ *      form — 'PHA5007' -> 'PHA 5007', 'YT13UTV' -> 'YT 13 UTV').
+ * Deduplicated, order-stable, never empty for a non-blank key. Pure —
+ * unit-tested without Graph.
+ */
+export function refSearchVariants(key: string): string[] {
+  const given = String(key ?? '').replace(/\s+/g, ' ').trim();
+  if (!given) return [];
+  const compact = given.replace(/\s+/g, '');
+  const spaced = compact
+    .replace(/([A-Za-z])(\d)/g, '$1 $2')
+    .replace(/(\d)([A-Za-z])/g, '$1 $2');
+  const out: string[] = [];
+  for (const v of [given, compact, spaced]) {
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out;
 }
 
 /* ----------  Outlook original-instruction pick (R3)  ---------- */

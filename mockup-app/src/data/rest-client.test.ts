@@ -391,3 +391,44 @@ describe('rest-client — reclassifyInbound (staff override)', () => {
     await expect(da.reclassifyInbound('nope', { category: 'other' })).rejects.toThrow(/404/);
   });
 });
+
+describe('rest-client — completedCases (E4: page through, never a truncated count)', () => {
+  const page = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `c-${i}` }));
+
+  it('returns a single short page without a second fetch (limit=500, offset=0)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson(page(3)));
+    const da = clientWith(fetchMock);
+    const res = await da.completedCases();
+    expect(res).toHaveLength(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/completed/cases?limit=500&offset=0');
+  });
+
+  it('pages until a short page ends the list, concatenating every row', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okJson(page(500)))
+      .mockResolvedValueOnce(okJson(page(120)));
+    const da = clientWith(fetchMock);
+    const res = await da.completedCases();
+    expect(res).toHaveLength(620); // 500 + 120 — rows past the first page are no longer lost
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('offset=0');
+    expect(String(fetchMock.mock.calls[1][0])).toContain('offset=500');
+  });
+
+  it('threads the status filter on the paged request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson(page(2)));
+    const da = clientWith(fetchMock);
+    await da.completedCases('done');
+    expect(lastUrl(fetchMock)).toBe(
+      'https://api.test/api/completed/cases?limit=500&offset=0&status=done',
+    );
+  });
+
+  it('STAYS safe() — degrades to [] on a 5xx (a browse surface, never a blocker)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(500));
+    const da = clientWith(fetchMock);
+    await expect(da.completedCases()).resolves.toEqual([]);
+  });
+});

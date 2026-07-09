@@ -267,6 +267,9 @@ def extract_images_route(req: func.HttpRequest) -> func.HttpResponse:
     Request (JSON object):
         document   str   base64-encoded source bytes (PDF / DOCX / DOC)
         filename   str   name WITH extension (selects the extractor)
+        provider   str?  resolved work-provider principal (e.g. QDOS) — stem token (TKT-143)
+        vrm        str?  resolved registration — stem token (TKT-143); both OPTIONAL,
+                         omitted-when-unknown (neutral stems, TKT-090)
 
     Response (200):
         { "count": int,
@@ -310,8 +313,17 @@ def _extract_images(req: func.HttpRequest) -> func.HttpResponse:
     if not document_bytes:
         return _images_error(400, "empty_document", "Decoded 'document' is empty.")
 
+    # TKT-143 — optional resolved-identity stem tokens; non-strings are ignored
+    # (never a 400: identity is additive, extraction must proceed without it).
+    provider = body.get("provider")
+    vrm = body.get("vrm")
+    provider = provider if isinstance(provider, str) and provider.strip() else None
+    vrm = vrm if isinstance(vrm, str) and vrm.strip() else None
+
     try:
-        result = parser_adapter.run_image_extraction(document_bytes, filename)
+        result = parser_adapter.run_image_extraction(
+            document_bytes, filename, provider=provider, vrm=vrm
+        )
     except DocumentUnreadableError as exc:
         _LOG.warning("unreadable document for image extraction %r: %s", filename, exc)
         return _images_error(422, "document_unreadable", str(exc))

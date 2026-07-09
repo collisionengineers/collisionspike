@@ -68,6 +68,7 @@ import {
   MailCheck,
   MailQuestion,
   MoreHorizontal,
+  Hourglass,
   Paperclip,
   PencilLine,
   Receipt,
@@ -93,11 +94,16 @@ import {
 import { formatReceivedCompact } from '../components/date-format';
 import { Pager } from '../components/Pager';
 import { nextPeekId, parsePeek, withPeek, withoutPeek } from './peek';
+import { parseInboxItem, resolveInboxItem, withoutInboxItem } from './inbox-deep-link';
 import {
+  appliedEmailType,
   caseLinkHeadline,
   cancellationHeadline,
   pendingRefGateSuggestion,
+  pendingTriageCategorySuggestion,
   refGateValue,
+  triageCategoryHeadline,
+  triageCategoryLabel,
   CASE_LINK_SUGGESTION_TYPE,
   CANCELLATION_SUGGESTION_TYPE,
 } from './inbox-suggestions';
@@ -117,10 +123,11 @@ import {
   parseEmailType,
   type EmailTypeFilter,
 } from './inbox-email-type';
-import { inboxStatus, inboxStatusText } from './inbox-status';
+import { attentionDetailText, inboxStatus, inboxStatusText } from './inbox-status';
 import { suggestedAction, suggestedFolder } from './inbox-suggested-action';
 import {
   data,
+  serverMessageOf,
   useInbox,
   useInboundSuggestions,
   useOutlookMove,
@@ -168,6 +175,8 @@ const CATEGORY_ICON: Record<InboundCategory, typeof Briefcase> = {
   receiving_work: Briefcase,
   query: MailQuestion,
   case_update: RotateCcw,
+  // Taxonomy v3 (TKT-084) — directions held for a later instruction.
+  pre_instruction: Hourglass,
   cancellation: Ban,
   billing: Receipt,
   non_actionable: MailCheck,
@@ -261,6 +270,16 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground3,
   },
   filterControl: { minWidth: '180px' },
+  // TKT-121 — the E-mail type popover listbox is CAPPED (~10 option rows) with its
+  // own scrollbar instead of growing taller than the viewport. `!important` because
+  // Fluent's popover positioning (autoSize) writes an INLINE viewport-height
+  // max-height on open, which would otherwise beat any class rule. Keyboard nav
+  // still reaches every option: Fluent scrolls the active option into view within
+  // the listbox as focus moves.
+  typeListbox: {
+    maxHeight: '320px !important',
+    overflowY: 'auto',
+  },
   spacer: { flex: 1 },
   dismissedSwitch: { alignSelf: 'center' },
 
@@ -603,13 +622,16 @@ function formatReceived(iso: string): string {
    'new' is warning amber (needs sorting, not a blocker — D4); Handled success;
    Dismissed muted; routed-without-case falls back to a neutral info chip. */
 const STATUS_CHIP: Record<
-  'new' | 'handled' | 'dismissed' | 'linked-unresolved',
+  'new' | 'handled' | 'dismissed' | 'linked-unresolved' | 'attention',
   { severity: ChipSeverity; Icon: typeof AlertCircle }
 > = {
   new: { severity: 'warning', Icon: AlertCircle },
   handled: { severity: 'success', Icon: CheckCircle2 },
   dismissed: { severity: 'muted', Icon: XCircle },
   'linked-unresolved': { severity: 'info', Icon: Link2 },
+  // TKT-119c/034 — a pipeline outcome that needs a person ("Unable to locate" /
+  // "No matching case"): critical so it reads as louder than plain "New".
+  attention: { severity: 'critical', Icon: AlertCircle },
 };
 
 /** Status cell (TKT-054 / 020726 E4): case-linked rows render the Case/PO link
@@ -640,6 +662,8 @@ function StatusCell({ e, onOpenCase }: { e: InboundEmail; onOpenCase: (caseId: s
       size="small"
       shape="rounded"
       icon={<Icon size={12} strokeWidth={2} />}
+      // TKT-119c/034 — the fuller plain-English line on hover for the attention states.
+      {...(m.kind === 'attention' ? { title: attentionDetailText(m.reason) } : {})}
     >
       {inboxStatusText(m)}
     </Badge>
@@ -734,6 +758,19 @@ export function Inbox() {
   useEffect(() => {
     setPendingHidden((prev) => (prev.size === 0 ? prev : new Set()));
   }, [inbox.data]);
+
+  // `?item=<inbound email id>` deep link (TKT-072: a global-search EMAIL hit opens
+  // THAT email's preview). One-shot: wait for the list to load, open the row's
+  // preview if it exists, then consume the param either way — an unknown/stale id
+  // degrades honestly to the plain inbox (no error flash), and Back returns to the
+  // search results instead of re-opening the preview.
+  const inboxItemId = parseInboxItem(searchParams.toString());
+  useEffect(() => {
+    if (!inboxItemId || inbox.loading) return;
+    const target = resolveInboxItem(rows, inboxItemId);
+    if (target) setSelectedEmail(target);
+    setSearchParams((prev) => withoutInboxItem(prev.toString()), { replace: true });
+  }, [inboxItemId, inbox.loading, rows, setSearchParams]);
 
   // Every filter EXCEPT the mailbox facet — the base the mailbox chips' own
   // "live" counts are drawn from (so a chip's count reflects "how many would
@@ -977,10 +1014,12 @@ export function Inbox() {
       );
       refresh();
     } catch (err) {
+      // TKT-091 — show the server's plain-English reason when it sent one (e.g. the
+      // filing queue missing / a permission not granted), never the technical line.
       dispatchToast(
         <Toast>
-          <ToastTitle>Couldn’t file this email. Please try again.</ToastTitle>
-          <ToastBody>{err instanceof Error ? err.message : 'Please try again.'}</ToastBody>
+          <ToastTitle>Couldn’t file this email.</ToastTitle>
+          <ToastBody>{serverMessageOf(err) ?? 'Please try again in a moment.'}</ToastBody>
         </Toast>,
         { intent: 'error' },
       );
@@ -1470,6 +1509,7 @@ export function Inbox() {
           </span>
           <Dropdown
             className={styles.filterControl}
+            listbox={{ className: styles.typeListbox }}
             aria-labelledby="filter-email-type"
             value={emailTypeDisplayLabel(emailType)}
             selectedOptions={[emailTypeParam(emailType) ?? TYPE_ALL_OPTION]}
@@ -1635,6 +1675,15 @@ export function Inbox() {
                 setSelectedEmail((prev) => (prev && prev.id === emailId ? { ...prev, caseId } : prev));
                 refresh();
               }}
+              // TKT-137 — an accepted type suggestion relabelled the email: patch the
+              // sidebar's row in place when the server applied it, refresh the grid
+              // either way (the E-mail type cell reads the refetched rows).
+              onEmailTypeChanged={(emailId, applied) => {
+                if (applied) {
+                  setSelectedEmail((prev) => (prev && prev.id === emailId ? { ...prev, ...applied } : prev));
+                }
+                refresh();
+              }}
               dispatchToast={dispatchToast}
             />
           )}
@@ -1714,6 +1763,7 @@ function EmailPreviewPanel({
   onTriage,
   onReclassify,
   onCaseLinkChanged,
+  onEmailTypeChanged,
   dispatchToast,
 }: {
   row: InboundEmail;
@@ -1726,6 +1776,13 @@ function EmailPreviewPanel({
    *  lets the sidebar (and the grid, via the parent's own refresh) show the new
    *  caseId without waiting on a full refetch. */
   onCaseLinkChanged: (emailId: string, caseId: string | undefined) => void;
+  /** An accepted type suggestion (TKT-137) may have relabelled this email — patch
+   *  the sidebar's row in place when the server applied the pair (`applied` set),
+   *  and refresh the grid either way so the E-mail type cell agrees. */
+  onEmailTypeChanged: (
+    emailId: string,
+    applied: { category: InboundCategory; subtype: InboundSubtype } | undefined,
+  ) => void;
   dispatchToast: ReturnType<typeof useToastController>['dispatchToast'];
 }) {
   const styles = useStyles();
@@ -1751,6 +1808,10 @@ function EmailPreviewPanel({
   const cancellationSuggestion = pendingRefGateSuggestion(suggestions, CANCELLATION_SUGGESTION_TYPE);
   const caseLinkTargetId = caseLinkSuggestion && refGateValue(caseLinkSuggestion).targetCaseId;
   const cancellationTargetId = cancellationSuggestion && refGateValue(cancellationSuggestion).targetCaseId;
+  // AI email-identification verdict (TKT-137) — a pending triage_category suggestion
+  // proposes a TYPE for this email. UNCASED rows only (the ticket's target): a linked
+  // row's type is anchored to its case and staff relabel it via Reclassify instead.
+  const triageCategorySuggestion = !row.caseId ? pendingTriageCategorySuggestion(suggestions) : undefined;
   const { review, saving: reviewSaving } = useReviewAiSuggestion();
   const [reviewingId, setReviewingId] = useState<string | undefined>(undefined);
   const { detach, detaching } = useDetachInbound();
@@ -1800,6 +1861,75 @@ function EmailPreviewPanel({
           <ToastTitle>Marked “Not a match”</ToastTitle>
         </Toast>,
         { intent: 'success' },
+      );
+    } catch (err) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t save that. Please try again.</ToastTitle>
+          <ToastBody>{err instanceof Error ? err.message : 'Please try again.'}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setReviewingId(undefined);
+    }
+  };
+
+  /* ----- AI-suggested e-mail type (TKT-137) — accept applies via the audited
+     review seam (promoteAcceptedSuggestion's triage_category branch); ignore
+     dismisses. Suggest-only: nothing changes until a person clicks. ----- */
+  const onAcceptTriageCategory = async () => {
+    if (!triageCategorySuggestion) return;
+    const s = triageCategorySuggestion;
+    setReviewingId(s.id);
+    try {
+      const result = await review(s.id, { decision: 'accepted' });
+      suggestionsQuery.refetch();
+      // Patch the sidebar's row + refresh the grid — but only claim the new type
+      // when the server actually applied it (it never overwrites a decision a
+      // person already made by hand; `promoted` reports which happened).
+      onEmailTypeChanged(row.id, result.promoted ? appliedEmailType(s) : undefined);
+      if (result.promoted) {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Filed as “{triageCategoryLabel(s) ?? 'the suggested type'}”</ToastTitle>
+            <ToastBody>{row.subject}</ToastBody>
+          </Toast>,
+          { intent: 'success' },
+        );
+      } else {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Suggestion recorded</ToastTitle>
+            <ToastBody>This email keeps its current type — a choice made by a person stays.</ToastBody>
+          </Toast>,
+          { intent: 'info' },
+        );
+      }
+    } catch (err) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t save that. Please try again.</ToastTitle>
+          <ToastBody>{err instanceof Error ? err.message : 'Please try again.'}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setReviewingId(undefined);
+    }
+  };
+
+  const onIgnoreTriageCategory = async () => {
+    if (!triageCategorySuggestion) return;
+    setReviewingId(triageCategorySuggestion.id);
+    try {
+      await review(triageCategorySuggestion.id, { decision: 'rejected' });
+      suggestionsQuery.refetch();
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Suggestion set aside</ToastTitle>
+        </Toast>,
+        { intent: 'info' },
       );
     } catch (err) {
       dispatchToast(
@@ -1866,6 +1996,20 @@ function EmailPreviewPanel({
           </div>
         </div>
 
+        {/* TKT-119c/034 — the terminal attention states get a visible home in the
+            preview too (the grid chip carries the short label; this is the fuller
+            plain-English line). Suppressed once the email is linked to a case. */}
+        {!row.caseId && row.attentionReason && (
+          <MessageBar intent="error">
+            <MessageBarBody>
+              <MessageBarTitle>
+                {row.attentionReason === 'unable_to_locate' ? 'Unable to locate' : 'No matching case'}
+              </MessageBarTitle>
+              {attentionDetailText(row.attentionReason)}
+            </MessageBarBody>
+          </MessageBar>
+        )}
+
         {/* Suggested-match banners — amber attention idiom (D4: amber, never red),
             passive until acted on. At most one of each ever shows (both are keyed
             off the FIRST pending suggestion of their type). */}
@@ -1918,6 +2062,44 @@ function EmailPreviewPanel({
                 onClick={() => onOpenCase(cancellationTargetId)}
               >
                 Open case
+              </Button>
+            </MessageBarActions>
+          </MessageBar>
+        )}
+
+        {/* AI email-identification verdict (TKT-137) — info, not warning: a
+            suggestion, nothing is wrong with the row. Plain handler English
+            only; suggest-only until a person clicks. */}
+        {triageCategorySuggestion && (
+          <MessageBar intent="info">
+            <MessageBarBody>
+              <MessageBarTitle>{triageCategoryHeadline(triageCategorySuggestion)}</MessageBarTitle>
+              {triageCategorySuggestion.rationale}
+            </MessageBarBody>
+            <MessageBarActions>
+              <Button
+                appearance="primary"
+                size="small"
+                icon={
+                  reviewingId === triageCategorySuggestion.id && reviewSaving ? (
+                    <Spinner size="tiny" />
+                  ) : (
+                    <CheckCircle2 size={14} />
+                  )
+                }
+                disabled={reviewingId === triageCategorySuggestion.id && reviewSaving}
+                onClick={() => void onAcceptTriageCategory()}
+              >
+                Accept
+              </Button>
+              <Button
+                appearance="secondary"
+                size="small"
+                icon={<X size={14} />}
+                disabled={reviewingId === triageCategorySuggestion.id && reviewSaving}
+                onClick={() => void onIgnoreTriageCategory()}
+              >
+                Ignore
               </Button>
             </MessageBarActions>
           </MessageBar>

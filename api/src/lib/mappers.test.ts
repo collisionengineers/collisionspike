@@ -14,11 +14,109 @@ import {
   isHandledTriageState,
   isValidTriageState,
   maxCasePoSeqFromNames,
+  mergedIntoFrom,
   richTagToClassification,
+  rowToActivityEvent,
   rowToAiSuggestion,
+  rowToCase,
   rowToInboundEmail,
   tallyActiveInboundCounts,
 } from './mappers';
+
+describe('mergedIntoFrom — the TKT-141 merge-retirement marker parse', () => {
+  it('reads the survivor id out of the duplicate_keys merge JSON (string or parsed)', () => {
+    expect(mergedIntoFrom('{"mergedInto":"surv-1","mergedBy":"staff"}')).toBe('surv-1');
+    expect(mergedIntoFrom({ mergedInto: 'surv-2' })).toBe('surv-2');
+  });
+  it('tolerates legacy/free-form duplicate_keys values (no marker => undefined)', () => {
+    expect(mergedIntoFrom(null)).toBeUndefined();
+    expect(mergedIntoFrom(undefined)).toBeUndefined();
+    expect(mergedIntoFrom('')).toBeUndefined();
+    expect(mergedIntoFrom('PK20FWT,PK20FWT')).toBeUndefined(); // legacy candidate list, not JSON
+    expect(mergedIntoFrom('{"candidates":["a","b"]}')).toBeUndefined();
+    expect(mergedIntoFrom('{"mergedInto":"  "}')).toBeUndefined();
+  });
+});
+
+describe('rowToCase — mergedInto surfaced from duplicate_keys (TKT-141)', () => {
+  const base = {
+    id: 'c-1',
+    vrm: 'PK20FWT',
+    status_code: 100000006, // linked_to_instruction
+    created_at: new Date(2026, 5, 1),
+  };
+  it('a merge-retired row carries mergedInto', () => {
+    const c = rowToCase({
+      ...base,
+      duplicate_keys: '{"mergedInto":"surv-1","mergedBy":"delta"}',
+    });
+    expect(c.mergedInto).toBe('surv-1');
+    expect(c.status).toBe('linked_to_instruction');
+  });
+  it('a plain linked_to_instruction row (no marker) has no mergedInto', () => {
+    const c = rowToCase({ ...base, duplicate_keys: null });
+    expect(c.mergedInto).toBeUndefined();
+  });
+});
+
+describe('rowToActivityEvent — TKT-134 humanized primary line + detail/technical split', () => {
+  const at = new Date(2026, 6, 9, 10, 30);
+  it('the primary description is ALWAYS the plain label map output (never the raw summary)', () => {
+    const e = rowToActivityEvent({
+      id: 'a1',
+      case_id: 'c1',
+      action_code: 100000021, // box_upload_received
+      name: 'box_upload_received: 3 files landed',
+      actor: 'System',
+      occurred_at: at,
+    });
+    expect(e.description).toBe('Images received');
+    expect(e.description).not.toMatch(/[a-z]_[a-z]/i);
+    // The engineering-shaped summary is NOT a detail line — it moves behind technical.
+    expect(e.detail).toBeUndefined();
+    expect(e.technical).toContain('box_upload_received: 3 files landed');
+  });
+  it('a human-safe summary renders as the detail line (specifics kept, plainly)', () => {
+    const e = rowToActivityEvent({
+      id: 'a2',
+      case_id: 'c1',
+      action_code: 100000003, // case_created
+      name: 'Case created (CCPY26050)',
+      actor: 'alex@collisionengineers.co.uk',
+      occurred_at: at,
+    });
+    expect(e.description).toBe('Case created');
+    expect(e.detail).toBe('Case created (CCPY26050)');
+    expect(e.actor).toBe('alex'); // UPN reduced to local part — never a raw address/GUID
+  });
+  it('status-transition summaries (enum arrows) never render on a primary or detail line', () => {
+    const e = rowToActivityEvent({
+      id: 'a3',
+      case_id: 'c1',
+      action_code: 100000013, // status_changed
+      name: 'Status duplicate_risk -> missing_required_fields (internal recompute)',
+      actor: 'a1b2c3d4-e5f6-7890-abcd-ef0123456789',
+      occurred_at: at,
+    });
+    expect(e.description).toBe('Details updated');
+    expect(e.detail).toBeUndefined();
+    expect(e.actor).toBe('System'); // GUID actor never renders
+    expect(e.technical).toContain('duplicate_risk -> missing_required_fields');
+  });
+  it('an unmapped/unknown action degrades to the plain default, never raw JSON/after payload', () => {
+    const e = rowToActivityEvent({
+      id: 'a4',
+      case_id: 'c1',
+      action_code: 999999999,
+      name: null,
+      after: '{"raw":"payload"}',
+      actor: null,
+      occurred_at: at,
+    });
+    expect(e.description).toBe('Updated');
+    expect(e.detail).toBeUndefined();
+  });
+});
 
 describe('triage state validation', () => {
   it('accepts the four canonical states', () => {

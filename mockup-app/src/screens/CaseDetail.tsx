@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
+import { zipSync } from 'fflate';
 import {
   Badge,
   Button,
@@ -18,6 +19,7 @@ import {
   Link,
   Menu,
   MenuItem,
+  MenuItemRadio,
   MenuList,
   MenuPopover,
   MenuTrigger,
@@ -50,9 +52,11 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Download,
   FileText,
+  FolderClosed,
   GitMerge,
   ImageOff,
   Mail,
@@ -62,7 +66,6 @@ import {
   Pencil,
   Search,
   Send,
-  Trash2,
   Upload,
   Pause,
   Play,
@@ -118,17 +121,25 @@ import {
 } from '../data';
 import {
   resolveInspectionDecision,
+  allowedCaseTypes,
   buildEvaJson,
   CASE_PO_SHAPE_RE,
+  derivedMarkerCasePo,
   INTAKE_CHANNEL_LABELS,
   normalizeCasePo,
+  type CaseWorkType,
 } from '@cs/domain';
+import { buildEvaImageOrder } from '../components/ImageOrderList';
+import {
+  buildEvaZipImageSpecs,
+  evaExportBaseName,
+  orderEntriesByKeys,
+} from './eva-export-zip';
 import { GLOBAL_TOASTER_ID } from '../components';
 import { LinkedEmailsPanel } from '../components/LinkedEmailsPanel';
 // Gated AI "Assistant" surface (TKT-015). Self-contained: renders NOTHING unless
 // AI_ASSIST_ENABLED (checks the gate via its own hook), so this is an honest-off mount.
 import { AiAssistPanel } from '../components/AiAssistPanel';
-import { useIsSuperuser } from '../components/useIsSuperuser';
 // DataAccessExt: the SPA-side seam with the work-todo-spike additive methods
 // (removeCase). The base DataAccess in '@cs/domain' stays the frozen server contract.
 import type { DataAccessExt } from '../data/rest-client';
@@ -229,6 +240,12 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground2,
     border: `1px solid ${tokens.colorNeutralStroke1}`,
   },
+  /* TKT-057 — the derived audit reference (marker + Case/PO) in the title tags:
+     mono, quiet outline — a reference, not a severity. */
+  derivedIdBadge: {
+    fontFamily: 'var(--ce-font-mono)',
+    letterSpacing: '0.04em',
+  },
   actions: { display: 'flex', gap: tokens.spacingHorizontalS, flexWrap: 'wrap', alignItems: 'center' },
 
   grid: {
@@ -297,6 +314,23 @@ const useStyles = makeStyles({
   thumbMeta: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalXS, padding: tokens.spacingVerticalS },
   thumbName: { fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3, wordBreak: 'break-all' },
   thumbRowBetween: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacingHorizontalS },
+  /* TKT-123 — dismissible person-reflection warning on a flagged photo. Amber
+     warning triad (never colour-only: the triangle carries the shape cue). */
+  reflectionWarning: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalXS,
+    padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalS}`,
+    borderRadius: tokens.borderRadiusMedium,
+    border: '1px solid var(--ce-warning-line)',
+    backgroundColor: 'var(--ce-warning-tint)',
+    color: 'var(--ce-warning-text)',
+  },
+  reflectionWarningText: {
+    flexGrow: 1,
+    fontSize: tokens.fontSizeBase200,
+    fontWeight: tokens.fontWeightSemibold,
+  },
 
   /* Documents list (source email + instructions + non-image artifacts) */
   docList: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalS },
@@ -470,6 +504,16 @@ const POLICY_LABEL: Record<Case['inspectionDecision'], string> = {
   unknown: 'Undecided',
 };
 
+/* Plain-English case work-type labels (ADR-0021 / TKT-057). The AP. refinement is
+   a REVIEW-time decision — the QDOS instruction letters are identical whether the
+   audit resolves repairable or total-loss, so a reviewer sets it here. */
+const CASE_WORK_TYPE_LABELS: Record<CaseWorkType, string> = {
+  standard: 'Standard case',
+  audit: 'Audit review',
+  audit_total_loss: 'Total-loss audit review',
+  diminution: 'Diminution review',
+};
+
 /** Friendly label per evidence kind for the Documents list. */
 const EVIDENCE_KIND_LABEL: Record<string, string> = {
   instruction: 'Instruction',
@@ -509,9 +553,13 @@ interface EvidenceCardProps {
   ev: Evidence;
   onRole: (id: string, role: ImageRole) => void;
   onExclude: (id: string, excluded: boolean) => void;
+  /** TKT-123: dismiss the person-reflection warning (persists via the seam). */
+  onDismissReflection: (id: string) => void;
+  /** True while this card's dismissal is being saved. */
+  dismissingReflection?: boolean;
 }
 
-function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
+function EvidenceCard({ ev, onRole, onExclude, onDismissReflection, dismissingReflection }: EvidenceCardProps) {
   const styles = useStyles();
   // Real inline preview (TKT-048): fetch the bytes WITH the bearer -> blob: URL for <img>
   // (an <img src> can't carry the token, and CSP allows blob:). Falls back to the coloured
@@ -585,9 +633,28 @@ function EvidenceCard({ ev, onRole, onExclude }: EvidenceCardProps) {
             </Badge>
           </Tooltip>
         </div>
+        {/* TKT-123: the classifier's reflection observation renders as a
+            DISMISSIBLE plain-English warning — advisory only; excluding the
+            photo stays the reviewer's decision via the switch below. */}
+        {ev.personReflection && !ev.reflectionDismissed && (
+          <div className={styles.reflectionWarning} role="status">
+            <AlertTriangle size={14} strokeWidth={2} aria-hidden />
+            <span className={styles.reflectionWarningText}>
+              A person’s reflection may be visible.
+            </span>
+            <Button
+              appearance="subtle"
+              size="small"
+              disabled={dismissingReflection}
+              onClick={() => onDismissReflection(ev.id)}
+            >
+              {dismissingReflection ? 'Dismissing…' : 'Dismiss'}
+            </Button>
+          </div>
+        )}
         <Switch
           checked={!!ev.excluded}
-          label="Exclude (person reflection)"
+          label="Exclude"
           onChange={(_, d) => onExclude(ev.id, d.checked)}
         />
         {ev.boxFileUrl && (
@@ -675,8 +742,16 @@ function SuggestedLocationRow({ suggestion, onUse }: SuggestedLocationRowProps) 
             </Badge>
           </Tooltip>
           {distHint && <Caption1 className={styles.hint}>{distHint}</Caption1>}
-          {suggestion.providerCode && (
-            <Caption1 className={styles.hint}>Provider {suggestion.providerCode}</Caption1>
+          {/* TKT-076/079 — a scope-FALLBACK row is a common location served because this
+              provider has no saved sites yet; its stored provider code belongs to some
+              OTHER provider and rendering it would mislead ("Provider FW" on a QDOS case).
+              Say what it really is instead. */}
+          {suggestion.scopeFallback ? (
+            <Caption1 className={styles.hint}>Common location — not specific to this provider</Caption1>
+          ) : (
+            suggestion.providerCode && (
+              <Caption1 className={styles.hint}>Provider {suggestion.providerCode}</Caption1>
+            )
           )}
           {seenHint && <Caption1 className={styles.hint}>{seenHint}</Caption1>}
         </span>
@@ -876,8 +951,19 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     fieldRefs.current[key] = el;
   };
 
+  // TKT-124: the photo set is IMAGE-kind evidence ONLY (kind-based, not filename).
+  // The server /images route already filters to kind=image, but a mislabelled or
+  // legacy row (.eml/PDF marked image-adjacent) must never reach the photo grid or
+  // the EVA photo orderer — non-image artifacts belong to the Documents list.
+  const imageEvidence = useMemo(() => images.filter((e) => e.kind === 'image'), [images]);
   // Mirror image edits into the working copy's evidence so readiness recomputes.
-  const [imgState, setImgState] = useState<Evidence[]>(images);
+  const [imgState, setImgState] = useState<Evidence[]>(imageEvidence);
+  // Adopt fresh server truth whenever the fetched image set changes (first load can
+  // land AFTER mount; onRefreshImages refetches after an AI promotion). Local
+  // role/exclude toggles are working-copy only, so server truth wins on refresh.
+  useEffect(() => {
+    setImgState(imageEvidence);
+  }, [imageEvidence]);
 
   // Readiness is derived from the working copy (with current image edits folded in).
   const liveCase: Case = {
@@ -946,10 +1032,54 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     }
   };
 
-  /* --- Superuser soft-remove (TKT-010, work-todo-spike: ui-changes/delete-case) ---
-     Hidden for non-superusers; the server soft-removes + anonymises and NEVER
-     auto-deletes the Box folder. The checkbox is an ACK only. */
-  const isSuperuser = useIsSuperuser();
+  /* --- Case type (TKT-057 — the AP. review-time refinement) ---
+     Shown when the provider is marker-allowlisted (PCH/QDOS — allowedCaseTypes)
+     or the case already carries a non-standard type. Persists via the existing
+     PATCH { caseType } seam; the derived marker ID (marker + Case/PO, e.g.
+     AP.PCH26010) renders beside it once it applies — presentation-only, the
+     stored Case/PO is never renamed. */
+  const { update: updateCaseType, saving: savingCaseType } = useCaseUpdate();
+  const currentCaseType: CaseWorkType = c.caseType ?? 'standard';
+  const caseTypeOptions = useMemo<CaseWorkType[]>(() => {
+    const opts = new Set<CaseWorkType>(['standard', ...allowedCaseTypes(c.providerCode)]);
+    opts.add(currentCaseType); // never hide the current value, even off-allowlist
+    return [...opts];
+  }, [c.providerCode, currentCaseType]);
+  const showCaseTypeControl =
+    allowedCaseTypes(c.providerCode).length > 0 || currentCaseType !== 'standard';
+  const derivedAuditId = derivedMarkerCasePo(currentCaseType, c.casePo);
+  const setCaseType = async (next: CaseWorkType) => {
+    if (next === currentCaseType || savingCaseType) return;
+    try {
+      const updated = await updateCaseType(c.id, { caseType: next });
+      setC((prev) => {
+        const merged: Case = { ...prev, ...updated };
+        // The server omits caseType for a standard case — an omitted key must
+        // CLEAR the old value, not keep it.
+        if (!updated.caseType) delete merged.caseType;
+        return merged;
+      });
+      toast(
+        next === 'standard'
+          ? 'Recorded as a standard case'
+          : `Recorded as ${CASE_WORK_TYPE_LABELS[next].toLowerCase()}`,
+      );
+    } catch {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t update the case type — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    }
+  };
+
+  /* --- Close case (TKT-010, re-scoped 2026-07-08) ---
+     Available to ALL staff (the Superuser gate is dropped — the API guard is now
+     CollisionSpike.User). A CLOSE, not a delete: the server sets the terminal
+     soft state and keeps every detail (non-destructive, reversible in principle);
+     the case just leaves the work queues. The Box folder is NEVER auto-deleted —
+     the checkbox is an ACK only (ADR-0017). */
   const isRemoved = c.status === 'removed';
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeConfirmText, setRemoveConfirmText] = useState('');
@@ -981,7 +1111,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       // (it is NEVER auto-deleted). The toast persists across the navigate-away.
       dispatchToast(
         <Toast>
-          <ToastTitle>{result.alreadyRemoved ? 'Case already removed' : 'Case removed'}</ToastTitle>
+          <ToastTitle>{result.alreadyRemoved ? 'Case already closed' : 'Case closed'}</ToastTitle>
           <ToastBody>
             {result.boxFolderUrl ? (
               <Link inline href={result.boxFolderUrl} target="_blank" rel="noopener noreferrer">
@@ -999,7 +1129,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       setRemoving(false);
       dispatchToast(
         <Toast>
-          <ToastTitle>Couldn’t remove the case — try again</ToastTitle>
+          <ToastTitle>Couldn’t close the case — try again</ToastTitle>
         </Toast>,
         { intent: 'error' },
       );
@@ -1321,14 +1451,53 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const onRole = (id: string, role: ImageRole) =>
     setImgState((prev) => prev.map((e) => (e.id === id ? { ...e, imageRole: role } : e)));
 
+  // TKT-123: the exclusion reason is no longer hard-coded to person-reflection —
+  // a manual exclude is neutral ("Excluded by reviewer") unless the vision flag
+  // is present on the image (then the reflection IS the stated reason).
   const onExclude = (id: string, excluded: boolean) =>
     setImgState((prev) =>
       prev.map((e) =>
         e.id === id
-          ? { ...e, excluded, exclusionReason: excluded ? 'Person reflection visible' : undefined }
+          ? {
+              ...e,
+              excluded,
+              exclusionReason: excluded
+                ? e.personReflection
+                  ? 'Person reflection visible'
+                  : 'Excluded by reviewer'
+                : undefined,
+            }
           : e,
       ),
     );
+
+  /* TKT-123: dismiss the reflection warning — persists via the seam (PATCH), so
+     the dismissal survives a reload. The card's flag flips only after the server
+     confirms; a failure surfaces as a toast, never a fake dismissal. */
+  const [dismissingReflection, setDismissingReflection] = useState<ReadonlySet<string>>(new Set());
+  const onDismissReflection = async (id: string) => {
+    if (dismissingReflection.has(id)) return;
+    setDismissingReflection((prev) => new Set(prev).add(id));
+    try {
+      const updated = await (data as DataAccessExt).setReflectionDismissed(id, true);
+      setImgState((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, reflectionDismissed: updated.reflectionDismissed ?? true } : e)),
+      );
+    } catch {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t dismiss the warning — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setDismissingReflection((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
 
   const addNote = () => {
     const text = noteDraft.trim();
@@ -1344,33 +1513,146 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     toast('Note added');
   };
 
-  /* Download the canonical 12-field EVA JSON (snake_case, byte-identical to the
-     submit flow). The Fields-tab preview was removed; this is the replacement,
-     offered next to "Submit to EVA" and disabled while the case is blocked. */
-  const onDownloadEvaJson = () => {
+  const acceptedImages = imgState.filter((e) => e.acceptedForEva && !e.excluded);
+
+  /* "Export for EVA" (TKT-126): ONE .zip holding the canonical 12-field EVA JSON
+     (snake_case, byte-identical to the submit flow) PLUS every included photo,
+     named `NNN-<file>` in the EVA photo order — 2 previews first (overview with
+     the registration, then the main-damage closeup), then ALL accepted photos in
+     sequence INCLUDING those two again; excluded images never ship. The order is
+     the on-screen photo orderer's (the reviewer's drag order is captured below),
+     so the list and the zip can never disagree. Bytes come through the
+     authenticated seam; fflate packs client-side (bundled — no CDN, CSP-safe).
+     The separate JSON-only download is REPLACED — the JSON travels in the zip. */
+  const [evaOrderKeys, setEvaOrderKeys] = useState<string[] | null>(null);
+  // B4: the saved drag order is keyed by accepted-image identity + role (the entry
+  // keys encode the two preview slots + each photo's id). If a reviewer drags the
+  // order and THEN changes a role to Overview/Damage-closeup or (un)excludes a photo,
+  // orderEntriesByKeys would append the newly-seeded preview-* entry AFTER the stale
+  // order — landing EVA's required previews LAST in the zip. Reset the saved order
+  // when that identity/role signature changes so the export falls back to the
+  // correctly-seeded (previews-first) EVA order.
+  const orderSig = useMemo(
+    () => buildEvaImageOrder(acceptedImages).map((e) => e.key).join('|'),
+    [acceptedImages],
+  );
+  useEffect(() => {
+    setEvaOrderKeys(null);
+  }, [orderSig]);
+  const [exportingEva, setExportingEva] = useState(false);
+  const onExportForEva = async () => {
+    if (exportingEva) return;
+    setExportingEva(true);
     try {
-      const text = buildEvaJson({ evaFields: liveCase.evaFields });
-      const blob = new Blob([text], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
+      const baseName = evaExportBaseName(liveCase.casePo || liveCase.id);
+      const json = buildEvaJson({ evaFields: liveCase.evaFields });
+      const ordered = orderEntriesByKeys(buildEvaImageOrder(acceptedImages), evaOrderKeys);
+      const specs = buildEvaZipImageSpecs(ordered);
+
+      // Fetch each image's bytes ONCE (the two preview slots reuse the same bytes).
+      const bytesById = new Map<string, Uint8Array>();
+      const missing: string[] = [];
+      for (const spec of specs) {
+        if (bytesById.has(spec.evidenceId) || missing.includes(spec.fileName)) continue;
+        const blob = await (data as DataAccessExt).evidenceContentBlob(spec.evidenceId);
+        if (!blob) {
+          missing.push(spec.fileName);
+          continue;
+        }
+        bytesById.set(spec.evidenceId, new Uint8Array(await blob.arrayBuffer()));
+      }
+      if (missing.length > 0) {
+        // EVA needs the complete photo set — never ship a silently-partial zip.
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Couldn’t export — {missing.length} photo{missing.length === 1 ? '' : 's'} unavailable</ToastTitle>
+            <ToastBody>{missing.slice(0, 3).join(', ')}{missing.length > 3 ? '…' : ''} — try again, or open the archive copy.</ToastBody>
+          </Toast>,
+          { intent: 'error' },
+        );
+        return;
+      }
+
+      const zipInput: Record<string, Uint8Array> = {
+        [`${baseName}.json`]: new TextEncoder().encode(json),
+      };
+      for (const spec of specs) zipInput[spec.name] = bytesById.get(spec.evidenceId)!;
+      // level 0 (store): the photos are already compressed; the JSON is tiny.
+      const zipped = zipSync(zipInput, { level: 0 });
+
+      const url = URL.createObjectURL(new Blob([zipped], { type: 'application/zip' }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `EVA-${liveCase.casePo || liveCase.id}.json`;
+      a.download = `${baseName}.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast('Case exported for EVA');
+      toast('Exported for EVA — one zip with the EVA file and the photos in order');
+
+      /* TKT-094 Phase B: the export IS the EVA handoff, so record it — the server
+         flips ready_for_eva → eva_submitted (guarded idempotent: a second export
+         is a no-op) and writes submitted_at, which feeds the dashboard throughput
+         tiles. Own try/catch: the download above already succeeded, so a failure
+         here must say "exported, but not recorded" — never "couldn't export". */
+      try {
+        const { updated } = await (data as DataAccessExt).markEvaSubmitted(liveCase.id);
+        if (updated) {
+          const fresh = await data.caseById(liveCase.id);
+          if (fresh) setC(fresh);
+          toast('Case marked EVA Submitted');
+        }
+      } catch {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Exported, but the case couldn’t be marked EVA Submitted</ToastTitle>
+            <ToastBody>The zip downloaded fine. Refresh and export again to record it.</ToastBody>
+          </Toast>,
+          { intent: 'warning' },
+        );
+      }
     } catch {
       dispatchToast(
         <Toast>
-          <ToastTitle>Couldn’t download — try again</ToastTitle>
+          <ToastTitle>Couldn’t export — try again</ToastTitle>
         </Toast>,
         { intent: 'error' },
       );
+    } finally {
+      setExportingEva(false);
+    }
+  };
+  /* TKT-095 (thin slice): the manual "Mark report delivered" bridge — visible only
+     on an eva_submitted case. Server-guarded eva_submitted → done (idempotent), so
+     a double-click can never double-record. */
+  const [markingDone, setMarkingDone] = useState(false);
+  const onMarkReportDelivered = async () => {
+    if (markingDone) return;
+    setMarkingDone(true);
+    try {
+      const { updated } = await (data as DataAccessExt).markCaseDone(liveCase.id);
+      if (updated) {
+        const fresh = await data.caseById(liveCase.id);
+        if (fresh) setC(fresh);
+        toast('Report delivered — case marked Done');
+      } else {
+        // Benign: someone (or a detector) already recorded the delivery.
+        const fresh = await data.caseById(liveCase.id);
+        if (fresh) setC(fresh);
+        toast('Already recorded — this case is Done');
+      }
+    } catch {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t record the delivery — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setMarkingDone(false);
     }
   };
 
-  const acceptedImages = imgState.filter((e) => e.acceptedForEva && !e.excluded);
   // TKT-002 (display-only): images are present but NONE (non-excluded) shows a
   // readable registration — the case can't be EVA-ready until a vehicle overview
   // with the full plate arrives. Derived from the per-image registrationVisible
@@ -1515,8 +1797,10 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                 </span>
               ) : (
                 <span className={styles.vrmViewRow}>
+                  {/* TKT-118: a pre-mint case is identified by its REGISTRATION (the
+                      plate to the left) — say so, rather than a bare "no number". */}
                   <span className={mergeClasses('ce-display', styles.titleText)}>
-                    {titleText || 'No Case/PO yet'}
+                    {titleText || 'No Case/PO yet — identified by registration'}
                   </span>
                   <Tooltip
                     content={c.casePo ? 'Correct the Case/PO' : 'Set the Case/PO (assigned at EVA-add)'}
@@ -1570,16 +1854,20 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                 {c.onHold ? 'Release' : 'Hold'}
               </Button>
               <Tooltip
-                content={blocked ? `Can't export yet — ${blockerCount} item(s) outstanding` : 'Save the case as an EVA file to drag into EVA'}
+                content={
+                  blocked
+                    ? `Can't export yet — ${blockerCount} item(s) outstanding`
+                    : 'Download one zip — the EVA file plus every included photo, in upload order'
+                }
                 relationship="label"
               >
                 <Button
                   appearance="secondary"
-                  icon={<Download size={16} />}
-                  disabled={blocked || isRemoved}
-                  onClick={onDownloadEvaJson}
+                  icon={exportingEva ? <Spinner size="tiny" /> : <Download size={16} />}
+                  disabled={blocked || isRemoved || exportingEva}
+                  onClick={() => void onExportForEva()}
                 >
-                  Export for EVA
+                  {exportingEva ? 'Exporting…' : 'Export for EVA'}
                 </Button>
               </Tooltip>
               <Tooltip
@@ -1595,9 +1883,28 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   Submit to EVA
                 </Button>
               </Tooltip>
-              {/* Destructive Superuser-only action, tucked in an overflow menu so
+              {/* TKT-095 thin slice: the delivery bridge — only an EVA-submitted case
+                  can be marked delivered (Done). Primary action at this stage of the
+                  lifecycle; the auto-detectors (Box report PDF, sent email) record it
+                  without the click when they fire first. */}
+              {c.status === 'eva_submitted' && (
+                <Tooltip
+                  content="Record that the report went back to the work provider"
+                  relationship="label"
+                >
+                  <Button
+                    appearance="primary"
+                    icon={markingDone ? <Spinner size="tiny" /> : <CheckCircle2 size={16} />}
+                    disabled={markingDone}
+                    onClick={() => void onMarkReportDelivered()}
+                  >
+                    {markingDone ? 'Recording…' : 'Mark report delivered'}
+                  </Button>
+                </Tooltip>
+              )}
+              {/* Close case (TKT-010) — all staff; tucked in the overflow menu so
                   it never crowds (or sits beside) the primary actions. */}
-              {isSuperuser && !isRemoved && (
+              {!isRemoved && (
                 <Menu>
                   <MenuTrigger disableButtonEnhancement>
                     <Tooltip content="More actions" relationship="label">
@@ -1606,8 +1913,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   </MenuTrigger>
                   <MenuPopover>
                     <MenuList>
-                      <MenuItem icon={<Trash2 size={16} />} onClick={openRemove}>
-                        Remove case…
+                      <MenuItem icon={<FolderClosed size={16} />} onClick={openRemove}>
+                        Close case…
                       </MenuItem>
                     </MenuList>
                   </MenuPopover>
@@ -1627,6 +1934,55 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
           <Badge appearance="outline" color="informative" shape="rounded">
             {INTAKE_CHANNEL_LABELS[c.channel.kind] ?? 'Email'} · {c.channel.mode}
           </Badge>
+          {/* Case-type control (TKT-057): the review-time refinement — notably
+              audit → total-loss audit once the inspection outcome is known. */}
+          {showCaseTypeControl && (
+            <>
+              <Menu
+                checkedValues={{ caseType: [currentCaseType] }}
+                onCheckedValueChange={(_e, d) => {
+                  const next = d.checkedItems?.[0] as CaseWorkType | undefined;
+                  if (next) void setCaseType(next);
+                }}
+              >
+                <MenuTrigger disableButtonEnhancement>
+                  <Tooltip
+                    content="The kind of work this case is — a reviewer can refine it (e.g. an audit found to be a total loss)"
+                    relationship="description"
+                  >
+                    <Button
+                      appearance="outline"
+                      size="small"
+                      icon={savingCaseType ? <Spinner size="tiny" /> : <ChevronDown size={14} />}
+                      iconPosition="after"
+                      aria-label={`Case type: ${CASE_WORK_TYPE_LABELS[currentCaseType]}`}
+                    >
+                      {CASE_WORK_TYPE_LABELS[currentCaseType]}
+                    </Button>
+                  </Tooltip>
+                </MenuTrigger>
+                <MenuPopover>
+                  <MenuList>
+                    {caseTypeOptions.map((t) => (
+                      <MenuItemRadio key={t} name="caseType" value={t}>
+                        {CASE_WORK_TYPE_LABELS[t]}
+                      </MenuItemRadio>
+                    ))}
+                  </MenuList>
+                </MenuPopover>
+              </Menu>
+              {derivedAuditId && derivedAuditId !== (c.casePo ?? '').toUpperCase() && (
+                <Tooltip
+                  content="The audit reference — use this number on the EVA-side audit submission"
+                  relationship="description"
+                >
+                  <Badge appearance="outline" shape="rounded" className={styles.derivedIdBadge}>
+                    {derivedAuditId}
+                  </Badge>
+                </Tooltip>
+              )}
+            </>
+          )}
           <span className={styles.metaChip}>
             <Clock size={13} strokeWidth={2} /> {c.ageDays}d old
           </span>
@@ -1650,10 +2006,10 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       </div>
 
       {isRemoved && (
-        <MessageBar intent="warning">
+        <MessageBar intent="info">
           <MessageBarBody>
-            <MessageBarTitle>This case has been removed</MessageBarTitle>
-            Its personal details were anonymised. The record is kept for audit only.
+            <MessageBarTitle>This case is closed</MessageBarTitle>
+            It has left the work queues. Nothing was deleted — every detail is kept for the record.
           </MessageBarBody>
         </MessageBar>
       )}
@@ -1805,7 +2161,14 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                       )}
                       <div className={styles.thumbGrid}>
                         {imgState.map((ev) => (
-                          <EvidenceCard key={ev.id} ev={ev} onRole={onRole} onExclude={onExclude} />
+                          <EvidenceCard
+                            key={ev.id}
+                            ev={ev}
+                            onRole={onRole}
+                            onExclude={onExclude}
+                            onDismissReflection={(id) => void onDismissReflection(id)}
+                            dismissingReflection={dismissingReflection.has(ev.id)}
+                          />
                         ))}
                       </div>
 
@@ -1819,7 +2182,10 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                         </Text>
                       </div>
 
-                      {acceptedImages.length > 0 && <ImageOrderList images={acceptedImages} />}
+                      {/* The reviewer's drag order feeds the EVA-export zip (TKT-126). */}
+                      {acceptedImages.length > 0 && (
+                        <ImageOrderList images={acceptedImages} onOrderChange={setEvaOrderKeys} />
+                      )}
                     </>
                   )}
                 </div>
@@ -1909,13 +2275,17 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                         )}
                       </div>
 
-                      {/* Provider default (ADR-0016, operator-designated) — INFORMATIONAL only,
-                          never auto-applied (ADR-0013). The reviewer still records IBA with a
-                          reason via the override below. */}
+                      {/* Provider default (ADR-0016, operator-designated). Since TKT-109/129
+                          (2026-07-08 operator direction, amending ADR-0013) an always_image_based
+                          provider's case is AUTO-completed as "Image Based Assessment" server-side
+                          (fill-if-empty, audited); this note explains the policy in plain English
+                          — the prior wording was inverted (TKT-129). Staff can still pick a
+                          physical address, which overrides the pre-fill. */}
                       {c.providerInspectionPolicy === 'always_image_based' && (
                         <Caption1 className={styles.hint}>
-                          This provider is usually recorded as Image Based Assessment — use the
-                          override below if the vehicle can’t be inspected in person.
+                          This provider works from photos, so the inspection is recorded as Image
+                          Based Assessment for you. Only pick an address below if this vehicle will
+                          be inspected in person.
                         </Caption1>
                       )}
 
@@ -1935,6 +2305,16 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                           {suggestions.length === 0
                             ? `No locations match “${addrSearch.trim()}”.`
                             : `${suggestions.length} match${suggestions.length === 1 ? '' : 'es'} — showing the closest.`}
+                        </Caption1>
+                      )}
+
+                      {/* TKT-076/079 — the shortlist is the labelled COMMON fallback
+                          (no sites saved for this provider yet), never an unlabelled
+                          global list. Banner + per-row wording together close the
+                          scopeFallback gap both verifiers failed. */}
+                      {!addrSearching && suggestions.some((s) => s.scopeFallback) && (
+                        <Caption1 className={styles.assistNoResult}>
+                          Showing common locations — none saved for this provider yet.
                         </Caption1>
                       )}
 
@@ -2147,12 +2527,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
             </div>
           </Panel>
 
-          <Panel className={styles.factsPanel}>
-            <Text className="ce-section-heading">Imported details</Text>
-            <Caption1 className={mergeClasses(styles.hint, styles.hintNudgeBottom)} block>
-              From the instruction document or email.
-            </Caption1>
-            {(
+          {/* TKT-128: never render blank — a case with no imported facts says so
+              in plain English. (The parsed EVA fields live on the Fields tab; this
+              panel is the ov_* overview facts only.) */}
+          {(() => {
+            const facts = (
               [
                 ['Insured', c.overviewFacts.insuredName],
                 ['Claimant', c.overviewFacts.claimantName],
@@ -2164,15 +2543,28 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                 ['Insurer', c.overviewFacts.insurerName],
                 ['Repairer', c.overviewFacts.repairerName],
               ] as const
-            )
-              .filter(([, v]) => !!v)
-              .map(([k, v]) => (
-                <div className={styles.factRow} key={k}>
-                  <span className={styles.factKey}>{k}</span>
-                  <span className={styles.factVal}>{v}</span>
-                </div>
-              ))}
-          </Panel>
+            ).filter(([, v]) => !!v);
+            return (
+              <Panel className={styles.factsPanel}>
+                <Text className="ce-section-heading">Imported details</Text>
+                <Caption1 className={mergeClasses(styles.hint, styles.hintNudgeBottom)} block>
+                  From the instruction document or email.
+                </Caption1>
+                {facts.length === 0 ? (
+                  <Caption1 className={styles.hint} block>
+                    Nothing was imported from the instruction document or email yet.
+                  </Caption1>
+                ) : (
+                  facts.map(([k, v]) => (
+                    <div className={styles.factRow} key={k}>
+                      <span className={styles.factKey}>{k}</span>
+                      <span className={styles.factVal}>{v}</span>
+                    </div>
+                  ))
+                )}
+              </Panel>
+            );
+          })()}
 
           {/* Gated AI "Assistant" (TKT-015) — renders NOTHING unless AI_ASSIST_ENABLED.
               Observation-first: suggestions with Accept/Reject; nothing mutates the case
@@ -2181,9 +2573,9 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
         </div>
       </div>
 
-      {/* Remove-case confirmation (TKT-010) — Superuser only. Typed confirm + a
-          Box-archive-handled ACK; the server soft-removes + anonymises and never
-          auto-deletes the Box folder. */}
+      {/* Close-case confirmation (TKT-010) — all staff. Typed confirm (kept as
+          deliberate friction) + the archive ACK; the server sets the terminal
+          soft state, keeps every detail, and never auto-deletes the Box folder. */}
       <Dialog
         open={removeOpen}
         modalType="modal"
@@ -2193,13 +2585,13 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       >
         <DialogSurface>
           <DialogBody>
-            <DialogTitle>Remove case</DialogTitle>
+            <DialogTitle>Close case</DialogTitle>
             <DialogContent className={styles.removeBody}>
-              <MessageBar intent="error" icon={<AlertTriangle size={20} />}>
+              <MessageBar intent="info" icon={<FolderClosed size={20} />}>
                 <MessageBarBody>
-                  <MessageBarTitle>This can’t be undone</MessageBarTitle>
-                  Removing this case takes it out of the workspace and anonymises its personal
-                  details. The record is kept for audit only.
+                  <MessageBarTitle>Close case — it will leave the work queues</MessageBarTitle>
+                  Nothing is deleted. Every detail stays on the record, and the case no longer
+                  appears as work to do.
                 </MessageBarBody>
               </MessageBar>
 
@@ -2223,7 +2615,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   value={removeConfirmText}
                   onChange={(_, d) => setRemoveConfirmText(d.value)}
                   placeholder={removeMatch}
-                  aria-label="Type the case reference to confirm removal"
+                  aria-label="Type the case reference to confirm closing"
                 />
               </Field>
 
@@ -2251,11 +2643,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
               </Button>
               <Button
                 appearance="primary"
-                icon={removing ? <Spinner size="tiny" /> : <Trash2 size={16} />}
+                icon={removing ? <Spinner size="tiny" /> : <FolderClosed size={16} />}
                 disabled={!removeConfirmed || removing}
                 onClick={() => void doRemove()}
               >
-                {removing ? 'Removing…' : 'Remove case'}
+                {removing ? 'Closing…' : 'Close case'}
               </Button>
             </DialogActions>
           </DialogBody>

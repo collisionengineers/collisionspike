@@ -71,6 +71,12 @@ export interface CreateCaseInput {
   inspectionDecisionReason?: string;
   /** Park the new case in the Held queue on creation (hold-by-default / per-case). */
   onHold?: boolean;
+  /** Image-only intake (TKT-024): who the images came from. Persisted (with
+   *  receivedOn) as a durable case note — there is no dedicated column. */
+  receivedFrom?: string;
+  /** Image-only intake (TKT-024): when the images arrived, DD/MM/YYYY
+   *  (defaults to today in the form). Persisted in the same note. */
+  receivedOn?: string;
 }
 
 /** The result of a Case write — the new row's id (GUID) the UI navigates to. */
@@ -382,11 +388,15 @@ export interface AiSuggestionReviewResult {
 
 /** Result of `POST /api/cases/{id}/ai-suggestions/generate`. When the gate is OFF
  *  or no model is configured this is the honest no-op `{ generated: 0, reason:
- *  'disabled' }`; when ON + configured it reports how many suggestions were minted. */
+ *  'disabled' }`; when ON + configured it reports how many suggestions were minted.
+ *  A zero-generated outcome ALWAYS carries an explicit `reason` (TKT-127: the SPA
+ *  must be able to explain an empty result — never a silent nothing). */
 export interface GenerateAiSuggestionsResult {
   generated: number;
-  /** Why nothing was generated — 'disabled' (gate/model off), 'no_input', or 'error'. */
-  reason?: 'disabled' | 'no_input' | 'error';
+  /** Why nothing was generated — 'disabled' (gate/model off), 'no_input' (the case has
+   *  no usable notes to reason over), 'empty' (the model ran cleanly and had nothing to
+   *  suggest), or 'error' (the model call / persist failed). Absent when generated > 0. */
+  reason?: 'disabled' | 'no_input' | 'empty' | 'error';
 }
 
 /** The AI-assist feature gate, read by the SPA via GET /api/gates/ai-assist. */
@@ -470,7 +480,12 @@ export const OUTLOOK_MOVE_GATE_ALL_OFF: OutlookMoveGate = {
  *  CONTEXT.md "Case Update"); `cancellation` is a claim/case reported cancelled or closed
  *  (a staff-confirmed close/hold proposal, never automatic — CONTEXT.md "Cancellation").
  *  Per the Phase-2 deploy order, the DDL/choicesets land before the engine tag that emits
- *  these live — existing rows keep their v1 codes (no backfill). */
+ *  these live — existing rows keep their v1 codes (no backfill).
+ *
+ *  `pre_instruction` (append-only, taxonomy v3 — TKT-084, operator-signed-off 2026-07-09)
+ *  is directions sent BEFORE the official instruction ("when you receive an instruction
+ *  from X please…"): no case is minted; the row is held and correlated onto the case the
+ *  later instruction mints (suggest-first, gated TRIAGE_PRE_INSTRUCTION_ENABLED). */
 export type InboundCategory =
   | 'receiving_work'
   | 'query'
@@ -478,7 +493,8 @@ export type InboundCategory =
   | 'non_actionable'
   | 'other'
   | 'case_update'
-  | 'cancellation';
+  | 'cancellation'
+  | 'pre_instruction';
 
 /** Every {@link InboundCategory} name, in declaration/choice-set order — the runtime
  *  companion to the type union (mirrors `CASE_STATUSES` in contracts/case-status.ts),
@@ -491,6 +507,7 @@ export const INBOUND_CATEGORIES: readonly InboundCategory[] = [
   'other',
   'case_update',
   'cancellation',
+  'pre_instruction',
 ];
 
 /** cr1bd_inboundsubtype option names. `existing_provider_diminution` (append-only,
@@ -505,7 +522,13 @@ export const INBOUND_CATEGORIES: readonly InboundCategory[] = [
  *  `images_received` is photos with no other new information (paired with `case_update`
  *  when matched, or standalone under the unmatched-images routing lane — ADR-0015 §5);
  *  `cancellation_notice` and `update_general` are `cancellation`'s and `case_update`'s
- *  default subtypes respectively. */
+ *  default subtypes respectively.
+ *
+ *  `payment_remittance` and `pre_instruction_directions` (append-only, taxonomy v3 —
+ *  TKT-105/120 + TKT-084): `payment_remittance` is an INBOUND payment notification
+ *  (a remittance advice / transfer notice — the mirror-image of `billing_request`,
+ *  filed under `billing`); `pre_instruction_directions` is `pre_instruction`'s only
+ *  subtype (directions held for the later official instruction). */
 export type InboundSubtype =
   | 'existing_provider_instruction'
   | 'existing_provider_audit'
@@ -519,7 +542,9 @@ export type InboundSubtype =
   | 'other'
   | 'images_received'
   | 'cancellation_notice'
-  | 'update_general';
+  | 'update_general'
+  | 'payment_remittance'
+  | 'pre_instruction_directions';
 
 /** Every {@link InboundSubtype} name, in declaration/choice-set order — see
  *  {@link INBOUND_CATEGORIES}. */
@@ -537,6 +562,8 @@ export const INBOUND_SUBTYPES: readonly InboundSubtype[] = [
   'images_received',
   'cancellation_notice',
   'update_general',
+  'payment_remittance',
+  'pre_instruction_directions',
 ];
 
 /** cr1bd_triagestate: the row's lifecycle in the triage queue. */
@@ -601,7 +628,19 @@ export interface InboundEmail {
   outlookMovedFolder?: string;
   /** When the terminal moved/failed outcome was recorded (ISO). */
   outlookMovedAt?: string;
+  /** TKT-119c / TKT-034 — a pipeline outcome that needs a VISIBLE home on the row:
+   *  'unable_to_locate' (reconstruction from Outlook + Box history found nothing) or
+   *  'images_no_match' (images arrived but no case matched). Rendered as a plain-English
+   *  chip while the row is UNLINKED; a later case link supersedes it presentation-side. */
+  attentionReason?: InboundAttentionReason;
 }
+
+/** inbound_email.attention_reason values (2026-07-09 DDL delta). */
+export type InboundAttentionReason = 'unable_to_locate' | 'images_no_match';
+export const INBOUND_ATTENTION_REASONS: readonly InboundAttentionReason[] = [
+  'unable_to_locate',
+  'images_no_match',
+];
 
 /** Outlook filing lifecycle states (inbound_email.outlook_move_state). */
 export type OutlookMoveState = 'queued' | 'moved' | 'failed';
@@ -645,6 +684,8 @@ export interface InboundCounts {
   other: number;
   case_update: number;
   cancellation: number;
+  /** Taxonomy v3 (TKT-084) — pre-instruction directions held for a later instruction. */
+  pre_instruction: number;
   untriaged: number;
 }
 
@@ -657,6 +698,7 @@ export const INBOUND_COUNTS_ZERO: InboundCounts = {
   other: 0,
   case_update: 0,
   cancellation: 0,
+  pre_instruction: 0,
   untriaged: 0,
 };
 

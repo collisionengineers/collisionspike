@@ -249,15 +249,22 @@ def test_extract_folder_and_file_ids():
 class _FakeDataApi:
     """Stand-in DataApiClient: records calls, returns scripted answers."""
 
-    def __init__(self, *, case_id="CASE-1", evidence_exists=False):
+    def __init__(self, *, case_id="CASE-1", evidence_exists=False, case_po=None):
         self._case_id = case_id
+        self._case_po = case_po
         self._evidence_exists = evidence_exists
         self.created = []
         self.audited = []
         self.reinvoked = []
+        self.marked_done = []
 
     def resolve_case_by_folder(self, folder_id):
         return self._case_id
+
+    def resolve_case_context_by_folder(self, folder_id):
+        # Delegates to resolve_case_by_folder so subclass overrides (transient
+        # failure fakes) keep steering both entry points — mirrors the client.
+        return self.resolve_case_by_folder(folder_id), self._case_po
 
     def evidence_exists_for_box_file(self, case_id, box_file_id):
         return self._evidence_exists
@@ -271,6 +278,10 @@ class _FakeDataApi:
 
     def reinvoke_status_evaluate(self, case_id):
         self.reinvoked.append(case_id)
+        return True
+
+    def mark_case_done(self, case_id, signal, detail=""):
+        self.marked_done.append((case_id, signal, detail))
         return True
 
     def close(self):
@@ -299,6 +310,10 @@ def _signed_request(body_obj: dict, *, key=PRIMARY_KEY, header="primary",
 def _wire_keys_and_dedup(monkeypatch):
     monkeypatch.setenv("BOX_WEBHOOK_PRIMARY_KEY", PRIMARY_KEY)
     monkeypatch.setenv("BOX_WEBHOOK_SECONDARY_KEY", SECONDARY_KEY)
+    # No Box credentials in the test env: the best-effort sha256 fetch
+    # (TKT-133) then no-ops to None via BoxConfigError instead of ever
+    # reaching a network path.
+    monkeypatch.delenv("BOX_CONFIG_JSON", raising=False)
     # Fresh dedup set per test (module-level singleton otherwise leaks state).
     # The receiver now processes ON the request path (no background seam to patch).
     monkeypatch.setattr(function_app, "_DEDUP", DeliveryDedup())
@@ -517,6 +532,99 @@ def test_receiver_settled_move_keeps_dedup_mark(monkeypatch):
     assert fake.created == []
 
 
+# ==========================================================================
+# 6. TKT-095 detector (b) — CE report PDF -> engineer_report evidence + mark-done
+# ==========================================================================
+
+def _report_body(name: str) -> dict:
+    return {
+        "trigger": "FILE.UPLOADED",
+        "source": {"type": "file", "id": "555", "name": name,
+                   "parent": {"id": "777", "type": "folder"}},
+    }
+
+
+def test_receiver_report_pdf_persists_engineer_report_and_marks_done(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+
+    resp = function_app.box_webhook(_signed_request(_report_body("CCPY26050 Report.pdf")))
+    assert resp.status_code == 200
+    out = json.loads(resp.get_body())
+    # Persisted as the engineer_report kind, not the generic image class.
+    assert len(fake.created) == 1
+    assert fake.created[0]["evidence_class"] == "engineer_report"
+    # The done transition was attempted with the box_pdf signal + the filename detail.
+    assert fake.marked_done == [("CASE-7", "box_pdf", "CCPY26050 Report.pdf")]
+    assert out.get("report") is True
+    assert out.get("markedDone") is True
+    # The ordinary settle path still ran in full (evidence + audit + re-evaluate).
+    assert fake.reinvoked == ["CASE-7"]
+
+
+def test_receiver_report_by_case_po_in_filename_without_token(monkeypatch):
+    # Case/PO containment alone classifies (space/punct-tolerant) — no 'report' token.
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_report_body("ccpy 26050-final.pdf")))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "engineer_report"
+    assert len(fake.marked_done) == 1
+
+
+def test_receiver_non_report_pdf_gets_honest_kind_no_mark_done(monkeypatch):
+    # A PDF that neither carries the Case/PO nor a report/assessment token is
+    # ordinary evidence: NO done transition — and since TKT-133 the kind is
+    # derived honestly at source ('.pdf' -> instruction, no longer 'image').
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_report_body("invoice_scan.pdf")))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "instruction"
+    assert fake.marked_done == []
+
+
+def test_receiver_image_upload_behaviour_unchanged_by_detector(monkeypatch):
+    # The pre-TKT-095 image path is byte-identical: image class, no mark-done.
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "image"
+    assert fake.marked_done == []
+    assert "report" not in json.loads(resp.get_body())
+
+
+def test_receiver_mark_done_failure_still_settles_200(monkeypatch):
+    """LIVE-SAFETY: a mark-done fault must never 5xx the webhook — Box gets its
+    200 for the fully-settled upload (evidence + audit + re-evaluate all done)."""
+
+    class _MarkDoneBoom(_FakeDataApi):
+        def mark_case_done(self, case_id, signal, detail=""):
+            raise RuntimeError("mark-done exploded")
+
+    fake = _MarkDoneBoom(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_report_body("CCPY26050 Report.pdf")))
+    assert resp.status_code == 200
+    out = json.loads(resp.get_body())
+    assert out.get("markedDone") is False  # honest outcome, settled response
+    assert len(fake.created) == 1
+    assert fake.reinvoked == ["CASE-7"]
+
+
+def test_receiver_report_redelivery_dedups_write_but_still_attempts_mark_done(monkeypatch):
+    # Evidence already recorded (durable dedup) -> no second write, but the
+    # idempotent mark-done still fires (a prior delivery may have died before it).
+    # The API's WHERE guard makes the repeat a server-side no-op.
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050", evidence_exists=True)
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_report_body("CCPY26050 Report.pdf")))
+    assert resp.status_code == 200
+    assert fake.created == []
+    assert len(fake.marked_done) == 1
+
+
 def test_receiver_no_secret_or_key_in_response(monkeypatch):
     fake = _FakeDataApi(case_id="CASE-9")
     _patch_dv(monkeypatch, fake)
@@ -524,3 +632,120 @@ def test_receiver_no_secret_or_key_in_response(monkeypatch):
     body_text = resp.get_body().decode("utf-8")
     assert PRIMARY_KEY not in body_text
     assert SECONDARY_KEY not in body_text
+
+
+# ==========================================================================
+# 7. TKT-133 — honest kind + sha256 at source
+# ==========================================================================
+
+class _FakeBoxDownload:
+    """Stand-in BoxClient for the receiver's best-effort sha256 fetch."""
+
+    def __init__(self, content=b"img-bytes", error=None):
+        self.calls = []
+        self._content = content
+        self._error = error
+
+    def download_file(self, file_id):
+        self.calls.append(file_id)
+        if self._error is not None:
+            raise self._error
+        return {"id": file_id, "name": "IMG_1.jpg", "size": len(self._content),
+                "sha1": "s", "content": self._content}
+
+    def close(self):
+        pass
+
+
+def _named_body(name: str) -> dict:
+    return {
+        "trigger": "FILE.UPLOADED",
+        "source": {"type": "file", "id": "999", "name": name,
+                   "parent": {"id": "777", "type": "folder"}},
+    }
+
+
+def test_receiver_eml_upload_persists_email_kind(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_named_body("message.eml")))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "email"
+
+
+def test_receiver_video_upload_persists_other_kind(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_named_body("dashcam.mp4")))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "other"
+
+
+def test_receiver_report_override_still_wins_over_derived_kind(monkeypatch):
+    # TKT-095 stays on top: a classified CE report is engineer_report even
+    # though '.pdf' would derive 'instruction'.
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_named_body("CCPY26050 Report.pdf")))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "engineer_report"
+
+
+def test_receiver_fetches_sha256_within_cap(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7")
+    fake_box = _FakeBoxDownload(content=b"img-bytes")
+    _patch_dv(monkeypatch, fake)
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert fake_box.calls == ["999"]  # fetched once, for the file being written
+    assert fake.created[0]["sha256"] == hashlib.sha256(b"img-bytes").hexdigest()
+
+
+def test_receiver_over_cap_file_writes_sha256_none(monkeypatch):
+    from box_client import BoxError
+
+    fake = _FakeDataApi(case_id="CASE-7")
+    fake_box = _FakeBoxDownload(
+        error=BoxError("file exceeds the facade download cap", status=413)
+    )
+    _patch_dv(monkeypatch, fake)
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    # Over-cap -> honest None; the Evidence write itself still lands.
+    assert resp.status_code == 200
+    assert len(fake.created) == 1
+    assert fake.created[0]["sha256"] is None
+
+
+def test_receiver_box_fault_on_sha256_fetch_never_fails_the_write(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7")
+    fake_box = _FakeBoxDownload(error=RuntimeError("boom"))
+    _patch_dv(monkeypatch, fake)
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert fake.created[0]["sha256"] is None
+
+
+def test_receiver_no_sha256_fetch_when_evidence_deduped(monkeypatch):
+    # The extra download costs real bytes — it must ONLY run when the Evidence
+    # write will actually happen (not on the durable-dedup path).
+    fake = _FakeDataApi(case_id="CASE-7", evidence_exists=True)
+    fake_box = _FakeBoxDownload()
+    _patch_dv(monkeypatch, fake)
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert fake.created == []
+    assert fake_box.calls == []  # no write -> no fetch
+
+
+def test_receiver_no_sha256_fetch_for_unresolved_case(monkeypatch):
+    fake = _FakeDataApi(case_id=None)
+    fake_box = _FakeBoxDownload()
+    _patch_dv(monkeypatch, fake)
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert fake_box.calls == []  # triage skip -> no fetch

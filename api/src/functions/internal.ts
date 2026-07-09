@@ -16,7 +16,7 @@
  *  GET  /api/internal/work-provider/{id}/ai-allowed  → { aiAllowed: boolean | null } (per-provider AI opt-out, docs/gated.md D6)
  *  GET  /api/internal/dedup-context                  → DedupContext
  *  POST /api/internal/cases/resolve                  → { outcome, caseId }
- *  POST /api/internal/cases/{id}/evidence            → { persisted: number }
+ *  POST /api/internal/cases/{id}/evidence            → { persisted, updated, merged }
  *  GET  /api/internal/cases/{id}/archive-evidence    → blob-backed evidence rows for archive mirroring
  *  POST /api/internal/cases/{id}/archive-evidence/stamp → stamp archive file id/link
  *  POST /api/internal/cases/{id}/status-evaluate     → { value: string }
@@ -25,7 +25,9 @@
  *  GET  /api/internal/principals                     → [{ principalCode }]
  *  GET  /api/internal/disposition/due                → [{ caseId }]
  *  POST /api/internal/disposition/{id}               → 204
- *  GET  /api/internal/box/case-by-folder/{folderId}  → { caseId: string | null }
+ *  POST /api/internal/cases/{id}/mark-done           → { updated: boolean } (TKT-095/ADR-0023: eva_submitted → done, guarded)
+ *  POST /api/internal/cases/lookup                    → { cases: [...] } (TKT-095 detector (a): status-agnostic case lookup)
+ *  GET  /api/internal/box/case-by-folder/{folderId}  → { caseId: string | null, casePo: string | null }
  *  GET  /api/internal/box/purge-candidates           → [{ caseId, blobPath }]
  *  POST /api/internal/box/mark-purged                → 204
  *  GET  /api/internal/cases/{id}/box-folder          → { boxFolderId, boxFolderUrl, casePo }
@@ -33,14 +35,18 @@
  *  POST /api/internal/triage/context                 → { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds } (rules-engine-v2 Phase 2)
  *  POST /api/internal/triage/suggest-link             → { suggestionId, created } (rules-engine-v2 Phase 2;
  *                                                         suggestionType 'triage_category' added Phase 4)
+ *  POST /api/internal/triage/held-pre-instruction     → { held: [{ inboundEmailId, sourceMessageId, matchedOn }] } (TKT-084, taxonomy v3)
  *  POST /api/internal/inbound/{id}/outlook-moved      → 204 (TKT-054 Outlook-filing outcome report)
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import {
   EVA_FIELD_ORDER,
+  IMAGE_BASED_LITERAL,
   TERMINAL_STATUSES,
   allowedCaseTypes,
+  categoryMintsCase,
+  describeEvidence,
   markerForMint,
   statusForReviewCase,
   type CaseStatus,
@@ -65,6 +71,7 @@ import {
 import { gates } from '../lib/gates.js';
 import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
+import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
 import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
@@ -83,12 +90,15 @@ import {
   INBOUND_CATEGORY_TO_INT,
   INBOUND_SUBTYPE_TO_INT,
   deriveSuggestionIdempotencyKey,
+  mergedIntoFrom,
   rowToCase,
   rowToEvidence,
   type Row,
 } from '../lib/mappers.js';
 import { hasColumn, planOptionalColumns, tableColumns } from '../lib/schema-introspect.js';
 import { acquireTriageLocks } from '../lib/triage-locks.js';
+import { clampVarchar, vrmOrEmpty } from '../lib/varchar-guard.js';
+import { vrmLinkRefConflict } from '../lib/link-guards.js';
 
 /* ============================================================
    Service auth — validate the JWT (sig + iss + aud + exp) without
@@ -141,9 +151,82 @@ function senderDomain(address: string): string {
 }
 
 /**
+ * TKT-119 belt-and-braces mint guard — the Data-API-side twin of the orchestration
+ * `categoryMintsCase` guard (TKT-081). Looks up the message's OWN triage row (written by
+ * classifyInbound BEFORE any create runs, and carrying any later staff reclassify) and
+ * returns the category name when that category may NOT mint a case (acknowledgement/
+ * query/non_actionable/billing/…), or null when minting is allowed. A missing row (a
+ * never-classified envelope, e.g. a synthetic retro anchor) allows the create — this is
+ * a second lock on the same door, not a new gate.
+ */
+export async function mintBlockedByCategory(
+  internetMessageId: string | null | undefined,
+): Promise<string | null> {
+  const id = (internetMessageId ?? '').trim();
+  if (!id) return null;
+  try {
+    const rows = await query<Row>(
+      `SELECT c.name AS category
+         FROM inbound_email ie
+         JOIN choice_inbound_category c ON c.code = ie.category_code
+        WHERE ie.source_message_id = $1`,
+      [id],
+    );
+    const category = (rows[0]?.category as string | undefined) ?? '';
+    if (!category) return null;
+    return categoryMintsCase(category as InboundCategory) ? null : category;
+  } catch {
+    return null; // guard is belt-and-braces — a read failure must never block intake
+  }
+}
+
+/** choice_chaser_status codes (000_enums_lookups.sql). */
+const CHASER_STATUS_RESPONDED = 100000002;
+const CHASER_OUTSTANDING_CODES = [100000000, 100000001, 100000003]; // drafted, sent, overdue
+
+/**
+ * TKT-023 — when an inbound email ATTACHES to a case (auto-link, suggestion accept,
+ * dedup attach), any outstanding chaser on that case is satisfied by the arrival: mark
+ * it 'responded' (drafted/sent/overdue → responded) with an audit. No-op when the case
+ * has no outstanding chaser. Best-effort: a chaser bookkeeping failure must never block
+ * the attach that triggered it. Returns the number of chasers updated.
+ */
+export async function markOutstandingChasersResponded(
+  caseId: string,
+  via: string,
+): Promise<number> {
+  try {
+    const rows = await query<Row>(
+      `UPDATE chaser SET status_code = $2, updated_at = now()
+        WHERE case_id = $1 AND status_code IN (${CHASER_OUTSTANDING_CODES.join(',')})
+        RETURNING id`,
+      [caseId, CHASER_STATUS_RESPONDED],
+    );
+    if (rows.length > 0) {
+      // chaser_sent (100000023) is the controlled chaser-family audit action (the same
+      // reuse logChase makes in cases.ts); the summary keeps the wording honest.
+      await writeAudit({
+        action: AUDIT_ACTION.chaser_sent,
+        caseId,
+        summary: `Chaser marked responded — the requested item arrived (${via})`,
+        after: { chaserIds: rows.map((r) => r.id), via },
+      });
+    }
+    return rows.length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Recompute a case's status via @cs/domain statusForReviewCase and persist when it
  * changes. Returns the resulting CaseStatus name. Safe to call in any activity that
  * may change the case state.
+ *
+ * TKT-109/129: the evaluation seam first applies the provider-policy inspection
+ * pre-fill (always_image_based providers auto-complete "Image Based Assessment",
+ * fill-if-empty, audited) — the SAME seam as the staff-facing recomputeStatus in
+ * cases.ts, so intake-driven evaluation and staff-driven evaluation agree.
  */
 async function recomputeStatus(caseId: string): Promise<CaseStatus> {
   const rows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
@@ -153,6 +236,14 @@ async function recomputeStatus(caseId: string): Promise<CaseStatus> {
   const evidenceRows = await query<Row>('SELECT * FROM evidence WHERE case_id = $1', [caseId]);
   const evidence = evidenceRows.map(rowToEvidence);
   const full = rowToCase(rec, { evidence });
+
+  if (isPrefillApplicable(full)) {
+    const filled = await prefillImageBasedInspection(caseId);
+    if (filled) {
+      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
+      full.inspectionDecision = 'image_based';
+    }
+  }
 
   const input: StatusEvaluationInput = {
     status: full.status,
@@ -260,6 +351,7 @@ export async function applyParserFields(
   // Read every column we might fill so each write is strictly fill-if-empty.
   const readCols = [
     'case_ref',
+    'ov_claim_number',
     'eva_mileage',
     'eva_work_provider',
     'work_provider_id',
@@ -282,7 +374,15 @@ export async function applyParserFields(
 
   if (ref && isEmpty(cur[0].case_ref)) {
     sets.push(`case_ref = $${sets.length + 1}`);
-    vals.push(ref.slice(0, 200));
+    vals.push(ref.slice(0, 100)); // TKT-073: case_ref is varchar(100) — the old 200 cap could 22001
+  }
+  // TKT-128: mirror the provider's reference into the "Imported details" overview
+  // fact (ov_claim_number — the same column manual intake's Provider's-reference
+  // field writes) so a parsed case's panel isn't blank. Fill-if-empty like
+  // everything else here; the parser envelope carries no other ov_* facts.
+  if (ref && isEmpty(cur[0].ov_claim_number)) {
+    sets.push(`ov_claim_number = $${sets.length + 1}`);
+    vals.push(ref.slice(0, 100)); // ov_claim_number varchar(100)
   }
   if (mileage && isEmpty(cur[0].eva_mileage)) {
     sets.push(`eva_mileage = $${sets.length + 1}`);
@@ -801,7 +901,15 @@ app.http('internalCasesResolve', {
         : null;
       // #7 — prefer the parser-extracted PDF VRM over the email-body sniff. Both have
       // already run through the canonical postcode/junk filter (extractVrm / Python sniff).
-      const vrm = ((body.parserVrm || inbound.candidateVrm) ?? '').trim();
+      // TKT-073: an over-length "VRM" is a junk sniff, not data — drop it (same as no VRM)
+      // instead of failing the case_ INSERT with pg 22001 (the live 2026-07-02/03 outages).
+      const vrmGuard = vrmOrEmpty(body.parserVrm || inbound.candidateVrm);
+      if (vrmGuard.dropped) {
+        ctx.warn(
+          `[cases/resolve] over-length VRM candidate dropped (junk sniff > varchar(16)) for ${inbound.internetMessageId}`,
+        );
+      }
+      const vrm = vrmGuard.value;
 
       // The matched provider's automation mode — the SEAM the orchestration worker reads to
       // branch intake (work-todo-spike: automation-mode). No provider (new/unknown client) =>
@@ -837,10 +945,28 @@ app.http('internalCasesResolve', {
           summary: `Email ${inbound.internetMessageId} attached to existing case`,
           after: { messageId: inbound.internetMessageId, resolution: 'attach' },
         });
+        // TKT-023 — an arriving attachment satisfies any outstanding chaser on the case.
+        await markOutstandingChasersResponded(decision.targetCaseId, 'dedup attach');
         return {
           status: 200,
           jsonBody: { outcome: 'attached', caseId: decision.targetCaseId, providerAutomationMode },
         };
+      }
+
+      // TKT-119 belt-and-braces: an acknowledgement / query / non_actionable (or any other
+      // non-minting-category) email may NEVER create a case from THIS seam either — the
+      // orchestration categoryMintsCase guard (TKT-081) is re-asserted here against the
+      // message's OWN triage row, so no future caller/path can mint from an ack.
+      const blockedCategory = await mintBlockedByCategory(inbound.internetMessageId);
+      if (blockedCategory) {
+        await writeAudit({
+          action: AUDIT_ACTION.inbound_routed,
+          severity: 'warning',
+          summary: `Create refused — '${blockedCategory}' emails never open a case (kept in the inbox for review)`,
+          after: { messageId: inbound.internetMessageId, category: blockedCategory, seam: 'cases/resolve' },
+        });
+        ctx.log(JSON.stringify({ evt: 'caseResolvePersist', outcome: 'refused_category', category: blockedCategory }));
+        return { status: 200, jsonBody: { outcome: 'refused_category', category: blockedCategory } };
       }
 
       // Create: new case_ for create / new_due_to_reference / propose_attach.
@@ -849,7 +975,15 @@ app.http('internalCasesResolve', {
       // returns as 409 (→ ConflictError → already_ingested in the client).
       const rawStatus = decision.statusEffect as CaseStatus;
       const statusCode = caseStatusCodec.toInt(rawStatus) ?? statusToInt('new_email');
-      const caseRef = (inbound.candidateRef ?? '').trim();
+      // TKT-073: case_.case_ref is varchar(100) — clamp (with a warn trace) instead of
+      // failing the INSERT with pg 22001 (the live 2026-06-30/07-01 outages).
+      const caseRefGuard = clampVarchar(inbound.candidateRef, 100);
+      if (caseRefGuard.clamped) {
+        ctx.warn(
+          `[cases/resolve] candidateRef clamped to 100 chars (was ${caseRefGuard.originalLength}) for ${inbound.internetMessageId}`,
+        );
+      }
+      const caseRef = caseRefGuard.value;
       const subject = (inbound.subject ?? '').trim();
       const name = ([vrm || null, subject || null].filter(Boolean).join(' · ') || 'Email intake').slice(0, 100);
       const emailKindCode = intakeChannelKindCodec.toInt('email') ?? null;
@@ -921,6 +1055,11 @@ app.http('internalCasesResolve', {
             workProviderId,
           ];
           if (caseRef) { cols.push('case_ref'); vals.push(caseRef); }
+          // TKT-128 (follow-up): the subject-sniffed reference also seeds the "Imported
+          // details" overview fact, so a subject-only ref (no parsable document) still
+          // populates the panel's Claim no. — fill-at-create; applyParserFields keeps its
+          // own fill-if-empty for the parser's ref.
+          if (caseRef) { cols.push('ov_claim_number'); vals.push(caseRef.slice(0, 100)); }
           if (casePo) { cols.push('case_po'); vals.push(casePo); }
           // case_type_code (ADR-0014/ADR-0021) — written only behind the gate (the live
           // choice_case_type rows for the new types land via the operator's DDL delta;
@@ -1125,7 +1264,9 @@ export async function upsertInboundEmail(
   triageState?: string,
 ): Promise<string | null> {
   const subject = (inbound.subject ?? '').trim();
-  const name = `Email: ${subject || inbound.internetMessageId}`;
+  // TKT-073: this helper's own varchar columns, clamped so a long value degrades instead
+  // of silently losing the whole triage row (the catch below swallows DB errors).
+  const name = clampVarchar(`Email: ${subject || inbound.internetMessageId}`, 200).value;
   const categoryCode = classification
     ? INBOUND_CATEGORY_TO_INT[classification.category as InboundCategory] ?? null
     : null;
@@ -1134,12 +1275,14 @@ export async function upsertInboundEmail(
     : null;
   // Prefer the parser-confirmed PDF VRM for the inbox triage row too (so it shows the same
   // mark the case persists), then the classifier body sniff, then the email-subject sniff.
-  const bodyVrm = ((parserVrm || classification?.bodyVrm || inbound.candidateVrm) ?? '').trim() || null;
-  const bodyCaseref = (classification?.bodyCaseref || inbound.candidateRef || '') || null;
+  // body_vrm is varchar(16): an over-length sniff is junk — dropped, never truncated.
+  const bodyVrm = vrmOrEmpty(parserVrm || classification?.bodyVrm || inbound.candidateVrm).value || null;
+  const bodyCaseref =
+    clampVarchar(classification?.bodyCaseref || inbound.candidateRef || '', 32).value || null;
   const bodyPreview = (inbound.bodyPreview ?? '') || null;
   const confidence = classification ? classification.confidence : null;
   const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
-  const bodyJobref = (classification?.bodyJobref ?? '').trim() || null;
+  const bodyJobref = clampVarchar(classification?.bodyJobref, 64).value || null;
   const conversationId = (inbound.conversationId ?? '').trim() || null;
   try {
     // Base statement occupies $1..$18 below (unchanged from before Phase 2) — optional
@@ -1370,11 +1513,16 @@ app.http('internalInboundLinkReply', {
         providerId?: string;
         ref?: string;
         vrm?: string;
+        /** Provider job/claim reference — NOT a match key (the looser job-ref only drives
+         *  the suggest-first ref-gate), but since TKT-101 it IS a VETO: a VRM-only hit
+         *  whose case is known under a DIFFERENT reference must not auto-link. */
+        jobref?: string;
       };
       const { inbound } = body;
       const workProviderId = body.providerId ?? null;
       const ref = (body.ref ?? '').trim();
       const vrm = (body.vrm ?? '').trim();
+      const jobref = (body.jobref ?? '').trim();
 
       // Resolve candidate OPEN cases — Case-ref first (case_ref OR case_po), then VRM.
       // Cross-provider is allowed here ON PURPOSE: a reply can arrive from the claimant/
@@ -1388,10 +1536,11 @@ app.http('internalInboundLinkReply', {
       // this candidate read runs, instead of racing it. The payload's optional job-ref is
       // deliberately NOT a match key here: this lane AUTO-attaches on an unambiguous hit,
       // and the looser job-ref only ever drives the suggest-first ref-gate (triage/context).
-      const candidates: Row[] = await tx(async (q) => {
+      const { candidates, refConflict } = await tx(async (q) => {
         await acquireTriageLocks(q, { caseref: ref, vrm });
 
         let rows: Row[] = [];
+        let vrmArm = false;
         if (ref) {
           rows = await q<Row>(
             `SELECT id, case_ref, case_po, vrm FROM case_
@@ -1402,6 +1551,7 @@ app.http('internalInboundLinkReply', {
           );
         }
         if (rows.length === 0 && vrm) {
+          vrmArm = true;
           rows = await q<Row>(
             `SELECT id, case_ref, case_po, vrm FROM case_
               WHERE vrm = $1
@@ -1410,8 +1560,46 @@ app.http('internalInboundLinkReply', {
             [vrm],
           );
         }
-        return rows;
+
+        // TKT-101 — a VRM-only single hit is VETOED when the email cites a job/claim
+        // reference the candidate case is not known under (its case_ref/case_po or the
+        // job-refs of its already-linked emails). The QDOS 46533/1-vs-46671/1 wrong-link:
+        // two different matters shared a junk VRM; refs differed → must never auto-link
+        // (ADR-0010 rung-3 semantics applied to the link seam). Held for a human instead.
+        let conflict = false;
+        if (vrmArm && rows.length === 1 && (jobref || ref)) {
+          const hit = rows[0];
+          const sibs = await q<Row>(
+            `SELECT DISTINCT body_jobref FROM inbound_email
+              WHERE case_id = $1 AND body_jobref IS NOT NULL AND body_jobref <> ''`,
+            [hit.id],
+          );
+          const known = [
+            hit.case_ref as string | null,
+            hit.case_po as string | null,
+            ...sibs.map((s) => s.body_jobref as string | null),
+          ];
+          // Veto if EITHER the loose job-ref OR the strict cited reference contradicts the
+          // candidate's known refs. Previously only `jobref` was checked, so a reply citing
+          // a Case/PO-shaped `ref` (but no loose jobref) could still auto-link to a DIFFERENT
+          // case that merely shares the VRM. (TKT-101 / PR50-D4)
+          conflict = vrmLinkRefConflict(jobref, known) || vrmLinkRefConflict(ref, known);
+        }
+        return { candidates: conflict ? [] : rows, refConflict: conflict };
       });
+
+      if (refConflict) {
+        // Record the row unlinked (triage keeps it) + flag the collision for a human.
+        await upsertInboundEmail(inbound, workProviderId, null);
+        await writeAudit({
+          action: AUDIT_ACTION.duplicate_flagged,
+          severity: 'warning',
+          summary: `Reply matched a case by registration only (vrm ${vrm}) but cites a different reference (${jobref || ref}); held for manual linking`,
+          after: { vrm, jobref: jobref || ref, messageId: inbound.internetMessageId },
+        });
+        ctx.log(JSON.stringify({ evt: 'linkReply', outcome: 'no_match', reason: 'vrm_ref_conflict', jobref }));
+        return { status: 200, jsonBody: { outcome: 'no_match', candidateCount: 0 } };
+      }
 
       // Stamp the triage row with the matched case only on an UNAMBIGUOUS single hit, and mark
       // it 'routed' so a successfully-linked reply no longer counts as untriaged in
@@ -1433,6 +1621,8 @@ app.http('internalInboundLinkReply', {
           summary: `Reply linked to existing case (${ref ? `ref ${ref}` : `vrm ${vrm}`})`,
           after: { matchedBy: ref ? 'caseref' : 'vrm', messageId: inbound.internetMessageId },
         });
+        // TKT-023 — a linked reply satisfies any outstanding chaser on the case.
+        await markOutstandingChasersResponded(linkCaseId, 'reply linked');
         ctx.log(JSON.stringify({ evt: 'linkReply', outcome: 'linked', caseId: linkCaseId }));
         return { status: 200, jsonBody: { outcome: 'linked', caseId: linkCaseId, candidateCount: 1 } };
       }
@@ -1520,7 +1710,7 @@ app.http('internalTriageContext', {
         }> = [];
         if (caseref || jobref || vrm) {
           const rows = await q<Row>(
-            `SELECT id, case_po, status_code,
+            `SELECT id, case_po, status_code, duplicate_keys,
                     CASE
                       WHEN $1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) THEN 'case_po'
                       WHEN $2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)) THEN 'job_ref'
@@ -1536,12 +1726,23 @@ app.http('internalTriageContext', {
               ORDER BY created_at`,
             [caseref, jobref, vrm],
           );
-          openCaseMatches = rows.map((r) => ({
-            caseId: r.id as string,
-            casePo: (r.case_po as string | null) ?? '',
-            matchedOn: r.matched_on as 'case_po' | 'job_ref' | 'vrm',
-            status: caseStatusCodec.toName(r.status_code as number) ?? 'error',
-          }));
+          openCaseMatches = rows
+            // Drop merge-retired duplicates: a case merged INTO a survivor (status
+            // linked_to_instruction carrying a mergedInto marker in duplicate_keys) is not a
+            // valid link target, but linked_to_instruction is NON-terminal so the status
+            // filter above keeps it. Leaving it in makes a survivor+retired pair look like
+            // `multiple_open_cases`, wrongly flagging the email instead of suggesting the
+            // single survivor — the exact PK20FWT-style failure. (TKT-102 / PR52-F3)
+            .filter((r) => {
+              const status = caseStatusCodec.toName(r.status_code as number) ?? 'error';
+              return !(status === 'linked_to_instruction' && mergedIntoFrom(r.duplicate_keys));
+            })
+            .map((r) => ({
+              caseId: r.id as string,
+              casePo: (r.case_po as string | null) ?? '',
+              matchedOn: r.matched_on as 'case_po' | 'job_ref' | 'vrm',
+              status: caseStatusCodec.toName(r.status_code as number) ?? 'error',
+            }));
         }
 
         let duplicateInternetMessageId = false;
@@ -1811,6 +2012,8 @@ app.http('internalTriageSuggestLink', {
               after: { caseId: targetCaseId, inboundEmailId, suggestionId, auto: true },
               actor: 'auto-attach',
             });
+            // TKT-023 — an auto-attached arrival satisfies any outstanding chaser.
+            await markOutstandingChasersResponded(targetCaseId, 'auto-attach');
             autoAttached = true;
           }
         }
@@ -1836,6 +2039,69 @@ app.http('internalTriageSuggestLink', {
 
       ctx.log(JSON.stringify({ evt: 'triageSuggestLink', suggestionType, suggestionId, targetCaseId, autoAttached }));
       return { status: 200, jsonBody: { suggestionId, created: true, ...(autoAttached ? { autoAttached: true } : {}) } };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/triage/held-pre-instruction  (TKT-084, taxonomy v3)
+   Called by: the orchestration `correlatePreInstruction` activity after a case
+   mints, to FIND held pre-instruction rows that appear to belong to the new case
+   (the sender gave directions BEFORE the official instruction arrived). READ-ONLY:
+   the caller writes the actual suggestion via the existing
+   /api/internal/triage/suggest-link route (suggest-first — pre-instruction
+   correlation is typically VRM-anchored, and VRM-only never auto-attaches, per the
+   ADR-0019 promotion doctrine). A held row = category pre_instruction, no case
+   link yet, triage_state 'new'. Matching is exact (case-insensitive) on
+   body_vrm / body_caseref / body_jobref; at least one key is required (400
+   otherwise). Capped at 5 newest rows — a correlation sweep, not a search API.
+   ============================================================ */
+app.http('internalTriageHeldPreInstruction', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/triage/held-pre-instruction',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        vrm?: string;
+        caseRef?: string;
+        jobRef?: string;
+      };
+      const vrm = (body.vrm ?? '').trim();
+      const caseRef = (body.caseRef ?? '').trim();
+      const jobRef = (body.jobRef ?? '').trim();
+      if (!vrm && !caseRef && !jobRef) {
+        return { status: 400, jsonBody: { error: 'at least one of vrm, caseRef, jobRef is required' } };
+      }
+
+      const rows = await query<Row>(
+        `SELECT ie.id, ie.source_message_id, ie.body_vrm, ie.body_caseref, ie.body_jobref
+           FROM inbound_email ie
+           JOIN choice_inbound_category c ON c.code = ie.category_code
+          WHERE c.name = 'pre_instruction'
+            AND ie.case_id IS NULL
+            AND ie.triage_state = 'new'
+            AND (
+                  ($1 <> '' AND upper(ie.body_vrm) = upper($1))
+               OR ($2 <> '' AND upper(ie.body_caseref) = upper($2))
+               OR ($3 <> '' AND upper(ie.body_jobref) = upper($3))
+            )
+          ORDER BY ie.created_at DESC
+          LIMIT 5`,
+        [vrm, caseRef, jobRef],
+      );
+
+      const held = rows.map((r) => ({
+        inboundEmailId: r.id as string,
+        sourceMessageId: (r.source_message_id as string | null) ?? null,
+        matchedOn:
+          vrm && (r.body_vrm as string | null)?.toUpperCase() === vrm.toUpperCase()
+            ? 'vrm'
+            : caseRef && (r.body_caseref as string | null)?.toUpperCase() === caseRef.toUpperCase()
+              ? 'case_ref'
+              : 'job_ref',
+      }));
+      ctx.log(JSON.stringify({ evt: 'heldPreInstruction', matches: held.length }));
+      return { status: 200, jsonBody: { held } };
     }),
 });
 
@@ -1908,6 +2174,53 @@ app.http('internalInboundOutlookMoved', {
     }),
 });
 
+/* ============================================================
+   POST /api/internal/inbound/attention  (TKT-119c / TKT-034)
+   Called by: orchestration when a pipeline outcome needs a VISIBLE home on the
+   email row — retroRecordFailure ('unable_to_locate': reconstruction from Outlook
+   + Box history found nothing) and the images-unmatched triage rung
+   ('images_no_match': an image-bearing email matched no case). Keyed on the
+   message's Internet-Message-Id (the caller may not know the row id). SCHEMA
+   TOLERANT: inbound_email.attention_reason lands via the 2026-07-09 DDL delta —
+   before it exists this stamps nothing and says so (never a failed statement).
+   The SPA renders the reason as a plain-English chip while the row is UNLINKED;
+   linking the email to a case supersedes it (presentation-side).
+   ============================================================ */
+const ATTENTION_REASONS = new Set(['unable_to_locate', 'images_no_match']);
+
+app.http('internalInboundAttention', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/inbound/attention',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        sourceMessageId?: unknown;
+        reason?: unknown;
+      };
+      const sourceMessageId =
+        typeof body.sourceMessageId === 'string' ? body.sourceMessageId.trim() : '';
+      const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+      if (!sourceMessageId) {
+        return { status: 400, jsonBody: { error: 'sourceMessageId is required' } };
+      }
+      if (!ATTENTION_REASONS.has(reason)) {
+        return { status: 400, jsonBody: { error: 'reason must be a known attention reason' } };
+      }
+      if (!(await hasColumn('inbound_email', 'attention_reason'))) {
+        ctx.log(JSON.stringify({ evt: 'inboundAttention', stamped: false, reason: 'column_absent' }));
+        return { status: 200, jsonBody: { stamped: false, detail: 'column_absent' } };
+      }
+      const rows = await query<Row>(
+        `UPDATE inbound_email SET attention_reason = $2, updated_at = now()
+          WHERE source_message_id = $1 RETURNING id`,
+        [sourceMessageId, reason],
+      );
+      ctx.log(JSON.stringify({ evt: 'inboundAttention', stamped: Boolean(rows[0]), reason }));
+      return { status: 200, jsonBody: { stamped: Boolean(rows[0]) } };
+    }),
+});
+
 /**
  * Update image metadata on an ALREADY-persisted evidence row (the seam that lets the
  * image-extraction worker enrich an attachment that intake created without it). Only the
@@ -1927,6 +2240,7 @@ async function applyEvidenceMetadata(
     acceptedForEva?: boolean;
     excluded?: boolean;
     exclusionReason?: string;
+    personReflection?: boolean;
     sha256?: string;
     sequenceIndex?: number;
   },
@@ -1949,6 +2263,7 @@ async function applyEvidenceMetadata(
   if (row.imageRoleCode != null || row.imageRole != null) push('image_role_code', computed.imageRoleCode);
   if (typeof row.registrationVisible === 'boolean') push('registration_visible', computed.registrationVisible);
   if (typeof row.acceptedForEva === 'boolean') push('accepted_for_eva', row.acceptedForEva);
+  if (typeof row.personReflection === 'boolean') push('person_reflection', row.personReflection);
   if (row.excluded != null) {
     push('excluded', computed.excluded);
     push('exclusion_reason', computed.exclusionReason); // CHECK-safe: non-empty when excluded
@@ -1986,7 +2301,23 @@ async function applyEvidenceMetadata(
    The two dedup keys never collide: an email row has no sourceMessageId/boxFileId
    and a Box row has no blobPath. Re-running either is idempotent (NOT EXISTS
    guard), so an at-least-once retry updates nothing rather than duplicating.
+
+   TKT-133 — sha256 write-time dedup/LINK (runs BEFORE either lane INSERT, when the
+   caller supplies a plausible sha256): the SAME photo arriving via the email lane
+   AND its Box FILE.UPLOADED mirror used to yield TWO rows (the per-lane keys never
+   collide by design). Now a same-case (case_id + sha256 — NEVER across cases)
+   content twin is LINKED instead of duplicated: the incoming arrival's missing
+   provenance (box_file_id/box_file_url for a Box arrival onto an email-first row;
+   storage_path for an email arrival onto a Box-first row) is filled onto the
+   EXISTING row (source_message_id is left alone — it is the existing lane's
+   identity) and the row counts under `merged` in the response. A retry of the SAME
+   identity (same box:file tag / same storage_path) deliberately falls through to
+   the unchanged lane logic (NOT EXISTS no-op + metadata update-in-place). Rows
+   without a sha256 behave exactly as before.
    ============================================================ */
+
+/** A plausible sha256 hex digest — the only shape the TKT-133 dedup pass keys on. */
+const SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
 app.http('internalCasesEvidence', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -2012,6 +2343,8 @@ app.http('internalCasesEvidence', {
             registrationVisible?: boolean;
             excluded?: boolean;
             exclusionReason?: string;
+            /** TKT-123: the vision classifier saw a person's reflection (advisory flag). */
+            personReflection?: boolean;
             sha256?: string;
             sequenceIndex?: number;
           }
@@ -2020,12 +2353,27 @@ app.http('internalCasesEvidence', {
 
       let persisted = 0;
       let updated = 0;
+      let merged = 0; // TKT-133: sha256 content twins linked onto an existing row instead of inserted
       for (const row of body.rows ?? []) {
-        const kindCode =
-          evidenceKindCodec.toInt(
-            (row.evidenceClass as 'image' | 'instruction' | 'email' | 'other' | 'engineer_report') ??
-              'other',
-          ) ?? null;
+        // TKT-124 kind guard: the box-webhook historically hardcoded
+        // evidenceClass='image' for EVERY FILE.UPLOADED row, so PDFs/.doc/.eml/
+        // .mp4 landed as image-kind and leaked into the photo orderer + EVA
+        // export. When a caller claims 'image', re-derive through the shared
+        // domain classifier (extension-primary, MIME fallback — the SAME table
+        // intake uses) and trust the derivation. Explicit non-image classes
+        // (instruction/email/engineer_report/other) are honoured as supplied.
+        let suppliedClass =
+          (row.evidenceClass as 'image' | 'instruction' | 'email' | 'other' | 'engineer_report') ??
+          'other';
+        if (suppliedClass === 'image') {
+          const derived = describeEvidence(row.filename, row.contentType).evidenceClass;
+          // An honest image/* MIME keeps the row an image even when the extension
+          // is outside the core table (e.g. image/tiff) — the guard only corrects
+          // rows whose name AND type both say "not a photo".
+          const mimeIsImage = (row.contentType ?? '').toLowerCase().startsWith('image/');
+          suppliedClass = derived === 'image' || mimeIsImage ? 'image' : derived;
+        }
+        const kindCode = evidenceKindCodec.toInt(suppliedClass) ?? null;
 
         // ---- image metadata (defaults match the schema: image_role_code NOT NULL DEFAULT
         // unknown(100000003); excluded NOT NULL DEFAULT false; exclusion_reason required when
@@ -2040,6 +2388,7 @@ app.http('internalCasesEvidence', {
         const exclusionReason = excluded
           ? (row.exclusionReason ?? '').trim() || 'Excluded' // schema CHECK: required when excluded
           : (row.exclusionReason ?? '').trim() || null;
+        const personReflection = row.personReflection === true;
         const sha256 = (row.sha256 ?? '').trim() || null;
         const sequenceIndex = Number.isInteger(row.sequenceIndex)
           ? (row.sequenceIndex as number)
@@ -2051,12 +2400,108 @@ app.http('internalCasesEvidence', {
           typeof row.registrationVisible === 'boolean' ||
           row.excluded != null ||
           row.exclusionReason != null ||
+          row.personReflection != null ||
           row.sha256 != null ||
           row.sequenceIndex != null;
 
         const sourceMessageId = (row.sourceMessageId ?? '').trim() || null;
         const boxFileId = (row.boxFileId ?? '').trim() || null;
         const isBoxRow = sourceMessageId != null || boxFileId != null;
+
+        // ---- TKT-133: sha256 write-time dedup/link — an ADDITIONAL check BEFORE the
+        // lane INSERTs (all existing per-lane NOT EXISTS dedup below is unchanged).
+        // Keyed STRICTLY on (case_id, sha256): identical bytes on a DIFFERENT case are
+        // never deduped. Only runs when the caller supplied a plausible 64-hex sha256;
+        // rows without one take exactly the pre-TKT-133 path.
+        if (sha256 && SHA256_HEX_RE.test(sha256)) {
+          const twin = await query<{
+            id: string;
+            box_file_id: string | null;
+            box_file_url: string | null;
+            storage_path: string | null;
+            source_message_id: string | null;
+          }>(
+            `SELECT id, box_file_id, box_file_url, storage_path, source_message_id
+               FROM evidence WHERE case_id = $1 AND sha256 = $2 LIMIT 1`,
+            [caseId, sha256],
+          );
+          const ex = twin[0];
+          if (ex) {
+            const sameIdentity = isBoxRow
+              ? (boxFileId != null && ex.box_file_id === boxFileId) ||
+                (sourceMessageId != null && ex.source_message_id === sourceMessageId)
+              : row.blobPath != null && ex.storage_path === row.blobPath;
+            // A content twin on the SAME case (same sha256) must NEVER produce a second row —
+            // whether it's a cross-lane mirror (!sameIdentity) or an exact at-least-once retry
+            // (sameIdentity, e.g. a Box FILE.UPLOADED redelivery landing on a row already merged
+            // by box_file_id whose source_message_id was deliberately left NULL). BOTH branches
+            // absorb any new image metadata in place against the twin's real id and `continue`.
+            // Previously a sameIdentity twin fell through to the lane INSERT, trusting its
+            // single-column NOT EXISTS to no-op — but a redelivery keyed on the column the merge
+            // left NULL slipped through and duplicated the row for the same Box file/hash. (PR52-F1)
+            //
+            // Metadata absorb is gated on fields BEYOND sha256 itself (the twin's sha256 already
+            // matches by definition — re-writing it alone would be a pointless UPDATE).
+            const hasMergeMetadata =
+              row.imageRoleCode != null ||
+              row.imageRole != null ||
+              typeof row.registrationVisible === 'boolean' ||
+              row.excluded != null ||
+              row.exclusionReason != null ||
+              row.personReflection != null ||
+              row.sequenceIndex != null;
+            if (!sameIdentity) {
+              // A genuine cross-lane content twin for the SAME case: LINK provenance onto the
+              // existing row, never insert a duplicate.
+              if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
+                // Box mirror of an email-first row → fill the Box provenance. The existing
+                // row's source_message_id is ITS lane's identity — deliberately left alone.
+                await query(
+                  `UPDATE evidence
+                      SET box_file_id = $2,
+                          box_file_url = COALESCE($3, box_file_url),
+                          updated_at = now()
+                    WHERE id = $1 AND box_file_id IS NULL`,
+                  [ex.id, boxFileId, (row.boxFileUrl ?? '').trim() || null],
+                );
+              } else if (!isBoxRow && ex.storage_path == null && row.blobPath) {
+                // Email/blob arrival of a Box-first row → fill the blob provenance.
+                await query(
+                  `UPDATE evidence
+                      SET storage_path = $2::text, updated_at = now()
+                    WHERE id = $1 AND storage_path IS NULL`,
+                  [ex.id, row.blobPath],
+                );
+              }
+              if (hasMergeMetadata) {
+                await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
+                  imageRoleCode,
+                  registrationVisible,
+                  excluded,
+                  exclusionReason,
+                  sha256,
+                  sequenceIndex,
+                });
+              }
+              merged++;
+              continue; // never insert a same-case content twin (cross-lane mirror)
+            }
+            // sameIdentity: an exact at-least-once retry / Box redelivery of a row that already
+            // exists on this case. Absorb any new metadata in place and stop — do NOT fall
+            // through to the lane INSERT (whose single-column NOT EXISTS can miss a merged row).
+            if (hasMergeMetadata) {
+              updated += await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
+                imageRoleCode,
+                registrationVisible,
+                excluded,
+                exclusionReason,
+                sha256,
+                sequenceIndex,
+              });
+            }
+            continue; // idempotent: the identical row already exists on this case
+          }
+        }
 
         let inserted = false;
         if (isBoxRow) {
@@ -2069,10 +2514,10 @@ app.http('internalCasesEvidence', {
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes,
                 source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
-                image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
              WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $17
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $18
              )
              RETURNING id`,
             [
@@ -2090,6 +2535,7 @@ app.http('internalCasesEvidence', {
               registrationVisible,
               excluded,
               exclusionReason,
+              personReflection,
               sha256,
               sequenceIndex,
               dedupVal,
@@ -2113,8 +2559,8 @@ app.http('internalCasesEvidence', {
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
                 accepted_for_eva,
-                image_role_code, registration_visible, excluded, exclusion_reason, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
+             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13, $14
              WHERE NOT EXISTS (
                SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
@@ -2131,6 +2577,7 @@ app.http('internalCasesEvidence', {
               registrationVisible,
               excluded,
               exclusionReason,
+              personReflection,
               sha256,
               sequenceIndex,
             ],
@@ -2151,7 +2598,7 @@ app.http('internalCasesEvidence', {
         if (inserted) persisted++;
       }
 
-      return { status: 200, jsonBody: { persisted, updated } };
+      return { status: 200, jsonBody: { persisted, updated, merged } };
     }),
 });
 
@@ -2283,6 +2730,116 @@ app.http('internalCasesSetIngested', {
         });
       }
       return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    }),
+});
+
+/* ============================================================
+   6c — POST /api/internal/cases/{id}/mark-done   (TKT-095 / ADR-0023)
+   Called by: the `done` detectors — the box-webhook Function (a CE report PDF
+   landed in the case's Box folder), the gated sent-email detector, and the
+   gated EVA poll. Body: { signal: 'sent_email'|'box_pdf'|'eva_poll'|'manual',
+   detail?: string }.
+   Transitions eva_submitted → done ONLY (the WHERE guard): safe under Durable
+   at-least-once, Box webhook re-delivery, and double-fires — a repeat is a
+   no-op with no duplicate audit row. Never moves any other status.
+   ============================================================ */
+app.http('internalCasesMarkDone', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/{id}/mark-done',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = req.params.id;
+      const body = (await req.json().catch(() => ({}))) as {
+        signal?: string;
+        detail?: string;
+      };
+      const signal = ['sent_email', 'box_pdf', 'eva_poll', 'manual'].includes(body.signal ?? '')
+        ? (body.signal as string)
+        : 'unknown';
+      const updated = await query<{ id: string }>(
+        // Clear on_hold on the terminal transition (parity with the SPA mark-done route in
+        // cases.ts): a delivered case must not linger in the Held/work queues. (PR51-E3)
+        `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
+         WHERE id = $2 AND status_code = $3
+         RETURNING id`,
+        [statusToInt('done'), caseId, statusToInt('eva_submitted')],
+      );
+      if (updated.length > 0) {
+        await writeAudit({
+          action: AUDIT_ACTION.report_delivered,
+          caseId,
+          summary: 'Report delivered to the work provider — case marked Done',
+          after: {
+            status: 'done',
+            signal,
+            ...(body.detail ? { detail: String(body.detail).slice(0, 500) } : {}),
+          },
+        });
+      }
+      return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    }),
+});
+
+/* ============================================================
+   6d — POST /api/internal/cases/lookup   (TKT-095 detector (a) / ADR-0023)
+   Called by: the orchestration sent-items handler (gated dark behind
+   DONE_SENT_EMAIL_ENABLED). READ-ONLY, STATUS-AGNOSTIC case lookup —
+   deliberately unlike triage/context's openCaseMatches, which excludes
+   terminals: the sent-email detector targets cases sitting in the TERMINAL
+   `eva_submitted`, and it needs each candidate's work_provider_id to confirm
+   the recipient really is that case's provider before marking done.
+   Body: { caseIds?: string[], casePo?: string, vrm?: string } (any subset).
+   Returns: { cases: [{ caseId, casePo, status, workProviderId, vrm }] }.
+   ============================================================ */
+app.http('internalCasesLookup', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/lookup',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        caseIds?: string[];
+        casePo?: string;
+        vrm?: string;
+      };
+      const caseIds = (Array.isArray(body.caseIds) ? body.caseIds : [])
+        .map((s) => String(s).trim())
+        .filter(Boolean)
+        .slice(0, 20);
+      const casePo = (body.casePo ?? '').trim();
+      const vrm = (body.vrm ?? '').trim();
+      if (caseIds.length === 0 && !casePo && !vrm) {
+        return { status: 200, jsonBody: { cases: [] } };
+      }
+      // id compared as text so a malformed caller id can never throw a uuid-cast
+      // error; casePo matches case_po OR case_ref (the triage/context convention).
+      const rows = await query<Row>(
+        // The VRM arm canonicalises BOTH sides (strip spaces/punctuation): the caller passes a
+        // compacted subject VRM (extractVrm -> "MX17PNL") but a stored registration may hold
+        // spaces ("MX17 PNL"), so a verbatim upper() compare would miss it — the same fix the
+        // search/assistant routes already use. (PR51-E2)
+        `SELECT id, case_po, status_code, work_provider_id, vrm
+           FROM case_
+          WHERE (cardinality($1::text[]) > 0 AND id::text = ANY($1::text[]))
+             OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
+             OR ($3 <> '' AND regexp_replace(upper(vrm), '[^A-Z0-9]', '', 'g') = regexp_replace(upper($3), '[^A-Z0-9]', '', 'g'))
+          ORDER BY created_at DESC
+          LIMIT 25`,
+        [caseIds, casePo, vrm],
+      );
+      return {
+        status: 200,
+        jsonBody: {
+          cases: rows.map((r) => ({
+            caseId: r.id as string,
+            casePo: (r.case_po as string | null) ?? '',
+            status: caseStatusCodec.toName(r.status_code as number) ?? 'error',
+            workProviderId: (r.work_provider_id as string | null) ?? '',
+            vrm: (r.vrm as string | null) ?? '',
+          })),
+        },
+      };
     }),
 });
 
@@ -2431,13 +2988,17 @@ app.http('internalBoxCaseByFolder', {
   handler: (req, ctx) =>
     withServiceAuth(req, ctx, async () => {
       const folderId = (req.params.folderId ?? '').trim();
-      if (!folderId) return { status: 200, jsonBody: { caseId: null } };
+      if (!folderId) return { status: 200, jsonBody: { caseId: null, casePo: null } };
+      // casePo is ADDITIVE (TKT-095 detector (b)): the box-webhook report
+      // classifier matches the upload filename against the case's Case/PO.
+      // Pre-TKT-095 callers read caseId only and ignore the extra field.
       const rows = await query<Row>(
-        'SELECT id FROM case_ WHERE box_folder_id = $1 LIMIT 1',
+        'SELECT id, case_po FROM case_ WHERE box_folder_id = $1 LIMIT 1',
         [folderId],
       );
       const caseId = rows.length > 0 ? (rows[0].id as string) : null;
-      return { status: 200, jsonBody: { caseId } };
+      const casePo = rows.length > 0 ? ((rows[0].case_po as string | null) ?? null) : null;
+      return { status: 200, jsonBody: { caseId, casePo } };
     }),
 });
 

@@ -33,6 +33,9 @@ What it does (the receiver's step 6-7) — SAME method names + signatures as the
   status-evaluate`` (replaces the old Power Automate flow URL entirely). Unset
   ``DATA_API_URL`` -> logged no-op (returns False); a genuine call failure ->
   raises ``DataApiError`` (so the receiver treats it as transient and Box retries).
+* ``mark_case_done(case_id, signal, detail)`` — POST ``/api/internal/cases/{id}/
+  mark-done`` (TKT-095 detector (b) / ADR-0023): eva_submitted -> done, guarded +
+  idempotent server-side. BEST-EFFORT — never raises; a miss never 503s the webhook.
 
 Auth (MI client-credentials, never a key)
 ------------------------------------------
@@ -214,15 +217,26 @@ class DataApiClient:
 
     # -- step 6: resolve the case -----------------------------------------
 
-    def resolve_case_by_folder(self, folder_id: str) -> str | None:
-        """Box folder id -> case_.box_folder_id -> Case row id (or None)."""
+    def resolve_case_context_by_folder(self, folder_id: str) -> tuple[str | None, str | None]:
+        """Box folder id -> (case id, Case/PO) via ONE GET (TKT-095 detector (b):
+        the report classifier needs the Case/PO to match against the filename).
+        SCHEMA-TOLERANT: an older API deployment that returns only { caseId }
+        yields (caseId, None) — the classifier then falls back to its
+        report/assessment-token arm, never an error."""
         if not folder_id:
-            return None
+            return None, None
         url = f"{self.base_url}/api/internal/box/case-by-folder/{quote(str(folder_id), safe='')}"
         resp = self._send("GET", url, headers=self._headers())
         data = _json_or_raise(resp, "resolve_case_by_folder")
         cid = data.get("caseId") if isinstance(data, dict) else None
-        return str(cid) if cid else None
+        po = data.get("casePo") if isinstance(data, dict) else None
+        return (str(cid) if cid else None), (str(po) if po else None)
+
+    def resolve_case_by_folder(self, folder_id: str) -> str | None:
+        """Box folder id -> case_.box_folder_id -> Case row id (or None).
+        (Signature-compat wrapper over resolve_case_context_by_folder.)"""
+        case_id, _po = self.resolve_case_context_by_folder(folder_id)
+        return case_id
 
     # -- step 7a: durable dedup (now enforced by the idempotent POST) ------
 
@@ -246,23 +260,33 @@ class DataApiClient:
         sha256: str | None = None,
         source_label: str = "box_upload",
         box_file_url: str | None = None,
+        evidence_class: str = "image",
     ) -> str:
         """POST one Box evidence row to the Data API. Records the durable dedup tag
         (``box:file:<id>``) in source_message_id, the box_file_id correlation
         mirror, accepted-for-EVA=true, and the human source label. storage_path is
         left blank by the API (bytes mirror to Blob on the finalize/parser path).
         ``kind`` is accepted for signature-compat; the API derives kind_code from
-        ``evidenceClass='image'``. Box sends sha1, recorded in the source label,
-        not as sha256. Returns a truthy marker when a row was persisted, '' when
-        the row already existed (server-side dedup)."""
+        ``evidenceClass`` — the receiver now derives the TRUE class at source
+        (TKT-133, extension-primary; the API's TKT-124 guard re-derives
+        'image'-claimed rows as belt-and-braces), while TKT-095 detector (b)
+        passes ``'engineer_report'`` for a classified CE report (explicit
+        non-image classes are honoured verbatim server-side). Box sends sha1,
+        recorded in the source label; ``sha256`` (TKT-133) — when the receiver
+        computed it from the capped byte fetch — is forwarded on the wire row
+        (the API internal route reads ``row.sha256`` and keys its write-time
+        (case_id, sha256) dedup/link on it). Returns a truthy marker when a row
+        was persisted, '' when the row already existed (server-side dedup)."""
         row: dict[str, Any] = {
             "filename": filename,
-            "evidenceClass": "image",
+            "evidenceClass": evidence_class or "image",
             "sourceMessageId": _box_file_tag(box_file_id),
             "boxFileId": box_file_id,
             "acceptedForEva": True,
             "sourceLabel": source_label,
         }
+        if sha256:
+            row["sha256"] = sha256
         if box_file_url:
             row["boxFileUrl"] = box_file_url
         url = f"{self.base_url}/api/internal/cases/{quote(str(case_id), safe='')}/evidence"
@@ -327,6 +351,43 @@ class DataApiClient:
                 status=resp.status_code,
             )
         return True
+
+    # -- step 7d: mark the case done (TKT-095 detector (b) / ADR-0023) -----
+
+    def mark_case_done(self, case_id: str, signal: str, detail: str = "") -> bool:
+        """POST ``/api/internal/cases/{id}/mark-done`` — the shared `done`
+        transition endpoint. The API guards ``WHERE status_code = eva_submitted``
+        so a webhook re-delivery / double-fire is a server-side no-op
+        (``{updated: false}``) and a non-eva_submitted case is never moved.
+
+        BEST-EFFORT by design (unlike reinvoke_status_evaluate): a failure here
+        must NEVER fail the upload-processing path — the webhook still settles
+        200 and Box must NOT retry just because the done-flip missed (the manual
+        "Mark report delivered" bridge + the other detectors cover it). Returns
+        True only when the API reports the transition actually happened; False
+        on a guard no-op, an unset DATA_API_URL, or ANY failure (logged)."""
+        if not self._base_url:
+            logger.info("mark-done skipped (DATA_API_URL unset)")
+            return False
+        url = f"{self.base_url}/api/internal/cases/{quote(str(case_id), safe='')}/mark-done"
+        payload: dict[str, Any] = {"signal": signal}
+        if detail:
+            payload["detail"] = str(detail)[:500]
+        try:
+            resp = self._send("POST", url, headers=self._headers(), json=payload)
+        except Exception as exc:  # best-effort: never bubbles to the receiver
+            logger.warning("mark-done request failed: %s", type(exc).__name__)
+            return False
+        if not (200 <= resp.status_code < 300):
+            logger.warning("mark-done returned HTTP %s", resp.status_code)
+            return False
+        try:
+            body = resp.json()
+        except ValueError:
+            return False
+        updated = bool(body.get("updated")) if isinstance(body, dict) else False
+        logger.info("mark-done signal=%s updated=%s", signal, updated)
+        return updated
 
 
 def _parse_retry_after(value: str | None) -> float | None:

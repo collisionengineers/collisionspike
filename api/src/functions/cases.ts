@@ -24,11 +24,14 @@ import { app, type HttpRequest } from '@azure/functions';
 import {
   CASE_PO_SHAPE_RE,
   EVA_FIELD_ORDER,
+  IMAGE_BASED_LITERAL,
   canonicalizeVrm,
   casePoSequenceRegex,
   casePoYear,
+  decideMergeProvider,
   extractVrm,
   formatCasePo,
+  isRetiredMerged,
   normalizeCasePo,
   statusForReviewCase,
   type Case,
@@ -51,6 +54,7 @@ import {
 } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
+import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
 import { casePoFloor, mintCasePo } from '../lib/case-po.js';
 import { isUniqueViolation } from './internal.js';
 import { ifMatch, staleVersion, versionToken } from '../lib/concurrency.js';
@@ -59,6 +63,7 @@ import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
 import {
   CASE_SELECT,
+  CASE_SELECT_WITH_ACTIVITY,
   EVA_COLUMN_BY_KEY,
   TWIN_TERMINAL,
   filterQueue,
@@ -84,6 +89,16 @@ function chaserTargetType(code: number | null | undefined): Case['chasers'][numb
   return 'work_provider';
 }
 
+/** cr1bd_chaserstatus code → domain status. A chase set 'responded' by the reply /
+ *  dedup-attach / auto-attach path (internal.ts markOutstandingChasersResponded) must
+ *  surface as satisfied on the next case read, not always as 'drafted' (TKT-023/050). */
+function chaserStatusName(code: number | null | undefined): Chaser['status'] {
+  if (code === 100000001) return 'sent';
+  if (code === 100000002) return 'responded';
+  if (code === 100000003) return 'overdue';
+  return 'drafted'; // 100000000 or null (DB default)
+}
+
 /** Map one chaser row to the domain Chaser — the EXACT shape the case-detail read
  *  (loadCaseFull) returns, and therefore the shape POST /cases/{id}/chase echoes back
  *  (M-E2) so the SPA can append the created row to its in-memory list verbatim. */
@@ -94,7 +109,7 @@ export function rowToChaser(ch: Row): Chaser {
     targetName: ch.target_name ?? '',
     channel: ch.channel_code === 100000001 ? 'whatsapp' : 'email',
     templateUsed: ch.template_used ?? '',
-    status: 'drafted',
+    status: chaserStatusName(ch.status_code as number | null | undefined),
     summary: ch.name ?? '',
     createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
     ...(ch.sent_by ? { sentBy: ch.sent_by } : {}),
@@ -102,9 +117,11 @@ export function rowToChaser(ch: Row): Chaser {
   };
 }
 
-/** Load ALL case rows (provider-display joined), newest-first, adapted to Case[]. */
+/** Load ALL case rows (provider-display joined), newest-first, adapted to Case[].
+ *  Uses the activity-joined SELECT so every queue row carries its "Last update"
+ *  descriptor (TKT-117) without a per-case fan-out. */
 async function loadAllCases(now: Date): Promise<Case[]> {
-  const rows = await query<Row>(`${CASE_SELECT} ORDER BY c.created_at DESC`);
+  const rows = await query<Row>(`${CASE_SELECT_WITH_ACTIVITY} ORDER BY c.created_at DESC`);
   return rows.map((r) => rowToCase(r, { now }));
 }
 
@@ -143,10 +160,24 @@ async function loadCaseLite(id: string): Promise<Case | undefined> {
  * Recompute a case's workflow status via the shared @cs/domain guard over its
  * current persisted fields + evidence; persist + audit only when it changes
  * (the guard self-enforces the terminal-lock). Returns the resulting status.
+ *
+ * TKT-109/129: the evaluation seam first applies the provider-policy inspection
+ * pre-fill (always_image_based providers auto-complete "Image Based Assessment",
+ * fill-if-empty, audited) so an image-led provider's case is never held Not Ready
+ * on a blank inspection field a policy already answers.
  */
 async function recomputeStatus(caseId: string, actor?: string): Promise<void> {
   const full = await loadCaseFull(caseId, new Date());
   if (!full) return;
+  if (isPrefillApplicable(full)) {
+    const filled = await prefillImageBasedInspection(caseId, actor);
+    if (filled) {
+      // Patch the in-memory copy so THIS evaluation already sees the filled field
+      // (no re-read; the guarded UPDATE is the durable source of truth).
+      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
+      full.inspectionDecision = 'image_based';
+    }
+  }
   const input: StatusEvaluationInput = {
     status: full.status,
     evaFields: full.evaFields,
@@ -323,6 +354,7 @@ app.http('patchCase', {
     }
 
     // --- editable EVA fields (durable case-page edits) ---
+    let inspectionAddressChanged = false;
     if (body.evaFields && typeof body.evaFields === 'object') {
       for (const [k, rawVal] of Object.entries(body.evaFields)) {
         if (rawVal === undefined || !(k in EVA_COLUMN_BY_KEY)) continue; // ignore unknown keys
@@ -336,7 +368,18 @@ app.http('patchCase', {
         before[key] = oldVal;
         after[key] = norm.value;
         changedEvaFields.push({ key, value: norm.value });
+        if (key === 'inspectionAddress') inspectionAddressChanged = true;
       }
+    }
+
+    // A staff inspection-address edit must not leave an earlier auto-prefilled
+    // image_based decision code shadowing it: rowToCase/deriveInspectionDecision prefer the
+    // explicit code over the address text, so an image-based-provider case would reload as
+    // 'image_based' even after a physical address is chosen. Clear the explicit code so the
+    // decision re-derives from the new address text (IBA literal -> image_based; a physical
+    // address -> unknown, symmetric with a never-prefilled case). (TKT-129/PR47-A2)
+    if (inspectionAddressChanged) {
+      sets.push('inspection_decision_code = NULL');
     }
 
     // --- casePo (ADR-0022 transition seam: stamp the REAL number; '' clears) ---
@@ -562,6 +605,28 @@ app.http('createCase', {
       );
     }
 
+    // Image-only intake (TKT-024): record who sent the images + when as a durable
+    // case note (there is no dedicated column; the note is the operator-visible
+    // artifact). Best-effort — a note failure must not sink the create.
+    const receivedFrom = (input.receivedFrom ?? '').trim();
+    const receivedOn = (input.receivedOn ?? '').trim();
+    if (receivedFrom || receivedOn) {
+      try {
+        const parts = [
+          receivedFrom ? `Received from ${receivedFrom}` : 'Received',
+          receivedOn ? `on ${receivedOn}` : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        await query(
+          'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
+          ['Images received', newId, actor ?? 'Manual intake', `${parts}.`],
+        );
+      } catch {
+        /* best-effort */
+      }
+    }
+
     // Persist the image-based reason as a case note (best-effort).
     if (input.inspectionDecisionReason?.trim()) {
       try {
@@ -586,6 +651,12 @@ app.http('createCase', {
       after: { status, vrm: input.vrm },
       ...(actor ? { actor } : {}),
     });
+
+    // TKT-109/129: a manual case for an always_image_based provider pre-fills its
+    // inspection field immediately (recomputeStatus runs the guarded pre-fill first,
+    // then re-derives the status over the now-complete field set; a no-op for every
+    // other provider — the guard persists only on an actual change).
+    await recomputeStatus(newId, actor);
 
     return { status: 201, jsonBody: { id: newId } };
   }),
@@ -644,7 +715,9 @@ app.http('openVrmTwins', {
     );
     const twins = rows
       .map((r) => rowToCase(r))
-      .filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);
+      // TKT-141: a retired merged duplicate (linked_to_instruction + mergedInto) is
+      // resolved work — never an open twin, exactly like the terminal set.
+      .filter((c) => !TWIN_TERMINAL.has(c.status) && !isRetiredMerged(c) && c.id !== exclude);
     return { status: 200, jsonBody: twins };
   }),
 });
@@ -845,6 +918,58 @@ app.http('mergeCases', {
     );
     const movedEvidence = moved.length;
 
+    // 1b. Reparent the source's inbound emails too (TKT-092 — the retired case must not
+    // keep the email trail; the survivor owns the whole thread).
+    const movedEmails = await query<Row>(
+      'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
+      [sourceCaseId, targetCaseId],
+    );
+
+    // 1c. Provider preference (TKT-052): the merged survivor must end with whichever side
+    // carries a resolved provider — an image-only target merged with an instructions
+    // source used to LOSE the provider the source knew. Cross-provider was already
+    // refused above (ADR-0010 rule 2); decideMergeProvider re-asserts it defensively.
+    const fkRows = await query<Row>(
+      'SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])',
+      [[sourceCaseId, targetCaseId]],
+    );
+    const srcFk = (fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id as string | null) ?? null;
+    const tgtFk = (fkRows.find((r) => r.id === targetCaseId)?.work_provider_id as string | null) ?? null;
+    const providerDecision = decideMergeProvider(srcFk, tgtFk);
+    let providerFilled = false;
+    if (!providerDecision.crossProvider && providerDecision.filledFrom === 'source' && providerDecision.providerId) {
+      await query(
+        `UPDATE case_ SET work_provider_id = $2, updated_at = now()
+          WHERE id = $1 AND work_provider_id IS NULL`,
+        [targetCaseId, providerDecision.providerId],
+      );
+      // Fill the human-readable EVA provider column too (fill-if-empty) + provenance.
+      const wp = await query<Row>('SELECT display_name FROM work_provider WHERE id = $1', [
+        providerDecision.providerId,
+      ]);
+      const displayName = ((wp[0]?.display_name as string | null) ?? '').trim();
+      if (displayName) {
+        await query(
+          `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
+            WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
+          [targetCaseId, displayName.slice(0, 200)],
+        );
+      }
+      await query(
+        `INSERT INTO field_level_provenance
+           (name, case_id, field_name, value, source_type_code, source_label)
+         VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
+        [
+          `${targetCaseId}:workProviderId`,
+          targetCaseId,
+          providerDecision.providerId,
+          sourceTypeCodec.toInt('corpus') ?? 100000003,
+          'Carried over from the merged case',
+        ],
+      ).catch(() => { /* provenance is supplementary */ });
+      providerFilled = true;
+    }
+
     // 2. Retire the source: linked_to_instruction, record the survivor, clear hold.
     await query(
       `UPDATE case_
@@ -856,8 +981,16 @@ app.http('mergeCases', {
     await writeAudit({
       action: AUDIT_ACTION.case_attached,
       caseId: targetCaseId,
-      summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence)`,
-      after: { sourceCaseId, targetCaseId, movedEvidence },
+      summary:
+        `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails` +
+        `${providerFilled ? ', provider carried over from the merged case' : ''})`,
+      after: {
+        sourceCaseId,
+        targetCaseId,
+        movedEvidence,
+        movedEmails: movedEmails.length,
+        providerFilled,
+      },
       ...(actor ? { actor } : {}),
     });
 
@@ -879,7 +1012,13 @@ app.http('imagesForCase', {
   handler: withRole('CollisionSpike.User', async (req) => {
     const id = req.params.id;
     const rows = await query<Row>(
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND excluded <> true ORDER BY sequence_index NULLS LAST, created_at",
+      // Person-reflection photos are auto-excluded from EVA (domain rule: a visible reflection
+      // makes the photo unusable — acceptedForEva stays false), but they MUST still surface in
+      // the case-detail REVIEW list so the TKT-123 dismissible warning + Exclude control are
+      // reachable and staff can override a false-positive detection. They carry acceptedForEva
+      // = false, so EVA export / photo-ordering / readiness (all keyed on acceptedForEva) are
+      // unaffected. Non-reflection excluded rows stay hidden as before. (PR48-B2)
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded <> true OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
       [id],
     );
     return { status: 200, jsonBody: rows.map(rowToEvidence) };
@@ -917,19 +1056,24 @@ app.http('activityForCase', {
 });
 
 /* ============================================================
-   DELETE /api/cases/{id}   (Superuser-only SOFT remove — work-todo-spike: delete-case)
-   Per ADR-0017 + data-protection.md: a SOFT remove only — status -> terminal 'removed',
-   PII anonymised, the case row + append-only audit trail KEPT. Runs under the least-privilege
-   staff grant (an UPDATE, never a hard DELETE — the app login has no DELETE). The Box folder is
-   NEVER auto-deleted: `acknowledgeBoxFolderHandled` is an audit-only ACK; the operator follows
-   the archive runbook by hand and the box_folder_id/url + case_po are PRESERVED for them.
-   Requires the live choice_case_status row (100000011,'removed') — see 000_enums_lookups.sql.
+   DELETE /api/cases/{id}   (CLOSE case — TKT-010, re-scoped 2026-07-08)
+   SEMANTICS CHANGE (operator workstream item 13): this is a CLOSE, not a delete —
+   a terminal soft state open to ALL staff (role relaxed Superuser → User), and it
+   is NON-DESTRUCTIVE: the prior PII anonymisation (EVA fields / VRM / overview
+   facts / notes / evidence / inbound rows all blanked) is REMOVED. The case keeps
+   every detail; only status -> terminal 'removed' (the stored enum name is
+   unchanged — the UI words it "Closed"), on_hold cleared, closed_at stamped. It
+   leaves the work queues (statusToQueue: terminal states own no queue) and is
+   reversible in principle. Data-protection erasure is a SEPARATE, deliberate
+   operator action (ADR-0017 / data-protection.md), not this button.
+   The Box folder is NEVER auto-deleted: `acknowledgeArchiveFolderHandled` is an
+   audit-only ACK (ADR-0017); box_folder_id/url + case_po stay for the operator.
    ============================================================ */
 app.http('removeCase', {
   methods: ['DELETE'],
   authLevel: 'anonymous',
   route: 'cases/{id}',
-  handler: withRole('CollisionSpike.Superuser', async (req, _ctx, claims) => {
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = req.params.id;
     const body = (await req.json().catch(() => ({}))) as {
       acknowledgeArchiveFolderHandled?: boolean;
@@ -941,7 +1085,7 @@ app.http('removeCase', {
     const existing = await loadCaseLite(id);
     if (!existing) return { status: 404, jsonBody: { error: 'not found' } };
 
-    // Idempotent: a re-remove is a no-op success (never errors on an already-removed case).
+    // Idempotent: a re-close is a no-op success (never errors on an already-closed case).
     if (existing.status === 'removed') {
       const done: RemoveCaseResult = {
         id,
@@ -952,78 +1096,30 @@ app.http('removeCase', {
       return { status: 200, jsonBody: done };
     }
 
-    // Snapshot identity for the audit BEFORE anonymising (the trail keeps what was removed).
     const before = {
       status: existing.status,
       vrm: existing.vrm,
       casePo: existing.casePo ?? null,
       provider: existing.provider,
-      claimantName: existing.evaFields.claimantName.value,
     };
 
-    // Soft remove: status -> 'removed' (terminal), anonymise PII (the 12 EVA fields + VRM +
-    // overview facts + claimant address). KEEP case_po + box_folder_id/url so the operator can
-    // still find + handle the archive folder. on_hold cleared; closed_at stamped.
-    const evaCols = EVA_FIELD_ORDER.map((d) => `${EVA_COLUMN_BY_KEY[d.key]} = ''`).join(', ');
+    // Close: status -> 'removed' (terminal), hold cleared, closed_at stamped.
+    // NOTHING is blanked — the record keeps its details for the file.
     await query(
       `UPDATE case_
-          SET status_code = $2, ${evaCols},
-              vrm = '', case_ref = '', name = '[removed]',
-              ov_insured_name = NULL, ov_claimant_name = NULL,
-              ov_third_party_name = NULL, ov_claim_number = NULL,
-              ov_policy_reference = NULL, ov_incident_date = NULL,
-              ov_insurer_name = NULL, ov_repairer_name = NULL,
-              eva_claimant_address = NULL,
-              on_hold = false, closed_at = now(), updated_at = now()
+          SET status_code = $2, on_hold = false, closed_at = now(), updated_at = now()
         WHERE id = $1`,
       [id, statusToInt('removed')],
-    );
-    await query(
-      `UPDATE note
-          SET author = '[removed]', text = '[removed]', updated_at = now()
-        WHERE case_id = $1`,
-      [id],
-    );
-    await query(
-      `UPDATE evidence
-          SET file_name = '[removed]',
-              content_type = NULL,
-              storage_path = NULL,
-              box_file_id = NULL,
-              box_file_url = NULL,
-              source_message_id = NULL,
-              source_label = 'removed',
-              sha256 = NULL,
-              exclusion_reason = 'removed',
-              accepted_for_eva = false,
-              excluded = true,
-              updated_at = now()
-        WHERE case_id = $1`,
-      [id],
-    );
-    await query(
-      `UPDATE inbound_email
-          SET subject = '[removed]',
-              from_address = '[removed]',
-              sender_domain = NULL,
-              body_preview = '',
-              body_vrm = NULL,
-              body_caseref = NULL,
-              signals = '[]'::jsonb,
-              updated_at = now()
-        WHERE case_id = $1`,
-      [id],
     );
 
     await writeAudit({
       action: AUDIT_ACTION.case_removed,
       caseId: id,
-      severity: 'warning',
-      summary: `Case removed (soft): ${before.vrm || before.casePo || id}`,
+      summary: `Case closed: ${before.vrm || before.casePo || id}`,
       before,
       after: {
         status: 'removed',
-        // The "also remove Box folder" tickbox is an INTENT FLAG only — no automated deletion.
+        // The archive tickbox is an INTENT FLAG only — no automated Box deletion (ADR-0017).
         archiveFolderAcknowledged:
           body.acknowledgeArchiveFolderHandled === true || body.acknowledgeBoxFolderHandled === true,
         boxFolderId: existing.boxFolderId ?? null,
@@ -1224,6 +1320,118 @@ app.http('caseBoxFinalize', {
       status: 200,
       jsonBody: { status: 'gated_off', message: 'Direct submit is not available yet. Use "Export for EVA".' },
     };
+  }),
+});
+
+/* ============================================================
+   TKT-094 Phase B — POST /api/cases/{id}/eva-submitted
+   Fired by the SPA's "Export for EVA" handler AFTER a successful zip download
+   (the export itself stays a pure client-side download — this is the status
+   write that was always missing). Guarded idempotent: only a ready_for_eva
+   case advances, so a double-click / stale retry is a no-op with no duplicate
+   audit row. Writes submitted_at (the dashboard throughput source) for the
+   first time in the product's life.
+   ============================================================ */
+app.http('markEvaSubmitted', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/eva-submitted',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const id = (req.params.id ?? '').trim();
+    if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
+    const updated = await query<{ id: string }>(
+      // Clear on_hold on the terminal handoff: filterQueue gives onHold precedence over
+      // status (mappers.ts), so a still-held case would otherwise linger in the Held/work
+      // queues while ALSO showing in Completed. A submitted case is no longer actionable.
+      `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false, updated_at = now()
+       WHERE id = $2 AND status_code = $3
+       RETURNING id`,
+      [statusToInt('eva_submitted'), id, statusToInt('ready_for_eva')],
+    );
+    if (updated.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.eva_submitted,
+        caseId: id,
+        summary: 'Exported for EVA — case marked EVA Submitted',
+        after: { status: 'eva_submitted' },
+        actor: actorFromClaims(claims),
+      });
+    }
+    // updated:false covers both "already submitted" (benign idempotent no-op)
+    // and "not ready yet" — the caller re-reads the case either way.
+    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+  }),
+});
+
+/* ============================================================
+   TKT-095 (thin-slice bridge) — POST /api/cases/{id}/mark-done
+   The staff "Mark report delivered" action (CaseDetail button, visible only on
+   an eva_submitted case). Same guarded-idempotent shape as the internal
+   detector endpoint (internal.ts internalCasesMarkDone) — the WHERE guard makes
+   double-clicks, webhook re-delivery and Durable at-least-once all no-ops.
+   `done` (ADR-0023) = the CE report has been delivered back to the work provider.
+   ============================================================ */
+app.http('markCaseDone', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/mark-done',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const id = (req.params.id ?? '').trim();
+    if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
+    const updated = await query<{ id: string }>(
+      // Clear on_hold on the terminal transition (same reason as eva-submitted above):
+      // a delivered/done case must not remain in the Held/work queues.
+      `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
+       WHERE id = $2 AND status_code = $3
+       RETURNING id`,
+      [statusToInt('done'), id, statusToInt('eva_submitted')],
+    );
+    if (updated.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.report_delivered,
+        caseId: id,
+        summary: 'Report delivered to the work provider — case marked Done',
+        after: { status: 'done', signal: 'manual' },
+        actor: actorFromClaims(claims),
+      });
+    }
+    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+  }),
+});
+
+/* ============================================================
+   TKT-096 Phase D — GET /api/completed/cases
+   The Completed/Archive area's data source: terminal cases the queue path
+   deliberately excludes (filterQueue/statusToQueue own no terminal — ADR-0008;
+   ADR-0023 gives them this separate browse/audit home, NOT a 4th work-queue).
+   Scope: eva_submitted (awaiting delivery), done (delivered), box_synced
+   (historical rows only). `removed` is deliberately excluded (PII anonymised on
+   soft-remove) and `error` stays in the Held queue. Optional ?status=<name>
+   filter + ?limit/?offset paging; newest submission first.
+   ============================================================ */
+const COMPLETED_STATUSES = ['eva_submitted', 'done', 'box_synced'] as const;
+app.http('completedCases', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'completed/cases',
+  handler: withRole('CollisionSpike.User', async (req) => {
+    const statusFilter = (req.query.get('status') ?? '').trim();
+    const wanted = COMPLETED_STATUSES.filter(
+      (s) => !statusFilter || s === statusFilter,
+    );
+    if (wanted.length === 0) return { status: 200, jsonBody: [] };
+    const codes = wanted.map((s) => statusToInt(s));
+    const limit = Math.min(Math.max(parseInt(req.query.get('limit') ?? '200', 10) || 200, 1), 500);
+    const offset = Math.max(parseInt(req.query.get('offset') ?? '0', 10) || 0, 0);
+    const rows = await query<Row>(
+      `${CASE_SELECT}
+       WHERE c.status_code = ANY($1::int[])
+       ORDER BY c.submitted_at DESC NULLS LAST, c.updated_at DESC
+       LIMIT $2 OFFSET $3`,
+      [codes, limit, offset],
+    );
+    const now = nowParam(req);
+    return { status: 200, jsonBody: rows.map((r) => rowToCase(r, { now })) };
   }),
 });
 

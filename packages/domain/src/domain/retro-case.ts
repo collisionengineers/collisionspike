@@ -47,6 +47,17 @@ export const RETRO_TRIGGER_CATEGORIES: readonly InboundCategory[] = [
 ];
 
 /**
+ * TKT-119: the ONE `non_actionable` subtype that may also trigger the ladder — an
+ * ACKNOWLEDGEMENT ("Thanks, received — our ref PHA 5007") cites exactly one matter, so
+ * its keys are trustworthy, and the operator expects it to LOCATE (link or reconstruct
+ * from the recovered original) — never to mint a case from the ack itself (the create
+ * seam persists the reconstructed ORIGINAL instruction, and an Outlook-only
+ * reconstruction still lands Held with no Case/PO). `case_summary` digests remain
+ * excluded — they cite MANY refs, so reconstruction from one is wrong by construction.
+ */
+export const RETRO_TRIGGER_ACK_SUBTYPE = 'acknowledgement';
+
+/**
  * Anchored full-match mirror of the Python extractor `CASEREF_RE`
  * (functions/parser/cedocumentmapper_v2/rules/email_classifier.py — the vendored
  * engine is the authority; this mirror must track it):
@@ -87,6 +98,10 @@ export interface RetroKeys {
  *  from the Stage-A classifier row; candidate* from the fetched envelope. */
 export interface RetroTriggerInput {
   category: InboundCategory;
+  /** Stage-A subtype — TKT-119: `non_actionable` is eligible ONLY when the subtype is
+   *  {@link RETRO_TRIGGER_ACK_SUBTYPE} (an acknowledgement cites one matter; a
+   *  case_summary digest cites many). Optional: absent behaves exactly as before. */
+  subtype?: string | null;
   bodyCaseref?: string | null;
   bodyJobref?: string | null;
   bodyVrm?: string | null;
@@ -123,9 +138,16 @@ export function decideRetro(input: RetroTriggerInput): RetroTriggerDecision {
   const reasons: string[] = [];
   const keys: RetroKeys = {};
 
-  if (!RETRO_TRIGGER_CATEGORIES.includes(input.category)) {
+  // TKT-119: a non_actionable ACKNOWLEDGEMENT is eligible (locate-and-link /
+  // reconstruct-the-original — the ack itself never mints); every other
+  // non_actionable subtype (case_summary digests etc.) stays excluded.
+  const ackEligible =
+    input.category === 'non_actionable' &&
+    (input.subtype ?? '').trim() === RETRO_TRIGGER_ACK_SUBTYPE;
+  if (!RETRO_TRIGGER_CATEGORIES.includes(input.category) && !ackEligible) {
     return { attempt: false, keys, reasons: [`category_not_eligible:${input.category}`] };
   }
+  if (ackEligible) reasons.push('ack_subtype_eligible');
 
   // Key extraction. bodyCaseref is already the CASEREF_RE extraction (shaped by
   // construction) but is re-asserted here rather than trusted (dedup.ts's

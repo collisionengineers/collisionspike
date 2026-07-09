@@ -2,9 +2,9 @@
    Collision Engineers — Case status contract (CANONICAL).
 
    Re-implements collisioncc `src/lib/case-status.ts` `statusForReviewCase`
-   on the collisionspike domain model. The 11-value `CaseStatus` union is the
+   on the collisionspike domain model. The 13-value `CaseStatus` union is the
    authority used by the prototype (`mockup-app/src/mock/types.ts`) and the
-   Dataverse status choice set; both MUST reconcile 1:1 against this file.
+   status choice set; both MUST reconcile 1:1 against this file.
 
    PURE + DETERMINISTIC + FRAMEWORK-FREE. No React, no I/O, no live calls.
    The guard operates over small STRUCTURAL inputs (not the full React-coupled
@@ -22,11 +22,15 @@ import {
   type ImageRuleEvidence,
 } from './image-rules';
 
-/* ----------  The 12-value status union (the prototype authority)  ----------
-   `removed` (12th, append-only) is the Superuser SOFT-REMOVE terminal
+/* ----------  The 13-value status union (the prototype authority)  ----------
+   `removed` (append-only) is the Superuser SOFT-REMOVE terminal
    (work-todo-spike: ui-changes/delete-case): the case row + audit trail survive,
    PII is anonymised, and the status is locked here so the guard never re-promotes
-   it and dedup/merge never targets it. */
+   it and dedup/merge never targets it.
+   `done` (13th, TKT-094 / ADR-0023) is the post-EVA DELIVERY terminal: the CE
+   report has been delivered back to the work provider. It comes AFTER
+   `eva_submitted` and is only ever written explicitly (manual "Mark report
+   delivered" or a TKT-095 detector) — the guard never computes it. */
 export type CaseStatus =
   | 'new_email'
   | 'ingested'
@@ -39,9 +43,10 @@ export type CaseStatus =
   | 'eva_submitted'
   | 'box_synced'
   | 'error'
-  | 'removed';
+  | 'removed'
+  | 'done';
 
-/** All 12 values, frozen in declaration order (drives the choice-set parity test). */
+/** All 13 values, frozen in declaration order (drives the choice-set parity test). */
 export const CASE_STATUSES: readonly CaseStatus[] = [
   'new_email',
   'ingested',
@@ -55,23 +60,30 @@ export const CASE_STATUSES: readonly CaseStatus[] = [
   'error',
   'box_synced',
   'removed',
+  'done',
 ] as const;
 
 /**
  * Terminal statuses — once a Case reaches one, the guard never moves it.
  * Per Phase-1 plan §5.4 the terminals are `eva_submitted`, `box_synced`, and
- * `error`, plus `removed` (the Superuser soft-remove terminal, work-todo-spike);
- * these reconcile 1:1 with the Dataverse choice set's
- * `stateMachine.terminals` (`packages/domain/src/data/choicesets/case-status.json`), asserted by
+ * `error`, plus `removed` (the Superuser soft-remove terminal, work-todo-spike)
+ * and `done` (the post-EVA delivery terminal, TKT-094 / ADR-0023 — written only
+ * by an explicit mark-done transition, guarded `WHERE status = eva_submitted`);
+ * these reconcile 1:1 with the choice set's `stateMachine.terminals`
+ * (`packages/domain/src/data/choicesets/case-status.json`), asserted by
  * `migration/assets/verify-parity-pg.mjs`. `linked_to_instruction` and `duplicate_risk`
  * are BRANCH states set by the dedup flow, NOT terminals — the guard may
  * recompute a linked/duplicate case once its fields/images resolve.
+ * NOTE the terminal-lock semantics: the guard returns a terminal UNCHANGED, so
+ * `eva_submitted → done` is legal precisely because it is an explicit write,
+ * never a guard recompute.
  */
 export const TERMINAL_STATUSES: readonly CaseStatus[] = [
   'eva_submitted',
   'box_synced',
   'error',
   'removed',
+  'done',
 ] as const;
 
 const TERMINAL_SET: ReadonlySet<CaseStatus> = new Set(TERMINAL_STATUSES);

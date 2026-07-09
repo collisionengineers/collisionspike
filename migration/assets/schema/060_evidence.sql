@@ -16,6 +16,8 @@ CREATE TABLE evidence (
   accepted_for_eva      boolean NOT NULL DEFAULT true,
   excluded              boolean NOT NULL DEFAULT false,
   exclusion_reason      varchar(400),
+  person_reflection     boolean NOT NULL DEFAULT false,   -- vision classifier saw a person's reflection (TKT-123; advisory)
+  reflection_dismissed  boolean NOT NULL DEFAULT false,   -- reviewer dismissed the reflection warning (TKT-123)
   sequence_index        integer CHECK (sequence_index IS NULL OR sequence_index >= 0),
   sha256                varchar(80),              -- within-message dedup
   content_type          varchar(200),

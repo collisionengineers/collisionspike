@@ -128,14 +128,23 @@ export interface ExtractedImage {
  * orchestration can persist each as image evidence. A document with no embedded images
  * returns `{ count: 0 }`; a non-2xx (422 unreadable / 502 dep) throws so the caller can
  * skip-or-retry.
+ *
+ * TKT-143 — `provider` (the resolved work-provider PRINCIPAL code, e.g. QDOS) and `vrm`
+ * are threaded through when KNOWN so the engine's filename stems carry real identity
+ * (`QDOS_AB12CDE_img_1_1.png`); both are OMITTED when unknown and the engine keeps its
+ * neutral `img_<page>_<n>` stems (the TKT-090 omit-when-unknown rule, unchanged).
  */
 export function callExtractImages(input: {
   documentBase64: string;
   filename: string;
+  provider?: string;
+  vrm?: string;
 }): Promise<{ count: number; images: ExtractedImage[]; message?: string }> {
   return callFunction(PARSER, 'POST', 'extract-images', {
     document: input.documentBase64,
     filename: input.filename,
+    ...(input.provider ? { provider: input.provider } : {}),
+    ...(input.vrm ? { vrm: input.vrm } : {}),
   });
 }
 
@@ -289,6 +298,30 @@ export const box = {
     return callFunction(BOX, 'POST', `box/folders/${folderId}/files`, {
       filename,
       contentBase64,
+      ...(contentType ? { contentType } : {}),
+    });
+  },
+  /**
+   * TKT-142 — archive one LARGE evidence file by BLOB REFERENCE instead of inline
+   * base64. Same facade route as `uploadFile`; `blobPath` and `contentBase64` are
+   * mutually exclusive. The facade downloads the blob ITSELF from the evidence storage
+   * account (its own managed identity; EVIDENCE_BLOB_ACCOUNT / EVIDENCE_BLOB_CONTAINER,
+   * default 'evidence') and streams it to Box — direct upload <20MB, Box chunked-upload
+   * session ≥20MB — so the base64-in-JSON body that killed the facade worker on a
+   * 17.6MB `.eml` (~23MB encoded → 502 + small-file recycle collateral) never exists.
+   * `blobPath` is the evidence row's container-relative storage_path (the exact path
+   * `blob.ts` downloadEvidenceBytes takes). Idempotency unchanged: a Box 409
+   * name-conflict is reused server-side.
+   */
+  uploadFileFromBlob(
+    folderId: string,
+    filename: string,
+    blobPath: string,
+    contentType?: string,
+  ): Promise<{ id: string; name?: string; sha1?: string; outcome?: string }> {
+    return callFunction(BOX, 'POST', `box/folders/${folderId}/files`, {
+      filename,
+      blobPath,
       ...(contentType ? { contentType } : {}),
     });
   },

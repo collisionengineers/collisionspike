@@ -266,10 +266,18 @@
       "expected": { "category": "other", "subtype": "other" }
     },
     {
-      "eml": "other/unrelated-admin.eml",
+      "$comment": "TKT-105 (taxonomy v3): a remittance advice routes to billing/payment_remittance — this fixture was the deliberate other/other abstain ('unrelated-admin') before the payments lane existed; relabelled + moved when Rule 0d shipped.",
+      "eml": "billing/remittance-advice.eml",
       "provider_match_state": "one",
       "has_attachments": false,
-      "expected": { "category": "other", "subtype": "other" }
+      "expected": { "category": "billing", "subtype": "payment_remittance" }
+    },
+    {
+      "$comment": "TKT-084 (taxonomy v3): pre-instruction directions — the sender says what to do WHEN the official instruction later arrives ('when you receive an instruction from RJ … please hold off'), identified by a VRM, no attachments. No case is minted; the row is held and correlated onto the later instruction's case (gated TRIAGE_PRE_INSTRUCTION_ENABLED, flow-side — the pure classifier just proposes the lane). Modelled on the real TKT-084 evidence sample.",
+      "eml": "pre_instruction/hold-directions.eml",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "pre_instruction", "subtype": "pre_instruction_directions" }
     },
     {
       "$comment": "collisionspike #3 (is_reply) — the ST04VRX live failure: a client REPLY after our total-loss report went out, re-attaching OUR OWN report (RE: subject, an instruction-kind PDF, a known provider). The sender writes no new work phrase and no query keyword; the only work phrase ('engineer's report') sits in the QUOTED cover note. Pre-fix Rule 1 promoted on the provider + doc and would mint a DUPLICATE Case. is_reply now suppresses the promotion (keying on sender-written text, not the quoted thread); the quoted Case/PO makes it query_existing_work so the orchestrator can link the existing Case.",

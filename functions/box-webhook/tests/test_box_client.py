@@ -367,17 +367,69 @@ def test_upload_file_201_posts_multipart_to_upload_host_tagged_created():
     c.close()
 
 
+# sha1(b"x") — the local content hash the 409 handler computes for b"x".
+SHA1_X = "11f6ad8ec52a2984abaafd7c3b516503785c2072"
+
+
 @respx.mock
-def test_upload_file_409_name_conflict_is_idempotent_reuse():
+def test_upload_file_409_same_content_is_idempotent_reuse():
     # The file-upload 409 returns context_info.conflicts as a SINGLE object (not a
-    # list like CreateFolder); _conflict_id must read the id out of it so a replayed
-    # archive reuses the existing file id instead of erroring.
+    # list like CreateFolder). TKT-087: reuse now requires the conflicting file's
+    # sha1 to MATCH the local bytes — the genuine replayed-archive case.
+    _mock_token()
+    conflict = {
+        "type": "error", "code": "item_name_in_use",
+        "context_info": {"conflicts": {"type": "file", "id": "999", "name": "message.eml", "sha1": SHA1_X}},
+    }
+    respx.post(UPLOAD_URL).mock(return_value=httpx.Response(409, json=conflict))
+    c = _client()
+    out = c.upload_file("0", "message.eml", b"x")
+    assert out["id"] == "999"
+    assert out["outcome"] == "reused"
+    c.close()
+
+
+@respx.mock
+def test_upload_file_409_different_content_reuploads_under_disambiguated_name():
+    # TKT-087 root cause: two DIFFERENT emails on one case archived under the same
+    # generic name — blind reuse mis-linked the later evidence row. Now a sha1
+    # MISMATCH re-uploads ONCE under `<stem>-<sha1[:8]>.<ext>` instead of reusing.
+    _mock_token()
+    conflict = {
+        "type": "error", "code": "item_name_in_use",
+        "context_info": {"conflicts": {"type": "file", "id": "999", "name": "message.eml", "sha1": "d" * 40}},
+    }
+    route = respx.post(UPLOAD_URL)
+    route.side_effect = [
+        httpx.Response(409, json=conflict),
+        httpx.Response(201, json={"entries": [{"id": "f2", "type": "file", "name": f"message-{SHA1_X[:8]}.eml"}]}),
+    ]
+    c = _client()
+    out = c.upload_file("0", "message.eml", b"x")
+    assert out["id"] == "f2"
+    assert out["outcome"] == "created"
+    assert route.call_count == 2
+    # The retry carried the content-disambiguated name, extension preserved.
+    retry_body = route.calls[1].request.content
+    assert f"message-{SHA1_X[:8]}.eml".encode() in retry_body
+    c.close()
+
+
+@respx.mock
+def test_upload_file_409_sha1_unverifiable_falls_back_to_legacy_reuse(monkeypatch):
+    # Conflict mini WITHOUT sha1 and the sha1 read failing -> legacy reuse (never
+    # block an archive on a missing hash), logged at warning level.
+    _no_backoff(monkeypatch)
     _mock_token()
     conflict = {
         "type": "error", "code": "item_name_in_use",
         "context_info": {"conflicts": {"type": "file", "id": "999", "name": "message.eml"}},
     }
     respx.post(UPLOAD_URL).mock(return_value=httpx.Response(409, json=conflict))
+    # The best-effort sha1 read (scope check + fields=sha1) errors out — swallowed.
+    respx.get(url__regex=r"https://api\.box\.com/2\.0/files/999.*").mock(
+        return_value=httpx.Response(500)
+    )
     c = _client()
     out = c.upload_file("0", "message.eml", b"x")
     assert out["id"] == "999"

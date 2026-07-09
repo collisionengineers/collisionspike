@@ -15,12 +15,21 @@
  *   freshly-subscribed mailbox from ingesting historical backlog.
  */
 
+import { gates } from '@cs/domain/gates';
 import { graphFetch } from './graph.js';
 
 /** Target lifetime margin: now + 6 days 23 h — a safe margin under the 10,080-min max. */
 export const RENEWAL_MARGIN_MS = (6 * 24 + 23) * 3_600_000;
 
 const SUBSCRIPTIONS_PATH = '/subscriptions';
+
+/**
+ * The two mail folders this app subscribes to (TKT-095 detector (a) added SentItems):
+ *  - 'Inbox'     — the live intake pipeline (always, per configured mailbox);
+ *  - 'SentItems' — the gated sent-email-to-provider `done` detector; created ONLY while
+ *    DONE_SENT_EMAIL_ENABLED is true, pruned by maintenance whenever it is false.
+ */
+export type SubscriptionFolder = 'Inbox' | 'SentItems';
 
 export interface IntakeMailboxConfig {
   /** The shared intake mailbox UPN/address (flow param IntakeMailbox). */
@@ -50,8 +59,24 @@ export function intakeMailboxes(): IntakeMailboxConfig[] {
   }
 }
 
-function resourceFor(mailbox: string): string {
-  return `users/${mailbox}/mailFolders('Inbox')/messages`;
+function resourceFor(mailbox: string, folder: SubscriptionFolder = 'Inbox'): string {
+  return `users/${mailbox}/mailFolders('${folder}')/messages`;
+}
+
+/**
+ * Parse the mail folder out of a SUBSCRIPTION resource (the form we created it with —
+ * `users/<mbx>/mailFolders('<Folder>')/messages`). Returns '' for the canonicalised
+ * NOTIFICATION form (`Users/<GUID>/Messages/<id>`), which carries no folder — only
+ * subscription objects (list/GET) are folder-attributable.
+ */
+export function folderOfResource(resource: string): string {
+  const m = /mailFolders\('([^']+)'\)/i.exec(resource ?? '');
+  return m ? m[1] : '';
+}
+
+/** True when a subscription resource is scoped to Sent Items (TKT-095 detector (a)). */
+export function isSentItemsResource(resource: string): boolean {
+  return folderOfResource(resource).toLowerCase() === 'sentitems';
 }
 
 function nextExpiration(): string {
@@ -70,16 +95,27 @@ function baseUrl(): string {
 /**
  * Create one subscription for a mailbox (plan 22 §A.2). Idempotent-friendly: callers
  * (lifecycle `subscriptionRemoved`, renewal 404) recreate by calling this again.
+ *
+ * `folder` (TKT-095 detector (a)): 'Inbox' (default — byte-identical to the pre-TKT-095
+ * behaviour) or 'SentItems'. A SentItems subscription routes to the SEPARATE
+ * /api/graph-webhook-sent + /api/graph-lifecycle-sent endpoints so a sent-message
+ * notification can NEVER enter the intake pipeline, and so the existing Inbox
+ * graph-lifecycle handler (whose subscriptionRemoved arm recreates INBOX subscriptions)
+ * never has to disambiguate a folder it cannot see on the notification form.
  */
-export async function createSubscription(mailbox: string): Promise<GraphSubscription> {
+export async function createSubscription(
+  mailbox: string,
+  folder: SubscriptionFolder = 'Inbox',
+): Promise<GraphSubscription> {
   const url = baseUrl();
+  const sent = folder === 'SentItems';
   return graphFetch<GraphSubscription>(SUBSCRIPTIONS_PATH, {
     method: 'POST',
     body: JSON.stringify({
       changeType: 'created',
-      notificationUrl: `${url}/api/graph-webhook`,
-      lifecycleNotificationUrl: `${url}/api/graph-lifecycle`,
-      resource: resourceFor(mailbox),
+      notificationUrl: sent ? `${url}/api/graph-webhook-sent` : `${url}/api/graph-webhook`,
+      lifecycleNotificationUrl: sent ? `${url}/api/graph-lifecycle-sent` : `${url}/api/graph-lifecycle`,
+      resource: resourceFor(mailbox, folder),
       expirationDateTime: nextExpiration(),
       clientState: requireClientState(),
       includeResourceData: false,
@@ -116,10 +152,13 @@ export interface MaintenanceLog {
 }
 
 export interface MaintenanceSummary {
+  /** Mailboxes bootstrapped this pass. SentItems entries carry a `sentitems:` prefix
+   *  (TKT-095 detector (a)); bare entries are Inbox, as before. */
   created: string[];
   renewed: Array<{ subId: string; next?: string }>;
   recreated: string[];
-  /** Mailboxes whose subscription was DELETED because they left GRAPH_INTAKE_MAILBOXES. */
+  /** Subscriptions DELETED this pass: a mailbox that left GRAPH_INTAKE_MAILBOXES, or a
+   *  `sentitems:`-prefixed entry pruned because DONE_SENT_EMAIL_ENABLED is off (TKT-095). */
   pruned: string[];
   errors: string[];
 }
@@ -137,11 +176,20 @@ export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promis
   const subs = await listOurSubscriptions();
   const configured = intakeMailboxes();
   const configuredMailboxes = new Set(configured.map((c) => c.mailbox));
-  const subbed = new Set(subs.map((s) => mailboxOfResource(s.resource)).filter(Boolean));
+  // TKT-095 detector (a): SentItems subscriptions exist ONLY while the gate is on.
+  // With the gate OFF (the live default) and no SentItems subscriptions present, every
+  // step below is byte-identical to the pre-TKT-095 routine.
+  const sentGateOn = gates.doneSentEmail();
+  const inboxSubbed = new Set(
+    subs.filter((s) => !isSentItemsResource(s.resource)).map((s) => mailboxOfResource(s.resource)).filter(Boolean),
+  );
+  const sentSubbed = new Set(
+    subs.filter((s) => isSentItemsResource(s.resource)).map((s) => mailboxOfResource(s.resource)).filter(Boolean),
+  );
 
-  // BOOTSTRAP — ensure every configured intake mailbox has a subscription (create if missing).
+  // BOOTSTRAP — ensure every configured intake mailbox has an Inbox subscription (create if missing).
   for (const cfg of configured) {
-    if (subbed.has(cfg.mailbox)) continue;
+    if (inboxSubbed.has(cfg.mailbox)) continue;
     try {
       const created = await createSubscription(cfg.mailbox);
       summary.created.push(cfg.mailbox);
@@ -153,6 +201,23 @@ export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promis
     }
   }
 
+  // BOOTSTRAP SentItems (TKT-095 detector (a)) — gate ON only: one SentItems subscription
+  // per configured intake mailbox, feeding /api/graph-webhook-sent (never the intake queue).
+  if (sentGateOn) {
+    for (const cfg of configured) {
+      if (sentSubbed.has(cfg.mailbox)) continue;
+      try {
+        const created = await createSubscription(cfg.mailbox, 'SentItems');
+        summary.created.push(`sentitems:${cfg.mailbox}`);
+        logger.log(JSON.stringify({ evt: 'graph-subscription-created', subId: created.id, mailbox: cfg.mailbox, folder: 'SentItems', next: created.expirationDateTime }));
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        summary.errors.push(`create sentitems:${cfg.mailbox}: ${m}`);
+        logger.error(`[subscription-maintenance] SentItems bootstrap ${cfg.mailbox} failed (is the mailbox Exchange-RBAC-scoped?): ${m}`);
+      }
+    }
+  }
+
   // RENEW — PATCH every existing subscription forward; 404 (gone) → recreate for the same mailbox.
   for (const sub of subs) {
     // PRUNE — a subscription whose mailbox is no longer in GRAPH_INTAKE_MAILBOXES is retired
@@ -160,15 +225,33 @@ export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promis
     // hand). Guarded: only prune when the config is non-empty (never wipe every sub on a config
     // glitch) AND the mailbox parsed cleanly (never delete a subscription we cannot attribute).
     const mbx = mailboxOfResource(sub.resource);
+    const isSent = isSentItemsResource(sub.resource);
     if (configured.length > 0 && mbx && !configuredMailboxes.has(mbx)) {
       try {
         await deleteSubscription(sub.id);
-        summary.pruned.push(mbx);
-        logger.log(JSON.stringify({ evt: 'graph-subscription-pruned', subId: sub.id, mailbox: mbx }));
+        summary.pruned.push(isSent ? `sentitems:${mbx}` : mbx);
+        logger.log(JSON.stringify({ evt: 'graph-subscription-pruned', subId: sub.id, mailbox: mbx, ...(isSent ? { folder: 'SentItems' } : {}) }));
       } catch (e) {
         const m = e instanceof Error ? e.message : String(e);
         summary.errors.push(`prune ${sub.id} (${mbx}): ${m}`);
         logger.error(`[subscription-maintenance] prune ${sub.id} (${mbx}) failed: ${m}`);
+      }
+      continue;
+    }
+    // PRUNE SentItems on gate OFF (TKT-095 detector (a)) — a gate flip fully self-reconciles:
+    // OFF retires every SentItems subscription the ON state created (the same semantics as the
+    // mailbox prune above; folder attribution comes from the subscription's own resource, so
+    // this can never touch an Inbox subscription). No config guard needed: this prune is
+    // gate-driven, not config-driven, and a SentItems subscription must not outlive its gate.
+    if (isSent && !sentGateOn) {
+      try {
+        await deleteSubscription(sub.id);
+        summary.pruned.push(`sentitems:${mbx || sub.id}`);
+        logger.log(JSON.stringify({ evt: 'graph-subscription-pruned', subId: sub.id, mailbox: mbx, folder: 'SentItems', reason: 'gate_off' }));
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        summary.errors.push(`prune sentitems ${sub.id} (${mbx}): ${m}`);
+        logger.error(`[subscription-maintenance] SentItems prune ${sub.id} (${mbx}) failed: ${m}`);
       }
       continue;
     }
@@ -183,8 +266,10 @@ export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promis
         logger.warn(`[subscription-maintenance] subscription ${sub.id} gone — recreating for ${mailbox}`);
         if (mailbox) {
           try {
-            const rc = await createSubscription(mailbox);
-            summary.recreated.push(mailbox);
+            // Recreate in the SAME folder the dead subscription covered (Inbox pre-TKT-095
+            // behaviour unchanged; a gone SentItems sub recreates as SentItems).
+            const rc = await createSubscription(mailbox, isSent ? 'SentItems' : 'Inbox');
+            summary.recreated.push(isSent ? `sentitems:${mailbox}` : mailbox);
             logger.log(JSON.stringify({ evt: 'graph-renewal-success', subId: rc.id, recreated: true, next: rc.expirationDateTime }));
           } catch (e2) {
             const m2 = e2 instanceof Error ? e2.message : String(e2);

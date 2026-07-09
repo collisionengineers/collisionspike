@@ -21,7 +21,8 @@ import {
   resolveSubscriptionMailbox,
 } from '../../lib/subscriptions.js';
 import { uploadEvidenceBytes } from '../../lib/blob.js';
-import { extractVrm } from '@cs/domain';
+import { rawEmlFileName } from '../../lib/evidence-names.js';
+import { cleanEmailBodyForPreview, extractVrm } from '@cs/domain';
 
 interface FetchMessageInput {
   messageId: string;
@@ -62,11 +63,17 @@ export interface InboundEnvelope {
     contentType: string;
     blobPath: string;
     size: number;
+    /** Lower-case hex SHA-256 of the attachment bytes, hashed at blob landing (TKT-133).
+     *  OPTIONAL for replay-compat: an envelope checkpointed before this field shipped
+     *  simply omits it — consumers must treat it as best-effort. */
+    sha256?: string;
   }>;
   /**
    * The original message captured as raw MIME (Graph `$value`), landed in Blob as
-   * `message.eml`. Persisted as email evidence + archived to the case Box folder
-   * (box-sync ticket). Undefined when the `$value` fetch failed (best-effort; never
+   * `message-<token>.eml` (per-message token — TKT-087; was the generic
+   * `message.eml`, which collided in the Box case folder on multi-email cases).
+   * Persisted as email evidence + archived to the case Box folder (box-sync
+   * ticket). Undefined when the `$value` fetch failed (best-effort; never
    * blocks intake).
    */
   rawEml?: {
@@ -74,6 +81,8 @@ export interface InboundEnvelope {
     contentType: string;
     blobPath: string;
     size: number;
+    /** SHA-256 at blob landing (TKT-133) — optional, same replay-compat note as above. */
+    sha256?: string;
   };
 }
 
@@ -108,21 +117,27 @@ df.app.activity('fetchMessage', {
     for (const a of attachments) {
       const bytes = Buffer.from(a.contentBytes ?? '', 'base64');
       const up = await uploadEvidenceBytes(input.messageId, a.name, bytes, a.contentType);
-      landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size });
+      landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size, sha256: up.sha256 });
     }
 
     // Capture the ORIGINAL message as raw MIME (`.eml`) so the case archive holds
     // the email itself, not just its attachments (box-sync ticket). Best-effort: a
     // `$value` failure must never block intake — we just omit rawEml.
+    // TKT-087: the name carries a per-message token (was the generic `message.eml`,
+    // which collided in the Box case folder whenever a SECOND email attached to the
+    // case — the 409-reuse then mis-linked the later email's evidence row to the
+    // earlier email's Box file). Stable across replays (same message → same name).
     let rawEml: InboundEnvelope['rawEml'];
     try {
       const mime = await getMessageRawMime(mailbox, input.messageId);
-      const emlUp = await uploadEvidenceBytes(input.messageId, 'message.eml', mime, 'message/rfc822');
+      const emlName = rawEmlFileName(message.internetMessageId ?? input.messageId);
+      const emlUp = await uploadEvidenceBytes(input.messageId, emlName, mime, 'message/rfc822');
       rawEml = {
-        filename: 'message.eml',
+        filename: emlName,
         contentType: 'message/rfc822',
         blobPath: emlUp.blobPath,
         size: emlUp.size,
+        sha256: emlUp.sha256,
       };
     } catch (e) {
       ctx.warn(`[fetchMessage] raw .eml capture failed for ${input.messageId}: ${e instanceof Error ? e.message : String(e)}`);
@@ -134,7 +149,10 @@ df.app.activity('fetchMessage', {
     // Body: Graph returns the text representation (Prefer header in getMessageWithAttachments);
     // fall back to the 255-char bodyPreview. Capped to keep the durable envelope bounded.
     const body = (message.body?.content ?? message.bodyPreview ?? '').slice(0, BODY_CAP);
-    const bodyPreview = body.replace(/\s+/g, ' ').trim().slice(0, BODY_PREVIEW_CAP);
+    // TKT-070: a READABLE multi-line preview — line breaks preserved, signature/link/legal
+    // garbage stripped (was `replace(/\s+/g, ' ')`, one run-on line). PREVIEW ONLY: the
+    // full `body` below stays untouched for the VRM sniff + parser inputs.
+    const bodyPreview = cleanEmailBodyForPreview(body).slice(0, BODY_PREVIEW_CAP);
     // VRM sniff spans subject + body — a body-only instruction carries the reg in the text.
     // Canonical shared ruleset (@cs/domain) — postcode/junk-guarded (B8/LS8/BOX2 rejected).
     const candidateVrm = extractVrm(`${subject}\n${body}`);

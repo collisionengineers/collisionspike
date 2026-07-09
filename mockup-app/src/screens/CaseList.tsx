@@ -57,6 +57,8 @@ import {
   CasePeekDrawer,
   GLOBAL_TOASTER_ID,
 } from '../components';
+import { Pager } from '../components/Pager';
+import { clampPage, pageWindow, slicePage } from './inbox-pagination';
 import { runBatch, summarizeBatch } from '../data/batch';
 import {
   caseDisplayName,
@@ -176,6 +178,9 @@ const useStyles = makeStyles({
 
   vrmCell: { display: 'inline-flex', alignItems: 'center', gap: tokens.spacingHorizontalXS },
   muted: { color: tokens.colorNeutralForeground3 },
+  // TKT-118: a pre-mint case's Case/PO cell carries the VRM + a muted
+  // "by registration" line so the identity is explicit, never a bare dash.
+  vrmIdentityStack: { display: 'flex', flexDirection: 'column', lineHeight: 1.15 },
 
   // Checkbox cell wrapper — swallows click/keydown so toggling a selection
   // never triggers the row's open-case navigation.
@@ -253,14 +258,14 @@ const EMPTY_STATE: Record<
   },
   review: {
     title: 'Nothing to review.',
-    hint: 'Cases arrive here once everything’s in and they’re ready to send.',
+    hint: 'Cases that need a person to check — flagged for review, or complete and ready to send — land here.',
     actionLabel: 'Check what’s not ready',
     to: '/queue/not-ready',
   },
   held: {
     title: 'Nothing held.',
     hint: 'Cases that can’t go through (missing the basics) or are on hold would show here.',
-    actionLabel: 'Review cases ready to send',
+    actionLabel: 'Check the review queue',
     to: '/queue/review',
   },
 };
@@ -295,8 +300,9 @@ export function CaseList() {
   const queue = queueByName(activeName);
   // Reason facet chips help most on the Not ready queue, where reasons vary.
   const showFacets = activeName === 'not-ready';
-  // Status filter only where the queue spans multiple statuses (queues #1):
-  // single-status queues (Review) don't need it.
+  // Status filter only where the queue spans multiple statuses (queues #1).
+  // Since TKT-130 the Review queue spans needs_review + ready_for_eva, so it
+  // shows the filter too (it adapts off the queue definition automatically).
   const showStatusFilter = (queue?.statuses.length ?? 0) > 1;
 
   const [search, setSearch] = useState('');
@@ -305,6 +311,17 @@ export function CaseList() {
   const [channelFilter, setChannelFilter] = useState<'email' | 'whatsapp' | typeof ANY>(ANY);
   const [ageFilter, setAgeFilter] = useState<AgeBucket>('all');
   const [reasonFilter, setReasonFilter] = useState<ActionReason | null>(null);
+
+  // Queues pagination (TKT-116) — the SAME 15-per-page window + <Pager> as the
+  // inbox (TKT-098; helpers in inbox-pagination.ts). Page state is PER QUEUE so
+  // switching tabs never resets the other queue's page; a FILTER change resets
+  // the active queue to page 1 (below). Client-side, like the inbox.
+  const [pageByQueue, setPageByQueue] = useState<Partial<Record<QueueName, number>>>({});
+  const page = pageByQueue[activeName] ?? 1;
+  const setPage = useCallback(
+    (p: number) => setPageByQueue((prev) => ({ ...prev, [activeName]: p })),
+    [activeName],
+  );
 
   // The active queue's rows come through the seam hook (loading/empty/error).
   const queueQuery = useQueueQuery(activeName);
@@ -324,8 +341,23 @@ export function CaseList() {
 
   // Per-tab counts for the TabList badges (one aggregate fetch via the seam).
   const [queueTabCounts, setQueueTabCounts] = useState<Record<QueueName, number> | undefined>();
-  // Needs-action reason facet chips (seam fetch; only on the needs-action tab).
-  const [facets, setFacets] = useState<ReasonFacet[]>([]);
+  // Not-ready reason facet chips — derived CLIENT-SIDE from the loaded Not-ready rows
+  // (A3). The chips render only on this queue AND the reason filter runs over the SAME
+  // queueCases, so counting the global data.reasonCounts() route (which tallies Review +
+  // Held cases too) put chips like "Needs review (139)" here that filtered to zero rows.
+  // Tallying c.actionReason over queueCases makes each chip count EXACTLY equal what
+  // selecting that reason yields. REASON_LABELS key order is preserved for stable chips.
+  const facets = useMemo<ReasonFacet[]>(() => {
+    if (!showFacets) return [];
+    const counts = new Map<ActionReason, number>();
+    for (const c of queueCases) {
+      if (!c.actionReason) continue;
+      counts.set(c.actionReason, (counts.get(c.actionReason) ?? 0) + 1);
+    }
+    return (Object.keys(REASON_LABELS) as ActionReason[])
+      .filter((reason) => (counts.get(reason) ?? 0) > 0)
+      .map((reason) => ({ reason, label: REASON_LABELS[reason], count: counts.get(reason)! }));
+  }, [showFacets, queueCases]);
 
   useEffect(() => {
     let cancelled = false;
@@ -370,20 +402,6 @@ export function CaseList() {
     setSelected(new Set());
     setPendingHidden(new Set());
   }, [activeName]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!showFacets) {
-      setFacets([]);
-      return;
-    }
-    void data.reasonCounts().then((f) => {
-      if (!cancelled) setFacets(f);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [showFacets, activeName]);
 
   // Held "Why held" twin counts — NOT on the row itself; fetched live via the
   // seam (the enrichment outstandingText was designed for). Fetched for ALL
@@ -467,6 +485,41 @@ export function CaseList() {
       return next.size === prev.size ? prev : next;
     });
   }, [filtered]);
+
+  /* ----------  pagination window (TKT-116)  ----------
+     `win` drives the pager label + controls; `pageItems` is the slice the grid
+     renders. Both read through pageWindow so what the grid shows and what the
+     pager says can never disagree (the TKT-098 invariant). Selection + peek
+     deliberately stay FILTERED-scoped (all pages): select-all is "the current
+     view" and the BulkActionBar names an explicit count, so bulk verbs across
+     pages stay possible and honest. */
+  const win = useMemo(() => pageWindow(filtered.length, page), [filtered.length, page]);
+  const pageItems = useMemo(() => slicePage(filtered, page), [filtered, page]);
+
+  // Reset to page 1 when a FILTER changes on the SAME queue (a tab switch keeps
+  // each queue's own page — the ref guard tells the two apart). The clamp effect
+  // below folds a stale deep page back into range when the list shrinks.
+  const filterSignature = `${search.trim()}|${providerFilter}|${statusFilter}|${channelFilter}|${ageFilter}|${reasonFilter ?? ''}`;
+  const lastSigRef = useRef<{ queue: QueueName; sig: string }>({
+    queue: activeName,
+    sig: filterSignature,
+  });
+  useEffect(() => {
+    const last = lastSigRef.current;
+    if (last.queue === activeName && last.sig !== filterSignature) {
+      setPageByQueue((prev) =>
+        (prev[activeName] ?? 1) === 1 ? prev : { ...prev, [activeName]: 1 },
+      );
+    }
+    lastSigRef.current = { queue: activeName, sig: filterSignature };
+  }, [activeName, filterSignature]);
+  useEffect(() => {
+    setPageByQueue((prev) => {
+      const cur = prev[activeName] ?? 1;
+      const clamped = clampPage(cur, filtered.length);
+      return clamped === cur ? prev : { ...prev, [activeName]: clamped };
+    });
+  }, [activeName, filtered.length]);
 
   const onTabSelect = (_e: SelectTabEvent, data: SelectTabData) => {
     setReasonFilter(null);
@@ -644,6 +697,7 @@ export function CaseList() {
       vehicle: { minWidth: 130, idealWidth: 160, defaultWidth: 160 },
       whyHeld: { minWidth: 200, idealWidth: 280, defaultWidth: 280 },
       age: { minWidth: 70, idealWidth: 90, defaultWidth: 90 },
+      lastUpdate: { minWidth: 130, idealWidth: 160, defaultWidth: 160 },
     }),
     [],
   );
@@ -671,9 +725,23 @@ export function CaseList() {
       casePo: createTableColumn<Case>({
         columnId: 'casePo',
         renderHeaderCell: () => 'Case / PO',
+        // TKT-118: a case with no Case/PO yet (images before instructions — the
+        // provider is unknown, so no number can be minted) is identified by its
+        // REGISTRATION. Show the VRM prominently in this cell rather than a bare
+        // dash, with a plain-English tooltip saying why.
         renderCell: (c) =>
           c.casePo ? (
             <span className={tt.cellMono}>{c.casePo}</span>
+          ) : c.vrm?.trim() ? (
+            <Tooltip
+              content="No Case/PO yet — identified by the registration until instructions arrive"
+              relationship="description"
+            >
+              <span className={styles.vrmIdentityStack}>
+                <span className={tt.cellMono}>{c.vrm}</span>
+                <Caption1 className={styles.muted}>by registration</Caption1>
+              </span>
+            </Tooltip>
           ) : (
             <span className={mergeClasses(tt.cellMono, styles.muted)}>—</span>
           ),
@@ -799,6 +867,28 @@ export function CaseList() {
         columnId: 'age',
         renderHeaderCell: () => 'Age',
         renderCell: (c) => <span className={tt.cellSecondary}>{caseAgeText(c)}</span>,
+      }),
+      lastUpdate: createTableColumn<Case>({
+        columnId: 'lastUpdate',
+        renderHeaderCell: () => 'Last update',
+        // TKT-117 — the server-derived recency descriptor ("Images received",
+        // "Chased", "Note added by Alex") + its date, stacked like Aging/Due.
+        renderCell: (c) =>
+          c.lastActivity ? (
+            <Tooltip
+              content={`${c.lastActivity.label} · ${c.lastActivity.date}`}
+              relationship="description"
+            >
+              <span className={styles.dueStack}>
+                <span className={mergeClasses(tt.cellSecondary, styles.outstanding)}>
+                  {c.lastActivity.label}
+                </span>
+                <Caption1 className={tt.cellSecondary}>{c.lastActivity.date}</Caption1>
+              </span>
+            </Tooltip>
+          ) : (
+            <span className={mergeClasses(tt.cellSecondary, styles.muted)}>—</span>
+          ),
       }),
     }),
     [styles, tt, twinCounts],
@@ -1099,12 +1189,13 @@ export function CaseList() {
           />
         )
       ) : (
+        <>
         <div className={styles.grid}>
           {/* focusMode="composite" (was row_unstable): rows stay focusable
               (Enter opens the case) and arrow keys reach the in-cell
               checkboxes — row_unstable left them keyboard-unreachable. */}
           <DataGrid
-            items={filtered}
+            items={pageItems}
             columns={columns}
             getRowId={(c) => c.id}
             focusMode="composite"
@@ -1142,6 +1233,19 @@ export function CaseList() {
             </DataGridBody>
           </DataGrid>
         </div>
+        {/* TKT-116 — queue pager (the TKT-098 inbox pattern). Inside the grid
+            branch so it never shows over the empty / skeleton / error states;
+            the Pager's own guard renders null when the list fits one page. */}
+        <Pager
+          page={win.page}
+          pageCount={win.pageCount}
+          from={win.from}
+          to={win.to}
+          total={win.total}
+          itemNoun="cases"
+          onPageChange={setPage}
+        />
+        </>
       )}
 
       {/* Bulk-selection toolbar — sticky to the bottom of the content pane;

@@ -67,6 +67,7 @@ import {
   buildRetroEnvelopeFromEml,
   classifyArchiveFile,
   pickCaseFolder,
+  refSearchVariants,
   selectOutlookOriginal,
   type LandedAttachment,
   type OutlookSearchCandidate,
@@ -233,6 +234,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
     const env = trigger as { candidateRef?: string; candidateVrm?: string };
     const decision = decideRetro({
       category: classification.category,
+      subtype: classification.subtype,
       bodyCaseref: classification.bodyCaseref,
       bodyJobref: classification.bodyJobref,
       bodyVrm: classification.bodyVrm,
@@ -406,42 +408,48 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
 
         if (persisted.skipped) return { outcome: 'skipped', reason: persisted.skipped };
         if (persisted.outcome === 'gated_off') return { outcome: 'skipped', reason: 'api_gate_off' };
-
-        if (persisted.outcome === 'created' && persisted.caseId) {
-          // Record-keeping parity with a linked live arrival: evidence rows for the
-          // reconstructed original + status alignment. Best-effort — never unwinds
-          // the created case. NO enrich (historical vehicle data adds nothing), NO
-          // boxFolderCreate (the ARCHIVE folder was stamped in the create), NO
-          // boxArchiveEvidence (uploads into the RO archive are refused by design).
-          if (effectiveSource !== 'minimal') {
+        // TKT-119 — the API's mint guard refused this original (an ack/digest-family
+        // email can never be the case source): fall THROUGH to the next rung / the
+        // failure record instead of ending the ladder silently.
+        if (persisted.outcome === 'refused_category') {
+          rungsTried.push('box_refused_category');
+        } else {
+          if (persisted.outcome === 'created' && persisted.caseId) {
+            // Record-keeping parity with a linked live arrival: evidence rows for the
+            // reconstructed original + status alignment. Best-effort — never unwinds
+            // the created case. NO enrich (historical vehicle data adds nothing), NO
+            // boxFolderCreate (the ARCHIVE folder was stamped in the create), NO
+            // boxArchiveEvidence (uploads into the RO archive are refused by design).
+            if (effectiveSource !== 'minimal') {
+              try {
+                yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
+                  caseId: persisted.caseId,
+                  inbound: original,
+                  typings: (parseResult as { attachmentTypings?: unknown }).attachmentTypings,
+                });
+              } catch (e) {
+                if (!ctx.df.isReplaying) {
+                  ctx.log(`[retro] classifyPersist failed (additive, non-blocking): ${String(e)}`);
+                }
+              }
+            }
             try {
-              yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
-                caseId: persisted.caseId,
-                inbound: original,
-                typings: (parseResult as { attachmentTypings?: unknown }).attachmentTypings,
-              });
+              yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId: persisted.caseId });
             } catch (e) {
               if (!ctx.df.isReplaying) {
-                ctx.log(`[retro] classifyPersist failed (additive, non-blocking): ${String(e)}`);
+                ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
               }
             }
           }
-          try {
-            yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId: persisted.caseId });
-          } catch (e) {
-            if (!ctx.df.isReplaying) {
-              ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
-            }
-          }
-        }
 
-        return {
-          outcome: persisted.outcome,
-          caseId: persisted.caseId,
-          casePo: persisted.casePo,
-          source: effectiveSource,
-          ...(contradicted ? { corroboration: 'contradicted' } : {}),
-        };
+          return {
+            outcome: persisted.outcome,
+            caseId: persisted.caseId,
+            casePo: persisted.casePo,
+            source: effectiveSource,
+            ...(contradicted ? { corroboration: 'contradicted' } : {}),
+          };
+        }
       }
     }
   } catch (e) {
@@ -553,32 +561,38 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
 
         if (persisted.skipped) return { outcome: 'skipped', reason: persisted.skipped };
         if (persisted.outcome === 'gated_off') return { outcome: 'skipped', reason: 'api_gate_off' };
-        if (persisted.outcome === 'created' && persisted.caseId) {
-          try {
-            yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
-              caseId: persisted.caseId,
-              inbound: original,
-              typings: (parseResult as { attachmentTypings?: unknown }).attachmentTypings,
-            });
-          } catch (e) {
-            if (!ctx.df.isReplaying) {
-              ctx.log(`[retro] classifyPersist failed (additive, non-blocking): ${String(e)}`);
+        // TKT-119 — the API refused this original (ack/digest family): fall through to
+        // the failure record so the email still gets its visible outcome.
+        if (persisted.outcome === 'refused_category') {
+          rungsTried.push('outlook_refused_category');
+        } else {
+          if (persisted.outcome === 'created' && persisted.caseId) {
+            try {
+              yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
+                caseId: persisted.caseId,
+                inbound: original,
+                typings: (parseResult as { attachmentTypings?: unknown }).attachmentTypings,
+              });
+            } catch (e) {
+              if (!ctx.df.isReplaying) {
+                ctx.log(`[retro] classifyPersist failed (additive, non-blocking): ${String(e)}`);
+              }
+            }
+            try {
+              yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId: persisted.caseId });
+            } catch (e) {
+              if (!ctx.df.isReplaying) {
+                ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
+              }
             }
           }
-          try {
-            yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId: persisted.caseId });
-          } catch (e) {
-            if (!ctx.df.isReplaying) {
-              ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
-            }
-          }
+          return {
+            outcome: persisted.outcome,
+            caseId: persisted.caseId,
+            casePo: persisted.casePo,
+            source: 'outlook',
+          };
         }
-        return {
-          outcome: persisted.outcome,
-          caseId: persisted.caseId,
-          casePo: persisted.casePo,
-          source: 'outlook',
-        };
       }
       if (!ctx.df.isReplaying) {
         ctx.log('[retro] outlook hit uncorroborated (key not in message; parse disagrees) — not created');
@@ -953,13 +967,28 @@ df.app.activity('retroOutlookLocate', {
     if (input.keys.vrm) ladder.push({ key: input.keys.vrm, matchedKey: 'vrm' });
 
     for (const rung of ladder) {
+      // TKT-139 — Graph $search tokenization: a compact ref (PHA5007) does not match
+      // the spaced form (PHA 5007) and vice versa. Issue EVERY variant (compact +
+      // spaced at the alpha/digit boundaries) per mailbox and UNION the hits,
+      // deduped by (mailbox, message id), before the single ranked pick.
+      const variants = refSearchVariants(rung.key);
       const candidates: OutlookSearchCandidate[] = [];
+      const seen = new Set<string>();
       for (const mailbox of mailboxes) {
-        try {
-          const hits = await searchMessages(mailbox, kqlPhrase(rung.key), 25);
-          candidates.push(...hits.map((h) => ({ ...h, mailbox })));
-        } catch (e) {
-          ctx.warn(`[retroOutlookLocate] $search failed on ${mailbox} (continuing): ${String(e)}`);
+        for (const variant of variants) {
+          try {
+            const hits = await searchMessages(mailbox, kqlPhrase(variant), 25);
+            for (const h of hits) {
+              const k = `${mailbox} ${h.id}`;
+              if (seen.has(k)) continue;
+              seen.add(k);
+              candidates.push({ ...h, mailbox });
+            }
+          } catch (e) {
+            ctx.warn(
+              `[retroOutlookLocate] $search failed on ${mailbox} (variant ${JSON.stringify(variant)}; continuing): ${String(e)}`,
+            );
+          }
         }
       }
       const pick = selectOutlookOriginal(candidates, { intakeMailboxes: mailboxes });
@@ -1009,6 +1038,19 @@ df.app.activity('retroRecordFailure', {
         subject: env.subject,
       },
     });
+    // TKT-119c — give the failure a VISIBLE home: stamp the trigger email's triage row
+    // so staff see "Unable to locate" on the inbox row instead of a silent nothing.
+    // Best-effort (schema-tolerant server-side) — the audit above is the durable record.
+    if (env.internetMessageId) {
+      try {
+        await dataApi.markInboundAttention({
+          sourceMessageId: env.internetMessageId,
+          reason: 'unable_to_locate',
+        });
+      } catch (e) {
+        ctx.warn(`[retroRecordFailure] attention stamp failed (best-effort): ${String(e)}`);
+      }
+    }
     ctx.log(JSON.stringify({ evt: 'retroRecordFailure', keys: input.keys, rungsTried: input.rungsTried }));
     return { recorded: true };
   },

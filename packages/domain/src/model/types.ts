@@ -117,6 +117,11 @@ export interface Evidence {
   /** Flagged unusable (e.g. a person's reflection is visible). */
   excluded?: boolean;
   exclusionReason?: string;
+  /** The vision classifier saw a person's reflection in this photo (TKT-123).
+   *  ADVISORY flag only — exclusion stays a staff decision. */
+  personReflection?: boolean;
+  /** A reviewer dismissed the reflection warning (persists across reload). */
+  reflectionDismissed?: boolean;
   /** Optional placeholder thumbnail tint (no real image bytes in the mock). */
   thumbColor?: string;
   /** Where it came from (message / upload label). */
@@ -238,7 +243,16 @@ export interface ActivityEvent {
   kind: ActivityKind;
   actor: string;
   timestamp: string; // DD/MM/YYYY HH:mm
+  /** PRIMARY line — always plain English (the ONE audit-action label map,
+   *  api/src/lib/last-activity.ts). Never a raw enum/snake_case/GUID (TKT-134). */
   description: string;
+  /** Optional plain-language specifics (rendered as a secondary line). Only present
+   *  when the underlying audit summary is human-safe — an engineering-shaped summary
+   *  moves to `technical` instead (TKT-134). */
+  detail?: string;
+  /** Raw audit summary/payload for support — rendered ONLY behind an expandable
+   *  "technical details" affordance, never on a primary line (TKT-134). */
+  technical?: string;
 }
 
 /* ----------  Missing-item (the readiness "Missing" list)  ---------- */
@@ -261,6 +275,22 @@ export type ActionReason =
   | 'duplicate'
   | 'conflict'
   | 'needs_review';
+
+/* ----------  Last activity (queue-row recency line, TKT-117)  ----------
+   Computed SERVER-side from the case's audit trail + notes + chase log so the
+   plain-English descriptor lives in ONE place (api/src/lib/last-activity.ts) and
+   the SPA renders it verbatim — never a raw enum/status code. */
+export interface CaseLastActivity {
+  /** Plain-English descriptor, e.g. "Images received", "Chased", "Note added by Alex". */
+  label: string;
+  /** When it happened, DD/MM/YYYY. */
+  date: string;
+}
+
+// Case work TYPE (ADR-0021: standard / audit / audit_total_loss / diminution) —
+// canonical union + re-export live in domain/case-type.ts (already on the main
+// barrel via domain/index); imported type-only here for the Case field.
+import type { CaseWorkType } from '../domain/case-type';
 
 /* ----------  Case (the live work item)  ---------- */
 export interface Case {
@@ -306,6 +336,16 @@ export interface Case {
   /** Age of the case in days (for queue urgency). */
   ageDays: number;
 
+  /** ADR-0021 case work type (audit / total-loss audit / diminution). Absent /
+   *  'standard' = an ordinary case. Set at intake (gated) or refined at review
+   *  via PATCH { caseType } (TKT-057). */
+  caseType?: CaseWorkType;
+
+  /** The most recent thing that happened on the case (audit trail + notes +
+   *  chases), for the queues' "Last update" line (TKT-117). Present only on the
+   *  queue LIST payload — single-case reads may omit it. */
+  lastActivity?: CaseLastActivity;
+
   /** Inspection-address decision mode (drives the readiness check). */
   inspectionDecision: 'confirmed_physical' | 'manual' | 'image_based' | 'unknown';
 
@@ -320,4 +360,11 @@ export interface Case {
   boxFolderId?: string;
   /** Box folder shared-link URL — the "Open in Box" case-archive deep link. */
   boxFolderUrl?: string;
+
+  /** Survivor case id when THIS case was retired by a staff merge (TKT-092: the
+   *  source case is set `linked_to_instruction` with a `mergedInto` marker in its
+   *  dedup staging). Present => the case is resolved work, not an open twin — it
+   *  is excluded from twin counts, needs-action lists, and stage counts (TKT-141)
+   *  while staying openable directly. */
+  mergedInto?: string;
 }

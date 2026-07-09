@@ -75,6 +75,11 @@ class TriageRules:
     chase_phrases: tuple[str, ...]
     summary_markers: tuple[str, ...]
     cancellation_phrases: tuple[str, ...]
+    payment_phrases: tuple[str, ...]
+    pre_instruction_phrases: tuple[str, ...]
+    image_service_sender_domains: tuple[str, ...]
+    image_service_identity_phrases: tuple[str, ...]
+    image_service_delivery_phrases: tuple[str, ...]
     auto_reply_markers: tuple[str, ...]
     vrm_stopword_trigrams: frozenset[str]
     report_title_phrases: tuple[str, ...]
@@ -120,6 +125,11 @@ def load_triage_rules() -> TriageRules:
         chase_phrases=tuple(rules["chase_phrases"]),
         summary_markers=tuple(rules["summary_markers"]),
         cancellation_phrases=tuple(rules["cancellation_phrases"]),
+        payment_phrases=tuple(rules["payment_phrases"]),
+        pre_instruction_phrases=tuple(rules["pre_instruction_phrases"]),
+        image_service_sender_domains=tuple(rules["image_service_sender_domains"]),
+        image_service_identity_phrases=tuple(rules["image_service_identity_phrases"]),
+        image_service_delivery_phrases=tuple(rules["image_service_delivery_phrases"]),
         auto_reply_markers=tuple(rules["auto_reply_markers"]),
         vrm_stopword_trigrams=frozenset(rules["vrm_stopword_trigrams"]),
         report_title_phrases=tuple(rules["report_title_phrases"]),

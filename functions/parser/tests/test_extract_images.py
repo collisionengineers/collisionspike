@@ -103,6 +103,34 @@ def test_route_zero_images_is_200(monkeypatch):
     assert json.loads(resp.get_body())["count"] == 0
 
 
+def test_route_threads_provider_and_vrm_to_engine(monkeypatch):
+    """TKT-143: optional resolved-identity body fields reach run_image_extraction as
+    provider=/vrm= kwargs; blank/non-string values degrade to None (never a 400)."""
+    seen = {}
+
+    def _capture(document_bytes, filename, provider=None, vrm=None):
+        seen.update(provider=provider, vrm=vrm)
+        return {"count": 0, "images": [], "message": ""}
+
+    monkeypatch.setattr(parser_adapter, "run_image_extraction", _capture)
+
+    body = _valid_body() | {"provider": "QDOS", "vrm": "AB12CDE"}
+    resp = function_app.extract_images_route(_make_request(body))
+    assert resp.status_code == 200
+    assert seen == {"provider": "QDOS", "vrm": "AB12CDE"}
+
+    seen.clear()
+    body = _valid_body() | {"provider": "   ", "vrm": 123}  # blank / non-string -> ignored
+    resp = function_app.extract_images_route(_make_request(body))
+    assert resp.status_code == 200
+    assert seen == {"provider": None, "vrm": None}
+
+    seen.clear()
+    resp = function_app.extract_images_route(_make_request(_valid_body()))  # absent -> None
+    assert resp.status_code == 200
+    assert seen == {"provider": None, "vrm": None}
+
+
 # --------------------------------------------------------------------------- #
 # Real engine over the CVD sample                                             #
 # --------------------------------------------------------------------------- #
@@ -175,3 +203,75 @@ def test_large_embedded_image_is_kept():
     pdf_bytes = _make_pdf_with_image(400, 300)
     res = parser_adapter.run_image_extraction(pdf_bytes, "photos.pdf")
     assert res["count"] == 1, "a photo-sized embedded raster must still be extracted"
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+@pytest.mark.parametrize(
+    "width,height",
+    [
+        (900, 180),  # wide letterhead banner — ABOVE the 200x200 area floor
+        (150, 800),  # tall narrow sidebar strip
+    ],
+)
+def test_large_banner_furniture_is_filtered_out(width, height):
+    """TKT-089 (engine-v2.11): letterhead/banner furniture that clears the pixel-area
+    floor is still suppressed by the banner-shape heuristic (aspect >= 3.5:1 AND
+    short side <= 240 px) — the residual gap behind the 2026-07-08 live-failure
+    report. Mirrors the sibling's tests/test_extract_images.py."""
+    pdf_bytes = _make_pdf_with_image(width, height)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "LtrtoEngineerIn.pdf")
+    assert res["count"] == 0, f"{width}x{height} banner furniture must be filtered, not stored as evidence"
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_real_photo_shape_is_never_banner_filtered():
+    """Recall guard (TKT-089): a genuine camera-photo shape (1600x1200) sails past
+    both the area floor and the banner heuristic."""
+    pdf_bytes = _make_pdf_with_image(1600, 1200)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "photos.pdf")
+    assert res["count"] == 1, "a genuine photo must never be dropped by the decorative filter"
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_extracted_names_carry_no_placeholder_identity():
+    """TKT-090 (engine-v2.11): this wrapper calls the engine with ``fields={}``, which
+    used to brand every extraction ``RJS_UnknownVRM_img_<page>_<n>`` via the engine's
+    hardcoded defaults. Unresolved tokens are now OMITTED: the stem is just
+    ``img_<page>_<n>`` (the orchestration prepends the source-document name)."""
+    import re
+
+    pdf_bytes = _make_pdf_with_image(640, 480)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "LtrtoEngineerIn.pdf")
+    assert res["count"] == 1
+    name = res["images"][0]["filename"]
+    assert "RJS" not in name, name
+    assert "UnknownVRM" not in name, name
+    assert re.fullmatch(r"img_\d+_\d+\.[A-Za-z0-9]+", name), name
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_resolved_identity_reaches_the_stems():
+    """TKT-143: when the caller RESOLVED the provider principal + VRM, the stems carry
+    them (``QDOS_AB12CDE_img_<page>_<n>``) — real identity, never a placeholder."""
+    import re
+
+    pdf_bytes = _make_pdf_with_image(640, 480)
+    res = parser_adapter.run_image_extraction(
+        pdf_bytes, "instruction.pdf", provider="QDOS", vrm="AB12CDE"
+    )
+    assert res["count"] == 1
+    name = res["images"][0]["filename"]
+    assert re.fullmatch(r"QDOS_AB12CDE_img_\d+_\d+\.[A-Za-z0-9]+", name), name
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_partial_identity_omits_only_the_unknown_token():
+    """TKT-143 + TKT-090: a resolved VRM with an unresolved provider yields
+    ``AB12CDE_img_<page>_<n>`` — known tokens kept, unknown tokens omitted."""
+    import re
+
+    pdf_bytes = _make_pdf_with_image(640, 480)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "instruction.pdf", vrm="AB12CDE")
+    assert res["count"] == 1
+    name = res["images"][0]["filename"]
+    assert re.fullmatch(r"AB12CDE_img_\d+_\d+\.[A-Za-z0-9]+", name), name

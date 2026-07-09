@@ -4,6 +4,7 @@ import {
   MARKERED_PRINCIPALS,
   allowedCaseTypes,
   decideCaseType,
+  derivedMarkerCasePo,
   markerForMint,
 } from './case-type';
 
@@ -111,5 +112,31 @@ describe('markerForMint — the numbering decision', () => {
   it('standard always mints unmarked', () => {
     expect(markerForMint('standard', 'PCH', false)).toBe('');
     expect(markerForMint('standard', 'QDOS', true)).toBe('');
+  });
+});
+
+describe('derivedMarkerCasePo — the review-time derived audit ID (TKT-057)', () => {
+  it('QDOS dual pattern: marker + the standard number (observed corpus QDOS261608 / A.QDOS261608)', () => {
+    expect(derivedMarkerCasePo('audit', 'QDOS261608')).toBe('A.QDOS261608');
+    expect(derivedMarkerCasePo('audit_total_loss', 'PCH26010')).toBe('AP.PCH26010');
+    expect(derivedMarkerCasePo('diminution', 'PCH26190')).toBe('D.PCH26190');
+  });
+
+  it('a Case/PO that already carries a marker IS the marker ID — never double-prefixed', () => {
+    expect(derivedMarkerCasePo('audit', 'A.PCH261339')).toBe('A.PCH261339');
+    expect(derivedMarkerCasePo('audit_total_loss', 'AP.QDOS261530')).toBe('AP.QDOS261530');
+    expect(derivedMarkerCasePo('diminution', 'd.pch26190')).toBe('D.PCH26190');
+  });
+
+  it('standard / unset type or missing Case/PO derives nothing', () => {
+    expect(derivedMarkerCasePo('standard', 'CCPY26050')).toBeUndefined();
+    expect(derivedMarkerCasePo(undefined, 'CCPY26050')).toBeUndefined();
+    expect(derivedMarkerCasePo('audit_total_loss', '')).toBeUndefined();
+    expect(derivedMarkerCasePo('audit_total_loss', undefined)).toBeUndefined();
+    expect(derivedMarkerCasePo('audit_total_loss', null)).toBeUndefined();
+  });
+
+  it('normalises to UPPER (the Box/Case-PO form)', () => {
+    expect(derivedMarkerCasePo('audit_total_loss', 'pch26010')).toBe('AP.PCH26010');
   });
 });

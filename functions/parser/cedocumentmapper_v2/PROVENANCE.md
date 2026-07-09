@@ -29,6 +29,117 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-09 (classifier bug-fixes C2 body-only-instruction + C4 labelled-ref money — collisionspike):**
+re-cut from the sibling at **`engine-v2.13`** (branch `feat/tkt043-open-case-ref-context`; **commit +
+`engine-v2.13` tag PENDING** — this re-cut was applied to the sibling working tree only; the operator
+commits + tags + pushes it per ADR-0018 BEFORE deploying the parser Function from this tree; do NOT
+deploy from an uncommitted re-cut). One file, `rules/email_classifier.py`; two additive
+classifier-logic fixes with **NO new taxonomy codes / NO DDL dependency** (`TAXONOMY_VERSION` stays 3,
+so — unlike the taxonomy cuts above — the deploy-order warning does NOT apply). **(C2)** a genuine
+body-only instruction now wins over the `pre_instruction` lane: Rule 0e (`pre_instruction_directions`)
+gains a disqualifier mirroring Rule 3's second arm (`strong_body_instruction`) EXACTLY — `not is_reply
+and work_phrases and body_vrm and has_existing_ref and not query_phrases` — so a FRESH (non-reply)
+1-work-cue + body-VRM + existing-ref email carrying "instructions to follow" boilerplate classifies
+`receiving_work` (rule `body_only_instruction`) instead of returning `pre_instruction` and minting no
+case. The `work_phrases` term is load-bearing: it keeps the lane firing for the genuine "directions
+with NO work cue" case (which Rule 3's arm never catches). **(C4)** the `_job_reference` LABELLED tier
+now `finditer`s (was first-match `.search()`) so a money value in an EARLIER labelled match
+(`Ref: 768.00`) can no longer mask a genuine labelled ref later on (`Our Ref: 12345`) — mirrors the
+structured tier's existing iterate-past-money guard (TKT-103). Three new sibling unit tests
+(`tests/test_email_classifier.py`): `test_body_only_instruction_beats_the_pre_instruction_lane`,
+`test_pre_instruction_still_fires_for_directions_with_no_work_cue_and_a_ref`, and
+`test_labelled_ref_extractor_continues_past_a_money_value`. Sibling suite **439 passed / 4 skipped**
+(436 → 439, +3 new). Byte-mirror restored (drift guard green).
+
+**2026-07-09 (TKT-136 fallback-reference/VRM guards + TKT-102 Tractable lane):** re-cut from the
+sibling at **`engine-v2.12`** (branch `feat/tkt043-open-case-ref-context`, commit `ab5f8d2` —
+branch + tag PUSHED to origin), INCLUDING a **deliberate providers.json seed update** (the new
+**Tractable** image-capture layout provider — TKT-102). **TKT-136:** the /parse
+`_fallback_reference` tiers now share the classifier's TKT-103 MONEY guard (one canonical
+`reference_candidate_is_money` in `rules/engine.py`; `_job_reference` behaviour identical) plus a
+new FRAGMENT-plausibility guard (`reference_candidate_is_fragment` — unit-quantity tokens like
+`650g`, multi-word prose heads) that kills the live junk case_ref **"RIGERANT R1234YF"** (the fuzzy
+`ref` label had matched the head of a `REFRIGERANT R1234YF` parts line); tier-4 reference cues now
+match on WORD BOUNDARIES ("refrigerant" no longer reads as a `ref` cue). The scope addendum ports
+the classifier-only TKT-071 postcode-area TIGHT anchor + #7/F162 stop-word TRIGRAM guards to the
+/parse document path (`vrm_document_candidate_is_bad`; canonical definitions moved to `engine.py`,
+the classifier aliases them — no drift; on the labelled tier the fuzzy-matched VRM label line is the
+anchor scope). Sibling fixture `RIGERANT ESTIMATE 01.pdf` reproduces the live junk pre-fix and pins
+`reference`/`vrm` empty via a new `unknown_temp` (no-provider/fallback-only) regression-harness
+sentinel. **TKT-102:** classifier **Rule 0f** — a Tractable "New completed lead" delivery email
+(identity: `tractable.ai` sender domain or the "Powered by Tractable" footer; delivery wording:
+"completed lead"/"damage capture"; NEVER the subject emoji) classifies **case_update ·
+images_received** (existing taxonomy codes — NO new DDL dependency; pre-0f these abstained to
+`other` as uncorroborated instruction docs, so no wrong rows to backfill). Three new
+`triage-rules.json` collections (`image_service_sender_domains` / `_identity_phrases` /
+`_delivery_phrases`; schema + loader + snapshot 291→297). The **Tractable provider record** (v1
+seed shape) detects all three evidence PDFs at 1.0 with no fixture-corpus cross-detection either
+way; extracts vrm ← "Registration Number" (label-next-line, `Ou66vdc`→`OU66VDC`), vehicle_model ←
+"Model" (model only — the two-column layout interleaves Repair-Summary rows into plain text, so a
+`Producer || Type` between_labels capture is junk; make/Producer is a recorded remainder), mileage ←
+"Mileage" (comma-grouped), incident_date ← same-line "Accident Date:" (`normalize_date` now strips a
+leading WEEKDAY word: "Mon Jul 06 2026" → 06/07/2026); reference/work_provider/claimant_*/
+inspection_address are declared `none` + fallback-suppressed (the Tractable **Case ID** UUID and
+AI-quote money must never mint a case_ref; Tractable is never a work provider; the PDF header
+carries CE's OWN desk@ address). **VIN has no engine field slot** — recorded remainder, schema NOT
+extended. `extract_images` verified on the real PDF: the 7 "Submitted Vehicle Images" photos kept,
+the three 70×65 "Powered by" logos dropped; HONEST LIMIT — the 1016×565 CE letterhead graphic is
+kept (1.8:1 aspect is a photo shape; raster-content typing is TKT-047). The
+`provider-config.schema.json` `suppress_fallback_fields` enum gains the B2
+`claimant_telephone`/`claimant_email` (sibling schema copies only — that schema is deliberately NOT
+vendored). Sibling suite **436 passed / 4 skipped**; eval baseline deliberately regenerated, all
+movement UPWARD (overall 0.9348→0.9483, work_provider 0.7143→0.75, new `mileage: 1.0`;
+`reference`/`vrm` pins stay 1.0). Byte-mirror restored (drift guard green); this repo's parser suite
+281 passed / 11 skipped / 1 PRE-EXISTING environmental failure
+(`test_multiformat_extraction[ALS_doc]` — fails identically against the pre-re-cut tree on this
+Windows box).
+
+**2026-07-09 (PLAN-003 evidence wave — collisionspike TKT-089/TKT-090):** re-cut from the
+sibling at **`engine-v2.11`** (branch `feat/tkt043-open-case-ref-context`, commit `4cbf19a`).
+One file, `application/service.py`: (1) **TKT-090 naming fix** — `extract_images` stems no
+longer default an unresolved `work_provider` to the hardcoded **`'RJS'`** or an unresolved
+`vrm` to the literal **`'UnknownVRM'`**; unresolved tokens are **omitted** (empty/whitespace
+checked BEFORE `safe_filename`, whose own empty-input fallback is `"export"`), leaving
+`img_<page>_<n>` as the guaranteed-non-empty, unique tail (the orchestration's
+`extractImages` activity prepends `<source-doc-stem>__`). The cloud wrapper passes
+`fields={}`, so every live extraction had been branded `RJS_UnknownVRM_…`. (2) **TKT-089
+banner heuristic** — `is_decorative` lifted to module-level `is_decorative_raster` and
+extended past the 200×200 area floor: an above-floor raster is decorative when aspect
+≥ 3.5:1 AND short side ≤ 240 px (wide letterhead banners ~900×180, tall sidebar strips —
+shapes no real phone/camera photo has; unknown dimensions stay always-kept). Mirrored by
+the email-lane filter in `orchestration/src/lib/image-sniff.ts` (same thresholds — keep in
+lockstep). No taxonomy/DDL dependency; no providers.json change. Sibling suite 396
+passed / 4 skipped; new sibling tests `tests/test_extract_images.py` (13) ported to this
+repo's `functions/parser/tests/test_extract_images.py`. NOTE: downstream evidence rows key
+on `(case_id, storage_path)` and no code consumer parses the `_img_\d+_\d+` /
+`RJS_UnknownVRM` filename shape (grep-verified across api/orchestration/SPA), so the name
+change is deploy-safe; only ad-hoc KQL/SQL sweeps that grep for `RJS_UnknownVRM` need their
+patterns updating.
+
+**2026-07-09 (PLAN-003 classifier wave — collisionspike TKT-022/070/071/083/084/085/086/097/100/103/105/120):**
+re-cut from the sibling at **`engine-v2.10`** (branch `feat/tkt043-open-case-ref-context`, commit
+`8e7f2f7`), INCLUDING a **deliberate providers.json seed update** (the new **CDQ** claimant-questionnaire
+claim-form provider — TKT-022). **TAXONOMY v3** (bump 2→3): +`pre_instruction` ·
+`pre_instruction_directions` (TKT-084, operator-signed-off; Rule 0e, future-instruction-anchored
+`pre_instruction_phrases`) and +`billing` · `payment_remittance` (TKT-105/120; Rule 0d
+`payment_phrases` — an inbound remittance/transfer notice routes to the payments lane BEFORE the
+Rule-1 instruction-doc promotion). **Deploy-order:** the taxonomy-v3 DDL delta
+(`migration/assets/schema/deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql`, codes
+100000007 / 100000013-100000014) was applied + verified live BEFORE this tree deployed. Other changes
+riding this cut: the VRM guards (month/day-word + function-word-head denylists, all-alpha rejection
+in `_is_suspicious_value`, the postcode-area TIGHT anchor in `_canonical_body_vrm` — TKT-085/100/071);
+the `_job_reference` MONEY guard (TKT-103 — "£768.00" is never a reference; structured tier iterates
+past money tokens); cancellation phrases +2 ("not wish to proceed" family — TKT-097);
+`_delivered_images_only` kinds-only fallback (fixes the PR#45-era images_received→update_general
+regression when a caller passes kinds but no filenames); the TKT-083 arm ADJUDICATION comment + pin
+(ref-AND-VRM stands — the OR widening regressed the abstain lane in a full-corpus A/B); the
+`cdq_claim_form` extraction method + `method: "none"` rule kind + `suppress_default_work_provider`
+(migration + engine + schema enums). Deployed to `cespike-parser-dev-x7xt3d5ovhi7y` 2026-07-09
+(`func publish --build remote`); live `/classify-email` probes verified payment_remittance /
+pre_instruction (taxonomy_version 3) / the new cancellation phrase / body_vrm='' on the HD4110 shape.
+Byte-mirror restored (drift guard green); sibling suite 381 passed.
+
+
 **2026-07-08 (signature-aware `_delivered_images_only` — collisionspike PR#45 review, Finding C):**
 this vendored copy is now re-cut from the sibling at **`engine-v2.9`** (branch
 `feat/tkt043-open-case-ref-context`, commit `130e862`). One file, `rules/email_classifier.py`:
@@ -217,12 +328,28 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.8`** on branch
-  `feat/tkt043-open-case-ref-context`, commit **`b30e382`** (2026-07-08) — the
-  `open_case_ref_match` context input + the `_delivered_images_only` filename tier
-  (collisionspike TKT-043; see History above). Only `rules/email_classifier.py` changed
-  vs `engine-v2.7`; every other shared file is unchanged. (Sibling branch/tag committed
-  locally — push before relying on it in CI.) Prior pins: **`engine-v2.7`** (commit
+- **Cut from:** intended tag **`engine-v2.13`** on branch
+  `feat/tkt043-open-case-ref-context` — **commit + `engine-v2.13` tag PENDING** (the classifier
+  C2/C4 bug-fix re-cut was applied to the sibling working tree; the operator commits + tags + pushes
+  it per ADR-0018 BEFORE deploying the parser Function — do NOT deploy from an uncommitted re-cut).
+  Changed vs `engine-v2.12`: **`rules/email_classifier.py` ONLY** (C2 `pre_instruction` Rule-0e
+  disqualifier + C4 labelled-ref `finditer`; no new taxonomy codes, no DDL dependency).
+  Prior committed pin: annotated tag **`engine-v2.12`** on the same branch, commit **`ab5f8d2`**
+  (2026-07-09) — the TKT-136 fallback-reference money/fragment guards + document-path VRM
+  tight-anchor/trigram port (sibling commit `a80246b`) and the TKT-102 Tractable image-delivery
+  classifier lane + Tractable layout provider, incl. a **deliberate providers.json seed update** (see
+  History above). Changed vs `engine-v2.11`: `rules/engine.py`, `rules/email_classifier.py`,
+  `rules/triage_rules.py`, `normalization/normalizers.py`, `resources/triage-rules.json`
+  + `.schema.json`, and the providers.json seed. **Branch + `engine-v2.12` tag are PUSHED
+  to origin** (`engine-v2.10`/`v2.11` were already on origin). Prior pins:
+  **`engine-v2.11`** (commit `4cbf19a`, 2026-07-09, TKT-090 naming fix — no
+  `RJS`/`UnknownVRM` defaults — + TKT-089 large-banner decorative heuristic),
+  **`engine-v2.10`** (commit `8e7f2f7`, 2026-07-09, PLAN-003 classifier wave — taxonomy
+  v3 + VRM/ref guards + CDQ claim form, incl. a deliberate providers.json seed update),
+  **`engine-v2.9`** (commit `130e862`, 2026-07-08, signature-aware
+  `_delivered_images_only`), **`engine-v2.8`** (commit `b30e382`, 2026-07-08 — the
+  `open_case_ref_match` context input + the `_delivered_images_only` filename tier,
+  collisionspike TKT-043), **`engine-v2.7`** (commit
   `ccfb473`, 2026-07-07, the acknowledgement/query/case_update batch — collisionspike
   TKT-081/082/083/093, upstreamed from this vendored copy). Earlier pins:
   `engine-v2.6` (commit `f474ea0`, ADR-0021 case-type marker taxonomy + TKT-051
@@ -364,3 +491,4 @@ shared file must now be byte-identical (`git -C $S diff --stat` against the
 ref should show nothing beyond what you intended to change). If it isn't,
 STOP and reconcile before committing — see "Reconciliations" above for the
 pattern to use if a genuine new divergence is unavoidable.
+

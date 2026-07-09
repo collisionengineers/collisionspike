@@ -16,6 +16,8 @@ import { app, type HttpRequest, type InvocationContext } from '@azure/functions'
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
 import { resolveBytesForRow, type EvidenceByteRow } from '../lib/evidence-bytes.js';
+import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
+import { rowToEvidence, type Row } from '../lib/mappers.js';
 
 // GET /api/evidence/{id}/content
 app.http('evidenceContent', {
@@ -51,5 +53,54 @@ app.http('evidenceContent', {
       ctx.warn(`[evidence/content] ${e instanceof Error ? e.message : String(e)}`);
       return { status: 404, jsonBody: { error: 'unavailable' } };
     }
+  }),
+});
+
+/* ============================================================
+   PATCH /api/evidence/{id}  — reviewer dismisses the reflection warning (TKT-123).
+
+   The vision classifier stamps `person_reflection` on an image at intake; the SPA
+   shows a plain-English warning badge and the reviewer may dismiss it. The
+   dismissal must PERSIST across reloads, so it lands here as a small durable
+   PATCH: body { reflectionDismissed: boolean } (true dismisses, false restores).
+   Returns the updated Evidence row in the imagesForCase read shape. The flag is
+   ADVISORY only — it never touches excluded/accepted (exclusion stays a separate
+   staff decision).
+   ============================================================ */
+app.http('patchEvidence', {
+  methods: ['PATCH'],
+  authLevel: 'anonymous',
+  route: 'evidence/{id}',
+  handler: withRole('CollisionSpike.User', async (req: HttpRequest, _ctx: InvocationContext, claims) => {
+    const id = req.params.id;
+    if (!id) return { status: 400, jsonBody: { error: 'evidence id required' } };
+    const body = (await req.json().catch(() => ({}))) as { reflectionDismissed?: unknown };
+    if (typeof body.reflectionDismissed !== 'boolean') {
+      return { status: 400, jsonBody: { error: 'reflectionDismissed (boolean) is required' } };
+    }
+
+    const rows = await query<Row>(
+      `UPDATE evidence
+          SET reflection_dismissed = $2, updated_at = now()
+        WHERE id = $1
+        RETURNING *`,
+      [id, body.reflectionDismissed],
+    );
+    const updated = rows[0];
+    if (!updated) return { status: 404, jsonBody: { error: 'not found' } };
+
+    // Classification-family audit: a human overrode/acknowledged a classifier flag.
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.attachment_classified,
+      ...(updated.case_id ? { caseId: updated.case_id } : {}),
+      summary: body.reflectionDismissed
+        ? `Reflection warning dismissed on ${updated.file_name ?? id}`
+        : `Reflection warning restored on ${updated.file_name ?? id}`,
+      after: { evidenceId: id, reflectionDismissed: body.reflectionDismissed },
+      ...(actor ? { actor } : {}),
+    });
+
+    return { status: 200, jsonBody: rowToEvidence(updated) };
   }),
 });

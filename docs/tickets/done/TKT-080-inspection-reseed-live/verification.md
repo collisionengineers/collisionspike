@@ -1,0 +1,85 @@
+# Verification — TKT-080: Reseed the live address catalogue + deploy and prove the whole inspection repair
+
+## Verdict
+RESEED DONE + PROVEN; API/SPA/Function DEPLOYED; data smoke PASS (2026-07-06); the `AZURE_MAPS_KEY`
+proximity wiring is now done too (§6). Operator live SPA click-through per provider is the remainder
+(API HTTP is bearer-gated for the agent).
+
+Pre-reseed baseline (the before-side of the diff):
+[evidence/preflight-baseline-2026-07-06.md](./evidence/preflight-baseline-2026-07-06.md).
+
+## 1. Live reseed — backup-first, confirmed-rows preserved, idempotent
+Ran (Entra `digital@` → `SET ROLE csadmin`, transient FW rule added+removed) the DDL delta
+(`provider_code`/`latitude`/`longitude` + provider index) + the `920` replace seed from the corrected
+`inspection-suggestions.csv`:
+```
+BEFORE: confirmed=175  checksum=6102225bceaaf851a83742f56168da05
+backup: inspection_address_reseed_backup_2026_07_06 = 2035 rows (rollback path)
+COPY 2012  ->  DELETE 2035  ->  INSERT 0 2012   (0 ON CONFLICT skips = all labels unique)
+AFTER:  suggested=2012 | confirmed=175 | provider_code=2012 | lat/lon=1878
+AFTER:  confirmed checksum=6102225bceaaf851a83742f56168da05  (== BEFORE -> 175 rows byte-identical)
+```
+**Idempotency (RUN 2):** DELETE 2012 → INSERT 2012, identical counts + identical confirmed checksum — the
+second apply converges to the same state (no-op-equivalent).
+
+## 2. Deploys
+- api `cespk-api-dev` — esbuild bundle republished (`func publish`), **82 functions** re-verified via
+  `az functionapp function list`.
+- location fn `cespkloc-fn-a7tzj2` — `func publish --python --build remote` (Oryx), host Running,
+  `location-suggest` registered.
+- SPA `cespk-spa-dev` — vite build + `swa deploy`; live CSP header re-verified
+  (`default-src 'self'; connect-src 'self' https://cespk-api-dev… https://login.microsoftonline.com; …`).
+
+## 3. Per-provider live smoke matrix (Postgres, deployed data)
+| provider | sites | geocoded | #1 site |
+|---|---|---|---|
+| QDOS | 1 | 1 | Asher Road, ML6 8TA |
+| PCH | 1 | 0 | 87 Countess Road |
+| QCL | 132 | 127 | Cariocca Business Park, M12 4AH |
+| FW | 97 | 89 | Somstar Recovery and Storage, B5 6JX |
+
+Firehose closed: **0** suggested rows without a `provider_code`. QDOS/PCH now present (were absent).
+
+## 4. Rollback path (tested by construction)
+Restore from `inspection_address_reseed_backup_2026_07_06`: `DELETE FROM inspection_address WHERE
+source_label LIKE 'suggested%'; INSERT INTO inspection_address SELECT * FROM
+inspection_address_reseed_backup_2026_07_06;` (confirmed rows are never touched by the reseed).
+
+## 5. Docs / registry
+`LIVE_FACTS.json` (`inspection_address` count refreshed — the confirmed/suggested split lives only in the
+registry [live-environment.md](../../../architecture/live-environment.md); new `verifiedBy` entry;
+`lastVerified` bumped) + the `live-environment.md` mirror updated. `inspection-address-corpus.md` +
+ADR-0016 note + gated.md updated (LOCATION_ASSIST_AI E2 + the AZURE_MAPS_KEY follow-up for proximity).
+
+## 6. Proximity key wired (2026-07-06, post-reseed follow-up)
+`AZURE_MAPS_KEY` is now live on `cespk-api-dev` as a **versioned Key Vault reference**
+(`cespk-pg-kv-dev/azure-maps-key` ← the `cespkmaps-dev` primary key). No new RBAC — the api's managed
+identity already resolves refs from that vault (same one PGPASSWORD/BOX_FN_KEY/LOCATION_SUGGEST_FN_KEY use).
+The App Service config-reference reports **`Resolved`** ("Reference has been successfully resolved"); the
+`appsettings set` auto-restarted the app so it is picked up. The live **active** deployment (`dbfa36db`,
+2026-07-06 15:39Z) has `inspectionAddressSuggestions` — the route that consumes the key — so the wiring is
+effective, not inert. Smoke (the exact runtime call, `atlas.microsoft.com/search/address/json`): ML6 8TA →
+`55.843,-3.946` (Airdrie), M12 4AH → `53.468,-2.217` (Manchester). `AZURE_MAPS_ENABLED` +
+`LOCATION_ASSIST_ENABLED` were already `true`; the absent key was the only missing piece — which is exactly
+why proximity had been silently degrading to frequency ordering. Nearest-first ordering is now live (still
+degrades honestly to frequency ordering when a case has no parseable accident/claimant postcode).
+
+## Pending (operator)
+`VERIFY_LIVE=1 node verify-all.mjs` (needs an az login in the gate's environment); the per-provider live
+SPA click-through.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+PENDING (update). The inspection-repair chain is now independently live-proven end-to-end INCLUDING the previously-missing SPA click-through (FW shortlist Somstar 168-first; QCL Cariocca 412; QDOS Asher + image-based prefill; PCH Countess; locationAssistSuggest 3x200 in App Insights; AZURE_MAPS_KEY confirmed as a versioned KV ref). Blocks on acceptance line 5 as written: (a) VERIFY_LIVE diffed on a REAL registry drift — gates.value missed RETRO_OUTLOOK_SEARCH_ENABLED=true and carried an annotation inside REPLAY_BACKFILL_ENABLED — CORRECTED by the orchestrator 2026-07-09, re-run queued; (b) two parser-pytest failures beyond the recorded environmental baseline (OAK_doc; tier2-case_update/jobref-images-received.eml corpus fixture) queued for the classifier-batch triage; (c) SQL-level re-checks queued for the transient-firewall data pass; (d) TKT-062 done-folder lacked changes/verification artifacts — back-filled 2026-07-09.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
+
+### Data-pass addendum — 2026-07-09
+
+The queued SQL re-checks PASS by direct read: inspection_address total 2187; per-provider counts match the recorded matrix (QCL 132 / FW 97 / QDOS 1 / PCH 1); 175 rows with NULL provider_code = exactly the preserved confirmed set (every suggested row carries provider_code — firehose closed at the data layer). Remaining for done: a green VERIFY_LIVE run (registry gates-block already corrected) + the parser-pytest triage riding the classifier batch.
+
+## Verdict update — 2026-07-09 (orchestrator adjudication — closing the enumerated PENDING items)
+
+VERIFIED-LIVE. The 2026-07-09 verifier PENDING enumerated four items, each now closed: (a) the LIVE_FACTS gates-block drift was corrected and VERIFY_LIVE re-run — the ONLY remaining diff is functionCounts.boxWebhook live=null, a transient read artifact three times independently re-confirmed at 12 (TKT-080 verifier, the classifier-wave implementer, and a direct az list this pass); (b) the two beyond-baseline parser pytest failures were triaged in the classifier wave (OAK_doc = the recorded fitz environmental class; the tier2 case_update fixture was a REAL regression from PR#45, FIXED in engine-v2.10 and green); (c) the SQL re-checks passed in the orchestrator data pass (2187 total, matrix counts exact, 0 suggested rows without provider_code, 175 preserved confirmed rows); (d) TKT-062 done-folder artifacts back-filled. The substantive repair chain was already independently live-proven end-to-end (SPA click-through incl. all four majors + assist telemetry + AZURE_MAPS_KEY).
+
+Verified by: ticket-verifier dispatch (2026-07-09) + orchestrating session closure of the enumerated items, 2026-07-09.

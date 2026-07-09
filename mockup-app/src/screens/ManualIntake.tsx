@@ -323,6 +323,15 @@ function emptyEvaFields(): EvaFields {
 
 type Phase = 'pick' | 'parsing' | 'review' | 'creating';
 
+/* Which entry path the review form is serving (TKT-024):
+   - 'document' / 'manual' — instruction-led: the full field set.
+   - 'images'  — images WITHOUT instructions (TKT-118: "Images received — awaiting
+     instructions", NOT "image based assessment" — a different concept). The
+     instruction-only fields are absent; required = Received from / Received on /
+     Vehicle details / Location; no provider → no Case/PO is minted (identity is
+     the VRM until instructions arrive). */
+type IntakeMode = 'document' | 'manual' | 'images';
+
 export function ManualIntake() {
   const styles = useStyles();
   const navigate = useNavigate();
@@ -335,17 +344,21 @@ export function ManualIntake() {
   const holdGate = useHoldNewCasesDefault();
 
   const [phase, setPhase] = useState<Phase>('pick');
+  const [mode, setMode] = useState<IntakeMode>('document');
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
 
   const [fields, setFields] = useState<EvaFields | undefined>();
   /* Whether the case carries parsed/keyed instructions — drives the case-type badge. */
   const [hasInstructions, setHasInstructions] = useState(false);
+  /* Image-only intake (TKT-024): who sent the images + when (required; today default). */
+  const [receivedFrom, setReceivedFrom] = useState('');
+  const [receivedOn, setReceivedOn] = useState(todayDdMmYyyy());
 
   /* Identity fields — SEPARATE and correctly labelled (review #7). */
   const [vrm, setVrm] = useState('');
   const [provider, setProvider] = useState(''); // Work provider display name
-  const [providerCode, setProviderCode] = useState(''); // 4-char Principal code
+  const [providerCode, setProviderCode] = useState(''); // Principal code (2–5 chars observed)
   // Live Case/PO allocator preview for the entered Principal (TKT-004).
   const [casePoPreview, setCasePoPreview] = useState<NextCasePoResult | undefined>();
   const [providerReference, setProviderReference] = useState(''); // provider's Claim No
@@ -363,10 +376,6 @@ export function ManualIntake() {
   const [writeProvenance, setWriteProvenance] = useState(true);
   /* Park the new case in Held on create (seeded from the admin gate; overridable). */
   const [onHold, setOnHold] = useState(false);
-  /* Image-based intake: locks the inspection address to the "Image Based
-     Assessment" literal + the image_based decision, with an optional reason. */
-  const [inspectionDecision, setInspectionDecision] = useState<'unknown' | 'image_based'>('unknown');
-  const [imageBasedReason, setImageBasedReason] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [info, setInfo] = useState<string | undefined>();
   const [issues, setIssues] = useState<ParserIssue[]>([]);
@@ -449,6 +458,7 @@ export function ManualIntake() {
       // input is the one source of truth for Work Provider — review fix).
       if (result.evaFields.workProvider?.value) setProvider(result.evaFields.workProvider.value);
       setHasInstructions(true);
+      setMode('document');
       setIssues(result.issues); // warnings, if any
       setPhase('review');
     } catch (e) {
@@ -463,26 +473,23 @@ export function ManualIntake() {
     setIssues([]);
     setFields(emptyEvaFields());
     setHasInstructions(true); // the user is keying instructions by hand
-    setInspectionDecision('unknown');
+    setMode('manual');
     setPhase('review');
   };
 
-  /* Image-based entry: an images-only case with the locked "Image Based
-     Assessment" inspection decision (no instruction document, no physical
-     location). The reviewer adds an optional reason. */
-  const startImageBased = () => {
+  /* Images-only entry (TKT-024, re-modelled): a case created from photos with NO
+     instructions yet. This was previously (incorrectly) conflated with "Image
+     Based Assessment" — a different concept (an inspection method). The
+     instruction-only fields don't exist yet, so the form drops them; the
+     inspection Location stays a REQUIRED field, and no reason is asked for. */
+  const startImagesOnly = () => {
     setError(undefined);
     setIssues([]);
-    const f = emptyEvaFields();
-    f.inspectionAddress = {
-      ...f.inspectionAddress,
-      value: 'Image Based Assessment',
-      reviewState: 'reviewed',
-    };
-    setFields(f);
+    setFields(emptyEvaFields());
     setHasInstructions(false);
-    setInspectionDecision('image_based');
-    setImageBasedReason('');
+    setReceivedFrom('');
+    setReceivedOn(todayDdMmYyyy());
+    setMode('images');
     setPhase('review');
   };
 
@@ -592,6 +599,20 @@ export function ManualIntake() {
   const missingRequired = useMemo(() => {
     if (!fields) return [];
     const missing: string[] = [];
+    if (mode === 'images') {
+      // Image-only intake (TKT-024): required = Received from / Received on /
+      // Vehicle details / Location (+ the VRM — the case's identity until
+      // instructions arrive, TKT-118). Everything else is optional.
+      if (!vrm.trim()) missing.push('Vehicle Registration');
+      if (!receivedFrom.trim()) missing.push('Received from');
+      if (!receivedOn.trim()) missing.push('Received on');
+      if (!fields.vehicleModel.value.trim()) missing.push('Vehicle Model');
+      if (!fields.inspectionAddress.value.trim()) missing.push('Location');
+      // B1: an images-only case exists BECAUSE photos arrived — require at least one,
+      // and the create handler now uploads them (previously they were silently dropped).
+      if (!hasImages) missing.push('At least one photo');
+      return missing;
+    }
     if (!vrm.trim()) missing.push('Vehicle Registration');
     if (!providerCode.trim()) missing.push('Principal');
     if (!insuredName.trim()) missing.push('Insured Name');
@@ -607,7 +628,7 @@ export function ManualIntake() {
       if (CONTRACT_REQUIRED.has(d.key) && !fields[d.key].value.trim()) missing.push(d.label);
     }
     return missing;
-  }, [fields, vrm, provider, providerCode, insuredName, providerReference, inspectOn]);
+  }, [fields, mode, vrm, provider, providerCode, insuredName, providerReference, inspectOn, receivedFrom, receivedOn, hasImages]);
 
   const canCreate = phase === 'review' && missingRequired.length === 0;
 
@@ -624,25 +645,51 @@ export function ManualIntake() {
     setPhase('creating');
     setError(undefined);
     try {
-      const evidenceCount = files.filter((f) => f !== instructionFile).length;
+      const evidenceFiles = files.filter((f) => f !== instructionFile);
+      const evidenceCount = evidenceFiles.length;
+      const isImagesOnly = mode === 'images';
       const { id } = await getDataAccess().createCase({
         evaFields: evaForCreate,
         vrm: vrm.trim(),
-          ...(provider.trim() ? { provider: provider.trim() } : {}),
-          ...(providerCode.trim() ? { providerCode: providerCode.trim() } : {}),
-          ...(insuredName.trim() ? { insuredName: insuredName.trim() } : {}),
-        ...(providerReference.trim() ? { providerReference: providerReference.trim() } : {}),
-        status,
-        sourceLabel: instructionFile
-          ? `Manual intake — ${instructionFile.name}`
-          : 'Manual intake (keyed by hand)',
-        ...(inspectionDecision === 'image_based' ? { inspectionDecision: 'image_based' as const } : {}),
-        ...(inspectionDecision === 'image_based' && imageBasedReason.trim()
-          ? { inspectionDecisionReason: imageBasedReason.trim() }
+        // Image-only intake (TKT-024/TKT-118): NO provider is sent — the provider
+        // is unknown until instructions arrive, so no Case/PO can be minted (the
+        // server only mints under a supplied principal). Identity is the VRM.
+        ...(!isImagesOnly && provider.trim() ? { provider: provider.trim() } : {}),
+        ...(!isImagesOnly && providerCode.trim() ? { providerCode: providerCode.trim() } : {}),
+        ...(insuredName.trim() ? { insuredName: insuredName.trim() } : {}),
+        ...(!isImagesOnly && providerReference.trim()
+          ? { providerReference: providerReference.trim() }
+          : {}),
+        // Intake status is automatic for image-only cases (the server recomputes
+        // from the field/evidence state) — the form no longer offers a picker.
+        status: isImagesOnly ? 'ingested' : status,
+        sourceLabel: isImagesOnly
+          ? `Images received — from ${receivedFrom.trim()}`
+          : instructionFile
+            ? `Manual intake — ${instructionFile.name}`
+            : 'Manual intake (keyed by hand)',
+        ...(isImagesOnly
+          ? { receivedFrom: receivedFrom.trim(), receivedOn: receivedOn.trim() }
           : {}),
         ...(onHold ? { onHold: true } : {}),
         writeProvenance,
       });
+      // B1: an images-only case's photos must actually be PERSISTED — createCase
+      // records only metadata. Upload the selected files through the evidence seam
+      // and AWAIT it, so a failed upload surfaces and we never claim photos were
+      // attached when they weren't. The case already exists, so we navigate to it
+      // either way (its evidence tab lets the operator retry the attach).
+      if (isImagesOnly && evidenceFiles.length > 0) {
+        const result = await getDataAccess().uploadEvidence(id, evidenceFiles);
+        const uploaded = result.status >= 200 && result.status < 300 && result.added.length > 0;
+        if (uploaded) {
+          toast(`Case created — ${result.added.length} photo${result.added.length === 1 ? '' : 's'} attached`);
+        } else {
+          toast('Case created, but the photos could not be attached — open the case to add them', 'error');
+        }
+        navigate(`/case/${id}`);
+        return;
+      }
       if (evidenceCount > 0) {
         // Persisting the evidence bytes is the operator-gated storage step; the
         // case link is the point. Surface that the files travel with the case.
@@ -660,6 +707,7 @@ export function ManualIntake() {
 
   const resetToPick = () => {
     setPhase('pick');
+    setMode('document');
     setFiles([]);
     setFields(undefined);
     setHasInstructions(false);
@@ -670,13 +718,13 @@ export function ManualIntake() {
     setInsuredName('');
     setMake('');
     setInspectOn(todayDdMmYyyy());
+    setReceivedFrom('');
+    setReceivedOn(todayDdMmYyyy());
     setStatus('ingested');
     setIssues([]);
     setError(undefined);
     setInfo(undefined);
     autoParsedRef.current = null;
-    setInspectionDecision('unknown');
-    setImageBasedReason('');
     setOnHold(holdGate.data ?? false);
   };
 
@@ -714,8 +762,8 @@ export function ManualIntake() {
             <Text weight="semibold">Drag files here — we’ll read an instruction document automatically</Text>
             <Caption1 className={styles.hint}>
               Drop a PDF, Word (.docx/.doc) or email (.eml/.msg) and it’s read automatically — no button
-              needed. Add vehicle images alongside to attach them as evidence, or choose “Image based”
-              for an images-only case.
+              needed. Add vehicle images alongside to attach them as evidence, or choose “Images only”
+              when photos arrived without instructions.
             </Caption1>
             <input
               ref={fileInputRef}
@@ -748,10 +796,10 @@ export function ManualIntake() {
               <Button
                 appearance="transparent"
                 icon={<ImageIcon size={16} />}
-                onClick={startImageBased}
+                onClick={startImagesOnly}
                 disabled={phase === 'parsing'}
               >
-                Image based (images only)
+                Images only (no instructions yet)
               </Button>
             </div>
 
@@ -836,14 +884,14 @@ export function ManualIntake() {
 
             <div className={styles.identityRow}>{vrm.trim() && <VrmPlate vrm={vrm} size="large" />}</div>
 
-            {/* VRM — a REQUIRED EVA field (review #7), with the DVLA/DVSA lookup. */}
+            {/* VRM — a REQUIRED EVA field (review #7), with the DVLA/DVSA lookup.
+                For an image-only case it is the case's IDENTITY (TKT-118). */}
             <div className={styles.fieldRow}>
               <div className={styles.fieldWithAction}>
                 <Field
                   className={styles.fieldGrow}
                   label="Vehicle Registration (VRM)"
                   required
-                  hint="The vehicle's number plate."
                   {...(!vrm.trim()
                     ? { validationState: 'error' as const, validationMessage: 'Required' }
                     : {})}
@@ -861,89 +909,120 @@ export function ManualIntake() {
               <div />
             </div>
 
-            {/* Work provider + Principal — BOTH, separate (review #7). */}
-            <div className={styles.pairRow}>
-              <Field label="Work provider" required hint="Provider display name, e.g. “Knightsbridge Solicitors”." {...(!provider.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
-                <Input value={provider} onChange={(_, d) => setProvider(d.value)} />
-              </Field>
-              <Field label="Principal" required hint="4-char principal code, e.g. KBS." {...(!providerCode.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
-                <Input value={providerCode} maxLength={8} onChange={(_, d) => setProviderCode(d.value.toUpperCase())} />
-              </Field>
-            </div>
-
-              {/* Case/PO preview — server allocates the real value when the case is created. */}
-              <div className={styles.fieldRow}>
-                <div className={styles.fieldWithAction}>
-                  <Field
-                    className={styles.fieldGrow}
-                    label="Case/PO"
-                    hint="Assigned when the case is created."
-                  >
-                    <Input value={casePoPreview?.boxUpper ?? ''} placeholder="Assigned on create" readOnly disabled />
-                  </Field>
-                </div>
-                <div />
+            {/* Image-only intake (TKT-024): who sent the photos + when. The
+                provider fields below are ABSENT — no instructions, no provider,
+                no Case/PO (identified by the VRM until instructions arrive). */}
+            {mode === 'images' && (
+              <div className={styles.pairRow}>
+                <Field
+                  label="Received from"
+                  required
+                  {...(!receivedFrom.trim()
+                    ? { validationState: 'error' as const, validationMessage: 'Required' }
+                    : {})}
+                >
+                  <Input value={receivedFrom} onChange={(_, d) => setReceivedFrom(d.value)} />
+                </Field>
+                <Field
+                  label="Received on"
+                  required
+                  {...(!receivedOn.trim()
+                    ? { validationState: 'error' as const, validationMessage: 'Required' }
+                    : {})}
+                >
+                  <DateField value={receivedOn} onChange={setReceivedOn} aria-label="Received on" />
+                </Field>
               </div>
-            {casePoPreview && (
-              <Caption1 className={styles.inlineNote}>
-                Suggested next for {casePoPreview.principal}: {casePoPreview.boxUpper} —{' '}
-                {casePoPreview.source === 'box'
-                  ? 'next after the latest archive folder'
-                  : 'next in our records'}
-                .
-              </Caption1>
             )}
 
-            {/* Provider's reference / Claim No — the provider's own case number. */}
-            <div className={styles.fieldRow}>
-              <Field
-                label="Provider's reference / Claim No"
-                required
-                hint="The work provider's own case / claim number — not our Case/PO."
-                {...(!providerReference.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
-              >
-                <Input value={providerReference} onChange={(_, d) => setProviderReference(d.value)} />
-              </Field>
-              <div />
-            </div>
+            {mode !== 'images' && (
+              <>
+                {/* Work provider + Principal — BOTH, separate (review #7). */}
+                <div className={styles.pairRow}>
+                  <Field label="Work provider" required {...(!provider.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
+                    <Input value={provider} onChange={(_, d) => setProvider(d.value)} />
+                  </Field>
+                  <Field label="Principal" required {...(!providerCode.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
+                    <Input value={providerCode} maxLength={8} onChange={(_, d) => setProviderCode(d.value.toUpperCase())} />
+                  </Field>
+                </div>
 
-            {/* Insured name. */}
+                {/* Case/PO preview — server allocates the real value when the case is created. */}
+                <div className={styles.fieldRow}>
+                  <div className={styles.fieldWithAction}>
+                    <Field className={styles.fieldGrow} label="Case/PO">
+                      <Input value={casePoPreview?.boxUpper ?? ''} placeholder="Assigned on create" readOnly disabled />
+                    </Field>
+                  </div>
+                  <div />
+                </div>
+                {casePoPreview && (
+                  <Caption1 className={styles.inlineNote}>
+                    Suggested next for {casePoPreview.principal}: {casePoPreview.boxUpper} —{' '}
+                    {casePoPreview.source === 'box'
+                      ? 'next after the latest archive folder'
+                      : 'next in our records'}
+                    .
+                  </Caption1>
+                )}
+
+                {/* Provider's reference / Claim No — the provider's own case number. */}
+                <div className={styles.fieldRow}>
+                  <Field
+                    label="Provider's reference / Claim No"
+                    required
+                    {...(!providerReference.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
+                  >
+                    <Input value={providerReference} onChange={(_, d) => setProviderReference(d.value)} />
+                  </Field>
+                  <div />
+                </div>
+              </>
+            )}
+
+            {/* Insured name — optional for an image-only case (TKT-024). */}
             <div className={styles.fieldRow}>
               <Field
                 label="Insured Name"
-                required
-                {...(!insuredName.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
+                required={mode !== 'images'}
+                {...(mode !== 'images' && !insuredName.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
               >
                 <Input value={insuredName} onChange={(_, d) => setInsuredName(d.value)} />
               </Field>
               <div />
             </div>
 
-            {/* Intake status (review #7: renamed from "Initial status"). */}
-            <div className={styles.fieldRow}>
-              <Field label="Intake status">
-                <Dropdown
-                  value={status === 'ingested' ? 'Ingested' : 'New email'}
-                  selectedOptions={[status]}
-                  onOptionSelect={(_, d) => d.optionValue && setStatus(d.optionValue as CaseStatus)}
-                >
-                  <Option value="ingested" text="Ingested">
-                    Ingested
-                  </Option>
-                  <Option value="new_email" text="New email">
-                    New email
-                  </Option>
-                </Dropdown>
-              </Field>
-              <div />
-            </div>
+            {/* Intake status (review #7) — instruction-led paths only; an image-only
+                case's status is automatic (TKT-024: "should be automatic regardless"). */}
+            {mode !== 'images' && (
+              <div className={styles.fieldRow}>
+                <Field label="Intake status">
+                  <Dropdown
+                    value={status === 'ingested' ? 'Ingested' : 'New email'}
+                    selectedOptions={[status]}
+                    onOptionSelect={(_, d) => d.optionValue && setStatus(d.optionValue as CaseStatus)}
+                  >
+                    <Option value="ingested" text="Ingested">
+                      Ingested
+                    </Option>
+                    <Option value="new_email" text="New email">
+                      New email
+                    </Option>
+                  </Dropdown>
+                </Field>
+                <div />
+              </div>
+            )}
           </div>
 
-          {/* Provider & claimant + Vehicle (make/model lookup lives here) */}
-          <span className={styles.clusterHead}>Provider &amp; claimant</span>
+          {/* Claimant + Vehicle (make/model lookup lives here). Claimant details are
+              OPTIONAL for an image-only case (TKT-024). */}
+          <span className={styles.clusterHead}>
+            {mode === 'images' ? 'Claimant (optional)' : 'Provider & claimant'}
+          </span>
           <div className={styles.clusterBody}>
             {MANUAL_CLUSTER_KEYS[0].map((key) => (
-              <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
+              <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={mode !== 'images' && LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
             ))}
           </div>
 
@@ -951,7 +1030,7 @@ export function ManualIntake() {
           <div className={styles.clusterBody}>
             {/* Make (informational/enrichable) + Model side by side (review #11). */}
             <div className={styles.pairRow}>
-              <Field label="Make" hint="Filled by the vehicle lookup.">
+              <Field label="Make">
                 <Input value={make} onChange={(_, d) => setMake(d.value)} />
               </Field>
               <Field label={LABEL_FOR.vehicleModel.label} required={LABEL_FOR.vehicleModel.required} {...(LABEL_FOR.vehicleModel.required && !fields.vehicleModel.value.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
@@ -970,116 +1049,79 @@ export function ManualIntake() {
             {MANUAL_CLUSTER_KEYS[1].map((key) => (
               <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
             ))}
-            {/* VAT is manual — DVLA/DVSA do not return it (review #16). The VAT
-                control is rendered by the EvaFieldRow above (vatStatus); add the note. */}
-            <Caption1 className={styles.inlineNote}>
-              Enter the VAT status manually.
-            </Caption1>
           </div>
 
-          {/* Incident (accident circumstances + inspection address with normalise) */}
-          <span className={styles.clusterHead}>Incident</span>
+          {/* Incident / location. The image-only variant (TKT-024) keeps ONLY the
+              required Location — accident circumstances are instruction facts that
+              don't exist yet, and the old "Image Based Assessment" lock + reason are
+              GONE (that inspection-method decision belongs to review, not intake). */}
+          <span className={styles.clusterHead}>{mode === 'images' ? 'Location' : 'Incident'}</span>
           <div className={styles.clusterBody}>
-            {MANUAL_CLUSTER_KEYS[2].map((key) => (
-              <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
-            ))}
-            {/* Inspection address — for an image-based case it is the locked
-                "Image Based Assessment" literal + a reason; otherwise the editable
-                address with the postcodes.io normalise (review #10). */}
-            {inspectionDecision === 'image_based' ? (
-              <>
-                <div className={styles.fieldRow}>
-                  <Field label={LABEL_FOR.inspectionAddress.label}>
-                    <MessageBar intent="info">
-                      <MessageBarBody>
-                        <MessageBarTitle>Image Based Assessment</MessageBarTitle>
-                        No physical inspection location — this case is assessed from images.
-                      </MessageBarBody>
-                    </MessageBar>
-                  </Field>
-                  <div className={styles.fieldMeta}>
-                    <ProvenanceBadge provenance={fields.inspectionAddress.provenance} reviewState={fields.inspectionAddress.reviewState} />
-                  </div>
-                </div>
+            {mode !== 'images' &&
+              MANUAL_CLUSTER_KEYS[2].map((key) => (
+                <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
+              ))}
+            <div className={styles.fieldRow}>
+              <div className={styles.fieldWithAction}>
+                <Field
+                  className={styles.fieldGrow}
+                  label={mode === 'images' ? 'Location' : LABEL_FOR.inspectionAddress.label}
+                  required
+                  {...(!fields.inspectionAddress.value.trim()
+                    ? { validationState: 'error' as const, validationMessage: 'Required' }
+                    : {})}
+                >
+                  <Textarea
+                    value={fields.inspectionAddress.value}
+                    onChange={(_, d) => onFieldChange('inspectionAddress', d.value)}
+                    resize="vertical"
+                    rows={6}
+                  />
+                </Field>
+                <Button
+                  icon={normalising ? <Spinner size="tiny" /> : <MapPin size={16} />}
+                  onClick={normaliseInspectionAddress}
+                  disabled={normalising || !fields.inspectionAddress.value.trim()}
+                >
+                  Standardise address
+                </Button>
+              </div>
+              <div className={styles.fieldMeta}>
+                <ProvenanceBadge provenance={fields.inspectionAddress.provenance} reviewState={fields.inspectionAddress.reviewState} />
+              </div>
+            </div>
+          </div>
+
+          {/* Dates + Inspection — instruction-led paths only (TKT-024: incident /
+              instruction / inspection dates cannot exist before instructions). */}
+          {mode !== 'images' && (
+            <>
+              <span className={styles.clusterHead}>Dates &amp; inspection</span>
+              <div className={styles.clusterBody}>
+                {MANUAL_CLUSTER_KEYS[3].map((key) => (
+                  <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
+                ))}
+                {/* Inspect on (inspection date) — required, defaults to today (review #15). */}
                 <div className={styles.fieldRow}>
                   <Field
-                    label="Reason for image-based assessment"
-                    hint="Why is there no physical inspection location? Recorded as a case note."
+                    label="Inspect on (inspection date)"
+                    required
+                    {...(!inspectOn.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
                   >
-                    <Textarea
-                      value={imageBasedReason}
-                      onChange={(_, d) => setImageBasedReason(d.value)}
-                      resize="vertical"
-                      rows={2}
+                    <DateField
+                      value={inspectOn}
+                      onChange={setInspectOn}
+                      aria-label="Inspect on (inspection date)"
                     />
                   </Field>
                   <div />
                 </div>
-              </>
-            ) : (
-              <>
-                <div className={styles.fieldRow}>
-                  <div className={styles.fieldWithAction}>
-                    <Field
-                      className={styles.fieldGrow}
-                      label={LABEL_FOR.inspectionAddress.label}
-                      required
-                      {...(!fields.inspectionAddress.value.trim()
-                        ? { validationState: 'error' as const, validationMessage: 'Required' }
-                        : {})}
-                    >
-                      <Textarea
-                        value={fields.inspectionAddress.value}
-                        onChange={(_, d) => onFieldChange('inspectionAddress', d.value)}
-                        resize="vertical"
-                        rows={6}
-                      />
-                    </Field>
-                    <Button
-                      icon={normalising ? <Spinner size="tiny" /> : <MapPin size={16} />}
-                      onClick={normaliseInspectionAddress}
-                      disabled={normalising || !fields.inspectionAddress.value.trim()}
-                    >
-                      Standardise address
-                    </Button>
-                  </div>
-                  <div className={styles.fieldMeta}>
-                    <ProvenanceBadge provenance={fields.inspectionAddress.provenance} reviewState={fields.inspectionAddress.reviewState} />
-                  </div>
-                </div>
                 <Caption1 className={styles.inlineNote}>
-                  Tidy the address into a standard format.
+                  Inspection type: Vehicle damage inspection.
                 </Caption1>
-              </>
-            )}
-          </div>
-
-          {/* Dates + Inspection */}
-          <span className={styles.clusterHead}>Dates &amp; inspection</span>
-          <div className={styles.clusterBody}>
-            {MANUAL_CLUSTER_KEYS[3].map((key) => (
-              <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
-            ))}
-            {/* Inspect on (inspection date) — required, defaults to today (review #15). */}
-            <div className={styles.fieldRow}>
-              <Field
-                label="Inspect on (inspection date)"
-                required
-                hint="Defaults to today if the instructions carry no date."
-                {...(!inspectOn.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
-              >
-                <DateField
-                  value={inspectOn}
-                  onChange={setInspectOn}
-                  aria-label="Inspect on (inspection date)"
-                />
-              </Field>
-              <div />
-            </div>
-            <Caption1 className={styles.inlineNote}>
-              Inspection type: Vehicle damage inspection.
-            </Caption1>
-          </div>
+              </div>
+            </>
+          )}
 
           {missingRequired.length > 0 && (
             <MessageBar intent="warning" className={styles.barAbove}>

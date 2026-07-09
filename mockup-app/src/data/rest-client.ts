@@ -119,8 +119,14 @@ export interface SearchCaseHit {
   vrmCanonical: string | null;
   ref: string | null;
   queue: string;
+  /** Raw status name (TKT-096): terminal cases are in search scope, so result rows
+   *  carry a real status badge; `removed` never surfaces (excluded server-side). */
+  status?: string;
   claimant: string | null;
   provider: string | null;
+  /** ISO created timestamp (TKT-072 age): result rows show "12d old". OPTIONAL —
+   *  absent on an older server payload, in which case no age is rendered. */
+  createdAt?: string | null;
 }
 export interface SearchEmailHit {
   id: string;
@@ -192,6 +198,23 @@ export interface DataAccessExt extends DataAccess {
    *  non-2xx — a chase that didn't persist must never look logged. */
   logChase(caseId: string, input: LogChaseInput): Promise<Chaser>;
 
+  /* ----- Case done lifecycle (TKT-094/095/096, ADR-0023) ----- */
+  /** Mark a case EVA Submitted after a successful Export-for-EVA download
+   *  (TKT-094 Phase B). Guarded server-side: only a ready_for_eva case advances,
+   *  so a repeat call is `{ updated:false }` — never an error. Throws on
+   *  non-2xx transport failures so the export handler can tell the operator the
+   *  status flip didn't record (the download itself already succeeded). */
+  markEvaSubmitted(caseId: string): Promise<{ updated: boolean }>;
+  /** Staff "Mark report delivered" (TKT-095 thin slice): eva_submitted → done.
+   *  Guarded idempotent server-side; throws on non-2xx — a delivery that didn't
+   *  record must never look recorded. */
+  markCaseDone(caseId: string): Promise<{ updated: boolean }>;
+  /** The Completed/Archive list (TKT-096): terminal cases the work-queues
+   *  deliberately exclude — eva_submitted (awaiting delivery), done (delivered),
+   *  box_synced (historical). Optional status filter. safe()-empty on failure
+   *  (a browse surface, never a blocker). */
+  completedCases(status?: 'eva_submitted' | 'done' | 'box_synced'): Promise<Case[]>;
+
   /* ----- AI suggestion layer (TKT-015) — observation-first, GATED ----- */
   /** Pending + recently-reviewed AI suggestions for a case. safe()-empty on failure
    *  (the panel only renders when AI_ASSIST_ENABLED, so an empty read is harmless). */
@@ -226,6 +249,15 @@ export interface DataAccessExt extends DataAccess {
    *  <img>, or undefined when there's no inline content (Box-only / bytes gone). The caller
    *  MUST URL.revokeObjectURL it on unmount. */
   evidenceContentUrl(id: string): Promise<string | undefined>;
+  /** Evidence bytes as a Blob (TKT-126 EVA-export zip): the SAME authenticated content
+   *  route, but handing back the Blob itself (zipping needs bytes; fetching a blob: URL
+   *  would need `connect-src blob:`, which the CSP does not grant). undefined when the
+   *  artifact has no inline content. */
+  evidenceContentBlob(id: string): Promise<Blob | undefined>;
+  /** Dismiss/restore the person-reflection warning on an image (TKT-123). PATCH →
+   *  the updated Evidence row. Throws on non-2xx — a dismissal that didn't persist
+   *  must never look dismissed. */
+  setReflectionDismissed(evidenceId: string, dismissed: boolean): Promise<Evidence>;
 
   /* ----- Inbound suggestion affordance — ref-gate (rules-engine-v2 Phase 2) -----
      Distinct from `aiSuggestions` above (case-scoped): keyed by the INBOUND EMAIL
@@ -264,6 +296,17 @@ export interface DataAccessExt extends DataAccess {
   revokeProviderApiKey?(idOrCode: string, keyId: string): Promise<ProviderApiKey>;
 }
 
+/** The staff-facing sentence a failed call carried (the server's `message` field —
+ *  attached by `call` below), or undefined when the failure had none. Screens render
+ *  THIS in toasts, never the technical `err.message` line (TKT-091). */
+export function serverMessageOf(err: unknown): string | undefined {
+  if (err && typeof err === 'object' && 'serverMessage' in err) {
+    const m = (err as { serverMessage?: unknown }).serverMessage;
+    if (typeof m === 'string' && m) return m;
+  }
+  return undefined;
+}
+
 export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
   const base = opts.baseUrl.replace(/\/$/, '');
 
@@ -282,27 +325,46 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
     if (res.status === 204) return undefined as T;
-    if (!res.ok)
-      throw new Error(
-        `${method} ${path} → ${res.status} ${await res.text().catch(() => '')}`,
-      );
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      const err = new Error(`${method} ${path} → ${res.status} ${text}`) as Error & {
+        status?: number;
+        serverMessage?: string;
+      };
+      err.status = res.status;
+      // TKT-091 — when the server sent a staff-facing `message` (plain English), carry
+      // it so the UI can render THAT instead of the technical line above.
+      try {
+        const parsed = JSON.parse(text) as { message?: unknown };
+        if (typeof parsed.message === 'string' && parsed.message) err.serverMessage = parsed.message;
+      } catch {
+        /* non-JSON body — no server message */
+      }
+      throw err;
+    }
     return (await res.json()) as T;
   };
 
   const get = <T>(p: string) => call<T>('GET', p);
   const post = <T>(p: string, b?: unknown) => call<T>('POST', p, b);
 
-  /** Authenticated GET → a `blob:` object URL (for <img>, since an <img> can't send the
-   *  bearer and the API is a different origin). Undefined on any non-2xx; caller revokes. */
-  const blobUrl = async (path: string): Promise<string | undefined> => {
+  /** Authenticated GET → the response Blob. Undefined on any non-2xx / transport failure. */
+  const blobOf = async (path: string): Promise<Blob | undefined> => {
     try {
       const token = await opts.getToken();
       const res = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) return undefined;
-      return URL.createObjectURL(await res.blob());
+      return await res.blob();
     } catch {
       return undefined;
     }
+  };
+
+  /** Authenticated GET → a `blob:` object URL (for <img>, since an <img> can't send the
+   *  bearer and the API is a different origin). Undefined on any non-2xx; caller revokes. */
+  const blobUrl = async (path: string): Promise<string | undefined> => {
+    const blob = await blobOf(path);
+    return blob ? URL.createObjectURL(blob) : undefined;
   };
 
   // "Honest off / honest empty" wrapper: a gate or aggregate read NEVER 5xx
@@ -354,6 +416,33 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     // Record a chase (M-E2) — 201 + the created chaser row. NOT safe()-wrapped:
     // a chase that failed to persist must surface (never a fake "logged").
     logChase: (caseId, input) => post<Chaser>(`/api/cases/${enc(caseId)}/chase`, input),
+    // Case done lifecycle (TKT-094/095/096). The two writes are NOT safe()-wrapped —
+    // a status flip that failed must reach the operator; the completed list is a
+    // browse read, safe()-empty on failure.
+    markEvaSubmitted: (caseId) =>
+      post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/eva-submitted`),
+    markCaseDone: (caseId) =>
+      post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/mark-done`),
+    // E4: the server caps each page (default 200, max 500) and returns a bare
+    // Case[] with no total — a single fetch under-counts and hides rows past the
+    // first page, so the Completed tab counts (derived from this list) were wrong.
+    // Page through with limit=500 until a short page ends the list, concatenating.
+    // Still safe()-wrapped to [] — a browse surface, never a blocker.
+    completedCases: (status) =>
+      safe(async () => {
+        const PAGE = 500;
+        const all: Case[] = [];
+        for (let offset = 0; ; offset += PAGE) {
+          const page = await get<Case[]>(
+            `/api/completed/cases?limit=${PAGE}&offset=${offset}${
+              status ? `&status=${enc(status)}` : ''
+            }`,
+          );
+          all.push(...page);
+          if (page.length < PAGE) break;
+        }
+        return all;
+      }, []),
     mergeCandidates: (id) => get<Case[]>(`/api/cases/${enc(id)}/merge-candidates`),
     mergeCases: (src, tgt) =>
       post<MergeCasesResult>(`/api/cases/${enc(tgt)}/merge`, { sourceCaseId: src }),
@@ -502,8 +591,16 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       safe(() => get<AiSuggestion[]>(`/api/cases/${enc(id)}/ai-suggestions`), []),
     reviewAiSuggestion: (id, input: AiSuggestionReviewInput) =>
       post<AiSuggestionReviewResult>(`/api/ai-suggestions/${enc(id)}/review`, input),
-    generateAiSuggestions: (id) =>
-      post<GenerateAiSuggestionsResult>(`/api/cases/${enc(id)}/ai-suggestions/generate`),
+    // Defensive over a body-less 2xx (TKT-127: the operator saw a "204 - no content" row):
+    // call() maps a 204 to `undefined`, which would crash `result.generated` in the panel
+    // and read as a SILENT nothing. The server contract always returns a JSON body, so an
+    // undefined here is a fault — surface it as an explicit error-shaped result the UI explains.
+    generateAiSuggestions: async (id) => {
+      const r = await post<GenerateAiSuggestionsResult>(
+        `/api/cases/${enc(id)}/ai-suggestions/generate`,
+      );
+      return r ?? { generated: 0, reason: 'error' };
+    },
     getAiAssistGate: () =>
       safe(() => get<AiAssistGate>('/api/gates/ai-assist'), { ...AI_ASSIST_GATE_ALL_OFF }),
     assistantChat: (messages) =>
@@ -552,6 +649,13 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       }
     },
     evidenceContentUrl: (id) => blobUrl(`/api/evidence/${enc(id)}/content`),
+    evidenceContentBlob: (id) => blobOf(`/api/evidence/${enc(id)}/content`),
+    // Mutation — NOT safe()-wrapped: a dismissal that failed to persist must surface
+    // (never a fake "dismissed" that reappears on reload).
+    setReflectionDismissed: (evidenceId, dismissed) =>
+      call<Evidence>('PATCH', `/api/evidence/${enc(evidenceId)}`, {
+        reflectionDismissed: dismissed,
+      }),
 
     /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */
     inboundSuggestions: (id) =>

@@ -152,7 +152,7 @@ yourself — no automated live move will be run).
 
 **Verify:** the email moves in Outlook, the row reads "Filed to …" and flips to Handled, and `audit_event`
 carries `outlook_move_requested` → `outlook_moved`. Record the result in
-[TKT-054/verification.md](../../tickets/verify/TKT-054-ui-work/verification.md).
+[TKT-054/verification.md](../../tickets/done/TKT-054-ui-work/verification.md).
 
 ---
 
@@ -204,7 +204,7 @@ az functionapp config appsettings set -g rg-collisionspike-dev -n cespk-orch-dev
 
 **Verify:** `az functionapp config appsettings list` readback shows the ids on both apps; a facade
 `box/search` under a configured root returns 200; a known un-linked archived case reconstructs. Tracker:
-[TKT-058/verification.md](../../tickets/now/TKT-058-retro-case-creation/verification.md).
+[TKT-058/verification.md](../../tickets/done/TKT-058-retro-case-creation/verification.md).
 
 ---
 

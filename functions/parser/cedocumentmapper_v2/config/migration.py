@@ -73,14 +73,24 @@ def migrate_provider(
 
     v1_rules = v1_prov.get("field_rules", {})
 
-    # Retrieve work_provider from rules
+    # Retrieve work_provider from rules. A layout whose work_provider rule is
+    # method "none" DECLARES the document carries no work provider (e.g. the
+    # CDQ claimant questionnaire, collisionspike TKT-022): the field stays
+    # empty for the sender-context to fill, and the engine's fall-back-to-
+    # provider-name default is suppressed (suppress_default_work_provider).
     wp_rule = v1_rules.get("work_provider", {})
-    work_provider = wp_rule.get("config", "").strip()
-    if not work_provider:
-        work_provider = name
+    if wp_rule.get("method") == "none":
+        work_provider = ""
         prov_report["defaults_applied"].append(
-            {"field": "work_provider", "reason": "fell back to provider name"}
+            {"field": "work_provider", "reason": "declared none — layout carries no work provider"}
         )
+    else:
+        work_provider = wp_rule.get("config", "").strip()
+        if not work_provider:
+            work_provider = name
+            prov_report["defaults_applied"].append(
+                {"field": "work_provider", "reason": "fell back to provider name"}
+            )
 
     # Detect phrases
     detect_phrases = v1_prov.get("detect_phrases", [])
@@ -122,6 +132,12 @@ def migrate_provider(
 
         if method == "acsp_claim_form":
             kind = "acsp_claim_form"
+        elif method == "cdq_claim_form":
+            kind = "cdq_claim_form"
+        elif method == "none":
+            # An explicit no-op rule (the field is declared absent from this
+            # layout) — the engine returns empty for kind "none".
+            kind = "none"
         # Handle presence checks for vat_status & mileage_unit
         elif field_key in {FieldKey.VAT_STATUS, FieldKey.MILEAGE_UNIT}:
             kind = "presence"
@@ -222,7 +238,7 @@ def migrate_provider(
 
     # Preserve v1 provider fields as user data. Known booleans stay at root for
     # compatibility, and any unknown keys are kept under metadata.v1_unknown.
-    for opt in ["engineer_report", "use_current_date_for_inspection_date", "force_postcode_for_inspection_address", "suppress_fallback_fields"]:
+    for opt in ["engineer_report", "use_current_date_for_inspection_date", "force_postcode_for_inspection_address", "suppress_fallback_fields", "suppress_default_work_provider"]:
         if opt in v1_prov:
             migrated[opt] = v1_prov[opt]
 
@@ -236,6 +252,7 @@ def migrate_provider(
         "use_current_date_for_inspection_date",
         "force_postcode_for_inspection_address",
         "suppress_fallback_fields",
+        "suppress_default_work_provider",
     }
     unknown = {k: v for k, v in v1_prov.items() if k not in known_keys}
 

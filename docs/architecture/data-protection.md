@@ -166,6 +166,16 @@ AI reads them transiently.
 > **Standing note:** the formal DPIA **document** itself is still tracked as [DEFERRED — PENDING LEGAL] in
 > [§7](#7-dpia--ico-registration-operatorlegal); §6a records the operator's **per-gate production
 > attestation** that authorised these two flips. The operator should file the DPIA document reference above.
+>
+> **Scope note (2026-07-09, TKT-132):** the `AI_ASSIST_ENABLED` suggestion-generate flow's text
+> inputs were widened beyond accident circumstances + claimant address to: instruction email
+> subject/body-preview (scrubbed), case overview facts (Case/PO, provider, claim type, insurer,
+> repairer, loss/instruction dates), vehicle model + mileage, and value-free photo-stamp counts
+> (never image bytes). Personal-name overview columns and claim/policy references are deliberately
+> withheld. Assessed as **within** the 2026-07-08 attestation (same gate, same `scrubPii`
+> pre-scrub, same suggestion-only posture, same deployment/residency; lower sensitivity than the
+> already-signed classes). Recorded in TKT-132's changes.md; the operator may re-scope at the next
+> review if they read the attestation more narrowly.
 
 ---
 

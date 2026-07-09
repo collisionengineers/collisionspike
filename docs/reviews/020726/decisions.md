@@ -1,7 +1,7 @@
 # Inbox simplification decision register — 2 July 2026
 
 Operator rulings distilled from ticket
-[TKT-054](../../tickets/verify/TKT-054-ui-work/TKT-054-ui-work.md) (three drop-stubs +
+[TKT-054](../../tickets/done/TKT-054-ui-work/TKT-054-ui-work.md) (three drop-stubs +
 screenshots, plus four explicit answers given when the ticket was picked up).
 Per the [review method](../README.md), a later review supersedes an earlier one:
 **this register supersedes 010726 D16 and amends D15** for the inbox; everything

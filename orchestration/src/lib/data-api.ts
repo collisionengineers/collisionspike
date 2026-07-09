@@ -174,6 +174,24 @@ export interface TriageSuggestLinkResult {
   created: boolean;
 }
 
+/** POST /api/internal/triage/held-pre-instruction request/response (TKT-084, taxonomy
+ *  v3). FIND-only: held pre-instruction rows (category pre_instruction, no case link,
+ *  triage_state 'new') matching the newly-minted case's identifiers — the caller writes
+ *  the actual case_link suggestion via `triageSuggestLink` (suggest-first; the match is
+ *  typically VRM-only, which never auto-attaches per the ADR-0019 promotion doctrine). */
+export interface HeldPreInstructionRequest {
+  vrm?: string;
+  caseRef?: string;
+  jobRef?: string;
+}
+export interface HeldPreInstructionResult {
+  held: Array<{
+    inboundEmailId: string;
+    sourceMessageId: string | null;
+    matchedOn: 'vrm' | 'case_ref' | 'job_ref';
+  }>;
+}
+
 /**
  * POST /api/internal/triage/suggest-link request body, `suggestionType: 'triage_category'`
  * shape (rules-engine-v2 Phase 4, ADR-0019 Stage C) — a DIFFERENT `suggested_value` shape
@@ -274,7 +292,10 @@ export const dataApi = {
       auditAction: string;
     };
   }): Promise<{
-    outcome: 'created' | 'attached' | 'already_ingested';
+    /** 'refused_category' (TKT-119): the API's belt-and-braces mint guard refused the
+     *  create — the message's own triage row carries a category that never mints
+     *  (acknowledgement/query/non_actionable/…). caseId is '' on that outcome. */
+    outcome: 'created' | 'attached' | 'already_ingested' | 'refused_category';
     caseId: string;
     casePo?: string | null;
     /**
@@ -363,13 +384,26 @@ export const dataApi = {
     boxFolder?: { id: string; url?: string };
     triggerCategory?: string;
   }): Promise<{
-    outcome: 'created' | 'already_exists_linked' | 'ambiguous' | 'gated_off';
+    outcome: 'created' | 'already_exists_linked' | 'ambiguous' | 'gated_off' | 'refused_category';
     caseId?: string;
     casePo?: string | null;
     newClient?: boolean;
     candidateCount?: number;
   }> {
     return request('POST', '/api/internal/retro/create', payload);
+  },
+
+  /**
+   * TKT-119c / TKT-034 — stamp a VISIBLE attention reason on an email's triage row
+   * ('unable_to_locate' after a failed retro reconstruction; 'images_no_match' for an
+   * image-bearing email with no case match). Keyed on the Internet-Message-Id; the API
+   * is schema-tolerant (stamped:false until the attention_reason column lands).
+   */
+  markInboundAttention(payload: {
+    sourceMessageId: string;
+    reason: 'unable_to_locate' | 'images_no_match';
+  }): Promise<{ stamped: boolean; detail?: string }> {
+    return request('POST', '/api/internal/inbound/attention', payload);
   },
 
   /**
@@ -408,6 +442,15 @@ export const dataApi = {
         acceptedForEva?: boolean;
         excluded?: boolean;
         exclusionReason?: string;
+        /** TKT-123: the vision classifier saw a person's reflection (advisory —
+         *  drives the SPA's dismissible warning; separate from `excluded`). */
+        personReflection?: boolean;
+        /** TKT-133 — lower-case hex SHA-256 of the attachment bytes (hashed at blob
+         *  landing, fetchMessage/blob.ts). The API's dedup extension links/skips the Box
+         *  FILE.UPLOADED mirror twin on (case_id, sha256). Optional + forward-compatible:
+         *  the route ignores it until the extension lands, and an envelope checkpointed
+         *  before the hash shipped simply omits it. */
+        sha256?: string;
       }
     >,
   ): Promise<{ persisted: number }> {
@@ -440,6 +483,8 @@ export const dataApi = {
       /** EVA exclusion (e.g. person reflection) — reason required by the schema when true. */
       excluded?: boolean;
       exclusionReason?: string;
+      /** TKT-123 advisory reflection flag (dismissible SPA warning). */
+      personReflection?: boolean;
       sha256?: string;
       sequenceIndex?: number;
       sourceLabel?: string;
@@ -479,6 +524,47 @@ export const dataApi = {
   /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
   setIngested(caseId: string): Promise<{ updated: boolean }> {
     return request('POST', `/api/internal/cases/${caseId}/set-ingested`, {});
+  },
+
+  /**
+   * TKT-095 / ADR-0023 — the shared `done` transition (internal route). Guarded
+   * server-side `WHERE status_code = eva_submitted`, so a Durable at-least-once
+   * retry / double-fire is `{ updated: false }` and any other status is never
+   * moved. `signal` names the detector; `detail` lands in the report_delivered
+   * audit snapshot (truncated server-side).
+   */
+  markDone(
+    caseId: string,
+    signal: 'sent_email' | 'box_pdf' | 'eva_poll' | 'manual',
+    detail?: string,
+  ): Promise<{ updated: boolean }> {
+    return request('POST', `/api/internal/cases/${encodeURIComponent(caseId)}/mark-done`, {
+      signal,
+      ...(detail ? { detail } : {}),
+    });
+  },
+
+  /**
+   * TKT-095 detector (a) — STATUS-AGNOSTIC case lookup (internal route; read-only).
+   * Unlike `triageContext`'s openCaseMatches (which excludes terminals by design),
+   * this returns cases in ANY status — the sent-email detector's targets sit in the
+   * terminal `eva_submitted` — together with each case's work_provider_id so the
+   * handler can confirm the recipient is that case's provider before marking done.
+   */
+  casesLookup(payload: {
+    caseIds?: string[];
+    casePo?: string;
+    vrm?: string;
+  }): Promise<{
+    cases: Array<{
+      caseId: string;
+      casePo: string;
+      status: string;
+      workProviderId: string;
+      vrm: string;
+    }>;
+  }> {
+    return request('POST', '/api/internal/cases/lookup', payload);
   },
 
   /**
@@ -538,6 +624,15 @@ export const dataApi = {
    */
   triageSuggestLink(payload: TriageSuggestLinkRequest): Promise<TriageSuggestLinkResult> {
     return request('POST', '/api/internal/triage/suggest-link', payload);
+  },
+
+  /**
+   * FIND held pre-instruction rows matching a newly-minted case's identifiers
+   * (TKT-084, taxonomy v3) — read-only; the `correlatePreInstruction` activity pairs
+   * this with `triageSuggestLink` (case_link, suggest-first) per returned row.
+   */
+  heldPreInstruction(payload: HeldPreInstructionRequest): Promise<HeldPreInstructionResult> {
+    return request('POST', '/api/internal/triage/held-pre-instruction', payload);
   },
 
   /**

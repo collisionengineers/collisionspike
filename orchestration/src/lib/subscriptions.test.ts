@@ -14,6 +14,8 @@ vi.mock('./graph.js', () => ({
 import { graphFetch } from './graph.js';
 import {
   mailboxOfResource,
+  folderOfResource,
+  isSentItemsResource,
   looksLikeMailboxAddress,
   resolveSubscriptionMailbox,
   clearSubscriptionMailboxCache,
@@ -150,5 +152,158 @@ describe('runSubscriptionMaintenance — prune de-scoped mailboxes', () => {
     const summary = await runSubscriptionMaintenance(logger);
     expect(summary.pruned).toEqual([]);
     expect(graphFetchMock).not.toHaveBeenCalledWith('/subscriptions/sub-info', { method: 'DELETE' });
+  });
+});
+
+describe('folderOfResource / isSentItemsResource (TKT-095 detector (a))', () => {
+  it('parses the folder out of a subscription resource', () => {
+    expect(folderOfResource("users/info@x.com/mailFolders('Inbox')/messages")).toBe('Inbox');
+    expect(folderOfResource("users/info@x.com/mailFolders('SentItems')/messages")).toBe('SentItems');
+  });
+
+  it("returns '' for the canonicalised notification form (no folder visible)", () => {
+    expect(folderOfResource('Users/1f0287c2-8bc9-4de0-a11e-000000000000/Messages/AAMkAD=')).toBe('');
+    expect(folderOfResource('')).toBe('');
+  });
+
+  it('isSentItemsResource is folder- and case-keyed, never true for Inbox/unknown', () => {
+    expect(isSentItemsResource("users/a@x.com/mailFolders('SentItems')/messages")).toBe(true);
+    expect(isSentItemsResource("users/a@x.com/mailFolders('sentitems')/messages")).toBe(true);
+    expect(isSentItemsResource("users/a@x.com/mailFolders('Inbox')/messages")).toBe(false);
+    expect(isSentItemsResource('Users/GUID/Messages/AAMkAD=')).toBe(false);
+  });
+});
+
+describe('runSubscriptionMaintenance — SentItems lifecycle (TKT-095 detector (a), DONE_SENT_EMAIL_ENABLED)', () => {
+  const OLD_ENV = {
+    base: process.env.ORCH_PUBLIC_BASE_URL,
+    mbx: process.env.GRAPH_INTAKE_MAILBOXES,
+    cs: process.env.GRAPH_CLIENT_STATE,
+    gate: process.env.DONE_SENT_EMAIL_ENABLED,
+  };
+  beforeEach(() => {
+    process.env.ORCH_PUBLIC_BASE_URL = 'https://orch.example';
+    process.env.GRAPH_INTAKE_MAILBOXES = JSON.stringify([{ mailbox: 'info@x.com', minIntakeDate: '2026-01-01T00:00:00Z' }]);
+    process.env.GRAPH_CLIENT_STATE = 'test-client-state';
+    delete process.env.DONE_SENT_EMAIL_ENABLED;
+  });
+  afterEach(() => {
+    process.env.ORCH_PUBLIC_BASE_URL = OLD_ENV.base;
+    process.env.GRAPH_INTAKE_MAILBOXES = OLD_ENV.mbx;
+    process.env.GRAPH_CLIENT_STATE = OLD_ENV.cs;
+    if (OLD_ENV.gate === undefined) delete process.env.DONE_SENT_EMAIL_ENABLED;
+    else process.env.DONE_SENT_EMAIL_ENABLED = OLD_ENV.gate;
+  });
+  const logger = { log: () => {}, warn: () => {}, error: () => {} };
+
+  const inboxSub = {
+    id: 'sub-info',
+    resource: "users/info@x.com/mailFolders('Inbox')/messages",
+    notificationUrl: 'https://orch.example/api/graph-webhook',
+    expirationDateTime: 'e',
+  };
+  const sentSub = {
+    id: 'sub-info-sent',
+    resource: "users/info@x.com/mailFolders('SentItems')/messages",
+    notificationUrl: 'https://orch.example/api/graph-webhook-sent',
+    expirationDateTime: 'e',
+  };
+
+  function wire(existing: Record<string, unknown>[], captureCreates: unknown[]) {
+    graphFetchMock.mockImplementation(async (path: string, init?: { method?: string; body?: unknown }) => {
+      const method = init?.method ?? 'GET';
+      if (path === '/subscriptions' && method === 'GET') return { value: existing };
+      if (path === '/subscriptions' && method === 'POST') {
+        const body = JSON.parse(String(init?.body ?? '{}'));
+        captureCreates.push(body);
+        return { id: `new-${captureCreates.length}`, resource: body.resource, expirationDateTime: 'n' };
+      }
+      if (method === 'DELETE') return undefined;
+      if (method === 'PATCH') return { id: path.split('/').pop(), expirationDateTime: 'renewed' };
+      return {};
+    });
+  }
+
+  it('gate OFF + no SentItems subs → behaviour identical to today (renew only, no creates/prunes)', async () => {
+    const creates: unknown[] = [];
+    wire([inboxSub], creates);
+    const summary = await runSubscriptionMaintenance(logger);
+    expect(creates).toEqual([]);
+    expect(summary.created).toEqual([]);
+    expect(summary.pruned).toEqual([]);
+    expect(summary.renewed.map((r) => r.subId)).toEqual(['sub-info']);
+  });
+
+  it('gate ON → creates a SentItems subscription per configured mailbox, routed to the sent endpoints', async () => {
+    process.env.DONE_SENT_EMAIL_ENABLED = 'true';
+    const creates: Array<{ resource?: string; notificationUrl?: string; lifecycleNotificationUrl?: string; changeType?: string }> = [];
+    wire([inboxSub], creates);
+    const summary = await runSubscriptionMaintenance(logger);
+    expect(summary.created).toEqual(['sentitems:info@x.com']);
+    expect(creates).toHaveLength(1);
+    expect(creates[0].resource).toBe("users/info@x.com/mailFolders('SentItems')/messages");
+    expect(creates[0].notificationUrl).toBe('https://orch.example/api/graph-webhook-sent');
+    expect(creates[0].lifecycleNotificationUrl).toBe('https://orch.example/api/graph-lifecycle-sent');
+    expect(creates[0].changeType).toBe('created');
+    // The existing Inbox sub is renewed, never touched otherwise.
+    expect(summary.renewed.map((r) => r.subId)).toEqual(['sub-info']);
+  });
+
+  it('gate ON + SentItems sub already present → no duplicate create; both subs renewed', async () => {
+    process.env.DONE_SENT_EMAIL_ENABLED = 'true';
+    const creates: unknown[] = [];
+    wire([inboxSub, sentSub], creates);
+    const summary = await runSubscriptionMaintenance(logger);
+    expect(creates).toEqual([]);
+    expect(summary.renewed.map((r) => r.subId)).toEqual(['sub-info', 'sub-info-sent']);
+  });
+
+  it('gate OFF + a SentItems sub exists (flip-off) → the SentItems sub is PRUNED, Inbox untouched', async () => {
+    const creates: unknown[] = [];
+    wire([inboxSub, sentSub], creates);
+    const summary = await runSubscriptionMaintenance(logger);
+    expect(summary.pruned).toEqual(['sentitems:info@x.com']);
+    expect(graphFetchMock).toHaveBeenCalledWith('/subscriptions/sub-info-sent', { method: 'DELETE' });
+    expect(graphFetchMock).not.toHaveBeenCalledWith('/subscriptions/sub-info', { method: 'DELETE' });
+    expect(summary.renewed.map((r) => r.subId)).toEqual(['sub-info']);
+    expect(creates).toEqual([]); // gate off never creates
+  });
+
+  it('gate ON + a gone SentItems sub (renew 404) → recreated as SentItems, not Inbox', async () => {
+    process.env.DONE_SENT_EMAIL_ENABLED = 'true';
+    const creates: Array<{ resource?: string }> = [];
+    graphFetchMock.mockImplementation(async (path: string, init?: { method?: string; body?: unknown }) => {
+      const method = init?.method ?? 'GET';
+      if (path === '/subscriptions' && method === 'GET') return { value: [inboxSub, sentSub] };
+      if (path === '/subscriptions' && method === 'POST') {
+        const body = JSON.parse(String(init?.body ?? '{}'));
+        creates.push(body);
+        return { id: 'recreated', resource: body.resource, expirationDateTime: 'n' };
+      }
+      if (method === 'PATCH' && path.endsWith('sub-info-sent')) throw new Error('graph PATCH → 404: gone');
+      if (method === 'PATCH') return { id: path.split('/').pop(), expirationDateTime: 'renewed' };
+      return {};
+    });
+    const summary = await runSubscriptionMaintenance(logger);
+    expect(summary.recreated).toEqual(['sentitems:info@x.com']);
+    expect(creates.map((c) => c.resource)).toEqual(["users/info@x.com/mailFolders('SentItems')/messages"]);
+  });
+
+  it('a de-scoped mailbox prunes BOTH its Inbox and SentItems subscriptions', async () => {
+    process.env.DONE_SENT_EMAIL_ENABLED = 'true';
+    const creates: unknown[] = [];
+    wire(
+      [
+        inboxSub,
+        sentSub,
+        { id: 'sub-old', resource: "users/old@x.com/mailFolders('Inbox')/messages", notificationUrl: 'https://orch.example/api/graph-webhook', expirationDateTime: 'e' },
+        { id: 'sub-old-sent', resource: "users/old@x.com/mailFolders('SentItems')/messages", notificationUrl: 'https://orch.example/api/graph-webhook-sent', expirationDateTime: 'e' },
+      ],
+      creates,
+    );
+    const summary = await runSubscriptionMaintenance(logger);
+    expect(summary.pruned.sort()).toEqual(['old@x.com', 'sentitems:old@x.com']);
+    expect(graphFetchMock).toHaveBeenCalledWith('/subscriptions/sub-old', { method: 'DELETE' });
+    expect(graphFetchMock).toHaveBeenCalledWith('/subscriptions/sub-old-sent', { method: 'DELETE' });
   });
 });

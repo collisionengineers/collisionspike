@@ -5,7 +5,19 @@
  * Usage:
  *   node scripts/ticket-move.mjs TKT-108 done
  *   node scripts/ticket-move.mjs TKT-108 done --dry-run
+ *   node scripts/ticket-move.mjs TKT-108 now --force     (bypass the lifecycle guard, loudly)
  *   node scripts/ticket-move.mjs --migrate [--dry-run]
+ *
+ * TKT-114 — the docs/tickets/README.md § Lifecycle graph is ENFORCED here (it used to be
+ * documentation only; the prose twin lives in .claude/skills/ticket-orchestrate/SKILL.md
+ * § Transition guard — keep the two in step):
+ *   backlog -> now|next      next    -> now
+ *   now     -> verify|done|blocked   verify  -> done|blocked
+ *   blocked -> now           done    -> now   (regression reopen; needs a dated follow-up doc)
+ * Anything else exits non-zero without moving files. `--force` bypasses with a loud
+ * warning (verify -> now, the verify-sweep's reopen path, is deliberately --force-only).
+ * `--migrate` is exempt (it realigns folders to frontmatter, not transitions); `--dry-run`
+ * reports the same verdict a real run would without touching files.
  */
 import {
   existsSync,
@@ -26,7 +38,63 @@ const STATUS_ORDER = ["now", "verify", "done", "next", "backlog", "blocked"];
 const args = process.argv.slice(2);
 const DRY = args.includes("--dry-run");
 const MIGRATE = args.includes("--migrate");
+const FORCE = args.includes("--force");
 const POSITIONAL = args.filter((a) => !a.startsWith("--"));
+
+/* TKT-114 — the lifecycle transition graph (docs/tickets/README.md § Lifecycle).
+ * Enforced for single moves; --migrate is exempt; --force bypasses loudly. */
+const ALLOWED_TRANSITIONS = {
+  backlog: ["now", "next"],
+  next: ["now"],
+  now: ["verify", "done", "blocked"],
+  verify: ["done", "blocked"], // verify -> now (sweep reopen) is deliberately --force-only
+  blocked: ["now"],
+  done: ["now"], // regression reopen only — add a dated follow-up doc (ticket-implement)
+};
+
+function describeGraph() {
+  return [
+    "  backlog -> now|next      next    -> now",
+    "  now     -> verify|done|blocked   verify  -> done|blocked",
+    "  blocked -> now           done    -> now  (regression reopen)",
+  ].join("\n");
+}
+
+/**
+ * Enforce the lifecycle graph for a single move. Exits non-zero (moving nothing)
+ * on an illegal transition unless --force; --force proceeds with a loud warning.
+ * Runs BEFORE any directory creation/move, so a refusal touches no files
+ * (--dry-run reports the identical verdict).
+ */
+function guardTransition(id, from, to) {
+  const allowed = ALLOWED_TRANSITIONS[from] ?? [];
+  if (allowed.includes(to)) return;
+  if (FORCE) {
+    console.warn(
+      `ticket-move: WARNING — lifecycle guard BYPASSED with --force: ${id} ${from} -> ${to} ` +
+        `is outside the transition graph (allowed from '${from}': ${allowed.join(", ") || "(none)"}).`,
+    );
+    if (from === "verify" && to === "now") {
+      console.warn(
+        "ticket-move: (verify -> now is the verify-sweep's REOPEN path — permitted ONLY " +
+          "via --force, when live verification failed and the ticket returns to work.)",
+      );
+    } else if (from === "done" && to !== "now") {
+      console.warn(
+        "ticket-move: (reopening a done ticket normally goes done -> now with a dated follow-up doc.)",
+      );
+    }
+    return;
+  }
+  console.error(
+    `ticket-move: ILLEGAL transition ${id} ${from} -> ${to}.` +
+      `\n  Allowed from '${from}': ${allowed.join(", ") || "(none — unknown/invalid current status)"}` +
+      `\n  Lifecycle graph (docs/tickets/README.md § Lifecycle):\n${describeGraph()}` +
+      `\n  Use --force to bypass deliberately (verify -> now sweep reopen is --force-only).` +
+      (DRY ? "\n  (dry-run: no files were touched — a real run would refuse identically.)" : ""),
+  );
+  process.exit(1);
+}
 
 function toPosix(p) {
   return p.split(sep).join("/");
@@ -323,9 +391,12 @@ function rewriteBoard(moveMap, ticketStatuses) {
 
 function usage(exitCode = 1) {
   console.log(
-    "Usage: node scripts/ticket-move.mjs TKT-NNN <backlog|now|next|verify|done|blocked> [--dry-run]",
+    "Usage: node scripts/ticket-move.mjs TKT-NNN <backlog|now|next|verify|done|blocked> [--dry-run] [--force]",
   );
   console.log("       node scripts/ticket-move.mjs --migrate [--dry-run]");
+  console.log(
+    "The lifecycle transition graph is enforced (TKT-114); --force bypasses it loudly.",
+  );
   process.exit(exitCode);
 }
 
@@ -333,10 +404,10 @@ if (!MIGRATE && POSITIONAL.length !== 2) usage();
 if (MIGRATE && POSITIONAL.length) usage();
 if (!MIGRATE && !STATUSES.includes(POSITIONAL[1])) usage();
 
-ensureStatusDirs();
 const tickets = discoverTickets();
 const moves = [];
 if (MIGRATE) {
+  // --migrate realigns folders to frontmatter (not a lifecycle transition) — guard exempt.
   for (const t of tickets) {
     if (!STATUSES.includes(t.status))
       throw new Error(`${t.id}: invalid/missing status ${t.status}`);
@@ -351,10 +422,14 @@ if (MIGRATE) {
     console.error(`ticket-move: ticket not found: ${id}`);
     process.exit(1);
   }
+  // TKT-114 — enforce the lifecycle graph BEFORE any file/directory is touched.
+  guardTransition(t.id, t.status, newStatus);
   const oldRel = fromRoot(t.abs);
   const newRel = `docs/tickets/${newStatus}/${t.dirName}`;
   moves.push({ ...t, oldRel, newRel, newStatus });
 }
+
+ensureStatusDirs();
 
 const moveMap = new Map();
 const ticketStatuses = new Map(tickets.map((t) => [t.id, t.status]));

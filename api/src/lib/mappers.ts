@@ -16,8 +16,10 @@
 
 import {
   EVA_FIELD_ORDER,
+  INBOUND_ATTENTION_REASONS,
   OUTLOOK_MOVE_STATES,
   QUEUES,
+  isRetiredMerged,
   queueByName,
   statusToQueue,
   type ActivityEvent,
@@ -31,6 +33,7 @@ import {
   type EvaFieldKey,
   type Evidence,
   type EvidenceKind,
+  type InboundAttentionReason,
   type InboundCategory,
   type InboundCounts,
   type InboundEmail,
@@ -50,6 +53,7 @@ import {
   auditActionToActivityKind,
   automationModeCodec,
   caseStatusCodec,
+  caseTypeCodec,
   evidenceKindCodec,
   imageRoleCodec,
   inspectionDecisionCodec,
@@ -58,6 +62,7 @@ import {
   reviewStateCodec,
   sourceTypeCodec,
 } from '@cs/domain/codecs';
+import { auditActionLabel, humanActorName, lastActivityLabel, plainDetail } from './last-activity.js';
 
 /** A raw pg row. Columns come back snake-cased; values are string|number|boolean|Date|null. */
 export type Row = Record<string, any>;
@@ -66,12 +71,39 @@ export type Row = Record<string, any>;
    SELECT fragment for a full Case (row + provider display join).
    ============================================================ */
 
+/** The shared case_ select-list + provider join, split so the activity-joined
+ *  variant below can extend the SELECT list without drifting from CASE_SELECT. */
+const CASE_SELECT_COLUMNS =
+  'c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal, ' +
+  'wp.inspection_location_policy_code AS provider_inspection_policy';
+const CASE_SELECT_FROM = 'FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id';
+
 /** Base SELECT for case_ rows, joining the provider display name (mirrors the
  *  expanded cr1bd_provider_display the Code App read). Append WHERE/ORDER as needed. */
-export const CASE_SELECT =
-  'SELECT c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal, ' +
-  'wp.inspection_location_policy_code AS provider_inspection_policy ' +
-  'FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id';
+export const CASE_SELECT = `SELECT ${CASE_SELECT_COLUMNS} ${CASE_SELECT_FROM}`;
+
+/**
+ * CASE_SELECT plus the case's NEWEST activity row (TKT-117 "Last update"):
+ * one LEFT JOIN LATERAL over the union of audit_event / note / chaser, newest
+ * first, LIMIT 1 — surfaced as last_activity_kind / _at / _actor / _action_code
+ * for rowToCase's `lastActivity` mapping. Used by the queue LIST route only
+ * (single-case reads don't pay the lateral); at the current corpus size the
+ * correlated scan is cheap — a server-side page/limit is the scale follow-up.
+ */
+export const CASE_SELECT_WITH_ACTIVITY =
+  `SELECT ${CASE_SELECT_COLUMNS}, ` +
+  'la.last_activity_kind, la.last_activity_at, la.last_activity_actor, la.last_activity_action_code ' +
+  `${CASE_SELECT_FROM} ` +
+  'LEFT JOIN LATERAL (' +
+  'SELECT ev.kind AS last_activity_kind, ev.occurred_at AS last_activity_at, ' +
+  'ev.actor AS last_activity_actor, ev.action_code AS last_activity_action_code FROM (' +
+  "SELECT 'audit'::text AS kind, ae.occurred_at, ae.actor, ae.action_code FROM audit_event ae WHERE ae.case_id = c.id " +
+  'UNION ALL ' +
+  "SELECT 'note', COALESCE(n.occurred_at, n.created_at), n.author, NULL::integer FROM note n WHERE n.case_id = c.id " +
+  'UNION ALL ' +
+  "SELECT 'chaser', COALESCE(ch.sent_at, ch.drafted_at, ch.created_at), NULL, NULL::integer FROM chaser ch WHERE ch.case_id = c.id" +
+  ') ev WHERE ev.occurred_at IS NOT NULL ORDER BY ev.occurred_at DESC LIMIT 1' +
+  ') la ON true';
 
 /* ============================================================
    Date helpers — Postgres date/timestamptz <-> domain DD/MM/YYYY strings.
@@ -201,6 +233,22 @@ export interface CaseAssembly {
   now?: Date;
 }
 
+/**
+ * The `mergedInto` survivor id out of the case's `duplicate_keys` dedup-staging JSON
+ * (a text column: the merge route writes `{"mergedInto": <survivor>, ...}` — TKT-092).
+ * Tolerates a non-JSON / legacy candidate-list value (returns undefined). Never throws.
+ */
+export function mergedIntoFrom(raw: unknown): string | undefined {
+  if (raw == null) return undefined;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const v = (parsed as { mergedInto?: unknown } | null)?.mergedInto;
+    return typeof v === 'string' && v.trim() ? v.trim() : undefined;
+  } catch {
+    return undefined; // legacy/free-form duplicate_keys — not a merge marker
+  }
+}
+
 /** A case_ row (+ optional expanded children) -> the domain Case. */
 export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
   const now = opts.now ?? new Date();
@@ -212,6 +260,12 @@ export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
   const actionReason = actionReasonCodec.toName(rec.action_reason_code ?? undefined);
   const dateDue = toDmy(rec.date_due);
   const submittedAt = toDmy(rec.submitted_at);
+  // ADR-0021 case work type (NULL = standard, omitted from the payload).
+  const caseType = caseTypeCodec.toName(rec.case_type_code ?? undefined);
+  // "Last update" (TKT-117) — present only when the serving query LATERAL-joined
+  // the newest audit/note/chaser row (CASE_SELECT_WITH_ACTIVITY, cases.ts). The
+  // label is composed in ONE place (lib/last-activity.ts) — never a raw enum.
+  const lastActivityDate = toDmy(rec.last_activity_at);
 
   return {
     id: rec.id ?? '',
@@ -247,6 +301,23 @@ export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
     ...(submittedAt ? { submittedAt } : {}),
     ...(rec.box_folder_id ? { boxFolderId: rec.box_folder_id } : {}),
     ...(rec.box_folder_url ? { boxFolderUrl: rec.box_folder_url } : {}),
+    // TKT-141 — surface the merge-retirement marker (TKT-092 writes it into the
+    // duplicate_keys dedup staging JSON) so the ONE isRetiredMerged predicate can
+    // exclude retired duplicates from twin counts / attention lists / stage counts.
+    ...(mergedIntoFrom(rec.duplicate_keys) ? { mergedInto: mergedIntoFrom(rec.duplicate_keys)! } : {}),
+    ...(caseType && caseType !== 'standard' ? { caseType } : {}),
+    ...(lastActivityDate
+      ? {
+          lastActivity: {
+            label: lastActivityLabel({
+              kind: rec.last_activity_kind,
+              actionCode: rec.last_activity_action_code ?? null,
+              actor: rec.last_activity_actor ?? null,
+            }),
+            date: lastActivityDate,
+          },
+        }
+      : {}),
   };
 }
 
@@ -264,6 +335,11 @@ export function rowToEvidence(rec: Row): Evidence {
     acceptedForEva: rec.accepted_for_eva ?? false,
     ...(rec.excluded != null ? { excluded: rec.excluded } : {}),
     ...(rec.exclusion_reason ? { exclusionReason: rec.exclusion_reason } : {}),
+    // Vision reflection flag + its reviewer dismissal (TKT-123). Columns land via
+    // the 2026-07-09 evidence-reflection delta; conditional spreads tolerate a
+    // pre-delta row/query shape.
+    ...(rec.person_reflection === true ? { personReflection: true } : {}),
+    ...(rec.reflection_dismissed === true ? { reflectionDismissed: true } : {}),
     sourceLabel: rec.source_label ?? '',
     ...(rec.box_file_id ? { boxFileId: rec.box_file_id } : {}),
     ...(rec.box_file_url ? { boxFileUrl: rec.box_file_url } : {}),
@@ -448,14 +524,29 @@ export function rowToActivityEvent(rec: Row): ActivityEvent {
   const action = auditActionCodec.toName(
     rec.action_code == null ? undefined : Number(rec.action_code),
   );
+  // TKT-134 — the PRIMARY line is ALWAYS the plain-English label from the ONE
+  // last-activity map (never the raw summary/enum/payload — the old
+  // `rec.name ?? rec.after ?? action` fallback leaked "box_upload_received: …"
+  // and raw JSON onto the Action-logs page). Specifics stay on a secondary
+  // `detail` line ONLY when the summary is human-safe (plainDetail); otherwise
+  // the raw text moves behind the expandable `technical` affordance.
+  const rawSummary = typeof rec.name === 'string' ? rec.name : '';
+  const detail = plainDetail(rawSummary);
+  const technicalParts = [action ?? null, detail ? null : rawSummary || null].filter(
+    (s): s is string => Boolean(s && s.trim()),
+  );
+  const technical = technicalParts.join(' — ');
   return {
     id: rec.id ?? '',
     caseId: rec.case_id ?? '',
     vrm: '',
     kind: auditActionToActivityKind(action),
-    actor: rec.actor ?? 'System',
+    // GUID/system actors never render (humanActorName) — degrade to 'System'.
+    actor: humanActorName(rec.actor) ?? 'System',
     timestamp: formatOccurredAt(rec.occurred_at),
-    description: rec.name ?? rec.after ?? action ?? '',
+    description: auditActionLabel(rec.action_code == null ? undefined : Number(rec.action_code)),
+    ...(detail ? { detail } : {}),
+    ...(technical ? { technical } : {}),
   };
 }
 
@@ -472,6 +563,8 @@ const INBOUND_CATEGORY_BY_INT: Record<number, InboundCategory> = {
   100000004: 'non_actionable',
   100000005: 'case_update',
   100000006: 'cancellation',
+  // Taxonomy v3 (TKT-084) — see deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql.
+  100000007: 'pre_instruction',
 };
 export const INBOUND_CATEGORY_TO_INT: Record<InboundCategory, number> = {
   receiving_work: 100000000,
@@ -481,6 +574,7 @@ export const INBOUND_CATEGORY_TO_INT: Record<InboundCategory, number> = {
   non_actionable: 100000004,
   case_update: 100000005,
   cancellation: 100000006,
+  pre_instruction: 100000007,
 };
 const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000000: 'existing_provider_instruction',
@@ -496,6 +590,9 @@ const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000010: 'images_received',
   100000011: 'cancellation_notice',
   100000012: 'update_general',
+  // Taxonomy v3 (TKT-105/120 + TKT-084).
+  100000013: 'payment_remittance',
+  100000014: 'pre_instruction_directions',
 };
 export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   existing_provider_instruction: 100000000,
@@ -511,6 +608,8 @@ export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   images_received: 100000010,
   cancellation_notice: 100000011,
   update_general: 100000012,
+  payment_remittance: 100000013,
+  pre_instruction_directions: 100000014,
 };
 export const TRIAGE_STATES: readonly TriageState[] = ['new', 'routed', 'actioned', 'dismissed'];
 const CLASSIFIER_MODES: readonly ClassifierMode[] = ['deterministic', 'llm', 'human'];
@@ -613,6 +712,11 @@ export function rowToInboundEmail(rec: Row): InboundEmail {
       : {}),
     ...(rec.outlook_moved_folder ? { outlookMovedFolder: rec.outlook_moved_folder } : {}),
     ...(rec.outlook_moved_at ? { outlookMovedAt: toIso(rec.outlook_moved_at) } : {}),
+    // TKT-119c / TKT-034 — attention flag (column absent pre-delta; spread tolerates).
+    ...(rec.attention_reason &&
+    (INBOUND_ATTENTION_REASONS as readonly string[]).includes(rec.attention_reason)
+      ? { attentionReason: rec.attention_reason as InboundAttentionReason }
+      : {}),
   };
 }
 
@@ -752,6 +856,7 @@ export function tallyActiveInboundCounts(
     non_actionable: 0,
     case_update: 0,
     cancellation: 0,
+    pre_instruction: 0,
     other: 0,
     untriaged: 0,
   };
@@ -843,10 +948,15 @@ export function startOfWeek(d: Date): Date {
   return s;
 }
 
-/** Filter an already-fetched Case[] for a queue (status membership; on-hold -> Held). */
+/** Filter an already-fetched Case[] for a queue (status membership; on-hold -> Held).
+ *  TKT-141: a RETIRED merged duplicate (linked_to_instruction + mergedInto marker) is
+ *  resolved work — excluded from every queue list/count via the ONE domain predicate
+ *  (it stays openable directly; the single-case read does not go through here). */
 export function filterQueue(all: Case[], name: QueueName): Case[] {
   if (!queueByName(name)) return [];
-  return all.filter((c) => (c.onHold ? 'held' : statusToQueue(c.status)) === name);
+  return all.filter(
+    (c) => !isRetiredMerged(c) && (c.onHold ? 'held' : statusToQueue(c.status)) === name,
+  );
 }
 
 /** The cases that need a human — all three queues, Held INCLUDED (an overdue held
@@ -867,6 +977,7 @@ export const TWIN_TERMINAL: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
   'eva_submitted',
   'box_synced',
   'removed',
+  'done', // delivered (TKT-094): a delivered case is never an open twin/merge target.
 ]);
 
 /* QUEUES kept referenced for downstream filter-builders / parity readers. */

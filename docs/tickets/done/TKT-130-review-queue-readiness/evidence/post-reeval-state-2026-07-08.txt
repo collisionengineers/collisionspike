@@ -1,0 +1,236 @@
+SET
+ principal_code |             display_name             | active
+----------------+--------------------------------------+--------
+ AA             | AA Motor Claims                      | t
+ AATAXIS        | AA Taxis                             | t
+ ABBEY          | Abbey Cab Rentals Ltd                | t
+ ADAIR          | Yusuf Adair                          | f
+ ADEMOLA        | Ademola Gborigi Flat                 | f
+ ADVANCE        | Advance Taxi Hire Ltd                | f
+ AFZAAL         | Muhammad Afzaal                      | f
+ AHMADZAI       | Rashid Ahmadzai                      | f
+ AHMED          | Shuaib Ahmed                         | t
+ AHZAMI         | Hasib Ahzami                         | t
+ AKHAN          | Aadil Khan                           | t
+ AKRAMF         | Faiza Akram                          | t
+ AL             | Arrow Law                            | f
+ ALOBADY        | Ali Alobady                          | f
+ ALPHA          | Alpha Claims                         | f
+ ALS            | Auto Logistic Solutions Ltd          | t
+ AMCD           | Allan McDougall Solicitors Edinburgh | t
+ AMIR           | Muhammad Saeed Amir                  | f
+ ANDRZEJ        | Andrzej Brzezinski                   | f
+ AOSMANI        | Abdul Baqi Osmani                    | t
+ ARDEN          | Arden Christian                      | f
+ ARR            | Arrow Law Solicitors                 | f
+ ASIF           | Zayn Asif                            | t
+ AVIT           | Avit                                 | t
+ AX             | AX                                   | t
+ AYMAN          | Akidah Ayman                         | t
+ BASE           | Base Motoring                        | t
+ BIGWOOD        | Samantha Bigwood                     | t
+ BNINSKI        | Adam Bninski                         | t
+ BOGDAN         | Bogdan Manafu                        | f
+ BOGUMIL        | Bogumil Jaworski                     | f
+ BOSTON         | Ghazala Boston                       | t
+ CAN            | Canford Law Scotland Ltd             | t
+ CARSRUS        | Cars R Us                            | t
+ CASTLE         | Castle                               | t
+ C&G            | C & G Plumbing Solutions             | f
+ CLASSIST       | Claim Assist Limited                 | t
+ CRC            | Car Repair Centre CRC Ltd            | f
+ DALE           | Graham Dale                          | t
+ DLG            | DLG Legal Services Churchill Court   | f
+ DNA            | DNA Couriers                         | f
+ DOGRA          | Nitin Dogra                          | t
+ DOSANJH        | Serena Dosanjh                       | t
+ EEI            | EEI Solicitors                       | f
+ ELC            | Edward Lloyd                         | f
+ EMAAN          | Haleema Emaan                        | f
+ ESTROCIO       | Ralph Estrocio                       | t
+ F4             | F4 (name pending)                    | f
+ FAITH          | Faith                                | f
+ FARAH          | Ahmed Mohamed Farah                  | t
+ FARRUKH        | Bashir Farrukh                       | f
+ FAZIL          | Mohammed Fazil                       | t
+ FRANCZUK       | Lukasz Franczuk                      | t
+ FRUNZA         | Olga Frunza                          | f
+ GHANI          | GHANI (name pending)                 | f
+ GILDEAS        | Gildeas Solicitors                   | t
+ GYASI          | Michael Gyasi                        | f
+ HALO           | Halo Assist                          | t
+ HANSA          | Hansa Parts (UK) Ltd Unit            | f
+ HAQUE          | Mohammed El Haque                    | t
+ HASSANJ        | Josef Hassan                         | f
+ HHUSSAIN       | Hamzah Hussain                       | t
+ HIGGINS        | Callum Higgins                       | f
+ HUSSAIN        | HUSSAIN (name pending)               | f
+ IACATUS        | Casian Iacatus                       | t
+ ILC            | Injury Law Chambers                  | f
+ IONA           | Ioan Hetea                           | f
+ IQBAL          | Asim Iqbal                           | f
+ ISHAQ          | Mohammed Ishaq                       | f
+ JABEEN         | Asma Jabeen                          | t
+ JAVED          | Shiraz Javed                         | f
+ JHAMAT         | Rahul Marcus Kumar Jhamat            | t
+ JMV            | JM Vehicle Resolutions               | t
+ KAMAL          | Zain Kamal                           | t
+ KERMANI        | Mahoy Kermani                        | t
+ KHAN           | Mohamed Khan                         | t
+ KHANCC         | Saleena Khan                         | f
+ KHANL          | Laaiba Khan                          | t
+ KHANT          | Tahir Hayat Khan                     | t
+ KLAUDIA        | Klaudia Sadowska                     | f
+ KOBRYN         | Szczepan Kobryn                      | f
+ KOLECI         | Mr Gentian Koleci                    | t
+ LOSJUK         | Vitali Losjuk                        | f
+ LUNGU          | Claudia Maria Lungu                  | t
+ MABZ           | Yusuf Omer                           | t
+ MAHA           | Altimimi Maha                        | t
+ MAHMOODQ       | Qaiser Mahmood                       | t
+ MALIK          | Kiren Malik                          | f
+ MALONE         | MALONE (name pending)                | f
+ MATT           | Matt Rowland Solicitors              | t
+ MCCALMON       | Kiha Mccalmon                        | t
+ MCCOLL         | John Mccoll                          | f
+ MEHDE          | Amar Mehde                           | f
+ MEHDEA         | Amar Mehde                           | t
+ MEHMOOD        | Zakir Mehmood                        | f
+ MIAH           | Mr Mohammed Miah                     | f
+ MILOSIU        | David Milosiu                        | t
+ MIYAH          | Miyah Retail                         | f
+ MJQUINN        | MJ Quinn Oak House Knowsley          | f
+ MOHAMMAD       | Ibrahim Mohammad                     | t
+ MOHAMMED       | Nezam Ayub Mohammed                  | f
+ MORG           | Morgan Carter Solicitors             | f
+ MOSAVI         | Dawood Mosavi                        | f
+ MOSAVID        | Dawood Mosavi                        | t
+ MOURAD         | Maguy Mourad                         | t
+ MSBELLO        | Ms Bello                             | f
+ MUGHAL         | Aqsa Javed Mughal                    | t
+ MURPHY         | Gary Murphy White Moss Farm          | f
+ NAANOUA        | Hassan Nannoua                       | f
+ NAJJAR         | Mrs Naba Abed-Alhassain AL Najjar    | t
+ NANOUA         | Mahmoud Nanoua                       | f
+ NAZISH         | Nazish Fareed                        | f
+ NISAR          | Hamayoun Nisar                       | t
+ OHL            | On Hire Ltd                          | f
+ OMARALI        | Omar Ali                             | t
+ OSMANI         | Abdulwahid Osmani                    | f
+ OSMANIK        | Khalid Osmani                        | t
+ OSMANN         | Nasra Ahmed Osman                    | t
+ PARKER         | Ian Parker                           | t
+ PATEL          | Mayur Paytel                         | t
+ PCH            | Performance Car Hire                 | t
+ POLISZUK       | Patryk Poliszuk                      | f
+ POPALZAI       | Mr Farid Popalzai                    | t
+ PW             | Porter Wood Law Ltd Office           | t
+ QDOS           | QDOS                                 | t
+ RAFALIYA       | Chiragkumar Balubhai Rafaliya        | t
+ RAHMAN         | Kamrul Rahman                        | f
+ RAJA           | Waqas Raja                           | f
+ RAMEZAN        | Nader Ramezan                        | f
+ RAPID          | Rapid Rental Solutions               | f
+ REBWAR         | Rebwar Majeed                        | t
+ RELAY          | Relay Motor Group                    | t
+ ROSSICC        | Rossi Frangiamore                    | f
+ ROSTAS         | Moise Rostas                         | t
+ RVERMA         | Riya Verma                           | f
+ SADIRI         | Mohamed Sardar Sadiri                | t
+ SAID           | Mohamed Abdi Said                    | t
+ SAJEEL         | Dawud Sajeel                         | t
+ SAMSHAH        | Samuel Shah                          | t
+ SAMWAL         | Samwal Elmahi Mohamed                | t
+ SAS            | S.A.S Auto Services                  | f
+ SAT            | Satchell Moran Solicitors            | f
+ SBL            | Smart Business Link                  | t
+ SEKETE         | Valaria Sekete                       | t
+ SG             | Slater and Gordon Dempster Building  | f
+ SHAH           | Samuel Shah                          | t
+ SHAKIL         | Mohammed Shakil                      | f
+ SHARIF         | Mohamed Sharif                       | t
+ SIDDIQ         | Shafiq Siddiq                        | f
+ SIKANDER       | Sikander Mahmood                     | t
+ SIMPLE         | Simple Cars Ltd                      | t
+ SLUG           | Peter Slugocki                       | f
+ SOROUSH        | Abdul Soroush                        | t
+ STALLION       | Stallion                             | t
+ STEEL          | Connor Steel                         | f
+ SUBHANI        | Muhammad Subhani                     | t
+ SULTAN         | Mohammed Sultan                      | t
+ SYEDSHAH       | Syed Intzar Hussain Shah             | t
+ TAHA           | Taha Motors                          | t
+ TARIQHS        | Shahida Tariq                        | f
+ THORPE         | Thorpe Wilson Solicitors             | t
+ TOMAR          | Tahseen Omar                         | t
+ True           | True Solicitors LLP                  | f
+ TYSON          | Adam Tyson                           | t
+ UL             | United Legal Assistance              | f
+ VERMA          | Anish Verma                          | f
+ WARSAME        | Abdullahi Ali Warsame                | t
+ WELUX          | Welux Chauffeurs Ltd                 | t
+ WMAHMOOD       | Wasim Mahmood                        | t
+ YOUSSEF        | Youssef Benkhay                      | f
+ YUSSUF         | YUSSUF (name pending)                | t
+ ZADA           | Hiwa Zada                            | f
+(172 rows)
+
+ residual
+----------
+        0
+(1 row)
+
+          name           | count
+-------------------------+-------
+ needs_review            |   139
+ missing_images          |   109
+ missing_required_fields |    75
+ ready_for_eva           |    23
+ error                   |     2
+ removed                 |     1
+(6 rows)
+
+                  id                  |   case_po   |   vrm   |     status     | eva_inspection_address | inspection_decision_code
+--------------------------------------+-------------+---------+----------------+------------------------+--------------------------
+ ae1c0c84-ba0c-4049-be73-c149b46c2ffa | QDOS26029   | YT13UTV | needs_review   | Image Based Assessment |                100000002
+ ac34fae6-1b6f-4af6-b296-660d53631577 | A.QDOS26029 | SB09XZS | missing_images | Image Based Assessment |                100000002
+(2 rows)
+
+   case_po   |   vrm   | eva_inspection_address
+-------------+---------+------------------------
+ A.PCH26001  | HF26OMK | Image Based Assessment
+ A.PCH26010  | NC23DXW | Image Based Assessment
+ A.PCH26014  | CH04OLL | Image Based Assessment
+ A.PCH26016  | KP26XPR | Image Based Assessment
+ A.QDOS26001 | YD68TUU | Image Based Assessment
+ A.QDOS26002 | EN19RZS | Image Based Assessment
+ A.QDOS26006 | VN54JOJ | Image Based Assessment
+ A.QDOS26012 | RO17EEW | Image Based Assessment
+ A.QDOS26013 | PO56YDW | Image Based Assessment
+ A.QDOS26020 | YT64SXL | Image Based Assessment
+ A.QDOS26021 | FH62GHV | Image Based Assessment
+ A.QDOS26027 | HV65HZS | Image Based Assessment
+ A.QDOS26032 | HJ58HLV | Image Based Assessment
+ A.QDOS26035 | RJ10UAE | Image Based Assessment
+ AX26010     | M21FLN  | Image Based Assessment
+ QDOS26008   | ON0800  | Image Based Assessment
+ QDOS26013   | KS65XOZ | Image Based Assessment
+ QDOS26014   | J9GGN   | Image Based Assessment
+ QDOS26015   | AF12LNU | Image Based Assessment
+ QDOS26027   | RK56WBE | Image Based Assessment
+ QDOS26034   | DN14VKZ | Image Based Assessment
+ QDOS26037   | SG75LDO | Image Based Assessment
+ QDOS26050   | WA20LNO | Image Based Assessment
+(23 rows)
+
+                  id                  |  case_po  |   vrm   | circ_len |         status
+--------------------------------------+-----------+---------+----------+-------------------------
+ 40cd98e1-1d6b-4511-a6c6-a81f5cbe4eef | QDOS26032 | DN14VKZ |      855 | missing_required_fields
+ d55a539e-ee82-4816-8489-52b01f24c772 | QDOS26017 | RJ08LDE |      814 | needs_review
+ df9a2069-58fb-4faa-8878-b5c79387890f | QDOS26066 | GB64SMM |      798 | missing_images
+ 2acd7d5b-4c03-40a0-99d6-9dc01dc74957 | QDOS26064 | AY15EWU |      680 | needs_review
+ 2782181f-e89e-4b30-b7bc-ddb009defb90 | QDOS26025 | GK10VEM |      637 | needs_review
+ 50a625bf-9572-4298-8c61-b07077dabfc7 | QDOS26058 | RO17EEW |      581 | missing_required_fields
+ 4bbb6aeb-9dd3-4023-aa4e-ffc5fe5cd932 | QDOS26011 | DY60ZGO |      565 | missing_images
+ 2efdb925-e844-442b-b649-ce6360c78a56 | QDOS26057 | BT08YAE |      560 | needs_review
+(8 rows)

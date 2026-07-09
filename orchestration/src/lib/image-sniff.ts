@@ -1,20 +1,23 @@
 /**
  * orchestration/src/lib/image-sniff.ts
  *
- * Minimal, dependency-free PNG/JPEG dimension sniff + a "looks like a decorative
- * signature/logo image" predicate for non-inline Graph attachments (TKT-047,
- * rules-engine-v2 Phase 2 "Signature filter"). Senders' email clients often attach a
- * signature/logo image as an ordinary (non-inline) file attachment — `graph.ts`'s
- * existing `isInline` skip only catches the clients that flag it correctly, so this
- * module gives a second, content-based filter for what slips through.
+ * Minimal, dependency-free PNG/JPEG/GIF/BMP dimension sniff + a "looks like a
+ * decorative signature/logo image" predicate for non-inline Graph attachments
+ * (TKT-047, rules-engine-v2 Phase 2 "Signature filter"). Senders' email clients often
+ * attach a signature/logo image as an ordinary (non-inline) file attachment —
+ * `graph.ts`'s existing `isInline` skip only catches the clients that flag it
+ * correctly, so this module gives a second, content-based filter for what slips
+ * through.
  *
  * Mirrors the vendored cedocumentmapper engine's decorative-raster filter
- * (`_MIN_EXTRACTED_IMAGE_AREA` / `is_decorative` in
- * functions/parser/cedocumentmapper_v2/application/service.py): a pixel-**area** floor
- * below which a raster is letterhead art, not a vehicle photo — and dimensions that
- * cannot be determined are never blind-flagged on that basis alone. Graph gives us
- * bytes only (no decoded dimensions, no image-processing dependency), so
- * `sniffImageDimensions` reads just enough of the PNG/JPEG header to recover
+ * (`_MIN_EXTRACTED_IMAGE_AREA` + the banner-shape rung in `is_decorative_raster`,
+ * functions/parser/cedocumentmapper_v2/application/service.py, engine-v2.11): a
+ * pixel-**area** floor below which a raster is letterhead art, not a vehicle photo,
+ * plus a conservative large-banner shape heuristic for above-floor letterhead
+ * furniture (TKT-047's 2026-07-08 live leak / TKT-089) — and dimensions that cannot
+ * be determined are never blind-flagged on that basis alone. Graph gives us bytes
+ * only (no decoded dimensions, no image-processing dependency), so
+ * `sniffImageDimensions` reads just enough of the image header to recover
  * width*height without decoding the image.
  *
  * Pure + dependency-free by design (no `sharp`/`image-size` package) — mirrors this
@@ -24,11 +27,28 @@
 
 /**
  * Same floor as the engine's `_MIN_EXTRACTED_IMAGE_AREA` (200 * 200 px = 40,000 —
- * functions/parser/cedocumentmapper_v2/application/service.py:41, cited there as "a
+ * functions/parser/cedocumentmapper_v2/application/service.py, cited there as "a
  * floor well below any real photo but above typical letterhead art"). Area (not a
  * per-axis check) survives a wide-but-short banner logo while still rejecting it.
  */
 export const AREA_FLOOR = 200 * 200;
+
+/**
+ * Large-banner shape heuristic (TKT-047 above-floor leak / TKT-089) — mirrors the
+ * engine's `_BANNER_ASPECT_RATIO` / `_BANNER_MAX_SHORT_SIDE`
+ * (functions/parser/cedocumentmapper_v2/application/service.py `is_decorative_raster`,
+ * engine-v2.11 — keep the two in lockstep). The 2026-07-08 operator report showed
+ * signature images STILL reaching Box with the area floor provably acting: wide banner
+ * signatures (e.g. 600x150 = 90,000 px² > the 40,000 floor) clear a pure area check.
+ * An image above the floor is still decorative only when BOTH hold: the aspect ratio
+ * is extreme (long side >= 3.5x the short side) AND the short side is small
+ * (<= 240 px). Recall guard: no real phone/camera photo can match — photos are
+ * 4:3 / 3:2 / 16:9 (aspect <= ~1.8), and even an aggressive panoramic crop that
+ * reached 3.5:1 would carry a short side far above 240 px. A false positive here is
+ * evidence loss, so both conditions are required, never either alone.
+ */
+export const BANNER_ASPECT_RATIO = 3.5;
+export const BANNER_MAX_SHORT_SIDE = 240;
 
 /**
  * Conservative byte-size fallback for images whose pixel dimensions could not be
@@ -55,15 +75,19 @@ export interface SignatureImageSniffOptions {
 }
 
 /**
- * Sniff pixel `{width, height}` from a PNG or JPEG header without decoding the image.
- * Returns `undefined` for any other format, or for malformed/truncated input — callers
- * must treat that as "unknown", never as "zero-sized" (see `isLikelySignatureImage`'s
- * unknown-dimensions handling below).
+ * Sniff pixel `{width, height}` from a PNG, JPEG, GIF, or BMP header without decoding
+ * the image. Returns `undefined` for any other format, or for malformed/truncated
+ * input — callers must treat that as "unknown", never as "zero-sized" (see
+ * `isLikelySignatureImage`'s unknown-dimensions handling below). GIF + BMP were added
+ * for TKT-047's above-floor pass so those signature formats get a real dimension
+ * verdict instead of falling through to the byte-floor-only rung.
  */
 export function sniffImageDimensions(bytes: Buffer): { width: number; height: number } | undefined {
   if (!bytes || bytes.length === 0) return undefined;
   if (isPng(bytes)) return sniffPngDimensions(bytes);
   if (isJpeg(bytes)) return sniffJpegDimensions(bytes);
+  if (isGif(bytes)) return sniffGifDimensions(bytes);
+  if (isBmp(bytes)) return sniffBmpDimensions(bytes);
   return undefined;
 }
 
@@ -149,30 +173,129 @@ function sniffJpegDimensions(bytes: Buffer): { width: number; height: number } |
   return undefined; // walked off the end without finding a SOF0/1/2 marker
 }
 
+function isGif(bytes: Buffer): boolean {
+  // "GIF87a" / "GIF89a" — the two spec-defined version signatures.
+  if (bytes.length < 6) return false;
+  return (
+    bytes.toString('ascii', 0, 4) === 'GIF8' &&
+    (bytes[4] === 0x37 || bytes[4] === 0x39) && // '7' | '9'
+    bytes[5] === 0x61 // 'a'
+  );
+}
+
+/**
+ * GIF: the Logical Screen Descriptor immediately follows the 6-byte signature —
+ * width at bytes 6-7 and height at bytes 8-9, both little-endian uint16 (GIF89a
+ * spec §18; identical in 87a). The logical screen is the canvas size, which for
+ * real single-image email GIFs equals the image size. Zero dimensions (a malformed
+ * header) bail to `undefined` — unknown, never guessed.
+ */
+function sniffGifDimensions(bytes: Buffer): { width: number; height: number } | undefined {
+  if (bytes.length < 10) return undefined; // truncated before the height field
+  const width = bytes.readUInt16LE(6);
+  const height = bytes.readUInt16LE(8);
+  if (!width || !height) return undefined;
+  return { width, height };
+}
+
+function isBmp(bytes: Buffer): boolean {
+  return bytes.length >= 2 && bytes[0] === 0x42 && bytes[1] === 0x4d; // "BM"
+}
+
+/**
+ * BMP: the 14-byte file header is followed by a DIB header whose 4-byte
+ * little-endian size field (offset 14) identifies its layout:
+ *   - BITMAPCOREHEADER (size 12): width/height are uint16 LE at offsets 18 / 20.
+ *   - BITMAPINFOHEADER and its extensions (size 40 / 52 / 56 / 108 / 124):
+ *     width is int32 LE at 18-21, height int32 LE at 22-25; a NEGATIVE height
+ *     means a top-down DIB, so its magnitude is the pixel height.
+ * Any other DIB size (or a non-positive width) bails to `undefined`.
+ */
+function sniffBmpDimensions(bytes: Buffer): { width: number; height: number } | undefined {
+  if (bytes.length < 26) return undefined; // truncated before the INFOHEADER height field
+  const dibSize = bytes.readUInt32LE(14);
+  if (dibSize === 12) {
+    const width = bytes.readUInt16LE(18);
+    const height = bytes.readUInt16LE(20);
+    if (!width || !height) return undefined;
+    return { width, height };
+  }
+  if (dibSize >= 40) {
+    const width = bytes.readInt32LE(18);
+    const height = Math.abs(bytes.readInt32LE(22)); // top-down DIBs store height negative
+    if (width <= 0 || height <= 0) return undefined;
+    return { width, height };
+  }
+  return undefined; // unrecognised DIB header — unknown, never guessed
+}
+
 function isImageAttachment(filename: string, contentType: string | undefined): boolean {
   if (contentType && contentType.toLowerCase().startsWith('image/')) return true;
   return IMAGE_EXTENSION_RE.test(filename ?? '');
 }
 
+/** Why an attachment was flagged — lets the graph.ts skip trace say which rung acted. */
+export type SignatureImageReason = 'area-floor' | 'banner-shape' | 'byte-floor';
+
+export interface SignatureImageVerdict {
+  flagged: boolean;
+  /** Present only when `flagged`. */
+  reason?: SignatureImageReason;
+  /** The sniffed dimensions, when the header yielded any (flagged or not). */
+  dims?: { width: number; height: number };
+}
+
 /**
- * True when a Graph attachment looks like a decorative signature/logo image rather
- * than case evidence — the raster floor TKT-047 asks for. Non-image attachments (by
- * both content-type and extension) are ALWAYS `false`: this predicate only ever acts
- * on images.
+ * Full verdict for a Graph attachment: does it look like a decorative signature/logo
+ * image rather than case evidence (TKT-047), and why. Non-image attachments (by both
+ * content-type and extension) are ALWAYS unflagged: this predicate only ever acts on
+ * images.
  *
  * Decision table for an image attachment:
- *   - dimensions sniffed AND pixel area < `areaFloor`         → true (flag/drop)
- *   - dimensions unknown AND `bytes.length` < `byteFloorForUnknown` → true (flag/drop)
- *   - anything else (including "dimensions unknown but large enough") → false (keep)
+ *   - dimensions sniffed AND pixel area < `areaFloor`               → flag (`area-floor`)
+ *   - dimensions sniffed, above the floor, BUT banner-shaped
+ *     (aspect >= `BANNER_ASPECT_RATIO` AND short side <=
+ *     `BANNER_MAX_SHORT_SIDE` — see those constants' recall guard)  → flag (`banner-shape`)
+ *   - dimensions unknown AND `bytes.length` < `byteFloorForUnknown` → flag (`byte-floor`)
+ *   - anything else (including "dimensions unknown but large enough") → keep
  *
- * The second rung is Graph-specific: the vendored engine's `is_decorative` keeps
- * everything it cannot measure unconditionally (it only ever sees embedded document
- * rasters, never a bare signature file), but Graph hands us bytes with no decode step
- * at all — GIF/BMP are never dimension-sniffed here, and a malformed/truncated
- * PNG/JPEG header also comes back as "unknown". Falling all the way through to
- * "always keep" would let an obviously tiny GIF signature through untouched, so the
- * byte-size floor stands in as a conservative proxy — but it stays small enough that
- * a real (if unusually small) photo is never at risk.
+ * The byte-floor rung is Graph-specific: the vendored engine's `is_decorative_raster`
+ * keeps everything it cannot measure unconditionally (it only ever sees embedded
+ * document rasters, never a bare signature file), but Graph hands us bytes with no
+ * decode step at all — a malformed/truncated header comes back as "unknown", and
+ * formats outside the four sniffed here are never measured. Falling all the way
+ * through to "always keep" would let an obviously tiny signature file through
+ * untouched, so the byte-size floor stands in as a conservative proxy — but it stays
+ * small enough that a real (if unusually small) photo is never at risk.
+ */
+export function assessSignatureImage(
+  filename: string,
+  contentType: string | undefined,
+  bytes: Buffer,
+  opts: SignatureImageSniffOptions = {},
+): SignatureImageVerdict {
+  if (!isImageAttachment(filename, contentType)) return { flagged: false };
+
+  const areaFloor = opts.areaFloor ?? AREA_FLOOR;
+  const byteFloor = opts.byteFloorForUnknown ?? BYTE_FLOOR_FOR_UNKNOWN;
+
+  const dims = sniffImageDimensions(bytes);
+  if (dims) {
+    if (dims.width * dims.height < areaFloor) return { flagged: true, reason: 'area-floor', dims };
+    const longSide = Math.max(dims.width, dims.height);
+    const shortSide = Math.min(dims.width, dims.height);
+    if (longSide >= shortSide * BANNER_ASPECT_RATIO && shortSide <= BANNER_MAX_SHORT_SIDE) {
+      return { flagged: true, reason: 'banner-shape', dims };
+    }
+    return { flagged: false, dims };
+  }
+  if (bytes.length < byteFloor) return { flagged: true, reason: 'byte-floor' };
+  return { flagged: false };
+}
+
+/**
+ * Boolean convenience over `assessSignatureImage` — true when the attachment looks
+ * like a decorative signature/logo image rather than case evidence.
  */
 export function isLikelySignatureImage(
   filename: string,
@@ -180,14 +303,5 @@ export function isLikelySignatureImage(
   bytes: Buffer,
   opts: SignatureImageSniffOptions = {},
 ): boolean {
-  if (!isImageAttachment(filename, contentType)) return false;
-
-  const areaFloor = opts.areaFloor ?? AREA_FLOOR;
-  const byteFloor = opts.byteFloorForUnknown ?? BYTE_FLOOR_FOR_UNKNOWN;
-
-  const dims = sniffImageDimensions(bytes);
-  if (dims) {
-    return dims.width * dims.height < areaFloor;
-  }
-  return bytes.length < byteFloor;
+  return assessSignatureImage(filename, contentType, bytes, opts).flagged;
 }

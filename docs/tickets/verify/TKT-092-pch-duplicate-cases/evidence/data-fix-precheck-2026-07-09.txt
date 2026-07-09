@@ -1,0 +1,56 @@
+Pager usage is off.
+SET
+===== PRE/POST: affected cases =====
+                  id                  |  case_po  |    case_ref    |   vrm   | status_code | on_hold | duplicate_keys
+--------------------------------------+-----------+----------------+---------+-------------+---------+----------------
+ 68442a2a-998c-4a16-89ba-8fe226303734 | PCH26009  | 00035591/JEFFP | PK20FWT |   100000002 | f       |
+ cd9092ce-1956-4df3-80d3-6cc77ee31d9f | PCH26018  | 00035591/JEFFP | PK20FWT |   100000003 | f       |
+ 19b96214-4770-4ea7-ac56-c63741a4f430 | PCH26020  | 00035591/JEFFP | PK20FWT |   100000003 | f       |
+ 8c7cbc8e-e33c-4241-a920-8f3970cb81ff | QDOS26056 |                |         |   100000002 | f       |
+ be1a0a11-8a22-4fef-a0e6-878090360f0c |           | 226070.TA      | YH13ZSN |   100000002 | t       |
+ d1d862bd-1ae4-4028-b81e-392ff6a75029 |           | 226070.TA      | YH13ZSN |   100000002 | t       |
+(6 rows)
+
+===== PRE/POST: split email =====
+                  id                  |               case_id                | triage_state |          subject           |                                source_message_id
+--------------------------------------+--------------------------------------+--------------+----------------------------+---------------------------------------------------------------------------------
+ 86b0dc6d-724a-44b8-ba01-99f31bc5b5ee | 8c7cbc8e-e33c-4241-a920-8f3970cb81ff | routed       | 46671/1 - Michael McCarthy | <LO6P302MB0141A3C7001CF06C0747E0E080F12@LO6P302MB0141.GBRP302.PROD.OUTLOOK.COM>
+(1 row)
+
+===== PRE/POST: QCL provider domains =====
+ principal_code | known_email_domains
+----------------+---------------------
+ QCL            | qc-law.co.uk
+(1 row)
+
+===== PRE/POST: emails linked to the merge parties =====
+               case_id                | count
+--------------------------------------+-------
+ 19b96214-4770-4ea7-ac56-c63741a4f430 |     1
+ 68442a2a-998c-4a16-89ba-8fe226303734 |     1
+ be1a0a11-8a22-4fef-a0e6-878090360f0c |     1
+ cd9092ce-1956-4df3-80d3-6cc77ee31d9f |     1
+ d1d862bd-1ae4-4028-b81e-392ff6a75029 |     1
+(5 rows)
+
+===== PRE/POST: evidence on the merge parties + QDOS26056 (with created_at) =====
+               case_id                | n  |             first             |             last
+--------------------------------------+----+-------------------------------+-------------------------------
+ 19b96214-4770-4ea7-ac56-c63741a4f430 | 78 | 2026-07-03 14:19:33.088425+00 | 2026-07-03 14:19:36.429477+00
+ 68442a2a-998c-4a16-89ba-8fe226303734 |  7 | 2026-07-02 12:51:35.726522+00 | 2026-07-02 12:51:36.080025+00
+ 8c7cbc8e-e33c-4241-a920-8f3970cb81ff | 12 | 2026-07-06 21:24:25.233191+00 | 2026-07-06 21:25:10.819035+00
+ be1a0a11-8a22-4fef-a0e6-878090360f0c |  4 | 2026-07-06 15:28:50.769534+00 | 2026-07-06 15:29:27.971297+00
+ cd9092ce-1956-4df3-80d3-6cc77ee31d9f | 78 | 2026-07-03 13:39:14.411714+00 | 2026-07-03 13:39:17.516247+00
+ d1d862bd-1ae4-4028-b81e-392ff6a75029 |  4 | 2026-07-06 15:59:47.069138+00 | 2026-07-06 16:00:01.407399+00
+(6 rows)
+
+===== PRE/POST: QDOS26056 evidence detail =====
+psql:/mnt/c/Users/Alex/AppData/Local/Temp/claude/C--Users-Alex-Documents-GitHub-collisionsuite-active-collisionspike/58fd68bc-6c18-4236-8f07-b90e11b516ae/scratchpad/prepost.sql:26: ERROR:  column "filename" does not exist
+LINE 1: SELECT id, left(filename,50) AS filename, to_char(created_at...
+                        ^
+HINT:  Perhaps you meant to reference the column "evidence.file_name".
+===== PRE/POST: attention_reason column present? =====
+ attention_col
+---------------
+             0
+(1 row)

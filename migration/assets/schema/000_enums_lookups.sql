@@ -146,7 +146,12 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   -- deltas/2026-07-08-image-analysis-suggestion-types.sql). One row per RUN of
   -- POST /api/cases/{id}/image-analysis/generate (how many observation suggestions were
   -- minted + which stages degraded), distinct from the per-suggestion ai_suggestion_created.
-  (100000052, 'image_analysis_generated',    'Image Analysis Generated');
+  (100000052, 'image_analysis_generated',    'Image Analysis Generated'),
+  -- Case done lifecycle (TKT-094/095 / ADR-0023, 2026-07-09 delta -- see
+  -- deltas/2026-07-09-case-done.sql). Written by the mark-done transition
+  -- (manual button or a detector) when the CE report is delivered back to the
+  -- work provider; pairs with the eva_submitted (100000015) export action.
+  (100000053, 'report_delivered',            'Report Delivered');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code
@@ -176,8 +181,11 @@ INSERT INTO choice_case_link_state (code, name, label) VALUES
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_casestatus  (case-status.json)  -- Case.status_code
---   The parity keystone. names == mockup-app/src/contracts/case-status.ts
---   CaseStatus union 1:1. Terminals: eva_submitted, box_synced, error.
+--   The parity keystone. names == packages/domain/src/contracts/case-status.ts
+--   CaseStatus union 1:1. Terminals: eva_submitted, box_synced, error, removed,
+--   done (post-EVA delivery, TKT-094/ADR-0023). box_synced is RETAINED for
+--   history but is NO LONGER the lifecycle tail (Box folders are minted at
+--   intake); the linear tail is ... -> eva_submitted -> done.
 -- ---------------------------------------------------------------------------
 CREATE TABLE choice_case_status (
   code  integer PRIMARY KEY,
@@ -199,7 +207,12 @@ INSERT INTO choice_case_status (code, name, label) VALUES
   -- TERMINAL. Superuser soft-remove (work-todo-spike: ui-changes/delete-case): the case
   -- row + audit trail survive; PII is anonymised and the status is locked here so the
   -- status guard never re-promotes it and dedup/merge never targets it. Append-only.
-  (100000011, 'removed',                 'Removed');
+  (100000011, 'removed',                 'Removed'),
+  -- TERMINAL. Post-EVA delivery (TKT-094/095, ADR-0023): the CE report has been
+  -- delivered back to the work provider. Follows eva_submitted; written only by the
+  -- explicit mark-done transition (guarded WHERE status_code = eva_submitted), never
+  -- computed by the status guard.
+  (100000012, 'done',                    'Done');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_casetype  (case-type.json)  -- Case.case_type_code
@@ -373,7 +386,13 @@ INSERT INTO choice_inbound_category (code, name, label) VALUES
   -- with new evidence, vs a bare query) and cancellation (cancellation phrases) join the
   -- set. Emitted only once the taxonomy-v2 engine tag ships (Phase-0's tag emits v1 only).
   (100000005, 'case_update',  'Case update'),
-  (100000006, 'cancellation', 'Cancellation');
+  (100000006, 'cancellation', 'Cancellation'),
+  -- append-only (PLAN-003 classifier wave, 2026-07-09 delta -- see
+  -- deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql, TKT-084): directions
+  -- sent BEFORE the official instruction; no case minted -- the row is held and
+  -- correlated onto the later instruction's case (suggest-first, gated
+  -- TRIAGE_PRE_INSTRUCTION_ENABLED).
+  (100000007, 'pre_instruction', 'Pre-instruction');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inboundsubtype  (inbound-email-classification.json bundle)
@@ -406,7 +425,14 @@ INSERT INTO choice_inbound_subtype (code, name, label) VALUES
   -- real subtype set.
   (100000010, 'images_received',     'Images received'),
   (100000011, 'cancellation_notice', 'Cancellation notice'),
-  (100000012, 'update_general',      'Case update — general');
+  (100000012, 'update_general',      'Case update — general'),
+  -- append-only (PLAN-003 classifier wave, 2026-07-09 delta -- see
+  -- deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql): payment_remittance
+  -- (TKT-105/120 -- an inbound remittance advice / transfer notice, the mirror-image of
+  -- billing_request, filed under billing) and pre_instruction_directions (TKT-084 --
+  -- pre_instruction's only subtype).
+  (100000013, 'payment_remittance',         'Payment received'),
+  (100000014, 'pre_instruction_directions', 'Pre-instruction directions');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inspectiondecisionmode  (inspection-decision-mode.json)

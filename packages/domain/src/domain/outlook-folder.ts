@@ -31,7 +31,15 @@ export function suggestedOutlookFolder(subtype: InboundSubtype): string {
     case 'query_new_enquiry':
       return 'Inbox/Queries/Enquiries';
     case 'billing_request':
+    // payment_remittance is the inbound mirror of billing_request (an incoming
+    // remittance advice / transfer notice) — it files to Billing, not Other (TKT-105/120).
+    case 'payment_remittance':
       return 'Inbox/Billing';
+    // pre_instruction_directions are provider directions held for the later official
+    // instruction (TKT-084 pre_instruction lane) — kept together in their own folder
+    // rather than silently landing in Other.
+    case 'pre_instruction_directions':
+      return 'Inbox/Pre-instructions';
     case 'case_summary':
     case 'acknowledgement':
       return 'Inbox/No action';

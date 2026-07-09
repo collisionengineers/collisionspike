@@ -19,8 +19,16 @@ import {
   Badge,
 } from '@fluentui/react-components';
 import { Search, Car, Mail, Building2 } from 'lucide-react';
+import { CASE_STATUSES, type CaseStatus } from '@cs/domain';
+import { StatusBadge } from '../components';
+import { caseAgeLabel } from '../components/date-format';
 import { getDataAccess } from '../data';
 import type { GlobalSearchResults, SearchCaseHit } from '../data/rest-client';
+
+/** Narrow the server's status string to the CaseStatus union (TKT-096 badge). */
+function isCaseStatus(s: string | undefined): s is CaseStatus {
+  return !!s && (CASE_STATUSES as readonly string[]).includes(s);
+}
 
 const useStyles = makeStyles({
   page: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL, padding: tokens.spacingVerticalL, maxWidth: '960px' },
@@ -119,12 +127,28 @@ export default function SearchResults() {
                       {c.casePo ?? c.ref ?? c.vrm ?? 'Case'} {c.vrm ? `· ${c.vrm}` : ''}
                     </Body1>
                     <Caption1 className={styles.rowSub}>
-                      {[c.claimant, c.provider].filter(Boolean).join(' · ') || 'No claimant/provider'}
+                      {/* TKT-072 verifier finding: case rows carry the case's age
+                          ("12d old", the queue-row idiom). Absent createdAt (an
+                          older server payload) renders nothing extra. */}
+                      {[
+                        [c.claimant, c.provider].filter(Boolean).join(' · ') || 'No claimant/provider',
+                        caseAgeLabel(c.createdAt),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </Caption1>
                   </div>
-                  <Badge appearance="tint" color="informative">
-                    {c.queue}
-                  </Badge>
+                  {/* TKT-096: a real status badge on result rows — terminal cases
+                      (EVA Submitted / Done / Archived) are in scope and must read as
+                      such, not as a generic queue word. Falls back to the queue
+                      label when the server predates the status field. */}
+                  {isCaseStatus(c.status) ? (
+                    <StatusBadge status={c.status} size="small" />
+                  ) : (
+                    <Badge appearance="tint" color="informative">
+                      {c.queue}
+                    </Badge>
+                  )}
                 </button>
               ))}
             </div>
@@ -139,8 +163,15 @@ export default function SearchResults() {
             <Mail size={16} aria-hidden />
             <Caption1>Inbound emails{results?.truncated.emails ? ' (showing the first matches)' : ''}</Caption1>
           </div>
+          {/* TKT-072 verifier finding: an email hit opens THAT email's preview via the
+              inbox `?item=` deep link (Inbox.tsx consumes it once the list loads and
+              degrades to the plain inbox when the row is unknown). */}
           {results!.emails.map((e) => (
-            <button key={e.id} className={styles.row} onClick={() => navigate('/inbox')}>
+            <button
+              key={e.id}
+              className={styles.row}
+              onClick={() => navigate(`/inbox?item=${encodeURIComponent(e.id)}`)}
+            >
               <div className={styles.rowMain}>
                 <Body1>{e.subject || '(no subject)'}</Body1>
                 <Caption1 className={styles.rowSub}>{[e.from, e.category].filter(Boolean).join(' · ')}</Caption1>

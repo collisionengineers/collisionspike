@@ -1,0 +1,18 @@
+SET
+                  id                  | suggestion_type  | review_state | confidence |     model_version      |          created_at           |                                      suggested_value
+--------------------------------------+------------------+--------------+------------+------------------------+-------------------------------+--------------------------------------------------------------------------------------------
+ f38edff6-bd3d-4a76-baad-0c43be7357b3 | accident_summary | pending      |        0.8 | gpt-5:gpt-5-2025-08-07 | 2026-07-08 22:43:56.291892+00 | {"summary": "While reversing, the vehicle struck something, causing moderate damage to the
+ 3cb58a3e-8aa9-4345-9d76-2aef202a0de2 | damage_severity  | pending      |        0.9 | gpt-5:gpt-5-2025-08-07 | 2026-07-08 22:43:56.285234+00 | {"severity": "moderate"}
+ a6453348-3b5e-4406-913d-d3e887f115b3 | damage_area      | pending      |       0.95 | gpt-5:gpt-5-2025-08-07 | 2026-07-08 22:43:56.278037+00 | {"area": "rear"}
+ d7cce3c8-1215-469b-9a98-fb7bab7fe18b | damage_area      | pending      |       0.95 | gpt-5:gpt-5-2025-08-07 | 2026-07-08 22:43:56.271191+00 | {"area": "rear offside"}
+ f9d71b8c-7ef0-48a7-8905-a049b87c80fc | damage_area      | pending      |       0.95 | gpt-5:gpt-5-2025-08-07 | 2026-07-08 22:43:56.259775+00 | {"area": "rear nearside"}
+(5 rows)
+
+          occurred_at          |                  name                  |                actor
+-------------------------------+----------------------------------------+--------------------------------------
+ 2026-07-08 22:43:56.295405+00 | AI suggestion accident_summary created | 06b65d89-b4dd-4e64-927e-0f154b4f9427
+ 2026-07-08 22:43:56.288326+00 | AI suggestion damage_severity created  | 06b65d89-b4dd-4e64-927e-0f154b4f9427
+ 2026-07-08 22:43:56.281887+00 | AI suggestion damage_area created      | 06b65d89-b4dd-4e64-927e-0f154b4f9427
+ 2026-07-08 22:43:56.274103+00 | AI suggestion damage_area created      | 06b65d89-b4dd-4e64-927e-0f154b4f9427
+ 2026-07-08 22:43:56.26641+00  | AI suggestion damage_area created      | 06b65d89-b4dd-4e64-927e-0f154b4f9427
+(5 rows)

@@ -18,6 +18,7 @@
  */
 
 import * as df from 'durable-functions';
+import { canonicalizeVrm } from '@cs/domain';
 import { gates } from '@cs/domain/gates';
 import { callExtractImages, callPlateOcr } from '../../lib/functions-client.js';
 import { dataApi } from '../../lib/data-api.js';
@@ -40,6 +41,10 @@ interface ExtractImagesInput {
   /** Resolved work provider (when known) — used to honour a per-provider AI opt-out
    *  (work_provider.ai_allowed=false) before sending images to the vision model. */
   workProviderId?: string;
+  /** Resolved work-provider PRINCIPAL code (e.g. QDOS) — threaded into the parser's
+   *  /extract-images call so filename stems carry real identity when known (TKT-143).
+   *  Omitted when unresolved: the engine keeps its neutral stems (TKT-090). */
+  providerPrincipal?: string;
 }
 
 /** Documents whose embedded images we expand (PDF/DOCX/DOC — the engine's extractors). */
@@ -91,9 +96,20 @@ df.app.activity('extractImages', {
         continue;
       }
 
+      // TKT-143 — thread the RESOLVED identity into the stem naming: the provider
+      // principal (QDOS/PCH/…) and the compacted VRM, each only when known. Unknown
+      // values are omitted entirely so the engine keeps its neutral img_<page>_<n>
+      // stems (the TKT-090 omit-when-unknown rule).
+      const stemProvider = (input.providerPrincipal ?? '').trim().toUpperCase();
+      const stemVrm = canonicalizeVrm(input.caseVrm ?? '');
       let extracted: { count: number; images: import('../../lib/functions-client.js').ExtractedImage[] };
       try {
-        extracted = await callExtractImages({ documentBase64: bytes.toString('base64'), filename: doc.filename });
+        extracted = await callExtractImages({
+          documentBase64: bytes.toString('base64'),
+          filename: doc.filename,
+          ...(stemProvider ? { provider: stemProvider } : {}),
+          ...(stemVrm ? { vrm: stemVrm } : {}),
+        });
       } catch (e) {
         // 422 unreadable / 502 dep / network — skip this doc (best-effort; never block).
         ctx.warn(`[extractImages] extract failed for ${doc.filename}: ${e instanceof Error ? e.message : String(e)}`);
@@ -130,6 +146,7 @@ df.app.activity('extractImages', {
         let acceptedForEva = false; // auto-extracted unknowns: staff tag role + accept
         let excluded = false;
         let exclusionReason: string | undefined;
+        let personReflection: boolean | undefined;
 
         let classified = false;
         if (classifyAllowed && OCR_OK_EXT.test(img.filename)) {
@@ -145,6 +162,8 @@ df.app.activity('extractImages', {
             acceptedForEva = f.acceptedForEva;
             excluded = f.excluded;
             exclusionReason = f.exclusionReason;
+            // TKT-123: advisory flag → dismissible SPA warning; exclusion unchanged.
+            personReflection = f.personReflection;
             if (f.registrationVisible) anyRegVisible = true;
             classified = true;
           }
@@ -177,6 +196,7 @@ df.app.activity('extractImages', {
           acceptedForEva,
           ...(registrationVisible !== undefined ? { registrationVisible } : {}),
           ...(excluded ? { excluded: true, exclusionReason } : {}),
+          ...(personReflection !== undefined ? { personReflection } : {}),
           sha256: img.sha256,
           sequenceIndex: img.sequence_index,
           sourceLabel: `extracted from ${doc.filename}`,

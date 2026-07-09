@@ -106,6 +106,12 @@ export const AUDIT_ACTION = {
   // deltas/2026-07-08-image-analysis-suggestion-types.sql — same pre-DDL degrade as the codes
   // above (writeAudit's catch-all swallows the choice_audit_action FK failure until the delta lands).
   image_analysis_generated: 100000052,
+  // TKT-094/095 (ADR-0023) — the CE report was delivered back to the work provider
+  // (the case's eva_submitted → done transition; manual button or a detector).
+  // Minted in deltas/2026-07-09-case-done.sql — same pre-DDL degrade as the codes
+  // above. NOTE: the case-done plan draft reserved 100000049 for this, but
+  // 100000049–100000052 were taken by TKT-068/110/016 first — hence 100000053.
+  report_delivered: 100000053,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

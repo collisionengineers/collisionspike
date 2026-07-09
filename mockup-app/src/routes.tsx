@@ -11,6 +11,7 @@ import AddEvidence from './screens/AddEvidence';
 import ActionLogs from './screens/ActionLogs';
 import Inbox from './screens/Inbox';
 import SearchResults from './screens/SearchResults';
+import CompletedList from './screens/CompletedList';
 
 /* Route map (review 190626 nav IA):
    /                      → Dashboard
@@ -18,6 +19,7 @@ import SearchResults from './screens/SearchResults';
    /intake                → ManualIntake (new case)
    /evidence              → AddEvidence (second intake — link evidence to a case)
    /queue/:name           → CaseList (name = not-ready|review|held)
+   /completed             → CompletedList (TKT-096 — terminal cases; browse/audit, NOT a queue)
    /case/:caseId          → CaseDetail
    /case/:caseId/submit   → CaseDetail with EvaSubmitDialog overlaid (nested)
    /case/:caseId/merge    → CaseDetail with MergeCaseDialog overlaid (staff manual merge)
@@ -35,6 +37,7 @@ export const router = createBrowserRouter([
       { path: 'intake', element: <ManualIntake /> },
       { path: 'evidence', element: <AddEvidence /> },
       { path: 'queue/:name', element: <CaseList /> },
+      { path: 'completed', element: <CompletedList /> },
       {
         path: 'case/:caseId',
         element: <CaseDetail />,

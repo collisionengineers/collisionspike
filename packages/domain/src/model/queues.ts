@@ -5,21 +5,26 @@ import type { ActionReason, Case, CaseStatus } from './types';
 
    The queue information architecture is the case's NATURAL state, surfaced as
    the sub-options under the first-class "Queues" nav button and as the tabs on
-   the merged queue page. THREE queues (revised 2026-06-20):
+   the merged queue page. THREE queues (revised 2026-06-20; needs_review moved
+   into Review 2026-07-08, TKT-130 operator direction):
 
      1. not-ready  — "Not ready": arrived and progressing but not complete —
                      instructions without images, images without instructions, a
                      just-arrived case, or a merged case still missing a detail
                      (e.g. the inspection address).
-     2. review     — "Review": everything required is present; the human-in-the-
-                     loop check before EVA submit (a full-auto provider would have
-                     auto-submitted and never land here).
+     2. review     — "Review": the human-in-the-loop queue — a case flagged for a
+                     person to look at (needs_review) or complete and awaiting the
+                     final check before EVA submit (ready_for_eva). (TKT-130:
+                     needs_review cases belong HERE, not in Not ready.)
      3. held       — "Held": cannot pass through automatically (missing the basics
                      — VRM / claimant — or errored), a possible duplicate awaiting
                      a decision, or put on hold by a person.
 
-   "Done (today)" is not a queue PAGE: terminal cases appear in the dashboard
-   throughput strip + Action Logs, never as a backlog.
+   Terminal cases are not a queue PAGE: they appear in the dashboard throughput
+   strip + Action Logs, and (since TKT-096) in the separate Completed/Archive
+   view (/completed) — a browse/audit area, deliberately NOT a 4th work-queue
+   (ADR-0023 amends ADR-0008's "no home for terminals": they now have a home
+   that is explicitly not a work-queue).
 
    PURE LAYER ONLY. This module defines the IA (QUEUES, statusToQueue,
    queueByName, caseTypeOf), the dashboard aggregate result types
@@ -65,7 +70,6 @@ export const QUEUES: readonly QueueDef[] = [
       'ingested',
       'missing_images',
       'missing_required_fields',
-      'needs_review',
       'linked_to_instruction',
     ],
     tone: 'muted',
@@ -75,9 +79,11 @@ export const QUEUES: readonly QueueDef[] = [
     routeSegment: 'review',
     label: 'Review',
     shortLabel: 'Review',
-    // Everything required is present — the human-in-the-loop check before EVA
-    // submit. (A full-auto provider would have auto-submitted and never appear.)
-    statuses: ['ready_for_eva'],
+    // The human-in-the-loop queue: a case flagged for a person (needs_review) or
+    // complete and awaiting the final check before EVA submit (ready_for_eva).
+    // needs_review moved here from Not ready 2026-07-08 (TKT-130 operator
+    // direction: "Needs Review cases belong in the Review queue").
+    statuses: ['needs_review', 'ready_for_eva'],
     tone: 'blocker',
   },
   {
@@ -99,6 +105,21 @@ export function statusToQueue(status: CaseStatus): QueueName | undefined {
   return QUEUES.find((qq) => qq.statuses.includes(status))?.name;
 }
 
+/**
+ * TKT-141 — a RETIRED merged duplicate: a case a staff merge parked in the
+ * non-terminal `linked_to_instruction` state WITH a `mergedInto` survivor marker.
+ * Such a case is resolved work, not an open item: it must not count in same-VRM
+ * twin badges, the needs-action/attention lists, or the queue/stage counts —
+ * while remaining openable directly (case page, search). The ONE predicate every
+ * count/list derivation consumes (count contract stays single-sourced, TKT-012).
+ *
+ * A `linked_to_instruction` case WITHOUT the marker keeps its historical meaning
+ * (a partial joined to its other half) and still counts as Not-ready.
+ */
+export function isRetiredMerged(c: Pick<Case, 'status' | 'mergedInto'>): boolean {
+  return c.status === 'linked_to_instruction' && Boolean(c.mergedInto);
+}
+
 export function queueByName(name: string): QueueDef | undefined {
   return QUEUES.find((q) => q.name === name);
 }
@@ -112,11 +133,12 @@ export function queueByName(name: string): QueueDef | undefined {
    has NO held stage. `error` and `duplicate_risk` are Held — surfaced via the
    Held queue + the dashboard held bar + the aging hero — never a funnel count —
    so they map to `undefined` here (callers exclude them from the strip).
-   Buckets align with the QUEUES taxonomy:
+   Buckets align with the QUEUES taxonomy (needs_review sits in Review since
+   2026-07-08 — TKT-130 — so the funnel and the queues stay in lockstep):
      - new        ← new_email, ingested            (intake/settling)
-     - not_ready  ← missing_images, missing_required_fields, needs_review,
+     - not_ready  ← missing_images, missing_required_fields,
                     linked_to_instruction
-     - review     ← ready_for_eva
+     - review     ← needs_review, ready_for_eva
      - submitted  ← eva_submitted, box_synced
      - (none)     ← error, duplicate_risk          (Held only) */
 export function statusToStage(status: CaseStatus): PipelineStageKey | undefined {
@@ -126,13 +148,14 @@ export function statusToStage(status: CaseStatus): PipelineStageKey | undefined 
       return 'new';
     case 'missing_images':
     case 'missing_required_fields':
-    case 'needs_review':
     case 'linked_to_instruction':
       return 'not_ready';
+    case 'needs_review':
     case 'ready_for_eva':
       return 'review';
     case 'eva_submitted':
     case 'box_synced':
+    case 'done': // delivered (TKT-094): still a submitted-stage outcome for the funnel/throughput.
       return 'submitted';
     case 'error':
     case 'duplicate_risk':
@@ -158,7 +181,20 @@ export type CaseType =
 
 export const CASE_TYPE_LABELS: Record<CaseType, string> = {
   instructions_only: 'Instructions only',
-  images_only: 'Images only',
+  // TKT-118: never "Image based"/"Images only" wording that could be read as the
+  // "Image Based Assessment" inspection method — this composition label means
+  // "photos arrived, instructions haven't (yet)".
+  images_only: 'Images received — awaiting instructions',
+  both: 'Instructions + images',
+  merged: 'Merged',
+  pending: 'Pending',
+};
+
+/** Short form for tight chrome (list badges / chips) — same TKT-118 renaming rule:
+ *  unambiguous vs the "Image Based Assessment" inspection method. */
+export const CASE_TYPE_SHORT_LABELS: Record<CaseType, string> = {
+  instructions_only: 'Instructions only',
+  images_only: 'Awaiting instructions',
   both: 'Instructions + images',
   merged: 'Merged',
   pending: 'Pending',
@@ -196,6 +232,7 @@ export function caseTypeOf(
     case 'ready_for_eva':
     case 'eva_submitted':
     case 'box_synced':
+    case 'done': // a delivered case necessarily had instructions + images.
       return 'both';
     case 'duplicate_risk':
       // A possible-twin case held by dedup: its composition isn't knowable from

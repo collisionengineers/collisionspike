@@ -1,0 +1,25 @@
+id,case_po,error
+aeebd5ce-5350-4c27-b53c-5ba18183e82d,A.PCH26013,"aoai 400: {
+  ""error"": {
+    ""message"": ""Your input image may contain content that is not allowed by our content safety system."",
+    ""type"": ""invalid_request_error"",
+    ""param"": null,
+    ""code"": ""content_pol"
+02c490f4-fc9b-44b8-8adf-c2550201e336,A.PCH26013,"aoai 400: {
+  ""error"": {
+    ""message"": ""Your input image may contain content that is not allowed by our content safety system."",
+    ""type"": ""invalid_request_error"",
+    ""param"": null,
+    ""code"": ""content_pol"
+1945c9bd-4847-4ebb-9af3-a78af3de1328,A.PCH26010,"aoai 400: {
+  ""error"": {
+    ""message"": ""Your input image may contain content that is not allowed by our content safety system."",
+    ""type"": ""invalid_request_error"",
+    ""param"": null,
+    ""code"": ""content_pol"
+76672ecf-29c3-48a3-8a1f-91409c841bfd,A.PCH26010,"aoai 400: {
+  ""error"": {
+    ""message"": ""Your input image may contain content that is not allowed by our content safety system."",
+    ""type"": ""invalid_request_error"",
+    ""param"": null,
+    ""code"": ""content_pol"

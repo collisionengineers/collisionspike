@@ -35,8 +35,9 @@ import {
    HONEST-OFF: renders NOTHING unless AI_ASSIST_ENABLED (read via useAiAssistGate,
    the same gate-hook pattern as the Box gates). When on, it lists the case's AI
    suggestions (pending first) with Accept / Reject, and a "Generate suggestions"
-   action that is an honest no-op while no model is deployed (gate.modelConfigured
-   is false → the server returns { generated: 0, reason: 'disabled' }).
+   action. Generate outcomes are EXPLAINED, never silent (TKT-127): a zero result
+   carries a reason ('disabled' / 'no_input' / 'empty' / 'error') and each gets its
+   own plain-language toast.
 
    OBSERVATION-FIRST: nothing here mutates a case directly. Accept routes through
    the Data API, which promotes the value FILL-IF-EMPTY; reject just records the
@@ -86,11 +87,11 @@ export const TYPE_LABEL: Record<string, string> = {
   registration: 'Registration',
   inspection_address: 'Inspection address',
   triage_category: 'Email category',
-  // TKT-015 case/damage-assessment observations.
-  damage_area: 'Damage area',
+  // Case/damage-assessment producer kinds (TKT-015/127 — the generic Generate path).
+  damage_area: 'Damaged area',
   damage_severity: 'Damage severity',
-  accident_summary: 'Accident summary',
-  // TKT-016 staged image-analysis observations.
+  accident_summary: 'What happened',
+  // TKT-016 staged image-analysis observations (re-incorporated from PR46 on the stack merge).
   vehicle_present: 'Vehicle check',
   same_vehicle: 'Same vehicle',
   background_text: 'Background detail',
@@ -128,14 +129,15 @@ export function summariseValue(s: AiSuggestion): string {
     if (s.suggestionType === 'triage_category' && typeof v.category === 'string') {
       return `Category: ${v.category}`;
     }
-    // ---- TKT-015 case/damage-assessment kinds ----
+    // Case/damage-assessment shapes ({ area } / { severity } / { summary }) — rendered as
+    // plain text, never raw JSON (TKT-127: the panel must read handler-plain).
     if (s.suggestionType === 'damage_area' && typeof v.area === 'string') return v.area;
     if (s.suggestionType === 'damage_severity' && typeof v.severity === 'string') {
       const sev = v.severity;
       return `Damage looks ${sev === 'unknown' ? 'hard to judge from the notes' : sev}`;
     }
     if (s.suggestionType === 'accident_summary' && typeof v.summary === 'string') return v.summary;
-    // ---- TKT-016 image-analysis kinds ----
+    // ---- TKT-016 image-analysis kinds (re-incorporated from PR46 on the stack merge) ----
     if (s.suggestionType === 'vehicle_present') {
       const present = v.present === true;
       const descriptor = typeof v.descriptor === 'string' ? v.descriptor.trim() : '';
@@ -254,11 +256,40 @@ export function AiAssistPanel({ caseId, onPromoted }: AiAssistPanelProps) {
           </Toast>,
           { intent: 'success' },
         );
-      } else {
+      } else if (result.reason === 'error') {
+        // The server ran but the generation failed — a real fault, never a quiet nothing (TKT-127).
         dispatchToast(
           <Toast>
-            <ToastTitle>No suggestions to add yet</ToastTitle>
+            <ToastTitle>Couldn’t generate suggestions — try again</ToastTitle>
+            <ToastBody>Something went wrong while reviewing the case.</ToastBody>
+          </Toast>,
+          { intent: 'error' },
+        );
+      } else if (result.reason === 'no_input') {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Nothing for the assistant to read yet</ToastTitle>
+            <ToastBody>
+              Add the accident circumstances to the case first — the assistant works from the
+              written details.
+            </ToastBody>
+          </Toast>,
+          { intent: 'info' },
+        );
+      } else if (result.reason === 'disabled') {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>No suggestions added</ToastTitle>
             <ToastBody>The assistant isn’t switched on for live use yet.</ToastBody>
+          </Toast>,
+          { intent: 'info' },
+        );
+      } else {
+        // reason 'empty' (or a zero with no reason): the assistant looked and had nothing to add.
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Nothing to suggest</ToastTitle>
+            <ToastBody>The assistant reviewed the case and found nothing new to add.</ToastBody>
           </Toast>,
           { intent: 'info' },
         );

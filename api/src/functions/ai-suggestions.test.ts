@@ -53,19 +53,25 @@ vi.mock('../lib/audit.js', async (importOriginal) => {
   return { ...actual, writeAudit: vi.fn(async (a: { action: number }) => { auditCalls.push(a); }) };
 });
 
+/* ---- internal.js: mock the TKT-023 chaser hook (avoid loading the whole internal
+        route module; the hook's own behaviour is pinned in internal-guards.test.ts) ---- */
+const chaserHook = vi.hoisted(() => ({ markOutstandingChasersResponded: vi.fn(async () => 1) }));
+vi.mock('./internal.js', () => ({
+  markOutstandingChasersResponded: chaserHook.markOutstandingChasersResponded,
+}));
+
 const { AUDIT_ACTION } = await import('../lib/audit.js');
 await import('./ai-suggestions.js'); // registers the routes against the captured app.http
 const generate = registrations.get('generateAiSuggestions')!.handler;
+const review = registrations.get('reviewAiSuggestion')!.handler;
 
-// eva_claimant_address is intentionally present on the raw row but is NEVER selected/sent by the
-// route (claimant-PII minimisation — test (e) pins that the model never receives it).
-const CLAIMANT_ADDRESS = '221B Baker Street, London NW1 6XE';
-const CASE_ROW = { vrm: 'WN14XPZ', eva_accident_circumstances: 'Struck from behind at lights.', eva_claimant_address: CLAIMANT_ADDRESS };
+const CASE_ROW = { vrm: 'WN14XPZ', eva_accident_circumstances: 'Struck from behind at lights.', eva_claimant_address: 'redacted' };
 
 function req(): HttpRequest {
   return { params: { id: 'case-1' }, json: async () => ({}) } as unknown as HttpRequest;
 }
-const ctx = {} as InvocationContext;
+// The route logs every outcome (TKT-127 telemetry) — give it real log/error spies.
+const ctx = { log: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
 
 const insertSqls = (): string[] => sqls.filter((s) => /INSERT INTO ai_suggestion/i.test(s));
 
@@ -73,7 +79,10 @@ beforeEach(() => {
   sqls.length = 0;
   params.length = 0;
   auditCalls.length = 0;
+  chaserHook.markOutstandingChasersResponded.mockClear();
   model.callSuggestionModel.mockReset();
+  (ctx.log as unknown as ReturnType<typeof vi.fn>).mockReset();
+  (ctx.error as unknown as ReturnType<typeof vi.fn>).mockReset();
   rowsFor.mockReset();
   rowsFor.mockImplementation((sql: string) => {
     if (/FROM case_/i.test(sql)) return [CASE_ROW];
@@ -120,13 +129,12 @@ describe('generateAiSuggestions — (b) persists drafts as pending ai_suggestion
     expect(model.callSuggestionModel).toHaveBeenCalledTimes(1);
 
     // The persist INSERT carries the confidence + model_version, and does NOT set review_state
-    // (the DB DEFAULT 'pending' owns it — a draft can never arrive pre-accepted). The idempotency
-    // guard's NOT EXISTS clause MAY reference review_state, so assert only against the inserted
-    // COLUMN TUPLE (everything before the SELECT/VALUES), never the whole statement.
+    // in its column list (the DB DEFAULT 'pending' owns it — a draft can never arrive
+    // pre-accepted). NB the idempotency guard's NOT EXISTS subquery legitimately references
+    // review_state = 'pending' (PR46 dedup) — that's the guard, not a SET.
     const idx = sqls.findIndex((s) => /INSERT INTO ai_suggestion/i.test(s));
     expect(idx).toBeGreaterThanOrEqual(0);
-    const insertColumns = sqls[idx].slice(0, sqls[idx].search(/\b(SELECT|VALUES)\b/i));
-    expect(insertColumns).not.toMatch(/review_state/i);
+    expect(sqls[idx]).not.toMatch(/INSERT INTO ai_suggestion\s*\([^)]*review_state/i);
     const p = params[idx];
     expect(p).toContain(0.8); // confidence
     expect(p).toContain('gpt-5:gpt-5-2025-08-07'); // model_version
@@ -138,12 +146,48 @@ describe('generateAiSuggestions — (b) persists drafts as pending ai_suggestion
 });
 
 describe('generateAiSuggestions — (c) failed/malformed model response degrades honestly', () => {
-  it('callSuggestionModel throws → { generated: 0, reason: error }; NO ai_suggestion INSERT (no partial write)', async () => {
+  it('callSuggestionModel throws → { generated: 0, reason: error }; NO ai_suggestion INSERT (no partial write); the failure is LOGGED', async () => {
     process.env.AI_ASSIST_ENABLED = 'true';
     model.callSuggestionModel.mockRejectedValue(new Error('AOAI suggestions 500'));
     const res = await generate(req(), ctx, {});
     expect(res.jsonBody).toEqual({ generated: 0, reason: 'error' });
     expect(insertSqls()).toHaveLength(0);
+    // TKT-127: the prior catch was silent — a live failure must reach App Insights.
+    expect(ctx.error).toHaveBeenCalled();
+  });
+});
+
+describe('generateAiSuggestions — (e) TKT-127 explicit zero-outcome reasons (never a silent nothing)', () => {
+  it('a case with NO usable notes → { generated: 0, reason: no_input } WITHOUT a model call', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_/i.test(sql)) {
+        return [{ vrm: 'WN14XPZ', eva_accident_circumstances: '  ', eva_claimant_address: null }];
+      }
+      return [];
+    });
+    const res = await generate(req(), ctx, {});
+    expect(res.jsonBody).toEqual({ generated: 0, reason: 'no_input' });
+    expect(model.callSuggestionModel).not.toHaveBeenCalled();
+    expect(insertSqls()).toHaveLength(0);
+  });
+
+  it('a clean model run with nothing to suggest → { generated: 0, reason: empty } (distinct from disabled/error)', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    model.callSuggestionModel.mockResolvedValue([]);
+    const res = await generate(req(), ctx, {});
+    expect(res.jsonBody).toEqual({ generated: 0, reason: 'empty' });
+    expect(model.callSuggestionModel).toHaveBeenCalledTimes(1);
+    expect(insertSqls()).toHaveLength(0);
+  });
+
+  it('a generated > 0 outcome carries NO reason (the success shape)', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    model.callSuggestionModel.mockResolvedValue([
+      { suggestionType: 'accident_summary', suggestedValue: { summary: 'Shunt.' }, confidence: 0.9, modelVersion: 'gpt-5:x' },
+    ]);
+    const res = await generate(req(), ctx, {});
+    expect(res.jsonBody).toEqual({ generated: 1 });
   });
 });
 
@@ -164,26 +208,203 @@ describe('generateAiSuggestions — (d) NO silent mutation (promotion is human-r
   });
 });
 
-describe('generateAiSuggestions — (e) claimant address IS a scrubbed geolocation clue (operator-adjudicated: keep it, accept DPIA)', () => {
-  it('the SELECT reads eva_claimant_address and its scrubbed form is part of the model context', async () => {
+/* ============================================================
+   TKT-132 — the WIDENED generate inputs. Before: the prompt was built from
+   eva_accident_circumstances + eva_claimant_address only, so a case with parsed
+   instructions but empty circumstances was a permanent 'no_input'. Pins the
+   acceptance: such a case now reaches the model with the instruction email text
+   (and other real inputs) and generates; empty-everything stays an honest no_input.
+   ============================================================ */
+
+describe('generateAiSuggestions — TKT-132 widened inputs', () => {
+  it('a case with parsed instructions but EMPTY circumstances reaches the model and generates', async () => {
     process.env.AI_ASSIST_ENABLED = 'true';
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_/i.test(sql)) {
+        return [{ vrm: 'WN14XPZ', eva_accident_circumstances: '  ', eva_claimant_address: null }];
+      }
+      if (/FROM inbound_email/i.test(sql)) {
+        return [{ subject: 'New instruction WN14XPZ', body_preview: 'Rear-end collision at lights, please assess the vehicle.' }];
+      }
+      if (/INSERT INTO ai_suggestion/i.test(sql)) return [{ id: 'sug-1' }];
+      return [];
+    });
+    model.callSuggestionModel.mockResolvedValue([
+      { suggestionType: 'accident_summary', suggestedValue: { summary: 'Rear-end shunt.' }, confidence: 0.8, modelVersion: 'gpt-5:x' },
+    ]);
+
+    const res = await generate(req(), ctx, {});
+    expect(res.jsonBody).toEqual({ generated: 1 }); // NOT no_input any more
+    expect(model.callSuggestionModel).toHaveBeenCalledTimes(1);
+    // The model saw the instruction email text as a labelled section.
+    const input = model.callSuggestionModel.mock.calls[0][0] as { scrubbedText: string };
+    expect(input.scrubbedText).toContain('Instruction email text');
+    expect(input.scrubbedText).toContain('Rear-end collision at lights');
+  });
+
+  it('image stamps alone (no free text anywhere) still count as input — compact photo facts', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_/i.test(sql)) {
+        return [{ vrm: 'WN14XPZ', eva_accident_circumstances: null, eva_claimant_address: null }];
+      }
+      if (/FROM evidence/i.test(sql)) {
+        return [
+          { image_role_code: 100000000, registration_visible: true, excluded: false, person_reflection: false },
+          { image_role_code: 100000001, registration_visible: null, excluded: false, person_reflection: false },
+        ];
+      }
+      return [];
+    });
+    model.callSuggestionModel.mockResolvedValue([]);
+    const res = await generate(req(), ctx, {});
+    expect(res.jsonBody).toEqual({ generated: 0, reason: 'empty' }); // model WAS called
+    const input = model.callSuggestionModel.mock.calls[0][0] as { scrubbedText: string };
+    expect(input.scrubbedText).toContain('Photo analysis:');
+    expect(input.scrubbedText).toContain('2 photos on file');
+  });
+
+  it('free text is scrubbed BEFORE the model call (email/phone gone, VRM kept)', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_/i.test(sql)) {
+        return [{ vrm: 'WN14XPZ', eva_accident_circumstances: null, eva_claimant_address: null }];
+      }
+      if (/FROM inbound_email/i.test(sql)) {
+        return [{ subject: 'Instruction', body_preview: 'Contact john.smith@example.com or 07700 900123 re WN14 XPZ.' }];
+      }
+      return [];
+    });
     model.callSuggestionModel.mockResolvedValue([]);
     await generate(req(), ctx, {});
-    expect(model.callSuggestionModel).toHaveBeenCalledTimes(1);
-    // The address column IS selected — a deliberate geolocation clue (feat/final-wave TKT-132; the
-    // operator kept it at PR46 review). The Codex P1 (scrubPii misses free-form addresses) is
-    // ACCEPTED under the 2026-07-08 DPIA/GlobalStandard sign-off, not fixed by dropping the field.
+    const input = model.callSuggestionModel.mock.calls[0][0] as { scrubbedText: string };
+    expect(input.scrubbedText).not.toContain('john.smith@example.com');
+    expect(input.scrubbedText).not.toContain('07700 900123');
+    expect(input.scrubbedText).toContain('[EMAIL]');
+    expect(input.scrubbedText).toContain('[PHONE]');
+    expect(input.scrubbedText).toContain('WN14 XPZ');
+  });
+
+  it('a failing EXTRAS read degrades to the narrower prompt, never an error (best-effort widening)', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    const { query } = await import('../lib/db.js');
+    const queryMock = query as unknown as ReturnType<typeof vi.fn>;
+    /** The db-mock factory's own recording implementation — restored after this test so the
+     *  throw-on-extras override never leaks into later tests (beforeEach only resets rowsFor). */
+    const recordingImpl = async (sql: string, p?: unknown[]) => {
+      sqls.push(sql);
+      params.push(p ?? []);
+      return rowsFor(sql, p);
+    };
+    queryMock.mockImplementation(async (sql: string, p?: unknown[]) => {
+      sqls.push(sql);
+      params.push(p ?? []);
+      if (/FROM inbound_email/i.test(sql) || /FROM evidence/i.test(sql)) {
+        throw new Error('column does not exist'); // e.g. an older DB
+      }
+      return rowsFor(sql, p);
+    });
+    try {
+      rowsFor.mockImplementation((sql: string) => {
+        if (/FROM case_/i.test(sql)) return [CASE_ROW]; // circumstances present
+        if (/INSERT INTO ai_suggestion/i.test(sql)) return [{ id: 'sug-1' }];
+        return [];
+      });
+      model.callSuggestionModel.mockResolvedValue([
+        { suggestionType: 'accident_summary', suggestedValue: { summary: 'Shunt.' }, confidence: 0.9, modelVersion: 'gpt-5:x' },
+      ]);
+      const res = await generate(req(), ctx, {});
+      expect(res.jsonBody).toEqual({ generated: 1 }); // circumstances alone still generated
+      const input = model.callSuggestionModel.mock.calls[0][0] as { scrubbedText: string };
+      expect(input.scrubbedText).toContain('Struck from behind at lights.');
+    } finally {
+      queryMock.mockImplementation(recordingImpl);
+    }
+  });
+});
+
+/* ============================================================
+   TKT-023 — the case_link ACCEPT seam satisfies outstanding chasers.
+   The suggestion-review attach was the ONE attach seam that never called
+   markOutstandingChasersResponded (auto-link reply / dedup attach / auto-attach
+   all do — internal.ts). Pins: a successful case_link promotion calls the hook
+   with the target case; a no-op promotion (email already linked) does not.
+   ============================================================ */
+
+function reviewReq(decision = 'accepted'): HttpRequest {
+  return { params: { id: 'sug-1' }, json: async () => ({ decision }) } as unknown as HttpRequest;
+}
+
+const CASE_LINK_ROW = {
+  id: 'sug-1',
+  case_id: null,
+  evidence_id: null,
+  inbound_email_id: 'ie-1',
+  suggestion_type: 'case_link',
+  suggested_value: { targetCaseId: 'case-target' },
+  review_state: 'pending',
+};
+
+describe('reviewAiSuggestion — TKT-023 case_link accept marks outstanding chasers responded', () => {
+  it('a successful case_link promotion calls markOutstandingChasersResponded(targetCaseId, "suggestion accepted")', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion WHERE id/i.test(sql)) return [CASE_LINK_ROW];
+      if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'accepted' }];
+      if (/UPDATE inbound_email/i.test(sql)) return [{ id: 'ie-1' }]; // FILL-IF-EMPTY hit
+      return [];
+    });
+    const res = await review(reviewReq(), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
+    expect(chaserHook.markOutstandingChasersResponded).toHaveBeenCalledTimes(1);
+    expect(chaserHook.markOutstandingChasersResponded).toHaveBeenCalledWith(
+      'case-target',
+      'suggestion accepted',
+    );
+  });
+
+  it('a no-op promotion (email already linked — FILL-IF-EMPTY miss) does NOT touch chasers', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion WHERE id/i.test(sql)) return [CASE_LINK_ROW];
+      if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'accepted' }];
+      if (/UPDATE inbound_email/i.test(sql)) return []; // case_id already set — no attach
+      return [];
+    });
+    const res = await review(reviewReq(), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: false });
+    expect(chaserHook.markOutstandingChasersResponded).not.toHaveBeenCalled();
+  });
+
+  it('a rejection never touches chasers', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion WHERE id/i.test(sql)) return [CASE_LINK_ROW];
+      if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'rejected' }];
+      return [];
+    });
+    const res = await review(reviewReq('rejected'), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'rejected', promoted: false });
+    expect(chaserHook.markOutstandingChasersResponded).not.toHaveBeenCalled();
+  });
+});
+
+/* ============================================================
+   PR46 / #53 + PR46 idempotency — re-incorporated on the stack merge so the
+   operator-adjudicated "keep the claimant address" decision and the idempotent-insert
+   guard stay pinned alongside the TKT-127/132 generate contract above.
+   ============================================================ */
+
+describe('generateAiSuggestions — (e-claimant) the SELECT keeps eva_claimant_address (operator-adjudicated #53: keep it, accept DPIA)', () => {
+  it('the model-context SELECT still reads eva_claimant_address (never silently dropped)', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    model.callSuggestionModel.mockResolvedValue([]);
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_/i.test(sql)) return [CASE_ROW];
+      return [];
+    });
+    await generate(req(), ctx, {});
     const caseSelect = sqls.find((s) => /FROM case_/i.test(s)) ?? '';
+    // #53 / PR46: the claimant address is a deliberate geolocation clue kept under the DPIA
+    // sign-off — it must remain in the context SELECT (the Codex P1 removal was withdrawn).
     expect(caseSelect).toMatch(/eva_claimant_address/i);
-    // Its scrubbed form reaches the model alongside the accident text: scrubPii redacts the
-    // house-number+street and the postcode; the residual free-form part (the town) survives — the
-    // accepted-under-DPIA residual the P1 flagged, pinned here honestly, NOT a bug.
-    const input = model.callSuggestionModel.mock.calls[0][0] as { vrm: string; scrubbedText: string };
-    expect(input.scrubbedText).toContain('Struck from behind'); // accident text present
-    expect(input.scrubbedText).toContain('[ADDRESS]'); // house-number+street WAS scrubbed
-    expect(input.scrubbedText).toContain('[POSTCODE]'); // postcode WAS scrubbed
-    expect(input.scrubbedText).toContain('London'); // the town survives (accepted residual)
-    expect(input.vrm).toBe('WN14XPZ');
   });
 });
 
@@ -211,7 +432,8 @@ describe('generateAiSuggestions — (f) idempotent generate (no duplicate pendin
     const first = await generate(req(), ctx, {});
     const second = await generate(req(), ctx, {});
     expect(first.jsonBody).toEqual({ generated: 1 });
-    expect(second.jsonBody).toEqual({ generated: 0 });
+    // The stack's TKT-127 generate contract tags a zero-after-model-run with an explicit reason.
+    expect(second.jsonBody).toEqual({ generated: 0, reason: 'empty' });
     // Exactly one ai_suggestion_created audit across both runs (the dedup skips the second).
     expect(auditCalls.filter((a) => a.action === AUDIT_ACTION.ai_suggestion_created)).toHaveLength(1);
     // Both runs run the guarded INSERT statement — the guard, not the caller, drops the duplicate.

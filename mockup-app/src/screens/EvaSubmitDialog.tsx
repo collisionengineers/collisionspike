@@ -347,7 +347,35 @@ export function EvaSubmitDialog() {
     setSeq(value.replace(/\D/g, '').slice(0, 3));
   };
 
-  const onDownloadJson = () => {
+  /* TKT-094 Phase B: the export IS the EVA handoff — record it server-side
+     (ready_for_eva → eva_submitted, guarded idempotent + writes submitted_at).
+     Own try/catch so a recording failure never masks a successful download. */
+  const recordEvaSubmitted = async () => {
+    try {
+      const { updated } = await (data as DataAccessExt).markEvaSubmitted(c.id);
+      if (updated) {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Case marked EVA Submitted</ToastTitle>
+          </Toast>,
+          { intent: 'success' },
+        );
+      }
+    } catch {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Exported, but the case couldn’t be marked EVA Submitted</ToastTitle>
+          <ToastBody>The file downloaded fine. Refresh and export again to record it.</ToastBody>
+        </Toast>,
+        { intent: 'warning' },
+      );
+    }
+  };
+
+  // Build + download the EVA file. Returns true on success. The ONLY way the case gets
+  // marked eva_submitted is after this file is actually produced — there is no direct Sentry
+  // API in M1, so the real handoff is the drag-into-EVA export (PR51-E1).
+  const downloadEvaFile = (): boolean => {
     try {
       const text = buildEvaJson({ evaFields: c.evaFields });
       const blob = new Blob([text], { type: 'application/json' });
@@ -359,30 +387,43 @@ export function EvaSubmitDialog() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      dispatchToast(
-        <Toast>
-          <ToastTitle>Case exported for EVA</ToastTitle>
-          <ToastBody>Submission for {c.vrm} saved as a file.</ToastBody>
-        </Toast>,
-        { intent: 'success' },
-      );
+      return true;
     } catch {
-      dispatchToast(
-        <Toast>
-          <ToastTitle>Couldn’t download — try again</ToastTitle>
-        </Toast>,
-        { intent: 'error' },
-      );
+      return false;
     }
   };
 
-  const onSubmit = () => {
-    // MOCK: no real Sentry call is ever made in M1.
+  const exportFailedToast = () =>
+    dispatchToast(
+      <Toast>
+        <ToastTitle>Couldn’t export — try again</ToastTitle>
+      </Toast>,
+      { intent: 'error' },
+    );
+
+  const onDownloadJson = async () => {
+    if (!downloadEvaFile()) return exportFailedToast();
+    dispatchToast(
+      <Toast>
+        <ToastTitle>Case exported for EVA</ToastTitle>
+        <ToastBody>Submission for {c.vrm} saved as a file.</ToastBody>
+      </Toast>,
+      { intent: 'success' },
+    );
+    await recordEvaSubmitted();
+  };
+
+  const onSubmit = async () => {
+    // M1 has no direct Sentry call — the real handoff is exporting the file to drag into EVA.
+    // Produce the file FIRST; only then record the handoff (TKT-094) so a case can never be
+    // marked eva_submitted without the operator actually getting the EVA file (PR51-E1).
+    if (!downloadEvaFile()) return exportFailedToast();
+    await recordEvaSubmitted();
     dispatchToast(
       <Toast>
         <ToastTitle>Submitted to EVA</ToastTitle>
         <ToastBody>
-          {c.vrm} — {evaCode || 'no Case/PO'}. Archive folder {boxCode || '—'}.
+          {c.vrm} — {evaCode || 'no Case/PO'}. File exported; archive folder {boxCode || '—'}.
         </ToastBody>
       </Toast>,
       { intent: 'success' },
@@ -526,7 +567,7 @@ export function EvaSubmitDialog() {
               className={styles.dialogBtn}
               appearance="secondary"
               icon={<Download size={16} />}
-              onClick={onDownloadJson}
+              onClick={() => void onDownloadJson()}
               disabled={!ready}
               title={!ready ? `${blockedCount} readiness item(s) still blocking` : 'Save the case as an EVA file to drag into EVA'}
             >
@@ -544,7 +585,7 @@ export function EvaSubmitDialog() {
                     ? 'Enter the 3-digit Case/PO sequence'
                     : 'Submit to EVA'
               }
-              onClick={onSubmit}
+              onClick={() => void onSubmit()}
             >
               Submit to EVA
             </Button>
