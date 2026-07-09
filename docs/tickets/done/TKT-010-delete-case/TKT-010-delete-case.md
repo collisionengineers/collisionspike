@@ -1,7 +1,7 @@
 ---
 id: TKT-010
 title: Close case (renamed from delete/remove) — confirm + audit, available to all users
-status: verify
+status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-003]
@@ -32,6 +32,7 @@ Add a delete-case action with a confirm dialog; the optional checkbox additional
 folder. Record the deletion in the audit trail.
 
 ## Acceptance
+*(Reconciled 2026-07-09 to the 2026-07-08 operator re-scope: the action is Close — non-destructive, all users; Box folder handling is ACK-only per ADR-0017, never removed automatically.)*
 Deleting a case requires explicit confirmation; ticking the box also removes the Box folder; the action
 is audited; nothing is deleted from Box without the explicit tick.
 

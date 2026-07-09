@@ -1,11 +1,11 @@
 ---
 id: TKT-024
 title: Image-only new-case form (drop instruction-only fields)
-status: verify
+status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-002]
-research-link: docs/tickets/verify/TKT-024-image-based-new-case/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-024-image-based-new-case/evidence/operator-note.md
 plan: PLAN-003
 ---
 

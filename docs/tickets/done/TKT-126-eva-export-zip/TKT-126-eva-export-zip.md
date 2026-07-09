@@ -1,11 +1,11 @@
 ---
 id: TKT-126
 title: Export for EVA downloads a .zip of the JSON plus all the images
-status: verify
+status: done
 priority: P1
 area: ui
 tickets-it-relates-to: [TKT-124]
-research-link: docs/tickets/verify/TKT-126-eva-export-zip/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-126-eva-export-zip/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-126 — Export for EVA downloads a .zip of the JSON plus all the images
