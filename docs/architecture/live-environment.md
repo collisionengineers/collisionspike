@@ -7,13 +7,14 @@
 > live image-analysis reg-OCR-of-record stage runs instead of silently degrading (gates untouched, stay ON).
 > Function counts **re-counted live: api 94 / orch 72** (the prior 86/67 banner was a miscount; parser 4 /
 > boxWebhook 12 unchanged). **⚠️ Deploy-line note:** the live Function Apps track the **`feat/final-wave`**
-> branch (the deployed trunk, ahead of `main`), NOT `main`. The PR46 **code** review fixes (drop claimant
-> address from the ai-suggestions model context; idempotent generate; per-image byte cap; OCR/location
-> timeout bounds; SPA plain-language rendering for all suggestion kinds, count+kind attach note, per-turn
-> attach snapshot, Case/PO resolution) are **code-complete on `main` via PR46 but NOT deployed to the live
-> app** — deploying the `main` bundle over live would REGRESS it 94→86 (reverting the wave work). Forward-port
-> onto `feat/final-wave` + redeploy is a separate, pending step (some findings — the P1 claimant-address leak —
-> still appear present in the live `feat/final-wave` code). Prior live change:
+> branch (the deployed trunk, ahead of `main`), NOT `main`. The PR46 **code** review fixes (idempotent
+> generate; per-image byte cap; OCR/location timeout bounds; SPA plain-language rendering for all suggestion
+> kinds, count+kind attach note, per-turn attach snapshot, Case/PO resolution) are **code-complete on `main`
+> via PR46 but NOT deployed to the live app** — deploying the `main` bundle over live would REGRESS it 94→86
+> (reverting the wave work). Per the operator, deployment waits until all active PRs are reviewed + closed;
+> forward-port onto `feat/final-wave` + redeploy is a separate, pending step. **P1 adjudicated:** the claimant
+> address stays a scrubbed geolocation clue (operator chose "keep it, accept the DPIA posture" — feat/final-wave
+> TKT-132); the PR46 removal was withdrawn so `main` matches the live intent. Prior live change:
 > **2026-07-08T15:04Z** — **PLAN-001 vision family (TKT-015/016/068) taken LIVE** on operator instruction, with
 > the operator's **DPIA + `gpt-5` GlobalStandard processing/data-residency-posture sign-off confirmed
 > 2026-07-08** (digital@collisionengineers.co.uk — inference may process outside the UK, at-rest stays uksouth;

@@ -379,23 +379,21 @@ app.http('generateAiSuggestions', {
     const caseId = req.params.id;
     try {
       // Minimal case context for the model — never a full case dump (data-protection §6).
-      // Claimant address is DELIBERATELY NOT selected: it is a dedicated claimant-PII field that
-      // adds nothing to a damage/accident assessment, and the shared scrubPii is a
-      // precision-over-recall regex that explicitly does NOT catch unanchored/free-form addresses
-      // (packages/domain/src/domain/pii-scrub.ts — Known limitations). Relying on the scrubber to
-      // sanitise a known-PII structured field would leak claimant addresses to the external model
-      // once AI_ASSIST_ENABLED is on. So the model only ever sees the accident circumstances + VRM.
+      // The claimant address IS included (as a scrubbed geolocation clue) BY DESIGN: the operator
+      // adjudicated it "keep it — accept the DPIA posture" (PR46 review, 2026-07-09), matching the
+      // deployed feat/final-wave behaviour (TKT-132). The Codex P1 finding — that scrubPii is
+      // precision-over-recall and can miss unanchored/free-form addresses — is ACCEPTED under the
+      // 2026-07-08 DPIA/GlobalStandard sign-off, not fixed by removing the field.
       const ctx = await query<Row>(
-        `SELECT vrm, eva_accident_circumstances FROM case_ WHERE id = $1`,
+        `SELECT vrm, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1`,
         [caseId],
       );
       if (!ctx[0]) return { status: 404, jsonBody: { error: 'not found' } };
 
       // Assemble the free text the model would reason over, then PII-SCRUB it BEFORE the
-      // external call as a second line of defence (VRM kept — it is the domain key the model must
-      // see; names/emails/phones/addresses/postcodes/NINOs redacted). The scrub summary is
-      // counts-only.
-      const rawText = [ctx[0].eva_accident_circumstances]
+      // external call (VRM kept — it is the domain key the model must see; names/emails/
+      // phones/addresses/postcodes/NINOs redacted). The scrub summary is counts-only.
+      const rawText = [ctx[0].eva_accident_circumstances, ctx[0].eva_claimant_address]
         .filter((s) => typeof s === 'string' && s.trim().length > 0)
         .join('\n');
       const scrubbed = scrubPii(rawText, { redactVrm: false });
