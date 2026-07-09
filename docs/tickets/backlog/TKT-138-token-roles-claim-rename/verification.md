@@ -1,4 +1,4 @@
-# Verification — TKT-123: Rename "exclude (person reflection)" to "Exclude" + dismissible vision reflection warning on images
+# Verification — TKT-138: token roles-claim rename reconcile
 
 ## Verdict
 PENDING

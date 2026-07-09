@@ -37,3 +37,9 @@ Confirm in the live SPA that dismissing an email actually removes the row from t
 - Pass/fail for each of: toast text (step 4), row leaves the active grid (step 4), state survives a hard reload (step 5), row reappears under Handled/All with Reopen available (step 6).
 - The **exact text** of the Action-logs row you found (badge, description, actor, timestamp) — paste it verbatim. `writeAudit()` swallows its own write failures server-side (logs to App Insights, never surfaces an error to the browser), so a **missing** log row is a silent audit failure a 200-looking dismiss would otherwise hide — treat "no matching row in the first ~10 entries of `/logs`" as a fail, not an inconclusive.
 - Anything that reads differently from the above (wrong toast copy, row surviving reload, no log row, wrong actor).
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+VERIFIED-LIVE. Real staff usage proves the whole chain: one genuinely dismissed email (Susan Elliott / REB/ND/46401/1, dismissed 01/07 by the staff principal) is absent from the default view, appears under Show dismissed with its badge (facet counts shift 740->741 exactly), has persisted 8 days across reloads, and carries the audit event "Inbound email new -> dismissed" with actor + consistent timestamps; code claims cross-checked (triage_state UPDATE + writeAudit 100000027). Note: the runbook predates the single-list redesign (Show-dismissed switch replaced the Active/Handled toggle). No new dismissal performed (mutation-barred; not required — usage evidence suffices).
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

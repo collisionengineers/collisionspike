@@ -1,7 +1,7 @@
 ---
 id: TKT-005
 title: Make the inbox actionable (dismiss removes from view)
-status: verify
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006, TKT-009, TKT-012]
