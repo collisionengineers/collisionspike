@@ -1,11 +1,11 @@
 ---
 id: TKT-122
 title: Align the dashboard containers — inbox and "Check the flagged details" do not line up
-status: verify
+status: done
 priority: P3
 area: ui
 tickets-it-relates-to: [TKT-007]
-research-link: docs/tickets/verify/TKT-122-dashboard-panel-alignment/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-122-dashboard-panel-alignment/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-122 — Align the dashboard containers — inbox and "Check the flagged details" do not line up
