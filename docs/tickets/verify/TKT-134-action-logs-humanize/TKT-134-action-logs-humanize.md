@@ -1,11 +1,11 @@
 ---
 id: TKT-134
 title: Action-logs page renders raw engineering strings — humanize the staff-visible log lines
-status: now
+status: verify
 priority: P3
 area: ui
 tickets-it-relates-to: [TKT-117, TKT-011]
-research-link: docs/tickets/now/TKT-134-action-logs-humanize/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-134-action-logs-humanize/evidence/operator-note.md
 plan: PLAN-003
 ---
 

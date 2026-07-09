@@ -22,3 +22,9 @@ PENDING
 ## How to re-verify
 1. Fresh SPA sign-in (or token refresh) → decode the Bearer token → `roles` claim.
 2. Re-run the three read-only enumerations in changes.md; all three must still agree.
+
+## Verdict update — 2026-07-09 (orchestrator adjudication)
+
+DONE via the acceptance's second arm. Root cause documented: the app registration, the service principal, AND the operator's only assignment all read Superuser (id 5b356d4c kept from the rename) — a fresh token can only mint CollisionSpike.Superuser; the observed .Admin claims are stale pre-rename token artifacts, not directory drift. The legacy-accept in api/src/lib/auth.ts is deliberate and now carries the full root-cause record + registry note. No authorization regression (suites green). Optional nicety: the operator decoding one fresh SPA token confirms the first arm too.
+
+Verified by: read-only directory enumeration + code record, adjudicated by the orchestrating session, 2026-07-09.

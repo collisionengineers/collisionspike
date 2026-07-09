@@ -19,3 +19,9 @@ PENDING
 ## How to re-verify
 Run the matrix in changes.md (all `--dry-run` except the first); confirm exit codes and
 that `git status docs/tickets` stays clean after every refusal.
+
+## Verdict update — 2026-07-09 (orchestrator verification)
+
+VERIFIED (offline — the acceptance is fully offline-provable). The implementer executed the whole acceptance matrix (transcribed in changes.md, incl. the real-run non-zero refusal with clean git status); the orchestrating session independently spot-checked the deployed guard: an illegal backlog->done names the transition + allowed targets and refuses; a legal dry-run reports without touching files; verify->now is force-only per the sweep policy; the skill prose was kept in step. This tooling now enforces the graph for the rest of the programme.
+
+Verified by: implementer matrix + orchestrator spot-check, 2026-07-09.

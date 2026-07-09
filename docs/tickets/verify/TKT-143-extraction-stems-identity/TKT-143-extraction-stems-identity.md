@@ -1,11 +1,11 @@
 ---
 id: TKT-143
 title: Pass the resolved provider/VRM into /extract-images so extraction filenames carry real identity
-status: now
+status: verify
 priority: P3
 area: evidence
 tickets-it-relates-to: [TKT-090]
-research-link: docs/tickets/now/TKT-143-extraction-stems-identity/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-143-extraction-stems-identity/evidence/operator-note.md
 plan: PLAN-003
 ---
 

@@ -1,11 +1,11 @@
 ---
 id: TKT-114
 title: Enforce the ticket lifecycle transition graph in ticket-move.mjs
-status: now
+status: done
 priority: P2
 area: docs
 tickets-it-relates-to: [TKT-019]
-research-link: docs/tickets/now/TKT-114-ticket-move-transition-guard/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-114-ticket-move-transition-guard/evidence/operator-note.md
 ---
 
 # TKT-114 — Enforce the ticket lifecycle transition graph in ticket-move.mjs
