@@ -864,8 +864,10 @@ and gates; it does not flip a live gate or create an app-registration.
    **writes** are a separate, later rung (ADR-0023 Phase 3b) — not shipped.
 
 **✅ Vision family — FLIPPED LIVE 2026-07-08 (was "deliberately deferred"):** on your instruction and with
-your **DPIA + UK data-residency sign-off confirmed 2026-07-08** (recorded in
-[data-protection.md §6a](./architecture/data-protection.md#6a-per-gate-production-sign-off--log)),
+your **DPIA + `gpt-5` GlobalStandard processing/data-residency-posture sign-off confirmed 2026-07-08** (recorded in
+[data-protection.md §6a](./architecture/data-protection.md#6a-per-gate-production-sign-off--log); the model is
+GlobalStandard — inference may process outside the UK, at-rest stays uksouth — so this is an accepted posture,
+**not** a UK-processing guarantee; the earlier "UK data-residency" label was corrected in the PR46 review),
 **`AI_ASSIST_ENABLED`** (TKT-015 `callModelForSuggestions` case/damage consumer) and **`IMAGE_ANALYSIS_ENABLED`**
 (TKT-016 producer, item 7 below) are now **`true` on `cespk-api-dev`**; TKT-017 (reg-OCR benchmark) is **done**;
 **TKT-068** attach UX is **deployed live** (SPA; human-confirmed — the model still gets no upload tool). Both

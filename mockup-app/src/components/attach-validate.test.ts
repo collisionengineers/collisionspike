@@ -102,9 +102,23 @@ describe('fileCountLabel + attachmentNote — plain-language, plural-safe string
     expect(fileCountLabel(2)).toBe('2 files');
     expect(fileCountLabel(0)).toBe('0 files');
   });
-  it('names the files for the model as context (never the bytes)', () => {
-    expect(attachmentNote(['photo.jpg', 'scan.pdf'])).toBe('Attached 2 files: photo.jpg, scan.pdf');
-    expect(attachmentNote(['one.jpg'])).toBe('Attached 1 file: one.jpg');
+  it('describes count + kind to the model but NEVER the filenames (PII)', () => {
+    const note = attachmentNote([
+      meta('claimant-jane-smith-YT13UTV.jpg', 'image/jpeg', 1024),
+      meta('scan.pdf', 'application/pdf', 1024),
+    ]);
+    expect(note).toBe('Attached 2 files (1 photo, 1 PDF).');
+    // The sensitive filename must not appear anywhere in the model-bound note.
+    expect(note).not.toContain('claimant');
+    expect(note).not.toContain('YT13UTV');
+    expect(note).not.toContain('.jpg');
+    expect(note).not.toContain('.pdf');
+  });
+  it('is plural-safe and kind-aware', () => {
+    expect(attachmentNote([meta('a.jpg', 'image/jpeg', 1)])).toBe('Attached 1 file (1 photo).');
+    expect(
+      attachmentNote([meta('a.jpg', 'image/jpeg', 1), meta('b.png', 'image/png', 1)]),
+    ).toBe('Attached 2 files (2 photos).');
   });
 });
 

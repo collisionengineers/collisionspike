@@ -29,7 +29,7 @@ import { gates } from '../lib/gates.js';
 import { query } from '../lib/db.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import type { Row } from '../lib/mappers.js';
-import { resolveBytesForRow, type EvidenceByteRow } from '../lib/evidence-bytes.js';
+import { resolveBytesForRow, ASSIST_MAX_BYTES_PER_PHOTO, type EvidenceByteRow } from '../lib/evidence-bytes.js';
 import { makeImageAnalysisAdapters } from '../lib/image-analysis-adapters.js';
 import {
   runImageAnalysis,
@@ -112,10 +112,23 @@ app.http('generateImageAnalysis', {
       );
 
       // Resolve bytes (blob → Box facade) into pipeline ImageInputs; drop any that don't resolve.
+      // SKIP oversized images BEFORE base64-encoding them into a vision request — existing evidence
+      // can include multi-megabyte phone photos/Box files, and 8 of them base64'd (+~33%) would
+      // build a very large in-memory payload and then trip AOAI request-size/time limits, degrading
+      // the whole run to reason:'error'. Same per-photo cap the location-assist inline byte path
+      // uses (evidence-bytes.ts). A skipped image simply gets no suggestion; the run still proceeds.
       const images: ImageInput[] = [];
+      let oversizeSkipped = 0;
       for (const row of evRows) {
         const resolved = await resolveBytesForRow(row);
         if (!resolved) continue;
+        if (resolved.bytes.length > ASSIST_MAX_BYTES_PER_PHOTO) {
+          oversizeSkipped += 1;
+          ctx.warn(
+            `[image-analysis] skipped oversized image evidence=${resolved.id} bytes=${resolved.bytes.length} (cap ${ASSIST_MAX_BYTES_PER_PHOTO})`,
+          );
+          continue;
+        }
         images.push({
           evidenceId: resolved.id,
           filename: rasterFilename(resolved.fileName, resolved.contentType),
@@ -160,7 +173,12 @@ app.http('generateImageAnalysis', {
         action: AUDIT_ACTION.image_analysis_generated,
         caseId,
         summary: `Image-analysis run: ${generated} suggestion(s) from ${images.length} image(s)`,
-        after: { generated, imagesAnalyzed: images.length, stageOutcomes },
+        after: {
+          generated,
+          imagesAnalyzed: images.length,
+          ...(oversizeSkipped ? { oversizeSkipped } : {}),
+          stageOutcomes,
+        },
         ...(actor ? { actor } : {}),
       });
 

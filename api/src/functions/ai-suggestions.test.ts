@@ -129,10 +129,12 @@ describe('generateAiSuggestions — (b) persists drafts as pending ai_suggestion
     expect(model.callSuggestionModel).toHaveBeenCalledTimes(1);
 
     // The persist INSERT carries the confidence + model_version, and does NOT set review_state
-    // (the DB DEFAULT 'pending' owns it — a draft can never arrive pre-accepted).
+    // in its column list (the DB DEFAULT 'pending' owns it — a draft can never arrive
+    // pre-accepted). NB the idempotency guard's NOT EXISTS subquery legitimately references
+    // review_state = 'pending' (PR46 dedup) — that's the guard, not a SET.
     const idx = sqls.findIndex((s) => /INSERT INTO ai_suggestion/i.test(s));
     expect(idx).toBeGreaterThanOrEqual(0);
-    expect(sqls[idx]).not.toMatch(/review_state/i);
+    expect(sqls[idx]).not.toMatch(/INSERT INTO ai_suggestion\s*\([^)]*review_state/i);
     const p = params[idx];
     expect(p).toContain(0.8); // confidence
     expect(p).toContain('gpt-5:gpt-5-2025-08-07'); // model_version
@@ -381,5 +383,62 @@ describe('reviewAiSuggestion — TKT-023 case_link accept marks outstanding chas
     const res = await review(reviewReq('rejected'), ctx, {});
     expect(res.jsonBody).toMatchObject({ reviewState: 'rejected', promoted: false });
     expect(chaserHook.markOutstandingChasersResponded).not.toHaveBeenCalled();
+  });
+});
+
+/* ============================================================
+   PR46 / #53 + PR46 idempotency — re-incorporated on the stack merge so the
+   operator-adjudicated "keep the claimant address" decision and the idempotent-insert
+   guard stay pinned alongside the TKT-127/132 generate contract above.
+   ============================================================ */
+
+describe('generateAiSuggestions — (e-claimant) the SELECT keeps eva_claimant_address (operator-adjudicated #53: keep it, accept DPIA)', () => {
+  it('the model-context SELECT still reads eva_claimant_address (never silently dropped)', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    model.callSuggestionModel.mockResolvedValue([]);
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_/i.test(sql)) return [CASE_ROW];
+      return [];
+    });
+    await generate(req(), ctx, {});
+    const caseSelect = sqls.find((s) => /FROM case_/i.test(s)) ?? '';
+    // #53 / PR46: the claimant address is a deliberate geolocation clue kept under the DPIA
+    // sign-off — it must remain in the context SELECT (the Codex P1 removal was withdrawn).
+    expect(caseSelect).toMatch(/eva_claimant_address/i);
+  });
+});
+
+describe('generateAiSuggestions — (f) idempotent generate (no duplicate pending rows on rerun)', () => {
+  it('calling generate twice with the same draft inserts ONE pending suggestion', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    model.callSuggestionModel.mockResolvedValue([
+      { suggestionType: 'accident_summary', suggestedValue: { summary: 'Rear-end shunt.' }, confidence: 0.8, modelVersion: 'gpt-5:x' },
+    ]);
+
+    // Stateful fake that emulates the SQL NOT EXISTS guard: an equivalent pending row is inserted
+    // once (keyed by case/evidence/type/value); a rerun's INSERT…WHERE NOT EXISTS returns no row.
+    const seen = new Set<string>();
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM case_/i.test(sql)) return [CASE_ROW];
+      if (/INSERT INTO ai_suggestion/i.test(sql)) {
+        const key = JSON.stringify([p?.[0], p?.[1], p?.[2], p?.[3]]);
+        if (seen.has(key)) return []; // NOT EXISTS → no insert (idempotent)
+        seen.add(key);
+        return [{ id: 'sug-1' }];
+      }
+      return [];
+    });
+
+    const first = await generate(req(), ctx, {});
+    const second = await generate(req(), ctx, {});
+    expect(first.jsonBody).toEqual({ generated: 1 });
+    // The stack's TKT-127 generate contract tags a zero-after-model-run with an explicit reason.
+    expect(second.jsonBody).toEqual({ generated: 0, reason: 'empty' });
+    // Exactly one ai_suggestion_created audit across both runs (the dedup skips the second).
+    expect(auditCalls.filter((a) => a.action === AUDIT_ACTION.ai_suggestion_created)).toHaveLength(1);
+    // Both runs run the guarded INSERT statement — the guard, not the caller, drops the duplicate.
+    expect(insertSqls()).toHaveLength(2);
+    // The insert is the NOT EXISTS form (idempotency lives in SQL, not a pre-SELECT).
+    expect(insertSqls()[0]).toMatch(/NOT EXISTS/i);
   });
 });

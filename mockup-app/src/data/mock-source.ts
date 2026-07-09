@@ -365,6 +365,7 @@ export const mockDataAccess: DataAccessExt = {
   updateCase: (_id, _patch) => Promise.reject(new Error(NOT_CONFIGURED)),
   casesForQueue: (_name, _now) => Promise.resolve([]),
   openVrmTwins: (_vrm, _excludeCaseId) => Promise.resolve([]),
+  openCasePoMatches: (_casePo, _excludeCaseId) => Promise.resolve([]),
   setOnHold: (_caseId, _onHold) => Promise.reject(new Error(NOT_CONFIGURED)),
   // Write — rejects until the live source is injected (a faked chaser row would
   // let staff believe a chase was recorded when it wasn't; mirrors setOnHold).

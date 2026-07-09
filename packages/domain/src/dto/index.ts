@@ -719,6 +719,10 @@ export interface DataAccess {
   updateCase(id: string, patch: CaseUpdateInput): Promise<Case>;
   casesForQueue(name: QueueName, now?: Date): Promise<Case[]>;
   openVrmTwins(vrm: string, excludeCaseId?: string): Promise<Case[]>;
+  /** Resolve a case by its EXACT Case/PO (unique handle) — non-terminal matches only.
+   *  Used by the assistant attach flow when a handler names the case by Case/PO
+   *  ("add these to CCPY26050") and no registration is present. safe()-empty on failure. */
+  openCasePoMatches(casePo: string, excludeCaseId?: string): Promise<Case[]>;
   setOnHold(caseId: string, onHold: boolean): Promise<void>;
   mergeCandidates(caseId: string): Promise<Case[]>;
   mergeCases(sourceCaseId: string, targetCaseId: string): Promise<MergeCasesResult>;

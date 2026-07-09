@@ -402,6 +402,16 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       get<Case[]>(
         `/api/cases?vrm=${enc(vrm)}&open=true${exclude ? `&exclude=${enc(exclude)}` : ''}`,
       ),
+    // Resolve an EXACT Case/PO (TKT-068 attach-by-Case/PO). safe()-empty: the confirm card
+    // treats "no match" and "lookup failed" identically (it prompts for a registration instead).
+    openCasePoMatches: (casePo, exclude) =>
+      safe(
+        () =>
+          get<Case[]>(
+            `/api/cases?case_po=${enc(casePo)}${exclude ? `&exclude=${enc(exclude)}` : ''}`,
+          ),
+        [],
+      ),
     setOnHold: (id, onHold) => post<void>(`/api/cases/${enc(id)}/hold`, { onHold }),
     // Record a chase (M-E2) — 201 + the created chaser row. NOT safe()-wrapped:
     // a chase that failed to persist must surface (never a fake "logged").

@@ -430,6 +430,11 @@ app.http('generateAiSuggestions', {
       // input classes buildGenerateInputs assembles (instruction email text, overview facts,
       // vehicle data, photo-analysis stamps) — most intake cases have empty circumstances, so
       // the old two-column prompt made generate a permanent 'no_input' for the live corpus.
+      // The claimant address IS included (as a scrubbed geolocation clue) BY DESIGN: the operator
+      // adjudicated it "keep it — accept the DPIA posture" (PR46 review / #53, 2026-07-09). The
+      // Codex P1 finding — that scrubPii is precision-over-recall and can miss unanchored/free-form
+      // addresses — is ACCEPTED under the 2026-07-08 DPIA/GlobalStandard sign-off, not fixed by
+      // removing the field.
       const ctx = await query<Row>(
         `SELECT vrm, case_po, eva_accident_circumstances, eva_claimant_address,
                 eva_work_provider, eva_vehicle_model, eva_date_of_loss, eva_date_of_instruction,
@@ -500,10 +505,25 @@ app.http('generateAiSuggestions', {
       let generated = 0;
       const actor = actorFromClaims(claims);
       for (const d of drafts) {
+        // IDEMPOTENT insert (mirrors the image-analysis producer's NOT EXISTS guard): skip when an
+        // equivalent PENDING suggestion for the same (case, evidence, type, value) already exists,
+        // so a double-click, a user retry, or a host retry after a late failure never stacks
+        // duplicate pending rows / audit events. Keying on suggested_value (not just type) still
+        // lets the model emit multiple DISTINCT observations of the same kind (e.g. two different
+        // damage_area values) — only an identical rerun is de-duplicated.
         const ins = await query<Row>(
           `INSERT INTO ai_suggestion
              (case_id, evidence_id, suggestion_type, suggested_value, rationale, confidence, model_version)
-           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7) RETURNING id`,
+           SELECT $1, $2, $3, $4::jsonb, $5, $6, $7
+            WHERE NOT EXISTS (
+              SELECT 1 FROM ai_suggestion
+               WHERE suggestion_type = $3
+                 AND review_state = 'pending'
+                 AND case_id IS NOT DISTINCT FROM $1
+                 AND evidence_id IS NOT DISTINCT FROM $2
+                 AND suggested_value = $4::jsonb
+            )
+           RETURNING id`,
           [
             caseId,
             d.evidenceId ?? null,

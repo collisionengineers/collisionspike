@@ -70,52 +70,85 @@ function caseLabel(c: Case): string {
 export function AttachConfirmCard({
   files,
   suggestedVrm,
+  suggestedCasePo,
   onDone,
 }: {
   files: File[];
   suggestedVrm?: string;
+  /** A Case/PO sniffed from the conversation ("add these to CCPY26050"). When present and no
+   *  registration was found, the card resolves the target by Case/PO instead of forcing the
+   *  handler to look up a registration they may not have. */
+  suggestedCasePo?: string;
   onDone: () => void;
 }) {
   const styles = useStyles();
   const [reg, setReg] = useState(suggestedVrm ?? '');
-  const [phase, setPhase] = useState<Phase>(suggestedVrm ? 'searching' : 'need-ref');
+  const [phase, setPhase] = useState<Phase>(suggestedVrm || suggestedCasePo ? 'searching' : 'need-ref');
   const [matches, setMatches] = useState<Case[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [feedback, setFeedback] = useState<string>('');
 
   const selected = matches.find((m) => m.id === selectedId);
 
-  // Resolve the target case INDEPENDENTLY against the server (open cases sharing this
-  // registration) — server truth, never the model's word. openVrmTwins is ungated.
-  const search = useCallback(async (registration: string) => {
-    const q = registration.trim();
-    if (!q) {
-      setPhase('need-ref');
-      return;
-    }
-    setPhase('searching');
-    setFeedback('');
-    setSelectedId(undefined);
-    try {
-      const found = await getDataAccess().openVrmTwins(q);
-      setMatches(found);
-      if (found.length === 0) {
-        setPhase('none');
-      } else {
-        if (found.length === 1) setSelectedId(found[0].id);
-        setPhase('matches');
-      }
-    } catch {
-      setMatches([]);
+  // Shared: apply a resolved match set (auto-select a lone hit; 'none' when empty).
+  const applyMatches = useCallback((found: Case[]) => {
+    setMatches(found);
+    if (found.length === 0) {
       setPhase('none');
-      setFeedback("I couldn't look that up right now. Check the registration and try again.");
+    } else {
+      if (found.length === 1) setSelectedId(found[0].id);
+      setPhase('matches');
     }
   }, []);
 
-  // Auto-resolve once when the conversation handed us a registration to pre-fill.
+  // Resolve the target case INDEPENDENTLY against the server (open cases sharing this
+  // registration) — server truth, never the model's word. openVrmTwins is ungated.
+  const search = useCallback(
+    async (registration: string) => {
+      const q = registration.trim();
+      if (!q) {
+        setPhase('need-ref');
+        return;
+      }
+      setPhase('searching');
+      setFeedback('');
+      setSelectedId(undefined);
+      try {
+        applyMatches(await getDataAccess().openVrmTwins(q));
+      } catch {
+        setMatches([]);
+        setPhase('none');
+        setFeedback("I couldn't look that up right now. Check the registration and try again.");
+      }
+    },
+    [applyMatches],
+  );
+
+  // Resolve by EXACT Case/PO (the unique case handle) — server truth, never the model's word.
+  const searchByCasePo = useCallback(
+    async (casePo: string) => {
+      const q = casePo.trim();
+      if (!q) return;
+      setPhase('searching');
+      setFeedback('');
+      setSelectedId(undefined);
+      const found = await getDataAccess().openCasePoMatches(q);
+      applyMatches(found);
+      if (found.length === 0) {
+        setFeedback(
+          `I couldn’t find an open case for ${q}. Enter the vehicle registration to find it instead.`,
+        );
+      }
+    },
+    [applyMatches],
+  );
+
+  // Auto-resolve once from what the conversation handed us: prefer the registration, else fall
+  // back to the Case/PO so a "add these to CCPY26050" request resolves without a manual lookup.
   useEffect(() => {
     if (suggestedVrm) void search(suggestedVrm);
-    // Only on first mount for the pre-filled registration; later searches are user-driven.
+    else if (suggestedCasePo) void searchByCasePo(suggestedCasePo);
+    // Only on first mount for the pre-filled handle; later searches are user-driven.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
