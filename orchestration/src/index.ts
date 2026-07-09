@@ -33,6 +33,7 @@ import './functions/activities/statusEvaluate.js';
 import './functions/activities/enrich.js';
 import './functions/activities/boxArchive.js'; // Blob -> Box archive mirror (box-sync)
 import './functions/activities/extractImages.js'; // embedded-image extraction (pdf-image-extraction)
+import './functions/activities/imagesUnmatched.js'; // TKT-034 unmatched-images fallback (visible flag + dark reg-keyed Box folder)
 
 // The 9 gated orchestrations (plan 22 §C) — all wired off behind their gates, no-op when invoked
 import './functions/gated/finalize-eva-box.js';
@@ -44,4 +45,5 @@ import './functions/gated/box-blob-purge.js';
 import './functions/gated/case-disposition.js';
 import './functions/gated/jobsheet-import.js';
 import './functions/gated/retro-case.js'; // retro case reconstruction (ADR-0022; RETRO_CASE_ENABLED)
+import './functions/gated/retro-deleted-probe.js'; // TKT-119d read-only Deleted-Items feasibility probe (keyed)
 import './functions/gated/replay-backfill.js'; // replay wipe&rebuild driver (TKT-059; REPLAY_BACKFILL_ENABLED)

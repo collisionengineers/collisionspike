@@ -350,7 +350,7 @@ gpt-5-mini) is recorded; `EMAIL_AI_ENABLED` production stays off until the G5 si
     [TKT-025](../../tickets/done/TKT-025-inbox-source-filter/TKT-025-inbox-source-filter.md).
   - [ ] Finish the **actionable-inbox verification** (TKT-005). **Not finished** — an operator
     click-through runbook was written this pass
-    ([verification.md](../../tickets/verify/TKT-005-email-actions/verification.md)), but TKT-005 itself stays
+    ([verification.md](../../tickets/done/TKT-005-email-actions/verification.md)), but TKT-005 itself stays
     `now` pending that live confirmation.
   - [x] **Never delete `inbound_email` rows** (audit-of-record); keep active-vs-handled semantics;
     hardened writes. **Honoured** — no `DELETE FROM inbound_email` exists anywhere in the API; dismiss/

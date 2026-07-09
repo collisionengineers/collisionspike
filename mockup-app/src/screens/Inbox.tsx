@@ -118,10 +118,11 @@ import {
   parseEmailType,
   type EmailTypeFilter,
 } from './inbox-email-type';
-import { inboxStatus, inboxStatusText } from './inbox-status';
+import { attentionDetailText, inboxStatus, inboxStatusText } from './inbox-status';
 import { suggestedAction, suggestedFolder } from './inbox-suggested-action';
 import {
   data,
+  serverMessageOf,
   useInbox,
   useInboundSuggestions,
   useOutlookMove,
@@ -616,13 +617,16 @@ function formatReceived(iso: string): string {
    'new' is warning amber (needs sorting, not a blocker — D4); Handled success;
    Dismissed muted; routed-without-case falls back to a neutral info chip. */
 const STATUS_CHIP: Record<
-  'new' | 'handled' | 'dismissed' | 'linked-unresolved',
+  'new' | 'handled' | 'dismissed' | 'linked-unresolved' | 'attention',
   { severity: ChipSeverity; Icon: typeof AlertCircle }
 > = {
   new: { severity: 'warning', Icon: AlertCircle },
   handled: { severity: 'success', Icon: CheckCircle2 },
   dismissed: { severity: 'muted', Icon: XCircle },
   'linked-unresolved': { severity: 'info', Icon: Link2 },
+  // TKT-119c/034 — a pipeline outcome that needs a person ("Unable to locate" /
+  // "No matching case"): critical so it reads as louder than plain "New".
+  attention: { severity: 'critical', Icon: AlertCircle },
 };
 
 /** Status cell (TKT-054 / 020726 E4): case-linked rows render the Case/PO link
@@ -653,6 +657,8 @@ function StatusCell({ e, onOpenCase }: { e: InboundEmail; onOpenCase: (caseId: s
       size="small"
       shape="rounded"
       icon={<Icon size={12} strokeWidth={2} />}
+      // TKT-119c/034 — the fuller plain-English line on hover for the attention states.
+      {...(m.kind === 'attention' ? { title: attentionDetailText(m.reason) } : {})}
     >
       {inboxStatusText(m)}
     </Badge>
@@ -990,10 +996,12 @@ export function Inbox() {
       );
       refresh();
     } catch (err) {
+      // TKT-091 — show the server's plain-English reason when it sent one (e.g. the
+      // filing queue missing / a permission not granted), never the technical line.
       dispatchToast(
         <Toast>
-          <ToastTitle>Couldn’t file this email. Please try again.</ToastTitle>
-          <ToastBody>{err instanceof Error ? err.message : 'Please try again.'}</ToastBody>
+          <ToastTitle>Couldn’t file this email.</ToastTitle>
+          <ToastBody>{serverMessageOf(err) ?? 'Please try again in a moment.'}</ToastBody>
         </Toast>,
         { intent: 'error' },
       );
@@ -1879,6 +1887,20 @@ function EmailPreviewPanel({
             </Caption1>
           </div>
         </div>
+
+        {/* TKT-119c/034 — the terminal attention states get a visible home in the
+            preview too (the grid chip carries the short label; this is the fuller
+            plain-English line). Suppressed once the email is linked to a case. */}
+        {!row.caseId && row.attentionReason && (
+          <MessageBar intent="error">
+            <MessageBarBody>
+              <MessageBarTitle>
+                {row.attentionReason === 'unable_to_locate' ? 'Unable to locate' : 'No matching case'}
+              </MessageBarTitle>
+              {attentionDetailText(row.attentionReason)}
+            </MessageBarBody>
+          </MessageBar>
+        )}
 
         {/* Suggested-match banners — amber attention idiom (D4: amber, never red),
             passive until acted on. At most one of each ever shows (both are keyed

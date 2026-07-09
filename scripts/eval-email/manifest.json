@@ -946,7 +946,7 @@
     },
     {
       "id": "tkt083-body-instruction-onephrase",
-      "file": "docs/tickets/verify/TKT-083-misclass-instructions-unidentified/evidence/Our Ref 30230-01 ; Name Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number BV72YVB  .eml",
+      "file": "docs/tickets/done/TKT-083-misclass-instructions-unidentified/evidence/Our Ref 30230-01 ; Name Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number BV72YVB  .eml",
       "source": "ticket:TKT-083",
       "tracked": true,
       "context": {
@@ -961,7 +961,7 @@
     },
     {
       "id": "tkt097-oakwood-cancellation",
-      "file": "docs/tickets/verify/TKT-097-cancellation-misclass-query/evidence/RE Oakwood Scotland Soliciutors- Instructions.eml",
+      "file": "docs/tickets/done/TKT-097-cancellation-misclass-query/evidence/RE Oakwood Scotland Soliciutors- Instructions.eml",
       "source": "ticket:TKT-097",
       "tracked": true,
       "context": {
@@ -979,7 +979,7 @@
     },
     {
       "id": "tkt105-remittance-advice",
-      "file": "docs/tickets/verify/TKT-105-remittance-payments-category/evidence/Remittance advice.eml",
+      "file": "docs/tickets/done/TKT-105-remittance-payments-category/evidence/Remittance advice.eml",
       "source": "ticket:TKT-105",
       "tracked": true,
       "context": {
@@ -997,7 +997,7 @@
     },
     {
       "id": "tkt120-fairway-transfer-synthetic",
-      "file": "docs/tickets/verify/TKT-120-fairway-payment-misclass/evidence/synthetic-fairway-transfer.eml",
+      "file": "docs/tickets/done/TKT-120-fairway-payment-misclass/evidence/synthetic-fairway-transfer.eml",
       "source": "ticket:TKT-120",
       "tracked": true,
       "context": {
@@ -1033,7 +1033,7 @@
     },
     {
       "id": "tkt100-qdos-lead",
-      "file": "docs/tickets/verify/TKT-100-qdos-false-vrm-and2/evidence/46533_1 - Barry Pavlou..eml",
+      "file": "docs/tickets/done/TKT-100-qdos-false-vrm-and2/evidence/46533_1 - Barry Pavlou..eml",
       "source": "ticket:TKT-100",
       "tracked": true,
       "context": {

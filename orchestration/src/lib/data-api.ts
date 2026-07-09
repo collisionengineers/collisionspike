@@ -292,7 +292,10 @@ export const dataApi = {
       auditAction: string;
     };
   }): Promise<{
-    outcome: 'created' | 'attached' | 'already_ingested';
+    /** 'refused_category' (TKT-119): the API's belt-and-braces mint guard refused the
+     *  create — the message's own triage row carries a category that never mints
+     *  (acknowledgement/query/non_actionable/…). caseId is '' on that outcome. */
+    outcome: 'created' | 'attached' | 'already_ingested' | 'refused_category';
     caseId: string;
     casePo?: string | null;
     /**
@@ -381,13 +384,26 @@ export const dataApi = {
     boxFolder?: { id: string; url?: string };
     triggerCategory?: string;
   }): Promise<{
-    outcome: 'created' | 'already_exists_linked' | 'ambiguous' | 'gated_off';
+    outcome: 'created' | 'already_exists_linked' | 'ambiguous' | 'gated_off' | 'refused_category';
     caseId?: string;
     casePo?: string | null;
     newClient?: boolean;
     candidateCount?: number;
   }> {
     return request('POST', '/api/internal/retro/create', payload);
+  },
+
+  /**
+   * TKT-119c / TKT-034 — stamp a VISIBLE attention reason on an email's triage row
+   * ('unable_to_locate' after a failed retro reconstruction; 'images_no_match' for an
+   * image-bearing email with no case match). Keyed on the Internet-Message-Id; the API
+   * is schema-tolerant (stamped:false until the attention_reason column lands).
+   */
+  markInboundAttention(payload: {
+    sourceMessageId: string;
+    reason: 'unable_to_locate' | 'images_no_match';
+  }): Promise<{ stamped: boolean; detail?: string }> {
+    return request('POST', '/api/internal/inbound/attention', payload);
   },
 
   /**

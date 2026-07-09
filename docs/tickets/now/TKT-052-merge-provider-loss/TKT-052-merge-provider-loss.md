@@ -27,3 +27,7 @@ resolve/merge) — the merge must prefer whichever side carries a resolved provi
 Rides the Phase-3 identification work of the
 [Rules Engine v2 plan](../../../plans/rules_engine_v2_plan_9ba034c4.plan.md) (provider resolution at
 caseResolve), with the merge-preference fix verified against the ADR-0010 dedup ladder.
+
+## Artifacts
+
+- [changes.md](./changes.md) — merge-provider inheritance build record (2026-07-09 intake wave).

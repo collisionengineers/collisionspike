@@ -99,6 +99,40 @@ describe('decideRetro — trigger eligibility', () => {
     },
   );
 
+  // TKT-119 — the PHA5007 shape: "Re: Our ref: PHA 5007 - Reg: MT25 FXW" classified
+  // non_actionable/acknowledgement. An ack cites exactly one matter, so it may LOCATE
+  // (link or reconstruct the original) — the ack itself still never mints.
+  it('a non_actionable ACKNOWLEDGEMENT with keys attempts (locate-and-link, TKT-119)', () => {
+    const d = decideRetro({
+      ...base,
+      category: 'non_actionable',
+      subtype: 'acknowledgement',
+      bodyJobref: 'PHA5007',
+      bodyVrm: 'MT25 FXW',
+    });
+    expect(d.attempt).toBe(true);
+    expect(d.keys.externalRef).toBe('PHA5007');
+    expect(d.keys.vrm).toBe('MT25FXW');
+    expect(d.reasons).toContain('ack_subtype_eligible');
+  });
+
+  it('a non_actionable acknowledgement with NO keys still never attempts', () => {
+    const d = decideRetro({ ...base, category: 'non_actionable', subtype: 'acknowledgement' });
+    expect(d.attempt).toBe(false);
+    expect(d.reasons).toContain('no_usable_key');
+  });
+
+  it('a non_actionable CASE_SUMMARY digest never attempts (cites many refs)', () => {
+    const d = decideRetro({
+      ...base,
+      category: 'non_actionable',
+      subtype: 'case_summary',
+      bodyJobref: '575689',
+    });
+    expect(d.attempt).toBe(false);
+    expect(d.reasons[0]).toBe('category_not_eligible:non_actionable');
+  });
+
   it('a reply that link-matched ambiguously must NOT fire (>=2 open cases already match)', () => {
     const d = decideRetro({
       category: 'case_update',

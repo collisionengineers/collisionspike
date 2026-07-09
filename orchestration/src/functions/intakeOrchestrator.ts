@@ -216,11 +216,10 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     }
   }
 
-  // suggest_attach / propose_cancellation / route_images_unmatched: the DECISION (and, for
-  // the first two, the best-effort ai_suggestion write) already happened INSIDE the
-  // triagePolicy activity. NONE of the three change ROUTING this release (ADR-0019 §4's
-  // suggest-first promotion ladder — promoting a decision to an automatic action is a
-  // DOCUMENTED FUTURE SEAM, not built here):
+  // suggest_attach / propose_cancellation: the DECISION (and the best-effort
+  // ai_suggestion write) already happened INSIDE the triagePolicy activity. NEITHER
+  // changes ROUTING this release (ADR-0019 §4's suggest-first promotion ladder —
+  // promoting a decision to an automatic action is a DOCUMENTED FUTURE SEAM):
   //   - suggest_attach: a receiving_work email still mints its own case exactly as today
   //     (the flow below branches on classification.category, Stage A's own label — NEVER
   //     on triage.finalCategory); staff act on the suggestion from the inbox. VRM-only
@@ -229,10 +228,28 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   //   - propose_cancellation: category 'cancellation' is already !== 'receiving_work', so
   //     the branch below already routes it via the linkReply/query lane unchanged; this
   //     action never auto-closes or auto-holds a case.
-  //   - route_images_unmatched: TODO(ADR-0015 §5) — the reg-keyed Box dumping-folder lane
-  //     for images with no case match is a FOLLOW-UP, not built here. The decision is
-  //     still logged (above) and telemetered (inside the activity) so it stays visible
-  //     ahead of that build, but no side-effect fires for it in this release.
+  //
+  // route_images_unmatched (TKT-034 — the ADR-0015 §5 fallback, now built): an
+  // image-bearing email that matched no case gets a VISIBLE flag for manual handling
+  // (attention_reason 'images_no_match' on its triage row — the SPA renders the
+  // plain-English chip while the row is unlinked), plus the DARK reg-keyed Box
+  // holding-folder rung (BOX_REG_FOLDER_ENABLED, default off — gate read INSIDE the
+  // activity). Additive + best-effort: routing below is unchanged, and the lane's
+  // linkReply may still link the email (a later link supersedes the chip
+  // presentation-side).
+  if (triage.action === 'route_images_unmatched') {
+    try {
+      yield ctx.df.callActivityWithRetry('imagesUnmatched', retry, {
+        internetMessageId: (inbound as { internetMessageId?: string }).internetMessageId,
+        vrm:
+          ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim(),
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] images-unmatched flag failed (additive, non-blocking): ${String(e)}`);
+      }
+    }
+  }
 
   // QUERY / OTHER / NON_ACTIONABLE / CANCELLATION / CASE_UPDATE never mint a Case — the
   // inbound_email triage row IS the record. Only `receiving_work` mints (categoryMintsCase,
@@ -310,6 +327,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       // so the primary return below is never blocked or changed — `retro` is an added key.
       const retroReply = decideRetro({
         category: classification.category,
+        subtype: classification.subtype,
         bodyCaseref: classification.bodyCaseref,
         bodyJobref: classification.bodyJobref,
         bodyVrm: classification.bodyVrm,
@@ -318,6 +336,13 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
         isReply: true,
         linkReplyOutcome: link.outcome as 'linked' | 'ambiguous' | 'no_match',
       });
+      // TKT-119: a refusal must not be a SILENT nothing — log the reasons so "why did
+      // retro never run for this email" is answerable from telemetry.
+      if (!retroReply.attempt && !ctx.df.isReplaying) {
+        ctx.log(
+          JSON.stringify({ evt: 'retroDecision', attempt: false, lane: 'reply', reasons: retroReply.reasons }),
+        );
+      }
       let retroReplyOutcome: string | undefined;
       if (retroReply.attempt) {
         try {
@@ -352,6 +377,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     const inbNonReply = inbound as { candidateRef?: string; candidateVrm?: string };
     const retroNonReply = decideRetro({
       category: classification.category,
+      subtype: classification.subtype,
       bodyCaseref: classification.bodyCaseref,
       bodyJobref: classification.bodyJobref,
       bodyVrm: classification.bodyVrm,
@@ -359,6 +385,12 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       candidateVrm: inbNonReply.candidateVrm,
       isReply: false,
     });
+    // TKT-119: a refusal must not be a SILENT nothing (see the reply-lane twin above).
+    if (!retroNonReply.attempt && !ctx.df.isReplaying) {
+      ctx.log(
+        JSON.stringify({ evt: 'retroDecision', attempt: false, lane: 'non_reply', reasons: retroNonReply.reasons }),
+      );
+    }
     let retroOutcome: string | undefined;
     if (retroNonReply.attempt) {
       try {
@@ -519,6 +551,17 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
 
   if (resolved.outcome === 'already_ingested') {
     return { skipped: true, caseId: resolved.caseId };
+  }
+
+  // TKT-119 — the API's belt-and-braces mint guard refused the create (the message's own
+  // triage row carries a never-minting category, e.g. an acknowledgement). The triage row
+  // is already recorded (step 1.5); nothing further to persist for a message that will
+  // never own a case.
+  if (resolved.outcome === 'refused_category') {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] case create refused by the category mint guard (${classification.category}/${classification.subtype})`);
+    }
+    return { triaged: classification.category, subtype: classification.subtype, refused: 'category_mint_guard' };
   }
 
   // 2.1 — mark the case as ingested (picked up by the intake pipeline); sets status

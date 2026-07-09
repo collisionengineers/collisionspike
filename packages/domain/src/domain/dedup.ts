@@ -226,3 +226,40 @@ export function resolveCase(input: ResolveCaseInput): ResolveCaseOutput {
     auditAction: 'case_created',
   };
 }
+
+/* ----------  Merge provider preference (TKT-052)  ---------- */
+
+export interface MergeProviderDecision {
+  /** The work-provider id the SURVIVOR (target) must end the merge with, or null when
+   *  neither side knows one. */
+  providerId: string | null;
+  /** 'source' when the survivor inherits the retired side's provider (the fix);
+   *  'target' when it already had one; null when neither side knows. */
+  filledFrom: 'source' | 'target' | null;
+  /** ADR-0010 inviolable rule 2 re-asserted: both sides carry a provider and they
+   *  DIFFER — the merge must be refused, never resolved by preference. */
+  crossProvider: boolean;
+}
+
+/**
+ * TKT-052 — merging an image-only case (no provider) into/with an instructions case
+ * must never LOSE the provider one side knew: the merged survivor ends with whichever
+ * side carries a resolved provider. Pure decision — the caller (mergeCases,
+ * api/src/functions/cases.ts, and the audited data-fix deltas) applies it.
+ *   - both known + equal   -> keep (target)
+ *   - both known + differ  -> crossProvider: REFUSE (ADR-0010 rule 2 — never merge across providers)
+ *   - target only          -> keep (target)
+ *   - source only          -> FILL the survivor from the source (the bug this fixes)
+ *   - neither              -> null (nothing to prefer)
+ */
+export function decideMergeProvider(
+  sourceProviderId: string | null | undefined,
+  targetProviderId: string | null | undefined,
+): MergeProviderDecision {
+  const src = (sourceProviderId ?? '').trim() || null;
+  const tgt = (targetProviderId ?? '').trim() || null;
+  if (src && tgt && src !== tgt) return { providerId: tgt, filledFrom: null, crossProvider: true };
+  if (tgt) return { providerId: tgt, filledFrom: 'target', crossProvider: false };
+  if (src) return { providerId: src, filledFrom: 'source', crossProvider: false };
+  return { providerId: null, filledFrom: null, crossProvider: false };
+}

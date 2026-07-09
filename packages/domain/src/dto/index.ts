@@ -628,7 +628,19 @@ export interface InboundEmail {
   outlookMovedFolder?: string;
   /** When the terminal moved/failed outcome was recorded (ISO). */
   outlookMovedAt?: string;
+  /** TKT-119c / TKT-034 — a pipeline outcome that needs a VISIBLE home on the row:
+   *  'unable_to_locate' (reconstruction from Outlook + Box history found nothing) or
+   *  'images_no_match' (images arrived but no case matched). Rendered as a plain-English
+   *  chip while the row is UNLINKED; a later case link supersedes it presentation-side. */
+  attentionReason?: InboundAttentionReason;
 }
+
+/** inbound_email.attention_reason values (2026-07-09 DDL delta). */
+export type InboundAttentionReason = 'unable_to_locate' | 'images_no_match';
+export const INBOUND_ATTENTION_REASONS: readonly InboundAttentionReason[] = [
+  'unable_to_locate',
+  'images_no_match',
+];
 
 /** Outlook filing lifecycle states (inbound_email.outlook_move_state). */
 export type OutlookMoveState = 'queued' | 'moved' | 'failed';

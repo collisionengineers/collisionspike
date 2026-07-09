@@ -231,3 +231,103 @@ describe('resolveCase — determinism', () => {
     expect(resolveCase(i)).toEqual(resolveCase(i));
   });
 });
+
+/* ----------  TKT-092 regression — the PCH FW:-resend duplicate vectors  ----------
+   Live trace (2026-07-03): the same PCH instruction was re-sent as "FW: …" with a fresh
+   Internet-Message-Id. PCH26018 + PCH26020 stored the IDENTICAL payload_hash yet both
+   minted, and the re-send's parser-extracted ref (00035591/JEFFP) matched the open
+   PCH26009's case_ref yet did not attach. The domain ladder decides both correctly —
+   these tests pin that so the live activity wiring (internetMessageId as the rung-1 key,
+   parserRef folded into candidateRef) can never regress silently. */
+
+describe('resolveCase — TKT-092 FW:-resend vectors (PCH duplicate shape)', () => {
+  it('a re-send with a NEW message id but the SAME payload hash -> drop (rung 1)', () => {
+    const out = resolveCase(
+      input({
+        messageId: 'fw-resend-new-id',
+        payloadHash: 'bd1ffccdab05ef13',
+        candidateVrm: 'PK20FWT',
+        candidateRef: '00035591/JEFFP',
+        seenMessageIds: ['<original@GBRP123>'],
+        seenPayloadHashes: ['bd1ffccdab05ef13'],
+        openProviderCases: [openCase({ caseId: 'pch26009', caseRef: '00035591/JEFFP' })],
+      }),
+    );
+    expect(out.resolution).toBe('drop');
+    expect(out.auditAction).toBe('duplicate_dropped');
+  });
+
+  it('a re-send with a new id AND a new hash but the SAME parser ref -> attach to the open case (rung 2)', () => {
+    const out = resolveCase(
+      input({
+        messageId: 'fw-resend-new-id',
+        payloadHash: 'different-hash',
+        candidateVrm: 'PK20FWT',
+        candidateRef: '00035591/JEFFP', // parserRef folded in by the caseResolve activity
+        openProviderCases: [openCase({ caseId: 'pch26009', caseRef: '00035591/JEFFP' })],
+      }),
+    );
+    expect(out.resolution).toBe('attach');
+    expect(out.targetCaseId).toBe('pch26009');
+  });
+
+  it('TKT-101 shape: a DIFFERENT ref on the same VRM -> new case + duplicate risk, never merged (rung 3)', () => {
+    const out = resolveCase(
+      input({
+        messageId: 'qdos-46671',
+        payloadHash: 'hash-46671',
+        candidateVrm: 'AND2', // the shared junk VRM both QDOS emails sniffed
+        candidateRef: '46671/1',
+        openProviderCases: [openCase({ caseId: 'qdos26056', caseRef: '46533/1' })],
+      }),
+    );
+    expect(out.resolution).toBe('new_due_to_reference');
+    expect(out.setDuplicateRisk).toBe(true);
+    expect(out.targetCaseId).toBeUndefined();
+  });
+});
+
+/* ----------  TKT-052 — merge provider preference (against the ADR-0010 ladder rules)  ---------- */
+
+import { decideMergeProvider } from './dedup';
+
+describe('decideMergeProvider — TKT-052 merged case must not lose the provider', () => {
+  it('image-only survivor + provider-carrying source -> survivor INHERITS the provider (the bug)', () => {
+    expect(decideMergeProvider('wp-pch', null)).toEqual({
+      providerId: 'wp-pch',
+      filledFrom: 'source',
+      crossProvider: false,
+    });
+  });
+
+  it('survivor already knows the provider -> kept', () => {
+    expect(decideMergeProvider(null, 'wp-pch')).toEqual({
+      providerId: 'wp-pch',
+      filledFrom: 'target',
+      crossProvider: false,
+    });
+    expect(decideMergeProvider('wp-pch', 'wp-pch')).toEqual({
+      providerId: 'wp-pch',
+      filledFrom: 'target',
+      crossProvider: false,
+    });
+  });
+
+  it('BOTH sides carry DIFFERENT providers -> crossProvider (ADR-0010 rule 2: refuse, never prefer)', () => {
+    const d = decideMergeProvider('wp-pch', 'wp-qdos');
+    expect(d.crossProvider).toBe(true);
+  });
+
+  it('neither side knows -> null (nothing to prefer)', () => {
+    expect(decideMergeProvider(null, undefined)).toEqual({
+      providerId: null,
+      filledFrom: null,
+      crossProvider: false,
+    });
+    expect(decideMergeProvider('  ', '')).toEqual({
+      providerId: null,
+      filledFrom: null,
+      crossProvider: false,
+    });
+  });
+});

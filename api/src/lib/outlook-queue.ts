@@ -87,3 +87,50 @@ export async function enqueueOutlookMove(job: OutlookMoveJob): Promise<void> {
     throw new Error(`outlook-move enqueue → ${res.status}: ${detail.slice(0, 300)}`);
   }
 }
+
+/** Machine-readable enqueue-failure classes (TKT-091) + the plain-English line the SPA
+ *  shows for each (no engineering vocabulary rendered). */
+export interface EnqueueFailureClass {
+  reason: 'queue_missing' | 'not_authorised' | 'not_configured' | 'no_identity' | 'unavailable';
+  /** Staff-facing sentence — rendered verbatim by the SPA. */
+  message: string;
+}
+
+/**
+ * TKT-091 — classify an {@link enqueueOutlookMove} throw so the route can return a
+ * machine-readable reason (and the SPA a readable sentence) instead of a bare 503.
+ * The live 2026-07-06 failure was `queue_missing` (404 QueueNotFound — the
+ * `outlook-move` queue had never been provisioned on the orchestration storage
+ * account), which dev-tools showed only as "503 Service Unavailable".
+ */
+export function classifyEnqueueFailure(e: unknown): EnqueueFailureClass {
+  const text = e instanceof Error ? e.message : String(e ?? '');
+  if (/QueueNotFound|→ 404/.test(text)) {
+    return {
+      reason: 'queue_missing',
+      message: 'Outlook filing is not fully set up yet — the filing queue is missing. Ask the administrator.',
+    };
+  }
+  if (/AuthorizationFailure|AuthorizationPermissionMismatch|→ 403/.test(text)) {
+    return {
+      reason: 'not_authorised',
+      message: 'Outlook filing is not fully set up yet — a permission is missing. Ask the administrator.',
+    };
+  }
+  if (/not configured/.test(text)) {
+    return {
+      reason: 'not_configured',
+      message: 'Outlook filing is not fully set up yet — ask the administrator.',
+    };
+  }
+  if (/IDENTITY_ENDPOINT/.test(text)) {
+    return {
+      reason: 'no_identity',
+      message: 'Outlook filing is unavailable in this environment.',
+    };
+  }
+  return {
+    reason: 'unavailable',
+    message: 'Outlook filing is temporarily unavailable — try again in a moment.',
+  };
+}

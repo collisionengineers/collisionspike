@@ -43,6 +43,7 @@ import {
   IMAGE_BASED_LITERAL,
   TERMINAL_STATUSES,
   allowedCaseTypes,
+  categoryMintsCase,
   describeEvidence,
   markerForMint,
   statusForReviewCase,
@@ -93,6 +94,8 @@ import {
 } from '../lib/mappers.js';
 import { hasColumn, planOptionalColumns, tableColumns } from '../lib/schema-introspect.js';
 import { acquireTriageLocks } from '../lib/triage-locks.js';
+import { clampVarchar, vrmOrEmpty } from '../lib/varchar-guard.js';
+import { vrmLinkRefConflict } from '../lib/link-guards.js';
 
 /* ============================================================
    Service auth — validate the JWT (sig + iss + aud + exp) without
@@ -142,6 +145,74 @@ function senderDomain(address: string): string {
   const at = address.lastIndexOf('@');
   if (at < 0 || at === address.length - 1) return '';
   return address.slice(at + 1).toLowerCase().trim();
+}
+
+/**
+ * TKT-119 belt-and-braces mint guard — the Data-API-side twin of the orchestration
+ * `categoryMintsCase` guard (TKT-081). Looks up the message's OWN triage row (written by
+ * classifyInbound BEFORE any create runs, and carrying any later staff reclassify) and
+ * returns the category name when that category may NOT mint a case (acknowledgement/
+ * query/non_actionable/billing/…), or null when minting is allowed. A missing row (a
+ * never-classified envelope, e.g. a synthetic retro anchor) allows the create — this is
+ * a second lock on the same door, not a new gate.
+ */
+export async function mintBlockedByCategory(
+  internetMessageId: string | null | undefined,
+): Promise<string | null> {
+  const id = (internetMessageId ?? '').trim();
+  if (!id) return null;
+  try {
+    const rows = await query<Row>(
+      `SELECT c.name AS category
+         FROM inbound_email ie
+         JOIN choice_inbound_category c ON c.code = ie.category_code
+        WHERE ie.source_message_id = $1`,
+      [id],
+    );
+    const category = (rows[0]?.category as string | undefined) ?? '';
+    if (!category) return null;
+    return categoryMintsCase(category as InboundCategory) ? null : category;
+  } catch {
+    return null; // guard is belt-and-braces — a read failure must never block intake
+  }
+}
+
+/** choice_chaser_status codes (000_enums_lookups.sql). */
+const CHASER_STATUS_RESPONDED = 100000002;
+const CHASER_OUTSTANDING_CODES = [100000000, 100000001, 100000003]; // drafted, sent, overdue
+
+/**
+ * TKT-023 — when an inbound email ATTACHES to a case (auto-link, suggestion accept,
+ * dedup attach), any outstanding chaser on that case is satisfied by the arrival: mark
+ * it 'responded' (drafted/sent/overdue → responded) with an audit. No-op when the case
+ * has no outstanding chaser. Best-effort: a chaser bookkeeping failure must never block
+ * the attach that triggered it. Returns the number of chasers updated.
+ */
+export async function markOutstandingChasersResponded(
+  caseId: string,
+  via: string,
+): Promise<number> {
+  try {
+    const rows = await query<Row>(
+      `UPDATE chaser SET status_code = $2, updated_at = now()
+        WHERE case_id = $1 AND status_code IN (${CHASER_OUTSTANDING_CODES.join(',')})
+        RETURNING id`,
+      [caseId, CHASER_STATUS_RESPONDED],
+    );
+    if (rows.length > 0) {
+      // chaser_sent (100000023) is the controlled chaser-family audit action (the same
+      // reuse logChase makes in cases.ts); the summary keeps the wording honest.
+      await writeAudit({
+        action: AUDIT_ACTION.chaser_sent,
+        caseId,
+        summary: `Chaser marked responded — the requested item arrived (${via})`,
+        after: { chaserIds: rows.map((r) => r.id), via },
+      });
+    }
+    return rows.length;
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -300,7 +371,7 @@ export async function applyParserFields(
 
   if (ref && isEmpty(cur[0].case_ref)) {
     sets.push(`case_ref = $${sets.length + 1}`);
-    vals.push(ref.slice(0, 200));
+    vals.push(ref.slice(0, 100)); // TKT-073: case_ref is varchar(100) — the old 200 cap could 22001
   }
   // TKT-128: mirror the provider's reference into the "Imported details" overview
   // fact (ov_claim_number — the same column manual intake's Provider's-reference
@@ -827,7 +898,15 @@ app.http('internalCasesResolve', {
         : null;
       // #7 — prefer the parser-extracted PDF VRM over the email-body sniff. Both have
       // already run through the canonical postcode/junk filter (extractVrm / Python sniff).
-      const vrm = ((body.parserVrm || inbound.candidateVrm) ?? '').trim();
+      // TKT-073: an over-length "VRM" is a junk sniff, not data — drop it (same as no VRM)
+      // instead of failing the case_ INSERT with pg 22001 (the live 2026-07-02/03 outages).
+      const vrmGuard = vrmOrEmpty(body.parserVrm || inbound.candidateVrm);
+      if (vrmGuard.dropped) {
+        ctx.warn(
+          `[cases/resolve] over-length VRM candidate dropped (junk sniff > varchar(16)) for ${inbound.internetMessageId}`,
+        );
+      }
+      const vrm = vrmGuard.value;
 
       // The matched provider's automation mode — the SEAM the orchestration worker reads to
       // branch intake (work-todo-spike: automation-mode). No provider (new/unknown client) =>
@@ -863,10 +942,28 @@ app.http('internalCasesResolve', {
           summary: `Email ${inbound.internetMessageId} attached to existing case`,
           after: { messageId: inbound.internetMessageId, resolution: 'attach' },
         });
+        // TKT-023 — an arriving attachment satisfies any outstanding chaser on the case.
+        await markOutstandingChasersResponded(decision.targetCaseId, 'dedup attach');
         return {
           status: 200,
           jsonBody: { outcome: 'attached', caseId: decision.targetCaseId, providerAutomationMode },
         };
+      }
+
+      // TKT-119 belt-and-braces: an acknowledgement / query / non_actionable (or any other
+      // non-minting-category) email may NEVER create a case from THIS seam either — the
+      // orchestration categoryMintsCase guard (TKT-081) is re-asserted here against the
+      // message's OWN triage row, so no future caller/path can mint from an ack.
+      const blockedCategory = await mintBlockedByCategory(inbound.internetMessageId);
+      if (blockedCategory) {
+        await writeAudit({
+          action: AUDIT_ACTION.inbound_routed,
+          severity: 'warning',
+          summary: `Create refused — '${blockedCategory}' emails never open a case (kept in the inbox for review)`,
+          after: { messageId: inbound.internetMessageId, category: blockedCategory, seam: 'cases/resolve' },
+        });
+        ctx.log(JSON.stringify({ evt: 'caseResolvePersist', outcome: 'refused_category', category: blockedCategory }));
+        return { status: 200, jsonBody: { outcome: 'refused_category', category: blockedCategory } };
       }
 
       // Create: new case_ for create / new_due_to_reference / propose_attach.
@@ -875,7 +972,15 @@ app.http('internalCasesResolve', {
       // returns as 409 (→ ConflictError → already_ingested in the client).
       const rawStatus = decision.statusEffect as CaseStatus;
       const statusCode = caseStatusCodec.toInt(rawStatus) ?? statusToInt('new_email');
-      const caseRef = (inbound.candidateRef ?? '').trim();
+      // TKT-073: case_.case_ref is varchar(100) — clamp (with a warn trace) instead of
+      // failing the INSERT with pg 22001 (the live 2026-06-30/07-01 outages).
+      const caseRefGuard = clampVarchar(inbound.candidateRef, 100);
+      if (caseRefGuard.clamped) {
+        ctx.warn(
+          `[cases/resolve] candidateRef clamped to 100 chars (was ${caseRefGuard.originalLength}) for ${inbound.internetMessageId}`,
+        );
+      }
+      const caseRef = caseRefGuard.value;
       const subject = (inbound.subject ?? '').trim();
       const name = ([vrm || null, subject || null].filter(Boolean).join(' · ') || 'Email intake').slice(0, 100);
       const emailKindCode = intakeChannelKindCodec.toInt('email') ?? null;
@@ -947,6 +1052,11 @@ app.http('internalCasesResolve', {
             workProviderId,
           ];
           if (caseRef) { cols.push('case_ref'); vals.push(caseRef); }
+          // TKT-128 (follow-up): the subject-sniffed reference also seeds the "Imported
+          // details" overview fact, so a subject-only ref (no parsable document) still
+          // populates the panel's Claim no. — fill-at-create; applyParserFields keeps its
+          // own fill-if-empty for the parser's ref.
+          if (caseRef) { cols.push('ov_claim_number'); vals.push(caseRef.slice(0, 100)); }
           if (casePo) { cols.push('case_po'); vals.push(casePo); }
           // case_type_code (ADR-0014/ADR-0021) — written only behind the gate (the live
           // choice_case_type rows for the new types land via the operator's DDL delta;
@@ -1151,7 +1261,9 @@ export async function upsertInboundEmail(
   triageState?: string,
 ): Promise<string | null> {
   const subject = (inbound.subject ?? '').trim();
-  const name = `Email: ${subject || inbound.internetMessageId}`;
+  // TKT-073: this helper's own varchar columns, clamped so a long value degrades instead
+  // of silently losing the whole triage row (the catch below swallows DB errors).
+  const name = clampVarchar(`Email: ${subject || inbound.internetMessageId}`, 200).value;
   const categoryCode = classification
     ? INBOUND_CATEGORY_TO_INT[classification.category as InboundCategory] ?? null
     : null;
@@ -1160,12 +1272,14 @@ export async function upsertInboundEmail(
     : null;
   // Prefer the parser-confirmed PDF VRM for the inbox triage row too (so it shows the same
   // mark the case persists), then the classifier body sniff, then the email-subject sniff.
-  const bodyVrm = ((parserVrm || classification?.bodyVrm || inbound.candidateVrm) ?? '').trim() || null;
-  const bodyCaseref = (classification?.bodyCaseref || inbound.candidateRef || '') || null;
+  // body_vrm is varchar(16): an over-length sniff is junk — dropped, never truncated.
+  const bodyVrm = vrmOrEmpty(parserVrm || classification?.bodyVrm || inbound.candidateVrm).value || null;
+  const bodyCaseref =
+    clampVarchar(classification?.bodyCaseref || inbound.candidateRef || '', 32).value || null;
   const bodyPreview = (inbound.bodyPreview ?? '') || null;
   const confidence = classification ? classification.confidence : null;
   const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
-  const bodyJobref = (classification?.bodyJobref ?? '').trim() || null;
+  const bodyJobref = clampVarchar(classification?.bodyJobref, 64).value || null;
   const conversationId = (inbound.conversationId ?? '').trim() || null;
   try {
     // Base statement occupies $1..$18 below (unchanged from before Phase 2) — optional
@@ -1396,11 +1510,16 @@ app.http('internalInboundLinkReply', {
         providerId?: string;
         ref?: string;
         vrm?: string;
+        /** Provider job/claim reference — NOT a match key (the looser job-ref only drives
+         *  the suggest-first ref-gate), but since TKT-101 it IS a VETO: a VRM-only hit
+         *  whose case is known under a DIFFERENT reference must not auto-link. */
+        jobref?: string;
       };
       const { inbound } = body;
       const workProviderId = body.providerId ?? null;
       const ref = (body.ref ?? '').trim();
       const vrm = (body.vrm ?? '').trim();
+      const jobref = (body.jobref ?? '').trim();
 
       // Resolve candidate OPEN cases — Case-ref first (case_ref OR case_po), then VRM.
       // Cross-provider is allowed here ON PURPOSE: a reply can arrive from the claimant/
@@ -1414,10 +1533,11 @@ app.http('internalInboundLinkReply', {
       // this candidate read runs, instead of racing it. The payload's optional job-ref is
       // deliberately NOT a match key here: this lane AUTO-attaches on an unambiguous hit,
       // and the looser job-ref only ever drives the suggest-first ref-gate (triage/context).
-      const candidates: Row[] = await tx(async (q) => {
+      const { candidates, refConflict } = await tx(async (q) => {
         await acquireTriageLocks(q, { caseref: ref, vrm });
 
         let rows: Row[] = [];
+        let vrmArm = false;
         if (ref) {
           rows = await q<Row>(
             `SELECT id, case_ref, case_po, vrm FROM case_
@@ -1428,6 +1548,7 @@ app.http('internalInboundLinkReply', {
           );
         }
         if (rows.length === 0 && vrm) {
+          vrmArm = true;
           rows = await q<Row>(
             `SELECT id, case_ref, case_po, vrm FROM case_
               WHERE vrm = $1
@@ -1436,8 +1557,41 @@ app.http('internalInboundLinkReply', {
             [vrm],
           );
         }
-        return rows;
+
+        // TKT-101 — a VRM-only single hit is VETOED when the email cites a job/claim
+        // reference the candidate case is not known under (its case_ref/case_po or the
+        // job-refs of its already-linked emails). The QDOS 46533/1-vs-46671/1 wrong-link:
+        // two different matters shared a junk VRM; refs differed → must never auto-link
+        // (ADR-0010 rung-3 semantics applied to the link seam). Held for a human instead.
+        let conflict = false;
+        if (vrmArm && rows.length === 1 && jobref) {
+          const hit = rows[0];
+          const sibs = await q<Row>(
+            `SELECT DISTINCT body_jobref FROM inbound_email
+              WHERE case_id = $1 AND body_jobref IS NOT NULL AND body_jobref <> ''`,
+            [hit.id],
+          );
+          conflict = vrmLinkRefConflict(jobref, [
+            hit.case_ref as string | null,
+            hit.case_po as string | null,
+            ...sibs.map((s) => s.body_jobref as string | null),
+          ]);
+        }
+        return { candidates: conflict ? [] : rows, refConflict: conflict };
       });
+
+      if (refConflict) {
+        // Record the row unlinked (triage keeps it) + flag the collision for a human.
+        await upsertInboundEmail(inbound, workProviderId, null);
+        await writeAudit({
+          action: AUDIT_ACTION.duplicate_flagged,
+          severity: 'warning',
+          summary: `Reply matched a case by registration only (vrm ${vrm}) but cites a different reference (${jobref}); held for manual linking`,
+          after: { vrm, jobref, messageId: inbound.internetMessageId },
+        });
+        ctx.log(JSON.stringify({ evt: 'linkReply', outcome: 'no_match', reason: 'vrm_ref_conflict', jobref }));
+        return { status: 200, jsonBody: { outcome: 'no_match', candidateCount: 0 } };
+      }
 
       // Stamp the triage row with the matched case only on an UNAMBIGUOUS single hit, and mark
       // it 'routed' so a successfully-linked reply no longer counts as untriaged in
@@ -1459,6 +1613,8 @@ app.http('internalInboundLinkReply', {
           summary: `Reply linked to existing case (${ref ? `ref ${ref}` : `vrm ${vrm}`})`,
           after: { matchedBy: ref ? 'caseref' : 'vrm', messageId: inbound.internetMessageId },
         });
+        // TKT-023 — a linked reply satisfies any outstanding chaser on the case.
+        await markOutstandingChasersResponded(linkCaseId, 'reply linked');
         ctx.log(JSON.stringify({ evt: 'linkReply', outcome: 'linked', caseId: linkCaseId }));
         return { status: 200, jsonBody: { outcome: 'linked', caseId: linkCaseId, candidateCount: 1 } };
       }
@@ -1837,6 +1993,8 @@ app.http('internalTriageSuggestLink', {
               after: { caseId: targetCaseId, inboundEmailId, suggestionId, auto: true },
               actor: 'auto-attach',
             });
+            // TKT-023 — an auto-attached arrival satisfies any outstanding chaser.
+            await markOutstandingChasersResponded(targetCaseId, 'auto-attach');
             autoAttached = true;
           }
         }
@@ -1994,6 +2152,53 @@ app.http('internalInboundOutlookMoved', {
       });
       ctx.log(JSON.stringify({ evt: 'outlookMoved', inboundEmailId: id, outcome, folder }));
       return { status: 204 };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/inbound/attention  (TKT-119c / TKT-034)
+   Called by: orchestration when a pipeline outcome needs a VISIBLE home on the
+   email row — retroRecordFailure ('unable_to_locate': reconstruction from Outlook
+   + Box history found nothing) and the images-unmatched triage rung
+   ('images_no_match': an image-bearing email matched no case). Keyed on the
+   message's Internet-Message-Id (the caller may not know the row id). SCHEMA
+   TOLERANT: inbound_email.attention_reason lands via the 2026-07-09 DDL delta —
+   before it exists this stamps nothing and says so (never a failed statement).
+   The SPA renders the reason as a plain-English chip while the row is UNLINKED;
+   linking the email to a case supersedes it (presentation-side).
+   ============================================================ */
+const ATTENTION_REASONS = new Set(['unable_to_locate', 'images_no_match']);
+
+app.http('internalInboundAttention', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/inbound/attention',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        sourceMessageId?: unknown;
+        reason?: unknown;
+      };
+      const sourceMessageId =
+        typeof body.sourceMessageId === 'string' ? body.sourceMessageId.trim() : '';
+      const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+      if (!sourceMessageId) {
+        return { status: 400, jsonBody: { error: 'sourceMessageId is required' } };
+      }
+      if (!ATTENTION_REASONS.has(reason)) {
+        return { status: 400, jsonBody: { error: 'reason must be a known attention reason' } };
+      }
+      if (!(await hasColumn('inbound_email', 'attention_reason'))) {
+        ctx.log(JSON.stringify({ evt: 'inboundAttention', stamped: false, reason: 'column_absent' }));
+        return { status: 200, jsonBody: { stamped: false, detail: 'column_absent' } };
+      }
+      const rows = await query<Row>(
+        `UPDATE inbound_email SET attention_reason = $2, updated_at = now()
+          WHERE source_message_id = $1 RETURNING id`,
+        [sourceMessageId, reason],
+      );
+      ctx.log(JSON.stringify({ evt: 'inboundAttention', stamped: Boolean(rows[0]), reason }));
+      return { status: 200, jsonBody: { stamped: Boolean(rows[0]) } };
     }),
 });
 

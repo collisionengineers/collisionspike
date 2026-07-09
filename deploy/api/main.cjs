@@ -7276,6 +7276,19 @@ function describeEvidence(filename, contentType2, isEmlMessage = false) {
   };
 }
 
+// packages/domain/dist/domain/dedup.js
+function decideMergeProvider(sourceProviderId, targetProviderId) {
+  const src = (sourceProviderId ?? "").trim() || null;
+  const tgt = (targetProviderId ?? "").trim() || null;
+  if (src && tgt && src !== tgt)
+    return { providerId: tgt, filledFrom: null, crossProvider: true };
+  if (tgt)
+    return { providerId: tgt, filledFrom: "target", crossProvider: false };
+  if (src)
+    return { providerId: src, filledFrom: "source", crossProvider: false };
+  return { providerId: null, filledFrom: null, crossProvider: false };
+}
+
 // packages/domain/dist/domain/vrm-canon.js
 function canonicalizeVrm(s) {
   if (!s)
@@ -7705,6 +7718,12 @@ function markerToCaseType(marker2) {
   return entry ? entry[0] : "standard";
 }
 
+// packages/domain/dist/domain/intake-routing.js
+var CASE_MINTING_CATEGORIES = ["receiving_work"];
+function categoryMintsCase(category) {
+  return CASE_MINTING_CATEGORIES.includes(category);
+}
+
 // packages/domain/dist/model/queues.js
 var QUEUES = [
   {
@@ -7804,6 +7823,10 @@ var AI_ASSIST_GATE_ALL_OFF = {
 var OUTLOOK_MOVE_GATE_ALL_OFF = {
   enabled: false
 };
+var INBOUND_ATTENTION_REASONS = [
+  "unable_to_locate",
+  "images_no_match"
+];
 var OUTLOOK_MOVE_STATES = ["queued", "moved", "failed"];
 var INBOUND_COUNTS_ZERO = {
   receiving_work: 0,
@@ -15702,6 +15725,12 @@ var gates = {
   // either way), and a later instruction's case-mint correlates held rows onto the new
   // case, suggest-first (never auto-attach — the correlation key is typically VRM-only).
   triagePreInstruction: () => process.env.TRIAGE_PRE_INSTRUCTION_ENABLED === "true",
+  // TKT-034 — the reg-keyed Box holding-folder rung for image-bearing emails that match
+  // no case (ADR-0015 §5 fallback step 2). Default off (ships DARK — creating non-Case/PO
+  // folders under the Box root is a NEW folder-naming semantic the operator must approve;
+  // docs/gated.md). While off, an unmatched images email is only FLAGGED for manual
+  // handling (attention_reason 'images_no_match') — fallback step 3 — which needs no gate.
+  boxRegFolder: () => process.env.BOX_REG_FOLDER_ENABLED === "true",
   // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
   // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
   // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
@@ -16365,7 +16394,9 @@ function rowToInboundEmail(rec) {
     // Outlook filing lifecycle (TKT-054; columns absent pre-delta — spreads tolerate).
     ...rec.outlook_move_state && OUTLOOK_MOVE_STATES.includes(rec.outlook_move_state) ? { outlookMoveState: rec.outlook_move_state } : {},
     ...rec.outlook_moved_folder ? { outlookMovedFolder: rec.outlook_moved_folder } : {},
-    ...rec.outlook_moved_at ? { outlookMovedAt: toIso(rec.outlook_moved_at) } : {}
+    ...rec.outlook_moved_at ? { outlookMovedAt: toIso(rec.outlook_moved_at) } : {},
+    // TKT-119c / TKT-034 — attention flag (column absent pre-delta; spread tolerates).
+    ...rec.attention_reason && INBOUND_ATTENTION_REASONS.includes(rec.attention_reason) ? { attentionReason: rec.attention_reason } : {}
   };
 }
 var AI_REVIEW_STATES = [
@@ -16589,6 +16620,32 @@ async function acquireTriageLocks(q, input) {
   }
 }
 
+// api/src/lib/varchar-guard.ts
+function clampVarchar(raw, max) {
+  const s = (raw ?? "").trim();
+  if (s.length <= max) return { value: s, clamped: false, originalLength: s.length };
+  return { value: s.slice(0, max), clamped: true, originalLength: s.length };
+}
+var VRM_COLUMN_MAX = 16;
+function vrmOrEmpty(raw) {
+  const s = (raw ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  if (!s) return { value: "", dropped: false };
+  if (s.length > VRM_COLUMN_MAX) return { value: "", dropped: true };
+  return { value: s, dropped: false };
+}
+
+// api/src/lib/link-guards.ts
+function normalizeRefToken(raw) {
+  return (raw ?? "").trim().toUpperCase().replace(/\s+/g, "");
+}
+function vrmLinkRefConflict(incomingJobref, caseKnownRefs) {
+  const incoming = normalizeRefToken(incomingJobref);
+  if (!incoming) return false;
+  const known = caseKnownRefs.map(normalizeRefToken).filter(Boolean);
+  if (known.length === 0) return false;
+  return !known.includes(incoming);
+}
+
 // api/src/functions/internal.ts
 async function withServiceAuth(req, ctx, fn) {
   try {
@@ -16611,6 +16668,47 @@ function senderDomain(address) {
   const at = address.lastIndexOf("@");
   if (at < 0 || at === address.length - 1) return "";
   return address.slice(at + 1).toLowerCase().trim();
+}
+async function mintBlockedByCategory(internetMessageId) {
+  const id = (internetMessageId ?? "").trim();
+  if (!id) return null;
+  try {
+    const rows = await query(
+      `SELECT c.name AS category
+         FROM inbound_email ie
+         JOIN choice_inbound_category c ON c.code = ie.category_code
+        WHERE ie.source_message_id = $1`,
+      [id]
+    );
+    const category = rows[0]?.category ?? "";
+    if (!category) return null;
+    return categoryMintsCase(category) ? null : category;
+  } catch {
+    return null;
+  }
+}
+var CHASER_STATUS_RESPONDED = 100000002;
+var CHASER_OUTSTANDING_CODES = [1e8, 100000001, 100000003];
+async function markOutstandingChasersResponded(caseId, via) {
+  try {
+    const rows = await query(
+      `UPDATE chaser SET status_code = $2, updated_at = now()
+        WHERE case_id = $1 AND status_code IN (${CHASER_OUTSTANDING_CODES.join(",")})
+        RETURNING id`,
+      [caseId, CHASER_STATUS_RESPONDED]
+    );
+    if (rows.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.chaser_sent,
+        caseId,
+        summary: `Chaser marked responded \u2014 the requested item arrived (${via})`,
+        after: { chaserIds: rows.map((r) => r.id), via }
+      });
+    }
+    return rows.length;
+  } catch {
+    return 0;
+  }
 }
 async function recomputeStatus(caseId) {
   const rows = await query(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
@@ -16682,7 +16780,7 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
   const provenance = [];
   if (ref && isEmpty(cur[0].case_ref)) {
     sets.push(`case_ref = $${sets.length + 1}`);
-    vals.push(ref.slice(0, 200));
+    vals.push(ref.slice(0, 100));
   }
   if (ref && isEmpty(cur[0].ov_claim_number)) {
     sets.push(`ov_claim_number = $${sets.length + 1}`);
@@ -16970,7 +17068,13 @@ import_functions.app.http("internalCasesResolve", {
       imageSourceId: body2.intermediaryImageSourceId,
       candidateProviderIds: body2.intermediaryCandidateProviderIds ?? []
     } : null;
-    const vrm = ((body2.parserVrm || inbound.candidateVrm) ?? "").trim();
+    const vrmGuard = vrmOrEmpty(body2.parserVrm || inbound.candidateVrm);
+    if (vrmGuard.dropped) {
+      ctx.warn(
+        `[cases/resolve] over-length VRM candidate dropped (junk sniff > varchar(16)) for ${inbound.internetMessageId}`
+      );
+    }
+    const vrm = vrmGuard.value;
     let providerAutomationMode = "manual";
     if (workProviderId) {
       const wpMode = await query(
@@ -16996,14 +17100,32 @@ import_functions.app.http("internalCasesResolve", {
         summary: `Email ${inbound.internetMessageId} attached to existing case`,
         after: { messageId: inbound.internetMessageId, resolution: "attach" }
       });
+      await markOutstandingChasersResponded(decision.targetCaseId, "dedup attach");
       return {
         status: 200,
         jsonBody: { outcome: "attached", caseId: decision.targetCaseId, providerAutomationMode }
       };
     }
+    const blockedCategory = await mintBlockedByCategory(inbound.internetMessageId);
+    if (blockedCategory) {
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_routed,
+        severity: "warning",
+        summary: `Create refused \u2014 '${blockedCategory}' emails never open a case (kept in the inbox for review)`,
+        after: { messageId: inbound.internetMessageId, category: blockedCategory, seam: "cases/resolve" }
+      });
+      ctx.log(JSON.stringify({ evt: "caseResolvePersist", outcome: "refused_category", category: blockedCategory }));
+      return { status: 200, jsonBody: { outcome: "refused_category", category: blockedCategory } };
+    }
     const rawStatus = decision.statusEffect;
     const statusCode = caseStatusCodec.toInt(rawStatus) ?? statusToInt("new_email");
-    const caseRef = (inbound.candidateRef ?? "").trim();
+    const caseRefGuard = clampVarchar(inbound.candidateRef, 100);
+    if (caseRefGuard.clamped) {
+      ctx.warn(
+        `[cases/resolve] candidateRef clamped to 100 chars (was ${caseRefGuard.originalLength}) for ${inbound.internetMessageId}`
+      );
+    }
+    const caseRef = caseRefGuard.value;
     const subject = (inbound.subject ?? "").trim();
     const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Email intake").slice(0, 100);
     const emailKindCode = intakeChannelKindCodec.toInt("email") ?? null;
@@ -17051,6 +17173,10 @@ import_functions.app.http("internalCasesResolve", {
         if (caseRef) {
           cols.push("case_ref");
           vals.push(caseRef);
+        }
+        if (caseRef) {
+          cols.push("ov_claim_number");
+          vals.push(caseRef.slice(0, 100));
         }
         if (casePo) {
           cols.push("case_po");
@@ -17190,15 +17316,15 @@ import_functions.app.http("internalInboundEmail", {
 });
 async function upsertInboundEmail(inbound, workProviderId, caseId, classification, parserVrm, triageState) {
   const subject = (inbound.subject ?? "").trim();
-  const name = `Email: ${subject || inbound.internetMessageId}`;
+  const name = clampVarchar(`Email: ${subject || inbound.internetMessageId}`, 200).value;
   const categoryCode = classification ? INBOUND_CATEGORY_TO_INT[classification.category] ?? null : null;
   const subtypeCode = classification ? INBOUND_SUBTYPE_TO_INT[classification.subtype] ?? null : null;
-  const bodyVrm = ((parserVrm || classification?.bodyVrm || inbound.candidateVrm) ?? "").trim() || null;
-  const bodyCaseref = classification?.bodyCaseref || inbound.candidateRef || "" || null;
+  const bodyVrm = vrmOrEmpty(parserVrm || classification?.bodyVrm || inbound.candidateVrm).value || null;
+  const bodyCaseref = clampVarchar(classification?.bodyCaseref || inbound.candidateRef || "", 32).value || null;
   const bodyPreview = (inbound.bodyPreview ?? "") || null;
   const confidence = classification ? classification.confidence : null;
   const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
-  const bodyJobref = (classification?.bodyJobref ?? "").trim() || null;
+  const bodyJobref = clampVarchar(classification?.bodyJobref, 64).value || null;
   const conversationId = (inbound.conversationId ?? "").trim() || null;
   try {
     const presentCols = await tableColumns("inbound_email");
@@ -17369,9 +17495,11 @@ import_functions.app.http("internalInboundLinkReply", {
     const workProviderId = body2.providerId ?? null;
     const ref = (body2.ref ?? "").trim();
     const vrm = (body2.vrm ?? "").trim();
-    const candidates = await tx(async (q) => {
+    const jobref = (body2.jobref ?? "").trim();
+    const { candidates, refConflict } = await tx(async (q) => {
       await acquireTriageLocks(q, { caseref: ref, vrm });
       let rows = [];
+      let vrmArm = false;
       if (ref) {
         rows = await q(
           `SELECT id, case_ref, case_po, vrm FROM case_
@@ -17382,6 +17510,7 @@ import_functions.app.http("internalInboundLinkReply", {
         );
       }
       if (rows.length === 0 && vrm) {
+        vrmArm = true;
         rows = await q(
           `SELECT id, case_ref, case_po, vrm FROM case_
               WHERE vrm = $1
@@ -17390,8 +17519,33 @@ import_functions.app.http("internalInboundLinkReply", {
           [vrm]
         );
       }
-      return rows;
+      let conflict = false;
+      if (vrmArm && rows.length === 1 && jobref) {
+        const hit = rows[0];
+        const sibs = await q(
+          `SELECT DISTINCT body_jobref FROM inbound_email
+              WHERE case_id = $1 AND body_jobref IS NOT NULL AND body_jobref <> ''`,
+          [hit.id]
+        );
+        conflict = vrmLinkRefConflict(jobref, [
+          hit.case_ref,
+          hit.case_po,
+          ...sibs.map((s) => s.body_jobref)
+        ]);
+      }
+      return { candidates: conflict ? [] : rows, refConflict: conflict };
     });
+    if (refConflict) {
+      await upsertInboundEmail(inbound, workProviderId, null);
+      await writeAudit({
+        action: AUDIT_ACTION.duplicate_flagged,
+        severity: "warning",
+        summary: `Reply matched a case by registration only (vrm ${vrm}) but cites a different reference (${jobref}); held for manual linking`,
+        after: { vrm, jobref, messageId: inbound.internetMessageId }
+      });
+      ctx.log(JSON.stringify({ evt: "linkReply", outcome: "no_match", reason: "vrm_ref_conflict", jobref }));
+      return { status: 200, jsonBody: { outcome: "no_match", candidateCount: 0 } };
+    }
     const linkCaseId = candidates.length === 1 ? candidates[0].id : null;
     await upsertInboundEmail(
       inbound,
@@ -17408,6 +17562,7 @@ import_functions.app.http("internalInboundLinkReply", {
         summary: `Reply linked to existing case (${ref ? `ref ${ref}` : `vrm ${vrm}`})`,
         after: { matchedBy: ref ? "caseref" : "vrm", messageId: inbound.internetMessageId }
       });
+      await markOutstandingChasersResponded(linkCaseId, "reply linked");
       ctx.log(JSON.stringify({ evt: "linkReply", outcome: "linked", caseId: linkCaseId }));
       return { status: 200, jsonBody: { outcome: "linked", caseId: linkCaseId, candidateCount: 1 } };
     }
@@ -17615,6 +17770,7 @@ import_functions.app.http("internalTriageSuggestLink", {
             after: { caseId: targetCaseId, inboundEmailId, suggestionId, auto: true },
             actor: "auto-attach"
           });
+          await markOutstandingChasersResponded(targetCaseId, "auto-attach");
           autoAttached = true;
         }
       }
@@ -17723,6 +17879,34 @@ import_functions.app.http("internalInboundOutlookMoved", {
     });
     ctx.log(JSON.stringify({ evt: "outlookMoved", inboundEmailId: id, outcome, folder }));
     return { status: 204 };
+  })
+});
+var ATTENTION_REASONS = /* @__PURE__ */ new Set(["unable_to_locate", "images_no_match"]);
+import_functions.app.http("internalInboundAttention", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/attention",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const sourceMessageId = typeof body2.sourceMessageId === "string" ? body2.sourceMessageId.trim() : "";
+    const reason = typeof body2.reason === "string" ? body2.reason.trim() : "";
+    if (!sourceMessageId) {
+      return { status: 400, jsonBody: { error: "sourceMessageId is required" } };
+    }
+    if (!ATTENTION_REASONS.has(reason)) {
+      return { status: 400, jsonBody: { error: "reason must be a known attention reason" } };
+    }
+    if (!await hasColumn("inbound_email", "attention_reason")) {
+      ctx.log(JSON.stringify({ evt: "inboundAttention", stamped: false, reason: "column_absent" }));
+      return { status: 200, jsonBody: { stamped: false, detail: "column_absent" } };
+    }
+    const rows = await query(
+      `UPDATE inbound_email SET attention_reason = $2, updated_at = now()
+          WHERE source_message_id = $1 RETURNING id`,
+      [sourceMessageId, reason]
+    );
+    ctx.log(JSON.stringify({ evt: "inboundAttention", stamped: Boolean(rows[0]), reason }));
+    return { status: 200, jsonBody: { stamped: Boolean(rows[0]) } };
   })
 });
 async function applyEvidenceMetadata(ctx, whereClause, whereVals, row, computed) {
@@ -18855,6 +19039,50 @@ import_functions2.app.http("mergeCases", {
       [sourceCaseId, targetCaseId]
     );
     const movedEvidence = moved.length;
+    const movedEmails = await query(
+      "UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id",
+      [sourceCaseId, targetCaseId]
+    );
+    const fkRows = await query(
+      "SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])",
+      [[sourceCaseId, targetCaseId]]
+    );
+    const srcFk = fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id ?? null;
+    const tgtFk = fkRows.find((r) => r.id === targetCaseId)?.work_provider_id ?? null;
+    const providerDecision = decideMergeProvider(srcFk, tgtFk);
+    let providerFilled = false;
+    if (!providerDecision.crossProvider && providerDecision.filledFrom === "source" && providerDecision.providerId) {
+      await query(
+        `UPDATE case_ SET work_provider_id = $2, updated_at = now()
+          WHERE id = $1 AND work_provider_id IS NULL`,
+        [targetCaseId, providerDecision.providerId]
+      );
+      const wp = await query("SELECT display_name FROM work_provider WHERE id = $1", [
+        providerDecision.providerId
+      ]);
+      const displayName = (wp[0]?.display_name ?? "").trim();
+      if (displayName) {
+        await query(
+          `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
+            WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
+          [targetCaseId, displayName.slice(0, 200)]
+        );
+      }
+      await query(
+        `INSERT INTO field_level_provenance
+           (name, case_id, field_name, value, source_type_code, source_label)
+         VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
+        [
+          `${targetCaseId}:workProviderId`,
+          targetCaseId,
+          providerDecision.providerId,
+          sourceTypeCodec.toInt("corpus") ?? 100000003,
+          "Carried over from the merged case"
+        ]
+      ).catch(() => {
+      });
+      providerFilled = true;
+    }
     await query(
       `UPDATE case_
          SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
@@ -18864,8 +19092,14 @@ import_functions2.app.http("mergeCases", {
     await writeAudit({
       action: AUDIT_ACTION.case_attached,
       caseId: targetCaseId,
-      summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence)`,
-      after: { sourceCaseId, targetCaseId, movedEvidence },
+      summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails${providerFilled ? ", provider carried over from the merged case" : ""})`,
+      after: {
+        sourceCaseId,
+        targetCaseId,
+        movedEvidence,
+        movedEmails: movedEmails.length,
+        providerFilled
+      },
       ...actor ? { actor } : {}
     });
     await recomputeStatus2(targetCaseId, actor);
@@ -19741,6 +19975,37 @@ async function enqueueOutlookMove(job) {
     throw new Error(`outlook-move enqueue \u2192 ${res.status}: ${detail.slice(0, 300)}`);
   }
 }
+function classifyEnqueueFailure(e) {
+  const text = e instanceof Error ? e.message : String(e ?? "");
+  if (/QueueNotFound|→ 404/.test(text)) {
+    return {
+      reason: "queue_missing",
+      message: "Outlook filing is not fully set up yet \u2014 the filing queue is missing. Ask the administrator."
+    };
+  }
+  if (/AuthorizationFailure|AuthorizationPermissionMismatch|→ 403/.test(text)) {
+    return {
+      reason: "not_authorised",
+      message: "Outlook filing is not fully set up yet \u2014 a permission is missing. Ask the administrator."
+    };
+  }
+  if (/not configured/.test(text)) {
+    return {
+      reason: "not_configured",
+      message: "Outlook filing is not fully set up yet \u2014 ask the administrator."
+    };
+  }
+  if (/IDENTITY_ENDPOINT/.test(text)) {
+    return {
+      reason: "no_identity",
+      message: "Outlook filing is unavailable in this environment."
+    };
+  }
+  return {
+    reason: "unavailable",
+    message: "Outlook filing is temporarily unavailable \u2014 try again in a moment."
+  };
+}
 
 // api/src/functions/inbound.ts
 var TRIAGE_AUDIT_ACTION = {
@@ -19848,9 +20113,16 @@ import_functions8.app.http("moveInboundToOutlook", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "inbound/{id}/outlook-move",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
     if (!gates.outlookMoveEnabled()) {
-      return { status: 409, jsonBody: { error: "outlook filing is not enabled" } };
+      return {
+        status: 409,
+        jsonBody: {
+          error: "outlook filing is not enabled",
+          reason: "gated_off",
+          message: "Outlook filing is switched off \u2014 ask the administrator to enable it."
+        }
+      };
     }
     const id = req.params.id;
     const existing = await query(
@@ -19884,6 +20156,10 @@ import_functions8.app.http("moveInboundToOutlook", {
         targetFolderPath: folder
       });
     } catch (e) {
+      const failure = classifyEnqueueFailure(e);
+      ctx.error(
+        `[outlook-move] enqueue failed (${failure.reason}) for inbound ${id}: ${e instanceof Error ? e.message : String(e)}`
+      );
       await query(
         `UPDATE inbound_email
             SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
@@ -19895,10 +20171,18 @@ import_functions8.app.http("moveInboundToOutlook", {
         ...row.case_id ? { caseId: row.case_id } : {},
         summary: `Outlook filing could not be queued (${folder})`,
         severity: "warning",
-        after: { inboundEmailId: id, folder, detail: e instanceof Error ? e.message.slice(0, 300) : String(e) },
+        after: {
+          inboundEmailId: id,
+          folder,
+          reason: failure.reason,
+          detail: e instanceof Error ? e.message.slice(0, 300) : String(e)
+        },
         ...actor ? { actor } : {}
       });
-      return { status: 503, jsonBody: { error: "filing queue unavailable" } };
+      return {
+        status: 503,
+        jsonBody: { error: "filing queue unavailable", reason: failure.reason, message: failure.message }
+      };
     }
     await writeAudit({
       action: AUDIT_ACTION.outlook_move_requested,
@@ -59766,7 +60050,13 @@ import_functions10.app.http("internalRetroCreate", {
     const { keys, casePo, reconstructionSource } = v.value;
     const { original, trigger } = body2;
     const triggerProviderId = body2.providerId ?? null;
-    const vrm = ((body2.parserVrm || body2.vrm || keys.vrm || original.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
+    const vrmGuard = vrmOrEmpty(body2.parserVrm || body2.vrm || keys.vrm || original.candidateVrm);
+    if (vrmGuard.dropped) {
+      ctx.warn(
+        `[retro/create] over-length VRM candidate dropped (junk sniff > varchar(16)) for ${trigger?.internetMessageId ?? "unknown trigger"}`
+      );
+    }
+    const vrm = vrmGuard.value;
     let poProviderId = null;
     let principalCode = "";
     let marker2 = "";
@@ -59800,9 +60090,24 @@ import_functions10.app.http("internalRetroCreate", {
     const caseType = marker2 ? markerToCaseType(marker2) : contentCaseType;
     const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
     const auditGateOn = gates.auditCases();
+    const originalCategory = await mintBlockedByCategory(original.internetMessageId);
+    const blockedCategory = originalCategory && ["non_actionable", "other", "pre_instruction"].includes(originalCategory) ? originalCategory : null;
+    if (blockedCategory) {
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_routed,
+        severity: "warning",
+        summary: `Retro create refused \u2014 the located original is a '${blockedCategory}' email, which never opens a case`,
+        after: { messageId: original.internetMessageId, category: blockedCategory, seam: "retro/create" }
+      });
+      ctx.log(JSON.stringify({ evt: "retroCreate", outcome: "refused_category", category: blockedCategory }));
+      return { status: 200, jsonBody: { outcome: "refused_category", category: blockedCategory } };
+    }
     const subject = (original.subject ?? "").trim();
     const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Retro case").slice(0, 100);
-    const caseRefValue = keys.externalRef || (body2.parserRef ?? "").trim() || (!identityVerified && casePo ? casePo : "") || "";
+    const caseRefValue = clampVarchar(
+      keys.externalRef || (body2.parserRef ?? "").trim() || (!identityVerified && casePo ? casePo : "") || "",
+      100
+    ).value;
     const statusCode = caseStatusCodec.toInt(status) ?? statusToInt("needs_review");
     let result;
     try {

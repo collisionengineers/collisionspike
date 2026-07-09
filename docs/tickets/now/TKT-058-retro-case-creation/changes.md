@@ -104,3 +104,23 @@
 - **Verification**: domain 442→full-workspace 886 vitest green; api tsc + 153 tests green;
   orch tsc green; esbuild bundles rebuilt (`deploy/api/main.cjs`, `deploy/orch/main.cjs`).
   Gates unset everywhere → live behaviour unchanged (ships dark).
+
+## 2026-07-09 — PLAN-003 intake wave (reopened on the PHA5007 operator report; fixes shared with TKT-119)
+
+- **Ack eligibility:** `decideRetro` accepts `non_actionable`/`acknowledgement` triggers
+  (`RETRO_TRIGGER_ACK_SUBTYPE`) — locate-and-link/reconstruct only; the ack itself never mints.
+  Subtype threaded through both intake hooks + the manual drain.
+- **Silent-refusal fix:** `decideRetro` `attempt:false` is now logged (`retroDecision` events) in
+  both intake lanes; ladder failures stamp the trigger row `unable_to_locate`
+  (retroRecordFailure → the new `/api/internal/inbound/attention`), rendered in the SPA.
+- **Create-seam guard:** `retro/create` refuses an ack/digest-family "original"
+  (`refused_category`), and the orchestrator falls through to the failure record instead of ending
+  silently (both rungs).
+- **TKT-073 clamp on this path:** the retro VRM chain + caseRefValue are guarded (the 2026-07-07
+  retro-create 500s that lost SAB/46329/1 + DIK/JMO/46440/1 were `case_.vrm` 22001 overflows).
+- **First real drain uses:** `POST /api/retro-case` ran twice live — PHA5007 → Held case
+  `87e79f62…` (Outlook rung; original recovered from engineers@ Deleted Items) and 46671/1 → case
+  `6cd60114…` (the TKT-101 split). The drain lever is now field-proven.
+- **Deleted-Items answer (TKT-119d memo):** the R3 whole-mailbox `$search` already reaches Deleted
+  Items — no new rung needed; volumes + hit-rates measured read-only (memo in TKT-119 evidence/).
+- Deployed 2026-07-09: orch 70 fns / api 89 fns (registry 2026-07-09T04:45Z).

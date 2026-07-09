@@ -2,7 +2,7 @@
  * inbox-status.test.ts — status-cell precedence + text (TKT-054 / 020726 E4).
  */
 import { describe, expect, it } from 'vitest';
-import { inboxStatus, inboxStatusText } from './inbox-status';
+import { attentionDetailText, inboxStatus, inboxStatusText } from './inbox-status';
 import { CATEGORY_ORDER } from './inbox-email-type';
 
 describe('inboxStatus — precedence matrix', () => {
@@ -55,5 +55,42 @@ describe('inboxStatusText', () => {
     expect(inboxStatusText({ kind: 'handled' })).toBe('Handled');
     expect(inboxStatusText({ kind: 'dismissed' })).toBe('Dismissed');
     expect(inboxStatusText({ kind: 'linked-unresolved' })).toBe('Linked');
+  });
+});
+
+/* ----------  TKT-119c / TKT-034 — attention states  ---------- */
+
+describe('inboxStatus — attention flag (unable_to_locate / images_no_match)', () => {
+  it('an UNLINKED row with an attention reason surfaces it (beats "new")', () => {
+    expect(
+      inboxStatus({ triageState: 'new', category: 'non_actionable', attentionReason: 'unable_to_locate' }),
+    ).toEqual({ kind: 'attention', reason: 'unable_to_locate' });
+    expect(
+      inboxStatus({ triageState: 'new', category: 'case_update', attentionReason: 'images_no_match' }),
+    ).toEqual({ kind: 'attention', reason: 'images_no_match' });
+  });
+
+  it('a case link SUPERSEDES the attention flag (the case answers the question)', () => {
+    expect(
+      inboxStatus({
+        triageState: 'routed',
+        category: 'case_update',
+        caseId: 'c1',
+        attentionReason: 'unable_to_locate',
+      }),
+    ).toEqual({ kind: 'linked', caseId: 'c1' });
+  });
+
+  it('a dismissal supersedes it too', () => {
+    expect(
+      inboxStatus({ triageState: 'dismissed', category: 'other', attentionReason: 'images_no_match' }),
+    ).toEqual({ kind: 'dismissed' });
+  });
+
+  it('the visible text is plain English', () => {
+    expect(inboxStatusText({ kind: 'attention', reason: 'unable_to_locate' })).toBe('Unable to locate');
+    expect(inboxStatusText({ kind: 'attention', reason: 'images_no_match' })).toBe('No matching case');
+    expect(attentionDetailText('unable_to_locate')).toMatch(/could not find/i);
+    expect(attentionDetailText('images_no_match')).toMatch(/did not match any case/i);
   });
 });

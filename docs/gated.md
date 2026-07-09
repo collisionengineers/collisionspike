@@ -411,7 +411,7 @@ Dataverse `cr1bd_knownemaildomains` column.)*
 > `pch-ltd.com`.) Send QDOS's real sending domain(s) and it gets seeded (idempotent `916`-style delta),
 > so direct QDOS audits resolve at intake like PCH does.
 
-> **YML domain — surfaced by the 2026-07-09 classifier wave ([TKT-071](./tickets/verify/TKT-071-vrm-false-positive-hd4110/TKT-071-vrm-false-positive-hd4110.md) devnote).**
+> **YML domain — surfaced by the 2026-07-09 classifier wave ([TKT-071](./tickets/done/TKT-071-vrm-false-positive-hd4110/TKT-071-vrm-false-positive-hd4110.md) devnote).**
 > A **YML** provider row exists but its `known_email_domains` is **empty** (candidate:
 > `networkhduk`/YM Law sending domain). Confirm the real business domain and it gets seeded
 > (idempotent `916`-style delta). Not applied without your confirmation.

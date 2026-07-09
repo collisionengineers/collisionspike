@@ -28,6 +28,7 @@ import {
   canonicalizeVrm,
   casePoSequenceRegex,
   casePoYear,
+  decideMergeProvider,
   extractVrm,
   formatCasePo,
   normalizeCasePo,
@@ -874,6 +875,58 @@ app.http('mergeCases', {
     );
     const movedEvidence = moved.length;
 
+    // 1b. Reparent the source's inbound emails too (TKT-092 — the retired case must not
+    // keep the email trail; the survivor owns the whole thread).
+    const movedEmails = await query<Row>(
+      'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
+      [sourceCaseId, targetCaseId],
+    );
+
+    // 1c. Provider preference (TKT-052): the merged survivor must end with whichever side
+    // carries a resolved provider — an image-only target merged with an instructions
+    // source used to LOSE the provider the source knew. Cross-provider was already
+    // refused above (ADR-0010 rule 2); decideMergeProvider re-asserts it defensively.
+    const fkRows = await query<Row>(
+      'SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])',
+      [[sourceCaseId, targetCaseId]],
+    );
+    const srcFk = (fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id as string | null) ?? null;
+    const tgtFk = (fkRows.find((r) => r.id === targetCaseId)?.work_provider_id as string | null) ?? null;
+    const providerDecision = decideMergeProvider(srcFk, tgtFk);
+    let providerFilled = false;
+    if (!providerDecision.crossProvider && providerDecision.filledFrom === 'source' && providerDecision.providerId) {
+      await query(
+        `UPDATE case_ SET work_provider_id = $2, updated_at = now()
+          WHERE id = $1 AND work_provider_id IS NULL`,
+        [targetCaseId, providerDecision.providerId],
+      );
+      // Fill the human-readable EVA provider column too (fill-if-empty) + provenance.
+      const wp = await query<Row>('SELECT display_name FROM work_provider WHERE id = $1', [
+        providerDecision.providerId,
+      ]);
+      const displayName = ((wp[0]?.display_name as string | null) ?? '').trim();
+      if (displayName) {
+        await query(
+          `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
+            WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
+          [targetCaseId, displayName.slice(0, 200)],
+        );
+      }
+      await query(
+        `INSERT INTO field_level_provenance
+           (name, case_id, field_name, value, source_type_code, source_label)
+         VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
+        [
+          `${targetCaseId}:workProviderId`,
+          targetCaseId,
+          providerDecision.providerId,
+          sourceTypeCodec.toInt('corpus') ?? 100000003,
+          'Carried over from the merged case',
+        ],
+      ).catch(() => { /* provenance is supplementary */ });
+      providerFilled = true;
+    }
+
     // 2. Retire the source: linked_to_instruction, record the survivor, clear hold.
     await query(
       `UPDATE case_
@@ -885,8 +938,16 @@ app.http('mergeCases', {
     await writeAudit({
       action: AUDIT_ACTION.case_attached,
       caseId: targetCaseId,
-      summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence)`,
-      after: { sourceCaseId, targetCaseId, movedEvidence },
+      summary:
+        `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails` +
+        `${providerFilled ? ', provider carried over from the merged case' : ''})`,
+      after: {
+        sourceCaseId,
+        targetCaseId,
+        movedEvidence,
+        movedEmails: movedEmails.length,
+        providerFilled,
+      },
       ...(actor ? { actor } : {}),
     });
 

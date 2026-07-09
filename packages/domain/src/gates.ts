@@ -123,6 +123,12 @@ export const gates = {
   // either way), and a later instruction's case-mint correlates held rows onto the new
   // case, suggest-first (never auto-attach — the correlation key is typically VRM-only).
   triagePreInstruction: (): boolean => process.env.TRIAGE_PRE_INSTRUCTION_ENABLED === 'true',
+  // TKT-034 — the reg-keyed Box holding-folder rung for image-bearing emails that match
+  // no case (ADR-0015 §5 fallback step 2). Default off (ships DARK — creating non-Case/PO
+  // folders under the Box root is a NEW folder-naming semantic the operator must approve;
+  // docs/gated.md). While off, an unmatched images email is only FLAGGED for manual
+  // handling (attention_reason 'images_no_match') — fallback step 3 — which needs no gate.
+  boxRegFolder: (): boolean => process.env.BOX_REG_FOLDER_ENABLED === 'true',
 
   // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
   // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default

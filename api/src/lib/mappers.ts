@@ -16,6 +16,7 @@
 
 import {
   EVA_FIELD_ORDER,
+  INBOUND_ATTENTION_REASONS,
   OUTLOOK_MOVE_STATES,
   QUEUES,
   queueByName,
@@ -31,6 +32,7 @@ import {
   type EvaFieldKey,
   type Evidence,
   type EvidenceKind,
+  type InboundAttentionReason,
   type InboundCategory,
   type InboundCounts,
   type InboundEmail,
@@ -674,6 +676,11 @@ export function rowToInboundEmail(rec: Row): InboundEmail {
       : {}),
     ...(rec.outlook_moved_folder ? { outlookMovedFolder: rec.outlook_moved_folder } : {}),
     ...(rec.outlook_moved_at ? { outlookMovedAt: toIso(rec.outlook_moved_at) } : {}),
+    // TKT-119c / TKT-034 — attention flag (column absent pre-delta; spread tolerates).
+    ...(rec.attention_reason &&
+    (INBOUND_ATTENTION_REASONS as readonly string[]).includes(rec.attention_reason)
+      ? { attentionReason: rec.attention_reason as InboundAttentionReason }
+      : {}),
   };
 }
 

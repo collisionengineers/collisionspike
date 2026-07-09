@@ -273,6 +273,17 @@ export interface DataAccessExt extends DataAccess {
   revokeProviderApiKey?(idOrCode: string, keyId: string): Promise<ProviderApiKey>;
 }
 
+/** The staff-facing sentence a failed call carried (the server's `message` field —
+ *  attached by `call` below), or undefined when the failure had none. Screens render
+ *  THIS in toasts, never the technical `err.message` line (TKT-091). */
+export function serverMessageOf(err: unknown): string | undefined {
+  if (err && typeof err === 'object' && 'serverMessage' in err) {
+    const m = (err as { serverMessage?: unknown }).serverMessage;
+    if (typeof m === 'string' && m) return m;
+  }
+  return undefined;
+}
+
 export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
   const base = opts.baseUrl.replace(/\/$/, '');
 
@@ -291,10 +302,23 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
     if (res.status === 204) return undefined as T;
-    if (!res.ok)
-      throw new Error(
-        `${method} ${path} → ${res.status} ${await res.text().catch(() => '')}`,
-      );
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      const err = new Error(`${method} ${path} → ${res.status} ${text}`) as Error & {
+        status?: number;
+        serverMessage?: string;
+      };
+      err.status = res.status;
+      // TKT-091 — when the server sent a staff-facing `message` (plain English), carry
+      // it so the UI can render THAT instead of the technical line above.
+      try {
+        const parsed = JSON.parse(text) as { message?: unknown };
+        if (typeof parsed.message === 'string' && parsed.message) err.serverMessage = parsed.message;
+      } catch {
+        /* non-JSON body — no server message */
+      }
+      throw err;
+    }
     return (await res.json()) as T;
   };
 

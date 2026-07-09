@@ -742,8 +742,16 @@ function SuggestedLocationRow({ suggestion, onUse }: SuggestedLocationRowProps) 
             </Badge>
           </Tooltip>
           {distHint && <Caption1 className={styles.hint}>{distHint}</Caption1>}
-          {suggestion.providerCode && (
-            <Caption1 className={styles.hint}>Provider {suggestion.providerCode}</Caption1>
+          {/* TKT-076/079 — a scope-FALLBACK row is a common location served because this
+              provider has no saved sites yet; its stored provider code belongs to some
+              OTHER provider and rendering it would mislead ("Provider FW" on a QDOS case).
+              Say what it really is instead. */}
+          {suggestion.scopeFallback ? (
+            <Caption1 className={styles.hint}>Common location — not specific to this provider</Caption1>
+          ) : (
+            suggestion.providerCode && (
+              <Caption1 className={styles.hint}>Provider {suggestion.providerCode}</Caption1>
+            )
           )}
           {seenHint && <Caption1 className={styles.hint}>{seenHint}</Caption1>}
         </span>
@@ -2211,6 +2219,16 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                           {suggestions.length === 0
                             ? `No locations match “${addrSearch.trim()}”.`
                             : `${suggestions.length} match${suggestions.length === 1 ? '' : 'es'} — showing the closest.`}
+                        </Caption1>
+                      )}
+
+                      {/* TKT-076/079 — the shortlist is the labelled COMMON fallback
+                          (no sites saved for this provider yet), never an unlabelled
+                          global list. Banner + per-row wording together close the
+                          scopeFallback gap both verifiers failed. */}
+                      {!addrSearching && suggestions.some((s) => s.scopeFallback) && (
+                        <Caption1 className={styles.assistNoResult}>
+                          Showing common locations — none saved for this provider yet.
                         </Caption1>
                       )}
 

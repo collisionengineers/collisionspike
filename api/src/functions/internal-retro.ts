@@ -52,11 +52,13 @@ import {
 import {
   applyParserFields,
   isUniqueViolation,
+  mintBlockedByCategory,
   upsertInboundEmail,
   withServiceAuth,
   type InboundClassificationDto,
   type InboundEnvelope,
 } from './internal.js';
+import { clampVarchar, vrmOrEmpty } from '../lib/varchar-guard.js';
 
 /** choice_intake_channel_kind code for 'retro' (deltas/2026-07-04-retro-case.sql).
  *  Literal, per the PROVIDER_API_CHANNEL_CODE precedent (provider-intake.ts / ADR-0020):
@@ -261,10 +263,16 @@ app.http('internalRetroCreate', {
       const triggerProviderId = body.providerId ?? null;
 
       // #7-style VRM preference: parser-confirmed > caller's best > envelope sniffs.
-      const vrm = ((body.parserVrm || body.vrm || keys.vrm || original.candidateVrm) ?? '')
-        .trim()
-        .toUpperCase()
-        .replace(/\s+/g, '');
+      // TKT-073: an over-length "VRM" is junk — dropped (never truncated into the
+      // correlation key) so the case_ INSERT can't die on pg 22001 (the live 2026-07-07
+      // retro-create failures that lost SAB/46329/1 + DIK/JMO/46440/1).
+      const vrmGuard = vrmOrEmpty(body.parserVrm || body.vrm || keys.vrm || original.candidateVrm);
+      if (vrmGuard.dropped) {
+        ctx.warn(
+          `[retro/create] over-length VRM candidate dropped (junk sniff > varchar(16)) for ${trigger?.internetMessageId ?? 'unknown trigger'}`,
+        );
+      }
+      const vrm = vrmGuard.value;
 
       // Resolve the DISCOVERED PO's principal against the corpus (read-only). The marker on
       // the archive folder name is ground truth for the case type (ADR-0021/ADR-0022) —
@@ -312,15 +320,42 @@ app.http('internalRetroCreate', {
       const caseTypeSignals = Array.isArray(body.caseTypeSignals) ? body.caseTypeSignals : [];
       const auditGateOn = gates.auditCases();
 
+      // TKT-119 belt-and-braces: the envelope whose message becomes the case's SOURCE must
+      // not be an acknowledgement/digest-family email — if the "reconstructed original" was
+      // itself ingested and classified non_actionable (acks, case-summary digests), 'other'
+      // (unidentified) or 'pre_instruction' (held lane), refuse rather than build a case on
+      // it. The retro TRIGGER family (billing/case_update/cancellation/query) is deliberately
+      // NOT blocked here: a stranded update email IS the reconstruction target when no
+      // instruction survives, and it lands Held needs_review (never terminal, never a PO).
+      const originalCategory = await mintBlockedByCategory(original.internetMessageId);
+      const blockedCategory =
+        originalCategory &&
+        ['non_actionable', 'other', 'pre_instruction'].includes(originalCategory)
+          ? originalCategory
+          : null;
+      if (blockedCategory) {
+        await writeAudit({
+          action: AUDIT_ACTION.inbound_routed,
+          severity: 'warning',
+          summary: `Retro create refused — the located original is a '${blockedCategory}' email, which never opens a case`,
+          after: { messageId: original.internetMessageId, category: blockedCategory, seam: 'retro/create' },
+        });
+        ctx.log(JSON.stringify({ evt: 'retroCreate', outcome: 'refused_category', category: blockedCategory }));
+        return { status: 200, jsonBody: { outcome: 'refused_category', category: blockedCategory } };
+      }
+
       const subject = (original.subject ?? '').trim();
       const name = ([vrm || null, subject || null].filter(Boolean).join(' · ') || 'Retro case').slice(0, 100);
       // Future mail cites the provider's reference — that is what case_ref must hold for
       // linkReply/dedup to match; an unresolved PO-shaped token is only a fallback.
-      const caseRefValue =
+      // TKT-073: clamped to the case_ref varchar(100) column, never a failed INSERT.
+      const caseRefValue = clampVarchar(
         keys.externalRef ||
-        (body.parserRef ?? '').trim() ||
-        (!identityVerified && casePo ? casePo : '') ||
-        '';
+          (body.parserRef ?? '').trim() ||
+          (!identityVerified && casePo ? casePo : '') ||
+          '',
+        100,
+      ).value;
 
       const statusCode = caseStatusCodec.toInt(status) ?? statusToInt('needs_review');
 

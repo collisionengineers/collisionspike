@@ -72,7 +72,11 @@ df.app.activity('caseResolve', {
       });
 
       const decision = resolveCase({
-        messageId: inbound.messageId,
+        // TKT-092: the rung-1 repeat key MUST be the INTERNET Message-Id —
+        // `seenMessageIds` comes from case_.source_message_id, which stores the
+        // Internet-Message-Id; the Graph `messageId` differs per mailbox/delivery, so
+        // passing it here meant the message-id rung could never match a redelivery.
+        messageId: inbound.internetMessageId || inbound.messageId,
         payloadHash: inbound.payloadHash,
         candidateVrm: bestVrm,
         // #100 — fall back to the parser-confirmed reference for dedup when the email

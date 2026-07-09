@@ -21,3 +21,20 @@ we sent) back to its existing case and push the document to Box, instead of
 creating a duplicate case. Related to TKT-003/TKT-004 (intake/dedup) and TKT-009
 (chaser/Box workflow). The generalised ref-gate is built and deployed gated-off; it does not yet run
 because `TRIAGE_REF_GATE_ENABLED` is unset and its DDL prerequisite (D7) is not yet applied live.
+
+## 2026-07-09 — chaser hook (PLAN-003 intake wave; the ticket's remaining acceptance line)
+
+**"The outstanding-document chaser for that case is marked satisfied"** is now wired at every
+attach seam: new `markOutstandingChasersResponded(caseId, via)` in `api/src/functions/internal.ts`
+flips a case's outstanding chasers (drafted 100000000 / sent 100000001 / overdue 100000003 →
+**responded** 100000002) with a chaser-family audit row ("Chaser marked responded — the requested
+item arrived (…)"), and is called on:
+- `internalInboundLinkReply` linked outcome (auto-linked reply),
+- `internalCasesResolve` attach resolution (dedup attach),
+- the suggest-link `autoAttach` self-accept (TKT-093 lane),
+- `promoteAcceptedSuggestion`'s case_link accept (staff accepting a suggestion —
+  `api/src/functions/ai-suggestions.ts`).
+No-op when the case has no outstanding chaser; best-effort (a chaser bookkeeping failure can never
+block the attach). Unit tests: `api/src/functions/internal-guards.test.ts` (flip set + params,
+no-op, failure tolerance). Deployed 2026-07-09 (api 89 fns). Live state: exactly 1 drafted chaser
+exists — the flip fires on that case's next attached reply (verifier item).
