@@ -155,9 +155,7 @@
 | ID | Title | State |
 |---|---|---|
 | [TKT-120](./verify/TKT-120-fairway-payment-misclass/TKT-120-fairway-payment-misclass.md) | FAIRWAY LEGAL payment transfer marked Unidentified — should classify as payments/billing | Deterministic payments lane grounds the Fairway shape; AI-rung telemetry answered (ran, wrong verdict, invisible suggestion → TKT-137). → verify. |
-| [TKT-105](./verify/TKT-105-remittance-payments-category/TKT-105-remittance-payments-category.md) | Remittance advice classified under payments/billing | billing/payment_remittance lane live (taxonomy v3; live probe green). Known limit: auto-reply-marked remittance abstains at Rule 0. → verify. |
 | [TKT-103](./verify/TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) | Tractable "768.00" wrongly captured as the reference number | Money guard on the classifier ref path; Tractable pins; /parse path residual → TKT-136. → verify. |
-| [TKT-097](./verify/TKT-097-cancellation-misclass-query/TKT-097-cancellation-misclass-query.md) | Cancellation email misclassified as a case query | Cancellation phrases +2; Oakwood pinned (13/13); live probe green. → verify. |
 | [TKT-086](./verify/TKT-086-circumstances-extraction-gaps/TKT-086-circumstances-extraction-gaps.md) | Accident circumstances still not being 100% extracted | Sample pair verified EMPTY at source (fixture pinned); live coverage 51.1%/348; residual per-provider → TKT-135 (blocked on samples). → verify. |
 | [TKT-084](./verify/TKT-084-pre-instruction-handling/TKT-084-pre-instruction-handling.md) | Pre-instruction directions email unidentified — define a handling lane | Built per sign-off + taxonomy-v3 DDL + gate FLIPPED live (pre_instruction lane acting; correlation machinery deployed). Remainders: natural-arrival e2e; retention decision → gated.md. → verify. |
 | [TKT-083](./verify/TKT-083-misclass-instructions-unidentified/TKT-083-misclass-instructions-unidentified.md) | Instructions email left "Unidentified" despite detected signals | Adjudicated 2026-07-09: OR-widening REJECTED by full-corpus A/B (acceptance amended); fairwaylegal seed reconciled; classify layer live-proven. → verify. |
@@ -194,6 +192,8 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-105](./done/TKT-105-remittance-payments-category/TKT-105-remittance-payments-category.md) | Remittance advice classified under payments/billing | VERIFIED-LIVE 2026-07-09 (verifier): remittance -> billing/payment_remittance live (beats the instruction promotion); SPA Billing group renders. → done. |
+| [TKT-097](./done/TKT-097-cancellation-misclass-query/TKT-097-cancellation-misclass-query.md) | Cancellation email misclassified as a case query | VERIFIED-LIVE 2026-07-09 (verifier): Oakwood sample -> cancellation live; query control unregressed; recall 13/13 pinned. → done. |
 | [TKT-100](./done/TKT-100-qdos-false-vrm-and2/TKT-100-qdos-false-vrm-and2.md) | QDOS false VRM "AND2" invented on emails that don't contain it | VERIFIED-LIVE 2026-07-09 (verifier): the Higsons footer shape returns no VRM live; pin green; 5 rows cleared. → done. |
 | [TKT-085](./done/TKT-085-vrm-false-positive-october/TKT-085-vrm-false-positive-october.md) | Registration on case A.PCH26003 logged as "OCTOBER" (VRM false positive) | VERIFIED-LIVE 2026-07-09 (verifier): the ACTUAL A.PCH26003 PDF re-parsed live returns the real plate BE57JDS; month/day guards in both engines; row cleared. → done. |
 | [TKT-071](./done/TKT-071-vrm-false-positive-hd4110/TKT-071-vrm-false-positive-hd4110.md) | Job references like HD4110 wrongly captured as a vehicle registration | VERIFIED-LIVE 2026-07-09 (verifier): HD4110 rejects live, tight-anchor recall holds; 36/36 + 26 + eval clean; 11-row audited data fix. → done. |

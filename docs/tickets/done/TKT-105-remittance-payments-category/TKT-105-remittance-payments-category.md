@@ -1,11 +1,11 @@
 ---
 id: TKT-105
 title: Remittance advice classified under payments/billing
-status: verify
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-037, TKT-006]
-research-link: docs/tickets/verify/TKT-105-remittance-payments-category/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-105-remittance-payments-category/evidence/operator-note.md
 ---
 
 # Remittance advice classified under payments/billing
@@ -39,7 +39,7 @@ PROPOSED (not built):
 
 Distilled 2026-07-07 from operator drop-note `to-distill/done/remittance/` (the one `done/`-area item that
 had no existing ticket); raw material in [evidence/](./evidence). Sibling of
-[TKT-037](../../done/TKT-037-misclass-invoice-request/TKT-037-misclass-invoice-request.md).
+[TKT-037](../TKT-037-misclass-invoice-request/TKT-037-misclass-invoice-request.md).
 
 ## Artifacts
 

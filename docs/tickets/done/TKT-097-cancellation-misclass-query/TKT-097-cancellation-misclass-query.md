@@ -1,11 +1,11 @@
 ---
 id: TKT-097
 title: Cancellation email misclassified as a case query
-status: verify
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-041, TKT-006, TKT-032]
-research-link: docs/tickets/verify/TKT-097-cancellation-misclass-query/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-097-cancellation-misclass-query/evidence/operator-note.md
 ---
 
 # Cancellation email misclassified as a case query
@@ -41,7 +41,7 @@ PROPOSED (not built):
 
 Distilled 2026-07-07 from operator drop-note `to-distill/cancellation-miscagetorised/`; raw material in
 [evidence/](./evidence). Extends the cancellation work in
-[TKT-041](../../done/TKT-041-cancelled-case/TKT-041-cancelled-case.md).
+[TKT-041](../TKT-041-cancelled-case/TKT-041-cancelled-case.md).
 
 ## Artifacts
 
